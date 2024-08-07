@@ -8,6 +8,7 @@
     "preview": "nuxi preview"
   },
   "devDependencies": {
+    "@nuxt/image": "^1.7.0",
     "content-wind": "latest",
     "nuxt": "latest"
   }
