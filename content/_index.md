@@ -3,7 +3,7 @@ navigation:
   title: Home
 ---
 
-# 歡迎來到鱈魚的魚缸 🐟
+# Content Wind
 
 A lightweight Nuxt theme to build a Markdown driven website, based on [Nuxt Content](https://content.nuxt.com), [TailwindCSS](https://tailwindcss.com) and [Iconify](https://iconify.design) ✨
 
