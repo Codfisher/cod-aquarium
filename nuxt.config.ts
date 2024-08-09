@@ -1,5 +1,5 @@
 export default defineNuxtConfig({
-  extends: 'content-wind',
+  extends: '@nuxt-themes/docus',
 
   routeRules: {
     '/': { prerender: true }
