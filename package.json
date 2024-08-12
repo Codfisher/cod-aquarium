@@ -8,11 +8,8 @@
     "preview": "nuxi preview"
   },
   "devDependencies": {
+    "@nuxt-themes/docus": "^1.15.0",
     "@nuxt/image": "^1.7.0",
-    "content-wind": "latest",
     "nuxt": "latest"
-  },
-  "dependencies": {
-    "@nuxt-themes/docus": "^1.15.0"
   }
 }
