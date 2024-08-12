@@ -1,0 +1,238 @@
+---
+layout: page
+fluid: true
+---
+
+![remeda-pipe](/remeda-pipe.png)
+
+# 甚麼是 pipe
+
+顧名思是就是水管，但是不會像瑪利歐由人來鑽，而是讓資料通過。
+
+pipe 是一種函數式程式設計中的概念，用來表示一條資料處理的管道。
+
+可以將多個 function 組合在一起，資料會依序經過每個 function 進行處理。
+
+這種方法使程式碼更加清晰、模組化，並且易於維護。
+
+個人覺得和以往指令式的寫法最大差別在於關注點不同。
+
+怎麼說呢？讓我們看看以下兩種等效的程式。
+
+例 1：
+
+```typescript
+const data = [1, 2, 3];
+const filteredData = data.filter(value => value > 1);
+const result = filteredData.join('-');
+```
+
+例 2：
+
+```typescript
+const result = pipe(
+  [1, 2, 3],
+  filter(value => value > 1),
+  join('-'),
+);
+```
+
+> 我知道你很想問例 1 明明可以一行解決。
+> 
+
+可以注意到例 1 的專注點在「結果」，而例 2 的寫法專注點在「過程」，了解差異後學習轉換上就會相對容易了。（應該啦 ¯\*( ͡° ͜ʖ ͡°)*/¯）
+
+# **ramda、remeda？**
+
+這兩個都是基於 FP 概念設計的優秀套件，其實選一個喜歡的都行。
+
+如果問我到底要用哪一個？實務上我 2 個都用。ヽ(✿ﾟ ▽ﾟ)ノ
+
+不過主要使用 remeda，remeda 缺少的 function 從 ramda 補。
+
+為甚麼主要用 remeda 呢？因為 remeda 可以完美配合 TypeScript，而且同時支援 data-first 與 data-last 的寫法，兩個範例如下：
+
+- data-first：
+
+```typescript
+const data = {
+  name: 'cod',
+  age: '18',
+}
+
+const result = pick(data, ['name']);
+```
+
+- data-last：
+
+```typescript
+const data = {
+  name: 'cod',
+  age: '18',
+}
+
+const pickName = pick(['name']);
+const result = pickName(data);
+```
+
+個人覺得使用上更為直覺。
+
+此外 remeda 還有其他特性，詳細說明就不再此贅述，可以參考以下文檔。
+
+[Remeda](https://remedajs.com/)
+
+# **所以 pipe 有甚麼好處？**
+
+個人覺得最大的好處是不用一直想變數名稱 XD，而且 function 方便抽換，整體來說增加了程式的彈性。
+
+讓我們看看以下例子。
+
+假設我們有多個 IoT 設備回傳資料，網頁需要彙整並顯示內容，資料為：
+
+```typescript
+interface Datum {
+  deviceId: string;
+  type: string;
+  temperature: number;
+  humidity: number;
+  otherSensorData: {
+    type: string;
+    value: number;
+  }[];
+}
+
+const data: Datum[] = [
+  {
+    deviceId: 'device_1',
+    type: 'A',
+    temperature: 24.5,
+    humidity: 50.0,
+    otherSensorData: [
+      { type: 'A', value: 10 },
+      { type: 'A', value: 20 }
+    ]
+  },
+  {
+    deviceId: 'device_2',
+    type: 'B',
+    temperature: 22.3,
+    humidity: 45.5,
+    otherSensorData: [
+      { type: 'B', value: 15 },
+      { type: 'C', value: 25 }
+    ]
+  }
+]
+```
+
+以下讓我們來實際撰寫程式。
+
+### **列出所有設備 ID 並用頓號分隔**
+
+熟悉 JS 的人一定可以很快寫出以下程式：
+
+```typescript
+const result01 = data
+  .map(({ deviceId }) => deviceId)
+  .join('、');
+```
+
+用 pipe 寫則會像這樣：
+
+```typescript
+const result02 = pipe(
+  data,
+  map(prop('deviceId')),
+  join('、')
+);
+```
+
+看起來好像沒比較好捏？但是用 remeda 可以更簡單抽離與複用：
+
+```typescript
+const getDeviceIdListString = createPipe(
+  map<Datum, string>(prop('deviceId')),
+  join('、')
+);
+```
+
+也方便加入新的處理邏輯：
+
+```typescript
+import { trim } from 'ramda';
+
+const getDeviceIdListString = createPipe(
+  /** 將每個 deviceId 去除頭尾空白 */
+  map<Datum, string>(
+    createPipe(prop('deviceId'), trim),
+  ),
+  join('、'),
+);
+```
+
+邏輯越複雜效果會越明顯，來看看其他例子。
+
+### **將設備依照 type 分類**
+
+```typescript
+const groupByType = pipe(
+  data,
+  groupBy(prop('type')),
+  values,
+);
+```
+
+### **取得平均溫度與平均濕度**
+
+```typescript
+const meanData = {
+  temperature: pipe(data, meanBy(prop('temperature'))),
+  humidity: pipe(data, meanBy(prop('humidity'))),
+};
+```
+
+### **取得 otherSensorData type 種類清單**
+
+```typescript
+const typeList = pipe(
+  data,
+  /** 將所有 otherSensorData 攤平、組成新矩陣 */
+  flatMap(prop("otherSensorData")),
+  /** 依照 type 數值去除重複項目 */
+  uniqBy(prop("type")),
+  /** 取出 type 數值產生新矩陣 */
+  map(prop("type"))
+);
+
+```
+
+### **取得所有溫溼度不在舒適範圍內的設備**
+
+```typescript
+function isComfortableTemperature(value: number) {
+  return value >= 22 && value <= 28;
+}
+function isComfortableHumidity(value: number) {
+  return value >= 40 && value <= 60;
+}
+
+const isComfortable = createPipe(
+  allPass<Datum>([
+    createPipe(prop('temperature'), isComfortableTemperature),
+    createPipe(prop('humidity'), isComfortableHumidity),
+  ])
+)
+
+const uncomfortableList = pipe(data, reject(isComfortable))
+
+/**
+ * 因為只有一個參數，所以也可以用 data-first 的方式寫
+ * const result = reject(data, isComfortable);
+ */
+```
+
+從以上例子來看，其實就算沒有註解，從 function 的名稱我們看得出來此程式在做甚麼。
+
+這樣可讀性是不是提升了許多呢？( •̀ ω •́ )✧
+
+如果錯誤或更好的做法，歡迎大家多多指教。(´▽｀)
