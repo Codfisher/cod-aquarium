@@ -7,11 +7,11 @@ export default defineAppConfig({
       youtube: 'https://www.youtube.com/@codfish2140',
 
       gitlab: {
-        icon: '🔗',
-        href: 'https://www.linkedin.com/in/shih-chen-lin-codfish/',
+        icon: '🦊',
+        href: 'https://gitlab.com/codfish2140',
       },
       linkedin: {
-        icon: '',
+        icon: '💼',
         href: 'https://www.linkedin.com/in/shih-chen-lin-codfish/',
       },
     }
