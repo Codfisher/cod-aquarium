@@ -1,11 +1,8 @@
----
-layout: page
-fluid: true
----
+# 好 pipe 不用嗎？讓程式碼更簡潔彈性吧！
 
 ![remeda-pipe](/remeda-pipe.png)
 
-# 甚麼是 pipe
+## 甚麼是 pipe
 
 顧名思是就是水管，但是不會像瑪利歐由人來鑽，而是讓資料通過。
 
