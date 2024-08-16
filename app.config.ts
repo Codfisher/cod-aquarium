@@ -5,6 +5,9 @@ export default defineAppConfig({
     header: {
       title: '鱈魚的魚缸',
     },
+    aside: {
+      level: 1,
+    },
     socials: {
       youtube: 'https://www.youtube.com/@codfish2140',
 
