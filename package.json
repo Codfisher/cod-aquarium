@@ -11,5 +11,9 @@
     "@nuxt-themes/docus": "^1.15.0",
     "@nuxt/image": "^1.7.0",
     "nuxt": "latest"
+  },
+  "dependencies": {
+    "@vueuse/core": "^11.0.0",
+    "@vueuse/nuxt": "^11.0.0"
   }
 }
