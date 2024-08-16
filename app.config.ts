@@ -10,10 +10,12 @@ export default defineAppConfig({
 
       gitlab: {
         icon: '🦊',
+        label: 'GitLab',
         href: 'https://gitlab.com/codfish2140',
       },
       linkedin: {
         icon: '💼',
+        label: 'LinkedIn',
         href: 'https://www.linkedin.com/in/shih-chen-lin-codfish/',
       },
     }
