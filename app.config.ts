@@ -12,12 +12,12 @@ export default defineAppConfig({
       youtube: 'https://www.youtube.com/@codfish2140',
 
       gitlab: {
-        icon: '🦊',
+        icon: 'vscode-icons:file-type-gitlab',
         label: 'GitLab',
         href: 'https://gitlab.com/codfish2140',
       },
       linkedin: {
-        icon: '💼',
+        icon: 'logos:linkedin-icon',
         label: 'LinkedIn',
         href: 'https://www.linkedin.com/in/shih-chen-lin-codfish/',
       },
