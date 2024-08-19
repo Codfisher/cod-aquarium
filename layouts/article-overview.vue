@@ -5,8 +5,26 @@
 
       <p>Some default layout content shared across all pages</p>
 
+      <pre>
+        {{ contents }}
+      </pre>
     </div>
   </div>
 </template>
+
+<script setup>
+const { data: contents } = await useAsyncData('contents',
+  () => queryContent()
+    .where({
+      _path: { $regex: 'blog' },
+      _type: 'markdown',
+      _draft: false,
+    })
+    .without(['body'])
+    .find(),
+)
+
+
+</script>
 
 <style scoped></style>
