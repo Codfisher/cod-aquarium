@@ -1,6 +1,6 @@
 <template>
   <div class=" flex flex-col items-center py-10">
-    <div class="w-full md:w-2/3 flex flex-col gap-4">
+    <div class="w-4/5 lg:w-1/2 flex flex-col gap-4">
       <!-- tag 過濾 -->
       <div class="tag-filter sticky top-[64px] p-4 rounded-lg">
         <p class="mb-4">可以使用 Tag 快速過濾文章！(๑•̀ㅂ•́)و✧</p>
@@ -164,9 +164,7 @@ function handleBeforeLeave(el: Element) {
 .tag-filter
   z-index: 1
   backdrop-filter: blur(10px)
-  background: rgba(255, 255, 255, 0.8)
-  &:where([class~="dark"], [class~="dark"] *)
-    background: rgba(#333, 0.8)
+  background: light-dark(rgba(#FFF, 0.8), rgba(#333, 0.8))
 
 .tag-chip 
   opacity: 0.4
@@ -177,11 +175,7 @@ function handleBeforeLeave(el: Element) {
   cursor: pointer
   transition: all 0.3s ease
   &:hover
-    background: #f9f9f9
-  &:where([class~="dark"], [class~="dark"] *)
-    &:hover
-      background: #333
-
+    background: light-dark(#f9f9f9, rgba(#333, 0.8))
 
 .list-move, .list-enter-active, .list-leave-active 
   transition: all 0.6s cubic-bezier(0.83, 0, 0.17, 1)
