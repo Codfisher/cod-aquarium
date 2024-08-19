@@ -119,6 +119,7 @@ const {
         tags: { $in: selectedTags.value },
       })
       .without(['body'])
+      .sort({ date: -1 })
       .find();
 
     if (data.length === 0) {
@@ -141,7 +142,6 @@ const {
 async function init() {
   await refreshTags();
   selectedTags.value = [...tags.value ?? []];
-  await refreshArticles();
 }
 init();
 
@@ -177,5 +177,5 @@ function handleBeforeLeave(el: Element) {
   opacity: 0
   transform: scale(0.96)
 .list-leave-active 
-  position: absolute !important
+  position: absolute
 </style>
