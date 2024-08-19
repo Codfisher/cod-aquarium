@@ -1,14 +1,15 @@
 <template>
   <div class=" flex flex-col items-center py-10">
     <div class="w-full md:w-2/3 flex flex-col gap-4">
-      <div class="p-4">
+      <!-- tag 過濾 -->
+      <div class="tag-filter sticky top-[64px] p-4 rounded-lg">
         <p class="mb-4">可以使用 Tag 快速過濾文章！(๑•̀ㅂ•́)و✧</p>
 
         <div class="flex gap-2">
           <badge
             v-for="tag in tagList"
             :key="tag.name"
-            class="tag-filter cursor-pointer duration-300"
+            class="tag-chip cursor-pointer duration-300"
             :class="{ 'badge-active': tag.selected }"
             @click="toggleTag(tag.name)"
           >
@@ -45,7 +46,7 @@
             <div
               v-for="tag in content.tags"
               :key="tag"
-              class="border px-3 py-1 rounded-full bg-gray-100 opacity-80 text-xs"
+              class="border px-3 py-1 rounded-full bg-gray-100 dark:text-black opacity-80 text-xs"
             >
               {{ tag }}
             </div>
@@ -145,6 +146,7 @@ async function init() {
 }
 init();
 
+/** 修正 transition-group 元素離開時動畫異常問題 */
 function handleBeforeLeave(el: Element) {
   const { marginLeft, marginTop, width, height } = window.getComputedStyle(
     el
@@ -159,7 +161,14 @@ function handleBeforeLeave(el: Element) {
 </script>
 
 <style scoped lang="sass">
-.tag-filter 
+.tag-filter
+  z-index: 1
+  backdrop-filter: blur(10px)
+  background: rgba(255, 255, 255, 0.8)
+  &:where([class~="dark"], [class~="dark"] *)
+    background: rgba(#333, 0.8)
+
+.tag-chip 
   opacity: 0.4
 .badge-active 
   opacity: 1
@@ -169,6 +178,9 @@ function handleBeforeLeave(el: Element) {
   transition: all 0.3s ease
   &:hover
     background: #f9f9f9
+  &:where([class~="dark"], [class~="dark"] *)
+    &:hover
+      background: #333
 
 
 .list-move, .list-enter-active, .list-leave-active 
