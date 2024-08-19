@@ -1,3 +1,7 @@
+---
+tags: ['Remeda']
+---
+
 # 好 pipe 不用嗎？讓程式碼更簡潔彈性吧！
 
 ![remeda-pipe](/remeda-pipe.png)
