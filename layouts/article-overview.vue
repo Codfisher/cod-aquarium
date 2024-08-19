@@ -1,36 +1,43 @@
 <template>
   <div class=" flex flex-col items-center py-10">
-    <div class=" md:w-1/2 flex flex-col gap-4">
+    <div class="w-full md:w-2/3 flex flex-col gap-4">
+      <div class="p-4">
+        <p class="mb-4">可以使用 Tag 快速過濾文章！(๑•̀ㅂ•́)و✧</p>
 
-      <p>可以使用 Tag 快速過濾文章！(๑•̀ㅂ•́)و✧</p>
-      <div class="flex gap-2">
-        <badge
-          v-for="tag in tagList"
-          :key="tag.name"
-          class="tag-filter cursor-pointer duration-300"
-          :class="{ 'badge-active': tag.selected }"
-          @click="toggleTag(tag.name)"
-        >
-          {{ tag.name }}
-        </badge>
+        <div class="flex gap-2">
+          <badge
+            v-for="tag in tagList"
+            :key="tag.name"
+            class="tag-filter cursor-pointer duration-300"
+            :class="{ 'badge-active': tag.selected }"
+            @click="toggleTag(tag.name)"
+          >
+            {{ tag.name }}
+          </badge>
+        </div>
       </div>
 
-      <h1 class="text-4xl font-bold mt-6">文章列表</h1>
+      <h1 class="text-4xl font-bold mt-6 p-4">
+        文章列表
+      </h1>
 
       <!-- 文章列表 -->
       <transition-group
         name="list"
         tag="div"
+        class="flex flex-col gap-4"
+        @before-leave="handleBeforeLeave"
       >
-        <div
-          v-for="content in contents"
+        <nuxt-link
+          v-for="content in articles"
           :key="content._path"
-          class=" my-6 flex flex-col gap-2"
+          :to="content._path"
+          class="article-link p-4 flex flex-col gap-2 rounded-lg"
         >
-          <div class="text-xl font-bold">
+          <div class="text-2xl font-bold">
             {{ content.title }}
           </div>
-          <div class="text-xs opacity-50">
+          <div class="text-sm opacity-50">
             {{ content.description }}
           </div>
 
@@ -38,29 +45,24 @@
             <div
               v-for="tag in content.tags"
               :key="tag"
-              class="border px-3 py-1 rounded-full bg-gray-100 opacity-80 text-xs cursor-pointer"
-              @click="toggleTag(tag)"
+              class="border px-3 py-1 rounded-full bg-gray-100 opacity-80 text-xs"
             >
               {{ tag }}
             </div>
           </div>
-        </div>
+        </nuxt-link>
       </transition-group>
-
-      <pre>
-        {{ contents }}
-      </pre>
     </div>
   </div>
 </template>
 
-<script
-  setup
-  lang="ts"
->
-
+<script setup lang="ts">
 
 const selectedTags = ref<string[]>([]);
+watch(selectedTags, () => {
+  refreshArticles();
+}, { deep: true })
+
 function toggleTag(name: string) {
   const index = selectedTags.value.indexOf(name);
 
@@ -71,11 +73,14 @@ function toggleTag(name: string) {
   }
 }
 
-const { data: tags } = await useAsyncData('tags',
+const {
+  data: tags,
+  refresh: refreshTags,
+} = await useAsyncData('tags',
   async () => {
-    const result = new Set();
+    const result = new Set<string>();
 
-    const data = await queryContent()
+    const data: Array<{ tags: string[] }> = await queryContent()
       .only(['tags'])
       .find()
 
@@ -88,53 +93,89 @@ const { data: tags } = await useAsyncData('tags',
 
     return [...result];
   },
+  {
+    immediate: false,
+  },
 )
 
 const tagList = computed(() => {
-  return tags.value.map((name) => {
+  return tags.value?.map((name) => {
     const selected = selectedTags.value.indexOf(name) >= 0;
 
     return { name, selected }
-  });
+  }) ?? [];
 });
 
+const {
+  data: articles,
+  refresh: refreshArticles,
+} = await useAsyncData('articles',
+  async () => {
+    const data = await queryContent()
+      .where({
+        _path: { $regex: 'blog' },
+        _type: 'markdown',
+        _draft: false,
+        tags: { $in: selectedTags.value },
+      })
+      .without(['body'])
+      .find();
 
-const { data: contents } = await useAsyncData('contents',
-  () => queryContent()
-    .where({
-      _path: { $regex: 'blog' },
-      _type: 'markdown',
-      _draft: false,
-    })
-    .without(['body'])
-    .find(),
+    if (data.length === 0) {
+      return [
+        {
+          title: '沒有符合條件的文章。( ´•̥̥̥ ω •̥̥̥` )',
+          description: '請嘗試其他標籤',
+          _path: '',
+        }
+      ]
+    }
+
+    return data;
+  },
+  {
+    immediate: false,
+  },
 )
 
+async function init() {
+  await refreshTags();
+  selectedTags.value = [...tags.value ?? []];
+  await refreshArticles();
+}
+init();
 
+function handleBeforeLeave(el: Element) {
+  const { marginLeft, marginTop, width, height } = window.getComputedStyle(
+    el
+  );
+  if (!(el instanceof HTMLElement)) return;
+
+  el.style.left = `${el.offsetLeft - parseFloat(marginLeft)}px`;
+  el.style.top = `${el.offsetTop - parseFloat(marginTop)}px`;
+  el.style.width = width;
+  el.style.height = height;
+}
 </script>
 
-<style scoped>
-.tag-filter {
-  opacity: 0.4;
-}
+<style scoped lang="sass">
+.tag-filter 
+  opacity: 0.4
+.badge-active 
+  opacity: 1
 
-.badge-active {
-  opacity: 1;
-}
+.article-link
+  cursor: pointer
+  transition: all 0.3s ease
+  &:hover
+    background: #f9f9f9
 
-.list-move,
-.list-enter-active,
-.list-leave-active {
-  transition: all 0.5s ease;
-}
 
-.list-enter-from,
-.list-leave-to {
-  opacity: 0;
-  transform: translateX(30px);
-}
-
-.list-leave-active {
-  position: absolute;
-}
+.list-move, .list-enter-active, .list-leave-active 
+  transition: all 0.6s cubic-bezier(0.83, 0, 0.17, 1)
+.list-enter-from, .list-leave-to 
+  opacity: 0
+  transform: scale(0.96)
+.list-leave-active 
+  position: absolute !important
 </style>
