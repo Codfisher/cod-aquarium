@@ -6,6 +6,9 @@ export default defineAppConfig({
       title: '鱈魚的魚缸',
       fluid: true,
     },
+    main: {
+      fluid: true,
+    },
     footer: {
       fluid: true,
     },
