@@ -3,9 +3,10 @@
   "private": true,
   "scripts": {
     "dev": "nuxi dev",
-    "build": "nuxi build --preset=cloudflare_pages",
+    "build": "nuxi build",
     "generate": "nuxi generate",
     "preview": "nuxi preview",
+    "preview:build": "npm run build && npm run preview",
     "deploy": "wrangler pages deploy dist/"
   },
   "devDependencies": {
