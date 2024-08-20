@@ -5,6 +5,32 @@
       <div class="tag-filter sticky top-[64px] p-4 rounded-lg">
         <p class="mb-4">可以使用 Tag 快速過濾文章！(๑•̀ㅂ•́)و✧</p>
 
+        <div class="flex gap-2 mb-3 opacity-70">
+          <badge
+            type="gray"
+            class="cursor-pointer"
+            @click="selectAllTags"
+          >
+            <icon
+              name="material-symbols:select"
+              class=" mr-1"
+            />
+            全選
+          </badge>
+
+          <badge
+            type="gray"
+            class="cursor-pointer"
+            @click="clearAllTags"
+          >
+            <icon
+              name="material-symbols:remove-selection"
+              class=" mr-1"
+            />
+            清除
+          </badge>
+        </div>
+
         <div class="flex gap-2">
           <badge
             v-for="tag in tagList"
@@ -95,6 +121,13 @@ function toggleTag(name: string) {
   } else {
     selectedTags.value.splice(index, 1);
   }
+}
+
+function selectAllTags() {
+  selectedTags.value = tagList.value.map(({ name }) => name);
+}
+function clearAllTags() {
+  selectedTags.value = [];
 }
 
 const {
