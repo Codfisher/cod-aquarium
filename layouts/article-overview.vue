@@ -75,7 +75,6 @@
 
 <script setup lang="ts">
 import dayjs from 'dayjs';
-import { pipe } from 'remeda';
 
 const linkListRef = ref<HTMLElement>();
 const { height: linkListHeight } = useElementSize(linkListRef);
