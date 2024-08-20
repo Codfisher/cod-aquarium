@@ -1,14 +1,11 @@
 <script setup lang="ts">
 defineProps({
   /**
-   * @values info, success, warning, danger
+   * @values 'info', 'success', 'warning', 'danger', 'primary'
    */
   type: {
     type: String,
     default: 'primary',
-    validator(value: string) {
-      return ['info', 'success', 'warning', 'danger', 'primary'].includes(value)
-    }
   }
 })
 </script>

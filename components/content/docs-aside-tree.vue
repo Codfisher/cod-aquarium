@@ -108,8 +108,11 @@ const sortedLinks = computed(() => pipe(
         </span>
         <span>
           <Icon
-            :name="isCollapsed(link) ? 'lucide:chevrons-up-down' : 'lucide:chevrons-down-up'"
-            class="collapsible-icon"
+            name="lucide:fish-symbol"
+            class="collapsible-icon duration-500"
+            :class="{
+              'rotate-90': !isCollapsed(link)
+            }"
           />
         </span>
       </button>
@@ -198,8 +201,8 @@ css({
         }
       },
       '.collapsible-icon': {
-        width: '{space.3}',
-        height: '{space.3}',
+        width: '{space.4}',
+        height: '{space.4}',
         color: '{color.gray.400}',
         '@dark': {
           color: '{color.gray.500}',
