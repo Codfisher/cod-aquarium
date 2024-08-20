@@ -4,7 +4,7 @@
       <!-- tag 過濾 -->
       <div class="tag-filter sticky top-[64px] p-4 rounded-lg">
         <p class="mb-4">
-          可以使用 Tag 快速過濾，或使用右上角的「<icon name="material-symbols-light:search" />」，精準搜尋文章！(๑•̀ㅂ•́)و✧
+          可以使用 Tag 快速過濾，或使用右上角的 <icon name="material-symbols-light:search" />，精準搜尋文章！(๑•̀ㅂ•́)و✧
         </p>
 
         <div class="flex gap-2 mb-3 opacity-70">
