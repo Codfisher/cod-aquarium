@@ -77,13 +77,6 @@ const sortedLinks = computed(() => pipe(
     return list;
   },
 ))
-
-const { close } = useMenu()
-
-function clickLink() {
-  console.log('🚀 ~ close:', close);
-  close();
-}
 </script>
 
 <template>
@@ -128,7 +121,6 @@ function clickLink() {
           'padded': level > 0 || !hasNesting,
           'active': isActive(link),
         }"
-        @click="clickLink"
       >
         <span class="content">
           <Icon
