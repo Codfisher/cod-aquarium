@@ -12,6 +12,7 @@
     "@nuxt/image": "^1.7.0",
     "@nuxtjs/tailwindcss": "^6.12.1",
     "nuxt": "latest",
+    "nuxt-gtag": "^2.1.0",
     "sass": "^1.77.8"
   },
   "dependencies": {

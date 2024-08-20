@@ -7,13 +7,17 @@ export default defineNuxtConfig({
   modules: [
     '@vueuse/nuxt',
     '@nuxtjs/tailwindcss',
-    '@nuxt/image'
+    '@nuxt/image',
+    'nuxt-gtag',
   ],
 
   css: [
     '/styles/main.sass',
   ],
 
+  gtag: {
+    id: 'G-WL47JJHL0R'
+  },
   tailwindcss: {
     config: {
       theme: {
@@ -22,5 +26,5 @@ export default defineNuxtConfig({
         }
       }
     }
-  }
+  },
 })
