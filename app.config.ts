@@ -29,5 +29,5 @@ export default defineAppConfig({
         href: 'https://www.linkedin.com/in/shih-chen-lin-codfish/',
       },
     }
-  }
+  },
 })

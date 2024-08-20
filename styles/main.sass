@@ -1,8 +1,9 @@
+
 .docs-prev-next
   .prev, .next
     .title
       max-width: 80vw
-  
+
 @media (min-width: 640px)
   .docs-prev-next
     .prev, .next
@@ -18,3 +19,5 @@
 @media (min-width: 1024px)
   .page-body
     width: 700px !important
+    &:has(> div[data-content-id="content:1.index.md"])
+      width: 600px !important
