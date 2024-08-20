@@ -1,0 +1,41 @@
+:root
+  --color-primary-50: #f0fdfa
+  --color-primary-100: #ccfbf1
+  --color-primary-200: #99f6e4
+  --color-primary-300: #5eead4
+  --color-primary-400: #2dd4bf
+  --color-primary-500: #14b8a6
+  --color-primary-600: #0d9488
+  --color-primary-700: #0f766e
+  --color-primary-800: #115e59
+  --color-primary-900: #134e4a
+
+.navbar-logo
+  .title
+    transition-duration: 0.3s
+  
+h1
+  font-size: 2.5rem !important
+
+.docs-prev-next
+  .prev, .next
+    .title
+      max-width: 80vw
+
+@media (min-width: 640px)
+  .docs-prev-next
+    .prev, .next
+      .title
+        max-width: 200px
+
+@media (min-width: 768px)
+  .docs-prev-next
+    .prev, .next
+      .title
+        max-width: 260px
+
+@media (min-width: 1024px)
+  .page-body
+    width: 600px !important
+    &:has(> div[data-content-id="content:1.index.md"])
+      width: 600px !important

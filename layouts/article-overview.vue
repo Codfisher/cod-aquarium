@@ -1,14 +1,43 @@
 <template>
   <div class=" flex flex-col items-center py-10">
-    <div class="w-full md:w-2/3 flex flex-col gap-4">
-      <div class="p-4">
-        <p class="mb-4">可以使用 Tag 快速過濾文章！(๑•̀ㅂ•́)و✧</p>
+    <div class="w-4/5 lg:w-[700px] flex flex-col gap-4">
+      <!-- tag 過濾 -->
+      <div class="tag-filter sticky top-[64px] p-4 rounded-lg">
+        <p class="mb-4">
+          可以使用 Tag 快速過濾，或使用右上角的 <icon name="material-symbols-light:search" />，精準搜尋文章！(๑•̀ㅂ•́)و✧
+        </p>
+
+        <div class="flex gap-2 mb-3 opacity-70">
+          <badge
+            type="gray"
+            class="cursor-pointer"
+            @click="selectAllTags"
+          >
+            <icon
+              name="material-symbols:select"
+              class=" mr-1"
+            />
+            全選
+          </badge>
+
+          <badge
+            type="gray"
+            class="cursor-pointer"
+            @click="clearAllTags"
+          >
+            <icon
+              name="material-symbols:remove-selection"
+              class=" mr-1"
+            />
+            清除
+          </badge>
+        </div>
 
         <div class="flex gap-2">
           <badge
             v-for="tag in tagList"
             :key="tag.name"
-            class="tag-filter cursor-pointer duration-300"
+            class="tag-chip cursor-pointer duration-300"
             :class="{ 'badge-active': tag.selected }"
             @click="toggleTag(tag.name)"
           >
@@ -21,42 +50,65 @@
         文章列表
       </h1>
 
-      <!-- 文章列表 -->
-      <transition-group
-        name="list"
-        tag="div"
-        class="flex flex-col gap-4"
-        @before-leave="handleBeforeLeave"
+      <div
+        class="link-container"
+        :style="linkContainerStyle"
       >
-        <nuxt-link
-          v-for="content in articles"
-          :key="content._path"
-          :to="content._path"
-          class="article-link p-4 flex flex-col gap-2 rounded-lg"
+        <!-- 文章列表 -->
+        <transition-group
+          ref="linkListRef"
+          name="list"
+          tag="div"
+          class="flex flex-col gap-4"
+          @before-leave="handleBeforeLeave"
         >
-          <div class="text-2xl font-bold">
-            {{ content.title }}
-          </div>
-          <div class="text-sm opacity-50">
-            {{ content.description }}
-          </div>
-
-          <div class="flex gap-2">
+          <nuxt-link
+            v-for="content in articles"
+            :key="content._path"
+            :to="content._path"
+            class="article-link p-4 flex flex-col gap-2 rounded-lg"
+          >
             <div
-              v-for="tag in content.tags"
-              :key="tag"
-              class="border px-3 py-1 rounded-full bg-gray-100 opacity-80 text-xs"
+              v-if="content.date"
+              class="text-xs opacity-50"
             >
-              {{ tag }}
+              {{ content.date }}
             </div>
-          </div>
-        </nuxt-link>
-      </transition-group>
+
+            <div class="text-2xl font-bold">
+              {{ content.title }}
+            </div>
+            <div class="text-sm opacity-50">
+              {{ content.description }}
+            </div>
+
+            <div
+              v-if="content.tags"
+              class="flex gap-2"
+            >
+              <div
+                v-for="tag in content.tags"
+                :key="tag"
+                class="border px-3 py-1 rounded-full bg-gray-100 dark:text-black opacity-80 text-xs"
+              >
+                {{ tag }}
+              </div>
+            </div>
+          </nuxt-link>
+        </transition-group>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import dayjs from 'dayjs';
+
+const linkListRef = ref<HTMLElement>();
+const { height: linkListHeight } = useElementSize(linkListRef);
+const linkContainerStyle = computed(() => ({
+  height: `${linkListHeight.value}px`
+}));
 
 const selectedTags = ref<string[]>([]);
 watch(selectedTags, () => {
@@ -71,6 +123,13 @@ function toggleTag(name: string) {
   } else {
     selectedTags.value.splice(index, 1);
   }
+}
+
+function selectAllTags() {
+  selectedTags.value = tagList.value.map(({ name }) => name);
+}
+function clearAllTags() {
+  selectedTags.value = [];
 }
 
 const {
@@ -119,6 +178,7 @@ const {
         tags: { $in: selectedTags.value },
       })
       .without(['body'])
+      .sort({ date: -1 })
       .find();
 
     if (data.length === 0) {
@@ -131,7 +191,19 @@ const {
       ]
     }
 
-    return data;
+    const result = data.map((datum) => {
+      const date = dayjs(`${datum.date}`, 'YYYYMMDD').format('YYYY/MM/DD');
+
+      return { ...datum, date }
+    }) as Array<{
+      title: string,
+      description: string,
+      _path: string,
+      tags?: string[],
+      date?: string,
+    }>
+
+    return result;
   },
   {
     immediate: false,
@@ -141,10 +213,10 @@ const {
 async function init() {
   await refreshTags();
   selectedTags.value = [...tags.value ?? []];
-  await refreshArticles();
 }
 init();
 
+/** 修正 transition-group 元素離開時動畫異常問題 */
 function handleBeforeLeave(el: Element) {
   const { marginLeft, marginTop, width, height } = window.getComputedStyle(
     el
@@ -159,17 +231,26 @@ function handleBeforeLeave(el: Element) {
 </script>
 
 <style scoped lang="sass">
-.tag-filter 
+.tag-filter
+  z-index: 1
+  backdrop-filter: blur(10px)
+  background: light-dark(rgba(#FFF, 0.8), rgba(#333, 0.8))
+
+.tag-chip 
   opacity: 0.4
 .badge-active 
   opacity: 1
+
+.link-container
+  will-change: height
+  transition-duration: 0.8s
+  transition-timing-function: cubic-bezier(0.83, 0, 0.17, 1)
 
 .article-link
   cursor: pointer
   transition: all 0.3s ease
   &:hover
-    background: #f9f9f9
-
+    background: light-dark(#f9f9f9, rgba(#333, 0.8))
 
 .list-move, .list-enter-active, .list-leave-active 
   transition: all 0.6s cubic-bezier(0.83, 0, 0.17, 1)
@@ -177,5 +258,5 @@ function handleBeforeLeave(el: Element) {
   opacity: 0
   transform: scale(0.96)
 .list-leave-active 
-  position: absolute !important
+  position: absolute
 </style>

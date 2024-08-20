@@ -1,7 +1,11 @@
 {
   "cSpell.words": [
+    "callout",
+    "dont",
     "nuxi",
-    "nuxt"
+    "nuxt",
+    "Remeda",
+    "tailwindcss"
   ],
   "html.format.wrapAttributes": "force-expand-multiline"
 }

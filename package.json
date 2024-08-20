@@ -3,19 +3,24 @@
   "private": true,
   "scripts": {
     "dev": "nuxi dev",
-    "build": "nuxi build",
+    "build": "nuxi build --preset=cloudflare_pages",
     "generate": "nuxi generate",
-    "preview": "nuxi preview"
+    "preview": "nuxi preview",
+    "deploy": "wrangler pages deploy dist/"
   },
   "devDependencies": {
     "@nuxt-themes/docus": "^1.15.0",
     "@nuxt/image": "^1.7.0",
     "@nuxtjs/tailwindcss": "^6.12.1",
     "nuxt": "latest",
-    "sass": "^1.77.8"
+    "nuxt-gtag": "^2.1.0",
+    "sass": "^1.77.8",
+    "wrangler": "^3.72.0"
   },
   "dependencies": {
     "@vueuse/core": "^11.0.0",
-    "@vueuse/nuxt": "^11.0.0"
+    "@vueuse/nuxt": "^11.0.0",
+    "dayjs": "^1.11.12",
+    "remeda": "^2.11.0"
   }
 }
