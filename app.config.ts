@@ -28,6 +28,24 @@ export default defineAppConfig({
         label: 'LinkedIn',
         href: 'https://www.linkedin.com/in/shih-chen-lin-codfish/',
       },
-    }
+    },
   },
+
+  prose: {
+    h1: {
+      icon: 'ph:fish-simple-light'
+    },
+    h2: {
+      icon: 'ph:fish-simple-light'
+    },
+    h3: {
+      icon: 'ph:fish-simple-light'
+    },
+    h4: {
+      icon: 'ph:fish-simple-light'
+    },
+    copyButton: {
+      iconCopy: 'carbon:fish-multiple',
+    }
+  }
 })

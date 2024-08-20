@@ -21,6 +21,9 @@ const props = defineProps({
   }
 })
 
+const emit = defineEmits(['move'])
+
+
 const route = useRoute()
 const { config } = useDocus()
 
@@ -75,6 +78,9 @@ const sortedLinks = computed(() => pipe(
   },
 ))
 
+function clickLink() {
+  emit('move')
+}
 </script>
 
 <template>
@@ -119,6 +125,7 @@ const sortedLinks = computed(() => pipe(
           'padded': level > 0 || !hasNesting,
           'active': isActive(link),
         }"
+        @click="clickLink"
       >
         <span class="content">
           <Icon
