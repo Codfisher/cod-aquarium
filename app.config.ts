@@ -4,6 +4,10 @@ export default defineAppConfig({
     description: '各種鱈魚滾鍵盤的雜記',
     header: {
       title: '鱈魚的魚缸',
+      fluid: true,
+    },
+    footer: {
+      fluid: true,
     },
     aside: {
       level: 1,
