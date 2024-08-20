@@ -1,8 +1,5 @@
 <script setup lang="ts">
 const { tree } = useDocus()
-
-const emit = defineEmits(['move'])
-
 </script>
 
 <template>
@@ -10,7 +7,6 @@ const emit = defineEmits(['move'])
     <DocsAsideTree
       v-if="tree?.length > 0"
       :links="tree"
-      @move="emit('move')"
     />
     <NuxtLink
       v-else

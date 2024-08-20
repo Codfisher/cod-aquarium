@@ -47,5 +47,5 @@ export default defineAppConfig({
     copyButton: {
       iconCopy: 'carbon:fish-multiple',
     }
-  }
+  },
 })

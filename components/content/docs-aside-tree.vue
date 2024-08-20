@@ -78,8 +78,11 @@ const sortedLinks = computed(() => pipe(
   },
 ))
 
+const { close } = useMenu()
+
 function clickLink() {
-  emit('move')
+  console.log('🚀 ~ close:', close);
+  close();
 }
 </script>
 

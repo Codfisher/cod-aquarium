@@ -4,7 +4,8 @@
     "dont",
     "nuxi",
     "nuxt",
-    "Remeda"
+    "Remeda",
+    "tailwindcss"
   ],
   "html.format.wrapAttributes": "force-expand-multiline"
 }

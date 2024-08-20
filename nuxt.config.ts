@@ -1,3 +1,5 @@
+import colors from 'tailwindcss/colors'
+
 export default defineNuxtConfig({
   extends: '@nuxt-themes/docus',
 
@@ -7,4 +9,14 @@ export default defineNuxtConfig({
   css: [
     '/styles/main.sass',
   ],
+
+  tailwindcss: {
+    config: {
+      theme: {
+        colors: {
+          primary: colors.teal
+        }
+      }
+    }
+  }
 })

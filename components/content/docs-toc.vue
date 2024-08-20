@@ -7,7 +7,7 @@ const emit = defineEmits(['move'])
   <div class="docs-toc">
     <template v-if="toc?.links?.length">
       <div class="docs-toc-title">
-        <span>目錄 ˋ( ° ▽、° ) </span>
+        <span>目錄</span>
       </div>
 
       <DocsTocLinks
