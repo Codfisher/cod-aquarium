@@ -1,6 +1,6 @@
 <template>
   <div class=" flex flex-col items-center py-10">
-    <div class="w-4/5 lg:w-1/2 flex flex-col gap-4">
+    <div class="w-4/5 lg:w-[700px] flex flex-col gap-4">
       <!-- tag 過濾 -->
       <div class="tag-filter sticky top-[64px] p-4 rounded-lg">
         <p class="mb-4">可以使用 Tag 快速過濾文章！(๑•̀ㅂ•́)و✧</p>
