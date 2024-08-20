@@ -11,6 +11,11 @@ export default defineAppConfig({
     },
     footer: {
       fluid: true,
+      credits: {
+        href: '',
+        text: 'Copyright © 2024-present Cod Lin',
+        icon: 'ph:fish-simple-fill',
+      }
     },
     aside: {
       level: 1,
