@@ -16,6 +16,8 @@
   },
   "dependencies": {
     "@vueuse/core": "^11.0.0",
-    "@vueuse/nuxt": "^11.0.0"
+    "@vueuse/nuxt": "^11.0.0",
+    "dayjs": "^1.11.12",
+    "remeda": "^2.11.0"
   }
 }

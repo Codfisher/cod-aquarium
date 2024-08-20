@@ -40,6 +40,13 @@
             :to="content._path"
             class="article-link p-4 flex flex-col gap-2 rounded-lg"
           >
+            <div
+              v-if="content.date"
+              class="text-xs opacity-50"
+            >
+              {{ content.date }}
+            </div>
+
             <div class="text-2xl font-bold">
               {{ content.title }}
             </div>
@@ -47,7 +54,10 @@
               {{ content.description }}
             </div>
 
-            <div class="flex gap-2">
+            <div
+              v-if="content.tags"
+              class="flex gap-2"
+            >
               <div
                 v-for="tag in content.tags"
                 :key="tag"
@@ -64,6 +74,8 @@
 </template>
 
 <script setup lang="ts">
+import dayjs from 'dayjs';
+import { pipe } from 'remeda';
 
 const linkListRef = ref<HTMLElement>();
 const { height: linkListHeight } = useElementSize(linkListRef);
@@ -145,7 +157,19 @@ const {
       ]
     }
 
-    return data;
+    const result = data.map((datum) => {
+      const date = dayjs(`${datum.date}`, 'YYYYMMDD').format('YYYY/MM/DD');
+
+      return { ...datum, date }
+    }) as Array<{
+      title: string,
+      description: string,
+      _path: string,
+      tags?: string[],
+      date?: string,
+    }>
+
+    return result;
   },
   {
     immediate: false,

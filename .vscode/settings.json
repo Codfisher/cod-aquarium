@@ -3,7 +3,8 @@
     "callout",
     "dont",
     "nuxi",
-    "nuxt"
+    "nuxt",
+    "Remeda"
   ],
   "html.format.wrapAttributes": "force-expand-multiline"
 }
