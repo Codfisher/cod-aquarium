@@ -22,42 +22,54 @@
         文章列表
       </h1>
 
-      <!-- 文章列表 -->
-      <transition-group
-        name="list"
-        tag="div"
-        class="flex flex-col gap-4"
-        @before-leave="handleBeforeLeave"
+      <div
+        class="link-container"
+        :style="linkContainerStyle"
       >
-        <nuxt-link
-          v-for="content in articles"
-          :key="content._path"
-          :to="content._path"
-          class="article-link p-4 flex flex-col gap-2 rounded-lg"
+        <!-- 文章列表 -->
+        <transition-group
+          ref="linkListRef"
+          name="list"
+          tag="div"
+          class="flex flex-col gap-4"
+          @before-leave="handleBeforeLeave"
         >
-          <div class="text-2xl font-bold">
-            {{ content.title }}
-          </div>
-          <div class="text-sm opacity-50">
-            {{ content.description }}
-          </div>
-
-          <div class="flex gap-2">
-            <div
-              v-for="tag in content.tags"
-              :key="tag"
-              class="border px-3 py-1 rounded-full bg-gray-100 dark:text-black opacity-80 text-xs"
-            >
-              {{ tag }}
+          <nuxt-link
+            v-for="content in articles"
+            :key="content._path"
+            :to="content._path"
+            class="article-link p-4 flex flex-col gap-2 rounded-lg"
+          >
+            <div class="text-2xl font-bold">
+              {{ content.title }}
             </div>
-          </div>
-        </nuxt-link>
-      </transition-group>
+            <div class="text-sm opacity-50">
+              {{ content.description }}
+            </div>
+
+            <div class="flex gap-2">
+              <div
+                v-for="tag in content.tags"
+                :key="tag"
+                class="border px-3 py-1 rounded-full bg-gray-100 dark:text-black opacity-80 text-xs"
+              >
+                {{ tag }}
+              </div>
+            </div>
+          </nuxt-link>
+        </transition-group>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+
+const linkListRef = ref<HTMLElement>();
+const { height: linkListHeight } = useElementSize(linkListRef);
+const linkContainerStyle = computed(() => ({
+  height: `${linkListHeight.value}px`
+}));
 
 const selectedTags = ref<string[]>([]);
 watch(selectedTags, () => {
@@ -170,6 +182,11 @@ function handleBeforeLeave(el: Element) {
   opacity: 0.4
 .badge-active 
   opacity: 1
+
+.link-container
+  will-change: height
+  transition-duration: 0.8s
+  transition-timing-function: cubic-bezier(0.83, 0, 0.17, 1)
 
 .article-link
   cursor: pointer
