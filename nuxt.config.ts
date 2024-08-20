@@ -1,25 +1,22 @@
 import colors from 'tailwindcss/colors'
 
 export default defineNuxtConfig({
+  extends: '@nuxt-themes/docus',
   nitro: {
     prerender: {
       autoSubfolderIndex: false
     }
   },
-
-  extends: '@nuxt-themes/docus',
-
-  compatibilityDate: '2024-08-08',
   modules: [
     '@vueuse/nuxt',
     '@nuxtjs/tailwindcss',
     '@nuxt/image',
     'nuxt-gtag',
   ],
-
   css: [
     '/styles/main.sass',
   ],
+  compatibilityDate: '2024-08-08',
 
   gtag: {
     id: 'G-WL47JJHL0R'
@@ -31,6 +28,6 @@ export default defineNuxtConfig({
           primary: colors.teal
         }
       }
-    }
+    },
   },
 })

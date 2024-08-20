@@ -6,6 +6,7 @@
     "build": "nuxi build --preset=cloudflare_pages",
     "generate": "nuxi generate",
     "preview": "nuxi preview",
+    "preview:build": "npm run build && npm run preview",
     "deploy": "wrangler pages deploy dist/"
   },
   "devDependencies": {
