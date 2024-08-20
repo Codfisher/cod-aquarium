@@ -100,9 +100,11 @@ const sortedLinks = computed(() => pipe(
           <Icon
             v-if="link?.navigation?.icon || link.icon"
             :name="link?.navigation?.icon || link.icon"
-            class="icon"
+            class="icon duration-300"
           />
-          <span>{{ link?.navigation?.title || link.title || link._path }}</span>
+          <span class=" duration-300">
+            {{ link?.navigation?.title || link.title || link._path }}
+          </span>
         </span>
         <span>
           <Icon
@@ -126,9 +128,11 @@ const sortedLinks = computed(() => pipe(
           <Icon
             v-if="link?.navigation?.icon || link.icon"
             :name="link?.navigation?.icon || link.icon"
-            class="icon"
+            class="icon duration-300"
           />
-          <span>{{ link?.navigation?.title || link.title || link._path }}</span>
+          <span class=" duration-300">
+            {{ link?.navigation?.title || link.title || link._path }}
+          </span>
         </span>
       </NuxtLink>
 
