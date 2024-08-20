@@ -3,9 +3,10 @@
   "private": true,
   "scripts": {
     "dev": "nuxi dev",
-    "build": "nuxi build",
+    "build": "nuxi build --preset=cloudflare_pages",
     "generate": "nuxi generate",
-    "preview": "nuxi preview"
+    "preview": "nuxi preview",
+    "deploy": "wrangler pages deploy dist/"
   },
   "devDependencies": {
     "@nuxt-themes/docus": "^1.15.0",
@@ -13,7 +14,8 @@
     "@nuxtjs/tailwindcss": "^6.12.1",
     "nuxt": "latest",
     "nuxt-gtag": "^2.1.0",
-    "sass": "^1.77.8"
+    "sass": "^1.77.8",
+    "wrangler": "^3.72.0"
   },
   "dependencies": {
     "@vueuse/core": "^11.0.0",

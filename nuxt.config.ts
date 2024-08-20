@@ -1,6 +1,12 @@
 import colors from 'tailwindcss/colors'
 
 export default defineNuxtConfig({
+  nitro: {
+    prerender: {
+      autoSubfolderIndex: false
+    }
+  },
+
   extends: '@nuxt-themes/docus',
 
   compatibilityDate: '2024-08-08',
