@@ -7,6 +7,7 @@ export default defineNuxtConfig({
     '@nuxtjs/tailwindcss',
     '@nuxt/image',
     'nuxt-gtag',
+    "@nuxtjs/google-fonts"
   ],
   css: [
     '/styles/main.sass',
@@ -31,12 +32,11 @@ export default defineNuxtConfig({
       htmlAttrs: {
         lang: 'zh-hant',
       },
-      link: [
-        {
-          rel: 'stylesheet',
-          href: 'https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@100..900&display=swap'
-        }
-      ]
+    }
+  },
+  googleFonts: {
+    families: {
+      'Noto+Sans+TC': '100..900',
     }
   },
   gtag: {
