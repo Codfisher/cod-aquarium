@@ -1,4 +1,9 @@
 export default defineAppConfig({
+  site: {
+    url: 'https://codlin.me',
+    name: '鱈魚的魚缸',
+    indexable: true,
+  },
   docus: {
     title: '鱈魚的魚缸',
     description: '各種鱈魚滾鍵盤的雜記',

@@ -6,12 +6,12 @@
     "build": "nuxi build",
     "generate": "nuxi generate",
     "preview": "nuxi preview",
-    "preview:build": "npm run build && npm run preview",
-    "deploy": "wrangler pages deploy dist/"
+    "preview:build": "npm run build && npm run preview"
   },
   "devDependencies": {
     "@nuxt-themes/docus": "^1.15.0",
     "@nuxt/image": "^1.7.0",
+    "@nuxtjs/robots": "^4.1.2",
     "@nuxtjs/sitemap": "^6.0.0-beta.2",
     "@nuxtjs/tailwindcss": "^6.12.1",
     "nuxt": "latest",
