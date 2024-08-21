@@ -12,6 +12,7 @@ export default defineNuxtConfig({
     '@nuxtjs/tailwindcss',
     '@nuxt/image',
     'nuxt-gtag',
+    "@nuxtjs/sitemap"
   ],
   css: [
     '/styles/main.sass',
