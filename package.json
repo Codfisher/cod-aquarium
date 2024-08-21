@@ -6,8 +6,7 @@
     "build": "nuxi build",
     "generate": "nuxi generate",
     "preview": "nuxi preview",
-    "preview:build": "npm run build && npm run preview",
-    "deploy": "wrangler pages deploy dist/"
+    "preview:build": "npm run build && npm run preview"
   },
   "devDependencies": {
     "@nuxt-themes/docus": "^1.15.0",
@@ -16,7 +15,7 @@
     "nuxt": "latest",
     "nuxt-gtag": "^2.1.0",
     "sass": "^1.77.8",
-    "wrangler": "^3.72.0"
+    "sitemap": "^8.0.0"
   },
   "dependencies": {
     "@vueuse/core": "^11.0.0",

@@ -4,8 +4,11 @@
     "dont",
     "nuxi",
     "nuxt",
+    "nuxtjs",
+    "prerender",
     "Remeda",
-    "tailwindcss"
+    "tailwindcss",
+    "vueuse"
   ],
   "html.format.wrapAttributes": "force-expand-multiline"
 }
