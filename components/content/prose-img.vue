@@ -4,6 +4,7 @@
     :alt="alt"
     :width="width"
     :height="height"
+    format="webp"
   />
 </template>
 
@@ -23,7 +24,7 @@ const props = defineProps({
   },
   width: {
     type: [String, Number],
-    default: undefined
+    default: 600
   },
   height: {
     type: [String, Number],
