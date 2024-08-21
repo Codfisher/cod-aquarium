@@ -30,7 +30,13 @@ export default defineNuxtConfig({
     head: {
       htmlAttrs: {
         lang: 'zh-hant',
-      }
+      },
+      link: [
+        {
+          rel: 'stylesheet',
+          href: 'https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@100..900&display=swap'
+        }
+      ]
     }
   },
   gtag: {
