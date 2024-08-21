@@ -1,15 +1,12 @@
+const title = '鱈魚的魚缸'
+
 export default defineAppConfig({
-  site: {
-    url: 'https://codlin.me',
-    name: '鱈魚的魚缸',
-    indexable: true,
-  },
   docus: {
-    title: '鱈魚的魚缸',
+    title,
     description: '各種鱈魚滾鍵盤的雜記',
     image: '/cover.jpg',
     header: {
-      title: '鱈魚的魚缸',
+      title,
       fluid: true,
     },
     main: {
