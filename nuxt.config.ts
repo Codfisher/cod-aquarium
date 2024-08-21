@@ -11,12 +11,18 @@ export default defineNuxtConfig({
   css: [
     '/styles/main.sass',
   ],
+  nitro: {
+    prerender: {
+      ignore: ['/article-overview'],
+      crawlLinks: true,
+    }
+  },
   routeRules: {
     '/': { prerender: true },
     '/sitemap.xml': { prerender: true },
-    '/blog-ocean-world/**': { isr: true },
-    '/blog-program/**': { isr: true },
-    '/blog-vue/**': { isr: true },
+    '/blog-ocean-world/**': { prerender: true },
+    '/blog-program/**': { prerender: true },
+    '/blog-vue/**': { prerender: true },
   },
   compatibilityDate: '2024-08-08',
 
