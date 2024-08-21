@@ -15,4 +15,10 @@ export default defineTheme({
       900: { value: '#134e4a' },
     },
   },
+  font: {
+    sans: {
+      value: `'Noto Sans TC', 'Inter', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji'`,
+    },
+  },
+  letterSpacing: '0.01em',
 })
