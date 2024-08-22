@@ -6,7 +6,7 @@
     :height="height"
     format="webp"
     quality="80"
-    sizes="(max-width: 600px) 100vw, 600px"
+    sizes="sm:300px md:600px"
   />
 </template>
 
