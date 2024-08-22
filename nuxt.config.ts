@@ -34,6 +34,23 @@ export default defineNuxtConfig({
       htmlAttrs: {
         lang: 'zh-hant',
       },
+      meta: [
+        {
+          name: 'author',
+          content: 'Cod Lin',
+        },
+        {
+          name: 'keywords',
+          content: '鱈魚, 程式設計, 網頁設計, Vue, Nest, Full Stack',
+        },
+      ],
+      link: [
+        {
+          rel: 'icon',
+          type: 'image/x-icon',
+          href: '/favicon.ico',
+        },
+      ],
     }
   },
   googleFonts: {
