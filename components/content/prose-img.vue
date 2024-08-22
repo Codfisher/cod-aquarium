@@ -5,6 +5,7 @@
     :width="width"
     :height="height"
     format="webp"
+    quality="80"
   />
 </template>
 

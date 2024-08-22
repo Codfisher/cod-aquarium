@@ -4,7 +4,7 @@ export default defineAppConfig({
   docus: {
     title,
     description: '各種鱈魚滾鍵盤的雜記',
-    image: '/cover.jpg',
+    image: '/cover.webp',
     header: {
       title,
       fluid: true,
