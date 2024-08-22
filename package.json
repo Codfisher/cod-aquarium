@@ -11,6 +11,7 @@
   "devDependencies": {
     "@nuxt-themes/docus": "^1.15.0",
     "@nuxt/image": "^1.7.0",
+    "@nuxtjs/critters": "^0.7.2",
     "@nuxtjs/google-fonts": "^3.2.0",
     "@nuxtjs/tailwindcss": "^6.12.1",
     "nuxt": "latest",
