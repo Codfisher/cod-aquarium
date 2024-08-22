@@ -33,7 +33,7 @@
           </badge>
         </div>
 
-        <div class="flex gap-2">
+        <div class="flex flex-wrap gap-2">
           <badge
             v-for="tag in tagList"
             :key="tag.name"

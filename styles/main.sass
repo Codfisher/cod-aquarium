@@ -1,10 +1,15 @@
 .navbar-logo
   .title
     transition-duration: 0.3s
-  
+
 h1
   font-size: 2.5rem !important
   line-height: 1.3 !important
+
+.page-body
+  max-width: 600px !important
+  &:has(> div[data-content-id="content:1.index.md"])
+    max-width: 600px !important
 
 .docs-prev-next
   .prev, .next
@@ -21,13 +26,23 @@ h1
   .docs-prev-next
     .prev, .next
       .title
-        max-width: 260px
+        max-width: 200px
 
 @media (min-width: 1024px)
-  .page-body
-    width: 600px !important
-    &:has(> div[data-content-id="content:1.index.md"])
-      width: 600px !important
+  .container
+    max-width: none !important
+  .docs-prev-next
+    .prev, .next
+      .title
+        max-width: 150px
+
+@media (min-width: 1280px)
+  .container
+    max-width: 1280px !important
+  .docs-prev-next
+    .prev, .next
+      .title
+        max-width: 220px
 
 p
   letter-spacing: 0.01em

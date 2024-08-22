@@ -4,7 +4,7 @@
     :alt="alt"
     :width="width"
     :height="height"
-    format="webp"
+    :format="format"
     quality="80"
     sizes="sm:300px md:600px"
   />
@@ -30,8 +30,12 @@ const props = defineProps({
   },
   height: {
     type: [String, Number],
-    default: 600
-  }
+    default: undefined
+  },
+  format: {
+    type: String,
+    default: 'webp'
+  },
 })
 
 const refinedSrc = computed(() => {
