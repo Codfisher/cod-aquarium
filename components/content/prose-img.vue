@@ -6,6 +6,7 @@
     :height="height"
     format="webp"
     quality="80"
+    loading="lazy"
   />
 </template>
 
@@ -29,7 +30,7 @@ const props = defineProps({
   },
   height: {
     type: [String, Number],
-    default: undefined
+    default: 600
   }
 })
 
