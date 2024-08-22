@@ -16,7 +16,8 @@ export default defineNuxtConfig({
     prerender: {
       ignore: ['/article-overview'],
       crawlLinks: true,
-    }
+    },
+    compressPublicAssets: true,
   },
   routeRules: {
     '/': { prerender: true },
@@ -40,7 +41,7 @@ export default defineNuxtConfig({
     }
   },
   gtag: {
-    id: 'G-WL47JJHL0R'
+    id: 'G-WL47JJHL0R',
   },
   tailwindcss: {
     config: {
