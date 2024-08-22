@@ -6,7 +6,6 @@
     :height="height"
     format="webp"
     quality="80"
-    loading="lazy"
   />
 </template>
 

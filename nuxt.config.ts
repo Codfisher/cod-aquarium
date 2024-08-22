@@ -7,7 +7,8 @@ export default defineNuxtConfig({
     '@nuxtjs/tailwindcss',
     '@nuxt/image',
     'nuxt-gtag',
-    "@nuxtjs/google-fonts"
+    '@nuxtjs/google-fonts',
+    '@nuxtjs/critters',
   ],
   css: [
     '/styles/main.sass',
