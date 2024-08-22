@@ -16,6 +16,14 @@ export default defineEventHandler(async (event) => {
       if (!doc.title || !doc.description) {
         throw new Error(`${doc._path} 遺失必要的 meta 資訊`)
       }
+
+      if (!doc.date || doc.date < 20240000) {
+        throw new Error(`${doc._path} 遺失日期`)
+      }
+
+      if (!doc.tags || doc.tags.length === 0) {
+        throw new Error(`${doc._path} 遺失標籤`)
+      }
     }
 
 
