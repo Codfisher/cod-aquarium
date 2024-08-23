@@ -8,7 +8,7 @@ export default defineNuxtConfig({
     '@nuxt/image',
     'nuxt-gtag',
     '@nuxtjs/google-fonts',
-    '@nuxtjs/critters',
+    // '@nuxtjs/critters',
   ],
   css: [
     '/styles/main.sass',
