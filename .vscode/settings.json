@@ -9,7 +9,8 @@
     "prerender",
     "Remeda",
     "tailwindcss",
-    "vueuse"
+    "vueuse",
+    "webp"
   ],
   "html.format.wrapAttributes": "force-expand-multiline"
 }
