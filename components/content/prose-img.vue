@@ -6,7 +6,7 @@
     :height="height"
     :format="format"
     quality="80"
-    sizes="xs:100px sm:300px md:600px"
+    sizes="100px sm:300px md:600px"
   />
 </template>
 
