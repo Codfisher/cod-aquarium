@@ -8,6 +8,7 @@ export default defineNuxtConfig({
     '@nuxt/image',
     'nuxt-gtag',
     '@nuxtjs/google-fonts',
+    // 會破壞 dark mode 樣式，暫時不使用
     // '@nuxtjs/critters',
   ],
   css: [
