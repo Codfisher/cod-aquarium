@@ -9,7 +9,7 @@ export default defineNuxtConfig({
     'nuxt-gtag',
     '@nuxtjs/google-fonts',
     // 會破壞 dark mode 樣式，暫時不使用
-    // '@nuxtjs/critters',
+    '@nuxtjs/critters',
   ],
   css: [
     '/styles/main.sass',
@@ -81,6 +81,11 @@ export default defineNuxtConfig({
           primary: colors.teal
         }
       }
+    },
+  },
+  critters: {
+    config: {
+      preload: 'swap',
     },
   },
 })
