@@ -85,6 +85,7 @@ export default defineNuxtConfig({
   },
   critters: {
     config: {
+      preload: 'media',
       pruneSource: true,
     },
   },
