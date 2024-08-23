@@ -7,8 +7,10 @@ export default defineNuxtConfig({
     '@nuxtjs/tailwindcss',
     '@nuxt/image',
     'nuxt-gtag',
-    '@nuxtjs/google-fonts',
+    // 會破壞 dark mode 樣式，暫時不使用
     // '@nuxtjs/critters',
+    '@nuxtjs/google-fonts',
+    'nuxt-vitalizer',
   ],
   css: [
     '/styles/main.sass',
