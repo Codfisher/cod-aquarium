@@ -1,12 +1,12 @@
 <template>
-  <NuxtImg
+  <nuxt-img
     :src="refinedSrc"
     :alt="alt"
     :width="width"
     :height="height"
     :format="format"
     quality="80"
-    sizes="sm:300px md:600px"
+    sizes="xs:100px sm:300px md:600px"
   />
 </template>
 
