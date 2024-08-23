@@ -234,7 +234,7 @@ function handleBeforeLeave(el: Element) {
 .tag-filter
   z-index: 1
   backdrop-filter: blur(10px)
-  background: light-dark(rgba(#EEE, 0.8), rgba(#333, 0.8))
+  background: light-dark(rgba(#FEFEFE, 0.8), rgba(#333, 0.8))
 
 .tag-chip 
   opacity: 0.4
