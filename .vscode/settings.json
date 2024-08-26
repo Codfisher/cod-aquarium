@@ -9,7 +9,9 @@
     "Pinia",
     "prerender",
     "Remeda",
+    "sourcemaps",
     "tailwindcss",
+    "TTFB",
     "vueuse",
     "webp"
   ],
