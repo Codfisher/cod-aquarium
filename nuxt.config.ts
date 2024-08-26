@@ -30,6 +30,9 @@ export default defineNuxtConfig({
     '/blog-vue/**': { isr: true },
   },
   compatibilityDate: '2024-08-08',
+  devtools: {
+    enabled: false,
+  },
 
   app: {
     head: {
@@ -73,6 +76,7 @@ export default defineNuxtConfig({
     }
   },
   gtag: {
+    enabled: import.meta.env.PROD,
     id: 'G-WL47JJHL0R',
   },
   tailwindcss: {
