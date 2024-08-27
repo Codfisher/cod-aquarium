@@ -8,6 +8,7 @@
     "nuxtjs",
     "Pinia",
     "prerender",
+    "Radash",
     "Remeda",
     "sourcemaps",
     "tailwindcss",
