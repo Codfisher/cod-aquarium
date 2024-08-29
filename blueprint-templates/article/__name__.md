@@ -2,7 +2,7 @@
 title: 標題
 description: 
 tags: ['']
-image: /img.webp
+image: https://codlin.me/img.webp
 date: 202
 
 head:
