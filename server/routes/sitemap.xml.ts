@@ -24,8 +24,11 @@ export default defineEventHandler(async (event) => {
       if (!doc.tags || doc.tags.length === 0) {
         throw new Error(`${doc._path} 遺失標籤`)
       }
-    }
 
+      if (!doc.image || !doc.image.includes('codlin.me')) {
+        throw new Error(`${doc._path} og image 設定錯誤`)
+      }
+    }
 
     sitemap.write({
       url: doc._path,
