@@ -15,7 +15,7 @@ export default defineAppConfig({
     footer: {
       fluid: true,
       credits: {
-        href: 'hi@codlin.me',
+        href: 'mailto:hi@codlin.me',
         text: 'Copyright © 2024-present Cod Lin',
         icon: 'ph:fish-simple-fill',
       }
