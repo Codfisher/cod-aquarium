@@ -10,8 +10,7 @@ export default defineNuxtConfig({
     // FIX: 會破壞 dark mode 樣式，暫時不使用
     // '@nuxtjs/critters',
     '@nuxtjs/google-fonts',
-    // FIX: 由於超過 Worker 1 MB 上限，暫時不使用
-    // 'nuxt-vitalizer',
+    'nuxt-vitalizer',
   ],
   css: [
     '/styles/main.sass',
@@ -33,14 +32,6 @@ export default defineNuxtConfig({
   compatibilityDate: '2024-08-08',
   devtools: {
     enabled: false,
-  },
-  content: {
-    // FIX: 由於超過 Worker 1 MB 上限，暫時不使用
-    experimental: {
-      search: {
-        indexed: false,
-      }
-    }
   },
 
   app: {
