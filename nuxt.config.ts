@@ -10,7 +10,7 @@ export default defineNuxtConfig({
     // 會破壞 dark mode 樣式，暫時不使用
     // '@nuxtjs/critters',
     '@nuxtjs/google-fonts',
-    'nuxt-vitalizer',
+    // 'nuxt-vitalizer',
   ],
   css: [
     '/styles/main.sass',
