@@ -7,10 +7,11 @@ export default defineNuxtConfig({
     '@nuxtjs/tailwindcss',
     '@nuxt/image',
     'nuxt-gtag',
-    // 會破壞 dark mode 樣式，暫時不使用
+    // FIX: 會破壞 dark mode 樣式，暫時不使用
     // '@nuxtjs/critters',
     '@nuxtjs/google-fonts',
-    'nuxt-vitalizer',
+    // FIX: 由於超過 Worker 1 MB 上限，暫時不使用
+    // 'nuxt-vitalizer',
   ],
   css: [
     '/styles/main.sass',
