@@ -34,6 +34,13 @@ export default defineNuxtConfig({
   devtools: {
     enabled: false,
   },
+  content: {
+    experimental: {
+      search: {
+        indexed: false,
+      }
+    }
+  },
 
   app: {
     head: {
