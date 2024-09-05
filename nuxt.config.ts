@@ -35,6 +35,7 @@ export default defineNuxtConfig({
     enabled: false,
   },
   content: {
+    // FIX: 由於超過 Worker 1 MB 上限，暫時不使用
     experimental: {
       search: {
         indexed: false,
