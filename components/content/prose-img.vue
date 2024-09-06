@@ -7,7 +7,7 @@
     :format="format"
     quality="80"
     sizes="100px sm:300px md:600px"
-    class="rounded-lg shadow-lg"
+    :class="class"
   />
 </template>
 
@@ -20,6 +20,10 @@ const props = defineProps({
   src: {
     type: String,
     default: ''
+  },
+  class: {
+    type: String,
+    default: 'rounded-lg shadow-lg'
   },
   alt: {
     type: String,
