@@ -4,7 +4,8 @@
       <!-- tag 過濾 -->
       <div class="tag-filter sticky top-[64px] p-4 rounded-lg">
         <p class="mb-4">
-          可以使用 Tag 快速過濾，或使用右上角的 <icon name="material-symbols-light:search" />，精準搜尋文章！(๑•̀ㅂ•́)و✧
+          可以使用 Tag 快速過濾，或使用右上角的
+          <icon name="material-symbols-light:search" />，精準搜尋文章！(๑•̀ㅂ•́)و✧
         </p>
 
         <div class="flex gap-2 mb-3 opacity-70">
@@ -66,34 +67,43 @@
             v-for="content in articles"
             :key="content._path"
             :to="content._path"
-            class="article-link p-4 flex flex-col gap-2 rounded-lg"
+            class="article-link p-4 flex gap-2 rounded-lg"
           >
-            <div
-              v-if="content.date"
-              class="text-xs opacity-50"
-            >
-              {{ content.date }}
-            </div>
-
-            <div class="text-2xl font-bold">
-              {{ content.title }}
-            </div>
-            <div class="text-sm opacity-50">
-              {{ content.description }}
-            </div>
-
-            <div
-              v-if="content.tags"
-              class="flex gap-2"
-            >
+            <div class="flex flex-col flex-1 gap-2">
               <div
-                v-for="tag in content.tags"
-                :key="tag"
-                class="border px-3 py-1 rounded-full bg-gray-100 dark:text-black opacity-80 text-xs"
+                v-if="content.date"
+                class="text-xs opacity-50"
               >
-                {{ tag }}
+                {{ content.date }}
+              </div>
+
+              <div class="text-2xl font-bold">
+                {{ content.title }}
+              </div>
+              <div class="text-sm opacity-50">
+                {{ content.description }}
+              </div>
+
+              <div
+                v-if="content.tags"
+                class="flex gap-2"
+              >
+                <div
+                  v-for="tag in content.tags"
+                  :key="tag"
+                  class="border px-3 py-1 rounded-full bg-gray-100 dark:text-black opacity-80 text-xs"
+                >
+                  {{ tag }}
+                </div>
               </div>
             </div>
+
+            <prose-img
+              v-if="content.image"
+              :src="content.image"
+              width="160"
+              height="160"
+            ></prose-img>
           </nuxt-link>
         </transition-group>
       </div>
@@ -199,6 +209,7 @@ const {
       title: string,
       description: string,
       _path: string,
+      image?: string,
       tags?: string[],
       date?: string,
     }>

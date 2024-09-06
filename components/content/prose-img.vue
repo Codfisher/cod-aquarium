@@ -7,6 +7,7 @@
     :format="format"
     quality="80"
     sizes="100px sm:300px md:600px"
+    class="rounded-lg shadow-lg"
   />
 </template>
 
