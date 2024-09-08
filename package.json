@@ -1,5 +1,5 @@
 {
-  "name": "content-wind-template",
+  "name": "cod-aquarium",
   "private": true,
   "scripts": {
     "dev": "nuxi dev",
@@ -7,7 +7,8 @@
     "build:firebase": "npm run build -- --preset=firebase",
     "generate": "nuxi generate",
     "preview": "nuxi preview",
-    "preview:build": "npm run build && npm run preview"
+    "preview:build": "npm run build && npm run preview",
+    "deploy:firebase": "firebase deploy --project cod-aquarium-240830"
   },
   "devDependencies": {
     "@nuxt-themes/docus": "^1.15.0",
@@ -25,6 +26,7 @@
     "@vueuse/core": "^11.0.0",
     "@vueuse/nuxt": "^11.0.0",
     "dayjs": "^1.11.12",
+    "firebase-functions": "^5.1.1",
     "remeda": "^2.11.0"
   }
 }
