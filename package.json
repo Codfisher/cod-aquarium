@@ -4,6 +4,7 @@
   "scripts": {
     "dev": "nuxi dev",
     "build": "nuxi build",
+    "build:firebase": "npm run build -- --preset=firebase",
     "generate": "nuxi generate",
     "preview": "nuxi preview",
     "preview:build": "npm run build && npm run preview"

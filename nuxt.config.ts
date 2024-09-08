@@ -16,6 +16,9 @@ export default defineNuxtConfig({
     '/styles/main.sass',
   ],
   nitro: {
+    firebase: {
+      gen: 2
+    },
     prerender: {
       ignore: ['/article-overview'],
       crawlLinks: true,
