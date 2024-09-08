@@ -16,9 +16,6 @@ export default defineNuxtConfig({
     '/styles/main.sass',
   ],
   nitro: {
-    replace: {
-      [`functions.https.onRequest`]: `functions.region('asia-east1').https.onRequest`,
-    },
     firebase: {
       gen: 2,
     },
