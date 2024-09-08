@@ -10,11 +10,7 @@
       "rewrites": [
         {
           "source": "**",
-          "function": {
-            "functionId": "server",
-            "region": "asia-east1",
-            "pinTag": true
-          }
+          "function": "server"
         }
       ]
     }
