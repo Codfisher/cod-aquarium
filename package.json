@@ -8,6 +8,7 @@
     "generate": "nuxi generate",
     "preview": "nuxi preview",
     "preview:build": "npm run build && npm run preview",
+    "deploy": "npm run build:firebase && npm run deploy:firebase",
     "deploy:firebase": "firebase deploy --project cod-aquarium-240830"
   },
   "devDependencies": {
