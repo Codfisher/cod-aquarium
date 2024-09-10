@@ -2,7 +2,7 @@
   "name": "cod-aquarium",
   "private": true,
   "scripts": {
-    "dev": "nuxi dev",
+    "dev": "nuxi dev --host",
     "build": "nuxi build",
     "build:firebase": "npm run build -- --preset=firebase",
     "generate": "nuxi generate",
