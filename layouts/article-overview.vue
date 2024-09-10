@@ -79,6 +79,19 @@
               ></prose-img>
 
               <div
+                v-if="content.tags"
+                class="flex flex-wrap items-center justify-center gap-2"
+              >
+                <div
+                  v-for="tag in content.tags"
+                  :key="tag"
+                  class="tag px-3 py-1 rounded-full opacity-90 text-xs "
+                >
+                  {{ tag }}
+                </div>
+              </div>
+
+              <div
                 v-if="content.date"
                 class="text-xs opacity-50"
               >
@@ -90,19 +103,6 @@
               </div>
               <div class="description w-full text-sm opacity-80">
                 {{ content.description }}
-              </div>
-
-              <div
-                v-if="content.tags"
-                class="flex flex-wrap items-center justify-center gap-2"
-              >
-                <div
-                  v-for="tag in content.tags"
-                  :key="tag"
-                  class="tag px-3 py-1 rounded-full opacity-90 text-xs "
-                >
-                  {{ tag }}
-                </div>
               </div>
             </div>
 
