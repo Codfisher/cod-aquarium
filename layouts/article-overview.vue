@@ -3,7 +3,7 @@
     <div class="w-4/5 lg:w-[700px] flex flex-col gap-4">
       <!-- tag 過濾 -->
       <div class="tag-filter sticky top-[64px] p-4 rounded-lg">
-        <p class="mb-4">
+        <p class="mb-4 hidden md:block">
           可以使用 Tag 快速過濾，或使用右上角的
           <icon name="material-symbols-light:search" />，精準搜尋文章！(๑•̀ㅂ•́)و✧
         </p>
@@ -34,7 +34,7 @@
           </badge>
         </div>
 
-        <div class="flex flex-wrap gap-2">
+        <div class="flex flex-wrap gap-2 max-h-[12vh] overflow-auto">
           <badge
             v-for="tag in tagList"
             :key="tag.name"
@@ -69,7 +69,15 @@
             :to="content._path"
             class="article-link p-4 flex gap-2 rounded-lg"
           >
-            <div class="flex flex-col flex-1 gap-2">
+            <div class="flex flex-col items-center md:items-start flex-1 gap-2">
+              <prose-img
+                v-if="content.image"
+                :src="content.image"
+                class="block md:hidden rounded-lg"
+                width="120"
+                height="120"
+              ></prose-img>
+
               <div
                 v-if="content.date"
                 class="text-xs opacity-50"
@@ -77,21 +85,21 @@
                 {{ content.date }}
               </div>
 
-              <div class="text-2xl font-bold">
+              <div class="w-full text-center md:text-left text-xl md:text-2xl font-bold text-pretty">
                 {{ content.title }}
               </div>
-              <div class="text-sm opacity-50">
+              <div class="description w-full text-sm opacity-80">
                 {{ content.description }}
               </div>
 
               <div
                 v-if="content.tags"
-                class="flex gap-2"
+                class="flex flex-wrap items-center justify-center gap-2"
               >
                 <div
                   v-for="tag in content.tags"
                   :key="tag"
-                  class="border px-3 py-1 rounded-full bg-gray-100 dark:text-black opacity-80 text-xs"
+                  class="tag px-3 py-1 rounded-full opacity-90 text-xs "
                 >
                   {{ tag }}
                 </div>
@@ -101,6 +109,7 @@
             <prose-img
               v-if="content.image"
               :src="content.image"
+              class="hidden md:block rounded-lg shadow-lg"
               width="160"
               height="160"
             ></prose-img>
@@ -194,7 +203,7 @@ const {
     if (data.length === 0) {
       return [
         {
-          title: '沒有符合條件的文章。( ´•̥̥̥ ω •̥̥̥` )',
+          title: '找不到文章 ( ´•̥̥̥ ω •̥̥̥` )',
           description: '請嘗試其他標籤',
           _path: '',
         }
@@ -245,12 +254,23 @@ function handleBeforeLeave(el: Element) {
 .tag-filter
   z-index: 1
   backdrop-filter: blur(10px)
-  background: light-dark(rgba(#FEFEFE, 0.8), rgba(#333, 0.8))
+  background: light-dark(rgba(#FFF, 0.8), rgba(#333, 0.8))
+  border-width: 1px
+  border-color: light-dark(#F0F0F0, #000)
 
 .tag-chip 
   opacity: 0.4
 .badge-active 
   opacity: 1
+
+.description
+  white-space: unset
+  text-wrap: pretty
+.tag
+  background: light-dark(#AAA, #FFF)
+  color: light-dark(#FFF, #000)
+  letter-spacing: 0.6px
+
 
 .link-container
   will-change: height
