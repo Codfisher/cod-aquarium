@@ -79,6 +79,17 @@
               ></prose-img>
 
               <div
+                v-if="content.date"
+                class="text-xs opacity-50"
+              >
+                {{ content.date }}
+              </div>
+
+              <div class="w-full text-center md:text-left text-xl md:text-2xl font-bold text-pretty">
+                {{ content.title }}
+              </div>
+
+              <div
                 v-if="content.tags"
                 class="flex flex-wrap items-center justify-center gap-2"
               >
@@ -91,16 +102,6 @@
                 </div>
               </div>
 
-              <div
-                v-if="content.date"
-                class="text-xs opacity-50"
-              >
-                {{ content.date }}
-              </div>
-
-              <div class="w-full text-center md:text-left text-xl md:text-2xl font-bold text-pretty">
-                {{ content.title }}
-              </div>
               <div class="description w-full text-sm opacity-80">
                 {{ content.description }}
               </div>
