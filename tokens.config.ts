@@ -26,6 +26,9 @@ export default defineTheme({
       border: {
         distance: '0px',
       }
-    }
+    },
+    p: {
+      lineHeight: '1.8',
+    },
   },
 })

@@ -77,6 +77,8 @@ export default defineNuxtConfig({
     }
   },
   googleFonts: {
+    download: false,
+    preload: true,
     families: {
       'Noto+Sans+TC': '100..900',
     }
