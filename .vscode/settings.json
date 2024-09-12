@@ -3,20 +3,27 @@
     "animejs",
     "callout",
     "codlin",
+    "Codrops",
+    "Directus",
     "dont",
+    "Firestore",
+    "GSAP",
     "ithome",
     "nuxi",
     "nuxt",
     "nuxtjs",
+    "Photoshop",
     "Pinia",
     "prerender",
     "Radash",
     "Remeda",
     "sourcemaps",
+    "Strapi",
     "tailwindcss",
     "TTFB",
     "vueuse",
-    "webp"
+    "webp",
+    "Zeabur"
   ],
   "html.format.wrapAttributes": "force-expand-multiline"
 }
