@@ -81,7 +81,8 @@ export default defineNuxtConfig({
     preload: true,
     families: {
       'Noto+Sans+TC': '100..900',
-    }
+    },
+    display: 'swap',
   },
   gtag: {
     enabled: import.meta.env.PROD,
