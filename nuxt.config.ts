@@ -77,12 +77,15 @@ export default defineNuxtConfig({
     }
   },
   googleFonts: {
-    download: false,
-    preload: true,
+    display: 'swap',
+    prefetch: false,
+    preconnect: false,
+    preload: false,
+    download: true,
+    base64: false,
     families: {
       'Noto+Sans+TC': '100..900',
     },
-    display: 'swap',
   },
   gtag: {
     enabled: import.meta.env.PROD,
