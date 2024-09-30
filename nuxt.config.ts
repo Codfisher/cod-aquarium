@@ -16,6 +16,12 @@ export default defineNuxtConfig({
     '/styles/main.sass',
   ],
   nitro: {
+    firebase: {
+      gen: 2,
+      httpsOptions: {
+        maxInstances: 3,
+      },
+    },
     prerender: {
       ignore: ['/article-overview'],
       crawlLinks: true,
@@ -71,9 +77,15 @@ export default defineNuxtConfig({
     }
   },
   googleFonts: {
+    display: 'swap',
+    prefetch: false,
+    preconnect: false,
+    preload: false,
+    download: true,
+    base64: false,
     families: {
       'Noto+Sans+TC': '100..900',
-    }
+    },
   },
   gtag: {
     enabled: import.meta.env.PROD,

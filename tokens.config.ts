@@ -21,4 +21,14 @@ export default defineTheme({
     },
   },
   letterSpacing: '0.01em',
+  prose: {
+    a: {
+      border: {
+        distance: '0px',
+      }
+    },
+    p: {
+      lineHeight: '1.8',
+    },
+  },
 })
