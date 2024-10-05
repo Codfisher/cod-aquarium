@@ -1,19 +1,24 @@
 <template>
-  <nuxt-img
-    :src="refinedSrc"
-    :alt="alt"
-    :width="width"
-    :height="height"
-    :format="format"
-    quality="80"
-    sizes="100px sm:300px md:600px"
+  <div
+    class="custom-img"
     :class="class"
-  />
+  >
+    <nuxt-img
+      :src="refinedSrc"
+      :alt="alt"
+      :width="width"
+      :height="height"
+      :format="format"
+      quality="80"
+      sizes="100px sm:300px md:600px"
+      :class="class"
+    ></nuxt-img>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { withTrailingSlash, withLeadingSlash, joinURL } from 'ufo'
-import { useRuntimeConfig, computed, resolveComponent } from '#imports'
+import { useRuntimeConfig, computed } from '#imports'
 
 
 const props = defineProps({
@@ -23,7 +28,7 @@ const props = defineProps({
   },
   class: {
     type: String,
-    default: 'rounded-lg shadow-lg'
+    default: 'rounded-lg'
   },
   alt: {
     type: String,
@@ -52,4 +57,35 @@ const refinedSrc = computed(() => {
   }
   return props.src
 })
+
+const backgroundImage = computed(
+  () => `url(${props.src})`
+)
 </script>
+
+<style lang="sass">
+.custom-img
+  display: flex
+  align-items: center
+  position: relative
+  background-image: v-bind('backgroundImage')
+  background-size: 100% 100%
+  z-index: 0
+  &::after
+    content: ''
+    position: absolute
+    top: 0
+    left: 0
+    width: 100%
+    height: 100%
+    background: inherit
+    filter: blur(20px) brightness(1)
+    opacity: 0.6
+    transition-duration: 0.4s
+    z-index: -1
+
+  &:hover
+    &::after
+      filter: blur(30px) brightness(1.2)
+      opacity: 1
+</style>

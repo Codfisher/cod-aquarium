@@ -69,7 +69,7 @@
               v-for="content in articles"
               :key="content._path"
               :to="content._path"
-              class="article-link p-4 flex gap-2 rounded-lg"
+              class="article-link p-4 flex items-center gap-2 rounded-lg"
             >
               <div class="flex flex-col items-center md:items-start flex-1 gap-2">
                 <prose-img
@@ -112,7 +112,7 @@
               <prose-img
                 v-if="content.image"
                 :src="content.image"
-                class="hidden md:block rounded-lg shadow-lg"
+                class="hidden md:block rounded-lg shadow-sm"
                 width="160"
                 height="160"
               ></prose-img>
