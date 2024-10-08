@@ -1,11 +1,12 @@
 <template>
   <div class=" flex flex-col items-center py-10">
-    <div class="w-4/5 lg:w-[700px] flex flex-col gap-4">
+    <div class="w-4/5 flex flex-col lg:flex-row justify-center items-start gap-4">
       <!-- tag 過濾 -->
-      <div class="tag-filter sticky top-[64px] p-4 rounded-lg">
+      <div class="tag-filter lg:w-[500px] sticky top-[64px] p-4 rounded-lg">
         <p class="mb-4 hidden md:block">
           可以使用 Tag 快速過濾，或使用右上角的
-          <icon name="material-symbols-light:search" />，精準搜尋文章！(๑•̀ㅂ•́)و✧
+          <icon name="material-symbols-light:search" />，精準搜尋文章！
+          <span class=" text-nowrap">(๑•̀ㅂ•́)و✧</span>
         </p>
 
         <div class="flex gap-2 mb-3 opacity-70">
@@ -34,7 +35,7 @@
           </badge>
         </div>
 
-        <div class="flex flex-wrap gap-2 max-h-[12vh] overflow-auto">
+        <div class="flex flex-wrap gap-2 max-h-[12vh] lg:max-h-none overflow-auto">
           <badge
             v-for="tag in tagList"
             :key="tag.name"
@@ -47,75 +48,79 @@
         </div>
       </div>
 
-      <h1 class="text-4xl font-bold mt-6 p-4">
-        文章列表
-      </h1>
+      <div class="lg:w-[700px] flex flex-col gap-4">
+        <h1 class="text-4xl font-bold mt-6 p-4">
+          文章列表
+        </h1>
 
-      <div
-        class="link-container"
-        :style="linkContainerStyle"
-      >
-        <!-- 文章列表 -->
-        <transition-group
-          ref="linkListRef"
-          name="list"
-          tag="div"
-          class="flex flex-col gap-4"
-          @before-leave="handleBeforeLeave"
+        <div
+          class="link-container"
+          :style="linkContainerStyle"
         >
-          <nuxt-link
-            v-for="content in articles"
-            :key="content._path"
-            :to="content._path"
-            class="article-link p-4 flex gap-2 rounded-lg"
+          <!-- 文章列表 -->
+          <transition-group
+            ref="linkListRef"
+            name="list"
+            tag="div"
+            class="flex flex-col gap-4"
+            @before-leave="handleBeforeLeave"
           >
-            <div class="flex flex-col items-center md:items-start flex-1 gap-2">
-              <prose-img
-                v-if="content.image"
-                :src="content.image"
-                class="block md:hidden rounded-lg"
-                width="120"
-                height="120"
-              ></prose-img>
+            <nuxt-link
+              v-for="content in articles"
+              :key="content._path"
+              :to="content._path"
+              class="article-link p-4 flex items-center gap-2 rounded-lg"
+            >
+              <div class="flex flex-col items-center md:items-start flex-1 gap-2">
+                <prose-img
+                  v-if="content.image"
+                  :src="content.image"
+                  class="block md:hidden rounded-lg"
+                  width="120"
+                  height="120"
+                  backlight
+                ></prose-img>
 
-              <div
-                v-if="content.date"
-                class="text-xs opacity-50"
-              >
-                {{ content.date }}
-              </div>
-
-              <div class="w-full text-center md:text-left text-xl md:text-2xl font-bold text-pretty">
-                {{ content.title }}
-              </div>
-
-              <div
-                v-if="content.tags"
-                class="flex flex-wrap items-center justify-center gap-2"
-              >
                 <div
-                  v-for="tag in content.tags"
-                  :key="tag"
-                  class="tag px-3 py-1 rounded-full opacity-90 text-xs "
+                  v-if="content.date"
+                  class="text-xs opacity-50"
                 >
-                  {{ tag }}
+                  {{ content.date }}
+                </div>
+
+                <div class="w-full text-center md:text-left text-xl md:text-2xl font-bold text-pretty">
+                  {{ content.title }}
+                </div>
+
+                <div
+                  v-if="content.tags"
+                  class="flex flex-wrap items-center justify-center gap-2"
+                >
+                  <div
+                    v-for="tag in content.tags"
+                    :key="tag"
+                    class="tag px-3 py-1 rounded-full opacity-90 text-xs "
+                  >
+                    {{ tag }}
+                  </div>
+                </div>
+
+                <div class="description w-full text-sm opacity-80">
+                  {{ content.description }}
                 </div>
               </div>
 
-              <div class="description w-full text-sm opacity-80">
-                {{ content.description }}
-              </div>
-            </div>
-
-            <prose-img
-              v-if="content.image"
-              :src="content.image"
-              class="hidden md:block rounded-lg shadow-lg"
-              width="160"
-              height="160"
-            ></prose-img>
-          </nuxt-link>
-        </transition-group>
+              <prose-img
+                v-if="content.image"
+                :src="content.image"
+                class="hidden md:block rounded-lg shadow-sm"
+                width="160"
+                height="160"
+                backlight
+              ></prose-img>
+            </nuxt-link>
+          </transition-group>
+        </div>
       </div>
     </div>
   </div>
