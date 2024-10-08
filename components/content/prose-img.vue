@@ -46,6 +46,10 @@ const props = defineProps({
     type: String,
     default: 'webp'
   },
+  backlight: {
+    type: Boolean,
+    default: false
+  },
 })
 
 const refinedSrc = computed(() => {
@@ -59,7 +63,7 @@ const refinedSrc = computed(() => {
 })
 
 const backgroundImage = computed(
-  () => `url(${props.src})`
+  () => props.backlight ? `url(${props.src})` : '',
 )
 </script>
 
