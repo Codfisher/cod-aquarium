@@ -78,6 +78,7 @@
                   class="block md:hidden rounded-lg"
                   width="120"
                   height="120"
+                  backlight
                 ></prose-img>
 
                 <div
@@ -115,6 +116,7 @@
                 class="hidden md:block rounded-lg shadow-sm"
                 width="160"
                 height="160"
+                backlight
               ></prose-img>
             </nuxt-link>
           </transition-group>
