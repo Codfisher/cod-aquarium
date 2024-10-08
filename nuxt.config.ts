@@ -14,6 +14,7 @@ export default defineNuxtConfig({
   ],
   css: [
     '/styles/main.sass',
+    '/styles/animation.sass',
   ],
   nitro: {
     firebase: {
@@ -74,7 +75,8 @@ export default defineNuxtConfig({
           href: '/favicon-16x16.png',
         },
       ],
-    }
+    },
+    pageTransition: { name: 'page', mode: 'out-in' }
   },
   googleFonts: {
     display: 'swap',
