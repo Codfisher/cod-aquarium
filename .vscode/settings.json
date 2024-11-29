@@ -11,6 +11,7 @@
     "dont",
     "Firestore",
     "GSAP",
+    "gtag",
     "ithome",
     "nuxi",
     "nuxt",
@@ -28,6 +29,7 @@
     "tailwindcss",
     "TTFB",
     "typeof",
+    "vitepress",
     "vueuse",
     "webp",
     "Zeabur"

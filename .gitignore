@@ -18,3 +18,5 @@ dist
 .data
 
 .firebase
+
+.vitepress/cache

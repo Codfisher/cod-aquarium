@@ -3,7 +3,7 @@ const title = '鱈魚的魚缸'
 export default defineAppConfig({
   docus: {
     title,
-    description: '各種鱈魚滾鍵盤的雜記',
+    description: '各種鱈魚滾鍵盤的雜記與研究',
     image: '/cover.webp',
     header: {
       title,

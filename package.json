@@ -2,11 +2,9 @@
   "name": "cod-aquarium",
   "private": true,
   "scripts": {
-    "dev": "nuxi dev --host",
-    "build": "nuxi build",
-    "build:firebase": "npm run build -- --preset=firebase",
-    "generate": "nuxi generate",
-    "preview": "nuxi preview",
+    "dev": "vitepress dev",
+    "build": "vitepress build",
+    "preview": "vitepress preview",
     "preview:build": "npm run build && npm run preview",
     "deploy": "npm run build:firebase && npm run deploy:firebase",
     "deploy:firebase": "firebase deploy --project cod-aquarium-240830"
@@ -21,7 +19,8 @@
     "nuxt-gtag": "^3.0.1",
     "nuxt-vitalizer": "^0.10.0",
     "sass": "^1.77.8",
-    "sitemap": "^8.0.0"
+    "sitemap": "^8.0.0",
+    "vitepress": "^1.5.0"
   },
   "dependencies": {
     "@vueuse/core": "^11.1.0",
