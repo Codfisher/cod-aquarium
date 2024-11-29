@@ -4,11 +4,6 @@ description:
 tags: ['']
 image: https://codlin.me/img.webp
 date: 202
-
-head:
-  meta:
-    - name: 'keywords'
-      content: 'cod, lin'
 ---
 
 # 標題

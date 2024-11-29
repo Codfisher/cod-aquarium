@@ -5,19 +5,20 @@ export default defineConfig({
   title: "鱈魚的魚缸",
   description: "各種鱈魚滾鍵盤的雜記與研究",
   srcDir: 'content',
+  assetsDir: 'public',
+  ignoreDeadLinks: true,
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config
     nav: [
       { text: 'Home', link: '/' },
-      { text: 'Examples', link: '/markdown-examples' }
+      { text: 'Examples', link: '/1.index' }
     ],
 
     sidebar: [
       {
         text: 'Examples',
         items: [
-          { text: 'Markdown Examples', link: '/markdown-examples' },
-          { text: 'Runtime API Examples', link: '/api-examples' }
+          { text: 'Markdown Examples', link: '/1.index' },
         ]
       }
     ],
