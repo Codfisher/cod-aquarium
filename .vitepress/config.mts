@@ -19,6 +19,7 @@ export default defineConfig({
         text: 'Examples',
         items: [
           { text: 'Markdown Examples', link: '/1.index' },
+          { text: 'Vue ref', link: '/blog-vue/240905.vue-3-5-update-on-watcher-cleanup-with-the-forgotten-on-cleanup' },
         ]
       }
     ],
