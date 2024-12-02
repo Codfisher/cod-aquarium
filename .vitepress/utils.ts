@@ -2,6 +2,7 @@ import type { DefaultTheme } from 'vitepress'
 import fs from 'node:fs'
 import path from 'node:path'
 import matter from 'gray-matter'
+import { z } from 'zod'
 
 const PAGES_PATH = path.resolve(__dirname, '../content') // 把 content 設定成根目錄
 
@@ -10,16 +11,25 @@ function isDirectory(path: string) {
   return fs.lstatSync(path).isDirectory()
 }
 
+const docFrontMatterSchema = z.object({
+  title: z.string(),
+  description: z.string(),
+  tags: z.array(z.string()),
+  image: z.string().url(),
+  date: z.coerce.number(),
+})
+
 // 取得 FrontMatter
 function getFrontMatter(filePath: string) {
   const content = fs.readFileSync(filePath, 'utf-8')
-  const { data } = matter(content)
+  const result = matter(content)
 
+  const data = docFrontMatterSchema.parse(result.data)
   return data || null
 }
 
-function getList(params: string[], absolutePath: string, startPath: string): DefaultTheme.SidebarItem[] {
-  const res: DefaultTheme.Sidebar = []
+function getList(params: string[], absolutePath: string, startPath: string) {
+  const res: Array<DefaultTheme.SidebarItem & { date?: number }> = []
 
   for (const file of params) {
     const dir = path.join(absolutePath, file) // 組合路徑
@@ -48,13 +58,16 @@ function getList(params: string[], absolutePath: string, startPath: string): Def
     res.push({
       text: frontmatter.title as string || fileName.replace('.md', ''),
       link: `${startPath}/${fileName.replace('.md', '')}`,
+      date: frontmatter.date,
     })
   }
+
+  res.sort((a, b) => (b.date ?? 0) - (a.date ?? 0))
 
   return res
 }
 
-export async function getSidebar(
+export function getSidebar(
   startPath: string,
   text: string,
 ) {

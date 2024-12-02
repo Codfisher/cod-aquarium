@@ -3,8 +3,8 @@ import { getSidebar } from './utils'
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
-  title: "鱈魚的魚缸",
-  description: "各種鱈魚滾鍵盤的雜記與研究",
+  title: '鱈魚的魚缸',
+  description: '各種鱈魚滾鍵盤的雜記與研究',
   srcDir: 'content',
   assetsDir: 'public',
   ignoreDeadLinks: true,
@@ -43,7 +43,7 @@ export default defineConfig({
     },
     nav: [
       { text: '首頁', link: '/' },
-      { text: '蔚藍世界', link: '/1.index' }
+      { text: '蔚藍世界', link: '/1.index' },
     ],
 
     sidebar: {
@@ -53,17 +53,17 @@ export default defineConfig({
           items: [
             {
               text: '蔚藍世界',
-              link: '/blog-ocean-world/240628.unleash-the-magic-of-type-script-with-ts-rest'
+              link: '/blog-ocean-world/240628.unleash-the-magic-of-type-script-with-ts-rest',
             },
             {
               text: '程式浮潛',
-              link: '/blog-program/240324.remeda-pipe'
+              link: '/blog-program/240324.remeda-pipe',
             },
             {
               text: 'Vue',
-              link: '/blog-vue/240410.do-not-always-fetch-api-in-on-mounted'
+              link: '/blog-vue/240410.do-not-always-fetch-api-in-on-mounted',
             },
-          ]
+          ],
         },
         {
           text: '專欄',
@@ -71,12 +71,12 @@ export default defineConfig({
             {
               text: '要不要 Vue 點酷酷的元件',
             },
-          ]
-        }
+          ],
+        },
       ],
-      ...(await getSidebar('/blog-ocean-world/', '蔚藍世界')),
-      ...(await getSidebar('/blog-program/', '程式浮潛')),
-      ...(await getSidebar('/blog-vue/', 'Vue')),
+      ...getSidebar('/blog-ocean-world/', '蔚藍世界'),
+      ...getSidebar('/blog-program/', '程式浮潛'),
+      ...getSidebar('/blog-vue/', 'Vue'),
     },
 
     socialLinks: [
@@ -85,7 +85,7 @@ export default defineConfig({
       { icon: 'linkedin', link: 'https://www.linkedin.com/in/shih-chen-lin-codfish/' },
     ],
     search: {
-      provider: 'local'
-    }
-  }
+      provider: 'local',
+    },
+  },
 })
