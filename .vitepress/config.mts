@@ -45,6 +45,7 @@ export default defineConfig({
       { text: '首頁', link: '/' },
       { text: '蔚藍世界', link: '/1.index' },
     ],
+    logo: '/favicon.ico',
 
     sidebar: {
       '/': [
