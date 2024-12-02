@@ -27,6 +27,7 @@
     "@vueuse/nuxt": "^11.1.0",
     "dayjs": "^1.11.12",
     "firebase-functions": "^6.0.1",
+    "gray-matter": "^4.0.3",
     "remeda": "^2.15.0"
   }
 }
