@@ -1,7 +1,6 @@
 ---
 title: 首頁
 description: 各種鱈魚滾鍵盤的雜記與其他酷酷的東西 (´,,•ω•,,)
-icon: ph:fish-simple-bold
 image: https://codlin.me/cover.webp
 ---
 

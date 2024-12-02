@@ -2,6 +2,7 @@ import type { DefaultTheme } from 'vitepress'
 import fs from 'node:fs'
 import path from 'node:path'
 import matter from 'gray-matter'
+import { first, map, pipe, sort } from 'remeda'
 import { z } from 'zod'
 
 const PAGES_PATH = path.resolve(__dirname, '../content') // 把 content 設定成根目錄
@@ -83,4 +84,22 @@ export function getSidebar(
   }
 
   return result
+}
+
+/** 取得目標目錄中最新的文章 */
+export function getLatestDocPath(
+  docPath: string,
+) {
+  const target = pipe(
+    path.join(PAGES_PATH, docPath),
+    (value) => fs.readdirSync(value),
+    map((value) => path.basename(value)),
+    sort((a, b) => b.localeCompare(a)),
+    first(),
+  )
+  if (!target) {
+    throw new Error('目錄沒有任何檔案')
+  }
+
+  return `${docPath}/${target.replace('.md', '')}`
 }

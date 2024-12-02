@@ -1,5 +1,5 @@
 import { defineConfig } from 'vitepress'
-import { getSidebar } from './utils'
+import { getLatestDocPath, getSidebar } from './utils'
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
@@ -8,25 +8,6 @@ export default defineConfig({
   srcDir: 'content',
   assetsDir: 'public',
   ignoreDeadLinks: true,
-  // rewrites(id) {
-  //   const paths = id.split('/')
-  //   const filename = paths.pop()
-
-  //   if (filename) {
-  //     // 去除檔名日期部分。檔名固定為 YYMMDD.filename.md
-  //     const list = filename.split('.')
-  //     if (list.length === 3) {
-  //       const [_, name, extension] = list
-
-  //       return [
-  //         ...paths,
-  //         name
-  //       ].join('/')
-  //     }
-  //   }
-
-  //   return id
-  // },
   lang: 'zh-hant',
   head: [
     ['link', { rel: 'preconnect', href: 'https://fonts.googleapis.com' }],
@@ -34,10 +15,37 @@ export default defineConfig({
     ['link', { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@100..900&display=swap' }],
     ['link', { rel: 'icon', href: '/favicon.webp' }],
   ],
+  sitemap: {
+    hostname: 'https://codlin.me',
+  },
+  transformPageData(pageData) {
+    pageData.frontmatter.head ??= []
+
+    if (pageData?.frontmatter?.description) {
+      pageData.frontmatter.head.push(['meta', {
+        property: 'og:description',
+        content: pageData?.frontmatter?.description ?? '',
+      }])
+    }
+
+    if (pageData?.frontmatter?.image) {
+      pageData.frontmatter.head.push(['meta', {
+        property: 'og:image',
+        content: pageData?.frontmatter?.image ?? '',
+      }])
+    }
+  },
 
   lastUpdated: true,
 
   themeConfig: {
+    footer: {
+      copyright: 'Copyright © 2024-present <a href="https://gitlab.com/codfish2140">Codfish</a>',
+    },
+    outline: {
+      label: '目錄',
+      level: 'deep',
+    },
     lastUpdated: {
       text: '最後更新時間',
     },
@@ -54,15 +62,15 @@ export default defineConfig({
           items: [
             {
               text: '蔚藍世界',
-              link: '/blog-ocean-world/240628.unleash-the-magic-of-type-script-with-ts-rest',
+              link: getLatestDocPath('/blog-ocean-world/'),
             },
             {
               text: '程式浮潛',
-              link: '/blog-program/240324.remeda-pipe',
+              link: getLatestDocPath('/blog-program/'),
             },
             {
               text: 'Vue',
-              link: '/blog-vue/240410.do-not-always-fetch-api-in-on-mounted',
+              link: getLatestDocPath('/blog-vue/'),
             },
           ],
         },
