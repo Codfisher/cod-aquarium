@@ -141,6 +141,7 @@
 
 img {
   border-radius: 1rem;
+  border: solid 1px #F0F0F0;
 }
 
 .vp-doc p {
