@@ -9,25 +9,19 @@
     "deploy": "npm run build:firebase && npm run deploy:firebase",
     "deploy:firebase": "firebase deploy --project cod-aquarium-240830"
   },
-  "devDependencies": {
-    "@nuxt-themes/docus": "^1.15.0",
-    "@nuxt/image": "^1.7.0",
-    "@nuxtjs/critters": "^0.7.2",
-    "@nuxtjs/google-fonts": "^3.2.0",
-    "@nuxtjs/tailwindcss": "^6.12.1",
-    "nuxt": "^3.13.2",
-    "nuxt-gtag": "^3.0.1",
-    "nuxt-vitalizer": "^0.10.0",
-    "sass": "^1.77.8",
-    "sitemap": "^8.0.0",
-    "vitepress": "^1.5.0"
-  },
   "dependencies": {
     "@vueuse/core": "^11.1.0",
-    "@vueuse/nuxt": "^11.1.0",
     "dayjs": "^1.11.12",
-    "firebase-functions": "^6.0.1",
     "gray-matter": "^4.0.3",
     "remeda": "^2.15.0"
+  },
+  "devDependencies": {
+    "@antfu/eslint-config": "^3.11.2",
+    "@typescript-eslint/eslint-plugin": "^8.16.0",
+    "@typescript-eslint/parser": "^8.16.0",
+    "eslint": "^9.16.0",
+    "eslint-plugin-vue": "^9.32.0",
+    "sass": "^1.77.8",
+    "vitepress": "^1.5.0"
   }
 }

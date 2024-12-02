@@ -34,5 +34,14 @@
     "webp",
     "Zeabur"
   ],
-  "html.format.wrapAttributes": "force-expand-multiline"
+  "html.format.wrapAttributes": "force-expand-multiline",
+  "editor.tabSize": 2,
+  "editor.formatOnSave": false,
+  "editor.codeActionsOnSave": {
+    "source.fixAll": "explicit"
+  },
+  "tailwindCSS.experimental.classRegex": [
+    "class=\"([^\"]+)\""
+  ],
+  "tailwindCSS.emmetCompletions": true
 }
