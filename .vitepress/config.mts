@@ -37,6 +37,9 @@ export default defineConfig({
   },
 
   lastUpdated: true,
+  markdown: {
+    lineNumbers: true,
+  },
 
   themeConfig: {
     footer: {

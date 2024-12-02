@@ -3,6 +3,7 @@ import DefaultTheme from 'vitepress/theme'
 // https://vitepress.dev/guide/custom-theme
 import { h } from 'vue'
 import './style.css'
+import './tailwind.css'
 
 export default {
   extends: DefaultTheme,
