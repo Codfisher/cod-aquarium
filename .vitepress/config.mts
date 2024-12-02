@@ -50,18 +50,19 @@ export default defineConfig({
       level: 'deep',
     },
     lastUpdated: {
-      text: '最後更新時間',
+      text: '更新於',
     },
     nav: [
-      { text: '首頁', link: '/' },
-      { text: '蔚藍世界', link: '/1.index' },
+      { text: '蔚藍世界', link: getLatestDocPath('/blog-ocean-world/') },
+      { text: '程式浮潛', link: getLatestDocPath('/blog-program/') },
+      { text: 'Vue', link: getLatestDocPath('/blog-vue/') },
     ],
     logo: '/favicon.ico',
 
     sidebar: {
       '/': [
         {
-          text: '主題',
+          text: '主分類',
           items: [
             {
               text: '蔚藍世界',
@@ -77,14 +78,14 @@ export default defineConfig({
             },
           ],
         },
-        {
-          text: '專欄',
-          items: [
-            {
-              text: '要不要 Vue 點酷酷的元件',
-            },
-          ],
-        },
+        // {
+        //   text: '專欄',
+        //   items: [
+        //     {
+        //       text: '要不要 Vue 點酷酷的元件',
+        //     },
+        //   ],
+        // },
       ],
       ...getSidebar('/blog-ocean-world/', '蔚藍世界'),
       ...getSidebar('/blog-program/', '程式浮潛'),
