@@ -2,6 +2,11 @@
 title: 首頁
 description: 各種鱈魚滾鍵盤的雜記與其他酷酷的東西 (´,,•ω•,,)
 image: https://codlin.me/cover.webp
+sidebar: false
+lastUpdated: false
+prev: false
+next: false
+aside: false
 ---
 
 # 歡迎來到鱈魚的魚缸

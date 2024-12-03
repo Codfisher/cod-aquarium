@@ -28,6 +28,23 @@ export default defineConfig({
   sitemap: {
     hostname: 'https://codlin.me',
   },
+  transformHead() {
+    return [
+      [
+        'script',
+        { async: '', src: 'https://www.googletagmanager.com/gtag/js?id=G-WL47JJHL0R' },
+        '',
+      ],
+      [
+        'script',
+        {},
+        `window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-WL47JJHL0R');`,
+      ],
+    ]
+  },
   transformPageData(pageData) {
     pageData.frontmatter.head ??= []
 
@@ -54,7 +71,7 @@ export default defineConfig({
   themeConfig: {
     articleList: getArticleList(),
     footer: {
-      copyright: 'Copyright © 2024-present <a href="https://gitlab.com/codfish2140">Codfish</a>',
+      copyright: 'Copyright © 2024-present <a href="mailto:hi@codlin.me">Cod Lin</a>',
     },
     outline: {
       label: '目錄',
@@ -79,15 +96,6 @@ export default defineConfig({
 
     sidebar: {
       '/': [
-        {
-          text: '',
-          items: [
-            {
-              text: '文章總攬',
-              link: '/article-overview',
-            },
-          ],
-        },
         {
           text: '主題',
           items: [

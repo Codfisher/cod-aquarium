@@ -61,7 +61,7 @@
               :key="article.link"
               role="link"
               class="article-link flex items-center gap-2 rounded-sm"
-              @click="to(article)"
+              @click="to(article.link)"
             >
               <div class="flex flex-col items-center md:items-start flex-1 gap-2">
                 <img
@@ -127,8 +127,8 @@
 
 <script setup lang="ts">
 import type { Config } from '../.vitepress/config.mts'
-import type { Article } from '../.vitepress/utils'
 import { useElementSize } from '@vueuse/core'
+import dayjs from 'dayjs'
 import { filter, flatMap, map, pipe, unique } from 'remeda'
 import { useData, useRouter } from 'vitepress'
 import { computed, ref } from 'vue'
@@ -138,23 +138,12 @@ const { theme } = useData<Config>()
 
 const linkListRef = ref<HTMLElement>()
 const { height: linkListHeight } = useElementSize(linkListRef)
+/** 為了讓容器高度有動畫，不要瞬間長高 */
 const linkContainerStyle = computed(() => ({
   height: `${linkListHeight.value}px`,
 }))
 
 const selectedTags = ref<string[]>([])
-
-function toggleTag(name: string) {
-  const index = selectedTags.value.indexOf(name)
-
-  if (index < 0) {
-    selectedTags.value.push(name)
-  }
-  else {
-    selectedTags.value.splice(index, 1)
-  }
-}
-
 const tagList = computed(() => {
   const result = pipe(
     theme.value.articleList ?? [],
@@ -168,6 +157,17 @@ const tagList = computed(() => {
 
   return result ?? []
 })
+
+function toggleTag(name: string) {
+  const index = selectedTags.value.indexOf(name)
+
+  if (index < 0) {
+    selectedTags.value.push(name)
+  }
+  else {
+    selectedTags.value.splice(index, 1)
+  }
+}
 
 function selectAllTags() {
   selectedTags.value = tagList.value.map(({ name }) => name)
@@ -186,9 +186,16 @@ const articleList = computed(() => pipe(
 
     return article.frontmatter.tags?.some((tag) => selectedTags.value.includes(tag))
   }),
+  map((item) => ({
+    ...item,
+    frontmatter: {
+      ...item.frontmatter,
+      date: dayjs(`${item.frontmatter.date}`, 'YYYYMMDD').format('YYYY/MM/DD'),
+    },
+  })),
 ))
 
-function to({ link }: Article) {
+function to(link: string) {
   router.go(link)
 }
 
