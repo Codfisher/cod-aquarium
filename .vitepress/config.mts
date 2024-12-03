@@ -29,6 +29,7 @@ export default defineConfig({
     hostname: 'https://codlin.me',
   },
   rewrites(id) {
+    // 去除檔名前面的日期
     const result = id.replace(/\d{6}\./, '')
     return result
   },

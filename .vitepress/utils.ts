@@ -60,7 +60,7 @@ function getList(files: string[], absolutePath: string, startPath: string) {
 
     res.push({
       text: frontmatter.title as string || fileName.replace('.md', ''),
-      link: `${startPath}/${fileName.replace('.md', '')}`,
+      link: `${startPath}/${fileName.replace('.md', '')}`.replace(/\d{6}\./, ''),
       frontmatter,
     })
   }
