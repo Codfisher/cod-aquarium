@@ -3,34 +3,34 @@
     <div class="flex flex-col lg:flex-row-reverse  justify-center items-start gap-4 w-full">
       <!-- tag 過濾 -->
       <div class="tag-filter flex-1 sticky top-[5.5rem] p-4 rounded-lg">
-        <p class="mb-4 hidden md:block">
+        <div class="mb-4 hidden md:block">
           可以根據 Tag 快速過濾，或使用「搜尋（Ctrl+K）」，精準找到文章！
           <span class="text-nowrap">(๑•̀ㅂ•́)و✧</span>
-        </p>
+        </div>
 
         <div class="flex gap-2 mb-3 opacity-70">
-          <badge
-            type="gray"
-            class="cursor-pointer"
+          <div
+            role="button"
+            class="cursor-pointer text-sm border p-1 px-4 rounded-full"
             @click="selectAllTags"
           >
             全選
-          </badge>
+          </div>
 
-          <badge
-            type="gray"
-            class="cursor-pointer"
+          <div
+            role="button"
+            class="cursor-pointer text-sm border p-1 px-4 rounded-full"
             @click="clearAllTags"
           >
             清除
-          </badge>
+          </div>
         </div>
 
         <div class="flex flex-wrap gap-2 max-h-[12vh] lg:max-h-none overflow-auto">
           <badge
             v-for="tag in tagList"
             :key="tag.name"
-            class="tag-chip cursor-pointer duration-300"
+            class="tag-chip cursor-pointer duration-300 text-sm py-1 rounded-full"
             :class="{ 'badge-active': tag.selected }"
             @click="toggleTag(tag.name)"
           >
