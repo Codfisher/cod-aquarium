@@ -5,9 +5,7 @@
     "dev": "vitepress dev",
     "build": "vitepress build",
     "preview": "vitepress preview",
-    "preview:build": "npm run build && npm run preview",
-    "deploy": "npm run build:firebase && npm run deploy:firebase",
-    "deploy:firebase": "firebase deploy --project cod-aquarium-240830"
+    "preview:build": "npm run build && npm run preview"
   },
   "devDependencies": {
     "@antfu/eslint-config": "^3.11.2",
