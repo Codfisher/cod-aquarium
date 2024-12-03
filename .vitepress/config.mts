@@ -53,9 +53,16 @@ export default defineConfig({
       text: '更新於',
     },
     nav: [
-      { text: '蔚藍世界', link: getLatestDocPath('/blog-ocean-world/') },
-      { text: '程式浮潛', link: getLatestDocPath('/blog-program/') },
-      { text: 'Vue', link: getLatestDocPath('/blog-vue/') },
+      { text: '文章總攬', link: '/article-overview' },
+      {
+        text: '所有主題',
+        items: [
+          { text: '蔚藍世界', link: getLatestDocPath('/blog-ocean-world/') },
+          { text: '程式浮潛', link: getLatestDocPath('/blog-program/') },
+          { text: 'Vue', link: getLatestDocPath('/blog-vue/') },
+        ],
+      },
+
     ],
     logo: '/favicon.ico',
 
