@@ -53,14 +53,14 @@
             ref="linkListRef"
             name="list"
             tag="div"
-            class="flex flex-col gap-4"
+            class="flex flex-col gap-10"
             @before-leave="handleBeforeLeave"
           >
             <div
               v-for="article in articleList"
               :key="article.link"
               role="link"
-              class="article-link p-4 flex items-center gap-2 rounded-lg"
+              class="article-link flex items-center gap-2 rounded-sm"
               @click="to(article)"
             >
               <div class="flex flex-col items-center md:items-start flex-1 gap-2">
@@ -236,8 +236,10 @@ function handleBeforeLeave(el: Element) {
 .article-link
   cursor: pointer
   transition: all 0.3s ease
+  outline: 2px solid transparent
+  outline-offset: 0.5rem
   &:hover
-    background: light-dark(#f9f9f9, rgba(#333, 0.8))
+    outline: 2px solid rgba(0, 0, 0, 0.05)
 
 .list-move, .list-enter-active, .list-leave-active
   transition: all 0.6s cubic-bezier(0.83, 0, 0.17, 1)
