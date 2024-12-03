@@ -62,7 +62,16 @@ export default defineConfig({
     sidebar: {
       '/': [
         {
-          text: '主分類',
+          text: '',
+          items: [
+            {
+              text: '文章總攬',
+              link: '/article-overview',
+            },
+          ],
+        },
+        {
+          text: '主題',
           items: [
             {
               text: '蔚藍世界',

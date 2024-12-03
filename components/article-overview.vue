@@ -79,7 +79,7 @@
                   width="120"
                   height="120"
                   backlight
-                ></prose-img>
+                />
 
                 <div
                   v-if="content.date"
@@ -117,7 +117,7 @@
                 width="160"
                 height="160"
                 backlight
-              ></prose-img>
+              />
             </nuxt-link>
           </transition-group>
         </div>
@@ -127,132 +127,136 @@
 </template>
 
 <script setup lang="ts">
-import dayjs from 'dayjs';
+import type { Ref } from 'vue'
+import { useAsyncState } from '@vueuse/core'
+import dayjs from 'dayjs'
+import { computed, ref, watch } from 'vue'
 
-const linkListRef = ref<HTMLElement>();
-const { height: linkListHeight } = useElementSize(linkListRef);
+const linkListRef = ref<HTMLElement>()
+const { height: linkListHeight } = useElementSize(linkListRef)
 const linkContainerStyle = computed(() => ({
-  height: `${linkListHeight.value}px`
-}));
+  height: `${linkListHeight.value}px`,
+}))
 
-const selectedTags = ref<string[]>([]);
+const selectedTags = ref<string[]>([])
 watch(selectedTags, () => {
-  refreshArticles();
+  refreshArticles()
 }, { deep: true })
 
 function toggleTag(name: string) {
-  const index = selectedTags.value.indexOf(name);
+  const index = selectedTags.value.indexOf(name)
 
   if (index < 0) {
-    selectedTags.value.push(name);
-  } else {
-    selectedTags.value.splice(index, 1);
+    selectedTags.value.push(name)
+  }
+  else {
+    selectedTags.value.splice(index, 1)
   }
 }
 
 function selectAllTags() {
-  selectedTags.value = tagList.value.map(({ name }) => name);
+  selectedTags.value = tagList.value.map(({ name }) => name)
 }
 function clearAllTags() {
-  selectedTags.value = [];
+  selectedTags.value = []
 }
 
 const {
   data: tags,
   refresh: refreshTags,
-} = await useAsyncData('tags',
-  async () => {
-    const result = new Set<string>();
+} = await useAsyncState('tags', async () => {
+  const result = new Set<string>()
 
-    const data: Array<{ tags: string[] }> = await queryContent()
-      .only(['tags'])
-      .find()
+  const data: Array<{ tags: string[] }> = await queryContent()
+    .only(['tags'])
+    .find()
 
-    data
-      .flatMap(({ tags }) => tags)
-      .forEach((tag) => {
-        if (!tag) return;
-        result.add(tag);
-      });
+  data
+    .flatMap(({ tags }) => tags)
+    .forEach((tag) => {
+      if (!tag)
+        return
+      result.add(tag)
+    })
 
-    return [...result];
-  },
-  {
-    immediate: false,
-  },
-)
+  return [...result]
+}, {
+  immediate: false,
+})
 
 const tagList = computed(() => {
   return tags.value?.map((name) => {
-    const selected = selectedTags.value.indexOf(name) >= 0;
+    const selected = selectedTags.value.includes(name)
 
     return { name, selected }
-  }) ?? [];
-});
+  }) ?? []
+})
 
 const {
   data: articles,
   refresh: refreshArticles,
-} = await useAsyncData('articles',
-  async () => {
-    const data = await queryContent()
-      .where({
-        _path: { $regex: 'blog' },
-        _type: 'markdown',
-        _draft: false,
-        tags: { $in: selectedTags.value },
-      })
-      .without(['body'])
-      .sort({ date: -1 })
-      .find();
+} = await useAsyncState('articles', async () => {
+  const data = await queryContent()
+    .where({
+      _path: { $regex: 'blog' },
+      _type: 'markdown',
+      _draft: false,
+      tags: { $in: selectedTags.value },
+    })
+    .without(['body'])
+    .sort({ date: -1 })
+    .find()
 
-    if (data.length === 0) {
-      return [
-        {
-          title: '找不到文章 ( ´•̥̥̥ ω •̥̥̥` )',
-          description: '請嘗試其他標籤',
-          _path: '',
-        }
-      ]
-    }
+  if (data.length === 0) {
+    return [
+      {
+        title: '找不到文章 ( ´•̥̥̥ ω •̥̥̥` )',
+        description: '請嘗試其他標籤',
+        _path: '',
+      },
+    ]
+  }
 
-    const result = data.map((datum) => {
-      const date = dayjs(`${datum.date}`, 'YYYYMMDD').format('YYYY/MM/DD');
+  const result = data.map((datum) => {
+    const date = dayjs(`${datum.date}`, 'YYYYMMDD').format('YYYY/MM/DD')
 
-      return { ...datum, date }
-    }) as Array<{
-      title: string,
-      description: string,
-      _path: string,
-      image?: string,
-      tags?: string[],
-      date?: string,
-    }>
+    return { ...datum, date }
+  }) as Array<{
+    title: string;
+    description: string;
+    _path: string;
+    image?: string;
+    tags?: string[];
+    date?: string;
+  }>
 
-    return result;
-  },
-  {
-    immediate: false,
-  },
-)
+  return result
+}, {
+  immediate: false,
+})
 
 async function init() {
-  await refreshTags();
-  selectedTags.value = [...tags.value ?? []];
+  await refreshTags()
+  selectedTags.value = [...tags.value ?? []]
 }
-init();
+init()
 
 /** 修正 transition-group 元素離開時動畫異常問題 */
 function handleBeforeLeave(el: Element) {
   const { marginLeft, marginTop, width, height } = window.getComputedStyle(
-    el
-  );
-  if (!(el instanceof HTMLElement)) return;
+    el,
+  )
+  if (!(el instanceof HTMLElement))
+    return
 
-  el.style.left = `${el.offsetLeft - parseFloat(marginLeft)}px`;
-  el.style.top = `${el.offsetTop - parseFloat(marginTop)}px`;
-  el.style.width = width;
-  el.style.height = height;
+  el.style.left = `${el.offsetLeft - Number.parseFloat(marginLeft)}px`
+  el.style.top = `${el.offsetTop - Number.parseFloat(marginTop)}px`
+  el.style.width = width
+  el.style.height = height
+}
+
+function useElementSize(linkListRef: Ref<HTMLElement | undefined, HTMLElement | undefined>): { height: any } {
+  throw new Error('Function not implemented.')
 }
 </script>
 
@@ -264,9 +268,9 @@ function handleBeforeLeave(el: Element) {
   border-width: 1px
   border-color: light-dark(#F0F0F0, #000)
 
-.tag-chip 
+.tag-chip
   opacity: 0.4
-.badge-active 
+.badge-active
   opacity: 1
 
 .description
@@ -276,7 +280,6 @@ function handleBeforeLeave(el: Element) {
   background: light-dark(#AAA, #FFF)
   color: light-dark(#FFF, #000)
   letter-spacing: 0.6px
-
 
 .link-container
   will-change: height
@@ -289,11 +292,11 @@ function handleBeforeLeave(el: Element) {
   &:hover
     background: light-dark(#f9f9f9, rgba(#333, 0.8))
 
-.list-move, .list-enter-active, .list-leave-active 
+.list-move, .list-enter-active, .list-leave-active
   transition: all 0.6s cubic-bezier(0.83, 0, 0.17, 1)
-.list-enter-from, .list-leave-to 
+.list-enter-from, .list-leave-to
   opacity: 0
   transform: scale(0.96)
-.list-leave-active 
+.list-leave-active
   position: absolute
 </style>
