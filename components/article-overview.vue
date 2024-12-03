@@ -1,8 +1,8 @@
 <template>
-  <div class=" flex flex-col items-center">
-    <div class="flex flex-col lg:flex-row-reverse  justify-center items-start gap-4">
+  <div class=" flex flex-col items-center w-full">
+    <div class="flex flex-col lg:flex-row-reverse  justify-center items-start gap-4 w-full">
       <!-- tag 過濾 -->
-      <div class="tag-filter sticky top-[5.5rem] p-4 rounded-lg">
+      <div class="tag-filter flex-1 sticky top-[5.5rem] p-4 rounded-lg">
         <p class="mb-4 hidden md:block">
           可以使用 Tag 快速過濾，或使用「搜尋（Ctrl+K）」，精準找到文章！
           <span class=" text-nowrap">(๑•̀ㅂ•́)و✧</span>
@@ -39,8 +39,8 @@
         </div>
       </div>
 
-      <div class="flex flex-col gap-4">
-        <h1 class="text-4xl font-bold mt-6 p-4">
+      <div class="flex flex-col gap-4 flex-[3]">
+        <h1 class="text-4xl font-bold">
           文章列表
         </h1>
 
@@ -111,6 +111,13 @@
                 backlight
               >
             </div>
+
+            <div
+              v-if="articleList.length === 0"
+              class=" p-4 text-center text-xl opacity-50"
+            >
+              找不到任何文章 Σ(ˊДˋ;)
+            </div>
           </transition-group>
         </div>
       </div>
@@ -122,12 +129,12 @@
 import type { Config } from '../.vitepress/config.mts'
 import type { Article } from '../.vitepress/utils'
 import { useElementSize } from '@vueuse/core'
+import { filter, flatMap, map, pipe, unique } from 'remeda'
 import { useData, useRouter } from 'vitepress'
 import { computed, ref } from 'vue'
 
 const router = useRouter()
 const { theme } = useData<Config>()
-const articleList = theme.value.articleList ?? []
 
 const linkListRef = ref<HTMLElement>()
 const { height: linkListHeight } = useElementSize(linkListRef)
@@ -149,19 +156,37 @@ function toggleTag(name: string) {
 }
 
 const tagList = computed(() => {
-  return [].map((name) => {
-    const selected = selectedTags.value.includes(name)
+  const result = pipe(
+    theme.value.articleList ?? [],
+    flatMap(({ frontmatter }) => frontmatter.tags ?? []),
+    unique(),
+    map((name) => {
+      const selected = selectedTags.value.includes(name)
+      return { name, selected }
+    }),
+  )
 
-    return { name, selected }
-  }) ?? []
+  return result ?? []
 })
 
 function selectAllTags() {
   selectedTags.value = tagList.value.map(({ name }) => name)
 }
+selectAllTags()
+
 function clearAllTags() {
   selectedTags.value = []
 }
+
+const articleList = computed(() => pipe(
+  theme.value.articleList ?? [],
+  filter((article) => {
+    if (selectedTags.value.length === 0)
+      return false
+
+    return article.frontmatter.tags?.some((tag) => selectedTags.value.includes(tag))
+  }),
+))
 
 function to({ link }: Article) {
   router.go(link)
