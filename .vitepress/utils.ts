@@ -2,12 +2,12 @@ import type { DefaultTheme } from 'vitepress'
 import fs from 'node:fs'
 import path from 'node:path'
 import matter from 'gray-matter'
-import { first, map, pipe, sort } from 'remeda'
+import { filter, first, flatMap, map, pipe, sort } from 'remeda'
 import { z } from 'zod'
 
 const PAGES_PATH = path.resolve(__dirname, '../content') // 把 content 設定成根目錄
 
-// 判斷是否是資料夾
+// 是否為資料夾
 function isDirectory(path: string) {
   return fs.lstatSync(path).isDirectory()
 }
@@ -29,10 +29,12 @@ function getFrontMatter(filePath: string) {
   return data || null
 }
 
-function getList(params: string[], absolutePath: string, startPath: string) {
-  const res: Array<DefaultTheme.SidebarItem & { date?: number }> = []
+function getList(files: string[], absolutePath: string, startPath: string) {
+  const res: Array<DefaultTheme.SidebarItem & {
+    frontmatter?: z.infer<typeof docFrontMatterSchema>;
+  }> = []
 
-  for (const file of params) {
+  for (const file of files) {
     const dir = path.join(absolutePath, file) // 組合路徑
     const isDir = isDirectory(dir) // 判斷是否是資料夾
 
@@ -59,11 +61,11 @@ function getList(params: string[], absolutePath: string, startPath: string) {
     res.push({
       text: frontmatter.title as string || fileName.replace('.md', ''),
       link: `${startPath}/${fileName.replace('.md', '')}`,
-      date: frontmatter.date,
+      frontmatter,
     })
   }
 
-  res.sort((a, b) => (b.date ?? 0) - (a.date ?? 0))
+  res.sort((a, b) => (b.frontmatter?.date ?? 0) - (a.frontmatter?.date ?? 0))
 
   return res
 }
@@ -72,9 +74,8 @@ export function getSidebar(
   startPath: string,
   text: string,
 ) {
-  const absolutePath = path.join(PAGES_PATH, startPath) // 轉換出絕對路徑
-
-  const files = fs.readdirSync(absolutePath) // 讀取目錄下的資料夾&文件
+  const absolutePath = path.join(PAGES_PATH, startPath)
+  const files = fs.readdirSync(absolutePath)
 
   const result = {
     [startPath]: [{
@@ -102,4 +103,31 @@ export function getLatestDocPath(
   }
 
   return `${docPath}/${target.replace('.md', '')}`
+}
+
+export interface Article {
+  text: string;
+  link: string;
+  frontmatter: z.infer<typeof docFrontMatterSchema>;
+}
+/** 取得所有文章 */
+export function getArticleList(): Article[] {
+  const result = pipe(
+    fs.readdirSync(PAGES_PATH),
+    filter((value) =>
+      isDirectory(path.join(PAGES_PATH, value))
+      && value.includes('blog'),
+    ),
+    flatMap((dirPath) => {
+      const absolutePath = path.join(PAGES_PATH, dirPath)
+      const files = fs.readdirSync(absolutePath)
+
+      return getList(files, absolutePath, dirPath)
+    }),
+    filter((data): data is Article =>
+      !!data.text && !!data.link && !!data.frontmatter,
+    ),
+  )
+
+  return result
 }

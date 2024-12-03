@@ -1,5 +1,15 @@
+import type { DefaultTheme } from 'vitepress'
+import type { Article } from './utils'
 import { defineConfig } from 'vitepress'
-import { getLatestDocPath, getSidebar } from './utils'
+import {
+  getArticleList,
+  getLatestDocPath,
+  getSidebar,
+} from './utils'
+
+export interface Config extends DefaultTheme.Config {
+  articleList: Article[];
+}
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
@@ -42,6 +52,7 @@ export default defineConfig({
   },
 
   themeConfig: {
+    articleList: getArticleList(),
     footer: {
       copyright: 'Copyright © 2024-present <a href="https://gitlab.com/codfish2140">Codfish</a>',
     },
@@ -116,5 +127,5 @@ export default defineConfig({
     search: {
       provider: 'local',
     },
-  },
+  } as Config,
 })

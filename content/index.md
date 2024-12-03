@@ -20,26 +20,19 @@ image: https://codlin.me/cover.webp
 
 目前有以下主題：
 
-<span role="heading" aria-level="3" class="text-2xl font-medium">
-  <icon name="ph:globe-hemisphere-west-fill"></icon>
-  蔚藍世界
-</span>
+### 蔚藍世界
 
 > 鱈魚眼中的 Real World，記錄各種實務上用到的技術或實現有趣需求的經驗
 
-<span role="heading" aria-level="3" class="text-2xl font-medium ">
-  <icon name="icon-park-solid:diving-suit"></icon>
-  程式浮潛
-</span>
+### 程式浮潛
 
 > 軟體開發雜談。和軟體有關，沒有特別分類文章
 
-<span role="heading" aria-level="3" class="text-2xl font-medium ">
-  <icon name="file-icons:vue"></icon>
-  Vue
-</span>
+### Vue
 
 > 與 Vue 一同打滾的點點滴滴
+
+除了以上主題，還會有特定主題的專欄，敬請期待！ˋ( ° ▽、° )
 
 ## 還有別的嗎？
 
@@ -71,4 +64,4 @@ image: https://codlin.me/cover.webp
 
 還會持續更新，敬請期待！◝(≧∀≦)◟
 
-有任何問題或建議，歡迎在社群私訊我，或寄信給我喔。♪(^∇^*)（<pr>hi@codlin.me</pr>）
+有任何問題或建議，歡迎在社群私訊我，或寄信給我喔。♪(^∇^*)（<hi@codlin.me>）
