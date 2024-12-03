@@ -45,19 +45,13 @@ image: https://codlin.me/cover.webp
 
 當然有喔，以下是我其他作品。(´,,•ω•,,)
 
-<span role="heading" aria-level="3" class="text-2xl font-medium ">
-  <icon name="fluent-emoji-high-contrast:writing-hand"></icon>
-  出版書籍
-</span>
+### 出版書籍
 
 - [Arduino自造趣：結合 JavaScript x Vue x Phaser 輕鬆打造個人遊戲機](https://www.books.com.tw/products/0010942459?sloc=main)
 
 - [甚麼？網頁也可以做派對遊戲？使用 Vue 和 babylon.js 打造 3D 派對遊戲吧！](https://www.books.com.tw/products/0010972621?sloc=main)
 
-<span role="heading" aria-level="3" class="text-2xl font-medium ">
-  <icon name="bi:fire"></icon>
-  鐵人賽
-</span>
+### 鐵人賽
 
 - [你渴望連結嗎？將 Web 與硬體連上線吧！](https://ithelp.ithome.com.tw/users/20140213/ironman/4765)
 
@@ -65,10 +59,7 @@ image: https://codlin.me/cover.webp
 
 - [要不要 Vue 點酷酷的元件？](https://ithelp.ithome.com.tw/users/20140213/ironman/7201)
 
-<span role="heading" aria-level="3" class="text-2xl font-medium ">
-  <icon name="noto-v1:sunglasses"></icon>
-  酷東西
-</span>
+### 酷東西
 
 - [精靈球工作臺](https://side_project.gitlab.io/pokeball-workshop/)
 
