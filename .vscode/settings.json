@@ -1,6 +1,7 @@
 {
   "cSpell.words": [
     "animejs",
+    "antfu",
     "Automa",
     "callout",
     "codlin",
@@ -11,7 +12,9 @@
     "dont",
     "Firestore",
     "GSAP",
+    "gtag",
     "ithome",
+    "nestjs",
     "nuxi",
     "nuxt",
     "nuxtjs",
@@ -27,9 +30,20 @@
     "Strapi",
     "tailwindcss",
     "TTFB",
+    "typeof",
+    "vitepress",
     "vueuse",
     "webp",
     "Zeabur"
   ],
-  "html.format.wrapAttributes": "force-expand-multiline"
+  "html.format.wrapAttributes": "force-expand-multiline",
+  "editor.tabSize": 2,
+  "editor.formatOnSave": false,
+  "editor.codeActionsOnSave": {
+    "source.fixAll": "explicit"
+  },
+  "tailwindCSS.experimental.classRegex": [
+    "class=\"([^\"]+)\""
+  ],
+  "tailwindCSS.emmetCompletions": true
 }
