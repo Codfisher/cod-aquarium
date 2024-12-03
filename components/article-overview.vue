@@ -4,8 +4,8 @@
       <!-- tag 過濾 -->
       <div class="tag-filter flex-1 sticky top-[5.5rem] p-4 rounded-lg">
         <p class="mb-4 hidden md:block">
-          可以使用 Tag 快速過濾，或使用「搜尋（Ctrl+K）」，精準找到文章！
-          <span class=" text-nowrap">(๑•̀ㅂ•́)و✧</span>
+          可以根據 Tag 快速過濾，或使用「搜尋（Ctrl+K）」，精準找到文章！
+          <span class="text-nowrap">(๑•̀ㅂ•́)و✧</span>
         </p>
 
         <div class="flex gap-2 mb-3 opacity-70">
