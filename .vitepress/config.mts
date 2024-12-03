@@ -28,6 +28,10 @@ export default defineConfig({
   sitemap: {
     hostname: 'https://codlin.me',
   },
+  rewrites(id) {
+    const result = id.replace(/\d{6}\./, '')
+    return result
+  },
   transformHead() {
     return [
       [
