@@ -1,176 +1,144 @@
-import type { ContentData, DefaultTheme } from 'vitepress'
-import { filter, find, map, pipe, piped, sort } from 'remeda'
-import { createContentLoader, defineConfig } from 'vitepress'
-import { z } from 'zod'
+import type { DefaultTheme } from 'vitepress'
+import type { Article } from './utils'
+import { defineConfig } from 'vitepress'
 import {
+  getArticleList,
+  getLatestDocPath,
   getSidebar,
 } from './utils'
-
-const docFrontMatterSchema = z.object({
-  title: z.string(),
-  description: z.string(),
-  tags: z.array(z.string()),
-  image: z.string().url(),
-  date: z.coerce.number(),
-})
-
-interface Article extends ContentData {
-  frontmatter: z.infer<typeof docFrontMatterSchema>;
-}
 
 export interface Config extends DefaultTheme.Config {
   articleList: Article[];
 }
 
 // https://vitepress.dev/reference/site-config
-export default async () => {
-  const articles = await createContentLoader('../content/**/*.md', {
-    transform: piped(
-      filter((value) => docFrontMatterSchema.safeParse(value.frontmatter)?.success),
-      map((value) => ({
-        ...value,
-        url: value.url.replace(/\d{6}\./, ''),
-      })),
-      sort((a, b) => (b.frontmatter?.date ?? 0) - (a.frontmatter?.date ?? 0)),
-    ),
-  }).load() as Article[]
+export default defineConfig({
+  title: '鱈魚的魚缸',
+  description: '各種鱈魚滾鍵盤的雜記與研究',
+  srcDir: 'content',
+  assetsDir: 'public',
+  ignoreDeadLinks: true,
+  lang: 'zh-hant',
+  head: [
+    ['link', { rel: 'preconnect', href: 'https://fonts.googleapis.com' }],
+    ['link', { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: 'true' }],
+    ['link', { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@100..900&display=swap' }],
+    ['link', { rel: 'icon', href: '/favicon.webp' }],
+  ],
+  sitemap: {
+    hostname: 'https://codlin.me',
+  },
+  rewrites(id) {
+    // 去除檔名前面的日期
+    const result = id.replace(/\d{6}\./, '')
+    return result
+  },
+  transformHead() {
+    return [
+      [
+        'script',
+        { async: '', src: 'https://www.googletagmanager.com/gtag/js?id=G-WL47JJHL0R' },
+        '',
+      ],
+      [
+        'script',
+        {},
+        `window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-WL47JJHL0R');`,
+      ],
+    ]
+  },
+  transformPageData(pageData) {
+    pageData.frontmatter.head ??= []
 
-  function getLatestDocPath(docPath: string) {
-    return pipe(
-      articles,
-      find((value) => value.url.includes(docPath)),
-      (target) => target?.url,
-    )
-  }
+    if (pageData?.frontmatter?.description) {
+      pageData.frontmatter.head.push(['meta', {
+        property: 'og:description',
+        content: pageData?.frontmatter?.description ?? '',
+      }])
+    }
 
-  return defineConfig({
-    title: '鱈魚的魚缸',
-    description: '各種鱈魚滾鍵盤的雜記與研究',
-    srcDir: 'content',
-    assetsDir: 'public',
-    ignoreDeadLinks: true,
-    lang: 'zh-hant',
-    head: [
-      ['link', { rel: 'preconnect', href: 'https://fonts.googleapis.com' }],
-      ['link', { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: 'true' }],
-      ['link', { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@100..900&display=swap' }],
-      ['link', { rel: 'icon', href: '/favicon.ico' }],
+    if (pageData?.frontmatter?.image) {
+      pageData.frontmatter.head.push(['meta', {
+        property: 'og:image',
+        content: pageData?.frontmatter?.image ?? '',
+      }])
+    }
+  },
+
+  lastUpdated: true,
+  markdown: {
+    lineNumbers: true,
+  },
+
+  themeConfig: {
+    articleList: getArticleList(),
+    footer: {
+      copyright: 'Copyright © 2024-present <a href="mailto:hi@codlin.me">Cod Lin</a>',
+    },
+    outline: {
+      label: '目錄',
+      level: [1, 3],
+    },
+    lastUpdated: {
+      text: '更新於',
+    },
+    nav: [
+      { text: '文章總攬', link: '/article-overview' },
+      {
+        text: '所有主題',
+        items: [
+          { text: '蔚藍世界', link: getLatestDocPath('/blog-ocean-world/') },
+          { text: '程式浮潛', link: getLatestDocPath('/blog-program/') },
+          { text: 'Vue', link: getLatestDocPath('/blog-vue/') },
+        ],
+      },
+
     ],
-    sitemap: {
-      hostname: 'https://codlin.me',
-    },
-    rewrites(id) {
-      // 去除檔名前面的日期
-      const result = id.replace(/\d{6}\./, '')
-      return result
-    },
-    transformHead() {
-      return [
-        [
-          'script',
-          { async: '', src: 'https://www.googletagmanager.com/gtag/js?id=G-WL47JJHL0R' },
-          '',
-        ],
-        [
-          'script',
-          {},
-          `window.dataLayer = window.dataLayer || [];
-          function gtag(){dataLayer.push(arguments);}
-          gtag('js', new Date());
-          gtag('config', 'G-WL47JJHL0R');`,
-        ],
-      ]
-    },
-    transformPageData(pageData) {
-      pageData.frontmatter.head ??= []
+    logo: '/favicon.ico',
 
-      if (pageData?.frontmatter?.description) {
-        pageData.frontmatter.head.push(['meta', {
-          property: 'og:description',
-          content: pageData?.frontmatter?.description ?? '',
-        }])
-      }
-
-      if (pageData?.frontmatter?.image) {
-        pageData.frontmatter.head.push(['meta', {
-          property: 'og:image',
-          content: pageData?.frontmatter?.image ?? '',
-        }])
-      }
-    },
-
-    lastUpdated: true,
-    markdown: {
-      lineNumbers: true,
-    },
-
-    themeConfig: {
-      articleList: articles,
-      footer: {
-        copyright: 'Copyright © 2024-present <a href="mailto:hi@codlin.me">Cod Lin</a>',
-      },
-      outline: {
-        label: '目錄',
-        level: [2, 3],
-      },
-      lastUpdated: {
-        text: '更新於',
-      },
-      nav: [
-        { text: '文章總攬', link: '/article-overview' },
+    sidebar: {
+      '/': [
         {
-          text: '所有主題',
+          text: '主題',
           items: [
-            { text: '蔚藍世界', link: getLatestDocPath('/blog-ocean-world/') },
-            { text: '程式浮潛', link: getLatestDocPath('/blog-program/') },
-            { text: 'Vue', link: getLatestDocPath('/blog-vue/') },
+            {
+              text: '蔚藍世界',
+              link: getLatestDocPath('/blog-ocean-world/'),
+            },
+            {
+              text: '程式浮潛',
+              link: getLatestDocPath('/blog-program/'),
+            },
+            {
+              text: 'Vue',
+              link: getLatestDocPath('/blog-vue/'),
+            },
           ],
         },
-
+        // {
+        //   text: '專欄',
+        //   items: [
+        //     {
+        //       text: '要不要 Vue 點酷酷的元件',
+        //     },
+        //   ],
+        // },
       ],
-      logo: '/favicon.ico',
+      ...getSidebar('/blog-ocean-world/', '蔚藍世界'),
+      ...getSidebar('/blog-program/', '程式浮潛'),
+      ...getSidebar('/blog-vue/', 'Vue'),
+    },
 
-      sidebar: {
-        '/': [
-          {
-            text: '主題',
-            items: [
-              {
-                text: '蔚藍世界',
-                link: getLatestDocPath('/blog-ocean-world/'),
-              },
-              {
-                text: '程式浮潛',
-                link: getLatestDocPath('/blog-program/'),
-              },
-              {
-                text: 'Vue',
-                link: getLatestDocPath('/blog-vue/'),
-              },
-            ],
-          },
-          // {
-          //   text: '專欄',
-          //   items: [
-          //     {
-          //       text: '要不要 Vue 點酷酷的元件',
-          //     },
-          //   ],
-          // },
-        ],
-        ...getSidebar('/blog-ocean-world/', '蔚藍世界'),
-        ...getSidebar('/blog-program/', '程式浮潛'),
-        ...getSidebar('/blog-vue/', 'Vue'),
-      },
-
-      socialLinks: [
-        { icon: 'youtube', link: 'https://www.youtube.com/@codfish2140' },
-        { icon: 'gitlab', link: 'https://gitlab.com/codfish2140' },
-        { icon: 'linkedin', link: 'https://www.linkedin.com/in/shih-chen-lin-codfish/' },
-      ],
-      search: {
-        provider: 'local',
-      },
-    } as Config,
-  })
-}
+    socialLinks: [
+      { icon: 'youtube', link: 'https://www.youtube.com/@codfish2140' },
+      { icon: 'gitlab', link: 'https://gitlab.com/codfish2140' },
+      { icon: 'linkedin', link: 'https://www.linkedin.com/in/shih-chen-lin-codfish/' },
+    ],
+    search: {
+      provider: 'local',
+    },
+  } as Config,
+})
