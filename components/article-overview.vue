@@ -58,10 +58,10 @@
           >
             <div
               v-for="article in articleList"
-              :key="article.link"
+              :key="article.url"
               role="link"
               class="article-link flex items-center gap-2 rounded-sm"
-              @click="to(article.link)"
+              @click="to(article.url)"
             >
               <div class="flex flex-col items-center md:items-start flex-1 gap-2">
                 <img
@@ -71,6 +71,7 @@
                   width="120"
                   height="120"
                   backlight
+                  loading="lazy"
                 >
 
                 <div
@@ -109,6 +110,7 @@
                 width="160"
                 height="160"
                 backlight
+                loading="lazy"
               >
             </div>
 

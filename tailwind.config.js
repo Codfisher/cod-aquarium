@@ -1,5 +1,5 @@
 /** @type {import('tailwindcss').Config} */
-module.exports = {
+const data = {
   content: [
     './components/**/*.{html,js,vue,ts}',
     './layouts/**/*.{html,js,vue,ts}',
@@ -7,3 +7,5 @@ module.exports = {
   ],
   plugins: [],
 }
+
+export default data

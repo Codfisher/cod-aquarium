@@ -1,5 +1,6 @@
 {
   "name": "cod-aquarium",
+  "type": "module",
   "private": true,
   "scripts": {
     "dev": "vitepress dev",
