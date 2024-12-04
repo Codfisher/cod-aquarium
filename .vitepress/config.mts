@@ -23,7 +23,7 @@ export default defineConfig({
     ['link', { rel: 'preconnect', href: 'https://fonts.googleapis.com' }],
     ['link', { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: 'true' }],
     ['link', { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@100..900&display=swap' }],
-    ['link', { rel: 'icon', href: '/favicon.webp' }],
+    ['link', { rel: 'icon', href: '/favicon.icon' }],
   ],
   sitemap: {
     hostname: 'https://codlin.me',
@@ -80,7 +80,7 @@ export default defineConfig({
     },
     outline: {
       label: '目錄',
-      level: [1, 3],
+      level: [2, 3],
     },
     lastUpdated: {
       text: '更新於',
