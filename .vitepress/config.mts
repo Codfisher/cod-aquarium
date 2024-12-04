@@ -80,7 +80,7 @@ export default defineConfig({
     },
     outline: {
       label: '目錄',
-      level: [1, 3],
+      level: [2, 3],
     },
     lastUpdated: {
       text: '更新於',
