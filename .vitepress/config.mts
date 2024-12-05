@@ -71,6 +71,9 @@ export default defineConfig({
   lastUpdated: true,
   markdown: {
     lineNumbers: true,
+    image: {
+      lazyLoading: true,
+    },
   },
 
   themeConfig: {
@@ -141,4 +144,14 @@ export default defineConfig({
       provider: 'local',
     },
   } as Config,
+
+  vite: {
+    css: {
+      preprocessorOptions: {
+        sass: {
+          api: 'modern-compiler',
+        },
+      },
+    },
+  },
 })
