@@ -1,6 +1,7 @@
 import type { DefaultTheme } from 'vitepress'
 import type { Article } from './utils'
 import { defineConfig } from 'vitepress'
+import { markdownItImgSrcset } from './plugin/markdown-it-img-srcset'
 import {
   getArticleList,
   getLatestDocPath,
@@ -73,6 +74,9 @@ export default defineConfig({
     lineNumbers: true,
     image: {
       lazyLoading: true,
+    },
+    config(md) {
+      md.use(markdownItImgSrcset)
     },
   },
 
