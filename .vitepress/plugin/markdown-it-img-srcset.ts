@@ -18,7 +18,7 @@ const tailwindBreakpoints = {
   xl: 1280,
 }
 
-function generateSrcset(src: string) {
+function getSrcset(src: string) {
   const srcset: string[] = []
 
   // 從 /content/public 讀取原始圖片的寬度
@@ -45,6 +45,13 @@ function generateSrcset(src: string) {
   return srcset.join(', ')
 }
 
+/** FIX: rollup 在建構時會自動 import src，但是因為圖片還沒產生，所以會導致錯誤 */
+async function generateImages(src: string) {
+  // 從 /content/public 讀取原始圖片的寬度
+  const filePath = path.join(IMAGE_PATH, src)
+  console.log('🚀 ~ filePath:', filePath)
+}
+
 /**
  * https://vitepress.dev/guide/markdown#advanced-configuration
  *
@@ -59,8 +66,23 @@ export function markdownItImgSrcset(md: MarkdownIt, mode: string) {
       return ''
     }
 
+    if (mode.includes('dev')) {
+      return [
+        `<img`,
+        `src="${imagePath}"`,
+        `alt="${token.content}"`,
+        `loading="lazy"`,
+        `decoding="async"`,
+        `>`,
+      ].join(' ')
+    }
+
     try {
-      const srcset = generateSrcset(imagePath)
+      const srcset = getSrcset(imagePath)
+      // 非開發模式才產生圖片
+      if (!mode.includes('dev')) {
+        generateImages(imagePath)
+      }
 
       return [
         `<img`,
