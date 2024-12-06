@@ -57,9 +57,20 @@ export function markdownItImgSrcset(md: MarkdownIt) {
       return ''
     }
 
-    const srcset = await generateSrcset(imagePath)
-    console.log('🚀 ~ srcset:', srcset)
+    try {
+      // 生成 srcset
+      const srcset = await generateSrcset(imagePath)
 
-    return ''
+      // 設置 srcset 和 sizes 屬性
+      token.attrSet('srcset', srcset)
+      token.attrSet('sizes', '(max-width: 640px) 100vw, (max-width: 768px) 50vw, 33vw')
+
+      // 返回新的 image 標籤
+      return `<img src="${imagePath}" alt="${token.content}">`
+    }
+    catch (err) {
+      console.error(`Error processing image: ${err.message}`)
+      return `<img src="${imagePath}" alt="${token.content}">`
+    }
   }
 }
