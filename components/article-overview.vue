@@ -64,15 +64,14 @@
               @click="to(article.link)"
             >
               <div class="flex flex-col items-center md:items-start flex-1 gap-2">
-                <img
+                <base-img
                   v-if="article.frontmatter.image"
                   :src="article.frontmatter.image"
                   class="block md:hidden rounded-lg"
                   width="120"
                   height="120"
                   backlight
-                  loading="lazy"
-                >
+                />
 
                 <div
                   v-if="article.frontmatter.date"
@@ -103,15 +102,14 @@
                 </div>
               </div>
 
-              <img
+              <base-img
                 v-if="article.frontmatter.image"
                 :src="article.frontmatter.image"
                 class="hidden md:block rounded-lg shadow-sm"
                 width="160"
                 height="160"
                 backlight
-                loading="lazy"
-              >
+              />
             </div>
 
             <div
@@ -134,6 +132,7 @@ import dayjs from 'dayjs'
 import { filter, flatMap, map, pipe, unique } from 'remeda'
 import { useData, useRouter } from 'vitepress'
 import { computed, ref } from 'vue'
+import BaseImg from './base-img.vue'
 
 const router = useRouter()
 const { theme } = useData<Config>()
