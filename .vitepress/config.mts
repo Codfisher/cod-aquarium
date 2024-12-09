@@ -46,10 +46,14 @@ export default ({ mode }) => {
         [
           'script',
           {},
-          `window.dataLayer = window.dataLayer || [];
-          function gtag(){dataLayer.push(arguments);}
-          gtag('js', new Date());
-          gtag('config', 'G-WL47JJHL0R');`,
+          `
+          window.addEventListener('load', function() {
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-WL47JJHL0R');
+          });
+          `,
         ],
       ]
     },
