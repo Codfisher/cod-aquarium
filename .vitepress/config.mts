@@ -74,9 +74,6 @@ export default ({ mode }) => {
     lastUpdated: true,
     markdown: {
       lineNumbers: true,
-      image: {
-        lazyLoading: true,
-      },
       config(md) {
         md.use((md) => markdownItBaseImg(md, mode))
       },

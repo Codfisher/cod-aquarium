@@ -1,5 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import { map, pipe } from 'remeda'
 import sharp from 'sharp'
 
 const IMAGE_PATH = path.resolve(__dirname, '../../content/public')
@@ -7,7 +8,7 @@ const IMAGE_PATH = path.resolve(__dirname, '../../content/public')
 const IGNORE_NAME_LIST = [
   'favicon',
 ]
-const WIDTH_LIST = [1024, 640, 320, 160]
+const WIDTH_LIST = [1024, 700, 430, 100]
 
 // 是否為資料夾
 function isDirectory(path: string) {
@@ -52,18 +53,52 @@ export async function generateImages() {
   // 產生對應寬度圖片至 .vitepress/dist，檔名後面加上寬度
   for (const imgPath of imgList) {
     const img = fs.readFileSync(imgPath)
-    const imgName = path.basename(imgPath)
-    const imgDir = path.dirname(imgPath)
+    const fileName = path.basename(imgPath)
+    const imgName = fileName.split('.')[0]
+
+    // 取得圖片寬度
+    const metadata = await sharp(img).metadata()
 
     try {
-      for (const width of WIDTH_LIST) {
-        const outputPath = path.resolve(
-          __dirname,
-          `../../.vitepress/dist/public/${imgName}-${width}`,
-        )
+      const tasks = pipe(
+        WIDTH_LIST,
+        // 過濾掉比原圖寬度還大的尺寸
+        // filter((width) => {
+        //   if (!metadata.width) {
+        //     return true
+        //   }
 
-        await sharp(img).resize({ width }).toFile(outputPath)
-      }
+        //   return width < metadata.width
+        // }),
+        map((width) => {
+          const outputPath = path.resolve(
+            __dirname,
+            `../../.vitepress/dist/${imgName}-${width}.webp`,
+          )
+
+          return sharp(img)
+            .resize({ width })
+            .webp({ quality: 90 })
+            .toFile(outputPath)
+        }),
+        // 輸出一張 quality 90 版本
+        (list) => {
+          const outputPath = path.resolve(
+            __dirname,
+            `../../.vitepress/dist/${imgName}-low.webp`,
+          )
+
+          list.push(
+            sharp(img)
+              .webp({ quality: 90 })
+              .toFile(outputPath),
+          )
+
+          return list
+        },
+      )
+
+      await Promise.all(tasks)
     }
     catch (error) {
       console.error(`[ generateImages ] 圖片 ${imgPath} 產生失敗 :`, error)
