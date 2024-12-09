@@ -11,8 +11,6 @@
       v-bind="$attrs"
       :src
       :alt
-      loading="lazy"
-      decoding="async"
     >
   </picture>
 </template>
