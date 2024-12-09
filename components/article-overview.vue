@@ -71,6 +71,8 @@
                   width="120"
                   height="120"
                   backlight
+                  loading="lazy"
+                  decoding="async"
                 />
 
                 <div
@@ -109,6 +111,8 @@
                 width="160"
                 height="160"
                 backlight
+                loading="lazy"
+                decoding="async"
               />
             </div>
 
