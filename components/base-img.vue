@@ -1,6 +1,5 @@
 <template>
   <img
-    class="base-img"
     :src
     :alt
     loading="lazy"

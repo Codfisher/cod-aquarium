@@ -2,6 +2,7 @@ import type { DefaultTheme } from 'vitepress'
 import type { Article } from './utils'
 import { defineConfig } from 'vitepress'
 import { markdownItBaseImg } from './plugin/markdown-it-base-img'
+import { generateImages } from './scripts/resize-images'
 import {
   getArticleList,
   getLatestDocPath,
@@ -158,6 +159,11 @@ export default ({ mode }) => {
           },
         },
       },
+    },
+    async buildEnd(siteConfig) {
+      // console.log('🚀 ~ buildEnd:', siteConfig)
+
+      await generateImages()
     },
   })
 }
