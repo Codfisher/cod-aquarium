@@ -2,6 +2,7 @@ import type { Theme } from 'vitepress'
 import DefaultTheme from 'vitepress/theme'
 // https://vitepress.dev/guide/custom-theme
 import { h } from 'vue'
+import BaseImg from '../../components/base-img.vue'
 import DonateSection from '../../components/donate-section.vue'
 import './style.css'
 import './tailwind.css'
@@ -15,6 +16,6 @@ export default {
     })
   },
   enhanceApp({ app, router, siteData }) {
-    // ...
+    app.component('BaseImg', BaseImg)
   },
 } satisfies Theme

@@ -5,7 +5,7 @@ import matter from 'gray-matter'
 import { filter, first, flatMap, map, pipe, sort } from 'remeda'
 import { z } from 'zod'
 
-const PAGES_PATH = path.resolve(__dirname, '../content') // 把 content 設定成根目錄
+const CONTENT_PATH = path.resolve(__dirname, '../content')
 
 // 是否為資料夾
 function isDirectory(path: string) {
@@ -76,7 +76,7 @@ export function getSidebar(
   startPath: string,
   text: string,
 ) {
-  const absolutePath = path.join(PAGES_PATH, startPath)
+  const absolutePath = path.join(CONTENT_PATH, startPath)
   const files = fs.readdirSync(absolutePath)
 
   const result = {
@@ -94,7 +94,7 @@ export function getLatestDocPath(
   docPath: string,
 ) {
   const target = pipe(
-    path.join(PAGES_PATH, docPath),
+    path.join(CONTENT_PATH, docPath),
     (value) => fs.readdirSync(value),
     map((value) => path.basename(value)),
     sort((a, b) => b.localeCompare(a)),
@@ -117,13 +117,13 @@ export interface Article {
 /** 取得所有文章 */
 export function getArticleList(): Article[] {
   const result = pipe(
-    fs.readdirSync(PAGES_PATH),
+    fs.readdirSync(CONTENT_PATH),
     filter((value) =>
-      isDirectory(path.join(PAGES_PATH, value))
+      isDirectory(path.join(CONTENT_PATH, value))
       && value.includes('blog'),
     ),
     flatMap((dirPath) => {
-      const absolutePath = path.join(PAGES_PATH, dirPath)
+      const absolutePath = path.join(CONTENT_PATH, dirPath)
       const files = fs.readdirSync(absolutePath)
 
       return getList(files, absolutePath, dirPath)
