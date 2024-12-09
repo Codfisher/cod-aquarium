@@ -1,7 +1,7 @@
 import type { DefaultTheme } from 'vitepress'
 import type { Article } from './utils'
 import { defineConfig } from 'vitepress'
-import { markdownItBaseImg } from './plugin/markdown-it-img-srcset'
+import { markdownItBaseImg } from './plugin/markdown-it-base-img'
 import {
   getArticleList,
   getLatestDocPath,

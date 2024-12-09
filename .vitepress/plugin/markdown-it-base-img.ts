@@ -25,8 +25,6 @@ export function markdownItBaseImg(md: MarkdownIt, mode: string) {
       `<base-img`,
       `src="${src}"`,
       `alt="${token.content}"`,
-      `loading="lazy"`,
-      `decoding="async"`,
       `/>`,
     ].join(' ')
   }
