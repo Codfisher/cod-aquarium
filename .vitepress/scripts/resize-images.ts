@@ -8,7 +8,7 @@ const IMAGE_PATH = path.resolve(__dirname, '../../content/public')
 const IGNORE_NAME_LIST = [
   'favicon',
 ]
-const WIDTH_LIST = [1024, 700, 430, 100]
+const WIDTH_LIST = [700, 320, 50]
 
 // 是否為資料夾
 function isDirectory(path: string) {
@@ -81,11 +81,11 @@ export async function generateImages() {
             .webp({ quality: 90 })
             .toFile(outputPath)
         }),
-        // 輸出一張 quality 90 版本
+        // 輸出一張原圖 quality 90 版本
         (list) => {
           const outputPath = path.resolve(
             __dirname,
-            `../../.vitepress/dist/${imgName}-low.webp`,
+            `../../.vitepress/dist/${imgName}.webp`,
           )
 
           list.push(

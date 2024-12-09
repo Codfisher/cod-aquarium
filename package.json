@@ -5,8 +5,7 @@
   "scripts": {
     "dev": "vitepress dev",
     "build": "vitepress build",
-    "preview": "vitepress preview",
-    "preview:build": "npm run build && npm run preview"
+    "preview": "npm run build && vitepress preview"
   },
   "devDependencies": {
     "@antfu/eslint-config": "^3.11.2",
