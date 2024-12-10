@@ -68,10 +68,9 @@
                   v-if="article.frontmatter.image"
                   :src="article.frontmatter.image"
                   class="block md:hidden rounded-lg"
-                  :source="100"
+                  :use-size="100"
                   width="120"
                   height="120"
-                  backlight
                   loading="lazy"
                   decoding="async"
                 />
@@ -109,10 +108,9 @@
                 v-if="article.frontmatter.image"
                 :src="article.frontmatter.image"
                 class="hidden md:block rounded-lg shadow-sm"
-                :source="100"
+                :use-size="100"
                 width="160"
                 height="160"
-                backlight
                 loading="lazy"
                 decoding="async"
               />
