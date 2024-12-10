@@ -44,6 +44,10 @@
           文章列表
         </h1>
 
+        <div class=" text-sm opacity-60">
+          共 {{ articleList.length }} 篇文章
+        </div>
+
         <div
           class="link-container"
           :style="linkContainerStyle"
