@@ -9,7 +9,7 @@ const OUTPUT_PATH = path.resolve(__dirname, '../../.vitepress/dist')
 const IGNORE_NAME_LIST = [
   'favicon',
 ]
-const WIDTH_LIST = [700, 320, 50]
+const WIDTH_LIST = [700, 200, 50]
 
 // 是否為資料夾
 function isDirectory(path: string) {

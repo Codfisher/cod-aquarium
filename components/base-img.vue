@@ -35,7 +35,7 @@ const fileName = computed(() => props.src
 )
 
 const srcset = computed(() => pipe(
-  [700, 320, 50],
+  [700, 200, 50],
   map((size) => `${fileName.value}-${size}.webp ${size}w`),
   join(', '),
 ))
