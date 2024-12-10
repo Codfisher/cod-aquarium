@@ -4,6 +4,7 @@ import { map, pipe } from 'remeda'
 import sharp from 'sharp'
 
 const IMAGE_PATH = path.resolve(__dirname, '../../content/public')
+const OUTPUT_PATH = path.resolve(__dirname, '../../.vitepress/dist')
 
 const IGNORE_NAME_LIST = [
   'favicon',
@@ -54,10 +55,7 @@ export async function generateImages() {
   for (const imgPath of imgList) {
     const img = fs.readFileSync(imgPath)
     const fileName = path.basename(imgPath)
-    const imgName = fileName.split('.')[0]
-
-    // 取得圖片寬度
-    const metadata = await sharp(img).metadata()
+    const filePath = imgPath.replace(IMAGE_PATH, '').split('.')[0]
 
     try {
       const tasks = pipe(
@@ -71,9 +69,9 @@ export async function generateImages() {
         //   return width < metadata.width
         // }),
         map((width) => {
-          const outputPath = path.resolve(
-            __dirname,
-            `../../.vitepress/dist/${imgName}-${width}.webp`,
+          const outputPath = path.join(
+            OUTPUT_PATH,
+            `${filePath}-${width}.webp`,
           )
 
           return sharp(img)
@@ -83,9 +81,9 @@ export async function generateImages() {
         }),
         // 輸出一張原圖 quality 90 版本
         (list) => {
-          const outputPath = path.resolve(
-            __dirname,
-            `../../.vitepress/dist/${imgName}.webp`,
+          const outputPath = path.join(
+            OUTPUT_PATH,
+            `${filePath}.webp`,
           )
 
           list.push(
