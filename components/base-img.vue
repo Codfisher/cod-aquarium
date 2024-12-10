@@ -7,11 +7,7 @@
       >
     </template>
 
-    <img
-      v-bind="$attrs"
-      :src
-      :alt
-    >
+    <img v-bind="props">
   </picture>
 </template>
 
@@ -20,7 +16,7 @@ import type { ImgHTMLAttributes } from 'vue'
 import { join, map, pipe } from 'remeda'
 import { computed } from 'vue'
 
-interface Props extends ImgHTMLAttributes {
+interface Props extends /* @vue-ignore */ ImgHTMLAttributes {
   src: string;
   /** 指定特定尺寸 */
   useSize?: typeof WIDTH_LIST[number];
@@ -61,6 +57,3 @@ const sourceVisible = computed(() => {
   return !props.src.includes('.gif')
 })
 </script>
-
-<style scoped lang="sass">
-</style>
