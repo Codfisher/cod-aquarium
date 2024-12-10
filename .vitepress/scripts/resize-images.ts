@@ -9,14 +9,14 @@ const OUTPUT_PATH = path.resolve(__dirname, '../../.vitepress/dist')
 const IGNORE_NAME_LIST = [
   'favicon',
 ]
-const WIDTH_LIST = [700, 300, 100]
+const WIDTH_LIST = [700, 400, 100]
+const SUFFIX_NAME_LIST = ['.png', '.jpg', '.jpeg', '.webp']
 
 // 是否為資料夾
 function isDirectory(path: string) {
   return fs.lstatSync(path).isDirectory()
 }
 
-const SUFFIX_NAME_LIST = ['.png', '.jpg', '.jpeg', '.webp']
 /** 取得所有圖片路徑 */
 function getImagePathList(dirPath: string) {
   const files = fs.readdirSync(dirPath)
@@ -59,14 +59,6 @@ export async function generateImages() {
     try {
       const tasks = pipe(
         WIDTH_LIST,
-        // 過濾掉比原圖寬度還大的尺寸
-        // filter((width) => {
-        //   if (!metadata.width) {
-        //     return true
-        //   }
-
-        //   return width < metadata.width
-        // }),
         map((width) => {
           const outputPath = path.join(
             OUTPUT_PATH,

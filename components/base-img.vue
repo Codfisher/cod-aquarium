@@ -30,7 +30,7 @@ const props = withDefaults(defineProps<Props>(), {
   source: undefined,
 })
 
-const WIDTH_LIST = [700, 300, 100] as const
+const WIDTH_LIST = [700, 400, 100] as const
 
 // 去除附檔名
 const fileName = computed(() => props.src

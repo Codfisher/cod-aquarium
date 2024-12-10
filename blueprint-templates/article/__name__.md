@@ -1,6 +1,6 @@
 ---
 title: 標題
-description: 
+description:
 tags: ['']
 image: https://codlin.me/img.webp
 date: 202
@@ -8,6 +8,6 @@ date: 202
 
 # 標題
 
-![img](/img.webp){height="600"}
+![img](/img.webp)
 
 ## 總結 🐟
