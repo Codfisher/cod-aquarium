@@ -16,7 +16,6 @@
   // 	"description": "Log output to console"
   // }
   "span": {
-    "scope": "javascript,typescript,markdown",
     "prefix": "span",
     "body": [
       "<span class=\"text-nowrap\">$1</span>"

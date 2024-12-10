@@ -7,25 +7,25 @@
       >
     </template>
 
-    <img
-      v-bind="$attrs"
-      :src
-      :alt
-    >
+    <img v-bind="props">
   </picture>
 </template>
 
 <script setup lang="ts">
+import type { ImgHTMLAttributes } from 'vue'
 import { join, map, pipe } from 'remeda'
 import { computed } from 'vue'
 
-interface Props {
+interface Props extends /* @vue-ignore */ ImgHTMLAttributes {
   src: string;
-  alt?: string;
+  /** 指定特定尺寸 */
+  useSize?: typeof WIDTH_LIST[number];
 }
 const props = withDefaults(defineProps<Props>(), {
-  alt: '圖片',
+  useSize: undefined,
 })
+
+const WIDTH_LIST = [700, 400, 100] as const
 
 // 去除附檔名
 const fileName = computed(() => props.src
@@ -34,20 +34,26 @@ const fileName = computed(() => props.src
   .join('.'),
 )
 
-const srcset = computed(() => pipe(
-  [700, 200, 50],
-  map((size) => `${fileName.value}-${size}.webp ${size}w`),
-  join(', '),
-))
+const srcset = computed(() => {
+  // 指定特定尺寸
+  if (props.useSize) {
+    return `${fileName.value}-${props.useSize}.webp`
+  }
+
+  return pipe(
+    WIDTH_LIST,
+    map((size) => `${fileName.value}-${size}.webp ${size}w`),
+    join(', '),
+  )
+})
 
 const sourceVisible = computed(() => {
+  /** DEV 模式不顯示響應式圖片 */
   if (import.meta.env.DEV) {
     return false
   }
 
+  /** gif 不特別處理 */
   return !props.src.includes('.gif')
 })
 </script>
-
-<style scoped lang="sass">
-</style>

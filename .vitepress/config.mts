@@ -157,9 +157,7 @@ export default ({ mode }) => {
         },
       },
     },
-    async buildEnd(siteConfig) {
-      // console.log('🚀 ~ buildEnd:', siteConfig)
-
+    async buildEnd() {
       await generateImages()
     },
   })
