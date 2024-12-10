@@ -7,14 +7,14 @@
       >
     </template>
 
-    <img v-bind="props">
+    <img v-bind="imgProps">
   </picture>
 </template>
 
 <script setup lang="ts">
 import type { ImgHTMLAttributes } from 'vue'
 import { join, map, pipe } from 'remeda'
-import { computed } from 'vue'
+import { computed, useAttrs } from 'vue'
 
 interface Props extends /* @vue-ignore */ ImgHTMLAttributes {
   src: string;
@@ -25,7 +25,9 @@ const props = withDefaults(defineProps<Props>(), {
   useSize: undefined,
 })
 
-const WIDTH_LIST = [700, 400, 100] as const
+const attrs = useAttrs()
+
+const WIDTH_LIST = [700, 300] as const
 
 // 去除附檔名
 const fileName = computed(() => props.src
@@ -33,6 +35,11 @@ const fileName = computed(() => props.src
   .slice(0, -1)
   .join('.'),
 )
+
+const imgProps = computed(() => ({
+  ...props,
+  ...attrs,
+}))
 
 const srcset = computed(() => {
   // 指定特定尺寸
