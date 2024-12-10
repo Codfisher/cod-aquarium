@@ -9,7 +9,7 @@ const OUTPUT_PATH = path.resolve(__dirname, '../../.vitepress/dist')
 const IGNORE_NAME_LIST = [
   'favicon',
 ]
-const WIDTH_LIST = [700, 320, 50]
+const WIDTH_LIST = [700, 200, 50]
 
 // 是否為資料夾
 function isDirectory(path: string) {
@@ -54,7 +54,6 @@ export async function generateImages() {
   // 產生對應寬度圖片至 .vitepress/dist，檔名後面加上寬度
   for (const imgPath of imgList) {
     const img = fs.readFileSync(imgPath)
-    const fileName = path.basename(imgPath)
     const filePath = imgPath.replace(IMAGE_PATH, '').split('.')[0]
 
     try {
