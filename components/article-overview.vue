@@ -68,6 +68,7 @@
                   v-if="article.frontmatter.image"
                   :src="article.frontmatter.image"
                   class="block md:hidden rounded-lg"
+                  :source="100"
                   width="120"
                   height="120"
                   backlight
@@ -108,6 +109,7 @@
                 v-if="article.frontmatter.image"
                 :src="article.frontmatter.image"
                 class="hidden md:block rounded-lg shadow-sm"
+                :source="100"
                 width="160"
                 height="160"
                 backlight
