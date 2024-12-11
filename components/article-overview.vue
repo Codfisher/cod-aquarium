@@ -137,7 +137,7 @@
 import type { Config } from '../.vitepress/config.mts'
 import { useElementSize } from '@vueuse/core'
 import dayjs from 'dayjs'
-import { filter, flatMap, map, pipe, unique } from 'remeda'
+import { filter, flatMap, map, pipe, sort, unique } from 'remeda'
 import { useData, useRouter } from 'vitepress'
 import { computed, ref } from 'vue'
 import BaseImg from './base-img.vue'
@@ -195,6 +195,7 @@ const articleList = computed(() => pipe(
 
     return article.frontmatter.tags?.some((tag) => selectedTags.value.includes(tag))
   }),
+  sort((a, b) => b.frontmatter.date - a.frontmatter.date),
   map((item) => ({
     ...item,
     frontmatter: {
