@@ -1,6 +1,6 @@
 import type { DefaultTheme } from 'vitepress'
 import type { Article } from './utils'
-import { defineConfig } from 'vitepress'
+import { withMermaid } from 'vitepress-plugin-mermaid'
 import { markdownItBaseImg } from './plugin/markdown-it-base-img'
 import { generateImages } from './scripts/resize-images'
 import {
@@ -15,7 +15,7 @@ export interface Config extends DefaultTheme.Config {
 
 // https://vitepress.dev/reference/site-config
 export default ({ mode }) => {
-  return defineConfig({
+  return withMermaid({
     title: '鱈魚的魚缸',
     description: '各種鱈魚滾鍵盤的雜記與研究',
     srcDir: 'content',
