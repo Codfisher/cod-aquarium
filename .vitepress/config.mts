@@ -66,7 +66,7 @@ export default ({ mode }) => {
       if (pageData?.frontmatter?.image) {
         pageData.frontmatter.head.push(['meta', {
           property: 'og:image',
-          content: pageData?.frontmatter?.image ?? '',
+          content: pageData?.frontmatter?.image ?? 'https://codlin.me/cover.webp',
         }])
       }
     },
