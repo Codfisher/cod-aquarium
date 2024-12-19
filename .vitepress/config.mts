@@ -146,6 +146,8 @@ export default ({ mode }) => {
         ...getSidebar('/blog-ocean-world/', '蔚藍世界'),
         ...getSidebar('/blog-program/', '程式浮潛'),
         ...getSidebar('/blog-vue/', 'Vue'),
+
+        ...getSidebar('/column-cod-toys/', '自己的工具自己做，用 Electron 仿造 PowerToys！'),
       },
 
       socialLinks: [
