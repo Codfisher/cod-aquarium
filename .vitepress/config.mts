@@ -101,6 +101,15 @@ export default ({ mode }) => {
             { text: 'Vue', link: getLatestDocPath('/blog-vue/') },
           ],
         },
+        {
+          text: '專欄',
+          items: [
+            {
+              text: '自己的工具自己做，用 Electron 仿造 PowerToys！',
+              link: getLatestDocPath('/column-cod-toys/'),
+            },
+          ],
+        },
 
       ],
       logo: '/favicon.ico',
@@ -124,14 +133,15 @@ export default ({ mode }) => {
               },
             ],
           },
-          // {
-          //   text: '專欄',
-          //   items: [
-          //     {
-          //       text: '要不要 Vue 點酷酷的元件',
-          //     },
-          //   ],
-          // },
+          {
+            text: '專欄',
+            items: [
+              {
+                text: '自己的工具自己做，用 Electron 仿造 PowerToys！',
+                link: getLatestDocPath('/column-cod-toys/'),
+              },
+            ],
+          },
         ],
         ...getSidebar('/blog-ocean-world/', '蔚藍世界'),
         ...getSidebar('/blog-program/', '程式浮潛'),
