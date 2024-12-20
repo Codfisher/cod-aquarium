@@ -92,7 +92,7 @@ export function getSidebar(
     }],
   }
 
-  if (isDev && result[startPath][0].items.length === 0) {
+  if (isDev && result?.[startPath]?.[0]?.items.length === 0) {
     return undefined
   }
 

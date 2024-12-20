@@ -142,6 +142,7 @@ import { useData, useRouter } from 'vitepress'
 import { computed, ref } from 'vue'
 import BaseImg from './base-img.vue'
 
+const isDev = import.meta.env.DEV
 const router = useRouter()
 const { theme } = useData<Config>()
 
@@ -201,6 +202,7 @@ const articleList = computed(() => pipe(
     frontmatter: {
       ...item.frontmatter,
       date: dayjs(`${item.frontmatter.date}`, 'YYYYMMDD').format('YYYY/MM/DD'),
+      image: !isDev ? item.frontmatter.image : item.frontmatter.image?.replace('https://codlin.me', ''),
     },
   })),
 ))
