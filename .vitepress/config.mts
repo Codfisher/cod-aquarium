@@ -40,7 +40,7 @@ function getNavItem(data: DefaultTheme.NavItem) {
 }
 
 // https://vitepress.dev/reference/site-config
-export default ({ mode }) => {
+export default ({ mode }: { mode: string }) => {
   const articleList = getArticleList()
 
   return withMermaid({
