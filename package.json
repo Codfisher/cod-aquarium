@@ -3,7 +3,7 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "vitepress dev",
+    "dev": "vitepress dev --port 3000",
     "build": "vitepress build",
     "preview": "npm run build && vitepress preview"
   },
