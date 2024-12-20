@@ -10,25 +10,16 @@
     "useDefineForClassFields": true,
     "module": "esnext",
     "moduleResolution": "node",
-    "paths": {
-      "@/*": [
-        "./src/*"
-      ]
-    },
     "resolveJsonModule": true,
-    "types": [
-      "@babylonjs/core"
-    ],
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "sourceMap": true,
     "esModuleInterop": true
   },
   "include": [
-    "src/**/*.ts",
-    "src/**/*.d.ts",
-    "src/**/*.tsx",
-    "src/**/*.vue",
-    "public/examples/**/*.vue"
+    "content/**/*",
+    "components/**/*",
+    "common/**/*",
+    "env.d.ts"
   ]
 }
