@@ -1,10 +1,12 @@
 import type { DefaultTheme } from 'vitepress'
 import fs from 'node:fs'
 import path from 'node:path'
+import process from 'node:process'
 import matter from 'gray-matter'
-import { filter, first, flatMap, map, pipe, sort } from 'remeda'
+import { filter, find, flatMap, map, pipe, sort } from 'remeda'
 import { z } from 'zod'
 
+const isDev = process.env.NODE_ENV !== 'production'
 const CONTENT_PATH = path.resolve(__dirname, '../content')
 
 // 是否為資料夾
@@ -18,10 +20,11 @@ const docFrontMatterSchema = z.object({
   tags: z.array(z.string()),
   image: z.string().url(),
   date: z.coerce.number(),
+  draft: z.boolean().optional(),
 })
 
 // 取得 FrontMatter
-function getFrontMatter(filePath: string) {
+export function getFrontMatter(filePath: string) {
   const content = fs.readFileSync(filePath, 'utf-8')
   const result = matter(content)
 
@@ -57,6 +60,9 @@ function getList(files: string[], absolutePath: string, startPath: string) {
     }
 
     const frontmatter = getFrontMatter(`${absolutePath}/${file}`)
+    if (!isDev && frontmatter.draft) {
+      continue
+    }
 
     res.push({
       text: frontmatter.title as string || fileName.replace('.md', ''),
@@ -86,6 +92,10 @@ export function getSidebar(
     }],
   }
 
+  if (isDev && result[startPath][0].items.length === 0) {
+    return undefined
+  }
+
   return result
 }
 
@@ -98,10 +108,18 @@ export function getLatestDocPath(
     (value) => fs.readdirSync(value),
     map((value) => path.basename(value)),
     sort((a, b) => b.localeCompare(a)),
-    first(),
+    find((file) => {
+      const fullPath = path.join(CONTENT_PATH, docPath, file)
+      const frontmatter = getFrontMatter(fullPath)
+      if (!isDev) {
+        return !frontmatter.draft
+      }
+
+      return true
+    }),
   )
   if (!target) {
-    throw new Error('目錄沒有任何檔案')
+    return ''
   }
 
   return `${docPath}/${target.replace('.md', '')}`
@@ -128,9 +146,13 @@ export function getArticleList(): Article[] {
 
       return getList(files, absolutePath, dirPath)
     }),
-    filter((data): data is Article =>
-      !!data.text && !!data.link && !!data.frontmatter,
-    ),
+    filter((data): data is Article => {
+      if (isDev) {
+        return !!data.text && !!data.link && !!data.frontmatter
+      }
+
+      return !!data.text && !!data.link && !data.frontmatter?.draft
+    }),
   )
 
   return result
