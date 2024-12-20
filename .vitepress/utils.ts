@@ -120,7 +120,7 @@ export function getArticleList(): Article[] {
     fs.readdirSync(CONTENT_PATH),
     filter((value) =>
       isDirectory(path.join(CONTENT_PATH, value))
-      && value.includes('blog'),
+      && (value.includes('blog') || value.includes('column')),
     ),
     flatMap((dirPath) => {
       const absolutePath = path.join(CONTENT_PATH, dirPath)
