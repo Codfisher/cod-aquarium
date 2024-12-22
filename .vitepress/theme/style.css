@@ -70,6 +70,13 @@
   --vp-c-danger-soft: var(--vp-c-red-soft);
 }
 
+.dark {
+  --vp-c-brand-1: #38ebdc;
+  --vp-c-brand-2: #4ccab9;
+  --vp-c-brand-3: #65dfd0;
+  --vp-c-brand-soft: #1d4642;
+}
+
 /**
  * Component: Button
  * -------------------------------------------------------------------------- */
