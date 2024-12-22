@@ -1,6 +1,7 @@
 import type { DefaultTheme } from 'vitepress'
 import type { Article } from './utils'
-import { defineConfig } from 'vitepress'
+import { filter, isTruthy } from 'remeda'
+import { withMermaid } from 'vitepress-plugin-mermaid'
 import { markdownItBaseImg } from './plugin/markdown-it-base-img'
 import { generateImages } from './scripts/resize-images'
 import {
@@ -13,9 +14,36 @@ export interface Config extends DefaultTheme.Config {
   articleList: Article[];
 }
 
+function getNavItem(data: DefaultTheme.NavItem) {
+  if ('items' in data) {
+    const items = data.items?.filter((item) => {
+      if (!item)
+        return false
+
+      if ('link' in item) {
+        return !!item.link
+      }
+
+      return true
+    }) ?? []
+
+    if (items.length === 0) {
+      return undefined
+    }
+    return {
+      ...data,
+      items,
+    }
+  }
+
+  return data
+}
+
 // https://vitepress.dev/reference/site-config
-export default ({ mode }) => {
-  return defineConfig({
+export default ({ mode }: { mode: string }) => {
+  const articleList = getArticleList()
+
+  return withMermaid({
     title: '鱈魚的魚缸',
     description: '各種鱈魚滾鍵盤的雜記與研究',
     srcDir: 'content',
@@ -30,6 +58,18 @@ export default ({ mode }) => {
     ],
     sitemap: {
       hostname: 'https://codlin.me',
+      transformItems: (items) => {
+        return items.filter((item) => {
+          const target = articleList.find((article) =>
+            item.url.includes(article.link),
+          )
+          if (!target) {
+            return false
+          }
+
+          return !target?.frontmatter?.draft
+        })
+      },
     },
     rewrites(id) {
       // 去除檔名前面的日期
@@ -66,7 +106,7 @@ export default ({ mode }) => {
       if (pageData?.frontmatter?.image) {
         pageData.frontmatter.head.push(['meta', {
           property: 'og:image',
-          content: pageData?.frontmatter?.image ?? '',
+          content: pageData?.frontmatter?.image ?? 'https://codlin.me/cover.webp',
         }])
       }
     },
@@ -80,7 +120,7 @@ export default ({ mode }) => {
     },
 
     themeConfig: {
-      articleList: getArticleList(),
+      articleList,
       footer: {
         copyright: 'Copyright © 2024-present <a href="mailto:hi@codlin.me">Cod Lin</a>',
       },
@@ -91,51 +131,68 @@ export default ({ mode }) => {
       lastUpdated: {
         text: '更新於',
       },
-      nav: [
-        { text: '文章總攬', link: '/article-overview' },
-        {
-          text: '所有主題',
-          items: [
-            { text: '蔚藍世界', link: getLatestDocPath('/blog-ocean-world/') },
-            { text: '程式浮潛', link: getLatestDocPath('/blog-program/') },
-            { text: 'Vue', link: getLatestDocPath('/blog-vue/') },
-          ],
-        },
-
-      ],
-      logo: '/favicon.ico',
-
-      sidebar: {
-        '/': [
+      nav: filter(
+        [
+          { text: '總攬', link: '/article-overview' },
           {
             text: '主題',
             items: [
-              {
-                text: '蔚藍世界',
-                link: getLatestDocPath('/blog-ocean-world/'),
-              },
-              {
-                text: '程式浮潛',
-                link: getLatestDocPath('/blog-program/'),
-              },
-              {
-                text: 'Vue',
-                link: getLatestDocPath('/blog-vue/'),
-              },
+              { text: '蔚藍世界', link: getLatestDocPath('/blog-ocean-world/') },
+              { text: '程式浮潛', link: getLatestDocPath('/blog-program/') },
+              { text: 'Vue', link: getLatestDocPath('/blog-vue/') },
             ],
           },
-          // {
-          //   text: '專欄',
-          //   items: [
-          //     {
-          //       text: '要不要 Vue 點酷酷的元件',
-          //     },
-          //   ],
-          // },
+          getNavItem({
+            text: '專欄',
+            items: [
+              {
+                text: '自己的工具自己做，用 Electron 仿造 PowerToys！',
+                link: getLatestDocPath('/column-cod-toys/'),
+              },
+            ],
+          }),
         ],
+        isTruthy,
+      ),
+      logo: '/favicon.ico',
+
+      sidebar: {
+        '/': filter(
+          [
+            {
+              text: '主題',
+              items: [
+                {
+                  text: '蔚藍世界',
+                  link: getLatestDocPath('/blog-ocean-world/'),
+                },
+                {
+                  text: '程式浮潛',
+                  link: getLatestDocPath('/blog-program/'),
+                },
+                {
+                  text: 'Vue',
+                  link: getLatestDocPath('/blog-vue/'),
+                },
+              ],
+            },
+            getNavItem({
+              text: '專欄',
+              items: [
+                {
+                  text: '自己的工具自己做，用 Electron 仿造 PowerToys！',
+                  link: getLatestDocPath('/column-cod-toys/'),
+                },
+              ],
+            }),
+          ],
+          isTruthy,
+        ),
         ...getSidebar('/blog-ocean-world/', '蔚藍世界'),
         ...getSidebar('/blog-program/', '程式浮潛'),
         ...getSidebar('/blog-vue/', 'Vue'),
+
+        ...getSidebar('/column-cod-toys/', '自己的工具自己做，用 Electron 仿造 PowerToys！'),
       },
 
       socialLinks: [
@@ -145,6 +202,15 @@ export default ({ mode }) => {
       ],
       search: {
         provider: 'local',
+        options: {
+          _render(src, env, md) {
+            const html = md.render(src, env)
+            if (env.frontmatter?.draft)
+              return ''
+
+            return html
+          },
+        },
       },
     } as Config,
 

@@ -3,7 +3,7 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "vitepress dev",
+    "dev": "vitepress dev --port 3000",
     "build": "vitepress build",
     "preview": "npm run build && vitepress preview"
   },
@@ -17,12 +17,14 @@
     "eslint": "^9.16.0",
     "eslint-plugin-vue": "^9.32.0",
     "gray-matter": "^4.0.3",
+    "mermaid": "^11.4.1",
     "remeda": "^2.15.0",
     "sass": "^1.77.8",
     "sharp": "^0.33.5",
     "tailwindcss": "3.4.15",
     "type-fest": "^4.30.0",
     "vitepress": "^1.5.0",
+    "vitepress-plugin-mermaid": "^2.0.17",
     "zod": "3.23.8"
   }
 }
