@@ -127,9 +127,6 @@ export default ({ mode }: { mode: string }) => {
         label: '目錄',
         level: [2, 3],
       },
-      lastUpdated: {
-        text: '更新於',
-      },
       nav: filter(
         [
           { text: '總攬', link: '/article-overview' },
