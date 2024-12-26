@@ -111,6 +111,7 @@ export default ({ mode }: { mode: string }) => {
       }
     },
 
+    lastUpdated: true,
     markdown: {
       lineNumbers: true,
       config(md) {
