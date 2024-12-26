@@ -111,6 +111,7 @@ export default ({ mode }: { mode: string }) => {
       }
     },
 
+    lastUpdated: true,
     markdown: {
       lineNumbers: true,
       config(md) {
@@ -126,6 +127,9 @@ export default ({ mode }: { mode: string }) => {
       outline: {
         label: '目錄',
         level: [2, 3],
+      },
+      lastUpdated: {
+        text: '更新於',
       },
       nav: filter(
         [
