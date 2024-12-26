@@ -154,6 +154,9 @@ img {
 .vp-doc p {
   line-height: 1.8;
 }
+.VPSidebarItem .VPLink {
+  padding: 0.25rem 0rem;
+}
 
 body {
   letter-spacing: 0.2px;
