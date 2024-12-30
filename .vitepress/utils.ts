@@ -127,6 +127,34 @@ export function getLatestDocPath(
     .replace(/\/\//, '/')
 }
 
+/** 取得目標目錄中最舊的文章 */
+export function getOldestDocPath(
+  docPath: string,
+) {
+  const target = pipe(
+    path.join(CONTENT_PATH, docPath),
+    (value) => fs.readdirSync(value),
+    map((value) => path.basename(value)),
+    sort((a, b) => a.localeCompare(b)),
+    find((file) => {
+      const fullPath = path.join(CONTENT_PATH, docPath, file)
+      const frontmatter = getFrontMatter(fullPath)
+      if (!isDev) {
+        return !frontmatter.draft
+      }
+
+      return true
+    }),
+  )
+  if (!target) {
+    return ''
+  }
+
+  return `${docPath}/${target.replace('.md', '')}`
+    .replace(/\d{6}\./, '')
+    .replace(/\/\//, '/')
+}
+
 export interface Article {
   text: string;
   link: string;
