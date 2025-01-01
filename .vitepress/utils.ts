@@ -32,7 +32,12 @@ export function getFrontMatter(filePath: string) {
   return data || null
 }
 
-function getList(files: string[], absolutePath: string, startPath: string) {
+function getList(
+  files: string[],
+  absolutePath: string,
+  startPath: string,
+  order: 'asc' | 'desc' = 'desc',
+) {
   const res: Array<DefaultTheme.SidebarItem & {
     frontmatter?: z.infer<typeof docFrontMatterSchema>;
   }> = []
@@ -46,7 +51,7 @@ function getList(files: string[], absolutePath: string, startPath: string) {
       res.push({
         text: file,
         collapsed: true,
-        items: getList(files, dir, `${startPath}/${file}`),
+        items: getList(files, dir, `${startPath}/${file}`, order),
       })
       continue
     }
@@ -75,12 +80,17 @@ function getList(files: string[], absolutePath: string, startPath: string) {
 
   res.sort((a, b) => (b.frontmatter?.date ?? 0) - (a.frontmatter?.date ?? 0))
 
+  if (order === 'asc') {
+    res.reverse()
+  }
+
   return res
 }
 
 export function getSidebar(
   startPath: string,
   text: string,
+  order: 'asc' | 'desc' = 'desc',
 ) {
   const absolutePath = path.join(CONTENT_PATH, startPath)
   const files = fs.readdirSync(absolutePath)
@@ -88,7 +98,7 @@ export function getSidebar(
   const result = {
     [startPath]: [{
       text,
-      items: getList(files, absolutePath, startPath),
+      items: getList(files, absolutePath, startPath, order),
     }],
   }
 
@@ -108,6 +118,34 @@ export function getLatestDocPath(
     (value) => fs.readdirSync(value),
     map((value) => path.basename(value)),
     sort((a, b) => b.localeCompare(a)),
+    find((file) => {
+      const fullPath = path.join(CONTENT_PATH, docPath, file)
+      const frontmatter = getFrontMatter(fullPath)
+      if (!isDev) {
+        return !frontmatter.draft
+      }
+
+      return true
+    }),
+  )
+  if (!target) {
+    return ''
+  }
+
+  return `${docPath}/${target.replace('.md', '')}`
+    .replace(/\d{6}\./, '')
+    .replace(/\/\//, '/')
+}
+
+/** 取得目標目錄中最舊的文章 */
+export function getOldestDocPath(
+  docPath: string,
+) {
+  const target = pipe(
+    path.join(CONTENT_PATH, docPath),
+    (value) => fs.readdirSync(value),
+    map((value) => path.basename(value)),
+    sort((a, b) => a.localeCompare(b)),
     find((file) => {
       const fullPath = path.join(CONTENT_PATH, docPath, file)
       const frontmatter = getFrontMatter(fullPath)

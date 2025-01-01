@@ -7,6 +7,7 @@ import { generateImages } from './scripts/resize-images'
 import {
   getArticleList,
   getLatestDocPath,
+  getOldestDocPath,
   getSidebar,
 } from './utils'
 
@@ -147,7 +148,7 @@ export default ({ mode }: { mode: string }) => {
             items: [
               {
                 text: '自己的工具自己做，用 Electron 仿造 PowerToys！',
-                link: getLatestDocPath('/column-cod-toys/'),
+                link: getOldestDocPath('/column-cod-toys/'),
               },
             ],
           }),
@@ -181,18 +182,31 @@ export default ({ mode }: { mode: string }) => {
               items: [
                 {
                   text: '自己的工具自己做，用 Electron 仿造 PowerToys！',
-                  link: getLatestDocPath('/column-cod-toys/'),
+                  link: getOldestDocPath('/column-cod-toys/'),
                 },
               ],
             }),
           ],
           isTruthy,
         ),
-        ...getSidebar('/blog-ocean-world/', '蔚藍世界'),
-        ...getSidebar('/blog-program/', '程式浮潛'),
-        ...getSidebar('/blog-vue/', 'Vue'),
+        ...getSidebar(
+          '/blog-ocean-world/',
+          '蔚藍世界',
+        ),
+        ...getSidebar(
+          '/blog-program/',
+          '程式浮潛',
+        ),
+        ...getSidebar(
+          '/blog-vue/',
+          'Vue',
+        ),
 
-        ...getSidebar('/column-cod-toys/', '自己的工具自己做，用 Electron 仿造 PowerToys！'),
+        ...getSidebar(
+          '/column-cod-toys/',
+          '自己的工具自己做，用 Electron 仿造 PowerToys！',
+          'asc',
+        ),
       },
 
       socialLinks: [
