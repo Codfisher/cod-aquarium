@@ -3,6 +3,7 @@ import type { Article } from './utils'
 import { filter, isTruthy } from 'remeda'
 import { withMermaid } from 'vitepress-plugin-mermaid'
 import { markdownItBaseImg } from './plugin/markdown-it-base-img'
+import { markdownItNowrap } from './plugin/markdown-it-nowrap'
 import { generateImages } from './scripts/resize-images'
 import {
   getArticleList,
@@ -117,6 +118,7 @@ export default ({ mode }: { mode: string }) => {
       lineNumbers: true,
       config(md) {
         md.use((md) => markdownItBaseImg(md, mode))
+        md.use(markdownItNowrap)
       },
     },
 
