@@ -1,6 +1,6 @@
 import type { DefaultTheme } from 'vitepress'
 import type { Article } from './utils'
-import { filter, isTruthy } from 'remeda'
+import { filter, isTruthy, map, piped } from 'remeda'
 import { withMermaid } from 'vitepress-plugin-mermaid'
 import { markdownItBaseImg } from './plugin/markdown-it-base-img'
 import { markdownItNowrap } from './plugin/markdown-it-nowrap'
@@ -60,8 +60,8 @@ export default ({ mode }: { mode: string }) => {
     ],
     sitemap: {
       hostname: 'https://codlin.me',
-      transformItems: (items) => {
-        return items.filter((item) => {
+      transformItems: piped(
+        filter((item) => {
           const target = articleList.find((article) =>
             item.url.includes(article.link),
           )
@@ -70,8 +70,13 @@ export default ({ mode }: { mode: string }) => {
           }
 
           return !target?.frontmatter?.draft
-        })
-      },
+        }),
+        map((item) => ({
+          ...item,
+          // 去除 .html，否則 search console 會因重新導向導致無法抓取
+          url: item.url.replace('.html', ''),
+        })),
+      ),
     },
     rewrites(id) {
       // 去除檔名前面的日期

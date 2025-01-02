@@ -1,9 +1,4 @@
-import type { Token } from 'markdown-it'
 import type MarkdownIt from 'markdown-it'
-
-type RuleInline = Parameters<
-  MarkdownIt['inline']['ruler']['before']
->[2]
 
 const RULE_NAME = 'nowrap_span'
 const MARKER = '%'
@@ -14,8 +9,11 @@ const MARKER = '%'
  * @param md
  */
 export function markdownItNowrap(md: MarkdownIt) {
-  /** 解析 % 區塊 */
-  const parsePercentSyntax: RuleInline = (state, silent) => {
+  /** 解析 % 區塊
+   *
+   * 顏文字僅用於 inline 內容，所以註冊在 inline ruler 之前
+   */
+  md.inline.ruler.before('emphasis', RULE_NAME, (state, silent) => {
     const start = state.pos
     const markerLength = MARKER.length
 
@@ -36,18 +34,14 @@ export function markdownItNowrap(md: MarkdownIt) {
 
     state.pos = end + markerLength
     return true
-  }
+  })
 
-  /** 渲染 nowrap_span 區塊內容 */
-  function renderPercentSyntax(tokens: Token[], idx: number) {
+  /** 渲染自定義區塊內容 */
+  md.renderer.rules[RULE_NAME] = (tokens, idx) => {
     if (!tokens[idx]?.content) {
       return ''
     }
 
     return `<span class="text-nowrap">${tokens[idx].content}</span>`
   }
-
-  // 顏文字僅用於 inline 內容，所以註冊在 inline ruler 之前
-  md.inline.ruler.before('emphasis', RULE_NAME, parsePercentSyntax)
-  md.renderer.rules.nowrap_span = renderPercentSyntax
 }
