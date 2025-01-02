@@ -16,6 +16,10 @@ type MarkdownIt = Parameters<
 export function markdownItBaseImg(md: MarkdownIt, mode: string) {
   md.renderer.rules.image = (tokens, idx) => {
     const token = tokens[idx]
+    if (!token) {
+      return ''
+    }
+
     const src = token.attrGet('src')
     if (!src) {
       return ''
