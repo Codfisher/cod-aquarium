@@ -14,7 +14,7 @@ import { onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
 
 type BabylonEngine = Engine | WebGPUEngine
 
-export interface InitParam {
+export interface InitParams {
   canvas: HTMLCanvasElement;
   engine: BabylonEngine;
   scene: Scene;
@@ -22,10 +22,10 @@ export interface InitParam {
 }
 
 interface UseBabylonSceneParam {
-  createEngine?: (param: Omit<InitParam, 'camera' | 'scene' | 'engine'>) => Promise<BabylonEngine>;
-  createScene?: (param: Omit<InitParam, 'camera' | 'scene'>) => Scene;
-  createCamera?: (param: Omit<InitParam, 'camera'>) => Camera;
-  init?: (param: InitParam) => Promise<void>;
+  createEngine?: (param: Omit<InitParams, 'camera' | 'scene' | 'engine'>) => Promise<BabylonEngine>;
+  createScene?: (param: Omit<InitParams, 'camera' | 'scene'>) => Scene;
+  createCamera?: (param: Omit<InitParams, 'camera'>) => Camera;
+  init?: (param: InitParams) => Promise<void>;
 }
 const defaultParam: Required<UseBabylonSceneParam> = {
   async createEngine({ canvas }) {
