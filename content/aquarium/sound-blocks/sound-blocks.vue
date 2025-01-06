@@ -36,10 +36,10 @@ const {
 })
 </script>
 
-<style lang="sass">
+<!-- <style lang="sass">
 body
   overflow: hidden
-</style>
+</style> -->
 
 <style lang="sass" scoped>
 .canvas
