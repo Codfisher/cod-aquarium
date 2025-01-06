@@ -66,6 +66,7 @@ export default ({ mode }: { mode: string }) => {
             item.url.includes(article.link),
           )
           if (!target) {
+            console.warn(`[ sitemap ] ${item.url} 不在 articleList 之中`)
             return false
           }
 
