@@ -13,6 +13,7 @@ import {
 } from '@babylonjs/core'
 import { defaults } from 'lodash-es'
 import { onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
+import '@babylonjs/loaders'
 
 type BabylonEngine = Engine | WebGPUEngine
 
@@ -58,7 +59,7 @@ const defaultParam: Required<UseBabylonSceneParam> = {
     scene.clearColor = new Color4(1, 1, 1, 1)
 
     scene.fogMode = Scene.FOGMODE_LINEAR
-    scene.fogColor = new Color3(250 / 255, 250 / 255, 212 / 255)
+    scene.fogColor = new Color3(0.8, 0.8, 0.8)
     scene.fogStart = 20
     scene.fogEnd = 30
 
@@ -125,7 +126,6 @@ export function useBabylonScene(param?: UseBabylonSceneParam) {
 
     window.addEventListener('resize', handleResize)
 
-    /** 反覆渲染場景，這樣畫面才會持續變化 */
     engine.value.runRenderLoop(() => {
       scene.value?.render()
     })

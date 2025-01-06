@@ -2,14 +2,14 @@
   <div class=" overflow-hidden">
     <canvas
       ref="canvasRef"
-      class="canvas w-full h-full"
+      class="canvas w-full !h-full"
     />
   </div>
 </template>
 
 <script setup lang="ts">
 import type { Scene } from '@babylonjs/core'
-import { Color3, MeshBuilder, StandardMaterial } from '@babylonjs/core'
+import { Color3, MeshBuilder, SceneLoader, StandardMaterial } from '@babylonjs/core'
 import { useBabylonScene } from './use-babylon-scene'
 
 function createGround(scene: Scene) {
@@ -19,7 +19,7 @@ function createGround(scene: Scene) {
   }, scene)
 
   const groundMaterial = new StandardMaterial('groundMaterial', scene)
-  groundMaterial.diffuseColor = new Color3(240 / 255, 250 / 255, 212 / 255)
+  groundMaterial.diffuseColor = new Color3(0.98, 0.98, 0.98)
   ground.material = groundMaterial
 }
 
@@ -27,11 +27,22 @@ const {
   canvasRef,
 } = useBabylonScene({
   async init(params) {
-    createGround(params.scene)
+    const { scene } = params
 
-    const box = MeshBuilder.CreateBox('box', {
-      size: 1,
-    }, params.scene)
+    createGround(scene)
+
+    // const box = MeshBuilder.CreateBox('box', {
+    //   size: 1,
+    // }, params.scene)
+
+    SceneLoader.ImportMeshAsync(
+      '',
+      '/sound-blocks/hexagon-pack/decoration/nature/',
+      'trees_B_large.gltf',
+      scene,
+    ).then((result) => {
+
+    })
   },
 })
 </script>
