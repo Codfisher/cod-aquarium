@@ -19,7 +19,7 @@ function createGround(scene: Scene) {
   }, scene)
 
   const groundMaterial = new StandardMaterial('groundMaterial', scene)
-  groundMaterial.diffuseColor = new Color3(0.98, 0.98, 0.98)
+  groundMaterial.diffuseColor = new Color3(196 / 255, 207 / 255, 199 / 255)
   ground.material = groundMaterial
 }
 
