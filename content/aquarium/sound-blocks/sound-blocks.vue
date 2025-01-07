@@ -9,7 +9,7 @@
 
 <script setup lang="ts">
 import type { Scene } from '@babylonjs/core'
-import { Color3, MeshBuilder, SceneLoader, StandardMaterial } from '@babylonjs/core'
+import { AssetsManager, Color3, MeshBuilder, StandardMaterial } from '@babylonjs/core'
 import { useBabylonScene } from './use-babylon-scene'
 
 function createGround(scene: Scene) {
@@ -23,6 +23,16 @@ function createGround(scene: Scene) {
   ground.material = groundMaterial
 }
 
+function createAssetsManager(scene: Scene) {
+  const assetsManager = new AssetsManager(scene)
+
+  assetsManager.addMeshTask('trees', '', '/sound-blocks/hexagon-pack/decoration/nature/', 'trees_B_large.gltf')
+
+  assetsManager.load()
+
+  return assetsManager
+}
+
 const {
   canvasRef,
 } = useBabylonScene({
@@ -31,18 +41,7 @@ const {
 
     createGround(scene)
 
-    // const box = MeshBuilder.CreateBox('box', {
-    //   size: 1,
-    // }, params.scene)
-
-    SceneLoader.ImportMeshAsync(
-      '',
-      '/sound-blocks/hexagon-pack/decoration/nature/',
-      'trees_B_large.gltf',
-      scene,
-    ).then((result) => {
-
-    })
+    const assetsManager = createAssetsManager(scene)
   },
 })
 </script>
