@@ -9,7 +9,15 @@
 
 <script setup lang="ts">
 import type { Scene } from '@babylonjs/core'
-import { AssetsManager, Color3, MeshBuilder, StandardMaterial } from '@babylonjs/core'
+import {
+  Color3,
+  MeshBuilder,
+  ShadowGenerator,
+  SpotLight,
+  StandardMaterial,
+  Vector3,
+} from '@babylonjs/core'
+import { createTreeBlock } from './blocks/tree'
 import { useBabylonScene } from './use-babylon-scene'
 
 function createGround(scene: Scene) {
@@ -21,16 +29,25 @@ function createGround(scene: Scene) {
   const groundMaterial = new StandardMaterial('groundMaterial', scene)
   groundMaterial.diffuseColor = new Color3(0.98, 0.98, 0.98)
   ground.material = groundMaterial
+
+  ground.receiveShadows = true
 }
 
-function createAssetsManager(scene: Scene) {
-  const assetsManager = new AssetsManager(scene)
+function createShadowGenerator(scene: Scene) {
+  const light = new SpotLight(
+    'spot',
+    new Vector3(30, 40, 20),
+    new Vector3(-1, -2, -1),
+    1.1,
+    16,
+    scene,
+  )
+  light.intensity = 0.7
 
-  assetsManager.addMeshTask('trees', '', '/sound-blocks/hexagon-pack/decoration/nature/', 'trees_B_large.gltf')
+  const shadowGenerator = new ShadowGenerator(1024, light)
+  shadowGenerator.useBlurExponentialShadowMap = true
 
-  assetsManager.load()
-
-  return assetsManager
+  return shadowGenerator
 }
 
 const {
@@ -40,8 +57,12 @@ const {
     const { scene } = params
 
     createGround(scene)
+    const shadowGenerator = createShadowGenerator(scene)
 
-    const assetsManager = createAssetsManager(scene)
+    const block = await createTreeBlock({ scene })
+    block.meshes.forEach((mesh) => {
+      shadowGenerator.addShadowCaster(mesh)
+    })
   },
 })
 </script>
