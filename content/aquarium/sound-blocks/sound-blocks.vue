@@ -11,9 +11,9 @@
 import type { Scene } from '@babylonjs/core'
 import {
   Color3,
+  DirectionalLight,
   MeshBuilder,
   ShadowGenerator,
-  SpotLight,
   StandardMaterial,
   Vector3,
 } from '@babylonjs/core'
@@ -34,18 +34,10 @@ function createGround(scene: Scene) {
 }
 
 function createShadowGenerator(scene: Scene) {
-  const light = new SpotLight(
-    'spot',
-    new Vector3(30, 40, 20),
-    new Vector3(-1, -2, -1),
-    1.1,
-    16,
-    scene,
-  )
+  const light = new DirectionalLight('dir01', new Vector3(-5, -5, 0), scene)
   light.intensity = 0.7
 
   const shadowGenerator = new ShadowGenerator(1024, light)
-  shadowGenerator.useBlurExponentialShadowMap = true
 
   return shadowGenerator
 }
