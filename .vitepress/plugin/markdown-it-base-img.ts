@@ -1,5 +1,6 @@
 import type { RequiredDeep } from 'type-fest'
 import type { UserConfig } from 'vitepress'
+import { map, pipe } from 'remeda'
 
 type MarkdownIt = Parameters<
   RequiredDeep<
@@ -20,15 +21,20 @@ export function markdownItBaseImg(md: MarkdownIt, mode: string) {
       return ''
     }
 
-    const src = token.attrGet('src')
-    if (!src) {
-      return ''
-    }
+    const attrs = pipe(
+      token.attrs ?? [],
+      map(([key, value]) => {
+        if (key === 'alt') {
+          return `alt="${token.content}"`
+        }
+
+        return `${key}="${value}"`
+      }),
+    )
 
     return [
       `<base-img`,
-      `src="${src}"`,
-      `alt="${token.content}"`,
+      ...attrs,
       `/>`,
     ].join(' ')
   }

@@ -161,3 +161,10 @@ img {
 body {
   letter-spacing: 0.2px;
 }
+
+.cover {
+  display: block;
+  height: 80vw;
+  aspect-ratio: 1;
+  max-height: 688px;
+}
