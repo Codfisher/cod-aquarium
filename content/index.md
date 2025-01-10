@@ -11,7 +11,7 @@ aside: false
 
 # 歡迎來到鱈魚的魚缸
 
-![鱈魚的魚缸](/cover.webp)
+![鱈魚的魚缸](/cover.webp){height=400px .block}
 
 大家好，我是鱈魚。( ´ ▽ ` )ﾉ
 
