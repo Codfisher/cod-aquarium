@@ -244,6 +244,24 @@ export default ({ mode }: { mode: string }) => {
           },
         },
       },
+      /** 強制停用 vitepress data loader 功能
+       *
+       * 避免 build 時出現以下錯誤：
+       * KHR_animation_pointer.data.js: config must export or return an object.
+       *
+       * https://github.com/vuejs/vitepress/issues/4482
+       */
+      plugins: [
+        {
+          name: 'disable-vp-static-data-plugin',
+          configResolved(config) {
+            (config.plugins as any).splice(
+              config.plugins.findIndex((p) => p.name === 'vitepress:data'),
+              1,
+            )
+          },
+        },
+      ],
     },
     async buildEnd() {
       await generateImages()
