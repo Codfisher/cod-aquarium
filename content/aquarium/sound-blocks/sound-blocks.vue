@@ -17,6 +17,7 @@ import {
   StandardMaterial,
   Vector3,
 } from '@babylonjs/core'
+import { onMounted, onUnmounted } from 'vue'
 import { createTreeBlock } from './blocks'
 import { useBabylonScene } from './use-babylon-scene'
 
@@ -57,12 +58,19 @@ const {
     await createTreeBlock({ scene, shadowGenerator })
   },
 })
+
+onMounted(() => {
+  document.body.classList.add('overflow-hidden')
+})
+onUnmounted(() => {
+  document.body.classList.remove('overflow-hidden')
+})
 </script>
 
-<!-- <style lang="sass">
-body
+<style lang="sass">
+body.overflow-hidden
   overflow: hidden
-</style> -->
+</style>
 
 <style lang="sass" scoped>
 .canvas
