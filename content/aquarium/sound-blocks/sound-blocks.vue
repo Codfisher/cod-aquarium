@@ -17,12 +17,11 @@ import {
   StandardMaterial,
   Vector3,
 } from '@babylonjs/core'
-import { createTreeBlock } from './blocks/tree'
+import { createTreeBlock } from './blocks'
 import { useBabylonScene } from './use-babylon-scene'
 
-function createGround({ scene, shadowGenerator }: {
+function createGround({ scene }: {
   scene: Scene;
-  shadowGenerator?: ShadowGenerator;
 }) {
   const ground = MeshBuilder.CreateGround('ground', {
     width: 1000,
@@ -53,9 +52,9 @@ const {
     const { scene } = params
     const shadowGenerator = createShadowGenerator(scene)
 
-    createGround({ scene, shadowGenerator })
+    createGround({ scene })
 
-    const block = await createTreeBlock({ scene, shadowGenerator })
+    await createTreeBlock({ scene, shadowGenerator })
   },
 })
 </script>

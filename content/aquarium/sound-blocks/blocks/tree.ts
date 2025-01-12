@@ -1,17 +1,11 @@
-import type {
-  AbstractMesh,
-  Scene,
-  ShadowGenerator,
-} from '@babylonjs/core'
+import type { CreateBlockParams } from '.'
 import {
   SceneLoader,
+  TransformNode,
   Vector3,
 } from '@babylonjs/core'
+import { forEach, pipe } from 'remeda'
 
-interface CreateBlockParams {
-  scene: Scene;
-  shadowGenerator?: ShadowGenerator;
-}
 export async function createTreeBlock(
   {
     scene,
@@ -36,28 +30,41 @@ export async function createTreeBlock(
     ),
   ])
 
-  const meshes: AbstractMesh[] = []
-  if (treeResult.meshes[0]) {
-    treeResult.meshes[0].position = new Vector3(0, 0.5, 0)
-    meshes.push(treeResult.meshes[0])
-    shadowGenerator?.addShadowCaster(treeResult.meshes[0])
-  }
+  const rootNode = new TransformNode('block-root', scene)
 
-  treeResult.meshes.forEach((mesh) => {
-    mesh.receiveShadows = true
-  })
+  pipe(
+    treeResult.meshes,
+    forEach((mesh) => {
+      mesh.receiveShadows = true
+    }),
+    ([rootMesh]) => {
+      if (!rootMesh)
+        return
 
-  if (hexResult.meshes[0]) {
-    hexResult.meshes[0].position = new Vector3(0, 0.5, 0)
-    meshes.push(hexResult.meshes[0])
-    shadowGenerator?.addShadowCaster(hexResult.meshes[0])
-  }
+      rootMesh.position = new Vector3(0, 0.5, 0)
+      shadowGenerator?.addShadowCaster(rootMesh)
 
-  hexResult.meshes.forEach((mesh) => {
-    mesh.receiveShadows = true
-  })
+      rootMesh.parent = rootNode
+    },
+  )
+
+  pipe(
+    hexResult.meshes,
+    forEach((mesh) => {
+      mesh.receiveShadows = true
+    }),
+    ([rootMesh]) => {
+      if (!rootMesh)
+        return
+
+      rootMesh.position = new Vector3(0, 0.5, 0)
+      shadowGenerator?.addShadowCaster(rootMesh)
+
+      rootMesh.parent = rootNode
+    },
+  )
 
   return {
-    meshes,
+    rootNode,
   }
 }
