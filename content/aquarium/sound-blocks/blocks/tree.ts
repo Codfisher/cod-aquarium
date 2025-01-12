@@ -1,6 +1,7 @@
 import type {
   AbstractMesh,
   Scene,
+  ShadowGenerator,
 } from '@babylonjs/core'
 import {
   SceneLoader,
@@ -9,9 +10,13 @@ import {
 
 interface CreateBlockParams {
   scene: Scene;
+  shadowGenerator?: ShadowGenerator;
 }
 export async function createTreeBlock(
-  { scene }: CreateBlockParams,
+  {
+    scene,
+    shadowGenerator,
+  }: CreateBlockParams,
 ) {
   const [
     treeResult,
@@ -35,6 +40,7 @@ export async function createTreeBlock(
   if (treeResult.meshes[0]) {
     treeResult.meshes[0].position = new Vector3(0, 0.5, 0)
     meshes.push(treeResult.meshes[0])
+    shadowGenerator?.addShadowCaster(treeResult.meshes[0])
   }
 
   treeResult.meshes.forEach((mesh) => {
@@ -44,6 +50,7 @@ export async function createTreeBlock(
   if (hexResult.meshes[0]) {
     hexResult.meshes[0].position = new Vector3(0, 0.5, 0)
     meshes.push(hexResult.meshes[0])
+    shadowGenerator?.addShadowCaster(hexResult.meshes[0])
   }
 
   hexResult.meshes.forEach((mesh) => {

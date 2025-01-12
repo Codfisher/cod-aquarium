@@ -20,7 +20,10 @@ import {
 import { createTreeBlock } from './blocks/tree'
 import { useBabylonScene } from './use-babylon-scene'
 
-function createGround(scene: Scene) {
+function createGround({ scene, shadowGenerator }: {
+  scene: Scene;
+  shadowGenerator?: ShadowGenerator;
+}) {
   const ground = MeshBuilder.CreateGround('ground', {
     width: 1000,
     height: 1000,
@@ -38,6 +41,7 @@ function createShadowGenerator(scene: Scene) {
   light.intensity = 0.7
 
   const shadowGenerator = new ShadowGenerator(1024, light)
+  shadowGenerator.usePoissonSampling = true
 
   return shadowGenerator
 }
@@ -47,14 +51,11 @@ const {
 } = useBabylonScene({
   async init(params) {
     const { scene } = params
-
-    createGround(scene)
     const shadowGenerator = createShadowGenerator(scene)
 
-    const block = await createTreeBlock({ scene })
-    block.meshes.forEach((mesh) => {
-      shadowGenerator.addShadowCaster(mesh)
-    })
+    createGround({ scene, shadowGenerator })
+
+    const block = await createTreeBlock({ scene, shadowGenerator })
   },
 })
 </script>
