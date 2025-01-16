@@ -17,10 +17,13 @@ import {
   StandardMaterial,
   Vector3,
 } from '@babylonjs/core'
-import { createTreeBlock } from './blocks/tree'
+import { onMounted, onUnmounted } from 'vue'
+import { createTreeBlock } from './blocks'
 import { useBabylonScene } from './use-babylon-scene'
 
-function createGround(scene: Scene) {
+function createGround({ scene }: {
+  scene: Scene;
+}) {
   const ground = MeshBuilder.CreateGround('ground', {
     width: 1000,
     height: 1000,
@@ -38,6 +41,7 @@ function createShadowGenerator(scene: Scene) {
   light.intensity = 0.7
 
   const shadowGenerator = new ShadowGenerator(1024, light)
+  shadowGenerator.usePoissonSampling = true
 
   return shadowGenerator
 }
@@ -47,22 +51,26 @@ const {
 } = useBabylonScene({
   async init(params) {
     const { scene } = params
-
-    createGround(scene)
     const shadowGenerator = createShadowGenerator(scene)
 
-    const block = await createTreeBlock({ scene })
-    block.meshes.forEach((mesh) => {
-      shadowGenerator.addShadowCaster(mesh)
-    })
+    createGround({ scene })
+
+    await createTreeBlock({ scene, shadowGenerator })
   },
+})
+
+onMounted(() => {
+  document.body.classList.add('overflow-hidden')
+})
+onUnmounted(() => {
+  document.body.classList.remove('overflow-hidden')
 })
 </script>
 
-<!-- <style lang="sass">
-body
+<style lang="sass">
+body.overflow-hidden
   overflow: hidden
-</style> -->
+</style>
 
 <style lang="sass" scoped>
 .canvas
