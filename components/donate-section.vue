@@ -23,15 +23,11 @@
 </template>
 
 <script setup lang="ts">
-import { useRoute } from 'vitepress'
 import { computed } from 'vue'
 
-const route = useRoute()
-
 const src = computed(() => {
-  const path = encodeURIComponent(route.path.replace('.html', ''))
-
-  return `https://button.like.co/in/embed/codlin/button?referrer=${path}`
+  const referrer = encodeURIComponent(window.location.href.replace('.html', ''))
+  return `https://button.like.co/in/embed/codlin/button?referrer=${referrer}`
 })
 </script>
 
