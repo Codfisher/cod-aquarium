@@ -25,17 +25,27 @@
 <script setup lang="ts">
 import { pipe } from 'remeda'
 import { useRoute } from 'vitepress'
-import { computed } from 'vue'
+import { onMounted, ref } from 'vue'
 
 const route = useRoute()
 
-const src = computed(() => {
+const src = ref('')
+
+function getSrc() {
   const referrer = pipe(
     window?.location?.href ?? route.path,
     (value) => encodeURIComponent(value.replace('.html', '')),
   )
 
   return `https://button.like.co/in/embed/codlin/button?referrer=${referrer}`
+}
+
+/** 防止 SSR 階段出現 window 不存在
+ *
+ * https://github.com/vuejs/vitepress/issues/1689
+ */
+onMounted(() => {
+  src.value = getSrc()
 })
 </script>
 
