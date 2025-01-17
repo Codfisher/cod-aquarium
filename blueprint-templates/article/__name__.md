@@ -8,6 +8,6 @@ date: 202
 
 # 標題
 
-![img](/img.webp)
+![img](/img.webp){.cover}
 
 ## 總結 🐟
