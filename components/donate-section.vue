@@ -10,7 +10,7 @@
 
     」或花 10 秒登入 LikeCoin 按下方按鈕拍手鼓勵我喔！
     <iframe
-      :key
+      :key="src"
       scrolling="no"
       frameborder="0"
       :src
@@ -29,11 +29,6 @@ import { onMounted, ref, watch } from 'vue'
 
 const route = useRoute()
 
-const key = ref(crypto.randomUUID())
-watch(() => route.path, () => {
-  key.value = crypto.randomUUID()
-})
-
 const src = ref('')
 
 function getSrc() {
@@ -44,6 +39,10 @@ function getSrc() {
 
   return `https://button.like.co/in/embed/codlin/button?referrer=${referrer}`
 }
+
+watch(() => route.path, () => {
+  src.value = getSrc()
+})
 
 /** 防止 SSR 階段出現 window 不存在
  *
