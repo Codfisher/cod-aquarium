@@ -10,7 +10,7 @@
 
     」或花 10 秒登入 LikeCoin 按下方按鈕拍手鼓勵我喔！
     <iframe
-      :key="src"
+      :key
       scrolling="no"
       frameborder="0"
       :src
@@ -25,9 +25,14 @@
 <script setup lang="ts">
 import { pipe } from 'remeda'
 import { useRoute } from 'vitepress'
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 
 const route = useRoute()
+
+const key = ref(crypto.randomUUID())
+watch(() => route.path, () => {
+  key.value = crypto.randomUUID()
+})
 
 const src = ref('')
 
