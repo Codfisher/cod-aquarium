@@ -155,8 +155,12 @@ export default ({ mode }: { mode: string }) => {
             text: '專欄',
             items: [
               {
-                text: '自己的工具自己做，用 Electron 仿造 PowerToys！',
+                text: '用 Electron 仿造 PowerToys',
                 link: getOldestDocPath('/column-cod-toys/'),
+              },
+              {
+                text: '來個 3D 白噪音混音器',
+                link: getOldestDocPath('/column-sound-blocks/'),
               },
             ],
           }),
@@ -185,15 +189,19 @@ export default ({ mode }: { mode: string }) => {
                 },
               ],
             },
-            getNavItem({
+            {
               text: '專欄',
               items: [
                 {
                   text: '自己的工具自己做，用 Electron 仿造 PowerToys！',
                   link: getOldestDocPath('/column-cod-toys/'),
                 },
+                {
+                  text: '來個 3D 白噪音混音器',
+                  link: getOldestDocPath('/column-sound-blocks/'),
+                },
               ],
-            }),
+            },
           ],
           isTruthy,
         ),
@@ -213,6 +221,11 @@ export default ({ mode }: { mode: string }) => {
         ...getSidebar(
           '/column-cod-toys/',
           '自己的工具自己做，用 Electron 仿造 PowerToys！',
+          'asc',
+        ),
+        ...getSidebar(
+          '/column-sound-blocks/',
+          '來個 3D 白噪音混音器',
           'asc',
         ),
       },
