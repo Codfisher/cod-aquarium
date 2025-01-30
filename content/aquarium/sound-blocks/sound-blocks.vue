@@ -2,7 +2,7 @@
   <div class=" overflow-hidden">
     <canvas
       ref="canvasRef"
-      class="canvas w-full !h-full"
+      class="canvas w-full h-full"
     />
   </div>
 </template>
