@@ -68,8 +68,6 @@
   --vp-c-danger-2: var(--vp-c-red-2);
   --vp-c-danger-3: var(--vp-c-red-3);
   --vp-c-danger-soft: var(--vp-c-red-soft);
-
-  --vp-sidebar-bg-color: #FFF
 }
 
 .dark {
@@ -77,8 +75,6 @@
   --vp-c-brand-2: #4ccab9;
   --vp-c-brand-3: #65dfd0;
   --vp-c-brand-soft: #1d4642;
-
-  --vp-sidebar-bg-color: none
 }
 
 /**
@@ -176,6 +172,13 @@ body {
 
 
 @media (min-width: 960px) {
+  :root {
+    --vp-sidebar-bg-color: #FFF
+  }
+  .dark {
+    --vp-sidebar-bg-color: none
+  }
+
   .VPDocAside,
   #VPSidebarNav {
     opacity: 0.05;
