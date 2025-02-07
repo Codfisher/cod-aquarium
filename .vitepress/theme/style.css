@@ -68,6 +68,8 @@
   --vp-c-danger-2: var(--vp-c-red-2);
   --vp-c-danger-3: var(--vp-c-red-3);
   --vp-c-danger-soft: var(--vp-c-red-soft);
+
+  --vp-sidebar-bg-color: #FFF
 }
 
 .dark {
@@ -75,6 +77,8 @@
   --vp-c-brand-2: #4ccab9;
   --vp-c-brand-3: #65dfd0;
   --vp-c-brand-soft: #1d4642;
+
+  --vp-sidebar-bg-color: none
 }
 
 /**
@@ -154,6 +158,7 @@ img {
 .vp-doc p {
   line-height: 1.8;
 }
+
 .VPSidebarItem .VPLink {
   padding: 0.25rem 0rem;
 }
@@ -167,4 +172,16 @@ body {
   height: 80vw;
   aspect-ratio: 1;
   max-height: 688px;
+}
+
+.VPDocAside,
+#VPSidebarNav {
+  opacity: 0.05;
+  filter: blur(1px);
+  transition-duration: 0.4s;
+
+  &:hover {
+    opacity: 1;
+    filter: blur(0px);
+  }
 }
