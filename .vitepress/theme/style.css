@@ -174,14 +174,17 @@ body {
   max-height: 688px;
 }
 
-.VPDocAside,
-#VPSidebarNav {
-  opacity: 0.05;
-  filter: blur(1px);
-  transition-duration: 0.4s;
 
-  &:hover {
-    opacity: 1;
-    filter: blur(0px);
+@media (min-width: 960px) {
+  .VPDocAside,
+  #VPSidebarNav {
+    opacity: 0.05;
+    filter: blur(1px);
+    transition-duration: 0.4s;
+
+    &:hover {
+      opacity: 1;
+      filter: blur(0px);
+    }
   }
 }
