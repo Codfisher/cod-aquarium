@@ -99,6 +99,18 @@ export default ({ mode }: { mode: string }) => {
           gtag('js', new Date());
           gtag('config', 'G-WL47JJHL0R');`,
         ],
+        [
+          'script',
+          { async: '', src: 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6608581811170481', crossorigin: 'anonymous' },
+          '',
+        ],
+        [
+          'meta',
+          {
+            name: 'google-adsense-account',
+            content: 'ca-pub-6608581811170481',
+          },
+        ],
       ]
     },
     transformPageData(pageData) {
