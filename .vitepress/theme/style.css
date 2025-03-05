@@ -175,6 +175,7 @@ body {
   :root {
     --vp-sidebar-bg-color: #FFF
   }
+
   .dark {
     --vp-sidebar-bg-color: none
   }
@@ -186,6 +187,13 @@ body {
     transition-duration: 0.4s;
 
     &:hover {
+      opacity: 1;
+      filter: blur(0px);
+    }
+  }
+
+  .VPSidebar:hover {
+    #VPSidebarNav {
       opacity: 1;
       filter: blur(0px);
     }
