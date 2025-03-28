@@ -6,8 +6,9 @@ image: https://codlin.me/img.webp
 date: 202
 ---
 
+![img](/img.webp){.cover}
+
 # 標題
 
-![img](/img.webp){.cover}
 
 ## 總結 🐟
