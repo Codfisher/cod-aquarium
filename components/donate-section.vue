@@ -20,6 +20,18 @@
     <div class=" text-center p-4 bg-slate-50 rounded-xl text-lg text-gray-600">
       鱈魚感謝您！ <span class="text-nowrap">(´▽`ʃ💖ƪ)</span>
     </div>
+
+    <amp-ad
+      width="100vw"
+      height="320"
+      type="adsense"
+      data-ad-client="ca-pub-6608581811170481"
+      data-ad-slot="9242930193"
+      data-auto-format="rspv"
+      data-full-width=""
+    >
+      <div overflow="" />
+    </amp-ad>
   </div>
 </template>
 
