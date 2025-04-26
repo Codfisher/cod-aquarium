@@ -88,7 +88,10 @@ export default ({ mode }: { mode: string }) => {
       return [
         [
           'script',
-          { async: '', src: 'https://www.googletagmanager.com/gtag/js?id=G-WL47JJHL0R' },
+          {
+            async: '',
+            src: 'https://www.googletagmanager.com/gtag/js?id=G-WL47JJHL0R'
+          },
           '',
         ],
         [
@@ -101,7 +104,11 @@ export default ({ mode }: { mode: string }) => {
         ],
         [
           'script',
-          { async: '', src: 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6608581811170481', crossorigin: 'anonymous' },
+          {
+            async: '',
+            src: 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6608581811170481',
+            crossorigin: 'anonymous'
+          },
           '',
         ],
         [
@@ -110,6 +117,16 @@ export default ({ mode }: { mode: string }) => {
             name: 'google-adsense-account',
             content: 'ca-pub-6608581811170481',
           },
+        ],
+
+        [
+          'script',
+          {
+            'async': '',
+            'custom-element': 'amp-ad',
+            'src': 'https://cdn.ampproject.org/v0/amp-ad-0.1.js',
+          },
+          '',
         ],
       ]
     },
