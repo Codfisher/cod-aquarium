@@ -103,7 +103,7 @@
                   </div>
                 </div>
 
-                <div class="description w-full text-sm opacity-80">
+                <div class="description w-full text-base leading-[1.8] opacity-80">
                   {{ article.frontmatter.description }}
                 </div>
               </div>
