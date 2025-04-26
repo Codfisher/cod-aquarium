@@ -182,20 +182,32 @@ body {
 
   .VPDocAside,
   #VPSidebarNav {
-    opacity: 0.05;
-    filter: blur(1px);
+    opacity: 0.2;
+    filter: blur(6px);
     transition-duration: 0.4s;
 
     &:hover {
       opacity: 1;
       filter: blur(0px);
     }
+
+    /* When #VPSidebarNav contains an element with class .article-overview */
+
   }
 
   .VPSidebar:hover {
     #VPSidebarNav {
       opacity: 1;
       filter: blur(0px);
+    }
+  }
+
+  .Layout {
+    &:has(.article-overview) {
+      #VPSidebarNav {
+        opacity: 1;
+        filter: blur(0px);
+      }
     }
   }
 }
