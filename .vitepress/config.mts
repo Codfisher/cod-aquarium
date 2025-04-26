@@ -261,9 +261,10 @@ export default ({ mode }: { mode: string }) => {
 
       socialLinks: [
         { icon: 'github', link: 'https://github.com/Codfisher/cod-aquarium' },
-        { icon: 'youtube', link: 'https://www.youtube.com/@codfish2140' },
         { icon: 'gitlab', link: 'https://gitlab.com/codfish2140' },
+        { icon: 'youtube', link: 'https://www.youtube.com/@codfish2140' },
         { icon: 'linkedin', link: 'https://www.linkedin.com/in/shih-chen-lin-codfish/' },
+        { icon: 'threads', link: 'https://www.threads.com/@codfish2140' },
       ],
       search: {
         provider: 'local',
