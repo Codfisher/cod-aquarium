@@ -90,7 +90,7 @@ export default ({ mode }: { mode: string }) => {
           'script',
           {
             async: '',
-            src: 'https://www.googletagmanager.com/gtag/js?id=G-WL47JJHL0R'
+            src: 'https://www.googletagmanager.com/gtag/js?id=G-WL47JJHL0R',
           },
           '',
         ],
@@ -107,7 +107,7 @@ export default ({ mode }: { mode: string }) => {
           {
             async: '',
             src: 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6608581811170481',
-            crossorigin: 'anonymous'
+            crossorigin: 'anonymous',
           },
           '',
         ],
