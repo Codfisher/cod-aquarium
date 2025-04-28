@@ -33,6 +33,15 @@
       >
         <div overflow="" />
       </amp-ad>
+
+      <ins
+        class="adsbygoogle"
+        style="display:block"
+        data-ad-client="ca-pub-6608581811170481"
+        data-ad-slot="9242930193"
+        data-ad-format="auto"
+        data-full-width-responsive="true"
+      />
     </client-only>
   </div>
 </template>
@@ -65,6 +74,12 @@ watch(() => route.path, () => {
  */
 onMounted(() => {
   src.value = getSrc()
+
+  // @ts-expect-error 自定義 adsense
+  if (window.adsbygoogle) {
+    // @ts-expect-error 自定義 adsense
+    (window.adsbygoogle = window.adsbygoogle || []).push({})
+  }
 })
 </script>
 
