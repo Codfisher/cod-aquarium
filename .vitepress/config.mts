@@ -118,16 +118,6 @@ export default ({ mode }: { mode: string }) => {
             content: 'ca-pub-6608581811170481',
           },
         ],
-
-        [
-          'script',
-          {
-            'async': '',
-            'custom-element': 'amp-ad',
-            'src': 'https://cdn.ampproject.org/v0/amp-ad-0.1.js',
-          },
-          '',
-        ],
       ]
     },
     transformPageData(pageData) {

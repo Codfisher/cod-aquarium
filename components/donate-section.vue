@@ -9,6 +9,7 @@
     </a>
 
     」或花 10 秒登入 LikeCoin 按下方按鈕拍手鼓勵我喔！
+
     <client-only>
       <iframe
         :key="src"
@@ -17,23 +18,11 @@
         :src
         class="my-4 rounded-xl"
       />
-
-      <div class=" text-center p-4 bg-slate-50 rounded-xl text-lg text-gray-600">
-        鱈魚感謝您！ <span class="text-nowrap">(´▽`ʃ💖ƪ)</span>
-      </div>
-
-      <amp-ad
-        width="100vw"
-        height="320"
-        type="adsense"
-        data-ad-client="ca-pub-6608581811170481"
-        data-ad-slot="9242930193"
-        data-auto-format="rspv"
-        data-full-width=""
-      >
-        <div overflow="" />
-      </amp-ad>
     </client-only>
+
+    <div class=" text-center p-4 bg-slate-50 rounded-xl text-lg text-gray-600">
+      鱈魚感謝您！ <span class="text-nowrap">(´▽`ʃ💖ƪ)</span>
+    </div>
   </div>
 </template>
 
