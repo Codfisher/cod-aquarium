@@ -142,6 +142,20 @@
 
 
 /* 自定義 CSS */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  border-radius: 2px;
+  background-color: #F4F4F4;
+}
+
+::-webkit-scrollbar-track {
+  background-color: transparent;
+}
+
 :root {
   --vp-font-family-base: 'Noto Sans TC', sans-serif;
 }
@@ -173,7 +187,6 @@ body {
   aspect-ratio: 1;
   max-height: 688px;
 }
-
 
 @media (min-width: 960px) {
   :root {
