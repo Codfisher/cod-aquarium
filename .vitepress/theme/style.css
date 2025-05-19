@@ -174,7 +174,6 @@ body {
   max-height: 688px;
 }
 
-
 @media (min-width: 960px) {
   :root {
     --vp-sidebar-bg-color: #FFF
