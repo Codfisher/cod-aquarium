@@ -1,5 +1,19 @@
 <template>
   <div class="p-4 border rounded-xl mb-10 vp-doc">
+    <div class="">
+      有任何建議或疑問嗎？歡迎
+      <a
+        href="mailto:hi@codlin.me"
+        target="_blank"
+      >
+        寫信給我
+      </a>
+
+      ( ´ ▽ ` )ﾉ
+    </div>
+
+    <br>
+
     如果我的文章對您有所啟發或幫助，歡迎「
     <a
       href="https://portaly.cc/codfish/support"
