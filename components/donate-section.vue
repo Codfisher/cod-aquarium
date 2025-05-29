@@ -9,7 +9,7 @@
         寫信給我
       </a>
 
-      ( ´ ▽ ` )ﾉ
+      <span class="text-nowrap">( ´ ▽ ` )ﾉ</span>
     </div>
 
     <br>
