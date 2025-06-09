@@ -9,13 +9,12 @@ import { z } from 'zod'
 const isDev = process.env.NODE_ENV !== 'production'
 const CONTENT_PATH = path.resolve(__dirname, '../content')
 
-// 是否為資料夾
 function isDirectory(path: string) {
   return fs.lstatSync(path).isDirectory()
 }
 
 const docFrontMatterSchema = z.object({
-  title: z.string(),
+  title: z.string().nullish(),
   description: z.string(),
   tags: z.array(z.string()),
   image: z.string().url(),
@@ -23,16 +22,36 @@ const docFrontMatterSchema = z.object({
   draft: z.boolean().optional(),
 })
 
-// 取得 FrontMatter
+/** 從 markdown 內容中提取第一個 # 標題 */
+function extractFirstHeading(content: string): string | null {
+  const lines = content.split('\n')
+  for (const line of lines) {
+    const trimmedLine = line.trim()
+    if (trimmedLine.startsWith('# ')) {
+      return trimmedLine.substring(2).trim()
+    }
+  }
+  return null
+}
+
 export function getFrontMatter(filePath: string) {
   const content = fs.readFileSync(filePath, 'utf-8')
   const result = matter(content)
 
   const data = docFrontMatterSchema.parse(result.data)
+  // 如果 title 不存在，嘗試從文章內容的第一個 # 標題取得
+  if (!data.title) {
+    const h1 = extractFirstHeading(result.content)
+    if (h1) {
+      data.title = h1
+    }
+  }
+
   return data || null
 }
 
-function getList(
+/** 遞迴產生目錄結構的階層式側邊欄項目清單 */
+function getNestedList(
   files: string[],
   absolutePath: string,
   startPath: string,
@@ -51,7 +70,7 @@ function getList(
       res.push({
         text: file,
         collapsed: true,
-        items: getList(files, dir, `${startPath}/${file}`, order),
+        items: getNestedList(files, dir, `${startPath}/${file}`, order),
       })
       continue
     }
@@ -98,7 +117,7 @@ export function getSidebar(
   const result = {
     [startPath]: [{
       text,
-      items: getList(files, absolutePath, startPath, order),
+      items: getNestedList(files, absolutePath, startPath, order),
     }],
   }
 
@@ -182,7 +201,7 @@ export function getArticleList(): Article[] {
       const absolutePath = path.join(CONTENT_PATH, dirPath)
       const files = fs.readdirSync(absolutePath)
 
-      return getList(files, absolutePath, dirPath)
+      return getNestedList(files, absolutePath, dirPath)
     }),
     filter((data): data is Article => {
       if (isDev) {
