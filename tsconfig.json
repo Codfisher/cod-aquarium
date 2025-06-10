@@ -11,6 +11,9 @@
     "module": "esnext",
     "moduleResolution": "node",
     "resolveJsonModule": true,
+    "types": [
+      "@vitest/browser/matchers"
+    ],
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "sourceMap": true,
