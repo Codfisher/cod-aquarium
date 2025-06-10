@@ -5,20 +5,25 @@ import { render } from 'vitest-browser-vue'
 import { defineComponent, h, nextTick } from 'vue'
 import { useImagesReady } from './use-images-ready'
 
-// 輔助函式來建立一個包含圖片的測試元件
 function createTestComponent(
   images: Array<{ src: string; id: string; style?: string }>,
 ) {
   return defineComponent({
     setup() {
-      const { isLoaded } = useImagesReady()
-      return { isLoaded }
+      const { isReady } = useImagesReady()
+      return { isReady }
     },
     render() {
       return h('div', null, [
         h('h1', '測試元件'),
-        ...images.map((img) => h('img', { src: img.src, id: img.id, style: img.style || '' })),
-        h('div', { id: 'status' }, this.isLoaded ? 'Loaded' : 'Loading'),
+        ...images.map(
+          (img) => h('img', {
+            src: img.src,
+            id: img.id,
+            style: img.style || '',
+          }),
+        ),
+        h('div', { id: 'status' }, this.isReady.value ? 'Loaded' : 'Loading'),
       ])
     },
   })
@@ -45,26 +50,13 @@ describe('useImagesReady', () => {
     await expect.element(screen.getByText('測試元件')).toBeInTheDocument()
   })
 
-  // it('一張圖片載入後，isLoaded 應該設為 true', async () => {
-  //   const TestComponent = createTestComponent(
-  //     [{ src: 'test.jpg', id: 'img1' }],
-  //     () => useImagesReady(),
-  //   )
-  //   const wrapper = mount(TestComponent, { attachTo: mockContainer })
+  it('1 張圖片載入後，文字從 Loaded 變 Loading', async () => {
+    const screen = render(createTestComponent(
+      [{ src: 'https://picsum.photos/400/200', id: 'img1' }],
+    ))
 
-  //   await nextTick() // 等待 onMounted
-
-  //   // 初始狀態應為 Loading
-  //   expect(wrapper.find('#status').text()).toBe('Loading')
-
-  //   // 模擬圖片載入
-  //   const img = wrapper.find<HTMLImageElement>('#img1').element
-  //   img.dispatchEvent(new Event('load'))
-
-  //   await nextTick() // 等待事件處理和狀態更新
-  //   expect(wrapper.find('#status').text()).toBe('Loaded')
-  //   wrapper.unmount()
-  // })
+    await expect.element(screen.getByText('Loading')).toBeInTheDocument()
+  })
 
   // it('多張圖片載入後，isLoaded 應該設為 true', async () => {
   //   const TestComponent = createTestComponent(

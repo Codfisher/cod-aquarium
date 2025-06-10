@@ -6,17 +6,17 @@ interface UseImagesReadyParams {
   /** 不指定則為目前元件 */
   target?: MaybeElement;
   /** 強制延遲（ms），保險起見 */
-  delay?: number;
+  forceDelay?: number;
 }
 
 /** 偵測目標下所有圖片是否載入完成 */
 export function useImagesReady(params: UseImagesReadyParams = {}) {
   const {
     target,
-    delay = 0,
+    forceDelay = 0,
   } = params
 
-  const isLoaded = ref(false)
+  const isReady = ref(false)
   const instance = getCurrentInstance()
 
   function isElementVisible(el: HTMLElement): boolean {
@@ -41,7 +41,7 @@ export function useImagesReady(params: UseImagesReadyParams = {}) {
     )
 
     if (!rootElement) {
-      isLoaded.value = true
+      isReady.value = true
       console.warn('[useImagesReady] no element found')
       return
     }
@@ -57,10 +57,11 @@ export function useImagesReady(params: UseImagesReadyParams = {}) {
        */
       img.src && isElementVisible(img),
     )
+
     const totalImages = imageElements.length
 
     if (totalImages === 0) {
-      isLoaded.value = true
+      isReady.value = true
       return
     }
 
@@ -68,8 +69,8 @@ export function useImagesReady(params: UseImagesReadyParams = {}) {
 
     async function checkCompletion() {
       if (loadedCount === totalImages) {
-        await promiseTimeout(delay)
-        isLoaded.value = true
+        await promiseTimeout(forceDelay)
+        isReady.value = true
       }
     }
 
@@ -91,5 +92,5 @@ export function useImagesReady(params: UseImagesReadyParams = {}) {
     checkCompletion()
   })
 
-  return { isLoaded }
+  return { isReady }
 }
