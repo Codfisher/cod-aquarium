@@ -4,6 +4,10 @@ import { render } from 'vitest-browser-vue'
 import { defineComponent, h, nextTick } from 'vue'
 import { useImagesReady } from './use-images-ready'
 
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
 function createTestComponent(
   images: Array<{ src: string; id: string; style?: string }>,
 ) {
@@ -38,5 +42,7 @@ describe('useImagesReady', () => {
     ))
 
     await expect.element(screen.getByText('Loading')).toBeInTheDocument()
+    await delay(2000)
+    await expect.element(screen.getByText('Loaded')).toBeInTheDocument()
   })
 })
