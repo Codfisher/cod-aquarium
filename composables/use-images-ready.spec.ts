@@ -11,10 +11,8 @@ function createTestComponent(
   return defineComponent({
     setup() {
       const { isReady } = useImagesReady()
-      return { isReady }
-    },
-    render() {
-      return h('div', null, [
+
+      return () => h('div', null, [
         h('h1', '測試元件'),
         ...images.map(
           (img) => h('img', {
@@ -23,7 +21,7 @@ function createTestComponent(
             style: img.style || '',
           }),
         ),
-        h('div', { id: 'status' }, this.isReady.value ? 'Loaded' : 'Loading'),
+        h('div', { id: 'status' }, isReady.value ? 'Loaded' : 'Loading'),
       ])
     },
   })
