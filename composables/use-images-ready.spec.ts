@@ -120,6 +120,26 @@ describe('useImagesReady', () => {
     await expectReady(screen)
   })
 
+  it('更父層元素 hidden 的圖片也應被被忽略', async () => {
+    const data: Images = [
+      { src: getImageSrc() },
+    ]
+
+    const screen = render(createTestComponent(data, [
+      h('div', { style: 'display: none;' }, [
+        h('div', [
+          h('div', [
+            h('img', { src: getImageSrc() }),
+          ]),
+        ]),
+      ]),
+    ]))
+    await expect.element(screen.getByText(`total: ${data.length}`)).toBeInTheDocument()
+    await expect.element(screen.getByText('Loading')).toBeInTheDocument()
+
+    await expectReady(screen)
+  })
+
   it('須包含 background-image 圖片', async () => {
     const data: Images = [
       { src: getImageSrc() },
