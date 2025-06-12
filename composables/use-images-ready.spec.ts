@@ -20,13 +20,7 @@ function createTestComponent(
 
       return () => h('div', null, [
         h('h1', '測試元件'),
-        ...images.map(
-          (img) => h('img', {
-            src: img.src,
-            id: img.id,
-            style: img.style || '',
-          }),
-        ),
+        ...images.map((img) => h('img', img)),
         ...slots,
 
         h('div', { id: 'status' }, isReady.value ? 'Ready' : 'Loading'),
