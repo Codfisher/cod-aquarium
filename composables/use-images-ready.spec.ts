@@ -71,7 +71,7 @@ describe('useImagesReady', () => {
 
     await expect.element(screen.getByText('Loading')).toBeInTheDocument()
     /**
-     * 指定等待時間有點暴力，因為沒有考慮外部因素，會讓測試不夠穩定
+     * 指定等待時間其實有點暴力，因為沒有考慮外部因素，會讓測試不夠穩定
      *
      * 不過我還找不到其他辦法，只好先這樣。乁( ◔ ௰◔)「
      */
