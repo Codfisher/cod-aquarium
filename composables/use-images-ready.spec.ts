@@ -34,7 +34,7 @@ function createTestComponent(
         ...slots,
 
         h('div', { id: 'status' }, isReady.value ? 'Ready' : 'Loading'),
-        h('div', { id: 'totalImages' }, totalImages.value),
+        h('div', { id: 'totalImages' }, `total: ${totalImages.value}`),
       ])
     },
   })
@@ -77,7 +77,7 @@ describe('useImagesReady', () => {
     ]
 
     const screen = render(createTestComponent(data))
-    await expect.element(screen.getByText(`${data.length}`)).toBeInTheDocument()
+    await expect.element(screen.getByText(`total: ${data.length}`)).toBeInTheDocument()
     await expect.element(screen.getByText('Loading')).toBeInTheDocument()
 
     await expectReady(screen)
@@ -90,7 +90,7 @@ describe('useImagesReady', () => {
     ]
 
     const screen = render(createTestComponent(data))
-    await expect.element(screen.getByText(`${data.length}`)).toBeInTheDocument()
+    await expect.element(screen.getByText(`total: ${data.length}`)).toBeInTheDocument()
     await expect.element(screen.getByText('Loading')).toBeInTheDocument()
 
     await expectReady(screen)
@@ -104,7 +104,7 @@ describe('useImagesReady', () => {
     ]
 
     const screen = render(createTestComponent(data))
-    await expect.element(screen.getByText(`1`)).toBeInTheDocument()
+    await expect.element(screen.getByText(`total: 1`)).toBeInTheDocument()
     await expect.element(screen.getByText('Loading')).toBeInTheDocument()
 
     await expectReady(screen)
@@ -120,7 +120,49 @@ describe('useImagesReady', () => {
         h('img', { src: getImageSrc() }),
       ]),
     ]))
-    await expect.element(screen.getByText(`${data.length}`)).toBeInTheDocument()
+    await expect.element(screen.getByText(`total: ${data.length}`)).toBeInTheDocument()
+    await expect.element(screen.getByText('Loading')).toBeInTheDocument()
+
+    await expectReady(screen)
+  })
+
+  it('須包含 background-image 圖片', async () => {
+    const data: Images = [
+      { src: getImageSrc() },
+    ]
+
+    const screen = render(createTestComponent(data, [
+      h('div', {
+        style: [
+          'width: 100px',
+          'height: 100px',
+          `background-image: url(${getImageSrc()})`,
+        ].join(';')
+      }),
+    ]))
+    await expect.element(screen.getByText(`total: 2`)).toBeInTheDocument()
+    await expect.element(screen.getByText('Loading')).toBeInTheDocument()
+
+    await expectReady(screen)
+  })
+
+  it('父層元素隱藏，要忽略 background-image 圖片', async () => {
+    const data: Images = [
+      { src: getImageSrc() },
+    ]
+
+    const screen = render(createTestComponent(data, [
+      h('div', { style: 'display: none;' }, [
+        h('div', {
+          style: [
+            'width: 100px',
+            'height: 100px',
+            `background-image: url(${getImageSrc()})`,
+          ].join(';')
+        }),
+      ]),
+    ]))
+    await expect.element(screen.getByText(`total: 1`)).toBeInTheDocument()
     await expect.element(screen.getByText('Loading')).toBeInTheDocument()
 
     await expectReady(screen)
