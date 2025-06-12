@@ -23,9 +23,17 @@ export function useImagesReady(params: UseImagesReadyParams = {}) {
   const isReady = ref(false)
   const instance = getCurrentInstance()
 
-  function isElementVisible(el: HTMLElement): boolean {
-    const style = getComputedStyle(el)
-    return style.display !== 'none' && style.visibility !== 'hidden'
+  /** 元素是否可見 */
+  function isElementVisible(el: HTMLElement | null) {
+    /** 要一路往父層檢查 */
+    while (el) {
+      const style = getComputedStyle(el)
+      if (style.display === 'none' || style.visibility === 'hidden') {
+        return false
+      }
+      el = el.parentElement
+    }
+    return true
   }
 
   onMounted(() => {

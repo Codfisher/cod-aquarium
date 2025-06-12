@@ -107,4 +107,21 @@ describe('useImagesReady', () => {
     await delay(2000)
     await expect.element(screen.getByText('Loaded')).toBeInTheDocument()
   })
+
+  it('父層元素 hidden 的圖片也應被被忽略', async () => {
+    const data: Images = [
+      { src: getImageSrc() },
+    ]
+
+    const screen = render(createTestComponent(data, [
+      h('div', { style: 'display: none;' }, [
+        h('img', { src: getImageSrc() }),
+      ]),
+    ]))
+    await expect.element(screen.getByText(`${data.length}`)).toBeInTheDocument()
+
+    await expect.element(screen.getByText('Loading')).toBeInTheDocument()
+    await delay(2000)
+    await expect.element(screen.getByText('Loaded')).toBeInTheDocument()
+  })
 })
