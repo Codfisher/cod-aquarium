@@ -55,6 +55,12 @@ function getImageSrc(params?: { width: number; height: number }) {
   return `https://picsum.photos/${width}/${height}`
 }
 
+function expectReady(screen: ReturnType<typeof render>) {
+  return expect.element(screen.getByText('Ready'), {
+    interval: 500,
+  }).toBeInTheDocument()
+}
+
 describe('useImagesReady', () => {
   it('如果沒有圖片，isReady 應該立即設為 true', async () => {
     const screen = render(createTestComponent([]))
@@ -68,15 +74,9 @@ describe('useImagesReady', () => {
 
     const screen = render(createTestComponent(data))
     await expect.element(screen.getByText(`${data.length}`)).toBeInTheDocument()
-
     await expect.element(screen.getByText('Loading')).toBeInTheDocument()
-    /**
-     * 指定等待時間其實有點暴力，因為沒有考慮外部因素，會讓測試不夠穩定
-     *
-     * 不過我還找不到其他辦法，只好先這樣。乁( ◔ ௰◔)「
-     */
-    await delay(2000)
-    await expect.element(screen.getByText('Ready')).toBeInTheDocument()
+
+    await expectReady(screen)
   })
 
   it('2 張圖片載入後，文字從 Ready 變 Loading', async () => {
@@ -87,10 +87,9 @@ describe('useImagesReady', () => {
 
     const screen = render(createTestComponent(data))
     await expect.element(screen.getByText(`${data.length}`)).toBeInTheDocument()
-
     await expect.element(screen.getByText('Loading')).toBeInTheDocument()
-    await delay(2000)
-    await expect.element(screen.getByText('Ready')).toBeInTheDocument()
+
+    await expectReady(screen)
   })
 
   it('hidden 的圖片會被忽略', async () => {
@@ -102,10 +101,9 @@ describe('useImagesReady', () => {
 
     const screen = render(createTestComponent(data))
     await expect.element(screen.getByText(`1`)).toBeInTheDocument()
-
     await expect.element(screen.getByText('Loading')).toBeInTheDocument()
-    await delay(2000)
-    await expect.element(screen.getByText('Ready')).toBeInTheDocument()
+
+    await expectReady(screen)
   })
 
   it('父層元素 hidden 的圖片也應被被忽略', async () => {
@@ -119,9 +117,8 @@ describe('useImagesReady', () => {
       ]),
     ]))
     await expect.element(screen.getByText(`${data.length}`)).toBeInTheDocument()
-
     await expect.element(screen.getByText('Loading')).toBeInTheDocument()
-    await delay(2000)
-    await expect.element(screen.getByText('Ready')).toBeInTheDocument()
+
+    await expectReady(screen)
   })
 })
