@@ -17,7 +17,7 @@ interface UseImagesReadyParams {
 
 /** 偵測目標下所有圖片是否載入完成
  *
- * 暫時不考慮動態新增的圖片
+ * 目前不考慮動態新增的圖片
  */
 export function useImagesReady(params: UseImagesReadyParams = {}) {
   const {
@@ -30,9 +30,8 @@ export function useImagesReady(params: UseImagesReadyParams = {}) {
   const isReady = ref(false)
   const instance = getCurrentInstance()
 
-  /** 元素是否可見 */
   function isElementVisible(el: HTMLElement | null) {
-    /** 要一路往父層檢查 */
+    /** 一路往父層檢查 */
     while (el) {
       const style = getComputedStyle(el)
       if (style.display === 'none' || style.visibility === 'hidden') {
@@ -88,13 +87,13 @@ export function useImagesReady(params: UseImagesReadyParams = {}) {
 
       const bgValue = getComputedStyle(el).getPropertyValue('background-image')
       if (bgValue && bgValue !== 'none') {
-        // 只處理有效的背景圖片
-        if (!bgValue.startsWith('url(')) {
+        // 只處理 url 的背景圖片
+        const url = bgValue.match(/url\(["']?([^"']+)["']?\)/)
+        if (!url || !url[1]) {
           return list
         }
-
         const img = new Image()
-        img.src = bgValue.replace(/url\(["']?/, '').replace(/["']?\)$/, '')
+        img.src = url[1]
         list.push(img)
       }
 
