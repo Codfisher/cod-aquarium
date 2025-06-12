@@ -1,3 +1,4 @@
+import type { VNode } from 'vue'
 import { page } from '@vitest/browser/context'
 import { pipe, range, sample } from 'remeda'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -10,7 +11,10 @@ function delay(ms: number) {
 }
 
 type Images = Array<{ src: string; id?: string; style?: string }>
-function createTestComponent(images: Images) {
+function createTestComponent(
+  images: Images,
+  slots: VNode[] = [],
+) {
   return defineComponent({
     setup() {
       const {
@@ -27,6 +31,7 @@ function createTestComponent(images: Images) {
             style: img.style || '',
           }),
         ),
+        ...slots,
 
         h('div', { id: 'status' }, isReady.value ? 'Loaded' : 'Loading'),
         h('div', { id: 'totalImages' }, totalImages.value),
@@ -65,6 +70,11 @@ describe('useImagesReady', () => {
     await expect.element(screen.getByText(`${data.length}`)).toBeInTheDocument()
 
     await expect.element(screen.getByText('Loading')).toBeInTheDocument()
+    /**
+     * 指定等待時間有點暴力，因為沒有考慮外部因素，會讓測試不夠穩定
+     *
+     * 不過我還找不到其他辦法，只好先這樣。乁( ◔ ௰◔)「
+     */
     await delay(2000)
     await expect.element(screen.getByText('Loaded')).toBeInTheDocument()
   })
