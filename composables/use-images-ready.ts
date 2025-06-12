@@ -1,12 +1,18 @@
 import { type MaybeElement, promiseTimeout, useEventListener } from '@vueuse/core'
-import { pipe } from 'remeda'
+import { filter, pipe } from 'remeda'
 import { getCurrentInstance, onMounted, ref, toValue } from 'vue'
 
 interface UseImagesReadyParams {
   /** 不指定則為目前元件 */
   target?: MaybeElement;
-  /** 強制延遲（ms），保險起見 */
+  /** 強制延遲（ms），保險起見
+   * @default 0
+   */
   forceDelay?: number;
+  /** 是否包含 background-image
+   * @default true
+   */
+  includeBackgroundImages?: boolean;
 }
 
 /** 偵測目標下所有圖片是否載入完成
@@ -17,6 +23,7 @@ export function useImagesReady(params: UseImagesReadyParams = {}) {
   const {
     target,
     forceDelay = 0,
+    includeBackgroundImages = true,
   } = params
 
   const totalImages = ref(0)
@@ -70,17 +77,33 @@ export function useImagesReady(params: UseImagesReadyParams = {}) {
       return
     }
 
-    const imageElements = Array.from(
-      rootElement.querySelectorAll('img'),
-    ).filter((img) =>
-      /** 排除 display:none 的元素，offsetParent
-       *
-       * 暫時不考慮 background-image
-       *
-       * https://developer.mozilla.org/en-US/docs/Web/API/HTMLElement/offsetParent
-       */
-      img.src && isElementVisible(img),
-    )
+    const backgroundImageElements = Array.from(
+      includeBackgroundImages
+        ? rootElement.querySelectorAll('*')
+        : [],
+    ).reduce((list, el) => {
+      if (!(el instanceof HTMLElement) || !isElementVisible(el)) {
+        return list
+      }
+
+      const bgValue = getComputedStyle(el).getPropertyValue('background-image')
+      if (bgValue && bgValue !== 'none') {
+        // 只處理有效的背景圖片
+        if (!bgValue.startsWith('url(')) {
+          return list
+        }
+
+        const img = new Image()
+        img.src = bgValue.replace(/url\(["']?/, '').replace(/["']?\)$/, '')
+        list.push(img)
+      }
+
+      return list
+    }, [] as HTMLImageElement[])
+
+    const imageElements = Array.from(rootElement.querySelectorAll('img'))
+      .filter((img) => !!img.src && isElementVisible(img))
+      .concat(backgroundImageElements)
 
     totalImages.value = imageElements.length
 
