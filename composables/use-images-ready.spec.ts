@@ -62,112 +62,112 @@ describe('useImagesReady', () => {
     await expectReady(screen)
   })
 
-  // it('1 張圖片載入後，文字從 Ready 變 Loading', async () => {
-  //   const data = [
-  //     { src: getImageSrc() },
-  //   ]
+  it('1 張圖片載入後，文字從 Ready 變 Loading', async () => {
+    const data = [
+      { src: getImageSrc() },
+    ]
 
-  //   const screen = render(createTestComponent(data))
-  //   await expect.element(screen.getByText(`total: ${data.length}`)).toBeInTheDocument()
-  //   await expect.element(screen.getByText('Loading')).toBeInTheDocument()
+    const screen = render(createTestComponent(data))
+    await expect.element(screen.getByText(`total: ${data.length}`)).toBeInTheDocument()
+    await expect.element(screen.getByText('Loading')).toBeInTheDocument()
 
-  //   await expectReady(screen)
-  // })
+    await expectReady(screen)
+  })
 
-  // it('2 張圖片載入後，文字從 Ready 變 Loading', async () => {
-  //   const data: Images = [
-  //     { src: getImageSrc() },
-  //     { src: getImageSrc() },
-  //   ]
+  it('2 張圖片載入後，文字從 Ready 變 Loading', async () => {
+    const data: Images = [
+      { src: getImageSrc() },
+      { src: getImageSrc() },
+    ]
 
-  //   const screen = render(createTestComponent(data))
-  //   await expect.element(screen.getByText(`total: ${data.length}`)).toBeInTheDocument()
-  //   await expect.element(screen.getByText('Loading')).toBeInTheDocument()
+    const screen = render(createTestComponent(data))
+    await expect.element(screen.getByText(`total: ${data.length}`)).toBeInTheDocument()
+    await expect.element(screen.getByText('Loading')).toBeInTheDocument()
 
-  //   await expectReady(screen)
-  // })
+    await expectReady(screen)
+  })
 
-  // it('hidden 的圖片會被忽略', async () => {
-  //   const data: Images = [
-  //     { src: getImageSrc() },
-  //     { src: getImageSrc(), style: 'display: none;' },
-  //     { src: getImageSrc(), style: 'visibility: hidden;' },
-  //   ]
+  it('hidden 的圖片會被忽略', async () => {
+    const data: Images = [
+      { src: getImageSrc() },
+      { src: getImageSrc(), style: 'display: none;' },
+      { src: getImageSrc(), style: 'visibility: hidden;' },
+    ]
 
-  //   const screen = render(createTestComponent(data))
-  //   await expect.element(screen.getByText(`total: 1`)).toBeInTheDocument()
-  //   await expect.element(screen.getByText('Loading')).toBeInTheDocument()
+    const screen = render(createTestComponent(data))
+    await expect.element(screen.getByText(`total: 1`)).toBeInTheDocument()
+    await expect.element(screen.getByText('Loading')).toBeInTheDocument()
 
-  //   await expectReady(screen)
-  // })
+    await expectReady(screen)
+  })
 
-  // it('父層元素 hidden 的圖片也應被被忽略', async () => {
-  //   const data: Images = [
-  //     { src: getImageSrc() },
-  //   ]
+  it('父層元素 hidden 的圖片也應被被忽略', async () => {
+    const data: Images = [
+      { src: getImageSrc() },
+    ]
 
-  //   const screen = render(createTestComponent(data, [
-  //     h('div', { style: 'display: none;' }, [
-  //       h('img', { src: getImageSrc() }),
-  //     ]),
-  //     h('div', { style: 'visibility: hidden;' }, [
-  //       h('img', { src: getImageSrc() }),
-  //     ]),
-  //   ]))
-  //   await expect.element(screen.getByText(`total: ${data.length}`)).toBeInTheDocument()
-  //   await expect.element(screen.getByText('Loading')).toBeInTheDocument()
+    const screen = render(createTestComponent(data, [
+      h('div', { style: 'display: none;' }, [
+        h('img', { src: getImageSrc() }),
+      ]),
+      h('div', { style: 'visibility: hidden;' }, [
+        h('img', { src: getImageSrc() }),
+      ]),
+    ]))
+    await expect.element(screen.getByText(`total: ${data.length}`)).toBeInTheDocument()
+    await expect.element(screen.getByText('Loading')).toBeInTheDocument()
 
-  //   await expectReady(screen)
-  // })
+    await expectReady(screen)
+  })
 
-  // it('須包含 background-image 圖片', async () => {
-  //   const data: Images = [
-  //     { src: getImageSrc() },
-  //   ]
+  it('須包含 background-image 圖片', async () => {
+    const data: Images = [
+      { src: getImageSrc() },
+    ]
 
-  //   const screen = render(createTestComponent(data, [
-  //     h('div', {
-  //       style: [
-  //         'width: 100px',
-  //         'height: 100px',
-  //         `background-image: url(${getImageSrc()})`,
-  //       ].join(';')
-  //     }),
-  //   ]))
-  //   await expect.element(screen.getByText(`total: 2`)).toBeInTheDocument()
-  //   await expect.element(screen.getByText('Loading')).toBeInTheDocument()
+    const screen = render(createTestComponent(data, [
+      h('div', {
+        style: [
+          'width: 100px',
+          'height: 100px',
+          `background-image: url(${getImageSrc()})`,
+        ].join(';'),
+      }),
+    ]))
+    await expect.element(screen.getByText(`total: 2`)).toBeInTheDocument()
+    await expect.element(screen.getByText('Loading')).toBeInTheDocument()
 
-  //   await expectReady(screen)
-  // })
+    await expectReady(screen)
+  })
 
-  // it('父層元素隱藏，要忽略 background-image 圖片', async () => {
-  //   const data: Images = [
-  //     { src: getImageSrc() },
-  //   ]
+  it('父層元素隱藏，要忽略 background-image 圖片', async () => {
+    const data: Images = [
+      { src: getImageSrc() },
+    ]
 
-  //   const screen = render(createTestComponent(data, [
-  //     h('div', { style: 'display: none;' }, [
-  //       h('div', {
-  //         style: [
-  //           'width: 100px',
-  //           'height: 100px',
-  //           `background-image: url(${getImageSrc()})`,
-  //         ].join(';')
-  //       }),
-  //     ]),
-  //     h('div', { style: 'visibility: hidden;' }, [
-  //       h('div', {
-  //         style: [
-  //           'width: 100px',
-  //           'height: 100px',
-  //           `background-image: url(${getImageSrc()})`,
-  //         ].join(';')
-  //       }),
-  //     ]),
-  //   ]))
-  //   await expect.element(screen.getByText(`total: 1`)).toBeInTheDocument()
-  //   await expect.element(screen.getByText('Loading')).toBeInTheDocument()
+    const screen = render(createTestComponent(data, [
+      h('div', { style: 'display: none;' }, [
+        h('div', {
+          style: [
+            'width: 100px',
+            'height: 100px',
+            `background-image: url(${getImageSrc()})`,
+          ].join(';'),
+        }),
+      ]),
+      h('div', { style: 'visibility: hidden;' }, [
+        h('div', {
+          style: [
+            'width: 100px',
+            'height: 100px',
+            `background-image: url(${getImageSrc()})`,
+          ].join(';'),
+        }),
+      ]),
+    ]))
+    await expect.element(screen.getByText(`total: 1`)).toBeInTheDocument()
+    await expect.element(screen.getByText('Loading')).toBeInTheDocument()
 
-  //   await expectReady(screen)
-  // })
+    await expectReady(screen)
+  })
 })
