@@ -33,7 +33,7 @@ function createTestComponent(
         ),
         ...slots,
 
-        h('div', { id: 'status' }, isReady.value ? 'Loaded' : 'Loading'),
+        h('div', { id: 'status' }, isReady.value ? 'Ready' : 'Loading'),
         h('div', { id: 'totalImages' }, totalImages.value),
       ])
     },
@@ -56,12 +56,12 @@ function getImageSrc(params?: { width: number; height: number }) {
 }
 
 describe('useImagesReady', () => {
-  it('如果沒有圖片，isLoaded 應該立即設為 true', async () => {
+  it('如果沒有圖片，isReady 應該立即設為 true', async () => {
     const screen = render(createTestComponent([]))
     await expect.element(screen.getByText('測試元件')).toBeInTheDocument()
   })
 
-  it('1 張圖片載入後，文字從 Loaded 變 Loading', async () => {
+  it('1 張圖片載入後，文字從 Ready 變 Loading', async () => {
     const data = [
       { src: getImageSrc() },
     ]
@@ -76,10 +76,10 @@ describe('useImagesReady', () => {
      * 不過我還找不到其他辦法，只好先這樣。乁( ◔ ௰◔)「
      */
     await delay(2000)
-    await expect.element(screen.getByText('Loaded')).toBeInTheDocument()
+    await expect.element(screen.getByText('Ready')).toBeInTheDocument()
   })
 
-  it('2 張圖片載入後，文字從 Loaded 變 Loading', async () => {
+  it('2 張圖片載入後，文字從 Ready 變 Loading', async () => {
     const data: Images = [
       { src: getImageSrc() },
       { src: getImageSrc() },
@@ -90,7 +90,7 @@ describe('useImagesReady', () => {
 
     await expect.element(screen.getByText('Loading')).toBeInTheDocument()
     await delay(2000)
-    await expect.element(screen.getByText('Loaded')).toBeInTheDocument()
+    await expect.element(screen.getByText('Ready')).toBeInTheDocument()
   })
 
   it('hidden 的圖片會被忽略', async () => {
@@ -105,7 +105,7 @@ describe('useImagesReady', () => {
 
     await expect.element(screen.getByText('Loading')).toBeInTheDocument()
     await delay(2000)
-    await expect.element(screen.getByText('Loaded')).toBeInTheDocument()
+    await expect.element(screen.getByText('Ready')).toBeInTheDocument()
   })
 
   it('父層元素 hidden 的圖片也應被被忽略', async () => {
@@ -122,6 +122,6 @@ describe('useImagesReady', () => {
 
     await expect.element(screen.getByText('Loading')).toBeInTheDocument()
     await delay(2000)
-    await expect.element(screen.getByText('Loaded')).toBeInTheDocument()
+    await expect.element(screen.getByText('Ready')).toBeInTheDocument()
   })
 })
