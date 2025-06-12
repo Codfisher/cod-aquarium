@@ -1,6 +1,6 @@
 import type { VNode } from 'vue'
 import { page } from '@vitest/browser/context'
-import { pipe, range, sample } from 'remeda'
+import { map, pipe, range, sample } from 'remeda'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-vue'
 import { defineComponent, h, nextTick } from 'vue'
@@ -40,9 +40,8 @@ function createTestComponent(
   })
 }
 
-const sizeList = pipe(
-  range(1, 6),
-  (list) => list.map((i) => `${i * 100}`),
+const sizeList = range(1, 10).map(
+  (i) => `${i * 20}`,
 ) as [string, string, ...string[]]
 
 function getImageSrc(params?: { width: number; height: number }) {
@@ -57,7 +56,12 @@ function getImageSrc(params?: { width: number; height: number }) {
 
 function expectReady(screen: ReturnType<typeof render>) {
   return expect.element(screen.getByText('Ready'), {
-    interval: 500,
+    /**
+     * 不斷檢查元素是否存在，直到超過 timeout 或找到元素
+     *
+     * https://vitest.dev/guide/browser/assertion-api.html#:~:text=expect.poll%20and%20expect.element%20APIs
+     */
+    interval: 100,
   }).toBeInTheDocument()
 }
 
