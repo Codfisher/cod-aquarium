@@ -49,12 +49,24 @@ export function useImagesReady(params: UseImagesReadyParams = {}) {
           ?? instance?.proxy?.$el
           ?? document.documentElement
       },
-      (value) => value as HTMLElement | undefined,
+      (value) => {
+        if (!value) {
+          return undefined
+        }
+
+        if (value instanceof HTMLElement) {
+          return value
+        }
+
+        throw new Error(
+          '[useImagesReady] 取得目標元素異常，請確認 target 是否為 HTMLElement 或 Vue 元件',
+        )
+      },
     )
 
     if (!rootElement) {
       isReady.value = true
-      console.warn('[useImagesReady] no element found')
+      console.warn('[useImagesReady] 目標元素不存在，無法偵測圖片載入狀態')
       return
     }
 
