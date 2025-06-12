@@ -119,6 +119,9 @@ describe('useImagesReady', () => {
       h('div', { style: 'display: none;' }, [
         h('img', { src: getImageSrc() }),
       ]),
+      h('div', { style: 'visibility: hidden;' }, [
+        h('img', { src: getImageSrc() }),
+      ]),
     ]))
     await expect.element(screen.getByText(`total: ${data.length}`)).toBeInTheDocument()
     await expect.element(screen.getByText('Loading')).toBeInTheDocument()
@@ -153,6 +156,15 @@ describe('useImagesReady', () => {
 
     const screen = render(createTestComponent(data, [
       h('div', { style: 'display: none;' }, [
+        h('div', {
+          style: [
+            'width: 100px',
+            'height: 100px',
+            `background-image: url(${getImageSrc()})`,
+          ].join(';')
+        }),
+      ]),
+      h('div', { style: 'visibility: hidden;' }, [
         h('div', {
           style: [
             'width: 100px',
