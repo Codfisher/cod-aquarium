@@ -9,13 +9,17 @@ interface UseImagesReadyParams {
   forceDelay?: number;
 }
 
-/** 偵測目標下所有圖片是否載入完成 */
+/** 偵測目標下所有圖片是否載入完成
+ *
+ * 暫時不考慮動態新增的圖片
+ */
 export function useImagesReady(params: UseImagesReadyParams = {}) {
   const {
     target,
     forceDelay = 0,
   } = params
 
+  const totalImages = ref(0)
   const isReady = ref(false)
   const instance = getCurrentInstance()
 
@@ -58,9 +62,9 @@ export function useImagesReady(params: UseImagesReadyParams = {}) {
       img.src && isElementVisible(img),
     )
 
-    const totalImages = imageElements.length
+    totalImages.value = imageElements.length
 
-    if (totalImages === 0) {
+    if (totalImages.value === 0) {
       isReady.value = true
       return
     }
@@ -68,7 +72,7 @@ export function useImagesReady(params: UseImagesReadyParams = {}) {
     let loadedCount = 0
 
     async function checkCompletion() {
-      if (loadedCount === totalImages) {
+      if (loadedCount === totalImages.value) {
         await promiseTimeout(forceDelay)
         isReady.value = true
       }
@@ -92,5 +96,8 @@ export function useImagesReady(params: UseImagesReadyParams = {}) {
     checkCompletion()
   })
 
-  return { isReady }
+  return {
+    isReady,
+    totalImages,
+  }
 }

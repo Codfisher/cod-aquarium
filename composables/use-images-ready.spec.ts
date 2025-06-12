@@ -1,4 +1,5 @@
 import { page } from '@vitest/browser/context'
+import { pipe, range, sample } from 'remeda'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-vue'
 import { defineComponent, h, nextTick } from 'vue'
@@ -8,12 +9,14 @@ function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-function createTestComponent(
-  images: Array<{ src: string; id: string; style?: string }>,
-) {
+type Images = Array<{ src: string; id?: string; style?: string }>
+function createTestComponent(images: Images) {
   return defineComponent({
     setup() {
-      const { isReady } = useImagesReady()
+      const {
+        isReady,
+        totalImages,
+      } = useImagesReady()
 
       return () => h('div', null, [
         h('h1', '測試元件'),
@@ -24,10 +27,27 @@ function createTestComponent(
             style: img.style || '',
           }),
         ),
+
         h('div', { id: 'status' }, isReady.value ? 'Loaded' : 'Loading'),
+        h('div', { id: 'totalImages' }, totalImages.value),
       ])
     },
   })
+}
+
+const sizeList = pipe(
+  range(1, 6),
+  (list) => list.map((i) => `${i * 100}`),
+) as [string, string, ...string[]]
+
+function getImageSrc(params?: { width: number; height: number }) {
+  if (!params) {
+    const sizes = sample(sizeList, 2)
+    return `https://picsum.photos/${sizes.join('/')}`
+  }
+
+  const { width, height } = params
+  return `https://picsum.photos/${width}/${height}`
 }
 
 describe('useImagesReady', () => {
@@ -37,9 +57,41 @@ describe('useImagesReady', () => {
   })
 
   it('1 張圖片載入後，文字從 Loaded 變 Loading', async () => {
-    const screen = render(createTestComponent(
-      [{ src: 'https://picsum.photos/400/200', id: 'img1' }],
-    ))
+    const data = [
+      { src: getImageSrc() },
+    ]
+
+    const screen = render(createTestComponent(data))
+    await expect.element(screen.getByText(`${data.length}`)).toBeInTheDocument()
+
+    await expect.element(screen.getByText('Loading')).toBeInTheDocument()
+    await delay(2000)
+    await expect.element(screen.getByText('Loaded')).toBeInTheDocument()
+  })
+
+  it('2 張圖片載入後，文字從 Loaded 變 Loading', async () => {
+    const data: Images = [
+      { src: getImageSrc() },
+      { src: getImageSrc() },
+    ]
+
+    const screen = render(createTestComponent(data))
+    await expect.element(screen.getByText(`${data.length}`)).toBeInTheDocument()
+
+    await expect.element(screen.getByText('Loading')).toBeInTheDocument()
+    await delay(2000)
+    await expect.element(screen.getByText('Loaded')).toBeInTheDocument()
+  })
+
+  it('hidden 的圖片會被忽略', async () => {
+    const data: Images = [
+      { src: getImageSrc() },
+      { src: getImageSrc(), style: 'display: none;' },
+      { src: getImageSrc(), style: 'visibility: hidden;' },
+    ]
+
+    const screen = render(createTestComponent(data))
+    await expect.element(screen.getByText(`1`)).toBeInTheDocument()
 
     await expect.element(screen.getByText('Loading')).toBeInTheDocument()
     await delay(2000)
