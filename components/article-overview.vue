@@ -1,9 +1,10 @@
 <template>
   <div class="article-overview flex flex-col items-center w-full">
-    <div class="flex flex-col lg:flex-row-reverse  justify-center items-start gap-4 w-full">
+    <div class="flex flex-col lg:flex-row-reverse justify-center items-start gap-4 w-full">
       <!-- tag 過濾 -->
-      <div class="tag-filter flex-1 sticky top-[5.5rem] p-4 rounded-lg">
-        <div class="mb-4 hidden md:block">
+      <!-- 電腦版 -->
+      <div class="tag-filter hidden md:block flex-1 sticky top-[5.5rem] p-4 rounded-lg">
+        <div class="mb-4 ">
           可以根據 Tag 快速過濾，或使用「搜尋（Ctrl+K）」，精準找到文章！
           <span class="text-nowrap">(๑•̀ㅂ•́)و✧</span>
         </div>
@@ -36,6 +37,47 @@
           >
             {{ tag.name }}
           </badge>
+        </div>
+      </div>
+
+      <!-- 手機板 -->
+      <div class="tag-filter md:hidden flex-1 sticky top-[4.5rem] p-3 rounded-lg">
+        <div
+          class="flex gap-3 opacity-70 text-xs"
+          @click.stop="isFilterVisible = !isFilterVisible"
+        >
+          <div
+            role="button"
+            class="cursor-pointer border p-1 px-4 rounded-full"
+            @click.stop="selectAllTags"
+          >
+            全選
+          </div>
+
+          <div
+            role="button"
+            class="cursor-pointer border p-1 px-4 rounded-full"
+            @click.stop="clearAllTags"
+          >
+            清除
+          </div>
+        </div>
+
+        <div
+          class="grid grid-rows-[0fr] duration-300 ease-out"
+          :class="{ 'grid-rows-[1fr] pt-2': isFilterVisible }"
+        >
+          <div class="flex flex-wrap gap-2 overflow-hidden min-h-0">
+            <badge
+              v-for="tag in tagList"
+              :key="tag.name"
+              class="tag-chip cursor-pointer duration-300 text-sm py-1 rounded-full"
+              :class="{ 'badge-active': tag.selected }"
+              @click="toggleTag(tag.name)"
+            >
+              {{ tag.name }}
+            </badge>
+          </div>
         </div>
       </div>
 
@@ -154,6 +196,8 @@ const linkContainerStyle = computed(() => ({
 }))
 
 const selectedTags = ref<string[]>([])
+
+const isFilterVisible = ref(false)
 const tagList = computed(() => {
   const result = pipe(
     theme.value.articleList ?? [],

@@ -199,7 +199,7 @@ body {
 
   .VPDocAside,
   #VPSidebarNav {
-    opacity: 0.02;
+    opacity: 0.05;
     filter: blur(2px);
     transition-duration: 0.6s;
 
