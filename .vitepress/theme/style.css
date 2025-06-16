@@ -199,9 +199,9 @@ body {
 
   .VPDocAside,
   #VPSidebarNav {
-    opacity: 0.2;
-    filter: blur(6px);
-    transition-duration: 0.4s;
+    opacity: 0.02;
+    filter: blur(2px);
+    transition-duration: 0.6s;
 
     &:hover {
       opacity: 1;
