@@ -188,6 +188,20 @@ body {
   max-height: 688px;
 }
 
+/* 用於 .vitepress\plugin\markdown-it-code-block-name.ts */
+.code-block-name {
+  margin-bottom: 0px !important;
+  padding-bottom: 0px !important;
+
+  code {
+    padding: 0.5rem 1rem !important;
+  }
+
+  &+[class^="language-"] {
+    margin-top: 0px !important;
+  }
+}
+
 @media (min-width: 960px) {
   :root {
     --vp-sidebar-bg-color: #FFF
