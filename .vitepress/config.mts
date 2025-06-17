@@ -3,6 +3,7 @@ import type { Article } from './utils'
 import { filter, isTruthy, map, piped } from 'remeda'
 import { withMermaid } from 'vitepress-plugin-mermaid'
 import { markdownItBaseImg } from './plugin/markdown-it-base-img'
+import { markdownItCodeBlockName } from './plugin/markdown-it-code-block-name'
 import { markdownItNowrap } from './plugin/markdown-it-nowrap'
 import { generateImages } from './scripts/resize-images'
 import {
@@ -144,6 +145,7 @@ export default ({ mode }: { mode: string }) => {
       config(md) {
         md.use((md) => markdownItBaseImg(md, mode))
         md.use(markdownItNowrap)
+        md.use(markdownItCodeBlockName)
       },
     },
 
