@@ -163,7 +163,7 @@ export default ({ mode }: { mode: string }) => {
       },
       nav: filter(
         [
-          { text: '總攬', link: '/article-overview' },
+          { text: '總覽', link: '/article-overview' },
           {
             text: '主題',
             items: [
@@ -182,6 +182,10 @@ export default ({ mode }: { mode: string }) => {
               {
                 text: '來個 3D 白噪音混音器',
                 link: getOldestDocPath('/column-sound-blocks/'),
+              },
+              {
+                text: '酷酷元件背後的星點',
+                link: getOldestDocPath('/column-chill-components/'),
               },
             ],
           }),
@@ -221,6 +225,10 @@ export default ({ mode }: { mode: string }) => {
                   text: '來個 3D 白噪音混音器',
                   link: getOldestDocPath('/column-sound-blocks/'),
                 },
+                {
+                  text: '酷酷元件背後的星點',
+                  link: getOldestDocPath('/column-chill-components/'),
+                },
               ],
             },
           ],
@@ -247,6 +255,11 @@ export default ({ mode }: { mode: string }) => {
         ...getSidebar(
           '/column-sound-blocks/',
           '來個 3D 白噪音混音器',
+          'asc',
+        ),
+        ...getSidebar(
+          '/column-chill-components/',
+          '酷酷元件背後的星點',
           'asc',
         ),
       },
