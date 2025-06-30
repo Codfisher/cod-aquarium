@@ -163,7 +163,7 @@ export default ({ mode }: { mode: string }) => {
       },
       nav: filter(
         [
-          { text: '總攬', link: '/article-overview' },
+          { text: '總覽', link: '/article-overview' },
           {
             text: '主題',
             items: [
