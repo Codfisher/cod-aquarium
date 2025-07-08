@@ -1,6 +1,7 @@
 ---
 title: Cyber Scales Desktop
-image: https://codlin.me/cod-toys.webp
+description: 科幻風格的 Web Desktop 應用程式
+image: https://codlin.me/cyber-scales-desktop.webp
 layout: false
 ---
 
