@@ -1,7 +1,5 @@
 <template>
-  <div class=" overflow-hidden">
-    安安
-  </div>
+  <div class=" overflow-hidden" />
 </template>
 
 <script setup lang="ts">
