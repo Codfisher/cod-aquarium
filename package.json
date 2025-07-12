@@ -23,6 +23,7 @@
     "@vitest/browser": "^3.2.3",
     "@vue/test-utils": "^2.4.6",
     "@vueuse/core": "^13.3.0",
+    "animejs": "^4.0.2",
     "autoprefixer": "10.4.21",
     "dayjs": "^1.11.13",
     "eslint": "^9.28.0",
