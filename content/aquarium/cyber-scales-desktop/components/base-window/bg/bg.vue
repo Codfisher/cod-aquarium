@@ -4,19 +4,7 @@
     class="border absolute w-full h-full"
     v-bind="svgAttrs"
   >
-    <path
-      class="l"
-      d="M0 0 V100"
-      stroke="#777"
-      stroke-width="4"
-    />
-
-    <path
-      class="r"
-      d="M100 0 V100"
-      stroke="#777"
-      stroke-width="4"
-    />
+    <left-frame :svg-size="svgSize" />
   </svg>
 </template>
 
@@ -24,6 +12,7 @@
 import type { ComponentStatus } from '../../../types'
 import { useElementSize } from '@vueuse/core'
 import { computed, reactive, useTemplateRef } from 'vue'
+import LeftFrame from './left-frame.vue'
 
 interface Props {
   status?: `${ComponentStatus}`;
