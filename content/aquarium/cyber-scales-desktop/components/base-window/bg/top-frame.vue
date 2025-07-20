@@ -1,6 +1,6 @@
 <template>
   <path
-    class="left-frame"
+    class="top-frame"
     v-bind="graphAttrs"
     stroke="#777"
   />
@@ -25,7 +25,7 @@ const props = withDefaults(defineProps<Props>(), {
 interface GraphParams {
   x1: number;
   y1: number;
-  y2: number;
+  x2: number;
   // color?: string;
   width: number;
 }
@@ -37,7 +37,7 @@ const targetParams = computed<GraphParams>(() => {
     return {
       x1: 0,
       y1: 0,
-      y2: svgSize.height,
+      x2: svgSize.height,
       // color: '#777',
       width: 2,
     }
@@ -46,7 +46,7 @@ const targetParams = computed<GraphParams>(() => {
   return {
     x1: svgSize.width / 2,
     y1: svgSize.height / 2,
-    y2: svgSize.height / 2,
+    x2: svgSize.height / 2,
     // color: '#777',
     width: 2,
   }
@@ -57,11 +57,14 @@ const delayMap: Partial<Record<
   Partial<Record<keyof GraphParams, number>>
 >> = {
   visible: {
-    x1: props.duration,
+    x1: props.duration * 2,
+    y1: props.duration,
+    x2: props.duration,
   },
   hidden: {
-    y1: props.duration,
-    y2: props.duration,
+    x1: props.duration,
+    y1: props.duration * 2,
+    x2: props.duration * 2,
   },
 }
 
@@ -69,7 +72,7 @@ const { data: graphParams } = useAnimatable(
   {
     x1: props.svgSize.width / 2,
     y1: props.svgSize.height / 2,
-    y2: props.svgSize.height / 2,
+    x2: props.svgSize.height / 2,
     // color: '#777',
     width: 2,
   },
@@ -77,13 +80,13 @@ const { data: graphParams } = useAnimatable(
   {
     delay: (fieldKey) => delayMap[props.status]?.[fieldKey] ?? 0,
     duration: props.duration,
-    ease: 'cubicBezier(1, 0.3, 0, 0.7)',
+    ease: 'cubicBezier(0.9, 0, 0.1, 1)',
   },
 )
 
 const graphAttrs = computed(() => {
   return {
-    'd': `M${graphParams.x1} ${graphParams.y1} V${graphParams.y2}`,
+    'd': `M${graphParams.x1} ${graphParams.y1} H${graphParams.x2}`,
     'stroke-width': graphParams.width,
   }
 })

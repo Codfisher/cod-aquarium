@@ -1,15 +1,18 @@
-import type { AnimatableParams } from 'animejs'
+import type { AnimatableParams, EaseStringParamNames } from 'animejs'
 import type { MaybeRefOrGetter } from 'vue'
 import { createAnimatable } from 'animejs'
-import { clone, entries, identity, pipe, when } from 'remeda'
+import { clone, entries, pipe, when } from 'remeda'
 import { onWatcherCleanup, reactive, toValue, watch } from 'vue'
 
 type DataObject = Record<string, number>
+type EaseString = EaseStringParamNames | (string & {})
 
 interface UseAnimatableParams<Data extends DataObject> {
-  animatableParams?: AnimatableParams;
   delay?: number | ((fieldKey: keyof Data) => number);
   duration?: number | ((fieldKey: keyof Data) => number);
+  ease?: EaseString | ((fieldKey: keyof Data) => EaseString | undefined);
+
+  /** @default false */
   adjustDurationByDelay?: boolean;
 }
 
@@ -21,18 +24,15 @@ export function useAnimatable<
   params: UseAnimatableParams<Data> = {},
 ) {
   const {
-    animatableParams,
     delay = 0,
     duration = 500,
+    ease,
     adjustDurationByDelay = false,
   } = params
 
   const data = reactive(clone(initData))
 
-  const dataAnimatable = createAnimatable(data, {
-    ...clone(initData),
-    ...animatableParams,
-  })
+  const dataAnimatable = createAnimatable(data, clone(initData))
 
   watch(targetData, () => {
     const delayList: ReturnType<typeof setTimeout>[] = []
@@ -49,8 +49,18 @@ export function useAnimatable<
         when(() => adjustDurationByDelay, (value) => value - delayValue),
       )
 
+      const easeValue = pipe(undefined, () => {
+        if (!ease) {
+          return undefined
+        }
+
+        return typeof ease === 'function'
+          ? ease(fieldKey)
+          : ease
+      })
+
       delayList.push(setTimeout(() => {
-        dataAnimatable?.[fieldKey]?.(value, durationValue)
+        dataAnimatable?.[fieldKey]?.(value, durationValue, easeValue)
       }, delayValue))
     })
 

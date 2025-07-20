@@ -1,18 +1,25 @@
 <template>
-  <svg
-    ref="svgRef"
-    class="border absolute w-full h-full"
-    v-bind="svgAttrs"
+  <div
+    ref="containerRef"
+    class="absolute inset-0 w-full h-full pointer-events-none"
   >
-    <left-frame :svg-size="svgSize" />
-  </svg>
+    <svg
+      class=" border-dashed border absolute"
+      v-bind="svgAttrs"
+    >
+      <top-frame v-bind="frameParams" />
+      <left-frame v-bind="frameParams" />
+    </svg>
+  </div>
 </template>
 
 <script setup lang="ts">
+import type { CSSProperties } from 'vue'
 import type { ComponentStatus } from '../../../types'
-import { useElementSize } from '@vueuse/core'
+import { useElementSize, useMousePressed } from '@vueuse/core'
 import { computed, reactive, useTemplateRef } from 'vue'
 import LeftFrame from './left-frame.vue'
+import TopFrame from './top-frame.vue'
 
 interface Props {
   status?: `${ComponentStatus}`;
@@ -21,18 +28,26 @@ const props = withDefaults(defineProps<Props>(), {
   status: 'hidden',
 })
 
-const svgRef = useTemplateRef('svgRef')
-const svgSize = reactive(useElementSize(svgRef))
+const containerRef = useTemplateRef('containerRef')
+const svgSize = reactive(useElementSize(containerRef))
+
+const offset = 100
 const svgAttrs = computed(() => ({
-  viewBox: `0 0 ${svgSize.width} ${svgSize.height}`,
+  style: {
+    inset: `-${offset}px`,
+  } satisfies CSSProperties,
+  viewBox: [
+    -offset,
+    -offset,
+    svgSize.width + offset * 2,
+    svgSize.height + offset * 2,
+  ].join(' '),
 }))
 
-const graphParams = reactive({
-  lp1: 0,
-  lp2: 100,
-  rp1: 0,
-  rp2: 100,
-})
+const frameParams = computed(() => ({
+  svgSize,
+  ...props,
+}))
 </script>
 
 <style scoped lang="sass">

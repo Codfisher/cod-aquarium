@@ -1,11 +1,14 @@
 <template>
-  <div class="base-window relative">
-    <base-window-bg />
+  <div class="base-window relative border">
+    <base-window-bg :status="status" />
     <slot />
   </div>
 </template>
 
 <script setup lang="ts">
+import { useMousePressed } from '@vueuse/core'
+import { computed } from 'vue'
+import { ComponentStatus } from '../../types'
 import BaseWindowBg from './bg/bg.vue'
 
 // #region Props
@@ -33,6 +36,11 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<Emits>()
 
 defineSlots<Slots>()
+
+const { pressed } = useMousePressed()
+const status = computed(() => {
+  return pressed.value ? ComponentStatus.VISIBLE : ComponentStatus.HIDDEN
+})
 
 // #region Methods
 interface Expose { }
