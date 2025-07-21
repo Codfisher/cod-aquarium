@@ -1,12 +1,15 @@
 <template>
-  <div class="base-window relative border">
+  <div
+    class="base-window relative border border-gray-50"
+    @click="toggleData()"
+  >
     <base-window-bg :status="status" />
     <slot />
   </div>
 </template>
 
 <script setup lang="ts">
-import { useMousePressed } from '@vueuse/core'
+import { useMousePressed, useToggle } from '@vueuse/core'
 import { computed } from 'vue'
 import { ComponentStatus } from '../../types'
 import BaseWindowBg from './bg/bg.vue'
@@ -37,9 +40,9 @@ const emit = defineEmits<Emits>()
 
 defineSlots<Slots>()
 
-const { pressed } = useMousePressed()
+const [data, toggleData] = useToggle(false)
 const status = computed(() => {
-  return pressed.value ? ComponentStatus.VISIBLE : ComponentStatus.HIDDEN
+  return data.value ? ComponentStatus.VISIBLE : ComponentStatus.HIDDEN
 })
 
 // #region Methods

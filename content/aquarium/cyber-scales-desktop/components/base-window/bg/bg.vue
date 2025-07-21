@@ -4,11 +4,13 @@
     class="absolute inset-0 w-full h-full pointer-events-none"
   >
     <svg
-      class=" border-dashed border absolute"
+      class="absolute"
       v-bind="svgAttrs"
     >
       <top-frame v-bind="frameParams" />
       <left-frame v-bind="frameParams" />
+      <left-frame v-bind="frameParams" />
+      <corner-box v-bind="frameParams" />
     </svg>
 
     <svg
@@ -28,6 +30,7 @@ import { useElementSize, useMousePressed } from '@vueuse/core'
 import { computed, reactive, useTemplateRef } from 'vue'
 import LeftFrame from './left-frame.vue'
 import TopFrame from './top-frame.vue'
+import CornerBox from './corner-box.vue'
 
 interface Props {
   status?: `${ComponentStatus}`;
