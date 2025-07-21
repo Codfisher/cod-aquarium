@@ -57,18 +57,18 @@ const delayMap: Partial<Record<
   Partial<Record<keyof GraphParams, number>>
 >> = {
   visible: {
-    x1: props.duration * 1.5,
-    y1: props.duration * 1.5,
-    y2: props.duration * 1.5,
-    width: props.duration * 1.5,
+    x1: props.duration * 2,
+    y1: props.duration * 2,
+    y2: props.duration * 2,
+    width: props.duration * 2,
   },
 }
 
 const { data: graphParams } = useAnimatable(
   {
-    x1: -20,
+    x1: 0,
     y1: 0,
-    y2: props.svgSize.height,
+    y2: 0,
     // color: '#777',
     width: 0,
   },

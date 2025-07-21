@@ -67,11 +67,11 @@ const delayMap: Partial<Record<
 
 const { data: graphParams } = useAnimatable(
   {
-    x1: props.svgSize.width / 2,
-    y1: props.svgSize.height / 2,
-    x2: props.svgSize.height / 2,
+    x1: 0,
+    y1: 0,
+    x2: 0,
     // color: '#777',
-    width: 1,
+    width: 0,
   },
   targetParams,
   {

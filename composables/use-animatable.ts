@@ -11,8 +11,12 @@ interface UseAnimatableParams<Data extends DataObject> {
   delay?: number | ((fieldKey: keyof Data) => number);
   duration?: number | ((fieldKey: keyof Data) => number);
   ease?: EaseString | ((fieldKey: keyof Data) => EaseString | undefined);
+  /** @default */
+  immediate?: boolean;
 
-  /** @default false */
+  /** 會自動縮短 Duration，讓總時間（Duration + Delay）等於原本的 Duration
+   * @default false 
+   */
   adjustDurationByDelay?: boolean;
 }
 
@@ -28,6 +32,7 @@ export function useAnimatable<
     duration = 500,
     ease,
     adjustDurationByDelay = false,
+    immediate = true,
   } = params
 
   const data = reactive(clone(initData))
@@ -67,7 +72,10 @@ export function useAnimatable<
     onWatcherCleanup(() => {
       delayList.forEach(clearTimeout)
     })
-  }, { deep: true })
+  }, { 
+    deep: true, 
+    immediate: true,
+  })
 
   return {
     data,
