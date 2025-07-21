@@ -2,7 +2,6 @@
   "recommendations": [
     "Vue.volar",
     "DavidAnson.vscode-markdownlint",
-    "WallabyJs.wallaby-vscode",
     "teamchilla.blueprint",
     "streetsidesoftware.code-spell-checker",
     "dbaeumer.vscode-eslint",
