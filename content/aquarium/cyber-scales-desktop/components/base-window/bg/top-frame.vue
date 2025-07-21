@@ -30,13 +30,14 @@ interface GraphParams {
   width: number;
 }
 
+const offset = 10
 const targetParams = computed<GraphParams>(() => {
   const { svgSize } = props
 
   if (props.status === 'visible') {
     return {
       x1: 0,
-      y1: 0,
+      y1: -offset,
       x2: svgSize.width,
       // color: '#777',
       width: 1,
