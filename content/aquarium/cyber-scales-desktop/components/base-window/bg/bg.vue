@@ -1,7 +1,7 @@
 <template>
   <div
     ref="containerRef"
-    class="absolute inset-0 w-full h-full pointer-events-none"
+    class="absolute inset-0 w-full h-full pointer-events-none transform-3d"
   >
     <svg
       class="absolute"
@@ -10,7 +10,6 @@
       <top-frame v-bind="frameParams" />
       <left-frame v-bind="frameParams" />
       <left-frame v-bind="frameParams" />
-      <corner-box v-bind="frameParams" />
     </svg>
 
     <svg
@@ -19,6 +18,14 @@
     >
       <top-frame v-bind="frameParams" />
       <left-frame v-bind="frameParams" />
+    </svg>
+
+    <svg
+      class="absolute"
+      v-bind="svgAttrs"
+      :style="{ transform: 'translateZ(10px)' }"
+    >
+      <corner-box v-bind="frameParams" />
     </svg>
   </div>
 </template>
@@ -42,16 +49,16 @@ const props = withDefaults(defineProps<Props>(), {
 const containerRef = useTemplateRef<HTMLDivElement>('containerRef')
 const svgSize = reactive(useElementSize(containerRef))
 
-const offset = 100
+const outset = 100
 const svgAttrs = computed(() => ({
   style: {
-    inset: `-${offset}px`,
+    inset: `-${outset}px`,
   } satisfies CSSProperties,
   viewBox: [
-    -offset,
-    -offset,
-    svgSize.width + offset * 2,
-    svgSize.height + offset * 2,
+    -outset,
+    -outset,
+    svgSize.width + outset * 2,
+    svgSize.height + outset * 2,
   ].join(' '),
 }))
 
