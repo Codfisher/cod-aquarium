@@ -10,6 +10,14 @@
       <top-frame v-bind="frameParams" />
       <left-frame v-bind="frameParams" />
     </svg>
+
+    <svg
+      class="absolute -scale-100 origin-center"
+      v-bind="svgAttrs"
+    >
+      <top-frame v-bind="frameParams" />
+      <left-frame v-bind="frameParams" />
+    </svg>
   </div>
 </template>
 
@@ -28,7 +36,7 @@ const props = withDefaults(defineProps<Props>(), {
   status: 'hidden',
 })
 
-const containerRef = useTemplateRef('containerRef')
+const containerRef = useTemplateRef<HTMLDivElement>('containerRef')
 const svgSize = reactive(useElementSize(containerRef))
 
 const offset = 100

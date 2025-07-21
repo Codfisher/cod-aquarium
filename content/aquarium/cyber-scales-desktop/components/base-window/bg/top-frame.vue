@@ -60,8 +60,9 @@ const delayMap: Partial<Record<
     y1: props.duration,
   },
   hidden: {
-    x1: props.duration,
-    x2: props.duration,
+    x1: props.duration * 2,
+    x2: props.duration * 2,
+    y1: props.duration,
   },
 }
 

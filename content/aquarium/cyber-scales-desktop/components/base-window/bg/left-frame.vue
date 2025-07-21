@@ -61,7 +61,7 @@ const delayMap: Partial<Record<
     y1: props.duration * 2,
     y2: props.duration * 2,
     width: props.duration * 2,
-  },
+  }
 }
 
 const { data: graphParams } = useAnimatable(
