@@ -21,12 +21,12 @@ interface Props {
 }
 const props = withDefaults(defineProps<Props>(), {
   status: 'hidden',
-  duration: 300,
+  duration: 260,
 })
 
-/** 圖形上下左右對稱，只要定義部分參數即可
+/** 圖形上下左右對稱，只要 lt 參數即可
  *
- * 這裡的 xy 以 SVG 中心為原點，rect 則是以左上角為原點
+ * SVG 以左上角為原點
  */
 interface GraphParams {
   x: number;
@@ -40,15 +40,15 @@ const targetParams = computed<GraphParams>(() => {
 
   if (props.status === 'visible') {
     return {
-      x: svgSize.width / 2,
-      y: svgSize.height / 2,
-      size: 1,
+      x: -svgSize.width / 2 - offset,
+      y: -svgSize.height / 2 - offset,
+      size: 3,
     }
   }
 
   return {
-    x: 0,
-    y: 0,
+    x: -svgSize.width / 2 - offset * 2,
+    y: -svgSize.height / 2 - offset * 2,
     size: 0,
   }
 })
@@ -56,7 +56,13 @@ const targetParams = computed<GraphParams>(() => {
 const delayMap: Partial<Record<
   ComponentStatus,
   Partial<Record<keyof GraphParams, number>>
->> = {}
+>> = {
+  visible: {
+    x: props.duration,
+    y: props.duration * 3,
+    size: props.duration,
+  },
+}
 
 const { data: graphParams } = useAnimatable(
   {
@@ -83,26 +89,26 @@ const graphAttrs = computed(() => {
 
   return {
     lt: {
-      x: x - halfSize - halfWidth - offset,
-      y: y - halfSize - halfHeight - offset,
+      x: x - halfSize + halfWidth,
+      y: y - halfSize + halfHeight,
       width: size,
       height: size,
     },
     rt: {
-      x: x - halfSize + halfWidth + offset,
-      y: y - halfSize - halfHeight - offset,
+      x: -x - halfSize + halfWidth,
+      y: y - halfSize + halfHeight,
       width: size,
       height: size,
     },
     lb: {
-      x: x - halfSize - halfWidth - offset,
-      y: y - halfSize + halfHeight + offset,
+      x: x - halfSize + halfWidth,
+      y: -y - halfSize + halfHeight,
       width: size,
       height: size,
     },
     rb: {
-      x: x - halfSize + halfWidth + offset,
-      y: y - halfSize + halfHeight + offset,
+      x: -x - halfSize + halfWidth,
+      y: -y - halfSize + halfHeight,
       width: size,
       height: size,
     },
