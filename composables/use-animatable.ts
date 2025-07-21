@@ -74,7 +74,7 @@ export function useAnimatable<
     })
   }, { 
     deep: true, 
-    immediate: true,
+    immediate,
   })
 
   return {
