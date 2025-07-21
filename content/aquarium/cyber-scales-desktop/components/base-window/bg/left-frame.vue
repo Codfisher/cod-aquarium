@@ -39,16 +39,16 @@ const targetParams = computed<GraphParams>(() => {
       y1: 0,
       y2: svgSize.height,
       // color: '#777',
-      width: 2,
+      width: 1,
     }
   }
 
   return {
-    x1: svgSize.width / 2,
-    y1: svgSize.height / 2,
-    y2: svgSize.height / 2,
+    x1: -10,
+    y1: 0,
+    y2: svgSize.height,
     // color: '#777',
-    width: 2,
+    width: 0,
   }
 })
 
@@ -57,21 +57,20 @@ const delayMap: Partial<Record<
   Partial<Record<keyof GraphParams, number>>
 >> = {
   visible: {
-    x1: props.duration,
-  },
-  hidden: {
-    y1: props.duration,
-    y2: props.duration,
+    x1: props.duration * 1.5,
+    y1: props.duration * 1.5,
+    y2: props.duration * 1.5,
+    width: props.duration * 1.5,
   },
 }
 
 const { data: graphParams } = useAnimatable(
   {
-    x1: props.svgSize.width / 2,
-    y1: props.svgSize.height / 2,
-    y2: props.svgSize.height / 2,
+    x1: -20,
+    y1: 0,
+    y2: props.svgSize.height,
     // color: '#777',
-    width: 2,
+    width: 0,
   },
   targetParams,
   {
