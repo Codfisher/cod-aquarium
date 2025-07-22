@@ -75,19 +75,16 @@ const rotateData = ref({ x: 0, y: 0 })
 useRafFn(()=>{
   const { x, y } = mousePosition
 
-  const target= pipe(
-    {
-      x: y / 20,
-      y: x / 20,
-    },
-    (result)=>{
-      if(isOutside.value){
-        return result
-      }
-
-      return { x: 0, y: 0 }
+  const target= pipe( undefined, () => {
+    if(isOutside.value){
+      return {
+        x: y / 40,
+        y: x / 40,
+      } 
     }
-  )
+
+    return { x: 0, y: 0 }
+  })
 
   rotateData.value = {
     x: rotateData.value.x + (target.x - rotateData.value.x) * 0.2,
