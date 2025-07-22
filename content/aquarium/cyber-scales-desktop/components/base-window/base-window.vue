@@ -9,9 +9,12 @@
       :status="status"
       class="z-[-1]"
     />
-    <div class="z-0">
+    <content-wrapper
+      :status="status"
+      class="z-0 absolute inset-0 "
+    >
       <slot />
-    </div>
+    </content-wrapper>
   </div>
 </template>
 
@@ -21,6 +24,7 @@ import { computed, CSSProperties, ref, useTemplateRef } from 'vue'
 import { ComponentStatus } from '../../types'
 import BaseWindowBg from './bg/bg.vue'
 import { pipe } from 'remeda';
+import ContentWrapper from './content-wrapper.vue'
 
 // #region Props
 interface Props {
@@ -83,8 +87,8 @@ useRafFn(() => {
   const target = pipe(undefined, () => {
     if (isOutside.value) {
       return {
-        x: y / 40,
-        y: x / 40,
+        x: y / 100,
+        y: x / 100,
       }
     }
 

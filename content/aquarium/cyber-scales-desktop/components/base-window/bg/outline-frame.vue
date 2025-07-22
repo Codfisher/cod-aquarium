@@ -20,7 +20,7 @@ interface Props {
 }
 const props = withDefaults(defineProps<Props>(), {
   status: 'hidden',
-  duration: 260,
+  duration: 300,
 })
 
 /** SVG 以左上角為原點 */
@@ -33,7 +33,7 @@ interface GraphParams {
   opacity: number;
 }
 
-const offset = 10
+const offset = 6
 const targetParams = computed<GraphParams>(() => {
   const { svgSize } = props
 

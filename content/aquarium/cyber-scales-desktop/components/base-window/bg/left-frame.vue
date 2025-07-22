@@ -19,7 +19,7 @@ interface Props {
 }
 const props = withDefaults(defineProps<Props>(), {
   status: 'hidden',
-  duration: 260,
+  duration: 300,
 })
 
 interface GraphParams {
@@ -30,7 +30,7 @@ interface GraphParams {
   width: number;
 }
 
-const offset = 10
+const offset = 6
 const targetParams = computed<GraphParams>(() => {
   const { svgSize } = props
 

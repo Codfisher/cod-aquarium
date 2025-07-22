@@ -21,7 +21,7 @@ interface Props {
 }
 const props = withDefaults(defineProps<Props>(), {
   status: 'hidden',
-  duration: 260,
+  duration: 300,
 })
 
 /** 圖形上下左右對稱，只要 lt 參數即可
@@ -34,7 +34,7 @@ interface GraphParams {
   size: number;
 }
 
-const offset = 10
+const offset = 6
 const targetParams = computed<GraphParams>(() => {
   const { svgSize } = props
 
