@@ -6,7 +6,7 @@
   <svg
       class="absolute"
       v-bind="svgAttrs"
-      :style="{ transform: 'translateZ(-40px)' }"
+      :style="{ transform: 'translateZ(-100px)' }"
     >
       <outline-frame v-bind="frameParams" />
     </svg>
