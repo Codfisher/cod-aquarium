@@ -1,10 +1,9 @@
 <template>
   <rect
-    v-for="value, key in graphAttrs"
-    :key
-    :class="key"
-    v-bind="value"
-    fill="#777"
+    class="outline-frame"
+    v-bind="graphAttrs"
+    fill="none"
+    stroke="#CCC"
   />
 </template>
 
@@ -24,14 +23,13 @@ const props = withDefaults(defineProps<Props>(), {
   duration: 260,
 })
 
-/** 圖形上下左右對稱，只要 lt 參數即可
- *
- * SVG 以左上角為原點
- */
+/** SVG 以左上角為原點 */
 interface GraphParams {
   x: number;
   y: number;
-  size: number;
+  width: number;
+  height: number;
+  strokeWidth: number;
 }
 
 const offset = 10
@@ -40,16 +38,20 @@ const targetParams = computed<GraphParams>(() => {
 
   if (props.status === 'visible') {
     return {
-      x: -svgSize.width / 2 - offset,
-      y: -svgSize.height / 2 - offset,
-      size: 3,
+      x: -offset,
+      y: -offset,
+      width: svgSize.width + offset * 2,
+      height: svgSize.height + offset * 2,
+      strokeWidth: 0.5,
     }
   }
 
   return {
-    x: -svgSize.width / 2 - offset * 2,
-    y: -svgSize.height / 2 - offset * 2,
-    size: 0,
+    x: -offset * 2,
+    y: -offset * 2,
+    width: svgSize.width + offset * 4,
+    height: svgSize.height + offset * 4,
+    strokeWidth: 0,
   }
 })
 
@@ -57,18 +59,22 @@ const delayMap: Partial<Record<
   ComponentStatus,
   Partial<Record<keyof GraphParams, number>>
 >> = {
-  visible: {
+  visible:{
     x: props.duration * 3,
     y: props.duration * 3,
-    size: props.duration * 2,
-  },
+    width: props.duration * 3,
+    height: props.duration * 3,
+    strokeWidth: props.duration * 2,
+  }
 }
 
 const { data: graphParams } = useAnimatable(
   {
     x: 0,
     y: 0,
-    size: 0,
+    width: 0,
+    height: 0,
+    strokeWidth: 0,
   },
   targetParams,
   {
@@ -79,39 +85,11 @@ const { data: graphParams } = useAnimatable(
 )
 
 const graphAttrs = computed(() => {
-  const { width, height } = props.svgSize
-  const { x, y, size } = graphParams
-  const [
-    halfSize,
-    halfWidth,
-    halfHeight
-  ] = [size / 2, width / 2, height / 2]
+  const { strokeWidth } = graphParams
 
   return {
-    lt: {
-      x: x - halfSize + halfWidth,
-      y: y - halfSize + halfHeight,
-      width: size,
-      height: size,
-    },
-    rt: {
-      x: -x - halfSize + halfWidth,
-      y: y - halfSize + halfHeight,
-      width: size,
-      height: size,
-    },
-    lb: {
-      x: x - halfSize + halfWidth,
-      y: -y - halfSize + halfHeight,
-      width: size,
-      height: size,
-    },
-    rb: {
-      x: -x - halfSize + halfWidth,
-      y: -y - halfSize + halfHeight,
-      width: size,
-      height: size,
-    },
+    ...graphParams,
+    'stroke-width': strokeWidth,
   }
 })
 </script>
