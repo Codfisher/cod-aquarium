@@ -4,7 +4,7 @@
     :key
     :class="key"
     v-bind="value"
-    fill="#777"
+    fill="#111"
   />
 </template>
 

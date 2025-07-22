@@ -2,7 +2,6 @@
   <div
     ref="containerRef"
     class="container absolute inset-0 w-full h-full pointer-events-none"
-    :style="containerStyle"
   >
   <svg
       class="absolute"
@@ -51,50 +50,6 @@ const props = withDefaults(defineProps<Props>(), {
 
 const containerRef = useTemplateRef<HTMLDivElement>('containerRef')
 const containerSize = reactive(useElementSize(containerRef))
-
-const {
-  elementX: mouseX,
-  elementY: mouseY,
-  isOutside,
-} = useMouseInElement(containerRef, {
-  eventFilter: throttleFilter(35),
-})
-/** 計算滑鼠到與元素的中心距離 */
-const mousePosition = reactiveComputed(() => {
-  const x = containerSize.width / 2 - mouseX.value
-  const y = containerSize.height / 2 - mouseY.value
-
-  return {
-    x,
-    y,
-  }
-})
-
-
-const rotateData = ref({ x: 0, y: 0 })
-useRafFn(()=>{
-  const { x, y } = mousePosition
-
-  const target= pipe( undefined, () => {
-    if(isOutside.value){
-      return {
-        x: y / 40,
-        y: x / 40,
-      } 
-    }
-
-    return { x: 0, y: 0 }
-  })
-
-  rotateData.value = {
-    x: rotateData.value.x + (target.x - rotateData.value.x) * 0.2,
-    y: rotateData.value.y + (target.y - rotateData.value.y) * 0.2,
-  }
-})
-
-const containerStyle = computed<CSSProperties>(() => ({
-  transform: `rotateX(${rotateData.value.x}deg) rotateY(${-rotateData.value.y}deg)`,
-}))
 
 const outset = 100
 const svgAttrs = computed(() => ({
