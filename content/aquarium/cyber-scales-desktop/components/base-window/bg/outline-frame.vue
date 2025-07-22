@@ -2,7 +2,7 @@
   <rect
     class="outline-frame"
     v-bind="graphAttrs"
-    fill="none"
+    fill="#FEFEFE"
     stroke="#CCC"
   />
 </template>
@@ -30,6 +30,7 @@ interface GraphParams {
   width: number;
   height: number;
   strokeWidth: number;
+  opacity: number;
 }
 
 const offset = 10
@@ -43,6 +44,7 @@ const targetParams = computed<GraphParams>(() => {
       width: svgSize.width + offset * 2,
       height: svgSize.height + offset * 2,
       strokeWidth: 0.5,
+      opacity: 1,
     }
   }
 
@@ -52,6 +54,7 @@ const targetParams = computed<GraphParams>(() => {
     width: svgSize.width + offset * 4,
     height: svgSize.height + offset * 4,
     strokeWidth: 0,
+    opacity: 0,
   }
 })
 
@@ -60,11 +63,12 @@ const delayMap: Partial<Record<
   Partial<Record<keyof GraphParams, number>>
 >> = {
   visible:{
-    x: props.duration * 3,
-    y: props.duration * 3,
-    width: props.duration * 3,
-    height: props.duration * 3,
+    x: props.duration * 2,
+    y: props.duration * 2,
+    width: props.duration * 2,
+    height: props.duration * 2,
     strokeWidth: props.duration * 2,
+    opacity: props.duration * 2,
   }
 }
 
@@ -75,6 +79,7 @@ const { data: graphParams } = useAnimatable(
     width: 0,
     height: 0,
     strokeWidth: 0,
+    opacity: 0,
   },
   targetParams,
   {

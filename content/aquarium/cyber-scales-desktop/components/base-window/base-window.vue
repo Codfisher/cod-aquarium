@@ -1,10 +1,13 @@
 <template>
   <div
+    ref="windowRef"
     class="base-window relative border border-gray-50"
     @click="toggleData()"
   >
-    <base-window-bg :status="status" />
-    <slot />
+    <base-window-bg :status="status" class="z-[-1]"/>
+    <div class="z-0">
+      <slot />
+    </div>
   </div>
 </template>
 

@@ -1,6 +1,8 @@
 <template>
   <div class=" w-screen h-screen flex justify-center items-center">
-    <base-window />
+    <base-window>
+      <div class="bg-white p-6">安安</div>
+    </base-window>
   </div>
 </template>
 
