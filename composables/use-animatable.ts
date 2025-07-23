@@ -15,7 +15,7 @@ interface UseAnimatableParams<Data extends DataObject> {
   immediate?: boolean;
 
   /** 會自動縮短 Duration，讓總時間（Duration + Delay）等於原本的 Duration
-   * @default false 
+   * @default false
    */
   adjustDurationByDelay?: boolean;
 }
@@ -72,8 +72,8 @@ export function useAnimatable<
     onWatcherCleanup(() => {
       delayList.forEach(clearTimeout)
     })
-  }, { 
-    deep: true, 
+  }, {
+    deep: true,
     immediate,
   })
 

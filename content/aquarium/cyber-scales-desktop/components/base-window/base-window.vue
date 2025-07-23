@@ -1,7 +1,6 @@
 <template>
   <div
     ref="windowRef"
-    :style="windowStyle"
     class="base-window relative border border-gray-50"
     @click="toggleData()"
   >
@@ -19,12 +18,14 @@
 </template>
 
 <script setup lang="ts">
+import type { CSSProperties } from 'vue'
 import { reactiveComputed, throttleFilter, useMouseInElement, useMousePressed, useRafFn, useToggle } from '@vueuse/core'
-import { computed, CSSProperties, ref, useTemplateRef } from 'vue'
+import { pipe } from 'remeda'
+import { computed, ref, useTemplateRef } from 'vue'
 import { ComponentStatus } from '../../types'
 import BaseWindowBg from './bg/bg.vue'
-import { pipe } from 'remeda';
 import ContentWrapper from './content-wrapper.vue'
+import { useWindowRotate } from './use-window-rotate'
 
 // #region Props
 interface Props {
@@ -58,52 +59,7 @@ const status = computed(() => {
 })
 
 const windowRef = useTemplateRef('windowRef')
-
-const {
-  elementX: mouseX,
-  elementY: mouseY,
-  elementWidth,
-  elementHeight,
-  isOutside,
-} = useMouseInElement(windowRef, {
-  eventFilter: throttleFilter(35),
-})
-/** 計算滑鼠到與元素的中心距離 */
-const mousePosition = reactiveComputed(() => {
-  const x = elementWidth.value / 2 - mouseX.value
-  const y = elementHeight.value / 2 - mouseY.value
-
-  return {
-    x,
-    y,
-  }
-})
-
-
-const rotateData = ref({ x: 0, y: 0 })
-useRafFn(() => {
-  const { x, y } = mousePosition
-
-  const target = pipe(undefined, () => {
-    if (isOutside.value) {
-      return {
-        x: y / 100,
-        y: x / 100,
-      }
-    }
-
-    return { x: 0, y: 0 }
-  })
-
-  rotateData.value = {
-    x: rotateData.value.x + (target.x - rotateData.value.x) * 0.2,
-    y: rotateData.value.y + (target.y - rotateData.value.y) * 0.2,
-  }
-})
-
-const windowStyle = computed<CSSProperties>(() => ({
-  transform: `rotateX(${rotateData.value.x}deg) rotateY(${-rotateData.value.y}deg)`,
-}))
+useWindowRotate(windowRef)
 
 // #region Methods
 interface Expose { }
