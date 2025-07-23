@@ -18,10 +18,8 @@
 </template>
 
 <script setup lang="ts">
-import type { CSSProperties } from 'vue'
-import { reactiveComputed, throttleFilter, useMouseInElement, useMousePressed, useRafFn, useToggle } from '@vueuse/core'
-import { pipe } from 'remeda'
-import { computed, ref, useTemplateRef } from 'vue'
+import { useToggle } from '@vueuse/core'
+import { computed, useTemplateRef } from 'vue'
 import { ComponentStatus } from '../../types'
 import BaseWindowBg from './bg/bg.vue'
 import ContentWrapper from './content-wrapper.vue'

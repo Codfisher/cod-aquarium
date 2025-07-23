@@ -3,7 +3,7 @@ import { pipe } from 'remeda'
 import { computed, ref, toValue } from 'vue'
 
 export function useWindowRotate(
-  targetRef: MaybeElementRef<HTMLElement>,
+  targetRef: MaybeElementRef<HTMLElement | null>,
 ) {
   const targetEl = computed(() => toValue(targetRef))
 
