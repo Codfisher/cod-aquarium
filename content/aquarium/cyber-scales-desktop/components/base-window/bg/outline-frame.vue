@@ -9,8 +9,7 @@
 
 <script setup lang="ts">
 import type { ComponentStatus } from '../../../types'
-import { useAnimate, useElementSize } from '@vueuse/core'
-import { computed, reactive, useTemplateRef } from 'vue'
+import { computed } from 'vue'
 import { useAnimatable } from '../../../../../../composables/use-animatable'
 
 interface Props {
@@ -62,14 +61,14 @@ const delayMap: Partial<Record<
   ComponentStatus,
   Partial<Record<keyof GraphParams, number>>
 >> = {
-  visible:{
+  visible: {
     x: props.duration * 2,
     y: props.duration * 2,
     width: props.duration * 2,
     height: props.duration * 2,
     strokeWidth: props.duration * 2,
     opacity: props.duration * 2,
-  }
+  },
 }
 
 const { data: graphParams } = useAnimatable(

@@ -3,7 +3,7 @@
     ref="containerRef"
     class="container absolute inset-0 w-full h-full pointer-events-none"
   >
-  <svg
+    <svg
       class="absolute"
       v-bind="svgAttrs"
       :style="{ transform: 'translateZ(-100px)' }"
@@ -16,6 +16,7 @@
       v-bind="svgAttrs"
     >
       <top-frame v-bind="frameParams" />
+      <right-frame v-bind="frameParams" />
       <left-frame v-bind="frameParams" />
       <corner-box v-bind="frameParams" />
     </svg>
@@ -25,7 +26,6 @@
       v-bind="svgAttrs"
     >
       <top-frame v-bind="frameParams" />
-      <left-frame v-bind="frameParams" />
     </svg>
   </div>
 </template>
@@ -33,13 +33,13 @@
 <script setup lang="ts">
 import type { CSSProperties } from 'vue'
 import type { ComponentStatus } from '../../../types'
-import { reactiveComputed, throttleFilter, useElementSize, useMouse, useMouseInElement, useMousePressed, useRafFn } from '@vueuse/core'
-import { computed, reactive, ref, useTemplateRef } from 'vue'
-import LeftFrame from './left-frame.vue'
-import TopFrame from './top-frame.vue'
+import { useElementSize } from '@vueuse/core'
+import { computed, reactive, useTemplateRef } from 'vue'
 import CornerBox from './corner-box.vue'
+import LeftFrame from './left-frame.vue'
 import OutlineFrame from './outline-frame.vue'
-import { pipe } from 'remeda'
+import RightFrame from './right-frame.vue'
+import TopFrame from './top-frame.vue'
 
 interface Props {
   status?: `${ComponentStatus}`;
@@ -68,10 +68,6 @@ const frameParams = computed(() => ({
   svgSize: containerSize,
   ...props,
 }))
-
-
-
-
 </script>
 
 <style scoped lang="sass">

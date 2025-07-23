@@ -10,8 +10,7 @@
 
 <script setup lang="ts">
 import type { ComponentStatus } from '../../../types'
-import { useAnimate, useElementSize } from '@vueuse/core'
-import { computed, reactive, useTemplateRef } from 'vue'
+import { computed } from 'vue'
 import { useAnimatable } from '../../../../../../composables/use-animatable'
 
 interface Props {
@@ -84,7 +83,7 @@ const graphAttrs = computed(() => {
   const [
     halfSize,
     halfWidth,
-    halfHeight
+    halfHeight,
   ] = [size / 2, width / 2, height / 2]
 
   return {
