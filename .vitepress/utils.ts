@@ -35,6 +35,11 @@ function extractFirstHeading(content: string): string | null {
 }
 
 export function getFrontMatter(filePath: string) {
+  const stat = fs.statSync(filePath)
+  if (!stat.isFile()) {
+    return
+  }
+
   const content = fs.readFileSync(filePath, 'utf-8')
   const result = matter(content)
 
@@ -84,6 +89,9 @@ function getNestedList(
     }
 
     const frontmatter = getFrontMatter(`${absolutePath}/${file}`)
+    if (!frontmatter) {
+      continue
+    }
     if (!isDev && frontmatter.draft) {
       continue
     }
@@ -141,7 +149,7 @@ export function getLatestDocPath(
       const fullPath = path.join(CONTENT_PATH, docPath, file)
       const frontmatter = getFrontMatter(fullPath)
       if (!isDev) {
-        return !frontmatter.draft
+        return !frontmatter?.draft
       }
 
       return true
@@ -169,7 +177,7 @@ export function getOldestDocPath(
       const fullPath = path.join(CONTENT_PATH, docPath, file)
       const frontmatter = getFrontMatter(fullPath)
       if (!isDev) {
-        return !frontmatter.draft
+        return !frontmatter?.draft
       }
 
       return true
