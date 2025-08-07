@@ -28,6 +28,7 @@
     "dayjs": "^1.11.13",
     "eslint": "^9.28.0",
     "eslint-plugin-vue": "^9.33.0",
+    "fractional-indexing-jittered": "1.0.0",
     "gray-matter": "^4.0.3",
     "jsdom": "^26.1.0",
     "lodash-es": "^4.17.21",
