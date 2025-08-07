@@ -1,0 +1,10 @@
+{
+  "recommendations": [
+    "Vue.volar",
+    "DavidAnson.vscode-markdownlint",
+    "teamchilla.blueprint",
+    "streetsidesoftware.code-spell-checker",
+    "dbaeumer.vscode-eslint",
+    "bradlc.vscode-tailwindcss"
+  ]
+}
