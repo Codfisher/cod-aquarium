@@ -4,12 +4,31 @@ import { defineConfig } from 'vitest/config'
 export default defineConfig({
   plugins: [vue()],
   test: {
-    browser: {
-      provider: 'playwright',
-      enabled: true,
-      instances: [
-        { browser: 'chromium' },
-      ],
-    },
+    projects: [
+      {
+        test: {
+          include: [
+            '**/*.{test,spec}.ts',
+          ],
+          name: 'unit',
+          environment: 'node',
+        },
+      },
+      {
+        test: {
+          include: [
+            '**/*.browser.{test,spec}.ts',
+          ],
+          name: 'browser',
+          browser: {
+            provider: 'playwright',
+            enabled: true,
+            instances: [
+              { browser: 'chromium' },
+            ],
+          },
+        },
+      },
+    ],
   },
 })
