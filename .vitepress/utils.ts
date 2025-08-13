@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 import matter from 'gray-matter'
-import { filter, find, flatMap, map, pipe, sort } from 'remeda'
+import { filter, find, flatMap, map, pipe, sort, tap } from 'remeda'
 import { z } from 'zod'
 
 const isDev = process.env.NODE_ENV !== 'production'
@@ -62,7 +62,7 @@ function getNestedList(
   startPath: string,
   order: 'asc' | 'desc' = 'desc',
 ) {
-  const res: Array<DefaultTheme.SidebarItem & {
+  const result: Array<DefaultTheme.SidebarItem & {
     frontmatter?: z.infer<typeof docFrontMatterSchema>;
   }> = []
 
@@ -78,7 +78,7 @@ function getNestedList(
         continue
       }
 
-      res.push({
+      result.push({
         text: file,
         collapsed: true,
         items,
@@ -103,7 +103,7 @@ function getNestedList(
     }
 
     const text = `${frontmatter.title}` || fileName.replace('.md', '')
-    res.push({
+    result.push({
       text,
       link: `${startPath}/${fileName.replace('.md', '')}`
         .replace(/\d{6}\./, '')
@@ -112,13 +112,13 @@ function getNestedList(
     })
   }
 
-  res.sort((a, b) => (b.frontmatter?.date ?? 0) - (a.frontmatter?.date ?? 0))
+  result.sort((a, b) => (b.frontmatter?.date ?? 0) - (a.frontmatter?.date ?? 0))
 
   if (order === 'asc') {
-    res.reverse()
+    result.reverse()
   }
 
-  return res
+  return result
 }
 
 export function getSidebar(
@@ -150,6 +150,7 @@ export function getLatestDocPath(
   const target = pipe(
     path.join(CONTENT_PATH, docPath),
     (value) => fs.readdirSync(value),
+    filter((value) => value.includes('.md')),
     map((value) => path.basename(value)),
     sort((a, b) => b.localeCompare(a)),
     find((file) => {
