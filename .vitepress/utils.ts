@@ -67,15 +67,21 @@ function getNestedList(
   }> = []
 
   for (const file of files) {
-    const dir = path.join(absolutePath, file) // 組合路徑
-    const isDir = isDirectory(dir) // 判斷是否是資料夾
+    const dir = path.join(absolutePath, file)
+    const isDir = isDirectory(dir)
 
-    if (isDir) { // 如果是資料夾，遞迴進下一次
+    // 如果是目錄，則遞迴取得子目錄的項目
+    if (isDir) {
       const files = fs.readdirSync(dir)
+      const items = getNestedList(files, dir, `${startPath}/${file}`, order)
+      if (items.length === 0) {
+        continue
+      }
+
       res.push({
         text: file,
         collapsed: true,
-        items: getNestedList(files, dir, `${startPath}/${file}`, order),
+        items,
       })
       continue
     }
@@ -96,8 +102,9 @@ function getNestedList(
       continue
     }
 
+    const text = `${frontmatter.title}` || fileName.replace('.md', '')
     res.push({
-      text: frontmatter.title as string || fileName.replace('.md', ''),
+      text,
       link: `${startPath}/${fileName.replace('.md', '')}`
         .replace(/\d{6}\./, '')
         .replace(/\/\//, '/'),
