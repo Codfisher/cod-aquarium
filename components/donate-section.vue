@@ -31,7 +31,6 @@
         frameborder="0"
         :src
         class="my-4 rounded-xl"
-        @click="handleLikeClick"
       />
     </client-only>
 
@@ -64,12 +63,6 @@ const referrer = computed(() => {
 })
 
 const src = computed(() => `https://button.like.co/in/embed/codlin/button?referrer=${referrer.value}`)
-
-function handleLikeClick() {
-  console.log('🚀 ~ handleLikeClick:')
-
-  // https://api.like.co/like/info?url=
-}
 </script>
 
 <style scoped lang="sass">
