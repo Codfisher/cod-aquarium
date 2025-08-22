@@ -51,7 +51,7 @@ const src = ref('')
 
 function getSrc() {
   const referrer = pipe(
-    window?.location?.href ?? route.path,
+    window?.location?.pathname ?? route.path,
     (value) => encodeURIComponent(value.replace('.html', '')),
   )
 
