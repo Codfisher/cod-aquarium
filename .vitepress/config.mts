@@ -58,6 +58,7 @@ export default ({ mode }: { mode: string }) => {
       ['link', { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: 'true' }],
       ['link', { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@100..900&display=swap' }],
       ['link', { rel: 'icon', href: '/favicon.ico' }],
+
     ],
     sitemap: {
       hostname: 'https://codlin.me',
@@ -85,8 +86,18 @@ export default ({ mode }: { mode: string }) => {
       const result = id.replace(/\d{6}\./, '')
       return result
     },
-    transformHead() {
+    transformHead({ page }) {
+      const baseUrl = 'https://codlin.me/'
+      const canonicalUrl = new URL(page.replace(/\.md$/, ''), baseUrl).toString()
+
       return [
+        [
+          'link',
+          {
+            rel: 'canonical',
+            href: canonicalUrl,
+          },
+        ],
         [
           'script',
           {

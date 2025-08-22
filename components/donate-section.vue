@@ -43,32 +43,26 @@
 <script setup lang="ts">
 import { pipe } from 'remeda'
 import { useRoute } from 'vitepress'
-import { onMounted, ref, watch } from 'vue'
+import { computed } from 'vue'
 
 const route = useRoute()
 
-const src = ref('')
+const referrer = computed(() => {
+  /** 防止 SSR 階段出現 window 不存在
+   *
+   * https://github.com/vuejs/vitepress/issues/1689
+   */
+  if (import.meta.env.SSR) {
+    return ''
+  }
 
-function getSrc() {
-  const referrer = pipe(
+  return pipe(
     window?.location?.href ?? route.path,
     (value) => encodeURIComponent(value.replace('.html', '')),
   )
-
-  return `https://button.like.co/in/embed/codlin/button?referrer=${referrer}`
-}
-
-watch(() => route.path, () => {
-  src.value = getSrc()
 })
 
-/** 防止 SSR 階段出現 window 不存在
- *
- * https://github.com/vuejs/vitepress/issues/1689
- */
-onMounted(() => {
-  src.value = getSrc()
-})
+const src = computed(() => `https://button.like.co/in/embed/codlin/button?referrer=${referrer.value}`)
 </script>
 
 <style scoped lang="sass">
