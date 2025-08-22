@@ -53,6 +53,7 @@ function getSrc() {
   const referrer = pipe(
     window?.location?.pathname ?? route.path,
     (value) => encodeURIComponent(value.replace('.html', '')),
+    (value) => `https://codlin.me${value}`,
   )
 
   return `https://button.like.co/in/embed/codlin/button?referrer=${referrer}`
