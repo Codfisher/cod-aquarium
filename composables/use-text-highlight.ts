@@ -41,7 +41,9 @@ export function useTextHighlight(
   const highlightSet = new Highlight()
 
   function clear() {
+    // @ts-expect-error TS 誤報
     CSS.highlights.delete?.(highlightName)
+    // @ts-expect-error TS 誤報
     highlightSet.clear?.()
   }
 
@@ -58,6 +60,7 @@ export function useTextHighlight(
   useStyleTag(style)
 
   tryOnMounted(() => {
+    // @ts-expect-error TS 誤報
     CSS.highlights.set?.(highlightName, highlightSet)
   })
   tryOnBeforeUnmount(() => {
@@ -65,6 +68,7 @@ export function useTextHighlight(
   })
 
   async function highlight(text: string) {
+    // @ts-expect-error TS 誤報
     highlightSet.clear?.()
 
     if (!text) {
@@ -103,6 +107,7 @@ export function useTextHighlight(
           range.setStart(node, index)
           range.setEnd(node, index + text.length)
 
+          // @ts-expect-error TS 誤報
           highlightSet.add?.(range)
           index = txt.indexOf(text, index + text.length)
         }
