@@ -61,7 +61,7 @@ interface Row {
 
 const columns = ['id', 'name', 'value']
 const rows = ref<Row[]>([
-  { id: 1, name: 'Cod', value: '鱈魚是一種生活在寒冷海域的魚類，肉質細嫩，常用於西式料理和炸魚薯條。聽說少數個體會使用電腦，真是令人匪夷所思' },
+  { id: 1, name: 'Cod', value: '鱈魚是一種生活在寒冷海域的魚類，肉質細嫩，常用於西式料理和炸魚薯條。聽說少數個體會使用電腦，真是匪夷所思' },
   { id: 2, name: 'Salmon', value: '鮭魚富含 Omega-3 脂肪酸，常見於生魚片、燒烤及煙燻料理，是營養價值極高的魚類。' },
   { id: 3, name: 'Tuna', value: '鮪魚體型巨大，肉質結實，常用於壽司和罐頭食品，也是重要的經濟魚種。' },
   { id: 4, name: 'Mackerel', value: '鯖魚油脂豐富，味道濃郁，適合煎烤或醃漬，是亞洲料理中常見的食材。' },
