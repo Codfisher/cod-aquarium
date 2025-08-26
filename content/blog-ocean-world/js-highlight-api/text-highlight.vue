@@ -5,7 +5,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, useTemplateRef } from 'vue'
+import { onMounted } from 'vue'
 
 onMounted(() => {
   const parentNode = document.querySelector('.text-highlight')

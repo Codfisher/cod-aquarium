@@ -67,7 +67,7 @@ const rows = ref<Row[]>([
   { id: 4, name: 'Mackerel', value: '鯖魚油脂豐富，味道濃郁，適合煎烤或醃漬，是亞洲料理中常見的食材。' },
 ])
 
-const keyword = ref('')
+const keyword = defineModel({ default: '' })
 const filteredRows = computed(() => {
   if (!keyword.value.trim()) {
     return rows.value

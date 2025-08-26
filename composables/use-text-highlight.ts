@@ -1,6 +1,6 @@
 import type { MaybeElementRef } from '@vueuse/core'
 import { promiseTimeout, tryOnBeforeUnmount, tryOnMounted, useMutationObserver, useStyleTag, watchThrottled } from '@vueuse/core'
-import { computed, type MaybeRefOrGetter, nextTick, toValue } from 'vue'
+import { computed, type MaybeRefOrGetter, nextTick, toValue, useId } from 'vue'
 
 interface UseTextHighlightParams {
   /** 搜尋目標，會標記以下文字節點 */
@@ -19,7 +19,7 @@ export function useTextHighlight(
   text: MaybeRefOrGetter<string>,
   params: UseTextHighlightParams = {},
 ) {
-  const highlightName = crypto.randomUUID()
+  const highlightName = `highlight-${Math.random().toString(36).slice(2)}`
 
   const targetEl = computed(() => {
     const target = toValue(params.target)
@@ -35,8 +35,6 @@ export function useTextHighlight(
   })
 
   /** Highlight 是一個類 Set 物件
-   *
-   * 不知道為甚麼 TS 形別沒有 Set 相關 Method
    *
    * [MDN Highlight](https://developer.mozilla.org/en-US/docs/Web/API/Highlight#instance_methods)
    */
