@@ -5,13 +5,18 @@ import { computed, type MaybeRefOrGetter, nextTick, toValue, useId } from 'vue'
 interface UseTextHighlightParams {
   /** 搜尋目標，會標記以下文字節點 */
   target?: MaybeElementRef;
+  /** 標記底色 */
   background?: MaybeRefOrGetter<string>;
+  /** 標記文字顏色 */
   color?: MaybeRefOrGetter<string>;
-  /** 指定資料更新後也會更新執行 */
+  /** 額外的觸發條件，變動時會更新標記
+   * 
+   * 可確保外部依賴資料更新後也會更新標記
+   */
   triggerOn?: MaybeRefOrGetter;
   /** 強制延遲指定時間後再執行
    *
-   * 若 target DOM 更新無法自動偵測，可以使用此參數
+   * 若 target DOM 更新自動偵測無效，可以使用此參數
    */
   delay?: number;
 }
@@ -71,9 +76,7 @@ export function useTextHighlight(
     // @ts-expect-error TS 誤報
     highlightSet.clear?.()
 
-    if (!text) {
-      return
-    }
+    if (!text) return
 
     // 確保 DOM 已更新
     await nextTick()
