@@ -26,17 +26,21 @@ export function createOrderedDataManager<K, V>() {
     else if (afterId) {
       const pos = order.indexOf(afterId)
       if (pos === -1 || pos === order.length - 1) {
-        const prev: string = order.length > 0 && order[order.length - 1] !== undefined ? order[order.length - 1] : ''
+        const prev = order.length > 0 ? (order[order.length - 1] ?? '') : ''
         idx = insert(prev, null)
       }
       else {
-        const left: string = order[pos] !== undefined ? order[pos] : ''
-        const right: string | null = order.length > pos + 1 && order[pos + 1] !== undefined ? order[pos + 1] as string : null
+        const left = order[pos] !== undefined ? order[pos] : ''
+        const right = order.length > pos + 1 && order[pos + 1] !== undefined
+          ? order[pos + 1] as string
+          : null
         idx = insert(left, right)
       }
     }
     else {
-      const prev: string = order.length > 0 && order[order.length - 1] !== undefined ? order[order.length - 1] : ''
+      const prev = order.length > 0 && order[order.length - 1] !== undefined
+        ? order[order.length - 1] as string
+        : ''
       idx = insert(prev, null)
     }
     order.push(idx)
@@ -53,18 +57,21 @@ export function createOrderedDataManager<K, V>() {
     order.splice(idx, 1)
     let newIdx: string
     if (!afterId) {
-      const prev: string = order.length > 0 && order[order.length - 1] !== undefined ? order[order.length - 1] : ''
+      const last = order.length > 0 ? order[order.length - 1] : undefined
+      const prev = typeof last === 'string' ? last : ''
       newIdx = insert(prev, null)
     }
     else {
       const pos = order.indexOf(afterId)
       if (pos === -1 || pos === order.length - 1) {
-        const prev: string = order.length > 0 && order[order.length - 1] !== undefined ? order[order.length - 1] : ''
+        const prev = order.length > 0 && order[order.length - 1] !== undefined
+          ? (order[order.length - 1] ?? '')
+          : ''
         newIdx = insert(prev, null)
       }
       else {
-        const left: string = order[pos] !== undefined ? order[pos] : ''
-        const right: string | null = order.length > pos + 1 && order[pos + 1] !== undefined ? order[pos + 1] as string : null
+        const left = order[pos] !== undefined ? order[pos] : ''
+        const right = order.length > pos + 1 && order[pos + 1] !== undefined ? order[pos + 1] as string : null
         newIdx = insert(left, right)
       }
     }
