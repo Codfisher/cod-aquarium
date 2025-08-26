@@ -21,12 +21,12 @@ interface UseTextHighlightOptions {
   delay?: number;
 }
 export function useTextHighlight(
-  text: MaybeRefOrGetter<string>,
+  keyword: MaybeRefOrGetter<string>,
   options: UseTextHighlightOptions = {},
 ) {
   const highlightName = `highlight-${Math.random().toString(36).slice(2)}`
 
-  const targetEl = computed(() => {
+  const targetEl = computed<HTMLElement | SVGElement>(() => {
     const target = toValue(options.target)
     if (!target) {
       return document.documentElement
@@ -36,7 +36,7 @@ export function useTextHighlight(
       return target
     }
 
-    if (target.$el instanceof Element) {
+    if (target.$el instanceof HTMLElement) {
       return target.$el
     }
 
@@ -76,11 +76,11 @@ export function useTextHighlight(
     clear()
   })
 
-  async function highlight(text: string) {
+  async function highlight(keyword: string) {
     // @ts-expect-error TS 誤報
     highlightSet.clear?.()
 
-    if (!text)
+    if (!keyword)
       return
 
     // 確保 DOM 已更新
@@ -112,16 +112,16 @@ export function useTextHighlight(
         }
 
         const txt = node.data
-        let index = txt.toLocaleLowerCase().indexOf(text.toLocaleLowerCase())
+        let index = txt.toLocaleLowerCase().indexOf(keyword.toLocaleLowerCase())
 
         while (index !== -1) {
           const range = new Range()
           range.setStart(node, index)
-          range.setEnd(node, index + text.length)
+          range.setEnd(node, index + keyword.length)
 
           // @ts-expect-error TS 誤報
           highlightSet.add?.(range)
-          index = txt.indexOf(text, index + text.length)
+          index = txt.indexOf(keyword, index + keyword.length)
         }
         node = nodeIterator.nextNode()
       }
@@ -129,10 +129,10 @@ export function useTextHighlight(
   }
 
   watchThrottled(() => ({
-    textValue: toValue(text),
+    keywordValue: toValue(keyword),
     waitFor: toValue(options.triggerOn),
-  }), async ({ textValue }) => {
-    highlight(textValue)
+  }), async ({ keywordValue }) => {
+    highlight(keywordValue)
   }, {
     throttle: 100,
     leading: true,
@@ -140,7 +140,7 @@ export function useTextHighlight(
   })
 
   useMutationObserver(targetEl, () => {
-    highlight(toValue(text))
+    highlight(toValue(keyword))
   }, {
     childList: true,
     characterData: true,
