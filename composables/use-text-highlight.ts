@@ -10,7 +10,7 @@ interface UseTextHighlightParams {
   /** 標記文字顏色 */
   color?: MaybeRefOrGetter<string>;
   /** 額外的觸發條件，變動時會更新標記
-   * 
+   *
    * 可確保外部依賴資料更新後也會更新標記
    */
   triggerOn?: MaybeRefOrGetter;
@@ -76,7 +76,8 @@ export function useTextHighlight(
     // @ts-expect-error TS 誤報
     highlightSet.clear?.()
 
-    if (!text) return
+    if (!text)
+      return
 
     // 確保 DOM 已更新
     await nextTick()

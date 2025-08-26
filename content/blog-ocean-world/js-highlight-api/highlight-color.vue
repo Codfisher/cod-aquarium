@@ -3,14 +3,14 @@
     <div class=" flex items-center gap-1 border rounded p-2 mb-2">
       <label>背景顏色</label>
       <input
-        type="color"
         v-model="style.backgroundColor"
-      />
+        type="color"
+      >
       <label class="ml-2">文字顏色</label>
       <input
-        type="color"
         v-model="style.color"
-      />
+        type="color"
+      >
     </div>
 
     <filter-table v-model="keyword" />
@@ -19,8 +19,8 @@
 
 <script setup lang="ts">
 import { ref, useTemplateRef } from 'vue'
-import FilterTable from './filter-table.vue';
-import { useTextHighlight } from '../../../composables/use-text-highlight';
+import { useTextHighlight } from '../../../composables/use-text-highlight'
+import FilterTable from './filter-table.vue'
 
 const tableRef = useTemplateRef('tableRef')
 
