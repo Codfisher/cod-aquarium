@@ -18,13 +18,20 @@
       </div>
 
       <div class="text-xl">
-        abcdefghijklmnopqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789
+        ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789
       </div>
       <a
         href="https://chillcomponent.codlin.me/"
         target="_blank"
       >
         酷酷的元件
+      </a>
+
+      <a
+        href="mailto:hi@codlin.me"
+        target="_blank"
+      >
+        hi@codlin.me
       </a>
     </div>
   </div>
