@@ -38,15 +38,13 @@
 </template>
 
 <script setup lang="ts">
-import { useTemplateRef } from 'vue'
+import { ref, useTemplateRef } from 'vue'
 import { useTextHighlight } from '../../../composables/use-text-highlight'
 
 const textRef = useTemplateRef('textRef')
-const keyword = defineModel({ default: '' })
+const keyword = ref('')
 
-useTextHighlight(keyword, {
-  target: textRef,
-})
+useTextHighlight(keyword, { target: textRef })
 </script>
 
 <style scoped lang="sass">

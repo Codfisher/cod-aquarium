@@ -2,7 +2,7 @@ import type { MaybeElementRef } from '@vueuse/core'
 import { promiseTimeout, tryOnBeforeUnmount, tryOnMounted, useMutationObserver, useStyleTag, watchThrottled } from '@vueuse/core'
 import { computed, type MaybeRefOrGetter, nextTick, toValue, useId } from 'vue'
 
-interface UseTextHighlightParams {
+interface UseTextHighlightOptions {
   /** 搜尋目標，會標記以下文字節點 */
   target?: MaybeElementRef;
   /** 標記底色 */
@@ -22,12 +22,12 @@ interface UseTextHighlightParams {
 }
 export function useTextHighlight(
   text: MaybeRefOrGetter<string>,
-  params: UseTextHighlightParams = {},
+  options: UseTextHighlightOptions = {},
 ) {
   const highlightName = `highlight-${Math.random().toString(36).slice(2)}`
 
   const targetEl = computed(() => {
-    const target = toValue(params.target)
+    const target = toValue(options.target)
     if (!target) {
       return document.documentElement
     }
@@ -36,7 +36,11 @@ export function useTextHighlight(
       return target
     }
 
-    return target.$el as HTMLElement
+    if (target.$el instanceof Element) {
+      return target.$el
+    }
+
+    throw new Error('Invalid target')
   })
 
   /** Highlight 是一個類 Set 物件
@@ -54,8 +58,8 @@ export function useTextHighlight(
 
   // 建立全域樣式
   const style = computed(() => {
-    const background = toValue(params.background) ?? '#ffeb3b'
-    const color = toValue(params.color) ?? 'inherit'
+    const background = toValue(options.background) ?? '#ffeb3b'
+    const color = toValue(options.color) ?? 'inherit'
 
     return `::highlight(${highlightName}) {
       background: ${background};
@@ -81,20 +85,24 @@ export function useTextHighlight(
 
     // 確保 DOM 已更新
     await nextTick()
-    await promiseTimeout(params.delay ?? 0)
+    await promiseTimeout(options.delay ?? 0)
 
     targetEl.value?.querySelectorAll('*').forEach((el) => {
-      const nodeIterator = document.createNodeIterator(el, NodeFilter.SHOW_TEXT, {
-        acceptNode(node) {
-          const parentElement = node.parentElement
-          // 排除不該進去的區塊
-          if (!parentElement || /^(?:SCRIPT|STYLE|NOSCRIPT|TEXTAREA|TITLE|IFRAME)$/.test(parentElement.tagName)) {
-            return NodeFilter.FILTER_REJECT
-          }
+      const nodeIterator = document.createNodeIterator(
+        el,
+        NodeFilter.SHOW_TEXT,
+        {
+          acceptNode(node) {
+            const parentElement = node.parentElement
+            // 排除不該進去的區塊
+            if (!parentElement || /^(?:SCRIPT|STYLE|NOSCRIPT|TEXTAREA|TITLE|IFRAME)$/.test(parentElement.tagName)) {
+              return NodeFilter.FILTER_REJECT
+            }
 
-          return NodeFilter.FILTER_ACCEPT
+            return NodeFilter.FILTER_ACCEPT
+          },
         },
-      })
+      )
 
       let node = nodeIterator.nextNode()
       while (node) {
@@ -122,7 +130,7 @@ export function useTextHighlight(
 
   watchThrottled(() => ({
     textValue: toValue(text),
-    waitFor: toValue(params.triggerOn),
+    waitFor: toValue(options.triggerOn),
   }), async ({ textValue }) => {
     highlight(textValue)
   }, {
