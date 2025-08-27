@@ -23,11 +23,12 @@ import { computed, useTemplateRef } from 'vue'
 import { ComponentStatus } from '../../types'
 import BaseWindowBg from './bg/bg.vue'
 import ContentWrapper from './content-wrapper.vue'
-import { useWindowRotate } from './use-window-rotate'
+import { useWindow3dRotate } from './use-window-3d-rotate'
 
 // #region Props
 interface Props {
   modelValue?: string;
+  title?: string;
 }
 // #endregion Props
 
@@ -45,6 +46,7 @@ interface Slots {
 
 const props = withDefaults(defineProps<Props>(), {
   modelValue: '',
+  title: '',
 })
 
 const emit = defineEmits<Emits>()
@@ -57,7 +59,7 @@ const status = computed(() => {
 })
 
 const windowRef = useTemplateRef('windowRef')
-useWindowRotate(windowRef)
+useWindow3dRotate(windowRef)
 
 // #region Methods
 interface Expose { }
