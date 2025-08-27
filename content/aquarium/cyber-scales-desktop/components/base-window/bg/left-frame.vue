@@ -1,25 +1,22 @@
 <template>
-  <g>
-    <!-- Trapezoid shape at top left -->
-    <polygon
-      v-bind="polygonAttrs"
-      fill="#777"
-    />
-    <!-- Title text inside trapezoid -->
-    <text
-      v-bind="textAttrs"
-      fill="#fff"
-      writing-mode="vertical-rl"
-    >
-      安安 codlin
-    </text>
+  <polygon
+    v-bind="polygonAttrs"
+    fill="#777"
+  />
+  <text
+    v-bind="textAttrs"
+    fill="#fff"
+    writing-mode="vertical-rl"
+    class=" pointer-events-auto"
+  >
+    安安 codlin
+  </text>
 
-    <path
-      class="left-frame"
-      v-bind="lineAttrs"
-      stroke="#777"
-    />
-  </g>
+  <path
+    class="left-frame"
+    v-bind="lineAttrs"
+    stroke="#777"
+  />
 </template>
 
 <script setup lang="ts">
@@ -118,11 +115,12 @@ const polygonAttrs = computed(() => {
   const height = props.svgSize.height / 2
   const offsetX = lineParams.x1
 
+  const padding = 10
   return {
     points: [
       `${offsetX},0`,
-      `${-textAttrs.value.fontSize - 10 + offsetX},${offset * 3}`,
-      `${-textAttrs.value.fontSize - 10 + offsetX},${height}`,
+      `${-textAttrs.value.fontSize - padding + offsetX},${offset * 3}`,
+      `${-textAttrs.value.fontSize - padding + offsetX},${height}`,
       `${offsetX},${height + offset * 3}`,
     ].join(' '),
     opacity: lineParams.width,
