@@ -57,11 +57,12 @@ const delayMap: Partial<Record<
   Partial<Record<keyof GraphParams, number>>
 >> = {
   visible: {
-    x: props.duration * 3,
-    y: props.duration * 3,
+    x: props.duration * 2.5,
+    y: props.duration * 2.5,
     size: props.duration * 2,
   },
 }
+const durationMap: Partial<Record<ComponentStatus, number>> = {}
 
 const { data: graphParams } = useAnimatable(
   {
@@ -72,8 +73,8 @@ const { data: graphParams } = useAnimatable(
   targetParams,
   {
     delay: (fieldKey) => delayMap[props.status]?.[fieldKey] ?? 0,
-    duration: props.duration,
-    ease: 'cubicBezier(1, 0.3, 0, 0.7)',
+    duration: () => durationMap[props.status] ?? props.duration,
+    ease: 'inOutQuint',
   },
 )
 

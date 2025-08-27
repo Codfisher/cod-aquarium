@@ -40,7 +40,7 @@ const delayMap: Partial<Record<
   Partial<Record<keyof GraphParams, number>>
 >> = {
   visible: {
-    opacity: props.duration * 4,
+    opacity: props.duration * 3,
   },
 }
 
