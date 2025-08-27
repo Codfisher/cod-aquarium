@@ -9,7 +9,7 @@
       >
     </div>
 
-    <div class="h-[30vh] overflow-auto mt-2">
+    <div class="h-[25dvh] md:h-[32dvh] overflow-auto mt-2">
       <table class="w-full !table !m-0">
         <thead>
           <tr>
