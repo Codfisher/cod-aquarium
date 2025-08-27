@@ -1,6 +1,6 @@
 <template>
   <path
-    class="left-frame"
+    class="right-frame"
     v-bind="graphAttrs"
     stroke="#777"
   />

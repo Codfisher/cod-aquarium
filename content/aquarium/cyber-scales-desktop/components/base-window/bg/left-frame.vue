@@ -1,9 +1,25 @@
 <template>
-  <path
-    class="left-frame"
-    v-bind="graphAttrs"
-    stroke="#777"
-  />
+  <g>
+    <!-- Trapezoid shape at top left -->
+    <polygon
+      v-bind="polygonAttrs"
+      fill="#777"
+    />
+    <!-- Title text inside trapezoid -->
+    <text
+      v-bind="textAttrs"
+      fill="#fff"
+      writing-mode="vertical-rl"
+    >
+      安安 codlin
+    </text>
+
+    <path
+      class="left-frame"
+      v-bind="lineAttrs"
+      stroke="#777"
+    />
+  </g>
 </template>
 
 <script setup lang="ts">
@@ -21,7 +37,7 @@ const props = withDefaults(defineProps<Props>(), {
   duration: 300,
 })
 
-interface GraphParams {
+interface LineParams {
   x1: number;
   y1: number;
   y2: number;
@@ -30,7 +46,7 @@ interface GraphParams {
 }
 
 const offset = 6
-const targetParams = computed<GraphParams>(() => {
+const lineTargetParams = computed<LineParams>(() => {
   const { svgSize } = props
 
   if (props.status === 'visible') {
@@ -54,7 +70,7 @@ const targetParams = computed<GraphParams>(() => {
 
 const delayMap: Partial<Record<
   ComponentStatus,
-  Partial<Record<keyof GraphParams, number>>
+  Partial<Record<keyof LineParams, number>>
 >> = {
   visible: {
     x1: props.duration * 1.8,
@@ -66,7 +82,7 @@ const delayMap: Partial<Record<
 const durationMap: Partial<Record<ComponentStatus, number>> = {
 }
 
-const { data: graphParams } = useAnimatable(
+const { data: lineParams } = useAnimatable(
   {
     x1: 0,
     y1: 0,
@@ -74,7 +90,7 @@ const { data: graphParams } = useAnimatable(
     // color: '#777',
     width: 0,
   },
-  targetParams,
+  lineTargetParams,
   {
     delay: (fieldKey) => delayMap[props.status]?.[fieldKey] ?? 0,
     duration: () => durationMap[props.status] ?? props.duration,
@@ -82,10 +98,34 @@ const { data: graphParams } = useAnimatable(
   },
 )
 
-const graphAttrs = computed(() => {
+const lineAttrs = computed(() => {
   return {
-    'd': `M${graphParams.x1} ${graphParams.y1} V${graphParams.y2}`,
-    'stroke-width': graphParams.width,
+    'd': `M${lineParams.x1} ${lineParams.y1} V${lineParams.y2}`,
+    'stroke-width': lineParams.width,
+  }
+})
+
+const textAttrs = computed(() => {
+  return {
+    x: lineParams.x1 + -offset * 2,
+    y: 20,
+    opacity: lineParams.width,
+    fontSize: 16,
+  }
+})
+
+const polygonAttrs = computed(() => {
+  const height = props.svgSize.height / 2
+  const offsetX = lineParams.x1
+
+  return {
+    points: [
+      `${offsetX},0`,
+      `${-textAttrs.value.fontSize - 10 + offsetX},${offset * 3}`,
+      `${-textAttrs.value.fontSize - 10 + offsetX},${height}`,
+      `${offsetX},${height + offset * 3}`,
+    ].join(' '),
+    opacity: lineParams.width,
   }
 })
 </script>
