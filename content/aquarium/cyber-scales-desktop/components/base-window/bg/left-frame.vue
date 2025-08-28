@@ -46,6 +46,7 @@ interface LineParams {
   width: number;
 }
 
+const maxWidth = 1
 const offset = 6
 const lineTargetParams = computed<LineParams>(() => {
   const { svgSize } = props
@@ -56,7 +57,7 @@ const lineTargetParams = computed<LineParams>(() => {
       y1: 0,
       y2: svgSize.height,
       // color: '#777',
-      width: 1,
+      width: maxWidth,
     }
   }
 
@@ -148,7 +149,7 @@ const textBgPartAttrs = computed(() => {
       `${-fontSize - padding + offsetX},${bgHeight + gap + height}`,
       `${offsetX},${bgHeight + offset * 3 + gap + height}`,
     ].join(' '),
-    opacity: lineParams.width,
+    opacity: lineParams.width / maxWidth,
   }
 })
 </script>
