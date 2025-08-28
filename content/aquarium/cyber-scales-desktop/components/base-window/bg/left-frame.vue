@@ -135,15 +135,17 @@ const textBgPartAttrs = computed(() => {
   const bgHeight = props.svgSize.height / 2
   const height = props.svgSize.height / 15
   const offsetX = lineParams.x1
+  const fontSize = Number.parseInt(textAttrs.value.fontSize)
+
   /** 與 text-bg 的間距 */
   const gap = 10
 
-  const padding = 10
+  const padding = 8
   return {
     points: [
       `${offsetX},${bgHeight + offset * 3 + gap}`,
-      `${-textAttrs.value.fontSize - padding + offsetX},${bgHeight + gap}`,
-      `${-textAttrs.value.fontSize - padding + offsetX},${bgHeight + gap + height}`,
+      `${-fontSize - padding + offsetX},${bgHeight + gap}`,
+      `${-fontSize - padding + offsetX},${bgHeight + gap + height}`,
       `${offsetX},${bgHeight + offset * 3 + gap + height}`,
     ].join(' '),
     opacity: lineParams.width,
