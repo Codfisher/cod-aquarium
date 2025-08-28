@@ -1,7 +1,7 @@
-import type { AnimatableParams, EaseStringParamNames } from 'animejs'
+import type { EaseStringParamNames } from 'animejs'
 import type { MaybeRefOrGetter } from 'vue'
 import { createAnimatable } from 'animejs'
-import { clone, entries, pipe, when } from 'remeda'
+import { clone, entries, isFunction, pipe, when } from 'remeda'
 import { onWatcherCleanup, reactive, toValue, watch } from 'vue'
 
 type DataObject = Record<string, number>
@@ -43,15 +43,25 @@ export function useAnimatable<
     const delayList: ReturnType<typeof setTimeout>[] = []
 
     entries(toValue(targetData)).forEach(([fieldKey, value]) => {
-      const delayValue = typeof delay === 'function'
-        ? delay(fieldKey)
-        : delay
+      const delayValue = pipe(
+        delay,
+        when(
+          // 不知道為甚麼直接給 isFunction 型別推導會只剩 StrictFunction
+          (value) => isFunction(value),
+          (fcn) => fcn(fieldKey),
+        ),
+      )
 
       const durationValue = pipe(
-        typeof duration === 'function'
-          ? duration(fieldKey)
-          : duration,
-        when(() => adjustDurationByDelay, (value) => value - delayValue),
+        duration,
+        when(
+          (value) => isFunction(value),
+          (fcn) => fcn(fieldKey),
+        ),
+        when(
+          () => adjustDurationByDelay,
+          (value) => value - delayValue,
+        ),
       )
 
       const easeValue = pipe(undefined, () => {
