@@ -1,6 +1,10 @@
 <template>
   <polygon
-    v-bind="polygonAttrs"
+    v-bind="textBgAttrs"
+    fill="#777"
+  />
+  <polygon
+    v-bind="textBgPartAttrs"
     fill="#777"
   />
   <text
@@ -107,21 +111,40 @@ const textAttrs = computed(() => {
     x: lineParams.x1 + -offset * 2,
     y: 20,
     opacity: lineParams.width,
-    fontSize: 16,
+    fontSize: `12px`,
   }
 })
 
-const polygonAttrs = computed(() => {
+const textBgAttrs = computed(() => {
   const height = props.svgSize.height / 2
   const offsetX = lineParams.x1
+  const fontSize = Number.parseInt(textAttrs.value.fontSize)
+
+  const padding = 12
+  return {
+    points: [
+      `${offsetX},0`,
+      `${-fontSize - padding + offsetX},${offset * 3}`,
+      `${-fontSize - padding + offsetX},${height}`,
+      `${offsetX},${height + offset * 3}`,
+    ].join(' '),
+    opacity: lineParams.width,
+  }
+})
+const textBgPartAttrs = computed(() => {
+  const bgHeight = props.svgSize.height / 2
+  const height = props.svgSize.height / 15
+  const offsetX = lineParams.x1
+  /** 與 text-bg 的間距 */
+  const gap = 10
 
   const padding = 10
   return {
     points: [
-      `${offsetX},0`,
-      `${-textAttrs.value.fontSize - padding + offsetX},${offset * 3}`,
-      `${-textAttrs.value.fontSize - padding + offsetX},${height}`,
-      `${offsetX},${height + offset * 3}`,
+      `${offsetX},${bgHeight + offset * 3 + gap}`,
+      `${-textAttrs.value.fontSize - padding + offsetX},${bgHeight + gap}`,
+      `${-textAttrs.value.fontSize - padding + offsetX},${bgHeight + gap + height}`,
+      `${offsetX},${bgHeight + offset * 3 + gap + height}`,
     ].join(' '),
     opacity: lineParams.width,
   }
