@@ -46,5 +46,8 @@
     "vitest-browser-vue": "^0.2.0",
     "vue": "^3.5.16",
     "zod": "3.25.49"
+  },
+  "dependencies": {
+    "motion-v": "^1.7.0"
   }
 }

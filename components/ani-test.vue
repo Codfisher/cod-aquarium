@@ -1,9 +1,9 @@
 <template>
   <div class="w-[50vw] border rounded">
     <div class=" aspect-square relative">
-      <div
+      <motion.div
         class="ball absolute bg-red-500"
-        :style="ballStyle"
+        :style="{ left, top }"
       />
     </div>
 
@@ -17,37 +17,31 @@
 </template>
 
 <script setup lang="ts">
-import { animate, createSpring } from 'animejs'
+import { useMotionValue, useSpring, motion } from 'motion-v'
 import { computed, reactive, ref, watch } from 'vue'
 
 const index = ref(0)
 const dataList = [
   [0, 0],
-  [100, 0],
-  [100, 100],
-  [0, 100],
+  [500, 0],
+  [500, 500],
+  [0, 500],
 ] as const
 function move() {
   index.value = (index.value + 1) % dataList.length
 }
 
-const ballData = reactive({
-  left: 0,
-  top: 0,
-})
-
-const ballStyle = computed(() => ({
-  left: `${ballData.left}%`,
-  top: `${ballData.top}%`,
-}))
+const leftValue = useMotionValue(0)
+const topValue = useMotionValue(0)
+const left = useSpring(leftValue, { mass: 0.5 })
+const top = useSpring(topValue, { mass: 0.5 })
 
 watch(index, () => {
   const data = dataList[index.value] ?? [0, 0]
+  console.log('🚀 ~ data:', data);
 
-  animate(ballData, {
-    left: data[0],
-    top: data[1],
-  })
+  leftValue.set(data[0])
+  topValue.set(data[1])
 })
 </script>
 
