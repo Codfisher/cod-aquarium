@@ -1,7 +1,11 @@
 <template>
+  <polygon
+    v-bind="btnBgAttrs"
+    fill="#777"
+  />
   <path
     class="right-frame"
-    v-bind="graphAttrs"
+    v-bind="lineAttrs"
     stroke="#777"
   />
 </template>
@@ -30,7 +34,7 @@ interface GraphParams {
 }
 
 const offset = 6
-const targetParams = computed<GraphParams>(() => {
+const lineTargetParams = computed<GraphParams>(() => {
   const { svgSize } = props
 
   if (props.status === 'visible') {
@@ -66,7 +70,7 @@ const delayMap: Partial<Record<
 const durationMap: Partial<Record<ComponentStatus, number>> = {
 }
 
-const { data: graphParams } = useAnimatable(
+const { data: lineParams } = useAnimatable(
   {
     x1: 0,
     y1: 0,
@@ -74,7 +78,7 @@ const { data: graphParams } = useAnimatable(
     // color: '#777',
     width: 0,
   },
-  targetParams,
+  lineTargetParams,
   {
     delay: (fieldKey) => delayMap[props.status]?.[fieldKey] ?? 0,
     duration: () => durationMap[props.status] ?? props.duration,
@@ -82,10 +86,29 @@ const { data: graphParams } = useAnimatable(
   },
 )
 
-const graphAttrs = computed(() => {
+const lineAttrs = computed(() => {
   return {
-    'd': `M${graphParams.x1} ${graphParams.y1} V${graphParams.y2}`,
-    'stroke-width': graphParams.width,
+    'd': `M${lineParams.x1} ${lineParams.y1} V${lineParams.y2}`,
+    'stroke-width': lineParams.width,
+  }
+})
+
+const bgWidth = 24
+const btnBgAttrs = computed(() => {
+  const { svgSize } = props
+
+  const { width: svgWidth, height: svgHeight } = svgSize
+  const height = svgHeight / 4
+  const offsetX = lineParams.x1
+
+  return {
+    points: [
+      `${offset + svgWidth},${svgHeight - height}`,
+      `${bgWidth + svgWidth},${svgHeight - height + offset * 2}`,
+      `${bgWidth + svgWidth},${svgHeight - offset * 2}`,
+      `${offset + svgWidth},${svgHeight}`,
+    ].join(' '),
+    opacity: lineParams.width,
   }
 })
 </script>
