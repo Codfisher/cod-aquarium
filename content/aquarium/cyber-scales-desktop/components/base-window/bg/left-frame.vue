@@ -40,7 +40,11 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const windowProvider = inject(windowInjectionKey)
-const titleDecoder = useDecodingText(windowProvider?.title.value ?? '')
+if (!windowProvider) {
+  throw new Error('windowProvider is not provided')
+}
+
+const titleDecoder = useDecodingText(windowProvider.title.value)
 watch(() => props.status, (value) => {
   if (value === 'visible') {
     setTimeout(() => {
