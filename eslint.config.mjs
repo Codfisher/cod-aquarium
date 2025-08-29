@@ -2,6 +2,19 @@ import antfu from '@antfu/eslint-config'
 
 export default antfu(
   {
+    ignores: [
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/.output/**',
+      '**/.next/**',
+      '**/.nuxt/**',
+      '**/coverage/**',
+      '**/build/**',
+      '**/vendor/**',
+    ],
+  },
+  {
+    files: ['**/*.{js,cjs,mjs,ts,cts,mts,jsx,tsx,vue}'],
     rules: {
       'no-console': 'warn',
       'unused-imports/no-unused-imports': 'warn',

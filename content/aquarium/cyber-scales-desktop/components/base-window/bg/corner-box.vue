@@ -20,7 +20,7 @@ interface Props {
 }
 const props = withDefaults(defineProps<Props>(), {
   status: 'hidden',
-  duration: 300,
+  duration: 260,
 })
 
 /** 圖形上下左右對稱，只要 lt 參數即可

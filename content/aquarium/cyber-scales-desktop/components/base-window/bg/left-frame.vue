@@ -13,7 +13,7 @@
     writing-mode="vertical-rl"
     class=" pointer-events-auto"
   >
-    安安 codlin
+    {{ windowProvider?.title }}
   </text>
 
   <path
@@ -25,8 +25,9 @@
 
 <script setup lang="ts">
 import type { ComponentStatus } from '../../../types'
-import { computed } from 'vue'
+import { computed, inject } from 'vue'
 import { useAnimatable } from '../../../../../../composables/use-animatable'
+import { windowInjectionKey } from '../type'
 
 interface Props {
   status?: `${ComponentStatus}`;
@@ -35,8 +36,10 @@ interface Props {
 }
 const props = withDefaults(defineProps<Props>(), {
   status: 'hidden',
-  duration: 300,
+  duration: 260,
 })
+
+const windowProvider = inject(windowInjectionKey)
 
 interface LineParams {
   x1: number;
@@ -107,10 +110,11 @@ const lineAttrs = computed(() => {
   }
 })
 
+const textPadding = 12
 const textAttrs = computed(() => {
   return {
     x: lineParams.x1 + -offset * 2,
-    y: 20,
+    y: lineParams.y1 + offset * 3 + textPadding / 2,
     opacity: lineParams.width,
     fontSize: `12px`,
   }
@@ -121,12 +125,11 @@ const textBgAttrs = computed(() => {
   const offsetX = lineParams.x1
   const fontSize = Number.parseInt(textAttrs.value.fontSize)
 
-  const padding = 12
   return {
     points: [
       `${offsetX},0`,
-      `${-fontSize - padding + offsetX},${offset * 3}`,
-      `${-fontSize - padding + offsetX},${height}`,
+      `${-fontSize - textPadding + offsetX},${offset * 3}`,
+      `${-fontSize - textPadding + offsetX},${height}`,
       `${offsetX},${height + offset * 3}`,
     ].join(' '),
     opacity: lineParams.width,

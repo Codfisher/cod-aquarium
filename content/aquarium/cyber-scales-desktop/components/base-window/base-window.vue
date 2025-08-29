@@ -19,10 +19,11 @@
 
 <script setup lang="ts">
 import { useToggle } from '@vueuse/core'
-import { computed, useTemplateRef } from 'vue'
+import { computed, inject, provide, useTemplateRef } from 'vue'
 import { ComponentStatus } from '../../types'
 import BaseWindowBg from './bg/bg.vue'
 import ContentWrapper from './content-wrapper.vue'
+import { windowInjectionKey } from './type'
 import { useWindow3dRotate } from './use-window-3d-rotate'
 
 // #region Props
@@ -66,6 +67,10 @@ interface Expose { }
 // #endregion Methods
 
 defineExpose<Expose>({})
+
+provide(windowInjectionKey, {
+  title: computed(() => props.title),
+})
 </script>
 
 <style scoped lang="sass">
