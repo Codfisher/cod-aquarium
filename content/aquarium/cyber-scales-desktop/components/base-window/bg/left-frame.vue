@@ -12,7 +12,7 @@
     fill="#fff"
     writing-mode="vertical-rl"
   >
-    {{ windowProvider?.title }}
+    {{ titleDecoder.text }}
   </text>
 
   <path
@@ -24,8 +24,9 @@
 
 <script setup lang="ts">
 import type { ComponentStatus } from '../../../types'
-import { computed, inject } from 'vue'
+import { computed, inject, watch } from 'vue'
 import { useAnimatable } from '../../../../../../composables/use-animatable'
+import { useDecodingText } from '../../../../../../composables/use-decoding-text'
 import { windowInjectionKey } from '../type'
 
 interface Props {
@@ -39,6 +40,14 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const windowProvider = inject(windowInjectionKey)
+const titleDecoder = useDecodingText(windowProvider?.title.value ?? '')
+watch(() => props.status, (value) => {
+  if (value === 'visible') {
+    setTimeout(() => {
+      titleDecoder.start()
+    }, props.duration * 2)
+  }
+})
 
 interface LineParams {
   x1: number;
