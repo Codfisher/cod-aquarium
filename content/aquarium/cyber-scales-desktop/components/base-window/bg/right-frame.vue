@@ -93,12 +93,12 @@ const lineAttrs = computed(() => {
   }
 })
 
-const bgWidth = 24
+const bgWidth = 20
 const btnBgAttrs = computed(() => {
   const { svgSize } = props
 
   const { width: svgWidth, height: svgHeight } = svgSize
-  const height = svgHeight / 4
+  const height = svgHeight / 3
   const offsetX = lineParams.x1
 
   return {
