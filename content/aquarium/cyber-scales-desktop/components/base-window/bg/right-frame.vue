@@ -33,6 +33,7 @@ interface GraphParams {
   width: number;
 }
 
+const maxWidth = 2
 const offset = 6
 const lineTargetParams = computed<GraphParams>(() => {
   const { svgSize } = props
@@ -43,7 +44,7 @@ const lineTargetParams = computed<GraphParams>(() => {
       y1: 0,
       y2: svgSize.height,
       // color: '#777',
-      width: 1,
+      width: maxWidth,
     }
   }
 
@@ -108,7 +109,7 @@ const btnBgAttrs = computed(() => {
       `${bgWidth + svgWidth},${svgHeight - offset * 2}`,
       `${offset + svgWidth},${svgHeight}`,
     ].join(' '),
-    opacity: lineParams.width,
+    opacity: lineParams.width / maxWidth,
   }
 })
 </script>

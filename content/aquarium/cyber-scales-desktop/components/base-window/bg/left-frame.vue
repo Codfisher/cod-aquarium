@@ -11,7 +11,6 @@
     v-bind="textAttrs"
     fill="#fff"
     writing-mode="vertical-rl"
-    class=" pointer-events-auto"
   >
     {{ windowProvider?.title }}
   </text>
@@ -49,7 +48,7 @@ interface LineParams {
   width: number;
 }
 
-const maxWidth = 1
+const maxWidth = 2
 const offset = 6
 const lineTargetParams = computed<LineParams>(() => {
   const { svgSize } = props

@@ -2,8 +2,8 @@
   <rect
     class="outline-frame"
     v-bind="graphAttrs"
-    fill="#FEFEFE"
-    stroke="#EEE"
+    fill="transparent"
+    stroke="#F0F0F0"
   />
 </template>
 

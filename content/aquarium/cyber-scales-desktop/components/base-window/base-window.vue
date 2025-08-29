@@ -1,7 +1,7 @@
 <template>
   <div
     ref="windowRef"
-    class="base-window relative border border-gray-50"
+    class="base-window relative "
     @click="toggleData()"
   >
     <base-window-bg
@@ -19,7 +19,7 @@
 
 <script setup lang="ts">
 import { useToggle } from '@vueuse/core'
-import { computed, inject, provide, useTemplateRef } from 'vue'
+import { computed, provide, useTemplateRef } from 'vue'
 import { ComponentStatus } from '../../types'
 import BaseWindowBg from './bg/bg.vue'
 import ContentWrapper from './content-wrapper.vue'

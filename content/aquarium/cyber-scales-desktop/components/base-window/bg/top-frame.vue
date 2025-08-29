@@ -29,6 +29,7 @@ interface GraphParams {
   width: number;
 }
 
+const maxWidth = 0.5
 const offset = 6
 const targetParams = computed<GraphParams>(() => {
   const { svgSize } = props
@@ -39,7 +40,7 @@ const targetParams = computed<GraphParams>(() => {
       y1: -offset,
       x2: svgSize.width,
       // color: '#777',
-      width: 1,
+      width: maxWidth,
     }
   }
 
