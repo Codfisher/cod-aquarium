@@ -93,7 +93,7 @@ const lineAttrs = computed(() => {
   }
 })
 
-const bgWidth = 20
+const bgWidth = 15
 const btnBgAttrs = computed(() => {
   const { svgSize } = props
 
