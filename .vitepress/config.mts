@@ -1,6 +1,7 @@
 import type { DefaultTheme } from 'vitepress'
 import type { Article } from './utils'
 import { filter, isTruthy, map, piped } from 'remeda'
+import Icons from 'unplugin-icons/vite'
 import { withMermaid } from 'vitepress-plugin-mermaid'
 import { markdownItBaseImg } from './plugin/markdown-it-base-img'
 import { markdownItCodeBlockName } from './plugin/markdown-it-code-block-name'
@@ -330,6 +331,10 @@ export default ({ mode }: { mode: string }) => {
             )
           },
         },
+        Icons({
+          autoInstall: true,
+          compiler: 'vue3',
+        }),
       ],
     },
     async buildEnd() {
