@@ -29,7 +29,7 @@ interface GraphParams {
   width: number;
 }
 
-const maxWidth = 0.5
+const maxWidth = 1
 const offset = 6
 const targetParams = computed<GraphParams>(() => {
   const { svgSize } = props

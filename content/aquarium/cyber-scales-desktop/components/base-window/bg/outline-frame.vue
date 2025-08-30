@@ -3,7 +3,7 @@
     class="outline-frame"
     v-bind="graphAttrs"
     fill="transparent"
-    stroke="#F0F0F0"
+    stroke="#F4F4F4"
   />
 </template>
 
