@@ -1,7 +1,5 @@
 <template>
   <div class=" w-screen h-screen flex justify-center items-center">
-    <base-window title="安安"></base-window>
-    
     <desktop-item label="作品集" />
   </div>
 </template>

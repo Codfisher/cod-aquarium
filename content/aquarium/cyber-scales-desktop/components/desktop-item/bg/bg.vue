@@ -7,7 +7,7 @@
       class="absolute"
       v-bind="svgAttrs"
     >
-      <corner-box v-bind="frameParams" />
+      <corner-brackets v-bind="frameParams" />
     </svg>
   </div>
 </template>
@@ -17,7 +17,7 @@ import type { CSSProperties } from 'vue'
 import type { ComponentStatus } from '../../../types'
 import { useElementSize } from '@vueuse/core'
 import { computed, reactive, useTemplateRef } from 'vue'
-import CornerBox from './corner-box.vue'
+import CornerBrackets from './corner-brackets.vue'
 
 interface Props {
   status?: `${ComponentStatus}`;
