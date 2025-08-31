@@ -3,7 +3,7 @@
     <desktop-item
       v-for="item, i in itemList"
       :key="item.label"
-      :label="item.label"
+      v-bind="item"
       :delay="i * 300"
     />
   </div>
@@ -38,6 +38,7 @@ onBeforeUnmount(() => {
 const itemList = [
   {
     label: '作品集',
+    icon: 'folder',
   },
   {
     label: '相簿',

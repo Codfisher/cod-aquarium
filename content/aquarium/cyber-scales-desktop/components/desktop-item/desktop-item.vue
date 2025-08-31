@@ -12,6 +12,7 @@
       class="z-0  "
     >
       <material-icon
+        :name="props.icon"
         size="4rem"
         weight="100"
         grade="-25"
@@ -38,6 +39,7 @@ import { desktopItemInjectionKey } from './type'
 
 interface Props {
   label?: string;
+  icon?: string;
   delay?: number;
 }
 
