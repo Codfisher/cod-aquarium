@@ -4,7 +4,7 @@
       v-for="item, i in itemList"
       :key="item.label"
       :label="item.label"
-      :delay="i * 200"
+      :delay="i * 300"
     />
   </div>
 </template>

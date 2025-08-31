@@ -79,7 +79,7 @@ const targetParams = computed<GraphParams>(() => {
   return {
     x: 0,
     y: 0,
-    size: 0,
+    size: 6,
     width: 0,
   }
 })
@@ -91,7 +91,6 @@ const delayMap: Partial<Record<
   visible: {
     x: props.duration,
     y: props.duration * 1.5,
-    size: props.duration,
     width: props.duration,
   },
 }
