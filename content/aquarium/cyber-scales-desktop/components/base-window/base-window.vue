@@ -4,7 +4,7 @@
     class="base-window relative "
     @click="toggleData()"
   >
-    <base-window-bg
+    <bg
       :status="status"
       class="z-[-1]"
     />
@@ -21,9 +21,9 @@
 import { useToggle } from '@vueuse/core'
 import { computed, provide, useTemplateRef } from 'vue'
 import { ComponentStatus } from '../../types'
-import BaseWindowBg from './bg/bg.vue'
+import Bg from './bg/bg.vue'
 import ContentWrapper from './content-wrapper.vue'
-import { windowInjectionKey } from './type'
+import { baseWindowInjectionKey } from './type'
 import { useWindow3dRotate } from './use-window-3d-rotate'
 
 // #region Props
@@ -68,8 +68,9 @@ interface Expose { }
 
 defineExpose<Expose>({})
 
-provide(windowInjectionKey, {
+provide(baseWindowInjectionKey, {
   title: computed(() => props.title),
+  status: computed(() => status.value),
 })
 </script>
 

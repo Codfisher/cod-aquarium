@@ -1,15 +1,14 @@
 <template>
   <div class=" w-screen h-screen flex justify-center items-center">
-    <base-window title="title 標題">
-      <div class="p-6">
-        安安
-      </div>
-    </base-window>
+    <base-window title="安安"></base-window>
+    
+    <desktop-item label="作品集" />
   </div>
 </template>
 
 <script setup lang="ts">
 import BaseWindow from './components/base-window/base-window.vue'
+import DesktopItem from './components/desktop-item/desktop-item.vue'
 </script>
 
 <style lang="sass" scoped>

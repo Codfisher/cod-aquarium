@@ -27,7 +27,7 @@ import type { ComponentStatus } from '../../../types'
 import { computed, inject, watch } from 'vue'
 import { useAnimatable } from '../../../../../../composables/use-animatable'
 import { useDecodingText } from '../../../../../../composables/use-decoding-text'
-import { windowInjectionKey } from '../type'
+import { baseWindowInjectionKey } from '../type'
 
 interface Props {
   status?: `${ComponentStatus}`;
@@ -39,7 +39,7 @@ const props = withDefaults(defineProps<Props>(), {
   duration: 260,
 })
 
-const windowProvider = inject(windowInjectionKey)
+const windowProvider = inject(baseWindowInjectionKey)
 if (!windowProvider) {
   throw new Error('windowProvider is not provided')
 }
@@ -90,10 +90,10 @@ const delayMap: Partial<Record<
   Partial<Record<keyof LineParams, number>>
 >> = {
   visible: {
-    x1: props.duration * 1.8,
-    y1: props.duration * 1.8,
-    y2: props.duration * 1.8,
-    width: props.duration * 1.8,
+    x1: props.duration * 2.5,
+    y1: props.duration * 2.5,
+    y2: props.duration * 2.5,
+    width: props.duration * 2.5,
   },
 }
 const durationMap: Partial<Record<ComponentStatus, number>> = {

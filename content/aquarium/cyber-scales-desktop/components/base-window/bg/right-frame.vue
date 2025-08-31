@@ -62,10 +62,10 @@ const delayMap: Partial<Record<
   Partial<Record<keyof GraphParams, number>>
 >> = {
   visible: {
-    x1: props.duration * 1.8,
-    y1: props.duration * 1.8,
-    y2: props.duration * 1.8,
-    width: props.duration * 1.8,
+    x1: props.duration * 2.5,
+    y1: props.duration * 2.5,
+    y2: props.duration * 2.5,
+    width: props.duration * 2.5,
   },
 }
 const durationMap: Partial<Record<ComponentStatus, number>> = {
@@ -94,20 +94,20 @@ const lineAttrs = computed(() => {
   }
 })
 
-const bgWidth = 15
+const bgWidth = 10
 const btnBgAttrs = computed(() => {
   const { svgSize } = props
 
   const { width: svgWidth, height: svgHeight } = svgSize
   const height = svgHeight / 3
-  const offsetX = lineParams.x1
+  const offsetX = lineParams.x1 - svgWidth
 
   return {
     points: [
-      `${offset + svgWidth},${svgHeight - height}`,
-      `${bgWidth + svgWidth},${svgHeight - height + offset * 2}`,
-      `${bgWidth + svgWidth},${svgHeight - offset * 2}`,
-      `${offset + svgWidth},${svgHeight}`,
+      `${offsetX + svgWidth},${svgHeight - height}`,
+      `${offsetX + bgWidth + svgWidth},${svgHeight - height + offset * 2}`,
+      `${offsetX + bgWidth + svgWidth},${svgHeight - offset * 2}`,
+      `${offsetX + svgWidth},${svgHeight}`,
     ].join(' '),
     opacity: lineParams.width / maxWidth,
   }

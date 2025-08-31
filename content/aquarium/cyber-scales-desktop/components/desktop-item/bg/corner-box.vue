@@ -41,7 +41,7 @@ const targetParams = computed<GraphParams>(() => {
     return {
       x: -svgSize.width / 2 - offset,
       y: -svgSize.height / 2 - offset,
-      size: 4,
+      size: 2,
     }
   }
 
@@ -57,9 +57,9 @@ const delayMap: Partial<Record<
   Partial<Record<keyof GraphParams, number>>
 >> = {
   visible: {
-    x: props.duration * 1.5,
-    y: props.duration * 1.5,
-    size: props.duration * 1.5,
+    x: props.duration * 2.5,
+    y: props.duration * 2.5,
+    size: props.duration * 2,
   },
 }
 const durationMap: Partial<Record<ComponentStatus, number>> = {}
