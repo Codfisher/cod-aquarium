@@ -1,12 +1,51 @@
 <template>
-  <div class=" w-screen h-screen flex justify-center items-center">
-    <desktop-item label="作品集" />
+  <div class=" w-screen h-screen flex flex-col items-start p-4 gap-4">
+    <desktop-item
+      v-for="item, i in itemList"
+      :key="item.label"
+      :label="item.label"
+      :delay="i * 200"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
+import { onBeforeUnmount, onMounted } from 'vue'
 import BaseWindow from './components/base-window/base-window.vue'
 import DesktopItem from './components/desktop-item/desktop-item.vue'
+
+// 載入字體
+const fontHref = 'https://fonts.googleapis.com/css2?family=Material+Symbols+Sharp:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200'
+let linkEl: HTMLLinkElement
+onMounted(() => {
+  // 已經有同樣的 link 就不要重複插
+  const existed = Array.from(document.head.querySelectorAll('link'))
+    .find((link) => link.getAttribute('href') === fontHref)
+  if (existed)
+    return
+
+  linkEl = document.createElement('link')
+  linkEl.rel = 'stylesheet'
+  linkEl.href = fontHref
+  document.head.appendChild(linkEl)
+})
+
+onBeforeUnmount(() => {
+  if (linkEl)
+    document.head.removeChild(linkEl)
+})
+
+const itemList = [
+  {
+    label: '作品集',
+  },
+  {
+    label: '相簿',
+  },
+  {
+    label: '部落格',
+  },
+]
 </script>
 
 <style lang="sass" scoped>

@@ -64,22 +64,21 @@ interface GraphParams {
   width: number;
 }
 
-const offset = 6
 const targetParams = computed<GraphParams>(() => {
   const { svgSize } = props
 
   if (props.status === 'visible') {
     return {
-      x: -svgSize.width / 2 - offset,
-      y: -svgSize.height / 2 - offset,
+      x: -svgSize.width / 2,
+      y: -svgSize.height / 2,
       size: 6,
-      width: 1,
+      width: 0.4,
     }
   }
 
   return {
-    x: -svgSize.width / 2 - offset * 2,
-    y: -svgSize.height / 2 - offset * 2,
+    x: 0,
+    y: 0,
     size: 0,
     width: 0,
   }
@@ -90,10 +89,10 @@ const delayMap: Partial<Record<
   Partial<Record<keyof GraphParams, number>>
 >> = {
   visible: {
-    x: props.duration * 2.5,
-    y: props.duration * 2.5,
-    size: props.duration * 2,
-    width: props.duration * 2,
+    x: props.duration,
+    y: props.duration * 1.5,
+    size: props.duration,
+    width: props.duration,
   },
 }
 const durationMap: Partial<Record<ComponentStatus, number>> = {}

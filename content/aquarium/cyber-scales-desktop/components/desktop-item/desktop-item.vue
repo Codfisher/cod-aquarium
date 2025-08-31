@@ -1,7 +1,7 @@
 <template>
   <div
     ref="itemRef"
-    class="base-window relative w-[200px] h-[200px]"
+    class="desktop-item relative m-2 p-1"
   >
     <bg
       :status="status"
@@ -9,21 +9,36 @@
     />
     <content-wrapper
       :status="status"
-      class="z-0 absolute inset-0 "
+      class="z-0  "
     >
+      <material-icon
+        size="4rem"
+        weight="100"
+        grade="-25"
+        opsz="20"
+      />
       <slot />
+
+      <div class=" overflow-hidden text-center">
+        {{ labelDecoder.text }}
+      </div>
     </content-wrapper>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, provide, ref, useTemplateRef } from 'vue'
+import { computedAsync, promiseTimeout, useElementHover, useMounted, whenever } from '@vueuse/core'
+import { computed, nextTick, provide, useTemplateRef, watch } from 'vue'
+import { useDecodingText } from '../../../../../composables/use-decoding-text'
 import { ComponentStatus } from '../../types'
+import MaterialIcon from '../material-icon.vue'
 import Bg from './bg/bg.vue'
+import ContentWrapper from './content-wrapper.vue'
 import { desktopItemInjectionKey } from './type'
 
 interface Props {
   label?: string;
+  delay?: number;
 }
 
 interface Emits {
@@ -35,6 +50,7 @@ interface Slots {
 
 const props = withDefaults(defineProps<Props>(), {
   label: '',
+  delay: 0,
 })
 
 const emit = defineEmits<Emits>()
@@ -42,11 +58,34 @@ const emit = defineEmits<Emits>()
 defineSlots<Slots>()
 
 const itemRef = useTemplateRef('itemRef')
-
-const status = ref(ComponentStatus.HIDDEN)
-onMounted(async () => {
+const isMounted = useMounted()
+const isHover = useElementHover(itemRef)
+const isVisible = computedAsync(async () => {
+  await promiseTimeout(props.delay)
   await nextTick()
-  status.value = ComponentStatus.VISIBLE
+  return isMounted.value
+}, false)
+
+const labelDecoder = useDecodingText(props.label)
+
+const status = computed(() => {
+  if (isVisible.value) {
+    if (isHover.value) {
+      return ComponentStatus.HOVER
+    }
+
+    return ComponentStatus.VISIBLE
+  }
+
+  return ComponentStatus.HIDDEN
+})
+watch(status, (value) => {
+  console.log(`🚀 ~ status:`, value, props.delay)
+})
+
+whenever(isVisible, async () => {
+  await promiseTimeout(500)
+  labelDecoder.start()
 })
 
 interface Expose { }
