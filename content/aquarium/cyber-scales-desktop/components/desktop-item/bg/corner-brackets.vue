@@ -40,16 +40,15 @@
 <script setup lang="ts">
 import type { ComponentStatus } from '../../../types'
 import { join, map, pipe } from 'remeda'
-import { computed } from 'vue'
+import { computed, inject, ref, toRefs, watch } from 'vue'
 import { useAnimatable } from '../../../../../../composables/use-animatable'
+import { desktopItemInjectionKey } from '../type'
 
 interface Props {
-  status?: `${ComponentStatus}`;
   svgSize: { width: number; height: number };
   duration?: number;
 }
 const props = withDefaults(defineProps<Props>(), {
-  status: 'hidden',
   duration: 260,
 })
 
@@ -64,15 +63,35 @@ interface GraphParams {
   width: number;
 }
 
+const mainProvider = inject(desktopItemInjectionKey)
+if (!mainProvider) {
+  throw new Error('mainProvider is not provided')
+}
+const { status } = mainProvider
+
+const pStatus = ref(mainProvider.status.value)
+watch(status, (value) => {
+  pStatus.value = value
+}, { flush: 'post' })
+
 const targetParams = computed<GraphParams>(() => {
   const { svgSize } = props
 
-  if (props.status === 'visible') {
+  if (status.value === 'visible') {
     return {
       x: -svgSize.width / 2,
       y: -svgSize.height / 2,
       size: 6,
       width: 0.4,
+    }
+  }
+
+  if (status.value === 'hover') {
+    return {
+      x: -svgSize.width / 2 - 5,
+      y: -svgSize.height / 2 - 5,
+      size: 6,
+      width: 0.8,
     }
   }
 
@@ -85,16 +104,15 @@ const targetParams = computed<GraphParams>(() => {
 })
 
 const delayMap: Partial<Record<
-  ComponentStatus,
+  `${ComponentStatus}-${ComponentStatus}`,
   Partial<Record<keyof GraphParams, number>>
 >> = {
-  visible: {
+  'hidden-visible': {
     x: props.duration,
     y: props.duration * 1.5,
     width: props.duration,
   },
 }
-const durationMap: Partial<Record<ComponentStatus, number>> = {}
 
 const { data: graphParams } = useAnimatable(
   {
@@ -105,8 +123,11 @@ const { data: graphParams } = useAnimatable(
   },
   targetParams,
   {
-    delay: (fieldKey) => delayMap[props.status]?.[fieldKey] ?? 0,
-    duration: () => durationMap[props.status] ?? props.duration,
+    delay: (fieldKey) => {
+      const key = `${pStatus.value}-${status.value}` as const
+      return delayMap[key]?.[fieldKey] ?? 0
+    },
+    duration: props.duration,
     ease: 'inOutQuint',
   },
 )
@@ -120,6 +141,7 @@ const graphAttrs = computed(() => {
     halfHeight,
   ] = [size / 2, width / 2, height / 2]
 
+  const maskPoint = size + strokeWidth
   return {
     lt: {
       'x': x - halfSize + halfWidth,
@@ -129,9 +151,9 @@ const graphAttrs = computed(() => {
       'stroke-width': strokeWidth,
       'mask': pipe(
         [
-          [size, 0],
-          [size, size],
-          [0, size],
+          [maskPoint, -strokeWidth],
+          [maskPoint, maskPoint],
+          [-strokeWidth, maskPoint],
         ],
         map(join(',')),
         join(' '),
@@ -145,9 +167,9 @@ const graphAttrs = computed(() => {
       'stroke-width': strokeWidth,
       'mask': pipe(
         [
-          [0, 0],
-          [0, size],
-          [size, size],
+          [-strokeWidth, -strokeWidth],
+          [-strokeWidth, maskPoint],
+          [maskPoint, maskPoint],
         ],
         map(join(',')),
         join(' '),
@@ -161,9 +183,9 @@ const graphAttrs = computed(() => {
       'stroke-width': strokeWidth,
       'mask': pipe(
         [
-          [0, 0],
-          [size, size],
-          [size, 0],
+          [-strokeWidth, -strokeWidth],
+          [maskPoint, maskPoint],
+          [maskPoint, -strokeWidth],
         ],
         map(join(',')),
         join(' '),
@@ -177,9 +199,9 @@ const graphAttrs = computed(() => {
       'stroke-width': strokeWidth,
       'mask': pipe(
         [
-          [0, 0],
-          [size, 0],
-          [0, size],
+          [-strokeWidth, -strokeWidth],
+          [maskPoint, -strokeWidth],
+          [-strokeWidth, maskPoint],
         ],
         map(join(',')),
         join(' '),

@@ -4,11 +4,9 @@
     class="desktop-item relative m-2 p-1"
   >
     <bg
-      :status="status"
       class="z-[-1]"
     />
     <content-wrapper
-      :status="status"
       class="z-0  "
     >
       <material-icon
@@ -80,9 +78,6 @@ const status = computed(() => {
   }
 
   return ComponentStatus.HIDDEN
-})
-watch(status, (value) => {
-  console.log(`🚀 ~ status:`, value, props.delay)
 })
 
 whenever(isVisible, async () => {

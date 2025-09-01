@@ -20,10 +20,8 @@ import { computed, reactive, useTemplateRef } from 'vue'
 import CornerBrackets from './corner-brackets.vue'
 
 interface Props {
-  status?: `${ComponentStatus}`;
 }
 const props = withDefaults(defineProps<Props>(), {
-  status: 'hidden',
 })
 
 const containerRef = useTemplateRef<HTMLDivElement>('containerRef')
