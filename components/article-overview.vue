@@ -240,7 +240,7 @@ const articleList = computed(() => pipe(
 
     return article.frontmatter.tags?.some((tag) => selectedTags.value.includes(tag))
   }),
-  sort((a, b) => b.frontmatter.date - a.frontmatter.date),
+  sort((a, b) => b.frontmatter.pubDate - a.frontmatter.pubDate),
   map((item) => ({
     ...item,
     frontmatter: {

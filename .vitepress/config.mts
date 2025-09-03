@@ -49,7 +49,6 @@ function getNavItem(data: DefaultTheme.NavItem) {
 // https://vitepress.dev/reference/site-config
 export default ({ mode }: { mode: string }) => {
   const articleList = getArticleList()
-  console.log('🚀 ~ articleList:', articleList)
 
   const baseConfig = {
     title: '鱈魚的魚缸',
@@ -362,7 +361,6 @@ export default ({ mode }: { mode: string }) => {
               return true
             }
 
-            console.log('🚀 ~ post:', post.frontmatter)
             const article = articleList.find(
               ({ link }) => post.url.includes(link),
             )
@@ -370,7 +368,8 @@ export default ({ mode }: { mode: string }) => {
               return false
             }
 
-            post.date = dayjs(`${article.frontmatter.date}`, 'YYYYMMDD').format('YYYY-MM-DD')
+            post.fileContent = post.fileContent.replaceAll('base-img', 'img')
+
             return true
           },
         }),
