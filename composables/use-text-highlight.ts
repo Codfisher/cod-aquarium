@@ -24,6 +24,10 @@ export function useTextHighlight(
   keyword: MaybeRefOrGetter<string>,
   options: UseTextHighlightOptions = {},
 ) {
+  if (import.meta.env.SSR) {
+    return
+  }
+
   const highlightName = `highlight-${Math.random().toString(36).slice(2)}`
 
   const targetEl = computed<HTMLElement | SVGElement>(() => {
@@ -87,45 +91,43 @@ export function useTextHighlight(
     await nextTick()
     await promiseTimeout(options.delay ?? 0)
 
-    targetEl.value?.querySelectorAll('*').forEach((el) => {
-      const nodeIterator = document.createNodeIterator(
-        el,
-        NodeFilter.SHOW_TEXT,
-        {
-          acceptNode(node) {
-            const parentElement = node.parentElement
-            // 排除不該進去的區塊
-            if (!parentElement || /^(?:SCRIPT|STYLE|NOSCRIPT|TEXTAREA|TITLE|IFRAME)$/.test(parentElement.tagName)) {
-              return NodeFilter.FILTER_REJECT
-            }
+    const nodeIterator = document.createNodeIterator(
+      targetEl.value,
+      NodeFilter.SHOW_TEXT,
+      {
+        acceptNode(node) {
+          const parentElement = node.parentElement
+          // 排除不該進去的區塊
+          if (!parentElement || /^(?:SCRIPT|STYLE|NOSCRIPT|TEXTAREA|TITLE|IFRAME)$/.test(parentElement.tagName)) {
+            return NodeFilter.FILTER_REJECT
+          }
 
-            return NodeFilter.FILTER_ACCEPT
-          },
+          return NodeFilter.FILTER_ACCEPT
         },
-      )
+      },
+    )
 
-      let node = nodeIterator.nextNode()
-      while (node) {
-        if (!(node instanceof Text)) {
-          node = nodeIterator.nextNode()
-          continue
-        }
-
-        const txt = node.data
-        let index = txt.toLocaleLowerCase().indexOf(keyword.toLocaleLowerCase())
-
-        while (index !== -1) {
-          const range = new Range()
-          range.setStart(node, index)
-          range.setEnd(node, index + keyword.length)
-
-          // @ts-expect-error TS 誤報
-          highlightSet.add?.(range)
-          index = txt.indexOf(keyword, index + keyword.length)
-        }
+    let node = nodeIterator.nextNode()
+    while (node) {
+      if (!(node instanceof Text)) {
         node = nodeIterator.nextNode()
+        continue
       }
-    })
+
+      const txt = node.data
+      let index = txt.toLocaleLowerCase().indexOf(keyword.toLocaleLowerCase())
+
+      while (index !== -1) {
+        const range = new Range()
+        range.setStart(node, index)
+        range.setEnd(node, index + keyword.length)
+
+        // @ts-expect-error TS 誤報
+        highlightSet.add?.(range)
+        index = txt.indexOf(keyword, index + keyword.length)
+      }
+      node = nodeIterator.nextNode()
+    }
   }
 
   watchThrottled(() => ({

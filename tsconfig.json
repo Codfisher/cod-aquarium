@@ -12,7 +12,8 @@
     "moduleResolution": "node",
     "resolveJsonModule": true,
     "types": [
-      "@vitest/browser/matchers"
+      "@vitest/browser/matchers",
+      "unplugin-icons/types/vue"
     ],
     "strict": true,
     "noUncheckedIndexedAccess": true,

@@ -18,7 +18,9 @@ const docFrontMatterSchema = z.object({
   description: z.string(),
   tags: z.array(z.string()),
   image: z.string().url(),
-  date: z.coerce.number(),
+  /** 發布日期 */
+  pubDate: z.coerce.number(),
+  date: z.string().optional(),
   draft: z.boolean().optional(),
 })
 
@@ -112,7 +114,7 @@ function getNestedList(
     })
   }
 
-  result.sort((a, b) => (b.frontmatter?.date ?? 0) - (a.frontmatter?.date ?? 0))
+  result.sort((a, b) => (b.frontmatter?.pubDate ?? 0) - (a.frontmatter?.pubDate ?? 0))
 
   if (order === 'asc') {
     result.reverse()

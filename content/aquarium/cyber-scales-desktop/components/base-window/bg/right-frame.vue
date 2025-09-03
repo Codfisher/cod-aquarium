@@ -1,7 +1,11 @@
 <template>
+  <polygon
+    v-bind="btnBgAttrs"
+    fill="#777"
+  />
   <path
-    class="left-frame"
-    v-bind="graphAttrs"
+    class="right-frame"
+    v-bind="lineAttrs"
     stroke="#777"
   />
 </template>
@@ -18,7 +22,7 @@ interface Props {
 }
 const props = withDefaults(defineProps<Props>(), {
   status: 'hidden',
-  duration: 300,
+  duration: 260,
 })
 
 interface GraphParams {
@@ -29,8 +33,9 @@ interface GraphParams {
   width: number;
 }
 
+const maxWidth = 2
 const offset = 6
-const targetParams = computed<GraphParams>(() => {
+const lineTargetParams = computed<GraphParams>(() => {
   const { svgSize } = props
 
   if (props.status === 'visible') {
@@ -39,7 +44,7 @@ const targetParams = computed<GraphParams>(() => {
       y1: 0,
       y2: svgSize.height,
       // color: '#777',
-      width: 1,
+      width: maxWidth,
     }
   }
 
@@ -57,14 +62,16 @@ const delayMap: Partial<Record<
   Partial<Record<keyof GraphParams, number>>
 >> = {
   visible: {
-    x1: props.duration * 2,
-    y1: props.duration * 2,
-    y2: props.duration * 2,
-    width: props.duration * 2,
+    x1: props.duration * 2.5,
+    y1: props.duration * 2.5,
+    y2: props.duration * 2.5,
+    width: props.duration * 2.5,
   },
 }
+const durationMap: Partial<Record<ComponentStatus, number>> = {
+}
 
-const { data: graphParams } = useAnimatable(
+const { data: lineParams } = useAnimatable(
   {
     x1: 0,
     y1: 0,
@@ -72,18 +79,37 @@ const { data: graphParams } = useAnimatable(
     // color: '#777',
     width: 0,
   },
-  targetParams,
+  lineTargetParams,
   {
     delay: (fieldKey) => delayMap[props.status]?.[fieldKey] ?? 0,
-    duration: props.duration,
+    duration: () => durationMap[props.status] ?? props.duration,
     ease: 'cubicBezier(1, 0.3, 0, 0.7)',
   },
 )
 
-const graphAttrs = computed(() => {
+const lineAttrs = computed(() => {
   return {
-    'd': `M${graphParams.x1} ${graphParams.y1} V${graphParams.y2}`,
-    'stroke-width': graphParams.width,
+    'd': `M${lineParams.x1} ${lineParams.y1} V${lineParams.y2}`,
+    'stroke-width': lineParams.width,
+  }
+})
+
+const bgWidth = 10
+const btnBgAttrs = computed(() => {
+  const { svgSize } = props
+
+  const { width: svgWidth, height: svgHeight } = svgSize
+  const height = svgHeight / 3
+  const offsetX = lineParams.x1 - svgWidth
+
+  return {
+    points: [
+      `${offsetX + svgWidth},${svgHeight - height}`,
+      `${offsetX + bgWidth + svgWidth},${svgHeight - height + offset * 2}`,
+      `${offsetX + bgWidth + svgWidth},${svgHeight - offset * 2}`,
+      `${offsetX + svgWidth},${svgHeight}`,
+    ].join(' '),
+    opacity: lineParams.width / maxWidth,
   }
 })
 </script>

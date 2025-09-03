@@ -20,7 +20,7 @@ interface Props {
 }
 const props = withDefaults(defineProps<Props>(), {
   status: 'hidden',
-  duration: 300,
+  duration: 260,
 })
 
 /** 圖形上下左右對稱，只要 lt 參數即可
@@ -41,7 +41,7 @@ const targetParams = computed<GraphParams>(() => {
     return {
       x: -svgSize.width / 2 - offset,
       y: -svgSize.height / 2 - offset,
-      size: 3,
+      size: 4,
     }
   }
 
@@ -57,11 +57,12 @@ const delayMap: Partial<Record<
   Partial<Record<keyof GraphParams, number>>
 >> = {
   visible: {
-    x: props.duration * 3,
-    y: props.duration * 3,
-    size: props.duration * 2,
+    x: props.duration * 1.5,
+    y: props.duration * 1.5,
+    size: props.duration * 1.5,
   },
 }
+const durationMap: Partial<Record<ComponentStatus, number>> = {}
 
 const { data: graphParams } = useAnimatable(
   {
@@ -72,8 +73,8 @@ const { data: graphParams } = useAnimatable(
   targetParams,
   {
     delay: (fieldKey) => delayMap[props.status]?.[fieldKey] ?? 0,
-    duration: props.duration,
-    ease: 'cubicBezier(1, 0.3, 0, 0.7)',
+    duration: () => durationMap[props.status] ?? props.duration,
+    ease: 'inOutQuint',
   },
 )
 

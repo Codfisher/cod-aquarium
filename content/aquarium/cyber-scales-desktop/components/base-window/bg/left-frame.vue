@@ -1,15 +1,33 @@
 <template>
+  <polygon
+    v-bind="textBgAttrs"
+    fill="#777"
+  />
+  <polygon
+    v-bind="textBgPartAttrs"
+    fill="#777"
+  />
+  <text
+    v-bind="textAttrs"
+    fill="#fff"
+    writing-mode="vertical-rl"
+  >
+    {{ titleDecoder.text }}
+  </text>
+
   <path
     class="left-frame"
-    v-bind="graphAttrs"
+    v-bind="lineAttrs"
     stroke="#777"
   />
 </template>
 
 <script setup lang="ts">
 import type { ComponentStatus } from '../../../types'
-import { computed } from 'vue'
+import { computed, inject, watch } from 'vue'
 import { useAnimatable } from '../../../../../../composables/use-animatable'
+import { useDecodingText } from '../../../../../../composables/use-decoding-text'
+import { baseWindowInjectionKey } from '../type'
 
 interface Props {
   status?: `${ComponentStatus}`;
@@ -18,10 +36,24 @@ interface Props {
 }
 const props = withDefaults(defineProps<Props>(), {
   status: 'hidden',
-  duration: 300,
+  duration: 260,
 })
 
-interface GraphParams {
+const windowProvider = inject(baseWindowInjectionKey)
+if (!windowProvider) {
+  throw new Error('windowProvider is not provided')
+}
+
+const titleDecoder = useDecodingText(windowProvider.title.value)
+watch(() => props.status, (value) => {
+  if (value === 'visible') {
+    setTimeout(() => {
+      titleDecoder.start()
+    }, props.duration * 2)
+  }
+})
+
+interface LineParams {
   x1: number;
   y1: number;
   y2: number;
@@ -29,8 +61,9 @@ interface GraphParams {
   width: number;
 }
 
+const maxWidth = 2
 const offset = 6
-const targetParams = computed<GraphParams>(() => {
+const lineTargetParams = computed<LineParams>(() => {
   const { svgSize } = props
 
   if (props.status === 'visible') {
@@ -39,7 +72,7 @@ const targetParams = computed<GraphParams>(() => {
       y1: 0,
       y2: svgSize.height,
       // color: '#777',
-      width: 1,
+      width: maxWidth,
     }
   }
 
@@ -54,17 +87,19 @@ const targetParams = computed<GraphParams>(() => {
 
 const delayMap: Partial<Record<
   ComponentStatus,
-  Partial<Record<keyof GraphParams, number>>
+  Partial<Record<keyof LineParams, number>>
 >> = {
   visible: {
-    x1: props.duration * 2,
-    y1: props.duration * 2,
-    y2: props.duration * 2,
-    width: props.duration * 2,
+    x1: props.duration * 2.5,
+    y1: props.duration * 2.5,
+    y2: props.duration * 2.5,
+    width: props.duration * 2.5,
   },
 }
+const durationMap: Partial<Record<ComponentStatus, number>> = {
+}
 
-const { data: graphParams } = useAnimatable(
+const { data: lineParams } = useAnimatable(
   {
     x1: 0,
     y1: 0,
@@ -72,18 +107,64 @@ const { data: graphParams } = useAnimatable(
     // color: '#777',
     width: 0,
   },
-  targetParams,
+  lineTargetParams,
   {
     delay: (fieldKey) => delayMap[props.status]?.[fieldKey] ?? 0,
-    duration: props.duration,
+    duration: () => durationMap[props.status] ?? props.duration,
     ease: 'cubicBezier(1, 0.3, 0, 0.7)',
   },
 )
 
-const graphAttrs = computed(() => {
+const lineAttrs = computed(() => {
   return {
-    'd': `M${graphParams.x1} ${graphParams.y1} V${graphParams.y2}`,
-    'stroke-width': graphParams.width,
+    'd': `M${lineParams.x1} ${lineParams.y1} V${lineParams.y2}`,
+    'stroke-width': lineParams.width,
+  }
+})
+
+const textPadding = 12
+const textAttrs = computed(() => {
+  return {
+    x: lineParams.x1 + -offset * 2,
+    y: lineParams.y1 + offset * 3 + textPadding / 2,
+    opacity: lineParams.width,
+    fontSize: `12px`,
+  }
+})
+
+const textBgAttrs = computed(() => {
+  const height = props.svgSize.height / 2
+  const offsetX = lineParams.x1
+  const fontSize = Number.parseInt(textAttrs.value.fontSize)
+
+  return {
+    points: [
+      `${offsetX},0`,
+      `${-fontSize - textPadding + offsetX},${offset * 3}`,
+      `${-fontSize - textPadding + offsetX},${height}`,
+      `${offsetX},${height + offset * 3}`,
+    ].join(' '),
+    opacity: lineParams.width,
+  }
+})
+const textBgPartAttrs = computed(() => {
+  const bgHeight = props.svgSize.height / 2
+  const height = props.svgSize.height / 15
+  const offsetX = lineParams.x1
+  const fontSize = Number.parseInt(textAttrs.value.fontSize)
+
+  /** 與 text-bg 的間距 */
+  const gap = 10
+
+  const padding = 8
+  return {
+    points: [
+      `${offsetX},${bgHeight + offset * 3 + gap}`,
+      `${-fontSize - padding + offsetX},${bgHeight + gap}`,
+      `${-fontSize - padding + offsetX},${bgHeight + gap + height}`,
+      `${offsetX},${bgHeight + offset * 3 + gap + height}`,
+    ].join(' '),
+    opacity: lineParams.width / maxWidth,
   }
 })
 </script>

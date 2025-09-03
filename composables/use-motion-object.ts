@@ -1,10 +1,12 @@
 import type { EaseStringParamNames } from 'animejs'
+import type { MotionValue } from 'motion-v'
 import type { MaybeRefOrGetter } from 'vue'
 import { createAnimatable } from 'animejs'
-import { clone, entries, isFunction, pipe, when } from 'remeda'
+import { useMotionValue } from 'motion-v'
+import { clone, entries, isFunction, mapValues, pipe, when } from 'remeda'
 import { onWatcherCleanup, reactive, toValue, watch } from 'vue'
 
-type DataObject = Record<string, number>
+type DataObject = Record<string, number | string>
 type EaseString = EaseStringParamNames | (string & {})
 
 interface UseAnimatableParams<Data extends DataObject> {
@@ -13,14 +15,10 @@ interface UseAnimatableParams<Data extends DataObject> {
   ease?: EaseString | ((fieldKey: keyof Data) => EaseString | undefined);
   /** @default */
   immediate?: boolean;
-
-  /** 會自動縮短 Duration，讓總時間（Duration + Delay）等於原本的 Duration
-   * @default false
-   */
-  adjustDurationByDelay?: boolean;
 }
 
-export function useAnimatable<
+/** 需搭配 motion 元件使用 */
+export function useMotionObject<
   Data extends DataObject,
 >(
   initData: Data,
@@ -31,13 +29,13 @@ export function useAnimatable<
     delay = 0,
     duration = 500,
     ease,
-    adjustDurationByDelay = false,
     immediate = true,
   } = params
 
-  const data = reactive(clone(initData))
-
-  const dataAnimatable = createAnimatable(data, clone(initData))
+  const data = mapValues(
+    clone(initData),
+    (value) => useMotionValue(value),
+  ) as unknown as Record<string, MotionValue<number | string>>
 
   watch(targetData, () => {
     const delayList: ReturnType<typeof setTimeout>[] = []
@@ -58,10 +56,6 @@ export function useAnimatable<
           (value) => isFunction(value),
           (fcn) => fcn(fieldKey),
         ),
-        when(
-          () => adjustDurationByDelay,
-          (value) => value - delayValue,
-        ),
       )
 
       const easeValue = pipe(undefined, () => {
@@ -75,7 +69,7 @@ export function useAnimatable<
       })
 
       delayList.push(setTimeout(() => {
-        dataAnimatable?.[fieldKey]?.(value, durationValue, easeValue)
+        data[fieldKey].set(value)
       }, delayValue))
     })
 
@@ -89,6 +83,5 @@ export function useAnimatable<
 
   return {
     data,
-    dataAnimatable,
   }
 }

@@ -2,8 +2,8 @@
   <rect
     class="outline-frame"
     v-bind="graphAttrs"
-    fill="#FEFEFE"
-    stroke="#CCC"
+    fill="transparent"
+    stroke="#F4F4F4"
   />
 </template>
 
@@ -19,7 +19,7 @@ interface Props {
 }
 const props = withDefaults(defineProps<Props>(), {
   status: 'hidden',
-  duration: 300,
+  duration: 260,
 })
 
 /** SVG 以左上角為原點 */
@@ -42,7 +42,7 @@ const targetParams = computed<GraphParams>(() => {
       y: -offset,
       width: svgSize.width + offset * 2,
       height: svgSize.height + offset * 2,
-      strokeWidth: 0.5,
+      strokeWidth: 3,
       opacity: 1,
     }
   }
