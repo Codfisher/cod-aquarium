@@ -366,7 +366,7 @@ export default ({ mode }: { mode: string }) => {
               return false
             }
 
-            post.fileContent = post.fileContent.replaceAll('base-img', 'img')
+            // post.fileContent = post.fileContent.replaceAll('base-img', 'img')
 
             return true
           },
