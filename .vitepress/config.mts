@@ -1,5 +1,6 @@
 import type { DefaultTheme } from 'vitepress'
 import type { Article } from './utils'
+import dayjs from 'dayjs'
 import { filter, isTruthy, map, piped } from 'remeda'
 import Icons from 'unplugin-icons/vite'
 import { withMermaid } from 'vitepress-plugin-mermaid'
@@ -355,10 +356,6 @@ export default ({ mode }: { mode: string }) => {
             email: baseConfig.email,
           },
           filter(post) {
-            if (post.url === '/') {
-              return true
-            }
-
             const article = articleList.find(
               ({ link }) => post.url.includes(link),
             )
@@ -366,7 +363,9 @@ export default ({ mode }: { mode: string }) => {
               return false
             }
 
-            // post.fileContent = post.fileContent.replaceAll('base-img', 'img')
+            if (post.frontmatter.pubDate) {
+              post.date = dayjs(`${post.frontmatter.pubDate}`, 'YYYYMMDD').format()
+            }
 
             return true
           },
