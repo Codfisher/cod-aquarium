@@ -24,6 +24,10 @@ export function useTextHighlight(
   keyword: MaybeRefOrGetter<string>,
   options: UseTextHighlightOptions = {},
 ) {
+  if (import.meta.env.SSR) {
+    return
+  }
+
   const highlightName = `highlight-${Math.random().toString(36).slice(2)}`
 
   const targetEl = computed<HTMLElement | SVGElement>(() => {

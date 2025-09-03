@@ -1,8 +1,11 @@
 import type { DefaultTheme } from 'vitepress'
 import type { Article } from './utils'
+import { hostname } from 'node:os'
+import dayjs from 'dayjs'
 import { filter, isTruthy, map, piped } from 'remeda'
 import Icons from 'unplugin-icons/vite'
 import { withMermaid } from 'vitepress-plugin-mermaid'
+import { RSSOptions, RssPlugin } from 'vitepress-plugin-rss'
 import { markdownItBaseImg } from './plugin/markdown-it-base-img'
 import { markdownItCodeBlockName } from './plugin/markdown-it-code-block-name'
 import { markdownItNowrap } from './plugin/markdown-it-nowrap'
@@ -46,14 +49,23 @@ function getNavItem(data: DefaultTheme.NavItem) {
 // https://vitepress.dev/reference/site-config
 export default ({ mode }: { mode: string }) => {
   const articleList = getArticleList()
+  console.log('🚀 ~ articleList:', articleList)
 
-  return withMermaid({
+  const baseConfig = {
     title: '鱈魚的魚缸',
     description: '各種鱈魚滾鍵盤的雜記與研究',
+    hostname: 'https://codlin.me',
+    email: 'hi@codlin.me',
+    lang: 'zh-Hant',
+    copyright: 'Copyright © 2024-present <a href="mailto:hi@codlin.me">Cod Lin</a>',
+  }
+  return withMermaid({
+    title: baseConfig.title,
+    description: baseConfig.description,
     srcDir: 'content',
     assetsDir: 'public',
     ignoreDeadLinks: true,
-    lang: 'zh-hant',
+    lang: baseConfig.lang,
     head: [
       ['link', { rel: 'preconnect', href: 'https://fonts.googleapis.com' }],
       ['link', { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: 'true' }],
@@ -62,7 +74,7 @@ export default ({ mode }: { mode: string }) => {
 
     ],
     sitemap: {
-      hostname: 'https://codlin.me',
+      hostname: baseConfig.hostname,
       transformItems: piped(
         filter((item) => {
           const target = articleList.find((article) =>
@@ -88,8 +100,7 @@ export default ({ mode }: { mode: string }) => {
       return result
     },
     transformHead({ page }) {
-      const baseUrl = 'https://codlin.me/'
-      const canonicalUrl = new URL(page.replace(/\.md$/, ''), baseUrl).toString()
+      const canonicalUrl = new URL(page.replace(/\.md$/, ''), baseConfig.hostname).toString()
 
       return [
         [
@@ -155,7 +166,7 @@ export default ({ mode }: { mode: string }) => {
       if (pageData?.frontmatter?.image) {
         pageData.frontmatter.head.push(['meta', {
           property: 'og:image',
-          content: pageData?.frontmatter?.image ?? 'https://codlin.me/cover.webp',
+          content: pageData?.frontmatter?.image ?? `${baseConfig.hostname}/cover.webp`,
         }])
       }
     },
@@ -173,7 +184,7 @@ export default ({ mode }: { mode: string }) => {
     themeConfig: {
       articleList,
       footer: {
-        copyright: 'Copyright © 2024-present <a href="mailto:hi@codlin.me">Cod Lin</a>',
+        copyright: baseConfig.copyright,
       },
       outline: {
         label: '目錄',
@@ -314,14 +325,15 @@ export default ({ mode }: { mode: string }) => {
           },
         },
       },
-      /** 強制停用 vitepress data loader 功能
-       *
-       * 避免 build 時出現以下錯誤：
-       * KHR_animation_pointer.data.js: config must export or return an object.
-       *
-       * https://github.com/vuejs/vitepress/issues/4482
-       */
+
       plugins: [
+        /** 強制停用 vitepress data loader 功能
+         *
+         * 避免 build 時出現以下錯誤：
+         * KHR_animation_pointer.data.js: config must export or return an object.
+         *
+         * https://github.com/vuejs/vitepress/issues/4482
+         */
         {
           name: 'disable-vp-static-data-plugin',
           configResolved(config) {
@@ -334,6 +346,33 @@ export default ({ mode }: { mode: string }) => {
         Icons({
           autoInstall: true,
           compiler: 'vue3',
+        }),
+        RssPlugin({
+          title: baseConfig.title,
+          description: baseConfig.description,
+          language: baseConfig.lang,
+          baseUrl: baseConfig.hostname,
+          copyright: baseConfig.copyright,
+          author: {
+            name: 'Cod Lin',
+            email: baseConfig.email,
+          },
+          filter(post) {
+            if (post.url === '/') {
+              return true
+            }
+
+            console.log('🚀 ~ post:', post.frontmatter)
+            const article = articleList.find(
+              ({ link }) => post.url.includes(link),
+            )
+            if (!article) {
+              return false
+            }
+
+            post.date = dayjs(`${article.frontmatter.date}`, 'YYYYMMDD').format('YYYY-MM-DD')
+            return true
+          },
         }),
       ],
     },
