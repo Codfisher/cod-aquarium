@@ -1,11 +1,13 @@
 <template>
   <div class=" w-screen h-screen flex flex-col items-start p-4 gap-4">
-    <desktop-item
-      v-for="item, i in itemList"
-      :key="item.label"
-      v-bind="item"
-      :delay="i * 300"
-    />
+    <div class=" flex flex-col justify-center items-center w-full h-full">
+      <desktop-item
+        v-for="item, i in itemList"
+        :key="item.label"
+        v-bind="item"
+        :delay="i * 300"
+      />
+    </div>
   </div>
 </template>
 
@@ -18,7 +20,7 @@ import DesktopItem from './components/desktop-item/desktop-item.vue'
 const fontHref = 'https://fonts.googleapis.com/css2?family=Material+Symbols+Sharp:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200'
 let linkEl: HTMLLinkElement
 onMounted(() => {
-  // 已經有同樣的 link 就不要重複插
+  // 已經有同樣的 link 就不要重複
   const existed = Array.from(document.head.querySelectorAll('link'))
     .find((link) => link.getAttribute('href') === fontHref)
   if (existed)
