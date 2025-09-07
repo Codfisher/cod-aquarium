@@ -1,7 +1,7 @@
 <template>
   <div
     ref="itemRef"
-    class="desktop-item relative m-2 p-1"
+    class="desktop-item relative m-2 p-1 aspect-square flex justify-center items-center"
   >
     <bg
       class="z-[-1]"

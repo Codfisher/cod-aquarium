@@ -1,6 +1,6 @@
 <template>
   <div class=" w-screen h-screen flex flex-col items-start p-4 gap-4">
-    <div class=" flex flex-col justify-center items-center w-full h-full">
+    <div class=" flex flex-col justify-center items-center w-full h-full ">
       <desktop-item
         v-for="item, i in itemList"
         :key="item.label"
@@ -47,6 +47,10 @@ const itemList = [
   },
   {
     label: '部落格',
+  },
+  {
+    label: '設定',
+    icon: 'settings_slow_motion',
   },
 ]
 </script>

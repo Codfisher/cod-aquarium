@@ -4,10 +4,10 @@ import { createAnimatable } from 'animejs'
 import { clone, entries, isFunction, pipe, when } from 'remeda'
 import { onWatcherCleanup, reactive, toValue, watch } from 'vue'
 
-type DataObject = Record<string, number>
+type DataObject<T extends object> = { [K in keyof T]: number }
 type EaseString = EaseStringParamNames | (string & {})
 
-interface UseAnimatableParams<Data extends DataObject> {
+interface UseAnimatableParams<Data extends object> {
   delay?: number | ((fieldKey: keyof Data) => number);
   duration?: number | ((fieldKey: keyof Data) => number);
   ease?: EaseString | ((fieldKey: keyof Data) => EaseString | undefined);
@@ -20,12 +20,9 @@ interface UseAnimatableParams<Data extends DataObject> {
   adjustDurationByDelay?: boolean;
 }
 
-export function useAnimatable<
-  Data extends DataObject,
->(
-  initData: Data,
-  targetData: MaybeRefOrGetter<Data>,
-  params: UseAnimatableParams<Data> = {},
+export function useAnimatable<Data extends object>(
+  targetData: MaybeRefOrGetter<DataObject<Data>>,
+  params: UseAnimatableParams<DataObject<Data>> = {},
 ) {
   const {
     delay = 0,
@@ -35,47 +32,35 @@ export function useAnimatable<
     immediate = true,
   } = params
 
-  const data = reactive(clone(initData))
+  const initial = clone(toValue(targetData)) as DataObject<Data>
+  const data = reactive(initial) as DataObject<Data>
 
-  const dataAnimatable = createAnimatable(data, clone(initData))
+  const dataAnimatable = createAnimatable(data, clone(data)) as
+    Record<keyof DataObject<Data>, (to: number, dur?: number, ez?: EaseString | undefined) => void>
 
   watch(targetData, () => {
     const delayList: ReturnType<typeof setTimeout>[] = []
 
-    entries(toValue(targetData)).forEach(([fieldKey, value]) => {
-      const delayValue = pipe(
-        delay,
-        when(
-          // 不知道為甚麼直接給 isFunction 型別推導會只剩 StrictFunction
-          (value) => isFunction(value),
-          (fcn) => fcn(fieldKey),
-        ),
-      )
+    const current = toValue(targetData) as DataObject<Data>
+    (Object.keys(current) as Array<keyof DataObject<Data>>).forEach((fieldKey) => {
+      const value = current[fieldKey]
 
-      const durationValue = pipe(
-        duration,
-        when(
-          (value) => isFunction(value),
-          (fcn) => fcn(fieldKey),
-        ),
-        when(
-          () => adjustDurationByDelay,
-          (value) => value - delayValue,
-        ),
-      )
+      const delayValue
+        = typeof delay === 'function' ? delay(fieldKey) : delay
 
-      const easeValue = pipe(undefined, () => {
-        if (!ease) {
-          return undefined
-        }
+      const durationRaw
+        = typeof duration === 'function' ? duration(fieldKey) : duration
 
-        return typeof ease === 'function'
-          ? ease(fieldKey)
-          : ease
-      })
+      const durationValue = adjustDurationByDelay
+        ? Math.max(durationRaw - delayValue, 0)
+        : durationRaw
+
+      const easeValue
+        = typeof ease === 'function' ? ease(fieldKey) : ease
 
       delayList.push(setTimeout(() => {
-        dataAnimatable?.[fieldKey]?.(value, durationValue, easeValue)
+        // 這裡用 as any 讓 TS 不再糾結 createAnimatable 的細型別
+        ; (dataAnimatable as any)?.[fieldKey]?.(value, durationValue, easeValue)
       }, delayValue))
     })
 
@@ -87,8 +72,5 @@ export function useAnimatable<
     immediate,
   })
 
-  return {
-    data,
-    dataAnimatable,
-  }
+  return { data, dataAnimatable }
 }

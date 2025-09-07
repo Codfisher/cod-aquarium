@@ -8,6 +8,11 @@
       v-bind="svgAttrs"
     >
       <corner-brackets v-bind="frameParams" />
+
+      <polygon
+        v-bind="bgAttrs"
+        fill="#777"
+      />
     </svg>
   </div>
 </template>
@@ -44,6 +49,23 @@ const frameParams = computed(() => ({
   svgSize: containerSize,
   ...props,
 }))
+
+const chamfer = 20
+
+const bgAttrs = computed(() => {
+  const { width, height } = containerSize
+
+  return {
+    points: [
+      `0,0`,
+      `${width},0`,
+      `${width},${height}`,
+      `0,${height}`,
+    ].join(' '),
+    transform: `rotate(45, ${width / 2}, ${height / 2})`,
+    opacity: 1,
+  }
+})
 </script>
 
 <style scoped lang="sass">

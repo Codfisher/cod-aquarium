@@ -68,13 +68,6 @@ const delayMap: Partial<Record<
 }
 
 const { data: graphParams } = useAnimatable(
-  {
-    x1: 0,
-    y1: 0,
-    x2: 0,
-    // color: '#777',
-    width: 0,
-  },
   targetParams,
   {
     delay: (fieldKey) => delayMap[props.status]?.[fieldKey] ?? 0,

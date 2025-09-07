@@ -8,7 +8,7 @@
 import type { ComponentStatus } from '../../types'
 import { computed, inject, ref, toRefs, watch } from 'vue'
 import { useAnimatable } from '../../../../../composables/use-animatable'
-import { desktopItemInjectionKey } from './type';
+import { desktopItemInjectionKey } from './type'
 
 interface Props {
   duration?: number;
@@ -59,7 +59,6 @@ const delayMap: Partial<Record<
 }
 
 const { data: graphParams } = useAnimatable(
-  { opacity: 0 },
   targetParams,
   {
     delay: (fieldKey) => {
