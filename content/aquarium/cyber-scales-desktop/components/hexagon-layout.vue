@@ -30,13 +30,13 @@ onMounted(async () => {
   if (document.fonts) {
     try {
       await document.fonts.ready
-      await promiseTimeout(50)
+      await nextTick()
     } catch { }
   }
 
   await nextTick()
 
-  el.querySelectorAll(':scope > div').forEach((child, i) => {
+  Array.from(el.children).forEach((child, i) => {
     if (!(child instanceof HTMLElement)) {
       return
     }
