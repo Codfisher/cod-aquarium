@@ -38,10 +38,11 @@
 </template>
 
 <script setup lang="ts">
-import type { ComponentStatus } from '../../../types'
+import { usePrevious } from '@vueuse/core'
 import { join, map, pipe } from 'remeda'
-import { computed, inject, ref, toRefs, watch } from 'vue'
+import { computed, inject } from 'vue'
 import { useAnimatable } from '../../../../../../composables/use-animatable'
+import { ComponentStatus } from '../../../types'
 import { desktopItemInjectionKey } from '../type'
 
 interface Props {
@@ -51,6 +52,14 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   duration: 260,
 })
+
+const mainProvider = inject(desktopItemInjectionKey)
+if (!mainProvider) {
+  throw new Error('mainProvider is not provided')
+}
+const { status } = mainProvider
+
+const pStatus = usePrevious(status, ComponentStatus.HIDDEN)
 
 /** 圖形上下左右對稱，只要 lt 參數即可
  *
@@ -62,17 +71,6 @@ interface GraphParams {
   size: number;
   width: number;
 }
-
-const mainProvider = inject(desktopItemInjectionKey)
-if (!mainProvider) {
-  throw new Error('mainProvider is not provided')
-}
-const { status } = mainProvider
-
-const pStatus = ref(mainProvider.status.value)
-watch(status, (value) => {
-  pStatus.value = value
-}, { flush: 'post' })
 
 const delayMap: Partial<Record<
   `${ComponentStatus}-${ComponentStatus}`,
