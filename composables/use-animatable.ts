@@ -1,5 +1,5 @@
 import type { EaseStringParamNames } from 'animejs'
-import type { MaybeRefOrGetter } from 'vue'
+import type { MaybeRefOrGetter, Reactive } from 'vue'
 import { createAnimatable } from 'animejs'
 import { clone, entries, isFunction, keys, pipe, when } from 'remeda'
 import { onWatcherCleanup, reactive, toValue, watch } from 'vue'
@@ -76,5 +76,9 @@ export function useAnimatable<Data extends object>(
     immediate,
   })
 
-  return { data, dataAnimatable }
+  return {
+    /** Reactive Data */
+    data,
+    dataAnimatable,
+  }
 }
