@@ -82,7 +82,7 @@ const delayMap: Partial<Record<
   },
 }
 
-const maxRotate = sample([45, 135, -45], 1)[0] ?? 45
+const maxRotate = sample([45, 135, -45, -135], 1)[0] ?? 45
 const { data: graphParams } = useAnimatable(
   (): GraphParams => {
     const { width, height } = containerSize
