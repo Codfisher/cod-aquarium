@@ -104,9 +104,15 @@ export function useDecodingText(
     charList.forEach(({ reset }) => reset())
   }
 
+  function restart() {
+    reset()
+    start()
+  }
+
   return {
     text,
     start,
+    restart,
     stop,
     reset,
   }

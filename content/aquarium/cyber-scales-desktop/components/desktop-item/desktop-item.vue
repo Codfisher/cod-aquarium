@@ -109,8 +109,7 @@ whenever(isVisible, async () => {
   labelDecoder.start()
 })
 whenever(isHover, async () => {
-  labelDecoder.reset()
-  labelDecoder.start()
+  labelDecoder.restart()
 })
 
 interface Expose { }
