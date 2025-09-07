@@ -74,35 +74,6 @@ watch(status, (value) => {
   pStatus.value = value
 }, { flush: 'post' })
 
-const targetParams = computed<GraphParams>(() => {
-  const { svgSize } = props
-
-  if (status.value === 'visible') {
-    return {
-      x: -svgSize.width / 2,
-      y: -svgSize.height / 2,
-      size: 6,
-      width: 0.4,
-    }
-  }
-
-  if (status.value === 'hover') {
-    return {
-      x: -svgSize.width / 2 - 5,
-      y: -svgSize.height / 2 - 5,
-      size: 6,
-      width: 0.8,
-    }
-  }
-
-  return {
-    x: 0,
-    y: 0,
-    size: 6,
-    width: 0,
-  }
-})
-
 const delayMap: Partial<Record<
   `${ComponentStatus}-${ComponentStatus}`,
   Partial<Record<keyof GraphParams, number>>
@@ -115,7 +86,34 @@ const delayMap: Partial<Record<
 }
 
 const { data: graphParams } = useAnimatable(
-  targetParams,
+  (): GraphParams => {
+    const { svgSize } = props
+
+    if (status.value === 'visible') {
+      return {
+        x: -svgSize.width / 2,
+        y: -svgSize.height / 2,
+        size: 6,
+        width: 0.4,
+      }
+    }
+
+    if (status.value === 'hover') {
+      return {
+        x: -svgSize.width / 2 - 5,
+        y: -svgSize.height / 2 - 5,
+        size: 6,
+        width: 0.8,
+      }
+    }
+
+    return {
+      x: 0,
+      y: 0,
+      size: 6,
+      width: 0,
+    }
+  },
   {
     delay: (fieldKey) => {
       const key = `${pStatus.value}-${status.value}` as const
