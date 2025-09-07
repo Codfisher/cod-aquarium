@@ -1,24 +1,21 @@
 <template>
   <div
     ref="itemRef"
-    class="desktop-item relative m-2 p-1 aspect-square flex justify-center items-center"
+    class="desktop-item relative p-1 aspect-square flex justify-center items-center"
   >
-    <bg
-      class="z-[-1]"
-    />
-    <content-wrapper
-      class="z-0  "
-    >
+    <bg class="z-[-1]" />
+    <content-wrapper class="z-0  ">
       <material-icon
         :name="props.icon"
         size="4rem"
         weight="100"
         grade="-25"
         opsz="20"
+        class="text-white"
       />
       <slot />
 
-      <div class=" overflow-hidden text-center">
+      <div class=" overflow-hidden text-center text-white">
         {{ labelDecoder.text }}
       </div>
     </content-wrapper>

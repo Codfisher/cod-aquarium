@@ -20,6 +20,7 @@
 <script setup lang="ts">
 import type { CSSProperties } from 'vue'
 import { useElementSize, usePrevious } from '@vueuse/core'
+import { sample } from 'remeda'
 import { computed, inject, reactive, useTemplateRef } from 'vue'
 import { useAnimatable } from '../../../../../../composables/use-animatable'
 import { ComponentStatus } from '../../../types'
@@ -62,33 +63,63 @@ const frameParams = computed(() => ({
 }))
 
 interface GraphParams {
+  width: number;
+  height: number;
+  /** 倒角 */
+  chamfer: number;
+  rotate: number;
   opacity: number;
 }
-const chamfer = 20
 
+const delayMap: Partial<Record<
+  `${ComponentStatus}-${ComponentStatus}`,
+  Partial<Record<keyof GraphParams, number>>
+>> = {
+  'hidden-visible': {
+    width: props.duration,
+    height: props.duration,
+    chamfer: props.duration,
+  },
+}
+
+const maxRotate = sample([45, 135, -45, -135], 1)[0] ?? 45
 const { data: graphParams } = useAnimatable(
   (): GraphParams => {
+    const { width, height } = containerSize
+
     if (status.value === 'visible') {
       return {
-        opacity: 0.4,
+        width,
+        height,
+        chamfer: 10,
+        rotate: maxRotate,
+        opacity: 1,
       }
     }
 
     if (status.value === 'hover') {
       return {
+        width,
+        height,
+        chamfer: 10,
+        rotate: maxRotate,
         opacity: 0.8,
       }
     }
 
     return {
+      width: 10,
+      height: 10,
+      chamfer: 5,
+      rotate: maxRotate - 45,
       opacity: 0,
     }
   },
   {
-    // delay: (fieldKey) => {
-    //   const key = `${pStatus.value}-${status.value}` as const
-    //   return delayMap[key]?.[fieldKey] ?? 0
-    // },
+    delay: (fieldKey) => {
+      const key = `${pStatus.value}-${status.value}` as const
+      return delayMap[key]?.[fieldKey] ?? 0
+    },
     duration: props.duration,
     ease: (fieldKey) => fieldKey === 'opacity'
       ? 'outBounce'
@@ -97,17 +128,31 @@ const { data: graphParams } = useAnimatable(
 )
 
 const graphAttrs = computed(() => {
-  const { width, height } = containerSize
+  const { opacity, rotate, chamfer } = graphParams
+  const hChamfer = chamfer / 2
+  const [x, y, width, height] = [
+    containerSize.width / 2,
+    containerSize.height / 2,
+    graphParams.width / 2,
+    graphParams.height / 2,
+  ]
 
   return {
     points: [
-      `0,0`,
-      `${width},0`,
-      `${width},${height}`,
-      `0,${height}`,
+      `${x - width},${y - height + chamfer}`,
+      `${x - width + chamfer},${y - height}`,
+      `${x + width - chamfer},${y - height}`,
+      `${x + width - chamfer},${y - height}`,
+      `${x + width - hChamfer},${y - height + hChamfer}`,
+      `${x + width - hChamfer},${y}`,
+      `${x + width},${y + hChamfer}`,
+      `${x + width},${y + height - hChamfer}`,
+      `${x + width - hChamfer},${y + height}`,
+      `${x - width + chamfer},${y + height}`,
+      `${x - width},${y + height - chamfer}`,
     ].join(' '),
-    transform: `rotate(45, ${width / 2}, ${height / 2})`,
-    opacity: 1,
+    transform: `rotate(${rotate}, ${x}, ${y})`,
+    opacity,
   }
 })
 </script>
