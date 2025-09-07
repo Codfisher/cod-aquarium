@@ -10,7 +10,7 @@ function useChar(
   }>,
 ) {
   const {
-    count = 8,
+    count = 12,
     interval = 50,
   } = options ?? {}
 

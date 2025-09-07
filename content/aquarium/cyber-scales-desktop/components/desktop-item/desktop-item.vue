@@ -1,7 +1,7 @@
 <template>
   <div
     ref="itemRef"
-    class="desktop-item relative p-1 aspect-square flex justify-center items-center"
+    class="desktop-item relative p-3 aspect-square flex justify-center items-center"
   >
     <bg class="z-[-1]" />
     <content-wrapper class="z-0  ">
@@ -15,7 +15,11 @@
       />
       <slot />
 
-      <div class=" overflow-hidden text-center text-white">
+      <div
+        ref="labelRef"
+        class="item-label text-[#777] text-nowrap"
+        :style="labelStyle"
+      >
         {{ labelDecoder.text }}
       </div>
     </content-wrapper>
@@ -23,17 +27,19 @@
 </template>
 
 <script setup lang="ts">
-import { computedAsync, promiseTimeout, useElementHover, useMounted, whenever } from '@vueuse/core'
-import { computed, nextTick, provide, useTemplateRef, watch } from 'vue'
+import { computedAsync, promiseTimeout, useElementHover, useElementSize, useMounted, whenever } from '@vueuse/core'
+import { computed, nextTick, provide, reactive, useTemplateRef, watch } from 'vue'
 import { useDecodingText } from '../../../../../composables/use-decoding-text'
 import { ComponentStatus } from '../../types'
 import MaterialIcon from '../material-icon.vue'
 import Bg from './bg/bg.vue'
 import ContentWrapper from './content-wrapper.vue'
 import { desktopItemInjectionKey } from './type'
+import { pipe } from 'remeda'
 
 interface Props {
   label?: string;
+  labelLeft?: boolean;
   icon?: string;
   delay?: number;
 }
@@ -55,6 +61,8 @@ const emit = defineEmits<Emits>()
 defineSlots<Slots>()
 
 const itemRef = useTemplateRef('itemRef')
+const itemSize = reactive(useElementSize(itemRef))
+
 const isMounted = useMounted()
 const isHover = useElementHover(itemRef)
 const isVisible = computedAsync(async () => {
@@ -63,7 +71,26 @@ const isVisible = computedAsync(async () => {
   return isMounted.value
 }, false)
 
+const labelRef = useTemplateRef('labelRef')
+const labelSize = reactive(useElementSize(labelRef))
+
 const labelDecoder = useDecodingText(props.label)
+const labelStyle = computed(() => {
+  const dir = props.labelLeft ? -1 : 1
+  const offsetX = pipe(
+    Math.sqrt(itemSize.width ** 2 + itemSize.height ** 2) * dir,
+    (value) => {
+      if (props.labelLeft) {
+        return value - labelSize.width / 2
+      }
+      return value * 0.75
+    }
+  )
+
+  return {
+    transform: `translateY(-50%) translateX(${offsetX}px)`,
+  }
+})
 
 const status = computed(() => {
   if (isVisible.value) {
@@ -81,6 +108,10 @@ whenever(isVisible, async () => {
   await promiseTimeout(500)
   labelDecoder.start()
 })
+whenever(isHover, async () => {
+  labelDecoder.reset()
+  labelDecoder.start()
+})
 
 interface Expose { }
 defineExpose<Expose>({})
@@ -92,4 +123,8 @@ provide(desktopItemInjectionKey, {
 </script>
 
 <style scoped lang="sass">
+.item-label
+  position: absolute
+  top: 50%
+  left: 50%
 </style>

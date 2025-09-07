@@ -8,6 +8,7 @@
 </template>
 
 <script setup lang="ts">
+import { promiseTimeout } from '@vueuse/core';
 import { nextTick, onMounted, useTemplateRef } from 'vue'
 
 interface Props {
@@ -25,14 +26,14 @@ onMounted(async () => {
     return
   }
 
-  await nextTick()
+  await promiseTimeout(100)
 
   el.querySelectorAll(':scope > div').forEach((child, i) => {
     if (!(child instanceof HTMLElement)) {
       return
     }
 
-    const width = child.offsetWidth
+    const { width } = child.getBoundingClientRect()
     const x = width / 3 * ((-1) ** i)
     child.style.transform = `translate(${x}px, 0px)`
   })

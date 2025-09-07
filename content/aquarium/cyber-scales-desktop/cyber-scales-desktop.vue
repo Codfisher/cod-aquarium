@@ -5,6 +5,7 @@
         v-for="item, i in itemList"
         :key="item.label"
         v-bind="item"
+        :label-left="i % 2 === 0"
         :delay="i * 300"
       />
     </hexagon-layout>
