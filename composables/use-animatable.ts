@@ -1,7 +1,7 @@
 import type { EaseStringParamNames } from 'animejs'
 import type { MaybeRefOrGetter } from 'vue'
 import { createAnimatable } from 'animejs'
-import { clone, entries, isFunction, pipe, when } from 'remeda'
+import { clone, entries, isFunction, keys, pipe, when } from 'remeda'
 import { onWatcherCleanup, reactive, toValue, watch } from 'vue'
 
 type DataObject<T extends object> = { [K in keyof T]: number }
@@ -43,26 +43,28 @@ export function useAnimatable<Data extends object>(
   watch(targetData, () => {
     const delayList: ReturnType<typeof setTimeout>[] = []
 
-    const current = toValue(targetData) as DataObject<Data>
+    const current = toValue(targetData);
     (Object.keys(current) as Array<keyof DataObject<Data>>).forEach((fieldKey) => {
       const value = current[fieldKey]
 
-      const delayValue
-        = typeof delay === 'function' ? delay(fieldKey) : delay
+      const delayValue = typeof delay === 'function'
+        ? delay(fieldKey)
+        : delay
 
-      const durationRaw
-        = typeof duration === 'function' ? duration(fieldKey) : duration
+      const durationRaw = typeof duration === 'function'
+        ? duration(fieldKey)
+        : duration
 
       const durationValue = adjustDurationByDelay
         ? Math.max(durationRaw - delayValue, 0)
         : durationRaw
 
-      const easeValue
-        = typeof ease === 'function' ? ease(fieldKey) : ease
+      const easeValue = typeof ease === 'function'
+        ? ease(fieldKey)
+        : ease
 
       delayList.push(setTimeout(() => {
-        // 這裡用 as any 讓 TS 不再糾結 createAnimatable 的細型別
-        ; (dataAnimatable as any)?.[fieldKey]?.(value, durationValue, easeValue)
+        dataAnimatable?.[fieldKey]?.(value, durationValue, easeValue)
       }, delayValue))
     })
 
