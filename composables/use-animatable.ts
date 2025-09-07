@@ -32,11 +32,13 @@ export function useAnimatable<Data extends object>(
     immediate = true,
   } = params
 
-  const initial = clone(toValue(targetData)) as DataObject<Data>
-  const data = reactive(initial) as DataObject<Data>
+  const data = reactive(clone(toValue(targetData)))
 
-  const dataAnimatable = createAnimatable(data, clone(data)) as
-    Record<keyof DataObject<Data>, (to: number, dur?: number, ez?: EaseString | undefined) => void>
+  const dataAnimatable = createAnimatable(
+    data,
+    // @ts-expect-error reactive 也可以當一般物件傳遞
+    clone(data),
+  )
 
   watch(targetData, () => {
     const delayList: ReturnType<typeof setTimeout>[] = []
