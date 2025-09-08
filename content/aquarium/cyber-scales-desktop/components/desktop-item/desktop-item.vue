@@ -1,7 +1,7 @@
 <template>
   <div
     ref="itemRef"
-    class="desktop-item relative p-3 aspect-square flex justify-center items-center"
+    class="desktop-item relative p-3 aspect-square flex justify-center items-center gradient-effect"
   >
     <bg class="z-[-1]" />
     <content-wrapper class="z-0  ">
@@ -140,4 +140,19 @@ provide(desktopItemInjectionKey, {
   position: absolute
   top: 50%
   left: 50%
+
+.gradient-effect
+  position: relative
+  &::after
+    content: ''
+    background: linear-gradient(90deg, #FFFF, #FFF0)
+    mix-blend-mode: soft-light
+    position: absolute
+    left: -5%
+    top: -5%
+    bottom: -5%
+    right: -5%
+    opacity: 0.8
+    pointer-events: none
+    transform: rotate(45deg)
 </style>

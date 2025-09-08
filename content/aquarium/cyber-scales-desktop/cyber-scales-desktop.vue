@@ -72,4 +72,18 @@ const itemList = [
 <style lang="sass">
 .font-orbitron
   font-family: "Orbitron", sans-serif
+
+.gradient-effect
+  position: relative
+  &::after
+    content: ''
+    background: linear-gradient(160deg, #FFFF, #FFF0)
+    mix-blend-mode: soft-light
+    position: absolute
+    left: 0
+    top: 0
+    bottom: 0
+    right: 0
+    opacity: 0.7
+    pointer-events: none
 </style>
