@@ -4,8 +4,8 @@ import { createAnimatable } from 'animejs'
 import { clone, entries, isFunction, keys, pipe, when } from 'remeda'
 import { onWatcherCleanup, reactive, toValue, watch } from 'vue'
 
-type DataObject<T extends object> = { [K in keyof T]: number }
-type EaseString = EaseStringParamNames | (string & {})
+export type DataObject<T extends object> = { [K in keyof T]: number }
+export type EaseString = EaseStringParamNames | (string & {})
 
 interface UseAnimatableParams<Data extends object> {
   delay?: number | ((fieldKey: keyof Data) => number);
