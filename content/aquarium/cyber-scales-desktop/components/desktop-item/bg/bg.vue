@@ -80,8 +80,8 @@ const { data: graphParams } = useAnimatable(
 
     if (status.value === ComponentStatus.HIDDEN) {
       return {
-        width: 10,
-        height: 10,
+        width: 0,
+        height: 5,
         chamfer: 0,
         rotate: maxRotate + 45,
         opacity: 0,
@@ -124,7 +124,7 @@ const { data: graphParams } = useAnimatable(
       {
         'hidden-visible': {
           width: props.duration * 1.6,
-          height: props.duration * 1.6,
+          height: props.duration ,
           chamfer: props.duration * 1.6,
           rotate: props.duration,
         },
