@@ -8,15 +8,11 @@
 </template>
 
 <script setup lang="ts">
-import { promiseTimeout } from '@vueuse/core';
+import { promiseTimeout } from '@vueuse/core'
 import { nextTick, onMounted, useTemplateRef } from 'vue'
 
-interface Props {
-  modelValue?: string;
-}
-const props = withDefaults(defineProps<Props>(), {
-  modelValue: '',
-})
+interface Props { }
+const props = withDefaults(defineProps<Props>(), {})
 
 const layoutRef = useTemplateRef('layoutRef')
 
@@ -31,7 +27,8 @@ onMounted(async () => {
     try {
       await document.fonts.ready
       await promiseTimeout(100)
-    } catch { }
+    }
+    catch { }
   }
 
   await nextTick()

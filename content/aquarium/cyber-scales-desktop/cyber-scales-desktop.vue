@@ -18,7 +18,6 @@ import { onBeforeUnmount, onMounted } from 'vue'
 import BaseWindow from './components/base-window/base-window.vue'
 import DesktopItem from './components/desktop-item/desktop-item.vue'
 import HexagonLayout from './components/hexagon-layout.vue'
-import { icon } from 'mermaid/dist/rendering-util/rendering-elements/shapes/icon'
 
 // 載入字體
 const fontHref = 'https://fonts.googleapis.com/css2?family=Material+Symbols+Sharp:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&family=Orbitron:wght@400..900'
@@ -55,12 +54,12 @@ const itemList = [
   {
     label: '相簿',
     subLabel: 'Album',
-    icon: 'photo_auto_merge'
+    icon: 'photo_auto_merge',
   },
   {
     label: '部落格',
     subLabel: 'Blog',
-    icon: 'article_person'
+    icon: 'article_person',
   },
   {
     label: '設定',
