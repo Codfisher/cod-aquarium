@@ -16,8 +16,8 @@ export function getStatusParamsValue<
 >(
   status: ComponentStatus,
   pStatus: ComponentStatus,
-  map: StatusParamsMap<Data, Value>,
   fieldKey: keyof Data,
+  map: StatusParamsMap<Data, Value>,
 ): Value | undefined {
   if (!map || !fieldKey) {
     return

@@ -72,18 +72,6 @@ interface GraphParams {
   opacity: number;
 }
 
-const delayMap: Partial<Record<
-  `${ComponentStatus}-${ComponentStatus}`,
-  Partial<Record<keyof GraphParams, number>>
->> = {
-  'hidden-visible': {
-    width: props.duration * 2,
-    height: props.duration * 2,
-    chamfer: props.duration * 1.6,
-    rotate: props.duration * 1.2,
-  },
-}
-
 const maxRotate = sample([45, 135, -45, -135], 1)[0] ?? 45
 const { data: graphParams } = useAnimatable(
   (): GraphParams => {
@@ -118,11 +106,18 @@ const { data: graphParams } = useAnimatable(
     }
   },
   {
-    delay: (fieldKey) => getStatusParamsValue(
+    delay: (fieldKey) => getStatusParamsValue<GraphParams, number>(
       status.value,
       pStatus.value,
-      delayMap,
       fieldKey,
+      {
+        'hidden-visible': {
+          width: props.duration * 2,
+          height: props.duration * 2,
+          chamfer: props.duration * 1.6,
+          rotate: props.duration * 1.2,
+        },
+      },
     ) ?? 0,
     duration: props.duration,
     ease: (fieldKey) => fieldKey === 'opacity'
