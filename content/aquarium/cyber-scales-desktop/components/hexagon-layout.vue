@@ -30,7 +30,7 @@ onMounted(async () => {
   if (document.fonts) {
     try {
       await document.fonts.ready
-      await nextTick()
+      await promiseTimeout(100)
     } catch { }
   }
 

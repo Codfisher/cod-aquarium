@@ -17,10 +17,19 @@
 
       <div
         ref="labelRef"
-        class="item-label text-[#777] text-nowrap"
+        class="item-label text-[#777] text-nowrap font-orbitron"
         :style="labelStyle"
       >
-        {{ labelDecoder.text }}
+        <div class="">
+          {{ labelDecoder.text }}
+        </div>
+
+        <div
+          class="text-xs"
+          :class="{ 'text-right': props.labelLeft }"
+        >
+          {{ subLabelDecoder.text }}
+        </div>
       </div>
     </content-wrapper>
   </div>
@@ -39,6 +48,7 @@ import { pipe } from 'remeda'
 
 interface Props {
   label?: string;
+  subLabel?: string;
   labelLeft?: boolean;
   icon?: string;
   delay?: number;
@@ -53,6 +63,7 @@ interface Slots {
 
 const props = withDefaults(defineProps<Props>(), {
   label: '',
+  subLabel: '',
   delay: 0,
 })
 
@@ -75,13 +86,15 @@ const labelRef = useTemplateRef('labelRef')
 const labelSize = reactive(useElementSize(labelRef))
 
 const labelDecoder = useDecodingText(props.label)
+const subLabelDecoder = useDecodingText(props.subLabel)
+
 const labelStyle = computed(() => {
   const dir = props.labelLeft ? -1 : 1
   const offsetX = pipe(
     Math.sqrt(itemSize.width ** 2 + itemSize.height ** 2) * dir,
     (value) => {
       if (props.labelLeft) {
-        return value - labelSize.width / 2
+        return value - labelSize.width / 2 - 16
       }
       return value * 0.75
     }
@@ -107,6 +120,7 @@ const status = computed(() => {
 whenever(isVisible, async () => {
   await promiseTimeout(500)
   labelDecoder.start()
+  subLabelDecoder.start()
 })
 whenever(isHover, async () => {
   labelDecoder.restart()

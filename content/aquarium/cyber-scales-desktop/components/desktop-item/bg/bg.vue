@@ -103,7 +103,7 @@ const { data: graphParams } = useAnimatable(
         height,
         chamfer: 10,
         rotate: maxRotate,
-        opacity: 0.9,
+        opacity: 1,
       }
     }
 
