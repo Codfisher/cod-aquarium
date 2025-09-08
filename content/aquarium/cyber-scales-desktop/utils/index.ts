@@ -1,7 +1,7 @@
 import type { Ref } from 'vue'
+import type { ComponentStatus } from '../types'
 import { usePrevious } from '@vueuse/core'
 import { pipe } from 'remeda'
-import { ComponentStatus } from '../types'
 
 /** 定義 ComponentStatus 狀態與動畫參數映射數值 */
 export type StatusParamsMap<
@@ -16,27 +16,25 @@ export function getStatusParamsValue<
   Data extends object,
   Value extends string | number | undefined,
 >(
-  status: Ref<ComponentStatus>,
+  status: ComponentStatus,
+  pStatus: ComponentStatus,
   map: StatusParamsMap<Data, Value>,
-) {
-  const pStatus = usePrevious(status, ComponentStatus.HIDDEN)
-
-  return (fieldKey: keyof Data): Value | undefined => {
-    if (!map || !fieldKey) {
-      return
-    }
-
-    const key = `${pStatus.value}-${status.value}` as const
-    const statusKey = key in map ? key : status.value
-
-    const value = map[statusKey]
-    if (!value) {
-      return
-    }
-    if (typeof value === 'string' || typeof value === 'number') {
-      return value
-    }
-
-    return value[fieldKey]
+  fieldKey: keyof Data,
+): Value | undefined {
+  if (!map || !fieldKey) {
+    return
   }
+
+  const key = `${pStatus}-${status}` as const
+  const statusKey = key in map ? key : status
+
+  const value = map[statusKey]
+  if (!value) {
+    return
+  }
+  if (typeof value === 'string' || typeof value === 'number') {
+    return value
+  }
+
+  return value[fieldKey]
 }

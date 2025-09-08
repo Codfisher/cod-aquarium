@@ -19,6 +19,7 @@
 
 <script setup lang="ts">
 import type { CSSProperties } from 'vue'
+import type { EaseString } from '../../../../../../composables/use-animatable'
 import { useElementSize, usePrevious } from '@vueuse/core'
 import { sample } from 'remeda'
 import { computed, inject, reactive, useTemplateRef } from 'vue'
@@ -40,6 +41,7 @@ if (!mainProvider) {
   throw new Error('mainProvider is not provided')
 }
 const { status } = mainProvider
+const pStatus = usePrevious(status, ComponentStatus.HIDDEN)
 
 const containerRef = useTemplateRef<HTMLDivElement>('containerRef')
 const containerSize = reactive(useElementSize(containerRef))
@@ -106,7 +108,8 @@ const { data: graphParams } = useAnimatable(
   },
   {
     delay: (fieldKey) => getStatusParamsValue<GraphParams, number>(
-      status,
+      status.value,
+      pStatus.value,
       {
         'hidden-visible': {
           width: props.duration * 2,
@@ -115,11 +118,21 @@ const { data: graphParams } = useAnimatable(
           rotate: props.duration * 2,
         },
       },
-    )(fieldKey) ?? 0,
+      fieldKey,
+    ) ?? 0,
     duration: props.duration,
-    ease: (fieldKey) => fieldKey === 'opacity'
-      ? 'outBounce'
-      : 'inOutQuint',
+    // ease: (fieldKey) => fieldKey === 'opacity'
+    //   ? 'outBounce'
+    //   : 'inOutQuint',
+    ease: (fieldKey) => getStatusParamsValue<GraphParams, EaseString>(
+      status.value,
+      pStatus.value,
+      {
+        visible: 'inOutQuint',
+        hover: 'outBounce',
+      },
+      fieldKey,
+    ) ?? 'inOutQuint',
   },
 )
 
