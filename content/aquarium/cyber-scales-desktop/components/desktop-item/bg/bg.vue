@@ -119,11 +119,9 @@ const { data: graphParams } = useAnimatable(
         },
       },
       fieldKey,
-    ) ?? 0,
+      0,
+    ),
     duration: props.duration,
-    // ease: (fieldKey) => fieldKey === 'opacity'
-    //   ? 'outBounce'
-    //   : 'inOutQuint',
     ease: (fieldKey) => getStatusParamsValue<GraphParams, EaseString>(
       status.value,
       pStatus.value,
@@ -132,7 +130,8 @@ const { data: graphParams } = useAnimatable(
         hover: 'outBounce',
       },
       fieldKey,
-    ) ?? 'inOutQuint',
+      'inOutQuint',
+    ),
   },
 )
 

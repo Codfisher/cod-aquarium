@@ -20,9 +20,29 @@ export function getStatusParamsValue<
   pStatus: ComponentStatus,
   map: StatusParamsMap<Data, Value>,
   fieldKey: keyof Data,
+): Value | undefined
+export function getStatusParamsValue<
+  Data extends object,
+  Value extends string | number | undefined,
+>(
+  status: ComponentStatus,
+  pStatus: ComponentStatus,
+  map: StatusParamsMap<Data, Value>,
+  fieldKey: keyof Data,
+  defaultValue: NonNullable<Value>,
+): Value
+export function getStatusParamsValue<
+  Data extends object,
+  Value extends string | number | undefined,
+>(
+  status: ComponentStatus,
+  pStatus: ComponentStatus,
+  map: StatusParamsMap<Data, Value>,
+  fieldKey: keyof Data,
+  defaultValue?: Value,
 ): Value | undefined {
   if (!map || !fieldKey) {
-    return
+    return defaultValue
   }
 
   const key = `${pStatus}-${status}` as const
@@ -30,11 +50,11 @@ export function getStatusParamsValue<
 
   const value = map[statusKey]
   if (!value) {
-    return
+    return defaultValue
   }
   if (typeof value === 'string' || typeof value === 'number') {
-    return value
+    return value ?? defaultValue
   }
 
-  return value[fieldKey]
+  return value[fieldKey] ?? defaultValue
 }
