@@ -37,6 +37,7 @@
 
 <script setup lang="ts">
 import { computedAsync, promiseTimeout, useElementHover, useElementSize, useMounted, whenever } from '@vueuse/core'
+import { pipe } from 'remeda'
 import { computed, nextTick, provide, reactive, useTemplateRef, watch } from 'vue'
 import { useDecodingText } from '../../../../../composables/use-decoding-text'
 import { ComponentStatus } from '../../types'
@@ -44,7 +45,6 @@ import MaterialIcon from '../material-icon.vue'
 import Bg from './bg/bg.vue'
 import ContentWrapper from './content-wrapper.vue'
 import { desktopItemInjectionKey } from './type'
-import { pipe } from 'remeda'
 
 interface Props {
   label?: string;
@@ -97,7 +97,7 @@ const labelStyle = computed(() => {
         return value - labelSize.width + itemSize.width / 2 - 12
       }
       return value * 0.75
-    }
+    },
   )
 
   return {

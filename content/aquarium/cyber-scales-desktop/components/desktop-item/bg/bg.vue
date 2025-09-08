@@ -24,6 +24,7 @@ import { sample } from 'remeda'
 import { computed, inject, reactive, useTemplateRef } from 'vue'
 import { useAnimatable } from '../../../../../../composables/use-animatable'
 import { ComponentStatus } from '../../../types'
+import { getStatusParamsValue } from '../../../utils'
 import { desktopItemInjectionKey } from '../type'
 import CornerBrackets from './corner-brackets.vue'
 
@@ -76,9 +77,9 @@ const delayMap: Partial<Record<
   Partial<Record<keyof GraphParams, number>>
 >> = {
   'hidden-visible': {
-    width: props.duration,
-    height: props.duration,
-    chamfer: props.duration,
+    width: props.duration * 2,
+    height: props.duration * 2,
+    chamfer: props.duration * 1.6,
     rotate: props.duration * 1.2,
   },
 }
@@ -109,18 +110,20 @@ const { data: graphParams } = useAnimatable(
     }
 
     return {
-      width: 10,
-      height: 10,
-      chamfer: 5,
+      width: 50,
+      height: 50,
+      chamfer: 20,
       rotate: maxRotate - 45,
       opacity: 0,
     }
   },
   {
-    delay: (fieldKey) => {
-      const key = `${pStatus.value}-${status.value}` as const
-      return delayMap[key]?.[fieldKey] ?? 0
-    },
+    delay: (fieldKey) => getStatusParamsValue(
+      status.value,
+      pStatus.value,
+      delayMap,
+      fieldKey,
+    ) ?? 0,
     duration: props.duration,
     ease: (fieldKey) => fieldKey === 'opacity'
       ? 'outBounce'
