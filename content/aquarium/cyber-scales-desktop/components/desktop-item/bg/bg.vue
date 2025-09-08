@@ -110,10 +110,10 @@ const { data: graphParams } = useAnimatable(
     }
 
     return {
-      width: 50,
-      height: 50,
-      chamfer: 20,
-      rotate: maxRotate - 45,
+      width: 20,
+      height: 20,
+      chamfer: 10,
+      rotate: maxRotate - 90,
       opacity: 0,
     }
   },
