@@ -18,8 +18,8 @@ export function getStatusParamsValue<
 >(
   status: ComponentStatus,
   pStatus: ComponentStatus,
-  map: StatusParamsMap<Data, Value>,
   fieldKey: keyof Data,
+  map: StatusParamsMap<Data, Value>,
 ): Value | undefined
 export function getStatusParamsValue<
   Data extends object,
@@ -27,8 +27,8 @@ export function getStatusParamsValue<
 >(
   status: ComponentStatus,
   pStatus: ComponentStatus,
-  map: StatusParamsMap<Data, Value>,
   fieldKey: keyof Data,
+  map: StatusParamsMap<Data, Value>,
   defaultValue: NonNullable<Value>,
 ): Value
 export function getStatusParamsValue<
@@ -37,8 +37,8 @@ export function getStatusParamsValue<
 >(
   status: ComponentStatus,
   pStatus: ComponentStatus,
-  map: StatusParamsMap<Data, Value>,
   fieldKey: keyof Data,
+  map: StatusParamsMap<Data, Value>,
   defaultValue?: Value,
 ): Value | undefined {
   if (!map || !fieldKey) {

@@ -110,6 +110,7 @@ const { data: graphParams } = useAnimatable(
     delay: (fieldKey) => getStatusParamsValue<GraphParams, number>(
       status.value,
       pStatus.value,
+      fieldKey,
       {
         'hidden-visible': {
           width: props.duration * 1.6,
@@ -118,18 +119,17 @@ const { data: graphParams } = useAnimatable(
           rotate: props.duration,
         },
       },
-      fieldKey,
       0,
     ),
     duration: props.duration,
     ease: (fieldKey) => getStatusParamsValue<GraphParams, EaseString>(
       status.value,
       pStatus.value,
+      fieldKey,
       {
         visible: 'inOutQuint',
         hover: 'outBounce',
       },
-      fieldKey,
       'inOutQuint',
     ),
   },
