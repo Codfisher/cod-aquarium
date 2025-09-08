@@ -10,6 +10,8 @@
         :delay="(i + 1) * 100"
       />
     </hexagon-layout>
+
+    <cursor-futuristic />
   </div>
 </template>
 
@@ -18,6 +20,7 @@ import { onBeforeUnmount, onMounted } from 'vue'
 import BaseWindow from './components/base-window/base-window.vue'
 import DesktopItem from './components/desktop-item/desktop-item.vue'
 import HexagonLayout from './components/hexagon-layout.vue'
+import CursorFuturistic from './components/cursor-futuristic/cursor-futuristic.vue'
 
 // 載入字體
 const fontHref = 'https://fonts.googleapis.com/css2?family=Material+Symbols+Sharp:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&family=Orbitron:wght@400..900'
