@@ -20,7 +20,7 @@
         class="item-label text-[#777] text-nowrap font-orbitron"
         :style="labelStyle"
       >
-        <div class="">
+        <div class=" leading-none">
           {{ labelDecoder.text }}
         </div>
 
@@ -94,7 +94,7 @@ const labelStyle = computed(() => {
     Math.sqrt(itemSize.width ** 2 + itemSize.height ** 2) * dir,
     (value) => {
       if (props.labelLeft) {
-        return value - labelSize.width / 2 - 16
+        return value - labelSize.width / 2 - 20
       }
       return value * 0.75
     }
