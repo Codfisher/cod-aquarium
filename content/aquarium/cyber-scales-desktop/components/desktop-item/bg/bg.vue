@@ -102,7 +102,7 @@ const { data: graphParams } = useAnimatable(
       width: 10,
       height: 10,
       chamfer: 0,
-      rotate: maxRotate - 180,
+      rotate: maxRotate + 45,
       opacity: 0,
     }
   },
@@ -112,10 +112,10 @@ const { data: graphParams } = useAnimatable(
       pStatus.value,
       {
         'hidden-visible': {
-          width: props.duration * 2,
-          height: props.duration * 2,
+          width: props.duration * 1.6,
+          height: props.duration * 1.6,
           chamfer: props.duration * 1.6,
-          rotate: props.duration * 2,
+          rotate: props.duration,
         },
       },
       fieldKey,
