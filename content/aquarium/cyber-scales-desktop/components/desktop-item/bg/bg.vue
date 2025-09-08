@@ -79,7 +79,7 @@ const delayMap: Partial<Record<
     width: props.duration,
     height: props.duration,
     chamfer: props.duration,
-    rotate: props.duration,
+    rotate: props.duration * 1.2,
   },
 }
 
@@ -104,7 +104,7 @@ const { data: graphParams } = useAnimatable(
         height,
         chamfer: 10,
         rotate: maxRotate,
-        opacity: 1,
+        opacity: 0.6,
       }
     }
 
