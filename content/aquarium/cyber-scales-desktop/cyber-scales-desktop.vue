@@ -60,6 +60,7 @@ const itemList = [
   {
     label: '部落格',
     subLabel: 'Blog',
+    icon: 'article_person'
   },
   {
     label: '設定',

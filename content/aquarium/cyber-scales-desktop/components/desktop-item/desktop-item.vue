@@ -94,7 +94,7 @@ const labelStyle = computed(() => {
     Math.sqrt(itemSize.width ** 2 + itemSize.height ** 2) * dir,
     (value) => {
       if (props.labelLeft) {
-        return value - labelSize.width / 2 - 20
+        return value - labelSize.width + itemSize.width / 2 - 12
       }
       return value * 0.75
     }
