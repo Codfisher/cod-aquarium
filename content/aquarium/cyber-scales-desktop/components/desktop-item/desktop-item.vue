@@ -1,7 +1,7 @@
 <template>
   <div
     ref="itemRef"
-    class="desktop-item relative p-3 aspect-square flex justify-center items-center gradient-effect"
+    class="desktop-item cursor-pointer relative p-3 aspect-square flex justify-center items-center gradient-effect"
   >
     <bg class="z-[-1]" />
     <content-wrapper class="z-0  ">
@@ -36,7 +36,7 @@
 </template>
 
 <script setup lang="ts">
-import { computedAsync, promiseTimeout, useElementHover, useElementSize, useMounted, whenever } from '@vueuse/core'
+import { computedAsync, promiseTimeout, useElementHover, useElementSize, useMounted, useMousePressed, whenever } from '@vueuse/core'
 import { pipe } from 'remeda'
 import { computed, nextTick, provide, reactive, useTemplateRef, watch } from 'vue'
 import { useDecodingText } from '../../../../../composables/use-decoding-text'
@@ -76,6 +76,7 @@ const itemSize = reactive(useElementSize(itemRef))
 
 const isMounted = useMounted()
 const isHover = useElementHover(itemRef)
+const { pressed: isPressed } = useMousePressed({ target: itemRef })
 const isVisible = computedAsync(async () => {
   await promiseTimeout(props.delay)
   await nextTick()
@@ -94,7 +95,7 @@ const labelStyle = computed(() => {
     Math.sqrt(itemSize.width ** 2 + itemSize.height ** 2) * dir,
     (value) => {
       if (props.labelLeft) {
-        return value - labelSize.width + itemSize.width / 2 - 12
+        return value - labelSize.width + itemSize.width / 2 - 14
       }
       return value * 0.75
     },
@@ -107,6 +108,9 @@ const labelStyle = computed(() => {
 
 const status = computed(() => {
   if (isVisible.value) {
+    if (isPressed.value) {
+      return ComponentStatus.ACTIVE
+    }
     if (isHover.value) {
       return ComponentStatus.HOVER
     }

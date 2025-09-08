@@ -78,17 +78,17 @@ const { data: graphParams } = useAnimatable(
   (): GraphParams => {
     const { width, height } = containerSize
 
-    if (status.value === 'visible') {
+    if (status.value === ComponentStatus.HIDDEN) {
       return {
-        width,
-        height,
-        chamfer: 10,
-        rotate: maxRotate,
-        opacity: 1,
+        width: 10,
+        height: 10,
+        chamfer: 0,
+        rotate: maxRotate + 45,
+        opacity: 0,
       }
     }
 
-    if (status.value === 'hover') {
+    if (status.value === ComponentStatus.HOVER) {
       return {
         width,
         height,
@@ -98,12 +98,22 @@ const { data: graphParams } = useAnimatable(
       }
     }
 
+    if (status.value === ComponentStatus.ACTIVE) {
+      return {
+        width: width - 2,
+        height: height - 2,
+        chamfer: 10,
+        rotate: maxRotate,
+        opacity: 0.9,
+      }
+    }
+
     return {
-      width: 10,
-      height: 10,
-      chamfer: 0,
-      rotate: maxRotate + 45,
-      opacity: 0,
+      width,
+      height,
+      chamfer: 10,
+      rotate: maxRotate,
+      opacity: 1,
     }
   },
   {
@@ -121,7 +131,15 @@ const { data: graphParams } = useAnimatable(
       },
       0,
     ),
-    duration: props.duration,
+    duration: (fieldKey) => resolveTransitionParamValue<GraphParams, number>(
+      status.value,
+      pStatus.value,
+      fieldKey,
+      {
+        active: 50,
+      },
+      props.duration,
+    ),
     ease: (fieldKey) => resolveTransitionParamValue<GraphParams, EaseString>(
       status.value,
       pStatus.value,
