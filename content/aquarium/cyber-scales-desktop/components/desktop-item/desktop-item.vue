@@ -142,7 +142,6 @@ provide(desktopItemInjectionKey, {
   left: 50%
 
 .gradient-effect
-  position: relative
   &::after
     content: ''
     background: linear-gradient(90deg, #FFFF, #FFF0)
