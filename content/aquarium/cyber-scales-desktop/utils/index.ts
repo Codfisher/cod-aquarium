@@ -23,23 +23,16 @@ export function getStatusParamsValue<
     return
   }
 
-  return pipe(
-    undefined,
-    () => {
-      const key = `${pStatus}-${status}` as const
+  const key = `${pStatus}-${status}` as const
+  const statusKey = key in map ? key : status
 
-      return key in map ? key : status
-    },
-    (key) => {
-      const value = map[key]
-      if (!value) {
-        return
-      }
-      if (typeof value === 'string' || typeof value === 'number') {
-        return value
-      }
+  const value = map[statusKey]
+  if (!value) {
+    return
+  }
+  if (typeof value === 'string' || typeof value === 'number') {
+    return value
+  }
 
-      return value[fieldKey]
-    },
-  )
+  return value[fieldKey]
 }
