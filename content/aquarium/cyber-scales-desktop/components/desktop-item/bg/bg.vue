@@ -40,7 +40,6 @@ if (!mainProvider) {
   throw new Error('mainProvider is not provided')
 }
 const { status } = mainProvider
-const pStatus = usePrevious(status, ComponentStatus.HIDDEN)
 
 const containerRef = useTemplateRef<HTMLDivElement>('containerRef')
 const containerSize = reactive(useElementSize(containerRef))
@@ -113,7 +112,7 @@ const { data: graphParams } = useAnimatable(
           width: props.duration * 2,
           height: props.duration * 2,
           chamfer: props.duration * 1.6,
-          rotate: props.duration * 1.2,
+          rotate: props.duration * 2,
         },
       },
     )(fieldKey) ?? 0,
