@@ -12,7 +12,8 @@ export type StatusParamsMap<
   Partial<Record<keyof Data, Value>> | Value
 >>
 
-export function getStatusParamsValue<
+/** 解析狀態轉換與屬性對應數值 */
+export function resolveTransitionParamValue<
   Data extends object,
   Value extends string | number | undefined,
 >(
@@ -21,7 +22,7 @@ export function getStatusParamsValue<
   fieldKey: keyof Data,
   map: StatusParamsMap<Data, Value>,
 ): Value | undefined
-export function getStatusParamsValue<
+export function resolveTransitionParamValue<
   Data extends object,
   Value extends string | number | undefined,
 >(
@@ -31,7 +32,7 @@ export function getStatusParamsValue<
   map: StatusParamsMap<Data, Value>,
   defaultValue: NonNullable<Value>,
 ): Value
-export function getStatusParamsValue<
+export function resolveTransitionParamValue<
   Data extends object,
   Value extends string | number | undefined,
 >(

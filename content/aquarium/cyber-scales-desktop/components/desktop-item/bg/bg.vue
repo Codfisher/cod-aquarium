@@ -25,7 +25,7 @@ import { sample } from 'remeda'
 import { computed, inject, reactive, useTemplateRef } from 'vue'
 import { useAnimatable } from '../../../../../../composables/use-animatable'
 import { ComponentStatus } from '../../../types'
-import { getStatusParamsValue } from '../../../utils'
+import { resolveTransitionParamValue } from '../../../utils'
 import { desktopItemInjectionKey } from '../type'
 import CornerBrackets from './corner-brackets.vue'
 
@@ -107,7 +107,7 @@ const { data: graphParams } = useAnimatable(
     }
   },
   {
-    delay: (fieldKey) => getStatusParamsValue<GraphParams, number>(
+    delay: (fieldKey) => resolveTransitionParamValue<GraphParams, number>(
       status.value,
       pStatus.value,
       fieldKey,
@@ -122,7 +122,7 @@ const { data: graphParams } = useAnimatable(
       0,
     ),
     duration: props.duration,
-    ease: (fieldKey) => getStatusParamsValue<GraphParams, EaseString>(
+    ease: (fieldKey) => resolveTransitionParamValue<GraphParams, EaseString>(
       status.value,
       pStatus.value,
       fieldKey,
