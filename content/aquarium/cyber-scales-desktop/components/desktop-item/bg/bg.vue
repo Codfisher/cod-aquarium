@@ -73,7 +73,7 @@ interface GraphParams {
   opacity: number;
 }
 
-const maxRotate = sample([45, 135, -45, -135], 1)[0] ?? 45
+const maxRotate = sample([45, 135, -135], 1)[0] ?? 45
 const { data: graphParams } = useAnimatable(
   (): GraphParams => {
     const { width, height } = containerSize
@@ -124,7 +124,7 @@ const { data: graphParams } = useAnimatable(
       {
         'hidden-visible': {
           width: props.duration * 1.6,
-          height: props.duration ,
+          height: props.duration,
           chamfer: props.duration * 1.6,
           rotate: props.duration,
         },

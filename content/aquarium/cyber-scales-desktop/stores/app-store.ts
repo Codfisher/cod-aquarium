@@ -1,7 +1,10 @@
+import type { Component } from 'vue'
 import { nanoid } from 'nanoid'
 import { defineStore } from 'pinia'
 import { clone } from 'remeda'
 import { shallowRef } from 'vue'
+
+import AppList from '../components/app-list/app-list.vue'
 
 type AppType = 'list'
 
@@ -14,6 +17,7 @@ interface AppInfo {
     y: number;
     width: number;
     height: number;
+    component: Component;
   };
 }
 
@@ -23,6 +27,7 @@ const defaultAppData: Record<AppType, AppInfo['data']> = {
     y: 0,
     width: 300,
     height: 200,
+    component: AppList,
   },
 }
 
@@ -41,5 +46,6 @@ export const useAppStore = defineStore('app', () => {
 
   return {
     appList,
+    add,
   }
 })

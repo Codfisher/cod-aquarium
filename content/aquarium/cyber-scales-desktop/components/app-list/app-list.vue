@@ -1,7 +1,12 @@
 <template>
+  <base-window title="應用程式">
+    安安
+  </base-window>
 </template>
 
 <script setup lang="ts">
+import BaseWindow from '../base-window/base-window.vue'
+
 interface Props {
   modelValue?: string;
 }
