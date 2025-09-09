@@ -1,7 +1,7 @@
 import type { EaseStringParamNames } from 'animejs'
-import type { MaybeRefOrGetter, Reactive } from 'vue'
+import type { MaybeRefOrGetter } from 'vue'
 import { createAnimatable } from 'animejs'
-import { clone, entries, isFunction, keys, pipe, when } from 'remeda'
+import { clone } from 'remeda'
 import { onWatcherCleanup, reactive, toValue, watch } from 'vue'
 
 export type DataObject<T extends object> = { [K in keyof T]: number }

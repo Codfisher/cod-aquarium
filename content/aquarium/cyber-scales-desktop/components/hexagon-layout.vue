@@ -13,7 +13,7 @@ import { nextTick, onMounted, useTemplateRef } from 'vue'
 
 interface Props {
   /** 偏移的尺寸量測依據。可避免因為載入等其他原因導致的偏移 */
-  sizeSelector?: string
+  sizeSelector?: string;
 }
 const props = withDefaults(defineProps<Props>(), {})
 

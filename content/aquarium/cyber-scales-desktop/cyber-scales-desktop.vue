@@ -14,9 +14,7 @@
       />
     </hexagon-layout>
 
-    <window-container class="w-screen h-screen">
-      
-    </window-container>
+    <window-container class="w-screen h-screen" />
 
     <cursor-futuristic />
   </div>
@@ -25,9 +23,9 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted } from 'vue'
 import BaseWindow from './components/base-window/base-window.vue'
+import CursorFuturistic from './components/cursor-futuristic/cursor-futuristic.vue'
 import DesktopItem from './components/desktop-item/desktop-item.vue'
 import HexagonLayout from './components/hexagon-layout.vue'
-import CursorFuturistic from './components/cursor-futuristic/cursor-futuristic.vue'
 import WindowContainer from './components/window-container.vue'
 
 // 載入字體
