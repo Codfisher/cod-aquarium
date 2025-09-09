@@ -70,7 +70,7 @@ const mouse = reactiveComputed(() => props.mouse)
 const { data: svgParams } = useAnimatable(
   () => {
     const { hoverElementBounding, size } = props
-    if (props.state === 'pointer' && hoverElementBounding) {
+    if (['pointer', 'pressed'].includes(props.state) && hoverElementBounding) {
       const { width, height, x, y } = hoverElementBounding
 
       return {
@@ -193,7 +193,23 @@ const pathsStateTargetParamsMap = reactiveComputed<
       }
     }),
     'pressed': pipe(undefined, (): Record<PathName, PathParams> => {
-      const offset = size / 5
+      const { hoverElementBounding } = props
+
+      const { xOffset, yOffset } = pipe(undefined, () => {
+        if (hoverElementBounding) {
+          const { width, height } = hoverElementBounding
+          return {
+            xOffset: width / 2,
+            yOffset: height / 2,
+          }
+        }
+
+        return {
+          xOffset: size / 5,
+          yOffset: size / 5,
+        }
+      })
+
       const params = {
         rotateSelf: 0,
         rotate: -135,
@@ -203,10 +219,10 @@ const pathsStateTargetParamsMap = reactiveComputed<
       }
 
       return {
-        tl: { ...params, x: -offset, y: -offset },
-        tr: { ...params, x: offset, y: -offset },
-        bl: { ...params, x: -offset, y: offset },
-        br: { ...params, x: offset, y: offset },
+        tl: { ...params, x: -xOffset, y: -yOffset },
+        tr: { ...params, x: xOffset, y: -yOffset },
+        bl: { ...params, x: -xOffset, y: yOffset },
+        br: { ...params, x: xOffset, y: yOffset },
       }
     }),
     'not-allowed': pipe(undefined, (): Record<PathName, PathParams> => {

@@ -11,7 +11,10 @@
 import { promiseTimeout } from '@vueuse/core'
 import { nextTick, onMounted, useTemplateRef } from 'vue'
 
-interface Props { }
+interface Props {
+  /** 偏移的尺寸量測依據。可避免因為載入等其他原因導致的偏移 */
+  sizeSelector?: string
+}
 const props = withDefaults(defineProps<Props>(), {})
 
 const layoutRef = useTemplateRef('layoutRef')
@@ -26,6 +29,7 @@ onMounted(async () => {
   if (document.fonts) {
     try {
       await document.fonts.ready
+      await promiseTimeout(100)
     }
     catch { }
   }
@@ -37,7 +41,11 @@ onMounted(async () => {
       return
     }
 
-    const { width, height } = child.getBoundingClientRect()
+    const sizeEl = props.sizeSelector
+      ? child.querySelector(props.sizeSelector) ?? child
+      : child
+
+    const { width, height } = sizeEl.getBoundingClientRect()
     const x = width / 2 * ((-1) ** i)
     child.style.transform = `translate(${x}px, 0px)`
   })

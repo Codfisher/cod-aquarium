@@ -1,6 +1,9 @@
 <template>
   <div class=" w-screen h-screen flex flex-col items-start p-4 gap-4">
-    <hexagon-layout class="  w-full h-full pb-10">
+    <hexagon-layout
+      class="  w-full h-full pb-10"
+      size-selector=".icon"
+    >
       <desktop-item
         v-for="item, i in itemList"
         :key="item.label"

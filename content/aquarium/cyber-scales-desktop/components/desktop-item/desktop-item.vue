@@ -11,7 +11,7 @@
         weight="100"
         grade="-25"
         opsz="20"
-        class="text-white"
+        class="text-white w-[4rem] h-[4rem] icon"
       />
       <slot />
 
