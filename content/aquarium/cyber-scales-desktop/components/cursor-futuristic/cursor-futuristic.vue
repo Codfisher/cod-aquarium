@@ -76,6 +76,17 @@ watch(element, (el) => {
     }
   }
 
+  let prevEl = undefined
+  while (el && el !== document.body) {
+    prevEl = el
+    el = el.parentElement
+
+    if (el && getComputedStyle(el).cursor !== 'pointer') {
+      hoverElement.value = prevEl
+      return
+    }
+  }
+
   hoverElement.value = el
 })
 
