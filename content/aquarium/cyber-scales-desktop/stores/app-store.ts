@@ -1,16 +1,45 @@
+import { nanoid } from 'nanoid'
 import { defineStore } from 'pinia'
+import { clone } from 'remeda'
 import { shallowRef } from 'vue'
+
+type AppType = 'list'
 
 interface AppInfo {
   id: string;
   name: string;
-  icon: string;
-  version: string;
-  description: string;
+  type: AppType;
+  data: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+}
+
+const defaultAppData: Record<AppType, AppInfo['data']> = {
+  list: {
+    x: 0,
+    y: 0,
+    width: 300,
+    height: 200,
+  },
 }
 
 export const useAppStore = defineStore('app', () => {
-  const appList = shallowRef([])
+  const appList = shallowRef<AppInfo[]>([])
 
-  return {}
+  function add(type: AppType, name: string) {
+    const id = nanoid()
+    appList.value.push({
+      id,
+      name,
+      type,
+      data: clone(defaultAppData[type]),
+    })
+  }
+
+  return {
+    appList,
+  }
 })

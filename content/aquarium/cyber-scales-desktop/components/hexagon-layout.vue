@@ -46,7 +46,7 @@ onMounted(async () => {
       : child
 
     const { width } = sizeEl.getBoundingClientRect()
-    const x = width / 2 * ((-1) ** i)
+    const x = (width / 2 + 10) * ((-1) ** i)
     child.style.transform = `translate(${x}px, 0px)`
   })
 })
