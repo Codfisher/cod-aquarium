@@ -245,7 +245,7 @@ const articleList = computed(() => pipe(
     ...item,
     frontmatter: {
       ...item.frontmatter,
-      date: dayjs(`${item.frontmatter.date}`, 'YYYYMMDD').format('YYYY/MM/DD'),
+      date: dayjs(`${item.frontmatter.pubDate}`, 'YYYYMMDD').format('YYYY/MM/DD'),
       image: !isDev ? item.frontmatter.image : item.frontmatter.image?.replace('https://codlin.me', ''),
     },
   })),
