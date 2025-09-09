@@ -14,8 +14,11 @@ import { nextTick, onMounted, useTemplateRef } from 'vue'
 interface Props {
   /** 偏移的尺寸量測依據。可避免因為載入等其他原因導致的偏移 */
   sizeSelector?: string;
+  gap?: number;
 }
-const props = withDefaults(defineProps<Props>(), {})
+const props = withDefaults(defineProps<Props>(), {
+  gap: 14,
+})
 
 const layoutRef = useTemplateRef('layoutRef')
 
@@ -46,7 +49,7 @@ onMounted(async () => {
       : child
 
     const { width } = sizeEl.getBoundingClientRect()
-    const x = (width / 2 + 10) * ((-1) ** i)
+    const x = (width / 2 + props.gap) * ((-1) ** i)
     child.style.transform = `translate(${x}px, 0px)`
   })
 })
