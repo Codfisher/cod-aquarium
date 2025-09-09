@@ -1,9 +1,9 @@
 <template>
   <div
     ref="itemRef"
-    class="desktop-item cursor-pointer relative p-3 aspect-square flex justify-center items-center gradient-effect"
+    class="desktop-item cursor-pointer relative p-3 aspect-square flex justify-center items-center"
   >
-    <bg class="z-[-1] " />
+    <bg class="z-[-1] gradient-effect" />
 
     <content-wrapper class="z-0  ">
       <material-icon
