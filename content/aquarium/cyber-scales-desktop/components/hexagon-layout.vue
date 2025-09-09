@@ -45,7 +45,7 @@ onMounted(async () => {
       ? child.querySelector(props.sizeSelector) ?? child
       : child
 
-    const { width, height } = sizeEl.getBoundingClientRect()
+    const { width } = sizeEl.getBoundingClientRect()
     const x = width / 2 * ((-1) ** i)
     child.style.transform = `translate(${x}px, 0px)`
   })

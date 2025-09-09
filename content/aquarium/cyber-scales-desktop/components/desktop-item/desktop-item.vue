@@ -3,7 +3,8 @@
     ref="itemRef"
     class="desktop-item cursor-pointer relative p-3 aspect-square flex justify-center items-center gradient-effect"
   >
-    <bg class="z-[-1]" />
+    <bg class="z-[-1] " />
+
     <content-wrapper class="z-0  ">
       <material-icon
         :name="props.icon"
@@ -13,6 +14,7 @@
         opsz="20"
         class="text-white w-[4rem] h-[4rem] icon"
       />
+
       <slot />
 
       <div
@@ -146,6 +148,7 @@ provide(desktopItemInjectionKey, {
   left: 50%
 
 .gradient-effect
+  isolation: isolate
   &::after
     content: ''
     background: linear-gradient(90deg, #FFFF, #FFF0)
@@ -155,7 +158,7 @@ provide(desktopItemInjectionKey, {
     top: -5%
     bottom: -5%
     right: -5%
-    opacity: 0.8
+    opacity: 1
     pointer-events: none
     transform: rotate(45deg)
 </style>
