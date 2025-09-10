@@ -123,8 +123,9 @@ const { data: graphParams } = useAnimatable(
       fieldKey,
       {
         'hidden-visible': {
-          width: props.duration * 1.4,
+          width: props.duration * 2.4,
           height: props.duration * 0.4,
+          chamfer: props.duration * 0.4,
         },
       },
       0,
