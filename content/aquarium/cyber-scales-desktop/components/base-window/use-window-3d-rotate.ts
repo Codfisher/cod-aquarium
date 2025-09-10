@@ -1,5 +1,5 @@
 import { type MaybeElementRef, reactiveComputed, throttleFilter, useMouseInElement, useRafFn } from '@vueuse/core'
-import { pipe } from 'remeda'
+import { mapValues, pipe } from 'remeda'
 import { computed, ref, toValue } from 'vue'
 
 export function useWindow3dRotate(
@@ -46,10 +46,15 @@ export function useWindow3dRotate(
       return { x: 0, y: 0 }
     })
 
-    rotateData.value = {
-      x: rotateData.value.x + (target.x - rotateData.value.x) * 0.2,
-      y: rotateData.value.y + (target.y - rotateData.value.y) * 0.2,
-    }
+    const data = pipe(
+      {
+        x: rotateData.value.x + (target.x - rotateData.value.x) * 0.2,
+        y: rotateData.value.y + (target.y - rotateData.value.y) * 0.2,
+      },
+      mapValues((value) => Math.abs(value) < 0.001 ? 0 : value),
+    )
+
+    rotateData.value = data
 
     if (targetEl.value) {
       targetEl.value.style.transform = style.value.transform

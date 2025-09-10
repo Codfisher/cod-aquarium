@@ -2,7 +2,7 @@ import type { Component } from 'vue'
 import { nanoid } from 'nanoid'
 import { defineStore } from 'pinia'
 import { clone } from 'remeda'
-import { shallowRef } from 'vue'
+import { ref, shallowRef } from 'vue'
 
 import AppList from '../components/app-list/app-list.vue'
 
@@ -10,9 +10,9 @@ type AppType = 'list'
 
 interface AppInfo {
   id: string;
-  name: string;
   type: AppType;
   data: {
+    name: string;
     x: number;
     y: number;
     width: number;
@@ -23,6 +23,7 @@ interface AppInfo {
 
 const defaultAppData: Record<AppType, AppInfo['data']> = {
   list: {
+    name: '應用程式',
     x: 0,
     y: 0,
     width: 300,
@@ -32,13 +33,12 @@ const defaultAppData: Record<AppType, AppInfo['data']> = {
 }
 
 export const useAppStore = defineStore('app', () => {
-  const appList = shallowRef<AppInfo[]>([])
+  const appList = ref<AppInfo[]>([])
 
-  function add(type: AppType, name: string) {
+  function add(type: AppType) {
     const id = nanoid()
     appList.value.push({
       id,
-      name,
       type,
       data: clone(defaultAppData[type]),
     })

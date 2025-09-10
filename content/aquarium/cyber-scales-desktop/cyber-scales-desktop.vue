@@ -14,7 +14,7 @@
       />
     </hexagon-layout>
 
-    <window-container class="w-screen h-screen" />
+    <window-container />
 
     <cursor-futuristic />
   </div>
@@ -27,6 +27,7 @@ import CursorFuturistic from './components/cursor-futuristic/cursor-futuristic.v
 import DesktopItem from './components/desktop-item/desktop-item.vue'
 import HexagonLayout from './components/hexagon-layout.vue'
 import WindowContainer from './components/window-container.vue'
+import { useAppStore } from './stores/app-store'
 
 // 載入字體
 const fontHref = 'https://fonts.googleapis.com/css2?family=Material+Symbols+Sharp:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&family=Orbitron:wght@400..900'
@@ -49,11 +50,17 @@ onBeforeUnmount(() => {
     document.head.removeChild(linkEl)
 })
 
+const appStore = useAppStore()
+
 const itemList = [
   {
     label: '應用程式',
     subLabel: 'Applications',
     icon: 'mobile_layout',
+    onclick() {
+      console.log(`🚀 ~ onclick: app`)
+      appStore.add('list')
+    },
   },
   {
     label: '作品集',

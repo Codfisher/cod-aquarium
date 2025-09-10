@@ -1,29 +1,27 @@
 <template>
+  <div class="window-container w-screen h-screen absolute top-0 left-0 pointer-events-none">
+    <div class="pointer-events-auto absolute left-0 top-0">
+      <component
+        :is="app.data.component"
+        v-for="app in appStore.appList"
+        :key="app.id"
+        class=" "
+      />
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
+import { useAppStore } from '../stores/app-store'
+
 interface Props {
   modelValue?: string;
 }
-
-interface Emits {
-  'update:modelValue': [value: Props['modelValue']];
-}
-
-interface Slots {
-  default?: () => unknown;
-}
-
 const props = withDefaults(defineProps<Props>(), {
   modelValue: '',
 })
 
-const emit = defineEmits<Emits>()
-
-defineSlots<Slots>()
-
-interface Expose { }
-defineExpose<Expose>({})
+const appStore = useAppStore()
 </script>
 
 <style scoped lang="sass">
