@@ -1,6 +1,6 @@
 <template>
-  <div class="window-container w-screen h-screen absolute top-0 left-0 pointer-events-none">
-    <div class="pointer-events-auto absolute left-0 top-0">
+  <div class="window-container w-screen h-screen absolute top-0 left-0 pointer-events-none p-[6rem]">
+    <div class="pointer-events-none absolute left-0 top-0 w-full h-full">
       <component
         :is="app.data.component"
         v-for="app in appStore.appList"
