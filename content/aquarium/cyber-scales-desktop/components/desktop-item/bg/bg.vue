@@ -124,8 +124,8 @@ const { data: graphParams } = useAnimatable(
       {
         'hidden-visible': {
           width: props.duration * 2.4,
-          height: props.duration * 0.4,
-          chamfer: props.duration * 0.4,
+          height: props.duration,
+          chamfer: props.duration,
         },
       },
       0,
