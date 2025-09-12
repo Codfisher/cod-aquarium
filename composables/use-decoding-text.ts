@@ -10,7 +10,7 @@ function useChar(
   }>,
 ) {
   const {
-    count = 8,
+    count = 12,
     interval = 50,
   } = options ?? {}
 
@@ -104,9 +104,15 @@ export function useDecodingText(
     charList.forEach(({ reset }) => reset())
   }
 
+  function restart() {
+    reset()
+    start()
+  }
+
   return {
     text,
     start,
+    restart,
     stop,
     reset,
   }

@@ -7,22 +7,41 @@
       class="absolute"
       v-bind="svgAttrs"
     >
-      <corner-brackets v-bind="frameParams" />
+      <!-- <corner-brackets v-bind="frameParams" /> -->
+
+      <polygon
+        v-bind="graphAttrs"
+        fill="#777"
+      />
     </svg>
   </div>
 </template>
 
 <script setup lang="ts">
 import type { CSSProperties } from 'vue'
-import type { ComponentStatus } from '../../../types'
-import { useElementSize } from '@vueuse/core'
-import { computed, reactive, useTemplateRef } from 'vue'
+import type { EaseString } from '../../../../../../composables/use-animatable'
+import { useElementSize, usePrevious } from '@vueuse/core'
+import { sample } from 'remeda'
+import { computed, inject, reactive, useTemplateRef } from 'vue'
+import { useAnimatable } from '../../../../../../composables/use-animatable'
+import { ComponentStatus } from '../../../types'
+import { resolveTransitionParamValue } from '../../../utils'
+import { desktopItemInjectionKey } from '../type'
 import CornerBrackets from './corner-brackets.vue'
 
 interface Props {
+  duration?: number;
 }
 const props = withDefaults(defineProps<Props>(), {
+  duration: 260,
 })
+
+const mainProvider = inject(desktopItemInjectionKey)
+if (!mainProvider) {
+  throw new Error('mainProvider is not provided')
+}
+const { status } = mainProvider
+const pStatus = usePrevious(status, ComponentStatus.HIDDEN)
 
 const containerRef = useTemplateRef<HTMLDivElement>('containerRef')
 const containerSize = reactive(useElementSize(containerRef))
@@ -44,6 +63,123 @@ const frameParams = computed(() => ({
   svgSize: containerSize,
   ...props,
 }))
+
+interface GraphParams {
+  width: number;
+  height: number;
+  /** 倒角 */
+  chamfer: number;
+  rotate: number;
+  opacity: number;
+}
+
+const maxRotate = sample([45, 135, -135], 1)[0] ?? 45
+const { data: graphParams } = useAnimatable(
+  (): GraphParams => {
+    const { width, height } = containerSize
+
+    if (status.value === ComponentStatus.HIDDEN) {
+      return {
+        width: 0,
+        height: 5,
+        chamfer: 0,
+        rotate: maxRotate + 45,
+        opacity: 0,
+      }
+    }
+
+    if (status.value === ComponentStatus.HOVER) {
+      return {
+        width,
+        height,
+        chamfer: 10,
+        rotate: maxRotate,
+        opacity: 0.6,
+      }
+    }
+
+    if (status.value === ComponentStatus.ACTIVE) {
+      return {
+        width: width - 2,
+        height: height - 2,
+        chamfer: 10,
+        rotate: maxRotate,
+        opacity: 0.9,
+      }
+    }
+
+    return {
+      width,
+      height,
+      chamfer: 10,
+      rotate: maxRotate,
+      opacity: 1,
+    }
+  },
+  {
+    delay: (fieldKey) => resolveTransitionParamValue<GraphParams, number>(
+      status.value,
+      pStatus.value,
+      fieldKey,
+      {
+        'hidden-visible': {
+          width: props.duration * 2.4,
+          height: props.duration,
+          chamfer: props.duration,
+        },
+      },
+      0,
+    ),
+    duration: (fieldKey) => resolveTransitionParamValue<GraphParams, number>(
+      status.value,
+      pStatus.value,
+      fieldKey,
+      {
+        active: 50,
+      },
+      props.duration,
+    ),
+    ease: (fieldKey) => resolveTransitionParamValue<GraphParams, EaseString>(
+      status.value,
+      pStatus.value,
+      fieldKey,
+      {
+        visible: 'inOutQuint',
+        hover: 'outBounce',
+      },
+      'inOutQuint',
+    ),
+  },
+)
+
+const graphAttrs = computed(() => {
+  const { opacity, rotate, chamfer } = graphParams
+  const hChamfer = chamfer / 2
+  const [x, y, width, height] = [
+    containerSize.width / 2,
+    containerSize.height / 2,
+    graphParams.width / 2,
+    graphParams.height / 2,
+  ]
+
+  return {
+    points: [
+      `${x - width},${y - height + chamfer}`,
+      `${x - width + chamfer},${y - height}`,
+      `${x + width - chamfer},${y - height}`,
+      `${x + width - hChamfer},${y - height}`,
+      `${x + width},${y - height + hChamfer}`,
+      `${x + width},${y}`,
+      `${x + width + hChamfer},${y + hChamfer}`,
+      `${x + width + hChamfer},${y + height - hChamfer}`,
+      `${x + width},${y + height}`,
+      `${x - width + chamfer},${y + height}`,
+      `${x - width},${y + height - chamfer}`,
+    ].join(' '),
+    transform: `rotate(${rotate}, ${x}, ${y})`,
+    opacity,
+  }
+})
 </script>
 
 <style scoped lang="sass">

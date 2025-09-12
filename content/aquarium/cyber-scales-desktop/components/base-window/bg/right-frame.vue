@@ -72,13 +72,6 @@ const durationMap: Partial<Record<ComponentStatus, number>> = {
 }
 
 const { data: lineParams } = useAnimatable(
-  {
-    x1: 0,
-    y1: 0,
-    y2: 0,
-    // color: '#777',
-    width: 0,
-  },
   lineTargetParams,
   {
     delay: (fieldKey) => delayMap[props.status]?.[fieldKey] ?? 0,

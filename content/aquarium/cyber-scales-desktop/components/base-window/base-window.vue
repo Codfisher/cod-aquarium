@@ -2,7 +2,6 @@
   <div
     ref="windowRef"
     class="base-window relative "
-    @click="toggleData()"
   >
     <bg
       :status="status"
@@ -18,8 +17,7 @@
 </template>
 
 <script setup lang="ts">
-import { useToggle } from '@vueuse/core'
-import { computed, provide, useTemplateRef } from 'vue'
+import { computed, onMounted, provide, ref, useTemplateRef } from 'vue'
 import { ComponentStatus } from '../../types'
 import Bg from './bg/bg.vue'
 import ContentWrapper from './content-wrapper.vue'
@@ -54,9 +52,9 @@ const emit = defineEmits<Emits>()
 
 defineSlots<Slots>()
 
-const [data, toggleData] = useToggle(false)
-const status = computed(() => {
-  return data.value ? ComponentStatus.VISIBLE : ComponentStatus.HIDDEN
+const status = ref(ComponentStatus.HIDDEN)
+onMounted(() => {
+  status.value = ComponentStatus.VISIBLE
 })
 
 const windowRef = useTemplateRef('windowRef')
@@ -77,6 +75,6 @@ provide(baseWindowInjectionKey, {
 <style scoped lang="sass">
 .base-window
   transform-style: preserve-3d
-  min-width: 500px
-  min-height: 300px
+  min-width: 200px
+  min-height: 100px
 </style>

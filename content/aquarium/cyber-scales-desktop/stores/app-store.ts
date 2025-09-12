@@ -1,0 +1,51 @@
+import type { Component } from 'vue'
+import { nanoid } from 'nanoid'
+import { defineStore } from 'pinia'
+import { clone } from 'remeda'
+import { ref, shallowRef } from 'vue'
+
+import AppList from '../components/app-list/app-list.vue'
+
+type AppType = 'list'
+
+interface AppInfo {
+  id: string;
+  type: AppType;
+  data: {
+    name: string;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    component: Component;
+  };
+}
+
+const defaultAppData: Record<AppType, AppInfo['data']> = {
+  list: {
+    name: '應用程式',
+    x: 0,
+    y: 0,
+    width: 300,
+    height: 200,
+    component: AppList,
+  },
+}
+
+export const useAppStore = defineStore('app', () => {
+  const appList = ref<AppInfo[]>([])
+
+  function add(type: AppType) {
+    const id = nanoid()
+    appList.value.push({
+      id,
+      type,
+      data: clone(defaultAppData[type]),
+    })
+  }
+
+  return {
+    appList,
+    add,
+  }
+})

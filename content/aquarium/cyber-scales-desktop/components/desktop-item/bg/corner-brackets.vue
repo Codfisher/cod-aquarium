@@ -38,10 +38,11 @@
 </template>
 
 <script setup lang="ts">
-import type { ComponentStatus } from '../../../types'
+import { usePrevious } from '@vueuse/core'
 import { join, map, pipe } from 'remeda'
-import { computed, inject, ref, toRefs, watch } from 'vue'
+import { computed, inject } from 'vue'
 import { useAnimatable } from '../../../../../../composables/use-animatable'
+import { ComponentStatus } from '../../../types'
 import { desktopItemInjectionKey } from '../type'
 
 interface Props {
@@ -51,6 +52,14 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   duration: 260,
 })
+
+const mainProvider = inject(desktopItemInjectionKey)
+if (!mainProvider) {
+  throw new Error('mainProvider is not provided')
+}
+const { status } = mainProvider
+
+const pStatus = usePrevious(status, ComponentStatus.HIDDEN)
 
 /** 圖形上下左右對稱，只要 lt 參數即可
  *
@@ -62,46 +71,6 @@ interface GraphParams {
   size: number;
   width: number;
 }
-
-const mainProvider = inject(desktopItemInjectionKey)
-if (!mainProvider) {
-  throw new Error('mainProvider is not provided')
-}
-const { status } = mainProvider
-
-const pStatus = ref(mainProvider.status.value)
-watch(status, (value) => {
-  pStatus.value = value
-}, { flush: 'post' })
-
-const targetParams = computed<GraphParams>(() => {
-  const { svgSize } = props
-
-  if (status.value === 'visible') {
-    return {
-      x: -svgSize.width / 2,
-      y: -svgSize.height / 2,
-      size: 6,
-      width: 0.4,
-    }
-  }
-
-  if (status.value === 'hover') {
-    return {
-      x: -svgSize.width / 2 - 5,
-      y: -svgSize.height / 2 - 5,
-      size: 6,
-      width: 0.8,
-    }
-  }
-
-  return {
-    x: 0,
-    y: 0,
-    size: 6,
-    width: 0,
-  }
-})
 
 const delayMap: Partial<Record<
   `${ComponentStatus}-${ComponentStatus}`,
@@ -115,13 +84,34 @@ const delayMap: Partial<Record<
 }
 
 const { data: graphParams } = useAnimatable(
-  {
-    x: 0,
-    y: 0,
-    size: 0,
-    width: 0,
+  (): GraphParams => {
+    const { svgSize } = props
+
+    if (status.value === 'visible') {
+      return {
+        x: -svgSize.width / 2,
+        y: -svgSize.height / 2,
+        size: 6,
+        width: 0.4,
+      }
+    }
+
+    if (status.value === 'hover') {
+      return {
+        x: -svgSize.width / 2 - 5,
+        y: -svgSize.height / 2 - 5,
+        size: 6,
+        width: 0.8,
+      }
+    }
+
+    return {
+      x: 0,
+      y: 0,
+      size: 6,
+      width: 0,
+    }
   },
-  targetParams,
   {
     delay: (fieldKey) => {
       const key = `${pStatus.value}-${status.value}` as const
