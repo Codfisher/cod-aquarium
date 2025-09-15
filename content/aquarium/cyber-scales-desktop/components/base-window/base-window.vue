@@ -75,6 +75,6 @@ provide(baseWindowInjectionKey, {
 <style scoped lang="sass">
 .base-window
   transform-style: preserve-3d
-  min-width: 200px
-  min-height: 100px
+  min-width: 300px
+  min-height: 200px
 </style>
