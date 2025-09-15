@@ -17,7 +17,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, provide, ref, useTemplateRef } from 'vue'
+import { promiseTimeout, until, useElementSize } from '@vueuse/core'
+import { computed, nextTick, onMounted, provide, reactive, ref, useTemplateRef } from 'vue'
 import { ComponentStatus } from '../../types'
 import Bg from './bg/bg.vue'
 import ContentWrapper from './content-wrapper.vue'
@@ -52,13 +53,14 @@ const emit = defineEmits<Emits>()
 
 defineSlots<Slots>()
 
+const windowRef = useTemplateRef('windowRef')
+const windowSize = reactive(useElementSize(windowRef))
+useWindow3dRotate(windowRef)
+
 const status = ref(ComponentStatus.HIDDEN)
-onMounted(() => {
+onMounted(async () => {
   status.value = ComponentStatus.VISIBLE
 })
-
-const windowRef = useTemplateRef('windowRef')
-useWindow3dRotate(windowRef)
 
 // #region Methods
 interface Expose { }

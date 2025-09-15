@@ -1,5 +1,5 @@
 <template>
-  <div class=" absolute top-0 left-0 pointer-events-none">
+  <div class=" absolute top-0 left-0 pointer-events-auto">
     <base-window title="應用程式">
       安安
     </base-window>
