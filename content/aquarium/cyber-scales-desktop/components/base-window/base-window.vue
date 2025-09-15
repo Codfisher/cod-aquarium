@@ -59,6 +59,7 @@ useWindow3dRotate(windowRef)
 
 const status = ref(ComponentStatus.HIDDEN)
 onMounted(async () => {
+  await until(() => windowSize.width > 0 && windowSize.height > 0).toBe(true)
   status.value = ComponentStatus.VISIBLE
 })
 
