@@ -2,7 +2,7 @@ import type { Component } from 'vue'
 import { nanoid } from 'nanoid'
 import { defineStore } from 'pinia'
 import { clone } from 'remeda'
-import { ref, shallowRef } from 'vue'
+import { markRaw, ref, shallowRef } from 'vue'
 
 import AppList from '../components/app-list/app-list.vue'
 
@@ -37,10 +37,14 @@ export const useAppStore = defineStore('app', () => {
 
   function add(type: AppType) {
     const id = nanoid()
+    const data = clone(defaultAppData[type])
     appList.value.push({
       id,
       type,
-      data: clone(defaultAppData[type]),
+      data: {
+        ...data,
+        component: markRaw(data.component),
+      },
     })
   }
 

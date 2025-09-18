@@ -1,11 +1,11 @@
 <template>
-  <div class="window-container w-screen h-screen absolute top-0 left-0 pointer-events-none p-[6rem]">
-    <div class="pointer-events-none absolute left-0 top-0 w-full h-full">
+  <div class="window-container w-screen h-screen absolute top-0 left-0 pointer-events-none p-10">
+    <div class="pointer-events-none  w-full h-full relative">
       <component
         :is="app.data.component"
         v-for="app in appStore.appList"
         :key="app.id"
-        class=" "
+        class=""
       />
     </div>
   </div>

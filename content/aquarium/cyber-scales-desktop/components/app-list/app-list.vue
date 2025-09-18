@@ -1,7 +1,9 @@
 <template>
-  <base-window title="應用程式">
-    安安
-  </base-window>
+  <div class=" absolute top-0 left-0 pointer-events-auto">
+    <base-window title="應用程式">
+      安安
+    </base-window>
+  </div>
 </template>
 
 <script setup lang="ts">

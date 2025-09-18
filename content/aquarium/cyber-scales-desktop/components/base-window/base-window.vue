@@ -17,7 +17,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, provide, ref, useTemplateRef } from 'vue'
+import { promiseTimeout, until, useElementSize } from '@vueuse/core'
+import { computed, nextTick, onMounted, provide, reactive, ref, useTemplateRef } from 'vue'
 import { ComponentStatus } from '../../types'
 import Bg from './bg/bg.vue'
 import ContentWrapper from './content-wrapper.vue'
@@ -52,13 +53,15 @@ const emit = defineEmits<Emits>()
 
 defineSlots<Slots>()
 
+const windowRef = useTemplateRef('windowRef')
+const windowSize = reactive(useElementSize(windowRef))
+useWindow3dRotate(windowRef)
+
 const status = ref(ComponentStatus.HIDDEN)
-onMounted(() => {
+onMounted(async () => {
+  await until(() => windowSize.width > 0 && windowSize.height > 0).toBe(true)
   status.value = ComponentStatus.VISIBLE
 })
-
-const windowRef = useTemplateRef('windowRef')
-useWindow3dRotate(windowRef)
 
 // #region Methods
 interface Expose { }
@@ -75,6 +78,6 @@ provide(baseWindowInjectionKey, {
 <style scoped lang="sass">
 .base-window
   transform-style: preserve-3d
-  min-width: 200px
-  min-height: 100px
+  min-width: 300px
+  min-height: 200px
 </style>
