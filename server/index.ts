@@ -50,3 +50,4 @@ app.use('/api/*', async (c, next) => {
 app.route('/', reactionsApi)
 
 export default app
+export type AppType = typeof app
