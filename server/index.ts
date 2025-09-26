@@ -18,7 +18,7 @@ app.use('/api/*', cors({
 
 // 取得使用者 ID
 app.use('/api/*', async (c, next) => {
-  const secret = c.env.COOKIE_SECRET
+  const secret = c.env.COOKIE_SECRET ?? 'codlin-secret'
   const uid = await pipe(
     c.req.header('x-user-id')?.trim(),
     async (id) => {
