@@ -2,7 +2,7 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "cod-aquarium-server",
   "main": "server/index.ts",
-  "compatibility_date": "2025-09-26"
+  "compatibility_date": "2025-09-26",
   // "compatibility_flags": [
   //   "nodejs_compat"
   // ],
@@ -21,13 +21,13 @@
   //     "bucket_name": "my-bucket"
   //   }
   // ],
-  // "d1_databases": [
-  //   {
-  //     "binding": "MY_DB",
-  //     "database_name": "my-database",
-  //     "database_id": ""
-  //   }
-  // ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "cod-aquarium",
+      "database_id": "209fe2bc-4c96-4d64-9958-3087fc4b5a91"
+    }
+  ]
   // "ai": {
   //   "binding": "AI"
   // },
