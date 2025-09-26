@@ -1,12 +1,6 @@
 import { defineWorkersConfig } from '@cloudflare/vitest-pool-workers/config'
 
 export default defineWorkersConfig({
-  resolve: {
-    alias: {
-      'node:sqlite': 'unenv/runtime/mock/empty',
-      'sqlite': 'unenv/runtime/mock/empty',
-    },
-  },
   test: {
     name: 'server',
     include: ['./server/**/*.{test,spec}.ts'],
