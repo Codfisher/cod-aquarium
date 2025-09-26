@@ -1,7 +1,8 @@
 import type { Env } from './type'
 import { Hono } from 'hono'
-import { deleteCookie, getSignedCookie, setSignedCookie } from 'hono/cookie'
+import { getSignedCookie, setSignedCookie } from 'hono/cookie'
 import { cors } from 'hono/cors'
+import { pipe } from 'remeda'
 import { reactionsApi } from './api/reactions'
 
 const COOKIE_NAME = 'user-id'
@@ -10,6 +11,8 @@ const app = new Hono<Env>()
 
 app.use('/api/*', cors({
   origin: 'https://codlin.me',
+  allowMethods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowHeaders: ['x-user-id'],
   credentials: true,
 }))
 
@@ -30,7 +33,7 @@ app.use('/api/*', async (c, next) => {
   )
 
   if (!uid) {
-    return c.json({ error: '窩不知道你是誰' }, 401)
+    return c.json({ error: '來者何人？(⌐■_■)' }, 401)
   }
 
   await setSignedCookie(c, COOKIE_NAME, uid, secret, {
