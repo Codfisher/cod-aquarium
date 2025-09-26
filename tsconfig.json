@@ -13,7 +13,9 @@
     "resolveJsonModule": true,
     "types": [
       "@vitest/browser/matchers",
-      "unplugin-icons/types/vue"
+      "unplugin-icons/types/vue",
+      "@cloudflare/workers-types",
+      "@cloudflare/vitest-pool-workers"
     ],
     "strict": true,
     "noUncheckedIndexedAccess": true,
