@@ -8,7 +8,7 @@
 
 <script setup lang="ts">
 import type { ComponentStatus } from '../../../types'
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 import { useAnimatable } from '../../../../../../composables/use-animatable'
 
 interface Props {
@@ -52,6 +52,9 @@ const targetParams = computed<GraphParams>(() => {
     width: 1,
   }
 })
+watch(targetParams, () => {
+  console.log('targetParams', { ...targetParams.value })
+}, { deep: true })
 
 const delayMap: Partial<Record<
   ComponentStatus,
