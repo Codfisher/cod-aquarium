@@ -1,8 +1,10 @@
 import type { Env } from './type'
-import { zValidator } from '@hono/zod-validator'
 import { Hono } from 'hono'
+import { deleteCookie, getSignedCookie, setSignedCookie } from 'hono/cookie'
 import { cors } from 'hono/cors'
-import { z } from 'zod'
+import { reactionsApi } from './api/reactions'
+
+const COOKIE_NAME = 'user-id'
 
 const app = new Hono<Env>()
 
@@ -12,30 +14,36 @@ app.use('/api/*', cors({
 }))
 
 // 取得使用者 ID
-app.use('/api/*', async (ctx, next) => {
-  const user = ctx.req.header('x-user-id')?.trim()
-  if (user)
-    ctx.set('userId', user)
+app.use('/api/*', async (c, next) => {
+  const secret = c.env.COOKIE_SECRET
+  const uid = await pipe(
+    c.req.header('x-user-id')?.trim(),
+    async (id) => {
+      const signedValue = await getSignedCookie(c, secret, COOKIE_NAME)
+
+      if (typeof signedValue === 'string' && signedValue) {
+        return signedValue
+      }
+
+      return id
+    },
+  )
+
+  if (!uid) {
+    return c.json({ error: '窩不知道你是誰' }, 401)
+  }
+
+  await setSignedCookie(c, COOKIE_NAME, uid, secret, {
+    path: '/',
+    httpOnly: true,
+    sameSite: 'none',
+    secure: true,
+  })
+
+  c.set('userId', uid)
   await next()
 })
 
-const reactionsApi = new Hono<Env>().basePath('/api/reactions')
-
-/** 取得文章有多少響應 */
-reactionsApi.get(
-  '/',
-  zValidator(
-    'query',
-    z.object({
-      articleId: z.string().refine(
-        (value) => value.includes('blog-') || value.includes('column-'),
-        { message: '文章 ID 無效' },
-      ),
-    }),
-  ),
-  (ctx) => {
-    return ctx.text('Hello Hono!')
-  },
-)
+app.route('/', reactionsApi)
 
 export default app
