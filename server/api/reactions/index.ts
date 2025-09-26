@@ -67,7 +67,7 @@ reactionsApi.get(
 )
 
 /** 響應文章 */
-reactionsApi.put(
+reactionsApi.post(
   '/',
   zValidator(
     'query',
