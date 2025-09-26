@@ -4,9 +4,9 @@ import { defineStore } from 'pinia'
 import { clone } from 'remeda'
 import { markRaw, ref, shallowRef } from 'vue'
 
-import AppList from '../components/app-list/app-list.vue'
+import AppCenter from '../components/app-center/app-center.vue'
 
-type AppType = 'list'
+type AppType = 'center'
 
 interface AppInfo {
   id: string;
@@ -22,13 +22,13 @@ interface AppInfo {
 }
 
 const defaultAppData: Record<AppType, AppInfo['data']> = {
-  list: {
+  center: {
     name: '應用程式',
     x: 0,
     y: 0,
     width: 300,
     height: 200,
-    component: AppList,
+    component: AppCenter,
   },
 }
 
