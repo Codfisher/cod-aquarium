@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "vitepress dev --port 3000",
     "build": "vitepress build",
-    "preview": "npm run build && vitepress preview"
+    "preview": "npm run build && vitepress preview",
+    "db:generate": "npx drizzle-kit generate"
   },
   "dependencies": {
     "@hono/zod-validator": "^0.7.3",
