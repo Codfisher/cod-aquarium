@@ -26,6 +26,10 @@
     "content/**/*",
     "components/**/*",
     "common/**/*",
+    "server/**/*",
     "env.d.ts"
+  ],
+  "exclude": [
+    "server/**/*.{text,spec}.{ts,js}"
   ]
 }

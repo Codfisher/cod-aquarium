@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "types": [
+      "vitest/globals",
+      "@cloudflare/workers-types",
+      "@cloudflare/vitest-pool-workers"
+    ]
+  },
+  "include": [
+    "server/**/*.{text,spec}.{ts,js}",
+    "env.d.ts"
+  ]
+}

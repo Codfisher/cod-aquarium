@@ -1,7 +1,9 @@
+import type { Env } from '../../type'
 import { readD1Migrations } from '@cloudflare/vitest-pool-workers/config'
-import { applyD1Migrations, env, SELF } from 'cloudflare:test'
-
+import { env as _env, applyD1Migrations, SELF } from 'cloudflare:test'
 import { beforeAll, describe, expect, it } from 'vitest'
+
+const env = _env as Env
 
 beforeAll(async () => {
   const migrations = await readD1Migrations('../../drizzle')
