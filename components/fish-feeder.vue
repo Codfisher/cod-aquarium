@@ -205,11 +205,11 @@ useIntersectionObserver(btnRef, ([entry]) => {
   btnIntersection.value = entry?.isIntersecting || false
 })
 const btnVisible = computed(() => {
-  if (isHiddenFish.value) {
+  if (isHiddenFish.value || !isFocused.value) {
     return false
   }
 
-  return btnIntersection.value || isFocused.value
+  return btnIntersection.value
 })
 
 const btnLabel = computed(() => {
