@@ -29,6 +29,7 @@ export default defineConfig({
           },
         },
       },
+      'vitest.server.config.ts',
     ],
   },
 })

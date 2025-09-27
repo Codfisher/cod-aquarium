@@ -1,6 +1,5 @@
 /** 協助處理 remeda pipe 中的 promise
  *
- *
  * @example
  * // 原本每一個 async 後都要先 await 才能拿到 data
  * ```typescript
@@ -12,7 +11,7 @@
  *   },
  * );
  *
- * // 用 then 包裝一下就不用了
+ * // 用此 function 包裝一下就不用了
  * pipe(
  *   'data',
  *   async (data) => data,
@@ -20,10 +19,13 @@
  * );
  * ```
  */
-export function then<Fn, Result>(
-  fn: (a: Fn extends Promise<infer S> ? S : Fn) => Result | Promise<Result>,
-): (a: Fn) => Promise<Result> {
-  return async (a: Fn) => {
-    return (fn as any)(await a)
+export function then<FnInput, Result>(
+  fn: (a: FnInput) => Result | Promise<Result>,
+): (a: FnInput | Promise<FnInput>) => Promise<Awaited<Result>>
+export function then<FnInput, Result>(
+  fn: (a: FnInput) => Result | Promise<Result>,
+) {
+  return async (a: FnInput | Promise<FnInput>): Promise<Awaited<Result>> => {
+    return fn(await a) as Awaited<Result>
   }
 }

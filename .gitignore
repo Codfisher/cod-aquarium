@@ -16,7 +16,6 @@ dist
 .history
 
 .data
-
 .firebase
-
 .vitepress/cache
+.wrangler

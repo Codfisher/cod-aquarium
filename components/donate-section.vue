@@ -23,13 +23,18 @@
     </a>
     ，鼓勵我喔！
 
-    <div class=" text-center mt-4 p-4 bg-slate-50 rounded-xl text-lg text-gray-600">
-      鱈魚感謝您！ <span class="text-nowrap">(´▽`ʃ💖ƪ)</span>
+    <div class=" text-center my-10 text-xl">
+      鱈魚感謝您！<span class="text-nowrap">(´▽`ʃ💖ƪ)</span>
     </div>
+
+    <client-only>
+      <fish-feeder class="mt-4" />
+    </client-only>
   </div>
 </template>
 
 <script setup lang="ts">
+import FishFeeder from './fish-feeder.vue'
 </script>
 
 <style scoped lang="sass">

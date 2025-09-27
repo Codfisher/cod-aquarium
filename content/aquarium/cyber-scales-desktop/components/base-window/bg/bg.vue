@@ -34,7 +34,7 @@
 import type { CSSProperties } from 'vue'
 import type { ComponentStatus } from '../../../types'
 import { useElementSize } from '@vueuse/core'
-import { computed, reactive, useTemplateRef } from 'vue'
+import { computed, reactive, useTemplateRef, watch } from 'vue'
 import CornerBox from './corner-box.vue'
 import LeftFrame from './left-frame.vue'
 import OutlineFrame from './outline-frame.vue'
@@ -63,6 +63,11 @@ const svgAttrs = computed(() => ({
     containerSize.height + outset * 2,
   ].join(' '),
 }))
+
+watch(svgAttrs, (v) => {
+  console.log('status', props.status)
+  console.log('svgAttrs', v)
+})
 
 const frameParams = computed(() => ({
   svgSize: containerSize,

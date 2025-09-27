@@ -59,7 +59,7 @@ const itemList = [
     icon: 'mobile_layout',
     onclick() {
       console.log(`🚀 ~ onclick: app`)
-      appStore.add('list')
+      appStore.add('center')
     },
   },
   {

@@ -18,7 +18,7 @@
 
 <script setup lang="ts">
 import { promiseTimeout, until, useElementSize } from '@vueuse/core'
-import { computed, nextTick, onMounted, provide, reactive, ref, useTemplateRef } from 'vue'
+import { computed, nextTick, onMounted, provide, reactive, ref, useTemplateRef, watch } from 'vue'
 import { ComponentStatus } from '../../types'
 import Bg from './bg/bg.vue'
 import ContentWrapper from './content-wrapper.vue'
@@ -54,7 +54,10 @@ const emit = defineEmits<Emits>()
 defineSlots<Slots>()
 
 const windowRef = useTemplateRef('windowRef')
-const windowSize = reactive(useElementSize(windowRef))
+const windowSize = reactive(useElementSize(windowRef, {
+  width: 300,
+  height: 200,
+}))
 useWindow3dRotate(windowRef)
 
 const status = ref(ComponentStatus.HIDDEN)
