@@ -46,7 +46,14 @@ const canvasStyle = computed(() => ({
 let illo: InstanceType<typeof Illustration> | undefined
 let fishList: Fish[] = []
 
-function createFish(illoValue: InstanceType<typeof Illustration>, position: Position): Fish {
+function createFish(
+  illoValue: InstanceType<typeof Illustration>,
+  position: Position,
+  isFirst = false,
+): Fish {
+  // 第一隻魚是金紅色
+  const color = isFirst ? '#ff844f' : '#bfebff'
+
   const thickness = props.size / 5
   const group = new Group({ addTo: illoValue, translate: position })
 
@@ -55,7 +62,7 @@ function createFish(illoValue: InstanceType<typeof Illustration>, position: Posi
     width: props.size,
     height: props.size * 0.6,
     stroke: thickness,
-    color: '#bfebff',
+    color,
     fill: true,
   })
 
@@ -83,7 +90,7 @@ function createFish(illoValue: InstanceType<typeof Illustration>, position: Posi
     ],
     closed: false,
     stroke: thickness,
-    color: '#bfebff',
+    color,
     fill: true,
   })
 
@@ -128,7 +135,8 @@ watch(() => props.boidCount, (count, oldCount) => {
     for (let i = 0; i < diff; i++) {
       const boid = props.boidList[oldCount + i]
       if (boid) {
-        fishList.push(createFish(illo, boid.position))
+        const isFirst = fishList.length === 0 && i === 0
+        fishList.push(createFish(illo, boid.position, isFirst))
       }
     }
   }
@@ -137,7 +145,7 @@ watch(() => props.boidCount, (count, oldCount) => {
 useRafFn(() => {
   const illoValue = illo
   if (fishList.length === 0 && illoValue && props.boidList.length) {
-    fishList = props.boidList.map((boid) => createFish(illoValue, boid.position))
+    fishList = props.boidList.map((boid, i) => createFish(illoValue, boid.position, i === 0))
   }
 
   props.boidList.forEach((boid, i) => {

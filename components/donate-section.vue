@@ -23,7 +23,7 @@
     </a>
     ，鼓勵我喔！
 
-    <div class=" text-center my-8 text-xl">
+    <div class=" text-center my-10 text-xl">
       鱈魚感謝您！<span class="text-nowrap">(´▽`ʃ💖ƪ)</span>
     </div>
 

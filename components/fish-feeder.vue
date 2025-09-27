@@ -18,7 +18,7 @@
     </button>
 
     <span class="text-xs opacity-60 text-center">
-      已累積 {{ reactions }} 份魚飼料了！(*´∀`)~♥
+      {{ totalText }}<span class="text-nowrap">(*´∀`)~♥</span>
     </span>
 
     <label class="text-xs opacity-80 text-center flex justify-center gap-1">
@@ -206,6 +206,13 @@ const btnLabel = computed(() => {
 const btnDisabled = computed(() => (
   isLoading.value || myReactions.value >= MAX_FEED_COUNT
 ))
+
+const totalText = computed(() => {
+  if (reactions.value === 0) {
+    return '成為第一個投擲魚飼料的人吧！'
+  }
+  return `已累積 ${reactions.value} 份魚飼料了！`
+})
 </script>
 
 <style scoped lang="sass">
