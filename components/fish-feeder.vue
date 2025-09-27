@@ -31,14 +31,14 @@
 
     <transition name="opacity">
       <div
-        v-if="reactions !== 0"
-        :key="reactions"
+        v-if="reactionData.total !== 0"
+        :key="reactionData.total"
         class=" fixed w-screen h-screen top-0 left-0 pointer-events-none z-[999999999999] duration-300"
         :class="{ 'opacity-0': !btnVisible, 'opacity-80': btnVisible }"
       >
         <bg-flock
           ref="flockRef"
-          :count="reactions"
+          :count="reactionData.total"
           :size="fishSize"
         />
       </div>
@@ -85,60 +85,32 @@ const articleId = computed(() => {
 const client = hc<AppType>('https://cod-aquarium-server.codfish-2140.workers.dev/')
 
 const {
-  isLoading: isReactionsLoading,
-  state: reactions,
-  execute: refreshReactions,
-} = useAsyncState(async () => {
-  await until(isUserLoading).toBe(false)
+  isLoading: isReactionDataLoading,
+  state: reactionData,
+  execute: refreshReactionData,
+} = useAsyncState(
+  async () => {
+    await until(isUserLoading).toBe(false)
 
-  if (!articleId.value) {
-    return 0
-  }
+    if (!articleId.value) {
+      return { total: 0, yours: 0 }
+    }
 
-  const res = await client.api.reactions.$get(
-    { query: { articleId: articleId.value } },
-    { headers: { 'x-user-id': userId.value } },
-  )
+    const res = await client.api.reactions.$get(
+      { query: { articleId: articleId.value } },
+      { headers: { 'x-user-id': userId.value } },
+    )
 
-  if (!res.ok) {
-    console.error('取得讚數失敗', res.statusText)
-    return 0
-  }
-  const data = await res.json()
-  return data.count ?? 0
-}, 0, { resetOnExecute: false })
-
-const {
-  isLoading: isMyReactionsLoading,
-  state: myReactions,
-  execute: refreshMyReactions,
-} = useAsyncState(async () => {
-  await until(isUserLoading).toBe(false)
-
-  if (!articleId.value) {
-    return 0
-  }
-
-  const res = await client.api.reactions.me.$get(
-    { query: { articleId: articleId.value } },
-    { headers: { 'x-user-id': userId.value } },
-  )
-
-  if (!res.ok) {
-    console.error('取得讚數失敗', res.statusText)
-    return 0
-  }
-  const data = await res.json()
-  return data.count ?? 0
-}, 0, { resetOnExecute: false })
-
-function refresh() {
-  return Promise.all([
-    refreshReactions(),
-    refreshMyReactions(),
-  ])
-}
-watch(articleId, refresh)
+    if (!res.ok) {
+      console.error('取得讚數失敗', res.statusText)
+      return { total: 0, yours: 0 }
+    }
+    return res.json()
+  },
+  { total: 0, yours: 0 },
+  { resetOnExecute: false },
+)
+watch(articleId, () => refreshReactionData())
 
 const {
   isLoading: isReactionAdding,
@@ -166,7 +138,7 @@ const {
 }, undefined, {
   immediate: false,
   onSuccess() {
-    refresh()
+    refreshReactionData()
     flockRef.value?.addRandomBoids(1)
   },
 })
@@ -174,18 +146,17 @@ const {
 const isLoading = useArraySome(
   () => [
     isUserLoading,
-    isReactionsLoading,
-    isMyReactionsLoading,
+    isReactionDataLoading,
     isReactionAdding.value,
   ],
   Boolean,
 )
 
 const fishSize = computed(() => {
-  if (reactions.value > 2000) {
+  if (reactionData.value.total > 2000) {
     return 5
   }
-  if (reactions.value > 1000) {
+  if (reactionData.value.total > 1000) {
     return 10
   }
 
@@ -213,17 +184,17 @@ const btnVisible = computed(() => {
 })
 
 const btnLabel = computed(() => {
-  return `投擲魚飼料 ${myReactions.value}/${MAX_FEED_COUNT}`
+  return `投擲魚飼料 ${reactionData.value.yours}/${MAX_FEED_COUNT}`
 })
 const btnDisabled = computed(() => (
-  isLoading.value || myReactions.value >= MAX_FEED_COUNT
+  isLoading.value || reactionData.value.yours >= MAX_FEED_COUNT
 ))
 
 const totalText = computed(() => {
-  if (reactions.value === 0) {
+  if (reactionData.value.total === 0) {
     return '成為第一個投擲魚飼料的人吧！'
   }
-  return `已累積 ${reactions.value} 份魚飼料了！`
+  return `已累積 ${reactionData.value.total} 份魚飼料了！`
 })
 </script>
 
