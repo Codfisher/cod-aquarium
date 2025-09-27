@@ -10,9 +10,9 @@ const COOKIE_NAME = 'user-id'
 const app = new Hono<Env>()
 
 app.use('/api/*', cors({
-  origin: ['https://codlin.me', 'http://localhost:3000'],
-  allowMethods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowHeaders: ['x-user-id'],
+  origin: '*',
+  allowMethods: ['GET', 'POST', 'OPTIONS'],
+  allowHeaders: ['Content-Type', 'x-user-id'],
   credentials: true,
 }))
 

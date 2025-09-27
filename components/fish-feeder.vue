@@ -1,16 +1,38 @@
 <template>
-  {{ articleId }}
+  <div
+    v-if="!!articleId"
+    class="flex flex-col gap-4 p-4 border rounded-lg"
+  >
+    <span class="text-sm  ">
+      也可以投個魚飼料，會跑出小魚喔！(ゝ∀・)b
+    </span>
+
+    <button
+      class="feed-btn rounded-full p-6"
+      :class="{ 'opacity-30 pointer-events-none': seedDisabled }"
+      :disabled="seedDisabled"
+      @click="addReaction()"
+    >
+      投擲魚飼料 {{ myReactions }}/{{ MAX_FEED_COUNT }}
+    </button>
+
+    <span class="text-xs opacity-60 text-center">
+      總共已經投了 {{ reactions }} 次魚飼料了！(*´∀`)~♥
+    </span>
+  </div>
 </template>
 
 <script setup lang="ts">
 import type { AppType } from '../server'
 import FingerprintJS from '@fingerprintjs/fingerprintjs'
-import { until, useAsyncState } from '@vueuse/core'
+import { until, useArraySome, useAsyncState } from '@vueuse/core'
 import { hc } from 'hono/client'
 import { pipe, prop } from 'remeda'
 import { useRoute } from 'vitepress'
 import { computed } from 'vue'
 import { then } from '../common/remeda'
+
+const MAX_FEED_COUNT = 10
 
 const route = useRoute()
 
@@ -37,6 +59,7 @@ const client = hc<AppType>('https://cod-aquarium-server.codfish-2140.workers.dev
 const {
   isLoading: isReactionsLoading,
   state: reactions,
+  execute: refreshReactions,
 } = useAsyncState(async () => {
   await until(isUserLoading).toBe(false)
 
@@ -50,12 +73,94 @@ const {
   )
 
   if (!res.ok) {
-    throw new Error('Failed to fetch reactions')
+    console.error('取得讚數失敗', res.statusText)
+    return 0
   }
   const data = await res.json()
   return data.count ?? 0
-}, null)
+}, 0, { resetOnExecute: false })
+
+const {
+  isLoading: isMyReactionsLoading,
+  state: myReactions,
+  execute: refreshMyReactions,
+} = useAsyncState(async () => {
+  await until(isUserLoading).toBe(false)
+
+  if (!articleId.value) {
+    return 0
+  }
+
+  const res = await client.api.reactions.me.$get(
+    { query: { articleId: articleId.value } },
+    { headers: { 'x-user-id': userId.value } },
+  )
+
+  if (!res.ok) {
+    console.error('取得讚數失敗', res.statusText)
+    return 0
+  }
+  const data = await res.json()
+  return data.count ?? 0
+}, 0, { resetOnExecute: false })
+
+function refresh() {
+  return Promise.all([
+    refreshReactions(),
+    refreshMyReactions(),
+  ])
+}
+
+const {
+  isLoading: isReactionAdding,
+  execute: addReaction,
+} = useAsyncState(async () => {
+  await until(isUserLoading).toBe(false)
+
+  if (!articleId.value) {
+    return
+  }
+
+  const res = await client.api.reactions.$post(
+    { json: { articleId: articleId.value } },
+    { headers: { 'x-user-id': userId.value } },
+  )
+
+  if (!res.ok) {
+    return
+  }
+  if (res.status === 429) {
+    // 未來有空再改成比較漂亮的提示
+    // eslint-disable-next-line no-alert
+    alert('感謝大家的熱情，此文今日讚數已達上限，請明天再來 (*´∀`)~♥')
+  }
+}, undefined, {
+  immediate: false,
+  onSuccess() {
+    refresh()
+  },
+})
+
+const isLoading = useArraySome(
+  () => [
+    isUserLoading,
+    isReactionsLoading,
+    isMyReactionsLoading,
+    isReactionAdding.value,
+  ],
+  Boolean,
+)
+
+const seedDisabled = computed(() => (
+  isLoading.value || myReactions.value >= MAX_FEED_COUNT
+))
 </script>
 
 <style scoped lang="sass">
+.feed-btn
+  background: light-dark(#f3f4f6, #374151)
+  transition-duration: 200ms
+  &:active
+    scale: 0.98
+    transition-duration: 10ms
 </style>

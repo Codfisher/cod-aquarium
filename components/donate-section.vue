@@ -23,11 +23,13 @@
     </a>
     ，鼓勵我喔！
 
-    <div class=" text-center mt-4 p-4 bg-slate-50 rounded-xl text-lg text-gray-600">
-      鱈魚感謝您！ <span class="text-nowrap">(´▽`ʃ💖ƪ)</span>
+    <div class=" text-center my-8 text-xl">
+      鱈魚感謝您！<span class="text-nowrap">(´▽`ʃ💖ƪ)</span>
     </div>
 
-    <fish-feeder />
+    <client-only>
+      <fish-feeder class="mt-4" />
+    </client-only>
   </div>
 </template>
 

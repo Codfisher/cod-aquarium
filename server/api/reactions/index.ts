@@ -68,7 +68,7 @@ export const reactionsApi = new Hono<Env>()
   .post(
     '/',
     zValidator(
-      'query',
+      'json',
       z.object({
         articleId: articleIdSchema,
         // 目前預設都是 like
@@ -76,7 +76,7 @@ export const reactionsApi = new Hono<Env>()
       }),
     ),
     async (ctx) => {
-      const { articleId } = ctx.req.valid('query')
+      const { articleId } = ctx.req.valid('json')
       const userId = ctx.get('userId')
 
       const reactionCount = pipe(
