@@ -4,7 +4,7 @@
     class="flex flex-col gap-4 p-4 border rounded-lg"
   >
     <span class="text-sm  ">
-      投個魚飼料吧，會跑出小魚喔！<span class="text-nowrap">(ゝ∀・)b</span>
+      餵個魚飼料吧，會跑出小魚喔！<span class="text-nowrap">(ゝ∀・)b</span>
     </span>
 
     <button
@@ -184,7 +184,7 @@ const btnVisible = computed(() => {
 })
 
 const btnLabel = computed(() => {
-  return `投擲魚飼料 ${reactionData.value.yours}/${MAX_FEED_COUNT}`
+  return `餵魚飼料 ${reactionData.value.yours}/${MAX_FEED_COUNT}`
 })
 const btnDisabled = computed(() => (
   isLoading.value || reactionData.value.yours >= MAX_FEED_COUNT
@@ -192,7 +192,7 @@ const btnDisabled = computed(() => (
 
 const totalText = computed(() => {
   if (reactionData.value.total === 0) {
-    return '成為第一個投擲魚飼料的人吧！'
+    return '成為第一個餵魚飼料的人吧！'
   }
   return `已累積 ${reactionData.value.total} 份魚飼料了！`
 })
