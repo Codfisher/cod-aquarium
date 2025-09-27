@@ -26,10 +26,13 @@
     <div class=" text-center mt-4 p-4 bg-slate-50 rounded-xl text-lg text-gray-600">
       鱈魚感謝您！ <span class="text-nowrap">(´▽`ʃ💖ƪ)</span>
     </div>
+
+    <fish-feeder />
   </div>
 </template>
 
 <script setup lang="ts">
+import FishFeeder from './fish-feeder.vue'
 </script>
 
 <style scoped lang="sass">

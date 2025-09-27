@@ -47,7 +47,7 @@ app.use('/api/*', async (c, next) => {
   await next()
 })
 
-app.route('/', reactionsApi)
+const routes = app.route('/', reactionsApi)
 
 export default app
-export type AppType = typeof app
+export type AppType = typeof routes
