@@ -104,7 +104,7 @@ export const reactionsApi = new Hono<Env>()
 
       // 上限 10 個讚
       if (reactionCount >= 10) {
-        return ctx.json({ error: '已達到最大讚數' }, 400)
+        return ctx.json({ error: '已達到最大讚數' }, 429)
       }
 
       // 此文章今日已達 500 讚
@@ -127,7 +127,10 @@ export const reactionsApi = new Hono<Env>()
       )
 
       if (todayReactionCount >= 500) {
-        return ctx.json({ error: '感謝大家的熱情，此文今日讚數已達上限，請明天再來 (*´∀`)~♥' }, 400)
+        return ctx.json(
+          { error: '感謝大家的熱情，此文今日讚數已達上限，請明天再來 (*´∀`)~♥' },
+          429,
+        )
       }
 
       await drizzle(ctx.env.DB)
