@@ -7,7 +7,9 @@
     "build": "vitepress build",
     "preview": "npm run build && vitepress preview",
     "server:generate": "npx drizzle-kit generate",
-    "server:test": "npx vitest --project server"
+    "server:test": "npx vitest --project server",
+    "server:migrate": "npx wrangler d1 migrations apply cod-aquarium",
+    "server:dev": "npx wrangler dev --local"
   },
   "dependencies": {
     "@hono/zod-validator": "^0.7.3",
@@ -64,7 +66,7 @@
     "vitest": "^3.2.3",
     "vitest-browser-vue": "^0.2.0",
     "vue": "^3.5.16",
-    "wrangler": "^4.40.1",
+    "wrangler": "4.40.2",
     "zod": "3.25.49"
   }
 }
