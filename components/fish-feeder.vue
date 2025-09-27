@@ -23,10 +23,10 @@
 
     <label class="text-xs opacity-80 text-center flex justify-center gap-1">
       <input
-        v-model="fishAlwaysVisible"
+        v-model="isHiddenFish"
         type="checkbox"
       >
-      <span> 總是顯示魚群 </span>
+      <span> 隱藏魚群 </span>
     </label>
 
     <transition name="opacity">
@@ -49,7 +49,7 @@
 <script setup lang="ts">
 import type { AppType } from '../server'
 import FingerprintJS from '@fingerprintjs/fingerprintjs'
-import { until, useArraySome, useAsyncState, useIntersectionObserver } from '@vueuse/core'
+import { until, useArraySome, useAsyncState, useIntersectionObserver, useWindowFocus } from '@vueuse/core'
 import { hc } from 'hono/client'
 import { pipe, prop } from 'remeda'
 import { useRoute } from 'vitepress'
@@ -62,6 +62,7 @@ const MAX_FEED_COUNT = 10
 const route = useRoute()
 
 const flockRef = useTemplateRef('flockRef')
+const isFocused = useWindowFocus()
 
 const {
   isLoading: isUserLoading,
@@ -190,19 +191,27 @@ const fishSize = computed(() => {
 
   return 15
 })
-/** 總是顯示魚群，目前只有按鈕出現時會顯示魚群 */
-const fishAlwaysVisible = ref(false)
+/** 隱藏魚群 */
+const isHiddenFish = ref(false)
 
 const btnRef = useTemplateRef('btnRef')
-const btnVisible = ref(true)
+const btnIntersection = ref(true)
 useIntersectionObserver(btnRef, ([entry]) => {
-  if (fishAlwaysVisible.value) {
-    btnVisible.value = true
+  if (isHiddenFish.value) {
+    btnIntersection.value = true
     return
   }
 
-  btnVisible.value = entry?.isIntersecting || false
+  btnIntersection.value = entry?.isIntersecting || false
 })
+const btnVisible = computed(() => {
+  if (isHiddenFish.value || !isFocused.value) {
+    return false
+  }
+
+  return btnIntersection.value
+})
+
 const btnLabel = computed(() => {
   return `投擲魚飼料 ${myReactions.value}/${MAX_FEED_COUNT}`
 })
