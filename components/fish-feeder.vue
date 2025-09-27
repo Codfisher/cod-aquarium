@@ -85,9 +85,9 @@ const articleId = computed(() => {
 const client = hc<AppType>('https://cod-aquarium-server.codfish-2140.workers.dev/')
 
 const {
-  isLoading: isReactionsLoading,
+  isLoading: isReactionDataLoading,
   state: reactionData,
-  execute: refreshReactions,
+  execute: refreshReactionData,
 } = useAsyncState(
   async () => {
     await until(isUserLoading).toBe(false)
@@ -110,7 +110,7 @@ const {
   { total: 0, yours: 0 },
   { resetOnExecute: false },
 )
-watch(articleId, () => refreshReactions())
+watch(articleId, () => refreshReactionData())
 
 const {
   isLoading: isReactionAdding,
@@ -138,7 +138,7 @@ const {
 }, undefined, {
   immediate: false,
   onSuccess() {
-    refreshReactions()
+    refreshReactionData()
     flockRef.value?.addRandomBoids(1)
   },
 })
@@ -146,7 +146,7 @@ const {
 const isLoading = useArraySome(
   () => [
     isUserLoading,
-    isReactionsLoading,
+    isReactionDataLoading,
     isReactionAdding.value,
   ],
   Boolean,
