@@ -9,7 +9,7 @@ import { articleIdSchema, reactionsTable } from '../../schema'
 
 export const reactionsApi = new Hono<Env>()
   .basePath('/api/reactions')
-  /** 取得文章有多少響應 */
+  /** 取得文章有多少響應（包含自己） */
   .get(
     '/',
     zValidator(
@@ -20,48 +20,25 @@ export const reactionsApi = new Hono<Env>()
     ),
     async (ctx) => {
       const { articleId } = ctx.req.valid('query')
+      const userId = ctx.get('userId')
 
-      const result = await drizzle(ctx.env.DB)
+      const [item] = await drizzle(ctx.env.DB)
         .select({
-          count: sql<number>`count(*)`,
+          total: sql<number>`count(*)`,
+          yours: sql<number>`
+          coalesce(
+            sum(case when ${reactionsTable.userId} = ${userId} then 1 else 0 end),
+            0
+          )
+        `,
         })
         .from(reactionsTable)
         .where(eq(reactionsTable.articleId, articleId))
 
-      const count = sumBy(result, prop('count'))
-
-      return ctx.json({ count })
-    },
-  )
-  /** 取得自己在此文章的響應 */
-  .get(
-    '/me',
-    zValidator(
-      'query',
-      z.object({
-        articleId: articleIdSchema,
-      }),
-    ),
-    async (ctx) => {
-      const { articleId } = ctx.req.valid('query')
-      const userId = ctx.get('userId')
-
-      const count = pipe(
-        await drizzle(ctx.env.DB)
-          .select({
-            userId: reactionsTable.userId,
-            count: sql<number>`count(*)`,
-          })
-          .from(reactionsTable)
-          .where(and(
-            eq(reactionsTable.articleId, articleId),
-            eq(reactionsTable.userId, userId),
-          ))
-          .groupBy(reactionsTable.userId),
-        sumBy(prop('count')),
-      )
-
-      return ctx.json({ count })
+      return ctx.json({
+        total: item?.total ?? 0,
+        yours: item?.yours ?? 0,
+      })
     },
   )
   /** 響應文章 */
@@ -81,17 +58,13 @@ export const reactionsApi = new Hono<Env>()
 
       const reactionCount = pipe(
         await drizzle(ctx.env.DB)
-          .select({
-            userId: reactionsTable.userId,
-            count: sql<number>`count(*)`,
-          })
+          .select({ count: sql<number>`count(*)` })
           .from(reactionsTable)
           .where(and(
             eq(reactionsTable.articleId, articleId),
             eq(reactionsTable.userId, userId),
-          ))
-          .groupBy(reactionsTable.userId),
-        sumBy(prop('count')),
+          )),
+        ([item]) => item?.count ?? 0,
       )
 
       if (reactionCount === 0) {
@@ -121,9 +94,10 @@ export const reactionsApi = new Hono<Env>()
           .from(reactionsTable)
           .where(and(
             eq(reactionsTable.articleId, articleId),
-            sql`${reactionsTable.createdAt} BETWEEN ${Math.floor(todayStart.getTime() / 1000)} AND ${Math.floor(todayEnd.getTime() / 1000)}`,
+            gte(reactionsTable.createdAt, todayStart),
+            lte(reactionsTable.createdAt, todayEnd),
           )),
-        sumBy(prop('count')),
+        ([item]) => item?.count ?? 0,
       )
 
       if (todayReactionCount >= 500) {
