@@ -3,10 +3,7 @@
   "name": "cod-aquarium-server",
   "main": "server/index.ts",
   "compatibility_date": "2025-09-24",
-  "dev": {
-    "enable_containers": false
-  },
-  "workers_dev": true
+  "workers_dev": true,
   // "compatibility_flags": [
   //   "nodejs_compat"
   // ],

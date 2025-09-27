@@ -6,10 +6,10 @@
     "dev": "vitepress dev --port 3000",
     "build": "vitepress build",
     "preview": "npm run build && vitepress preview",
-    "server:generate": "npx drizzle-kit generate",
-    "server:test": "npx vitest --project server",
-    "server:migrate": "npx wrangler d1 migrations apply cod-aquarium",
-    "server:dev": "npx wrangler dev --local"
+    "server:generate": "drizzle-kit generate",
+    "server:test": "vitest --project server",
+    "server:migrate": "wrangler d1 migrations apply cod-aquarium --remote",
+    "server:dev": "wrangler dev --local"
   },
   "dependencies": {
     "@hono/zod-validator": "^0.7.3",
