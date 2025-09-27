@@ -34,11 +34,17 @@
       class=" fixed w-screen h-screen top-0 left-0 pointer-events-none z-[999999999999] duration-300"
       :class="{ 'opacity-0': !btnVisible, 'opacity-80': btnVisible }"
     >
-      <bg-flock
-        ref="flockRef"
-        :count="reactions"
-        :size="fishSize"
-      />
+      <transition
+        name="opacity"
+        mode="out-in"
+      >
+        <bg-flock
+          ref="flockRef"
+          :key="reactions"
+          :count="reactions"
+          :size="fishSize"
+        />
+      </transition>
     </div>
   </div>
 </template>
@@ -223,4 +229,10 @@ const totalText = computed(() => {
   &:active
     scale: 0.98
     transition-duration: 10ms
+
+.opacity
+  &-enter-active, &-leave-active
+    transition-duration: 0.4s
+  &-enter-from, &-leave-to
+    opacity: 0 !important
 </style>
