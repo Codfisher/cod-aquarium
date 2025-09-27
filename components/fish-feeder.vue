@@ -8,33 +8,49 @@
     </span>
 
     <button
+      ref="btnRef"
       class="feed-btn rounded-full p-6"
-      :class="{ 'opacity-30 pointer-events-none': seedDisabled }"
-      :disabled="seedDisabled"
+      :class="{ 'opacity-30 pointer-events-none': btnDisabled }"
+      :disabled="btnDisabled"
       @click="addReaction()"
     >
       投擲魚飼料 {{ myReactions }}/{{ MAX_FEED_COUNT }}
     </button>
 
     <span class="text-xs opacity-60 text-center">
-      總共已經投了 {{ reactions }} 次魚飼料了！(*´∀`)~♥
+      已累積 {{ reactions }} 份魚飼料了！(*´∀`)~♥
     </span>
+
+    <div
+      v-if="reactions !== 0"
+      class=" fixed w-screen h-screen top-0 left-0 pointer-events-none z-[999999999999] duration-300"
+      :class="{ 'opacity-0': !btnVisible, 'opacity-60': btnVisible }"
+    >
+      <bg-flock
+        ref="flockRef"
+        :count="reactions"
+        :size="fishSize"
+      />
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import type { AppType } from '../server'
 import FingerprintJS from '@fingerprintjs/fingerprintjs'
-import { until, useArraySome, useAsyncState } from '@vueuse/core'
+import { until, useArraySome, useAsyncState, useIntersectionObserver } from '@vueuse/core'
 import { hc } from 'hono/client'
 import { pipe, prop } from 'remeda'
 import { useRoute } from 'vitepress'
-import { computed } from 'vue'
+import { computed, ref, useTemplateRef } from 'vue'
 import { then } from '../common/remeda'
+import BgFlock from './bg-flock/bg-flock.vue'
 
 const MAX_FEED_COUNT = 10
 
 const route = useRoute()
+
+const flockRef = useTemplateRef('flockRef')
 
 const {
   isLoading: isUserLoading,
@@ -132,12 +148,13 @@ const {
   if (res.status === 429) {
     // 未來有空再改成比較漂亮的提示
     // eslint-disable-next-line no-alert
-    alert('感謝大家的熱情，此文今日讚數已達上限，請明天再來 (*´∀`)~♥')
+    alert('感謝大家的熱情，本文的魚今天吃太飽了，請明天再來 (*´∀`)~♥')
   }
 }, undefined, {
   immediate: false,
   onSuccess() {
     refresh()
+    flockRef.value?.addRandomBoids(1)
   },
 })
 
@@ -151,9 +168,25 @@ const isLoading = useArraySome(
   Boolean,
 )
 
-const seedDisabled = computed(() => (
+const btnRef = useTemplateRef('btnRef')
+const btnVisible = ref(true)
+useIntersectionObserver(btnRef, ([entry]) => {
+  btnVisible.value = entry?.isIntersecting || false
+})
+const btnDisabled = computed(() => (
   isLoading.value || myReactions.value >= MAX_FEED_COUNT
 ))
+
+const fishSize = computed(() => {
+  if (reactions.value > 2000) {
+    return 5
+  }
+  if (reactions.value > 1000) {
+    return 10
+  }
+
+  return 15
+})
 </script>
 
 <style scoped lang="sass">
