@@ -3,14 +3,13 @@
     ref="sceneRef"
     class="relative h-full w-full"
   >
-    <slot>
-      <default-canvas
-        :mouse
-        :boid-list="boidList"
-        :size="props.size"
-        class="absolute h-full w-full"
-      />
-    </slot>
+    <default-canvas
+      :mouse
+      :boid-count="boidCount"
+      :boid-list="boidList"
+      :size="props.size"
+      class="absolute h-full w-full"
+    />
   </div>
 </template>
 
@@ -62,14 +61,6 @@ const props = withDefaults(defineProps<Props>(), {
   }),
 })
 
-// #region Slots
-interface Slots {
-  default?: (params: {
-    boidList: ShallowRef<Boid[]>;
-  }) => unknown;
-}
-// #endregion Slots
-
 const sceneRef = useTemplateRef('sceneRef')
 const sceneSize = reactive(useElementSize(sceneRef))
 
@@ -96,6 +87,7 @@ watch(() => ({
   deep: true,
 })
 
+const boidCount = ref(0)
 const boidList = shallowRef(flock.boidList)
 useRafFn(() => {
   triggerRef(boidList)
@@ -151,6 +143,7 @@ onMounted(() => {
     world.value,
     props.boidOptions,
   )
+  boidCount.value = props.count
 
   resume()
 })
@@ -164,6 +157,8 @@ interface Expose {
 defineExpose<Expose>({
   boidList,
   addRandomBoids(count: number) {
+    boidCount.value += count
+
     flock.addRandomBoids(
       count,
       {

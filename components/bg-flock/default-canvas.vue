@@ -19,6 +19,7 @@ type Fish = InstanceType<typeof Zdog.Group>
 interface Props {
   mouse: { x: number; y: number };
   size?: number;
+  boidCount: number;
   boidList: Array<{ position: Position; yaw: number; pitch: number }>;
 }
 const props = withDefaults(defineProps<Props>(), { size: 15 })
@@ -119,6 +120,18 @@ watch(() => [wrapSize.width, wrapSize.height, pixelRatio], () => {
   illo?.updateRenderGraph()
 }, {
   deep: true,
+})
+
+watch(() => props.boidCount, (count, oldCount) => {
+  const diff = count - oldCount
+  if (diff > 0 && illo) {
+    for (let i = 0; i < diff; i++) {
+      const boid = props.boidList[oldCount + i]
+      if (boid) {
+        fishList.push(createFish(illo, boid.position))
+      }
+    }
+  }
 })
 
 useRafFn(() => {

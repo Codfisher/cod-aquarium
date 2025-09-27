@@ -4,27 +4,35 @@
     class="flex flex-col gap-4 p-4 border rounded-lg"
   >
     <span class="text-sm  ">
-      也可以投個魚飼料，會跑出小魚喔！(ゝ∀・)b
+      投個魚飼料吧，會跑出小魚喔！<span class="text-nowrap">(ゝ∀・)b</span>
     </span>
 
     <button
       ref="btnRef"
-      class="feed-btn rounded-full p-6"
-      :class="{ 'opacity-30 pointer-events-none': btnDisabled }"
+      class="feed-btn rounded-full p-6 text-xl tracking-wider select-none"
+      :class="{ 'opacity-10 pointer-events-none': btnDisabled }"
       :disabled="btnDisabled"
       @click="addReaction()"
     >
-      投擲魚飼料 {{ myReactions }}/{{ MAX_FEED_COUNT }}
+      {{ btnLabel }}
     </button>
 
     <span class="text-xs opacity-60 text-center">
       已累積 {{ reactions }} 份魚飼料了！(*´∀`)~♥
     </span>
 
+    <label class="text-xs opacity-80 text-center flex justify-center gap-1">
+      <input
+        v-model="fishAlwaysVisible"
+        type="checkbox"
+      >
+      <span> 總是顯示魚群 </span>
+    </label>
+
     <div
       v-if="reactions !== 0"
       class=" fixed w-screen h-screen top-0 left-0 pointer-events-none z-[999999999999] duration-300"
-      :class="{ 'opacity-0': !btnVisible, 'opacity-60': btnVisible }"
+      :class="{ 'opacity-0': !btnVisible, 'opacity-80': btnVisible }"
     >
       <bg-flock
         ref="flockRef"
@@ -42,7 +50,7 @@ import { until, useArraySome, useAsyncState, useIntersectionObserver } from '@vu
 import { hc } from 'hono/client'
 import { pipe, prop } from 'remeda'
 import { useRoute } from 'vitepress'
-import { computed, ref, useTemplateRef } from 'vue'
+import { computed, ref, useTemplateRef, watch } from 'vue'
 import { then } from '../common/remeda'
 import BgFlock from './bg-flock/bg-flock.vue'
 
@@ -126,6 +134,7 @@ function refresh() {
     refreshMyReactions(),
   ])
 }
+watch(articleId, refresh)
 
 const {
   isLoading: isReactionAdding,
@@ -168,15 +177,6 @@ const isLoading = useArraySome(
   Boolean,
 )
 
-const btnRef = useTemplateRef('btnRef')
-const btnVisible = ref(true)
-useIntersectionObserver(btnRef, ([entry]) => {
-  btnVisible.value = entry?.isIntersecting || false
-})
-const btnDisabled = computed(() => (
-  isLoading.value || myReactions.value >= MAX_FEED_COUNT
-))
-
 const fishSize = computed(() => {
   if (reactions.value > 2000) {
     return 5
@@ -187,11 +187,31 @@ const fishSize = computed(() => {
 
   return 15
 })
+/** 總是顯示魚群，目前只有按鈕出現時會顯示魚群 */
+const fishAlwaysVisible = ref(false)
+
+const btnRef = useTemplateRef('btnRef')
+const btnVisible = ref(true)
+useIntersectionObserver(btnRef, ([entry]) => {
+  if (fishAlwaysVisible.value) {
+    btnVisible.value = true
+    return
+  }
+
+  btnVisible.value = entry?.isIntersecting || false
+})
+const btnLabel = computed(() => {
+  return `投擲魚飼料 ${myReactions.value}/${MAX_FEED_COUNT}`
+})
+const btnDisabled = computed(() => (
+  isLoading.value || myReactions.value >= MAX_FEED_COUNT
+))
 </script>
 
 <style scoped lang="sass">
 .feed-btn
-  background: light-dark(#f3f4f6, #374151)
+  background: linear-gradient(135deg, #5894f5 0%, #06b6d4 100%)
+  color: #fff
   transition-duration: 200ms
   &:active
     scale: 0.98
