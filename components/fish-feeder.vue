@@ -29,17 +29,20 @@
       <span> 總是顯示魚群 </span>
     </label>
 
-    <div
-      v-if="reactions !== 0"
-      class=" fixed w-screen h-screen top-0 left-0 pointer-events-none z-[999999999999] duration-300"
-      :class="{ 'opacity-0': !btnVisible, 'opacity-80': btnVisible }"
-    >
-      <bg-flock
-        ref="flockRef"
-        :count="reactions"
-        :size="fishSize"
-      />
-    </div>
+    <transition name="opacity">
+      <div
+        v-if="reactions !== 0"
+        :key="reactions"
+        class=" fixed w-screen h-screen top-0 left-0 pointer-events-none z-[999999999999] duration-300"
+        :class="{ 'opacity-0': !btnVisible, 'opacity-80': btnVisible }"
+      >
+        <bg-flock
+          ref="flockRef"
+          :count="reactions"
+          :size="fishSize"
+        />
+      </div>
+    </transition>
   </div>
 </template>
 
@@ -223,4 +226,10 @@ const totalText = computed(() => {
   &:active
     scale: 0.98
     transition-duration: 10ms
+
+.opacity
+  &-enter-active, &-leave-active
+    transition-duration: 0.4s
+  &-enter-from, &-leave-to
+    opacity: 0 !important
 </style>
