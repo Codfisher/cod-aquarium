@@ -141,8 +141,8 @@ onMounted(() => {
   flock.addRandomBoids(
     props.count,
     {
+      min: new Vector3(0, world.value.max.y, world.value.max.z),
       max: world.value.max,
-      min: world.value.max,
     },
     props.boidOptions,
   )
@@ -165,7 +165,7 @@ defineExpose<Expose>({
     flock.addRandomBoids(
       count,
       {
-        min: world.value.max,
+        min: new Vector3(0, world.value.max.y, world.value.max.z),
         max: world.value.max,
       },
     )

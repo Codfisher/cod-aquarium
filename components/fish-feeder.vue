@@ -113,6 +113,8 @@ const {
       console.error('取得讚數失敗', res.statusText)
       return { total: 0, yours: 0 }
     }
+
+    loadingOnce.value = true
     return res.json()
   },
   { total: 0, yours: 0 },
@@ -124,7 +126,7 @@ const {
     },
   },
 )
-const debouncedRefresh = debounce(refreshReactionData, 1000, {
+const debouncedRefresh = debounce(refreshReactionData, 5000, {
   leading: true,
   trailing: false,
 })
