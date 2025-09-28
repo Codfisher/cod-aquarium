@@ -86,6 +86,11 @@ const client = hc<AppType>('https://cod-aquarium-server.codfish-2140.workers.dev
 
 const currentReaction = ref(0)
 
+const loadingOnce = ref(false)
+watch(articleId, () => {
+  loadingOnce.value = false
+})
+
 const {
   isLoading: isReactionDataLoading,
   state: reactionData,
@@ -121,8 +126,6 @@ const {
 const totalReaction = computed(
   () => reactionData.value.total - reactionData.value.yours + currentReaction.value,
 )
-
-watch(articleId, () => refreshReactionData())
 
 function addReaction() {
   if (!articleId.value || currentReaction.value >= MAX_FEED_COUNT) {
@@ -182,11 +185,6 @@ const btnVisible = computed(() => {
 
   return btnIntersection.value
 })
-whenever(btnVisible, () => {
-  refreshReactionData()
-}, {
-  once: true,
-})
 
 const btnLabel = computed(() => {
   return `餵魚飼料 ${currentReaction.value}/${MAX_FEED_COUNT}`
@@ -200,6 +198,13 @@ const totalText = computed(() => {
     return '成為第一個餵魚飼料的人吧！'
   }
   return `已累積 ${totalReaction.value} 份魚飼料了！`
+})
+
+whenever(btnVisible, () => {
+  if (loadingOnce.value) {
+    return
+  }
+  refreshReactionData()
 })
 </script>
 
