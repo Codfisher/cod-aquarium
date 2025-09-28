@@ -187,6 +187,10 @@ const btnVisible = computed(() => {
 })
 
 const btnLabel = computed(() => {
+  if (isLoading.value) {
+    return `正在呼喚小魚們...`
+  }
+
   return `餵魚飼料 ${currentReaction.value}/${MAX_FEED_COUNT}`
 })
 const btnDisabled = computed(() => (
