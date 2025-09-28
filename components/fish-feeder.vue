@@ -191,10 +191,10 @@ const btnVisible = computed(() => {
 
 const btnLabel = computed(() => {
   if (isLoading.value) {
-    return `正在呼喚小魚們...`
+    return `正在呼喚小魚們...(´,,•ω•,,)`
   }
 
-  return `餵魚飼料 ${currentReaction.value}/${MAX_FEED_COUNT}`
+  return `餵飼料 (${currentReaction.value}/${MAX_FEED_COUNT})`
 })
 const btnDisabled = computed(() => (
   isLoading.value || currentReaction.value >= MAX_FEED_COUNT
@@ -202,7 +202,7 @@ const btnDisabled = computed(() => (
 
 const totalText = computed(() => {
   if (totalReaction.value === 0) {
-    return '成為第一個餵魚飼料的人吧！'
+    return '成為第一個餵飼料的人吧！'
   }
   return `已累積 ${totalReaction.value} 份魚飼料了！`
 })
