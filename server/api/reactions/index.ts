@@ -3,10 +3,9 @@ import { zValidator } from '@hono/zod-validator'
 import { and, eq, gte, lte, sql } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/d1'
 import { Hono } from 'hono'
-import { pipe, prop, sumBy, tap } from 'remeda'
+import { pipe, tap } from 'remeda'
 import z from 'zod'
 import { articleIdSchema, reactionsTable } from '../../schema'
-import { count } from 'console'
 
 export const reactionsApi = new Hono<Env>()
   .basePath('/api/reactions')
