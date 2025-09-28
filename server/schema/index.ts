@@ -20,7 +20,6 @@ export const reactionsTable = sqliteTable(
   },
   (table) => [
     primaryKey({ columns: [table.articleId, table.userId] }),
-    index('idx_reactions_article_user').on(table.articleId, table.userId),
     index('idx_reactions_article_updated').on(table.articleId, table.updatedAt),
   ],
 )

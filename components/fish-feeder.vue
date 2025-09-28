@@ -231,7 +231,7 @@ const totalText = computed(() => {
   if (totalReaction.value === 0) {
     return '成為第一個餵飼料的人吧！'
   }
-  return `已累積 ${totalReaction.value} 份魚飼料了！`
+  return `已累積 ${totalReaction.value} 份魚飼料 ` + '(*´∀`)~♥'
 })
 
 whenever(btnVisible, () => {
