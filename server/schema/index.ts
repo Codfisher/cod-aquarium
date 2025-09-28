@@ -1,4 +1,4 @@
-import { index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
+import { index, integer, primaryKey, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 import z from 'zod'
 
 export const articleIdSchema = z
@@ -13,21 +13,14 @@ export const articleIdSchema = z
 export const reactionsTable = sqliteTable(
   'reactions',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
     articleId: text('article_id').notNull(),
     userId: text('user_id').notNull(),
-    type: text('type').notNull(),
-    createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+    like: integer('like').notNull().default(0),
+    updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
   },
-  (table) => ({
-    idxArticleUser: index('idx_reactions_article_user').on(
-      table.articleId,
-      table.userId,
-    ),
-
-    idxArticleCreated: index('idx_reactions_article_created').on(
-      table.articleId,
-      table.createdAt,
-    ),
-  }),
+  (table) => [
+    primaryKey({ columns: [table.articleId, table.userId] }),
+    index('idx_reactions_article_user').on(table.articleId, table.userId),
+    index('idx_reactions_article_updated').on(table.articleId, table.updatedAt),
+  ],
 )

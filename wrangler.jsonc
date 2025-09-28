@@ -26,7 +26,7 @@
     {
       "binding": "DB",
       "database_name": "cod-aquarium",
-      "database_id": "209fe2bc-4c96-4d64-9958-3087fc4b5a91",
+      "database_id": "dc365117-bea4-4ca0-8cb8-8b548e567f81",
       "migrations_dir": "./server/drizzle"
     }
   ],

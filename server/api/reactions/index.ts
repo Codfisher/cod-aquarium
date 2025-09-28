@@ -3,7 +3,7 @@ import { zValidator } from '@hono/zod-validator'
 import { and, eq, gte, lte, sql } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/d1'
 import { Hono } from 'hono'
-import { pipe, prop, sumBy } from 'remeda'
+import { pipe, prop, sumBy, tap } from 'remeda'
 import z from 'zod'
 import { articleIdSchema, reactionsTable } from '../../schema'
 
@@ -19,25 +19,26 @@ export const reactionsApi = new Hono<Env>()
       }),
     ),
     async (ctx) => {
+      const db = drizzle(ctx.env.DB)
       const { articleId } = ctx.req.valid('query')
       const userId = ctx.get('userId')
 
-      const [item] = await drizzle(ctx.env.DB)
-        .select({
-          total: sql<number>`count(*)`,
-          yours: sql<number>`
-          coalesce(
-            sum(case when ${reactionsTable.userId} = ${userId} then 1 else 0 end),
-            0
-          )
-        `,
-        })
+      const [yoursRow] = await db
+        .select({ count: sql<number>`coalesce(${reactionsTable.like}, 0)` })
+        .from(reactionsTable)
+        .where(and(
+          eq(reactionsTable.articleId, articleId),
+          eq(reactionsTable.userId, userId),
+        ))
+
+      const [totalRow] = await db
+        .select({ total: sql<number>`coalesce(sum(${reactionsTable.like}), 0)` })
         .from(reactionsTable)
         .where(eq(reactionsTable.articleId, articleId))
 
       return ctx.json({
-        total: item?.total ?? 0,
-        yours: item?.yours ?? 0,
+        total: totalRow?.total ?? 0,
+        yours: yoursRow?.count ?? 0,
       })
     },
   )
@@ -55,10 +56,11 @@ export const reactionsApi = new Hono<Env>()
     async (ctx) => {
       const { articleId } = ctx.req.valid('json')
       const userId = ctx.get('userId')
+      const db = drizzle(ctx.env.DB)
 
       const reactionCount = pipe(
-        await drizzle(ctx.env.DB)
-          .select({ count: sql<number>`count(*)` })
+        await db
+          .select({ count: sql<number>`coalesce(${reactionsTable.like}, 0)` })
           .from(reactionsTable)
           .where(and(
             eq(reactionsTable.articleId, articleId),
@@ -80,11 +82,16 @@ export const reactionsApi = new Hono<Env>()
         return ctx.json({ error: '已達到最大讚數' }, 429)
       }
 
-      // 此文章今日已達 500 讚
-      const todayStart = new Date()
-      todayStart.setHours(0, 0, 0, 0)
-      const todayEnd = new Date()
-      todayEnd.setHours(23, 59, 59, 999)
+      // 此文章今日讚數上限
+      const now = new Date()
+      const todayStart = pipe(
+        new Date(now),
+        tap((date) => date.setUTCHours(0, 0, 0, 0))
+      );
+      const todayEnd = pipe(
+        new Date(now),
+        tap((date) => date.setUTCHours(23, 59, 59, 999))
+      );
 
       const todayReactionCount = pipe(
         await drizzle(ctx.env.DB)
@@ -94,26 +101,27 @@ export const reactionsApi = new Hono<Env>()
           .from(reactionsTable)
           .where(and(
             eq(reactionsTable.articleId, articleId),
-            gte(reactionsTable.createdAt, todayStart),
-            lte(reactionsTable.createdAt, todayEnd),
+            gte(reactionsTable.updatedAt, todayStart),
+            lte(reactionsTable.updatedAt, todayEnd),
           )),
         ([item]) => item?.count ?? 0,
       )
 
-      if (todayReactionCount >= 500) {
+      if (todayReactionCount >= 2000) {
         return ctx.json(
           { error: '感謝大家的熱情，此文今日讚數已達上限，請明天再來 (*´∀`)~♥' },
           429,
         )
       }
 
-      await drizzle(ctx.env.DB)
-        .insert(reactionsTable)
-        .values({
-          articleId,
-          userId,
-          type: 'like',
-          createdAt: new Date(),
+      await db.insert(reactionsTable)
+        .values({ articleId, userId, like: 1, updatedAt: now })
+        .onConflictDoUpdate({
+          target: [reactionsTable.articleId, reactionsTable.userId],
+          set: {
+            like: sql`min(${reactionsTable.like} + 1, 10)`,
+            updatedAt: now,
+          },
         })
 
       const count = reactionCount + 1
