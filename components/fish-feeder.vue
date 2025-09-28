@@ -31,7 +31,7 @@
 
     <transition name="opacity">
       <div
-        v-if="reactionData.total !== 0 && !isHiddenFish"
+        v-if="canvasVisible"
         :key="reactionData.total"
         class=" fixed w-screen h-screen top-0 left-0 pointer-events-none z-[999999999999] duration-300"
         :class="{ 'opacity-0': !btnVisible, 'opacity-80': btnVisible }"
@@ -209,6 +209,17 @@ whenever(btnVisible, () => {
     return
   }
   refreshReactionData()
+})
+
+const canvasVisible = computed(() => {
+  if (isLoading.value) {
+    return false
+  }
+  if (totalReaction.value > 0) {
+    return true
+  }
+
+  return reactionData.value.total !== 0 && !isHiddenFish.value
 })
 </script>
 
