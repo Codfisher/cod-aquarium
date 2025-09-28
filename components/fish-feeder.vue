@@ -31,7 +31,7 @@
 
     <transition name="opacity">
       <div
-        v-if="reactionData.total !== 0"
+        v-if="reactionData.total !== 0 && !isHiddenFish"
         :key="reactionData.total"
         class=" fixed w-screen h-screen top-0 left-0 pointer-events-none z-[999999999999] duration-300"
         :class="{ 'opacity-0': !btnVisible, 'opacity-80': btnVisible }"
@@ -179,7 +179,7 @@ useIntersectionObserver(btnRef, ([entry]) => {
   btnIntersection.value = entry?.isIntersecting || false
 })
 const btnVisible = computed(() => {
-  if (isHiddenFish.value || !isFocused.value) {
+  if (!isFocused.value) {
     return false
   }
 
