@@ -38,7 +38,7 @@
       >
         <bg-flock
           ref="flockRef"
-          :count="reactionData.total"
+          :count="totalReaction"
           :size="fishSize"
         />
       </div>
@@ -49,7 +49,7 @@
 <script setup lang="ts">
 import type { AppType } from '../server'
 import FingerprintJS from '@fingerprintjs/fingerprintjs'
-import { until, useArraySome, useAsyncState, useIntersectionObserver, useWindowFocus } from '@vueuse/core'
+import { until, useArraySome, useAsyncState, useIntersectionObserver, useWindowFocus, whenever } from '@vueuse/core'
 import { hc } from 'hono/client'
 import { pipe, prop } from 'remeda'
 import { useRoute } from 'vitepress'
@@ -84,6 +84,8 @@ const articleId = computed(() => {
 
 const client = hc<AppType>('https://cod-aquarium-server.codfish-2140.workers.dev/')
 
+const currentReaction = ref(0)
+
 const {
   isLoading: isReactionDataLoading,
   state: reactionData,
@@ -108,55 +110,53 @@ const {
     return res.json()
   },
   { total: 0, yours: 0 },
-  { resetOnExecute: false },
+  {
+    immediate: false,
+    resetOnExecute: false,
+    onSuccess(data) {
+      currentReaction.value = data.yours
+    },
+  },
 )
+const totalReaction = computed(
+  () => reactionData.value.total - reactionData.value.yours + currentReaction.value,
+)
+
 watch(articleId, () => refreshReactionData())
 
-const {
-  isLoading: isReactionAdding,
-  execute: addReaction,
-} = useAsyncState(async () => {
-  await until(isUserLoading).toBe(false)
-
-  if (!articleId.value) {
+function addReaction() {
+  if (!articleId.value || currentReaction.value >= MAX_FEED_COUNT) {
     return
   }
 
-  const res = await client.api.reactions.$post(
+  currentReaction.value++
+  flockRef.value?.addRandomBoids(1)
+
+  client.api.reactions.$post(
     { json: { articleId: articleId.value } },
     { headers: { 'x-user-id': userId.value } },
-  )
-
-  if (!res.ok) {
-    return
-  }
-  if (res.status === 429) {
-    // 未來有空再改成比較漂亮的提示
-    // eslint-disable-next-line no-alert
-    alert('感謝大家的熱情，本文的魚今天吃太飽了，請明天再來 (*´∀`)~♥')
-  }
-}, undefined, {
-  immediate: false,
-  onSuccess() {
-    refreshReactionData()
-    flockRef.value?.addRandomBoids(1)
-  },
-})
+  ).then((res) => {
+    if (res.status === 429) {
+      // 未來有空再改成比較漂亮的提示
+      // eslint-disable-next-line no-alert
+      alert('感謝大家的熱情，本文的魚今天吃太飽了，請明天再來 (*´∀`)~♥')
+    }
+  })
+}
 
 const isLoading = useArraySome(
   () => [
     isUserLoading,
     isReactionDataLoading,
-    isReactionAdding.value,
   ],
   Boolean,
 )
 
 const fishSize = computed(() => {
-  if (reactionData.value.total > 2000) {
+  if (totalReaction.value > 2000) {
     return 5
   }
-  if (reactionData.value.total > 1000) {
+  if (totalReaction.value > 1000) {
     return 10
   }
 
@@ -182,19 +182,24 @@ const btnVisible = computed(() => {
 
   return btnIntersection.value
 })
+whenever(btnVisible, () => {
+  refreshReactionData()
+}, {
+  once: true,
+})
 
 const btnLabel = computed(() => {
-  return `餵魚飼料 ${reactionData.value.yours}/${MAX_FEED_COUNT}`
+  return `餵魚飼料 ${currentReaction.value}/${MAX_FEED_COUNT}`
 })
 const btnDisabled = computed(() => (
-  isLoading.value || reactionData.value.yours >= MAX_FEED_COUNT
+  isLoading.value || currentReaction.value >= MAX_FEED_COUNT
 ))
 
 const totalText = computed(() => {
-  if (reactionData.value.total === 0) {
+  if (totalReaction.value === 0) {
     return '成為第一個餵魚飼料的人吧！'
   }
-  return `已累積 ${reactionData.value.total} 份魚飼料了！`
+  return `已累積 ${totalReaction.value} 份魚飼料了！`
 })
 </script>
 
