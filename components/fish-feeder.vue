@@ -135,6 +135,23 @@ const totalReaction = computed(
   () => reactionData.value.total - reactionData.value.yours + currentReaction.value,
 )
 
+const postReaction = debounce(
+  async () => {
+    const res = await client.api.reactions.$post(
+      { json: { articleId: articleId.value, count: currentReaction.value } },
+      { headers: { 'x-user-id': userId.value } },
+    )
+
+    if (res.status === 429) {
+      // 未來有空再改成比較漂亮的提示
+      // eslint-disable-next-line no-alert
+      alert('感謝大家的熱情，本文的魚今天吃太飽了，請明天再來 (*´∀`)~♥')
+    }
+  },
+  1000,
+  { leading: false, trailing: true },
+)
+
 function addReaction() {
   if (!articleId.value || currentReaction.value >= MAX_FEED_COUNT) {
     return
@@ -143,16 +160,7 @@ function addReaction() {
   currentReaction.value++
   flockRef.value?.addRandomBoids(1)
 
-  client.api.reactions.$post(
-    { json: { articleId: articleId.value } },
-    { headers: { 'x-user-id': userId.value } },
-  ).then((res) => {
-    if (res.status === 429) {
-      // 未來有空再改成比較漂亮的提示
-      // eslint-disable-next-line no-alert
-      alert('感謝大家的熱情，本文的魚今天吃太飽了，請明天再來 (*´∀`)~♥')
-    }
-  })
+  postReaction()
 }
 
 const isLoading = useArraySome(
