@@ -14,11 +14,26 @@
       :disabled="btnDisabled"
       @click="addReaction()"
     >
-      {{ btnLabel }}
+      <transition
+        name="text"
+        mode="out-in"
+      >
+        <span :key="btnLabel"> {{ btnLabel }}</span>
+      </transition>
     </button>
 
     <span class="text-xs opacity-60 text-center">
-      {{ totalText }}<span class="text-nowrap">(*´∀`)~♥</span>
+      <transition
+        name="text"
+        mode="out-in"
+      >
+        <span :key="totalText">
+          {{ totalText }}
+
+          <span class="text-nowrap"></span>
+        </span>
+      </transition>
+
     </span>
 
     <label class="text-xs opacity-80 text-center flex justify-center gap-1">
@@ -209,6 +224,10 @@ const btnDisabled = computed(() => (
 ))
 
 const totalText = computed(() => {
+  if (isLoading.value) {
+    return `清點飼料中...`
+  }
+
   if (totalReaction.value === 0) {
     return '成為第一個餵飼料的人吧！'
   }
@@ -245,4 +264,12 @@ const canvasVisible = computed(() => {
     transition-duration: 0.4s
   &-enter-from, &-leave-to
     opacity: 0 !important
+
+.text
+  &-enter-active, &-leave-active
+    transition-duration: 0.4s
+  &-enter-from, &-leave-to
+    display: inline-block
+    opacity: 0 !important
+    transform: translateY(-8px) !important
 </style>
