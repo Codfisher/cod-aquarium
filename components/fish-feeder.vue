@@ -177,11 +177,6 @@ const isHiddenFish = ref(false)
 const btnRef = useTemplateRef('btnRef')
 const btnIntersection = ref(true)
 useIntersectionObserver(btnRef, ([entry]) => {
-  if (isHiddenFish.value) {
-    btnIntersection.value = true
-    return
-  }
-
   btnIntersection.value = entry?.isIntersecting || false
 })
 const btnVisible = computed(() => {
