@@ -6,6 +6,7 @@ import { Hono } from 'hono'
 import { pipe, prop, sumBy, tap } from 'remeda'
 import z from 'zod'
 import { articleIdSchema, reactionsTable } from '../../schema'
+import { count } from 'console'
 
 export const reactionsApi = new Hono<Env>()
   .basePath('/api/reactions')
@@ -51,10 +52,11 @@ export const reactionsApi = new Hono<Env>()
         articleId: articleIdSchema,
         // 目前預設都是 like
         // type: z.string().trim().min(1),
+        count: z.number().min(1).max(10).default(1),
       }),
     ),
     async (ctx) => {
-      const { articleId } = ctx.req.valid('json')
+      const { articleId, count: newCount } = ctx.req.valid('json')
       const userId = ctx.get('userId')
       const db = drizzle(ctx.env.DB)
 
@@ -115,11 +117,11 @@ export const reactionsApi = new Hono<Env>()
       }
 
       await db.insert(reactionsTable)
-        .values({ articleId, userId, like: 1, updatedAt: now })
+        .values({ articleId, userId, like: newCount, updatedAt: now })
         .onConflictDoUpdate({
           target: [reactionsTable.articleId, reactionsTable.userId],
           set: {
-            like: sql`min(${reactionsTable.like} + 1, 10)`,
+            like: sql`min(${newCount}, 10)`,
             updatedAt: now,
           },
         })
