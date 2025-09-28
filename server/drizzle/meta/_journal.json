@@ -8,6 +8,13 @@
       "when": 1758876796385,
       "tag": "0000_omniscient_ben_urich",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1758998575393,
+      "tag": "0001_shallow_magneto",
+      "breakpoints": true
     }
   ]
 }

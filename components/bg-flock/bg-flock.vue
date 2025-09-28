@@ -140,7 +140,10 @@ onMounted(() => {
   flock.boidList.length = 0
   flock.addRandomBoids(
     props.count,
-    world.value,
+    {
+      max: world.value.max,
+      min: world.value.max,
+    },
     props.boidOptions,
   )
   boidCount.value = props.count
@@ -162,8 +165,8 @@ defineExpose<Expose>({
     flock.addRandomBoids(
       count,
       {
-        min: world.value.min,
-        max: world.value.min,
+        min: world.value.max,
+        max: world.value.max,
       },
     )
   },

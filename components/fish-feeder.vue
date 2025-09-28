@@ -4,7 +4,7 @@
     class="flex flex-col gap-4 p-4 border rounded-lg"
   >
     <span class="text-sm  ">
-      投個魚飼料吧，會跑出小魚喔！<span class="text-nowrap">(ゝ∀・)b</span>
+      餵個魚飼料吧，會跑出小魚喔！<span class="text-nowrap">(ゝ∀・)b</span>
     </span>
 
     <button
@@ -31,14 +31,14 @@
 
     <transition name="opacity">
       <div
-        v-if="reactionData.total !== 0"
+        v-if="canvasVisible"
         :key="reactionData.total"
         class=" fixed w-screen h-screen top-0 left-0 pointer-events-none z-[999999999999] duration-300"
         :class="{ 'opacity-0': !btnVisible, 'opacity-80': btnVisible }"
       >
         <bg-flock
           ref="flockRef"
-          :count="reactionData.total"
+          :count="totalReaction"
           :size="fishSize"
         />
       </div>
@@ -49,8 +49,9 @@
 <script setup lang="ts">
 import type { AppType } from '../server'
 import FingerprintJS from '@fingerprintjs/fingerprintjs'
-import { until, useArraySome, useAsyncState, useIntersectionObserver, useWindowFocus } from '@vueuse/core'
+import { until, useArraySome, useAsyncState, useIntersectionObserver, useWindowFocus, whenever } from '@vueuse/core'
 import { hc } from 'hono/client'
+import { debounce } from 'lodash-es'
 import { pipe, prop } from 'remeda'
 import { useRoute } from 'vitepress'
 import { computed, ref, useTemplateRef, watch } from 'vue'
@@ -84,6 +85,13 @@ const articleId = computed(() => {
 
 const client = hc<AppType>('https://cod-aquarium-server.codfish-2140.workers.dev/')
 
+const currentReaction = ref(0)
+
+const loadingOnce = ref(false)
+watch(articleId, () => {
+  loadingOnce.value = false
+})
+
 const {
   isLoading: isReactionDataLoading,
   state: reactionData,
@@ -108,55 +116,56 @@ const {
     return res.json()
   },
   { total: 0, yours: 0 },
-  { resetOnExecute: false },
+  {
+    immediate: false,
+    resetOnExecute: false,
+    onSuccess(data) {
+      currentReaction.value = data.yours
+    },
+  },
 )
-watch(articleId, () => refreshReactionData())
+const debouncedRefresh = debounce(refreshReactionData, 1000, {
+  leading: true,
+  trailing: false,
+})
 
-const {
-  isLoading: isReactionAdding,
-  execute: addReaction,
-} = useAsyncState(async () => {
-  await until(isUserLoading).toBe(false)
+const totalReaction = computed(
+  () => reactionData.value.total - reactionData.value.yours + currentReaction.value,
+)
 
-  if (!articleId.value) {
+function addReaction() {
+  if (!articleId.value || currentReaction.value >= MAX_FEED_COUNT) {
     return
   }
 
-  const res = await client.api.reactions.$post(
+  currentReaction.value++
+  flockRef.value?.addRandomBoids(1)
+
+  client.api.reactions.$post(
     { json: { articleId: articleId.value } },
     { headers: { 'x-user-id': userId.value } },
-  )
-
-  if (!res.ok) {
-    return
-  }
-  if (res.status === 429) {
-    // 未來有空再改成比較漂亮的提示
-    // eslint-disable-next-line no-alert
-    alert('感謝大家的熱情，本文的魚今天吃太飽了，請明天再來 (*´∀`)~♥')
-  }
-}, undefined, {
-  immediate: false,
-  onSuccess() {
-    refreshReactionData()
-    flockRef.value?.addRandomBoids(1)
-  },
-})
+  ).then((res) => {
+    if (res.status === 429) {
+      // 未來有空再改成比較漂亮的提示
+      // eslint-disable-next-line no-alert
+      alert('感謝大家的熱情，本文的魚今天吃太飽了，請明天再來 (*´∀`)~♥')
+    }
+  })
+}
 
 const isLoading = useArraySome(
   () => [
     isUserLoading,
     isReactionDataLoading,
-    isReactionAdding.value,
   ],
   Boolean,
 )
 
 const fishSize = computed(() => {
-  if (reactionData.value.total > 2000) {
+  if (totalReaction.value > 2000) {
     return 5
   }
-  if (reactionData.value.total > 1000) {
+  if (totalReaction.value > 1000) {
     return 10
   }
 
@@ -176,7 +185,7 @@ useIntersectionObserver(btnRef, ([entry]) => {
   btnIntersection.value = entry?.isIntersecting || false
 })
 const btnVisible = computed(() => {
-  if (isHiddenFish.value || !isFocused.value) {
+  if (!isFocused.value) {
     return false
   }
 
@@ -184,17 +193,36 @@ const btnVisible = computed(() => {
 })
 
 const btnLabel = computed(() => {
-  return `投擲魚飼料 ${reactionData.value.yours}/${MAX_FEED_COUNT}`
+  if (isLoading.value) {
+    return `正在呼喚小魚們...`
+  }
+
+  return `餵魚飼料 ${currentReaction.value}/${MAX_FEED_COUNT}`
 })
 const btnDisabled = computed(() => (
-  isLoading.value || reactionData.value.yours >= MAX_FEED_COUNT
+  isLoading.value || currentReaction.value >= MAX_FEED_COUNT
 ))
 
 const totalText = computed(() => {
-  if (reactionData.value.total === 0) {
-    return '成為第一個投擲魚飼料的人吧！'
+  if (totalReaction.value === 0) {
+    return '成為第一個餵魚飼料的人吧！'
   }
-  return `已累積 ${reactionData.value.total} 份魚飼料了！`
+  return `已累積 ${totalReaction.value} 份魚飼料了！`
+})
+
+whenever(btnVisible, () => {
+  if (loadingOnce.value) {
+    return
+  }
+  debouncedRefresh()
+})
+
+const canvasVisible = computed(() => {
+  if (isLoading.value || isHiddenFish.value) {
+    return false
+  }
+
+  return reactionData.value.total !== 0 || totalReaction.value > 0
 })
 </script>
 
