@@ -59,7 +59,22 @@ export const reactionsApi = new Hono<Env>()
       const userId = ctx.get('userId')
       const db = drizzle(ctx.env.DB)
 
-      const reactionCount = pipe(
+      // 此文章是否有任何人響應過
+      const [existingRow] = await db
+        .select({ data: sql`1` }) 
+        .from(reactionsTable)
+        .where(eq(reactionsTable.articleId, articleId))
+        .limit(1);
+
+      if (!existingRow?.data) {
+        // 打個請求確認文章存在
+        const res = await fetch(`https://codlin.me/${articleId}`)
+        if (res.status === 404) {
+          return ctx.json({ error: '查無此文章 (´・ω・`)' }, 404)
+        }
+      }
+
+      const userReactionCount = pipe(
         await db
           .select({ count: sql<number>`coalesce(${reactionsTable.like}, 0)` })
           .from(reactionsTable)
@@ -70,16 +85,8 @@ export const reactionsApi = new Hono<Env>()
         ([item]) => item?.count ?? 0,
       )
 
-      if (reactionCount === 0) {
-        // 打個請求確認文章存在
-        const res = await fetch(`https://codlin.me/${articleId}`)
-        if (res.status === 404) {
-          return ctx.json({ error: '查無此文章 (´・ω・`)' }, 404)
-        }
-      }
-
       // 上限 10 個讚
-      if (reactionCount >= 10) {
+      if (userReactionCount >= 10) {
         return ctx.json({ error: '已達到最大讚數' }, 429)
       }
 
@@ -125,8 +132,7 @@ export const reactionsApi = new Hono<Env>()
           },
         })
 
-      const count = reactionCount + 1
 
-      return ctx.json({ count })
+      return ctx.json({})
     },
   )

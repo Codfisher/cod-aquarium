@@ -1,0 +1,1 @@
+DROP INDEX `idx_reactions_article_user`;
