@@ -51,6 +51,7 @@ import type { AppType } from '../server'
 import FingerprintJS from '@fingerprintjs/fingerprintjs'
 import { until, useArraySome, useAsyncState, useIntersectionObserver, useWindowFocus, whenever } from '@vueuse/core'
 import { hc } from 'hono/client'
+import { debounce } from 'lodash-es'
 import { pipe, prop } from 'remeda'
 import { useRoute } from 'vitepress'
 import { computed, ref, useTemplateRef, watch } from 'vue'
@@ -123,6 +124,11 @@ const {
     },
   },
 )
+const debouncedRefresh = debounce(refreshReactionData, 1000, {
+  leading: true,
+  trailing: false,
+})
+
 const totalReaction = computed(
   () => reactionData.value.total - reactionData.value.yours + currentReaction.value,
 )
@@ -208,18 +214,15 @@ whenever(btnVisible, () => {
   if (loadingOnce.value) {
     return
   }
-  refreshReactionData()
+  debouncedRefresh()
 })
 
 const canvasVisible = computed(() => {
-  if (isLoading.value) {
+  if (isLoading.value || isHiddenFish.value) {
     return false
   }
-  if (totalReaction.value > 0) {
-    return true
-  }
 
-  return reactionData.value.total !== 0 && !isHiddenFish.value
+  return reactionData.value.total !== 0 || totalReaction.value > 0
 })
 </script>
 
