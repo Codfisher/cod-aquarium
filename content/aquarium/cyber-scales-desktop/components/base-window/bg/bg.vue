@@ -12,7 +12,7 @@
     </svg>
 
     <svg
-      class="absolute"
+      class="absolute select-none"
       v-bind="svgAttrs"
     >
       <top-frame v-bind="frameParams" />
