@@ -7,7 +7,6 @@ import { markRaw, ref, shallowRef } from 'vue'
 import AppCenter from '../components/app-center/app-center.vue'
 
 type AppType = 'center'
-
 interface AppInfo {
   id: string;
   type: AppType;
@@ -19,6 +18,8 @@ interface AppInfo {
     height: number;
     component: Component;
   };
+  isActive: boolean;
+  focusedAt: number;
 }
 
 const defaultAppData: Record<AppType, AppInfo['data']> = {
@@ -41,15 +42,34 @@ export const useAppStore = defineStore('app', () => {
     appList.value.push({
       id,
       type,
+      isActive: false,
+      focusedAt: new Date().getTime(),
       data: {
         ...data,
         component: markRaw(data.component),
       },
     })
+
+    return id
+  }
+
+  function focus(id?: string) {
+    appList.value.forEach((item) => {
+      item.isActive = false
+    })
+
+    const target = appList.value.find((item) => item.id === id)
+    if (!target) {
+      return
+    }
+
+    target.isActive = true
+    target.focusedAt = new Date().getTime()
   }
 
   return {
     appList,
     open,
+    focus,
   }
 })
