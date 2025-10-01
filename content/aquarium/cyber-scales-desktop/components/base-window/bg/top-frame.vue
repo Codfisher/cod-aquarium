@@ -52,9 +52,10 @@ const targetParams = computed<GraphParams>(() => {
     width: 1,
   }
 })
-watch(targetParams, () => {
-  console.log('targetParams', { ...targetParams.value })
-}, { deep: true })
+// watch(targetParams, () => {
+//   console.log('status', props.status)
+//   console.log('targetParams', { ...targetParams.value })
+// }, { deep: true })
 
 const delayMap: Partial<Record<
   ComponentStatus,
@@ -76,6 +77,7 @@ const { data: graphParams } = useAnimatable(
     delay: (fieldKey) => delayMap[props.status]?.[fieldKey] ?? 0,
     duration: props.duration,
     ease: 'cubicBezier(0.9, 0, 0.1, 1)',
+    immediate: false,
   },
 )
 

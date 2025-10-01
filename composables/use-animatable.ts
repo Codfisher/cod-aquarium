@@ -18,6 +18,13 @@ interface UseAnimatableParams<Data extends object> {
    * @default false
    */
   adjustDurationByDelay?: boolean;
+
+  /** 動畫觸發來源。
+   *
+   * 因為 targetData 變更一定是動畫，有可能是資料初始化（從 0 變成有數值），所以預設會馬上觸發動畫。
+   *
+   * 這樣會導致初始動畫不符合預期，所以可以指定
+   */
 }
 
 export function useAnimatable<Data extends object>(
