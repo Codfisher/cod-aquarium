@@ -119,6 +119,7 @@ const { data: graphParams } = useAnimatable(
     },
     duration: props.duration,
     ease: 'inOutQuint',
+    animationTriggerBy: status,
   },
 )
 

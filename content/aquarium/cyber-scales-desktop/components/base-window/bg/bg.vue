@@ -12,7 +12,7 @@
     </svg>
 
     <svg
-      class="absolute"
+      class="absolute select-none"
       v-bind="svgAttrs"
     >
       <top-frame v-bind="frameParams" />
@@ -64,10 +64,10 @@ const svgAttrs = computed(() => ({
   ].join(' '),
 }))
 
-watch(svgAttrs, (v) => {
-  console.log('status', props.status)
-  console.log('svgAttrs', v)
-})
+// watch(svgAttrs, (v) => {
+//   console.log('status', props.status)
+//   console.log('svgAttrs', v)
+// })
 
 const frameParams = computed(() => ({
   svgSize: containerSize,

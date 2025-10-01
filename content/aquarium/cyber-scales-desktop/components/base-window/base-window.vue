@@ -17,8 +17,10 @@
 </template>
 
 <script setup lang="ts">
-import { promiseTimeout, until, useElementSize } from '@vueuse/core'
-import { computed, nextTick, onMounted, provide, reactive, ref, useTemplateRef, watch } from 'vue'
+import type { BaseWindowEmits } from './type'
+import { createEventHook, until, useElementSize } from '@vueuse/core'
+import { computed, nextTick, onMounted, provide, ref, useTemplateRef } from 'vue'
+import { nextFrame } from '../../../../../common/utils'
 import { ComponentStatus } from '../../types'
 import Bg from './bg/bg.vue'
 import ContentWrapper from './content-wrapper.vue'
@@ -33,9 +35,7 @@ interface Props {
 // #endregion Props
 
 // #region Emits
-interface Emits {
-  'update:modelValue': [value: Props['modelValue']];
-}
+
 // #endregion Emits
 
 // #region Slots
@@ -49,20 +49,24 @@ const props = withDefaults(defineProps<Props>(), {
   title: '',
 })
 
-const emit = defineEmits<Emits>()
+const emit = defineEmits<BaseWindowEmits>()
 
 defineSlots<Slots>()
 
 const windowRef = useTemplateRef('windowRef')
-const windowSize = reactive(useElementSize(windowRef, {
-  width: 300,
-  height: 200,
-}))
+const windowSize = useElementSize(windowRef)
 useWindow3dRotate(windowRef)
 
 const status = ref(ComponentStatus.HIDDEN)
 onMounted(async () => {
-  await until(() => windowSize.width > 0 && windowSize.height > 0).toBe(true)
+  // 確保 window 有尺寸
+  await until(windowSize.width).toBeTruthy()
+  await until(windowSize.height).toBeTruthy()
+
+  // 確保 Vue 資料、畫面更新完畢
+  await nextTick()
+  await nextFrame()
+
   status.value = ComponentStatus.VISIBLE
 })
 
@@ -75,6 +79,7 @@ defineExpose<Expose>({})
 provide(baseWindowInjectionKey, {
   title: computed(() => props.title),
   status: computed(() => status.value),
+  emit,
 })
 </script>
 

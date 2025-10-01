@@ -10,7 +10,7 @@
 
 <script setup lang="ts">
 import type { ComponentStatus } from '../../../types'
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 import { useAnimatable } from '../../../../../../composables/use-animatable'
 
 interface Props {
@@ -70,6 +70,7 @@ const { data: graphParams } = useAnimatable(
     delay: (fieldKey) => delayMap[props.status]?.[fieldKey] ?? 0,
     duration: () => durationMap[props.status] ?? props.duration,
     ease: 'inOutQuint',
+    animationTriggerBy: () => props.status,
   },
 )
 

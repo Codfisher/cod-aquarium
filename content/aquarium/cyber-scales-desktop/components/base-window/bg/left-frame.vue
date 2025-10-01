@@ -1,6 +1,8 @@
 <template>
   <polygon
     v-bind="textBgAttrs"
+    ref="handlerRef"
+    class=" pointer-events-auto cursor-move"
     fill="#777"
   />
   <polygon
@@ -24,7 +26,8 @@
 
 <script setup lang="ts">
 import type { ComponentStatus } from '../../../types'
-import { computed, inject, watch } from 'vue'
+import { useEventListener } from '@vueuse/core'
+import { computed, inject, ref, useTemplateRef, watch } from 'vue'
 import { useAnimatable } from '../../../../../../composables/use-animatable'
 import { useDecodingText } from '../../../../../../composables/use-decoding-text'
 import { baseWindowInjectionKey } from '../type'
@@ -105,6 +108,7 @@ const { data: lineParams } = useAnimatable(
     delay: (fieldKey) => delayMap[props.status]?.[fieldKey] ?? 0,
     duration: () => durationMap[props.status] ?? props.duration,
     ease: 'cubicBezier(1, 0.3, 0, 0.7)',
+    animationTriggerBy: () => props.status,
   },
 )
 
@@ -159,6 +163,28 @@ const textBgPartAttrs = computed(() => {
     ].join(' '),
     opacity: lineParams.width / maxWidth,
   }
+})
+
+const handlerRef = useTemplateRef('handlerRef')
+
+let isDragging = false
+useEventListener('pointerdown', (evt) => {
+  isDragging = true
+  handlerRef.value?.setPointerCapture(evt.pointerId)
+})
+useEventListener('pointermove', (evt) => {
+  if (!isDragging) {
+    return
+  }
+
+  windowProvider.emit('dragging', {
+    offsetX: evt.movementX,
+    offsetY: evt.movementY,
+  })
+})
+useEventListener('pointerup', (evt) => {
+  isDragging = false
+  handlerRef.value?.releasePointerCapture(evt.pointerId)
 })
 </script>
 

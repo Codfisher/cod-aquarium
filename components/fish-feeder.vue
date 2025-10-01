@@ -10,8 +10,7 @@
     <button
       ref="btnRef"
       class="feed-btn rounded-full p-6 text-xl tracking-wider select-none"
-      :class="{ 'opacity-10 pointer-events-none': btnDisabled }"
-      :disabled="btnDisabled"
+      :class="{ 'opacity-40': btnDisabled }"
       @click="addReaction()"
     >
       <transition
@@ -30,7 +29,7 @@
         <span :key="totalText">
           {{ totalText }}
 
-          <span class="text-nowrap"></span>
+          <span class="text-nowrap" />
         </span>
       </transition>
 
@@ -103,9 +102,6 @@ const client = hc<AppType>('https://cod-aquarium-server.codfish-2140.workers.dev
 const currentReaction = ref(0)
 
 const loadingOnce = ref(false)
-watch(articleId, () => {
-  loadingOnce.value = false
-})
 
 const {
   isLoading: isReactionDataLoading,
@@ -141,9 +137,13 @@ const {
     },
   },
 )
-const debouncedRefresh = debounce(refreshReactionData, 5000, {
+const debouncedRefresh = debounce(() => refreshReactionData(), 5000, {
   leading: true,
   trailing: false,
+})
+watch(articleId, () => {
+  loadingOnce.value = false
+  debouncedRefresh.cancel()
 })
 
 const totalReaction = computed(
@@ -161,6 +161,7 @@ const postReaction = debounce(
       // 未來有空再改成比較漂亮的提示
       // eslint-disable-next-line no-alert
       alert('感謝大家的熱情，本文的魚今天吃太飽了，請明天再來 (*´∀`)~♥')
+      refreshReactionData()
     }
   },
   1000,
@@ -188,13 +189,13 @@ const isLoading = useArraySome(
 
 const fishSize = computed(() => {
   if (totalReaction.value > 2000) {
-    return 5
+    return 6
   }
   if (totalReaction.value > 1000) {
     return 10
   }
 
-  return 15
+  return 13
 })
 /** 隱藏魚群 */
 const isHiddenFish = ref(false)
@@ -257,7 +258,7 @@ const canvasVisible = computed(() => {
   transition-duration: 200ms
   &:active
     scale: 0.98
-    transition-duration: 10ms
+    transition-duration: 50ms
 
 .opacity
   &-enter-active, &-leave-active

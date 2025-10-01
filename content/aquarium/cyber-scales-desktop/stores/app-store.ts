@@ -7,7 +7,6 @@ import { markRaw, ref, shallowRef } from 'vue'
 import AppCenter from '../components/app-center/app-center.vue'
 
 type AppType = 'center'
-
 interface AppInfo {
   id: string;
   type: AppType;
@@ -19,6 +18,8 @@ interface AppInfo {
     height: number;
     component: Component;
   };
+  isActive: boolean;
+  focusedAt: number;
 }
 
 const defaultAppData: Record<AppType, AppInfo['data']> = {
@@ -35,21 +36,56 @@ const defaultAppData: Record<AppType, AppInfo['data']> = {
 export const useAppStore = defineStore('app', () => {
   const appList = ref<AppInfo[]>([])
 
-  function add(type: AppType) {
+  function open(type: AppType) {
     const id = nanoid()
     const data = clone(defaultAppData[type])
     appList.value.push({
       id,
       type,
+      isActive: false,
+      focusedAt: new Date().getTime(),
       data: {
         ...data,
         component: markRaw(data.component),
       },
     })
+
+    return id
+  }
+
+  function focus(id?: string) {
+    appList.value.forEach((item) => {
+      item.isActive = false
+    })
+
+    const target = appList.value.find((item) => item.id === id)
+    if (!target) {
+      return
+    }
+
+    target.isActive = true
+    target.focusedAt = new Date().getTime()
+  }
+
+  function update(id: string, data: Partial<{
+    offsetX: number;
+    offsetY: number;
+    width: number;
+    height: number;
+  }>) {
+    const target = appList.value.find((item) => item.id === id)
+    if (!target) {
+      return
+    }
+
+    target.data.x += data.offsetX ?? 0
+    target.data.y += data.offsetY ?? 0
   }
 
   return {
     appList,
-    add,
+    open,
+    focus,
+    update,
   }
 })

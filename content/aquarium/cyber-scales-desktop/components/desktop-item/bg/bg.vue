@@ -149,6 +149,7 @@ const { data: graphParams } = useAnimatable(
       },
       'inOutQuint',
     ),
+    animationTriggerBy: status,
   },
 )
 
