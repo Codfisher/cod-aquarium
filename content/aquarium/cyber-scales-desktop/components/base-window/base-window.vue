@@ -17,8 +17,9 @@
 </template>
 
 <script setup lang="ts">
-import { createEventHook, promiseTimeout, until, useElementSize } from '@vueuse/core'
-import { computed, nextTick, onMounted, provide, reactive, ref, useTemplateRef, watch } from 'vue'
+import type { BaseWindowEmits } from './type'
+import { createEventHook, until, useElementSize } from '@vueuse/core'
+import { computed, nextTick, onMounted, provide, ref, useTemplateRef } from 'vue'
 import { nextFrame } from '../../../../../common/utils'
 import { ComponentStatus } from '../../types'
 import Bg from './bg/bg.vue'
@@ -34,12 +35,7 @@ interface Props {
 // #endregion Props
 
 // #region Emits
-interface Emits {
-  dragging: [value: {
-    offsetX: number;
-    offsetY: number;
-  }];
-}
+
 // #endregion Emits
 
 // #region Slots
@@ -53,7 +49,7 @@ const props = withDefaults(defineProps<Props>(), {
   title: '',
 })
 
-const emit = defineEmits<Emits>()
+const emit = defineEmits<BaseWindowEmits>()
 
 defineSlots<Slots>()
 
@@ -78,17 +74,12 @@ onMounted(async () => {
 interface Expose { }
 // #endregion Methods
 
-const dragHook = createEventHook<Record<'offsetX' | 'offsetY', number>>()
-dragHook.on((value) => {
-  emit('dragging', value)
-})
-
 defineExpose<Expose>({})
 
 provide(baseWindowInjectionKey, {
   title: computed(() => props.title),
   status: computed(() => status.value),
-  dragHook,
+  emit,
 })
 </script>
 

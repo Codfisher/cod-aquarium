@@ -177,7 +177,7 @@ useEventListener('pointermove', (evt) => {
     return
   }
 
-  windowProvider.dragHook.trigger({
+  windowProvider.emit('dragging', {
     offsetX: evt.movementX,
     offsetY: evt.movementY,
   })
