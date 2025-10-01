@@ -17,7 +17,7 @@
 </template>
 
 <script setup lang="ts">
-import { promiseTimeout, until, useElementSize } from '@vueuse/core'
+import { createEventHook, promiseTimeout, until, useElementSize } from '@vueuse/core'
 import { computed, nextTick, onMounted, provide, reactive, ref, useTemplateRef, watch } from 'vue'
 import { nextFrame } from '../../../../../common/utils'
 import { ComponentStatus } from '../../types'
@@ -78,11 +78,17 @@ onMounted(async () => {
 interface Expose { }
 // #endregion Methods
 
+const dragHook = createEventHook<Record<'offsetX' | 'offsetY', number>>()
+dragHook.on((value) => {
+  emit('dragging', value)
+})
+
 defineExpose<Expose>({})
 
 provide(baseWindowInjectionKey, {
   title: computed(() => props.title),
   status: computed(() => status.value),
+  dragHook,
 })
 </script>
 

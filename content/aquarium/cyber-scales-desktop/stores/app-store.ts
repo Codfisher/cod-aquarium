@@ -67,9 +67,25 @@ export const useAppStore = defineStore('app', () => {
     target.focusedAt = new Date().getTime()
   }
 
+  function update(id: string, data: Partial<{
+    offsetX: number;
+    offsetY: number;
+    width: number;
+    height: number;
+  }>) {
+    const target = appList.value.find((item) => item.id === id)
+    if (!target) {
+      return
+    }
+
+    target.data.x += data.offsetX ?? 0
+    target.data.y += data.offsetY ?? 0
+  }
+
   return {
     appList,
     open,
     focus,
+    update,
   }
 })
