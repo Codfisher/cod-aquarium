@@ -51,10 +51,6 @@ const targetParams = computed<GraphParams>(() => {
     size: 0,
   }
 })
-watch(targetParams, () => {
-  console.log('status', props.status)
-  console.log('targetParams', { ...targetParams.value })
-}, { deep: true })
 
 const delayMap: Partial<Record<
   ComponentStatus,
