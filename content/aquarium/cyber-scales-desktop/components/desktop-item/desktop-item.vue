@@ -41,6 +41,7 @@
 import { computedAsync, promiseTimeout, useElementHover, useElementSize, useMounted, useMousePressed, whenever } from '@vueuse/core'
 import { pipe } from 'remeda'
 import { computed, nextTick, provide, reactive, useTemplateRef, watch } from 'vue'
+import { nextFrame } from '../../../../../common/utils'
 import { useDecodingText } from '../../../../../composables/use-decoding-text'
 import { ComponentStatus } from '../../types'
 import MaterialIcon from '../material-icon.vue'
@@ -82,6 +83,8 @@ const { pressed: isPressed } = useMousePressed({ target: itemRef })
 const isVisible = computedAsync(async () => {
   await promiseTimeout(props.delay)
   await nextTick()
+  await nextFrame()
+
   return isMounted.value
 }, false)
 

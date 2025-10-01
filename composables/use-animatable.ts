@@ -23,8 +23,9 @@ interface UseAnimatableParams<Data extends object> {
    *
    * 因為 targetData 變更一定是動畫，有可能是資料初始化（從 0 變成有數值），所以預設會馬上觸發動畫。
    *
-   * 這樣會導致初始動畫不符合預期，所以可以指定
+   * 這樣會導致初始動畫不符合預期，所以可以指定觸發條件，例如：status 變更才觸發數值過度，否則會立即更新數值。
    */
+  animationTriggerBy?: MaybeRefOrGetter;
 }
 
 export function useAnimatable<Data extends object>(
@@ -47,7 +48,14 @@ export function useAnimatable<Data extends object>(
     clone(data),
   )
 
+  let triggerChanged = false
+  watch(params.animationTriggerBy, () => {
+    triggerChanged = true
+  })
+
   watch(targetData, () => {
+    const noTrigger = params.animationTriggerBy && !triggerChanged
+
     const delayList: ReturnType<typeof setTimeout>[] = []
 
     const current = toValue(targetData);

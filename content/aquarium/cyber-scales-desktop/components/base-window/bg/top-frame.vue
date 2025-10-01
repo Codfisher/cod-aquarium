@@ -77,7 +77,7 @@ const { data: graphParams } = useAnimatable(
     delay: (fieldKey) => delayMap[props.status]?.[fieldKey] ?? 0,
     duration: props.duration,
     ease: 'cubicBezier(0.9, 0, 0.1, 1)',
-    immediate: false,
+    animationTriggerCondition: () => props.status,
   },
 )
 
