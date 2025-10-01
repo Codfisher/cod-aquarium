@@ -84,6 +84,7 @@ const isVisible = computedAsync(async () => {
   await promiseTimeout(props.delay)
   await nextTick()
   await nextFrame()
+  await promiseTimeout(500)
 
   return isMounted.value
 }, false)
