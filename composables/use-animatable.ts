@@ -1,7 +1,7 @@
 import type { EaseStringParamNames } from 'animejs'
 import type { MaybeRefOrGetter } from 'vue'
 import { createAnimatable } from 'animejs'
-import { clone } from 'remeda'
+import { clone, pipe, when } from 'remeda'
 import { onWatcherCleanup, reactive, toValue, watch } from 'vue'
 
 export type DataObject<T extends object> = { [K in keyof T]: number }
@@ -13,11 +13,6 @@ interface UseAnimatableParams<Data extends object> {
   ease?: EaseString | ((fieldKey: keyof Data) => EaseString | undefined);
   /** @default */
   immediate?: boolean;
-
-  /** 會自動縮短 Duration，讓總時間（Duration + Delay）等於原本的 Duration
-   * @default false
-   */
-  adjustDurationByDelay?: boolean;
 
   /** 動畫觸發來源。
    *
@@ -36,7 +31,6 @@ export function useAnimatable<Data extends object>(
     delay = 0,
     duration = 500,
     ease,
-    adjustDurationByDelay = false,
     immediate = true,
   } = params
 
@@ -49,12 +43,15 @@ export function useAnimatable<Data extends object>(
   )
 
   let triggerChanged = false
-  watch(params.animationTriggerBy, () => {
+  watch(() => toValue(params.animationTriggerBy), () => {
     triggerChanged = true
+  }, {
+    deep: true,
+    flush: 'sync',
   })
 
   watch(targetData, () => {
-    const noTrigger = params.animationTriggerBy && !triggerChanged
+    const hasChanged = params.animationTriggerBy ? triggerChanged : true
 
     const delayList: ReturnType<typeof setTimeout>[] = []
 
@@ -62,17 +59,21 @@ export function useAnimatable<Data extends object>(
     (Object.keys(current) as Array<keyof DataObject<Data>>).forEach((fieldKey) => {
       const value = current[fieldKey]
 
-      const delayValue = typeof delay === 'function'
-        ? delay(fieldKey)
-        : delay
+      const delayValue = pipe(undefined, () => {
+        if (!hasChanged) {
+          return 0
+        }
 
-      const durationRaw = typeof duration === 'function'
-        ? duration(fieldKey)
-        : duration
+        return typeof delay === 'function' ? delay(fieldKey) : delay
+      })
 
-      const durationValue = adjustDurationByDelay
-        ? Math.max(durationRaw - delayValue, 0)
-        : durationRaw
+      const durationValue = pipe(undefined, () => {
+        if (!hasChanged) {
+          return 0
+        }
+
+        return typeof duration === 'function' ? duration(fieldKey) : duration
+      })
 
       const easeValue = typeof ease === 'function'
         ? ease(fieldKey)
@@ -82,6 +83,8 @@ export function useAnimatable<Data extends object>(
         dataAnimatable?.[fieldKey]?.(value, durationValue, easeValue)
       }, delayValue))
     })
+
+    triggerChanged = false
 
     onWatcherCleanup(() => {
       delayList.forEach(clearTimeout)

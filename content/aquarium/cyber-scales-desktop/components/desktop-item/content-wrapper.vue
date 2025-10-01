@@ -5,11 +5,11 @@
 </template>
 
 <script setup lang="ts">
-import { ComponentStatus } from '../../types'
+import { usePrevious } from '@vueuse/core'
 import { computed, inject, ref, toRefs, watch } from 'vue'
 import { useAnimatable } from '../../../../../composables/use-animatable'
+import { ComponentStatus } from '../../types'
 import { desktopItemInjectionKey } from './type'
-import { usePrevious } from '@vueuse/core';
 
 interface Props {
   duration?: number;
@@ -28,7 +28,6 @@ const pStatus = usePrevious(status, ComponentStatus.HIDDEN)
 interface GraphParams {
   opacity: number;
 }
-
 
 const delayMap: Partial<Record<
   `${ComponentStatus}-${ComponentStatus}`,
@@ -58,6 +57,7 @@ const { data: graphParams } = useAnimatable(
     },
     duration: props.duration,
     ease: 'outBounce',
+    animationTriggerBy: status,
   },
 )
 </script>

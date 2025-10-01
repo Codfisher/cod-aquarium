@@ -74,6 +74,7 @@ const { data: graphParams } = useAnimatable(
     delay: (fieldKey) => delayMap[props.status]?.[fieldKey] ?? 0,
     duration: () => durationMap[props.status] ?? props.duration,
     ease: 'inOutQuint',
+    animationTriggerBy: () => props.status,
   },
 )
 

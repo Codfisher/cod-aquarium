@@ -77,6 +77,7 @@ const { data: lineParams } = useAnimatable(
     delay: (fieldKey) => delayMap[props.status]?.[fieldKey] ?? 0,
     duration: () => durationMap[props.status] ?? props.duration,
     ease: 'cubicBezier(1, 0.3, 0, 0.7)',
+    animationTriggerBy: () => props.status,
   },
 )
 
