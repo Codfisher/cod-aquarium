@@ -1,9 +1,10 @@
 import type { Component } from 'vue'
+import { throttle } from 'lodash-es'
 import { nanoid } from 'nanoid'
 import { defineStore } from 'pinia'
 import { clone } from 'remeda'
-import { markRaw, ref, shallowRef } from 'vue'
 
+import { computed, markRaw, ref, shallowRef, triggerRef } from 'vue'
 import AppCenter from '../components/app-center/app-center.vue'
 
 type AppType = 'center'
@@ -34,12 +35,15 @@ const defaultAppData: Record<AppType, AppInfo['data']> = {
 }
 
 export const useAppStore = defineStore('app', () => {
-  const appList = ref<AppInfo[]>([])
+  const appMap = shallowRef(new Map<string, AppInfo>())
+  const triggerAppUpdate = throttle(() => triggerRef(appMap), 15)
+
+  const appList = computed(() => [...appMap.value.values()])
 
   function open(type: AppType) {
     const id = nanoid()
     const data = clone(defaultAppData[type])
-    appList.value.push({
+    appMap.value.set(id, {
       id,
       type,
       isActive: false,
@@ -50,21 +54,22 @@ export const useAppStore = defineStore('app', () => {
       },
     })
 
+    triggerAppUpdate()
     return id
   }
 
   function focus(id?: string) {
-    appList.value.forEach((item) => {
+    appMap.value.forEach((item) => {
       item.isActive = false
     })
 
-    const target = appList.value.find((item) => item.id === id)
-    if (!target) {
-      return
+    const target = id && appMap.value.get(id)
+    if (target) {
+      target.isActive = true
+      target.focusedAt = new Date().getTime()
     }
 
-    target.isActive = true
-    target.focusedAt = new Date().getTime()
+    triggerAppUpdate()
   }
 
   function update(id: string, data: Partial<{
@@ -73,13 +78,13 @@ export const useAppStore = defineStore('app', () => {
     width: number;
     height: number;
   }>) {
-    const target = appList.value.find((item) => item.id === id)
-    if (!target) {
+    const target = id && appMap.value.get(id)
+    if (!target)
       return
-    }
 
     target.data.x += data.offsetX ?? 0
     target.data.y += data.offsetY ?? 0
+    triggerAppUpdate()
   }
 
   return {
