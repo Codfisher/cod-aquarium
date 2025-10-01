@@ -58,8 +58,7 @@ const itemList = [
     subLabel: 'Applications',
     icon: 'mobile_layout',
     onclick() {
-      console.log(`🚀 ~ onclick: app`)
-      appStore.add('center')
+      appStore.open('center')
     },
   },
   {

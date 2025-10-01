@@ -35,7 +35,7 @@ const defaultAppData: Record<AppType, AppInfo['data']> = {
 export const useAppStore = defineStore('app', () => {
   const appList = ref<AppInfo[]>([])
 
-  function add(type: AppType) {
+  function open(type: AppType) {
     const id = nanoid()
     const data = clone(defaultAppData[type])
     appList.value.push({
@@ -50,6 +50,6 @@ export const useAppStore = defineStore('app', () => {
 
   return {
     appList,
-    add,
+    open,
   }
 })

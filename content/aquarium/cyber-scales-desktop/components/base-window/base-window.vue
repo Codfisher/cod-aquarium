@@ -35,7 +35,10 @@ interface Props {
 
 // #region Emits
 interface Emits {
-  'update:modelValue': [value: Props['modelValue']];
+  dragging: [value: {
+    offsetX: number;
+    offsetY: number;
+  }];
 }
 // #endregion Emits
 
