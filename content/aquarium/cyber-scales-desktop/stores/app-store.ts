@@ -20,8 +20,12 @@ interface AppInfo {
     // 偏移量
     offsetX: number;
     offsetY: number;
+
     width: number;
     height: number;
+
+    offsetW: number;
+    offsetH: number;
     component: Component;
   };
   isActive: boolean;
@@ -48,6 +52,8 @@ const defaultAppData: Record<AppType, AppInfo['data']> = {
     offsetY: 0,
     width: Math.min(window.innerWidth / 2, 500),
     height: window.innerHeight / 2,
+    offsetW: 0,
+    offsetH: 0,
     component: AppAbout,
   },
   center: {
@@ -58,6 +64,8 @@ const defaultAppData: Record<AppType, AppInfo['data']> = {
     offsetY: 0,
     width: window.innerWidth / 3,
     height: 300,
+    offsetW: 0,
+    offsetH: 0,
     component: AppCenter,
   },
 }
@@ -131,8 +139,8 @@ export const useAppStore = defineStore('app', () => {
   function update(id: string, data: Partial<{
     offsetX: number;
     offsetY: number;
-    width: number;
-    height: number;
+    offsetW: number;
+    offsetH: number;
   }>) {
     const target = id && appMap.value.get(id)
     if (!target)
@@ -141,12 +149,12 @@ export const useAppStore = defineStore('app', () => {
     target.data.offsetX = data.offsetX ?? 0
     target.data.offsetY = data.offsetY ?? 0
 
-    target.data.width = data.width ?? target.data.width
-    target.data.height = data.height ?? target.data.height
+    target.data.offsetW = data.offsetW ?? 0
+    target.data.offsetH = data.offsetH ?? 0
 
     triggerAppUpdate()
   }
-  function commitPosition(id: string) {
+  function commitUpdate(id: string) {
     const target = appMap.value.get(id)
     if (!target)
       return
@@ -154,6 +162,12 @@ export const useAppStore = defineStore('app', () => {
     target.data.y += target.data.offsetY
     target.data.offsetX = 0
     target.data.offsetY = 0
+
+    target.data.width += target.data.offsetW
+    target.data.height += target.data.offsetH
+    target.data.offsetW = 0
+    target.data.offsetH = 0
+
     triggerAppUpdate()
   }
 
@@ -169,7 +183,7 @@ export const useAppStore = defineStore('app', () => {
     focus,
     update,
     /** 將 offsetX 和 offsetY 的值提交到最終位置（x, y） */
-    commitPosition,
+    commitUpdate,
     close,
   }
 })

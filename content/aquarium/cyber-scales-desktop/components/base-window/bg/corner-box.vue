@@ -8,12 +8,12 @@
 </template>
 
 <script setup lang="ts">
-import { ComponentStatus } from '../../../types'
+import { usePrevious } from '@vueuse/core'
+import { pipe } from 'remeda'
 import { computed, watch } from 'vue'
 import { useAnimatable } from '../../../../../../composables/use-animatable'
-import { usePrevious } from '@vueuse/core';
-import { resolveTransitionParamValue } from '../../../utils';
-import { pipe } from 'remeda';
+import { ComponentStatus } from '../../../types'
+import { resolveTransitionParamValue } from '../../../utils'
 
 interface Props {
   status?: `${ComponentStatus}`;
@@ -27,9 +27,8 @@ const props = withDefaults(defineProps<Props>(), {
 
 const pStatus = usePrevious(
   () => props.status as ComponentStatus,
-  ComponentStatus.HIDDEN
+  ComponentStatus.HIDDEN,
 )
-
 
 /** 圖形上下左右對稱，只要 lt 參數即可
  *
@@ -61,10 +60,9 @@ const targetParams = computed<GraphParams>(() => {
       x: -svgSize.width / 2 - offset + size / 4,
       y: -svgSize.height / 2 - offset + size / 4,
       size,
-      color: 0x2dd4bf,
+      color: 0x2DD4BF,
     }
   }
-
 
   if (props.status === 'hover') {
     return {
@@ -91,10 +89,10 @@ const { data: graphParams } = useAnimatable(
         status: props.status as ComponentStatus,
         pStatus: pStatus.value,
         fieldKey,
-        defaultValue: 0
+        defaultValue: 0,
       },
       {
-        active: {
+        'active': {
           x: props.duration,
           y: props.duration,
           size: props.duration,

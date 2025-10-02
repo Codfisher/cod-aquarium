@@ -9,7 +9,9 @@
       :style="style"
       @pointerdown="handlePointerDown"
       @dragging="handleDragging"
-      @drag-end="handleDragEnd"
+      @drag-end="commitUpdate"
+      @resizing="handleResizing"
+      @resize-end="commitUpdate"
       @close="handleClose"
     >
       <div class=" w-full h-full  bg-slate-50">
@@ -53,9 +55,10 @@ const style = computed(() => {
   if (!info) {
     return
   }
+  const data = info.data
   return {
-    width: `${info?.data?.width}px`,
-    height: `${info?.data?.height}px`,
+    width: `${data.width + data.offsetW}px`,
+    height: `${data.height + data.offsetH}px`,
   }
 })
 
@@ -92,8 +95,12 @@ const handleDragging: BaseWindowProps['onDragging'] = (data) => {
   appStore.focus(appId)
   appStore.update(appId, data)
 }
-const handleDragEnd: BaseWindowProps['onDragEnd'] = () => {
-  appStore.commitPosition(appId)
+const handleResizing: BaseWindowProps['onResizing'] = (data) => {
+  appStore.focus(appId)
+  appStore.update(appId, data)
+}
+function commitUpdate() {
+  appStore.commitUpdate(appId)
 }
 
 const handleClose: BaseWindowProps['onClose'] = async () => {
