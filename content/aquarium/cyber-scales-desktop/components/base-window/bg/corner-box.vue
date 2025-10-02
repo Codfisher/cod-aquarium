@@ -91,6 +91,11 @@ const { data: graphParams } = useAnimatable(
         defaultValue: 0
       },
       {
+        active: {
+          x: props.duration * 1.5,
+          y: props.duration * 1.5,
+          size: props.duration * 1.5,
+        },
         'hidden-visible': {
           x: props.duration * 1.5,
           y: props.duration * 1.5,

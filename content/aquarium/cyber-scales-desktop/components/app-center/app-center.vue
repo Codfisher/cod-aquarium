@@ -1,7 +1,7 @@
 <template>
   <div
     ref="frameRef"
-    class=" absolute top-0 left-0 pointer-events-auto"
+    class="app-frame absolute top-0 left-0 pointer-events-auto"
   >
     <base-window
       ref="windowRef"
@@ -57,12 +57,18 @@ watch(() => [isActive, isHover], async () => {
     return
   }
 
-  if (status === ComponentStatus.VISIBLE) {
-    windowRef.value?.setStatus(isHover.value ? 'hover' : 'visible')
+  if (status === ComponentStatus.VISIBLE && isHover.value) {
+    windowRef.value?.setStatus('hover')
     return
   }
 
-  windowRef.value?.setStatus(isActive.value ? 'active' : 'visible')
+  if ([
+    ComponentStatus.VISIBLE,
+    ComponentStatus.HOVER,
+    ComponentStatus.ACTIVE,
+  ].includes(status)) {
+    windowRef.value?.setStatus(isActive.value ? 'active' : 'visible')
+  }
 }, {
   deep: true,
 })
@@ -86,4 +92,14 @@ const handleClose: BaseWindowProps['onClose'] = async () => {
 </script>
 
 <style scoped lang="sass">
+// 擴展控制範圍
+.app-frame
+  &::after
+    content: ''
+    position: absolute
+    top: -20px
+    left: -20px
+    right: -20px
+    bottom: -20px
+    z-index: -1
 </style>

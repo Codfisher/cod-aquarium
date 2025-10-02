@@ -7,9 +7,11 @@
 </template>
 
 <script setup lang="ts">
-import type { ComponentStatus } from '../../../types'
+import { ComponentStatus } from '../../../types'
 import { computed, watch } from 'vue'
 import { useAnimatable } from '../../../../../../composables/use-animatable'
+import { usePrevious } from '@vueuse/core';
+import { resolveTransitionParamValue } from '../../../utils';
 
 interface Props {
   status?: `${ComponentStatus}`;
@@ -20,6 +22,11 @@ const props = withDefaults(defineProps<Props>(), {
   status: 'hidden',
   duration: 260,
 })
+
+const pStatus = usePrevious(
+  () => props.status as ComponentStatus,
+  ComponentStatus.HIDDEN
+)
 
 interface GraphParams {
   x1: number;
@@ -54,10 +61,20 @@ const targetParams = computed<GraphParams>(() => {
     }
   }
 
+  if (props.status === 'hover') {
+    return {
+      x1: 0,
+      y1: -offset * 2,
+      x2: svgSize.width,
+      // color: '#777',
+      width: maxWidth,
+    }
+  }
+
   return {
-    x1: 2,
+    x1: 0,
     y1: -offset,
-    x2: svgSize.width - 2,
+    x2: svgSize.width,
     // color: '#777',
     width: maxWidth / 2,
   }
@@ -67,24 +84,31 @@ const targetParams = computed<GraphParams>(() => {
 //   console.log('targetParams', { ...targetParams.value })
 // }, { deep: true })
 
-const delayMap: Partial<Record<
-  ComponentStatus,
-  Partial<Record<keyof GraphParams, number>>
->> = {
-  visible: {
-    y1: props.duration,
-  },
-  hidden: {
-    x1: props.duration * 2,
-    x2: props.duration * 2,
-    y1: props.duration,
-  },
-}
-
 const { data: graphParams } = useAnimatable(
   targetParams,
   {
-    delay: (fieldKey) => delayMap[props.status]?.[fieldKey] ?? 0,
+    delay: (fieldKey) => resolveTransitionParamValue<GraphParams, number>(
+      {
+        status: props.status as ComponentStatus,
+        pStatus: pStatus.value,
+        fieldKey,
+        defaultValue: 0
+      },
+      {
+        hover: {
+          y1: props.duration * 0.6,
+        },
+        hidden: {
+          x1: props.duration * 2,
+          x2: props.duration * 2,
+          y1: props.duration,
+        },
+        'hidden-visible': {
+          y1: props.duration,
+
+        },
+      },
+    ),
     duration: props.duration,
     ease: 'cubicBezier(0.9, 0, 0.1, 1)',
     animationTriggerBy: () => props.status,

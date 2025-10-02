@@ -13,10 +13,12 @@
 </template>
 
 <script setup lang="ts">
-import type { ComponentStatus } from '../../../types'
+import { ComponentStatus } from '../../../types'
 import { computed, inject } from 'vue'
 import { useAnimatable } from '../../../../../../composables/use-animatable'
 import { baseWindowInjectionKey } from '../type'
+import { usePrevious } from '@vueuse/core';
+import { resolveTransitionParamValue } from '../../../utils';
 
 interface Props {
   status?: `${ComponentStatus}`;
@@ -32,6 +34,11 @@ const windowProvider = inject(baseWindowInjectionKey)
 if (!windowProvider) {
   throw new Error('windowProvider is not provided')
 }
+
+const pStatus = usePrevious(
+  windowProvider.status,
+  ComponentStatus.HIDDEN
+)
 
 interface GraphParams {
   x1: number;
@@ -56,6 +63,16 @@ const lineTargetParams = computed<GraphParams>(() => {
     }
   }
 
+  if (props.status === 'hover') {
+    return {
+      x1: offset * 2 + svgSize.width,
+      y1: 0,
+      y2: svgSize.height,
+      // color: '#777',
+      width: maxWidth,
+    }
+  }
+
   return {
     x1: offset + svgSize.width,
     y1: 0,
@@ -65,25 +82,30 @@ const lineTargetParams = computed<GraphParams>(() => {
   }
 })
 
-const delayMap: Partial<Record<
-  ComponentStatus,
-  Partial<Record<keyof GraphParams, number>>
->> = {
-  visible: {
-    x1: props.duration * 2.5,
-    y1: props.duration * 2.5,
-    y2: props.duration * 2.5,
-    width: props.duration * 2.5,
-  },
-}
-const durationMap: Partial<Record<ComponentStatus, number>> = {
-}
-
 const { data: lineParams } = useAnimatable(
   lineTargetParams,
   {
-    delay: (fieldKey) => delayMap[props.status]?.[fieldKey] ?? 0,
-    duration: () => durationMap[props.status] ?? props.duration,
+    delay: (fieldKey) => resolveTransitionParamValue<GraphParams, number>(
+      {
+        status: props.status as ComponentStatus,
+        pStatus: pStatus.value,
+        fieldKey,
+        defaultValue: 0
+      },
+      {
+        hover: props.duration * 1.6,
+        active: {
+          x1: props.duration * 0.6,
+        },
+        'hidden-visible': {
+          x1: props.duration * 2.5,
+          y1: props.duration * 2.5,
+          y2: props.duration * 2.5,
+          width: props.duration * 2.5,
+        },
+      },
+    ),
+    duration: props.duration,
     ease: 'cubicBezier(1, 0.3, 0, 0.7)',
     animationTriggerBy: () => props.status,
   },
