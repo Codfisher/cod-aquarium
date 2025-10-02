@@ -1,18 +1,19 @@
 <template>
   <polygon
+    ref="btnRef"
     v-bind="btnBgAttrs"
-    fill="#777"
-    class=" pointer-events-auto cursor-pointer"
+    :fill="btnColor"
+    class="btn pointer-events-auto cursor-pointer"
     @click="windowProvider.emit('close')"
   />
 </template>
 
 <script setup lang="ts">
 import { ComponentStatus } from '../../../types'
-import { computed, inject } from 'vue'
+import { computed, inject, useTemplateRef } from 'vue'
 import { useAnimatable } from '../../../../../../composables/use-animatable'
 import { baseWindowInjectionKey } from '../type'
-import { usePrevious } from '@vueuse/core';
+import { useElementHover, usePrevious } from '@vueuse/core';
 import { resolveTransitionParamValue } from '../../../utils';
 
 interface Props {
@@ -117,7 +118,13 @@ const btnBgAttrs = computed(() => {
     opacity: graphParams.width / maxWidth,
   }
 })
+
+const btnRef = useTemplateRef('btnRef')
+const isBtnHover = useElementHover(btnRef)
+const btnColor = computed(() => (isBtnHover.value ? '#f87171' : '#777'))
 </script>
 
 <style scoped lang="sass">
+.btn
+  transition: fill 0.3s
 </style>
