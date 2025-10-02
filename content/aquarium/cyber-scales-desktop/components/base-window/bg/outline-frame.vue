@@ -7,12 +7,12 @@
 </template>
 
 <script setup lang="ts">
-import { ComponentStatus } from '../../../types'
+import { usePrevious } from '@vueuse/core'
+import { omit, pipe } from 'remeda'
 import { computed } from 'vue'
 import { useAnimatable } from '../../../../../../composables/use-animatable'
-import { resolveTransitionParamValue } from '../../../utils';
-import { usePrevious } from '@vueuse/core';
-import { omit, pipe } from 'remeda';
+import { ComponentStatus } from '../../../types'
+import { resolveTransitionParamValue } from '../../../utils'
 
 interface Props {
   status?: `${ComponentStatus}`;
@@ -26,7 +26,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const pStatus = usePrevious(
   () => props.status as ComponentStatus,
-  ComponentStatus.HIDDEN
+  ComponentStatus.HIDDEN,
 )
 
 /** SVG 以左上角為原點 */
@@ -63,8 +63,8 @@ const targetParams = computed<GraphParams>(() => {
       width: svgSize.width - offset,
       height: svgSize.height - offset,
       strokeWidth: 4,
-      opacity: 0.2,
-      color: 0x2dd4bf,
+      opacity: 0.1,
+      color: 0x2DD4BF,
     }
   }
 
@@ -87,7 +87,7 @@ const { data: graphParams } = useAnimatable(
         status: props.status as ComponentStatus,
         pStatus: pStatus.value,
         fieldKey,
-        defaultValue: 0
+        defaultValue: 0,
       },
       {
         'hidden-visible': {

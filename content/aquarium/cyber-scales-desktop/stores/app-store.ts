@@ -46,7 +46,7 @@ const defaultAppData: Record<AppType, AppInfo['data']> = {
     y: 0,
     offsetX: 0,
     offsetY: 0,
-    width: window.innerWidth / 2,
+    width: Math.min(window.innerWidth / 2, 500),
     height: window.innerHeight / 2,
     component: AppAbout,
   },

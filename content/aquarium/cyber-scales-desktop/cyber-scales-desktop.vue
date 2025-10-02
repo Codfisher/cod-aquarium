@@ -100,4 +100,8 @@ function handleClick() {
 <style lang="sass">
 .font-orbitron
   font-family: "Orbitron", sans-serif
+
+.cyber-scales-desktop
+  ::-webkit-scrollbar-thumb
+    background-color: #e7e7e7
 </style>

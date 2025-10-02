@@ -7,11 +7,11 @@
 </template>
 
 <script setup lang="ts">
-import { ComponentStatus } from '../../../types'
+import { usePrevious } from '@vueuse/core'
 import { computed, watch } from 'vue'
 import { useAnimatable } from '../../../../../../composables/use-animatable'
-import { usePrevious } from '@vueuse/core';
-import { resolveTransitionParamValue } from '../../../utils';
+import { ComponentStatus } from '../../../types'
+import { resolveTransitionParamValue } from '../../../utils'
 
 interface Props {
   status?: `${ComponentStatus}`;
@@ -25,7 +25,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const pStatus = usePrevious(
   () => props.status as ComponentStatus,
-  ComponentStatus.HIDDEN
+  ComponentStatus.HIDDEN,
 )
 
 interface GraphParams {
@@ -92,13 +92,13 @@ const { data: graphParams } = useAnimatable(
         status: props.status as ComponentStatus,
         pStatus: pStatus.value,
         fieldKey,
-        defaultValue: 0
+        defaultValue: 0,
       },
       {
-        hover: {
+        'hover': {
           y1: props.duration * 0.6,
         },
-        hidden: {
+        'hidden': {
           x1: props.duration * 2,
           x2: props.duration * 2,
           y1: props.duration,

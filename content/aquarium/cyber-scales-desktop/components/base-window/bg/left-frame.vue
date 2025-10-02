@@ -94,7 +94,7 @@ const { data: graphParams } = useAnimatable(
 
     if (props.status === 'hover') {
       return {
-        x1: -offset * 2,
+        x1: -offset * 1.2,
         y1: 0,
         y2: svgSize.height,
         gap: 22,
