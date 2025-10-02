@@ -6,10 +6,7 @@
     :class="handlerClass"
     fill="#777"
   />
-  <polygon
-    v-bind="textBgPart01Attrs"
-    fill="#777"
-  />
+  <polygon v-bind="textBgPart01Attrs" />
 
   <text
     v-bind="textAttrs"
@@ -35,6 +32,7 @@ import { useAnimatable } from '../../../../../../composables/use-animatable'
 import { useDecodingText } from '../../../../../../composables/use-decoding-text'
 import { baseWindowInjectionKey } from '../type'
 import { resolveTransitionParamValue } from '../../../utils'
+import { pipe } from 'remeda'
 
 interface Props {
   status?: `${ComponentStatus}`;
@@ -71,6 +69,7 @@ interface GraphParams {
   y2: number;
   gap: number;
   opacity: number;
+  color: number;
 }
 
 const offset = 6
@@ -85,6 +84,7 @@ const { data: graphParams } = useAnimatable(
         y2: svgSize.height,
         gap: 18,
         opacity: 0,
+        color: 0x777777,
       }
     }
 
@@ -95,6 +95,7 @@ const { data: graphParams } = useAnimatable(
         y2: svgSize.height,
         gap: 22,
         opacity: 1,
+        color: 0x777777,
       }
     }
 
@@ -105,6 +106,7 @@ const { data: graphParams } = useAnimatable(
         y2: svgSize.height,
         gap: 12,
         opacity: 1,
+        color: 0x2dd4bf,
       }
     }
 
@@ -114,6 +116,7 @@ const { data: graphParams } = useAnimatable(
       y2: svgSize.height,
       gap: 18,
       opacity: 1,
+      color: 0x777777,
     }
   }),
   {
@@ -182,6 +185,11 @@ const textBgPart01Attrs = computed(() => {
   // 斜率與 textBgAttrs 一致
   const skew = (offset * 3) * ((fontSize + padding) / (fontSize + textPadding))
 
+  const fill = pipe(
+    Math.round(graphParams.color),
+    (value) => `#${value.toString(16).padStart(6, '0')}`,
+  )
+
   return {
     points: [
       `${offsetX},${leftTopY + skew}`,     // 右上
@@ -189,6 +197,7 @@ const textBgPart01Attrs = computed(() => {
       `${leftX},${leftBottomY}`,           // 左下
       `${offsetX},${leftBottomY + skew}`,  // 右下
     ].join(' '),
+    fill,
     opacity: graphParams.opacity,
   }
 })

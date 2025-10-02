@@ -39,7 +39,6 @@ interface GraphParams {
   x1: number;
   y1: number;
   y2: number;
-  // color?: string;
   width: number;
 }
 
@@ -55,7 +54,6 @@ const { data: graphParams } = useAnimatable(
         x1: offset * 2 + svgSize.width,
         y1: 0,
         y2: svgSize.height,
-        // color: '#777',
         width: 0,
       }
     }
@@ -65,7 +63,6 @@ const { data: graphParams } = useAnimatable(
         x1: offset * 2 + svgSize.width,
         y1: 0,
         y2: svgSize.height,
-        // color: '#777',
         width: maxWidth,
       }
     }
@@ -74,7 +71,6 @@ const { data: graphParams } = useAnimatable(
       x1: offset + svgSize.width,
       y1: 0,
       y2: svgSize.height,
-      // color: '#777',
       width: maxWidth,
     }
   }),
