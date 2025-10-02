@@ -2,7 +2,7 @@ import type { Component } from 'vue'
 import { throttle } from 'lodash-es'
 import { nanoid } from 'nanoid'
 import { defineStore } from 'pinia'
-import { clone } from 'remeda'
+import { clamp, clone, pick, pipe } from 'remeda'
 
 import { computed, markRaw, ref, shallowRef, triggerRef } from 'vue'
 import AppCenter from '../components/app-center/app-center.vue'
@@ -41,16 +41,31 @@ export const useAppStore = defineStore('app', () => {
   const appList = computed(() => [...appMap.value.values()])
 
   function open(type: AppType) {
+    const defaultData = clone(defaultAppData[type])
+    const position = pipe(
+      pick(defaultData, ['x', 'y']),
+      (data) => {
+        appList.value.forEach((item) => {
+          if (item.data.x === data.x && item.data.y === data.y) {
+            data.x += 20
+            data.y += 20
+          }
+        })
+
+        return data
+      },
+    )
+
     const id = nanoid()
-    const data = clone(defaultAppData[type])
     appMap.value.set(id, {
       id,
       type,
       isActive: false,
       focusedAt: new Date().getTime(),
       data: {
-        ...data,
-        component: markRaw(data.component),
+        ...defaultData,
+        ...position,
+        component: markRaw(defaultData.component),
       },
     })
 
@@ -73,6 +88,8 @@ export const useAppStore = defineStore('app', () => {
   }
 
   function update(id: string, data: Partial<{
+    x: number;
+    y: number;
     offsetX: number;
     offsetY: number;
     width: number;
@@ -82,8 +99,33 @@ export const useAppStore = defineStore('app', () => {
     if (!target)
       return
 
-    target.data.x += data.offsetX ?? 0
-    target.data.y += data.offsetY ?? 0
+    target.data.x = pipe(data.x, (value) => {
+      if (value !== undefined)
+        return value
+
+      return target.data.x + (data.offsetX ?? 0)
+    })
+    target.data.y = pipe(data.y, (value) => {
+      if (value !== undefined)
+        return value
+
+      return target.data.y + (data.offsetY ?? 0)
+    })
+
+    target.data.x = clamp(target.data.x, {
+      min: 0,
+      max: window.innerWidth - target.data.width - 80,
+    })
+    target.data.y = clamp(target.data.y, {
+      min: 0,
+      max: window.innerHeight - target.data.height - 80,
+    })
+
+    triggerAppUpdate()
+  }
+
+  function close(id: string) {
+    appMap.value.delete(id)
     triggerAppUpdate()
   }
 
@@ -92,5 +134,6 @@ export const useAppStore = defineStore('app', () => {
     open,
     focus,
     update,
+    close,
   }
 })

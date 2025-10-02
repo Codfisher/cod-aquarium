@@ -70,11 +70,11 @@ onMounted(async () => {
   status.value = ComponentStatus.VISIBLE
 })
 
-// #region Methods
-interface Expose { }
-// #endregion Methods
-
-defineExpose<Expose>({})
+defineExpose({
+  setStatus(value: `${ComponentStatus}`) {
+    status.value = value as ComponentStatus
+  },
+})
 
 provide(baseWindowInjectionKey, {
   title: computed(() => props.title),

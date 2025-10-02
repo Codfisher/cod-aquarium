@@ -2,7 +2,8 @@
   <polygon
     v-bind="textBgAttrs"
     ref="handlerRef"
-    class=" pointer-events-auto cursor-move"
+    class=" pointer-events-auto"
+    :class="handlerClass"
     fill="#777"
   />
   <polygon
@@ -167,13 +168,17 @@ const textBgPartAttrs = computed(() => {
 
 const handlerRef = useTemplateRef('handlerRef')
 
-let isDragging = false
+const isDragging = ref(false)
+const handlerClass = computed(() => {
+  return isDragging.value ? ' cursor-grabbing' : ' cursor-grab'
+})
+
 useEventListener(handlerRef, 'pointerdown', (evt: PointerEvent) => {
-  isDragging = true
+  isDragging.value = true
   handlerRef.value?.setPointerCapture(evt.pointerId)
 })
 useEventListener(handlerRef, 'pointermove', (evt: PointerEvent) => {
-  if (!isDragging) {
+  if (!isDragging.value) {
     return
   }
 
@@ -183,7 +188,7 @@ useEventListener(handlerRef, 'pointermove', (evt: PointerEvent) => {
   })
 })
 useEventListener(handlerRef, ['pointerup', 'pointercancel'], (evt: PointerEvent) => {
-  isDragging = false
+  isDragging.value = false
   handlerRef.value?.releasePointerCapture(evt.pointerId)
 })
 </script>

@@ -2,6 +2,8 @@
   <polygon
     v-bind="btnBgAttrs"
     fill="#777"
+    class=" pointer-events-auto cursor-pointer"
+    @click="windowProvider.emit('close')"
   />
   <path
     class="right-frame"
@@ -12,8 +14,9 @@
 
 <script setup lang="ts">
 import type { ComponentStatus } from '../../../types'
-import { computed } from 'vue'
+import { computed, inject } from 'vue'
 import { useAnimatable } from '../../../../../../composables/use-animatable'
+import { baseWindowInjectionKey } from '../type'
 
 interface Props {
   status?: `${ComponentStatus}`;
@@ -24,6 +27,11 @@ const props = withDefaults(defineProps<Props>(), {
   status: 'hidden',
   duration: 260,
 })
+
+const windowProvider = inject(baseWindowInjectionKey)
+if (!windowProvider) {
+  throw new Error('windowProvider is not provided')
+}
 
 interface GraphParams {
   x1: number;

@@ -1,8 +1,10 @@
 <template>
   <div class=" absolute top-0 left-0 pointer-events-auto">
     <base-window
+      ref="windowRef"
       title="應用程式"
       @dragging="handleDragging"
+      @close="handleClose"
     >
       安安
     </base-window>
@@ -11,7 +13,8 @@
 
 <script setup lang="ts">
 import type { ComponentProps } from 'vue-component-type-helpers'
-import { getCurrentInstance } from 'vue'
+import { promiseTimeout } from '@vueuse/core'
+import { getCurrentInstance, useTemplateRef } from 'vue'
 import { useAppStore } from '../../stores/app-store'
 import BaseWindow from '../base-window/base-window.vue'
 
@@ -23,6 +26,8 @@ interface Emits { }
 
 const props = withDefaults(defineProps<Props>(), {})
 const emit = defineEmits<Emits>()
+
+const windowRef = useTemplateRef('windowRef')
 
 const appStore = useAppStore()
 
@@ -38,6 +43,12 @@ const handleDragging: BaseWindowProps['onDragging'] = (data) => {
     offsetX: data.offsetX,
     offsetY: data.offsetY,
   })
+}
+
+const handleClose: BaseWindowProps['onClose'] = async () => {
+  windowRef.value?.setStatus('hidden')
+  await promiseTimeout(1000)
+  appStore.close(appId)
 }
 </script>
 
