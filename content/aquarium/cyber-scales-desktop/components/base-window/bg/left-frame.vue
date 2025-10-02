@@ -97,7 +97,7 @@ const { data: graphParams } = useAnimatable(
         x1: -offset * 1.2,
         y1: 0,
         y2: svgSize.height,
-        gap: 22,
+        gap: 18,
         opacity: 1,
         color: 0x777777,
       }
@@ -118,7 +118,7 @@ const { data: graphParams } = useAnimatable(
       x1: -offset,
       y1: 0,
       y2: svgSize.height,
-      gap: 18,
+      gap: 12,
       opacity: 1,
       color: 0x777777,
     }
