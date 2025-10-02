@@ -41,8 +41,8 @@ export function useWindow3dRotate(
     const target = pipe(undefined, () => {
       if (isOutside.value && enabledValue.value) {
         return {
-          x: y / 50,
-          y: x / 50,
+          x: y / 80,
+          y: x / 80,
         }
       }
 

@@ -20,9 +20,11 @@ interface UseAnimatableParams<Data extends object> {
 
   /** 動畫觸發來源。
    *
-   * 因為 targetData 變更一定是動畫，有可能是資料初始化（從 0 變成有數值），所以預設會馬上觸發動畫。
-   *
-   * 這樣會導致初始動畫不符合預期，所以可以指定觸發條件，例如：status 變更才觸發數值過度，否則會立即更新數值。
+   * 因為 targetData 變更不一定是動畫，有可能只是資料初始化（從 0 變成有數值）
+   * 
+   * 預設會馬上觸發動畫，這樣會導致初始動畫不符合預期
+   * 
+   * 可以利用此參數指定觸發條件，例如：status 變更才觸發數值過度，否則會立即更新數值。
    */
   animationTriggerBy?: MaybeRefOrGetter;
 }
