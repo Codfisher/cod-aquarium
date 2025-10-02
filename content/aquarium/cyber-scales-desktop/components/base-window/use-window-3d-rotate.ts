@@ -1,11 +1,14 @@
+import type { MaybeRefOrGetter } from 'vue'
 import { type MaybeElementRef, reactiveComputed, throttleFilter, useMouseInElement, useRafFn } from '@vueuse/core'
 import { mapValues, pipe } from 'remeda'
 import { computed, ref, toValue } from 'vue'
 
 export function useWindow3dRotate(
   targetRef: MaybeElementRef<HTMLElement | null>,
+  enabled: MaybeRefOrGetter<boolean> = true,
 ) {
   const targetEl = computed(() => toValue(targetRef))
+  const enabledValue = computed(() => toValue(enabled))
 
   const {
     elementX: mouseX,
@@ -36,7 +39,7 @@ export function useWindow3dRotate(
     const { x, y } = mousePosition
 
     const target = pipe(undefined, () => {
-      if (isOutside.value) {
+      if (isOutside.value && enabledValue.value) {
         return {
           x: y / 100,
           y: x / 100,

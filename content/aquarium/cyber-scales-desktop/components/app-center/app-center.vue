@@ -7,7 +7,7 @@
       @dragging="handleDragging"
       @close="handleClose"
     >
-      <div class=" w-full h-full bg-white/90">
+      <div class=" w-full h-full bg-white">
         安安
       </div>
     </base-window>

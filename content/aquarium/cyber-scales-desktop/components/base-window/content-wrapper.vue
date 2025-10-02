@@ -30,8 +30,14 @@ const targetParams = computed<GraphParams>(() => {
     }
   }
 
+  if (props.status === 'active') {
+    return {
+      opacity: 1,
+    }
+  }
+
   return {
-    opacity: 1,
+    opacity: 0.9,
   }
 })
 

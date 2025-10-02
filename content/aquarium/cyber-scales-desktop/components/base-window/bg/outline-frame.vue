@@ -3,7 +3,7 @@
     class="outline-frame"
     v-bind="graphAttrs"
     fill="transparent"
-    stroke="#F4F4F4"
+    stroke="#777"
   />
 </template>
 
@@ -47,13 +47,24 @@ const targetParams = computed<GraphParams>(() => {
     }
   }
 
+  if (props.status === 'active') {
+    return {
+      x: -offset * 2,
+      y: -offset * 2,
+      width: svgSize.width + offset * 4,
+      height: svgSize.height + offset * 4,
+      strokeWidth: 1,
+      opacity: 0.2,
+    }
+  }
+
   return {
     x: -offset,
     y: -offset,
     width: svgSize.width + offset * 2,
     height: svgSize.height + offset * 2,
-    strokeWidth: 3,
-    opacity: 1,
+    strokeWidth: 2,
+    opacity: 0.05,
   }
 })
 
