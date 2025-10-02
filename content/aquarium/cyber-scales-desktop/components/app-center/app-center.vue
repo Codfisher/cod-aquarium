@@ -23,8 +23,8 @@ import type { ComponentProps } from 'vue-component-type-helpers'
 import { promiseTimeout, useElementHover, whenever } from '@vueuse/core'
 import { computed, getCurrentInstance, useTemplateRef, watch } from 'vue'
 import { useAppStore } from '../../stores/app-store'
-import BaseWindow from '../base-window/base-window.vue'
 import { ComponentStatus } from '../../types'
+import BaseWindow from '../base-window/base-window.vue'
 
 type BaseWindowProps = ComponentProps<typeof BaseWindow>
 

@@ -10,12 +10,12 @@
 </template>
 
 <script setup lang="ts">
-import { ComponentStatus } from '../../../types'
+import { useElementHover, usePrevious } from '@vueuse/core'
 import { computed, inject, useTemplateRef } from 'vue'
 import { useAnimatable } from '../../../../../../composables/use-animatable'
+import { ComponentStatus } from '../../../types'
+import { resolveTransitionParamValue } from '../../../utils'
 import { baseWindowInjectionKey } from '../type'
-import { useElementHover, usePrevious } from '@vueuse/core';
-import { resolveTransitionParamValue } from '../../../utils';
 
 interface Props {
   status?: `${ComponentStatus}`;
@@ -34,7 +34,7 @@ if (!windowProvider) {
 
 const pStatus = usePrevious(
   windowProvider.status,
-  ComponentStatus.HIDDEN
+  ComponentStatus.HIDDEN,
 )
 
 interface GraphParams {
@@ -62,7 +62,7 @@ const { data: graphParams } = useAnimatable(
 
     if (props.status === 'hover') {
       return {
-        x1: offset * 2 + svgSize.width,
+        x1: offset * 1.2 + svgSize.width,
         y1: 0,
         y2: svgSize.height,
         width: maxWidth,
@@ -82,11 +82,11 @@ const { data: graphParams } = useAnimatable(
         status: props.status as ComponentStatus,
         pStatus: pStatus.value,
         fieldKey,
-        defaultValue: 0
+        defaultValue: 0,
       },
       {
-        hover: props.duration * 0.6,
-        active: props.duration * 0.5,
+        'hover': props.duration * 0.6,
+        'active': props.duration * 0.5,
         'hidden-visible': {
           x1: props.duration * 2.5,
           y1: props.duration * 2.5,

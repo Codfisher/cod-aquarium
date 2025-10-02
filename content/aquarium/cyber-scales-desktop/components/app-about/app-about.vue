@@ -12,22 +12,19 @@
       @drag-end="handleDragEnd"
       @close="handleClose"
     >
-      <div class=" w-full h-full  bg-slate-50 overflow-auto">
-        <div class="p-2 h-[100vh]">
-          安安
-        </div>
-      </div>
+      <content-text class=" w-full h-full bg-gray-50 overflow-auto" />
     </base-window>
   </div>
 </template>
 
 <script setup lang="ts">
 import type { ComponentProps } from 'vue-component-type-helpers'
-import { promiseTimeout, useElementHover, whenever } from '@vueuse/core'
+import { promiseTimeout, useElementHover } from '@vueuse/core'
 import { computed, getCurrentInstance, useTemplateRef, watch } from 'vue'
 import { useAppStore } from '../../stores/app-store'
-import BaseWindow from '../base-window/base-window.vue'
 import { ComponentStatus } from '../../types'
+import BaseWindow from '../base-window/base-window.vue'
+import ContentText from './content-text.vue'
 
 type BaseWindowProps = ComponentProps<typeof BaseWindow>
 

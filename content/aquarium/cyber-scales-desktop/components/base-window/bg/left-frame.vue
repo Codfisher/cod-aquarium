@@ -29,14 +29,14 @@
 </template>
 
 <script setup lang="ts">
-import { ComponentStatus } from '../../../types'
 import { useEventListener, usePrevious } from '@vueuse/core'
+import { pipe } from 'remeda'
 import { computed, inject, ref, useTemplateRef, watch } from 'vue'
 import { useAnimatable } from '../../../../../../composables/use-animatable'
 import { useDecodingText } from '../../../../../../composables/use-decoding-text'
-import { baseWindowInjectionKey } from '../type'
+import { ComponentStatus } from '../../../types'
 import { resolveTransitionParamValue } from '../../../utils'
-import { pipe } from 'remeda'
+import { baseWindowInjectionKey } from '../type'
 
 interface Props {
   status?: `${ComponentStatus}`;
@@ -55,7 +55,7 @@ if (!windowProvider) {
 
 const pStatus = usePrevious(
   windowProvider.status,
-  ComponentStatus.HIDDEN
+  ComponentStatus.HIDDEN,
 )
 
 const titleDecoder = useDecodingText(windowProvider.title.value)
@@ -110,7 +110,7 @@ const { data: graphParams } = useAnimatable(
         y2: svgSize.height,
         gap: 12,
         opacity: 1,
-        color: 0x2dd4bf,
+        color: 0x2DD4BF,
       }
     }
 
@@ -129,11 +129,11 @@ const { data: graphParams } = useAnimatable(
         status: props.status as ComponentStatus,
         pStatus: pStatus.value,
         fieldKey,
-        defaultValue: 0
+        defaultValue: 0,
       },
       {
-        hover: props.duration * 0.6,
-        active: props.duration * 0.5,
+        'hover': props.duration * 0.6,
+        'active': props.duration * 0.5,
         'hidden-visible': {
           x1: props.duration * 2.5,
           y1: props.duration * 2.5,
@@ -175,19 +175,19 @@ const textBgAttrs = computed(() => {
 })
 const textBgPart01Attrs = computed(() => {
   const startY = props.svgSize.height / 2
-  const height = Math.min(props.svgSize.height / 2, 20)
+  const height = Math.min(props.svgSize.height / 2, 10)
   const offsetX = graphParams.x1
-  const fontSize = Number.parseInt(textAttrs.value.fontSize)
+  const width = Number.parseInt(textAttrs.value.fontSize)
 
   const gap = graphParams.gap
   const padding = 4
 
-  const leftX = -fontSize - padding + offsetX
+  const leftX = -width - padding + offsetX
   const leftTopY = startY + gap
   const leftBottomY = startY + gap + height
 
   // 斜率與 textBgAttrs 一致
-  const skew = (offset * 3) * ((fontSize + padding) / (fontSize + textPadding))
+  const skew = (offset * 3) * ((width + padding) / (width + textPadding))
 
   const fill = pipe(
     Math.round(graphParams.color),
@@ -196,10 +196,10 @@ const textBgPart01Attrs = computed(() => {
 
   return {
     points: [
-      `${offsetX},${leftTopY + skew}`,     // 右上
-      `${leftX},${leftTopY}`,              // 左上
-      `${leftX},${leftBottomY}`,           // 左下
-      `${offsetX},${leftBottomY + skew}`,  // 右下
+      `${offsetX},${leftTopY + skew}`, // 右上
+      `${leftX},${leftTopY}`, // 左上
+      `${leftX},${leftBottomY}`, // 左下
+      `${offsetX},${leftBottomY + skew}`, // 右下
     ].join(' '),
     fill,
     opacity: graphParams.opacity,
