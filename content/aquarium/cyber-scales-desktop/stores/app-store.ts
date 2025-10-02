@@ -99,27 +99,36 @@ export const useAppStore = defineStore('app', () => {
     if (!target)
       return
 
-    target.data.x = pipe(data.x, (value) => {
-      if (value !== undefined)
-        return value
+    target.data.x = pipe(
+      data.x,
+      (value) => {
+        if (value !== undefined)
+          return value
 
-      return target.data.x + (data.offsetX ?? 0)
-    })
-    target.data.y = pipe(data.y, (value) => {
-      if (value !== undefined)
-        return value
+        return target.data.x + (data.offsetX ?? 0)
+      },
+      clamp({
+        min: 0,
+        max: window.innerWidth - target.data.width - 80,
+      }),
+    )
 
-      return target.data.y + (data.offsetY ?? 0)
-    })
+    target.data.y = pipe(
+      data.y,
+      (value) => {
+        if (value !== undefined)
+          return value
 
-    target.data.x = clamp(target.data.x, {
-      min: 0,
-      max: window.innerWidth - target.data.width - 80,
-    })
-    target.data.y = clamp(target.data.y, {
-      min: 0,
-      max: window.innerHeight - target.data.height - 80,
-    })
+        return target.data.y + (data.offsetY ?? 0)
+      },
+      clamp({
+        min: 0,
+        max: window.innerHeight - target.data.height - 80,
+      }),
+    )
+
+    target.data.width = data.width ?? target.data.width
+    target.data.height = data.height ?? target.data.height
 
     triggerAppUpdate()
   }
