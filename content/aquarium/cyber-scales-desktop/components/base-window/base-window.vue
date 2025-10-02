@@ -65,7 +65,7 @@ onMounted(async () => {
 })
 
 defineExpose({
-  status,
+  status: computed(() => status.value),
   setStatus(value: `${ComponentStatus}`) {
     status.value = value as ComponentStatus
   },

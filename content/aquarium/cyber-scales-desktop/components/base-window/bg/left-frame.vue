@@ -173,8 +173,10 @@ const handlerClass = computed(() => {
   return isDragging.value ? ' cursor-grabbing' : ' cursor-grab'
 })
 
+let startPointer = { x: 0, y: 0 }
 useEventListener(handlerRef, 'pointerdown', (evt: PointerEvent) => {
   isDragging.value = true
+  startPointer = { x: evt.clientX, y: evt.clientY }
   handlerRef.value?.setPointerCapture(evt.pointerId)
 })
 useEventListener(handlerRef, 'pointermove', (evt: PointerEvent) => {
@@ -183,13 +185,14 @@ useEventListener(handlerRef, 'pointermove', (evt: PointerEvent) => {
   }
 
   windowProvider.emit('dragging', {
-    x: evt.clientX,
-    y: evt.clientY,
+    offsetX: evt.clientX - startPointer.x,
+    offsetY: evt.clientY - startPointer.y,
   })
 })
 useEventListener(handlerRef, ['pointerup', 'pointercancel'], (evt: PointerEvent) => {
   isDragging.value = false
   handlerRef.value?.releasePointerCapture(evt.pointerId)
+  windowProvider.emit('dragEnd')
 })
 </script>
 

@@ -5,9 +5,10 @@
       title="應用程式"
       @pointerdown="handlePointerDown"
       @dragging="handleDragging"
+      @drag-end="handleDragEnd"
       @close="handleClose"
     >
-      <div class=" w-full h-full  bg-slate-200">
+      <div class=" w-full h-full  bg-slate-50">
         安安
       </div>
     </base-window>
@@ -53,6 +54,9 @@ function handlePointerDown() {
 const handleDragging: BaseWindowProps['onDragging'] = (data) => {
   appStore.focus(appId)
   appStore.update(appId, data)
+}
+const handleDragEnd: BaseWindowProps['onDragEnd'] = () => {
+  appStore.commitPosition(appId)
 }
 
 const handleClose: BaseWindowProps['onClose'] = async () => {

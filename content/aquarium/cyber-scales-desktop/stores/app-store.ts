@@ -13,8 +13,12 @@ interface AppInfo {
   type: AppType;
   data: {
     name: string;
+    // 起點座標
     x: number;
     y: number;
+    // 偏移量
+    offsetX: number;
+    offsetY: number;
     width: number;
     height: number;
     component: Component;
@@ -23,13 +27,13 @@ interface AppInfo {
   focusedAt: number;
 }
 
-const positionMin = 40
-
 const defaultAppData: Record<AppType, AppInfo['data']> = {
   center: {
     name: '應用程式',
-    x: positionMin,
-    y: positionMin,
+    x: 0,
+    y: 0,
+    offsetX: 0,
+    offsetY: 0,
     width: 300,
     height: 200,
     component: AppCenter,
@@ -94,8 +98,6 @@ export const useAppStore = defineStore('app', () => {
   }
 
   function update(id: string, data: Partial<{
-    x: number;
-    y: number;
     offsetX: number;
     offsetY: number;
     width: number;
@@ -105,37 +107,22 @@ export const useAppStore = defineStore('app', () => {
     if (!target)
       return
 
-    target.data.x = pipe(
-      data.x,
-      (value) => {
-        if (value !== undefined)
-          return value
-
-        return target.data.x + (data.offsetX ?? 0)
-      },
-      clamp({
-        min: positionMin,
-        max: window.innerWidth - target.data.width - positionMin * 2,
-      }),
-    )
-
-    target.data.y = pipe(
-      data.y,
-      (value) => {
-        if (value !== undefined)
-          return value
-
-        return target.data.y + (data.offsetY ?? 0)
-      },
-      clamp({
-        min: positionMin,
-        max: window.innerHeight - target.data.height - positionMin * 2,
-      }),
-    )
+    target.data.offsetX = data.offsetX ?? 0
+    target.data.offsetY = data.offsetY ?? 0
 
     target.data.width = data.width ?? target.data.width
     target.data.height = data.height ?? target.data.height
 
+    triggerAppUpdate()
+  }
+  function commitPosition(id: string) {
+    const target = appMap.value.get(id)
+    if (!target)
+      return
+    target.data.x += target.data.offsetX
+    target.data.y += target.data.offsetY
+    target.data.offsetX = 0
+    target.data.offsetY = 0
     triggerAppUpdate()
   }
 
@@ -150,6 +137,8 @@ export const useAppStore = defineStore('app', () => {
     open,
     focus,
     update,
+    /** 將 offsetX 和 offsetY 的值提交到最終位置（x, y） */
+    commitPosition,
     close,
   }
 })
