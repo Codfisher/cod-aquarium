@@ -93,7 +93,7 @@ const { data: lineParams } = useAnimatable(
         defaultValue: 0
       },
       {
-        hover: props.duration * 1.6,
+        hover: props.duration * 0.6,
         active: {
           x1: props.duration * 0.6,
         },
