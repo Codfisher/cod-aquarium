@@ -76,7 +76,7 @@ watch(element, (el) => {
     }
   }
 
-  let prevEl = undefined
+  let prevEl
   while (el && el !== document.body) {
     prevEl = el
     el = el.parentElement

@@ -1,10 +1,14 @@
 import type { EaseStringParamNames } from 'animejs'
 import type { MaybeRefOrGetter } from 'vue'
 import { createAnimatable } from 'animejs'
-import { clone, pipe, when } from 'remeda'
+import { clone, mapValues, pipe, when } from 'remeda'
 import { onWatcherCleanup, reactive, toValue, watch } from 'vue'
 
 export type DataObject<T extends object> = { [K in keyof T]: number }
+/** 若為 [number, number]，第一個數值表示起點 */
+export type TargetDataObject<T extends object> = {
+  [K in keyof T]: number | [number, number] | readonly [number, number];
+}
 export type EaseString = EaseStringParamNames | (string & {})
 
 interface UseAnimatableParams<Data extends object> {
@@ -24,7 +28,7 @@ interface UseAnimatableParams<Data extends object> {
 }
 
 export function useAnimatable<Data extends object>(
-  targetData: MaybeRefOrGetter<DataObject<Data>>,
+  targetData: MaybeRefOrGetter<TargetDataObject<Data>>,
   params: UseAnimatableParams<DataObject<Data>> = {},
 ) {
   const {
@@ -34,7 +38,17 @@ export function useAnimatable<Data extends object>(
     immediate = true,
   } = params
 
-  const data = reactive(clone(toValue(targetData)))
+  const data = reactive(pipe(
+    toValue(targetData),
+    mapValues((value) => {
+      if (Array.isArray(value)) {
+        return value[1]
+      }
+
+      return value
+    }),
+    (data) => clone(data as DataObject<Data>),
+  ))
 
   const dataAnimatable = createAnimatable(
     data,
@@ -79,8 +93,17 @@ export function useAnimatable<Data extends object>(
         ? ease(fieldKey)
         : ease
 
+      const targetValue = pipe(undefined, () => {
+        if (Array.isArray(value)) {
+          dataAnimatable?.[fieldKey]?.(value[0], 0)
+          return value[1]
+        }
+
+        return value as number
+      })
+
       delayList.push(setTimeout(() => {
-        dataAnimatable?.[fieldKey]?.(value, durationValue, easeValue)
+        dataAnimatable?.[fieldKey]?.(targetValue, durationValue, easeValue)
       }, delayValue))
     })
 

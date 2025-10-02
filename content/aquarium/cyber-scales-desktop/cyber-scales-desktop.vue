@@ -16,7 +16,7 @@
 
     <window-container />
 
-    <cursor-futuristic />
+    <cursor-futuristic class="z-[999999999999]" />
   </div>
 </template>
 

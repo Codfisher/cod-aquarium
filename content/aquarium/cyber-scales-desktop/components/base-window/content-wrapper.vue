@@ -23,24 +23,6 @@ interface GraphParams {
   opacity: number;
 }
 
-const targetParams = computed<GraphParams>(() => {
-  if (props.status === 'hidden') {
-    return {
-      opacity: 0,
-    }
-  }
-
-  if (props.status === 'active') {
-    return {
-      opacity: 1,
-    }
-  }
-
-  return {
-    opacity: 0.9,
-  }
-})
-
 const delayMap: Partial<Record<
   ComponentStatus,
   Partial<Record<keyof GraphParams, number>>
@@ -51,7 +33,23 @@ const delayMap: Partial<Record<
 }
 
 const { data: graphParams } = useAnimatable(
-  targetParams,
+  computed(() => {
+    if (props.status === 'hidden') {
+      return {
+        opacity: 0,
+      }
+    }
+
+    if (props.status === 'active') {
+      return {
+        opacity: [0.3, 1] as const,
+      }
+    }
+
+    return {
+      opacity: 0.98,
+    }
+  }),
   {
     delay: (fieldKey) => delayMap[props.status]?.[fieldKey] ?? 0,
     duration: props.duration,
