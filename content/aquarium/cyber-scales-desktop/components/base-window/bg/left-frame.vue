@@ -117,9 +117,7 @@ const { data: lineParams } = useAnimatable(
       },
       {
         hover: props.duration * 0.6,
-        active: {
-          x1: props.duration * 0.6,
-        },
+        active: props.duration * 0.5,
         'hidden-visible': {
           x1: props.duration * 2.5,
           y1: props.duration * 2.5,

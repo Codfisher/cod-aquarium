@@ -78,8 +78,6 @@ const targetParams = computed<GraphParams>(() => {
   }
 })
 
-const durationMap: Partial<Record<ComponentStatus, number>> = {}
-
 const { data: graphParams } = useAnimatable(
   targetParams,
   {
@@ -91,11 +89,7 @@ const { data: graphParams } = useAnimatable(
         defaultValue: 0
       },
       {
-        active: {
-          x: props.duration * 1.5,
-          y: props.duration * 1.5,
-          size: props.duration * 1.5,
-        },
+        active: props.duration * 1,
         'hidden-visible': {
           x: props.duration * 1.5,
           y: props.duration * 1.5,
@@ -103,7 +97,7 @@ const { data: graphParams } = useAnimatable(
         },
       },
     ),
-    duration: () => durationMap[props.status] ?? props.duration,
+    duration: props.duration,
     ease: 'inOutQuint',
     animationTriggerBy: () => props.status,
   },
