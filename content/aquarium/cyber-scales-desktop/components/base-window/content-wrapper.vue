@@ -24,14 +24,14 @@ interface GraphParams {
 }
 
 const targetParams = computed<GraphParams>(() => {
-  if (props.status === 'visible') {
+  if (props.status === 'hidden') {
     return {
-      opacity: 1,
+      opacity: 0,
     }
   }
 
   return {
-    opacity: 0,
+    opacity: 1,
   }
 })
 

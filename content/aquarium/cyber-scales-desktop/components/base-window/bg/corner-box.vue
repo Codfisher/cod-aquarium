@@ -41,7 +41,16 @@ const targetParams = computed<GraphParams>(() => {
     return {
       x: -svgSize.width / 2 - offset,
       y: -svgSize.height / 2 - offset,
-      size: 4,
+      size: 2,
+    }
+  }
+
+  if (props.status === 'active') {
+    const size = 4
+    return {
+      x: -svgSize.width / 2 - offset + size / 4,
+      y: -svgSize.height / 2 - offset + size / 4,
+      size,
     }
   }
 

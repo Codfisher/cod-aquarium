@@ -46,22 +46,22 @@ const offset = 6
 const lineTargetParams = computed<GraphParams>(() => {
   const { svgSize } = props
 
-  if (props.status === 'visible') {
+  if (props.status === 'hidden') {
     return {
-      x1: offset + svgSize.width,
+      x1: offset * 2 + svgSize.width,
       y1: 0,
       y2: svgSize.height,
       // color: '#777',
-      width: maxWidth,
+      width: 0,
     }
   }
 
   return {
-    x1: offset * 2 + svgSize.width,
+    x1: offset + svgSize.width,
     y1: 0,
     y2: svgSize.height,
     // color: '#777',
-    width: 0,
+    width: maxWidth,
   }
 })
 

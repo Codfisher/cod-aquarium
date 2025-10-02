@@ -3,18 +3,21 @@
     <base-window
       ref="windowRef"
       title="應用程式"
+      @pointerdown="handlePointerDown"
       @dragging="handleDragging"
       @close="handleClose"
     >
-      安安
+      <div class=" w-full h-full bg-white/90">
+        安安
+      </div>
     </base-window>
   </div>
 </template>
 
 <script setup lang="ts">
 import type { ComponentProps } from 'vue-component-type-helpers'
-import { promiseTimeout } from '@vueuse/core'
-import { getCurrentInstance, useTemplateRef } from 'vue'
+import { promiseTimeout, whenever } from '@vueuse/core'
+import { computed, getCurrentInstance, useTemplateRef, watch } from 'vue'
 import { useAppStore } from '../../stores/app-store'
 import BaseWindow from '../base-window/base-window.vue'
 
@@ -37,12 +40,19 @@ const appId = instance?.vnode.key as string
 if (!appId) {
   throw new Error('無法取得 key')
 }
+const isActive = computed(() =>
+  appStore.appMap.get(appId)?.isActive ?? false,
+)
+watch(isActive, async (value) => {
+  windowRef.value?.setStatus(value ? 'active' : 'visible')
+})
 
+function handlePointerDown() {
+  appStore.focus(appId)
+}
 const handleDragging: BaseWindowProps['onDragging'] = (data) => {
-  appStore.update(appId, {
-    offsetX: data.offsetX,
-    offsetY: data.offsetY,
-  })
+  appStore.focus(appId)
+  appStore.update(appId, data)
 }
 
 const handleClose: BaseWindowProps['onClose'] = async () => {

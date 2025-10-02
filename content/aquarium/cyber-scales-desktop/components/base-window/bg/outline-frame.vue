@@ -36,24 +36,24 @@ const offset = 6
 const targetParams = computed<GraphParams>(() => {
   const { svgSize } = props
 
-  if (props.status === 'visible') {
+  if (props.status === 'hidden') {
     return {
-      x: -offset,
-      y: -offset,
-      width: svgSize.width + offset * 2,
-      height: svgSize.height + offset * 2,
-      strokeWidth: 3,
-      opacity: 1,
+      x: -offset * 2,
+      y: -offset * 2,
+      width: svgSize.width + offset * 4,
+      height: svgSize.height + offset * 4,
+      strokeWidth: 0,
+      opacity: 0,
     }
   }
 
   return {
-    x: -offset * 2,
-    y: -offset * 2,
-    width: svgSize.width + offset * 4,
-    height: svgSize.height + offset * 4,
-    strokeWidth: 0,
-    opacity: 0,
+    x: -offset,
+    y: -offset,
+    width: svgSize.width + offset * 2,
+    height: svgSize.height + offset * 2,
+    strokeWidth: 3,
+    opacity: 1,
   }
 })
 

@@ -2,7 +2,7 @@ import type { ComputedRef, EmitFn, InjectionKey } from 'vue'
 import type { ComponentStatus } from '../../types'
 
 export interface BaseWindowEmits {
-  dragging: [value: Record<'offsetX' | 'offsetY', number>];
+  dragging: [value: Record<'x' | 'y', number>];
   close: [];
 }
 

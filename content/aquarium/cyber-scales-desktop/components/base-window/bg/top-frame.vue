@@ -34,7 +34,17 @@ const offset = 6
 const targetParams = computed<GraphParams>(() => {
   const { svgSize } = props
 
-  if (props.status === 'visible') {
+  if (props.status === 'hidden') {
+    return {
+      x1: svgSize.width / 2,
+      y1: svgSize.height / 2,
+      x2: svgSize.width / 2,
+      // color: '#777',
+      width: 1,
+    }
+  }
+
+  if (props.status === 'active') {
     return {
       x1: 0,
       y1: -offset,
@@ -45,11 +55,11 @@ const targetParams = computed<GraphParams>(() => {
   }
 
   return {
-    x1: svgSize.width / 2,
-    y1: svgSize.height / 2,
-    x2: svgSize.width / 2,
+    x1: 2,
+    y1: -offset,
+    x2: svgSize.width - 2,
     // color: '#777',
-    width: 1,
+    width: maxWidth / 2,
   }
 })
 // watch(targetParams, () => {

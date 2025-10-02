@@ -70,22 +70,22 @@ const offset = 6
 const lineTargetParams = computed<LineParams>(() => {
   const { svgSize } = props
 
-  if (props.status === 'visible') {
+  if (props.status === 'hidden') {
     return {
-      x1: -offset,
+      x1: -offset * 2,
       y1: 0,
       y2: svgSize.height,
       // color: '#777',
-      width: maxWidth,
+      width: 0,
     }
   }
 
   return {
-    x1: -offset * 2,
+    x1: -offset,
     y1: 0,
     y2: svgSize.height,
     // color: '#777',
-    width: 0,
+    width: maxWidth,
   }
 })
 
@@ -183,8 +183,8 @@ useEventListener(handlerRef, 'pointermove', (evt: PointerEvent) => {
   }
 
   windowProvider.emit('dragging', {
-    offsetX: evt.movementX,
-    offsetY: evt.movementY,
+    x: evt.clientX,
+    y: evt.clientY,
   })
 })
 useEventListener(handlerRef, ['pointerup', 'pointercancel'], (evt: PointerEvent) => {

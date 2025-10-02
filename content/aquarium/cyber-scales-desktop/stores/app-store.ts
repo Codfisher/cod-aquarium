@@ -23,11 +23,13 @@ interface AppInfo {
   focusedAt: number;
 }
 
+const positionMin = 40
+
 const defaultAppData: Record<AppType, AppInfo['data']> = {
   center: {
     name: '應用程式',
-    x: 0,
-    y: 0,
+    x: positionMin,
+    y: positionMin,
     width: 300,
     height: 200,
     component: AppCenter,
@@ -36,7 +38,11 @@ const defaultAppData: Record<AppType, AppInfo['data']> = {
 
 export const useAppStore = defineStore('app', () => {
   const appMap = shallowRef(new Map<string, AppInfo>())
-  const triggerAppUpdate = throttle(() => triggerRef(appMap), 15)
+  const triggerAppUpdate = throttle(
+    () => triggerRef(appMap),
+    15,
+    { trailing: true },
+  )
 
   const appList = computed(() => [...appMap.value.values()])
 
@@ -108,8 +114,8 @@ export const useAppStore = defineStore('app', () => {
         return target.data.x + (data.offsetX ?? 0)
       },
       clamp({
-        min: 0,
-        max: window.innerWidth - target.data.width - 80,
+        min: positionMin,
+        max: window.innerWidth - target.data.width - positionMin * 2,
       }),
     )
 
@@ -122,8 +128,8 @@ export const useAppStore = defineStore('app', () => {
         return target.data.y + (data.offsetY ?? 0)
       },
       clamp({
-        min: 0,
-        max: window.innerHeight - target.data.height - 80,
+        min: positionMin,
+        max: window.innerHeight - target.data.height - positionMin * 2,
       }),
     )
 
@@ -139,6 +145,7 @@ export const useAppStore = defineStore('app', () => {
   }
 
   return {
+    appMap,
     appList,
     open,
     focus,
