@@ -86,6 +86,9 @@ const itemList = [
     label: '部落格',
     subLabel: 'Blog',
     icon: 'article_person',
+    onclick() {
+      window.open('/article-overview', '_blank')
+    },
   },
 ]
 
