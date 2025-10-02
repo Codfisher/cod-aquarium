@@ -2,7 +2,7 @@
   <div class="window-container w-screen h-screen absolute top-0 left-0 pointer-events-none p-10">
     <div
       ref="containerRef"
-      class="pointer-events-none  w-full h-full relative"
+      class=" w-full h-full relative"
     >
       <component
         :is="app.component"

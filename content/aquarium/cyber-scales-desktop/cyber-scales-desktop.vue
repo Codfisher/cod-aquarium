@@ -1,7 +1,10 @@
 <template>
-  <div class=" w-screen h-screen flex flex-col items-start p-4 gap-4">
+  <div
+    class=" w-screen h-screen flex justify-center items-center p-4 gap-4"
+    @click.self="handleClick"
+  >
     <hexagon-layout
-      class="  w-full h-full pb-10"
+      class="    pb-10"
       size-selector=".icon"
     >
       <desktop-item
@@ -82,6 +85,10 @@ const itemList = [
     icon: 'settings_slow_motion',
   },
 ]
+
+function handleClick() {
+  appStore.focus()
+}
 </script>
 
 <style lang="sass">
