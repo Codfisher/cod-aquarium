@@ -5,11 +5,6 @@
     class=" pointer-events-auto cursor-pointer"
     @click="windowProvider.emit('close')"
   />
-  <path
-    class="right-frame"
-    v-bind="lineAttrs"
-    stroke="#777"
-  />
 </template>
 
 <script setup lang="ts">
@@ -50,40 +45,39 @@ interface GraphParams {
 
 const maxWidth = 2
 const offset = 6
-const lineTargetParams = computed<GraphParams>(() => {
-  const { svgSize } = props
 
-  if (props.status === 'hidden') {
-    return {
-      x1: offset * 2 + svgSize.width,
-      y1: 0,
-      y2: svgSize.height,
-      // color: '#777',
-      width: 0,
+const { data: graphParams } = useAnimatable(
+  computed<GraphParams>(() => {
+    const { svgSize } = props
+
+    if (props.status === 'hidden') {
+      return {
+        x1: offset * 2 + svgSize.width,
+        y1: 0,
+        y2: svgSize.height,
+        // color: '#777',
+        width: 0,
+      }
     }
-  }
 
-  if (props.status === 'hover') {
+    if (props.status === 'hover') {
+      return {
+        x1: offset * 2 + svgSize.width,
+        y1: 0,
+        y2: svgSize.height,
+        // color: '#777',
+        width: maxWidth,
+      }
+    }
+
     return {
-      x1: offset * 2 + svgSize.width,
+      x1: offset + svgSize.width,
       y1: 0,
       y2: svgSize.height,
       // color: '#777',
       width: maxWidth,
     }
-  }
-
-  return {
-    x1: offset + svgSize.width,
-    y1: 0,
-    y2: svgSize.height,
-    // color: '#777',
-    width: maxWidth,
-  }
-})
-
-const { data: lineParams } = useAnimatable(
-  lineTargetParams,
+  }),
   {
     delay: (fieldKey) => resolveTransitionParamValue<GraphParams, number>(
       {
@@ -109,20 +103,13 @@ const { data: lineParams } = useAnimatable(
   },
 )
 
-const lineAttrs = computed(() => {
-  return {
-    'd': `M${lineParams.x1} ${lineParams.y1} V${lineParams.y2}`,
-    'stroke-width': lineParams.width,
-  }
-})
-
 const bgWidth = 10
 const btnBgAttrs = computed(() => {
   const { svgSize } = props
 
   const { width: svgWidth, height: svgHeight } = svgSize
   const height = svgHeight / 3
-  const offsetX = lineParams.x1 - svgWidth
+  const offsetX = graphParams.x1 - svgWidth
 
   return {
     points: [
@@ -131,7 +118,7 @@ const btnBgAttrs = computed(() => {
       `${offsetX + bgWidth + svgWidth},${svgHeight - offset * 2}`,
       `${offsetX + svgWidth},${svgHeight}`,
     ].join(' '),
-    opacity: lineParams.width / maxWidth,
+    opacity: graphParams.width / maxWidth,
   }
 })
 </script>

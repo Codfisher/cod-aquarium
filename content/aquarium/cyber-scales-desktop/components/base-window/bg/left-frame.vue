@@ -7,22 +7,28 @@
     fill="#777"
   />
   <polygon
-    v-bind="textBgPartAttrs"
+    v-bind="textBgPart01Attrs"
     fill="#777"
   />
+  <polygon
+    v-bind="textBgPart02Attrs"
+    fill="#777"
+  />
+
   <text
     v-bind="textAttrs"
     fill="#fff"
     writing-mode="vertical-rl"
+    class=" text-sm tracking-wider"
   >
     {{ titleDecoder.text }}
   </text>
 
-  <path
+  <!-- <path
     class="left-frame"
     v-bind="lineAttrs"
     stroke="#777"
-  />
+  /> -->
 </template>
 
 <script setup lang="ts">
@@ -63,7 +69,7 @@ watch(() => props.status, (value) => {
   }
 })
 
-interface LineParams {
+interface GraphParams {
   x1: number;
   y1: number;
   y2: number;
@@ -73,42 +79,41 @@ interface LineParams {
 
 const maxWidth = 2
 const offset = 6
-const lineTargetParams = computed<LineParams>(() => {
-  const { svgSize } = props
 
-  if (props.status === 'hidden') {
-    return {
-      x1: -offset * 2,
-      y1: 0,
-      y2: svgSize.height,
-      // color: '#777',
-      width: 0,
+const { data: graphParams } = useAnimatable(
+  computed<GraphParams>(() => {
+    const { svgSize } = props
+
+    if (props.status === 'hidden') {
+      return {
+        x1: -offset * 2,
+        y1: 0,
+        y2: svgSize.height,
+        // color: '#777',
+        width: 0,
+      }
     }
-  }
 
-  if (props.status === 'hover') {
+    if (props.status === 'hover') {
+      return {
+        x1: -offset * 2,
+        y1: 0,
+        y2: svgSize.height,
+        // color: '#777',
+        width: maxWidth,
+      }
+    }
+
     return {
-      x1: -offset * 2,
+      x1: -offset,
       y1: 0,
       y2: svgSize.height,
       // color: '#777',
       width: maxWidth,
     }
-  }
-
-  return {
-    x1: -offset,
-    y1: 0,
-    y2: svgSize.height,
-    // color: '#777',
-    width: maxWidth,
-  }
-})
-
-const { data: lineParams } = useAnimatable(
-  lineTargetParams,
+  }),
   {
-    delay: (fieldKey) => resolveTransitionParamValue<LineParams, number>(
+    delay: (fieldKey) => resolveTransitionParamValue<GraphParams, number>(
       {
         status: props.status as ComponentStatus,
         pStatus: pStatus.value,
@@ -134,24 +139,24 @@ const { data: lineParams } = useAnimatable(
 
 const lineAttrs = computed(() => {
   return {
-    'd': `M${lineParams.x1} ${lineParams.y1} V${lineParams.y2}`,
-    'stroke-width': lineParams.width,
+    'd': `M${graphParams.x1} ${graphParams.y1} V${graphParams.y2}`,
+    'stroke-width': graphParams.width,
   }
 })
 
 const textPadding = 12
 const textAttrs = computed(() => {
   return {
-    x: lineParams.x1 + -offset * 2,
-    y: lineParams.y1 + offset * 3 + textPadding / 2,
-    opacity: lineParams.width,
+    x: graphParams.x1 + -offset * 2,
+    y: graphParams.y1 + offset * 3 + textPadding / 2,
+    opacity: graphParams.width,
     fontSize: `12px`,
   }
 })
 
 const textBgAttrs = computed(() => {
   const height = props.svgSize.height / 2
-  const offsetX = lineParams.x1
+  const offsetX = graphParams.x1
   const fontSize = Number.parseInt(textAttrs.value.fontSize)
 
   return {
@@ -161,27 +166,59 @@ const textBgAttrs = computed(() => {
       `${-fontSize - textPadding + offsetX},${height}`,
       `${offsetX},${height + offset * 3}`,
     ].join(' '),
-    opacity: lineParams.width,
+    opacity: graphParams.width,
   }
 })
-const textBgPartAttrs = computed(() => {
+const textBgPart01Attrs = computed(() => {
   const bgHeight = props.svgSize.height / 2
   const height = props.svgSize.height / 15
-  const offsetX = lineParams.x1
+  const offsetX = graphParams.x1
   const fontSize = Number.parseInt(textAttrs.value.fontSize)
 
-  /** 與 text-bg 的間距 */
   const gap = 10
-
   const padding = 8
+
+  const leftX = -fontSize - padding + offsetX
+  const leftTopY = bgHeight + gap
+  const leftBottomY = bgHeight + gap + height
+
+  // 斜率與 textBgAttrs 一致
+  const skew = (offset * 3) * ((fontSize + padding) / (fontSize + textPadding))
+
   return {
     points: [
-      `${offsetX},${bgHeight + offset * 3 + gap}`,
-      `${-fontSize - padding + offsetX},${bgHeight + gap}`,
-      `${-fontSize - padding + offsetX},${bgHeight + gap + height}`,
-      `${offsetX},${bgHeight + offset * 3 + gap + height}`,
+      `${offsetX},${leftTopY + skew}`,     // 右上
+      `${leftX},${leftTopY}`,              // 左上
+      `${leftX},${leftBottomY}`,           // 左下
+      `${offsetX},${leftBottomY + skew}`,  // 右下
     ].join(' '),
-    opacity: lineParams.width / maxWidth,
+    opacity: graphParams.width / maxWidth,
+  }
+})
+const textBgPart02Attrs = computed(() => {
+  const bgHeight = props.svgSize.height / 2
+  const height = props.svgSize.height / 15
+  const offsetX = graphParams.x1
+  const fontSize = Number.parseInt(textAttrs.value.fontSize)
+
+  const gap = 30
+  const padding = 8
+
+  const leftX = -fontSize - padding + offsetX
+  const leftTopY = bgHeight + gap
+  const leftBottomY = bgHeight + gap + height
+
+  // 斜率與 textBgAttrs 一致
+  const skew = (offset * 3) * ((fontSize + padding) / (fontSize + textPadding))
+
+  return {
+    points: [
+      `${offsetX},${leftTopY + skew}`,     // 右上
+      `${leftX},${leftTopY}`,              // 左上
+      `${leftX},${leftBottomY}`,           // 左下
+      `${offsetX},${leftBottomY + skew}`,  // 右下
+    ].join(' '),
+    opacity: graphParams.width / maxWidth,
   }
 })
 
