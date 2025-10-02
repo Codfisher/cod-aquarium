@@ -4,9 +4,13 @@
     ref="handlerRef"
     class=" pointer-events-auto"
     :class="handlerClass"
+    stroke="white"
     fill="#777"
   />
-  <polygon v-bind="textBgPart01Attrs" />
+  <polygon
+    v-bind="textBgPart01Attrs"
+    stroke="white"
+  />
 
   <text
     v-bind="textAttrs"
@@ -170,8 +174,8 @@ const textBgAttrs = computed(() => {
   }
 })
 const textBgPart01Attrs = computed(() => {
-  const bgHeight = props.svgSize.height / 2
-  const height = props.svgSize.height / 15
+  const startY = props.svgSize.height / 2
+  const height = Math.min(props.svgSize.height / 2, 20)
   const offsetX = graphParams.x1
   const fontSize = Number.parseInt(textAttrs.value.fontSize)
 
@@ -179,8 +183,8 @@ const textBgPart01Attrs = computed(() => {
   const padding = 4
 
   const leftX = -fontSize - padding + offsetX
-  const leftTopY = bgHeight + gap
-  const leftBottomY = bgHeight + gap + height
+  const leftTopY = startY + gap
+  const leftBottomY = startY + gap + height
 
   // 斜率與 textBgAttrs 一致
   const skew = (offset * 3) * ((fontSize + padding) / (fontSize + textPadding))

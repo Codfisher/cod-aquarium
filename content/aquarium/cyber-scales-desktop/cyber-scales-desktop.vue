@@ -1,6 +1,6 @@
 <template>
   <div
-    class=" w-screen h-screen flex justify-center items-center p-4 gap-4"
+    class="cyber-scales-desktop w-screen h-screen flex justify-center items-center p-4 gap-4"
     @click.self="handleClick"
   >
     <hexagon-layout
@@ -57,6 +57,14 @@ const appStore = useAppStore()
 
 const itemList = [
   {
+    label: '關於我',
+    subLabel: 'About Me',
+    icon: 'set_meal',
+    onclick() {
+      appStore.open('about')
+    },
+  },
+  {
     label: '應用程式',
     subLabel: 'Applications',
     icon: 'mobile_layout',
@@ -78,11 +86,6 @@ const itemList = [
     label: '部落格',
     subLabel: 'Blog',
     icon: 'article_person',
-  },
-  {
-    label: '設定',
-    subLabel: 'Settings',
-    icon: 'settings_slow_motion',
   },
 ]
 

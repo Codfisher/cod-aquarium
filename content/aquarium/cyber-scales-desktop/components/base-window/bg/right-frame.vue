@@ -3,6 +3,7 @@
     ref="btnRef"
     v-bind="btnBgAttrs"
     :fill="btnColor"
+    stroke="white"
     class="btn pointer-events-auto cursor-pointer"
     @click="windowProvider.emit('close')"
   />
@@ -105,7 +106,7 @@ const btnBgAttrs = computed(() => {
   const { svgSize } = props
 
   const { width: svgWidth, height: svgHeight } = svgSize
-  const height = svgHeight / 3
+  const height = Math.min(svgHeight / 3, 80)
   const offsetX = graphParams.x1 - svgWidth
 
   return {

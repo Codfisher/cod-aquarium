@@ -4,9 +4,11 @@ import { nanoid } from 'nanoid'
 import { defineStore } from 'pinia'
 import { clamp, clone, pick, pipe } from 'remeda'
 import { computed, markRaw, ref, shallowRef, triggerRef } from 'vue'
-import AppCenter from '../components/app-center/app-center.vue'
 
-type AppType = 'center'
+import AppCenter from '../components/app-center/app-center.vue'
+import AppAbout from '../components/app-about/app-about.vue'
+
+type AppType = 'about' | 'center'
 interface AppInfo {
   id: string;
   type: AppType;
@@ -32,12 +34,22 @@ const appConfigMap: Partial<
     singleton: boolean;
   }>
 > = {
-  'center': {
+  center: {
     singleton: true,
   }
 }
 
 const defaultAppData: Record<AppType, AppInfo['data']> = {
+  about: {
+    name: '關於我',
+    x: 0,
+    y: 0,
+    offsetX: 0,
+    offsetY: 0,
+    width: window.innerWidth / 2,
+    height: window.innerHeight / 2,
+    component: AppAbout,
+  },
   center: {
     name: '應用程式',
     x: 0,
