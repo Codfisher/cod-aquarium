@@ -10,10 +10,6 @@
     v-bind="textBgPart01Attrs"
     fill="#777"
   />
-  <polygon
-    v-bind="textBgPart02Attrs"
-    fill="#777"
-  />
 
   <text
     v-bind="textAttrs"
@@ -73,13 +69,11 @@ interface GraphParams {
   x1: number;
   y1: number;
   y2: number;
-  // color?: string;
-  width: number;
+  gap: number;
+  opacity: number;
 }
 
-const maxWidth = 2
 const offset = 6
-
 const { data: graphParams } = useAnimatable(
   computed<GraphParams>(() => {
     const { svgSize } = props
@@ -89,8 +83,8 @@ const { data: graphParams } = useAnimatable(
         x1: -offset * 2,
         y1: 0,
         y2: svgSize.height,
-        // color: '#777',
-        width: 0,
+        gap: 18,
+        opacity: 0,
       }
     }
 
@@ -99,8 +93,18 @@ const { data: graphParams } = useAnimatable(
         x1: -offset * 2,
         y1: 0,
         y2: svgSize.height,
-        // color: '#777',
-        width: maxWidth,
+        gap: 22,
+        opacity: 1,
+      }
+    }
+
+    if (props.status === 'active') {
+      return {
+        x1: -offset,
+        y1: 0,
+        y2: svgSize.height,
+        gap: 12,
+        opacity: 1,
       }
     }
 
@@ -108,8 +112,8 @@ const { data: graphParams } = useAnimatable(
       x1: -offset,
       y1: 0,
       y2: svgSize.height,
-      // color: '#777',
-      width: maxWidth,
+      gap: 18,
+      opacity: 1,
     }
   }),
   {
@@ -127,7 +131,7 @@ const { data: graphParams } = useAnimatable(
           x1: props.duration * 2.5,
           y1: props.duration * 2.5,
           y2: props.duration * 2.5,
-          width: props.duration * 2.5,
+          opacity: props.duration * 2.5,
         },
       },
     ),
@@ -137,19 +141,12 @@ const { data: graphParams } = useAnimatable(
   },
 )
 
-const lineAttrs = computed(() => {
-  return {
-    'd': `M${graphParams.x1} ${graphParams.y1} V${graphParams.y2}`,
-    'stroke-width': graphParams.width,
-  }
-})
-
 const textPadding = 12
 const textAttrs = computed(() => {
   return {
     x: graphParams.x1 + -offset * 2,
     y: graphParams.y1 + offset * 3 + textPadding / 2,
-    opacity: graphParams.width,
+    opacity: graphParams.opacity,
     fontSize: `12px`,
   }
 })
@@ -166,7 +163,7 @@ const textBgAttrs = computed(() => {
       `${-fontSize - textPadding + offsetX},${height}`,
       `${offsetX},${height + offset * 3}`,
     ].join(' '),
-    opacity: graphParams.width,
+    opacity: graphParams.opacity,
   }
 })
 const textBgPart01Attrs = computed(() => {
@@ -175,8 +172,8 @@ const textBgPart01Attrs = computed(() => {
   const offsetX = graphParams.x1
   const fontSize = Number.parseInt(textAttrs.value.fontSize)
 
-  const gap = 10
-  const padding = 8
+  const gap = graphParams.gap
+  const padding = 4
 
   const leftX = -fontSize - padding + offsetX
   const leftTopY = bgHeight + gap
@@ -192,33 +189,7 @@ const textBgPart01Attrs = computed(() => {
       `${leftX},${leftBottomY}`,           // 左下
       `${offsetX},${leftBottomY + skew}`,  // 右下
     ].join(' '),
-    opacity: graphParams.width / maxWidth,
-  }
-})
-const textBgPart02Attrs = computed(() => {
-  const bgHeight = props.svgSize.height / 2
-  const height = props.svgSize.height / 15
-  const offsetX = graphParams.x1
-  const fontSize = Number.parseInt(textAttrs.value.fontSize)
-
-  const gap = 30
-  const padding = 8
-
-  const leftX = -fontSize - padding + offsetX
-  const leftTopY = bgHeight + gap
-  const leftBottomY = bgHeight + gap + height
-
-  // 斜率與 textBgAttrs 一致
-  const skew = (offset * 3) * ((fontSize + padding) / (fontSize + textPadding))
-
-  return {
-    points: [
-      `${offsetX},${leftTopY + skew}`,     // 右上
-      `${leftX},${leftTopY}`,              // 左上
-      `${leftX},${leftBottomY}`,           // 左下
-      `${offsetX},${leftBottomY + skew}`,  // 右下
-    ].join(' '),
-    opacity: graphParams.width / maxWidth,
+    opacity: graphParams.opacity,
   }
 })
 
