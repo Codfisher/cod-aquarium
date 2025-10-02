@@ -4,7 +4,7 @@
     @click.self="handleClick"
   >
     <hexagon-layout
-      class="    pb-10"
+      class="pb-10"
       size-selector=".icon"
     >
       <desktop-item

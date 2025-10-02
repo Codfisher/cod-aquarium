@@ -47,10 +47,6 @@ if (!appId) {
   throw new Error('無法取得 key')
 }
 
-const isHover = useElementHover(frameRef)
-const isActive = computed(() =>
-  appStore.appMap.get(appId)?.isActive ?? false,
-)
 const style = computed(() => {
   const info = appStore.appMap.get(appId)
   if (!info) {
@@ -62,6 +58,10 @@ const style = computed(() => {
   }
 })
 
+const isHover = useElementHover(frameRef)
+const isActive = computed(() =>
+  appStore.appMap.get(appId)?.isActive ?? false,
+)
 watch(() => [isActive, isHover], async () => {
   const status = windowRef.value?.status
   if (!status) {

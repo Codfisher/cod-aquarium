@@ -6,6 +6,7 @@
     <base-window
       ref="windowRef"
       title="應用程式"
+      :style="style"
       @pointerdown="handlePointerDown"
       @dragging="handleDragging"
       @drag-end="handleDragEnd"
@@ -46,6 +47,17 @@ const appId = instance?.vnode.key as string
 if (!appId) {
   throw new Error('無法取得 key')
 }
+
+const style = computed(() => {
+  const info = appStore.appMap.get(appId)
+  if (!info) {
+    return
+  }
+  return {
+    width: `${info?.data?.width}px`,
+    height: `${info?.data?.height}px`,
+  }
+})
 
 const isHover = useElementHover(frameRef)
 const isActive = computed(() =>
