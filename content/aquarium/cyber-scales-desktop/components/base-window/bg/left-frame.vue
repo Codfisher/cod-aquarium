@@ -168,11 +168,11 @@ const textBgPartAttrs = computed(() => {
 const handlerRef = useTemplateRef('handlerRef')
 
 let isDragging = false
-useEventListener('pointerdown', (evt) => {
+useEventListener(handlerRef, 'pointerdown', (evt: PointerEvent) => {
   isDragging = true
   handlerRef.value?.setPointerCapture(evt.pointerId)
 })
-useEventListener('pointermove', (evt) => {
+useEventListener(handlerRef, 'pointermove', (evt: PointerEvent) => {
   if (!isDragging) {
     return
   }
@@ -182,7 +182,7 @@ useEventListener('pointermove', (evt) => {
     offsetY: evt.movementY,
   })
 })
-useEventListener('pointerup', (evt) => {
+useEventListener(handlerRef, ['pointerup', 'pointercancel'], (evt: PointerEvent) => {
   isDragging = false
   handlerRef.value?.releasePointerCapture(evt.pointerId)
 })
