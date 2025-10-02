@@ -59,7 +59,7 @@ const itemList = [
   {
     label: '關於',
     subLabel: 'About',
-    icon: 'set_meal',
+    icon: 'contact_support',
     onclick() {
       appStore.open('about')
     },
