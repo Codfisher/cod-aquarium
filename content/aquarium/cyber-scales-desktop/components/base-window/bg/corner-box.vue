@@ -4,7 +4,6 @@
     :key
     :class="key"
     v-bind="value"
-    fill="#444"
   />
 </template>
 
@@ -14,6 +13,7 @@ import { computed, watch } from 'vue'
 import { useAnimatable } from '../../../../../../composables/use-animatable'
 import { usePrevious } from '@vueuse/core';
 import { resolveTransitionParamValue } from '../../../utils';
+import { pipe } from 'remeda';
 
 interface Props {
   status?: `${ComponentStatus}`;
@@ -39,6 +39,7 @@ interface GraphParams {
   x: number;
   y: number;
   size: number;
+  color: number;
 }
 
 const offset = 6
@@ -50,6 +51,7 @@ const targetParams = computed<GraphParams>(() => {
       x: -svgSize.width / 2 - offset * 2,
       y: -svgSize.height / 2 - offset * 2,
       size: 0,
+      color: 0x444444,
     }
   }
 
@@ -59,6 +61,7 @@ const targetParams = computed<GraphParams>(() => {
       x: -svgSize.width / 2 - offset + size / 4,
       y: -svgSize.height / 2 - offset + size / 4,
       size,
+      color: 0x2dd4bf,
     }
   }
 
@@ -68,6 +71,7 @@ const targetParams = computed<GraphParams>(() => {
       x: -svgSize.width / 2 - offset * 2,
       y: -svgSize.height / 2 - offset * 2,
       size: 1,
+      color: 0x444444,
     }
   }
 
@@ -75,6 +79,7 @@ const targetParams = computed<GraphParams>(() => {
     x: -svgSize.width / 2 - offset,
     y: -svgSize.height / 2 - offset,
     size: 2,
+    color: 0x444444,
   }
 })
 
@@ -89,7 +94,12 @@ const { data: graphParams } = useAnimatable(
         defaultValue: 0
       },
       {
-        active: props.duration * 1,
+        active: {
+          x: props.duration,
+          y: props.duration,
+          size: props.duration,
+          color: props.duration / 2,
+        },
         'hidden-visible': {
           x: props.duration * 1.5,
           y: props.duration * 1.5,
@@ -112,30 +122,39 @@ const graphAttrs = computed(() => {
     halfHeight,
   ] = [size / 2, width / 2, height / 2]
 
+  const fill = pipe(
+    Math.round(graphParams.color),
+    (value) => `#${value.toString(16).padStart(6, '0')}`,
+  )
+
   return {
     lt: {
       x: x - halfSize + halfWidth,
       y: y - halfSize + halfHeight,
       width: size,
       height: size,
+      fill,
     },
     rt: {
       x: -x - halfSize + halfWidth,
       y: y - halfSize + halfHeight,
       width: size,
       height: size,
+      fill,
     },
     lb: {
       x: x - halfSize + halfWidth,
       y: -y - halfSize + halfHeight,
       width: size,
       height: size,
+      fill,
     },
     rb: {
       x: -x - halfSize + halfWidth,
       y: -y - halfSize + halfHeight,
       width: size,
       height: size,
+      fill,
     },
   }
 })
