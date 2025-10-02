@@ -12,36 +12,47 @@ export type StatusParamsMap<
   Partial<Record<keyof Data, Value>> | Value
 >>
 
-/** 解析狀態轉換與屬性對應數值 */
+/** 解析狀態轉換與屬性對應數值
+ * 
+ * 例如：delayMap = { visible: 100, 'hidden-visible': 200 }
+ */
 export function resolveTransitionParamValue<
   Data extends object,
   Value extends string | number | undefined,
 >(
-  status: ComponentStatus,
-  pStatus: ComponentStatus,
-  fieldKey: keyof Data,
+  data: {
+    status: ComponentStatus,
+    pStatus: ComponentStatus,
+    fieldKey: keyof Data,
+  },
   map: StatusParamsMap<Data, Value>,
 ): Value | undefined
 export function resolveTransitionParamValue<
   Data extends object,
   Value extends string | number | undefined,
 >(
-  status: ComponentStatus,
-  pStatus: ComponentStatus,
-  fieldKey: keyof Data,
+  data: {
+    status: ComponentStatus,
+    pStatus: ComponentStatus,
+    fieldKey: keyof Data,
+    defaultValue: NonNullable<Value>,
+  },
   map: StatusParamsMap<Data, Value>,
-  defaultValue: NonNullable<Value>,
 ): Value
 export function resolveTransitionParamValue<
   Data extends object,
   Value extends string | number | undefined,
 >(
-  status: ComponentStatus,
-  pStatus: ComponentStatus,
-  fieldKey: keyof Data,
+  data: {
+    status: ComponentStatus,
+    pStatus: ComponentStatus,
+    fieldKey: keyof Data,
+    defaultValue?: Value,
+  },
   map: StatusParamsMap<Data, Value>,
-  defaultValue?: Value,
 ): Value | undefined {
+  const { status, pStatus, fieldKey, defaultValue } = data
+
   if (!map || !fieldKey) {
     return defaultValue
   }

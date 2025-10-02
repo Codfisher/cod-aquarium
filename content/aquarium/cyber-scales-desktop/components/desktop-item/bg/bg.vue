@@ -118,9 +118,12 @@ const { data: graphParams } = useAnimatable(
   },
   {
     delay: (fieldKey) => resolveTransitionParamValue<GraphParams, number>(
-      status.value,
-      pStatus.value,
-      fieldKey,
+      {
+        status: status.value,
+        pStatus: pStatus.value,
+        fieldKey,
+        defaultValue: 0
+      },
       {
         'hidden-visible': {
           width: props.duration * 2.4,
@@ -128,26 +131,29 @@ const { data: graphParams } = useAnimatable(
           chamfer: props.duration,
         },
       },
-      0,
     ),
     duration: (fieldKey) => resolveTransitionParamValue<GraphParams, number>(
-      status.value,
-      pStatus.value,
-      fieldKey,
+      {
+        status: status.value,
+        pStatus: pStatus.value,
+        fieldKey,
+        defaultValue: props.duration,
+      },
       {
         active: 50,
       },
-      props.duration,
     ),
     ease: (fieldKey) => resolveTransitionParamValue<GraphParams, EaseString>(
-      status.value,
-      pStatus.value,
-      fieldKey,
+      {
+        status: status.value,
+        pStatus: pStatus.value,
+        fieldKey,
+        defaultValue: 'inOutQuint',
+      },
       {
         visible: 'inOutQuint',
         hover: 'outBounce',
       },
-      'inOutQuint',
     ),
     animationTriggerBy: status,
   },

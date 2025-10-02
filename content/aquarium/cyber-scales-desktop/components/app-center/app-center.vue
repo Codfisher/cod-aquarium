@@ -1,5 +1,8 @@
 <template>
-  <div class=" absolute top-0 left-0 pointer-events-auto">
+  <div
+    ref="frameRef"
+    class=" absolute top-0 left-0 pointer-events-auto"
+  >
     <base-window
       ref="windowRef"
       title="應用程式"
@@ -17,10 +20,11 @@
 
 <script setup lang="ts">
 import type { ComponentProps } from 'vue-component-type-helpers'
-import { promiseTimeout, whenever } from '@vueuse/core'
+import { promiseTimeout, useElementHover, whenever } from '@vueuse/core'
 import { computed, getCurrentInstance, useTemplateRef, watch } from 'vue'
 import { useAppStore } from '../../stores/app-store'
 import BaseWindow from '../base-window/base-window.vue'
+import { ComponentStatus } from '../../types'
 
 type BaseWindowProps = ComponentProps<typeof BaseWindow>
 
@@ -32,6 +36,7 @@ const props = withDefaults(defineProps<Props>(), {})
 const emit = defineEmits<Emits>()
 
 const windowRef = useTemplateRef('windowRef')
+const frameRef = useTemplateRef('frameRef')
 
 const appStore = useAppStore()
 
@@ -41,11 +46,25 @@ const appId = instance?.vnode.key as string
 if (!appId) {
   throw new Error('無法取得 key')
 }
+
+const isHover = useElementHover(frameRef)
 const isActive = computed(() =>
   appStore.appMap.get(appId)?.isActive ?? false,
 )
-watch(isActive, async (value) => {
-  windowRef.value?.setStatus(value ? 'active' : 'visible')
+watch(() => [isActive, isHover], async () => {
+  const status = windowRef.value?.status
+  if (!status) {
+    return
+  }
+
+  if (status === ComponentStatus.VISIBLE) {
+    windowRef.value?.setStatus(isHover.value ? 'hover' : 'visible')
+    return
+  }
+
+  windowRef.value?.setStatus(isActive.value ? 'active' : 'visible')
+}, {
+  deep: true,
 })
 
 function handlePointerDown() {

@@ -4,14 +4,16 @@
     :key
     :class="key"
     v-bind="value"
-    fill="#111"
+    fill="#444"
   />
 </template>
 
 <script setup lang="ts">
-import type { ComponentStatus } from '../../../types'
+import { ComponentStatus } from '../../../types'
 import { computed, watch } from 'vue'
 import { useAnimatable } from '../../../../../../composables/use-animatable'
+import { usePrevious } from '@vueuse/core';
+import { resolveTransitionParamValue } from '../../../utils';
 
 interface Props {
   status?: `${ComponentStatus}`;
@@ -22,6 +24,12 @@ const props = withDefaults(defineProps<Props>(), {
   status: 'hidden',
   duration: 260,
 })
+
+const pStatus = usePrevious(
+  () => props.status as ComponentStatus,
+  ComponentStatus.HIDDEN
+)
+
 
 /** 圖形上下左右對稱，只要 lt 參數即可
  *
@@ -37,11 +45,11 @@ const offset = 6
 const targetParams = computed<GraphParams>(() => {
   const { svgSize } = props
 
-  if (props.status === 'visible') {
+  if (props.status === 'hidden') {
     return {
-      x: -svgSize.width / 2 - offset,
-      y: -svgSize.height / 2 - offset,
-      size: 2,
+      x: -svgSize.width / 2 - offset * 2,
+      y: -svgSize.height / 2 - offset * 2,
+      size: 0,
     }
   }
 
@@ -54,29 +62,42 @@ const targetParams = computed<GraphParams>(() => {
     }
   }
 
+
+  if (props.status === 'hover') {
+    return {
+      x: -svgSize.width / 2 - offset * 2,
+      y: -svgSize.height / 2 - offset * 2,
+      size: 1,
+    }
+  }
+
   return {
-    x: -svgSize.width / 2 - offset * 2,
-    y: -svgSize.height / 2 - offset * 2,
-    size: 0,
+    x: -svgSize.width / 2 - offset,
+    y: -svgSize.height / 2 - offset,
+    size: 2,
   }
 })
 
-const delayMap: Partial<Record<
-  ComponentStatus,
-  Partial<Record<keyof GraphParams, number>>
->> = {
-  visible: {
-    x: props.duration * 1.5,
-    y: props.duration * 1.5,
-    size: props.duration * 1.5,
-  },
-}
 const durationMap: Partial<Record<ComponentStatus, number>> = {}
 
 const { data: graphParams } = useAnimatable(
   targetParams,
   {
-    delay: (fieldKey) => delayMap[props.status]?.[fieldKey] ?? 0,
+    delay: (fieldKey) => resolveTransitionParamValue<GraphParams, number>(
+      {
+        status: props.status as ComponentStatus,
+        pStatus: pStatus.value,
+        fieldKey,
+        defaultValue: 0
+      },
+      {
+        'hidden-visible': {
+          x: props.duration * 1.5,
+          y: props.duration * 1.5,
+          size: props.duration * 1.5,
+        },
+      },
+    ),
     duration: () => durationMap[props.status] ?? props.duration,
     ease: 'inOutQuint',
     animationTriggerBy: () => props.status,
