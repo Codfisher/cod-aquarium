@@ -4,7 +4,7 @@ import { usePrevious } from '@vueuse/core'
 import { pipe } from 'remeda'
 
 /** 定義 ComponentStatus 狀態與動畫參數映射數值 */
-export type StatusParamsMap<
+export type StatusTransitionParamsMap<
   Data extends object,
   Value,
 > = Partial<Record<
@@ -25,7 +25,7 @@ export function resolveTransitionParamValue<
     pStatus: ComponentStatus,
     fieldKey: keyof Data,
   },
-  map: StatusParamsMap<Data, Value>,
+  transitionMap: StatusTransitionParamsMap<Data, Value>,
 ): Value | undefined
 export function resolveTransitionParamValue<
   Data extends object,
@@ -37,7 +37,7 @@ export function resolveTransitionParamValue<
     fieldKey: keyof Data,
     defaultValue: NonNullable<Value>,
   },
-  map: StatusParamsMap<Data, Value>,
+  transitionMap: StatusTransitionParamsMap<Data, Value>,
 ): Value
 export function resolveTransitionParamValue<
   Data extends object,
@@ -49,18 +49,18 @@ export function resolveTransitionParamValue<
     fieldKey: keyof Data,
     defaultValue?: Value,
   },
-  map: StatusParamsMap<Data, Value>,
+  transitionMap: StatusTransitionParamsMap<Data, Value>,
 ): Value | undefined {
   const { status, pStatus, fieldKey, defaultValue } = data
 
-  if (!map || !fieldKey) {
+  if (!transitionMap || !fieldKey) {
     return defaultValue
   }
 
   const key = `${pStatus}-${status}` as const
-  const statusKey = key in map ? key : status
+  const statusKey = key in transitionMap ? key : status
 
-  const value = map[statusKey]
+  const value = transitionMap[statusKey]
   if (!value) {
     return defaultValue
   }
