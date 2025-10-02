@@ -5,8 +5,8 @@ import { defineStore } from 'pinia'
 import { clamp, clone, pick, pipe } from 'remeda'
 import { computed, markRaw, ref, shallowRef, triggerRef } from 'vue'
 
-import AppCenter from '../components/app-center/app-center.vue'
 import AppAbout from '../components/app-about/app-about.vue'
+import AppCenter from '../components/app-center/app-center.vue'
 
 type AppType = 'about' | 'center'
 interface AppInfo {
@@ -36,7 +36,7 @@ const appConfigMap: Partial<
 > = {
   center: {
     singleton: true,
-  }
+  },
 }
 
 const defaultAppData: Record<AppType, AppInfo['data']> = {

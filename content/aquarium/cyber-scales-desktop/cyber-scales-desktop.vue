@@ -57,8 +57,8 @@ const appStore = useAppStore()
 
 const itemList = [
   {
-    label: '關於我',
-    subLabel: 'About Me',
+    label: '關於',
+    subLabel: 'About',
     icon: 'set_meal',
     onclick() {
       appStore.open('about')
