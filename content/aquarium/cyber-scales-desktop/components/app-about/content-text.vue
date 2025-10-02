@@ -100,7 +100,7 @@
     &:last-child
       margin-bottom: 0
   a
-    color: var(--vp-c-brand-3)
+    color: var(--vp-c-brand-1)
     font-weight: 600
     text-decoration: underline
 </style>
