@@ -3,7 +3,6 @@
     class="outline-frame"
     v-bind="graphAttrs"
     fill="transparent"
-    stroke="#777"
   />
 </template>
 
@@ -13,6 +12,7 @@ import { computed } from 'vue'
 import { useAnimatable } from '../../../../../../composables/use-animatable'
 import { resolveTransitionParamValue } from '../../../utils';
 import { usePrevious } from '@vueuse/core';
+import { omit, pipe } from 'remeda';
 
 interface Props {
   status?: `${ComponentStatus}`;
@@ -37,6 +37,7 @@ interface GraphParams {
   height: number;
   strokeWidth: number;
   opacity: number;
+  color: number;
 }
 
 const offset = 6
@@ -51,6 +52,7 @@ const targetParams = computed<GraphParams>(() => {
       height: svgSize.height + offset * 4,
       strokeWidth: 0,
       opacity: 0,
+      color: 0x777777,
     }
   }
 
@@ -60,8 +62,9 @@ const targetParams = computed<GraphParams>(() => {
       y: offset / 2,
       width: svgSize.width - offset,
       height: svgSize.height - offset,
-      strokeWidth: 2,
-      opacity: 0.4,
+      strokeWidth: 4,
+      opacity: 0.2,
+      color: 0x2dd4bf,
     }
   }
 
@@ -72,6 +75,7 @@ const targetParams = computed<GraphParams>(() => {
     height: svgSize.height + offset * 2,
     strokeWidth: 2,
     opacity: 0.05,
+    color: 0x777777,
   }
 })
 
@@ -105,9 +109,15 @@ const { data: graphParams } = useAnimatable(
 const graphAttrs = computed(() => {
   const { strokeWidth } = graphParams
 
+  const stroke = pipe(
+    Math.round(graphParams.color),
+    (value) => `#${value.toString(16).padStart(6, '0')}`,
+  )
+
   return {
-    ...graphParams,
+    ...omit(graphParams, ['color']),
     'stroke-width': strokeWidth,
+    stroke,
   }
 })
 </script>
