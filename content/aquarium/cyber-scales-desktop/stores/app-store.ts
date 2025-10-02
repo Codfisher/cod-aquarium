@@ -3,7 +3,6 @@ import { throttle } from 'lodash-es'
 import { nanoid } from 'nanoid'
 import { defineStore } from 'pinia'
 import { clamp, clone, pick, pipe } from 'remeda'
-
 import { computed, markRaw, ref, shallowRef, triggerRef } from 'vue'
 import AppCenter from '../components/app-center/app-center.vue'
 
@@ -25,6 +24,17 @@ interface AppInfo {
   };
   isActive: boolean;
   focusedAt: number;
+}
+
+const appConfigMap: Partial<
+  Record<AppType, {
+    /** 只能開啟一個 */
+    singleton: boolean;
+  }>
+> = {
+  'center': {
+    singleton: true,
+  }
 }
 
 const defaultAppData: Record<AppType, AppInfo['data']> = {
@@ -51,6 +61,15 @@ export const useAppStore = defineStore('app', () => {
   const appList = computed(() => [...appMap.value.values()])
 
   function open(type: AppType) {
+    const config = appConfigMap[type]
+    if (config?.singleton) {
+      const exist = appList.value.find((item) => item.type === type)
+      if (exist) {
+        focus(exist.id)
+        return exist.id
+      }
+    }
+
     const defaultData = clone(defaultAppData[type])
     const position = pipe(
       pick(defaultData, ['x', 'y']),
