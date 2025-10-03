@@ -3,7 +3,7 @@
     ref="itemRef"
     class="base-item cursor-pointer relative p-3 aspect-square flex justify-center items-center"
   >
-    <bg class="z-[-1] gradient-effect" />
+    <bg />
 
     <content-wrapper class="z-0  ">
       <material-icon
@@ -19,7 +19,7 @@
 
       <div
         ref="labelRef"
-        class="item-label text-[#777] text-nowrap font-orbitron text-center"
+        class="item-label text-white text-nowrap font-orbitron text-center"
       >
         <div class=" leading-none">
           {{ labelDecoder.text }}
@@ -121,18 +121,4 @@ provide(baseItemInjectionKey, {
 </script>
 
 <style scoped lang="sass">
-.gradient-effect
-  isolation: isolate
-  &::after
-    content: ''
-    background: linear-gradient(90deg, #FFFF, #FFF0)
-    mix-blend-mode: soft-light
-    position: absolute
-    left: -5%
-    top: -5%
-    bottom: -5%
-    right: -5%
-    opacity: 1
-    pointer-events: none
-    transform: rotate(45deg)
 </style>

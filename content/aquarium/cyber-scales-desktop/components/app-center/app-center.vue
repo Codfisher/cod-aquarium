@@ -21,11 +21,10 @@
 
 <script setup lang="ts">
 import type { ComponentProps } from 'vue-component-type-helpers'
-import { promiseTimeout, useElementHover, whenever } from '@vueuse/core'
+import { promiseTimeout, useElementHover } from '@vueuse/core'
 import { computed, getCurrentInstance, useTemplateRef, watch } from 'vue'
 import { useAppStore } from '../../stores/app-store'
 import { ComponentStatus } from '../../types'
-import BaseItem from '../base-item/base-item.vue'
 import BaseWindow from '../base-window/base-window.vue'
 import MainContent from './main-content.vue'
 

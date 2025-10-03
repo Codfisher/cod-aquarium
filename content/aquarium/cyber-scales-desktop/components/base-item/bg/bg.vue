@@ -1,7 +1,7 @@
 <template>
   <div
     ref="containerRef"
-    class="container absolute inset-0 w-full h-full pointer-events-none"
+    class="bg absolute inset-0 w-full h-full pointer-events-none"
   >
     <svg
       class="absolute"
@@ -9,7 +9,7 @@
     >
       <polygon
         v-bind="graphAttrs"
-        fill="#777"
+        fill="#888"
       />
     </svg>
   </div>
@@ -66,21 +66,18 @@ interface GraphParams {
   height: number;
   /** 倒角 */
   chamfer: number;
-  rotate: number;
   opacity: number;
 }
 
-const maxRotate = sample([45, 135, -135], 1)[0] ?? 45
 const { data: graphParams } = useAnimatable(
   (): GraphParams => {
     const { width, height } = containerSize
 
     if (status.value === ComponentStatus.HIDDEN) {
       return {
-        width: 0,
-        height: 5,
-        chamfer: 0,
-        rotate: maxRotate + 45,
+        width: 5,
+        height,
+        chamfer: 2,
         opacity: 0,
       }
     }
@@ -90,7 +87,6 @@ const { data: graphParams } = useAnimatable(
         width,
         height,
         chamfer: 10,
-        rotate: maxRotate,
         opacity: 0.6,
       }
     }
@@ -100,7 +96,6 @@ const { data: graphParams } = useAnimatable(
         width: width - 2,
         height: height - 2,
         chamfer: 10,
-        rotate: maxRotate,
         opacity: 0.9,
       }
     }
@@ -109,7 +104,6 @@ const { data: graphParams } = useAnimatable(
       width,
       height,
       chamfer: 10,
-      rotate: maxRotate,
       opacity: 1,
     }
   },
@@ -123,9 +117,9 @@ const { data: graphParams } = useAnimatable(
       },
       {
         'hidden-visible': {
-          width: props.duration * 2.4,
+          width: props.duration * 1.6,
           height: props.duration,
-          chamfer: props.duration,
+          chamfer: props.duration * 1.6,
         },
       },
     ),
@@ -157,7 +151,7 @@ const { data: graphParams } = useAnimatable(
 )
 
 const graphAttrs = computed(() => {
-  const { opacity, rotate, chamfer } = graphParams
+  const { opacity, chamfer } = graphParams
   const hChamfer = chamfer / 2
   const [x, y, width, height] = [
     containerSize.width / 2,
@@ -180,13 +174,12 @@ const graphAttrs = computed(() => {
       `${x - width + chamfer},${y + height}`,
       `${x - width},${y + height - chamfer}`,
     ].join(' '),
-    transform: `rotate(${rotate}, ${x}, ${y})`,
     opacity,
   }
 })
 </script>
 
 <style scoped lang="sass">
-.container
+.bg
   transform-style: preserve-3d
 </style>
