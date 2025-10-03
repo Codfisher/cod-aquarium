@@ -14,9 +14,7 @@
       @resize-end="commitUpdate"
       @close="handleClose"
     >
-      <div class=" w-full h-full  bg-slate-50">
-        安安
-      </div>
+      <main-content class=" w-full h-full bg-gray-50 overflow-auto" />
     </base-window>
   </div>
 </template>
@@ -27,7 +25,9 @@ import { promiseTimeout, useElementHover, whenever } from '@vueuse/core'
 import { computed, getCurrentInstance, useTemplateRef, watch } from 'vue'
 import { useAppStore } from '../../stores/app-store'
 import { ComponentStatus } from '../../types'
+import BaseItem from '../base-item/base-item.vue'
 import BaseWindow from '../base-window/base-window.vue'
+import MainContent from './main-content.vue'
 
 type BaseWindowProps = ComponentProps<typeof BaseWindow>
 

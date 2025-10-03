@@ -14,7 +14,7 @@
       @resize-end="commitUpdate"
       @close="handleClose"
     >
-      <content-text class=" w-full h-full bg-gray-50 overflow-auto" />
+      <main-content class=" w-full h-full bg-gray-50 overflow-auto" />
     </base-window>
   </div>
 </template>
@@ -26,7 +26,7 @@ import { computed, getCurrentInstance, useTemplateRef, watch } from 'vue'
 import { useAppStore } from '../../stores/app-store'
 import { ComponentStatus } from '../../types'
 import BaseWindow from '../base-window/base-window.vue'
-import ContentText from './content-text.vue'
+import MainContent from './main-content.vue'
 
 type BaseWindowProps = ComponentProps<typeof BaseWindow>
 
