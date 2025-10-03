@@ -1,8 +1,8 @@
 <template>
-  <div class="text p-4 ">
+  <div class="text p-4 flex items-start justify-start gap-2 ">
     <base-item
       label="安安"
-      icon="edit_note"
+      icon="contact_support"
     />
   </div>
 </template>

@@ -26,8 +26,7 @@ import { computed, inject, reactive, useTemplateRef } from 'vue'
 import { useAnimatable } from '../../../../../../composables/use-animatable'
 import { ComponentStatus } from '../../../types'
 import { resolveTransitionParamValue } from '../../../utils'
-import { desktopItemInjectionKey } from '../type'
-import CornerBrackets from './corner-brackets.vue'
+import { baseItemInjectionKey } from '../type'
 
 interface Props {
   duration?: number;
@@ -36,7 +35,7 @@ const props = withDefaults(defineProps<Props>(), {
   duration: 260,
 })
 
-const mainProvider = inject(desktopItemInjectionKey)
+const mainProvider = inject(baseItemInjectionKey)
 if (!mainProvider) {
   throw new Error('mainProvider is not provided')
 }

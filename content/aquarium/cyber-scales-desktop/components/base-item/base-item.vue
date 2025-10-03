@@ -19,17 +19,13 @@
 
       <div
         ref="labelRef"
-        class="item-label text-[#777] text-nowrap font-orbitron"
-        :style="labelStyle"
+        class="item-label text-[#777] text-nowrap font-orbitron text-center"
       >
         <div class=" leading-none">
           {{ labelDecoder.text }}
         </div>
 
-        <div
-          class="text-xs"
-          :class="{ 'text-right': props.labelLeft }"
-        >
+        <div class="text-xs">
           {{ subLabelDecoder.text }}
         </div>
       </div>
@@ -39,7 +35,6 @@
 
 <script setup lang="ts">
 import { computedAsync, promiseTimeout, useElementHover, useElementSize, useMounted, useMousePressed, whenever } from '@vueuse/core'
-import { pipe } from 'remeda'
 import { computed, nextTick, provide, reactive, useTemplateRef, watch } from 'vue'
 import { nextFrame } from '../../../../../common/utils'
 import { useDecodingText } from '../../../../../composables/use-decoding-text'
@@ -47,12 +42,11 @@ import { ComponentStatus } from '../../types'
 import MaterialIcon from '../material-icon.vue'
 import Bg from './bg/bg.vue'
 import ContentWrapper from './content-wrapper.vue'
-import { desktopItemInjectionKey } from './type'
+import { baseItemInjectionKey } from './type'
 
 interface Props {
   label?: string;
   subLabel?: string;
-  labelLeft?: boolean;
   icon?: string;
   delay?: number;
 }
@@ -71,7 +65,6 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const emit = defineEmits<Emits>()
-
 defineSlots<Slots>()
 
 const itemRef = useTemplateRef('itemRef')
@@ -93,23 +86,6 @@ const labelSize = reactive(useElementSize(labelRef))
 
 const labelDecoder = useDecodingText(props.label)
 const subLabelDecoder = useDecodingText(props.subLabel)
-
-const labelStyle = computed(() => {
-  const dir = props.labelLeft ? -1 : 1
-  const offsetX = pipe(
-    Math.sqrt(itemSize.width ** 2 + itemSize.height ** 2) * dir,
-    (value) => {
-      if (props.labelLeft) {
-        return value - labelSize.width + itemSize.width / 2 - 14
-      }
-      return value * 0.75
-    },
-  )
-
-  return {
-    transform: `translateY(-50%) translateX(${offsetX}px)`,
-  }
-})
 
 const status = computed(() => {
   if (isVisible.value) {
@@ -138,18 +114,13 @@ whenever(isHover, async () => {
 interface Expose { }
 defineExpose<Expose>({})
 
-provide(desktopItemInjectionKey, {
+provide(baseItemInjectionKey, {
   label: computed(() => props.label),
   status: computed(() => status.value),
 })
 </script>
 
 <style scoped lang="sass">
-.item-label
-  position: absolute
-  top: 50%
-  left: 50%
-
 .gradient-effect
   isolation: isolate
   &::after
