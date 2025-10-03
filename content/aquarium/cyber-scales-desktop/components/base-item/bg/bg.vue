@@ -7,8 +7,6 @@
       class="absolute"
       v-bind="svgAttrs"
     >
-      <!-- <corner-brackets v-bind="frameParams" /> -->
-
       <polygon
         v-bind="graphAttrs"
         fill="#777"

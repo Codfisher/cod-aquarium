@@ -9,7 +9,7 @@ import { usePrevious } from '@vueuse/core'
 import { computed, inject, ref, toRefs, watch } from 'vue'
 import { useAnimatable } from '../../../../../composables/use-animatable'
 import { ComponentStatus } from '../../types'
-import { desktopItemInjectionKey } from './type'
+import { baseItemInjectionKey } from './type'
 
 interface Props {
   duration?: number;
@@ -18,7 +18,7 @@ const props = withDefaults(defineProps<Props>(), {
   duration: 300,
 })
 
-const mainProvider = inject(desktopItemInjectionKey)
+const mainProvider = inject(baseItemInjectionKey)
 if (!mainProvider) {
   throw new Error('mainProvider is not provided')
 }
