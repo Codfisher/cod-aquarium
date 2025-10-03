@@ -7,8 +7,9 @@ import { computed, markRaw, ref, shallowRef, triggerRef } from 'vue'
 
 import AppAbout from '../components/app-about/app-about.vue'
 import AppCenter from '../components/app-center/app-center.vue'
+import AppNote from '../components/app-note/app-note.vue'
 
-type AppType = 'about' | 'center'
+type AppType = 'about' | 'center' | 'note'
 interface AppInfo {
   id: string;
   type: AppType;
@@ -62,12 +63,31 @@ const defaultAppData: Record<AppType, AppInfo['data']> = {
     y: 0,
     offsetX: 0,
     offsetY: 0,
-    width: window.innerWidth / 3,
+    width: Math.min(window.innerWidth / 2, 350),
     height: 300,
     offsetW: 0,
     offsetH: 0,
     component: AppCenter,
   },
+  note: pipe(undefined, () => {
+    const [width, height] = [
+      Math.min(window.innerWidth / 2, 500),
+      window.innerHeight / 2,
+    ]
+
+    return {
+      name: '記事本',
+      x: window.innerWidth - width * 1.5,
+      y: window.innerHeight - height * 1.5,
+      offsetX: 0,
+      offsetY: 0,
+      width,
+      height,
+      offsetW: 0,
+      offsetH: 0,
+      component: AppNote,
+    }
+  }),
 }
 
 export const useAppStore = defineStore('app', () => {

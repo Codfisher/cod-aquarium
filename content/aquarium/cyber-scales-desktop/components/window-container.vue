@@ -1,5 +1,5 @@
 <template>
-  <div class="window-container w-screen h-screen absolute top-0 left-0 pointer-events-none p-10">
+  <div class="window-container w-screen h-screen overflow-hidden absolute top-0 left-0 pointer-events-none p-10">
     <div
       ref="containerRef"
       class=" w-full h-full relative"

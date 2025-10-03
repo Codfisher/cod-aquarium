@@ -68,7 +68,7 @@ const targetParams = computed<GraphParams>(() => {
     return {
       x: -svgSize.width / 2 - offset * 2,
       y: -svgSize.height / 2 - offset * 2,
-      size: 1,
+      size: 2,
       color: 0x444444,
     }
   }
@@ -76,7 +76,7 @@ const targetParams = computed<GraphParams>(() => {
   return {
     x: -svgSize.width / 2 - offset,
     y: -svgSize.height / 2 - offset,
-    size: 2,
+    size: 3,
     color: 0x444444,
   }
 })

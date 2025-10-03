@@ -10,14 +10,19 @@
 </template>
 
 <script lang="ts" setup>
+import { useAppStore } from '../../stores/app-store'
 import BaseItem from '../base-item/base-item.vue'
 
+const appStore = useAppStore()
 const baseDelay = 600
 
 const list = [
   {
     label: '記事本',
     icon: 'docs',
+    onClick() {
+      appStore.open('note')
+    },
   },
 ]
 </script>

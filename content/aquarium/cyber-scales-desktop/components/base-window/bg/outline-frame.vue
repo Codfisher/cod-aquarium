@@ -58,12 +58,12 @@ const targetParams = computed<GraphParams>(() => {
 
   if (props.status === 'active') {
     return {
-      x: offset / 2,
-      y: offset / 2,
-      width: svgSize.width - offset,
-      height: svgSize.height - offset,
+      x: offset,
+      y: offset,
+      width: svgSize.width - offset * 2,
+      height: svgSize.height - offset * 2,
       strokeWidth: 4,
-      opacity: 0.1,
+      opacity: 0.15,
       color: 0x2DD4BF,
     }
   }
