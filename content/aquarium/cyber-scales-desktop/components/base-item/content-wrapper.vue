@@ -6,7 +6,7 @@
 
 <script setup lang="ts">
 import { usePrevious } from '@vueuse/core'
-import { computed, inject, ref, toRefs, watch } from 'vue'
+import { inject } from 'vue'
 import { useAnimatable } from '../../../../../composables/use-animatable'
 import { ComponentStatus } from '../../types'
 import { baseItemInjectionKey } from './type'

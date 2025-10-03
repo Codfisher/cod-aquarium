@@ -17,7 +17,7 @@ const baseDelay = 600
 const list = [
   {
     label: '記事本',
-    icon: 'contact_support',
+    icon: 'docs',
   },
 ]
 </script>

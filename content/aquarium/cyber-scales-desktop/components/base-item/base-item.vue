@@ -21,7 +21,7 @@
         ref="labelRef"
         class="item-label text-white text-nowrap font-orbitron text-center"
       >
-        <div class=" leading-none">
+        <div class=" leading-none text-sm tracking-widest">
           {{ labelDecoder.text }}
         </div>
 

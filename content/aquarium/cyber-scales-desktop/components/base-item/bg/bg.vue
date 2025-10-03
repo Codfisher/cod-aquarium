@@ -134,18 +134,24 @@ const { data: graphParams } = useAnimatable(
         active: 50,
       },
     ),
-    ease: (fieldKey) => resolveTransitionParamValue<GraphParams, EaseString>(
-      {
-        status: status.value,
-        pStatus: pStatus.value,
-        fieldKey,
-        defaultValue: 'inOutQuint',
-      },
-      {
-        visible: 'inOutQuint',
-        hover: 'outBounce',
-      },
-    ),
+    ease: (fieldKey) => {
+      if (fieldKey === 'opacity') {
+        return 'outBounce'
+      }
+
+      return resolveTransitionParamValue<GraphParams, EaseString>(
+        {
+          status: status.value,
+          pStatus: pStatus.value,
+          fieldKey,
+          defaultValue: 'inOutQuint',
+        },
+        {
+          visible: 'inOutQuint',
+          hover: 'outBounce',
+        },
+      )
+    },
     animationTriggerBy: status,
   },
 )
