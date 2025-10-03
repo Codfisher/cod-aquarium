@@ -77,11 +77,11 @@ const itemList = [
     subLabel: 'Portfolio',
     icon: 'wall_art',
   },
-  {
-    label: '相簿',
-    subLabel: 'Album',
-    icon: 'photo_auto_merge',
-  },
+  // {
+  //   label: '相簿',
+  //   subLabel: 'Album',
+  //   icon: 'photo_auto_merge',
+  // },
   {
     label: '部落格',
     subLabel: 'Blog',
