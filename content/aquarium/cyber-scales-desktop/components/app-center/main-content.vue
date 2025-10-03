@@ -1,5 +1,5 @@
 <template>
-  <div class="text p-4 flex items-start justify-start gap-2 ">
+  <div class="text p-4 flex flex-wrap items-start justify-start content-start gap-4 ">
     <base-item
       v-for="item, i in list"
       :key="i"

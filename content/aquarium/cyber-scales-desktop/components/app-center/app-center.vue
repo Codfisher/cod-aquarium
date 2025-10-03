@@ -21,7 +21,7 @@
 
 <script setup lang="ts">
 import type { ComponentProps } from 'vue-component-type-helpers'
-import { promiseTimeout, useElementHover } from '@vueuse/core'
+import { promiseTimeout, refAutoReset, useElementHover } from '@vueuse/core'
 import { computed, getCurrentInstance, useTemplateRef, watch } from 'vue'
 import { useAppStore } from '../../stores/app-store'
 import { ComponentStatus } from '../../types'
@@ -61,13 +61,20 @@ const style = computed(() => {
   }
 })
 
+/** 第一次從 hidden 至 visible 時，阻止所以狀態轉換
+ *
+ * TODO: 先使用時間判斷，未來在想更好的設計
+ */
+const isFirst = refAutoReset(false, 1400)
+isFirst.value = true
+
 const isHover = useElementHover(frameRef)
 const isActive = computed(() =>
   appStore.appMap.get(appId)?.isActive ?? false,
 )
-watch(() => [isActive, isHover], async () => {
+watch(() => [isActive, isHover, isFirst], async () => {
   const status = windowRef.value?.status
-  if (!status) {
+  if (!status || isFirst.value) {
     return
   }
 
