@@ -1,7 +1,7 @@
 <template>
   <div class="text p-4 ">
     <h1 class=" text-2xl mb-6 font-bold">
-      歡迎來到 Cyber Scales Desktop
+      {{ titleDecoder.text }}
     </h1>
 
     <p>大家好，我是鱈魚。 <span class="text-nowrap">( ´ ▽ ` )ﾉ</span></p>
@@ -91,6 +91,19 @@
     </p>
   </div>
 </template>
+
+<script setup lang="ts">
+import { promiseTimeout } from '@vueuse/core'
+import { onMounted } from 'vue'
+import { useDecodingText } from '../../../../../composables/use-decoding-text'
+
+const titleDecoder = useDecodingText('歡迎來到 Cyber Scales Desktop')
+
+onMounted(async () => {
+  await promiseTimeout(200)
+  titleDecoder.start()
+})
+</script>
 
 <style scoped lang="sass">
 .text
