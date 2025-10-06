@@ -158,7 +158,7 @@ const { data: graphParams } = useAnimatable(
 
 const graphAttrs = computed(() => {
   const { opacity, chamfer } = graphParams
-  const hChamfer = chamfer / 2
+  const qChamfer = chamfer / 4
   const [x, y, width, height] = [
     containerSize.width / 2,
     containerSize.height / 2,
@@ -168,17 +168,16 @@ const graphAttrs = computed(() => {
 
   return {
     points: [
-      `${x - width},${y - height + chamfer}`,
-      `${x - width + chamfer},${y - height}`,
+      `${x - width},${y - height + qChamfer}`,
+      `${x - width + qChamfer},${y - height}`,
       `${x + width - chamfer},${y - height}`,
-      `${x + width - hChamfer},${y - height}`,
-      `${x + width},${y - height + hChamfer}`,
+      `${x + width},${y - height + chamfer}`,
       `${x + width},${y}`,
-      `${x + width + hChamfer},${y + hChamfer}`,
-      `${x + width + hChamfer},${y + height - hChamfer}`,
       `${x + width},${y + height}`,
-      `${x - width + chamfer},${y + height}`,
-      `${x - width},${y + height - chamfer}`,
+      `${x + width},${y + height - qChamfer}`,
+      `${x + width - qChamfer},${y + height}`,
+      `${x - width + qChamfer},${y + height}`,
+      `${x - width},${y + height - qChamfer}`,
     ].join(' '),
     opacity,
   }
