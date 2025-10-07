@@ -163,12 +163,20 @@ const textBgAttrs = computed(() => {
   const offsetX = graphParams.x1
   const fontSize = Number.parseInt(textAttrs.value.fontSize)
 
+  const width = fontSize + textPadding
+
   return {
     points: [
       `${offsetX},0`,
-      `${-fontSize - textPadding + offsetX},${offset * 3}`,
-      `${-fontSize - textPadding + offsetX},${height}`,
+      `${-width + offsetX},${offset * 3}`,
+      `${-width + offsetX},${height}`,
       `${offsetX},${height + offset * 3}`,
+
+      // 內凹槽
+      `${offsetX},${height}`,
+      `${offsetX - 2},${height - 2}`,
+      `${offsetX - 2},${height - 2 - 40}`,
+      `${offsetX},${height - 2 - 40 - 2}`,
     ].join(' '),
     opacity: graphParams.opacity,
   }
