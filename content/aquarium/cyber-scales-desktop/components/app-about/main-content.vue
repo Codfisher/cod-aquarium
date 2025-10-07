@@ -75,6 +75,18 @@
     </p>
 
     <p>
+      原始碼可以在
+      <a
+        href="https://github.com/Codfisher/cod-aquarium/tree/main/content/aquarium/cyber-scales-desktop"
+        target="_blank"
+      >
+        這裡取得
+      </a>
+      ，持續實驗中，所以寫得有點亂，還請見諒
+      <span class="text-nowrap">(´,,•ω•,,)</span>
+    </p>
+
+    <p>
       也可以
       <a
         href="https://portaly.cc/codfish/support"
