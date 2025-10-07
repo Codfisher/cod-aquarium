@@ -45,65 +45,70 @@ const appConfigMap: Partial<
   },
 }
 
-const defaultAppData: Record<AppType, AppInfo['data']> = {
-  about: {
-    name: '關於我',
-    x: 0,
-    y: 0,
-    offsetX: 0,
-    offsetY: 0,
-    width: Math.min(window.innerWidth / 2, 500),
-    height: window.innerHeight / 2,
-    offsetW: 0,
-    offsetH: 0,
-    component: AppAbout,
-  },
-  center: {
-    name: '應用程式',
-    x: 0,
-    y: 0,
-    offsetX: 0,
-    offsetY: 0,
-    width: Math.min(window.innerWidth / 2, 350),
-    height: 300,
-    offsetW: 0,
-    offsetH: 0,
-    component: AppCenter,
-  },
-  note: pipe(undefined, () => {
-    const [width, height] = [
-      Math.min(window.innerWidth / 2, 500),
-      window.innerHeight / 2,
-    ]
-
-    return {
-      name: '記事本',
-      x: window.innerWidth - width * 1.5,
-      y: window.innerHeight - height * 1.5,
-      offsetX: 0,
-      offsetY: 0,
-      width,
-      height,
-      offsetW: 0,
-      offsetH: 0,
-      component: AppNote,
-    }
-  }),
-  portfolio: {
-    name: '作品集',
-    x: 0,
-    y: 0,
-    offsetX: 0,
-    offsetY: 0,
-    width: window.innerWidth / 2,
-    height: 300,
-    offsetW: 0,
-    offsetH: 0,
-    component: AppPortfolio,
-  },
-}
-
 export const useAppStore = defineStore('app', () => {
+  const defaultAppData: Record<AppType, AppInfo['data']> = pipe(
+    window ?? { innerWidth: 0, innerHeight: 0 },
+    ({ innerWidth, innerHeight }) => {
+      return {
+        about: {
+          name: '關於我',
+          x: 0,
+          y: 0,
+          offsetX: 0,
+          offsetY: 0,
+          width: Math.min(innerWidth / 2, 500),
+          height: innerHeight / 2,
+          offsetW: 0,
+          offsetH: 0,
+          component: AppAbout,
+        },
+        center: {
+          name: '應用程式',
+          x: 0,
+          y: 0,
+          offsetX: 0,
+          offsetY: 0,
+          width: Math.min(innerWidth / 2, 350),
+          height: 300,
+          offsetW: 0,
+          offsetH: 0,
+          component: AppCenter,
+        },
+        note: pipe(undefined, () => {
+          const [width, height] = [
+            Math.min(innerWidth / 2, 500),
+            innerHeight / 2,
+          ]
+
+          return {
+            name: '記事本',
+            x: innerWidth - width * 1.5,
+            y: innerHeight - height * 1.5,
+            offsetX: 0,
+            offsetY: 0,
+            width,
+            height,
+            offsetW: 0,
+            offsetH: 0,
+            component: AppNote,
+          }
+        }),
+        portfolio: {
+          name: '作品集',
+          x: 0,
+          y: 0,
+          offsetX: 0,
+          offsetY: 0,
+          width: innerWidth / 2,
+          height: 300,
+          offsetW: 0,
+          offsetH: 0,
+          component: AppPortfolio,
+        },
+      }
+    },
+  )
+
   const appMap = shallowRef(new Map<string, AppInfo>())
   const triggerAppUpdate = throttle(
     () => triggerRef(appMap),
