@@ -114,7 +114,7 @@ function hasCloseListener() {
 const handleClose: BaseWindowProps['onClose'] = async () => {
   if (hasCloseListener()) {
     const ok = await new Promise<boolean>((resolve) => {
-      emit('close', (val: boolean) => resolve(val))
+      emit('close', (value: boolean) => resolve(value))
     })
     if (!ok) {
       return
