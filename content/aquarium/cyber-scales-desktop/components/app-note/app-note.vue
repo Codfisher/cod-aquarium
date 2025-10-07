@@ -51,7 +51,7 @@ const handleClose: ComponentProps<typeof BaseAppFrame>['onClose'] = async (done)
         {
           label: '取消',
           onClick() {
-            done(true)
+            done(false)
             dialog.close()
           },
         },
