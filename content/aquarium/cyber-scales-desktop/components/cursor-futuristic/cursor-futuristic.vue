@@ -30,7 +30,7 @@ import {
   useMouse,
   useMousePressed,
 } from '@vueuse/core'
-import { isIncludedIn } from 'remeda'
+import { isIncludedIn, pipe } from 'remeda'
 import { computed, reactive, shallowRef, watch, watchEffect } from 'vue'
 import CornerBracket4 from './parts/corner-bracket-4.vue'
 import CornerBracketX from './parts/corner-bracket-x.vue'
@@ -100,18 +100,28 @@ watch(element, (el) => {
 const { pressed } = useMousePressed()
 
 const currentState = computed<`${CursorState}`>(() => {
+  const cursorStyle = pipe(
+    element.value,
+    (el) => {
+      if (!el) {
+        return
+      }
+
+      const cursor = getComputedStyle(el).cursor
+      if (isIncludedIn(cursor, ['pointer', 'not-allowed', 'wait'] as const)) {
+        return cursor
+      }
+    },
+  )
+  if (cursorStyle === 'not-allowed') {
+    return 'not-allowed'
+  }
+
   if (pressed.value) {
     return 'pressed'
   }
 
-  if (element.value) {
-    const cursorStyle = getComputedStyle(element.value).cursor
-    if (isIncludedIn(cursorStyle, ['pointer', 'not-allowed', 'wait'] as const)) {
-      return cursorStyle
-    }
-  }
-
-  return 'default'
+  return cursorStyle ?? 'default'
 })
 
 const partsProps = computed(() => ({

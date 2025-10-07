@@ -1,7 +1,8 @@
 <template>
   <div
     ref="itemRef"
-    class="base-btn cursor-pointer relative p-3 flex justify-center items-center"
+    class="base-btn  relative p-3 flex justify-center items-center"
+    :class="itemClass"
   >
     <bg />
 
@@ -53,6 +54,11 @@ const emit = defineEmits<Emits>()
 defineSlots<Slots>()
 
 const itemRef = useTemplateRef('itemRef')
+
+const itemClass = computed(() => ({
+  'cursor-pointer': !props.disabled,
+  'cursor-not-allowed': props.disabled,
+}))
 
 const isMounted = useMounted()
 const isHover = useElementHover(itemRef)

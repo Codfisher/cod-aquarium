@@ -5,7 +5,7 @@
     fill="none"
     xmlns="http://www.w3.org/2000/svg"
   >
-    <g :stroke="props.color">
+    <g>
       <path
         class="tl"
         v-bind="pathsAttrsMap.tl"
@@ -48,13 +48,13 @@ interface PathParams {
   p1: number;
   /** path 終點 */
   p2: number;
+  stroke: number;
 }
 
 interface Props {
   state: `${CursorState}`;
   mouse: Reactive<UseMouseReturn>;
   size?: number;
-  color?: string;
 
   hoverElementBounding?: Reactive<ReturnType<typeof useElementBounding>>;
   activeElementBounding?: Reactive<ReturnType<typeof useElementBounding>>;
@@ -62,7 +62,6 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   size: 80,
-  color: '#777',
 })
 const pStatus = usePrevious(() => props.state, CursorState.DEFAULT)
 
@@ -152,6 +151,7 @@ const pathsStateTargetParamsMap = reactiveComputed<
         p1: size * 0.45,
         p2: size * 0.55,
         strokeWidth: 0.6,
+        stroke: 0x777777,
       }
 
       return {
@@ -184,6 +184,7 @@ const pathsStateTargetParamsMap = reactiveComputed<
         strokeWidth: 1,
         p1: size * 0.47,
         p2: size * 0.53,
+        stroke: 0x777777,
       }
 
       return {
@@ -219,6 +220,7 @@ const pathsStateTargetParamsMap = reactiveComputed<
         p1: size * 0.45,
         p2: size * 0.55,
         strokeWidth: 0.4,
+        stroke: 0x777777,
       }
 
       return {
@@ -236,6 +238,7 @@ const pathsStateTargetParamsMap = reactiveComputed<
         p1: size * 0.4,
         p2: size * 0.6,
         strokeWidth: 2,
+        stroke: 0xF87171,
       }
 
       return {
@@ -253,6 +256,7 @@ const pathsStateTargetParamsMap = reactiveComputed<
         p1: size * 0.4,
         p2: size * 0.6,
         strokeWidth: 2,
+        stroke: 0x777777,
       }
 
       return {
@@ -330,8 +334,13 @@ const pathsDMap = reactiveComputed(() => ({
 const pathsAttrsMap = reactiveComputed(() => mapValues(
   pathsParamsMap,
   (data, key) => {
-    const { x, y, rotate, rotateSelf, strokeWidth } = data
+    const { x, y, rotate, rotateSelf, strokeWidth, stroke } = data
     const rotateCenter = props.size / 2
+
+    const strokeValue = pipe(
+      Math.round(stroke),
+      (value) => `#${value.toString(16).padStart(6, '0')}`,
+    )
 
     return {
       'd': pathsDMap[key],
@@ -341,6 +350,7 @@ const pathsAttrsMap = reactiveComputed(() => mapValues(
         `translate(${x}, ${y})`,
         `rotate(${rotateSelf}, ${rotateCenter}, ${rotateCenter})`,
       ].join(' '),
+      'stroke': strokeValue,
     }
   },
 ))
