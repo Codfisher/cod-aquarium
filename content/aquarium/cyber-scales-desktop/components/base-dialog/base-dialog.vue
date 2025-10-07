@@ -56,7 +56,6 @@
                 :key="i"
                 v-bind="btn"
                 class="px-4"
-                @click="btn.onClick"
               />
             </div>
           </div>
@@ -94,7 +93,7 @@ interface Slots {
 
 const props = withDefaults(defineProps<Props>(), {
   icon: 'warning',
-  iconClass: 'text-red-600',
+  iconClass: 'text-red-400',
   actionList: () => [],
 })
 

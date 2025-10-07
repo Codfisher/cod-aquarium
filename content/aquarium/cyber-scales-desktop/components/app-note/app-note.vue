@@ -34,38 +34,37 @@ if (!appId) {
   throw new Error('無法取得 key')
 }
 
-const handleClose: ComponentProps<typeof BaseAppFrame>['onClose'] = async (next) => {
+const handleClose: ComponentProps<typeof BaseAppFrame>['onClose'] = async (done) => {
   if (contentRef.value?.isChanged) {
     const dialog = useDialog({
       title: '尚未儲存',
-      description: '你有未儲存的更改，確定要關閉？',
+      description: '有未儲存的變更，確定要關閉？',
       actionList: [
         {
           label: '確定',
           flat: true,
           onClick() {
-            next(false)
+            done(true)
             dialog.close()
           },
         },
         {
           label: '取消',
           onClick() {
-            console.log(`🚀 ~ onClick:`)
-            next(true)
+            done(true)
             dialog.close()
           },
         },
       ],
       onBackdrop() {
-        next(false)
+        done(false)
         dialog.close()
       },
     })
     return
   }
 
-  next(true)
+  done(true)
 }
 </script>
 

@@ -3,6 +3,7 @@
     ref="itemRef"
     class="base-btn  relative p-3 flex justify-center items-center"
     :class="itemClass"
+    @click="(evt) => emit('click', evt)"
   >
     <bg v-if="!props.flat" />
 
@@ -44,7 +45,7 @@ interface Props {
 }
 
 interface Emits {
-  click: [evt: PointerEvent];
+  click: [evt: MouseEvent];
 }
 
 interface Slots {

@@ -35,7 +35,7 @@ interface Props {
 }
 
 interface Emits {
-  close: [next: (ok: boolean) => void];
+  close: [done: (shouldClose: boolean) => void];
 }
 
 const props = withDefaults(defineProps<Props>(), {})
