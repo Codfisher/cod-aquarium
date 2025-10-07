@@ -35,15 +35,6 @@ const pStatus = usePrevious(
   ComponentStatus.HIDDEN,
 )
 
-const titleDecoder = useDecodingText(windowProvider.title.value)
-watch(() => props.status, (value) => {
-  if (value === 'visible') {
-    setTimeout(() => {
-      titleDecoder.start()
-    }, props.duration * 2)
-  }
-})
-
 interface GraphParams {
   x1: number;
   y1: number;
@@ -58,11 +49,13 @@ const { data: graphParams } = useAnimatable(
     const { svgSize } = props
 
     if (props.status === 'hidden') {
+      const qH = svgSize.height / 4
+      const width = 10
       return {
-        x1: -offset * 2,
-        y1: 0,
-        y2: svgSize.height / 4,
-        width: 0,
+        x1: svgSize.width / 2 + width / 2,
+        y1: qH,
+        y2: qH * 3,
+        width,
         opacity: 0,
       }
     }
@@ -84,18 +77,20 @@ const { data: graphParams } = useAnimatable(
         defaultValue: 0,
       },
       {
-        'hover': props.duration * 0.6,
-        'active': props.duration * 0.5,
-        'hidden-visible': {
-          x1: props.duration * 2.5,
-          y1: props.duration * 2.5,
-          y2: props.duration * 2.5,
-          opacity: props.duration * 2.5,
+        visible: {
+          x1: props.duration * 0.8,
+          y1: props.duration * 1.8,
+          y2: props.duration * 1.8,
+        },
+        hidden: {
+          y1: props.duration,
+          y2: props.duration,
+          opacity: props.duration * 0.8,
         },
       },
     ),
     duration: props.duration,
-    ease: 'cubicBezier(1, 0.3, 0, 0.7)',
+    ease: (key) => key === 'opacity' ? 'outBounce' : 'cubicBezier(1, 0.3, 0, 0.7)',
     animationTriggerBy: () => props.status,
   },
 )
@@ -107,26 +102,26 @@ const graphAttrs = computed(() => {
   return {
     points: [
       // 左上
-      `${x1 - width},0`,
+      `${x1 - width},${y1}`,
       // 右上
-      `${x1},0`,
+      `${x1},${y1}`,
       // 右下
-      `${x1},${height}`,
+      `${x1},${y1 + height}`,
       // 左下
-      `${x1 - width},${height}`,
-      `${x1 - width},${height - 5}`,
-      `${x1 - width + 2},${height - 10}`,
+      `${x1 - width},${y1 + height}`,
+      `${x1 - width},${y1 + height - 5}`,
+      `${x1 - width + 2},${y1 + height - 10}`,
 
-      `${x1 - width + 2},${height - height / 4}`,
-      `${x1 - width},${height - height / 4 - 5}`,
-      `${x1 - width},${height / 4}`,
-      `${x1 - width + 2},${height / 4 - 5}`,
+      `${x1 - width + 2},${y1 + height - height / 4}`,
+      `${x1 - width},${y1 + height - height / 4 - 5}`,
+      `${x1 - width},${y1 + height / 4}`,
+      `${x1 - width + 2},${y1 + height / 4 - 5}`,
 
       // 左上凹槽
-      `${x1 - width + 2},20`,
-      `${x1 - width + 2},15`,
-      `${x1 - width + 4},10`,
-      `${x1 - width},5`,
+      `${x1 - width + 2},${y1 + 20}`,
+      `${x1 - width + 2},${y1 + 15}`,
+      `${x1 - width + 4},${y1 + 10}`,
+      `${x1 - width},${y1 + 5}`,
     ].join(' '),
     opacity: graphParams.opacity,
   }

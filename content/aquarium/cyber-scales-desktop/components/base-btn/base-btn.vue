@@ -4,14 +4,17 @@
     class="base-btn  relative p-3 flex justify-center items-center"
     :class="itemClass"
   >
-    <bg />
+    <bg v-if="!props.flat" />
 
     <content-wrapper class="z-0  ">
       <div
         ref="labelRef"
-        class="item-label text-white text-nowrap font-orbitron text-center select-none"
+        class="item-label  text-nowrap font-orbitron text-center select-none"
       >
-        <div class=" leading-none text-sm tracking-widest pl-1">
+        <div
+          class=" leading-none text-sm tracking-widest pl-1"
+          :class="labelClass"
+        >
           {{ props.label }}
         </div>
       </div>
@@ -31,13 +34,17 @@ import { baseItemInjectionKey } from './type'
 
 interface Props {
   label?: string;
+  labelClass?: string;
   subLabel?: string;
   icon?: string;
   delay?: number;
   disabled?: boolean;
+  /** 只有文字 */
+  flat?: boolean;
 }
 
 interface Emits {
+  click: [evt: PointerEvent];
 }
 
 interface Slots {
@@ -48,6 +55,7 @@ const props = withDefaults(defineProps<Props>(), {
   label: '',
   subLabel: '',
   delay: 0,
+  flat: false,
 })
 
 const emit = defineEmits<Emits>()
@@ -72,6 +80,17 @@ const isVisible = computedAsync(async () => {
 }, false)
 
 const labelRef = useTemplateRef('labelRef')
+const labelClass = computed(() => {
+  const result = [
+    props.labelClass ?? '',
+  ]
+
+  if (!props.labelClass) {
+    result.push(props.flat ? 'text-[#444]' : 'text-white')
+  }
+
+  return result
+})
 
 const labelDecoder = useDecodingText(props.label)
 const subLabelDecoder = useDecodingText(props.subLabel)

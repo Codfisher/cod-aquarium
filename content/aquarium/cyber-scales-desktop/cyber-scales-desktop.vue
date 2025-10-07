@@ -19,15 +19,12 @@
 
     <window-container />
 
-    <base-dialog />
-
-    <cursor-futuristic class="z-[999999999999]" />
+    <cursor-futuristic class="z-[99999]" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted } from 'vue'
-import BaseDialog from './components/base-dialog/base-dialog.vue'
 import CursorFuturistic from './components/cursor-futuristic/cursor-futuristic.vue'
 import DesktopItem from './components/desktop-item/desktop-item.vue'
 import HexagonLayout from './components/hexagon-layout.vue'

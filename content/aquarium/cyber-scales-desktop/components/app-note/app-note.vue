@@ -15,6 +15,7 @@
 <script setup lang="ts">
 import type { ComponentProps } from 'vue-component-type-helpers'
 import { getCurrentInstance, useTemplateRef } from 'vue'
+import { useDialog } from '../../composables/use-dialog'
 import BaseAppFrame from '../base-app-frame.vue'
 import MainContent from './main-content.vue'
 
@@ -35,12 +36,15 @@ if (!appId) {
 
 const handleClose: ComponentProps<typeof BaseAppFrame>['onClose'] = async (next) => {
   if (contentRef.value?.isChanged) {
-    // eslint-disable-next-line no-alert
-    const close = window.confirm('你有未儲存的更改，確定要關閉？')
-    if (!close) {
-      next(false)
-      return
-    }
+    const dialog = useDialog({
+      title: '尚未儲存',
+      description: '你有未儲存的更改，確定要關閉？',
+      onBackdrop() {
+        next(false)
+        dialog.close()
+      },
+    })
+    return
   }
 
   next(true)
