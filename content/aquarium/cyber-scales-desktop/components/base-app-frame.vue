@@ -22,7 +22,7 @@
 <script setup lang="ts">
 import type { ComponentProps } from 'vue-component-type-helpers'
 import { promiseTimeout, refAutoReset, useElementHover } from '@vueuse/core'
-import { computed, useTemplateRef, watch } from 'vue'
+import { computed, EmitFn, getCurrentInstance, useTemplateRef, watch } from 'vue'
 import { useAppStore } from '../stores/app-store'
 import { ComponentStatus } from '../types'
 import BaseWindow from './base-window/base-window.vue'
@@ -34,11 +34,14 @@ interface Props {
   title?: string;
 }
 
-interface Emits { }
+interface Emits {
+  close: [next: (ok: boolean) => void];
+}
 
 const props = withDefaults(defineProps<Props>(), {})
 const emit = defineEmits<Emits>()
 
+const instance = getCurrentInstance()
 const windowRef = useTemplateRef('windowRef')
 const frameRef = useTemplateRef('frameRef')
 
@@ -104,7 +107,20 @@ function commitUpdate() {
   appStore.commitUpdate(props.appId)
 }
 
+function hasCloseListener() {
+  const nodeProps = instance?.vnode.props as BaseWindowProps
+  return !!nodeProps.onClose
+}
 const handleClose: BaseWindowProps['onClose'] = async () => {
+  if (hasCloseListener()) {
+    const ok = await new Promise<boolean>((resolve) => {
+      emit('close', (val: boolean) => resolve(val))
+    })
+    if (!ok) {
+      return
+    }
+  }
+
   windowRef.value?.setStatus('hidden')
   await promiseTimeout(1000)
   appStore.close(props.appId)

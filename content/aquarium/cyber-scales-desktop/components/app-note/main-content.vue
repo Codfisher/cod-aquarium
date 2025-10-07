@@ -101,6 +101,10 @@ async function ensureReadWrite(handle: FileSystemHandle) {
   const reqResult = await handle.requestPermission({ mode: 'readwrite' })
   return reqResult === 'granted'
 }
+
+defineExpose({
+  isChanged,
+})
 </script>
 
 <style scoped lang="sass">
