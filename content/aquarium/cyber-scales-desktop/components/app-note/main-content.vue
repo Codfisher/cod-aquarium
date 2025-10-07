@@ -6,15 +6,6 @@
       placeholder="這裡輸入你的筆記…"
     />
 
-    <!-- 不支援 File System Access API 時用的 fallback -->
-    <input
-      ref="fileInput"
-      type="file"
-      accept=".txt,.md,text/plain"
-      class="hidden"
-      @change="onFileInputChange"
-    >
-
     <div class="flex justify-end gap-2">
       <base-btn
         label="開啟"
@@ -33,30 +24,27 @@
 
 <script lang="ts" setup>
 import { computed, ref } from 'vue'
+import { downloadAsFile } from '../../utils'
 import BaseBtn from '../base-btn/base-btn.vue'
 
-// 目前開啟的檔案 handle；只有用 showOpenFilePicker 開啟才會有值
-const fileHandle = ref<FileSystemFileHandle | null>(null)
+const fileHandle = ref<FileSystemFileHandle>()
 
-// 內容狀態
 const text = ref('')
 const currentText = ref('')
 
 const isChanged = computed(() => text.value !== currentText.value)
 
-// fallback 用的 input
-const fileInput = ref<HTMLInputElement | null>(null)
-
-// 是否支援 File System Access API
-const supportsFSAccess
-  = typeof window !== 'undefined'
-    && 'showOpenFilePicker' in window
-    && 'showSaveFilePicker' in window
+/** 是否支援 File System Access API */
+const supportsFSAccess = typeof window !== 'undefined'
+  && 'showOpenFilePicker' in window
+  && 'showSaveFilePicker' in window
 
 /** 開啟檔案：支援就用選檔器；不支援就用 <input type="file"> */
 async function openFile() {
   if (!supportsFSAccess) {
-    fileInput.value?.click()
+    // TODO 再調整
+    // eslint-disable-next-line no-alert
+    alert('此瀏覽器不支援 File System Access API，請使用 Chrome 或 Edge。')
     return
   }
 
@@ -83,24 +71,7 @@ async function openFile() {
   }
 }
 
-// fallback: 用 <input type="file"> 讀檔
-function onFileInputChange(e: Event) {
-  const input = e.target as HTMLInputElement
-  const file = input.files?.[0]
-  if (!file)
-    return
-  fileHandle.value = null // 不是透過選檔器的 handle，無法覆寫來源檔
-  file.text().then((content) => {
-    text.value = content
-    currentText.value = content
-  })
-  input.value = '' // 允許下次選同一檔
-}
-
-/** 儲存：
- * - 有 fileHandle（用選檔器開啟）且權限 OK → 覆蓋原檔
- * - 其他情況 → 直接觸發下載（notes.txt）
- */
+/** 有檔案則覆蓋檔案，否則下載 */
 async function save() {
   if (!isChanged.value)
     return
@@ -114,32 +85,21 @@ async function save() {
       text.value = currentText.value
       return
     }
+    return
   }
 
-  // 覆蓋不成或根本沒開檔 → 下載新檔
-  downloadAsFile(currentText.value, 'notes.txt')
+  downloadAsFile(currentText.value, 'note.txt', { type: 'text/plain' })
   text.value = currentText.value
 }
 
-// 詢問/確認讀寫權限
+/** 確認讀寫權限 */
 async function ensureReadWrite(handle: FileSystemHandle) {
-  // 部分 TS 環境沒有型別，先容錯
-  const q = await handle.queryPermission?.({ mode: 'readwrite' })
-  if (q === 'granted')
+  const queryResult = await handle.queryPermission({ mode: 'readwrite' })
+  if (queryResult === 'granted')
     return true
-  const r = await handle.requestPermission?.({ mode: 'readwrite' })
-  return r === 'granted'
-}
 
-// 下載文字成檔案
-function downloadAsFile(content: string, filename: string) {
-  const blob = new Blob([content], { type: 'text/plain' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  a.click()
-  URL.revokeObjectURL(url)
+  const reqResult = await handle.requestPermission({ mode: 'readwrite' })
+  return reqResult === 'granted'
 }
 </script>
 

@@ -13,7 +13,7 @@ export type StatusTransitionParamsMap<
 >>
 
 /** 解析狀態轉換與屬性對應數值
- * 
+ *
  * 例如：delayMap = { visible: 100, 'hidden-visible': 200 }
  */
 export function resolveTransitionParamValue<
@@ -21,9 +21,9 @@ export function resolveTransitionParamValue<
   Value extends string | number | undefined,
 >(
   data: {
-    status: ComponentStatus,
-    pStatus: ComponentStatus,
-    fieldKey: keyof Data,
+    status: ComponentStatus;
+    pStatus: ComponentStatus;
+    fieldKey: keyof Data;
   },
   transitionMap: StatusTransitionParamsMap<Data, Value>,
 ): Value | undefined
@@ -32,10 +32,10 @@ export function resolveTransitionParamValue<
   Value extends string | number | undefined,
 >(
   data: {
-    status: ComponentStatus,
-    pStatus: ComponentStatus,
-    fieldKey: keyof Data,
-    defaultValue: NonNullable<Value>,
+    status: ComponentStatus;
+    pStatus: ComponentStatus;
+    fieldKey: keyof Data;
+    defaultValue: NonNullable<Value>;
   },
   transitionMap: StatusTransitionParamsMap<Data, Value>,
 ): Value
@@ -44,10 +44,10 @@ export function resolveTransitionParamValue<
   Value extends string | number | undefined,
 >(
   data: {
-    status: ComponentStatus,
-    pStatus: ComponentStatus,
-    fieldKey: keyof Data,
-    defaultValue?: Value,
+    status: ComponentStatus;
+    pStatus: ComponentStatus;
+    fieldKey: keyof Data;
+    defaultValue?: Value;
   },
   transitionMap: StatusTransitionParamsMap<Data, Value>,
 ): Value | undefined {
@@ -69,4 +69,18 @@ export function resolveTransitionParamValue<
   }
 
   return value[fieldKey] ?? defaultValue
+}
+
+export function downloadAsFile(
+  content: string,
+  filename: string,
+  options?: BlobPropertyBag,
+) {
+  const blob = new Blob([content], options)
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
 }

@@ -223,11 +223,11 @@ const graphAttrs = computed(() => {
 // part 與 graph 間隔
 const partGap = 1
 const partFill = computed(() => {
-  if (status.value === ComponentStatus.ACTIVE) {
-    return '#7dd3fc'
+  if (status.value === ComponentStatus.DISABLED) {
+    return '#888'
   }
 
-  return '#888'
+  return '#7dd3fc'
 })
 const partAttrs = computed(() => {
   const { opacity, chamfer, partOffsetX, partHScale } = graphParams
