@@ -56,6 +56,7 @@ import DesktopItem from './components/desktop-item/desktop-item.vue'
 import HexagonLayout from './components/hexagon-layout.vue'
 import WindowContainer from './components/window-container.vue'
 import { useAppStore } from './stores/app-store'
+import { useData } from 'vitepress'
 
 const windowSize = reactive(useWindowSize())
 
@@ -63,6 +64,8 @@ const windowSize = reactive(useWindowSize())
 const fontHref = 'https://fonts.googleapis.com/css2?family=Material+Symbols+Sharp:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&family=Orbitron:wght@400..900'
 let linkEl: HTMLLinkElement
 onMounted(() => {
+  useData().isDark.value = false
+
   // 已經有同樣的 link 就不要重複
   const existed = Array.from(document.head.querySelectorAll('link'))
     .find((link) => link.getAttribute('href') === fontHref)
