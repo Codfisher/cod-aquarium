@@ -1,48 +1,50 @@
 <template>
-  <div
-    class="cyber-scales-desktop w-screen h-screen flex justify-center items-center p-4 gap-4"
-    @click.self="handleClick"
-  >
-    <template v-if="!isFontLoading && !isMobile">
-      <hexagon-layout
-        v-if="!isLoading"
-        class="pb-10"
-        size-selector=".icon"
-      >
-        <desktop-item
-          v-for="item, i in itemList"
-          :key="item.label"
-          v-bind="item"
-          :label="`0${i} ${item.label}`"
-          :label-left="i % 2 === 0"
-          :delay="(i + 1) * 100"
-        />
-      </hexagon-layout>
-
-      <transition
-        name="opacity"
-        appear
-      >
-        <div
-          v-if="isLoading"
-          class=" fixed inset-0 z-50 flex justify-center items-center text-2xl font-orbitron opacity-90 tracking-widest"
-        >
-          Loading...
-        </div>
-      </transition>
-    </template>
-
+  <client-only>
     <div
-      v-if="isMobile"
-      class=" fixed inset-0 z-50 flex justify-center items-center text-xl opacity-70 text-center leading-10"
+      class="cyber-scales-desktop w-screen h-screen flex justify-center items-center p-4 gap-4"
+      @click.self="handleClick"
     >
-      此專案暫時不支援手機版<br>請使用電腦版瀏覽 ◝( •ω• )◟
+      <template v-if="!isFontLoading && !isMobile">
+        <hexagon-layout
+          v-if="!isLoading"
+          class="pb-10"
+          size-selector=".icon"
+        >
+          <desktop-item
+            v-for="item, i in itemList"
+            :key="item.label"
+            v-bind="item"
+            :label="`0${i} ${item.label}`"
+            :label-left="i % 2 === 0"
+            :delay="(i + 1) * 100"
+          />
+        </hexagon-layout>
+
+        <transition
+          name="opacity"
+          appear
+        >
+          <div
+            v-if="isLoading"
+            class=" fixed inset-0 z-50 flex justify-center items-center text-2xl font-orbitron opacity-90 tracking-widest"
+          >
+            Loading...
+          </div>
+        </transition>
+      </template>
+
+      <div
+        v-if="isMobile"
+        class=" fixed inset-0 z-50 flex justify-center items-center text-xl opacity-70 text-center leading-10"
+      >
+        此專案暫時不支援手機版<br>請使用電腦版瀏覽 ◝( •ω• )◟
+      </div>
+
+      <window-container />
+
+      <cursor-futuristic class="z-[99999]" />
     </div>
-
-    <window-container />
-
-    <cursor-futuristic class="z-[99999]" />
-  </div>
+  </client-only>
 </template>
 
 <script setup lang="ts">
