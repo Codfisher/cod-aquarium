@@ -102,15 +102,15 @@ const { data: graphParams } = useAnimatable(
         height,
         chamfer: 10,
         opacity: 0.6,
-        partOffsetX: -2,
+        partOffsetX: -3,
         partHScale: 1,
       }
     }
 
     if (status.value === ComponentStatus.ACTIVE) {
       return {
-        width: width - 2,
-        height: height - 2,
+        width: width - 1,
+        height: height - 1,
         chamfer: 10,
         opacity: 0.98,
         partOffsetX: 0,
