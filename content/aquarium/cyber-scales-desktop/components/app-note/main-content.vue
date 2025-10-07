@@ -8,16 +8,19 @@
     <div class="flex justify-end">
       <base-btn
         label="儲存"
+        :disabled
       />
     </div>
   </div>
 </template>
 
 <script lang="ts" setup>
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import BaseBtn from '../base-btn/base-btn.vue'
 
 const text = ref('')
+
+const disabled = computed(() => text.value === '')
 </script>
 
 <style scoped lang="sass">

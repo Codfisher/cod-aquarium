@@ -5,3 +5,10 @@ export enum ComponentStatus {
   HOVER = 'hover',
   DISABLED = 'disabled',
 }
+
+export enum FieldStatus {
+  EMPTY = 'empty',
+  FOCUS = 'focus',
+  INVALID = 'invalid',
+  VALID = 'valid',
+}

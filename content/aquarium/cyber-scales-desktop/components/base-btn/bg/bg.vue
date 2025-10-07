@@ -11,6 +11,10 @@
         v-bind="graphAttrs"
         fill="#888"
       />
+      <polygon
+        v-bind="partAttrs"
+        stroke="white"
+      />
     </svg>
   </div>
 </template>
@@ -19,10 +23,10 @@
 import type { CSSProperties } from 'vue'
 import type { EaseString } from '../../../../../../composables/use-animatable'
 import { useElementSize, usePrevious } from '@vueuse/core'
-import { sample } from 'remeda'
+import { pipe } from 'remeda'
 import { computed, inject, reactive, useTemplateRef } from 'vue'
 import { useAnimatable } from '../../../../../../composables/use-animatable'
-import { ComponentStatus } from '../../../types'
+import { ComponentStatus, FieldStatus } from '../../../types'
 import { resolveTransitionParamValue } from '../../../utils'
 import { baseItemInjectionKey } from '../type'
 
@@ -30,7 +34,7 @@ interface Props {
   duration?: number;
 }
 const props = withDefaults(defineProps<Props>(), {
-  duration: 260,
+  duration: 400,
 })
 
 const mainProvider = inject(baseItemInjectionKey)
@@ -56,17 +60,14 @@ const svgAttrs = computed(() => ({
   ].join(' '),
 }))
 
-const frameParams = computed(() => ({
-  svgSize: containerSize,
-  ...props,
-}))
-
 interface GraphParams {
   width: number;
   height: number;
   /** 倒角 */
   chamfer: number;
   opacity: number;
+  partOffsetX: number;
+  partHScale: number;
 }
 
 const { data: graphParams } = useAnimatable(
@@ -79,6 +80,19 @@ const { data: graphParams } = useAnimatable(
         height,
         chamfer: 2,
         opacity: 0,
+        partOffsetX: -4,
+        partHScale: 1,
+      }
+    }
+
+    if (status.value === ComponentStatus.DISABLED) {
+      return {
+        width,
+        height,
+        chamfer: 10,
+        opacity: 0.7,
+        partOffsetX: 2,
+        partHScale: 0.6,
       }
     }
 
@@ -88,6 +102,8 @@ const { data: graphParams } = useAnimatable(
         height,
         chamfer: 10,
         opacity: 0.6,
+        partOffsetX: -2,
+        partHScale: 1,
       }
     }
 
@@ -96,7 +112,9 @@ const { data: graphParams } = useAnimatable(
         width: width - 2,
         height: height - 2,
         chamfer: 10,
-        opacity: 0.9,
+        opacity: 0.98,
+        partOffsetX: 0,
+        partHScale: 1,
       }
     }
 
@@ -105,6 +123,8 @@ const { data: graphParams } = useAnimatable(
       height,
       chamfer: 10,
       opacity: 1,
+      partOffsetX: 0,
+      partHScale: 1,
     }
   },
   {
@@ -121,6 +141,12 @@ const { data: graphParams } = useAnimatable(
           height: props.duration,
           chamfer: props.duration * 1.6,
         },
+        'visible-disabled': {
+          partOffsetX: props.duration * 0.6,
+        },
+        'disabled-visible': {
+          partHScale: props.duration * 0.6,
+        },
       },
     ),
     duration: (fieldKey) => resolveTransitionParamValue<GraphParams, number>(
@@ -131,7 +157,7 @@ const { data: graphParams } = useAnimatable(
         defaultValue: props.duration,
       },
       {
-        active: 50,
+        active: 100,
       },
     ),
     ease: (fieldKey) => {
@@ -156,6 +182,8 @@ const { data: graphParams } = useAnimatable(
   },
 )
 
+// 左側凹槽深度
+const trench = 6
 const graphAttrs = computed(() => {
   const { opacity, chamfer } = graphParams
   const qChamfer = chamfer / 4
@@ -168,18 +196,61 @@ const graphAttrs = computed(() => {
 
   return {
     points: [
+      // 左上
       `${x - width},${y - height + qChamfer}`,
       `${x - width + qChamfer},${y - height}`,
+
+      // 右上
       `${x + width - chamfer},${y - height}`,
       `${x + width},${y - height + chamfer}`,
-      `${x + width},${y}`,
-      `${x + width},${y + height}`,
+
+      // 右下
       `${x + width},${y + height - qChamfer}`,
       `${x + width - qChamfer},${y + height}`,
+
+      // 左下
       `${x - width + qChamfer},${y + height}`,
       `${x - width},${y + height - qChamfer}`,
+
+      // 左側凹槽
+      `${x - width + trench},${y + height - qChamfer - trench}`,
+      `${x - width + trench},${y - height + qChamfer + trench}`,
     ].join(' '),
     opacity,
+  }
+})
+
+// part 與 graph 間隔
+const partGap = 1
+const partFill = computed(() => {
+  if (status.value === ComponentStatus.ACTIVE) {
+    return '#7dd3fc'
+  }
+
+  return '#888'
+})
+const partAttrs = computed(() => {
+  const { opacity, chamfer, partOffsetX, partHScale } = graphParams
+  const qChamfer = chamfer / 4
+  const [x, y, width, oriHeight] = [
+    containerSize.width / 2,
+    containerSize.height / 2,
+    graphParams.width / 2,
+    graphParams.height / 2,
+  ]
+
+  const height = oriHeight * partHScale
+  return {
+    points: [
+      // 左上
+      `${x - width + partOffsetX},${y - height + qChamfer + partGap}`,
+      // 右上
+      `${x - width + trench - partGap + partOffsetX},${y - height + qChamfer + trench + partGap}`,
+      `${x - width + trench - partGap + partOffsetX},${y + height - qChamfer - trench - partGap}`,
+      `${x - width + partOffsetX},${y + height - qChamfer - partGap}`,
+    ].join(' '),
+    opacity,
+    fill: partFill.value,
   }
 })
 </script>

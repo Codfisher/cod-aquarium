@@ -8,9 +8,9 @@
     <content-wrapper class="z-0  ">
       <div
         ref="labelRef"
-        class="item-label text-white text-nowrap font-orbitron text-center"
+        class="item-label text-white text-nowrap font-orbitron text-center select-none"
       >
-        <div class=" leading-none text-sm tracking-widest">
+        <div class=" leading-none text-sm tracking-widest pl-1">
           {{ props.label }}
         </div>
       </div>
@@ -23,7 +23,7 @@ import { computedAsync, promiseTimeout, useElementHover, useElementSize, useMoun
 import { computed, nextTick, provide, reactive, useTemplateRef, watch } from 'vue'
 import { nextFrame } from '../../../../../common/utils'
 import { useDecodingText } from '../../../../../composables/use-decoding-text'
-import { ComponentStatus } from '../../types'
+import { ComponentStatus, FieldStatus } from '../../types'
 import Bg from './bg/bg.vue'
 import ContentWrapper from './content-wrapper.vue'
 import { baseItemInjectionKey } from './type'
@@ -33,6 +33,7 @@ interface Props {
   subLabel?: string;
   icon?: string;
   delay?: number;
+  disabled?: boolean;
 }
 
 interface Emits {
@@ -52,7 +53,6 @@ const emit = defineEmits<Emits>()
 defineSlots<Slots>()
 
 const itemRef = useTemplateRef('itemRef')
-const itemSize = reactive(useElementSize(itemRef))
 
 const isMounted = useMounted()
 const isHover = useElementHover(itemRef)
@@ -66,13 +66,16 @@ const isVisible = computedAsync(async () => {
 }, false)
 
 const labelRef = useTemplateRef('labelRef')
-const labelSize = reactive(useElementSize(labelRef))
 
 const labelDecoder = useDecodingText(props.label)
 const subLabelDecoder = useDecodingText(props.subLabel)
 
 const status = computed(() => {
   if (isVisible.value) {
+    if (props.disabled) {
+      return ComponentStatus.DISABLED
+    }
+
     if (isPressed.value) {
       return ComponentStatus.ACTIVE
     }
@@ -105,4 +108,6 @@ provide(baseItemInjectionKey, {
 </script>
 
 <style scoped lang="sass">
+.base-btn
+  min-height: 2rem
 </style>

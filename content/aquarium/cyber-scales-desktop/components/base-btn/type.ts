@@ -1,5 +1,5 @@
 import type { ComputedRef, InjectionKey, Ref } from 'vue'
-import type { ComponentStatus } from '../../types'
+import type { ComponentStatus, FieldStatus } from '../../types'
 
 export const baseItemInjectionKey = Symbol('base-item') as InjectionKey<{
   label: ComputedRef<string>;
