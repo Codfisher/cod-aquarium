@@ -8,8 +8,9 @@ import { computed, markRaw, ref, shallowRef, triggerRef } from 'vue'
 import AppAbout from '../components/app-about/app-about.vue'
 import AppCenter from '../components/app-center/app-center.vue'
 import AppNote from '../components/app-note/app-note.vue'
+import AppPortfolio from '../components/app-portfolio/app-portfolio.vue'
 
-type AppType = 'about' | 'center' | 'note'
+type AppType = 'about' | 'center' | 'note' | 'portfolio'
 interface AppInfo {
   id: string;
   type: AppType;
@@ -88,6 +89,18 @@ const defaultAppData: Record<AppType, AppInfo['data']> = {
       component: AppNote,
     }
   }),
+  portfolio: {
+    name: '作品集',
+    x: 0,
+    y: 0,
+    offsetX: 0,
+    offsetY: 0,
+    width: window.innerWidth / 2,
+    height: 300,
+    offsetW: 0,
+    offsetH: 0,
+    component: AppPortfolio,
+  },
 }
 
 export const useAppStore = defineStore('app', () => {

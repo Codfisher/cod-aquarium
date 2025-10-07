@@ -3,7 +3,7 @@
     <textarea
       v-model="currentText"
       class="w-full flex-1 p-2 border rounded resize-none"
-      placeholder="這裡輸入你的筆記…"
+      placeholder="開啟檔案或輸入文字"
     />
 
     <div class="flex justify-end gap-2">

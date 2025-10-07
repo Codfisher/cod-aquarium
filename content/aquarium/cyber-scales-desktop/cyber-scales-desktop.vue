@@ -76,6 +76,9 @@ const itemList = [
     label: '作品集',
     subLabel: 'Portfolio',
     icon: 'wall_art',
+    onclick() {
+      appStore.open('portfolio')
+    },
   },
   // {
   //   label: '相簿',
