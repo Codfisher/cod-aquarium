@@ -1,6 +1,11 @@
 <template>
   <div class=" fixed w-screen h-screen flex justify-center items-center">
     <div
+      class=" absolute backdrop w-full h-full  duration-500"
+      :class="backdropClass"
+    />
+
+    <div
       ref="dialogRef"
       class="base-dialog relative "
     >
@@ -54,6 +59,11 @@ useElement3dRotate(
   computed(() => status.value === ComponentStatus.ACTIVE),
 )
 
+const backdropClass = computed(() => ({
+  'opacity-0': status.value !== ComponentStatus.VISIBLE,
+  'opacity-100': status.value === ComponentStatus.VISIBLE,
+}))
+
 onMounted(async () => {
   // 確保 window 有尺寸
   await until(dialogSize.width).toBeTruthy()
@@ -85,4 +95,8 @@ provide(baseDialogInjectionKey, {
   transform-style: preserve-3d
   min-width: 300px
   min-height: 200px
+
+.backdrop
+  background: rgba(black, 0.1)
+  backdrop-filter: blur(4px)
 </style>

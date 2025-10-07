@@ -113,17 +113,17 @@ const btnWidth = 10
 const closeBtnAttrs = computed(() => {
   const { svgSize } = props
 
-  const { width: svgWidth, height: svgHeight } = svgSize
+  const { height: svgHeight } = svgSize
   const height = Math.min(svgHeight / 3, 80)
   const offsetY = -20
-  const offsetX = graphParams.x1 - svgWidth
+  const offsetX = graphParams.x1
 
   return {
     points: [
-      `${offsetX + svgWidth},${svgHeight - height + offsetY}`,
-      `${offsetX + btnWidth + svgWidth},${svgHeight - height + offset * 2 + offsetY}`,
-      `${offsetX + btnWidth + svgWidth},${svgHeight - offset * 2 + offsetY}`,
-      `${offsetX + svgWidth},${svgHeight - offset * 4 + offsetY}`,
+      `${offsetX},${svgHeight - height + offsetY}`,
+      `${offsetX + btnWidth},${svgHeight - height + offset * 2 + offsetY}`,
+      `${offsetX + btnWidth},${svgHeight - offset * 2 + offsetY}`,
+      `${offsetX},${svgHeight - offset * 4 + offsetY}`,
     ].join(' '),
     opacity: graphParams.width / maxWidth,
   }
@@ -137,17 +137,17 @@ const closeBtnColor = computed(
 const resizeHandlerAttrs = computed(() => {
   const { svgSize } = props
 
-  const { width: svgWidth, height: svgHeight } = svgSize
+  const { height: svgHeight } = svgSize
   const height = Math.min(svgHeight / 3, 40)
   const offsetY = 0
-  const offsetX = graphParams.x1 - svgWidth
+  const offsetX = graphParams.x1
 
   return {
     points: [
-      `${offsetX + svgWidth},${svgHeight - height + offsetY}`,
-      `${offsetX + btnWidth + svgWidth},${svgHeight - height + offset * 2 + offsetY}`,
-      `${offsetX + btnWidth + svgWidth},${svgHeight - offset * 2 + offsetY}`,
-      `${offsetX + svgWidth},${svgHeight + offsetY}`,
+      `${offsetX},${svgHeight - height + offsetY}`,
+      `${offsetX + btnWidth},${svgHeight - height + offset * 2 + offsetY}`,
+      `${offsetX + btnWidth},${svgHeight - offset * 2 + offsetY}`,
+      `${offsetX},${svgHeight + offsetY}`,
     ].join(' '),
     opacity: graphParams.width / maxWidth,
   }

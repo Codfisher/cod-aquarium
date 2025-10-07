@@ -1,24 +1,13 @@
 <template>
   <polygon
-    ref="closeBtnRef"
-    v-bind="closeBtnAttrs"
-    :fill="closeBtnColor"
-    stroke="white"
-    class="btn pointer-events-auto cursor-pointer"
-    @click="windowProvider.emit('close')"
-  />
-  <polygon
-    ref="resizeHandlerRef"
-    v-bind="resizeHandlerAttrs"
-    :fill="resizeHandlerColor"
-    stroke="white"
-    class="btn pointer-events-auto cursor-se-resize"
+    v-bind="graphAttrs"
+    fill="#777"
   />
 </template>
 
 <script setup lang="ts">
-import { useElementHover, useEventListener, usePrevious } from '@vueuse/core'
-import { computed, inject, ref, useTemplateRef } from 'vue'
+import { usePrevious } from '@vueuse/core'
+import { computed, inject } from 'vue'
 import { useAnimatable } from '../../../../../../composables/use-animatable'
 import { ComponentStatus } from '../../../types'
 import { resolveTransitionParamValue } from '../../../utils'
@@ -49,9 +38,9 @@ interface GraphParams {
   y1: number;
   y2: number;
   width: number;
+  opacity: number;
 }
 
-const maxWidth = 2
 const offset = 6
 
 const { data: graphParams } = useAnimatable(
@@ -64,23 +53,15 @@ const { data: graphParams } = useAnimatable(
         y1: 0,
         y2: svgSize.height,
         width: 0,
+        opacity: 0,
       }
     }
-
-    if (props.status === 'hover') {
-      return {
-        x1: offset * 1.2 + svgSize.width,
-        y1: 0,
-        y2: svgSize.height,
-        width: maxWidth,
-      }
-    }
-
     return {
       x1: offset + svgSize.width,
       y1: 0,
       y2: svgSize.height,
-      width: maxWidth,
+      width: 12,
+      opacity: 1,
     }
   }),
   {
@@ -108,81 +89,44 @@ const { data: graphParams } = useAnimatable(
   },
 )
 
-const btnWidth = 10
-
-const closeBtnAttrs = computed(() => {
-  const { svgSize } = props
-
-  const { width: svgWidth, height: svgHeight } = svgSize
-  const height = Math.min(svgHeight / 3, 80)
-  const offsetY = -20
-  const offsetX = graphParams.x1 - svgWidth
+const graphAttrs = computed(() => {
+  const { width, opacity, x1, y1, y2 } = graphParams
+  const height = y2 - y1
 
   return {
     points: [
-      `${offsetX + svgWidth},${svgHeight - height + offsetY}`,
-      `${offsetX + btnWidth + svgWidth},${svgHeight - height + offset * 2 + offsetY}`,
-      `${offsetX + btnWidth + svgWidth},${svgHeight - offset * 2 + offsetY}`,
-      `${offsetX + svgWidth},${svgHeight - offset * 4 + offsetY}`,
+      // 左上
+      `${x1},0`,
+
+      // 右上倒角
+      `${x1 + width - 6}, 0`,
+      `${x1 + width}, 6`,
+
+      // 右側缺角
+      `${x1 + width},${height / 8} `,
+      `${x1 + width - 2},${height / 8} `,
+      `${x1 + width - 2},${height / 8 + 2} `,
+      `${x1 + width},${height / 8 + 2} `,
+
+      // 右下
+      `${x1 + width},${height - 5} `,
+      `${x1 + width - width / 2},${height - 5} `,
+      `${x1 + width - width / 2 - 2},${height} `,
+
+      // 左下
+      `${x1 + 5},${height} `,
+      `${x1},${height} `,
+
+      // 左凹槽
+      `${x1},${height - height / 4} `,
+      `${x1 + 2},${height - height / 4 - 5} `,
+      `${x1 + 2},${height / 4 - 5} `,
+      `${x1},${height / 4 - 10} `,
     ].join(' '),
-    opacity: graphParams.width / maxWidth,
+    opacity,
   }
-})
-const closeBtnRef = useTemplateRef('closeBtnRef')
-const iCloseBtnHover = useElementHover(closeBtnRef)
-const closeBtnColor = computed(
-  () => (iCloseBtnHover.value ? '#f87171' : '#777'),
-)
-
-const resizeHandlerAttrs = computed(() => {
-  const { svgSize } = props
-
-  const { width: svgWidth, height: svgHeight } = svgSize
-  const height = Math.min(svgHeight / 3, 40)
-  const offsetY = 0
-  const offsetX = graphParams.x1 - svgWidth
-
-  return {
-    points: [
-      `${offsetX + svgWidth},${svgHeight - height + offsetY}`,
-      `${offsetX + btnWidth + svgWidth},${svgHeight - height + offset * 2 + offsetY}`,
-      `${offsetX + btnWidth + svgWidth},${svgHeight - offset * 2 + offsetY}`,
-      `${offsetX + svgWidth},${svgHeight + offsetY}`,
-    ].join(' '),
-    opacity: graphParams.width / maxWidth,
-  }
-})
-const resizeHandlerRef = useTemplateRef('resizeHandlerRef')
-const isResizeHandlerHover = useElementHover(resizeHandlerRef)
-const isResizing = ref(false)
-const resizeHandlerColor = computed(
-  () => (isResizeHandlerHover.value || isResizing.value ? '#7dd3fc' : '#777'),
-)
-
-let startPointer = { x: 0, y: 0 }
-useEventListener(resizeHandlerRef, 'pointerdown', (evt: PointerEvent) => {
-  isResizing.value = true
-  startPointer = { x: evt.clientX, y: evt.clientY }
-  resizeHandlerRef.value?.setPointerCapture(evt.pointerId)
-})
-useEventListener(resizeHandlerRef, 'pointermove', (evt: PointerEvent) => {
-  if (!isResizing.value) {
-    return
-  }
-
-  windowProvider.emit('resizing', {
-    offsetW: evt.clientX - startPointer.x,
-    offsetH: evt.clientY - startPointer.y,
-  })
-})
-useEventListener(resizeHandlerRef, ['pointerup', 'pointercancel'], (evt: PointerEvent) => {
-  isResizing.value = false
-  resizeHandlerRef.value?.releasePointerCapture(evt.pointerId)
-  windowProvider.emit('resizeEnd')
 })
 </script>
 
 <style scoped lang="sass">
-.btn
-  transition: fill 0.3s
 </style>
