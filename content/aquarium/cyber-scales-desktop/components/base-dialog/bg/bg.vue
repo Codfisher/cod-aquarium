@@ -4,6 +4,14 @@
     class="container absolute inset-0 w-full h-full pointer-events-none"
   >
     <svg
+      class="absolute"
+      v-bind="svgAttrs"
+      :style="{ transform: 'translateZ(-100px)' }"
+    >
+      <outline-frame v-bind="frameParams" />
+    </svg>
+
+    <svg
       class="absolute select-none"
       v-bind="svgAttrs"
     >
@@ -19,6 +27,7 @@ import type { ComponentStatus } from '../../../types'
 import { useElementSize } from '@vueuse/core'
 import { computed, reactive, useTemplateRef } from 'vue'
 import LeftFrame from './left-frame.vue'
+import OutlineFrame from './outline-frame.vue'
 import RightFrame from './right-frame.vue'
 
 interface Props {

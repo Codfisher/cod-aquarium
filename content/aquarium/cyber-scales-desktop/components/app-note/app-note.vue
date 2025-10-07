@@ -39,6 +39,24 @@ const handleClose: ComponentProps<typeof BaseAppFrame>['onClose'] = async (next)
     const dialog = useDialog({
       title: '尚未儲存',
       description: '你有未儲存的更改，確定要關閉？',
+      actionList: [
+        {
+          label: '確定',
+          flat: true,
+          onClick() {
+            next(false)
+            dialog.close()
+          },
+        },
+        {
+          label: '取消',
+          onClick() {
+            console.log(`🚀 ~ onClick:`)
+            next(true)
+            dialog.close()
+          },
+        },
+      ],
       onBackdrop() {
         next(false)
         dialog.close()

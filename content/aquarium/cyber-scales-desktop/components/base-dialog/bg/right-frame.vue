@@ -48,12 +48,12 @@ const { data: graphParams } = useAnimatable(
     const { svgSize } = props
 
     if (props.status === 'hidden') {
-      const qH = svgSize.height / 4
+      const y = svgSize.height / 2
       const width = 12
       return {
         x1: svgSize.width / 2 - width / 2,
-        y1: qH,
-        y2: qH * 3,
+        y1: y - 50,
+        y2: y + 50,
         width,
         opacity: 0,
       }

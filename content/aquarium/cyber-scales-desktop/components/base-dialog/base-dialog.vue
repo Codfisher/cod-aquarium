@@ -14,12 +14,13 @@
         :status="status"
         class="z-[-1]"
       />
+
       <content-wrapper
         :status="status"
-        class="flex-1 bg-white/60"
+        class="content-bg flex-1 bg-white/80"
       >
         <slot>
-          <div class=" w-full h-full flex flex-col items-center gap-1">
+          <div class=" w-full h-full flex flex-col items-center gap-1 ">
             <material-icon
               :name="props.icon"
               :class="props.iconClass"
@@ -27,9 +28,10 @@
               weight="200"
               grade="-25"
               opsz="20"
+              class="py-3"
             />
 
-            <div class="flex flex-col justify-center items-center flex-1 pb-6">
+            <div class="flex flex-col justify-center items-center flex-1 pb-6 px-20">
               <div
                 v-if="props.title"
                 class="text-xl font-bold tracking-wider mb-2"
@@ -54,6 +56,7 @@
                 :key="i"
                 v-bind="btn"
                 class="px-4"
+                @click="btn.onClick"
               />
             </div>
           </div>
@@ -103,10 +106,7 @@ const status = ref(ComponentStatus.HIDDEN)
 
 const dialogRef = useTemplateRef('dialogRef')
 const dialogSize = useElementSize(dialogRef)
-useElement3dRotate(
-  dialogRef,
-  computed(() => status.value === ComponentStatus.ACTIVE),
-)
+useElement3dRotate(dialogRef)
 
 const backdropClass = computed(() => ({
   'opacity-0': status.value !== ComponentStatus.VISIBLE,
@@ -144,8 +144,14 @@ provide(baseDialogInjectionKey, {
 <style scoped lang="sass">
 .base-dialog
   transform-style: preserve-3d
+  perspective: 2000px
   min-width: 300px
   min-height: 200px
+
+.content-bg
+  backdrop-filter: blur(10px)
+  transform-style: preserve-3d
+  perspective: 2000px
 
 .backdrop
   background: rgba(black, 0.1)
