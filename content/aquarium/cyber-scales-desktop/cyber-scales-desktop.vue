@@ -3,19 +3,41 @@
     class="cyber-scales-desktop w-screen h-screen flex justify-center items-center p-4 gap-4"
     @click.self="handleClick"
   >
-    <hexagon-layout
-      class="pb-10"
-      size-selector=".icon"
+    <template v-if="!isFontLoading && !isMobile">
+      <hexagon-layout
+        v-if="!isLoading"
+        class="pb-10"
+        size-selector=".icon"
+      >
+        <desktop-item
+          v-for="item, i in itemList"
+          :key="item.label"
+          v-bind="item"
+          :label="`0${i} ${item.label}`"
+          :label-left="i % 2 === 0"
+          :delay="(i + 1) * 100"
+        />
+      </hexagon-layout>
+
+      <transition
+        name="opacity"
+        appear
+      >
+        <div
+          v-if="isLoading"
+          class=" fixed inset-0 z-50 flex justify-center items-center text-2xl font-orbitron opacity-90 tracking-widest"
+        >
+          Loading...
+        </div>
+      </transition>
+    </template>
+
+    <div
+      v-if="isMobile"
+      class=" fixed inset-0 z-50 flex justify-center items-center text-xl opacity-70 text-center leading-10"
     >
-      <desktop-item
-        v-for="item, i in itemList"
-        :key="item.label"
-        v-bind="item"
-        :label="`0${i} ${item.label}`"
-        :label-left="i % 2 === 0"
-        :delay="(i + 1) * 100"
-      />
-    </hexagon-layout>
+      此專案暫時不支援手機版<br>請使用電腦版瀏覽 ◝( •ω• )◟
+    </div>
 
     <window-container />
 
@@ -24,12 +46,16 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted } from 'vue'
+import { promiseTimeout, useAsyncState, useWindowSize } from '@vueuse/core'
+import { computed, onBeforeUnmount, onMounted, reactive } from 'vue'
+import { nextFrame } from '../../../common/utils'
 import CursorFuturistic from './components/cursor-futuristic/cursor-futuristic.vue'
 import DesktopItem from './components/desktop-item/desktop-item.vue'
 import HexagonLayout from './components/hexagon-layout.vue'
 import WindowContainer from './components/window-container.vue'
 import { useAppStore } from './stores/app-store'
+
+const windowSize = reactive(useWindowSize())
 
 // 載入字體
 const fontHref = 'https://fonts.googleapis.com/css2?family=Material+Symbols+Sharp:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&family=Orbitron:wght@400..900'
@@ -97,6 +123,29 @@ const itemList = [
 function handleClick() {
   appStore.focus()
 }
+
+const {
+  isLoading: isAssetLoading,
+  execute: loadTime,
+} = useAsyncState(async () => {
+  await nextFrame()
+  await promiseTimeout(2000)
+}, undefined, {
+  immediate: false,
+})
+
+const { isLoading: isFontLoading } = useAsyncState(async () => {
+  await nextFrame()
+  await document.fonts.ready
+}, undefined, {
+  onSuccess() {
+    loadTime()
+  },
+})
+
+const isMobile = computed(() => windowSize.width < 640)
+
+const isLoading = computed(() => isFontLoading.value || isAssetLoading.value)
 </script>
 
 <style lang="sass">
@@ -106,4 +155,10 @@ function handleClick() {
 .cyber-scales-desktop
   ::-webkit-scrollbar-thumb
     background-color: #e7e7e7
+
+.opacity
+  &-enter-active, &-leave-active
+    transition-duration: 0.4s
+  &-enter-from, &-leave-to
+    opacity: 0 !important
 </style>
