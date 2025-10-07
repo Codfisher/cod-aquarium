@@ -160,23 +160,30 @@ const textAttrs = computed(() => {
 
 const textBgAttrs = computed(() => {
   const height = props.svgSize.height / 2
-  const offsetX = graphParams.x1
+  const { x1 } = graphParams
   const fontSize = Number.parseInt(textAttrs.value.fontSize)
 
   const width = fontSize + textPadding
 
   return {
     points: [
-      `${offsetX},0`,
-      `${-width + offsetX},${offset * 3}`,
-      `${-width + offsetX},${height}`,
-      `${offsetX},${height + offset * 3}`,
+      // 右上
+      `${x1},0`,
+      // 左上
+      `${-width + x1},${offset * 3}`,
 
-      // 內凹槽
-      `${offsetX},${height}`,
-      `${offsetX - 2},${height - 2}`,
-      `${offsetX - 2},${height - 2 - 40}`,
-      `${offsetX},${height - 2 - 40 - 2}`,
+      // 左凹槽
+      `${-width + x1},${height / 3 * 2}`,
+      `${-width + x1 + 4},${height / 3 * 2 + 4}`,
+      `${-width + x1 + 4},${height}`,
+      // 右下
+      `${x1},${height + offset * 3}`,
+
+      // 右凹槽
+      `${x1},${height}`,
+      `${x1 - 2},${height - 2}`,
+      `${x1 - 2},${height - 2 - 40}`,
+      `${x1},${height - 2 - 40 - 2}`,
     ].join(' '),
     opacity: graphParams.opacity,
   }
@@ -204,10 +211,14 @@ const textBgPart01Attrs = computed(() => {
 
   return {
     points: [
-      `${offsetX},${leftTopY + skew}`, // 右上
-      `${leftX},${leftTopY}`, // 左上
-      `${leftX},${leftBottomY}`, // 左下
-      `${offsetX},${leftBottomY + skew}`, // 右下
+      // 右上
+      `${offsetX},${leftTopY + skew}`,
+      // 左上
+      `${leftX},${leftTopY}`,
+      // 左下
+      `${leftX},${leftBottomY}`,
+      // 右下
+      `${offsetX},${leftBottomY + skew}`,
     ].join(' '),
     fill,
     opacity: graphParams.opacity,

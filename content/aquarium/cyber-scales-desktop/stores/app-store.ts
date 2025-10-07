@@ -151,6 +151,10 @@ export const useAppStore = defineStore('app', () => {
       },
     })
 
+    setTimeout(() => {
+      focus(id)
+    }, 1000)
+
     triggerAppUpdate()
     return id
   }

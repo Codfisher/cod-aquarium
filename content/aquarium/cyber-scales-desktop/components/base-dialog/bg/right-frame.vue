@@ -14,22 +14,21 @@ import { resolveTransitionParamValue } from '../../../utils'
 import { baseDialogInjectionKey } from '../type'
 
 interface Props {
-  status?: `${ComponentStatus}`;
   svgSize: { width: number; height: number };
   duration?: number;
 }
 const props = withDefaults(defineProps<Props>(), {
-  status: 'hidden',
   duration: 260,
 })
 
-const windowProvider = inject(baseDialogInjectionKey)
-if (!windowProvider) {
-  throw new Error('windowProvider is not provided')
+const dialogProvider = inject(baseDialogInjectionKey)
+if (!dialogProvider) {
+  throw new Error('dialogProvider is not provided')
 }
 
+const { status } = dialogProvider
 const pStatus = usePrevious(
-  windowProvider.status,
+  status,
   ComponentStatus.HIDDEN,
 )
 
@@ -47,7 +46,7 @@ const { data: graphParams } = useAnimatable(
   computed<GraphParams>(() => {
     const { svgSize } = props
 
-    if (props.status === 'hidden') {
+    if (status.value === 'hidden') {
       const y = svgSize.height / 2
       const width = 12
       return {
@@ -58,6 +57,17 @@ const { data: graphParams } = useAnimatable(
         opacity: 0,
       }
     }
+
+    if (status.value === 'hover') {
+      return {
+        x1: offset + svgSize.width - 2,
+        y1: 0,
+        y2: svgSize.height,
+        width: 12,
+        opacity: 1,
+      }
+    }
+
     return {
       x1: offset + svgSize.width,
       y1: 0,
@@ -69,18 +79,18 @@ const { data: graphParams } = useAnimatable(
   {
     delay: (fieldKey) => resolveTransitionParamValue<GraphParams, number>(
       {
-        status: props.status as ComponentStatus,
+        status: status.value as ComponentStatus,
         pStatus: pStatus.value,
         fieldKey,
         defaultValue: 0,
       },
       {
-        visible: {
+        'hidden-visible': {
           x1: props.duration * 0.8,
           y1: props.duration * 1.8,
           y2: props.duration * 1.8,
         },
-        hidden: {
+        'hidden': {
           y1: props.duration,
           y2: props.duration,
           opacity: props.duration * 0.8,
@@ -89,7 +99,7 @@ const { data: graphParams } = useAnimatable(
     ),
     duration: props.duration,
     ease: (key) => key === 'opacity' ? 'outBounce' : 'cubicBezier(1, 0.3, 0, 0.7)',
-    animationTriggerBy: () => props.status,
+    animationTriggerBy: () => status.value,
   },
 )
 

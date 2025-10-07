@@ -31,8 +31,6 @@ export function useDialog(params: DialogProps) {
     dialog.setStatus('hidden')
 
     await promiseTimeout(1000)
-
-    render(null, container)
     container.remove()
   }
 

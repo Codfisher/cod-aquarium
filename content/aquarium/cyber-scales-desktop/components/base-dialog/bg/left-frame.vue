@@ -6,32 +6,29 @@
 </template>
 
 <script setup lang="ts">
-import { useEventListener, usePrevious } from '@vueuse/core'
-import { pipe } from 'remeda'
-import { computed, inject, ref, useTemplateRef, watch } from 'vue'
+import { usePrevious } from '@vueuse/core'
+import { computed, inject } from 'vue'
 import { useAnimatable } from '../../../../../../composables/use-animatable'
-import { useDecodingText } from '../../../../../../composables/use-decoding-text'
 import { ComponentStatus } from '../../../types'
 import { resolveTransitionParamValue } from '../../../utils'
 import { baseDialogInjectionKey } from '../type'
 
 interface Props {
-  status?: `${ComponentStatus}`;
   svgSize: { width: number; height: number };
   duration?: number;
 }
 const props = withDefaults(defineProps<Props>(), {
-  status: 'hidden',
   duration: 260,
 })
 
-const windowProvider = inject(baseDialogInjectionKey)
-if (!windowProvider) {
-  throw new Error('windowProvider is not provided')
+const dialogProvider = inject(baseDialogInjectionKey)
+if (!dialogProvider) {
+  throw new Error('dialogProvider is not provided')
 }
+const { status } = dialogProvider
 
 const pStatus = usePrevious(
-  windowProvider.status,
+  status,
   ComponentStatus.HIDDEN,
 )
 
@@ -48,7 +45,7 @@ const { data: graphParams } = useAnimatable(
   computed<GraphParams>(() => {
     const { svgSize } = props
 
-    if (props.status === 'hidden') {
+    if (status.value === 'hidden') {
       const y = svgSize.height / 2
       const width = 10
       return {
@@ -57,6 +54,16 @@ const { data: graphParams } = useAnimatable(
         y2: y + 50,
         width,
         opacity: 0,
+      }
+    }
+
+    if (status.value === 'hover') {
+      return {
+        x1: -offset + 2,
+        y1: 0,
+        y2: svgSize.height,
+        width: 10,
+        opacity: 1,
       }
     }
 
@@ -71,18 +78,18 @@ const { data: graphParams } = useAnimatable(
   {
     delay: (fieldKey) => resolveTransitionParamValue<GraphParams, number>(
       {
-        status: props.status as ComponentStatus,
+        status: status.value as ComponentStatus,
         pStatus: pStatus.value,
         fieldKey,
         defaultValue: 0,
       },
       {
-        visible: {
+        'hidden-visible': {
           x1: props.duration * 0.8,
           y1: props.duration * 1.8,
           y2: props.duration * 1.8,
         },
-        hidden: {
+        'hidden': {
           y1: props.duration,
           y2: props.duration,
           opacity: props.duration * 0.8,
@@ -91,7 +98,7 @@ const { data: graphParams } = useAnimatable(
     ),
     duration: props.duration,
     ease: (key) => key === 'opacity' ? 'outBounce' : 'cubicBezier(1, 0.3, 0, 0.7)',
-    animationTriggerBy: () => props.status,
+    animationTriggerBy: () => status.value,
   },
 )
 

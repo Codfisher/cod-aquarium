@@ -6,17 +6,22 @@
 
 <script setup lang="ts">
 import type { ComponentStatus } from '../../types'
-import { computed } from 'vue'
+import { computed, inject } from 'vue'
 import { useAnimatable } from '../../../../../composables/use-animatable'
+import { baseDialogInjectionKey } from './type'
 
 interface Props {
-  status?: `${ComponentStatus}`;
   duration?: number;
 }
 const props = withDefaults(defineProps<Props>(), {
-  status: 'hidden',
   duration: 260,
 })
+
+const dialogProvider = inject(baseDialogInjectionKey)
+if (!dialogProvider) {
+  throw new Error('dialogProvider is not provided')
+}
+const { status } = dialogProvider
 
 interface GraphParams {
   opacity: number;
@@ -33,13 +38,13 @@ const delayMap: Partial<Record<
 
 const { data: graphParams } = useAnimatable(
   computed(() => {
-    if (props.status === 'hidden') {
+    if (status.value === 'hidden') {
       return {
         opacity: 0,
       }
     }
 
-    if (props.status === 'active') {
+    if (status.value === 'active') {
       return {
         opacity: [0.3, 1] as const,
       }
@@ -50,7 +55,7 @@ const { data: graphParams } = useAnimatable(
     }
   }),
   {
-    delay: (fieldKey) => delayMap[props.status]?.[fieldKey] ?? 0,
+    delay: (fieldKey) => delayMap[status.value]?.[fieldKey] ?? 0,
     duration: props.duration,
     ease: 'outBounce',
   },

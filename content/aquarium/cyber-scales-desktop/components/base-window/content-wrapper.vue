@@ -6,8 +6,7 @@
 
 <script setup lang="ts">
 import type { ComponentStatus } from '../../types'
-import { useAnimate, useElementSize } from '@vueuse/core'
-import { computed, reactive, useTemplateRef } from 'vue'
+import { computed } from 'vue'
 import { useAnimatable } from '../../../../../composables/use-animatable'
 
 interface Props {

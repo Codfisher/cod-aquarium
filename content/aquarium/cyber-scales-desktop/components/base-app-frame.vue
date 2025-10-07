@@ -63,7 +63,7 @@ const style = computed(() => {
  *
  * TODO: 先使用時間判斷，未來在想更好的設計
  */
-const isFirst = refAutoReset(false, 1400)
+const isFirst = refAutoReset(false, 1000)
 isFirst.value = true
 
 const isHover = useElementHover(frameRef)
