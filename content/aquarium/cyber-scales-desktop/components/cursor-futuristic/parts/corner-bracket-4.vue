@@ -28,12 +28,12 @@
 
 <script setup lang="ts">
 import type { useElementBounding, UseMouseReturn } from '@vueuse/core'
-import type { CursorState } from '../type'
-import { reactiveComputed } from '@vueuse/core'
+import { reactiveComputed, usePrevious } from '@vueuse/core'
 import { animate } from 'animejs'
 import { clone, mapValues, pipe } from 'remeda'
 import { type Reactive, type SVGAttributes, useTemplateRef, watch } from 'vue'
 import { useAnimatable } from '../../../../../../composables/use-animatable'
+import { CursorState } from '../type'
 
 type PathName = 'tl' | 'tr' | 'bl' | 'br'
 interface PathParams {
@@ -64,6 +64,7 @@ const props = withDefaults(defineProps<Props>(), {
   size: 80,
   color: '#777',
 })
+const pStatus = usePrevious(() => props.state, CursorState.DEFAULT)
 
 const mouse = reactiveComputed(() => props.mouse)
 
@@ -210,9 +211,11 @@ const pathsStateTargetParamsMap = reactiveComputed<
         }
       })
 
+      const rotate = pStatus.value === CursorState.POINTER ? 0 : -135
+
       const params = {
         rotateSelf: 0,
-        rotate: -135,
+        rotate,
         p1: size * 0.45,
         p2: size * 0.55,
         strokeWidth: 0.4,

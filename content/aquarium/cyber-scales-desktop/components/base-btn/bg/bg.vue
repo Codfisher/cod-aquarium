@@ -91,7 +91,7 @@ const { data: graphParams } = useAnimatable(
         height,
         chamfer: 10,
         opacity: 0.7,
-        partOffsetX: 2,
+        partOffsetX: 3,
         partHScale: 0.6,
       }
     }
