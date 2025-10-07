@@ -3,6 +3,9 @@ import type { ComponentStatus } from '../../types'
 
 export interface BaseWindowEmits {
   dragging: [value: Record<'offsetX' | 'offsetY', number>];
+  dragEnd: [];
+  resizing: [value: Record<'offsetW' | 'offsetH', number>];
+  resizeEnd: [];
   close: [];
 }
 

@@ -4,7 +4,7 @@ import { usePrevious } from '@vueuse/core'
 import { pipe } from 'remeda'
 
 /** 定義 ComponentStatus 狀態與動畫參數映射數值 */
-export type StatusParamsMap<
+export type StatusTransitionParamsMap<
   Data extends object,
   Value,
 > = Partial<Record<
@@ -12,44 +12,55 @@ export type StatusParamsMap<
   Partial<Record<keyof Data, Value>> | Value
 >>
 
-/** 解析狀態轉換與屬性對應數值 */
+/** 解析狀態轉換與屬性對應數值
+ *
+ * 例如：delayMap = { visible: 100, 'hidden-visible': 200 }
+ */
 export function resolveTransitionParamValue<
   Data extends object,
   Value extends string | number | undefined,
 >(
-  status: ComponentStatus,
-  pStatus: ComponentStatus,
-  fieldKey: keyof Data,
-  map: StatusParamsMap<Data, Value>,
+  data: {
+    status: ComponentStatus;
+    pStatus: ComponentStatus;
+    fieldKey: keyof Data;
+  },
+  transitionMap: StatusTransitionParamsMap<Data, Value>,
 ): Value | undefined
 export function resolveTransitionParamValue<
   Data extends object,
   Value extends string | number | undefined,
 >(
-  status: ComponentStatus,
-  pStatus: ComponentStatus,
-  fieldKey: keyof Data,
-  map: StatusParamsMap<Data, Value>,
-  defaultValue: NonNullable<Value>,
+  data: {
+    status: ComponentStatus;
+    pStatus: ComponentStatus;
+    fieldKey: keyof Data;
+    defaultValue: NonNullable<Value>;
+  },
+  transitionMap: StatusTransitionParamsMap<Data, Value>,
 ): Value
 export function resolveTransitionParamValue<
   Data extends object,
   Value extends string | number | undefined,
 >(
-  status: ComponentStatus,
-  pStatus: ComponentStatus,
-  fieldKey: keyof Data,
-  map: StatusParamsMap<Data, Value>,
-  defaultValue?: Value,
+  data: {
+    status: ComponentStatus;
+    pStatus: ComponentStatus;
+    fieldKey: keyof Data;
+    defaultValue?: Value;
+  },
+  transitionMap: StatusTransitionParamsMap<Data, Value>,
 ): Value | undefined {
-  if (!map || !fieldKey) {
+  const { status, pStatus, fieldKey, defaultValue } = data
+
+  if (!transitionMap || !fieldKey) {
     return defaultValue
   }
 
   const key = `${pStatus}-${status}` as const
-  const statusKey = key in map ? key : status
+  const statusKey = key in transitionMap ? key : status
 
-  const value = map[statusKey]
+  const value = transitionMap[statusKey]
   if (!value) {
     return defaultValue
   }
@@ -58,4 +69,18 @@ export function resolveTransitionParamValue<
   }
 
   return value[fieldKey] ?? defaultValue
+}
+
+export function downloadAsFile(
+  content: string,
+  filename: string,
+  options?: BlobPropertyBag,
+) {
+  const blob = new Blob([content], options)
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
 }

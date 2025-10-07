@@ -1,17 +1,15 @@
 <template>
   <div
     ref="containerRef"
-    class="container absolute inset-0 w-full h-full pointer-events-none"
+    class="bg absolute inset-0 w-full h-full pointer-events-none"
   >
     <svg
       class="absolute"
       v-bind="svgAttrs"
     >
-      <!-- <corner-brackets v-bind="frameParams" /> -->
-
       <polygon
         v-bind="graphAttrs"
-        fill="#777"
+        fill="#888"
       />
     </svg>
   </div>
@@ -26,8 +24,7 @@ import { computed, inject, reactive, useTemplateRef } from 'vue'
 import { useAnimatable } from '../../../../../../composables/use-animatable'
 import { ComponentStatus } from '../../../types'
 import { resolveTransitionParamValue } from '../../../utils'
-import { desktopItemInjectionKey } from '../type'
-import CornerBrackets from './corner-brackets.vue'
+import { baseItemInjectionKey } from '../type'
 
 interface Props {
   duration?: number;
@@ -36,7 +33,7 @@ const props = withDefaults(defineProps<Props>(), {
   duration: 260,
 })
 
-const mainProvider = inject(desktopItemInjectionKey)
+const mainProvider = inject(baseItemInjectionKey)
 if (!mainProvider) {
   throw new Error('mainProvider is not provided')
 }
@@ -69,21 +66,18 @@ interface GraphParams {
   height: number;
   /** 倒角 */
   chamfer: number;
-  rotate: number;
   opacity: number;
 }
 
-const maxRotate = sample([45, 135, -135], 1)[0] ?? 45
 const { data: graphParams } = useAnimatable(
   (): GraphParams => {
     const { width, height } = containerSize
 
     if (status.value === ComponentStatus.HIDDEN) {
       return {
-        width: 0,
-        height: 5,
-        chamfer: 0,
-        rotate: maxRotate + 45,
+        width: 5,
+        height,
+        chamfer: 2,
         opacity: 0,
       }
     }
@@ -93,7 +87,6 @@ const { data: graphParams } = useAnimatable(
         width,
         height,
         chamfer: 10,
-        rotate: maxRotate,
         opacity: 0.6,
       }
     }
@@ -103,7 +96,6 @@ const { data: graphParams } = useAnimatable(
         width: width - 2,
         height: height - 2,
         chamfer: 10,
-        rotate: maxRotate,
         opacity: 0.9,
       }
     }
@@ -112,7 +104,6 @@ const { data: graphParams } = useAnimatable(
       width,
       height,
       chamfer: 10,
-      rotate: maxRotate,
       opacity: 1,
     }
   },
@@ -122,13 +113,13 @@ const { data: graphParams } = useAnimatable(
         status: status.value,
         pStatus: pStatus.value,
         fieldKey,
-        defaultValue: 0
+        defaultValue: 0,
       },
       {
         'hidden-visible': {
-          width: props.duration * 2.4,
+          width: props.duration * 1.6,
           height: props.duration,
-          chamfer: props.duration,
+          chamfer: props.duration * 1.6,
         },
       },
     ),
@@ -143,24 +134,30 @@ const { data: graphParams } = useAnimatable(
         active: 50,
       },
     ),
-    ease: (fieldKey) => resolveTransitionParamValue<GraphParams, EaseString>(
-      {
-        status: status.value,
-        pStatus: pStatus.value,
-        fieldKey,
-        defaultValue: 'inOutQuint',
-      },
-      {
-        visible: 'inOutQuint',
-        hover: 'outBounce',
-      },
-    ),
+    ease: (fieldKey) => {
+      if (fieldKey === 'opacity') {
+        return 'outBounce'
+      }
+
+      return resolveTransitionParamValue<GraphParams, EaseString>(
+        {
+          status: status.value,
+          pStatus: pStatus.value,
+          fieldKey,
+          defaultValue: 'inOutQuint',
+        },
+        {
+          visible: 'inOutQuint',
+          hover: 'outBounce',
+        },
+      )
+    },
     animationTriggerBy: status,
   },
 )
 
 const graphAttrs = computed(() => {
-  const { opacity, rotate, chamfer } = graphParams
+  const { opacity, chamfer } = graphParams
   const hChamfer = chamfer / 2
   const [x, y, width, height] = [
     containerSize.width / 2,
@@ -183,13 +180,12 @@ const graphAttrs = computed(() => {
       `${x - width + chamfer},${y + height}`,
       `${x - width},${y + height - chamfer}`,
     ].join(' '),
-    transform: `rotate(${rotate}, ${x}, ${y})`,
     opacity,
   }
 })
 </script>
 
 <style scoped lang="sass">
-.container
+.bg
   transform-style: preserve-3d
 </style>

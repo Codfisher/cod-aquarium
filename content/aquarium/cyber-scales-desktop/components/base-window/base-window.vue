@@ -18,34 +18,24 @@
 
 <script setup lang="ts">
 import type { BaseWindowEmits } from './type'
-import { createEventHook, until, useElementSize } from '@vueuse/core'
+import { until, useElementSize } from '@vueuse/core'
 import { computed, nextTick, onMounted, provide, ref, useTemplateRef } from 'vue'
 import { nextFrame } from '../../../../../common/utils'
+import { useElement3dRotate } from '../../composables/use-element-3d-rotate'
 import { ComponentStatus } from '../../types'
 import Bg from './bg/bg.vue'
 import ContentWrapper from './content-wrapper.vue'
 import { baseWindowInjectionKey } from './type'
-import { useWindow3dRotate } from './use-window-3d-rotate'
 
-// #region Props
 interface Props {
-  modelValue?: string;
   title?: string;
 }
-// #endregion Props
 
-// #region Emits
-
-// #endregion Emits
-
-// #region Slots
 interface Slots {
   default?: () => unknown;
 }
-// #endregion Slots
 
 const props = withDefaults(defineProps<Props>(), {
-  modelValue: '',
   title: '',
 })
 
@@ -53,11 +43,15 @@ const emit = defineEmits<BaseWindowEmits>()
 
 defineSlots<Slots>()
 
+const status = ref(ComponentStatus.HIDDEN)
+
 const windowRef = useTemplateRef('windowRef')
 const windowSize = useElementSize(windowRef)
-useWindow3dRotate(windowRef)
+useElement3dRotate(
+  windowRef,
+  computed(() => status.value === ComponentStatus.ACTIVE),
+)
 
-const status = ref(ComponentStatus.HIDDEN)
 onMounted(async () => {
   // 確保 window 有尺寸
   await until(windowSize.width).toBeTruthy()
@@ -70,11 +64,12 @@ onMounted(async () => {
   status.value = ComponentStatus.VISIBLE
 })
 
-// #region Methods
-interface Expose { }
-// #endregion Methods
-
-defineExpose<Expose>({})
+defineExpose({
+  status: computed(() => status.value),
+  setStatus(value: `${ComponentStatus}`) {
+    status.value = value as ComponentStatus
+  },
+})
 
 provide(baseWindowInjectionKey, {
   title: computed(() => props.title),

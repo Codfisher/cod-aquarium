@@ -1,7 +1,7 @@
 <template>
   <base-app-frame
     ref="appFrameRef"
-    title="應用程式"
+    title="作品集"
     :app-id="appId"
   >
     <main-content class=" w-full h-full bg-gray-50 overflow-auto" />

@@ -15,7 +15,8 @@
       "@vitest/browser/matchers",
       "unplugin-icons/types/vue",
       "@cloudflare/workers-types",
-      "@cloudflare/vitest-pool-workers"
+      "@cloudflare/vitest-pool-workers",
+      "@types/wicg-file-system-access"
     ],
     "strict": true,
     "noUncheckedIndexedAccess": true,

@@ -4,5 +4,11 @@ export enum ComponentStatus {
   ACTIVE = 'active',
   HOVER = 'hover',
   DISABLED = 'disabled',
-  LOADING = 'loading',
+}
+
+export enum FieldStatus {
+  EMPTY = 'empty',
+  FOCUS = 'focus',
+  INVALID = 'invalid',
+  VALID = 'valid',
 }

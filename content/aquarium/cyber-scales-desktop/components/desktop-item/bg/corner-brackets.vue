@@ -44,6 +44,7 @@ import { computed, inject } from 'vue'
 import { useAnimatable } from '../../../../../../composables/use-animatable'
 import { ComponentStatus } from '../../../types'
 import { desktopItemInjectionKey } from '../type'
+import { resolveTransitionParamValue } from '../../../utils'
 
 interface Props {
   svgSize: { width: number; height: number };
@@ -70,17 +71,6 @@ interface GraphParams {
   y: number;
   size: number;
   width: number;
-}
-
-const delayMap: Partial<Record<
-  `${ComponentStatus}-${ComponentStatus}`,
-  Partial<Record<keyof GraphParams, number>>
->> = {
-  'hidden-visible': {
-    x: props.duration,
-    y: props.duration * 1.5,
-    width: props.duration,
-  },
 }
 
 const { data: graphParams } = useAnimatable(
@@ -113,10 +103,21 @@ const { data: graphParams } = useAnimatable(
     }
   },
   {
-    delay: (fieldKey) => {
-      const key = `${pStatus.value}-${status.value}` as const
-      return delayMap[key]?.[fieldKey] ?? 0
-    },
+    delay: (fieldKey) => resolveTransitionParamValue<GraphParams, number>(
+      {
+        status: status.value,
+        pStatus: pStatus.value,
+        fieldKey,
+        defaultValue: 0
+      },
+      {
+        'hidden-visible': {
+          x: props.duration,
+          y: props.duration * 1.5,
+          width: props.duration,
+        },
+      },
+    ),
     duration: props.duration,
     ease: 'inOutQuint',
     animationTriggerBy: status,

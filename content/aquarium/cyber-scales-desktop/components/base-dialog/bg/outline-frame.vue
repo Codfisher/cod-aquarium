@@ -1,14 +1,16 @@
 <template>
-  <path
-    class="top-frame"
+  <rect
+    class="outline-frame"
     v-bind="graphAttrs"
-    stroke="#777"
+    fill="transparent"
+    stroke="#f87171"
   />
 </template>
 
 <script setup lang="ts">
 import { usePrevious } from '@vueuse/core'
-import { computed, watch } from 'vue'
+import { omit, pipe } from 'remeda'
+import { computed } from 'vue'
 import { useAnimatable } from '../../../../../../composables/use-animatable'
 import { ComponentStatus } from '../../../types'
 import { resolveTransitionParamValue } from '../../../utils'
@@ -28,61 +30,40 @@ const pStatus = usePrevious(
   ComponentStatus.HIDDEN,
 )
 
+/** SVG 以左上角為原點 */
 interface GraphParams {
-  x1: number;
-  y1: number;
-  x2: number;
-  // color?: string;
+  x: number;
+  y: number;
   width: number;
+  height: number;
+  strokeWidth: number;
+  opacity: number;
 }
 
-const maxWidth = 1
 const offset = 6
 const targetParams = computed<GraphParams>(() => {
   const { svgSize } = props
 
   if (props.status === 'hidden') {
     return {
-      x1: svgSize.width / 2,
-      y1: svgSize.height / 2,
-      x2: svgSize.width / 2,
-      // color: '#777',
-      width: 1,
-    }
-  }
-
-  if (props.status === 'active') {
-    return {
-      x1: 0,
-      y1: -offset,
-      x2: svgSize.width,
-      // color: '#777',
-      width: maxWidth,
-    }
-  }
-
-  if (props.status === 'hover') {
-    return {
-      x1: 0,
-      y1: -offset * 2,
-      x2: svgSize.width,
-      // color: '#777',
-      width: maxWidth,
+      x: -offset * 2,
+      y: -offset * 2,
+      width: svgSize.width + offset * 4,
+      height: svgSize.height + offset * 4,
+      strokeWidth: 0,
+      opacity: 0,
     }
   }
 
   return {
-    x1: 0,
-    y1: -offset,
-    x2: svgSize.width,
-    // color: '#777',
-    width: maxWidth / 2,
+    x: -offset / 2,
+    y: -offset / 2,
+    width: svgSize.width + offset,
+    height: svgSize.height + offset,
+    strokeWidth: 1,
+    opacity: 0.4,
   }
 })
-// watch(targetParams, () => {
-//   console.log('status', props.status)
-//   console.log('targetParams', { ...targetParams.value })
-// }, { deep: true })
 
 const { data: graphParams } = useAnimatable(
   targetParams,
@@ -95,30 +76,21 @@ const { data: graphParams } = useAnimatable(
         defaultValue: 0,
       },
       {
-        'hover': {
-          y1: props.duration * 0.6,
-        },
-        'hidden': {
-          x1: props.duration * 2,
-          x2: props.duration * 2,
-          y1: props.duration,
-        },
-        'hidden-visible': {
-          y1: props.duration,
-
-        },
+        visible: props.duration * 2.8,
       },
     ),
     duration: props.duration,
-    ease: 'cubicBezier(0.9, 0, 0.1, 1)',
+    ease: 'cubicBezier(1, 0.3, 0, 0.7)',
     animationTriggerBy: () => props.status,
   },
 )
 
 const graphAttrs = computed(() => {
+  const { strokeWidth } = graphParams
+
   return {
-    'd': `M${graphParams.x1} ${graphParams.y1} H${graphParams.x2}`,
-    'stroke-width': graphParams.width,
+    ...graphParams,
+    'stroke-width': strokeWidth,
   }
 })
 </script>

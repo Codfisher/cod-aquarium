@@ -1,91 +1,226 @@
 import type { Component } from 'vue'
+import { throttle } from 'lodash-es'
 import { nanoid } from 'nanoid'
 import { defineStore } from 'pinia'
-import { clone } from 'remeda'
-import { markRaw, ref, shallowRef } from 'vue'
+import { clamp, clone, pick, pipe } from 'remeda'
+import { computed, markRaw, ref, shallowRef, triggerRef } from 'vue'
 
+import AppAbout from '../components/app-about/app-about.vue'
 import AppCenter from '../components/app-center/app-center.vue'
+import AppNote from '../components/app-note/app-note.vue'
+import AppPortfolio from '../components/app-portfolio/app-portfolio.vue'
 
-type AppType = 'center'
+type AppType = 'about' | 'center' | 'note' | 'portfolio'
 interface AppInfo {
   id: string;
   type: AppType;
   data: {
     name: string;
+    // 起點座標
     x: number;
     y: number;
+    // 偏移量
+    offsetX: number;
+    offsetY: number;
+
     width: number;
     height: number;
+
+    offsetW: number;
+    offsetH: number;
     component: Component;
   };
   isActive: boolean;
   focusedAt: number;
 }
 
+const appConfigMap: Partial<
+  Record<AppType, {
+    /** 只能開啟一個 */
+    singleton: boolean;
+  }>
+> = {
+  center: {
+    singleton: true,
+  },
+}
+
 const defaultAppData: Record<AppType, AppInfo['data']> = {
+  about: {
+    name: '關於我',
+    x: 0,
+    y: 0,
+    offsetX: 0,
+    offsetY: 0,
+    width: Math.min(window.innerWidth / 2, 500),
+    height: window.innerHeight / 2,
+    offsetW: 0,
+    offsetH: 0,
+    component: AppAbout,
+  },
   center: {
     name: '應用程式',
     x: 0,
     y: 0,
-    width: 300,
-    height: 200,
+    offsetX: 0,
+    offsetY: 0,
+    width: Math.min(window.innerWidth / 2, 350),
+    height: 300,
+    offsetW: 0,
+    offsetH: 0,
     component: AppCenter,
+  },
+  note: pipe(undefined, () => {
+    const [width, height] = [
+      Math.min(window.innerWidth / 2, 500),
+      window.innerHeight / 2,
+    ]
+
+    return {
+      name: '記事本',
+      x: window.innerWidth - width * 1.5,
+      y: window.innerHeight - height * 1.5,
+      offsetX: 0,
+      offsetY: 0,
+      width,
+      height,
+      offsetW: 0,
+      offsetH: 0,
+      component: AppNote,
+    }
+  }),
+  portfolio: {
+    name: '作品集',
+    x: 0,
+    y: 0,
+    offsetX: 0,
+    offsetY: 0,
+    width: window.innerWidth / 2,
+    height: 300,
+    offsetW: 0,
+    offsetH: 0,
+    component: AppPortfolio,
   },
 }
 
 export const useAppStore = defineStore('app', () => {
-  const appList = ref<AppInfo[]>([])
+  const appMap = shallowRef(new Map<string, AppInfo>())
+  const triggerAppUpdate = throttle(
+    () => triggerRef(appMap),
+    15,
+    { trailing: true },
+  )
+
+  const appList = computed(() => [...appMap.value.values()])
 
   function open(type: AppType) {
+    const config = appConfigMap[type]
+    if (config?.singleton) {
+      const exist = appList.value.find((item) => item.type === type)
+      if (exist) {
+        focus(exist.id)
+        return exist.id
+      }
+    }
+
+    const defaultData = clone(defaultAppData[type])
+    const position = pipe(
+      pick(defaultData, ['x', 'y']),
+      (data) => {
+        appList.value.forEach((item) => {
+          if (item.data.x === data.x && item.data.y === data.y) {
+            data.x += 20
+            data.y += 20
+          }
+        })
+
+        return data
+      },
+    )
+
     const id = nanoid()
-    const data = clone(defaultAppData[type])
-    appList.value.push({
+    appMap.value.set(id, {
       id,
       type,
       isActive: false,
       focusedAt: new Date().getTime(),
       data: {
-        ...data,
-        component: markRaw(data.component),
+        ...defaultData,
+        ...position,
+        component: markRaw(defaultData.component),
       },
     })
 
+    setTimeout(() => {
+      focus(id)
+    }, 1000)
+
+    triggerAppUpdate()
     return id
   }
 
   function focus(id?: string) {
-    appList.value.forEach((item) => {
+    appMap.value.forEach((item) => {
       item.isActive = false
     })
 
-    const target = appList.value.find((item) => item.id === id)
-    if (!target) {
-      return
+    const target = id && appMap.value.get(id)
+    if (target) {
+      target.isActive = true
+      target.focusedAt = new Date().getTime()
     }
 
-    target.isActive = true
-    target.focusedAt = new Date().getTime()
+    triggerAppUpdate()
   }
 
   function update(id: string, data: Partial<{
     offsetX: number;
     offsetY: number;
-    width: number;
-    height: number;
+    offsetW: number;
+    offsetH: number;
   }>) {
-    const target = appList.value.find((item) => item.id === id)
-    if (!target) {
+    const target = id && appMap.value.get(id)
+    if (!target)
       return
-    }
 
-    target.data.x += data.offsetX ?? 0
-    target.data.y += data.offsetY ?? 0
+    target.data.offsetX = data.offsetX ?? 0
+    target.data.offsetY = data.offsetY ?? 0
+
+    target.data.offsetW = data.offsetW ?? 0
+    target.data.offsetH = data.offsetH ?? 0
+
+    triggerAppUpdate()
+  }
+  function commitUpdate(id: string) {
+    const target = appMap.value.get(id)
+    if (!target)
+      return
+    target.data.x += target.data.offsetX
+    target.data.y += target.data.offsetY
+    target.data.offsetX = 0
+    target.data.offsetY = 0
+
+    target.data.width += target.data.offsetW
+    target.data.height += target.data.offsetH
+    target.data.offsetW = 0
+    target.data.offsetH = 0
+
+    triggerAppUpdate()
+  }
+
+  function close(id: string) {
+    appMap.value.delete(id)
+    triggerAppUpdate()
   }
 
   return {
+    appMap,
     appList,
     open,
     focus,
     update,
+    /** 將 offsetX 和 offsetY 的值提交到最終位置（x, y） */
+    commitUpdate,
+    close,
   }
 })
