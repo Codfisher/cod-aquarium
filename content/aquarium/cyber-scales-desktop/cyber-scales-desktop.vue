@@ -115,7 +115,7 @@ const itemList = [
     subLabel: 'Blog',
     icon: 'article_person',
     onclick() {
-      window.open('/article-overview', '_blank')
+      open('/article-overview', '_blank')
     },
   },
 ]
