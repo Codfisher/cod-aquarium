@@ -30,12 +30,8 @@ import LeftFrame from './left-frame.vue'
 import OutlineFrame from './outline-frame.vue'
 import RightFrame from './right-frame.vue'
 
-interface Props {
-  status?: `${ComponentStatus}`;
-}
-const props = withDefaults(defineProps<Props>(), {
-  status: 'hidden',
-})
+interface Props { }
+const props = withDefaults(defineProps<Props>(), {})
 
 const containerRef = useTemplateRef<HTMLDivElement>('containerRef')
 const containerSize = reactive(useElementSize(containerRef))

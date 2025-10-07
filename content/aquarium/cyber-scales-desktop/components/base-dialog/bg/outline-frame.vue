@@ -10,23 +10,28 @@
 <script setup lang="ts">
 import { usePrevious } from '@vueuse/core'
 import { omit, pipe } from 'remeda'
-import { computed } from 'vue'
+import { computed, inject } from 'vue'
 import { useAnimatable } from '../../../../../../composables/use-animatable'
 import { ComponentStatus } from '../../../types'
 import { resolveTransitionParamValue } from '../../../utils'
+import { baseDialogInjectionKey } from '../type'
 
 interface Props {
-  status?: `${ComponentStatus}`;
   svgSize: { width: number; height: number };
   duration?: number;
 }
 const props = withDefaults(defineProps<Props>(), {
-  status: 'hidden',
   duration: 260,
 })
 
+const dialogProvider = inject(baseDialogInjectionKey)
+if (!dialogProvider) {
+  throw new Error('dialogProvider is not provided')
+}
+const { status } = dialogProvider
+
 const pStatus = usePrevious(
-  () => props.status as ComponentStatus,
+  status,
   ComponentStatus.HIDDEN,
 )
 
@@ -44,7 +49,7 @@ const offset = 6
 const targetParams = computed<GraphParams>(() => {
   const { svgSize } = props
 
-  if (props.status === 'hidden') {
+  if (status.value === 'hidden') {
     return {
       x: -offset * 2,
       y: -offset * 2,
@@ -60,7 +65,7 @@ const targetParams = computed<GraphParams>(() => {
     y: -offset / 2,
     width: svgSize.width + offset,
     height: svgSize.height + offset,
-    strokeWidth: 1,
+    strokeWidth: 2,
     opacity: 0.4,
   }
 })
@@ -70,7 +75,7 @@ const { data: graphParams } = useAnimatable(
   {
     delay: (fieldKey) => resolveTransitionParamValue<GraphParams, number>(
       {
-        status: props.status as ComponentStatus,
+        status: status.value as ComponentStatus,
         pStatus: pStatus.value,
         fieldKey,
         defaultValue: 0,
@@ -81,7 +86,7 @@ const { data: graphParams } = useAnimatable(
     ),
     duration: props.duration,
     ease: 'cubicBezier(1, 0.3, 0, 0.7)',
-    animationTriggerBy: () => props.status,
+    animationTriggerBy: () => status.value,
   },
 )
 
