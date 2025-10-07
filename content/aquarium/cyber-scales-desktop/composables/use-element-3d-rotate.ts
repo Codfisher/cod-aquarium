@@ -3,7 +3,7 @@ import { type MaybeElementRef, reactiveComputed, throttleFilter, useMouseInEleme
 import { mapValues, pipe } from 'remeda'
 import { computed, ref, toValue } from 'vue'
 
-export function useWindow3dRotate(
+export function useElement3dRotate(
   targetRef: MaybeElementRef<HTMLElement | null>,
   enabled: MaybeRefOrGetter<boolean> = true,
 ) {
