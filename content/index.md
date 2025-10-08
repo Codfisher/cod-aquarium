@@ -71,6 +71,8 @@ aside: false
 
 - [酷酷的元件](https://chillcomponent.codlin.me/)
 
+- [Cyber Scales Desktop](/aquarium/cyber-scales-desktop/){target="_blank" rel="noopener"}
+
 還會持續更新，敬請期待！◝(≧∀≦)◟
 
 有任何問題或建議，歡迎在社群私訊我，或寄信給我喔。♪(^∇^*)（<hi@codlin.me>）
