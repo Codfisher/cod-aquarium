@@ -68,6 +68,7 @@ interface GraphParams {
   opacity: number;
   partOffsetX: number;
   partHScale: number;
+  partColor: number;
 }
 
 const { data: graphParams } = useAnimatable(
@@ -82,6 +83,7 @@ const { data: graphParams } = useAnimatable(
         opacity: 0,
         partOffsetX: -4,
         partHScale: 1,
+        partColor: 0x2DD4BF,
       }
     }
 
@@ -93,6 +95,7 @@ const { data: graphParams } = useAnimatable(
         opacity: 0.7,
         partOffsetX: 3,
         partHScale: 0.6,
+        partColor: 0x888888,
       }
     }
 
@@ -104,6 +107,7 @@ const { data: graphParams } = useAnimatable(
         opacity: 0.6,
         partOffsetX: -3,
         partHScale: 1,
+        partColor: 0x2DD4BF,
       }
     }
 
@@ -115,6 +119,7 @@ const { data: graphParams } = useAnimatable(
         opacity: 0.98,
         partOffsetX: 0,
         partHScale: 1,
+        partColor: 0x2DD4BF,
       }
     }
 
@@ -125,6 +130,7 @@ const { data: graphParams } = useAnimatable(
       opacity: 1,
       partOffsetX: 0,
       partHScale: 1,
+      partColor: 0x2DD4BF,
     }
   },
   {
@@ -165,18 +171,7 @@ const { data: graphParams } = useAnimatable(
         return 'outBounce'
       }
 
-      return resolveTransitionParamValue<GraphParams, EaseString>(
-        {
-          status: status.value,
-          pStatus: pStatus.value,
-          fieldKey,
-          defaultValue: 'inOutQuint',
-        },
-        {
-          visible: 'inOutQuint',
-          hover: 'outBounce',
-        },
-      )
+      return 'inOutQuint'
     },
     animationTriggerBy: status,
   },
@@ -222,13 +217,6 @@ const graphAttrs = computed(() => {
 
 // part 與 graph 間隔
 const partGap = 1
-const partFill = computed(() => {
-  if (status.value === ComponentStatus.DISABLED) {
-    return '#888'
-  }
-
-  return '#2DD4BF'
-})
 const partAttrs = computed(() => {
   const { opacity, chamfer, partOffsetX, partHScale } = graphParams
   const qChamfer = chamfer / 4
@@ -239,9 +227,13 @@ const partAttrs = computed(() => {
     graphParams.height / 2,
   ]
 
-  const hasColor = hasChroma(partFill.value)
+  const fill = pipe(
+    Math.round(graphParams.partColor),
+    (value) => `#${value.toString(16).padStart(6, '0')}`,
+  )
+  const hasColor = hasChroma(graphParams.partColor)
   const glow = hasColor
-    ? `drop-shadow(0 0 0.75rem ${partFill.value})`
+    ? `drop-shadow(0 0 0.75rem ${fill})`
     : 'none'
 
   const height = oriHeight * partHScale
@@ -255,7 +247,7 @@ const partAttrs = computed(() => {
       `${x - width + partOffsetX},${y + height - qChamfer - partGap}`,
     ].join(' '),
     opacity,
-    fill: partFill.value,
+    fill,
     strokeWidth: hasColor ? '1' : '0',
     style: `filter: ${glow}`,
   }
