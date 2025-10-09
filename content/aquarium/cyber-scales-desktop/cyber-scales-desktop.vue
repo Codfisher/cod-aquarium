@@ -16,7 +16,7 @@
             v-bind="item"
             :label="`0${i} ${item.label}`"
             :label-left="i % 2 === 0"
-            :delay="(i + 1) * 100"
+            :delay="(i + 1) * 150"
           />
         </hexagon-layout>
 
@@ -49,6 +49,7 @@
 
 <script setup lang="ts">
 import { promiseTimeout, useAsyncState, useWindowSize } from '@vueuse/core'
+import { useData } from 'vitepress'
 import { computed, onBeforeUnmount, onMounted, reactive } from 'vue'
 import { nextFrame } from '../../../common/utils'
 import CursorFuturistic from './components/cursor-futuristic/cursor-futuristic.vue'
@@ -56,7 +57,6 @@ import DesktopItem from './components/desktop-item/desktop-item.vue'
 import HexagonLayout from './components/hexagon-layout.vue'
 import WindowContainer from './components/window-container.vue'
 import { useAppStore } from './stores/app-store'
-import { useData } from 'vitepress'
 
 const windowSize = reactive(useWindowSize())
 

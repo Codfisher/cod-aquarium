@@ -1,7 +1,8 @@
 <template>
   <div
     ref="frameRef"
-    class="base-app-window absolute top-0 left-0 pointer-events-auto"
+    class="base-app-window absolute top-0 left-0"
+    :class="frameClass"
   >
     <base-window
       ref="windowRef"
@@ -44,6 +45,15 @@ const emit = defineEmits<Emits>()
 const instance = getCurrentInstance()
 const windowRef = useTemplateRef('windowRef')
 const frameRef = useTemplateRef('frameRef')
+
+const frameClass = computed(() => {
+  const status = windowRef.value?.status
+
+  return {
+    'pointer-events-auto': status !== ComponentStatus.HIDDEN,
+    'pointer-events-none': status === ComponentStatus.HIDDEN,
+  }
+})
 
 const appStore = useAppStore()
 
