@@ -13,7 +13,7 @@ import { pipe } from 'remeda'
 import { computed, watch } from 'vue'
 import { useAnimatable } from '../../../../../../composables/use-animatable'
 import { ComponentStatus } from '../../../types'
-import { resolveTransitionParamValue } from '../../../utils'
+import { hasChroma, resolveTransitionParamValue } from '../../../utils'
 
 interface Props {
   status?: `${ComponentStatus}`;
@@ -125,6 +125,10 @@ const graphAttrs = computed(() => {
     (value) => `#${value.toString(16).padStart(6, '0')}`,
   )
 
+  const glow = hasChroma(graphParams.color)
+    ? `drop-shadow(0 0 0.5rem ${fill})`
+    : 'none'
+
   return {
     lt: {
       x: x - halfSize + halfWidth,
@@ -132,6 +136,7 @@ const graphAttrs = computed(() => {
       width: size,
       height: size,
       fill,
+      style: `filter: ${glow}`,
     },
     rt: {
       x: -x - halfSize + halfWidth,
@@ -139,6 +144,7 @@ const graphAttrs = computed(() => {
       width: size,
       height: size,
       fill,
+      style: `filter: ${glow}`,
     },
     lb: {
       x: x - halfSize + halfWidth,
@@ -146,6 +152,7 @@ const graphAttrs = computed(() => {
       width: size,
       height: size,
       fill,
+      style: `filter: ${glow}`,
     },
     rb: {
       x: -x - halfSize + halfWidth,
@@ -153,6 +160,7 @@ const graphAttrs = computed(() => {
       width: size,
       height: size,
       fill,
+      style: `filter: ${glow}`,
     },
   }
 })
