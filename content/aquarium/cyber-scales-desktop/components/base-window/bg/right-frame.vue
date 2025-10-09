@@ -156,7 +156,7 @@ const resizeHandlerRef = useTemplateRef('resizeHandlerRef')
 const isResizeHandlerHover = useElementHover(resizeHandlerRef)
 const isResizing = ref(false)
 const resizeHandlerColor = computed(
-  () => (isResizeHandlerHover.value || isResizing.value ? '#7dd3fc' : '#777'),
+  () => (isResizeHandlerHover.value || isResizing.value ? '#2DD4BF' : '#777'),
 )
 
 let startPointer = { x: 0, y: 0 }

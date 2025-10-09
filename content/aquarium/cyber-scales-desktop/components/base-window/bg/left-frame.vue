@@ -206,7 +206,7 @@ const textBgPart01Attrs = computed(() => {
     (value) => `#${value.toString(16).padStart(6, '0')}`,
   )
   const glow = hasChroma(graphParams.color)
-    ? `drop-shadow(0 0 0.5rem ${fill})`
+    ? `drop-shadow(0 0 1rem ${fill})`
     : 'none'
 
   return {

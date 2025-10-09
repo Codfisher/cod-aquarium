@@ -86,10 +86,18 @@ export function downloadAsFile(
 }
 
 /** 顏色是否有彩度（通常用於判斷是否有光暈） */
-export function hasChroma(color: number, tolerance = 10) {
-  const r = (color >>> 16) & 255
-  const g = (color >>> 8) & 255
-  const b = color & 255
+export function hasChroma(color: number | string, tolerance = 10) {
+  const value = pipe(undefined, () => {
+    if (typeof color === 'number') {
+      return color
+    }
+
+    return Number.parseInt(color.replace('#', ''), 16)
+  })
+
+  const r = (value >>> 16) & 255
+  const g = (value >>> 8) & 255
+  const b = value & 255
 
   return Math.max(r, g, b) - Math.min(r, g, b) > tolerance
 }

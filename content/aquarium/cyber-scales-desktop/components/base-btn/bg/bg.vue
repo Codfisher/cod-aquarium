@@ -27,7 +27,7 @@ import { pipe } from 'remeda'
 import { computed, inject, reactive, useTemplateRef } from 'vue'
 import { useAnimatable } from '../../../../../../composables/use-animatable'
 import { ComponentStatus, FieldStatus } from '../../../types'
-import { resolveTransitionParamValue } from '../../../utils'
+import { hasChroma, resolveTransitionParamValue } from '../../../utils'
 import { baseItemInjectionKey } from '../type'
 
 interface Props {
@@ -227,7 +227,7 @@ const partFill = computed(() => {
     return '#888'
   }
 
-  return '#7dd3fc'
+  return '#2DD4BF'
 })
 const partAttrs = computed(() => {
   const { opacity, chamfer, partOffsetX, partHScale } = graphParams
@@ -238,6 +238,11 @@ const partAttrs = computed(() => {
     graphParams.width / 2,
     graphParams.height / 2,
   ]
+
+  const hasColor = hasChroma(partFill.value)
+  const glow = hasColor
+    ? `drop-shadow(0 0 0.75rem ${partFill.value})`
+    : 'none'
 
   const height = oriHeight * partHScale
   return {
@@ -251,6 +256,8 @@ const partAttrs = computed(() => {
     ].join(' '),
     opacity,
     fill: partFill.value,
+    strokeWidth: hasColor ? '1' : '0',
+    style: `filter: ${glow}`,
   }
 })
 </script>
