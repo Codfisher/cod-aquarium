@@ -156,7 +156,7 @@ const textAttrs = computed(() => {
 })
 
 const textBgAttrs = computed(() => {
-  const height = props.svgSize.height / 2
+  const height = props.svgSize.height * 0.75
   const { x1 } = graphParams
   const fontSize = Number.parseInt(textAttrs.value.fontSize)
 
@@ -170,23 +170,23 @@ const textBgAttrs = computed(() => {
       `${-width + x1},${offset * 3}`,
 
       // 左凹槽
-      `${-width + x1},${height / 3 * 2}`,
-      `${-width + x1 + 4},${height / 3 * 2 + 4}`,
-      `${-width + x1 + 4},${height}`,
+      `${-width + x1},${height / 2}`,
+      `${-width + x1 + 3},${height / 2 + 4}`,
+      `${-width + x1 + 3},${height}`,
       // 右下
       `${x1},${height + offset * 3}`,
 
       // 右凹槽
-      `${x1},${height}`,
-      `${x1 - 2},${height - 2}`,
-      `${x1 - 2},${height - 2 - 40}`,
-      `${x1},${height - 2 - 40 - 2}`,
+      `${x1},${height - 10 + 2}`,
+      `${x1 - 2},${height - 10}`,
+      `${x1 - 2},${height - 10 - 30}`,
+      `${x1},${height - 10 - 30 - 2}`,
     ].join(' '),
     opacity: graphParams.opacity,
   }
 })
 const textBgPart01Attrs = computed(() => {
-  const startY = props.svgSize.height / 2
+  const startY = props.svgSize.height * 0.75
   const height = Math.min(props.svgSize.height / 2, 10)
   const offsetX = graphParams.x1
   const width = Number.parseInt(textAttrs.value.fontSize)
