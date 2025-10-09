@@ -84,3 +84,12 @@ export function downloadAsFile(
   a.click()
   URL.revokeObjectURL(url)
 }
+
+/** 顏色是否有彩度（通常用於判斷是否有光暈） */
+export function hasChroma(color: number, tolerance = 10) {
+  const r = (color >>> 16) & 255
+  const g = (color >>> 8) & 255
+  const b = color & 255
+
+  return Math.max(r, g, b) - Math.min(r, g, b) > tolerance
+}

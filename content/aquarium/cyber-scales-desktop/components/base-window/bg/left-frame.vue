@@ -7,10 +7,7 @@
     stroke="white"
     fill="#777"
   />
-  <polygon
-    v-bind="textBgPart01Attrs"
-    stroke="white"
-  />
+  <polygon v-bind="textBgPart01Attrs" />
 
   <text
     v-bind="textAttrs"
@@ -35,7 +32,7 @@ import { computed, inject, ref, useTemplateRef, watch } from 'vue'
 import { useAnimatable } from '../../../../../../composables/use-animatable'
 import { useDecodingText } from '../../../../../../composables/use-decoding-text'
 import { ComponentStatus } from '../../../types'
-import { resolveTransitionParamValue } from '../../../utils'
+import { hasChroma, resolveTransitionParamValue } from '../../../utils'
 import { baseWindowInjectionKey } from '../type'
 
 interface Props {
@@ -208,6 +205,9 @@ const textBgPart01Attrs = computed(() => {
     Math.round(graphParams.color),
     (value) => `#${value.toString(16).padStart(6, '0')}`,
   )
+  const glow = hasChroma(graphParams.color)
+    ? `drop-shadow(0 0 0.5rem ${fill})`
+    : 'none'
 
   return {
     points: [
@@ -221,6 +221,7 @@ const textBgPart01Attrs = computed(() => {
       `${offsetX},${leftBottomY + skew}`,
     ].join(' '),
     fill,
+    style: `filter: ${glow}`,
     opacity: graphParams.opacity,
   }
 })
