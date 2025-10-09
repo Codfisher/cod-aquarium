@@ -86,18 +86,35 @@ watch(() => [isActive, isHover, isFirst], async () => {
     return
   }
 
-  if ([
-    ComponentStatus.VISIBLE,
-    ComponentStatus.HOVER,
-    ComponentStatus.ACTIVE,
-  ].includes(status)) {
-    windowRef.value?.setStatus(isActive.value ? 'active' : 'visible')
+  if (status === ComponentStatus.HIDDEN) {
+    return
+  }
+  if (isActive.value && status === ComponentStatus.ACTIVE) {
+    return
+  }
+
+  if (
+    isActive.value
+    && [
+      ComponentStatus.VISIBLE,
+      ComponentStatus.HOVER,
+    ].includes(status)
+  ) {
+    windowRef.value?.setStatus('active')
+    return
+  }
+
+  if (!isActive.value && status === ComponentStatus.ACTIVE) {
+    windowRef.value?.setStatus('visible')
     return
   }
 
   if (status === ComponentStatus.VISIBLE && isHover.value) {
     windowRef.value?.setStatus('hover')
+    return
   }
+
+  windowRef.value?.setStatus('visible')
 }, {
   deep: true,
 })
