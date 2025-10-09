@@ -4,17 +4,15 @@ import { animate } from 'animejs'
 import { clone, mapValues, pipe } from 'remeda'
 import { onWatcherCleanup, reactive, toValue, watch } from 'vue'
 
-type Primitive = number | string
+type TargetDataObjectValue<Val> = Val | [Val, Val] | readonly [Val, Val]
 
 export type DataObject<
   T extends object,
 > = { [K in keyof T]: T[K] }
 
-/** 若為 [number, number]，第一個數值表示起點 */
+/** 若為 [Value, Value]，則第一個數值表示起點 */
 export type TargetDataObject<T> = {
-  [K in keyof T]: T[K] extends readonly [any, infer To extends Primitive]
-    ? To
-    : Extract<T[K], Primitive>
+  [K in keyof T]: TargetDataObjectValue<T[K]>
 }
 
 export type EaseString = EaseStringParamNames | (string & {})
@@ -109,7 +107,7 @@ export function useAnimatable<
           return value[1]
         }
 
-        return value as number
+        return value
       })
 
       delayList.push(animate(data, {
