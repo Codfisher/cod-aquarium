@@ -24,7 +24,7 @@
 import type { ComponentProps } from 'vue-component-type-helpers'
 import { promiseTimeout, refAutoReset, useElementHover, whenever } from '@vueuse/core'
 import { useMachine } from '@xstate/vue'
-import { pipe } from 'remeda'
+import { pipe, when } from 'remeda'
 import { computed, EmitFn, getCurrentInstance, useTemplateRef, watch } from 'vue'
 import { createMachine } from 'xstate'
 import { useAppStore } from '../stores/app-store'
@@ -123,9 +123,19 @@ const isActive = computed(() =>
 // })
 
 const statusMachine = createMachine({
-  initial: ComponentStatus.VISIBLE,
+  initial: ComponentStatus.HIDDEN,
   states: {
-    [ComponentStatus.HIDDEN]: {},
+    [ComponentStatus.HIDDEN]: {
+      entry({ self }) {
+        if (!isFirst.value) {
+          self.stop()
+        }
+      },
+      on: {
+        [ComponentStatus.VISIBLE]: ComponentStatus.VISIBLE,
+        [ComponentStatus.ACTIVE]: ComponentStatus.ACTIVE,
+      },
+    },
     [ComponentStatus.VISIBLE]: {
       on: {
         [ComponentStatus.HIDDEN]: ComponentStatus.HIDDEN,
@@ -152,10 +162,6 @@ const statusMachine = createMachine({
 const { snapshot, send } = useMachine(statusMachine)
 
 whenever(() => windowRef.value?.status, async (status) => {
-  if (isFirst.value && status === 'hidden') {
-    return
-  }
-
   send({ type: status })
 })
 watch(() => [isActive, isHover, isFirst], async () => {
@@ -163,19 +169,17 @@ watch(() => [isActive, isHover, isFirst], async () => {
     return
   }
 
-  if (isActive.value) {
-    send({ type: ComponentStatus.ACTIVE })
-  }
-  if (isHover.value) {
-    send({ type: ComponentStatus.HOVER })
-  }
+  const type = pipe(
+    ComponentStatus.VISIBLE,
+    when(() => isHover.value, () => ComponentStatus.HOVER),
+    when(() => isActive.value, () => ComponentStatus.ACTIVE),
+  )
 
-  send({ type: ComponentStatus.VISIBLE })
+  send({ type })
 }, { deep: true })
 
-watch(snapshot, (state) => {
-  console.log(`🚀 ~ state.value:`, state.value)
-  windowRef.value?.setStatus(state.value as ComponentStatus)
+watch(() => snapshot.value.value, (state) => {
+  windowRef.value?.setStatus(state as ComponentStatus)
 })
 
 function handlePointerDown() {
