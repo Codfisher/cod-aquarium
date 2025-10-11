@@ -24,7 +24,7 @@
 import type { ComponentProps } from 'vue-component-type-helpers'
 import { promiseTimeout, refAutoReset, useElementHover, whenever } from '@vueuse/core'
 import { useMachine } from '@xstate/vue'
-import { pipe, when } from 'remeda'
+import { fromKeys, identity, pipe, piped, when } from 'remeda'
 import { computed, EmitFn, getCurrentInstance, useTemplateRef, watch } from 'vue'
 import { createMachine } from 'xstate'
 import { useAppStore } from '../stores/app-store'
@@ -122,6 +122,15 @@ const isActive = computed(() =>
 //   deep: true,
 // })
 
+/** 為了簡化以下寫法：
+ *
+ * // {
+ * //   [ComponentStatus.VISIBLE]: ComponentStatus.VISIBLE,
+ * //   [ComponentStatus.ACTIVE]: ComponentStatus.ACTIVE,
+ * // },
+ */
+const getOnObject = fromKeys<ComponentStatus[], ComponentStatus>(identity())
+
 const statusMachine = createMachine({
   initial: ComponentStatus.HIDDEN,
   states: {
@@ -131,30 +140,34 @@ const statusMachine = createMachine({
           self.stop()
         }
       },
-      on: {
-        [ComponentStatus.VISIBLE]: ComponentStatus.VISIBLE,
-        [ComponentStatus.ACTIVE]: ComponentStatus.ACTIVE,
-      },
+      // on: {
+      //   [ComponentStatus.VISIBLE]: ComponentStatus.VISIBLE,
+      //   [ComponentStatus.ACTIVE]: ComponentStatus.ACTIVE,
+      // },
+      on: getOnObject([
+        ComponentStatus.VISIBLE,
+        ComponentStatus.ACTIVE,
+      ]),
     },
     [ComponentStatus.VISIBLE]: {
-      on: {
-        [ComponentStatus.HIDDEN]: ComponentStatus.HIDDEN,
-        [ComponentStatus.ACTIVE]: ComponentStatus.ACTIVE,
-        [ComponentStatus.HOVER]: ComponentStatus.HOVER,
-      },
+      on: getOnObject([
+        ComponentStatus.HIDDEN,
+        ComponentStatus.ACTIVE,
+        ComponentStatus.HOVER,
+      ]),
     },
     [ComponentStatus.ACTIVE]: {
-      on: {
-        [ComponentStatus.HIDDEN]: ComponentStatus.HIDDEN,
-        [ComponentStatus.VISIBLE]: ComponentStatus.VISIBLE,
-      },
+      on: getOnObject([
+        ComponentStatus.HIDDEN,
+        ComponentStatus.VISIBLE,
+      ]),
     },
     [ComponentStatus.HOVER]: {
-      on: {
-        [ComponentStatus.HIDDEN]: ComponentStatus.HIDDEN,
-        [ComponentStatus.ACTIVE]: ComponentStatus.ACTIVE,
-        [ComponentStatus.VISIBLE]: ComponentStatus.VISIBLE,
-      },
+      on: getOnObject([
+        ComponentStatus.HIDDEN,
+        ComponentStatus.ACTIVE,
+        ComponentStatus.VISIBLE,
+      ]),
     },
   },
 })
