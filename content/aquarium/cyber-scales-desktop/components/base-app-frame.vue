@@ -22,8 +22,11 @@
 
 <script setup lang="ts">
 import type { ComponentProps } from 'vue-component-type-helpers'
-import { promiseTimeout, refAutoReset, useElementHover } from '@vueuse/core'
+import { promiseTimeout, refAutoReset, useElementHover, whenever } from '@vueuse/core'
+import { useMachine } from '@xstate/vue'
+import { pipe } from 'remeda'
 import { computed, EmitFn, getCurrentInstance, useTemplateRef, watch } from 'vue'
+import { createMachine } from 'xstate'
 import { useAppStore } from '../stores/app-store'
 import { ComponentStatus } from '../types'
 import BaseWindow from './base-window/base-window.vue'
@@ -80,43 +83,99 @@ const isHover = useElementHover(frameRef)
 const isActive = computed(() =>
   appStore.appMap.get(props.appId)?.isActive ?? false,
 )
+// watch(() => [isActive, isHover, isFirst], async () => {
+//   const status = windowRef.value?.status
+//   if (!status || isFirst.value) {
+//     return
+//   }
+
+//   if (status === ComponentStatus.HIDDEN) {
+//     return
+//   }
+//   if (isActive.value && status === ComponentStatus.ACTIVE) {
+//     return
+//   }
+
+//   if (
+//     isActive.value
+//     && [
+//       ComponentStatus.VISIBLE,
+//       ComponentStatus.HOVER,
+//     ].includes(status)
+//   ) {
+//     windowRef.value?.setStatus('active')
+//     return
+//   }
+
+//   if (!isActive.value && status === ComponentStatus.ACTIVE) {
+//     windowRef.value?.setStatus('visible')
+//     return
+//   }
+
+//   if (status === ComponentStatus.VISIBLE && isHover.value) {
+//     windowRef.value?.setStatus('hover')
+//     return
+//   }
+
+//   windowRef.value?.setStatus('visible')
+// }, {
+//   deep: true,
+// })
+
+const statusMachine = createMachine({
+  initial: ComponentStatus.VISIBLE,
+  states: {
+    [ComponentStatus.HIDDEN]: {},
+    [ComponentStatus.VISIBLE]: {
+      on: {
+        [ComponentStatus.HIDDEN]: ComponentStatus.HIDDEN,
+        [ComponentStatus.ACTIVE]: ComponentStatus.ACTIVE,
+        [ComponentStatus.HOVER]: ComponentStatus.HOVER,
+      },
+    },
+    [ComponentStatus.ACTIVE]: {
+      on: {
+        [ComponentStatus.HIDDEN]: ComponentStatus.HIDDEN,
+        [ComponentStatus.VISIBLE]: ComponentStatus.VISIBLE,
+      },
+    },
+    [ComponentStatus.HOVER]: {
+      on: {
+        [ComponentStatus.HIDDEN]: ComponentStatus.HIDDEN,
+        [ComponentStatus.ACTIVE]: ComponentStatus.ACTIVE,
+        [ComponentStatus.VISIBLE]: ComponentStatus.VISIBLE,
+      },
+    },
+  },
+})
+
+const { snapshot, send } = useMachine(statusMachine)
+
+whenever(() => windowRef.value?.status, async (status) => {
+  if (isFirst.value && status === 'hidden') {
+    return
+  }
+
+  send({ type: status })
+})
 watch(() => [isActive, isHover, isFirst], async () => {
-  const status = windowRef.value?.status
-  if (!status || isFirst.value) {
+  if (isFirst.value) {
     return
   }
 
-  if (status === ComponentStatus.HIDDEN) {
-    return
+  if (isActive.value) {
+    send({ type: ComponentStatus.ACTIVE })
   }
-  if (isActive.value && status === ComponentStatus.ACTIVE) {
-    return
-  }
-
-  if (
-    isActive.value
-    && [
-      ComponentStatus.VISIBLE,
-      ComponentStatus.HOVER,
-    ].includes(status)
-  ) {
-    windowRef.value?.setStatus('active')
-    return
+  if (isHover.value) {
+    send({ type: ComponentStatus.HOVER })
   }
 
-  if (!isActive.value && status === ComponentStatus.ACTIVE) {
-    windowRef.value?.setStatus('visible')
-    return
-  }
+  send({ type: ComponentStatus.VISIBLE })
+}, { deep: true })
 
-  if (status === ComponentStatus.VISIBLE && isHover.value) {
-    windowRef.value?.setStatus('hover')
-    return
-  }
-
-  windowRef.value?.setStatus('visible')
-}, {
-  deep: true,
+watch(snapshot, (state) => {
+  console.log(`🚀 ~ state.value:`, state.value)
+  windowRef.value?.setStatus(state.value as ComponentStatus)
 })
 
 function handlePointerDown() {
