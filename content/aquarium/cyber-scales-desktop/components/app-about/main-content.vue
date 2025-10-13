@@ -1,11 +1,16 @@
 <template>
   <div class="text p-4 ">
     <client-only>
-      <h1 class=" text-2xl mb-6 font-bold">
-        {{ titleDecoder.text }}
+      <h1
+        v-decoding-text="{ startDelay: 200 }"
+        class=" text-2xl mb-6 font-bold"
+      >
+        歡迎來到 Cyber Scales Desktop
       </h1>
 
-      <p>大家好，我是鱈魚。 <span class="text-nowrap">( ´ ▽ ` )ﾉ</span></p>
+      <p v-decoding-text="{ startDelay: 600 }">
+        大家好，我是鱈魚。 <span class="text-nowrap">( ´ ▽ ` )ﾉ</span>
+      </p>
 
       <p>
         這是一個 FUI 風格的 Web 應用程式，靈感來自以前看到的
@@ -107,16 +112,7 @@
 </template>
 
 <script setup lang="ts">
-import { promiseTimeout } from '@vueuse/core'
-import { onMounted } from 'vue'
-import { useDecodingText } from '../../../../../composables/use-decoding-text'
-
-const titleDecoder = useDecodingText('歡迎來到 Cyber Scales Desktop')
-
-onMounted(async () => {
-  await promiseTimeout(200)
-  titleDecoder.start()
-})
+import { vDecodingText } from '../../../../../directives/v-decoding-text'
 </script>
 
 <style scoped lang="sass">

@@ -1,17 +1,22 @@
 import { promiseTimeout } from '@vueuse/core'
 import { computed, ref } from 'vue'
 
+const defaultCharset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+
 function useChar(
   value: string,
-  charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789',
   options?: Partial<{
+    charset: string;
     count: number;
     interval: number;
+    initChar: string;
   }>,
 ) {
   const {
     count = 12,
     interval = 50,
+    charset = defaultCharset,
+    initChar: initialChar,
   } = options ?? {}
 
   const charsetList = charset.split(/.*?/u)
@@ -24,7 +29,7 @@ function useChar(
   let times = count
   const isPlaying = ref(false)
   const isDone = ref(false)
-  const char = ref(getRandomChar())
+  const char = ref(initialChar ?? getRandomChar())
 
   async function start(delay = 0) {
     char.value = getRandomChar() ?? value
@@ -78,13 +83,14 @@ function useChar(
 
 interface UseDecodingTextOptions {
   interval?: number;
+  initChar?: string;
 }
 export function useDecodingText(
   textValue: string,
   options: UseDecodingTextOptions = {},
 ) {
-  const { interval = 30 } = options
-  const charList = textValue.split(/.*?/u).map((char) => useChar(char))
+  const { interval = 30, initChar } = options
+  const charList = textValue.split(/.*?/u).map((char) => useChar(char, { initChar }))
 
   const text = computed(() => charList.map((c) => c.char.value).join(''))
 
