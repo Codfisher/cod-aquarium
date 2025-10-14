@@ -52,7 +52,7 @@
       </div>
     </div>
 
-    <span class="font-orbitron  text-xs p-1 opacity-60">
+    <span class="font-orbitron  text-xs opacity-60">
       {{ progressReport.text }}
     </span>
 
