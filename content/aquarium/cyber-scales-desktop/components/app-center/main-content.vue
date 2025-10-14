@@ -9,8 +9,7 @@
         v-bind="item"
         :delay="baseDelay + i * 100"
         class=" w-[7rem]"
-      >
-      </base-item>
+      />
     </base-tooltip>
   </div>
 </template>
@@ -36,7 +35,11 @@ const list = [
     icon: 'chat_apps_script',
     tip: [
       `基於 <a href="https://github.com/mlc-ai/web-llm" target="_blank">WebLLM</a>，`,
-      `可以在網頁中運行 LLM`,
+      `可以在網頁中運行 LLM。`,
+      '\n　\n',
+      `目前使用 Llama-3.2-1B 模型，有點笨，畢竟太大的模型也跑不動，湊合著用吧。乁( ◔ ௰◔)「`,
+      '\n　\n',
+      `有機會在改成讓大家自行選擇模型，燃燒自己的電腦 ◝( •ω• )◟`,
     ].join(''),
     onClick() {
       appStore.open('chat-llm')

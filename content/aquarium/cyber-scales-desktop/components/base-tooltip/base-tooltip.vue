@@ -3,32 +3,32 @@
     <slot />
   </div>
 
-  <teleport to="body">
+  <teleport
+    v-if="props.text"
+    to="body"
+  >
     <div
       ref="tooltipRef"
-      class="base-tooltip relative z-[999999] "
+      class="base-tooltip relative z-[9999999] "
       v-bind="$attrs"
       :style="floatingStyles"
       :class="tooltipClass"
     >
-      <bg
-        :status="status"
-        class="z-[-1]"
-      />
+      <bg :status="status" />
 
       <!-- 填充寬度用 -->
       <div
-        class=" opacity-0 pointer-events-none max-w-[30dvw]"
+        class=" opacity-0 text-sm p-2 pointer-events-none max-w-[40dvw]"
         v-html="textData"
       />
 
       <content-wrapper
         :status="status"
-        class="z-0 absolute inset-0"
+        class="absolute inset-0"
       >
         <slot name="content">
           <div
-            class="tip flex justify-center items-center text-sm h-full"
+            class="tip text-sm h-full p-2"
             v-html="textData"
           />
         </slot>
@@ -136,6 +136,7 @@ provide(baseTooltipInjectionKey, {
 .tip
   backdrop-filter: blur(10px)
   background: rgba(#888, 0.05)
+  text-shadow: 0 0 5px white, 0 0 10px white, 0 0 15px white
 </style>
 
 <style lang="sass">
