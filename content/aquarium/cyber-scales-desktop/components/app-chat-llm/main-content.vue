@@ -120,7 +120,7 @@ const initChar = '　'
 const md = new MarkdownIt()
 
 const modelList = prebuiltAppConfig.model_list.map(({ model_id }) => model_id)
-console.log('🚀 ~ modelList:', modelList)
+// console.log('🚀 ~ modelList:', modelList)
 
 const defaultModel = 'Llama-3.2-1B-Instruct-q4f32_1-MLC'
 // const defaultModel = 'SmolLM2-360M-Instruct-q4f32_1-MLC'
@@ -128,7 +128,7 @@ const defaultModel = 'Llama-3.2-1B-Instruct-q4f32_1-MLC'
 const message = ref('')
 const chatDataList = shallowRef<ChatCompletionMessageParam[]>([{
   role: 'system',
-  content: `You are Cod's assistant, your task is to chat with users`,
+  content: `你是鱈魚小助手，任務是陪使用者閒聊`,
 }])
 
 const messageList = computed(() => chatDataList.value
