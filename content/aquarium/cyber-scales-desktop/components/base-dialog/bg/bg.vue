@@ -1,7 +1,7 @@
 <template>
   <div
     ref="containerRef"
-    class="container absolute inset-0 w-full h-full pointer-events-none"
+    class="transform-3d absolute inset-0 w-full h-full pointer-events-none"
   >
     <svg
       class="absolute"
@@ -61,6 +61,4 @@ const frameParams = computed(() => ({
 </script>
 
 <style scoped lang="sass">
-.container
-  transform-style: preserve-3d
 </style>

@@ -1,5 +1,5 @@
 <template>
-  <div class="text p-4 flex flex-wrap items-start justify-start content-start gap-4 ">
+  <div class="p-4 flex flex-wrap items-start justify-start content-start gap-4 ">
     <base-item
       v-for="item, i in list"
       :key="i"
@@ -27,7 +27,7 @@ const list = [
   },
   {
     label: 'ChatLLM',
-    icon: 'docs',
+    icon: 'chat_apps_script',
     onClick() {
       appStore.open('chat-llm')
     },

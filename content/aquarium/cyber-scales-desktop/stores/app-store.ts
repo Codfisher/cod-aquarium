@@ -89,16 +89,23 @@ export const useAppStore = defineStore('app', () => {
             offsetH: 0,
           }
         }),
-        'chat-llm': {
-          x: 0,
-          y: 0,
-          offsetX: 0,
-          offsetY: 0,
-          width: Math.min(innerWidth / 2, 500),
-          height: innerHeight / 2,
-          offsetW: 0,
-          offsetH: 0,
-        },
+        'chat-llm': pipe(undefined, () => {
+          const [width, height] = [
+            Math.min(innerWidth / 2, 500),
+            innerHeight * 0.75,
+          ]
+
+          return {
+            x: innerWidth - width * 1.5,
+            y: innerHeight - height * 1.5,
+            offsetX: 0,
+            offsetY: 0,
+            width,
+            height,
+            offsetW: 0,
+            offsetH: 0,
+          }
+        }),
 
         'portfolio': {
           x: 0,

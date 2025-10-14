@@ -166,4 +166,7 @@ const isLoading = computed(() => isFontLoading.value || isAssetLoading.value)
     transition-duration: 0.4s
   &-enter-from, &-leave-to
     opacity: 0 !important
+
+.transform-3d
+  transform-style: preserve-3d
 </style>

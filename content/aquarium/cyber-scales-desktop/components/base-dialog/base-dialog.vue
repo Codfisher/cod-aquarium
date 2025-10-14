@@ -1,5 +1,8 @@
 <template>
-  <div class=" fixed inset-0 flex justify-center items-center">
+  <div
+    class=" fixed inset-0 flex justify-center items-center"
+    :class="mainClass"
+  >
     <div
       class=" absolute backdrop w-full h-full  duration-500"
       :class="backdropClass"
@@ -61,7 +64,7 @@
 
 <script setup lang="ts">
 import type { ComponentProps } from 'vue-component-type-helpers'
-import type { BaseDialogEmits } from './type'
+import type { BaseDialogEmits, DialogColorType } from './type'
 import { until, useElementHover, useElementSize } from '@vueuse/core'
 import { computed, nextTick, onMounted, provide, ref, useTemplateRef } from 'vue'
 import { nextFrame } from '../../../../../common/utils'
@@ -77,8 +80,9 @@ interface Props {
   icon?: string;
   iconClass?: string;
   title?: string;
-  description: string;
+  description?: string;
   actionList?: Array<ComponentProps<typeof BaseBtn>>;
+  colorType?: DialogColorType;
 }
 
 interface Slots {
@@ -89,6 +93,11 @@ const props = withDefaults(defineProps<Props>(), {
   icon: 'warning',
   iconClass: 'text-red-400',
   actionList: () => [],
+  colorType: 'positive',
+})
+
+const modelValue = defineModel<boolean>({
+  default: false,
 })
 
 const emit = defineEmits<BaseDialogEmits>()
@@ -104,12 +113,16 @@ useElement3dRotate(dialogRef)
 const isHover = useElementHover(dialogRef)
 
 const backdropClass = computed(() => ({
-  'opacity-0': status.value !== ComponentStatus.VISIBLE,
-  'opacity-100': status.value === ComponentStatus.VISIBLE,
+  'opacity-0': currentStatus.value === ComponentStatus.HIDDEN,
+  'opacity-100': currentStatus.value === ComponentStatus.VISIBLE,
 }))
 function handleBackdrop() {
   emit('backdrop')
 }
+
+const mainClass = computed(() => ({
+  'pointer-events-none': currentStatus.value === ComponentStatus.HIDDEN,
+}))
 
 onMounted(async () => {
   // 確保 window 有尺寸
@@ -128,9 +141,11 @@ const currentStatus = computed(() => {
     return ComponentStatus.HIDDEN
   }
 
-  return isHover.value
-    ? ComponentStatus.HOVER
-    : status.value
+  if (!modelValue.value) {
+    return ComponentStatus.HIDDEN
+  }
+
+  return status.value
 })
 
 defineExpose({
@@ -142,6 +157,7 @@ defineExpose({
 
 provide(baseDialogInjectionKey, {
   status: computed(() => currentStatus.value),
+  colorType: props.colorType,
   emit,
 })
 </script>

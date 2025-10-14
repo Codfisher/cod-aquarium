@@ -3,7 +3,7 @@
     class="outline-frame"
     v-bind="graphAttrs"
     fill="transparent"
-    stroke="#f87171"
+    :stroke="strokeColor"
   />
 </template>
 
@@ -14,7 +14,7 @@ import { computed, inject } from 'vue'
 import { useAnimatable } from '../../../../../../composables/use-animatable'
 import { ComponentStatus } from '../../../types'
 import { resolveTransitionParamValue } from '../../../utils'
-import { baseDialogInjectionKey } from '../type'
+import { baseDialogInjectionKey, DialogColorType } from '../type'
 
 interface Props {
   svgSize: { width: number; height: number };
@@ -34,6 +34,12 @@ const pStatus = usePrevious(
   status,
   ComponentStatus.HIDDEN,
 )
+
+const strokeColorMap: Record<DialogColorType, string> = {
+  positive: '#2DD4BF',
+  negative: '#f87171'
+}
+const strokeColor = computed(() => strokeColorMap[dialogProvider.colorType])
 
 /** SVG 以左上角為原點 */
 interface GraphParams {

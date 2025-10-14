@@ -11,10 +11,9 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 
-/** Props / Emits / Slots / Expose 都用你給的型別風格 */
 interface Props {
   name?: string;
-  variant?: 'outlined' | 'rounded' | 'sharp';
+  // variant?: 'outlined' | 'rounded' | 'sharp';
   fill?: boolean;
   weight?: string;
   grade?: string;
@@ -24,7 +23,6 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   name: 'unknown_document',
-  variant: 'sharp',
   fill: false,
   weight: '400',
   grade: '0',

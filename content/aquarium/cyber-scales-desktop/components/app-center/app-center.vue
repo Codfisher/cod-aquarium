@@ -4,7 +4,7 @@
     title="應用程式"
     :app-id="appId"
   >
-    <main-content class=" w-full h-full bg-gray-50 overflow-auto" />
+    <main-content class=" w-full h-full bg-gray-50 overflow-x-hidden overflow-y-auto" />
   </base-app-frame>
 </template>
 
