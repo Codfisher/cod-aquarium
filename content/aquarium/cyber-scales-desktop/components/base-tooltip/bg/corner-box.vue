@@ -42,42 +42,23 @@ interface GraphParams {
   color: number;
 }
 
-const offset = 6
+const offset = 0
 const targetParams = computed<GraphParams>(() => {
   const { svgSize } = props
 
   if (status.value === 'hidden') {
     return {
-      x: -svgSize.width / 2 - offset * 2,
-      y: -svgSize.height / 2 - offset * 2,
+      x: 0,
+      y: 0,
       size: 0,
-      color: 0x444444,
-    }
-  }
-
-  if (status.value === 'active') {
-    const size = 4
-    return {
-      x: -svgSize.width / 2 - offset + size / 4,
-      y: -svgSize.height / 2 - offset + size / 4,
-      size,
-      color: 0x2DD4BF,
-    }
-  }
-
-  if (status.value === 'hover') {
-    return {
-      x: -svgSize.width / 2 - offset * 2,
-      y: -svgSize.height / 2 - offset * 2,
-      size: 2,
-      color: 0x444444,
+      color: 0xAAAAAA,
     }
   }
 
   return {
-    x: -svgSize.width / 2 - offset,
-    y: -svgSize.height / 2 - offset,
-    size: 3,
+    x: -svgSize.width / 2 + offset,
+    y: -svgSize.height / 2 + offset,
+    size: 2,
     color: 0x444444,
   }
 })
@@ -93,16 +74,13 @@ const { data: graphParams } = useAnimatable(
         defaultValue: 0,
       },
       {
-        'active': {
-          x: props.duration,
-          y: props.duration,
-          size: props.duration,
-          color: props.duration / 2,
+        'visible': {
+          y: props.duration * 0.8,
+          color: props.duration,
         },
-        'hidden-visible': {
-          x: props.duration * 1.5,
-          y: props.duration * 1.5,
-          size: props.duration * 1.5,
+        'hidden': {
+          x: props.duration * 0.8,
+          size: props.duration * 0.8,
         },
       },
     ),
@@ -127,7 +105,7 @@ const graphAttrs = computed(() => {
   )
 
   const glow = hasChroma(graphParams.color)
-    ? `drop-shadow(0 0 0.5rem ${fill})`
+    ? `drop-shadow(0 0 0.2rem ${fill})`
     : 'none'
 
   return {

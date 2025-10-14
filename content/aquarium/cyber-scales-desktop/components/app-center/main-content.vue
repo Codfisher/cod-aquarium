@@ -34,7 +34,10 @@ const list = [
   {
     label: 'ChatLLM',
     icon: 'chat_apps_script',
-    tip: '基於 WebLLM',
+    tip: [
+      `基於 <a href="https://github.com/mlc-ai/web-llm" target="_blank">WebLLM</a>，`,
+      `可以在網頁中運行 LLM`,
+    ].join(''),
     onClick() {
       appStore.open('chat-llm')
     },
