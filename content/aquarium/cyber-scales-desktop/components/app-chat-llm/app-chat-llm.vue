@@ -4,7 +4,7 @@
     title="ChatLLM"
     :app-id="appId"
   >
-    <main-content class=" w-full h-full bg-gray-50 overflow-auto" />
+    <main-content class=" w-full h-full bg-gray-50" />
   </base-app-frame>
 </template>
 

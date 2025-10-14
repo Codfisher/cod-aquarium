@@ -1,16 +1,14 @@
 <template>
   <div class="p-4 flex flex-col gap-4">
-    <div class="flex flex-col overflow-auto flex-1">
+    <div class="flex flex-col flex-1">
       {{ progressReport }}
     </div>
 
     <div class=" flex gap-2 w-full">
-      <div class="border flex-1">
-        <input
-          v-model="message"
-          class=" p-2"
-        >
-      </div>
+      <base-input
+        v-model="message"
+        class=" w-full"
+      />
 
       <base-btn
         label="發送"
@@ -27,7 +25,7 @@
     <teleport to="body">
       <base-dialog
         v-model="settingDialogVisible"
-        class="z-1"
+        class="z-[9999]"
       >
         設定視窗
 
@@ -46,6 +44,7 @@ import { useAsyncState } from '@vueuse/core'
 import { ref } from 'vue'
 import BaseBtn from '../base-btn/base-btn.vue'
 import BaseDialog from '../base-dialog/base-dialog.vue'
+import BaseInput from '../base-input/base-input.vue'
 
 const modelList = prebuiltAppConfig.model_list.map(({ model_id }) => model_id)
 

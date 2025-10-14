@@ -72,7 +72,7 @@ const style = computed(() => {
   }
 })
 
-/** 第一次從 hidden 至 visible 時，阻止所以狀態轉換
+/** 第一次從 hidden 至 visible 時，阻止所有狀態轉換
  *
  * TODO: 先使用時間判斷，未來在想更好的設計
  */
