@@ -5,8 +5,8 @@
       class=" p-2 text-center opacity-50 flex-1 flex flex-col justify-center items-center gap-2"
     >
       <div class="font-orbitron text-4xl mb-4">{{ progress }}%</div>
-      <div>奮力初始化，請稍等...─=≡Σ((( つ•̀ω•́)つ</div>
-      <div>（第一次下載會比較久 (´・ω・`)）</div>
+      <div>奮力初始化，請稍等... <span class="text-nowrap">─=≡Σ((( つ•̀ω•́)つ</span></div>
+      <div>（第一次會比較久，畢竟人生地不熟 <span class="text-nowrap">(´・ω・`)</span> ）</div>
     </div>
 
     <div
@@ -111,7 +111,6 @@ import { nextFrame } from '../../../../../common/utils'
 import MarkdownIt from 'markdown-it'
 
 const md = new MarkdownIt({
-  html: false,
   linkify: true,
   breaks: true
 })
