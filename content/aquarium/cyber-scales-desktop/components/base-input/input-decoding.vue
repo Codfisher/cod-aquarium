@@ -116,6 +116,15 @@ function getCharDataList(
 }
 
 const charList = shallowRef(getCharDataList(props.modelValue))
+watch(() => props.modelValue, (value) => {
+  if (value === fullString.value) {
+    return
+  }
+
+  charList.value = getCharDataList(value)
+}, {
+  flush: 'post'
+})
 
 /** 處理中文拼字問題 */
 let isComposing = false
@@ -288,8 +297,8 @@ watch(currentString, async () => {
   activeEl.value.setSelectionRange(position, position)
 }, { flush: 'post' })
 
-watch(charList, (list) => {
-  const value = list.map(prop('original')).join('')
+const fullString = computed(() => charList.value.map(prop('original')).join(''))
+watch(fullString, (value) => {
   emit('update:modelValue', value)
 })
 </script>

@@ -1,10 +1,11 @@
 <template>
-  <div class="text p-4 flex flex-wrap items-start justify-start content-start gap-4 ">
+  <div class="p-4 flex flex-wrap items-start justify-start content-start gap-4 ">
     <base-item
       v-for="item, i in list"
       :key="i"
       v-bind="item"
       :delay="baseDelay + i * 100"
+      class=" w-[7rem]"
     />
   </div>
 </template>
@@ -22,6 +23,13 @@ const list = [
     icon: 'docs',
     onClick() {
       appStore.open('note')
+    },
+  },
+  {
+    label: 'ChatLLM',
+    icon: 'chat_apps_script',
+    onClick() {
+      appStore.open('chat-llm')
     },
   },
 ]

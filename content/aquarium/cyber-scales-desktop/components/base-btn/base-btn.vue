@@ -13,7 +13,7 @@
         class="item-label  text-nowrap font-orbitron text-center select-none"
       >
         <div
-          class=" leading-none text-sm tracking-widest pl-1"
+          class=" leading-none text-sm tracking-widest pl-2 pr-1"
           :class="labelClass"
         >
           {{ props.label }}

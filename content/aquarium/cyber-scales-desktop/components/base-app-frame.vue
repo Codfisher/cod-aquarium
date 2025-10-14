@@ -22,8 +22,11 @@
 
 <script setup lang="ts">
 import type { ComponentProps } from 'vue-component-type-helpers'
-import { promiseTimeout, refAutoReset, useElementHover } from '@vueuse/core'
+import { promiseTimeout, refAutoReset, useElementHover, whenever } from '@vueuse/core'
+import { useMachine } from '@xstate/vue'
+import { fromKeys, identity, pipe, piped, when } from 'remeda'
 import { computed, EmitFn, getCurrentInstance, useTemplateRef, watch } from 'vue'
+import { createMachine } from 'xstate'
 import { useAppStore } from '../stores/app-store'
 import { ComponentStatus } from '../types'
 import BaseWindow from './base-window/base-window.vue'
@@ -69,7 +72,7 @@ const style = computed(() => {
   }
 })
 
-/** 第一次從 hidden 至 visible 時，阻止所以狀態轉換
+/** 第一次從 hidden 至 visible 時，阻止所有狀態轉換
  *
  * TODO: 先使用時間判斷，未來在想更好的設計
  */
@@ -80,26 +83,116 @@ const isHover = useElementHover(frameRef)
 const isActive = computed(() =>
   appStore.appMap.get(props.appId)?.isActive ?? false,
 )
+// watch(() => [isActive, isHover, isFirst], async () => {
+//   const status = windowRef.value?.status
+//   if (!status || isFirst.value) {
+//     return
+//   }
+
+//   if (status === ComponentStatus.HIDDEN) {
+//     return
+//   }
+//   if (isActive.value && status === ComponentStatus.ACTIVE) {
+//     return
+//   }
+
+//   if (
+//     isActive.value
+//     && [
+//       ComponentStatus.VISIBLE,
+//       ComponentStatus.HOVER,
+//     ].includes(status)
+//   ) {
+//     windowRef.value?.setStatus('active')
+//     return
+//   }
+
+//   if (!isActive.value && status === ComponentStatus.ACTIVE) {
+//     windowRef.value?.setStatus('visible')
+//     return
+//   }
+
+//   if (status === ComponentStatus.VISIBLE && isHover.value) {
+//     windowRef.value?.setStatus('hover')
+//     return
+//   }
+
+//   windowRef.value?.setStatus('visible')
+// }, {
+//   deep: true,
+// })
+
+/** 為了簡化以下寫法：
+ *
+ * // {
+ * //   [ComponentStatus.VISIBLE]: ComponentStatus.VISIBLE,
+ * //   [ComponentStatus.ACTIVE]: ComponentStatus.ACTIVE,
+ * // },
+ */
+const getOnObject = fromKeys<ComponentStatus[], ComponentStatus>(identity())
+
+const statusMachine = createMachine({
+  initial: ComponentStatus.HIDDEN,
+  states: {
+    [ComponentStatus.HIDDEN]: {
+      entry({ self }) {
+        if (!isFirst.value) {
+          self.stop()
+        }
+      },
+      // on: {
+      //   [ComponentStatus.VISIBLE]: ComponentStatus.VISIBLE,
+      //   [ComponentStatus.ACTIVE]: ComponentStatus.ACTIVE,
+      // },
+      on: getOnObject([
+        ComponentStatus.VISIBLE,
+        ComponentStatus.ACTIVE,
+      ]),
+    },
+    [ComponentStatus.VISIBLE]: {
+      on: getOnObject([
+        ComponentStatus.HIDDEN,
+        ComponentStatus.ACTIVE,
+        ComponentStatus.HOVER,
+      ]),
+    },
+    [ComponentStatus.ACTIVE]: {
+      on: getOnObject([
+        ComponentStatus.HIDDEN,
+        ComponentStatus.VISIBLE,
+      ]),
+    },
+    [ComponentStatus.HOVER]: {
+      on: getOnObject([
+        ComponentStatus.HIDDEN,
+        ComponentStatus.ACTIVE,
+        ComponentStatus.VISIBLE,
+      ]),
+    },
+  },
+})
+
+const { snapshot, send } = useMachine(statusMachine)
+
+whenever(() => windowRef.value?.status, async (status) => {
+  send({ type: status })
+})
 watch(() => [isActive, isHover, isFirst], async () => {
-  const status = windowRef.value?.status
-  if (!status || isFirst.value) {
+  if (isFirst.value) {
     return
   }
 
-  if ([
+  const type = pipe(
     ComponentStatus.VISIBLE,
-    ComponentStatus.HOVER,
-    ComponentStatus.ACTIVE,
-  ].includes(status)) {
-    windowRef.value?.setStatus(isActive.value ? 'active' : 'visible')
-    return
-  }
+    when(() => isHover.value, () => ComponentStatus.HOVER),
+    when(() => isActive.value, () => ComponentStatus.ACTIVE),
+  )
 
-  if (status === ComponentStatus.VISIBLE && isHover.value) {
-    windowRef.value?.setStatus('hover')
-  }
-}, {
-  deep: true,
+  send({ type })
+}, { deep: true })
+
+watch(() => snapshot.value.value, (state) => {
+  windowRef.value?.setStatus(state as ComponentStatus)
 })
 
 function handlePointerDown() {

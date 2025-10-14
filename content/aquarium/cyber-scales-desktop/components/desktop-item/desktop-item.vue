@@ -38,7 +38,7 @@
 </template>
 
 <script setup lang="ts">
-import { computedAsync, promiseTimeout, useElementHover, useElementSize, useMounted, useMousePressed, whenever } from '@vueuse/core'
+import { computedAsync, promiseTimeout, refAutoReset, useElementHover, useElementSize, useMounted, useMousePressed, whenever } from '@vueuse/core'
 import { pipe } from 'remeda'
 import { computed, nextTick, provide, reactive, useTemplateRef, watch } from 'vue'
 import { nextFrame } from '../../../../../common/utils'

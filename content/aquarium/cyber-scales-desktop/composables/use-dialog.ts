@@ -30,7 +30,7 @@ export function useDialog(params: DialogProps) {
     }
     dialog.setStatus('hidden')
 
-    await promiseTimeout(1000)
+    await promiseTimeout(500)
     container.remove()
   }
 

@@ -1,10 +1,10 @@
 <template>
   <base-app-frame
     ref="appFrameRef"
-    title="應用程式"
+    title="ChatLLM"
     :app-id="appId"
   >
-    <main-content class=" w-full h-full bg-gray-50 overflow-x-hidden overflow-y-auto" />
+    <main-content class=" w-full h-full bg-gray-50" />
   </base-app-frame>
 </template>
 

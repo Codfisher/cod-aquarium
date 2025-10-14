@@ -5,7 +5,7 @@
   >
     <bg />
 
-    <content-wrapper class="z-0  ">
+    <content-wrapper class="z-0 w-full flex flex-col items-center gap-2">
       <material-icon
         :name="props.icon"
         size="4rem"
@@ -19,14 +19,14 @@
 
       <div
         ref="labelRef"
-        class="item-label text-white text-nowrap font-orbitron text-center"
+        class="item-label text-white text-nowrap font-orbitron text-center relative w-full "
       >
-        <div class=" leading-none text-sm tracking-widest">
+        <div class=" absolute inset-0 leading-none text-sm tracking-widest overflow-hidden text-ellipsis">
           {{ labelDecoder.text }}
         </div>
 
-        <div class="text-xs">
-          {{ subLabelDecoder.text }}
+        <div class=" leading-none text-sm tracking-widest opacity-0">
+          填充文字
         </div>
       </div>
     </content-wrapper>
@@ -46,7 +46,6 @@ import { baseItemInjectionKey } from './type'
 
 interface Props {
   label?: string;
-  subLabel?: string;
   icon?: string;
   delay?: number;
 }
@@ -85,7 +84,6 @@ const labelRef = useTemplateRef('labelRef')
 const labelSize = reactive(useElementSize(labelRef))
 
 const labelDecoder = useDecodingText(props.label)
-const subLabelDecoder = useDecodingText(props.subLabel)
 
 const status = computed(() => {
   if (isVisible.value) {
@@ -105,7 +103,6 @@ const status = computed(() => {
 whenever(isVisible, async () => {
   await promiseTimeout(500)
   labelDecoder.start()
-  subLabelDecoder.start()
 })
 whenever(isHover, async () => {
   labelDecoder.restart()

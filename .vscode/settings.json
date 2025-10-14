@@ -57,6 +57,7 @@
     "vueuse",
     "WCAG",
     "webp",
+    "xstate",
     "Zeabur"
   ],
   "html.format.wrapAttributes": "force-expand-multiline",

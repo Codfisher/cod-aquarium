@@ -1,14 +1,20 @@
 import type { EaseStringParamNames } from 'animejs'
 import type { MaybeRefOrGetter } from 'vue'
-import { createAnimatable } from 'animejs'
-import { clone, mapValues, pipe, when } from 'remeda'
+import { animate } from 'animejs'
+import { clone, mapValues, pipe } from 'remeda'
 import { onWatcherCleanup, reactive, toValue, watch } from 'vue'
 
-export type DataObject<T extends object> = { [K in keyof T]: number }
-/** 若為 [number, number]，第一個數值表示起點 */
-export type TargetDataObject<T extends object> = {
-  [K in keyof T]: number | [number, number] | readonly [number, number];
+type TargetDataObjectValue<Val> = Val | [Val, Val] | readonly [Val, Val]
+
+export type DataObject<
+  T extends object,
+> = { [K in keyof T]: T[K] }
+
+/** 若為 [Value, Value]，則第一個數值表示起點 */
+export type TargetDataObject<T> = {
+  [K in keyof T]: TargetDataObjectValue<T[K]>
 }
+
 export type EaseString = EaseStringParamNames | (string & {})
 
 interface UseAnimatableParams<Data extends object> {
@@ -21,17 +27,19 @@ interface UseAnimatableParams<Data extends object> {
   /** 動畫觸發來源。
    *
    * 因為 targetData 變更不一定是動畫，有可能只是資料初始化（從 0 變成有數值）
-   * 
+   *
    * 預設會馬上觸發動畫，這樣會導致初始動畫不符合預期
-   * 
+   *
    * 可以利用此參數指定觸發條件，例如：status 變更才觸發數值過度，否則會立即更新數值。
    */
   animationTriggerBy?: MaybeRefOrGetter;
 }
 
-export function useAnimatable<Data extends object>(
+export function useAnimatable<
+  Data extends DataObject<object>,
+>(
   targetData: MaybeRefOrGetter<TargetDataObject<Data>>,
-  params: UseAnimatableParams<DataObject<Data>> = {},
+  params: UseAnimatableParams<Data> = {},
 ) {
   const {
     delay = 0,
@@ -49,14 +57,8 @@ export function useAnimatable<Data extends object>(
 
       return value
     }),
-    (data) => clone(data as DataObject<Data>),
+    (data) => clone(data as Data),
   ))
-
-  const dataAnimatable = createAnimatable(
-    data,
-    // @ts-expect-error reactive 也可以當一般物件傳遞
-    clone(data),
-  )
 
   let triggerChanged = false
   watch(() => toValue(params.animationTriggerBy), () => {
@@ -69,10 +71,10 @@ export function useAnimatable<Data extends object>(
   watch(targetData, () => {
     const hasChanged = params.animationTriggerBy ? triggerChanged : true
 
-    const delayList: ReturnType<typeof setTimeout>[] = []
+    const delayList: ReturnType<typeof animate>[] = []
 
     const current = toValue(targetData);
-    (Object.keys(current) as Array<keyof DataObject<Data>>).forEach((fieldKey) => {
+    (Object.keys(current) as Array<keyof Data>).forEach((fieldKey) => {
       const value = current[fieldKey]
 
       const delayValue = pipe(undefined, () => {
@@ -97,22 +99,29 @@ export function useAnimatable<Data extends object>(
 
       const targetValue = pipe(undefined, () => {
         if (Array.isArray(value)) {
-          dataAnimatable?.[fieldKey]?.(value[0], 0)
+          animate(data, {
+            [fieldKey]: value[0],
+            duration: 0,
+          })
+
           return value[1]
         }
 
-        return value as number
+        return value
       })
 
-      delayList.push(setTimeout(() => {
-        dataAnimatable?.[fieldKey]?.(targetValue, durationValue, easeValue)
-      }, delayValue))
+      delayList.push(animate(data, {
+        [fieldKey]: targetValue,
+        duration: durationValue,
+        delay: delayValue,
+        ease: easeValue ?? 'linear',
+      }))
     })
 
     triggerChanged = false
 
     onWatcherCleanup(() => {
-      delayList.forEach(clearTimeout)
+      delayList.forEach((item) => item.cancel())
     })
   }, {
     deep: true,
@@ -122,6 +131,5 @@ export function useAnimatable<Data extends object>(
   return {
     /** Reactive Data */
     data,
-    dataAnimatable,
   }
 }

@@ -5,17 +5,20 @@ import { defineStore } from 'pinia'
 import { clamp, clone, pick, pipe } from 'remeda'
 import { computed, markRaw, ref, shallowRef, triggerRef } from 'vue'
 
-import AppAbout from '../components/app-about/app-about.vue'
-import AppCenter from '../components/app-center/app-center.vue'
-import AppNote from '../components/app-note/app-note.vue'
-import AppPortfolio from '../components/app-portfolio/app-portfolio.vue'
+export type AppType = 'about' |
+  /** 應用程式 */
+  'center' |
+  /** 記事本 */
+  'note' |
+  /** 基於 web-llm 的 chat */
+  'chat-llm' |
 
-type AppType = 'about' | 'center' | 'note' | 'portfolio'
+  /** 作品集 */
+  'portfolio'
 interface AppInfo {
   id: string;
   type: AppType;
   data: {
-    name: string;
     // 起點座標
     x: number;
     y: number;
@@ -28,7 +31,6 @@ interface AppInfo {
 
     offsetW: number;
     offsetH: number;
-    component: Component;
   };
   isActive: boolean;
   focusedAt: number;
@@ -50,8 +52,7 @@ export const useAppStore = defineStore('app', () => {
     window ?? { innerWidth: 0, innerHeight: 0 },
     ({ innerWidth, innerHeight }) => {
       return {
-        about: {
-          name: '關於我',
+        'about': {
           x: 0,
           y: 0,
           offsetX: 0,
@@ -60,10 +61,8 @@ export const useAppStore = defineStore('app', () => {
           height: innerHeight / 2,
           offsetW: 0,
           offsetH: 0,
-          component: AppAbout,
         },
-        center: {
-          name: '應用程式',
+        'center': {
           x: 0,
           y: 0,
           offsetX: 0,
@@ -72,29 +71,43 @@ export const useAppStore = defineStore('app', () => {
           height: 300,
           offsetW: 0,
           offsetH: 0,
-          component: AppCenter,
         },
-        note: pipe(undefined, () => {
+        'note': pipe(undefined, () => {
           const [width, height] = [
             Math.min(innerWidth / 2, 500),
             innerHeight / 2,
           ]
 
           return {
-            name: '記事本',
-            x: innerWidth - width * 1.5,
-            y: innerHeight - height * 1.5,
+            x: innerWidth,
+            y: innerHeight,
             offsetX: 0,
             offsetY: 0,
             width,
             height,
             offsetW: 0,
             offsetH: 0,
-            component: AppNote,
           }
         }),
-        portfolio: {
-          name: '作品集',
+        'chat-llm': pipe(undefined, () => {
+          const [width, height] = [
+            Math.min(innerWidth / 2, 500),
+            innerHeight * 0.6,
+          ]
+
+          return {
+            x: innerWidth,
+            y: innerHeight,
+            offsetX: 0,
+            offsetY: 0,
+            width,
+            height,
+            offsetW: 0,
+            offsetH: 0,
+          }
+        }),
+
+        'portfolio': {
           x: 0,
           y: 0,
           offsetX: 0,
@@ -103,7 +116,6 @@ export const useAppStore = defineStore('app', () => {
           height: 300,
           offsetW: 0,
           offsetH: 0,
-          component: AppPortfolio,
         },
       }
     },
@@ -152,7 +164,6 @@ export const useAppStore = defineStore('app', () => {
       data: {
         ...defaultData,
         ...position,
-        component: markRaw(defaultData.component),
       },
     })
 
@@ -179,6 +190,8 @@ export const useAppStore = defineStore('app', () => {
   }
 
   function update(id: string, data: Partial<{
+    x: number;
+    y: number;
     offsetX: number;
     offsetY: number;
     offsetW: number;
@@ -187,6 +200,13 @@ export const useAppStore = defineStore('app', () => {
     const target = id && appMap.value.get(id)
     if (!target)
       return
+
+    if (data.x !== undefined) {
+      target.data.x = data.x
+    }
+    if (data.y !== undefined) {
+      target.data.y = data.y
+    }
 
     target.data.offsetX = data.offsetX ?? 0
     target.data.offsetY = data.offsetY ?? 0
