@@ -23,10 +23,11 @@ import { computed, defineAsyncComponent, reactive, useTemplateRef } from 'vue'
 import { useAppStore } from '../stores/app-store'
 
 const appComponentMap: Record<AppType, ReturnType<typeof defineAsyncComponent>> = {
-  about: defineAsyncComponent(() => import('./app-about/app-about.vue')),
-  center: defineAsyncComponent(() => import('./app-center/app-center.vue')),
-  note: defineAsyncComponent(() => import('./app-note/app-note.vue')),
-  portfolio: defineAsyncComponent(() => import('./app-portfolio/app-portfolio.vue')),
+  'about': defineAsyncComponent(() => import('./app-about/app-about.vue')),
+  'center': defineAsyncComponent(() => import('./app-center/app-center.vue')),
+  'note': defineAsyncComponent(() => import('./app-note/app-note.vue')),
+  'portfolio': defineAsyncComponent(() => import('./app-portfolio/app-portfolio.vue')),
+  'chat-llm': defineAsyncComponent(() => import('./app-chat-llm/app-chat-llm.vue')),
 }
 
 const appStore = useAppStore()

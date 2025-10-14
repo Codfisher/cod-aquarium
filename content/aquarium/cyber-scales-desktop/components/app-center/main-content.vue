@@ -5,6 +5,7 @@
       :key="i"
       v-bind="item"
       :delay="baseDelay + i * 100"
+      class=" w-[7rem]"
     />
   </div>
 </template>
@@ -22,6 +23,13 @@ const list = [
     icon: 'docs',
     onClick() {
       appStore.open('note')
+    },
+  },
+  {
+    label: 'ChatLLM',
+    icon: 'docs',
+    onClick() {
+      appStore.open('chat-llm')
     },
   },
 ]

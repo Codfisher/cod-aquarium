@@ -5,7 +5,16 @@ import { defineStore } from 'pinia'
 import { clamp, clone, pick, pipe } from 'remeda'
 import { computed, markRaw, ref, shallowRef, triggerRef } from 'vue'
 
-export type AppType = 'about' | 'center' | 'note' | 'portfolio'
+export type AppType = 'about' |
+  /** 應用程式 */
+  'center' |
+  /** 記事本 */
+  'note' |
+  /** 基於 web-llm 的 chat */
+  'chat-llm' |
+
+  /** 作品集 */
+  'portfolio'
 interface AppInfo {
   id: string;
   type: AppType;
@@ -43,7 +52,7 @@ export const useAppStore = defineStore('app', () => {
     window ?? { innerWidth: 0, innerHeight: 0 },
     ({ innerWidth, innerHeight }) => {
       return {
-        about: {
+        'about': {
           x: 0,
           y: 0,
           offsetX: 0,
@@ -53,7 +62,7 @@ export const useAppStore = defineStore('app', () => {
           offsetW: 0,
           offsetH: 0,
         },
-        center: {
+        'center': {
           x: 0,
           y: 0,
           offsetX: 0,
@@ -63,7 +72,7 @@ export const useAppStore = defineStore('app', () => {
           offsetW: 0,
           offsetH: 0,
         },
-        note: pipe(undefined, () => {
+        'note': pipe(undefined, () => {
           const [width, height] = [
             Math.min(innerWidth / 2, 500),
             innerHeight / 2,
@@ -80,7 +89,18 @@ export const useAppStore = defineStore('app', () => {
             offsetH: 0,
           }
         }),
-        portfolio: {
+        'chat-llm': {
+          x: 0,
+          y: 0,
+          offsetX: 0,
+          offsetY: 0,
+          width: Math.min(innerWidth / 2, 500),
+          height: innerHeight / 2,
+          offsetW: 0,
+          offsetH: 0,
+        },
+
+        'portfolio': {
           x: 0,
           y: 0,
           offsetX: 0,

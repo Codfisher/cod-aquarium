@@ -13,7 +13,7 @@
     v-bind="textAttrs"
     fill="#fff"
     writing-mode="vertical-rl"
-    class=" text-sm tracking-wider"
+    class=" text-sm tracking-wider font-orbitron"
   >
     {{ titleDecoder.text }}
   </text>
