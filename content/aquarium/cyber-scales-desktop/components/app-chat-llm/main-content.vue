@@ -8,7 +8,7 @@
         {{ progress }}%
       </div>
       <div>奮力初始化，請稍等... <span class="text-nowrap">─=≡Σ((( つ•̀ω•́)つ</span></div>
-      <div>（第一次會比較久，畢竟人生地不熟 <span class="text-nowrap">(´・ω・`)</span> ）</div>
+      <div>（第一次會比較久，畢竟人生地不熟嘛 <span class="text-nowrap">(´・ω・`)</span> ）</div>
     </div>
 
     <div
@@ -122,13 +122,13 @@ const md = new MarkdownIt()
 const modelList = prebuiltAppConfig.model_list.map(({ model_id }) => model_id)
 console.log('🚀 ~ modelList:', modelList)
 
-// const defaultModel = 'Llama-3.2-1B-Instruct-q4f16_1-MLC'
-const defaultModel = 'SmolLM2-1.7B-Instruct-q4f32_1-MLC'
+const defaultModel = 'Llama-3.2-1B-Instruct-q4f32_1-MLC'
+// const defaultModel = 'SmolLM2-360M-Instruct-q4f32_1-MLC'
 
 const message = ref('')
 const chatDataList = shallowRef<ChatCompletionMessageParam[]>([{
   role: 'system',
-  content: '你是鱈魚小助手',
+  content: `You are Cod's assistant, your task is to chat with users`,
 }])
 
 const messageList = computed(() => chatDataList.value
@@ -167,6 +167,7 @@ const {
 
   return result
 }, undefined, {
+  shallow: true,
   onError() {
     engine.value?.unload()
   },
