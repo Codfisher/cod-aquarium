@@ -34,7 +34,14 @@
         class="p-2 px-4 max-w-[60%] overflow-hidden text-ellipsis shrink-0"
         :class="item.role"
       >
-        {{ item.content }}
+        <div
+          v-if="item.markdown"
+          v-html="item.markdown"
+        />
+
+        <template v-else>
+          {{ item.content }}
+        </template>
       </div>
 
       <div
@@ -101,6 +108,13 @@ import BaseDialog from '../base-dialog/base-dialog.vue'
 import BaseInput from '../base-input/base-input.vue'
 import { vDecodingText } from '../../../../../directives/v-decoding-text'
 import { nextFrame } from '../../../../../common/utils'
+import MarkdownIt from 'markdown-it'
+
+const md = new MarkdownIt({
+  html: false,
+  linkify: true,
+  breaks: true
+})
 
 const modelList = prebuiltAppConfig.model_list.map(({ model_id }) => model_id)
 // console.log('🚀 ~ modelList:', modelList);
@@ -115,11 +129,19 @@ const chatDataList = shallowRef<ChatCompletionMessageParam[]>([{
 
 const messageList = computed(() => chatDataList.value
   .filter(({ role }) => role !== 'system')
+  .map((data) => {
+    const markdown = typeof data.content === 'string' ? md.render(data.content) : undefined
+
+    return {
+      ...data,
+      markdown,
+    }
+  })
 )
 
 const isThinking = ref(false)
 async function sendMessage() {
-  if (sendBtnDisabled.value || !engine.value) {
+  if (sendBtnDisabled.value || !engine.value || isThinking.value) {
     return
   }
 
