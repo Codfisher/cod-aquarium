@@ -135,7 +135,7 @@ provide(baseTooltipInjectionKey, {
 <style scoped lang="sass">
 .tip
   backdrop-filter: blur(10px)
-  background: rgba(#888, 0.05)
+  background: rgba(#888, 0.1)
   text-shadow: 0 0 5px white, 0 0 10px white, 0 0 15px white
 </style>
 

@@ -41,6 +41,7 @@ interface GraphParams {
   y: number;
   size: number;
   color: number;
+  opacity: number;
 }
 
 const offset = 0
@@ -51,8 +52,9 @@ const targetParams = computed<GraphParams>(() => {
     return {
       x: 0,
       y: 0,
-      size: 0,
+      size: 4,
       color: 0xAAAAAA,
+      opacity: 0,
     }
   }
 
@@ -61,6 +63,7 @@ const targetParams = computed<GraphParams>(() => {
     y: -svgSize.height / 2 + offset,
     size: 2,
     color: 0x444444,
+    opacity: 1,
   }
 })
 
@@ -76,12 +79,15 @@ const { data: graphParams } = useAnimatable(
       },
       {
         visible: {
+          x: props.duration * 0.4,
           y: props.duration * 0.8,
           color: props.duration * 1.6,
+          size: props.duration * 1.6,
         },
         hidden: {
           x: props.duration * 0.8,
           size: props.duration,
+          opacity: props.duration,
         },
       },
     ),
@@ -93,7 +99,7 @@ const { data: graphParams } = useAnimatable(
 
 const graphAttrs = computed(() => {
   const { width, height } = props.svgSize
-  const { x, y, size } = graphParams
+  const { x, y, size, opacity } = graphParams
   const [
     halfSize,
     halfWidth,
@@ -117,6 +123,7 @@ const graphAttrs = computed(() => {
       height: size,
       fill,
       style: `filter: ${glow}`,
+      opacity,
     },
     rt: {
       x: -x - halfSize + halfWidth,
@@ -125,6 +132,7 @@ const graphAttrs = computed(() => {
       height: size,
       fill,
       style: `filter: ${glow}`,
+      opacity,
     },
     lb: {
       x: x - halfSize + halfWidth,
@@ -133,6 +141,7 @@ const graphAttrs = computed(() => {
       height: size,
       fill,
       style: `filter: ${glow}`,
+      opacity,
     },
     rb: {
       x: -x - halfSize + halfWidth,
@@ -141,6 +150,7 @@ const graphAttrs = computed(() => {
       height: size,
       fill,
       style: `filter: ${glow}`,
+      opacity,
     },
   }
 })
