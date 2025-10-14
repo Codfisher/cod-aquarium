@@ -79,8 +79,8 @@ export const useAppStore = defineStore('app', () => {
           ]
 
           return {
-            x: innerWidth - width * 1.5,
-            y: innerHeight - height * 1.5,
+            x: innerWidth,
+            y: innerHeight,
             offsetX: 0,
             offsetY: 0,
             width,
@@ -92,12 +92,12 @@ export const useAppStore = defineStore('app', () => {
         'chat-llm': pipe(undefined, () => {
           const [width, height] = [
             Math.min(innerWidth / 2, 500),
-            innerHeight * 0.75,
+            innerHeight * 0.6,
           ]
 
           return {
-            x: innerWidth - width * 1.5,
-            y: innerHeight - height * 1.5,
+            x: innerWidth,
+            y: innerHeight,
             offsetX: 0,
             offsetY: 0,
             width,
@@ -190,6 +190,8 @@ export const useAppStore = defineStore('app', () => {
   }
 
   function update(id: string, data: Partial<{
+    x: number;
+    y: number;
     offsetX: number;
     offsetY: number;
     offsetW: number;
@@ -198,6 +200,13 @@ export const useAppStore = defineStore('app', () => {
     const target = id && appMap.value.get(id)
     if (!target)
       return
+
+    if (data.x !== undefined) {
+      target.data.x = data.x
+    }
+    if (data.y !== undefined) {
+      target.data.y = data.y
+    }
 
     target.data.offsetX = data.offsetX ?? 0
     target.data.offsetY = data.offsetY ?? 0

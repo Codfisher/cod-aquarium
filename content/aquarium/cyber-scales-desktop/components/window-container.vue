@@ -17,9 +17,9 @@
 <script setup lang="ts">
 import type { CSSProperties } from 'vue'
 import type { AppType } from '../stores/app-store'
-import { useElementSize } from '@vueuse/core'
+import { useElementSize, watchDebounced } from '@vueuse/core'
 import { clamp, firstBy, pipe } from 'remeda'
-import { computed, defineAsyncComponent, reactive, useTemplateRef } from 'vue'
+import { computed, defineAsyncComponent, reactive, useTemplateRef, watch } from 'vue'
 import { useAppStore } from '../stores/app-store'
 
 const appComponentMap: Record<AppType, ReturnType<typeof defineAsyncComponent>> = {
@@ -38,45 +38,56 @@ const containerSize = reactive(useElementSize(containerRef))
 const appList = computed(() => {
   const list = appStore.appList
 
-  const minFocusedAt = firstBy(
-    list,
-    ({ focusedAt }) => focusedAt,
-  )?.focusedAt ?? 0
+  return list
+    .sort((a, b) => a.focusedAt - b.focusedAt)
+    .map((item, i) => {
+      const { data } = item
 
-  return list.map((item) => {
-    const { data } = item
+      const x = pipe(
+        data.x + data.offsetX,
+        clamp({
+          min: 0,
+          max: containerSize.width - data.width,
+        }),
+      )
+      const y = pipe(
+        data.y + data.offsetY,
+        clamp({
+          min: 0,
+          max: containerSize.height - data.height,
+        }),
+      )
 
-    const x = pipe(
-      data.x + data.offsetX,
-      clamp({
-        min: 0,
-        max: containerSize.width - data.width,
-      }),
-    )
-    const y = pipe(
-      data.y + data.offsetY,
-      clamp({
-        min: 0,
-        max: containerSize.height - data.height,
-      }),
-    )
+      const style: CSSProperties = {
+        translate: `${x}px ${y}px`,
+        zIndex: i,
+      }
 
-    const style: CSSProperties = {
-      translate: `${x}px ${y}px`,
-      zIndex: item.focusedAt - minFocusedAt,
-    }
+      const component = appComponentMap[item.type]
+      if (!component) {
+        throw new Error(`Unknown component type: ${item.type}`)
+      }
 
-    const component = appComponentMap[item.type]
-    if (!component) {
-      throw new Error(`Unknown component type: ${item.type}`)
-    }
+      return {
+        id: item.id,
+        x,
+        y,
+        component,
+        style,
+      }
+    })
+})
 
-    return {
-      id: item.id,
-      component,
-      style,
-    }
+// 重置超出範圍的 x, y
+watchDebounced(appList, (list) => {
+  list.forEach((item) => {
+    appStore.update(item.id, {
+      x: item.x,
+      y: item.y,
+    })
   })
+}, {
+  debounce: 100
 })
 </script>
 

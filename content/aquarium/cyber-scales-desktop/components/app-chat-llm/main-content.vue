@@ -25,7 +25,10 @@
 
 
     <teleport to="body">
-      <base-dialog v-model="settingDialogVisible" class="z-[999999]">
+      <base-dialog
+        v-model="settingDialogVisible"
+        class="z-1"
+      >
         設定視窗
 
         <base-btn
