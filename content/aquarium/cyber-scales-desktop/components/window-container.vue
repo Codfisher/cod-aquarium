@@ -16,13 +16,18 @@
 
 <script setup lang="ts">
 import type { CSSProperties } from 'vue'
+import type { AppType } from '../stores/app-store'
 import { useElementSize } from '@vueuse/core'
 import { clamp, firstBy, pipe } from 'remeda'
-import { computed, reactive, useTemplateRef } from 'vue'
+import { computed, defineAsyncComponent, reactive, useTemplateRef } from 'vue'
 import { useAppStore } from '../stores/app-store'
 
-interface Props { }
-const props = withDefaults(defineProps<Props>(), {})
+const appComponentMap: Record<AppType, ReturnType<typeof defineAsyncComponent>> = {
+  about: defineAsyncComponent(() => import('./app-about/app-about.vue')),
+  center: defineAsyncComponent(() => import('./app-center/app-center.vue')),
+  note: defineAsyncComponent(() => import('./app-note/app-note.vue')),
+  portfolio: defineAsyncComponent(() => import('./app-portfolio/app-portfolio.vue')),
+}
 
 const appStore = useAppStore()
 
@@ -60,9 +65,14 @@ const appList = computed(() => {
       zIndex: item.focusedAt - minFocusedAt,
     }
 
+    const component = appComponentMap[item.type]
+    if (!component) {
+      throw new Error(`Unknown component type: ${item.type}`)
+    }
+
     return {
       id: item.id,
-      component: item.data.component,
+      component,
       style,
     }
   })

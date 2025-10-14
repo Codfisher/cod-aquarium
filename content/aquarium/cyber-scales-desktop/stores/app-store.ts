@@ -5,17 +5,11 @@ import { defineStore } from 'pinia'
 import { clamp, clone, pick, pipe } from 'remeda'
 import { computed, markRaw, ref, shallowRef, triggerRef } from 'vue'
 
-import AppAbout from '../components/app-about/app-about.vue'
-import AppCenter from '../components/app-center/app-center.vue'
-import AppNote from '../components/app-note/app-note.vue'
-import AppPortfolio from '../components/app-portfolio/app-portfolio.vue'
-
-type AppType = 'about' | 'center' | 'note' | 'portfolio'
+export type AppType = 'about' | 'center' | 'note' | 'portfolio'
 interface AppInfo {
   id: string;
   type: AppType;
   data: {
-    name: string;
     // 起點座標
     x: number;
     y: number;
@@ -28,7 +22,6 @@ interface AppInfo {
 
     offsetW: number;
     offsetH: number;
-    component: Component;
   };
   isActive: boolean;
   focusedAt: number;
@@ -51,7 +44,6 @@ export const useAppStore = defineStore('app', () => {
     ({ innerWidth, innerHeight }) => {
       return {
         about: {
-          name: '關於我',
           x: 0,
           y: 0,
           offsetX: 0,
@@ -60,10 +52,8 @@ export const useAppStore = defineStore('app', () => {
           height: innerHeight / 2,
           offsetW: 0,
           offsetH: 0,
-          component: AppAbout,
         },
         center: {
-          name: '應用程式',
           x: 0,
           y: 0,
           offsetX: 0,
@@ -72,7 +62,6 @@ export const useAppStore = defineStore('app', () => {
           height: 300,
           offsetW: 0,
           offsetH: 0,
-          component: AppCenter,
         },
         note: pipe(undefined, () => {
           const [width, height] = [
@@ -81,7 +70,6 @@ export const useAppStore = defineStore('app', () => {
           ]
 
           return {
-            name: '記事本',
             x: innerWidth - width * 1.5,
             y: innerHeight - height * 1.5,
             offsetX: 0,
@@ -90,11 +78,9 @@ export const useAppStore = defineStore('app', () => {
             height,
             offsetW: 0,
             offsetH: 0,
-            component: AppNote,
           }
         }),
         portfolio: {
-          name: '作品集',
           x: 0,
           y: 0,
           offsetX: 0,
@@ -103,7 +89,6 @@ export const useAppStore = defineStore('app', () => {
           height: 300,
           offsetW: 0,
           offsetH: 0,
-          component: AppPortfolio,
         },
       }
     },
@@ -152,7 +137,6 @@ export const useAppStore = defineStore('app', () => {
       data: {
         ...defaultData,
         ...position,
-        component: markRaw(defaultData.component),
       },
     })
 
