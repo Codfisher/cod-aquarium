@@ -38,10 +38,11 @@
 </template>
 
 <script setup lang="ts">
-import { flip, offset, shift, useFloating } from '@floating-ui/vue'
-import { asyncComputed, promiseTimeout, until, useElementHover, useElementSize } from '@vueuse/core'
+import type { Placement } from '@floating-ui/vue'
+import { autoPlacement, autoUpdate, flip, offset, shift, useFloating } from '@floating-ui/vue'
+import { asyncComputed, promiseTimeout, until, useElementBounding, useElementHover, useElementSize, useIntervalFn } from '@vueuse/core'
 import MarkdownIt from 'markdown-it'
-import { computed, getCurrentInstance, nextTick, onMounted, provide, ref, useTemplateRef, watch } from 'vue'
+import { computed, getCurrentInstance, nextTick, onMounted, provide, reactive, ref, useTemplateRef, watch } from 'vue'
 import { nextFrame } from '../../../../../common/utils'
 import { ComponentStatus } from '../../types'
 import Bg from './bg/bg.vue'
@@ -58,6 +59,7 @@ interface Props {
   offset?: number;
   showDelay?: number;
   hideDelay?: number;
+  placement?: Placement;
 }
 const props = withDefaults(defineProps<Props>(), {
   text: '',
@@ -83,12 +85,22 @@ const tooltipSize = useElementSize(tooltipRef)
 const textData = computed(() => md.render(props.text))
 
 /** 外層父元件 */
-const referenceRef = ref()
+const referenceRef = useTemplateRef('referenceRef')
+const referenceBounding = reactive(useElementBounding(referenceRef))
+
 const isReferenceHover = useElementHover(referenceRef)
 const isTooltipHover = useElementHover(tooltipRef)
 
-const { floatingStyles } = useFloating(referenceRef, tooltipRef, {
-  middleware: [offset(props.offset), flip(), shift()],
+const {
+  floatingStyles,
+} = useFloating(referenceRef, tooltipRef, {
+  placement: () => props.placement,
+  whileElementsMounted: autoUpdate,
+  middleware: [
+    offset(props.offset),
+    flip(),
+    shift(),
+  ],
 })
 
 const isReady = ref(false)
