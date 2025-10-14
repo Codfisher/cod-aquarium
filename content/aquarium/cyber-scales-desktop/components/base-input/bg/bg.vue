@@ -110,8 +110,8 @@ const { data: graphParams } = useAnimatable(
 
     if (status.value === ComponentStatus.ACTIVE) {
       return {
-        width: width - 1,
-        height: height - 1,
+        width,
+        height,
         chamfer: 10,
         opacity: 0.98,
         partOffsetY: 0,

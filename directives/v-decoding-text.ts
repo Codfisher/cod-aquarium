@@ -6,6 +6,8 @@ interface UseDecodingTextOptions extends NonNullable<
   Parameters<typeof useDecodingText>[1]
 > {
   startDelay?: number;
+
+  onFinish?: () => void
 }
 
 export const vDecodingText: Directive<any, UseDecodingTextOptions> = {
@@ -28,7 +30,12 @@ export const vDecodingText: Directive<any, UseDecodingTextOptions> = {
         el.textContent = value
       })
 
-      setTimeout(() => titleDecoder.start(), startDelay)
+      setTimeout(
+        () => titleDecoder.start().then(() => {
+          binding.value.onFinish?.()
+        }),
+        startDelay
+      )
 
       useIntervalFn(() => {
         // 檢查元素是否還在 DOM 中，否則停止 effect scope

@@ -87,7 +87,7 @@ watchDebounced(appList, (list) => {
     })
   })
 }, {
-  debounce: 100
+  debounce: 500
 })
 </script>
 

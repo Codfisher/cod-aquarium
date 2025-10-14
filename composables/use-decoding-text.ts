@@ -8,13 +8,13 @@ function useChar(
   options?: Partial<{
     charset: string;
     count: number;
-    interval: number;
+    decodeInterval: number;
     initChar: string;
   }>,
 ) {
   const {
     count = 12,
-    interval = 50,
+    decodeInterval = 20,
     charset = defaultCharset,
     initChar: initialChar,
   } = options ?? {}
@@ -54,7 +54,7 @@ function useChar(
 
           char.value = getRandomChar() ?? value
           times -= 1
-        }, interval)
+        }, decodeInterval)
       }, delay)
     })
   }
@@ -84,24 +84,28 @@ function useChar(
 interface UseDecodingTextOptions {
   interval?: number;
   initChar?: string;
+  count?: number;
+  decodeInterval?: number;
 }
 export function useDecodingText(
   textValue: string,
   options: UseDecodingTextOptions = {},
 ) {
-  const { interval = 30, initChar } = options
-  const charList = textValue.split(/.*?/u).map((char) => useChar(char, { initChar }))
+  const { interval = 30 } = options
+  const charList = textValue.split(/.*?/u).map((char) => useChar(char, options))
 
   const text = computed(() => charList.map((c) => c.char.value).join(''))
 
-  function start() {
-    charList.forEach(async ({ start, isDone }, i) => {
+  async function start() {
+    const tasks = charList.map(async ({ isDone, start }, i) => {
       if (isDone.value) {
         return
       }
       await promiseTimeout(i * interval)
-      start()
+      await start()
     })
+
+    return Promise.all(tasks)
   }
   function stop() {
     charList.forEach(({ stop }) => stop())

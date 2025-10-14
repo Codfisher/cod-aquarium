@@ -88,7 +88,7 @@ export function downloadAsFile(
 /** 顏色是否有彩度（通常用於判斷是否有光暈） */
 export function hasChroma(
   color: number | string, 
-  tolerance = 10
+  tolerance = 100
 ) {
   const value = pipe(undefined, () => {
     if (typeof color === 'number') {

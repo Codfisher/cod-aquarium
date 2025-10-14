@@ -1,24 +1,78 @@
 <template>
-  <div class="p-4 flex flex-col gap-4">
-    <div class="flex flex-col flex-1">
-      {{ progressReport }}
+  <div class="p-2 flex flex-col gap-1">
+    <div
+      v-if="isLoading"
+      class=" p-2 text-center opacity-50 flex-1 flex flex-col justify-center items-center gap-2"
+    >
+      <div class="font-orbitron text-4xl mb-4">{{ progress }}%</div>
+      <div>奮力初始化，請稍等...─=≡Σ((( つ•̀ω•́)つ</div>
+      <div>（第一次下載會比較久 (´・ω・`)）</div>
     </div>
+
+    <div
+      v-else-if="error"
+      class=" p-2 text-center opacity-50 flex-1 flex flex-col justify-center items-center gap-2"
+    >
+      <div>出了一點意外，請重新整理後再試一次 (╥ω╥`)</div>
+    </div>
+
+    <div
+      v-else
+      ref="chatRef"
+      class="chat flex flex-col flex-1 overflow-auto pb-10 gap-2"
+    >
+      <div
+        v-for="item, i in messageList"
+        v-decoding-text="{
+          interval: 10,
+          initChar: '　',
+          count: 10,
+          decodeInterval: 10,
+          onFinish: scrollToBottom,
+        }"
+        :key="i"
+        class="p-2 px-4 max-w-[60%] overflow-hidden text-ellipsis shrink-0"
+        :class="item.role"
+      >
+        {{ item.content }}
+      </div>
+
+      <div
+        v-if="isThinking"
+        v-decoding-text="{
+          interval: 10,
+          initChar: '　',
+          count: 10,
+          decodeInterval: 10,
+          onFinish: scrollToBottom,
+        }"
+        class="loading border p-2 max-w-[60%] bg-gray-200 opacity-40"
+      >
+        正在思考...
+      </div>
+    </div>
+
+    <span class="font-orbitron  text-xs p-1 opacity-60">
+      {{ progressReport.text }}
+    </span>
 
     <div class=" flex gap-2 w-full">
       <base-input
         v-model="message"
         class=" w-full"
+        @keydown.enter="sendMessage"
       />
 
       <base-btn
         label="發送"
-        :disabled="message === ''"
+        :disabled="sendBtnDisabled"
+        @click="sendMessage"
       />
 
-      <base-btn
+      <!-- <base-btn
         label="設定"
         @click="openSetting"
-      />
+      /> -->
     </div>
 
 
@@ -39,35 +93,97 @@
 </template>
 
 <script lang="ts" setup>
-import { CreateMLCEngine, InitProgressReport, prebuiltAppConfig } from '@mlc-ai/web-llm'
+import { ChatCompletionMessageParam, CreateMLCEngine, CreateWebWorkerMLCEngine, InitProgressReport, prebuiltAppConfig } from '@mlc-ai/web-llm'
 import { useAsyncState } from '@vueuse/core'
-import { ref } from 'vue'
+import { computed, onBeforeUnmount, ref, shallowRef, triggerRef, useTemplateRef, watch } from 'vue'
 import BaseBtn from '../base-btn/base-btn.vue'
 import BaseDialog from '../base-dialog/base-dialog.vue'
 import BaseInput from '../base-input/base-input.vue'
+import { vDecodingText } from '../../../../../directives/v-decoding-text'
+import { nextFrame } from '../../../../../common/utils'
 
 const modelList = prebuiltAppConfig.model_list.map(({ model_id }) => model_id)
+// console.log('🚀 ~ modelList:', modelList);
 
-const defaultModel = 'Llama-3.2-1B-Instruct-q4f32_1-MLC'
+const defaultModel = 'Llama-3.2-1B-Instruct-q0f16-MLC'
 
 const message = ref('')
+const chatDataList = shallowRef<ChatCompletionMessageParam[]>([{
+  role: 'system',
+  content: '你是鱈魚小助手'
+}])
+
+const messageList = computed(() => chatDataList.value
+  .filter(({ role }) => role !== 'system')
+)
+
+const isThinking = ref(false)
+async function sendMessage() {
+  if (sendBtnDisabled.value || !engine.value) {
+    return
+  }
+
+  chatDataList.value.push({
+    role: 'user',
+    content: message.value,
+  })
+  message.value = ''
+  triggerRef(chatDataList)
+
+  isThinking.value = true
+  const reply = await engine.value.chat.completions.create({
+    messages: chatDataList.value,
+  });
+  isThinking.value = false
+
+  if (reply.choices[0]) {
+    chatDataList.value.push(reply.choices[0].message)
+  }
+  triggerRef(chatDataList)
+}
 
 const progressReport = ref<InitProgressReport>({
   progress: 0,
   text: '',
   timeElapsed: 0,
 })
-const { isLoading, state: engine } = useAsyncState(async () => {
-  const engine = await CreateMLCEngine(defaultModel, {
-    initProgressCallback: (progress) => {
-      progressReport.value = progress
-    },
-  })
+const progress = computed(() => Math.round(progressReport.value.progress * 100))
+
+const {
+  isLoading,
+  error,
+  state: engine,
+} = useAsyncState(async () => {
+  const engine = await CreateWebWorkerMLCEngine(
+    new Worker(new URL("./worker.ts", import.meta.url), { type: "module" }),
+    defaultModel,
+    {
+      initProgressCallback(value) {
+        progressReport.value = value
+      }
+    }
+  );
 
   return engine
-}, undefined, {
-  immediate: false,
+}, undefined)
+onBeforeUnmount(() => {
+  engine.value?.unload()
 })
+
+const sendBtnDisabled = computed(
+  () => isLoading.value || message.value === ''
+)
+
+const chatRef = useTemplateRef('chatRef')
+
+async function scrollToBottom() {
+  await nextFrame()
+  chatRef.value?.scrollTo({
+    top: chatRef.value.scrollHeight,
+    behavior: 'smooth',
+  })
+}
+
 
 const settingDialogVisible = ref(false)
 function openSetting() {
@@ -76,4 +192,10 @@ function openSetting() {
 </script>
 
 <style scoped lang="sass">
+.chat
+  .user
+    align-self: flex-end
+    background: #EEE
+  .assistant, .loading
+    background: #2DD4BF
 </style>
