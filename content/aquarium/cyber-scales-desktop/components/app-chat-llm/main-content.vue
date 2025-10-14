@@ -4,16 +4,21 @@
       v-if="isLoading"
       class=" p-2 text-center opacity-50 flex-1 flex flex-col justify-center items-center gap-2"
     >
-      <div class="font-orbitron text-4xl mb-4">{{ progress }}%</div>
+      <div class="font-orbitron text-4xl mb-4">
+        {{ progress }}%
+      </div>
       <div>奮力初始化，請稍等... <span class="text-nowrap">─=≡Σ((( つ•̀ω•́)つ</span></div>
       <div>（第一次會比較久，畢竟人生地不熟 <span class="text-nowrap">(´・ω・`)</span> ）</div>
     </div>
 
     <div
       v-else-if="error"
-      class=" p-2 text-center opacity-50 flex-1 flex flex-col justify-center items-center gap-2"
+      class=" p-2 text-center opacity-80 flex-1 flex flex-col justify-center items-center gap-2"
     >
-      <div>出了一點意外，請重新整理後再試一次 (╥ω╥`)</div>
+      <div>出了一點意外，請重新整理後再試一次 <span class="text-nowrap">(╥ω╥`)</span></div>
+      <div class="text-sm text-red-400">
+        {{ error }}
+      </div>
     </div>
 
     <div
@@ -23,14 +28,14 @@
     >
       <div
         v-for="item, i in messageList"
+        :key="i"
         v-decoding-text="{
           interval: 10,
-          initChar: '　',
+          initChar,
           count: 10,
           decodeInterval: 10,
           onFinish: scrollToBottom,
         }"
-        :key="i"
         class="p-2 px-4 max-w-[60%] overflow-hidden text-ellipsis shrink-0"
         :class="item.role"
       >
@@ -48,7 +53,7 @@
         v-if="isThinking"
         v-decoding-text="{
           interval: 10,
-          initChar: '　',
+          initChar,
           count: 10,
           decodeInterval: 10,
           onFinish: scrollToBottom,
@@ -82,7 +87,6 @@
       /> -->
     </div>
 
-
     <teleport to="body">
       <base-dialog
         v-model="settingDialogVisible"
@@ -100,30 +104,31 @@
 </template>
 
 <script lang="ts" setup>
-import { ChatCompletionMessageParam, CreateMLCEngine, CreateWebWorkerMLCEngine, InitProgressReport, prebuiltAppConfig } from '@mlc-ai/web-llm'
+import type { ChatCompletionMessageParam, InitProgressReport } from '@mlc-ai/web-llm'
+import { CreateWebWorkerMLCEngine, prebuiltAppConfig } from '@mlc-ai/web-llm'
 import { useAsyncState } from '@vueuse/core'
-import { computed, onBeforeUnmount, ref, shallowRef, triggerRef, useTemplateRef, watch } from 'vue'
+import MarkdownIt from 'markdown-it'
+import { computed, onBeforeUnmount, ref, shallowRef, triggerRef, useTemplateRef } from 'vue'
+import { nextFrame } from '../../../../../common/utils'
+import { vDecodingText } from '../../../../../directives/v-decoding-text'
 import BaseBtn from '../base-btn/base-btn.vue'
 import BaseDialog from '../base-dialog/base-dialog.vue'
 import BaseInput from '../base-input/base-input.vue'
-import { vDecodingText } from '../../../../../directives/v-decoding-text'
-import { nextFrame } from '../../../../../common/utils'
-import MarkdownIt from 'markdown-it'
 
-const md = new MarkdownIt({
-  linkify: true,
-  breaks: true
-})
+const initChar = '　'
+
+const md = new MarkdownIt()
 
 const modelList = prebuiltAppConfig.model_list.map(({ model_id }) => model_id)
-// console.log('🚀 ~ modelList:', modelList);
+console.log('🚀 ~ modelList:', modelList)
 
-const defaultModel = 'Llama-3.2-1B-Instruct-q0f16-MLC'
+// const defaultModel = 'Llama-3.2-1B-Instruct-q4f16_1-MLC'
+const defaultModel = 'SmolLM2-1.7B-Instruct-q4f32_1-MLC'
 
 const message = ref('')
 const chatDataList = shallowRef<ChatCompletionMessageParam[]>([{
   role: 'system',
-  content: '你是鱈魚小助手'
+  content: '你是鱈魚小助手',
 }])
 
 const messageList = computed(() => chatDataList.value
@@ -135,7 +140,43 @@ const messageList = computed(() => chatDataList.value
       ...data,
       markdown,
     }
-  })
+  }),
+)
+
+const progressReport = ref<InitProgressReport>({
+  progress: 0,
+  text: '',
+  timeElapsed: 0,
+})
+const progress = computed(() => Math.round(progressReport.value.progress * 100))
+
+const {
+  isLoading,
+  error,
+  state: engine,
+} = useAsyncState(async () => {
+  const result = await CreateWebWorkerMLCEngine(
+    new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' }),
+    defaultModel,
+    {
+      initProgressCallback(value) {
+        progressReport.value = value
+      },
+    },
+  )
+
+  return result
+}, undefined, {
+  onError() {
+    engine.value?.unload()
+  },
+})
+onBeforeUnmount(() => {
+  engine.value?.unload()
+})
+
+const sendBtnDisabled = computed(
+  () => isLoading.value || message.value === '',
 )
 
 const isThinking = ref(false)
@@ -154,7 +195,7 @@ async function sendMessage() {
   isThinking.value = true
   const reply = await engine.value.chat.completions.create({
     messages: chatDataList.value,
-  });
+  })
   isThinking.value = false
 
   if (reply.choices[0]) {
@@ -162,38 +203,6 @@ async function sendMessage() {
   }
   triggerRef(chatDataList)
 }
-
-const progressReport = ref<InitProgressReport>({
-  progress: 0,
-  text: '',
-  timeElapsed: 0,
-})
-const progress = computed(() => Math.round(progressReport.value.progress * 100))
-
-const {
-  isLoading,
-  error,
-  state: engine,
-} = useAsyncState(async () => {
-  const engine = await CreateWebWorkerMLCEngine(
-    new Worker(new URL("./worker.ts", import.meta.url), { type: "module" }),
-    defaultModel,
-    {
-      initProgressCallback(value) {
-        progressReport.value = value
-      }
-    }
-  );
-
-  return engine
-}, undefined)
-onBeforeUnmount(() => {
-  engine.value?.unload()
-})
-
-const sendBtnDisabled = computed(
-  () => isLoading.value || message.value === ''
-)
 
 const chatRef = useTemplateRef('chatRef')
 
@@ -204,7 +213,6 @@ async function scrollToBottom() {
     behavior: 'smooth',
   })
 }
-
 
 const settingDialogVisible = ref(false)
 function openSetting() {

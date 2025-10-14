@@ -18,8 +18,8 @@
 
       <!-- 填充寬度用 -->
       <div
-        v-html="textData"
         class=" opacity-0 pointer-events-none max-w-[30dvw]"
+        v-html="textData"
       />
 
       <content-wrapper
@@ -28,8 +28,8 @@
       >
         <slot name="content">
           <div
-            v-html="textData"
             class="tip flex justify-center items-center text-sm h-full"
+            v-html="textData"
           />
         </slot>
       </content-wrapper>
@@ -38,15 +38,15 @@
 </template>
 
 <script setup lang="ts">
+import { flip, offset, shift, useFloating } from '@floating-ui/vue'
 import { asyncComputed, promiseTimeout, until, useElementHover, useElementSize } from '@vueuse/core'
+import MarkdownIt from 'markdown-it'
 import { computed, getCurrentInstance, nextTick, onMounted, provide, ref, useTemplateRef, watch } from 'vue'
 import { nextFrame } from '../../../../../common/utils'
 import { ComponentStatus } from '../../types'
 import Bg from './bg/bg.vue'
 import ContentWrapper from './content-wrapper.vue'
 import { baseTooltipInjectionKey } from './type'
-import { flip, offset, shift, useFloating } from '@floating-ui/vue';
-import MarkdownIt from 'markdown-it'
 
 interface Slots {
   default?: () => unknown;
@@ -62,11 +62,10 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   text: '',
   offset: 10,
-  showDelay: 400,
+  showDelay: 800,
   hideDelay: 500,
 })
-const emit = defineEmits()
-const slot = defineSlots<Slots>()
+defineSlots<Slots>()
 
 const instance = getCurrentInstance()
 if (!instance) {
@@ -75,9 +74,8 @@ if (!instance) {
 
 const md = new MarkdownIt({
   html: true,
-  breaks: true
+  breaks: true,
 })
-
 
 const tooltipRef = useTemplateRef('tooltipRef')
 const tooltipSize = useElementSize(tooltipRef)
@@ -91,7 +89,7 @@ const isTooltipHover = useElementHover(tooltipRef)
 
 const { floatingStyles } = useFloating(referenceRef, tooltipRef, {
   middleware: [offset(props.offset), flip(), shift()],
-});
+})
 
 const isReady = ref(false)
 onMounted(async () => {
@@ -122,9 +120,8 @@ const status = asyncComputed(async () => {
 }, ComponentStatus.HIDDEN)
 
 const tooltipClass = computed(() => ({
-  'pointer-events-none': status.value === ComponentStatus.HIDDEN
+  'pointer-events-none': status.value === ComponentStatus.HIDDEN,
 }))
-
 
 defineExpose({
   status: computed(() => status.value),

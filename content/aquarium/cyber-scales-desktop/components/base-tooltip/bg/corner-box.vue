@@ -8,9 +8,10 @@
 </template>
 
 <script setup lang="ts">
+import type { Ref } from 'vue'
 import { usePrevious } from '@vueuse/core'
 import { pipe } from 'remeda'
-import { computed, Ref, toRef, toRefs, watch } from 'vue'
+import { computed, toRef, toRefs, watch } from 'vue'
 import { useAnimatable } from '../../../../../../composables/use-animatable'
 import { ComponentStatus } from '../../../types'
 import { hasChroma, resolveTransitionParamValue } from '../../../utils'
@@ -74,13 +75,13 @@ const { data: graphParams } = useAnimatable(
         defaultValue: 0,
       },
       {
-        'visible': {
+        visible: {
           y: props.duration * 0.8,
-          color: props.duration,
+          color: props.duration * 1.6,
         },
-        'hidden': {
+        hidden: {
           x: props.duration * 0.8,
-          size: props.duration * 0.8,
+          size: props.duration,
         },
       },
     ),
