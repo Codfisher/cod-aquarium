@@ -114,6 +114,7 @@ import { vDecodingText } from '../../../../../directives/v-decoding-text'
 import BaseBtn from '../base-btn/base-btn.vue'
 import BaseDialog from '../base-dialog/base-dialog.vue'
 import BaseInput from '../base-input/base-input.vue'
+import { filter, isTruthy } from 'remeda'
 
 const initChar = '　'
 
@@ -186,16 +187,24 @@ async function sendMessage() {
     return
   }
 
-  chatDataList.value.push({
+  const messageData: ChatCompletionMessageParam = {
     role: 'user',
     content: message.value,
-  })
+  }
+
+  chatDataList.value.push(messageData)
   message.value = ''
   triggerRef(chatDataList)
 
   isThinking.value = true
   const reply = await engine.value.chat.completions.create({
-    messages: chatDataList.value,
+    messages: filter(
+      [
+        chatDataList.value[0],
+        messageData,
+      ],
+      isTruthy,
+    ),
   })
   isThinking.value = false
 
