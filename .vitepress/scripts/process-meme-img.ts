@@ -55,7 +55,9 @@ async function main() {
     },
   })
 
-  const translator = await pipeline('translation', 'Xenova/nllb-200-distilled-600M')
+  const translator = await pipeline('translation', 'Xenova/nllb-200-distilled-600M', {
+    dtype: 'fp16',
+  })
 
   const memeFiles = await getMemeFiles(FILE_PATH)
   for (const file of memeFiles) {
