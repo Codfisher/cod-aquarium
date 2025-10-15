@@ -45,8 +45,8 @@
       <cursor-futuristic class="z-[99999]" />
 
       <base-img
-        src="/chill-components.webp"
-        class=" w-[100px] h-[100px] absolute left-10 top-10"
+        src="/vue-reactive-cheat-sheet.webp"
+        class=" w-[200px] h-[200px] absolute left-10 top-10"
       />
     </div>
   </client-only>
