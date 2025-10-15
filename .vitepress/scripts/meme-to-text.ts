@@ -33,37 +33,75 @@ async function getMemeFiles(dir: string, { recursive = true } = {}) {
 }
 
 async function main() {
-  const modelId = 'onnx-community/Florence-2-base-ft'
+  const modelId = 'onnx-community/Florence-2-large-ft'
   const processor = (await AutoProcessor.from_pretrained(modelId))
   if (!(processor instanceof Florence2Processor)) {
     return
   }
 
-  const model = await Florence2ForConditionalGeneration.from_pretrained(modelId, { dtype: 'q8' })
+  const model = await Florence2ForConditionalGeneration.from_pretrained(modelId, {
+    dtype: {
+      embed_tokens: 'fp16',
+      vision_encoder: 'fp16',
+      encoder_model: 'q4',
+      decoder_model_merged: 'q4',
+    },
+  })
 
   const task = '<MORE_DETAILED_CAPTION>'
   const prompts = processor.construct_prompts(task)
 
   const memeFiles = await getMemeFiles(FILE_PATH)
   for (const file of memeFiles) {
-    // ✅ 1) load_image 只吃檔案路徑/URL
     const image = await load_image(file)
 
-    // ✅ 2) 把「image + prompts」一起丟給 processor，才會產生 attention_mask 等文字張量
-    const inputs = await processor(image, prompts)
-
-    const generatedIds = await model.generate({ ...inputs, max_new_tokens: 120 })
-    if (!(generatedIds instanceof Tensor)) {
+    // ---------- Pass 1: OCR ----------
+    const taskOCR = '<OCR>'
+    const promptsOCR = processor.construct_prompts(taskOCR)
+    const inputsOCR = await processor(image, promptsOCR)
+    const outOCR = await model.generate({
+      ...inputsOCR,
+      max_new_tokens: 64,
+      num_beams: 4,
+      do_sample: false,
+      no_repeat_ngram_size: 2,
+    })
+    if (!(outOCR instanceof Tensor)) {
       continue
     }
 
-    const generatedText = processor.batch_decode(generatedIds, { skip_special_tokens: false })[0]
-    if (!generatedText) {
+    const textOCR = processor.batch_decode(outOCR, { skip_special_tokens: false })[0]
+    if (!textOCR) {
       continue
     }
-    const result = processor.post_process_generation(generatedText, task, image.size)
 
-    console.log(`${path.basename(file)} => ${result[task]}`)
+    const ocr = processor.post_process_generation(textOCR, taskOCR, image.size)[taskOCR] ?? ''
+
+    // ---------- Pass 2: Caption ----------
+    const taskCap = '<MORE_DETAILED_CAPTION>'
+    const promptsCap = processor.construct_prompts(taskCap)
+    const inputsCap = await processor(image, promptsCap)
+    const outCap = await model.generate({
+      ...inputsCap,
+      max_new_tokens: 120,
+      num_beams: 4,
+      do_sample: false,
+      no_repeat_ngram_size: 2,
+    })
+    if (!(outCap instanceof Tensor)) {
+      continue
+    }
+
+    const textCap = processor.batch_decode(outCap, { skip_special_tokens: false })[0]
+    if (!textCap) {
+      continue
+    }
+
+    const cap = processor.post_process_generation(textCap, taskCap, image.size)[taskCap] ?? ''
+
+    // ---------- 合併輸出 ----------
+    const merged = ocr ? `${cap} Text on image: ${ocr}` : cap
+    console.log(`${path.basename(file)} => ${merged}`)
   }
 }
 
