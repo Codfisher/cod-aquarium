@@ -8,6 +8,7 @@ const OUTPUT_PATH = path.resolve(__dirname, '../../.vitepress/dist')
 
 const IGNORE_NAME_LIST = [
   'favicon',
+  'memes',
 ]
 const WIDTH_LIST = [700, 300]
 const SUFFIX_NAME_LIST = ['.png', '.jpg', '.jpeg', '.webp']

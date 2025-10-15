@@ -24,6 +24,7 @@
     "esModuleInterop": true
   },
   "include": [
+    ".vitepress/scripts/**/*",
     "content/**/*",
     "components/**/*",
     "common/**/*",
