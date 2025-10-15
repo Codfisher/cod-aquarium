@@ -1,5 +1,8 @@
 <template>
-  <div :style="{ opacity: graphParams.opacity }">
+  <div
+    :style="{ opacity: graphParams.opacity }"
+    class="content"
+  >
     <slot />
   </div>
 </template>
@@ -46,7 +49,7 @@ const { data: graphParams } = useAnimatable(
     }
 
     return {
-      opacity: 0.98,
+      opacity: 1,
     }
   }),
   {
@@ -58,4 +61,8 @@ const { data: graphParams } = useAnimatable(
 </script>
 
 <style scoped lang="sass">
+.content
+  backdrop-filter: blur(2px)
+  background: rgba(#888, 0.05)
+  text-shadow: 0 0 4px white, 0 0 2px white
 </style>

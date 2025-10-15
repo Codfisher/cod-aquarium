@@ -28,7 +28,7 @@
       >
         <slot name="content">
           <div
-            class="tip text-sm h-full p-2"
+            class="text-sm h-full p-2"
             v-html="textData"
           />
         </slot>
@@ -145,10 +145,6 @@ provide(baseTooltipInjectionKey, {
 </script>
 
 <style scoped lang="sass">
-.tip
-  backdrop-filter: blur(10px)
-  background: rgba(#888, 0.1)
-  text-shadow: 0 0 5px white, 0 0 10px white, 0 0 15px white
 </style>
 
 <style lang="sass">

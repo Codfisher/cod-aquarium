@@ -108,13 +108,13 @@ import type { ChatCompletionMessageParam, InitProgressReport } from '@mlc-ai/web
 import { CreateWebWorkerMLCEngine, prebuiltAppConfig } from '@mlc-ai/web-llm'
 import { useAsyncState } from '@vueuse/core'
 import MarkdownIt from 'markdown-it'
+import { filter, isTruthy } from 'remeda'
 import { computed, onBeforeUnmount, ref, shallowRef, triggerRef, useTemplateRef } from 'vue'
 import { nextFrame } from '../../../../../common/utils'
 import { vDecodingText } from '../../../../../directives/v-decoding-text'
 import BaseBtn from '../base-btn/base-btn.vue'
 import BaseDialog from '../base-dialog/base-dialog.vue'
 import BaseInput from '../base-input/base-input.vue'
-import { filter, isTruthy } from 'remeda'
 
 const initChar = '　'
 
