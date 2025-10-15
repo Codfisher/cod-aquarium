@@ -43,6 +43,11 @@
       <window-container />
 
       <cursor-futuristic class="z-[99999]" />
+
+      <base-img
+        src="/chill-components.webp"
+        class=" w-[100px] h-[100px] absolute left-10 top-10"
+      />
     </div>
   </client-only>
 </template>
@@ -52,6 +57,7 @@ import { promiseTimeout, useAsyncState, useWindowSize } from '@vueuse/core'
 import { useData } from 'vitepress'
 import { computed, onBeforeUnmount, onMounted, reactive } from 'vue'
 import { nextFrame } from '../../../common/utils'
+import BaseImg from './components/base-img/base-img.vue'
 import CursorFuturistic from './components/cursor-futuristic/cursor-futuristic.vue'
 import DesktopItem from './components/desktop-item/desktop-item.vue'
 import HexagonLayout from './components/hexagon-layout.vue'
