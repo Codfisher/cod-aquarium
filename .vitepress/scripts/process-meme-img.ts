@@ -53,10 +53,12 @@ async function main() {
       encoder_model: 'q4',
       decoder_model_merged: 'q4',
     },
+    device: 'gpu',
   })
 
   const translator = await pipeline('translation', 'Xenova/nllb-200-distilled-600M', {
     dtype: 'fp16',
+    device: 'gpu',
   })
 
   const memeFiles = await getMemeFiles(FILE_PATH)
