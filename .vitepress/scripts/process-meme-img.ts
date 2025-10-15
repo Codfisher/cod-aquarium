@@ -5,8 +5,11 @@ import {
   Florence2ForConditionalGeneration,
   Florence2Processor,
   load_image,
+  pipeline,
   Tensor,
 } from '@huggingface/transformers'
+import { get } from 'lodash-es'
+import { createWorker } from 'tesseract.js'
 
 const __dirname = import.meta.dirname
 
@@ -33,6 +36,10 @@ async function getMemeFiles(dir: string, { recursive = true } = {}) {
 }
 
 async function main() {
+  // OCR
+  const ocrWorker = await createWorker('chi_tra')
+
+  // 描述
   const modelId = 'onnx-community/Florence-2-large-ft'
   const processor = (await AutoProcessor.from_pretrained(modelId))
   if (!(processor instanceof Florence2Processor)) {
@@ -48,61 +55,59 @@ async function main() {
     },
   })
 
-  const task = '<MORE_DETAILED_CAPTION>'
-  const prompts = processor.construct_prompts(task)
+  const translator = await pipeline('translation', 'Xenova/nllb-200-distilled-600M')
 
   const memeFiles = await getMemeFiles(FILE_PATH)
   for (const file of memeFiles) {
     const image = await load_image(file)
 
     // ---------- Pass 1: OCR ----------
-    const taskOCR = '<OCR>'
-    const promptsOCR = processor.construct_prompts(taskOCR)
-    const inputsOCR = await processor(image, promptsOCR)
-    const outOCR = await model.generate({
-      ...inputsOCR,
-      max_new_tokens: 64,
-      num_beams: 4,
-      do_sample: false,
-      no_repeat_ngram_size: 2,
-    })
-    if (!(outOCR instanceof Tensor)) {
-      continue
-    }
-
-    const textOCR = processor.batch_decode(outOCR, { skip_special_tokens: false })[0]
-    if (!textOCR) {
-      continue
-    }
-
-    const ocr = processor.post_process_generation(textOCR, taskOCR, image.size)[taskOCR] ?? ''
+    const ocrResult = await ocrWorker.recognize(file)
 
     // ---------- Pass 2: Caption ----------
     const taskCap = '<MORE_DETAILED_CAPTION>'
     const promptsCap = processor.construct_prompts(taskCap)
+
     const inputsCap = await processor(image, promptsCap)
-    const outCap = await model.generate({
+    const outCaption = await model.generate({
       ...inputsCap,
       max_new_tokens: 120,
       num_beams: 4,
       do_sample: false,
       no_repeat_ngram_size: 2,
     })
-    if (!(outCap instanceof Tensor)) {
+    if (!(outCaption instanceof Tensor)) {
       continue
     }
 
-    const textCap = processor.batch_decode(outCap, { skip_special_tokens: false })[0]
-    if (!textCap) {
+    const decodeCaption = processor.batch_decode(outCaption, { skip_special_tokens: false })[0]
+    if (!decodeCaption) {
       continue
     }
 
-    const cap = processor.post_process_generation(textCap, taskCap, image.size)[taskCap] ?? ''
+    const caption = processor.post_process_generation(decodeCaption, taskCap, image.size)[taskCap] ?? ''
+    if (typeof caption !== 'string') {
+      continue
+    }
 
-    // ---------- 合併輸出 ----------
-    const merged = ocr ? `${cap} Text on image: ${ocr}` : cap
-    console.log(`${path.basename(file)} => ${merged}`)
+    // 翻譯為中文
+    const translatorResult = await translator(caption, {
+      // @ts-expect-error 文件說有
+      src_lang: 'eng_Latn',
+      tgt_lang: 'zho_Hant',
+    })
+
+    console.log({
+      file: path.basename(file),
+      describe: {
+        en: caption,
+        zh: get(translatorResult, '[0].translation_text', ''),
+      },
+      ocr: ocrResult.data.text.replaceAll(' ', ''),
+    })
   }
+
+  ocrWorker.terminate()
 }
 
 main().catch((e) => {
