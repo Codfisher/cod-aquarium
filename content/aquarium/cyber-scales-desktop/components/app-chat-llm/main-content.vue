@@ -108,6 +108,7 @@ import type { ChatCompletionMessageParam, InitProgressReport } from '@mlc-ai/web
 import { CreateWebWorkerMLCEngine, prebuiltAppConfig } from '@mlc-ai/web-llm'
 import { useAsyncState } from '@vueuse/core'
 import MarkdownIt from 'markdown-it'
+import { filter, isTruthy } from 'remeda'
 import { computed, onBeforeUnmount, ref, shallowRef, triggerRef, useTemplateRef } from 'vue'
 import { nextFrame } from '../../../../../common/utils'
 import { vDecodingText } from '../../../../../directives/v-decoding-text'
@@ -186,16 +187,24 @@ async function sendMessage() {
     return
   }
 
-  chatDataList.value.push({
+  const messageData: ChatCompletionMessageParam = {
     role: 'user',
     content: message.value,
-  })
+  }
+
+  chatDataList.value.push(messageData)
   message.value = ''
   triggerRef(chatDataList)
 
   isThinking.value = true
   const reply = await engine.value.chat.completions.create({
-    messages: chatDataList.value,
+    messages: filter(
+      [
+        chatDataList.value[0],
+        messageData,
+      ],
+      isTruthy,
+    ),
   })
   isThinking.value = false
 
