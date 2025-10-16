@@ -20,7 +20,7 @@
         :key="item.file"
         class="item flex gap-2 conte"
       >
-        <div class="aspect-square max-w-[20dvh] md:max-w-[30dvh] bg-slate-100 cursor-pointer rounded-xl overflow-hidden">
+        <div class="aspect-square max-w-[35dvw] bg-slate-100 cursor-pointer rounded-xl overflow-hidden">
           <img
             :src="`/memes/${item.file}`"
             loading="lazy"

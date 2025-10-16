@@ -1,6 +1,6 @@
 <template>
   <client-only>
-    <div class="meme-cache flex flex-col min-h-dvh p-4">
+    <div class="meme-cache flex flex-col min-h-svh p-4">
       <div
         class="flex-1 flex justify-center relative"
         :style="contentStyle"
@@ -79,7 +79,6 @@ const triggerMemeData = throttle(() => {
 }, 500)
 
 const windowSize = reactive(useWindowSize())
-const windowScroll = reactive(useWindowScroll())
 
 const activeElement = useActiveElement()
 function handleEnter() {
@@ -215,7 +214,7 @@ onBeforeUnmount(() => {
 const occluded = ref(0)
 function updateOccluded() {
   occluded.value = visualViewport
-    ? Math.max(0, window.innerHeight - visualViewport.height - visualViewport.offsetTop)
+    ? Math.max(0, windowSize.height - visualViewport.height - visualViewport.offsetTop)
     : 0
 }
 useRafFn(() => {
