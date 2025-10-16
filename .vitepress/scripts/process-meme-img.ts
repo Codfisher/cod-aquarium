@@ -145,10 +145,7 @@ async function main() {
     const result = pipe(
       {
         file: path.basename(file),
-        describe: {
-          en: caption ?? '',
-          zh: '',
-        },
+        describe: caption,
         ocr: ocrResult.data.text.replaceAll(' ', ''),
       },
       (data) => JSON.stringify(data).replaceAll('\n', ''),

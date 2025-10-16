@@ -40,25 +40,29 @@
 <script setup lang="ts">
 import type { MemeData } from './type'
 import Fuse from 'fuse.js'
-import { debounce } from 'lodash-es'
-import { computed, onBeforeUnmount, ref, shallowRef, triggerRef } from 'vue'
+import { throttle } from 'lodash-es'
+import { computed, onBeforeUnmount, ref, shallowRef, triggerRef, watch } from 'vue'
 import ImgList from './img-list.vue'
-import { memeDataSchema } from './type'
+import { memeOriDataSchema } from './type'
 
 const memeDataMap = shallowRef(new Map<string, MemeData>())
-const triggerMemeData = debounce(() => {
+const triggerMemeData = throttle(() => {
   triggerRef(memeDataMap)
 }, 500)
 
 const fuse = new Fuse<MemeData>([], {
   keys: [
-    'describe.en',
-    'describe.zh',
+    'describe',
+    'describeZhTw',
     {
       name: 'ocr',
       weight: 2,
     },
   ],
+})
+watch(memeDataMap, (data) => {
+  const list = [...data.values()]
+  fuse.setCollection(list)
 })
 
 const keyword = ref('')
@@ -114,16 +118,42 @@ const controller = new AbortController()
 async function main() {
   // 串流讀取圖片資料
   consumeNdjsonPipeline('/memes/memes-data.ndjson', (row) => {
-    const result = memeDataSchema.safeParse(row)
+    const result = memeOriDataSchema.safeParse(row)
     if (!result.success) {
       return
     }
 
+    const existedData = memeDataMap.value.get(result.data.file)
+
     memeDataMap.value.set(
       result.data.file,
-      result.data,
+      {
+        describeZhTw: '',
+        ...existedData,
+        ...result.data,
+      },
     )
-    fuse.add(result.data)
+    triggerMemeData()
+  }, { signal: controller.signal })
+
+  consumeNdjsonPipeline('/memes/memes-data-zh-tw.ndjson', (row) => {
+    const result = memeOriDataSchema.safeParse(row)
+    if (!result.success) {
+      return
+    }
+
+    const existedData = memeDataMap.value.get(result.data.file)
+    const { describe, ...otherData } = result.data
+
+    memeDataMap.value.set(
+      result.data.file,
+      {
+        describe: '',
+        ...otherData,
+        ...existedData,
+        describeZhTw: describe ?? '',
+      },
+    )
     triggerMemeData()
   }, { signal: controller.signal })
 }
