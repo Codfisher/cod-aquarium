@@ -1,6 +1,6 @@
 <template>
   <client-only>
-    <div class="meme-cache w-screen h-screen flex flex-col p-4">
+    <div class="meme-cache w-dvw h-dvh flex flex-col p-4">
       <div class="flex justify-center  flex-1 relative overflow-auto">
         <img-list
           :list="filteredList"
@@ -27,7 +27,7 @@
         </transition>
       </div>
 
-      <div class="flex gap-2 w-full">
+      <div class="flex gap-2 w-full sticky bottom-0 ">
         <div class="rounded-full border mt-2 flex-1">
           <input
             v-model.trim="keyword"

@@ -28,7 +28,7 @@
 
         <div
           v-if="props.detailVisible"
-          class=" text-sm w-[30vw]"
+          class=" text-sm w-full md:w-[30vw] "
         >
           <div>
             {{ item.describeZhTw }}

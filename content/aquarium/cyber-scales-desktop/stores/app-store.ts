@@ -49,7 +49,7 @@ const appConfigMap: Partial<
 
 export const useAppStore = defineStore('app', () => {
   const defaultAppData: Record<AppType, AppInfo['data']> = pipe(
-    window ?? { innerWidth: 0, innerHeight: 0 },
+    import.meta.env.SSR ? { innerWidth: 0, innerHeight: 0 } : window,
     ({ innerWidth, innerHeight }) => {
       return {
         'about': {
