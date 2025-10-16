@@ -98,18 +98,21 @@ async function main() {
       return captionValue
     })
 
-    const result = {
-      file: path.basename(file),
-      describe: {
-        en: caption ?? '',
-        zh: '',
+    const result = pipe(
+      {
+        file: path.basename(file),
+        describe: {
+          en: caption ?? '',
+          zh: '',
+        },
+        ocr: ocrResult.data.text.replaceAll(' ', ''),
       },
-      ocr: ocrResult.data.text.replaceAll(' ', ''),
-    }
+      (data) => JSON.stringify(data).replaceAll('\n', ''),
+    )
 
     // console.log(result)
 
-    ndjsonStream.write(`${JSON.stringify(result)}\n`)
+    ndjsonStream.write(`${result}\n`)
   }
 
   await new Promise<void>((resolve, reject) => {
@@ -119,6 +122,7 @@ async function main() {
   })
 
   ocrWorker.terminate()
+  console.log('[meme] done')
 }
 
 main().catch((e) => {
