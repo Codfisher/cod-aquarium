@@ -1,0 +1,55 @@
+<template>
+  <div class=" flex flex-col p-4 w-[50dvw]">
+    <transition-group
+      name="list"
+      tag="div"
+      class="flex flex-col gap-4"
+      @before-leave="handleBeforeLeave"
+    >
+      <div
+        v-if="props.list.length > 0"
+        class=" text-center opacity-50"
+      >
+        找到 {{ props.list.length }} 個候選項目 ੭ ˙ᗜ˙ )੭
+      </div>
+
+      <img
+        v-for="item in props.list"
+        :key="item.file"
+        :src="`/memes/${item.file}`"
+        loading="lazy"
+        class=" object-contain aspect-square max-h-[30dvh] bg-slate-100 cursor-pointer "
+      >
+    </transition-group>
+  </div>
+</template>
+
+<script setup lang="ts">
+import type { MemeData } from './type'
+
+interface Props {
+  list: MemeData[];
+}
+const props = withDefaults(defineProps<Props>(), {})
+
+const emit = defineEmits<{
+  'update:model-value': [value: string];
+}>()
+
+/** 修正 transition-group 元素離開時動畫異常問題 */
+function handleBeforeLeave(el: Element) {
+  const { marginLeft, marginTop, width, height } = window.getComputedStyle(
+    el,
+  )
+  if (!(el instanceof HTMLElement))
+    return
+
+  el.style.left = `${el.offsetLeft - Number.parseFloat(marginLeft)}px`
+  el.style.top = `${el.offsetTop - Number.parseFloat(marginTop)}px`
+  el.style.width = width
+  el.style.height = height
+}
+</script>
+
+<style scoped lang="sass">
+</style>

@@ -8,3 +8,5 @@ export const memeDataSchema = z.object({
   }),
   ocr: z.string(),
 })
+
+export type MemeData = z.infer<typeof memeDataSchema>

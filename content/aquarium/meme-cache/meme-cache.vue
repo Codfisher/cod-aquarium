@@ -1,54 +1,72 @@
 <template>
   <client-only>
-    <div class=" flex flex-col p-4">
-      <div class="search-input rounded-full border">
-        <input
-          v-model="keyword"
-          class=" p-4 px-6 w-full"
-        >
+    <div class="meme-cache w-screen h-screen flex flex-col p-4">
+      <div class="flex justify-center  flex-1 relative overflow-auto">
+        <img-list
+          :list="filteredList"
+          class=""
+        />
+
+        <transition name="opacity">
+          <div
+            v-if="filteredList.length === 0 && keyword"
+            class=" absolute inset-0 flex justify-center items-center text-3xl opacity-30"
+          >
+            沒找到相關圖片 ( ´•̥̥̥ ω •̥̥̥` )
+          </div>
+        </transition>
+
+        <transition name="opacity">
+          <div
+            v-if="!keyword"
+            class="absolute inset-0 flex justify-center items-center text-3xl opacity-30"
+          >
+            來點梗圖吧 ԅ(´∀` ԅ)
+          </div>
+        </transition>
       </div>
 
-      <div class="meme-cache w-screen h-screen flex justify-center items-center p-4 gap-4">
-        {{ filteredList }}
+      <div class="rounded-full border mt-2">
+        <input
+          v-model.trim="keyword"
+          class=" p-4 px-6 w-full"
+          placeholder="輸入關鍵字，馬上為您尋找 (・∀・)９"
+        >
       </div>
     </div>
   </client-only>
 </template>
 
 <script setup lang="ts">
-import type { z } from 'zod'
+import type { MemeData } from './type'
 import Fuse from 'fuse.js'
 import { debounce } from 'lodash-es'
 import { computed, onBeforeUnmount, ref, shallowRef, triggerRef } from 'vue'
+import ImgList from './img-list.vue'
 import { memeDataSchema } from './type'
-
-type MemeData = z.infer<typeof memeDataSchema>
 
 const memeDataMap = shallowRef(new Map<string, MemeData>())
 const triggerMemeData = debounce(() => {
   triggerRef(memeDataMap)
 }, 500)
 
-const fuse = computed(() => new Fuse(
-  [...memeDataMap.value.values()],
-  {
-    keys: [
-      'describe.en',
-      'describe.zh',
-      {
-        name: 'ocr',
-        weight: 2,
-      },
-    ],
-  },
-))
+const fuse = new Fuse<MemeData>([], {
+  keys: [
+    'describe.en',
+    'describe.zh',
+    {
+      name: 'ocr',
+      weight: 2,
+    },
+  ],
+})
 
 const keyword = ref('')
 const filteredList = computed(() =>
-  fuse.value.search(keyword.value).map(({ item }) => item),
+  fuse.search(keyword.value).map(({ item }) => item),
 )
 
-/** 串流讀取 meme ndjson 檔案 */
+/** 串流讀取 ndjson 檔案 */
 async function consumeNdjsonPipeline<T = unknown>(
   url: string,
   onItem: (row: T) => void,
@@ -105,6 +123,7 @@ async function main() {
       result.data.file,
       result.data,
     )
+    fuse.add(result.data)
     triggerMemeData()
   }, { signal: controller.signal })
 }
@@ -116,5 +135,21 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped lang="sass">
+</style>
 
+<style lang="sass">
+.opacity
+  &-enter-active, &-leave-active
+    transition-duration: 0.4s
+  &-enter-from, &-leave-to
+    opacity: 0 !important
+
+.list
+  &-move, &-enter-active, &-leave-active
+    transition: all 0.5s ease
+  &-enter-from, &-leave-to
+    opacity: 0
+    transform: translateY(3px)
+  &-leave-active
+    position: absolute
 </style>
