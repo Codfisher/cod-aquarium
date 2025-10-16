@@ -1,25 +1,44 @@
 <template>
-  <div class=" flex flex-col p-4 w-[50dvw]">
-    <transition-group
-      name="list"
-      tag="div"
-      class="flex flex-col gap-4"
-      @before-leave="handleBeforeLeave"
-    >
+  <div class=" flex flex-col p-4 ">
+    <transition name="opacity">
       <div
         v-if="props.list.length > 0"
-        class=" text-center opacity-50"
+        class=" text-center opacity-50 mb-6"
       >
         找到 {{ props.list.length }} 個候選項目 ੭ ˙ᗜ˙ )੭
       </div>
+    </transition>
 
-      <img
+    <transition-group
+      name="list"
+      tag="div"
+      class="flex flex-wrap justify-center gap-4"
+      @before-leave="handleBeforeLeave"
+    >
+      <div
         v-for="item in props.list"
         :key="item.file"
-        :src="`/memes/${item.file}`"
-        loading="lazy"
-        class=" object-contain aspect-square max-h-[30dvh] bg-slate-100 cursor-pointer "
+        class="item flex gap-2 conte"
       >
+        <img
+          :src="`/memes/${item.file}`"
+          loading="lazy"
+          class=" object-contain aspect-square max-h-[30dvh] bg-slate-100 cursor-pointer "
+        >
+
+        <div
+          v-if="props.detailVisible"
+          class=" text-sm w-[30vw]"
+        >
+          <div>
+            {{ item.describeZhTw }}
+          </div>
+
+          <div class="mt-2">
+            {{ item.describe }}
+          </div>
+        </div>
+      </div>
     </transition-group>
   </div>
 </template>
@@ -29,8 +48,11 @@ import type { MemeData } from './type'
 
 interface Props {
   list: MemeData[];
+  detailVisible?: boolean;
 }
-const props = withDefaults(defineProps<Props>(), {})
+const props = withDefaults(defineProps<Props>(), {
+  detailVisible: false,
+})
 
 const emit = defineEmits<{
   'update:model-value': [value: string];
@@ -52,4 +74,7 @@ function handleBeforeLeave(el: Element) {
 </script>
 
 <style scoped lang="sass">
+.item
+  content-visibility: auto
+  contain-intrinsic-size: 30dvh
 </style>

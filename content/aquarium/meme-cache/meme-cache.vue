@@ -5,6 +5,7 @@
         <img-list
           :list="filteredList"
           class=""
+          :detail-visible="settings.detailVisible"
         />
 
         <transition name="opacity">
@@ -18,7 +19,7 @@
 
         <transition name="opacity">
           <div
-            v-if="!keyword"
+            v-if="!keyword && !settings.allVisible"
             class="absolute inset-0 flex justify-center items-center text-3xl opacity-30"
           >
             來點梗圖吧 ԅ(´∀` ԅ)
@@ -26,12 +27,30 @@
         </transition>
       </div>
 
-      <div class="rounded-full border mt-2">
-        <input
-          v-model.trim="keyword"
-          class=" p-4 px-6 w-full"
-          placeholder="輸入關鍵字，馬上為您尋找 (・∀・)９"
-        >
+      <div class="flex gap-2 w-full">
+        <div class="rounded-full border mt-2 flex-1">
+          <input
+            v-model.trim="keyword"
+            class=" p-4 px-6 w-full"
+            placeholder="輸入關鍵字，馬上為您尋找 (・∀・)９"
+          >
+        </div>
+
+        <label class="flex items-center gap-2">
+          <input
+            v-model="settings.allVisible"
+            type="checkbox"
+          >
+          顯示全部
+        </label>
+
+        <label class="flex items-center gap-2">
+          <input
+            v-model="settings.detailVisible"
+            type="checkbox"
+          >
+          顯示細節
+        </label>
       </div>
     </div>
   </client-only>
@@ -66,9 +85,17 @@ watch(memeDataMap, (data) => {
 })
 
 const keyword = ref('')
-const filteredList = computed(() =>
-  fuse.search(keyword.value).map(({ item }) => item),
-)
+const settings = ref({
+  allVisible: false,
+  detailVisible: false,
+})
+const filteredList = computed(() => {
+  if (!keyword.value && settings.value.allVisible) {
+    return [...memeDataMap.value.values()]
+  }
+
+  return fuse.search(keyword.value).map(({ item }) => item)
+})
 
 /** 串流讀取 ndjson 檔案 */
 async function consumeNdjsonPipeline<T = unknown>(
