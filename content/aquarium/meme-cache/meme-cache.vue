@@ -184,7 +184,9 @@ async function main() {
     triggerMemeData()
   }, { signal: controller.signal })
 }
-main()
+if (!import.meta.env.SSR) {
+  main()
+}
 
 onBeforeUnmount(() => {
   controller.abort()
