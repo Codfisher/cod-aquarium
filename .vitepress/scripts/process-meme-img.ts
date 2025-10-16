@@ -1,4 +1,4 @@
-import { createReadStream, createWriteStream, existsSync } from 'node:fs' // ⬅️ 新增
+import { createReadStream, createWriteStream, existsSync } from 'node:fs'
 import { readdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import readline from 'node:readline/promises'
@@ -77,10 +77,9 @@ async function getMemeFiles(dir: string, { recursive = true } = {}) {
 }
 
 async function main() {
-  // OCR
   const ocrWorker = await createWorker('chi_tra')
 
-  // 描述
+  // 圖片描述
   const modelId = 'onnx-community/Florence-2-large-ft'
   const processor = (await AutoProcessor.from_pretrained(modelId))
   if (!(processor instanceof Florence2Processor)) {
