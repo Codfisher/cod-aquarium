@@ -1,6 +1,7 @@
-import { createWriteStream } from 'node:fs' // ⬅️ 新增
-import { readdir } from 'node:fs/promises'
+import { createReadStream, createWriteStream, existsSync } from 'node:fs' // ⬅️ 新增
+import { readdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
+import readline from 'node:readline/promises'
 import {
   AutoProcessor,
   Florence2ForConditionalGeneration,
@@ -15,24 +16,62 @@ const __dirname = import.meta.dirname
 
 const FILE_PATH = path.resolve(__dirname, '../../content/public/memes')
 const IMAGE_EXTS = new Set(['.jpg', '.jpeg', '.png', '.webp'])
-/** 目標路徑 */
-const NDJSON_PATH = path.resolve(__dirname, '../../content/public/memes/memes.ndjson')
 
+/** 附加資料。版本等等 */
+const MEME_META_PATH = path.resolve(__dirname, '../../content/public/memes/memes-meta.json')
+/** 圖片資料 */
+const MEME_DATA_PATH = path.resolve(__dirname, '../../content/public/memes/memes-data.ndjson')
+
+async function readExistingFilenames(ndjsonPath: string): Promise<Set<string>> {
+  const names = new Set<string>()
+  if (!existsSync(ndjsonPath))
+    return names
+
+  const stream = createReadStream(ndjsonPath, { encoding: 'utf8' })
+  const rl = readline.createInterface({ input: stream, crlfDelay: Infinity })
+  for await (const line of rl) {
+    const string = line.trim()
+    if (!string)
+      continue
+
+    try {
+      const obj = JSON.parse(string)
+      const name = typeof obj?.file === 'string' ? obj.file : undefined
+      if (name)
+        names.add(name)
+    }
+    catch { }
+  }
+  return names
+}
+
+/** 取得不重複的檔案 */
 async function getMemeFiles(dir: string, { recursive = true } = {}) {
   const files: string[] = []
+
+  const existingNames = await readExistingFilenames(MEME_DATA_PATH)
+
+  const pickedNames = new Set<string>(existingNames)
+
   async function walk(dirPath: string) {
     const entries = await readdir(dirPath, { withFileTypes: true })
     for (const entry of entries) {
       const fullPath = path.join(dirPath, entry.name)
       if (entry.isDirectory()) {
-        if (recursive)
+        if (recursive) {
           await walk(fullPath)
+        }
       }
       else if (IMAGE_EXTS.has(path.extname(entry.name).toLowerCase())) {
-        files.push(fullPath)
+        const baseName = path.basename(entry.name)
+        if (!pickedNames.has(baseName)) {
+          pickedNames.add(baseName)
+          files.push(fullPath)
+        }
       }
     }
   }
+
   await walk(dir)
   return files
 }
@@ -59,9 +98,11 @@ async function main() {
 
   // const translator = await pipeline('translation', 'Xenova/nllb-200-distilled-600M', { dtype: 'fp16' })
 
-  const ndjsonStream = createWriteStream(NDJSON_PATH, { flags: 'w', encoding: 'utf8' })
+  const ndjsonStream = createWriteStream(MEME_DATA_PATH, { flags: 'a', encoding: 'utf8' })
 
   const memeFiles = await getMemeFiles(FILE_PATH)
+  console.log(`[meme] ${memeFiles.length} 個檔案待處理`)
+
   for (const file of memeFiles) {
     const image = await load_image(file)
 
@@ -120,6 +161,14 @@ async function main() {
     ndjsonStream.on('error', reject)
     ndjsonStream.end()
   })
+
+  await writeFile(
+    MEME_META_PATH,
+    JSON.stringify({
+      updatedAt: Math.floor(Date.now() / 1000),
+    }),
+    'utf8',
+  )
 
   ocrWorker.terminate()
   console.log('[meme] done')

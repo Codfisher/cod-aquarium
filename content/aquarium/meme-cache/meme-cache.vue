@@ -88,18 +88,24 @@ async function consumeNdjsonPipeline<T = unknown>(
 }
 
 const controller = new AbortController()
-consumeNdjsonPipeline('/memes/memes.ndjson', (row) => {
-  const result = memeDataSchema.safeParse(row)
-  if (!result.success) {
-    return
-  }
+function main() {
+  // 取得 meta
 
-  memeDataMap.value.set(
-    result.data.file,
-    result.data,
-  )
-  triggerRef(memeDataMap)
-}, { signal: controller.signal })
+  // 讀取圖片資料
+  consumeNdjsonPipeline('/memes/memes-data.ndjson', (row) => {
+    const result = memeDataSchema.safeParse(row)
+    if (!result.success) {
+      return
+    }
+
+    memeDataMap.value.set(
+      result.data.file,
+      result.data,
+    )
+    triggerRef(memeDataMap)
+  }, { signal: controller.signal })
+}
+main()
 
 onBeforeUnmount(() => {
   controller.abort()
