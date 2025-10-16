@@ -1,7 +1,10 @@
 <template>
   <client-only>
     <div class="meme-cache flex flex-col min-h-dvh p-4">
-      <div class="flex-1 flex justify-center relative">
+      <div
+        class="flex-1 flex justify-center relative"
+        :style="contentStyle"
+      >
         <img-list
           :list="filteredList"
           class=""
@@ -27,18 +30,11 @@
         </transition>
       </div>
 
-      <!-- 填出高度 -->
-      <div class="flex gap-2 w-full opacity-0 pointer-events-none ">
-        <div class="rounded-full border flex-1">
-          <input
-            v-model.trim="keyword"
-            class=" p-4 px-6 w-full"
-            placeholder="輸入關鍵字，馬上為您尋找 (・∀・)９"
-          >
-        </div>
-      </div>
-
-      <div class="flex gap-2 w-full fixed left-0 bottom-0 p-4 bg-white dark:bg-black">
+      <div
+        ref="toolbarRef"
+        class="flex gap-2 w-full fixed left-0 p-4 bg-white dark:bg-black "
+        :style="toolbarStyle"
+      >
         <div class="rounded-full border flex-1">
           <input
             v-model.trim="keyword"
@@ -70,10 +66,10 @@
 
 <script setup lang="ts">
 import type { MemeData } from './type'
-import { useActiveElement } from '@vueuse/core'
+import { useActiveElement, useElementSize, useEventListener, useRafFn, useWindowScroll, useWindowSize } from '@vueuse/core'
 import Fuse from 'fuse.js'
 import { throttle } from 'lodash-es'
-import { computed, onBeforeUnmount, ref, shallowRef, triggerRef, watch } from 'vue'
+import { computed, onBeforeUnmount, reactive, ref, shallowRef, triggerRef, useTemplateRef, watch } from 'vue'
 import ImgList from './img-list.vue'
 import { memeOriDataSchema } from './type'
 
@@ -81,6 +77,9 @@ const memeDataMap = shallowRef(new Map<string, MemeData>())
 const triggerMemeData = throttle(() => {
   triggerRef(memeDataMap)
 }, 500)
+
+const windowSize = reactive(useWindowSize())
+const windowScroll = reactive(useWindowScroll())
 
 const activeElement = useActiveElement()
 function handleEnter() {
@@ -212,6 +211,28 @@ if (!import.meta.env.SSR) {
 onBeforeUnmount(() => {
   controller.abort()
 })
+
+const occluded = ref(0)
+function updateOccluded() {
+  occluded.value = visualViewport
+    ? Math.max(0, window.innerHeight - visualViewport.height - visualViewport.offsetTop)
+    : 0
+}
+useRafFn(() => {
+  updateOccluded()
+})
+
+const toolbarRef = useTemplateRef('toolbarRef')
+const toolbarSize = reactive(useElementSize(toolbarRef, undefined, {
+  box: 'border-box',
+}))
+const toolbarStyle = computed(() => ({
+  bottom: `calc(${occluded.value}px + env(safe-area-inset-bottom))`,
+}))
+
+const contentStyle = computed(() => ({
+  paddingBottom: `calc(${toolbarSize.height}px + env(safe-area-inset-bottom))`,
+}))
 </script>
 
 <style scoped lang="sass">
