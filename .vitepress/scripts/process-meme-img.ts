@@ -118,9 +118,11 @@ async function main() {
 
       const outCaption = await model.generate({
         ...inputsCap,
-        max_new_tokens: 120,
-        num_beams: 4,
+        max_new_tokens: 320,
+        num_beams: 6,
         do_sample: false,
+        length_penalty: 1.2,
+        repetition_penalty: 1.08,
         no_repeat_ngram_size: 2,
       })
 
