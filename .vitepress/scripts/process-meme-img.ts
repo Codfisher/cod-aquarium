@@ -103,7 +103,10 @@ async function main() {
   const memeFiles = await getMemeFiles(FILE_PATH)
   console.log(`[meme] ${memeFiles.length} 個檔案待處理`)
 
+  let count = 0
   for (const file of memeFiles) {
+    count++
+
     const image = await load_image(file)
 
     const ocrResult = await ocrWorker.recognize(file)
@@ -152,6 +155,7 @@ async function main() {
     )
 
     // console.log(result)
+    console.log(`[meme] ${count}/${memeFiles.length}`)
 
     ndjsonStream.write(`${result}\n`)
   }
