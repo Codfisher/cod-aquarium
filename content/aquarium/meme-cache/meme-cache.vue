@@ -70,6 +70,7 @@ import { useActiveElement, useElementSize, useEventListener, useRafFn, useWindow
 import Fuse from 'fuse.js'
 import { throttle } from 'lodash-es'
 import { computed, onBeforeUnmount, reactive, ref, shallowRef, triggerRef, useTemplateRef, watch } from 'vue'
+import { nextFrame } from '../../../common/utils'
 import ImgList from './img-list.vue'
 import { memeOriDataSchema } from './type'
 
@@ -112,8 +113,9 @@ const filteredList = computed(() => {
 
   return fuse.search(keyword.value).map(({ item }) => item)
 })
-watch(keyword, () => {
-  window.scrollTo({ top: 0, behavior: 'smooth' })
+watch(keyword, async () => {
+  await nextFrame()
+  window.scrollTo({ top: -100, behavior: 'smooth' })
 })
 
 /** 串流讀取 ndjson 檔案 */
