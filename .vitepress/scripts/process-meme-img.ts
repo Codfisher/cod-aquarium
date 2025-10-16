@@ -53,13 +53,12 @@ async function main() {
       encoder_model: 'q4',
       decoder_model_merged: 'q4',
     },
-    device: 'gpu',
   })
 
-  const translator = await pipeline('translation', 'Xenova/nllb-200-distilled-600M', {
-    dtype: 'fp16',
-    device: 'gpu',
-  })
+  /** TODO: 太慢惹，改成自行處理，以後再說 */
+  // const translator = await pipeline('translation', 'Xenova/nllb-200-distilled-600M', {
+  //   dtype: 'fp16',
+  // })
 
   const memeFiles = await getMemeFiles(FILE_PATH)
   for (const file of memeFiles) {
@@ -94,18 +93,11 @@ async function main() {
       continue
     }
 
-    // 翻譯為中文
-    const translatorResult = await translator(caption, {
-      // @ts-expect-error 文件說有
-      src_lang: 'eng_Latn',
-      tgt_lang: 'zho_Hant',
-    })
-
     console.log({
       file: path.basename(file),
       describe: {
         en: caption,
-        zh: get(translatorResult, '[0].translation_text', ''),
+        zh: '',
       },
       ocr: ocrResult.data.text.replaceAll(' ', ''),
     })
