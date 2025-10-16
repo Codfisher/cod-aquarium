@@ -1,7 +1,7 @@
 <template>
   <client-only>
-    <div class="meme-cache w-dvw h-dvh flex flex-col p-4">
-      <div class="flex justify-center  flex-1 relative overflow-auto">
+    <div class="meme-cache flex flex-col min-h-dvh p-4">
+      <div class="flex-1 flex justify-center relative">
         <img-list
           :list="filteredList"
           class=""
@@ -27,12 +27,24 @@
         </transition>
       </div>
 
-      <div class="flex gap-2 w-full sticky bottom-0 ">
-        <div class="rounded-full border mt-2 flex-1">
+      <!-- 填出高度 -->
+      <div class="flex gap-2 w-full opacity-0 pointer-events-none ">
+        <div class="rounded-full border flex-1">
           <input
             v-model.trim="keyword"
             class=" p-4 px-6 w-full"
             placeholder="輸入關鍵字，馬上為您尋找 (・∀・)９"
+          >
+        </div>
+      </div>
+
+      <div class="flex gap-2 w-full fixed left-0 bottom-0 p-4 bg-white dark:bg-black">
+        <div class="rounded-full border flex-1">
+          <input
+            v-model.trim="keyword"
+            class=" p-4 px-6 w-full"
+            placeholder="輸入關鍵字，馬上為您尋找 (・∀・)９"
+            @keydown.enter="handleEnter"
           >
         </div>
 
@@ -44,13 +56,13 @@
           顯示全部
         </label>
 
-        <label class="flex items-center gap-2">
+        <!-- <label class="flex items-center gap-2">
           <input
             v-model="settings.detailVisible"
             type="checkbox"
           >
           顯示細節
-        </label>
+        </label> -->
       </div>
     </div>
   </client-only>
@@ -58,6 +70,7 @@
 
 <script setup lang="ts">
 import type { MemeData } from './type'
+import { useActiveElement } from '@vueuse/core'
 import Fuse from 'fuse.js'
 import { throttle } from 'lodash-es'
 import { computed, onBeforeUnmount, ref, shallowRef, triggerRef, watch } from 'vue'
@@ -68,6 +81,11 @@ const memeDataMap = shallowRef(new Map<string, MemeData>())
 const triggerMemeData = throttle(() => {
   triggerRef(memeDataMap)
 }, 500)
+
+const activeElement = useActiveElement()
+function handleEnter() {
+  activeElement.value?.blur()
+}
 
 const fuse = new Fuse<MemeData>([], {
   keys: [
@@ -95,6 +113,9 @@ const filteredList = computed(() => {
   }
 
   return fuse.search(keyword.value).map(({ item }) => item)
+})
+watch(keyword, () => {
+  window.scrollTo({ top: 0, behavior: 'smooth' })
 })
 
 /** 串流讀取 ndjson 檔案 */
