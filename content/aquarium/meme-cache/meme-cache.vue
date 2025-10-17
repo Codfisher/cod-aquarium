@@ -35,10 +35,10 @@
         class="toolbar flex gap-2 w-full fixed left-0 p-4 bg-white dark:bg-black "
         :style="toolbarStyle"
       >
-        <div class="rounded-full border flex-1">
+        <div class="rounded-full border border-[#DDD] flex-1">
           <input
             v-model.trim="keyword"
-            class=" p-4 px-6 w-full"
+            class=" py-4! px-6! w-full"
             placeholder="輸入關鍵字，馬上為您尋找 (・∀・)９"
             @keydown.enter="handleEnter"
           >
@@ -69,7 +69,7 @@
 
 <script setup lang="ts">
 import type { MemeData } from './type'
-import { useActiveElement, useWindowSize } from '@vueuse/core'
+import { useActiveElement, useWindowSize, watchThrottled } from '@vueuse/core'
 import Fuse from 'fuse.js'
 import { throttle } from 'lodash-es'
 import { computed, onBeforeUnmount, reactive, ref, shallowRef, triggerRef, useTemplateRef, watch } from 'vue'
@@ -114,13 +114,19 @@ const settings = ref({
   allVisible: false,
   detailVisible: false,
 })
-const filteredList = computed(() => {
+const filteredList = shallowRef<MemeData[]>([])
+watchThrottled(() => [keyword.value, settings.value.allVisible], () => {
   if (!keyword.value && settings.value.allVisible) {
-    return [...memeDataMap.value.values()]
+    filteredList.value = [...memeDataMap.value.values()]
+    return
   }
 
-  return fuse.search(keyword.value).map(({ item }) => item)
+  filteredList.value = fuse.search(keyword.value).map(({ item }) => item)
+}, {
+  throttle: 800,
+  leading: false,
 })
+
 watch(keyword, async () => {
   await nextFrame()
   window.scrollTo({ top: -100, behavior: 'smooth' })
