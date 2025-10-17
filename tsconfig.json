@@ -32,6 +32,7 @@
     ".vitepress/**/*.ts",
     "web/**/*",
     "server/**/*",
+    "content/**/*",
     "env.d.ts",
     "auto-imports.d.ts",
     "components.d.ts"

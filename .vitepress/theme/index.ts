@@ -21,6 +21,10 @@ export default {
   enhanceApp({ app, router, siteData }) {
     app.component('BaseImg', BaseImg)
     app.use(createPinia())
-    app.use(ui)
+
+    // 避免因為使用 window 導致 SSR 錯誤
+    if (!import.meta.env.SSR) {
+      app.use(ui)
+    }
   },
 } satisfies Theme

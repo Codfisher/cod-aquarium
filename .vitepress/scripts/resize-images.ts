@@ -8,7 +8,8 @@ const OUTPUT_PATH = path.resolve(__dirname, '../../.vitepress/dist')
 
 const IGNORE_NAME_LIST = [
   'favicon',
-  'memes',
+  // meme 檔案固定開頭
+  'meme-',
 ]
 const WIDTH_LIST = [700, 300]
 const SUFFIX_NAME_LIST = ['.png', '.jpg', '.jpeg', '.webp']
@@ -24,6 +25,7 @@ function getImagePathList(dirPath: string) {
   const result: string[] = []
 
   for (const file of files) {
+    console.log('🚀 ~ file:', file)
     const filePath = path.join(dirPath, file)
     const isDir = isDirectory(filePath)
 
