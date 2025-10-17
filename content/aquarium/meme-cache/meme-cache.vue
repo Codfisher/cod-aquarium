@@ -52,7 +52,10 @@
           顯示全部
         </label>
 
-        <label class="flex items-center gap-2">
+        <label
+          v-if="isDev"
+          class="flex items-center gap-2"
+        >
           <input
             v-model="settings.detailVisible"
             type="checkbox"
@@ -74,6 +77,8 @@ import { nextFrame } from '../../../common/utils'
 import ImgList from './components/img-list.vue'
 import { useStickyToolbar } from './composables/use-sticky-toolbar'
 import { memeOriDataSchema } from './type'
+
+const isDev = import.meta.env.DEV
 
 const memeDataMap = shallowRef(new Map<string, MemeData>())
 const triggerMemeData = throttle(() => {

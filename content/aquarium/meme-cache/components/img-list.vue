@@ -32,12 +32,19 @@
           v-if="props.detailVisible"
           class=" text-sm w-full md:w-[30vw] "
         >
+          <div class=" select-all">
+            {{ item.file }}
+          </div>
           <div>
             {{ item.describeZhTw }}
           </div>
 
           <div class="mt-2">
             {{ item.describe }}
+          </div>
+
+          <div class="mt-2">
+            ocr: {{ item.ocr }}
           </div>
         </div>
       </div>
@@ -46,7 +53,7 @@
 </template>
 
 <script setup lang="ts">
-import type { MemeData } from './type'
+import { MemeData } from '../type';
 
 interface Props {
   list: MemeData[];

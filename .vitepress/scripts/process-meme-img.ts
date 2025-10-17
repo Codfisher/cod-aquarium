@@ -177,6 +177,7 @@ async function main() {
         file: path.basename(file),
         describe: caption,
         ocr: ocrResult,
+        keyword: '',
       },
       (data) => JSON.stringify(data).replaceAll('\n', ''),
     )
