@@ -25,7 +25,6 @@ function getImagePathList(dirPath: string) {
   const result: string[] = []
 
   for (const file of files) {
-    console.log('🚀 ~ file:', file)
     const filePath = path.join(dirPath, file)
     const isDir = isDirectory(filePath)
 
