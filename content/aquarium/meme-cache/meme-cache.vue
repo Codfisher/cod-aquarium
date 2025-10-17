@@ -44,30 +44,39 @@
           >
         </div>
 
-        <label class="flex items-center gap-2">
-          <input
-            v-model="settings.allVisible"
-            type="checkbox"
-          >
-          顯示全部
-        </label>
+        <UDropdownMenu :items="items">
+          <UButton icon="i-lucide-menu" />
 
-        <label
-          v-if="isDev"
-          class="flex items-center gap-2"
-        >
-          <input
-            v-model="settings.detailVisible"
-            type="checkbox"
-          >
-          顯示細節
-        </label>
+          <template #all>
+            <label class="flex items-center gap-2 p-2">
+              <input
+                v-model="settings.allVisible"
+                type="checkbox"
+              >
+              顯示全部
+            </label>
+          </template>
+
+          <template #detail>
+            <label
+              v-if="isDev"
+              class="flex items-center gap-2 p-2"
+            >
+              <input
+                v-model="settings.detailVisible"
+                type="checkbox"
+              >
+              顯示細節
+            </label>
+          </template>
+        </UDropdownMenu>
       </div>
     </div>
   </client-only>
 </template>
 
 <script setup lang="ts">
+import type { DropdownMenuItem } from '@nuxt/ui'
 import type { MemeData } from './type'
 import { useActiveElement, useWindowSize, watchThrottled } from '@vueuse/core'
 import Fuse from 'fuse.js'
@@ -114,6 +123,11 @@ const settings = ref({
   allVisible: false,
   detailVisible: false,
 })
+const items = [
+  { slot: 'all' },
+  { slot: 'detail' },
+] as const satisfies DropdownMenuItem[]
+
 const filteredList = shallowRef<MemeData[]>([])
 watchThrottled(() => [keyword.value, settings.value.allVisible], () => {
   if (!keyword.value && settings.value.allVisible) {
