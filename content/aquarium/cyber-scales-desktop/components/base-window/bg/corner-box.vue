@@ -11,7 +11,7 @@
 import { usePrevious } from '@vueuse/core'
 import { pipe } from 'remeda'
 import { computed, watch } from 'vue'
-import { useAnimatable } from '../../../../../../composables/use-animatable'
+import { useAnimatable } from '../../../../../../web/composables/use-animatable'
 import { ComponentStatus } from '../../../types'
 import { hasChroma, resolveTransitionParamValue } from '../../../utils'
 

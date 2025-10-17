@@ -9,8 +9,8 @@ import {
   load_image,
   Tensor,
 } from '@huggingface/transformers'
-import { pipe } from 'remeda'
-import { createWorker } from 'tesseract.js'
+import { pipe, tap } from 'remeda'
+import { createWorker, PSM } from 'tesseract.js'
 
 const __dirname = import.meta.dirname
 
@@ -77,7 +77,22 @@ async function getMemeFiles(dir: string, { recursive = true } = {}) {
 }
 
 async function main() {
-  const ocrWorker = await createWorker('chi_tra')
+  const ocrWorker = await pipe(
+    await createWorker('chi_tra'),
+    async (worker) => {
+      await worker.setParameters({
+        tessjs_create_hocr: '0',
+        tessjs_create_tsv: '0',
+        preserve_interword_spaces: '0',
+        // SPARSE_TEXT 對零散字更穩，也比較不會幻覺出長句
+        tessedit_pageseg_mode: PSM.SPARSE_TEXT,
+        // 統一 DPI，避免圖檔 metadata 缺失造成效果不穩
+        user_defined_dpi: '300',
+      })
+
+      return worker
+    },
+  )
 
   // 圖片描述
   const modelId = 'onnx-community/Florence-2-large-ft'
@@ -108,7 +123,21 @@ async function main() {
 
     const image = await load_image(file)
 
-    const ocrResult = await ocrWorker.recognize(file)
+    const ocrResult = await pipe(
+      await ocrWorker.recognize(file),
+      ({ data }) => {
+        if (data.confidence < 70) {
+          return ''
+        }
+
+        return data.text
+          .replaceAll(/\s+/g, '')
+          .replaceAll(
+            /[^\p{sc=Han}\p{sc=Hiragana}\p{sc=Katakana}\p{sc=Hangul}\p{L}\p{N}\p{P}]/gu,
+            '',
+          )
+      },
+    )
 
     const caption = await pipe(undefined, async () => {
       const taskCap = '<MORE_DETAILED_CAPTION>'
@@ -147,7 +176,8 @@ async function main() {
       {
         file: path.basename(file),
         describe: caption,
-        ocr: ocrResult.data.text.replaceAll(' ', ''),
+        ocr: ocrResult,
+        keyword: '',
       },
       (data) => JSON.stringify(data).replaceAll('\n', ''),
     )

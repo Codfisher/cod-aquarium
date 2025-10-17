@@ -36,8 +36,8 @@
 <script setup lang="ts">
 import { computedAsync, promiseTimeout, useElementHover, useElementSize, useMounted, useMousePressed, whenever } from '@vueuse/core'
 import { computed, nextTick, provide, reactive, useTemplateRef, watch } from 'vue'
-import { nextFrame } from '../../../../../common/utils'
-import { useDecodingText } from '../../../../../composables/use-decoding-text'
+import { nextFrame } from '../../../../../web/common/utils'
+import { useDecodingText } from '../../../../../web/composables/use-decoding-text'
 import { ComponentStatus } from '../../types'
 import MaterialIcon from '../material-icon.vue'
 import Bg from './bg/bg.vue'

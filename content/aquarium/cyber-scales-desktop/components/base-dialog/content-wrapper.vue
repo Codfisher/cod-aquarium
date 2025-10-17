@@ -7,7 +7,7 @@
 <script setup lang="ts">
 import type { ComponentStatus } from '../../types'
 import { computed, inject } from 'vue'
-import { useAnimatable } from '../../../../../composables/use-animatable'
+import { useAnimatable } from '../../../../../web/composables/use-animatable'
 import { baseDialogInjectionKey } from './type'
 
 interface Props {

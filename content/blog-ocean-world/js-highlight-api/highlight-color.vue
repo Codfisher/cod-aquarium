@@ -19,7 +19,7 @@
 
 <script setup lang="ts">
 import { ref, useTemplateRef } from 'vue'
-import { useTextHighlight } from '../../../composables/use-text-highlight'
+import { useTextHighlight } from '../../../web/composables/use-text-highlight'
 import FilterTable from './filter-table.vue'
 
 const tableRef = useTemplateRef('tableRef')

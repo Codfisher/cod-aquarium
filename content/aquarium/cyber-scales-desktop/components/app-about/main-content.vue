@@ -112,7 +112,7 @@
 </template>
 
 <script setup lang="ts">
-import { vDecodingText } from '../../../../../directives/v-decoding-text'
+import { vDecodingText } from '../../../../../web/directives/v-decoding-text'
 </script>
 
 <style scoped lang="sass">

@@ -9,7 +9,7 @@
 <script setup lang="ts">
 import { usePrevious } from '@vueuse/core'
 import { computed, watch } from 'vue'
-import { useAnimatable } from '../../../../../../composables/use-animatable'
+import { useAnimatable } from '../../../../../../web/composables/use-animatable'
 import { ComponentStatus } from '../../../types'
 import { resolveTransitionParamValue } from '../../../utils'
 

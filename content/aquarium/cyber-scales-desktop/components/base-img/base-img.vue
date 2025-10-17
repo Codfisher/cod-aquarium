@@ -24,7 +24,7 @@ import type { CSSProperties, ImgHTMLAttributes } from 'vue'
 import { asyncComputed, until, useAsyncState, useElementHover, useElementSize } from '@vueuse/core'
 import { animate, stagger, utils, waapi } from 'animejs'
 import { computed, onMounted, reactive, useId, useTemplateRef, watch } from 'vue'
-import { nextFrame } from '../../../../../common/utils'
+import { nextFrame } from '../../../../../web/common/utils'
 
 interface Props extends /* @vue-ignore */ ImgHTMLAttributes {
   gridSize?: number;

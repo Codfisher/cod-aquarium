@@ -1,7 +1,10 @@
 <template>
   <client-only>
-    <div class="meme-cache w-screen h-screen flex flex-col p-4">
-      <div class="flex justify-center  flex-1 relative overflow-auto">
+    <div class="meme-cache flex flex-col min-h-svh p-4">
+      <div
+        class="flex-1 flex justify-center relative"
+        :style="contentStyle"
+      >
         <img-list
           :list="filteredList"
           class=""
@@ -11,7 +14,7 @@
         <transition name="opacity">
           <div
             v-if="filteredList.length === 0 && keyword"
-            class=" absolute inset-0 flex justify-center items-center text-3xl opacity-30"
+            class="absolute flex justify-center items-center p-10 opacity-30"
           >
             沒找到相關圖片 ( ´•̥̥̥ ω •̥̥̥` )
           </div>
@@ -20,54 +23,81 @@
         <transition name="opacity">
           <div
             v-if="!keyword && !settings.allVisible"
-            class="absolute inset-0 flex justify-center items-center text-3xl opacity-30"
+            class=" absolute flex justify-center items-center p-10 opacity-30"
           >
             來點梗圖吧 ԅ(´∀` ԅ)
           </div>
         </transition>
       </div>
 
-      <div class="flex gap-2 w-full">
-        <div class="rounded-full border mt-2 flex-1">
+      <div
+        ref="toolbarRef"
+        class="toolbar flex gap-2 w-full fixed left-0 p-4 bg-white dark:bg-black "
+        :style="toolbarStyle"
+      >
+        <div class="rounded-full border border-[#DDD] flex-1">
           <input
             v-model.trim="keyword"
-            class=" p-4 px-6 w-full"
+            class=" py-4! px-6! w-full"
             placeholder="輸入關鍵字，馬上為您尋找 (・∀・)９"
+            @keydown.enter="handleEnter"
           >
         </div>
 
-        <label class="flex items-center gap-2">
-          <input
-            v-model="settings.allVisible"
-            type="checkbox"
-          >
-          顯示全部
-        </label>
+        <UDropdownMenu :items="items">
+          <UButton icon="i-lucide-menu" />
 
-        <label class="flex items-center gap-2">
-          <input
-            v-model="settings.detailVisible"
-            type="checkbox"
-          >
-          顯示細節
-        </label>
+          <template #all>
+            <label class="flex items-center gap-2 p-2">
+              <input
+                v-model="settings.allVisible"
+                type="checkbox"
+              >
+              顯示全部
+            </label>
+          </template>
+
+          <template #detail>
+            <label
+              v-if="isDev"
+              class="flex items-center gap-2 p-2"
+            >
+              <input
+                v-model="settings.detailVisible"
+                type="checkbox"
+              >
+              顯示細節
+            </label>
+          </template>
+        </UDropdownMenu>
       </div>
     </div>
   </client-only>
 </template>
 
 <script setup lang="ts">
+import type { DropdownMenuItem } from '@nuxt/ui'
 import type { MemeData } from './type'
+import { useActiveElement, useWindowSize, watchThrottled } from '@vueuse/core'
 import Fuse from 'fuse.js'
 import { throttle } from 'lodash-es'
-import { computed, onBeforeUnmount, ref, shallowRef, triggerRef, watch } from 'vue'
-import ImgList from './img-list.vue'
+import { computed, onBeforeUnmount, reactive, ref, shallowRef, triggerRef, useTemplateRef, watch } from 'vue'
+import { nextFrame } from '../../../web/common/utils'
+import ImgList from './components/img-list.vue'
+import { useStickyToolbar } from './composables/use-sticky-toolbar'
 import { memeOriDataSchema } from './type'
+
+const isDev = import.meta.env.DEV
 
 const memeDataMap = shallowRef(new Map<string, MemeData>())
 const triggerMemeData = throttle(() => {
   triggerRef(memeDataMap)
 }, 500)
+
+const activeElement = useActiveElement()
+function handleEnter() {
+  activeElement.value?.blur()
+}
 
 const fuse = new Fuse<MemeData>([], {
   keys: [
@@ -76,6 +106,10 @@ const fuse = new Fuse<MemeData>([], {
     {
       name: 'ocr',
       weight: 2,
+    },
+    {
+      name: 'keyword',
+      weight: 3,
     },
   ],
 })
@@ -89,12 +123,27 @@ const settings = ref({
   allVisible: false,
   detailVisible: false,
 })
-const filteredList = computed(() => {
+const items = [
+  { slot: 'all' },
+  { slot: 'detail' },
+] as const satisfies DropdownMenuItem[]
+
+const filteredList = shallowRef<MemeData[]>([])
+watchThrottled(() => [keyword.value, settings.value.allVisible], () => {
   if (!keyword.value && settings.value.allVisible) {
-    return [...memeDataMap.value.values()]
+    filteredList.value = [...memeDataMap.value.values()]
+    return
   }
 
-  return fuse.search(keyword.value).map(({ item }) => item)
+  filteredList.value = fuse.search(keyword.value).map(({ item }) => item)
+}, {
+  throttle: 300,
+  leading: false,
+})
+
+watch(keyword, async () => {
+  await nextFrame()
+  window.scrollTo({ top: -100, behavior: 'smooth' })
 })
 
 /** 串流讀取 ndjson 檔案 */
@@ -191,6 +240,9 @@ if (!import.meta.env.SSR) {
 onBeforeUnmount(() => {
   controller.abort()
 })
+
+const toolbarRef = useTemplateRef('toolbarRef')
+const { toolbarStyle, contentStyle } = useStickyToolbar(toolbarRef)
 </script>
 
 <style scoped lang="sass">

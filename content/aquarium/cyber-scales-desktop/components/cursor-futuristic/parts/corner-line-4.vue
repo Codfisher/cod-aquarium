@@ -33,7 +33,7 @@ import { reactiveComputed } from '@vueuse/core'
 import { animate } from 'animejs'
 import { clone, mapValues, pipe } from 'remeda'
 import { type Reactive, type SVGAttributes, useTemplateRef } from 'vue'
-import { useAnimatable } from '../../../../../../composables/use-animatable'
+import { useAnimatable } from '../../../../../../web/composables/use-animatable'
 
 type PathName = 't' | 'r' | 'b' | 'l'
 interface PathParams {
