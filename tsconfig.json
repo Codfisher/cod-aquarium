@@ -1,5 +1,10 @@
 {
   "compilerOptions": {
+    "paths": {
+      "#build/ui": [
+        "./node_modules/@nuxt/ui/.nuxt/ui"
+      ]
+    },
     "target": "esnext",
     "noErrorTruncation": true,
     "jsx": "preserve",
@@ -24,11 +29,11 @@
     "esModuleInterop": true
   },
   "include": [
-    ".vitepress/scripts/**/*",
-    "content/**/*",
-    "components/**/*",
-    "common/**/*",
+    ".vitepress/**/*.ts",
+    "web/**/*",
     "server/**/*",
-    "env.d.ts"
+    "env.d.ts",
+    "auto-imports.d.ts",
+    "components.d.ts",
   ]
 }

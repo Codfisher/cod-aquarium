@@ -1,4 +1,5 @@
 import type { Theme } from 'vitepress'
+import ui from '@nuxt/ui/vue-plugin'
 import { createPinia } from 'pinia'
 import DefaultTheme from 'vitepress/theme'
 // https://vitepress.dev/guide/custom-theme
@@ -19,5 +20,6 @@ export default {
   enhanceApp({ app, router, siteData }) {
     app.component('BaseImg', BaseImg)
     app.use(createPinia())
+    app.use(ui)
   },
 } satisfies Theme

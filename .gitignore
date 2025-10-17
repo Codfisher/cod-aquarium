@@ -19,3 +19,6 @@ dist
 .firebase
 .vitepress/cache
 .wrangler
+
+auto-imports.d.ts
+components.d.ts

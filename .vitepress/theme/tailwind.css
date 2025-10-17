@@ -1,9 +1,2 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-@layer utilities {
-  .transform-3d {
-    transform-style: preserve-3d
-  }
-}
+@import "tailwindcss";
+@import "@nuxt/ui";

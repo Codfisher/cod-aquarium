@@ -1,5 +1,6 @@
 import type { DefaultTheme } from 'vitepress'
 import type { Article } from './utils'
+import ui from '@nuxt/ui/vite'
 import dayjs from 'dayjs'
 import { filter, isTruthy, map, piped } from 'remeda'
 import Icons from 'unplugin-icons/vite'
@@ -370,6 +371,7 @@ export default ({ mode }: { mode: string }) => {
             return true
           },
         }),
+        ui(),
       ],
     },
     async buildEnd() {
