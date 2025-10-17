@@ -17,7 +17,7 @@
 </template>
 
 <script setup lang="ts">
-import { useMotionValue, useSpring, motion } from 'motion-v'
+import { motion, useMotionValue, useSpring } from 'motion-v'
 import { computed, reactive, ref, watch } from 'vue'
 
 const index = ref(0)
@@ -38,7 +38,7 @@ const top = useSpring(topValue, { mass: 0.5 })
 
 watch(index, () => {
   const data = dataList[index.value] ?? [0, 0]
-  console.log('🚀 ~ data:', data);
+  console.log('🚀 ~ data:', data)
 
   leftValue.set(data[0])
   topValue.set(data[1])

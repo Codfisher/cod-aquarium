@@ -61,7 +61,7 @@
 </template>
 
 <script setup lang="ts">
-import type { AppType } from '../server'
+import type { AppType } from '../../server'
 import FingerprintJS from '@fingerprintjs/fingerprintjs'
 import { until, useArraySome, useAsyncState, useIntersectionObserver, useWindowFocus, whenever } from '@vueuse/core'
 import { hc } from 'hono/client'

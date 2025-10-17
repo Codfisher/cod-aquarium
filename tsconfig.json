@@ -1,12 +1,6 @@
 {
   "compilerOptions": {
-    "paths": {
-      "#build/ui": [
-        "./node_modules/@nuxt/ui/.nuxt/ui"
-      ]
-    },
     "target": "esnext",
-    "noErrorTruncation": true,
     "jsx": "preserve",
     "lib": [
       "esnext",
@@ -15,6 +9,12 @@
     "useDefineForClassFields": true,
     "module": "esnext",
     "moduleResolution": "node",
+    "paths": {
+      "#build/ui": [
+        "./node_modules/@nuxt/ui/.nuxt/ui"
+      ]
+    },
+    "noErrorTruncation": true,
     "resolveJsonModule": true,
     "types": [
       "@vitest/browser/matchers",
@@ -34,6 +34,6 @@
     "server/**/*",
     "env.d.ts",
     "auto-imports.d.ts",
-    "components.d.ts",
+    "components.d.ts"
   ]
 }
