@@ -123,7 +123,7 @@ watchThrottled(() => [keyword.value, settings.value.allVisible], () => {
 
   filteredList.value = fuse.search(keyword.value).map(({ item }) => item)
 }, {
-  throttle: 800,
+  throttle: 300,
   leading: false,
 })
 
