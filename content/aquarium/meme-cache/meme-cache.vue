@@ -100,6 +100,10 @@ const fuse = new Fuse<MemeData>([], {
       name: 'ocr',
       weight: 2,
     },
+    {
+      name: 'keyword',
+      weight: 3,
+    },
   ],
 })
 watch(memeDataMap, (data) => {

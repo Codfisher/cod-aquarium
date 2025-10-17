@@ -46,6 +46,9 @@
           <div class="mt-2">
             ocr: {{ item.ocr }}
           </div>
+          <div class="mt-2">
+            keyword: {{ item.keyword }}
+          </div>
         </div>
       </div>
     </transition-group>
