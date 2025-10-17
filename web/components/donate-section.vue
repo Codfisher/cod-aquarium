@@ -1,5 +1,5 @@
 <template>
-  <div class="p-4 border rounded-xl mb-10 vp-doc">
+  <div class="p-4 border border-[#DDD] rounded-xl mb-10 vp-doc">
     <div class="">
       有任何建議或疑問嗎？歡迎
       <a

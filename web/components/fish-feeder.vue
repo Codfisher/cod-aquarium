@@ -1,7 +1,7 @@
 <template>
   <div
     v-if="!!articleId"
-    class="flex flex-col gap-4 p-4 border rounded-lg"
+    class="flex flex-col gap-4 p-4 border border-[#DDD] rounded-lg"
   >
     <span class="text-sm  ">
       餵個魚飼料吧，會跑出小魚喔！<span class="text-nowrap">(ゝ∀・)b</span>
@@ -9,7 +9,7 @@
 
     <button
       ref="btnRef"
-      class="feed-btn rounded-full p-6 text-xl tracking-wider select-none"
+      class="feed-btn rounded-full p-6! text-xl tracking-wider select-none"
       :class="{ 'opacity-40': btnDisabled }"
       @click="addReaction()"
     >
