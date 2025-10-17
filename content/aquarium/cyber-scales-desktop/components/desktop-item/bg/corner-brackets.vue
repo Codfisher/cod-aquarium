@@ -41,7 +41,7 @@
 import { usePrevious } from '@vueuse/core'
 import { join, map, pipe } from 'remeda'
 import { computed, inject } from 'vue'
-import { useAnimatable } from '../../../../../../composables/use-animatable'
+import { useAnimatable } from '../../../../../../web/composables/use-animatable'
 import { ComponentStatus } from '../../../types'
 import { desktopItemInjectionKey } from '../type'
 import { resolveTransitionParamValue } from '../../../utils'

@@ -10,7 +10,7 @@
 import { usePrevious } from '@vueuse/core'
 import { omit, pipe } from 'remeda'
 import { computed } from 'vue'
-import { useAnimatable } from '../../../../../../composables/use-animatable'
+import { useAnimatable } from '../../../../../../web/composables/use-animatable'
 import { ComponentStatus } from '../../../types'
 import { resolveTransitionParamValue } from '../../../utils'
 

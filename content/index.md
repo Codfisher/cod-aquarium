@@ -10,7 +10,7 @@ aside: false
 ---
 
 <script setup>
-  import AniTest from '../components/ani-test.vue'
+  import AniTest from '../web/components/ani-test.vue'
 </script>
 
 # 歡迎來到鱈魚的魚缸

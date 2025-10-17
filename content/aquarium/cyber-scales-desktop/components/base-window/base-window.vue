@@ -20,7 +20,7 @@
 import type { BaseWindowEmits } from './type'
 import { until, useElementSize } from '@vueuse/core'
 import { computed, nextTick, onMounted, provide, ref, useTemplateRef } from 'vue'
-import { nextFrame } from '../../../../../common/utils'
+import { nextFrame } from '../../../../../web/common/utils'
 import { useElement3dRotate } from '../../composables/use-element-3d-rotate'
 import { ComponentStatus } from '../../types'
 import Bg from './bg/bg.vue'

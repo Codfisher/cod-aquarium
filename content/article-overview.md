@@ -9,7 +9,7 @@ aside: false
 ---
 
 <script setup>
-import ArticleOverview from '../components/article-overview.vue'
+import ArticleOverview from '../web/components/article-overview.vue'
 
 </script>
 

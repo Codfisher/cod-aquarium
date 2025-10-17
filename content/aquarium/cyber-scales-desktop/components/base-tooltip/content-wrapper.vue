@@ -10,7 +10,7 @@
 <script setup lang="ts">
 import type { ComponentStatus } from '../../types'
 import { computed } from 'vue'
-import { useAnimatable } from '../../../../../composables/use-animatable'
+import { useAnimatable } from '../../../../../web/composables/use-animatable'
 
 interface Props {
   status?: `${ComponentStatus}`;

@@ -3,8 +3,8 @@ import { createPinia } from 'pinia'
 import DefaultTheme from 'vitepress/theme'
 // https://vitepress.dev/guide/custom-theme
 import { h } from 'vue'
-import BaseImg from '../../components/base-img.vue'
-import DonateSection from '../../components/donate-section.vue'
+import BaseImg from '../../web/components/base-img.vue'
+import DonateSection from '../../web/components/donate-section.vue'
 import './style.css'
 import './tailwind.css'
 

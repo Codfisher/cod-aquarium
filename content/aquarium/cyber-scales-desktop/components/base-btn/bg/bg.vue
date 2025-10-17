@@ -21,11 +21,11 @@
 
 <script setup lang="ts">
 import type { CSSProperties } from 'vue'
-import type { EaseString } from '../../../../../../composables/use-animatable'
+import type { EaseString } from '../../../../../../web/composables/use-animatable'
 import { useElementSize, usePrevious } from '@vueuse/core'
 import { pipe } from 'remeda'
 import { computed, inject, reactive, useTemplateRef } from 'vue'
-import { useAnimatable } from '../../../../../../composables/use-animatable'
+import { useAnimatable } from '../../../../../../web/composables/use-animatable'
 import { ComponentStatus, FieldStatus } from '../../../types'
 import { hasChroma, resolveTransitionParamValue } from '../../../utils'
 import { baseItemInjectionKey } from '../type'

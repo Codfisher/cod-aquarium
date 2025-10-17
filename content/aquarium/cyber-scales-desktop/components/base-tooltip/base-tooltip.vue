@@ -43,7 +43,7 @@ import { autoPlacement, autoUpdate, flip, offset, shift, useFloating } from '@fl
 import { asyncComputed, promiseTimeout, until, useElementBounding, useElementHover, useElementSize, useIntervalFn } from '@vueuse/core'
 import MarkdownIt from 'markdown-it'
 import { computed, getCurrentInstance, nextTick, onMounted, provide, reactive, ref, useTemplateRef, watch } from 'vue'
-import { nextFrame } from '../../../../../common/utils'
+import { nextFrame } from '../../../../../web/common/utils'
 import { ComponentStatus } from '../../types'
 import Bg from './bg/bg.vue'
 import ContentWrapper from './content-wrapper.vue'

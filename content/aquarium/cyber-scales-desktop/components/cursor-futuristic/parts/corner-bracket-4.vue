@@ -32,7 +32,7 @@ import { reactiveComputed, usePrevious } from '@vueuse/core'
 import { animate } from 'animejs'
 import { clone, mapValues, pipe } from 'remeda'
 import { type Reactive, type SVGAttributes, useTemplateRef, watch } from 'vue'
-import { useAnimatable } from '../../../../../../composables/use-animatable'
+import { useAnimatable } from '../../../../../../web/composables/use-animatable'
 import { CursorState } from '../type'
 
 type PathName = 'tl' | 'tr' | 'bl' | 'br'

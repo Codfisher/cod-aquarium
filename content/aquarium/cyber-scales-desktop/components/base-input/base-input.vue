@@ -21,7 +21,7 @@
 <script setup lang="ts">
 import { computedAsync, useActiveElement, useElementHover, useMounted } from '@vueuse/core'
 import { computed, nextTick, provide, useId, useTemplateRef } from 'vue'
-import { nextFrame } from '../../../../../common/utils'
+import { nextFrame } from '../../../../../web/common/utils'
 import { ComponentStatus } from '../../types'
 import Bg from './bg/bg.vue'
 import ContentWrapper from './content-wrapper.vue'

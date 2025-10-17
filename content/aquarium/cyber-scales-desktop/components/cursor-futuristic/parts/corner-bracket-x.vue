@@ -41,7 +41,7 @@ import { reactiveComputed, useElementBounding } from '@vueuse/core'
 import { animate } from 'animejs'
 import { clone, pipe } from 'remeda'
 import { reactive, type Reactive, type SVGAttributes, useTemplateRef, watch } from 'vue'
-import { useAnimatable } from '../../../../../../composables/use-animatable'
+import { useAnimatable } from '../../../../../../web/composables/use-animatable'
 
 interface PathParams {
   x: number;

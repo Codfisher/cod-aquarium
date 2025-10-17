@@ -10,7 +10,7 @@
 <script setup lang="ts">
 import { promiseTimeout } from '@vueuse/core'
 import { nextTick, onMounted, useTemplateRef } from 'vue'
-import { nextFrame } from '../../../../common/utils'
+import { nextFrame } from '../../../../web/common/utils'
 
 interface Props {
   /** 偏移的尺寸量測依據。可避免因為載入等其他原因導致的偏移 */
