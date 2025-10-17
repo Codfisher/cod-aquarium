@@ -1,4 +1,5 @@
 // useStickyToolbar.ts
+import { useRafFn } from '@vueuse/core'
 import { computed, onBeforeUnmount, onMounted, ref, type Ref } from 'vue'
 
 export interface StickyToolbarOptions {
@@ -23,10 +24,8 @@ export function useStickyToolbar(
   /** 需往上墊高的距離（鍵盤/工具列遮擋） */
   const occluded = ref(0)
   const toolbarHeight = ref(0)
-  let ro: ResizeObserver | null = null
-  let rafId = 0
 
-  const isTextInputFocused = () => {
+  function isTextInputFocused() {
     const el = (document.activeElement || null) as HTMLElement | null
     if (!el)
       return false
@@ -35,29 +34,31 @@ export function useStickyToolbar(
   }
 
   // 對齊實際 CSS 像素（避免 0.5px 抖）
-  const toCssPx = (v: number) => {
+  function toCssPx(v: number) {
     const dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1
     return Math.max(0, Math.round(v * dpr) / dpr)
   }
 
-  const measureToolbar = () => {
+  function measureToolbar() {
     const el = toolbarRef.value
     if (el)
       toolbarHeight.value = el.getBoundingClientRect().height
   }
 
   // 計算「底部被遮住」的量：LayoutVH - (VVH + VVoTop)
-  const computeInset = () => {
+  function computeInset() {
     if (typeof window === 'undefined')
       return 0
+
     const vv = window.visualViewport
     if (!vv)
       return 0
+
     const raw = window.innerHeight - (vv.height + vv.offsetTop)
     return toCssPx(raw)
   }
 
-  const refresh = () => {
+  function refresh() {
     const inset = computeInset()
     const looksLikeKeyboard = inset >= keyboardMinInset
     const focused = isTextInputFocused()
@@ -70,52 +71,8 @@ export function useStickyToolbar(
     measureToolbar()
   }
 
-  const scheduleRefresh = () => {
-    if (rafId)
-      return
-    rafId = requestAnimationFrame(() => {
-      rafId = 0
-      refresh()
-    })
-  }
-
-  onMounted(() => {
+  useRafFn(() => {
     refresh()
-
-    if (typeof ResizeObserver !== 'undefined') {
-      ro = new ResizeObserver(() => measureToolbar())
-      if (toolbarRef.value)
-        ro.observe(toolbarRef.value)
-    }
-
-    const vv = window.visualViewport
-    if (vv) {
-      vv.addEventListener('resize', scheduleRefresh)
-      vv.addEventListener('scroll', scheduleRefresh)
-    }
-    else {
-      window.addEventListener('resize', scheduleRefresh)
-    }
-
-    window.addEventListener('focusin', scheduleRefresh)
-    window.addEventListener('focusout', () => setTimeout(scheduleRefresh, 80))
-    window.addEventListener('orientationchange', () => setTimeout(scheduleRefresh, 0))
-  })
-
-  onBeforeUnmount(() => {
-    cancelAnimationFrame(rafId)
-    const vv = typeof window !== 'undefined' ? window.visualViewport : undefined
-    if (vv) {
-      vv.removeEventListener('resize', scheduleRefresh)
-      vv.removeEventListener('scroll', scheduleRefresh)
-    }
-    else {
-      window.removeEventListener('resize', scheduleRefresh)
-    }
-    window.removeEventListener('focusin', scheduleRefresh)
-    window.removeEventListener('focusout', scheduleRefresh)
-    ro?.disconnect()
-    ro = null
   })
 
   const baseBottom = includeSafeArea ? 'env(safe-area-inset-bottom)' : '0px'

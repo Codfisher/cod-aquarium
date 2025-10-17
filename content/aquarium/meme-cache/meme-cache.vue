@@ -14,7 +14,7 @@
         <transition name="opacity">
           <div
             v-if="filteredList.length === 0 && keyword"
-            class=" absolute inset-0 flex justify-center items-center text-3xl opacity-30"
+            class="absolute flex justify-center items-center p-10 opacity-30"
           >
             沒找到相關圖片 ( ´•̥̥̥ ω •̥̥̥` )
           </div>
@@ -23,7 +23,7 @@
         <transition name="opacity">
           <div
             v-if="!keyword && !settings.allVisible"
-            class="absolute inset-0 flex justify-center items-center text-3xl opacity-30"
+            class=" absolute flex justify-center items-center p-10 opacity-30"
           >
             來點梗圖吧 ԅ(´∀` ԅ)
           </div>
@@ -52,13 +52,13 @@
           顯示全部
         </label>
 
-        <!-- <label class="flex items-center gap-2">
+        <label class="flex items-center gap-2">
           <input
             v-model="settings.detailVisible"
             type="checkbox"
           >
           顯示細節
-        </label> -->
+        </label>
       </div>
     </div>
   </client-only>
@@ -71,8 +71,8 @@ import Fuse from 'fuse.js'
 import { throttle } from 'lodash-es'
 import { computed, onBeforeUnmount, reactive, ref, shallowRef, triggerRef, useTemplateRef, watch } from 'vue'
 import { nextFrame } from '../../../common/utils'
+import ImgList from './components/img-list.vue'
 import { useStickyToolbar } from './composables/use-sticky-toolbar'
-import ImgList from './img-list.vue'
 import { memeOriDataSchema } from './type'
 
 const memeDataMap = shallowRef(new Map<string, MemeData>())
