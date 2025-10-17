@@ -18,7 +18,8 @@
       <div
         v-for="item in props.list"
         :key="item.file"
-        class="item flex gap-2 conte"
+        class="item flex gap-2"
+        @click="handleClick(item)"
       >
         <div class="aspect-square max-w-[35dvw] bg-slate-100 cursor-pointer rounded-xl overflow-hidden">
           <img
@@ -67,7 +68,7 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const emit = defineEmits<{
-  'update:model-value': [value: string];
+  select: [data: MemeData];
 }>()
 
 /** 修正 transition-group 元素離開時動畫異常問題 */
@@ -83,10 +84,14 @@ function handleBeforeLeave(el: Element) {
   el.style.width = width
   el.style.height = height
 }
+
+function handleClick(data: MemeData) {
+  emit('select', data)
+}
 </script>
 
 <style scoped lang="sass">
 .item
   content-visibility: auto
-  contain-intrinsic-size: 30dvh
+  contain-intrinsic-size: 30svh
 </style>

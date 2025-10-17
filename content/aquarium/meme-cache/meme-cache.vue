@@ -69,7 +69,7 @@
 
 <script setup lang="ts">
 import type { MemeData } from './type'
-import { useActiveElement, useElementSize, useEventListener, useRafFn, useWindowScroll, useWindowSize } from '@vueuse/core'
+import { useActiveElement, useWindowSize } from '@vueuse/core'
 import Fuse from 'fuse.js'
 import { throttle } from 'lodash-es'
 import { computed, onBeforeUnmount, reactive, ref, shallowRef, triggerRef, useTemplateRef, watch } from 'vue'
@@ -84,8 +84,6 @@ const memeDataMap = shallowRef(new Map<string, MemeData>())
 const triggerMemeData = throttle(() => {
   triggerRef(memeDataMap)
 }, 500)
-
-const windowSize = reactive(useWindowSize())
 
 const activeElement = useActiveElement()
 function handleEnter() {
