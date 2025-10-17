@@ -78,7 +78,7 @@ async function getMemeFiles(dir: string, { recursive = true } = {}) {
 
 async function main() {
   const ocrWorker = await pipe(
-    await createWorker('chi_tra+eng'),
+    await createWorker('chi_tra'),
     async (worker) => {
       await worker.setParameters({
         tessjs_create_hocr: '0',

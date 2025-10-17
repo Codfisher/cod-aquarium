@@ -32,7 +32,7 @@
 
       <div
         ref="toolbarRef"
-        class="flex gap-2 w-full fixed left-0 p-4 bg-white dark:bg-black "
+        class="toolbar flex gap-2 w-full fixed left-0 p-4 bg-white dark:bg-black "
         :style="toolbarStyle"
       >
         <div class="rounded-full border flex-1">
@@ -71,6 +71,7 @@ import Fuse from 'fuse.js'
 import { throttle } from 'lodash-es'
 import { computed, onBeforeUnmount, reactive, ref, shallowRef, triggerRef, useTemplateRef, watch } from 'vue'
 import { nextFrame } from '../../../common/utils'
+import { useStickyToolbar } from './composables/use-sticky-toolbar'
 import ImgList from './img-list.vue'
 import { memeOriDataSchema } from './type'
 
@@ -213,27 +214,8 @@ onBeforeUnmount(() => {
   controller.abort()
 })
 
-const occluded = ref(0)
-function updateOccluded() {
-  occluded.value = visualViewport
-    ? Math.max(0, windowSize.height - visualViewport.height - visualViewport.offsetTop)
-    : 0
-}
-useRafFn(() => {
-  updateOccluded()
-})
-
 const toolbarRef = useTemplateRef('toolbarRef')
-const toolbarSize = reactive(useElementSize(toolbarRef, undefined, {
-  box: 'border-box',
-}))
-const toolbarStyle = computed(() => ({
-  bottom: `calc(${occluded.value}px + env(safe-area-inset-bottom))`,
-}))
-
-const contentStyle = computed(() => ({
-  paddingBottom: `calc(${toolbarSize.height}px + env(safe-area-inset-bottom))`,
-}))
+const { toolbarStyle, contentStyle } = useStickyToolbar(toolbarRef)
 </script>
 
 <style scoped lang="sass">
