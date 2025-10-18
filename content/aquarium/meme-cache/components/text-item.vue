@@ -3,8 +3,8 @@
     ref="targetRef"
     :id
     class="target absolute p-4 whitespace-pre"
-    contenteditable
     :style="targetStyle"
+    contenteditable
     @click="handleClick"
     @input="handleInput"
   />
@@ -16,6 +16,8 @@ import { onClickOutside } from '@vueuse/core';
 // import Moveable from 'moveable'
 import { computed, CSSProperties, onMounted, ref, useId, useTemplateRef, watch } from 'vue'
 import interact from 'interactjs'
+import { nextFrame } from '../../../../web/common/utils';
+import { is } from 'drizzle-orm';
 
 interface Props { }
 const props = withDefaults(defineProps<Props>(), {})
@@ -55,7 +57,7 @@ function handleInput(event: InputEvent) {
   const el = event.target as HTMLElement
   settings.value.text = el.innerText
 }
-onClickOutside(targetRef, () => {
+onClickOutside(targetRef, async () => {
   isEditing.value = false
 })
 
@@ -77,6 +79,11 @@ onMounted(() => {
           settings.value.y += event.dy
 
           target.style.transform = `translate(${settings.value.x}px, ${settings.value.y}px)`
+
+          nextFrame().then(() => {
+            isEditing.value = false
+            el.blur()
+          })
         },
       },
     })
@@ -87,5 +94,4 @@ onMounted(() => {
 <style scoped lang="sass">
 .target
   touch-action: none !important
-  user-select: none !important
 </style>

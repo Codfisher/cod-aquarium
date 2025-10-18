@@ -91,11 +91,20 @@
       }"
     >
       <template #body>
-        <img-editor :data="targetMeme" />
+        <img-editor
+          ref="editorRef"
+          :data="targetMeme"
+        />
       </template>
 
       <template #footer="{ close }">
-        <div class=" flex justify-end w-full p-2">
+        <div class=" flex w-full p-2">
+          <UButton
+            label="複製圖片"
+            @click="copyImg"
+          />
+
+          <div class="flex-1"></div>
           <UButton
             icon="i-lucide-x"
             @click="close"
@@ -118,9 +127,11 @@ import ImgEditor from './components/img-editor.vue'
 import ImgList from './components/img-list.vue'
 import { useStickyToolbar } from './composables/use-sticky-toolbar'
 import { memeOriDataSchema } from './type'
+import { snapdom } from '@zumer/snapdom'
 
 const isDev = import.meta.env.DEV
 
+const toast = useToast()
 const memeDataMap = shallowRef(new Map<string, MemeData>())
 const triggerMemeData = throttle(() => {
   triggerRef(memeDataMap)
@@ -282,6 +293,27 @@ onBeforeUnmount(() => {
 
 const toolbarRef = useTemplateRef('toolbarRef')
 const { toolbarStyle, contentStyle } = useStickyToolbar(toolbarRef)
+
+const editorRef = useTemplateRef('editorRef')
+
+async function copyImg() {
+  if (!editorRef.value?.boardRef) return;
+
+  const img = await snapdom.toBlob(
+    editorRef.value?.boardRef,
+    {
+      quality: 1,
+      backgroundColor: '#FFFFFF',
+      type: 'png'
+    })
+  console.log(`🚀 ~ img:`, img);
+
+  await navigator.clipboard.write([
+    new ClipboardItem({
+      'image/png': img,
+    }),
+  ])
+}
 </script>
 
 <style scoped lang="sass">

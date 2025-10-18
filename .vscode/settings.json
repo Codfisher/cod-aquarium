@@ -46,6 +46,7 @@
     "purry",
     "Radash",
     "Remeda",
+    "snapdom",
     "sourcemaps",
     "srcset",
     "Strapi",
@@ -65,7 +66,8 @@
     "wicg",
     "xstate",
     "zdog",
-    "Zeabur"
+    "Zeabur",
+    "zumer"
   ],
   "html.format.wrapAttributes": "force-expand-multiline",
   "editor.tabSize": 2,
