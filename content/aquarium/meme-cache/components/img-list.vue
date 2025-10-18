@@ -21,7 +21,7 @@
         class="item flex gap-2"
         @click="handleClick(item)"
       >
-        <div class="aspect-square max-w-[35dvw] bg-slate-100 cursor-pointer rounded-xl overflow-hidden">
+        <div class="aspect-square md:max-w-[30dvw] bg-slate-100 cursor-pointer rounded-xl overflow-hidden">
           <img
             :src="`/memes/${item.file}`"
             loading="lazy"
@@ -57,7 +57,7 @@
 </template>
 
 <script setup lang="ts">
-import { MemeData } from '../type';
+import type { MemeData } from '../type'
 
 interface Props {
   list: MemeData[];

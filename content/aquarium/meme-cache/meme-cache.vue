@@ -44,30 +44,30 @@
           >
         </div>
 
-        <UDropdownMenu :items="items">
+        <UDropdownMenu
+          :items="items"
+          :ui="{
+            content: 'z-[70]',
+          }"
+        >
           <UButton icon="i-lucide-menu" />
 
           <template #all>
-            <label class="flex items-center gap-2 p-2">
-              <input
-                v-model="settings.allVisible"
-                type="checkbox"
-              >
-              顯示全部
-            </label>
+            <UCheckbox
+              v-model="settings.allVisible"
+              label="顯示全部"
+              size="xl"
+              class="p-4"
+            />
           </template>
 
           <template #detail>
-            <label
-              v-if="isDev"
-              class="flex items-center gap-2 p-2"
-            >
-              <input
-                v-model="settings.detailVisible"
-                type="checkbox"
-              >
-              顯示細節
-            </label>
+            <UCheckbox
+              v-model="settings.detailVisible"
+              label="顯示細節"
+              size="xl"
+              class="p-4"
+            />
           </template>
         </UDropdownMenu>
       </div>
