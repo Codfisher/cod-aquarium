@@ -84,7 +84,7 @@
       v-model:open="editorVisible"
       title="編輯圖片"
       fullscreen
-      class="z-[70] modal"
+      class="z-[70]"
       :ui="{
         header: ' hidden',
         body: 'p-0!',

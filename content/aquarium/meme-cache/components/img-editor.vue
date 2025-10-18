@@ -10,31 +10,19 @@
       <img
         v-if="props.data"
         :src="`/memes/${props.data.file}`"
-        class=" object-contain rounded-none border-none  w-[100vw] md:w-[50vw]"
+        class=" object-contain rounded-none border-none  w-[100vw] md:w-[50vw] "
         draggable="false"
       >
 
-      <textarea
-        ref="target"
-        v-model="text"
-        class="target absolute"
-      />
-
-      <moveable
-        :target="target"
-        :draggable="true"
-        :rotatable="true"
-        @drag="onDrag"
-      />
+      <text-item />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import type { CSSProperties } from 'vue'
 import type { MemeData } from '../type'
-import { computed, ref, useTemplateRef } from 'vue'
-import Moveable from 'vue3-moveable'
+import { useTemplateRef } from 'vue'
+import TextItem from './text-item.vue'
 
 interface Props {
   data?: MemeData;
@@ -45,21 +33,7 @@ const emit = defineEmits<{
   'update:model-value': [value: string];
 }>()
 
-const boardStyle = computed<CSSProperties>(() => ({
-  backgroundImage: props.data
-    ? `url('/memes/${props.data.file}')`
-    : 'none',
-}))
-
 const boardRef = useTemplateRef('boardRef')
-
-const text = ref('Hello World')
-const target = useTemplateRef('target')
-function onDrag({ transform }: any) {
-  const el = target.value as HTMLElement | undefined
-  if (el)
-    el.style.transform = transform
-}
 </script>
 
 <style scoped lang="sass">
