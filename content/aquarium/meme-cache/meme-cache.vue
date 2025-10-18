@@ -9,6 +9,7 @@
           :list="filteredList"
           class=""
           :detail-visible="settings.detailVisible"
+          @select="handleSelect"
         />
 
         <transition name="opacity">
@@ -50,7 +51,10 @@
             content: 'z-[70]',
           }"
         >
-          <UButton icon="i-lucide-menu" />
+          <UButton
+            icon="i-lucide-menu"
+            class="px-2!"
+          />
 
           <template #all>
             <UCheckbox
@@ -61,7 +65,10 @@
             />
           </template>
 
-          <template #detail>
+          <template
+            v-if="isDev"
+            #detail
+          >
             <UCheckbox
               v-model="settings.detailVisible"
               label="顯示細節"
@@ -72,17 +79,42 @@
         </UDropdownMenu>
       </div>
     </div>
+
+    <UModal
+      v-model:open="editorVisible"
+      title="編輯圖片"
+      fullscreen
+      class="z-[70] modal"
+      :ui="{
+        header: ' hidden',
+        body: 'p-0!',
+      }"
+    >
+      <template #body>
+        <img-editor :data="targetMeme" />
+      </template>
+
+      <template #footer="{ close }">
+        <div class=" flex justify-end w-full p-2">
+          <UButton
+            icon="i-lucide-x"
+            @click="close"
+          />
+        </div>
+      </template>
+    </UModal>
   </client-only>
 </template>
 
 <script setup lang="ts">
 import type { DropdownMenuItem } from '@nuxt/ui'
 import type { MemeData } from './type'
-import { useActiveElement, useWindowSize, watchThrottled } from '@vueuse/core'
+import { useActiveElement, watchThrottled } from '@vueuse/core'
 import Fuse from 'fuse.js'
 import { throttle } from 'lodash-es'
-import { computed, onBeforeUnmount, reactive, ref, shallowRef, triggerRef, useTemplateRef, watch } from 'vue'
+import { onBeforeUnmount, ref, shallowRef, triggerRef, useTemplateRef, watch } from 'vue'
 import { nextFrame } from '../../../web/common/utils'
+import ImgEditor from './components/img-editor.vue'
 import ImgList from './components/img-list.vue'
 import { useStickyToolbar } from './composables/use-sticky-toolbar'
 import { memeOriDataSchema } from './type'
@@ -127,6 +159,13 @@ const items = [
   { slot: 'all' },
   { slot: 'detail' },
 ] as const satisfies DropdownMenuItem[]
+
+const editorVisible = ref(false)
+const targetMeme = shallowRef<MemeData>()
+function handleSelect(data: MemeData) {
+  targetMeme.value = data
+  editorVisible.value = true
+}
 
 const filteredList = shallowRef<MemeData[]>([])
 watchThrottled(() => [keyword.value, settings.value.allVisible], () => {
