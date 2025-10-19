@@ -17,9 +17,11 @@
         >
 
         <text-item
-          v-for="data in textList"
-          :key="data.key"
-          :model-value="data"
+          v-for="item in list"
+          :key="item.key"
+          :model-value="item.data"
+          :is-editing="item.isEditing"
+          @click="editItem(item)"
         />
       </div>
     </div>
@@ -28,11 +30,12 @@
 
 <script setup lang="ts">
 import type { MemeData } from '../type'
-import { ref, useTemplateRef } from 'vue'
+import { computed, ref, useTemplateRef } from 'vue'
 import TextItem from './text-item.vue'
 import { ComponentProps } from 'vue-component-type-helpers';
 
-type TextItemData = ComponentProps<typeof TextItem>['modelValue'] & {
+interface TextItemData {
+  data: ComponentProps<typeof TextItem>['modelValue'],
   key: string
 }
 
@@ -47,25 +50,45 @@ const emit = defineEmits<{
 
 const boardRef = useTemplateRef('boardRef')
 
+const targetItem = ref<TextItemData>()
 const textList = ref<TextItemData[]>([])
 
+const list = computed(() => textList.value.map((item) => ({
+  ...item,
+  isEditing: targetItem.value?.key === item.key
+})))
+
 function handleClick(event: MouseEvent) {
+  if (targetItem.value) {
+    targetItem.value = undefined
+    return
+  }
+
   const rect = boardRef.value?.getBoundingClientRect()
   if (!rect) return
 
   const x = event.clientX - rect.left
   const y = event.clientY - rect.top
 
-  textList.value.push({
+  const newItem = {
     key: crypto.randomUUID(),
-    text: '點擊編輯',
-    x,
-    y,
-    fontSize: 16,
-    fontWeight: 400,
-    color: '#000000',
-    backgroundColor: 'transparent',
-  })
+    data: {
+      text: '點擊編輯',
+      x,
+      y,
+      fontSize: 16,
+      fontWeight: 400,
+      color: '#000000',
+      backgroundColor: 'transparent',
+    }
+  }
+
+  textList.value.push(newItem)
+  targetItem.value = newItem
+}
+
+function editItem(item: TextItemData) {
+  targetItem.value = item
 }
 
 defineExpose({

@@ -1,13 +1,19 @@
 <template>
   <div
-    ref="targetRef"
+    ref="boxRef"
     :id
-    class="target absolute p-4 whitespace-pre"
-    :style="targetStyle"
-    contenteditable
-    @click="handleClick"
-    @input="handleInput"
-  />
+    class="box absolute"
+    :style="boxStyle"
+  >
+    <div
+      ref="textRef"
+      class="text p-4 whitespace-pre"
+      contenteditable
+      :style="textStyle"
+      @input="handleInput"
+    >
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -16,11 +22,16 @@ import { onClickOutside } from '@vueuse/core';
 // import Moveable from 'moveable'
 import { computed, CSSProperties, onMounted, ref, useId, useTemplateRef, watch } from 'vue'
 import interact from 'interactjs'
-import { nextFrame } from '../../../../web/common/utils';
-import { is } from 'drizzle-orm';
 
-interface Props { }
-const props = withDefaults(defineProps<Props>(), {})
+interface Props {
+  isEditing?: boolean;
+  /** 建立後自動 focus */
+  autoFocus?: boolean;
+}
+const props = withDefaults(defineProps<Props>(), {
+  isEditing: false,
+  autoFocus: true,
+})
 
 const emit = defineEmits<{}>()
 
@@ -38,39 +49,36 @@ const settings = defineModel({
   },
 })
 
-const isEditing = ref(false)
-const targetRef = useTemplateRef('targetRef')
-const targetStyle = computed<CSSProperties>(() => ({
+const boxRef = useTemplateRef('boxRef')
+const boxStyle = computed<CSSProperties>(() => ({
+  transform: `translate(${settings.value.x}px, ${settings.value.y}px)`,
+  userSelect: props.isEditing ? 'text' : 'none',
+}))
+
+const textRef = useTemplateRef('textRef')
+const textStyle = computed<CSSProperties>(() => ({
   fontSize: `${settings.value.fontSize}px`,
   fontWeight: settings.value.fontWeight,
   color: settings.value.color,
   backgroundColor: settings.value.backgroundColor,
-  transform: `translate(${settings.value.x}px, ${settings.value.y}px)`,
-  outline: isEditing.value ? '1px solid #3b82f6' : 'none',
-  userSelect: isEditing.value ? 'text' : 'none',
+  outline: props.isEditing ? '1px solid #3b82f6' : 'none',
 }))
 
-function handleClick() {
-  isEditing.value = true
-}
 function handleInput(event: InputEvent) {
   const el = event.target as HTMLElement
   settings.value.text = el.innerText
 }
-onClickOutside(targetRef, async () => {
-  isEditing.value = false
-})
-
 
 onMounted(() => {
-  const el = targetRef.value
-  if (!el) {
+  const box = boxRef.value
+  const text = textRef.value
+  if (!box || !text) {
     return
   }
 
-  el.textContent = settings.value.text
+  text.textContent = settings.value.text
 
-  interact(el)
+  interact(box)
     .draggable({
       listeners: {
         move(event) {
@@ -79,19 +87,19 @@ onMounted(() => {
           settings.value.y += event.dy
 
           target.style.transform = `translate(${settings.value.x}px, ${settings.value.y}px)`
-
-          nextFrame().then(() => {
-            isEditing.value = false
-            el.blur()
-          })
         },
       },
     })
-})
 
+  if (props.autoFocus) {
+    box.focus()
+  }
+})
 </script>
 
 <style scoped lang="sass">
-.target
+.box
   touch-action: none !important
+.text
+  transform: translate(-50%, -50%)
 </style>
