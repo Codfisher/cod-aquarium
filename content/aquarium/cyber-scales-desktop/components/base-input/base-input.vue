@@ -8,10 +8,10 @@
 
     <content-wrapper class="z-0  ">
       <input-decoding
-        v-model="modelValue"
-        class="w-full p-2 pl-3"
-        :class="props.inputClass"
         :id="id"
+        v-model="modelValue"
+        class="w-full p-2! pl-3!"
+        :class="props.inputClass"
         :charset="charset"
       />
     </content-wrapper>
@@ -25,8 +25,8 @@ import { nextFrame } from '../../../../../web/common/utils'
 import { ComponentStatus } from '../../types'
 import Bg from './bg/bg.vue'
 import ContentWrapper from './content-wrapper.vue'
-import { baseInputInjectionKey } from './type'
 import InputDecoding from './input-decoding.vue'
+import { baseInputInjectionKey } from './type'
 
 interface Props {
   inputClass?: string;
@@ -47,7 +47,7 @@ const emit = defineEmits<Emits>()
 defineSlots<Slots>()
 
 const modelValue = defineModel({
-  default: ''
+  default: '',
 })
 
 const id = useId()

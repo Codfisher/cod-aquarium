@@ -1,2 +1,6 @@
 @import "tailwindcss" source("../../");
 @import "@nuxt/ui";
+
+:root {
+  --ui-primary: var(--vp-c-brand-2);
+}

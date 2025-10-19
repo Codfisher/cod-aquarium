@@ -9,6 +9,7 @@
           :list="filteredList"
           class=""
           :detail-visible="settings.detailVisible"
+          @select="handleSelect"
         />
 
         <transition name="opacity">
@@ -44,51 +45,93 @@
           >
         </div>
 
-        <UDropdownMenu :items="items">
-          <UButton icon="i-lucide-menu" />
+        <UDropdownMenu
+          :items="items"
+          :ui="{
+            content: 'z-[70]',
+          }"
+        >
+          <UButton
+            icon="i-lucide-menu"
+            class="px-2!"
+          />
 
           <template #all>
-            <label class="flex items-center gap-2 p-2">
-              <input
-                v-model="settings.allVisible"
-                type="checkbox"
-              >
-              顯示全部
-            </label>
+            <UCheckbox
+              v-model="settings.allVisible"
+              label="顯示全部"
+              size="xl"
+              class="p-4"
+            />
           </template>
 
-          <template #detail>
-            <label
-              v-if="isDev"
-              class="flex items-center gap-2 p-2"
-            >
-              <input
-                v-model="settings.detailVisible"
-                type="checkbox"
-              >
-              顯示細節
-            </label>
+          <template
+            v-if="isDev"
+            #detail
+          >
+            <UCheckbox
+              v-model="settings.detailVisible"
+              label="顯示細節"
+              size="xl"
+              class="p-4"
+            />
           </template>
         </UDropdownMenu>
       </div>
     </div>
+
+    <UModal
+      v-model:open="editorVisible"
+      title="編輯圖片"
+      fullscreen
+      class="z-[70]"
+      :ui="{
+        header: ' hidden',
+        body: 'p-0!',
+      }"
+    >
+      <template #body>
+        <img-editor
+          ref="editorRef"
+          :data="targetMeme"
+        />
+      </template>
+
+      <template #footer="{ close }">
+        <div class=" flex w-full p-2">
+          <UButton
+            label="複製圖片"
+            @click="copyImg"
+          />
+
+          <div class="flex-1" />
+          <UButton
+            icon="i-lucide-x"
+            @click="close"
+          />
+        </div>
+      </template>
+    </UModal>
   </client-only>
 </template>
 
 <script setup lang="ts">
 import type { DropdownMenuItem } from '@nuxt/ui'
 import type { MemeData } from './type'
-import { useActiveElement, useWindowSize, watchThrottled } from '@vueuse/core'
+import { useActiveElement, watchThrottled } from '@vueuse/core'
+import { snapdom } from '@zumer/snapdom'
 import Fuse from 'fuse.js'
 import { throttle } from 'lodash-es'
-import { computed, onBeforeUnmount, reactive, ref, shallowRef, triggerRef, useTemplateRef, watch } from 'vue'
+import { onBeforeUnmount, ref, shallowRef, triggerRef, useTemplateRef, watch } from 'vue'
 import { nextFrame } from '../../../web/common/utils'
+import ImgEditor from './components/img-editor.vue'
 import ImgList from './components/img-list.vue'
 import { useStickyToolbar } from './composables/use-sticky-toolbar'
 import { memeOriDataSchema } from './type'
 
 const isDev = import.meta.env.DEV
 
+const toast = useToast()
 const memeDataMap = shallowRef(new Map<string, MemeData>())
 const triggerMemeData = throttle(() => {
   triggerRef(memeDataMap)
@@ -127,6 +170,13 @@ const items = [
   { slot: 'all' },
   { slot: 'detail' },
 ] as const satisfies DropdownMenuItem[]
+
+const editorVisible = ref(false)
+const targetMeme = shallowRef<MemeData>()
+function handleSelect(data: MemeData) {
+  targetMeme.value = data
+  editorVisible.value = true
+}
 
 const filteredList = shallowRef<MemeData[]>([])
 watchThrottled(() => [keyword.value, settings.value.allVisible], () => {
@@ -243,6 +293,28 @@ onBeforeUnmount(() => {
 
 const toolbarRef = useTemplateRef('toolbarRef')
 const { toolbarStyle, contentStyle } = useStickyToolbar(toolbarRef)
+
+const editorRef = useTemplateRef('editorRef')
+
+async function copyImg() {
+  if (!editorRef.value?.boardRef)
+    return
+
+  const img = await snapdom.toBlob(
+    editorRef.value?.boardRef,
+    {
+      quality: 1,
+      backgroundColor: '#FFFFFF',
+      type: 'png',
+    },
+  )
+
+  await navigator.clipboard.write([
+    new ClipboardItem({
+      'image/png': img,
+    }),
+  ])
+}
 </script>
 
 <style scoped lang="sass">

@@ -18,10 +18,10 @@
       <div
         v-for="item in props.list"
         :key="item.file"
-        class="item flex gap-2"
+        class="item flex flex-col md:flex-row gap-2"
         @click="handleClick(item)"
       >
-        <div class="aspect-square max-w-[35dvw] bg-slate-100 cursor-pointer rounded-xl overflow-hidden">
+        <div class="aspect-square w-[80vw] md:w-[30dvw] bg-slate-100 cursor-pointer rounded-xl overflow-hidden">
           <img
             :src="`/memes/${item.file}`"
             loading="lazy"
@@ -31,9 +31,9 @@
 
         <div
           v-if="props.detailVisible"
-          class=" text-sm w-full md:w-[30vw] "
+          class=" text-sm w-full md:w-[30vw] max-w-[80vw]"
         >
-          <div class=" select-all">
+          <div class=" select-all text-xs">
             {{ item.file }}
           </div>
           <div>
@@ -57,7 +57,7 @@
 </template>
 
 <script setup lang="ts">
-import { MemeData } from '../type';
+import type { MemeData } from '../type'
 
 interface Props {
   list: MemeData[];

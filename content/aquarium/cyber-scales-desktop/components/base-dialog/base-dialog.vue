@@ -96,13 +96,13 @@ const props = withDefaults(defineProps<Props>(), {
   colorType: 'positive',
 })
 
-const modelValue = defineModel<boolean>({
-  default: false,
-})
-
 const emit = defineEmits<BaseDialogEmits>()
 
 defineSlots<Slots>()
+
+const modelValue = defineModel<boolean>({
+  default: undefined,
+})
 
 const status = ref(ComponentStatus.HIDDEN)
 
@@ -111,6 +111,18 @@ const dialogSize = useElementSize(dialogRef)
 useElement3dRotate(dialogRef)
 
 const isHover = useElementHover(dialogRef)
+
+const currentStatus = computed(() => {
+  if (status.value === ComponentStatus.HIDDEN) {
+    return ComponentStatus.HIDDEN
+  }
+
+  if (modelValue.value === false) {
+    return ComponentStatus.HIDDEN
+  }
+
+  return status.value
+})
 
 const backdropClass = computed(() => ({
   'opacity-0': currentStatus.value === ComponentStatus.HIDDEN,
@@ -134,18 +146,6 @@ onMounted(async () => {
   await nextFrame()
 
   status.value = ComponentStatus.VISIBLE
-})
-
-const currentStatus = computed(() => {
-  if (status.value === ComponentStatus.HIDDEN) {
-    return ComponentStatus.HIDDEN
-  }
-
-  if (!modelValue.value) {
-    return ComponentStatus.HIDDEN
-  }
-
-  return status.value
 })
 
 defineExpose({
