@@ -23,7 +23,6 @@
 
 <script setup lang="ts">
 import type { CSSProperties } from 'vue'
-import type { ComponentStatus } from '../../../types'
 import { useElementSize } from '@vueuse/core'
 import { computed, reactive, useTemplateRef } from 'vue'
 import LeftFrame from './left-frame.vue'
