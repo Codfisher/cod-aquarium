@@ -22,6 +22,7 @@
           :model-value="item.data"
           :is-editing="item.isEditing"
           @click="editItem(item)"
+          @delete="deleteItem(item)"
         />
       </div>
     </div>
@@ -29,14 +30,14 @@
 </template>
 
 <script setup lang="ts">
+import type { ComponentProps } from 'vue-component-type-helpers'
 import type { MemeData } from '../type'
-import { computed, ref, useTemplateRef } from 'vue'
+import { computed, ref, shallowRef, triggerRef, useTemplateRef } from 'vue'
 import TextItem from './text-item.vue'
-import { ComponentProps } from 'vue-component-type-helpers';
 
 interface TextItemData {
-  data: ComponentProps<typeof TextItem>['modelValue'],
-  key: string
+  data: ComponentProps<typeof TextItem>['modelValue'];
+  key: string;
 }
 
 interface Props {
@@ -51,11 +52,11 @@ const emit = defineEmits<{
 const boardRef = useTemplateRef('boardRef')
 
 const targetItem = ref<TextItemData>()
-const textList = ref<TextItemData[]>([])
+const textMap = shallowRef(new Map<string, TextItemData>())
 
-const list = computed(() => textList.value.map((item) => ({
+const list = computed(() => [...textMap.value.values()].map((item) => ({
   ...item,
-  isEditing: targetItem.value?.key === item.key
+  isEditing: targetItem.value?.key === item.key,
 })))
 
 function handleClick(event: MouseEvent) {
@@ -65,7 +66,8 @@ function handleClick(event: MouseEvent) {
   }
 
   const rect = boardRef.value?.getBoundingClientRect()
-  if (!rect) return
+  if (!rect)
+    return
 
   const x = event.clientX - rect.left
   const y = event.clientY - rect.top
@@ -80,15 +82,25 @@ function handleClick(event: MouseEvent) {
       fontWeight: 400,
       color: '#000000',
       backgroundColor: 'transparent',
-    }
+    },
   }
 
-  textList.value.push(newItem)
+  textMap.value.set(newItem.key, newItem)
+  triggerRef(textMap)
   targetItem.value = newItem
 }
 
 function editItem(item: TextItemData) {
   targetItem.value = item
+}
+function deleteItem(item: TextItemData) {
+  textMap.value.delete(item.key)
+  triggerRef(textMap)
+
+  if (targetItem.value?.key === item.key) {
+    targetItem.value = undefined
+  }
+  console.log(`[deleteItem] ~ targetItem:`, targetItem.value)
 }
 
 defineExpose({

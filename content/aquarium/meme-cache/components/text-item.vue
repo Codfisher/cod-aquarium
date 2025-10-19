@@ -1,7 +1,7 @@
 <template>
   <div
-    ref="boxRef"
     :id
+    ref="boxRef"
     class="box absolute"
     :style="boxStyle"
   >
@@ -11,17 +11,28 @@
       contenteditable
       :style="textStyle"
       @input="handleInput"
+    />
+
+    <div
+      :style="toolbarStyle"
+      class=" absolute left-0 top-0 flex gap-2 rounded"
     >
+      <UButton
+        icon="i-lucide-trash-2"
+        class="p-2!"
+        @click="emit('delete')"
+      />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onClickOutside } from '@vueuse/core';
 /** 不知道為甚麼，控制點都按不到 */
 // import Moveable from 'moveable'
-import { computed, CSSProperties, onMounted, ref, useId, useTemplateRef, watch } from 'vue'
+import type { CSSProperties } from 'vue'
+import { useElementSize } from '@vueuse/core'
 import interact from 'interactjs'
+import { computed, onMounted, reactive, useId, useTemplateRef } from 'vue'
 
 interface Props {
   isEditing?: boolean;
@@ -33,7 +44,9 @@ const props = withDefaults(defineProps<Props>(), {
   autoFocus: true,
 })
 
-const emit = defineEmits<{}>()
+const emit = defineEmits<{
+  delete: [];
+}>()
 
 const id = useId()
 
@@ -50,6 +63,7 @@ const settings = defineModel({
 })
 
 const boxRef = useTemplateRef('boxRef')
+const boxSize = reactive(useElementSize(boxRef))
 const boxStyle = computed<CSSProperties>(() => ({
   transform: `translate(${settings.value.x}px, ${settings.value.y}px)`,
   userSelect: props.isEditing ? 'text' : 'none',
@@ -66,8 +80,12 @@ const textStyle = computed<CSSProperties>(() => ({
 
 function handleInput(event: InputEvent) {
   const el = event.target as HTMLElement
-  settings.value.text = el.innerText
+  settings.value.text = el.textContent
 }
+
+const toolbarStyle = computed<CSSProperties>(() => ({
+  transform: `translate(${boxSize.width / 2}px, -50%)`,
+}))
 
 onMounted(() => {
   const box = boxRef.value
