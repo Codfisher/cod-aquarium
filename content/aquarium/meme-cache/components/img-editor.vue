@@ -60,6 +60,7 @@ const list = computed(() => [...textMap.value.values()].map((item) => ({
 })))
 
 function handleClick(event: MouseEvent) {
+  console.log(`🚀 ~ handleClick:`, targetItem.value)
   if (targetItem.value) {
     targetItem.value = undefined
     return
@@ -97,10 +98,8 @@ function deleteItem(item: TextItemData) {
   textMap.value.delete(item.key)
   triggerRef(textMap)
 
-  if (targetItem.value?.key === item.key) {
-    targetItem.value = undefined
-  }
-  console.log(`[deleteItem] ~ targetItem:`, targetItem.value)
+  targetItem.value = undefined
+  console.log(`🚀 ~ deleteItem:`, targetItem.value)
 }
 
 defineExpose({

@@ -104,7 +104,7 @@
             @click="copyImg"
           />
 
-          <div class="flex-1"></div>
+          <div class="flex-1" />
           <UButton
             icon="i-lucide-x"
             @click="close"
@@ -119,6 +119,7 @@
 import type { DropdownMenuItem } from '@nuxt/ui'
 import type { MemeData } from './type'
 import { useActiveElement, watchThrottled } from '@vueuse/core'
+import { snapdom } from '@zumer/snapdom'
 import Fuse from 'fuse.js'
 import { throttle } from 'lodash-es'
 import { onBeforeUnmount, ref, shallowRef, triggerRef, useTemplateRef, watch } from 'vue'
@@ -127,7 +128,6 @@ import ImgEditor from './components/img-editor.vue'
 import ImgList from './components/img-list.vue'
 import { useStickyToolbar } from './composables/use-sticky-toolbar'
 import { memeOriDataSchema } from './type'
-import { snapdom } from '@zumer/snapdom'
 
 const isDev = import.meta.env.DEV
 
@@ -297,16 +297,17 @@ const { toolbarStyle, contentStyle } = useStickyToolbar(toolbarRef)
 const editorRef = useTemplateRef('editorRef')
 
 async function copyImg() {
-  if (!editorRef.value?.boardRef) return;
+  if (!editorRef.value?.boardRef)
+    return
 
   const img = await snapdom.toBlob(
     editorRef.value?.boardRef,
     {
       quality: 1,
       backgroundColor: '#FFFFFF',
-      type: 'png'
-    })
-  console.log(`🚀 ~ img:`, img);
+      type: 'png',
+    },
+  )
 
   await navigator.clipboard.write([
     new ClipboardItem({

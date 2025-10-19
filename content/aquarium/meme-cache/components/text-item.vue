@@ -13,16 +13,19 @@
       @input="handleInput"
     />
 
-    <div
-      :style="toolbarStyle"
-      class=" absolute left-0 top-0 flex gap-2 rounded"
-    >
-      <UButton
-        icon="i-lucide-trash-2"
-        class="p-2!"
-        @click="emit('delete')"
-      />
-    </div>
+    <transition name="opacity">
+      <div
+        v-if="props.isEditing"
+        :style="toolbarStyle"
+        class=" absolute left-0 top-0 flex gap-2 rounded "
+      >
+        <UButton
+          icon="i-lucide-trash-2"
+          class="p-2!"
+          @click="emit('delete')"
+        />
+      </div>
+    </transition>
   </div>
 </template>
 
