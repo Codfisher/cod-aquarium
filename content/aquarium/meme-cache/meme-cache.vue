@@ -98,13 +98,25 @@
       </template>
 
       <template #footer="{ close }">
-        <div class=" flex w-full p-2">
+        <div class=" flex w-full gap-4">
           <UButton
-            label="複製圖片"
+            label="複製"
+            icon="i-lucide-clipboard-copy"
             @click="copyImg"
           />
-
+          <UButton
+            v-if="isSupported"
+            label="分享"
+            icon="i-lucide-share-2"
+            @click="handleShare"
+          />
+          <UButton
+            label="圖片設定"
+            icon="i-lucide-settings"
+            @click="toggleSettingForm"
+          />
           <div class="flex-1" />
+
           <UButton
             icon="i-lucide-x"
             @click="close"
@@ -118,7 +130,7 @@
 <script setup lang="ts">
 import type { DropdownMenuItem } from '@nuxt/ui'
 import type { MemeData } from './type'
-import { useActiveElement, watchThrottled } from '@vueuse/core'
+import { useActiveElement, useShare, watchThrottled } from '@vueuse/core'
 import { snapdom } from '@zumer/snapdom'
 import Fuse from 'fuse.js'
 import { throttle } from 'lodash-es'
@@ -296,6 +308,10 @@ const { toolbarStyle, contentStyle } = useStickyToolbar(toolbarRef)
 
 const editorRef = useTemplateRef('editorRef')
 
+function toggleSettingForm() {
+  editorRef.value?.toggleImgSettingVisible()
+}
+
 async function copyImg() {
   if (!editorRef.value?.boardRef)
     return
@@ -314,6 +330,27 @@ async function copyImg() {
       'image/png': img,
     }),
   ])
+}
+
+const { share, isSupported } = useShare()
+async function handleShare() {
+  if (!editorRef.value?.boardRef)
+    return
+
+  const img = await snapdom.toBlob(
+    editorRef.value?.boardRef,
+    {
+      quality: 1,
+      backgroundColor: '#FFFFFF',
+      type: 'png',
+    },
+  )
+
+  share({
+    files: [
+      new File([img], 'meme'),
+    ],
+  })
 }
 </script>
 

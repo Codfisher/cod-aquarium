@@ -6,15 +6,19 @@
     <div class="border">
       <div
         ref="boardRef"
-        class="flex  max-h-[80dvh] relative"
+        class="flex flex-col max-h-[80dvh] relative"
         @click.self="handleClick"
       >
+        <div :style="settingValue.topPadding" />
+
         <img
           v-if="props.data"
           :src="`/memes/${props.data.file}`"
-          class=" object-contain rounded-none border-none pointer-events-none  w-[100vw] md:w-[50vw] "
+          class=" object-contain rounded-none! border-none! pointer-events-none  w-[100vw] md:w-[50vw] "
           draggable="false"
         >
+
+        <div :style="settingValue.bottomPadding" />
 
         <text-item
           v-for="item in list"
@@ -26,10 +30,55 @@
         />
       </div>
     </div>
+
+    <USlideover
+      v-model:open="imgSettingVisible"
+      :overlay="false"
+      side="bottom"
+      class="z-[100] border border-[#EEE]"
+      :ui="{
+        header: 'min-h-auto ',
+        body: 'grid grid-cols-3 gap-1',
+      }"
+    >
+      <template #header="{ close }">
+        <div class=" flex w-full">
+          <div class="flex-1 text-sm opacity-80">
+            圖片設定
+          </div>
+
+          <UButton
+            icon="i-lucide-x"
+            @click="close"
+          />
+        </div>
+      </template>
+
+      <template #body>
+        <div class=" col-span-3 text-xs opacity-60">
+          頂部空間
+        </div>
+
+        <div class=" col-span-1 text-sm">
+          顏色
+        </div>
+        <div class=" col-span-2 text-sm">
+          顏色
+        </div>
+
+        <div class=" col-span-1 text-sm">
+          尺寸
+        </div>
+        <div class=" col-span-2 text-sm">
+          尺寸
+        </div>
+      </template>
+    </USlideover>
   </div>
 </template>
 
 <script setup lang="ts">
+import type { CSSProperties } from 'vue'
 import type { ComponentProps } from 'vue-component-type-helpers'
 import type { MemeData } from '../type'
 import { computed, ref, shallowRef, triggerRef, useTemplateRef } from 'vue'
@@ -60,7 +109,6 @@ const list = computed(() => [...textMap.value.values()].map((item) => ({
 })))
 
 function handleClick(event: MouseEvent) {
-  console.log(`🚀 ~ handleClick:`, targetItem.value)
   if (targetItem.value) {
     targetItem.value = undefined
     return
@@ -99,11 +147,38 @@ function deleteItem(item: TextItemData) {
   triggerRef(textMap)
 
   targetItem.value = undefined
-  console.log(`🚀 ~ deleteItem:`, targetItem.value)
 }
+
+const imgSettingVisible = ref(false)
+const imgSetting = ref({
+  topPadding: {
+    backgroundColor: '$FFF',
+    height: 0,
+  },
+  bottomPadding: {
+    backgroundColor: '$FFF',
+    height: 0,
+  },
+})
+
+const settingValue = computed(() => ({
+  topPadding: {
+    ...imgSetting.value.topPadding,
+    height: `${imgSetting.value.topPadding.height}px`,
+  } as CSSProperties,
+  bottomPadding: {
+    ...imgSetting.value.bottomPadding,
+    height: `${imgSetting.value.bottomPadding.height}px`,
+  } as CSSProperties,
+}))
 
 defineExpose({
   boardRef,
+  toggleImgSettingVisible(value?: boolean) {
+    imgSettingVisible.value = value !== undefined
+      ? value
+      : !imgSettingVisible.value
+  },
 })
 </script>
 
