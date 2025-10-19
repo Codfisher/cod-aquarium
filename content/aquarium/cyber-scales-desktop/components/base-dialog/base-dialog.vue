@@ -137,7 +137,6 @@ const mainClass = computed(() => ({
 }))
 
 onMounted(async () => {
-  console.log(`🚀 ~ onMounted:`)
   // 確保 window 有尺寸
   await until(dialogSize.width).toBeTruthy()
   await until(dialogSize.height).toBeTruthy()
