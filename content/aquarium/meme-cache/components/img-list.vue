@@ -21,11 +21,11 @@
         class="item flex flex-col md:flex-row gap-2"
         @click="handleClick(item)"
       >
-        <div class="aspect-square w-[80vw] md:w-[30dvw] bg-slate-100 cursor-pointer rounded-xl overflow-hidden">
+        <div class="flex aspect-square w-[80vw] md:w-[30dvw] bg-slate-100 cursor-pointer rounded-xl overflow-hidden">
           <img
             :src="`/memes/${item.file}`"
             loading="lazy"
-            class=" object-contain h-full w-full rounded-none border-none"
+            class="  object-contain h-full w-full rounded-none! border-none!"
           >
         </div>
 
