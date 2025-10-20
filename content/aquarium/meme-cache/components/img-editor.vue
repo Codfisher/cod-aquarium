@@ -168,7 +168,7 @@
 import type { CSSProperties } from 'vue'
 import type { ComponentProps } from 'vue-component-type-helpers'
 import type { MemeData } from '../type'
-import { onClickOutside } from '@vueuse/core'
+import { onClickOutside, promiseTimeout } from '@vueuse/core'
 import { nanoid } from 'nanoid'
 import { computed, ref, shallowRef, triggerRef, useTemplateRef } from 'vue'
 import TextItem from './text-item.vue'
@@ -276,6 +276,11 @@ const settingValue = computed(() => ({
 
 defineExpose({
   boardRef,
+  async blur() {
+    targetItem.value = undefined
+    imgSettingVisible.value = false
+    await promiseTimeout(500)
+  },
   toggleImgSettingVisible(value?: boolean) {
     imgSettingVisible.value = value !== undefined
       ? value

@@ -308,6 +308,7 @@ async function copyImg() {
   if (!editorRef.value?.boardRef)
     return
 
+  await editorRef.value.blur()
   const img = await snapdom.toBlob(
     editorRef.value?.boardRef,
     {
