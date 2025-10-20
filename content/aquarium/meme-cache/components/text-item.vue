@@ -39,7 +39,7 @@
 
       <template #body>
         <div
-          class="border border-[#EEE] border-dashed col-span-4 p-4 mb-2 text-center pointer-events-none"
+          class="border border-[#EEE] border-dashed col-span-4 p-2 mb-2 text-center pointer-events-none"
           v-html="textDom"
         />
 
@@ -58,134 +58,147 @@
           </div>
         </div>
 
-        <div class=" text-sm opacity-50 col-span-4">
-          詳細設定
-        </div>
-
-        <u-form-field
-          class="col-span-2"
-          label="顏色"
-        >
-          <u-popover :ui="{ content: 'z-[9999]' }">
-            <u-button
-              class="w-full h-[1.75rem]"
-              variant="outline"
-              :style="{ backgroundColor: settings.color }"
-            />
-
-            <template #content>
-              <u-color-picker
-                v-model="settings.color"
-                size="xs"
-                class="p-2"
-              />
-            </template>
-          </u-popover>
-        </u-form-field>
-
-        <u-form-field
-          class="col-span-2"
-          label="字級"
-          :ui="{ container: 'flex gap-1' }"
-        >
-          <u-input
-            v-model="settings.fontSize"
-            :ui="{ base: 'p-1! px-2! text-center' }"
-          >
-            <template #trailing>
-              <span class=" opacity-40 text-xs">px</span>
-            </template>
-          </u-input>
-
-          <u-button
-            icon="i-lucide-rotate-ccw"
-            @click="settings.fontSize = 14"
-          />
-          <u-button
-            icon="i-lucide-chevron-down"
-            @click="settings.fontSize -= 2"
-          />
-          <u-button
-            icon="i-lucide-chevron-up"
-            @click="settings.fontSize += 2"
-          />
-        </u-form-field>
-
-        <u-form-field
-          class="col-span-2"
-          label="外框顏色"
-        >
-          <u-popover :ui="{ content: 'z-[9999]' }">
-            <u-button
-              class="w-full h-[1.75rem]"
-              variant="outline"
-              :style="{ backgroundColor: settings.strokeColor }"
-            />
-
-            <template #content>
-              <u-color-picker
-                v-model="settings.strokeColor"
-                size="xs"
-                class="p-2"
-              />
-            </template>
-          </u-popover>
-        </u-form-field>
-
-        <u-form-field
-          class="col-span-2"
-          label="外框寬度"
-          :ui="{ container: 'flex gap-1' }"
-        >
-          <u-input
-            v-model="settings.strokeWidth"
-            :ui="{ base: 'p-1! px-2! text-center' }"
-          >
-            <template #trailing>
-              <span class=" opacity-40 text-xs">px</span>
-            </template>
-          </u-input>
-
-          <u-button
-            icon="i-lucide-x"
-            @click="settings.strokeWidth = 0"
-          />
-          <u-button
-            icon="i-lucide-chevron-down"
-            @click="settings.strokeWidth -= 2"
-          />
-          <u-button
-            icon="i-lucide-chevron-up"
-            @click="settings.strokeWidth += 2"
-          />
-        </u-form-field>
-
-        <u-form-field
+        <u-collapsible
           class="col-span-4"
-          label="旋轉"
-          hint="也可以直接雙指旋轉文字"
-          :ui="{
-            hint: 'text-xs',
-            container: 'flex items-center gap-4 mt-3',
-          }"
+          :ui="{ content: 'grid grid-cols-4 gap-1' }"
         >
-          <template #label>
-            <span class="flex-1">旋轉</span>
-            <span class=" text-xs opacity-40 ml-2">{{ settings.angle }}°</span>
-          </template>
-
-          <u-slider
-            v-model="settings.angle"
-            class=""
-            :min="-180"
-            :max="180"
-          />
-
           <u-button
-            icon="i-lucide-x"
-            @click="settings.angle = 0"
+            label="詳細設定"
+            trailing-icon="i-lucide-chevron-down"
+            block
+            class="group opacity-50 mt-4"
+            :ui="{
+              trailingIcon: 'group-data-[state=open]:rotate-180 duration-200',
+            }"
           />
-        </u-form-field>
+
+          <template #content>
+            <u-form-field
+              class="col-span-2"
+              label="顏色"
+            >
+              <u-popover :ui="{ content: 'z-[9999]' }">
+                <u-button
+                  class="w-full h-[1.75rem]"
+                  variant="outline"
+                  :style="{ backgroundColor: settings.color }"
+                />
+
+                <template #content>
+                  <u-color-picker
+                    v-model="settings.color"
+                    size="xs"
+                    class="p-2"
+                  />
+                </template>
+              </u-popover>
+            </u-form-field>
+
+            <u-form-field
+              class="col-span-2"
+              label="字級"
+              :ui="{ container: 'flex gap-1' }"
+            >
+              <u-input
+                v-model="settings.fontSize"
+                :ui="{ base: 'p-1! px-2! text-center' }"
+              >
+                <template #trailing>
+                  <span class=" opacity-40 text-xs">px</span>
+                </template>
+              </u-input>
+
+              <u-button
+                icon="i-lucide-rotate-ccw"
+                @click="settings.fontSize = 14"
+              />
+              <u-button
+                icon="i-lucide-chevron-down"
+                @click="settings.fontSize -= 2"
+              />
+              <u-button
+                icon="i-lucide-chevron-up"
+                @click="settings.fontSize += 2"
+              />
+            </u-form-field>
+
+            <u-form-field
+              class="col-span-2"
+              label="外框顏色"
+            >
+              <u-popover :ui="{ content: 'z-[9999]' }">
+                <u-button
+                  class="w-full h-[1.75rem]"
+                  variant="outline"
+                  :style="{ backgroundColor: settings.strokeColor }"
+                />
+
+                <template #content>
+                  <u-color-picker
+                    v-model="settings.strokeColor"
+                    size="xs"
+                    class="p-2"
+                  />
+                </template>
+              </u-popover>
+            </u-form-field>
+
+            <u-form-field
+              class="col-span-2"
+              label="外框寬度"
+              :ui="{ container: 'flex gap-1' }"
+            >
+              <u-input
+                v-model="settings.strokeWidth"
+                :ui="{ base: 'p-1! px-2! text-center' }"
+              >
+                <template #trailing>
+                  <span class=" opacity-40 text-xs">px</span>
+                </template>
+              </u-input>
+
+              <u-button
+                icon="i-lucide-x"
+                @click="settings.strokeWidth = 0"
+              />
+              <u-button
+                icon="i-lucide-chevron-down"
+                @click="settings.strokeWidth -= 2"
+              />
+              <u-button
+                icon="i-lucide-chevron-up"
+                @click="settings.strokeWidth += 2"
+              />
+            </u-form-field>
+
+            <u-form-field
+              class="col-span-4"
+              label="旋轉"
+              hint="也可以直接雙指旋轉文字"
+              :ui="{
+                hint: 'text-xs opacity-50',
+                container: 'flex items-center gap-4 mt-3',
+              }"
+            >
+              <template #label>
+                <span class="flex-1">旋轉</span>
+                <span class=" text-xs opacity-40 ml-2">{{ settings.angle }}°</span>
+              </template>
+
+              <u-slider
+                v-model="settings.angle"
+                class=""
+                :min="-180"
+                :max="180"
+              />
+
+              <u-button
+                icon="i-lucide-x"
+                @click="settings.angle = 0"
+              />
+            </u-form-field>
+          </template>
+        </u-collapsible>
       </template>
     </u-slideover>
   </div>
