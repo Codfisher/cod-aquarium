@@ -7,7 +7,7 @@
   >
     <div
       ref="textRef"
-      class="text p-4 min-w-[10rem] whitespace-pre pointer-events-auto"
+      class="text p-4 min-w-[10rem] whitespace-pre pointer-events-auto text-center"
       contenteditable
       :style="textStyle"
       @input="handleInput"
@@ -78,8 +78,8 @@
           </u-input>
 
           <u-button
-            icon="i-lucide-x"
-            @click="settings.fontSize = 0"
+            icon="i-lucide-rotate-ccw"
+            @click="settings.fontSize = 14"
           />
           <u-button
             icon="i-lucide-chevron-down"
@@ -139,6 +139,33 @@
             @click="settings.strokeWidth += 2"
           />
         </u-form-field>
+
+        <u-form-field
+          class="col-span-4"
+          label="旋轉"
+          hint="也可以直接雙指旋轉文字"
+          :ui="{
+            hint: 'text-xs',
+            container: 'flex items-center gap-4 mt-3',
+          }"
+        >
+          <template #label>
+            <span class="flex-1">旋轉</span>
+            <span class=" text-xs opacity-40 ml-2">{{ settings.angle }}°</span>
+          </template>
+
+          <u-slider
+            v-model="settings.angle"
+            class=""
+            :min="-180"
+            :max="180"
+          />
+
+          <u-button
+            icon="i-lucide-x"
+            @click="settings.angle = 0"
+          />
+        </u-form-field>
       </template>
     </u-slideover>
   </div>
@@ -168,7 +195,7 @@
 /** 不知道為甚麼，控制點都按不到 */
 // import Moveable from 'moveable'
 import type { CSSProperties } from 'vue'
-import { autoPlacement, autoUpdate, flip, inline, offset, shift, useFloating } from '@floating-ui/vue'
+import { autoUpdate, flip, offset, shift, useFloating } from '@floating-ui/vue'
 import { useToggle, useVModel, watchThrottled } from '@vueuse/core'
 import interact from 'interactjs'
 import { computed, onMounted, ref, useId, useTemplateRef } from 'vue'
@@ -250,6 +277,8 @@ const textStyle = computed<CSSProperties>(() => ({
 }))
 const textDom = ref('')
 watchThrottled(() => [settings.value, textRef.value], () => {
+  updateBoxTransform()
+
   const dom = textRef.value?.cloneNode(true) as HTMLElement
   if (!dom) {
     return
