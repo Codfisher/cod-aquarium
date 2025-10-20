@@ -27,11 +27,12 @@
           :is-editing="item.isEditing"
           @click="editItem(item)"
           @delete="deleteItem(item)"
+          @update:model-value="(data) => updateItem(item, data)"
         />
       </div>
     </div>
 
-    <USlideover
+    <u-slideover
       v-model:open="imgSettingVisible"
       :overlay="false"
       side="bottom"
@@ -47,7 +48,7 @@
             圖片設定
           </div>
 
-          <UButton
+          <u-button
             icon="i-lucide-x"
             @click="close"
           />
@@ -73,7 +74,7 @@
           尺寸
         </div>
       </template>
-    </USlideover>
+    </u-slideover>
   </div>
 </template>
 
@@ -81,6 +82,7 @@
 import type { CSSProperties } from 'vue'
 import type { ComponentProps } from 'vue-component-type-helpers'
 import type { MemeData } from '../type'
+import { onClickOutside } from '@vueuse/core'
 import { nanoid } from 'nanoid'
 import { computed, ref, shallowRef, triggerRef, useTemplateRef } from 'vue'
 import TextItem from './text-item.vue'
@@ -103,6 +105,10 @@ const boardRef = useTemplateRef('boardRef')
 
 const targetItem = ref<TextItemData>()
 const textMap = shallowRef(new Map<string, TextItemData>())
+
+onClickOutside(boardRef, () => {
+  targetItem.value = undefined
+})
 
 const list = computed(() => [...textMap.value.values()].map((item) => ({
   ...item,
@@ -143,6 +149,12 @@ function addItem(event: PointerEvent) {
 
 function editItem(item: TextItemData) {
   targetItem.value = item
+}
+function updateItem(item: TextItemData, data: TextItemData['data']) {
+  textMap.value.set(item.key, {
+    ...item,
+    data,
+  })
 }
 function deleteItem(item: TextItemData) {
   textMap.value.delete(item.key)

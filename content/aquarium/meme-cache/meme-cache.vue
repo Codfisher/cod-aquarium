@@ -45,19 +45,14 @@
           >
         </div>
 
-        <UDropdownMenu
+        <u-dropdown-menu
           :items="items"
-          :ui="{
-            content: 'z-[70]',
-          }"
+          :ui="{ content: 'z-[70]' }"
         >
-          <UButton
-            icon="i-lucide-menu"
-            class="px-2!"
-          />
+          <u-button icon="i-lucide-menu" />
 
           <template #all>
-            <UCheckbox
+            <u-checkbox
               v-model="settings.allVisible"
               label="顯示全部"
               size="xl"
@@ -65,22 +60,19 @@
             />
           </template>
 
-          <template
-            v-if="isDev"
-            #detail
-          >
-            <UCheckbox
+          <template #detail>
+            <u-checkbox
               v-model="settings.detailVisible"
               label="顯示細節"
               size="xl"
               class="p-4"
             />
           </template>
-        </UDropdownMenu>
+        </u-dropdown-menu>
       </div>
     </div>
 
-    <UModal
+    <u-modal
       v-model:open="editorVisible"
       title="編輯圖片"
       fullscreen
@@ -99,36 +91,32 @@
 
       <template #footer="{ close }">
         <div class=" flex w-full gap-4">
-          <UButton
+          <u-button
             label="複製"
             icon="i-lucide-clipboard-copy"
             @click="copyImg"
           />
-          <UButton
-            label="圖片設定"
-            icon="i-lucide-settings"
-            @click="toggleSettingForm"
-          />
           <div class="flex-1" />
 
-          <UButton
+          <u-button
             icon="i-lucide-x"
             @click="close"
           />
         </div>
       </template>
-    </UModal>
+    </u-modal>
   </client-only>
 </template>
 
 <script setup lang="ts">
 import type { DropdownMenuItem } from '@nuxt/ui'
 import type { MemeData } from './type'
-import { useActiveElement, useShare, watchThrottled } from '@vueuse/core'
+import { useActiveElement, watchThrottled } from '@vueuse/core'
 import { snapdom } from '@zumer/snapdom'
 import Fuse from 'fuse.js'
 import { throttle } from 'lodash-es'
-import { onBeforeUnmount, ref, shallowRef, triggerRef, useTemplateRef, watch } from 'vue'
+import { useData } from 'vitepress'
+import { onBeforeUnmount, onMounted, ref, shallowRef, triggerRef, useTemplateRef, watch } from 'vue'
 import { nextFrame } from '../../../web/common/utils'
 import ImgEditor from './components/img-editor.vue'
 import ImgList from './components/img-list.vue'
@@ -136,6 +124,10 @@ import { useStickyToolbar } from './composables/use-sticky-toolbar'
 import { memeOriDataSchema } from './type'
 
 const isDev = import.meta.env.DEV
+
+onMounted(async () => {
+  useData().isDark.value = false
+})
 
 const toast = useToast()
 const memeDataMap = shallowRef(new Map<string, MemeData>())
@@ -325,27 +317,6 @@ async function copyImg() {
     }),
   ])
 }
-
-const { share, isSupported } = useShare()
-async function handleShare() {
-  if (!editorRef.value?.boardRef)
-    return
-
-  const img = await snapdom.toBlob(
-    editorRef.value?.boardRef,
-    {
-      quality: 1,
-      backgroundColor: '#FFFFFF',
-      type: 'png',
-    },
-  )
-
-  share({
-    files: [
-      new File([img], 'meme'),
-    ],
-  })
-}
 </script>
 
 <style scoped lang="sass">
@@ -354,7 +325,7 @@ async function handleShare() {
 <style lang="sass">
 .opacity
   &-enter-active, &-leave-active
-    transition-duration: 0.4s
+    transition-duration: 0.3s
   &-enter-from, &-leave-to
     opacity: 0 !important
 

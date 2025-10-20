@@ -1,7 +1,7 @@
 import type { Theme } from 'vitepress'
 import ui from '@nuxt/ui/vue-plugin'
 import { createPinia } from 'pinia'
-import VConsole from 'vconsole'
+// import VConsole from 'vconsole'
 import DefaultTheme from 'vitepress/theme'
 // https://vitepress.dev/guide/custom-theme
 import { h } from 'vue'
@@ -12,7 +12,7 @@ import './style.css'
 
 import './tailwind.css'
 
-const vConsole = new VConsole()
+// const vConsole = new VConsole()
 
 export default {
   extends: DefaultTheme,

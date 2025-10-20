@@ -52,7 +52,7 @@ export default antfu(
     files: ['**/*.vue'],
     rules: {
       'vue/component-name-in-template-casing': ['error', 'kebab-case', {
-        registeredComponentsOnly: true,
+        registeredComponentsOnly: false,
         ignores: [],
       }],
       'vue/block-order': ['error', {
