@@ -20,7 +20,7 @@
       side="bottom"
       class="z-[100] border border-[#DDD]"
       :ui="{
-        header: 'min-h-auto ',
+        header: 'min-h-auto flex flex-col p-2',
         body: 'grid grid-cols-4 gap-4 items-center',
       }"
     >
@@ -35,14 +35,14 @@
             @click="close"
           />
         </div>
+
+        <div
+          class="flex w-full justify-center border border-[#EEE] border-dashed col-span-4 p-2 pointer-events-none"
+          v-html="textDom"
+        />
       </template>
 
       <template #body>
-        <div
-          class="flex justify-center border border-[#EEE] border-dashed col-span-4 p-2 mb-2 pointer-events-none"
-          v-html="textDom"
-        />
-
         <div class=" text-sm opacity-50 col-span-4">
           快速樣式
         </div>
@@ -103,7 +103,33 @@
             </u-form-field>
 
             <u-form-field
-              class="col-span-2"
+              class="col-span-4"
+              label="字重"
+              :ui="{
+                hint: 'text-xs opacity-50',
+                container: 'flex items-center gap-4 mt-2 px-1',
+              }"
+            >
+              <template #label="{ label }">
+                <span class="flex-1">{{ label }}</span>
+                <span class=" text-xs opacity-40 ml-2">{{ settings.fontWeight }}</span>
+              </template>
+
+              <u-slider
+                v-model="settings.fontWeight"
+                :min="100"
+                :step="100"
+                :max="900"
+              />
+
+              <u-button
+                icon="i-lucide-rotate-ccw"
+                @click="settings.fontWeight = 400"
+              />
+            </u-form-field>
+
+            <u-form-field
+              class="col-span-4"
               label="顏色"
             >
               <u-popover :ui="{ content: 'z-[9999]' }">
@@ -124,7 +150,7 @@
             </u-form-field>
 
             <u-form-field
-              class="col-span-2"
+              class="col-span-4"
               label="背景色"
             >
               <u-popover :ui="{ content: 'z-[9999]' }">
@@ -171,7 +197,7 @@
             </u-form-field>
 
             <u-form-field
-              class="col-span-2"
+              class="col-span-4"
               label="外框顏色"
             >
               <u-popover :ui="{ content: 'z-[9999]' }">
@@ -192,12 +218,13 @@
             </u-form-field>
 
             <u-form-field
-              class="col-span-2"
+              class="col-span-4"
               label="外框寬度"
               :ui="{ container: 'flex gap-1' }"
             >
               <u-input
                 v-model="settings.strokeWidth"
+                class="flex-1"
                 :ui="{ base: 'p-1! px-2! text-center' }"
               >
                 <template #trailing>
@@ -422,7 +449,7 @@ const stylePresetList = pipe(
         strokeWidth: 0,
         strokeColor: '#FFF',
         color: '#000',
-        backgroundColor: '#000',
+        backgroundColor: '#FFF',
         backgroundOpacity: 0,
       },
     },
@@ -433,7 +460,7 @@ const stylePresetList = pipe(
         strokeWidth: 0,
         strokeColor: '#FFF',
         color: '#000',
-        backgroundColor: '#000',
+        backgroundColor: '#FFF',
         backgroundOpacity: 0,
       },
     },
@@ -444,7 +471,7 @@ const stylePresetList = pipe(
         strokeWidth: 5,
         strokeColor: '#FFF',
         color: '#F00',
-        backgroundColor: '#000',
+        backgroundColor: '#FFF',
         backgroundOpacity: 0,
       },
     },
@@ -455,7 +482,7 @@ const stylePresetList = pipe(
         strokeWidth: 5,
         strokeColor: '#000',
         color: '#FFF',
-        backgroundColor: '#000',
+        backgroundColor: '#FFF',
         backgroundOpacity: 0,
       },
     },
