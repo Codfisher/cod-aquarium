@@ -65,7 +65,7 @@
         <div class=" text-sm opacity-50 col-span-4">
           快速設定
         </div>
-        <div class="style-list col-span-4 flex gap-2">
+        <div class="style-list col-span-4 flex flex-wrap gap-2">
           <div
             v-for="(item, i) in presetList"
             :key="i"
@@ -308,6 +308,19 @@ const settingValue = computed(() => ({
 }))
 
 const presetList = [
+  {
+    label: '無空白',
+    data: {
+      topPadding: {
+        backgroundColor: '#FFF',
+        height: 0,
+      },
+      bottomPadding: {
+        backgroundColor: '#FFF',
+        height: 0,
+      },
+    },
+  },
   {
     label: '上空白',
     data: {

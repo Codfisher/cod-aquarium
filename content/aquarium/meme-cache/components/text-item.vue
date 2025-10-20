@@ -238,6 +238,7 @@
                 class=""
                 :min="-180"
                 :max="180"
+                :step="5"
               />
 
               <u-button
