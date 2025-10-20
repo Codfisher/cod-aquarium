@@ -105,6 +105,31 @@
             icon="i-lucide-settings-2"
             @click="toggleSettingForm()"
           />
+
+          <u-popover
+            v-model:open="cleanPopupVisible"
+            :ui="{ content: 'z-[9999] p-2' }"
+            arrow
+          >
+            <u-button
+              label="清空"
+              icon="i-lucide-brush-cleaning"
+            />
+
+            <template #content="data">
+              <div class=" text-sm p-2">
+                確定清空所有內容？
+              </div>
+
+              <div class="flex justify-end">
+                <u-button
+                  label="確定"
+                  class=" px-2! bg-red-400! text-white!"
+                  @click="clean()"
+                />
+              </div>
+            </template>
+          </u-popover>
           <div class="flex-1" />
 
           <u-button
@@ -129,6 +154,7 @@ import ImgEditor from './components/img-editor.vue'
 import ImgList from './components/img-list.vue'
 import { useMemeData } from './composables/use-meme-data'
 import { useStickyToolbar } from './composables/use-sticky-toolbar'
+import { text } from 'stream/consumers'
 
 const isDev = import.meta.env.DEV
 
@@ -203,6 +229,16 @@ const editorRef = useTemplateRef('editorRef')
 
 function toggleSettingForm() {
   editorRef.value?.toggleImgSettingVisible()
+}
+
+/** FIX: 文件明明說 slot 有 close 可以用，但是實際上沒有
+ * 
+ * https://ui.nuxt.com/docs/components/popover#slots
+ */
+const cleanPopupVisible = ref(false)
+function clean() {
+  cleanPopupVisible.value = false
+  editorRef.value?.clean()
 }
 
 async function copyImg() {

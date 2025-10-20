@@ -67,7 +67,7 @@
         </div>
         <div class="style-list col-span-4 flex flex-wrap gap-2">
           <div
-            v-for="(item, i) in presetList"
+            v-for="(item, i) in settingPresetList"
             :key="i"
             class="text p-3 border border-[#DDD] rounded text-sm"
             @click="presetStyle(item.data)"
@@ -199,10 +199,10 @@
 import type { CSSProperties } from 'vue'
 import type { ComponentProps } from 'vue-component-type-helpers'
 import type { MemeData } from '../type'
-import { onClickOutside, promiseTimeout } from '@vueuse/core'
+import { onClickOutside, promiseTimeout, useIntervalFn, useRafFn, watchThrottled } from '@vueuse/core'
 import { nanoid } from 'nanoid'
 import { clone, map, pipe } from 'remeda'
-import { computed, ref, shallowRef, triggerRef, useTemplateRef } from 'vue'
+import { computed, ref, shallowRef, triggerRef, useTemplateRef, watch } from 'vue'
 import TextItem from './text-item.vue'
 
 interface TextItemData {
@@ -307,7 +307,7 @@ const settingValue = computed(() => ({
   } as CSSProperties,
 }))
 
-const presetList = [
+const settingPresetList = [
   {
     label: '無空白',
     data: {
@@ -378,6 +378,60 @@ function presetStyle(data: typeof imgSetting['value']) {
   imgSetting.value = clone(data)
 }
 
+// 儲存設定值至 localStorage
+const storageKey = computed(() => `img-data:${props.data?.file}`)
+useRafFn(() => {
+  const { file } = props.data ?? {}
+  if (!localStorage || !file) {
+    return
+  }
+
+  localStorage.setItem(
+    `${storageKey.value}:textMap`,
+    JSON.stringify([...textMap.value.entries()]),
+  )
+
+  localStorage.setItem(
+    `${storageKey.value}:imgSetting`,
+    JSON.stringify(imgSetting.value),
+  )
+}, {
+  fpsLimit: 2,
+})
+/** 從 localStorage 取得上次紀錄 */
+function initData() {
+  const prevTextMap = pipe(
+    localStorage.getItem(`${storageKey.value}:textMap`),
+    (value) => {
+      try {
+        return JSON.parse(value ?? '')
+      } catch {
+        return undefined
+      }
+    }
+  )
+  if (prevTextMap) {
+    textMap.value = new Map<string, TextItemData>(prevTextMap)
+  }
+
+  const prevImgSetting = pipe(
+    localStorage.getItem(`${storageKey.value}:imgSetting`),
+    (value) => {
+      try {
+        return JSON.parse(value ?? '')
+      } catch {
+        return undefined
+      }
+    }
+  )
+  if (prevImgSetting) {
+    imgSetting.value = prevImgSetting
+  }
+}
+if (!import.meta.env.SSR) {
+  initData()
+}
+
 defineExpose({
   boardRef,
   async blur() {
@@ -390,6 +444,10 @@ defineExpose({
       ? value
       : !imgSettingVisible.value
   },
+  clean() {
+    textMap.value.clear()
+    triggerRef(textMap)
+  }
 })
 </script>
 

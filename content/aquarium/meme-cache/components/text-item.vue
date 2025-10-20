@@ -528,8 +528,6 @@ onMounted(() => {
   }
 
   text.textContent = settings.value.text
-  settings.value.x -= box.clientWidth / 2
-  settings.value.y -= box.clientHeight / 2
   updateBoxTransform()
 
   interact(box)
