@@ -96,6 +96,12 @@
             icon="i-lucide-clipboard-copy"
             @click="copyImg"
           />
+
+          <u-button
+            label="圖片設定"
+            icon="i-lucide-settings-2"
+            @click="toggleSettingForm()"
+          />
           <div class="flex-1" />
 
           <u-button

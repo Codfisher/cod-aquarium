@@ -65,10 +65,6 @@
         <u-form-field
           class="col-span-2"
           label="顏色"
-          :ui="{
-            label: 'text-xs',
-            container: 'flex',
-          }"
         >
           <u-popover :ui="{ content: 'z-[9999]' }">
             <u-button
@@ -89,15 +85,15 @@
 
         <u-form-field
           class="col-span-2"
-          label="字級 (px)"
+          label="字級"
+          hint="px"
           :ui="{
-            label: 'text-xs',
-            container: 'flex',
+            hint: 'text-xs',
           }"
         >
           <u-input-number
             v-model="settings.fontSize"
-            :ui="{ base: 'p-1! px-2! mr-1' }"
+            :ui="{ base: 'p-1! px-2!' }"
             :min="0"
             :step="2"
           />
@@ -106,10 +102,6 @@
         <u-form-field
           class="col-span-2"
           label="外框顏色"
-          :ui="{
-            label: 'text-xs',
-            container: 'flex',
-          }"
         >
           <u-popover :ui="{ content: 'z-[9999]' }">
             <u-button
@@ -130,24 +122,18 @@
 
         <u-form-field
           class="col-span-2"
-          label="外框寬度 (px)"
+          label="外框寬度"
+          hint="px"
           :ui="{
-            label: 'text-xs',
-            container: 'flex',
+            hint: 'text-xs',
           }"
         >
           <u-input-number
             v-model="settings.strokeWidth"
-            :ui="{ base: 'p-1! px-2! mr-1' }"
+            :ui="{ base: 'p-1! px-2!' }"
             :min="0"
             :step="2"
-          >
-            <template #trailing>
-              <div class="text-xs opacity-50">
-                px
-              </div>
-            </template>
-          </u-input-number>
+          />
         </u-form-field>
       </template>
     </u-slideover>

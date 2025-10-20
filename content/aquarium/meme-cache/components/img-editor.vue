@@ -9,7 +9,10 @@
         class="flex flex-col max-h-[80dvh] relative"
         @pointerdown.self="addItem"
       >
-        <div :style="settingValue.topPadding" />
+        <div
+          :style="settingValue.topPadding"
+          class="pointer-events-none"
+        />
 
         <img
           v-if="props.data"
@@ -18,7 +21,10 @@
           draggable="false"
         >
 
-        <div :style="settingValue.bottomPadding" />
+        <div
+          :style="settingValue.bottomPadding"
+          class="pointer-events-none"
+        />
 
         <text-item
           v-for="item in list"
@@ -39,7 +45,7 @@
       class="z-[100] border border-[#EEE]"
       :ui="{
         header: 'min-h-auto ',
-        body: 'grid grid-cols-3 gap-1',
+        body: 'grid grid-cols-4 gap-1',
       }"
     >
       <template #header="{ close }">
@@ -56,23 +62,87 @@
       </template>
 
       <template #body>
-        <div class=" col-span-3 text-xs opacity-60">
+        <div class=" col-span-4 text-xs opacity-60">
           頂部空間
         </div>
 
-        <div class=" col-span-1 text-sm">
-          顏色
-        </div>
-        <div class=" col-span-2 text-sm">
-          顏色
+        <u-form-field
+          class="col-span-2"
+          label="顏色"
+        >
+          <u-popover :ui="{ content: 'z-[9999]' }">
+            <u-button
+              class="w-full h-[1.75rem]"
+              variant="outline"
+              :style="{ backgroundColor: imgSetting.topPadding.backgroundColor }"
+            />
+
+            <template #content>
+              <u-color-picker
+                v-model="imgSetting.topPadding.backgroundColor"
+                size="xs"
+                class="p-2"
+              />
+            </template>
+          </u-popover>
+        </u-form-field>
+
+        <u-form-field
+          class="col-span-2"
+          label="高度"
+          hint="px"
+          :ui="{
+            hint: 'text-xs',
+          }"
+        >
+          <u-input-number
+            v-model="imgSetting.topPadding.height"
+            :ui="{ base: 'p-1! px-2!' }"
+            :min="0"
+            :step="10"
+          />
+        </u-form-field>
+
+        <div class=" col-span-4 text-xs opacity-60">
+          底部空間
         </div>
 
-        <div class=" col-span-1 text-sm">
-          尺寸
-        </div>
-        <div class=" col-span-2 text-sm">
-          尺寸
-        </div>
+        <u-form-field
+          class="col-span-2"
+          label="顏色"
+        >
+          <u-popover :ui="{ content: 'z-[9999]' }">
+            <u-button
+              class="w-full h-[1.75rem]"
+              variant="outline"
+              :style="{ backgroundColor: imgSetting.bottomPadding.backgroundColor }"
+            />
+
+            <template #content>
+              <u-color-picker
+                v-model="imgSetting.bottomPadding.backgroundColor"
+                size="xs"
+                class="p-2"
+              />
+            </template>
+          </u-popover>
+        </u-form-field>
+
+        <u-form-field
+          class="col-span-2"
+          label="高度"
+          hint="px"
+          :ui="{
+            hint: 'text-xs',
+          }"
+        >
+          <u-input-number
+            v-model="imgSetting.bottomPadding.height"
+            :ui="{ base: 'p-1! px-2!' }"
+            :min="0"
+            :step="10"
+          />
+        </u-form-field>
       </template>
     </u-slideover>
   </div>
@@ -168,11 +238,11 @@ function deleteItem(item: TextItemData) {
 const imgSettingVisible = ref(false)
 const imgSetting = ref({
   topPadding: {
-    backgroundColor: '$FFF',
+    backgroundColor: '#FFF',
     height: 0,
   },
   bottomPadding: {
-    backgroundColor: '$FFF',
+    backgroundColor: '#FFF',
     height: 0,
   },
 })
