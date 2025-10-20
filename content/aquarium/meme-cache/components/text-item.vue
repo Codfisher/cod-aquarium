@@ -2,36 +2,17 @@
   <div
     :id
     ref="boxRef"
-    class="box absolute pointer-events-none origin-top-left"
+    class="box flex justify-center absolute min-w-[10rem] p-3"
     :style="boxStyle"
+    v-bind="$attrs"
   >
     <div
       ref="textRef"
-      class="text p-4 min-w-[6rem] whitespace-pre pointer-events-auto"
+      class="text whitespace-pre px-1 text-center outline-none!"
       contenteditable
       :style="textStyle"
       @input="handleInput"
     />
-
-    <div
-      v-if="props.isEditing"
-      ref="toolbarRef"
-      :style="toolbarStyle"
-      class=" absolute flex rounded pointer-events-auto text-white bg-black/50 "
-    >
-      <u-button
-        icon="i-lucide-settings-2"
-        class="p-2! duration-300"
-        :class="{ 'text-primary!': settingVisible }"
-        @click="toggleSettingVisible()"
-      />
-
-      <u-button
-        icon="i-lucide-trash-2"
-        class="p-2!"
-        @click="emit('delete')"
-      />
-    </div>
 
     <u-slideover
       v-model:open="settingVisible"
@@ -58,109 +39,237 @@
 
       <template #body>
         <div
-          class="border border-[#EEE] border-dashed col-span-4 p-4 mb-2 text-center pointer-events-none"
+          class="flex justify-center border border-[#EEE] border-dashed col-span-4 p-2 mb-2 pointer-events-none"
           v-html="textDom"
         />
 
-        <u-form-field
-          class="col-span-2"
-          label="顏色"
-        >
-          <u-popover :ui="{ content: 'z-[9999]' }">
-            <u-button
-              class="w-full h-[1.75rem]"
-              variant="outline"
-              :style="{ backgroundColor: settings.color }"
-            />
-
-            <template #content>
-              <u-color-picker
-                v-model="settings.color"
-                size="xs"
-                class="p-2"
-              />
-            </template>
-          </u-popover>
-        </u-form-field>
-
-        <u-form-field
-          class="col-span-2"
-          label="字級"
-          :ui="{ container: 'flex gap-1' }"
-        >
-          <u-input
-            v-model="settings.fontSize"
-            :ui="{ base: 'p-1! px-2! text-center' }"
+        <div class=" text-sm opacity-50 col-span-4">
+          快速樣式
+        </div>
+        <div class="style-list col-span-4 flex flex-wrap gap-2">
+          <div
+            v-for="(item, i) in stylePresetList"
+            :key="i"
+            :style="item.style"
+            class="text p-3 border border-[#DDD] rounded"
+            @click="presetStyle(item.data)"
           >
-            <template #trailing>
-              <span class=" opacity-40 text-xs">px</span>
-            </template>
-          </u-input>
+            文字
+          </div>
+        </div>
 
-          <u-button
-            icon="i-lucide-x"
-            @click="settings.fontSize = 0"
-          />
-          <u-button
-            icon="i-lucide-chevron-down"
-            @click="settings.fontSize -= 2"
-          />
-          <u-button
-            icon="i-lucide-chevron-up"
-            @click="settings.fontSize += 2"
-          />
-        </u-form-field>
-
-        <u-form-field
-          class="col-span-2"
-          label="外框顏色"
+        <u-collapsible
+          class="col-span-4"
+          :ui="{ content: 'grid grid-cols-4 gap-1' }"
         >
-          <u-popover :ui="{ content: 'z-[9999]' }">
-            <u-button
-              class="w-full h-[1.75rem]"
-              variant="outline"
-              :style="{ backgroundColor: settings.strokeColor }"
-            />
+          <u-button
+            label="詳細設定"
+            trailing-icon="i-lucide-chevron-down"
+            block
+            class="group opacity-50 mt-4"
+            :ui="{
+              trailingIcon: 'group-data-[state=open]:rotate-180 duration-200',
+            }"
+          />
 
-            <template #content>
-              <u-color-picker
-                v-model="settings.strokeColor"
-                size="xs"
-                class="p-2"
+          <template #content>
+            <u-form-field
+              class="col-span-4"
+              label="字級"
+              :ui="{ container: 'flex gap-1' }"
+            >
+              <u-input
+                v-model="settings.fontSize"
+                class="flex-1"
+                :ui="{ base: 'p-1! px-2! text-center' }"
+              >
+                <template #trailing>
+                  <span class=" opacity-40 text-xs">px</span>
+                </template>
+              </u-input>
+
+              <u-button
+                icon="i-lucide-rotate-ccw"
+                @click="settings.fontSize = 14"
               />
-            </template>
-          </u-popover>
-        </u-form-field>
+              <u-button
+                icon="i-lucide-chevron-down"
+                @click="settings.fontSize -= 2"
+              />
+              <u-button
+                icon="i-lucide-chevron-up"
+                @click="settings.fontSize += 2"
+              />
+            </u-form-field>
 
-        <u-form-field
-          class="col-span-2"
-          label="外框寬度"
-          :ui="{ container: 'flex gap-1' }"
-        >
-          <u-input
-            v-model="settings.strokeWidth"
-            :ui="{ base: 'p-1! px-2! text-center' }"
-          >
-            <template #trailing>
-              <span class=" opacity-40 text-xs">px</span>
-            </template>
-          </u-input>
+            <u-form-field
+              class="col-span-2"
+              label="顏色"
+            >
+              <u-popover :ui="{ content: 'z-[9999]' }">
+                <u-button
+                  class="w-full h-[1.75rem]"
+                  variant="outline"
+                  :style="{ backgroundColor: settings.color }"
+                />
 
-          <u-button
-            icon="i-lucide-x"
-            @click="settings.strokeWidth = 0"
-          />
-          <u-button
-            icon="i-lucide-chevron-down"
-            @click="settings.strokeWidth -= 2"
-          />
-          <u-button
-            icon="i-lucide-chevron-up"
-            @click="settings.strokeWidth += 2"
-          />
-        </u-form-field>
+                <template #content>
+                  <u-color-picker
+                    v-model="settings.color"
+                    size="xs"
+                    class="p-2"
+                  />
+                </template>
+              </u-popover>
+            </u-form-field>
+
+            <u-form-field
+              class="col-span-2"
+              label="背景色"
+            >
+              <u-popover :ui="{ content: 'z-[9999]' }">
+                <u-button
+                  class="w-full h-[1.75rem]"
+                  variant="outline"
+                  :style="{ backgroundColor: settings.backgroundColor }"
+                />
+
+                <template #content>
+                  <u-color-picker
+                    v-model="settings.backgroundColor"
+                    size="xs"
+                    class="p-2"
+                  />
+                </template>
+              </u-popover>
+            </u-form-field>
+
+            <u-form-field
+              class="col-span-4"
+              label="背景透明度"
+              :ui="{
+                hint: 'text-xs opacity-50',
+                container: 'flex items-center gap-4 mt-2 px-1',
+              }"
+            >
+              <template #label="{ label }">
+                <span class="flex-1">{{ label }}</span>
+                <span class=" text-xs opacity-40 ml-2">{{ settings.backgroundOpacity }}</span>
+              </template>
+
+              <u-slider
+                v-model="settings.backgroundOpacity"
+                :min="0"
+                :step="0.1"
+                :max="1"
+              />
+
+              <u-button
+                icon="i-lucide-x"
+                @click="settings.backgroundOpacity = 0"
+              />
+            </u-form-field>
+
+            <u-form-field
+              class="col-span-2"
+              label="外框顏色"
+            >
+              <u-popover :ui="{ content: 'z-[9999]' }">
+                <u-button
+                  class="w-full h-[1.75rem]"
+                  variant="outline"
+                  :style="{ backgroundColor: settings.strokeColor }"
+                />
+
+                <template #content>
+                  <u-color-picker
+                    v-model="settings.strokeColor"
+                    size="xs"
+                    class="p-2"
+                  />
+                </template>
+              </u-popover>
+            </u-form-field>
+
+            <u-form-field
+              class="col-span-2"
+              label="外框寬度"
+              :ui="{ container: 'flex gap-1' }"
+            >
+              <u-input
+                v-model="settings.strokeWidth"
+                :ui="{ base: 'p-1! px-2! text-center' }"
+              >
+                <template #trailing>
+                  <span class=" opacity-40 text-xs">px</span>
+                </template>
+              </u-input>
+
+              <u-button
+                icon="i-lucide-x"
+                @click="settings.strokeWidth = 0"
+              />
+              <u-button
+                icon="i-lucide-chevron-down"
+                @click="settings.strokeWidth -= 2"
+              />
+              <u-button
+                icon="i-lucide-chevron-up"
+                @click="settings.strokeWidth += 2"
+              />
+            </u-form-field>
+
+            <u-form-field
+              class="col-span-4"
+              label="旋轉"
+              hint="也可以直接雙指旋轉文字"
+              :ui="{
+                hint: 'text-xs opacity-50',
+                container: 'flex items-center gap-4 mt-2 px-1',
+              }"
+            >
+              <template #label="{ label }">
+                <span class="flex-1">{{ label }}</span>
+                <span class=" text-xs opacity-40 ml-2">{{ settings.angle }}°</span>
+              </template>
+
+              <u-slider
+                v-model="settings.angle"
+                class=""
+                :min="-180"
+                :max="180"
+                :step="5"
+              />
+
+              <u-button
+                icon="i-lucide-x"
+                @click="settings.angle = 0"
+              />
+            </u-form-field>
+          </template>
+        </u-collapsible>
       </template>
     </u-slideover>
+  </div>
+
+  <div
+    v-if="props.isEditing"
+    ref="toolbarRef"
+    :style="toolbarStyle"
+    class="toolbar absolute flex rounded pointer-events-auto text-white bg-black/50"
+  >
+    <u-button
+      icon="i-lucide-settings-2"
+      class="p-2! duration-300"
+      :class="{ 'text-primary!': settingVisible }"
+      @click="toggleSettingVisible()"
+    />
+
+    <u-button
+      icon="i-lucide-trash-2"
+      class="p-2!"
+      @click="emit('delete')"
+    />
   </div>
 </template>
 
@@ -171,6 +280,7 @@ import type { CSSProperties } from 'vue'
 import { autoUpdate, flip, offset, shift, useFloating } from '@floating-ui/vue'
 import { useToggle, useVModel, watchThrottled } from '@vueuse/core'
 import interact from 'interactjs'
+import { map, omit, pipe } from 'remeda'
 import { computed, onMounted, ref, useId, useTemplateRef } from 'vue'
 
 interface ModelValue {
@@ -184,6 +294,7 @@ interface ModelValue {
   strokeColor: string;
   color: string;
   backgroundColor: string;
+  backgroundOpacity: number;
 }
 
 interface Props {
@@ -204,13 +315,14 @@ const props = withDefaults(defineProps<Props>(), {
     fontWeight: 400,
     strokeWidth: 0,
     strokeColor: '#FFF',
-    color: '#000000',
-    backgroundColor: '#0000',
+    color: '#000',
+    backgroundColor: '#FFF',
+    backgroundOpacity: 0,
   }),
 })
 
 const emit = defineEmits<{
-  'update:model-value': [value: ModelValue];
+  'update:modelValue': [value: ModelValue];
   'delete': [];
 }>()
 
@@ -227,23 +339,46 @@ const boxTransform = ref([
   `translate(${settings.value.x}px, ${settings.value.y}px)`,
   `rotate(${settings.value.angle}deg)`,
 ].join(' '))
+function updateBoxTransform() {
+  boxTransform.value = [
+    `translate(${settings.value.x}px, ${settings.value.y}px)`,
+    `rotate(${settings.value.angle}deg)`,
+  ].join(' ')
+}
 
 const boxStyle = computed<CSSProperties>(() => ({
   transform: boxTransform.value,
   userSelect: props.isEditing ? 'text' : 'none',
+  outline: props.isEditing ? '1px dashed #3b82f6' : 'none',
 }))
+
+function hexToRgba(hex: string, alpha = 1) {
+  let h = hex.replace(/^#/, '')
+  if (h.length === 3)
+    h = h.split('').map((c) => c + c).join('') // #000 -> #000000
+  if (h.length !== 6)
+    throw new Error('Invalid hex color')
+
+  const num = Number.parseInt(h, 16)
+  const r = (num >> 16) & 255
+  const g = (num >> 8) & 255
+  const b = num & 255
+
+  return `rgba(${r}, ${g}, ${b}, ${Math.max(0, Math.min(1, alpha))})`
+}
 
 const textRef = useTemplateRef('textRef')
 const textStyle = computed<CSSProperties>(() => ({
   'fontSize': `${settings.value.fontSize}px`,
   'fontWeight': settings.value.fontWeight,
   'color': settings.value.color,
-  'backgroundColor': settings.value.backgroundColor,
+  'backgroundColor': hexToRgba(settings.value.backgroundColor, settings.value.backgroundOpacity),
   '-webkit-text-stroke': `${settings.value.strokeWidth}px ${settings.value.strokeColor}`,
-  'outline': props.isEditing ? '1px dashed #3b82f6' : 'none',
 }))
 const textDom = ref('')
 watchThrottled(() => [settings.value, textRef.value], () => {
+  updateBoxTransform()
+
   const dom = textRef.value?.cloneNode(true) as HTMLElement
   if (!dom) {
     return
@@ -268,15 +403,95 @@ function handleInput(event: InputEvent) {
 }
 
 const toolbarRef = useTemplateRef('toolbarRef')
-const { floatingStyles: toolbarStyle } = useFloating(textRef, toolbarRef, {
-  placement: 'right',
+const { floatingStyles: toolbarStyle } = useFloating(boxRef, toolbarRef, {
+  placement: 'bottom',
   whileElementsMounted: autoUpdate,
   middleware: [
     offset(10),
-    flip(),
     shift(),
+    flip(),
   ],
 })
+
+const stylePresetList = pipe(
+  [
+    {
+      data: {
+        fontSize: 16,
+        fontWeight: 400,
+        strokeWidth: 0,
+        strokeColor: '#FFF',
+        color: '#000',
+        backgroundColor: '#000',
+        backgroundOpacity: 0,
+      },
+    },
+    {
+      data: {
+        fontSize: 30,
+        fontWeight: 600,
+        strokeWidth: 0,
+        strokeColor: '#FFF',
+        color: '#000',
+        backgroundColor: '#000',
+        backgroundOpacity: 0,
+      },
+    },
+    {
+      data: {
+        fontSize: 16,
+        fontWeight: 400,
+        strokeWidth: 5,
+        strokeColor: '#FFF',
+        color: '#F00',
+        backgroundColor: '#000',
+        backgroundOpacity: 0,
+      },
+    },
+    {
+      data: {
+        fontSize: 16,
+        fontWeight: 400,
+        strokeWidth: 5,
+        strokeColor: '#000',
+        color: '#FFF',
+        backgroundColor: '#000',
+        backgroundOpacity: 0,
+      },
+    },
+    {
+      data: {
+        fontSize: 16,
+        fontWeight: 400,
+        strokeWidth: 0,
+        strokeColor: '#000',
+        color: '#FFF',
+        backgroundColor: '#000',
+        backgroundOpacity: 1,
+      },
+    },
+  ],
+  map((item) => ({
+    ...item,
+    style: {
+      ...omit(item.data, [
+        'strokeColor',
+        'strokeWidth',
+        'backgroundOpacity',
+      ]),
+      'backgroundColor': hexToRgba(item.data.backgroundColor, item.data.backgroundOpacity),
+      'fontSize': `${item.data.fontSize}px`,
+      '-webkit-text-stroke': `${item.data.strokeWidth}px ${item.data.strokeColor}`,
+    },
+  })),
+)
+
+function presetStyle(data: Partial<ModelValue>) {
+  settings.value = {
+    ...settings.value,
+    ...data,
+  }
+}
 
 onMounted(() => {
   const box = boxRef.value
@@ -286,6 +501,9 @@ onMounted(() => {
   }
 
   text.textContent = settings.value.text
+  settings.value.x -= box.clientWidth / 2
+  settings.value.y -= box.clientHeight / 2
+  updateBoxTransform()
 
   interact(box)
     .draggable({
@@ -294,10 +512,7 @@ onMounted(() => {
           settings.value.x += event.dx
           settings.value.y += event.dy
 
-          boxTransform.value = [
-            `translate(${settings.value.x}px, ${settings.value.y}px)`,
-            `rotate(${settings.value.angle}deg)`,
-          ].join(' ')
+          updateBoxTransform()
         },
       },
     })
@@ -306,10 +521,7 @@ onMounted(() => {
         move(event) {
           settings.value.angle += event.da
 
-          boxTransform.value = [
-            `translate(${settings.value.x}px, ${settings.value.y}px)`,
-            `rotate(${settings.value.angle}deg)`,
-          ].join(' ')
+          updateBoxTransform()
         },
       },
     })
@@ -326,6 +538,8 @@ const [settingVisible, toggleSettingVisible] = useToggle(false)
 .box
   touch-action: none !important
 .text
-  transform: translate(-50%, -50%)
   paint-order: stroke fill
+
+.toolbar
+  box-shadow: 0px 0px 10px rgba(white, 0.6)
 </style>

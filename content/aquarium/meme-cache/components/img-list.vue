@@ -19,9 +19,11 @@
         v-for="item in props.list"
         :key="item.file"
         class="item flex flex-col md:flex-row gap-2"
-        @click="handleClick(item)"
       >
-        <div class="flex aspect-square w-[80vw] md:w-[30dvw] bg-slate-100 cursor-pointer rounded-xl overflow-hidden">
+        <div
+          class="flex aspect-square w-[80vw] md:w-[30dvw] bg-slate-100 cursor-pointer rounded-xl overflow-hidden"
+          @click="handleClick(item)"
+        >
           <img
             :src="`/memes/${item.file}`"
             loading="lazy"

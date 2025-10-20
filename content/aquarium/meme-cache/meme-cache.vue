@@ -60,7 +60,10 @@
             />
           </template>
 
-          <template #detail>
+          <template
+            v-if="isDev"
+            #detail
+          >
             <u-checkbox
               v-model="settings.detailVisible"
               label="顯示細節"
@@ -117,30 +120,23 @@
 <script setup lang="ts">
 import type { DropdownMenuItem } from '@nuxt/ui'
 import type { MemeData } from './type'
-import { useActiveElement, watchThrottled } from '@vueuse/core'
+import { useActiveElement, useColorMode, watchThrottled } from '@vueuse/core'
 import { snapdom } from '@zumer/snapdom'
 import Fuse from 'fuse.js'
-import { throttle } from 'lodash-es'
-import { useData } from 'vitepress'
-import { onBeforeUnmount, onMounted, ref, shallowRef, triggerRef, useTemplateRef, watch } from 'vue'
+import { ref, shallowRef, useTemplateRef, watch } from 'vue'
 import { nextFrame } from '../../../web/common/utils'
 import ImgEditor from './components/img-editor.vue'
 import ImgList from './components/img-list.vue'
+import { useMemeData } from './composables/use-meme-data'
 import { useStickyToolbar } from './composables/use-sticky-toolbar'
-import { memeOriDataSchema } from './type'
 
 const isDev = import.meta.env.DEV
 
-onMounted(async () => {
-  useData().isDark.value = false
-})
+// Nuxt UI 接管 vitepress 的 dark 設定，故改用 useColorMode
+const colorMode = useColorMode()
+colorMode.value = 'light'
 
-const toast = useToast()
-const memeDataMap = shallowRef(new Map<string, MemeData>())
-const triggerMemeData = throttle(() => {
-  triggerRef(memeDataMap)
-}, 500)
-
+const { memeDataMap } = useMemeData()
 const activeElement = useActiveElement()
 function handleEnter() {
   activeElement.value?.blur()
@@ -198,101 +194,6 @@ watchThrottled(() => [keyword.value, settings.value.allVisible], () => {
 watch(keyword, async () => {
   await nextFrame()
   window.scrollTo({ top: -100, behavior: 'smooth' })
-})
-
-/** 串流讀取 ndjson 檔案 */
-async function consumeNdjsonPipeline<T = unknown>(
-  url: string,
-  onItem: (row: T) => void,
-  opts: { signal?: AbortSignal } = {},
-) {
-  const res = await fetch(url, {
-    headers: { Accept: 'application/x-ndjson' },
-    signal: opts.signal,
-  })
-  if (!res.ok)
-    throw new Error(`HTTP ${res.status}`)
-
-  let buffer = ''
-
-  const lineSplitter = new TransformStream<string, string>({
-    transform(chunk, controller) {
-      buffer += chunk
-      const lines = buffer.split(/\r?\n/)
-      buffer = lines.pop() ?? ''
-      for (const line of lines) {
-        if (line.trim())
-          controller.enqueue(line)
-      }
-    },
-    flush(controller) {
-      if (buffer.trim())
-        controller.enqueue(buffer)
-    },
-  })
-
-  const reader = res.body!
-    .pipeThrough(new TextDecoderStream())
-    .pipeThrough(lineSplitter)
-    .getReader()
-
-  for (; ;) {
-    const { value, done } = await reader.read()
-    if (done)
-      break
-    onItem(JSON.parse(value) as T)
-  }
-}
-
-const controller = new AbortController()
-async function main() {
-  // 串流讀取圖片資料
-  consumeNdjsonPipeline('/memes/memes-data.ndjson', (row) => {
-    const result = memeOriDataSchema.safeParse(row)
-    if (!result.success) {
-      return
-    }
-
-    const existedData = memeDataMap.value.get(result.data.file)
-
-    memeDataMap.value.set(
-      result.data.file,
-      {
-        describeZhTw: '',
-        ...existedData,
-        ...result.data,
-      },
-    )
-    triggerMemeData()
-  }, { signal: controller.signal })
-
-  consumeNdjsonPipeline('/memes/memes-data-zh-tw.ndjson', (row) => {
-    const result = memeOriDataSchema.safeParse(row)
-    if (!result.success) {
-      return
-    }
-
-    const existedData = memeDataMap.value.get(result.data.file)
-    const { describe, ...otherData } = result.data
-
-    memeDataMap.value.set(
-      result.data.file,
-      {
-        describe: '',
-        ...otherData,
-        ...existedData,
-        describeZhTw: describe ?? '',
-      },
-    )
-    triggerMemeData()
-  }, { signal: controller.signal })
-}
-if (!import.meta.env.SSR) {
-  main()
-}
-
-onBeforeUnmount(() => {
-  controller.abort()
 })
 
 const toolbarRef = useTemplateRef('toolbarRef')
