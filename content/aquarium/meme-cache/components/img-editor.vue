@@ -258,7 +258,8 @@ function addItem(event: PointerEvent) {
       strokeWidth: 0,
       strokeColor: '#FFF',
       color: '#000000',
-      backgroundColor: 'transparent',
+      backgroundColor: '#FFF',
+      backgroundOpacity: 0,
     },
   }
 

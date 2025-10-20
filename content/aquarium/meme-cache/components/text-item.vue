@@ -2,13 +2,13 @@
   <div
     :id
     ref="boxRef"
-    class="box absolute pointer-events-none"
+    class="box flex justify-center absolute min-w-[10rem] p-3"
     :style="boxStyle"
     v-bind="$attrs"
   >
     <div
       ref="textRef"
-      class="text p-4 min-w-[10rem] whitespace-pre pointer-events-auto text-center"
+      class="text whitespace-pre px-1 text-center outline-none!"
       contenteditable
       :style="textStyle"
       @input="handleInput"
@@ -39,14 +39,14 @@
 
       <template #body>
         <div
-          class="border border-[#EEE] border-dashed col-span-4 p-2 mb-2 text-center pointer-events-none"
+          class="flex justify-center border border-[#EEE] border-dashed col-span-4 p-2 mb-2 pointer-events-none"
           v-html="textDom"
         />
 
         <div class=" text-sm opacity-50 col-span-4">
           快速樣式
         </div>
-        <div class="style-list col-span-4 flex gap-2">
+        <div class="style-list col-span-4 flex flex-wrap gap-2">
           <div
             v-for="(item, i) in stylePresetList"
             :key="i"
@@ -74,6 +74,35 @@
 
           <template #content>
             <u-form-field
+              class="col-span-4"
+              label="字級"
+              :ui="{ container: 'flex gap-1' }"
+            >
+              <u-input
+                v-model="settings.fontSize"
+                class="flex-1"
+                :ui="{ base: 'p-1! px-2! text-center' }"
+              >
+                <template #trailing>
+                  <span class=" opacity-40 text-xs">px</span>
+                </template>
+              </u-input>
+
+              <u-button
+                icon="i-lucide-rotate-ccw"
+                @click="settings.fontSize = 14"
+              />
+              <u-button
+                icon="i-lucide-chevron-down"
+                @click="settings.fontSize -= 2"
+              />
+              <u-button
+                icon="i-lucide-chevron-up"
+                @click="settings.fontSize += 2"
+              />
+            </u-form-field>
+
+            <u-form-field
               class="col-span-2"
               label="顏色"
             >
@@ -96,29 +125,48 @@
 
             <u-form-field
               class="col-span-2"
-              label="字級"
-              :ui="{ container: 'flex gap-1' }"
+              label="背景色"
             >
-              <u-input
-                v-model="settings.fontSize"
-                :ui="{ base: 'p-1! px-2! text-center' }"
-              >
-                <template #trailing>
-                  <span class=" opacity-40 text-xs">px</span>
+              <u-popover :ui="{ content: 'z-[9999]' }">
+                <u-button
+                  class="w-full h-[1.75rem]"
+                  variant="outline"
+                  :style="{ backgroundColor: settings.backgroundColor }"
+                />
+
+                <template #content>
+                  <u-color-picker
+                    v-model="settings.backgroundColor"
+                    size="xs"
+                    class="p-2"
+                  />
                 </template>
-              </u-input>
+              </u-popover>
+            </u-form-field>
+
+            <u-form-field
+              class="col-span-4"
+              label="背景透明度"
+              :ui="{
+                hint: 'text-xs opacity-50',
+                container: 'flex items-center gap-4 mt-2 px-1',
+              }"
+            >
+              <template #label="{ label }">
+                <span class="flex-1">{{ label }}</span>
+                <span class=" text-xs opacity-40 ml-2">{{ settings.backgroundOpacity }}</span>
+              </template>
+
+              <u-slider
+                v-model="settings.backgroundOpacity"
+                :min="0"
+                :step="0.1"
+                :max="1"
+              />
 
               <u-button
-                icon="i-lucide-rotate-ccw"
-                @click="settings.fontSize = 14"
-              />
-              <u-button
-                icon="i-lucide-chevron-down"
-                @click="settings.fontSize -= 2"
-              />
-              <u-button
-                icon="i-lucide-chevron-up"
-                @click="settings.fontSize += 2"
+                icon="i-lucide-x"
+                @click="settings.backgroundOpacity = 0"
               />
             </u-form-field>
 
@@ -177,11 +225,11 @@
               hint="也可以直接雙指旋轉文字"
               :ui="{
                 hint: 'text-xs opacity-50',
-                container: 'flex items-center gap-4 mt-3',
+                container: 'flex items-center gap-4 mt-2 px-1',
               }"
             >
-              <template #label>
-                <span class="flex-1">旋轉</span>
+              <template #label="{ label }">
+                <span class="flex-1">{{ label }}</span>
                 <span class=" text-xs opacity-40 ml-2">{{ settings.angle }}°</span>
               </template>
 
@@ -245,6 +293,7 @@ interface ModelValue {
   strokeColor: string;
   color: string;
   backgroundColor: string;
+  backgroundOpacity: number;
 }
 
 interface Props {
@@ -265,8 +314,9 @@ const props = withDefaults(defineProps<Props>(), {
     fontWeight: 400,
     strokeWidth: 0,
     strokeColor: '#FFF',
-    color: '#000000',
-    backgroundColor: '#0000',
+    color: '#000',
+    backgroundColor: '#FFF',
+    backgroundOpacity: 0,
   }),
 })
 
@@ -298,16 +348,31 @@ function updateBoxTransform() {
 const boxStyle = computed<CSSProperties>(() => ({
   transform: boxTransform.value,
   userSelect: props.isEditing ? 'text' : 'none',
+  outline: props.isEditing ? '1px dashed #3b82f6' : 'none',
 }))
+
+function hexToRgba(hex: string, alpha = 1) {
+  let h = hex.replace(/^#/, '')
+  if (h.length === 3)
+    h = h.split('').map((c) => c + c).join('') // #000 -> #000000
+  if (h.length !== 6)
+    throw new Error('Invalid hex color')
+
+  const num = Number.parseInt(h, 16)
+  const r = (num >> 16) & 255
+  const g = (num >> 8) & 255
+  const b = num & 255
+
+  return `rgba(${r}, ${g}, ${b}, ${Math.max(0, Math.min(1, alpha))})`
+}
 
 const textRef = useTemplateRef('textRef')
 const textStyle = computed<CSSProperties>(() => ({
   'fontSize': `${settings.value.fontSize}px`,
   'fontWeight': settings.value.fontWeight,
   'color': settings.value.color,
-  'backgroundColor': settings.value.backgroundColor,
+  'backgroundColor': hexToRgba(settings.value.backgroundColor, settings.value.backgroundOpacity),
   '-webkit-text-stroke': `${settings.value.strokeWidth}px ${settings.value.strokeColor}`,
-  'outline': props.isEditing ? '1px dashed #3b82f6' : 'none',
 }))
 const textDom = ref('')
 watchThrottled(() => [settings.value, textRef.value], () => {
@@ -355,8 +420,9 @@ const stylePresetList = pipe(
         fontWeight: 400,
         strokeWidth: 0,
         strokeColor: '#FFF',
-        color: '#000000',
-        backgroundColor: '#0000',
+        color: '#000',
+        backgroundColor: '#000',
+        backgroundOpacity: 0,
       },
     },
     {
@@ -365,8 +431,9 @@ const stylePresetList = pipe(
         fontWeight: 600,
         strokeWidth: 0,
         strokeColor: '#FFF',
-        color: '#000000',
-        backgroundColor: '#0000',
+        color: '#000',
+        backgroundColor: '#000',
+        backgroundOpacity: 0,
       },
     },
     {
@@ -376,7 +443,8 @@ const stylePresetList = pipe(
         strokeWidth: 5,
         strokeColor: '#FFF',
         color: '#F00',
-        backgroundColor: '#0000',
+        backgroundColor: '#000',
+        backgroundOpacity: 0,
       },
     },
     {
@@ -386,14 +454,31 @@ const stylePresetList = pipe(
         strokeWidth: 5,
         strokeColor: '#000',
         color: '#FFF',
-        backgroundColor: '#0000',
+        backgroundColor: '#000',
+        backgroundOpacity: 0,
+      },
+    },
+    {
+      data: {
+        fontSize: 16,
+        fontWeight: 400,
+        strokeWidth: 0,
+        strokeColor: '#000',
+        color: '#FFF',
+        backgroundColor: '#000',
+        backgroundOpacity: 1,
       },
     },
   ],
   map((item) => ({
     ...item,
     style: {
-      ...omit(item.data, ['strokeColor', 'strokeWidth']),
+      ...omit(item.data, [
+        'strokeColor',
+        'strokeWidth',
+        'backgroundOpacity',
+      ]),
+      'backgroundColor': hexToRgba(item.data.backgroundColor, item.data.backgroundOpacity),
       'fontSize': `${item.data.fontSize}px`,
       '-webkit-text-stroke': `${item.data.strokeWidth}px ${item.data.strokeColor}`,
     },
