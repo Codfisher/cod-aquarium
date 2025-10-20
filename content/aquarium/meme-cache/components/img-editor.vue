@@ -1,7 +1,7 @@
 <template>
   <div
     v-if="props.data"
-    class="flex flex-col h-full"
+    class="flex flex-col pt-[6vh] h-full"
   >
     <div class="border">
       <div

@@ -2,36 +2,16 @@
   <div
     :id
     ref="boxRef"
-    class="box absolute pointer-events-none origin-top-left"
+    class="box absolute pointer-events-none"
     :style="boxStyle"
   >
     <div
       ref="textRef"
-      class="text p-4 min-w-[6rem] whitespace-pre pointer-events-auto"
+      class="text p-4 min-w-[10rem] whitespace-pre pointer-events-auto"
       contenteditable
       :style="textStyle"
       @input="handleInput"
     />
-
-    <div
-      v-if="props.isEditing"
-      ref="toolbarRef"
-      :style="toolbarStyle"
-      class=" absolute flex rounded pointer-events-auto text-white bg-black/50 "
-    >
-      <u-button
-        icon="i-lucide-settings-2"
-        class="p-2! duration-300"
-        :class="{ 'text-primary!': settingVisible }"
-        @click="toggleSettingVisible()"
-      />
-
-      <u-button
-        icon="i-lucide-trash-2"
-        class="p-2!"
-        @click="emit('delete')"
-      />
-    </div>
 
     <u-slideover
       v-model:open="settingVisible"
@@ -162,13 +142,33 @@
       </template>
     </u-slideover>
   </div>
+
+  <div
+    v-if="props.isEditing"
+    ref="toolbarRef"
+    :style="toolbarStyle"
+    class=" absolute flex rounded pointer-events-auto text-white bg-black/50 "
+  >
+    <u-button
+      icon="i-lucide-settings-2"
+      class="p-2! duration-300"
+      :class="{ 'text-primary!': settingVisible }"
+      @click="toggleSettingVisible()"
+    />
+
+    <u-button
+      icon="i-lucide-trash-2"
+      class="p-2!"
+      @click="emit('delete')"
+    />
+  </div>
 </template>
 
 <script setup lang="ts">
 /** 不知道為甚麼，控制點都按不到 */
 // import Moveable from 'moveable'
 import type { CSSProperties } from 'vue'
-import { autoUpdate, flip, offset, shift, useFloating } from '@floating-ui/vue'
+import { autoPlacement, autoUpdate, flip, inline, offset, shift, useFloating } from '@floating-ui/vue'
 import { useToggle, useVModel, watchThrottled } from '@vueuse/core'
 import interact from 'interactjs'
 import { computed, onMounted, ref, useId, useTemplateRef } from 'vue'
@@ -227,6 +227,12 @@ const boxTransform = ref([
   `translate(${settings.value.x}px, ${settings.value.y}px)`,
   `rotate(${settings.value.angle}deg)`,
 ].join(' '))
+function updateBoxTransform() {
+  boxTransform.value = [
+    `translate(${settings.value.x}px, ${settings.value.y}px)`,
+    `rotate(${settings.value.angle}deg)`,
+  ].join(' ')
+}
 
 const boxStyle = computed<CSSProperties>(() => ({
   transform: boxTransform.value,
@@ -268,13 +274,13 @@ function handleInput(event: InputEvent) {
 }
 
 const toolbarRef = useTemplateRef('toolbarRef')
-const { floatingStyles: toolbarStyle } = useFloating(textRef, toolbarRef, {
-  placement: 'right',
+const { floatingStyles: toolbarStyle } = useFloating(boxRef, toolbarRef, {
+  placement: 'bottom',
   whileElementsMounted: autoUpdate,
   middleware: [
     offset(10),
-    flip(),
     shift(),
+    flip(),
   ],
 })
 
@@ -286,6 +292,9 @@ onMounted(() => {
   }
 
   text.textContent = settings.value.text
+  settings.value.x -= box.clientWidth / 2
+  settings.value.y -= box.clientHeight / 2
+  updateBoxTransform()
 
   interact(box)
     .draggable({
@@ -294,10 +303,7 @@ onMounted(() => {
           settings.value.x += event.dx
           settings.value.y += event.dy
 
-          boxTransform.value = [
-            `translate(${settings.value.x}px, ${settings.value.y}px)`,
-            `rotate(${settings.value.angle}deg)`,
-          ].join(' ')
+          updateBoxTransform()
         },
       },
     })
@@ -306,10 +312,7 @@ onMounted(() => {
         move(event) {
           settings.value.angle += event.da
 
-          boxTransform.value = [
-            `translate(${settings.value.x}px, ${settings.value.y}px)`,
-            `rotate(${settings.value.angle}deg)`,
-          ].join(' ')
+          updateBoxTransform()
         },
       },
     })
@@ -326,6 +329,5 @@ const [settingVisible, toggleSettingVisible] = useToggle(false)
 .box
   touch-action: none !important
 .text
-  transform: translate(-50%, -50%)
   paint-order: stroke fill
 </style>
