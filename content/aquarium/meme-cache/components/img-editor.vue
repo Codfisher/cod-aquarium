@@ -193,6 +193,7 @@ const targetItem = ref<TextItemData>()
 const textMap = shallowRef(new Map<string, TextItemData>())
 
 onClickOutside(boardRef, () => {
+  console.log('🚀 ~ onClickOutside:')
   targetItem.value = undefined
 })
 

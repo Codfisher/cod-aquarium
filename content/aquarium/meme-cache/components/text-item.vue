@@ -4,6 +4,7 @@
     ref="boxRef"
     class="box absolute pointer-events-none"
     :style="boxStyle"
+    v-bind="$attrs"
   >
     <div
       ref="textRef"
@@ -237,7 +238,7 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const emit = defineEmits<{
-  'update:model-value': [value: ModelValue];
+  'update:modelValue': [value: ModelValue];
   'delete': [];
 }>()
 
