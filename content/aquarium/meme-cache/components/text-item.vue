@@ -86,16 +86,28 @@
         <u-form-field
           class="col-span-2"
           label="字級"
-          hint="px"
-          :ui="{
-            hint: 'text-xs',
-          }"
+          :ui="{ container: 'flex gap-1' }"
         >
-          <u-input-number
+          <u-input
             v-model="settings.fontSize"
-            :ui="{ base: 'p-1! px-2!' }"
-            :min="0"
-            :step="2"
+            :ui="{ base: 'p-1! px-2! text-center' }"
+          >
+            <template #trailing>
+              <span class=" opacity-40 text-xs">px</span>
+            </template>
+          </u-input>
+
+          <u-button
+            icon="i-lucide-x"
+            @click="settings.fontSize = 0"
+          />
+          <u-button
+            icon="i-lucide-chevron-down"
+            @click="settings.fontSize -= 2"
+          />
+          <u-button
+            icon="i-lucide-chevron-up"
+            @click="settings.fontSize += 2"
           />
         </u-form-field>
 
@@ -123,16 +135,28 @@
         <u-form-field
           class="col-span-2"
           label="外框寬度"
-          hint="px"
-          :ui="{
-            hint: 'text-xs',
-          }"
+          :ui="{ container: 'flex gap-1' }"
         >
-          <u-input-number
+          <u-input
             v-model="settings.strokeWidth"
-            :ui="{ base: 'p-1! px-2!' }"
-            :min="0"
-            :step="2"
+            :ui="{ base: 'p-1! px-2! text-center' }"
+          >
+            <template #trailing>
+              <span class=" opacity-40 text-xs">px</span>
+            </template>
+          </u-input>
+
+          <u-button
+            icon="i-lucide-x"
+            @click="settings.strokeWidth = 0"
+          />
+          <u-button
+            icon="i-lucide-chevron-down"
+            @click="settings.strokeWidth -= 2"
+          />
+          <u-button
+            icon="i-lucide-chevron-up"
+            @click="settings.strokeWidth += 2"
           />
         </u-form-field>
       </template>

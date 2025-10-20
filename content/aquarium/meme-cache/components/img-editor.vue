@@ -1,7 +1,7 @@
 <template>
   <div
     v-if="props.data"
-    class="flex flex-col items-center justify-center h-full"
+    class="flex flex-col h-full"
   >
     <div class="border">
       <div
@@ -62,13 +62,10 @@
       </template>
 
       <template #body>
-        <div class=" col-span-4 text-xs opacity-60">
-          頂部空間
-        </div>
-
+        <!-- 頂部空間 -->
         <u-form-field
           class="col-span-2"
-          label="顏色"
+          label="頂部顏色"
         >
           <u-popover :ui="{ content: 'z-[9999]' }">
             <u-button
@@ -86,30 +83,38 @@
             </template>
           </u-popover>
         </u-form-field>
-
         <u-form-field
           class="col-span-2"
           label="高度"
-          hint="px"
-          :ui="{
-            hint: 'text-xs',
-          }"
+          :ui="{ container: 'flex gap-1' }"
         >
-          <u-input-number
+          <u-input
             v-model="imgSetting.topPadding.height"
-            :ui="{ base: 'p-1! px-2!' }"
-            :min="0"
-            :step="10"
+            :ui="{ base: 'p-1! px-2! text-center' }"
+          >
+            <template #trailing>
+              <span class=" opacity-40 text-xs">px</span>
+            </template>
+          </u-input>
+
+          <u-button
+            icon="i-lucide-x"
+            @click="imgSetting.topPadding.height = 0"
+          />
+          <u-button
+            icon="i-lucide-chevron-down"
+            @click="imgSetting.topPadding.height -= 10"
+          />
+          <u-button
+            icon="i-lucide-chevron-up"
+            @click="imgSetting.topPadding.height += 10"
           />
         </u-form-field>
 
-        <div class=" col-span-4 text-xs opacity-60">
-          底部空間
-        </div>
-
+        <!-- 底部空間 -->
         <u-form-field
           class="col-span-2"
-          label="顏色"
+          label="底部顏色"
         >
           <u-popover :ui="{ content: 'z-[9999]' }">
             <u-button
@@ -127,20 +132,31 @@
             </template>
           </u-popover>
         </u-form-field>
-
         <u-form-field
           class="col-span-2"
           label="高度"
-          hint="px"
-          :ui="{
-            hint: 'text-xs',
-          }"
+          :ui="{ container: 'flex gap-1' }"
         >
-          <u-input-number
+          <u-input
             v-model="imgSetting.bottomPadding.height"
-            :ui="{ base: 'p-1! px-2!' }"
-            :min="0"
-            :step="10"
+            :ui="{ base: 'p-1! px-2! text-center' }"
+          >
+            <template #trailing>
+              <span class=" opacity-40 text-xs">px</span>
+            </template>
+          </u-input>
+
+          <u-button
+            icon="i-lucide-x"
+            @click="imgSetting.bottomPadding.height = 0"
+          />
+          <u-button
+            icon="i-lucide-chevron-down"
+            @click="imgSetting.bottomPadding.height -= 10"
+          />
+          <u-button
+            icon="i-lucide-chevron-up"
+            @click="imgSetting.bottomPadding.height += 10"
           />
         </u-form-field>
       </template>
@@ -239,7 +255,7 @@ const imgSettingVisible = ref(false)
 const imgSetting = ref({
   topPadding: {
     backgroundColor: '#FFF',
-    height: 0,
+    height: 80,
   },
   bottomPadding: {
     backgroundColor: '#FFF',
