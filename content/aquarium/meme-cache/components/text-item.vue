@@ -89,31 +89,17 @@
 
         <u-form-field
           class="col-span-2"
-          label="字級"
+          label="字級 (px)"
           :ui="{
             label: 'text-xs',
             container: 'flex',
           }"
         >
-          <u-input
-            v-model.number="settings.fontSize"
-            type="number"
+          <u-input-number
+            v-model="settings.fontSize"
             :ui="{ base: 'p-1! px-2! mr-1' }"
-          >
-            <template #trailing>
-              <div class="text-xs opacity-50">
-                px
-              </div>
-            </template>
-          </u-input>
-
-          <u-button
-            icon="i-lucide-chevron-up"
-            @click="settings.fontSize += 2"
-          />
-          <u-button
-            icon="i-lucide-chevron-down"
-            @click="settings.fontSize -= 2"
+            :min="0"
+            :step="2"
           />
         </u-form-field>
 
@@ -144,32 +130,24 @@
 
         <u-form-field
           class="col-span-2"
-          label="外框寬度"
+          label="外框寬度 (px)"
           :ui="{
             label: 'text-xs',
             container: 'flex',
           }"
         >
-          <u-input
-            v-model.number="settings.strokeWidth"
-            type="number"
+          <u-input-number
+            v-model="settings.strokeWidth"
             :ui="{ base: 'p-1! px-2! mr-1' }"
+            :min="0"
+            :step="2"
           >
             <template #trailing>
               <div class="text-xs opacity-50">
                 px
               </div>
             </template>
-          </u-input>
-
-          <u-button
-            icon="i-lucide-chevron-up"
-            @click="settings.strokeWidth += 2"
-          />
-          <u-button
-            icon="i-lucide-chevron-down"
-            @click="settings.strokeWidth -= 2"
-          />
+          </u-input-number>
         </u-form-field>
       </template>
     </u-slideover>
@@ -252,7 +230,7 @@ const textStyle = computed<CSSProperties>(() => ({
   'color': settings.value.color,
   'backgroundColor': settings.value.backgroundColor,
   '-webkit-text-stroke': `${settings.value.strokeWidth}px ${settings.value.strokeColor}`,
-  'outline': props.isEditing ? '1px solid #3b82f6' : 'none',
+  'outline': props.isEditing ? '1px dashed #3b82f6' : 'none',
 }))
 const textDom = ref('')
 watchThrottled(() => [settings.value, textRef.value], () => {
