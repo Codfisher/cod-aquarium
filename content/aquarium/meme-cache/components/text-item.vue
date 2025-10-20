@@ -96,7 +96,7 @@
           }"
         >
           <u-input
-            v-model="settings.fontSize"
+            v-model.number="settings.fontSize"
             type="number"
             :ui="{ base: 'p-1! px-2! mr-1' }"
           >
@@ -151,7 +151,7 @@
           }"
         >
           <u-input
-            v-model="settings.strokeWidth"
+            v-model.number="settings.strokeWidth"
             type="number"
             :ui="{ base: 'p-1! px-2! mr-1' }"
           >
@@ -261,6 +261,7 @@ watchThrottled(() => [settings.value, textRef.value], () => {
     return
   }
 
+  dom.contentEditable = 'false'
   dom.classList.add('outline-none!')
   dom.classList.add('transform-none!')
 
