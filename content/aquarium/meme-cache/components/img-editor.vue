@@ -1,9 +1,9 @@
 <template>
   <div
     v-if="props.data"
-    class="flex flex-col pt-[6vh] h-full bg-gray-200"
+    class="flex flex-col pt-[6vh] h-full bg-gray-300"
   >
-    <div class="border">
+    <div class=" shadow-xl">
       <div
         ref="boardRef"
         class="flex flex-col max-h-[80dvh] relative "

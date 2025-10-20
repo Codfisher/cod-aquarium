@@ -60,7 +60,10 @@
             />
           </template>
 
-          <template #detail>
+          <template
+            v-if="isDev"
+            #detail
+          >
             <u-checkbox
               v-model="settings.detailVisible"
               label="顯示細節"
@@ -117,11 +120,10 @@
 <script setup lang="ts">
 import type { DropdownMenuItem } from '@nuxt/ui'
 import type { MemeData } from './type'
-import { useActiveElement, watchThrottled } from '@vueuse/core'
+import { useActiveElement, useColorMode, watchThrottled } from '@vueuse/core'
 import { snapdom } from '@zumer/snapdom'
 import Fuse from 'fuse.js'
 import { throttle } from 'lodash-es'
-import { useData } from 'vitepress'
 import { onBeforeUnmount, onMounted, ref, shallowRef, triggerRef, useTemplateRef, watch } from 'vue'
 import { nextFrame } from '../../../web/common/utils'
 import ImgEditor from './components/img-editor.vue'
@@ -131,9 +133,9 @@ import { memeOriDataSchema } from './type'
 
 const isDev = import.meta.env.DEV
 
-onMounted(async () => {
-  useData().isDark.value = false
-})
+// Nuxt UI 接管 vitepress 的 dark 設定，故改用 useColorMode
+const colorMode = useColorMode()
+colorMode.value = 'light'
 
 const toast = useToast()
 const memeDataMap = shallowRef(new Map<string, MemeData>())
