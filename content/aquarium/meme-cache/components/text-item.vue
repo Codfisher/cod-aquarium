@@ -43,6 +43,25 @@
           v-html="textDom"
         />
 
+        <div class=" text-sm opacity-50 col-span-4">
+          快速樣式
+        </div>
+        <div class="style-list col-span-4 flex gap-2">
+          <div
+            v-for="(item, i) in stylePresetList"
+            :key="i"
+            :style="item.style"
+            class="text p-3 border border-[#DDD] rounded"
+            @click="presetStyle(item.data)"
+          >
+            文字
+          </div>
+        </div>
+
+        <div class=" text-sm opacity-50 col-span-4">
+          詳細設定
+        </div>
+
         <u-form-field
           class="col-span-2"
           label="顏色"
@@ -199,6 +218,7 @@ import type { CSSProperties } from 'vue'
 import { autoUpdate, flip, offset, shift, useFloating } from '@floating-ui/vue'
 import { useToggle, useVModel, watchThrottled } from '@vueuse/core'
 import interact from 'interactjs'
+import { map, omit, pipe } from 'remeda'
 import { computed, onMounted, ref, useId, useTemplateRef } from 'vue'
 
 interface ModelValue {
@@ -313,6 +333,66 @@ const { floatingStyles: toolbarStyle } = useFloating(boxRef, toolbarRef, {
     flip(),
   ],
 })
+
+const stylePresetList = pipe(
+  [
+    {
+      data: {
+        fontSize: 16,
+        fontWeight: 400,
+        strokeWidth: 0,
+        strokeColor: '#FFF',
+        color: '#000000',
+        backgroundColor: '#0000',
+      },
+    },
+    {
+      data: {
+        fontSize: 30,
+        fontWeight: 600,
+        strokeWidth: 0,
+        strokeColor: '#FFF',
+        color: '#000000',
+        backgroundColor: '#0000',
+      },
+    },
+    {
+      data: {
+        fontSize: 16,
+        fontWeight: 400,
+        strokeWidth: 5,
+        strokeColor: '#FFF',
+        color: '#F00',
+        backgroundColor: '#0000',
+      },
+    },
+    {
+      data: {
+        fontSize: 16,
+        fontWeight: 400,
+        strokeWidth: 5,
+        strokeColor: '#000',
+        color: '#FFF',
+        backgroundColor: '#0000',
+      },
+    },
+  ],
+  map((item) => ({
+    ...item,
+    style: {
+      ...omit(item.data, ['strokeColor', 'strokeWidth']),
+      'fontSize': `${item.data.fontSize}px`,
+      '-webkit-text-stroke': `${item.data.strokeWidth}px ${item.data.strokeColor}`,
+    },
+  })),
+)
+
+function presetStyle(data: Partial<ModelValue>) {
+  settings.value = {
+    ...settings.value,
+    ...data,
+  }
+}
 
 onMounted(() => {
   const box = boxRef.value
