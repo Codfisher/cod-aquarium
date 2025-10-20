@@ -105,12 +105,6 @@
             @click="copyImg"
           />
           <UButton
-            v-if="isSupported"
-            label="分享"
-            icon="i-lucide-share-2"
-            @click="handleShare"
-          />
-          <UButton
             label="圖片設定"
             icon="i-lucide-settings"
             @click="toggleSettingForm"

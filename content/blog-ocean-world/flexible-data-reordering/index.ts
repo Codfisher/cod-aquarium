@@ -1,4 +1,5 @@
 import { generateKeyBetween } from 'fractional-indexing-jittered'
+import { nanoid } from 'nanoid'
 
 export function createDataManager<Data>() {
   const dataMap: Map<string, {
@@ -14,7 +15,7 @@ export function createDataManager<Data>() {
 
   return {
     add(data: Data) {
-      const id = crypto.randomUUID()
+      const id = nanoid()
       const lastData = getDataEntriesList().at(-1)
 
       const order = generateKeyBetween(

@@ -58,6 +58,7 @@ const settings = defineModel({
     text: '點擊編輯',
     x: 0,
     y: 0,
+    angle: 0,
     fontSize: 16,
     fontWeight: 400,
     color: '#000000',
@@ -107,7 +108,23 @@ onMounted(() => {
           settings.value.x += event.dx
           settings.value.y += event.dy
 
-          target.style.transform = `translate(${settings.value.x}px, ${settings.value.y}px)`
+          target.style.transform = [
+            `translate(${settings.value.x}px, ${settings.value.y}px)`,
+            `rotate(${settings.value.angle}deg)`,
+          ].join(' ')
+        },
+      },
+    })
+    .gesturable({
+      listeners: {
+        move(event) {
+          const target = event.target
+          settings.value.angle += event.da
+
+          target.style.transform = [
+            `translate(${settings.value.x}px, ${settings.value.y}px)`,
+            `rotate(${settings.value.angle}deg)`,
+          ].join(' ')
         },
       },
     })

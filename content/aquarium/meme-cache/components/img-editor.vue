@@ -7,7 +7,7 @@
       <div
         ref="boardRef"
         class="flex flex-col max-h-[80dvh] relative"
-        @click.self="handleClick"
+        @pointerdown.self="addItem"
       >
         <div :style="settingValue.topPadding" />
 
@@ -81,6 +81,7 @@
 import type { CSSProperties } from 'vue'
 import type { ComponentProps } from 'vue-component-type-helpers'
 import type { MemeData } from '../type'
+import { nanoid } from 'nanoid'
 import { computed, ref, shallowRef, triggerRef, useTemplateRef } from 'vue'
 import TextItem from './text-item.vue'
 
@@ -108,7 +109,7 @@ const list = computed(() => [...textMap.value.values()].map((item) => ({
   isEditing: targetItem.value?.key === item.key,
 })))
 
-function handleClick(event: MouseEvent) {
+function addItem(event: PointerEvent) {
   if (targetItem.value) {
     targetItem.value = undefined
     return
@@ -122,11 +123,12 @@ function handleClick(event: MouseEvent) {
   const y = event.clientY - rect.top
 
   const newItem = {
-    key: crypto.randomUUID(),
+    key: nanoid(),
     data: {
       text: '點擊編輯',
       x,
       y,
+      angle: 0,
       fontSize: 16,
       fontWeight: 400,
       color: '#000000',
