@@ -207,7 +207,7 @@
     v-if="props.isEditing"
     ref="toolbarRef"
     :style="toolbarStyle"
-    class=" absolute flex rounded pointer-events-auto text-white bg-black/50 "
+    class="toolbar absolute flex rounded pointer-events-auto text-white bg-black/50"
   >
     <u-button
       icon="i-lucide-settings-2"
@@ -453,4 +453,7 @@ const [settingVisible, toggleSettingVisible] = useToggle(false)
   touch-action: none !important
 .text
   paint-order: stroke fill
+
+.toolbar
+  box-shadow: 0px 0px 10px rgba(white, 0.6)
 </style>

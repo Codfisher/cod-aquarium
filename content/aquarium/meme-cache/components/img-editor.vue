@@ -1,12 +1,12 @@
 <template>
   <div
     v-if="props.data"
-    class="flex flex-col pt-[6vh] h-full"
+    class="flex flex-col pt-[6vh] h-full bg-gray-200"
   >
     <div class="border">
       <div
         ref="boardRef"
-        class="flex flex-col max-h-[80dvh] relative"
+        class="flex flex-col max-h-[80dvh] relative "
         @pointerdown.self="addItem"
       >
         <div
