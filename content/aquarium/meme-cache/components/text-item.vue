@@ -40,7 +40,7 @@
       class="z-[100] border border-[#DDD]"
       :ui="{
         header: 'min-h-auto ',
-        body: 'grid grid-cols-3 gap-2 items-center',
+        body: 'grid grid-cols-4 gap-4 items-center',
       }"
     >
       <template #header="{ close }">
@@ -58,17 +58,22 @@
 
       <template #body>
         <div
-          class="border border-[#EEE] border-dashed col-span-4 mb-2 text-center"
+          class="border border-[#EEE] border-dashed col-span-4 p-4 mb-2 text-center pointer-events-none"
           v-html="textDom"
         />
 
-        <div class="  text-sm">
-          顏色
-        </div>
-        <div class=" col-span-1 text-sm">
+        <u-form-field
+          class="col-span-2"
+          label="顏色"
+          :ui="{
+            label: 'text-xs',
+            container: 'flex',
+          }"
+        >
           <u-popover :ui="{ content: 'z-[9999]' }">
             <u-button
-              class="w-full h-[2rem]"
+              class="w-full h-[1.75rem]"
+              variant="outline"
               :style="{ backgroundColor: settings.color }"
             />
 
@@ -80,14 +85,92 @@
               />
             </template>
           </u-popover>
-        </div>
+        </u-form-field>
 
-        <div class=" col-span-1 text-sm">
-          尺寸
-        </div>
-        <div class=" col-span-1 text-sm">
-          尺寸
-        </div>
+        <u-form-field
+          class="col-span-2"
+          label="字級"
+          :ui="{
+            label: 'text-xs',
+            container: 'flex',
+          }"
+        >
+          <u-input
+            v-model="settings.fontSize"
+            type="number"
+            :ui="{ base: 'p-1! px-2! mr-1' }"
+          >
+            <template #trailing>
+              <div class="text-xs opacity-50">
+                px
+              </div>
+            </template>
+          </u-input>
+
+          <u-button
+            icon="i-lucide-chevron-up"
+            @click="settings.fontSize += 2"
+          />
+          <u-button
+            icon="i-lucide-chevron-down"
+            @click="settings.fontSize -= 2"
+          />
+        </u-form-field>
+
+        <u-form-field
+          class="col-span-2"
+          label="外框顏色"
+          :ui="{
+            label: 'text-xs',
+            container: 'flex',
+          }"
+        >
+          <u-popover :ui="{ content: 'z-[9999]' }">
+            <u-button
+              class="w-full h-[1.75rem]"
+              variant="outline"
+              :style="{ backgroundColor: settings.strokeColor }"
+            />
+
+            <template #content>
+              <u-color-picker
+                v-model="settings.strokeColor"
+                size="xs"
+                class="p-2"
+              />
+            </template>
+          </u-popover>
+        </u-form-field>
+
+        <u-form-field
+          class="col-span-2"
+          label="外框寬度"
+          :ui="{
+            label: 'text-xs',
+            container: 'flex',
+          }"
+        >
+          <u-input
+            v-model="settings.strokeWidth"
+            type="number"
+            :ui="{ base: 'p-1! px-2! mr-1' }"
+          >
+            <template #trailing>
+              <div class="text-xs opacity-50">
+                px
+              </div>
+            </template>
+          </u-input>
+
+          <u-button
+            icon="i-lucide-chevron-up"
+            @click="settings.strokeWidth += 2"
+          />
+          <u-button
+            icon="i-lucide-chevron-down"
+            @click="settings.strokeWidth -= 2"
+          />
+        </u-form-field>
       </template>
     </u-slideover>
   </div>
@@ -98,9 +181,9 @@
 // import Moveable from 'moveable'
 import type { CSSProperties } from 'vue'
 import { autoUpdate, flip, offset, shift, useFloating } from '@floating-ui/vue'
-import { createReusableTemplate, useElementSize, useToggle, useVModel, watchThrottled } from '@vueuse/core'
+import { useToggle, useVModel, watchThrottled } from '@vueuse/core'
 import interact from 'interactjs'
-import { computed, h, onMounted, reactive, ref, useId, useTemplateRef, watch } from 'vue'
+import { computed, onMounted, ref, useId, useTemplateRef } from 'vue'
 
 interface ModelValue {
   text: string;
@@ -109,6 +192,8 @@ interface ModelValue {
   angle: number;
   fontSize: number;
   fontWeight: number;
+  strokeWidth: number;
+  strokeColor: string;
   color: string;
   backgroundColor: string;
 }
@@ -129,6 +214,8 @@ const props = withDefaults(defineProps<Props>(), {
     angle: 0,
     fontSize: 16,
     fontWeight: 400,
+    strokeWidth: 0,
+    strokeColor: '#FFF',
     color: '#000000',
     backgroundColor: '#0000',
   }),
@@ -160,11 +247,12 @@ const boxStyle = computed<CSSProperties>(() => ({
 
 const textRef = useTemplateRef('textRef')
 const textStyle = computed<CSSProperties>(() => ({
-  fontSize: `${settings.value.fontSize}px`,
-  fontWeight: settings.value.fontWeight,
-  color: settings.value.color,
-  backgroundColor: settings.value.backgroundColor,
-  outline: props.isEditing ? '1px solid #3b82f6' : 'none',
+  'fontSize': `${settings.value.fontSize}px`,
+  'fontWeight': settings.value.fontWeight,
+  'color': settings.value.color,
+  'backgroundColor': settings.value.backgroundColor,
+  '-webkit-text-stroke': `${settings.value.strokeWidth}px ${settings.value.strokeColor}`,
+  'outline': props.isEditing ? '1px solid #3b82f6' : 'none',
 }))
 const textDom = ref('')
 watchThrottled(() => [settings.value, textRef.value], () => {
@@ -172,9 +260,7 @@ watchThrottled(() => [settings.value, textRef.value], () => {
   if (!dom) {
     return
   }
-  dom.removeAttribute('contenteditable')
-  dom.classList.remove('pointer-events-auto')
-  dom.classList.add('pointer-events-none')
+
   dom.classList.add('outline-none!')
   dom.classList.add('transform-none!')
 
@@ -184,6 +270,7 @@ watchThrottled(() => [settings.value, textRef.value], () => {
   trailing: true,
   deep: true,
   immediate: true,
+  flush: 'post',
 })
 
 function handleInput(event: InputEvent) {
@@ -251,4 +338,5 @@ const [settingVisible, toggleSettingVisible] = useToggle(false)
   touch-action: none !important
 .text
   transform: translate(-50%, -50%)
+  paint-order: stroke fill
 </style>

@@ -137,6 +137,8 @@ function addItem(event: PointerEvent) {
       angle: 0,
       fontSize: 16,
       fontWeight: 400,
+      strokeWidth: 0,
+      strokeColor: '#FFF',
       color: '#000000',
       backgroundColor: 'transparent',
     },
