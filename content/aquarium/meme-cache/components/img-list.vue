@@ -21,7 +21,7 @@
         class="item flex flex-col md:flex-row gap-2"
       >
         <div
-          class="flex aspect-square w-[80vw] md:w-[30dvw] bg-slate-100 cursor-pointer rounded-xl overflow-hidden"
+          class="flex aspect-square w-[80vw] md:w-[30dvw] bg-gray-200 cursor-pointer rounded-xl overflow-hidden"
           @click="handleClick(item)"
         >
           <img

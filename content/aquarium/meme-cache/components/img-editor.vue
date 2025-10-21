@@ -1,29 +1,29 @@
 <template>
   <div
     v-if="props.data"
-    class="flex flex-col pt-[6vh] h-full bg-gray-300"
+    class="flex flex-col h-full bg-gray-300"
   >
-    <div class=" shadow-xl">
+    <div class="py-[6vh] flex flex-col items-center bg-gray-300">
       <div
         ref="boardRef"
-        class="flex flex-col max-h-[80dvh] relative "
+        class="board flex flex-col relative shadow-xl"
         @pointerdown.self="addItem"
       >
         <div
           :style="settingValue.topPadding"
-          class="pointer-events-none"
+          class="pointer-events-none shrink-0"
         />
 
         <img
           v-if="props.data"
           :src="`/memes/${props.data.file}`"
-          class=" object-contain rounded-none! border-none! pointer-events-none  w-[100vw] md:w-[50vw] "
+          class=" object-contain rounded-none! border-none! pointer-events-none md:max-w-[50vw] max-h-[60dvh] "
           draggable="false"
         >
 
         <div
           :style="settingValue.bottomPadding"
-          class="pointer-events-none"
+          class="pointer-events-none shrink-0"
         />
 
         <text-item
@@ -69,7 +69,7 @@
           <div
             v-for="(item, i) in settingPresetList"
             :key="i"
-            class="text p-3 border border-[#DDD] rounded text-sm"
+            class="text p-3 border border-[#DDD] rounded text-sm cursor-pointer"
             @click="presetStyle(item.data)"
           >
             {{ item.label }}

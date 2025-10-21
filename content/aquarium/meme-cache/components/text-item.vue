@@ -51,7 +51,7 @@
             v-for="(item, i) in stylePresetList"
             :key="i"
             :style="item.style"
-            class="text p-3 border border-[#DDD] rounded"
+            class="text p-3 border border-[#DDD] rounded cursor-pointer"
             @click="presetStyle(item.data)"
           >
             文字
@@ -446,7 +446,7 @@ const stylePresetList = pipe(
       data: {
         fontSize: 16,
         fontWeight: 400,
-        strokeWidth: 0,
+        strokeWidth: 5,
         strokeColor: '#FFF',
         color: '#000',
         backgroundColor: '#FFF',
@@ -457,7 +457,7 @@ const stylePresetList = pipe(
       data: {
         fontSize: 30,
         fontWeight: 600,
-        strokeWidth: 0,
+        strokeWidth: 5,
         strokeColor: '#FFF',
         color: '#000',
         backgroundColor: '#FFF',
