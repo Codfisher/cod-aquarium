@@ -203,6 +203,7 @@ import { onClickOutside, promiseTimeout, useIntervalFn, useRafFn, watchThrottled
 import { nanoid } from 'nanoid'
 import { clone, map, pipe } from 'remeda'
 import { computed, ref, shallowRef, triggerRef, useTemplateRef, watch } from 'vue'
+import { nextFrame } from '../../../../web/common/utils'
 import TextItem from './text-item.vue'
 
 interface TextItemData {
@@ -439,7 +440,8 @@ defineExpose({
   async blur() {
     targetItem.value = undefined
     imgSettingVisible.value = false
-    await promiseTimeout(500)
+    await nextFrame()
+    await promiseTimeout(200)
   },
   toggleImgSettingVisible(value?: boolean) {
     imgSettingVisible.value = value !== undefined
