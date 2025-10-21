@@ -314,15 +314,15 @@ async function copyImg() {
         },
       },
       {
-        content: () => [
+        body: () => [
           h(
             'img',
             { src: url },
           ),
           h(
             'div',
-            { class: 'text-center py-4' },
-            '無法寫入剪貼簿，請手動分享此圖片',
+            { class: 'text-center py-4 whitespace-pre' },
+            '無法寫入剪貼簿，請長按圖片\n手動分享此圖片',
           ),
         ],
       },
