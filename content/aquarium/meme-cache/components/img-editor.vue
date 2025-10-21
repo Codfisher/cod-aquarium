@@ -31,6 +31,7 @@
           :key="item.key"
           :model-value="item.data"
           :is-editing="item.isEditing"
+          :from-record="isFromStorage"
           @click="editItem(item)"
           @delete="deleteItem(item)"
           @update:model-value="(data) => updateItem(item, data)"
@@ -202,7 +203,7 @@ import type { MemeData } from '../type'
 import { onClickOutside, promiseTimeout, useElementSize, useIntervalFn, useRafFn, useWindowSize, watchThrottled } from '@vueuse/core'
 import { nanoid } from 'nanoid'
 import { clone, map, pipe, sum } from 'remeda'
-import { computed, reactive, ref, shallowRef, triggerRef, useTemplateRef, watch } from 'vue'
+import { computed, nextTick, reactive, ref, shallowRef, triggerRef, useTemplateRef, watch } from 'vue'
 import { nextFrame } from '../../../../web/common/utils'
 import TextItem from './text-item.vue'
 
@@ -380,6 +381,7 @@ function presetStyle(data: typeof imgSetting['value']) {
 }
 
 // 儲存設定值至 localStorage
+const isFromStorage = ref(true)
 const storageKey = computed(() => `img-data:${props.data?.file}`)
 useRafFn(() => {
   const { file } = props.data ?? {}
@@ -400,7 +402,9 @@ useRafFn(() => {
   fpsLimit: 2,
 })
 /** 從 localStorage 取得上次紀錄 */
-function initData() {
+async function initData() {
+  isFromStorage.value = true
+
   const prevTextMap = pipe(
     localStorage.getItem(`${storageKey.value}:textMap`),
     (value) => {
@@ -430,6 +434,10 @@ function initData() {
   if (prevImgSetting) {
     imgSetting.value = prevImgSetting
   }
+
+  await nextFrame()
+  await nextTick()
+  isFromStorage.value = false
 }
 if (!import.meta.env.SSR) {
   initData()

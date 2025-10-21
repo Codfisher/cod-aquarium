@@ -329,6 +329,9 @@ interface Props {
   /** 建立後自動 focus */
   autoFocus?: boolean;
   modelValue?: ModelValue;
+
+  /** 讀取上次紀錄，不要進行原點偏移 */
+  fromRecord?: boolean;
 }
 const props = withDefaults(defineProps<Props>(), {
   isEditing: false,
@@ -346,6 +349,7 @@ const props = withDefaults(defineProps<Props>(), {
     backgroundColor: '#FFF',
     backgroundOpacity: 0,
   }),
+  fromRecord: false,
 })
 
 const emit = defineEmits<{
@@ -528,6 +532,11 @@ onMounted(() => {
   }
 
   text.textContent = settings.value.text
+
+  if (!props.fromRecord) {
+    settings.value.x -= box.clientWidth / 2
+    settings.value.y -= box.clientHeight / 2
+  }
   updateBoxTransform()
 
   interact(box)
