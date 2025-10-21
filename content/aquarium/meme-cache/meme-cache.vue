@@ -128,6 +128,16 @@
             </u-popover>
             <div class="flex-1" />
 
+            <u-dropdown-menu
+              :items="moreFcnItems"
+              :ui="{
+                content: 'z-[70]',
+                item: 'p-2!',
+              }"
+            >
+              <u-button icon="i-lucide-ellipsis" />
+            </u-dropdown-menu>
+
             <u-button
               icon="i-lucide-x"
               @click="close"
@@ -380,6 +390,44 @@ async function copyImg() {
   //   toast.add({ title: '分享圖片失敗 QQ' })
   // }
 }
+
+const moreFcnItems = [
+  {
+    icon: 'i-lucide-image-down',
+    label: '下載',
+    async onSelect() {
+      if (!editorRef.value?.boardRef)
+        return
+
+      const loadingToast = toast.add({
+        title: '請稍等片刻',
+        description: '正在奮力處理圖片...◝( •ω• )◟',
+        icon: 'i-lucide-loader-circle',
+        ui: { icon: 'animate-spin' },
+        progress: false,
+        close: false,
+      })
+
+      await editorRef.value.blur()
+
+      const blob = await snapdom.toBlob(editorRef.value.boardRef, {
+        quality: 1,
+        backgroundColor: '#FFF',
+        type: 'png',
+      })
+
+      toast.remove(loadingToast.id)
+
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'meme.png'
+      a.click()
+
+      toast.add({ title: '已開始下載' })
+    },
+  },
+] as const satisfies DropdownMenuItem[]
 
 const tipText = computed(() => {
   if (!keyword.value && settings.value.allVisible) {
