@@ -1,4 +1,4 @@
-import { useRafFn } from '@vueuse/core'
+import { isIOS, useRafFn } from '@vueuse/core'
 import { computed, onBeforeUnmount, onMounted, ref, type Ref } from 'vue'
 
 export interface StickyToolbarOptions {
@@ -70,9 +70,12 @@ export function useStickyToolbar(
     measureToolbar()
   }
 
-  // useRafFn(() => {
-  //   refresh()
-  // })
+  // IOS 不推動，保持 fixed + safe-area-inset-bottom 就好，不然會亂跑
+  if (!isIOS) {
+    useRafFn(() => {
+      refresh()
+    })
+  }
 
   const baseBottom = includeSafeArea ? 'env(safe-area-inset-bottom)' : '0px'
   const bottomValue = computed(() => baseBottom)
@@ -83,8 +86,7 @@ export function useStickyToolbar(
     left: 0,
     right: 0,
     bottom: bottomValue.value,
-    // 不推動，保持 fixed + safe-area-inset-bottom 就好，不然 IOS 會亂跑
-    // transform: transformValue.value,
+    transform: transformValue.value,
     willChange: 'transform',
     zIndex,
   }))
