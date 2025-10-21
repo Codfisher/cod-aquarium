@@ -1,9 +1,9 @@
 <template>
   <div
     v-if="props.data"
-    class="flex flex-col justify-end h-full bg-gray-300"
+    class="py-[6vh] flex flex-col h-full bg-gray-300 overflow-auto"
   >
-    <div class="py-[6vh] flex flex-col items-center bg-gray-300">
+    <div class="flex-1 flex flex-col justify-end items-center bg-gray-300 ">
       <div
         ref="boardRef"
         class="board flex flex-col relative shadow-xl"
@@ -17,7 +17,7 @@
         <img
           v-if="props.data"
           :src="`/memes/${props.data.file}`"
-          class=" object-contain rounded-none! border-none! pointer-events-none md:max-w-[50vw] max-h-[60dvh] "
+          class=" object-contain rounded-none! border-none! pointer-events-none w-[90vw] md:max-w-[50vw]!"
           draggable="false"
         >
 
@@ -199,10 +199,10 @@
 import type { CSSProperties } from 'vue'
 import type { ComponentProps } from 'vue-component-type-helpers'
 import type { MemeData } from '../type'
-import { onClickOutside, promiseTimeout, useIntervalFn, useRafFn, watchThrottled } from '@vueuse/core'
+import { onClickOutside, promiseTimeout, useElementSize, useIntervalFn, useRafFn, useWindowSize, watchThrottled } from '@vueuse/core'
 import { nanoid } from 'nanoid'
-import { clone, map, pipe } from 'remeda'
-import { computed, ref, shallowRef, triggerRef, useTemplateRef, watch } from 'vue'
+import { clone, map, pipe, sum } from 'remeda'
+import { computed, reactive, ref, shallowRef, triggerRef, useTemplateRef, watch } from 'vue'
 import { nextFrame } from '../../../../web/common/utils'
 import TextItem from './text-item.vue'
 
@@ -219,6 +219,18 @@ const props = withDefaults(defineProps<Props>(), {})
 const emit = defineEmits<{
   'update:model-value': [value: string];
 }>()
+
+const imgSettingVisible = ref(false)
+const imgSetting = ref({
+  topPadding: {
+    backgroundColor: '#FFF',
+    height: 80,
+  },
+  bottomPadding: {
+    backgroundColor: '#FFF',
+    height: 0,
+  },
+})
 
 const boardRef = useTemplateRef('boardRef')
 
@@ -284,18 +296,6 @@ function deleteItem(item: TextItemData) {
 
   targetItem.value = undefined
 }
-
-const imgSettingVisible = ref(false)
-const imgSetting = ref({
-  topPadding: {
-    backgroundColor: '#FFF',
-    height: 80,
-  },
-  bottomPadding: {
-    backgroundColor: '#FFF',
-    height: 0,
-  },
-})
 
 const settingValue = computed(() => ({
   topPadding: {

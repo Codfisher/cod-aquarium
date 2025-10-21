@@ -1,8 +1,10 @@
 <template>
   <client-only>
-    <u-app :toaster="{
-      position: 'top-right',
-    }">
+    <u-app
+      :toaster="{
+        position: 'top-right',
+      }"
+    >
       <div class="meme-cache flex flex-col min-h-svh">
         <transition
           name="opacity"
@@ -224,17 +226,17 @@ watch(keyword, async () => {
 
 const toolbarRef = useTemplateRef('toolbarRef')
 const toolbarSize = reactive(useElementSize(toolbarRef, undefined, {
-  box: 'border-box'
+  box: 'border-box',
 }))
 const { toolbarStyle, contentStyle } = useStickyToolbar(toolbarRef)
 
 const tipRef = useTemplateRef('tipRef')
 const tipSize = reactive(useElementSize(tipRef, undefined, {
-  box: 'border-box'
+  box: 'border-box',
 }))
 
 const listHeight = computed(
-  () => `${windowSize.height - toolbarSize.height - tipSize.height}px`
+  () => `${windowSize.height - toolbarSize.height - tipSize.height}px`,
 )
 
 const editorRef = useTemplateRef('editorRef')
@@ -391,7 +393,6 @@ const tipText = computed(() => {
   if (keyword.value && filteredList.value.length === 0) {
     return '沒找到相關圖片 ( ´•̥̥̥ ω •̥̥̥` )'
   }
-
 
   return `找到 ${filteredList.value.length} 個候選項目 ੭ ˙ᗜ˙ )੭`
 })
