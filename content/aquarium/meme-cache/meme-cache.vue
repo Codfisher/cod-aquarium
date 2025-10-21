@@ -1,8 +1,10 @@
 <template>
   <client-only>
-    <u-app :toaster="{
-      position: 'top-right',
-    }">
+    <u-app
+      :toaster="{
+        position: 'top-right',
+      }"
+    >
       <div class="meme-cache flex flex-col min-h-svh">
         <transition
           name="opacity"
@@ -51,7 +53,7 @@
               v-if="keyword?.length"
               #trailing
             >
-              <UButton
+              <u-button
                 color="neutral"
                 variant="link"
                 size="sm"
@@ -302,7 +304,7 @@ async function copyImg() {
   await editorRef.value.blur()
 
   const blob = await snapdom.toBlob(editorRef.value.boardRef, {
-    quality: 1,
+    quality: 0.8,
     backgroundColor: '#FFF',
     type: 'png',
   })
@@ -329,23 +331,18 @@ async function copyImg() {
     h(
       UModal,
       {
+        title: '手動分享 ლ(╹ε╹ლ)',
+        description: '無法寫入剪貼簿，請長按或右鍵圖片，手動分享',
         ui: {
           overlay: 'z-[99999]',
           content: 'z-[999999]',
         },
       },
       {
-        body: () => [
-          h(
-            'img',
-            { src: url },
-          ),
-          h(
-            'div',
-            { class: 'text-center py-4 whitespace-pre' },
-            '無法寫入剪貼簿，請長按圖片\n手動分享此圖片',
-          ),
-        ],
+        body: () => [h(
+          'img',
+          { src: url },
+        )],
       },
     ),
   )
@@ -393,7 +390,7 @@ async function copyImg() {
   //   console.warn('execCommand fallback failed', e)
   // }
 
-  // 最後備援：使用 Web Share
+  // Web Share
   // try {
   //   if (
   //     navigator.canShare?.({ files: [new File([blob], 'image.png', { type: 'image/png' })] })
