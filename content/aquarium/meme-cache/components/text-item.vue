@@ -574,6 +574,11 @@ onMounted(() => {
           selection.addRange(range)
         }
       } catch { }
+
+      // 考慮相容性
+      if (!window.getSelection()?.toString()) {
+        document.execCommand?.('selectAll', false)
+      }
     })
   }
 })
