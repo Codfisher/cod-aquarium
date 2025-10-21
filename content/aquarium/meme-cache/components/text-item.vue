@@ -309,6 +309,7 @@ import { useToggle, useVModel, watchThrottled } from '@vueuse/core'
 import interact from 'interactjs'
 import { map, omit, pipe } from 'remeda'
 import { computed, onMounted, ref, useId, useTemplateRef } from 'vue'
+import { nextFrame } from '../../../../web/common/utils'
 
 interface ModelValue {
   text: string;
@@ -561,7 +562,19 @@ onMounted(() => {
     })
 
   if (props.autoFocus) {
-    box.focus()
+    nextFrame().then(() => {
+      text.focus()
+
+      try {
+        const selection = window.getSelection()
+        if (selection) {
+          const range = document.createRange()
+          range.selectNodeContents(text)
+          selection.removeAllRanges()
+          selection.addRange(range)
+        }
+      } catch { }
+    })
   }
 })
 
