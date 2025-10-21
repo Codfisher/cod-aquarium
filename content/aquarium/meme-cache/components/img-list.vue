@@ -5,18 +5,18 @@
   >
     <div v-bind="wrapperProps">
       <div
-        v-for="{ data, index } in virtualList"
+        v-for="{ data } in virtualList"
         :key="data.file"
-        class="item flex flex-col md:flex-row items-center gap-2 pb-4 h-[30vh]"
+        class="item flex justify-center items-center gap-2 pb-4 h-[30vh] "
       >
         <div
-          class="flex aspect-square w-[80vw] md:w-[30dvw] bg-gray-200 cursor-pointer rounded-xl overflow-hidden"
+          class="flex aspect-square h-[28vh] md:max-w-[30dvw] bg-gray-200 cursor-pointer rounded-xl"
           @click="handleClick(data)"
         >
           <img
             :src="`/memes/${data.file}`"
             loading="lazy"
-            class="  object-contain h-full w-full rounded-none! border-none!"
+            class="  object-contain h-full w-full border-none!"
           >
         </div>
 
