@@ -1,5 +1,8 @@
 <template>
-  <div class=" flex flex-col p-4 ">
+  <div
+    class=" flex flex-col p-4 overflow-auto h-[90svh]"
+    v-bind="containerProps"
+  >
     <transition name="opacity">
       <div
         v-if="props.list.length > 0"
@@ -9,23 +12,18 @@
       </div>
     </transition>
 
-    <transition-group
-      name="list"
-      tag="div"
-      class="flex flex-wrap justify-center gap-4"
-      @before-leave="handleBeforeLeave"
-    >
+    <div v-bind="wrapperProps">
       <div
-        v-for="item in props.list"
-        :key="item.file"
-        class="item flex flex-col md:flex-row gap-2"
+        v-for="{ data, index } in virtualList"
+        :key="index"
+        class="item flex flex-col md:flex-row gap-2 pb-4 h-[30vh]"
       >
         <div
           class="flex aspect-square w-[80vw] md:w-[30dvw] bg-gray-200 cursor-pointer rounded-xl overflow-hidden"
-          @click="handleClick(item)"
+          @click="handleClick(data)"
         >
           <img
-            :src="`/memes/${item.file}`"
+            :src="`/memes/${data.file}`"
             loading="lazy"
             class="  object-contain h-full w-full rounded-none! border-none!"
           >
@@ -36,30 +34,32 @@
           class=" text-sm w-full md:w-[30vw] max-w-[80vw]"
         >
           <div class=" select-all text-xs">
-            {{ item.file }}
+            {{ data.file }}
           </div>
           <div>
-            {{ item.describeZhTw }}
+            {{ data.describeZhTw }}
           </div>
 
           <div class="mt-2">
-            {{ item.describe }}
+            {{ data.describe }}
           </div>
 
           <div class="mt-2">
-            ocr: {{ item.ocr }}
+            ocr: {{ data.ocr }}
           </div>
           <div class="mt-2">
-            keyword: {{ item.keyword }}
+            keyword: {{ data.keyword }}
           </div>
         </div>
       </div>
-    </transition-group>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import type { MemeData } from '../type'
+import { useVirtualList, useWindowSize } from '@vueuse/core'
+import { reactive, toRef, toRefs } from 'vue'
 
 interface Props {
   list: MemeData[];
@@ -68,10 +68,20 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   detailVisible: false,
 })
-
 const emit = defineEmits<{
   select: [data: MemeData];
 }>()
+
+const windowSize = reactive(useWindowSize())
+
+const { list } = toRefs(props)
+const { list: virtualList, containerProps, wrapperProps } = useVirtualList(
+  list,
+  {
+    itemHeight: windowSize.height * 0.3,
+  },
+)
+console.log('🚀 ~ windowSize.height * 0.3:', windowSize.height * 0.3);
 
 /** 修正 transition-group 元素離開時動畫異常問題 */
 function handleBeforeLeave(el: Element) {
@@ -93,7 +103,7 @@ function handleClick(data: MemeData) {
 </script>
 
 <style scoped lang="sass">
-.item
-  content-visibility: auto
-  contain-intrinsic-size: 30svh
+// .item
+//   content-visibility: auto
+//   contain-intrinsic-size: 30vh
 </style>
