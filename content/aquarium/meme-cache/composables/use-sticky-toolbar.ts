@@ -1,4 +1,3 @@
-// useStickyToolbar.ts
 import { useRafFn } from '@vueuse/core'
 import { computed, onBeforeUnmount, onMounted, ref, type Ref } from 'vue'
 
@@ -71,28 +70,26 @@ export function useStickyToolbar(
     measureToolbar()
   }
 
-  useRafFn(() => {
-    refresh()
-  })
+  // useRafFn(() => {
+  //   refresh()
+  // })
 
   const baseBottom = includeSafeArea ? 'env(safe-area-inset-bottom)' : '0px'
   const bottomValue = computed(() => baseBottom)
   const transformValue = computed(() => `translate3d(0, -${occluded.value}px, 0)`)
 
-  /** 綁在「固定底部的 toolbar」上的 style（transform 版） */
   const toolbarStyle = computed<Record<string, string | number>>(() => ({
     position: 'fixed',
     left: 0,
     right: 0,
     bottom: bottomValue.value,
-    // 只讓合成器層處理位移，避免 reflow
-    transform: transformValue.value,
+    // 不推動，保持 fixed + safe-area-inset-bottom 就好，不然 IOS 會亂跑
+    // transform: transformValue.value,
     willChange: 'transform',
-    // 若你用 Tailwind，可加上 class: transform-gpu
     zIndex,
   }))
 
-  /** 綁在「內容容器」上的 style（為 toolbar 騰出底部空間） */
+  /** 保留 toolbar 之底部空間 */
   const contentStyle = computed<Record<string, string>>(() => ({
     paddingBottom: includeSafeArea
       ? `calc(${toolbarHeight.value}px + env(safe-area-inset-bottom))`

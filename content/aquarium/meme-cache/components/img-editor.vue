@@ -1,29 +1,29 @@
 <template>
   <div
     v-if="props.data"
-    class="flex flex-col pt-[6vh] h-full bg-gray-300"
+    class="flex flex-col h-full bg-gray-300"
   >
-    <div class=" shadow-xl">
+    <div class="py-[6vh] flex flex-col items-center bg-gray-300">
       <div
         ref="boardRef"
-        class="flex flex-col max-h-[80dvh] relative "
+        class="board flex flex-col relative shadow-xl"
         @pointerdown.self="addItem"
       >
         <div
           :style="settingValue.topPadding"
-          class="pointer-events-none"
+          class="pointer-events-none shrink-0"
         />
 
         <img
           v-if="props.data"
           :src="`/memes/${props.data.file}`"
-          class=" object-contain rounded-none! border-none! pointer-events-none  w-[100vw] md:w-[50vw] "
+          class=" object-contain rounded-none! border-none! pointer-events-none md:max-w-[50vw] max-h-[60dvh] "
           draggable="false"
         >
 
         <div
           :style="settingValue.bottomPadding"
-          class="pointer-events-none"
+          class="pointer-events-none shrink-0"
         />
 
         <text-item
@@ -69,7 +69,7 @@
           <div
             v-for="(item, i) in settingPresetList"
             :key="i"
-            class="text p-3 border border-[#DDD] rounded text-sm"
+            class="text p-3 border border-[#DDD] rounded text-sm cursor-pointer"
             @click="presetStyle(item.data)"
           >
             {{ item.label }}
@@ -203,6 +203,7 @@ import { onClickOutside, promiseTimeout, useIntervalFn, useRafFn, watchThrottled
 import { nanoid } from 'nanoid'
 import { clone, map, pipe } from 'remeda'
 import { computed, ref, shallowRef, triggerRef, useTemplateRef, watch } from 'vue'
+import { nextFrame } from '../../../../web/common/utils'
 import TextItem from './text-item.vue'
 
 interface TextItemData {
@@ -405,10 +406,11 @@ function initData() {
     (value) => {
       try {
         return JSON.parse(value ?? '')
-      } catch {
+      }
+      catch {
         return undefined
       }
-    }
+    },
   )
   if (prevTextMap) {
     textMap.value = new Map<string, TextItemData>(prevTextMap)
@@ -419,10 +421,11 @@ function initData() {
     (value) => {
       try {
         return JSON.parse(value ?? '')
-      } catch {
+      }
+      catch {
         return undefined
       }
-    }
+    },
   )
   if (prevImgSetting) {
     imgSetting.value = prevImgSetting
@@ -437,7 +440,8 @@ defineExpose({
   async blur() {
     targetItem.value = undefined
     imgSettingVisible.value = false
-    await promiseTimeout(500)
+    await nextFrame()
+    await promiseTimeout(200)
   },
   toggleImgSettingVisible(value?: boolean) {
     imgSettingVisible.value = value !== undefined
@@ -447,7 +451,7 @@ defineExpose({
   clean() {
     textMap.value.clear()
     triggerRef(textMap)
-  }
+  },
 })
 </script>
 

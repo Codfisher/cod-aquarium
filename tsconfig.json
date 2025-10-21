@@ -23,6 +23,7 @@
       "@cloudflare/vitest-pool-workers",
       "@types/wicg-file-system-access"
     ],
+    "allowArbitraryExtensions": true,
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "sourceMap": true,
