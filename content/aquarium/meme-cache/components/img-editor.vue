@@ -31,7 +31,7 @@
           :key="item.key"
           :model-value="item.data"
           :is-editing="item.isEditing"
-          :from-record="isFromStorage"
+          :fix-origin="!isFromStorage"
           @click="editItem(item)"
           @delete="deleteItem(item)"
           @update:model-value="(data) => updateItem(item, data)"
