@@ -17,7 +17,7 @@
         <img
           v-if="props.data"
           :src="`/memes/${props.data.file}`"
-          class=" object-contain rounded-none! border-none! pointer-events-none w-[90vw] md:max-w-[50vw]!"
+          class=" object-contain rounded-none! border-none! pointer-events-none w-[80vw] md:max-w-[50vw]!"
           draggable="false"
         >
 
