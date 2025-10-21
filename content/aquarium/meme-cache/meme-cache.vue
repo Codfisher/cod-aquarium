@@ -1,10 +1,8 @@
 <template>
   <client-only>
-    <u-app
-      :toaster="{
-        position: 'top-right',
-      }"
-    >
+    <u-app :toaster="{
+      position: 'top-right',
+    }">
       <div class="meme-cache flex flex-col min-h-svh">
         <transition
           name="opacity"
@@ -32,14 +30,37 @@
           class="toolbar flex gap-2 w-full fixed left-0 p-4 bg-white dark:bg-black "
           :style="toolbarStyle"
         >
-          <div class="rounded-full border border-[#DDD] flex-1">
-            <input
+          <!-- <input
               v-model.trim="keyword"
               class=" py-4! px-6! w-full"
               placeholder="輸入關鍵字或任何線索 (・∀・)９"
               @keydown.enter="handleEnter"
+            > -->
+
+          <u-input
+            v-model.trim="keyword"
+            placeholder="輸入關鍵字或任何線索 (・∀・)９"
+            class="w-full "
+            :ui="{
+              base: 'py-4! px-6! rounded-full',
+              trailing: 'pe-4',
+            }"
+            @keydown.enter="handleEnter"
+          >
+            <template
+              v-if="keyword?.length"
+              #trailing
             >
-          </div>
+              <UButton
+                color="neutral"
+                variant="link"
+                size="sm"
+                icon="i-lucide-circle-x"
+                aria-label="Clear input"
+                @click="keyword = ''"
+              />
+            </template>
+          </u-input>
 
           <u-dropdown-menu
             :items="items"
