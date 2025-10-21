@@ -329,6 +329,9 @@ interface Props {
   /** 建立後自動 focus */
   autoFocus?: boolean;
   modelValue?: ModelValue;
+
+  /** 原點偏移，讓起點在矩形中心 */
+  fixOrigin?: boolean;
 }
 const props = withDefaults(defineProps<Props>(), {
   isEditing: false,
@@ -346,6 +349,7 @@ const props = withDefaults(defineProps<Props>(), {
     backgroundColor: '#FFF',
     backgroundOpacity: 0,
   }),
+  fixOrigin: false,
 })
 
 const emit = defineEmits<{
@@ -528,6 +532,11 @@ onMounted(() => {
   }
 
   text.textContent = settings.value.text
+
+  if (props.fixOrigin) {
+    settings.value.x -= box.clientWidth / 2
+    settings.value.y -= box.clientHeight / 2
+  }
   updateBoxTransform()
 
   interact(box)
