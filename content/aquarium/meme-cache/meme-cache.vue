@@ -36,7 +36,7 @@
             <input
               v-model.trim="keyword"
               class=" py-4! px-6! w-full"
-              placeholder="輸入關鍵字，馬上為您尋找 (・∀・)９"
+              placeholder="輸入關鍵字或任何線索 (・∀・)９"
               @keydown.enter="handleEnter"
             >
           </div>
@@ -387,7 +387,7 @@ const tipText = computed(() => {
   }
 
   if (!keyword.value && !settings.value.allVisible) {
-    return '來點梗圖吧 ԅ(´∀` ԅ)'
+    return '常常找不到記憶中的梗圖嗎？我來幫你找找 ԅ(´∀` ԅ)'
   }
 
   if (keyword.value && filteredList.value.length === 0) {
