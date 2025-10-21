@@ -1,7 +1,7 @@
 <template>
   <div
     v-if="props.data"
-    class="flex flex-col h-full bg-gray-300"
+    class="flex flex-col justify-end h-full bg-gray-300"
   >
     <div class="py-[6vh] flex flex-col items-center bg-gray-300">
       <div

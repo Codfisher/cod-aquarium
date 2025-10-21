@@ -1,40 +1,29 @@
 <template>
   <client-only>
-    <u-app
-      :toaster="{
-        position: 'top-right',
-      }"
-    >
-      <div class="meme-cache flex flex-col min-h-svh p-4">
-        <div
-          class="flex-1 flex justify-center relative"
-          :style="contentStyle"
+    <u-app :toaster="{
+      position: 'top-right',
+    }">
+      <div class="meme-cache flex flex-col min-h-svh">
+        <transition
+          name="opacity"
+          mode="out-in"
         >
-          <img-list
-            :list="filteredList"
-            class=""
-            :detail-visible="settings.detailVisible"
-            @select="handleSelect"
-          />
+          <div
+            ref="tipRef"
+            :key="tipText"
+            class="  flex justify-center items-center p-4 opacity-30"
+          >
+            {{ tipText }}
+          </div>
+        </transition>
 
-          <transition name="opacity">
-            <div
-              v-if="filteredList.length === 0 && keyword"
-              class="absolute flex justify-center items-center p-10 opacity-30"
-            >
-              沒找到相關圖片 ( ´•̥̥̥ ω •̥̥̥` )
-            </div>
-          </transition>
-
-          <transition name="opacity">
-            <div
-              v-if="!keyword && !settings.allVisible"
-              class=" absolute flex justify-center items-center p-10 opacity-30"
-            >
-              來點梗圖吧 ԅ(´∀` ԅ)
-            </div>
-          </transition>
-        </div>
+        <img-list
+          :list="filteredList"
+          :detail-visible="settings.detailVisible"
+          :style="{ height: listHeight }"
+          class="overflow-auto"
+          @select="handleSelect"
+        />
 
         <div
           ref="toolbarRef"
@@ -152,10 +141,10 @@
 import type { DropdownMenuItem } from '@nuxt/ui'
 import type { MemeData } from './type'
 import UModal from '@nuxt/ui/components/Modal.vue'
-import { useActiveElement, useColorMode, watchThrottled } from '@vueuse/core'
+import { useActiveElement, useColorMode, useElementSize, useWindowSize, watchThrottled } from '@vueuse/core'
 import { snapdom } from '@zumer/snapdom'
 import Fuse from 'fuse.js'
-import { h, ref, shallowRef, useTemplateRef, watch } from 'vue'
+import { computed, h, reactive, ref, shallowRef, useTemplateRef, watch } from 'vue'
 import { nextFrame } from '../../../web/common/utils'
 import ImgEditor from './components/img-editor.vue'
 import ImgList from './components/img-list.vue'
@@ -170,6 +159,8 @@ colorMode.value = 'light'
 
 const toast = useToast()
 const overlay = useOverlay()
+
+const windowSize = reactive(useWindowSize())
 
 const { memeDataMap } = useMemeData()
 const activeElement = useActiveElement()
@@ -232,7 +223,19 @@ watch(keyword, async () => {
 })
 
 const toolbarRef = useTemplateRef('toolbarRef')
+const toolbarSize = reactive(useElementSize(toolbarRef, undefined, {
+  box: 'border-box'
+}))
 const { toolbarStyle, contentStyle } = useStickyToolbar(toolbarRef)
+
+const tipRef = useTemplateRef('tipRef')
+const tipSize = reactive(useElementSize(tipRef, undefined, {
+  box: 'border-box'
+}))
+
+const listHeight = computed(
+  () => `${windowSize.height - toolbarSize.height - tipSize.height}px`
+)
 
 const editorRef = useTemplateRef('editorRef')
 
@@ -375,6 +378,23 @@ async function copyImg() {
   //   toast.add({ title: '分享圖片失敗 QQ' })
   // }
 }
+
+const tipText = computed(() => {
+  if (!keyword.value && settings.value.allVisible) {
+    return `真貪心，都給你吧 (´,,•ω•,,)`
+  }
+
+  if (!keyword.value && !settings.value.allVisible) {
+    return '來點梗圖吧 ԅ(´∀` ԅ)'
+  }
+
+  if (keyword.value && filteredList.value.length === 0) {
+    return '沒找到相關圖片 ( ´•̥̥̥ ω •̥̥̥` )'
+  }
+
+
+  return `找到 ${filteredList.value.length} 個候選項目 ੭ ˙ᗜ˙ )੭`
+})
 </script>
 
 <style scoped lang="sass">
