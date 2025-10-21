@@ -13,7 +13,7 @@
           <div
             ref="tipRef"
             :key="tipText"
-            class="  flex justify-center items-center p-4 opacity-30"
+            class=" whitespace-pre  text-center py-6 opacity-30 "
           >
             {{ tipText }}
           </div>
@@ -91,7 +91,7 @@
         <template #footer="{ close }">
           <div class=" flex w-full gap-4">
             <u-button
-              label="複製"
+              label="分享/複製"
               icon="i-lucide-clipboard-copy"
               @click="copyImg"
             />
@@ -387,7 +387,7 @@ const tipText = computed(() => {
   }
 
   if (!keyword.value && !settings.value.allVisible) {
-    return '常常找不到記憶中的梗圖嗎？我來幫你找找 ԅ(´∀` ԅ)'
+    return '常常找不到記憶中的梗圖嗎？\n我來幫你找找 ԅ(´∀` ԅ)'
   }
 
   if (keyword.value && filteredList.value.length === 0) {
