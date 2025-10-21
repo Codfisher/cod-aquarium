@@ -405,10 +405,11 @@ function initData() {
     (value) => {
       try {
         return JSON.parse(value ?? '')
-      } catch {
+      }
+      catch {
         return undefined
       }
-    }
+    },
   )
   if (prevTextMap) {
     textMap.value = new Map<string, TextItemData>(prevTextMap)
@@ -419,10 +420,11 @@ function initData() {
     (value) => {
       try {
         return JSON.parse(value ?? '')
-      } catch {
+      }
+      catch {
         return undefined
       }
-    }
+    },
   )
   if (prevImgSetting) {
     imgSetting.value = prevImgSetting
@@ -447,7 +449,7 @@ defineExpose({
   clean() {
     textMap.value.clear()
     triggerRef(textMap)
-  }
+  },
 })
 </script>
 
