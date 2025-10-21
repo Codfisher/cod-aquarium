@@ -1,22 +1,13 @@
 <template>
   <div
-    class=" flex flex-col p-4 overflow-auto h-[90svh]"
+    class="flex flex-col px-4"
     v-bind="containerProps"
   >
-    <transition name="opacity">
-      <div
-        v-if="props.list.length > 0"
-        class=" text-center opacity-50 mb-6"
-      >
-        找到 {{ props.list.length }} 個候選項目 ੭ ˙ᗜ˙ )੭
-      </div>
-    </transition>
-
     <div v-bind="wrapperProps">
       <div
         v-for="{ data, index } in virtualList"
-        :key="index"
-        class="item flex flex-col md:flex-row gap-2 pb-4 h-[30vh]"
+        :key="data.file"
+        class="item flex flex-col md:flex-row items-center gap-2 pb-4 h-[30vh]"
       >
         <div
           class="flex aspect-square w-[80vw] md:w-[30dvw] bg-gray-200 cursor-pointer rounded-xl overflow-hidden"
@@ -81,21 +72,6 @@ const { list: virtualList, containerProps, wrapperProps } = useVirtualList(
     itemHeight: windowSize.height * 0.3,
   },
 )
-console.log('🚀 ~ windowSize.height * 0.3:', windowSize.height * 0.3);
-
-/** 修正 transition-group 元素離開時動畫異常問題 */
-function handleBeforeLeave(el: Element) {
-  const { marginLeft, marginTop, width, height } = window.getComputedStyle(
-    el,
-  )
-  if (!(el instanceof HTMLElement))
-    return
-
-  el.style.left = `${el.offsetLeft - Number.parseFloat(marginLeft)}px`
-  el.style.top = `${el.offsetTop - Number.parseFloat(marginTop)}px`
-  el.style.width = width
-  el.style.height = height
-}
 
 function handleClick(data: MemeData) {
   emit('select', data)
