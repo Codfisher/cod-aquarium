@@ -5,7 +5,7 @@
         position: 'top-right',
       }"
     >
-      <div class="meme-cache flex flex-col min-h-svh">
+      <div class="meme-cache flex flex-col">
         <transition
           name="opacity"
           mode="out-in"
@@ -462,6 +462,13 @@ const tipText = computed(() => {
 </style>
 
 <style lang="sass">
+.meme-cache
+  position: fixed
+  top: 0
+  left: 0
+  width: 100vw
+  height: 100dvh
+
 .opacity
   &-enter-active, &-leave-active
     transition-duration: 0.3s
