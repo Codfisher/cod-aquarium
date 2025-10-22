@@ -55,11 +55,8 @@ export function useMemeData() {
 
   const controller = new AbortController()
   async function main() {
-    /** 暫時不要任何快取 */
-    const randomValue = nanoid()
-
     // 串流讀取圖片資料
-    consumeNdjsonPipeline(`/memes/memes-data.ndjson?${randomValue}`, (row) => {
+    consumeNdjsonPipeline(`/memes/memes-data.ndjson`, (row) => {
       const result = memeOriDataSchema.safeParse(row)
       if (!result.success) {
         return
@@ -79,7 +76,7 @@ export function useMemeData() {
     }, { signal: controller.signal })
 
     // 中文
-    consumeNdjsonPipeline(`/memes/memes-data-zh-tw.ndjson?${randomValue}`, (row) => {
+    consumeNdjsonPipeline(`/memes/memes-data-zh-tw.ndjson`, (row) => {
       const result = memeOriDataSchema.safeParse(row)
       if (!result.success) {
         return
@@ -101,7 +98,7 @@ export function useMemeData() {
     }, { signal: controller.signal })
 
     // 手動標註的資料
-    consumeNdjsonPipeline(`/memes/memes-data-extend.ndjson?${randomValue}`, (row) => {
+    consumeNdjsonPipeline(`/memes/memes-data-extend.ndjson`, (row) => {
       const result = memeOriDataSchema.safeParse(row)
       if (!result.success) {
         return
@@ -116,8 +113,8 @@ export function useMemeData() {
           ...otherData,
           ...existedData,
           describeZhTw: existedData?.describeZhTw ?? '',
-          ocr: ocr || (existedData?.ocr ?? ''),
-          keyword: keyword || (existedData?.keyword ?? ''),
+          ocr,
+          keyword,
         },
       )
       triggerMemeData()
