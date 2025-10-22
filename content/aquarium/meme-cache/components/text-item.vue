@@ -2,7 +2,7 @@
   <div
     :id
     ref="boxRef"
-    class="box flex justify-center absolute min-w-[10rem] py-1 px-3"
+    class="box flex justify-center absolute min-w-[10rem] py-1 px-10"
     :style="boxStyle"
     v-bind="$attrs"
   >
