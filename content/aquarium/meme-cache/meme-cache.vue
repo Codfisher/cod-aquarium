@@ -79,10 +79,7 @@
               />
             </template>
 
-            <template
-              v-if="isDev"
-              #detail
-            >
+            <template #detail>
               <u-checkbox
                 v-model="settings.detailVisible"
                 label="顯示細節"
