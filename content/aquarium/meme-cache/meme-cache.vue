@@ -165,6 +165,10 @@
           </div>
         </template>
       </u-modal>
+
+      <div class=" fixed right-0 top-0 p-2 px-3 text-xs opacity-30">
+        {{ version }}
+      </div>
     </u-app>
   </client-only>
 </template>
@@ -182,6 +186,8 @@ import ImgEditor from './components/img-editor.vue'
 import ImgList from './components/img-list.vue'
 import { useMemeData } from './composables/use-meme-data'
 import { useStickyToolbar } from './composables/use-sticky-toolbar'
+
+const version = 'v0.1.0'
 
 const isDev = import.meta.env.DEV
 
