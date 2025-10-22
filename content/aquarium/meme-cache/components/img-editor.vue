@@ -1,7 +1,7 @@
 <template>
   <div
     v-if="props.data"
-    class="py-[6vh] flex flex-col h-full bg-gray-300 overflow-auto"
+    class="py-[6vh] flex flex-col h-full bg-gray-300 overflow-auto relative"
   >
     <div class="flex-1 flex flex-col justify-end items-center bg-gray-300 ">
       <div
@@ -39,6 +39,32 @@
         />
       </div>
     </div>
+
+    <u-popover
+      :ui="{
+        content: 'z-[9999] p-2 flex flex-col gap-2 text-sm',
+      }"
+      arrow
+    >
+      <div class="absolute left-0 top-0 p-4! opacity-60">
+        <u-icon
+          name="i-material-symbols:help-outline-rounded"
+          class="size-8 text-white"
+        />
+      </div>
+
+      <template #content>
+        <div>
+          點擊即可在指定位置新增文字
+        </div>
+        <div class="">
+          拖動文字可以移動文字
+        </div>
+        <div class="">
+          兩指可以旋轉文字
+        </div>
+      </template>
+    </u-popover>
 
     <u-slideover
       v-model:open="imgSettingVisible"
