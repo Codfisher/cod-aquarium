@@ -2,7 +2,7 @@
   <div
     :id
     ref="boxRef"
-    class="box flex justify-center absolute min-w-[10rem] p-3"
+    class="box flex justify-center absolute min-w-[10rem] py-1 px-3"
     :style="boxStyle"
     v-bind="$attrs"
   >
@@ -573,7 +573,8 @@ onMounted(() => {
           selection.removeAllRanges()
           selection.addRange(range)
         }
-      } catch { }
+      }
+      catch { }
 
       // 考慮相容性
       if (!window.getSelection()?.toString()) {

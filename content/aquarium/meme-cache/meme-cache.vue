@@ -57,7 +57,7 @@
                 color="neutral"
                 variant="link"
                 size="sm"
-                icon="i-lucide-circle-x"
+                icon="i-material-symbols:cancel-rounded"
                 aria-label="Clear input"
                 @click="keyword = ''"
               />
@@ -68,7 +68,7 @@
             :items="items"
             :ui="{ content: 'z-[70]' }"
           >
-            <u-button icon="i-lucide-menu" />
+            <u-button icon="i-material-symbols:menu-rounded" />
 
             <template #all>
               <u-checkbox
@@ -115,13 +115,13 @@
           <div class=" flex w-full gap-4">
             <u-button
               label="分享/複製"
-              icon="i-lucide-clipboard-copy"
+              icon="i-material-symbols:file-copy-rounded"
               @click="copyImg"
             />
 
             <u-button
               label="圖片設定"
-              icon="i-lucide-settings-2"
+              icon="i-material-symbols:settings-rounded"
               @click="toggleSettingForm()"
             />
 
@@ -132,7 +132,7 @@
             >
               <u-button
                 label="清空"
-                icon="i-lucide-brush-cleaning"
+                icon="i-material-symbols:cleaning-services-rounded"
               />
 
               <template #content>
@@ -162,7 +162,7 @@
             </u-dropdown-menu>
 
             <u-button
-              icon="i-lucide-x"
+              icon="i-material-symbols:close-rounded"
               @click="close"
             />
           </div>
@@ -261,7 +261,7 @@ const toolbarRef = useTemplateRef('toolbarRef')
 const toolbarSize = reactive(useElementSize(toolbarRef, undefined, {
   box: 'border-box',
 }))
-const { toolbarStyle, contentStyle } = useStickyToolbar(toolbarRef)
+const { toolbarStyle } = useStickyToolbar(toolbarRef)
 
 const tipRef = useTemplateRef('tipRef')
 const tipSize = reactive(useElementSize(tipRef, undefined, {
@@ -288,7 +288,7 @@ function clean() {
   editorRef.value?.clean()
 }
 
-async function copyImg() {
+async function getImgBlob() {
   if (!editorRef.value?.boardRef)
     return
 
@@ -308,6 +308,21 @@ async function copyImg() {
     backgroundColor: '#FFF',
     type: 'png',
   })
+  toast.remove(loadingToast.id)
+
+  return blob
+}
+
+async function copyImg() {
+  const blob = await getImgBlob()
+  if (!blob) {
+    toast.add({
+      title: '產生圖片失敗',
+      description: '嘗試重新整理後再試一次',
+      color: 'error',
+    })
+    return
+  }
 
   // 嘗試 Clipboard API
   if (window.ClipboardItem && navigator.clipboard?.write) {
@@ -317,7 +332,6 @@ async function copyImg() {
         title: '處理完成',
         description: '圖片已寫入剪貼簿 (ゝ∀・)b',
       })
-      toast.remove(loadingToast.id)
       return
     }
     catch (e) {
@@ -331,8 +345,8 @@ async function copyImg() {
     h(
       UModal,
       {
-        title: '手動分享 ლ(╹ε╹ლ)',
-        description: '無法寫入剪貼簿，請長按或右鍵圖片，手動分享',
+        title: '手動分享',
+        description: '無法寫入剪貼簿，請長按或右鍵圖片，手動分享 ლ(╹ε╹ლ)',
         ui: {
           overlay: 'z-[99999]',
           content: 'z-[999999]',
@@ -341,72 +355,14 @@ async function copyImg() {
       {
         body: () => [h(
           'img',
-          { src: url },
+          { src: url, class: 'rounded-none!' },
         )],
       },
     ),
   )
   imgModal.open()
-  toast.remove(loadingToast.id)
 
-  // execCommand('copy') 複製 <img>
-  // try {
-  //   const url = URL.createObjectURL(blob)
-  //   const host = document.createElement('div')
-  //   Object.assign(host.style, {
-  //     position: 'fixed',
-  //     left: '-9999px',
-  //     top: '0',
-  //     opacity: '0',
-  //     pointerEvents: 'none',
-  //   })
-  //   host.setAttribute('contenteditable', 'true')
-
-  //   const img = document.createElement('img')
-  //   img.src = url
-  //   host.appendChild(img)
-  //   document.body.appendChild(host)
-
-  //   // 選取 <img> 後 copy
-  //   const range = document.createRange()
-  //   range.selectNode(img)
-  //   const sel = window.getSelection()
-  //   sel?.removeAllRanges()
-  //   sel?.addRange(range)
-
-  //   const ok = document.execCommand('copy')
-  //   sel?.removeAllRanges()
-
-  //   URL.revokeObjectURL(url)
-  //   document.body.removeChild(host)
-
-  //   if (ok) {
-  //     toast.add({ title: '圖片已成功複製至剪貼簿' })
-  //     return
-  //   }
-  //   throw new Error('execCommand copy returned false')
-  // }
-  // catch (e) {
-  //   console.warn('execCommand fallback failed', e)
-  // }
-
-  // Web Share
-  // try {
-  //   if (
-  //     navigator.canShare?.({ files: [new File([blob], 'image.png', { type: 'image/png' })] })
-  //     && navigator?.share
-  //   ) {
-  //     await navigator.share({
-  //       files: [new File([blob], 'image.png', { type: 'image/png' })],
-  //       title: '分享梗圖',
-  //     })
-  //   }
-
-  //   toast.add({ title: '無法寫入剪貼簿，使用分享功能' })
-  // }
-  // catch {
-  //   toast.add({ title: '分享圖片失敗 QQ' })
-  // }
+  // TODO: Web Share 沒有成功
 }
 
 const moreFcnItems = [
@@ -414,27 +370,15 @@ const moreFcnItems = [
     icon: 'i-lucide-image-down',
     label: '下載',
     async onSelect() {
-      if (!editorRef.value?.boardRef)
+      const blob = await getImgBlob()
+      if (!blob) {
+        toast.add({
+          title: '產生圖片失敗',
+          description: '嘗試重新整理後再試一次',
+          color: 'error',
+        })
         return
-
-      const loadingToast = toast.add({
-        title: '請稍等片刻',
-        description: '正在奮力處理圖片...◝( •ω• )◟',
-        icon: 'i-lucide-loader-circle',
-        ui: { icon: 'animate-spin' },
-        progress: false,
-        close: false,
-      })
-
-      await editorRef.value.blur()
-
-      const blob = await snapdom.toBlob(editorRef.value.boardRef, {
-        quality: 1,
-        backgroundColor: '#FFF',
-        type: 'png',
-      })
-
-      toast.remove(loadingToast.id)
+      }
 
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
@@ -443,6 +387,43 @@ const moreFcnItems = [
       a.click()
 
       toast.add({ title: '已開始下載' })
+    },
+  },
+  {
+    icon: 'i-material-symbols:image-search-outline',
+    label: '預覽成果',
+    async onSelect() {
+      const blob = await getImgBlob()
+      if (!blob) {
+        toast.add({
+          title: '產生圖片失敗',
+          description: '嘗試重新整理後再試一次',
+          color: 'error',
+        })
+        return
+      }
+
+      const url = URL.createObjectURL(blob)
+      const imgModal = overlay.create(
+        h(
+          UModal,
+          {
+            title: '成果',
+            description: '下圖為目前的成果圖片 (ゝ∀・)b',
+            ui: {
+              overlay: 'z-[99999]',
+              content: 'z-[999999] ',
+            },
+          },
+          {
+            body: () => [h(
+              'img',
+              { src: url, class: 'rounded-none!' },
+            )],
+          },
+        ),
+      )
+      imgModal.open()
     },
   },
 ] as const satisfies DropdownMenuItem[]
