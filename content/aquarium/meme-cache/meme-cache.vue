@@ -255,7 +255,7 @@ function handleSelect(data: MemeData) {
 const filteredList = shallowRef<MemeData[]>([])
 watchThrottled(() => [keyword.value, settings.value.allVisible], () => {
   if (!keyword.value && settings.value.allVisible) {
-    filteredList.value = [...memeDataMap.value.values()]
+    filteredList.value = [...memeDataMap.value.values()].reverse()
     return
   }
 
