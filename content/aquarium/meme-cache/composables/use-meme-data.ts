@@ -74,6 +74,7 @@ export function useMemeData() {
       triggerMemeData()
     }, { signal: controller.signal })
 
+    // 中文
     consumeNdjsonPipeline('/memes/memes-data-zh-tw.ndjson', (row) => {
       const result = memeOriDataSchema.safeParse(row)
       if (!result.success) {
@@ -90,6 +91,29 @@ export function useMemeData() {
           ...otherData,
           ...existedData,
           describeZhTw: describe ?? '',
+        },
+      )
+      triggerMemeData()
+    }, { signal: controller.signal })
+
+    // 手動新增資料
+    consumeNdjsonPipeline('/memes/memes-data-extend.ndjson', (row) => {
+      const result = memeOriDataSchema.safeParse(row)
+      if (!result.success) {
+        return
+      }
+
+      const existedData = memeDataMap.value.get(result.data.file)
+      const { ocr, keyword, ...otherData } = result.data
+
+      memeDataMap.value.set(
+        result.data.file,
+        {
+          ...otherData,
+          ...existedData,
+          describeZhTw: existedData?.describeZhTw ?? '',
+          ocr: ocr || (existedData?.ocr ?? ''),
+          keyword: keyword || (existedData?.keyword ?? ''),
         },
       )
       triggerMemeData()

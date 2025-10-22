@@ -9,7 +9,8 @@
     "server:generate": "drizzle-kit generate",
     "server:test": "vitest --project server",
     "server:migrate": "wrangler d1 migrations apply cod-aquarium --remote",
-    "server:dev": "wrangler dev --local"
+    "server:dev": "wrangler dev --local",
+    "task:process-meme": "npx vite-node .vitepress/scripts/process-meme-img.ts"
   },
   "dependencies": {
     "@hono/zod-validator": "^0.7.3",
