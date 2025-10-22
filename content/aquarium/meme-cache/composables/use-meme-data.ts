@@ -96,7 +96,7 @@ export function useMemeData() {
       triggerMemeData()
     }, { signal: controller.signal })
 
-    // 手動新增資料
+    // 手動標註的資料
     consumeNdjsonPipeline('/memes/memes-data-extend.ndjson', (row) => {
       const result = memeOriDataSchema.safeParse(row)
       if (!result.success) {
