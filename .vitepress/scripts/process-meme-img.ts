@@ -18,9 +18,9 @@ const FILE_PATH = path.resolve(__dirname, '../../content/public/memes')
 const IMAGE_EXTS = new Set(['.jpg', '.jpeg', '.png', '.webp'])
 
 /** 附加資料。版本等等 */
-const MEME_META_PATH = path.resolve(__dirname, '../../content/public/memes/memes-meta.json')
+const MEME_META_PATH = path.resolve(__dirname, '../../content/public/memes/a-memes-meta.json')
 /** 圖片資料 */
-const MEME_DATA_PATH = path.resolve(__dirname, '../../content/public/memes/memes-data.ndjson')
+const MEME_DATA_PATH = path.resolve(__dirname, '../../content/public/memes/a-memes-data.ndjson')
 
 async function readExistingFilenames(ndjsonPath: string): Promise<Set<string>> {
   const names = new Set<string>()
