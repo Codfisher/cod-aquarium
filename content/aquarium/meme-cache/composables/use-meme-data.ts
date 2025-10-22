@@ -1,4 +1,5 @@
 import { throttle } from 'lodash-es'
+import { nanoid } from 'nanoid'
 import { onBeforeUnmount, shallowRef, triggerRef } from 'vue'
 import { type MemeData, memeOriDataSchema } from '../type'
 
@@ -54,8 +55,11 @@ export function useMemeData() {
 
   const controller = new AbortController()
   async function main() {
+    /** 暫時不要任何快取 */
+    const randomValue = nanoid()
+
     // 串流讀取圖片資料
-    consumeNdjsonPipeline('/memes/memes-data.ndjson', (row) => {
+    consumeNdjsonPipeline(`/memes/memes-data.ndjson?${randomValue}`, (row) => {
       const result = memeOriDataSchema.safeParse(row)
       if (!result.success) {
         return
@@ -75,7 +79,7 @@ export function useMemeData() {
     }, { signal: controller.signal })
 
     // 中文
-    consumeNdjsonPipeline('/memes/memes-data-zh-tw.ndjson', (row) => {
+    consumeNdjsonPipeline(`/memes/memes-data-zh-tw.ndjson?${randomValue}`, (row) => {
       const result = memeOriDataSchema.safeParse(row)
       if (!result.success) {
         return
@@ -97,7 +101,7 @@ export function useMemeData() {
     }, { signal: controller.signal })
 
     // 手動標註的資料
-    consumeNdjsonPipeline('/memes/memes-data-extend.ndjson', (row) => {
+    consumeNdjsonPipeline(`/memes/memes-data-extend.ndjson?${randomValue}`, (row) => {
       const result = memeOriDataSchema.safeParse(row)
       if (!result.success) {
         return
