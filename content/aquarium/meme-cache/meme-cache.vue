@@ -5,7 +5,7 @@
         position: 'top-right',
       }"
     >
-      <div class="meme-cache flex flex-col min-h-svh">
+      <div class="meme-cache flex flex-col">
         <transition
           name="opacity"
           mode="out-in"
@@ -191,7 +191,7 @@ import ImgList from './components/img-list.vue'
 import { useMemeData } from './composables/use-meme-data'
 import { useStickyToolbar } from './composables/use-sticky-toolbar'
 
-const version = '0.1.2'
+const version = '0.1.3'
 onMounted(() => {
   document.title = pipe(
     document.title.split('v'),
@@ -462,6 +462,13 @@ const tipText = computed(() => {
 </style>
 
 <style lang="sass">
+.meme-cache
+  position: fixed
+  top: 0
+  left: 0
+  width: 100vw
+  height: 100dvh
+
 .opacity
   &-enter-active, &-leave-active
     transition-duration: 0.3s
