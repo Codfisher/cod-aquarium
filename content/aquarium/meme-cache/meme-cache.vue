@@ -57,7 +57,7 @@
                 color="neutral"
                 variant="link"
                 size="sm"
-                icon="i-lucide-circle-x"
+                icon="i-material-symbols:cancel-rounded"
                 aria-label="Clear input"
                 @click="keyword = ''"
               />
@@ -68,7 +68,7 @@
             :items="items"
             :ui="{ content: 'z-[70]' }"
           >
-            <u-button icon="i-lucide-menu" />
+            <u-button icon="i-material-symbols:menu-rounded" />
 
             <template #all>
               <u-checkbox
@@ -115,13 +115,13 @@
           <div class=" flex w-full gap-4">
             <u-button
               label="分享/複製"
-              icon="i-lucide-clipboard-copy"
+              icon="i-material-symbols:file-copy-rounded"
               @click="copyImg"
             />
 
             <u-button
               label="圖片設定"
-              icon="i-lucide-settings-2"
+              icon="i-material-symbols:settings-rounded"
               @click="toggleSettingForm()"
             />
 
@@ -132,7 +132,7 @@
             >
               <u-button
                 label="清空"
-                icon="i-lucide-brush-cleaning"
+                icon="i-material-symbols:cleaning-services-rounded"
               />
 
               <template #content>
@@ -162,7 +162,7 @@
             </u-dropdown-menu>
 
             <u-button
-              icon="i-lucide-x"
+              icon="i-material-symbols:close-rounded"
               @click="close"
             />
           </div>
@@ -390,7 +390,7 @@ const moreFcnItems = [
     },
   },
   {
-    icon: 'i-lucide-file-image',
+    icon: 'i-material-symbols:image-search-outline',
     label: '預覽成果',
     async onSelect() {
       const blob = await getImgBlob()
