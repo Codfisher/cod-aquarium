@@ -1,5 +1,6 @@
 import { throttle } from 'lodash-es'
 import { nanoid } from 'nanoid'
+import { omit } from 'remeda'
 import { onBeforeUnmount, shallowRef, triggerRef } from 'vue'
 import { type MemeData, memeOriDataSchema } from '../type'
 
@@ -68,8 +69,10 @@ export function useMemeData() {
         result.data.file,
         {
           describeZhTw: '',
+          ocr: '',
+          keyword: '',
           ...existedData,
-          ...result.data,
+          ...omit(result.data, ['ocr', 'keyword']),
         },
       )
       triggerMemeData()
