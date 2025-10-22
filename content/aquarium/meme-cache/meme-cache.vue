@@ -191,7 +191,7 @@ import ImgList from './components/img-list.vue'
 import { useMemeData } from './composables/use-meme-data'
 import { useStickyToolbar } from './composables/use-sticky-toolbar'
 
-const version = '0.1.2'
+const version = '0.1.3'
 onMounted(() => {
   document.title = pipe(
     document.title.split('v'),
