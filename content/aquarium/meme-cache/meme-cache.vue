@@ -192,12 +192,12 @@ import { useMemeData } from './composables/use-meme-data'
 import { useStickyToolbar } from './composables/use-sticky-toolbar'
 
 const version = '0.1.3'
-onMounted(() => {
-  document.title = pipe(
-    document.title.split('v'),
-    ([value]) => `${value?.trim()} v${version}`,
-  )
-})
+// onMounted(() => {
+//   document.title = pipe(
+//     document.title.split('v'),
+//     ([value]) => `${value?.trim()} v${version}`,
+//   )
+// })
 
 const isDev = import.meta.env.DEV
 
