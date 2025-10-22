@@ -231,7 +231,7 @@ const fuse = new Fuse<MemeData>([], {
   ],
 })
 watch(memeDataMap, (data) => {
-  const list = [...data.values()]
+  const list = [...data.values()].reverse()
   fuse.setCollection(list)
 })
 
