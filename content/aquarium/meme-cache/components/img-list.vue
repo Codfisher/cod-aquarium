@@ -15,7 +15,7 @@
           class="flex-1 item flex justify-center items-center gap-2 h-full "
         >
           <div
-            class="flex bg-gray-200 cursor-pointer rounded-xl h-full w-full"
+            class="flex bg-gray-200 cursor-pointer rounded-xl h-full flex-1"
             @click="handleClick(data)"
           >
             <img
@@ -27,7 +27,7 @@
 
           <div
             v-if="props.detailVisible"
-            class=" text-sm w-full md:w-[30vw] max-w-[80vw]"
+            class="flex-[2] text-sm w-full md:w-[30vw] max-w-[80vw]"
           >
             <div class=" select-all text-xs">
               {{ data.file }}

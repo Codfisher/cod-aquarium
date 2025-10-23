@@ -2,7 +2,7 @@ import type {
   RawImage,
 } from '@huggingface/transformers'
 import type { Buffer } from 'node:buffer'
-import sharp from 'sharp'
+import type sharp from 'sharp'
 import { createReadStream, createWriteStream, existsSync } from 'node:fs'
 import { readdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
@@ -15,9 +15,9 @@ import {
   Tensor,
 } from '@huggingface/transformers'
 import { pipe, tap } from 'remeda'
-import { createWorker, PSM } from 'tesseract.js'
 import phash from 'sharp-phash'
 import distance from 'sharp-phash/distance'
+import { createWorker, PSM } from 'tesseract.js'
 
 const __dirname = import.meta.dirname
 

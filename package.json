@@ -10,7 +10,7 @@
     "server:test": "vitest --project server",
     "server:migrate": "wrangler d1 migrations apply cod-aquarium --remote",
     "server:dev": "wrangler dev --local",
-    "task:process-meme": "npx vite-node .vitepress/scripts/process-meme-img.ts"
+    "task:process-meme": "npx vite-node .vitepress/scripts/process-meme-img-v2.ts"
   },
   "dependencies": {
     "@hono/zod-validator": "^0.7.3",
@@ -30,6 +30,7 @@
     "@cloudflare/workers-types": "^4.20250926.0",
     "@fingerprintjs/fingerprintjs": "^3.4.2",
     "@floating-ui/vue": "^1.1.9",
+    "@google/genai": "^1.26.0",
     "@huggingface/transformers": "^3.7.5",
     "@iconify-json/material-symbols": "^1.2.33",
     "@iconify-json/material-symbols-light": "^1.2.33",
@@ -64,6 +65,7 @@
     "motion-v": "^1.7.0",
     "moveable": "^0.53.0",
     "nanoid": "^5.1.5",
+    "p-queue": "^9.0.0",
     "pinia": "^3.0.3",
     "playwright": "^1.52.0",
     "remeda": "^2.32.0",

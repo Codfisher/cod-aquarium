@@ -1,8 +1,10 @@
 <template>
   <client-only>
-    <u-app :toaster="{
-      position: 'top-right',
-    }">
+    <u-app
+      :toaster="{
+        position: 'top-right',
+      }"
+    >
       <div class="meme-cache flex flex-col">
         <transition
           name="opacity"
@@ -183,7 +185,7 @@ import ImgList from './components/img-list.vue'
 import { useMemeData } from './composables/use-meme-data'
 import { useStickyToolbar } from './composables/use-sticky-toolbar'
 
-const version = '0.2.0'
+const version = '0.2.1'
 // onMounted(() => {
 //   document.title = pipe(
 //     document.title.split('v'),
