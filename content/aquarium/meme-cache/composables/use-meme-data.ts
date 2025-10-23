@@ -69,10 +69,13 @@ export function useMemeData() {
         result.data.file,
         {
           describeZhTw: '',
-          ocr: '',
           keyword: '',
           ...existedData,
           ...omit(result.data, ['ocr', 'keyword']),
+          ocr: [
+            existedData?.ocr ?? '',
+            result.data.ocr,
+          ].join(''),
         },
       )
       triggerMemeData()
