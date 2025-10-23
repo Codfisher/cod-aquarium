@@ -3,10 +3,7 @@
     class="flex flex-col px-4"
     v-bind="containerProps"
   >
-    <div
-      v-bind="wrapperProps"
-      class="px-[10vw]"
-    >
+    <div v-bind="wrapperProps">
       <div
         v-for="{ data: chunk, index } in virtualList"
         :key="index"
