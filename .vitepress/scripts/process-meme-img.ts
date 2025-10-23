@@ -2,9 +2,9 @@ import type {
   RawImage,
 } from '@huggingface/transformers'
 import type { Buffer } from 'node:buffer'
-import type sharp from 'sharp'
+import sharp from 'sharp'
 import { createReadStream, createWriteStream, existsSync } from 'node:fs'
-import { readdir, writeFile } from 'node:fs/promises'
+import { readdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import readline from 'node:readline/promises'
 import {
@@ -15,8 +15,9 @@ import {
   Tensor,
 } from '@huggingface/transformers'
 import { pipe, tap } from 'remeda'
-
 import { createWorker, PSM } from 'tesseract.js'
+import phash from 'sharp-phash'
+import distance from 'sharp-phash/distance'
 
 const __dirname = import.meta.dirname
 
@@ -52,7 +53,7 @@ async function readExistingFilenames(ndjsonPath: string): Promise<Set<string>> {
 }
 
 /** 取得不重複的檔案 */
-async function getMemeFiles(dir: string, { recursive = true } = {}) {
+async function getMemeFilePathList(dir: string, { recursive = true } = {}) {
   const files: string[] = []
 
   const existingNames = await readExistingFilenames(MEME_DATA_PATH)
@@ -191,14 +192,26 @@ async function main() {
 
   const ndjsonStream = createWriteStream(MEME_DATA_PATH, { flags: 'a', encoding: 'utf8' })
 
-  const memeFiles = await getMemeFiles(FILE_PATH)
-  console.log(`[meme] ${memeFiles.length} 個檔案待處理`)
+  const memeFilePathList = await getMemeFilePathList(FILE_PATH)
+  console.log(`[meme] ${memeFilePathList.length} 個檔案待處理`)
+
+  /** 取出可能重複圖片 */
+  // const validFiles = await pipe(undefined, async () => {
+  //   const hashList = await Promise.all(
+  //     memeFilePathList.map(async (filePath) => {
+  //       const img = await readFile(filePath)
+  //       return phash(img)
+  //     }),
+  //   )
+
+  //   return memeFilePathList
+  // })
 
   let count = 0
-  for (const file of memeFiles) {
+  for (const filePath of memeFilePathList) {
     count++
 
-    const image: RawImage = await load_image(file)
+    const image: RawImage = await load_image(filePath)
 
     const ocrResult = await pipe(
       undefined,
@@ -254,7 +267,7 @@ async function main() {
 
     const result = pipe(
       {
-        file: path.basename(file),
+        file: path.basename(filePath),
         describe: caption,
         ocr: ocrResult,
         keyword: '',
@@ -263,7 +276,7 @@ async function main() {
     )
 
     // console.log(result)
-    console.log(`[meme] ${count}/${memeFiles.length}`)
+    console.log(`[meme] ${count}/${memeFilePathList.length}`)
 
     ndjsonStream.write(`${result}\n`)
   }
