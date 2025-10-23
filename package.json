@@ -30,6 +30,7 @@
     "@cloudflare/workers-types": "^4.20250926.0",
     "@fingerprintjs/fingerprintjs": "^3.4.2",
     "@floating-ui/vue": "^1.1.9",
+    "@google/genai": "^1.26.0",
     "@huggingface/transformers": "^3.7.5",
     "@iconify-json/material-symbols": "^1.2.33",
     "@iconify-json/material-symbols-light": "^1.2.33",
