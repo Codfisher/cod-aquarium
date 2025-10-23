@@ -3,43 +3,52 @@
     class="flex flex-col px-4"
     v-bind="containerProps"
   >
-    <div v-bind="wrapperProps">
+    <div
+      v-bind="wrapperProps"
+      class="px-[10vw]"
+    >
       <div
-        v-for="{ data } in virtualList"
-        :key="data.file"
-        class="item flex justify-center items-center gap-2 pb-4 h-[30vh] "
+        v-for="{ data: chunk, index } in virtualList"
+        :key="index"
+        class="flex justify-center items-center gap-2 pb-4 h-[30vh]"
       >
         <div
-          class="flex aspect-square h-[28vh] md:max-w-[30dvw] bg-gray-200 cursor-pointer rounded-xl"
-          @click="handleClick(data)"
+          v-for="data in chunk"
+          :key="index"
+          class="flex-1 item flex justify-center items-center gap-2 h-full "
         >
-          <img
-            :src="`/memes/${data.file}`"
-            loading="lazy"
-            class="  object-contain h-full w-full border-none!"
+          <div
+            class="flex bg-gray-200 cursor-pointer rounded-xl h-full w-full"
+            @click="handleClick(data)"
           >
-        </div>
-
-        <div
-          v-if="props.detailVisible"
-          class=" text-sm w-full md:w-[30vw] max-w-[80vw]"
-        >
-          <div class=" select-all text-xs">
-            {{ data.file }}
-          </div>
-          <div>
-            {{ data.describeZhTw }}
+            <img
+              :src="`/memes/${data.file}`"
+              loading="lazy"
+              class="  object-contain h-full w-full border-none!"
+            >
           </div>
 
-          <div class="mt-2">
-            {{ data.describe }}
-          </div>
+          <div
+            v-if="props.detailVisible"
+            class=" text-sm w-full md:w-[30vw] max-w-[80vw]"
+          >
+            <div class=" select-all text-xs">
+              {{ data.file }}
+            </div>
+            <div>
+              {{ data.describeZhTw }}
+            </div>
 
-          <div class="mt-2">
-            ocr: {{ data.ocr }}
-          </div>
-          <div class="mt-2">
-            keyword: {{ data.keyword }}
+            <div class="mt-2">
+              {{ data.describe }}
+            </div>
+
+            <div class="mt-2">
+              ocr: {{ data.ocr }}
+            </div>
+            <div class="mt-2">
+              keyword: {{ data.keyword }}
+            </div>
           </div>
         </div>
       </div>
@@ -50,7 +59,8 @@
 <script setup lang="ts">
 import type { MemeData } from '../type'
 import { useVirtualList, useWindowSize } from '@vueuse/core'
-import { reactive, toRef, toRefs } from 'vue'
+import { chunk } from 'remeda';
+import { computed, reactive, toRef, toRefs } from 'vue'
 
 interface Props {
   list: MemeData[];
@@ -65,9 +75,22 @@ const emit = defineEmits<{
 
 const windowSize = reactive(useWindowSize())
 
-const { list } = toRefs(props)
+const chunkList = computed(() => {
+  if (props.detailVisible) {
+    return chunk(props.list, 1)
+  }
+
+  if (windowSize.width > 768) {
+    return chunk(props.list, 3)
+  }
+  if (windowSize.width > 1280) {
+    return chunk(props.list, 4)
+  }
+
+  return chunk(props.list, 2)
+})
 const { list: virtualList, containerProps, wrapperProps } = useVirtualList(
-  list,
+  chunkList,
   {
     itemHeight: windowSize.height * 0.3,
   },
