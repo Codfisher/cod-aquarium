@@ -5,13 +5,13 @@
   >
     <div v-bind="wrapperProps">
       <div
-        v-for="{ data: chunk, index } in virtualList"
+        v-for="{ data: chunkData, index } in virtualList"
         :key="index"
         class="flex justify-center items-center gap-2 pb-4 h-[30vh]"
       >
         <div
-          v-for="data in chunk"
-          :key="index"
+          v-for="data, y in chunkData"
+          :key="y"
           class="flex-1 item flex justify-center items-center gap-2 h-full "
         >
           <div
@@ -27,13 +27,10 @@
 
           <div
             v-if="props.detailVisible"
-            class="flex-[2] text-sm w-full md:w-[30vw] max-w-[80vw]"
+            class="flex-[2] text-xs w-full md:w-[30vw] max-w-[80vw]"
           >
             <div class=" select-all text-xs">
               {{ data.file }}
-            </div>
-            <div>
-              {{ data.describeZhTw }}
             </div>
 
             <div class="mt-2">
@@ -56,7 +53,7 @@
 <script setup lang="ts">
 import type { MemeData } from '../type'
 import { useVirtualList, useWindowSize } from '@vueuse/core'
-import { chunk } from 'remeda';
+import { chunk } from 'remeda'
 import { computed, reactive, toRef, toRefs } from 'vue'
 
 interface Props {
