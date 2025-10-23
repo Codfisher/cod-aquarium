@@ -77,7 +77,6 @@
               <u-checkbox
                 v-model="settings.allVisible"
                 label="顯示全部"
-                size="xl"
               />
             </template>
 
@@ -88,7 +87,6 @@
               <u-checkbox
                 v-model="settings.detailVisible"
                 label="顯示細節"
-                size="xl"
               />
             </template>
           </u-dropdown-menu>
@@ -184,8 +182,7 @@ import UModal from '@nuxt/ui/components/Modal.vue'
 import { useActiveElement, useColorMode, useElementSize, useWindowSize, watchThrottled } from '@vueuse/core'
 import { snapdom } from '@zumer/snapdom'
 import Fuse from 'fuse.js'
-import { pipe } from 'remeda'
-import { computed, h, onMounted, reactive, ref, shallowRef, useTemplateRef, watch } from 'vue'
+import { computed, h, reactive, ref, shallowRef, useTemplateRef, watch } from 'vue'
 import { nextFrame } from '../../../web/common/utils'
 import ImgEditor from './components/img-editor.vue'
 import ImgList from './components/img-list.vue'
@@ -242,23 +239,24 @@ const settings = ref({
   detailVisible: false,
 })
 const items = [
-  { slot: 'all' },
-  { slot: 'detail' },
-  {
-    icon: 'i-ph:fish-simple-duotone',
-    label: '關於鱈魚',
-    onSelect() {
-      window.open('/', '_blank')
+  [{ slot: 'all' }, { slot: 'detail' }],
+  [
+    {
+      icon: 'i-ph:fish-simple-duotone',
+      label: '關於鱈魚',
+      onSelect() {
+        window.open('/', '_blank')
+      },
     },
-  },
-  {
-    icon: 'i-material-symbols:favorite',
-    label: '鼓勵我',
-    onSelect() {
-      window.open('https://portaly.cc/codfish/support', '_blank')
+    {
+      icon: 'i-material-symbols:favorite',
+      label: '鼓勵我',
+      onSelect() {
+        window.open('https://portaly.cc/codfish/support', '_blank')
+      },
     },
-  },
-] as const satisfies DropdownMenuItem[]
+  ],
+] as const satisfies DropdownMenuItem[][]
 
 const editorVisible = ref(false)
 const targetMeme = shallowRef<MemeData>()
