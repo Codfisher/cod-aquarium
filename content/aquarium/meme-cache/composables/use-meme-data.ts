@@ -119,7 +119,10 @@ export function useMemeData() {
           ...otherData,
           ...existedData,
           describeZhTw: existedData?.describeZhTw ?? '',
-          ocr,
+          ocr: [
+            existedData?.ocr ?? '',
+            ocr,
+          ].join(''),
           keyword,
         },
       )
