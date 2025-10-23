@@ -74,17 +74,21 @@ const emit = defineEmits<{
 }>()
 
 const windowSize = reactive(useWindowSize())
+console.log('🚀 ~ windowSize:', windowSize.width);
 
 const chunkList = computed(() => {
   if (props.detailVisible) {
     return chunk(props.list, 1)
   }
 
-  if (windowSize.width > 768) {
-    return chunk(props.list, 3)
+  if (windowSize.width >= 1280) {
+    return chunk(props.list, 5)
   }
-  if (windowSize.width > 1280) {
+  if (windowSize.width >= 1024) {
     return chunk(props.list, 4)
+  }
+  if (windowSize.width >= 768) {
+    return chunk(props.list, 3)
   }
 
   return chunk(props.list, 2)
