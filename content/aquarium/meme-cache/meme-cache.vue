@@ -1,8 +1,10 @@
 <template>
   <client-only>
-    <u-app :toaster="{
-      position: 'top-right',
-    }">
+    <u-app
+      :toaster="{
+        position: 'top-right',
+      }"
+    >
       <div class="meme-cache flex flex-col">
         <transition
           name="opacity"
