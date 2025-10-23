@@ -1,23 +1,12 @@
-import type {
-  RawImage,
-} from '@huggingface/transformers'
-import type { Buffer } from 'node:buffer'
 import type sharp from 'sharp'
-import { createReadStream, createWriteStream, existsSync } from 'node:fs'
+import { createReadStream, createWriteStream, existsSync, readFileSync } from 'node:fs'
 import { readdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
+import process from 'node:process'
 import readline from 'node:readline/promises'
-import {
-  AutoProcessor,
-  Florence2ForConditionalGeneration,
-  Florence2Processor,
-  load_image,
-  Tensor,
-} from '@huggingface/transformers'
-import { pipe, tap } from 'remeda'
-import phash from 'sharp-phash'
-import distance from 'sharp-phash/distance'
-import { createWorker, PSM } from 'tesseract.js'
+import { GoogleGenAI } from '@google/genai'
+import PQueue from 'p-queue'
+import { chunk, pipe, tap } from 'remeda'
 
 const __dirname = import.meta.dirname
 
@@ -83,203 +72,52 @@ async function getMemeFilePathList(dir: string, { recursive = true } = {}) {
   return files
 }
 
-/** 產生圖片變體 */
-async function preprocessVariants(input: sharp.Sharp, opts?: { targetWidth?: number }) {
-  const base = input
-    .rotate() // auto-orient
-    .flatten({ background: '#ffffff' }) // 去 alpha，填白底
-    .grayscale()
-    .normalize() // 拉開動態範圍
-    .gamma(1.15) // 提升中階亮度
-    .extend({ top: 8, bottom: 8, left: 8, right: 8, background: '#ffffff' })
-
-  const meta = await base.metadata()
-  const targetW = opts?.targetWidth ?? 1800
-  const resized = (meta.width ?? 0) < targetW
-    ? base.resize({ width: targetW, kernel: 'lanczos3' })
-    : base.clone()
-
-  // A: 灰階高對比
-  const A = await resized.clone()
-    .linear(1.25, -10) // 增加對比 (slope, intercept)
-    .sharpen(1) // 輕度銳利
-    .png()
-    .toBuffer()
-
-  // B: 全局二值化 (預設門檻)
-  const B = await resized.clone()
-    .threshold() // 相當於 ~128
-    .png()
-    .toBuffer()
-
-  // C: 二值化（偏亮一點的門檻）
-  const C = await resized.clone()
-    .blur(0.4) // 先抑制噪點
-    .threshold(150)
-    .png()
-    .toBuffer()
-
-  // D: 深色底反白情境（自動偵測平均亮度再決定是否反相）
-  let D: Buffer | null = null
-  const stats = await resized.clone().stats()
-  const mean = stats.channels[0]?.mean ?? 128
-  if (mean < 110) {
-    D = await resized.clone()
-      .negate() // 反相
-      .linear(1.2, -12)
-      .threshold(140)
-      .png()
-      .toBuffer()
-  }
-
-  // E/F: 微幅去斜（可選，稍耗時）
-  const E = await resized.clone().rotate(-1).sharpen(1).png().toBuffer()
-  const F = await resized.clone().rotate(1).sharpen(1).png().toBuffer()
-
-  return [A, B, C, D, E, F].filter(Boolean) as Buffer[]
-}
-
-/** OCR 所有變體，取信心值最高者 */
-async function ocrBestVariant(ocrWorker: Tesseract.Worker, variants: Buffer[]) {
-  const results = await Promise.all(
-    variants.map(async (buf) => {
-      const res = await ocrWorker.recognize(buf)
-      return res.data
-    }),
-  )
-  results.sort((a, b) => b.confidence - a.confidence)
-  const best = results[0]
-  if (best && best.confidence > 60) {
-    return best
-  }
-}
-
 async function main() {
-  const ocrWorker = await pipe(
-    await createWorker(['chi_tra', 'eng']),
-    async (worker) => {
-      await worker.setParameters({
-        tessjs_create_hocr: '0',
-        tessjs_create_tsv: '0',
-        preserve_interword_spaces: '0',
-        // SPARSE_TEXT 對零散字更穩，也比較不會幻覺出長句
-        tessedit_pageseg_mode: PSM.SPARSE_TEXT,
-        // 統一 DPI，避免圖檔 metadata 缺失造成效果不穩
-        user_defined_dpi: '300',
-      })
-
-      return worker
-    },
-  )
-
-  // 圖片描述
-  const modelId = 'onnx-community/Florence-2-large-ft'
-  const processor = (await AutoProcessor.from_pretrained(modelId))
-  if (!(processor instanceof Florence2Processor)) {
-    return
-  }
-
-  const model = await Florence2ForConditionalGeneration.from_pretrained(modelId, {
-    dtype: {
-      embed_tokens: 'fp16',
-      vision_encoder: 'fp16',
-      encoder_model: 'q4',
-      decoder_model_merged: 'q4',
-    },
+  const queue = new PQueue({ concurrency: 5 })
+  const ai = new GoogleGenAI({
+    apiKey: process.env.GEMINI_API_KEY,
   })
-
-  // const translator = await pipeline('translation', 'Xenova/nllb-200-distilled-600M', { dtype: 'fp16' })
-
   const ndjsonStream = createWriteStream(MEME_DATA_PATH, { flags: 'a', encoding: 'utf8' })
 
   const memeFilePathList = await getMemeFilePathList(FILE_PATH)
   console.log(`[meme] ${memeFilePathList.length} 個檔案待處理`)
 
-  /** 取出可能重複圖片 */
-  // const validFiles = await pipe(undefined, async () => {
-  //   const hashList = await Promise.all(
-  //     memeFilePathList.map(async (filePath) => {
-  //       const img = await readFile(filePath)
-  //       return phash(img)
-  //     }),
-  //   )
-
-  //   return memeFilePathList
-  // })
-
   let count = 0
-  for (const filePath of memeFilePathList) {
-    count++
+  const tasks = memeFilePathList.map(async (filePath) => queue.add(async () => {
+    const base64ImageFile = await readFile(filePath, { encoding: 'base64' })
 
-    const image: RawImage = await load_image(filePath)
-
-    const ocrResult = await pipe(
-      undefined,
-      async () => {
-        const variants = await preprocessVariants(image.toSharp())
-
-        const result = await ocrBestVariant(ocrWorker, variants)
-        if (!result) {
-          return ''
-        }
-
-        return result.text
-          .replaceAll(/\s+/g, '')
-          .replaceAll(
-            /[^\p{sc=Han}\p{sc=Hiragana}\p{sc=Katakana}\p{sc=Hangul}\p{L}\p{N}\p{P}]/gu,
-            '',
-          )
+    const contents = [
+      {
+        inlineData: {
+          mimeType: 'image/webp',
+          data: base64ImageFile,
+        },
       },
-    )
+      { text: '描述圖片，句子越精簡越好，描述人物、景色、情緒、文字、出自甚麼作品，不要任何格式，使用正體中文' },
+    ]
 
-    const caption = await pipe(undefined, async () => {
-      const taskCap = '<MORE_DETAILED_CAPTION>'
-      const promptsCap = processor.construct_prompts(taskCap)
-
-      const inputsCap = await processor(image, promptsCap)
-
-      const outCaption = await model.generate({
-        ...inputsCap,
-        max_new_tokens: 320,
-        num_beams: 6,
-        do_sample: false,
-        length_penalty: 1.2,
-        repetition_penalty: 1.08,
-        no_repeat_ngram_size: 2,
-      })
-
-      if (!(outCaption instanceof Tensor)) {
-        return
-      }
-
-      const decodeCaption = processor.batch_decode(outCaption, { skip_special_tokens: false })[0]
-      if (!decodeCaption) {
-        return
-      }
-
-      const captionValue = processor.post_process_generation(decodeCaption, taskCap, image.size)[taskCap] ?? ''
-      if (typeof captionValue !== 'string') {
-        return
-      }
-
-      return captionValue
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents,
     })
 
     const result = pipe(
       {
         file: path.basename(filePath),
-        describe: caption,
-        ocr: ocrResult,
+        describe: response.text,
+        ocr: '',
         keyword: '',
       },
       (data) => JSON.stringify(data).replaceAll('\n', ''),
     )
 
     // console.log(result)
+    count++
     console.log(`[meme] ${count}/${memeFilePathList.length}`)
 
     ndjsonStream.write(`${result}\n`)
-  }
+  }))
+  await Promise.all(tasks)
 
   await new Promise<void>((resolve, reject) => {
     ndjsonStream.on('finish', resolve)
@@ -294,8 +132,6 @@ async function main() {
     }),
     'utf8',
   )
-
-  ocrWorker.terminate()
   console.log('[meme] done')
 }
 

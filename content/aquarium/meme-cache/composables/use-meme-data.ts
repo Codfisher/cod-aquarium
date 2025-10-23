@@ -2,7 +2,7 @@ import { throttle } from 'lodash-es'
 import { nanoid } from 'nanoid'
 import { omit } from 'remeda'
 import { onBeforeUnmount, shallowRef, triggerRef } from 'vue'
-import { type MemeData, memeOriDataSchema } from '../type'
+import { type MemeData, memeDataSchema } from '../type'
 
 /** 串流讀取 ndjson 檔案 */
 async function consumeNdjsonPipeline<T = unknown>(
@@ -58,7 +58,7 @@ export function useMemeData() {
   async function main() {
     // 串流讀取圖片資料
     consumeNdjsonPipeline(`/memes/a-memes-data.ndjson`, (row) => {
-      const result = memeOriDataSchema.safeParse(row)
+      const result = memeDataSchema.safeParse(row)
       if (!result.success) {
         return
       }
@@ -68,7 +68,6 @@ export function useMemeData() {
       memeDataMap.value.set(
         result.data.file,
         {
-          describeZhTw: '',
           keyword: '',
           ...existedData,
           ...omit(result.data, ['ocr', 'keyword']),
@@ -81,31 +80,9 @@ export function useMemeData() {
       triggerMemeData()
     }, { signal: controller.signal })
 
-    // 中文
-    consumeNdjsonPipeline(`/memes/a-memes-data-zh-tw.ndjson`, (row) => {
-      const result = memeOriDataSchema.safeParse(row)
-      if (!result.success) {
-        return
-      }
-
-      const existedData = memeDataMap.value.get(result.data.file)
-      const { describe, ...otherData } = result.data
-
-      memeDataMap.value.set(
-        result.data.file,
-        {
-          describe: '',
-          ...otherData,
-          ...existedData,
-          describeZhTw: describe ?? '',
-        },
-      )
-      triggerMemeData()
-    }, { signal: controller.signal })
-
     // 手動標註的資料
     consumeNdjsonPipeline(`/memes/a-memes-data-extend.ndjson`, (row) => {
-      const result = memeOriDataSchema.safeParse(row)
+      const result = memeDataSchema.safeParse(row)
       if (!result.success) {
         return
       }
@@ -118,7 +95,6 @@ export function useMemeData() {
         {
           ...otherData,
           ...existedData,
-          describeZhTw: existedData?.describeZhTw ?? '',
           ocr: [
             existedData?.ocr ?? '',
             ocr,
