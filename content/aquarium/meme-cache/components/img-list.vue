@@ -74,7 +74,6 @@ const emit = defineEmits<{
 }>()
 
 const windowSize = reactive(useWindowSize())
-console.log('🚀 ~ windowSize:', windowSize.width);
 
 const chunkList = computed(() => {
   if (props.detailVisible) {
