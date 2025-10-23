@@ -1,5 +1,4 @@
 import { throttle } from 'lodash-es'
-import { nanoid } from 'nanoid'
 import { omit } from 'remeda'
 import { onBeforeUnmount, shallowRef, triggerRef } from 'vue'
 import { type MemeData, memeDataSchema } from '../type'

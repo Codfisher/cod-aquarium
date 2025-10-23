@@ -213,16 +213,13 @@ function handleEnter() {
 const fuse = new Fuse<MemeData>([], {
   keys: [
     'describe',
-    'describeZhTw',
-    {
-      name: 'ocr',
-      weight: 2,
-    },
+    'ocr',
     {
       name: 'keyword',
-      weight: 3,
+      weight: 2,
     },
   ],
+  ignoreLocation: true,
 })
 watch(memeDataMap, (data) => {
   const list = [...data.values()].reverse()
