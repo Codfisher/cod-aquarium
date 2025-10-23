@@ -69,6 +69,7 @@
     "remeda": "^2.32.0",
     "sass": "^1.89.1",
     "sharp": "^0.34.2",
+    "sharp-phash": "^2.2.0",
     "tailwindcss": "^4.1.14",
     "tesseract.js": "^6.0.1",
     "type-fest": "^4.41.0",
