@@ -66,7 +66,10 @@
 
           <u-dropdown-menu
             :items="items"
-            :ui="{ content: 'z-[70]' }"
+            :ui="{
+              content: 'z-[70]',
+              item: 'p-2!',
+            }"
           >
             <u-button icon="i-material-symbols:menu-rounded" />
 
@@ -75,7 +78,6 @@
                 v-model="settings.allVisible"
                 label="顯示全部"
                 size="xl"
-                class="p-4"
               />
             </template>
 
@@ -87,7 +89,6 @@
                 v-model="settings.detailVisible"
                 label="顯示細節"
                 size="xl"
-                class="p-4"
               />
             </template>
           </u-dropdown-menu>
@@ -243,6 +244,20 @@ const settings = ref({
 const items = [
   { slot: 'all' },
   { slot: 'detail' },
+  {
+    icon: 'i-ph:fish-simple-duotone',
+    label: '關於鱈魚',
+    onSelect() {
+      window.open('/', '_blank')
+    },
+  },
+  {
+    icon: 'i-material-symbols:favorite',
+    label: '鼓勵我',
+    onSelect() {
+      window.open('https://portaly.cc/codfish/support', '_blank')
+    },
+  },
 ] as const satisfies DropdownMenuItem[]
 
 const editorVisible = ref(false)
