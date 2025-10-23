@@ -1,3 +1,8 @@
+import type {
+  RawImage,
+} from '@huggingface/transformers'
+import type { Buffer } from 'node:buffer'
+import type sharp from 'sharp'
 import { createReadStream, createWriteStream, existsSync } from 'node:fs'
 import { readdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
@@ -10,6 +15,7 @@ import {
   Tensor,
 } from '@huggingface/transformers'
 import { pipe, tap } from 'remeda'
+
 import { createWorker, PSM } from 'tesseract.js'
 
 const __dirname = import.meta.dirname
@@ -76,9 +82,80 @@ async function getMemeFiles(dir: string, { recursive = true } = {}) {
   return files
 }
 
+/** 產生圖片變體 */
+async function preprocessVariants(input: sharp.Sharp, opts?: { targetWidth?: number }) {
+  const base = input
+    .rotate() // auto-orient
+    .flatten({ background: '#ffffff' }) // 去 alpha，填白底
+    .grayscale()
+    .normalize() // 拉開動態範圍
+    .gamma(1.15) // 提升中階亮度
+    .extend({ top: 8, bottom: 8, left: 8, right: 8, background: '#ffffff' })
+
+  const meta = await base.metadata()
+  const targetW = opts?.targetWidth ?? 1800
+  const resized = (meta.width ?? 0) < targetW
+    ? base.resize({ width: targetW, kernel: 'lanczos3' })
+    : base.clone()
+
+  // A: 灰階高對比
+  const A = await resized.clone()
+    .linear(1.25, -10) // 增加對比 (slope, intercept)
+    .sharpen(1) // 輕度銳利
+    .png()
+    .toBuffer()
+
+  // B: 全局二值化 (預設門檻)
+  const B = await resized.clone()
+    .threshold() // 相當於 ~128
+    .png()
+    .toBuffer()
+
+  // C: 二值化（偏亮一點的門檻）
+  const C = await resized.clone()
+    .blur(0.4) // 先抑制噪點
+    .threshold(150)
+    .png()
+    .toBuffer()
+
+  // D: 深色底反白情境（自動偵測平均亮度再決定是否反相）
+  let D: Buffer | null = null
+  const stats = await resized.clone().stats()
+  const mean = stats.channels[0]?.mean ?? 128
+  if (mean < 110) {
+    D = await resized.clone()
+      .negate() // 反相
+      .linear(1.2, -12)
+      .threshold(140)
+      .png()
+      .toBuffer()
+  }
+
+  // E/F: 微幅去斜（可選，稍耗時）
+  const E = await resized.clone().rotate(-1).sharpen(1).png().toBuffer()
+  const F = await resized.clone().rotate(1).sharpen(1).png().toBuffer()
+
+  return [A, B, C, D, E, F].filter(Boolean) as Buffer[]
+}
+
+/** OCR 所有變體，取信心值最高者 */
+async function ocrBestVariant(ocrWorker: Tesseract.Worker, variants: Buffer[]) {
+  const results = await Promise.all(
+    variants.map(async (buf) => {
+      const res = await ocrWorker.recognize(buf)
+      return res.data
+    }),
+  )
+  results.sort((a, b) => b.confidence - a.confidence)
+  const best = results[0]
+  if (best && best.confidence > 60) {
+    return best
+  }
+}
+
 async function main() {
   const ocrWorker = await pipe(
-    await createWorker('chi_tra'),
+    await createWorker(['chi_tra', 'eng']),
     async (worker) => {
       await worker.setParameters({
         tessjs_create_hocr: '0',
@@ -121,16 +198,19 @@ async function main() {
   for (const file of memeFiles) {
     count++
 
-    const image = await load_image(file)
+    const image: RawImage = await load_image(file)
 
     const ocrResult = await pipe(
-      await ocrWorker.recognize(file),
-      ({ data }) => {
-        if (data.confidence < 70) {
+      undefined,
+      async () => {
+        const variants = await preprocessVariants(image.toSharp())
+
+        const result = await ocrBestVariant(ocrWorker, variants)
+        if (!result) {
           return ''
         }
 
-        return data.text
+        return result.text
           .replaceAll(/\s+/g, '')
           .replaceAll(
             /[^\p{sc=Han}\p{sc=Hiragana}\p{sc=Katakana}\p{sc=Hangul}\p{L}\p{N}\p{P}]/gu,
