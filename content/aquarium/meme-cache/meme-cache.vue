@@ -14,9 +14,8 @@
             ref="tipRef"
             :key="tipText"
             class=" whitespace-pre  text-center py-6 opacity-30 "
-          >
-            {{ tipText }}
-          </div>
+            v-html="tipText"
+          />
         </transition>
 
         <img-list
@@ -80,10 +79,7 @@
               />
             </template>
 
-            <template
-              v-if="isDev"
-              #detail
-            >
+            <template #detail>
               <u-checkbox
                 v-model="settings.detailVisible"
                 label="顯示細節"
@@ -239,7 +235,10 @@ const settings = ref({
   detailVisible: false,
 })
 const items = [
-  [{ slot: 'all' }, { slot: 'detail' }],
+  [
+    { slot: 'all' },
+    { slot: 'detail', class: isDev ? '' : ' hidden!' },
+  ],
   [
     {
       icon: 'i-ph:fish-simple-duotone',
@@ -464,7 +463,7 @@ const tipText = computed(() => {
   }
 
   if (keyword.value && filteredList.value.length === 0) {
-    return '沒找到相關圖片 ( ´•̥̥̥ ω •̥̥̥` )'
+    return '沒找到相關圖片 ( ´•̥̥̥ ω •̥̥̥` )<br>可以<a href="https://drive.google.com/drive/u/2/folders/1UUpzhZPdI-i_7PhCYZNDS-BxbulATMlN" target="_blank" class=" text-teal-600! font-extrabold">在此上傳圖片</a>，我會努力建檔'
   }
 
   return `找到 ${filteredList.value.length} 個候選項目 ੭ ˙ᗜ˙ )੭`
