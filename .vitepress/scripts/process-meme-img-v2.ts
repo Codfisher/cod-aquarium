@@ -89,21 +89,25 @@ async function dedupeMeme() {
     return { filePath, hash }
   }))
 
-  const kept: { filePath: string; hash: string }[] = []
-  const removed: string[] = []
+  const keptMemeList: { filePath: string; hash: string }[] = []
+  const removedMemeList: string[] = []
 
   for (const item of hashList) {
-    const isDuplicate = kept.some((k) => distance(k.hash, item.hash) <= 5)
+    const isDuplicate = keptMemeList.some(
+      (k) => distance(k.hash, item.hash) <= 5,
+    )
 
     if (isDuplicate) {
       await unlink(item.filePath)
-      removed.push(item.filePath)
+      removedMemeList.push(item.filePath)
       continue
     }
 
     // 留第一張
-    kept.push(item)
+    keptMemeList.push(item)
   }
+
+  console.log(`[dedupeMeme] 已刪除 ${removedMemeList.length} 張重複圖片`)
 }
 
 async function main() {
@@ -116,7 +120,7 @@ async function main() {
   const ndjsonStream = createWriteStream(MEME_DATA_PATH, { flags: 'a', encoding: 'utf8' })
 
   const memeFilePathList = await getMemePathList()
-  console.log(`[meme] ${memeFilePathList.length} 個檔案待處理`)
+  console.log(`[main] ${memeFilePathList.length} 個檔案待處理`)
 
   let count = 0
   const tasks = memeFilePathList.map(async (filePath) => queue.add(async () => {
@@ -150,7 +154,7 @@ async function main() {
 
     // console.log(result)
     count++
-    console.log(`[meme] ${count}/${memeFilePathList.length}`)
+    console.log(`[main] ${count}/${memeFilePathList.length}`)
 
     ndjsonStream.write(`${result}\n`)
   }))
@@ -169,7 +173,7 @@ async function main() {
     }),
     'utf8',
   )
-  console.log('[meme] done')
+  console.log('[main] done')
 }
 
 main().catch((e) => {
