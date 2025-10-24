@@ -25,7 +25,8 @@ const MEME_DATA_PATH = path.resolve(__dirname, '../../content/public/memes/a-mem
 /** 手動加入的資料 */
 const MEME_META_EXTEND_PATH = path.resolve(__dirname, '../../content/public/memes/a-memes-data-extend.ndjson')
 
-const IMG_SIMILARITY_THRESHOLD = 5
+/** 圖片相似度閾值 */
+const IMG_SIMILARITY_THRESHOLD = 10
 
 async function readExistingFilenames(ndjsonPath: string): Promise<Set<string>> {
   const names = new Set<string>()
@@ -231,7 +232,6 @@ async function importSourceMeme() {
 
 async function main() {
   // await dedupeMeme()
-
   await importSourceMeme()
 
   const queue = new PQueue({ concurrency: 5 })
@@ -256,7 +256,7 @@ async function main() {
       },
       {
         text: [
-          '描述圖片，句子越精簡越好，描述人物、景色、情緒、出自甚麼作品，不要任何格式，使用正體中文',
+          '使用正體中文描述圖片，句子越精簡越好，描述人物、景色、情緒、出自甚麼作品，不要任何格式，忽略浮水印',
           '若有文字，則說明有甚麼文字，否則忽略',
           '若為諧音雙關，則說明原始文句，否則忽略'
         ].join('。')
