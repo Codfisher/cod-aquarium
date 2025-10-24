@@ -252,7 +252,7 @@ const imgSettingVisible = ref(false)
 const imgSetting = ref({
   topPadding: {
     backgroundColor: '#FFF',
-    height: 80,
+    height: 0,
   },
   bottomPadding: {
     backgroundColor: '#FFF',
