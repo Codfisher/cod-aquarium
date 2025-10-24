@@ -25,6 +25,8 @@ const MEME_DATA_PATH = path.resolve(__dirname, '../../content/public/memes/a-mem
 /** 手動加入的資料 */
 const MEME_META_EXTEND_PATH = path.resolve(__dirname, '../../content/public/memes/a-memes-data-extend.ndjson')
 
+const IMG_SIMILARITY_THRESHOLD = 5
+
 async function readExistingFilenames(ndjsonPath: string): Promise<Set<string>> {
   const names = new Set<string>()
   if (!existsSync(ndjsonPath))
@@ -116,7 +118,7 @@ async function dedupeMeme() {
 
   for (const item of hashList) {
     const isDuplicate = keptMemeList.some(
-      (k) => distance(k.hash, item.hash) <= 5,
+      (k) => distance(k.hash, item.hash) <= IMG_SIMILARITY_THRESHOLD,
     )
 
     if (isDuplicate) {
@@ -138,7 +140,32 @@ async function dedupeMeme() {
 
 /** 從上傳資料夾引入 meme */
 async function importSourceMeme() {
-  const entries = await readdir(SOURCE_PATH, { withFileTypes: true });
+  const fileList = await pipe(
+    await readdir(SOURCE_PATH, { withFileTypes: true }),
+    filter(({ isFile }) => isFile()),
+    async (list) => {
+      const tasks = list.map(async (entry) => {
+        const srcPath = path.join(SOURCE_PATH, entry.name)
+        const file = await readFile(srcPath)
+        const hash = await phash(file)
+
+        return {
+          entry,
+          file,
+          srcPath,
+          hash,
+        }
+      })
+
+      const dataList = await Promise.all(tasks)
+
+      return dataList.reduce((result, item) => {
+        const isDuplicate = result.some((x) => distance(x.hash, item.hash) <= IMG_SIMILARITY_THRESHOLD);
+        if (!isDuplicate) result.push(item);
+        return result;
+      }, [] as typeof dataList);
+    },
+  );
 
   const hashList = await pipe(
     await getFilePathList(MEME_FILE_PATH),
@@ -150,10 +177,7 @@ async function importSourceMeme() {
   )
 
   let count = 0
-  for (const entry of entries) {
-    if (!entry.isFile()) continue;
-
-    const srcPath = path.join(SOURCE_PATH, entry.name);
+  for (const { entry, file, hash, srcPath } of fileList) {
     const ext = path.extname(entry.name).toLowerCase();
 
     // 刪除不符合格式的檔案
@@ -167,9 +191,7 @@ async function importSourceMeme() {
     }
 
     // 判斷是否重複
-    const file = await readFile(srcPath)
-    const imgHash = await phash(file)
-    const isDuplicate = hashList.some((data) => distance(data.hash, imgHash) <= 5)
+    const isDuplicate = hashList.some((data) => distance(data.hash, hash) <= IMG_SIMILARITY_THRESHOLD)
     if (isDuplicate) {
       try {
         await unlink(srcPath);
