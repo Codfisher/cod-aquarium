@@ -149,6 +149,7 @@ async function importSourceMeme() {
     }))
   )
 
+  let count = 0
   for (const entry of entries) {
     if (!entry.isFile()) continue;
 
@@ -190,6 +191,8 @@ async function importSourceMeme() {
         .webp({ quality: 70 })
         .toFile(dstPath);
 
+      count++
+
       // 刪除來源檔
       try {
         await unlink(srcPath);
@@ -200,6 +203,8 @@ async function importSourceMeme() {
       console.error("[importSourceMeme] 轉檔失敗：", srcPath, e);
     }
   }
+
+  console.log(`[importSourceMeme] 已匯入 ${count} 張圖片`);
 }
 
 async function main() {
@@ -207,66 +212,66 @@ async function main() {
 
   await importSourceMeme()
 
-  // const queue = new PQueue({ concurrency: 5 })
-  // const ai = new GoogleGenAI({
-  //   apiKey: process.env.GEMINI_API_KEY,
-  // })
-  // const ndjsonStream = createWriteStream(MEME_DATA_PATH, { flags: 'a', encoding: 'utf8' })
+  const queue = new PQueue({ concurrency: 5 })
+  const ai = new GoogleGenAI({
+    apiKey: process.env.GEMINI_API_KEY,
+  })
+  const ndjsonStream = createWriteStream(MEME_DATA_PATH, { flags: 'a', encoding: 'utf8' })
 
-  // const memeFilePathList = await getMemePathList()
-  // console.log(`[main] ${memeFilePathList.length} 個檔案待處理`)
+  const memeFilePathList = await getMemePathList()
+  console.log(`[main] ${memeFilePathList.length} 個檔案待處理`)
 
-  // let count = 0
-  // const tasks = memeFilePathList.map(async (filePath) => queue.add(async () => {
-  //   const base64ImageFile = await readFile(filePath, { encoding: 'base64' })
+  let count = 0
+  const tasks = memeFilePathList.map(async (filePath) => queue.add(async () => {
+    const base64ImageFile = await readFile(filePath, { encoding: 'base64' })
 
-  //   const contents = [
-  //     {
-  //       inlineData: {
-  //         mimeType: 'image/webp',
-  //         data: base64ImageFile,
-  //       },
-  //     },
-  //     { text: '描述圖片，句子越精簡越好，描述人物、景色、情緒、文字、出自甚麼作品，不要任何格式，使用正體中文' },
-  //   ]
+    const contents = [
+      {
+        inlineData: {
+          mimeType: 'image/webp',
+          data: base64ImageFile,
+        },
+      },
+      { text: '描述圖片，句子越精簡越好，描述人物、景色、情緒、文字、出自甚麼作品，不要任何格式，使用正體中文' },
+    ]
 
-  //   const response = await ai.models.generateContent({
-  //     // model: 'gemini-2.5-pro',
-  //     model: 'gemini-2.5-flash',
-  //     contents,
-  //   })
+    const response = await ai.models.generateContent({
+      // model: 'gemini-2.5-pro',
+      model: 'gemini-2.5-flash',
+      contents,
+    })
 
-  //   const result = pipe(
-  //     {
-  //       file: path.basename(filePath),
-  //       describe: response.text,
-  //       ocr: '',
-  //       keyword: '',
-  //     },
-  //     (data) => JSON.stringify(data).replaceAll('\n', ''),
-  //   )
+    const result = pipe(
+      {
+        file: path.basename(filePath),
+        describe: response.text,
+        ocr: '',
+        keyword: '',
+      },
+      (data) => JSON.stringify(data).replaceAll('\n', ''),
+    )
 
-  //   // console.log(result)
-  //   count++
-  //   console.log(`[main] ${count}/${memeFilePathList.length}`)
+    // console.log(result)
+    count++
+    console.log(`[main] ${count}/${memeFilePathList.length}`)
 
-  //   ndjsonStream.write(`${result}\n`)
-  // }))
-  // await Promise.all(tasks)
+    ndjsonStream.write(`${result}\n`)
+  }))
+  await Promise.all(tasks)
 
-  // await new Promise<void>((resolve, reject) => {
-  //   ndjsonStream.on('finish', resolve)
-  //   ndjsonStream.on('error', reject)
-  //   ndjsonStream.end()
-  // })
+  await new Promise<void>((resolve, reject) => {
+    ndjsonStream.on('finish', resolve)
+    ndjsonStream.on('error', reject)
+    ndjsonStream.end()
+  })
 
-  // await writeFile(
-  //   MEME_META_PATH,
-  //   JSON.stringify({
-  //     updatedAt: Math.floor(Date.now() / 1000),
-  //   }),
-  //   'utf8',
-  // )
+  await writeFile(
+    MEME_META_PATH,
+    JSON.stringify({
+      updatedAt: Math.floor(Date.now() / 1000),
+    }),
+    'utf8',
+  )
   console.log('[main] done')
 }
 
