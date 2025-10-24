@@ -1,4 +1,4 @@
-import type sharp from 'sharp'
+import sharp from 'sharp'
 import { createReadStream, createWriteStream, existsSync, readFileSync } from 'node:fs'
 import { readdir, readFile, unlink, writeFile } from 'node:fs/promises'
 import path from 'node:path'
@@ -9,6 +9,7 @@ import PQueue from 'p-queue'
 import { chunk, filter, pipe, tap } from 'remeda'
 import phash from 'sharp-phash'
 import distance from 'sharp-phash/distance'
+import { randomUUID } from 'node:crypto'
 
 const __dirname = import.meta.dirname
 
@@ -82,7 +83,7 @@ async function getMemePathList() {
   return memeList
 }
 
-/** 依檔名字串過濾 NDJSON：只要該行包含任何被刪檔名，就砍掉那一行 */
+/** 更新 JSON 檔案，移除已刪除的 meme */
 async function updateJsonData(dataPath: string, removedPaths: string[]) {
   if (!removedPaths.length)
     return
@@ -135,69 +136,137 @@ async function dedupeMeme() {
   console.log(`[dedupeMeme] 已刪除 ${removedMemeList.length} 張重複圖片`)
 }
 
-async function main() {
-  await dedupeMeme()
+/** 從上傳資料夾引入 meme */
+async function importSourceMeme() {
+  const entries = await readdir(SOURCE_PATH, { withFileTypes: true });
 
-  const queue = new PQueue({ concurrency: 5 })
-  const ai = new GoogleGenAI({
-    apiKey: process.env.GEMINI_API_KEY,
-  })
-  const ndjsonStream = createWriteStream(MEME_DATA_PATH, { flags: 'a', encoding: 'utf8' })
-
-  const memeFilePathList = await getMemePathList()
-  console.log(`[main] ${memeFilePathList.length} 個檔案待處理`)
-
-  let count = 0
-  const tasks = memeFilePathList.map(async (filePath) => queue.add(async () => {
-    const base64ImageFile = await readFile(filePath, { encoding: 'base64' })
-
-    const contents = [
-      {
-        inlineData: {
-          mimeType: 'image/webp',
-          data: base64ImageFile,
-        },
-      },
-      { text: '描述圖片，句子越精簡越好，描述人物、景色、情緒、文字、出自甚麼作品，不要任何格式，使用正體中文' },
-    ]
-
-    const response = await ai.models.generateContent({
-      // model: 'gemini-2.5-pro',
-      model: 'gemini-2.5-flash',
-      contents,
-    })
-
-    const result = pipe(
-      {
-        file: path.basename(filePath),
-        describe: response.text,
-        ocr: '',
-        keyword: '',
-      },
-      (data) => JSON.stringify(data).replaceAll('\n', ''),
-    )
-
-    // console.log(result)
-    count++
-    console.log(`[main] ${count}/${memeFilePathList.length}`)
-
-    ndjsonStream.write(`${result}\n`)
-  }))
-  await Promise.all(tasks)
-
-  await new Promise<void>((resolve, reject) => {
-    ndjsonStream.on('finish', resolve)
-    ndjsonStream.on('error', reject)
-    ndjsonStream.end()
-  })
-
-  await writeFile(
-    MEME_META_PATH,
-    JSON.stringify({
-      updatedAt: Math.floor(Date.now() / 1000),
-    }),
-    'utf8',
+  const hashList = await pipe(
+    await getFilePathList(MEME_FILE_PATH),
+    (memePathList) => Promise.all(memePathList.map(async (filePath) => {
+      const file = await readFile(filePath)
+      const hash = await phash(file)
+      return { filePath, hash }
+    }))
   )
+
+  for (const entry of entries) {
+    if (!entry.isFile()) continue;
+
+    const srcPath = path.join(SOURCE_PATH, entry.name);
+    const ext = path.extname(entry.name).toLowerCase();
+
+    // 刪除不符合格式的檔案
+    if (!IMAGE_EXTS.has(ext)) {
+      try {
+        await unlink(srcPath);
+      } catch (e) {
+        console.warn("[importSourceMeme] 刪除圖片失敗：", srcPath, e);
+      }
+      continue;
+    }
+
+    // 判斷是否重複
+    const file = await readFile(srcPath)
+    const imgHash = await phash(file)
+    const isDuplicate = hashList.some((data) => distance(data.hash, imgHash) <= 5)
+    if (isDuplicate) {
+      try {
+        await unlink(srcPath);
+        console.log("[importSourceMeme] 刪除重複圖片：", srcPath);
+      } catch (e) {
+        console.warn("[importSourceMeme] 刪除重複圖片失敗：", srcPath, e);
+      }
+      continue;
+    }
+
+
+    // 轉 webp、最長邊 700px
+    const id = randomUUID();
+    const dstPath = path.join(MEME_FILE_PATH, `meme-${id}.webp`);
+
+    try {
+      await sharp(file)
+        .resize({ width: 700, height: 700, fit: "inside", withoutEnlargement: true })
+        .webp({ quality: 70 })
+        .toFile(dstPath);
+
+      // 刪除來源檔
+      try {
+        await unlink(srcPath);
+      } catch (e) {
+        console.warn("[importSourceMeme] 刪除來源檔失敗：", srcPath, e);
+      }
+    } catch (e) {
+      console.error("[importSourceMeme] 轉檔失敗：", srcPath, e);
+    }
+  }
+}
+
+async function main() {
+  // await dedupeMeme()
+
+  await importSourceMeme()
+
+  // const queue = new PQueue({ concurrency: 5 })
+  // const ai = new GoogleGenAI({
+  //   apiKey: process.env.GEMINI_API_KEY,
+  // })
+  // const ndjsonStream = createWriteStream(MEME_DATA_PATH, { flags: 'a', encoding: 'utf8' })
+
+  // const memeFilePathList = await getMemePathList()
+  // console.log(`[main] ${memeFilePathList.length} 個檔案待處理`)
+
+  // let count = 0
+  // const tasks = memeFilePathList.map(async (filePath) => queue.add(async () => {
+  //   const base64ImageFile = await readFile(filePath, { encoding: 'base64' })
+
+  //   const contents = [
+  //     {
+  //       inlineData: {
+  //         mimeType: 'image/webp',
+  //         data: base64ImageFile,
+  //       },
+  //     },
+  //     { text: '描述圖片，句子越精簡越好，描述人物、景色、情緒、文字、出自甚麼作品，不要任何格式，使用正體中文' },
+  //   ]
+
+  //   const response = await ai.models.generateContent({
+  //     // model: 'gemini-2.5-pro',
+  //     model: 'gemini-2.5-flash',
+  //     contents,
+  //   })
+
+  //   const result = pipe(
+  //     {
+  //       file: path.basename(filePath),
+  //       describe: response.text,
+  //       ocr: '',
+  //       keyword: '',
+  //     },
+  //     (data) => JSON.stringify(data).replaceAll('\n', ''),
+  //   )
+
+  //   // console.log(result)
+  //   count++
+  //   console.log(`[main] ${count}/${memeFilePathList.length}`)
+
+  //   ndjsonStream.write(`${result}\n`)
+  // }))
+  // await Promise.all(tasks)
+
+  // await new Promise<void>((resolve, reject) => {
+  //   ndjsonStream.on('finish', resolve)
+  //   ndjsonStream.on('error', reject)
+  //   ndjsonStream.end()
+  // })
+
+  // await writeFile(
+  //   MEME_META_PATH,
+  //   JSON.stringify({
+  //     updatedAt: Math.floor(Date.now() / 1000),
+  //   }),
+  //   'utf8',
+  // )
   console.log('[main] done')
 }
 
