@@ -1,10 +1,8 @@
 <template>
   <client-only>
-    <u-app
-      :toaster="{
-        position: 'top-right',
-      }"
-    >
+    <u-app :toaster="{
+      position: 'top-right',
+    }">
       <div class="meme-cache flex flex-col">
         <transition
           name="opacity"
@@ -435,6 +433,7 @@ const moreFcnItems = [
             ui: {
               overlay: 'z-[99999]',
               content: 'z-[999999] ',
+              body: 'bg-gray-100',
             },
           },
           {
