@@ -1,4 +1,4 @@
-import type sharp from 'sharp'
+import sharp from 'sharp'
 import { createReadStream, createWriteStream, existsSync, readFileSync } from 'node:fs'
 import { readdir, readFile, unlink, writeFile } from 'node:fs/promises'
 import path from 'node:path'
@@ -9,6 +9,7 @@ import PQueue from 'p-queue'
 import { chunk, filter, pipe, tap } from 'remeda'
 import phash from 'sharp-phash'
 import distance from 'sharp-phash/distance'
+import { randomUUID } from 'node:crypto'
 
 const __dirname = import.meta.dirname
 
@@ -82,7 +83,7 @@ async function getMemePathList() {
   return memeList
 }
 
-/** 依檔名字串過濾 NDJSON：只要該行包含任何被刪檔名，就砍掉那一行 */
+/** 更新 JSON 檔案，移除已刪除的 meme */
 async function updateJsonData(dataPath: string, removedPaths: string[]) {
   if (!removedPaths.length)
     return
@@ -135,8 +136,81 @@ async function dedupeMeme() {
   console.log(`[dedupeMeme] 已刪除 ${removedMemeList.length} 張重複圖片`)
 }
 
+/** 從上傳資料夾引入 meme */
+async function importSourceMeme() {
+  const entries = await readdir(SOURCE_PATH, { withFileTypes: true });
+
+  const hashList = await pipe(
+    await getFilePathList(MEME_FILE_PATH),
+    (memePathList) => Promise.all(memePathList.map(async (filePath) => {
+      const file = await readFile(filePath)
+      const hash = await phash(file)
+      return { filePath, hash }
+    }))
+  )
+
+  let count = 0
+  for (const entry of entries) {
+    if (!entry.isFile()) continue;
+
+    const srcPath = path.join(SOURCE_PATH, entry.name);
+    const ext = path.extname(entry.name).toLowerCase();
+
+    // 刪除不符合格式的檔案
+    if (!IMAGE_EXTS.has(ext)) {
+      try {
+        await unlink(srcPath);
+      } catch (e) {
+        console.warn("[importSourceMeme] 刪除圖片失敗：", srcPath, e);
+      }
+      continue;
+    }
+
+    // 判斷是否重複
+    const file = await readFile(srcPath)
+    const imgHash = await phash(file)
+    const isDuplicate = hashList.some((data) => distance(data.hash, imgHash) <= 5)
+    if (isDuplicate) {
+      try {
+        await unlink(srcPath);
+        console.log("[importSourceMeme] 刪除重複圖片：", srcPath);
+      } catch (e) {
+        console.warn("[importSourceMeme] 刪除重複圖片失敗：", srcPath, e);
+      }
+      continue;
+    }
+
+
+    // 轉 webp、最長邊 700px
+    const id = randomUUID();
+    const dstPath = path.join(MEME_FILE_PATH, `meme-${id}.webp`);
+
+    try {
+      await sharp(file)
+        .resize({ width: 700, height: 700, fit: "inside", withoutEnlargement: true })
+        .webp({ quality: 70 })
+        .toFile(dstPath);
+
+      count++
+
+      // 刪除來源檔
+      try {
+        await unlink(srcPath);
+      } catch (e) {
+        console.warn("[importSourceMeme] 刪除來源檔失敗：", srcPath, e);
+      }
+    } catch (e) {
+      console.error("[importSourceMeme] 轉檔失敗：", srcPath, e);
+    }
+  }
+
+  console.log(`[importSourceMeme] 已匯入 ${count} 張圖片`);
+}
+
 async function main() {
-  await dedupeMeme()
+  // await dedupeMeme()
+
+  await importSourceMeme()
 
   const queue = new PQueue({ concurrency: 5 })
   const ai = new GoogleGenAI({
