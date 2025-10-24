@@ -254,7 +254,13 @@ async function main() {
           data: base64ImageFile,
         },
       },
-      { text: '描述圖片，句子越精簡越好，描述人物、景色、情緒、文字、出自甚麼作品，不要任何格式，使用正體中文' },
+      {
+        text: [
+          '描述圖片，句子越精簡越好，描述人物、景色、情緒、出自甚麼作品，不要任何格式，使用正體中文',
+          '若有文字，則說明有甚麼文字',
+          '若為諧音雙關，則說明原始文句'
+        ].join('。')
+      },
     ]
 
     const response = await ai.models.generateContent({
