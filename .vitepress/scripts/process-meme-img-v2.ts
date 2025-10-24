@@ -2,7 +2,7 @@ import type sharp from 'sharp'
 import { createReadStream, createWriteStream, existsSync, readFileSync } from 'node:fs'
 import { readdir, readFile, unlink, writeFile } from 'node:fs/promises'
 import path from 'node:path'
-import process from 'node:process'
+import process, { nextTick } from 'node:process'
 import readline from 'node:readline/promises'
 import { GoogleGenAI } from '@google/genai'
 import PQueue from 'p-queue'
@@ -16,10 +16,13 @@ const SOURCE_PATH = 'D:/Google 雲端硬碟/待處理 meme'
 const IMAGE_EXTS = new Set(['.jpg', '.jpeg', '.png', '.webp'])
 
 const MEME_FILE_PATH = path.resolve(__dirname, '../../content/public/memes')
+
 /** 附加資料。版本等等 */
 const MEME_META_PATH = path.resolve(__dirname, '../../content/public/memes/a-memes-meta.json')
 /** 圖片資料 */
 const MEME_DATA_PATH = path.resolve(__dirname, '../../content/public/memes/a-memes-data.ndjson')
+/** 手動加入的資料 */
+const MEME_META_EXTEND_PATH = path.resolve(__dirname, '../../content/public/memes/a-memes-data-extend.ndjson')
 
 async function readExistingFilenames(ndjsonPath: string): Promise<Set<string>> {
   const names = new Set<string>()
@@ -79,6 +82,24 @@ async function getMemePathList() {
   return memeList
 }
 
+/** 依檔名字串過濾 NDJSON：只要該行包含任何被刪檔名，就砍掉那一行 */
+async function updateJsonData(dataPath: string, removedPaths: string[]) {
+  if (!removedPaths.length)
+    return
+
+  const removedNames = removedPaths.map((value) => path.basename(value))
+
+  const data = await readFile(dataPath, 'utf8')
+  if (!data)
+    return
+
+  const lines = pipe(
+    data.split(/\r?\n/),
+    filter((line) => !removedNames.some((name) => line.includes(name))),
+  )
+
+  await writeFile(dataPath, lines.join('\n'), 'utf8')
+}
 /** 刪除重複迷因 */
 async function dedupeMeme() {
   const memePathList = await getFilePathList(MEME_FILE_PATH)
@@ -106,6 +127,10 @@ async function dedupeMeme() {
     // 留第一張
     keptMemeList.push(item)
   }
+
+  // 更新資料
+  await updateJsonData(MEME_DATA_PATH, removedMemeList)
+  await updateJsonData(MEME_META_EXTEND_PATH, removedMemeList)
 
   console.log(`[dedupeMeme] 已刪除 ${removedMemeList.length} 張重複圖片`)
 }
