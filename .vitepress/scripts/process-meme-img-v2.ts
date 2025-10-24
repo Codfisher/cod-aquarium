@@ -1,18 +1,21 @@
 import type sharp from 'sharp'
 import { createReadStream, createWriteStream, existsSync, readFileSync } from 'node:fs'
-import { readdir, readFile, writeFile } from 'node:fs/promises'
+import { readdir, readFile, unlink, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import process from 'node:process'
 import readline from 'node:readline/promises'
 import { GoogleGenAI } from '@google/genai'
 import PQueue from 'p-queue'
-import { chunk, pipe, tap } from 'remeda'
+import { chunk, filter, pipe, tap } from 'remeda'
+import phash from 'sharp-phash'
+import distance from 'sharp-phash/distance'
 
 const __dirname = import.meta.dirname
 
-const FILE_PATH = path.resolve(__dirname, '../../content/public/memes')
+const SOURCE_PATH = 'D:/Google 雲端硬碟/待處理 meme'
 const IMAGE_EXTS = new Set(['.jpg', '.jpeg', '.png', '.webp'])
 
+const MEME_FILE_PATH = path.resolve(__dirname, '../../content/public/memes')
 /** 附加資料。版本等等 */
 const MEME_META_PATH = path.resolve(__dirname, '../../content/public/memes/a-memes-meta.json')
 /** 圖片資料 */
@@ -41,13 +44,9 @@ async function readExistingFilenames(ndjsonPath: string): Promise<Set<string>> {
   return names
 }
 
-/** 取得不重複的檔案 */
-async function getMemeFilePathList(dir: string, { recursive = true } = {}) {
+/** 取得檔案 */
+async function getFilePathList(baseDirectory: string, { recursive = false } = {}) {
   const files: string[] = []
-
-  const existingNames = await readExistingFilenames(MEME_DATA_PATH)
-
-  const pickedNames = new Set<string>(existingNames)
 
   async function walk(dirPath: string) {
     const entries = await readdir(dirPath, { withFileTypes: true })
@@ -59,27 +58,64 @@ async function getMemeFilePathList(dir: string, { recursive = true } = {}) {
         }
       }
       else if (IMAGE_EXTS.has(path.extname(entry.name).toLowerCase())) {
-        const baseName = path.basename(entry.name)
-        if (!pickedNames.has(baseName)) {
-          pickedNames.add(baseName)
-          files.push(fullPath)
-        }
+        files.push(fullPath)
       }
     }
   }
 
-  await walk(dir)
+  await walk(baseDirectory)
   return files
 }
 
+/** 取得 meme 檔案 */
+async function getMemePathList() {
+  const existingNames = await readExistingFilenames(MEME_DATA_PATH)
+
+  const memeList = pipe(
+    await getFilePathList(MEME_FILE_PATH),
+    filter((filePath) => !existingNames.has(path.basename(filePath))),
+  )
+
+  return memeList
+}
+
+/** 刪除重複迷因 */
+async function dedupeMeme() {
+  const memePathList = await getFilePathList(MEME_FILE_PATH)
+
+  const hashList = await Promise.all(memePathList.map(async (filePath) => {
+    const file = await readFile(filePath)
+    const hash = await phash(file)
+    return { filePath, hash }
+  }))
+
+  const kept: { filePath: string; hash: string }[] = []
+  const removed: string[] = []
+
+  for (const item of hashList) {
+    const isDuplicate = kept.some((k) => distance(k.hash, item.hash) <= 5)
+
+    if (isDuplicate) {
+      await unlink(item.filePath)
+      removed.push(item.filePath)
+      continue
+    }
+
+    // 留第一張
+    kept.push(item)
+  }
+}
+
 async function main() {
+  await dedupeMeme()
+
   const queue = new PQueue({ concurrency: 5 })
   const ai = new GoogleGenAI({
     apiKey: process.env.GEMINI_API_KEY,
   })
   const ndjsonStream = createWriteStream(MEME_DATA_PATH, { flags: 'a', encoding: 'utf8' })
 
-  const memeFilePathList = await getMemeFilePathList(FILE_PATH)
+  const memeFilePathList = await getMemePathList()
   console.log(`[meme] ${memeFilePathList.length} 個檔案待處理`)
 
   let count = 0
