@@ -142,7 +142,7 @@ async function dedupeMeme() {
 async function importSourceMeme() {
   const fileList = await pipe(
     await readdir(SOURCE_PATH, { withFileTypes: true }),
-    filter(({ isFile }) => isFile()),
+    filter((item) => item.isFile()),
     async (list) => {
       const tasks = list.map(async (entry) => {
         const srcPath = path.join(SOURCE_PATH, entry.name)
