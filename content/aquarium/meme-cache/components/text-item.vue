@@ -276,6 +276,33 @@
                 @click="settings.strokeWidth += 2"
               />
             </u-form-field>
+
+
+            <u-form-field
+              class="col-span-4"
+              label="行距"
+              :ui="{
+                hint: 'text-xs opacity-50',
+                container: 'flex items-center gap-4 mt-2 px-1',
+              }"
+            >
+              <template #label="{ label }">
+                <span class="flex-1">{{ label }}</span>
+                <span class=" text-xs opacity-40 ml-2">{{ settings.lineHeight }}</span>
+              </template>
+
+              <u-slider
+                v-model="settings.lineHeight"
+                :min="0"
+                :step="0.1"
+                :max="3"
+              />
+
+              <u-button
+                icon="i-lucide-rotate-ccw"
+                @click="settings.lineHeight = 1.2"
+              />
+            </u-form-field>
           </template>
         </u-collapsible>
       </template>
@@ -323,6 +350,7 @@ interface ModelValue {
   angle: number;
   fontSize: number;
   fontWeight: number;
+  lineHeight: number;
   strokeWidth: number;
   strokeColor: string;
   color: string;
@@ -349,6 +377,7 @@ const props = withDefaults(defineProps<Props>(), {
     angle: 0,
     fontSize: 16,
     fontWeight: 400,
+    lineHeight: 1.2,
     strokeWidth: 0,
     strokeColor: '#FFF',
     color: '#000',
@@ -408,6 +437,7 @@ const textRef = useTemplateRef('textRef')
 const textStyle = computed<CSSProperties>(() => ({
   'fontSize': `${settings.value.fontSize}px`,
   'fontWeight': settings.value.fontWeight,
+  'lineHeight': settings.value.lineHeight,
   'color': settings.value.color,
   'backgroundColor': hexToRgba(settings.value.backgroundColor, settings.value.backgroundOpacity),
   '-webkit-text-stroke': `${settings.value.strokeWidth}px ${settings.value.strokeColor}`,
