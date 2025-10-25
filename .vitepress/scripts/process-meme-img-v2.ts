@@ -148,7 +148,13 @@ async function importSourceMeme() {
       const tasks = list.map(async (entry) => {
         const srcPath = path.join(SOURCE_PATH, entry.name)
         const file = await readFile(srcPath)
-        const hash = await phash(file)
+        let hash = ''
+        try {
+          hash = await phash(file)
+        } catch (error) {
+          console.error(`🚀 ~ file:`, entry.name);
+          console.error(`🚀 ~ error:`, error);
+        }
 
         return {
           entry,
@@ -167,9 +173,9 @@ async function importSourceMeme() {
         } else {
           const filename = path.basename(item.srcPath)
           unlink(item.srcPath).then(() => {
-            console.log("[importSourceMeme] 刪除重複圖片：", filename);
+            console.log("[importSourceMeme] 刪除來源重複圖片：", filename);
           }).catch((e) => {
-            console.warn("[importSourceMeme] 刪除重複圖片失敗：", filename, e);
+            console.warn("[importSourceMeme] 刪除來源重複圖片失敗：", filename, e);
           });
         };
         return result;
