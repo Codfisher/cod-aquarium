@@ -31,7 +31,6 @@
           :key="item.key"
           :model-value="item.data"
           :is-editing="item.isEditing"
-          :fix-origin="!isFromStorage"
           :auto-focus="!isFromStorage"
           @click="editItem(item)"
           @delete="deleteItem(item)"

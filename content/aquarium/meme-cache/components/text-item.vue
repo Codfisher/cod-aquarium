@@ -362,9 +362,6 @@ interface Props {
   /** 建立後自動 focus */
   autoFocus?: boolean;
   modelValue?: ModelValue;
-
-  /** 原點偏移，讓起點在矩形中心 */
-  fixOrigin?: boolean;
 }
 const props = withDefaults(defineProps<Props>(), {
   isEditing: false,
@@ -557,11 +554,6 @@ onMounted(() => {
   }
 
   text.textContent = settings.value.text
-
-  if (props.fixOrigin) {
-    settings.value.x -= box.clientWidth / 2
-    settings.value.y -= box.clientHeight / 2
-  }
 
   interact(box)
     .draggable({
