@@ -18,7 +18,7 @@
       v-model:open="settingVisible"
       :overlay="false"
       side="bottom"
-      class="z-[100] border border-[#DDD] opacity-90"
+      class="z-[100] border border-[#DDD] opacity-95"
       :ui="{
         header: 'min-h-auto flex flex-col p-2',
         body: 'grid grid-cols-4 items-center',

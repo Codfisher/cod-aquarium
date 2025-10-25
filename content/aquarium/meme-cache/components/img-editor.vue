@@ -70,7 +70,7 @@
       v-model:open="layoutSettingVisible"
       :overlay="false"
       side="bottom"
-      class="z-[100] border border-[#EEE] opacity-90"
+      class="z-[100] border border-[#EEE] opacity-95"
       :ui="{
         header: 'min-h-auto ',
         body: 'grid grid-cols-4 gap-1',
