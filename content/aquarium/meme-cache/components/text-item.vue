@@ -18,10 +18,10 @@
       v-model:open="settingVisible"
       :overlay="false"
       side="bottom"
-      class="z-[100] border border-[#DDD]"
+      class="z-[100] border border-[#DDD] opacity-90"
       :ui="{
         header: 'min-h-auto flex flex-col p-2',
-        body: 'grid grid-cols-4 gap-4 items-center',
+        body: 'grid grid-cols-4 items-center',
       }"
     >
       <template #header="{ close }">
@@ -36,26 +36,84 @@
           />
         </div>
 
-        <div
+        <!-- <div
           class="flex w-full justify-center border border-[#EEE] border-dashed col-span-4 p-2 pointer-events-none"
           v-html="textDom"
-        />
+        /> -->
       </template>
 
       <template #body>
-        <div class=" text-sm opacity-50 col-span-4">
-          快速樣式
-        </div>
-        <div class="style-list col-span-4 flex flex-wrap gap-2">
-          <div
-            v-for="(item, i) in stylePresetList"
-            :key="i"
-            :style="item.style"
-            class="text p-3 border border-[#DDD] rounded cursor-pointer"
-            @click="presetStyle(item.data)"
-          >
-            文字
+        <div class="grid grid-cols-4 gap-1 items-center col-span-4">
+          <div class=" text-sm opacity-50 col-span-4">
+            快速樣式
           </div>
+
+          <div class="style-list col-span-4 flex flex-wrap gap-2">
+            <div
+              v-for="(item, i) in stylePresetList"
+              :key="i"
+              :style="item.style"
+              class="text p-3 border border-[#DDD] rounded cursor-pointer"
+              @click="presetStyle(item.data)"
+            >
+              文字
+            </div>
+          </div>
+
+          <u-form-field
+            class="col-span-2"
+            label="字重"
+            :ui="{
+              hint: 'text-xs opacity-50',
+              container: 'flex items-center gap-4 mt-2 px-1',
+            }"
+          >
+            <template #label="{ label }">
+              <span class="flex-1">{{ label }}</span>
+              <span class=" text-xs opacity-40 ml-2">{{ settings.fontWeight }}</span>
+            </template>
+
+            <u-slider
+              v-model="settings.fontWeight"
+              :min="100"
+              :step="100"
+              :max="900"
+            />
+
+            <u-button
+              icon="i-lucide-rotate-ccw"
+              @click="settings.fontWeight = 400"
+            />
+          </u-form-field>
+
+          <u-form-field
+            class="col-span-2"
+            label="字級"
+            :ui="{ container: 'flex gap-1' }"
+          >
+            <u-input
+              v-model="settings.fontSize"
+              class="flex-1"
+              :ui="{ base: 'p-1! px-2! text-center' }"
+            >
+              <template #trailing>
+                <span class=" opacity-40 text-xs">px</span>
+              </template>
+            </u-input>
+
+            <u-button
+              icon="i-lucide-rotate-ccw"
+              @click="settings.fontSize = 14"
+            />
+            <u-button
+              icon="i-lucide-chevron-down"
+              @click="settings.fontSize -= 2"
+            />
+            <u-button
+              icon="i-lucide-chevron-up"
+              @click="settings.fontSize += 2"
+            />
+          </u-form-field>
         </div>
 
         <u-collapsible
@@ -74,62 +132,7 @@
 
           <template #content>
             <u-form-field
-              class="col-span-4"
-              label="字級"
-              :ui="{ container: 'flex gap-1' }"
-            >
-              <u-input
-                v-model="settings.fontSize"
-                class="flex-1"
-                :ui="{ base: 'p-1! px-2! text-center' }"
-              >
-                <template #trailing>
-                  <span class=" opacity-40 text-xs">px</span>
-                </template>
-              </u-input>
-
-              <u-button
-                icon="i-lucide-rotate-ccw"
-                @click="settings.fontSize = 14"
-              />
-              <u-button
-                icon="i-lucide-chevron-down"
-                @click="settings.fontSize -= 2"
-              />
-              <u-button
-                icon="i-lucide-chevron-up"
-                @click="settings.fontSize += 2"
-              />
-            </u-form-field>
-
-            <u-form-field
-              class="col-span-4"
-              label="字重"
-              :ui="{
-                hint: 'text-xs opacity-50',
-                container: 'flex items-center gap-4 mt-2 px-1',
-              }"
-            >
-              <template #label="{ label }">
-                <span class="flex-1">{{ label }}</span>
-                <span class=" text-xs opacity-40 ml-2">{{ settings.fontWeight }}</span>
-              </template>
-
-              <u-slider
-                v-model="settings.fontWeight"
-                :min="100"
-                :step="100"
-                :max="900"
-              />
-
-              <u-button
-                icon="i-lucide-rotate-ccw"
-                @click="settings.fontWeight = 400"
-              />
-            </u-form-field>
-
-            <u-form-field
-              class="col-span-4"
+              class="col-span-2"
               label="顏色"
             >
               <u-popover :ui="{ content: 'z-[9999]' }">
@@ -150,7 +153,7 @@
             </u-form-field>
 
             <u-form-field
-              class="col-span-4"
+              class="col-span-2"
               label="背景色"
             >
               <u-popover :ui="{ content: 'z-[9999]' }">
@@ -171,7 +174,7 @@
             </u-form-field>
 
             <u-form-field
-              class="col-span-4"
+              class="col-span-2"
               label="背景透明度"
               :ui="{
                 hint: 'text-xs opacity-50',
@@ -197,7 +200,7 @@
             </u-form-field>
 
             <u-form-field
-              class="col-span-4"
+              class="col-span-2"
               label="外框顏色"
             >
               <u-popover :ui="{ content: 'z-[9999]' }">
@@ -218,7 +221,35 @@
             </u-form-field>
 
             <u-form-field
-              class="col-span-4"
+              class="col-span-2"
+              label="旋轉"
+              hint="雙指可旋轉文字"
+              :ui="{
+                hint: 'text-xs opacity-50',
+                container: 'flex items-center gap-4 mt-2 px-1',
+              }"
+            >
+              <template #label="{ label }">
+                <span class="flex-1">{{ label }}</span>
+                <span class=" text-xs opacity-40 ml-2">{{ settings.angle }}°</span>
+              </template>
+
+              <u-slider
+                v-model="settings.angle"
+                class=""
+                :min="-180"
+                :max="180"
+                :step="5"
+              />
+
+              <u-button
+                icon="i-lucide-x"
+                @click="settings.angle = 0"
+              />
+            </u-form-field>
+
+            <u-form-field
+              class="col-span-2"
               label="外框寬度"
               :ui="{ container: 'flex gap-1' }"
             >
@@ -245,34 +276,6 @@
                 @click="settings.strokeWidth += 2"
               />
             </u-form-field>
-
-            <u-form-field
-              class="col-span-4"
-              label="旋轉"
-              hint="也可以直接雙指旋轉文字"
-              :ui="{
-                hint: 'text-xs opacity-50',
-                container: 'flex items-center gap-4 mt-2 px-1',
-              }"
-            >
-              <template #label="{ label }">
-                <span class="flex-1">{{ label }}</span>
-                <span class=" text-xs opacity-40 ml-2">{{ settings.angle }}°</span>
-              </template>
-
-              <u-slider
-                v-model="settings.angle"
-                class=""
-                :min="-180"
-                :max="180"
-                :step="5"
-              />
-
-              <u-button
-                icon="i-lucide-x"
-                @click="settings.angle = 0"
-              />
-            </u-form-field>
           </template>
         </u-collapsible>
       </template>
@@ -288,6 +291,7 @@
     <u-button
       icon="i-lucide-settings-2"
       class="p-2! duration-300"
+      size="lg"
       :class="{ 'text-primary!': settingVisible }"
       @click="toggleSettingVisible()"
     />
@@ -295,6 +299,7 @@
     <u-button
       icon="i-lucide-trash-2"
       class="p-2!"
+      size="lg"
       @click="emit('delete')"
     />
   </div>
@@ -595,4 +600,5 @@ const [settingVisible, toggleSettingVisible] = useToggle(false)
 
 .toolbar
   box-shadow: 0px 0px 10px rgba(white, 0.6)
+  z-index: 99999
 </style>
