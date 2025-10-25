@@ -296,6 +296,7 @@ function addItem(event: PointerEvent) {
       angle: 0,
       fontSize: 16,
       fontWeight: 400,
+      lineHeight: 1.2,
       strokeWidth: 4,
       strokeColor: '#FFF',
       color: '#000',
