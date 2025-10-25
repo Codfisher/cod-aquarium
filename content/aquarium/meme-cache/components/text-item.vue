@@ -277,7 +277,6 @@
               />
             </u-form-field>
 
-
             <u-form-field
               class="col-span-4"
               label="行距"
@@ -401,19 +400,11 @@ const settings = useVModel(props, 'modelValue', emit, {
 })
 
 const boxRef = useTemplateRef('boxRef')
-const boxTransform = ref([
-  `translate(${settings.value.x}px, ${settings.value.y}px)`,
-  `rotate(${settings.value.angle}deg)`,
-].join(' '))
-function updateBoxTransform() {
-  boxTransform.value = [
-    `translate(${settings.value.x}px, ${settings.value.y}px)`,
-    `rotate(${settings.value.angle}deg)`,
-  ].join(' ')
-}
-
 const boxStyle = computed<CSSProperties>(() => ({
-  transform: boxTransform.value,
+  left: `${settings.value.x}px`,
+  top: `${settings.value.y}px`,
+  transform: `translate(-50%, -50%) rotate(${settings.value.angle}deg)`,
+  transformOrigin: 'center',
   userSelect: props.isEditing ? 'text' : 'none',
   outline: props.isEditing ? '1px dashed #3b82f6' : 'none',
 }))
@@ -444,8 +435,6 @@ const textStyle = computed<CSSProperties>(() => ({
 }))
 const textDom = ref('')
 watchThrottled(() => [settings.value, textRef.value], () => {
-  updateBoxTransform()
-
   const dom = textRef.value?.cloneNode(true) as HTMLElement
   if (!dom) {
     return
@@ -573,7 +562,6 @@ onMounted(() => {
     settings.value.x -= box.clientWidth / 2
     settings.value.y -= box.clientHeight / 2
   }
-  updateBoxTransform()
 
   interact(box)
     .draggable({
@@ -581,8 +569,6 @@ onMounted(() => {
         move(event) {
           settings.value.x += event.dx
           settings.value.y += event.dy
-
-          updateBoxTransform()
         },
       },
     })
@@ -590,8 +576,6 @@ onMounted(() => {
       listeners: {
         move(event) {
           settings.value.angle += event.da
-
-          updateBoxTransform()
         },
       },
     })
@@ -625,6 +609,7 @@ const [settingVisible, toggleSettingVisible] = useToggle(false)
 <style scoped lang="sass">
 .box
   touch-action: none !important
+  will-change: left, top, transform
 .text
   paint-order: stroke fill
 
