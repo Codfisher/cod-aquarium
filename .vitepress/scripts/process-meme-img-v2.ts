@@ -162,7 +162,16 @@ async function importSourceMeme() {
 
       return dataList.reduce((result, item) => {
         const isDuplicate = result.some((x) => distance(x.hash, item.hash) <= IMG_SIMILARITY_THRESHOLD);
-        if (!isDuplicate) result.push(item);
+        if (!isDuplicate) {
+          result.push(item)
+        } else {
+          const filename = path.basename(item.srcPath)
+          unlink(item.srcPath).then(() => {
+            console.log("[importSourceMeme] 刪除重複圖片：", filename);
+          }).catch((e) => {
+            console.warn("[importSourceMeme] 刪除重複圖片失敗：", filename, e);
+          });
+        };
         return result;
       }, [] as typeof dataList);
     },
@@ -196,9 +205,9 @@ async function importSourceMeme() {
     if (isDuplicate) {
       try {
         await unlink(srcPath);
-        console.log("[importSourceMeme] 刪除重複圖片：", srcPath);
+        console.log("[importSourceMeme] 刪除重複圖片：", path.basename(srcPath));
       } catch (e) {
-        console.warn("[importSourceMeme] 刪除重複圖片失敗：", srcPath, e);
+        console.warn("[importSourceMeme] 刪除重複圖片失敗：", path.basename(srcPath), e);
       }
       continue;
     }
