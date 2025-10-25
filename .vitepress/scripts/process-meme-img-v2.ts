@@ -148,7 +148,13 @@ async function importSourceMeme() {
       const tasks = list.map(async (entry) => {
         const srcPath = path.join(SOURCE_PATH, entry.name)
         const file = await readFile(srcPath)
-        const hash = await phash(file)
+        let hash = ''
+        try {
+          hash = await phash(file)
+        } catch (error) {
+          console.error(`🚀 ~ file:`, entry.name);
+          console.error(`🚀 ~ error:`, error);
+        }
 
         return {
           entry,
