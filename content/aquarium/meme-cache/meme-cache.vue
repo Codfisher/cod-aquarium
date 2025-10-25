@@ -44,6 +44,7 @@
               base: 'py-4! px-6! rounded-full',
               trailing: 'pe-4',
             }"
+            data-clarity-unmask="true"
             @keydown.enter="handleEnter"
           >
             <template
