@@ -167,9 +167,9 @@ async function importSourceMeme() {
         } else {
           const filename = path.basename(item.srcPath)
           unlink(item.srcPath).then(() => {
-            console.log("[importSourceMeme] 刪除重複圖片：", filename);
+            console.log("[importSourceMeme] 刪除來源重複圖片：", filename);
           }).catch((e) => {
-            console.warn("[importSourceMeme] 刪除重複圖片失敗：", filename, e);
+            console.warn("[importSourceMeme] 刪除來源重複圖片失敗：", filename, e);
           });
         };
         return result;
