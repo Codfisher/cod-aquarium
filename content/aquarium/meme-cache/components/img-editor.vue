@@ -3,7 +3,7 @@
     v-if="props.data"
     class="py-[6vh] flex flex-col h-full bg-gray-300 overflow-auto relative"
   >
-    <div class="flex-1 flex flex-col justify-end items-center bg-gray-300 ">
+    <div class="flex-1 flex flex-col items-center bg-gray-300 ">
       <div
         ref="boardRef"
         class="board flex flex-col relative shadow-xl"
@@ -67,10 +67,10 @@
     </u-popover>
 
     <u-slideover
-      v-model:open="imgSettingVisible"
+      v-model:open="layoutSettingVisible"
       :overlay="false"
       side="bottom"
-      class="z-[100] border border-[#EEE]"
+      class="z-[100] border border-[#EEE] opacity-95"
       :ui="{
         header: 'min-h-auto ',
         body: 'grid grid-cols-4 gap-1',
@@ -128,12 +128,12 @@
                 <u-button
                   class="w-full h-[1.75rem]"
                   variant="outline"
-                  :style="{ backgroundColor: imgSetting.topPadding.backgroundColor }"
+                  :style="{ backgroundColor: layoutSetting.topPadding.backgroundColor }"
                 />
 
                 <template #content>
                   <u-color-picker
-                    v-model="imgSetting.topPadding.backgroundColor"
+                    v-model="layoutSetting.topPadding.backgroundColor"
                     size="xs"
                     class="p-2"
                   />
@@ -146,7 +146,7 @@
               :ui="{ container: 'flex gap-1' }"
             >
               <u-input
-                v-model="imgSetting.topPadding.height"
+                v-model="layoutSetting.topPadding.height"
                 :ui="{ base: 'p-1! px-2! text-center' }"
               >
                 <template #trailing>
@@ -156,15 +156,15 @@
 
               <u-button
                 icon="i-lucide-x"
-                @click="imgSetting.topPadding.height = 0"
+                @click="layoutSetting.topPadding.height = 0"
               />
               <u-button
                 icon="i-lucide-chevron-down"
-                @click="imgSetting.topPadding.height -= 10"
+                @click="layoutSetting.topPadding.height -= 10"
               />
               <u-button
                 icon="i-lucide-chevron-up"
-                @click="imgSetting.topPadding.height += 10"
+                @click="layoutSetting.topPadding.height += 10"
               />
             </u-form-field>
 
@@ -177,12 +177,12 @@
                 <u-button
                   class="w-full h-[1.75rem]"
                   variant="outline"
-                  :style="{ backgroundColor: imgSetting.bottomPadding.backgroundColor }"
+                  :style="{ backgroundColor: layoutSetting.bottomPadding.backgroundColor }"
                 />
 
                 <template #content>
                   <u-color-picker
-                    v-model="imgSetting.bottomPadding.backgroundColor"
+                    v-model="layoutSetting.bottomPadding.backgroundColor"
                     size="xs"
                     class="p-2"
                   />
@@ -195,7 +195,7 @@
               :ui="{ container: 'flex gap-1' }"
             >
               <u-input
-                v-model="imgSetting.bottomPadding.height"
+                v-model="layoutSetting.bottomPadding.height"
                 :ui="{ base: 'p-1! px-2! text-center' }"
               >
                 <template #trailing>
@@ -205,15 +205,15 @@
 
               <u-button
                 icon="i-lucide-x"
-                @click="imgSetting.bottomPadding.height = 0"
+                @click="layoutSetting.bottomPadding.height = 0"
               />
               <u-button
                 icon="i-lucide-chevron-down"
-                @click="imgSetting.bottomPadding.height -= 10"
+                @click="layoutSetting.bottomPadding.height -= 10"
               />
               <u-button
                 icon="i-lucide-chevron-up"
-                @click="imgSetting.bottomPadding.height += 10"
+                @click="layoutSetting.bottomPadding.height += 10"
               />
             </u-form-field>
           </template>
@@ -248,8 +248,8 @@ const emit = defineEmits<{
   'update:model-value': [value: string];
 }>()
 
-const imgSettingVisible = ref(false)
-const imgSetting = ref({
+const layoutSettingVisible = ref(false)
+const layoutSetting = ref({
   topPadding: {
     backgroundColor: '#FFF',
     height: 0,
@@ -327,12 +327,12 @@ function deleteItem(item: TextItemData) {
 
 const settingValue = computed(() => ({
   topPadding: {
-    ...imgSetting.value.topPadding,
-    height: `${imgSetting.value.topPadding.height}px`,
+    ...layoutSetting.value.topPadding,
+    height: `${layoutSetting.value.topPadding.height}px`,
   } as CSSProperties,
   bottomPadding: {
-    ...imgSetting.value.bottomPadding,
-    height: `${imgSetting.value.bottomPadding.height}px`,
+    ...layoutSetting.value.bottomPadding,
+    height: `${layoutSetting.value.bottomPadding.height}px`,
   } as CSSProperties,
 }))
 
@@ -403,8 +403,8 @@ const settingPresetList = [
     },
   },
 ]
-function presetStyle(data: typeof imgSetting['value']) {
-  imgSetting.value = clone(data)
+function presetStyle(data: typeof layoutSetting['value']) {
+  layoutSetting.value = clone(data)
 }
 
 // 儲存設定值至 localStorage
@@ -423,7 +423,7 @@ useRafFn(() => {
 
   localStorage.setItem(
     `${storageKey.value}:imgSetting`,
-    JSON.stringify(imgSetting.value),
+    JSON.stringify(layoutSetting.value),
   )
 }, {
   fpsLimit: 2,
@@ -459,7 +459,7 @@ async function initData() {
     },
   )
   if (prevImgSetting) {
-    imgSetting.value = prevImgSetting
+    layoutSetting.value = prevImgSetting
   }
 
   await nextFrame()
@@ -474,14 +474,14 @@ defineExpose({
   boardRef,
   async blur() {
     targetItem.value = undefined
-    imgSettingVisible.value = false
+    layoutSettingVisible.value = false
     await nextFrame()
     await promiseTimeout(200)
   },
-  toggleImgSettingVisible(value?: boolean) {
-    imgSettingVisible.value = value !== undefined
+  toggleLayoutSettingVisible(value?: boolean) {
+    layoutSettingVisible.value = value !== undefined
       ? value
-      : !imgSettingVisible.value
+      : !layoutSettingVisible.value
   },
   clean() {
     textMap.value.clear()

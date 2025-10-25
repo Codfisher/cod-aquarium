@@ -114,8 +114,8 @@
             />
 
             <u-button
-              label="圖片設定"
-              icon="i-material-symbols:settings-rounded"
+              label="版面設定"
+              icon="i-material-symbols:mobile-layout-outline"
               @click="toggleSettingForm()"
             />
 
@@ -296,7 +296,7 @@ const listHeight = computed(
 const editorRef = useTemplateRef('editorRef')
 
 function toggleSettingForm() {
-  editorRef.value?.toggleImgSettingVisible()
+  editorRef.value?.toggleLayoutSettingVisible()
 }
 
 /** FIX: 文件明明說 slot 有 close 可以用，但是實際上沒有
