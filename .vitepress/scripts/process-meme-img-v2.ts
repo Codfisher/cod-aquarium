@@ -1,15 +1,15 @@
-import sharp from 'sharp'
+import { randomUUID } from 'node:crypto'
 import { createReadStream, createWriteStream, existsSync, readFileSync } from 'node:fs'
-import { readdir, readFile, unlink, writeFile } from 'node:fs/promises'
+import { readdir, readFile, rename, unlink, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import process, { nextTick } from 'node:process'
 import readline from 'node:readline/promises'
 import { GoogleGenAI } from '@google/genai'
 import PQueue from 'p-queue'
 import { chunk, filter, pipe, tap } from 'remeda'
+import sharp from 'sharp'
 import phash from 'sharp-phash'
 import distance from 'sharp-phash/distance'
-import { randomUUID } from 'node:crypto'
 
 const __dirname = import.meta.dirname
 
@@ -139,6 +139,30 @@ async function dedupeMeme() {
   console.log(`[dedupeMeme] 已刪除 ${removedMemeList.length} 張重複圖片`)
 }
 
+/** 壓縮現有檔案，會寫入 temp 資料夾中 */
+async function minifyCurrentMeme() {
+  const fileList = await getFilePathList(MEME_FILE_PATH)
+  const queue = new PQueue({ concurrency: 10 })
+
+  const tasks = fileList.map((filePath) => queue.add(async () => {
+    const newFile = await sharp(filePath)
+      .resize({ width: 700, height: 700, fit: 'inside', withoutEnlargement: true })
+      .flatten({ background: '#fff' })
+      .webp({ quality: 60, effort: 6, smartSubsample: true })
+      .toBuffer()
+
+    await writeFile(path.join(
+      path.dirname(filePath),
+      'temp',
+      path.basename(filePath),
+    ), newFile)
+  }))
+  await Promise.all(tasks)
+}
+// minifyCurrentMeme().catch((e) => {
+//   console.error(e)
+// })
+
 /** 從上傳資料夾引入 meme */
 async function importSourceMeme() {
   const fileList = await pipe(
@@ -151,9 +175,10 @@ async function importSourceMeme() {
         let hash = ''
         try {
           hash = await phash(file)
-        } catch (error) {
-          console.error(`🚀 ~ file:`, entry.name);
-          console.error(`🚀 ~ error:`, error);
+        }
+        catch (error) {
+          console.error(`🚀 ~ file:`, entry.name)
+          console.error(`🚀 ~ error:`, error)
         }
 
         return {
@@ -167,21 +192,22 @@ async function importSourceMeme() {
       const dataList = await Promise.all(tasks)
 
       return dataList.reduce((result, item) => {
-        const isDuplicate = result.some((x) => distance(x.hash, item.hash) <= IMG_SIMILARITY_THRESHOLD);
+        const isDuplicate = result.some((x) => distance(x.hash, item.hash) <= IMG_SIMILARITY_THRESHOLD)
         if (!isDuplicate) {
           result.push(item)
-        } else {
+        }
+        else {
           const filename = path.basename(item.srcPath)
           unlink(item.srcPath).then(() => {
-            console.log("[importSourceMeme] 刪除來源重複圖片：", filename);
+            console.log('[importSourceMeme] 刪除來源重複圖片：', filename)
           }).catch((e) => {
-            console.warn("[importSourceMeme] 刪除來源重複圖片失敗：", filename, e);
-          });
+            console.warn('[importSourceMeme] 刪除來源重複圖片失敗：', filename, e)
+          })
         };
-        return result;
-      }, [] as typeof dataList);
+        return result
+      }, [] as typeof dataList)
     },
-  );
+  )
 
   const hashList = await pipe(
     await getFilePathList(MEME_FILE_PATH),
@@ -189,60 +215,64 @@ async function importSourceMeme() {
       const file = await readFile(filePath)
       const hash = await phash(file)
       return { filePath, hash }
-    }))
+    })),
   )
 
   let count = 0
   for (const { entry, file, hash, srcPath } of fileList) {
-    const ext = path.extname(entry.name).toLowerCase();
+    const ext = path.extname(entry.name).toLowerCase()
 
     // 刪除不符合格式的檔案
     if (!IMAGE_EXTS.has(ext)) {
       try {
-        await unlink(srcPath);
-      } catch (e) {
-        console.warn("[importSourceMeme] 刪除圖片失敗：", srcPath, e);
+        await unlink(srcPath)
       }
-      continue;
+      catch (e) {
+        console.warn('[importSourceMeme] 刪除圖片失敗：', srcPath, e)
+      }
+      continue
     }
 
     // 判斷是否重複
     const isDuplicate = hashList.some((data) => distance(data.hash, hash) <= IMG_SIMILARITY_THRESHOLD)
     if (isDuplicate) {
       try {
-        await unlink(srcPath);
-        console.log("[importSourceMeme] 刪除重複圖片：", path.basename(srcPath));
-      } catch (e) {
-        console.warn("[importSourceMeme] 刪除重複圖片失敗：", path.basename(srcPath), e);
+        await unlink(srcPath)
+        console.log('[importSourceMeme] 刪除重複圖片：', path.basename(srcPath))
       }
-      continue;
+      catch (e) {
+        console.warn('[importSourceMeme] 刪除重複圖片失敗：', path.basename(srcPath), e)
+      }
+      continue
     }
 
-
     // 轉 webp、最長邊 700px
-    const id = randomUUID();
-    const dstPath = path.join(MEME_FILE_PATH, `meme-${id}.webp`);
+    const id = randomUUID()
+    const dstPath = path.join(MEME_FILE_PATH, `meme-${id}.webp`)
 
     try {
       await sharp(file)
-        .resize({ width: 700, height: 700, fit: "inside", withoutEnlargement: true })
-        .webp({ quality: 70 })
-        .toFile(dstPath);
+        .resize({ width: 700, height: 700, fit: 'inside', withoutEnlargement: true })
+        .flatten({ background: '#fff' })
+        .webp({ quality: 60, effort: 6, smartSubsample: true })
+        .toFile(dstPath)
 
       count++
 
       // 刪除來源檔
       try {
-        await unlink(srcPath);
-      } catch (e) {
-        console.warn("[importSourceMeme] 刪除來源檔失敗：", srcPath, e);
+        await unlink(srcPath)
       }
-    } catch (e) {
-      console.error("[importSourceMeme] 轉檔失敗：", srcPath, e);
+      catch (e) {
+        console.warn('[importSourceMeme] 刪除來源檔失敗：', srcPath, e)
+      }
+    }
+    catch (e) {
+      console.error('[importSourceMeme] 轉檔失敗：', srcPath, e)
     }
   }
 
-  console.log(`[importSourceMeme] 已匯入 ${count} 張圖片`);
+  console.log(`[importSourceMeme] 已匯入 ${count} 張圖片`)
 }
 
 async function main() {
@@ -273,8 +303,8 @@ async function main() {
         text: [
           '使用正體中文描述圖片，句子越精簡越好，描述人物、景色、情緒、出自甚麼作品，不要任何格式，忽略浮水印',
           '若有文字，則說明有甚麼文字，否則忽略',
-          '若為諧音雙關，則說明原始文句，否則忽略'
-        ].join('。')
+          '若為諧音雙關，則說明原始文句，否則忽略',
+        ].join('。'),
       },
     ]
 

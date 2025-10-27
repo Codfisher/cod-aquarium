@@ -120,7 +120,6 @@
             />
 
             <u-popover
-              v-model:open="cleanPopupVisible"
               :ui="{ content: 'z-[9999] p-2' }"
               arrow
             >
@@ -129,7 +128,7 @@
                 icon="i-material-symbols:cleaning-services-rounded"
               />
 
-              <template #content>
+              <template #content="{ close: closePopover }">
                 <div class=" text-sm p-2">
                   確定清空所有內容？
                 </div>
@@ -138,7 +137,7 @@
                   <u-button
                     label="確定"
                     class=" px-2! bg-red-400! text-white!"
-                    @click="clean()"
+                    @click="clean(); closePopover()"
                   />
                 </div>
               </template>
@@ -299,13 +298,7 @@ function toggleSettingForm() {
   editorRef.value?.toggleLayoutSettingVisible()
 }
 
-/** FIX: 文件明明說 slot 有 close 可以用，但是實際上沒有
- *
- * https://ui.nuxt.com/docs/components/popover#slots
- */
-const cleanPopupVisible = ref(false)
 function clean() {
-  cleanPopupVisible.value = false
   editorRef.value?.clean()
 }
 
