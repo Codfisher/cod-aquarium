@@ -159,9 +159,9 @@ async function minifyCurrentMeme() {
   }))
   await Promise.all(tasks)
 }
-minifyCurrentMeme().catch((e) => {
-  console.error(e)
-})
+// minifyCurrentMeme().catch((e) => {
+//   console.error(e)
+// })
 
 /** 從上傳資料夾引入 meme */
 async function importSourceMeme() {
@@ -348,6 +348,6 @@ async function main() {
   console.log('[main] done')
 }
 
-// main().catch((e) => {
-//   console.error(e)
-// })
+main().catch((e) => {
+  console.error(e)
+})
