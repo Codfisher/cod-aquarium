@@ -139,6 +139,26 @@ async function dedupeMeme() {
   console.log(`[dedupeMeme] 已刪除 ${removedMemeList.length} 張重複圖片`)
 }
 
+/** 壓縮現有檔案 */
+async function minifyCurrentMeme() {
+  const fileList = await getFilePathList(MEME_FILE_PATH)
+  const queue = new PQueue({ concurrency: 5 })
+
+  const tasks = fileList.map((filePath) => queue.add(async () => {
+    const newFile = await sharp(filePath)
+      .resize({ width: 700, height: 700, fit: 'inside', withoutEnlargement: true })
+      .flatten({ background: '#fff' })
+      .webp({ quality: 70, effort: 6, smartSubsample: true })
+      .toBuffer()
+
+    await writeFile(filePath, newFile)
+  }))
+  await Promise.all(tasks)
+}
+minifyCurrentMeme().catch((e) => {
+  console.error(e)
+})
+
 /** 從上傳資料夾引入 meme */
 async function importSourceMeme() {
   const fileList = await pipe(
@@ -324,6 +344,6 @@ async function main() {
   console.log('[main] done')
 }
 
-main().catch((e) => {
-  console.error(e)
-})
+// main().catch((e) => {
+//   console.error(e)
+// })
