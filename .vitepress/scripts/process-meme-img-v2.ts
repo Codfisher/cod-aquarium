@@ -139,20 +139,21 @@ async function dedupeMeme() {
   console.log(`[dedupeMeme] 已刪除 ${removedMemeList.length} 張重複圖片`)
 }
 
-/** 壓縮現有檔案 */
+/** 壓縮現有檔案，會寫入 temp 資料夾中 */
 async function minifyCurrentMeme() {
   const fileList = await getFilePathList(MEME_FILE_PATH)
-  const queue = new PQueue({ concurrency: 5 })
+  const queue = new PQueue({ concurrency: 10 })
 
   const tasks = fileList.map((filePath) => queue.add(async () => {
     const newFile = await sharp(filePath)
       .resize({ width: 700, height: 700, fit: 'inside', withoutEnlargement: true })
       .flatten({ background: '#fff' })
-      .webp({ quality: 70, effort: 6, smartSubsample: true })
+      .webp({ quality: 60, effort: 6, smartSubsample: true })
       .toBuffer()
 
     await writeFile(path.join(
-      `${path.dirname(filePath)}/temp`,
+      path.dirname(filePath),
+      'temp',
       path.basename(filePath),
     ), newFile)
   }))
@@ -253,7 +254,7 @@ async function importSourceMeme() {
       await sharp(file)
         .resize({ width: 700, height: 700, fit: 'inside', withoutEnlargement: true })
         .flatten({ background: '#fff' })
-        .webp({ quality: 70, effort: 6, smartSubsample: true })
+        .webp({ quality: 60, effort: 6, smartSubsample: true })
         .toFile(dstPath)
 
       count++
