@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { createReadStream, createWriteStream, existsSync, readFileSync } from 'node:fs'
-import { readdir, readFile, unlink, writeFile } from 'node:fs/promises'
+import { readdir, readFile, rename, unlink, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import process, { nextTick } from 'node:process'
 import readline from 'node:readline/promises'
@@ -151,7 +151,10 @@ async function minifyCurrentMeme() {
       .webp({ quality: 70, effort: 6, smartSubsample: true })
       .toBuffer()
 
-    await writeFile(filePath, newFile)
+    await writeFile(path.join(
+      `${path.dirname(filePath)}/temp`,
+      path.basename(filePath),
+    ), newFile)
   }))
   await Promise.all(tasks)
 }
