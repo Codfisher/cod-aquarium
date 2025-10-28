@@ -553,19 +553,19 @@ type SnapFn = (x: number, y: number) => { x: number; y: number; range?: number }
 const SNAP_RANGE = 8
 
 function toInteractSnapTargets(list: AlignTarget[]): SnapFn[] {
-  const fns: SnapFn[] = list.map((t) => {
-    if (t.type === 'point') {
-      return () => ({ x: t.x, y: t.y, range: SNAP_RANGE })
+  const result: SnapFn[] = list.map((target) => {
+    if (target.type === 'point') {
+      return () => ({ x: target.x, y: target.y, range: SNAP_RANGE * 2 })
     }
-    if ('x' in t) {
+    if ('x' in target) {
       // 垂直線
-      return (_, y) => ({ x: t.x, y, range: SNAP_RANGE })
+      return (_, y) => ({ x: target.x, y, range: SNAP_RANGE })
     }
     // 水平線
-    return (x, _) => ({ x, y: t.y, range: SNAP_RANGE })
+    return (x, _) => ({ x, y: target.y, range: SNAP_RANGE })
   })
 
-  return fns
+  return result
 }
 
 onMounted(() => {
@@ -576,6 +576,8 @@ onMounted(() => {
   }
 
   text.textContent = settings.value.text
+
+  console.log(`🚀 ~ alignTargetList:`, props.alignTargetList)
 
   const interactable = interact(box)
     .draggable({
@@ -604,6 +606,8 @@ onMounted(() => {
   watchThrottled(
     () => props.alignTargetList,
     (list) => {
+      console.log(`🚀 ~ alignTargetList:`, list)
+
       interactable.draggable({
         modifiers: [
           interact.modifiers.snap({
@@ -614,7 +618,7 @@ onMounted(() => {
       })
     },
     {
-      throttle: 300,
+      throttle: 0,
       deep: true,
       leading: false,
       trailing: true,

@@ -16,6 +16,7 @@
 
         <img
           v-if="props.data"
+          ref="imgRef"
           :src="`/memes/${props.data.file}`"
           class=" object-contain rounded-none! border-none! pointer-events-none w-[80vw] md:max-w-[50vw]!"
           draggable="false"
@@ -267,7 +268,11 @@ const layoutSetting = ref({
 })
 
 const boardRef = useTemplateRef('boardRef')
-const boardBounding = reactive(useElementBounding(boardRef))
+const boardBounding = reactive(useElementBounding(boardRef, {
+  updateTiming: 'next-frame',
+}))
+const imgRef = useTemplateRef('imgRef')
+const imgSize = reactive(useElementSize(imgRef))
 
 const targetItem = ref<TextItemData>()
 const textMap = shallowRef(new Map<string, TextItemData>())
@@ -422,6 +427,22 @@ const alignTargetList = computed<AlignTarget[]>(() => {
     result.push({
       type: 'axis',
       x: boardBounding.x + boardBounding.width / 2,
+    })
+  }
+
+  if (layoutSetting.value.topPadding.height !== 0) {
+    result.push({
+      type: 'point',
+      x: boardBounding.x + boardBounding.width / 2,
+      y: boardBounding.y + layoutSetting.value.topPadding.height / 2,
+    })
+  }
+
+  if (layoutSetting.value.bottomPadding.height !== 0) {
+    result.push({
+      type: 'point',
+      x: boardBounding.x + boardBounding.width / 2,
+      y: boardBounding.y + layoutSetting.value.topPadding.height + imgSize.height + layoutSetting.value.bottomPadding.height / 2,
     })
   }
 
