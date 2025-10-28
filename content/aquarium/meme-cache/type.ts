@@ -7,3 +7,7 @@ export const memeDataSchema = z.object({
   keyword: z.string(),
 })
 export type MemeData = z.infer<typeof memeDataSchema>
+
+export interface AlignTarget {
+  type: 'point';
+}
