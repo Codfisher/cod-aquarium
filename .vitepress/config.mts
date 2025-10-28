@@ -114,7 +114,6 @@ export default ({ mode }: { mode: string }) => {
             'ad_user_data': 'denied',
             'ad_personalization': 'denied',
           });
-          // 你會在 CMP 的「同意/拒絕」事件中呼叫以下兩個函式：
           window.__grantConsent = function () {
             gtag('consent', 'update', {
               'ad_storage': 'granted',

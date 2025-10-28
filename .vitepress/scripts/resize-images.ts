@@ -69,21 +69,19 @@ export async function generateImages() {
 
           return sharp(img)
             .resize({ width })
-            .webp({ quality: 90 })
+            .webp({ quality: 60, smartSubsample: true })
             .toFile(outputPath)
         }),
-        // 輸出一張原圖 quality 90 版本
+        // 輸出一張原圖 quality 60 版本
         (list) => {
           const outputPath = path.join(
             OUTPUT_PATH,
             `${filePath}.webp`,
           )
 
-          list.push(
-            sharp(img)
-              .webp({ quality: 90 })
-              .toFile(outputPath),
-          )
+          list.push(sharp(img)
+            .webp({ quality: 60, smartSubsample: true })
+            .toFile(outputPath))
 
           return list
         },
