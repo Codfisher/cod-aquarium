@@ -38,6 +38,7 @@
           :model-value="item.data"
           :is-editing="item.isEditing"
           :auto-focus="!isFromStorage"
+          :align-target-list="alignTargetList"
           @click="editItem(item)"
           @delete="deleteItem(item)"
           @update:model-value="(data) => updateItem(item, data)"
@@ -231,8 +232,8 @@
 <script setup lang="ts">
 import type { CSSProperties } from 'vue'
 import type { ComponentProps } from 'vue-component-type-helpers'
-import type { MemeData } from '../type'
-import { onClickOutside, promiseTimeout, useElementSize, useIntervalFn, useRafFn, useWindowSize, watchThrottled } from '@vueuse/core'
+import type { AlignTarget, MemeData } from '../type'
+import { onClickOutside, promiseTimeout, useElementBounding, useElementSize, useIntervalFn, useRafFn, useWindowSize, watchThrottled } from '@vueuse/core'
 import { nanoid } from 'nanoid'
 import { clone, map, pipe, sum } from 'remeda'
 import { computed, nextTick, reactive, ref, shallowRef, triggerRef, useTemplateRef, watch } from 'vue'
@@ -266,6 +267,7 @@ const layoutSetting = ref({
 })
 
 const boardRef = useTemplateRef('boardRef')
+const boardBounding = reactive(useElementBounding(boardRef))
 
 const targetItem = ref<TextItemData>()
 const textMap = shallowRef(new Map<string, TextItemData>())
@@ -412,6 +414,19 @@ const settingPresetList = [
 function presetStyle(data: typeof layoutSetting['value']) {
   layoutSetting.value = clone(data)
 }
+
+const alignTargetList = computed<AlignTarget[]>(() => {
+  const result: AlignTarget[] = []
+
+  if (boardBounding.width > 0) {
+    result.push({
+      type: 'axis',
+      x: boardBounding.x + boardBounding.width / 2,
+    })
+  }
+
+  return result
+})
 
 // 儲存設定值至 localStorage
 const isFromStorage = ref(true)

@@ -8,6 +8,14 @@ export const memeDataSchema = z.object({
 })
 export type MemeData = z.infer<typeof memeDataSchema>
 
-export interface AlignTarget {
+export type AlignTarget = {
   type: 'point';
+  x: number;
+  y: number;
+} | {
+  type: 'axis';
+  x: number;
+} | {
+  type: 'axis';
+  y: number;
 }

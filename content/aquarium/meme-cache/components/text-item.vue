@@ -335,11 +335,12 @@
 /** 不知道為甚麼，控制點都按不到 */
 // import Moveable from 'moveable'
 import type { CSSProperties } from 'vue'
+import type { AlignTarget } from '../type'
 import { autoUpdate, flip, offset, shift, useFloating } from '@floating-ui/vue'
 import { useToggle, useVModel, watchThrottled } from '@vueuse/core'
 import interact from 'interactjs'
 import { map, omit, pipe } from 'remeda'
-import { computed, onMounted, ref, useId, useTemplateRef } from 'vue'
+import { computed, onMounted, ref, useId, useTemplateRef, watch } from 'vue'
 import { nextFrame } from '../../../../web/common/utils'
 
 interface ModelValue {
@@ -362,6 +363,7 @@ interface Props {
   /** 建立後自動 focus */
   autoFocus?: boolean;
   modelValue?: ModelValue;
+  alignTargetList?: AlignTarget[];
 }
 const props = withDefaults(defineProps<Props>(), {
   isEditing: false,
@@ -380,7 +382,7 @@ const props = withDefaults(defineProps<Props>(), {
     backgroundColor: '#FFF',
     backgroundOpacity: 0,
   }),
-  fixOrigin: false,
+  alignTargetList: () => [],
 })
 
 const emit = defineEmits<{
@@ -546,6 +548,26 @@ function presetStyle(data: Partial<ModelValue>) {
   }
 }
 
+type SnapFn = (x: number, y: number) => { x: number; y: number; range?: number }
+/** 吸附半徑 */
+const SNAP_RANGE = 8
+
+function toInteractSnapTargets(list: AlignTarget[]): SnapFn[] {
+  const fns: SnapFn[] = list.map((t) => {
+    if (t.type === 'point') {
+      return () => ({ x: t.x, y: t.y, range: SNAP_RANGE })
+    }
+    if ('x' in t) {
+      // 垂直線
+      return (_, y) => ({ x: t.x, y, range: SNAP_RANGE })
+    }
+    // 水平線
+    return (x, _) => ({ x, y: t.y, range: SNAP_RANGE })
+  })
+
+  return fns
+}
+
 onMounted(() => {
   const box = boxRef.value
   const text = textRef.value
@@ -555,8 +577,14 @@ onMounted(() => {
 
   text.textContent = settings.value.text
 
-  interact(box)
+  const interactable = interact(box)
     .draggable({
+      modifiers: [
+        interact.modifiers.snap({
+          targets: toInteractSnapTargets(props.alignTargetList),
+          relativePoints: [{ x: 0.5, y: 0.5 }],
+        }),
+      ],
       listeners: {
         move(event) {
           settings.value.x += event.dx
@@ -567,10 +595,31 @@ onMounted(() => {
     .gesturable({
       listeners: {
         move(event) {
-          settings.value.angle += event.da
+          settings.value.angle += Math.floor(event.da)
         },
       },
     })
+
+  // alignTargetList 變動需要更新
+  watchThrottled(
+    () => props.alignTargetList,
+    (list) => {
+      interactable.draggable({
+        modifiers: [
+          interact.modifiers.snap({
+            targets: toInteractSnapTargets(list),
+            relativePoints: [{ x: 0.5, y: 0.5 }],
+          }),
+        ],
+      })
+    },
+    {
+      throttle: 300,
+      deep: true,
+      leading: false,
+      trailing: true,
+    },
+  )
 
   if (props.autoFocus) {
     nextFrame().then(() => {
