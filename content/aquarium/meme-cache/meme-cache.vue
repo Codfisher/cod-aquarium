@@ -1,9 +1,14 @@
 <template>
   <client-only>
-    <u-app :toaster="{
-      position: 'top-right',
-    }">
-      <div class="meme-cache flex flex-col">
+    <u-app
+      :toaster="{
+        position: 'top-right',
+      }"
+    >
+      <div
+        class="meme-cache flex flex-col"
+        @click="handleClick"
+      >
         <transition
           name="opacity"
           mode="out-in"
@@ -11,7 +16,7 @@
           <div
             ref="tipRef"
             :key="tipText"
-            class=" whitespace-pre  text-center py-6 opacity-30 "
+            class=" whitespace-pre  text-center py-6 opacity-80 "
             v-html="tipText"
           />
         </transition>
@@ -37,6 +42,7 @@
             > -->
 
           <u-input
+            ref="inputRef"
             v-model.trim="keyword"
             placeholder="輸入關鍵字或任何線索 (・∀・)９"
             class="w-full "
@@ -176,20 +182,22 @@ import UModal from '@nuxt/ui/components/Modal.vue'
 import { useActiveElement, useColorMode, useElementSize, useWindowSize, watchThrottled } from '@vueuse/core'
 import { snapdom } from '@zumer/snapdom'
 import Fuse from 'fuse.js'
-import { computed, h, reactive, ref, shallowRef, useTemplateRef, watch } from 'vue'
+import { computed, h, onMounted, reactive, ref, shallowRef, useTemplateRef, watch } from 'vue'
 import { nextFrame } from '../../../web/common/utils'
 import ImgEditor from './components/img-editor.vue'
 import ImgList from './components/img-list.vue'
 import { useMemeData } from './composables/use-meme-data'
 import { useStickyToolbar } from './composables/use-sticky-toolbar'
 
-const version = '0.2.3'
+const version = '0.2.4'
 // onMounted(() => {
 //   document.title = pipe(
 //     document.title.split('v'),
 //     ([value]) => `${value?.trim()} v${version}`,
 //   )
 // })
+
+const uploadUrl = 'https://drive.google.com/drive/u/2/folders/1UUpzhZPdI-i_7PhCYZNDS-BxbulATMlN'
 
 const isDev = import.meta.env.DEV
 
@@ -224,6 +232,7 @@ watch(memeDataMap, (data) => {
   fuse.setCollection(list)
 })
 
+const inputRef = useTemplateRef('inputRef')
 const keyword = ref('')
 const settings = ref({
   allVisible: false,
@@ -453,11 +462,45 @@ const tipText = computed(() => {
   }
 
   if (keyword.value && filteredList.value.length === 0) {
-    return '沒找到相關圖片 ( ´•̥̥̥ ω •̥̥̥` )<br>可以<a href="https://drive.google.com/drive/u/2/folders/1UUpzhZPdI-i_7PhCYZNDS-BxbulATMlN" target="_blank" class=" text-teal-600! font-extrabold">在此上傳圖片</a>，我會努力建檔'
+    return [
+      '沒找到相關圖片 ( ´•̥̥̥ ω •̥̥̥` )<br>可以<a href="',
+      uploadUrl,
+      '" target="_blank" class=" text-teal-600! font-extrabold">在此上傳圖片</a>，我會努力建檔',
+    ].join('')
   }
 
   return `找到 ${filteredList.value.length} 個候選項目 ੭ ˙ᗜ˙ )੭`
 })
+
+onMounted(async () => {
+  toast.add({
+    icon: 'ph:fish-simple-bold',
+    title: '歡迎來到快取梗圖 ( ´ ▽ ` )ﾉ',
+    description: [
+      '常常找不到記憶中的梗圖嗎？在下方輸入框輸入任何線索，我來幫你找找 ԅ(´∀` ԅ)',
+    ].join(''),
+    duration: 60000,
+    actions: [{
+      icon: 'material-symbols:drive-folder-upload-outline',
+      label: '按此投稿圖片',
+      color: 'neutral',
+      class: 'py-1! px-2!',
+      variant: 'outline',
+      onClick: () => {
+        window.open(uploadUrl)
+      },
+    }],
+  })
+
+  await nextFrame()
+  inputRef.value?.inputRef?.focus()
+})
+
+function handleClick() {
+  if (keyword.value === '') {
+    inputRef.value?.inputRef?.focus()
+  }
+}
 </script>
 
 <style scoped lang="sass">
