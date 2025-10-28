@@ -51,7 +51,7 @@
       }"
       arrow
     >
-      <div class="absolute left-0 top-0 p-6! opacity-60">
+      <div class="absolute right-0 bottom-0 p-6! opacity-60">
         <u-icon
           name="i-material-symbols:help-outline-rounded"
           class="size-10 text-white"
