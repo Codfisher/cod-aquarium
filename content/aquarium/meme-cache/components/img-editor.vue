@@ -26,6 +26,12 @@
           class="pointer-events-none shrink-0"
         />
 
+        <div class="watermark bottom-0 left-0 py-2 px-4">
+          <span class=" text-nowrap ">
+            快取梗圖
+          </span>
+        </div>
+
         <text-item
           v-for="item in list"
           :key="item.key"
@@ -45,10 +51,10 @@
       }"
       arrow
     >
-      <div class="absolute left-0 top-0 p-4! opacity-60">
+      <div class="absolute left-0 top-0 p-6! opacity-60">
         <u-icon
           name="i-material-symbols:help-outline-rounded"
-          class="size-8 text-white"
+          class="size-10 text-white"
         />
       </div>
 
@@ -491,4 +497,11 @@ defineExpose({
 </script>
 
 <style scoped lang="sass">
+.watermark
+  position: absolute
+  font-size: 1.25vmax
+  font-weight: 100
+  mix-blend-mode: exclusion
+  color: white
+  opacity: 0.2
 </style>
