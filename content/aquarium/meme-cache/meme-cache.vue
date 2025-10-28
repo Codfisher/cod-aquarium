@@ -77,13 +77,6 @@
           >
             <u-button icon="i-material-symbols:menu-rounded" />
 
-            <template #all>
-              <u-checkbox
-                v-model="settings.allVisible"
-                label="顯示全部"
-              />
-            </template>
-
             <template #detail>
               <u-checkbox
                 v-model="settings.detailVisible"
@@ -235,7 +228,6 @@ watch(memeDataMap, (data) => {
 const inputRef = useTemplateRef('inputRef')
 const keyword = ref('')
 const settings = ref({
-  allVisible: false,
   detailVisible: false,
 })
 const items = [
@@ -269,16 +261,18 @@ function handleSelect(data: MemeData) {
 }
 
 const filteredList = shallowRef<MemeData[]>([])
-watchThrottled(() => [keyword.value, settings.value.allVisible], () => {
-  if (!keyword.value && settings.value.allVisible) {
+watchThrottled(() => [keyword.value, memeDataMap.value], () => {
+  if (!keyword.value) {
     filteredList.value = [...memeDataMap.value.values()].reverse()
     return
   }
 
   filteredList.value = fuse.search(keyword.value).map(({ item }) => item)
 }, {
+  deep: true,
   throttle: 300,
   leading: false,
+  immediate: true,
 })
 
 watch(keyword, async () => {
@@ -453,11 +447,7 @@ const moreFcnItems = [
 ] as const satisfies DropdownMenuItem[]
 
 const tipText = computed(() => {
-  if (!keyword.value && settings.value.allVisible) {
-    return `真貪心，都給你吧 (´,,•ω•,,)`
-  }
-
-  if (!keyword.value && !settings.value.allVisible) {
+  if (!keyword.value) {
     return '常常找不到記憶中的梗圖嗎？\n我來幫你找找 ԅ(´∀` ԅ)'
   }
 
