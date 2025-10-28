@@ -499,7 +499,7 @@ defineExpose({
 <style scoped lang="sass">
 .watermark
   position: absolute
-  font-size: 1.25vmax
+  font-size: 1.5vmax
   font-weight: 100
   mix-blend-mode: exclusion
   color: white

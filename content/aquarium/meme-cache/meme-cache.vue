@@ -34,13 +34,6 @@
           class="toolbar flex gap-2 w-full fixed left-0 p-4 bg-white dark:bg-black "
           :style="toolbarStyle"
         >
-          <!-- <input
-              v-model.trim="keyword"
-              class=" py-4! px-6! w-full"
-              placeholder="輸入關鍵字或任何線索 (・∀・)９"
-              @keydown.enter="handleEnter"
-            > -->
-
           <u-input
             ref="inputRef"
             v-model.trim="keyword"
@@ -232,7 +225,6 @@ const settings = ref({
 })
 const items = [
   [
-    { slot: 'all' },
     { slot: 'detail', class: isDev ? '' : ' hidden!' },
   ],
   [
