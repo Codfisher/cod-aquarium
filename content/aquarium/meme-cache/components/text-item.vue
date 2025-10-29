@@ -611,7 +611,7 @@ const alignLineList = computed<Array<{
         }
       }
     },
-    (value) => value ? 0.4 : 0,
+    (value) => value ? 0.6 : 0,
   )
 
   return {
