@@ -535,7 +535,6 @@ const stylePresetList = pipe(
         'backgroundOpacity',
       ]),
       'backgroundColor': hexToRgba(item.data.backgroundColor, item.data.backgroundOpacity),
-      'fontSize': `${item.data.fontSize}px`,
       '-webkit-text-stroke': `${item.data.strokeWidth}px ${item.data.strokeColor}`,
     },
   })),
