@@ -456,14 +456,14 @@ const tipText = computed(() => {
 
 onMounted(async () => {
   toast.add({
-    icon: 'ph:fish-simple-bold',
+    icon: 'line-md:emoji-grin',
     title: '歡迎來到快取梗圖 ( ´ ▽ ` )ﾉ',
     description: [
       '常常找不到記憶中的梗圖嗎？在下方輸入框輸入任何線索，我來幫你找找 ԅ(´∀` ԅ)',
     ].join(''),
     duration: 60000,
     actions: [{
-      icon: 'material-symbols:drive-folder-upload-outline',
+      icon: 'line-md:uploading-loop',
       label: '按此投稿圖片',
       color: 'neutral',
       class: 'py-1! px-2!',
