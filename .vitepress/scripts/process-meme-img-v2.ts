@@ -189,19 +189,15 @@ async function importSourceMeme() {
         }
       })
 
-      const dataList = await Promise.all(tasks)
+      const dataList = pipe(
+        await Promise.all(tasks),
+        filter(({ hash }) => hash !== ''),
+      )
 
       return dataList.reduce((result, dataItem) => {
-        if (dataItem.hash === '') {
-          return result
-        }
-
-        const isDuplicate = result.some((resultItem) => {
-          if (resultItem.hash === '') {
-            return false
-          }
-          return distance(resultItem.hash, resultItem.hash) <= IMG_SIMILARITY_THRESHOLD
-        })
+        const isDuplicate = result.some((resultItem) =>
+          distance(resultItem.hash, resultItem.hash) <= IMG_SIMILARITY_THRESHOLD,
+        )
         if (!isDuplicate) {
           result.push(dataItem)
         }
