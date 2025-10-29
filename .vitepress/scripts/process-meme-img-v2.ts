@@ -26,7 +26,7 @@ const MEME_DATA_PATH = path.resolve(__dirname, '../../content/public/memes/a-mem
 const MEME_META_EXTEND_PATH = path.resolve(__dirname, '../../content/public/memes/a-memes-data-extend.ndjson')
 
 /** 圖片相似度閾值 */
-const IMG_SIMILARITY_THRESHOLD = 10
+const IMG_SIMILARITY_THRESHOLD = 5
 
 async function readExistingFilenames(ndjsonPath: string): Promise<Set<string>> {
   const names = new Set<string>()
