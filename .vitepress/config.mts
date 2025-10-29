@@ -103,37 +103,6 @@ export default ({ mode }: { mode: string }) => {
 
       return [
         [
-          'script',
-          {},
-          `
-          window.dataLayer = window.dataLayer || [];
-          function gtag(){ dataLayer.push(arguments); }
-          gtag('consent', 'default', {
-            'ad_storage': 'denied',
-            'analytics_storage': 'denied',
-            'ad_user_data': 'denied',
-            'ad_personalization': 'denied',
-          });
-          window.__grantConsent = function () {
-            gtag('consent', 'update', {
-              'ad_storage': 'granted',
-              'analytics_storage': 'granted',
-              'ad_user_data': 'granted',
-              'ad_personalization': 'granted'
-            });
-          };
-          window.__denyConsent = function () {
-            gtag('consent', 'update', {
-              'ad_storage': 'denied',
-              'analytics_storage': 'denied',
-              'ad_user_data': 'denied',
-              'ad_personalization': 'denied'
-            });
-          };
-        `,
-        ],
-
-        [
           'link',
           {
             rel: 'canonical',
@@ -151,7 +120,9 @@ export default ({ mode }: { mode: string }) => {
         [
           'script',
           {},
-          `gtag('js', new Date());
+          `window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
           gtag('config', 'G-WL47JJHL0R');`,
         ],
         [
