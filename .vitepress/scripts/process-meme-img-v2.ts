@@ -196,19 +196,23 @@ async function importSourceMeme() {
 
       return dataList.reduce((result, dataItem) => {
         const isDuplicate = result.some((resultItem) =>
-          distance(resultItem.hash, resultItem.hash) <= IMG_SIMILARITY_THRESHOLD,
+          distance(resultItem.hash, dataItem.hash) <= IMG_SIMILARITY_THRESHOLD,
         )
+
         if (!isDuplicate) {
           result.push(dataItem)
         }
         else {
           const filename = path.basename(dataItem.srcPath)
-          unlink(dataItem.srcPath).then(() => {
-            console.log('[importSourceMeme] 刪除來源重複圖片：', filename)
-          }).catch((e) => {
-            console.warn('[importSourceMeme] 刪除來源重複圖片失敗：', filename, e)
-          })
-        };
+          unlink(dataItem.srcPath)
+            .then(() => {
+              console.log('[importSourceMeme] 刪除來源重複圖片：', filename)
+            })
+            .catch((e) => {
+              console.warn('[importSourceMeme] 刪除來源重複圖片失敗：', filename, e)
+            })
+        }
+
         return result
       }, [] as typeof dataList)
     },
