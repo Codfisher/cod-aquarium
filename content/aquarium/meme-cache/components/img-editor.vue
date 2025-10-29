@@ -40,7 +40,7 @@
           :board-origin="boardBounding"
           :is-editing="item.isEditing"
           :auto-focus="!isFromStorage"
-          :align-target-list="alignTargetList"
+          :align-target-list="item.alignTargetList"
           @click="editItem(item)"
           @delete="deleteItem(item)"
           @update:model-value="(data) => updateItem(item, data)"
@@ -282,11 +282,6 @@ onClickOutside(boardRef, () => {
   targetItem.value = undefined
 })
 
-const list = computed(() => [...textMap.value.values()].map((item) => ({
-  ...item,
-  isEditing: targetItem.value?.key === item.key,
-})))
-
 function addItem(event: PointerEvent) {
   if (targetItem.value) {
     targetItem.value = undefined
@@ -421,7 +416,7 @@ function presetStyle(data: typeof layoutSetting['value']) {
   layoutSetting.value = clone(data)
 }
 
-const alignTargetList = computed<AlignTarget[]>(() => {
+const baseAlignTargetList = computed<AlignTarget[]>(() => {
   const result: AlignTarget[] = []
   const { x, y } = boardBounding
 
@@ -462,6 +457,32 @@ const alignTargetList = computed<AlignTarget[]>(() => {
   return result
 })
 
+const list = computed(() => [...textMap.value.values()].map((item, i, allItems) => {
+  const { x, y } = boardBounding
+
+  const alignTargetList: AlignTarget[] = [
+    ...baseAlignTargetList.value,
+    ...allItems
+      .filter(({ key }) => item.key !== key)
+      .flatMap((allItem) => [
+        {
+          type: 'axis',
+          x: x + (allItem.data?.x ?? 0),
+        },
+        {
+          type: 'axis',
+          y: y + (allItem.data?.y ?? 0),
+        },
+      ] as AlignTarget[])
+  ]
+
+  return {
+    ...item,
+    isEditing: targetItem.value?.key === item.key,
+    alignTargetList,
+  }
+}))
+
 // 儲存設定值至 localStorage
 const isFromStorage = ref(true)
 const storageKey = computed(() => `img-data:${props.data?.file}`)
@@ -477,7 +498,7 @@ useRafFn(() => {
   )
 
   localStorage.setItem(
-    `${storageKey.value}:imgSetting`,
+    `${storageKey.value}:layoutSetting`,
     JSON.stringify(layoutSetting.value),
   )
 }, {
@@ -503,7 +524,7 @@ async function initData() {
   }
 
   const prevImgSetting = pipe(
-    localStorage.getItem(`${storageKey.value}:imgSetting`),
+    localStorage.getItem(`${storageKey.value}:layoutSetting`),
     (value) => {
       try {
         return JSON.parse(value ?? '')
