@@ -1,10 +1,8 @@
 <template>
   <client-only>
-    <u-app
-      :toaster="{
-        position: 'top-right',
-      }"
-    >
+    <u-app :toaster="{
+      position: 'top-right',
+    }">
       <div
         class="meme-cache flex flex-col"
         @click="handleClick"
@@ -84,8 +82,7 @@
         v-model:open="editorVisible"
         title="編輯圖片"
         fullscreen
-        :transition="false"
-        class="z-70"
+        class="z-70 data-[state=open]:animate-[fade-in_200ms_ease-out] data-[state=closed]:animate-[fade-out_200ms_ease-in]"
         :ui="{
           header: ' hidden',
           body: 'p-0!',
@@ -177,7 +174,7 @@ import ImgList from './components/img-list.vue'
 import { useMemeData } from './composables/use-meme-data'
 import { useStickyToolbar } from './composables/use-sticky-toolbar'
 
-const version = '0.3.2'
+const version = '0.3.3'
 // onMounted(() => {
 //   document.title = pipe(
 //     document.title.split('v'),
