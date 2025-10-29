@@ -423,28 +423,28 @@ function presetStyle(data: typeof layoutSetting['value']) {
 const alignTargetList = computed<AlignTarget[]>(() => {
   const result: AlignTarget[] = []
 
-  if (boardBounding.width > 0) {
-    result.push({
-      type: 'axis',
-      x: boardBounding.x + boardBounding.width / 2,
-    })
-  }
+  // if (boardBounding.width > 0) {
+  //   result.push({
+  //     type: 'axis',
+  //     x: boardBounding.x + boardBounding.width / 2,
+  //   })
+  // }
 
-  if (layoutSetting.value.topPadding.height !== 0) {
-    result.push({
-      type: 'point',
-      x: boardBounding.x + boardBounding.width / 2,
-      y: boardBounding.y + layoutSetting.value.topPadding.height / 2,
-    })
-  }
+  // if (layoutSetting.value.topPadding.height !== 0) {
+  //   result.push({
+  //     type: 'point',
+  //     x: boardBounding.x + boardBounding.width / 2,
+  //     y: boardBounding.y + layoutSetting.value.topPadding.height / 2,
+  //   })
+  // }
 
-  if (layoutSetting.value.bottomPadding.height !== 0) {
-    result.push({
-      type: 'point',
-      x: boardBounding.x + boardBounding.width / 2,
-      y: boardBounding.y + layoutSetting.value.topPadding.height + imgSize.height + layoutSetting.value.bottomPadding.height / 2,
-    })
-  }
+  // if (layoutSetting.value.bottomPadding.height !== 0) {
+  //   result.push({
+  //     type: 'point',
+  //     x: boardBounding.x + boardBounding.width / 2,
+  //     y: boardBounding.y + layoutSetting.value.topPadding.height + imgSize.height + layoutSetting.value.bottomPadding.height / 2,
+  //   })
+  // }
 
   return result
 })
