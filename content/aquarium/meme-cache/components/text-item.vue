@@ -577,7 +577,7 @@ onMounted(() => {
 
   text.textContent = settings.value.text
 
-  // console.log(`🚀 ~ alignTargetList:`, props.alignTargetList)
+  console.log(`🚀 ~ alignTargetList:`, props.alignTargetList)
 
   const interactable = interact(box)
     .draggable({
@@ -606,7 +606,7 @@ onMounted(() => {
   watchThrottled(
     () => props.alignTargetList,
     (list) => {
-      // console.log(`🚀 ~ alignTargetList:`, list)
+      console.log(`🚀 ~ alignTargetList:`, list)
 
       interactable.draggable({
         modifiers: [
