@@ -330,12 +330,14 @@
     />
   </div>
 
-  <div
-    v-for="line, i in alignLineList"
-    :key="i"
-    class="align-line duration-200"
-    v-bind="line"
-  />
+  <teleport to="body">
+    <div
+      v-for="line, i in alignLineList"
+      :key="i"
+      class="align-line duration-200 z-999"
+      v-bind="line"
+    />
+  </teleport>
 </template>
 
 <script setup lang="ts">
@@ -468,7 +470,7 @@ function handleInput(event: InputEvent) {
 
 const toolbarRef = useTemplateRef('toolbarRef')
 const { floatingStyles: toolbarStyle } = useFloating(boxRef, toolbarRef, {
-  placement: 'bottom',
+  placement: 'right',
   whileElementsMounted: autoUpdate,
   middleware: [
     offset(10),
@@ -560,7 +562,7 @@ function presetStyle(data: Partial<ModelValue>) {
 const isDragging = ref(false)
 
 function eq(a: number, b: number) {
-  return Math.abs(a - b) < 0.001
+  return Math.abs(a - b) < 0.1
 }
 const alignLineList = computed<Array<{
   class: string;
