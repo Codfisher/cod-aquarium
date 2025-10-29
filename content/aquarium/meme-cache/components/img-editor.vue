@@ -37,6 +37,7 @@
           v-for="item in list"
           :key="item.key"
           :model-value="item.data"
+          :board-origin="boardBounding"
           :is-editing="item.isEditing"
           :auto-focus="!isFromStorage"
           :align-target-list="alignTargetList"
@@ -236,7 +237,7 @@ import type { ComponentProps } from 'vue-component-type-helpers'
 import type { AlignTarget, MemeData } from '../type'
 import { onClickOutside, promiseTimeout, useElementBounding, useElementSize, useIntervalFn, useRafFn, useWindowSize, watchThrottled } from '@vueuse/core'
 import { nanoid } from 'nanoid'
-import { clone, map, pipe, sum } from 'remeda'
+import { clone, pipe } from 'remeda'
 import { computed, nextTick, reactive, ref, shallowRef, triggerRef, useTemplateRef, watch } from 'vue'
 import { nextFrame } from '../../../../web/common/utils'
 import TextItem from './text-item.vue'
