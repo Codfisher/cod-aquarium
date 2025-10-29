@@ -344,10 +344,10 @@
 import type { CSSProperties } from 'vue'
 import type { AlignTarget } from '../type'
 import { autoUpdate, flip, offset, shift, useFloating } from '@floating-ui/vue'
-import { useElementBounding, useToggle, useVModel, watchThrottled } from '@vueuse/core'
+import { refThrottled, useToggle, useVModel, watchThrottled } from '@vueuse/core'
 import interact from 'interactjs'
-import { join, keys, map, mapValues, multiply, omit, pipe } from 'remeda'
-import { computed, onMounted, reactive, ref, useId, useTemplateRef, watch } from 'vue'
+import { join, keys, map, mapValues, omit, pipe } from 'remeda'
+import { computed, onMounted, ref, useId, useTemplateRef } from 'vue'
 import { nextFrame } from '../../../../web/common/utils'
 
 interface ModelValue {
@@ -405,6 +405,7 @@ const settings = useVModel(props, 'modelValue', emit, {
   passive: true,
   deep: true,
 })
+const throttledSettings = refThrottled(settings, 100, undefined, false)
 
 const boxRef = useTemplateRef('boxRef')
 const boxStyle = computed<CSSProperties>(() => ({
@@ -588,8 +589,8 @@ const alignLineList = computed<Array<{
       }
 
       const [x, y] = [
-        settings.value.x + props.boardOrigin.x,
-        settings.value.y + props.boardOrigin.y,
+        throttledSettings.value.x + props.boardOrigin.x,
+        throttledSettings.value.y + props.boardOrigin.y,
       ]
 
       if (item.type === 'point') {
@@ -597,7 +598,7 @@ const alignLineList = computed<Array<{
           return true
         }
       }
-      if ('y' in item) {
+      else if ('y' in item) {
         if (eq(y, item.y)) {
           return true
         }

@@ -423,27 +423,39 @@ function presetStyle(data: typeof layoutSetting['value']) {
 
 const alignTargetList = computed<AlignTarget[]>(() => {
   const result: AlignTarget[] = []
+  const { x, y } = boardBounding
+
+  const boardXCenter = x + boardBounding.width / 2
+  const { topPadding, bottomPadding } = layoutSetting.value
 
   if (boardBounding.width > 0) {
     result.push({
       type: 'axis',
-      x: boardBounding.x + boardBounding.width / 2,
+      x: boardXCenter,
     })
   }
 
-  if (layoutSetting.value.topPadding.height !== 0) {
+  if (topPadding.height !== 0) {
     result.push({
       type: 'point',
-      x: boardBounding.x + boardBounding.width / 2,
-      y: boardBounding.y + layoutSetting.value.topPadding.height / 2,
+      x: boardXCenter,
+      y: y + topPadding.height / 2,
+    })
+    result.push({
+      type: 'axis',
+      y: y + topPadding.height / 2,
     })
   }
 
-  if (layoutSetting.value.bottomPadding.height !== 0) {
+  if (bottomPadding.height !== 0) {
     result.push({
       type: 'point',
-      x: boardBounding.x + boardBounding.width / 2,
-      y: boardBounding.y + layoutSetting.value.topPadding.height + imgSize.height + layoutSetting.value.bottomPadding.height / 2,
+      x: boardXCenter,
+      y: y + topPadding.height + imgSize.height + bottomPadding.height / 2,
+    })
+    result.push({
+      type: 'axis',
+      y: y + topPadding.height + imgSize.height + bottomPadding.height / 2,
     })
   }
 
