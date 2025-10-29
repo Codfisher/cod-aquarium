@@ -64,7 +64,7 @@
           <u-dropdown-menu
             :items="mainMenuItems"
             :ui="{
-              content: 'z-[70]',
+              content: 'z-70',
               item: 'p-2!',
             }"
           >
@@ -84,7 +84,8 @@
         v-model:open="editorVisible"
         title="編輯圖片"
         fullscreen
-        class="z-[70]"
+        :transition="false"
+        class="z-70"
         :ui="{
           header: ' hidden',
           body: 'p-0!',
@@ -112,7 +113,7 @@
             />
 
             <u-popover
-              :ui="{ content: 'z-[9999] p-2' }"
+              :ui="{ content: 'z-9999 p-2' }"
               arrow
             >
               <u-button
@@ -139,7 +140,7 @@
             <u-dropdown-menu
               :items="moreFcnItems"
               :ui="{
-                content: 'z-[70]',
+                content: 'z-70',
                 item: 'p-2!',
               }"
             >

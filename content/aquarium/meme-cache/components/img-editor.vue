@@ -37,6 +37,7 @@
           v-for="item in list"
           :key="item.key"
           :model-value="item.data"
+          :board-origin="boardBounding"
           :is-editing="item.isEditing"
           :auto-focus="!isFromStorage"
           :align-target-list="alignTargetList"
@@ -236,7 +237,7 @@ import type { ComponentProps } from 'vue-component-type-helpers'
 import type { AlignTarget, MemeData } from '../type'
 import { onClickOutside, promiseTimeout, useElementBounding, useElementSize, useIntervalFn, useRafFn, useWindowSize, watchThrottled } from '@vueuse/core'
 import { nanoid } from 'nanoid'
-import { clone, map, pipe, sum } from 'remeda'
+import { clone, pipe } from 'remeda'
 import { computed, nextTick, reactive, ref, shallowRef, triggerRef, useTemplateRef, watch } from 'vue'
 import { nextFrame } from '../../../../web/common/utils'
 import TextItem from './text-item.vue'
@@ -422,29 +423,41 @@ function presetStyle(data: typeof layoutSetting['value']) {
 
 const alignTargetList = computed<AlignTarget[]>(() => {
   const result: AlignTarget[] = []
+  const { x, y } = boardBounding
 
-  // if (boardBounding.width > 0) {
-  //   result.push({
-  //     type: 'axis',
-  //     x: boardBounding.x + boardBounding.width / 2,
-  //   })
-  // }
+  const boardXCenter = x + boardBounding.width / 2
+  const { topPadding, bottomPadding } = layoutSetting.value
 
-  // if (layoutSetting.value.topPadding.height !== 0) {
-  //   result.push({
-  //     type: 'point',
-  //     x: boardBounding.x + boardBounding.width / 2,
-  //     y: boardBounding.y + layoutSetting.value.topPadding.height / 2,
-  //   })
-  // }
+  if (boardBounding.width > 0) {
+    result.push({
+      type: 'axis',
+      x: boardXCenter,
+    })
+  }
 
-  // if (layoutSetting.value.bottomPadding.height !== 0) {
-  //   result.push({
-  //     type: 'point',
-  //     x: boardBounding.x + boardBounding.width / 2,
-  //     y: boardBounding.y + layoutSetting.value.topPadding.height + imgSize.height + layoutSetting.value.bottomPadding.height / 2,
-  //   })
-  // }
+  if (topPadding.height !== 0) {
+    result.push({
+      type: 'point',
+      x: boardXCenter,
+      y: y + topPadding.height / 2,
+    })
+    result.push({
+      type: 'axis',
+      y: y + topPadding.height / 2,
+    })
+  }
+
+  if (bottomPadding.height !== 0) {
+    result.push({
+      type: 'point',
+      x: boardXCenter,
+      y: y + topPadding.height + imgSize.height + bottomPadding.height / 2,
+    })
+    result.push({
+      type: 'axis',
+      y: y + topPadding.height + imgSize.height + bottomPadding.height / 2,
+    })
+  }
 
   return result
 })

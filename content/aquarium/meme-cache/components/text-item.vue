@@ -329,6 +329,13 @@
       @click="emit('delete')"
     />
   </div>
+
+  <div
+    v-for="line, i in alignLineList"
+    :key="i"
+    class="align-line duration-200"
+    v-bind="line"
+  />
 </template>
 
 <script setup lang="ts">
@@ -337,10 +344,10 @@
 import type { CSSProperties } from 'vue'
 import type { AlignTarget } from '../type'
 import { autoUpdate, flip, offset, shift, useFloating } from '@floating-ui/vue'
-import { useToggle, useVModel, watchThrottled } from '@vueuse/core'
+import { refThrottled, useToggle, useVModel, watchThrottled } from '@vueuse/core'
 import interact from 'interactjs'
-import { map, omit, pipe } from 'remeda'
-import { computed, onMounted, ref, useId, useTemplateRef, watch } from 'vue'
+import { join, keys, map, mapValues, omit, pipe } from 'remeda'
+import { computed, onMounted, ref, useId, useTemplateRef } from 'vue'
 import { nextFrame } from '../../../../web/common/utils'
 
 interface ModelValue {
@@ -359,6 +366,7 @@ interface ModelValue {
 }
 
 interface Props {
+  boardOrigin: { x: number; y: number };
   isEditing?: boolean;
   /** 建立後自動 focus */
   autoFocus?: boolean;
@@ -397,6 +405,7 @@ const settings = useVModel(props, 'modelValue', emit, {
   passive: true,
   deep: true,
 })
+const throttledSettings = refThrottled(settings, 100, undefined, false)
 
 const boxRef = useTemplateRef('boxRef')
 const boxStyle = computed<CSSProperties>(() => ({
@@ -548,6 +557,75 @@ function presetStyle(data: Partial<ModelValue>) {
   }
 }
 
+const isDragging = ref(false)
+
+function eq(a: number, b: number) {
+  return Math.abs(a - b) < 0.001
+}
+const alignLineList = computed<Array<{
+  class: string;
+  style: CSSProperties;
+}>>(() => props.alignTargetList.map((item) => {
+  const { left, top } = pipe(
+    undefined,
+    () => {
+      if (item.type === 'point') {
+        return { left: item.x, top: item.y }
+      }
+      if ('y' in item) {
+        return { top: item.y }
+      }
+
+      return { left: item.x }
+    },
+    mapValues((value) => `${value}px`),
+  )
+
+  const opacity = pipe(
+    undefined,
+    () => {
+      if (!isDragging.value) {
+        return false
+      }
+
+      const [x, y] = [
+        throttledSettings.value.x + props.boardOrigin.x,
+        throttledSettings.value.y + props.boardOrigin.y,
+      ]
+
+      if (item.type === 'point') {
+        if (eq(x, item.x) && eq(y, item.y)) {
+          return true
+        }
+      }
+      else if ('y' in item) {
+        if (eq(y, item.y)) {
+          return true
+        }
+      }
+      else {
+        if (eq(x, item.x)) {
+          return true
+        }
+      }
+    },
+    (value) => value ? 0.4 : 0,
+  )
+
+  return {
+    class: pipe(
+      omit(item, ['type']),
+      keys(),
+      join(' '),
+    ),
+    style: {
+      left,
+      top,
+      opacity,
+    },
+  }
+}))
+
 type SnapFn = (x: number, y: number) => { x: number; y: number; range?: number }
 /** 吸附半徑 */
 const SNAP_RANGE = 8
@@ -577,8 +655,6 @@ onMounted(() => {
 
   text.textContent = settings.value.text
 
-  // console.log(`🚀 ~ alignTargetList:`, props.alignTargetList)
-
   const interactable = interact(box)
     .draggable({
       modifiers: [
@@ -588,6 +664,12 @@ onMounted(() => {
         }),
       ],
       listeners: {
+        start() {
+          isDragging.value = true
+        },
+        end() {
+          isDragging.value = false
+        },
         move(event) {
           settings.value.x += event.dx
           settings.value.y += event.dy
@@ -606,8 +688,6 @@ onMounted(() => {
   watchThrottled(
     () => props.alignTargetList,
     (list) => {
-      // console.log(`🚀 ~ alignTargetList:`, list)
-
       interactable.draggable({
         modifiers: [
           interact.modifiers.snap({
@@ -661,4 +741,27 @@ const [settingVisible, toggleSettingVisible] = useToggle(false)
 .toolbar
   box-shadow: 0px 0px 10px rgba(white, 0.6)
   z-index: 99999
+
+.align-line
+  position: fixed
+  pointer-events: none
+  &::before, &::after
+    content: ''
+    position: absolute
+    display: block
+    background: #FE9900
+
+  &.x::after
+    left: 0         原點
+    top: -100vh
+    width: 1px
+    height: 200vh
+    transform: translateX(-50%)
+
+  &.y::before
+    top: 0
+    left: -100vw
+    width: 200vw
+    height: 1px
+    transform: translateY(-50%)
 </style>
