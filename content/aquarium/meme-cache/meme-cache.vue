@@ -62,9 +62,9 @@
           </u-input>
 
           <u-dropdown-menu
-            :items="items"
+            :items="mainMenuItems"
             :ui="{
-              content: 'z-[70]',
+              content: 'z-70',
               item: 'p-2!',
             }"
           >
@@ -84,7 +84,8 @@
         v-model:open="editorVisible"
         title="編輯圖片"
         fullscreen
-        class="z-[70]"
+        :transition="false"
+        class="z-70"
         :ui="{
           header: ' hidden',
           body: 'p-0!',
@@ -112,7 +113,7 @@
             />
 
             <u-popover
-              :ui="{ content: 'z-[9999] p-2' }"
+              :ui="{ content: 'z-9999 p-2' }"
               arrow
             >
               <u-button
@@ -139,7 +140,7 @@
             <u-dropdown-menu
               :items="moreFcnItems"
               :ui="{
-                content: 'z-[70]',
+                content: 'z-70',
                 item: 'p-2!',
               }"
             >
@@ -168,6 +169,7 @@ import UModal from '@nuxt/ui/components/Modal.vue'
 import { useActiveElement, useColorMode, useElementSize, useWindowSize, watchThrottled } from '@vueuse/core'
 import { snapdom } from '@zumer/snapdom'
 import Fuse from 'fuse.js'
+import { filter, isTruthy, pipe } from 'remeda'
 import { computed, h, onMounted, reactive, ref, shallowRef, useTemplateRef, watch } from 'vue'
 import { nextFrame } from '../../../web/common/utils'
 import ImgEditor from './components/img-editor.vue'
@@ -175,7 +177,7 @@ import ImgList from './components/img-list.vue'
 import { useMemeData } from './composables/use-meme-data'
 import { useStickyToolbar } from './composables/use-sticky-toolbar'
 
-const version = '0.2.4'
+const version = '0.3.0'
 // onMounted(() => {
 //   document.title = pipe(
 //     document.title.split('v'),
@@ -223,27 +225,30 @@ const keyword = ref('')
 const settings = ref({
   detailVisible: false,
 })
-const items = [
+const mainMenuItems = pipe(
   [
-    { slot: 'detail', class: isDev ? '' : ' hidden!' },
-  ],
-  [
-    {
-      icon: 'i-ph:fish-simple-duotone',
-      label: '關於鱈魚',
-      onSelect() {
-        window.open('/', '_blank')
+    isDev
+      ? [{ slot: 'detail' }] satisfies DropdownMenuItem[]
+      : undefined,
+    [
+      {
+        icon: 'i-ph:fish-simple-duotone',
+        label: '關於鱈魚',
+        onSelect() {
+          window.open('/', '_blank')
+        },
       },
-    },
-    {
-      icon: 'i-material-symbols:favorite',
-      label: '鼓勵我',
-      onSelect() {
-        window.open('https://portaly.cc/codfish/support', '_blank')
+      {
+        icon: 'i-material-symbols:favorite',
+        label: '鼓勵我',
+        onSelect() {
+          window.open('https://portaly.cc/codfish/support', '_blank')
+        },
       },
-    },
+    ] satisfies DropdownMenuItem[],
   ],
-] as const satisfies DropdownMenuItem[][]
+  filter(isTruthy),
+)
 
 const editorVisible = ref(false)
 const targetMeme = shallowRef<MemeData>()
