@@ -42,6 +42,7 @@
           :auto-focus="!isFromStorage"
           :align-target-list="item.alignTargetList"
           @click="editItem(item)"
+          @duplicate="duplicateItem(item)"
           @delete="deleteItem(item)"
           @update:model-value="(data) => updateItem(item, data)"
         />
@@ -326,6 +327,30 @@ function updateItem(item: TextItemData, data: TextItemData['data']) {
     ...item,
     data,
   })
+}
+function duplicateItem(item: TextItemData) {
+  const newItem = {
+    key: nanoid(),
+    data: {
+      text: '點擊編輯',
+      angle: 0,
+      fontSize: 16,
+      fontWeight: 400,
+      lineHeight: 1.2,
+      strokeWidth: 4,
+      strokeColor: '#FFF',
+      color: '#000',
+      backgroundColor: '#FFF',
+      backgroundOpacity: 0,
+      ...item.data,
+      x: (item.data?.x ?? 0) + 10,
+      y: (item.data?.y ?? 0) + 10,
+    },
+  }
+
+  textMap.value.set(newItem.key, newItem)
+  triggerRef(textMap)
+  targetItem.value = newItem
 }
 function deleteItem(item: TextItemData) {
   textMap.value.delete(item.key)

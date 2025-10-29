@@ -323,6 +323,13 @@
     />
 
     <u-button
+      icon="i-material-symbols:content-copy-rounded"
+      class="p-2!"
+      size="lg"
+      @click="emit('duplicate')"
+    />
+
+    <u-button
       icon="i-lucide-trash-2"
       class="p-2!"
       size="lg"
@@ -397,6 +404,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
   'update:modelValue': [value: ModelValue];
+  'duplicate': [];
   'delete': [];
 }>()
 
@@ -483,8 +491,6 @@ const stylePresetList = pipe(
   [
     {
       data: {
-        fontSize: 16,
-        fontWeight: 400,
         strokeWidth: 5,
         strokeColor: '#FFF',
         color: '#000',
@@ -494,19 +500,6 @@ const stylePresetList = pipe(
     },
     {
       data: {
-        fontSize: 30,
-        fontWeight: 600,
-        strokeWidth: 5,
-        strokeColor: '#FFF',
-        color: '#000',
-        backgroundColor: '#FFF',
-        backgroundOpacity: 0,
-      },
-    },
-    {
-      data: {
-        fontSize: 16,
-        fontWeight: 400,
         strokeWidth: 5,
         strokeColor: '#FFF',
         color: '#F00',
@@ -516,8 +509,6 @@ const stylePresetList = pipe(
     },
     {
       data: {
-        fontSize: 16,
-        fontWeight: 400,
         strokeWidth: 5,
         strokeColor: '#000',
         color: '#FFF',
@@ -527,8 +518,6 @@ const stylePresetList = pipe(
     },
     {
       data: {
-        fontSize: 16,
-        fontWeight: 400,
         strokeWidth: 0,
         strokeColor: '#000',
         color: '#FFF',
