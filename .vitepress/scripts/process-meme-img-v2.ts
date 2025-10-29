@@ -189,30 +189,30 @@ async function importSourceMeme() {
         }
       })
 
-      const dataList = await Promise.all(tasks)
+      const dataList = pipe(
+        await Promise.all(tasks),
+        filter(({ hash }) => hash !== ''),
+      )
 
       return dataList.reduce((result, dataItem) => {
-        if (dataItem.hash === '') {
-          return result
-        }
+        const isDuplicate = result.some((resultItem) =>
+          distance(resultItem.hash, dataItem.hash) <= IMG_SIMILARITY_THRESHOLD,
+        )
 
-        const isDuplicate = result.some((resultItem) => {
-          if (resultItem.hash === '') {
-            return false
-          }
-          return distance(resultItem.hash, resultItem.hash) <= IMG_SIMILARITY_THRESHOLD
-        })
         if (!isDuplicate) {
           result.push(dataItem)
         }
         else {
           const filename = path.basename(dataItem.srcPath)
-          unlink(dataItem.srcPath).then(() => {
-            console.log('[importSourceMeme] 刪除來源重複圖片：', filename)
-          }).catch((e) => {
-            console.warn('[importSourceMeme] 刪除來源重複圖片失敗：', filename, e)
-          })
-        };
+          unlink(dataItem.srcPath)
+            .then(() => {
+              console.log('[importSourceMeme] 刪除來源重複圖片：', filename)
+            })
+            .catch((e) => {
+              console.warn('[importSourceMeme] 刪除來源重複圖片失敗：', filename, e)
+            })
+        }
+
         return result
       }, [] as typeof dataList)
     },
