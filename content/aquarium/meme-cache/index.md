@@ -7,6 +7,8 @@ layout: false
 
 <script setup>
 import MemeCache from './meme-cache.vue'
+import SeoContent from './seo-content.vue'
 </script>
 
 <meme-cache />
+<seo-content />
