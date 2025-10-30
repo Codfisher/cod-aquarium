@@ -469,7 +469,7 @@ const { floatingStyles: toolbarStyle } = useFloating(boxRef, toolbarRef, {
   middleware: [
     offset(10),
     shift(),
-    autoPlacement(),
+    flip(),
   ],
 })
 
