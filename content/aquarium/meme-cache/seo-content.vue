@@ -36,12 +36,7 @@
       </figure>
     </div>
 
-    <component
-      :is="'script'"
-      type="application/ld+json"
-    >
-      {{ jsonLdData }}
-    </component>
+    <json-ld />
   </section>
 </template>
 
@@ -49,7 +44,7 @@
 import { useMounted } from '@vueuse/core'
 import { filter, isTruthy, map, pipe, takeLast } from 'remeda'
 import { withBase } from 'vitepress'
-import { computed, ref } from 'vue'
+import { computed, defineComponent, h, ref } from 'vue'
 import rawNdjson from '../../public/memes/a-memes-data.ndjson?raw'
 
 interface MemeItem {
@@ -104,24 +99,26 @@ const jsonLdData = computed(() => {
     'contentUrl': absoluteUrl(fileSrc(it.file)),
   }))
 
-  return JSON.stringify(
-    {
-      '@context': 'https://schema.org',
-      '@type': 'CollectionPage',
-      'name': '網路迷因圖庫（精選）',
-      'inLanguage': 'zh-Hant-TW',
-      'hasPart': parts,
-    },
-    null,
-    2,
-  )
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'CollectionPage',
+    'name': '鱈魚 - 快取梗圖',
+    'inLanguage': 'zh-Hant-TW',
+    'hasPart': parts,
+  }
+})
+const JsonLd = defineComponent({
+  name: 'JsonLd',
+  render() {
+    return h('script', { type: 'application/ld+json' }, jsonLdData.value)
+  },
 })
 
 function absoluteUrl(path: string) {
   if (typeof window !== 'undefined' && path.startsWith('/')) {
     return window.location.origin + path
   }
-  return path
+  return `https://codlin.me/${path}`
 }
 
 const isMounted = useMounted()
@@ -141,14 +138,6 @@ const isMounted = useMounted()
   display: grid
   grid-template-columns: repeat(1, minmax(0, 1fr))
   gap: 1rem
-
-@media (min-width: 640px)
-  .grid
-    grid-template-columns: repeat(2, minmax(0, 1fr))
-
-@media (min-width: 960px)
-  .grid
-    grid-template-columns: repeat(3, minmax(0, 1fr))
 
 .card
   display: flex
