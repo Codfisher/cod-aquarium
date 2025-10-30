@@ -1,9 +1,9 @@
 <template>
   <div
     v-if="props.data"
-    class="py-[6vh] flex flex-col h-full bg-gray-300 overflow-auto relative"
+    class="py-[6vh] flex flex-col h-full bg-gray-300 dark:bg-gray-500 overflow-auto relative"
   >
-    <div class="flex-1 flex flex-col items-center bg-gray-300 ">
+    <div class="flex-1 flex flex-col items-center bg-gray-300 dark:bg-gray-500">
       <div
         ref="boardRef"
         class="board flex flex-col relative shadow-xl"
@@ -40,8 +40,9 @@
           :board-origin="boardBounding"
           :is-editing="item.isEditing"
           :auto-focus="!isFromStorage"
-          :align-target-list="alignTargetList"
+          :align-target-list="item.alignTargetList"
           @click="editItem(item)"
+          @duplicate="duplicateItem(item)"
           @delete="deleteItem(item)"
           @update:model-value="(data) => updateItem(item, data)"
         />
@@ -282,11 +283,6 @@ onClickOutside(boardRef, () => {
   targetItem.value = undefined
 })
 
-const list = computed(() => [...textMap.value.values()].map((item) => ({
-  ...item,
-  isEditing: targetItem.value?.key === item.key,
-})))
-
 function addItem(event: PointerEvent) {
   if (targetItem.value) {
     targetItem.value = undefined
@@ -331,6 +327,30 @@ function updateItem(item: TextItemData, data: TextItemData['data']) {
     ...item,
     data,
   })
+}
+function duplicateItem(item: TextItemData) {
+  const newItem = {
+    key: nanoid(),
+    data: {
+      text: '點擊編輯',
+      angle: 0,
+      fontSize: 16,
+      fontWeight: 400,
+      lineHeight: 1.2,
+      strokeWidth: 4,
+      strokeColor: '#FFF',
+      color: '#000',
+      backgroundColor: '#FFF',
+      backgroundOpacity: 0,
+      ...item.data,
+      x: (item.data?.x ?? 0) + 10,
+      y: (item.data?.y ?? 0) + 10,
+    },
+  }
+
+  textMap.value.set(newItem.key, newItem)
+  triggerRef(textMap)
+  targetItem.value = newItem
 }
 function deleteItem(item: TextItemData) {
   textMap.value.delete(item.key)
@@ -421,7 +441,7 @@ function presetStyle(data: typeof layoutSetting['value']) {
   layoutSetting.value = clone(data)
 }
 
-const alignTargetList = computed<AlignTarget[]>(() => {
+const baseAlignTargetList = computed<AlignTarget[]>(() => {
   const result: AlignTarget[] = []
   const { x, y } = boardBounding
 
@@ -462,6 +482,32 @@ const alignTargetList = computed<AlignTarget[]>(() => {
   return result
 })
 
+const list = computed(() => [...textMap.value.values()].map((item, i, allItems) => {
+  const { x, y } = boardBounding
+
+  const alignTargetList: AlignTarget[] = [
+    ...baseAlignTargetList.value,
+    ...allItems
+      .filter(({ key }) => item.key !== key)
+      .flatMap((allItem) => [
+        {
+          type: 'axis',
+          x: x + (allItem.data?.x ?? 0),
+        },
+        {
+          type: 'axis',
+          y: y + (allItem.data?.y ?? 0),
+        },
+      ] as AlignTarget[]),
+  ]
+
+  return {
+    ...item,
+    isEditing: targetItem.value?.key === item.key,
+    alignTargetList,
+  }
+}))
+
 // 儲存設定值至 localStorage
 const isFromStorage = ref(true)
 const storageKey = computed(() => `img-data:${props.data?.file}`)
@@ -477,7 +523,7 @@ useRafFn(() => {
   )
 
   localStorage.setItem(
-    `${storageKey.value}:imgSetting`,
+    `${storageKey.value}:layoutSetting`,
     JSON.stringify(layoutSetting.value),
   )
 }, {
@@ -503,7 +549,7 @@ async function initData() {
   }
 
   const prevImgSetting = pipe(
-    localStorage.getItem(`${storageKey.value}:imgSetting`),
+    localStorage.getItem(`${storageKey.value}:layoutSetting`),
     (value) => {
       try {
         return JSON.parse(value ?? '')

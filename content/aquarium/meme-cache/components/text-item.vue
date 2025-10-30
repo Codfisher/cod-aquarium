@@ -323,6 +323,13 @@
     />
 
     <u-button
+      icon="i-material-symbols:content-copy-outline-rounded"
+      class="p-2!"
+      size="lg"
+      @click="emit('duplicate')"
+    />
+
+    <u-button
       icon="i-lucide-trash-2"
       class="p-2!"
       size="lg"
@@ -351,6 +358,7 @@ import interact from 'interactjs'
 import { join, keys, map, mapValues, omit, pipe } from 'remeda'
 import { computed, onMounted, ref, useId, useTemplateRef } from 'vue'
 import { nextFrame } from '../../../../web/common/utils'
+import { hexToRgba, isClose } from '../utils'
 
 interface ModelValue {
   text: string;
@@ -397,6 +405,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
   'update:modelValue': [value: ModelValue];
+  'duplicate': [];
   'delete': [];
 }>()
 
@@ -418,21 +427,6 @@ const boxStyle = computed<CSSProperties>(() => ({
   userSelect: props.isEditing ? 'text' : 'none',
   outline: props.isEditing ? '1px dashed #3b82f6' : 'none',
 }))
-
-function hexToRgba(hex: string, alpha = 1) {
-  let h = hex.replace(/^#/, '')
-  if (h.length === 3)
-    h = h.split('').map((c) => c + c).join('') // #000 -> #000000
-  if (h.length !== 6)
-    throw new Error('Invalid hex color')
-
-  const num = Number.parseInt(h, 16)
-  const r = (num >> 16) & 255
-  const g = (num >> 8) & 255
-  const b = num & 255
-
-  return `rgba(${r}, ${g}, ${b}, ${Math.max(0, Math.min(1, alpha))})`
-}
 
 const textRef = useTemplateRef('textRef')
 const textStyle = computed<CSSProperties>(() => ({
@@ -483,8 +477,6 @@ const stylePresetList = pipe(
   [
     {
       data: {
-        fontSize: 16,
-        fontWeight: 400,
         strokeWidth: 5,
         strokeColor: '#FFF',
         color: '#000',
@@ -494,19 +486,6 @@ const stylePresetList = pipe(
     },
     {
       data: {
-        fontSize: 30,
-        fontWeight: 600,
-        strokeWidth: 5,
-        strokeColor: '#FFF',
-        color: '#000',
-        backgroundColor: '#FFF',
-        backgroundOpacity: 0,
-      },
-    },
-    {
-      data: {
-        fontSize: 16,
-        fontWeight: 400,
         strokeWidth: 5,
         strokeColor: '#FFF',
         color: '#F00',
@@ -516,8 +495,6 @@ const stylePresetList = pipe(
     },
     {
       data: {
-        fontSize: 16,
-        fontWeight: 400,
         strokeWidth: 5,
         strokeColor: '#000',
         color: '#FFF',
@@ -527,8 +504,6 @@ const stylePresetList = pipe(
     },
     {
       data: {
-        fontSize: 16,
-        fontWeight: 400,
         strokeWidth: 0,
         strokeColor: '#000',
         color: '#FFF',
@@ -546,7 +521,6 @@ const stylePresetList = pipe(
         'backgroundOpacity',
       ]),
       'backgroundColor': hexToRgba(item.data.backgroundColor, item.data.backgroundOpacity),
-      'fontSize': `${item.data.fontSize}px`,
       '-webkit-text-stroke': `${item.data.strokeWidth}px ${item.data.strokeColor}`,
     },
   })),
@@ -561,9 +535,6 @@ function presetStyle(data: Partial<ModelValue>) {
 
 const isDragging = ref(false)
 
-function eq(a: number, b: number) {
-  return Math.abs(a - b) < 0.1
-}
 const alignLineList = computed<Array<{
   class: string;
   style: CSSProperties;
@@ -596,22 +567,22 @@ const alignLineList = computed<Array<{
       ]
 
       if (item.type === 'point') {
-        if (eq(x, item.x) && eq(y, item.y)) {
+        if (isClose(x, item.x) && isClose(y, item.y)) {
           return true
         }
       }
       else if ('y' in item) {
-        if (eq(y, item.y)) {
+        if (isClose(y, item.y)) {
           return true
         }
       }
       else {
-        if (eq(x, item.x)) {
+        if (isClose(x, item.x)) {
           return true
         }
       }
     },
-    (value) => value ? 0.4 : 0,
+    (value) => value ? 0.6 : 0,
   )
 
   return {
