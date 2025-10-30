@@ -4,13 +4,13 @@
   "private": true,
   "scripts": {
     "dev": "vitepress dev --port 3000 --host",
+    "task:process-meme": "npx vite-node .vitepress/scripts/process-meme-img-v2.ts",
     "build": "vitepress build",
     "preview": "npm run build && vitepress preview",
     "server:generate": "drizzle-kit generate",
     "server:test": "vitest --project server",
     "server:migrate": "wrangler d1 migrations apply cod-aquarium --remote",
-    "server:dev": "wrangler dev --local",
-    "task:process-meme": "npx vite-node .vitepress/scripts/process-meme-img-v2.ts"
+    "server:dev": "wrangler dev --local"
   },
   "dependencies": {
     "@hono/zod-validator": "^0.7.3",
