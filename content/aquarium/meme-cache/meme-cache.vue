@@ -1,8 +1,10 @@
 <template>
   <client-only>
-    <u-app :toaster="{
-      position: 'top-right',
-    }">
+    <u-app
+      :toaster="{
+        position: 'top-right',
+      }"
+    >
       <div
         class="meme-cache flex flex-col"
         @click="handleClick"
@@ -174,7 +176,7 @@ import ImgList from './components/img-list.vue'
 import { useMemeData } from './composables/use-meme-data'
 import { useStickyToolbar } from './composables/use-sticky-toolbar'
 
-const version = '0.3.3'
+const version = '0.4.0'
 // onMounted(() => {
 //   document.title = pipe(
 //     document.title.split('v'),
@@ -188,7 +190,6 @@ const isDev = import.meta.env.DEV
 
 // Nuxt UI 接管 vitepress 的 dark 設定，故改用 useColorMode
 const colorMode = useColorMode()
-colorMode.value = 'light'
 
 const toast = useToast()
 const overlay = useOverlay()
@@ -224,9 +225,18 @@ const settings = ref({
 })
 const mainMenuItems = pipe(
   [
-    isDev
-      ? [{ slot: 'detail' }] satisfies DropdownMenuItem[]
-      : undefined,
+    filter([
+      isDev
+        ? { slot: 'detail' }
+        : undefined,
+      {
+        icon: 'i-material-symbols:nightlight-badge-rounded',
+        label: '切換日夜模式',
+        onSelect() {
+          colorMode.value = colorMode.value === 'dark' ? 'light' : 'dark'
+        },
+      } satisfies DropdownMenuItem,
+    ], isTruthy),
     [
       {
         icon: 'i-ph:fish-simple-duotone',
@@ -424,7 +434,7 @@ const moreFcnItems = [
             ui: {
               overlay: 'z-[99999]',
               content: 'z-[999999] ',
-              body: 'bg-gray-100',
+              body: 'bg-gray-100 dark:bg-gray-400',
             },
           },
           {
