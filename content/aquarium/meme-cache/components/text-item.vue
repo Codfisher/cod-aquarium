@@ -323,7 +323,7 @@
     />
 
     <u-button
-      icon="i-material-symbols:content-copy-rounded"
+      icon="i-material-symbols:content-copy-outline-rounded"
       class="p-2!"
       size="lg"
       @click="emit('duplicate')"
@@ -534,7 +534,6 @@ function presetStyle(data: Partial<ModelValue>) {
 }
 
 const isDragging = ref(false)
-
 
 const alignLineList = computed<Array<{
   class: string;

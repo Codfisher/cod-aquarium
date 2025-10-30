@@ -1,9 +1,9 @@
 <template>
   <div
     v-if="props.data"
-    class="py-[6vh] flex flex-col h-full bg-gray-300 overflow-auto relative"
+    class="py-[6vh] flex flex-col h-full bg-gray-300 dark:bg-gray-500 overflow-auto relative"
   >
-    <div class="flex-1 flex flex-col items-center bg-gray-300 ">
+    <div class="flex-1 flex flex-col items-center bg-gray-300 dark:bg-gray-500">
       <div
         ref="boardRef"
         class="board flex flex-col relative shadow-xl"
@@ -498,7 +498,7 @@ const list = computed(() => [...textMap.value.values()].map((item, i, allItems) 
           type: 'axis',
           y: y + (allItem.data?.y ?? 0),
         },
-      ] as AlignTarget[])
+      ] as AlignTarget[]),
   ]
 
   return {
