@@ -128,6 +128,7 @@ const isMounted = useMounted()
   max-width: 1100px
   margin: 0 auto
   padding: 1rem 1rem 2rem
+  padding-top: 200vh
 
 .page-title
   font-size: clamp(1.5rem, 2.5vw, 2rem)

@@ -169,14 +169,15 @@ import { useActiveElement, useColorMode, useElementSize, useWindowSize, watchThr
 import { snapdom } from '@zumer/snapdom'
 import Fuse from 'fuse.js'
 import { filter, isTruthy, pipe } from 'remeda'
-import { computed, h, onMounted, reactive, ref, shallowRef, useTemplateRef, watch } from 'vue'
+import { computed, h, onBeforeUnmount, onMounted, reactive, ref, shallowRef, useTemplateRef, watch } from 'vue'
 import { nextFrame } from '../../../web/common/utils'
+import { usePageNoScroll } from '../../../web/composables/use-page-no-scroll'
 import ImgEditor from './components/img-editor.vue'
 import ImgList from './components/img-list.vue'
 import { useMemeData } from './composables/use-meme-data'
 import { useStickyToolbar } from './composables/use-sticky-toolbar'
 
-const version = '0.4.1'
+const version = '0.4.2'
 // onMounted(() => {
 //   document.title = pipe(
 //     document.title.split('v'),
@@ -495,6 +496,8 @@ function handleClick() {
     inputRef.value?.inputRef?.focus()
   }
 }
+
+usePageNoScroll()
 </script>
 
 <style scoped lang="sass">
