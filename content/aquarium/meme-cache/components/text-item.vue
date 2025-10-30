@@ -352,7 +352,7 @@
 // import Moveable from 'moveable'
 import type { CSSProperties } from 'vue'
 import type { AlignTarget } from '../type'
-import { autoUpdate, flip, offset, shift, useFloating } from '@floating-ui/vue'
+import { autoPlacement, autoUpdate, flip, offset, shift, useFloating } from '@floating-ui/vue'
 import { refThrottled, useToggle, useVModel, watchThrottled } from '@vueuse/core'
 import interact from 'interactjs'
 import { join, keys, map, mapValues, omit, pipe } from 'remeda'
@@ -464,12 +464,12 @@ function handleInput(event: InputEvent) {
 
 const toolbarRef = useTemplateRef('toolbarRef')
 const { floatingStyles: toolbarStyle } = useFloating(boxRef, toolbarRef, {
-  placement: 'right',
+  placement: 'top',
   whileElementsMounted: autoUpdate,
   middleware: [
     offset(10),
     shift(),
-    flip(),
+    autoPlacement(),
   ],
 })
 
