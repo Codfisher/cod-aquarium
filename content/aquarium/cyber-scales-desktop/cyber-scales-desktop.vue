@@ -52,6 +52,7 @@ import { promiseTimeout, useAsyncState, useColorMode, useWindowSize } from '@vue
 import { useData } from 'vitepress'
 import { computed, onBeforeUnmount, onMounted, reactive } from 'vue'
 import { nextFrame } from '../../../web/common/utils'
+import { usePageNoScroll } from '../../../web/composables/use-page-no-scroll'
 import CursorFuturistic from './components/cursor-futuristic/cursor-futuristic.vue'
 import DesktopItem from './components/desktop-item/desktop-item.vue'
 import HexagonLayout from './components/hexagon-layout.vue'
@@ -153,6 +154,8 @@ const { isLoading: isFontLoading } = useAsyncState(async () => {
 const isMobile = computed(() => windowSize.width < 640)
 
 const isLoading = computed(() => isFontLoading.value || isAssetLoading.value)
+
+usePageNoScroll()
 </script>
 
 <style lang="sass">
