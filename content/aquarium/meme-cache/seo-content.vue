@@ -36,7 +36,12 @@
       </figure>
     </div>
 
-    <json-ld />
+    <component
+      :is="'script'"
+      type="application/ld+json"
+    >
+      {{ jsonLdData }}
+    </component>
   </section>
 </template>
 
@@ -44,7 +49,7 @@
 import { useMounted } from '@vueuse/core'
 import { filter, isTruthy, map, pipe, takeLast } from 'remeda'
 import { withBase } from 'vitepress'
-import { computed, defineComponent, h, ref } from 'vue'
+import { computed, ref } from 'vue'
 import rawNdjson from '../../public/memes/a-memes-data.ndjson?raw'
 
 interface MemeItem {
@@ -77,14 +82,16 @@ function parseNdjson(text: string): MemeItem[] {
   ) as MemeItem[]
 }
 
+// 依據 VitePress base 取得真實路徑
 const fileSrc = (file: string) => withBase(`/memes/${file}`)
 
-/** 以描述前 18~24 字當標題；沒有就用檔名 */
 function toName(item: MemeItem) {
+  // 以描述前 18~24 字當標題；沒有就用檔名
   const d = (item.describe || '').replace(/\s+/g, '')
   return d ? (d.length > 24 ? `${d.slice(0, 24)}…` : d) : item.file
 }
 function toAlt(item: MemeItem) {
+  // alt 保持客觀、精簡（給助讀器與索引）
   return (item.describe || '').replace(/\s+/g, ' ').trim() || '迷因圖片'
 }
 const toCaption = (item: MemeItem) => item.describe || ''
@@ -104,12 +111,6 @@ const jsonLdData = computed(() => {
     'inLanguage': 'zh-Hant-TW',
     'hasPart': parts,
   }
-})
-const JsonLd = defineComponent({
-  name: 'JsonLd',
-  render() {
-    return h('script', { type: 'application/ld+json' }, jsonLdData.value)
-  },
 })
 
 function absoluteUrl(path: string) {
