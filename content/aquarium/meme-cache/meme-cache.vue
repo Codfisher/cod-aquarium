@@ -178,12 +178,6 @@ import { useMemeData } from './composables/use-meme-data'
 import { useStickyToolbar } from './composables/use-sticky-toolbar'
 
 const version = '0.4.2'
-// onMounted(() => {
-//   document.title = pipe(
-//     document.title.split('v'),
-//     ([value]) => `${value?.trim()} v${version}`,
-//   )
-// })
 
 const uploadUrl = 'https://drive.google.com/drive/u/2/folders/1UUpzhZPdI-i_7PhCYZNDS-BxbulATMlN'
 
