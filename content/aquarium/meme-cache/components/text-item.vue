@@ -352,7 +352,7 @@
 // import Moveable from 'moveable'
 import type { CSSProperties } from 'vue'
 import type { AlignTarget } from '../type'
-import { autoPlacement, autoUpdate, flip, offset, shift, useFloating } from '@floating-ui/vue'
+import { autoUpdate, flip, offset, shift, useFloating } from '@floating-ui/vue'
 import { refThrottled, useToggle, useVModel, watchThrottled } from '@vueuse/core'
 import interact from 'interactjs'
 import { join, keys, map, mapValues, omit, pipe } from 'remeda'

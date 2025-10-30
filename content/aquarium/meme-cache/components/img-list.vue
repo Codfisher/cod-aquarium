@@ -54,7 +54,7 @@
 import type { MemeData } from '../type'
 import { useVirtualList, useWindowSize } from '@vueuse/core'
 import { chunk } from 'remeda'
-import { computed, reactive, toRef, toRefs } from 'vue'
+import { computed, reactive } from 'vue'
 
 interface Props {
   list: MemeData[];
