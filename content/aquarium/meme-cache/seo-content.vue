@@ -78,7 +78,7 @@ function parseNdjson(text: string): MemeItem[] {
       }
     }),
     filter(isTruthy),
-    takeLast(50),
+    takeLast(20),
   ) as MemeItem[]
 }
 
