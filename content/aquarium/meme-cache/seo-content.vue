@@ -82,16 +82,14 @@ function parseNdjson(text: string): MemeItem[] {
   ) as MemeItem[]
 }
 
-// 依據 VitePress base 取得真實路徑
 const fileSrc = (file: string) => withBase(`/memes/${file}`)
 
+/** 以描述前 18~24 字當標題；沒有就用檔名 */
 function toName(item: MemeItem) {
-  // 以描述前 18~24 字當標題；沒有就用檔名
   const d = (item.describe || '').replace(/\s+/g, '')
   return d ? (d.length > 24 ? `${d.slice(0, 24)}…` : d) : item.file
 }
 function toAlt(item: MemeItem) {
-  // alt 保持客觀、精簡（給助讀器與索引）
   return (item.describe || '').replace(/\s+/g, ' ').trim() || '迷因圖片'
 }
 const toCaption = (item: MemeItem) => item.describe || ''
@@ -151,7 +149,6 @@ const isMounted = useMounted()
   display: block
   width: 100%
 
-/* 若未知實際寬高，利用 aspect-ratio 避免 CLS（有寬高可刪除此設定） */
 .card picture
   aspect-ratio: 4 / 3
   background: var(--vp-c-bg-alt)
