@@ -177,7 +177,7 @@ import ImgList from './components/img-list.vue'
 import { useMemeData } from './composables/use-meme-data'
 import { useStickyToolbar } from './composables/use-sticky-toolbar'
 
-const version = '0.4.2'
+const version = '0.5.0'
 
 const uploadUrl = 'https://drive.google.com/drive/u/2/folders/1UUpzhZPdI-i_7PhCYZNDS-BxbulATMlN'
 
