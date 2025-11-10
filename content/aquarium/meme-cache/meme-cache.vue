@@ -168,7 +168,7 @@ import UModal from '@nuxt/ui/components/Modal.vue'
 import { useActiveElement, useColorMode, useElementSize, useWindowSize, watchThrottled } from '@vueuse/core'
 import { snapdom } from '@zumer/snapdom'
 import Fuse from 'fuse.js'
-import { filter, isTruthy, pipe } from 'remeda'
+import { filter, isTruthy, pipe, shuffle } from 'remeda'
 import { computed, h, onBeforeUnmount, onMounted, reactive, ref, shallowRef, useTemplateRef, watch } from 'vue'
 import { nextFrame } from '../../../web/common/utils'
 import { usePageNoScroll } from '../../../web/composables/use-page-no-scroll'
@@ -177,7 +177,7 @@ import ImgList from './components/img-list.vue'
 import { useMemeData } from './composables/use-meme-data'
 import { useStickyToolbar } from './composables/use-sticky-toolbar'
 
-const version = '0.4.2'
+const version = '0.5.0'
 
 const uploadUrl = 'https://drive.google.com/drive/u/2/folders/1UUpzhZPdI-i_7PhCYZNDS-BxbulATMlN'
 
@@ -218,12 +218,22 @@ const keyword = ref('')
 const settings = ref({
   detailVisible: false,
 })
+
+const filteredList = shallowRef<MemeData[]>([])
+
 const mainMenuItems = pipe(
   [
     filter([
       isDev
         ? { slot: 'detail' }
         : undefined,
+      {
+        icon: 'i-lets-icons:sort-random',
+        label: '洗牌',
+        onSelect() {
+          filteredList.value = shuffle(filteredList.value)
+        },
+      },
       {
         icon: 'i-material-symbols:nightlight-badge-rounded',
         label: '切換日夜模式',
@@ -259,7 +269,6 @@ function handleSelect(data: MemeData) {
   editorVisible.value = true
 }
 
-const filteredList = shallowRef<MemeData[]>([])
 watchThrottled(() => [keyword.value, memeDataMap.value], () => {
   if (!keyword.value) {
     filteredList.value = [...memeDataMap.value.values()].reverse()
