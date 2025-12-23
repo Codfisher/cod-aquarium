@@ -12,15 +12,15 @@
     <!-- scroll 結構 -->
     <div
       ref="outerRef"
-      class="h-[20vh] overflow-y-auto p-14 pl-6 rounded-lg border-3 border-gray-100"
+      class="h-[30vh] overflow-y-auto p-14 pl-6 rounded-lg border-3 border-gray-100"
     >
       <div
         ref="middleRef"
-        class="h-[25vh] overflow-y-auto p-14 pl-6 rounded-lg border-3 border-gray-200"
+        class="h-[35vh] overflow-y-auto p-14 pl-6 rounded-lg border-3 border-gray-200"
       >
         <div
           ref="innerRef"
-          class="h-[30vh] overflow-y-auto  border-3 rounded-lg p-14 pl-6 border-gray-300"
+          class="h-[40vh] overflow-y-auto  border-3 rounded-lg p-14 pl-6 border-gray-300"
         >
           <div
             ref="stickyRef"
@@ -227,5 +227,6 @@ function rectStyle(r: RectLike | null) {
 
 .box-effective {
   border-color: #3b82f6;
+  background: rgba(59, 130, 246, 0.4);
 }
 </style>
