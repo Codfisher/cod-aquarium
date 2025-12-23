@@ -105,7 +105,7 @@ interface StickyInstance {
 function getContext(el: HTMLElement): StickyInstance | undefined {
   return (el as any).__vSticky
 }
-/** 將上下文資料存到元素上，讓 updated/unmounted 調用同一個上下文資料 */
+/** 將上下文資料存到元素上，讓 updated/beforeUnmount 調用同一個上下文資料 */
 function setContext(el: HTMLElement, instance: StickyInstance) {
   (el as any).__vSticky = instance
 }
@@ -194,7 +194,7 @@ export const vSticky: Directive<HTMLElement, StickyValue> = {
       update()
     })
 
-    // 存起來讓 updated/unmounted 用
+    // 存起來讓 updated/beforeUnmount 用
     setContext(el, {
       scope,
       setOptions: (v: StickyValue) => opts = getOptions(v),
@@ -207,7 +207,7 @@ export const vSticky: Directive<HTMLElement, StickyValue> = {
     ctx?.setOptions(binding.value)
   },
 
-  unmounted(el) {
+  beforeUnmount(el) {
     const ctx = getContext(el)
 
     ctx?.restore()
