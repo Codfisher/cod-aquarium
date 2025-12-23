@@ -1,6 +1,6 @@
 <template>
   <div class="h-[40vh] overflow-y-auto p-10 rounded-lg border-3 border-gray-200">
-    <div class="flex items-start h-[40vh] relative">
+    <div class="flex items-start h-[60vh] relative">
       <div class="h-[20vh] relative text-center top-0 p-4 rounded-lg bg-sky-200 text-sky-700 font-semibold">
         relative
       </div>
