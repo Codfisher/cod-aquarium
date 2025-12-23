@@ -68,7 +68,7 @@
         :style="rectStyle(effectiveRect)"
       >
         <div class="label translate-y-[106%]">
-          有效可視區
+          可視區交集
         </div>
       </div>
     </div>
