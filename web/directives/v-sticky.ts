@@ -76,6 +76,8 @@ function getEffectiveRootRect(parentEl: HTMLElement) {
 }
 // #endregion utils
 
+// #region options
+/** number 表示 top 值 */
 type StickyValue =
   | number
   | {
@@ -90,6 +92,22 @@ function getOptions(value: StickyValue | undefined) {
     top: value?.top ?? 0,
     bottomPadding: value?.bottomPadding ?? 0,
   }
+}
+// #endregion options
+
+// #region directive
+interface StickyInstance {
+  scope: ReturnType<typeof effectScope>;
+  setOptions: (v: StickyValue) => void;
+  restore: () => void;
+}
+/** 取得存在元素上的上下文資料 */
+function getContext(el: HTMLElement): StickyInstance | undefined {
+  return (el as any).__vSticky
+}
+/** 將上下文資料存到元素上，讓 updated/unmounted 調用同一個上下文資料 */
+function setContext(el: HTMLElement, instance: StickyInstance) {
+  (el as any).__vSticky = instance
 }
 
 /** 突破 CSS sticky 限制
@@ -119,6 +137,7 @@ export const vSticky: Directive<HTMLElement, StickyValue> = {
       if (rafId)
         return
 
+      /** 用 requestAnimationFrame 省去多餘的更新 */
       rafId = requestAnimationFrame(() => {
         rafId = 0
         if (!el.isConnected)
@@ -176,28 +195,23 @@ export const vSticky: Directive<HTMLElement, StickyValue> = {
     })
 
     // 存起來讓 updated/unmounted 用
-    ; (el as any).__vSticky = {
+    setContext(el, {
       scope,
-      update,
-      setOptions: (v: StickyValue) => {
-        opts = getOptions(v)
-        update()
-      },
+      setOptions: (v: StickyValue) => opts = getOptions(v),
       restore,
-    }
+    })
   },
 
   updated(el, binding) {
-    const ctx = (el as any).__vSticky as undefined | { setOptions: (v: StickyValue) => void }
+    const ctx = getContext(el)
     ctx?.setOptions(binding.value)
   },
 
   unmounted(el) {
-    const ctx = (el as any).__vSticky as undefined | { restore: () => void; scope: ReturnType<typeof effectScope> }
-    if (!ctx)
-      return
-    ctx.restore()
-    ctx.scope.stop()
-    delete (el as any).__vSticky
+    const ctx = getContext(el)
+
+    ctx?.restore()
+    ctx?.scope.stop()
   },
 }
+// #endregion directive
