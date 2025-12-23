@@ -6,7 +6,7 @@
         type="checkbox"
         class="mr-2"
       >
-      顯示可視區域疊圖（Viewport / 每層 scroll / 交集）
+      顯示可視區域疊圖
     </label>
 
     <!-- scroll 結構 -->
