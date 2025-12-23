@@ -1,6 +1,6 @@
 <template>
   <div class="h-[20vh] card border-gray-100">
-    <div class="w-full h-[25vh] card border-gray-200">
+    <div class="h-[25vh] card border-gray-200">
       <div class="h-[30vh] card border-gray-300">
         <div class="h-[35vh] card border-gray-400">
           <div

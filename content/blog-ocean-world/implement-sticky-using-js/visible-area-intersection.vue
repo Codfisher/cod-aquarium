@@ -16,7 +16,7 @@
     >
       <div
         ref="middleRef"
-        class="w-full h-[25vh] overflow-y-auto p-14 pl-6 rounded-lg border-3 border-gray-200"
+        class="h-[25vh] overflow-y-auto p-14 pl-6 rounded-lg border-3 border-gray-200"
       >
         <div
           ref="innerRef"
