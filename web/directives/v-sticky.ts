@@ -98,7 +98,7 @@ function getOptions(value: StickyValue | undefined) {
 // #region directive
 interface StickyInstance {
   scope: ReturnType<typeof effectScope>;
-  setOptions: (v: StickyValue) => void;
+  setOptions: (value: StickyValue) => void;
   restore: () => void;
 }
 /** 取得存在元素上的上下文資料 */
