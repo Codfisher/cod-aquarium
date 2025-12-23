@@ -101,13 +101,14 @@ interface StickyInstance {
   setOptions: (value: StickyValue) => void;
   restore: () => void;
 }
+const KEY = Symbol('vSticky')
 /** 取得存在元素上的上下文資料 */
 function getContext(el: HTMLElement): StickyInstance | undefined {
-  return (el as any).__vSticky
+  return (el as any)[KEY]
 }
 /** 將上下文資料存到元素上，讓 updated/beforeUnmount 調用同一個上下文資料 */
 function setContext(el: HTMLElement, instance: StickyInstance) {
-  (el as any).__vSticky = instance
+  (el as any)[KEY] = instance
 }
 
 /** 突破 CSS sticky 限制
