@@ -1,6 +1,8 @@
 import { useEventListener, useMutationObserver, useResizeObserver } from '@vueuse/core'
 import { type Directive, effectScope } from 'vue'
 
+// #region utils
+/** 取得所有可捲動的祖先元素 */
 function getScrollableParents(el: Element | null) {
   const result: Array<HTMLElement | Window> = []
   if (!el)
@@ -27,6 +29,53 @@ function getScrollableParents(el: Element | null) {
   return result
 }
 
+interface RectLike {
+  top: number;
+  bottom: number;
+  left: number;
+  right: number;
+  width: number;
+  height: number;
+}
+
+/** 取得 window viewport，用於初始可視區 */
+function windowRect(): RectLike {
+  return {
+    top: 0,
+    left: 0,
+    bottom: window.innerHeight,
+    right: window.innerWidth,
+    width: window.innerWidth,
+    height: window.innerHeight,
+  }
+}
+
+/** 計算兩個 Rect 的交集 */
+function intersectRect(a: RectLike, b: RectLike): RectLike {
+  const top = Math.max(a.top, b.top)
+  const left = Math.max(a.left, b.left)
+  const bottom = Math.min(a.bottom, b.bottom)
+  const right = Math.min(a.right, b.right)
+  const width = Math.max(0, right - left)
+  const height = Math.max(0, bottom - top)
+  return { top, left, bottom, right, width, height }
+}
+
+/** 取所有 scrollable 元素的「可視區交集」 */
+function getEffectiveRootRect(parentEl: HTMLElement) {
+  const parents = getScrollableParents(parentEl)
+  let rect = windowRect()
+  for (const p of parents) {
+    if (p === window)
+      continue
+    rect = intersectRect(rect, (p as Element).getBoundingClientRect())
+    if (rect.height <= 0 || rect.width <= 0)
+      break
+  }
+  return rect
+}
+// #endregion utils
+
 type StickyValue =
   | number
   | {
@@ -38,39 +87,9 @@ function getOptions(value: StickyValue | undefined) {
   if (typeof value === 'number')
     return { top: value, bottomPadding: 0 }
   return {
-    top: value?.top ?? 8,
+    top: value?.top ?? 0,
     bottomPadding: value?.bottomPadding ?? 0,
   }
-}
-
-interface RectLike {
-  top: number;
-  bottom: number;
-  left: number;
-  right: number;
-  width: number;
-  height: number;
-}
-
-function viewportRect(): RectLike {
-  return {
-    top: 0,
-    left: 0,
-    bottom: window.innerHeight,
-    right: window.innerWidth,
-    width: window.innerWidth,
-    height: window.innerHeight,
-  }
-}
-
-function intersectRect(a: RectLike, b: RectLike): RectLike {
-  const top = Math.max(a.top, b.top)
-  const left = Math.max(a.left, b.left)
-  const bottom = Math.min(a.bottom, b.bottom)
-  const right = Math.min(a.right, b.right)
-  const width = Math.max(0, right - left)
-  const height = Math.max(0, bottom - top)
-  return { top, left, bottom, right, width, height }
 }
 
 /** 突破 CSS sticky 限制
@@ -96,20 +115,6 @@ export const vSticky: Directive<HTMLElement, StickyValue> = {
     let appliedY = 0
     let rafId = 0
 
-    /** 取所有 scrollable 元素的「可視區交集」 */
-    const getEffectiveRootRect = () => {
-      const parents = getScrollableParents(parentEl)
-      let rect = viewportRect()
-      for (const p of parents) {
-        if (p === window)
-          continue
-        rect = intersectRect(rect, (p as Element).getBoundingClientRect())
-        if (rect.height <= 0 || rect.width <= 0)
-          break
-      }
-      return rect
-    }
-
     const update = async () => {
       if (rafId)
         return
@@ -120,10 +125,10 @@ export const vSticky: Directive<HTMLElement, StickyValue> = {
           return
 
         const parentRect = parentEl.getBoundingClientRect()
-        const rootRect = getEffectiveRootRect()
+        const rootRect = getEffectiveRootRect(parentEl)
         const elRect = el.getBoundingClientRect()
 
-        // 扣掉目前位移，還原自然 top
+        /** 扣掉目前位移，原始 top 位置 */
         const naturalTop = elRect.top - appliedY
         const deltaInParent = naturalTop - parentRect.top
 
