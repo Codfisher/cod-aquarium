@@ -371,7 +371,9 @@ export default ({ mode }: { mode: string }) => {
             return true
           },
         }),
-        ui(),
+        ui({
+          router: false,
+        }),
       ],
     },
     async buildEnd() {
