@@ -10,6 +10,7 @@
         class="border mb-2 flex items-center justify-center h-[40px]"
       >
         Row {{ index }}
+        <input v-model="inputValue">
       </div>
     </div>
   </div>
@@ -17,6 +18,7 @@
 
 <script setup lang="ts">
 import { useVirtualList } from '@vueuse/core'
+import { ref } from 'vue'
 
 const allItems = Array.from(Array.from({ length: 99999 })
   .keys())
@@ -25,4 +27,6 @@ const { list, containerProps, wrapperProps } = useVirtualList(
   allItems,
   { itemHeight: 40 },
 )
+
+const inputValue = ref('')
 </script>
