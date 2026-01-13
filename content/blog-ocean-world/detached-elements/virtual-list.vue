@@ -1,13 +1,13 @@
 <template>
   <div
     v-bind="containerProps"
-    class="h-[50vh] overflow-auto p-2 border rounded"
+    class="h-[40vh] overflow-auto p-2 border border-gray-400/80 rounded opacity-80"
   >
     <div v-bind="wrapperProps">
       <div
         v-for="item in list"
         :key="item.index"
-        class="border mb-2 flex items-center justify-center h-[40px]"
+        class="mb-2 flex items-center justify-center h-[40px] bg-gray-200/50"
       >
         Row {{ item.index }}
       </div>
@@ -19,7 +19,7 @@
 import { useVirtualList } from '@vueuse/core'
 
 const allItems = Array
-  .from({ length: 99999 })
+  .from({ length: 500 })
   .map((_, index) => ({ index, value: `${index}` }))
 
 const { list, containerProps, wrapperProps } = useVirtualList(
