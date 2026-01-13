@@ -1,345 +1,582 @@
 <template>
-  <div class="vs-root">
-    <div
-      ref="viewportRef"
-      class="vs-viewport"
-      :style="{ height: `${height}px` }"
-      @scroll="onScroll"
-    >
-      <!-- Top spacer (not rendered region) -->
-      <div
-        class="vs-spacer vs-top"
-        :style="{ height: `${topSpacerHeight}px` }"
-      >
-        <div v-if="topGhost.length" class="vs-ghost vs-ghost-bottom">
-          <div
-            v-for="i in topGhost"
-            :key="`t${i}`"
-            class="vs-ghost-row"
-            :style="{ height: `${itemHeight}px` }"
+  <div class="page">
+    <header class="controls">
+      <div class="row">
+        <label>
+          總筆數
+          <input
+            v-model.number="total"
+            type="number"
+            min="5"
+            max="5000"
+            step="5"
           >
-            <div class="vs-ghost-pill">
-              {{ i }}
-            </div>
-          </div>
-        </div>
-      </div>
+        </label>
 
-      <!-- Rendered region -->
-      <div class="vs-items">
+        <label>
+          Item 高度(px)
+          <input
+            v-model.number="itemHeight"
+            type="number"
+            min="20"
+            max="80"
+            step="1"
+          >
+        </label>
+
+        <label>
+          Overscan
+          <input
+            v-model.number="overscan"
+            type="number"
+            min="0"
+            max="60"
+            step="1"
+          >
+        </label>
+      </div>
+    </header>
+
+    <div class="grid grid-cols-2 gap-4">
+      <div class="panel">
+        <div class="mb-2 text-lg font-bold">
+          虛擬列表
+        </div>
         <div
-          v-for="i in renderedIndexes"
-          :key="i"
-          class="vs-row"
-          :class="rowClass(i)"
-          :style="{ height: `${itemHeight}px` }"
+          ref="scrollerEl"
+          class="scroller"
+          :style="{ height: `${viewportHeight}px` }"
+          @scroll="onScroll"
         >
-          <div class="vs-pill">
-            {{ i }}
-          </div>
-        </div>
-      </div>
-
-      <!-- Bottom spacer (not rendered region) -->
-      <div
-        class="vs-spacer vs-bottom"
-        :style="{ height: `${bottomSpacerHeight}px` }"
-      >
-        <div v-if="bottomGhost.length" class="vs-ghost vs-ghost-top">
+          <!-- track：撐出完整高度，讓 scrollbar 正常 -->
           <div
-            v-for="i in bottomGhost"
-            :key="`b${i}`"
-            class="vs-ghost-row"
-            :style="{ height: `${itemHeight}px` }"
+            class="track"
+            :style="{ 'height': `${totalHeight}px`, '--rowH': `${itemHeight}px` }"
           >
-            <div class="vs-ghost-pill">
-              {{ i }}
+            <!-- render-layer：只放 renderStart~renderEnd，並 translateY 到正確位置 -->
+            <div
+              class="renderLayer"
+              :style="{ transform: `translateY(${renderStart * itemHeight}px)` }"
+            >
+              <div
+                v-for="idx in renderedIndices"
+                :key="idx"
+                class="item"
+                :class="itemClass(idx)"
+                :style="{ height: `${itemHeight}px` }"
+              >
+                <div class="idx">
+                  #{{ idx }}
+                </div>
+                <div class="hint">
+                  <span v-if="isVisible(idx)">可視</span>
+                  <span v-else>overscan</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Focus window overlay (center = "in-view", top/bottom = "preload") -->
-      <div class="vs-overlay" aria-hidden="true">
-        <div class="vs-mask vs-mask-top" :style="{ height: `${focusInset}px` }" />
-        <div
-          class="vs-focus-frame"
-          :style="{
-            top: `${focusInset}px`,
-            height: `${Math.max(0, height - focusInset * 2)}px`,
-          }"
-        />
-        <div class="vs-mask vs-mask-bottom" :style="{ height: `${focusInset}px` }" />
+      <div class="panel">
+        <div class="mb-2 text-lg font-bold">
+          整體樣貌
+        </div>
+
+        <div class="sliceList">
+          <div
+            v-for="idx in demoIndices"
+            :key="`demo-${idx}`"
+            class="sliceRow"
+            :class="demoClass(idx)"
+          >
+            <div class="sliceIdx">
+              #{{ idx }}
+            </div>
+            <div class="sliceBar">
+              <span v-if="isVisible(idx)">可視區</span>
+              <span v-else-if="isRendered(idx)">Overscan</span>
+              <span v-else>未渲染</span>
+            </div>
+          </div>
+
+          <!-- 在剖面上用括號畫出 render window / visible window -->
+          <div
+            class="bracket renderBracket flex items-start justify-end"
+            :style="renderBracketStyle"
+          >
+            <div class="bLabel">
+              渲染區
+            </div>
+          </div>
+
+          <div
+            class="bracket visibleBracket"
+            :style="visibleBracketStyle"
+          >
+            <div class="bLabel">
+              可視區
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
-<script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
+<script setup>
+import { useWindowSize } from '@vueuse/core'
+import { computed, nextTick, onMounted, reactive, ref } from 'vue'
 
-const props = withDefaults(
-  defineProps<{
-    total?: number;
-    itemHeight?: number;
-    height?: number;
-    overscan?: number;
-    focusInset?: number; // px
-    ghostCount?: number;
-  }>(),
-  {
-    total: 8000,
-    itemHeight: 30,
-    height: 380,
-    overscan: 8,
-    focusInset: 64,
-    ghostCount: 10,
-  },
-)
+const windowSize = reactive(useWindowSize())
 
-const viewportRef = ref<HTMLElement | null>(null)
+const total = ref(100)
+const itemHeight = ref(36)
+const viewportHeight = computed(() => windowSize.height * 0.2)
+const overscan = ref(4)
+
+const scrollerEl = ref(null)
 const scrollTop = ref(0)
 
-const clamp = (n: number, min: number, max: number) => Math.min(max, Math.max(min, n))
+const gotoIndex = ref(0)
 
-const totalHeight = computed(() => Math.max(0, props.total * props.itemHeight))
+const totalHeight = computed(() => total.value * itemHeight.value)
 
-const startIndex = computed(() => {
-  const raw = Math.floor(scrollTop.value / props.itemHeight) - props.overscan
-  return clamp(raw, 0, Math.max(0, props.total - 1))
+// 可視範圍（純 viewport 內）
+const visibleCount = computed(() => Math.ceil(viewportHeight.value / itemHeight.value))
+const visibleStart = computed(() => {
+  const s = Math.floor(scrollTop.value / itemHeight.value)
+  return clamp(s, 0, Math.max(0, total.value - 1))
+})
+const visibleEnd = computed(() => {
+  return clamp(visibleStart.value + visibleCount.value - 1, 0, Math.max(0, total.value - 1))
 })
 
-const visibleCount = computed(() => Math.ceil(props.height / props.itemHeight) + props.overscan * 2)
-
-const endIndex = computed(() => clamp(startIndex.value + visibleCount.value, 0, props.total))
-
-const topSpacerHeight = computed(() => startIndex.value * props.itemHeight)
-
-const bottomSpacerHeight = computed(() => {
-  const bottom = totalHeight.value - endIndex.value * props.itemHeight
-  return Math.max(0, bottom)
-})
-
-const renderedIndexes = computed(() => {
-  const out: number[] = []
-  for (let i = startIndex.value; i < endIndex.value; i++) out.push(i)
-  return out
-})
-
-// ghost previews inside spacers (just a few rows near the boundary)
-const topGhost = computed(() => {
-  const from = Math.max(0, startIndex.value - props.ghostCount)
-  const to = startIndex.value
-  const out: number[] = []
-  for (let i = from; i < to; i++) out.push(i)
-  return out
-})
-
-const bottomGhost = computed(() => {
-  const from = endIndex.value
-  const to = Math.min(props.total, endIndex.value + props.ghostCount)
-  const out: number[] = []
-  for (let i = from; i < to; i++) out.push(i)
-  return out
-})
-
-function onScroll(e: Event) {
-  const el = e.target as HTMLElement
-  scrollTop.value = el.scrollTop
-}
-
-// classify rows by where they land inside the focus window overlay
-function rowClass(index: number) {
-  const top = index * props.itemHeight - scrollTop.value // position inside viewport
-  const bottom = top + props.itemHeight
-
-  const focusTop = props.focusInset
-  const focusBottom = props.height - props.focusInset
-
-  const intersectsFocus = bottom > focusTop && top < focusBottom
-  return intersectsFocus ? 'vs-inview' : 'vs-preload'
-}
-
-function scrollToIndex(idx: number) {
-  const el = viewportRef.value
-  if (!el)
-    return
-  const i = clamp(idx, 0, Math.max(0, props.total - 1))
-  el.scrollTop = i * props.itemHeight
-  scrollTop.value = el.scrollTop
-}
-
-watch(
-  () => [props.total, props.itemHeight, props.height] as const,
-  async () => {
-    await nextTick()
-    const el = viewportRef.value
-    if (!el)
-      return
-    const maxScroll = Math.max(0, totalHeight.value - props.height)
-    el.scrollTop = clamp(el.scrollTop, 0, maxScroll)
-    scrollTop.value = el.scrollTop
-  },
+// 渲染範圍（可視 + overscan）
+const renderStart = computed(() => clamp(visibleStart.value - overscan.value, 0, Math.max(0, total.value - 1)))
+const renderEnd = computed(() =>
+  clamp(visibleEnd.value + overscan.value, 0, Math.max(0, total.value - 1)),
 )
 
+const renderedCount = computed(() => (total.value === 0 ? 0 : renderEnd.value - renderStart.value + 1))
+
+const renderedIndices = computed(() => {
+  const out = []
+  for (let i = renderStart.value; i <= renderEnd.value; i++) out.push(i)
+  return out
+})
+
+function onScroll(e) {
+  scrollTop.value = e.target.scrollTop
+}
+
+function scrollToIndex(idx) {
+  const i = clamp(idx, 0, Math.max(0, total.value - 1))
+  if (!scrollerEl.value)
+    return
+  scrollerEl.value.scrollTop = i * itemHeight.value
+  scrollTop.value = scrollerEl.value.scrollTop
+}
+
+function clamp(n, min, max) {
+  return Math.min(max, Math.max(min, n))
+}
+
+function isVisible(idx) {
+  return idx >= visibleStart.value && idx <= visibleEnd.value
+}
+function isRendered(idx) {
+  return idx >= renderStart.value && idx <= renderEnd.value
+}
+
+function itemClass(idx) {
+  // 在「真實列表」中：可視的會標 visible，其他渲染中的就是 overscan（雖然平常看不到）
+  return isVisible(idx) ? 'isVisible' : 'isOverscan'
+}
+
+/** ====== 剖面示意（含未渲染） ====== */
+const demoOutside = 4 // 剖面中額外顯示 render 外上下各幾筆「未渲染」示意
+const demoIndices = computed(() => {
+  if (total.value <= 0)
+    return []
+  const start = clamp(renderStart.value - demoOutside, 0, total.value - 1)
+  const end = clamp(renderEnd.value + demoOutside, 0, total.value - 1)
+  const out = []
+  for (let i = start; i <= end; i++) out.push(i)
+  return out
+})
+function demoClass(idx) {
+  if (isVisible(idx))
+    return 'dVisible'
+  if (isRendered(idx))
+    return 'dOverscan'
+  return 'dNot'
+}
+
+// 在剖面列表裡，計算 bracket 的 top/height（以列數為單位）
+const demoRowH = 30 // sliceRow 的固定高度（CSS 也要一致）
+const demoStartIndex = computed(() => (demoIndices.value.length ? demoIndices.value[0] : 0))
+
+const renderBracketStyle = computed(() => {
+  const topRows = renderStart.value - demoStartIndex.value
+  const hRows = renderedCount.value
+  return {
+    top: `${topRows * demoRowH}px`,
+    height: `${hRows * demoRowH}px`,
+  }
+})
+const visibleBracketStyle = computed(() => {
+  const topRows = visibleStart.value - demoStartIndex.value
+  const hRows = (visibleEnd.value - visibleStart.value + 1) || 0
+  return {
+    top: `${topRows * demoRowH}px`,
+    height: `${hRows * demoRowH}px`,
+  }
+})
+
 onMounted(() => {
-  scrollToIndex(Math.floor(props.total / 2))
+  nextTick(() => scrollToIndex(gotoIndex.value))
 })
 </script>
 
 <style scoped>
-.vs-root {
+.page {
+  color: #111;
+  font-weight: 400;
+}
+
+.controls {
+  border: 1px solid #e6e6e6;
+  border-radius: 12px;
   padding: 12px;
-  background: #070b14;
-  border-radius: 16px;
+  margin-bottom: 14px;
+  background: #fff;
 }
 
-.vs-viewport {
+.controls .row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  align-items: end;
+}
+
+label {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 13px;
+}
+
+input {
+  width: 92px;
+  padding: 6px 8px;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  outline: none;
+}
+
+button {
+  padding: 6px 10px;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  background: #fafafa;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #f3f3f3;
+}
+
+.goto input {
+  width: 110px;
+}
+
+.meta {
+  margin-top: 10px;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.chip {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 10px;
+  border: 1px solid #efefef;
+  border-radius: 999px;
+  background: #fcfcfc;
+  font-size: 12px;
+}
+
+.chip .k {
+  color: #666;
+}
+
+.chip .v {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.legend {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.tag {
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid #e9e9e9;
+}
+
+.tag.visible {
+  background: rgba(0, 200, 0, 0.1);
+}
+
+.tag.overscan {
+  background: rgba(255, 180, 0, 0.14);
+}
+
+.tag.not {
+  background: rgba(120, 120, 120, 0.12);
+}
+
+.note {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: #666;
+  line-height: 1.5;
+}
+
+/* ====== 真實虛擬列表 ====== */
+.scroller {
   position: relative;
+  border: 1px solid #e8e8e8;
+  border-radius: 8px;
   overflow: auto;
-  border-radius: 14px;
-  border: 1px solid rgba(148, 163, 184, 0.22);
-  background: #0b1220;
-  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45);
+  background: #fff;
 }
 
-/* Spacers = not rendered */
-.vs-spacer {
+.track {
   position: relative;
-  width: 100%;
+  /* 用背景條紋提示「其實有很多 item」 */
+  background-image: repeating-linear-gradient(to bottom,
+      rgba(0, 0, 0, 0.03) 0,
+      rgba(0, 0, 0, 0.03) calc(var(--rowH) - 1px),
+      rgba(0, 0, 0, 0) var(--rowH));
+}
+
+.renderLayer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  will-change: transform;
+  padding: 6px;
+  box-sizing: border-box;
+}
+
+.item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-radius: 12px;
+  padding: 0 10px;
+  margin: 6px 0;
+  border: 1px solid #ededed;
+  background: #fff;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.03);
+  font-variant-numeric: tabular-nums;
+}
+
+.item .idx {
+  font-weight: 700;
+}
+
+.item .hint {
+  font-size: 12px;
+  color: #666;
+}
+
+.item.isVisible {
+  background: rgba(0, 200, 0, 0.08);
+  border-color: rgba(0, 200, 0, 0.22);
+}
+
+.item.isOverscan {
+  background: rgba(255, 180, 0, 0.10);
+  border-color: rgba(255, 180, 0, 0.30);
+}
+
+.viewportFrame {
+  pointer-events: none;
+  position: sticky;
+  top: 0;
+  height: 100%;
+  border: 2px solid rgba(0, 200, 0, 0.35);
+  border-radius: 14px;
+  box-sizing: border-box;
+}
+
+.frameLabel {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(0, 200, 0, 0.12);
+  border: 1px solid rgba(0, 200, 0, 0.25);
+}
+
+/* ====== 剖面示意 ====== */
+.slice {
+  border: 1px solid #e8e8e8;
+  border-radius: 14px;
   overflow: hidden;
 }
 
-.vs-top {
-  background:
-    repeating-linear-gradient(
-      135deg,
-      rgba(148, 163, 184, 0.10) 0px,
-      rgba(148, 163, 184, 0.10) 8px,
-      rgba(15, 23, 42, 0.0) 8px,
-      rgba(15, 23, 42, 0.0) 16px
-    ),
-    linear-gradient(to bottom, rgba(59, 130, 246, 0.14), rgba(15, 23, 42, 0.0));
+.sliceHeader {
+  padding: 10px 12px;
+  background: #fafafa;
+  border-bottom: 1px solid #eee;
 }
 
-.vs-bottom {
-  background:
-    repeating-linear-gradient(
-      135deg,
-      rgba(148, 163, 184, 0.10) 0px,
-      rgba(148, 163, 184, 0.10) 8px,
-      rgba(15, 23, 42, 0.0) 8px,
-      rgba(15, 23, 42, 0.0) 16px
-    ),
-    linear-gradient(to top, rgba(99, 102, 241, 0.14), rgba(15, 23, 42, 0.0));
+.sliceTitle {
+  font-size: 13px;
+  font-weight: 700;
 }
 
-/* Ghost preview rows inside spacers */
-.vs-ghost {
-  position: absolute;
-  left: 0;
-  right: 0;
-  pointer-events: none;
-}
-
-.vs-ghost-bottom {
-  bottom: 0;
-}
-
-.vs-ghost-top {
-  top: 0;
-}
-
-.vs-ghost-row {
-  display: flex;
-  align-items: center;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.08);
-}
-
-.vs-ghost-pill {
-  margin-left: 10px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  font-weight: 800;
+.sliceSub {
   font-size: 12px;
-  letter-spacing: 0.2px;
-  color: rgba(226, 232, 240, 0.45);
-  background: rgba(2, 6, 23, 0.35);
-  border: 1px solid rgba(148, 163, 184, 0.15);
-  backdrop-filter: blur(2px);
+  color: #666;
+  margin-top: 4px;
 }
 
-/* Rendered rows */
-.vs-items {
-  width: 100%;
+.sliceList {
+  position: relative;
+  min-height: 50vh;
+  overflow: auto;
 }
 
-.vs-row {
-  display: flex;
+.sliceRow {
+  height: 30px;
+  /* demoRowH 必須一致 */
+  display: grid;
+  grid-template-columns: 70px 1fr;
   align-items: center;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.10);
-}
-
-.vs-pill {
-  margin-left: 10px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  font-weight: 900;
+  padding: 0 10px;
+  border-bottom: 1px dashed #f0f0f0;
   font-size: 12px;
-  letter-spacing: 0.2px;
-  border: 1px solid rgba(148, 163, 184, 0.18);
+  font-variant-numeric: tabular-nums;
 }
 
-/* In-view vs Preload (rendered but outside focus window) */
-.vs-inview .vs-pill {
-  color: rgba(226, 232, 240, 0.95);
-  background: rgba(34, 197, 94, 0.14);
-  border-color: rgba(34, 197, 94, 0.28);
+.sliceIdx {
+  color: #444;
+  font-weight: 700;
 }
 
-.vs-preload {
-  opacity: 0.62;
-  filter: saturate(0.85);
+.sliceBar {
+  color: #333;
 }
 
-.vs-preload .vs-pill {
-  color: rgba(226, 232, 240, 0.85);
-  background: rgba(59, 130, 246, 0.12);
-  border-color: rgba(59, 130, 246, 0.22);
+.sliceRow.dVisible {
+  background: rgba(0, 200, 0, 0.10);
 }
 
-/* Overlay: focus window + masks */
-.vs-overlay {
-  position: sticky;
-  top: 0;
-  height: 0; /* keeps overlay anchored */
-  pointer-events: none;
-  z-index: 3;
+.sliceRow.dOverscan {
+  background: rgba(255, 180, 0, 0.12);
 }
 
-.vs-mask {
-  position: absolute;
-  left: 0;
-  right: 0;
-  background: rgba(2, 6, 23, 0.45);
-  backdrop-filter: blur(1px);
+.sliceRow.dNot {
+  background: rgba(120, 120, 120, 0.08);
+  color: #666;
 }
 
-.vs-mask-top {
-  top: 0;
-}
-
-.vs-mask-bottom {
-  bottom: 0;
-  top: auto;
-}
-
-.vs-focus-frame {
+.bracket {
   position: absolute;
   left: 6px;
   right: 6px;
   border-radius: 12px;
-  border: 2px solid rgba(226, 232, 240, 0.22);
-  box-shadow: inset 0 0 0 1px rgba(2, 6, 23, 0.35);
+  pointer-events: none;
+  box-sizing: border-box;
+}
+
+.renderBracket {
+  border: 2px solid rgba(255, 180, 0, 0.55);
+}
+
+.visibleBracket {
+  border: 2px solid rgba(0, 200, 0, 0.55);
+}
+
+.bLabel {
+  position: sticky;
+  top: 6px;
+  margin: 6px 0 0 8px;
+  display: inline-block;
+  font-size: 12px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+/* ====== 迷你地圖 ====== */
+.minimap {
+  display: grid;
+  grid-template-columns: 70px 1fr;
+  gap: 12px;
+  align-items: start;
+}
+
+.minimapTrack {
+  position: relative;
+  height: 320px;
+  border-radius: 14px;
+  border: 1px solid #e8e8e8;
+  background: rgba(120, 120, 120, 0.08);
+  /* 未渲染區 */
+  overflow: hidden;
+}
+
+.minimapRender {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: rgba(255, 180, 0, 0.18);
+  /* render window（含 overscan） */
+  border-top: 1px solid rgba(255, 180, 0, 0.35);
+  border-bottom: 1px solid rgba(255, 180, 0, 0.35);
+}
+
+.minimapVisible {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: rgba(0, 200, 0, 0.22);
+  /* visible window */
+  border-top: 1px solid rgba(0, 200, 0, 0.35);
+  border-bottom: 1px solid rgba(0, 200, 0, 0.35);
+}
+
+.minimapInfo .line {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+  padding: 6px 0;
+  border-bottom: 1px dashed #f0f0f0;
+}
+
+.minimapInfo .label {
+  color: #666;
+}
+
+.minimapInfo .val {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
 }
 </style>
