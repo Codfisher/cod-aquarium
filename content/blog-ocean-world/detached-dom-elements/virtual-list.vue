@@ -1,7 +1,7 @@
 <template>
   <div
     v-bind="containerProps"
-    class="h-[40vh] overflow-auto p-2 border border-gray-400/80 rounded opacity-80"
+    class="overflow-auto p-2 border border-gray-400/80 rounded opacity-80"
   >
     <div v-bind="wrapperProps">
       <div

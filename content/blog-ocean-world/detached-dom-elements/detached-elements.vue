@@ -1,7 +1,7 @@
 <template>
   <div
     v-bind="containerProps"
-    class="h-[50vh] overflow-auto p-2 border rounded"
+    class="overflow-auto p-2 border rounded"
   >
     <div v-bind="wrapperProps">
       <div
@@ -10,6 +10,11 @@
         class="border mb-2 flex items-center justify-center h-[40px]"
       >
         Row {{ item.index }}
+
+        <input
+          v-model="item.data.value"
+          type="text"
+        >
       </div>
     </div>
   </div>
@@ -20,7 +25,7 @@ import { useVirtualList } from '@vueuse/core'
 
 const allItems = Array
   .from({ length: 99999 })
-  .map((_, index) => ({ index, value: `${index}` }))
+  .map((_, index) => ({ value: `${index}` }))
 
 const { list, containerProps, wrapperProps } = useVirtualList(
   allItems,
