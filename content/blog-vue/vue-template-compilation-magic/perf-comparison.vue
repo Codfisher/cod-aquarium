@@ -71,6 +71,7 @@ async function runTest() {
 const ticker = useRafFn(() => {
   runTest()
 }, {
+  fpsLimit: 10,
   immediate: false,
 })
 
