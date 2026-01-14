@@ -1,9 +1,9 @@
 <template>
-  <div class=" flex flex-col gap-2 border p-4 rounded">
+  <div class=" flex flex-col gap-2 border border-gray-400/80 p-4 rounded">
     <div class="flex gap-2 text-base">
       <div
         :class="{ 'bg-primary': currentMode === 'template' }"
-        class="  bg-gray-200/50 p-2 rounded cursor-pointer duration-300 flex-1"
+        class="  bg-gray-200/50 p-3 rounded cursor-pointer duration-300 flex-1"
         @click="currentMode = 'template'"
       >
         使用 Template
@@ -11,7 +11,7 @@
 
       <div
         :class="{ 'bg-primary': currentMode === 'h' }"
-        class="  bg-gray-200/50 p-2 rounded cursor-pointer duration-300 flex-1"
+        class="  bg-gray-200/50 p-3 rounded cursor-pointer duration-300 flex-1"
         @click="currentMode = 'h'"
       >
         使用 h()
@@ -19,8 +19,8 @@
     </div>
 
     <div
-      class="flex justify-center cursor-pointer border p-1 rounded"
-      :class="{ ' border-dashed ': isStarted }"
+      class="flex justify-center cursor-pointer border p-2 rounded duration-300"
+      :class="{ ' border-dashed opacity-60': isStarted }"
       @click="isStarted = !isStarted"
     >
       {{ isStarted ? '停止' : '開始' }}
@@ -53,7 +53,6 @@ const COUNT = 2000
 const items = ref(Array.from({ length: COUNT }).fill(0).map((_, i) => ({ id: i, text: `Item ${i}` })))
 const currentMode = ref('template')
 const timeCost = ref(0)
-const lastUpdate = ref('')
 const isStarted = ref(false)
 
 async function runTest() {
@@ -64,11 +63,9 @@ async function runTest() {
 
   // 等待 DOM 更新完成
   await nextTick()
-  console.log('DOM updated')
 
   const end = performance.now()
   timeCost.value = (end - start).toFixed(2)
-  lastUpdate.value = newVal
 }
 
 const ticker = useRafFn(() => {
