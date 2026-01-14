@@ -74,8 +74,8 @@ const ticker = useRafFn(() => {
   immediate: false,
 })
 
-watch(isStarted, () => {
-  isStarted.value ? ticker.resume() : ticker.pause()
+watch(isStarted, (value) => {
+  value ? ticker.resume() : ticker.pause()
 })
 </script>
 
