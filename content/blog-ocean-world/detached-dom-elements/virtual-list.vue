@@ -19,7 +19,7 @@
 import { useVirtualList } from '@vueuse/core'
 
 const allItems = Array
-  .from({ length: 500 })
+  .from({ length: 50000 })
   .map((_, index) => ({ index, value: `${index}` }))
 
 const { list, containerProps, wrapperProps } = useVirtualList(
