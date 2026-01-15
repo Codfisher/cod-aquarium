@@ -76,8 +76,6 @@ function tortureShallow() {
 const exRef = useTemplateRef('exRef')
 
 const ticker = useRafFn(() => {
-  console.log('useRafFn')
-
   tortureShallow()
   tortureDeep()
 }, {
