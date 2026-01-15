@@ -79,10 +79,13 @@ const ticker = useRafFn(() => {
   tortureShallow()
   tortureDeep()
 }, {
+  immediate: false,
   fpsLimit: 5,
 })
 
 useIntersectionObserver(exRef, ([entry]) => {
   entry.isIntersecting ? ticker.resume() : ticker.pause()
+}, {
+  immediate: true,
 })
 </script>
