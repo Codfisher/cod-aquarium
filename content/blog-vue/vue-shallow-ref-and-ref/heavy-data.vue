@@ -1,72 +1,79 @@
 <template>
-  <div class="flex gap-2">
-    <div class="flex-1">
-      <div>
-        data: {{ data.cod.length }}
+  <div class="grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-100">
+    <div class="p-8 flex flex-col items-center space-y-6">
+      <div class="flex items-center space-x-2">
+        <span class="px-5 py-2 text-xs font-semibold bg-blue-100 text-blue-700 rounded-md">Ref</span>
       </div>
-      <button
-        class="bg-gray-400/50! duration-100 p-1! px-3! rounded! active:bg-gray-400/80!"
-        @click="updateData"
-      >
-        更新資料
-      </button>
+
+      <div class="text-xs  uppercase tracking-wider mb-1">
+        耗時
+      </div>
+      <div class="text-3xl font-mono font-bold ">
+        {{ dataCost }} <span class="text-sm font-normal">ms</span>
+      </div>
     </div>
 
-    <div class="flex-1">
-      <div>
-        shallowData: {{ shallowData.cod.length }}
+    <div class="p-8 flex flex-col items-center space-y-6 bg-gray-50/50">
+      <div class="flex items-center space-x-2">
+        <span class="px-5 py-2 text-xs font-semibold bg-emerald-100 text-emerald-700 rounded-md">Shallow Ref</span>
       </div>
-      <button
-        class="bg-gray-400/50! duration-100 p-1! px-3! rounded! active:bg-gray-400/80!"
-        @click="updateShallowData"
-      >
-        更新資料
-      </button>
+
+      <div class="text-xs  uppercase tracking-wider mb-1">
+        耗時
+      </div>
+      <div class="text-3xl font-mono font-bold ">
+        {{ shallowDataCost }} <span class="text-sm font-normal">ms</span>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { nextTick, ref, shallowRef, triggerRef, watch } from 'vue'
+import { useRafFn } from '@vueuse/core'
+import { ref, shallowRef, triggerRef } from 'vue'
 
-/** 建立一個 10 個 key，每個 value 矩陣長度 1000 的大型物件 */
+// 建立 1 萬筆資料
 function createData() {
-  const data = {
-    cod: [],
+  return {
+    list: Array.from({ length: 10000 }).map((_, i) => ({ id: i, val: 0 })),
   }
-
-  for (let i = 0; i < 10; i++) {
-    const key = crypto.randomUUID()
-    data[key] = Array.from({ length: 1000 }).fill('fish')
-  }
-
-  return data
 }
 
-/** 使用 ref 包裝的資料 */
 const data = ref(createData())
-watch(data, () => {
-  console.log('[watch] data')
-}, { deep: true })
+const dataCost = ref('0.00')
 
-async function updateData() {
-  console.time('updateData')
-  data.value.cod.push('fish')
-  await nextTick()
-  console.timeEnd('updateData')
+function tortureDeep() {
+  const start = performance.now()
+
+  // 每一次 .val 讀取和寫入都會經過 Proxy 的攔截
+  data.value.list.forEach((item) => {
+    item.val++
+  })
+
+  const end = performance.now()
+  dataCost.value = (end - start).toFixed(2)
 }
 
-/** 使用 shallowRef 包裝的資料 */
 const shallowData = shallowRef(createData())
-watch(shallowData, () => {
-  console.log('[watch] shallowData')
-}, { deep: true })
+const shallowDataCost = ref('0.00')
 
-async function updateShallowData() {
-  console.time('updateShallowData')
-  shallowData.value.cod.push('fish')
+function tortureShallow() {
+  const start = performance.now()
+
+  // 操作 raw object，完全沒有 Proxy 介入，速度等同於原生 JS
+  shallowData.value.list.forEach((item) => {
+    item.val++
+  })
   triggerRef(shallowData)
-  await nextTick()
-  console.timeEnd('updateShallowData')
+
+  const end = performance.now()
+  shallowDataCost.value = (end - start).toFixed(2)
 }
+
+useRafFn(() => {
+  tortureShallow()
+  tortureDeep()
+}, {
+  fpsLimit: 5,
+})
 </script>
