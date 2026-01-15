@@ -13,7 +13,7 @@
           >
         </label>
 
-        <label>
+        <label class="ml-4">
           Item 高度(px)
           <input
             v-model.number="itemHeight"
@@ -24,7 +24,7 @@
           >
         </label>
 
-        <label>
+        <label class="ml-4">
           Overscan
           <input
             v-model.number="overscan"
