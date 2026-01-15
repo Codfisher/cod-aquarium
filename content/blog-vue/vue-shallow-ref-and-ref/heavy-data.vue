@@ -16,7 +16,7 @@
       </div>
     </div>
 
-    <div class="p-8 flex flex-col items-center space-y-6 bg-gray-50/50">
+    <div class="p-8 flex flex-col items-center space-y-6">
       <span class="px-5 py-2 text-xs font-semibold bg-emerald-100 text-emerald-700 rounded-md">
         Shallow Ref
       </span>

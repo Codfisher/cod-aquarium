@@ -1,6 +1,6 @@
 <template>
   <div class="page">
-    <header class="controls">
+    <header class="p-4 border rounded border-gray-200/80">
       <div class="row">
         <label>
           總筆數
@@ -13,7 +13,7 @@
           >
         </label>
 
-        <label>
+        <label class="ml-4">
           Item 高度(px)
           <input
             v-model.number="itemHeight"
@@ -24,7 +24,7 @@
           >
         </label>
 
-        <label>
+        <label class="ml-4">
           Overscan
           <input
             v-model.number="overscan"
@@ -83,7 +83,7 @@
           整體樣貌
         </div>
 
-        <div class="sliceList">
+        <div class="sliceList border rounded border-gray-400/50">
           <div
             v-for="idx in demoIndices"
             :key="`demo-${idx}`"
@@ -240,19 +240,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.page {
-  color: #111;
-  font-weight: 400;
-}
-
-.controls {
-  border: 1px solid #e6e6e6;
-  border-radius: 12px;
-  padding: 12px;
-  margin-bottom: 14px;
-  background: #fff;
-}
-
 .controls .row {
   display: flex;
   flex-wrap: wrap;
@@ -356,7 +343,6 @@ button:hover {
   border: 1px solid #e8e8e8;
   border-radius: 8px;
   overflow: auto;
-  background: #fff;
 }
 
 .track {
@@ -397,7 +383,6 @@ button:hover {
 
 .item .hint {
   font-size: 12px;
-  color: #666;
 }
 
 .item.isVisible {
@@ -474,12 +459,7 @@ button:hover {
 }
 
 .sliceIdx {
-  color: #444;
   font-weight: 700;
-}
-
-.sliceBar {
-  color: #333;
 }
 
 .sliceRow.dVisible {
@@ -492,7 +472,6 @@ button:hover {
 
 .sliceRow.dNot {
   background: rgba(120, 120, 120, 0.08);
-  color: #666;
 }
 
 .bracket {
@@ -520,7 +499,7 @@ button:hover {
   font-size: 12px;
   padding: 3px 8px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.5);
   border: 1px solid rgba(0, 0, 0, 0.08);
 }
 
