@@ -1,9 +1,12 @@
 <template>
-  <div class="grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-100">
+  <div
+    ref="exRef"
+    class="grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-100"
+  >
     <div class="p-8 flex flex-col items-center space-y-6">
-      <div class="flex items-center space-x-2">
-        <span class="px-5 py-2 text-xs font-semibold bg-blue-100 text-blue-700 rounded-md">Ref</span>
-      </div>
+      <span class="px-5 py-2 text-xs font-semibold bg-blue-100 text-blue-700 rounded-md">
+        Ref
+      </span>
 
       <div class="text-xs  uppercase tracking-wider mb-1">
         耗時
@@ -14,9 +17,9 @@
     </div>
 
     <div class="p-8 flex flex-col items-center space-y-6 bg-gray-50/50">
-      <div class="flex items-center space-x-2">
-        <span class="px-5 py-2 text-xs font-semibold bg-emerald-100 text-emerald-700 rounded-md">Shallow Ref</span>
-      </div>
+      <span class="px-5 py-2 text-xs font-semibold bg-emerald-100 text-emerald-700 rounded-md">
+        Shallow Ref
+      </span>
 
       <div class="text-xs  uppercase tracking-wider mb-1">
         耗時
@@ -29,8 +32,8 @@
 </template>
 
 <script setup>
-import { useRafFn } from '@vueuse/core'
-import { ref, shallowRef, triggerRef } from 'vue'
+import { useIntersectionObserver, useRafFn } from '@vueuse/core'
+import { ref, shallowRef, triggerRef, useTemplateRef } from 'vue'
 
 // 建立 1 萬筆資料
 function createData() {
@@ -70,10 +73,18 @@ function tortureShallow() {
   shallowDataCost.value = (end - start).toFixed(2)
 }
 
-useRafFn(() => {
+const exRef = useTemplateRef('exRef')
+
+const ticker = useRafFn(() => {
+  console.log('useRafFn')
+
   tortureShallow()
   tortureDeep()
 }, {
   fpsLimit: 5,
+})
+
+useIntersectionObserver(exRef, ([entry]) => {
+  entry.isIntersecting ? ticker.resume() : ticker.pause()
 })
 </script>
