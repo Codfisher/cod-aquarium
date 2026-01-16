@@ -2,7 +2,8 @@
   <div ref="wrapRef">
     <canvas
       ref="canvasRef"
-      v-bind="canvasPixelSize"
+      :width="canvasWidth"
+      :height="canvasHeight"
       :style="canvasStyle"
     />
   </div>
@@ -10,7 +11,7 @@
 
 <script setup lang="ts">
 import { useDevicePixelRatio, useElementSize, useRafFn } from '@vueuse/core'
-import { computed, onBeforeMount, onMounted, reactive, useTemplateRef, watch } from 'vue'
+import { computed, onBeforeMount, onMounted, reactive, toRaw, useTemplateRef, watch } from 'vue'
 import Zdog from 'zdog'
 
 interface Position { x: number; y: number; z: number }
@@ -29,14 +30,12 @@ const { Illustration, Group, Ellipse, Shape } = Zdog
 const wrapRef = useTemplateRef('wrapRef')
 const canvasRef = useTemplateRef('canvasRef')
 
-// 量外層容器
 const wrapSize = reactive(useElementSize(wrapRef))
 const { pixelRatio } = useDevicePixelRatio()
+const dpr = computed(() => Math.min(pixelRatio.value, 2))
 
-const canvasPixelSize = computed(() => ({
-  width: wrapSize.width * pixelRatio.value,
-  height: wrapSize.height * pixelRatio.value,
-}))
+const canvasWidth = computed(() => wrapSize.width * dpr.value)
+const canvasHeight = computed(() => wrapSize.height * dpr.value)
 
 const canvasStyle = computed(() => ({
   width: `${wrapSize.width}px`,
@@ -44,16 +43,14 @@ const canvasStyle = computed(() => ({
 }))
 
 let illo: InstanceType<typeof Illustration> | undefined
-let fishList: Fish[] = []
+const fishList: Fish[] = []
 
 function createFish(
   illoValue: InstanceType<typeof Illustration>,
   position: Position,
   isFirst = false,
 ): Fish {
-  // 第一隻魚是金紅色
-  const color = isFirst ? '#ff844f' : '#bfebff'
-
+  const color = isFirst ? '#ffd752' : '#bfebff'
   const thickness = props.size / 5
   const group = new Group({ addTo: illoValue, translate: position })
 
@@ -100,70 +97,97 @@ function createFish(
 onMounted(() => {
   if (!canvasRef.value)
     return
-  illo = new Illustration({ element: canvasRef.value })
-  // 依 DPR 重新 scale 一次（之後有尺寸或 DPR 變動會再做）
+
+  illo = new Illustration({
+    element: canvasRef.value,
+    resize: false,
+  })
+
   rescaleContext()
+
+  syncFishCount(props.boidCount)
 })
 
 onBeforeMount(() => {
+  // 清理
   illo?.remove()
+  fishList.length = 0
 })
 
 function rescaleContext() {
   const el = canvasRef.value
-  if (!el)
+  if (!el || !illo)
     return
   const ctx = el.getContext('2d')
   if (!ctx)
     return
-  // 重置再按 DPR scale
+
   ctx.setTransform(1, 0, 0, 1, 0, 0)
-  ctx.scale(pixelRatio.value, pixelRatio.value)
+  ctx.scale(dpr.value, dpr.value)
 }
 
-watch(() => [wrapSize.width, wrapSize.height, pixelRatio], () => {
-  // 當外層尺寸或 DPR 變動時，重設 2D context 的 scale
+watch(() => [wrapSize.width, wrapSize.height, dpr.value], () => {
   rescaleContext()
   illo?.updateRenderGraph()
-}, {
-  deep: true,
-})
+}, { deep: true })
 
-watch(() => props.boidCount, (count, oldCount) => {
-  const diff = count - oldCount
-  if (diff > 0 && illo) {
+// 同步魚群數量
+function syncFishCount(count: number) {
+  if (!illo)
+    return
+
+  const currentLen = fishList.length
+  const diff = count - currentLen
+
+  if (diff > 0) {
     for (let i = 0; i < diff; i++) {
-      const boid = props.boidList[oldCount + i]
+      const boidIndex = currentLen + i
+      const boid = props.boidList[boidIndex]
       if (boid) {
-        const isFirst = fishList.length === 0 && i === 0
+        const isFirst = fishList.length === 0
         fishList.push(createFish(illo, boid.position, isFirst))
       }
     }
   }
+  else if (diff < 0) {
+    // 從尾端開始移除 Zdog 物件
+    for (let i = currentLen - 1; i >= count; i--) {
+      const fish = fishList[i]
+      fish?.remove()
+    }
+    fishList.length = count
+  }
+}
+
+watch(() => props.boidCount, (newCount) => {
+  syncFishCount(newCount)
 })
 
 useRafFn(() => {
-  const illoValue = illo
-  if (fishList.length === 0 && illoValue && props.boidList.length) {
-    fishList = props.boidList.map((boid, i) => createFish(illoValue, boid.position, i === 0))
-  }
+  if (!illo || !canvasRef.value)
+    return
 
-  props.boidList.forEach((boid, i) => {
-    const fish = fishList[i]
-    if (!fish)
-      return
+  // 使用 toRaw 獲取原始資料，避免高頻迴圈中觸發 Vue 的 Proxy Getter，提升效能
+  const rawList = toRaw(props.boidList)
+  const len = Math.min(rawList.length, fishList.length)
+
+  for (let i = 0; i < len; i++) {
+    const fish = fishList[i]!
+    const boid = rawList[i]!
+
     fish.translate.set(boid.position)
+
     const scale = 1 + boid.position.z / 500
     fish.scale.set({ x: scale, y: scale, z: scale })
+
     fish.rotate.z = boid.pitch
     fish.rotate.y = -boid.yaw
-  })
-
-  if (canvasRef.value instanceof HTMLCanvasElement) {
-    const ctx = canvasRef.value.getContext('2d')!
-    ctx.clearRect(0, 0, canvasPixelSize.value.width, canvasPixelSize.value.height)
   }
-  illo?.updateRenderGraph()
+
+  const ctx = canvasRef.value.getContext('2d')!
+  ctx.clearRect(0, 0, canvasRef.value.width, canvasRef.value.height)
+
+  illo.updateRenderGraph()
 })
 </script>
 
