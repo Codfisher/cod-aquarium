@@ -12,10 +12,7 @@
       >
     </template>
 
-    <img
-      v-bind="imgProps"
-      :src
-    >
+    <img v-bind="imgProps">
   </picture>
 </template>
 
@@ -38,7 +35,6 @@ const props = withDefaults(defineProps<Props>(), {
 const { isDark } = useData()
 
 const attrs = useAttrs()
-const src = computed(() => isDark.value ? props.src.replace('.webp', '-dark.webp') : props.src)
 
 const WIDTH_LIST = [700, 300] as const
 
@@ -52,6 +48,7 @@ const fileName = computed(() => props.src
 const imgProps = computed(() => ({
   ...props,
   ...attrs,
+  src: isDark.value ? props.src.replace('.webp', '-dark.webp') : props.src,
 }))
 
 /** 抽取邏輯：根據傳入的檔名 (baseName) 產生對應的 srcset 字串
