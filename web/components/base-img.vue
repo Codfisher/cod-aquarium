@@ -41,7 +41,7 @@ const WIDTH_LIST = [700, 300] as const
 const src = computed(() => isDark.value ? props.src.replace('.webp', '-dark.webp') : props.src)
 
 // 去除附檔名
-const fileName = computed(() => src.value
+const fileName = computed(() => props.src
   .split('.')
   .slice(0, -1)
   .join('.'),
