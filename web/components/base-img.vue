@@ -12,13 +12,17 @@
       >
     </template>
 
-    <img v-bind="imgProps">
+    <img
+      v-bind="imgProps"
+      :src
+    >
   </picture>
 </template>
 
 <script setup lang="ts">
 import type { ImgHTMLAttributes } from 'vue'
 import { join, map, pipe } from 'remeda'
+import { useData } from 'vitepress'
 import { computed, useAttrs } from 'vue'
 
 interface Props extends /* @vue-ignore */ ImgHTMLAttributes {
@@ -31,7 +35,10 @@ const props = withDefaults(defineProps<Props>(), {
   useSize: undefined,
 })
 
+const { isDark } = useData()
+
 const attrs = useAttrs()
+const src = computed(() => isDark.value ? props.src.replace('.webp', '-dark.webp') : props.src)
 
 const WIDTH_LIST = [700, 300] as const
 
