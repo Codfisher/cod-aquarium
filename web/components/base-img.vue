@@ -38,8 +38,10 @@ const attrs = useAttrs()
 
 const WIDTH_LIST = [700, 300] as const
 
+const src = computed(() => isDark.value ? props.src.replace('.webp', '-dark.webp') : props.src)
+
 // 去除附檔名
-const fileName = computed(() => props.src
+const fileName = computed(() => src.value
   .split('.')
   .slice(0, -1)
   .join('.'),
@@ -48,7 +50,7 @@ const fileName = computed(() => props.src
 const imgProps = computed(() => ({
   ...props,
   ...attrs,
-  src: isDark.value ? props.src.replace('.webp', '-dark.webp') : props.src,
+  src: src.value,
 }))
 
 /** 抽取邏輯：根據傳入的檔名 (baseName) 產生對應的 srcset 字串
