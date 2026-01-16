@@ -51,8 +51,8 @@ function createFish(
   position: Position,
   isFirst = false,
 ): Fish {
-  // 第一隻魚是金紅色
-  const color = isFirst ? '#ff844f' : '#bfebff'
+  // 第一隻魚是金色
+  const color = isFirst ? '#ffd752' : '#bfebff'
 
   const thickness = props.size / 5
   const group = new Group({ addTo: illoValue, translate: position })
