@@ -2,8 +2,8 @@
   <picture>
     <template v-if="sourceVisible">
       <source
+        v-if="isDark && !darkSrcError"
         :srcset="darkSrcset"
-        media="(prefers-color-scheme: dark)"
         type="image/webp"
       >
       <source
@@ -12,7 +12,10 @@
       >
     </template>
 
-    <img v-bind="imgProps">
+    <img
+      v-bind="imgProps"
+      @error="darkSrcError = true"
+    >
   </picture>
 </template>
 
@@ -20,7 +23,7 @@
 import type { ImgHTMLAttributes } from 'vue'
 import { join, map, pipe } from 'remeda'
 import { useData } from 'vitepress'
-import { computed, useAttrs } from 'vue'
+import { computed, ref, useAttrs } from 'vue'
 
 interface Props extends /* @vue-ignore */ ImgHTMLAttributes {
   src: string;
@@ -33,12 +36,11 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const { isDark } = useData()
+const darkSrcError = ref(false)
 
 const attrs = useAttrs()
 
 const WIDTH_LIST = [700, 300] as const
-
-const src = computed(() => isDark.value ? props.src.replace('.webp', '-dark.webp') : props.src)
 
 // 去除附檔名
 const fileName = computed(() => props.src
@@ -47,6 +49,7 @@ const fileName = computed(() => props.src
   .join('.'),
 )
 
+const src = computed(() => isDark.value ? props.src.replace('.webp', '-dark.webp') : props.src)
 const imgProps = computed(() => ({
   ...props,
   ...attrs,
