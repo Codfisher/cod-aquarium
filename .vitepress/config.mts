@@ -220,6 +220,19 @@ export default ({ mode }: { mode: string }) => {
               },
             ],
           }),
+          getNavItem({
+            text: '酷東西',
+            items: [
+              {
+                text: 'Cyber Scales Desktop',
+                link: '/aquarium/cyber-scales-desktop/',
+              },
+              {
+                text: '快取梗圖',
+                link: '/aquarium/meme-cache/',
+              },
+            ],
+          }),
         ],
         isTruthy,
       ),
