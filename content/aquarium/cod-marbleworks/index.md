@@ -5,7 +5,7 @@ layout: false
 ---
 
 <script setup>
-import SoundBlocks from './sound-blocks.vue'
+import CodMarbleworks from './cod-marbleworks.vue'
 </script>
 
-<sound-blocks />
+<cod-marbleworks />

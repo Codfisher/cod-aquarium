@@ -18,7 +18,6 @@ import {
   Vector3,
 } from '@babylonjs/core'
 import { onMounted, onUnmounted } from 'vue'
-import { createTreeBlock } from './blocks'
 import { useBabylonScene } from './use-babylon-scene'
 
 function createGround({ scene }: {
@@ -54,8 +53,6 @@ const {
     const shadowGenerator = createShadowGenerator(scene)
 
     createGround({ scene })
-
-    await createTreeBlock({ scene, shadowGenerator })
   },
 })
 
