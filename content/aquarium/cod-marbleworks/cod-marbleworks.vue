@@ -49,11 +49,11 @@ function createMarble({ scene }: {
     diameter: 1,
     segments: 32,
   }, scene)
-  marble.position = new Vector3(0, 2, 0)
+  marble.position = new Vector3(0, 5, 0)
   marble.receiveShadows = true
 
   const marbleMaterial = new StandardMaterial('marbleMaterial', scene)
-  marbleMaterial.diffuseColor = new Color3(0.98, 0.5, 0.5)
+  marbleMaterial.diffuseColor = new Color3(0.1, 0.1, 0.1)
   marble.material = marbleMaterial
 
   const sphereAggregate = new PhysicsAggregate(marble, PhysicsShapeType.SPHERE, { mass: 1, restitution: 0.75 }, scene)
@@ -84,7 +84,8 @@ const {
     const shadowGenerator = createShadowGenerator(scene)
 
     createGround({ scene })
-    createMarble({ scene })
+    const marble = createMarble({ scene })
+    shadowGenerator.addShadowCaster(marble)
   },
 })
 
