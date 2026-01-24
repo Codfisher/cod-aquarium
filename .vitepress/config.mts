@@ -330,6 +330,9 @@ export default ({ mode }: { mode: string }) => {
     } as Config,
 
     vite: {
+      optimizeDeps: {
+        exclude: ['@babylonjs/havok'],
+      },
       css: {
         preprocessorOptions: {
           sass: {

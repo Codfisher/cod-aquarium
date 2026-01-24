@@ -12,11 +12,15 @@ import type { Scene } from '@babylonjs/core'
 import {
   Color3,
   DirectionalLight,
+  HavokPlugin,
   MeshBuilder,
+  PhysicsAggregate,
+  PhysicsShapeType,
   ShadowGenerator,
   StandardMaterial,
   Vector3,
 } from '@babylonjs/core'
+import HavokPhysics from '@babylonjs/havok'
 import { onMounted, onUnmounted } from 'vue'
 import { useBabylonScene } from './use-babylon-scene'
 
@@ -27,12 +31,34 @@ function createGround({ scene }: {
     width: 1000,
     height: 1000,
   }, scene)
+  ground.receiveShadows = true
 
   const groundMaterial = new StandardMaterial('groundMaterial', scene)
   groundMaterial.diffuseColor = new Color3(0.98, 0.98, 0.98)
   ground.material = groundMaterial
 
-  ground.receiveShadows = true
+  const groundAggregate = new PhysicsAggregate(ground, PhysicsShapeType.BOX, { mass: 0 }, scene)
+
+  return ground
+}
+
+function createMarble({ scene }: {
+  scene: Scene;
+}) {
+  const marble = MeshBuilder.CreateSphere('marble', {
+    diameter: 1,
+    segments: 32,
+  }, scene)
+  marble.position = new Vector3(0, 2, 0)
+  marble.receiveShadows = true
+
+  const marbleMaterial = new StandardMaterial('marbleMaterial', scene)
+  marbleMaterial.diffuseColor = new Color3(0.98, 0.5, 0.5)
+  marble.material = marbleMaterial
+
+  const sphereAggregate = new PhysicsAggregate(marble, PhysicsShapeType.SPHERE, { mass: 1, restitution: 0.75 }, scene)
+
+  return marble
 }
 
 function createShadowGenerator(scene: Scene) {
@@ -50,9 +76,15 @@ const {
 } = useBabylonScene({
   async init(params) {
     const { scene } = params
+
+    const havokInstance = await HavokPhysics()
+    const havokPlugin = new HavokPlugin(true, havokInstance)
+    scene.enablePhysics(new Vector3(0, -9.81, 0), havokPlugin)
+
     const shadowGenerator = createShadowGenerator(scene)
 
     createGround({ scene })
+    createMarble({ scene })
   },
 })
 
