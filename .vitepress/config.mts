@@ -269,9 +269,24 @@ export default ({ mode }: { mode: string }) => {
                   text: '來個 3D 白噪音混音器',
                   link: getOldestDocPath('/column-sound-blocks/'),
                 },
+                // {
+                //   text: '酷酷元件背後的星點',
+                //   link: getOldestDocPath('/column-chill-components/'),
+                // },
+              ],
+            },
+            {
+              text: '酷東西',
+              items: [
                 {
-                  text: '酷酷元件背後的星點',
-                  link: getOldestDocPath('/column-chill-components/'),
+                  text: 'Cyber Scales Desktop',
+                  link: '/aquarium/cyber-scales-desktop/',
+                  target: '_blank',
+                },
+                {
+                  text: '快取梗圖',
+                  link: '/aquarium/meme-cache/',
+                  target: '_blank',
                 },
               ],
             },
@@ -301,11 +316,11 @@ export default ({ mode }: { mode: string }) => {
           '來個 3D 白噪音混音器',
           'asc',
         ),
-        ...getSidebar(
-          '/column-chill-components/',
-          '酷酷元件背後的星點',
-          'asc',
-        ),
+        // ...getSidebar(
+        //   '/column-chill-components/',
+        //   '酷酷元件背後的星點',
+        //   'asc',
+        // ),
       },
 
       socialLinks: [
