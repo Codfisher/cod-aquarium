@@ -22,8 +22,8 @@
 </template>
 
 <script setup lang="ts">
-import SenseViewer from './sense-viewer.vue'
-import Sidebar from './sidebar.vue'
+import SenseViewer from './components/sense-viewer.vue'
+import Sidebar from './components/sidebar.vue'
 
 const version = '0.1.0'
 </script>

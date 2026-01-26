@@ -25,32 +25,31 @@
         {{ statusMessage }}
       </div>
 
-      <ul
+      <div
         v-if="files.length"
-        class="text-xs text-left w-full px-2 overflow-y-auto max-h-40"
+        class="flex flex-col gap-2 overflow-y-auto"
       >
-        <li
+        <model-preview
           v-for="item in files"
           :key="item.path"
-          class="truncate py-1 border-b border-gray-100 last:border-0"
-          :title="item.path"
-        >
-          {{ item.path }}
-        </li>
-      </ul>
+          class=" shrink-0"
+          :file="item.file"
+        />
+      </div>
     </div>
   </u-dashboard-sidebar>
 </template>
 
 <script setup lang="ts">
-import type { ModelFile } from './type'
+import type { ModelFile } from '../type'
 import { ref } from 'vue'
+import ModelPreview from './model-preview/model-preview.vue'
 
 const toast = useToast()
 
 const SUPPORTED_EXTENSIONS = ['.gltf', '.glb', '.obj', '.fbx', '.stl']
 
-const selectedFormatList = ref(['.gltf'])
+const selectedFormatList = ref(['.gltf', '.glb'])
 
 const isScanning = ref(false)
 const statusMessage = ref('選擇目錄後，即可預覽此目錄下所有 3D 模型')

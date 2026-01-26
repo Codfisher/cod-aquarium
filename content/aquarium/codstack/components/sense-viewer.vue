@@ -21,7 +21,7 @@ import {
   Vector3,
 } from '@babylonjs/core'
 import HavokPhysics from '@babylonjs/havok'
-import { useBabylonScene } from './use-babylon-scene'
+import { useBabylonScene } from '../composables/use-babylon-scene'
 
 function createGround({ scene }: {
   scene: Scene;
