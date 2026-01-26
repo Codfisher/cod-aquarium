@@ -30,7 +30,7 @@
 
       <div
         v-if="files.length && rootHandle"
-        class="flex flex-col gap-2 overflow-y-auto"
+        class="flex flex-wrap gap-2 overflow-y-auto"
       >
         <model-preview
           v-for="file in files"

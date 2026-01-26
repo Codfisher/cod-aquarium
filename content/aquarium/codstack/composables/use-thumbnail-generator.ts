@@ -101,12 +101,15 @@ function _useThumbnailGenerator(rootFSHandle: FileSystemDirectoryHandle) {
 
     _camera = new ArcRotateCamera('camera', Math.PI / 4, Math.PI / 4, 5, Vector3.Zero(), _scene)
     _camera.attachControl(_canvas, true)
+    _camera.lowerBetaLimit = 0.05
+    _camera.upperBetaLimit = Math.PI / 2 - 0.05
     _camera.useFramingBehavior = true
     if (_camera.framingBehavior) {
       _camera.framingBehavior.mode = FramingBehavior.FitFrustumSidesMode
       _camera.framingBehavior.radiusScale = 1.2
       _camera.framingBehavior.framingTime = 0
       _camera.framingBehavior.elevationReturnTime = -1
+      _camera.framingBehavior.positionScale = 0.65
     }
 
     const light = new HemisphericLight('light', new Vector3(0, 1, 0), _scene)
@@ -136,10 +139,8 @@ function _useThumbnailGenerator(rootFSHandle: FileSystemDirectoryHandle) {
       lastContainer = container
       container.addAllToScene()
 
-      const rootMesh = scene.meshes[0]
-      if (rootMesh && camera) {
-        camera.framingBehavior?.zoomOnMeshHierarchy(rootMesh, true)
-      }
+      const meshes = container.meshes.filter((m) => m.getTotalVertices() > 0)
+      camera.framingBehavior?.zoomOnMeshesHierarchy(meshes, true)
 
       engine.runRenderLoop(() => {
         scene.render()

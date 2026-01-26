@@ -1,7 +1,7 @@
 <template>
   <div
     ref="cardRef"
-    class="rounded p-2 flex flex-col gap-2 w-40 h-48 "
+    class="rounded flex flex-col w-30 aspect-square "
   >
     <div class="flex-1 bg-gray-100 rounded flex items-center justify-center overflow-hidden relative">
       <div
@@ -24,10 +24,6 @@
       >
         <span class="icon-[material-symbols--deployed-code]" />
       </div>
-    </div>
-
-    <div class="text-xs truncate font-medium">
-      {{ modelFile.name }}
     </div>
   </div>
 </template>
