@@ -1,5 +1,5 @@
 <template>
-  <div class=" overflow-hidden">
+  <div class=" fixed w-screen h-screen">
     <canvas
       ref="canvasRef"
       class="canvas w-full h-full"
@@ -13,17 +13,14 @@ import {
   Color3,
   DirectionalLight,
   HavokPlugin,
-  ImportMeshAsync,
   MeshBuilder,
   PhysicsAggregate,
   PhysicsShapeType,
   ShadowGenerator,
   StandardMaterial,
-  TransformNode,
   Vector3,
 } from '@babylonjs/core'
 import HavokPhysics from '@babylonjs/havok'
-import { onMounted, onUnmounted } from 'vue'
 import { createTrackSegment } from './track-segment'
 import { useBabylonScene } from './use-babylon-scene'
 
@@ -93,19 +90,7 @@ const {
     const trackSegment = await createTrackSegment({ scene })
   },
 })
-
-onMounted(() => {
-  document.body.classList.add('overflow-hidden')
-})
-onUnmounted(() => {
-  document.body.classList.remove('overflow-hidden')
-})
 </script>
-
-<style lang="sass">
-body.overflow-hidden
-  overflow: hidden
-</style>
 
 <style lang="sass" scoped>
 .canvas
