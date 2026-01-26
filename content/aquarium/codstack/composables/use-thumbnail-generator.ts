@@ -5,16 +5,14 @@ import {
   ArcRotateCamera,
   Color4,
   Engine,
-  EngineStore,
   FramingBehavior,
   HemisphericLight,
   Scene,
   Tools,
   Vector3,
 } from '@babylonjs/core'
-import { AppendSceneAsync, LoadAssetContainerAsync, SceneLoader } from '@babylonjs/core/Loading/sceneLoader'
-import { FilesInputStore } from '@babylonjs/core/Misc/filesInputStore'
-import { createSharedComposable, promiseTimeout, tryOnScopeDispose } from '@vueuse/core'
+import { LoadAssetContainerAsync, SceneLoader } from '@babylonjs/core/Loading/sceneLoader'
+import { createSharedComposable, tryOnScopeDispose } from '@vueuse/core'
 import PQueue from 'p-queue'
 import { pipe } from 'remeda'
 
@@ -44,6 +42,7 @@ async function getFileFromPath(
 }
 
 function _useThumbnailGenerator(rootFSHandle: FileSystemDirectoryHandle) {
+  console.log(`🚀 ~ _useThumbnailGenerator:`)
   const queue = new PQueue({ concurrency: 1 })
 
   let _canvas: HTMLCanvasElement | undefined
@@ -108,8 +107,6 @@ function _useThumbnailGenerator(rootFSHandle: FileSystemDirectoryHandle) {
       _camera.framingBehavior.mode = FramingBehavior.FitFrustumSidesMode
       _camera.framingBehavior.radiusScale = 1.2
       _camera.framingBehavior.framingTime = 0
-      _camera.framingBehavior.elevationReturnTime = -1
-      _camera.framingBehavior.positionScale = 0.65
     }
 
     const light = new HemisphericLight('light', new Vector3(0, 1, 0), _scene)
@@ -146,6 +143,9 @@ function _useThumbnailGenerator(rootFSHandle: FileSystemDirectoryHandle) {
         scene.render()
       })
       await scene.whenReadyAsync(true)
+
+      camera.beta = Math.PI / 4
+      camera.alpha = Math.PI / 4
 
       const base64 = await Tools.CreateScreenshotAsync(engine, camera, {
         width: 256,
