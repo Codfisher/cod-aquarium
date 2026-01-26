@@ -11,7 +11,7 @@
       >
         <sidebar />
 
-        <sense-viewer />
+        <sense-viewer class="w-full h-full" />
       </u-dashboard-group>
 
       <div class=" fixed right-0 top-0 p-2 px-3 text-xs opacity-10">

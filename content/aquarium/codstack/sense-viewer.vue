@@ -2,7 +2,7 @@
   <div class=" ">
     <canvas
       ref="canvasRef"
-      class="canvas w-full h-full"
+      class="w-full h-full outline-none"
     />
   </div>
 </template>
@@ -69,6 +69,4 @@ const {
 </script>
 
 <style lang="sass" scoped>
-.canvas
-  outline: none
 </style>

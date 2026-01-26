@@ -11,6 +11,7 @@ import {
   Vector3,
   WebGPUEngine,
 } from '@babylonjs/core'
+import { useEventListener } from '@vueuse/core'
 import { defaults } from 'lodash-es'
 import { onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
 import '@babylonjs/loaders/glTF'
@@ -124,8 +125,6 @@ export function useBabylonScene(param?: UseBabylonSceneParam) {
       scene: scene.value,
     })
 
-    window.addEventListener('resize', handleResize)
-
     engine.value.runRenderLoop(() => {
       scene.value?.render()
     })
@@ -141,13 +140,14 @@ export function useBabylonScene(param?: UseBabylonSceneParam) {
   onBeforeUnmount(() => {
     engine.value?.dispose()
     scene.value?.dispose()
-
-    window.removeEventListener('resize', handleResize)
   })
 
   function handleResize() {
     engine.value?.resize()
   }
+
+  useEventListener('resize', handleResize)
+  useEventListener(canvasRef, 'resize', handleResize)
 
   return {
     canvasRef,
