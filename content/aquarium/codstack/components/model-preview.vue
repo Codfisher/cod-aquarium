@@ -4,7 +4,10 @@
     class="rounded p-2 flex flex-col gap-2 w-40 h-48 "
   >
     <div class="flex-1 bg-gray-100 rounded flex items-center justify-center overflow-hidden relative">
-      <div v-if="isLoading" class="animate-pulse text-gray-400 text-xs">
+      <div
+        v-if="isLoading"
+        class="animate-pulse text-gray-400 text-xs"
+      >
         Generating...
       </div>
 
@@ -15,7 +18,10 @@
         alt="Model thumbnail"
       >
 
-      <div v-else class="text-gray-300">
+      <div
+        v-else
+        class="text-gray-300"
+      >
         <span class="icon-[material-symbols--deployed-code]" />
       </div>
     </div>
@@ -28,10 +34,11 @@
 
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue'
-import { useThumbnailGenerator } from './use-thumbnail-generator'
+import { useThumbnailGenerator } from '../composables/use-thumbnail-generator'
 
 const props = defineProps<{
   file: File;
+  rootHandle: FileSystemDirectoryHandle;
 }>()
 
 const { generateThumbnail } = useThumbnailGenerator()
@@ -64,10 +71,11 @@ async function loadThumbnail() {
   try {
     isLoading.value = true
     // 呼叫共用的產生器，這裡會自動排隊
-    const base64 = await generateThumbnail(props.file)
+    const base64 = await generateThumbnail(props.file, props.rootHandle)
     thumbnailSrc.value = base64
   }
   catch (e) {
+    console.error('🚀 ~ loadThumbnail ~ e:', e)
     console.error(`Failed to load thumbnail for ${props.file.name}`)
   }
   finally {

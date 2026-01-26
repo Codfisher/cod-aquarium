@@ -26,14 +26,14 @@
       </div>
 
       <div
-        v-if="files.length"
+        v-if="files[0]"
         class="flex flex-col gap-2 overflow-y-auto"
       >
         <model-preview
-          v-for="item in files"
-          :key="item.path"
+          :key="files[0].path"
           class=" shrink-0"
-          :file="item.file"
+          :file="files[0].file"
+          :root-handle="files[0].rootHandle"
         />
       </div>
     </div>
@@ -43,7 +43,7 @@
 <script setup lang="ts">
 import type { ModelFile } from '../type'
 import { ref } from 'vue'
-import ModelPreview from './model-preview/model-preview.vue'
+import ModelPreview from './model-preview.vue'
 
 const toast = useToast()
 
@@ -77,7 +77,7 @@ async function handleClick() {
     files.value = []
 
     const dirHandle = await window.showDirectoryPicker()
-    await scanDirectory(dirHandle, '')
+    await scanDirectory(dirHandle, '', dirHandle)
 
     statusMessage.value = `掃描完成，找到 ${files.value.length} 個模型`
   }
@@ -95,8 +95,13 @@ async function handleClick() {
 /** 遞迴掃描目錄下的所有檔案
  * @param dirHandle 目錄控制代碼
  * @param pathPrefix 目前累積的路徑 (不含當前層級)
+ * @param rootDirHandle 根目錄控制代碼
  */
-async function scanDirectory(dirHandle: FileSystemDirectoryHandle, pathPrefix: string) {
+async function scanDirectory(
+  dirHandle: FileSystemDirectoryHandle,
+  pathPrefix: string,
+  rootDirHandle: FileSystemDirectoryHandle,
+) {
   for await (const entry of dirHandle.values()) {
     // 組合當前檔案/資料夾的相對路徑
     // 如果 pathPrefix 是空的，就直接用 entry.name，否則加斜線
@@ -110,15 +115,16 @@ async function scanDirectory(dirHandle: FileSystemDirectoryHandle, pathPrefix: s
         // 推入自定義物件
         files.value.push({
           name: file.name,
-          path: currentPath, // 這裡就是你要的 "folder/file.glb"
+          path: currentPath,
           file,
+          rootHandle: rootDirHandle,
         })
       }
     }
     else if (entry.kind === 'directory') {
       const subDirHandle = entry as FileSystemDirectoryHandle
       // 遞迴呼叫，將 currentPath 傳下去
-      await scanDirectory(subDirHandle, currentPath)
+      await scanDirectory(subDirHandle, currentPath, rootDirHandle)
     }
   }
 }

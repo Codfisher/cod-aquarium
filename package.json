@@ -67,7 +67,7 @@
     "motion-v": "^1.7.0",
     "moveable": "^0.53.0",
     "nanoid": "^5.1.5",
-    "p-queue": "^9.0.0",
+    "p-queue": "^9.1.0",
     "pinia": "^3.0.3",
     "playwright": "^1.52.0",
     "postcss": "^8.5.6",
