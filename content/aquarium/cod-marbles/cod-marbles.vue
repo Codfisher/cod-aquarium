@@ -13,15 +13,18 @@ import {
   Color3,
   DirectionalLight,
   HavokPlugin,
+  ImportMeshAsync,
   MeshBuilder,
   PhysicsAggregate,
   PhysicsShapeType,
   ShadowGenerator,
   StandardMaterial,
+  TransformNode,
   Vector3,
 } from '@babylonjs/core'
 import HavokPhysics from '@babylonjs/havok'
 import { onMounted, onUnmounted } from 'vue'
+import { createTrackSegment } from './track-segment'
 import { useBabylonScene } from './use-babylon-scene'
 
 function createGround({ scene }: {
@@ -86,6 +89,8 @@ const {
     createGround({ scene })
     const marble = createMarble({ scene })
     shadowGenerator.addShadowCaster(marble)
+
+    const trackSegment = await createTrackSegment({ scene })
   },
 })
 
