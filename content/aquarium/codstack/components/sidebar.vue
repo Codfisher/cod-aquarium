@@ -1,5 +1,8 @@
 <template>
-  <u-dashboard-sidebar resizable>
+  <u-dashboard-sidebar
+    resizable
+    open
+  >
     <div class="flex flex-col h-full gap-4">
       <div class="flex gap-2">
         <u-button
@@ -26,14 +29,15 @@
       </div>
 
       <div
-        v-if="files[0]"
+        v-if="files.length && rootHandle"
         class="flex flex-col gap-2 overflow-y-auto"
       >
         <model-preview
-          :key="files[0].path"
+          v-for="file in files"
+          :key="file.path"
           class=" shrink-0"
-          :file="files[0].file"
-          :root-handle="files[0].rootHandle"
+          :model-file="file"
+          :root-handle="rootHandle"
         />
       </div>
     </div>
@@ -42,7 +46,7 @@
 
 <script setup lang="ts">
 import type { ModelFile } from '../type'
-import { ref } from 'vue'
+import { ref, shallowRef } from 'vue'
 import ModelPreview from './model-preview.vue'
 
 const toast = useToast()
@@ -54,6 +58,7 @@ const selectedFormatList = ref(['.gltf', '.glb'])
 const isScanning = ref(false)
 const statusMessage = ref('選擇目錄後，即可預覽此目錄下所有 3D 模型')
 const files = ref<ModelFile[]>([])
+const rootHandle = shallowRef<FileSystemDirectoryHandle>()
 
 async function handleClick() {
   if (!('showDirectoryPicker' in window)) {
@@ -77,6 +82,7 @@ async function handleClick() {
     files.value = []
 
     const dirHandle = await window.showDirectoryPicker()
+    rootHandle.value = dirHandle
     await scanDirectory(dirHandle, '', dirHandle)
 
     statusMessage.value = `掃描完成，找到 ${files.value.length} 個模型`
@@ -117,7 +123,6 @@ async function scanDirectory(
           name: file.name,
           path: currentPath,
           file,
-          rootHandle: rootDirHandle,
         })
       }
     }

@@ -3,5 +3,4 @@ export interface ModelFile {
   /** 相對路徑 (例如: subfolder/model.glb) */
   path: string;
   file: File;
-  rootHandle: FileSystemDirectoryHandle;
 }
