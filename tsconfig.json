@@ -11,7 +11,8 @@
     "moduleResolution": "node",
     "paths": {
       "#build/ui": [
-        "./node_modules/@nuxt/ui/.nuxt/ui"
+        "./node_modules/@nuxt/ui/.nuxt/ui",
+        "./node_modules/@nuxt/ui/.nuxt/ui/*"
       ]
     },
     "noErrorTruncation": true,

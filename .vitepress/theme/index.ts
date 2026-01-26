@@ -8,8 +8,8 @@ import { h } from 'vue'
 import BaseImg from '../../web/components/base-img.vue'
 import DonateSection from '../../web/components/donate-section.vue'
 import '../ssr-guard'
-import './style.css'
 
+import './style.css'
 import './tailwind.css'
 
 // const vConsole = new VConsole()

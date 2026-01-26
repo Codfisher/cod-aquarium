@@ -1,6 +1,8 @@
 import type { DefaultTheme } from 'vitepress'
 import type { Article } from './utils'
 import ui from '@nuxt/ui/vite'
+import { whyframe } from '@whyframe/core'
+import { whyframeVue } from '@whyframe/vue'
 import dayjs from 'dayjs'
 import { filter, isTruthy, map, piped } from 'remeda'
 import Icons from 'unplugin-icons/vite'
@@ -404,6 +406,13 @@ export default ({ mode }: { mode: string }) => {
         }),
         ui({
           router: false,
+        }),
+
+        whyframe({
+          defaultSrc: '/_frame',
+        }),
+        whyframeVue({
+          include: /\.(?:vue|md)$/,
         }),
       ],
     },

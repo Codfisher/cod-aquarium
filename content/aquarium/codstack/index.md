@@ -8,4 +8,6 @@ layout: false
 import Codstack from './codstack.vue'
 </script>
 
-<codstack />
+<iframe data-why class=" w-screen h-screen">
+  <codstack />
+</iframe>
