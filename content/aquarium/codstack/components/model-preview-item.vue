@@ -41,7 +41,7 @@ const thumbnailData = shallowRef<Blob | File>()
 const thumbnailSrc = useObjectUrl(thumbnailData)
 const isLoading = ref(false)
 
-const cacheKey = computed(() => `thumb-${props.modelFile.path}`)
+const cacheKey = computed(() => `thumb-${props.modelFile.path.replace(/[^a-z0-9.-]/gi, '_')}`)
 
 onMounted(() => {
   loadThumbnail()
@@ -52,15 +52,10 @@ const thumbDirectory = computedAsync(async () => {
   return opfsRoot.getDirectoryHandle('thumbnails', { create: true })
 })
 
-/** 把所有非英數、點、減號的字元都換成底線 (包含斜線) */
-function getSafeCacheKey(filepath: string): string {
-  return filepath.replace(/[^a-z0-9.-]/gi, '_')
-}
 async function saveThumbnail(fileName: string, blob: Blob) {
   await until(thumbDirectory).toBeTruthy()
-  const key = getSafeCacheKey(fileName)
 
-  const fileHandle = await thumbDirectory.value!.getFileHandle(key, { create: true })
+  const fileHandle = await thumbDirectory.value!.getFileHandle(fileName, { create: true })
   const writable = await fileHandle.createWritable()
   await writable.write(blob)
   await writable.close()
@@ -69,9 +64,8 @@ async function saveThumbnail(fileName: string, blob: Blob) {
 async function getThumbnailFile(fileName: string) {
   await until(thumbDirectory).toBeTruthy()
 
-  const key = getSafeCacheKey(fileName)
   try {
-    const fileHandle = await thumbDirectory.value!.getFileHandle(key)
+    const fileHandle = await thumbDirectory.value!.getFileHandle(fileName)
     return await fileHandle.getFile()
   }
   catch {
