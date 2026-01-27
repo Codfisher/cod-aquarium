@@ -2,8 +2,8 @@
   <div class="flex flex-col h-full gap-4">
     <div class="flex gap-2">
       <u-button
-        label="select directory"
-        variant="outline"
+        label="Select directory"
+        variant="subtle"
         color="neutral"
         icon="material-symbols:folder"
         class="w-full"
@@ -58,7 +58,7 @@ const SUPPORTED_EXTENSIONS = ['.gltf', '.glb', '.obj', '.fbx', '.stl']
 const selectedFormatList = ref(['.gltf', '.glb'])
 
 const isScanning = ref(false)
-const statusMessage = ref('select directory to preview 3D models')
+const statusMessage = ref('Select directory to preview 3D models')
 const files = ref<ModelFile[]>([])
 
 async function handleSelectDirectory() {
@@ -86,7 +86,7 @@ async function handleSelectDirectory() {
     mainStore.rootFsHandle = dirHandle
     await scanDirectory(dirHandle, '')
 
-    statusMessage.value = `scanned, found ${files.value.length} models`
+    statusMessage.value = `Scanned, found ${files.value.length} models`
   }
   catch (err) {
     mainStore.rootFsHandle = undefined
@@ -95,7 +95,7 @@ async function handleSelectDirectory() {
       statusMessage.value = 'error'
     }
     else {
-      statusMessage.value = 'select directory to preview 3D models'
+      statusMessage.value = 'Select directory to preview 3D models'
     }
   }
   finally {

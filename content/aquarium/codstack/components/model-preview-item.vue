@@ -11,12 +11,16 @@
         Generating...
       </div>
 
-      <img
+      <u-tooltip
         v-else-if="thumbnailSrc"
-        :src="thumbnailSrc"
-        class="w-full h-full object-contain"
-        alt="Model thumbnail"
+        :text="props.modelFile.path"
       >
+        <img
+          :src="thumbnailSrc"
+          class="w-full h-full object-contain"
+          alt="Model thumbnail"
+        >
+      </u-tooltip>
 
       <div
         v-else

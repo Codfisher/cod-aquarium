@@ -89,12 +89,15 @@ const { canvasRef, scene } = useBabylonScene({
         gizmoManager.positionGizmoEnabled = true
         gizmoManager.rotationGizmoEnabled = true
         gizmoManager.boundingBoxGizmoEnabled = true
+        gizmoManager.boundingBoxDragBehavior.disableMovement = true
+        gizmoManager.usePointerToAttachGizmos = false
 
         gizmoManager.attachableMeshes = addedMeshList.value
 
         const gizmos = gizmoManager?.gizmos
         if (gizmos?.positionGizmo) {
           gizmos.positionGizmo.snapDistance = 0.5
+          gizmos.positionGizmo.planarGizmoEnabled = false
         }
         if (gizmos?.rotationGizmo) {
           gizmos.rotationGizmo.snapDistance = Math.PI / 180 * 5

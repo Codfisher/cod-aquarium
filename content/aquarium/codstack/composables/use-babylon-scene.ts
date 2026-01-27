@@ -72,7 +72,7 @@ const defaultParam: Required<UseBabylonSceneParam> = {
     const camera = new ArcRotateCamera(
       'camera',
       Math.PI / 2,
-      Math.PI / 3 * 2,
+      Math.PI / 3,
       10,
       new Vector3(0, 0, 0),
       scene,
@@ -83,12 +83,12 @@ const defaultParam: Required<UseBabylonSceneParam> = {
     camera.panningSensibility = 0
 
     camera.wheelDeltaPercentage = 0.01
-    camera.lowerRadiusLimit = 10
+    camera.lowerRadiusLimit = 5
     camera.upperRadiusLimit = 30
 
     // 限制鏡頭角度
     camera.lowerBetaLimit = 0
-    camera.upperBetaLimit = Math.PI / 3
+    camera.upperBetaLimit = Math.PI / 2.2
 
     return camera
   },
