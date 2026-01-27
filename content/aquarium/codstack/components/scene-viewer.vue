@@ -39,7 +39,6 @@ const { canvasRef, scene } = useBabylonScene({
   async init(params) {
     const { scene } = params
 
-    const shadowGenerator = createShadowGenerator(scene)
     groundMesh.value = createGround({ scene })
 
     // 滑鼠跟隨邏輯
@@ -80,14 +79,6 @@ function createGround({ scene }: { scene: Scene }) {
   ground.material = groundMaterial
 
   return ground
-}
-
-function createShadowGenerator(scene: Scene) {
-  const light = new DirectionalLight('dir01', new Vector3(-5, -5, 0), scene)
-  light.intensity = 0.7
-  const shadowGenerator = new ShadowGenerator(1024, light)
-  shadowGenerator.usePoissonSampling = true
-  return shadowGenerator
 }
 
 const blobUrlList: string[] = []
