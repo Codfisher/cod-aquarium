@@ -34,7 +34,7 @@ const snapUnit = 0.5
 function snapToGrid(value: number, unit: number) {
   return Math.round(value / unit) * unit
 }
-const targetPosition = new Vector3(0, 0, 0)
+const mouseTargetPosition = new Vector3(0, 0, 0)
 
 const { canvasRef, scene } = useBabylonScene({
   async init(params) {
@@ -58,7 +58,7 @@ const { canvasRef, scene } = useBabylonScene({
         if (pickInfo.hit && pickInfo.pickedPoint) {
           const x = snapToGrid(pickInfo.pickedPoint.x, snapUnit)
           const z = snapToGrid(pickInfo.pickedPoint.z, snapUnit)
-          targetPosition.set(x, 0, z)
+          mouseTargetPosition.set(x, 0, z)
         }
       }
     })
@@ -72,9 +72,9 @@ const { canvasRef, scene } = useBabylonScene({
       // 指數平滑：不同 FPS 也會保持一致手感
       const t = 1 - Math.exp(-16 * dt)
 
-      mesh.position.x += (targetPosition.x - mesh.position.x) * t
-      mesh.position.y += (targetPosition.y - mesh.position.y) * t
-      mesh.position.z += (targetPosition.z - mesh.position.z) * t
+      mesh.position.x += (mouseTargetPosition.x - mesh.position.x) * t
+      mesh.position.y += (mouseTargetPosition.y - mesh.position.y) * t
+      mesh.position.z += (mouseTargetPosition.z - mesh.position.z) * t
     })
   },
 })
