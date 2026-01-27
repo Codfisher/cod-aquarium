@@ -12,10 +12,13 @@
           :default-size="30"
           :max-size="40"
         >
-          <file-preview-panel />
+          <file-preview-panel v-model:selected-model-file="selectedModelFile" />
         </u-dashboard-sidebar>
 
-        <scene-viewer class="w-full h-full" />
+        <scene-viewer
+          class="w-full h-full"
+          :selected-model-file="selectedModelFile"
+        />
       </u-dashboard-group>
 
       <div class="font-orbitron fixed right-0 bottom-0 p-2 px-3 opacity-50">
@@ -30,11 +33,14 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted } from 'vue'
+import type { ModelFile } from './type'
+import { onBeforeUnmount, onMounted, shallowRef } from 'vue'
 import FilePreviewPanel from './components/file-preview-panel.vue'
 import SceneViewer from './components/scene-viewer.vue'
 
 const version = '0.1.0'
+
+const selectedModelFile = shallowRef<ModelFile>()
 
 // 載入字體
 const fontHref = 'https://fonts.googleapis.com/css2?family=Material+Symbols+Sharp:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&family=Orbitron:wght@400..900'

@@ -1,5 +1,8 @@
 <template>
-  <div class="rounded flex flex-col w-30 aspect-square ">
+  <div
+    class="rounded flex flex-col aspect-square"
+    :style="{ width: size }"
+  >
     <div class="flex-1 bg-gray-100 rounded flex items-center justify-center overflow-hidden relative">
       <div
         v-if="isLoading"
@@ -31,10 +34,13 @@ import { computedAsync, until, useObjectUrl } from '@vueuse/core'
 import { computed, onMounted, ref, shallowRef } from 'vue'
 import { useThumbnailGenerator } from '../composables/use-thumbnail-generator'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   modelFile: ModelFile;
   rootHandle: FileSystemDirectoryHandle;
-}>()
+  size?: string;
+}>(), {
+  size: '120px',
+})
 
 const { generateThumbnail } = useThumbnailGenerator(props.rootHandle)
 const thumbnailData = shallowRef<Blob | File>()

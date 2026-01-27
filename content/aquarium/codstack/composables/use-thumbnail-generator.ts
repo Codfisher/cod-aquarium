@@ -16,7 +16,7 @@ import PQueue from 'p-queue'
 import { pipe } from 'remeda'
 import { getFileFromPath } from '../utils/fs'
 
-function _useThumbnailGenerator(rootFSHandle: FileSystemDirectoryHandle) {
+function _useThumbnailGenerator(rootFsHandle: FileSystemDirectoryHandle) {
   const queue = new PQueue({ concurrency: 1 })
 
   let _canvas: HTMLCanvasElement | undefined
@@ -82,7 +82,7 @@ function _useThumbnailGenerator(rootFSHandle: FileSystemDirectoryHandle) {
             async preprocessUrlAsync(url) {
               const file = await pipe(
                 modelFile.path.replace(modelFile.name, ''),
-                (path) => getFileFromPath(rootFSHandle, `${path}${url}`),
+                (path) => getFileFromPath(rootFsHandle, `${path}${url}`),
               )
 
               const blobUrl = URL.createObjectURL(file)

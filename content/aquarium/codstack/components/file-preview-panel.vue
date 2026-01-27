@@ -28,14 +28,16 @@
 
     <div
       v-if="files.length && rootHandle"
-      class="flex flex-wrap gap-2 overflow-y-auto"
+      class="flex flex-wrap gap-1 overflow-y-auto"
     >
       <model-preview-item
         v-for="file in files"
         :key="file.path"
-        class=" shrink-0"
+        class=" shrink-0 border-transparent border-3 duration-300"
+        :class="{ 'border-primary!': file === selectedModelFile }"
         :model-file="file"
         :root-handle="rootHandle"
+        @click="handleSelectedModelFile(file)"
       />
     </div>
   </div>
@@ -46,12 +48,11 @@ import type { ModelFile } from '../type'
 import { ref, shallowRef } from 'vue'
 import ModelPreviewItem from './model-preview-item.vue'
 
-const selectedModelFile = defineModel<ModelFile>('selectedModelFile')
-
 const toast = useToast()
 
-const SUPPORTED_EXTENSIONS = ['.gltf', '.glb', '.obj', '.fbx', '.stl']
+const selectedModelFile = defineModel<ModelFile>('selectedModelFile')
 
+const SUPPORTED_EXTENSIONS = ['.gltf', '.glb', '.obj', '.fbx', '.stl']
 const selectedFormatList = ref(['.gltf', '.glb'])
 
 const isScanning = ref(false)
@@ -140,5 +141,9 @@ function isModelFile(filename: string): boolean {
     return selectedFormatList.value.some((ext) => lowerName.endsWith(ext))
   }
   return SUPPORTED_EXTENSIONS.some((ext) => lowerName.endsWith(ext))
+}
+
+function handleSelectedModelFile(file: ModelFile) {
+  selectedModelFile.value = file
 }
 </script>

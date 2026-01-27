@@ -21,8 +21,8 @@ import {
 import { useBabylonScene } from '../composables/use-babylon-scene'
 
 const props = defineProps<{
-  modelFile?: ModelFile;
-  rootHandle?: FileSystemDirectoryHandle;
+  rootFsHandle?: FileSystemDirectoryHandle;
+  selectedModelFile?: ModelFile;
 }>()
 
 function createGround({ scene }: {
