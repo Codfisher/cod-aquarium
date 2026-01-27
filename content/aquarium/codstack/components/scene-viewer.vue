@@ -30,10 +30,11 @@ const previewMesh = shallowRef<AbstractMesh>()
 const groundMesh = shallowRef<AbstractMesh>()
 
 /** 網格吸附單位 */
-const snapUnit = 1
+const snapUnit = 0.5
 function snapToGrid(value: number, unit: number) {
   return Math.round(value / unit) * unit
 }
+const targetPosition = new Vector3(0, 0, 0)
 
 const { canvasRef, scene } = useBabylonScene({
   async init(params) {
@@ -55,11 +56,25 @@ const { canvasRef, scene } = useBabylonScene({
         )
 
         if (pickInfo.hit && pickInfo.pickedPoint) {
-          previewMesh.value.position.x = snapToGrid(pickInfo.pickedPoint.x, snapUnit)
-          previewMesh.value.position.z = snapToGrid(pickInfo.pickedPoint.z, snapUnit)
-          previewMesh.value.position.y = 0
+          const x = snapToGrid(pickInfo.pickedPoint.x, snapUnit)
+          const z = snapToGrid(pickInfo.pickedPoint.z, snapUnit)
+          targetPosition.set(x, 0, z)
         }
       }
+    })
+
+    scene.onBeforeRenderObservable.add(() => {
+      const mesh = previewMesh.value
+      if (!mesh)
+        return
+
+      const dt = scene.getEngine().getDeltaTime() / 1000
+      // 指數平滑：不同 FPS 也會保持一致手感
+      const t = 1 - Math.exp(-16 * dt)
+
+      mesh.position.x += (targetPosition.x - mesh.position.x) * t
+      mesh.position.y += (targetPosition.y - mesh.position.y) * t
+      mesh.position.z += (targetPosition.z - mesh.position.z) * t
     })
   },
 })
