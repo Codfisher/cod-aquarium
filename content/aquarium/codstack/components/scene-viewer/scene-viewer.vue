@@ -35,6 +35,19 @@ const addedMeshList = shallowRef<AbstractMesh[]>([])
 
 /** 旋轉縮放的工具 */
 const gizmoManager = shallowRef<GizmoManager>()
+watch(() => ({ shift, alt }), ({ shift, alt }) => {
+  const snapValue = alt?.value ? 0 : shift?.value ? 0.1 : 0.5
+
+  const gizmos = gizmoManager.value?.gizmos
+  if (gizmos?.positionGizmo) {
+    gizmos.positionGizmo.snapDistance = snapValue
+  }
+  if (gizmos?.rotationGizmo) {
+    gizmos.rotationGizmo.snapDistance = snapValue
+  }
+}, {
+  deep: true
+})
 
 /** 網格吸附單位 */
 const snapUnit = computed(() => {
@@ -62,7 +75,18 @@ const { canvasRef, scene } = useBabylonScene({
       new GizmoManager(scene),
       tap((gizmoManager) => {
         gizmoManager.positionGizmoEnabled = true
+        gizmoManager.rotationGizmoEnabled = true
         gizmoManager.usePointerToAttachGizmos = true;
+
+        gizmoManager.attachableMeshes = addedMeshList.value
+
+        const gizmos = gizmoManager?.gizmos
+        if (gizmos?.positionGizmo) {
+          gizmos.positionGizmo.snapDistance = 0.5
+        }
+        if (gizmos?.rotationGizmo) {
+          gizmos.rotationGizmo.snapDistance = 0.5
+        }
       }),
     )
 
@@ -98,10 +122,6 @@ const { canvasRef, scene } = useBabylonScene({
           clonedMesh.isPickable = true
           clonedMesh.getChildMeshes().forEach((mesh) => mesh.isPickable = true)
           addedMeshList.value.push(clonedMesh)
-        }
-
-        if (gizmoManager.value) {
-          gizmoManager.value.attachableMeshes = addedMeshList.value
         }
       }
     })
