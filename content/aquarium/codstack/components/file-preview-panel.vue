@@ -1,8 +1,8 @@
 <template>
   <div class="flex flex-col h-full gap-4">
-    <div class="flex gap-2">
+    <div class="flex flex-col gap-2">
       <u-button
-        label="Select directory"
+        :label="statusMessage"
         variant="subtle"
         color="neutral"
         icon="material-symbols:folder"
@@ -20,18 +20,26 @@
           placeholder="select supported format"
           class="w-full"
         /> -->
-    </div>
 
-    <div class="text-xs text-gray-500 text-center">
-      {{ statusMessage }}
+      <div class="flex flex-wrap gap-1">
+        <u-badge
+          v-for="tag in tagList"
+          :key="tag"
+          color="neutral"
+          :variant="selectedTagList.includes(tag) ? 'solid' : 'outline'"
+          :label="tag"
+          class=" cursor-pointer duration-300 select-none"
+          @click="handleSelectedTag(tag)"
+        />
+      </div>
     </div>
 
     <div
-      v-if="files.length && mainStore.rootFsHandle"
+      v-if="modelFileList.length && mainStore.rootFsHandle"
       class="flex flex-wrap gap-1 overflow-y-auto"
     >
       <model-preview-item
-        v-for="file in files"
+        v-for="file in filteredModelFileList"
         :key="file.path"
         class=" shrink-0 border-transparent border-3 duration-300"
         :class="{ 'border-primary!': file.path === selectedModelFile?.path }"
@@ -45,7 +53,7 @@
 
 <script setup lang="ts">
 import type { ModelFile } from '../type'
-import { ref, shallowRef } from 'vue'
+import { computed, ref, shallowRef } from 'vue'
 import { useMainStore } from '../stores/main-store'
 import ModelPreviewItem from './model-preview-item.vue'
 
@@ -59,7 +67,69 @@ const selectedFormatList = ref(['.gltf', '.glb'])
 
 const isScanning = ref(false)
 const statusMessage = ref('Select directory to preview 3D models')
-const files = ref<ModelFile[]>([])
+
+const selectedTagList = ref<string[]>([])
+function handleSelectedTag(tag: string) {
+  if (selectedTagList.value.includes(tag)) {
+    selectedTagList.value = selectedTagList.value.filter((t) => t !== tag)
+  }
+  else {
+    selectedTagList.value.push(tag)
+  }
+}
+/** 從 path 提取 tag
+ * 
+ * 提取路徑中的資料夾名稱，但忽略所有檔案都共同擁有的上層目錄
+ */
+const tagList = computed(() => {
+  const files = modelFileList.value
+  const totalFiles = files.length
+
+  if (totalFiles === 0) return []
+
+  // 記錄每個 Tag (資料夾名) 出現的檔案數
+  const tagCounts = new Map<string, number>()
+
+  files.forEach((file) => {
+    const parts = file.path.split('/')
+    // 移除檔名
+    parts.pop()
+
+    const uniqueDirs = new Set(parts)
+
+    uniqueDirs.forEach((dir) => {
+      if (!dir) return
+
+      const currentCount = tagCounts.get(dir) || 0
+      tagCounts.set(dir, currentCount + 1)
+    })
+  })
+
+  // 4. 過濾 & 輸出
+  const result: string[] = []
+
+  for (const [tag, count] of tagCounts.entries()) {
+    // 只有當 Tag 的出現次數小於總檔案數時，才保留
+    if (count < totalFiles) {
+      result.push(tag)
+    }
+  }
+
+  // 排序讓顯示更整齊
+  return result.sort()
+})
+
+const modelFileList = ref<ModelFile[]>([])
+const filteredModelFileList = computed(() => {
+  if (selectedTagList.value.length === 0) {
+    return modelFileList.value
+  }
+
+  return modelFileList.value.filter((file) => {
+    return selectedTagList.value.some((tag) => file.path.includes(tag))
+  })
+})
+
 
 async function handleSelectDirectory() {
   if (!('showDirectoryPicker' in window)) {
@@ -80,13 +150,14 @@ async function handleSelectDirectory() {
   try {
     isScanning.value = true
     statusMessage.value = 'scanning...'
-    files.value = []
+    modelFileList.value = []
+    selectedTagList.value = []
 
     const dirHandle = await window.showDirectoryPicker()
     mainStore.rootFsHandle = dirHandle
     await scanDirectory(dirHandle, '')
 
-    statusMessage.value = `Scanned, found ${files.value.length} models`
+    statusMessage.value = `Scanned, found ${modelFileList.value.length} models`
   }
   catch (err) {
     mainStore.rootFsHandle = undefined
@@ -122,7 +193,7 @@ async function scanDirectory(
         const file = await fileHandle.getFile()
 
         // 推入自定義物件
-        files.value.push({
+        modelFileList.value.push({
           name: file.name,
           path: currentPath,
           file,
@@ -135,6 +206,7 @@ async function scanDirectory(
       await scanDirectory(subDirHandle, currentPath)
     }
   }
+
 }
 
 function isModelFile(filename: string): boolean {
