@@ -91,7 +91,12 @@ const tagList = computed(() => {
   const tagCounts = new Map<string, number>()
 
   files.forEach((file) => {
-    const parts = file.path.split('/')
+    const parts = file.path
+      .split('/')
+      .flatMap((part) => part.split('_'))
+      // 保留英文和數字
+      .map((part) => part.replace(/[^a-zA-Z0-9]/g, ''))
+
     // 移除檔名
     parts.pop()
 
