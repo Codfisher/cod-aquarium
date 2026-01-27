@@ -17,7 +17,7 @@ import { nanoid } from 'nanoid'
 import { pipe, tap } from 'remeda'
 import { computed, onMounted, shallowRef, watch } from 'vue'
 import { useBabylonScene } from '../../composables/use-babylon-scene'
-import { useMultiSelect } from '../../composables/use-multi-select'
+import { useMultiMeshSelect } from '../../composables/use-multi-mesh-select'
 import { useMainStore } from '../../stores/main-store'
 import { getFileFromPath } from '../../utils/fs'
 import '@babylonjs/loaders'
@@ -74,7 +74,7 @@ const {
   handleSelect,
   clearSelection,
   ungroup,
-} = useMultiSelect(gizmoManager)
+} = useMultiMeshSelect(gizmoManager)
 
 whenever(() => deleteKey, () => {
   if (selectedMeshes.value.length > 0) {
@@ -154,7 +154,7 @@ const { canvasRef, scene } = useBabylonScene({
       if (pointerInfo.type === PointerEventTypes.POINTERTAP) {
         const pickedMesh = pointerInfo.pickInfo?.pickedMesh
 
-        // A. 預覽模式點擊 -> 放置
+        // 預覽、放置
         if (previewMesh.value) {
           const clonedMesh = previewMesh.value.clone(nanoid(), null, false)
           if (clonedMesh) {
@@ -170,12 +170,13 @@ const { canvasRef, scene } = useBabylonScene({
 
         }
 
-        // B. 點擊到已放置的模型
+        // 點擊到已放置的模型
         if (pickedMesh === ground) {
           clearSelection()
           return
         }
 
+        // 選取
         if (pickedMesh) {
           const topLevelMesh = findTopLevelMesh(pickedMesh, addedMeshList.value)
           if (!topLevelMesh)
