@@ -62,11 +62,6 @@ export function useMultiMeshSelect({
   /** 取消群組：讓物體回到世界座標，並清空 Gizmo */
   function ungroup() {
     selectedMeshes.value.forEach(m => m.setParent(null))
-    if (selectionGroup) {
-      selectionGroup.showBoundingBox = false
-      // 重設包圍盒避免殘留
-      selectionGroup.setBoundingInfo(new BoundingInfo(Vector3.Zero(), Vector3.Zero()))
-    }
     gizmoManager.value?.attachToMesh(null)
 
     highlightLayer?.removeAllMeshes()
@@ -98,15 +93,7 @@ export function useMultiMeshSelect({
 
       selectedMeshes.value.forEach(m => m.setParent(selectionGroup))
 
-      // 3. 更新 Mesh 的包圍盒資訊（關鍵步奏）
-      // 我們需要將世界座標的 min/max 轉為相對於 selectionGroup 中心點的本地座標
-      const localMin = min.subtract(selectionGroup.position)
-      const localMax = max.subtract(selectionGroup.position)
-
-      selectionGroup.setBoundingInfo(new BoundingInfo(localMin, localMax))
-      selectionGroup.showBoundingBox = true
-
-      // 4. 綁定 Gizmo
+      // 綁定 Gizmo
       gizmoManager.value?.attachToMesh(selectionGroup)
     }
 

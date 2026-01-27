@@ -24,7 +24,7 @@
 
     <div
       v-if="modelFileList.length && mainStore.rootFsHandle"
-      class="flex flex-wrap gap-1 overflow-y-auto"
+      class="flex flex-wrap items-start content-start gap-1 overflow-y-auto flex-1"
     >
       <model-preview-item
         v-for="file in filteredModelFileList"
@@ -44,6 +44,9 @@
       :items="tagList"
       clear
       placeholder="Select tag to filter models"
+      :content="{
+        side: 'right'
+      }"
     />
   </div>
 </template>

@@ -10,7 +10,7 @@
 <script setup lang="ts">
 import type { AbstractMesh, Node, Scene } from '@babylonjs/core'
 import type { ModelFile } from '../../type'
-import { Color3, GizmoManager, ImportMeshAsync, MeshBuilder, PointerEventTypes, Vector3 } from '@babylonjs/core'
+import { ArcRotateCamera, Camera, Color3, GizmoManager, ImportMeshAsync, MeshBuilder, PointerEventTypes, Vector3, Viewport } from '@babylonjs/core'
 import { GridMaterial } from '@babylonjs/materials'
 import { useMagicKeys, whenever } from '@vueuse/core'
 import { nanoid } from 'nanoid'
@@ -81,11 +81,49 @@ function findTopLevelMesh(mesh: AbstractMesh, list: AbstractMesh[]): AbstractMes
 
 const { canvasRef, scene } = useBabylonScene({
   async init(params) {
-    const { scene } = params
+    const { scene, camera } = params
+    scene.activeCamera = camera
+    scene.cameraToUseForPointers = camera
+
+    const sideCamera = pipe(
+      new ArcRotateCamera(
+        'sideCamera',
+        0,
+        Math.PI / 2,
+        10,
+        new Vector3(0, 0, 0),
+        scene,
+      ),
+      tap((camera2) => {
+        camera2.viewport = new Viewport(0.75, 0.75, 0.25, 0.25)
+        camera2.mode = Camera.ORTHOGRAPHIC_CAMERA
+
+        camera2.detachControl()
+        camera2.inputs.clear()
+
+        // 同時渲染兩個相機
+        scene.activeCameras = [camera, camera2]
+
+        const orthoSize = 3
+        const updateOrtho = () => {
+          const engine = scene.getEngine()
+          const aspect = engine.getRenderWidth() / engine.getRenderHeight()
+
+          camera2.orthoLeft = -orthoSize * aspect
+          camera2.orthoRight = orthoSize * aspect
+          camera2.orthoTop = orthoSize
+          camera2.orthoBottom = -orthoSize
+        }
+        updateOrtho()
+        scene.getEngine().onResizeObservable.add(updateOrtho)
+      }),
+    )
 
     gizmoManager.value = pipe(
       new GizmoManager(scene),
       tap((gizmoManager) => {
+        gizmoManager.utilityLayer.setRenderCamera(camera)
+
         gizmoManager.positionGizmoEnabled = true
         gizmoManager.rotationGizmoEnabled = true
         gizmoManager.boundingBoxGizmoEnabled = true
@@ -126,6 +164,8 @@ const { canvasRef, scene } = useBabylonScene({
           scene.pointerX,
           scene.pointerY,
           (mesh) => mesh === ground,
+          false,
+          camera,
         )
 
         if (pickInfo.hit && pickInfo.pickedPoint) {
@@ -172,6 +212,10 @@ const { canvasRef, scene } = useBabylonScene({
     })
 
     scene.onBeforeRenderObservable.add(() => {
+      if (selectedMeshes.value[0]) {
+        sideCamera.setTarget(selectedMeshes.value[0].getAbsolutePosition())
+      }
+
       const mesh = previewMesh.value
       if (!mesh)
         return
