@@ -20,25 +20,6 @@
           placeholder="select supported format"
           class="w-full"
         /> -->
-
-      <!-- <div class="flex flex-wrap gap-1">
-        <u-badge
-          v-for="tag in tagList"
-          :key="tag"
-          color="neutral"
-          :variant="selectedTagList.includes(tag) ? 'solid' : 'outline'"
-          :label="tag"
-          class=" cursor-pointer duration-300 select-none"
-          @click="handleSelectedTag(tag)"
-        />
-      </div> -->
-
-      <u-select-menu
-        v-model="selectedTagList"
-        multiple
-        :items="tagList"
-        clear
-      />
     </div>
 
     <div
@@ -55,6 +36,15 @@
         @click="handleSelectedModelFile(file)"
       />
     </div>
+
+    <u-select-menu
+      v-if="tagList.length"
+      v-model="selectedTagList"
+      multiple
+      :items="tagList"
+      clear
+      placeholder="Select tag to filter models"
+    />
   </div>
 </template>
 
@@ -76,14 +66,6 @@ const isScanning = ref(false)
 const statusMessage = ref('Select directory to preview 3D models')
 
 const selectedTagList = ref<string[]>([])
-function handleSelectedTag(tag: string) {
-  if (selectedTagList.value.includes(tag)) {
-    selectedTagList.value = selectedTagList.value.filter((t) => t !== tag)
-  }
-  else {
-    selectedTagList.value.push(tag)
-  }
-}
 /** 從 path 提取 tag
  * 
  * 提取路徑中的資料夾名稱，但忽略所有檔案都共同擁有的上層目錄
