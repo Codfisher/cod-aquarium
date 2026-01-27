@@ -10,7 +10,7 @@
 <script setup lang="ts">
 import type { AbstractMesh, Scene } from '@babylonjs/core'
 import type { ModelFile } from '../type'
-import { Color3, DirectionalLight, ImportMeshAsync, MeshBuilder, PointerEventTypes, ShadowGenerator, StandardMaterial, Texture, Vector3 } from '@babylonjs/core'
+import { Color3, Color4, DirectionalLight, ImportMeshAsync, MeshBuilder, PointerEventTypes, ShadowGenerator, StandardMaterial, Texture, Vector3 } from '@babylonjs/core'
 import { GridMaterial } from '@babylonjs/materials'
 import { pipe } from 'remeda'
 import { onMounted, shallowRef, watch } from 'vue'
@@ -136,7 +136,7 @@ async function loadPreviewModel(modelFile: ModelFile) {
     )
 
     const root = result.meshes[0]!
-    root.position = new Vector3(0, 0, 0)
+    root.position = mouseTargetPosition.clone()
 
     root.isPickable = false
     root.getChildMeshes().forEach((m) => m.isPickable = false)
