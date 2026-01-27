@@ -83,9 +83,8 @@ async function loadThumbnail() {
       return
     }
 
-    const base64 = await generateThumbnail(props.modelFile)
-    thumbnailData.value = base64
-    await saveThumbnail(cacheKey.value, base64)
+    thumbnailData.value = await generateThumbnail(props.modelFile)
+    await saveThumbnail(cacheKey.value, thumbnailData.value)
   }
   catch (e) {
     console.error('🚀 ~ loadThumbnail ~ e:', e)
