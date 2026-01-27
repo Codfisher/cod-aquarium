@@ -27,7 +27,8 @@
 
 <script setup lang="ts">
 import type { ModelFile } from '../type'
-import { onMounted, onUnmounted, ref } from 'vue'
+import { computedAsync, until, useObjectUrl } from '@vueuse/core'
+import { computed, onMounted, ref, shallowRef } from 'vue'
 import { useThumbnailGenerator } from '../composables/use-thumbnail-generator'
 
 const props = defineProps<{
@@ -36,18 +37,61 @@ const props = defineProps<{
 }>()
 
 const { generateThumbnail } = useThumbnailGenerator(props.rootHandle)
-const thumbnailSrc = ref('')
+const thumbnailData = shallowRef<Blob | File>()
+const thumbnailSrc = useObjectUrl(thumbnailData)
 const isLoading = ref(false)
+
+const cacheKey = computed(() => `thumb-${props.modelFile.path}`)
 
 onMounted(() => {
   loadThumbnail()
 })
 
+const thumbDirectory = computedAsync(async () => {
+  const opfsRoot = await navigator.storage.getDirectory()
+  return opfsRoot.getDirectoryHandle('thumbnails', { create: true })
+})
+
+/** 把所有非英數、點、減號的字元都換成底線 (包含斜線) */
+function getSafeCacheKey(filepath: string): string {
+  return filepath.replace(/[^a-z0-9.-]/gi, '_')
+}
+async function saveThumbnail(fileName: string, blob: Blob) {
+  await until(thumbDirectory).toBeTruthy()
+  const key = getSafeCacheKey(fileName)
+
+  const fileHandle = await thumbDirectory.value!.getFileHandle(key, { create: true })
+  const writable = await fileHandle.createWritable()
+  await writable.write(blob)
+  await writable.close()
+}
+
+async function getThumbnailFile(fileName: string) {
+  await until(thumbDirectory).toBeTruthy()
+
+  const key = getSafeCacheKey(fileName)
+  try {
+    const fileHandle = await thumbDirectory.value!.getFileHandle(key)
+    return await fileHandle.getFile()
+  }
+  catch {
+    return undefined
+  }
+}
+
 async function loadThumbnail() {
   try {
     isLoading.value = true
+
+    const cachedData = await getThumbnailFile(cacheKey.value)
+    if (cachedData) {
+      thumbnailData.value = cachedData
+      return
+    }
+
     const base64 = await generateThumbnail(props.modelFile)
-    thumbnailSrc.value = base64 ?? ''
+    thumbnailData.value = base64
+    await saveThumbnail(cacheKey.value, base64)
   }
   catch (e) {
     console.error('🚀 ~ loadThumbnail ~ e:', e)

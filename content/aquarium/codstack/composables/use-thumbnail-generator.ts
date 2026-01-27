@@ -42,7 +42,6 @@ async function getFileFromPath(
 }
 
 function _useThumbnailGenerator(rootFSHandle: FileSystemDirectoryHandle) {
-  console.log(`🚀 ~ _useThumbnailGenerator:`)
   const queue = new PQueue({ concurrency: 1 })
 
   let _canvas: HTMLCanvasElement | undefined
@@ -154,7 +153,8 @@ function _useThumbnailGenerator(rootFSHandle: FileSystemDirectoryHandle) {
       })
       engine.stopRenderLoop()
 
-      return base64
+      const res = await fetch(base64)
+      return await res.blob()
     })
   }
 
