@@ -31,6 +31,7 @@
 <script setup lang="ts">
 import type { ModelFile } from '../type'
 import { computedAsync, until, useObjectUrl } from '@vueuse/core'
+import { get, set } from 'idb-keyval'
 import { computed, onMounted, ref, shallowRef } from 'vue'
 import { useThumbnailGenerator } from '../composables/use-thumbnail-generator'
 
@@ -83,14 +84,17 @@ async function loadThumbnail() {
   try {
     isLoading.value = true
 
-    const cachedData = await getThumbnailFile(cacheKey.value)
+    // 暫時不用 OPFS，方便 devtool 測試
+    // const cachedData = await getThumbnailFile(cacheKey.value)
+    const cachedData = await get(cacheKey.value)
     if (cachedData) {
       thumbnailData.value = cachedData
       return
     }
 
     thumbnailData.value = await generateThumbnail(props.modelFile)
-    await saveThumbnail(cacheKey.value, thumbnailData.value)
+    // await saveThumbnail(cacheKey.value, thumbnailData.value)
+    await set(cacheKey.value, thumbnailData.value)
   }
   catch (e) {
     console.error('🚀 ~ loadThumbnail ~ e:', e)

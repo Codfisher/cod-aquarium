@@ -29,6 +29,12 @@ const mainStore = useMainStore()
 const previewMesh = shallowRef<AbstractMesh>()
 const groundMesh = shallowRef<AbstractMesh>()
 
+/** 網格吸附單位 */
+const snapUnit = 1
+function snapToGrid(value: number, unit: number) {
+  return Math.round(value / unit) * unit
+}
+
 const { canvasRef, scene } = useBabylonScene({
   async init(params) {
     const { scene } = params
@@ -50,9 +56,8 @@ const { canvasRef, scene } = useBabylonScene({
         )
 
         if (pickInfo.hit && pickInfo.pickedPoint) {
-          previewMesh.value.position.x = pickInfo.pickedPoint.x
-          previewMesh.value.position.z = pickInfo.pickedPoint.z
-          // 保持 y = 0
+          previewMesh.value.position.x = snapToGrid(pickInfo.pickedPoint.x, snapUnit)
+          previewMesh.value.position.z = snapToGrid(pickInfo.pickedPoint.z, snapUnit)
           previewMesh.value.position.y = 0
         }
       }
