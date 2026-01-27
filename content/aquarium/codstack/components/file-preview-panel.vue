@@ -9,7 +9,7 @@
         class="w-full"
         :ui="{ label: 'text-center w-full' }"
         :loading="isScanning"
-        @click="handleClick"
+        @click="handleSelectDirectory"
       />
 
       <!-- 選擇支援格式 -->
@@ -46,6 +46,8 @@ import type { ModelFile } from '../type'
 import { ref, shallowRef } from 'vue'
 import ModelPreviewItem from './model-preview-item.vue'
 
+const selectedModelFile = defineModel<ModelFile>('selectedModelFile')
+
 const toast = useToast()
 
 const SUPPORTED_EXTENSIONS = ['.gltf', '.glb', '.obj', '.fbx', '.stl']
@@ -57,7 +59,7 @@ const statusMessage = ref('select directory to preview 3D models')
 const files = ref<ModelFile[]>([])
 const rootHandle = shallowRef<FileSystemDirectoryHandle>()
 
-async function handleClick() {
+async function handleSelectDirectory() {
   if (!('showDirectoryPicker' in window)) {
     toast.add({
       title: 'not support ( ´•̥̥̥ ω •̥̥̥` )',
@@ -80,7 +82,7 @@ async function handleClick() {
 
     const dirHandle = await window.showDirectoryPicker()
     rootHandle.value = dirHandle
-    await scanDirectory(dirHandle, '', dirHandle)
+    await scanDirectory(dirHandle, '')
 
     statusMessage.value = `scanned, found ${files.value.length} models`
   }
@@ -106,7 +108,6 @@ async function handleClick() {
 async function scanDirectory(
   dirHandle: FileSystemDirectoryHandle,
   pathPrefix: string,
-  rootDirHandle: FileSystemDirectoryHandle,
 ) {
   for await (const entry of dirHandle.values()) {
     // 組合當前檔案/資料夾的相對路徑
@@ -129,7 +130,7 @@ async function scanDirectory(
     else if (entry.kind === 'directory') {
       const subDirHandle = entry as FileSystemDirectoryHandle
       // 遞迴呼叫，將 currentPath 傳下去
-      await scanDirectory(subDirHandle, currentPath, rootDirHandle)
+      await scanDirectory(subDirHandle, currentPath)
     }
   }
 }
