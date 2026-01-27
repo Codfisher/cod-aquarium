@@ -9,19 +9,20 @@
 
 <script setup lang="ts">
 import type { AbstractMesh, Scene } from '@babylonjs/core'
-import type { ModelFile } from '../type'
-import { Color3, Color4, DirectionalLight, ImportMeshAsync, MeshBuilder, PointerEventTypes, ShadowGenerator, StandardMaterial, Texture, Vector3 } from '@babylonjs/core'
+import type { ModelFile } from '../../type'
+import { BoundingInfo, Color3, HighlightLayer, ImportMeshAsync, Mesh, MeshBuilder, PointerEventTypes, Vector3 } from '@babylonjs/core'
 import { GridMaterial } from '@babylonjs/materials'
 import { useMagicKeys } from '@vueuse/core'
 import { pipe } from 'remeda'
 import { computed, onMounted, shallowRef, watch } from 'vue'
-import { useBabylonScene } from '../composables/use-babylon-scene'
-import { useMainStore } from '../stores/main-store'
-import { getFileFromPath } from '../utils/fs'
+import { useBabylonScene } from '../../composables/use-babylon-scene'
+import { useMainStore } from '../../stores/main-store'
+import { getFileFromPath } from '../../utils/fs'
 import '@babylonjs/loaders'
+import { nanoid } from 'nanoid'
 
 const props = defineProps<{
-  selectedModelFile?: ModelFile; // 假設這包含一個 file 物件或是 File 本身
+  selectedModelFile?: ModelFile;
 }>()
 
 const mainStore = useMainStore()
@@ -30,6 +31,9 @@ const { shift, alt } = useMagicKeys()
 /** 當前預覽的模型 */
 const previewMesh = shallowRef<AbstractMesh>()
 const groundMesh = shallowRef<AbstractMesh>()
+
+/** 已新增的模型 */
+const addedMeshList = shallowRef<AbstractMesh[]>([])
 
 /** 網格吸附單位 */
 const snapUnit = computed(() => {
@@ -55,8 +59,8 @@ const { canvasRef, scene } = useBabylonScene({
 
     groundMesh.value = createGround({ scene })
 
-    // 滑鼠跟隨邏輯
     scene.onPointerObservable.add((pointerInfo) => {
+      // 滑鼠跟隨邏輯
       if (pointerInfo.type === PointerEventTypes.POINTERMOVE) {
         if (!previewMesh.value || !groundMesh.value)
           return
@@ -72,6 +76,17 @@ const { canvasRef, scene } = useBabylonScene({
           const x = snapToGrid(pickInfo.pickedPoint.x)
           const z = snapToGrid(pickInfo.pickedPoint.z)
           mouseTargetPosition.set(x, 0, z)
+        }
+      }
+
+      // 放置模型
+      if (pointerInfo.type === PointerEventTypes.POINTERTAP) {
+        if (!previewMesh.value)
+          return
+
+        const clonedMesh = previewMesh.value.clone(nanoid(), null, false)
+        if (clonedMesh) {
+          addedMeshList.value.push(clonedMesh)
         }
       }
     })
@@ -151,8 +166,12 @@ async function loadPreviewModel(modelFile: ModelFile) {
     const root = result.meshes[0]!
     root.position = mouseTargetPosition.clone()
 
+    // const { min, max } = root.getHierarchyBoundingVectors()
+    // root.setBoundingInfo(new BoundingInfo(min, max))
+    // root.showBoundingBox = true
+
     root.isPickable = false
-    root.getChildMeshes().forEach((m) => m.isPickable = false)
+    root.getChildMeshes().forEach((mesh) => mesh.isPickable = false)
 
     previewMesh.value = root
   }
