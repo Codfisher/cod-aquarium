@@ -89,6 +89,7 @@ const { canvasRef, scene } = useBabylonScene({
         gizmoManager.positionGizmoEnabled = true
         gizmoManager.rotationGizmoEnabled = true
         gizmoManager.boundingBoxGizmoEnabled = true
+        // 關閉自由拖動
         gizmoManager.boundingBoxDragBehavior.disableMovement = true
         gizmoManager.usePointerToAttachGizmos = false
 
