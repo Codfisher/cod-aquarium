@@ -1,8 +1,18 @@
 import type { Ref } from 'vue'
 import { type AbstractMesh, BoundingInfo, Color3, Engine, type GizmoManager, HighlightLayer, Mesh, Quaternion, Scene, TransformNode, Vector3 } from '@babylonjs/core'
 import { ref, shallowRef } from 'vue'
+import { useMagicKeys, whenever } from '@vueuse/core'
 
-export function useMultiMeshSelect(gizmoManager: Ref<GizmoManager | undefined>) {
+interface UseMultiMeshSelectOptions {
+  gizmoManager: Ref<GizmoManager | undefined>
+  scene: Ref<Scene | undefined>
+}
+export function useMultiMeshSelect({
+  gizmoManager,
+  scene,
+}: UseMultiMeshSelectOptions) {
+  const { escape: escapeKey } = useMagicKeys()
+
   const selectedMeshes = shallowRef<AbstractMesh[]>([])
   let selectionGroup: Mesh | null = null
   let highlightLayer: HighlightLayer | null = null
@@ -10,23 +20,27 @@ export function useMultiMeshSelect(gizmoManager: Ref<GizmoManager | undefined>) 
   const highlightColor = new Color3(0, 1, 1)
 
   /** 初始化中介容器 */
-  function initSelectionGroup(scene: Scene) {
-    selectionGroup = new Mesh('selectionGroup', scene)
-    selectionGroup.isPickable = false
+  whenever(scene, () => {
+    const sceneValue = scene.value
+    if (!sceneValue) return
 
-    const boundingBoxRenderer = scene.getBoundingBoxRenderer()
+    selectionGroup = new Mesh('selectionGroup', sceneValue)
+    selectionGroup.isPickable = false
+    selectionGroup.renderingGroupId = 1
+
+    const boundingBoxRenderer = sceneValue.getBoundingBoxRenderer()
     boundingBoxRenderer.frontColor = highlightColor
     // 只顯示前排線條較乾淨
     boundingBoxRenderer.showBackLines = false
 
-    highlightLayer = new HighlightLayer('hl', scene, {
+    highlightLayer = new HighlightLayer('hl', sceneValue, {
       isStroke: true,
       mainTextureRatio: 2,
       blurHorizontalSize: 1,
       blurVerticalSize: 1,
     })
     highlightLayer.innerGlow = false
-  }
+  })
 
   /** 更新選取視覺效果 */
   function updateSelectionVisuals() {
@@ -57,7 +71,6 @@ export function useMultiMeshSelect(gizmoManager: Ref<GizmoManager | undefined>) 
 
     highlightLayer?.removeAllMeshes()
   }
-
 
   /** 群組化：計算中心點並將選中物體掛載至容器 */
   function group() {
@@ -97,8 +110,6 @@ export function useMultiMeshSelect(gizmoManager: Ref<GizmoManager | undefined>) 
       gizmoManager.value?.attachToMesh(selectionGroup)
     }
 
-
-
     updateSelectionVisuals()
   }
 
@@ -129,9 +140,12 @@ export function useMultiMeshSelect(gizmoManager: Ref<GizmoManager | undefined>) 
     selectedMeshes.value = []
   }
 
+  whenever(() => escapeKey, () => {
+    clearSelection()
+  }, { deep: true })
+
   return {
     selectedMeshes,
-    initSelectionGroup,
     handleSelect,
     clearSelection,
     ungroup,

@@ -1,10 +1,8 @@
 <template>
   <client-only>
-    <u-app
-      :toaster="{
-        position: 'top-right',
-      }"
-    >
+    <u-app :toaster="{
+      position: 'top-right',
+    }">
       <u-dashboard-group storage="local">
         <u-dashboard-sidebar
           resizable
@@ -51,9 +49,7 @@ watch(() => mainStore.rootFsHandle, () => {
 })
 whenever(() => escapeKey, () => {
   selectedModelFile.value = undefined
-}, {
-  deep: true,
-})
+}, { deep: true })
 
 // 載入字體
 const fontHref = 'https://fonts.googleapis.com/css2?family=Material+Symbols+Sharp:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&family=Orbitron:wght@400..900'

@@ -68,30 +68,6 @@ function snapToGrid(value: number) {
 }
 const mouseTargetPosition = new Vector3(0, 0, 0)
 
-const {
-  selectedMeshes,
-  initSelectionGroup,
-  handleSelect,
-  clearSelection,
-  ungroup,
-} = useMultiMeshSelect(gizmoManager)
-
-whenever(() => deleteKey, () => {
-  if (selectedMeshes.value.length > 0) {
-    // 刪除前必須先 ungroup，避免 dispose 時影響到 TransformNode 結構
-    ungroup()
-
-    selectedMeshes.value.forEach((mesh) => {
-      mesh.dispose()
-      addedMeshList.value = addedMeshList.value.filter((m) => m !== mesh)
-    })
-
-    clearSelection()
-  }
-}, {
-  deep: true,
-})
-
 function findTopLevelMesh(mesh: AbstractMesh, list: AbstractMesh[]): AbstractMesh | undefined {
   let current: Node | null = mesh
   while (current) {
@@ -107,14 +83,12 @@ const { canvasRef, scene } = useBabylonScene({
   async init(params) {
     const { scene } = params
 
-    initSelectionGroup(scene)
-
     gizmoManager.value = pipe(
       new GizmoManager(scene),
       tap((gizmoManager) => {
         gizmoManager.positionGizmoEnabled = true
         gizmoManager.rotationGizmoEnabled = true
-        gizmoManager.usePointerToAttachGizmos = true
+        gizmoManager.boundingBoxGizmoEnabled = true
 
         gizmoManager.attachableMeshes = addedMeshList.value
 
@@ -124,6 +98,13 @@ const { canvasRef, scene } = useBabylonScene({
         }
         if (gizmos?.rotationGizmo) {
           gizmos.rotationGizmo.snapDistance = Math.PI / 180 * 5
+        }
+        if (gizmos?.boundingBoxGizmo) {
+          gizmos.boundingBoxGizmo.scaleBoxSize = 0
+          gizmos.boundingBoxGizmo.rotationSphereSize = 0
+
+          gizmos.boundingBoxGizmo.setEnabledScaling(false)
+          gizmos.boundingBoxGizmo.setEnabledRotationAxis('')
         }
       }),
     )
@@ -200,6 +181,29 @@ const { canvasRef, scene } = useBabylonScene({
       mesh.position.z += (mouseTargetPosition.z - mesh.position.z) * t
     })
   },
+})
+
+const {
+  selectedMeshes,
+  handleSelect,
+  clearSelection,
+  ungroup,
+} = useMultiMeshSelect({ gizmoManager, scene })
+
+whenever(() => deleteKey, () => {
+  if (selectedMeshes.value.length > 0) {
+    // 刪除前必須先 ungroup，避免 dispose 時影響到 TransformNode 結構
+    ungroup()
+
+    selectedMeshes.value.forEach((mesh) => {
+      mesh.dispose()
+      addedMeshList.value = addedMeshList.value.filter((m) => m !== mesh)
+    })
+
+    clearSelection()
+  }
+}, {
+  deep: true,
 })
 
 function createGround({ scene }: { scene: Scene }) {
