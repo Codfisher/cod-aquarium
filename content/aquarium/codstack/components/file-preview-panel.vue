@@ -1,55 +1,50 @@
 <template>
-  <u-dashboard-sidebar
-    resizable
-    open
-  >
-    <div class="flex flex-col h-full gap-4">
-      <div class="flex gap-2">
-        <u-button
-          label="select directory"
-          variant="outline"
-          color="neutral"
-          icon="material-symbols:folder"
-          class="w-full"
-          :ui="{ label: 'text-center w-full' }"
-          :loading="isScanning"
-          @click="handleClick"
-        />
+  <div class="flex flex-col h-full gap-4">
+    <div class="flex gap-2">
+      <u-button
+        label="select directory"
+        variant="outline"
+        color="neutral"
+        icon="material-symbols:folder"
+        class="w-full"
+        :ui="{ label: 'text-center w-full' }"
+        :loading="isScanning"
+        @click="handleClick"
+      />
 
-        <!-- 選擇支援格式 -->
-        <!-- <u-select
+      <!-- 選擇支援格式 -->
+      <!-- <u-select
           v-model="selectedFormatList"
           multiple
           :items="SUPPORTED_EXTENSIONS.map(ext => ({ label: ext, value: ext }))"
           placeholder="select supported format"
           class="w-full"
         /> -->
-      </div>
-
-      <div class="text-xs text-gray-500 text-center">
-        {{ statusMessage }}
-      </div>
-
-      <div
-        v-if="files.length && rootHandle"
-        class="flex flex-wrap gap-2 overflow-y-auto"
-      >
-        <model-preview
-          v-for="file in files"
-          :key="file.path"
-          class=" shrink-0"
-          :model-file="file"
-          :root-handle="rootHandle"
-        />
-      </div>
     </div>
-  </u-dashboard-sidebar>
+
+    <div class="text-xs text-gray-500 text-center">
+      {{ statusMessage }}
+    </div>
+
+    <div
+      v-if="files.length && rootHandle"
+      class="flex flex-wrap gap-2 overflow-y-auto"
+    >
+      <model-preview-item
+        v-for="file in files"
+        :key="file.path"
+        class=" shrink-0"
+        :model-file="file"
+        :root-handle="rootHandle"
+      />
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
 import type { ModelFile } from '../type'
 import { ref, shallowRef } from 'vue'
-import ModelPreview from './model-preview.vue'
+import ModelPreviewItem from './model-preview-item.vue'
 
 const toast = useToast()
 

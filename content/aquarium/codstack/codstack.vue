@@ -5,11 +5,15 @@
         position: 'top-right',
       }"
     >
-      <u-dashboard-group
-        unit="rem"
-        storage="local"
-      >
-        <sidebar />
+      <u-dashboard-group storage="local">
+        <u-dashboard-sidebar
+          resizable
+          :min-size="15"
+          :default-size="30"
+          :max-size="40"
+        >
+          <file-preview-panel />
+        </u-dashboard-sidebar>
 
         <sense-viewer class="w-full h-full" />
       </u-dashboard-group>
@@ -22,8 +26,8 @@
 </template>
 
 <script setup lang="ts">
+import FilePreviewPanel from './components/file-preview-panel.vue'
 import SenseViewer from './components/sense-viewer.vue'
-import Sidebar from './components/sidebar.vue'
 
 const version = '0.1.0'
 </script>
