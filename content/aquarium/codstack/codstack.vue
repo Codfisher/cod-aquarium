@@ -15,7 +15,7 @@
           <file-preview-panel />
         </u-dashboard-sidebar>
 
-        <sense-viewer class="w-full h-full" />
+        <scene-viewer class="w-full h-full" />
       </u-dashboard-group>
 
       <div class="font-orbitron fixed right-0 bottom-0 p-2 px-3 opacity-50">
@@ -32,7 +32,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted } from 'vue'
 import FilePreviewPanel from './components/file-preview-panel.vue'
-import SenseViewer from './components/sense-viewer.vue'
+import SceneViewer from './components/scene-viewer.vue'
 
 // 載入字體
 const fontHref = 'https://fonts.googleapis.com/css2?family=Material+Symbols+Sharp:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&family=Orbitron:wght@400..900'
