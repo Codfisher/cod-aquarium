@@ -123,7 +123,7 @@ const { canvasRef, scene } = useBabylonScene({
       new GizmoManager(scene),
       tap((gizmoManager) => {
         gizmoManager.utilityLayer.setRenderCamera(camera)
-
+        
         gizmoManager.positionGizmoEnabled = true
         gizmoManager.rotationGizmoEnabled = true
         gizmoManager.boundingBoxGizmoEnabled = true
@@ -137,9 +137,11 @@ const { canvasRef, scene } = useBabylonScene({
         if (gizmos?.positionGizmo) {
           gizmos.positionGizmo.snapDistance = 0.5
           gizmos.positionGizmo.planarGizmoEnabled = false
+          gizmos.positionGizmo.gizmoLayer.setRenderCamera(camera)
         }
         if (gizmos?.rotationGizmo) {
           gizmos.rotationGizmo.snapDistance = Math.PI / 180 * 5
+          gizmos.rotationGizmo.gizmoLayer.setRenderCamera(camera)
         }
         if (gizmos?.boundingBoxGizmo) {
           gizmos.boundingBoxGizmo.scaleBoxSize = 0
@@ -147,7 +149,9 @@ const { canvasRef, scene } = useBabylonScene({
 
           gizmos.boundingBoxGizmo.setEnabledScaling(false)
           gizmos.boundingBoxGizmo.setEnabledRotationAxis('')
+          gizmos.boundingBoxGizmo.gizmoLayer.setRenderCamera(camera)
         }
+
       }),
     )
 
