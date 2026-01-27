@@ -10,16 +10,16 @@
 <script setup lang="ts">
 import type { AbstractMesh, Scene } from '@babylonjs/core'
 import type { ModelFile } from '../../type'
-import { BoundingInfo, Color3, GizmoManager, HighlightLayer, ImportMeshAsync, Mesh, MeshBuilder, PointerEventTypes, Vector3 } from '@babylonjs/core'
+import { Color3, GizmoManager, ImportMeshAsync, MeshBuilder, PointerEventTypes, Vector3 } from '@babylonjs/core'
 import { GridMaterial } from '@babylonjs/materials'
 import { useMagicKeys } from '@vueuse/core'
+import { nanoid } from 'nanoid'
 import { pipe, tap } from 'remeda'
 import { computed, onMounted, shallowRef, watch } from 'vue'
 import { useBabylonScene } from '../../composables/use-babylon-scene'
 import { useMainStore } from '../../stores/main-store'
 import { getFileFromPath } from '../../utils/fs'
 import '@babylonjs/loaders'
-import { nanoid } from 'nanoid'
 
 const props = defineProps<{
   selectedModelFile?: ModelFile;
@@ -46,7 +46,7 @@ watch(() => ({ shift, alt }), ({ shift, alt }) => {
     gizmos.rotationGizmo.snapDistance = snapValue
   }
 }, {
-  deep: true
+  deep: true,
 })
 
 /** 網格吸附單位 */
@@ -76,7 +76,7 @@ const { canvasRef, scene } = useBabylonScene({
       tap((gizmoManager) => {
         gizmoManager.positionGizmoEnabled = true
         gizmoManager.rotationGizmoEnabled = true
-        gizmoManager.usePointerToAttachGizmos = true;
+        gizmoManager.usePointerToAttachGizmos = true
 
         gizmoManager.attachableMeshes = addedMeshList.value
 
@@ -98,7 +98,7 @@ const { canvasRef, scene } = useBabylonScene({
         if (!previewMesh.value || !ground)
           return
 
-        // 射線檢測：只針對地面 (groundRef)
+        // 針對地面射線檢測
         const pickInfo = scene.pick(
           scene.pointerX,
           scene.pointerY,

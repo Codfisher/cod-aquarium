@@ -62,16 +62,16 @@ const defaultParam: Required<UseBabylonSceneParam> = {
     scene.clearColor = new Color4(1, 1, 1, 1)
 
     scene.fogMode = Scene.FOGMODE_LINEAR
-    scene.fogColor = new Color3(0.8, 0.8, 0.8)
-    scene.fogStart = 50
-    scene.fogEnd = 60
+    scene.fogColor = new Color3(0.9, 0.9, 0.9)
+    scene.fogStart = 40
+    scene.fogEnd = 100
 
     return scene
   },
   createCamera({ scene, canvas }) {
     const camera = new ArcRotateCamera(
       'camera',
-      0,
+      Math.PI / 2,
       Math.PI / 3 * 2,
       10,
       new Vector3(0, 0, 0),
@@ -84,7 +84,7 @@ const defaultParam: Required<UseBabylonSceneParam> = {
 
     camera.wheelDeltaPercentage = 0.01
     camera.lowerRadiusLimit = 10
-    camera.upperRadiusLimit = 50
+    camera.upperRadiusLimit = 30
 
     // 限制鏡頭角度
     camera.lowerBetaLimit = 0
