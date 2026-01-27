@@ -104,7 +104,7 @@ const { canvasRef, scene } = useBabylonScene({
         // 同時渲染兩個相機
         scene.activeCameras = [camera, camera2]
 
-        const orthoSize = 3
+        const orthoSize = 2.5
         const updateOrtho = () => {
           const engine = scene.getEngine()
           const aspect = engine.getRenderWidth() / engine.getRenderHeight()
