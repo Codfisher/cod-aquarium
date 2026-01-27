@@ -10,10 +10,10 @@
 <script setup lang="ts">
 import type { AbstractMesh, Scene } from '@babylonjs/core'
 import type { ModelFile } from '../../type'
-import { BoundingInfo, Color3, HighlightLayer, ImportMeshAsync, Mesh, MeshBuilder, PointerEventTypes, Vector3 } from '@babylonjs/core'
+import { BoundingInfo, Color3, GizmoManager, HighlightLayer, ImportMeshAsync, Mesh, MeshBuilder, PointerEventTypes, Vector3 } from '@babylonjs/core'
 import { GridMaterial } from '@babylonjs/materials'
 import { useMagicKeys } from '@vueuse/core'
-import { pipe } from 'remeda'
+import { pipe, tap } from 'remeda'
 import { computed, onMounted, shallowRef, watch } from 'vue'
 import { useBabylonScene } from '../../composables/use-babylon-scene'
 import { useMainStore } from '../../stores/main-store'
@@ -32,6 +32,9 @@ const { shift, alt } = useMagicKeys()
 const previewMesh = shallowRef<AbstractMesh>()
 /** 已新增的模型 */
 const addedMeshList = shallowRef<AbstractMesh[]>([])
+
+/** 旋轉縮放的工具 */
+const gizmoManager = shallowRef<GizmoManager>()
 
 /** 網格吸附單位 */
 const snapUnit = computed(() => {
@@ -54,6 +57,14 @@ const mouseTargetPosition = new Vector3(0, 0, 0)
 const { canvasRef, scene } = useBabylonScene({
   async init(params) {
     const { scene } = params
+
+    gizmoManager.value = pipe(
+      new GizmoManager(scene),
+      tap((gizmoManager) => {
+        gizmoManager.positionGizmoEnabled = true
+        gizmoManager.usePointerToAttachGizmos = true;
+      }),
+    )
 
     const ground = createGround({ scene })
 
@@ -84,7 +95,13 @@ const { canvasRef, scene } = useBabylonScene({
 
         const clonedMesh = previewMesh.value.clone(nanoid(), null, false)
         if (clonedMesh) {
+          clonedMesh.isPickable = true
+          clonedMesh.getChildMeshes().forEach((mesh) => mesh.isPickable = true)
           addedMeshList.value.push(clonedMesh)
+        }
+
+        if (gizmoManager.value) {
+          gizmoManager.value.attachableMeshes = addedMeshList.value
         }
       }
     })
