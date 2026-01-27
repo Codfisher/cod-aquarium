@@ -27,7 +27,7 @@
     </div>
 
     <div
-      v-if="files.length && rootHandle"
+      v-if="files.length && mainStore.rootFsHandle"
       class="flex flex-wrap gap-1 overflow-y-auto"
     >
       <model-preview-item
@@ -36,7 +36,7 @@
         class=" shrink-0 border-transparent border-3 duration-300"
         :class="{ 'border-primary!': file === selectedModelFile }"
         :model-file="file"
-        :root-handle="rootHandle"
+        :root-handle="mainStore.rootFsHandle"
         @click="handleSelectedModelFile(file)"
       />
     </div>
@@ -46,9 +46,11 @@
 <script setup lang="ts">
 import type { ModelFile } from '../type'
 import { ref, shallowRef } from 'vue'
+import { useMainStore } from '../stores/main-store'
 import ModelPreviewItem from './model-preview-item.vue'
 
 const toast = useToast()
+const mainStore = useMainStore()
 
 const selectedModelFile = defineModel<ModelFile>('selectedModelFile')
 
@@ -58,7 +60,6 @@ const selectedFormatList = ref(['.gltf', '.glb'])
 const isScanning = ref(false)
 const statusMessage = ref('select directory to preview 3D models')
 const files = ref<ModelFile[]>([])
-const rootHandle = shallowRef<FileSystemDirectoryHandle>()
 
 async function handleSelectDirectory() {
   if (!('showDirectoryPicker' in window)) {
@@ -82,7 +83,7 @@ async function handleSelectDirectory() {
     files.value = []
 
     const dirHandle = await window.showDirectoryPicker()
-    rootHandle.value = dirHandle
+    mainStore.rootFsHandle = dirHandle
     await scanDirectory(dirHandle, '')
 
     statusMessage.value = `scanned, found ${files.value.length} models`
@@ -144,6 +145,10 @@ function isModelFile(filename: string): boolean {
 }
 
 function handleSelectedModelFile(file: ModelFile) {
+  if (selectedModelFile.value === file) {
+    selectedModelFile.value = undefined
+    return
+  }
   selectedModelFile.value = file
 }
 </script>

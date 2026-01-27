@@ -8,30 +8,72 @@
 </template>
 
 <script setup lang="ts">
-import type { Scene } from '@babylonjs/core'
+import type { AbstractMesh, Scene } from '@babylonjs/core'
 import type { ModelFile } from '../type'
 import {
   Color3,
   DirectionalLight,
+  ImportMeshAsync,
   MeshBuilder,
+  PBRMaterial,
+  PointerEventTypes,
+  SceneLoader,
   ShadowGenerator,
   StandardMaterial,
+  Texture,
   Vector3,
 } from '@babylonjs/core'
+import { pipe } from 'remeda'
+import { onUnmounted, shallowRef, watch } from 'vue'
 import { useBabylonScene } from '../composables/use-babylon-scene'
+import { useMainStore } from '../stores/main-store'
+import { getFileFromPath } from '../utils/fs'
+// 引入 Loaders 以支援 GLB/GLTF/OBJ 等格式
+import '@babylonjs/loaders'
 
 const props = defineProps<{
-  rootFsHandle?: FileSystemDirectoryHandle;
-  selectedModelFile?: ModelFile;
+  selectedModelFile?: ModelFile; // 假設這包含一個 file 物件或是 File 本身
 }>()
 
-function createGround({ scene }: {
-  scene: Scene;
-}) {
-  const ground = MeshBuilder.CreateGround('ground', {
-    width: 1000,
-    height: 1000,
-  }, scene)
+const mainStore = useMainStore()
+
+/** 當前預覽的模型 */
+const previewMesh = shallowRef<AbstractMesh>()
+const groundMesh = shallowRef<AbstractMesh>()
+
+const { canvasRef, scene } = useBabylonScene({
+  async init(params) {
+    const { scene } = params
+
+    const shadowGenerator = createShadowGenerator(scene)
+    groundMesh.value = createGround({ scene })
+
+    // 滑鼠跟隨邏輯
+    scene.onPointerObservable.add((pointerInfo) => {
+      if (pointerInfo.type === PointerEventTypes.POINTERMOVE) {
+        if (!previewMesh.value || !groundMesh.value)
+          return
+
+        // 射線檢測：只針對地面 (groundRef)
+        const pickInfo = scene.pick(
+          scene.pointerX,
+          scene.pointerY,
+          (mesh) => mesh === groundMesh.value,
+        )
+
+        if (pickInfo.hit && pickInfo.pickedPoint) {
+          previewMesh.value.position.x = pickInfo.pickedPoint.x
+          previewMesh.value.position.z = pickInfo.pickedPoint.z
+          // 保持 y = 0
+          previewMesh.value.position.y = 0
+        }
+      }
+    })
+  },
+})
+
+function createGround({ scene }: { scene: Scene }) {
+  const ground = MeshBuilder.CreateGround('ground', { width: 1000, height: 1000 }, scene)
   ground.receiveShadows = true
 
   const groundMaterial = new StandardMaterial('groundMaterial', scene)
@@ -44,25 +86,70 @@ function createGround({ scene }: {
 function createShadowGenerator(scene: Scene) {
   const light = new DirectionalLight('dir01', new Vector3(-5, -5, 0), scene)
   light.intensity = 0.7
-
   const shadowGenerator = new ShadowGenerator(1024, light)
   shadowGenerator.usePoissonSampling = true
-
   return shadowGenerator
 }
 
-const {
-  canvasRef,
-} = useBabylonScene({
-  async init(params) {
-    const { scene } = params
+const blobUrlList: string[] = []
+/** 載入預覽模型 */
+async function loadPreviewModel(modelFile: ModelFile) {
+  const [sceneValue, rootFsHandle] = [scene.value, mainStore.rootFsHandle]
+  if (!sceneValue || !rootFsHandle)
+    return
 
-    const shadowGenerator = createShadowGenerator(scene)
+  if (previewMesh.value) {
+    previewMesh.value.dispose()
+    previewMesh.value = undefined
+  }
 
-    createGround({ scene })
-  },
+  try {
+    const result = await ImportMeshAsync(
+      modelFile.file,
+      sceneValue,
+      {
+        pluginOptions: {
+          gltf: {
+            async preprocessUrlAsync(url) {
+              const file = await pipe(
+                modelFile.path.replace(modelFile.name, ''),
+                (path) => getFileFromPath(rootFsHandle, `${path}${url}`),
+              )
+
+              const newUrl = URL.createObjectURL(file)
+              blobUrlList.push(newUrl)
+
+              return newUrl
+            },
+          },
+        },
+      },
+    )
+
+    const root = result.meshes[0]!
+    root.position = new Vector3(0, 0, 0)
+
+    root.isPickable = false
+    root.getChildMeshes().forEach((m) => m.isPickable = false)
+
+    previewMesh.value = root
+  }
+  catch (err) {
+    console.error('模型載入失敗:', err)
+  }
+}
+
+// 監聽 selectedModelFile 變化
+watch(() => props.selectedModelFile, (newVal) => {
+  if (newVal) {
+    loadPreviewModel(newVal)
+  }
+  else {
+    // 如果被設為 undefined，則清除預覽
+    if (previewMesh.value) {
+      previewMesh.value.dispose()
+      previewMesh.value = undefined
+    }
+  }
 })
 </script>
-
-<style lang="sass" scoped>
-</style>
