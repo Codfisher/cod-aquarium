@@ -89,6 +89,7 @@ async function handleSelectDirectory() {
     statusMessage.value = `scanned, found ${files.value.length} models`
   }
   catch (err) {
+    mainStore.rootFsHandle = undefined
     if ((err as Error).name !== 'AbortError') {
       console.error(err)
       statusMessage.value = 'error'

@@ -34,13 +34,19 @@
 
 <script setup lang="ts">
 import type { ModelFile } from './type'
-import { onBeforeUnmount, onMounted, shallowRef } from 'vue'
+import { onBeforeUnmount, onMounted, shallowRef, watch } from 'vue'
 import FilePreviewPanel from './components/file-preview-panel.vue'
 import SceneViewer from './components/scene-viewer.vue'
+import { useMainStore } from './stores/main-store'
 
 const version = '0.1.0'
 
+const mainStore = useMainStore()
+
 const selectedModelFile = shallowRef<ModelFile>()
+watch(() => mainStore.rootFsHandle, () => {
+  selectedModelFile.value = undefined
+})
 
 // 載入字體
 const fontHref = 'https://fonts.googleapis.com/css2?family=Material+Symbols+Sharp:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&family=Orbitron:wght@400..900'
