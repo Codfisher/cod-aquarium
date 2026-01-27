@@ -34,6 +34,8 @@ import { onBeforeUnmount, onMounted } from 'vue'
 import FilePreviewPanel from './components/file-preview-panel.vue'
 import SceneViewer from './components/scene-viewer.vue'
 
+const version = '0.1.0'
+
 // 載入字體
 const fontHref = 'https://fonts.googleapis.com/css2?family=Material+Symbols+Sharp:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&family=Orbitron:wght@400..900'
 let linkEl: HTMLLinkElement
@@ -54,8 +56,6 @@ onBeforeUnmount(() => {
   if (linkEl)
     document.head.removeChild(linkEl)
 })
-
-const version = '0.1.0'
 </script>
 
 <style lang="sass" scoped>

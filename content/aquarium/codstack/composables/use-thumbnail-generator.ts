@@ -1,5 +1,4 @@
 import type { AssetContainer } from '@babylonjs/core'
-import type { GLTFFileLoader } from '@babylonjs/loaders'
 import type { ModelFile } from '../type'
 import {
   ArcRotateCamera,
@@ -11,35 +10,11 @@ import {
   Tools,
   Vector3,
 } from '@babylonjs/core'
-import { LoadAssetContainerAsync, SceneLoader } from '@babylonjs/core/Loading/sceneLoader'
+import { LoadAssetContainerAsync } from '@babylonjs/core/Loading/sceneLoader'
 import { createSharedComposable, tryOnScopeDispose } from '@vueuse/core'
 import PQueue from 'p-queue'
 import { pipe } from 'remeda'
-
-/**
- * 根據路徑字串，從根目錄 Handle 逐層尋找檔案
- * @param rootHandle 根目錄 Handle
- * @param path 相對路徑 (e.g. "models/furniture/chair.bin")
- */
-async function getFileFromPath(
-  rootHandle: FileSystemDirectoryHandle,
-  path: string,
-): Promise<File> {
-  const cleanPath = path.replace(/^\.\/|^\//, '')
-  const parts = cleanPath.split('/')
-  const filename = parts.pop()
-
-  if (!filename)
-    throw new Error('Invalid path')
-
-  let currentDir = rootHandle
-  for (const dirName of parts) {
-    currentDir = await currentDir.getDirectoryHandle(dirName)
-  }
-
-  const fileHandle = await currentDir.getFileHandle(filename)
-  return await fileHandle.getFile()
-}
+import { getFileFromPath } from '../utils/fs'
 
 function _useThumbnailGenerator(rootFSHandle: FileSystemDirectoryHandle) {
   const queue = new PQueue({ concurrency: 1 })
@@ -50,39 +25,10 @@ function _useThumbnailGenerator(rootFSHandle: FileSystemDirectoryHandle) {
   let _camera: ArcRotateCamera | undefined
 
   let lastContainer: AssetContainer | undefined
-  let currentModelFile: ModelFile | undefined
   const blobUrlList: string[] = []
 
   tryOnScopeDispose(() => {
     blobUrlList.forEach((url) => URL.revokeObjectURL(url))
-  })
-
-  const observer = SceneLoader.OnPluginActivatedObservable.add((loader) => {
-    if (loader.name === 'gltf') {
-      const gltfLoader = loader as GLTFFileLoader
-
-      gltfLoader.preprocessUrlAsync = async (url) => {
-        if (!currentModelFile) {
-          return url
-        }
-
-        // 組成完整路徑
-        const targetPath = pipe(
-          currentModelFile.path.replace(currentModelFile.name, ''),
-          (path) => `${path}${url}`,
-        )
-
-        const file = await getFileFromPath(rootFSHandle, targetPath)
-
-        const blobUrl = URL.createObjectURL(file)
-        blobUrlList.push(blobUrl)
-
-        return blobUrl
-      }
-    }
-  })
-  tryOnScopeDispose(() => {
-    observer.remove()
   })
 
   const init = () => {
@@ -116,8 +62,6 @@ function _useThumbnailGenerator(rootFSHandle: FileSystemDirectoryHandle) {
 
   const generateThumbnail = (modelFile: ModelFile) => {
     return queue.add(async () => {
-      currentModelFile = modelFile
-
       init()
 
       const [engine, scene, camera] = [_engine, _scene, _camera]
@@ -132,7 +76,23 @@ function _useThumbnailGenerator(rootFSHandle: FileSystemDirectoryHandle) {
         lastContainer = undefined
       }
 
-      const container = await LoadAssetContainerAsync(modelFile.file, scene)
+      const container = await LoadAssetContainerAsync(modelFile.file, scene, {
+        pluginOptions: {
+          gltf: {
+            async preprocessUrlAsync(url) {
+              const file = await pipe(
+                modelFile.path.replace(modelFile.name, ''),
+                (path) => getFileFromPath(rootFSHandle, `${path}${url}`),
+              )
+
+              const blobUrl = URL.createObjectURL(file)
+              blobUrlList.push(blobUrl)
+
+              return blobUrl
+            },
+          },
+        },
+      })
       lastContainer = container
       container.addAllToScene()
 

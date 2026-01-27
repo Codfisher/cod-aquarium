@@ -9,19 +9,21 @@
 
 <script setup lang="ts">
 import type { Scene } from '@babylonjs/core'
+import type { ModelFile } from '../type'
 import {
   Color3,
   DirectionalLight,
-  HavokPlugin,
   MeshBuilder,
-  PhysicsAggregate,
-  PhysicsShapeType,
   ShadowGenerator,
   StandardMaterial,
   Vector3,
 } from '@babylonjs/core'
-import HavokPhysics from '@babylonjs/havok'
 import { useBabylonScene } from '../composables/use-babylon-scene'
+
+const props = defineProps<{
+  modelFile?: ModelFile;
+  rootHandle?: FileSystemDirectoryHandle;
+}>()
 
 function createGround({ scene }: {
   scene: Scene;
@@ -35,8 +37,6 @@ function createGround({ scene }: {
   const groundMaterial = new StandardMaterial('groundMaterial', scene)
   groundMaterial.diffuseColor = new Color3(0.98, 0.98, 0.98)
   ground.material = groundMaterial
-
-  const groundAggregate = new PhysicsAggregate(ground, PhysicsShapeType.BOX, { mass: 0 }, scene)
 
   return ground
 }
@@ -56,10 +56,6 @@ const {
 } = useBabylonScene({
   async init(params) {
     const { scene } = params
-
-    const havokInstance = await HavokPhysics()
-    const havokPlugin = new HavokPlugin(true, havokInstance)
-    scene.enablePhysics(new Vector3(0, -9.81, 0), havokPlugin)
 
     const shadowGenerator = createShadowGenerator(scene)
 
