@@ -8,7 +8,7 @@
 </template>
 
 <script setup lang="ts">
-import type { AbstractMesh, Scene } from '@babylonjs/core'
+import type { AbstractMesh, Node, Scene } from '@babylonjs/core'
 import type { ModelFile } from '../../type'
 import { Color3, GizmoManager, ImportMeshAsync, MeshBuilder, PointerEventTypes, Vector3 } from '@babylonjs/core'
 import { GridMaterial } from '@babylonjs/materials'
@@ -17,6 +17,7 @@ import { nanoid } from 'nanoid'
 import { pipe, tap } from 'remeda'
 import { computed, onMounted, shallowRef, watch } from 'vue'
 import { useBabylonScene } from '../../composables/use-babylon-scene'
+import { useMultiSelect } from '../../composables/use-multi-select'
 import { useMainStore } from '../../stores/main-store'
 import { getFileFromPath } from '../../utils/fs'
 import '@babylonjs/loaders'
@@ -49,17 +50,6 @@ watch(() => ({ shiftKey, altKey }), ({ shiftKey, altKey }) => {
   deep: true,
 })
 
-whenever(() => deleteKey, () => {
-  const attachedMesh = gizmoManager.value?.attachedMesh
-  if (attachedMesh) {
-    attachedMesh.dispose()
-    addedMeshList.value = addedMeshList.value.filter((mesh) => mesh !== attachedMesh)
-    gizmoManager.value?.attachToMesh(null)
-  }
-}, {
-  deep: true,
-})
-
 /** 網格吸附單位 */
 const snapUnit = computed(() => {
   if (shiftKey?.value) {
@@ -78,9 +68,46 @@ function snapToGrid(value: number) {
 }
 const mouseTargetPosition = new Vector3(0, 0, 0)
 
+const {
+  selectedMeshes,
+  initSelectionGroup,
+  handleSelect,
+  clearSelection,
+  ungroup,
+} = useMultiSelect(gizmoManager)
+
+whenever(() => deleteKey, () => {
+  if (selectedMeshes.value.length > 0) {
+    // 刪除前必須先 ungroup，避免 dispose 時影響到 TransformNode 結構
+    ungroup()
+
+    selectedMeshes.value.forEach((mesh) => {
+      mesh.dispose()
+      addedMeshList.value = addedMeshList.value.filter((m) => m !== mesh)
+    })
+
+    clearSelection()
+  }
+}, {
+  deep: true,
+})
+
+function findTopLevelMesh(mesh: AbstractMesh, list: AbstractMesh[]): AbstractMesh | undefined {
+  let current: Node | null = mesh
+  while (current) {
+    if (list.includes(current as AbstractMesh)) {
+      return current as AbstractMesh
+    }
+    current = current.parent
+  }
+  return undefined
+}
+
 const { canvasRef, scene } = useBabylonScene({
   async init(params) {
     const { scene } = params
+
+    initSelectionGroup(scene)
 
     gizmoManager.value = pipe(
       new GizmoManager(scene),
@@ -104,7 +131,7 @@ const { canvasRef, scene } = useBabylonScene({
     const ground = createGround({ scene })
 
     scene.onPointerObservable.add((pointerInfo) => {
-      // 滑鼠跟隨邏輯
+      // 滑鼠移動
       if (pointerInfo.type === PointerEventTypes.POINTERMOVE) {
         if (!previewMesh.value || !ground)
           return
@@ -123,22 +150,37 @@ const { canvasRef, scene } = useBabylonScene({
         }
       }
 
-      // 放置模型
+      // 點擊事件
       if (pointerInfo.type === PointerEventTypes.POINTERTAP) {
-        if (!previewMesh.value) {
-          // 如果點擊到地面，就取消選取
-          if (pointerInfo.pickInfo?.pickedMesh === ground) {
-            gizmoManager.value?.attachToMesh(null)
+        const pickedMesh = pointerInfo.pickInfo?.pickedMesh
+
+        // A. 預覽模式點擊 -> 放置
+        if (previewMesh.value) {
+          const clonedMesh = previewMesh.value.clone(nanoid(), null, false)
+          if (clonedMesh) {
+            clonedMesh.position = mouseTargetPosition.clone()
+            clonedMesh.isPickable = true
+            clonedMesh.getChildMeshes().forEach((mesh) => mesh.isPickable = true)
+            addedMeshList.value.push(clonedMesh)
           }
           return
         }
 
-        const clonedMesh = previewMesh.value.clone(nanoid(), null, false)
-        if (clonedMesh) {
-          clonedMesh.position = mouseTargetPosition.clone()
-          clonedMesh.isPickable = true
-          clonedMesh.getChildMeshes().forEach((mesh) => mesh.isPickable = true)
-          addedMeshList.value.push(clonedMesh)
+        if (pickedMesh) {
+
+        }
+
+        // B. 點擊到已放置的模型
+        if (pickedMesh === ground) {
+          clearSelection()
+          return
+        }
+
+        if (pickedMesh) {
+          const topLevelMesh = findTopLevelMesh(pickedMesh, addedMeshList.value)
+          if (!topLevelMesh)
+            return
+          handleSelect(topLevelMesh, !!shiftKey?.value)
         }
       }
     })
