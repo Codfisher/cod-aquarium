@@ -34,6 +34,7 @@
 
 <script setup lang="ts">
 import type { ModelFile } from './type'
+import { useMagicKeys, whenever } from '@vueuse/core'
 import { onBeforeUnmount, onMounted, shallowRef, watch } from 'vue'
 import FilePreviewPanel from './components/file-preview-panel.vue'
 import SceneViewer from './components/scene-viewer/scene-viewer.vue'
@@ -42,10 +43,16 @@ import { useMainStore } from './stores/main-store'
 const version = '0.1.0'
 
 const mainStore = useMainStore()
+const { escape: escapeKey } = useMagicKeys()
 
 const selectedModelFile = shallowRef<ModelFile>()
 watch(() => mainStore.rootFsHandle, () => {
   selectedModelFile.value = undefined
+})
+whenever(() => escapeKey, () => {
+  selectedModelFile.value = undefined
+}, {
+  deep: true,
 })
 
 // 載入字體

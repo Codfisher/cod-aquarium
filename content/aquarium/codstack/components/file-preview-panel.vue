@@ -34,7 +34,7 @@
         v-for="file in files"
         :key="file.path"
         class=" shrink-0 border-transparent border-3 duration-300"
-        :class="{ 'border-primary!': file === selectedModelFile }"
+        :class="{ 'border-primary!': file.path === selectedModelFile?.path }"
         :model-file="file"
         :root-handle="mainStore.rootFsHandle"
         @click="handleSelectedModelFile(file)"

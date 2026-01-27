@@ -12,7 +12,7 @@ import type { AbstractMesh, Scene } from '@babylonjs/core'
 import type { ModelFile } from '../../type'
 import { Color3, GizmoManager, ImportMeshAsync, MeshBuilder, PointerEventTypes, Vector3 } from '@babylonjs/core'
 import { GridMaterial } from '@babylonjs/materials'
-import { useMagicKeys } from '@vueuse/core'
+import { useMagicKeys, whenever } from '@vueuse/core'
 import { nanoid } from 'nanoid'
 import { pipe, tap } from 'remeda'
 import { computed, onMounted, shallowRef, watch } from 'vue'
@@ -26,7 +26,7 @@ const props = defineProps<{
 }>()
 
 const mainStore = useMainStore()
-const { shift, alt } = useMagicKeys()
+const { shift: shiftKey, alt: altKey, delete: deleteKey } = useMagicKeys()
 
 /** 當前預覽的模型 */
 const previewMesh = shallowRef<AbstractMesh>()
@@ -35,15 +35,26 @@ const addedMeshList = shallowRef<AbstractMesh[]>([])
 
 /** 旋轉縮放的工具 */
 const gizmoManager = shallowRef<GizmoManager>()
-watch(() => ({ shift, alt }), ({ shift, alt }) => {
-  const snapValue = alt?.value ? 0 : shift?.value ? 0.1 : 0.5
-
+watch(() => ({ shiftKey, altKey }), ({ shiftKey, altKey }) => {
   const gizmos = gizmoManager.value?.gizmos
   if (gizmos?.positionGizmo) {
+    const snapValue = altKey?.value ? 0 : shiftKey?.value ? 0.1 : 0.5
     gizmos.positionGizmo.snapDistance = snapValue
   }
   if (gizmos?.rotationGizmo) {
+    const snapValue = altKey?.value ? 0 : shiftKey?.value ? Math.PI / 180 : Math.PI / 180 * 5
     gizmos.rotationGizmo.snapDistance = snapValue
+  }
+}, {
+  deep: true,
+})
+
+whenever(() => deleteKey, () => {
+  const attachedMesh = gizmoManager.value?.attachedMesh
+  if (attachedMesh) {
+    attachedMesh.dispose()
+    addedMeshList.value = addedMeshList.value.filter((mesh) => mesh !== attachedMesh)
+    gizmoManager.value?.attachToMesh(null)
   }
 }, {
   deep: true,
@@ -51,7 +62,7 @@ watch(() => ({ shift, alt }), ({ shift, alt }) => {
 
 /** 網格吸附單位 */
 const snapUnit = computed(() => {
-  if (shift?.value) {
+  if (shiftKey?.value) {
     return 0.1
   }
 
@@ -59,7 +70,7 @@ const snapUnit = computed(() => {
 })
 /** 按住 alt 為自由移動 */
 function snapToGrid(value: number) {
-  if (alt?.value) {
+  if (altKey?.value) {
     return value
   }
 
@@ -85,7 +96,7 @@ const { canvasRef, scene } = useBabylonScene({
           gizmos.positionGizmo.snapDistance = 0.5
         }
         if (gizmos?.rotationGizmo) {
-          gizmos.rotationGizmo.snapDistance = 0.5
+          gizmos.rotationGizmo.snapDistance = Math.PI / 180 * 5
         }
       }),
     )
@@ -114,11 +125,17 @@ const { canvasRef, scene } = useBabylonScene({
 
       // 放置模型
       if (pointerInfo.type === PointerEventTypes.POINTERTAP) {
-        if (!previewMesh.value)
+        if (!previewMesh.value) {
+          // 如果點擊到地面，就取消選取
+          if (pointerInfo.pickInfo?.pickedMesh === ground) {
+            gizmoManager.value?.attachToMesh(null)
+          }
           return
+        }
 
         const clonedMesh = previewMesh.value.clone(nanoid(), null, false)
         if (clonedMesh) {
+          clonedMesh.position = mouseTargetPosition.clone()
           clonedMesh.isPickable = true
           clonedMesh.getChildMeshes().forEach((mesh) => mesh.isPickable = true)
           addedMeshList.value.push(clonedMesh)
