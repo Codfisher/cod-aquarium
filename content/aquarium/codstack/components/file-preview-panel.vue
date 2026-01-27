@@ -103,7 +103,6 @@ async function handleSelectDirectory() {
 /** 遞迴掃描目錄下的所有檔案
  * @param dirHandle 目錄控制代碼
  * @param pathPrefix 目前累積的路徑 (不含當前層級)
- * @param rootDirHandle 根目錄控制代碼
  */
 async function scanDirectory(
   dirHandle: FileSystemDirectoryHandle,
