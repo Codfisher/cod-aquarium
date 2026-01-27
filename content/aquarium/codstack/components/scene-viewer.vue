@@ -12,8 +12,9 @@ import type { AbstractMesh, Scene } from '@babylonjs/core'
 import type { ModelFile } from '../type'
 import { Color3, Color4, DirectionalLight, ImportMeshAsync, MeshBuilder, PointerEventTypes, ShadowGenerator, StandardMaterial, Texture, Vector3 } from '@babylonjs/core'
 import { GridMaterial } from '@babylonjs/materials'
+import { useMagicKeys } from '@vueuse/core'
 import { pipe } from 'remeda'
-import { onMounted, shallowRef, watch } from 'vue'
+import { computed, onMounted, shallowRef, watch } from 'vue'
 import { useBabylonScene } from '../composables/use-babylon-scene'
 import { useMainStore } from '../stores/main-store'
 import { getFileFromPath } from '../utils/fs'
@@ -24,15 +25,27 @@ const props = defineProps<{
 }>()
 
 const mainStore = useMainStore()
+const { shift, alt } = useMagicKeys()
 
 /** 當前預覽的模型 */
 const previewMesh = shallowRef<AbstractMesh>()
 const groundMesh = shallowRef<AbstractMesh>()
 
 /** 網格吸附單位 */
-const snapUnit = 0.5
-function snapToGrid(value: number, unit: number) {
-  return Math.round(value / unit) * unit
+const snapUnit = computed(() => {
+  if (shift?.value) {
+    return 0.1
+  }
+
+  return 0.5
+})
+/** 按住 alt 為自由移動 */
+function snapToGrid(value: number) {
+  if (alt?.value) {
+    return value
+  }
+
+  return Math.round(value / snapUnit.value) * snapUnit.value
 }
 const mouseTargetPosition = new Vector3(0, 0, 0)
 
@@ -56,8 +69,8 @@ const { canvasRef, scene } = useBabylonScene({
         )
 
         if (pickInfo.hit && pickInfo.pickedPoint) {
-          const x = snapToGrid(pickInfo.pickedPoint.x, snapUnit)
-          const z = snapToGrid(pickInfo.pickedPoint.z, snapUnit)
+          const x = snapToGrid(pickInfo.pickedPoint.x)
+          const z = snapToGrid(pickInfo.pickedPoint.z)
           mouseTargetPosition.set(x, 0, z)
         }
       }
