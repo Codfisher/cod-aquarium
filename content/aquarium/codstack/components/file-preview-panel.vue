@@ -21,7 +21,7 @@
           class="w-full"
         /> -->
 
-      <div class="flex flex-wrap gap-1">
+      <!-- <div class="flex flex-wrap gap-1">
         <u-badge
           v-for="tag in tagList"
           :key="tag"
@@ -31,7 +31,14 @@
           class=" cursor-pointer duration-300 select-none"
           @click="handleSelectedTag(tag)"
         />
-      </div>
+      </div> -->
+
+      <u-select-menu
+        v-model="selectedTagList"
+        multiple
+        :items="tagList"
+        clear
+      />
     </div>
 
     <div

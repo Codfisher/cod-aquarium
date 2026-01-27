@@ -36,7 +36,7 @@
     "@iconify-json/material-symbols-light": "^1.2.33",
     "@iconify-json/mdi": "^1.2.3",
     "@mlc-ai/web-llm": "^0.2.79",
-    "@nuxt/ui": "4.3.0",
+    "@nuxt/ui": "4.4.0",
     "@types/lodash-es": "^4.17.12",
     "@types/node": "^22.15.30",
     "@types/wicg-file-system-access": "^2023.10.7",
