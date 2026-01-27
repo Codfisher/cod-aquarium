@@ -1,8 +1,5 @@
 <template>
-  <div
-    ref="cardRef"
-    class="rounded flex flex-col w-30 aspect-square "
-  >
+  <div class="rounded flex flex-col w-30 aspect-square ">
     <div class="flex-1 bg-gray-100 rounded flex items-center justify-center overflow-hidden relative">
       <div
         v-if="isLoading"
@@ -39,8 +36,7 @@ const props = defineProps<{
 }>()
 
 const { generateThumbnail } = useThumbnailGenerator(props.rootHandle)
-const cardRef = ref<HTMLElement | null>(null)
-const thumbnailSrc = ref<string | null>(null)
+const thumbnailSrc = ref('')
 const isLoading = ref(false)
 
 onMounted(() => {
@@ -50,7 +46,6 @@ onMounted(() => {
 async function loadThumbnail() {
   try {
     isLoading.value = true
-    // 呼叫共用的產生器，這裡會自動排隊
     const base64 = await generateThumbnail(props.modelFile)
     thumbnailSrc.value = base64 ?? ''
   }

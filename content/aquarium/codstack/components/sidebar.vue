@@ -6,22 +6,24 @@
     <div class="flex flex-col h-full gap-4">
       <div class="flex gap-2">
         <u-button
-          label="選擇目錄"
+          label="select directory"
           variant="outline"
           color="neutral"
           icon="material-symbols:folder"
+          class="w-full"
+          :ui="{ label: 'text-center w-full' }"
           :loading="isScanning"
           @click="handleClick"
         />
 
         <!-- 選擇支援格式 -->
-        <u-select
+        <!-- <u-select
           v-model="selectedFormatList"
           multiple
           :items="SUPPORTED_EXTENSIONS.map(ext => ({ label: ext, value: ext }))"
-          placeholder="選擇支援格式"
+          placeholder="select supported format"
           class="w-full"
-        />
+        /> -->
       </div>
 
       <div class="text-xs text-gray-500 text-center">
@@ -56,19 +58,19 @@ const SUPPORTED_EXTENSIONS = ['.gltf', '.glb', '.obj', '.fbx', '.stl']
 const selectedFormatList = ref(['.gltf', '.glb'])
 
 const isScanning = ref(false)
-const statusMessage = ref('選擇目錄後，即可預覽此目錄下所有 3D 模型')
+const statusMessage = ref('select directory to preview 3D models')
 const files = ref<ModelFile[]>([])
 const rootHandle = shallowRef<FileSystemDirectoryHandle>()
 
 async function handleClick() {
   if (!('showDirectoryPicker' in window)) {
     toast.add({
-      title: '不支援此功能 ( ´•̥̥̥ ω •̥̥̥` )',
-      description: '您的瀏覽器不支援目錄讀取功能，建議使用 Chrome、Edge',
+      title: 'not support ( ´•̥̥̥ ω •̥̥̥` )',
+      description: 'your browser not support directory reading, suggest using Chrome、Edge',
       color: 'error',
       actions: [
         {
-          label: '說明',
+          label: 'explain',
           href: 'https://developer.mozilla.org/en-US/docs/Web/API/Window/showDirectoryPicker#browser_compatibility',
         },
       ],
@@ -78,19 +80,22 @@ async function handleClick() {
 
   try {
     isScanning.value = true
-    statusMessage.value = '正在掃描...'
+    statusMessage.value = 'scanning...'
     files.value = []
 
     const dirHandle = await window.showDirectoryPicker()
     rootHandle.value = dirHandle
     await scanDirectory(dirHandle, '', dirHandle)
 
-    statusMessage.value = `掃描完成，找到 ${files.value.length} 個模型`
+    statusMessage.value = `scanned, found ${files.value.length} models`
   }
   catch (err) {
     if ((err as Error).name !== 'AbortError') {
       console.error(err)
-      statusMessage.value = '發生錯誤'
+      statusMessage.value = 'error'
+    }
+    else {
+      statusMessage.value = 'select directory to preview 3D models'
     }
   }
   finally {

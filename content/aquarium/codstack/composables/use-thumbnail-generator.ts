@@ -82,6 +82,9 @@ function _useThumbnailGenerator(rootFSHandle: FileSystemDirectoryHandle) {
       }
     }
   })
+  tryOnScopeDispose(() => {
+    observer.remove()
+  })
 
   const init = () => {
     if (_scene) {
@@ -105,7 +108,7 @@ function _useThumbnailGenerator(rootFSHandle: FileSystemDirectoryHandle) {
     _camera.useFramingBehavior = true
     if (_camera.framingBehavior) {
       _camera.framingBehavior.mode = FramingBehavior.FitFrustumSidesMode
-      _camera.framingBehavior.radiusScale = 1.2
+      _camera.framingBehavior.radiusScale = 1
       _camera.framingBehavior.framingTime = 0
     }
 
@@ -118,14 +121,12 @@ function _useThumbnailGenerator(rootFSHandle: FileSystemDirectoryHandle) {
 
       init()
 
-      const engine = _engine
-      const scene = _scene
-      const camera = _camera
+      const [engine, scene, camera] = [_engine, _scene, _camera]
       if (!engine || !scene || !camera) {
         throw new Error('Engine or Scene or Camera not initialized')
       }
 
-      // 清掉上一個模型
+      // 清掉前一個模型
       if (lastContainer) {
         lastContainer.removeAllFromScene()
         lastContainer.dispose()
