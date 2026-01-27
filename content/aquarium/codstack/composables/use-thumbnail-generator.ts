@@ -31,7 +31,7 @@ function _useThumbnailGenerator(rootFSHandle: FileSystemDirectoryHandle) {
     blobUrlList.forEach((url) => URL.revokeObjectURL(url))
   })
 
-  const init = () => {
+  function init() {
     if (_scene) {
       return
     }
@@ -60,7 +60,7 @@ function _useThumbnailGenerator(rootFSHandle: FileSystemDirectoryHandle) {
     const light = new HemisphericLight('light', new Vector3(0, 1, 0), _scene)
   }
 
-  const generateThumbnail = (modelFile: ModelFile) => {
+  function generateThumbnail(modelFile: ModelFile) {
     return queue.add(async () => {
       init()
 
