@@ -30,8 +30,6 @@ const { shift, alt } = useMagicKeys()
 
 /** 當前預覽的模型 */
 const previewMesh = shallowRef<AbstractMesh>()
-const groundMesh = shallowRef<AbstractMesh>()
-
 /** 已新增的模型 */
 const addedMeshList = shallowRef<AbstractMesh[]>([])
 
@@ -57,19 +55,19 @@ const { canvasRef, scene } = useBabylonScene({
   async init(params) {
     const { scene } = params
 
-    groundMesh.value = createGround({ scene })
+    const ground = createGround({ scene })
 
     scene.onPointerObservable.add((pointerInfo) => {
       // 滑鼠跟隨邏輯
       if (pointerInfo.type === PointerEventTypes.POINTERMOVE) {
-        if (!previewMesh.value || !groundMesh.value)
+        if (!previewMesh.value || !ground)
           return
 
         // 射線檢測：只針對地面 (groundRef)
         const pickInfo = scene.pick(
           scene.pointerX,
           scene.pointerY,
-          (mesh) => mesh === groundMesh.value,
+          (mesh) => mesh === ground,
         )
 
         if (pickInfo.hit && pickInfo.pickedPoint) {
