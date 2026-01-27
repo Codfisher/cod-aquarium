@@ -10,13 +10,13 @@
 <script setup lang="ts">
 import type { AbstractMesh, Scene } from '@babylonjs/core'
 import type { ModelFile } from '../type'
-import { Color3, DirectionalLight, ImportMeshAsync, Mesh, MeshBuilder, PBRMaterial, PointerEventTypes, SceneLoader, ShadowGenerator, StandardMaterial, Texture, Vector3 } from '@babylonjs/core'
+import { Color3, DirectionalLight, ImportMeshAsync, MeshBuilder, PointerEventTypes, ShadowGenerator, StandardMaterial, Texture, Vector3 } from '@babylonjs/core'
+import { GridMaterial } from '@babylonjs/materials'
 import { pipe } from 'remeda'
-import { onMounted, onUnmounted, shallowRef, watch } from 'vue'
+import { onMounted, shallowRef, watch } from 'vue'
 import { useBabylonScene } from '../composables/use-babylon-scene'
 import { useMainStore } from '../stores/main-store'
 import { getFileFromPath } from '../utils/fs'
-// 引入 Loaders 以支援 GLB/GLTF/OBJ 等格式
 import '@babylonjs/loaders'
 
 const props = defineProps<{
@@ -64,8 +64,14 @@ function createGround({ scene }: { scene: Scene }) {
   const ground = MeshBuilder.CreateGround('ground', { width: 1000, height: 1000 }, scene)
   ground.receiveShadows = true
 
-  const groundMaterial = new StandardMaterial('groundMaterial', scene)
-  groundMaterial.diffuseColor = new Color3(0.98, 0.98, 0.98)
+  const groundMaterial = new GridMaterial('groundMaterial', scene)
+  groundMaterial.gridRatio = 1
+
+  groundMaterial.majorUnitFrequency = 10
+  groundMaterial.minorUnitVisibility = 0.45
+  groundMaterial.mainColor = new Color3(0.98, 0.98, 0.98) // 底色
+  groundMaterial.lineColor = new Color3(0.75, 0.75, 0.75) // 線色
+
   ground.material = groundMaterial
 
   return ground

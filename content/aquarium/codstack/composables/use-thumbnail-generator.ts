@@ -2,6 +2,7 @@ import type { AssetContainer } from '@babylonjs/core'
 import type { ModelFile } from '../type'
 import {
   ArcRotateCamera,
+  Camera,
   Color4,
   Engine,
   FramingBehavior,
@@ -47,7 +48,7 @@ function _useThumbnailGenerator(rootFsHandle: FileSystemDirectoryHandle) {
     _scene.clearColor = new Color4(0, 0, 0, 0)
 
     _camera = new ArcRotateCamera('camera', Math.PI / 4, Math.PI / 4, 5, Vector3.Zero(), _scene)
-    _camera.attachControl(_canvas, true)
+
     _camera.lowerBetaLimit = 0.05
     _camera.upperBetaLimit = Math.PI / 2 - 0.05
     _camera.useFramingBehavior = true
