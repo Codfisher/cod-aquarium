@@ -37,6 +37,7 @@ const defaultParam: Required<UseBabylonSceneParam> = {
     if (webGPUSupported) {
       const engine = new WebGPUEngine(canvas, {
         antialias: true,
+        stencil: true,
       })
       await engine.initAsync()
 
@@ -45,6 +46,7 @@ const defaultParam: Required<UseBabylonSceneParam> = {
 
     return new Engine(canvas, true, {
       alpha: true,
+      stencil: true,
     })
   },
   createScene({ engine }) {

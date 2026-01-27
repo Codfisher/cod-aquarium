@@ -10,21 +10,9 @@
 <script setup lang="ts">
 import type { AbstractMesh, Scene } from '@babylonjs/core'
 import type { ModelFile } from '../type'
-import {
-  Color3,
-  DirectionalLight,
-  ImportMeshAsync,
-  MeshBuilder,
-  PBRMaterial,
-  PointerEventTypes,
-  SceneLoader,
-  ShadowGenerator,
-  StandardMaterial,
-  Texture,
-  Vector3,
-} from '@babylonjs/core'
+import { Color3, DirectionalLight, ImportMeshAsync, Mesh, MeshBuilder, PBRMaterial, PointerEventTypes, SceneLoader, ShadowGenerator, StandardMaterial, Texture, Vector3 } from '@babylonjs/core'
 import { pipe } from 'remeda'
-import { onUnmounted, shallowRef, watch } from 'vue'
+import { onMounted, onUnmounted, shallowRef, watch } from 'vue'
 import { useBabylonScene } from '../composables/use-babylon-scene'
 import { useMainStore } from '../stores/main-store'
 import { getFileFromPath } from '../utils/fs'
@@ -92,6 +80,10 @@ function createShadowGenerator(scene: Scene) {
 }
 
 const blobUrlList: string[] = []
+onMounted(() => {
+  blobUrlList.forEach((url) => URL.revokeObjectURL(url))
+})
+
 /** 載入預覽模型 */
 async function loadPreviewModel(modelFile: ModelFile) {
   const [sceneValue, rootFsHandle] = [scene.value, mainStore.rootFsHandle]
