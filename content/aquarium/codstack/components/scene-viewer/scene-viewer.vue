@@ -42,6 +42,7 @@ const addedMeshList = shallowRef<AbstractMesh[]>([])
 
 interface MeshState {
   id: number
+  enabled: boolean
   position: [number, number, number]
   rotationQuaternion?: [number, number, number, number]
 }
@@ -55,32 +56,19 @@ const { undo, redo } = useDebouncedRefHistory(
     clone: (meshes): MeshState[] => {
       return meshes.map((mesh) => ({
         id: mesh.uniqueId,
+        enabled: mesh.isEnabled(),
         position: mesh.position.asArray(),
         rotationQuaternion: mesh.rotationQuaternion?.asArray()
       }));
     },
 
     parse: (serializedData: MeshState[]) => {
-      const historyIds = new Set(serializedData.map(prop('id')));
-
-      // 檢查目前列表中的每一個 Mesh
-      // 注意：這裡我們直接遍歷 addedMeshList.value (當前的狀態)
-      addedMeshList.value.forEach((currentMesh) => {
-        // 如果目前的 Mesh 不在歷史紀錄的 ID 列表中
-        if (!historyIds.has(currentMesh.uniqueId)) {
-          // 代表這個 Mesh 在那個歷史時刻還不存在 (或是已經被刪除)
-          // 所以我們要從場景中移除它
-          if (!currentMesh.isDisposed()) {
-            currentMesh.dispose();
-          }
-        }
-      });
-
       return serializedData
         .map((data) => {
           const mesh = scene.value?.getMeshByUniqueId(data.id);
 
-          if (mesh && !mesh.isDisposed()) {
+          if (mesh) {
+            mesh.setEnabled(data.enabled);
             mesh.position = Vector3.FromArray(data.position);
             if (data.rotationQuaternion) {
               mesh.rotationQuaternion = Quaternion.FromArray(data.rotationQuaternion)
@@ -91,7 +79,7 @@ const { undo, redo } = useDebouncedRefHistory(
 
           return null;
         })
-        .filter((mesh) => mesh !== null);
+        .filter(isTruthy);
     },
   }
 )
@@ -337,13 +325,12 @@ const {
 
 whenever(() => deleteKey, () => {
   if (selectedMeshes.value.length > 0) {
-    // 刪除前必須先 ungroup，避免 dispose 時影響到 TransformNode 結構
     ungroup()
 
     selectedMeshes.value.forEach((mesh) => {
-      mesh.dispose()
-      addedMeshList.value = addedMeshList.value.filter((m) => m !== mesh)
+      mesh.setEnabled(false)
     })
+    triggerRef(addedMeshList)
 
     clearSelection()
   }
