@@ -7,7 +7,7 @@
         color="neutral"
         icon="material-symbols:folder"
         class="w-full"
-        :ui="{ label: 'text-center w-full' }"
+        :ui="{ label: 'text-center w-full text-wrap' }"
         :loading="isScanning"
         @click="handleSelectDirectory"
       />
