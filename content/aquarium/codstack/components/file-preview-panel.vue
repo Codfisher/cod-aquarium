@@ -49,7 +49,8 @@
         placeholder="Select tag to filter models"
         trailing-icon="mdi:menu-open"
         :ui="{
-          trailing: 'pointer-events-none',
+          trailing: 'pointer-events-none ',
+          base: !selectedTagList.length ? 'text-gray-300' : ' text-ellipsis',
         }"
       />
 
