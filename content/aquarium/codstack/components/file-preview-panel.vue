@@ -65,6 +65,13 @@
               :variant="selectedTagList.includes(tag) ? 'solid' : 'outline'"
               @click="handleSelectedTag(tag)"
             />
+
+            <div
+              v-if="!tagList.length"
+              class=" text-xs text-neutral-500"
+            >
+              No tag found
+            </div>
           </div>
           <u-separator />
 
