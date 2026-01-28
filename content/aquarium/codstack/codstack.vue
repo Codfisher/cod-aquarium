@@ -23,6 +23,8 @@
           v{{ version }}
         </span>
       </div>
+
+      <help-btn class="fixed right-0 bottom-8" />
     </u-app>
   </client-only>
 </template>
@@ -32,6 +34,7 @@ import type { ModelFile } from './type'
 import { useMagicKeys, whenever } from '@vueuse/core'
 import { onBeforeUnmount, onMounted, shallowRef, watch } from 'vue'
 import FilePreviewPanel from './components/file-preview-panel.vue'
+import HelpBtn from './components/help-btn.vue'
 import SceneViewer from './components/scene-viewer/scene-viewer.vue'
 import { useMainStore } from './stores/main-store'
 
