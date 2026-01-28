@@ -55,8 +55,8 @@
       />
 
       <template #content>
-        <div class="flex flex-col">
-          <div class="flex flex-wrap gap-2 p-4 min-w-80 max-w-[40vw]">
+        <div class="flex flex-col min-w-60 max-w-[30vw]">
+          <div class="flex flex-wrap gap-2 p-4 ">
             <u-badge
               v-for="tag in tagList"
               :key="tag"
