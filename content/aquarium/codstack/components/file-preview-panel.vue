@@ -23,7 +23,7 @@
     </div>
 
     <div
-      v-if="modelFileList.length && mainStore.rootFsHandle"
+      v-if="mainStore.rootFsHandle"
       class="flex flex-wrap items-start content-start gap-1 overflow-y-auto flex-1"
     >
       <model-preview-item
@@ -37,22 +37,64 @@
       />
     </div>
 
-    <u-select-menu
-      v-if="tagList.length"
-      v-model="selectedTagList"
-      multiple
-      :items="tagList"
-      clear
-      placeholder="Select tag to filter models"
+    <u-popover
+      v-if="mainStore.rootFsHandle"
       :content="{
         side: 'right',
       }"
-    />
+    >
+      <u-input
+        :model-value="selectedTagList.length ? selectedTagList.join(', ') : 'Select tag to filter models'"
+        readonly
+        placeholder="Select tag to filter models"
+        trailing-icon="mdi:menu-open"
+        :ui="{
+          trailing: 'pointer-events-none',
+        }"
+      />
+
+      <template #content>
+        <div class="flex flex-col">
+          <div class="flex flex-wrap gap-2 p-4 min-w-80 max-w-[40vw]">
+            <u-badge
+              v-for="tag in tagList"
+              :key="tag"
+              :label="tag"
+              color="neutral"
+              class=" duration-200 cursor-pointer select-none"
+              :variant="selectedTagList.includes(tag) ? 'solid' : 'outline'"
+              @click="handleSelectedTag(tag)"
+            />
+          </div>
+          <u-separator />
+
+          <div class=" grid grid-cols-2 p-2 gap-2">
+            <u-button
+              label="Clear"
+              variant="subtle"
+              color="neutral"
+              size="xl"
+              icon="i-material-symbols:filter-alt-off"
+              class="col-span-2"
+              :ui="{ label: 'text-center w-full' }"
+              @click="selectedTagList = []"
+            />
+
+            <u-checkbox
+              v-model="filterOptions.includeTagFromFileName"
+              label="Include tag from file name"
+              variant="card"
+            />
+          </div>
+        </div>
+      </template>
+    </u-popover>
   </div>
 </template>
 
 <script setup lang="ts">
 import type { ModelFile } from '../type'
+import { pipe } from 'remeda'
 import { computed, ref } from 'vue'
 import { useMainStore } from '../stores/main-store'
 import ModelPreviewItem from './model-preview-item.vue'
@@ -70,6 +112,18 @@ const statusMessage = ref('Select directory to preview 3D models')
 
 const modelFileList = ref<ModelFile[]>([])
 const selectedTagList = ref<string[]>([])
+function handleSelectedTag(tag: string) {
+  const index = selectedTagList.value.indexOf(tag)
+  if (index === -1)
+    selectedTagList.value.push(tag)
+  else
+    selectedTagList.value.splice(index, 1)
+}
+
+const filterOptions = ref({
+  /** 是否包含來自檔名的 tag */
+  includeTagFromFileName: true,
+})
 /** 從 path 提取 tag
  *
  * 提取路徑中的資料夾名稱，但忽略所有檔案都共同擁有的上層目錄
@@ -85,18 +139,23 @@ const tagList = computed(() => {
   const tagCounts = new Map<string, number>()
 
   files.forEach((file) => {
-    const parts = file.path
-      .split('/')
-      .flatMap((part) => part.split('_'))
-      .flatMap((part) => part.split('-'))
-      // 保留英文和數字
-      .map((part) => part.replace(/[^a-z0-9]/gi, ''))
-
-    // 移除檔名
-    parts.pop()
+    const parts = pipe(
+      file.path.split('/'),
+      (data) => {
+        if (!filterOptions.value.includeTagFromName) {
+          data.pop()
+        }
+        return data
+      },
+      (data) => data
+        .flatMap((part) => part.split('_'))
+        .flatMap((part) => part.split('-'))
+        .flatMap((part) => part.split('.'))
+        // 保留英文和數字
+        .map((part) => part.replace(/[^a-z0-9]/gi, '')),
+    )
 
     const uniqueDirs = new Set(parts)
-
     uniqueDirs.forEach((dir) => {
       if (!dir)
         return
@@ -106,9 +165,7 @@ const tagList = computed(() => {
     })
   })
 
-  // 4. 過濾 & 輸出
   const result: string[] = []
-
   for (const [tag, count] of tagCounts.entries()) {
     // 只有當 Tag 的出現次數小於總檔案數時，才保留
     if (count < totalFiles) {

@@ -244,39 +244,32 @@ const { canvasRef, scene } = useBabylonScene({
         // 預覽、放置
         if (previewMesh.value) {
           const clonedMesh = previewMesh.value.clone(nanoid(), null, false)
-          if (clonedMesh) {
-            clonedMesh.position = mouseTargetPosition.clone()
-
+          if (clonedMesh instanceof Mesh) {
             // 確保 Mesh 有父物件的話，先解除父子關係，把變形保留在 World Space
             // (這樣可以避免解除 Parent 時物件亂飛)
             clonedMesh.setParent(null)
 
-            if (clonedMesh instanceof Mesh) {
-              /** 用於 bake 後復原，否則不管放哪，Gizmos 都會顯示在原點，不會顯示在物體中央 */
-              const backupPosition = clonedMesh.position.clone()
+            /** 暫時將物件移回世界原點
+             *
+             * 這樣做是因為 bakeCurrentTransformIntoVertices 會把「當前位置」吃進頂點，如果我們在這裡不歸零，頂點會被移走，而 Pivot 會留在 (0,0,0)
+             *
+             * 看起來就是放下去的瞬間，模型會突然跳到更遠離原點的地方
+             */
+            clonedMesh.position.setAll(0)
 
-              /** 暫時將物件移回世界原點
-               *
-               * 這樣做是因為 bakeCurrentTransformIntoVertices 會把「當前位置」吃進頂點，如果我們在這裡不歸零，頂點會被移走，而 Pivot 會留在 (0,0,0)
-               *
-               * 看起來就是放下去的瞬間，模型會突然跳到更遠離原點的地方
-               */
-              clonedMesh.position.setAll(0)
+            /**
+             * 將目前的旋轉與縮放「烘焙」進頂點數據 (Vertices)
+             * 因為 gltf 會先 Y 軸翻轉，以匹配 babylonjs 座標系，沒有這麼做會導致 undo 到最後一步時，模型會翻轉
+             *
+             * 這樣做之後：
+             * mesh.rotation 會變成 (0,0,0)
+             * mesh.rotationQuaternion 會變成 (0,0,0,1) [Identity]
+             * mesh.scaling 會變成 (1,1,1)
+             */
+            clonedMesh.bakeCurrentTransformIntoVertices()
 
-              /**
-               * 將目前的旋轉與縮放「烘焙」進頂點數據 (Vertices)
-               * 因為 gltf 會先 Y 軸翻轉，以匹配 babylonjs 座標系，沒有這麼做會導致 undo 到最後一步時，模型會翻轉
-               *
-               * 這樣做之後：
-               * mesh.rotation 會變成 (0,0,0)
-               * mesh.rotationQuaternion 會變成 (0,0,0,1) [Identity]
-               * mesh.scaling 會變成 (1,1,1)
-               */
-              clonedMesh.bakeCurrentTransformIntoVertices()
-
-              clonedMesh.position.copyFrom(backupPosition)
-              clonedMesh.refreshBoundingInfo()
-            }
+            clonedMesh.position.copyFrom(mouseTargetPosition)
+            clonedMesh.refreshBoundingInfo()
 
             clonedMesh.isPickable = true
             clonedMesh.getChildMeshes().forEach((mesh) => mesh.isPickable = true)
