@@ -53,7 +53,7 @@
 
 <script setup lang="ts">
 import type { ModelFile } from '../type'
-import { computed, ref, shallowRef } from 'vue'
+import { computed, ref } from 'vue'
 import { useMainStore } from '../stores/main-store'
 import ModelPreviewItem from './model-preview-item.vue'
 
@@ -86,6 +86,7 @@ const tagList = computed(() => {
     const parts = file.path
       .split('/')
       .flatMap((part) => part.split('_'))
+      .flatMap((part) => part.split('-'))
       // 保留英文和數字
       .map((part) => part.replace(/[^a-zA-Z0-9]/g, ''))
 

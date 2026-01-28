@@ -47,9 +47,9 @@ const selectedModelFile = shallowRef<ModelFile>()
 watch(() => mainStore.rootFsHandle, () => {
   selectedModelFile.value = undefined
 })
-whenever(() => escapeKey, () => {
+whenever(() => escapeKey?.value, () => {
   selectedModelFile.value = undefined
-}, { deep: true })
+})
 
 // 載入字體
 const fontHref = 'https://fonts.googleapis.com/css2?family=Material+Symbols+Sharp:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&family=Orbitron:wght@400..900'

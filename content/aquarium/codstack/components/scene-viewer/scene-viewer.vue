@@ -10,12 +10,12 @@
 <script setup lang="ts">
 import type { AbstractMesh, Node, Scene } from '@babylonjs/core'
 import type { ModelFile } from '../../type'
-import { ArcRotateCamera, Camera, Color3, GizmoManager, ImportMeshAsync, MeshBuilder, PointerEventTypes, Vector3, Viewport } from '@babylonjs/core'
+import { ArcRotateCamera, Camera, Color3, GizmoManager, ImportMeshAsync, Mesh, MeshBuilder, PointerEventTypes, Quaternion, Vector3, Viewport } from '@babylonjs/core'
 import { GridMaterial } from '@babylonjs/materials'
-import { useMagicKeys, whenever } from '@vueuse/core'
+import { useDebouncedRefHistory, useMagicKeys, whenever } from '@vueuse/core'
 import { nanoid } from 'nanoid'
-import { pipe, tap } from 'remeda'
-import { computed, onMounted, shallowRef, watch } from 'vue'
+import { isTruthy, map, pipe, piped, prop, tap } from 'remeda'
+import { computed, onMounted, Ref, shallowRef, triggerRef, watch } from 'vue'
 import { useBabylonScene } from '../../composables/use-babylon-scene'
 import { useMultiMeshSelect } from '../../composables/use-multi-mesh-select'
 import { useMainStore } from '../../stores/main-store'
@@ -27,12 +27,76 @@ const props = defineProps<{
 }>()
 
 const mainStore = useMainStore()
-const { shift: shiftKey, alt: altKey, delete: deleteKey } = useMagicKeys()
+const {
+  shift: shiftKey,
+  alt: altKey,
+  delete: deleteKey,
+  ctrl_z: ctrlZKey,
+  ctrl_y: ctrlYKey,
+} = useMagicKeys()
 
 /** 當前預覽的模型 */
 const previewMesh = shallowRef<AbstractMesh>()
 /** 已新增的模型 */
 const addedMeshList = shallowRef<AbstractMesh[]>([])
+
+interface MeshState {
+  id: number
+  position: [number, number, number]
+  rotationQuaternion?: [number, number, number, number]
+}
+const { undo, redo } = useDebouncedRefHistory(
+  addedMeshList,
+  {
+    capacity: 10,
+    debounce: 500,
+    // 只存關鍵資料，不存 Mesh 物件
+    // @ts-expect-error 強制轉換資料
+    clone: (meshes): MeshState[] => {
+      return meshes.map((mesh) => ({
+        id: mesh.uniqueId,
+        position: mesh.position.asArray(),
+        rotationQuaternion: mesh.rotationQuaternion?.asArray()
+      }));
+    },
+
+    parse: (serializedData: MeshState[]) => {
+      const historyIds = new Set(serializedData.map(prop('id')));
+
+      // 檢查目前列表中的每一個 Mesh
+      // 注意：這裡我們直接遍歷 addedMeshList.value (當前的狀態)
+      addedMeshList.value.forEach((currentMesh) => {
+        // 如果目前的 Mesh 不在歷史紀錄的 ID 列表中
+        if (!historyIds.has(currentMesh.uniqueId)) {
+          // 代表這個 Mesh 在那個歷史時刻還不存在 (或是已經被刪除)
+          // 所以我們要從場景中移除它
+          if (!currentMesh.isDisposed()) {
+            currentMesh.dispose();
+          }
+        }
+      });
+
+      return serializedData
+        .map((data) => {
+          const mesh = scene.value?.getMeshByUniqueId(data.id);
+
+          if (mesh && !mesh.isDisposed()) {
+            mesh.position = Vector3.FromArray(data.position);
+            if (data.rotationQuaternion) {
+              mesh.rotationQuaternion = Quaternion.FromArray(data.rotationQuaternion)
+            }
+
+            return mesh;
+          }
+
+          return null;
+        })
+        .filter((mesh) => mesh !== null);
+    },
+  }
+)
+whenever(() => ctrlZKey?.value, () => undo())
+whenever(() => ctrlYKey?.value, () => redo())
 
 /** 旋轉縮放的工具 */
 const gizmoManager = shallowRef<GizmoManager>()
@@ -123,7 +187,7 @@ const { canvasRef, scene } = useBabylonScene({
       new GizmoManager(scene),
       tap((gizmoManager) => {
         gizmoManager.utilityLayer.setRenderCamera(camera)
-        
+
         gizmoManager.positionGizmoEnabled = true
         gizmoManager.rotationGizmoEnabled = true
         gizmoManager.boundingBoxGizmoEnabled = true
@@ -151,6 +215,13 @@ const { canvasRef, scene } = useBabylonScene({
           gizmos.boundingBoxGizmo.setEnabledRotationAxis('')
           gizmos.boundingBoxGizmo.gizmoLayer.setRenderCamera(camera)
         }
+
+        gizmoManager.gizmos.positionGizmo?.onDragEndObservable.add(() => {
+          triggerRef(addedMeshList)
+        })
+        gizmoManager.gizmos.rotationGizmo?.onDragEndObservable.add(() => {
+          triggerRef(addedMeshList)
+        })
 
       }),
     )
@@ -188,9 +259,31 @@ const { canvasRef, scene } = useBabylonScene({
           const clonedMesh = previewMesh.value.clone(nanoid(), null, false)
           if (clonedMesh) {
             clonedMesh.position = mouseTargetPosition.clone()
+
+            // 確保 Mesh 有父物件的話，先解除父子關係，把變形保留在 World Space
+            // (這樣可以避免解除 Parent 時物件亂飛)
+            clonedMesh.setParent(null);
+
+            if (clonedMesh instanceof Mesh) {
+              /**
+               * 將目前的旋轉與縮放「烘焙」進頂點數據 (Vertices)，因為 gltf 會先 Y 軸翻轉，以匹配 babylonjs 座標系
+               * 沒有這麼做會導致 undo 到最後一步時，模型會翻轉
+               * 
+               * 這樣做之後：
+               * mesh.rotation 會變成 (0,0,0)
+               * mesh.rotationQuaternion 會變成 (0,0,0,1) [Identity]
+               * mesh.scaling 會變成 (1,1,1)
+               */
+              clonedMesh.bakeCurrentTransformIntoVertices();
+
+              // 清除可能殘留的 Pivot
+              clonedMesh.refreshBoundingInfo();
+            }
+
             clonedMesh.isPickable = true
             clonedMesh.getChildMeshes().forEach((mesh) => mesh.isPickable = true)
             addedMeshList.value.push(clonedMesh)
+            triggerRef(addedMeshList)
           }
           return
         }
