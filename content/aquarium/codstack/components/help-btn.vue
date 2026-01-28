@@ -7,10 +7,10 @@
 
     <template #body>
       <div class="">
-        <h2 class="text-lg font-bold">
+        <h2 class="text-lg font-bold ">
           快捷鍵說明
         </h2>
-        <ul class="list-disc list-inside space-y-1">
+        <ul class="list-disc list-inside space-y-1 mt-1">
           <li><u-kbd>Esc</u-kbd>：關閉、取消選取</li>
           <li><u-kbd>Ctrl</u-kbd> + <u-kbd>Z</u-kbd>：上一步</li>
           <li><u-kbd>Ctrl</u-kbd> + <u-kbd>Y</u-kbd>：下一步</li>
