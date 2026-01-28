@@ -252,14 +252,12 @@ const { canvasRef, scene } = useBabylonScene({
             clonedMesh.setParent(null)
 
             if (clonedMesh instanceof Mesh) {
-              /** 用於 bake 後復原，否則不管放哪，Gizmos 都會顯示在原點，
-               * 不會顯示在物體中央
-               */
+              /** 用於 bake 後復原，否則不管放哪，Gizmos 都會顯示在原點，不會顯示在物體中央 */
               const backupPosition = clonedMesh.position.clone()
 
               /** 暫時將物件移回世界原點
-               * 這樣做是因為 bakeCurrentTransformIntoVertices 會把「當前位置」吃進頂點
-               * 如果我們在這裡不歸零，頂點會被移走，而 Pivot 會留在 (0,0,0)
+               *
+               * 這樣做是因為 bakeCurrentTransformIntoVertices 會把「當前位置」吃進頂點，如果我們在這裡不歸零，頂點會被移走，而 Pivot 會留在 (0,0,0)
                *
                * 看起來就是放下去的瞬間，模型會突然跳到更遠離原點的地方
                */
@@ -267,8 +265,7 @@ const { canvasRef, scene } = useBabylonScene({
 
               /**
                * 將目前的旋轉與縮放「烘焙」進頂點數據 (Vertices)
-               * 因為 gltf 會先 Y 軸翻轉，以匹配 babylonjs 座標系
-               * 沒有這麼做會導致 undo 到最後一步時，模型會翻轉
+               * 因為 gltf 會先 Y 軸翻轉，以匹配 babylonjs 座標系，沒有這麼做會導致 undo 到最後一步時，模型會翻轉
                *
                * 這樣做之後：
                * mesh.rotation 會變成 (0,0,0)
