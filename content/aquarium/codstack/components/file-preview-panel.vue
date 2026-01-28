@@ -24,7 +24,7 @@
 
     <div
       v-if="mainStore.rootFsHandle"
-      class="flex flex-wrap items-start content-start gap-1 overflow-y-auto flex-1"
+      class="flex flex-wrap justify-center items-start content-start gap-1 overflow-y-auto flex-1"
     >
       <model-preview-item
         v-for="file in filteredModelFileList"

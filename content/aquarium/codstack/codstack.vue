@@ -1,15 +1,12 @@
 <template>
   <client-only>
-    <u-app :toaster="{
-      position: 'top-right',
-    }">
+    <u-app
+      :toaster="{
+        position: 'top-right',
+      }"
+    >
       <u-dashboard-group storage="local">
-        <u-dashboard-sidebar
-          resizable
-          :min-size="15"
-          :default-size="30"
-          :max-size="40"
-        >
+        <u-dashboard-sidebar :default-size="30">
           <file-preview-panel v-model:selected-model-file="selectedModelFile" />
         </u-dashboard-sidebar>
 
