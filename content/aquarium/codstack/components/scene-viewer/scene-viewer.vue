@@ -12,7 +12,7 @@ import type { AbstractMesh, Node, Scene } from '@babylonjs/core'
 import type { ModelFile } from '../../type'
 import { ArcRotateCamera, Camera, Color3, Color4, GizmoManager, ImportMeshAsync, Mesh, MeshBuilder, PointerEventTypes, Quaternion, Vector3, Viewport } from '@babylonjs/core'
 import { GridMaterial } from '@babylonjs/materials'
-import { useDebouncedRefHistory, useMagicKeys, whenever } from '@vueuse/core'
+import { useDebouncedRefHistory, useMagicKeys, useThrottledRefHistory, whenever } from '@vueuse/core'
 import { nanoid } from 'nanoid'
 import { isTruthy, map, pipe, piped, prop, tap } from 'remeda'
 import { computed, onMounted, Ref, shallowRef, triggerRef, watch } from 'vue'
@@ -50,11 +50,11 @@ interface MeshState {
   scale: [number, number, number];
   rotationQuaternion?: [number, number, number, number];
 }
-const { undo, redo } = useDebouncedRefHistory(
+const { undo, redo } = useThrottledRefHistory(
   addedMeshList,
   {
     capacity: 10,
-    debounce: 500,
+    throttle: 500,
     // 只存關鍵資料，不存 Mesh 物件
     // @ts-expect-error 強制轉換資料
     clone: (meshes): MeshState[] => {
@@ -68,6 +68,12 @@ const { undo, redo } = useDebouncedRefHistory(
     },
 
     parse: (serializedData: MeshState[]) => {
+      // 檢查 mesh 是否還存在
+      addedMeshList.value.forEach((mesh) => {
+        const data = serializedData.find((data) => data.id === mesh.uniqueId)
+        mesh.setEnabled(!!data?.enabled)
+      })
+
       return serializedData
         .map((data) => {
           const mesh = scene.value?.getMeshByUniqueId(data.id)
@@ -259,12 +265,15 @@ const { canvasRef, scene } = useBabylonScene({
         }
 
         gizmos.positionGizmo?.onDragEndObservable.add(() => {
+          console.log('🚀 ~ positionGizmo.onDragEndObservable:')
           triggerRef(addedMeshList)
         })
         gizmos.rotationGizmo?.onDragEndObservable.add(() => {
+          console.log('🚀 ~ rotationGizmo.onDragEndObservable:')
           triggerRef(addedMeshList)
         })
         gizmos.scaleGizmo?.onDragEndObservable.add(() => {
+          console.log('🚀 ~ scaleGizmo.onDragEndObservable:')
           triggerRef(addedMeshList)
         })
       }),
