@@ -252,7 +252,9 @@ const { canvasRef, scene } = useBabylonScene({
             clonedMesh.setParent(null)
 
             if (clonedMesh instanceof Mesh) {
-              /** 用於 bake 後復原，否則不管放哪，Gizmos 都會顯示在原點 */
+              /** 用於 bake 後復原，否則不管放哪，Gizmos 都會顯示在原點，
+               * 不會顯示在物體中央
+               */
               const backupPosition = clonedMesh.position.clone()
 
               /** 暫時將物件移回世界原點
