@@ -10,7 +10,7 @@
 <script setup lang="ts">
 import type { AbstractMesh, Node, Scene } from '@babylonjs/core'
 import type { ModelFile } from '../../type'
-import { ArcRotateCamera, Camera, Color3, GizmoManager, ImportMeshAsync, Mesh, MeshBuilder, PointerEventTypes, Quaternion, Vector3, Viewport } from '@babylonjs/core'
+import { ArcRotateCamera, Camera, Color3, Color4, GizmoManager, ImportMeshAsync, Mesh, MeshBuilder, PointerEventTypes, Quaternion, Vector3, Viewport } from '@babylonjs/core'
 import { GridMaterial } from '@babylonjs/materials'
 import { useDebouncedRefHistory, useMagicKeys, whenever } from '@vueuse/core'
 import { nanoid } from 'nanoid'
@@ -136,6 +136,7 @@ const { canvasRef, scene } = useBabylonScene({
     const { scene, camera, engine } = params
     scene.activeCamera = camera
     scene.cameraToUseForPointers = camera
+    scene.clearColor = new Color4(1, 0, 0, 1)
 
     const sideCamera = pipe(
       new ArcRotateCamera(
@@ -298,14 +299,14 @@ const { canvasRef, scene } = useBabylonScene({
     scene.onBeforeRenderObservable.add(() => {
       const firstSelectedMesh = selectedMeshes.value[0]
       if (firstSelectedMesh) {
-        const position = firstSelectedMesh.getAbsolutePosition()
-        sideCamera.setTarget(position)
+        const targetPosition = firstSelectedMesh.getAbsolutePosition()
 
-        const offset = new Vector3(10, 0, 0)
-        sideCamera.position.copyFrom(position.add(offset))
-
+        sideCamera.target = Vector3.Lerp(sideCamera.target, targetPosition, 0.1)
         sideCamera.alpha = 0
         sideCamera.beta = Math.PI / 2
+
+        const offset = new Vector3(10, 0, 0)
+        sideCamera.position = Vector3.Lerp(sideCamera.position, targetPosition.add(offset), 0.1)
       }
 
       const mesh = previewMesh.value
