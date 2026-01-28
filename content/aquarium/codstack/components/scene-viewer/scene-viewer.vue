@@ -41,10 +41,10 @@ const previewMesh = shallowRef<AbstractMesh>()
 const addedMeshList = shallowRef<AbstractMesh[]>([])
 
 interface MeshState {
-  id: number
-  enabled: boolean
-  position: [number, number, number]
-  rotationQuaternion?: [number, number, number, number]
+  id: number;
+  enabled: boolean;
+  position: [number, number, number];
+  rotationQuaternion?: [number, number, number, number];
 }
 const { undo, redo } = useDebouncedRefHistory(
   addedMeshList,
@@ -58,30 +58,30 @@ const { undo, redo } = useDebouncedRefHistory(
         id: mesh.uniqueId,
         enabled: mesh.isEnabled(),
         position: mesh.position.asArray(),
-        rotationQuaternion: mesh.rotationQuaternion?.asArray()
-      }));
+        rotationQuaternion: mesh.rotationQuaternion?.asArray(),
+      }))
     },
 
     parse: (serializedData: MeshState[]) => {
       return serializedData
         .map((data) => {
-          const mesh = scene.value?.getMeshByUniqueId(data.id);
+          const mesh = scene.value?.getMeshByUniqueId(data.id)
 
           if (mesh) {
-            mesh.setEnabled(data.enabled);
-            mesh.position = Vector3.FromArray(data.position);
+            mesh.setEnabled(data.enabled)
+            mesh.position = Vector3.FromArray(data.position)
             if (data.rotationQuaternion) {
               mesh.rotationQuaternion = Quaternion.FromArray(data.rotationQuaternion)
             }
 
-            return mesh;
+            return mesh
           }
 
-          return null;
+          return null
         })
-        .filter(isTruthy);
+        .filter(isTruthy)
     },
-  }
+  },
 )
 whenever(() => ctrlZKey?.value, () => undo())
 whenever(() => ctrlYKey?.value, () => redo())
@@ -210,7 +210,6 @@ const { canvasRef, scene } = useBabylonScene({
         gizmoManager.gizmos.rotationGizmo?.onDragEndObservable.add(() => {
           triggerRef(addedMeshList)
         })
-
       }),
     )
 
@@ -250,22 +249,26 @@ const { canvasRef, scene } = useBabylonScene({
 
             // 確保 Mesh 有父物件的話，先解除父子關係，把變形保留在 World Space
             // (這樣可以避免解除 Parent 時物件亂飛)
-            clonedMesh.setParent(null);
+            clonedMesh.setParent(null)
 
             if (clonedMesh instanceof Mesh) {
+              /** 用於 bake 後復原，否則不管放哪，Gizmos 都會顯示在原點 */
+              const backupPosition = clonedMesh.position.clone()
+
               /**
                * 將目前的旋轉與縮放「烘焙」進頂點數據 (Vertices)，因為 gltf 會先 Y 軸翻轉，以匹配 babylonjs 座標系
                * 沒有這麼做會導致 undo 到最後一步時，模型會翻轉
-               * 
+               *
                * 這樣做之後：
                * mesh.rotation 會變成 (0,0,0)
                * mesh.rotationQuaternion 會變成 (0,0,0,1) [Identity]
                * mesh.scaling 會變成 (1,1,1)
                */
-              clonedMesh.bakeCurrentTransformIntoVertices();
-
+              clonedMesh.bakeCurrentTransformIntoVertices()
               // 清除可能殘留的 Pivot
-              clonedMesh.refreshBoundingInfo();
+              clonedMesh.refreshBoundingInfo()
+
+              clonedMesh.position.copyFrom(backupPosition)
             }
 
             clonedMesh.isPickable = true
@@ -274,10 +277,6 @@ const { canvasRef, scene } = useBabylonScene({
             triggerRef(addedMeshList)
           }
           return
-        }
-
-        if (pickedMesh) {
-
         }
 
         // 點擊到已放置的模型

@@ -19,6 +19,7 @@ export default antfu(
       'no-console': 'warn',
       'unused-imports/no-unused-imports': 'warn',
       'unused-imports/no-unused-vars': 'warn',
+      'ts/no-use-before-define': 'off',
       'style/arrow-parens': ['error', 'always'],
       'style/member-delimiter-style': [
         'error',

@@ -45,7 +45,7 @@
       clear
       placeholder="Select tag to filter models"
       :content="{
-        side: 'right'
+        side: 'right',
       }"
     />
   </div>
@@ -68,16 +68,18 @@ const selectedFormatList = ref(['.gltf', '.glb'])
 const isScanning = ref(false)
 const statusMessage = ref('Select directory to preview 3D models')
 
+const modelFileList = ref<ModelFile[]>([])
 const selectedTagList = ref<string[]>([])
 /** 從 path 提取 tag
- * 
+ *
  * 提取路徑中的資料夾名稱，但忽略所有檔案都共同擁有的上層目錄
  */
 const tagList = computed(() => {
   const files = modelFileList.value
   const totalFiles = files.length
 
-  if (totalFiles === 0) return []
+  if (totalFiles === 0)
+    return []
 
   // 記錄每個 Tag (資料夾名) 出現的檔案數
   const tagCounts = new Map<string, number>()
@@ -88,7 +90,7 @@ const tagList = computed(() => {
       .flatMap((part) => part.split('_'))
       .flatMap((part) => part.split('-'))
       // 保留英文和數字
-      .map((part) => part.replace(/[^a-zA-Z0-9]/g, ''))
+      .map((part) => part.replace(/[^a-z0-9]/gi, ''))
 
     // 移除檔名
     parts.pop()
@@ -96,7 +98,8 @@ const tagList = computed(() => {
     const uniqueDirs = new Set(parts)
 
     uniqueDirs.forEach((dir) => {
-      if (!dir) return
+      if (!dir)
+        return
 
       const currentCount = tagCounts.get(dir) || 0
       tagCounts.set(dir, currentCount + 1)
@@ -117,7 +120,6 @@ const tagList = computed(() => {
   return result.sort()
 })
 
-const modelFileList = ref<ModelFile[]>([])
 const filteredModelFileList = computed(() => {
   if (selectedTagList.value.length === 0) {
     return modelFileList.value
@@ -127,7 +129,6 @@ const filteredModelFileList = computed(() => {
     return selectedTagList.value.some((tag) => file.path.includes(tag))
   })
 })
-
 
 async function handleSelectDirectory() {
   if (!('showDirectoryPicker' in window)) {
@@ -204,7 +205,6 @@ async function scanDirectory(
       await scanDirectory(subDirHandle, currentPath)
     }
   }
-
 }
 
 function isModelFile(filename: string): boolean {
