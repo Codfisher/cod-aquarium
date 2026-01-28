@@ -33,6 +33,9 @@ const {
   delete: deleteKey,
   ctrl_z: ctrlZKey,
   ctrl_y: ctrlYKey,
+  g: gKey,
+  s: sKey,
+  r: rKey,
 } = useMagicKeys()
 
 /** 當前預覽的模型 */
@@ -44,6 +47,7 @@ interface MeshState {
   id: number;
   enabled: boolean;
   position: [number, number, number];
+  scale: [number, number, number];
   rotationQuaternion?: [number, number, number, number];
 }
 const { undo, redo } = useDebouncedRefHistory(
@@ -58,6 +62,7 @@ const { undo, redo } = useDebouncedRefHistory(
         id: mesh.uniqueId,
         enabled: mesh.isEnabled(),
         position: mesh.position.asArray(),
+        scale: mesh.scaling.asArray(),
         rotationQuaternion: mesh.rotationQuaternion?.asArray(),
       }))
     },
@@ -70,6 +75,7 @@ const { undo, redo } = useDebouncedRefHistory(
           if (mesh) {
             mesh.setEnabled(data.enabled)
             mesh.position = Vector3.FromArray(data.position)
+            mesh.scaling = Vector3.FromArray(data.scale)
             if (data.rotationQuaternion) {
               mesh.rotationQuaternion = Quaternion.FromArray(data.rotationQuaternion)
             }
@@ -90,17 +96,31 @@ whenever(() => ctrlYKey?.value, () => redo())
 const gizmoManager = shallowRef<GizmoManager>()
 watch(() => ({ shiftKey, altKey }), ({ shiftKey, altKey }) => {
   const gizmos = gizmoManager.value?.gizmos
-  if (gizmos?.positionGizmo) {
+  if (gizmos?.positionGizmo && gizmos?.scaleGizmo) {
     const snapValue = altKey?.value ? 0 : shiftKey?.value ? 0.1 : 0.5
+    gizmos.scaleGizmo.snapDistance = snapValue
     gizmos.positionGizmo.snapDistance = snapValue
   }
   if (gizmos?.rotationGizmo) {
     const snapValue = altKey?.value ? 0 : shiftKey?.value ? Math.PI / 180 : Math.PI / 180 * 5
     gizmos.rotationGizmo.snapDistance = snapValue
   }
-}, {
-  deep: true,
-})
+}, { deep: true })
+
+watch(() => [gKey?.value, sKey?.value, rKey?.value], ([g, s, r]) => {
+  const gizmoManagerValue = gizmoManager.value
+  if (!gizmoManagerValue || (!g && !s && !r)) {
+    return
+  }
+
+  gizmoManagerValue.positionGizmoEnabled = false
+  gizmoManagerValue.rotationGizmoEnabled = false
+  gizmoManagerValue.scaleGizmoEnabled = false
+
+  gizmoManagerValue.positionGizmoEnabled = !!g
+  gizmoManagerValue.rotationGizmoEnabled = !!r
+  gizmoManagerValue.scaleGizmoEnabled = !!s
+}, { deep: true })
 
 /** 網格吸附單位 */
 const snapUnit = computed(() => {
@@ -207,6 +227,7 @@ const { canvasRef, scene } = useBabylonScene({
 
         gizmoManager.positionGizmoEnabled = true
         gizmoManager.rotationGizmoEnabled = true
+        gizmoManager.scaleGizmoEnabled = true
         gizmoManager.boundingBoxGizmoEnabled = true
         // 關閉自由拖動
         gizmoManager.boundingBoxDragBehavior.disableMovement = true
@@ -214,7 +235,7 @@ const { canvasRef, scene } = useBabylonScene({
 
         gizmoManager.attachableMeshes = addedMeshList.value
 
-        const gizmos = gizmoManager?.gizmos
+        const { gizmos } = gizmoManager
         if (gizmos?.positionGizmo) {
           gizmos.positionGizmo.snapDistance = 0.5
           gizmos.positionGizmo.planarGizmoEnabled = false
@@ -224,8 +245,12 @@ const { canvasRef, scene } = useBabylonScene({
           gizmos.rotationGizmo.snapDistance = Math.PI / 180 * 5
           gizmos.rotationGizmo.gizmoLayer.setRenderCamera(camera)
         }
+        if (gizmos?.scaleGizmo) {
+          gizmos.scaleGizmo.snapDistance = 0.5
+          gizmos.scaleGizmo.gizmoLayer.setRenderCamera(camera)
+        }
+
         if (gizmos?.boundingBoxGizmo) {
-          gizmos.boundingBoxGizmo.scaleBoxSize = 0
           gizmos.boundingBoxGizmo.rotationSphereSize = 0
 
           gizmos.boundingBoxGizmo.setEnabledScaling(false)
@@ -233,10 +258,13 @@ const { canvasRef, scene } = useBabylonScene({
           gizmos.boundingBoxGizmo.gizmoLayer.setRenderCamera(camera)
         }
 
-        gizmoManager.gizmos.positionGizmo?.onDragEndObservable.add(() => {
+        gizmos.positionGizmo?.onDragEndObservable.add(() => {
           triggerRef(addedMeshList)
         })
-        gizmoManager.gizmos.rotationGizmo?.onDragEndObservable.add(() => {
+        gizmos.rotationGizmo?.onDragEndObservable.add(() => {
+          triggerRef(addedMeshList)
+        })
+        gizmos.scaleGizmo?.onDragEndObservable.add(() => {
           triggerRef(addedMeshList)
         })
       }),
@@ -320,6 +348,13 @@ const { canvasRef, scene } = useBabylonScene({
           if (!topLevelMesh)
             return
           handleSelect(topLevelMesh, !!shiftKey?.value)
+
+          // 關閉所有 Gizmo 小工具，需使用快捷鍵開啟
+          if (gizmoManager.value) {
+            gizmoManager.value.positionGizmoEnabled = false
+            gizmoManager.value.rotationGizmoEnabled = false
+            gizmoManager.value.scaleGizmoEnabled = false
+          }
         }
       }
     })
