@@ -7,14 +7,16 @@
 
     <template #body>
       <div class="">
-        <h2>快捷鍵說明</h2>
-        <ul>
-          <li>Esc: 關閉</li>
-          <li>Ctrl + Z: 撤銷</li>
-          <li>Ctrl + Y: 重做</li>
-          <li>選取後 + G: 移動</li>
-          <li>選取後 + S: 縮放</li>
-          <li>選取後 + R: 旋轉</li>
+        <h2 class="text-lg font-bold">
+          快捷鍵說明
+        </h2>
+        <ul class="list-disc list-inside space-y-1">
+          <li><u-kbd>Esc</u-kbd>：關閉、取消選取</li>
+          <li><u-kbd>Ctrl</u-kbd> + <u-kbd>Z</u-kbd>：上一步</li>
+          <li><u-kbd>Ctrl</u-kbd> + <u-kbd>Y</u-kbd>：下一步</li>
+          <li>選取後 + <u-kbd>G</u-kbd>：移動</li>
+          <li>選取後 + <u-kbd>S</u-kbd>：縮放</li>
+          <li>選取後 + <u-kbd>R</u-kbd>：旋轉</li>
         </ul>
       </div>
     </template>
