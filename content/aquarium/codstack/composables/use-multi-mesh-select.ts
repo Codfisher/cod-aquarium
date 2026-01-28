@@ -1,11 +1,22 @@
+import type {
+  AbstractMesh,
+  GizmoManager,
+  Scene,
+} from '@babylonjs/core'
 import type { Ref } from 'vue'
-import { type AbstractMesh, BoundingInfo, Color3, Engine, type GizmoManager, HighlightLayer, Mesh, Quaternion, Scene, TransformNode, Vector3 } from '@babylonjs/core'
-import { ref, shallowRef } from 'vue'
+import {
+  Color3,
+  HighlightLayer,
+  Mesh,
+  Quaternion,
+  Vector3,
+} from '@babylonjs/core'
 import { useMagicKeys, whenever } from '@vueuse/core'
+import { shallowRef } from 'vue'
 
 interface UseMultiMeshSelectOptions {
-  gizmoManager: Ref<GizmoManager | undefined>
-  scene: Ref<Scene | undefined>
+  gizmoManager: Ref<GizmoManager | undefined>;
+  scene: Ref<Scene | undefined>;
 }
 export function useMultiMeshSelect({
   gizmoManager,
@@ -22,7 +33,8 @@ export function useMultiMeshSelect({
   /** 初始化中介容器 */
   whenever(scene, () => {
     const sceneValue = scene.value
-    if (!sceneValue) return
+    if (!sceneValue)
+      return
 
     selectionGroup = new Mesh('selectionGroup', sceneValue)
     selectionGroup.isPickable = false
@@ -44,14 +56,15 @@ export function useMultiMeshSelect({
 
   /** 更新選取視覺效果 */
   function updateSelectionVisuals() {
-    if (!highlightLayer) return
+    if (!highlightLayer)
+      return
 
     highlightLayer.removeAllMeshes()
 
-    selectedMeshes.value.forEach(mesh => {
+    selectedMeshes.value.forEach((mesh) => {
       if (mesh instanceof Mesh) {
         highlightLayer?.addMesh(mesh, highlightColor)
-        mesh.getChildMeshes().forEach(child => {
+        mesh.getChildMeshes().forEach((child) => {
           if (child instanceof Mesh)
             highlightLayer?.addMesh(child, highlightColor)
         })
@@ -61,7 +74,7 @@ export function useMultiMeshSelect({
 
   /** 取消群組：讓物體回到世界座標，並清空 Gizmo */
   function ungroup() {
-    selectedMeshes.value.forEach(m => m.setParent(null))
+    selectedMeshes.value.forEach((m) => m.setParent(null))
     gizmoManager.value?.attachToMesh(null)
 
     highlightLayer?.removeAllMeshes()
@@ -69,17 +82,19 @@ export function useMultiMeshSelect({
 
   /** 群組化：計算中心點並將選中物體掛載至容器 */
   function group() {
-    if (!selectionGroup || selectedMeshes.value.length === 0) return
+    if (!selectionGroup || selectedMeshes.value.length === 0)
+      return
 
     if (selectedMeshes.value.length === 1) {
       const target = selectedMeshes.value[0]!
       gizmoManager.value?.attachToMesh(target)
-    } else {
+    }
+    else {
       // 1. 計算所有選中物體的世界座標邊界
       let min = new Vector3(Number.MAX_VALUE, Number.MAX_VALUE, Number.MAX_VALUE)
       let max = new Vector3(-Number.MAX_VALUE, -Number.MAX_VALUE, -Number.MAX_VALUE)
 
-      selectedMeshes.value.forEach(m => {
+      selectedMeshes.value.forEach((m) => {
         // 取得包含子網格的所有頂點邊界
         const { min: mMin, max: mMax } = m.getHierarchyBoundingVectors(true)
         min = Vector3.Minimize(min, mMin)
@@ -91,7 +106,7 @@ export function useMultiMeshSelect({
       selectionGroup.position.copyFrom(center)
       selectionGroup.rotationQuaternion = Quaternion.Identity()
 
-      selectedMeshes.value.forEach(m => m.setParent(selectionGroup))
+      selectedMeshes.value.forEach((m) => m.setParent(selectionGroup))
 
       // 綁定 Gizmo
       gizmoManager.value?.attachToMesh(selectionGroup)

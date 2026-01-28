@@ -1,9 +1,11 @@
 <template>
   <div class=" ">
-    <canvas
-      ref="canvasRef"
-      class="w-full h-full outline-none"
-    />
+    <u-context-menu :items="[]">
+      <canvas
+        ref="canvasRef"
+        class="w-full h-full outline-none"
+      />
+    </u-context-menu>
   </div>
 </template>
 
@@ -12,10 +14,10 @@ import type { AbstractMesh, Node, Scene } from '@babylonjs/core'
 import type { ModelFile } from '../../type'
 import { ArcRotateCamera, Camera, Color3, Color4, GizmoManager, ImportMeshAsync, Mesh, MeshBuilder, PointerEventTypes, Quaternion, Vector3, Viewport } from '@babylonjs/core'
 import { GridMaterial } from '@babylonjs/materials'
-import { useDebouncedRefHistory, useMagicKeys, useThrottledRefHistory, whenever } from '@vueuse/core'
+import { useMagicKeys, useThrottledRefHistory, whenever } from '@vueuse/core'
 import { nanoid } from 'nanoid'
-import { isTruthy, map, pipe, piped, prop, tap } from 'remeda'
-import { computed, onMounted, Ref, shallowRef, triggerRef, watch } from 'vue'
+import { isTruthy, pipe, tap } from 'remeda'
+import { computed, onMounted, shallowRef, triggerRef, watch } from 'vue'
 import { useBabylonScene } from '../../composables/use-babylon-scene'
 import { useMultiMeshSelect } from '../../composables/use-multi-mesh-select'
 import { useMainStore } from '../../stores/main-store'
