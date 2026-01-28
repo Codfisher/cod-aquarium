@@ -16,7 +16,7 @@ import { defaults } from 'lodash-es'
 import { onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
 import '@babylonjs/loaders/glTF'
 
-type BabylonEngine = Engine | WebGPUEngine
+export type BabylonEngine = Engine | WebGPUEngine
 
 export interface InitParams {
   canvas: HTMLCanvasElement;

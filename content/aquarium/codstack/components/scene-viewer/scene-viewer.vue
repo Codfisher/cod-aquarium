@@ -10,9 +10,9 @@
 </template>
 
 <script setup lang="ts">
-import type { AbstractMesh, Node, Scene } from '@babylonjs/core'
+import type { AbstractMesh, GizmoManager, Node, Scene } from '@babylonjs/core'
 import type { ModelFile } from '../../type'
-import { ArcRotateCamera, Camera, Color3, Color4, GizmoManager, ImportMeshAsync, Mesh, MeshBuilder, PointerEventTypes, Quaternion, Vector3, Viewport } from '@babylonjs/core'
+import { ArcRotateCamera, Camera, Color3, Color4, ImportMeshAsync, Mesh, MeshBuilder, PointerEventTypes, Quaternion, Vector3, Viewport } from '@babylonjs/core'
 import { GridMaterial } from '@babylonjs/materials'
 import { useMagicKeys, useThrottledRefHistory, whenever } from '@vueuse/core'
 import { nanoid } from 'nanoid'
@@ -22,6 +22,7 @@ import { useBabylonScene } from '../../composables/use-babylon-scene'
 import { useMultiMeshSelect } from '../../composables/use-multi-mesh-select'
 import { useMainStore } from '../../stores/main-store'
 import { getFileFromPath } from '../../utils/fs'
+import { createGizmoManager, createGround, createSideCamera } from './creator'
 import '@babylonjs/loaders'
 
 const props = defineProps<{
@@ -166,116 +167,21 @@ const { canvasRef, scene } = useBabylonScene({
     scene.cameraToUseForPointers = camera
     scene.clearColor = new Color4(1, 1, 1, 1)
 
-    const sideCamera = pipe(
-      new ArcRotateCamera(
-        'sideCamera',
-        0,
-        Math.PI / 2,
-        10,
-        new Vector3(0, 0, 0),
-        scene,
-      ),
-      tap((camera2) => {
-        camera2.viewport = new Viewport(0.80, 0.80, 0.20, 0.20)
-        camera2.mode = Camera.ORTHOGRAPHIC_CAMERA
-
-        camera2.detachControl()
-        camera2.inputs.clear()
-
-        // 同時渲染兩個相機
-        scene.activeCameras = [camera, camera2]
-
-        const orthoSize = 2.5
-        const updateOrtho = () => {
-          const engine = scene.getEngine()
-          const aspect = engine.getRenderWidth() / engine.getRenderHeight()
-
-          camera2.orthoLeft = -orthoSize * aspect
-          camera2.orthoRight = orthoSize * aspect
-          camera2.orthoTop = orthoSize
-          camera2.orthoBottom = -orthoSize
-        }
-        updateOrtho()
-        engine.onResizeObservable.add(updateOrtho)
-
-        // 加上副相機的底色
-        const sideViewColor = new Color4(0.9, 0.9, 0.9, 1)
-        scene.onBeforeCameraRenderObservable.add((camera) => {
-          if (camera.id === 'sideCamera') {
-            const viewport = camera.viewport
-
-            // 1. 取得畫布實際像素尺寸
-            const width = engine.getRenderWidth()
-            const height = engine.getRenderHeight()
-
-            // 2. 計算副相機視窗在畫面上的實際像素位置 (Scissor Box)
-            // Viewport 的參數是 (x, y, width, height) 比例 (0~1)
-            const x = viewport.x * width
-            const y = viewport.y * height
-            const w = viewport.width * width
-            const h = viewport.height * height
-
-            // 3. 開啟剪裁功能，只允許在該區域繪製/清除
-            engine.enableScissor(x, y, w, h)
-
-            // 4. 執行清除 (只會影響被剪裁的區域)
-            engine.clear(sideViewColor, true, true, true)
-
-            // 5. 關閉剪裁，以免影響到後續或其他相機的正常渲染
-            engine.disableScissor()
-          }
-        })
-      }),
-    )
-
+    const sideCamera = createSideCamera({ scene, camera, engine })
     gizmoManager.value = pipe(
-      new GizmoManager(scene),
+      createGizmoManager({ scene, camera }),
       tap((gizmoManager) => {
-        gizmoManager.utilityLayer.setRenderCamera(camera)
-
-        gizmoManager.positionGizmoEnabled = true
-        gizmoManager.rotationGizmoEnabled = true
-        gizmoManager.scaleGizmoEnabled = true
-        gizmoManager.boundingBoxGizmoEnabled = true
-        // 關閉自由拖動
-        gizmoManager.boundingBoxDragBehavior.disableMovement = true
-        gizmoManager.usePointerToAttachGizmos = false
-
         gizmoManager.attachableMeshes = addedMeshList.value
 
         const { gizmos } = gizmoManager
-        if (gizmos?.positionGizmo) {
-          gizmos.positionGizmo.snapDistance = 0.5
-          gizmos.positionGizmo.planarGizmoEnabled = false
-          gizmos.positionGizmo.gizmoLayer.setRenderCamera(camera)
-        }
-        if (gizmos?.rotationGizmo) {
-          gizmos.rotationGizmo.snapDistance = Math.PI / 180 * 5
-          gizmos.rotationGizmo.gizmoLayer.setRenderCamera(camera)
-        }
-        if (gizmos?.scaleGizmo) {
-          gizmos.scaleGizmo.snapDistance = 0.5
-          gizmos.scaleGizmo.gizmoLayer.setRenderCamera(camera)
-        }
-
-        if (gizmos?.boundingBoxGizmo) {
-          gizmos.boundingBoxGizmo.rotationSphereSize = 0
-
-          gizmos.boundingBoxGizmo.setEnabledScaling(false)
-          gizmos.boundingBoxGizmo.setEnabledRotationAxis('')
-          gizmos.boundingBoxGizmo.gizmoLayer.setRenderCamera(camera)
-        }
 
         gizmos.positionGizmo?.onDragEndObservable.add(() => {
-          console.log('🚀 ~ positionGizmo.onDragEndObservable:')
           triggerRef(addedMeshList)
         })
         gizmos.rotationGizmo?.onDragEndObservable.add(() => {
-          console.log('🚀 ~ rotationGizmo.onDragEndObservable:')
           triggerRef(addedMeshList)
         })
         gizmos.scaleGizmo?.onDragEndObservable.add(() => {
-          console.log('🚀 ~ scaleGizmo.onDragEndObservable:')
           triggerRef(addedMeshList)
         })
       }),
@@ -419,23 +325,6 @@ whenever(() => deleteKey, () => {
 }, {
   deep: true,
 })
-
-function createGround({ scene }: { scene: Scene }) {
-  const ground = MeshBuilder.CreateGround('ground', { width: 1000, height: 1000 }, scene)
-  ground.receiveShadows = true
-
-  const groundMaterial = new GridMaterial('groundMaterial', scene)
-  groundMaterial.gridRatio = 1
-
-  groundMaterial.majorUnitFrequency = 10
-  groundMaterial.minorUnitVisibility = 0.45
-  groundMaterial.mainColor = new Color3(0.98, 0.98, 0.98) // 底色
-  groundMaterial.lineColor = new Color3(0.75, 0.75, 0.75) // 線色
-
-  ground.material = groundMaterial
-
-  return ground
-}
 
 const blobUrlList: string[] = []
 onMounted(() => {
