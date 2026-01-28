@@ -83,7 +83,14 @@
             <u-checkbox
               v-model="filterOptions.includeTagFromFileName"
               label="Include tag from file name"
-              variant="card"
+              class=" border p-3 rounded border-default"
+            />
+
+            <u-checkbox
+              v-model="filterOptions.useAndLogic"
+              label="Use AND logic"
+              description="Otherwise use OR logic"
+              class=" border p-3 rounded border-default"
             />
           </div>
         </div>
@@ -123,6 +130,8 @@ function handleSelectedTag(tag: string) {
 const filterOptions = ref({
   /** 是否包含來自檔名的 tag */
   includeTagFromFileName: true,
+  /** 過濾邏輯 */
+  useAndLogic: false,
 })
 /** 從 path 提取 tag
  *
@@ -142,7 +151,7 @@ const tagList = computed(() => {
     const parts = pipe(
       file.path.split('/'),
       (data) => {
-        if (!filterOptions.value.includeTagFromName) {
+        if (!filterOptions.value.includeTagFromFileName) {
           data.pop()
         }
         return data
@@ -183,6 +192,9 @@ const filteredModelFileList = computed(() => {
   }
 
   return modelFileList.value.filter((file) => {
+    if (filterOptions.value.useAndLogic) {
+      return selectedTagList.value.every((tag) => file.path.includes(tag))
+    }
     return selectedTagList.value.some((tag) => file.path.includes(tag))
   })
 })
