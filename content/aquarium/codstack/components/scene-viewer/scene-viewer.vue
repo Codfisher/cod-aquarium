@@ -133,7 +133,7 @@ function findTopLevelMesh(mesh: AbstractMesh, list: AbstractMesh[]): AbstractMes
 
 const { canvasRef, scene } = useBabylonScene({
   async init(params) {
-    const { scene, camera } = params
+    const { scene, camera, engine } = params
     scene.activeCamera = camera
     scene.cameraToUseForPointers = camera
 
@@ -167,7 +167,7 @@ const { canvasRef, scene } = useBabylonScene({
           camera2.orthoBottom = -orthoSize
         }
         updateOrtho()
-        scene.getEngine().onResizeObservable.add(updateOrtho)
+        engine.onResizeObservable.add(updateOrtho)
       }),
     )
 
@@ -296,8 +296,16 @@ const { canvasRef, scene } = useBabylonScene({
     })
 
     scene.onBeforeRenderObservable.add(() => {
-      if (selectedMeshes.value[0]) {
-        sideCamera.setTarget(selectedMeshes.value[0].getAbsolutePosition())
+      const firstSelectedMesh = selectedMeshes.value[0]
+      if (firstSelectedMesh) {
+        const position = firstSelectedMesh.getAbsolutePosition()
+        sideCamera.setTarget(position)
+
+        const offset = new Vector3(10, 0, 0)
+        sideCamera.position.copyFrom(position.add(offset))
+
+        sideCamera.alpha = 0
+        sideCamera.beta = Math.PI / 2
       }
 
       const mesh = previewMesh.value
@@ -305,7 +313,7 @@ const { canvasRef, scene } = useBabylonScene({
         return
 
       const dt = scene.getEngine().getDeltaTime() / 1000
-      // 指數平滑：不同 FPS 也會保持一致手感
+      // 不同 FPS 也會保持一致手感
       const t = 1 - Math.exp(-16 * dt)
 
       mesh.position.x += (mouseTargetPosition.x - mesh.position.x) * t
@@ -410,13 +418,11 @@ async function loadPreviewModel(modelFile: ModelFile) {
   }
 }
 
-// 監聽 selectedModelFile 變化
 watch(() => props.selectedModelFile, (newVal) => {
   if (newVal) {
     loadPreviewModel(newVal)
   }
   else {
-    // 如果被設為 undefined，則清除預覽
     if (previewMesh.value) {
       previewMesh.value.dispose()
       previewMesh.value = undefined
