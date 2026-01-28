@@ -136,7 +136,7 @@ const { canvasRef, scene } = useBabylonScene({
     const { scene, camera, engine } = params
     scene.activeCamera = camera
     scene.cameraToUseForPointers = camera
-    scene.clearColor = new Color4(1, 0, 0, 1)
+    scene.clearColor = new Color4(1, 1, 1, 1)
 
     const sideCamera = pipe(
       new ArcRotateCamera(
@@ -148,7 +148,7 @@ const { canvasRef, scene } = useBabylonScene({
         scene,
       ),
       tap((camera2) => {
-        camera2.viewport = new Viewport(0.75, 0.75, 0.25, 0.25)
+        camera2.viewport = new Viewport(0.80, 0.80, 0.20, 0.20)
         camera2.mode = Camera.ORTHOGRAPHIC_CAMERA
 
         camera2.detachControl()
@@ -169,6 +169,34 @@ const { canvasRef, scene } = useBabylonScene({
         }
         updateOrtho()
         engine.onResizeObservable.add(updateOrtho)
+
+        // 加上副相機的底色
+        const sideViewColor = new Color4(0.9, 0.9, 0.9, 1)
+        scene.onBeforeCameraRenderObservable.add((camera) => {
+          if (camera.id === 'sideCamera') {
+            const viewport = camera.viewport
+
+            // 1. 取得畫布實際像素尺寸
+            const width = engine.getRenderWidth()
+            const height = engine.getRenderHeight()
+
+            // 2. 計算副相機視窗在畫面上的實際像素位置 (Scissor Box)
+            // Viewport 的參數是 (x, y, width, height) 比例 (0~1)
+            const x = viewport.x * width
+            const y = viewport.y * height
+            const w = viewport.width * width
+            const h = viewport.height * height
+
+            // 3. 開啟剪裁功能，只允許在該區域繪製/清除
+            engine.enableScissor(x, y, w, h)
+
+            // 4. 執行清除 (只會影響被剪裁的區域)
+            engine.clear(sideViewColor, true, true, true)
+
+            // 5. 關閉剪裁，以免影響到後續或其他相機的正常渲染
+            engine.disableScissor()
+          }
+        })
       }),
     )
 
