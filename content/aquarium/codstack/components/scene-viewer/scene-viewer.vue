@@ -371,29 +371,36 @@ function deleteSelectedMeshes() {
     clearSelection()
   }
 }
-function duplicateSelectedMesh(mesh: AbstractMesh) {
-  const clonedMesh = mesh.clone(nanoid(), null)!
-  const { height } = pipe(
-    mesh.getHierarchyBoundingVectors(),
-    ({ max, min }) => ({
-      width: max.x - min.x,
-      height: max.y - min.y,
-    }),
-  )
-  clonedMesh.position.y += (height) * 1.5
-  // clonedMesh.position.x += (width) * 1.5
+function duplicateSelectedMeshes(meshes: AbstractMesh[]) {
+  clearSelection()
 
-  addedMeshList.value.push(clonedMesh)
+  let maxHeight = 0
+  const clonedMeshes = meshes.map((mesh) => {
+    const clonedMesh = mesh.clone(nanoid(), null)!
+    addedMeshList.value.push(clonedMesh)
+    selectMesh(clonedMesh, true)
+
+    const { height } = pipe(
+      mesh.getHierarchyBoundingVectors(),
+      ({ max, min }) => ({
+        width: max.x - min.x,
+        height: max.y - min.y,
+      }),
+    )
+
+    maxHeight = Math.max(maxHeight, height)
+    return clonedMesh
+  })
+
+  clonedMeshes.forEach((clonedMesh) => {
+    clonedMesh.position.y += maxHeight * 1.5
+  })
+
   triggerRef(addedMeshList)
-
-  selectMesh(clonedMesh, false)
 }
 
 whenever(() => deleteKey?.value, () => deleteSelectedMeshes())
-whenever(() => dKey?.value, () => {
-  if (firstSelectedMesh.value)
-    duplicateSelectedMesh(firstSelectedMesh.value)
-})
+whenever(() => dKey?.value, () => duplicateSelectedMeshes(selectedMeshes.value))
 
 const contextMenuItems = computed(() => {
   return pipe(
@@ -407,12 +414,10 @@ const contextMenuItems = computed(() => {
         return [
           { label: `${selectedMeshes.value.length} meshes selected`, type: 'label' },
           {
-            icon: 'material-symbols:deselect-rounded',
-            label: 'Deselect',
-            kbds: ['escape'],
-            onSelect: () => {
-              clearSelection()
-            },
+            icon: 'material-symbols:content-copy-outline-rounded',
+            label: 'Duplicate',
+            kbds: ['d'],
+            onSelect: () => duplicateSelectedMeshes(selectedMeshes.value),
           },
           {
             icon: 'i-material-symbols:delete-outline-rounded',
@@ -479,16 +484,10 @@ const contextMenuItems = computed(() => {
             ] as const,
           },
           {
-            icon: 'material-symbols:deselect-rounded',
-            label: 'Deselect',
-            kbds: ['escape'],
-            onSelect: () => clearSelection(),
-          },
-          {
             icon: 'material-symbols:content-copy-outline-rounded',
             label: 'Duplicate',
             kbds: ['d'],
-            onSelect: () => duplicateSelectedMesh(mesh),
+            onSelect: () => duplicateSelectedMeshes(selectedMeshes.value),
           },
           {
             icon: 'i-material-symbols:delete-outline-rounded',
@@ -525,6 +524,12 @@ const contextMenuItems = computed(() => {
           onSelect: redo,
         },
         {
+          icon: 'material-symbols:deselect-rounded',
+          label: 'Deselect',
+          kbds: ['escape'],
+          onSelect: () => clearSelection(),
+        },
+        {
           icon: 'material-symbols:flip-camera-ios-outline-rounded',
           label: 'Reset View',
           onSelect: () => {
@@ -535,6 +540,13 @@ const contextMenuItems = computed(() => {
               alpha: Math.PI / 2,
               beta: Math.PI / 3,
               radius: 10,
+              duration: 800,
+              ease: 'inOutQuart',
+            })
+            animate(camera.value.target, {
+              x: 0,
+              y: 0,
+              z: 0,
               duration: 800,
               ease: 'inOutQuart',
             })

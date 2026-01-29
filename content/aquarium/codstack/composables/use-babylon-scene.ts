@@ -79,8 +79,8 @@ const defaultParam: Required<UseBabylonSceneParam> = {
     )
 
     camera.attachControl(canvas, true)
-    // 禁止平移
-    camera.panningSensibility = 0
+    // 禁止 Y 軸平移
+    camera.panningAxis = new Vector3(1, 0, 1)
 
     camera.wheelDeltaPercentage = 0.01
     camera.lowerRadiusLimit = 5
