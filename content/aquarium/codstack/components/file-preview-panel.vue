@@ -32,10 +32,35 @@
         /> -->
     </div>
 
+
     <div
       v-if="mainStore.rootFsHandle"
-      class="flex flex-wrap justify-center items-start content-start gap-1 overflow-y-auto flex-1"
+      ref="scrollAreaRef"
+      class="flex flex-col flex-1"
     >
+      <u-scroll-area
+        :key="mainStore.rootFsHandle.name"
+        v-slot="{ item }"
+        :items="filteredModelFileChunkList"
+        class="h-0 flex-[1_1_auto]"
+        :ui="{ item: 'flex justify-center gap-1' }"
+        virtualize
+      >
+        <model-preview-item
+          v-for="file, i in item"
+          :key="i"
+          :class="{ 'border-primary!': file.path === selectedModelFile?.path }"
+          :model-file="file"
+          :root-handle="mainStore.rootFsHandle"
+          class=" shrink-0 border-transparent border-3 duration-300"
+          :size="`${previewItemWidth}px`"
+          @click="handleSelectedModelFile(file)"
+        />
+      </u-scroll-area>
+    </div>
+
+
+    <!-- <div class="flex flex-wrap justify-center items-start content-start gap-1 overflow-y-auto flex-1">
       <model-preview-item
         v-for="file in filteredModelFileList"
         :key="file.path"
@@ -45,7 +70,7 @@
         :root-handle="mainStore.rootFsHandle"
         @click="handleSelectedModelFile(file)"
       />
-    </div>
+    </div> -->
 
     <u-popover
       v-if="mainStore.rootFsHandle"
@@ -68,7 +93,7 @@
         <div class="flex flex-col min-w-60 max-w-[30vw]">
           <div class="flex flex-wrap gap-2 p-4 ">
             <u-badge
-              v-for="tag in tagList"
+              v-for="tag in filteredTagList"
               :key="tag"
               :label="tag"
               color="neutral"
@@ -78,7 +103,7 @@
             />
 
             <div
-              v-if="!tagList.length"
+              v-if="!filteredTagList.length"
               class=" text-xs text-neutral-500"
             >
               No tag found
@@ -87,13 +112,31 @@
           <u-separator />
 
           <div class=" grid grid-cols-2 p-2 gap-2">
+            <u-input
+              v-model="filterOptions.tagKeyword"
+              label="Tag keyword"
+              placeholder="Enter tag keyword"
+            >
+              <template
+                v-if="filterOptions.tagKeyword"
+                #trailing
+              >
+                <u-button
+                  color="neutral"
+                  variant="link"
+                  size="sm"
+                  icon="i-lucide-circle-x"
+                  aria-label="Clear input"
+                  @click="filterOptions.tagKeyword = ''"
+                />
+              </template>
+            </u-input>
+
             <u-button
-              label="Clear"
+              label="Clear Selected"
               variant="subtle"
               color="neutral"
-              size="xl"
               icon="i-material-symbols:filter-alt-off"
-              class="col-span-2"
               :ui="{ label: 'text-center w-full' }"
               @click="selectedTagList = []"
             />
@@ -101,6 +144,7 @@
             <u-checkbox
               v-model="filterOptions.includeTagFromFileName"
               label="Include tag from file name"
+              size="xs"
               class=" border p-3 rounded border-default"
             />
 
@@ -108,6 +152,7 @@
               v-model="filterOptions.useAndLogic"
               label="Use AND logic"
               description="Otherwise use OR logic"
+              size="xs"
               class=" border p-3 rounded border-default"
             />
           </div>
@@ -119,10 +164,11 @@
 
 <script setup lang="ts">
 import type { ModelFile } from '../type'
-import { pipe } from 'remeda'
-import { computed, ref } from 'vue'
+import { chunk, pipe } from 'remeda'
+import { computed, reactive, ref, useTemplateRef } from 'vue'
 import { useMainStore } from '../stores/main-store'
 import ModelPreviewItem from './model-preview-item.vue'
+import { useElementSize } from '@vueuse/core'
 
 const toast = useToast()
 const mainStore = useMainStore()
@@ -146,11 +192,15 @@ function handleSelectedTag(tag: string) {
 }
 
 const filterOptions = ref({
+  tagKeyword: '',
   /** 是否包含來自檔名的 tag */
   includeTagFromFileName: true,
   /** 過濾邏輯 */
   useAndLogic: false,
 })
+
+const scrollAreaRef = useTemplateRef('scrollAreaRef')
+const scrollAreaSize = reactive(useElementSize(scrollAreaRef))
 /** 從 path 提取 tag
  *
  * 提取路徑中的資料夾名稱，但忽略所有檔案都共同擁有的上層目錄
@@ -203,6 +253,9 @@ const tagList = computed(() => {
   // 排序讓顯示更整齊
   return result.sort()
 })
+const filteredTagList = computed(() => {
+  return tagList.value.filter((tag) => tag.includes(filterOptions.value.tagKeyword))
+})
 
 const filteredModelFileList = computed(() => {
   if (selectedTagList.value.length === 0) {
@@ -215,6 +268,14 @@ const filteredModelFileList = computed(() => {
     }
     return selectedTagList.value.some((tag) => file.path.includes(tag))
   })
+})
+
+const previewItemWidth = 120
+const filteredModelFileChunkList = computed(() => {
+  const width = scrollAreaSize.width
+  const maxColumns = Math.floor(width / previewItemWidth) || 1
+
+  return chunk(filteredModelFileList.value, maxColumns)
 })
 
 async function handleSelectDirectory() {
