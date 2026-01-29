@@ -367,8 +367,8 @@ const contextMenuItems = computed(() => {
         return [
           { label: `${selectedMeshes.value.length} meshes selected`, type: 'label' },
           {
-            icon: 'material-symbols:cancel-outline-rounded',
-            label: 'Cancel selection',
+            icon: 'material-symbols:deselect-rounded',
+            label: 'Deselect',
             kbds: ['escape'],
             onClick: () => {
               clearSelection()
@@ -405,8 +405,8 @@ const contextMenuItems = computed(() => {
         return [
           { label: meta?.name || 'Unknown Mesh', type: 'label' },
           {
-            icon: 'material-symbols:cancel-outline-rounded',
-            label: 'Cancel selection',
+            icon: 'material-symbols:deselect-rounded',
+            label: 'Deselect',
             kbds: ['escape'],
             onClick: () => {
               clearSelection()
@@ -458,7 +458,7 @@ const contextMenuItems = computed(() => {
 
           return {
             icon: 'material-symbols:cancel-outline-rounded',
-            label: 'Cancel mesh preview',
+            label: 'Cancel Placement',
             kbds: ['escape'],
             onClick: () => {
               emit('cancelPreview')
@@ -479,7 +479,7 @@ const contextMenuItems = computed(() => {
         },
         {
           icon: 'material-symbols:flip-camera-ios-outline-rounded',
-          label: 'Reset Camera',
+          label: 'Reset View',
           onClick: () => {
             if (!(camera.value instanceof ArcRotateCamera))
               return
