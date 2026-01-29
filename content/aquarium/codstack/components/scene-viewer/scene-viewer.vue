@@ -71,6 +71,7 @@ const {
   g: gKey,
   s: sKey,
   r: rKey,
+  d: dKey,
   escape: escapeKey,
 } = useMagicKeys()
 
@@ -358,7 +359,7 @@ const {
 } = useMultiMeshSelect({ gizmoManager, scene })
 const firstSelectedMesh = computed(() => selectedMeshes.value[0])
 
-whenever(() => deleteKey, () => {
+function deleteSelectedMeshes() {
   if (selectedMeshes.value.length > 0) {
     ungroup()
 
@@ -369,8 +370,29 @@ whenever(() => deleteKey, () => {
 
     clearSelection()
   }
-}, {
-  deep: true,
+}
+function duplicateSelectedMesh(mesh: AbstractMesh) {
+  const clonedMesh = mesh.clone(nanoid(), null)!
+  const { height } = pipe(
+    mesh.getHierarchyBoundingVectors(),
+    ({ max, min }) => ({
+      width: max.x - min.x,
+      height: max.y - min.y,
+    }),
+  )
+  clonedMesh.position.y += (height) * 1.5
+  // clonedMesh.position.x += (width) * 1.5
+
+  addedMeshList.value.push(clonedMesh)
+  triggerRef(addedMeshList)
+
+  selectMesh(clonedMesh, false)
+}
+
+whenever(() => deleteKey?.value, () => deleteSelectedMeshes())
+whenever(() => dKey?.value, () => {
+  if (firstSelectedMesh.value)
+    duplicateSelectedMesh(firstSelectedMesh.value)
 })
 
 const contextMenuItems = computed(() => {
@@ -396,16 +418,7 @@ const contextMenuItems = computed(() => {
             icon: 'i-material-symbols:delete-outline-rounded',
             label: 'Delete',
             kbds: ['delete'],
-            onSelect: () => {
-              ungroup()
-
-              selectedMeshes.value.forEach((mesh) => {
-                mesh.setEnabled(false)
-              })
-              triggerRef(addedMeshList)
-
-              clearSelection()
-            },
+            onSelect: () => deleteSelectedMeshes(),
           },
         ] as ContextMenuItem[]
       }),
@@ -469,45 +482,19 @@ const contextMenuItems = computed(() => {
             icon: 'material-symbols:deselect-rounded',
             label: 'Deselect',
             kbds: ['escape'],
-            onSelect: () => {
-              clearSelection()
-            },
+            onSelect: () => clearSelection(),
           },
           {
             icon: 'material-symbols:content-copy-outline-rounded',
             label: 'Duplicate',
-            onSelect: () => {
-              const clonedMesh = mesh.clone(nanoid(), null)!
-              const { height } = pipe(
-                mesh.getHierarchyBoundingVectors(),
-                ({ max, min }) => ({
-                  width: max.x - min.x,
-                  height: max.y - min.y,
-                }),
-              )
-              clonedMesh.position.y += (height) * 1.5
-              // clonedMesh.position.x += (width) * 1.5
-
-              addedMeshList.value.push(clonedMesh)
-              triggerRef(addedMeshList)
-
-              selectMesh(clonedMesh, false)
-            },
+            kbds: ['d'],
+            onSelect: () => duplicateSelectedMesh(mesh),
           },
           {
             icon: 'i-material-symbols:delete-outline-rounded',
             label: 'Delete',
             kbds: ['delete'],
-            onSelect: () => {
-              ungroup()
-
-              selectedMeshes.value.forEach((mesh) => {
-                mesh.setEnabled(false)
-              })
-              triggerRef(addedMeshList)
-
-              clearSelection()
-            },
+            onSelect: () => deleteSelectedMeshes(),
           },
         ] as ContextMenuItem[]
       }),

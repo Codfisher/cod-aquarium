@@ -11,7 +11,7 @@ import {
   Vector3,
   WebGPUEngine,
 } from '@babylonjs/core'
-import { useEventListener } from '@vueuse/core'
+import { until, useEventListener } from '@vueuse/core'
 import { defaults } from 'lodash-es'
 import { onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
 import '@babylonjs/loaders/glTF'
@@ -110,6 +110,8 @@ export function useBabylonScene(param?: UseBabylonSceneParam) {
   } = defaults(param, defaultParam)
 
   onMounted(async () => {
+    await until(canvasRef).toBeTruthy()
+
     if (!canvasRef.value) {
       console.error('無法取得 canvas DOM')
       return
