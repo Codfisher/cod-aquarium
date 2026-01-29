@@ -46,8 +46,8 @@
         virtualize
       >
         <model-preview-item
-          v-for="file, i in item"
-          :key="i"
+          v-for="file in item"
+          :key="file.path"
           :class="{ 'border-primary!': file.path === selectedModelFile?.path }"
           :model-file="file"
           :root-handle="mainStore.rootFsHandle"

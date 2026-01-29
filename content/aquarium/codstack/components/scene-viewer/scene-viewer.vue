@@ -10,10 +10,9 @@
 </template>
 
 <script setup lang="ts">
-import type { AbstractMesh, GizmoManager, Node, Scene } from '@babylonjs/core'
+import type { AbstractMesh, GizmoManager, Node } from '@babylonjs/core'
 import type { ModelFile } from '../../type'
-import { ArcRotateCamera, Camera, Color3, Color4, ImportMeshAsync, Mesh, MeshBuilder, PointerEventTypes, Quaternion, Vector3, Viewport } from '@babylonjs/core'
-import { GridMaterial } from '@babylonjs/materials'
+import { Color4, ImportMeshAsync, Mesh, PointerEventTypes, Quaternion, Vector3 } from '@babylonjs/core'
 import { useMagicKeys, useThrottledRefHistory, whenever } from '@vueuse/core'
 import { nanoid } from 'nanoid'
 import { isTruthy, pipe, tap } from 'remeda'
