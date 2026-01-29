@@ -16,15 +16,13 @@
           <div
             @click.stop
             @keydown.stop
+            @pointermove.stop
           >
             <u-input
               v-model.number="firstSelectedMesh.position.x"
               type="number"
               placeholder="X axis"
-              size="xs"
               :step="0.1"
-              @click.stop
-              @keydown.stop
             />
           </div>
         </template>
@@ -431,7 +429,7 @@ const contextMenuItems = computed(() => {
               { slot: 'position-x', onSelect: (e: Event) => e.stopPropagation() },
               { slot: 'position-y', onSelect: (e: Event) => e.stopPropagation() },
               { slot: 'position-z', onSelect: (e: Event) => e.stopPropagation() },
-            ] as const,
+            ] satisfies ContextMenuItem[],
           },
           {
             icon: 'hugeicons:three-d-rotate',
