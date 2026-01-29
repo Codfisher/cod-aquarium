@@ -593,7 +593,8 @@ const contextMenuItems = computed(() => {
           }
         }),
         pipe(undefined, () => {
-          if (!addedMeshList.value.length)
+          const anyMeshEnabled = addedMeshList.value.some((mesh) => mesh.isEnabled())
+          if (!anyMeshEnabled)
             return
 
           return {
@@ -618,12 +619,14 @@ const contextMenuItems = computed(() => {
           icon: 'material-symbols:undo-rounded',
           label: 'Undo',
           kbds: ['ctrl', 'z'],
+          disabled: !canUndo.value,
           onSelect: undo,
         },
         {
           icon: 'material-symbols:redo-rounded',
           label: 'Redo',
           kbds: ['ctrl', 'y'],
+          disabled: !canRedo.value,
           onSelect: redo,
         },
         {
