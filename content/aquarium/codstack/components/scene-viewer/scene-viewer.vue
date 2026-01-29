@@ -10,6 +10,25 @@
         ref="canvasRef"
         class="w-full h-full outline-none"
       />
+
+      <template #position-x>
+        <template v-if="firstSelectedMesh">
+          <div
+            @click.stop
+            @keydown.stop
+          >
+            <u-input
+              v-model.number="firstSelectedMesh.position.x"
+              type="number"
+              placeholder="X axis"
+              size="xs"
+              :step="0.1"
+              @click.stop
+              @keydown.stop
+            />
+          </div>
+        </template>
+      </template>
     </u-context-menu>
 
     <div class="flex absolute left-0 bottom-0 p-4 gap-2">
@@ -27,7 +46,7 @@ import { useMagicKeys, useThrottledRefHistory, whenever } from '@vueuse/core'
 import { animate } from 'animejs'
 import { nanoid } from 'nanoid'
 import { filter, isTruthy, pipe, tap } from 'remeda'
-import { computed, onUnmounted, shallowRef, triggerRef, watch } from 'vue'
+import { computed, h, onUnmounted, shallowRef, triggerRef, watch } from 'vue'
 import { useBabylonScene } from '../../composables/use-babylon-scene'
 import { useMultiMeshSelect } from '../../composables/use-multi-mesh-select'
 import { useMainStore } from '../../stores/main-store'
@@ -339,6 +358,7 @@ const {
   clearSelection,
   ungroup,
 } = useMultiMeshSelect({ gizmoManager, scene })
+const firstSelectedMesh = computed(() => selectedMeshes.value[0])
 
 whenever(() => deleteKey, () => {
   if (selectedMeshes.value.length > 0) {
@@ -370,7 +390,7 @@ const contextMenuItems = computed(() => {
             icon: 'material-symbols:deselect-rounded',
             label: 'Deselect',
             kbds: ['escape'],
-            onClick: () => {
+            onSelect: () => {
               clearSelection()
             },
           },
@@ -378,7 +398,7 @@ const contextMenuItems = computed(() => {
             icon: 'i-material-symbols:delete-outline-rounded',
             label: 'Delete',
             kbds: ['delete'],
-            onClick: () => {
+            onSelect: () => {
               ungroup()
 
               selectedMeshes.value.forEach((mesh) => {
@@ -405,17 +425,60 @@ const contextMenuItems = computed(() => {
         return [
           { label: meta?.name || 'Unknown Mesh', type: 'label' },
           {
+            icon: 'hugeicons:three-d-move',
+            label: 'Position',
+            children: [
+              { slot: 'position-x', onSelect: (e: Event) => e.stopPropagation() },
+              { slot: 'position-y', onSelect: (e: Event) => e.stopPropagation() },
+              { slot: 'position-z', onSelect: (e: Event) => e.stopPropagation() },
+            ] as const,
+          },
+          {
+            icon: 'hugeicons:three-d-rotate',
+            label: 'Rotation',
+            children: [
+              { slot: 'rotation-x', onSelect: (e: Event) => e.stopPropagation() },
+              { slot: 'rotation-y', onSelect: (e: Event) => e.stopPropagation() },
+              { slot: 'rotation-z', onSelect: (e: Event) => e.stopPropagation() },
+              {
+                icon: 'ri:reset-right-fill',
+                label: 'Reset',
+                onSelect: () => {
+                  mesh.rotationQuaternion = Quaternion.Identity()
+                },
+              },
+            ] as const,
+          },
+          {
+            icon: 'hugeicons:three-d-scale',
+            label: 'Scale',
+            children: [
+              { slot: 'scale-x', onSelect: (e: Event) => e.stopPropagation() },
+              { slot: 'scale-y', onSelect: (e: Event) => e.stopPropagation() },
+              { slot: 'scale-z', onSelect: (e: Event) => e.stopPropagation() },
+              {
+                icon: 'ri:reset-right-fill',
+                label: 'Reset',
+                onSelect: () => {
+                  mesh.scaling.x = 1
+                  mesh.scaling.y = 1
+                  mesh.scaling.z = 1
+                },
+              },
+            ] as const,
+          },
+          {
             icon: 'material-symbols:deselect-rounded',
             label: 'Deselect',
             kbds: ['escape'],
-            onClick: () => {
+            onSelect: () => {
               clearSelection()
             },
           },
           {
             icon: 'material-symbols:content-copy-outline-rounded',
             label: 'Duplicate',
-            onClick: () => {
+            onSelect: () => {
               const clonedMesh = mesh.clone(nanoid(), null)!
               const { height } = pipe(
                 mesh.getHierarchyBoundingVectors(),
@@ -437,7 +500,7 @@ const contextMenuItems = computed(() => {
             icon: 'i-material-symbols:delete-outline-rounded',
             label: 'Delete',
             kbds: ['delete'],
-            onClick: () => {
+            onSelect: () => {
               ungroup()
 
               selectedMeshes.value.forEach((mesh) => {
@@ -451,7 +514,6 @@ const contextMenuItems = computed(() => {
         ] as ContextMenuItem[]
       }),
       [
-        { label: 'Utils', type: 'label' },
         pipe(undefined, () => {
           if (!previewMesh.value)
             return
@@ -460,7 +522,7 @@ const contextMenuItems = computed(() => {
             icon: 'material-symbols:cancel-outline-rounded',
             label: 'Cancel Placement',
             kbds: ['escape'],
-            onClick: () => {
+            onSelect: () => {
               emit('cancelPreview')
             },
           }
@@ -469,18 +531,18 @@ const contextMenuItems = computed(() => {
           icon: 'material-symbols:undo-rounded',
           label: 'Undo',
           kbds: ['ctrl', 'z'],
-          onClick: undo,
+          onSelect: undo,
         },
         {
           icon: 'material-symbols:redo-rounded',
           label: 'Redo',
           kbds: ['ctrl', 'y'],
-          onClick: redo,
+          onSelect: redo,
         },
         {
           icon: 'material-symbols:flip-camera-ios-outline-rounded',
           label: 'Reset View',
-          onClick: () => {
+          onSelect: () => {
             if (!(camera.value instanceof ArcRotateCamera))
               return
 
