@@ -2,15 +2,25 @@
   <div class="flex flex-col h-full gap-4">
     <div class="flex flex-col gap-2">
       <u-button
-        :label="statusMessage"
         variant="subtle"
         color="neutral"
         icon="material-symbols:folder"
         class="w-full"
-        :ui="{ label: 'text-center w-full text-wrap' }"
         :loading="isScanning"
         @click="handleSelectDirectory"
-      />
+      >
+        <transition
+          name="fade-in-up"
+          mode="out-in"
+        >
+          <span
+            :key="statusMessage"
+            class="text-ellipsis w-full text-wrap"
+          >
+            {{ statusMessage }}
+          </span>
+        </transition>
+      </u-button>
 
       <!-- 選擇支援格式 -->
       <!-- <u-select

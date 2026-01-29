@@ -74,6 +74,11 @@ onBeforeUnmount(() => {
 })
 </script>
 
+<style lang="sass">
+@use './styles/animation.sass'
+</style>
+
+
 <style lang="sass" scoped>
 .font-orbitron
   font-family: "Orbitron", sans-serif
