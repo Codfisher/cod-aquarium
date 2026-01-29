@@ -39,12 +39,12 @@
 import type { AbstractMesh, GizmoManager, Node } from '@babylonjs/core'
 import type { ContextMenuItem } from '@nuxt/ui/.'
 import type { ModelFile } from '../../type'
-import { ArcRotateCamera, Color4, ImportMeshAsync, Mesh, PointerEventTypes, Quaternion, Vector3 } from '@babylonjs/core'
+import { ArcRotateCamera, Color4, ImportMeshAsync, Mesh, PointerEventTypes, Quaternion, Scalar, Vector3 } from '@babylonjs/core'
 import { useMagicKeys, useThrottledRefHistory, whenever } from '@vueuse/core'
 import { animate } from 'animejs'
 import { nanoid } from 'nanoid'
 import { filter, isTruthy, pipe, tap } from 'remeda'
-import { computed, h, onUnmounted, shallowRef, triggerRef, watch } from 'vue'
+import { computed, h, onBeforeUnmount, onUnmounted, shallowRef, triggerRef, watch } from 'vue'
 import { useBabylonScene } from '../../composables/use-babylon-scene'
 import { useMultiMeshSelect } from '../../composables/use-multi-mesh-select'
 import { useMainStore } from '../../stores/main-store'
@@ -175,13 +175,7 @@ watch(() => [gKey?.value, sKey?.value, rKey?.value], ([g, s, r]) => {
 }, { deep: true })
 
 /** 網格吸附單位 */
-const snapUnit = computed(() => {
-  if (shiftKey?.value) {
-    return 0.1
-  }
-
-  return 0.5
-})
+const snapUnit = computed(() => shiftKey?.value ? 0.1 : 0.5)
 /** 按住 alt 為自由移動 */
 function snapToGrid(value: number) {
   if (altKey?.value) {
@@ -300,13 +294,13 @@ const { canvasRef, scene, camera } = useBabylonScene({
           return
         }
 
-        // 點擊到已放置的模型
+        // 無須預覽 model，點到地面則取消選取
         if (pickedMesh === ground) {
           clearSelection()
           return
         }
 
-        // 選取
+        // 選取 Mesh
         if (pickedMesh) {
           const topLevelMesh = findTopLevelMesh(pickedMesh, addedMeshList.value)
           if (!topLevelMesh)
@@ -326,14 +320,33 @@ const { canvasRef, scene, camera } = useBabylonScene({
     scene.onBeforeRenderObservable.add(() => {
       const firstSelectedMesh = selectedMeshes.value[0]
       if (firstSelectedMesh) {
-        const targetPosition = firstSelectedMesh.getAbsolutePosition()
+        /** 整個群組的邊界 */
+        const { min, max } = firstSelectedMesh.getHierarchyBoundingVectors(true)
+        /** 整個群組的中心點 */
+        const worldCenter = min.add(max).scale(0.5)
+        /** 整個群組的半徑 */
+        const worldRadius = Vector3.Distance(worldCenter, max)
 
-        sideCamera.target = Vector3.Lerp(sideCamera.target, targetPosition, 0.1)
+        // 看向中心點
+        sideCamera.target = Vector3.Lerp(sideCamera.target, worldCenter, 0.1)
+
+        const offset = new Vector3(10, 0, 0)
+        sideCamera.position = Vector3.Lerp(sideCamera.position, worldCenter.add(offset), 0.1)
+
+        // 鎖定相機角度
         sideCamera.alpha = 0
         sideCamera.beta = Math.PI / 2
 
-        const offset = new Vector3(10, 0, 0)
-        sideCamera.position = Vector3.Lerp(sideCamera.position, targetPosition.add(offset), 0.1)
+        // 平滑過渡數值
+        const currentOrthoSize = Scalar.Lerp(sideCamera.orthoTop!, worldRadius, 0.1)
+
+        /** 畫面長寬比 */
+        const aspect = engine.getRenderWidth() / engine.getRenderHeight()
+
+        sideCamera.orthoTop = currentOrthoSize
+        sideCamera.orthoBottom = -currentOrthoSize
+        sideCamera.orthoLeft = -currentOrthoSize * aspect
+        sideCamera.orthoRight = currentOrthoSize * aspect
       }
 
       const mesh = previewMesh.value
@@ -402,6 +415,7 @@ function duplicateSelectedMeshes(meshes: AbstractMesh[]) {
 whenever(() => deleteKey?.value, () => deleteSelectedMeshes())
 whenever(() => dKey?.value, () => duplicateSelectedMeshes(selectedMeshes.value))
 
+/** 右鍵選單 */
 const contextMenuItems = computed(() => {
   return pipe(
     [
@@ -511,6 +525,24 @@ const contextMenuItems = computed(() => {
             },
           }
         }),
+        pipe(undefined, () => {
+          if (!addedMeshList.value.length)
+            return
+
+          return {
+            icon: 'material-symbols:select-all-rounded',
+            label: 'Select All',
+            kbds: ['ctrl', 'a'],
+            onSelect: () => {
+              clearSelection()
+              addedMeshList.value.forEach((mesh) => {
+                if (mesh.isEnabled()) {
+                  selectMesh(mesh, true)
+                }
+              })
+            },
+          }
+        }),
         {
           icon: 'material-symbols:undo-rounded',
           label: 'Undo',
@@ -523,12 +555,17 @@ const contextMenuItems = computed(() => {
           kbds: ['ctrl', 'y'],
           onSelect: redo,
         },
-        {
-          icon: 'material-symbols:deselect-rounded',
-          label: 'Deselect',
-          kbds: ['escape'],
-          onSelect: () => clearSelection(),
-        },
+        pipe(undefined, () => {
+          if (!selectedMeshes.value.length)
+            return
+
+          return {
+            icon: 'material-symbols:deselect-rounded',
+            label: 'Deselect',
+            kbds: ['escape'],
+            onSelect: () => clearSelection(),
+          }
+        }),
         {
           icon: 'material-symbols:flip-camera-ios-outline-rounded',
           label: 'Reset View',
@@ -559,7 +596,7 @@ const contextMenuItems = computed(() => {
 })
 
 const blobUrlList: string[] = []
-onUnmounted(() => {
+onBeforeUnmount(() => {
   blobUrlList.forEach((url) => URL.revokeObjectURL(url))
 })
 

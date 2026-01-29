@@ -1,8 +1,7 @@
-import type { Engine, Scene } from '@babylonjs/core'
+import type { Scene } from '@babylonjs/core'
 import type { BabylonEngine } from '../../composables/use-babylon-scene'
 import { ArcRotateCamera, Camera, Color3, Color4, GizmoManager, MeshBuilder, Vector3, Viewport } from '@babylonjs/core'
 import { GridMaterial } from '@babylonjs/materials'
-import { engine } from 'animejs'
 
 export function createGround({ scene }: { scene: Scene }) {
   const ground = MeshBuilder.CreateGround('ground', { width: 1000, height: 1000 }, scene)
