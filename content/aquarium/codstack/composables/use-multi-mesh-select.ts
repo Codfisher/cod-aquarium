@@ -142,10 +142,6 @@ export function useMultiMeshSelect({
     selectedMeshes.value = []
   }
 
-  whenever(() => escapeKey, () => {
-    clearSelection()
-  }, { deep: true })
-
   return {
     selectedMeshes,
     selectMesh,

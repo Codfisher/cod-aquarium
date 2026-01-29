@@ -13,6 +13,7 @@
         <scene-viewer
           class="w-full h-full"
           :selected-model-file="selectedModelFile"
+          @cancel-preview="selectedModelFile = undefined"
         />
       </u-dashboard-group>
 
@@ -32,7 +33,6 @@ import type { ModelFile } from './type'
 import { useMagicKeys, whenever } from '@vueuse/core'
 import { onBeforeUnmount, onMounted, shallowRef, watch } from 'vue'
 import FilePreviewPanel from './components/file-preview-panel.vue'
-import HelpBtn from './components/help-btn.vue'
 import SceneViewer from './components/scene-viewer/scene-viewer.vue'
 import { useMainStore } from './stores/main-store'
 

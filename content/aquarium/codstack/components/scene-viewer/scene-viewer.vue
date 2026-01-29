@@ -40,6 +40,10 @@ const props = defineProps<{
   selectedModelFile?: ModelFile;
 }>()
 
+const emit = defineEmits<{
+  cancelPreview: [];
+}>()
+
 const mainStore = useMainStore()
 const {
   shift: shiftKey,
@@ -50,6 +54,7 @@ const {
   g: gKey,
   s: sKey,
   r: rKey,
+  escape: escapeKey,
 } = useMagicKeys()
 
 /** 當前預覽的模型 */
@@ -62,7 +67,7 @@ interface MeshMeta {
   path: string;
 }
 function getMeshMeta(mesh: AbstractMesh) {
-  return mesh.metadata as MeshMeta
+  return mesh.metadata as MeshMeta | undefined
 }
 
 interface MeshState {
@@ -119,6 +124,7 @@ const { undo, redo } = useThrottledRefHistory(
 )
 whenever(() => ctrlZKey?.value, () => undo())
 whenever(() => ctrlYKey?.value, () => redo())
+whenever(() => escapeKey?.value, () => clearSelection())
 
 /** 旋轉縮放的工具 */
 const gizmoManager = shallowRef<GizmoManager>()
@@ -361,8 +367,17 @@ const contextMenuItems = computed(() => {
         return [
           { label: `${selectedMeshes.value.length} meshes selected`, type: 'label' },
           {
+            icon: 'material-symbols:cancel-outline-rounded',
+            label: 'Cancel selection',
+            kbds: ['escape'],
+            onClick: () => {
+              clearSelection()
+            },
+          },
+          {
             icon: 'i-material-symbols:delete-outline-rounded',
             label: 'Delete',
+            kbds: ['delete'],
             onClick: () => {
               ungroup()
 
@@ -374,7 +389,7 @@ const contextMenuItems = computed(() => {
               clearSelection()
             },
           },
-        ]
+        ] as ContextMenuItem[]
       }),
       // 選取單一 Mesh
       pipe(undefined, () => {
@@ -385,8 +400,18 @@ const contextMenuItems = computed(() => {
         if (!mesh)
           return
 
+        const meta = getMeshMeta(mesh)
+
         return [
-          { label: 'Mesh', type: 'label' },
+          { label: meta?.name || 'Unknown Mesh', type: 'label' },
+          {
+            icon: 'material-symbols:cancel-outline-rounded',
+            label: 'Cancel selection',
+            kbds: ['escape'],
+            onClick: () => {
+              clearSelection()
+            },
+          },
           {
             icon: 'material-symbols:content-copy-outline-rounded',
             label: 'Duplicate',
@@ -411,6 +436,7 @@ const contextMenuItems = computed(() => {
           {
             icon: 'i-material-symbols:delete-outline-rounded',
             label: 'Delete',
+            kbds: ['delete'],
             onClick: () => {
               ungroup()
 
@@ -422,19 +448,33 @@ const contextMenuItems = computed(() => {
               clearSelection()
             },
           },
-
-        ]
+        ] as ContextMenuItem[]
       }),
       [
         { label: 'Utils', type: 'label' },
+        pipe(undefined, () => {
+          if (!previewMesh.value)
+            return
+
+          return {
+            icon: 'material-symbols:cancel-outline-rounded',
+            label: 'Cancel mesh preview',
+            kbds: ['escape'],
+            onClick: () => {
+              emit('cancelPreview')
+            },
+          }
+        }),
         {
           icon: 'material-symbols:undo-rounded',
           label: 'Undo',
+          kbds: ['ctrl', 'z'],
           onClick: undo,
         },
         {
           icon: 'material-symbols:redo-rounded',
           label: 'Redo',
+          kbds: ['ctrl', 'y'],
           onClick: redo,
         },
         {
@@ -453,7 +493,7 @@ const contextMenuItems = computed(() => {
             })
           },
         },
-      ],
+      ].filter(isTruthy),
     ] as ContextMenuItem[][],
     filter(isTruthy),
   )
