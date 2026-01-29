@@ -88,8 +88,8 @@
       />
 
       <template #content>
-        <div class="flex flex-col min-w-60 max-w-[30vw]">
-          <div class="flex flex-wrap gap-2 p-4 ">
+        <div class="flex flex-col w-[20vw] gap-3 p-3">
+          <div class="flex flex-wrap gap-2  ">
             <u-badge
               v-for="tag in filteredTagList"
               :key="tag"
@@ -107,53 +107,56 @@
               No tag found
             </div>
           </div>
-          <u-separator />
 
-          <div class=" grid grid-cols-2 p-2 gap-2">
-            <u-input
-              v-model="filterOptions.tagKeyword"
-              label="Tag keyword"
-              placeholder="Enter tag keyword"
-            >
-              <template
-                v-if="filterOptions.tagKeyword"
-                #trailing
-              >
-                <u-button
-                  color="neutral"
-                  variant="link"
-                  size="sm"
-                  icon="i-lucide-circle-x"
-                  aria-label="Clear input"
-                  @click="filterOptions.tagKeyword = ''"
-                />
-              </template>
-            </u-input>
-
+          <div class="">
             <u-button
               label="Clear Selected"
               variant="subtle"
               color="neutral"
               icon="i-material-symbols:filter-alt-off"
+              class=" w-full"
               :ui="{ label: 'text-center w-full' }"
               @click="selectedTagList = []"
             />
-
-            <u-checkbox
-              v-model="filterOptions.includeTagFromFileName"
-              label="Include tag from file name"
-              size="xs"
-              class=" border p-3 rounded border-default"
-            />
-
-            <u-checkbox
-              v-model="filterOptions.useAndLogic"
-              label="Use AND logic"
-              description="Otherwise use OR logic"
-              size="xs"
-              class=" border p-3 rounded border-default"
-            />
           </div>
+
+          <u-input
+            v-model="filterOptions.tagKeyword"
+            label="Tag keyword"
+            placeholder="Enter tag keyword"
+            class=""
+          >
+            <template
+              v-if="filterOptions.tagKeyword"
+              #trailing
+            >
+              <u-button
+                color="neutral"
+                variant="link"
+                size="sm"
+                icon="i-lucide-circle-x"
+                aria-label="Clear input"
+                @click="filterOptions.tagKeyword = ''"
+              />
+            </template>
+          </u-input>
+
+          <u-separator />
+
+          <u-checkbox
+            v-model="filterOptions.includeTagFromFileName"
+            as="label"
+            label="Include tag from file name"
+            variant="card"
+          />
+
+          <u-checkbox
+            v-model="filterOptions.useAndLogic"
+            as="label"
+            variant="card"
+            label="Use AND logic"
+            description="Otherwise use OR logic"
+          />
         </div>
       </template>
     </u-popover>
