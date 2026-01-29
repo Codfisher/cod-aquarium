@@ -8,10 +8,6 @@
       <u-dashboard-group storage="local">
         <u-dashboard-sidebar :default-size="25">
           <file-preview-panel v-model:selected-model-file="selectedModelFile" />
-
-          <div class=" absolute -right-2 bottom-2 translate-x-full flex flex-col">
-            <help-btn />
-          </div>
         </u-dashboard-sidebar>
 
         <scene-viewer

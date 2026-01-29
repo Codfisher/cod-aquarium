@@ -115,7 +115,7 @@ export function useMultiMeshSelect({
     updateSelectionVisuals()
   }
 
-  function handleSelect(mesh: AbstractMesh, isMultiMode: boolean) {
+  function selectMesh(mesh: AbstractMesh, isMultiMode: boolean) {
     // 先還原，確保座標計算從原始世界座標開始
     ungroup()
 
@@ -148,7 +148,7 @@ export function useMultiMeshSelect({
 
   return {
     selectedMeshes,
-    handleSelect,
+    selectMesh,
     clearSelection,
     ungroup,
   }

@@ -1,26 +1,38 @@
 <template>
-  <div class=" ">
-    <u-context-menu :items="[]">
+  <div class=" relative">
+    <u-context-menu
+      :items="contextMenuItems"
+      :ui="{
+        label: 'text-xs opacity-50',
+      }"
+    >
       <canvas
         ref="canvasRef"
         class="w-full h-full outline-none"
       />
     </u-context-menu>
+
+    <div class="flex absolute left-0 bottom-0 p-4 gap-2">
+      <help-btn />
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import type { AbstractMesh, GizmoManager, Node } from '@babylonjs/core'
+import type { ContextMenuItem } from '@nuxt/ui/.'
 import type { ModelFile } from '../../type'
-import { Color4, ImportMeshAsync, Mesh, PointerEventTypes, Quaternion, Vector3 } from '@babylonjs/core'
+import { ArcRotateCamera, Color4, ImportMeshAsync, Mesh, PointerEventTypes, Quaternion, Vector3 } from '@babylonjs/core'
 import { useMagicKeys, useThrottledRefHistory, whenever } from '@vueuse/core'
+import { animate } from 'animejs'
 import { nanoid } from 'nanoid'
-import { isTruthy, pipe, tap } from 'remeda'
-import { computed, onMounted, shallowRef, triggerRef, watch } from 'vue'
+import { filter, isTruthy, pipe, tap } from 'remeda'
+import { computed, onUnmounted, shallowRef, triggerRef, watch } from 'vue'
 import { useBabylonScene } from '../../composables/use-babylon-scene'
 import { useMultiMeshSelect } from '../../composables/use-multi-mesh-select'
 import { useMainStore } from '../../stores/main-store'
 import { getFileFromPath } from '../../utils/fs'
+import HelpBtn from '../help-btn.vue'
 import { createGizmoManager, createGround, createSideCamera } from './creator'
 import '@babylonjs/loaders'
 
@@ -44,6 +56,14 @@ const {
 const previewMesh = shallowRef<AbstractMesh>()
 /** 已新增的模型 */
 const addedMeshList = shallowRef<AbstractMesh[]>([])
+
+interface MeshMeta {
+  name: string;
+  path: string;
+}
+function getMeshMeta(mesh: AbstractMesh) {
+  return mesh.metadata as MeshMeta
+}
 
 interface MeshState {
   id: number;
@@ -159,7 +179,7 @@ function findTopLevelMesh(mesh: AbstractMesh, list: AbstractMesh[]): AbstractMes
   return undefined
 }
 
-const { canvasRef, scene } = useBabylonScene({
+const { canvasRef, scene, camera } = useBabylonScene({
   async init(params) {
     const { scene, camera, engine } = params
     scene.activeCamera = camera
@@ -212,6 +232,10 @@ const { canvasRef, scene } = useBabylonScene({
 
       // 點擊事件
       if (pointerInfo.type === PointerEventTypes.POINTERTAP) {
+        // 忽略右鍵
+        if (pointerInfo.event.button === 2)
+          return
+
         const pickedMesh = pointerInfo.pickInfo?.pickedMesh
 
         // 預覽、放置
@@ -263,7 +287,7 @@ const { canvasRef, scene } = useBabylonScene({
           const topLevelMesh = findTopLevelMesh(pickedMesh, addedMeshList.value)
           if (!topLevelMesh)
             return
-          handleSelect(topLevelMesh, !!shiftKey?.value)
+          selectMesh(topLevelMesh, !!shiftKey?.value)
 
           // 關閉所有 Gizmo 小工具，需使用快捷鍵開啟
           if (gizmoManager.value) {
@@ -305,7 +329,7 @@ const { canvasRef, scene } = useBabylonScene({
 
 const {
   selectedMeshes,
-  handleSelect,
+  selectMesh,
   clearSelection,
   ungroup,
 } = useMultiMeshSelect({ gizmoManager, scene })
@@ -325,8 +349,118 @@ whenever(() => deleteKey, () => {
   deep: true,
 })
 
+const contextMenuItems = computed(() => {
+  return pipe(
+    [
+      // 選取多個 Mesh
+      pipe(undefined, () => {
+        if (selectedMeshes.value.length < 2) {
+          return
+        }
+
+        return [
+          { label: `${selectedMeshes.value.length} meshes selected`, type: 'label' },
+          {
+            icon: 'i-material-symbols:delete-outline-rounded',
+            label: 'Delete',
+            onClick: () => {
+              ungroup()
+
+              selectedMeshes.value.forEach((mesh) => {
+                mesh.setEnabled(false)
+              })
+              triggerRef(addedMeshList)
+
+              clearSelection()
+            },
+          },
+        ]
+      }),
+      // 選取單一 Mesh
+      pipe(undefined, () => {
+        if (selectedMeshes.value.length !== 1) {
+          return
+        }
+        const mesh = selectedMeshes.value[0]
+        if (!mesh)
+          return
+
+        return [
+          { label: 'Mesh', type: 'label' },
+          {
+            icon: 'material-symbols:content-copy-outline-rounded',
+            label: 'Duplicate',
+            onClick: () => {
+              const clonedMesh = mesh.clone(nanoid(), null)!
+              const { height } = pipe(
+                mesh.getHierarchyBoundingVectors(),
+                ({ max, min }) => ({
+                  width: max.x - min.x,
+                  height: max.y - min.y,
+                }),
+              )
+              clonedMesh.position.y += (height) * 1.5
+              // clonedMesh.position.x += (width) * 1.5
+
+              addedMeshList.value.push(clonedMesh)
+              triggerRef(addedMeshList)
+
+              selectMesh(clonedMesh, false)
+            },
+          },
+          {
+            icon: 'i-material-symbols:delete-outline-rounded',
+            label: 'Delete',
+            onClick: () => {
+              ungroup()
+
+              selectedMeshes.value.forEach((mesh) => {
+                mesh.setEnabled(false)
+              })
+              triggerRef(addedMeshList)
+
+              clearSelection()
+            },
+          },
+
+        ]
+      }),
+      [
+        { label: 'Utils', type: 'label' },
+        {
+          icon: 'material-symbols:undo-rounded',
+          label: 'Undo',
+          onClick: undo,
+        },
+        {
+          icon: 'material-symbols:redo-rounded',
+          label: 'Redo',
+          onClick: redo,
+        },
+        {
+          icon: 'material-symbols:flip-camera-ios-outline-rounded',
+          label: 'Reset Camera',
+          onClick: () => {
+            if (!(camera.value instanceof ArcRotateCamera))
+              return
+
+            animate(camera.value, {
+              alpha: Math.PI / 2,
+              beta: Math.PI / 3,
+              radius: 10,
+              duration: 800,
+              ease: 'inOutQuart',
+            })
+          },
+        },
+      ],
+    ] as ContextMenuItem[][],
+    filter(isTruthy),
+  )
+})
+
 const blobUrlList: string[] = []
-onMounted(() => {
+onUnmounted(() => {
   blobUrlList.forEach((url) => URL.revokeObjectURL(url))
 })
 
@@ -373,6 +507,11 @@ async function loadPreviewModel(modelFile: ModelFile) {
 
     root.isPickable = false
     root.getChildMeshes().forEach((mesh) => mesh.isPickable = false)
+
+    root.metadata = {
+      name: modelFile.name,
+      path: modelFile.path,
+    } satisfies MeshMeta
 
     previewMesh.value = root
   }
