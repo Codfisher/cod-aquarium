@@ -10,23 +10,6 @@
         ref="canvasRef"
         class="w-full h-full outline-none"
       />
-
-      <template #position-x>
-        <template v-if="firstSelectedMesh">
-          <div
-            @click.stop
-            @keydown.stop
-            @pointermove.stop
-          >
-            <u-input
-              v-model.number="firstSelectedMesh.position.x"
-              type="number"
-              placeholder="X axis"
-              :step="0.1"
-            />
-          </div>
-        </template>
-      </template>
     </u-context-menu>
 
     <div class="flex absolute left-0 bottom-0 p-4 gap-2">
@@ -476,23 +459,64 @@ const contextMenuItems = computed(() => {
             icon: 'hugeicons:three-d-move',
             label: 'Position',
             children: [
-              { slot: 'position-x', onSelect: (e: Event) => e.stopPropagation() },
-              { slot: 'position-y', onSelect: (e: Event) => e.stopPropagation() },
-              { slot: 'position-z', onSelect: (e: Event) => e.stopPropagation() },
+              {
+                icon: 'i-material-symbols:drag-handle-rounded',
+                label: 'Enable handles',
+                kbds: ['g'],
+                onSelect: () => {
+                  if (!gizmoManager.value)
+                    return
+                  gizmoManager.value.positionGizmoEnabled = true
+                  gizmoManager.value.rotationGizmoEnabled = false
+                  gizmoManager.value.scaleGizmoEnabled = false
+                },
+              },
+              {
+                icon: 'ri:reset-right-fill',
+                label: 'Move to origin',
+                onSelect: () => {
+                  animate(mesh.position, {
+                    x: 0,
+                    y: 0,
+                    z: 0,
+                    duration: 400,
+                    ease: 'inOutCirc',
+                  })
+                },
+              },
             ] satisfies ContextMenuItem[],
           },
           {
             icon: 'hugeicons:three-d-rotate',
             label: 'Rotation',
             children: [
-              { slot: 'rotation-x', onSelect: (e: Event) => e.stopPropagation() },
-              { slot: 'rotation-y', onSelect: (e: Event) => e.stopPropagation() },
-              { slot: 'rotation-z', onSelect: (e: Event) => e.stopPropagation() },
+              {
+                icon: 'i-material-symbols:drag-handle-rounded',
+                label: 'Enable handles',
+                kbds: ['r'],
+                onSelect: () => {
+                  if (!gizmoManager.value)
+                    return
+                  gizmoManager.value.positionGizmoEnabled = false
+                  gizmoManager.value.rotationGizmoEnabled = true
+                  gizmoManager.value.scaleGizmoEnabled = false
+                },
+              },
               {
                 icon: 'ri:reset-right-fill',
                 label: 'Reset',
                 onSelect: () => {
-                  mesh.rotationQuaternion = Quaternion.Identity()
+                  if (!mesh.rotationQuaternion)
+                    return
+
+                  animate(mesh.rotationQuaternion, {
+                    x: 0,
+                    y: 0,
+                    z: 0,
+                    w: 1,
+                    duration: 600,
+                    ease: 'outElastic',
+                  })
                 },
               },
             ] as const,
@@ -501,16 +525,29 @@ const contextMenuItems = computed(() => {
             icon: 'hugeicons:three-d-scale',
             label: 'Scale',
             children: [
-              { slot: 'scale-x', onSelect: (e: Event) => e.stopPropagation() },
-              { slot: 'scale-y', onSelect: (e: Event) => e.stopPropagation() },
-              { slot: 'scale-z', onSelect: (e: Event) => e.stopPropagation() },
+              {
+                icon: 'i-material-symbols:drag-handle-rounded',
+                label: 'Enable handles',
+                kbds: ['s'],
+                onSelect: () => {
+                  if (!gizmoManager.value)
+                    return
+                  gizmoManager.value.positionGizmoEnabled = false
+                  gizmoManager.value.rotationGizmoEnabled = false
+                  gizmoManager.value.scaleGizmoEnabled = true
+                },
+              },
               {
                 icon: 'ri:reset-right-fill',
                 label: 'Reset',
                 onSelect: () => {
-                  mesh.scaling.x = 1
-                  mesh.scaling.y = 1
-                  mesh.scaling.z = 1
+                  animate(mesh.scaling, {
+                    x: 1,
+                    y: 1,
+                    z: 1,
+                    duration: 600,
+                    ease: 'outElastic',
+                  })
                 },
               },
             ] as const,
