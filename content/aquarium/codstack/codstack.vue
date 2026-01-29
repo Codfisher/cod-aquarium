@@ -1,8 +1,10 @@
 <template>
   <client-only>
-    <u-app :toaster="{
-      position: 'top-right',
-    }">
+    <u-app
+      :toaster="{
+        position: 'top-right',
+      }"
+    >
       <u-dashboard-group storage="local">
         <u-dashboard-sidebar :default-size="25">
           <file-preview-panel v-model:selected-model-file="selectedModelFile" />
@@ -25,7 +27,6 @@
           v{{ version }}
         </span>
       </div>
-
     </u-app>
   </client-only>
 </template>
@@ -77,7 +78,6 @@ onBeforeUnmount(() => {
 <style lang="sass">
 @use './styles/animation.sass'
 </style>
-
 
 <style lang="sass" scoped>
 .font-orbitron
