@@ -80,7 +80,7 @@
         :model-value="selectedTagList.length ? selectedTagList.join(', ') : 'Select tag to filter models'"
         readonly
         placeholder="Select tag to filter models"
-        trailing-icon="mdi:menu-open"
+        trailing-icon="i-material-symbols:filter-alt"
         :ui="{
           trailing: 'pointer-events-none ',
           base: !selectedTagList.length ? 'text-gray-300' : ' text-ellipsis',
@@ -124,7 +124,6 @@
             v-model="filterOptions.tagKeyword"
             label="Tag keyword"
             placeholder="Enter tag keyword"
-            class=""
           >
             <template
               v-if="filterOptions.tagKeyword"

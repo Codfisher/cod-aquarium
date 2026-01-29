@@ -40,7 +40,7 @@ import type { AbstractMesh, GizmoManager, Node } from '@babylonjs/core'
 import type { ContextMenuItem } from '@nuxt/ui/.'
 import type { ModelFile } from '../../type'
 import { ArcRotateCamera, Color4, ImportMeshAsync, Mesh, PointerEventTypes, Quaternion, Scalar, Vector3 } from '@babylonjs/core'
-import { onKeyStroke, useMagicKeys, useThrottledRefHistory, whenever } from '@vueuse/core'
+import { onKeyStroke, useActiveElement, useMagicKeys, useThrottledRefHistory, whenever } from '@vueuse/core'
 import { animate } from 'animejs'
 import { nanoid } from 'nanoid'
 import { filter, isTruthy, pipe, tap } from 'remeda'
@@ -416,13 +416,22 @@ function duplicateSelectedMeshes(meshes: AbstractMesh[]) {
   triggerRef(addedMeshList)
 }
 
-onKeyStroke((e) => e.preventDefault())
-onKeyStroke(['ctrl', 'a'], selectAll, { dedupe: true })
-onKeyStroke(['delete'], () => deleteSelectedMeshes(), { dedupe: true })
-onKeyStroke(['d'], () => duplicateSelectedMeshes(selectedMeshes.value), { dedupe: true })
-onKeyStroke(['escape'], () => clearSelection(), { dedupe: true })
-onKeyStroke(['ctrl', 'z'], undo, { dedupe: true })
-onKeyStroke(['ctrl', 'y'], redo, { dedupe: true })
+const activeElement = useActiveElement()
+/** 自動 preventDefault，但是不影響輸入框 */
+onKeyStroke((e) => {
+  const el = activeElement.value
+  const isInput = el?.tagName === 'INPUT' || el?.tagName === 'TEXTAREA' || el?.isContentEditable
+  if (isInput)
+    return
+
+  e.preventDefault()
+})
+onKeyStroke(['Ctrl', 'a', 'A'], selectAll, { dedupe: true })
+onKeyStroke(['Delete', 'Backspace'], () => deleteSelectedMeshes(), { dedupe: true })
+onKeyStroke(['d', 'D'], () => duplicateSelectedMeshes(selectedMeshes.value), { dedupe: true })
+onKeyStroke(['Escape', 'Esc'], () => clearSelection(), { dedupe: true })
+onKeyStroke(['Ctrl', 'z', 'Z'], undo, { dedupe: true })
+onKeyStroke(['Ctrl', 'y', 'Y'], redo, { dedupe: true })
 
 /** 右鍵選單 */
 const contextMenuItems = computed(() => {

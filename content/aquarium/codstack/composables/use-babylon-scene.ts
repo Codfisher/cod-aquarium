@@ -3,6 +3,7 @@ import type {
 } from '@babylonjs/core'
 import {
   ArcRotateCamera,
+  ArcRotateCameraPointersInput,
   Color3,
   Color4,
   Engine,
@@ -78,7 +79,12 @@ const defaultParam: Required<UseBabylonSceneParam> = {
       scene,
     )
 
-    camera.attachControl(canvas, true)
+    camera.attachControl(canvas)
+
+    // 右鍵不要給相機用（0=左鍵, 1=中鍵, 2=右鍵），避免右鍵選單干擾
+    if (camera.inputs.attached.pointers instanceof ArcRotateCameraPointersInput) {
+      camera.inputs.attached.pointers.buttons = [0, 1]
+    }
     // 禁止 Y 軸平移
     camera.panningAxis = new Vector3(1, 0, 1)
 
