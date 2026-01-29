@@ -40,7 +40,7 @@ import type { AbstractMesh, GizmoManager, Node } from '@babylonjs/core'
 import type { ContextMenuItem } from '@nuxt/ui/.'
 import type { ModelFile } from '../../type'
 import { ArcRotateCamera, Color4, ImportMeshAsync, Mesh, PointerEventTypes, Quaternion, Scalar, Vector3 } from '@babylonjs/core'
-import { useMagicKeys, useThrottledRefHistory, whenever } from '@vueuse/core'
+import { onKeyStroke, useMagicKeys, useThrottledRefHistory, whenever } from '@vueuse/core'
 import { animate } from 'animejs'
 import { nanoid } from 'nanoid'
 import { filter, isTruthy, pipe, tap } from 'remeda'
@@ -65,14 +65,9 @@ const mainStore = useMainStore()
 const {
   shift: shiftKey,
   alt: altKey,
-  delete: deleteKey,
-  ctrl_z: ctrlZKey,
-  ctrl_y: ctrlYKey,
   g: gKey,
   s: sKey,
   r: rKey,
-  d: dKey,
-  escape: escapeKey,
 } = useMagicKeys()
 
 /** 當前預覽的模型 */
@@ -140,9 +135,6 @@ const { undo, redo } = useThrottledRefHistory(
     },
   },
 )
-whenever(() => ctrlZKey?.value, () => undo())
-whenever(() => ctrlYKey?.value, () => redo())
-whenever(() => escapeKey?.value, () => clearSelection())
 
 /** 旋轉縮放的工具 */
 const gizmoManager = shallowRef<GizmoManager>()
@@ -306,13 +298,6 @@ const { canvasRef, scene, camera } = useBabylonScene({
           if (!topLevelMesh)
             return
           selectMesh(topLevelMesh, !!shiftKey?.value)
-
-          // 關閉所有 Gizmo 小工具，需使用快捷鍵開啟
-          if (gizmoManager.value) {
-            gizmoManager.value.positionGizmoEnabled = false
-            gizmoManager.value.rotationGizmoEnabled = false
-            gizmoManager.value.scaleGizmoEnabled = false
-          }
         }
       }
     })
@@ -366,12 +351,31 @@ const { canvasRef, scene, camera } = useBabylonScene({
 
 const {
   selectedMeshes,
-  selectMesh,
+  selectMesh: _selectMesh,
   clearSelection,
   ungroup,
 } = useMultiMeshSelect({ gizmoManager, scene })
+
+/** 選取 Mesh 時，關閉所有 Gizmo 小工具，需使用快捷鍵開啟 */
+function selectMesh(mesh: AbstractMesh, shift: boolean) {
+  if (gizmoManager.value) {
+    gizmoManager.value.positionGizmoEnabled = false
+    gizmoManager.value.rotationGizmoEnabled = false
+    gizmoManager.value.scaleGizmoEnabled = false
+  }
+  _selectMesh(mesh, shift)
+}
+
 const firstSelectedMesh = computed(() => selectedMeshes.value[0])
 
+function selectAll() {
+  clearSelection()
+  addedMeshList.value.forEach((mesh) => {
+    if (mesh.isEnabled()) {
+      selectMesh(mesh, true)
+    }
+  })
+}
 function deleteSelectedMeshes() {
   if (selectedMeshes.value.length > 0) {
     ungroup()
@@ -412,8 +416,13 @@ function duplicateSelectedMeshes(meshes: AbstractMesh[]) {
   triggerRef(addedMeshList)
 }
 
-whenever(() => deleteKey?.value, () => deleteSelectedMeshes())
-whenever(() => dKey?.value, () => duplicateSelectedMeshes(selectedMeshes.value))
+onKeyStroke((e) => e.preventDefault())
+onKeyStroke(['ctrl', 'a'], selectAll, { dedupe: true })
+onKeyStroke(['delete'], () => deleteSelectedMeshes(), { dedupe: true })
+onKeyStroke(['d'], () => duplicateSelectedMeshes(selectedMeshes.value), { dedupe: true })
+onKeyStroke(['escape'], () => clearSelection(), { dedupe: true })
+onKeyStroke(['ctrl', 'z'], undo, { dedupe: true })
+onKeyStroke(['ctrl', 'y'], redo, { dedupe: true })
 
 /** 右鍵選單 */
 const contextMenuItems = computed(() => {
@@ -533,14 +542,18 @@ const contextMenuItems = computed(() => {
             icon: 'material-symbols:select-all-rounded',
             label: 'Select All',
             kbds: ['ctrl', 'a'],
-            onSelect: () => {
-              clearSelection()
-              addedMeshList.value.forEach((mesh) => {
-                if (mesh.isEnabled()) {
-                  selectMesh(mesh, true)
-                }
-              })
-            },
+            onSelect: () => selectAll(),
+          }
+        }),
+        pipe(undefined, () => {
+          if (!selectedMeshes.value.length)
+            return
+
+          return {
+            icon: 'material-symbols:deselect-rounded',
+            label: 'Deselect',
+            kbds: ['escape'],
+            onSelect: () => clearSelection(),
           }
         }),
         {
@@ -555,17 +568,6 @@ const contextMenuItems = computed(() => {
           kbds: ['ctrl', 'y'],
           onSelect: redo,
         },
-        pipe(undefined, () => {
-          if (!selectedMeshes.value.length)
-            return
-
-          return {
-            icon: 'material-symbols:deselect-rounded',
-            label: 'Deselect',
-            kbds: ['escape'],
-            onSelect: () => clearSelection(),
-          }
-        }),
         {
           icon: 'material-symbols:flip-camera-ios-outline-rounded',
           label: 'Reset View',
