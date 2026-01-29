@@ -6,21 +6,22 @@
     />
 
     <template #body>
-      <div class="">
+      <div class="[&>h2:not(:first-child)]:mt-3">
+        <h2 class="text-lg font-bold ">
+          鏡頭控制
+        </h2>
+        <ul class="list-disc list-inside space-y-1 mt-1">
+          <li>左鍵：移動鏡頭</li>
+          <li><u-kbd>Ctrl</u-kbd>+左鍵：平移鏡頭</li>
+          <li>滾輪：縮放鏡頭</li>
+        </ul>
+
         <h2 class="text-lg font-bold ">
           快捷鍵說明
         </h2>
         <ul class="list-disc list-inside space-y-1 mt-1">
-          <li><u-kbd>Esc</u-kbd>：關閉、取消選取</li>
-          <li><u-kbd>Ctrl</u-kbd> + <u-kbd>Z</u-kbd>：上一步</li>
-          <li><u-kbd>Ctrl</u-kbd> + <u-kbd>Y</u-kbd>：下一步</li>
-          <li>選取後按 <u-kbd>G</u-kbd>：移動</li>
-          <li>選取後按 <u-kbd>S</u-kbd>：縮放</li>
-          <li>選取後按 <u-kbd>R</u-kbd>：旋轉</li>
-          <li>選取後按 <u-kbd>Delete</u-kbd>：刪除選取項目</li>
           <li>移動、縮放、旋轉時 + <u-kbd>Shift</u-kbd>：0.1 單位或 1 度步長</li>
-          <li>移動、縮放、旋轉時 + <u-kbd>Alt</u-kbd>：自由步長</li>
-          <li>按住 <u-kbd>Shift</u-kbd>選擇：多選</li>
+          <li>選擇時按住 <u-kbd>Shift</u-kbd>：多選</li>
         </ul>
       </div>
     </template>

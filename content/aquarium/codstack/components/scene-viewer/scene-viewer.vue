@@ -23,11 +23,11 @@ import type { AbstractMesh, GizmoManager, Node } from '@babylonjs/core'
 import type { ContextMenuItem } from '@nuxt/ui/.'
 import type { ModelFile } from '../../type'
 import { ArcRotateCamera, Color4, ImportMeshAsync, Mesh, PointerEventTypes, Quaternion, Scalar, Vector3 } from '@babylonjs/core'
-import { onKeyStroke, useActiveElement, useMagicKeys, useThrottledRefHistory, whenever } from '@vueuse/core'
+import { onKeyStroke, useActiveElement, useMagicKeys, useThrottledRefHistory } from '@vueuse/core'
 import { animate } from 'animejs'
 import { nanoid } from 'nanoid'
 import { filter, isTruthy, pipe, tap } from 'remeda'
-import { computed, h, onBeforeUnmount, onUnmounted, shallowRef, triggerRef, watch } from 'vue'
+import { computed, onBeforeUnmount, shallowRef, watch } from 'vue'
 import { useBabylonScene } from '../../composables/use-babylon-scene'
 import { useMultiMeshSelect } from '../../composables/use-multi-mesh-select'
 import { useMainStore } from '../../stores/main-store'
@@ -73,7 +73,13 @@ interface MeshState {
   scale: [number, number, number];
   rotationQuaternion?: [number, number, number, number];
 }
-const { undo, redo } = useThrottledRefHistory(
+const {
+  canRedo,
+  canUndo,
+  undo,
+  redo,
+  commit: commitHistory,
+} = useThrottledRefHistory(
   addedMeshList,
   {
     capacity: 10,
@@ -188,13 +194,13 @@ const { canvasRef, scene, camera } = useBabylonScene({
         const { gizmos } = gizmoManager
 
         gizmos.positionGizmo?.onDragEndObservable.add(() => {
-          triggerRef(addedMeshList)
+          commitHistory()
         })
         gizmos.rotationGizmo?.onDragEndObservable.add(() => {
-          triggerRef(addedMeshList)
+          commitHistory()
         })
         gizmos.scaleGizmo?.onDragEndObservable.add(() => {
-          triggerRef(addedMeshList)
+          commitHistory()
         })
       }),
     )
@@ -264,7 +270,7 @@ const { canvasRef, scene, camera } = useBabylonScene({
             clonedMesh.isPickable = true
             clonedMesh.getChildMeshes().forEach((mesh) => mesh.isPickable = true)
             addedMeshList.value.push(clonedMesh)
-            triggerRef(addedMeshList)
+            commitHistory()
           }
           return
         }
@@ -349,8 +355,6 @@ function selectMesh(mesh: AbstractMesh, shift: boolean) {
   _selectMesh(mesh, shift)
 }
 
-const firstSelectedMesh = computed(() => selectedMeshes.value[0])
-
 function selectAll() {
   clearSelection()
   addedMeshList.value.forEach((mesh) => {
@@ -366,8 +370,7 @@ function deleteSelectedMeshes() {
     selectedMeshes.value.forEach((mesh) => {
       mesh.setEnabled(false)
     })
-    triggerRef(addedMeshList)
-
+    commitHistory()
     clearSelection()
   }
 }
@@ -396,7 +399,7 @@ function duplicateSelectedMeshes(meshes: AbstractMesh[]) {
     clonedMesh.position.y += maxHeight * 1.5
   })
 
-  triggerRef(addedMeshList)
+  commitHistory()
 }
 
 const activeElement = useActiveElement()
@@ -481,6 +484,9 @@ const contextMenuItems = computed(() => {
                     z: 0,
                     duration: 400,
                     ease: 'inOutCirc',
+                    onComplete() {
+                      commitHistory()
+                    },
                   })
                 },
               },
@@ -516,6 +522,9 @@ const contextMenuItems = computed(() => {
                     w: 1,
                     duration: 600,
                     ease: 'outElastic',
+                    onComplete() {
+                      commitHistory()
+                    },
                   })
                 },
               },
@@ -547,6 +556,9 @@ const contextMenuItems = computed(() => {
                     z: 1,
                     duration: 600,
                     ease: 'outElastic',
+                    onComplete() {
+                      commitHistory()
+                    },
                   })
                 },
               },
