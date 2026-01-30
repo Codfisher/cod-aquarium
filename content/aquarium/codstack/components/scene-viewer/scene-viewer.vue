@@ -16,7 +16,7 @@
       <help-btn />
     </div>
 
-    <slot />
+    <slot :added-mesh-list />
   </div>
 </template>
 
@@ -44,6 +44,10 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   cancelPreview: [];
+}>()
+
+defineSlots<{
+  default: (props: { addedMeshList: AbstractMesh[] }) => any;
 }>()
 
 const mainStore = useMainStore()
