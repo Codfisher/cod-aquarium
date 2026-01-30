@@ -14,7 +14,11 @@
           class="w-full h-full"
           :selected-model-file="selectedModelFile"
           @cancel-preview="selectedModelFile = undefined"
-        />
+        >
+          <div class="flex absolute bottom-8 right-0 p-4 gap-2">
+            <export-btn />
+          </div>
+        </scene-viewer>
       </u-dashboard-group>
 
       <div class="font-orbitron fixed right-0 bottom-0 p-2 px-3 opacity-50">
@@ -32,6 +36,7 @@
 import type { ModelFile } from './type'
 import { useMagicKeys, whenever } from '@vueuse/core'
 import { onBeforeUnmount, onMounted, shallowRef, watch } from 'vue'
+import ExportBtn from './components/export-btn.vue'
 import FilePreviewPanel from './components/file-preview-panel.vue'
 import SceneViewer from './components/scene-viewer/scene-viewer.vue'
 import { useMainStore } from './stores/main-store'
