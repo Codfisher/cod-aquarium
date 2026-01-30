@@ -15,6 +15,10 @@
     <div class="flex absolute left-0 bottom-0 p-4 gap-2">
       <help-btn />
     </div>
+
+    <div class="flex absolute bottom-8 right-0 p-4 gap-2">
+      <export-btn />
+    </div>
   </div>
 </template>
 
@@ -34,6 +38,7 @@ import { useMainStore } from '../../stores/main-store'
 import { getFileFromPath } from '../../utils/fs'
 import HelpBtn from '../help-btn.vue'
 import { createGizmoManager, createGround, createSideCamera } from './creator'
+import ExportBtn from './export-btn.vue'
 import '@babylonjs/loaders'
 
 const props = defineProps<{
