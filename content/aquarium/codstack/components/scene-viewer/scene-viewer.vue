@@ -412,12 +412,12 @@ onKeyStroke((e) => {
 
   e.preventDefault()
 })
-onKeyStroke(['Ctrl', 'a', 'A'], selectAll, { dedupe: true })
-onKeyStroke(['Delete', 'Backspace'], () => deleteSelectedMeshes(), { dedupe: true })
+onKeyStroke((e) => ['a', 'A'].includes(e.key) && e.ctrlKey, selectAll, { dedupe: true })
+onKeyStroke(['Delete', 'Backspace'], deleteSelectedMeshes, { dedupe: true })
 onKeyStroke(['d', 'D'], () => duplicateSelectedMeshes(selectedMeshes.value), { dedupe: true })
-onKeyStroke(['Escape', 'Esc'], () => clearSelection(), { dedupe: true })
-onKeyStroke(['Ctrl', 'z', 'Z'], undo, { dedupe: true })
-onKeyStroke(['Ctrl', 'y', 'Y'], redo, { dedupe: true })
+onKeyStroke(['Escape', 'Esc'], clearSelection, { dedupe: true })
+onKeyStroke((e) => ['z', 'Z'].includes(e.key) && e.ctrlKey, undo, { dedupe: true })
+onKeyStroke((e) => ['y', 'Y'].includes(e.key) && e.ctrlKey, redo, { dedupe: true })
 
 /** 右鍵選單 */
 const contextMenuItems = computed(() => {
