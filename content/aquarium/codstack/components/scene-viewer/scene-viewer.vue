@@ -475,6 +475,20 @@ const contextMenuItems = computed(() => {
                 },
               },
               {
+                icon: 'i-material-symbols:download-2-rounded',
+                label: 'Snap to ground',
+                onSelect: () => {
+                  animate(mesh.position, {
+                    y: 0,
+                    duration: 400,
+                    ease: 'inOutCirc',
+                    onComplete() {
+                      commitHistory()
+                    },
+                  })
+                },
+              },
+              {
                 icon: 'ri:reset-right-fill',
                 label: 'Move to origin',
                 onSelect: () => {
