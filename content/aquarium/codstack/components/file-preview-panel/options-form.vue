@@ -1,8 +1,34 @@
 <template>
-  <u-form />
+  <u-form
+    :state="optionForm"
+    :schema="optionSchema"
+    class="w-full p-4"
+  >
+    <u-form-field
+      as="label"
+      label="Enable Preview Rotation"
+      orientation="horizontal"
+    >
+      <u-checkbox v-model="optionForm.enablePreviewRotation" />
+    </u-form-field>
+
+    <u-form-field
+      label="Preview Base Y"
+      orientation="horizontal"
+    >
+      <u-input-number
+        v-model="optionForm.previewBaseY"
+        :min="-10"
+        :max="10"
+        :step="0.5"
+      />
+    </u-form-field>
+  </u-form>
 </template>
 
 <script setup lang="ts">
+import z from 'zod/v4'
+
 interface Props {
   label?: string;
 }
@@ -17,6 +43,20 @@ const emit = defineEmits<{
 defineSlots<{
   default: (props: { msg: string }) => any;
 }>()
+
+const optionSchema = z.object({
+  /** 預覽時是否要旋轉 */
+  enablePreviewRotation: z.boolean().default(false),
+  /** 預覽模型的垂直軸起點 */
+  previewBaseY: z.number().default(0),
+})
+
+const optionForm = defineModel<z.infer<typeof optionSchema>>({
+  default: {
+    enablePreviewRotation: false,
+    previewBaseY: 0,
+  },
+})
 </script>
 
 <style scoped lang="sass">

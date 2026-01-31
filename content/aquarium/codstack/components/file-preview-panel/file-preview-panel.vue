@@ -1,6 +1,6 @@
 <template>
   <div class="flex flex-col h-full gap-4">
-    <div class="flex flex-col gap-2">
+    <div class="flex gap-2">
       <u-button
         variant="subtle"
         color="neutral"
@@ -22,14 +22,17 @@
         </transition>
       </u-button>
 
-      <!-- 選擇支援格式 -->
-      <!-- <u-select
-          v-model="selectedFormatList"
-          multiple
-          :items="SUPPORTED_EXTENSIONS.map(ext => ({ label: ext, value: ext }))"
-          placeholder="select supported format"
-          class="w-full"
-        /> -->
+      <u-popover :content="{ side: 'right' }">
+        <u-button
+          color="neutral"
+          variant="ghost"
+          icon="material-symbols:settings"
+        />
+
+        <template #content>
+          <options-form />
+        </template>
+      </u-popover>
     </div>
 
     <div
@@ -169,6 +172,7 @@ import { chunk, pipe } from 'remeda'
 import { computed, reactive, ref, useTemplateRef } from 'vue'
 import { useMainStore } from '../../stores/main-store'
 import ModelPreviewItem from '../model-preview-item.vue'
+import OptionsForm from './options-form.vue'
 
 const toast = useToast()
 const mainStore = useMainStore()

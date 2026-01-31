@@ -74,12 +74,12 @@ function cancelPreview() {
 watch(() => mainStore.rootFsHandle, () => cancelPreview())
 
 // 載入字體
-const fontHref = 'https://fonts.googleapis.com/css2?family=Material+Symbols+Sharp:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&family=Orbitron:wght@400..900'
+const fontHref = 'https://fonts.googleapis.com/css2?family=Orbitron:wght@400..900'
 let linkEl: HTMLLinkElement
 onMounted(() => {
   // 已經有同樣的 link 就不要重複
   const existed = Array.from(document.head.querySelectorAll('link'))
-    .find((link) => link.getAttribute('href') === fontHref)
+    .find((link) => link.getAttribute('href')?.includes('Orbitron:wght@400..900'))
   if (existed)
     return
 
