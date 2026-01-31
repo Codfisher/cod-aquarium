@@ -14,7 +14,7 @@
           v-slot="{ addedMeshList }"
           class="w-full h-full"
           :selected-model-file="selectedModelFile"
-          @cancel-preview="selectedModelFile = undefined"
+          @cancel-preview="cancelPreview"
         >
           <div class="flex absolute left-0 bottom-0 p-4 gap-2">
             <help-btn />
@@ -39,7 +39,6 @@
 
 <script setup lang="ts">
 import type { ModelFile } from './type'
-import { useMagicKeys, whenever } from '@vueuse/core'
 import { onBeforeUnmount, onMounted, shallowRef, watch } from 'vue'
 import ExportBtn from './components/export-btn.vue'
 import FilePreviewPanel from './components/file-preview-panel.vue'
@@ -50,15 +49,12 @@ import { useMainStore } from './stores/main-store'
 const version = '0.1.0'
 
 const mainStore = useMainStore()
-const { escape: escapeKey } = useMagicKeys()
 
 const selectedModelFile = shallowRef<ModelFile>()
-watch(() => mainStore.rootFsHandle, () => {
+function cancelPreview() {
   selectedModelFile.value = undefined
-})
-whenever(() => escapeKey?.value, () => {
-  selectedModelFile.value = undefined
-})
+}
+watch(() => mainStore.rootFsHandle, () => cancelPreview())
 
 // 載入字體
 const fontHref = 'https://fonts.googleapis.com/css2?family=Material+Symbols+Sharp:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&family=Orbitron:wght@400..900'

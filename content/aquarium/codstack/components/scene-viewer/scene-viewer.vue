@@ -61,6 +61,13 @@ const previewMesh = shallowRef<AbstractMesh>()
 /** 已新增的模型 */
 const addedMeshList = shallowRef<AbstractMesh[]>([])
 
+watch(() => mainStore.rootFsHandle, () => {
+  addedMeshList.value.forEach((mesh) => {
+    mesh.dispose()
+  })
+  addedMeshList.value = []
+})
+
 interface MeshMeta {
   name: string;
   path: string;
@@ -252,6 +259,8 @@ const { canvasRef, scene, camera } = useBabylonScene({
             clonedMesh.isPickable = true
             clonedMesh.getChildMeshes().forEach((mesh) => mesh.isPickable = true)
             addedMeshList.value.push(clonedMesh)
+            selectMesh(clonedMesh, false)
+
             commitHistory()
           }
           return
@@ -331,13 +340,13 @@ const {
  *
  * 二次封裝 useMultiMeshSelect 提供的 selectMesh，
  */
-function selectMesh(mesh: AbstractMesh, shift: boolean) {
+function selectMesh(mesh: AbstractMesh, isMulti: boolean) {
   if (gizmoManager.value) {
     gizmoManager.value.positionGizmoEnabled = false
     gizmoManager.value.rotationGizmoEnabled = false
     gizmoManager.value.scaleGizmoEnabled = false
   }
-  _selectMesh(mesh, shift)
+  _selectMesh(mesh, isMulti)
 }
 function selectAll() {
   clearSelection()
@@ -361,13 +370,13 @@ function deleteSelectedMeshes() {
 function duplicateSelectedMeshes(meshes: AbstractMesh[]) {
   clearSelection()
 
-  let maxHeight = 0
+  let maxWidth = 0
   const clonedMeshes = meshes.map((mesh) => {
     const clonedMesh = mesh.clone(nanoid(), null)!
     addedMeshList.value.push(clonedMesh)
     selectMesh(clonedMesh, true)
 
-    const { height } = pipe(
+    const { width } = pipe(
       mesh.getHierarchyBoundingVectors(),
       ({ max, min }) => ({
         width: max.x - min.x,
@@ -375,12 +384,13 @@ function duplicateSelectedMeshes(meshes: AbstractMesh[]) {
       }),
     )
 
-    maxHeight = Math.max(maxHeight, height)
+    maxWidth = Math.max(maxWidth, width)
     return clonedMesh
   })
 
   clonedMeshes.forEach((clonedMesh) => {
-    clonedMesh.position.y += maxHeight * 1.5
+    clonedMesh.position.x += maxWidth * 1.5
+    clonedMesh.position.z += maxWidth * 1.5
   })
 
   commitHistory()
@@ -399,7 +409,15 @@ onKeyStroke((e) => {
 onKeyStroke((e) => ['a', 'A'].includes(e.key) && e.ctrlKey, selectAll, { dedupe: true })
 onKeyStroke(['Delete', 'Backspace'], deleteSelectedMeshes, { dedupe: true })
 onKeyStroke(['d', 'D'], () => duplicateSelectedMeshes(selectedMeshes.value), { dedupe: true })
-onKeyStroke(['Escape', 'Esc'], clearSelection, { dedupe: true })
+onKeyStroke(['Escape', 'Esc'], () => {
+  // 如果正在預覽，則先結束預覽，無任何預覽才取消選取
+  if (previewMesh.value) {
+    emit('cancelPreview')
+    return
+  }
+
+  clearSelection()
+}, { dedupe: true })
 onKeyStroke((e) => ['z', 'Z'].includes(e.key) && e.ctrlKey, undo, { dedupe: true })
 onKeyStroke((e) => ['y', 'Y'].includes(e.key) && e.ctrlKey, redo, { dedupe: true })
 
@@ -464,8 +482,8 @@ const contextMenuItems = computed(() => {
                 onSelect: () => {
                   animate(mesh.position, {
                     y: 0,
-                    duration: 400,
-                    ease: 'inOutCirc',
+                    duration: 800,
+                    ease: 'outBounce',
                     onComplete() {
                       commitHistory()
                     },
