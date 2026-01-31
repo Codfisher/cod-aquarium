@@ -7,37 +7,41 @@
 
     <template #body>
       <div class="flex flex-col gap-4 p-1">
-        <div class="grid grid-cols-2 gap-2">
-          <u-button
-            color="primary"
-            icon="i-heroicons:document-arrow-down"
-            @click="downloadJSON"
-          >
-            下載 JSON 檔案
-          </u-button>
-
-          <u-button
-            v-if="isSupported"
-            color="neutral"
-            variant="outline"
-            icon="i-heroicons:clipboard-document"
-            @click="copyToClipboard"
-          >
-            複製
-          </u-button>
-        </div>
-
         <div class="relative group">
           <div class="absolute right-2 top-2 text-xs text-gray-500 pointer-events-none">
             {{ props.meshList?.length || 0 }} objects
           </div>
 
-          <textarea
+          <u-textarea
+            autoresize
             readonly
-            class="w-full h-64 p-3 text-xs font-mono bg-gray-900 text-green-400 rounded-md border border-gray-700 focus:outline-none resize-none overflow-auto custom-scrollbar"
+            class="w-full"
+            :ui="{ base: 'bg-gray-900 text-green-400 min-h-6 font-mono resize-none text-xs' }"
             :value="jsonString"
           />
         </div>
+      </div>
+    </template>
+
+    <template #footer>
+      <div class="grid grid-cols-2 gap-2 w-full">
+        <u-button
+          color="primary"
+          icon="i-heroicons:document-arrow-down"
+          @click="downloadJSON"
+        >
+          下載 JSON 檔案
+        </u-button>
+
+        <u-button
+          v-if="isSupported"
+          color="neutral"
+          variant="outline"
+          icon="i-heroicons:clipboard-document"
+          @click="copyToClipboard"
+        >
+          複製
+        </u-button>
       </div>
     </template>
   </u-modal>
@@ -93,11 +97,10 @@ const extractedData = computed(() => {
     })
 })
 
-// 將資料轉為 JSON 字串，用於顯示與下載
 const jsonString = computed(() => {
   const json = JSON.stringify(extractedData.value, null, 2)
 
-  /** 把換行的矩陣換成單行 */
+  // 把換行的矩陣換成單行
   return json.replace(/\[[\d\s.,+\-e]+\]/g, (match) =>
     match.replace(/\s/g, '').replace(/,/g, ', '))
 })
@@ -129,16 +132,4 @@ async function copyToClipboard() {
 </script>
 
 <style scoped lang="sass">
-/* 自定義捲軸樣式 (讓預覽區好看一點) */
-.custom-scrollbar
-  &::-webkit-scrollbar
-    width: 8px
-    height: 8px
-  &::-webkit-scrollbar-track
-    background: #1f2937
-  &::-webkit-scrollbar-thumb
-    background: #4b5563
-    border-radius: 4px
-    &:hover
-      background: #6b7280
 </style>
