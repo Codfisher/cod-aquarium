@@ -17,10 +17,10 @@
 </template>
 
 <script setup lang="ts">
-import type { AbstractMesh, GizmoManager, Node } from '@babylonjs/core'
+import type { AbstractMesh, GizmoManager } from '@babylonjs/core'
 import type { ContextMenuItem } from '@nuxt/ui/.'
 import type { MeshMeta, ModelFile } from '../../type'
-import { ArcRotateCamera, Color3, Color4, HighlightLayer, ImportMeshAsync, Mesh, PointerEventTypes, Quaternion, Scalar, StandardMaterial, Vector3 } from '@babylonjs/core'
+import { ArcRotateCamera, Color3, Color4, ImportMeshAsync, Mesh, PointerEventTypes, Quaternion, Scalar, StandardMaterial, Vector3 } from '@babylonjs/core'
 import { onKeyStroke, useActiveElement, useMagicKeys, useThrottledRefHistory } from '@vueuse/core'
 import { animate } from 'animejs'
 import { nanoid } from 'nanoid'
@@ -50,7 +50,6 @@ defineSlots<{
 const mainStore = useMainStore()
 const {
   shift: shiftKey,
-  alt: altKey,
   g: gKey,
   s: sKey,
   r: rKey,
@@ -167,7 +166,6 @@ const { canvasRef, scene, camera } = useBabylonScene({
     const { scene, camera, engine } = params
     scene.activeCamera = camera
     scene.cameraToUseForPointers = camera
-    scene.clearColor = new Color4(1, 1, 1, 1)
 
     const sideCamera = pipe(
       createSideCamera({ scene, camera, engine }),

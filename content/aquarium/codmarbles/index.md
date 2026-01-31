@@ -5,7 +5,7 @@ layout: false
 ---
 
 <script setup>
-import CodMarbles from './cod-marbles.vue'
+import Codmarbles from './codmarbles.vue'
 </script>
 
-<cod-marbles />
+<codmarbles />
