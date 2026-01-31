@@ -2,7 +2,6 @@ import type { AssetContainer } from '@babylonjs/core'
 import type { ModelFile } from '../type'
 import {
   ArcRotateCamera,
-  Camera,
   Color4,
   Engine,
   FramingBehavior,

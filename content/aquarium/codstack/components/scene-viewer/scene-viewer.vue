@@ -20,7 +20,7 @@
 import type { AbstractMesh, GizmoManager, Node } from '@babylonjs/core'
 import type { ContextMenuItem } from '@nuxt/ui/.'
 import type { ModelFile } from '../../type'
-import { ArcRotateCamera, Color4, ImportMeshAsync, Mesh, PointerEventTypes, Quaternion, Scalar, Vector3 } from '@babylonjs/core'
+import { ArcRotateCamera, Color3, Color4, ImportMeshAsync, Mesh, PointerEventTypes, Quaternion, Scalar, StandardMaterial, Vector3 } from '@babylonjs/core'
 import { onKeyStroke, useActiveElement, useMagicKeys, useThrottledRefHistory } from '@vueuse/core'
 import { animate } from 'animejs'
 import { nanoid } from 'nanoid'
@@ -174,7 +174,58 @@ const { canvasRef, scene, camera } = useBabylonScene({
     scene.cameraToUseForPointers = camera
     scene.clearColor = new Color4(1, 1, 1, 1)
 
-    const sideCamera = createSideCamera({ scene, camera, engine })
+    const sideCamera = pipe(
+      createSideCamera({ scene, camera, engine }),
+      tap((sideCam) => {
+        /** x-ray 專用材質 */
+        const xRayMaterial = new StandardMaterial('xRayMat', scene)
+        xRayMaterial.diffuseColor = new Color3(0.8, 0.8, 0.8)
+        xRayMaterial.alpha = 0.5
+        xRayMaterial.disableDepthWrite = true
+
+        /** 儲存原本材質 */
+        const materialMap = new Map<number, any>()
+
+        // 加入 x-ray 效果
+        scene.onBeforeCameraRenderObservable.add((cam) => {
+          if (cam !== sideCam)
+            return
+
+          if (selectedMeshes.value.length === 0) {
+            return
+          }
+
+          // 紀錄被選取的 Mesh 及其所有子物件
+          const safeList = new Set<number>()
+          selectedMeshes.value.forEach((mesh) => {
+            safeList.add(mesh.uniqueId)
+            mesh.getChildMeshes(false).forEach((child) => safeList.add(child.uniqueId))
+          })
+
+          addedMeshList.value.forEach((mesh) => {
+            mesh.getChildMeshes().forEach((childMesh) => {
+              if (!safeList.has(childMesh.uniqueId) && childMesh !== ground) {
+                materialMap.set(childMesh.uniqueId, childMesh.material)
+                childMesh.material = xRayMaterial
+              }
+            })
+          })
+        })
+        scene.onAfterCameraRenderObservable.add((cam) => {
+          if (cam !== sideCam)
+            return
+
+          // 還原所有被改動過的 Mesh 材質
+          materialMap.forEach((originalMaterial, meshUniqueId) => {
+            const mesh = scene.getMeshByUniqueId(meshUniqueId)
+            if (mesh) {
+              mesh.material = originalMaterial
+            }
+          })
+          materialMap.clear()
+        })
+      }),
+    )
     gizmoManager.value = pipe(
       createGizmoManager({ scene, camera }),
       tap((gizmoManager) => {

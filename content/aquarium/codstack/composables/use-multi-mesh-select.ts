@@ -11,7 +11,7 @@ import {
   Quaternion,
   Vector3,
 } from '@babylonjs/core'
-import { useMagicKeys, whenever } from '@vueuse/core'
+import { whenever } from '@vueuse/core'
 import { shallowRef } from 'vue'
 
 interface UseMultiMeshSelectOptions {
@@ -22,8 +22,6 @@ export function useMultiMeshSelect({
   gizmoManager,
   scene,
 }: UseMultiMeshSelectOptions) {
-  const { escape: escapeKey } = useMagicKeys()
-
   const selectedMeshes = shallowRef<AbstractMesh[]>([])
   let selectionGroup: Mesh | null = null
   let highlightLayer: HighlightLayer | null = null
@@ -31,11 +29,7 @@ export function useMultiMeshSelect({
   const highlightColor = new Color3(0, 1, 1)
 
   /** 初始化中介容器 */
-  whenever(scene, () => {
-    const sceneValue = scene.value
-    if (!sceneValue)
-      return
-
+  whenever(scene, (sceneValue) => {
     selectionGroup = new Mesh('selectionGroup', sceneValue)
     selectionGroup.isPickable = false
     selectionGroup.renderingGroupId = 1
