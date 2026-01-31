@@ -1,9 +1,6 @@
 <template>
   <u-modal title="Help">
-    <u-icon
-      name="i-material-symbols:help-outline-rounded"
-      class=" size-12 opacity-30 p-2 cursor-pointer"
-    />
+    <slot />
 
     <template #body>
       <div class="[&>h2:not(:first-child)]:mt-3">

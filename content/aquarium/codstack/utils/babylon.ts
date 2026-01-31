@@ -1,4 +1,5 @@
 import type { AbstractMesh, Node } from '@babylonjs/core'
+import type { MeshMeta } from '../type'
 
 export function findTopLevelMesh(mesh: AbstractMesh, list: AbstractMesh[]): AbstractMesh | undefined {
   let current: Node | null = mesh
@@ -11,6 +12,6 @@ export function findTopLevelMesh(mesh: AbstractMesh, list: AbstractMesh[]): Abst
   return undefined
 }
 
-export function getMeshMeta<Meta>(mesh: AbstractMesh) {
+export function getMeshMeta<Meta = MeshMeta>(mesh: AbstractMesh) {
   return mesh.metadata as Meta | undefined
 }

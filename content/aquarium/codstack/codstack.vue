@@ -17,11 +17,28 @@
           @cancel-preview="cancelPreview"
         >
           <div class="flex absolute left-0 bottom-0 p-4 gap-2">
-            <help-btn />
+            <help-modal>
+              <u-icon
+                name="i-material-symbols:help-outline-rounded"
+                class=" size-12 opacity-30 p-2 cursor-pointer"
+              />
+            </help-modal>
           </div>
 
           <div class="flex absolute left-0 top-0 p-4 gap-2">
-            <export-btn :mesh-list="addedMeshList" />
+            <export-modal :mesh-list="addedMeshList">
+              <u-tooltip
+                text="Export scene"
+                :content="{ side: 'right' }"
+              >
+                <u-button
+                  icon="i-material-symbols:download-2-rounded"
+                  color="neutral"
+                  variant="subtle"
+                  size="xl"
+                />
+              </u-tooltip>
+            </export-modal>
           </div>
         </scene-viewer>
       </u-dashboard-group>
@@ -40,9 +57,9 @@
 <script setup lang="ts">
 import type { ModelFile } from './type'
 import { onBeforeUnmount, onMounted, shallowRef, watch } from 'vue'
-import ExportBtn from './components/export-btn.vue'
+import ExportModal from './components/export-modal.vue'
 import FilePreviewPanel from './components/file-preview-panel.vue'
-import HelpBtn from './components/help-btn.vue'
+import HelpModal from './components/help-modal.vue'
 import SceneViewer from './components/scene-viewer/scene-viewer.vue'
 import { useMainStore } from './stores/main-store'
 

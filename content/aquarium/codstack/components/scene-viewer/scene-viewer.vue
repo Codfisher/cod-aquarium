@@ -19,7 +19,7 @@
 <script setup lang="ts">
 import type { AbstractMesh, GizmoManager, Node } from '@babylonjs/core'
 import type { ContextMenuItem } from '@nuxt/ui/.'
-import type { ModelFile } from '../../type'
+import type { MeshMeta, ModelFile } from '../../type'
 import { ArcRotateCamera, Color3, Color4, HighlightLayer, ImportMeshAsync, Mesh, PointerEventTypes, Quaternion, Scalar, StandardMaterial, Vector3 } from '@babylonjs/core'
 import { onKeyStroke, useActiveElement, useMagicKeys, useThrottledRefHistory } from '@vueuse/core'
 import { animate } from 'animejs'
@@ -67,11 +67,6 @@ watch(() => mainStore.rootFsHandle, () => {
   })
   addedMeshList.value = []
 })
-
-interface MeshMeta {
-  name: string;
-  path: string;
-}
 
 interface MeshState {
   id: number;
@@ -507,7 +502,7 @@ const contextMenuItems = computed(() => {
         if (!mesh)
           return
 
-        const meta = getMeshMeta<MeshMeta>(mesh)
+        const meta = getMeshMeta(mesh)
 
         return [
           { label: meta?.name || 'Unknown Mesh', type: 'label' },

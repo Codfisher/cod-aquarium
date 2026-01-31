@@ -4,3 +4,8 @@ export interface ModelFile {
   path: string;
   file: File;
 }
+
+export interface MeshMeta {
+  name: string;
+  path: string;
+}
