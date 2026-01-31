@@ -80,8 +80,8 @@ const defaultParam: Required<UseBabylonSceneParam> = {
     camera.panningSensibility = 0
 
     camera.wheelDeltaPercentage = 0.01
-    camera.lowerRadiusLimit = 10
-    camera.upperRadiusLimit = 50
+    camera.lowerRadiusLimit = 20
+    camera.upperRadiusLimit = 100
 
     // 限制鏡頭角度
     camera.lowerBetaLimit = 0
