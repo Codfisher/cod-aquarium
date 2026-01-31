@@ -163,12 +163,12 @@
 </template>
 
 <script setup lang="ts">
-import type { ModelFile } from '../type'
+import type { ModelFile } from '../../type'
 import { useElementSize } from '@vueuse/core'
 import { chunk, pipe } from 'remeda'
 import { computed, reactive, ref, useTemplateRef } from 'vue'
-import { useMainStore } from '../stores/main-store'
-import ModelPreviewItem from './model-preview-item.vue'
+import { useMainStore } from '../../stores/main-store'
+import ModelPreviewItem from '../model-preview-item.vue'
 
 const toast = useToast()
 const mainStore = useMainStore()

@@ -46,7 +46,7 @@ function createMarble({ scene }: {
   scene: Scene;
 }) {
   const marble = MeshBuilder.CreateSphere('marble', {
-    diameter: 1,
+    diameter: 0.2,
     segments: 32,
   }, scene)
   marble.position = new Vector3(0, 5, 0)
@@ -56,7 +56,12 @@ function createMarble({ scene }: {
   marbleMaterial.diffuseColor = new Color3(0.1, 0.1, 0.1)
   marble.material = marbleMaterial
 
-  const sphereAggregate = new PhysicsAggregate(marble, PhysicsShapeType.SPHERE, { mass: 1, restitution: 0.75 }, scene)
+  const sphereAggregate = new PhysicsAggregate(
+    marble,
+    PhysicsShapeType.SPHERE,
+    { mass: 1, restitution: 0.5, friction: 0 },
+    scene,
+  )
 
   return marble
 }

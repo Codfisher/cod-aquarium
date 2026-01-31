@@ -29,7 +29,7 @@ import { computed, onBeforeUnmount, shallowRef, watch } from 'vue'
 import { useBabylonScene } from '../../composables/use-babylon-scene'
 import { useMultiMeshSelect } from '../../composables/use-multi-mesh-select'
 import { useMainStore } from '../../stores/main-store'
-import { findTopLevelMesh, getMeshMeta } from '../../utils/babylon'
+import { findTopLevelMesh, getMeshMeta, snapMeshToSurface } from '../../utils/babylon'
 import { getFileFromPath } from '../../utils/fs'
 import { roundToStep } from '../../utils/math'
 import { createGizmoManager, createGround, createSideCamera } from './creator'
@@ -246,19 +246,42 @@ const { canvasRef, scene, camera } = useBabylonScene({
         if (!previewMesh.value || !ground)
           return
 
-        // 針對地面射線檢測
+        // 針對地面、已放置 mesh 進行射線檢測
         const pickInfo = scene.pick(
           scene.pointerX,
           scene.pointerY,
-          (mesh) => mesh === ground,
+          (mesh) => {
+            if (!mesh.isEnabled() || mesh === previewMesh.value) {
+              return false
+            }
+
+            if (mesh === ground)
+              return true
+
+            // 從被打到的 mesh 開始，一路往上找 parent
+            let currentMesh = mesh
+            while (currentMesh) {
+              if (addedMeshList.value.includes(currentMesh)) {
+                return true
+              }
+              currentMesh = currentMesh.parent as AbstractMesh
+            }
+
+            return false
+          },
           false,
           camera,
         )
 
         if (pickInfo.hit && pickInfo.pickedPoint) {
-          const x = roundToStep(pickInfo.pickedPoint.x, previewSnapUnit.value)
-          const z = roundToStep(pickInfo.pickedPoint.z, previewSnapUnit.value)
-          mouseTargetPosition.set(x, 0, z)
+          const target = snapMeshToSurface(previewMesh.value, pickInfo)
+          if (target) {
+            if (pickInfo.pickedMesh === ground) {
+              target.x = roundToStep(target.x, previewSnapUnit.value)
+              target.z = roundToStep(target.z, previewSnapUnit.value)
+            }
+            mouseTargetPosition.copyFrom(target)
+          }
         }
       }
 

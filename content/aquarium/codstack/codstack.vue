@@ -58,7 +58,7 @@
 import type { ModelFile } from './type'
 import { onBeforeUnmount, onMounted, shallowRef, watch } from 'vue'
 import ExportModal from './components/export-modal.vue'
-import FilePreviewPanel from './components/file-preview-panel.vue'
+import FilePreviewPanel from './components/file-preview-panel/file-preview-panel.vue'
 import HelpModal from './components/help-modal.vue'
 import SceneViewer from './components/scene-viewer/scene-viewer.vue'
 import { useMainStore } from './stores/main-store'

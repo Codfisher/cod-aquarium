@@ -79,8 +79,8 @@ export async function createTrackSegment({ scene }: {
     if (geometryMesh) {
       const partAggregate = new PhysicsAggregate(
         geometryMesh,
-        PhysicsShapeType.CONVEX_HULL,
-        { mass: 0, restitution: 0 },
+        PhysicsShapeType.MESH,
+        { mass: 0, restitution: 0.5, friction: 0 },
         scene,
       )
     }
