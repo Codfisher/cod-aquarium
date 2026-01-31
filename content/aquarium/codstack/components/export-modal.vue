@@ -1,26 +1,19 @@
 <template>
   <u-modal
     title="Export Scene"
+    :description="`${validMeshList.length} objects`"
     @update:open="handleOpen"
   >
     <slot />
 
     <template #body>
-      <div class="flex flex-col gap-4 p-1">
-        <div class="relative group">
-          <div class="absolute right-2 top-2 text-xs text-gray-500 pointer-events-none">
-            {{ props.meshList?.length || 0 }} objects
-          </div>
-
-          <u-textarea
-            autoresize
-            readonly
-            class="w-full"
-            :ui="{ base: 'bg-gray-900 text-green-400 min-h-6 font-mono resize-none text-xs' }"
-            :value="jsonString"
-          />
-        </div>
-      </div>
+      <u-textarea
+        autoresize
+        readonly
+        class="w-full"
+        :ui="{ base: 'bg-gray-900 text-green-400 font-mono resize-none text-xs' }"
+        :value="jsonString"
+      />
     </template>
 
     <template #footer>
@@ -73,28 +66,30 @@ function handleOpen() {
 
 const rootName = computed(() => mainStore.rootFsHandle?.name ?? '')
 
-const extractedData = computed(() => {
+const validMeshList = computed(() => {
   // 依賴 openedAt，確保每次打開都重新計算
   const value = openedAt.value
 
-  if (!props.meshList)
+  return props.meshList.filter((mesh) => mesh.isEnabled())
+})
+
+const extractedData = computed(() => {
+  if (!validMeshList.value.length)
     return []
 
-  return props.meshList
-    .filter((mesh) => mesh.isEnabled())
-    .map((mesh) => {
-      // 處理旋轉：優先使用 Quaternion，若無則從 Euler 轉換
-      const quaternion = mesh.rotationQuaternion ?? Quaternion.RotationYawPitchRoll(mesh.rotation.y, mesh.rotation.x, mesh.rotation.z)
-      const meta = getMeshMeta(mesh)
-      const path = meta?.path ?? ''
+  return validMeshList.value.map((mesh) => {
+    // 處理旋轉：優先使用 Quaternion，若無則從 Euler 轉換
+    const quaternion = mesh.rotationQuaternion ?? Quaternion.RotationYawPitchRoll(mesh.rotation.y, mesh.rotation.x, mesh.rotation.z)
+    const meta = getMeshMeta(mesh)
+    const path = meta?.path ?? ''
 
-      return {
-        path: `${rootName.value}/${path}`,
-        position: mesh.position.asArray().map(cleanFloat),
-        rotationQuaternion: quaternion.asArray().map(cleanFloat),
-        scaling: mesh.scaling.asArray().map(cleanFloat),
-      }
-    })
+    return {
+      path: `${rootName.value}/${path}`,
+      position: mesh.position.asArray().map(cleanFloat),
+      rotationQuaternion: quaternion.asArray().map(cleanFloat),
+      scaling: mesh.scaling.asArray().map(cleanFloat),
+    }
+  })
 })
 
 const jsonString = computed(() => {
