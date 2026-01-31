@@ -1,20 +1,23 @@
 <template>
   <client-only>
-    <u-app :toaster="{
-      position: 'top-right',
-    }">
+    <u-app
+      :toaster="{
+        position: 'top-right',
+      }"
+    >
       <u-dashboard-group storage="local">
         <u-dashboard-sidebar :default-size="25">
           <file-preview-panel v-model:selected-model-file="selectedModelFile" />
         </u-dashboard-sidebar>
 
         <scene-viewer
+          v-slot="{ addedMeshList }"
           class="w-full h-full"
           :selected-model-file="selectedModelFile"
           @cancel-preview="selectedModelFile = undefined"
         >
           <div class="flex absolute left-0 top-0 p-4 gap-2">
-            <export-btn />
+            <export-btn :mesh-list="addedMeshList" />
           </div>
         </scene-viewer>
       </u-dashboard-group>

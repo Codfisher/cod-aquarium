@@ -33,6 +33,7 @@ import { computed, onBeforeUnmount, shallowRef, watch } from 'vue'
 import { useBabylonScene } from '../../composables/use-babylon-scene'
 import { useMultiMeshSelect } from '../../composables/use-multi-mesh-select'
 import { useMainStore } from '../../stores/main-store'
+import { findTopLevelMesh, getMeshMeta } from '../../utils/babylon'
 import { getFileFromPath } from '../../utils/fs'
 import HelpBtn from '../help-btn.vue'
 import { createGizmoManager, createGround, createSideCamera } from './creator'
@@ -59,7 +60,7 @@ const {
   r: rKey,
 } = useMagicKeys()
 
-/** 當前預覽的模型 */
+/** 目前預覽的模型 */
 const previewMesh = shallowRef<AbstractMesh>()
 /** 已新增的模型 */
 const addedMeshList = shallowRef<AbstractMesh[]>([])
@@ -67,9 +68,6 @@ const addedMeshList = shallowRef<AbstractMesh[]>([])
 interface MeshMeta {
   name: string;
   path: string;
-}
-function getMeshMeta(mesh: AbstractMesh) {
-  return mesh.metadata as MeshMeta | undefined
 }
 
 interface MeshState {
@@ -172,17 +170,6 @@ function snapToGrid(value: number) {
   return Math.round(value / snapUnit.value) * snapUnit.value
 }
 const mouseTargetPosition = new Vector3(0, 0, 0)
-
-function findTopLevelMesh(mesh: AbstractMesh, list: AbstractMesh[]): AbstractMesh | undefined {
-  let current: Node | null = mesh
-  while (current) {
-    if (list.includes(current as AbstractMesh)) {
-      return current as AbstractMesh
-    }
-    current = current.parent
-  }
-  return undefined
-}
 
 const { canvasRef, scene, camera } = useBabylonScene({
   async init(params) {
@@ -351,7 +338,10 @@ const {
   ungroup,
 } = useMultiMeshSelect({ gizmoManager, scene })
 
-/** 選取 Mesh 時，關閉所有 Gizmo 小工具，需使用快捷鍵開啟 */
+/** 選取 Mesh 時，關閉所有 Gizmo 小工具，需使用快捷鍵開啟
+ *
+ * 二次封裝 useMultiMeshSelect 提供的 selectMesh，
+ */
 function selectMesh(mesh: AbstractMesh, shift: boolean) {
   if (gizmoManager.value) {
     gizmoManager.value.positionGizmoEnabled = false
@@ -360,7 +350,6 @@ function selectMesh(mesh: AbstractMesh, shift: boolean) {
   }
   _selectMesh(mesh, shift)
 }
-
 function selectAll() {
   clearSelection()
   addedMeshList.value.forEach((mesh) => {
@@ -460,7 +449,7 @@ const contextMenuItems = computed(() => {
         if (!mesh)
           return
 
-        const meta = getMeshMeta(mesh)
+        const meta = getMeshMeta<MeshMeta>(mesh)
 
         return [
           { label: meta?.name || 'Unknown Mesh', type: 'label' },
