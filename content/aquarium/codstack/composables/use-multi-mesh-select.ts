@@ -1,5 +1,6 @@
 import type {
   AbstractMesh,
+  Camera,
   GizmoManager,
   Scene,
 } from '@babylonjs/core'
@@ -17,10 +18,12 @@ import { shallowRef } from 'vue'
 interface UseMultiMeshSelectOptions {
   gizmoManager: Ref<GizmoManager | undefined>;
   scene: Ref<Scene | undefined>;
+  camera: Ref<Camera | undefined>;
 }
 export function useMultiMeshSelect({
   gizmoManager,
   scene,
+  camera,
 }: UseMultiMeshSelectOptions) {
   const selectedMeshes = shallowRef<AbstractMesh[]>([])
   let selectionGroup: Mesh | null = null
@@ -44,6 +47,7 @@ export function useMultiMeshSelect({
       mainTextureRatio: 2,
       blurHorizontalSize: 1,
       blurVerticalSize: 1,
+      camera: camera.value,
     })
     highlightLayer.innerGlow = false
   })

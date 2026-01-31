@@ -20,7 +20,7 @@
 import type { AbstractMesh, GizmoManager, Node } from '@babylonjs/core'
 import type { ContextMenuItem } from '@nuxt/ui/.'
 import type { ModelFile } from '../../type'
-import { ArcRotateCamera, Color3, Color4, ImportMeshAsync, Mesh, PointerEventTypes, Quaternion, Scalar, StandardMaterial, Vector3 } from '@babylonjs/core'
+import { ArcRotateCamera, Color3, Color4, HighlightLayer, ImportMeshAsync, Mesh, PointerEventTypes, Quaternion, Scalar, StandardMaterial, Vector3 } from '@babylonjs/core'
 import { onKeyStroke, useActiveElement, useMagicKeys, useThrottledRefHistory } from '@vueuse/core'
 import { animate } from 'animejs'
 import { nanoid } from 'nanoid'
@@ -180,13 +180,13 @@ const { canvasRef, scene, camera } = useBabylonScene({
         /** x-ray 專用材質 */
         const xRayMaterial = new StandardMaterial('xRayMat', scene)
         xRayMaterial.diffuseColor = new Color3(0.8, 0.8, 0.8)
-        xRayMaterial.alpha = 0.5
+        xRayMaterial.alpha = 0.4
         xRayMaterial.disableDepthWrite = true
 
         /** 儲存原本材質 */
         const materialMap = new Map<number, any>()
 
-        // 加入 x-ray 效果
+        // 加入 x-ray 效果，將 material 臨時替換成 xRayMaterial 即可
         scene.onBeforeCameraRenderObservable.add((cam) => {
           if (cam !== sideCam)
             return
@@ -385,7 +385,7 @@ const {
   selectMesh: _selectMesh,
   clearSelection,
   ungroup,
-} = useMultiMeshSelect({ gizmoManager, scene })
+} = useMultiMeshSelect({ gizmoManager, scene, camera })
 
 /** 選取 Mesh 時，關閉所有 Gizmo 小工具，需使用快捷鍵開啟
  *
