@@ -16,6 +16,10 @@
           :selected-model-file="selectedModelFile"
           @cancel-preview="selectedModelFile = undefined"
         >
+          <div class="flex absolute left-0 bottom-0 p-4 gap-2">
+            <help-btn />
+          </div>
+
           <div class="flex absolute left-0 top-0 p-4 gap-2">
             <export-btn :mesh-list="addedMeshList" />
           </div>
@@ -39,6 +43,7 @@ import { useMagicKeys, whenever } from '@vueuse/core'
 import { onBeforeUnmount, onMounted, shallowRef, watch } from 'vue'
 import ExportBtn from './components/export-btn.vue'
 import FilePreviewPanel from './components/file-preview-panel.vue'
+import HelpBtn from './components/help-btn.vue'
 import SceneViewer from './components/scene-viewer/scene-viewer.vue'
 import { useMainStore } from './stores/main-store'
 

@@ -111,16 +111,13 @@ export function createGizmoManager({
 
   const { gizmos } = gizmoManager
   if (gizmos?.positionGizmo) {
-    gizmos.positionGizmo.snapDistance = 0.5
     gizmos.positionGizmo.planarGizmoEnabled = false
     gizmos.positionGizmo.gizmoLayer.setRenderCamera(camera)
   }
   if (gizmos?.rotationGizmo) {
-    gizmos.rotationGizmo.snapDistance = Math.PI / 180 * 5
     gizmos.rotationGizmo.gizmoLayer.setRenderCamera(camera)
   }
   if (gizmos?.scaleGizmo) {
-    gizmos.scaleGizmo.snapDistance = 0.5
     gizmos.scaleGizmo.gizmoLayer.setRenderCamera(camera)
   }
 

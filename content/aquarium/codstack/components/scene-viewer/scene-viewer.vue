@@ -12,10 +12,6 @@
       />
     </u-context-menu>
 
-    <div class="flex absolute left-0 bottom-0 p-4 gap-2">
-      <help-btn />
-    </div>
-
     <slot :added-mesh-list />
   </div>
 </template>
@@ -35,7 +31,7 @@ import { useMultiMeshSelect } from '../../composables/use-multi-mesh-select'
 import { useMainStore } from '../../stores/main-store'
 import { findTopLevelMesh, getMeshMeta } from '../../utils/babylon'
 import { getFileFromPath } from '../../utils/fs'
-import HelpBtn from '../help-btn.vue'
+import { roundToStep } from '../../utils/math'
 import { createGizmoManager, createGround, createSideCamera } from './creator'
 import '@babylonjs/loaders'
 
@@ -131,16 +127,15 @@ const {
 
 /** 旋轉縮放的工具 */
 const gizmoManager = shallowRef<GizmoManager>()
-watch(() => ({ shiftKey, altKey }), ({ shiftKey, altKey }) => {
+watch(() => shiftKey?.value, (shiftKeyValue) => {
   const gizmos = gizmoManager.value?.gizmos
   if (gizmos?.positionGizmo && gizmos?.scaleGizmo) {
-    const snapValue = altKey?.value ? 0 : shiftKey?.value ? 0.1 : 0.5
+    const snapValue = shiftKeyValue ? 0.1 : 0
     gizmos.scaleGizmo.snapDistance = snapValue
     gizmos.positionGizmo.snapDistance = snapValue
   }
   if (gizmos?.rotationGizmo) {
-    const snapValue = altKey?.value ? 0 : shiftKey?.value ? Math.PI / 180 : Math.PI / 180 * 5
-    gizmos.rotationGizmo.snapDistance = snapValue
+    gizmos.rotationGizmo.snapDistance = shiftKeyValue ? Math.PI / 180 : 0
   }
 }, { deep: true })
 
@@ -159,16 +154,10 @@ watch(() => [gKey?.value, sKey?.value, rKey?.value], ([g, s, r]) => {
   gizmoManagerValue.scaleGizmoEnabled = !!s
 }, { deep: true })
 
-/** 網格吸附單位 */
-const snapUnit = computed(() => shiftKey?.value ? 0.1 : 0.5)
-/** 按住 alt 為自由移動 */
-function snapToGrid(value: number) {
-  if (altKey?.value) {
-    return value
-  }
+/** 預覽時的網格吸附單位 */
+const previewSnapUnit = computed(() => shiftKey?.value ? 0.1 : 0.5)
 
-  return Math.round(value / snapUnit.value) * snapUnit.value
-}
+/** 滑鼠於地面的目標位置 */
 const mouseTargetPosition = new Vector3(0, 0, 0)
 
 const { canvasRef, scene, camera } = useBabylonScene({
@@ -216,8 +205,8 @@ const { canvasRef, scene, camera } = useBabylonScene({
         )
 
         if (pickInfo.hit && pickInfo.pickedPoint) {
-          const x = snapToGrid(pickInfo.pickedPoint.x)
-          const z = snapToGrid(pickInfo.pickedPoint.z)
+          const x = roundToStep(pickInfo.pickedPoint.x, previewSnapUnit.value)
+          const z = roundToStep(pickInfo.pickedPoint.z, previewSnapUnit.value)
           mouseTargetPosition.set(x, 0, z)
         }
       }
