@@ -61,12 +61,6 @@ const defaultParam: Required<UseBabylonSceneParam> = {
     }
 
     scene.clearColor = new Color4(1, 1, 1, 1)
-
-    scene.fogMode = Scene.FOGMODE_LINEAR
-    scene.fogColor = new Color3(0.9, 0.9, 0.9)
-    scene.fogStart = 40
-    scene.fogEnd = 100
-
     return scene
   },
   createCamera({ scene, canvas }) {
@@ -90,7 +84,7 @@ const defaultParam: Required<UseBabylonSceneParam> = {
 
     camera.wheelDeltaPercentage = 0.01
     camera.lowerRadiusLimit = 5
-    camera.upperRadiusLimit = 30
+    camera.upperRadiusLimit = 50
 
     // 限制鏡頭角度
     camera.lowerBetaLimit = 0
