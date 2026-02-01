@@ -24,6 +24,7 @@ import { ArcRotateCamera, Color3, Color4, ImportMeshAsync, KeyboardEventTypes, M
 import { onKeyStroke, useActiveElement, useEventListener, useMagicKeys, useThrottledRefHistory } from '@vueuse/core'
 import { animate } from 'animejs'
 import { nanoid } from 'nanoid'
+import { storeToRefs } from 'pinia'
 import { filter, isTruthy, pipe, tap } from 'remeda'
 import { computed, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { useBabylonScene } from '../../composables/use-babylon-scene'
@@ -50,6 +51,7 @@ defineSlots<{
 
 const mainStore = useMainStore()
 const sceneStore = useSceneStore()
+const { settings: sceneSettings } = storeToRefs(sceneStore)
 
 const {
   shift: shiftKey,
@@ -309,7 +311,9 @@ const { canvasRef, scene, camera } = useBabylonScene({
         )
 
         if (pickInfo.hit && pickInfo.pickedPoint) {
-          const target = snapMeshToSurface(previewMesh.value, pickInfo)
+          const target = snapMeshToSurface(previewMesh.value, pickInfo, {
+            updateRotation: sceneSettings.value.enablePreviewRotation,
+          })
           if (target) {
             if (pickInfo.pickedMesh === ground) {
               target.x = roundToStep(target.x, previewSnapUnit.value)
