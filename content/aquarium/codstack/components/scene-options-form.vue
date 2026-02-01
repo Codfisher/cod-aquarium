@@ -2,7 +2,7 @@
   <u-form
     :state="optionForm"
     :schema="optionSchema"
-    class="w-full p-4"
+    class="w-full p-4 flex flex-col gap-4"
   >
     <u-form-field
       as="label"
@@ -27,7 +27,10 @@
 </template>
 
 <script setup lang="ts">
+import { clone } from 'remeda'
+import { ref, watch } from 'vue'
 import z from 'zod/v4'
+import { useSceneStore } from '../domains/scene/scene-store'
 
 interface Props {
   label?: string;
@@ -40,9 +43,7 @@ const emit = defineEmits<{
   'update:model-value': [value: string];
 }>()
 
-defineSlots<{
-  default: (props: { msg: string }) => any;
-}>()
+const sceneStore = useSceneStore()
 
 const optionSchema = z.object({
   /** 預覽時是否要旋轉 */
@@ -51,12 +52,11 @@ const optionSchema = z.object({
   previewBaseY: z.number().default(0),
 })
 
-const optionForm = defineModel<z.infer<typeof optionSchema>>({
-  default: {
-    enablePreviewRotation: false,
-    previewBaseY: 0,
-  },
-})
+const optionForm = ref(clone(sceneStore.settings))
+
+watch(optionForm, (newValue) => {
+  sceneStore.patchSettings(newValue)
+}, { deep: true })
 </script>
 
 <style scoped lang="sass">

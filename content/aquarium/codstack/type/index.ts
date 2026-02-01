@@ -11,6 +11,8 @@ export interface MeshMeta {
 }
 
 export interface SceneSettings {
-  name: string;
-  path: string;
+  /** 預覽時是否要旋轉 */
+  enablePreviewRotation: boolean;
+  /** 預覽模型的垂直軸起點 */
+  previewBaseY: number;
 }
