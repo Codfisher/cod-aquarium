@@ -10,6 +10,55 @@
         ref="canvasRef"
         class="w-full h-full outline-none"
       />
+
+      <template
+        v-if="selectedMeshes[0]"
+        #metadata
+      >
+        <div
+          class="flex flex-col gap-1"
+          @pointermove.stop
+        >
+          <u-form-field
+            label="name"
+            orientation="horizontal"
+          >
+            <u-input v-model="selectedMeshes[0].metadata.name" />
+          </u-form-field>
+
+          <u-separator class="my-1" />
+
+          <u-form-field
+            label="mass"
+            orientation="horizontal"
+          >
+            <u-input
+              v-model="selectedMeshes[0].metadata.mass"
+              type="number"
+            />
+          </u-form-field>
+
+          <u-form-field
+            label="restitution"
+            orientation="horizontal"
+          >
+            <u-input
+              v-model="selectedMeshes[0].metadata.restitution"
+              type="number"
+            />
+          </u-form-field>
+
+          <u-form-field
+            label="friction"
+            orientation="horizontal"
+          >
+            <u-input
+              v-model="selectedMeshes[0].metadata.friction"
+              type="number"
+            />
+          </u-form-field>
+        </div>
+      </template>
     </u-context-menu>
 
     <slot :added-mesh-list />
@@ -20,8 +69,8 @@
 import type { AbstractMesh, GizmoManager } from '@babylonjs/core'
 import type { ContextMenuItem } from '@nuxt/ui/.'
 import type { MeshMeta, ModelFile } from '../../type'
-import { ArcRotateCamera, Color3, Color4, ImportMeshAsync, KeyboardEventTypes, Mesh, PointerEventTypes, Quaternion, Scalar, StandardMaterial, Vector3 } from '@babylonjs/core'
-import { onKeyStroke, useActiveElement, useEventListener, useMagicKeys, useThrottledRefHistory } from '@vueuse/core'
+import { ArcRotateCamera, Color3, ImportMeshAsync, Mesh, PointerEventTypes, Quaternion, Scalar, StandardMaterial, Vector3 } from '@babylonjs/core'
+import { onKeyStroke, useActiveElement, useMagicKeys, useThrottledRefHistory } from '@vueuse/core'
 import { animate } from 'animejs'
 import { nanoid } from 'nanoid'
 import { storeToRefs } from 'pinia'
@@ -600,6 +649,16 @@ const contextMenuItems = computed(() => {
         return [
           { label: meta?.fileName || 'Unknown Mesh', type: 'label' },
           {
+            icon: 'i-material-symbols:database',
+            label: 'Metadata',
+            children: [
+              {
+                slot: 'metadata',
+                onSelect: (e) => e.preventDefault(),
+              },
+            ] satisfies ContextMenuItem[],
+          },
+          {
             icon: 'hugeicons:three-d-move',
             label: 'Position',
             children: [
@@ -850,6 +909,7 @@ async function loadPreviewModel(modelFile: ModelFile) {
     root.getChildMeshes().forEach((mesh) => mesh.isPickable = false)
 
     root.metadata = {
+      name: '',
       fileName: modelFile.name,
       path: modelFile.path,
       mass: 0,

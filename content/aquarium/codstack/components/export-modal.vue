@@ -88,6 +88,14 @@ const extractedData = computed(() => {
       position: mesh.position.asArray().map(cleanFloat),
       rotationQuaternion: quaternion.asArray().map(cleanFloat),
       scaling: mesh.scaling.asArray().map(cleanFloat),
+      metadata: meta
+        ? {
+            name: meta?.name,
+            mass: meta?.mass,
+            restitution: meta?.restitution,
+            friction: meta?.friction,
+          }
+        : undefined,
     }
   })
 })

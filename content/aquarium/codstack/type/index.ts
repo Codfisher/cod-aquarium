@@ -6,6 +6,8 @@ export interface ModelFile {
 }
 
 export interface MeshMeta {
+  /** 自定義 mesh 名稱 */
+  name: string;
   fileName: string;
   path: string;
 
