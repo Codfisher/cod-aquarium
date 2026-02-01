@@ -7,23 +7,31 @@
     <u-form-field
       as="label"
       label="Enable Preview Rotation"
-      description="When enabled, objects will automatically rotate and stay perpendicular to the surface."
       v-bind="fieldProps"
     >
       <u-checkbox v-model="optionForm.enablePreviewRotation" />
+
+      <template #description>
+        Hold <u-kbd value="Alt" /> (Option) to temporarily enable Surface Align. The preview will rotate to stay
+        perpendicular to the surface. Release to turn it off.
+      </template>
     </u-form-field>
 
     <u-form-field
-      label="Preview Base Y"
-      description="Prevents objects from sinking below the floor during preview. You can also hold Alt + scroll wheel to adjust the vertical offset of the preview model in real-time."
+      label="Preview Ground Y Offset"
       v-bind="fieldProps"
     >
       <u-input-number
-        v-model="optionForm.previewBaseY"
+        v-model="optionForm.previewGroundYOffset"
         :min="-10"
         :max="10"
         :step="0.5"
       />
+
+      <template #description>
+        Adds a small Y offset when the preview is on the ground to prevent it from clipping into the floor. Use
+        <u-kbd value="Q" /> or <u-kbd value="E" /> to adjust the preview height in real time.
+      </template>
     </u-form-field>
   </u-form>
 </template>
@@ -56,7 +64,7 @@ const optionSchema = z.object({
   /** 預覽時是否要旋轉 */
   enablePreviewRotation: z.boolean().default(false),
   /** 預覽模型的垂直軸起點 */
-  previewBaseY: z.number().default(0),
+  previewGroundYOffset: z.number().default(0),
 })
 
 const optionForm = ref(clone(sceneStore.settings))

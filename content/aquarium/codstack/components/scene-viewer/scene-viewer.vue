@@ -55,11 +55,10 @@ const { settings: sceneSettings } = storeToRefs(sceneStore)
 
 const {
   shift: shiftKey,
+  alt: altKey,
   g: gKey,
   s: sKey,
   r: rKey,
-  q: qKey,
-  e: eKey,
 } = useMagicKeys()
 
 /** 目前預覽的模型 */
@@ -312,14 +311,15 @@ const { canvasRef, scene, camera } = useBabylonScene({
 
         if (pickInfo.hit && pickInfo.pickedPoint) {
           const target = snapMeshToSurface(previewMesh.value, pickInfo, {
-            updateRotation: sceneSettings.value.enablePreviewRotation,
+            updateRotation: altKey?.value || sceneSettings.value.enablePreviewRotation,
           })
           if (target) {
             if (pickInfo.pickedMesh === ground) {
               target.x = roundToStep(target.x, previewSnapUnit.value)
               target.z = roundToStep(target.z, previewSnapUnit.value)
+              target.y = sceneStore.settings.previewGroundYOffset
             }
-            target.y += sceneStore.settings.previewBaseY + previewVerticalOffset.value
+            target.y += previewVerticalOffset.value
             mouseTargetPosition.copyFrom(target)
           }
         }
@@ -400,9 +400,20 @@ const { canvasRef, scene, camera } = useBabylonScene({
       // 不同 FPS 也會保持一致手感
       const t = 1 - Math.exp(-16 * dt)
 
-      mesh.position.x += (mouseTargetPosition.x - mesh.position.x) * t
-      mesh.position.y += (mouseTargetPosition.y - mesh.position.y + previewVerticalOffset.value) * t
-      mesh.position.z += (mouseTargetPosition.z - mesh.position.z) * t
+      // 依照 Mesh 的自身垂直方向調整位移
+      const upDirection = pipe(
+        mesh.getDirection(Vector3.Up()),
+        tap((dir) => {
+          if (dir.lengthSquared() > 0) {
+            dir.normalize()
+          }
+          dir.scaleInPlace(previewVerticalOffset.value + sceneSettings.value.previewGroundYOffset)
+        }),
+      )
+
+      mesh.position.x += (mouseTargetPosition.x - mesh.position.x + upDirection.x) * t
+      mesh.position.y += (mouseTargetPosition.y - mesh.position.y + upDirection.y) * t
+      mesh.position.z += (mouseTargetPosition.z - mesh.position.z + upDirection.z) * t
     })
   },
 })

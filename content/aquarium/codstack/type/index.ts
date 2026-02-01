@@ -13,6 +13,6 @@ export interface MeshMeta {
 export interface SceneSettings {
   /** 預覽時是否要旋轉 */
   enablePreviewRotation: boolean;
-  /** 預覽模型的垂直軸起點 */
-  previewBaseY: number;
+  /** 於 ground 上，預覽模型的垂直軸起點 */
+  previewGroundYOffset: number;
 }

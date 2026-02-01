@@ -44,6 +44,9 @@ export function snapMeshToSurface(
     Quaternion.FromUnitVectorsToRef(Vector3.Up(), normal, rotationQuaternion)
     mesh.rotationQuaternion = rotationQuaternion
   }
+  else {
+    mesh.rotationQuaternion = Quaternion.Identity()
+  }
 
   // 強制更新矩陣
   mesh.computeWorldMatrix(true)

@@ -6,7 +6,7 @@ import { computed, ref, shallowRef } from 'vue'
 export const useSceneStore = defineStore('scene', () => {
   const settings = ref<SceneSettings>({
     enablePreviewRotation: false,
-    previewBaseY: 0,
+    previewGroundYOffset: 0,
   })
   function patchSettings(newSettings: Partial<SceneSettings>) {
     settings.value = { ...settings.value, ...newSettings }
