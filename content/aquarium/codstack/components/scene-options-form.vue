@@ -7,14 +7,16 @@
     <u-form-field
       as="label"
       label="Enable Preview Rotation"
-      orientation="horizontal"
+      description="When enabled, objects will automatically rotate and stay perpendicular to the surface."
+      v-bind="fieldProps"
     >
       <u-checkbox v-model="optionForm.enablePreviewRotation" />
     </u-form-field>
 
     <u-form-field
       label="Preview Base Y"
-      orientation="horizontal"
+      description="Prevents objects from sinking below the floor during preview."
+      v-bind="fieldProps"
     >
       <u-input-number
         v-model="optionForm.previewBaseY"
@@ -44,6 +46,11 @@ const emit = defineEmits<{
 }>()
 
 const sceneStore = useSceneStore()
+
+const fieldProps = {
+  orientation: 'horizontal',
+  ui: { description: 'text-xs opacity-50' },
+}
 
 const optionSchema = z.object({
   /** 預覽時是否要旋轉 */

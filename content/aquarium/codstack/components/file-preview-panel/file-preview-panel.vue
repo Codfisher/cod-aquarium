@@ -30,7 +30,7 @@
         />
 
         <template #content>
-          <scene-options-form />
+          <scene-options-form class="w-[25vw]" />
         </template>
       </u-popover>
     </div>

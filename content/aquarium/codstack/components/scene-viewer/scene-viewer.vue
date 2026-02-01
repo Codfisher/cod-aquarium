@@ -28,6 +28,7 @@ import { filter, isTruthy, pipe, tap } from 'remeda'
 import { computed, onBeforeUnmount, shallowRef, watch } from 'vue'
 import { useBabylonScene } from '../../composables/use-babylon-scene'
 import { useMultiMeshSelect } from '../../composables/use-multi-mesh-select'
+import { useSceneStore } from '../../domains/scene/scene-store'
 import { useMainStore } from '../../stores/main-store'
 import { findTopLevelMesh, getMeshMeta, snapMeshToSurface } from '../../utils/babylon'
 import { getFileFromPath } from '../../utils/fs'
@@ -48,6 +49,8 @@ defineSlots<{
 }>()
 
 const mainStore = useMainStore()
+const sceneStore = useSceneStore()
+
 const {
   shift: shiftKey,
   g: gKey,
@@ -280,6 +283,7 @@ const { canvasRef, scene, camera } = useBabylonScene({
               target.x = roundToStep(target.x, previewSnapUnit.value)
               target.z = roundToStep(target.z, previewSnapUnit.value)
             }
+            target.y += sceneStore.settings.previewBaseY
             mouseTargetPosition.copyFrom(target)
           }
         }

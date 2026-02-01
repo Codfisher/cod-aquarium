@@ -20,7 +20,7 @@
       <div class="grid grid-cols-2 gap-2 w-full">
         <u-button
           color="primary"
-          icon="i-heroicons:document-arrow-down"
+          icon="i-material-symbols:download-2-rounded"
           @click="downloadJSON"
         >
           下載 JSON 檔案
@@ -30,7 +30,7 @@
           v-if="isSupported"
           color="neutral"
           variant="outline"
-          icon="i-heroicons:clipboard-document"
+          icon="i-material-symbols:content-copy-rounded"
           @click="copyToClipboard"
         >
           複製
