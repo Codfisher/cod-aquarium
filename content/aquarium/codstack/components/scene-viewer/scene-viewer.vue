@@ -83,7 +83,7 @@ import { useMainStore } from '../../stores/main-store'
 import { findTopLevelMesh, getMeshMeta, snapMeshToSurface } from '../../utils/babylon'
 import { getFileFromPath } from '../../utils/fs'
 import { roundToStep } from '../../utils/math'
-import { createGizmoManager, createGround, createSideCamera } from './creator'
+import { createGizmoManager, createGround, createSideCamera, createTopCamera } from './creator'
 import '@babylonjs/loaders'
 
 const props = defineProps<{
@@ -289,29 +289,116 @@ const { canvasRef, scene, camera } = useBabylonScene({
             const worldRadius = Vector3.Distance(worldCenter, max)
 
             // 看向中心點
-            sideCamera.target = Vector3.Lerp(sideCamera.target, worldCenter, 0.1)
+            sideCam.target = Vector3.Lerp(sideCam.target, worldCenter, 0.1)
 
             const offset = new Vector3(10, 0, 0)
-            sideCamera.position = Vector3.Lerp(sideCamera.position, worldCenter.add(offset), 0.1)
+            sideCam.position = Vector3.Lerp(sideCam.position, worldCenter.add(offset), 0.1)
 
             // 鎖定相機角度
-            sideCamera.alpha = 0
-            sideCamera.beta = Math.PI / 2
+            sideCam.alpha = 0
+            sideCam.beta = Math.PI / 2
 
             // 平滑過渡數值
-            const currentOrthoSize = Scalar.Lerp(sideCamera.orthoTop!, worldRadius, 0.1)
+            const currentOrthoSize = Scalar.Lerp(sideCam.orthoTop!, worldRadius, 0.1)
 
             /** 畫面長寬比 */
             const aspect = engine.getRenderWidth() / engine.getRenderHeight()
 
-            sideCamera.orthoTop = currentOrthoSize
-            sideCamera.orthoBottom = -currentOrthoSize
-            sideCamera.orthoLeft = -currentOrthoSize * aspect
-            sideCamera.orthoRight = currentOrthoSize * aspect
+            sideCam.orthoTop = currentOrthoSize
+            sideCam.orthoBottom = -currentOrthoSize
+            sideCam.orthoLeft = -currentOrthoSize * aspect
+            sideCam.orthoRight = currentOrthoSize * aspect
           }
         })
       }),
     )
+    const topCamera = pipe(
+      createTopCamera({ scene, camera, engine }),
+      tap((topCam) => {
+        /** x-ray 專用材質 */
+        const xRayMaterial = new StandardMaterial('xRayMat', scene)
+        xRayMaterial.diffuseColor = new Color3(0.8, 0.8, 0.8)
+        xRayMaterial.alpha = 0.4
+        xRayMaterial.disableDepthWrite = true
+
+        /** 儲存原本材質 */
+        const materialMap = new Map<number, any>()
+
+        // 加入 x-ray 效果，將 material 臨時替換成 xRayMaterial 即可
+        scene.onBeforeCameraRenderObservable.add((cam) => {
+          if (cam !== topCam)
+            return
+
+          if (selectedMeshes.value.length === 0) {
+            return
+          }
+
+          // 紀錄被選取的 Mesh 及其所有子物件
+          const safeList = new Set<number>()
+          selectedMeshes.value.forEach((mesh) => {
+            safeList.add(mesh.uniqueId)
+            mesh.getChildMeshes(false).forEach((child) => safeList.add(child.uniqueId))
+          })
+
+          addedMeshList.value.forEach((mesh) => {
+            mesh.getChildMeshes().forEach((childMesh) => {
+              if (!safeList.has(childMesh.uniqueId) && childMesh !== ground) {
+                materialMap.set(childMesh.uniqueId, childMesh.material)
+                childMesh.material = xRayMaterial
+              }
+            })
+          })
+        })
+        scene.onAfterCameraRenderObservable.add((cam) => {
+          if (cam !== topCam)
+            return
+
+          // 還原所有被改動過的 Mesh 材質
+          materialMap.forEach((originalMaterial, meshUniqueId) => {
+            const mesh = scene.getMeshByUniqueId(meshUniqueId)
+            if (mesh) {
+              mesh.material = originalMaterial
+            }
+          })
+          materialMap.clear()
+        })
+
+        // 選取物體時，自動調整相機位置
+        scene.onBeforeRenderObservable.add(() => {
+          const [firstSelectedMesh] = selectedMeshes.value
+          if (firstSelectedMesh) {
+            /** 整個群組的邊界 */
+            const { min, max } = firstSelectedMesh.getHierarchyBoundingVectors(true)
+            /** 整個群組的中心點 */
+            const worldCenter = min.add(max).scale(0.5)
+            /** 整個群組的半徑 */
+            const worldRadius = Vector3.Distance(worldCenter, max)
+
+            // 看向中心點
+            topCam.target = Vector3.Lerp(topCam.target, worldCenter, 0.1)
+
+            const offset = new Vector3(0, 10, 0)
+            topCam.position = Vector3.Lerp(topCam.position, worldCenter.add(offset), 0.1)
+
+            // 鎖定相機角度
+            topCam.alpha = 0
+            topCam.beta = 0.0001
+
+            // 平滑過渡數值
+            const currentOrthoSize = Scalar.Lerp(topCam.orthoTop!, worldRadius, 0.1)
+
+            /** 畫面長寬比 */
+            const aspect = engine.getRenderWidth() / engine.getRenderHeight()
+
+            topCam.orthoTop = currentOrthoSize
+            topCam.orthoBottom = -currentOrthoSize
+            topCam.orthoLeft = -currentOrthoSize * aspect
+            topCam.orthoRight = currentOrthoSize * aspect
+          }
+        })
+      }),
+    )
+
     gizmoManager.value = pipe(
       createGizmoManager({ scene, camera }),
       tap((gizmoManager) => {
