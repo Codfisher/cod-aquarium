@@ -1,19 +1,19 @@
 import type { Scene } from '@babylonjs/core'
 import type { BabylonEngine } from '../../composables/use-babylon-scene'
-import { ArcRotateCamera, Camera, Color3, Color4, GizmoManager, MeshBuilder, Vector3, Viewport } from '@babylonjs/core'
+import { ArcRotateCamera, Camera, Color3, Color4, Engine, GizmoManager, Material, MeshBuilder, Vector3, Viewport } from '@babylonjs/core'
 import { GridMaterial } from '@babylonjs/materials'
 
 export function createGround({ scene }: { scene: Scene }) {
   const ground = MeshBuilder.CreateGround('ground', { width: 1000, height: 1000 }, scene)
-  ground.receiveShadows = true
+  ground.visibility = 0.9
 
   const groundMaterial = new GridMaterial('groundMaterial', scene)
   groundMaterial.gridRatio = 1
 
   groundMaterial.majorUnitFrequency = 10
   groundMaterial.minorUnitVisibility = 0.45
-  groundMaterial.mainColor = new Color3(0.98, 0.98, 0.98) // 底色
-  groundMaterial.lineColor = new Color3(0.75, 0.75, 0.75) // 線色
+  groundMaterial.mainColor = new Color3(1, 1, 1)
+  groundMaterial.lineColor = new Color3(0.6, 0.6, 0.6)
 
   ground.material = groundMaterial
 

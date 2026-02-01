@@ -56,6 +56,8 @@ const {
   g: gKey,
   s: sKey,
   r: rKey,
+  q: qKey,
+  e: eKey,
 } = useMagicKeys()
 
 /** 目前預覽的模型 */
@@ -63,6 +65,7 @@ const previewMesh = shallowRef<AbstractMesh>()
 /** 預覽垂直偏移量 */
 const previewVerticalOffset = ref(0)
 watch(previewMesh, () => previewVerticalOffset.value = 0)
+
 /** 已新增的模型 */
 const addedMeshList = shallowRef<AbstractMesh[]>([])
 
@@ -173,27 +176,6 @@ const { canvasRef, scene, camera } = useBabylonScene({
     scene.activeCamera = camera
     scene.cameraToUseForPointers = camera
 
-    // 按住 alt 時，暫停滾輪縮放
-    pipe('', () => {
-      const mouseWheelInput = camera.inputs.attached.mousewheel
-
-      scene.onKeyboardObservable.add((kbInfo) => {
-        switch (kbInfo.type) {
-          case KeyboardEventTypes.KEYDOWN:
-            if (kbInfo.event.altKey) {
-              mouseWheelInput?.detachControl()
-            }
-            break
-
-          case KeyboardEventTypes.KEYUP:
-            if (!kbInfo.event.altKey) {
-              mouseWheelInput?.attachControl(false)
-            }
-            break
-        }
-      })
-    })
-
     const sideCamera = pipe(
       createSideCamera({ scene, camera, engine }),
       tap((sideCam) => {
@@ -285,16 +267,8 @@ const { canvasRef, scene, camera } = useBabylonScene({
             if (mesh === ground)
               return true
 
-            // 從被打到的 mesh 開始，一路往上找 parent
-            let currentMesh = mesh
-            while (currentMesh) {
-              if (addedMeshList.value.includes(currentMesh)) {
-                return true
-              }
-              currentMesh = currentMesh.parent as AbstractMesh
-            }
-
-            return false
+            const currentMesh = findTopLevelMesh(mesh, addedMeshList.value)
+            return !!currentMesh
           },
           false,
           camera,
@@ -307,7 +281,7 @@ const { canvasRef, scene, camera } = useBabylonScene({
               target.x = roundToStep(target.x, previewSnapUnit.value)
               target.z = roundToStep(target.z, previewSnapUnit.value)
             }
-            target.y += sceneStore.settings.previewBaseY
+            target.y += sceneStore.settings.previewBaseY + previewVerticalOffset.value
             mouseTargetPosition.copyFrom(target)
           }
         }
@@ -423,13 +397,6 @@ const { canvasRef, scene, camera } = useBabylonScene({
     })
   },
 })
-useEventListener(canvasRef, 'wheel', (e) => {
-  // 阻止網頁縮放
-  if (e.altKey) {
-    e.preventDefault()
-    e.stopPropagation()
-  }
-}, { passive: false })
 
 const {
   selectedMeshes,
@@ -522,6 +489,19 @@ onKeyStroke(['Escape', 'Esc'], () => {
 }, { dedupe: true })
 onKeyStroke((e) => ['z', 'Z'].includes(e.key) && e.ctrlKey, undo, { dedupe: true })
 onKeyStroke((e) => ['y', 'Y'].includes(e.key) && e.ctrlKey, redo, { dedupe: true })
+
+onKeyStroke((e) => ['q', 'Q'].includes(e.key), () => {
+  if (!previewMesh.value)
+    return
+
+  previewVerticalOffset.value += 0.1
+}, { dedupe: true })
+onKeyStroke((e) => ['e', 'E'].includes(e.key), () => {
+  if (!previewMesh.value)
+    return
+
+  previewVerticalOffset.value -= 0.1
+}, { dedupe: true })
 
 /** 右鍵選單 */
 const contextMenuItems = computed(() => {
