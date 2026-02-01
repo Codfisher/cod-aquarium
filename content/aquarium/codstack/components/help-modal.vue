@@ -19,6 +19,7 @@
         <ul class="list-disc list-inside space-y-1 mt-1">
           <li>移動、縮放、旋轉時 + <u-kbd>Shift</u-kbd>：0.1 單位或 1 度步長</li>
           <li>選擇時按住 <u-kbd>Shift</u-kbd>：多選</li>
+          <li>預覽放置時，按住 <u-kbd>Alt</u-kbd> + 滾輪：垂直偏移</li>
         </ul>
       </div>
     </template>

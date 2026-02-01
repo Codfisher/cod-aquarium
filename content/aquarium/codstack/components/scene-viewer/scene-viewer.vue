@@ -25,7 +25,7 @@ import { onKeyStroke, useActiveElement, useEventListener, useMagicKeys, useThrot
 import { animate } from 'animejs'
 import { nanoid } from 'nanoid'
 import { filter, isTruthy, pipe, tap } from 'remeda'
-import { computed, onBeforeUnmount, shallowRef, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { useBabylonScene } from '../../composables/use-babylon-scene'
 import { useMultiMeshSelect } from '../../composables/use-multi-mesh-select'
 import { useSceneStore } from '../../domains/scene/scene-store'
@@ -60,8 +60,9 @@ const {
 
 /** 目前預覽的模型 */
 const previewMesh = shallowRef<AbstractMesh>()
-/** 模型垂直偏移量 */
-const modelVerticalOffsetMap = new WeakMap<AbstractMesh, number>()
+/** 預覽垂直偏移量 */
+const previewVerticalOffset = ref(0)
+watch(previewMesh, () => previewVerticalOffset.value = 0)
 /** 已新增的模型 */
 const addedMeshList = shallowRef<AbstractMesh[]>([])
 
@@ -560,7 +561,7 @@ const contextMenuItems = computed(() => {
         const meta = getMeshMeta(mesh)
 
         return [
-          { label: meta?.name || 'Unknown Mesh', type: 'label' },
+          { label: meta?.fileName || 'Unknown Mesh', type: 'label' },
           {
             icon: 'hugeicons:three-d-move',
             label: 'Position',
@@ -825,7 +826,7 @@ async function loadPreviewModel(modelFile: ModelFile) {
     root.getChildMeshes().forEach((mesh) => mesh.isPickable = false)
 
     root.metadata = {
-      name: modelFile.name,
+      fileName: modelFile.name,
       path: modelFile.path,
     } satisfies MeshMeta
 

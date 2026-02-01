@@ -6,7 +6,7 @@ export interface ModelFile {
 }
 
 export interface MeshMeta {
-  name: string;
+  fileName: string;
   path: string;
 }
 
