@@ -20,7 +20,7 @@
           @pointermove.stop
         >
           <u-form-field
-            label="name"
+            label="Name"
             orientation="horizontal"
           >
             <u-input v-model="selectedMeshes[0].metadata.name" />
@@ -29,7 +29,7 @@
           <u-separator class="my-1" />
 
           <u-form-field
-            label="mass"
+            label="Mass"
             orientation="horizontal"
           >
             <u-input
@@ -39,7 +39,7 @@
           </u-form-field>
 
           <u-form-field
-            label="restitution"
+            label="Restitution"
             orientation="horizontal"
           >
             <u-input
@@ -49,7 +49,7 @@
           </u-form-field>
 
           <u-form-field
-            label="friction"
+            label="Friction"
             orientation="horizontal"
           >
             <u-input
@@ -565,13 +565,13 @@ onKeyStroke((e) => ['q', 'Q'].includes(e.key), () => {
     return
 
   previewVerticalOffset.value += 0.1
-}, { dedupe: true })
+})
 onKeyStroke((e) => ['e', 'E'].includes(e.key), () => {
   if (!previewMesh.value)
     return
 
   previewVerticalOffset.value -= 0.1
-}, { dedupe: true })
+})
 
 /** 右鍵選單 */
 const contextMenuItems = computed(() => {
@@ -912,9 +912,9 @@ async function loadPreviewModel(modelFile: ModelFile) {
       name: '',
       fileName: modelFile.name,
       path: modelFile.path,
-      mass: 0,
-      restitution: 0.5,
-      friction: 0,
+      mass: sceneSettings.value.metadata.mass.defaultValue,
+      restitution: sceneSettings.value.metadata.restitution.defaultValue,
+      friction: sceneSettings.value.metadata.friction.defaultValue,
     } satisfies MeshMeta
 
     previewMesh.value = root

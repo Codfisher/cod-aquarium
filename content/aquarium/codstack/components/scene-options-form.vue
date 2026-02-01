@@ -1,7 +1,6 @@
 <template>
   <u-form
     :state="optionForm"
-    :schema="optionSchema"
     class="w-full flex flex-col gap-4"
   >
     <u-form-field
@@ -33,6 +32,49 @@
         <u-kbd value="Q" /> or <u-kbd value="E" /> to adjust the preview height in real time.
       </template>
     </u-form-field>
+
+    <u-separator />
+
+    <u-form-field
+      label="Metadata"
+      description=" Metadata for the models in the scene."
+      v-bind="fieldProps"
+      :ui="{ label: 'text-lg font-semibold', ...fieldProps.ui }"
+    >
+    </u-form-field>
+
+    <u-form-field
+      label="Mass"
+      description="default value for new models"
+      v-bind="fieldProps"
+    >
+      <u-input-number
+        v-model="optionForm.metadata.mass.defaultValue"
+        :step="0.1"
+      />
+    </u-form-field>
+
+    <u-form-field
+      label="Restitution"
+      description="default value for new models"
+      v-bind="fieldProps"
+    >
+      <u-input-number
+        v-model="optionForm.metadata.restitution.defaultValue"
+        :step="0.1"
+      />
+    </u-form-field>
+
+    <u-form-field
+      label="Friction"
+      description="default value for new models"
+      v-bind="fieldProps"
+    >
+      <u-input-number
+        v-model="optionForm.metadata.friction.defaultValue"
+        :step="0.1"
+      />
+    </u-form-field>
   </u-form>
 </template>
 
@@ -60,12 +102,23 @@ const fieldProps = {
   ui: { description: 'text-xs opacity-50' },
 }
 
-const optionSchema = z.object({
-  /** 預覽時是否要旋轉 */
-  enablePreviewRotation: z.boolean().default(false),
-  /** 預覽模型的垂直軸起點 */
-  previewGroundYOffset: z.number().default(0),
-})
+// const optionSchema = z.object({
+//   /** 預覽時是否要旋轉 */
+//   enablePreviewRotation: z.boolean().default(false),
+//   /** 預覽模型的垂直軸起點 */
+//   previewGroundYOffset: z.number().default(0),
+//   metadata: z.object({
+//     mass: z.number().default(1),
+//     restitution: z.number().default(0),
+//     friction: z.number().default(0),
+//     otherFieldList: z.array(z.object({
+//       label: z.string(),
+//       type: z.string(),
+//       key: z.string(),
+//       defaultValue: z.any(),
+//     })).default([]),
+//   })
+// })
 
 const optionForm = ref(clone(sceneStore.settings))
 
