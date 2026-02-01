@@ -385,17 +385,20 @@ const { canvasRef, scene, camera } = useBabylonScene({
       }
     })
 
+    // 持續更新 previewMesh 的位置
     scene.onBeforeRenderObservable.add(() => {
-      const previewMeshValue = previewMesh.value
-      if (previewMeshValue) {
-        const dt = scene.getEngine().getDeltaTime() / 1000
-        // 不同 FPS 也會保持一致手感
-        const t = 1 - Math.exp(-16 * dt)
-
-        previewMeshValue.position.x += (mouseTargetPosition.x - previewMeshValue.position.x) * t
-        previewMeshValue.position.y += (mouseTargetPosition.y - previewMeshValue.position.y) * t
-        previewMeshValue.position.z += (mouseTargetPosition.z - previewMeshValue.position.z) * t
+      const mesh = previewMesh.value
+      if (!mesh) {
+        return
       }
+
+      const dt = scene.getEngine().getDeltaTime() / 1000
+      // 不同 FPS 也會保持一致手感
+      const t = 1 - Math.exp(-16 * dt)
+
+      mesh.position.x += (mouseTargetPosition.x - mesh.position.x) * t
+      mesh.position.y += (mouseTargetPosition.y - mesh.position.y + previewVerticalOffset.value) * t
+      mesh.position.z += (mouseTargetPosition.z - mesh.position.z) * t
     })
   },
 })
@@ -529,18 +532,18 @@ const contextMenuItems = computed(() => {
             icon: 'i-material-symbols:arrow-upward-rounded',
             label: 'Vertical Up',
             kbds: ['q'],
-            onSelect: () => {
+            onSelect: (e) => {
               previewVerticalOffset.value += 0.1
-              mouseTargetPosition.y += previewVerticalOffset.value
+              e.preventDefault()
             },
           },
           {
             icon: 'material-symbols:arrow-downward-rounded',
             label: 'Vertical Down',
             kbds: ['e'],
-            onSelect: () => {
+            onSelect: (e) => {
               previewVerticalOffset.value -= 0.1
-              mouseTargetPosition.y += previewVerticalOffset.value
+              e.preventDefault()
             },
           },
         ] as ContextMenuItem[]
