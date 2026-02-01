@@ -319,7 +319,6 @@ const { canvasRef, scene, camera } = useBabylonScene({
               target.z = roundToStep(target.z, previewSnapUnit.value)
               target.y = sceneStore.settings.previewGroundYOffset
             }
-            target.y += previewVerticalOffset.value
             mouseTargetPosition.copyFrom(target)
           }
         }
@@ -337,6 +336,8 @@ const { canvasRef, scene, camera } = useBabylonScene({
         if (previewMesh.value) {
           const clonedMesh = previewMesh.value.clone(nanoid(), null, false)
           if (clonedMesh instanceof Mesh) {
+            const finalPosition = previewMesh.value.position.clone()
+
             // 確保 Mesh 有父物件的話，先解除父子關係，把變形保留在 World Space
             // (這樣可以避免解除 Parent 時物件亂飛)
             clonedMesh.setParent(null)
@@ -360,7 +361,7 @@ const { canvasRef, scene, camera } = useBabylonScene({
              */
             clonedMesh.bakeCurrentTransformIntoVertices()
 
-            clonedMesh.position.copyFrom(mouseTargetPosition)
+            clonedMesh.position.copyFrom(finalPosition)
             clonedMesh.refreshBoundingInfo()
 
             clonedMesh.isPickable = true
@@ -851,6 +852,9 @@ async function loadPreviewModel(modelFile: ModelFile) {
     root.metadata = {
       fileName: modelFile.name,
       path: modelFile.path,
+      mass: 0,
+      restitution: 0.5,
+      friction: 0,
     } satisfies MeshMeta
 
     previewMesh.value = root

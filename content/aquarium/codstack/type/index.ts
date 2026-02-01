@@ -8,6 +8,11 @@ export interface ModelFile {
 export interface MeshMeta {
   fileName: string;
   path: string;
+
+  // 物理屬性
+  mass: number;
+  restitution: number;
+  friction: number;
 }
 
 export interface SceneSettings {
