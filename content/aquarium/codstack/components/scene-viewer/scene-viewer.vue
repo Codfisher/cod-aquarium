@@ -226,15 +226,15 @@ const { canvasRef, scene, camera } = useBabylonScene({
     scene.activeCamera = camera
     scene.cameraToUseForPointers = camera
 
+    /** x-ray 專用材質 */
+    const xRayMaterial = new StandardMaterial('xRayMat', scene)
+    xRayMaterial.diffuseColor = new Color3(0.8, 0.8, 0.8)
+    xRayMaterial.alpha = 0.4
+    xRayMaterial.disableDepthWrite = true
+
     const sideCamera = pipe(
       createSideCamera({ scene, camera, engine }),
       tap((sideCam) => {
-        /** x-ray 專用材質 */
-        const xRayMaterial = new StandardMaterial('xRayMat', scene)
-        xRayMaterial.diffuseColor = new Color3(0.8, 0.8, 0.8)
-        xRayMaterial.alpha = 0.4
-        xRayMaterial.disableDepthWrite = true
-
         /** 儲存原本材質 */
         const materialMap = new Map<number, any>()
 
@@ -315,12 +315,6 @@ const { canvasRef, scene, camera } = useBabylonScene({
     const topCamera = pipe(
       createTopCamera({ scene, camera, engine }),
       tap((topCam) => {
-        /** x-ray 專用材質 */
-        const xRayMaterial = new StandardMaterial('xRayMat', scene)
-        xRayMaterial.diffuseColor = new Color3(0.8, 0.8, 0.8)
-        xRayMaterial.alpha = 0.4
-        xRayMaterial.disableDepthWrite = true
-
         /** 儲存原本材質 */
         const materialMap = new Map<number, any>()
 
