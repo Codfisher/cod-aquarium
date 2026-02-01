@@ -44,8 +44,11 @@ export function createSideCamera({
   sideCamera.detachControl()
   sideCamera.inputs.clear()
 
-  // 同時渲染兩個相機
-  scene.activeCameras = [camera, sideCamera]
+  // 同時渲染多個相機（避免直接覆蓋其他已經存在的 activeCameras）
+  const actives = scene.activeCameras?.slice() ?? []
+  if (!actives.includes(camera)) actives.unshift(camera)
+  if (!actives.includes(sideCamera)) actives.push(sideCamera)
+  scene.activeCameras = actives
 
   const orthoSize = 2.5
 
@@ -136,15 +139,15 @@ export function createTopCamera({
     scene,
   )
 
-  // 建議放在右上角 sideCamera 的「下面」，避免重疊
+  // 放在右上角 sideCamera 的「下面」，避免重疊
   topCamera.viewport = new Viewport(0.80, 0.60, 0.20, 0.20)
   topCamera.mode = Camera.ORTHOGRAPHIC_CAMERA
 
   topCamera.detachControl()
   topCamera.inputs.clear()
 
-  // 讓俯視畫面「上方」方向穩定（用 Z 當螢幕上方）
-  topCamera.upVector = new Vector3(0, 0, 1)
+  // 讓俯視畫面「上方」方向穩定
+  topCamera.upVector = new Vector3(0, 1, 0)
 
   // 同時渲染多個相機（避免直接覆蓋其他已經存在的 activeCameras）
   const actives = scene.activeCameras?.slice() ?? []
@@ -154,31 +157,6 @@ export function createTopCamera({
 
   const orthoSize = 2.5
 
-  // 只在 topCamera 顯示輔助線
-  const MAIN_MASK = 0x0fffffff
-  const TOP_ONLY_MASK = 0x20000000
-  camera.layerMask = MAIN_MASK
-  topCamera.layerMask = MAIN_MASK | TOP_ONLY_MASK
-
-  // 建十字線（都放在 y=0 平面上）
-  const topHLine = MeshBuilder.CreateLines(
-    'topHLine',
-    { points: [new Vector3(-1, 0, 0), new Vector3(1, 0, 0)], updatable: true },
-    scene,
-  )
-  topHLine.color = new Color3(0.7, 0.7, 0.7)
-  topHLine.isPickable = false
-  topHLine.layerMask = TOP_ONLY_MASK
-
-  const topVLine = MeshBuilder.CreateLines(
-    'topVLine',
-    { points: [new Vector3(0, 0, -1), new Vector3(0, 0, 1)], updatable: true },
-    scene,
-  )
-  topVLine.color = new Color3(0.7, 0.7, 0.7)
-  topVLine.isPickable = false
-  topVLine.layerMask = TOP_ONLY_MASK
-
   function update() {
     const aspect = engine.getRenderWidth() / engine.getRenderHeight()
 
@@ -186,54 +164,10 @@ export function createTopCamera({
     topCamera.orthoRight = orthoSize * aspect
     topCamera.orthoTop = orthoSize
     topCamera.orthoBottom = -orthoSize
-
-    // 以 topCamera target 的 x/z 為中心，y 固定 0
-    const center = topCamera.target.clone()
-    center.y = 0
-
-    const halfW = orthoSize * aspect
-    const halfH = orthoSize
-
-    // 螢幕水平線：往相機右方延伸（投影到地面）
-    const rightDir = topCamera.getDirection(Vector3.Right())
-    rightDir.y = 0
-    if (rightDir.lengthSquared() > 1e-8) rightDir.normalize()
-
-    const h1 = center.add(rightDir.scale(-halfW))
-    const h2 = center.add(rightDir.scale(halfW))
-    MeshBuilder.CreateLines('', { points: [h1, h2], instance: topHLine }, scene)
-
-    // 螢幕垂直線：往相機上方延伸（投影到地面）
-    const upDir = topCamera.getDirection(Vector3.Up())
-    upDir.y = 0
-    if (upDir.lengthSquared() > 1e-8) upDir.normalize()
-
-    const v1 = center.add(upDir.scale(-halfH))
-    const v2 = center.add(upDir.scale(halfH))
-    MeshBuilder.CreateLines('', { points: [v1, v2], instance: topVLine }, scene)
   }
 
   update()
   engine.onResizeObservable.add(update)
-
-  // 副相機底色（只清 topCamera 的 viewport 範圍）
-  const topViewColor = new Color4(0.92, 0.92, 0.92, 1)
-  scene.onBeforeCameraRenderObservable.add((cam) => {
-    if (cam.id === 'topCamera') {
-      const viewport = cam.viewport
-      const width = engine.getRenderWidth()
-      const height = engine.getRenderHeight()
-
-      const x = viewport.x * width
-      const y = viewport.y * height
-      const w = viewport.width * width
-      const h = viewport.height * height
-
-      engine.enableScissor(x, y, w, h)
-      engine.clear(topViewColor, true, true, true)
-      engine.disableScissor()
-    }
-  })
 
   return topCamera
 }
