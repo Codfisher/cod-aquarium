@@ -36,8 +36,8 @@
     <u-separator />
 
     <u-form-field
-      label="Metadata"
-      description=" Metadata for the models in the scene."
+      label="Model Metadata"
+      description="Metadata for the models in the scene."
       v-bind="fieldProps"
       :ui="{ label: 'text-lg font-semibold', ...fieldProps.ui }"
     >
