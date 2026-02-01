@@ -15,7 +15,7 @@
 
     <u-form-field
       label="Preview Base Y"
-      description="Prevents objects from sinking below the floor during preview."
+      description="Prevents objects from sinking below the floor during preview. You can also hold Alt + scroll wheel to adjust the vertical offset of the preview model in real-time."
       v-bind="fieldProps"
     >
       <u-input-number

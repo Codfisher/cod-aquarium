@@ -20,8 +20,8 @@
 import type { AbstractMesh, GizmoManager } from '@babylonjs/core'
 import type { ContextMenuItem } from '@nuxt/ui/.'
 import type { MeshMeta, ModelFile } from '../../type'
-import { ArcRotateCamera, Color3, Color4, ImportMeshAsync, Mesh, PointerEventTypes, Quaternion, Scalar, StandardMaterial, Vector3 } from '@babylonjs/core'
-import { onKeyStroke, useActiveElement, useMagicKeys, useThrottledRefHistory } from '@vueuse/core'
+import { ArcRotateCamera, Color3, Color4, ImportMeshAsync, KeyboardEventTypes, Mesh, PointerEventTypes, Quaternion, Scalar, StandardMaterial, Vector3 } from '@babylonjs/core'
+import { onKeyStroke, useActiveElement, useEventListener, useMagicKeys, useThrottledRefHistory } from '@vueuse/core'
 import { animate } from 'animejs'
 import { nanoid } from 'nanoid'
 import { filter, isTruthy, pipe, tap } from 'remeda'
@@ -60,6 +60,8 @@ const {
 
 /** 目前預覽的模型 */
 const previewMesh = shallowRef<AbstractMesh>()
+/** 模型垂直偏移量 */
+const modelVerticalOffsetMap = new WeakMap<AbstractMesh, number>()
 /** 已新增的模型 */
 const addedMeshList = shallowRef<AbstractMesh[]>([])
 
@@ -161,7 +163,7 @@ watch(() => [gKey?.value, sKey?.value, rKey?.value], ([g, s, r]) => {
 /** 預覽時的網格吸附單位 */
 const previewSnapUnit = computed(() => shiftKey?.value ? 0.1 : 0.5)
 
-/** 滑鼠於地面的目標位置 */
+/** 滑鼠射線之目標位置 */
 const mouseTargetPosition = new Vector3(0, 0, 0)
 
 const { canvasRef, scene, camera } = useBabylonScene({
@@ -169,6 +171,27 @@ const { canvasRef, scene, camera } = useBabylonScene({
     const { scene, camera, engine } = params
     scene.activeCamera = camera
     scene.cameraToUseForPointers = camera
+
+    // 按住 alt 時，暫停滾輪縮放
+    pipe('', () => {
+      const mouseWheelInput = camera.inputs.attached.mousewheel
+
+      scene.onKeyboardObservable.add((kbInfo) => {
+        switch (kbInfo.type) {
+          case KeyboardEventTypes.KEYDOWN:
+            if (kbInfo.event.altKey) {
+              mouseWheelInput?.detachControl()
+            }
+            break
+
+          case KeyboardEventTypes.KEYUP:
+            if (!kbInfo.event.altKey) {
+              mouseWheelInput?.attachControl(false)
+            }
+            break
+        }
+      })
+    })
 
     const sideCamera = pipe(
       createSideCamera({ scene, camera, engine }),
@@ -399,6 +422,13 @@ const { canvasRef, scene, camera } = useBabylonScene({
     })
   },
 })
+useEventListener(canvasRef, 'wheel', (e) => {
+  // 阻止網頁縮放
+  if (e.altKey) {
+    e.preventDefault()
+    e.stopPropagation()
+  }
+}, { passive: false })
 
 const {
   selectedMeshes,

@@ -87,35 +87,6 @@ const defaultParam: Required<UseBabylonSceneParam> = {
     camera.lowerRadiusLimit = 5
     camera.upperRadiusLimit = 50
 
-    const mouseWheelInput = camera.inputs.attached.mousewheel
-
-    // 按住 ctrl 時，暫停滾輪縮放
-    scene.onKeyboardObservable.add((kbInfo) => {
-      switch (kbInfo.type) {
-        case KeyboardEventTypes.KEYDOWN:
-          // 當按下 Ctrl 鍵時
-          if (kbInfo.event.key === 'Control' || kbInfo.event.ctrlKey) {
-            mouseWheelInput?.detachControl()
-          }
-          break
-
-        case KeyboardEventTypes.KEYUP:
-          // 當放開 Ctrl 鍵時
-          if (kbInfo.event.key === 'Control' || !kbInfo.event.ctrlKey) {
-            mouseWheelInput?.attachControl(false)
-          }
-          break
-      }
-    })
-
-    useEventListener(canvas, 'wheel', (e) => {
-      // 阻止網頁縮放
-      if (e.ctrlKey) {
-        e.preventDefault()
-        e.stopPropagation()
-      }
-    }, { passive: false })
-
     // 限制鏡頭角度
     camera.lowerBetaLimit = 0
     camera.upperBetaLimit = Math.PI / 2.2
