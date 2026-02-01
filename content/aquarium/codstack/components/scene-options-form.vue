@@ -2,7 +2,7 @@
   <u-form
     :state="optionForm"
     :schema="optionSchema"
-    class="w-full p-4 flex flex-col gap-4"
+    class="w-full flex flex-col gap-4"
   >
     <u-form-field
       as="label"

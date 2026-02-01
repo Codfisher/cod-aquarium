@@ -22,17 +22,17 @@
         </transition>
       </u-button>
 
-      <u-popover :content="{ side: 'right' }">
+      <u-modal title="Scene Options">
         <u-button
           color="neutral"
           variant="ghost"
           icon="material-symbols:settings"
         />
 
-        <template #content>
-          <scene-options-form class="w-[25vw]" />
+        <template #body>
+          <scene-options-form />
         </template>
-      </u-popover>
+      </u-modal>
     </div>
 
     <div
