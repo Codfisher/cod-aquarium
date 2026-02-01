@@ -226,6 +226,40 @@ const { canvasRef, scene, camera } = useBabylonScene({
           })
           materialMap.clear()
         })
+
+        // 選取物體時，自動調整相機位置
+        scene.onBeforeRenderObservable.add(() => {
+          const [firstSelectedMesh] = selectedMeshes.value
+          if (firstSelectedMesh) {
+            /** 整個群組的邊界 */
+            const { min, max } = firstSelectedMesh.getHierarchyBoundingVectors(true)
+            /** 整個群組的中心點 */
+            const worldCenter = min.add(max).scale(0.5)
+            /** 整個群組的半徑 */
+            const worldRadius = Vector3.Distance(worldCenter, max)
+
+            // 看向中心點
+            sideCamera.target = Vector3.Lerp(sideCamera.target, worldCenter, 0.1)
+
+            const offset = new Vector3(10, 0, 0)
+            sideCamera.position = Vector3.Lerp(sideCamera.position, worldCenter.add(offset), 0.1)
+
+            // 鎖定相機角度
+            sideCamera.alpha = 0
+            sideCamera.beta = Math.PI / 2
+
+            // 平滑過渡數值
+            const currentOrthoSize = Scalar.Lerp(sideCamera.orthoTop!, worldRadius, 0.1)
+
+            /** 畫面長寬比 */
+            const aspect = engine.getRenderWidth() / engine.getRenderHeight()
+
+            sideCamera.orthoTop = currentOrthoSize
+            sideCamera.orthoBottom = -currentOrthoSize
+            sideCamera.orthoLeft = -currentOrthoSize * aspect
+            sideCamera.orthoRight = currentOrthoSize * aspect
+          }
+        })
       }),
     )
     gizmoManager.value = pipe(
@@ -352,48 +386,16 @@ const { canvasRef, scene, camera } = useBabylonScene({
     })
 
     scene.onBeforeRenderObservable.add(() => {
-      const firstSelectedMesh = selectedMeshes.value[0]
-      if (firstSelectedMesh) {
-        /** 整個群組的邊界 */
-        const { min, max } = firstSelectedMesh.getHierarchyBoundingVectors(true)
-        /** 整個群組的中心點 */
-        const worldCenter = min.add(max).scale(0.5)
-        /** 整個群組的半徑 */
-        const worldRadius = Vector3.Distance(worldCenter, max)
+      const previewMeshValue = previewMesh.value
+      if (previewMeshValue) {
+        const dt = scene.getEngine().getDeltaTime() / 1000
+        // 不同 FPS 也會保持一致手感
+        const t = 1 - Math.exp(-16 * dt)
 
-        // 看向中心點
-        sideCamera.target = Vector3.Lerp(sideCamera.target, worldCenter, 0.1)
-
-        const offset = new Vector3(10, 0, 0)
-        sideCamera.position = Vector3.Lerp(sideCamera.position, worldCenter.add(offset), 0.1)
-
-        // 鎖定相機角度
-        sideCamera.alpha = 0
-        sideCamera.beta = Math.PI / 2
-
-        // 平滑過渡數值
-        const currentOrthoSize = Scalar.Lerp(sideCamera.orthoTop!, worldRadius, 0.1)
-
-        /** 畫面長寬比 */
-        const aspect = engine.getRenderWidth() / engine.getRenderHeight()
-
-        sideCamera.orthoTop = currentOrthoSize
-        sideCamera.orthoBottom = -currentOrthoSize
-        sideCamera.orthoLeft = -currentOrthoSize * aspect
-        sideCamera.orthoRight = currentOrthoSize * aspect
+        previewMeshValue.position.x += (mouseTargetPosition.x - previewMeshValue.position.x) * t
+        previewMeshValue.position.y += (mouseTargetPosition.y - previewMeshValue.position.y) * t
+        previewMeshValue.position.z += (mouseTargetPosition.z - previewMeshValue.position.z) * t
       }
-
-      const mesh = previewMesh.value
-      if (!mesh)
-        return
-
-      const dt = scene.getEngine().getDeltaTime() / 1000
-      // 不同 FPS 也會保持一致手感
-      const t = 1 - Math.exp(-16 * dt)
-
-      mesh.position.x += (mouseTargetPosition.x - mesh.position.x) * t
-      mesh.position.y += (mouseTargetPosition.y - mesh.position.y) * t
-      mesh.position.z += (mouseTargetPosition.z - mesh.position.z) * t
     })
   },
 })
@@ -529,6 +531,7 @@ const contextMenuItems = computed(() => {
             kbds: ['q'],
             onSelect: () => {
               previewVerticalOffset.value += 0.1
+              mouseTargetPosition.y += previewVerticalOffset.value
             },
           },
           {
@@ -537,6 +540,7 @@ const contextMenuItems = computed(() => {
             kbds: ['e'],
             onSelect: () => {
               previewVerticalOffset.value -= 0.1
+              mouseTargetPosition.y += previewVerticalOffset.value
             },
           },
         ] as ContextMenuItem[]
