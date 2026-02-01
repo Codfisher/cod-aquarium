@@ -9,3 +9,8 @@ export interface MeshMeta {
   name: string;
   path: string;
 }
+
+export interface SceneSettings {
+  name: string;
+  path: string;
+}

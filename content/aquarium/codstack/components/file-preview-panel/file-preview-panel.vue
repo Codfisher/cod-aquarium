@@ -30,7 +30,7 @@
         />
 
         <template #content>
-          <options-form />
+          <scene-options-form />
         </template>
       </u-popover>
     </div>
@@ -172,7 +172,7 @@ import { chunk, pipe } from 'remeda'
 import { computed, reactive, ref, useTemplateRef } from 'vue'
 import { useMainStore } from '../../stores/main-store'
 import ModelPreviewItem from '../model-preview-item.vue'
-import OptionsForm from './options-form.vue'
+import SceneOptionsForm from '../scene-options-form.vue'
 
 const toast = useToast()
 const mainStore = useMainStore()
