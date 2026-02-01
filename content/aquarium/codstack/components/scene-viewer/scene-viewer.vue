@@ -507,6 +507,40 @@ onKeyStroke((e) => ['e', 'E'].includes(e.key), () => {
 const contextMenuItems = computed(() => {
   return pipe(
     [
+      // 放置預覽
+      pipe(undefined, () => {
+        if (!previewMesh.value) {
+          return
+        }
+
+        return [
+          { label: 'Preview Mesh', type: 'label' },
+          {
+            icon: 'material-symbols:cancel-outline-rounded',
+            label: 'Cancel Placement',
+            kbds: ['escape'],
+            onSelect: () => {
+              emit('cancelPreview')
+            },
+          },
+          {
+            icon: 'i-material-symbols:arrow-upward-rounded',
+            label: 'Vertical Up',
+            kbds: ['q'],
+            onSelect: () => {
+              previewVerticalOffset.value += 0.1
+            },
+          },
+          {
+            icon: 'material-symbols:arrow-downward-rounded',
+            label: 'Vertical Down',
+            kbds: ['e'],
+            onSelect: () => {
+              previewVerticalOffset.value -= 0.1
+            },
+          },
+        ] as ContextMenuItem[]
+      }),
       // 選取多個 Mesh
       pipe(undefined, () => {
         if (selectedMeshes.value.length < 2) {
@@ -677,19 +711,6 @@ const contextMenuItems = computed(() => {
         ] as ContextMenuItem[]
       }),
       [
-        pipe(undefined, () => {
-          if (!previewMesh.value)
-            return
-
-          return {
-            icon: 'material-symbols:cancel-outline-rounded',
-            label: 'Cancel Placement',
-            kbds: ['escape'],
-            onSelect: () => {
-              emit('cancelPreview')
-            },
-          }
-        }),
         pipe(undefined, () => {
           const anyMeshEnabled = addedMeshList.value.some((mesh) => mesh.isEnabled())
           if (!anyMeshEnabled)

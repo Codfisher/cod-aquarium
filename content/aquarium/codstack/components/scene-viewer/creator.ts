@@ -48,16 +48,44 @@ export function createSideCamera({
   scene.activeCameras = [camera, sideCamera]
 
   const orthoSize = 2.5
-  const updateOrtho = () => {
+
+  // 水平線只出現在 sideCamera
+  const MAIN_MASK = 0x0FFFFFFF
+  const SIDE_ONLY_MASK = 0x10000000
+  camera.layerMask = MAIN_MASK
+  sideCamera.layerMask = MAIN_MASK | SIDE_ONLY_MASK
+
+  // 建一條 y=0 的線
+  const y0Line = MeshBuilder.CreateLines(
+    'y0Line',
+    { points: [new Vector3(-1, 0, 0), new Vector3(1, 0, 0)], updatable: true },
+    scene,
+  )
+  y0Line.color = new Color3(0.7, 0.7, 0.7)
+  y0Line.isPickable = false
+  y0Line.layerMask = SIDE_ONLY_MASK
+
+  function update() {
     const aspect = engine.getRenderWidth() / engine.getRenderHeight()
 
     sideCamera.orthoLeft = -orthoSize * aspect
     sideCamera.orthoRight = orthoSize * aspect
     sideCamera.orthoTop = orthoSize
     sideCamera.orthoBottom = -orthoSize
+
+    // y=0 線：以 sideCamera target 的 x/z 為中心，y 固定 0，往「相機右方」延伸
+    const halfWidth = orthoSize * aspect
+    const center = sideCamera.target.clone()
+    center.y = 0
+
+    const rightDir = sideCamera.getDirection(Vector3.Right()) // 相機右方向（世界座標）
+    const p1 = center.add(rightDir.scale(-halfWidth))
+    const p2 = center.add(rightDir.scale(halfWidth))
+
+    MeshBuilder.CreateLines('', { points: [p1, p2], instance: y0Line }, scene)
   }
-  updateOrtho()
-  engine.onResizeObservable.add(updateOrtho)
+  update()
+  engine.onResizeObservable.add(update)
 
   // 加上副相機的底色
   const sideViewColor = new Color4(0.9, 0.9, 0.9, 1)
