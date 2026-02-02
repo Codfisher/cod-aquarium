@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-col h-full gap-4">
+  <div class="flex flex-col h-full gap-2">
     <div class="flex gap-2">
       <u-button
         variant="subtle"
@@ -72,6 +72,30 @@
         @click="handleSelectedModelFile(file)"
       />
     </div> -->
+
+    <u-input
+      v-model="filterOptions.keyword"
+      placeholder="Enter keywords to search models"
+    >
+
+      <template #leading>
+        <u-icon name="i-lucide-search" />
+      </template>
+
+      <template
+        v-if="filterOptions.keyword"
+        #trailing
+      >
+        <u-button
+          color="neutral"
+          variant="link"
+          size="sm"
+          icon="i-lucide-circle-x"
+          aria-label="Clear input"
+          @click="filterOptions.keyword = ''"
+        />
+      </template>
+    </u-input>
 
     <u-popover
       v-if="mainStore.rootFsHandle"
@@ -196,6 +220,7 @@ function handleSelectedTag(tag: string) {
 }
 
 const filterOptions = ref({
+  keyword: '',
   tagKeyword: '',
   /** 是否包含來自檔名的 tag */
   includeTagFromFileName: true,
@@ -262,16 +287,30 @@ const filteredTagList = computed(() => {
 })
 
 const filteredModelFileList = computed(() => {
-  if (selectedTagList.value.length === 0) {
-    return modelFileList.value
-  }
+  return pipe(
+    modelFileList.value,
+    (list) => {
+      if (!filterOptions.value.keyword) {
+        return list
+      }
 
-  return modelFileList.value.filter((file) => {
-    if (filterOptions.value.useAndLogic) {
-      return selectedTagList.value.every((tag) => file.path.includes(tag))
-    }
-    return selectedTagList.value.some((tag) => file.path.includes(tag))
-  })
+      return list.filter((file) =>
+        file.path.toLocaleLowerCase().includes(filterOptions.value.keyword.toLocaleLowerCase())
+      )
+    },
+    (list) => {
+      if (selectedTagList.value.length === 0) {
+        return list
+      }
+
+      return list.filter((file) => {
+        if (filterOptions.value.useAndLogic) {
+          return selectedTagList.value.every((tag) => file.path.includes(tag))
+        }
+        return selectedTagList.value.some((tag) => file.path.includes(tag))
+      })
+    },
+  )
 })
 
 const previewItemWidth = 120
