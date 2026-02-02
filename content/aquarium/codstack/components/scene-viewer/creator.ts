@@ -132,7 +132,7 @@ export function createTopCamera({
 }) {
   const topCamera = new ArcRotateCamera(
     'topCamera',
-    0,
+    Math.PI / 2,
     0.0001, // 俯視（避免 beta=0 奇異點）
     10,
     new Vector3(0, 0, 0),
@@ -148,6 +148,7 @@ export function createTopCamera({
 
   // 讓俯視畫面「上方」方向穩定
   topCamera.upVector = new Vector3(0, 1, 0)
+  topCamera.alpha = Math.PI / 2
 
   // 同時渲染多個相機（避免直接覆蓋其他已經存在的 activeCameras）
   const actives = scene.activeCameras?.slice() ?? []

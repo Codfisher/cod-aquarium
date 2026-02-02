@@ -378,7 +378,7 @@ const { canvasRef, scene, camera } = useBabylonScene({
             topCam.position = Vector3.Lerp(topCam.position, worldCenter.add(offset), 0.1)
 
             // 鎖定相機角度
-            topCam.alpha = 0
+            topCam.alpha = Math.PI / 2
             topCam.beta = 0.0001
 
             // 平滑過渡數值

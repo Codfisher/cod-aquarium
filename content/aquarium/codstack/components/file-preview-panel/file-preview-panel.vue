@@ -73,119 +73,118 @@
       />
     </div> -->
 
-    <u-input
-      v-model="filterOptions.keyword"
-      placeholder="Enter keywords to search models"
-    >
-
-      <template #leading>
-        <u-icon name="i-lucide-search" />
-      </template>
-
-      <template
-        v-if="filterOptions.keyword"
-        #trailing
-      >
-        <u-button
-          color="neutral"
-          variant="link"
-          size="sm"
-          icon="i-lucide-circle-x"
-          aria-label="Clear input"
-          @click="filterOptions.keyword = ''"
-        />
-      </template>
-    </u-input>
-
-    <u-popover
-      v-if="mainStore.rootFsHandle"
-      :content="{
-        side: 'right',
-      }"
-    >
+    <template v-if="mainStore.rootFsHandle">
       <u-input
-        :model-value="selectedTagList.length ? selectedTagList.join(', ') : 'Select tag to filter models'"
-        readonly
-        placeholder="Select tag to filter models"
-        trailing-icon="i-material-symbols:filter-alt"
-        :ui="{
-          trailing: 'pointer-events-none ',
-          base: !selectedTagList.length ? 'text-gray-300' : ' text-ellipsis',
-        }"
-      />
+        v-model="filterOptions.keyword"
+        placeholder="Enter keywords to search models"
+      >
 
-      <template #content>
-        <div class="flex flex-col w-[20vw] gap-3 p-3">
-          <div class="flex flex-wrap gap-2  ">
-            <u-badge
-              v-for="tag in filteredTagList"
-              :key="tag"
-              :label="tag"
-              color="neutral"
-              class=" duration-200 cursor-pointer select-none"
-              :variant="selectedTagList.includes(tag) ? 'solid' : 'outline'"
-              @click="handleSelectedTag(tag)"
-            />
+        <template #leading>
+          <u-icon name="i-lucide-search" />
+        </template>
 
-            <div
-              v-if="!filteredTagList.length"
-              class=" text-xs text-neutral-500"
-            >
-              No tag found
-            </div>
-          </div>
+        <template
+          v-if="filterOptions.keyword"
+          #trailing
+        >
+          <u-button
+            color="neutral"
+            variant="link"
+            size="sm"
+            icon="i-lucide-circle-x"
+            aria-label="Clear input"
+            @click="filterOptions.keyword = ''"
+          />
+        </template>
+      </u-input>
 
-          <div class="">
-            <u-button
-              label="Clear Selected"
-              variant="subtle"
-              color="neutral"
-              icon="i-material-symbols:filter-alt-off"
-              class=" w-full"
-              :ui="{ label: 'text-center w-full' }"
-              @click="selectedTagList = []"
-            />
-          </div>
+      <u-popover :content="{
+        side: 'right',
+      }">
+        <u-input
+          :model-value="selectedTagList.length ? selectedTagList.join(', ') : 'Select tag to filter models'"
+          readonly
+          placeholder="Select tag to filter models"
+          trailing-icon="i-material-symbols:filter-alt"
+          :ui="{
+            trailing: 'pointer-events-none ',
+            base: !selectedTagList.length ? 'text-gray-300' : ' text-ellipsis',
+          }"
+        />
 
-          <u-input
-            v-model="filterOptions.tagKeyword"
-            label="Tag keyword"
-            placeholder="Enter tag keyword"
-          >
-            <template
-              v-if="filterOptions.tagKeyword"
-              #trailing
-            >
-              <u-button
+        <template #content>
+          <div class="flex flex-col w-[20vw] gap-3 p-3">
+            <div class="flex flex-wrap gap-2  ">
+              <u-badge
+                v-for="tag in filteredTagList"
+                :key="tag"
+                :label="tag"
                 color="neutral"
-                variant="link"
-                size="sm"
-                icon="i-lucide-circle-x"
-                aria-label="Clear input"
-                @click="filterOptions.tagKeyword = ''"
+                class=" duration-200 cursor-pointer select-none"
+                :variant="selectedTagList.includes(tag) ? 'solid' : 'outline'"
+                @click="handleSelectedTag(tag)"
               />
-            </template>
-          </u-input>
 
-          <u-separator />
+              <div
+                v-if="!filteredTagList.length"
+                class=" text-xs text-neutral-500"
+              >
+                No tag found
+              </div>
+            </div>
 
-          <u-checkbox
-            v-model="filterOptions.includeTagFromFileName"
-            as="label"
-            label="Include tag from file name"
-            variant="card"
-          />
+            <div class="">
+              <u-button
+                label="Clear Selected"
+                variant="subtle"
+                color="neutral"
+                icon="i-material-symbols:filter-alt-off"
+                class=" w-full"
+                :ui="{ label: 'text-center w-full' }"
+                @click="selectedTagList = []"
+              />
+            </div>
 
-          <u-checkbox
-            v-model="filterOptions.useAndLogic"
-            as="label"
-            variant="card"
-            label="Use AND logic"
-            description="Otherwise use OR logic"
-          />
-        </div>
-      </template>
-    </u-popover>
+            <u-input
+              v-model="filterOptions.tagKeyword"
+              label="Tag keyword"
+              placeholder="Enter tag keyword"
+            >
+              <template
+                v-if="filterOptions.tagKeyword"
+                #trailing
+              >
+                <u-button
+                  color="neutral"
+                  variant="link"
+                  size="sm"
+                  icon="i-lucide-circle-x"
+                  aria-label="Clear input"
+                  @click="filterOptions.tagKeyword = ''"
+                />
+              </template>
+            </u-input>
+
+            <u-separator />
+
+            <u-checkbox
+              v-model="filterOptions.includeTagFromFileName"
+              as="label"
+              label="Include tag from file name"
+              variant="card"
+            />
+
+            <u-checkbox
+              v-model="filterOptions.useAndLogic"
+              as="label"
+              variant="card"
+              label="Use AND logic"
+              description="Otherwise use OR logic"
+            />
+          </div>
+        </template>
+      </u-popover>
+    </template>
   </div>
 </template>
 
