@@ -13,7 +13,7 @@ import {
   Vector3,
 } from '@babylonjs/core'
 import { whenever } from '@vueuse/core'
-import { shallowRef } from 'vue'
+import { shallowRef, watch } from 'vue'
 
 interface UseMultiMeshSelectOptions {
   gizmoManager: Ref<GizmoManager | undefined>;
@@ -26,6 +26,7 @@ export function useMultiMeshSelect({
   camera,
 }: UseMultiMeshSelectOptions) {
   const selectedMeshes = shallowRef<AbstractMesh[]>([])
+
   let selectionGroup: Mesh | null = null
   let highlightLayer: HighlightLayer | null = null
 
@@ -113,6 +114,14 @@ export function useMultiMeshSelect({
     updateSelectionVisuals()
   }
 
+  /** 以目前選元素重建選取，同時更新選取框 */
+  function rebuildGroup() {
+    if (selectedMeshes.value.length <= 1) return
+
+    ungroup()
+    group()
+  }
+
   function selectMesh(mesh: AbstractMesh, isMultiMode: boolean) {
     // 先還原，確保座標計算從原始世界座標開始
     ungroup()
@@ -145,5 +154,6 @@ export function useMultiMeshSelect({
     selectMesh,
     clearSelection,
     ungroup,
+    rebuildGroup,
   }
 }

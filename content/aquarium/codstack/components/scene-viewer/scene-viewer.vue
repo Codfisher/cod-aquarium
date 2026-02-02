@@ -74,8 +74,8 @@ import { onKeyStroke, useActiveElement, useMagicKeys, useThrottledRefHistory } f
 import { animate } from 'animejs'
 import { nanoid } from 'nanoid'
 import { storeToRefs } from 'pinia'
-import { filter, isTruthy, pipe, tap } from 'remeda'
-import { computed, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
+import { conditional, filter, identity, isStrictEqual, isTruthy, pipe, tap } from 'remeda'
+import { computed, onBeforeUnmount, ref, shallowRef, triggerRef, watch } from 'vue'
 import { useBabylonScene } from '../../composables/use-babylon-scene'
 import { useMultiMeshSelect } from '../../composables/use-multi-mesh-select'
 import { useSceneStore } from '../../domains/scene/scene-store'
@@ -552,6 +552,7 @@ const { canvasRef, scene, camera } = useBabylonScene({
 const {
   selectedMeshes,
   selectMesh: _selectMesh,
+  rebuildGroup,
   clearSelection,
   ungroup,
 } = useMultiMeshSelect({ gizmoManager, scene, camera })
@@ -587,7 +588,7 @@ function deleteSelectedMeshes() {
     clearSelection()
   }
 }
-function duplicateSelectedMeshes(meshes: AbstractMesh[]) {
+function duplicateMeshes(meshes: AbstractMesh[]) {
   clearSelection()
 
   let maxWidth = 0
@@ -615,6 +616,29 @@ function duplicateSelectedMeshes(meshes: AbstractMesh[]) {
 
   commitHistory()
 }
+function alignMeshes(
+  meshList: AbstractMesh[],
+  baseMesh: AbstractMesh,
+  alongAxis: 'x' | 'y' | 'z',
+) {
+  const targetPosition = baseMesh.position
+
+  meshList.forEach((mesh, i) => {
+    if (mesh === baseMesh)
+      return Promise.resolve()
+
+    const params = conditional(
+      alongAxis,
+      [isStrictEqual('x'), () => ({ y: targetPosition.y, z: targetPosition.z, x: mesh.position.x })],
+      [isStrictEqual('y'), () => ({ x: targetPosition.x, z: targetPosition.z, y: mesh.position.y })],
+      [isStrictEqual('z'), () => ({ x: targetPosition.x, y: targetPosition.y, z: mesh.position.z })],
+    )
+
+    mesh.position.set(params.x, params.y, params.z)
+  })
+
+  commitHistory()
+}
 
 const activeElement = useActiveElement()
 /** 自動 preventDefault，但是不影響輸入框 */
@@ -628,7 +652,7 @@ onKeyStroke((e) => {
 })
 onKeyStroke((e) => ['a', 'A'].includes(e.key) && e.ctrlKey, selectAll, { dedupe: true })
 onKeyStroke(['Delete', 'Backspace'], deleteSelectedMeshes, { dedupe: true })
-onKeyStroke(['d', 'D'], () => duplicateSelectedMeshes(selectedMeshes.value), { dedupe: true })
+onKeyStroke(['d', 'D'], () => duplicateMeshes(selectedMeshes.value), { dedupe: true })
 onKeyStroke(['Escape', 'Esc'], () => {
   // 如果正在預覽，則先結束預覽，無任何預覽才取消選取
   if (previewMesh.value) {
@@ -696,17 +720,51 @@ const contextMenuItems = computed(() => {
       }),
       // 選取多個 Mesh
       pipe(undefined, () => {
-        if (selectedMeshes.value.length < 2) {
+        const [firstMesh] = selectedMeshes.value
+        if (selectedMeshes.value.length < 2 || !firstMesh) {
           return
         }
 
         return [
           { label: `${selectedMeshes.value.length} meshes selected`, type: 'label' },
           {
+            icon: 'i-material-symbols:align-vertical-bottom',
+            label: 'Align (to first)',
+            children: [
+              {
+                icon: 'i-material-symbols:align-justify-center-rounded',
+                label: 'Align along Y Axis',
+                kbds: ['a', 'y'],
+                onSelect: () => {
+                  alignMeshes(selectedMeshes.value, firstMesh, 'y')
+                  rebuildGroup()
+                },
+              },
+              {
+                icon: 'i-material-symbols:vertical-align-center',
+                label: 'Align along X Axis',
+                kbds: ['a', 'x'],
+                onSelect: () => {
+                  alignMeshes(selectedMeshes.value, firstMesh, 'x')
+                  rebuildGroup()
+                },
+              },
+              {
+                icon: 'i-material-symbols:vertical-align-center',
+                label: 'Align along Z Axis',
+                kbds: ['a', 'z'],
+                onSelect: () => {
+                  alignMeshes(selectedMeshes.value, firstMesh, 'z')
+                  rebuildGroup()
+                },
+              },
+            ],
+          },
+          {
             icon: 'material-symbols:content-copy-outline-rounded',
             label: 'Duplicate',
             kbds: ['d'],
-            onSelect: () => duplicateSelectedMeshes(selectedMeshes.value),
+            onSelect: () => duplicateMeshes(selectedMeshes.value),
           },
           {
             icon: 'i-material-symbols:delete-outline-rounded',
@@ -863,7 +921,7 @@ const contextMenuItems = computed(() => {
             icon: 'material-symbols:content-copy-outline-rounded',
             label: 'Duplicate',
             kbds: ['d'],
-            onSelect: () => duplicateSelectedMeshes(selectedMeshes.value),
+            onSelect: () => duplicateMeshes(selectedMeshes.value),
           },
           {
             icon: 'i-material-symbols:delete-outline-rounded',
