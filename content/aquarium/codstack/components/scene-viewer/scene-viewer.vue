@@ -70,7 +70,7 @@ import type { AbstractMesh, GizmoManager } from '@babylonjs/core'
 import type { ContextMenuItem } from '@nuxt/ui/.'
 import type { MeshMeta, ModelFile } from '../../type'
 import { ArcRotateCamera, Color3, ImportMeshAsync, Mesh, PointerEventTypes, Quaternion, Scalar, StandardMaterial, Vector3 } from '@babylonjs/core'
-import { onKeyStroke, useActiveElement, useMagicKeys, useThrottledRefHistory } from '@vueuse/core'
+import { onKeyStroke, useActiveElement, useMagicKeys, useThrottledRefHistory, whenever } from '@vueuse/core'
 import { animate } from 'animejs'
 import { nanoid } from 'nanoid'
 import { storeToRefs } from 'pinia'
@@ -108,6 +108,9 @@ const {
   g: gKey,
   s: sKey,
   r: rKey,
+  a_x: aXKey,
+  a_y: aYKey,
+  a_z: aZKey,
 } = useMagicKeys()
 
 /** 目前預覽的模型 */
@@ -664,7 +667,6 @@ onKeyStroke(['Escape', 'Esc'], () => {
 }, { dedupe: true })
 onKeyStroke((e) => ['z', 'Z'].includes(e.key) && e.ctrlKey, undo, { dedupe: true })
 onKeyStroke((e) => ['y', 'Y'].includes(e.key) && e.ctrlKey, redo, { dedupe: true })
-
 onKeyStroke((e) => ['q', 'Q'].includes(e.key), () => {
   if (!previewMesh.value)
     return
@@ -676,6 +678,31 @@ onKeyStroke((e) => ['e', 'E'].includes(e.key), () => {
     return
 
   previewVerticalOffset.value -= 0.1
+})
+// 對齊
+whenever(() => aXKey?.value, () => {
+  const [firstMesh] = selectedMeshes.value
+  if (!firstMesh)
+    return
+
+  alignMeshes(selectedMeshes.value, firstMesh, 'x')
+  rebuildGroup()
+})
+whenever(() => aYKey?.value, () => {
+  const [firstMesh] = selectedMeshes.value
+  if (!firstMesh)
+    return
+
+  alignMeshes(selectedMeshes.value, firstMesh, 'y')
+  rebuildGroup()
+})
+whenever(() => aZKey?.value, () => {
+  const [firstMesh] = selectedMeshes.value
+  if (!firstMesh)
+    return
+
+  alignMeshes(selectedMeshes.value, firstMesh, 'z')
+  rebuildGroup()
 })
 
 /** 右鍵選單 */

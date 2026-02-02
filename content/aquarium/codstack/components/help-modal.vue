@@ -5,22 +5,22 @@
     <template #body>
       <div class="[&>h2:not(:first-child)]:mt-3">
         <h2 class="text-lg font-bold ">
-          鏡頭控制
+          Camera Controls
         </h2>
         <ul class="list-disc list-inside space-y-1 mt-1">
-          <li>左鍵：移動鏡頭</li>
-          <li><u-kbd>Ctrl</u-kbd>+左鍵：平移鏡頭</li>
-          <li>滾輪：縮放鏡頭</li>
+          <li>Left Click: Rotate Camera</li>
+          <li><u-kbd value="Ctrl" /> + Left Click: Pan Camera</li>
+          <li>Scroll Wheel: Zoom Camera</li>
         </ul>
 
         <h2 class="text-lg font-bold ">
-          快捷鍵說明
+          Shortcuts
         </h2>
         <ul class="list-disc list-inside space-y-1 mt-1">
-          <li>移動、縮放、旋轉時 + <u-kbd>Shift</u-kbd>：0.1 單位或 1 度步長</li>
-          <li>選擇時按住 <u-kbd>Shift</u-kbd>：多選</li>
-          <li>預覽放置時，案 <u-kbd>q</u-kbd>：垂直上升 0.1</li>
-          <li>預覽放置時，案 <u-kbd>e</u-kbd>：垂直下降 0.1</li>
+          <li>Hold <u-kbd value="Shift" /> while moving, scaling, or rotating: 0.1 unit or 1 degree step</li>
+          <li>Hold <u-kbd value="Shift" /> while selecting: Multi-select</li>
+          <li>Press <u-kbd value="q" /> during placement preview: Move Up Vertically 0.1</li>
+          <li>Press <u-kbd  value="e" /> during placement preview: Move Down Vertically 0.1</li>
         </ul>
       </div>
     </template>
