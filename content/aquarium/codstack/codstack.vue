@@ -47,7 +47,7 @@
         <span class="text-base">CodStack</span>
 
         <span class="ml-1 text-xs text-gray-500">
-          v{{ version }}
+          v{{ mainStore.version }}
         </span>
       </div>
     </u-app>
@@ -62,8 +62,6 @@ import FilePreviewPanel from './components/file-preview-panel/file-preview-panel
 import HelpModal from './components/help-modal.vue'
 import SceneViewer from './components/scene-viewer/scene-viewer.vue'
 import { useMainStore } from './stores/main-store'
-
-const version = '0.1.0'
 
 const mainStore = useMainStore()
 

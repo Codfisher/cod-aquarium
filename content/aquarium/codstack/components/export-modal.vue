@@ -90,18 +90,21 @@ const extractedData = computed(() => {
       scaling: mesh.scaling.asArray().map(cleanFloat),
       metadata: meta
         ? {
-            name: meta?.name,
-            mass: meta?.mass,
-            restitution: meta?.restitution,
-            friction: meta?.friction,
-          }
+          name: meta?.name,
+          mass: meta?.mass,
+          restitution: meta?.restitution,
+          friction: meta?.friction,
+        }
         : undefined,
     }
   })
 })
 
 const jsonString = computed(() => {
-  const json = JSON.stringify(extractedData.value, null, 2)
+  const json = JSON.stringify({
+    version: mainStore.version,
+    partList: extractedData.value,
+  }, null, 2)
 
   // 把換行的矩陣換成單行
   return json.replace(/\[[\d\s.,+\-e]+\]/g, (match) =>
