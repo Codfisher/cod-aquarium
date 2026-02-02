@@ -1,10 +1,8 @@
 <template>
   <client-only>
-    <u-app
-      :toaster="{
-        position: 'top-right',
-      }"
-    >
+    <u-app :toaster="{
+      position: 'top-right',
+    }">
       <u-dashboard-group storage="local">
         <u-dashboard-sidebar :default-size="25">
           <file-preview-panel v-model:selected-model-file="selectedModelFile" />
@@ -16,11 +14,18 @@
           :selected-model-file="selectedModelFile"
           @cancel-preview="cancelPreview"
         >
-          <div class="flex absolute left-0 bottom-0 p-4 gap-2">
+          <div class="flex flex-col absolute left-0 bottom-0 p-2 gap-1">
+            <bulletin-modal>
+              <u-icon
+                name="material-symbols:notifications-outline-rounded"
+                class=" size-14 opacity-40 p-2 cursor-pointer"
+              />
+            </bulletin-modal>
+
             <help-modal>
               <u-icon
                 name="i-material-symbols:help-outline-rounded"
-                class=" size-12 opacity-30 p-2 cursor-pointer"
+                class=" size-14 opacity-40 p-2 cursor-pointer"
               />
             </help-modal>
           </div>
@@ -60,6 +65,7 @@ import { onBeforeUnmount, onMounted, shallowRef, watch } from 'vue'
 import ExportModal from './components/export-modal.vue'
 import FilePreviewPanel from './components/file-preview-panel/file-preview-panel.vue'
 import HelpModal from './components/help-modal.vue'
+import BulletinModal from './components/bulletin-modal.vue'
 import SceneViewer from './components/scene-viewer/scene-viewer.vue'
 import { useMainStore } from './stores/main-store'
 
