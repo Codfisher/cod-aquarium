@@ -37,5 +37,5 @@ export interface SceneSettings {
     restitution: MetadataField<number>;
     friction: MetadataField<number>;
     otherFieldList: MetadataField[];
-  }
+  };
 }
