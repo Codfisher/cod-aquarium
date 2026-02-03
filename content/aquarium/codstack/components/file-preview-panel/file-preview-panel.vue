@@ -37,6 +37,50 @@
 
     <div
       v-if="mainStore.rootFsHandle"
+      class="flex items-center gap-2"
+    >
+      <u-tabs
+        :items="tabList"
+        class="flex-1 duration-200"
+        :content="false"
+        :class="{ 'opacity-20': tabList.length === 1 }"
+        color="neutral"
+      />
+
+      <u-popover
+        :content="{
+          side: 'right',
+          align: 'start',
+        }"
+        arrow
+      >
+        <u-button
+          icon="material-symbols:add-2-rounded"
+          variant="subtle"
+          color="neutral"
+        />
+
+        <template #content="{ close }">
+          <div class=" flex flex-col gap-2 p-4">
+            <u-input
+              v-model="newTabName"
+              placeholder="Enter tab name"
+            />
+
+            <u-button
+              label="Add New Tab"
+              color="primary"
+              variant="solid"
+              class=" w-full"
+              @click="handleAddNewTab(); close()"
+            />
+          </div>
+        </template>
+      </u-popover>
+    </div>
+
+    <div
+      v-if="mainStore.rootFsHandle"
       ref="scrollAreaRef"
       class="flex flex-col flex-1"
     >
@@ -60,18 +104,6 @@
         />
       </u-scroll-area>
     </div>
-
-    <!-- <div class="flex flex-wrap justify-center items-start content-start gap-1 overflow-y-auto flex-1">
-      <model-preview-item
-        v-for="file in filteredModelFileList"
-        :key="file.path"
-        class=" shrink-0 border-transparent border-3 duration-300"
-        :class="{ 'border-primary!': file.path === selectedModelFile?.path }"
-        :model-file="file"
-        :root-handle="mainStore.rootFsHandle"
-        @click="handleSelectedModelFile(file)"
-      />
-    </div> -->
 
     <template v-if="mainStore.rootFsHandle">
       <u-input
@@ -190,6 +222,7 @@
 </template>
 
 <script setup lang="ts">
+import type { TabsItem } from '@nuxt/ui/.'
 import type { ModelFile } from '../../type'
 import { refManualReset, useElementSize } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
@@ -220,6 +253,21 @@ function handleSelectedTag(tag: string) {
   else
     selectedTagList.value.splice(index, 1)
 }
+
+const baseTabList = {
+  label: 'All',
+} satisfies TabsItem
+
+const newTabName = ref('')
+function handleAddNewTab() {
+  if (!newTabName.value)
+    return
+  newTabName.value = ''
+}
+
+const tabList = computed(() => [
+  baseTabList,
+])
 
 const DEFAULT_FILTER_OPTIONS = {
   keyword: '',
