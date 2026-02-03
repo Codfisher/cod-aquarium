@@ -78,7 +78,6 @@
         v-model="filterOptions.keyword"
         placeholder="Enter keywords to search models"
       >
-
         <template #leading>
           <u-icon name="i-lucide-search" />
         </template>
@@ -98,9 +97,11 @@
         </template>
       </u-input>
 
-      <u-popover :content="{
-        side: 'right',
-      }">
+      <u-popover
+        :content="{
+          side: 'right',
+        }"
+      >
         <u-input
           :model-value="selectedTagList.length ? selectedTagList.join(', ') : 'Select tag to filter models'"
           readonly
@@ -206,7 +207,7 @@ const SUPPORTED_EXTENSIONS = ['.gltf', '.glb', '.obj', '.fbx', '.stl']
 const selectedFormatList = ref(['.gltf', '.glb'])
 
 const isScanning = ref(false)
-const statusMessage = ref('Select directory to preview 3D models')
+const statusMessage = ref('Select folder to preview 3D models')
 
 const modelFileList = ref<ModelFile[]>([])
 const selectedTagList = ref<string[]>([])
@@ -294,7 +295,7 @@ const filteredModelFileList = computed(() => {
       }
 
       return list.filter((file) =>
-        file.path.toLocaleLowerCase().includes(filterOptions.value.keyword.toLocaleLowerCase())
+        file.path.toLocaleLowerCase().includes(filterOptions.value.keyword.toLocaleLowerCase()),
       )
     },
     (list) => {

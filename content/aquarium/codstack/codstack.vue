@@ -39,6 +39,7 @@
               <u-tooltip
                 :text="importBtnState.tooltip"
                 :content="{ side: 'right' }"
+                :delay-duration="importBtnState.disabled ? 0 : undefined"
               >
                 <u-button
                   icon="i-material-symbols:database-upload-outline-rounded"
