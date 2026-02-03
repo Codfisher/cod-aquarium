@@ -43,7 +43,8 @@
 
 <script setup lang="ts">
 import type { SceneData } from '../type'
-import { nextTick, ref, useTemplateRef } from 'vue'
+import { pipe } from 'remeda'
+import { computed, nextTick, ref, useTemplateRef } from 'vue'
 import { z } from 'zod'
 import { useMainStore } from '../stores/main-store'
 import { sceneDataSchema } from '../type'
@@ -56,6 +57,8 @@ const emit = defineEmits<{
 const mainStore = useMainStore()
 const toast = useToast()
 
+const rootFolder = computed(() => mainStore.rootFsHandle)
+
 const inputContent = ref('')
 const isLoading = ref(false)
 const errorMessage = ref<string>()
@@ -65,57 +68,6 @@ function clearErrorMessage() {
 
 const textareaRef = useTemplateRef('textareaRef')
 
-// --- 2. 輔助函式：將 Zod Path 轉換為字串 Index ---
-/**
- * 簡易定位器：根據 Zod 的路徑 (['scenes', 0, 'id']) 在字串中尋找大概位置
- * 注意：這是一個 heuristic (啟發式) 搜尋，對於複雜的 JS Object 不一定 100% 準確，
- * 但對於標示錯誤位置通常足夠。
- */
-function locatePathInString(jsonString: string, path: (string | number)[]) {
-  let currentIndex = 0
-  let targetIndex = 0
-  let targetLength = 0
-
-  // 逐層搜尋
-  for (const segment of path) {
-    const key = String(segment)
-    // 尋找 Key (允許 key 有引號或沒引號)
-    // 這裡的正則表達式尋找：key 接著冒號，或者如果是陣列索引則略過
-    if (typeof segment === 'number') {
-      // 如果是陣列索引，比較難精確定位，我們嘗試尋找 `{` 或 `[` 的區塊
-      // 簡單實作：暫時跳過索引定位，直接找下一個 Key，或者停留在當前陣列開頭
-      // 若需要精確定位陣列第 N 個元素，需要寫完整的 Parser，這裡做簡易處理
-      continue
-    }
-
-    // 搜尋 Key，例如 "scenes": 或 scenes:
-    // Regex 解釋:
-    // (?:"${key}"|'${key}'|${key}) -> 匹配 "key", 'key' 或 key
-    // \s*: -> 後面接冒號
-    const regex = new RegExp(`(?:"${key}"|'${key}'|${key})\\s*:`, 'g')
-
-    // 從上次找到的地方往後找
-    regex.lastIndex = currentIndex
-    const match = regex.exec(jsonString)
-
-    if (match) {
-      currentIndex = match.index
-      targetIndex = match.index
-      targetLength = match[0].length - 1 // 減去冒號
-
-      // 移動 currentIndex 到冒號之後，準備找下一層
-      currentIndex += match[0].length
-    }
-    else {
-      // 找不到就停在上一層
-      break
-    }
-  }
-
-  return { start: targetIndex, end: targetIndex + targetLength }
-}
-
-// --- 3. 處理匯入與錯誤反白 ---
 function parseConfigInput(str: string): any {
   const trimmed = str.trim()
   if (!trimmed)
@@ -135,6 +87,12 @@ function parseConfigInput(str: string): any {
 }
 
 async function handleImport() {
+  const rootFolderName = rootFolder.value?.name
+  if (!rootFolderName) {
+    toast.add({ title: 'Please select a folder', color: 'warning' })
+    return
+  }
+
   isLoading.value = true
   errorMessage.value = undefined
 
@@ -155,8 +113,32 @@ async function handleImport() {
       throw new Error('Data validation failed')
     }
 
+    const { data } = result
+    const rootErrorMessage = pipe('', () => {
+      for (const part of data.partList) {
+        if (!part.path.includes(rootFolderName)) {
+          return `Path Error: ${part.path} does not include ${rootFolderName}`
+        }
+      }
+    })
+    if (rootErrorMessage) {
+      errorMessage.value = rootErrorMessage
+      return
+    }
+
+    // 移除根目錄名稱
+    const resultData = {
+      ...data,
+      partList: data.partList.map((part) => {
+        return {
+          ...part,
+          path: part.path.replace(rootFolderName, ''),
+        }
+      }),
+    }
+
+    emit('data', resultData)
     toast.add({ title: 'Import Success', color: 'primary' })
-    emit('data', result.data)
   }
   catch (error: any) {
     if (error instanceof Error) {
