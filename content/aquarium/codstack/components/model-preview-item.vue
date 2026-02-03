@@ -11,16 +11,19 @@
         Generating...
       </div>
 
-      <u-tooltip
-        v-else-if="thumbnailSrc"
-        :text="props.modelFile.path"
-      >
-        <img
-          :src="thumbnailSrc"
-          class="w-full h-full object-contain"
-          alt="Model thumbnail"
-        >
-      </u-tooltip>
+      <template v-else-if="thumbnailSrc">
+        <u-tooltip :text="props.modelFile.path">
+          <img
+            :src="thumbnailSrc"
+            class="w-full h-full object-contain"
+            alt="Model thumbnail"
+          >
+        </u-tooltip>
+
+        <div class="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[10px] pointer-events-none opacity-80 text-center text-ellipsis overflow-hidden">
+          {{ props.modelFile.name.split('.')[0] }}
+        </div>
+      </template>
 
       <div
         v-else
