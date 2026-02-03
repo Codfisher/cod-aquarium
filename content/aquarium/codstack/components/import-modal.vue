@@ -101,13 +101,12 @@ async function handleImport() {
     const result = sceneDataSchema.safeParse(rawData)
 
     if (!result.success) {
-      // 取出第一個錯誤
+      // 只顯示第一個錯誤
       const firstIssue = result.error.issues[0]
       if (!firstIssue)
         return
       const pathString = firstIssue.path.join('.')
 
-      // 設定錯誤訊息
       errorMessage.value = `Format Error (${pathString}): ${firstIssue.message}`
 
       throw new Error('Data validation failed')
@@ -129,12 +128,10 @@ async function handleImport() {
     // 移除根目錄名稱
     const resultData = {
       ...data,
-      partList: data.partList.map((part) => {
-        return {
-          ...part,
-          path: part.path.replace(rootFolderName, ''),
-        }
-      }),
+      partList: data.partList.map((part) => ({
+        ...part,
+        path: part.path.replace(rootFolderName, ''),
+      })),
     }
 
     emit('data', resultData)

@@ -1,4 +1,4 @@
-import z from "zod/v4";
+import z from 'zod/v4'
 
 export interface ModelFile {
   name: string;
@@ -46,9 +46,9 @@ export const sceneDataSchema = z.object({
   version: z.string(),
   partList: z.array(z.object({
     path: z.string(),
-    position: z.array(z.number()).min(3).max(3),
-    rotationQuaternion: z.array(z.number()).min(4).max(4),
-    scaling: z.array(z.number()).min(3).max(3),
+    position: z.array(z.number()).length(3),
+    rotationQuaternion: z.array(z.number()).length(4),
+    scaling: z.array(z.number()).length(3),
     metadata: z.object({
       name: z.string(),
       mass: z.number(),
@@ -58,4 +58,3 @@ export const sceneDataSchema = z.object({
   })),
 })
 export type SceneData = z.infer<typeof sceneDataSchema>
-
