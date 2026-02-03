@@ -1,8 +1,10 @@
 <template>
   <client-only>
-    <u-app :toaster="{
-      position: 'top-right',
-    }">
+    <u-app
+      :toaster="{
+        position: 'top-right',
+      }"
+    >
       <u-dashboard-group storage="local">
         <u-dashboard-sidebar :default-size="25">
           <file-preview-panel v-model:selected-model-file="selectedModelFile" />
@@ -35,14 +37,15 @@
           <div class="flex flex-col absolute left-0 top-0 p-4 gap-2">
             <import-modal>
               <u-tooltip
-                text="Import scene"
+                :text="importBtnState.tooltip"
                 :content="{ side: 'right' }"
               >
                 <u-button
-                  icon="i-material-symbols:upload-2-rounded"
+                  icon="i-material-symbols:database-upload-outline-rounded"
                   color="neutral"
                   variant="subtle"
                   size="xl"
+                  :disabled="importBtnState.disabled"
                 />
               </u-tooltip>
             </import-modal>
@@ -77,13 +80,14 @@
 
 <script setup lang="ts">
 import type { ModelFile } from './type'
-import { onBeforeUnmount, onMounted, shallowRef, watch } from 'vue'
+import { computed, shallowRef, watch } from 'vue'
+import BulletinModal from './components/bulletin-modal.vue'
 import ExportModal from './components/export-modal.vue'
-import ImportModal from './components/import-modal.vue'
 import FilePreviewPanel from './components/file-preview-panel/file-preview-panel.vue'
 import HelpModal from './components/help-modal.vue'
-import BulletinModal from './components/bulletin-modal.vue'
+import ImportModal from './components/import-modal.vue'
 import SceneViewer from './components/scene-viewer/scene-viewer.vue'
+import { useFontLoader } from './composables/use-font-loader'
 import { useMainStore } from './stores/main-store'
 
 const mainStore = useMainStore()
@@ -94,26 +98,20 @@ function cancelPreview() {
 }
 watch(() => mainStore.rootFsHandle, () => cancelPreview())
 
-// 載入字體
-const fontHref = 'https://fonts.googleapis.com/css2?family=Orbitron:wght@400..900'
-let linkEl: HTMLLinkElement
-onMounted(() => {
-  // 已經有同樣的 link 就不要重複
-  const existed = Array.from(document.head.querySelectorAll('link'))
-    .find((link) => link.getAttribute('href')?.includes('Orbitron:wght@400..900'))
-  if (existed)
-    return
-
-  linkEl = document.createElement('link')
-  linkEl.rel = 'stylesheet'
-  linkEl.href = fontHref
-  document.head.appendChild(linkEl)
+const importBtnState = computed(() => {
+  if (!mainStore.rootFsHandle) {
+    return {
+      disabled: true,
+      tooltip: 'Please select a folder',
+    }
+  }
+  return {
+    disabled: false,
+    tooltip: 'Import scene',
+  }
 })
 
-onBeforeUnmount(() => {
-  if (linkEl)
-    document.head.removeChild(linkEl)
-})
+useFontLoader()
 </script>
 
 <style lang="sass">
