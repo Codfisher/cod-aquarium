@@ -32,7 +32,21 @@
             </help-modal>
           </div>
 
-          <div class="flex absolute left-0 top-0 p-4 gap-2">
+          <div class="flex flex-col absolute left-0 top-0 p-4 gap-2">
+            <import-modal>
+              <u-tooltip
+                text="Import scene"
+                :content="{ side: 'right' }"
+              >
+                <u-button
+                  icon="i-material-symbols:upload-2-rounded"
+                  color="neutral"
+                  variant="subtle"
+                  size="xl"
+                />
+              </u-tooltip>
+            </import-modal>
+
             <export-modal :mesh-list="addedMeshList">
               <u-tooltip
                 text="Export scene"
@@ -65,6 +79,7 @@
 import type { ModelFile } from './type'
 import { onBeforeUnmount, onMounted, shallowRef, watch } from 'vue'
 import ExportModal from './components/export-modal.vue'
+import ImportModal from './components/import-modal.vue'
 import FilePreviewPanel from './components/file-preview-panel/file-preview-panel.vue'
 import HelpModal from './components/help-modal.vue'
 import BulletinModal from './components/bulletin-modal.vue'
