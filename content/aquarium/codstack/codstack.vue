@@ -22,7 +22,7 @@
               <u-icon
                 name="material-symbols:notifications-outline-rounded"
                 color="white"
-                class=" size-14 p-2 cursor-pointer filter-[drop-shadow(0_0_5px_#999)]"
+                class=" size-14 p-2 cursor-pointer filter-[drop-shadow(0_0_2px_#777)]"
               />
             </bulletin-modal>
 
@@ -30,7 +30,7 @@
               <u-icon
                 name="i-material-symbols:help-outline-rounded"
                 color="white"
-                class=" size-14 p-2 cursor-pointer filter-[drop-shadow(0_0_5px_#999)]"
+                class=" size-14 p-2 cursor-pointer filter-[drop-shadow(0_0_2px_#777)]"
               />
             </help-modal>
           </div>
