@@ -66,9 +66,9 @@
 </template>
 
 <script setup lang="ts">
-import type { AbstractMesh, GizmoManager } from '@babylonjs/core'
+import type { AbstractMesh, GizmoManager, Scene } from '@babylonjs/core'
 import type { ContextMenuItem } from '@nuxt/ui/.'
-import type { MeshMeta, ModelFile } from '../../type'
+import type { MeshMeta, ModelFile, SceneData } from '../../type'
 import { ArcRotateCamera, Color3, ImportMeshAsync, Mesh, PointerEventTypes, Quaternion, Scalar, StandardMaterial, Vector3 } from '@babylonjs/core'
 import { onKeyStroke, useActiveElement, useMagicKeys, useThrottledRefHistory, whenever } from '@vueuse/core'
 import { animate } from 'animejs'
@@ -88,6 +88,7 @@ import '@babylonjs/loaders'
 
 const props = defineProps<{
   selectedModelFile?: ModelFile;
+  importedSceneData?: SceneData;
 }>()
 
 const emit = defineEmits<{
@@ -128,6 +129,32 @@ watch(() => mainStore.rootFsHandle, () => {
   })
   addedMeshList.value = []
 })
+// 處理匯入場景資料
+watch(() => props.importedSceneData, (sceneData) => {
+  const sceneValue = scene.value
+  const rootFsHandle = mainStore.rootFsHandle
+  if (!sceneData || !rootFsHandle || !sceneValue) {
+    return
+  }
+  addedMeshList.value.forEach((mesh) => {
+    mesh.dispose()
+  })
+  addedMeshList.value = []
+  clearHistory()
+
+  sceneData.partList.forEach(async (part) => {
+    const file = await getFileFromPath(rootFsHandle, part.path)
+    if (!file) {
+      return
+    }
+    const model = await loadModel(rootFsHandle, part.path, file, sceneValue)
+    model.position = Vector3.FromArray(part.position)
+    model.scaling = Vector3.FromArray(part.scaling)
+    model.rotationQuaternion = Quaternion.FromArray(part.rotationQuaternion)
+
+    addedMeshList.value.push(model)
+  })
+})
 
 interface MeshState {
   id: number;
@@ -142,6 +169,7 @@ const {
   undo,
   redo,
   commit: commitHistory,
+  clear: clearHistory,
 } = useThrottledRefHistory(
   addedMeshList,
   {
@@ -1030,6 +1058,48 @@ onBeforeUnmount(() => {
   blobUrlList.forEach((url) => URL.revokeObjectURL(url))
 })
 
+async function loadModel(
+  rootFsHandle: FileSystemDirectoryHandle,
+  path: string,
+  file: File,
+  sceneValue: Scene,
+) {
+  const result = await ImportMeshAsync(
+    file,
+    sceneValue,
+    {
+      pluginOptions: {
+        gltf: {
+          async preprocessUrlAsync(url) {
+            const assetFile = await pipe(
+              path.replace(file.name, ''),
+              (path) => getFileFromPath(rootFsHandle, `${path}${url}`),
+            )
+
+            const newUrl = URL.createObjectURL(assetFile)
+            blobUrlList.push(newUrl)
+
+            return newUrl
+          },
+        },
+      },
+    },
+  )
+
+  const root = result.meshes[0]!
+
+  root.metadata = {
+    name: '',
+    fileName: file.name,
+    path,
+    mass: sceneSettings.value.metadata.mass.defaultValue,
+    restitution: sceneSettings.value.metadata.restitution.defaultValue,
+    friction: sceneSettings.value.metadata.friction.defaultValue,
+  } as MeshMeta
+
+  return root
+}
+
 /** 載入預覽模型 */
 async function loadPreviewModel(modelFile: ModelFile) {
   const [sceneValue, rootFsHandle] = [scene.value, mainStore.rootFsHandle]
@@ -1042,48 +1112,13 @@ async function loadPreviewModel(modelFile: ModelFile) {
   }
 
   try {
-    const result = await ImportMeshAsync(
-      modelFile.file,
-      sceneValue,
-      {
-        pluginOptions: {
-          gltf: {
-            async preprocessUrlAsync(url) {
-              const file = await pipe(
-                modelFile.path.replace(modelFile.name, ''),
-                (path) => getFileFromPath(rootFsHandle, `${path}${url}`),
-              )
+    const model = await loadModel(rootFsHandle, modelFile.path, modelFile.file, sceneValue)
+    model.position = mouseTargetPosition.clone()
 
-              const newUrl = URL.createObjectURL(file)
-              blobUrlList.push(newUrl)
+    model.isPickable = false
+    model.getChildMeshes().forEach((mesh) => mesh.isPickable = false)
 
-              return newUrl
-            },
-          },
-        },
-      },
-    )
-
-    const root = result.meshes[0]!
-    root.position = mouseTargetPosition.clone()
-
-    // const { min, max } = root.getHierarchyBoundingVectors()
-    // root.setBoundingInfo(new BoundingInfo(min, max))
-    // root.showBoundingBox = true
-
-    root.isPickable = false
-    root.getChildMeshes().forEach((mesh) => mesh.isPickable = false)
-
-    root.metadata = {
-      name: '',
-      fileName: modelFile.name,
-      path: modelFile.path,
-      mass: sceneSettings.value.metadata.mass.defaultValue,
-      restitution: sceneSettings.value.metadata.restitution.defaultValue,
-      friction: sceneSettings.value.metadata.friction.defaultValue,
-    } satisfies MeshMeta
-
-    previewMesh.value = root
+    previewMesh.value = model
   }
   catch (err) {
     console.error('模型載入失敗:', err)

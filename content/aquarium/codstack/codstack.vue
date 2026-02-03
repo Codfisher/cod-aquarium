@@ -14,6 +14,7 @@
           v-slot="{ addedMeshList }"
           class="w-full h-full"
           :selected-model-file="selectedModelFile"
+          :imported-scene-data="importedSceneData"
           @cancel-preview="cancelPreview"
         >
           <div class="flex flex-col absolute left-0 bottom-0 p-2 gap-1">
@@ -35,7 +36,7 @@
           </div>
 
           <div class="flex flex-col absolute left-0 top-0 p-4 gap-2">
-            <import-modal>
+            <import-modal @data="handleImportData">
               <u-tooltip
                 :text="importBtnState.tooltip"
                 :content="{ side: 'right' }"
@@ -80,7 +81,7 @@
 </template>
 
 <script setup lang="ts">
-import type { ModelFile } from './type'
+import type { ModelFile, SceneData } from './type'
 import { computed, shallowRef, watch } from 'vue'
 import BulletinModal from './components/bulletin-modal.vue'
 import ExportModal from './components/export-modal.vue'
@@ -91,6 +92,7 @@ import SceneViewer from './components/scene-viewer/scene-viewer.vue'
 import { useFontLoader } from './composables/use-font-loader'
 import { useMainStore } from './stores/main-store'
 
+useFontLoader()
 const mainStore = useMainStore()
 
 const selectedModelFile = shallowRef<ModelFile>()
@@ -112,7 +114,10 @@ const importBtnState = computed(() => {
   }
 })
 
-useFontLoader()
+const importedSceneData = shallowRef<SceneData>()
+function handleImportData(data: SceneData) {
+  importedSceneData.value = data
+}
 </script>
 
 <style lang="sass">

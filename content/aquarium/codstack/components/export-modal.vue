@@ -21,20 +21,18 @@
         <u-button
           color="primary"
           icon="i-material-symbols:download-2-rounded"
+          label="Download JSON file"
           @click="downloadJSON"
-        >
-          下載 JSON 檔案
-        </u-button>
+        />
 
         <u-button
           v-if="isSupported"
           color="neutral"
           variant="outline"
           icon="i-material-symbols:content-copy-rounded"
+          label="Copy to clipboard"
           @click="copyToClipboard"
-        >
-          複製
-        </u-button>
+        />
       </div>
     </template>
   </u-modal>
@@ -128,11 +126,13 @@ async function copyToClipboard() {
   try {
     await copy()
     toast.add({
-      title: '已複製到剪貼簿',
+      title: 'Copied to clipboard',
+      description: 'You can now paste the scene data to another application.',
+      color: 'success',
     })
   }
   catch (err) {
-    console.error('複製失敗', err)
+    console.error('Failed to copy', err)
   }
 }
 </script>
