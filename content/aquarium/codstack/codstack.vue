@@ -18,14 +18,16 @@
             <bulletin-modal>
               <u-icon
                 name="material-symbols:notifications-outline-rounded"
-                class=" size-14 opacity-40 p-2 cursor-pointer"
+                color="white"
+                class=" size-14 p-2 cursor-pointer filter-[drop-shadow(0_0_5px_#999)]"
               />
             </bulletin-modal>
 
             <help-modal>
               <u-icon
                 name="i-material-symbols:help-outline-rounded"
-                class=" size-14 opacity-40 p-2 cursor-pointer"
+                color="white"
+                class=" size-14 p-2 cursor-pointer filter-[drop-shadow(0_0_5px_#999)]"
               />
             </help-modal>
           </div>
