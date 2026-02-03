@@ -45,7 +45,7 @@
     "@typescript-eslint/parser": "^8.33.1",
     "@vitest/browser": "^3.2.3",
     "@vue/test-utils": "^2.4.6",
-    "@vueuse/core": "^13.3.0",
+    "@vueuse/core": "^14.0.0",
     "@whyframe/core": "^0.1.14",
     "@whyframe/vue": "^0.1.9",
     "@xstate/vue": "^5.0.0",

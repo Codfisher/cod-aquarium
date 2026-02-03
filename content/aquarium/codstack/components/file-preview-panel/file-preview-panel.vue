@@ -115,7 +115,7 @@
 
         <template #content>
           <div class="flex flex-col w-[20vw] gap-3 p-3">
-            <div class="flex flex-wrap gap-2  ">
+            <div class="flex flex-wrap gap-2 overflow-auto max-h-[60vh]">
               <u-badge
                 v-for="tag in filteredTagList"
                 :key="tag"
@@ -191,15 +191,17 @@
 
 <script setup lang="ts">
 import type { ModelFile } from '../../type'
-import { useElementSize } from '@vueuse/core'
-import { chunk, pipe } from 'remeda'
-import { computed, reactive, ref, useTemplateRef } from 'vue'
+import { refManualReset, useElementSize } from '@vueuse/core'
+import { storeToRefs } from 'pinia'
+import { chunk, clone, pipe } from 'remeda'
+import { computed, reactive, ref, useTemplateRef, watch } from 'vue'
 import { useMainStore } from '../../stores/main-store'
 import ModelPreviewItem from '../model-preview-item.vue'
 import SceneOptionsForm from '../scene-options-form.vue'
 
 const toast = useToast()
 const mainStore = useMainStore()
+const { rootFsHandle } = storeToRefs(mainStore)
 
 const selectedModelFile = defineModel<ModelFile>('selectedModelFile')
 
@@ -207,7 +209,7 @@ const SUPPORTED_EXTENSIONS = ['.gltf', '.glb', '.obj', '.fbx', '.stl']
 const selectedFormatList = ref(['.gltf', '.glb'])
 
 const isScanning = ref(false)
-const statusMessage = ref('Select folder to preview 3D models')
+const statusMessage = refManualReset('Select folder to preview 3D models')
 
 const modelFileList = ref<ModelFile[]>([])
 const selectedTagList = ref<string[]>([])
@@ -219,14 +221,16 @@ function handleSelectedTag(tag: string) {
     selectedTagList.value.splice(index, 1)
 }
 
-const filterOptions = ref({
+const DEFAULT_FILTER_OPTIONS = {
   keyword: '',
   tagKeyword: '',
   /** 是否包含來自檔名的 tag */
   includeTagFromFileName: true,
   /** 過濾邏輯 */
   useAndLogic: false,
-})
+}
+const filterOptions = ref(clone(DEFAULT_FILTER_OPTIONS))
+watch(rootFsHandle, () => filterOptions.value = clone(DEFAULT_FILTER_OPTIONS))
 
 const scrollAreaRef = useTemplateRef('scrollAreaRef')
 const scrollAreaSize = reactive(useElementSize(scrollAreaRef))
@@ -356,7 +360,7 @@ async function handleSelectDirectory() {
       statusMessage.value = 'error'
     }
     else {
-      statusMessage.value = 'Select directory to preview 3D models'
+      statusMessage.reset()
     }
   }
   finally {
