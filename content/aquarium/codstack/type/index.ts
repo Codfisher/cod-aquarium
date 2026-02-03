@@ -1,3 +1,5 @@
+import z from "zod/v4";
+
 export interface ModelFile {
   name: string;
   /** 相對路徑 (例如: subfolder/model.glb) */
@@ -39,3 +41,21 @@ export interface SceneSettings {
     otherFieldList: MetadataField[];
   };
 }
+
+export const sceneDataSchema = z.object({
+  version: z.string(),
+  partList: z.array(z.object({
+    path: z.string(),
+    position: z.array(z.number()).min(3).max(3),
+    rotationQuaternion: z.array(z.number()).min(4).max(4),
+    scaling: z.array(z.number()).min(3).max(3),
+    metadata: z.object({
+      name: z.string(),
+      mass: z.number(),
+      restitution: z.number(),
+      friction: z.number(),
+    }).optional(),
+  })),
+})
+export type SceneData = z.infer<typeof sceneDataSchema>
+
