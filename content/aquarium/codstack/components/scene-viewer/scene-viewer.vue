@@ -168,6 +168,10 @@ watch(() => props.importedSceneData, async (sceneData) => {
 
     addedMeshList.value.push(model)
   })
+
+  await Promise.all(tasks)
+
+  commitHistory()
 })
 
 interface MeshState {
