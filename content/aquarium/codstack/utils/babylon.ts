@@ -76,6 +76,7 @@ export function getSurfaceSnapTransform(
   }
 }
 
+/** 清除所有 Mesh 的 PivotMatrix，統一由外部控制旋轉，避免旋轉偏移 */
 export function clearPivotRecursive(root: AbstractMesh) {
   if (root instanceof Mesh) {
     root.setPivotMatrix(Matrix.Identity())
