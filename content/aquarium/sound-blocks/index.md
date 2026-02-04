@@ -8,4 +8,4 @@ layout: false
 import SoundBlocks from './sound-blocks.vue'
 </script>
 
-<sound-blocks />
+<!-- <sound-blocks /> -->
