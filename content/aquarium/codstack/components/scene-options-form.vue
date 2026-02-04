@@ -11,8 +11,9 @@
       <u-checkbox v-model="optionForm.enablePreviewRotation" />
 
       <template #description>
-        Hold <u-kbd value="Alt" /> (Option) to temporarily enable Surface Align. The preview will rotate to stay
-        perpendicular to the surface. Release to turn it off.
+        Automatically aligns the model to the surface normal. You can also hold <u-kbd value="Alt" /> (Option) to
+        temporarily enable this
+        without checking the box.
       </template>
     </u-form-field>
 
