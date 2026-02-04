@@ -8,7 +8,7 @@ export function roundToStep(value: number, step: number) {
 /** 修整小數點，避免過長 */
 export function cleanFloat(
   value: number,
-  decimal: number = 4,
+  decimal: number = 8,
 ) {
   return Number.parseFloat(value.toFixed(decimal))
 }

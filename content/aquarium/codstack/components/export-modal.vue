@@ -72,6 +72,21 @@ const validMeshList = computed(() => {
   return props.meshList.filter((mesh) => mesh.isEnabled())
 })
 
+function serializeQuaternion(q: Quaternion) {
+  const qn = q.normalizeToNew()
+
+  const arr = qn.asArray().map(n => cleanFloat(n, 8))
+
+  // 因為 rounding 會破壞 unit，再正規化一次
+  const q2 = Quaternion.FromArray(arr).normalize()
+
+  // 統一符號（q 和 -q 等價），避免接近 180° 時跳號
+  if (q2.w < 0) q2.scaleInPlace(-1)
+
+  return q2.asArray().map(n => cleanFloat(n, 8))
+}
+
+
 const extractedData = computed(() => {
   if (!validMeshList.value.length)
     return []
@@ -85,7 +100,7 @@ const extractedData = computed(() => {
     return {
       path,
       position: mesh.position.asArray().map(cleanFloat),
-      rotationQuaternion: quaternion.asArray().map(cleanFloat),
+      rotationQuaternion: serializeQuaternion(quaternion),
       scaling: mesh.scaling.asArray().map(cleanFloat),
       metadata: meta
         ? {
