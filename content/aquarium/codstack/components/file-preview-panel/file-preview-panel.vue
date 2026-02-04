@@ -43,7 +43,6 @@
         v-model="selectedTab"
         :items="tabList"
         class="flex-1 duration-200"
-        value-key="label"
         :content="false"
         :class="{ 'opacity-20': tabList.length === 1 }"
         color="neutral"
@@ -299,8 +298,9 @@ function handleSelectedTag(tag: string) {
 
 const baseTabList = {
   label: 'All',
+  value: 'all',
 } as const satisfies TabsItem
-const selectedTab = ref<string>(baseTabList.label)
+const selectedTab = ref<string>(baseTabList.value)
 
 const customTabListMap = useStorage<Record<
   /** 根目錄路徑 */
@@ -323,15 +323,18 @@ function addNewTab() {
 
   customTabListMap.value[key] = [
     ...customTabList.value ?? [],
-    { label: newTabName.value },
+    { label: newTabName.value, value: newTabName.value },
   ]
 
   newTabName.value = ''
 }
 
 function deleteCustomTab(label: string | undefined) {
-  // @ts-expect-error 類型具現化過深
-  customTabList.value = customTabList.value.filter((tab) => tab.label !== label)
+  const key = rootFsHandle.value?.name
+  if (!key) {
+    return
+  }
+  customTabListMap.value[key] = customTabList.value.filter((tab) => tab.label !== label)
 }
 
 const modelTabMap = useStorage<Record<
@@ -383,6 +386,12 @@ function createCustomTabDropdownMenuItems(data: ModelFile): DropdownMenuItem[] {
     }),
     filter(isTruthy),
     tap((data) => {
+      data.unshift({
+        type: 'label',
+        label: 'Add to Tab',
+        class: 'text-xs opacity-50',
+      })
+
       data.push({ type: 'separator' })
       data.push({
         label: 'Clear',
