@@ -565,9 +565,7 @@ const { canvasRef, scene, camera } = useBabylonScene({
 
             // 恢復位置與旋轉，以免自定義旋轉和位移都被 bake 吃掉，最後輸出都是 0
             clonedMesh.position.copyFrom(finalPosition)
-            if (finalRotationQuaternion) {
-              clonedMesh.rotationQuaternion = finalRotationQuaternion
-            }
+            clonedMesh.rotationQuaternion = finalRotationQuaternion
 
             clonedMesh.isPickable = true
             clonedMesh.getChildMeshes().forEach((mesh) => mesh.isPickable = true)
