@@ -147,11 +147,8 @@ export function useBabylonScene(params?: UseBabylonSceneParam) {
   })
 
   const canvasSize = reactive(useElementSize(canvasRef))
-  watchDebounced(canvasSize, ({ width, height }) => {
-    if (!width || !height) {
-      return
-    }
-    engine.value?.setSize(width, height, true)
+  watchDebounced(canvasSize, () => {
+    engine.value?.resize()
   }, {
     debounce: 200,
   })
