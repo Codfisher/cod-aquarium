@@ -30,7 +30,7 @@
 
       <template #description>
         Applies a vertical offset only when the preview snaps to the ground to prevent clipping. (Does not affect
-        stacking on other meshes). Use <u-kbd value="Q" /> / <u-kbd value="E" /> to adjust.
+        stacking on other meshes). Use <u-kbd value="Q" />(up) / <u-kbd value="E" />(down) to adjust.
       </template>
     </u-form-field>
 
