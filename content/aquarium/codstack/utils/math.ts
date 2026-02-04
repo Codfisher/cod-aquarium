@@ -10,5 +10,6 @@ export function cleanFloat(
   value: number,
   decimal: number = 8,
 ) {
-  return Number.parseFloat(value.toFixed(decimal))
+  const result = Number.parseFloat(value.toFixed(decimal))
+  return result
 }

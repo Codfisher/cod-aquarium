@@ -99,9 +99,9 @@ const extractedData = computed(() => {
 
     return {
       path,
-      position: mesh.position.asArray().map(cleanFloat),
+      position: mesh.position.asArray().map(n => cleanFloat(n, 8)),
       rotationQuaternion: serializeQuaternion(quaternion),
-      scaling: mesh.scaling.asArray().map(cleanFloat),
+      scaling: mesh.scaling.asArray().map(n => cleanFloat(n, 8)),
       metadata: meta
         ? {
           name: meta?.name,
