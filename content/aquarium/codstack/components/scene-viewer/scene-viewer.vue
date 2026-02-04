@@ -158,11 +158,17 @@ watch(() => props.importedSceneData, async (sceneData) => {
     // preview clone 時有先 bake 一次，所以這裡也要，否則座標系基礎會不同
     if (model instanceof Mesh) {
       model.setParent(null)
+      model.position.setAll(0)
       model.bakeCurrentTransformIntoVertices()
 
       model.position = Vector3.FromArray(part.position)
       model.scaling = Vector3.FromArray(part.scaling)
-      model.rotationQuaternion = Quaternion.FromArray(part.rotationQuaternion)
+
+      // 不知道為什麼，直接用 rotationQuaternion 會導致 gizmoManager 無法旋轉，改成 Euler 就行
+      const savedQuaternion = Quaternion.FromArray(part.rotationQuaternion)
+      model.rotation = savedQuaternion.toEulerAngles()
+      model.rotationQuaternion = null
+
       model.refreshBoundingInfo()
     }
 
@@ -244,7 +250,8 @@ watch(() => shiftKey?.value, (shiftKeyValue) => {
     gizmos.positionGizmo.snapDistance = snapValue
   }
   if (gizmos?.rotationGizmo) {
-    gizmos.rotationGizmo.snapDistance = shiftKeyValue ? Math.PI / 180 : 0
+    const snapValue = shiftKeyValue ? Math.PI / 180 * 15 : 0
+    gizmos.rotationGizmo.snapDistance = snapValue
   }
 }, { deep: true })
 
@@ -523,19 +530,23 @@ const { canvasRef, scene, camera } = useBabylonScene({
         if (previewMesh.value) {
           const clonedMesh = previewMesh.value.clone(nanoid(), null, false)
           if (clonedMesh instanceof Mesh) {
-            const finalPosition = previewMesh.value.position.clone()
-
             // 確保 Mesh 有父物件的話，先解除父子關係，把變形保留在 World Space
             // (這樣可以避免解除 Parent 時物件亂飛)
             clonedMesh.setParent(null)
 
-            /** 暫時將物件移回世界原點
+            const finalPosition = clonedMesh.position.clone()
+            const finalRotationQuaternion = clonedMesh.rotationQuaternion
+              ? clonedMesh.rotationQuaternion.clone()
+              : Quaternion.FromEulerAngles(clonedMesh.rotation.x, clonedMesh.rotation.y, clonedMesh.rotation.z)
+
+            /** 暫時將物件移回世界原點、重置旋轉
              *
              * 這樣做是因為 bakeCurrentTransformIntoVertices 會把「當前位置」吃進頂點，如果我們在這裡不歸零，頂點會被移走，而 Pivot 會留在 (0,0,0)
              *
              * 看起來就是放下去的瞬間，模型會突然跳到更遠離原點的地方
              */
             clonedMesh.position.setAll(0)
+            clonedMesh.rotationQuaternion = Quaternion.Identity()
 
             /**
              * 將目前的旋轉與縮放「烘焙」進頂點數據 (Vertices)
@@ -548,11 +559,16 @@ const { canvasRef, scene, camera } = useBabylonScene({
              */
             clonedMesh.bakeCurrentTransformIntoVertices()
 
+            // 恢復位置與旋轉，以免自定義旋轉和位移都被 bake 吃掉，最後輸出都是 0
             clonedMesh.position.copyFrom(finalPosition)
-            clonedMesh.refreshBoundingInfo()
+            if (finalRotationQuaternion) {
+              clonedMesh.rotationQuaternion = finalRotationQuaternion
+            }
 
             clonedMesh.isPickable = true
             clonedMesh.getChildMeshes().forEach((mesh) => mesh.isPickable = true)
+            clonedMesh.refreshBoundingInfo()
+
             addedMeshList.value.push(clonedMesh)
             selectMesh(clonedMesh, false)
 
@@ -823,6 +839,24 @@ const contextMenuItems = computed(() => {
             kbds: ['e'],
             onSelect: (e) => {
               previewOffset.value.vertical -= 0.1
+              e.preventDefault()
+            },
+          },
+          {
+            icon: 'i-material-symbols:rotate-90-degrees-cw-outline-rounded',
+            label: 'Rotate Y +45° (cw)',
+            kbds: ['a'],
+            onSelect: (e) => {
+              previewOffset.value.yRotation += Math.PI / 180 * 45
+              e.preventDefault()
+            },
+          },
+          {
+            icon: 'i-material-symbols:rotate-90-degrees-ccw-outline-rounded',
+            label: 'Rotate Y -45° (ccw)',
+            kbds: ['d'],
+            onSelect: (e) => {
+              previewOffset.value.yRotation -= Math.PI / 180 * 45
               e.preventDefault()
             },
           },

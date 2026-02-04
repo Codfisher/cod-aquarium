@@ -23,7 +23,7 @@
         <ul class="list-disc list-inside space-y-1 mt-2 text-sm">
           <li>
             Hold <u-kbd value="Shift" /> while moving / scaling / rotating:
-            <span class="font-medium">step by 0.1 unit</span> or <span class="font-medium">1°</span>
+            <span class="font-medium">step by 0.1 unit</span> or <span class="font-medium">15°</span>
           </li>
           <li>
             Hold <u-kbd value="Shift" /> while selecting:

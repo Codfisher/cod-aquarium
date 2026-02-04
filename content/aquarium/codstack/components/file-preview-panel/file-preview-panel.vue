@@ -120,31 +120,30 @@
         :ui="{ item: 'flex justify-center gap-1' }"
         virtualize
       >
-        <model-preview-item
+        <u-context-menu
           v-for="file in item"
           :key="file.path"
-          :class="{ 'border-primary!': file.path === selectedModelFile?.path }"
-          :model-file="file"
-          :root-handle="mainStore.rootFsHandle"
-          class=" shrink-0 border-transparent border-3 duration-300"
-          :size="`${previewItemWidth}px`"
-          @click="handleSelectedModelFile(file)"
+          :items="createCustomTabContextMenuItems(file)"
+          :modal="false"
         >
-          <u-dropdown-menu
-            v-if="customTabList.length"
-            :items="createCustomTabDropdownMenuItems(file)"
-            :content="{ side: 'right', align: 'start' }"
-            :modal="false"
+          <model-preview-item
+            :class="{ 'border-primary!': file.path === selectedModelFile?.path }"
+            :model-file="file"
+            :root-handle="mainStore.rootFsHandle"
+            class=" shrink-0 border-transparent border-3 duration-300"
+            :size="`${previewItemWidth}px`"
+            @click="handleSelectedModelFile(file)"
           >
             <u-button
+              v-if="customTabList.length"
               :icon="`i-material-symbols:${!file.hasTab ? 'bookmark-outline-rounded' : 'bookmark'}`"
               variant="ghost"
               color="neutral"
-              class="absolute top-0 right-0"
-              @click.stop
+              class="absolute top-0 right-0 pointer-events-none"
             />
-          </u-dropdown-menu>
-        </model-preview-item>
+          </model-preview-item>
+        </u-context-menu>
+
       </u-scroll-area>
     </div>
 
@@ -277,7 +276,7 @@
 </template>
 
 <script setup lang="ts">
-import type { DropdownMenuItem, TabsItem } from '@nuxt/ui/.'
+import type { ContextMenuItem, DropdownMenuItem, TabsItem } from '@nuxt/ui/.'
 import type { ModelFile } from '../../type'
 import { refManualReset, useElementSize, useStorage } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
@@ -355,7 +354,7 @@ const modelTabMap = useStorage<Record<
   string,
   string[]
 >>('model-tab-list', {})
-function createCustomTabDropdownMenuItems(data: ModelFile): DropdownMenuItem[] {
+function createCustomTabContextMenuItems(data: ModelFile): ContextMenuItem[] {
   const rootName = rootFsHandle.value?.name
   if (!rootName) {
     return []
@@ -392,9 +391,9 @@ function createCustomTabDropdownMenuItems(data: ModelFile): DropdownMenuItem[] {
             }
           }
         },
-        onSelect(e: Event) {
-          e.preventDefault()
-        },
+        // onSelect(e: Event) {
+        //   e.preventDefault()
+        // },
       }
     }),
     filter(isTruthy),
