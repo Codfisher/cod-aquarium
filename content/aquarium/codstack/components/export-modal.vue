@@ -45,6 +45,7 @@ import { computed, ref } from 'vue'
 import { useMainStore } from '../stores/main-store'
 import { getMeshMeta } from '../utils/babylon'
 import { cleanFloat } from '../utils/math'
+import dayjs from 'dayjs'
 
 interface Props {
   meshList?: AbstractMesh[];
@@ -82,17 +83,17 @@ const extractedData = computed(() => {
     const path = meta?.path ?? ''
 
     return {
-      path: `${rootName.value}/${path}`,
+      path,
       position: mesh.position.asArray().map(cleanFloat),
       rotationQuaternion: quaternion.asArray().map(cleanFloat),
       scaling: mesh.scaling.asArray().map(cleanFloat),
       metadata: meta
         ? {
-            name: meta?.name,
-            mass: meta?.mass,
-            restitution: meta?.restitution,
-            friction: meta?.friction,
-          }
+          name: meta?.name,
+          mass: meta?.mass,
+          restitution: meta?.restitution,
+          friction: meta?.friction,
+        }
         : undefined,
     }
   })
@@ -101,6 +102,7 @@ const extractedData = computed(() => {
 const jsonString = computed(() => {
   const json = JSON.stringify({
     version: mainStore.version,
+    rootFolderName: rootName.value,
     partList: extractedData.value,
   }, null, 2)
 
@@ -115,7 +117,7 @@ function downloadJSON() {
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
-  link.download = `scene_matrix_${Date.now()}.json`
+  link.download = `scene_data_${dayjs().format('YYYYMMDD_HHmmss')}.json`
   document.body.appendChild(link)
   link.click()
   document.body.removeChild(link)
