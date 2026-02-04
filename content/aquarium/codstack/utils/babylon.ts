@@ -1,5 +1,5 @@
 import type { MeshMeta } from '../type'
-import { type AbstractMesh, type Node, type PickingInfo, Quaternion, Vector3 } from '@babylonjs/core'
+import { type AbstractMesh, Matrix, Mesh, type Node, type PickingInfo, Quaternion, Vector3 } from '@babylonjs/core'
 
 export function findTopLevelMesh(mesh: AbstractMesh, list: AbstractMesh[]): AbstractMesh | undefined {
   let current: Node | null = mesh
@@ -74,4 +74,16 @@ export function getSurfaceSnapTransform(
     position: targetPosition,
     rotation: targetRotation,
   }
+}
+
+export function clearPivotRecursive(root: AbstractMesh) {
+  if (root instanceof Mesh) {
+    root.setPivotMatrix(Matrix.Identity())
+  }
+
+  root.getChildMeshes(false).forEach((m) => {
+    if (m instanceof Mesh) {
+      m.setPivotMatrix(Matrix.Identity())
+    }
+  })
 }

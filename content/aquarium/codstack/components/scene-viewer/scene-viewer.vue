@@ -68,7 +68,7 @@
 </template>
 
 <script setup lang="ts">
-import { AbstractMesh, GizmoManager, Scene } from '@babylonjs/core'
+import { AbstractMesh, GizmoManager, Matrix, Scene } from '@babylonjs/core'
 import type { ContextMenuItem } from '@nuxt/ui/.'
 import type { MeshMeta, ModelFile, SceneData } from '../../type'
 import { ArcRotateCamera, Color3, ImportMeshAsync, Mesh, PointerEventTypes, Quaternion, Scalar, StandardMaterial, Vector3 } from '@babylonjs/core'
@@ -82,7 +82,7 @@ import { useBabylonScene } from '../../composables/use-babylon-scene'
 import { useMultiMeshSelect } from '../../composables/use-multi-mesh-select'
 import { useSceneStore } from '../../domains/scene/scene-store'
 import { useMainStore } from '../../stores/main-store'
-import { findTopLevelMesh, getMeshMeta, getSurfaceSnapTransform } from '../../utils/babylon'
+import { clearPivotRecursive, findTopLevelMesh, getMeshMeta, getSurfaceSnapTransform } from '../../utils/babylon'
 import { getFileFromPath } from '../../utils/fs'
 import { roundToStep } from '../../utils/math'
 import { createGizmoManager, createGround, createSideCamera, createTopCamera } from './creator'
@@ -161,7 +161,7 @@ watch(() => props.importedSceneData, async (sceneData) => {
       model.position.setAll(0)
       model.rotation.setAll(0)
       model.rotationQuaternion = null
-      
+
       model.bakeCurrentTransformIntoVertices()
 
       model.position = Vector3.FromArray(part.position)
@@ -561,6 +561,7 @@ const { canvasRef, scene, camera } = useBabylonScene({
              * mesh.scaling 會變成 (1,1,1)
              */
             clonedMesh.bakeCurrentTransformIntoVertices()
+            clearPivotRecursive(clonedMesh)
 
             // 恢復位置與旋轉，以免自定義旋轉和位移都被 bake 吃掉，最後輸出都是 0
             clonedMesh.position.copyFrom(finalPosition)
@@ -571,6 +572,7 @@ const { canvasRef, scene, camera } = useBabylonScene({
             clonedMesh.isPickable = true
             clonedMesh.getChildMeshes().forEach((mesh) => mesh.isPickable = true)
             clonedMesh.refreshBoundingInfo()
+
 
             addedMeshList.value.push(clonedMesh)
             selectMesh(clonedMesh, false)
@@ -1179,6 +1181,7 @@ async function loadModel(
   )
 
   const root = result.meshes[0]!
+  clearPivotRecursive(root)
 
   root.metadata = {
     name: '',
