@@ -60,21 +60,47 @@
           color="neutral"
         />
 
-        <template #content="{ close }">
-          <div class=" flex flex-col gap-2 p-4">
+        <template #content>
+          <div class=" flex gap-2 p-2">
             <u-input
               v-model="newTabName"
-              placeholder="Enter tab name"
-              @keydown.enter="addNewTab(); close()"
+              placeholder="Enter new tab name"
+              class="flex-1"
+              @keydown.enter="addNewTab()"
             />
 
             <u-button
-              label="Add New Tab"
+              icon="i-material-symbols:add-rounded"
               color="primary"
               variant="solid"
-              class=" w-full"
-              @click="addNewTab(); close()"
+              @click="addNewTab()"
             />
+          </div>
+
+          <div class="flex flex-col p-2">
+            <div
+              v-for="tab in customTabList"
+              :key="tab.id"
+              class="flex items-center"
+            >
+              <div class="text-sm font-bold flex-1">
+                {{ tab.label }}
+              </div>
+
+              <u-button
+                icon="i-material-symbols:delete-rounded"
+                color="error"
+                variant="ghost"
+                @click="deleteCustomTab(tab.label)"
+              />
+            </div>
+
+            <div
+              v-if="!customTabList.length"
+              class=" text-xs opacity-50 text-center"
+            >
+              No any custom tab
+            </div>
           </div>
         </template>
       </u-popover>
@@ -102,7 +128,21 @@
           class=" shrink-0 border-transparent border-3 duration-300"
           :size="`${previewItemWidth}px`"
           @click="handleSelectedModelFile(file)"
-        />
+        >
+          <u-dropdown-menu
+            v-if="customTabList.length"
+            :items="createCustomTabMenuItems(file)"
+            :content="{ side: 'right', align: 'start' }"
+          >
+            <u-button
+              icon="i-material-symbols:bookmark-outline-rounded"
+              variant="ghost"
+              color="neutral"
+              class="absolute top-0 right-0"
+              @click.stop
+            />
+          </u-dropdown-menu>
+        </model-preview-item>
       </u-scroll-area>
     </div>
 
@@ -223,7 +263,7 @@
 </template>
 
 <script setup lang="ts">
-import type { TabsItem } from '@nuxt/ui/.'
+import type { DropdownMenuItem, TabsItem } from '@nuxt/ui/.'
 import type { ModelFile } from '../../type'
 import { refManualReset, useElementSize } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
@@ -268,6 +308,20 @@ function addNewTab() {
     label: newTabName.value,
   })
   newTabName.value = ''
+}
+
+function deleteCustomTab(label: string | undefined) {
+  // @ts-expect-error 類型具現化過深
+  customTabList.value = customTabList.value.filter((tab) => tab.label !== label)
+}
+
+function createCustomTabMenuItems(data: ModelFile): DropdownMenuItem[] {
+  return customTabList.value.map((tab) => ({
+    label: tab.label,
+    click: () => {
+      //
+    },
+  }))
 }
 
 const tabList = computed(() => [

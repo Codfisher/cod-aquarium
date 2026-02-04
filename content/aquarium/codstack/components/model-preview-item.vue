@@ -1,6 +1,6 @@
 <template>
   <div
-    class="rounded flex flex-col aspect-square"
+    class="rounded flex flex-col aspect-square relative"
     :style="{ width: size }"
   >
     <div class="flex-1 bg-gray-100 rounded flex items-center justify-center overflow-hidden relative">
@@ -20,7 +20,9 @@
           >
         </u-tooltip>
 
-        <div class="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[10px] pointer-events-none opacity-80 text-center text-ellipsis overflow-hidden">
+        <div
+          class="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[10px] pointer-events-none opacity-80 text-center text-ellipsis overflow-hidden"
+        >
           {{ props.modelFile.name.split('.')[0] }}
         </div>
       </template>
@@ -32,6 +34,8 @@
         <span class="icon-[material-symbols--deployed-code]" />
       </div>
     </div>
+
+    <slot />
   </div>
 </template>
 
