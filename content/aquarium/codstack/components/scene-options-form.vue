@@ -18,7 +18,7 @@
     </u-form-field>
 
     <u-form-field
-      label="Preview Ground Vertical Offset"
+      label="Ground Snap Vertical Offset"
       v-bind="fieldProps"
     >
       <u-input-number
