@@ -159,6 +159,9 @@ watch(() => props.importedSceneData, async (sceneData) => {
     if (model instanceof Mesh) {
       model.setParent(null)
       model.position.setAll(0)
+      model.rotation.setAll(0)
+      model.rotationQuaternion = null
+      
       model.bakeCurrentTransformIntoVertices()
 
       model.position = Vector3.FromArray(part.position)
