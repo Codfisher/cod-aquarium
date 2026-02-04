@@ -68,7 +68,7 @@
 </template>
 
 <script setup lang="ts">
-import type { AbstractMesh, GizmoManager, Scene } from '@babylonjs/core'
+import { AbstractMesh, GizmoManager, Scene } from '@babylonjs/core'
 import type { ContextMenuItem } from '@nuxt/ui/.'
 import type { MeshMeta, ModelFile, SceneData } from '../../type'
 import { ArcRotateCamera, Color3, ImportMeshAsync, Mesh, PointerEventTypes, Quaternion, Scalar, StandardMaterial, Vector3 } from '@babylonjs/core'
@@ -77,7 +77,7 @@ import { animate } from 'animejs'
 import { nanoid } from 'nanoid'
 import { storeToRefs } from 'pinia'
 import { conditional, filter, isStrictEqual, isTruthy, pipe, tap } from 'remeda'
-import { computed, onBeforeUnmount, reactive, ref, shallowRef, useTemplateRef, watch } from 'vue'
+import { computed, onBeforeUnmount, reactive, ref, shallowRef, watch } from 'vue'
 import { useBabylonScene } from '../../composables/use-babylon-scene'
 import { useMultiMeshSelect } from '../../composables/use-multi-mesh-select'
 import { useSceneStore } from '../../domains/scene/scene-store'
@@ -154,12 +154,21 @@ watch(() => props.importedSceneData, async (sceneData) => {
       return
     }
     const model = await loadModel(rootFsHandle, part.path, file, sceneValue)
-    model.position = Vector3.FromArray(part.position)
-    model.scaling = Vector3.FromArray(part.scaling)
-    model.rotationQuaternion = Quaternion.FromArray(part.rotationQuaternion)
+
+    // preview clone 時有先 bake 一次，所以這裡也要，否則座標系基礎會不同
+    if (model instanceof Mesh) {
+      model.setParent(null)
+      model.bakeCurrentTransformIntoVertices()
+
+      model.position = Vector3.FromArray(part.position)
+      model.scaling = Vector3.FromArray(part.scaling)
+      model.rotationQuaternion = Quaternion.FromArray(part.rotationQuaternion)
+      model.refreshBoundingInfo()
+    }
 
     addedMeshList.value.push(model)
   })
+
   await Promise.all(tasks)
 
   commitHistory()

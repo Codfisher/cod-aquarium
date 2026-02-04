@@ -113,28 +113,8 @@ async function handleImport() {
     }
 
     const { data } = result
-    const rootErrorMessage = pipe('', () => {
-      for (const part of data.partList) {
-        if (!part.path.includes(rootFolderName)) {
-          return `Path Error: ${part.path} does not include ${rootFolderName}`
-        }
-      }
-    })
-    if (rootErrorMessage) {
-      errorMessage.value = rootErrorMessage
-      return
-    }
 
-    // 移除根目錄名稱
-    const resultData = {
-      ...data,
-      partList: data.partList.map((part) => ({
-        ...part,
-        path: part.path.replace(rootFolderName, ''),
-      })),
-    }
-
-    emit('data', resultData)
+    emit('data', data)
     toast.add({ title: 'Import Success', color: 'primary' })
   }
   catch (error: any) {
