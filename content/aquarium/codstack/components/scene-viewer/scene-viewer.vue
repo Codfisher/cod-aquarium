@@ -595,9 +595,9 @@ const { canvasRef, scene, camera } = useBabylonScene({
       mesh.position.z += (previewMoveTarget.position.z - mesh.position.z + upDirection.z) * t
 
       if (mesh.rotationQuaternion) {
-        // 疊加手動旋轉 (offset)
+        // 疊加手動旋轉 (offset) 並依照 Mesh 的自身垂直方向旋轉
         const manualRotation = Quaternion.RotationAxis(
-          Vector3.Up(),
+          mesh.getDirection(Vector3.Up()),
           previewOffset.value.yRotation
         )
         const targetRotation = previewMoveTarget.rotation.multiply(manualRotation)
