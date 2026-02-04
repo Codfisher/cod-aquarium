@@ -165,7 +165,7 @@
             color="neutral"
             variant="link"
             size="sm"
-            icon="i-lucide-circle-x"
+            icon="i-material-symbols:close"
             aria-label="Clear input"
             @click="filterOptions.keyword = ''"
           />
@@ -181,12 +181,21 @@
           :model-value="selectedTagList.length ? selectedTagList.join(', ') : 'Select tag to filter models'"
           readonly
           placeholder="Select tag to filter models"
-          trailing-icon="i-material-symbols:filter-alt"
+          leading-icon="i-material-symbols:filter-alt"
           :ui="{
-            trailing: 'pointer-events-none ',
             base: !selectedTagList.length ? 'text-gray-300' : ' text-ellipsis',
           }"
-        />
+        >
+          <template
+            v-if="selectedTagList.length"
+            #trailing
+          >
+            <u-icon
+              name="i-material-symbols:close"
+              @click.stop="selectedTagList = []"
+            />
+          </template>
+        </u-input>
 
         <template #content>
           <div class="flex flex-col w-[20vw] gap-3 p-3">

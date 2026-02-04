@@ -21,6 +21,8 @@
           <li>Hold <u-kbd value="Shift" /> while selecting: Multi-select</li>
           <li>Press <u-kbd value="q" /> during placement preview: Move Up Vertically 0.1</li>
           <li>Press <u-kbd  value="e" /> during placement preview: Move Down Vertically 0.1</li>
+          <li>Press <u-kbd value="a" /> during placement preview: Rotate Y Axis Clockwise 45°</li>
+          <li>Press <u-kbd value="d" /> during placement preview: Rotate Y Axis Counter-clockwise 45°</li>
         </ul>
       </div>
     </template>

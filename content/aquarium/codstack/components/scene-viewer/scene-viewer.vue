@@ -72,17 +72,17 @@ import type { AbstractMesh, GizmoManager, Scene } from '@babylonjs/core'
 import type { ContextMenuItem } from '@nuxt/ui/.'
 import type { MeshMeta, ModelFile, SceneData } from '../../type'
 import { ArcRotateCamera, Color3, ImportMeshAsync, Mesh, PointerEventTypes, Quaternion, Scalar, StandardMaterial, Vector3 } from '@babylonjs/core'
-import { onKeyStroke, useActiveElement, useMagicKeys, useThrottledRefHistory, whenever } from '@vueuse/core'
+import { onKeyStroke, refManualReset, useActiveElement, useMagicKeys, useThrottledRefHistory, whenever } from '@vueuse/core'
 import { animate } from 'animejs'
 import { nanoid } from 'nanoid'
 import { storeToRefs } from 'pinia'
 import { conditional, filter, isStrictEqual, isTruthy, pipe, tap } from 'remeda'
-import { computed, onBeforeUnmount, ref, shallowRef, useTemplateRef, watch } from 'vue'
+import { computed, onBeforeUnmount, reactive, ref, shallowRef, useTemplateRef, watch } from 'vue'
 import { useBabylonScene } from '../../composables/use-babylon-scene'
 import { useMultiMeshSelect } from '../../composables/use-multi-mesh-select'
 import { useSceneStore } from '../../domains/scene/scene-store'
 import { useMainStore } from '../../stores/main-store'
-import { findTopLevelMesh, getMeshMeta, snapMeshToSurface } from '../../utils/babylon'
+import { findTopLevelMesh, getMeshMeta, getSurfaceSnapTransform, snapMeshToSurface } from '../../utils/babylon'
 import { getFileFromPath } from '../../utils/fs'
 import { roundToStep } from '../../utils/math'
 import { createGizmoManager, createGround, createSideCamera, createTopCamera } from './creator'
@@ -118,9 +118,13 @@ const {
 
 /** 目前預覽的模型 */
 const previewMesh = shallowRef<AbstractMesh>()
-/** 預覽垂直偏移量 */
-const previewVerticalOffset = ref(0)
-watch(previewMesh, () => previewVerticalOffset.value = 0)
+/** 預覽偏移量 */
+const previewOffset = refManualReset(() => reactive({
+  vertical: 0,
+  /** rad */
+  yRotation: 0,
+}))
+watch(previewMesh, () => previewOffset.reset())
 
 /** 已新增的模型 */
 const addedMeshList = shallowRef<AbstractMesh[]>([])
@@ -254,7 +258,10 @@ watch(() => [gKey?.value, sKey?.value, rKey?.value], ([g, s, r]) => {
 const previewSnapUnit = computed(() => shiftKey?.value ? 0.1 : 0.5)
 
 /** 滑鼠射線之目標位置 */
-const mouseTargetPosition = new Vector3(0, 0, 0)
+const previewMoveTarget = {
+  position: new Vector3(0, 0, 0),
+  rotation: new Quaternion(),
+}
 
 const { canvasRef, scene, camera } = useBabylonScene({
   async init(params) {
@@ -476,16 +483,21 @@ const { canvasRef, scene, camera } = useBabylonScene({
         )
 
         if (pickInfo.hit && pickInfo.pickedPoint) {
-          const target = snapMeshToSurface(previewMesh.value, pickInfo, {
-            updateRotation: altKey?.value || sceneSettings.value.enablePreviewRotation,
+          const alignToNormal = altKey?.value || sceneSettings.value.enablePreviewRotation
+          const { position, rotation } = getSurfaceSnapTransform(previewMesh.value, pickInfo, {
+            alignToNormal,
           })
-          if (target) {
+
+          if (position) {
             if (pickInfo.pickedMesh === ground) {
-              target.x = roundToStep(target.x, previewSnapUnit.value)
-              target.z = roundToStep(target.z, previewSnapUnit.value)
-              target.y = sceneStore.settings.previewGroundYOffset
+              position.x = roundToStep(position.x, previewSnapUnit.value)
+              position.z = roundToStep(position.z, previewSnapUnit.value)
+              position.y = sceneStore.settings.previewGroundYOffset
             }
-            mouseTargetPosition.copyFrom(target)
+            previewMoveTarget.position.copyFrom(position)
+          }
+          if (rotation) {
+            previewMoveTarget.rotation.copyFrom(rotation)
           }
         }
       }
@@ -567,20 +579,36 @@ const { canvasRef, scene, camera } = useBabylonScene({
       // 不同 FPS 也會保持一致手感
       const t = 1 - Math.exp(-16 * dt)
 
-      // 依照 Mesh 的自身垂直方向調整位移
+      // 疊加手動位移 (offset)並依照 Mesh 的自身垂直方向位移
       const upDirection = pipe(
         mesh.getDirection(Vector3.Up()),
         tap((dir) => {
           if (dir.lengthSquared() > 0) {
             dir.normalize()
           }
-          dir.scaleInPlace(previewVerticalOffset.value + sceneSettings.value.previewGroundYOffset)
+          dir.scaleInPlace(previewOffset.value.vertical + sceneSettings.value.previewGroundYOffset)
         }),
       )
 
-      mesh.position.x += (mouseTargetPosition.x - mesh.position.x + upDirection.x) * t
-      mesh.position.y += (mouseTargetPosition.y - mesh.position.y + upDirection.y) * t
-      mesh.position.z += (mouseTargetPosition.z - mesh.position.z + upDirection.z) * t
+      mesh.position.x += (previewMoveTarget.position.x - mesh.position.x + upDirection.x) * t
+      mesh.position.y += (previewMoveTarget.position.y - mesh.position.y + upDirection.y) * t
+      mesh.position.z += (previewMoveTarget.position.z - mesh.position.z + upDirection.z) * t
+
+      if (mesh.rotationQuaternion) {
+        // 疊加手動旋轉 (offset)
+        const manualRotation = Quaternion.RotationAxis(
+          Vector3.Up(),
+          previewOffset.value.yRotation
+        )
+        const targetRotation = previewMoveTarget.rotation.multiply(manualRotation)
+
+        Quaternion.SlerpToRef(
+          mesh.rotationQuaternion,
+          targetRotation,
+          t,
+          mesh.rotationQuaternion
+        )
+      }
     })
   },
 })
@@ -646,8 +674,8 @@ function duplicateMeshes(meshes: AbstractMesh[]) {
   })
 
   clonedMeshes.forEach((clonedMesh) => {
-    clonedMesh.position.x += maxWidth * 1.5
-    clonedMesh.position.z += maxWidth * 1.5
+    clonedMesh.position.x += maxWidth
+    clonedMesh.position.z += maxWidth
   })
 
   commitHistory()
@@ -688,7 +716,7 @@ onKeyStroke((e) => {
 })
 onKeyStroke((e) => ['a', 'A'].includes(e.key) && e.ctrlKey, selectAll, { dedupe: true })
 onKeyStroke(['Delete', 'Backspace'], deleteSelectedMeshes, { dedupe: true })
-onKeyStroke(['d', 'D'], () => duplicateMeshes(selectedMeshes.value), { dedupe: true })
+onKeyStroke((e) => ['d', 'D'].includes(e.key) && e.shiftKey, () => duplicateMeshes(selectedMeshes.value), { dedupe: true })
 onKeyStroke(['Escape', 'Esc'], () => {
   // 如果正在預覽，則先結束預覽，無任何預覽才取消選取
   if (previewMesh.value) {
@@ -700,17 +728,30 @@ onKeyStroke(['Escape', 'Esc'], () => {
 }, { dedupe: true })
 onKeyStroke((e) => ['z', 'Z'].includes(e.key) && e.ctrlKey, undo, { dedupe: true })
 onKeyStroke((e) => ['y', 'Y'].includes(e.key) && e.ctrlKey, redo, { dedupe: true })
+// preview offset
 onKeyStroke((e) => ['q', 'Q'].includes(e.key), () => {
   if (!previewMesh.value)
     return
 
-  previewVerticalOffset.value += 0.1
+  previewOffset.value.vertical += 0.1
 })
 onKeyStroke((e) => ['e', 'E'].includes(e.key), () => {
   if (!previewMesh.value)
     return
 
-  previewVerticalOffset.value -= 0.1
+  previewOffset.value.vertical -= 0.1
+})
+onKeyStroke((e) => ['a', 'A'].includes(e.key), () => {
+  if (!previewMesh.value)
+    return
+
+  previewOffset.value.yRotation += Math.PI / 4
+})
+onKeyStroke((e) => ['d', 'D'].includes(e.key), () => {
+  if (!previewMesh.value)
+    return
+
+  previewOffset.value.yRotation -= Math.PI / 4
 })
 // 對齊
 whenever(() => aXKey?.value, () => {
@@ -763,7 +804,7 @@ const contextMenuItems = computed(() => {
             label: 'Vertical Up',
             kbds: ['q'],
             onSelect: (e) => {
-              previewVerticalOffset.value += 0.1
+              previewOffset.value.vertical += 0.1
               e.preventDefault()
             },
           },
@@ -772,7 +813,7 @@ const contextMenuItems = computed(() => {
             label: 'Vertical Down',
             kbds: ['e'],
             onSelect: (e) => {
-              previewVerticalOffset.value -= 0.1
+              previewOffset.value.vertical -= 0.1
               e.preventDefault()
             },
           },
@@ -823,7 +864,7 @@ const contextMenuItems = computed(() => {
           {
             icon: 'material-symbols:content-copy-outline-rounded',
             label: 'Duplicate',
-            kbds: ['d'],
+            kbds: ['shift', 'd'],
             onSelect: () => duplicateMeshes(selectedMeshes.value),
           },
           {
@@ -1118,7 +1159,8 @@ async function loadPreviewModel(modelFile: ModelFile) {
 
   try {
     const model = await loadModel(rootFsHandle, modelFile.path, modelFile.file, sceneValue)
-    model.position = mouseTargetPosition.clone()
+    model.position.copyFrom(previewMoveTarget.position)
+    model.rotationQuaternion?.copyFrom(previewMoveTarget.rotation)
 
     model.isPickable = false
     model.getChildMeshes().forEach((mesh) => mesh.isPickable = false)
