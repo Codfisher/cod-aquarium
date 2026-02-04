@@ -269,7 +269,7 @@ import type { DropdownMenuItem, TabsItem } from '@nuxt/ui/.'
 import type { ModelFile } from '../../type'
 import { refManualReset, useElementSize, useStorage } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
-import { chunk, clone, isTruthy, map, pipe } from 'remeda'
+import { chunk, clone, filter, isTruthy, map, pipe, tap } from 'remeda'
 import { computed, reactive, ref, useTemplateRef, watch } from 'vue'
 import { useMainStore } from '../../stores/main-store'
 import ModelPreviewItem from '../model-preview-item.vue'
@@ -297,10 +297,10 @@ function handleSelectedTag(tag: string) {
     selectedTagList.value.splice(index, 1)
 }
 
-const selectedTab = ref('All')
 const baseTabList = {
   label: 'All',
-} satisfies TabsItem
+} as const satisfies TabsItem
+const selectedTab = ref<string>(baseTabList.label)
 
 const customTabListMap = useStorage<Record<
   /** 根目錄路徑 */
@@ -344,20 +344,21 @@ function createCustomTabDropdownMenuItems(data: ModelFile): DropdownMenuItem[] {
   if (!rootName) {
     return []
   }
+  const key = `${rootName}/${data.path}`
 
-  return customTabList.value
-    .map((tab) => {
+  return pipe(
+    customTabList.value,
+    map((tab): DropdownMenuItem | undefined => {
       const tagLabel = tab.label
       if (!tagLabel) {
         return undefined
       }
-      const key = `${rootName}/${data.path}`
 
       const checked = modelTabMap.value[key]?.includes(tagLabel) ?? false
       const list = modelTabMap.value[key] ?? []
 
       return {
-        type: 'checkbox' as const,
+        type: 'checkbox',
         label: tagLabel,
         checked,
         onUpdateChecked(checked: boolean) {
@@ -379,8 +380,18 @@ function createCustomTabDropdownMenuItems(data: ModelFile): DropdownMenuItem[] {
           e.preventDefault()
         },
       }
-    })
-    .filter(isTruthy)
+    }),
+    filter(isTruthy),
+    tap((data) => {
+      data.push({ type: 'separator' })
+      data.push({
+        label: 'Clear',
+        onSelect() {
+          delete modelTabMap.value[key]
+        },
+      })
+    }),
+  )
 }
 
 const tabList = computed(() => [
@@ -480,6 +491,16 @@ const filteredModelFileList = computed(() => {
         return selectedTagList.value.some((tag) => file.path.includes(tag))
       })
     },
+    filter((file) => {
+      if (selectedTab.value === baseTabList.label) {
+        return true
+      }
+
+      const key = `${rootFsHandle.value?.name}/${file.path}`
+      const tagList = modelTabMap.value[key]
+
+      return !!tagList?.includes(selectedTab.value)
+    }),
     map((data) => {
       const key = `${rootFsHandle.value?.name}/${data.path}`
       return {
