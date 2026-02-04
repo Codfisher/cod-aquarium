@@ -92,7 +92,7 @@
                 icon="i-material-symbols:delete-rounded"
                 color="error"
                 variant="ghost"
-                @click="deleteCustomTab(tab.label)"
+                @click="deleteTab(tab.label)"
               />
             </div>
 
@@ -148,10 +148,14 @@
       </u-scroll-area>
     </div>
 
-    <template v-if="mainStore.rootFsHandle">
+    <div
+      v-if="mainStore.rootFsHandle"
+      class="grid grid-cols-2 gap-2 @container"
+    >
       <u-input
         v-model="filterOptions.keyword"
         placeholder="Enter keywords to search models"
+        class="col-span-2 @md:col-span-1"
       >
         <template #leading>
           <u-icon name="i-lucide-search" />
@@ -172,13 +176,12 @@
         </template>
       </u-input>
 
-      <u-popover
-        :content="{
-          side: 'right',
-        }"
-      >
+      <u-popover :content="{
+        side: 'right',
+      }">
         <u-input
           :model-value="selectedTagList.length ? selectedTagList.join(', ') : 'Select tag to filter models'"
+          class="col-span-2 @md:col-span-1"
           readonly
           placeholder="Select tag to filter models"
           leading-icon="i-material-symbols:filter-alt"
@@ -269,7 +272,7 @@
           </div>
         </template>
       </u-popover>
-    </template>
+    </div>
   </div>
 </template>
 
@@ -339,7 +342,7 @@ function addNewTab() {
   newTabName.value = ''
 }
 
-function deleteCustomTab(label: string | undefined) {
+function deleteTab(label: string | undefined) {
   const key = rootFsHandle.value?.name
   if (!key) {
     return
