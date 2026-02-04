@@ -134,6 +134,7 @@
             v-if="customTabList.length"
             :items="createCustomTabDropdownMenuItems(file)"
             :content="{ side: 'right', align: 'start' }"
+            :modal="false"
           >
             <u-button
               :icon="`i-material-symbols:${!file.hasTab ? 'bookmark-outline-rounded' : 'bookmark'}`"

@@ -7,7 +7,9 @@
       }"
     >
       <canvas
+        v-once
         ref="canvasRef"
+        note="沒有 v-once 會導致 contextMenuItems 一更新就破壞 canvas ref 指向，導致無法操作"
         class="w-full h-full outline-none"
       />
 
@@ -75,7 +77,7 @@ import { animate } from 'animejs'
 import { nanoid } from 'nanoid'
 import { storeToRefs } from 'pinia'
 import { conditional, filter, isStrictEqual, isTruthy, pipe, tap } from 'remeda'
-import { computed, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, shallowRef, useTemplateRef, watch } from 'vue'
 import { useBabylonScene } from '../../composables/use-babylon-scene'
 import { useMultiMeshSelect } from '../../composables/use-multi-mesh-select'
 import { useSceneStore } from '../../domains/scene/scene-store'
