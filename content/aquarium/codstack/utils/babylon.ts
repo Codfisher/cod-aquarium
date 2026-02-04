@@ -38,14 +38,20 @@ export function snapMeshToSurface(
   if (!normal)
     return
 
+  // gltf 會在 Y 軸多 180 度旋轉，需要修正
+  const fixRotation = Quaternion.RotationAxis(Vector3.Up(), Math.PI)
   if (updateRotation) {
     // 讓物體的上方 (Y) 對齊表面的法向量
     const rotationQuaternion = new Quaternion()
+
     Quaternion.FromUnitVectorsToRef(Vector3.Up(), normal, rotationQuaternion)
+      .multiplyInPlace(fixRotation)
+
     mesh.rotationQuaternion = rotationQuaternion
   }
   else {
     mesh.rotationQuaternion = Quaternion.Identity()
+      .multiplyInPlace(fixRotation)
   }
 
   // 強制更新矩陣

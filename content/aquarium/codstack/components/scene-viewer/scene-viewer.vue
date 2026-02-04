@@ -498,7 +498,7 @@ const { canvasRef, scene, camera } = useBabylonScene({
 
         const pickedMesh = pointerInfo.pickInfo?.pickedMesh
 
-        // 預覽、放置
+        // 放置預覽模型
         if (previewMesh.value) {
           const clonedMesh = previewMesh.value.clone(nanoid(), null, false)
           if (clonedMesh instanceof Mesh) {
