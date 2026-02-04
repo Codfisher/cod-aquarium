@@ -154,6 +154,8 @@ watch(() => props.importedSceneData, (sceneData) => {
 
     addedMeshList.value.push(model)
   })
+
+  commitHistory()
 })
 
 interface MeshState {

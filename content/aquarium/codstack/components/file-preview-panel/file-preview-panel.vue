@@ -65,6 +65,7 @@
             <u-input
               v-model="newTabName"
               placeholder="Enter tab name"
+              @keydown.enter="addNewTab(); close()"
             />
 
             <u-button
@@ -72,7 +73,7 @@
               color="primary"
               variant="solid"
               class=" w-full"
-              @click="handleAddNewTab(); close()"
+              @click="addNewTab(); close()"
             />
           </div>
         </template>
@@ -257,28 +258,32 @@ function handleSelectedTag(tag: string) {
 const baseTabList = {
   label: 'All',
 } satisfies TabsItem
+const customTabList = ref<TabsItem[]>([])
 
 const newTabName = ref('')
-function handleAddNewTab() {
+function addNewTab() {
   if (!newTabName.value)
     return
+  customTabList.value.push({
+    label: newTabName.value,
+  })
   newTabName.value = ''
 }
 
 const tabList = computed(() => [
   baseTabList,
+  ...customTabList.value,
 ])
 
-const DEFAULT_FILTER_OPTIONS = {
+const filterOptions = refManualReset(() => reactive({
   keyword: '',
   tagKeyword: '',
   /** 是否包含來自檔名的 tag */
   includeTagFromFileName: true,
   /** 過濾邏輯 */
   useAndLogic: false,
-}
-const filterOptions = ref(clone(DEFAULT_FILTER_OPTIONS))
-watch(rootFsHandle, () => filterOptions.value = clone(DEFAULT_FILTER_OPTIONS))
+}))
+watch(rootFsHandle, () => filterOptions.reset())
 
 const scrollAreaRef = useTemplateRef('scrollAreaRef')
 const scrollAreaSize = reactive(useElementSize(scrollAreaRef))

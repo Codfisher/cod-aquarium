@@ -46,8 +46,10 @@ export function createSideCamera({
 
   // 同時渲染多個相機（避免直接覆蓋其他已經存在的 activeCameras）
   const actives = scene.activeCameras?.slice() ?? []
-  if (!actives.includes(camera)) actives.unshift(camera)
-  if (!actives.includes(sideCamera)) actives.push(sideCamera)
+  if (!actives.includes(camera))
+    actives.unshift(camera)
+  if (!actives.includes(sideCamera))
+    actives.push(sideCamera)
   scene.activeCameras = actives
 
   const orthoSize = 2.5
@@ -126,9 +128,9 @@ export function createTopCamera({
   camera,
   engine,
 }: {
-  scene: Scene
-  camera: Camera
-  engine: BabylonEngine
+  scene: Scene;
+  camera: Camera;
+  engine: BabylonEngine;
 }) {
   const topCamera = new ArcRotateCamera(
     'topCamera',
@@ -152,8 +154,10 @@ export function createTopCamera({
 
   // 同時渲染多個相機（避免直接覆蓋其他已經存在的 activeCameras）
   const actives = scene.activeCameras?.slice() ?? []
-  if (!actives.includes(camera)) actives.unshift(camera)
-  if (!actives.includes(topCamera)) actives.push(topCamera)
+  if (!actives.includes(camera))
+    actives.unshift(camera)
+  if (!actives.includes(topCamera))
+    actives.push(topCamera)
   scene.activeCameras = actives
 
   const orthoSize = 2.5
