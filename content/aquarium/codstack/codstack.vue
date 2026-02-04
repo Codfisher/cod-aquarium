@@ -6,7 +6,12 @@
       }"
     >
       <u-dashboard-group storage="local">
-        <u-dashboard-sidebar :default-size="25">
+        <u-dashboard-sidebar
+          :min-size="20"
+          :default-size="25"
+          resizable
+          :max-size="50"
+        >
           <file-preview-panel v-model:selected-model-file="selectedModelFile" />
         </u-dashboard-sidebar>
 

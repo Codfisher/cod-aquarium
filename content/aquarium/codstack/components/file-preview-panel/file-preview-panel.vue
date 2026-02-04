@@ -40,6 +40,7 @@
       class="flex items-center gap-2"
     >
       <u-tabs
+        v-model="selectedTab"
         :items="tabList"
         class="flex-1 duration-200"
         :content="false"
@@ -60,20 +61,47 @@
           color="neutral"
         />
 
-        <template #content="{ close }">
-          <div class=" flex flex-col gap-2 p-4">
+        <template #content>
+          <div class=" flex gap-2 p-2">
             <u-input
               v-model="newTabName"
-              placeholder="Enter tab name"
+              placeholder="Enter new tab name"
+              class="flex-1"
+              @keydown.enter="addNewTab()"
             />
 
             <u-button
-              label="Add New Tab"
+              icon="i-material-symbols:add-rounded"
               color="primary"
               variant="solid"
-              class=" w-full"
-              @click="handleAddNewTab(); close()"
+              @click="addNewTab()"
             />
+          </div>
+
+          <div class="flex flex-col p-2">
+            <div
+              v-for="tab in customTabList"
+              :key="tab.id"
+              class="flex items-center"
+            >
+              <div class="text-sm font-bold flex-1">
+                {{ tab.label }}
+              </div>
+
+              <u-button
+                icon="i-material-symbols:delete-rounded"
+                color="error"
+                variant="ghost"
+                @click="deleteCustomTab(tab.label)"
+              />
+            </div>
+
+            <div
+              v-if="!customTabList.length"
+              class=" text-xs opacity-50 text-center"
+            >
+              No any custom tab
+            </div>
           </div>
         </template>
       </u-popover>
@@ -101,7 +129,22 @@
           class=" shrink-0 border-transparent border-3 duration-300"
           :size="`${previewItemWidth}px`"
           @click="handleSelectedModelFile(file)"
-        />
+        >
+          <u-dropdown-menu
+            v-if="customTabList.length"
+            :items="createCustomTabDropdownMenuItems(file)"
+            :content="{ side: 'right', align: 'start' }"
+            :modal="false"
+          >
+            <u-button
+              :icon="`i-material-symbols:${!file.hasTab ? 'bookmark-outline-rounded' : 'bookmark'}`"
+              variant="ghost"
+              color="neutral"
+              class="absolute top-0 right-0"
+              @click.stop
+            />
+          </u-dropdown-menu>
+        </model-preview-item>
       </u-scroll-area>
     </div>
 
@@ -122,7 +165,7 @@
             color="neutral"
             variant="link"
             size="sm"
-            icon="i-lucide-circle-x"
+            icon="i-material-symbols:close"
             aria-label="Clear input"
             @click="filterOptions.keyword = ''"
           />
@@ -138,12 +181,21 @@
           :model-value="selectedTagList.length ? selectedTagList.join(', ') : 'Select tag to filter models'"
           readonly
           placeholder="Select tag to filter models"
-          trailing-icon="i-material-symbols:filter-alt"
+          leading-icon="i-material-symbols:filter-alt"
           :ui="{
-            trailing: 'pointer-events-none ',
             base: !selectedTagList.length ? 'text-gray-300' : ' text-ellipsis',
           }"
-        />
+        >
+          <template
+            v-if="selectedTagList.length"
+            #trailing
+          >
+            <u-icon
+              name="i-material-symbols:close"
+              @click.stop="selectedTagList = []"
+            />
+          </template>
+        </u-input>
 
         <template #content>
           <div class="flex flex-col w-[20vw] gap-3 p-3">
@@ -222,11 +274,11 @@
 </template>
 
 <script setup lang="ts">
-import type { TabsItem } from '@nuxt/ui/.'
+import type { DropdownMenuItem, TabsItem } from '@nuxt/ui/.'
 import type { ModelFile } from '../../type'
-import { refManualReset, useElementSize } from '@vueuse/core'
+import { refManualReset, useElementSize, useStorage } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
-import { chunk, clone, pipe } from 'remeda'
+import { chunk, clone, filter, isTruthy, map, pipe, tap } from 'remeda'
 import { computed, reactive, ref, useTemplateRef, watch } from 'vue'
 import { useMainStore } from '../../stores/main-store'
 import ModelPreviewItem from '../model-preview-item.vue'
@@ -256,29 +308,125 @@ function handleSelectedTag(tag: string) {
 
 const baseTabList = {
   label: 'All',
-} satisfies TabsItem
+  value: 'all',
+} as const satisfies TabsItem
+const selectedTab = ref<string>(baseTabList.value)
+
+const customTabListMap = useStorage<Record<
+  /** 根目錄路徑 */
+  string,
+  TabsItem[]
+>>('custom-tab-list', {})
+const customTabList = computed(() => {
+  const key = rootFsHandle.value?.name
+  if (!key) {
+    return []
+  }
+  return customTabListMap.value[key] ?? []
+})
 
 const newTabName = ref('')
-function handleAddNewTab() {
-  if (!newTabName.value)
+function addNewTab() {
+  const key = rootFsHandle.value?.name
+  if (!newTabName.value || !key)
     return
+
+  customTabListMap.value[key] = [
+    ...customTabList.value ?? [],
+    { label: newTabName.value, value: newTabName.value },
+  ]
+
   newTabName.value = ''
+}
+
+function deleteCustomTab(label: string | undefined) {
+  const key = rootFsHandle.value?.name
+  if (!key) {
+    return
+  }
+  customTabListMap.value[key] = customTabList.value.filter((tab) => tab.label !== label)
+}
+
+const modelTabMap = useStorage<Record<
+  /** rootName + model file path */
+  string,
+  string[]
+>>('model-tab-list', {})
+function createCustomTabDropdownMenuItems(data: ModelFile): DropdownMenuItem[] {
+  const rootName = rootFsHandle.value?.name
+  if (!rootName) {
+    return []
+  }
+  const key = `${rootName}/${data.path}`
+
+  return pipe(
+    customTabList.value,
+    map((tab): DropdownMenuItem | undefined => {
+      const tagLabel = tab.label
+      if (!tagLabel) {
+        return undefined
+      }
+
+      const checked = modelTabMap.value[key]?.includes(tagLabel) ?? false
+      const list = modelTabMap.value[key] ?? []
+
+      return {
+        type: 'checkbox',
+        label: tagLabel,
+        checked,
+        onUpdateChecked(checked: boolean) {
+          if (checked) {
+            if (!modelTabMap.value[key]) {
+              modelTabMap.value[key] = []
+            }
+
+            modelTabMap.value[key]?.push(tagLabel)
+          }
+          else {
+            modelTabMap.value[key] = list.filter((tab) => tab !== tagLabel)
+            if (modelTabMap.value[key].length === 0) {
+              delete modelTabMap.value[key]
+            }
+          }
+        },
+        onSelect(e: Event) {
+          e.preventDefault()
+        },
+      }
+    }),
+    filter(isTruthy),
+    tap((data) => {
+      data.unshift({
+        type: 'label',
+        label: 'Add to Tab',
+        class: 'text-xs opacity-50',
+      })
+
+      data.push({ type: 'separator' })
+      data.push({
+        label: 'Clear',
+        onSelect() {
+          delete modelTabMap.value[key]
+        },
+      })
+    }),
+  )
 }
 
 const tabList = computed(() => [
   baseTabList,
+  ...customTabList.value,
 ])
 
-const DEFAULT_FILTER_OPTIONS = {
+const filterOptions = refManualReset(() => reactive({
   keyword: '',
   tagKeyword: '',
   /** 是否包含來自檔名的 tag */
   includeTagFromFileName: true,
   /** 過濾邏輯 */
   useAndLogic: false,
-}
-const filterOptions = ref(clone(DEFAULT_FILTER_OPTIONS))
-watch(rootFsHandle, () => filterOptions.value = clone(DEFAULT_FILTER_OPTIONS))
+}))
+watch(rootFsHandle, () => filterOptions.reset())
 
 const scrollAreaRef = useTemplateRef('scrollAreaRef')
 const scrollAreaSize = reactive(useElementSize(scrollAreaRef))
@@ -362,6 +510,25 @@ const filteredModelFileList = computed(() => {
         return selectedTagList.value.some((tag) => file.path.includes(tag))
       })
     },
+    (list) => {
+      if (selectedTab.value === baseTabList.value) {
+        return list
+      }
+
+      return list.filter((file) => {
+        const key = `${rootFsHandle.value?.name}/${file.path}`
+        const tagList = modelTabMap.value[key]
+
+        return !!tagList?.includes(selectedTab.value)
+      })
+    },
+    map((datum) => {
+      const key = `${rootFsHandle.value?.name}/${datum.path}`
+      return {
+        ...datum,
+        hasTab: !!modelTabMap.value[key]?.length,
+      }
+    }),
   )
 })
 

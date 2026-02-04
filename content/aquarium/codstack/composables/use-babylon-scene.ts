@@ -1,21 +1,20 @@
 import type {
   Camera,
 } from '@babylonjs/core'
+import type { Ref } from 'vue'
 import {
   ArcRotateCamera,
   ArcRotateCameraPointersInput,
-  Color3,
   Color4,
   Engine,
   HemisphericLight,
-  KeyboardEventTypes,
   Scene,
   Vector3,
   WebGPUEngine,
 } from '@babylonjs/core'
-import { until, useEventListener } from '@vueuse/core'
+import { until, useElementSize, watchDebounced } from '@vueuse/core'
 import { defaults } from 'lodash-es'
-import { onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
+import { onBeforeUnmount, onMounted, reactive, ref, shallowRef } from 'vue'
 import '@babylonjs/loaders/glTF'
 
 export type BabylonEngine = Engine | WebGPUEngine
@@ -96,7 +95,7 @@ const defaultParam: Required<UseBabylonSceneParam> = {
   init: () => Promise.resolve(),
 }
 
-export function useBabylonScene(param?: UseBabylonSceneParam) {
+export function useBabylonScene(params?: UseBabylonSceneParam) {
   const canvasRef = ref<HTMLCanvasElement>()
 
   const engine = shallowRef<BabylonEngine>()
@@ -108,7 +107,7 @@ export function useBabylonScene(param?: UseBabylonSceneParam) {
     createScene,
     createCamera,
     init,
-  } = defaults(param, defaultParam)
+  } = defaults(params, defaultParam)
 
   onMounted(async () => {
     await until(canvasRef).toBeTruthy()
@@ -147,12 +146,12 @@ export function useBabylonScene(param?: UseBabylonSceneParam) {
     scene.value?.dispose()
   })
 
-  function handleResize() {
+  const canvasSize = reactive(useElementSize(canvasRef))
+  watchDebounced(canvasSize, () => {
     engine.value?.resize()
-  }
-
-  useEventListener('resize', handleResize)
-  useEventListener(canvasRef, 'resize', handleResize)
+  }, {
+    debounce: 200,
+  })
 
   return {
     canvasRef,

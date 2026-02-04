@@ -5,19 +5,20 @@
   >
     <u-form-field
       as="label"
-      label="Enable Preview Rotation"
+      label="Align to Surface"
       v-bind="fieldProps"
     >
       <u-checkbox v-model="optionForm.enablePreviewRotation" />
 
       <template #description>
-        Hold <u-kbd value="Alt" /> (Option) to temporarily enable Surface Align. The preview will rotate to stay
-        perpendicular to the surface. Release to turn it off.
+        Automatically aligns the model to the surface normal. You can also hold <u-kbd value="Alt" /> (Option) to
+        temporarily enable this
+        without checking the box.
       </template>
     </u-form-field>
 
     <u-form-field
-      label="Preview Ground Y Offset"
+      label="Ground Snap Vertical Offset"
       v-bind="fieldProps"
     >
       <u-input-number
@@ -28,8 +29,8 @@
       />
 
       <template #description>
-        Adds a small Y offset when the preview is on the ground to prevent it from clipping into the floor. Use
-        <u-kbd value="Q" /> or <u-kbd value="E" /> to adjust the preview height in real time.
+        Applies a vertical offset only when the preview snaps to the ground to prevent clipping. (Does not affect
+        stacking on other meshes). Use <u-kbd value="Q" />(up) / <u-kbd value="E" />(down) to adjust.
       </template>
     </u-form-field>
 
