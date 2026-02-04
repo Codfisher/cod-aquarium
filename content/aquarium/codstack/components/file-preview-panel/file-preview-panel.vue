@@ -500,16 +500,18 @@ const filteredModelFileList = computed(() => {
         return selectedTagList.value.some((tag) => file.path.includes(tag))
       })
     },
-    filter((file) => {
+    (list) => {
       if (selectedTab.value === baseTabList.value) {
-        return true
+        return list
       }
 
-      const key = `${rootFsHandle.value?.name}/${file.path}`
-      const tagList = modelTabMap.value[key]
+      return list.filter((file) => {
+        const key = `${rootFsHandle.value?.name}/${file.path}`
+        const tagList = modelTabMap.value[key]
 
-      return !!tagList?.includes(selectedTab.value)
-    }),
+        return !!tagList?.includes(selectedTab.value)
+      })
+    },
     map((datum) => {
       const key = `${rootFsHandle.value?.name}/${datum.path}`
       return {
