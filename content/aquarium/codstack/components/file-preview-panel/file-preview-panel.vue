@@ -265,7 +265,7 @@
 <script setup lang="ts">
 import type { DropdownMenuItem, TabsItem } from '@nuxt/ui/.'
 import type { ModelFile } from '../../type'
-import { refManualReset, useElementSize } from '@vueuse/core'
+import { refManualReset, useElementSize, useStorage } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { chunk, clone, pipe } from 'remeda'
 import { computed, reactive, ref, useTemplateRef, watch } from 'vue'
@@ -298,15 +298,31 @@ function handleSelectedTag(tag: string) {
 const baseTabList = {
   label: 'All',
 } satisfies TabsItem
-const customTabList = ref<TabsItem[]>([])
+
+const customTabListMap = useStorage<Record<
+  /** 根目錄路徑 */
+  string,
+  TabsItem[]
+>>('custom-tab-list', {})
+const customTabList = computed(() => {
+  const key = rootFsHandle.value?.name
+  if (!key) {
+    return []
+  }
+  return customTabListMap.value[key] ?? []
+})
 
 const newTabName = ref('')
 function addNewTab() {
-  if (!newTabName.value)
+  const key = rootFsHandle.value?.name
+  if (!newTabName.value || !key)
     return
-  customTabList.value.push({
-    label: newTabName.value,
-  })
+
+  customTabListMap.value[key] = [
+    ...customTabList.value ?? [],
+    { label: newTabName.value },
+  ]
+
   newTabName.value = ''
 }
 
