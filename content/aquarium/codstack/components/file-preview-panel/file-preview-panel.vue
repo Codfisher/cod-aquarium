@@ -40,8 +40,10 @@
       class="flex items-center gap-2"
     >
       <u-tabs
+        v-model="selectedTab"
         :items="tabList"
         class="flex-1 duration-200"
+        value-key="label"
         :content="false"
         :class="{ 'opacity-20': tabList.length === 1 }"
         color="neutral"
@@ -131,11 +133,11 @@
         >
           <u-dropdown-menu
             v-if="customTabList.length"
-            :items="createCustomTabMenuItems(file)"
+            :items="createCustomTabDropdownMenuItems(file)"
             :content="{ side: 'right', align: 'start' }"
           >
             <u-button
-              icon="i-material-symbols:bookmark-outline-rounded"
+              :icon="`i-material-symbols:${!file.hasTab ? 'bookmark-outline-rounded' : 'bookmark'}`"
               variant="ghost"
               color="neutral"
               class="absolute top-0 right-0"
@@ -267,7 +269,7 @@ import type { DropdownMenuItem, TabsItem } from '@nuxt/ui/.'
 import type { ModelFile } from '../../type'
 import { refManualReset, useElementSize, useStorage } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
-import { chunk, clone, pipe } from 'remeda'
+import { chunk, clone, isTruthy, map, pipe } from 'remeda'
 import { computed, reactive, ref, useTemplateRef, watch } from 'vue'
 import { useMainStore } from '../../stores/main-store'
 import ModelPreviewItem from '../model-preview-item.vue'
@@ -295,6 +297,7 @@ function handleSelectedTag(tag: string) {
     selectedTagList.value.splice(index, 1)
 }
 
+const selectedTab = ref('All')
 const baseTabList = {
   label: 'All',
 } satisfies TabsItem
@@ -331,13 +334,53 @@ function deleteCustomTab(label: string | undefined) {
   customTabList.value = customTabList.value.filter((tab) => tab.label !== label)
 }
 
-function createCustomTabMenuItems(data: ModelFile): DropdownMenuItem[] {
-  return customTabList.value.map((tab) => ({
-    label: tab.label,
-    click: () => {
-      //
-    },
-  }))
+const modelTabMap = useStorage<Record<
+  /** rootName + model file path */
+  string,
+  string[]
+>>('model-tab-list', {})
+function createCustomTabDropdownMenuItems(data: ModelFile): DropdownMenuItem[] {
+  const rootName = rootFsHandle.value?.name
+  if (!rootName) {
+    return []
+  }
+
+  return customTabList.value
+    .map((tab) => {
+      const tagLabel = tab.label
+      if (!tagLabel) {
+        return undefined
+      }
+      const key = `${rootName}/${data.path}`
+
+      const checked = modelTabMap.value[key]?.includes(tagLabel) ?? false
+      const list = modelTabMap.value[key] ?? []
+
+      return {
+        type: 'checkbox' as const,
+        label: tagLabel,
+        checked,
+        onUpdateChecked(checked: boolean) {
+          if (checked) {
+            if (!modelTabMap.value[key]) {
+              modelTabMap.value[key] = []
+            }
+
+            modelTabMap.value[key]?.push(tagLabel)
+          }
+          else {
+            modelTabMap.value[key] = list.filter((tab) => tab !== tagLabel)
+            if (modelTabMap.value[key].length === 0) {
+              delete modelTabMap.value[key]
+            }
+          }
+        },
+        onSelect(e: Event) {
+          e.preventDefault()
+        },
+      }
+    })
+    .filter(isTruthy)
 }
 
 const tabList = computed(() => [
@@ -437,6 +480,13 @@ const filteredModelFileList = computed(() => {
         return selectedTagList.value.some((tag) => file.path.includes(tag))
       })
     },
+    map((data) => {
+      const key = `${rootFsHandle.value?.name}/${data.path}`
+      return {
+        ...data,
+        hasTab: !!modelTabMap.value[key]?.length,
+      }
+    }),
   )
 })
 
