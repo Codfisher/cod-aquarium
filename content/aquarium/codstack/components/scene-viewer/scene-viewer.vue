@@ -130,7 +130,7 @@ watch(() => mainStore.rootFsHandle, () => {
   addedMeshList.value = []
 })
 // 處理匯入場景資料
-watch(() => props.importedSceneData, (sceneData) => {
+watch(() => props.importedSceneData, async (sceneData) => {
   const sceneValue = scene.value
   const rootFsHandle = mainStore.rootFsHandle
   if (!sceneData || !rootFsHandle || !sceneValue) {
@@ -142,7 +142,7 @@ watch(() => props.importedSceneData, (sceneData) => {
   addedMeshList.value = []
   clearHistory()
 
-  sceneData.partList.forEach(async (part) => {
+  const tasks = sceneData.partList.map(async (part) => {
     const file = await getFileFromPath(rootFsHandle, part.path)
     if (!file) {
       return
@@ -154,6 +154,7 @@ watch(() => props.importedSceneData, (sceneData) => {
 
     addedMeshList.value.push(model)
   })
+  await Promise.all(tasks)
 
   commitHistory()
 })
