@@ -501,7 +501,7 @@ const filteredModelFileList = computed(() => {
       })
     },
     filter((file) => {
-      if (selectedTab.value === baseTabList.label) {
+      if (selectedTab.value === baseTabList.value) {
         return true
       }
 
@@ -510,10 +510,10 @@ const filteredModelFileList = computed(() => {
 
       return !!tagList?.includes(selectedTab.value)
     }),
-    map((data) => {
-      const key = `${rootFsHandle.value?.name}/${data.path}`
+    map((datum) => {
+      const key = `${rootFsHandle.value?.name}/${datum.path}`
       return {
-        ...data,
+        ...datum,
         hasTab: !!modelTabMap.value[key]?.length,
       }
     }),
