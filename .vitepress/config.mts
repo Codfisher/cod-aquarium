@@ -367,6 +367,7 @@ export default ({ mode }: { mode: string }) => {
       },
       plugins: [
         VueI18nPlugin({
+          strictMessage: false,
           include: resolve(dirname(
             fileURLToPath(import.meta.url),
           ), 'locales/**'),
