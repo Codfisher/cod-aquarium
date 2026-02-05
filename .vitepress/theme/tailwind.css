@@ -9,3 +9,9 @@
   --font-orbitron: "Orbitron", sans-serif;
   --font-sans: "Noto Sans TC", system-ui, sans-serif;
 }
+
+/** 可讓 child 在 flex 容器中填滿高度並保留 scroll */
+@utility flex-fill-scroll {
+  flex: 1 1 auto;
+  overflow-y: auto;
+}
