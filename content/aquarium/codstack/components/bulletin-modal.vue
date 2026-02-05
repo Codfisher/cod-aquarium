@@ -50,7 +50,7 @@ const tabItems = computed(() => [
 const { locale, t } = useSimpleI18n({
   'zh-hant': {
     intro: [
-      '<div class="font-bold text-2xl mb-4">歡迎來到 CodStack！✧⁑｡٩(ˊᗜˋ*)و✧⁕｡</div>',
+      '<div class="font-bold text-2xl mb-8">歡迎來到 CodStack！✧⁑｡٩(ˊᗜˋ*)و✧⁕｡</div>',
       '感謝 <a href="https://kenney.nl/assets" target="_blank">Kenny</a>、<a href="https://kaylousberg.itch.io" target="_blank">Kay</a> 這些佛心大神們提供免費的 3D 模型。',
       '否則我自己畫，等到真的做出來，應該是 10 年後了。(╥ω╥ )',
       '<span></span>',
