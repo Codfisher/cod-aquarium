@@ -3,14 +3,18 @@
     <slot />
 
     <template #content>
-      <u-tabs :items="tabItems">
+      <u-tabs
+        :items="tabItems"
+        :ui="{
+          content: 'p-4 space-y-4',
+        }"
+      >
         <template #intro>
           <p
-            v-for="(text, index) in tm('intro')"
+            v-for="(text, index) in t('intro')"
             :key="index"
-          >
-            {{ text }}
-          </p>
+            v-html="text"
+          />
         </template>
       </u-tabs>
     </template>
@@ -19,7 +23,8 @@
 
 <script setup lang="ts">
 import type { TabsItem } from '@nuxt/ui/.'
-import { computed, ref } from 'vue'
+import { usePreferredLanguages } from '@vueuse/core'
+import { computed, watch } from 'vue'
 import { useSimpleI18n } from '../composables/use-simple-i18n'
 
 interface Props {
@@ -37,20 +42,30 @@ const tabItems = computed(() => [
   },
 ] satisfies TabsItem[])
 
-const { locale, tm, t } = useSimpleI18n({
+const { locale, t } = useSimpleI18n({
   'zh-hant': {
     intro: [
-      '感謝 {kenny}、{kay} 這些佛心大神們提供免費的 3D 模型。',
+      '歡迎來到 CodStack！✧⁑｡٩(ˊᗜˋ*)و✧⁕｡',
+      '感謝 <a href="https://kenney.nl/assets" target="_blank" class="underline text-primary">Kenny</a>、<a href="https://kaylousberg.itch.io" target="_blank" class="underline text-primary">Kay</a> 這些佛心大神們提供免費的 3D 模型。',
       '否則我自己畫，等到真的做出來，應該是 10 年後了。(╥ω╥ )',
     ],
   },
   'en': {
     intro: [
-      'Thanks to {kenny} and {kay} for providing free 3D models.',
+      'Welcome to CodStack! ✧⁑｡٩(ˊᗜˋ*)و✧⁕｡',
+      'Thanks to <a href="https://kenney.nl/assets" target="_blank" class="underline text-primary">Kenny</a> and <a href="https://kaylousberg.itch.io" target="_blank" class="underline text-primary">Kay</a> for providing free 3D models.',
       'Otherwise, if I drew them myself, it would probably take 10 years to finish (╥ω╥ )',
     ],
   },
-}, 'zh-hant')
+} as const)
+
+const languages = usePreferredLanguages()
+
+watch(languages, ([lang]) => {
+  locale.value = lang?.includes('zh') ? 'zh-hant' : 'en'
+}, {
+  immediate: true,
+})
 </script>
 
 <style scoped lang="sass">
