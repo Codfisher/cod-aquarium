@@ -4,3 +4,8 @@
 :root {
   --ui-primary: var(--vp-c-brand-2);
 }
+
+@theme {
+  --font-orbitron: "Orbitron", sans-serif;
+  --font-sans: "Noto Sans TC", system-ui, sans-serif;
+}

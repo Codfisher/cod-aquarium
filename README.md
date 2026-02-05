@@ -1,5 +1,7 @@
 # 鱈魚的魚缸
 
+[傳送門](https://codlin.me/)
+
 嘗試使用 Nuxt Content 建立個人部落格
 
 主題基於 [docus](https://docus.dev/)

@@ -6,7 +6,7 @@
       <u-tabs
         :items="tabItems"
         :ui="{
-          content: 'p-4 space-y-4',
+          content: 'p-4 space-y-4 ',
         }"
       >
         <template #intro>
@@ -40,20 +40,32 @@ const tabItems = computed(() => [
     icon: 'i-lucide-user',
     slot: 'intro',
   },
+  {
+    label: 'Quick Start',
+    icon: 'i-lucide-user',
+    slot: 'quick-start',
+  },
 ] satisfies TabsItem[])
 
 const { locale, t } = useSimpleI18n({
   'zh-hant': {
     intro: [
       '歡迎來到 CodStack！✧⁑｡٩(ˊᗜˋ*)و✧⁕｡',
-      '感謝 <a href="https://kenney.nl/assets" target="_blank" class="underline text-primary">Kenny</a>、<a href="https://kaylousberg.itch.io" target="_blank" class="underline text-primary">Kay</a> 這些佛心大神們提供免費的 3D 模型。',
+      '感謝 <a href="https://kenney.nl/assets" target="_blank">Kenny</a>、<a href="https://kaylousberg.itch.io" target="_blank">Kay</a> 這些佛心大神們提供免費的 3D 模型。',
       '否則我自己畫，等到真的做出來，應該是 10 年後了。(╥ω╥ )',
+      '　',
+      '不過使用這些 3D Kit 時有些小困擾，沒辦法快速預覽內容就算了，用程式碼組裝實在是極度痛苦。(›´ω`‹ )',
+      '先在 3D 軟體中組裝，又會失去在程式中控制的彈性，<span class="font-bold">於是 CodStack 誕生了！(/≧▽≦)/</span>',
+      '　',
+      'CodStack 的目標是讓組裝 3D 模型變得像拼積木一樣簡單並輸出結構資料，免安裝，趕快來試試看吧。',
+      '有任何問題或功能許願，歡迎隨時連絡我。( ´ ▽ ` )ﾉ',
+      '有空的話也可以來我的<a href="https://codlin.me/" >部落格</a>逛逛，裡面還有很多酷東西喔！(・∀・)９',
     ],
   },
   'en': {
     intro: [
       'Welcome to CodStack! ✧⁑｡٩(ˊᗜˋ*)و✧⁕｡',
-      'Thanks to <a href="https://kenney.nl/assets" target="_blank" class="underline text-primary">Kenny</a> and <a href="https://kaylousberg.itch.io" target="_blank" class="underline text-primary">Kay</a> for providing free 3D models.',
+      'Thanks to <a href="https://kenney.nl/assets" target="_blank">Kenny</a> and <a href="https://kaylousberg.itch.io" target="_blank">Kay</a> for providing free 3D models.',
       'Otherwise, if I drew them myself, it would probably take 10 years to finish (╥ω╥ )',
     ],
   },

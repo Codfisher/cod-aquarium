@@ -3,7 +3,7 @@ import { onBeforeUnmount, onMounted } from 'vue'
 
 function _useFontLoader() {
   // 載入字體
-  const fontHref = 'https://fonts.googleapis.com/css2?family=Orbitron:wght@400..900'
+  const fontHref = 'https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@100..900&family=Orbitron:wght@400..900'
   let linkEl: HTMLLinkElement
   onMounted(() => {
     // 已經有同樣的 link 就不要重複

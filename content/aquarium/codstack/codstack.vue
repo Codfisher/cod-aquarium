@@ -4,6 +4,7 @@
       :toaster="{
         position: 'top-right',
       }"
+      class="font-noto"
     >
       <u-dashboard-group storage="local">
         <u-dashboard-sidebar
@@ -23,19 +24,17 @@
           @cancel-preview="cancelPreview"
         >
           <div class="flex flex-col absolute left-0 bottom-0 p-2 gap-1">
-            <bulletin-modal>
+            <bulletin-modal v-model:open="bulletinVisible">
               <u-icon
                 name="material-symbols:notifications-outline-rounded"
-                color="white"
-                class=" size-14 p-2 cursor-pointer filter-[drop-shadow(0_0_2px_#777)]"
+                class="text-gray-400 size-14 p-2 cursor-pointer filter-[drop-shadow(0_0_4px_#FFF)]"
               />
             </bulletin-modal>
 
             <help-modal>
               <u-icon
                 name="i-material-symbols:help-outline-rounded"
-                color="white"
-                class=" size-14 p-2 cursor-pointer filter-[drop-shadow(0_0_2px_#777)]"
+                class="text-gray-400 size-14 p-2 cursor-pointer filter-[drop-shadow(0_0_4px_#FFF)]"
               />
             </help-modal>
           </div>
@@ -87,7 +86,7 @@
 
 <script setup lang="ts">
 import type { ModelFile, SceneData } from './type'
-import { computed, shallowRef, watch } from 'vue'
+import { computed, ref, shallowRef, watch } from 'vue'
 import BulletinModal from './components/bulletin-modal.vue'
 import ExportModal from './components/export-modal.vue'
 import FilePreviewPanel from './components/file-preview-panel/file-preview-panel.vue'
@@ -100,6 +99,8 @@ import { useMainStore } from './stores/main-store'
 
 useFontLoader()
 const mainStore = useMainStore()
+
+const bulletinVisible = ref(true)
 
 const selectedModelFile = shallowRef<ModelFile>()
 function cancelPreview() {
@@ -130,7 +131,11 @@ function handleImportData(data: SceneData) {
 @use './styles/animation.sass'
 </style>
 
-<style lang="sass" scoped>
-.font-orbitron
-  font-family: "Orbitron", sans-serif
+<style lang="sass">
+</style>
+
+<style lang="sass">
+a
+  color: var(--ui-primary)
+  text-decoration: underline
 </style>
