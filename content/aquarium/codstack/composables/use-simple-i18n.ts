@@ -1,20 +1,12 @@
+import type { UnionToIntersection } from 'type-fest'
 import type { Ref } from 'vue'
 import { createSharedComposable } from '@vueuse/core'
 import { ref } from 'vue'
 
 /**
- * 黑魔法：將聯合型別轉為交集型別
- * { a: string } | { b: string } => { a: string } & { b: string }
- * 用來檢測型別衝突 (string & string[] = never)
- */
-type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (
-  k: infer I
-) => void
-  ? I
-  : never
-
-/**
  * 寬鬆化：還原 as const 的型別
+ *
+ * 如果不做 Widen，'哈囉' & 'Hello' 也會變成 never。加上 Widen 後，它會先變成 string & string，這樣就只檢查「型別」而不檢查「內容」
  */
 type Widen<T> = T extends string
   ? string
