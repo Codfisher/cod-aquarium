@@ -57,7 +57,7 @@ export const sceneDataSchemaV1 = z.object({
     }).optional(),
   })),
 })
-const sceneDataSchema = z.discriminatedUnion('version', [
+export const sceneDataSchema = z.discriminatedUnion('version', [
   sceneDataSchemaV1,
 ]);
 
