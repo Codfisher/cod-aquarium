@@ -42,8 +42,8 @@ export interface SceneSettings {
   };
 }
 
-export const sceneDataSchema = z.object({
-  version: z.string(),
+export const sceneDataSchemaV1 = z.object({
+  version: z.literal(1),
   partList: z.array(z.object({
     path: z.string(),
     position: z.array(z.number()).length(3),
@@ -57,4 +57,8 @@ export const sceneDataSchema = z.object({
     }).optional(),
   })),
 })
+const sceneDataSchema = z.discriminatedUnion('version', [
+  sceneDataSchemaV1,
+]);
+
 export type SceneData = z.infer<typeof sceneDataSchema>

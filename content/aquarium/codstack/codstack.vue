@@ -78,7 +78,7 @@
         <span class="text-base">CodStack</span>
 
         <span class="ml-1 text-xs text-gray-500">
-          v{{ mainStore.version }}
+          v{{ version }}
         </span>
       </div>
     </u-app>
@@ -96,6 +96,8 @@ import ImportModal from './components/import-modal.vue'
 import SceneViewer from './components/scene-viewer/scene-viewer.vue'
 import { useFontLoader } from './composables/use-font-loader'
 import { useMainStore } from './stores/main-store'
+import { version } from './constants'
+
 
 useFontLoader()
 const mainStore = useMainStore()

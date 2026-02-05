@@ -46,6 +46,7 @@ import { useMainStore } from '../stores/main-store'
 import { getMeshMeta } from '../utils/babylon'
 import { cleanFloat } from '../utils/math'
 import dayjs from 'dayjs'
+import { sceneDataVersion } from '../constants'
 
 interface Props {
   meshList?: AbstractMesh[];
@@ -116,7 +117,7 @@ const extractedData = computed(() => {
 
 const jsonString = computed(() => {
   const json = JSON.stringify({
-    version: mainStore.version,
+    version: sceneDataVersion,
     rootFolderName: rootName.value,
     partList: extractedData.value,
   }, null, 2)
