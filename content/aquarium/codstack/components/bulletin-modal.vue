@@ -45,7 +45,7 @@ const props = withDefaults(defineProps<Props>(), {
 const tabItems = computed(() => [
   {
     label: 'Intro',
-    icon: 'i-line-md:emoji-grin',
+    icon: 'i-ph:fish-simple-bold',
     slot: 'intro',
   },
   // {
