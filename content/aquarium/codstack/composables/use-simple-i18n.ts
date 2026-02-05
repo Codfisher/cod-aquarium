@@ -2,6 +2,54 @@ import type { Ref } from 'vue'
 import { createSharedComposable } from '@vueuse/core'
 import { ref } from 'vue'
 
+/**
+ * 黑魔法：將聯合型別轉為交集型別
+ * { a: string } | { b: string } => { a: string } & { b: string }
+ * 用來檢測型別衝突 (string & string[] = never)
+ */
+type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (
+  k: infer I
+) => void
+  ? I
+  : never
+
+/**
+ * 寬鬆化：還原 as const 的型別
+ */
+type Widen<T> = T extends string
+  ? string
+  : T extends readonly string[]
+    ? string[]
+    : T
+
+/**
+ * 修正後的 Key 提取器：
+ * 1. Messages[keyof Messages] 會拿到所有語系的 Value 的聯合型別 (例如 {a:1} | {b:2})
+ * 2. KeysOfUnion 會把這個聯合型別拆開，分別取 keyof，再組回來
+ * 結果：'a' | 'b'
+ */
+type KeysOfUnion<T> = T extends any ? keyof T : never
+type KeyUniverse<Messages> = KeysOfUnion<Messages[keyof Messages]>
+
+/**
+ * 取得所有語系中某個 Key 的「共同型別」
+ */
+type CommonType<T, K extends keyof any> = UnionToIntersection<
+  {
+    [L in keyof T]: K extends keyof T[L] ? Widen<T[L][K]> : never
+  }[keyof T]
+>
+
+/**
+ * 嚴格檢查器：
+ * 每一種語言 (L) 的 每一個潛在 Key (K)，都必須符合共同型別 (CommonType)
+ */
+type StrictCheck<Messages> = {
+  [L in keyof Messages]: {
+    [K in KeyUniverse<Messages>]: CommonType<Messages, K>
+  }
+}
+
 type MessageSchema = Record<string, string | string[]>
 
 /** whyframe 中無法使用原本的 vue-i18n
@@ -13,7 +61,7 @@ function _useSimpleI18n<
   Lang extends keyof Messages = keyof Messages,
   Data = Messages[Lang],
 >(
-  messages: Messages,
+  messages: Messages & StrictCheck<Messages>,
 ) {
   const currentLocale = ref(Object.keys(messages)[0]) as Ref<Lang>
 
