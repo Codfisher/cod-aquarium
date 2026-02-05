@@ -3,6 +3,11 @@
     <slot />
 
     <template #body>
+      <u-tabs :items="tabItems">
+        <template #account />
+
+        <template #password />
+      </u-tabs>
       <div
         v-if="lang === 'zh-TW'"
         class="flex flex-col"
@@ -47,6 +52,7 @@
 </template>
 
 <script setup lang="ts">
+import type { TabsItem } from '@nuxt/ui/.'
 import { ref } from 'vue'
 
 interface Props {
@@ -57,6 +63,18 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const lang = ref<'zh-TW' | 'en'>('zh-TW')
+const tabItems: TabsItem[] = [
+  {
+    label: 'Account',
+    icon: 'i-lucide-user',
+    slot: 'account',
+  },
+  {
+    label: 'Password',
+    icon: 'i-lucide-lock',
+    slot: 'password',
+  },
+]
 </script>
 
 <style scoped lang="sass">

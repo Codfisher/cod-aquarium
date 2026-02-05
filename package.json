@@ -90,6 +90,7 @@
     "vitest-browser-vue": "^0.2.0",
     "vue": "^3.5.16",
     "vue-component-type-helpers": "3.1.0",
+    "vue-i18n": "^11.2.8",
     "vue-router": "^4.6.3",
     "wrangler": "4.40.2",
     "xstate": "^5.23.0",
