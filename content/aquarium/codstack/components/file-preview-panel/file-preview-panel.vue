@@ -447,9 +447,13 @@ function tabKey(tabValue: string | undefined) {
 watch(
   selectedTab,
   async (newTab, oldTab) => {
-    // 切換前存舊 tab scroll 位置
     const virtualizer = scrollAreaRef.value?.virtualizer
-    if (virtualizer && oldTab) {
+    if (!virtualizer) {
+      return
+    }
+
+    // 切換前存舊 tab scroll 位置
+    if (oldTab) {
       tabScrollOffsetMap.value[tabKey(oldTab)] = virtualizer.scrollOffset ?? 0
     }
 
