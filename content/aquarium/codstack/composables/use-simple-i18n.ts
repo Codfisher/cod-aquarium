@@ -21,15 +21,15 @@ function _useSimpleI18n<
     currentLocale.value = lang
   }
 
-  function getMessage<K extends keyof Data>(key: K): Data[K] {
+  function getMessage<Key extends keyof Data>(key: Key): Data[Key] {
     const localeData = messages[currentLocale.value] as unknown as Data
-    return (localeData?.[key] ?? 'NOT_FOUND') as Data[K]
+    return (localeData?.[key] ?? 'NOT_FOUND') as Data[Key]
   }
 
-  function t<K extends keyof Data>(
-    key: K,
+  function t<Key extends keyof Data>(
+    key: Key,
     params?: Record<string, string | number>,
-  ): Data[K] extends string[] ? string[] : string {
+  ): Data[Key] extends string[] ? string[] : string {
     const value = getMessage(key) as any
 
     if (Array.isArray(value)) {
