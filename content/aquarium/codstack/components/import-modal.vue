@@ -22,17 +22,21 @@
     </template>
 
     <template #footer>
-      <div class="flex justify-end gap-2">
+      <div class="flex  gap-2 w-full">
         <u-button
           color="gray"
           variant="ghost"
+          icon="i-material-symbols:cancel-outline-rounded"
+          class="flex-1"
           label="Cancel"
           @click="emit('close')"
         />
 
         <u-button
+          icon="i-line-md:circle-twotone-to-confirm-circle-transition"
           label="Confirm Import"
           color="primary"
+          class="flex-1"
           :loading="isLoading"
           @click="handleImport"
         />
