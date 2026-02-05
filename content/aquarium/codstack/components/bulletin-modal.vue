@@ -44,6 +44,7 @@ const tabItems = computed(() => [
 
 const { locale, t } = useSimpleI18n({
   'zh-hant': {
+    test: '',
     intro: [
       '歡迎來到 CodStack！✧⁑｡٩(ˊᗜˋ*)و✧⁕｡',
       '感謝 <a href="https://kenney.nl/assets" target="_blank" class="underline text-primary">Kenny</a>、<a href="https://kaylousberg.itch.io" target="_blank" class="underline text-primary">Kay</a> 這些佛心大神們提供免費的 3D 模型。',
@@ -51,6 +52,7 @@ const { locale, t } = useSimpleI18n({
     ],
   },
   'en': {
+    test: '',
     intro: [
       'Welcome to CodStack! ✧⁑｡٩(ˊᗜˋ*)و✧⁕｡',
       'Thanks to <a href="https://kenney.nl/assets" target="_blank" class="underline text-primary">Kenny</a> and <a href="https://kaylousberg.itch.io" target="_blank" class="underline text-primary">Kay</a> for providing free 3D models.',
