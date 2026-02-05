@@ -45,7 +45,6 @@
   </u-modal>
 </template>
 
-
 <script setup lang="ts">
 interface Props {
   label?: string;

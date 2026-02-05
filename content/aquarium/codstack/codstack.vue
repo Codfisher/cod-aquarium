@@ -95,9 +95,8 @@ import HelpModal from './components/help-modal.vue'
 import ImportModal from './components/import-modal.vue'
 import SceneViewer from './components/scene-viewer/scene-viewer.vue'
 import { useFontLoader } from './composables/use-font-loader'
-import { useMainStore } from './stores/main-store'
 import { version } from './constants'
-
+import { useMainStore } from './stores/main-store'
 
 useFontLoader()
 const mainStore = useMainStore()

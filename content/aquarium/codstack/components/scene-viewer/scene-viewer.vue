@@ -68,10 +68,10 @@
 </template>
 
 <script setup lang="ts">
-import { AbstractMesh, GizmoManager, Matrix, Scene } from '@babylonjs/core'
+import type { AbstractMesh, GizmoManager, Scene } from '@babylonjs/core'
 import type { ContextMenuItem } from '@nuxt/ui/.'
 import type { MeshMeta, ModelFile, SceneData } from '../../type'
-import { ArcRotateCamera, Color3, ImportMeshAsync, Mesh, PointerEventTypes, Quaternion, Scalar, StandardMaterial, Vector3 } from '@babylonjs/core'
+import { ArcRotateCamera, Color3, ImportMeshAsync, Matrix, Mesh, PointerEventTypes, Quaternion, Scalar, StandardMaterial, Vector3 } from '@babylonjs/core'
 import { onKeyStroke, refManualReset, useActiveElement, useMagicKeys, useThrottledRefHistory, whenever } from '@vueuse/core'
 import { animate } from 'animejs'
 import { nanoid } from 'nanoid'
@@ -571,7 +571,6 @@ const { canvasRef, scene, camera } = useBabylonScene({
             clonedMesh.getChildMeshes().forEach((mesh) => mesh.isPickable = true)
             clonedMesh.refreshBoundingInfo()
 
-
             addedMeshList.value.push(clonedMesh)
             selectMesh(clonedMesh, false)
 
@@ -626,7 +625,7 @@ const { canvasRef, scene, camera } = useBabylonScene({
         // 疊加手動旋轉 (offset) 並依照 Mesh 的自身垂直方向旋轉
         const manualRotation = Quaternion.RotationAxis(
           mesh.getDirection(Vector3.Up()),
-          previewOffset.value.yRotation
+          previewOffset.value.yRotation,
         )
         const targetRotation = previewMoveTarget.rotation.multiply(manualRotation)
 
@@ -634,7 +633,7 @@ const { canvasRef, scene, camera } = useBabylonScene({
           mesh.rotationQuaternion,
           targetRotation,
           t,
-          mesh.rotationQuaternion
+          mesh.rotationQuaternion,
         )
       }
     })

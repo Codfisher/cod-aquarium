@@ -144,7 +144,6 @@
             />
           </model-preview-item>
         </u-context-menu>
-
       </u-scroll-area>
     </div>
 
@@ -176,9 +175,11 @@
         </template>
       </u-input>
 
-      <u-popover :content="{
-        side: 'right',
-      }">
+      <u-popover
+        :content="{
+          side: 'right',
+        }"
+      >
         <u-input
           :model-value="selectedTagList.length ? selectedTagList.join(', ') : 'Select tag to filter models'"
           class="col-span-2 @md:col-span-1"
@@ -283,10 +284,10 @@ import { refManualReset, useElementSize, useStorage } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { chunk, clone, filter, isTruthy, map, pipe, tap } from 'remeda'
 import { computed, reactive, ref, useTemplateRef, watch } from 'vue'
+import { nextFrame } from '../../../../../web/common/utils'
 import { useMainStore } from '../../stores/main-store'
 import ModelPreviewItem from '../model-preview-item.vue'
 import SceneOptionsForm from '../scene-options-form.vue'
-import { nextFrame } from '../../../../../web/common/utils'
 
 const toast = useToast()
 const mainStore = useMainStore()
@@ -462,9 +463,8 @@ watch(
     const target = tabScrollOffsetMap.value[tabKey(newTab)] ?? 0
     virtualizer?.scrollToOffset(target, { behavior: 'auto' })
   },
-  { flush: 'sync' }
+  { flush: 'sync' },
 )
-
 
 /** 從 path 提取 tag
  *

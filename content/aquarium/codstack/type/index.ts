@@ -59,6 +59,6 @@ export const sceneDataSchemaV1 = z.object({
 })
 export const sceneDataSchema = z.discriminatedUnion('version', [
   sceneDataSchemaV1,
-]);
+])
 
 export type SceneData = z.infer<typeof sceneDataSchema>
