@@ -16,6 +16,14 @@
             v-html="text"
           />
         </template>
+
+        <template #quick-start>
+          <p
+            v-for="(text, index) in t('start')"
+            :key="index"
+            v-html="text"
+          />
+        </template>
       </u-tabs>
     </template>
   </u-modal>
@@ -40,11 +48,11 @@ const tabItems = computed(() => [
     icon: 'i-line-md:emoji-grin',
     slot: 'intro',
   },
-  {
-    label: 'Quick Start',
-    icon: 'i-line-md:compass-loop',
-    slot: 'quick-start',
-  },
+  // {
+  //   label: 'Quick Start',
+  //   icon: 'i-line-md:compass-loop',
+  //   slot: 'quick-start',
+  // },
 ] satisfies TabsItem[])
 
 const { locale, t } = useSimpleI18n({
@@ -63,12 +71,22 @@ const { locale, t } = useSimpleI18n({
       '如果此工具對您有幫助，也可以<a href="https://portaly.cc/codfish/support" target="_blank">請我喝一杯咖啡</a>，鼓勵我喔！(*´∀`)~♥',
       '有空的話也可以來我的<a href="https://codlin.me/" >部落格</a>逛逛，裡面還有很多酷東西喔！(・∀・)９',
     ],
+    start: [
+      '1. 點擊左上角資料夾圖示，選擇一個資料夾。',
+      '2. 選擇後，CodStack 會自動掃描資料夾中的模型檔案。',
+      '3. 點擊模型預覽圖，可以在右側預覽模型。',
+    ],
   },
   'en': {
     intro: [
       'Welcome to CodStack! ✧⁑｡٩(ˊᗜˋ*)و✧⁕｡',
       'Thanks to <a href="https://kenney.nl/assets" target="_blank">Kenny</a> and <a href="https://kaylousberg.itch.io" target="_blank">Kay</a> for providing free 3D models.',
       'Otherwise, if I drew them myself, it would probably take 10 years to finish (╥ω╥ )',
+    ],
+    start: [
+      '1. Click the folder icon in the top-left corner to select a folder.',
+      '2. After selection, CodStack will automatically scan the folder for model files.',
+      '3. Click on the model preview image to preview the model on the right.',
     ],
   },
 } as const)
