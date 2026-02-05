@@ -41,12 +41,12 @@
 <script setup lang="ts">
 import { type AbstractMesh, Quaternion } from '@babylonjs/core'
 import { useClipboard } from '@vueuse/core'
+import dayjs from 'dayjs'
 import { computed, ref } from 'vue'
+import { sceneDataVersion } from '../constants'
 import { useMainStore } from '../stores/main-store'
 import { getMeshMeta } from '../utils/babylon'
 import { cleanFloat } from '../utils/math'
-import dayjs from 'dayjs'
-import { sceneDataVersion } from '../constants'
 
 interface Props {
   meshList?: AbstractMesh[];
@@ -76,17 +76,17 @@ const validMeshList = computed(() => {
 function serializeQuaternion(q: Quaternion) {
   const qn = q.normalizeToNew()
 
-  const arr = qn.asArray().map(n => cleanFloat(n, 8))
+  const arr = qn.asArray().map((n) => cleanFloat(n, 8))
 
   // 因為 rounding 會破壞 unit，再正規化一次
   const q2 = Quaternion.FromArray(arr).normalize()
 
   // 統一符號（q 和 -q 等價），避免接近 180° 時跳號
-  if (q2.w < 0) q2.scaleInPlace(-1)
+  if (q2.w < 0)
+    q2.scaleInPlace(-1)
 
-  return q2.asArray().map(n => cleanFloat(n, 8))
+  return q2.asArray().map((n) => cleanFloat(n, 8))
 }
-
 
 const extractedData = computed(() => {
   if (!validMeshList.value.length)
@@ -100,16 +100,16 @@ const extractedData = computed(() => {
 
     return {
       path,
-      position: mesh.position.asArray().map(n => cleanFloat(n, 8)),
+      position: mesh.position.asArray().map((n) => cleanFloat(n, 8)),
       rotationQuaternion: serializeQuaternion(quaternion),
-      scaling: mesh.scaling.asArray().map(n => cleanFloat(n, 8)),
+      scaling: mesh.scaling.asArray().map((n) => cleanFloat(n, 8)),
       metadata: meta
         ? {
-          name: meta?.name,
-          mass: meta?.mass,
-          restitution: meta?.restitution,
-          friction: meta?.friction,
-        }
+            name: meta?.name,
+            mass: meta?.mass,
+            restitution: meta?.restitution,
+            friction: meta?.friction,
+          }
         : undefined,
     }
   })

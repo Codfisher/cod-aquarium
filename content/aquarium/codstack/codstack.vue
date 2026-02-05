@@ -4,7 +4,6 @@
       :toaster="{
         position: 'top-right',
       }"
-      class="font-noto"
     >
       <u-dashboard-group storage="local">
         <u-dashboard-sidebar

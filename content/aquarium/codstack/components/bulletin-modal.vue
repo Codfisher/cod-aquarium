@@ -6,7 +6,7 @@
       <u-tabs
         :items="tabItems"
         :ui="{
-          content: 'p-4 space-y-4 ',
+          content: 'p-4 space-y-4 h-[60vh] overflow-auto',
         }"
       >
         <template #intro>
