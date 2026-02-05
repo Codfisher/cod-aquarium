@@ -1,4 +1,5 @@
 import type { Theme } from 'vitepress'
+import messages from '@intlify/unplugin-vue-i18n/messages'
 import ui from '@nuxt/ui/vue-plugin'
 import { createPinia } from 'pinia'
 // import VConsole from 'vconsole'
@@ -19,6 +20,7 @@ const i18n = createI18n({
   legacy: false,
   locale: 'zh-hant',
   fallbackLocale: 'zh-hant',
+  messages,
 })
 
 export default {
