@@ -14,7 +14,7 @@
             autoresize
             :rows="10"
             class="w-full font-mono text-xs"
-            placeholder="{ version: 'x.y.z', partList: ... }"
+            placeholder="{ version: 1, partList: ... }"
             @input="clearErrorMessage()"
           />
         </u-form-field>

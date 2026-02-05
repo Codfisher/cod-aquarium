@@ -109,10 +109,11 @@
 
     <div
       v-if="mainStore.rootFsHandle"
-      ref="scrollAreaRef"
+      ref="scrollAreaBoxRef"
       class="flex flex-col flex-1"
     >
       <u-scroll-area
+        ref="scrollAreaRef"
         :key="mainStore.rootFsHandle.name"
         v-slot="{ item }"
         :items="filteredModelFileChunkList"
@@ -285,6 +286,7 @@ import { computed, reactive, ref, useTemplateRef, watch } from 'vue'
 import { useMainStore } from '../../stores/main-store'
 import ModelPreviewItem from '../model-preview-item.vue'
 import SceneOptionsForm from '../scene-options-form.vue'
+import { nextFrame } from '../../../../../web/common/utils'
 
 const toast = useToast()
 const mainStore = useMainStore()
@@ -430,8 +432,36 @@ const filterOptions = refManualReset(() => reactive({
 }))
 watch(rootFsHandle, () => filterOptions.reset())
 
+const scrollAreaBoxRef = useTemplateRef('scrollAreaBoxRef')
+const scrollAreaSize = reactive(useElementSize(scrollAreaBoxRef))
+
 const scrollAreaRef = useTemplateRef('scrollAreaRef')
-const scrollAreaSize = reactive(useElementSize(scrollAreaRef))
+/** 紀錄滾動位置 */
+const tabScrollOffsetMap = useStorage<Record<string, number>>('tab-scroll-offset', {})
+
+function tabKey(tabValue: string | undefined) {
+  const root = rootFsHandle.value?.name ?? 'no-root'
+  return `${root}::${tabValue ?? 'all'}`
+}
+
+watch(
+  selectedTab,
+  async (newTab, oldTab) => {
+    // 切換前存舊 tab scroll 位置
+    const virtualizer = scrollAreaRef.value?.virtualizer
+    if (virtualizer && oldTab) {
+      tabScrollOffsetMap.value[tabKey(oldTab)] = virtualizer.scrollOffset ?? 0
+    }
+
+    await nextFrame()
+
+    const target = tabScrollOffsetMap.value[tabKey(newTab)] ?? 0
+    virtualizer?.scrollToOffset(target, { behavior: 'auto' })
+  },
+  { flush: 'sync' }
+)
+
+
 /** 從 path 提取 tag
  *
  * 提取路徑中的資料夾名稱，但忽略所有檔案都共同擁有的上層目錄
