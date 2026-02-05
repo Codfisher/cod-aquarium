@@ -1,5 +1,8 @@
 import type { DefaultTheme } from 'vitepress'
 import type { Article } from './utils'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import VueI18nPlugin from '@intlify/unplugin-vue-i18n/vite'
 import ui from '@nuxt/ui/vite'
 import { whyframe } from '@whyframe/core'
 import { whyframeVue } from '@whyframe/vue'
@@ -357,8 +360,17 @@ export default ({ mode }: { mode: string }) => {
           },
         },
       },
-
+      resolve: {
+        alias: {
+          'vue-i18n': 'vue-i18n/dist/vue-i18n.cjs.js',
+        },
+      },
       plugins: [
+        VueI18nPlugin({
+          include: resolve(dirname(
+            fileURLToPath(import.meta.url),
+          ), 'locales/**'),
+        }),
         /** 強制停用 vitepress data loader 功能
          *
          * 避免 build 時出現以下錯誤：
