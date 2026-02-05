@@ -23,7 +23,7 @@ type Widen<T> = T extends string
     : T
 
 /**
- * 修正後的 Key 提取器：
+ * Key 提取器：
  * 1. Messages[keyof Messages] 會拿到所有語系的 Value 的聯合型別 (例如 {a:1} | {b:2})
  * 2. KeysOfUnion 會把這個聯合型別拆開，分別取 keyof，再組回來
  * 結果：'a' | 'b'
