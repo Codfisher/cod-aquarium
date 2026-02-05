@@ -2,7 +2,7 @@
   <u-modal
     title="Export Scene"
     :description="`${validMeshList.length} objects`"
-    @update:open="handleOpen"
+    @update:open="updateTime"
   >
     <slot />
 
@@ -40,9 +40,10 @@
 
 <script setup lang="ts">
 import { type AbstractMesh, Quaternion } from '@babylonjs/core'
-import { useClipboard } from '@vueuse/core'
+import { useClipboard, useMagicKeys, whenever } from '@vueuse/core'
 import dayjs from 'dayjs'
 import { computed, ref } from 'vue'
+import { nextFrame } from '../../../../web/common/utils'
 import { sceneDataVersion } from '../constants'
 import { useMainStore } from '../stores/main-store'
 import { getMeshMeta } from '../utils/babylon'
@@ -58,17 +59,17 @@ const props = withDefaults(defineProps<Props>(), {
 const mainStore = useMainStore()
 const toast = useToast()
 
-/** 紀錄打開時間 */
-const openedAt = ref(0)
-function handleOpen() {
-  openedAt.value = Date.now()
+/** 強制更新用 */
+const updatedAt = ref(0)
+function updateTime() {
+  updatedAt.value = Date.now()
 }
 
 const rootName = computed(() => mainStore.rootFsHandle?.name ?? '')
 
 const validMeshList = computed(() => {
   // 依賴 openedAt，確保每次打開都重新計算
-  const value = openedAt.value
+  const value = updatedAt.value
 
   return props.meshList.filter((mesh) => mesh.isEnabled())
 })
@@ -153,6 +154,13 @@ async function copyToClipboard() {
     console.error('Failed to copy', err)
   }
 }
+
+const { ctrl_c: ctrlCKey } = useMagicKeys()
+whenever(() => ctrlCKey?.value, async () => {
+  updateTime()
+  await nextFrame()
+  copyToClipboard()
+})
 </script>
 
 <style scoped lang="sass">

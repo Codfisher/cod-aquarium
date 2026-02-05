@@ -29,6 +29,11 @@
             Hold <u-kbd value="Shift" /> while selecting:
             <span class="font-medium">multi-select</span>
           </li>
+
+          <li>
+            <u-kbd value="Ctrl + C" />
+            <span class="font-medium">Export scene and copy to clipboard</span>
+          </li>
         </ul>
 
         <h2 class="text-lg font-bold">
