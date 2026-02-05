@@ -14,3 +14,4 @@
 當你 (Gemini) 生成程式碼或回答問題時，請遵守：
 
 1. **回應語言**：除非另有指示，否則請使用正體中文。
+2. **Commit Message**：請使用中文，並遵循 [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) 的格式。
