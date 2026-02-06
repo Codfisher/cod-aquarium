@@ -16,6 +16,7 @@ export function getMeshMeta<Meta = MeshMeta>(mesh: AbstractMesh) {
   return mesh.metadata as Meta | undefined
 }
 
+const identityRotation = Quaternion.Identity()
 /**
  * 計算 Mesh 貼合表面的變換資訊，但不直接修改 Mesh
  */
@@ -44,17 +45,15 @@ export function getSurfaceSnapTransform(
   // --- 1. 計算旋轉 (Rotation) ---
 
   // gltf 會在 Y 軸多 180 度旋轉，需要修正
-  const fixRotation = Quaternion.RotationAxis(Vector3.Up(), Math.PI)
   const targetRotation = new Quaternion()
 
   if (alignToNormal) {
-    // 讓物體的上方 (Y) 對齊表面的法向量，並疊加 GLTF 修正
+    // 讓物體的上方 (Y) 對齊表面的法向量
     Quaternion.FromUnitVectorsToRef(Vector3.Up(), normal, targetRotation)
-    targetRotation.multiplyInPlace(fixRotation)
   }
   else {
-    // 不對齊地形時，保持直立 (Identity)，但仍需保留 GLTF 修正
-    targetRotation.copyFrom(fixRotation)
+    // 不對齊地形時，保持直立
+    targetRotation.copyFrom(identityRotation)
   }
 
   // --- 2. 計算位置 (Position) ---

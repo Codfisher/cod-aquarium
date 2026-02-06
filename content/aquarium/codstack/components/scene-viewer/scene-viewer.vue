@@ -169,12 +169,22 @@ watch(() => props.importedSceneData, async (sceneData) => {
       model.scaling = Vector3.FromArray(part.scaling)
 
       // 不知道為什麼，直接用 rotationQuaternion 會導致 gizmoManager 無法旋轉，改成 Euler 就行
-      const savedQuaternion = Quaternion.FromArray(part.rotationQuaternion)
+      const savedQuaternion = Quaternion
+        .FromArray(part.rotationQuaternion)
+        .multiplyInPlace(new Quaternion(0, 1, 0, 0))
       model.rotation = savedQuaternion.toEulerAngles()
       model.rotationQuaternion = null
 
       model.refreshBoundingInfo()
     }
+    model.metadata = {
+      path: part.path,
+      name: part.metadata?.name ?? '',
+      fileName: file.name,
+      mass: part.metadata?.mass ?? sceneSettings.value.metadata.mass.defaultValue,
+      restitution: part.metadata?.restitution ?? sceneSettings.value.metadata.restitution.defaultValue,
+      friction: part.metadata?.friction ?? sceneSettings.value.metadata.friction.defaultValue,
+    } as MeshMeta
 
     addedMeshList.value.push(model)
   })

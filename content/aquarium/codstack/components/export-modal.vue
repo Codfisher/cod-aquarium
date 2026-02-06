@@ -50,6 +50,7 @@ import { sceneDataVersion } from '../constants'
 import { useMainStore } from '../stores/main-store'
 import { getMeshMeta } from '../utils/babylon'
 import { cleanFloat } from '../utils/math'
+import { pipe, tap } from 'remeda'
 
 interface Props {
   meshList?: AbstractMesh[];
@@ -97,7 +98,14 @@ const extractedData = computed(() => {
 
   return validMeshList.value.map((mesh) => {
     // 處理旋轉：優先使用 Quaternion，若無則從 Euler 轉換
-    const quaternion = mesh.rotationQuaternion ?? Quaternion.RotationYawPitchRoll(mesh.rotation.y, mesh.rotation.x, mesh.rotation.z)
+    const quaternion = pipe(
+      mesh.rotationQuaternion?.clone() ?? Quaternion.RotationYawPitchRoll(mesh.rotation.y, mesh.rotation.x, mesh.rotation.z),
+      // 因為有 bake 過，所以會和一般的 babylonjs 差 Y 軸 180 度旋轉
+      tap((quaternion) =>
+        quaternion.multiplyInPlace(new Quaternion(0, 1, 0, 0))
+      ),
+    )
+
     const meta = getMeshMeta(mesh)
     const path = meta?.path ?? ''
 
@@ -108,11 +116,11 @@ const extractedData = computed(() => {
       scaling: mesh.scaling.asArray().map((n) => cleanFloat(n, 8)),
       metadata: meta
         ? {
-            name: meta?.name,
-            mass: meta?.mass,
-            restitution: meta?.restitution,
-            friction: meta?.friction,
-          }
+          name: meta?.name,
+          mass: meta?.mass,
+          restitution: meta?.restitution,
+          friction: meta?.friction,
+        }
         : undefined,
     }
   })
