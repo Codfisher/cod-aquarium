@@ -12,6 +12,7 @@ import type { Scene } from '@babylonjs/core'
 import {
   Color3,
   DirectionalLight,
+  FollowCamera,
   HavokPlugin,
   MeshBuilder,
   PhysicsAggregate,
@@ -22,6 +23,7 @@ import {
   Vector3,
 } from '@babylonjs/core'
 import HavokPhysics from '@babylonjs/havok'
+import { pipe, tap } from 'remeda'
 import { createTrackSegment } from './track-segment'
 import { useBabylonScene } from './use-babylon-scene'
 
@@ -91,17 +93,36 @@ const {
     const havokPlugin = new HavokPlugin(true, havokInstance)
     scene.enablePhysics(new Vector3(0, -9.81, 0), havokPlugin)
 
+    const followCamera = pipe(
+      new FollowCamera('FollowCam', new Vector3(0, 10, -10), scene),
+      tap((camera) => {
+        // 設定相機參數
+        camera.radius = 20 // 相機距離目標多遠
+        camera.heightOffset = 10 // 相機比目標高多少
+        camera.rotationOffset = 90 // 視角角度 (180 代表從正後方看，0 代表從正面看)
+        camera.cameraAcceleration = 0.05 // 跟隨加速度 (越小越平滑/延遲)
+        camera.maxCameraSpeed = 20 // 最大跟隨速度
+      }),
+    )
+
+    // 將此相機設為當前主要相機
+    scene.activeCamera = followCamera
+
     const shadowGenerator = createShadowGenerator(scene)
 
     createGround({ scene })
     const trackSegment = await createTrackSegment({ scene })
 
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 2; i++) {
       const marble = createMarble({
         scene,
         startPosition: trackSegment.startPosition,
       })
       shadowGenerator.addShadowCaster(marble)
+
+      if (i === 0) {
+        followCamera.lockedTarget = marble
+      }
     }
   },
 })
