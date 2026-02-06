@@ -401,6 +401,15 @@ function createCustomTabContextMenuItems(data: ModelFile): ContextMenuItem[] {
     }),
     filter(isTruthy),
     tap((data) => {
+      if (data.length === 0) {
+        data.unshift({
+          type: 'label',
+          label: 'No custom tab',
+          class: 'text-xs opacity-50',
+        })
+        return
+      }
+
       data.unshift({
         type: 'label',
         label: 'Add to Tab',
