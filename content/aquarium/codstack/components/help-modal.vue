@@ -35,7 +35,7 @@
           </li>
 
           <li>
-            <u-kbd value="Ctrl + C" />
+            <u-kbd value="Ctrl" /> <u-kbd value="C" />
             <span class="font-medium">Export scene and copy to clipboard</span>
           </li>
         </ul>
