@@ -10,6 +10,7 @@
 
 <script setup lang="ts">
 import type { Mesh, Scene } from '@babylonjs/core'
+import type { TrackSegment } from './track-segment'
 import { ArcRotateCamera, Color3, DirectionalLight, Engine, FollowCamera, HavokPlugin, MeshBuilder, PhysicsAggregate, PhysicsShapeType, Quaternion, Ray, ShadowGenerator, StandardMaterial, Vector3 } from '@babylonjs/core'
 import HavokPhysics from '@babylonjs/havok'
 import { pipe, tap } from 'remeda'
@@ -129,6 +130,17 @@ function createShadowGenerator(scene: Scene) {
   return shadowGenerator
 }
 
+/** 將 nextTrack 接在 prevTrack 的後面
+ *
+ * NextRoot = PrevRoot + PrevEnd - NextStart
+ */
+function connectTracks(prevTrack: TrackSegment, nextTrack: TrackSegment) {
+  nextTrack.rootNode.position
+    .copyFrom(prevTrack.rootNode.position)
+    .addInPlace(prevTrack.endPosition)
+    .subtractInPlace(nextTrack.startPosition)
+}
+
 const {
   canvasRef,
 } = useBabylonScene({
@@ -157,18 +169,24 @@ const {
     // createGround({ scene })
 
     const trackSegment = await createTrackSegment({ scene })
-    const trackSegment2 = await createTrackSegment({ scene })
-    // 將 trackSegment2.rootNode 的 startPosition 位置移到 trackSegment 的 endPosition
-    trackSegment2.rootNode.position.subtractInPlace(trackSegment.startPosition)
+    const trackSegment2 = await createTrackSegment({ scene, type: 'g02' })
+    const trackSegment3 = await createTrackSegment({ scene })
+
+    connectTracks(trackSegment, trackSegment2)
+    connectTracks(trackSegment2, trackSegment3)
 
     trackSegment.initPhysics()
     trackSegment2.initPhysics()
+    trackSegment3.initPhysics()
 
-    for (let i = 0; i < 2; i++) {
+    for (let i = 0; i < 4; i++) {
+      const startPosition = trackSegment.startPosition.clone()
+      startPosition.y += (0.1 * i)
+
       const marble = createMarble({
         scene,
         shadowGenerator,
-        startPosition: trackSegment.startPosition,
+        startPosition,
       })
       shadowGenerator.addShadowCaster(marble)
 
