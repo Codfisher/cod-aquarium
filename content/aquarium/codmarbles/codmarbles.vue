@@ -9,19 +9,7 @@
 
 <script setup lang="ts">
 import type { Scene } from '@babylonjs/core'
-import {
-  Color3,
-  DirectionalLight,
-  FollowCamera,
-  HavokPlugin,
-  MeshBuilder,
-  PhysicsAggregate,
-  PhysicsShapeType,
-  Quaternion,
-  ShadowGenerator,
-  StandardMaterial,
-  Vector3,
-} from '@babylonjs/core'
+import { ArcRotateCamera, Color3, DirectionalLight, FollowCamera, HavokPlugin, MeshBuilder, PhysicsAggregate, PhysicsShapeType, Quaternion, ShadowGenerator, StandardMaterial, Vector3 } from '@babylonjs/core'
 import HavokPhysics from '@babylonjs/havok'
 import { pipe, tap } from 'remeda'
 import { createTrackSegment } from './track-segment'
@@ -87,26 +75,23 @@ const {
   canvasRef,
 } = useBabylonScene({
   async init(params) {
-    const { scene } = params
+    const { scene, camera } = params
+    if (!(camera instanceof ArcRotateCamera)) {
+      throw new TypeError('camera is not ArcRotateCamera')
+    }
 
     const havokInstance = await HavokPhysics()
     const havokPlugin = new HavokPlugin(true, havokInstance)
     scene.enablePhysics(new Vector3(0, -9.81, 0), havokPlugin)
 
-    const followCamera = pipe(
-      new FollowCamera('FollowCam', new Vector3(0, 10, -10), scene),
-      tap((camera) => {
-        // 設定相機參數
-        camera.radius = 20 // 相機距離目標多遠
-        camera.heightOffset = 10 // 相機比目標高多少
-        camera.rotationOffset = 90 // 視角角度 (180 代表從正後方看，0 代表從正面看)
-        camera.cameraAcceleration = 0.05 // 跟隨加速度 (越小越平滑/延遲)
-        camera.maxCameraSpeed = 20 // 最大跟隨速度
-      }),
-    )
+    camera.attachControl(scene.getEngine().getRenderingCanvas(), true)
 
-    // 將此相機設為當前主要相機
-    scene.activeCamera = followCamera
+    // [優化體驗設定]
+    camera.lowerRadiusLimit = 2 // 最近只能拉到 2 (避免穿進彈珠裡)
+    camera.upperRadiusLimit = 50 // 最遠只能拉到 50
+    camera.panningSensibility = 0 // [關鍵] 設為 0 禁止右鍵平移，避免玩家不小心把鏡頭拖離彈珠
+
+    scene.activeCamera = camera
 
     const shadowGenerator = createShadowGenerator(scene)
 
@@ -121,7 +106,7 @@ const {
       shadowGenerator.addShadowCaster(marble)
 
       if (i === 0) {
-        followCamera.lockedTarget = marble
+        camera.lockedTarget = marble
       }
     }
   },

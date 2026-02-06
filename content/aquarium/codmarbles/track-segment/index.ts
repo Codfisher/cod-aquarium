@@ -362,6 +362,9 @@ export async function createTrackSegment({ scene }: {
       return
     }
     root.name = partData.metadata.name
+    root.getChildMeshes().forEach((mesh) => {
+      mesh.receiveShadows = true
+    })
 
     const partContainer = new TransformNode('partContainer', scene)
 
