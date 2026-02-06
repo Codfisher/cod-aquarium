@@ -58,10 +58,10 @@ const defaultParam: Required<UseBabylonSceneParam> = {
 
     scene.clearColor = new Color4(1, 1, 1, 1)
 
-    scene.fogMode = Scene.FOGMODE_LINEAR
-    scene.fogColor = new Color3(0.8, 0.8, 0.8)
-    scene.fogStart = 20
-    scene.fogEnd = 30
+    // scene.fogMode = Scene.FOGMODE_LINEAR
+    // scene.fogColor = new Color3(0.8, 0.8, 0.8)
+    // scene.fogStart = 20
+    // scene.fogEnd = 30
 
     return scene
   },
@@ -70,7 +70,7 @@ const defaultParam: Required<UseBabylonSceneParam> = {
       'camera',
       0,
       Math.PI / 3 * 2,
-      10,
+      40,
       new Vector3(0, 0, 0),
       scene,
     )

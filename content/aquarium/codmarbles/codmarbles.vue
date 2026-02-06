@@ -16,6 +16,7 @@ import {
   MeshBuilder,
   PhysicsAggregate,
   PhysicsShapeType,
+  Quaternion,
   ShadowGenerator,
   StandardMaterial,
   Vector3,
@@ -42,14 +43,18 @@ function createGround({ scene }: {
   return ground
 }
 
-function createMarble({ scene }: {
+function createMarble({
+  scene,
+  startPosition = Vector3.Zero(),
+}: {
   scene: Scene;
+  startPosition?: Vector3;
 }) {
   const marble = MeshBuilder.CreateSphere('marble', {
     diameter: 0.2,
     segments: 32,
   }, scene)
-  marble.position = new Vector3(0, 5, 0)
+  marble.position.copyFrom(startPosition)
   marble.receiveShadows = true
 
   const marbleMaterial = new StandardMaterial('marbleMaterial', scene)
@@ -59,7 +64,7 @@ function createMarble({ scene }: {
   const sphereAggregate = new PhysicsAggregate(
     marble,
     PhysicsShapeType.SPHERE,
-    { mass: 1, restitution: 0.5, friction: 0 },
+    { mass: 1, restitution: 0.1, friction: 0 },
     scene,
   )
 
@@ -89,10 +94,15 @@ const {
     const shadowGenerator = createShadowGenerator(scene)
 
     createGround({ scene })
-    const marble = createMarble({ scene })
-    shadowGenerator.addShadowCaster(marble)
-
     const trackSegment = await createTrackSegment({ scene })
+
+    for (let i = 0; i < 10; i++) {
+      const marble = createMarble({
+        scene,
+        startPosition: trackSegment.startPosition,
+      })
+      shadowGenerator.addShadowCaster(marble)
+    }
   },
 })
 </script>

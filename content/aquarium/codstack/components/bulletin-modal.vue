@@ -48,11 +48,11 @@ const tabItems = computed(() => [
     icon: 'i-ph:fish-simple-bold',
     slot: 'intro',
   },
-  // {
-  //   label: 'Quick Start',
-  //   icon: 'i-line-md:compass-loop',
-  //   slot: 'quick-start',
-  // },
+  {
+    label: 'Quick Start',
+    icon: 'i-line-md:compass-loop',
+    slot: 'quick-start',
+  },
 ] satisfies TabsItem[])
 
 const { locale, t } = useSimpleI18n({
