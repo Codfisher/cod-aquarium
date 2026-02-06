@@ -44,13 +44,13 @@
 import { type AbstractMesh, Quaternion } from '@babylonjs/core'
 import { useClipboard, useMagicKeys, whenever } from '@vueuse/core'
 import dayjs from 'dayjs'
+import { pipe, tap } from 'remeda'
 import { computed, ref } from 'vue'
 import { nextFrame } from '../../../../web/common/utils'
 import { sceneDataVersion } from '../constants'
 import { useMainStore } from '../stores/main-store'
 import { getMeshMeta } from '../utils/babylon'
 import { cleanFloat } from '../utils/math'
-import { pipe, tap } from 'remeda'
 
 interface Props {
   meshList?: AbstractMesh[];
@@ -100,9 +100,9 @@ const extractedData = computed(() => {
     // 處理旋轉：優先使用 Quaternion，若無則從 Euler 轉換
     const quaternion = pipe(
       mesh.rotationQuaternion?.clone() ?? Quaternion.RotationYawPitchRoll(mesh.rotation.y, mesh.rotation.x, mesh.rotation.z),
-      // 因為有 bake 過，所以會和一般的 babylonjs 差 Y 軸 180 度旋轉
+      // 因為有 bake 過，所以會和乾淨的專案差 Y 軸 180 度旋轉
       tap((quaternion) =>
-        quaternion.multiplyInPlace(new Quaternion(0, 1, 0, 0))
+        quaternion.multiplyInPlace(new Quaternion(0, 1, 0, 0)),
       ),
     )
 
@@ -111,16 +111,16 @@ const extractedData = computed(() => {
 
     return {
       path,
-      position: mesh.position.asArray().map((n) => cleanFloat(n, 8)),
+      position: mesh.position.asArray().map((n) => cleanFloat(n)),
       rotationQuaternion: serializeQuaternion(quaternion),
-      scaling: mesh.scaling.asArray().map((n) => cleanFloat(n, 8)),
+      scaling: mesh.scaling.asArray().map((n) => cleanFloat(n)),
       metadata: meta
         ? {
-          name: meta?.name,
-          mass: meta?.mass,
-          restitution: meta?.restitution,
-          friction: meta?.friction,
-        }
+            name: meta?.name,
+            mass: meta?.mass,
+            restitution: meta?.restitution,
+            friction: meta?.friction,
+          }
         : undefined,
     }
   })

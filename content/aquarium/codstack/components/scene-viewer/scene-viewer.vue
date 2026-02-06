@@ -171,6 +171,7 @@ watch(() => props.importedSceneData, async (sceneData) => {
       // 不知道為什麼，直接用 rotationQuaternion 會導致 gizmoManager 無法旋轉，改成 Euler 就行
       const savedQuaternion = Quaternion
         .FromArray(part.rotationQuaternion)
+        // 補償匯出時 Y 軸 180 度旋轉
         .multiplyInPlace(new Quaternion(0, 1, 0, 0))
       model.rotation = savedQuaternion.toEulerAngles()
       model.rotationQuaternion = null
