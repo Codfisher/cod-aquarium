@@ -15,6 +15,10 @@
             <span class="font-medium">Left click</span>: Pan
           </li>
           <li><span class="font-medium">Scroll wheel</span>: Zoom</li>
+
+          <li><span class="font-medium">Red axis</span>: X</li>
+          <li><span class="font-medium">Green axis</span>: Y</li>
+          <li><span class="font-medium">Blue axis</span>: Z</li>
         </ul>
 
         <h2 class="text-lg font-bold">

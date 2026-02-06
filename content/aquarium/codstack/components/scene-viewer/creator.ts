@@ -251,8 +251,8 @@ export function createScreenAxes(params: {
 
   // 設定視口位置 (Viewport)
   // 參數: x, y, width, height (0~1)
-  // 這裡設為右上角，寬高佔 15%
-  axisCamera.viewport = new Viewport(0.85, 0.85, 0.15, 0.15)
+  // 這裡設為右下角，寬高佔 15%
+  axisCamera.viewport = new Viewport(0.85, 0, 0.15, 0.15)
 
   // 3. 確保主相機「看不到」這個座標軸，否則會在場景中央出現一個巨大的座標軸
   // 將主相機的遮罩設為：原本的遮罩 AND (反轉 AXIS_LAYER_MASK) -> 意即排除掉 Axis Layer
