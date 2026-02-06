@@ -13,8 +13,9 @@ import type { Mesh, Scene } from '@babylonjs/core'
 import type { TrackSegment } from './track-segment'
 import { ArcRotateCamera, Color3, DirectionalLight, Engine, FollowCamera, HavokPlugin, MeshBuilder, PhysicsAggregate, PhysicsShapeType, Quaternion, Ray, ShadowGenerator, StandardMaterial, Vector3 } from '@babylonjs/core'
 import HavokPhysics from '@babylonjs/havok'
-import { pipe, tap } from 'remeda'
+import { flat, flatMap, map, pipe, reduce, shuffle, tap, values } from 'remeda'
 import { createTrackSegment } from './track-segment'
+import { TrackSegmentType } from './track-segment/data'
 import { useBabylonScene } from './use-babylon-scene'
 
 function createGround({ scene }: {
@@ -168,30 +169,46 @@ const {
 
     // createGround({ scene })
 
-    const trackSegment = await createTrackSegment({ scene })
-    const trackSegment2 = await createTrackSegment({ scene, type: 'g02' })
-    const trackSegment3 = await createTrackSegment({ scene })
+    // 建立軌道
+    const trackSegmentList = await pipe(
+      values(TrackSegmentType),
+      flatMap((type) => [type, type]),
+      shuffle(),
+      shuffle(),
+      map((type) => createTrackSegment({ scene, type })),
+      async (trackSegments) => {
+        const list = await Promise.all(trackSegments)
 
-    connectTracks(trackSegment, trackSegment2)
-    connectTracks(trackSegment2, trackSegment3)
+        list.reduce((prevTrack, nextTrack) => {
+          if (prevTrack) {
+            connectTracks(prevTrack, nextTrack)
+          }
+          return nextTrack
+        }, undefined as TrackSegment | undefined)
 
-    trackSegment.initPhysics()
-    trackSegment2.initPhysics()
-    trackSegment3.initPhysics()
+        list.forEach((trackSegment) => {
+          trackSegment.initPhysics()
+        })
 
-    for (let i = 0; i < 4; i++) {
-      const startPosition = trackSegment.startPosition.clone()
-      startPosition.y += (0.1 * i)
+        return list
+      },
+    )
+    const firstTrackSegment = trackSegmentList[0]
+    if (firstTrackSegment) {
+      for (let i = 0; i < 4; i++) {
+        const startPosition = firstTrackSegment.startPosition.clone()
+        startPosition.y += (0.1 * i)
 
-      const marble = createMarble({
-        scene,
-        shadowGenerator,
-        startPosition,
-      })
-      shadowGenerator.addShadowCaster(marble)
+        const marble = createMarble({
+          scene,
+          shadowGenerator,
+          startPosition,
+        })
+        shadowGenerator.addShadowCaster(marble)
 
-      if (i === 0) {
-        camera.lockedTarget = marble
+        if (i === 0) {
+          camera.lockedTarget = marble
+        }
       }
     }
   },

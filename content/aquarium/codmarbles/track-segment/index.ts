@@ -84,7 +84,10 @@ export async function createTrackSegment({
       const aggregate = new PhysicsAggregate(
         mesh,
         PhysicsShapeType.MESH,
-        metadata,
+        {
+          ...metadata,
+          restitution: 0.1,
+        },
         scene,
       )
     })

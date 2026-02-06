@@ -721,7 +721,6 @@ function duplicateMeshes(meshes: AbstractMesh[]) {
 
   clonedMeshes.forEach((clonedMesh) => {
     clonedMesh.position.x += maxWidth
-    clonedMesh.position.z += maxWidth
   })
 
   commitHistory()

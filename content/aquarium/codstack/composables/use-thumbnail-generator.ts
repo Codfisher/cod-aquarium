@@ -16,7 +16,7 @@ import PQueue from 'p-queue'
 import { pipe } from 'remeda'
 import { getFileFromPath } from '../utils/fs'
 
-/** 注意：同時開太多 canvas 會導致 WebGPU 的記憶體耗盡 */
+/** 同時開太多 canvas 會導致 WebGPU 的記憶體耗盡 */
 const concurrency = 2
 
 function _useThumbnailGenerator(rootFsHandle: FileSystemDirectoryHandle) {
