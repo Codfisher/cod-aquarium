@@ -154,8 +154,15 @@ const {
 
     const shadowGenerator = createShadowGenerator(scene)
 
-    createGround({ scene })
+    // createGround({ scene })
+
     const trackSegment = await createTrackSegment({ scene })
+    const trackSegment2 = await createTrackSegment({ scene })
+    // 將 trackSegment2.rootNode 的 startPosition 位置移到 trackSegment 的 endPosition
+    trackSegment2.rootNode.position.subtractInPlace(trackSegment.startPosition)
+
+    trackSegment.initPhysics()
+    trackSegment2.initPhysics()
 
     for (let i = 0; i < 2; i++) {
       const marble = createMarble({

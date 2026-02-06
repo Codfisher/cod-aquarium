@@ -1,4 +1,4 @@
-import type { ISceneLoaderAsyncResult, Scene } from '@babylonjs/core'
+import type { ISceneLoaderAsyncResult, Mesh, Scene } from '@babylonjs/core'
 import { ImportMeshAsync, MeshBuilder, PhysicsAggregate, PhysicsShapeType, Quaternion, TransformNode, Vector3 } from '@babylonjs/core'
 import { pipe, tap } from 'remeda'
 
@@ -26,6 +26,8 @@ interface TrackSegment {
   startPosition: Vector3;
   /** 終點座標 */
   endPosition: Vector3;
+  /** 初始化物理 */
+  initPhysics: () => void;
 }
 
 enum TrackSegmentType {
@@ -350,13 +352,16 @@ export async function createTrackSegment({ scene }: {
   const startPosition = new Vector3(0, 0, 0)
   const endPosition = new Vector3(0, 0, 0)
 
+  // 暫存需要建立物理的網格資訊
+  const physicsPendingList: { mesh: Mesh; metadata: any }[] = []
+
   const loadPartTasks = data.partList.map(async (partData) => {
     const part = await ImportMeshAsync(
       `/assets/${data.rootFolderName}/${partData.path}`,
       scene,
     )
     const root = part.meshes[0]
-    const geometryMesh = part.meshes[1]
+    const geometryMesh = part.meshes[1] as Mesh // 轉型為 Mesh
 
     if (!root || !geometryMesh) {
       return
@@ -369,7 +374,6 @@ export async function createTrackSegment({ scene }: {
     const partContainer = new TransformNode('partContainer', scene)
 
     partContainer.position = Vector3.FromArray(partData.position)
-    // Y 軸加入 180 度
     partContainer.rotationQuaternion = Quaternion.FromArray(partData.rotationQuaternion)
     partContainer.scaling = Vector3.FromArray(partData.scaling)
 
@@ -384,12 +388,10 @@ export async function createTrackSegment({ scene }: {
     root.parent = partContainer
 
     if (geometryMesh) {
-      const partAggregate = new PhysicsAggregate(
-        geometryMesh,
-        PhysicsShapeType.MESH,
-        partData.metadata,
-        scene,
-      )
+      physicsPendingList.push({
+        mesh: geometryMesh,
+        metadata: partData.metadata,
+      })
     }
 
     partList.push(part)
@@ -398,10 +400,22 @@ export async function createTrackSegment({ scene }: {
   })
   await Promise.all(loadPartTasks)
 
+  const initPhysics = () => {
+    physicsPendingList.forEach(({ mesh, metadata }) => {
+      const aggregate = new PhysicsAggregate(
+        mesh,
+        PhysicsShapeType.MESH,
+        metadata,
+        scene,
+      )
+    })
+  }
+
   return {
     rootNode,
     partList,
     startPosition,
     endPosition,
+    initPhysics,
   }
 }
