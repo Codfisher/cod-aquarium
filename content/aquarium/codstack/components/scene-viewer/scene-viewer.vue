@@ -95,6 +95,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   cancelPreview: [];
+  useAsPreview: [path: string];
 }>()
 
 defineSlots<{
@@ -930,9 +931,11 @@ const contextMenuItems = computed(() => {
           return
 
         const meta = getMeshMeta(mesh)
+        if (!meta)
+          return
 
         return [
-          { label: meta?.fileName || 'Unknown Mesh', type: 'label' },
+          { label: meta.fileName, type: 'label' },
           {
             icon: 'i-material-symbols:database',
             label: 'Metadata',
@@ -1062,6 +1065,11 @@ const contextMenuItems = computed(() => {
                 },
               },
             ] as const,
+          },
+          {
+            icon: 'i-material-symbols:preview',
+            label: 'Use as Preview',
+            onSelect: () => emit('useAsPreview', meta.path),
           },
           {
             icon: 'material-symbols:content-copy-outline-rounded',

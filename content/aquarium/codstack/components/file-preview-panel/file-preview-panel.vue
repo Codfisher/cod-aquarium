@@ -301,7 +301,7 @@ const selectedFormatList = ref(['.gltf', '.glb'])
 const isScanning = ref(false)
 const statusMessage = refManualReset('Select folder to preview 3D models')
 
-const modelFileList = ref<ModelFile[]>([])
+const modelFileList = defineModel<ModelFile[]>('modelFileList', { default: [] })
 const selectedTagList = ref<string[]>([])
 function handleSelectedTag(tag: string) {
   const index = selectedTagList.value.indexOf(tag)

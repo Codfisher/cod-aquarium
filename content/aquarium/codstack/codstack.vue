@@ -12,7 +12,10 @@
           resizable
           :max-size="50"
         >
-          <file-preview-panel v-model:selected-model-file="selectedModelFile" />
+          <file-preview-panel
+            v-model:selected-model-file="selectedModelFile"
+            v-model:model-file-list="modelFileList"
+          />
         </u-dashboard-sidebar>
 
         <scene-viewer
@@ -21,6 +24,7 @@
           :selected-model-file="selectedModelFile"
           :imported-scene-data="importedSceneData"
           @cancel-preview="cancelPreview"
+          @use-as-preview="handleUseAsPreview"
         >
           <div class="flex flex-col absolute left-0 bottom-0 p-2 gap-1">
             <bulletin-modal v-model:open="bulletinVisible">
@@ -101,9 +105,14 @@ const mainStore = useMainStore()
 
 const bulletinVisible = ref(true)
 
+const modelFileList = ref<ModelFile[]>([])
+
 const selectedModelFile = shallowRef<ModelFile>()
 function cancelPreview() {
   selectedModelFile.value = undefined
+}
+function handleUseAsPreview(path: string) {
+  selectedModelFile.value = modelFileList.value.find((file) => file.path === path)
 }
 watch(() => mainStore.rootFsHandle, () => cancelPreview())
 
