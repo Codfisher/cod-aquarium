@@ -85,7 +85,7 @@ import { useMainStore } from '../../stores/main-store'
 import { clearPivotRecursive, findTopLevelMesh, getMeshMeta, getSurfaceSnapTransform } from '../../utils/babylon'
 import { getFileFromPath } from '../../utils/fs'
 import { roundToStep } from '../../utils/math'
-import { createGizmoManager, createGround, createSideCamera, createTopCamera } from './creator'
+import { createGizmoManager, createGround, createScreenAxes, createSideCamera, createTopCamera } from './creator'
 import '@babylonjs/loaders'
 
 const props = defineProps<{
@@ -286,8 +286,13 @@ const previewMoveTarget = {
 const { canvasRef, scene, camera } = useBabylonScene({
   async init(params) {
     const { scene, camera, engine } = params
-    scene.activeCamera = camera
+
+    // 調整鏡頭
+    scene.activeCameras = [camera]
     scene.cameraToUseForPointers = camera
+    if (camera instanceof ArcRotateCamera) {
+      createScreenAxes({ scene, mainCamera: camera })
+    }
 
     /** x-ray 專用材質 */
     const xRayMaterial = new StandardMaterial('xRayMat', scene)
@@ -295,7 +300,8 @@ const { canvasRef, scene, camera } = useBabylonScene({
     xRayMaterial.alpha = 0.4
     xRayMaterial.disableDepthWrite = true
 
-    const sideCamera = pipe(
+    // sideCamera
+    pipe(
       createSideCamera({ scene, camera, engine }),
       tap((sideCam) => {
         /** 儲存原本材質 */
@@ -375,7 +381,8 @@ const { canvasRef, scene, camera } = useBabylonScene({
         })
       }),
     )
-    const topCamera = pipe(
+    // topCamera
+    pipe(
       createTopCamera({ scene, camera, engine }),
       tap((topCam) => {
         /** 儲存原本材質 */

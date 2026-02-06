@@ -1,6 +1,6 @@
-import type { Scene } from '@babylonjs/core'
+import type { Scene, TransformNode } from '@babylonjs/core'
 import type { BabylonEngine } from '../../composables/use-babylon-scene'
-import { ArcRotateCamera, Camera, Color3, Color4, Engine, GizmoManager, Material, MeshBuilder, Vector3, Viewport } from '@babylonjs/core'
+import { ArcRotateCamera, AxesViewer, Camera, Color3, Color4, Engine, GizmoManager, Material, MeshBuilder, Vector3, Viewport } from '@babylonjs/core'
 import { GridMaterial } from '@babylonjs/materials'
 
 export function createGround({ scene }: { scene: Scene }) {
@@ -217,4 +217,89 @@ export function createGizmoManager({
   }
 
   return gizmoManager
+}
+
+/** 建立畫面角落的座標指示器 */
+export function createScreenAxes(params: {
+  scene: Scene;
+  /** 主要操作的相機 (必須是 ArcRotateCamera 才能完美同步) */
+  mainCamera: ArcRotateCamera;
+}) {
+  const { scene, mainCamera } = params
+
+  // 1. 定義一個特殊的 LayerMask ID (例如 0x20000000)
+  // 這是為了讓這組座標軸「只」被座標相機看到，而不被主相機看到
+  const AXIS_LAYER_MASK = 0x20000000
+
+  // 2. 建立專用的座標相機
+  const axisCamera = new ArcRotateCamera(
+    'axisCamera',
+    mainCamera.alpha,
+    mainCamera.beta,
+    10, // 半徑固定，確保座標軸大小一致
+    Vector3.Zero(),
+    scene,
+  )
+
+  // 設定相機模式與遮罩
+  axisCamera.mode = Camera.ORTHOGRAPHIC_CAMERA // 使用正交投影，看起來比較像 UI
+  axisCamera.layerMask = AXIS_LAYER_MASK // 只看得到座標軸
+  axisCamera.orthoTop = 2
+  axisCamera.orthoBottom = -2
+  axisCamera.orthoLeft = -2
+  axisCamera.orthoRight = 2
+
+  // 設定視口位置 (Viewport)
+  // 參數: x, y, width, height (0~1)
+  // 這裡設為右上角，寬高佔 15%
+  axisCamera.viewport = new Viewport(0.85, 0.85, 0.15, 0.15)
+
+  // 3. 確保主相機「看不到」這個座標軸，否則會在場景中央出現一個巨大的座標軸
+  // 將主相機的遮罩設為：原本的遮罩 AND (反轉 AXIS_LAYER_MASK) -> 意即排除掉 Axis Layer
+  mainCamera.layerMask &= ~AXIS_LAYER_MASK
+
+  // 4. 建立座標軸模型
+  const axesViewer = new AxesViewer(scene, 1) // 尺寸 1
+
+  // 將產生的三個軸 Mesh 設定為特殊的 LayerMask
+  const updateLayerMask = (node: TransformNode) => {
+    node.getChildMeshes().forEach((mesh) => {
+      mesh.layerMask = AXIS_LAYER_MASK
+    })
+  }
+
+  updateLayerMask(axesViewer.xAxis)
+  updateLayerMask(axesViewer.yAxis)
+  updateLayerMask(axesViewer.zAxis)
+
+  // 5. 同步旋轉邏輯
+  const observer = scene.onBeforeRenderObservable.add(() => {
+    // 只需要同步 Alpha 和 Beta (旋轉角度)
+    axisCamera.alpha = mainCamera.alpha
+    axisCamera.beta = mainCamera.beta
+
+    // 如果您的主相機是用 Quaternion 控制的，則需要同步 rotationQuaternion
+    // 但通常 ArcRotateCamera 主要是 alpha/beta
+  })
+
+  // 6. 註冊相機 (重要！)
+  // 必須確保 activeCameras 包含主相機與座標相機
+  if (scene.activeCameras?.length === 0) {
+    scene.activeCameras.push(mainCamera)
+  }
+  scene.activeCameras?.push(axisCamera)
+
+  // 回傳清理函式
+  return () => {
+    scene.onBeforeRenderObservable.remove(observer)
+    axisCamera.dispose()
+    axesViewer.dispose()
+    // 移除 activeCamera
+    const index = scene.activeCameras?.indexOf(axisCamera)
+    if (typeof index === 'number' && index !== -1) {
+      scene.activeCameras?.splice(index, 1)
+    }
+    // 還原主相機遮罩 (非必要，但良好習慣)
+    mainCamera.layerMask |= AXIS_LAYER_MASK
+  }
 }
