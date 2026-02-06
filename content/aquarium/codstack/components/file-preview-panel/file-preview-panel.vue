@@ -609,9 +609,12 @@ async function handleSelectDirectory() {
 
     const dirHandle = await window.showDirectoryPicker()
     mainStore.rootFsHandle = dirHandle
-    await scanDirectory(dirHandle, '')
 
-    statusMessage.value = `Scanned, found ${modelFileList.value.length} models`
+    const result: ModelFile[] = []
+    await scanDirectory(dirHandle, '', result)
+    modelFileList.value = result
+
+    statusMessage.value = `Scanned, found ${result.length} models`
   }
   catch (err) {
     mainStore.rootFsHandle = undefined
@@ -635,31 +638,34 @@ async function handleSelectDirectory() {
 async function scanDirectory(
   dirHandle: FileSystemDirectoryHandle,
   pathPrefix: string,
+  results: ModelFile[],
 ) {
+  const tasks: Promise<void>[] = []
+
   for await (const entry of dirHandle.values()) {
-    // 組合當前檔案/資料夾的相對路徑
-    // 如果 pathPrefix 是空的，就直接用 entry.name，否則加斜線
     const currentPath = pathPrefix ? `${pathPrefix}/${entry.name}` : entry.name
 
     if (entry.kind === 'file') {
-      const fileHandle = entry as FileSystemFileHandle
-      if (isModelFile(fileHandle.name)) {
-        const file = await fileHandle.getFile()
+      if (isModelFile(entry.name)) {
+        const fileHandle = entry as FileSystemFileHandle
 
-        // 推入自定義物件
-        modelFileList.value.push({
-          name: file.name,
-          path: currentPath,
-          file,
+        const task = fileHandle.getFile().then((file) => {
+          results.push({
+            name: file.name,
+            path: currentPath,
+            file,
+          })
         })
+        tasks.push(task)
       }
     }
     else if (entry.kind === 'directory') {
       const subDirHandle = entry as FileSystemDirectoryHandle
-      // 遞迴呼叫，將 currentPath 傳下去
-      await scanDirectory(subDirHandle, currentPath)
+      tasks.push(scanDirectory(subDirHandle, currentPath, results))
     }
   }
+
+  await Promise.all(tasks)
 }
 
 function isModelFile(filename: string): boolean {
