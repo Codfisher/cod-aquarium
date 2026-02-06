@@ -60,7 +60,7 @@ const { locale, t } = useSimpleI18n({
     intro: [
       '<div class="font-bold text-2xl mb-6">歡迎來到 CodStack！⁑｡٩(ˊᗜˋ*)و✧⁕</div>',
       '自<a href="https://youtu.be/PPWyUhT6gRk?si=XVD7uTdHl3Mr9kFU" target="_blank">派對動物</a>之後，我一直想繼續做其他有趣的 3D 專案，但 3D 建模實在是太難了，程式還沒開始寫，搞建模就搞到熱情冷卻了。゜・(PД`q｡)・゜',
-      '直到某天發現原來有現成的模型包，感謝 <a href="https://kenney.nl/assets" target="_blank">Kenny</a>、<a href="https://kaylousberg.itch.io" target="_blank">Kay</a>、<a href="https://tinytreats.itch.io/" target="_blank">Isa</a> 這些佛心大神們提供免費的 3D 模型包，否則我自己畫，等到真的做出來，應該是 10 年後了。( ´•̥̥̥ ω •̥̥̥` )',
+      '直到某天發現原來有現成的模型包，感謝 <a href="https://kenney.nl/assets" target="_blank">Kenney</a>、<a href="https://kaylousberg.itch.io" target="_blank">Kay</a>、<a href="https://tinytreats.itch.io/" target="_blank">Isa</a> 這些佛心大神們提供免費的 3D 模型包，否則我自己畫，等到真的做出來，應該是 10 年後了。( ´•̥̥̥ ω •̥̥̥` )',
       '<span></span>',
       '不過使用這些 3D Pack 時有些小困擾，沒辦法快速預覽內容就算了，用程式碼組裝實在是極度痛苦。(›´ω`‹ )',
       '先在 3D 軟體中組裝，又會失去在程式中控制的彈性，<span class="font-bold">於是 CodStack 誕生了！(/≧▽≦)/</span>',
