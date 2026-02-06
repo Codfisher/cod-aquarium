@@ -70,7 +70,7 @@ const defaultParam: Required<UseBabylonSceneParam> = {
       'camera',
       0,
       Math.PI / 3 * 2,
-      40,
+      10,
       new Vector3(0, 0, 0),
       scene,
     )

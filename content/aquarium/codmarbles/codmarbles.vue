@@ -1,6 +1,7 @@
 <template>
   <div class=" fixed w-screen h-screen">
     <canvas
+      v-once
       ref="canvasRef"
       class="canvas w-full h-full"
     />
@@ -8,8 +9,8 @@
 </template>
 
 <script setup lang="ts">
-import type { Scene } from '@babylonjs/core'
-import { ArcRotateCamera, Color3, DirectionalLight, FollowCamera, HavokPlugin, MeshBuilder, PhysicsAggregate, PhysicsShapeType, Quaternion, ShadowGenerator, StandardMaterial, Vector3 } from '@babylonjs/core'
+import type { Mesh, Scene } from '@babylonjs/core'
+import { ArcRotateCamera, Color3, DirectionalLight, Engine, FollowCamera, HavokPlugin, MeshBuilder, PhysicsAggregate, PhysicsShapeType, Quaternion, Ray, ShadowGenerator, StandardMaterial, Vector3 } from '@babylonjs/core'
 import HavokPhysics from '@babylonjs/havok'
 import { pipe, tap } from 'remeda'
 import { createTrackSegment } from './track-segment'
@@ -33,11 +34,15 @@ function createGround({ scene }: {
   return ground
 }
 
+const ghostRenderingGroupId = 1
+let ghostMaterial: StandardMaterial
 function createMarble({
   scene,
+  shadowGenerator,
   startPosition = Vector3.Zero(),
 }: {
   scene: Scene;
+  shadowGenerator: ShadowGenerator;
   startPosition?: Vector3;
 }) {
   const marble = MeshBuilder.CreateSphere('marble', {
@@ -48,9 +53,62 @@ function createMarble({
   marble.receiveShadows = true
 
   const marbleMaterial = new StandardMaterial('marbleMaterial', scene)
-  marbleMaterial.diffuseColor = new Color3(0.1, 0.1, 0.1)
+  marbleMaterial.diffuseColor = new Color3(0.8, 0.1, 0.1)
   marble.material = marbleMaterial
 
+  const ghostMat = pipe(
+    ghostMaterial ?? new StandardMaterial('ghostMaterial', scene),
+    tap((ghostMaterial) => {
+      ghostMaterial.diffuseColor = new Color3(1, 1, 1)
+      ghostMaterial.emissiveColor = new Color3(1, 1, 1)
+      ghostMaterial.alpha = 0.1
+      ghostMaterial.disableLighting = true
+      ghostMaterial.backFaceCulling = false
+
+      // 設定深度函數 (Depth Function)
+      // 預設是 Engine.LEQUAL (小於等於時繪製，也就是在前面時繪製)
+      // 我們改成 Engine.GREATER (大於時繪製，也就是在後面/被擋住時才繪製)
+      ghostMaterial.depthFunction = Engine.GREATER
+    }),
+  )
+  if (!ghostMaterial) {
+    ghostMaterial = ghostMat
+  }
+
+  // 建立幽靈彈珠，可穿透障礙物，方便觀察
+  pipe(
+    marble.clone('ghostMarble'),
+    tap((ghostMarble) => {
+      ghostMarble.material = ghostMat
+
+      // 確保幽靈永遠黏在實體彈珠上，不受物理層級影響
+      scene.onBeforeRenderObservable.add(() => {
+        ghostMarble.position.copyFrom(marble.position)
+        if (marble.rotationQuaternion) {
+          if (!ghostMarble.rotationQuaternion) {
+            ghostMarble.rotationQuaternion = new Quaternion()
+          }
+          ghostMarble.rotationQuaternion.copyFrom(marble.rotationQuaternion)
+        }
+        else {
+          ghostMarble.rotation.copyFrom(marble.rotation)
+        }
+      })
+
+      // 放大一點點避免浮點數誤差導致 Engine.GREATER 判斷閃爍
+      ghostMarble.scaling = new Vector3(1.05, 1.05, 1.05)
+
+      shadowGenerator.removeShadowCaster(ghostMarble)
+
+      // 設定渲染群組
+      // 群組 0: 地板、牆壁、正常彈珠 (先畫)
+      // 群組 1: 幽靈彈珠 (後畫)
+      // 我們必須讓幽靈在牆壁畫完之後才畫，這樣它才能知道自己是不是在牆壁後面
+      ghostMarble.renderingGroupId = ghostRenderingGroupId
+    }),
+  )
+
+  // 建立物理體
   const sphereAggregate = new PhysicsAggregate(
     marble,
     PhysicsShapeType.SPHERE,
@@ -85,13 +143,14 @@ const {
     scene.enablePhysics(new Vector3(0, -9.81, 0), havokPlugin)
 
     camera.attachControl(scene.getEngine().getRenderingCanvas(), true)
-
-    // [優化體驗設定]
-    camera.lowerRadiusLimit = 2 // 最近只能拉到 2 (避免穿進彈珠裡)
-    camera.upperRadiusLimit = 50 // 最遠只能拉到 50
-    camera.panningSensibility = 0 // [關鍵] 設為 0 禁止右鍵平移，避免玩家不小心把鏡頭拖離彈珠
+    camera.lowerRadiusLimit = 2
+    camera.upperRadiusLimit = 50
+    camera.panningSensibility = 0
 
     scene.activeCamera = camera
+
+    // 畫 Group 1 (幽靈) 時，不要清除 Group 0 (牆壁) 的深度資訊，這樣才能進行深度比較
+    scene.setRenderingAutoClearDepthStencil(ghostRenderingGroupId, false)
 
     const shadowGenerator = createShadowGenerator(scene)
 
@@ -101,6 +160,7 @@ const {
     for (let i = 0; i < 2; i++) {
       const marble = createMarble({
         scene,
+        shadowGenerator,
         startPosition: trackSegment.startPosition,
       })
       shadowGenerator.addShadowCaster(marble)
