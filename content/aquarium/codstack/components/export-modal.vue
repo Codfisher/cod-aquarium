@@ -30,9 +30,11 @@
           color="neutral"
           variant="outline"
           icon="i-material-symbols:content-copy-rounded"
-          label="Copy to clipboard"
           @click="copyToClipboard"
-        />
+        >
+          Copy to clipboard
+          <u-kbd value="Ctrl + C" />
+        </u-button>
       </div>
     </template>
   </u-modal>
