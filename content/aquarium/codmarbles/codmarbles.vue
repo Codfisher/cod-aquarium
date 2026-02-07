@@ -50,15 +50,15 @@ function createMarble({
 }) {
   const marble = MeshBuilder.CreateSphere('marble', {
     diameter: 0.5,
-    segments: 16,
+    segments: 8,
   }, scene)
   marble.position.copyFrom(startPosition)
 
   const marbleMaterial = new StandardMaterial('marbleMaterial', scene)
-  marbleMaterial.diffuseColor = new Color3(
-    random(0.6, 0.8),
-    random(0.5, 0.7),
-    random(0.2, 0.5),
+  marbleMaterial.diffuseColor = Color3.FromHSV(
+    random(0, 360),
+    0.9,
+    0.7,
   )
   marble.material = marbleMaterial
 
