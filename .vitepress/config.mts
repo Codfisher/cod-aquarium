@@ -1,6 +1,11 @@
 import type { DefaultTheme } from 'vitepress'
 import type { Article } from './utils'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import VueI18nPlugin from '@intlify/unplugin-vue-i18n/vite'
 import ui from '@nuxt/ui/vite'
+import { whyframe } from '@whyframe/core'
+import { whyframeVue } from '@whyframe/vue'
 import dayjs from 'dayjs'
 import { filter, isTruthy, map, piped } from 'remeda'
 import Icons from 'unplugin-icons/vite'
@@ -269,9 +274,24 @@ export default ({ mode }: { mode: string }) => {
                   text: '來個 3D 白噪音混音器',
                   link: getOldestDocPath('/column-sound-blocks/'),
                 },
+                // {
+                //   text: '酷酷元件背後的星點',
+                //   link: getOldestDocPath('/column-chill-components/'),
+                // },
+              ],
+            },
+            {
+              text: '酷東西',
+              items: [
                 {
-                  text: '酷酷元件背後的星點',
-                  link: getOldestDocPath('/column-chill-components/'),
+                  text: 'Cyber Scales Desktop',
+                  link: '/aquarium/cyber-scales-desktop/',
+                  target: '_blank',
+                },
+                {
+                  text: '快取梗圖',
+                  link: '/aquarium/meme-cache/',
+                  target: '_blank',
                 },
               ],
             },
@@ -301,11 +321,11 @@ export default ({ mode }: { mode: string }) => {
           '來個 3D 白噪音混音器',
           'asc',
         ),
-        ...getSidebar(
-          '/column-chill-components/',
-          '酷酷元件背後的星點',
-          'asc',
-        ),
+        // ...getSidebar(
+        //   '/column-chill-components/',
+        //   '酷酷元件背後的星點',
+        //   'asc',
+        // ),
       },
 
       socialLinks: [
@@ -330,6 +350,9 @@ export default ({ mode }: { mode: string }) => {
     } as Config,
 
     vite: {
+      optimizeDeps: {
+        exclude: ['@babylonjs/havok'],
+      },
       css: {
         preprocessorOptions: {
           sass: {
@@ -337,8 +360,18 @@ export default ({ mode }: { mode: string }) => {
           },
         },
       },
-
+      resolve: {
+        alias: {
+          'vue-i18n': 'vue-i18n/dist/vue-i18n.cjs.js',
+        },
+      },
       plugins: [
+        VueI18nPlugin({
+          strictMessage: false,
+          include: resolve(dirname(
+            fileURLToPath(import.meta.url),
+          ), 'locales/**'),
+        }),
         /** 強制停用 vitepress data loader 功能
          *
          * 避免 build 時出現以下錯誤：
@@ -386,6 +419,13 @@ export default ({ mode }: { mode: string }) => {
         }),
         ui({
           router: false,
+        }),
+
+        whyframe({
+          defaultSrc: '/_frame',
+        }),
+        whyframeVue({
+          include: /\.(?:vue|md)$/,
         }),
       ],
     },

@@ -11,6 +11,10 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<{
   'update:model-value': [value: string];
 }>()
+
+defineSlots<{
+  default: (props: { msg: string }) => any;
+}>()
 </script>
 
 <style scoped lang="sass">
