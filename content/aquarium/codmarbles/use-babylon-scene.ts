@@ -5,7 +5,9 @@ import {
   ArcRotateCamera,
   Color3,
   Color4,
+  ColorCurves,
   DefaultRenderingPipeline,
+  DirectionalLight,
   Engine,
   HemisphericLight,
   ImageProcessingConfiguration,
@@ -53,20 +55,9 @@ const defaultParam: Required<UseBabylonSceneParam> = {
   },
   createScene({ engine }) {
     const scene = new Scene(engine)
-    /** 使用預設光源 */
-    scene.createDefaultLight()
-
-    const defaultLight = scene.lights.at(-1)
-    if (defaultLight instanceof HemisphericLight) {
-      defaultLight.direction = new Vector3(0.5, 1, 0)
-    }
 
     scene.clearColor = new Color4(1, 1, 1, 1)
-
-    // scene.fogMode = Scene.FOGMODE_LINEAR
-    // scene.fogColor = new Color3(0.8, 0.8, 0.8)
-    // scene.fogStart = 20
-    // scene.fogEnd = 30
+    scene.createDefaultLight()
 
     return scene
   },

@@ -13,6 +13,7 @@ import type { Mesh, Scene } from '@babylonjs/core'
 import type { TrackSegment } from './track-segment'
 import { ArcRotateCamera, Color3, DirectionalLight, Engine, FollowCamera, HavokPlugin, MeshBuilder, PhysicsAggregate, PhysicsShapeType, Quaternion, Ray, ShadowGenerator, StandardMaterial, Vector3 } from '@babylonjs/core'
 import HavokPhysics from '@babylonjs/havok'
+import { random } from 'lodash-es'
 import { filter, flat, flatMap, map, pipe, reduce, shuffle, tap, values } from 'remeda'
 import { createTrackSegment } from './track-segment'
 import { TrackSegmentType } from './track-segment/data'
@@ -52,10 +53,13 @@ function createMarble({
     segments: 32,
   }, scene)
   marble.position.copyFrom(startPosition)
-  marble.receiveShadows = true
 
   const marbleMaterial = new StandardMaterial('marbleMaterial', scene)
-  marbleMaterial.diffuseColor = new Color3(0.8, 0.1, 0.1)
+  marbleMaterial.diffuseColor = new Color3(
+    random(0.6, 0.8),
+    random(0.5, 0.7),
+    random(0.2, 0.5),
+  )
   marble.material = marbleMaterial
 
   const ghostMat = pipe(
