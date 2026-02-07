@@ -174,7 +174,7 @@ const {
       values(TrackSegmentType),
       (list) => [shuffle(list), shuffle(list)],
       flat(),
-      filter((type) => type !== TrackSegmentType.end01),
+      filter((type) => type !== TrackSegmentType.end),
       map((type) => createTrackSegment({ scene, type })),
       async (trackSegments) => {
         const list = await Promise.all(trackSegments)
@@ -195,7 +195,7 @@ const {
     )
     const endTrackSegment = await createTrackSegment({
       scene,
-      type: TrackSegmentType.end01,
+      type: TrackSegmentType.end,
     })
 
     const firstTrackSegment = trackSegmentList[0]
