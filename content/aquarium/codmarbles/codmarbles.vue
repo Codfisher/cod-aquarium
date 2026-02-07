@@ -19,6 +19,8 @@ import { createTrackSegment } from './track-segment'
 import { TrackSegmentType } from './track-segment/data'
 import { useBabylonScene } from './use-babylon-scene'
 
+const marbleCount = 20
+
 function createGround({ scene }: {
   scene: Scene;
 }) {
@@ -43,10 +45,12 @@ function createMarble({
   scene,
   shadowGenerator,
   startPosition = Vector3.Zero(),
+  color,
 }: {
   scene: Scene;
   shadowGenerator: ShadowGenerator;
   startPosition?: Vector3;
+  color?: Color3;
 }) {
   const marble = MeshBuilder.CreateSphere('marble', {
     diameter: 0.5,
@@ -55,7 +59,7 @@ function createMarble({
   marble.position.copyFrom(startPosition)
 
   const marbleMaterial = new StandardMaterial('marbleMaterial', scene)
-  marbleMaterial.diffuseColor = Color3.FromHSV(
+  marbleMaterial.diffuseColor = color ?? Color3.FromHSV(
     random(0, 360),
     0.9,
     0.7,
@@ -206,14 +210,21 @@ const {
     const lastTrackSegment = trackSegmentList[trackSegmentList.length - 1]
 
     if (firstTrackSegment) {
-      for (let i = 0; i < 8; i++) {
+      for (let i = 0; i < marbleCount; i++) {
         const startPosition = firstTrackSegment.startPosition.clone()
-        startPosition.y += (0.2 * i)
+        startPosition.y += (0.5 * i)
+
+        const color = Color3.FromHSV(
+          360 * (i / marbleCount),
+          0.9,
+          0.7,
+        )
 
         const marble = createMarble({
           scene,
           shadowGenerator,
           startPosition,
+          color,
         })
         shadowGenerator.addShadowCaster(marble)
 
