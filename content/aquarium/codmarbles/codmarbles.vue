@@ -215,7 +215,7 @@ const {
         startPosition.y += (0.5 * i)
 
         const color = Color3.FromHSV(
-          360 * (i / marbleCount),
+          340 * (i / marbleCount),
           0.9,
           0.7,
         )
