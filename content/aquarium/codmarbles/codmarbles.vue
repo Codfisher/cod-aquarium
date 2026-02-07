@@ -13,7 +13,7 @@ import type { Mesh, Scene } from '@babylonjs/core'
 import type { TrackSegment } from './track-segment'
 import { ArcRotateCamera, Color3, DirectionalLight, Engine, FollowCamera, HavokPlugin, MeshBuilder, PhysicsAggregate, PhysicsShapeType, Quaternion, Ray, ShadowGenerator, StandardMaterial, Vector3 } from '@babylonjs/core'
 import HavokPhysics from '@babylonjs/havok'
-import { flat, flatMap, map, pipe, reduce, shuffle, tap, values } from 'remeda'
+import { filter, flat, flatMap, map, pipe, reduce, shuffle, tap, values } from 'remeda'
 import { createTrackSegment } from './track-segment'
 import { TrackSegmentType } from './track-segment/data'
 import { useBabylonScene } from './use-babylon-scene'
@@ -172,9 +172,9 @@ const {
     // 建立軌道
     const trackSegmentList = await pipe(
       values(TrackSegmentType),
-      flatMap((type) => [type, type]),
-      shuffle(),
-      shuffle(),
+      (list) => [list, list],
+      flat(),
+      filter((type) => type !== TrackSegmentType.end01),
       map((type) => createTrackSegment({ scene, type })),
       async (trackSegments) => {
         const list = await Promise.all(trackSegments)
@@ -193,7 +193,14 @@ const {
         return list
       },
     )
+    const endTrackSegment = await createTrackSegment({
+      scene,
+      type: TrackSegmentType.end01,
+    })
+
     const firstTrackSegment = trackSegmentList[0]
+    const lastTrackSegment = trackSegmentList[trackSegmentList.length - 1]
+
     if (firstTrackSegment) {
       for (let i = 0; i < 4; i++) {
         const startPosition = firstTrackSegment.startPosition.clone()
@@ -210,6 +217,11 @@ const {
           camera.lockedTarget = marble
         }
       }
+    }
+
+    if (lastTrackSegment) {
+      connectTracks(lastTrackSegment, endTrackSegment)
+      endTrackSegment.initPhysics()
     }
   },
 })
