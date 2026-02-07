@@ -5,12 +5,17 @@ import {
   ArcRotateCamera,
   Color3,
   Color4,
+  DefaultRenderingPipeline,
   Engine,
   HemisphericLight,
+  ImageProcessingConfiguration,
+  Mesh,
+  MeshBuilder,
   Scene,
   Vector3,
   WebGPUEngine,
 } from '@babylonjs/core'
+import { GradientMaterial } from '@babylonjs/materials'
 import { defaults } from 'lodash-es'
 import { onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
 import '@babylonjs/loaders/glTF'
