@@ -83,8 +83,8 @@ const defaultParam: Required<UseBabylonSceneParam> = {
     camera.panningAxis = new Vector3(1, 0, 1)
 
     camera.wheelDeltaPercentage = 0.01
-    camera.lowerRadiusLimit = 5
-    camera.upperRadiusLimit = 50
+    camera.lowerRadiusLimit = 1
+    // camera.upperRadiusLimit = 50
 
     // 限制鏡頭角度
     camera.lowerBetaLimit = 0
