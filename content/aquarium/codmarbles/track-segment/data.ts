@@ -2070,33 +2070,9 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
     rootFolderName: 'kay-platformer-pack',
     partList: [
       {
-        path: 'green/platform_slope_6x6x4_green.gltf',
-        position: [3, 0, -1],
-        rotationQuaternion: [0, -0.70710678, 0, 0.70710678],
-        scaling: [1, 1, 1],
-        metadata: {
-          name: '',
-          mass: 0,
-          restitution: 0.5,
-          friction: 0,
-        },
-      },
-      {
-        path: 'green/platform_slope_6x6x4_green.gltf',
-        position: [-3.000011, 0, -0.999942],
-        rotationQuaternion: [0, 0.70710662, 0, 0.70710694],
-        scaling: [1, 1, 1],
-        metadata: {
-          name: '',
-          mass: 0,
-          restitution: 0.5,
-          friction: 0,
-        },
-      },
-      {
-        path: 'yellow/platform_6x6x4_yellow.gltf',
-        position: [-2.999999, 0, -7.000003],
-        rotationQuaternion: [0, 1, 0, 0],
+        path: 'yellow/platform_slope_6x6x4_yellow.gltf',
+        position: [3.000058, 4.000301, -7.000004],
+        rotationQuaternion: [0, 0, 0, 1],
         scaling: [1, 1, 1],
         metadata: {
           name: '',
@@ -2118,9 +2094,9 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         },
       },
       {
-        path: 'yellow/platform_slope_6x6x4_yellow.gltf',
-        position: [-2.999999, 4, -7.000003],
-        rotationQuaternion: [0, -3.8e-7, 0, 1],
+        path: 'blue/platform_slope_6x6x4_blue.gltf',
+        position: [2.999997, 0, 11],
+        rotationQuaternion: [0, -0.70710678, 0, 0.70710679],
         scaling: [1, 1, 1],
         metadata: {
           name: '',
@@ -2130,9 +2106,9 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         },
       },
       {
-        path: 'yellow/platform_slope_6x6x4_yellow.gltf',
-        position: [3.000058, 4.000301, -7.000004],
-        rotationQuaternion: [0, 0, 0, 1],
+        path: 'green/platform_slope_6x6x4_green.gltf',
+        position: [-3.000011, 0, -0.999942],
+        rotationQuaternion: [0, 0.70710662, 0, 0.70710694],
         scaling: [1, 1, 1],
         metadata: {
           name: '',
@@ -2154,6 +2130,30 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         },
       },
       {
+        path: 'green/platform_slope_6x6x4_green.gltf',
+        position: [3, 0, -1],
+        rotationQuaternion: [0, -0.70710678, 0, 0.70710678],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.5,
+          friction: 0,
+        },
+      },
+      {
+        path: 'yellow/platform_slope_6x6x4_yellow.gltf',
+        position: [-2.999999, 4, -7.000003],
+        rotationQuaternion: [0, -3.8e-7, 0, 1],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.5,
+          friction: 0,
+        },
+      },
+      {
         path: 'red/platform_slope_6x6x4_red.gltf',
         position: [-3.000058, 0, 4.999999],
         rotationQuaternion: [0, 0.70710678, 0, 0.70710678],
@@ -2166,9 +2166,9 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         },
       },
       {
-        path: 'blue/platform_slope_6x6x4_blue.gltf',
-        position: [2.999997, 0, 11],
-        rotationQuaternion: [0, -0.70710678, 0, 0.70710679],
+        path: 'yellow/platform_6x6x4_yellow.gltf',
+        position: [-2.999999, 0, -7.000003],
+        rotationQuaternion: [0, 1, 0, 0],
         scaling: [1, 1, 1],
         metadata: {
           name: '',
@@ -2192,6 +2192,66 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
       {
         path: 'neutral/signage_finish_wide.gltf',
         position: [0.333198, 2.883201, 9.61321],
+        rotationQuaternion: [0, 1, 0, 0],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.5,
+          friction: 0,
+        },
+      },
+      {
+        path: 'neutral/structure_A.gltf',
+        position: [-0.068213, 8.453439, -5.334509],
+        rotationQuaternion: [0, 1, 0, 0],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: 'in',
+          mass: 0,
+          restitution: 0.5,
+          friction: 0,
+        },
+      },
+      {
+        path: 'blue/platform_6x2x2_blue.gltf',
+        position: [3, 0, 15.000002],
+        rotationQuaternion: [0, 1, 0, 0],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.5,
+          friction: 0,
+        },
+      },
+      {
+        path: 'green/platform_6x2x2_green.gltf',
+        position: [-3.000196, 0, 15.000019],
+        rotationQuaternion: [0, 1, 0, 0],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.5,
+          friction: 0,
+        },
+      },
+      {
+        path: 'red/platform_6x2x4_red.gltf',
+        position: [3, 2, 15.000002],
+        rotationQuaternion: [0, 1, 0, 0],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.5,
+          friction: 0,
+        },
+      },
+      {
+        path: 'yellow/platform_6x2x4_yellow.gltf',
+        position: [-3.000196, 2, 15.000019],
         rotationQuaternion: [0, 1, 0, 0],
         scaling: [1, 1, 1],
         metadata: {

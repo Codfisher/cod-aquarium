@@ -172,7 +172,7 @@ const {
     // 建立軌道
     const trackSegmentList = await pipe(
       values(TrackSegmentType),
-      (list) => [list, list],
+      // (list) => [list, list],
       flat(),
       filter((type) => type !== TrackSegmentType.end01),
       map((type) => createTrackSegment({ scene, type })),
