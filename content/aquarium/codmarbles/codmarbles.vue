@@ -48,7 +48,7 @@ function createMarble({
   startPosition?: Vector3;
 }) {
   const marble = MeshBuilder.CreateSphere('marble', {
-    diameter: 0.2,
+    diameter: 0.5,
     segments: 32,
   }, scene)
   marble.position.copyFrom(startPosition)
