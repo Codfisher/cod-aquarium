@@ -35,11 +35,11 @@ export async function createTrackSegment({
     const position = Vector3.FromArray(partData.position)
     if (partData.metadata.name === 'in') {
       startPosition.copyFrom(position)
-      return
+      // return
     }
     if (partData.metadata.name === 'out') {
       endPosition.copyFrom(position)
-      return
+      // return
     }
 
     const part = await ImportMeshAsync(
