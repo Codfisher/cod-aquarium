@@ -50,7 +50,7 @@ function createMarble({
 }) {
   const marble = MeshBuilder.CreateSphere('marble', {
     diameter: 0.5,
-    segments: 32,
+    segments: 16,
   }, scene)
   marble.position.copyFrom(startPosition)
 
@@ -206,9 +206,9 @@ const {
     const lastTrackSegment = trackSegmentList[trackSegmentList.length - 1]
 
     if (firstTrackSegment) {
-      for (let i = 0; i < 4; i++) {
+      for (let i = 0; i < 8; i++) {
         const startPosition = firstTrackSegment.startPosition.clone()
-        startPosition.y += (0.1 * i)
+        startPosition.y += (0.2 * i)
 
         const marble = createMarble({
           scene,
