@@ -177,7 +177,7 @@ function createMarble({
   )
 
   return {
-    hexColor: finalColor.toHexString(),
+    hexColor: finalColor.toGammaSpace().scale(1.05).toHexString(),
     mesh: marble,
     lastCheckPointIndex: 0,
     isRespawning: false,
