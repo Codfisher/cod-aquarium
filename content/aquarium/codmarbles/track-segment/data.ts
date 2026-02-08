@@ -62,7 +62,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -74,7 +74,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -98,7 +98,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -122,7 +122,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -158,7 +158,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -170,7 +170,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -194,7 +194,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -218,7 +218,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -230,7 +230,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -242,7 +242,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -278,7 +278,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -302,7 +302,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -326,7 +326,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -338,7 +338,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -350,7 +350,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -362,7 +362,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -374,7 +374,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -386,7 +386,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -398,7 +398,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -410,7 +410,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -422,7 +422,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -434,7 +434,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -446,7 +446,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -470,7 +470,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -482,7 +482,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -542,7 +542,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -554,7 +554,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -614,7 +614,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -626,7 +626,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -638,7 +638,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -650,7 +650,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -674,7 +674,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -686,7 +686,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -716,7 +716,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -728,7 +728,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -740,7 +740,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -752,7 +752,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -764,7 +764,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: 'in',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -776,7 +776,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -788,7 +788,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -800,7 +800,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -812,7 +812,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -824,7 +824,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -836,7 +836,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -848,7 +848,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -860,7 +860,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -872,7 +872,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -884,7 +884,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -896,7 +896,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -908,7 +908,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -920,7 +920,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -932,7 +932,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -944,7 +944,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -956,7 +956,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -968,7 +968,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -980,7 +980,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -992,7 +992,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1004,7 +1004,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1016,7 +1016,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1028,7 +1028,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1040,7 +1040,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1052,7 +1052,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1064,7 +1064,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1076,7 +1076,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1088,7 +1088,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1100,7 +1100,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: 'out',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1112,7 +1112,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1124,7 +1124,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1136,7 +1136,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1148,7 +1148,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1160,7 +1160,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1172,7 +1172,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1184,7 +1184,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1196,7 +1196,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1208,7 +1208,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1220,7 +1220,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1232,7 +1232,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1244,7 +1244,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1256,7 +1256,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1268,7 +1268,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1280,7 +1280,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1292,7 +1292,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1304,7 +1304,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1316,7 +1316,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1328,7 +1328,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1340,7 +1340,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1352,7 +1352,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1364,7 +1364,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1376,7 +1376,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1388,7 +1388,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1400,7 +1400,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1412,7 +1412,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1424,7 +1424,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1436,7 +1436,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1448,7 +1448,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1460,7 +1460,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1472,7 +1472,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1484,7 +1484,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1496,7 +1496,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1508,7 +1508,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1520,7 +1520,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1532,7 +1532,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1574,7 +1574,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1586,7 +1586,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1610,7 +1610,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1634,7 +1634,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1646,7 +1646,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1682,7 +1682,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1706,7 +1706,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1730,7 +1730,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1742,7 +1742,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1766,7 +1766,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1778,7 +1778,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1802,7 +1802,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1826,7 +1826,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1862,7 +1862,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1874,7 +1874,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1910,7 +1910,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1922,7 +1922,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1934,7 +1934,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1970,7 +1970,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1982,7 +1982,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -1994,7 +1994,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -2006,7 +2006,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -2030,7 +2030,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -2042,7 +2042,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -2054,7 +2054,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -2066,7 +2066,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -2078,7 +2078,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -2090,7 +2090,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -2102,7 +2102,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -2114,7 +2114,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -2125,14 +2125,62 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
     rootFolderName: 'kay-platformer-pack',
     partList: [
       {
-        path: 'blue/platform_2x2x2_blue.gltf',
-        position: [-0.999941, 5.34553, -15.494045],
+        path: 'blue/platform_slope_6x2x2_blue.gltf',
+        position: [-10.790669, 9.110266, -13.239698],
+        rotationQuaternion: [0, -1e-7, -0.13052619, 0.99144486],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.1,
+          friction: 0,
+        },
+      },
+      {
+        path: 'blue/platform_4x2x4_blue.gltf',
+        position: [3.554369, 19.645565, 1.147102],
+        rotationQuaternion: [-0.09229592, 0.70105739, 0.09229594, 0.70105739],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.1,
+          friction: 0,
+        },
+      },
+      {
+        path: 'blue/platform_slope_6x2x2_blue.gltf',
+        position: [-10.790669, 9.110266, -11.239697],
+        rotationQuaternion: [0.13052619, 0.99144486, -1.4e-7, 0.00000108],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.1,
+          friction: 0,
+        },
+      },
+      {
+        path: 'blue/platform_1x1x1_blue.gltf',
+        position: [2.51543, 6.370181, -11.59069],
         rotationQuaternion: [0, 0.99144486, 0.13052619, 0],
         scaling: [1, 1, 1],
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
+          friction: 0,
+        },
+      },
+      {
+        path: 'blue/platform_slope_6x2x2_blue.gltf',
+        position: [1.000012, 4.310258, -11.630361],
+        rotationQuaternion: [0.09229596, -0.70105738, -0.09229596, 0.70105738],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -2150,97 +2198,25 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
       },
       {
         path: 'blue/platform_slope_6x2x2_blue.gltf',
-        position: [-0.99999, 4.310258, -11.630361],
-        rotationQuaternion: [0.09229606, 0.7010566, 0.09229585, 0.70105816],
-        scaling: [1, 1, 1],
-        metadata: {
-          name: '',
-          mass: 0,
-          restitution: 0.5,
-          friction: 0,
-        },
-      },
-      {
-        path: 'blue/platform_slope_6x2x2_blue.gltf',
         position: [-12.200003, 11.757358, -7.257771],
         rotationQuaternion: [-0.09229597, 0.70105728, -0.09229595, 0.70105749],
         scaling: [1, 1, 1],
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
-          friction: 0,
-        },
-      },
-      {
-        path: 'blue/platform_1x1x1_blue.gltf',
-        position: [2.51543, 6.370181, -11.59069],
-        rotationQuaternion: [0, 0.99144486, 0.13052619, 0],
-        scaling: [1, 1, 1],
-        metadata: {
-          name: '',
-          mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
       {
         path: 'blue/platform_slope_6x2x2_blue.gltf',
-        position: [-0.309335, 18.610291, 0.147123],
-        rotationQuaternion: [-0.13052612, 0.99144487, -2e-8, 1.2e-7],
+        position: [-10.199998, 11.757358, -7.257771],
+        rotationQuaternion: [-0.09229588, -0.70105816, 0.09229604, 0.70105661],
         scaling: [1, 1, 1],
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
-          friction: 0,
-        },
-      },
-      {
-        path: 'blue/platform_slope_6x2x2_blue.gltf',
-        position: [-10.790669, 9.110266, -13.239698],
-        rotationQuaternion: [0, -1e-7, -0.13052619, 0.99144486],
-        scaling: [1, 1, 1],
-        metadata: {
-          name: '',
-          mass: 0,
-          restitution: 0.5,
-          friction: 0,
-        },
-      },
-      {
-        path: 'neutral/cone.gltf',
-        position: [-13.748902, 15.628866, -2.402544],
-        rotationQuaternion: [-0.13052618, -1.3e-7, 0, 0.99144486],
-        scaling: [1, 1, 1],
-        metadata: {
-          name: '',
-          mass: 0,
-          restitution: 0.5,
-          friction: 0,
-        },
-      },
-      {
-        path: 'blue/platform_slope_6x2x2_blue.gltf',
-        position: [-10.790669, 9.110266, -11.239697],
-        rotationQuaternion: [0.13052619, 0.99144486, -1.4e-7, 0.00000108],
-        scaling: [1, 1, 1],
-        metadata: {
-          name: '',
-          mass: 0,
-          restitution: 0.5,
-          friction: 0,
-        },
-      },
-      {
-        path: 'blue/platform_1x1x1_blue.gltf',
-        position: [-13.715431, 15.870196, -1.501888],
-        rotationQuaternion: [-0.13052618, -1.1e-7, -1e-8, 0.99144486],
-        scaling: [1, 1, 1],
-        metadata: {
-          name: '',
-          mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -2252,175 +2228,31 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
-          friction: 0,
-        },
-      },
-      {
-        path: 'neutral/cone.gltf',
-        position: [-1.249662, 20.428883, 1.696007],
-        rotationQuaternion: [-0.09229591, 0.70105736, 0.09229593, 0.70105742],
-        scaling: [1, 1, 1],
-        metadata: {
-          name: '',
-          mass: 0,
-          restitution: 0.5,
-          friction: 0,
-        },
-      },
-      {
-        path: 'blue/platform_slope_6x2x2_blue.gltf',
-        position: [0, 0, -2.099999],
-        rotationQuaternion: [0, 0, 0, 1],
-        scaling: [1, 1, 1],
-        metadata: {
-          name: '',
-          mass: 0,
           restitution: 0.1,
           friction: 0,
         },
       },
       {
-        path: 'blue/signage_arrow_stand_blue.gltf',
-        position: [-14.126568, 12.074671, -10.943894],
-        rotationQuaternion: [-0.05271998, -0.92491093, -0.11710043, 0.35783777],
-        scaling: [1, 1, 1],
-        metadata: {
-          name: '',
-          mass: 0,
-          restitution: 0.5,
-          friction: 0,
-        },
-      },
-      {
-        path: 'blue/platform_slope_6x2x2_blue.gltf',
-        position: [1.000012, 4.310258, -11.630361],
-        rotationQuaternion: [0.09229596, -0.70105738, -0.09229596, 0.70105738],
-        scaling: [1, 1, 1],
-        metadata: {
-          name: '',
-          mass: 0,
-          restitution: 0.5,
-          friction: 0,
-        },
-      },
-      {
-        path: 'blue/platform_4x2x4_blue.gltf',
-        position: [-13.2, 14.84555, 2.401487],
-        rotationQuaternion: [-0.13052618, -9e-8, -1e-8, 0.99144486],
-        scaling: [1, 1, 1],
-        metadata: {
-          name: '',
-          mass: 0,
-          restitution: 0.5,
-          friction: 0,
-        },
-      },
-      {
-        path: 'blue/platform_4x2x4_blue.gltf',
-        position: [2.000001, 5.345535, -15.494064],
-        rotationQuaternion: [0, 0.99144486, 0.13052619, 0],
-        scaling: [1, 1, 1],
-        metadata: {
-          name: '',
-          mass: 0,
-          restitution: 0.5,
-          friction: 0,
-        },
-      },
-      {
         path: 'blue/platform_2x2x2_blue.gltf',
-        position: [-10.200055, 14.845545, 2.401468],
-        rotationQuaternion: [-0.13052618, -8e-8, -1e-8, 0.99144486],
-        scaling: [1, 1, 1],
-        metadata: {
-          name: '',
-          mass: 0,
-          restitution: 0.5,
-          friction: 0,
-        },
-      },
-      {
-        path: 'blue/platform_slope_6x2x2_blue.gltf',
-        position: [2.099996, 0, -0.000003],
-        rotationQuaternion: [0, -0.70710678, 0, 0.70710678],
-        scaling: [1, 1, 1],
-        metadata: {
-          name: '',
-          mass: 0,
-          restitution: 0.1,
-          friction: 0,
-        },
-      },
-      {
-        path: 'blue/platform_slope_6x2x2_blue.gltf',
-        position: [-6.104895, 16.557375, -1.852892],
-        rotationQuaternion: [1.6e-7, -9.8e-7, 0.13052611, 0.99144487],
-        scaling: [1, 1, 1],
-        metadata: {
-          name: '',
-          mass: 0,
-          restitution: 0.5,
-          friction: 0,
-        },
-      },
-      {
-        path: 'blue/platform_slope_6x2x2_blue.gltf',
-        position: [-0.309335, 18.610291, -1.852888],
-        rotationQuaternion: [1.6e-7, -9.8e-7, 0.13052612, 0.99144487],
-        scaling: [1, 1, 1],
-        metadata: {
-          name: '',
-          mass: 0,
-          restitution: 0.5,
-          friction: 0,
-        },
-      },
-      {
-        path: 'blue/platform_2x2x2_blue.gltf',
-        position: [3.000004, 4.310254, -11.630342],
-        rotationQuaternion: [0, 0.99144486, 0.13052619, 0],
-        scaling: [1, 1, 1],
-        metadata: {
-          name: '',
-          mass: 0,
-          restitution: 0.5,
-          friction: 0,
-        },
-      },
-      {
-        path: 'blue/platform_1x1x1_blue.gltf',
-        position: [-10.750998, 11.170189, -14.755117],
+        position: [-10.79065, 9.110262, -15.239691],
         rotationQuaternion: [-0.09229594, -0.70105741, -0.09229597, 0.70105736],
         scaling: [1, 1, 1],
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
       {
-        path: 'blue/platform_slope_6x2x2_blue.gltf',
-        position: [-10.200006, 13.810273, -1.462216],
-        rotationQuaternion: [-0.09229587, -0.70105818, 0.09229603, 0.70105659],
+        path: 'blue/platform_1x1x1_blue.gltf',
+        position: [-0.349006, 20.670212, 1.662536],
+        rotationQuaternion: [-0.09229591, 0.70105737, 0.09229592, 0.70105741],
         scaling: [1, 1, 1],
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
-          friction: 0,
-        },
-      },
-      {
-        path: 'neutral/cone.gltf',
-        position: [2.548903, 6.128851, -10.690033],
-        rotationQuaternion: [0, 0.99144486, 0.13052619, 0],
-        scaling: [1, 1, 1],
-        metadata: {
-          name: '',
-          mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -2432,55 +2264,19 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
-          friction: 0,
-        },
-      },
-      {
-        path: 'blue/platform_slope_6x2x2_blue.gltf',
-        position: [-6.104893, 16.557375, 0.147113],
-        rotationQuaternion: [-0.13052611, 0.99144487, -3e-8, 1.1e-7],
-        scaling: [1, 1, 1],
-        metadata: {
-          name: '',
-          mass: 0,
-          restitution: 0.5,
-          friction: 0,
-        },
-      },
-      {
-        path: 'neutral/structure_A.gltf',
-        position: [0, 0, 0.000002],
-        rotationQuaternion: [0, 1, 0, 0],
-        scaling: [1, 1, 1],
-        metadata: {
-          name: 'out',
-          mass: 0,
           restitution: 0.1,
           friction: 0,
         },
       },
       {
         path: 'neutral/cone.gltf',
-        position: [-9.850342, 10.928859, -14.788589],
-        rotationQuaternion: [-0.09229594, -0.70105741, -0.09229596, 0.70105736],
+        position: [-13.748902, 15.628866, -2.402544],
+        rotationQuaternion: [-0.13052618, -1.3e-7, 0, 0.99144486],
         scaling: [1, 1, 1],
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
-          friction: 0,
-        },
-      },
-      {
-        path: 'blue/platform_2x2x2_blue.gltf',
-        position: [3.554349, 19.645561, -1.852845],
-        rotationQuaternion: [-0.09229593, 0.70105739, 0.09229596, 0.70105739],
-        scaling: [1, 1, 1],
-        metadata: {
-          name: '',
-          mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -2497,150 +2293,6 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         },
       },
       {
-        path: 'blue/platform_slope_6x2x2_blue.gltf',
-        position: [0.999999, 2.357344, -5.834805],
-        rotationQuaternion: [0.09229597, -0.70105739, -0.09229597, 0.70105738],
-        scaling: [1, 1, 1],
-        metadata: {
-          name: '',
-          mass: 0,
-          restitution: 0.5,
-          friction: 0,
-        },
-      },
-      {
-        path: 'blue/platform_1x1x1_blue.gltf',
-        position: [-0.349006, 20.670212, 1.662536],
-        rotationQuaternion: [-0.09229591, 0.70105737, 0.09229592, 0.70105741],
-        scaling: [1, 1, 1],
-        metadata: {
-          name: '',
-          mass: 0,
-          restitution: 0.5,
-          friction: 0,
-        },
-      },
-      {
-        path: 'blue/platform_2x2x2_blue.gltf',
-        position: [-14.200006, 13.810269, -1.462235],
-        rotationQuaternion: [-0.13052618, -1.2e-7, -1e-8, 0.99144486],
-        scaling: [1, 1, 1],
-        metadata: {
-          name: '',
-          mass: 0,
-          restitution: 0.5,
-          friction: 0,
-        },
-      },
-      {
-        path: 'blue/platform_slope_6x2x2_blue.gltf',
-        position: [-10.199998, 11.757358, -7.257771],
-        rotationQuaternion: [-0.09229588, -0.70105816, 0.09229604, 0.70105661],
-        scaling: [1, 1, 1],
-        metadata: {
-          name: '',
-          mass: 0,
-          restitution: 0.5,
-          friction: 0,
-        },
-      },
-      {
-        path: 'blue/platform_2x2x4_blue.gltf',
-        position: [1.622504, 19.127941, 2.147117],
-        rotationQuaternion: [-0.09229592, 0.70105738, 0.09229593, 0.70105739],
-        scaling: [1, 1, 1],
-        metadata: {
-          name: '',
-          mass: 0,
-          restitution: 0.5,
-          friction: 0,
-        },
-      },
-      {
-        path: 'blue/platform_slope_6x2x2_blue.gltf',
-        position: [-4.995115, 6.95735, -11.239683],
-        rotationQuaternion: [0.13052619, 0.99144486, -1.4e-7, 0.00000107],
-        scaling: [1, 1, 1],
-        metadata: {
-          name: '',
-          mass: 0,
-          restitution: 0.5,
-          friction: 0,
-        },
-      },
-      {
-        path: 'blue/platform_2x2x2_blue.gltf',
-        position: [-10.79065, 9.110262, -15.239691],
-        rotationQuaternion: [-0.09229594, -0.70105741, -0.09229597, 0.70105736],
-        scaling: [1, 1, 1],
-        metadata: {
-          name: '',
-          mass: 0,
-          restitution: 0.5,
-          friction: 0,
-        },
-      },
-      {
-        path: 'blue/platform_4x2x4_blue.gltf',
-        position: [-14.654372, 10.145542, -14.239688],
-        rotationQuaternion: [-0.09229594, -0.70105741, -0.09229597, 0.70105736],
-        scaling: [1, 1, 1],
-        metadata: {
-          name: '',
-          mass: 0,
-          restitution: 0.5,
-          friction: 0,
-        },
-      },
-      {
-        path: 'blue/platform_2x2x4_blue.gltf',
-        position: [3.000014, 4.827909, -13.5622],
-        rotationQuaternion: [0, 0.99144486, 0.13052619, 0],
-        scaling: [1, 1, 1],
-        metadata: {
-          name: '',
-          mass: 0,
-          restitution: 0.5,
-          friction: 0,
-        },
-      },
-      {
-        path: 'blue/platform_4x2x4_blue.gltf',
-        position: [3.554369, 19.645565, 1.147102],
-        rotationQuaternion: [-0.09229592, 0.70105739, 0.09229594, 0.70105739],
-        scaling: [1, 1, 1],
-        metadata: {
-          name: '',
-          mass: 0,
-          restitution: 0.5,
-          friction: 0,
-        },
-      },
-      {
-        path: 'blue/platform_2x2x4_blue.gltf',
-        position: [-12.722507, 9.627916, -15.239701],
-        rotationQuaternion: [-0.09229594, -0.70105741, -0.09229597, 0.70105736],
-        scaling: [1, 1, 1],
-        metadata: {
-          name: '',
-          mass: 0,
-          restitution: 0.5,
-          friction: 0,
-        },
-      },
-      {
-        path: 'blue/platform_slope_6x2x2_blue.gltf',
-        position: [-12.200015, 13.810273, -1.462216],
-        rotationQuaternion: [-0.09229596, 0.70105729, -0.09229594, 0.70105748],
-        scaling: [1, 1, 1],
-        metadata: {
-          name: '',
-          mass: 0,
-          restitution: 0.5,
-          friction: 0,
-        },
-      },
-      {
         path: 'blue/platform_2x2x4_blue.gltf',
         position: [-14.200014, 14.327924, 0.469622],
         rotationQuaternion: [-0.13052618, -1e-7, -1e-8, 0.99144486],
@@ -2648,7 +2300,55 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
+          friction: 0,
+        },
+      },
+      {
+        path: 'blue/platform_slope_6x2x2_blue.gltf',
+        position: [-6.104893, 16.557375, 0.147113],
+        rotationQuaternion: [-0.13052611, 0.99144487, -3e-8, 1.1e-7],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.1,
+          friction: 0,
+        },
+      },
+      {
+        path: 'blue/platform_1x1x1_blue.gltf',
+        position: [-10.750998, 11.170189, -14.755117],
+        rotationQuaternion: [-0.09229594, -0.70105741, -0.09229597, 0.70105736],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.1,
+          friction: 0,
+        },
+      },
+      {
+        path: 'neutral/structure_A.gltf',
+        position: [0, 0, 0.000002],
+        rotationQuaternion: [0, 1, 0, 0],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: 'out',
+          mass: 0,
+          restitution: 0.1,
+          friction: 0,
+        },
+      },
+      {
+        path: 'blue/platform_1x1x1_blue.gltf',
+        position: [-13.715431, 15.870196, -1.501888],
+        rotationQuaternion: [-0.13052618, -1.1e-7, -1e-8, 0.99144486],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -2660,7 +2360,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -2672,19 +2372,163 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
       {
-        path: 'neutral/structure_A.gltf',
-        position: [0.48952, 23.11478, 0.040333],
-        rotationQuaternion: [0, 1, 0, 0],
+        path: 'blue/platform_slope_6x2x2_blue.gltf',
+        position: [0.999999, 2.357344, -5.834805],
+        rotationQuaternion: [0.09229597, -0.70105739, -0.09229597, 0.70105738],
         scaling: [1, 1, 1],
         metadata: {
-          name: 'in',
+          name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
+          friction: 0,
+        },
+      },
+      {
+        path: 'blue/platform_2x2x4_blue.gltf',
+        position: [1.622504, 19.127941, 2.147117],
+        rotationQuaternion: [-0.09229592, 0.70105738, 0.09229593, 0.70105739],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.1,
+          friction: 0,
+        },
+      },
+      {
+        path: 'blue/platform_slope_6x2x2_blue.gltf',
+        position: [-0.309335, 18.610291, -1.852888],
+        rotationQuaternion: [1.6e-7, -9.8e-7, 0.13052612, 0.99144487],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.1,
+          friction: 0,
+        },
+      },
+      {
+        path: 'blue/platform_2x2x2_blue.gltf',
+        position: [3.554349, 19.645561, -1.852845],
+        rotationQuaternion: [-0.09229593, 0.70105739, 0.09229596, 0.70105739],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.1,
+          friction: 0,
+        },
+      },
+      {
+        path: 'blue/platform_2x2x4_blue.gltf',
+        position: [-12.722507, 9.627916, -15.239701],
+        rotationQuaternion: [-0.09229594, -0.70105741, -0.09229597, 0.70105736],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.1,
+          friction: 0,
+        },
+      },
+      {
+        path: 'blue/platform_slope_6x2x2_blue.gltf',
+        position: [0, 0, -2.099999],
+        rotationQuaternion: [0, 0, 0, 1],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.1,
+          friction: 0,
+        },
+      },
+      {
+        path: 'neutral/cone.gltf',
+        position: [2.548903, 6.128851, -10.690033],
+        rotationQuaternion: [0, 0.99144486, 0.13052619, 0],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.1,
+          friction: 0,
+        },
+      },
+      {
+        path: 'blue/platform_slope_6x2x2_blue.gltf',
+        position: [-12.200015, 13.810273, -1.462216],
+        rotationQuaternion: [-0.09229596, 0.70105729, -0.09229594, 0.70105748],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.1,
+          friction: 0,
+        },
+      },
+      {
+        path: 'blue/platform_slope_6x2x2_blue.gltf',
+        position: [-0.99999, 4.310258, -11.630361],
+        rotationQuaternion: [0.09229606, 0.7010566, 0.09229585, 0.70105816],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.1,
+          friction: 0,
+        },
+      },
+      {
+        path: 'blue/platform_4x2x4_blue.gltf',
+        position: [-13.2, 14.84555, 2.401487],
+        rotationQuaternion: [-0.13052618, -9e-8, -1e-8, 0.99144486],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.1,
+          friction: 0,
+        },
+      },
+      {
+        path: 'blue/platform_slope_6x2x2_blue.gltf',
+        position: [-0.309335, 18.610291, 0.147123],
+        rotationQuaternion: [-0.13052612, 0.99144487, -2e-8, 1.2e-7],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.1,
+          friction: 0,
+        },
+      },
+      {
+        path: 'blue/platform_slope_6x2x2_blue.gltf',
+        position: [2.099996, 0, -0.000003],
+        rotationQuaternion: [0, -0.70710678, 0, 0.70710678],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.1,
+          friction: 0,
+        },
+      },
+      {
+        path: 'blue/platform_2x2x2_blue.gltf',
+        position: [3.000004, 4.310254, -11.630342],
+        rotationQuaternion: [0, 0.99144486, 0.13052619, 0],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -2696,7 +2540,163 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
+          friction: 0,
+        },
+      },
+      {
+        path: 'blue/platform_slope_6x2x2_blue.gltf',
+        position: [-6.104895, 16.557375, -1.852892],
+        rotationQuaternion: [1.6e-7, -9.8e-7, 0.13052611, 0.99144487],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.1,
+          friction: 0,
+        },
+      },
+      {
+        path: 'blue/platform_slope_6x2x2_blue.gltf',
+        position: [-4.995115, 6.95735, -11.239683],
+        rotationQuaternion: [0.13052619, 0.99144486, -1.4e-7, 0.00000107],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.1,
+          friction: 0,
+        },
+      },
+      {
+        path: 'neutral/cone.gltf',
+        position: [-9.850342, 10.928859, -14.788589],
+        rotationQuaternion: [-0.09229594, -0.70105741, -0.09229596, 0.70105736],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.1,
+          friction: 0,
+        },
+      },
+      {
+        path: 'blue/platform_2x2x2_blue.gltf',
+        position: [-10.200055, 14.845545, 2.401468],
+        rotationQuaternion: [-0.13052618, -8e-8, -1e-8, 0.99144486],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.1,
+          friction: 0,
+        },
+      },
+      {
+        path: 'blue/platform_2x2x4_blue.gltf',
+        position: [3.000014, 4.827909, -13.5622],
+        rotationQuaternion: [0, 0.99144486, 0.13052619, 0],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.1,
+          friction: 0,
+        },
+      },
+      {
+        path: 'blue/platform_slope_6x2x2_blue.gltf',
+        position: [-10.200006, 13.810273, -1.462216],
+        rotationQuaternion: [-0.09229587, -0.70105818, 0.09229603, 0.70105659],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.1,
+          friction: 0,
+        },
+      },
+      {
+        path: 'blue/platform_2x2x2_blue.gltf',
+        position: [-0.999941, 5.34553, -15.494045],
+        rotationQuaternion: [0, 0.99144486, 0.13052619, 0],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.1,
+          friction: 0,
+        },
+      },
+      {
+        path: 'blue/platform_2x2x2_blue.gltf',
+        position: [-14.200006, 13.810269, -1.462235],
+        rotationQuaternion: [-0.13052618, -1.2e-7, -1e-8, 0.99144486],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.1,
+          friction: 0,
+        },
+      },
+      {
+        path: 'blue/signage_arrow_stand_blue.gltf',
+        position: [-14.126568, 12.074671, -10.943894],
+        rotationQuaternion: [-0.05271998, -0.92491093, -0.11710043, 0.35783777],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.1,
+          friction: 0,
+        },
+      },
+      {
+        path: 'blue/platform_4x2x4_blue.gltf',
+        position: [-14.654372, 10.145542, -14.239688],
+        rotationQuaternion: [-0.09229594, -0.70105741, -0.09229597, 0.70105736],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.1,
+          friction: 0,
+        },
+      },
+      {
+        path: 'neutral/structure_A.gltf',
+        position: [0.48952, 23.11478, 0.040333],
+        rotationQuaternion: [0, 1, 0, 0],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: 'in',
+          mass: 0,
+          restitution: 0.1,
+          friction: 0,
+        },
+      },
+      {
+        path: 'neutral/cone.gltf',
+        position: [-1.249662, 20.428883, 1.696007],
+        rotationQuaternion: [-0.09229591, 0.70105736, 0.09229593, 0.70105742],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.1,
+          friction: 0,
+        },
+      },
+      {
+        path: 'blue/platform_4x2x4_blue.gltf',
+        position: [2.000001, 5.345535, -15.494064],
+        rotationQuaternion: [0, 0.99144486, 0.13052619, 0],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -2708,7 +2708,19 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
+          friction: 0,
+        },
+      },
+      {
+        path: 'blue/platform_4x2x2_blue.gltf',
+        position: [2.090015, 21.323746, -1.86531],
+        rotationQuaternion: [-0.13052618, 0.99144486, 2e-8, 0],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -2726,7 +2738,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -2750,7 +2762,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -2762,7 +2774,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -2774,7 +2786,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -2786,7 +2798,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -2798,7 +2810,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -2810,7 +2822,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -2822,7 +2834,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -2834,7 +2846,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: 'in',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -2846,7 +2858,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -2858,7 +2870,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -2870,7 +2882,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -2882,7 +2894,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -2894,7 +2906,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -2906,7 +2918,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -2918,7 +2930,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -2930,7 +2942,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -2942,7 +2954,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -2954,7 +2966,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -2966,7 +2978,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -2978,7 +2990,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -2990,7 +3002,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3002,7 +3014,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3014,7 +3026,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3026,7 +3038,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3038,7 +3050,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3050,7 +3062,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3062,7 +3074,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3074,7 +3086,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3086,7 +3098,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3098,7 +3110,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3110,7 +3122,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3122,7 +3134,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3134,7 +3146,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3146,7 +3158,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3158,7 +3170,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3170,7 +3182,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3182,7 +3194,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3194,7 +3206,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3206,7 +3218,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3218,7 +3230,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3230,7 +3242,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3242,7 +3254,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3254,7 +3266,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3266,7 +3278,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3278,7 +3290,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3290,7 +3302,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3302,7 +3314,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3314,7 +3326,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3326,7 +3338,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3338,7 +3350,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3350,7 +3362,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3362,7 +3374,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3380,7 +3392,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3392,7 +3404,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3404,7 +3416,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3416,7 +3428,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3428,7 +3440,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3440,7 +3452,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3452,7 +3464,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3464,7 +3476,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3476,7 +3488,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3488,7 +3500,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3500,7 +3512,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3512,7 +3524,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3524,7 +3536,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: 'in',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3536,7 +3548,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3548,7 +3560,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3560,7 +3572,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3572,7 +3584,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3584,7 +3596,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3596,7 +3608,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3608,7 +3620,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3620,7 +3632,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3632,7 +3644,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3644,7 +3656,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3656,7 +3668,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3668,7 +3680,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3680,7 +3692,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3692,7 +3704,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3704,7 +3716,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3716,7 +3728,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3728,7 +3740,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3740,7 +3752,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3752,7 +3764,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3764,7 +3776,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3776,7 +3788,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },
@@ -3788,7 +3800,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         metadata: {
           name: '',
           mass: 0,
-          restitution: 0.5,
+          restitution: 0.1,
           friction: 0,
         },
       },

@@ -94,7 +94,6 @@ export async function createTrackSegment({
         PhysicsShapeType.MESH,
         {
           ...metadata,
-          restitution: 0.1,
         },
         scene,
       )
