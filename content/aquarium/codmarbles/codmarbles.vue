@@ -61,7 +61,7 @@ function createMarble({
 }): Marble {
   const marble = MeshBuilder.CreateSphere('marble', {
     diameter: 0.5,
-    segments: 8,
+    segments: 16,
   }, scene)
   marble.position.copyFrom(startPosition)
 
@@ -75,7 +75,11 @@ function createMarble({
       )
 
       marbleMaterial.metallic = 0
-      marbleMaterial.roughness = 0
+      marbleMaterial.roughness = 0.5
+
+      marbleMaterial.clearCoat.isEnabled = true
+      marbleMaterial.clearCoat.intensity = 1
+      marbleMaterial.clearCoat.roughness = 0
     }),
   )
 
@@ -322,7 +326,7 @@ const {
       const color = Color3.FromHSV(
         340 * (i / marbleCount),
         0.9,
-        0.7,
+        1,
       )
 
       const marble = createMarble({

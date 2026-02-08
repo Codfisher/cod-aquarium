@@ -1,4 +1,4 @@
-import type { ISceneLoaderAsyncResult, Mesh, Scene } from '@babylonjs/core'
+import type { ISceneLoaderAsyncResult, Mesh, PBRMaterial, Scene } from '@babylonjs/core'
 import type { TrackSegmentType } from './data'
 import { ImportMeshAsync, PhysicsAggregate, PhysicsShapeType, Quaternion, TransformNode, Vector3 } from '@babylonjs/core'
 import { trackSegmentData } from './data'
@@ -71,6 +71,15 @@ export async function createTrackSegment({
     root.parent = partContainer
 
     if (geometryMesh) {
+      if (geometryMesh.material) {
+        const mat = geometryMesh.material as PBRMaterial
+
+        mat.metallic = 0
+        mat.roughness = 1
+        // 強制提亮
+        mat.albedoColor.scaleToRef(1.4, mat.albedoColor)
+      }
+
       physicsPendingList.push({
         mesh: geometryMesh,
         metadata: partData.metadata,
