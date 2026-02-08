@@ -76,7 +76,7 @@ import { onKeyStroke, refManualReset, useActiveElement, useMagicKeys, useThrottl
 import { animate } from 'animejs'
 import { nanoid } from 'nanoid'
 import { storeToRefs } from 'pinia'
-import { conditional, filter, isStrictEqual, isTruthy, pipe, tap } from 'remeda'
+import { clone, conditional, filter, isStrictEqual, isTruthy, pipe, tap } from 'remeda'
 import { computed, onBeforeUnmount, reactive, ref, shallowRef, watch } from 'vue'
 import { useBabylonScene } from '../../composables/use-babylon-scene'
 import { useMultiMeshSelect } from '../../composables/use-multi-mesh-select'
@@ -704,6 +704,8 @@ function duplicateMeshes(meshes: AbstractMesh[]) {
   let maxWidth = 0
   const clonedMeshes = meshes.map((mesh) => {
     const clonedMesh = mesh.clone(nanoid(), null)!
+    clonedMesh.metadata = clone(mesh.metadata)
+
     addedMeshList.value.push(clonedMesh)
     selectMesh(clonedMesh, true)
 
