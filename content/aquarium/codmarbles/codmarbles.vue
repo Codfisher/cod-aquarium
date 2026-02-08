@@ -55,6 +55,17 @@ const marbleList = shallowRef<Marble[]>([])
 
 const updateRanking = useThrottleFn(() => {
   marbleList.value.sort((a, b) => {
+    const aFinished = a.finishTime > 0
+    const bFinished = b.finishTime > 0
+
+    if (aFinished !== bFinished) {
+      return aFinished ? -1 : 1
+    }
+
+    if (aFinished && bFinished) {
+      return a.finishTime - b.finishTime
+    }
+
     // 優先比較檢查點索引 (大的在前)
     if (a.lastCheckPointIndex !== b.lastCheckPointIndex) {
       return b.lastCheckPointIndex - a.lastCheckPointIndex
@@ -92,6 +103,7 @@ interface Marble {
   mesh: Mesh;
   lastCheckPointIndex: number;
   isRespawning: boolean;
+  finishTime: number;
 }
 function createMarble({
   scene,
@@ -191,6 +203,7 @@ function createMarble({
     mesh: marble,
     lastCheckPointIndex: 0,
     isRespawning: false,
+    finishTime: 0,
   }
 }
 
@@ -390,44 +403,6 @@ const {
     }
     triggerRef(marbleList)
 
-    // 追蹤目前的目標彈珠
-    let currentTrackedMarble: Marble | undefined
-
-    // 攝影機持續跟蹤「目前 Y 座標最小（最低）」的彈珠
-    scene.onBeforeRenderObservable.add(() => {
-      const lowestMarble = firstBy(
-        marbleList.value,
-        (marble) => marble.mesh.position.y,
-      )
-
-      if (!lowestMarble)
-        return
-
-      // 是否切換目標
-      if (!currentTrackedMarble) {
-        currentTrackedMarble = lowestMarble
-      }
-      else {
-        // 如果當前追蹤的彈珠正在重生，立刻切換到最低者 (避免鏡頭被拉回起點)
-        if (currentTrackedMarble.isRespawning) {
-          currentTrackedMarble = lowestMarble
-        }
-        // 只有當「絕對最低者」比「當前目標」低超過 1 個單位時，才切換，這樣可以避免兩者高度相近時瘋狂切換造成的抖動
-        else if (lowestMarble.mesh.position.y < currentTrackedMarble.mesh.position.y - 1.0) {
-          currentTrackedMarble = lowestMarble
-        }
-      }
-
-      Vector3.LerpToRef(
-        cameraTarget.position,
-        currentTrackedMarble.mesh.position,
-        0.1,
-        cameraTarget.position,
-      )
-
-      updateRanking()
-    })
-
     if (lastTrackSegment) {
       connectTracks(lastTrackSegment, endTrackSegment)
       endTrackSegment.initPhysics()
@@ -440,37 +415,118 @@ const {
       })
     })
 
-    // 設定檢查點
-    const checkPointPositionList = getCheckPointPositionList([
-      ...trackSegmentList,
-      endTrackSegment,
-    ])
+    // 攝影機追蹤最低的彈珠
+    pipe(0, () => {
+      let currentTrackedMarble: Marble | undefined
 
-    marbleList.value.forEach((marble) => {
-      createCheckPointColliders({
-        scene,
-        pointPositionList: checkPointPositionList,
-        marble,
+      // 攝影機持續跟蹤「目前 Y 座標最小（最低）」的彈珠
+      scene.onBeforeRenderObservable.add(() => {
+        const lowestMarble = firstBy(
+          marbleList.value,
+          (marble) => marble.mesh.position.y,
+        )
+
+        if (!lowestMarble)
+          return
+
+        // 是否切換目標
+        if (!currentTrackedMarble) {
+          currentTrackedMarble = lowestMarble
+        }
+        else {
+          // 如果當前追蹤的彈珠正在重生，立刻切換到最低者 (避免鏡頭被拉回起點)
+          if (currentTrackedMarble.isRespawning) {
+            currentTrackedMarble = lowestMarble
+          }
+          // 只有當「絕對最低者」比「當前目標」低超過 1 個單位時，才切換，這樣可以避免兩者高度相近時瘋狂切換造成的抖動
+          else if (lowestMarble.mesh.position.y < currentTrackedMarble.mesh.position.y - 1.0) {
+            currentTrackedMarble = lowestMarble
+          }
+        }
+
+        Vector3.LerpToRef(
+          cameraTarget.position,
+          currentTrackedMarble.mesh.position,
+          0.1,
+          cameraTarget.position,
+        )
+
+        updateRanking()
       })
     })
 
-    // 若彈珠直接跳過下一個檢查點之 Y 座標 -1 處，則將彈珠的 Y 座標拉回檢查點
-    scene.onBeforeRenderObservable.add(() => {
+    // 設定檢查點
+    pipe(0, () => {
+      const checkPointPositionList = getCheckPointPositionList([
+        ...trackSegmentList,
+        endTrackSegment,
+      ])
+
       marbleList.value.forEach((marble) => {
-        const lastCheckPointPosition = checkPointPositionList[marble.lastCheckPointIndex]
-        const nextCheckPointPosition = checkPointPositionList[marble.lastCheckPointIndex + 1]
-        if (!nextCheckPointPosition || !lastCheckPointPosition) {
-          return
-        }
+        createCheckPointColliders({
+          scene,
+          pointPositionList: checkPointPositionList,
+          marble,
+        })
+      })
 
-        const physicsBody = marble.mesh.physicsBody
-        if (!physicsBody) {
-          return
-        }
+      // 若彈珠直接跳過下一個檢查點之 Y 座標 -1 處，則將彈珠的 Y 座標拉回檢查點
+      scene.onBeforeRenderObservable.add(() => {
+        marbleList.value.forEach((marble) => {
+          const lastCheckPointPosition = checkPointPositionList[marble.lastCheckPointIndex]
+          const nextCheckPointPosition = checkPointPositionList[marble.lastCheckPointIndex + 1]
+          if (!nextCheckPointPosition || !lastCheckPointPosition) {
+            return
+          }
 
-        if (marble.mesh.position.y < nextCheckPointPosition.y - 1) {
-          respawnWithAnimation(marble, lastCheckPointPosition)
-        }
+          const physicsBody = marble.mesh.physicsBody
+          if (!physicsBody) {
+            return
+          }
+
+          if (marble.mesh.position.y < nextCheckPointPosition.y - 1) {
+            respawnWithAnimation(marble, lastCheckPointPosition)
+          }
+        })
+      })
+    })
+
+    // 終點檢查
+    pipe(0, () => {
+      const endCheckPointPosition = endTrackSegment.rootNode
+        .getChildMeshes()
+        .find((mesh) => mesh.name === 'end')
+        ?.getAbsolutePosition()
+
+      if (!endCheckPointPosition) {
+        throw new Error('endCheckPointPosition is undefined')
+      }
+
+      const endTriggerBox = MeshBuilder.CreateBox('endTrigger', {
+        width: 10,
+        height: 10,
+        depth: 1,
+      }, scene)
+
+      endTriggerBox.position.copyFrom(endCheckPointPosition)
+      endTriggerBox.isVisible = false
+      const actionManager = new ActionManager(scene)
+      endTriggerBox.actionManager = actionManager
+
+      marbleList.value.forEach((marble) => {
+        actionManager.registerAction(
+          new ExecuteCodeAction(
+            {
+              trigger: ActionManager.OnIntersectionEnterTrigger,
+              parameter: marble.mesh,
+            },
+            () => {
+              if (marble.finishTime === 0) {
+                marble.finishTime = Date.now()
+              }
+            },
+          ),
+        )
       })
     })
   },
