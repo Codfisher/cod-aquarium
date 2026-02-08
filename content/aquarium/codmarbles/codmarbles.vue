@@ -207,7 +207,6 @@ function createCheckPointColliders(
         },
         () => {
           marble.lastCheckPointIndex = index
-          console.log('🚀 ~ createCheckPointColliders ~ index:', index)
         },
       ),
     )
@@ -218,30 +217,28 @@ function respawnWithAnimation(
   marble: Marble,
   targetPosition: Vector3,
 ) {
-  const body = marble.mesh.physicsBody
-  if (!body)
+  const physicsBody = marble.mesh.physicsBody
+  if (!physicsBody)
     return
-  body.disablePreStep = false
-  body.setLinearVelocity(Vector3.Zero())
-  body.setAngularVelocity(Vector3.Zero())
+  physicsBody.disablePreStep = false
+  physicsBody.setMotionType(PhysicsMotionType.ANIMATED)
+  physicsBody.setLinearVelocity(Vector3.Zero())
+  physicsBody.setAngularVelocity(Vector3.Zero())
 
   Animation.CreateAndStartAnimation(
     'respawnAnim',
     marble.mesh,
     'position',
-    60, // FPS
-    60, // 動畫總長 (1秒)
-    marble.mesh.position, // 起點 (當前位置)
-    targetPosition, // 終點 (檢查點)
+    60,
+    60,
+    marble.mesh.position,
+    targetPosition,
     Animation.ANIMATIONLOOPMODE_CONSTANT,
-    new CircleEase(), // 使用緩動函數讓飛行更自然 (可選)
+    new CircleEase(),
     () => {
-      console.log('抵達檢查點，恢復物理控制')
-
       marble.mesh.position.copyFrom(targetPosition)
-      marble.mesh.computeWorldMatrix(true) // 強制更新
-
-      body.disablePreStep = true
+      marble.mesh.computeWorldMatrix(true)
+      physicsBody.setMotionType(PhysicsMotionType.DYNAMIC)
     },
   )
 }
@@ -367,19 +364,7 @@ const {
         }
 
         if (marble.mesh.position.y < nextCheckPointPosition.y - 5) {
-          marble.mesh.position.copyFrom(lastCheckPointPosition)
-          marble.mesh.computeWorldMatrix(true)
-
-          physicsBody.disablePreStep = false
-          physicsBody.setPrestepType(PhysicsPrestepType.TELEPORT)
-          physicsBody.setLinearVelocity(Vector3.Zero())
-          physicsBody.setAngularVelocity(Vector3.Zero())
-
-          scene.onAfterPhysicsObservable.addOnce(() => {
-            physicsBody.disablePreStep = true
-          })
-
-          respawnWithAnimation(marble, nextCheckPointPosition)
+          respawnWithAnimation(marble, lastCheckPointPosition)
         }
       })
     })
