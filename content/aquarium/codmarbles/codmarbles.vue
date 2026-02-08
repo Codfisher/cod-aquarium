@@ -8,9 +8,6 @@
 
     <!-- 目前排名 -->
     <div class="absolute bottom-4 left-4 p-4 pointer-events-none">
-      <h3 class="text-gray-600 font-bold mb-2 text-sm">
-        Race Ranking
-      </h3>
       <transition-group
         name="list"
         tag="div"
@@ -319,13 +316,6 @@ const {
 } = useBabylonScene({
   async init(params) {
     const { scene, camera } = params
-    if (!(camera instanceof ArcRotateCamera)) {
-      throw new TypeError('camera is not ArcRotateCamera')
-    }
-
-    const havokInstance = await HavokPhysics()
-    const havokPlugin = new HavokPlugin(true, havokInstance)
-    scene.enablePhysics(new Vector3(0, -9.81, 0), havokPlugin)
 
     // 畫 Group 1 (幽靈) 時，不要清除 Group 0 (牆壁) 的深度資訊，這樣才能進行深度比較
     scene.setRenderingAutoClearDepthStencil(ghostRenderingGroupId, false)
@@ -369,8 +359,12 @@ const {
       throw new Error('firstTrackSegment is undefined')
     }
 
-    const cameraTarget = new TransformNode('cameraTarget', scene)
-    camera.lockedTarget = cameraTarget
+    const cameraTarget = pipe(
+      new TransformNode('cameraTarget', scene),
+      tap((node) => {
+        camera.lockedTarget = node
+      }),
+    )
 
     for (let i = 0; i < marbleCount; i++) {
       const startPosition = firstTrackSegment.startPosition.clone()
