@@ -13,6 +13,7 @@ import type { Mesh, Scene } from '@babylonjs/core'
 import type { TrackSegment } from './track-segment'
 import { ActionManager, Animation, ArcRotateCamera, CircleEase, Color3, DirectionalLight, Engine, ExecuteCodeAction, FollowCamera, HavokPlugin, MeshBuilder, PhysicsAggregate, PhysicsMotionType, PhysicsPrestepType, PhysicsShapeType, Quaternion, Ray, ShadowGenerator, StandardMaterial, Vector3 } from '@babylonjs/core'
 import HavokPhysics from '@babylonjs/havok'
+import { animate, cubicBezier } from 'animejs'
 import { random } from 'lodash-es'
 import { filter, flat, flatMap, map, pipe, prop, reduce, shuffle, sortBy, tap, values } from 'remeda'
 import { createTrackSegment } from './track-segment'
@@ -45,6 +46,7 @@ let ghostMaterial: StandardMaterial
 interface Marble {
   mesh: Mesh;
   lastCheckPointIndex: number;
+  isRespawning: boolean;
 }
 function createMarble({
   scene,
@@ -134,6 +136,7 @@ function createMarble({
   return {
     mesh: marble,
     lastCheckPointIndex: 0,
+    isRespawning: false,
   }
 }
 
@@ -217,6 +220,11 @@ function respawnWithAnimation(
   marble: Marble,
   targetPosition: Vector3,
 ) {
+  if (marble.isRespawning) {
+    return
+  }
+  marble.isRespawning = true
+
   const physicsBody = marble.mesh.physicsBody
   if (!physicsBody)
     return
@@ -225,22 +233,25 @@ function respawnWithAnimation(
   physicsBody.setLinearVelocity(Vector3.Zero())
   physicsBody.setAngularVelocity(Vector3.Zero())
 
-  Animation.CreateAndStartAnimation(
-    'respawnAnim',
-    marble.mesh,
-    'position',
-    60,
-    60,
-    marble.mesh.position,
-    targetPosition,
-    Animation.ANIMATIONLOOPMODE_CONSTANT,
-    new CircleEase(),
-    () => {
-      marble.mesh.position.copyFrom(targetPosition)
+  const duration = 2000
+  animate(marble.mesh.position, {
+    y: targetPosition.y,
+    duration,
+    ease: cubicBezier(0.348,0.011,0,1.238),
+  })
+
+  animate(marble.mesh.position, {
+    x: targetPosition.x,
+    z: targetPosition.z,
+    duration,
+    ease: cubicBezier(1.0, 0, 0, 1.0),
+    onComplete() {
+      marble.isRespawning = false
+      physicsBody.disablePreStep = true
       marble.mesh.computeWorldMatrix(true)
       physicsBody.setMotionType(PhysicsMotionType.DYNAMIC)
     },
-  )
+  })
 }
 
 const {
