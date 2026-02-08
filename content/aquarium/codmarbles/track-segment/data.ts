@@ -2756,7 +2756,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
       },
       {
         path: 'neutral/structure_C.gltf',
-        position: [-4.065791, 11.791178, -1.299793],
+        position: [-4.065791, 17.775326, -1.299793],
         rotationQuaternion: [0, 1, 0, 0],
         scaling: [1, 1, 1],
         metadata: {
@@ -2768,7 +2768,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
       },
       {
         path: 'neutral/structure_C.gltf',
-        position: [-4.065791, 17.775326, -1.299793],
+        position: [-4.065791, 11.791178, -1.299793],
         rotationQuaternion: [0, 1, 0, 0],
         scaling: [1, 1, 1],
         metadata: {
@@ -2791,18 +2791,6 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         },
       },
       {
-        path: 'neutral/structure_C.gltf',
-        position: [-7.03627, 9.998671, -4.15337],
-        rotationQuaternion: [0, 1, 0, 0],
-        scaling: [1, 1, 1],
-        metadata: {
-          name: '',
-          mass: 0,
-          restitution: 0.1,
-          friction: 0,
-        },
-      },
-      {
         path: 'yellow/platform_slope_6x2x2_yellow.gltf',
         position: [-0.000001, 0, -2.100012],
         rotationQuaternion: [0, 0, 0, 1],
@@ -2815,9 +2803,9 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         },
       },
       {
-        path: 'yellow/pipe_90_B_yellow.gltf',
-        position: [-3.031112, 15.065389, -4.237999],
-        rotationQuaternion: [-0.5, 0.50000001, 0.5, 0.5],
+        path: 'neutral/structure_C.gltf',
+        position: [-7.03627, 9.998671, -4.15337],
+        rotationQuaternion: [0, 1, 0, 0],
         scaling: [1, 1, 1],
         metadata: {
           name: '',
@@ -2828,8 +2816,20 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
       },
       {
         path: 'yellow/pipe_end_yellow.gltf',
-        position: [-5.005764, 21.063457, -4.213576],
+        position: [-5.005764, 21.063457, -4.213575],
         rotationQuaternion: [0, 1, 0, 0],
+        scaling: [1.183397, 1.183397, 1.183397],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.1,
+          friction: 0,
+        },
+      },
+      {
+        path: 'yellow/pipe_90_B_yellow.gltf',
+        position: [-3.031112, 15.065389, -4.237999],
+        rotationQuaternion: [-0.5, 0.50000001, 0.5, 0.5],
         scaling: [1, 1, 1],
         metadata: {
           name: '',
@@ -2864,7 +2864,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
       },
       {
         path: 'neutral/structure_C.gltf',
-        position: [-4.065791, 13.790906, -1.299793],
+        position: [-6, 2, 2],
         rotationQuaternion: [0, 1, 0, 0],
         scaling: [1, 1, 1],
         metadata: {
@@ -2876,7 +2876,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
       },
       {
         path: 'neutral/structure_C.gltf',
-        position: [-6, 2, 2],
+        position: [-4.065791, 13.790906, -1.299793],
         rotationQuaternion: [0, 1, 0, 0],
         scaling: [1, 1, 1],
         metadata: {
@@ -2900,7 +2900,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
       },
       {
         path: 'neutral/structure_C.gltf',
-        position: [-4.065791, 9.799002, -1.299793],
+        position: [-4.065791, 15.790865, -1.299793],
         rotationQuaternion: [0, 1, 0, 0],
         scaling: [1, 1, 1],
         metadata: {
@@ -2912,7 +2912,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
       },
       {
         path: 'neutral/structure_C.gltf',
-        position: [-4.065791, 15.790865, -1.299793],
+        position: [-4.065791, 9.799002, -1.299793],
         rotationQuaternion: [0, 1, 0, 0],
         scaling: [1, 1, 1],
         metadata: {
@@ -2935,18 +2935,6 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         },
       },
       {
-        path: 'yellow/platform_decorative_1x1x1_yellow.gltf',
-        position: [-4.071231, 21.797012, -0.299793],
-        rotationQuaternion: [0, 1, 0, 0],
-        scaling: [1, 1, 1],
-        metadata: {
-          name: '',
-          mass: 0,
-          restitution: 0.1,
-          friction: 0,
-        },
-      },
-      {
         path: 'neutral/structure_C.gltf',
         position: [-4.065791, 6.999969, -1.299793],
         rotationQuaternion: [0, 1, 0, 0],
@@ -2959,9 +2947,9 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         },
       },
       {
-        path: 'yellow/pipe_90_B_yellow.gltf',
-        position: [-5.06491, 5.032885, -4.237993],
-        rotationQuaternion: [0, 0.70710678, 1e-8, 0.70710679],
+        path: 'yellow/platform_decorative_1x1x1_yellow.gltf',
+        position: [-4.071231, 21.797012, -0.299793],
+        rotationQuaternion: [0, 1, 0, 0],
         scaling: [1, 1, 1],
         metadata: {
           name: '',
@@ -2971,8 +2959,8 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         },
       },
       {
-        path: 'yellow/platform_hole_6x6x1_yellow.gltf',
-        position: [-5.005764, 21.063173, -4.213576],
+        path: 'yellow/pipe_straight_B_yellow.gltf',
+        position: [-5.005764, 17.065386, -4.213576],
         rotationQuaternion: [0, 1, 0, 0],
         scaling: [1, 1, 1],
         metadata: {
@@ -2995,8 +2983,8 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         },
       },
       {
-        path: 'yellow/pipe_straight_B_yellow.gltf',
-        position: [-5.005764, 17.065386, -4.213576],
+        path: 'yellow/platform_hole_6x6x1_yellow.gltf',
+        position: [-5.005764, 21.063173, -4.213576],
         rotationQuaternion: [0, 1, 0, 0],
         scaling: [1, 1, 1],
         metadata: {
@@ -3031,9 +3019,9 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         },
       },
       {
-        path: 'yellow/platform_slope_6x2x2_yellow.gltf',
-        position: [-0.00002, 0, 2.1],
-        rotationQuaternion: [0, 1, 0, 0],
+        path: 'yellow/pipe_90_B_yellow.gltf',
+        position: [-5.06491, 5.032885, -4.237993],
+        rotationQuaternion: [0, 0.70710678, 1e-8, 0.70710679],
         scaling: [1, 1, 1],
         metadata: {
           name: '',
@@ -3045,6 +3033,18 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
       {
         path: 'yellow/platform_2x2x2_yellow.gltf',
         position: [-6, 0, 2],
+        rotationQuaternion: [0, 1, 0, 0],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.1,
+          friction: 0,
+        },
+      },
+      {
+        path: 'yellow/platform_slope_6x2x2_yellow.gltf',
+        position: [-0.00002, 0, 2.1],
         rotationQuaternion: [0, 1, 0, 0],
         scaling: [1, 1, 1],
         metadata: {
@@ -3115,9 +3115,9 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         },
       },
       {
-        path: 'neutral/structure_C.gltf',
-        position: [-7.03627, 11.998667, -4.15337],
-        rotationQuaternion: [0, 1, 0, 0],
+        path: 'yellow/pipe_90_B_yellow.gltf',
+        position: [-5.064908, 3.032889, -2.237993],
+        rotationQuaternion: [-0.70710678, 0, 0, 0.70710678],
         scaling: [1, 1, 1],
         metadata: {
           name: '',
@@ -3127,9 +3127,9 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
         },
       },
       {
-        path: 'yellow/pipe_90_B_yellow.gltf',
-        position: [-5.064908, 3.032889, -2.237993],
-        rotationQuaternion: [-0.70710678, 0, 0, 0.70710678],
+        path: 'neutral/structure_C.gltf',
+        position: [-7.03627, 11.998667, -4.15337],
+        rotationQuaternion: [0, 1, 0, 0],
         scaling: [1, 1, 1],
         metadata: {
           name: '',
@@ -3164,7 +3164,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
       },
       {
         path: 'neutral/structure_C.gltf',
-        position: [-7.036268, 15.898676, -4.15337],
+        position: [-7.03627, 2, -4.15337],
         rotationQuaternion: [0, 1, 0, 0],
         scaling: [1, 1, 1],
         metadata: {
@@ -3176,7 +3176,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
       },
       {
         path: 'neutral/structure_C.gltf',
-        position: [-7.03627, 2, -4.15337],
+        position: [-7.036268, 15.898676, -4.15337],
         rotationQuaternion: [0, 1, 0, 0],
         scaling: [1, 1, 1],
         metadata: {
@@ -3321,19 +3321,7 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
       {
         path: 'yellow/pipe_180_B_yellow.gltf',
         position: [-1.064917, 7.032888, -2.238004],
-        rotationQuaternion: [0, -0.70710678, -0.70710678, 0],
-        scaling: [1, 1, 1],
-        metadata: {
-          name: '',
-          mass: 0,
-          restitution: 0.1,
-          friction: 0,
-        },
-      },
-      {
-        path: 'yellow/platform_1x1x1_yellow.gltf',
-        position: [1.5, 0, -3.5],
-        rotationQuaternion: [0, 1, 0, 0],
+        rotationQuaternion: [0, 0.70710678, 0.70710678, 0],
         scaling: [1, 1, 1],
         metadata: {
           name: '',
@@ -3345,6 +3333,18 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
       {
         path: 'neutral/cone.gltf',
         position: [1.493697, 1, -3.512345],
+        rotationQuaternion: [0, 1, 0, 0],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.1,
+          friction: 0,
+        },
+      },
+      {
+        path: 'yellow/platform_1x1x1_yellow.gltf',
+        position: [1.5, 0, -3.5],
         rotationQuaternion: [0, 1, 0, 0],
         scaling: [1, 1, 1],
         metadata: {
