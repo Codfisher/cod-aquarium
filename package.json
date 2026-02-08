@@ -51,7 +51,7 @@
     "@whyframe/vue": "^0.1.9",
     "@xstate/vue": "^5.0.0",
     "@zumer/snapdom": "^1.9.14",
-    "animejs": "^4.0.2",
+    "animejs": "4.3.5",
     "autoprefixer": "10.4.21",
     "dayjs": "^1.11.13",
     "drizzle-kit": "^0.31.4",

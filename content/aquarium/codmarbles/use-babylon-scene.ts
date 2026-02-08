@@ -43,6 +43,7 @@ const defaultParam: Required<UseBabylonSceneParam> = {
     if (webGPUSupported) {
       const engine = new WebGPUEngine(canvas, {
         antialias: true,
+        stencil: true,
       })
       await engine.initAsync()
 
@@ -51,13 +52,20 @@ const defaultParam: Required<UseBabylonSceneParam> = {
 
     return new Engine(canvas, true, {
       alpha: true,
+      stencil: true,
     })
   },
   createScene({ engine }) {
     const scene = new Scene(engine)
 
-    scene.clearColor = new Color4(1, 1, 1, 1)
+    scene.clearColor = new Color4(0, 0, 0, 0)
     scene.createDefaultLight()
+
+    const defaultLight = scene.lights.at(-1)
+    if (defaultLight instanceof HemisphericLight) {
+      defaultLight.diffuse = new Color3(1, 0.85, 0.8)
+      defaultLight.groundColor = new Color3(0.5, 0.2, 0.6)
+    }
 
     return scene
   },
@@ -76,8 +84,9 @@ const defaultParam: Required<UseBabylonSceneParam> = {
     camera.panningSensibility = 0
 
     camera.wheelDeltaPercentage = 0.01
-    camera.lowerRadiusLimit = 20
-    camera.upperRadiusLimit = 100
+    camera.lowerRadiusLimit = 2
+    camera.upperRadiusLimit = 50
+    camera.panningSensibility = 0
 
     // 限制鏡頭角度
     camera.lowerBetaLimit = 0
@@ -125,6 +134,35 @@ export function useBabylonScene(param?: UseBabylonSceneParam) {
     engine.value.runRenderLoop(() => {
       scene.value?.render()
     })
+
+    const pipeline = new DefaultRenderingPipeline(
+      'toyPipeline', // 名稱
+      true, // 開啟 HDR
+      scene.value, // 場景
+      [camera.value], // 套用到所有攝影機
+    )
+
+    // 3. 色彩調整 (Image Processing)
+    pipeline.imageProcessingEnabled = true
+
+    // 曝光度：稍微過曝一點點，看起來比較乾淨明亮
+    // pipeline.imageProcessing.exposure = 1.1
+
+    // 對比度：稍微降低，避免黑影太深
+    // pipeline.imageProcessing.contrast = 1.2
+
+    // 4. 色彩曲線 (Color Curves) - 這是「溫和感」的關鍵
+    pipeline.imageProcessing.colorCurvesEnabled = true
+    const curve = new ColorCurves()
+
+    // 陰影飽和度：讓陰影不要髒髒的
+    curve.shadowsSaturation = -10
+    curve.shadowsHue = -50
+
+    pipeline.imageProcessing.colorCurves = curve
+
+    // 5. FXAA - 額外的邊緣平滑
+    // pipeline.fxaaEnabled = true
 
     await init({
       canvas: canvasRef.value,
