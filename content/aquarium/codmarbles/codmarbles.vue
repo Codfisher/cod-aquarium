@@ -5,6 +5,37 @@
       ref="canvasRef"
       class="canvas w-full h-full"
     />
+
+    <!-- 目前排名 -->
+    <div class="absolute bottom-4 left-4 p-4 pointer-events-none">
+      <h3 class="text-gray-600 font-bold mb-2 text-sm">
+        Race Ranking
+      </h3>
+      <transition-group
+        name="list"
+        tag="div"
+        class="flex flex-col gap-2"
+      >
+        <div
+          v-for="(marble, index) in rankingList"
+          :key="marble.mesh.name"
+          class="flex items-center gap-3 p-2 bg-white/80 backdrop-blur-sm rounded shadow-sm w-32 transition-all duration-500"
+        >
+          <div class="font-mono font-bold text-gray-500 w-4 text-center">
+            {{ index + 1 }}
+          </div>
+
+          <div
+            class="w-4 h-4 rounded-full border border-black/10 shadow-inner"
+            :style="{ backgroundColor: marble.hexColor }"
+          />
+
+          <div class="text-xs text-gray-700 font-medium">
+            #{{ marble.mesh.name.slice(-4) }}
+          </div>
+        </div>
+      </transition-group>
+    </div>
   </div>
 </template>
 
@@ -16,11 +47,13 @@ import HavokPhysics from '@babylonjs/havok'
 import { animate, cubicBezier } from 'animejs'
 import { random } from 'lodash-es'
 import { filter, firstBy, flat, flatMap, map, pipe, prop, reduce, shuffle, sortBy, tap, values } from 'remeda'
+import { shallowRef } from 'vue'
 import { createTrackSegment } from './track-segment'
 import { TrackSegmentType } from './track-segment/data'
 import { useBabylonScene } from './use-babylon-scene'
 
 const marbleCount = 10
+const rankingList = shallowRef<Marble[]>([])
 
 function createGround({ scene }: {
   scene: Scene;
@@ -44,6 +77,7 @@ const ghostRenderingGroupId = 1
 let ghostMaterial: StandardMaterial
 
 interface Marble {
+  hexColor: string;
   mesh: Mesh;
   lastCheckPointIndex: number;
   isRespawning: boolean;
@@ -65,14 +99,12 @@ function createMarble({
   }, scene)
   marble.position.copyFrom(startPosition)
 
+  const finalColor = color ?? Color3.FromHSV(random(0, 360), 0.8, 0.4)
+
   marble.material = pipe(
     new PBRMaterial('marbleMaterial', scene),
     tap((marbleMaterial) => {
-      marbleMaterial.albedoColor = color ?? Color3.FromHSV(
-        random(0, 360),
-        0.8,
-        0.4,
-      )
+      marbleMaterial.albedoColor = finalColor
 
       marbleMaterial.metallic = 0
       marbleMaterial.roughness = 0.5
@@ -144,6 +176,7 @@ function createMarble({
   )
 
   return {
+    hexColor: finalColor.toHexString(),
     mesh: marble,
     lastCheckPointIndex: 0,
     isRespawning: false,
@@ -352,6 +385,9 @@ const {
     // 追蹤目前的目標彈珠
     let currentTrackedMarble: Marble | undefined
 
+    let frameCounter = 0
+    const UPDATE_RATE = 15
+
     // 攝影機持續跟蹤「目前 Y 座標最小（最低）」的彈珠
     scene.onBeforeRenderObservable.add(() => {
       const lowestMarble = firstBy(
@@ -383,6 +419,23 @@ const {
         0.1,
         cameraTarget.position,
       )
+
+      // 更新排名 (UI 邏輯)
+      frameCounter++
+      if (frameCounter % UPDATE_RATE === 0) {
+        // 複製一份新的陣列進行排序，觸發 Vue 更新
+        const sortedList = [...marbleList].sort((a, b) => {
+          // 優先比較檢查點索引 (大的在前)
+          if (a.lastCheckPointIndex !== b.lastCheckPointIndex) {
+            return b.lastCheckPointIndex - a.lastCheckPointIndex
+          }
+          // 如果在同一個檢查點區間，Y 越小代表跑越下面 (越快)
+          return a.mesh.position.y - b.mesh.position.y
+        })
+
+        // 只有當順序真的改變時才賦值，雖然 Vue transition-group 會處理 key 變動，但減少賦值總是好的
+        rankingList.value = sortedList
+      }
     })
 
     if (lastTrackSegment) {
@@ -438,4 +491,21 @@ const {
 .canvas
   outline: none
   background: linear-gradient(180deg, #e3ffe7 0%, #d9e7ff 100%)
+
+/* Transition Group 動畫 */
+/* 元素移動時的動畫 */
+.list-move,
+.list-enter-active,
+.list-leave-active
+  transition: all 0.5s ease
+
+/* 元素進入前和離開後的狀態 */
+.list-enter-from,
+.list-leave-to
+  opacity: 0
+  transform: translateX(-30px)
+
+/* 確保移除的元素在動畫過程中脫離文檔流，讓其他元素可以平滑補位 */
+.list-leave-active
+  position: absolute
 </style>
