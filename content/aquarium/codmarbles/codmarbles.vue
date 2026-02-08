@@ -14,12 +14,12 @@
       <transition-group
         name="list"
         tag="div"
-        class="flex flex-col gap-2"
+        class="flex flex-col-reverse gap-2"
       >
         <div
           v-for="(marble, index) in rankingList"
           :key="marble.mesh.name"
-          class="flex items-center gap-3 p-2 bg-white/80 backdrop-blur-sm rounded shadow-sm w-32 transition-all duration-500"
+          class="flex items-center gap-3 p-2 bg-white/80 backdrop-blur-sm rounded shadow-sm w-32"
         >
           <div class="font-mono font-bold text-gray-500 w-4 text-center">
             {{ index + 1 }}
@@ -46,6 +46,7 @@ import { ActionManager, Animation, ArcRotateCamera, CircleEase, Color3, ColorCur
 import HavokPhysics from '@babylonjs/havok'
 import { animate, cubicBezier } from 'animejs'
 import { random } from 'lodash-es'
+import { nanoid } from 'nanoid'
 import { filter, firstBy, flat, flatMap, map, pipe, prop, reduce, shuffle, sortBy, tap, values } from 'remeda'
 import { shallowRef } from 'vue'
 import { createTrackSegment } from './track-segment'
@@ -93,7 +94,7 @@ function createMarble({
   startPosition?: Vector3;
   color?: Color3;
 }): Marble {
-  const marble = MeshBuilder.CreateSphere('marble', {
+  const marble = MeshBuilder.CreateSphere(nanoid(), {
     diameter: 0.5,
     segments: 16,
   }, scene)
@@ -492,20 +493,16 @@ const {
   outline: none
   background: linear-gradient(180deg, #e3ffe7 0%, #d9e7ff 100%)
 
-/* Transition Group 動畫 */
-/* 元素移動時的動畫 */
 .list-move,
 .list-enter-active,
 .list-leave-active
   transition: all 0.5s ease
 
-/* 元素進入前和離開後的狀態 */
+.list-leave-active
+  position: absolute
+
 .list-enter-from,
 .list-leave-to
   opacity: 0
   transform: translateX(-30px)
-
-/* 確保移除的元素在動畫過程中脫離文檔流，讓其他元素可以平滑補位 */
-.list-leave-active
-  position: absolute
 </style>
