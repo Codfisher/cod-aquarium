@@ -1,6 +1,6 @@
 import type { Scene, TransformNode } from '@babylonjs/core'
 import type { BabylonEngine } from '../../composables/use-babylon-scene'
-import { ArcRotateCamera, AxesViewer, Camera, Color3, Color4, Engine, GizmoManager, Material, MeshBuilder, Vector3, Viewport } from '@babylonjs/core'
+import { ArcRotateCamera, AxesViewer, Camera, Color3, Color4, DynamicTexture, Engine, GizmoManager, Material, Mesh, MeshBuilder, StandardMaterial, Vector3, Viewport } from '@babylonjs/core'
 import { GridMaterial } from '@babylonjs/materials'
 
 export function createGround({ scene }: { scene: Scene }) {
@@ -227,79 +227,121 @@ export function createScreenAxes(params: {
 }) {
   const { scene, mainCamera } = params
 
-  // 1. 定義一個特殊的 LayerMask ID (例如 0x20000000)
-  // 這是為了讓這組座標軸「只」被座標相機看到，而不被主相機看到
   const AXIS_LAYER_MASK = 0x20000000
 
-  // 2. 建立專用的座標相機
   const axisCamera = new ArcRotateCamera(
     'axisCamera',
     mainCamera.alpha,
     mainCamera.beta,
-    10, // 半徑固定，確保座標軸大小一致
+    10,
     Vector3.Zero(),
     scene,
   )
 
-  // 設定相機模式與遮罩
-  axisCamera.mode = Camera.ORTHOGRAPHIC_CAMERA // 使用正交投影，看起來比較像 UI
-  axisCamera.layerMask = AXIS_LAYER_MASK // 只看得到座標軸
+  axisCamera.mode = Camera.ORTHOGRAPHIC_CAMERA
+  axisCamera.layerMask = AXIS_LAYER_MASK
   axisCamera.orthoTop = 2
   axisCamera.orthoBottom = -2
   axisCamera.orthoLeft = -2
   axisCamera.orthoRight = 2
-
-  // 設定視口位置 (Viewport)
-  // 參數: x, y, width, height (0~1)
-  // 這裡設為右下角，寬高佔 15%
   axisCamera.viewport = new Viewport(0.85, 0, 0.15, 0.15)
 
-  // 3. 確保主相機「看不到」這個座標軸，否則會在場景中央出現一個巨大的座標軸
-  // 將主相機的遮罩設為：原本的遮罩 AND (反轉 AXIS_LAYER_MASK) -> 意即排除掉 Axis Layer
   mainCamera.layerMask &= ~AXIS_LAYER_MASK
 
-  // 4. 建立座標軸模型
-  const axesViewer = new AxesViewer(scene, 1) // 尺寸 1
+  const axesViewer = new AxesViewer(scene, 1)
 
-  // 將產生的三個軸 Mesh 設定為特殊的 LayerMask
   const updateLayerMask = (node: TransformNode) => {
     node.getChildMeshes().forEach((mesh) => {
       mesh.layerMask = AXIS_LAYER_MASK
     })
   }
-
   updateLayerMask(axesViewer.xAxis)
   updateLayerMask(axesViewer.yAxis)
   updateLayerMask(axesViewer.zAxis)
 
-  // 5. 同步旋轉邏輯
+  const createBillboardLabel = (opt: {
+    text: string;
+    position: Vector3;
+    emissive?: Color3;
+    size?: number;
+  }) => {
+    const size = opt.size ?? 0.55
+
+    const plane = MeshBuilder.CreatePlane(`axisLabel_${opt.text}`, { size }, scene)
+    plane.position = opt.position.clone()
+    plane.billboardMode = Mesh.BILLBOARDMODE_ALL
+    plane.isPickable = false
+    plane.layerMask = AXIS_LAYER_MASK
+    plane.renderingGroupId = 2 // 讓它晚一點畫，通常比較不會被軸蓋到
+
+    const dt = new DynamicTexture(
+      `axisLabelTex_${opt.text}`,
+      { width: 256, height: 256 },
+      scene,
+      true,
+    )
+    dt.hasAlpha = true
+    dt.drawText(opt.text, null, 180, 'bold 180px Arial', 'white', 'transparent', true)
+
+    const mat = new StandardMaterial(`axisLabelMat_${opt.text}`, scene)
+    mat.diffuseTexture = dt
+    mat.opacityTexture = dt
+    mat.emissiveColor = opt.emissive ?? Color3.White()
+    mat.disableLighting = true
+    mat.backFaceCulling = false // 旋轉時背面也看得到
+
+    plane.material = mat
+
+    return { plane, dt, mat }
+  }
+
+  // 放在箭頭前方一點點
+  const offset = 0.75
+  const labels = [
+    createBillboardLabel({
+      text: 'X',
+      position: new Vector3(1 + offset, 0, 0),
+      emissive: new Color3(1, 0.2, 0.2),
+    }),
+    createBillboardLabel({
+      text: 'Y',
+      position: new Vector3(0, 1 + offset, 0),
+      emissive: new Color3(0.2, 1, 0.2),
+    }),
+    createBillboardLabel({
+      text: 'Z',
+      position: new Vector3(0, 0, 1 + offset),
+      emissive: new Color3(0.2, 0.6, 1),
+    }),
+  ]
+
   const observer = scene.onBeforeRenderObservable.add(() => {
-    // 只需要同步 Alpha 和 Beta (旋轉角度)
     axisCamera.alpha = mainCamera.alpha
     axisCamera.beta = mainCamera.beta
-
-    // 如果您的主相機是用 Quaternion 控制的，則需要同步 rotationQuaternion
-    // 但通常 ArcRotateCamera 主要是 alpha/beta
   })
 
-  // 6. 註冊相機 (重要！)
-  // 必須確保 activeCameras 包含主相機與座標相機
-  if (scene.activeCameras?.length === 0) {
+  // activeCameras 安全一點的寫法（避免 undefined）
+  if (!scene.activeCameras)
+    scene.activeCameras = []
+  if (scene.activeCameras.length === 0)
     scene.activeCameras.push(mainCamera)
-  }
-  scene.activeCameras?.push(axisCamera)
+  scene.activeCameras.push(axisCamera)
 
-  // 回傳清理函式
   return () => {
     scene.onBeforeRenderObservable.remove(observer)
     axisCamera.dispose()
     axesViewer.dispose()
-    // 移除 activeCamera
+
+    labels.forEach(({ plane, dt, mat }) => {
+      plane.dispose()
+      dt.dispose()
+      mat.dispose()
+    })
+
     const index = scene.activeCameras?.indexOf(axisCamera)
     if (typeof index === 'number' && index !== -1) {
       scene.activeCameras?.splice(index, 1)
     }
-    // 還原主相機遮罩 (非必要，但良好習慣)
     mainCamera.layerMask |= AXIS_LAYER_MASK
   }
 }

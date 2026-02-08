@@ -18,11 +18,14 @@
         </template>
 
         <template #quick-start>
-          <p
-            v-for="(text, index) in t('start')"
-            :key="index"
-            v-html="text"
-          />
+          <ol class="list-decimal px-4">
+            <li
+              v-for="(text, index) in t('start')"
+              :key="index"
+            >
+              {{ text }}
+            </li>
+          </ol>
         </template>
       </u-tabs>
     </template>
