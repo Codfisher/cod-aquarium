@@ -11,11 +11,11 @@
 <script setup lang="ts">
 import type { Mesh, Scene } from '@babylonjs/core'
 import type { TrackSegment } from './track-segment'
-import { ActionManager, Animation, ArcRotateCamera, CircleEase, Color3, ColorCurves, DefaultRenderingPipeline, DirectionalLight, Engine, ExecuteCodeAction, FollowCamera, HavokPlugin, ImageProcessingConfiguration, MeshBuilder, PBRMaterial, PhysicsAggregate, PhysicsMotionType, PhysicsPrestepType, PhysicsShapeType, Quaternion, Ray, ShadowGenerator, StandardMaterial, Vector3 } from '@babylonjs/core'
+import { ActionManager, Animation, ArcRotateCamera, CircleEase, Color3, ColorCurves, DefaultRenderingPipeline, DirectionalLight, Engine, ExecuteCodeAction, FollowCamera, HavokPlugin, ImageProcessingConfiguration, MeshBuilder, PBRMaterial, PhysicsAggregate, PhysicsMotionType, PhysicsPrestepType, PhysicsShapeType, Quaternion, Ray, ShadowGenerator, StandardMaterial, TransformNode, Vector3 } from '@babylonjs/core'
 import HavokPhysics from '@babylonjs/havok'
 import { animate, cubicBezier } from 'animejs'
 import { random } from 'lodash-es'
-import { filter, flat, flatMap, map, pipe, prop, reduce, shuffle, sortBy, tap, values } from 'remeda'
+import { filter, firstBy, flat, flatMap, map, pipe, prop, reduce, shuffle, sortBy, tap, values } from 'remeda'
 import { createTrackSegment } from './track-segment'
 import { TrackSegmentType } from './track-segment/data'
 import { useBabylonScene } from './use-babylon-scene'
@@ -321,6 +321,9 @@ const {
       throw new Error('firstTrackSegment is undefined')
     }
 
+    const cameraTarget = new TransformNode('cameraTarget', scene)
+    camera.lockedTarget = cameraTarget
+
     const marbleList: Marble[] = []
     for (let i = 0; i < marbleCount; i++) {
       const startPosition = firstTrackSegment.startPosition.clone()
@@ -342,9 +345,45 @@ const {
       shadowGenerator.addShadowCaster(marble.mesh)
 
       if (i === 0) {
-        camera.lockedTarget = marble.mesh
+        cameraTarget.position.copyFrom(marble.mesh.position)
       }
     }
+
+    // 追蹤目前的目標彈珠
+    let currentTrackedMarble: Marble | undefined
+
+    // 攝影機持續跟蹤「目前 Y 座標最小（最低）」的彈珠
+    scene.onBeforeRenderObservable.add(() => {
+      const lowestMarble = firstBy(
+        marbleList,
+        (marble) => marble.mesh.position.y,
+      )
+
+      if (!lowestMarble)
+        return
+
+      // 是否切換目標
+      if (!currentTrackedMarble) {
+        currentTrackedMarble = lowestMarble
+      }
+      else {
+        // 如果當前追蹤的彈珠正在重生，立刻切換到最低者 (避免鏡頭被拉回起點)
+        if (currentTrackedMarble.isRespawning) {
+          currentTrackedMarble = lowestMarble
+        }
+        // 只有當「絕對最低者」比「當前目標」低超過 1 個單位時，才切換，這樣可以避免兩者高度相近時瘋狂切換造成的抖動
+        else if (lowestMarble.mesh.position.y < currentTrackedMarble.mesh.position.y - 1.0) {
+          currentTrackedMarble = lowestMarble
+        }
+      }
+
+      Vector3.LerpToRef(
+        cameraTarget.position,
+        currentTrackedMarble.mesh.position,
+        0.1,
+        cameraTarget.position,
+      )
+    })
 
     if (lastTrackSegment) {
       connectTracks(lastTrackSegment, endTrackSegment)
