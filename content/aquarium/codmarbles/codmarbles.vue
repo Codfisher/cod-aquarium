@@ -11,15 +11,15 @@
 <script setup lang="ts">
 import type { Mesh, Scene } from '@babylonjs/core'
 import type { TrackSegment } from './track-segment'
-import { ArcRotateCamera, Color3, DirectionalLight, Engine, FollowCamera, HavokPlugin, MeshBuilder, PhysicsAggregate, PhysicsShapeType, Quaternion, Ray, ShadowGenerator, StandardMaterial, Vector3 } from '@babylonjs/core'
+import { ActionManager, Animation, ArcRotateCamera, CircleEase, Color3, DirectionalLight, Engine, ExecuteCodeAction, FollowCamera, HavokPlugin, MeshBuilder, PhysicsAggregate, PhysicsMotionType, PhysicsPrestepType, PhysicsShapeType, Quaternion, Ray, ShadowGenerator, StandardMaterial, Vector3 } from '@babylonjs/core'
 import HavokPhysics from '@babylonjs/havok'
 import { random } from 'lodash-es'
-import { filter, flat, flatMap, map, pipe, reduce, shuffle, tap, values } from 'remeda'
+import { filter, flat, flatMap, map, pipe, prop, reduce, shuffle, sortBy, tap, values } from 'remeda'
 import { createTrackSegment } from './track-segment'
 import { TrackSegmentType } from './track-segment/data'
 import { useBabylonScene } from './use-babylon-scene'
 
-const marbleCount = 20
+const marbleCount = 100
 
 function createGround({ scene }: {
   scene: Scene;
@@ -41,6 +41,11 @@ function createGround({ scene }: {
 
 const ghostRenderingGroupId = 1
 let ghostMaterial: StandardMaterial
+
+interface Marble {
+  mesh: Mesh;
+  lastCheckPointIndex: number;
+}
 function createMarble({
   scene,
   shadowGenerator,
@@ -51,7 +56,7 @@ function createMarble({
   shadowGenerator: ShadowGenerator;
   startPosition?: Vector3;
   color?: Color3;
-}) {
+}): Marble {
   const marble = MeshBuilder.CreateSphere('marble', {
     diameter: 0.5,
     segments: 8,
@@ -126,7 +131,10 @@ function createMarble({
     scene,
   )
 
-  return marble
+  return {
+    mesh: marble,
+    lastCheckPointIndex: 0,
+  }
 }
 
 function createShadowGenerator(scene: Scene) {
@@ -148,6 +156,94 @@ function connectTracks(prevTrack: TrackSegment, nextTrack: TrackSegment) {
     .copyFrom(prevTrack.rootNode.position)
     .addInPlace(prevTrack.endPosition)
     .subtractInPlace(nextTrack.startPosition)
+
+  prevTrack.rootNode.getChildMeshes().forEach((mesh) => {
+    mesh.freezeWorldMatrix()
+  })
+}
+
+/** 取得每一個 in Mesh 的位置（世界座標） */
+function getCheckPointPositionList(trackSegmentList: TrackSegment[]) {
+  const list: Vector3[] = []
+  trackSegmentList.forEach((trackSegment) => {
+    const inMesh = trackSegment.rootNode.getChildMeshes().find((mesh) => mesh.name === 'in')
+    if (inMesh) {
+      inMesh.computeWorldMatrix(true)
+      list.push(inMesh.getAbsolutePosition())
+    }
+  })
+
+  return list.sort((a, b) => a.y - b.y).reverse()
+}
+
+function createCheckPointColliders(
+  {
+    scene,
+    pointPositionList,
+    marble,
+  }: {
+    scene: Scene;
+    pointPositionList: Vector3[];
+    marble: Marble;
+  },
+) {
+  pointPositionList.forEach((position, index) => {
+    const collider = MeshBuilder.CreateBox(`check-point-collider-${index}`, {
+      width: 1,
+      height: 5,
+      depth: 1,
+    }, scene)
+
+    collider.position = position
+    collider.isVisible = false
+
+    collider.actionManager = new ActionManager(scene)
+
+    collider.actionManager.registerAction(
+      new ExecuteCodeAction(
+        {
+          trigger: ActionManager.OnIntersectionEnterTrigger,
+          parameter: marble.mesh,
+        },
+        () => {
+          marble.lastCheckPointIndex = index
+          console.log('🚀 ~ createCheckPointColliders ~ index:', index)
+        },
+      ),
+    )
+  })
+}
+
+function respawnWithAnimation(
+  marble: Marble,
+  targetPosition: Vector3,
+) {
+  const body = marble.mesh.physicsBody
+  if (!body)
+    return
+  body.disablePreStep = false
+  body.setLinearVelocity(Vector3.Zero())
+  body.setAngularVelocity(Vector3.Zero())
+
+  Animation.CreateAndStartAnimation(
+    'respawnAnim',
+    marble.mesh,
+    'position',
+    60, // FPS
+    60, // 動畫總長 (1秒)
+    marble.mesh.position, // 起點 (當前位置)
+    targetPosition, // 終點 (檢查點)
+    Animation.ANIMATIONLOOPMODE_CONSTANT,
+    new CircleEase(), // 使用緩動函數讓飛行更自然 (可選)
+    () => {
+      console.log('抵達檢查點，恢復物理控制')
+
+      marble.mesh.position.copyFrom(targetPosition)
+      marble.mesh.computeWorldMatrix(true) // 強制更新
+
+      body.disablePreStep = true
+    },
+  )
 }
 
 const {
@@ -208,29 +304,32 @@ const {
 
     const firstTrackSegment = trackSegmentList[0]
     const lastTrackSegment = trackSegmentList[trackSegmentList.length - 1]
+    if (!firstTrackSegment) {
+      throw new Error('firstTrackSegment is undefined')
+    }
 
-    if (firstTrackSegment) {
-      for (let i = 0; i < marbleCount; i++) {
-        const startPosition = firstTrackSegment.startPosition.clone()
-        startPosition.y += (0.5 * i)
+    const marbleList: Marble[] = []
+    for (let i = 0; i < marbleCount; i++) {
+      const startPosition = firstTrackSegment.startPosition.clone()
+      startPosition.y += (0.5 * i)
 
-        const color = Color3.FromHSV(
-          340 * (i / marbleCount),
-          0.9,
-          0.7,
-        )
+      const color = Color3.FromHSV(
+        340 * (i / marbleCount),
+        0.9,
+        0.7,
+      )
 
-        const marble = createMarble({
-          scene,
-          shadowGenerator,
-          startPosition,
-          color,
-        })
-        shadowGenerator.addShadowCaster(marble)
+      const marble = createMarble({
+        scene,
+        shadowGenerator,
+        startPosition,
+        color,
+      })
+      marbleList.push(marble)
+      shadowGenerator.addShadowCaster(marble.mesh)
 
-        if (i === 0) {
-          camera.lockedTarget = marble
-        }
+      if (i === 0) {
+        camera.lockedTarget = marble.mesh
       }
     }
 
@@ -238,6 +337,52 @@ const {
       connectTracks(lastTrackSegment, endTrackSegment)
       endTrackSegment.initPhysics()
     }
+
+    // 設定檢查點
+    const checkPointPositionList = getCheckPointPositionList([
+      ...trackSegmentList,
+      endTrackSegment,
+    ])
+
+    marbleList.forEach((marble) => {
+      createCheckPointColliders({
+        scene,
+        pointPositionList: checkPointPositionList,
+        marble,
+      })
+    })
+
+    // 若彈珠直接跳過下一個檢查點之 Y 座標 -5 處，則將彈珠的 Y 座標拉回檢查點
+    scene.onBeforeRenderObservable.add(() => {
+      marbleList.forEach((marble) => {
+        const lastCheckPointPosition = checkPointPositionList[marble.lastCheckPointIndex]
+        const nextCheckPointPosition = checkPointPositionList[marble.lastCheckPointIndex + 1]
+        if (!nextCheckPointPosition || !lastCheckPointPosition) {
+          return
+        }
+
+        const physicsBody = marble.mesh.physicsBody
+        if (!physicsBody) {
+          return
+        }
+
+        if (marble.mesh.position.y < nextCheckPointPosition.y - 5) {
+          marble.mesh.position.copyFrom(lastCheckPointPosition)
+          marble.mesh.computeWorldMatrix(true)
+
+          physicsBody.disablePreStep = false
+          physicsBody.setPrestepType(PhysicsPrestepType.TELEPORT)
+          physicsBody.setLinearVelocity(Vector3.Zero())
+          physicsBody.setAngularVelocity(Vector3.Zero())
+
+          scene.onAfterPhysicsObservable.addOnce(() => {
+            physicsBody.disablePreStep = true
+          })
+
+          respawnWithAnimation(marble, nextCheckPointPosition)
+        }
+      })
+    })
   },
 })
 </script>

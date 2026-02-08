@@ -33,13 +33,14 @@ export async function createTrackSegment({
 
   const loadPartTasks = data.partList.map(async (partData) => {
     const position = Vector3.FromArray(partData.position)
+    let isHiddenMesh = false
     if (partData.metadata.name === 'in') {
       startPosition.copyFrom(position)
-      // return
+      isHiddenMesh = true
     }
     if (partData.metadata.name === 'out') {
       endPosition.copyFrom(position)
-      // return
+      isHiddenMesh = true
     }
 
     const part = await ImportMeshAsync(
@@ -55,6 +56,9 @@ export async function createTrackSegment({
     root.name = partData.metadata.name
     root.getChildMeshes().forEach((mesh) => {
       mesh.receiveShadows = true
+      if (isHiddenMesh) {
+        mesh.isVisible = false
+      }
     })
 
     const partContainer = new TransformNode('partContainer', scene)
@@ -81,6 +85,10 @@ export async function createTrackSegment({
 
   const initPhysics = () => {
     physicsPendingList.forEach(({ mesh, metadata }) => {
+      if (!mesh.isVisible) {
+        return
+      }
+
       const aggregate = new PhysicsAggregate(
         mesh,
         PhysicsShapeType.MESH,
