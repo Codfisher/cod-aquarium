@@ -20,7 +20,7 @@ import { createTrackSegment } from './track-segment'
 import { TrackSegmentType } from './track-segment/data'
 import { useBabylonScene } from './use-babylon-scene'
 
-const marbleCount = 100
+const marbleCount = 10
 
 function createGround({ scene }: {
   scene: Scene;
@@ -141,11 +141,14 @@ function createMarble({
 }
 
 function createShadowGenerator(scene: Scene) {
-  const light = new DirectionalLight('dir01', new Vector3(-5, -5, 0), scene)
-  light.intensity = 0.7
+  const light = new DirectionalLight('dir01', new Vector3(-1, -5, -1), scene)
 
-  const shadowGenerator = new ShadowGenerator(1024, light)
-  shadowGenerator.usePoissonSampling = true
+  light.position = new Vector3(0, 100, 0)
+  light.intensity = 0.8
+
+  const shadowGenerator = new ShadowGenerator(2048, light)
+  shadowGenerator.usePercentageCloserFiltering = true
+  shadowGenerator.forceBackFacesOnly = true
 
   return shadowGenerator
 }
@@ -159,10 +162,6 @@ function connectTracks(prevTrack: TrackSegment, nextTrack: TrackSegment) {
     .copyFrom(prevTrack.rootNode.position)
     .addInPlace(prevTrack.endPosition)
     .subtractInPlace(nextTrack.startPosition)
-
-  prevTrack.rootNode.getChildMeshes().forEach((mesh) => {
-    mesh.freezeWorldMatrix()
-  })
 }
 
 /** 取得每一個 in Mesh 的位置（世界座標） */
@@ -237,7 +236,7 @@ function respawnWithAnimation(
   animate(marble.mesh.position, {
     y: targetPosition.y,
     duration,
-    ease: cubicBezier(0.348,0.011,0,1.238),
+    ease: cubicBezier(0.348, 0.011, 0, 1.238),
   })
 
   animate(marble.mesh.position, {
@@ -345,6 +344,13 @@ const {
       connectTracks(lastTrackSegment, endTrackSegment)
       endTrackSegment.initPhysics()
     }
+
+    const allTrackSegmentList = [...trackSegmentList, endTrackSegment]
+    allTrackSegmentList.forEach((trackSegment) => {
+      trackSegment.rootNode.getChildMeshes().forEach((mesh) => {
+        shadowGenerator.addShadowCaster(mesh)
+      })
+    })
 
     // 設定檢查點
     const checkPointPositionList = getCheckPointPositionList([

@@ -2715,659 +2715,659 @@ export const trackSegmentData: Record<TrackSegmentType, TrackSegmentSceneData> =
     ],
   },
   [TrackSegmentType.y01]: {
-  "version": 1,
-  "rootFolderName": "kay-platformer-pack",
-  "partList": [
-    {
-      "path": "yellow/pipe_90_B_yellow.gltf",
-      "position": [-1.064909, 13.032892, -4.237993],
-      "rotationQuaternion": [1e-8, 0, -1, 1e-8],
-      "scaling": [1, 1, 1],
-      "metadata": {
-        "name": "",
-        "mass": 0,
-        "restitution": 0.5,
-        "friction": 0
-      }
-    },
-    {
-      "path": "neutral/structure_A.gltf",
-      "position": [0, 0, 0.000002],
-      "rotationQuaternion": [0, 1, 0, 0],
-      "scaling": [1, 1, 1],
-      "metadata": {
-        "name": "out",
-        "mass": 0,
-        "restitution": 0.1,
-        "friction": 0
-      }
-    },
-    {
-      "path": "neutral/structure_C.gltf",
-      "position": [-4.065791, 11.791178, -1.299793],
-      "rotationQuaternion": [0, 1, 0, 0],
-      "scaling": [1, 1, 1],
-      "metadata": {
-        "name": "",
-        "mass": 0,
-        "restitution": 0.5,
-        "friction": 0
-      }
-    },
-    {
-      "path": "neutral/structure_C.gltf",
-      "position": [-4.065791, 17.775326, -1.299793],
-      "rotationQuaternion": [0, 1, 0, 0],
-      "scaling": [1, 1, 1],
-      "metadata": {
-        "name": "",
-        "mass": 0,
-        "restitution": 0.5,
-        "friction": 0
-      }
-    },
-    {
-      "path": "yellow/pipe_90_B_yellow.gltf",
-      "position": [-3.064909, 3.032889, -0.237993],
-      "rotationQuaternion": [-0.70710678, 0.70710679, 0, 0],
-      "scaling": [1, 1, 1],
-      "metadata": {
-        "name": "",
-        "mass": 0,
-        "restitution": 0.5,
-        "friction": 0
-      }
-    },
-    {
-      "path": "neutral/structure_C.gltf",
-      "position": [-7.03627, 9.998671, -4.15337],
-      "rotationQuaternion": [0, 1, 0, 0],
-      "scaling": [1, 1, 1],
-      "metadata": {
-        "name": "",
-        "mass": 0,
-        "restitution": 0.5,
-        "friction": 0
-      }
-    },
-    {
-      "path": "yellow/platform_slope_6x2x2_yellow.gltf",
-      "position": [-0.000001, 0, -2.100012],
-      "rotationQuaternion": [0, 0, 0, 1],
-      "scaling": [1, 1, 1],
-      "metadata": {
-        "name": "",
-        "mass": 0,
-        "restitution": 0.5,
-        "friction": 0
-      }
-    },
-    {
-      "path": "yellow/pipe_90_B_yellow.gltf",
-      "position": [-3.031112, 15.065389, -4.237999],
-      "rotationQuaternion": [-0.5, 0.50000001, 0.5, 0.5],
-      "scaling": [1, 1, 1],
-      "metadata": {
-        "name": "",
-        "mass": 0,
-        "restitution": 0.5,
-        "friction": 0
-      }
-    },
-    {
-      "path": "yellow/pipe_end_yellow.gltf",
-      "position": [-5.005764, 21.063457, -4.213576],
-      "rotationQuaternion": [0, 1, 0, 0],
-      "scaling": [1, 1, 1],
-      "metadata": {
-        "name": "",
-        "mass": 0,
-        "restitution": 0.5,
-        "friction": 0
-      }
-    },
-    {
-      "path": "neutral/structure_A.gltf",
-      "position": [-5.005764, 21.963457, -4.213576],
-      "rotationQuaternion": [0, 1, 0, 0],
-      "scaling": [1, 1, 1],
-      "metadata": {
-        "name": "in",
-        "mass": 0,
-        "restitution": 0.5,
-        "friction": 0
-      }
-    },
-    {
-      "path": "yellow/pipe_end_yellow.gltf",
-      "position": [-3.064912, 3.032889, -0.237993],
-      "rotationQuaternion": [0.70710678, 0.70710679, 0, 0],
-      "scaling": [1, 1, 1],
-      "metadata": {
-        "name": "",
-        "mass": 0,
-        "restitution": 0.5,
-        "friction": 0
-      }
-    },
-    {
-      "path": "neutral/structure_C.gltf",
-      "position": [-4.065791, 13.790906, -1.299793],
-      "rotationQuaternion": [0, 1, 0, 0],
-      "scaling": [1, 1, 1],
-      "metadata": {
-        "name": "",
-        "mass": 0,
-        "restitution": 0.5,
-        "friction": 0
-      }
-    },
-    {
-      "path": "neutral/structure_C.gltf",
-      "position": [-6, 2, 2],
-      "rotationQuaternion": [0, 1, 0, 0],
-      "scaling": [1, 1, 1],
-      "metadata": {
-        "name": "",
-        "mass": 0,
-        "restitution": 0.5,
-        "friction": 0
-      }
-    },
-    {
-      "path": "yellow/pipe_90_B_yellow.gltf",
-      "position": [-3.06491, 7.032883, -4.237993],
-      "rotationQuaternion": [0, 0, -0.70710678, 0.70710679],
-      "scaling": [1, 1, 1],
-      "metadata": {
-        "name": "",
-        "mass": 0,
-        "restitution": 0.5,
-        "friction": 0
-      }
-    },
-    {
-      "path": "neutral/structure_C.gltf",
-      "position": [-4.065791, 9.799002, -1.299793],
-      "rotationQuaternion": [0, 1, 0, 0],
-      "scaling": [1, 1, 1],
-      "metadata": {
-        "name": "",
-        "mass": 0,
-        "restitution": 0.5,
-        "friction": 0
-      }
-    },
-    {
-      "path": "neutral/structure_C.gltf",
-      "position": [-4.065791, 15.790865, -1.299793],
-      "rotationQuaternion": [0, 1, 0, 0],
-      "scaling": [1, 1, 1],
-      "metadata": {
-        "name": "",
-        "mass": 0,
-        "restitution": 0.5,
-        "friction": 0
-      }
-    },
-    {
-      "path": "yellow/pipe_90_B_yellow.gltf",
-      "position": [-3.064909, 15.032892, -4.237993],
-      "rotationQuaternion": [0.50000001, 0.5, -0.49999999, 0.50000001],
-      "scaling": [1, 1, 1],
-      "metadata": {
-        "name": "",
-        "mass": 0,
-        "restitution": 0.5,
-        "friction": 0
-      }
-    },
-    {
-      "path": "yellow/platform_decorative_1x1x1_yellow.gltf",
-      "position": [-4.071231, 21.797012, -0.299793],
-      "rotationQuaternion": [0, 1, 0, 0],
-      "scaling": [1, 1, 1],
-      "metadata": {
-        "name": "",
-        "mass": 0,
-        "restitution": 0.5,
-        "friction": 0
-      }
-    },
-    {
-      "path": "neutral/structure_C.gltf",
-      "position": [-4.065791, 6.999969, -1.299793],
-      "rotationQuaternion": [0, 1, 0, 0],
-      "scaling": [1, 1, 1],
-      "metadata": {
-        "name": "",
-        "mass": 0,
-        "restitution": 0.5,
-        "friction": 0
-      }
-    },
-    {
-      "path": "yellow/pipe_90_B_yellow.gltf",
-      "position": [-5.06491, 5.032885, -4.237993],
-      "rotationQuaternion": [0, 0.70710678, 1e-8, 0.70710679],
-      "scaling": [1, 1, 1],
-      "metadata": {
-        "name": "",
-        "mass": 0,
-        "restitution": 0.5,
-        "friction": 0
-      }
-    },
-    {
-      "path": "yellow/platform_hole_6x6x1_yellow.gltf",
-      "position": [-5.005764, 21.063173, -4.213576],
-      "rotationQuaternion": [0, 1, 0, 0],
-      "scaling": [1, 1, 1],
-      "metadata": {
-        "name": "",
-        "mass": 0,
-        "restitution": 0.5,
-        "friction": 0
-      }
-    },
-    {
-      "path": "yellow/platform_4x4x1_yellow.gltf",
-      "position": [-7.000002, 0, -1.000002],
-      "rotationQuaternion": [0, 1, 0, 0],
-      "scaling": [1, 1, 1],
-      "metadata": {
-        "name": "",
-        "mass": 0,
-        "restitution": 0.5,
-        "friction": 0
-      }
-    },
-    {
-      "path": "yellow/pipe_straight_B_yellow.gltf",
-      "position": [-5.005764, 17.065386, -4.213576],
-      "rotationQuaternion": [0, 1, 0, 0],
-      "scaling": [1, 1, 1],
-      "metadata": {
-        "name": "",
-        "mass": 0,
-        "restitution": 0.5,
-        "friction": 0
-      }
-    },
-    {
-      "path": "yellow/pipe_straight_B_yellow.gltf",
-      "position": [-5.005764, 19.065384, -4.213576],
-      "rotationQuaternion": [0, 1, 0, 0],
-      "scaling": [1, 1, 1],
-      "metadata": {
-        "name": "",
-        "mass": 0,
-        "restitution": 0.5,
-        "friction": 0
-      }
-    },
-    {
-      "path": "neutral/structure_C.gltf",
-      "position": [-4.065791, 19.706787, -1.299793],
-      "rotationQuaternion": [0, 1, 0, 0],
-      "scaling": [1, 1, 1],
-      "metadata": {
-        "name": "",
-        "mass": 0,
-        "restitution": 0.5,
-        "friction": 0
-      }
-    },
-    {
-      "path": "yellow/platform_slope_6x2x2_yellow.gltf",
-      "position": [-0.00002, 0, 2.1],
-      "rotationQuaternion": [0, 1, 0, 0],
-      "scaling": [1, 1, 1],
-      "metadata": {
-        "name": "",
-        "mass": 0,
-        "restitution": 0.5,
-        "friction": 0
-      }
-    },
-    {
-      "path": "yellow/platform_2x2x2_yellow.gltf",
-      "position": [-6, 0, 2],
-      "rotationQuaternion": [0, 1, 0, 0],
-      "scaling": [1, 1, 1],
-      "metadata": {
-        "name": "",
-        "mass": 0,
-        "restitution": 0.5,
-        "friction": 0
-      }
-    },
-    {
-      "path": "yellow/platform_4x4x1_yellow.gltf",
-      "position": [-1, 0, -5.1],
-      "rotationQuaternion": [0, 1, 0, 0],
-      "scaling": [1, 1, 1],
-      "metadata": {
-        "name": "",
-        "mass": 0,
-        "restitution": 0.5,
-        "friction": 0
-      }
-    },
-    {
-      "path": "yellow/platform_2x2x2_yellow.gltf",
-      "position": [-4.065791, 21.340843, -1.299793],
-      "rotationQuaternion": [0, 1, 0, 0],
-      "scaling": [1, 1, 1],
-      "metadata": {
-        "name": "",
-        "mass": 0,
-        "restitution": 0.5,
-        "friction": 0
-      }
-    },
-    {
-      "path": "yellow/platform_slope_6x2x2_yellow.gltf",
-      "position": [2.1, 0, 0.000002],
-      "rotationQuaternion": [0, -0.70710678, 0, 0.70710678],
-      "scaling": [1, 1, 1],
-      "metadata": {
-        "name": "",
-        "mass": 0,
-        "restitution": 0.5,
-        "friction": 0
-      }
-    },
-    {
-      "path": "neutral/structure_C.gltf",
-      "position": [-7.036268, 13.899951, -4.15337],
-      "rotationQuaternion": [0, 1, 0, 0],
-      "scaling": [1, 1, 1],
-      "metadata": {
-        "name": "",
-        "mass": 0,
-        "restitution": 0.5,
-        "friction": 0
-      }
-    },
-    {
-      "path": "yellow/platform_2x2x2_yellow.gltf",
-      "position": [-6.810886, 6.999969, -1.419907],
-      "rotationQuaternion": [0, 1, 0, 0],
-      "scaling": [1, 1, 1],
-      "metadata": {
-        "name": "",
-        "mass": 0,
-        "restitution": 0.5,
-        "friction": 0
-      }
-    },
-    {
-      "path": "neutral/structure_C.gltf",
-      "position": [-7.03627, 11.998667, -4.15337],
-      "rotationQuaternion": [0, 1, 0, 0],
-      "scaling": [1, 1, 1],
-      "metadata": {
-        "name": "",
-        "mass": 0,
-        "restitution": 0.5,
-        "friction": 0
-      }
-    },
-    {
-      "path": "yellow/pipe_90_B_yellow.gltf",
-      "position": [-5.064908, 3.032889, -2.237993],
-      "rotationQuaternion": [-0.70710678, 0, 0, 0.70710678],
-      "scaling": [1, 1, 1],
-      "metadata": {
-        "name": "",
-        "mass": 0,
-        "restitution": 0.5,
-        "friction": 0
-      }
-    },
-    {
-      "path": "neutral/structure_C.gltf",
-      "position": [-6, 3.999973, 2],
-      "rotationQuaternion": [0, 1, 0, 0],
-      "scaling": [1, 1, 1],
-      "metadata": {
-        "name": "",
-        "mass": 0,
-        "restitution": 0.5,
-        "friction": 0
-      }
-    },
-    {
-      "path": "yellow/platform_slope_6x2x2_yellow.gltf",
-      "position": [-2.1, 0, 0],
-      "rotationQuaternion": [0, 0.70710678, 0, 0.70710678],
-      "scaling": [1, 1, 1],
-      "metadata": {
-        "name": "",
-        "mass": 0,
-        "restitution": 0.5,
-        "friction": 0
-      }
-    },
-    {
-      "path": "neutral/structure_C.gltf",
-      "position": [-7.036268, 15.898676, -4.15337],
-      "rotationQuaternion": [0, 1, 0, 0],
-      "scaling": [1, 1, 1],
-      "metadata": {
-        "name": "",
-        "mass": 0,
-        "restitution": 0.5,
-        "friction": 0
-      }
-    },
-    {
-      "path": "neutral/structure_C.gltf",
-      "position": [-7.03627, 2, -4.15337],
-      "rotationQuaternion": [0, 1, 0, 0],
-      "scaling": [1, 1, 1],
-      "metadata": {
-        "name": "",
-        "mass": 0,
-        "restitution": 0.5,
-        "friction": 0
-      }
-    },
-    {
-      "path": "neutral/structure_C.gltf",
-      "position": [-7.03627, 7.999946, -4.15337],
-      "rotationQuaternion": [0, 1, 0, 0],
-      "scaling": [1, 1, 1],
-      "metadata": {
-        "name": "",
-        "mass": 0,
-        "restitution": 0.5,
-        "friction": 0
-      }
-    },
-    {
-      "path": "yellow/platform_6x6x2_yellow.gltf",
-      "position": [-5.999999, 0, -5.999956],
-      "rotationQuaternion": [0, 1, 0, 0],
-      "scaling": [1, 1, 1],
-      "metadata": {
-        "name": "",
-        "mass": 0,
-        "restitution": 0.5,
-        "friction": 0
-      }
-    },
-    {
-      "path": "neutral/structure_C.gltf",
-      "position": [-7.036268, 17.898672, -4.15337],
-      "rotationQuaternion": [0, 1, 0, 0],
-      "scaling": [1, 1, 1],
-      "metadata": {
-        "name": "",
-        "mass": 0,
-        "restitution": 0.5,
-        "friction": 0
-      }
-    },
-    {
-      "path": "neutral/structure_C.gltf",
-      "position": [-7.03627, 4, -4.15337],
-      "rotationQuaternion": [0, 1, 0, 0],
-      "scaling": [1, 1, 1],
-      "metadata": {
-        "name": "",
-        "mass": 0,
-        "restitution": 0.5,
-        "friction": 0
-      }
-    },
-    {
-      "path": "neutral/structure_C.gltf",
-      "position": [-4.065791, 7.79904, -1.299793],
-      "rotationQuaternion": [0, 1, 0, 0],
-      "scaling": [1, 1, 1],
-      "metadata": {
-        "name": "",
-        "mass": 0,
-        "restitution": 0.5,
-        "friction": 0
-      }
-    },
-    {
-      "path": "neutral/structure_C.gltf",
-      "position": [-7.03627, 5.999953, -4.15337],
-      "rotationQuaternion": [0, 1, 0, 0],
-      "scaling": [1, 1, 1],
-      "metadata": {
-        "name": "",
-        "mass": 0,
-        "restitution": 0.5,
-        "friction": 0
-      }
-    },
-    {
-      "path": "neutral/structure_C.gltf",
-      "position": [-7.036268, 19.880981, -4.15337],
-      "rotationQuaternion": [0, 1, 0, 0],
-      "scaling": [1, 1, 1],
-      "metadata": {
-        "name": "",
-        "mass": 0,
-        "restitution": 0.5,
-        "friction": 0
-      }
-    },
-    {
-      "path": "yellow/platform_6x6x1_yellow.gltf",
-      "position": [-5.343551, 5.99997, -0.028695],
-      "rotationQuaternion": [0, 1, 0, 0],
-      "scaling": [1, 1, 1],
-      "metadata": {
-        "name": "",
-        "mass": 0,
-        "restitution": 0.5,
-        "friction": 0
-      }
-    },
-    {
-      "path": "yellow/platform_6x2x1_yellow.gltf",
-      "position": [-4, 0, 0.000001],
-      "rotationQuaternion": [0, -0.70710678, 0, 0.70710678],
-      "scaling": [1, 1, 1],
-      "metadata": {
-        "name": "",
-        "mass": 0,
-        "restitution": 0.5,
-        "friction": 0
-      }
-    },
-    {
-      "path": "yellow/arch_yellow.gltf",
-      "position": [-2.395664, 0.903577, -0.235565],
-      "rotationQuaternion": [0, -0.70710678, 0, 0.70710678],
-      "scaling": [1, 1, 1],
-      "metadata": {
-        "name": "",
-        "mass": 0,
-        "restitution": 0.5,
-        "friction": 0
-      }
-    },
-    {
-      "path": "yellow/flag_B_yellow.gltf",
-      "position": [-6.814962, 8.999969, -1.424401],
-      "rotationQuaternion": [0, 1, 0, 0],
-      "scaling": [1, 1, 1],
-      "metadata": {
-        "name": "",
-        "mass": 0,
-        "restitution": 0.5,
-        "friction": 0
-      }
-    },
-    {
-      "path": "yellow/pipe_180_B_yellow.gltf",
-      "position": [-1.064917, 7.032888, -2.238004],
-      "rotationQuaternion": [0, -0.70710678, -0.70710678, 0],
-      "scaling": [1, 1, 1],
-      "metadata": {
-        "name": "",
-        "mass": 0,
-        "restitution": 0.5,
-        "friction": 0
-      }
-    },
-    {
-      "path": "yellow/platform_1x1x1_yellow.gltf",
-      "position": [1.5, 0, -3.5],
-      "rotationQuaternion": [0, 1, 0, 0],
-      "scaling": [1, 1, 1],
-      "metadata": {
-        "name": "",
-        "mass": 0,
-        "restitution": 0.5,
-        "friction": 0
-      }
-    },
-    {
-      "path": "neutral/cone.gltf",
-      "position": [1.493697, 1, -3.512345],
-      "rotationQuaternion": [0, 1, 0, 0],
-      "scaling": [1, 1, 1],
-      "metadata": {
-        "name": "",
-        "mass": 0,
-        "restitution": 0.5,
-        "friction": 0
-      }
-    },
-    {
-      "path": "yellow/signage_arrow_wall_yellow.gltf",
-      "position": [-1.964912, 4.393538, -0.238706],
-      "rotationQuaternion": [-0.5, -0.5, 0.5, 0.5],
-      "scaling": [1, 1, 1],
-      "metadata": {
-        "name": "",
-        "mass": 0,
-        "restitution": 0.5,
-        "friction": 0
-      }
-    },
-    {
-      "path": "yellow/lever_wall_base_B_yellow.gltf",
-      "position": [-6.782684, 7.993245, -0.419907],
-      "rotationQuaternion": [0, -1e-8, 0, 1],
-      "scaling": [1, 1, 1],
-      "metadata": {
-        "name": "",
-        "mass": 0,
-        "restitution": 0.5,
-        "friction": 0
-      }
-    }
-  ]
-},
+    version: 1,
+    rootFolderName: 'kay-platformer-pack',
+    partList: [
+      {
+        path: 'yellow/pipe_90_B_yellow.gltf',
+        position: [-1.064909, 13.032892, -4.237993],
+        rotationQuaternion: [1e-8, 0, -1, 1e-8],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.5,
+          friction: 0,
+        },
+      },
+      {
+        path: 'neutral/structure_A.gltf',
+        position: [0, 0, 0.000002],
+        rotationQuaternion: [0, 1, 0, 0],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: 'out',
+          mass: 0,
+          restitution: 0.1,
+          friction: 0,
+        },
+      },
+      {
+        path: 'neutral/structure_C.gltf',
+        position: [-4.065791, 11.791178, -1.299793],
+        rotationQuaternion: [0, 1, 0, 0],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.5,
+          friction: 0,
+        },
+      },
+      {
+        path: 'neutral/structure_C.gltf',
+        position: [-4.065791, 17.775326, -1.299793],
+        rotationQuaternion: [0, 1, 0, 0],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.5,
+          friction: 0,
+        },
+      },
+      {
+        path: 'yellow/pipe_90_B_yellow.gltf',
+        position: [-3.064909, 3.032889, -0.237993],
+        rotationQuaternion: [-0.70710678, 0.70710679, 0, 0],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.5,
+          friction: 0,
+        },
+      },
+      {
+        path: 'neutral/structure_C.gltf',
+        position: [-7.03627, 9.998671, -4.15337],
+        rotationQuaternion: [0, 1, 0, 0],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.5,
+          friction: 0,
+        },
+      },
+      {
+        path: 'yellow/platform_slope_6x2x2_yellow.gltf',
+        position: [-0.000001, 0, -2.100012],
+        rotationQuaternion: [0, 0, 0, 1],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.5,
+          friction: 0,
+        },
+      },
+      {
+        path: 'yellow/pipe_90_B_yellow.gltf',
+        position: [-3.031112, 15.065389, -4.237999],
+        rotationQuaternion: [-0.5, 0.50000001, 0.5, 0.5],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.5,
+          friction: 0,
+        },
+      },
+      {
+        path: 'yellow/pipe_end_yellow.gltf',
+        position: [-5.005764, 21.063457, -4.213576],
+        rotationQuaternion: [0, 1, 0, 0],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.5,
+          friction: 0,
+        },
+      },
+      {
+        path: 'neutral/structure_A.gltf',
+        position: [-5.005764, 21.963457, -4.213576],
+        rotationQuaternion: [0, 1, 0, 0],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: 'in',
+          mass: 0,
+          restitution: 0.5,
+          friction: 0,
+        },
+      },
+      {
+        path: 'yellow/pipe_end_yellow.gltf',
+        position: [-3.064912, 3.032889, -0.237993],
+        rotationQuaternion: [0.70710678, 0.70710679, 0, 0],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.5,
+          friction: 0,
+        },
+      },
+      {
+        path: 'neutral/structure_C.gltf',
+        position: [-4.065791, 13.790906, -1.299793],
+        rotationQuaternion: [0, 1, 0, 0],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.5,
+          friction: 0,
+        },
+      },
+      {
+        path: 'neutral/structure_C.gltf',
+        position: [-6, 2, 2],
+        rotationQuaternion: [0, 1, 0, 0],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.5,
+          friction: 0,
+        },
+      },
+      {
+        path: 'yellow/pipe_90_B_yellow.gltf',
+        position: [-3.06491, 7.032883, -4.237993],
+        rotationQuaternion: [0, 0, -0.70710678, 0.70710679],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.5,
+          friction: 0,
+        },
+      },
+      {
+        path: 'neutral/structure_C.gltf',
+        position: [-4.065791, 9.799002, -1.299793],
+        rotationQuaternion: [0, 1, 0, 0],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.5,
+          friction: 0,
+        },
+      },
+      {
+        path: 'neutral/structure_C.gltf',
+        position: [-4.065791, 15.790865, -1.299793],
+        rotationQuaternion: [0, 1, 0, 0],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.5,
+          friction: 0,
+        },
+      },
+      {
+        path: 'yellow/pipe_90_B_yellow.gltf',
+        position: [-3.064909, 15.032892, -4.237993],
+        rotationQuaternion: [0.50000001, 0.5, -0.49999999, 0.50000001],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.5,
+          friction: 0,
+        },
+      },
+      {
+        path: 'yellow/platform_decorative_1x1x1_yellow.gltf',
+        position: [-4.071231, 21.797012, -0.299793],
+        rotationQuaternion: [0, 1, 0, 0],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.5,
+          friction: 0,
+        },
+      },
+      {
+        path: 'neutral/structure_C.gltf',
+        position: [-4.065791, 6.999969, -1.299793],
+        rotationQuaternion: [0, 1, 0, 0],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.5,
+          friction: 0,
+        },
+      },
+      {
+        path: 'yellow/pipe_90_B_yellow.gltf',
+        position: [-5.06491, 5.032885, -4.237993],
+        rotationQuaternion: [0, 0.70710678, 1e-8, 0.70710679],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.5,
+          friction: 0,
+        },
+      },
+      {
+        path: 'yellow/platform_hole_6x6x1_yellow.gltf',
+        position: [-5.005764, 21.063173, -4.213576],
+        rotationQuaternion: [0, 1, 0, 0],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.5,
+          friction: 0,
+        },
+      },
+      {
+        path: 'yellow/platform_4x4x1_yellow.gltf',
+        position: [-7.000002, 0, -1.000002],
+        rotationQuaternion: [0, 1, 0, 0],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.5,
+          friction: 0,
+        },
+      },
+      {
+        path: 'yellow/pipe_straight_B_yellow.gltf',
+        position: [-5.005764, 17.065386, -4.213576],
+        rotationQuaternion: [0, 1, 0, 0],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.5,
+          friction: 0,
+        },
+      },
+      {
+        path: 'yellow/pipe_straight_B_yellow.gltf',
+        position: [-5.005764, 19.065384, -4.213576],
+        rotationQuaternion: [0, 1, 0, 0],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.5,
+          friction: 0,
+        },
+      },
+      {
+        path: 'neutral/structure_C.gltf',
+        position: [-4.065791, 19.706787, -1.299793],
+        rotationQuaternion: [0, 1, 0, 0],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.5,
+          friction: 0,
+        },
+      },
+      {
+        path: 'yellow/platform_slope_6x2x2_yellow.gltf',
+        position: [-0.00002, 0, 2.1],
+        rotationQuaternion: [0, 1, 0, 0],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.5,
+          friction: 0,
+        },
+      },
+      {
+        path: 'yellow/platform_2x2x2_yellow.gltf',
+        position: [-6, 0, 2],
+        rotationQuaternion: [0, 1, 0, 0],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.5,
+          friction: 0,
+        },
+      },
+      {
+        path: 'yellow/platform_4x4x1_yellow.gltf',
+        position: [-1, 0, -5.1],
+        rotationQuaternion: [0, 1, 0, 0],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.5,
+          friction: 0,
+        },
+      },
+      {
+        path: 'yellow/platform_2x2x2_yellow.gltf',
+        position: [-4.065791, 21.340843, -1.299793],
+        rotationQuaternion: [0, 1, 0, 0],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.5,
+          friction: 0,
+        },
+      },
+      {
+        path: 'yellow/platform_slope_6x2x2_yellow.gltf',
+        position: [2.1, 0, 0.000002],
+        rotationQuaternion: [0, -0.70710678, 0, 0.70710678],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.5,
+          friction: 0,
+        },
+      },
+      {
+        path: 'neutral/structure_C.gltf',
+        position: [-7.036268, 13.899951, -4.15337],
+        rotationQuaternion: [0, 1, 0, 0],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.5,
+          friction: 0,
+        },
+      },
+      {
+        path: 'yellow/platform_2x2x2_yellow.gltf',
+        position: [-6.810886, 6.999969, -1.419907],
+        rotationQuaternion: [0, 1, 0, 0],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.5,
+          friction: 0,
+        },
+      },
+      {
+        path: 'neutral/structure_C.gltf',
+        position: [-7.03627, 11.998667, -4.15337],
+        rotationQuaternion: [0, 1, 0, 0],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.5,
+          friction: 0,
+        },
+      },
+      {
+        path: 'yellow/pipe_90_B_yellow.gltf',
+        position: [-5.064908, 3.032889, -2.237993],
+        rotationQuaternion: [-0.70710678, 0, 0, 0.70710678],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.5,
+          friction: 0,
+        },
+      },
+      {
+        path: 'neutral/structure_C.gltf',
+        position: [-6, 3.999973, 2],
+        rotationQuaternion: [0, 1, 0, 0],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.5,
+          friction: 0,
+        },
+      },
+      {
+        path: 'yellow/platform_slope_6x2x2_yellow.gltf',
+        position: [-2.1, 0, 0],
+        rotationQuaternion: [0, 0.70710678, 0, 0.70710678],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.5,
+          friction: 0,
+        },
+      },
+      {
+        path: 'neutral/structure_C.gltf',
+        position: [-7.036268, 15.898676, -4.15337],
+        rotationQuaternion: [0, 1, 0, 0],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.5,
+          friction: 0,
+        },
+      },
+      {
+        path: 'neutral/structure_C.gltf',
+        position: [-7.03627, 2, -4.15337],
+        rotationQuaternion: [0, 1, 0, 0],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.5,
+          friction: 0,
+        },
+      },
+      {
+        path: 'neutral/structure_C.gltf',
+        position: [-7.03627, 7.999946, -4.15337],
+        rotationQuaternion: [0, 1, 0, 0],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.5,
+          friction: 0,
+        },
+      },
+      {
+        path: 'yellow/platform_6x6x2_yellow.gltf',
+        position: [-5.999999, 0, -5.999956],
+        rotationQuaternion: [0, 1, 0, 0],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.5,
+          friction: 0,
+        },
+      },
+      {
+        path: 'neutral/structure_C.gltf',
+        position: [-7.036268, 17.898672, -4.15337],
+        rotationQuaternion: [0, 1, 0, 0],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.5,
+          friction: 0,
+        },
+      },
+      {
+        path: 'neutral/structure_C.gltf',
+        position: [-7.03627, 4, -4.15337],
+        rotationQuaternion: [0, 1, 0, 0],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.5,
+          friction: 0,
+        },
+      },
+      {
+        path: 'neutral/structure_C.gltf',
+        position: [-4.065791, 7.79904, -1.299793],
+        rotationQuaternion: [0, 1, 0, 0],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.5,
+          friction: 0,
+        },
+      },
+      {
+        path: 'neutral/structure_C.gltf',
+        position: [-7.03627, 5.999953, -4.15337],
+        rotationQuaternion: [0, 1, 0, 0],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.5,
+          friction: 0,
+        },
+      },
+      {
+        path: 'neutral/structure_C.gltf',
+        position: [-7.036268, 19.880981, -4.15337],
+        rotationQuaternion: [0, 1, 0, 0],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.5,
+          friction: 0,
+        },
+      },
+      {
+        path: 'yellow/platform_6x6x1_yellow.gltf',
+        position: [-5.343551, 5.99997, -0.028695],
+        rotationQuaternion: [0, 1, 0, 0],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.5,
+          friction: 0,
+        },
+      },
+      {
+        path: 'yellow/platform_6x2x1_yellow.gltf',
+        position: [-4, 0, 0.000001],
+        rotationQuaternion: [0, -0.70710678, 0, 0.70710678],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.5,
+          friction: 0,
+        },
+      },
+      {
+        path: 'yellow/arch_yellow.gltf',
+        position: [-2.395664, 0.903577, -0.235565],
+        rotationQuaternion: [0, -0.70710678, 0, 0.70710678],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.5,
+          friction: 0,
+        },
+      },
+      {
+        path: 'yellow/flag_B_yellow.gltf',
+        position: [-6.814962, 8.999969, -1.424401],
+        rotationQuaternion: [0, 1, 0, 0],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.5,
+          friction: 0,
+        },
+      },
+      {
+        path: 'yellow/pipe_180_B_yellow.gltf',
+        position: [-1.064917, 7.032888, -2.238004],
+        rotationQuaternion: [0, -0.70710678, -0.70710678, 0],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.5,
+          friction: 0,
+        },
+      },
+      {
+        path: 'yellow/platform_1x1x1_yellow.gltf',
+        position: [1.5, 0, -3.5],
+        rotationQuaternion: [0, 1, 0, 0],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.5,
+          friction: 0,
+        },
+      },
+      {
+        path: 'neutral/cone.gltf',
+        position: [1.493697, 1, -3.512345],
+        rotationQuaternion: [0, 1, 0, 0],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.5,
+          friction: 0,
+        },
+      },
+      {
+        path: 'yellow/signage_arrow_wall_yellow.gltf',
+        position: [-1.964912, 4.393538, -0.238706],
+        rotationQuaternion: [-0.5, -0.5, 0.5, 0.5],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.5,
+          friction: 0,
+        },
+      },
+      {
+        path: 'yellow/lever_wall_base_B_yellow.gltf',
+        position: [-6.782684, 7.993245, -0.419907],
+        rotationQuaternion: [0, -1e-8, 0, 1],
+        scaling: [1, 1, 1],
+        metadata: {
+          name: '',
+          mass: 0,
+          restitution: 0.5,
+          friction: 0,
+        },
+      },
+    ],
+  },
   [TrackSegmentType.end]: {
     version: 1,
     rootFolderName: 'kay-platformer-pack',
