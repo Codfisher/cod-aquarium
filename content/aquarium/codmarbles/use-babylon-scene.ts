@@ -149,17 +149,7 @@ export function useBabylonScene(param?: UseBabylonSceneParam) {
     // pipeline.imageProcessing.exposure = 1.1
 
     // 對比度：稍微降低，避免黑影太深
-    // pipeline.imageProcessing.contrast = 1.2
-
-    // 4. 色彩曲線 (Color Curves) - 這是「溫和感」的關鍵
-    pipeline.imageProcessing.colorCurvesEnabled = true
-    const curve = new ColorCurves()
-
-    // 陰影飽和度：讓陰影不要髒髒的
-    // curve.shadowsSaturation = -10
-    // curve.shadowsHue = -50
-
-    pipeline.imageProcessing.colorCurves = curve
+    pipeline.imageProcessing.contrast = 2
 
     // 5. FXAA - 額外的邊緣平滑
     // pipeline.fxaaEnabled = true
