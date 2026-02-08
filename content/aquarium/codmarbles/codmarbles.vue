@@ -6,70 +6,38 @@
       class="canvas w-full h-full"
     />
 
-    <div class="absolute bottom-4 left-4 p-4 pointer-events-none">
-      <transition-group
-        name="list"
-        tag="div"
-        class="flex flex-col-reverse gap-2"
-      >
-        <div
-          v-for="(marble, index) in marbleList"
-          :key="marble.mesh.name"
-          class="flex items-center gap-3 p-2 rounded shadow-sm transition-all duration-300 border-2"
-          :class="[
-            marble.finishTime > 0
-              ? 'bg-yellow-50 border-yellow-400 shadow-md scale-105' /* 完賽樣式：淡黃底、金邊、微放大 */
-              : 'bg-white/80 border-transparent backdrop-blur-sm', /* 競賽中樣式：半透明白底 */
-          ]"
-        >
-          <div
-            class="font-mono font-bold w-4 text-center transition-colors"
-            :class="marble.finishTime > 0 ? 'text-yellow-700' : 'text-gray-500'"
-          >
-            {{ index + 1 }}
-          </div>
-
-          <div
-            class="w-4 h-4 rounded-full border border-black/10 shadow-inner"
-            :style="{ backgroundColor: marble.hexColor }"
-          />
-
-          <div class="text-xs text-gray-700 font-medium">
-            #{{ marble.mesh.name.slice(-4) }}
-          </div>
-
-          <div
-            v-if="marble.finishTime > 0"
-            class="ml-auto text-yellow-500 text-xs"
-          >
-            {{ ((marble.finishTime - startTime) / 1000).toFixed(2) }}s
-          </div>
-        </div>
-      </transition-group>
-    </div>
+    <ranking-list
+      v-model:focused-marble="focusedMarble"
+      :start-time="startTime"
+      :ranking-list="marbleList"
+      class="absolute bottom-4 left-4"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import type { Mesh, Scene } from '@babylonjs/core'
+import type { Scene } from '@babylonjs/core'
 import type { TrackSegment } from './track-segment'
+import type { Marble } from './types'
 import { ActionManager, Color3, DirectionalLight, Engine, ExecuteCodeAction, MeshBuilder, PBRMaterial, PhysicsAggregate, PhysicsMotionType, PhysicsShapeType, Quaternion, ShadowGenerator, StandardMaterial, TransformNode, Vector3 } from '@babylonjs/core'
 import { useThrottleFn } from '@vueuse/core'
 import { animate, cubicBezier } from 'animejs'
 import { random } from 'lodash-es'
 import { nanoid } from 'nanoid'
 import { filter, firstBy, flat, map, pipe, shuffle, tap, values } from 'remeda'
-import { shallowRef, triggerRef } from 'vue'
+import { ref, shallowRef, triggerRef } from 'vue'
+import RankingList from './components/ranking-list.vue'
 import { createTrackSegment } from './track-segment'
 import { TrackSegmentType } from './track-segment/data'
 import { useBabylonScene } from './use-babylon-scene'
 
 const marbleCount = 10
 const marbleList = shallowRef<Marble[]>([])
+const focusedMarble = shallowRef<Marble>()
 
-let startTime = 0
+const startTime = ref(0)
 const updateRanking = useThrottleFn(() => {
-  marbleList.value.sort((a, b) => {
+  marbleList.value = marbleList.value.toSorted((a, b) => {
     const aFinished = a.finishTime > 0
     const bFinished = b.finishTime > 0
 
@@ -92,34 +60,9 @@ const updateRanking = useThrottleFn(() => {
   triggerRef(marbleList)
 }, 500)
 
-function createGround({ scene }: {
-  scene: Scene;
-}) {
-  const ground = MeshBuilder.CreateGround('ground', {
-    width: 1000,
-    height: 1000,
-  }, scene)
-  ground.receiveShadows = true
-
-  const groundMaterial = new StandardMaterial('groundMaterial', scene)
-  groundMaterial.diffuseColor = new Color3(0.98, 0.98, 0.98)
-  ground.material = groundMaterial
-
-  const groundAggregate = new PhysicsAggregate(ground, PhysicsShapeType.BOX, { mass: 0 }, scene)
-
-  return ground
-}
-
 const ghostRenderingGroupId = 1
 let ghostMaterial: StandardMaterial
 
-interface Marble {
-  hexColor: string;
-  mesh: Mesh;
-  lastCheckPointIndex: number;
-  isRespawning: boolean;
-  finishTime: number;
-}
 function createMarble({
   scene,
   shadowGenerator,
@@ -436,32 +379,45 @@ const {
 
       // 攝影機持續跟蹤「目前 Y 座標最小（最低）」的彈珠
       scene.onBeforeRenderObservable.add(() => {
-        const lowestMarble = firstBy(
-          marbleList.value,
-          (marble) => marble.mesh.position.y,
-        )
+        const trackTarget = pipe(0, () => {
+          if (focusedMarble.value) {
+            return focusedMarble.value
+          }
 
-        if (!lowestMarble)
-          return
+          const lowestMarble = firstBy(
+            marbleList.value,
+            (marble) => marble.mesh.position.y,
+          )
 
-        // 是否切換目標
-        if (!currentTrackedMarble) {
-          currentTrackedMarble = lowestMarble
-        }
-        else {
+          if (!lowestMarble)
+            return
+
+          // 是否切換目標
+          if (!currentTrackedMarble) {
+            return lowestMarble
+          }
           // 如果當前追蹤的彈珠正在重生，立刻切換到最低者 (避免鏡頭被拉回起點)
           if (currentTrackedMarble.isRespawning) {
-            currentTrackedMarble = lowestMarble
+            return lowestMarble
           }
+
           // 只有當「絕對最低者」比「當前目標」低超過 1 個單位時，才切換，這樣可以避免兩者高度相近時瘋狂切換造成的抖動
-          else if (lowestMarble.mesh.position.y < currentTrackedMarble.mesh.position.y - 1.0) {
-            currentTrackedMarble = lowestMarble
+          if (lowestMarble.mesh.position.y < currentTrackedMarble.mesh.position.y - 1.0) {
+            return lowestMarble
           }
+
+          return currentTrackedMarble
+        })
+
+        currentTrackedMarble = trackTarget
+
+        if (!trackTarget) {
+          return
         }
 
         Vector3.LerpToRef(
           cameraTarget.position,
-          currentTrackedMarble.mesh.position,
+          trackTarget.mesh.position,
           0.1,
           cameraTarget.position,
         )
@@ -545,7 +501,7 @@ const {
       })
     })
 
-    startTime = Date.now()
+    startTime.value = Date.now()
   },
 })
 </script>
@@ -554,17 +510,4 @@ const {
 .canvas
   outline: none
   background: linear-gradient(180deg, #e3ffe7 0%, #d9e7ff 100%)
-
-.list-move,
-.list-enter-active,
-.list-leave-active
-  transition: all 0.5s cubic-bezier(0.800, 0.000, 0.000, 1.2)
-
-.list-leave-active
-  position: absolute
-
-.list-enter-from,
-.list-leave-to
-  opacity: 0
-  transform: translateX(-30px)
 </style>
