@@ -325,8 +325,8 @@ const {
 
       const color = Color3.FromHSV(
         340 * (i / marbleCount),
-        0.9,
         1,
+        0.8,
       )
 
       const marble = createMarble({

@@ -61,8 +61,8 @@ const defaultParam: Required<UseBabylonSceneParam> = {
 
     const defaultLight = scene.lights.at(-1)
     if (defaultLight instanceof HemisphericLight) {
-      defaultLight.diffuse = new Color3(1, 0.95, 0.9) // 微微的暖黃光
-      defaultLight.groundColor = new Color3(0.5, 0.5, 0.5) // 地面反射光不要太黑
+      defaultLight.diffuse = new Color3(1, 0.85, 0.8)
+      defaultLight.groundColor = new Color3(0.5, 0.2, 0.6)
     }
 
     return scene
