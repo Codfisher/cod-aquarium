@@ -156,8 +156,8 @@ export function useBabylonScene(param?: UseBabylonSceneParam) {
     const curve = new ColorCurves()
 
     // 陰影飽和度：讓陰影不要髒髒的
-    curve.shadowsSaturation = -10
-    curve.shadowsHue = -50
+    // curve.shadowsSaturation = -10
+    // curve.shadowsHue = -50
 
     pipeline.imageProcessing.colorCurves = curve
 

@@ -625,28 +625,18 @@ const { canvasRef, scene, camera } = useBabylonScene({
       // 不同 FPS 也會保持一致手感
       const t = 1 - Math.exp(-16 * dt)
 
-      // 疊加手動位移 (offset)並依照 Mesh 的自身垂直方向位移
-      const upDirection = pipe(
-        mesh.getDirection(Vector3.Up()),
-        tap((dir) => {
-          if (dir.lengthSquared() > 0) {
-            dir.normalize()
-          }
-          dir.scaleInPlace(previewOffset.value.vertical + sceneSettings.value.previewGroundYOffset)
-        }),
-      )
-
-      mesh.position.x += (previewMoveTarget.position.x - mesh.position.x + upDirection.x) * t
-      mesh.position.y += (previewMoveTarget.position.y - mesh.position.y + upDirection.y) * t
-      mesh.position.z += (previewMoveTarget.position.z - mesh.position.z + upDirection.z) * t
+      // 先計算目標旋轉 (Target Rotation)
+      // 不依賴 mesh 當前的狀態，而是直接對「表面對齊旋轉」疊加一個「Local Y 旋轉」
+      // Vector3.Up() 即 (0, 1, 0)，乘在右邊代表以 Local 軸旋轉
+      let targetRotation = previewMoveTarget.rotation
 
       if (mesh.rotationQuaternion) {
-        // 疊加手動旋轉 (offset) 並依照 Mesh 的自身垂直方向旋轉
         const manualRotation = Quaternion.RotationAxis(
-          mesh.getDirection(Vector3.Up()),
+          Vector3.Up(),
           previewOffset.value.yRotation,
         )
-        const targetRotation = previewMoveTarget.rotation.multiply(manualRotation)
+        // Base * Offset = Apply Offset in Base's Local Space
+        targetRotation = previewMoveTarget.rotation.multiply(manualRotation)
 
         Quaternion.SlerpToRef(
           mesh.rotationQuaternion,
@@ -655,6 +645,24 @@ const { canvasRef, scene, camera } = useBabylonScene({
           mesh.rotationQuaternion,
         )
       }
+
+      // 計算穩定的向上位移方向
+      // 位移方向應該基於「最終目標的朝向」，而不是「Mesh 正在轉動中的朝向」
+      // 這樣位置才不會隨著旋轉過程亂飄
+      const targetUpDirection = Vector3.Up().applyRotationQuaternion(targetRotation)
+
+      const upOffset = previewOffset.value.vertical + sceneSettings.value.previewGroundYOffset
+      const offsetVector = targetUpDirection.scale(upOffset)
+
+      // 更新位置
+      // 目標位置 = 射線擊中點 + 根據目標旋轉算出的垂直偏移
+      const targetX = previewMoveTarget.position.x + offsetVector.x
+      const targetY = previewMoveTarget.position.y + offsetVector.y
+      const targetZ = previewMoveTarget.position.z + offsetVector.z
+
+      mesh.position.x += (targetX - mesh.position.x) * t
+      mesh.position.y += (targetY - mesh.position.y) * t
+      mesh.position.z += (targetZ - mesh.position.z) * t
     })
   },
 })
