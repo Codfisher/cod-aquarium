@@ -43,6 +43,7 @@ const defaultParam: Required<UseBabylonSceneParam> = {
     if (webGPUSupported) {
       const engine = new WebGPUEngine(canvas, {
         antialias: true,
+        stencil: true,
       })
       await engine.initAsync()
 
@@ -51,12 +52,13 @@ const defaultParam: Required<UseBabylonSceneParam> = {
 
     return new Engine(canvas, true, {
       alpha: true,
+      stencil: true,
     })
   },
   createScene({ engine }) {
     const scene = new Scene(engine)
 
-    scene.clearColor = new Color4(0.98, 0.96, 0.93, 1)
+    scene.clearColor = new Color4(0, 0, 0, 0)
     scene.createDefaultLight()
 
     const defaultLight = scene.lights.at(-1)
