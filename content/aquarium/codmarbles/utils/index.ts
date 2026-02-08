@@ -1,168 +1,72 @@
-import type { BaseTexture, Material, Scene } from '@babylonjs/core'
-import {
-  Color3,
-  PBRMaterial,
-  StandardMaterial,
-  WhenTextureReadyAsync,
-} from '@babylonjs/core'
-import { GradientMaterial } from '@babylonjs/materials'
+import type { Scene } from '@babylonjs/core'
+import { DynamicTexture, Texture } from '@babylonjs/core'
 
-function clamp01(x: number) {
-  return Math.min(1, Math.max(0, x))
+/**
+ * 建立一個唯美的漸層紋理
+ * @param scene Babylon 場景
+ * @param colors 漸層顏色陣列 (CSS 顏色字串)，例如 ['#ff9a9e', '#fad0c4']
+ * @param isVertical 是否為垂直漸層 (預設 true: 上到下, false: 左到右)
+ */
+export function createAestheticGradientTexture(scene: Scene, colors: string[], isVertical: boolean = true): DynamicTexture {
+  // 1. 建立一個動態紋理 (寬度不需要太大，256px 足夠平滑)
+  const width = isVertical ? 32 : 256
+  const height = isVertical ? 256 : 32
+  const texture = new DynamicTexture('aestheticGradient', { width, height }, scene, false)
+
+  // 2. 取得畫布上下文
+  const ctx = texture.getContext()
+
+  // 3. 建立線性漸層物件
+  // 如果是垂直：從 (0,0) 到 (0, height)
+  // 如果是水平：從 (0,0) 到 (width, 0)
+  const gradient = isVertical
+    ? ctx.createLinearGradient(0, 0, 0, height)
+    : ctx.createLinearGradient(0, 0, width, 0)
+
+  // 4. 加入顏色停損點 (Color Stops)
+  colors.forEach((color, index) => {
+    // 計算位置 (0.0 ~ 1.0)
+    const offset = index / (colors.length - 1)
+    gradient.addColorStop(offset, color)
+  })
+
+  // 5. 填滿畫布
+  ctx.fillStyle = gradient
+  ctx.fillRect(0, 0, width, height)
+
+  // 6. 更新紋理 (重要！否則會是黑的)
+  texture.update()
+
+  // 7. 設定紋理環繞方式 (避免邊緣出現怪線)
+  texture.wrapU = Texture.CLAMP_ADDRESSMODE
+  texture.wrapV = Texture.CLAMP_ADDRESSMODE
+
+  return texture
 }
 
-function luminance(c: Color3) {
-  return 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b
-}
+// 建立一個讓所有顏色都能用的「陰影遮罩」漸層
+export function createShadowGradient(scene: Scene): DynamicTexture {
+  // 寬度小，高度長 (適合垂直漸層)
+  const texture = new DynamicTexture('shadowGradient', { width: 32, height: 256 }, scene, false)
+  const ctx = texture.getContext()
 
-function lighten(c: Color3, t = 0.12) {
-  return new Color3(
-    clamp01(c.r + (1 - c.r) * t),
-    clamp01(c.g + (1 - c.g) * t),
-    clamp01(c.b + (1 - c.b) * t),
-  )
-}
+  // 建立垂直漸層 (上 -> 下)
+  const gradient = ctx.createLinearGradient(0, 0, 0, 256)
 
-function darken(c: Color3, t = 0.12) {
-  return new Color3(
-    clamp01(c.r * (1 - t)),
-    clamp01(c.g * (1 - t)),
-    clamp01(c.b * (1 - t)),
-  )
-}
+  // --- 調色關鍵 ---
+  // 上方 (0.0): 純白色 (保持原本顏色的亮度)
+  gradient.addColorStop(0, '#FFFFFF')
 
-function multiplyColor(a: Color3, b: Color3) {
-  return new Color3(a.r * b.r, a.g * b.g, a.b * b.b)
-}
+  // 中間 (0.5): 稍微變柔和
+  gradient.addColorStop(0.4, '#F0F0F0')
 
-/** 抽樣貼圖一小塊算平均色（代表色） */
-async function averageColorFromTexture(tex: BaseTexture, sampleSize = 16): Promise<Color3 | null> {
-  try {
-    // 等貼圖真的 ready（下載/轉換/mipmap 等）
-    await WhenTextureReadyAsync(tex) // :contentReference[oaicite:2]{index=2}
+  // 下方 (1.0): 淺灰色 (讓底部稍微變暗，製造漸層感)
+  // 不要用黑色，不然會看起來髒髒的。建議用 #CCCCCC 或 #AAAAAA
+  gradient.addColorStop(1, '#BBBBBB')
 
-    // 讀左上角 sampleSize x sampleSize（readPixels 目前是 async Promise）:contentReference[oaicite:3]{index=3}
-    const buf = await tex.readPixels(
-      undefined, // faceIndex
-      0, // level
-      null,
-      true, // flushRenderer
-      false, // noDataConversion
-      0,
-      0,
-      sampleSize,
-      sampleSize,
-    )
+  ctx.fillStyle = gradient
+  ctx.fillRect(0, 0, 32, 256)
+  texture.update()
 
-    if (!buf)
-      return null
-
-    const isFloat = buf instanceof Float32Array
-    const arr: ArrayLike<number> = buf as any
-
-    let r = 0; let g = 0; let b = 0; let n = 0
-    for (let i = 0; i + 3 < arr.length; i += 4) {
-      const a = arr[i + 3]
-      const alpha = isFloat ? a : a / 255
-      if (alpha < 0.05)
-        continue
-
-      const rr = isFloat ? arr[i] : arr[i] / 255
-      const gg = isFloat ? arr[i + 1] : arr[i + 1] / 255
-      const bb = isFloat ? arr[i + 2] : arr[i + 2] / 255
-
-      r += rr; g += gg; b += bb; n++
-    }
-    if (n === 0)
-      return null
-
-    const avg = new Color3(r / n, g / n, b / n)
-
-    // 若抽到幾乎純黑（常見於還沒載好/暫存貼圖），當作無效
-    if (luminance(avg) < 0.02)
-      return null
-
-    return avg
-  }
-  catch {
-    return null
-  }
-}
-
-async function getBaseColorFromMaterialAsync(mat: Material | null | undefined): Promise<Color3> {
-  // 安全 fallback（避免黑一片）
-  const SAFE = new Color3(0.80, 0.80, 0.80)
-  if (!mat)
-    return SAFE
-
-  // PBR / glTF
-  if (mat instanceof PBRMaterial) {
-    const factor = mat.albedoColor?.clone?.() ?? new Color3(1, 1, 1)
-    const tex = mat.albedoTexture ?? null
-
-    if (tex) {
-      const avg = await averageColorFromTexture(tex)
-      if (avg)
-        return multiplyColor(factor, avg)
-    }
-
-    // 若 factor 本身很黑，就別直接回黑，給個安全值（你也可以改成 lighten(factor, 0.6)）
-    return luminance(factor) < 0.02 ? SAFE : factor
-  }
-
-  // Standard
-  if (mat instanceof StandardMaterial) {
-    const factor = mat.diffuseColor?.clone?.() ?? new Color3(1, 1, 1)
-    const tex = mat.diffuseTexture ?? null
-
-    if (tex) {
-      const avg = await averageColorFromTexture(tex)
-      if (avg)
-        return multiplyColor(factor, avg)
-    }
-
-    return luminance(factor) < 0.02 ? SAFE : factor
-  }
-
-  // 其他材質：盡量抓常見欄位
-  const anyMat = mat as any
-  const c: Color3
-    = anyMat.albedoColor?.clone?.()
-      ?? anyMat.diffuseColor?.clone?.()
-      ?? new Color3(1, 1, 1)
-
-  return luminance(c) < 0.02 ? SAFE : c
-}
-
-function getGradientFromBaseColor(base: Color3, scene: Scene, name = 'grad'): GradientMaterial {
-  const grad = new GradientMaterial(name, scene)
-  grad.topColor = lighten(base, 0.14)
-  grad.bottomColor = darken(base, 0.10)
-
-  grad.smoothness = 1.0
-  grad.scale = 0.85
-  grad.offset = 0.15
-  grad.disableLighting = false
-  return grad
-}
-
-// 用 Promise cache：避免同材質重複抽樣貼圖
-const gradientCache = new Map<number, Promise<GradientMaterial>>()
-
-export async function getGradientFromOriginalAsync(
-  original: Material | null | undefined,
-  scene: Scene,
-): Promise<GradientMaterial> {
-  const key = (original as any)?.uniqueId ?? -1
-  const cached = gradientCache.get(key)
-  if (cached)
-    return await cached
-
-  const task = (async () => {
-    const base = await getBaseColorFromMaterialAsync(original)
-    return getGradientFromBaseColor(base, scene, `grad_${key}`)
-  })()
-
-  gradientCache.set(key, task)
-  return await task
+  return texture
 }

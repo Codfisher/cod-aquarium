@@ -1,6 +1,7 @@
-import type { ISceneLoaderAsyncResult, Mesh, PBRMaterial, Scene } from '@babylonjs/core'
+import type { ISceneLoaderAsyncResult, Mesh, Scene } from '@babylonjs/core'
 import type { TrackSegmentType } from './data'
-import { ImportMeshAsync, PhysicsAggregate, PhysicsShapeType, Quaternion, TransformNode, Vector3 } from '@babylonjs/core'
+import { Color3, FresnelParameters, ImportMeshAsync, PBRMaterial, PhysicsAggregate, PhysicsShapeType, Quaternion, TransformNode, Vector3 } from '@babylonjs/core'
+import { createAestheticGradientTexture, createShadowGradient } from '../utils'
 import { trackSegmentData } from './data'
 
 export interface TrackSegment {
@@ -30,6 +31,8 @@ export async function createTrackSegment({
 
   // 暫存需要建立物理的網格資訊
   const physicsPendingList: { mesh: Mesh; metadata: any }[] = []
+
+  const sharedShadowTexture = createShadowGradient(scene)
 
   const loadPartTasks = data.partList.map(async (partData) => {
     const position = Vector3.FromArray(partData.position)
@@ -71,13 +74,13 @@ export async function createTrackSegment({
     root.parent = partContainer
 
     if (geometryMesh) {
-      if (geometryMesh.material) {
-        const mat = geometryMesh.material as PBRMaterial
-
+      const mat = geometryMesh.material
+      if (mat instanceof PBRMaterial) {
         mat.metallic = 0
-        mat.roughness = 1
-        // 強制提亮
-        mat.albedoColor.scaleToRef(1.4, mat.albedoColor)
+        mat.roughness = 0.8
+
+        // 輕微的自發光，讓它在陰影處不要變死黑，保持玩具的鮮豔度，複製原本的顏色，並縮小亮度
+        mat.albedoColor.scaleToRef(0.15, mat.emissiveColor)
       }
 
       physicsPendingList.push({

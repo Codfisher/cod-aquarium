@@ -395,5 +395,5 @@ const {
 <style lang="sass" scoped>
 .canvas
   outline: none
-  background: linear-gradient(0deg, #e3ffe7 0%, #d9e7ff 100%)
+  background: linear-gradient(180deg, #e3ffe7 0%, #d9e7ff 100%)
 </style>
