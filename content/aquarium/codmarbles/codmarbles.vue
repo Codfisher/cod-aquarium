@@ -253,7 +253,7 @@ function respawnWithAnimation(
     x: targetPosition.x,
     z: targetPosition.z,
     duration,
-    ease: cubicBezier(1.0, 0, 0, 1.0),
+    ease: cubicBezier(0.826, 0.005, 0.259, 0.971),
     onComplete() {
       marble.isRespawning = false
       physicsBody.disablePreStep = true
