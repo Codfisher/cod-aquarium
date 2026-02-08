@@ -157,6 +157,9 @@ function createShadowGenerator(scene: Scene) {
   light.intensity = 0.8
 
   const shadowGenerator = new ShadowGenerator(2048, light)
+
+  shadowGenerator.bias = 0.000001
+  shadowGenerator.normalBias = 0.0001
   shadowGenerator.usePercentageCloserFiltering = true
   shadowGenerator.forceBackFacesOnly = true
 
