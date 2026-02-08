@@ -11,7 +11,7 @@
 <script setup lang="ts">
 import type { Mesh, Scene } from '@babylonjs/core'
 import type { TrackSegment } from './track-segment'
-import { ActionManager, Animation, ArcRotateCamera, CircleEase, Color3, DirectionalLight, Engine, ExecuteCodeAction, FollowCamera, HavokPlugin, MeshBuilder, PhysicsAggregate, PhysicsMotionType, PhysicsPrestepType, PhysicsShapeType, Quaternion, Ray, ShadowGenerator, StandardMaterial, Vector3 } from '@babylonjs/core'
+import { ActionManager, Animation, ArcRotateCamera, CircleEase, Color3, ColorCurves, DefaultRenderingPipeline, DirectionalLight, Engine, ExecuteCodeAction, FollowCamera, HavokPlugin, ImageProcessingConfiguration, MeshBuilder, PBRMaterial, PhysicsAggregate, PhysicsMotionType, PhysicsPrestepType, PhysicsShapeType, Quaternion, Ray, ShadowGenerator, StandardMaterial, Vector3 } from '@babylonjs/core'
 import HavokPhysics from '@babylonjs/havok'
 import { animate, cubicBezier } from 'animejs'
 import { random } from 'lodash-es'
@@ -65,13 +65,19 @@ function createMarble({
   }, scene)
   marble.position.copyFrom(startPosition)
 
-  const marbleMaterial = new StandardMaterial('marbleMaterial', scene)
-  marbleMaterial.diffuseColor = color ?? Color3.FromHSV(
-    random(0, 360),
-    0.9,
-    0.7,
+  marble.material = pipe(
+    new PBRMaterial('marbleMaterial', scene),
+    tap((marbleMaterial) => {
+      marbleMaterial.albedoColor = color ?? Color3.FromHSV(
+        random(0, 360),
+        0.8,
+        0.4,
+      )
+
+      marbleMaterial.metallic = 0
+      marbleMaterial.roughness = 0
+    }),
   )
-  marble.material = marbleMaterial
 
   const ghostMat = pipe(
     ghostMaterial ?? new StandardMaterial('ghostMaterial', scene),
@@ -266,13 +272,6 @@ const {
     const havokPlugin = new HavokPlugin(true, havokInstance)
     scene.enablePhysics(new Vector3(0, -9.81, 0), havokPlugin)
 
-    camera.attachControl(scene.getEngine().getRenderingCanvas(), true)
-    camera.lowerRadiusLimit = 2
-    camera.upperRadiusLimit = 50
-    camera.panningSensibility = 0
-
-    scene.activeCamera = camera
-
     // 畫 Group 1 (幽靈) 時，不要清除 Group 0 (牆壁) 的深度資訊，這樣才能進行深度比較
     scene.setRenderingAutoClearDepthStencil(ghostRenderingGroupId, false)
 
@@ -366,7 +365,7 @@ const {
       })
     })
 
-    // 若彈珠直接跳過下一個檢查點之 Y 座標 -5 處，則將彈珠的 Y 座標拉回檢查點
+    // 若彈珠直接跳過下一個檢查點之 Y 座標 -1 處，則將彈珠的 Y 座標拉回檢查點
     scene.onBeforeRenderObservable.add(() => {
       marbleList.forEach((marble) => {
         const lastCheckPointPosition = checkPointPositionList[marble.lastCheckPointIndex]
@@ -380,7 +379,7 @@ const {
           return
         }
 
-        if (marble.mesh.position.y < nextCheckPointPosition.y - 5) {
+        if (marble.mesh.position.y < nextCheckPointPosition.y - 1) {
           respawnWithAnimation(marble, lastCheckPointPosition)
         }
       })

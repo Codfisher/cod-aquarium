@@ -56,8 +56,14 @@ const defaultParam: Required<UseBabylonSceneParam> = {
   createScene({ engine }) {
     const scene = new Scene(engine)
 
-    scene.clearColor = new Color4(1, 1, 1, 1)
+    scene.clearColor = new Color4(0.98, 0.96, 0.93, 1)
     scene.createDefaultLight()
+
+    const defaultLight = scene.lights.at(-1)
+    if (defaultLight instanceof HemisphericLight) {
+      defaultLight.diffuse = new Color3(1, 0.95, 0.9) // 微微的暖黃光
+      defaultLight.groundColor = new Color3(0.5, 0.5, 0.5) // 地面反射光不要太黑
+    }
 
     return scene
   },
@@ -76,8 +82,9 @@ const defaultParam: Required<UseBabylonSceneParam> = {
     camera.panningSensibility = 0
 
     camera.wheelDeltaPercentage = 0.01
-    camera.lowerRadiusLimit = 20
-    camera.upperRadiusLimit = 100
+    camera.lowerRadiusLimit = 2
+    camera.upperRadiusLimit = 50
+    camera.panningSensibility = 0
 
     // 限制鏡頭角度
     camera.lowerBetaLimit = 0
@@ -125,6 +132,50 @@ export function useBabylonScene(param?: UseBabylonSceneParam) {
     engine.value.runRenderLoop(() => {
       scene.value?.render()
     })
+
+    const pipeline = new DefaultRenderingPipeline(
+      'toyPipeline', // 名稱
+      true, // 開啟 HDR
+      scene.value, // 場景
+      [camera.value], // 套用到所有攝影機
+    )
+
+    // 1. 抗鋸齒 (MSAA) - 讓邊緣圓潤，去除數位感的鋸齒
+    pipeline.samples = 4
+
+    // 2. 泛光 (Bloom) - 讓亮部產生夢幻的暈開效果
+    pipeline.bloomEnabled = true
+    pipeline.bloomThreshold = 0.7 // 亮度超過 0.7 的地方才發光
+    pipeline.bloomWeight = 0.4 // 發光強度 (適中即可)
+    pipeline.bloomKernel = 16 // 光暈擴散範圍 (越大越朦朧)
+    pipeline.bloomScale = 0.5
+
+    // 3. 色彩調整 (Image Processing)
+    pipeline.imageProcessingEnabled = true
+
+    // 曝光度：稍微過曝一點點，看起來比較乾淨明亮
+    pipeline.imageProcessing.exposure = 1.1
+
+    // 對比度：稍微降低，避免黑影太深
+    pipeline.imageProcessing.contrast = 1.2
+
+    // 4. 色彩曲線 (Color Curves) - 這是「溫和感」的關鍵
+    pipeline.imageProcessing.colorCurvesEnabled = true
+    const curve = new ColorCurves()
+
+    // 全域飽和度：降低，讓鮮豔的顏色變粉嫩 (Pastel)
+    curve.globalSaturation = -10
+
+    // 陰影飽和度：讓陰影不要髒髒的
+    curve.shadowsSaturation = -30
+
+    // (選用) 稍微加一點暖色濾鏡
+    curve.globalHue = 30 // 微調色相
+
+    pipeline.imageProcessing.colorCurves = curve
+
+    // 5. FXAA - 額外的邊緣平滑
+    pipeline.fxaaEnabled = true
 
     await init({
       canvas: canvasRef.value,
