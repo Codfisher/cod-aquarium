@@ -80,7 +80,7 @@ export async function createTrackSegment({
         mat.roughness = 0.8
 
         // 輕微的自發光，讓它在陰影處不要變死黑，保持玩具的鮮豔度，複製原本的顏色，並縮小亮度
-        mat.albedoColor.scaleToRef(0.15, mat.emissiveColor)
+        mat.albedoColor.scaleToRef(0.05, mat.emissiveColor)
       }
 
       physicsPendingList.push({

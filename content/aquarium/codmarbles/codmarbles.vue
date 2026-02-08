@@ -5,22 +5,56 @@
       ref="canvasRef"
       class="canvas w-full h-full"
     />
+
+    <!-- 目前排名 -->
+    <div class="absolute bottom-4 left-4 p-4 pointer-events-none">
+      <h3 class="text-gray-600 font-bold mb-2 text-sm">
+        Race Ranking
+      </h3>
+      <transition-group
+        name="list"
+        tag="div"
+        class="flex flex-col-reverse gap-2"
+      >
+        <div
+          v-for="(marble, index) in rankingList"
+          :key="marble.mesh.name"
+          class="flex items-center gap-3 p-2 bg-white/80 backdrop-blur-sm rounded shadow-sm w-32"
+        >
+          <div class="font-mono font-bold text-gray-500 w-4 text-center">
+            {{ index + 1 }}
+          </div>
+
+          <div
+            class="w-4 h-4 rounded-full border border-black/10 shadow-inner"
+            :style="{ backgroundColor: marble.hexColor }"
+          />
+
+          <div class="text-xs text-gray-700 font-medium">
+            #{{ marble.mesh.name.slice(-4) }}
+          </div>
+        </div>
+      </transition-group>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import type { Mesh, Scene } from '@babylonjs/core'
 import type { TrackSegment } from './track-segment'
-import { ActionManager, Animation, ArcRotateCamera, CircleEase, Color3, ColorCurves, DefaultRenderingPipeline, DirectionalLight, Engine, ExecuteCodeAction, FollowCamera, HavokPlugin, ImageProcessingConfiguration, MeshBuilder, PBRMaterial, PhysicsAggregate, PhysicsMotionType, PhysicsPrestepType, PhysicsShapeType, Quaternion, Ray, ShadowGenerator, StandardMaterial, Vector3 } from '@babylonjs/core'
+import { ActionManager, Animation, ArcRotateCamera, CircleEase, Color3, ColorCurves, DefaultRenderingPipeline, DirectionalLight, Engine, ExecuteCodeAction, FollowCamera, HavokPlugin, ImageProcessingConfiguration, MeshBuilder, PBRMaterial, PhysicsAggregate, PhysicsMotionType, PhysicsPrestepType, PhysicsShapeType, Quaternion, Ray, ShadowGenerator, StandardMaterial, TransformNode, Vector3 } from '@babylonjs/core'
 import HavokPhysics from '@babylonjs/havok'
 import { animate, cubicBezier } from 'animejs'
 import { random } from 'lodash-es'
-import { filter, flat, flatMap, map, pipe, prop, reduce, shuffle, sortBy, tap, values } from 'remeda'
+import { nanoid } from 'nanoid'
+import { filter, firstBy, flat, flatMap, map, pipe, prop, reduce, shuffle, sortBy, tap, values } from 'remeda'
+import { shallowRef } from 'vue'
 import { createTrackSegment } from './track-segment'
 import { TrackSegmentType } from './track-segment/data'
 import { useBabylonScene } from './use-babylon-scene'
 
 const marbleCount = 10
+const rankingList = shallowRef<Marble[]>([])
 
 function createGround({ scene }: {
   scene: Scene;
@@ -44,6 +78,7 @@ const ghostRenderingGroupId = 1
 let ghostMaterial: StandardMaterial
 
 interface Marble {
+  hexColor: string;
   mesh: Mesh;
   lastCheckPointIndex: number;
   isRespawning: boolean;
@@ -59,20 +94,18 @@ function createMarble({
   startPosition?: Vector3;
   color?: Color3;
 }): Marble {
-  const marble = MeshBuilder.CreateSphere('marble', {
+  const marble = MeshBuilder.CreateSphere(nanoid(), {
     diameter: 0.5,
     segments: 16,
   }, scene)
   marble.position.copyFrom(startPosition)
 
+  const finalColor = color ?? Color3.FromHSV(random(0, 360), 0.8, 0.4)
+
   marble.material = pipe(
     new PBRMaterial('marbleMaterial', scene),
     tap((marbleMaterial) => {
-      marbleMaterial.albedoColor = color ?? Color3.FromHSV(
-        random(0, 360),
-        0.8,
-        0.4,
-      )
+      marbleMaterial.albedoColor = finalColor
 
       marbleMaterial.metallic = 0
       marbleMaterial.roughness = 0.5
@@ -144,6 +177,7 @@ function createMarble({
   )
 
   return {
+    hexColor: finalColor.toGammaSpace().scale(1.05).toHexString(),
     mesh: marble,
     lastCheckPointIndex: 0,
     isRespawning: false,
@@ -157,6 +191,9 @@ function createShadowGenerator(scene: Scene) {
   light.intensity = 0.8
 
   const shadowGenerator = new ShadowGenerator(2048, light)
+
+  shadowGenerator.bias = 0.000001
+  shadowGenerator.normalBias = 0.0001
   shadowGenerator.usePercentageCloserFiltering = true
   shadowGenerator.forceBackFacesOnly = true
 
@@ -318,6 +355,9 @@ const {
       throw new Error('firstTrackSegment is undefined')
     }
 
+    const cameraTarget = new TransformNode('cameraTarget', scene)
+    camera.lockedTarget = cameraTarget
+
     const marbleList: Marble[] = []
     for (let i = 0; i < marbleCount; i++) {
       const startPosition = firstTrackSegment.startPosition.clone()
@@ -339,9 +379,65 @@ const {
       shadowGenerator.addShadowCaster(marble.mesh)
 
       if (i === 0) {
-        camera.lockedTarget = marble.mesh
+        cameraTarget.position.copyFrom(marble.mesh.position)
       }
     }
+
+    // 追蹤目前的目標彈珠
+    let currentTrackedMarble: Marble | undefined
+
+    let frameCounter = 0
+    const UPDATE_RATE = 15
+
+    // 攝影機持續跟蹤「目前 Y 座標最小（最低）」的彈珠
+    scene.onBeforeRenderObservable.add(() => {
+      const lowestMarble = firstBy(
+        marbleList,
+        (marble) => marble.mesh.position.y,
+      )
+
+      if (!lowestMarble)
+        return
+
+      // 是否切換目標
+      if (!currentTrackedMarble) {
+        currentTrackedMarble = lowestMarble
+      }
+      else {
+        // 如果當前追蹤的彈珠正在重生，立刻切換到最低者 (避免鏡頭被拉回起點)
+        if (currentTrackedMarble.isRespawning) {
+          currentTrackedMarble = lowestMarble
+        }
+        // 只有當「絕對最低者」比「當前目標」低超過 1 個單位時，才切換，這樣可以避免兩者高度相近時瘋狂切換造成的抖動
+        else if (lowestMarble.mesh.position.y < currentTrackedMarble.mesh.position.y - 1.0) {
+          currentTrackedMarble = lowestMarble
+        }
+      }
+
+      Vector3.LerpToRef(
+        cameraTarget.position,
+        currentTrackedMarble.mesh.position,
+        0.1,
+        cameraTarget.position,
+      )
+
+      // 更新排名 (UI 邏輯)
+      frameCounter++
+      if (frameCounter % UPDATE_RATE === 0) {
+        // 複製一份新的陣列進行排序，觸發 Vue 更新
+        const sortedList = [...marbleList].sort((a, b) => {
+          // 優先比較檢查點索引 (大的在前)
+          if (a.lastCheckPointIndex !== b.lastCheckPointIndex) {
+            return b.lastCheckPointIndex - a.lastCheckPointIndex
+          }
+          // 如果在同一個檢查點區間，Y 越小代表跑越下面 (越快)
+          return a.mesh.position.y - b.mesh.position.y
+        })
+
+        // 只有當順序真的改變時才賦值，雖然 Vue transition-group 會處理 key 變動，但減少賦值總是好的
+        rankingList.value = sortedList
+      }
+    })
 
     if (lastTrackSegment) {
       connectTracks(lastTrackSegment, endTrackSegment)
@@ -396,4 +492,17 @@ const {
 .canvas
   outline: none
   background: linear-gradient(180deg, #e3ffe7 0%, #d9e7ff 100%)
+
+.list-move,
+.list-enter-active,
+.list-leave-active
+  transition: all 0.5s ease
+
+.list-leave-active
+  position: absolute
+
+.list-enter-from,
+.list-leave-to
+  opacity: 0
+  transform: translateX(-30px)
 </style>
