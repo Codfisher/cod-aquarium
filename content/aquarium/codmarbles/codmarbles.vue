@@ -248,9 +248,9 @@ function createCheckPointColliders(
 ) {
   pointPositionList.forEach((position, index) => {
     const collider = MeshBuilder.CreateBox(`check-point-collider-${index}`, {
-      width: 1,
-      height: 5,
-      depth: 1,
+      width: 2,
+      height: 2,
+      depth: 2,
     }, scene)
 
     collider.position = position
