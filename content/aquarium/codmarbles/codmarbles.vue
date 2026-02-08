@@ -1,12 +1,11 @@
 <template>
-  <div class=" fixed w-screen h-screen">
+  <div class="fixed w-screen h-screen">
     <canvas
       v-once
       ref="canvasRef"
       class="canvas w-full h-full"
     />
 
-    <!-- 目前排名 -->
     <div class="absolute bottom-4 left-4 p-4 pointer-events-none">
       <transition-group
         name="list"
@@ -16,9 +15,17 @@
         <div
           v-for="(marble, index) in marbleList"
           :key="marble.mesh.name"
-          class="flex items-center gap-3 p-2 bg-white/80 backdrop-blur-sm rounded shadow-sm w-32"
+          class="flex items-center gap-3 p-2 rounded shadow-sm transition-all duration-300 border-2"
+          :class="[
+            marble.finishTime > 0
+              ? 'bg-yellow-50 border-yellow-400 shadow-md scale-105' /* 完賽樣式：淡黃底、金邊、微放大 */
+              : 'bg-white/80 border-transparent backdrop-blur-sm', /* 競賽中樣式：半透明白底 */
+          ]"
         >
-          <div class="font-mono font-bold text-gray-500 w-4 text-center">
+          <div
+            class="font-mono font-bold w-4 text-center transition-colors"
+            :class="marble.finishTime > 0 ? 'text-yellow-700' : 'text-gray-500'"
+          >
             {{ index + 1 }}
           </div>
 
@@ -29,6 +36,13 @@
 
           <div class="text-xs text-gray-700 font-medium">
             #{{ marble.mesh.name.slice(-4) }}
+          </div>
+
+          <div
+            v-if="marble.finishTime > 0"
+            class="ml-auto text-yellow-500 text-xs"
+          >
+            {{ ((marble.finishTime - startTime) / 1000).toFixed(2) }}s
           </div>
         </div>
       </transition-group>
@@ -53,6 +67,7 @@ import { useBabylonScene } from './use-babylon-scene'
 const marbleCount = 10
 const marbleList = shallowRef<Marble[]>([])
 
+let startTime = 0
 const updateRanking = useThrottleFn(() => {
   marbleList.value.sort((a, b) => {
     const aFinished = a.finishTime > 0
@@ -529,6 +544,8 @@ const {
         )
       })
     })
+
+    startTime = Date.now()
   },
 })
 </script>
