@@ -23,7 +23,9 @@
 <script setup lang="ts">
 import type { AbstractMesh, GizmoManager, Scene } from '@babylonjs/core'
 import type { JSAnimation } from 'animejs'
+import type { ComponentEmit } from 'vue-component-type-helpers'
 import type { MeshMeta, ModelFile, SceneData } from '../../type'
+import type { EmitsToObject } from '../../type/utils'
 import { ArcRotateCamera, Color3, ImportMeshAsync, Mesh, PointerEventTypes, Quaternion, Scalar, StandardMaterial, Vector3 } from '@babylonjs/core'
 import { onKeyStroke, refManualReset, useActiveElement, useMagicKeys, useThrottledRefHistory, whenever } from '@vueuse/core'
 import { animate } from 'animejs'
@@ -38,9 +40,9 @@ import { useSceneStore } from '../../domains/scene/scene-store'
 import { useMainStore } from '../../stores/main-store'
 import { clearPivotRecursive, findTopLevelMesh, getMeshMeta, getSurfaceSnapTransform } from '../../utils/babylon'
 import { getFileFromPath } from '../../utils/fs'
+
 import { roundToStep } from '../../utils/math'
 import ContextMenu from './context-menu.vue'
-
 import { createGizmoManager, createGround, createScreenAxes, createSideCamera, createTopCamera } from './creator'
 import '@babylonjs/loaders'
 
@@ -825,8 +827,9 @@ async function rotateMesh(
   })
 }
 
+type Events = ComponentEmit<typeof ContextMenu>
 /** 給右鍵選單使用 */
-const contentMenuEvents = {
+const contentMenuEvents: EmitsToObject<Events> = {
   // preview
   cancelPreview: () => emit('cancelPreview'),
   updatePreviewOffset: (data: Partial<{
