@@ -301,6 +301,7 @@ const {
 } = useBabylonScene({
   async init(params) {
     const { scene, camera } = params
+
     // Inspector.Show(scene, {
     //   embedMode: true,
     // })
