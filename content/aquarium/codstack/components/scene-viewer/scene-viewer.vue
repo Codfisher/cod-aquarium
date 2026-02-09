@@ -7,7 +7,7 @@
       :can-redo="canRedo"
       :can-undo="canUndo"
       :meta="getMeshMeta(selectedMeshes[0])"
-      :commands="commands"
+      v-on="events"
     >
       <canvas
         v-once
@@ -756,21 +756,18 @@ function alignMeshesToBoundingEdge(
     return
 
   const getEdgeValue = (mesh: AbstractMesh) => {
-    // 確保 bounding box 是最新的 world 資訊
-    mesh.computeWorldMatrix(true)
-    const bb = mesh.getBoundingInfo().boundingBox
-    const minW = bb.minimumWorld
-    const maxW = bb.maximumWorld
-    return direction === 'max' ? (maxW as any)[alongAxis] : (minW as any)[alongAxis]
+    // 取得整個 hierarchy 的 world min/max（包含子 mesh）
+    const { min, max } = mesh.getHierarchyBoundingVectors(true)
+    return direction === 'max' ? max[alongAxis] : min[alongAxis]
   }
 
-  const init = direction === 'max' ? -Infinity : Infinity
+  const initValue = direction === 'max' ? -Infinity : Infinity
 
   // 找出群組極值（最大或最小那條平面）
   const targetEdgeValue = meshList.reduce((acc, mesh) => {
     const v = getEdgeValue(mesh)
     return direction === 'max' ? Math.max(acc, v) : Math.min(acc, v)
-  }, init)
+  }, initValue)
 
   // 把每個 mesh 的對應邊緣推到 target
   for (const mesh of meshList) {
@@ -830,7 +827,7 @@ async function rotateMesh(
 }
 
 /** 給右鍵選單使用 */
-const commands = {
+const events = {
   // preview
   cancelPreview: () => emit('cancelPreview'),
   updatePreviewOffset: (data: Partial<{

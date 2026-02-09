@@ -26,11 +26,7 @@
           size="xs"
           variant="soft"
           color="neutral"
-          @click="props.commands.rotate(
-            selectedMeshes[0],
-            'x',
-            degree * Math.PI / 180,
-          )"
+          @click="emit('rotate', selectedMeshes[0], 'x', degree * Math.PI / 180)"
         />
       </div>
     </template>
@@ -54,11 +50,7 @@
           size="xs"
           variant="soft"
           color="neutral"
-          @click="props.commands.rotate(
-            selectedMeshes[0],
-            'y',
-            degree * Math.PI / 180,
-          )"
+          @click="emit('rotate', selectedMeshes[0], 'y', degree * Math.PI / 180)"
         />
       </div>
     </template>
@@ -82,11 +74,7 @@
           size="xs"
           variant="soft"
           color="neutral"
-          @click="props.commands.rotate(
-            selectedMeshes[0],
-            'z',
-            degree * Math.PI / 180,
-          )"
+          @click="emit('rotate', selectedMeshes[0], 'z', degree * Math.PI / 180)"
         />
       </div>
     </template>
@@ -106,7 +94,7 @@
           <u-input
             type="text"
             :model-value="props.meta?.name ?? ''"
-            @update:model-value="(val: string) => commands.updateSelectedMeta({ name: val })"
+            @update:model-value="(val: string) => emit('updateSelectedMeta', { name: val })"
           />
         </u-form-field>
 
@@ -119,7 +107,7 @@
           <u-input
             type="number"
             :model-value="props.meta?.mass ?? 0"
-            @update:model-value="(val: number) => commands.updateSelectedMeta({ mass: Number(val) })"
+            @update:model-value="(val: number) => emit('updateSelectedMeta', { mass: Number(val) })"
           />
         </u-form-field>
 
@@ -130,7 +118,7 @@
           <u-input
             type="number"
             :model-value="props.meta?.restitution ?? 0"
-            @update:model-value="(val: number) => commands.updateSelectedMeta({ restitution: Number(val) })"
+            @update:model-value="(val: number) => emit('updateSelectedMeta', { restitution: Number(val) })"
           />
         </u-form-field>
 
@@ -141,7 +129,7 @@
           <u-input
             type="number"
             :model-value="props.meta?.friction ?? 0"
-            @update:model-value="(val: number) => commands.updateSelectedMeta({ friction: Number(val) })"
+            @update:model-value="(val: number) => emit('updateSelectedMeta', { friction: Number(val) })"
           />
         </u-form-field>
       </div>
@@ -165,44 +153,40 @@ const props = defineProps<{
   canRedo: boolean;
   /** 目前選取目標的 metadata */
   meta?: MeshMeta;
-  commands: {
-    // preview
-    cancelPreview: () => void;
-    updatePreviewOffset: (data: Partial<{
-      vertical: number;
-      yRotation: number;
-    }>) => void;
-    useAsPreview: (path: string) => void;
-
-    // selection
-    selectAll: () => void;
-    deselect: () => void;
-    duplicateSelected: () => void;
-    deleteSelected: () => void;
-
-    // transform
-    rotate: (mesh: AbstractMesh, axis: 'x' | 'y' | 'z', angleRad: number) => void;
-    enableGizmo: (mode: 'position' | 'rotation' | 'scale') => void;
-    snapToGround: () => void;
-    moveToOrigin: () => void;
-    resetRotation: () => void;
-    resetScale: () => void;
-    alignAxis: (axis: 'x' | 'y' | 'z') => void;
-    alignBounds: (axis: 'x' | 'y' | 'z', dir: 'max' | 'min') => void;
-
-    // meta
-    updateSelectedMeta: (patch: Partial<MeshMeta>) => void;
-
-    // history / view
-    undo: () => void;
-    redo: () => void;
-    resetView: () => void;
-  };
 }>()
 
 const emit = defineEmits<{
+  // preview
   cancelPreview: [];
+  updatePreviewOffset: [data: Partial<{
+    vertical: number;
+    yRotation: number;
+  }>];
   useAsPreview: [path: string];
+
+  // selection
+  selectAll: [];
+  deselect: [];
+  duplicateSelected: [];
+  deleteSelected: [];
+
+  // transform
+  rotate: [mesh: AbstractMesh, axis: 'x' | 'y' | 'z', angleRad: number];
+  enableGizmo: [mode: 'position' | 'rotation' | 'scale'];
+  snapToGround: [];
+  moveToOrigin: [];
+  resetRotation: [];
+  resetScale: [];
+  alignAxis: [axis: 'x' | 'y' | 'z'];
+  alignBounds: [axis: 'x' | 'y' | 'z', dir: 'max' | 'min'];
+
+  // meta
+  updateSelectedMeta: [patch: Partial<MeshMeta>];
+
+  // history / view
+  undo: [];
+  redo: [];
+  resetView: [];
 }>()
 
 defineSlots<{
@@ -211,7 +195,6 @@ defineSlots<{
 
 /** 右鍵選單 */
 const contextMenuItems = computed(() => {
-  const commands = props.commands
   return pipe(
     [
       // 放置預覽
@@ -226,16 +209,14 @@ const contextMenuItems = computed(() => {
             icon: 'material-symbols:cancel-outline-rounded',
             label: 'Cancel Placement',
             kbds: ['escape'],
-            onSelect: () => {
-              emit('cancelPreview')
-            },
+            onSelect: () => emit('cancelPreview'),
           },
           {
             icon: 'i-material-symbols:arrow-upward-rounded',
             label: 'Vertical Up',
             kbds: ['q'],
             onSelect: (e) => {
-              commands.updatePreviewOffset({ vertical: 0.1 })
+              emit('updatePreviewOffset', { vertical: 0.1 })
               e.preventDefault()
             },
           },
@@ -244,7 +225,7 @@ const contextMenuItems = computed(() => {
             label: 'Vertical Down',
             kbds: ['e'],
             onSelect: (e) => {
-              commands.updatePreviewOffset({ vertical: -0.1 })
+              emit('updatePreviewOffset', { vertical: -0.1 })
               e.preventDefault()
             },
           },
@@ -253,7 +234,7 @@ const contextMenuItems = computed(() => {
             label: 'Rotate Y +45° (cw)',
             kbds: ['a'],
             onSelect: (e) => {
-              commands.updatePreviewOffset({ yRotation: Math.PI / 180 * 45 })
+              emit('updatePreviewOffset', { yRotation: Math.PI / 180 * 45 })
               e.preventDefault()
             },
           },
@@ -262,7 +243,7 @@ const contextMenuItems = computed(() => {
             label: 'Rotate Y -45° (ccw)',
             kbds: ['d'],
             onSelect: (e) => {
-              commands.updatePreviewOffset({ yRotation: -Math.PI / 180 * 45 })
+              emit('updatePreviewOffset', { yRotation: -Math.PI / 180 * 45 })
               e.preventDefault()
             },
           },
@@ -285,19 +266,19 @@ const contextMenuItems = computed(() => {
                 icon: 'i-material-symbols:align-justify-center-rounded',
                 label: 'Align X',
                 kbds: ['a', 'x'],
-                onSelect: () => commands.alignAxis('x'),
+                onSelect: () => emit('alignAxis', 'x'),
               },
               {
                 icon: 'i-material-symbols:vertical-align-center',
                 label: 'Align Y',
                 kbds: ['a', 'y'],
-                onSelect: () => commands.alignAxis('y'),
+                onSelect: () => emit('alignAxis', 'y'),
               },
               {
                 icon: 'i-material-symbols:vertical-align-center',
                 label: 'Align Z',
                 kbds: ['a', 'z'],
-                onSelect: () => commands.alignAxis('z'),
+                onSelect: () => emit('alignAxis', 'z'),
               },
             ],
           },
@@ -308,33 +289,33 @@ const contextMenuItems = computed(() => {
               {
                 icon: 'i-material-symbols:align-horizontal-left-rounded',
                 label: 'Align to X Max',
-                onSelect: () => commands.alignBounds('x', 'max'),
+                onSelect: () => emit('alignBounds', 'x', 'max'),
               },
               {
                 icon: 'i-material-symbols:align-vertical-top-rounded',
                 label: 'Align to Y Max',
-                onSelect: () => commands.alignBounds('y', 'max'),
+                onSelect: () => emit('alignBounds', 'y', 'max'),
               },
               {
                 icon: 'i-material-symbols:align-horizontal-left-rounded',
                 label: 'Align to Z Max',
-                onSelect: () => commands.alignBounds('z', 'max'),
+                onSelect: () => emit('alignBounds', 'z', 'max'),
               },
               { type: 'separator' },
               {
                 icon: 'i-material-symbols:align-horizontal-right-rounded',
                 label: 'Align to X Min',
-                onSelect: () => commands.alignBounds('x', 'min'),
+                onSelect: () => emit('alignBounds', 'x', 'min'),
               },
               {
                 icon: 'i-material-symbols:align-vertical-bottom-rounded',
                 label: 'Align to Y Min',
-                onSelect: () => commands.alignBounds('y', 'min'),
+                onSelect: () => emit('alignBounds', 'y', 'min'),
               },
               {
                 icon: 'i-material-symbols:align-horizontal-right-rounded',
                 label: 'Align to Z Min',
-                onSelect: () => commands.alignBounds('z', 'min'),
+                onSelect: () => emit('alignBounds', 'z', 'min'),
               },
             ],
           },
@@ -342,13 +323,13 @@ const contextMenuItems = computed(() => {
             icon: 'material-symbols:content-copy-outline-rounded',
             label: 'Duplicate',
             kbds: ['shift', 'd'],
-            onSelect: () => commands.duplicateSelected(),
+            onSelect: () => emit('duplicateSelected'),
           },
           {
             icon: 'i-material-symbols:delete-outline-rounded',
             label: 'Delete',
             kbds: ['delete'],
-            onSelect: () => commands.deleteSelected(),
+            onSelect: () => emit('deleteSelected'),
           },
         ] as ContextMenuItem[]
       }),
@@ -385,17 +366,17 @@ const contextMenuItems = computed(() => {
                 icon: 'i-material-symbols:drag-handle-rounded',
                 label: 'Enable handles',
                 kbds: ['g'],
-                onSelect: () => commands.enableGizmo('position'),
+                onSelect: () => emit('enableGizmo', 'position'),
               },
               {
                 icon: 'i-material-symbols:download-2-rounded',
                 label: 'Snap to ground',
-                onSelect: () => commands.snapToGround(),
+                onSelect: () => emit('snapToGround'),
               },
               {
                 icon: 'ri:reset-right-fill',
                 label: 'Move to origin',
-                onSelect: () => commands.moveToOrigin(),
+                onSelect: () => emit('moveToOrigin'),
               },
             ] satisfies ContextMenuItem[],
           },
@@ -407,7 +388,7 @@ const contextMenuItems = computed(() => {
                 icon: 'i-material-symbols:drag-handle-rounded',
                 label: 'Enable handles',
                 kbds: ['r'],
-                onSelect: () => commands.enableGizmo('rotation'),
+                onSelect: () => emit('enableGizmo', 'rotation'),
               },
               {
                 icon: 'i-material-symbols:rotate-90-degrees-ccw-outline-rounded',
@@ -430,7 +411,7 @@ const contextMenuItems = computed(() => {
               {
                 icon: 'ri:reset-right-fill',
                 label: 'Reset',
-                onSelect: () => commands.resetRotation(),
+                onSelect: () => emit('resetRotation'),
               },
             ] as const,
           },
@@ -442,12 +423,12 @@ const contextMenuItems = computed(() => {
                 icon: 'i-material-symbols:drag-handle-rounded',
                 label: 'Enable handles',
                 kbds: ['s'],
-                onSelect: () => commands.enableGizmo('scale'),
+                onSelect: () => emit('enableGizmo', 'scale'),
               },
               {
                 icon: 'ri:reset-right-fill',
                 label: 'Reset',
-                onSelect: () => commands.resetScale(),
+                onSelect: () => emit('resetScale'),
               },
             ] as const,
           },
@@ -459,14 +440,14 @@ const contextMenuItems = computed(() => {
           {
             icon: 'material-symbols:content-copy-outline-rounded',
             label: 'Duplicate',
-            kbds: ['d'],
-            onSelect: () => commands.duplicateSelected(),
+            kbds: ['shift', 'd'],
+            onSelect: () => emit('duplicateSelected'),
           },
           {
             icon: 'i-material-symbols:delete-outline-rounded',
             label: 'Delete',
             kbds: ['delete'],
-            onSelect: () => commands.deleteSelected(),
+            onSelect: () => emit('deleteSelected'),
           },
         ] as ContextMenuItem[]
       }),
@@ -480,7 +461,7 @@ const contextMenuItems = computed(() => {
             icon: 'material-symbols:select-all-rounded',
             label: 'Select All',
             kbds: ['ctrl', 'a'],
-            onSelect: () => commands.selectAll(),
+            onSelect: () => emit('selectAll'),
           }
         }),
         pipe(undefined, () => {
@@ -491,7 +472,7 @@ const contextMenuItems = computed(() => {
             icon: 'material-symbols:deselect-rounded',
             label: 'Deselect',
             kbds: ['escape'],
-            onSelect: () => commands.deselect(),
+            onSelect: () => emit('deselect'),
           }
         }),
         {
@@ -499,19 +480,19 @@ const contextMenuItems = computed(() => {
           label: 'Undo',
           kbds: ['ctrl', 'z'],
           disabled: !props.canUndo,
-          onSelect: () => commands.undo(),
+          onSelect: () => emit('undo'),
         },
         {
           icon: 'material-symbols:redo-rounded',
           label: 'Redo',
           kbds: ['ctrl', 'y'],
           disabled: !props.canRedo,
-          onSelect: () => commands.redo(),
+          onSelect: () => emit('redo'),
         },
         {
           icon: 'material-symbols:flip-camera-ios-outline-rounded',
           label: 'Reset View',
-          onSelect: () => commands.resetView(),
+          onSelect: () => emit('resetView'),
         },
       ].filter(isTruthy),
     ] as ContextMenuItem[][],
