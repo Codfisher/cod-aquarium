@@ -760,12 +760,12 @@ function alignMeshesToAxis(
   commitHistory()
 }
 
-/** 沿著軸邊緣對齊 */
-function alignMeshesToAxisExtremumEdge(
+/** 沿著包圍邊緣對齊 */
+function alignMeshesToBoundingEdge(
   meshList: AbstractMesh[],
   alongAxis: 'x' | 'y' | 'z',
-  /** 正負方向：positive=對齊到最大值那側；negative=對齊到最小值那側 */
-  direction: 'positive' | 'negative',
+  /** 正負方向：max=對齊到最大值那側；min=對齊到最小值那側 */
+  direction: 'max' | 'min',
 ) {
   if (!meshList.length)
     return
@@ -776,18 +776,18 @@ function alignMeshesToAxisExtremumEdge(
     const bb = mesh.getBoundingInfo().boundingBox
     const minW = bb.minimumWorld
     const maxW = bb.maximumWorld
-    return direction === 'positive' ? (maxW as any)[alongAxis] : (minW as any)[alongAxis]
+    return direction === 'max' ? (maxW as any)[alongAxis] : (minW as any)[alongAxis]
   }
 
-  const init = direction === 'positive' ? -Infinity : Infinity
+  const init = direction === 'max' ? -Infinity : Infinity
 
-  // 1) 找出群組極值（最大或最小那條平面）
+  // 找出群組極值（最大或最小那條平面）
   const targetEdgeValue = meshList.reduce((acc, mesh) => {
     const v = getEdgeValue(mesh)
-    return direction === 'positive' ? Math.max(acc, v) : Math.min(acc, v)
+    return direction === 'max' ? Math.max(acc, v) : Math.min(acc, v)
   }, init)
 
-  // 2) 把每個 mesh 的對應邊緣推到 target
+  // 把每個 mesh 的對應邊緣推到 target
   for (const mesh of meshList) {
     const edge = getEdgeValue(mesh)
     const delta = targetEdgeValue - edge
@@ -985,7 +985,7 @@ const contextMenuItems = computed(() => {
                 icon: 'i-material-symbols:align-horizontal-left-rounded',
                 label: 'Align to X Max',
                 onSelect: () => {
-                  alignMeshesToAxisExtremumEdge(selectedMeshes.value, 'x', 'positive')
+                  alignMeshesToBoundingEdge(selectedMeshes.value, 'x', 'max')
                   rebuildGroup()
                 },
               },
@@ -993,7 +993,7 @@ const contextMenuItems = computed(() => {
                 icon: 'i-material-symbols:align-horizontal-left-rounded',
                 label: 'Align to Y Max',
                 onSelect: () => {
-                  alignMeshesToAxisExtremumEdge(selectedMeshes.value, 'y', 'positive')
+                  alignMeshesToBoundingEdge(selectedMeshes.value, 'y', 'max')
                   rebuildGroup()
                 },
               },
@@ -1001,7 +1001,7 @@ const contextMenuItems = computed(() => {
                 icon: 'i-material-symbols:align-horizontal-left-rounded',
                 label: 'Align to Z Max',
                 onSelect: () => {
-                  alignMeshesToAxisExtremumEdge(selectedMeshes.value, 'z', 'positive')
+                  alignMeshesToBoundingEdge(selectedMeshes.value, 'z', 'max')
                   rebuildGroup()
                 },
               },
@@ -1010,7 +1010,7 @@ const contextMenuItems = computed(() => {
                 icon: 'i-material-symbols:align-horizontal-left-rounded',
                 label: 'Align to X Min',
                 onSelect: () => {
-                  alignMeshesToAxisExtremumEdge(selectedMeshes.value, 'x', 'negative')
+                  alignMeshesToBoundingEdge(selectedMeshes.value, 'x', 'min')
                   rebuildGroup()
                 },
               },
@@ -1018,7 +1018,7 @@ const contextMenuItems = computed(() => {
                 icon: 'i-material-symbols:align-horizontal-left-rounded',
                 label: 'Align to Y Min',
                 onSelect: () => {
-                  alignMeshesToAxisExtremumEdge(selectedMeshes.value, 'y', 'negative')
+                  alignMeshesToBoundingEdge(selectedMeshes.value, 'y', 'min')
                   rebuildGroup()
                 },
               },
@@ -1026,7 +1026,7 @@ const contextMenuItems = computed(() => {
                 icon: 'i-material-symbols:align-horizontal-left-rounded',
                 label: 'Align to Z Min',
                 onSelect: () => {
-                  alignMeshesToAxisExtremumEdge(selectedMeshes.value, 'z', 'negative')
+                  alignMeshesToBoundingEdge(selectedMeshes.value, 'z', 'min')
                   rebuildGroup()
                 },
               },
