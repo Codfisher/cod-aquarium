@@ -1,0 +1,521 @@
+<template>
+  <u-context-menu
+    :items="contextMenuItems"
+    :ui="{
+      label: 'text-xs opacity-50',
+    }"
+  >
+    <slot />
+
+    <template
+      v-if="selectedMeshes[0]"
+      #rotate-x-label="{ item }: any"
+    >
+      <div>
+        {{ item.label }}
+      </div>
+
+      <div
+        class="flex gap-1 mt-1"
+        @pointermove.stop
+      >
+        <u-button
+          v-for="degree in [90, -90, 180, -180]"
+          :key="degree"
+          :label="`${degree}°`"
+          size="xs"
+          variant="soft"
+          color="neutral"
+          @click="props.commands.rotate(
+            selectedMeshes[0],
+            'x',
+            degree * Math.PI / 180,
+          )"
+        />
+      </div>
+    </template>
+
+    <template
+      v-if="selectedMeshes[0]"
+      #rotate-y-label="{ item }: any"
+    >
+      <div>
+        {{ item.label }}
+      </div>
+
+      <div
+        class="flex gap-1 mt-1"
+        @pointermove.stop
+      >
+        <u-button
+          v-for="degree in [90, -90, 180, -180]"
+          :key="degree"
+          :label="`${degree}°`"
+          size="xs"
+          variant="soft"
+          color="neutral"
+          @click="props.commands.rotate(
+            selectedMeshes[0],
+            'y',
+            degree * Math.PI / 180,
+          )"
+        />
+      </div>
+    </template>
+
+    <template
+      v-if="selectedMeshes[0]"
+      #rotate-z-label="{ item }: any"
+    >
+      <div>
+        {{ item.label }}
+      </div>
+
+      <div
+        class="flex gap-1 mt-1"
+        @pointermove.stop
+      >
+        <u-button
+          v-for="degree in [90, -90, 180, -180]"
+          :key="degree"
+          :label="`${degree}°`"
+          size="xs"
+          variant="soft"
+          color="neutral"
+          @click="props.commands.rotate(
+            selectedMeshes[0],
+            'z',
+            degree * Math.PI / 180,
+          )"
+        />
+      </div>
+    </template>
+
+    <template
+      v-if="selectedMeshes[0]"
+      #metadata
+    >
+      <div
+        class="flex flex-col gap-1"
+        @pointermove.stop
+      >
+        <u-form-field
+          label="Name"
+          orientation="horizontal"
+        >
+          <u-input
+            type="text"
+            :model-value="props.meta?.name ?? ''"
+            @update:model-value="(val: string) => commands.updateSelectedMeta({ name: val })"
+          />
+        </u-form-field>
+
+        <u-separator class="my-1" />
+
+        <u-form-field
+          label="Mass"
+          orientation="horizontal"
+        >
+          <u-input
+            type="number"
+            :model-value="props.meta?.mass ?? 0"
+            @update:model-value="(val: number) => commands.updateSelectedMeta({ mass: Number(val) })"
+          />
+        </u-form-field>
+
+        <u-form-field
+          label="Restitution"
+          orientation="horizontal"
+        >
+          <u-input
+            type="number"
+            :model-value="props.meta?.restitution ?? 0"
+            @update:model-value="(val: number) => commands.updateSelectedMeta({ restitution: Number(val) })"
+          />
+        </u-form-field>
+
+        <u-form-field
+          label="Friction"
+          orientation="horizontal"
+        >
+          <u-input
+            type="number"
+            :model-value="props.meta?.friction ?? 0"
+            @update:model-value="(val: number) => commands.updateSelectedMeta({ friction: Number(val) })"
+          />
+        </u-form-field>
+      </div>
+    </template>
+  </u-context-menu>
+</template>
+
+<script setup lang="ts">
+import type { AbstractMesh } from '@babylonjs/core'
+import type { ContextMenuItem } from '@nuxt/ui/.'
+import type { MeshMeta } from '../../type'
+import { filter, isTruthy, pipe } from 'remeda'
+import { computed } from 'vue'
+import { getMeshMeta } from '../../utils/babylon'
+
+const props = defineProps<{
+  previewMesh?: AbstractMesh;
+  selectedMeshes: AbstractMesh[];
+  addedMeshList: AbstractMesh[];
+  canUndo: boolean;
+  canRedo: boolean;
+  /** 目前選取目標的 metadata */
+  meta?: MeshMeta;
+  commands: {
+    // preview
+    cancelPreview: () => void;
+    updatePreviewOffset: (data: Partial<{
+      vertical: number;
+      yRotation: number;
+    }>) => void;
+    useAsPreview: (path: string) => void;
+
+    // selection
+    selectAll: () => void;
+    deselect: () => void;
+    duplicateSelected: () => void;
+    deleteSelected: () => void;
+
+    // transform
+    rotate: (mesh: AbstractMesh, axis: 'x' | 'y' | 'z', angleRad: number) => void;
+    enableGizmo: (mode: 'position' | 'rotation' | 'scale') => void;
+    snapToGround: () => void;
+    moveToOrigin: () => void;
+    resetRotation: () => void;
+    resetScale: () => void;
+    alignAxis: (axis: 'x' | 'y' | 'z') => void;
+    alignBounds: (axis: 'x' | 'y' | 'z', dir: 'max' | 'min') => void;
+
+    // meta
+    updateSelectedMeta: (patch: Partial<MeshMeta>) => void;
+
+    // history / view
+    undo: () => void;
+    redo: () => void;
+    resetView: () => void;
+  };
+}>()
+
+const emit = defineEmits<{
+  cancelPreview: [];
+  useAsPreview: [path: string];
+}>()
+
+defineSlots<{
+  default: () => any;
+}>()
+
+/** 右鍵選單 */
+const contextMenuItems = computed(() => {
+  const commands = props.commands
+  return pipe(
+    [
+      // 放置預覽
+      pipe(undefined, () => {
+        if (!props.previewMesh) {
+          return
+        }
+
+        return [
+          { label: 'Preview Mesh', type: 'label' },
+          {
+            icon: 'material-symbols:cancel-outline-rounded',
+            label: 'Cancel Placement',
+            kbds: ['escape'],
+            onSelect: () => {
+              emit('cancelPreview')
+            },
+          },
+          {
+            icon: 'i-material-symbols:arrow-upward-rounded',
+            label: 'Vertical Up',
+            kbds: ['q'],
+            onSelect: (e) => {
+              commands.updatePreviewOffset({ vertical: 0.1 })
+              e.preventDefault()
+            },
+          },
+          {
+            icon: 'material-symbols:arrow-downward-rounded',
+            label: 'Vertical Down',
+            kbds: ['e'],
+            onSelect: (e) => {
+              commands.updatePreviewOffset({ vertical: -0.1 })
+              e.preventDefault()
+            },
+          },
+          {
+            icon: 'i-material-symbols:rotate-90-degrees-cw-outline-rounded',
+            label: 'Rotate Y +45° (cw)',
+            kbds: ['a'],
+            onSelect: (e) => {
+              commands.updatePreviewOffset({ yRotation: Math.PI / 180 * 45 })
+              e.preventDefault()
+            },
+          },
+          {
+            icon: 'i-material-symbols:rotate-90-degrees-ccw-outline-rounded',
+            label: 'Rotate Y -45° (ccw)',
+            kbds: ['d'],
+            onSelect: (e) => {
+              commands.updatePreviewOffset({ yRotation: -Math.PI / 180 * 45 })
+              e.preventDefault()
+            },
+          },
+        ] as ContextMenuItem[]
+      }),
+      // 選取多個 Mesh
+      pipe(undefined, () => {
+        const [firstMesh] = props.selectedMeshes
+        if (props.selectedMeshes.length < 2 || !firstMesh) {
+          return
+        }
+
+        return [
+          { label: `${props.selectedMeshes.length} meshes selected`, type: 'label' },
+          {
+            icon: 'i-material-symbols:align-vertical-bottom',
+            label: 'Align to First Selected (yellow)',
+            children: [
+              {
+                icon: 'i-material-symbols:align-justify-center-rounded',
+                label: 'Align X',
+                kbds: ['a', 'x'],
+                onSelect: () => commands.alignAxis('x'),
+              },
+              {
+                icon: 'i-material-symbols:vertical-align-center',
+                label: 'Align Y',
+                kbds: ['a', 'y'],
+                onSelect: () => commands.alignAxis('y'),
+              },
+              {
+                icon: 'i-material-symbols:vertical-align-center',
+                label: 'Align Z',
+                kbds: ['a', 'z'],
+                onSelect: () => commands.alignAxis('z'),
+              },
+            ],
+          },
+          {
+            icon: 'i-material-symbols:align-vertical-bottom',
+            label: 'Align to Bounds',
+            children: [
+              {
+                icon: 'i-material-symbols:align-horizontal-left-rounded',
+                label: 'Align to X Max',
+                onSelect: () => commands.alignBounds('x', 'max'),
+              },
+              {
+                icon: 'i-material-symbols:align-vertical-top-rounded',
+                label: 'Align to Y Max',
+                onSelect: () => commands.alignBounds('y', 'max'),
+              },
+              {
+                icon: 'i-material-symbols:align-horizontal-left-rounded',
+                label: 'Align to Z Max',
+                onSelect: () => commands.alignBounds('z', 'max'),
+              },
+              { type: 'separator' },
+              {
+                icon: 'i-material-symbols:align-horizontal-right-rounded',
+                label: 'Align to X Min',
+                onSelect: () => commands.alignBounds('x', 'min'),
+              },
+              {
+                icon: 'i-material-symbols:align-vertical-bottom-rounded',
+                label: 'Align to Y Min',
+                onSelect: () => commands.alignBounds('y', 'min'),
+              },
+              {
+                icon: 'i-material-symbols:align-horizontal-right-rounded',
+                label: 'Align to Z Min',
+                onSelect: () => commands.alignBounds('z', 'min'),
+              },
+            ],
+          },
+          {
+            icon: 'material-symbols:content-copy-outline-rounded',
+            label: 'Duplicate',
+            kbds: ['shift', 'd'],
+            onSelect: () => commands.duplicateSelected(),
+          },
+          {
+            icon: 'i-material-symbols:delete-outline-rounded',
+            label: 'Delete',
+            kbds: ['delete'],
+            onSelect: () => commands.deleteSelected(),
+          },
+        ] as ContextMenuItem[]
+      }),
+      // 選取單一 Mesh
+      pipe(undefined, () => {
+        if (props.selectedMeshes.length !== 1) {
+          return
+        }
+        const [firstMesh] = props.selectedMeshes
+        if (!firstMesh)
+          return
+
+        const meta = getMeshMeta(firstMesh)
+        if (!meta)
+          return
+
+        return [
+          { label: meta.fileName, type: 'label' },
+          {
+            icon: 'i-material-symbols:database',
+            label: 'Metadata',
+            children: [
+              {
+                slot: 'metadata',
+                onSelect: (e) => e.preventDefault(),
+              },
+            ] satisfies ContextMenuItem[],
+          },
+          {
+            icon: 'hugeicons:three-d-move',
+            label: 'Position',
+            children: [
+              {
+                icon: 'i-material-symbols:drag-handle-rounded',
+                label: 'Enable handles',
+                kbds: ['g'],
+                onSelect: () => commands.enableGizmo('position'),
+              },
+              {
+                icon: 'i-material-symbols:download-2-rounded',
+                label: 'Snap to ground',
+                onSelect: () => commands.snapToGround(),
+              },
+              {
+                icon: 'ri:reset-right-fill',
+                label: 'Move to origin',
+                onSelect: () => commands.moveToOrigin(),
+              },
+            ] satisfies ContextMenuItem[],
+          },
+          {
+            icon: 'hugeicons:three-d-rotate',
+            label: 'Rotation',
+            children: [
+              {
+                icon: 'i-material-symbols:drag-handle-rounded',
+                label: 'Enable handles',
+                kbds: ['r'],
+                onSelect: () => commands.enableGizmo('rotation'),
+              },
+              {
+                icon: 'i-material-symbols:rotate-90-degrees-ccw-outline-rounded',
+                label: 'Rotate on X axis',
+                slot: 'rotate-x',
+                onSelect: (e) => e.preventDefault(),
+              },
+              {
+                icon: 'i-material-symbols:rotate-90-degrees-ccw-outline-rounded',
+                label: 'Rotate on Y axis',
+                slot: 'rotate-y',
+                onSelect: (e) => e.preventDefault(),
+              },
+              {
+                icon: 'i-material-symbols:rotate-90-degrees-ccw-outline-rounded',
+                label: 'Rotate on Z axis',
+                slot: 'rotate-z',
+                onSelect: (e) => e.preventDefault(),
+              },
+              {
+                icon: 'ri:reset-right-fill',
+                label: 'Reset',
+                onSelect: () => commands.resetRotation(),
+              },
+            ] as const,
+          },
+          {
+            icon: 'hugeicons:three-d-scale',
+            label: 'Scale',
+            children: [
+              {
+                icon: 'i-material-symbols:drag-handle-rounded',
+                label: 'Enable handles',
+                kbds: ['s'],
+                onSelect: () => commands.enableGizmo('scale'),
+              },
+              {
+                icon: 'ri:reset-right-fill',
+                label: 'Reset',
+                onSelect: () => commands.resetScale(),
+              },
+            ] as const,
+          },
+          {
+            icon: 'i-material-symbols:preview',
+            label: 'Use as Preview',
+            onSelect: () => emit('useAsPreview', meta.path),
+          },
+          {
+            icon: 'material-symbols:content-copy-outline-rounded',
+            label: 'Duplicate',
+            kbds: ['d'],
+            onSelect: () => commands.duplicateSelected(),
+          },
+          {
+            icon: 'i-material-symbols:delete-outline-rounded',
+            label: 'Delete',
+            kbds: ['delete'],
+            onSelect: () => commands.deleteSelected(),
+          },
+        ] as ContextMenuItem[]
+      }),
+      [
+        pipe(undefined, () => {
+          const anyMeshEnabled = props.addedMeshList.some((mesh) => mesh.isEnabled())
+          if (!anyMeshEnabled)
+            return
+
+          return {
+            icon: 'material-symbols:select-all-rounded',
+            label: 'Select All',
+            kbds: ['ctrl', 'a'],
+            onSelect: () => commands.selectAll(),
+          }
+        }),
+        pipe(undefined, () => {
+          if (!props.selectedMeshes.length)
+            return
+
+          return {
+            icon: 'material-symbols:deselect-rounded',
+            label: 'Deselect',
+            kbds: ['escape'],
+            onSelect: () => commands.deselect(),
+          }
+        }),
+        {
+          icon: 'material-symbols:undo-rounded',
+          label: 'Undo',
+          kbds: ['ctrl', 'z'],
+          disabled: !props.canUndo,
+          onSelect: () => commands.undo(),
+        },
+        {
+          icon: 'material-symbols:redo-rounded',
+          label: 'Redo',
+          kbds: ['ctrl', 'y'],
+          disabled: !props.canRedo,
+          onSelect: () => commands.redo(),
+        },
+        {
+          icon: 'material-symbols:flip-camera-ios-outline-rounded',
+          label: 'Reset View',
+          onSelect: () => commands.resetView(),
+        },
+      ].filter(isTruthy),
+    ] as ContextMenuItem[][],
+    filter(isTruthy),
+  )
+})
+</script>

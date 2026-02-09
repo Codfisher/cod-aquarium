@@ -12,8 +12,8 @@ export function findTopLevelMesh(mesh: AbstractMesh, list: AbstractMesh[]): Abst
   return undefined
 }
 
-export function getMeshMeta<Meta = MeshMeta>(mesh: AbstractMesh) {
-  return mesh.metadata as Meta | undefined
+export function getMeshMeta<Meta = MeshMeta>(mesh?: AbstractMesh | null) {
+  return mesh?.metadata as Meta | undefined
 }
 
 const identityRotation = Quaternion.Identity()
@@ -27,7 +27,7 @@ export function getSurfaceSnapTransform(
     /** 是否要計算對齊表面的旋轉 (若為 false 則只回傳修正後的預設旋轉)
      * @default false
      */
-    alignToNormal?: boolean
+    alignToNormal?: boolean;
   },
 ) {
   const alignToNormal = options?.alignToNormal ?? false
