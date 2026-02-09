@@ -148,11 +148,11 @@
     </div>
 
     <div
-      v-if="mainStore.rootFsHandle"
+      v-if="mainStore.rootFsHandle && currentFilterOptions"
       class="grid grid-cols-2 gap-2 @container"
     >
       <u-input
-        v-model="filterOptions.keyword"
+        v-model="currentFilterOptions.keyword"
         placeholder="Enter keywords to search models"
         class="col-span-2 @md:col-span-1"
       >
@@ -161,7 +161,7 @@
         </template>
 
         <template
-          v-if="filterOptions.keyword"
+          v-if="currentFilterOptions.keyword"
           #trailing
         >
           <u-button
@@ -170,16 +170,14 @@
             size="sm"
             icon="i-material-symbols:close"
             aria-label="Clear input"
-            @click="filterOptions.keyword = ''"
+            @click="currentFilterOptions.keyword = ''"
           />
         </template>
       </u-input>
 
-      <u-popover
-        :content="{
-          side: 'right',
-        }"
-      >
+      <u-popover :content="{
+        side: 'right',
+      }">
         <u-input
           :model-value="selectedTagList.length ? selectedTagList.join(', ') : 'Select tag to filter models'"
           class="col-span-2 @md:col-span-1"
@@ -235,12 +233,12 @@
             </div>
 
             <u-input
-              v-model="filterOptions.tagKeyword"
+              v-model="currentFilterOptions.tagKeyword"
               label="Tag keyword"
               placeholder="Enter tag keyword"
             >
               <template
-                v-if="filterOptions.tagKeyword"
+                v-if="currentFilterOptions.tagKeyword"
                 #trailing
               >
                 <u-button
@@ -249,7 +247,7 @@
                   size="sm"
                   icon="i-lucide-circle-x"
                   aria-label="Clear input"
-                  @click="filterOptions.tagKeyword = ''"
+                  @click="currentFilterOptions.tagKeyword = ''"
                 />
               </template>
             </u-input>
@@ -257,14 +255,14 @@
             <u-separator />
 
             <u-checkbox
-              v-model="filterOptions.includeTagFromFileName"
+              v-model="currentFilterOptions.includeTagFromFileName"
               as="label"
               label="Include tag from file name"
               variant="card"
             />
 
             <u-checkbox
-              v-model="filterOptions.useAndLogic"
+              v-model="currentFilterOptions.useAndLogic"
               as="label"
               variant="card"
               label="Use AND logic"
@@ -283,7 +281,7 @@ import type { ModelFile } from '../../type'
 import { refManualReset, useElementSize, useStorage } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { chunk, clone, filter, isTruthy, map, pipe, tap } from 'remeda'
-import { computed, reactive, ref, useTemplateRef, watch } from 'vue'
+import { computed, reactive, ref, useTemplateRef, watch, watchEffect } from 'vue'
 import { nextFrame } from '../../../../../web/common/utils'
 import { useMainStore } from '../../stores/main-store'
 import ModelPreviewItem from '../model-preview-item.vue'
@@ -311,11 +309,11 @@ function handleSelectedTag(tag: string) {
     selectedTagList.value.splice(index, 1)
 }
 
-const baseTabList = {
+const baseTabItem = {
   label: 'All',
   value: 'all',
 } as const satisfies TabsItem
-const selectedTab = ref<string>(baseTabList.value)
+const selectedTab = ref<string>(baseTabItem.value)
 
 const customTabListMap = useStorage<Record<
   /** 根目錄路徑 */
@@ -428,19 +426,44 @@ function createCustomTabContextMenuItems(data: ModelFile): ContextMenuItem[] {
 }
 
 const tabList = computed(() => [
-  baseTabList,
+  baseTabItem,
   ...customTabList.value,
 ])
 
-const filterOptions = refManualReset(() => reactive({
+const DEFAULT_FILTER_OPTIONS = {
   keyword: '',
   tagKeyword: '',
   /** 是否包含來自檔名的 tag */
   includeTagFromFileName: true,
   /** 過濾邏輯 */
   useAndLogic: false,
-}))
-watch(rootFsHandle, () => filterOptions.reset())
+}
+const filterOptions = ref<Record<string, typeof DEFAULT_FILTER_OPTIONS>>({
+  [baseTabItem.value]: clone(DEFAULT_FILTER_OPTIONS),
+})
+/** 使用 call by reference 的方式修改 filterOptions 內容 */
+const currentFilterOptions = computed(() => filterOptions.value[selectedTab.value])
+/** 動態新增 tab 時，初始化 filterOptions */
+watch(tabList, () => {
+  tabList.value.forEach(({ value }) => {
+    const key = value as string
+
+    filterOptions.value[key] = {
+      ...clone(DEFAULT_FILTER_OPTIONS),
+      ...filterOptions.value[key],
+    }
+  })
+}, {
+  immediate: true,
+})
+function resetFilterOptions() {
+  tabList.value.forEach(({ value }) => {
+    const key = value as string
+    filterOptions.value[key] = clone(DEFAULT_FILTER_OPTIONS)
+  })
+}
+
+watch(rootFsHandle, () => resetFilterOptions())
 
 const scrollAreaBoxRef = useTemplateRef('scrollAreaBoxRef')
 const scrollAreaSize = reactive(useElementSize(scrollAreaBoxRef))
@@ -493,7 +516,7 @@ const tagList = computed(() => {
     const parts = pipe(
       file.path.split('/'),
       (data) => {
-        if (!filterOptions.value.includeTagFromFileName) {
+        if (!currentFilterOptions.value?.includeTagFromFileName) {
           data.pop()
         }
         return data
@@ -524,23 +547,34 @@ const tagList = computed(() => {
     }
   }
 
-  // 排序讓顯示更整齊
   return result.sort()
 })
 const filteredTagList = computed(() => {
-  return tagList.value.filter((tag) => tag.includes(filterOptions.value.tagKeyword))
+  const optionsValue = currentFilterOptions.value
+  if (!optionsValue) {
+    return tagList.value
+  }
+  return tagList.value.filter((tag) => tag.includes(optionsValue.tagKeyword))
 })
 
 const filteredModelFileList = computed(() => {
+  const optionsValue = currentFilterOptions.value
+  if (!optionsValue) {
+    return modelFileList.value.map((datum) => ({
+      ...datum,
+      hasTab: false,
+    }))
+  }
+
   return pipe(
     modelFileList.value,
     (list) => {
-      if (!filterOptions.value.keyword) {
+      if (!optionsValue.keyword) {
         return list
       }
 
       return list.filter((file) =>
-        file.path.toLocaleLowerCase().includes(filterOptions.value.keyword.toLocaleLowerCase()),
+        file.path.toLocaleLowerCase().includes(optionsValue.keyword.toLocaleLowerCase()),
       )
     },
     (list) => {
@@ -549,14 +583,14 @@ const filteredModelFileList = computed(() => {
       }
 
       return list.filter((file) => {
-        if (filterOptions.value.useAndLogic) {
+        if (optionsValue.useAndLogic) {
           return selectedTagList.value.every((tag) => file.path.includes(tag))
         }
         return selectedTagList.value.some((tag) => file.path.includes(tag))
       })
     },
     (list) => {
-      if (selectedTab.value === baseTabList.value) {
+      if (selectedTab.value === baseTabItem.value) {
         return list
       }
 
