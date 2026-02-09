@@ -175,9 +175,11 @@
         </template>
       </u-input>
 
-      <u-popover :content="{
-        side: 'right',
-      }">
+      <u-popover
+        :content="{
+          side: 'right',
+        }"
+      >
         <u-input
           :model-value="selectedTagList.length ? selectedTagList.join(', ') : 'Select tag to filter models'"
           class="col-span-2 @md:col-span-1"
