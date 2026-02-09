@@ -1,88 +1,68 @@
 <template>
-  <div class=" fixed w-screen h-screen">
+  <div class="fixed w-screen h-screen">
     <canvas
       v-once
       ref="canvasRef"
       class="canvas w-full h-full"
     />
 
-    <!-- 目前排名 -->
-    <div class="absolute bottom-4 left-4 p-4 pointer-events-none">
-      <h3 class="text-gray-600 font-bold mb-2 text-sm">
-        Race Ranking
-      </h3>
-      <transition-group
-        name="list"
-        tag="div"
-        class="flex flex-col-reverse gap-2"
-      >
-        <div
-          v-for="(marble, index) in rankingList"
-          :key="marble.mesh.name"
-          class="flex items-center gap-3 p-2 bg-white/80 backdrop-blur-sm rounded shadow-sm w-32"
-        >
-          <div class="font-mono font-bold text-gray-500 w-4 text-center">
-            {{ index + 1 }}
-          </div>
-
-          <div
-            class="w-4 h-4 rounded-full border border-black/10 shadow-inner"
-            :style="{ backgroundColor: marble.hexColor }"
-          />
-
-          <div class="text-xs text-gray-700 font-medium">
-            #{{ marble.mesh.name.slice(-4) }}
-          </div>
-        </div>
-      </transition-group>
-    </div>
+    <ranking-list
+      v-model:focused-marble="focusedMarble"
+      :start-time="startTime"
+      :ranking-list="marbleList"
+      class="absolute bottom-4 left-4"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import type { Mesh, Scene } from '@babylonjs/core'
+import type { Scene } from '@babylonjs/core'
 import type { TrackSegment } from './track-segment'
-import { ActionManager, Animation, ArcRotateCamera, CircleEase, Color3, ColorCurves, DefaultRenderingPipeline, DirectionalLight, Engine, ExecuteCodeAction, FollowCamera, HavokPlugin, ImageProcessingConfiguration, MeshBuilder, PBRMaterial, PhysicsAggregate, PhysicsMotionType, PhysicsPrestepType, PhysicsShapeType, Quaternion, Ray, ShadowGenerator, StandardMaterial, TransformNode, Vector3 } from '@babylonjs/core'
-import HavokPhysics from '@babylonjs/havok'
+import type { Marble } from './types'
+import { ActionManager, Color3, DirectionalLight, Engine, ExecuteCodeAction, MeshBuilder, PBRMaterial, PhysicsAggregate, PhysicsMotionType, PhysicsShapeType, Quaternion, ShadowGenerator, StandardMaterial, TransformNode, Vector3 } from '@babylonjs/core'
+import { useThrottleFn } from '@vueuse/core'
 import { animate, cubicBezier } from 'animejs'
 import { random } from 'lodash-es'
 import { nanoid } from 'nanoid'
-import { filter, firstBy, flat, flatMap, map, pipe, prop, reduce, shuffle, sortBy, tap, values } from 'remeda'
-import { shallowRef } from 'vue'
+import { filter, firstBy, flat, map, pipe, shuffle, tap, values } from 'remeda'
+import { ref, shallowRef, triggerRef } from 'vue'
+import RankingList from './components/ranking-list.vue'
 import { createTrackSegment } from './track-segment'
 import { TrackSegmentType } from './track-segment/data'
 import { useBabylonScene } from './use-babylon-scene'
 
 const marbleCount = 10
-const rankingList = shallowRef<Marble[]>([])
+const marbleList = shallowRef<Marble[]>([])
+const focusedMarble = shallowRef<Marble>()
 
-function createGround({ scene }: {
-  scene: Scene;
-}) {
-  const ground = MeshBuilder.CreateGround('ground', {
-    width: 1000,
-    height: 1000,
-  }, scene)
-  ground.receiveShadows = true
+const startTime = ref(0)
+const updateRanking = useThrottleFn(() => {
+  marbleList.value = marbleList.value.toSorted((a, b) => {
+    const aFinished = a.finishTime > 0
+    const bFinished = b.finishTime > 0
 
-  const groundMaterial = new StandardMaterial('groundMaterial', scene)
-  groundMaterial.diffuseColor = new Color3(0.98, 0.98, 0.98)
-  ground.material = groundMaterial
+    if (aFinished !== bFinished) {
+      return aFinished ? -1 : 1
+    }
 
-  const groundAggregate = new PhysicsAggregate(ground, PhysicsShapeType.BOX, { mass: 0 }, scene)
+    if (aFinished && bFinished) {
+      return a.finishTime - b.finishTime
+    }
 
-  return ground
-}
+    // 優先比較檢查點索引 (大的在前)
+    if (a.lastCheckPointIndex !== b.lastCheckPointIndex) {
+      return b.lastCheckPointIndex - a.lastCheckPointIndex
+    }
+    // 如果在同一個檢查點區間，Y 越小代表跑越下面 (越快)
+    return a.mesh.position.y - b.mesh.position.y
+  })
+
+  triggerRef(marbleList)
+}, 500)
 
 const ghostRenderingGroupId = 1
 let ghostMaterial: StandardMaterial
 
-interface Marble {
-  hexColor: string;
-  mesh: Mesh;
-  lastCheckPointIndex: number;
-  isRespawning: boolean;
-}
 function createMarble({
   scene,
   shadowGenerator,
@@ -181,6 +161,7 @@ function createMarble({
     mesh: marble,
     lastCheckPointIndex: 0,
     isRespawning: false,
+    finishTime: 0,
   }
 }
 
@@ -238,9 +219,9 @@ function createCheckPointColliders(
 ) {
   pointPositionList.forEach((position, index) => {
     const collider = MeshBuilder.CreateBox(`check-point-collider-${index}`, {
-      width: 1,
-      height: 5,
-      depth: 1,
+      width: 2,
+      height: 2,
+      depth: 2,
     }, scene)
 
     collider.position = position
@@ -305,13 +286,6 @@ const {
 } = useBabylonScene({
   async init(params) {
     const { scene, camera } = params
-    if (!(camera instanceof ArcRotateCamera)) {
-      throw new TypeError('camera is not ArcRotateCamera')
-    }
-
-    const havokInstance = await HavokPhysics()
-    const havokPlugin = new HavokPlugin(true, havokInstance)
-    scene.enablePhysics(new Vector3(0, -9.81, 0), havokPlugin)
 
     // 畫 Group 1 (幽靈) 時，不要清除 Group 0 (牆壁) 的深度資訊，這樣才能進行深度比較
     scene.setRenderingAutoClearDepthStencil(ghostRenderingGroupId, false)
@@ -355,10 +329,13 @@ const {
       throw new Error('firstTrackSegment is undefined')
     }
 
-    const cameraTarget = new TransformNode('cameraTarget', scene)
-    camera.lockedTarget = cameraTarget
+    const cameraTarget = pipe(
+      new TransformNode('cameraTarget', scene),
+      tap((node) => {
+        camera.lockedTarget = node
+      }),
+    )
 
-    const marbleList: Marble[] = []
     for (let i = 0; i < marbleCount; i++) {
       const startPosition = firstTrackSegment.startPosition.clone()
       startPosition.y += (0.5 * i)
@@ -375,69 +352,14 @@ const {
         startPosition,
         color,
       })
-      marbleList.push(marble)
+      marbleList.value.push(marble)
       shadowGenerator.addShadowCaster(marble.mesh)
 
       if (i === 0) {
         cameraTarget.position.copyFrom(marble.mesh.position)
       }
     }
-
-    // 追蹤目前的目標彈珠
-    let currentTrackedMarble: Marble | undefined
-
-    let frameCounter = 0
-    const UPDATE_RATE = 15
-
-    // 攝影機持續跟蹤「目前 Y 座標最小（最低）」的彈珠
-    scene.onBeforeRenderObservable.add(() => {
-      const lowestMarble = firstBy(
-        marbleList,
-        (marble) => marble.mesh.position.y,
-      )
-
-      if (!lowestMarble)
-        return
-
-      // 是否切換目標
-      if (!currentTrackedMarble) {
-        currentTrackedMarble = lowestMarble
-      }
-      else {
-        // 如果當前追蹤的彈珠正在重生，立刻切換到最低者 (避免鏡頭被拉回起點)
-        if (currentTrackedMarble.isRespawning) {
-          currentTrackedMarble = lowestMarble
-        }
-        // 只有當「絕對最低者」比「當前目標」低超過 1 個單位時，才切換，這樣可以避免兩者高度相近時瘋狂切換造成的抖動
-        else if (lowestMarble.mesh.position.y < currentTrackedMarble.mesh.position.y - 1.0) {
-          currentTrackedMarble = lowestMarble
-        }
-      }
-
-      Vector3.LerpToRef(
-        cameraTarget.position,
-        currentTrackedMarble.mesh.position,
-        0.1,
-        cameraTarget.position,
-      )
-
-      // 更新排名 (UI 邏輯)
-      frameCounter++
-      if (frameCounter % UPDATE_RATE === 0) {
-        // 複製一份新的陣列進行排序，觸發 Vue 更新
-        const sortedList = [...marbleList].sort((a, b) => {
-          // 優先比較檢查點索引 (大的在前)
-          if (a.lastCheckPointIndex !== b.lastCheckPointIndex) {
-            return b.lastCheckPointIndex - a.lastCheckPointIndex
-          }
-          // 如果在同一個檢查點區間，Y 越小代表跑越下面 (越快)
-          return a.mesh.position.y - b.mesh.position.y
-        })
-
-        // 只有當順序真的改變時才賦值，雖然 Vue transition-group 會處理 key 變動，但減少賦值總是好的
-        rankingList.value = sortedList
-      }
-    })
+    triggerRef(marbleList)
 
     if (lastTrackSegment) {
       connectTracks(lastTrackSegment, endTrackSegment)
@@ -451,39 +373,135 @@ const {
       })
     })
 
+    // 攝影機追蹤最低的彈珠
+    pipe(0, () => {
+      let currentTrackedMarble: Marble | undefined
+
+      // 攝影機持續跟蹤「目前 Y 座標最小（最低）」的彈珠
+      scene.onBeforeRenderObservable.add(() => {
+        const trackTarget = pipe(0, () => {
+          if (focusedMarble.value) {
+            return focusedMarble.value
+          }
+
+          const lowestMarble = firstBy(
+            marbleList.value,
+            (marble) => marble.mesh.position.y,
+          )
+
+          if (!lowestMarble)
+            return
+
+          // 是否切換目標
+          if (!currentTrackedMarble) {
+            return lowestMarble
+          }
+          // 如果當前追蹤的彈珠正在重生，立刻切換到最低者 (避免鏡頭被拉回起點)
+          if (currentTrackedMarble.isRespawning) {
+            return lowestMarble
+          }
+
+          // 只有當「絕對最低者」比「當前目標」低超過 1 個單位時，才切換，這樣可以避免兩者高度相近時瘋狂切換造成的抖動
+          if (lowestMarble.mesh.position.y < currentTrackedMarble.mesh.position.y - 1.0) {
+            return lowestMarble
+          }
+
+          return currentTrackedMarble
+        })
+
+        currentTrackedMarble = trackTarget
+
+        if (!trackTarget) {
+          return
+        }
+
+        Vector3.LerpToRef(
+          cameraTarget.position,
+          trackTarget.mesh.position,
+          0.1,
+          cameraTarget.position,
+        )
+
+        updateRanking()
+      })
+    })
+
     // 設定檢查點
-    const checkPointPositionList = getCheckPointPositionList([
-      ...trackSegmentList,
-      endTrackSegment,
-    ])
+    pipe(0, () => {
+      const checkPointPositionList = getCheckPointPositionList([
+        ...trackSegmentList,
+        endTrackSegment,
+      ])
 
-    marbleList.forEach((marble) => {
-      createCheckPointColliders({
-        scene,
-        pointPositionList: checkPointPositionList,
-        marble,
+      marbleList.value.forEach((marble) => {
+        createCheckPointColliders({
+          scene,
+          pointPositionList: checkPointPositionList,
+          marble,
+        })
+      })
+
+      // 若彈珠直接跳過下一個檢查點之 Y 座標 -1 處，則將彈珠的 Y 座標拉回檢查點
+      scene.onBeforeRenderObservable.add(() => {
+        marbleList.value.forEach((marble) => {
+          const lastCheckPointPosition = checkPointPositionList[marble.lastCheckPointIndex]
+          const nextCheckPointPosition = checkPointPositionList[marble.lastCheckPointIndex + 1]
+          if (!nextCheckPointPosition || !lastCheckPointPosition) {
+            return
+          }
+
+          const physicsBody = marble.mesh.physicsBody
+          if (!physicsBody) {
+            return
+          }
+
+          if (marble.mesh.position.y < nextCheckPointPosition.y - 1) {
+            respawnWithAnimation(marble, lastCheckPointPosition)
+          }
+        })
       })
     })
 
-    // 若彈珠直接跳過下一個檢查點之 Y 座標 -1 處，則將彈珠的 Y 座標拉回檢查點
-    scene.onBeforeRenderObservable.add(() => {
-      marbleList.forEach((marble) => {
-        const lastCheckPointPosition = checkPointPositionList[marble.lastCheckPointIndex]
-        const nextCheckPointPosition = checkPointPositionList[marble.lastCheckPointIndex + 1]
-        if (!nextCheckPointPosition || !lastCheckPointPosition) {
-          return
-        }
+    // 終點檢查
+    pipe(0, () => {
+      const endCheckPointPosition = endTrackSegment.rootNode
+        .getChildMeshes()
+        .find((mesh) => mesh.name === 'end')
+        ?.getAbsolutePosition()
 
-        const physicsBody = marble.mesh.physicsBody
-        if (!physicsBody) {
-          return
-        }
+      if (!endCheckPointPosition) {
+        throw new Error('endCheckPointPosition is undefined')
+      }
 
-        if (marble.mesh.position.y < nextCheckPointPosition.y - 1) {
-          respawnWithAnimation(marble, lastCheckPointPosition)
-        }
+      const endTriggerBox = MeshBuilder.CreateBox('endTrigger', {
+        width: 10,
+        height: 10,
+        depth: 1,
+      }, scene)
+
+      endTriggerBox.position.copyFrom(endCheckPointPosition)
+      endTriggerBox.isVisible = false
+      const actionManager = new ActionManager(scene)
+      endTriggerBox.actionManager = actionManager
+
+      marbleList.value.forEach((marble) => {
+        actionManager.registerAction(
+          new ExecuteCodeAction(
+            {
+              trigger: ActionManager.OnIntersectionEnterTrigger,
+              parameter: marble.mesh,
+            },
+            () => {
+              if (marble.finishTime === 0) {
+                marble.finishTime = Date.now()
+              }
+            },
+          ),
+        )
       })
     })
+
+    startTime.value = Date.now()
   },
 })
 </script>
@@ -492,17 +510,4 @@ const {
 .canvas
   outline: none
   background: linear-gradient(180deg, #e3ffe7 0%, #d9e7ff 100%)
-
-.list-move,
-.list-enter-active,
-.list-leave-active
-  transition: all 0.5s ease
-
-.list-leave-active
-  position: absolute
-
-.list-enter-from,
-.list-leave-to
-  opacity: 0
-  transform: translateX(-30px)
 </style>

@@ -9,6 +9,7 @@ import {
   DefaultRenderingPipeline,
   DirectionalLight,
   Engine,
+  HavokPlugin,
   HemisphericLight,
   ImageProcessingConfiguration,
   Mesh,
@@ -17,6 +18,7 @@ import {
   Vector3,
   WebGPUEngine,
 } from '@babylonjs/core'
+import HavokPhysics from '@babylonjs/havok'
 import { GradientMaterial } from '@babylonjs/materials'
 import { defaults } from 'lodash-es'
 import { onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
@@ -28,13 +30,13 @@ export interface InitParams {
   canvas: HTMLCanvasElement;
   engine: BabylonEngine;
   scene: Scene;
-  camera: Camera;
+  camera: ArcRotateCamera;
 }
 
 interface UseBabylonSceneParam {
   createEngine?: (param: Omit<InitParams, 'camera' | 'scene' | 'engine'>) => Promise<BabylonEngine>;
   createScene?: (param: Omit<InitParams, 'camera' | 'scene'>) => Scene;
-  createCamera?: (param: Omit<InitParams, 'camera'>) => Camera;
+  createCamera?: (param: Omit<InitParams, 'camera'>) => ArcRotateCamera;
   init?: (param: InitParams) => Promise<void>;
 }
 const defaultParam: Required<UseBabylonSceneParam> = {
@@ -102,7 +104,7 @@ export function useBabylonScene(param?: UseBabylonSceneParam) {
 
   const engine = shallowRef<BabylonEngine>()
   const scene = shallowRef<Scene>()
-  const camera = shallowRef<Camera>()
+  const camera = shallowRef<ArcRotateCamera>()
 
   const {
     createEngine,
@@ -153,6 +155,10 @@ export function useBabylonScene(param?: UseBabylonSceneParam) {
 
     // 5. FXAA - 額外的邊緣平滑
     // pipeline.fxaaEnabled = true
+
+    const havokInstance = await HavokPhysics()
+    const havokPlugin = new HavokPlugin(true, havokInstance)
+    scene.value.enablePhysics(new Vector3(0, -9.81, 0), havokPlugin)
 
     await init({
       canvas: canvasRef.value,

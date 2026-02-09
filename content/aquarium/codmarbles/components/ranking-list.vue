@@ -1,0 +1,99 @@
+<template>
+  <div class="   p-4 ">
+    <transition-group
+      name="list"
+      tag="div"
+      class="flex flex-col-reverse gap-2"
+    >
+      <div
+        v-for="(marble, index) in marbleList"
+        :key="marble.mesh.name"
+        class="flex items-center gap-3 p-2 rounded shadow-sm transition-all duration-300 border-2 cursor-pointer"
+        :class="marble.className"
+        @click="handleFocusMarble(marble)"
+      >
+        <div
+          class="font-mono font-bold w-4 text-center transition-colors"
+          :class="marble.finishTime > 0 ? 'text-yellow-700' : 'text-gray-500'"
+        >
+          {{ index + 1 }}
+        </div>
+
+        <div
+          class="w-4 h-4 rounded-full border border-black/10 shadow-inner"
+          :style="{ backgroundColor: marble.hexColor }"
+        />
+
+        <div class="text-xs text-gray-700 font-medium">
+          #{{ marble.mesh.name.slice(-4) }}
+        </div>
+
+        <div
+          v-if="marble.finishTime > 0"
+          class="ml-auto text-yellow-500 text-xs"
+        >
+          {{ (marble.finishTime / 1000).toFixed(2) }}s
+        </div>
+      </div>
+    </transition-group>
+  </div>
+</template>
+
+<script setup lang="ts">
+import type { Marble } from '../types'
+import { computed } from 'vue'
+
+interface Props {
+  startTime: number;
+  rankingList: Marble[];
+}
+const props = withDefaults(defineProps<Props>(), {
+  rankingList: () => [],
+})
+
+const focusedMarble = defineModel<Marble>('focusedMarble')
+
+function handleFocusMarble(marble: Marble) {
+  if (focusedMarble.value?.mesh.name === marble.mesh.name) {
+    focusedMarble.value = undefined
+    return
+  }
+  focusedMarble.value = marble
+}
+
+const marbleList = computed(() => props.rankingList.map((marble) => {
+  const className: string[] = []
+
+  if (marble.finishTime > 0) {
+    className.push('bg-yellow-50 border-yellow-400 shadow-md')
+  }
+  else {
+    className.push('bg-white/80 border-transparent backdrop-blur-sm')
+  }
+
+  if (focusedMarble.value?.mesh.name === marble.mesh.name) {
+    className.push('scale-105 ring-2 ring-red-500')
+  }
+
+  return {
+    ...marble,
+    finishTime: props.startTime > 0 ? marble.finishTime - props.startTime : 0,
+    className,
+  }
+}))
+</script>
+
+<style scoped lang="sass">
+.list-move,
+.list-enter-active,
+.list-leave-active
+  transition: all 0.5s cubic-bezier(0.800, 0.000, 0.000, 1.2)
+
+.list-leave-active
+  position: absolute
+
+.list-enter-from,
+.list-leave-to
+  opacity: 0
+  transform: translateX(-30px)
+</style>
