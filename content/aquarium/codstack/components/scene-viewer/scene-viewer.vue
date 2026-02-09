@@ -735,7 +735,8 @@ function duplicateMeshes(meshes: AbstractMesh[]) {
 
   commitHistory()
 }
-function alignMeshes(
+/** 將選取的 Mesh 沿著指定軸對齊 */
+function alignMeshesToAxis(
   meshList: AbstractMesh[],
   baseMesh: AbstractMesh,
   alongAxis: 'x' | 'y' | 'z',
@@ -755,6 +756,48 @@ function alignMeshes(
 
     mesh.position.set(params.x, params.y, params.z)
   })
+
+  commitHistory()
+}
+
+/** 沿著軸邊緣對齊 */
+function alignMeshesToAxisExtremumEdge(
+  meshList: AbstractMesh[],
+  alongAxis: 'x' | 'y' | 'z',
+  /** 正負方向：positive=對齊到最大值那側；negative=對齊到最小值那側 */
+  direction: 'positive' | 'negative',
+) {
+  if (!meshList.length)
+    return
+
+  const getEdgeValue = (mesh: AbstractMesh) => {
+    // 確保 bounding box 是最新的 world 資訊
+    mesh.computeWorldMatrix(true)
+    const bb = mesh.getBoundingInfo().boundingBox
+    const minW = bb.minimumWorld
+    const maxW = bb.maximumWorld
+    return direction === 'positive' ? (maxW as any)[alongAxis] : (minW as any)[alongAxis]
+  }
+
+  const init = direction === 'positive' ? -Infinity : Infinity
+
+  // 1) 找出群組極值（最大或最小那條平面）
+  const targetEdgeValue = meshList.reduce((acc, mesh) => {
+    const v = getEdgeValue(mesh)
+    return direction === 'positive' ? Math.max(acc, v) : Math.min(acc, v)
+  }, init)
+
+  // 2) 把每個 mesh 的對應邊緣推到 target
+  for (const mesh of meshList) {
+    const edge = getEdgeValue(mesh)
+    const delta = targetEdgeValue - edge
+    if (delta === 0)
+      continue
+
+    const absPos = mesh.getAbsolutePosition().clone()
+      ; (absPos as any)[alongAxis] += delta
+    mesh.setAbsolutePosition(absPos)
+  }
 
   commitHistory()
 }
@@ -814,7 +857,7 @@ whenever(() => aXKey?.value, () => {
   if (!firstMesh)
     return
 
-  alignMeshes(selectedMeshes.value, firstMesh, 'x')
+  alignMeshesToAxis(selectedMeshes.value, firstMesh, 'x')
   rebuildGroup()
 })
 whenever(() => aYKey?.value, () => {
@@ -822,7 +865,7 @@ whenever(() => aYKey?.value, () => {
   if (!firstMesh)
     return
 
-  alignMeshes(selectedMeshes.value, firstMesh, 'y')
+  alignMeshesToAxis(selectedMeshes.value, firstMesh, 'y')
   rebuildGroup()
 })
 whenever(() => aZKey?.value, () => {
@@ -830,7 +873,7 @@ whenever(() => aZKey?.value, () => {
   if (!firstMesh)
     return
 
-  alignMeshes(selectedMeshes.value, firstMesh, 'z')
+  alignMeshesToAxis(selectedMeshes.value, firstMesh, 'z')
   rebuildGroup()
 })
 
@@ -903,32 +946,87 @@ const contextMenuItems = computed(() => {
           { label: `${selectedMeshes.value.length} meshes selected`, type: 'label' },
           {
             icon: 'i-material-symbols:align-vertical-bottom',
-            label: 'Align (to first)',
+            label: 'Align to First Selected',
             children: [
               {
                 icon: 'i-material-symbols:align-justify-center-rounded',
-                label: 'Align along Y Axis',
-                kbds: ['a', 'y'],
-                onSelect: () => {
-                  alignMeshes(selectedMeshes.value, firstMesh, 'y')
-                  rebuildGroup()
-                },
-              },
-              {
-                icon: 'i-material-symbols:vertical-align-center',
-                label: 'Align along X Axis',
+                label: 'Align X',
                 kbds: ['a', 'x'],
                 onSelect: () => {
-                  alignMeshes(selectedMeshes.value, firstMesh, 'x')
+                  alignMeshesToAxis(selectedMeshes.value, firstMesh, 'x')
                   rebuildGroup()
                 },
               },
               {
                 icon: 'i-material-symbols:vertical-align-center',
-                label: 'Align along Z Axis',
+                label: 'Align Y',
+                kbds: ['a', 'y'],
+                onSelect: () => {
+                  alignMeshesToAxis(selectedMeshes.value, firstMesh, 'y')
+                  rebuildGroup()
+                },
+              },
+              {
+                icon: 'i-material-symbols:vertical-align-center',
+                label: 'Align Z',
                 kbds: ['a', 'z'],
                 onSelect: () => {
-                  alignMeshes(selectedMeshes.value, firstMesh, 'z')
+                  alignMeshesToAxis(selectedMeshes.value, firstMesh, 'z')
+                  rebuildGroup()
+                },
+              },
+            ],
+          },
+          {
+            icon: 'i-material-symbols:align-vertical-bottom',
+            label: 'Align to Bounds',
+            children: [
+              {
+                icon: 'i-material-symbols:align-justify-center-rounded',
+                label: 'Align to X Max',
+                onSelect: () => {
+                  alignMeshesToAxisExtremumEdge(selectedMeshes.value, 'x', 'positive')
+                  rebuildGroup()
+                },
+              },
+              {
+                icon: 'i-material-symbols:vertical-align-center',
+                label: 'Align to Y Max',
+                onSelect: () => {
+                  alignMeshesToAxisExtremumEdge(selectedMeshes.value, 'y', 'positive')
+                  rebuildGroup()
+                },
+              },
+              {
+                icon: 'i-material-symbols:vertical-align-center',
+                label: 'Align to Z Max',
+                onSelect: () => {
+                  alignMeshesToAxisExtremumEdge(selectedMeshes.value, 'z', 'positive')
+                  rebuildGroup()
+                },
+              },
+              { type: 'separator' },
+              {
+                icon: 'i-material-symbols:vertical-align-center',
+                label: 'Align to X Min',
+                onSelect: () => {
+                  alignMeshesToAxisExtremumEdge(selectedMeshes.value, 'x', 'negative')
+                  rebuildGroup()
+                },
+              },
+              {
+                icon: 'i-material-symbols:align-justify-center-rounded',
+                label: 'Align to Y Min',
+                onSelect: () => {
+                  alignMeshesToAxisExtremumEdge(selectedMeshes.value, 'y', 'negative')
+                  rebuildGroup()
+                },
+              },
+              {
+                icon: 'i-material-symbols:vertical-align-center',
+                label: 'Align to Z Min',
+                onSelect: () => {
+                  alignMeshesToAxisExtremumEdge(selectedMeshes.value, 'z', 'negative')
                   rebuildGroup()
                 },
               },
