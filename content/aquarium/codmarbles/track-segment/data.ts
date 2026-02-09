@@ -1,4 +1,11 @@
-interface TrackSegmentSceneData {
+export interface TrackSegmentPartMetadata {
+  name: string;
+  mass: number;
+  restitution: number;
+  friction: number;
+}
+
+export interface TrackSegmentSceneData {
   version: number;
   rootFolderName: string;
   partList: Array<{
@@ -6,12 +13,7 @@ interface TrackSegmentSceneData {
     position: [number, number, number];
     rotationQuaternion: [number, number, number, number];
     scaling: [number, number, number];
-    metadata: {
-      name: string;
-      mass: number;
-      restitution: number;
-      friction: number;
-    };
+    metadata: TrackSegmentPartMetadata;
   }>;
 }
 

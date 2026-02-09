@@ -9,7 +9,7 @@
       <canvas
         v-once
         ref="canvasRef"
-        note="沒有 v-once 會導致 contextMenuItems 一更新就破壞 canvas ref 指向，導致無法操作"
+        note="沒有 v-once 會導致 contextMenuItems 一更新就破壞 canvas ref 指向，導致 DOM 相關 API 失效"
         class="w-full h-full outline-none"
       />
 

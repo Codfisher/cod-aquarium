@@ -1,7 +1,6 @@
-import type { ISceneLoaderAsyncResult, Mesh, Scene } from '@babylonjs/core'
-import type { TrackSegmentType } from './data'
-import { Color3, FresnelParameters, ImportMeshAsync, PBRMaterial, PhysicsAggregate, PhysicsShapeType, Quaternion, TransformNode, Vector3 } from '@babylonjs/core'
-import { createAestheticGradientTexture, createShadowGradient } from '../utils'
+import type { AssetsManager, ISceneLoaderAsyncResult, Mesh, Scene } from '@babylonjs/core'
+import type { TrackSegmentPartMetadata, TrackSegmentType } from './data'
+import { ImportMeshAsync, PBRMaterial, PhysicsAggregate, PhysicsShapeType, Quaternion, TransformNode, Vector3 } from '@babylonjs/core'
 import { trackSegmentData } from './data'
 
 export interface TrackSegment {
@@ -17,9 +16,11 @@ export interface TrackSegment {
 
 export async function createTrackSegment({
   scene,
+  assetsManager,
   type = 'g01',
 }: {
   scene: Scene;
+  assetsManager: AssetsManager;
   type?: `${TrackSegmentType}`;
 }): Promise<TrackSegment> {
   const rootNode = new TransformNode('rootNode', scene)
@@ -30,9 +31,7 @@ export async function createTrackSegment({
   const endPosition = new Vector3(0, 0, 0)
 
   // 暫存需要建立物理的網格資訊
-  const physicsPendingList: { mesh: Mesh; metadata: any }[] = []
-
-  const sharedShadowTexture = createShadowGradient(scene)
+  const physicsPendingList: { mesh: Mesh; metadata: TrackSegmentPartMetadata }[] = []
 
   const loadPartTasks = data.partList.map(async (partData) => {
     const position = Vector3.FromArray(partData.position)

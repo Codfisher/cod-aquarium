@@ -19,7 +19,7 @@
 import type { Scene } from '@babylonjs/core'
 import type { TrackSegment } from './track-segment'
 import type { Marble } from './types'
-import { ActionManager, Color3, DirectionalLight, Engine, ExecuteCodeAction, MeshBuilder, PBRMaterial, PhysicsAggregate, PhysicsMotionType, PhysicsShapeType, Quaternion, ShadowGenerator, StandardMaterial, TransformNode, Vector3 } from '@babylonjs/core'
+import { ActionManager, AssetsManager, Color3, DirectionalLight, Engine, ExecuteCodeAction, MeshBuilder, PBRMaterial, PhysicsAggregate, PhysicsMotionType, PhysicsShapeType, Quaternion, ShadowGenerator, StandardMaterial, TransformNode, Vector3 } from '@babylonjs/core'
 import { useThrottleFn } from '@vueuse/core'
 import { animate, cubicBezier } from 'animejs'
 import { random } from 'lodash-es'
@@ -287,6 +287,9 @@ const {
   async init(params) {
     const { scene, camera } = params
 
+    const assetsManager = new AssetsManager(scene)
+    assetsManager.useDefaultLoadingScreen = false
+
     // 畫 Group 1 (幽靈) 時，不要清除 Group 0 (牆壁) 的深度資訊，這樣才能進行深度比較
     scene.setRenderingAutoClearDepthStencil(ghostRenderingGroupId, false)
 
@@ -297,7 +300,7 @@ const {
       values(TrackSegmentType),
       shuffle(),
       filter((type) => type !== TrackSegmentType.end),
-      map((type) => createTrackSegment({ scene, type })),
+      map((type) => createTrackSegment({ scene, assetsManager, type })),
       async (trackSegments) => {
         const list = await Promise.all(trackSegments)
 
@@ -317,6 +320,7 @@ const {
     )
     const endTrackSegment = await createTrackSegment({
       scene,
+      assetsManager,
       type: TrackSegmentType.end,
     })
 
