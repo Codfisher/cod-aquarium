@@ -30,6 +30,7 @@ export function useMultiMeshSelect({
   let selectionGroup: Mesh | null = null
   let highlightLayer: HighlightLayer | null = null
 
+  const firstHighlightColor = new Color3(1, 1, 0)
   const highlightColor = new Color3(0, 1, 1)
 
   /** 初始化中介容器 */
@@ -60,14 +61,16 @@ export function useMultiMeshSelect({
 
     highlightLayer.removeAllMeshes()
 
-    selectedMeshes.value.forEach((mesh) => {
-      if (mesh instanceof Mesh) {
-        highlightLayer?.addMesh(mesh, highlightColor)
-        mesh.getChildMeshes().forEach((child) => {
-          if (child instanceof Mesh)
-            highlightLayer?.addMesh(child, highlightColor)
-        })
-      }
+    selectedMeshes.value.forEach((mesh, i) => {
+      if (!(mesh instanceof Mesh))
+        return
+
+      const color = i === 0 ? firstHighlightColor : highlightColor
+      highlightLayer?.addMesh(mesh, color)
+      mesh.getChildMeshes().forEach((child) => {
+        if (child instanceof Mesh)
+          highlightLayer?.addMesh(child, color)
+      })
     })
   }
 

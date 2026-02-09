@@ -15,6 +15,90 @@
 
       <template
         v-if="selectedMeshes[0]"
+        #rotate-x-label="{ item }: any"
+      >
+        <div>
+          {{ item.label }}
+        </div>
+
+        <div
+          class="flex gap-1 mt-1"
+          @pointermove.stop
+        >
+          <u-button
+            v-for="degree in [90, -90, 180, -180]"
+            :key="degree"
+            :label="`${degree}°`"
+            size="xs"
+            variant="soft"
+            color="neutral"
+            @click="rotateMesh(
+              selectedMeshes[0],
+              'x',
+              degree * Math.PI / 180,
+            )"
+          />
+        </div>
+      </template>
+
+      <template
+        v-if="selectedMeshes[0]"
+        #rotate-y-label="{ item }: any"
+      >
+        <div>
+          {{ item.label }}
+        </div>
+
+        <div
+          class="flex gap-1 mt-1"
+          @pointermove.stop
+        >
+          <u-button
+            v-for="degree in [90, -90, 180, -180]"
+            :key="degree"
+            :label="`${degree}°`"
+            size="xs"
+            variant="soft"
+            color="neutral"
+            @click="rotateMesh(
+              selectedMeshes[0],
+              'y',
+              degree * Math.PI / 180,
+            )"
+          />
+        </div>
+      </template>
+
+      <template
+        v-if="selectedMeshes[0]"
+        #rotate-z-label="{ item }: any"
+      >
+        <div>
+          {{ item.label }}
+        </div>
+
+        <div
+          class="flex gap-1 mt-1"
+          @pointermove.stop
+        >
+          <u-button
+            v-for="degree in [90, -90, 180, -180]"
+            :key="degree"
+            :label="`${degree}°`"
+            size="xs"
+            variant="soft"
+            color="neutral"
+            @click="rotateMesh(
+              selectedMeshes[0],
+              'z',
+              degree * Math.PI / 180,
+            )"
+          />
+        </div>
+      </template>
+
+      <template
+        v-if="selectedMeshes[0]"
         #metadata
       >
         <div
@@ -73,7 +157,7 @@ import type { ContextMenuItem } from '@nuxt/ui/.'
 import type { MeshMeta, ModelFile, SceneData } from '../../type'
 import { ArcRotateCamera, Color3, ImportMeshAsync, Matrix, Mesh, PointerEventTypes, Quaternion, Scalar, StandardMaterial, Vector3 } from '@babylonjs/core'
 import { onKeyStroke, refManualReset, useActiveElement, useMagicKeys, useThrottledRefHistory, whenever } from '@vueuse/core'
-import { animate } from 'animejs'
+import { animate, JSAnimation } from 'animejs'
 import { nanoid } from 'nanoid'
 import { storeToRefs } from 'pinia'
 import { clone, conditional, filter, isStrictEqual, isTruthy, pipe, tap } from 'remeda'
@@ -204,9 +288,7 @@ interface MeshState {
   rotationQuaternion?: [number, number, number, number];
 }
 
-/** History 只存關鍵資料，不存 Mesh 物件
- *
- * 否則記憶體會花式噴發  乁( ◔ ௰◔)「
+/** History 只存關鍵資料，不存 Mesh 物件，否則記憶體會花式噴發  乁( ◔ ௰◔)「
  */
 const {
   canRedo,
@@ -781,7 +863,6 @@ function alignMeshesToAxis(
 
   commitHistory()
 }
-
 /** 沿著包圍邊緣對齊 */
 function alignMeshesToBoundingEdge(
   meshList: AbstractMesh[],
@@ -822,6 +903,47 @@ function alignMeshesToBoundingEdge(
   }
 
   commitHistory()
+}
+
+let prevRotateTask: JSAnimation
+async function rotateMesh(
+  mesh: AbstractMesh,
+  axis: 'x' | 'y' | 'z',
+  angle: number,
+) {
+  // 快速結束，避免動畫未結束，導致下一次旋轉起點角度不正確
+  if (prevRotateTask) {
+    prevRotateTask.complete()
+  }
+
+  const originalQuaternion = mesh.rotationQuaternion?.clone()
+  if (!originalQuaternion) {
+    return
+  }
+
+  const value = {
+    x: 0,
+    y: 0,
+    z: 0,
+  }
+
+  prevRotateTask = animate(value, {
+    x: axis === 'x' ? angle : 0,
+    y: axis === 'y' ? angle : 0,
+    z: axis === 'z' ? angle : 0,
+    duration: 500,
+    ease: 'outElastic(1,0.65)',
+    onUpdate() {
+      const currentQuaternion = Quaternion.FromEulerAngles(
+        value.x,
+        value.y,
+        value.z,
+      )
+      mesh.rotationQuaternion?.copyFrom(
+        originalQuaternion.multiply(currentQuaternion),
+      )
+    },
+  })
 }
 
 const activeElement = useActiveElement()
@@ -968,7 +1090,7 @@ const contextMenuItems = computed(() => {
           { label: `${selectedMeshes.value.length} meshes selected`, type: 'label' },
           {
             icon: 'i-material-symbols:align-vertical-bottom',
-            label: 'Align to First Selected',
+            label: 'Align to First Selected (yellow)',
             children: [
               {
                 icon: 'i-material-symbols:align-justify-center-rounded',
@@ -1012,7 +1134,7 @@ const contextMenuItems = computed(() => {
                 },
               },
               {
-                icon: 'i-material-symbols:align-horizontal-left-rounded',
+                icon: 'i-material-symbols:align-vertical-top-rounded',
                 label: 'Align to Y Max',
                 onSelect: () => {
                   alignMeshesToBoundingEdge(selectedMeshes.value, 'y', 'max')
@@ -1029,7 +1151,7 @@ const contextMenuItems = computed(() => {
               },
               { type: 'separator' },
               {
-                icon: 'i-material-symbols:align-horizontal-left-rounded',
+                icon: 'i-material-symbols:align-horizontal-right-rounded',
                 label: 'Align to X Min',
                 onSelect: () => {
                   alignMeshesToBoundingEdge(selectedMeshes.value, 'x', 'min')
@@ -1037,7 +1159,7 @@ const contextMenuItems = computed(() => {
                 },
               },
               {
-                icon: 'i-material-symbols:align-horizontal-left-rounded',
+                icon: 'i-material-symbols:align-vertical-bottom-rounded',
                 label: 'Align to Y Min',
                 onSelect: () => {
                   alignMeshesToBoundingEdge(selectedMeshes.value, 'y', 'min')
@@ -1045,7 +1167,7 @@ const contextMenuItems = computed(() => {
                 },
               },
               {
-                icon: 'i-material-symbols:align-horizontal-left-rounded',
+                icon: 'i-material-symbols:align-horizontal-right-rounded',
                 label: 'Align to Z Min',
                 onSelect: () => {
                   alignMeshesToBoundingEdge(selectedMeshes.value, 'z', 'min')
@@ -1156,6 +1278,24 @@ const contextMenuItems = computed(() => {
                   gizmoManager.value.rotationGizmoEnabled = true
                   gizmoManager.value.scaleGizmoEnabled = false
                 },
+              },
+              {
+                icon: 'i-material-symbols:rotate-90-degrees-ccw-outline-rounded',
+                label: 'Rotate on X axis',
+                slot: 'rotate-x',
+                onSelect: (e) => e.preventDefault(),
+              },
+              {
+                icon: 'i-material-symbols:rotate-90-degrees-ccw-outline-rounded',
+                label: 'Rotate on Y axis',
+                slot: 'rotate-y',
+                onSelect: (e) => e.preventDefault(),
+              },
+              {
+                icon: 'i-material-symbols:rotate-90-degrees-ccw-outline-rounded',
+                label: 'Rotate on Z axis',
+                slot: 'rotate-z',
+                onSelect: (e) => e.preventDefault(),
               },
               {
                 icon: 'ri:reset-right-fill',
