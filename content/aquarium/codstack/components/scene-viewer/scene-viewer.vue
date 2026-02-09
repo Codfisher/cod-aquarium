@@ -78,6 +78,7 @@ import { nanoid } from 'nanoid'
 import { storeToRefs } from 'pinia'
 import { clone, conditional, filter, isStrictEqual, isTruthy, pipe, tap } from 'remeda'
 import { computed, onBeforeUnmount, reactive, ref, shallowRef, watch } from 'vue'
+import { nextFrame } from '../../../../../web/common/utils'
 import { useBabylonScene } from '../../composables/use-babylon-scene'
 import { useMultiMeshSelect } from '../../composables/use-multi-mesh-select'
 import { useSceneStore } from '../../domains/scene/scene-store'
@@ -227,13 +228,27 @@ const {
     },
 
     parse: (serializedData: MeshState[]) => {
+      const temp = [
+        ...selectedMeshes.value,
+      ]
+      // 先移除選取再復原，否則每個物件自己的 transform 會被父群組的 transform 干擾
+      clearSelection()
+      // 推延後再復原選取
+      nextFrame().then(() => {
+        temp.forEach((mesh) => {
+          if (mesh.isEnabled()) {
+            selectMesh(mesh, true)
+          }
+        })
+      })
+
       // 檢查 mesh 是否還存在
       addedMeshList.value.forEach((mesh) => {
         const data = serializedData.find((data) => data.id === mesh.uniqueId)
         mesh.setEnabled(!!data?.enabled)
       })
 
-      return serializedData
+      const result = serializedData
         .map((data) => {
           const mesh = scene.value?.getMeshByUniqueId(data.id)
 
@@ -251,6 +266,8 @@ const {
           return null
         })
         .filter(isTruthy)
+
+      return result
     },
   },
 )
