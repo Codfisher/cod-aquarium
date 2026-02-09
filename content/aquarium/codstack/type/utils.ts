@@ -54,6 +54,7 @@ type EmitSigToObj<S> =
       : never
     : never
 
+/** 將 Vue 元件的 emits 轉換為物件，方便用於限制 v-on 物件 */
 export type EmitsToObject<E> = UnionToIntersection<
   OverloadToUnion<E> extends infer S
     ? S extends any
