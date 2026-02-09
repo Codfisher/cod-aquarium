@@ -12,6 +12,15 @@
       :ranking-list="marbleList"
       class="absolute bottom-4 left-4"
     />
+
+    <div
+      v-if="isLoading"
+      class="absolute w-screen h-screen bg-black/50 flex items-center justify-center"
+    >
+      <div class="text-white text-2xl font-bold">
+        Loading...
+      </div>
+    </div>
   </div>
 </template>
 
@@ -19,17 +28,23 @@
 import type { Scene } from '@babylonjs/core'
 import type { TrackSegment } from './track-segment'
 import type { Marble } from './types'
-import { ActionManager, Color3, DirectionalLight, Engine, ExecuteCodeAction, MeshBuilder, PBRMaterial, PhysicsAggregate, PhysicsMotionType, PhysicsShapeType, Quaternion, ShadowGenerator, StandardMaterial, TransformNode, Vector3 } from '@babylonjs/core'
+import { ActionManager, AssetsManager, Color3, DirectionalLight, Engine, ExecuteCodeAction, MeshBuilder, PBRMaterial, PhysicsAggregate, PhysicsMotionType, PhysicsShapeType, Quaternion, ShadowGenerator, StandardMaterial, TransformNode, Vector3 } from '@babylonjs/core'
+import { Inspector } from '@babylonjs/inspector'
 import { useThrottleFn } from '@vueuse/core'
 import { animate, cubicBezier } from 'animejs'
 import { random } from 'lodash-es'
 import { nanoid } from 'nanoid'
+import { storeToRefs } from 'pinia'
 import { filter, firstBy, flat, map, pipe, shuffle, tap, values } from 'remeda'
 import { ref, shallowRef, triggerRef } from 'vue'
 import RankingList from './components/ranking-list.vue'
+import { useAssetStore } from './stores/asset-store'
 import { createTrackSegment } from './track-segment'
 import { TrackSegmentType } from './track-segment/data'
 import { useBabylonScene } from './use-babylon-scene'
+
+const assetStore = useAssetStore()
+const { isLoading } = storeToRefs(assetStore)
 
 const marbleCount = 10
 const marbleList = shallowRef<Marble[]>([])
@@ -157,7 +172,7 @@ function createMarble({
   )
 
   return {
-    hexColor: finalColor.toGammaSpace().scale(1.05).toHexString(),
+    hexColor: finalColor.toHexString(),
     mesh: marble,
     lastCheckPointIndex: 0,
     isRespawning: false,
@@ -220,7 +235,7 @@ function createCheckPointColliders(
   pointPositionList.forEach((position, index) => {
     const collider = MeshBuilder.CreateBox(`check-point-collider-${index}`, {
       width: 2,
-      height: 2,
+      height: 6,
       depth: 2,
     }, scene)
 
@@ -287,20 +302,26 @@ const {
   async init(params) {
     const { scene, camera } = params
 
+    // Inspector.Show(scene, {
+    //   embedMode: true,
+    // })
+
+    await assetStore.preloadTrackAssets(scene)
+
+    const assetsManager = new AssetsManager(scene)
+    assetsManager.useDefaultLoadingScreen = false
+
     // 畫 Group 1 (幽靈) 時，不要清除 Group 0 (牆壁) 的深度資訊，這樣才能進行深度比較
     scene.setRenderingAutoClearDepthStencil(ghostRenderingGroupId, false)
 
     const shadowGenerator = createShadowGenerator(scene)
 
-    // createGround({ scene })
-
     // 建立軌道
     const trackSegmentList = await pipe(
       values(TrackSegmentType),
-      (list) => [shuffle(list), shuffle(list)],
-      flat(),
+      shuffle(),
       filter((type) => type !== TrackSegmentType.end),
-      map((type) => createTrackSegment({ scene, type })),
+      map((type) => createTrackSegment({ scene, assetStore, type })),
       async (trackSegments) => {
         const list = await Promise.all(trackSegments)
 
@@ -320,6 +341,7 @@ const {
     )
     const endTrackSegment = await createTrackSegment({
       scene,
+      assetStore,
       type: TrackSegmentType.end,
     })
 
@@ -343,7 +365,7 @@ const {
       const color = Color3.FromHSV(
         340 * (i / marbleCount),
         1,
-        0.8,
+        1,
       )
 
       const marble = createMarble({
@@ -441,6 +463,9 @@ const {
         })
       })
 
+      // 最後一個檢查點
+      const lowestCheckPoint = checkPointPositionList.at(-1)
+
       // 若彈珠直接跳過下一個檢查點之 Y 座標 -1 處，則將彈珠的 Y 座標拉回檢查點
       scene.onBeforeRenderObservable.add(() => {
         marbleList.value.forEach((marble) => {
@@ -457,6 +482,13 @@ const {
 
           if (marble.mesh.position.y < nextCheckPointPosition.y - 1) {
             respawnWithAnimation(marble, lastCheckPointPosition)
+          }
+
+          // 保險檢查
+          if (lowestCheckPoint) {
+            if (marble.mesh.position.y < lowestCheckPoint.y - 50) {
+              respawnWithAnimation(marble, lastCheckPointPosition)
+            }
           }
         })
       })
@@ -509,5 +541,5 @@ const {
 <style lang="sass" scoped>
 .canvas
   outline: none
-  background: linear-gradient(180deg, #e3ffe7 0%, #d9e7ff 100%)
+  background: linear-gradient(180deg, #e3ffea, #e2deff )
 </style>

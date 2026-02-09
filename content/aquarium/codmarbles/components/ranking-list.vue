@@ -8,31 +8,35 @@
       <div
         v-for="(marble, index) in marbleList"
         :key="marble.mesh.name"
-        class="flex items-center gap-3 p-2 rounded shadow-sm transition-all duration-300 border-2 cursor-pointer"
-        :class="marble.className"
+        class="cursor-pointer relative z-0"
         @click="handleFocusMarble(marble)"
       >
         <div
-          class="font-mono font-bold w-4 text-center transition-colors"
-          :class="marble.finishTime > 0 ? 'text-yellow-700' : 'text-gray-500'"
-        >
-          {{ index + 1 }}
-        </div>
-
-        <div
-          class="w-4 h-4 rounded-full border border-black/10 shadow-inner"
-          :style="{ backgroundColor: marble.hexColor }"
-        />
-
-        <div class="text-xs text-gray-700 font-medium">
-          #{{ marble.mesh.name.slice(-4) }}
-        </div>
-
-        <div
-          v-if="marble.finishTime > 0"
-          class="ml-auto text-yellow-500 text-xs"
+          class="text-yellow-500 rounded-r top-1/2 right-0 -translate-y-1/2 text-xs absolute p-2 bg-white/90  duration-500 -z-1"
+          :class="{ ' translate-x-full': marble.finishTime > 0 }"
         >
           {{ (marble.finishTime / 1000).toFixed(2) }}s
+        </div>
+
+        <div
+          class="flex items-center gap-3 p-2 rounded shadow-sm transition-all duration-300 border-2 cursor-pointer z-1"
+          :class="marble.className"
+        >
+          <div
+            class="font-mono font-bold w-4 text-center transition-colors"
+            :class="marble.finishTime > 0 ? 'text-yellow-700' : 'text-gray-500'"
+          >
+            {{ index + 1 }}
+          </div>
+
+          <div
+            class="w-4 h-4 rounded-full border border-black/10 shadow-inner"
+            :style="{ backgroundColor: marble.hexColor }"
+          />
+
+          <div class="text-xs text-gray-700 font-medium">
+            #{{ marble.mesh.name.slice(-4) }}
+          </div>
         </div>
       </div>
     </transition-group>
@@ -68,7 +72,7 @@ const marbleList = computed(() => props.rankingList.map((marble) => {
     className.push('bg-yellow-50 border-yellow-400 shadow-md')
   }
   else {
-    className.push('bg-white/80 border-transparent backdrop-blur-sm')
+    className.push('bg-white border-transparent')
   }
 
   if (focusedMarble.value?.mesh.name === marble.mesh.name) {

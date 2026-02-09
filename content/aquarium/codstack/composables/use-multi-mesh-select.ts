@@ -30,6 +30,7 @@ export function useMultiMeshSelect({
   let selectionGroup: Mesh | null = null
   let highlightLayer: HighlightLayer | null = null
 
+  const firstHighlightColor = new Color3(1, 1, 0)
   const highlightColor = new Color3(0, 1, 1)
 
   /** 初始化中介容器 */
@@ -60,14 +61,16 @@ export function useMultiMeshSelect({
 
     highlightLayer.removeAllMeshes()
 
-    selectedMeshes.value.forEach((mesh) => {
-      if (mesh instanceof Mesh) {
-        highlightLayer?.addMesh(mesh, highlightColor)
-        mesh.getChildMeshes().forEach((child) => {
-          if (child instanceof Mesh)
-            highlightLayer?.addMesh(child, highlightColor)
-        })
-      }
+    selectedMeshes.value.forEach((mesh, i) => {
+      if (!(mesh instanceof Mesh))
+        return
+
+      const color = i === 0 ? firstHighlightColor : highlightColor
+      highlightLayer?.addMesh(mesh, color)
+      mesh.getChildMeshes().forEach((child) => {
+        if (child instanceof Mesh)
+          highlightLayer?.addMesh(child, color)
+      })
     })
   }
 
@@ -116,7 +119,8 @@ export function useMultiMeshSelect({
 
   /** 以目前選元素重建選取，同時更新選取框 */
   function rebuildGroup() {
-    if (selectedMeshes.value.length <= 1) return
+    if (selectedMeshes.value.length <= 1)
+      return
 
     ungroup()
     group()
@@ -152,8 +156,11 @@ export function useMultiMeshSelect({
   return {
     selectedMeshes,
     selectMesh,
+    /** 清除所有選取 */
     clearSelection,
+    /** 解除群組關係 */
     ungroup,
+    /** 以目前選元素重建選取，同時更新選取框 */
     rebuildGroup,
   }
 }
