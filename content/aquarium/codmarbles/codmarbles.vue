@@ -486,7 +486,7 @@ const {
 
           // 保險檢查
           if (lowestCheckPoint) {
-            if (marble.mesh.position.y < lowestCheckPoint.y - 10) {
+            if (marble.mesh.position.y < lowestCheckPoint.y - 50) {
               respawnWithAnimation(marble, lastCheckPointPosition)
             }
           }
