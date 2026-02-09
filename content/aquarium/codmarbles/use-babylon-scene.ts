@@ -5,21 +5,15 @@ import {
   ArcRotateCamera,
   Color3,
   Color4,
-  ColorCurves,
   DefaultRenderingPipeline,
-  DirectionalLight,
   Engine,
   HavokPlugin,
   HemisphericLight,
-  ImageProcessingConfiguration,
-  Mesh,
-  MeshBuilder,
   Scene,
   Vector3,
   WebGPUEngine,
 } from '@babylonjs/core'
 import HavokPhysics from '@babylonjs/havok'
-import { GradientMaterial } from '@babylonjs/materials'
 import { defaults } from 'lodash-es'
 import { onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
 import '@babylonjs/loaders/glTF'
@@ -76,7 +70,7 @@ const defaultParam: Required<UseBabylonSceneParam> = {
       'camera',
       0,
       Math.PI / 3 * 2,
-      10,
+      20,
       new Vector3(0, 0, 0),
       scene,
     )
@@ -86,7 +80,7 @@ const defaultParam: Required<UseBabylonSceneParam> = {
     camera.panningSensibility = 0
 
     camera.wheelDeltaPercentage = 0.01
-    camera.lowerRadiusLimit = 2
+    camera.lowerRadiusLimit = 5
     camera.upperRadiusLimit = 50
     camera.panningSensibility = 0
 
