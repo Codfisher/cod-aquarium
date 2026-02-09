@@ -203,6 +203,11 @@ interface MeshState {
   scale: [number, number, number];
   rotationQuaternion?: [number, number, number, number];
 }
+
+/** History 只存關鍵資料，不存 Mesh 物件
+ *
+ * 否則記憶體會花式噴發  乁( ◔ ௰◔)「
+ */
 const {
   canRedo,
   canUndo,
