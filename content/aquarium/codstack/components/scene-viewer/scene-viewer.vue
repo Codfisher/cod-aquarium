@@ -154,10 +154,11 @@
 <script setup lang="ts">
 import type { AbstractMesh, GizmoManager, Scene } from '@babylonjs/core'
 import type { ContextMenuItem } from '@nuxt/ui/.'
+import type { JSAnimation } from 'animejs'
 import type { MeshMeta, ModelFile, SceneData } from '../../type'
 import { ArcRotateCamera, Color3, ImportMeshAsync, Matrix, Mesh, PointerEventTypes, Quaternion, Scalar, StandardMaterial, Vector3 } from '@babylonjs/core'
 import { onKeyStroke, refManualReset, useActiveElement, useMagicKeys, useThrottledRefHistory, whenever } from '@vueuse/core'
-import { animate, JSAnimation } from 'animejs'
+import { animate } from 'animejs'
 import { nanoid } from 'nanoid'
 import { storeToRefs } from 'pinia'
 import { clone, conditional, filter, isStrictEqual, isTruthy, pipe, tap } from 'remeda'
