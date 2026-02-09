@@ -6,8 +6,7 @@
       :added-mesh-list="addedMeshList"
       :can-redo="canRedo"
       :can-undo="canUndo"
-      :meta="getMeshMeta(selectedMeshes[0])"
-      v-on="events"
+      v-on="contentMenuEvents"
     >
       <canvas
         v-once
@@ -827,7 +826,7 @@ async function rotateMesh(
 }
 
 /** 給右鍵選單使用 */
-const events = {
+const contentMenuEvents = {
   // preview
   cancelPreview: () => emit('cancelPreview'),
   updatePreviewOffset: (data: Partial<{
@@ -923,14 +922,16 @@ const events = {
     rebuildGroup()
   },
 
-  // meta
+  // meta，目前預設只更新第一個
   updateSelectedMeta(patch: Partial<MeshMeta>) {
     const mesh = selectedMeshes.value[0]
     if (!mesh)
       return
+
     const meta = getMeshMeta(mesh)
     if (!meta)
       return
+
     Object.assign(meta, patch)
   },
 

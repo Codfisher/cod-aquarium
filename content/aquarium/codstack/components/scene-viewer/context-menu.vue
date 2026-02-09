@@ -93,7 +93,7 @@
         >
           <u-input
             type="text"
-            :model-value="props.meta?.name ?? ''"
+            :model-value="metadata?.name"
             @update:model-value="(val: string) => emit('updateSelectedMeta', { name: val })"
           />
         </u-form-field>
@@ -106,7 +106,7 @@
         >
           <u-input
             type="number"
-            :model-value="props.meta?.mass ?? 0"
+            :model-value="metadata?.mass"
             @update:model-value="(val: number) => emit('updateSelectedMeta', { mass: Number(val) })"
           />
         </u-form-field>
@@ -117,7 +117,7 @@
         >
           <u-input
             type="number"
-            :model-value="props.meta?.restitution ?? 0"
+            :model-value="metadata?.restitution"
             @update:model-value="(val: number) => emit('updateSelectedMeta', { restitution: Number(val) })"
           />
         </u-form-field>
@@ -128,7 +128,7 @@
         >
           <u-input
             type="number"
-            :model-value="props.meta?.friction ?? 0"
+            :model-value="metadata?.friction"
             @update:model-value="(val: number) => emit('updateSelectedMeta', { friction: Number(val) })"
           />
         </u-form-field>
@@ -151,8 +151,6 @@ const props = defineProps<{
   addedMeshList: AbstractMesh[];
   canUndo: boolean;
   canRedo: boolean;
-  /** 目前選取目標的 metadata */
-  meta?: MeshMeta;
 }>()
 
 const emit = defineEmits<{
@@ -192,6 +190,9 @@ const emit = defineEmits<{
 defineSlots<{
   default: () => any;
 }>()
+
+const firstSelectedMesh = computed(() => props.selectedMeshes[0])
+const metadata = computed(() => getMeshMeta(firstSelectedMesh.value))
 
 /** 右鍵選單 */
 const contextMenuItems = computed(() => {
@@ -338,7 +339,7 @@ const contextMenuItems = computed(() => {
         if (props.selectedMeshes.length !== 1) {
           return
         }
-        const [firstMesh] = props.selectedMeshes
+        const firstMesh = firstSelectedMesh.value
         if (!firstMesh)
           return
 
@@ -411,7 +412,10 @@ const contextMenuItems = computed(() => {
               {
                 icon: 'ri:reset-right-fill',
                 label: 'Reset',
-                onSelect: () => emit('resetRotation'),
+                onSelect: (e) => {
+                  emit('resetRotation')
+                  e.preventDefault()
+                },
               },
             ] as const,
           },
