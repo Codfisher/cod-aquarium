@@ -29,10 +29,12 @@ import type { Scene } from '@babylonjs/core'
 import type { TrackSegment } from './track-segment'
 import type { Marble } from './types'
 import { ActionManager, AssetsManager, Color3, DirectionalLight, Engine, ExecuteCodeAction, MeshBuilder, PBRMaterial, PhysicsAggregate, PhysicsMotionType, PhysicsShapeType, Quaternion, ShadowGenerator, StandardMaterial, TransformNode, Vector3 } from '@babylonjs/core'
+import { Inspector } from '@babylonjs/inspector'
 import { useThrottleFn } from '@vueuse/core'
 import { animate, cubicBezier } from 'animejs'
 import { random } from 'lodash-es'
 import { nanoid } from 'nanoid'
+import { storeToRefs } from 'pinia'
 import { filter, firstBy, flat, map, pipe, shuffle, tap, values } from 'remeda'
 import { ref, shallowRef, triggerRef } from 'vue'
 import RankingList from './components/ranking-list.vue'
@@ -42,6 +44,7 @@ import { TrackSegmentType } from './track-segment/data'
 import { useBabylonScene } from './use-babylon-scene'
 
 const assetStore = useAssetStore()
+const { isLoading } = storeToRefs(assetStore)
 
 const marbleCount = 10
 const marbleList = shallowRef<Marble[]>([])
@@ -293,16 +296,16 @@ function respawnWithAnimation(
   })
 }
 
-const isLoading = ref(false)
-
 const {
   canvasRef,
 } = useBabylonScene({
   async init(params) {
     const { scene, camera } = params
-    isLoading.value = true
+    // Inspector.Show(scene, {
+    //   embedMode: true,
+    // })
+
     await assetStore.preloadTrackAssets(scene)
-    isLoading.value = false
 
     const assetsManager = new AssetsManager(scene)
     assetsManager.useDefaultLoadingScreen = false

@@ -1,7 +1,7 @@
-import type { Mesh, Scene } from '@babylonjs/core'
+import type { AbstractMesh, Mesh, Scene } from '@babylonjs/core'
 import type { useAssetStore } from '../stores/asset-store'
 import type { TrackSegmentPartMetadata, TrackSegmentType } from './data'
-import { PBRMaterial, PhysicsAggregate, PhysicsShapeType, Quaternion, TransformNode, Vector3 } from '@babylonjs/core'
+import { ImportMeshAsync, PBRMaterial, PhysicsAggregate, PhysicsShapeType, Quaternion, TransformNode, Vector3 } from '@babylonjs/core'
 import { trackSegmentData } from './data'
 
 export interface TrackSegment {
@@ -29,16 +29,21 @@ export async function createTrackSegment({
   const startPosition = new Vector3(0, 0, 0)
   const endPosition = new Vector3(0, 0, 0)
 
-  // 暫存需要建立物理的網格資訊
-  const physicsPendingList: { mesh: Mesh; metadata: TrackSegmentPartMetadata }[] = []
+  /** 暫存需要建立物理的網格資訊 */
+  const physicsPendingList: Array<{
+    mesh: AbstractMesh;
+    metadata: TrackSegmentPartMetadata;
+  }> = []
 
-  data.partList.forEach((partData) => {
+  const loadPartTasks = data.partList.map(async (partData) => {
     const fullPath = `${data.rootFolderName}/${partData.path}`
-    const container = assetStore.assetCache.get(fullPath)
-    if (!container) {
-      console.error(`Asset not found: ${fullPath}`)
-      return
-    }
+
+    // FIX: 使用 assetCache 反而導致 FPS 大幅下降 QQ
+    // const container = assetStore.assetCache.get(partData.path)
+    // if (!container) {
+    //   console.error(`Asset not found: ${fullPath}`)
+    //   return
+    // }
 
     const position = Vector3.FromArray(partData.position)
     let isHiddenMesh = false
@@ -51,14 +56,18 @@ export async function createTrackSegment({
       isHiddenMesh = true
     }
 
-    const instanceResult = container.instantiateModelsToScene(
-      (name) => name,
-      false,
-      { doNotInstantiate: true },
+    const part = await ImportMeshAsync(
+      `/assets/${data.rootFolderName}/${partData.path}`,
+      scene,
     )
+    const root = part.meshes[0]
+    const geometryMesh = part.meshes[1] as Mesh
 
-    const root = instanceResult.rootNodes[0] as Mesh
-    const geometryMesh = root.getChildMeshes()[0] as Mesh
+    // const root = container.rootNodes[0]?.clone(
+    //   partData.metadata.name,
+    //   null,
+    // ) as Mesh | undefined
+    // const geometryMesh = root?.getChildMeshes()[0]
 
     if (!root || !geometryMesh) {
       return
@@ -97,6 +106,7 @@ export async function createTrackSegment({
       })
     }
   })
+  await Promise.all(loadPartTasks)
 
   const initPhysics = () => {
     physicsPendingList.forEach(({ mesh, metadata }) => {

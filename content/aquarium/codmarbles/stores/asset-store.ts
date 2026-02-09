@@ -1,52 +1,52 @@
-import type { AssetContainer, Scene } from '@babylonjs/core'
-import { AssetsManager, PBRMaterial } from '@babylonjs/core'
+import type { AbstractMesh, AssetContainer, Scene } from '@babylonjs/core'
+import { AssetsManager, ImportMeshAsync, LoadAssetContainerAsync, PBRMaterial } from '@babylonjs/core'
 import { defineStore } from 'pinia'
-import { flatMap, pipe, unique } from 'remeda'
+import { flatMap, pipe, unique, uniqueBy } from 'remeda'
+import { ref } from 'vue'
 import { trackSegmentData } from '../track-segment/data'
 
 export const useAssetStore = defineStore('asset', () => {
   const assetCache: Map<string, AssetContainer> = new Map()
 
+  const isLoading = ref(false)
+
   async function preloadTrackAssets(
     scene: Scene,
   ) {
-    const assetsManager = new AssetsManager(scene)
-    assetsManager.useDefaultLoadingScreen = false
+    // const assetsManager = new AssetsManager(scene)
+    // assetsManager.useDefaultLoadingScreen = false
 
-    const uniquePathList = pipe(
+    const uniquePartList = pipe(
       Object.values(trackSegmentData),
-      flatMap((data) => data.partList.map((part) => `${data.rootFolderName}/${part.path}`)),
-      unique(),
+      flatMap((data) => data.partList.map((part) => ({
+        rootFolderName: data.rootFolderName,
+        path: part.path,
+      }))),
+      uniqueBy(({ rootFolderName, path }) => `${rootFolderName}/${path}`),
     )
 
-    uniquePathList.forEach((fullPath) => {
+    const tasks = uniquePartList.map(async (partData) => {
+      const fullPath = `${partData.rootFolderName}/${partData.path}`
       if (assetCache.has(fullPath))
         return
 
-      // 解析路徑
-      const lastSlash = fullPath.lastIndexOf('/')
-      const rootUrl = `/assets/${fullPath.substring(0, lastSlash + 1)}`
-      const fileName = fullPath.substring(lastSlash + 1)
-
-      const task = assetsManager.addContainerTask(
-        `load_${fullPath}`,
-        '',
-        rootUrl,
-        fileName,
+      const container = await LoadAssetContainerAsync(
+        `/assets/${fullPath}`,
+        scene,
       )
+      container.removeAllFromScene()
+      assetCache.set(partData.path, container)
 
-      task.onSuccess = (taskResult) => {
-        const container = taskResult.loadedContainer
-        container.removeAllFromScene()
-
-        assetCache.set(fullPath, container)
-      }
+      return container
     })
 
-    await assetsManager.loadAsync()
+    isLoading.value = true
+    await Promise.all(tasks)
+    isLoading.value = false
   }
 
   return {
+    isLoading,
     assetCache,
     preloadTrackAssets,
   }
