@@ -235,7 +235,7 @@ function createCheckPointColliders(
   pointPositionList.forEach((position, index) => {
     const collider = MeshBuilder.CreateBox(`check-point-collider-${index}`, {
       width: 2,
-      height: 2,
+      height: 6,
       depth: 2,
     }, scene)
 
@@ -463,6 +463,9 @@ const {
         })
       })
 
+      // 最後一個檢查點
+      const lowestCheckPoint = checkPointPositionList.at(-1)
+
       // 若彈珠直接跳過下一個檢查點之 Y 座標 -1 處，則將彈珠的 Y 座標拉回檢查點
       scene.onBeforeRenderObservable.add(() => {
         marbleList.value.forEach((marble) => {
@@ -479,6 +482,13 @@ const {
 
           if (marble.mesh.position.y < nextCheckPointPosition.y - 1) {
             respawnWithAnimation(marble, lastCheckPointPosition)
+          }
+
+          // 保險檢查
+          if (lowestCheckPoint) {
+            if (marble.mesh.position.y < lowestCheckPoint.y - 10) {
+              respawnWithAnimation(marble, lastCheckPointPosition)
+            }
           }
         })
       })
