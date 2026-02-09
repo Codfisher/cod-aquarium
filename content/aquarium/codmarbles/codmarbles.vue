@@ -297,8 +297,9 @@ const {
     // 建立軌道
     const trackSegmentList = await pipe(
       values(TrackSegmentType),
-      (list) => [shuffle(list), shuffle(list)],
-      flat(),
+      // (list) => [shuffle(list), shuffle(list)],
+      // flat(),
+      shuffle(),
       filter((type) => type !== TrackSegmentType.end),
       map((type) => createTrackSegment({ scene, type })),
       async (trackSegments) => {
@@ -509,5 +510,5 @@ const {
 <style lang="sass" scoped>
 .canvas
   outline: none
-  background: linear-gradient(180deg, #e3ffe7 0%, #d9e7ff 100%)
+  background: linear-gradient(180deg, #e3ffea, #e2deff )
 </style>

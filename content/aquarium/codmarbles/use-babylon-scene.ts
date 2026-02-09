@@ -138,22 +138,20 @@ export function useBabylonScene(param?: UseBabylonSceneParam) {
     })
 
     const pipeline = new DefaultRenderingPipeline(
-      'toyPipeline', // 名稱
-      true, // 開啟 HDR
-      scene.value, // 場景
-      [camera.value], // 套用到所有攝影機
+      'toyPipeline',
+      true,
+      scene.value,
+      [camera.value],
     )
 
-    // 3. 色彩調整 (Image Processing)
+    // 色彩調整 (Image Processing)
     pipeline.imageProcessingEnabled = true
-
-    // 曝光度：稍微過曝一點點，看起來比較乾淨明亮
+    // 曝光度
     // pipeline.imageProcessing.exposure = 1.1
-
-    // 對比度：稍微降低，避免黑影太深
+    // 對比度
     pipeline.imageProcessing.contrast = 2
 
-    // 5. FXAA - 額外的邊緣平滑
+    // 邊緣平滑
     // pipeline.fxaaEnabled = true
 
     const havokInstance = await HavokPhysics()
