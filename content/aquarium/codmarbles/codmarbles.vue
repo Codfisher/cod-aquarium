@@ -12,6 +12,15 @@
       :ranking-list="marbleList"
       class="absolute bottom-4 left-4"
     />
+
+    <div
+      v-if="isLoading"
+      class="absolute w-screen h-screen bg-black/50 flex items-center justify-center"
+    >
+      <div class="text-white text-2xl font-bold">
+        Loading...
+      </div>
+    </div>
   </div>
 </template>
 
@@ -27,9 +36,12 @@ import { nanoid } from 'nanoid'
 import { filter, firstBy, flat, map, pipe, shuffle, tap, values } from 'remeda'
 import { ref, shallowRef, triggerRef } from 'vue'
 import RankingList from './components/ranking-list.vue'
+import { useAssetStore } from './stores/asset-store'
 import { createTrackSegment } from './track-segment'
 import { TrackSegmentType } from './track-segment/data'
 import { useBabylonScene } from './use-babylon-scene'
+
+const assetStore = useAssetStore()
 
 const marbleCount = 10
 const marbleList = shallowRef<Marble[]>([])
@@ -281,11 +293,16 @@ function respawnWithAnimation(
   })
 }
 
+const isLoading = ref(false)
+
 const {
   canvasRef,
 } = useBabylonScene({
   async init(params) {
     const { scene, camera } = params
+    isLoading.value = true
+    await assetStore.preloadTrackAssets(scene)
+    isLoading.value = false
 
     const assetsManager = new AssetsManager(scene)
     assetsManager.useDefaultLoadingScreen = false
@@ -300,7 +317,7 @@ const {
       values(TrackSegmentType),
       shuffle(),
       filter((type) => type !== TrackSegmentType.end),
-      map((type) => createTrackSegment({ scene, assetsManager, type })),
+      map((type) => createTrackSegment({ scene, assetStore, type })),
       async (trackSegments) => {
         const list = await Promise.all(trackSegments)
 
@@ -320,7 +337,7 @@ const {
     )
     const endTrackSegment = await createTrackSegment({
       scene,
-      assetsManager,
+      assetStore,
       type: TrackSegmentType.end,
     })
 
