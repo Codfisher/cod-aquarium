@@ -157,7 +157,7 @@ function createMarble({
   )
 
   return {
-    hexColor: finalColor.toGammaSpace().scale(1.05).toHexString(),
+    hexColor: finalColor.toHexString(),
     mesh: marble,
     lastCheckPointIndex: 0,
     isRespawning: false,
@@ -292,13 +292,9 @@ const {
 
     const shadowGenerator = createShadowGenerator(scene)
 
-    // createGround({ scene })
-
     // 建立軌道
     const trackSegmentList = await pipe(
       values(TrackSegmentType),
-      // (list) => [shuffle(list), shuffle(list)],
-      // flat(),
       shuffle(),
       filter((type) => type !== TrackSegmentType.end),
       map((type) => createTrackSegment({ scene, type })),
@@ -344,7 +340,7 @@ const {
       const color = Color3.FromHSV(
         340 * (i / marbleCount),
         1,
-        0.8,
+        1,
       )
 
       const marble = createMarble({
