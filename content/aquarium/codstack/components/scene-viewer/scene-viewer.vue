@@ -982,7 +982,7 @@ const contextMenuItems = computed(() => {
             label: 'Align to Bounds',
             children: [
               {
-                icon: 'i-material-symbols:align-justify-center-rounded',
+                icon: 'i-material-symbols:align-horizontal-left-rounded',
                 label: 'Align to X Max',
                 onSelect: () => {
                   alignMeshesToAxisExtremumEdge(selectedMeshes.value, 'x', 'positive')
@@ -990,7 +990,7 @@ const contextMenuItems = computed(() => {
                 },
               },
               {
-                icon: 'i-material-symbols:vertical-align-center',
+                icon: 'i-material-symbols:align-horizontal-left-rounded',
                 label: 'Align to Y Max',
                 onSelect: () => {
                   alignMeshesToAxisExtremumEdge(selectedMeshes.value, 'y', 'positive')
@@ -998,7 +998,7 @@ const contextMenuItems = computed(() => {
                 },
               },
               {
-                icon: 'i-material-symbols:vertical-align-center',
+                icon: 'i-material-symbols:align-horizontal-left-rounded',
                 label: 'Align to Z Max',
                 onSelect: () => {
                   alignMeshesToAxisExtremumEdge(selectedMeshes.value, 'z', 'positive')
@@ -1007,7 +1007,7 @@ const contextMenuItems = computed(() => {
               },
               { type: 'separator' },
               {
-                icon: 'i-material-symbols:vertical-align-center',
+                icon: 'i-material-symbols:align-horizontal-left-rounded',
                 label: 'Align to X Min',
                 onSelect: () => {
                   alignMeshesToAxisExtremumEdge(selectedMeshes.value, 'x', 'negative')
@@ -1015,7 +1015,7 @@ const contextMenuItems = computed(() => {
                 },
               },
               {
-                icon: 'i-material-symbols:align-justify-center-rounded',
+                icon: 'i-material-symbols:align-horizontal-left-rounded',
                 label: 'Align to Y Min',
                 onSelect: () => {
                   alignMeshesToAxisExtremumEdge(selectedMeshes.value, 'y', 'negative')
@@ -1023,7 +1023,7 @@ const contextMenuItems = computed(() => {
                 },
               },
               {
-                icon: 'i-material-symbols:vertical-align-center',
+                icon: 'i-material-symbols:align-horizontal-left-rounded',
                 label: 'Align to Z Min',
                 onSelect: () => {
                   alignMeshesToAxisExtremumEdge(selectedMeshes.value, 'z', 'negative')
