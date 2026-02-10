@@ -150,7 +150,7 @@
           :content="{ side: 'top', sideOffset: 10 }"
         >
           <u-icon
-            name="i-material-symbols:info-outline-rounded"
+            name="i-material-symbols-light:info-outline-rounded"
             @click.stop.prevent
             @mousedown.stop
           />
@@ -276,12 +276,6 @@ const previewMenuItems = computed<ContextMenuItem[] | undefined>(() => {
         emit('updatePreviewOffset', { yRotation: -Math.PI / 180 * 45 })
         e.preventDefault()
       },
-    },
-    {
-      icon: 'i-material-symbols:check-circle-outline-rounded',
-      label: 'Use as Preview',
-      kbds: ['enter'],
-      onSelect: () => emit('useAsPreview', previewMesh.name),
     },
   ]
 })
@@ -409,6 +403,10 @@ const selectOneSlotList = [
     key: 'use-as-preview',
     img: '/codstack/help/use-as-preview.gif',
   },
+  {
+    key: 'snap-to-ground',
+    img: '/codstack/help/snap-to-ground.gif',
+  },
 ] as const
 /** 選取單個 Mesh 的右鍵選單  */
 const selectOneMenuItems = computed<ContextMenuItem[] | undefined>(() => {
@@ -448,6 +446,7 @@ const selectOneMenuItems = computed<ContextMenuItem[] | undefined>(() => {
         {
           icon: 'i-material-symbols:download-2-rounded',
           label: 'Snap to ground',
+          slot: selectOneSlotList[1].key,
           onSelect: () => emit('snapToGround'),
         },
         {

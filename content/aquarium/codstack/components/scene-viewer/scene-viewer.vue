@@ -664,9 +664,9 @@ const isInput = computed(() => {
 const {
   selectedMeshes,
   selectMesh: _selectMesh,
-  rebuildGroup,
+  refreshProxy,
   clearSelection,
-  ungroup,
+  detachFromProxy,
 } = useMultiMeshSelect({ gizmoManager, scene, camera })
 
 /** 選取 Mesh 時，關閉所有 Gizmo 小工具，需使用快捷鍵開啟
@@ -694,7 +694,7 @@ function deleteSelectedMeshes() {
     return
 
   if (selectedMeshes.value.length > 0) {
-    ungroup()
+    detachFromProxy()
 
     selectedMeshes.value.forEach((mesh) => {
       mesh.setEnabled(false)
@@ -756,7 +756,7 @@ async function alignMeshesToAxis(
   await Promise.all(tasks)
 
   commitHistory()
-  rebuildGroup()
+  refreshProxy()
 }
 /** 沿著包圍邊緣對齊 */
 async function alignMeshesToBoundingEdge(
@@ -805,7 +805,7 @@ async function alignMeshesToBoundingEdge(
   await Promise.all(tasks)
 
   commitHistory()
-  rebuildGroup()
+  refreshProxy()
 }
 
 let prevRotateTask: JSAnimation
@@ -939,12 +939,12 @@ const contentMenuEvents: EmitsToObject<Events> = {
     if (!base)
       return
     alignMeshesToAxis(selectedMeshes.value, base, axis)
-    rebuildGroup()
+    refreshProxy()
   },
 
   alignBounds: (axis: 'x' | 'y' | 'z', dir: 'max' | 'min') => {
     alignMeshesToBoundingEdge(selectedMeshes.value, axis, dir)
-    rebuildGroup()
+    refreshProxy()
   },
 
   // meta，目前預設只更新第一個
@@ -1037,7 +1037,7 @@ whenever(() => aXKey?.value, () => {
     return
 
   alignMeshesToAxis(selectedMeshes.value, firstMesh, 'x')
-  rebuildGroup()
+  refreshProxy()
 })
 whenever(() => aYKey?.value, () => {
   const [firstMesh] = selectedMeshes.value
@@ -1045,7 +1045,7 @@ whenever(() => aYKey?.value, () => {
     return
 
   alignMeshesToAxis(selectedMeshes.value, firstMesh, 'y')
-  rebuildGroup()
+  refreshProxy()
 })
 whenever(() => aZKey?.value, () => {
   const [firstMesh] = selectedMeshes.value
@@ -1053,7 +1053,7 @@ whenever(() => aZKey?.value, () => {
     return
 
   alignMeshesToAxis(selectedMeshes.value, firstMesh, 'z')
-  rebuildGroup()
+  refreshProxy()
 })
 
 const blobUrlList: string[] = []
