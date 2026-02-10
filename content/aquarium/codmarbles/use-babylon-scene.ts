@@ -1,6 +1,3 @@
-import type {
-  Camera,
-} from '@babylonjs/core'
 import {
   ArcRotateCamera,
   Color3,
@@ -38,7 +35,7 @@ const defaultParam: Required<UseBabylonSceneParam> = {
     const webGPUSupported = await WebGPUEngine.IsSupportedAsync
     if (webGPUSupported) {
       const engine = new WebGPUEngine(canvas, {
-        antialias: true,
+        antialias: false,
         stencil: true,
       })
       await engine.initAsync()
@@ -47,7 +44,7 @@ const defaultParam: Required<UseBabylonSceneParam> = {
     }
 
     return new Engine(canvas, true, {
-      alpha: true,
+      alpha: false,
       stencil: true,
     })
   },
@@ -115,6 +112,11 @@ export function useBabylonScene(param?: UseBabylonSceneParam) {
     engine.value = await createEngine({
       canvas: canvasRef.value,
     })
+    // engine.value.setHardwareScalingLevel(Math.max(
+    //   2,
+    //   window?.devicePixelRatio ?? 1,
+    // ))
+
     scene.value = createScene({
       canvas: canvasRef.value,
       engine: engine.value,
@@ -140,9 +142,6 @@ export function useBabylonScene(param?: UseBabylonSceneParam) {
 
     // 色彩調整 (Image Processing)
     pipeline.imageProcessingEnabled = true
-    // 曝光度
-    // pipeline.imageProcessing.exposure = 1.1
-    // 對比度
     pipeline.imageProcessing.contrast = 2
 
     // 邊緣平滑
