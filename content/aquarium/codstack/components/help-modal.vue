@@ -35,6 +35,11 @@
           </li>
 
           <li>
+            Hold <u-kbd value="Shift" /> + Drag:
+            <span class="font-medium">box select</span>
+          </li>
+
+          <li>
             <u-kbd value="Ctrl" /> <u-kbd value="C" />
             <span class="font-medium">Export scene and copy to clipboard</span>
           </li>

@@ -1,5 +1,8 @@
 <template>
-  <div class=" relative">
+  <div
+    ref="containerRef"
+    class=" relative"
+  >
     <context-menu
       :preview-mesh="previewMesh"
       :selected-meshes="selectedMeshes"
@@ -12,9 +15,15 @@
         v-once
         ref="canvasRef"
         note="沒有 v-once 會導致 contextMenuItems 一更新就破壞 canvas ref 指向，導致 DOM 相關 API 失效"
-        class="w-full h-full outline-none"
+        class="w-full h-full outline-none block"
       />
     </context-menu>
+
+    <div
+      v-show="isBoxSelecting"
+      :style="selectionBoxStyle"
+      class="border-2 border-primary bg-primary/20 absolute z-50 pointer-events-none"
+    />
 
     <slot :added-mesh-list />
   </div>
@@ -26,21 +35,22 @@ import type { JSAnimation } from 'animejs'
 import type { ComponentEmit } from 'vue-component-type-helpers'
 import type { MeshMeta, ModelFile, SceneData } from '../../type'
 import type { EmitsToObject } from '../../type/utils'
-import { ArcRotateCamera, Color3, ImportMeshAsync, Mesh, PointerEventTypes, Quaternion, Scalar, StandardMaterial, Vector3 } from '@babylonjs/core'
-import { onKeyStroke, refManualReset, useActiveElement, useMagicKeys, useThrottledRefHistory, whenever } from '@vueuse/core'
+import { ArcRotateCamera, Color3, ImportMeshAsync, Matrix, Mesh, PointerEventTypes, Quaternion, Scalar, StandardMaterial, Vector3 } from '@babylonjs/core'
+import { onKeyStroke, refManualReset, useActiveElement, useElementSize, useMagicKeys, useMouseInElement, useThrottledRefHistory, whenever } from '@vueuse/core'
 import { animate } from 'animejs'
 import { nanoid } from 'nanoid'
 import { storeToRefs } from 'pinia'
-import { clone, conditional, isStrictEqual, isTruthy, pipe, tap } from 'remeda'
-import { computed, onBeforeUnmount, reactive, shallowRef, watch } from 'vue'
+import { clone, isTruthy, pipe, tap } from 'remeda'
+import { computed, onBeforeUnmount, reactive, shallowRef, useTemplateRef, watch } from 'vue'
 import { nextFrame } from '../../../../../web/common/utils'
 import { useBabylonScene } from '../../composables/use-babylon-scene'
-import { useMultiMeshSelect } from '../../composables/use-multi-mesh-select'
+import { useBoxSelection } from '../../composables/use-box-selection'
+import { useMeshSelection } from '../../composables/use-mesh-selection'
 import { useSceneStore } from '../../domains/scene/scene-store'
 import { useMainStore } from '../../stores/main-store'
 import { clearPivotRecursive, findTopLevelMesh, getMeshMeta, getSurfaceSnapTransform } from '../../utils/babylon'
-import { getFileFromPath } from '../../utils/fs'
 
+import { getFileFromPath } from '../../utils/fs'
 import { roundToStep } from '../../utils/math'
 import ContextMenu from './context-menu.vue'
 import { createGizmoManager, createGround, createScreenAxes, createSideCamera, createTopCamera } from './creator'
@@ -74,6 +84,8 @@ const {
   a_y: aYKey,
   a_z: aZKey,
 } = useMagicKeys()
+
+const containerRef = useTemplateRef('containerRef')
 
 /** 目前預覽的模型 */
 const previewMesh = shallowRef<AbstractMesh>()
@@ -178,7 +190,7 @@ const {
     // 只存關鍵資料，不存 Mesh 物件
     // @ts-expect-error 強制轉換資料
     clone: (meshes): MeshState[] => meshes.map((mesh) => {
-      // 儲存世界座標，否則 local 座標會被選擇群組干擾
+      // 儲存世界座標，使用 local 座標會被選擇 selectionProxy 干擾，導致復原時位置會亂噴
       mesh.computeWorldMatrix(true)
 
       const position = new Vector3()
@@ -199,7 +211,7 @@ const {
       const temp = [
         ...selectedMeshes.value,
       ]
-      // 先移除選取再復原，否則每個物件自己的 transform 會被父群組的 transform 干擾
+      // 先移除選取再復原，否則每個物件自己的 transform 會被 selectionProxy 的 transform 干擾
       clearSelection()
 
       // 檢查 mesh 是否還存在
@@ -282,7 +294,7 @@ const previewMoveTarget = {
   rotation: new Quaternion(),
 }
 
-const { canvasRef, scene, camera } = useBabylonScene({
+const { canvasRef, scene, camera, engine } = useBabylonScene({
   async init(params) {
     const { scene, camera, engine } = params
 
@@ -349,11 +361,9 @@ const { canvasRef, scene, camera } = useBabylonScene({
         scene.onBeforeRenderObservable.add(() => {
           const [firstSelectedMesh] = selectedMeshes.value
           if (firstSelectedMesh) {
-            /** 整個群組的邊界 */
+            /** 整群的邊界 */
             const { min, max } = firstSelectedMesh.getHierarchyBoundingVectors(true)
-            /** 整個群組的中心點 */
             const worldCenter = min.add(max).scale(0.5)
-            /** 整個群組的半徑 */
             const worldRadius = Vector3.Distance(worldCenter, max)
 
             // 看向中心點
@@ -430,11 +440,9 @@ const { canvasRef, scene, camera } = useBabylonScene({
         scene.onBeforeRenderObservable.add(() => {
           const [firstSelectedMesh] = selectedMeshes.value
           if (firstSelectedMesh) {
-            /** 整個群組的邊界 */
+            /** 整群的邊界 */
             const { min, max } = firstSelectedMesh.getHierarchyBoundingVectors(true)
-            /** 整個群組的中心點 */
             const worldCenter = min.add(max).scale(0.5)
-            /** 整個群組的半徑 */
             const worldRadius = Vector3.Distance(worldCenter, max)
 
             // 看向中心點
@@ -662,12 +670,30 @@ const isInput = computed(() => {
 })
 
 const {
+  isBoxSelecting,
+  selectionBoxStyle,
+} = useBoxSelection({
+  meshList: addedMeshList,
+  scene,
+  camera,
+  engine,
+  canvas: canvasRef,
+  startCondition: (evt) => evt.shiftKey && evt.button === 0,
+  onSelection: (meshes) => {
+    clearSelection()
+    meshes.forEach((mesh) => {
+      selectMesh(mesh, true)
+    })
+  },
+})
+
+const {
   selectedMeshes,
   selectMesh: _selectMesh,
-  rebuildGroup,
+  refreshProxy,
   clearSelection,
-  ungroup,
-} = useMultiMeshSelect({ gizmoManager, scene, camera })
+  detachFromProxy,
+} = useMeshSelection({ gizmoManager, scene, camera })
 
 /** 選取 Mesh 時，關閉所有 Gizmo 小工具，需使用快捷鍵開啟
  *
@@ -694,7 +720,7 @@ function deleteSelectedMeshes() {
     return
 
   if (selectedMeshes.value.length > 0) {
-    ungroup()
+    detachFromProxy()
 
     selectedMeshes.value.forEach((mesh) => {
       mesh.setEnabled(false)
@@ -733,32 +759,33 @@ function duplicateMeshes(meshes: AbstractMesh[]) {
   commitHistory()
 }
 /** 將選取的 Mesh 沿著指定軸對齊 */
-function alignMeshesToAxis(
+async function alignMeshesToAxis(
   meshList: AbstractMesh[],
   baseMesh: AbstractMesh,
   alongAxis: 'x' | 'y' | 'z',
 ) {
-  const targetPosition = baseMesh.position
-
-  meshList.forEach((mesh, i) => {
+  const tasks = meshList.map(async (mesh) => {
     if (mesh === baseMesh)
-      return Promise.resolve()
+      return
 
-    const params = conditional(
-      alongAxis,
-      [isStrictEqual('x'), () => ({ y: targetPosition.y, z: targetPosition.z, x: mesh.position.x })],
-      [isStrictEqual('y'), () => ({ x: targetPosition.x, z: targetPosition.z, y: mesh.position.y })],
-      [isStrictEqual('z'), () => ({ x: targetPosition.x, y: targetPosition.y, z: mesh.position.z })],
-    )
+    const targetPosition = baseMesh.position.clone()
+    targetPosition[alongAxis] = mesh.position[alongAxis]
 
-    mesh.position.set(params.x, params.y, params.z)
+    return animate(mesh.position, {
+      x: targetPosition.x,
+      y: targetPosition.y,
+      z: targetPosition.z,
+      duration: 200,
+      ease: 'inOutCirc',
+    }).then()
   })
+  await Promise.all(tasks)
 
   commitHistory()
-  rebuildGroup()
+  refreshProxy()
 }
 /** 沿著包圍邊緣對齊 */
-function alignMeshesToBoundingEdge(
+async function alignMeshesToBoundingEdge(
   meshList: AbstractMesh[],
   alongAxis: 'x' | 'y' | 'z',
   /** 正負方向：max=對齊到最大值那側；min=對齊到最小值那側 */
@@ -775,26 +802,36 @@ function alignMeshesToBoundingEdge(
 
   const initValue = direction === 'max' ? -Infinity : Infinity
 
-  // 找出群組極值（最大或最小那條平面）
+  // 找出 meshList 極值（最大或最小那條平面）
   const targetEdgeValue = meshList.reduce((acc, mesh) => {
     const v = getEdgeValue(mesh)
     return direction === 'max' ? Math.max(acc, v) : Math.min(acc, v)
   }, initValue)
 
   // 把每個 mesh 的對應邊緣推到 target
-  for (const mesh of meshList) {
+  const tasks = meshList.map(async (mesh) => {
     const edge = getEdgeValue(mesh)
     const delta = targetEdgeValue - edge
     if (delta === 0)
-      continue
+      return
 
-    const absPos = mesh.getAbsolutePosition().clone()
-      ; (absPos as any)[alongAxis] += delta
-    mesh.setAbsolutePosition(absPos)
-  }
+    const targetPosition = mesh.getAbsolutePosition().clone()
+    const currentPosition = targetPosition.clone()
+    targetPosition[alongAxis] += delta
+
+    return animate(currentPosition, {
+      x: targetPosition.x,
+      y: targetPosition.y,
+      z: targetPosition.z,
+      duration: 200,
+      ease: 'inOutCirc',
+      onUpdate: () => mesh.setAbsolutePosition(currentPosition),
+    }).then()
+  })
+  await Promise.all(tasks)
 
   commitHistory()
-  rebuildGroup()
+  refreshProxy()
 }
 
 let prevRotateTask: JSAnimation
@@ -928,12 +965,12 @@ const contentMenuEvents: EmitsToObject<Events> = {
     if (!base)
       return
     alignMeshesToAxis(selectedMeshes.value, base, axis)
-    rebuildGroup()
+    refreshProxy()
   },
 
   alignBounds: (axis: 'x' | 'y' | 'z', dir: 'max' | 'min') => {
     alignMeshesToBoundingEdge(selectedMeshes.value, axis, dir)
-    rebuildGroup()
+    refreshProxy()
   },
 
   // meta，目前預設只更新第一個
@@ -1026,7 +1063,7 @@ whenever(() => aXKey?.value, () => {
     return
 
   alignMeshesToAxis(selectedMeshes.value, firstMesh, 'x')
-  rebuildGroup()
+  refreshProxy()
 })
 whenever(() => aYKey?.value, () => {
   const [firstMesh] = selectedMeshes.value
@@ -1034,7 +1071,7 @@ whenever(() => aYKey?.value, () => {
     return
 
   alignMeshesToAxis(selectedMeshes.value, firstMesh, 'y')
-  rebuildGroup()
+  refreshProxy()
 })
 whenever(() => aZKey?.value, () => {
   const [firstMesh] = selectedMeshes.value
@@ -1042,7 +1079,7 @@ whenever(() => aZKey?.value, () => {
     return
 
   alignMeshesToAxis(selectedMeshes.value, firstMesh, 'z')
-  rebuildGroup()
+  refreshProxy()
 })
 
 const blobUrlList: string[] = []

@@ -13,21 +13,21 @@ import {
   Vector3,
 } from '@babylonjs/core'
 import { whenever } from '@vueuse/core'
-import { shallowRef, watch } from 'vue'
+import { shallowRef } from 'vue'
 
-interface UseMultiMeshSelectOptions {
+interface UseMeshSelectionOptions {
   gizmoManager: Ref<GizmoManager | undefined>;
   scene: Ref<Scene | undefined>;
   camera: Ref<Camera | undefined>;
 }
-export function useMultiMeshSelect({
+export function useMeshSelection({
   gizmoManager,
   scene,
   camera,
-}: UseMultiMeshSelectOptions) {
+}: UseMeshSelectionOptions) {
   const selectedMeshes = shallowRef<AbstractMesh[]>([])
 
-  let selectionGroup: Mesh | null = null
+  let selectionProxy: Mesh | null = null
   let highlightLayer: HighlightLayer | null = null
 
   const firstHighlightColor = new Color3(1, 1, 0)
@@ -35,9 +35,9 @@ export function useMultiMeshSelect({
 
   /** 初始化中介容器 */
   whenever(scene, (sceneValue) => {
-    selectionGroup = new Mesh('selectionGroup', sceneValue)
-    selectionGroup.isPickable = false
-    selectionGroup.renderingGroupId = 1
+    selectionProxy = new Mesh('selectionGroup', sceneValue)
+    selectionProxy.isPickable = false
+    selectionProxy.renderingGroupId = 1
 
     const boundingBoxRenderer = sceneValue.getBoundingBoxRenderer()
     boundingBoxRenderer.frontColor = highlightColor
@@ -74,17 +74,17 @@ export function useMultiMeshSelect({
     })
   }
 
-  /** 取消群組：讓物體回到世界座標，並清空 Gizmo */
-  function ungroup() {
+  /** 解除 Proxy 綁定，讓物體回到世界座標，同時清空 Gizmo */
+  function detachFromProxy() {
     selectedMeshes.value.forEach((m) => m.setParent(null))
     gizmoManager.value?.attachToMesh(null)
 
     highlightLayer?.removeAllMeshes()
   }
 
-  /** 群組化：計算中心點並將選中物體掛載至容器 */
-  function group() {
-    if (!selectionGroup || selectedMeshes.value.length === 0)
+  /** 計算中心點並將選中物體掛載至 Proxy */
+  function attachToProxy() {
+    if (!selectionProxy || selectedMeshes.value.length === 0)
       return
 
     if (selectedMeshes.value.length === 1) {
@@ -105,30 +105,30 @@ export function useMultiMeshSelect({
 
       // 2. 設定中心點與層級關係
       const center = Vector3.Center(min, max)
-      selectionGroup.position.copyFrom(center)
-      selectionGroup.rotationQuaternion = Quaternion.Identity()
+      selectionProxy.position.copyFrom(center)
+      selectionProxy.rotationQuaternion = Quaternion.Identity()
 
-      selectedMeshes.value.forEach((m) => m.setParent(selectionGroup))
+      selectedMeshes.value.forEach((m) => m.setParent(selectionProxy))
 
       // 綁定 Gizmo
-      gizmoManager.value?.attachToMesh(selectionGroup)
+      gizmoManager.value?.attachToMesh(selectionProxy)
     }
 
     updateSelectionVisuals()
   }
 
   /** 以目前選元素重建選取，同時更新選取框 */
-  function rebuildGroup() {
+  function refreshProxy() {
     if (selectedMeshes.value.length <= 1)
       return
 
-    ungroup()
-    group()
+    detachFromProxy()
+    attachToProxy()
   }
 
   function selectMesh(mesh: AbstractMesh, isMultiMode: boolean) {
     // 先還原，確保座標計算從原始世界座標開始
-    ungroup()
+    detachFromProxy()
 
     if (isMultiMode) {
       const index = selectedMeshes.value.indexOf(mesh)
@@ -145,11 +145,11 @@ export function useMultiMeshSelect({
       selectedMeshes.value = [mesh]
     }
 
-    group()
+    attachToProxy()
   }
 
   function clearSelection() {
-    ungroup()
+    detachFromProxy()
     selectedMeshes.value = []
   }
 
@@ -158,9 +158,9 @@ export function useMultiMeshSelect({
     selectMesh,
     /** 清除所有選取 */
     clearSelection,
-    /** 解除群組關係 */
-    ungroup,
+    /** 解除 Proxy 綁定，讓物體回到世界座標，同時清空 Gizmo */
+    detachFromProxy,
     /** 以目前選元素重建選取，同時更新選取框 */
-    rebuildGroup,
+    refreshProxy,
   }
 }

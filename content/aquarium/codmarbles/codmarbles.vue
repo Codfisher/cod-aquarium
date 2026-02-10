@@ -354,9 +354,11 @@ async function startGame() {
     targetPosition.x += Math.random() / 10
     targetPosition.y += (marbleSize * i)
 
+    const delay = (marbleCount - i - 1) * 50
     animate(marble.mesh.position, {
       y: targetPosition.y,
       duration,
+      delay,
       ease: cubicBezier(0.348, 0.011, 0, 1.238),
     })
 
@@ -364,6 +366,7 @@ async function startGame() {
       x: targetPosition.x,
       z: targetPosition.z,
       duration,
+      delay,
       ease: cubicBezier(0.826, 0.005, 0.259, 0.971),
       onComplete() {
         marble.isRespawning = false
