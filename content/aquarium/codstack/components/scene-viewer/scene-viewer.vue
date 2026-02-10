@@ -178,7 +178,7 @@ const {
     // 只存關鍵資料，不存 Mesh 物件
     // @ts-expect-error 強制轉換資料
     clone: (meshes): MeshState[] => meshes.map((mesh) => {
-      // 儲存世界座標，使用 local 座標會被選擇群組干擾，導致復原時位置會亂噴
+      // 儲存世界座標，使用 local 座標會被選擇 selectionProxy 干擾，導致復原時位置會亂噴
       mesh.computeWorldMatrix(true)
 
       const position = new Vector3()
@@ -199,7 +199,7 @@ const {
       const temp = [
         ...selectedMeshes.value,
       ]
-      // 先移除選取再復原，否則每個物件自己的 transform 會被父群組的 transform 干擾
+      // 先移除選取再復原，否則每個物件自己的 transform 會被 selectionProxy 的 transform 干擾
       clearSelection()
 
       // 檢查 mesh 是否還存在
@@ -349,11 +349,9 @@ const { canvasRef, scene, camera } = useBabylonScene({
         scene.onBeforeRenderObservable.add(() => {
           const [firstSelectedMesh] = selectedMeshes.value
           if (firstSelectedMesh) {
-            /** 整個群組的邊界 */
+            /** 整群的邊界 */
             const { min, max } = firstSelectedMesh.getHierarchyBoundingVectors(true)
-            /** 整個群組的中心點 */
             const worldCenter = min.add(max).scale(0.5)
-            /** 整個群組的半徑 */
             const worldRadius = Vector3.Distance(worldCenter, max)
 
             // 看向中心點
@@ -430,11 +428,9 @@ const { canvasRef, scene, camera } = useBabylonScene({
         scene.onBeforeRenderObservable.add(() => {
           const [firstSelectedMesh] = selectedMeshes.value
           if (firstSelectedMesh) {
-            /** 整個群組的邊界 */
+            /** 整群的邊界 */
             const { min, max } = firstSelectedMesh.getHierarchyBoundingVectors(true)
-            /** 整個群組的中心點 */
             const worldCenter = min.add(max).scale(0.5)
-            /** 整個群組的半徑 */
             const worldRadius = Vector3.Distance(worldCenter, max)
 
             // 看向中心點
@@ -776,7 +772,7 @@ async function alignMeshesToBoundingEdge(
 
   const initValue = direction === 'max' ? -Infinity : Infinity
 
-  // 找出群組極值（最大或最小那條平面）
+  // 找出 meshList 極值（最大或最小那條平面）
   const targetEdgeValue = meshList.reduce((acc, mesh) => {
     const v = getEdgeValue(mesh)
     return direction === 'max' ? Math.max(acc, v) : Math.min(acc, v)
