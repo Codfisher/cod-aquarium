@@ -15,7 +15,7 @@
 
     <div
       v-if="isLoading"
-      class="absolute w-screen h-screen bg-black/50 flex items-center justify-center"
+      class="absolute left-0 top-0 w-screen h-screen bg-black/50 flex items-center justify-center"
     >
       <div class="text-white text-2xl font-bold">
         Loading...
@@ -30,23 +30,26 @@ import type { TrackSegment } from './track-segment'
 import type { Marble } from './types'
 import { ActionManager, AssetsManager, Color3, DirectionalLight, Engine, ExecuteCodeAction, MeshBuilder, PBRMaterial, PhysicsAggregate, PhysicsMotionType, PhysicsShapeType, Quaternion, ShadowGenerator, StandardMaterial, TransformNode, Vector3 } from '@babylonjs/core'
 import { Inspector } from '@babylonjs/inspector'
-import { useThrottleFn } from '@vueuse/core'
+import { promiseTimeout, useThrottleFn } from '@vueuse/core'
 import { animate, cubicBezier } from 'animejs'
 import { random } from 'lodash-es'
 import { nanoid } from 'nanoid'
 import { storeToRefs } from 'pinia'
 import { filter, firstBy, flat, map, pipe, shuffle, tap, values } from 'remeda'
 import { ref, shallowRef, triggerRef } from 'vue'
+import { nextFrame } from '../../../web/common/utils'
 import RankingList from './components/ranking-list.vue'
 import { useAssetStore } from './stores/asset-store'
 import { createTrackSegment } from './track-segment'
 import { TrackSegmentType } from './track-segment/data'
 import { useBabylonScene } from './use-babylon-scene'
 
+const isLoading = ref(true)
+
 const assetStore = useAssetStore()
-const { isLoading } = storeToRefs(assetStore)
 
 const marbleCount = 10
+const marbleSize = 0.5
 const marbleList = shallowRef<Marble[]>([])
 const focusedMarble = shallowRef<Marble>()
 
@@ -90,7 +93,7 @@ function createMarble({
   color?: Color3;
 }): Marble {
   const marble = MeshBuilder.CreateSphere(nanoid(), {
-    diameter: 0.5,
+    diameter: marbleSize,
     segments: 16,
   }, scene)
   marble.position.copyFrom(startPosition)
@@ -360,7 +363,7 @@ const {
 
     for (let i = 0; i < marbleCount; i++) {
       const startPosition = firstTrackSegment.startPosition.clone()
-      startPosition.y += (0.5 * i)
+      startPosition.y += (marbleSize * i)
 
       const color = Color3.FromHSV(
         340 * (i / marbleCount),
@@ -533,7 +536,10 @@ const {
       })
     })
 
+    await nextFrame()
+
     startTime.value = Date.now()
+    isLoading.value = false
   },
 })
 </script>
