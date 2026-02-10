@@ -177,15 +177,23 @@ const {
     throttle: 500,
     // 只存關鍵資料，不存 Mesh 物件
     // @ts-expect-error 強制轉換資料
-    clone: (meshes): MeshState[] => {
-      return meshes.map((mesh) => ({
+    clone: (meshes): MeshState[] => meshes.map((mesh) => {
+      // 儲存世界座標，否則 local 座標會被選擇群組干擾
+      mesh.computeWorldMatrix(true)
+
+      const position = new Vector3()
+      const rotationQuaternion = new Quaternion()
+      const scale = new Vector3()
+      mesh.getWorldMatrix().decompose(scale, rotationQuaternion, position)
+
+      return {
         id: mesh.uniqueId,
         enabled: mesh.isEnabled(),
-        position: mesh.position.asArray(),
-        scale: mesh.scaling.asArray(),
-        rotationQuaternion: mesh.rotationQuaternion?.asArray(),
-      }))
-    },
+        position: position.asArray(),
+        scale: scale.asArray(),
+        rotationQuaternion: rotationQuaternion.asArray(),
+      }
+    }),
 
     parse: (serializedData: MeshState[]) => {
       const temp = [
@@ -193,14 +201,6 @@ const {
       ]
       // 先移除選取再復原，否則每個物件自己的 transform 會被父群組的 transform 干擾
       clearSelection()
-      // 推延後再復原選取
-      nextFrame().then(() => {
-        temp.forEach((mesh) => {
-          if (mesh.isEnabled()) {
-            selectMesh(mesh, true)
-          }
-        })
-      })
 
       // 檢查 mesh 是否還存在
       addedMeshList.value.forEach((mesh) => {
@@ -214,6 +214,8 @@ const {
 
           if (mesh) {
             mesh.setEnabled(data.enabled)
+
+            mesh.setParent(null)
             mesh.position = Vector3.FromArray(data.position)
             mesh.scaling = Vector3.FromArray(data.scale)
             if (data.rotationQuaternion) {
@@ -226,6 +228,15 @@ const {
           return null
         })
         .filter(isTruthy)
+
+      // 推延後再復原選取
+      nextFrame().then(() => {
+        temp.forEach((mesh) => {
+          if (mesh.isEnabled()) {
+            selectMesh(mesh, true)
+          }
+        })
+      })
 
       return result
     },

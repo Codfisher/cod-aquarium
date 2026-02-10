@@ -13,9 +13,18 @@
       class="absolute bottom-4 left-4"
     />
 
+    <u-button
+      v-if="!isGameStarted"
+      class="absolute bottom-4 right-4"
+      color="primary"
+      variant="solid"
+      label="開始遊戲"
+      @click="startGame"
+    />
+
     <div
       v-if="isLoading"
-      class="absolute w-screen h-screen bg-black/50 flex items-center justify-center"
+      class="absolute left-0 top-0 w-screen h-screen bg-black/50 flex items-center justify-center"
     >
       <div class="text-white text-2xl font-bold">
         Loading...
@@ -30,50 +39,24 @@ import type { TrackSegment } from './track-segment'
 import type { Marble } from './types'
 import { ActionManager, AssetsManager, Color3, DirectionalLight, Engine, ExecuteCodeAction, MeshBuilder, PBRMaterial, PhysicsAggregate, PhysicsMotionType, PhysicsShapeType, Quaternion, ShadowGenerator, StandardMaterial, TransformNode, Vector3 } from '@babylonjs/core'
 import { Inspector } from '@babylonjs/inspector'
-import { useThrottleFn } from '@vueuse/core'
+import { promiseTimeout, useThrottleFn } from '@vueuse/core'
 import { animate, cubicBezier } from 'animejs'
 import { random } from 'lodash-es'
 import { nanoid } from 'nanoid'
 import { storeToRefs } from 'pinia'
 import { filter, firstBy, flat, map, pipe, shuffle, tap, values } from 'remeda'
 import { ref, shallowRef, triggerRef } from 'vue'
+import { nextFrame } from '../../../web/common/utils'
 import RankingList from './components/ranking-list.vue'
 import { useAssetStore } from './stores/asset-store'
 import { createTrackSegment } from './track-segment'
 import { TrackSegmentType } from './track-segment/data'
 import { useBabylonScene } from './use-babylon-scene'
 
+const isLoading = ref(true)
+const isGameStarted = ref(false)
+
 const assetStore = useAssetStore()
-const { isLoading } = storeToRefs(assetStore)
-
-const marbleCount = 10
-const marbleList = shallowRef<Marble[]>([])
-const focusedMarble = shallowRef<Marble>()
-
-const startTime = ref(0)
-const updateRanking = useThrottleFn(() => {
-  marbleList.value = marbleList.value.toSorted((a, b) => {
-    const aFinished = a.finishTime > 0
-    const bFinished = b.finishTime > 0
-
-    if (aFinished !== bFinished) {
-      return aFinished ? -1 : 1
-    }
-
-    if (aFinished && bFinished) {
-      return a.finishTime - b.finishTime
-    }
-
-    // 優先比較檢查點索引 (大的在前)
-    if (a.lastCheckPointIndex !== b.lastCheckPointIndex) {
-      return b.lastCheckPointIndex - a.lastCheckPointIndex
-    }
-    // 如果在同一個檢查點區間，Y 越小代表跑越下面 (越快)
-    return a.mesh.position.y - b.mesh.position.y
-  })
-
-  triggerRef(marbleList)
-}, 500)
 
 const ghostRenderingGroupId = 1
 let ghostMaterial: StandardMaterial
@@ -90,7 +73,7 @@ function createMarble({
   color?: Color3;
 }): Marble {
   const marble = MeshBuilder.CreateSphere(nanoid(), {
-    diameter: 0.5,
+    diameter: marbleSize,
     segments: 16,
   }, scene)
   marble.position.copyFrom(startPosition)
@@ -258,6 +241,39 @@ function createCheckPointColliders(
   })
 }
 
+// --- 主要遊戲邏輯 ---
+const marbleCount = 10
+const marbleSize = 0.5
+const marbleList = shallowRef<Marble[]>([])
+const focusedMarble = shallowRef<Marble>()
+const trackSegmentList = shallowRef<TrackSegment[]>([])
+const cameraTarget = shallowRef<TransformNode>()
+
+const startTime = ref(0)
+const updateRanking = useThrottleFn(() => {
+  marbleList.value = marbleList.value.toSorted((a, b) => {
+    const aFinished = a.finishTime > 0
+    const bFinished = b.finishTime > 0
+
+    if (aFinished !== bFinished) {
+      return aFinished ? -1 : 1
+    }
+
+    if (aFinished && bFinished) {
+      return a.finishTime - b.finishTime
+    }
+
+    // 優先比較檢查點索引 (大的在前)
+    if (a.lastCheckPointIndex !== b.lastCheckPointIndex) {
+      return b.lastCheckPointIndex - a.lastCheckPointIndex
+    }
+    // 如果在同一個檢查點區間，Y 越小代表跑越下面 (越快)
+    return a.mesh.position.y - b.mesh.position.y
+  })
+
+  triggerRef(marbleList)
+}, 500)
+
 function respawnWithAnimation(
   marble: Marble,
   targetPosition: Vector3,
@@ -296,6 +312,74 @@ function respawnWithAnimation(
   })
 }
 
+/** 遊戲開始
+ *
+ * 將彈珠移動到起點
+ */
+async function startGame() {
+  const firstTrackSegment = trackSegmentList.value[0]
+  if (!firstTrackSegment) {
+    throw new Error('firstTrackSegment is undefined')
+  }
+
+  const duration = 5000
+  const startPosition = firstTrackSegment.startPosition.clone()
+
+  if (cameraTarget.value) {
+    animate(cameraTarget.value.position, {
+      y: startPosition.y,
+      duration,
+      ease: cubicBezier(0.348, 0.011, 0, 1.238),
+    })
+
+    animate(cameraTarget.value.position, {
+      x: startPosition.x,
+      z: startPosition.z,
+      duration,
+      ease: cubicBezier(0.826, 0.005, 0.259, 0.971),
+    })
+  }
+
+  const tasks = marbleList.value.map(async (marble, i) => {
+    const physicsBody = marble.mesh.physicsBody
+    if (!physicsBody)
+      return
+
+    physicsBody.disablePreStep = false
+    physicsBody.setMotionType(PhysicsMotionType.ANIMATED)
+    physicsBody.setLinearVelocity(Vector3.Zero())
+    physicsBody.setAngularVelocity(Vector3.Zero())
+
+    const targetPosition = startPosition.clone()
+    targetPosition.x += Math.random() / 10
+    targetPosition.y += (marbleSize * i)
+
+    animate(marble.mesh.position, {
+      y: targetPosition.y,
+      duration,
+      ease: cubicBezier(0.348, 0.011, 0, 1.238),
+    })
+
+    return animate(marble.mesh.position, {
+      x: targetPosition.x,
+      z: targetPosition.z,
+      duration,
+      ease: cubicBezier(0.826, 0.005, 0.259, 0.971),
+      onComplete() {
+        marble.isRespawning = false
+        physicsBody.disablePreStep = true
+        marble.mesh.computeWorldMatrix(true)
+        physicsBody.setMotionType(PhysicsMotionType.DYNAMIC)
+      },
+    }).then()
+  })
+
+  await Promise.all(tasks)
+
+  isGameStarted.value = true
+  startTime.value = Date.now()
+}
+
 const {
   canvasRef,
 } = useBabylonScene({
@@ -317,7 +401,7 @@ const {
     const shadowGenerator = createShadowGenerator(scene)
 
     // 建立軌道
-    const trackSegmentList = await pipe(
+    trackSegmentList.value = await pipe(
       values(TrackSegmentType),
       shuffle(),
       filter((type) => type !== TrackSegmentType.end),
@@ -339,19 +423,20 @@ const {
         return list
       },
     )
+
     const endTrackSegment = await createTrackSegment({
       scene,
       assetStore,
       type: TrackSegmentType.end,
     })
 
-    const firstTrackSegment = trackSegmentList[0]
-    const lastTrackSegment = trackSegmentList[trackSegmentList.length - 1]
+    const firstTrackSegment = trackSegmentList.value[0]
+    const lastTrackSegment = trackSegmentList.value[trackSegmentList.value.length - 1]
     if (!firstTrackSegment) {
       throw new Error('firstTrackSegment is undefined')
     }
 
-    const cameraTarget = pipe(
+    cameraTarget.value = pipe(
       new TransformNode('cameraTarget', scene),
       tap((node) => {
         camera.lockedTarget = node
@@ -359,9 +444,6 @@ const {
     )
 
     for (let i = 0; i < marbleCount; i++) {
-      const startPosition = firstTrackSegment.startPosition.clone()
-      startPosition.y += (0.5 * i)
-
       const color = Color3.FromHSV(
         340 * (i / marbleCount),
         1,
@@ -371,14 +453,13 @@ const {
       const marble = createMarble({
         scene,
         shadowGenerator,
-        startPosition,
         color,
       })
       marbleList.value.push(marble)
       shadowGenerator.addShadowCaster(marble.mesh)
 
       if (i === 0) {
-        cameraTarget.position.copyFrom(marble.mesh.position)
+        cameraTarget.value?.position.copyFrom(marble.mesh.position)
       }
     }
     triggerRef(marbleList)
@@ -388,11 +469,48 @@ const {
       endTrackSegment.initPhysics()
     }
 
-    const allTrackSegmentList = [...trackSegmentList, endTrackSegment]
+    const allTrackSegmentList = [...trackSegmentList.value, endTrackSegment]
     allTrackSegmentList.forEach((trackSegment) => {
       trackSegment.rootNode.getChildMeshes().forEach((mesh) => {
         shadowGenerator.addShadowCaster(mesh)
       })
+    })
+
+    // 將彈珠移動到 lobby 位置
+    pipe(0, () => {
+      const lobbyMesh = scene.getMeshByName('lobby')
+      if (!lobbyMesh) {
+        throw new Error('lobbyMesh is undefined')
+      }
+      lobbyMesh.computeWorldMatrix(true)
+      const lobbyPosition = lobbyMesh.getAbsolutePosition()
+
+      cameraTarget.value?.position.copyFrom(lobbyPosition)
+
+      marbleList.value.forEach(async (marble, i) => {
+        const physicsBody = marble.mesh.physicsBody
+        if (!physicsBody)
+          return
+        physicsBody.disablePreStep = false
+        physicsBody.setMotionType(PhysicsMotionType.ANIMATED)
+        physicsBody.setLinearVelocity(Vector3.Zero())
+        physicsBody.setAngularVelocity(Vector3.Zero())
+
+        marble.mesh.position.copyFrom(lobbyPosition)
+        marble.mesh.position.x += Math.random()
+        marble.mesh.position.y += (marbleSize * i) + 1
+
+        /** 確保物理引擎已經更新位置 */
+        await nextFrame()
+
+        physicsBody.disablePreStep = true
+        marble.mesh.computeWorldMatrix(true)
+        physicsBody.setMotionType(PhysicsMotionType.DYNAMIC)
+      })
+
+      camera.radius = 15
+      camera.alpha = Math.PI / 5 * 2
+      camera.beta = Math.PI / 5 * 4
     })
 
     // 攝影機追蹤最低的彈珠
@@ -401,6 +519,10 @@ const {
 
       // 攝影機持續跟蹤「目前 Y 座標最小（最低）」的彈珠
       scene.onBeforeRenderObservable.add(() => {
+        if (!isGameStarted.value) {
+          return
+        }
+
         const trackTarget = pipe(0, () => {
           if (focusedMarble.value) {
             return focusedMarble.value
@@ -437,12 +559,14 @@ const {
           return
         }
 
-        Vector3.LerpToRef(
-          cameraTarget.position,
-          trackTarget.mesh.position,
-          0.1,
-          cameraTarget.position,
-        )
+        if (cameraTarget.value) {
+          Vector3.LerpToRef(
+            cameraTarget.value.position,
+            trackTarget.mesh.position,
+            0.1,
+            cameraTarget.value.position,
+          )
+        }
 
         updateRanking()
       })
@@ -451,7 +575,7 @@ const {
     // 設定檢查點
     pipe(0, () => {
       const checkPointPositionList = getCheckPointPositionList([
-        ...trackSegmentList,
+        ...trackSegmentList.value,
         endTrackSegment,
       ])
 
@@ -468,6 +592,10 @@ const {
 
       // 若彈珠直接跳過下一個檢查點之 Y 座標 -1 處，則將彈珠的 Y 座標拉回檢查點
       scene.onBeforeRenderObservable.add(() => {
+        if (!isGameStarted.value) {
+          return
+        }
+
         marbleList.value.forEach((marble) => {
           const lastCheckPointPosition = checkPointPositionList[marble.lastCheckPointIndex]
           const nextCheckPointPosition = checkPointPositionList[marble.lastCheckPointIndex + 1]
@@ -533,7 +661,9 @@ const {
       })
     })
 
-    startTime.value = Date.now()
+    await nextFrame()
+
+    isLoading.value = false
   },
 })
 </script>
