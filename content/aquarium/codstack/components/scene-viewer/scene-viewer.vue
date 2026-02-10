@@ -1,5 +1,8 @@
 <template>
-  <div class=" relative">
+  <div
+    ref="containerRef"
+    class=" relative"
+  >
     <context-menu
       :preview-mesh="previewMesh"
       :selected-meshes="selectedMeshes"
@@ -16,6 +19,12 @@
       />
     </context-menu>
 
+    <div
+      v-show="isBoxSelecting"
+      :style="selectionBoxStyle"
+      class="border-2 border-primary bg-primary/20 absolute z-50 pointer-events-none"
+    />
+
     <slot :added-mesh-list />
   </div>
 </template>
@@ -26,21 +35,22 @@ import type { JSAnimation } from 'animejs'
 import type { ComponentEmit } from 'vue-component-type-helpers'
 import type { MeshMeta, ModelFile, SceneData } from '../../type'
 import type { EmitsToObject } from '../../type/utils'
-import { ArcRotateCamera, Color3, ImportMeshAsync, Mesh, PointerEventTypes, Quaternion, Scalar, StandardMaterial, Vector3 } from '@babylonjs/core'
-import { onKeyStroke, refManualReset, useActiveElement, useMagicKeys, useThrottledRefHistory, whenever } from '@vueuse/core'
+import { ArcRotateCamera, Color3, ImportMeshAsync, Matrix, Mesh, PointerEventTypes, Quaternion, Scalar, StandardMaterial, Vector3 } from '@babylonjs/core'
+import { onKeyStroke, refManualReset, useActiveElement, useElementSize, useMagicKeys, useMouseInElement, useThrottledRefHistory, whenever } from '@vueuse/core'
 import { animate } from 'animejs'
 import { nanoid } from 'nanoid'
 import { storeToRefs } from 'pinia'
-import { clone, conditional, isStrictEqual, isTruthy, pipe, tap } from 'remeda'
-import { computed, onBeforeUnmount, reactive, shallowRef, watch } from 'vue'
+import { clone, isTruthy, pipe, tap } from 'remeda'
+import { computed, onBeforeUnmount, reactive, shallowRef, useTemplateRef, watch } from 'vue'
 import { nextFrame } from '../../../../../web/common/utils'
 import { useBabylonScene } from '../../composables/use-babylon-scene'
+import { useBoxSelection } from '../../composables/use-box-selection'
 import { useMeshSelection } from '../../composables/use-mesh-selection'
 import { useSceneStore } from '../../domains/scene/scene-store'
 import { useMainStore } from '../../stores/main-store'
 import { clearPivotRecursive, findTopLevelMesh, getMeshMeta, getSurfaceSnapTransform } from '../../utils/babylon'
-import { getFileFromPath } from '../../utils/fs'
 
+import { getFileFromPath } from '../../utils/fs'
 import { roundToStep } from '../../utils/math'
 import ContextMenu from './context-menu.vue'
 import { createGizmoManager, createGround, createScreenAxes, createSideCamera, createTopCamera } from './creator'
@@ -74,6 +84,8 @@ const {
   a_y: aYKey,
   a_z: aZKey,
 } = useMagicKeys()
+
+const containerRef = useTemplateRef('containerRef')
 
 /** 目前預覽的模型 */
 const previewMesh = shallowRef<AbstractMesh>()
@@ -282,7 +294,7 @@ const previewMoveTarget = {
   rotation: new Quaternion(),
 }
 
-const { canvasRef, scene, camera } = useBabylonScene({
+const { canvasRef, scene, camera, engine } = useBabylonScene({
   async init(params) {
     const { scene, camera, engine } = params
 
@@ -655,6 +667,24 @@ const activeElement = useActiveElement()
 const isInput = computed(() => {
   const el = activeElement.value
   return el?.tagName === 'INPUT' || el?.tagName === 'TEXTAREA' || el?.isContentEditable
+})
+
+const {
+  isBoxSelecting,
+  selectionBoxStyle,
+} = useBoxSelection({
+  meshList: addedMeshList,
+  scene,
+  camera,
+  engine,
+  canvas: canvasRef,
+  startCondition: (evt) => evt.shiftKey && evt.button === 0,
+  onSelection: (meshes) => {
+    clearSelection()
+    meshes.forEach((mesh) => {
+      selectMesh(mesh, true)
+    })
+  },
 })
 
 const {
