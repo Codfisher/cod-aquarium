@@ -804,17 +804,6 @@ async function alignMeshesToBoundingEdge(
   })
   await Promise.all(tasks)
 
-  // for (const mesh of meshList) {
-  //   const edge = getEdgeValue(mesh)
-  //   const delta = targetEdgeValue - edge
-  //   if (delta === 0)
-  //     continue
-
-  //   const absPos = mesh.getAbsolutePosition().clone()
-  //   absPos[alongAxis] += delta
-  //   mesh.setAbsolutePosition(absPos)
-  // }
-
   commitHistory()
   rebuildGroup()
 }
