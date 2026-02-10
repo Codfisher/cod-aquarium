@@ -178,7 +178,7 @@ const {
     // 只存關鍵資料，不存 Mesh 物件
     // @ts-expect-error 強制轉換資料
     clone: (meshes): MeshState[] => meshes.map((mesh) => {
-      // 儲存世界座標，否則 local 座標會被選擇群組干擾
+      // 儲存世界座標，使用 local 座標會被選擇群組干擾，導致復原時位置會亂噴
       mesh.computeWorldMatrix(true)
 
       const position = new Vector3()
