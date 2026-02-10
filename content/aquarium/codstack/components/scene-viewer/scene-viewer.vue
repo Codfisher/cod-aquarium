@@ -733,32 +733,33 @@ function duplicateMeshes(meshes: AbstractMesh[]) {
   commitHistory()
 }
 /** 將選取的 Mesh 沿著指定軸對齊 */
-function alignMeshesToAxis(
+async function alignMeshesToAxis(
   meshList: AbstractMesh[],
   baseMesh: AbstractMesh,
   alongAxis: 'x' | 'y' | 'z',
 ) {
-  const targetPosition = baseMesh.position
-
-  meshList.forEach((mesh, i) => {
+  const tasks = meshList.map(async (mesh) => {
     if (mesh === baseMesh)
-      return Promise.resolve()
+      return
 
-    const params = conditional(
-      alongAxis,
-      [isStrictEqual('x'), () => ({ y: targetPosition.y, z: targetPosition.z, x: mesh.position.x })],
-      [isStrictEqual('y'), () => ({ x: targetPosition.x, z: targetPosition.z, y: mesh.position.y })],
-      [isStrictEqual('z'), () => ({ x: targetPosition.x, y: targetPosition.y, z: mesh.position.z })],
-    )
+    const targetPosition = baseMesh.position.clone()
+    targetPosition[alongAxis] = mesh.position[alongAxis]
 
-    mesh.position.set(params.x, params.y, params.z)
+    return animate(mesh.position, {
+      x: targetPosition.x,
+      y: targetPosition.y,
+      z: targetPosition.z,
+      duration: 200,
+      ease: 'inOutCirc',
+    }).then()
   })
+  await Promise.all(tasks)
 
   commitHistory()
   rebuildGroup()
 }
 /** 沿著包圍邊緣對齊 */
-function alignMeshesToBoundingEdge(
+async function alignMeshesToBoundingEdge(
   meshList: AbstractMesh[],
   alongAxis: 'x' | 'y' | 'z',
   /** 正負方向：max=對齊到最大值那側；min=對齊到最小值那側 */
@@ -782,16 +783,37 @@ function alignMeshesToBoundingEdge(
   }, initValue)
 
   // 把每個 mesh 的對應邊緣推到 target
-  for (const mesh of meshList) {
+  const tasks = meshList.map(async (mesh) => {
     const edge = getEdgeValue(mesh)
     const delta = targetEdgeValue - edge
     if (delta === 0)
-      continue
+      return
 
-    const absPos = mesh.getAbsolutePosition().clone()
-    absPos[alongAxis] += delta
-    mesh.setAbsolutePosition(absPos)
-  }
+    const targetPosition = mesh.getAbsolutePosition().clone()
+    const currentPosition = targetPosition.clone()
+    targetPosition[alongAxis] += delta
+
+    return animate(currentPosition, {
+      x: targetPosition.x,
+      y: targetPosition.y,
+      z: targetPosition.z,
+      duration: 200,
+      ease: 'inOutCirc',
+      onUpdate: () => mesh.setAbsolutePosition(currentPosition),
+    }).then()
+  })
+  await Promise.all(tasks)
+
+  // for (const mesh of meshList) {
+  //   const edge = getEdgeValue(mesh)
+  //   const delta = targetEdgeValue - edge
+  //   if (delta === 0)
+  //     continue
+
+  //   const absPos = mesh.getAbsolutePosition().clone()
+  //   absPos[alongAxis] += delta
+  //   mesh.setAbsolutePosition(absPos)
+  // }
 
   commitHistory()
   rebuildGroup()
