@@ -4,6 +4,7 @@
     :ui="{
       label: 'text-xs opacity-50',
     }"
+    :modal="false"
   >
     <slot />
 
@@ -134,6 +135,37 @@
         </u-form-field>
       </div>
     </template>
+
+    <!-- popup 說明 -->
+    <template
+      v-for="(data) in multiSelectionLabelSlots"
+      #[`${data.key}-label`]="{ item }: any"
+      :key="data.key"
+    >
+      <div class="flex items-center gap-2">
+        {{ item.label }}
+
+        <u-popover
+          mode="hover"
+          :content="{ side: 'right', sideOffset: 10 }"
+        >
+          <u-icon
+            name="i-material-symbols:info-outline-rounded"
+            @click.stop.prevent
+            @mousedown.stop
+          />
+
+          <template #content>
+            <div class="p-4">
+              <img
+                :src="data.img"
+                class="h-80"
+              >
+            </div>
+          </template>
+        </u-popover>
+      </div>
+    </template>
   </u-context-menu>
 </template>
 
@@ -254,6 +286,20 @@ const previewMenuItems = computed<ContextMenuItem[] | undefined>(() => {
   ]
 })
 
+const multiSelectionLabelSlots = [
+  {
+    key: 'align-to-first-selected-x',
+    img: '/codstack/help/align-to-first-x.gif',
+  },
+  {
+    key: 'align-to-first-selected-y',
+    img: '/codstack/help/align-to-first-y.gif',
+  },
+  {
+    key: 'align-to-first-selected-z',
+    img: '/codstack/help/align-to-first-z.gif',
+  },
+] as const
 /** 選取多個 Mesh 的右鍵選單  */
 const multiSelectionMenuItems = computed<ContextMenuItem[] | undefined>(() => {
   const [firstMesh] = props.selectedMeshes
@@ -271,18 +317,21 @@ const multiSelectionMenuItems = computed<ContextMenuItem[] | undefined>(() => {
           icon: 'i-material-symbols:align-justify-center-rounded',
           label: 'Align X',
           kbds: ['a', 'x'],
+          slot: multiSelectionLabelSlots[0].key,
           onSelect: () => emit('alignAxis', 'x'),
         },
         {
           icon: 'i-material-symbols:vertical-align-center',
           label: 'Align Y',
           kbds: ['a', 'y'],
+          slot: multiSelectionLabelSlots[1].key,
           onSelect: () => emit('alignAxis', 'y'),
         },
         {
           icon: 'i-material-symbols:vertical-align-center',
           label: 'Align Z',
           kbds: ['a', 'z'],
+          slot: multiSelectionLabelSlots[2].key,
           onSelect: () => emit('alignAxis', 'z'),
         },
       ],
