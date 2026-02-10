@@ -88,9 +88,9 @@ function createMarble({
       marbleMaterial.metallic = 0
       marbleMaterial.roughness = 0.5
 
-      marbleMaterial.clearCoat.isEnabled = true
-      marbleMaterial.clearCoat.intensity = 1
-      marbleMaterial.clearCoat.roughness = 0
+      // marbleMaterial.clearCoat.isEnabled = true
+      // marbleMaterial.clearCoat.intensity = 1
+      // marbleMaterial.clearCoat.roughness = 0
     }),
   )
 
@@ -169,7 +169,7 @@ function createShadowGenerator(scene: Scene) {
   light.position = new Vector3(0, 100, 0)
   light.intensity = 0.8
 
-  const shadowGenerator = new ShadowGenerator(2048, light)
+  const shadowGenerator = new ShadowGenerator(1024, light)
 
   shadowGenerator.bias = 0.000001
   shadowGenerator.normalBias = 0.0001
