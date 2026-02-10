@@ -15,7 +15,7 @@ import {
 import { whenever } from '@vueuse/core'
 import { shallowRef } from 'vue'
 
-interface UseMultiMeshSelectOptions {
+interface UseMeshSelectionOptions {
   gizmoManager: Ref<GizmoManager | undefined>;
   scene: Ref<Scene | undefined>;
   camera: Ref<Camera | undefined>;
@@ -24,7 +24,7 @@ export function useMeshSelection({
   gizmoManager,
   scene,
   camera,
-}: UseMultiMeshSelectOptions) {
+}: UseMeshSelectionOptions) {
   const selectedMeshes = shallowRef<AbstractMesh[]>([])
 
   let selectionProxy: Mesh | null = null
