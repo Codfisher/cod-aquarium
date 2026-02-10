@@ -138,16 +138,16 @@
 
     <!-- popup 說明 -->
     <template
-      v-for="(data) in multiSelectionLabelSlots"
+      v-for="(data) in [...multiSelectionSlotList, ...selectOneSlotList]"
       #[`${data.key}-label`]="{ item }: any"
       :key="data.key"
     >
-      <div class="flex items-center gap-2">
+      <div class="flex items-center gap-4">
         {{ item.label }}
 
         <u-popover
           mode="hover"
-          :content="{ side: 'right', sideOffset: 10 }"
+          :content="{ side: 'top', sideOffset: 10 }"
         >
           <u-icon
             name="i-material-symbols:info-outline-rounded"
@@ -286,7 +286,7 @@ const previewMenuItems = computed<ContextMenuItem[] | undefined>(() => {
   ]
 })
 
-const multiSelectionLabelSlots = [
+const multiSelectionSlotList = [
   {
     key: 'align-to-first-selected-x',
     img: '/codstack/help/align-to-first-x.gif',
@@ -298,6 +298,19 @@ const multiSelectionLabelSlots = [
   {
     key: 'align-to-first-selected-z',
     img: '/codstack/help/align-to-first-z.gif',
+  },
+
+  {
+    key: 'align-to-bounds-x',
+    img: '/codstack/help/align-to-bounds-x.gif',
+  },
+  {
+    key: 'align-to-bounds-y',
+    img: '/codstack/help/align-to-bounds-y.gif',
+  },
+  {
+    key: 'align-to-bounds-z',
+    img: '/codstack/help/align-to-bounds-z.gif',
   },
 ] as const
 /** 選取多個 Mesh 的右鍵選單  */
@@ -317,21 +330,21 @@ const multiSelectionMenuItems = computed<ContextMenuItem[] | undefined>(() => {
           icon: 'i-material-symbols:align-justify-center-rounded',
           label: 'Align X',
           kbds: ['a', 'x'],
-          slot: multiSelectionLabelSlots[0].key,
+          slot: multiSelectionSlotList[0].key,
           onSelect: () => emit('alignAxis', 'x'),
         },
         {
           icon: 'i-material-symbols:vertical-align-center',
           label: 'Align Y',
           kbds: ['a', 'y'],
-          slot: multiSelectionLabelSlots[1].key,
+          slot: multiSelectionSlotList[1].key,
           onSelect: () => emit('alignAxis', 'y'),
         },
         {
           icon: 'i-material-symbols:vertical-align-center',
           label: 'Align Z',
           kbds: ['a', 'z'],
-          slot: multiSelectionLabelSlots[2].key,
+          slot: multiSelectionSlotList[2].key,
           onSelect: () => emit('alignAxis', 'z'),
         },
       ],
@@ -343,16 +356,19 @@ const multiSelectionMenuItems = computed<ContextMenuItem[] | undefined>(() => {
         {
           icon: 'i-material-symbols:align-horizontal-left-rounded',
           label: 'Align to X Max',
+          slot: multiSelectionSlotList[3].key,
           onSelect: () => emit('alignBounds', 'x', 'max'),
         },
         {
           icon: 'i-material-symbols:align-vertical-top-rounded',
           label: 'Align to Y Max',
+          slot: multiSelectionSlotList[4].key,
           onSelect: () => emit('alignBounds', 'y', 'max'),
         },
         {
           icon: 'i-material-symbols:align-horizontal-left-rounded',
           label: 'Align to Z Max',
+          slot: multiSelectionSlotList[5].key,
           onSelect: () => emit('alignBounds', 'z', 'max'),
         },
         { type: 'separator' },
@@ -388,6 +404,12 @@ const multiSelectionMenuItems = computed<ContextMenuItem[] | undefined>(() => {
   ]
 })
 
+const selectOneSlotList = [
+  {
+    key: 'use-as-preview',
+    img: '/codstack/help/use-as-preview.gif',
+  },
+] as const
 /** 選取單個 Mesh 的右鍵選單  */
 const selectOneMenuItems = computed<ContextMenuItem[] | undefined>(() => {
   if (props.selectedMeshes.length !== 1) {
@@ -493,6 +515,7 @@ const selectOneMenuItems = computed<ContextMenuItem[] | undefined>(() => {
     {
       icon: 'i-material-symbols:preview',
       label: 'Use as Preview',
+      slot: selectOneSlotList[0].key,
       onSelect: () => emit('useAsPreview', meta.path),
     },
     {
