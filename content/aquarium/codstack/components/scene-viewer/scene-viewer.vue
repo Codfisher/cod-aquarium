@@ -35,7 +35,7 @@ import { clone, conditional, isStrictEqual, isTruthy, pipe, tap } from 'remeda'
 import { computed, onBeforeUnmount, reactive, shallowRef, watch } from 'vue'
 import { nextFrame } from '../../../../../web/common/utils'
 import { useBabylonScene } from '../../composables/use-babylon-scene'
-import { useMultiMeshSelect } from '../../composables/use-multi-mesh-select'
+import { useMeshSelection } from '../../composables/use-mesh-selection'
 import { useSceneStore } from '../../domains/scene/scene-store'
 import { useMainStore } from '../../stores/main-store'
 import { clearPivotRecursive, findTopLevelMesh, getMeshMeta, getSurfaceSnapTransform } from '../../utils/babylon'
@@ -663,7 +663,7 @@ const {
   refreshProxy,
   clearSelection,
   detachFromProxy,
-} = useMultiMeshSelect({ gizmoManager, scene, camera })
+} = useMeshSelection({ gizmoManager, scene, camera })
 
 /** 選取 Mesh 時，關閉所有 Gizmo 小工具，需使用快捷鍵開啟
  *

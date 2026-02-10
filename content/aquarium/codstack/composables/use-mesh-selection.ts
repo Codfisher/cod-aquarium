@@ -13,14 +13,14 @@ import {
   Vector3,
 } from '@babylonjs/core'
 import { whenever } from '@vueuse/core'
-import { shallowRef, watch } from 'vue'
+import { shallowRef } from 'vue'
 
 interface UseMultiMeshSelectOptions {
   gizmoManager: Ref<GizmoManager | undefined>;
   scene: Ref<Scene | undefined>;
   camera: Ref<Camera | undefined>;
 }
-export function useMultiMeshSelect({
+export function useMeshSelection({
   gizmoManager,
   scene,
   camera,
