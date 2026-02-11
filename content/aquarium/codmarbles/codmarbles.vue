@@ -76,7 +76,7 @@ import { ActionManager, AssetsManager, Color3, DirectionalLight, Engine, Execute
 import { breakpointsTailwind, useBreakpoints, useEventListener, useThrottleFn } from '@vueuse/core'
 import { animate, cubicBezier } from 'animejs'
 import { random } from 'lodash-es'
-import { nanoid } from 'nanoid'
+import { customAlphabet } from 'nanoid'
 import { filter, firstBy, map, pipe, shuffle, tap, values } from 'remeda'
 import { ref, shallowRef, triggerRef } from 'vue'
 import { nextFrame } from '../../../web/common/utils'
@@ -99,6 +99,7 @@ const isMobile = breakpoint.smaller('md')
 const ghostRenderingGroupId = 1
 let ghostMaterial: StandardMaterial
 
+const createMarbleName = customAlphabet('abcdefghijklmnopqrstuvwxyz', 8)
 function createMarble({
   scene,
   shadowGenerator,
@@ -110,7 +111,7 @@ function createMarble({
   startPosition?: Vector3;
   color?: Color3;
 }): Marble {
-  const marble = MeshBuilder.CreateSphere(nanoid(), {
+  const marble = MeshBuilder.CreateSphere(createMarbleName(), {
     diameter: marbleSize,
     segments: 16,
   }, scene)
@@ -395,7 +396,7 @@ async function startGame() {
     targetPosition.x += Math.random() / 10
     targetPosition.y += (marbleSize * i) + 1
 
-    const delay = i * 50
+    const delay = i * 20
     animate(marble.mesh.position, {
       y: targetPosition.y,
       duration,
@@ -657,10 +658,8 @@ const {
           }
 
           // 保險檢查
-          if (lowestCheckPoint) {
-            if (marble.mesh.position.y < lowestCheckPoint.y - 50) {
-              respawnWithAnimation(marble, lastCheckPointPosition)
-            }
+          if (lowestCheckPoint && marble.mesh.position.y < lowestCheckPoint.y - 10) {
+            respawnWithAnimation(marble, lastCheckPointPosition)
           }
         })
       })

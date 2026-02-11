@@ -12,14 +12,17 @@
         @click="handleFocusMarble(marble)"
       >
         <div
-          class="text-yellow-500 text-xs bg-white p-2 duration-500
+          class="text-yellow-500 text-xs bg-white duration-500
             absolute pointer-events-none whitespace-nowrap shadow -z-1
+            text-ellipsis overflow-hidden
 
             /* 手機：出現在上方 */
             max-md:left-1/2 max-md:top-0 max-md:-translate-x-1/2 max-md:rounded-t
+            max-md:py-1 px-4
 
             /* 桌機：在右側 */
             md:top-1/2 md:right-0 md:-translate-y-1/2 md:rounded-r
+            md:py-2
           "
           :class="marble.finishTime > 0
             ? 'max-md:-translate-y-full md:translate-x-full'
