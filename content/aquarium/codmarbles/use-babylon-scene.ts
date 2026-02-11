@@ -1,3 +1,6 @@
+import type {
+  WebGPUEngine,
+} from '@babylonjs/core'
 import {
   ArcRotateCamera,
   Color3,
@@ -8,7 +11,6 @@ import {
   HemisphericLight,
   Scene,
   Vector3,
-  WebGPUEngine,
 } from '@babylonjs/core'
 import HavokPhysics from '@babylonjs/havok'
 import { defaults } from 'lodash-es'
@@ -32,20 +34,23 @@ interface UseBabylonSceneParam {
 }
 const defaultParam: Required<UseBabylonSceneParam> = {
   async createEngine({ canvas }) {
-    const webGPUSupported = await WebGPUEngine.IsSupportedAsync
-    if (webGPUSupported) {
-      const engine = new WebGPUEngine(canvas, {
-        antialias: false,
-        stencil: true,
-      })
-      await engine.initAsync()
+    // const webGPUSupported = await WebGPUEngine.IsSupportedAsync
+    // if (webGPUSupported) {
+    //   const engine = new WebGPUEngine(canvas, {
+    //     antialias: false,
+    //     stencil: true,
+    //     powerPreference: 'high-performance',
+    //   })
+    //   await engine.initAsync()
 
-      return engine
-    }
+    //   return engine
+    // }
 
     return new Engine(canvas, true, {
-      alpha: false,
+      antialias: false,
       stencil: true,
+      disableWebGL2Support: true,
+      powerPreference: 'high-performance',
     })
   },
   createScene({ engine }) {
