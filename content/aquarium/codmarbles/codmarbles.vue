@@ -1,5 +1,5 @@
 <template>
-  <div class="fixed w-screen h-screen">
+  <div class="fixed w-screen inset-0">
     <canvas
       v-once
       ref="canvasRef"
@@ -13,21 +13,21 @@
       class="absolute bottom-4 left-4"
     />
 
-    <u-button
-      v-if="!isGameStarted"
-      class="absolute bottom-4 right-4"
-      color="primary"
-      variant="solid"
-      label="開始遊戲"
-      @click="startGame"
-    />
+    <div class="absolute top-0 left-0 flex flex-col justify-center items-center w-full h-full pointer-events-none">
+      <base-btn
+        v-if="gameState === 'idle'"
+        label="START!"
+        class="pointer-events-auto px-40 border-10 border-white/70"
+        @click="startGame"
+      />
 
-    <div
-      v-if="isLoading"
-      class="absolute left-0 top-0 w-screen h-screen bg-black/50 flex items-center justify-center"
-    >
-      <div class="text-white text-2xl font-bold">
-        Loading...
+      <div
+        v-if="isLoading"
+        class="absolute left-0 top-0 w-full h-full bg-black/50 flex items-center justify-center"
+      >
+        <div class="text-white text-2xl font-bold">
+          Loading...
+        </div>
       </div>
     </div>
   </div>
@@ -45,6 +45,7 @@ import { nanoid } from 'nanoid'
 import { filter, firstBy, map, pipe, shuffle, tap, values } from 'remeda'
 import { ref, shallowRef, triggerRef } from 'vue'
 import { nextFrame } from '../../../web/common/utils'
+import BaseBtn from './components/base-btn.vue'
 import RankingList from './components/ranking-list.vue'
 import { useAssetStore } from './stores/asset-store'
 import { createTrackSegment } from './track-segment'
@@ -52,10 +53,9 @@ import { TrackSegmentType } from './track-segment/data'
 import { useBabylonScene } from './use-babylon-scene'
 
 const isLoading = ref(true)
-const isGameStarted = ref(false)
+const gameState = ref<'idle' | 'preparing' | 'playing' | 'over'>('idle')
 
 const assetStore = useAssetStore()
-const toast = useToast()
 
 const breakpoint = useBreakpoints(breakpointsTailwind)
 const isMobile = breakpoint.smaller('md')
@@ -320,6 +320,8 @@ function respawnWithAnimation(
  * 將彈珠移動到起點
  */
 async function startGame() {
+  gameState.value = 'preparing'
+
   const firstTrackSegment = trackSegmentList.value[0]
   if (!firstTrackSegment) {
     throw new Error('firstTrackSegment is undefined')
@@ -382,7 +384,7 @@ async function startGame() {
 
   await Promise.all(tasks)
 
-  isGameStarted.value = true
+  gameState.value = 'playing'
   startTime.value = Date.now()
 }
 
@@ -525,7 +527,7 @@ const {
 
       // 攝影機持續跟蹤「目前 Y 座標最小（最低）」的彈珠
       scene.onBeforeRenderObservable.add(() => {
-        if (!isGameStarted.value) {
+        if (gameState.value !== 'playing') {
           return
         }
 
@@ -598,7 +600,7 @@ const {
 
       // 若彈珠直接跳過下一個檢查點之 Y 座標 -1 處，則將彈珠的 Y 座標拉回檢查點
       scene.onBeforeRenderObservable.add(() => {
-        if (!isGameStarted.value) {
+        if (gameState.value !== 'playing') {
           return
         }
 
@@ -676,11 +678,8 @@ const {
 useEventListener(canvasRef, 'webglcontextlost', (e) => {
   e.preventDefault()
 
-  toast.add({
-    title: 'WebGL context lost',
-    description: 'Please reload the page',
-    color: 'error',
-  })
+  // eslint-disable-next-line no-alert
+  alert('WebGL context lost, please try to reload the page')
 })
 </script>
 
