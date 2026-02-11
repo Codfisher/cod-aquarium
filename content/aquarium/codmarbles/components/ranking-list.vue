@@ -1,9 +1,9 @@
 <template>
-  <div class="   p-4 ">
+  <div class="">
     <transition-group
       name="list"
       tag="div"
-      class="flex flex-col-reverse gap-2"
+      class="flex md:flex-col-reverse gap-2 max-md:gap-1 overflow-x-auto max-w-screen p-4 md:pr-20 max-md:pt-10"
     >
       <div
         v-for="(marble, index) in marbleList"
@@ -12,25 +12,36 @@
         @click="handleFocusMarble(marble)"
       >
         <div
-          class="text-yellow-500 rounded-r top-1/2 right-0 -translate-y-1/2 text-xs absolute p-2 bg-white/90  duration-500 -z-1"
-          :class="{ ' translate-x-full': marble.finishTime > 0 }"
+          class="text-yellow-500 text-xs bg-white duration-500
+            absolute  whitespace-nowrap shadow -z-1
+            text-ellipsis overflow-hidden py-1.5 px-4
+            max-md:rounded-t
+            md:rounded-r
+            right-1/2 top-1/2 -translate-y-1/2 translate-x-1/2
+            opacity-0
+            transform
+          "
+          :class="marble.finishTime > 0 && recordVisible
+            ? 'md:right-0 md:translate-x-full max-md:top-0 max-md:-translate-y-full opacity-100'
+            : ''
+          "
         >
           {{ (marble.finishTime / 1000).toFixed(2) }}s
         </div>
 
         <div
-          class="flex items-center gap-3 p-2 rounded shadow-sm transition-all duration-300 border-2 cursor-pointer z-1"
+          class="flex items-center gap-1 p-2 rounded shadow-sm transition-all duration-300 border-2 cursor-pointer z-1 text-xs"
           :class="marble.className"
         >
           <div
-            class="font-mono font-bold w-4 text-center transition-colors"
+            class="font-mono font-bold w-4 text-center transition-colors "
             :class="marble.finishTime > 0 ? 'text-yellow-700' : 'text-gray-500'"
           >
             {{ index + 1 }}
           </div>
 
           <div
-            class="w-4 h-4 rounded-full border border-black/10 shadow-inner"
+            class="w-4 h-4 rounded-full border border-black/10 shadow-inner mr-1"
             :style="{ backgroundColor: marble.hexColor }"
           />
 
@@ -48,6 +59,7 @@ import type { Marble } from '../types'
 import { computed } from 'vue'
 
 interface Props {
+  gameState: 'idle' | 'preparing' | 'playing' | 'over';
   startTime: number;
   rankingList: Marble[];
 }
@@ -68,7 +80,7 @@ function handleFocusMarble(marble: Marble) {
 const marbleList = computed(() => props.rankingList.map((marble) => {
   const className: string[] = []
 
-  if (marble.finishTime > 0) {
+  if (marble.finishTime > 0 && recordVisible.value) {
     className.push('bg-yellow-50 border-yellow-400 shadow-md')
   }
   else {
@@ -85,6 +97,8 @@ const marbleList = computed(() => props.rankingList.map((marble) => {
     className,
   }
 }))
+
+const recordVisible = computed(() => props.gameState === 'over' || props.gameState === 'playing')
 </script>
 
 <style scoped lang="sass">

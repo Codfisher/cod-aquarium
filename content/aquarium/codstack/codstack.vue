@@ -89,6 +89,7 @@
 
 <script setup lang="ts">
 import type { ModelFile, SceneData } from './type'
+import { useColorMode } from '@vueuse/core'
 import { computed, ref, shallowRef, watch } from 'vue'
 import BulletinModal from './components/bulletin-modal.vue'
 import ExportModal from './components/export-modal.vue'
@@ -99,6 +100,10 @@ import SceneViewer from './components/scene-viewer/scene-viewer.vue'
 import { useFontLoader } from './composables/use-font-loader'
 import { version } from './constants'
 import { useMainStore } from './stores/main-store'
+
+// Nuxt UI 接管 vitepress 的 dark 設定，故改用 useColorMode
+const colorMode = useColorMode()
+colorMode.value = 'light'
 
 useFontLoader()
 const mainStore = useMainStore()

@@ -1,5 +1,5 @@
 <template>
-  <div class="fixed w-screen h-screen">
+  <div class="fixed w-screen inset-0">
     <canvas
       v-once
       ref="canvasRef"
@@ -10,21 +10,58 @@
       v-model:focused-marble="focusedMarble"
       :start-time="startTime"
       :ranking-list="marbleList"
-      class="absolute bottom-4 left-4"
+      :game-state="gameState"
+      class="fixed left-0 bottom-0"
     />
 
-    <u-button
-      v-if="!isGameStarted"
-      class="absolute bottom-4 right-4"
-      color="primary"
-      variant="solid"
-      label="開始遊戲"
-      @click="startGame"
-    />
+    <!-- 遊戲開始按鈕 -->
+    <transition name="opacity">
+      <div
+        v-if="canStartGame"
+        class="absolute top-0 left-0 flex flex-col justify-center items-center w-full h-full pointer-events-none"
+      >
+        <base-btn
+          v-slot="{ hover }"
+          label="Start"
+          class="pointer-events-auto border-5 border-white/80"
+          stroke-color="#425e5c"
+          @click="startGame"
+        >
+          <div
+            class="btn-content absolute inset-0"
+            :class="{ hover }"
+          >
+            <base-polygon
+              class="absolute left-0 top-0 -translate-x-[70%] -translate-y-[50%] -rotate-30"
+              size="13rem"
+              shape="round"
+              fill="fence"
+              opacity="1"
+            />
+
+            <base-polygon
+              class="absolute right-0 bottom-0 translate-x-[60%] translate-y-[70%]"
+              size="13rem"
+              shape="round"
+              fill="solid"
+              opacity="1"
+            />
+
+            <base-polygon
+              class="absolute right-0 top-0 -translate-x-[80%] -translate-y-[50%]"
+              size="2rem"
+              shape="round"
+              fill="solid"
+              opacity="0.8"
+            />
+          </div>
+        </base-btn>
+      </div>
+    </transition>
 
     <div
       v-if="isLoading"
-      class="absolute left-0 top-0 w-screen h-screen bg-black/50 flex items-center justify-center"
+      class="absolute left-0 top-0 w-full h-full bg-black/50 flex items-center justify-center"
     >
       <div class="text-white text-2xl font-bold">
         Loading...
@@ -41,10 +78,12 @@ import { ActionManager, AssetsManager, Color3, DirectionalLight, Engine, Execute
 import { breakpointsTailwind, useBreakpoints, useEventListener, useThrottleFn } from '@vueuse/core'
 import { animate, cubicBezier } from 'animejs'
 import { random } from 'lodash-es'
-import { nanoid } from 'nanoid'
+import { customAlphabet } from 'nanoid'
 import { filter, firstBy, map, pipe, shuffle, tap, values } from 'remeda'
-import { ref, shallowRef, triggerRef } from 'vue'
+import { computed, ref, shallowRef, triggerRef } from 'vue'
 import { nextFrame } from '../../../web/common/utils'
+import BaseBtn from './components/base-btn.vue'
+import BasePolygon from './components/base-polygon.vue'
 import RankingList from './components/ranking-list.vue'
 import { useAssetStore } from './stores/asset-store'
 import { createTrackSegment } from './track-segment'
@@ -52,10 +91,9 @@ import { TrackSegmentType } from './track-segment/data'
 import { useBabylonScene } from './use-babylon-scene'
 
 const isLoading = ref(true)
-const isGameStarted = ref(false)
+const gameState = ref<'idle' | 'preparing' | 'playing' | 'over'>('idle')
 
 const assetStore = useAssetStore()
-const toast = useToast()
 
 const breakpoint = useBreakpoints(breakpointsTailwind)
 const isMobile = breakpoint.smaller('md')
@@ -63,6 +101,7 @@ const isMobile = breakpoint.smaller('md')
 const ghostRenderingGroupId = 1
 let ghostMaterial: StandardMaterial
 
+const createMarbleName = customAlphabet('abcdefghijklmnopqrstuvwxyz', 8)
 function createMarble({
   scene,
   shadowGenerator,
@@ -74,7 +113,7 @@ function createMarble({
   startPosition?: Vector3;
   color?: Color3;
 }): Marble {
-  const marble = MeshBuilder.CreateSphere(nanoid(), {
+  const marble = MeshBuilder.CreateSphere(createMarbleName(), {
     diameter: marbleSize,
     segments: 16,
   }, scene)
@@ -157,7 +196,7 @@ function createMarble({
   )
 
   return {
-    hexColor: finalColor.toHexString(),
+    hexColor: finalColor.toGammaSpace().toHexString(),
     mesh: marble,
     lastCheckPointIndex: 0,
     isRespawning: false,
@@ -274,6 +313,11 @@ const updateRanking = useThrottleFn(() => {
     return a.mesh.position.y - b.mesh.position.y
   })
 
+  const allFinished = !marbleList.value.some((marble) => !marble.finishTime)
+  if (allFinished) {
+    gameState.value = 'over'
+  }
+
   triggerRef(marbleList)
 }, 500)
 
@@ -315,11 +359,13 @@ function respawnWithAnimation(
   })
 }
 
-/** 遊戲開始
- *
- * 將彈珠移動到起點
- */
+const canStartGame = computed(() => {
+  return gameState.value === 'idle' || gameState.value === 'over'
+})
+
 async function startGame() {
+  gameState.value = 'preparing'
+
   const firstTrackSegment = trackSegmentList.value[0]
   if (!firstTrackSegment) {
     throw new Error('firstTrackSegment is undefined')
@@ -332,7 +378,7 @@ async function startGame() {
     animate(cameraTarget.value.position, {
       y: startPosition.y,
       duration,
-      ease: cubicBezier(0.348, 0.011, 0, 1.238),
+      ease: cubicBezier(0.1, 0.011, 0, 1),
     })
 
     animate(cameraTarget.value.position, {
@@ -355,14 +401,14 @@ async function startGame() {
 
     const targetPosition = startPosition.clone()
     targetPosition.x += Math.random() / 10
-    targetPosition.y += (marbleSize * i)
+    targetPosition.y += (marbleSize * i) + 1
 
-    const delay = (marbleCount - i - 1) * 50
+    const delay = i * 20
     animate(marble.mesh.position, {
       y: targetPosition.y,
       duration,
       delay,
-      ease: cubicBezier(0.348, 0.011, 0, 1.238),
+      ease: cubicBezier(0.1, 0.011, 0, 1),
     })
 
     return animate(marble.mesh.position, {
@@ -372,6 +418,8 @@ async function startGame() {
       delay,
       ease: cubicBezier(0.826, 0.005, 0.259, 0.971),
       onComplete() {
+        marble.finishTime = 0
+
         marble.isRespawning = false
         physicsBody.disablePreStep = true
         marble.mesh.computeWorldMatrix(true)
@@ -382,7 +430,7 @@ async function startGame() {
 
   await Promise.all(tasks)
 
-  isGameStarted.value = true
+  gameState.value = 'playing'
   startTime.value = Date.now()
 }
 
@@ -409,6 +457,7 @@ const {
     // 建立軌道
     trackSegmentList.value = await pipe(
       values(TrackSegmentType),
+      // [TrackSegmentType.g01],
       shuffle(),
       filter((type) => type !== TrackSegmentType.end),
       map((type) => createTrackSegment({ scene, assetStore, type })),
@@ -449,6 +498,7 @@ const {
       }),
     )
 
+    const ballList: Marble[] = []
     for (let i = 0; i < marbleCount; i++) {
       const color = Color3.FromHSV(
         340 * (i / marbleCount),
@@ -461,14 +511,14 @@ const {
         shadowGenerator,
         color,
       })
-      marbleList.value.push(marble)
+      ballList.push(marble)
       shadowGenerator.addShadowCaster(marble.mesh)
 
       if (i === 0) {
         cameraTarget.value?.position.copyFrom(marble.mesh.position)
       }
     }
-    triggerRef(marbleList)
+    marbleList.value = ballList
 
     if (lastTrackSegment) {
       connectTracks(lastTrackSegment, endTrackSegment)
@@ -525,7 +575,7 @@ const {
 
       // 攝影機持續跟蹤「目前 Y 座標最小（最低）」的彈珠
       scene.onBeforeRenderObservable.add(() => {
-        if (!isGameStarted.value) {
+        if (gameState.value !== 'playing') {
           return
         }
 
@@ -598,7 +648,7 @@ const {
 
       // 若彈珠直接跳過下一個檢查點之 Y 座標 -1 處，則將彈珠的 Y 座標拉回檢查點
       scene.onBeforeRenderObservable.add(() => {
-        if (!isGameStarted.value) {
+        if (gameState.value !== 'playing') {
           return
         }
 
@@ -619,10 +669,8 @@ const {
           }
 
           // 保險檢查
-          if (lowestCheckPoint) {
-            if (marble.mesh.position.y < lowestCheckPoint.y - 50) {
-              respawnWithAnimation(marble, lastCheckPointPosition)
-            }
+          if (lowestCheckPoint && marble.mesh.position.y < lowestCheckPoint.y - 10) {
+            respawnWithAnimation(marble, lastCheckPointPosition)
           }
         })
       })
@@ -676,11 +724,8 @@ const {
 useEventListener(canvasRef, 'webglcontextlost', (e) => {
   e.preventDefault()
 
-  toast.add({
-    title: 'WebGL context lost',
-    description: 'Please reload the page',
-    color: 'error',
-  })
+  // eslint-disable-next-line no-alert
+  alert('WebGL context lost, please try to reload the page')
 })
 </script>
 
@@ -688,4 +733,20 @@ useEventListener(canvasRef, 'webglcontextlost', (e) => {
 .canvas
   outline: none
   background: linear-gradient(180deg, #e3ffea, #e2deff )
+
+.btn-content
+  transform: scale(1)
+  transition-duration: 0.4s
+  transition-timing-function: cubic-bezier(0.545, 1.650, 0.520, 1.305)
+  &.hover
+    transform: scale(0.96) rotate(-2deg)
+    transition-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1)
+</style>
+
+<style lang="sass">
+.opacity
+  &-enter-active, &-leave-active
+    transition-duration: 0.4s !important
+  &-enter-from, &-leave-to
+    opacity: 0 !important
 </style>
