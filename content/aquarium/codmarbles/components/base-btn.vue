@@ -1,6 +1,6 @@
 <template>
   <div
-    class="btn flex flex-center text-5xl p-12 rounded-full"
+    class="btn flex flex-center text-4xl md:text-5xl p-8 px-20 md:p-12 md:px-30 rounded-full"
     :class="btnClass"
     @click="handleClick()"
     @mouseenter="handleMouseenter"

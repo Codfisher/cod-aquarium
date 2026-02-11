@@ -10,7 +10,7 @@
       v-model:focused-marble="focusedMarble"
       :start-time="startTime"
       :ranking-list="marbleList"
-      class="absolute bottom-4 left-4"
+      class="fixed left-0 bottom-0"
     />
 
     <transition name="opacity">
@@ -20,8 +20,8 @@
       >
         <base-btn
           v-slot="{ hover }"
-          label="START!"
-          class="pointer-events-auto px-40 border-5 border-white/80"
+          label="START"
+          class="pointer-events-auto border-5 border-white/80"
           stroke-color="#425e5c"
           @click="startGame"
         >
@@ -30,7 +30,7 @@
             :class="{ hover }"
           >
             <base-polygon
-              class="absolute left-0 top-0 -translate-x-[60%] -translate-y-[50%] -rotate-30"
+              class="absolute left-0 top-0 -translate-x-[70%] -translate-y-[50%] -rotate-30"
               size="13rem"
               shape="round"
               fill="fence"
@@ -38,7 +38,7 @@
             />
 
             <base-polygon
-              class="absolute right-0 bottom-0 translate-x-[50%] translate-y-[70%]"
+              class="absolute right-0 bottom-0 translate-x-[60%] translate-y-[70%]"
               size="13rem"
               shape="round"
               fill="solid"
@@ -193,7 +193,7 @@ function createMarble({
   )
 
   return {
-    hexColor: finalColor.toHexString(),
+    hexColor: finalColor.toGammaSpace().toHexString(),
     mesh: marble,
     lastCheckPointIndex: 0,
     isRespawning: false,
@@ -395,7 +395,7 @@ async function startGame() {
     targetPosition.x += Math.random() / 10
     targetPosition.y += (marbleSize * i) + 1
 
-    const delay = (marbleCount - i - 1) * 50
+    const delay = i * 50
     animate(marble.mesh.position, {
       y: targetPosition.y,
       duration,

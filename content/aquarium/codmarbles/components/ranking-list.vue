@@ -1,9 +1,9 @@
 <template>
-  <div class="   p-4 ">
+  <div class="">
     <transition-group
       name="list"
       tag="div"
-      class="flex flex-col-reverse gap-2"
+      class="flex md:flex-col-reverse gap-2 max-md:gap-1 overflow-x-auto max-w-screen p-4 md:pr-20 max-md:pt-10"
     >
       <div
         v-for="(marble, index) in marbleList"
@@ -12,8 +12,19 @@
         @click="handleFocusMarble(marble)"
       >
         <div
-          class="text-yellow-500 rounded-r top-1/2 right-0 -translate-y-1/2 text-xs absolute p-2 bg-white/90  duration-500 -z-1"
-          :class="{ ' translate-x-full': marble.finishTime > 0 }"
+          class="text-yellow-500 text-xs bg-white p-2 duration-500
+            absolute pointer-events-none whitespace-nowrap shadow -z-1
+
+            /* 手機：出現在上方 */
+            max-md:left-1/2 max-md:top-0 max-md:-translate-x-1/2 max-md:rounded-t
+
+            /* 桌機：在右側 */
+            md:top-1/2 md:right-0 md:-translate-y-1/2 md:rounded-r
+          "
+          :class="marble.finishTime > 0
+            ? 'max-md:-translate-y-full md:translate-x-full'
+            : 'max-md:translate-y-0 md:translate-x-0'
+          "
         >
           {{ (marble.finishTime / 1000).toFixed(2) }}s
         </div>
