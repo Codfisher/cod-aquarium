@@ -13,38 +13,35 @@
       >
         <div
           class="text-yellow-500 text-xs bg-white duration-500
-            absolute pointer-events-none whitespace-nowrap shadow -z-1
-            text-ellipsis overflow-hidden
-
-            /* 手機：出現在上方 */
-            max-md:left-1/2 max-md:top-0 max-md:-translate-x-1/2 max-md:rounded-t
-            max-md:py-1 px-4
-
-            /* 桌機：在右側 */
-            md:top-1/2 md:right-0 md:-translate-y-1/2 md:rounded-r
-            md:py-2
+            absolute  whitespace-nowrap shadow -z-1
+            text-ellipsis overflow-hidden py-1.5 px-4
+            max-md:rounded-t
+            md:rounded-r
+            right-1/2 top-1/2 -translate-y-1/2 translate-x-1/2
+            opacity-0
+            transform
           "
-          :class="marble.finishTime > 0
-            ? 'max-md:-translate-y-full md:translate-x-full'
-            : 'max-md:translate-y-0 md:translate-x-0'
+          :class="marble.finishTime > 0 && recordVisible
+            ? 'md:right-0 md:translate-x-full max-md:top-0 max-md:-translate-y-full opacity-100'
+            : ''
           "
         >
           {{ (marble.finishTime / 1000).toFixed(2) }}s
         </div>
 
         <div
-          class="flex items-center gap-3 p-2 rounded shadow-sm transition-all duration-300 border-2 cursor-pointer z-1"
+          class="flex items-center gap-1 p-2 rounded shadow-sm transition-all duration-300 border-2 cursor-pointer z-1 text-xs"
           :class="marble.className"
         >
           <div
-            class="font-mono font-bold w-4 text-center transition-colors"
+            class="font-mono font-bold w-4 text-center transition-colors "
             :class="marble.finishTime > 0 ? 'text-yellow-700' : 'text-gray-500'"
           >
             {{ index + 1 }}
           </div>
 
           <div
-            class="w-4 h-4 rounded-full border border-black/10 shadow-inner"
+            class="w-4 h-4 rounded-full border border-black/10 shadow-inner mr-1"
             :style="{ backgroundColor: marble.hexColor }"
           />
 
@@ -62,6 +59,7 @@ import type { Marble } from '../types'
 import { computed } from 'vue'
 
 interface Props {
+  gameState: 'idle' | 'preparing' | 'playing' | 'over';
   startTime: number;
   rankingList: Marble[];
 }
@@ -82,7 +80,7 @@ function handleFocusMarble(marble: Marble) {
 const marbleList = computed(() => props.rankingList.map((marble) => {
   const className: string[] = []
 
-  if (marble.finishTime > 0) {
+  if (marble.finishTime > 0 && recordVisible.value) {
     className.push('bg-yellow-50 border-yellow-400 shadow-md')
   }
   else {
@@ -99,6 +97,8 @@ const marbleList = computed(() => props.rankingList.map((marble) => {
     className,
   }
 }))
+
+const recordVisible = computed(() => props.gameState === 'over' || props.gameState === 'playing')
 </script>
 
 <style scoped lang="sass">

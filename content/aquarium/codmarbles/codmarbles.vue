@@ -10,17 +10,19 @@
       v-model:focused-marble="focusedMarble"
       :start-time="startTime"
       :ranking-list="marbleList"
+      :game-state="gameState"
       class="fixed left-0 bottom-0"
     />
 
+    <!-- 遊戲開始按鈕 -->
     <transition name="opacity">
       <div
-        v-if="gameState === 'idle'"
+        v-if="canStartGame"
         class="absolute top-0 left-0 flex flex-col justify-center items-center w-full h-full pointer-events-none"
       >
         <base-btn
           v-slot="{ hover }"
-          label="START"
+          label="Start"
           class="pointer-events-auto border-5 border-white/80"
           stroke-color="#425e5c"
           @click="startGame"
@@ -46,7 +48,7 @@
             />
 
             <base-polygon
-              class="absolute right-0 top-0 -translate-x-[150%] -translate-y-[50%]"
+              class="absolute right-0 top-0 -translate-x-[80%] -translate-y-[50%]"
               size="2rem"
               shape="round"
               fill="solid"
@@ -78,7 +80,7 @@ import { animate, cubicBezier } from 'animejs'
 import { random } from 'lodash-es'
 import { customAlphabet } from 'nanoid'
 import { filter, firstBy, map, pipe, shuffle, tap, values } from 'remeda'
-import { ref, shallowRef, triggerRef } from 'vue'
+import { computed, ref, shallowRef, triggerRef } from 'vue'
 import { nextFrame } from '../../../web/common/utils'
 import BaseBtn from './components/base-btn.vue'
 import BasePolygon from './components/base-polygon.vue'
@@ -311,6 +313,11 @@ const updateRanking = useThrottleFn(() => {
     return a.mesh.position.y - b.mesh.position.y
   })
 
+  const allFinished = !marbleList.value.some((marble) => !marble.finishTime)
+  if (allFinished) {
+    gameState.value = 'over'
+  }
+
   triggerRef(marbleList)
 }, 500)
 
@@ -352,10 +359,10 @@ function respawnWithAnimation(
   })
 }
 
-/** 遊戲開始
- *
- * 將彈珠移動到起點
- */
+const canStartGame = computed(() => {
+  return gameState.value === 'idle' || gameState.value === 'over'
+})
+
 async function startGame() {
   gameState.value = 'preparing'
 
@@ -411,6 +418,8 @@ async function startGame() {
       delay,
       ease: cubicBezier(0.826, 0.005, 0.259, 0.971),
       onComplete() {
+        marble.finishTime = 0
+
         marble.isRespawning = false
         physicsBody.disablePreStep = true
         marble.mesh.computeWorldMatrix(true)
@@ -448,6 +457,7 @@ const {
     // 建立軌道
     trackSegmentList.value = await pipe(
       values(TrackSegmentType),
+      // [TrackSegmentType.g01],
       shuffle(),
       filter((type) => type !== TrackSegmentType.end),
       map((type) => createTrackSegment({ scene, assetStore, type })),
@@ -488,6 +498,7 @@ const {
       }),
     )
 
+    const ballList: Marble[] = []
     for (let i = 0; i < marbleCount; i++) {
       const color = Color3.FromHSV(
         340 * (i / marbleCount),
@@ -500,14 +511,14 @@ const {
         shadowGenerator,
         color,
       })
-      marbleList.value.push(marble)
+      ballList.push(marble)
       shadowGenerator.addShadowCaster(marble.mesh)
 
       if (i === 0) {
         cameraTarget.value?.position.copyFrom(marble.mesh.position)
       }
     }
-    triggerRef(marbleList)
+    marbleList.value = ballList
 
     if (lastTrackSegment) {
       connectTracks(lastTrackSegment, endTrackSegment)
