@@ -38,13 +38,11 @@ import type { Scene } from '@babylonjs/core'
 import type { TrackSegment } from './track-segment'
 import type { Marble } from './types'
 import { ActionManager, AssetsManager, Color3, DirectionalLight, Engine, ExecuteCodeAction, MeshBuilder, PBRMaterial, PhysicsAggregate, PhysicsMotionType, PhysicsShapeType, Quaternion, ShadowGenerator, StandardMaterial, TransformNode, Vector3 } from '@babylonjs/core'
-import { Inspector } from '@babylonjs/inspector'
-import { promiseTimeout, useThrottleFn } from '@vueuse/core'
+import { breakpointsTailwind, useBreakpoints, useEventListener, useThrottleFn } from '@vueuse/core'
 import { animate, cubicBezier } from 'animejs'
 import { random } from 'lodash-es'
 import { nanoid } from 'nanoid'
-import { storeToRefs } from 'pinia'
-import { filter, firstBy, flat, map, pipe, shuffle, tap, values } from 'remeda'
+import { filter, firstBy, map, pipe, shuffle, tap, values } from 'remeda'
 import { ref, shallowRef, triggerRef } from 'vue'
 import { nextFrame } from '../../../web/common/utils'
 import RankingList from './components/ranking-list.vue'
@@ -57,6 +55,10 @@ const isLoading = ref(true)
 const isGameStarted = ref(false)
 
 const assetStore = useAssetStore()
+const toast = useToast()
+
+const breakpoint = useBreakpoints(breakpointsTailwind)
+const isMobile = breakpoint.smaller('md')
 
 const ghostRenderingGroupId = 1
 let ghostMaterial: StandardMaterial
@@ -169,7 +171,8 @@ function createShadowGenerator(scene: Scene) {
   light.position = new Vector3(0, 100, 0)
   light.intensity = 0.8
 
-  const shadowGenerator = new ShadowGenerator(1024, light)
+  const mapSize = isMobile.value ? 512 : 1024
+  const shadowGenerator = new ShadowGenerator(mapSize, light)
 
   shadowGenerator.bias = 0.000001
   shadowGenerator.normalBias = 0.0001
@@ -387,7 +390,7 @@ const {
   canvasRef,
 } = useBabylonScene({
   async init(params) {
-    const { scene, camera } = params
+    const { scene, camera, canvas } = params
 
     // Inspector.Show(scene, {
     //   embedMode: true,
@@ -668,6 +671,16 @@ const {
 
     isLoading.value = false
   },
+})
+
+useEventListener(canvasRef, 'webglcontextlost', (e) => {
+  e.preventDefault()
+
+  toast.add({
+    title: 'WebGL context lost',
+    description: 'Please reload the page',
+    color: 'error',
+  })
 })
 </script>
 
