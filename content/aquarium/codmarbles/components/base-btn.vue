@@ -1,6 +1,6 @@
 <template>
   <div
-    class="btn flex flex-center text-4xl p-12 rounded-full"
+    class="btn flex flex-center text-5xl p-12 rounded-full"
     :class="btnClass"
     @click="handleClick()"
     @mouseenter="handleMouseenter"
@@ -70,7 +70,7 @@ const props = withDefaults(defineProps<Props>(), {
   labelHoverColor: undefined,
   strokeColor: '#888',
   strokeHoverColor: undefined,
-  strokeSize: '3',
+  strokeSize: '2',
 })
 
 const emit = defineEmits<{

@@ -17,7 +17,8 @@
       <base-btn
         v-if="gameState === 'idle'"
         label="START!"
-        class="pointer-events-auto px-40 border-10 border-white/70"
+        class="pointer-events-auto px-40 border-8 border-white/80"
+        stroke-color="#425e5c"
         @click="startGame"
       />
 
