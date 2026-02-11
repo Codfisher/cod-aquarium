@@ -13,22 +13,56 @@
       class="absolute bottom-4 left-4"
     />
 
-    <div class="absolute top-0 left-0 flex flex-col justify-center items-center w-full h-full pointer-events-none">
-      <base-btn
-        v-if="gameState === 'idle'"
-        label="START!"
-        class="pointer-events-auto px-40 border-8 border-white/80"
-        stroke-color="#425e5c"
-        @click="startGame"
-      />
-
+    <transition name="opacity">
       <div
-        v-if="isLoading"
-        class="absolute left-0 top-0 w-full h-full bg-black/50 flex items-center justify-center"
+        v-if="gameState === 'idle'"
+        class="absolute top-0 left-0 flex flex-col justify-center items-center w-full h-full pointer-events-none"
       >
-        <div class="text-white text-2xl font-bold">
-          Loading...
-        </div>
+        <base-btn
+          v-slot="{ hover }"
+          label="START!"
+          class="pointer-events-auto px-40 border-5 border-white/80"
+          stroke-color="#425e5c"
+          @click="startGame"
+        >
+          <div
+            class="btn-content absolute inset-0"
+            :class="{ hover }"
+          >
+            <base-polygon
+              class="absolute left-0 top-0 -translate-x-[60%] -translate-y-[50%] -rotate-30"
+              size="13rem"
+              shape="round"
+              fill="fence"
+              opacity="1"
+            />
+
+            <base-polygon
+              class="absolute right-0 bottom-0 translate-x-[50%] translate-y-[70%]"
+              size="13rem"
+              shape="round"
+              fill="solid"
+              opacity="1"
+            />
+
+            <base-polygon
+              class="absolute right-0 top-0 -translate-x-[150%] -translate-y-[50%]"
+              size="2rem"
+              shape="round"
+              fill="solid"
+              opacity="0.8"
+            />
+          </div>
+        </base-btn>
+      </div>
+    </transition>
+
+    <div
+      v-if="isLoading"
+      class="absolute left-0 top-0 w-full h-full bg-black/50 flex items-center justify-center"
+    >
+      <div class="text-white text-2xl font-bold">
+        Loading...
       </div>
     </div>
   </div>
@@ -47,6 +81,7 @@ import { filter, firstBy, map, pipe, shuffle, tap, values } from 'remeda'
 import { ref, shallowRef, triggerRef } from 'vue'
 import { nextFrame } from '../../../web/common/utils'
 import BaseBtn from './components/base-btn.vue'
+import BasePolygon from './components/base-polygon.vue'
 import RankingList from './components/ranking-list.vue'
 import { useAssetStore } from './stores/asset-store'
 import { createTrackSegment } from './track-segment'
@@ -335,7 +370,7 @@ async function startGame() {
     animate(cameraTarget.value.position, {
       y: startPosition.y,
       duration,
-      ease: cubicBezier(0.348, 0.011, 0, 1.238),
+      ease: cubicBezier(0.1, 0.011, 0, 1),
     })
 
     animate(cameraTarget.value.position, {
@@ -358,14 +393,14 @@ async function startGame() {
 
     const targetPosition = startPosition.clone()
     targetPosition.x += Math.random() / 10
-    targetPosition.y += (marbleSize * i)
+    targetPosition.y += (marbleSize * i) + 1
 
     const delay = (marbleCount - i - 1) * 50
     animate(marble.mesh.position, {
       y: targetPosition.y,
       duration,
       delay,
-      ease: cubicBezier(0.348, 0.011, 0, 1.238),
+      ease: cubicBezier(0.1, 0.011, 0, 1),
     })
 
     return animate(marble.mesh.position, {
@@ -688,4 +723,20 @@ useEventListener(canvasRef, 'webglcontextlost', (e) => {
 .canvas
   outline: none
   background: linear-gradient(180deg, #e3ffea, #e2deff )
+
+.btn-content
+  transform: scale(1)
+  transition-duration: 0.4s
+  transition-timing-function: cubic-bezier(0.545, 1.650, 0.520, 1.305)
+  &.hover
+    transform: scale(0.96) rotate(-2deg)
+    transition-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1)
+</style>
+
+<style lang="sass">
+.opacity
+  &-enter-active, &-leave-active
+    transition-duration: 0.4s !important
+  &-enter-from, &-leave-to
+    opacity: 0 !important
 </style>

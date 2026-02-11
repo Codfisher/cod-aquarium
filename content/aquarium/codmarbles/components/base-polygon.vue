@@ -11,7 +11,7 @@
 </script>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 
 const props = withDefaults(defineProps<Props>(), {
   size: '10rem',
@@ -53,8 +53,8 @@ const clipPath = computed(() => clipPathMap?.[props.shape] ?? clipPathMap[ShapeT
 
 const fillMap = {
   [FillType.SOLID]: ``,
-  [FillType.FENCE]: `url(/images/line.svg)`,
-  [FillType.SPOT]: `url(/images/round.svg)`,
+  [FillType.FENCE]: `url(/assets/textures/line.svg)`,
+  [FillType.SPOT]: `url(/assets/textures/round.svg)`,
 }
 const fill = computed(() => fillMap?.[props.fill] ?? fillMap[FillType.SPOT])
 
