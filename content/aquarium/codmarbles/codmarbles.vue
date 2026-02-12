@@ -7,6 +7,8 @@
     />
 
     <u-alert
+      v-if="alertVisible"
+      v-model:open="alertVisible"
       title="歡迎來到鱈魚的彈珠！"
       icon="i-ph:fish-simple-bold"
       class="max-w-2/3 md:max-w-1/2 absolute top-4 right-4"
@@ -108,6 +110,7 @@ import { connectTracks, createTrackSegment } from './domains/track-segment'
 import { TrackSegmentType } from './domains/track-segment/data'
 import { useAssetStore } from './stores/asset-store'
 
+const alertVisible = ref(true)
 const isLoading = ref(true)
 const gameState = ref<GameState>('idle')
 

@@ -5,7 +5,7 @@ import type { GameState, Marble } from '../../types'
 import { Color3, Engine, MeshBuilder, PBRMaterial, PhysicsAggregate, PhysicsShapeType, Quaternion, Ray, StandardMaterial, Vector3 } from '@babylonjs/core'
 import { random } from 'lodash-es'
 import { nanoid } from 'nanoid'
-import { pipe, tap } from 'remeda'
+import { pipe, shuffle, tap } from 'remeda'
 
 export const MARBLE_SIZE = 0.5
 export const GHOST_RENDERING_GROUP_ID = 1
@@ -13,46 +13,34 @@ export const GHOST_RENDERING_GROUP_ID = 1
 let ghostMaterial: StandardMaterial
 
 const nameGenerator = {
-  prefixes: [
+  prefixes: shuffle([
     '漆黑烈焰的',
     '被封印的',
     '來自深淵的',
     '覺醒的',
     '諸神的',
-    '絕對零度的',
-    '時空崩壞的',
-    '背負原罪的',
-    '次元切斷的',
-    '這不是',
     '穿模的',
     '貼圖遺失的',
     '剛睡醒的',
     '不想上班的',
-    '痛風發作的',
     '月底吃土的',
     '體脂過高的',
     '被退學的',
     '全村希望的',
     '路邊撿到的',
-  ],
-
-  suffixes: [
+    '吃飽撐著的',
+    '偏頭痛的',
+  ]),
+  suffixes: shuffle([
     '鱈魚',
-    '控肉飯',
-    '阿嬤',
     '單細胞生物',
     '社畜',
     '肥宅',
     '智齒',
-    '肝臟',
     '蛋白質',
     '草履蟲',
-    '拖鞋',
     '初號機',
-    '不詳之物',
-    '空氣',
-    '雜訊',
-    '馬賽克',
+    '克蘇魯',
     '路人A',
     '遺憾',
     '霸主',
@@ -65,13 +53,16 @@ const nameGenerator = {
     '魔法師',
     '召喚獸',
     '測試員',
-  ],
+  ]),
 }
 
 function getRandomMarbleName() {
-  const pIndex = Math.floor(Math.random() * nameGenerator.prefixes.length)
-  const sIndex = Math.floor(Math.random() * nameGenerator.suffixes.length)
-  return nameGenerator.prefixes[pIndex]! + nameGenerator.suffixes[sIndex]!
+  // 依序拿取就好，因為有 shuffle
+  const prefix = nameGenerator.prefixes.shift()!
+  const suffix = nameGenerator.suffixes.shift()!
+  nameGenerator.prefixes.push(prefix)
+  nameGenerator.suffixes.push(suffix)
+  return `${prefix}${suffix}`
 }
 
 export function createMarble({

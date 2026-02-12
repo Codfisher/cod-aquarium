@@ -30,22 +30,24 @@
         </div>
 
         <div
-          class="flex items-center gap-1 p-2 rounded shadow-sm transition-all duration-300 border-2 cursor-pointer z-1 text-xs"
+          class="flex flex-col md:flex-row gap-1 p-2 rounded shadow-sm transition-all duration-300 border-2 cursor-pointer z-1 text-xs gap-2"
           :class="marble.className"
         >
-          <div
-            class="font-mono font-bold w-4 text-center transition-colors "
-            :class="marble.finishedAt > 0 ? 'text-yellow-700' : 'text-gray-500'"
-          >
-            {{ index + 1 }}
+          <div class="flex items-center gap-1">
+            <div
+              class="font-mono font-bold w-4 text-center transition-colors "
+              :class="marble.finishedAt > 0 ? 'text-yellow-700' : 'text-gray-500'"
+            >
+              {{ index + 1 }}
+            </div>
+
+            <div
+              class="w-4 h-4 rounded-full border border-black/10 shadow-inner flex-1"
+              :style="{ backgroundColor: marble.hexColor }"
+            />
           </div>
 
-          <div
-            class="w-4 h-4 rounded-full border border-black/10 shadow-inner mr-1"
-            :style="{ backgroundColor: marble.hexColor }"
-          />
-
-          <div class="text-xs text-gray-700 font-medium">
+          <div class="text-xs text-gray-700 font-medium text-nowrap col-span-2 md:col-span-1">
             {{ marble.name }}
           </div>
         </div>
