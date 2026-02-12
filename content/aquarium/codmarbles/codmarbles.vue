@@ -5,31 +5,6 @@
       ref="canvasRef"
       class="canvas w-full h-full"
     />
-
-    <u-alert
-      v-if="alertVisible"
-      v-model:open="alertVisible"
-      title="歡迎來到鱈魚的彈珠！"
-      icon="i-ph:fish-simple-bold"
-      class="max-w-2/3 md:max-w-1/2 absolute top-4 right-4"
-      close
-      color="neutral"
-    >
-      <template #description>
-        經研究證實，看彈珠滾啊滾，能有效降低大腦 CPU 使用率，這是為了防止社畜們過勞而生的醫療級網頁。(ゝ∀・)b
-
-        <br><br>
-        以上純屬瞎掰，其實沒什麼偉大的技術願景，純粹就是我想看東西滾來滾去而誕生的專案 (´,,•ω•,,)
-
-        <br><br>
-        不定期追加有趣的內容，歡迎一起<a
-          href="https://www.threads.com/@codfish2140"
-          target="_blank"
-          class=" underline!"
-        >放空、交流或許願功能</a> (*´∀`)~♥
-      </template>
-    </u-alert>
-
     <ranking-list
       v-model:focused-marble="focusedMarble"
       :start-time="startTime"
@@ -84,6 +59,31 @@
         </base-btn>
       </div>
     </transition>
+
+    <div class="md:max-w-1/2 absolute top-0 right-0 p-4">
+      <u-alert
+        v-if="alertVisible"
+        v-model:open="alertVisible"
+        title="歡迎來到鱈魚的彈珠！"
+        icon="i-ph:fish-simple-bold"
+        close
+        color="neutral"
+      >
+        <template #description>
+          經研究證實，看彈珠滾啊滾，能有效降低大腦 CPU 使用率，這是為了防止社畜們過勞而生的醫療級網頁。(ゝ∀・)b
+
+          <br><br>
+          以上純屬瞎掰，其實沒什麼偉大的技術願景，純粹就是我想看東西滾來滾去而誕生的專案 (´,,•ω•,,)
+
+          <br><br>
+          不定期追加有趣的內容，歡迎一起<a
+            href="https://www.threads.com/@codfish2140"
+            target="_blank"
+            class=" underline!"
+          >放空、交流或許願功能</a> (*´∀`)~♥
+        </template>
+      </u-alert>
+    </div>
 
     <transition name="opacity">
       <loading-overlay
