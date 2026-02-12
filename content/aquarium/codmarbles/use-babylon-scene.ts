@@ -63,6 +63,15 @@ const defaultParam: Required<UseBabylonSceneParam> = {
       defaultLight.groundColor = new Color3(0.5, 0.2, 0.6)
     }
 
+    scene.fogEnabled = true
+    scene.fogColor = Color3.FromHexString('#b0abde')
+    // scene.fogMode = Scene.FOGMODE_EXP2
+    // scene.fogDensity = 0.005
+
+    scene.fogMode = Scene.FOGMODE_LINEAR
+    scene.fogStart = 100
+    scene.fogEnd = 150
+
     return scene
   },
   createCamera({ scene, canvas }) {

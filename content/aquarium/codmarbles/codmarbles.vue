@@ -717,7 +717,7 @@ const {
           }
 
           // 保險檢查
-          if (lowestCheckPoint && !marble.isGrounded && marble.mesh.position.y < lowestCheckPoint.y - 100) {
+          if (lowestCheckPoint && !marble.isGrounded && marble.mesh.position.y < lowestCheckPoint.y - 50) {
             respawnWithAnimation(marble, lastCheckPointPosition)
             return
           }
