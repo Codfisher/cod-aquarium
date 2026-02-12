@@ -115,7 +115,7 @@ export function useBabylonScene(param?: UseBabylonSceneParam) {
       canvas: canvasRef.value,
     })
     // engine.value.setHardwareScalingLevel(Math.max(
-    //   2,
+    //   1.1,
     //   window?.devicePixelRatio ?? 1,
     // ))
 
@@ -147,7 +147,7 @@ export function useBabylonScene(param?: UseBabylonSceneParam) {
     pipeline.imageProcessing.contrast = 2
 
     // 邊緣平滑
-    // pipeline.fxaaEnabled = true
+    pipeline.fxaaEnabled = true
 
     const havokInstance = await HavokPhysics()
     const havokPlugin = new HavokPlugin(true, havokInstance)
