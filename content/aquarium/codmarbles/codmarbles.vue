@@ -6,6 +6,24 @@
       class="canvas w-full h-full"
     />
 
+    <u-banner
+      class="absolute top-0 right-0"
+      :ui="{ title: 'flex flex-wrap justify-center whitespace-pre' }"
+      close
+    >
+      <template #title>
+        此為<a
+          href="https://codlin.me/"
+          target="_blank"
+          class=" underline!"
+        >鱈魚</a>的 3D 物理實驗專案，感謝 <a
+          href="https://kaylousberg.itch.io/kaykit-platformer"
+          target="_blank"
+          class=" underline!"
+        >Kay</a> 提供 3D 免費模型，歡迎一起交流 (*´∀`)~♥
+      </template>
+    </u-banner>
+
     <ranking-list
       v-model:focused-marble="focusedMarble"
       :start-time="startTime"
@@ -14,17 +32,19 @@
       class="fixed left-0 bottom-0"
     />
 
-    <!-- 遊戲開始按鈕 -->
     <transition name="opacity">
       <div
         v-if="canStartGame"
         class="absolute top-0 left-0 flex flex-col justify-center items-center w-full h-full pointer-events-none"
       >
+        <hero-logo />
+
+        <!-- 遊戲開始按鈕 -->
         <base-btn
           v-slot="{ hover }"
           label="Start"
-          class="pointer-events-auto border-5 border-white/80"
-          stroke-color="#425e5c"
+          class="pointer-events-auto border-3 md:border-5 border-white/80"
+          stroke-color="#4a3410"
           @click="startGame"
         >
           <div
@@ -83,16 +103,19 @@ import { computed, ref, shallowRef, triggerRef } from 'vue'
 import { nextFrame } from '../../../web/common/utils'
 import BaseBtn from './components/base-btn.vue'
 import BasePolygon from './components/base-polygon.vue'
+import HeroLogo from './components/hero-logo.vue'
 import LoadingOverlay from './components/loading-overlay.vue'
 import RankingList from './components/ranking-list.vue'
 import { useAssetStore } from './stores/asset-store'
 import { createTrackSegment } from './track-segment'
 import { TrackSegmentType } from './track-segment/data'
 import { useBabylonScene } from './use-babylon-scene'
+import { useFontLoader } from './use-font-loader'
 
 const isLoading = ref(true)
 const gameState = ref<'idle' | 'preparing' | 'playing' | 'over'>('idle')
 
+useFontLoader()
 const assetStore = useAssetStore()
 
 const breakpoint = useBreakpoints(breakpointsTailwind)
@@ -719,6 +742,10 @@ const {
           // 保險檢查
           if (lowestCheckPoint && !marble.isGrounded && marble.mesh.position.y < lowestCheckPoint.y - 50) {
             respawnWithAnimation(marble, lastCheckPointPosition)
+            return
+          }
+
+          if (marble.finishedAt) {
             return
           }
 

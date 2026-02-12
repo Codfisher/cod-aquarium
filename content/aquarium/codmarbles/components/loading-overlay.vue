@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-col items-center justify-center gap-20 loader">
+  <div class="flex flex-col items-center justify-center gap-24 loader">
     <div class="ball">
       <div
         ref="ballBody"
@@ -13,14 +13,15 @@
 
     <div
       ref="labelEl"
-      class="text-white text-5xl label"
+      class="text-white text-3xl font-bold label tracking-widest"
     >
-      Loading...
+      {{ loadingText }}
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { sample } from 'remeda'
 import { onBeforeUnmount, onMounted, useTemplateRef } from 'vue'
 
 const ballRef = useTemplateRef('ballBody')
@@ -28,6 +29,12 @@ const ballShadowRef = useTemplateRef('ballShadow')
 const labelRef = useTemplateRef('labelEl')
 
 const animations: Animation[] = []
+
+const loadingTexts = [
+  '正在把彈珠擦得亮晶晶...',
+  '正在翻沙發找彈珠...',
+]
+const loadingText = sample(loadingTexts, 1)[0] ?? ''
 
 /** 使用 Web Animation API，即使 JS 忙碌也能保持流暢 */
 onMounted(() => {
