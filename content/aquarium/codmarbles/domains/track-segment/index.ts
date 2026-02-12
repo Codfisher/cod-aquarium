@@ -1,5 +1,5 @@
 import type { AbstractMesh, Mesh, Scene } from '@babylonjs/core'
-import type { useAssetStore } from '../stores/asset-store'
+import type { useAssetStore } from '../../stores/asset-store'
 import type { TrackSegmentPartMetadata, TrackSegmentType } from './data'
 import { ImportMeshAsync, PBRMaterial, PhysicsAggregate, PhysicsShapeType, Quaternion, TransformNode, Vector3 } from '@babylonjs/core'
 import { trackSegmentData } from './data'
@@ -38,7 +38,7 @@ export async function createTrackSegment({
   const loadPartTasks = data.partList.map(async (partData) => {
     const fullPath = `${data.rootFolderName}/${partData.path}`
 
-    // FIX: 使用 assetCache 反而導致 FPS 大幅下降 QQ
+    // FIX: 使用 assetCache 反而導致 FPS 大幅下降 QQ，目前原因不明
     // const container = assetStore.assetCache.get(partData.path)
     // if (!container) {
     //   console.error(`Asset not found: ${fullPath}`)
@@ -131,4 +131,15 @@ export async function createTrackSegment({
     endPosition,
     initPhysics,
   }
+}
+
+/** 將 nextTrack 接在 prevTrack 的後面
+ *
+ * NextRoot = PrevRoot + PrevEnd - NextStart
+ */
+export function connectTracks(prevTrack: TrackSegment, nextTrack: TrackSegment) {
+  nextTrack.rootNode.position
+    .copyFrom(prevTrack.rootNode.position)
+    .addInPlace(prevTrack.endPosition)
+    .subtractInPlace(nextTrack.startPosition)
 }

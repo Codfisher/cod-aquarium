@@ -12,7 +12,7 @@
         @click="handleFocusMarble(marble)"
       >
         <div
-          class="text-yellow-500 text-xs bg-white duration-500
+          class="text-yellow-500 text-xs bg-white duration-500!
             absolute  whitespace-nowrap shadow -z-1
             text-ellipsis overflow-hidden py-1.5 px-4
             max-md:rounded-t
@@ -21,32 +21,34 @@
             opacity-0
             transform
           "
-          :class="marble.finishTime > 0 && recordVisible
+          :class="marble.finishedAt > 0 && recordVisible
             ? 'md:right-0 md:translate-x-full max-md:top-0 max-md:-translate-y-full opacity-100'
             : ''
           "
         >
-          {{ (marble.finishTime / 1000).toFixed(2) }}s
+          {{ (marble.finishedAt / 1000).toFixed(2) }}s
         </div>
 
         <div
-          class="flex items-center gap-1 p-2 rounded shadow-sm transition-all duration-300 border-2 cursor-pointer z-1 text-xs"
+          class="flex flex-col md:flex-row gap-1 p-2 rounded shadow-sm transition-all duration-300 border-2 cursor-pointer z-1 text-xs gap-2"
           :class="marble.className"
         >
-          <div
-            class="font-mono font-bold w-4 text-center transition-colors "
-            :class="marble.finishTime > 0 ? 'text-yellow-700' : 'text-gray-500'"
-          >
-            {{ index + 1 }}
+          <div class="flex items-center gap-1">
+            <div
+              class="font-mono font-bold w-4 text-center transition-colors "
+              :class="marble.finishedAt > 0 ? 'text-yellow-700' : 'text-gray-500'"
+            >
+              {{ index + 1 }}
+            </div>
+
+            <div
+              class="w-4 h-4 rounded-full border border-black/10 shadow-inner flex-1"
+              :style="{ backgroundColor: marble.hexColor }"
+            />
           </div>
 
-          <div
-            class="w-4 h-4 rounded-full border border-black/10 shadow-inner mr-1"
-            :style="{ backgroundColor: marble.hexColor }"
-          />
-
-          <div class="text-xs text-gray-700 font-medium">
-            #{{ marble.mesh.name.slice(-4) }}
+          <div class="text-xs text-gray-700 font-medium text-nowrap col-span-2 md:col-span-1">
+            {{ marble.name }}
           </div>
         </div>
       </div>
@@ -80,7 +82,7 @@ function handleFocusMarble(marble: Marble) {
 const marbleList = computed(() => props.rankingList.map((marble) => {
   const className: string[] = []
 
-  if (marble.finishTime > 0 && recordVisible.value) {
+  if (marble.finishedAt > 0 && recordVisible.value) {
     className.push('bg-yellow-50 border-yellow-400 shadow-md')
   }
   else {
@@ -93,7 +95,7 @@ const marbleList = computed(() => props.rankingList.map((marble) => {
 
   return {
     ...marble,
-    finishTime: props.startTime > 0 ? marble.finishTime - props.startTime : 0,
+    finishedAt: props.startTime > 0 ? marble.finishedAt - props.startTime : 0,
     className,
   }
 }))

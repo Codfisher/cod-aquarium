@@ -1,6 +1,6 @@
 <template>
   <div
-    class="btn flex flex-center text-4xl md:text-5xl p-8 px-20 md:p-12 md:px-30 rounded-full"
+    class="btn flex flex-center text-4xl md:text-5xl p-8 px-24 md:p-10 md:px-30 rounded-full"
     :class="btnClass"
     @click="handleClick()"
     @mouseenter="handleMouseenter"
@@ -70,7 +70,7 @@ const props = withDefaults(defineProps<Props>(), {
   labelHoverColor: undefined,
   strokeColor: '#888',
   strokeHoverColor: undefined,
-  strokeSize: '2',
+  strokeSize: '3',
 })
 
 const emit = defineEmits<{
@@ -143,6 +143,7 @@ function handleMouseup() {
 
 <style scoped lang="sass">
 .btn
+  font-family: 'Titan One'
   backdrop-filter: blur(6px)
   background: rgba(white, 0.2)
   box-shadow: 2.8px 2.8px 2.2px rgba(0, 0, 0, 0.006), 6.7px 6.7px 5.3px rgba(0, 0, 0, 0.008), 12.5px 12.5px 10px rgba(0, 0, 0, 0.01), 22.3px 22.3px 17.9px rgba(0, 0, 0, 0.012), 41.8px 41.8px 33.4px rgba(0, 0, 0, 0.014), 100px 100px 80px rgba(0, 0, 0, 0.02)

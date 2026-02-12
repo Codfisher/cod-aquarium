@@ -34,6 +34,7 @@ interface UseBabylonSceneParam {
 }
 const defaultParam: Required<UseBabylonSceneParam> = {
   async createEngine({ canvas }) {
+    // 不知道為什麼手機容易出現網頁異常，先不使用 WebGPU
     // const webGPUSupported = await WebGPUEngine.IsSupportedAsync
     // if (webGPUSupported) {
     //   const engine = new WebGPUEngine(canvas, {
@@ -61,6 +62,15 @@ const defaultParam: Required<UseBabylonSceneParam> = {
       defaultLight.diffuse = new Color3(1, 0.85, 0.8)
       defaultLight.groundColor = new Color3(0.5, 0.2, 0.6)
     }
+
+    scene.fogEnabled = true
+    scene.fogColor = Color3.FromHexString('#b0abde')
+    // scene.fogMode = Scene.FOGMODE_EXP2
+    // scene.fogDensity = 0.005
+
+    scene.fogMode = Scene.FOGMODE_LINEAR
+    scene.fogStart = 100
+    scene.fogEnd = 150
 
     return scene
   },

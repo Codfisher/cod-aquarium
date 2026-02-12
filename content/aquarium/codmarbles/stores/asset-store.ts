@@ -3,7 +3,7 @@ import { AssetsManager, ImportMeshAsync, LoadAssetContainerAsync, PBRMaterial } 
 import { defineStore } from 'pinia'
 import { flatMap, pipe, unique, uniqueBy } from 'remeda'
 import { ref } from 'vue'
-import { trackSegmentData } from '../track-segment/data'
+import { trackSegmentData } from '../domains/track-segment/data'
 
 export const useAssetStore = defineStore('asset', () => {
   const assetCache: Map<string, AssetContainer> = new Map()

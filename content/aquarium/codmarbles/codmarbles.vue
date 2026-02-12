@@ -6,6 +6,24 @@
       class="canvas w-full h-full"
     />
 
+    <u-alert
+      v-if="alertVisible"
+      v-model:open="alertVisible"
+      title="歡迎來到鱈魚的彈珠！"
+      icon="i-ph:fish-simple-bold"
+      class="max-w-2/3 md:max-w-1/2 absolute top-4 right-4"
+      close
+      color="neutral"
+    >
+      <template #description>
+        看彈珠滾阿滾實在是莫名的療育，此專案為了滿足彈珠滾動的慾望而生，會持續追加有趣的內容，歡迎一起<a
+          href="https://www.threads.com/@codfish2140"
+          target="_blank"
+          class=" underline!"
+        >交流、許願</a> (*´∀`)~♥
+      </template>
+    </u-alert>
+
     <ranking-list
       v-model:focused-marble="focusedMarble"
       :start-time="startTime"
@@ -14,17 +32,19 @@
       class="fixed left-0 bottom-0"
     />
 
-    <!-- 遊戲開始按鈕 -->
     <transition name="opacity">
       <div
         v-if="canStartGame"
         class="absolute top-0 left-0 flex flex-col justify-center items-center w-full h-full pointer-events-none"
       >
+        <hero-logo />
+
+        <!-- 遊戲開始按鈕 -->
         <base-btn
           v-slot="{ hover }"
           label="Start"
-          class="pointer-events-auto border-5 border-white/80"
-          stroke-color="#425e5c"
+          class="pointer-events-auto border-3 md:border-5 border-white/80"
+          stroke-color="#4a3410"
           @click="startGame"
         >
           <div
@@ -48,10 +68,10 @@
             />
 
             <base-polygon
-              class="absolute right-0 top-0 -translate-x-[80%] -translate-y-[50%]"
-              size="2rem"
+              class="absolute right-0 top-0 -translate-x-[40%] -translate-y-[70%]"
+              size="4rem"
               shape="round"
-              fill="solid"
+              fill="spot"
               opacity="0.8"
             />
           </div>
@@ -59,150 +79,46 @@
       </div>
     </transition>
 
-    <div
-      v-if="isLoading"
-      class="absolute left-0 top-0 w-full h-full bg-black/50 flex items-center justify-center"
-    >
-      <div class="text-white text-2xl font-bold">
-        Loading...
-      </div>
-    </div>
+    <transition name="opacity">
+      <loading-overlay
+        v-if="isLoading"
+        class="absolute left-0 top-0 w-full h-full "
+      />
+    </transition>
   </div>
 </template>
 
 <script setup lang="ts">
-import type { Scene } from '@babylonjs/core'
-import type { TrackSegment } from './track-segment'
-import type { Marble } from './types'
-import { ActionManager, AssetsManager, Color3, DirectionalLight, Engine, ExecuteCodeAction, MeshBuilder, PBRMaterial, PhysicsAggregate, PhysicsMotionType, PhysicsShapeType, Quaternion, ShadowGenerator, StandardMaterial, TransformNode, Vector3 } from '@babylonjs/core'
+import type { Scene, StandardMaterial } from '@babylonjs/core'
+import type { TrackSegment } from './domains/track-segment'
+import type { GameState, Marble } from './types'
+import { ActionManager, AssetsManager, Color3, DirectionalLight, ExecuteCodeAction, MeshBuilder, PhysicsMotionType, PhysicsShapeType, Quaternion, Ray, ShadowGenerator, TransformNode, Vector3 } from '@babylonjs/core'
 import { breakpointsTailwind, useBreakpoints, useEventListener, useThrottleFn } from '@vueuse/core'
 import { animate, cubicBezier } from 'animejs'
-import { random } from 'lodash-es'
-import { customAlphabet } from 'nanoid'
 import { filter, firstBy, map, pipe, shuffle, tap, values } from 'remeda'
 import { computed, ref, shallowRef, triggerRef } from 'vue'
 import { nextFrame } from '../../../web/common/utils'
 import BaseBtn from './components/base-btn.vue'
 import BasePolygon from './components/base-polygon.vue'
+import HeroLogo from './components/hero-logo.vue'
+import LoadingOverlay from './components/loading-overlay.vue'
 import RankingList from './components/ranking-list.vue'
+import { useFontLoader } from './composables/use-font-loader'
+import { useBabylonScene } from './domains/game/use-babylon-scene'
+import { createMarble, GHOST_RENDERING_GROUP_ID, MARBLE_SIZE } from './domains/marble'
+import { connectTracks, createTrackSegment } from './domains/track-segment'
+import { TrackSegmentType } from './domains/track-segment/data'
 import { useAssetStore } from './stores/asset-store'
-import { createTrackSegment } from './track-segment'
-import { TrackSegmentType } from './track-segment/data'
-import { useBabylonScene } from './use-babylon-scene'
 
+const alertVisible = ref(true)
 const isLoading = ref(true)
-const gameState = ref<'idle' | 'preparing' | 'playing' | 'over'>('idle')
+const gameState = ref<GameState>('idle')
 
+useFontLoader()
 const assetStore = useAssetStore()
 
 const breakpoint = useBreakpoints(breakpointsTailwind)
 const isMobile = breakpoint.smaller('md')
-
-const ghostRenderingGroupId = 1
-let ghostMaterial: StandardMaterial
-
-const createMarbleName = customAlphabet('abcdefghijklmnopqrstuvwxyz', 8)
-function createMarble({
-  scene,
-  shadowGenerator,
-  startPosition = Vector3.Zero(),
-  color,
-}: {
-  scene: Scene;
-  shadowGenerator: ShadowGenerator;
-  startPosition?: Vector3;
-  color?: Color3;
-}): Marble {
-  const marble = MeshBuilder.CreateSphere(createMarbleName(), {
-    diameter: marbleSize,
-    segments: 16,
-  }, scene)
-  marble.position.copyFrom(startPosition)
-
-  const finalColor = color ?? Color3.FromHSV(random(0, 360), 0.8, 0.4)
-
-  marble.material = pipe(
-    new PBRMaterial('marbleMaterial', scene),
-    tap((marbleMaterial) => {
-      marbleMaterial.albedoColor = finalColor
-
-      marbleMaterial.metallic = 0
-      marbleMaterial.roughness = 0.5
-
-      // marbleMaterial.clearCoat.isEnabled = true
-      // marbleMaterial.clearCoat.intensity = 1
-      // marbleMaterial.clearCoat.roughness = 0
-    }),
-  )
-
-  const ghostMat = pipe(
-    ghostMaterial ?? new StandardMaterial('ghostMaterial', scene),
-    tap((ghostMaterial) => {
-      ghostMaterial.diffuseColor = new Color3(1, 1, 1)
-      ghostMaterial.emissiveColor = new Color3(1, 1, 1)
-      ghostMaterial.alpha = 0.1
-      ghostMaterial.disableLighting = true
-      ghostMaterial.backFaceCulling = false
-
-      // 設定深度函數 (Depth Function)
-      // 預設是 Engine.LEQUAL (小於等於時繪製，也就是在前面時繪製)
-      // 我們改成 Engine.GREATER (大於時繪製，也就是在後面/被擋住時才繪製)
-      ghostMaterial.depthFunction = Engine.GREATER
-    }),
-  )
-  if (!ghostMaterial) {
-    ghostMaterial = ghostMat
-  }
-
-  // 建立幽靈彈珠，可穿透障礙物，方便觀察
-  pipe(
-    marble.clone('ghostMarble'),
-    tap((ghostMarble) => {
-      ghostMarble.material = ghostMat
-
-      // 確保幽靈永遠黏在實體彈珠上，不受物理層級影響
-      scene.onBeforeRenderObservable.add(() => {
-        ghostMarble.position.copyFrom(marble.position)
-        if (marble.rotationQuaternion) {
-          if (!ghostMarble.rotationQuaternion) {
-            ghostMarble.rotationQuaternion = new Quaternion()
-          }
-          ghostMarble.rotationQuaternion.copyFrom(marble.rotationQuaternion)
-        }
-        else {
-          ghostMarble.rotation.copyFrom(marble.rotation)
-        }
-      })
-
-      // 放大一點點避免浮點數誤差導致 Engine.GREATER 判斷閃爍
-      ghostMarble.scaling = new Vector3(1.05, 1.05, 1.05)
-
-      shadowGenerator.removeShadowCaster(ghostMarble)
-
-      // 設定渲染群組
-      // 群組 0: 地板、牆壁、正常彈珠 (先畫)
-      // 群組 1: 幽靈彈珠 (後畫)
-      // 我們必須讓幽靈在牆壁畫完之後才畫，這樣它才能知道自己是不是在牆壁後面
-      ghostMarble.renderingGroupId = ghostRenderingGroupId
-    }),
-  )
-
-  // 建立物理體
-  const sphereAggregate = new PhysicsAggregate(
-    marble,
-    PhysicsShapeType.SPHERE,
-    { mass: 1, restitution: 0.1, friction: 0 },
-    scene,
-  )
-
-  return {
-    hexColor: finalColor.toGammaSpace().toHexString(),
-    mesh: marble,
-    lastCheckPointIndex: 0,
-    isRespawning: false,
-    finishTime: 0,
-  }
-}
 
 function createShadowGenerator(scene: Scene) {
   const light = new DirectionalLight('dir01', new Vector3(-1, -5, -1), scene)
@@ -219,17 +135,6 @@ function createShadowGenerator(scene: Scene) {
   shadowGenerator.forceBackFacesOnly = true
 
   return shadowGenerator
-}
-
-/** 將 nextTrack 接在 prevTrack 的後面
- *
- * NextRoot = PrevRoot + PrevEnd - NextStart
- */
-function connectTracks(prevTrack: TrackSegment, nextTrack: TrackSegment) {
-  nextTrack.rootNode.position
-    .copyFrom(prevTrack.rootNode.position)
-    .addInPlace(prevTrack.endPosition)
-    .subtractInPlace(nextTrack.startPosition)
 }
 
 /** 取得每一個 in Mesh 的位置（世界座標） */
@@ -285,7 +190,6 @@ function createCheckPointColliders(
 
 // --- 主要遊戲邏輯 ---
 const marbleCount = 10
-const marbleSize = 0.5
 const marbleList = shallowRef<Marble[]>([])
 const focusedMarble = shallowRef<Marble>()
 const trackSegmentList = shallowRef<TrackSegment[]>([])
@@ -294,15 +198,20 @@ const cameraTarget = shallowRef<TransformNode>()
 const startTime = ref(0)
 const updateRanking = useThrottleFn(() => {
   marbleList.value = marbleList.value.toSorted((a, b) => {
-    const aFinished = a.finishTime > 0
-    const bFinished = b.finishTime > 0
+    // 若有人正在掉落，則先不交換排名
+    if (!a.isGrounded || !b.isGrounded) {
+      return 0
+    }
+
+    const aFinished = a.finishedAt > 0
+    const bFinished = b.finishedAt > 0
 
     if (aFinished !== bFinished) {
       return aFinished ? -1 : 1
     }
 
     if (aFinished && bFinished) {
-      return a.finishTime - b.finishTime
+      return a.finishedAt - b.finishedAt
     }
 
     // 優先比較檢查點索引 (大的在前)
@@ -313,7 +222,7 @@ const updateRanking = useThrottleFn(() => {
     return a.mesh.position.y - b.mesh.position.y
   })
 
-  const allFinished = !marbleList.value.some((marble) => !marble.finishTime)
+  const allFinished = !marbleList.value.some((marble) => !marble.finishedAt)
   if (allFinished) {
     gameState.value = 'over'
   }
@@ -329,6 +238,7 @@ function respawnWithAnimation(
     return
   }
   marble.isRespawning = true
+  marble.staticDurationSec = 0
 
   const physicsBody = marble.mesh.physicsBody
   if (!physicsBody)
@@ -401,7 +311,7 @@ async function startGame() {
 
     const targetPosition = startPosition.clone()
     targetPosition.x += Math.random() / 10
-    targetPosition.y += (marbleSize * i) + 1
+    targetPosition.y += (MARBLE_SIZE * i) + 1
 
     const delay = i * 20
     animate(marble.mesh.position, {
@@ -418,7 +328,7 @@ async function startGame() {
       delay,
       ease: cubicBezier(0.826, 0.005, 0.259, 0.971),
       onComplete() {
-        marble.finishTime = 0
+        marble.finishedAt = 0
 
         marble.isRespawning = false
         physicsBody.disablePreStep = true
@@ -438,7 +348,7 @@ const {
   canvasRef,
 } = useBabylonScene({
   async init(params) {
-    const { scene, camera, canvas } = params
+    const { scene, camera, canvas, engine } = params
 
     // Inspector.Show(scene, {
     //   embedMode: true,
@@ -450,7 +360,7 @@ const {
     assetsManager.useDefaultLoadingScreen = false
 
     // 畫 Group 1 (幽靈) 時，不要清除 Group 0 (牆壁) 的深度資訊，這樣才能進行深度比較
-    scene.setRenderingAutoClearDepthStencil(ghostRenderingGroupId, false)
+    scene.setRenderingAutoClearDepthStencil(GHOST_RENDERING_GROUP_ID, false)
 
     const shadowGenerator = createShadowGenerator(scene)
 
@@ -508,8 +418,10 @@ const {
 
       const marble = createMarble({
         scene,
+        engine,
         shadowGenerator,
         color,
+        gameState,
       })
       ballList.push(marble)
       shadowGenerator.addShadowCaster(marble.mesh)
@@ -554,7 +466,7 @@ const {
 
         marble.mesh.position.copyFrom(lobbyPosition)
         marble.mesh.position.x += Math.random()
-        marble.mesh.position.y += (marbleSize * i) + 1
+        marble.mesh.position.y += (MARBLE_SIZE * i) + 1
 
         /** 確保物理引擎已經更新位置 */
         await nextFrame()
@@ -584,9 +496,10 @@ const {
             return focusedMarble.value
           }
 
-          const lowestMarble = firstBy(
+          const lowestMarble = pipe(
             marbleList.value,
-            (marble) => marble.mesh.position.y,
+            filter((marble) => marble.isGrounded),
+            firstBy((marble) => marble.mesh.position.y),
           )
 
           if (!lowestMarble)
@@ -655,21 +568,33 @@ const {
         marbleList.value.forEach((marble) => {
           const lastCheckPointPosition = checkPointPositionList[marble.lastCheckPointIndex]
           const nextCheckPointPosition = checkPointPositionList[marble.lastCheckPointIndex + 1]
-          if (!nextCheckPointPosition || !lastCheckPointPosition) {
+
+          const physicsBody = marble.mesh.physicsBody
+          if (!physicsBody || !lastCheckPointPosition) {
             return
           }
 
-          const physicsBody = marble.mesh.physicsBody
-          if (!physicsBody) {
+          // 保險檢查
+          if (lowestCheckPoint && !marble.isGrounded && marble.mesh.position.y < lowestCheckPoint.y - 50) {
+            respawnWithAnimation(marble, lastCheckPointPosition)
+            return
+          }
+
+          if (marble.finishedAt) {
+            return
+          }
+
+          if (!nextCheckPointPosition) {
+            return
+          }
+
+          // 靜止過久也拉回上一個檢查點
+          if (marble.staticDurationSec > 3) {
+            respawnWithAnimation(marble, lastCheckPointPosition)
             return
           }
 
           if (marble.mesh.position.y < nextCheckPointPosition.y - 1) {
-            respawnWithAnimation(marble, lastCheckPointPosition)
-          }
-
-          // 保險檢查
-          if (lowestCheckPoint && marble.mesh.position.y < lowestCheckPoint.y - 10) {
             respawnWithAnimation(marble, lastCheckPointPosition)
           }
         })
@@ -706,8 +631,8 @@ const {
               parameter: marble.mesh,
             },
             () => {
-              if (marble.finishTime === 0) {
-                marble.finishTime = Date.now()
+              if (marble.finishedAt === 0) {
+                marble.finishedAt = Date.now()
               }
             },
           ),
@@ -732,7 +657,7 @@ useEventListener(canvasRef, 'webglcontextlost', (e) => {
 <style lang="sass" scoped>
 .canvas
   outline: none
-  background: linear-gradient(180deg, #e3ffea, #e2deff )
+  background: linear-gradient(180deg, #e3ffea, #d6d1ff)
 
 .btn-content
   transform: scale(1)

@@ -236,6 +236,10 @@ export default ({ mode }: { mode: string }) => {
                 text: '快取梗圖',
                 link: '/aquarium/meme-cache/',
               },
+              {
+                text: '鱈魚的彈珠',
+                link: '/aquarium/codmarbles/',
+              },
             ],
           }),
         ],
@@ -291,6 +295,11 @@ export default ({ mode }: { mode: string }) => {
                 {
                   text: '快取梗圖',
                   link: '/aquarium/meme-cache/',
+                  target: '_blank',
+                },
+                {
+                  text: '鱈魚的彈珠',
+                  link: '/aquarium/codmarbles/',
                   target: '_blank',
                 },
               ],
