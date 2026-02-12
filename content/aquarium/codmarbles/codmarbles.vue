@@ -72,6 +72,7 @@
 
 <script setup lang="ts">
 import type { Scene } from '@babylonjs/core'
+import type { BabylonEngine } from '../codstack/composables/use-babylon-scene'
 import type { TrackSegment } from './track-segment'
 import type { Marble } from './types'
 import { ActionManager, AssetsManager, Color3, DirectionalLight, Engine, ExecuteCodeAction, MeshBuilder, PBRMaterial, PhysicsAggregate, PhysicsMotionType, PhysicsShapeType, Quaternion, Ray, ShadowGenerator, StandardMaterial, TransformNode, Vector3 } from '@babylonjs/core'
@@ -104,11 +105,13 @@ let ghostMaterial: StandardMaterial
 const createMarbleName = customAlphabet('abcdefghijklmnopqrstuvwxyz', 8)
 function createMarble({
   scene,
+  engine,
   shadowGenerator,
   startPosition = Vector3.Zero(),
   color,
 }: {
   scene: Scene;
+  engine: BabylonEngine;
   shadowGenerator: ShadowGenerator;
   startPosition?: Vector3;
   color?: Color3;
@@ -201,11 +204,25 @@ function createMarble({
     lastCheckPointIndex: 0,
     isRespawning: false,
     isGrounded: false,
-    finishTime: 0,
+    staticDurationSec: 0,
+    finishedAt: 0,
   }
 
   scene.onBeforeRenderObservable.add(() => {
+    if (gameState.value !== 'playing') {
+      return
+    }
+
     result.isGrounded = isGrounded(marble, scene)
+
+    // 速度過小時，累加 staticDurationSec
+    if (sphereAggregate.body.getLinearVelocity().length() < 0.1) {
+      const dt = engine.getDeltaTime() / 1000
+      result.staticDurationSec += dt
+    }
+    else {
+      result.staticDurationSec = 0
+    }
   })
 
   return result
@@ -306,15 +323,15 @@ const updateRanking = useThrottleFn(() => {
       return 0
     }
 
-    const aFinished = a.finishTime > 0
-    const bFinished = b.finishTime > 0
+    const aFinished = a.finishedAt > 0
+    const bFinished = b.finishedAt > 0
 
     if (aFinished !== bFinished) {
       return aFinished ? -1 : 1
     }
 
     if (aFinished && bFinished) {
-      return a.finishTime - b.finishTime
+      return a.finishedAt - b.finishedAt
     }
 
     // 優先比較檢查點索引 (大的在前)
@@ -325,7 +342,7 @@ const updateRanking = useThrottleFn(() => {
     return a.mesh.position.y - b.mesh.position.y
   })
 
-  const allFinished = !marbleList.value.some((marble) => !marble.finishTime)
+  const allFinished = !marbleList.value.some((marble) => !marble.finishedAt)
   if (allFinished) {
     gameState.value = 'over'
   }
@@ -341,6 +358,7 @@ function respawnWithAnimation(
     return
   }
   marble.isRespawning = true
+  marble.staticDurationSec = 0
 
   const physicsBody = marble.mesh.physicsBody
   if (!physicsBody)
@@ -454,7 +472,7 @@ async function startGame() {
       delay,
       ease: cubicBezier(0.826, 0.005, 0.259, 0.971),
       onComplete() {
-        marble.finishTime = 0
+        marble.finishedAt = 0
 
         marble.isRespawning = false
         physicsBody.disablePreStep = true
@@ -474,7 +492,7 @@ const {
   canvasRef,
 } = useBabylonScene({
   async init(params) {
-    const { scene, camera, canvas } = params
+    const { scene, camera, canvas, engine } = params
 
     // Inspector.Show(scene, {
     //   embedMode: true,
@@ -544,6 +562,7 @@ const {
 
       const marble = createMarble({
         scene,
+        engine,
         shadowGenerator,
         color,
       })
@@ -692,21 +711,29 @@ const {
         marbleList.value.forEach((marble) => {
           const lastCheckPointPosition = checkPointPositionList[marble.lastCheckPointIndex]
           const nextCheckPointPosition = checkPointPositionList[marble.lastCheckPointIndex + 1]
-          if (!nextCheckPointPosition || !lastCheckPointPosition) {
+
+          const physicsBody = marble.mesh.physicsBody
+          if (!physicsBody || !lastCheckPointPosition) {
             return
           }
 
-          const physicsBody = marble.mesh.physicsBody
-          if (!physicsBody) {
+          // 保險檢查
+          if (lowestCheckPoint && !marble.isGrounded && marble.mesh.position.y < lowestCheckPoint.y - 100) {
+            respawnWithAnimation(marble, lastCheckPointPosition)
+            return
+          }
+
+          if (!nextCheckPointPosition) {
+            return
+          }
+
+          // 靜止過久也拉回上一個檢查點
+          if (marble.staticDurationSec > 3) {
+            respawnWithAnimation(marble, lastCheckPointPosition)
             return
           }
 
           if (marble.mesh.position.y < nextCheckPointPosition.y - 1) {
-            respawnWithAnimation(marble, lastCheckPointPosition)
-          }
-
-          // 保險檢查
-          if (lowestCheckPoint && !marble.isGrounded && marble.mesh.position.y < lowestCheckPoint.y - 10) {
             respawnWithAnimation(marble, lastCheckPointPosition)
           }
         })
@@ -743,8 +770,8 @@ const {
               parameter: marble.mesh,
             },
             () => {
-              if (marble.finishTime === 0) {
-                marble.finishTime = Date.now()
+              if (marble.finishedAt === 0) {
+                marble.finishedAt = Date.now()
               }
             },
           ),

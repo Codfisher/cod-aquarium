@@ -6,5 +6,7 @@ export interface Marble {
   lastCheckPointIndex: number;
   isRespawning: boolean;
   isGrounded: boolean;
-  finishTime: number;
+  /** 已靜止秒數，停太久則強制回歸上一個檢查點 */
+  staticDurationSec: number;
+  finishedAt: number;
 }

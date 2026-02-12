@@ -21,12 +21,12 @@
             opacity-0
             transform
           "
-          :class="marble.finishTime > 0 && recordVisible
+          :class="marble.finishedAt > 0 && recordVisible
             ? 'md:right-0 md:translate-x-full max-md:top-0 max-md:-translate-y-full opacity-100'
             : ''
           "
         >
-          {{ (marble.finishTime / 1000).toFixed(2) }}s
+          {{ (marble.finishedAt / 1000).toFixed(2) }}s
         </div>
 
         <div
@@ -35,7 +35,7 @@
         >
           <div
             class="font-mono font-bold w-4 text-center transition-colors "
-            :class="marble.finishTime > 0 ? 'text-yellow-700' : 'text-gray-500'"
+            :class="marble.finishedAt > 0 ? 'text-yellow-700' : 'text-gray-500'"
           >
             {{ index + 1 }}
           </div>
@@ -80,7 +80,7 @@ function handleFocusMarble(marble: Marble) {
 const marbleList = computed(() => props.rankingList.map((marble) => {
   const className: string[] = []
 
-  if (marble.finishTime > 0 && recordVisible.value) {
+  if (marble.finishedAt > 0 && recordVisible.value) {
     className.push('bg-yellow-50 border-yellow-400 shadow-md')
   }
   else {
@@ -93,7 +93,7 @@ const marbleList = computed(() => props.rankingList.map((marble) => {
 
   return {
     ...marble,
-    finishTime: props.startTime > 0 ? marble.finishTime - props.startTime : 0,
+    finishedAt: props.startTime > 0 ? marble.finishedAt - props.startTime : 0,
     className,
   }
 }))
