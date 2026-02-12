@@ -4,7 +4,7 @@
       ref="titleDiv"
       class=" flex flex-col justify-center items-center text-white pb-20"
     >
-      <div class=" text-[4rem] md:text-[6rem] font-game jelly-bounce">
+      <div class=" text-[3rem] md:text-[6rem] font-game jelly-bounce">
         CodMarbles
       </div>
     </div>
