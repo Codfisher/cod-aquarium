@@ -48,10 +48,10 @@
             />
 
             <base-polygon
-              class="absolute right-0 top-0 -translate-x-[80%] -translate-y-[50%]"
-              size="2rem"
+              class="absolute right-0 top-0 -translate-x-[40%] -translate-y-[70%]"
+              size="4rem"
               shape="round"
-              fill="solid"
+              fill="spot"
               opacity="0.8"
             />
           </div>
@@ -59,14 +59,12 @@
       </div>
     </transition>
 
-    <div
-      v-if="isLoading"
-      class="absolute left-0 top-0 w-full h-full bg-black/50 flex items-center justify-center"
-    >
-      <div class="text-white text-2xl font-bold">
-        Loading...
-      </div>
-    </div>
+    <transition name="opacity">
+      <loading-overlay
+        v-if="isLoading"
+        class="absolute left-0 top-0 w-full h-full "
+      />
+    </transition>
   </div>
 </template>
 
@@ -85,6 +83,7 @@ import { computed, ref, shallowRef, triggerRef } from 'vue'
 import { nextFrame } from '../../../web/common/utils'
 import BaseBtn from './components/base-btn.vue'
 import BasePolygon from './components/base-polygon.vue'
+import LoadingOverlay from './components/loading-overlay.vue'
 import RankingList from './components/ranking-list.vue'
 import { useAssetStore } from './stores/asset-store'
 import { createTrackSegment } from './track-segment'
@@ -796,7 +795,7 @@ useEventListener(canvasRef, 'webglcontextlost', (e) => {
 <style lang="sass" scoped>
 .canvas
   outline: none
-  background: linear-gradient(180deg, #e3ffea, #e2deff )
+  background: linear-gradient(180deg, #e3ffea, #d6d1ff)
 
 .btn-content
   transform: scale(1)

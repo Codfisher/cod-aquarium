@@ -12,7 +12,7 @@
         @click="handleFocusMarble(marble)"
       >
         <div
-          class="text-yellow-500 text-xs bg-white duration-500
+          class="text-yellow-500 text-xs bg-white duration-500!
             absolute  whitespace-nowrap shadow -z-1
             text-ellipsis overflow-hidden py-1.5 px-4
             max-md:rounded-t

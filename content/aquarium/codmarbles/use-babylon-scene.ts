@@ -34,6 +34,7 @@ interface UseBabylonSceneParam {
 }
 const defaultParam: Required<UseBabylonSceneParam> = {
   async createEngine({ canvas }) {
+    // 不知道為什麼手機容易出現網頁異常，先不使用 WebGPU
     // const webGPUSupported = await WebGPUEngine.IsSupportedAsync
     // if (webGPUSupported) {
     //   const engine = new WebGPUEngine(canvas, {
