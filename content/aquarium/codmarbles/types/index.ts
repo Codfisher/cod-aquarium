@@ -5,5 +5,6 @@ export interface Marble {
   mesh: Mesh;
   lastCheckPointIndex: number;
   isRespawning: boolean;
+  isGrounded: boolean;
   finishTime: number;
 }

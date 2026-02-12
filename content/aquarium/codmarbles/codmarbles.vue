@@ -74,7 +74,7 @@
 import type { Scene } from '@babylonjs/core'
 import type { TrackSegment } from './track-segment'
 import type { Marble } from './types'
-import { ActionManager, AssetsManager, Color3, DirectionalLight, Engine, ExecuteCodeAction, MeshBuilder, PBRMaterial, PhysicsAggregate, PhysicsMotionType, PhysicsShapeType, Quaternion, ShadowGenerator, StandardMaterial, TransformNode, Vector3 } from '@babylonjs/core'
+import { ActionManager, AssetsManager, Color3, DirectionalLight, Engine, ExecuteCodeAction, MeshBuilder, PBRMaterial, PhysicsAggregate, PhysicsMotionType, PhysicsShapeType, Quaternion, Ray, ShadowGenerator, StandardMaterial, TransformNode, Vector3 } from '@babylonjs/core'
 import { breakpointsTailwind, useBreakpoints, useEventListener, useThrottleFn } from '@vueuse/core'
 import { animate, cubicBezier } from 'animejs'
 import { random } from 'lodash-es'
@@ -195,13 +195,20 @@ function createMarble({
     scene,
   )
 
-  return {
+  const result = {
     hexColor: finalColor.toGammaSpace().toHexString(),
     mesh: marble,
     lastCheckPointIndex: 0,
     isRespawning: false,
+    isGrounded: false,
     finishTime: 0,
   }
+
+  scene.onBeforeRenderObservable.add(() => {
+    result.isGrounded = isGrounded(marble, scene)
+  })
+
+  return result
 }
 
 function createShadowGenerator(scene: Scene) {
@@ -294,6 +301,11 @@ const cameraTarget = shallowRef<TransformNode>()
 const startTime = ref(0)
 const updateRanking = useThrottleFn(() => {
   marbleList.value = marbleList.value.toSorted((a, b) => {
+    // 若有人正在掉落，則先不交換排名
+    if (!a.isGrounded || !b.isGrounded) {
+      return 0
+    }
+
     const aFinished = a.finishTime > 0
     const bFinished = b.finishTime > 0
 
@@ -357,6 +369,30 @@ function respawnWithAnimation(
       physicsBody.setMotionType(PhysicsMotionType.DYNAMIC)
     },
   })
+}
+
+function isGrounded(mesh: TransformNode, scene: Scene): boolean {
+  const origin = mesh.position
+  // 正下方
+  const direction = new Vector3(0, -1, 0)
+  // 半徑 + 容許值 (0.15) = 0.4
+  // 太短會導致斜坡誤判懸空，太長會導致還沒碰到地就算著地
+  const length = marbleSize + 0.15
+
+  const ray = new Ray(origin, direction, length)
+
+  const hit = scene.pickWithRay(ray, (pickedMesh) => {
+    if (pickedMesh === mesh)
+      return false
+    if (!pickedMesh.isVisible)
+      return false
+    if (pickedMesh.name.includes('ghost'))
+      return false
+
+    return true
+  })
+
+  return hit ? hit.hit : false
 }
 
 const canStartGame = computed(() => {
@@ -584,9 +620,10 @@ const {
             return focusedMarble.value
           }
 
-          const lowestMarble = firstBy(
+          const lowestMarble = pipe(
             marbleList.value,
-            (marble) => marble.mesh.position.y,
+            filter((marble) => marble.isGrounded),
+            firstBy((marble) => marble.mesh.position.y),
           )
 
           if (!lowestMarble)
@@ -669,7 +706,7 @@ const {
           }
 
           // 保險檢查
-          if (lowestCheckPoint && marble.mesh.position.y < lowestCheckPoint.y - 10) {
+          if (lowestCheckPoint && !marble.isGrounded && marble.mesh.position.y < lowestCheckPoint.y - 10) {
             respawnWithAnimation(marble, lastCheckPointPosition)
           }
         })
