@@ -46,7 +46,7 @@
           />
 
           <div class="text-xs text-gray-700 font-medium">
-            #{{ marble.mesh.name.slice(-4) }}
+            {{ marble.name }}
           </div>
         </div>
       </div>

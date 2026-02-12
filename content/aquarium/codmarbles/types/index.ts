@@ -1,6 +1,9 @@
 import type { Mesh } from '@babylonjs/core'
 
+export type GameState = 'idle' | 'preparing' | 'playing' | 'over'
+
 export interface Marble {
+  name: string;
   hexColor: string;
   mesh: Mesh;
   lastCheckPointIndex: number;

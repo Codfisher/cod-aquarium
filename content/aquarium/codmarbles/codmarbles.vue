@@ -6,23 +6,21 @@
       class="canvas w-full h-full"
     />
 
-    <u-banner
-      class="absolute top-0 right-0"
-      :ui="{ title: 'flex flex-wrap justify-center whitespace-pre' }"
+    <u-alert
+      title="歡迎來到鱈魚的彈珠！"
+      icon="i-ph:fish-simple-bold"
+      class="max-w-2/3 md:max-w-1/2 absolute top-4 right-4"
       close
+      color="neutral"
     >
-      <template #title>
-        此為<a
-          href="https://codlin.me/"
+      <template #description>
+        看彈珠滾阿滾實在是莫名的療育，此專案為了滿足彈珠滾動的慾望而生，會持續追加有趣的內容，歡迎一起<a
+          href="https://www.threads.com/@codfish2140"
           target="_blank"
           class=" underline!"
-        >鱈魚</a>的 3D 物理實驗專案，感謝 <a
-          href="https://kaylousberg.itch.io/kaykit-platformer"
-          target="_blank"
-          class=" underline!"
-        >Kay</a> 提供 3D 免費模型，歡迎一起交流 (*´∀`)~♥
+        >交流、許願</a> (*´∀`)~♥
       </template>
-    </u-banner>
+    </u-alert>
 
     <ranking-list
       v-model:focused-marble="focusedMarble"
@@ -89,15 +87,12 @@
 </template>
 
 <script setup lang="ts">
-import type { Scene } from '@babylonjs/core'
-import type { BabylonEngine } from '../codstack/composables/use-babylon-scene'
-import type { TrackSegment } from './track-segment'
-import type { Marble } from './types'
-import { ActionManager, AssetsManager, Color3, DirectionalLight, Engine, ExecuteCodeAction, MeshBuilder, PBRMaterial, PhysicsAggregate, PhysicsMotionType, PhysicsShapeType, Quaternion, Ray, ShadowGenerator, StandardMaterial, TransformNode, Vector3 } from '@babylonjs/core'
+import type { Scene, StandardMaterial } from '@babylonjs/core'
+import type { TrackSegment } from './domains/track-segment'
+import type { GameState, Marble } from './types'
+import { ActionManager, AssetsManager, Color3, DirectionalLight, ExecuteCodeAction, MeshBuilder, PhysicsMotionType, PhysicsShapeType, Quaternion, Ray, ShadowGenerator, TransformNode, Vector3 } from '@babylonjs/core'
 import { breakpointsTailwind, useBreakpoints, useEventListener, useThrottleFn } from '@vueuse/core'
 import { animate, cubicBezier } from 'animejs'
-import { random } from 'lodash-es'
-import { customAlphabet } from 'nanoid'
 import { filter, firstBy, map, pipe, shuffle, tap, values } from 'remeda'
 import { computed, ref, shallowRef, triggerRef } from 'vue'
 import { nextFrame } from '../../../web/common/utils'
@@ -106,149 +101,21 @@ import BasePolygon from './components/base-polygon.vue'
 import HeroLogo from './components/hero-logo.vue'
 import LoadingOverlay from './components/loading-overlay.vue'
 import RankingList from './components/ranking-list.vue'
+import { useFontLoader } from './composables/use-font-loader'
+import { useBabylonScene } from './domains/game/use-babylon-scene'
+import { createMarble, GHOST_RENDERING_GROUP_ID, MARBLE_SIZE } from './domains/marble'
+import { connectTracks, createTrackSegment } from './domains/track-segment'
+import { TrackSegmentType } from './domains/track-segment/data'
 import { useAssetStore } from './stores/asset-store'
-import { createTrackSegment } from './track-segment'
-import { TrackSegmentType } from './track-segment/data'
-import { useBabylonScene } from './use-babylon-scene'
-import { useFontLoader } from './use-font-loader'
 
 const isLoading = ref(true)
-const gameState = ref<'idle' | 'preparing' | 'playing' | 'over'>('idle')
+const gameState = ref<GameState>('idle')
 
 useFontLoader()
 const assetStore = useAssetStore()
 
 const breakpoint = useBreakpoints(breakpointsTailwind)
 const isMobile = breakpoint.smaller('md')
-
-const ghostRenderingGroupId = 1
-let ghostMaterial: StandardMaterial
-
-const createMarbleName = customAlphabet('abcdefghijklmnopqrstuvwxyz', 8)
-function createMarble({
-  scene,
-  engine,
-  shadowGenerator,
-  startPosition = Vector3.Zero(),
-  color,
-}: {
-  scene: Scene;
-  engine: BabylonEngine;
-  shadowGenerator: ShadowGenerator;
-  startPosition?: Vector3;
-  color?: Color3;
-}): Marble {
-  const marble = MeshBuilder.CreateSphere(createMarbleName(), {
-    diameter: marbleSize,
-    segments: 16,
-  }, scene)
-  marble.position.copyFrom(startPosition)
-
-  const finalColor = color ?? Color3.FromHSV(random(0, 360), 0.8, 0.4)
-
-  marble.material = pipe(
-    new PBRMaterial('marbleMaterial', scene),
-    tap((marbleMaterial) => {
-      marbleMaterial.albedoColor = finalColor
-
-      marbleMaterial.metallic = 0
-      marbleMaterial.roughness = 0.5
-
-      // marbleMaterial.clearCoat.isEnabled = true
-      // marbleMaterial.clearCoat.intensity = 1
-      // marbleMaterial.clearCoat.roughness = 0
-    }),
-  )
-
-  const ghostMat = pipe(
-    ghostMaterial ?? new StandardMaterial('ghostMaterial', scene),
-    tap((ghostMaterial) => {
-      ghostMaterial.diffuseColor = new Color3(1, 1, 1)
-      ghostMaterial.emissiveColor = new Color3(1, 1, 1)
-      ghostMaterial.alpha = 0.1
-      ghostMaterial.disableLighting = true
-      ghostMaterial.backFaceCulling = false
-
-      // 設定深度函數 (Depth Function)
-      // 預設是 Engine.LEQUAL (小於等於時繪製，也就是在前面時繪製)
-      // 我們改成 Engine.GREATER (大於時繪製，也就是在後面/被擋住時才繪製)
-      ghostMaterial.depthFunction = Engine.GREATER
-    }),
-  )
-  if (!ghostMaterial) {
-    ghostMaterial = ghostMat
-  }
-
-  // 建立幽靈彈珠，可穿透障礙物，方便觀察
-  pipe(
-    marble.clone('ghostMarble'),
-    tap((ghostMarble) => {
-      ghostMarble.material = ghostMat
-
-      // 確保幽靈永遠黏在實體彈珠上，不受物理層級影響
-      scene.onBeforeRenderObservable.add(() => {
-        ghostMarble.position.copyFrom(marble.position)
-        if (marble.rotationQuaternion) {
-          if (!ghostMarble.rotationQuaternion) {
-            ghostMarble.rotationQuaternion = new Quaternion()
-          }
-          ghostMarble.rotationQuaternion.copyFrom(marble.rotationQuaternion)
-        }
-        else {
-          ghostMarble.rotation.copyFrom(marble.rotation)
-        }
-      })
-
-      // 放大一點點避免浮點數誤差導致 Engine.GREATER 判斷閃爍
-      ghostMarble.scaling = new Vector3(1.05, 1.05, 1.05)
-
-      shadowGenerator.removeShadowCaster(ghostMarble)
-
-      // 設定渲染群組
-      // 群組 0: 地板、牆壁、正常彈珠 (先畫)
-      // 群組 1: 幽靈彈珠 (後畫)
-      // 我們必須讓幽靈在牆壁畫完之後才畫，這樣它才能知道自己是不是在牆壁後面
-      ghostMarble.renderingGroupId = ghostRenderingGroupId
-    }),
-  )
-
-  // 建立物理體
-  const sphereAggregate = new PhysicsAggregate(
-    marble,
-    PhysicsShapeType.SPHERE,
-    { mass: 1, restitution: 0.1, friction: 0 },
-    scene,
-  )
-
-  const result = {
-    hexColor: finalColor.toGammaSpace().toHexString(),
-    mesh: marble,
-    lastCheckPointIndex: 0,
-    isRespawning: false,
-    isGrounded: false,
-    staticDurationSec: 0,
-    finishedAt: 0,
-  }
-
-  scene.onBeforeRenderObservable.add(() => {
-    if (gameState.value !== 'playing') {
-      return
-    }
-
-    result.isGrounded = isGrounded(marble, scene)
-
-    // 速度過小時，累加 staticDurationSec
-    if (sphereAggregate.body.getLinearVelocity().length() < 0.1) {
-      const dt = engine.getDeltaTime() / 1000
-      result.staticDurationSec += dt
-    }
-    else {
-      result.staticDurationSec = 0
-    }
-  })
-
-  return result
-}
 
 function createShadowGenerator(scene: Scene) {
   const light = new DirectionalLight('dir01', new Vector3(-1, -5, -1), scene)
@@ -265,17 +132,6 @@ function createShadowGenerator(scene: Scene) {
   shadowGenerator.forceBackFacesOnly = true
 
   return shadowGenerator
-}
-
-/** 將 nextTrack 接在 prevTrack 的後面
- *
- * NextRoot = PrevRoot + PrevEnd - NextStart
- */
-function connectTracks(prevTrack: TrackSegment, nextTrack: TrackSegment) {
-  nextTrack.rootNode.position
-    .copyFrom(prevTrack.rootNode.position)
-    .addInPlace(prevTrack.endPosition)
-    .subtractInPlace(nextTrack.startPosition)
 }
 
 /** 取得每一個 in Mesh 的位置（世界座標） */
@@ -331,7 +187,6 @@ function createCheckPointColliders(
 
 // --- 主要遊戲邏輯 ---
 const marbleCount = 10
-const marbleSize = 0.5
 const marbleList = shallowRef<Marble[]>([])
 const focusedMarble = shallowRef<Marble>()
 const trackSegmentList = shallowRef<TrackSegment[]>([])
@@ -411,30 +266,6 @@ function respawnWithAnimation(
   })
 }
 
-function isGrounded(mesh: TransformNode, scene: Scene): boolean {
-  const origin = mesh.position
-  // 正下方
-  const direction = new Vector3(0, -1, 0)
-  // 半徑 + 容許值 (0.15) = 0.4
-  // 太短會導致斜坡誤判懸空，太長會導致還沒碰到地就算著地
-  const length = marbleSize + 0.15
-
-  const ray = new Ray(origin, direction, length)
-
-  const hit = scene.pickWithRay(ray, (pickedMesh) => {
-    if (pickedMesh === mesh)
-      return false
-    if (!pickedMesh.isVisible)
-      return false
-    if (pickedMesh.name.includes('ghost'))
-      return false
-
-    return true
-  })
-
-  return hit ? hit.hit : false
-}
-
 const canStartGame = computed(() => {
   return gameState.value === 'idle' || gameState.value === 'over'
 })
@@ -477,7 +308,7 @@ async function startGame() {
 
     const targetPosition = startPosition.clone()
     targetPosition.x += Math.random() / 10
-    targetPosition.y += (marbleSize * i) + 1
+    targetPosition.y += (MARBLE_SIZE * i) + 1
 
     const delay = i * 20
     animate(marble.mesh.position, {
@@ -526,7 +357,7 @@ const {
     assetsManager.useDefaultLoadingScreen = false
 
     // 畫 Group 1 (幽靈) 時，不要清除 Group 0 (牆壁) 的深度資訊，這樣才能進行深度比較
-    scene.setRenderingAutoClearDepthStencil(ghostRenderingGroupId, false)
+    scene.setRenderingAutoClearDepthStencil(GHOST_RENDERING_GROUP_ID, false)
 
     const shadowGenerator = createShadowGenerator(scene)
 
@@ -587,6 +418,7 @@ const {
         engine,
         shadowGenerator,
         color,
+        gameState,
       })
       ballList.push(marble)
       shadowGenerator.addShadowCaster(marble.mesh)
@@ -631,7 +463,7 @@ const {
 
         marble.mesh.position.copyFrom(lobbyPosition)
         marble.mesh.position.x += Math.random()
-        marble.mesh.position.y += (marbleSize * i) + 1
+        marble.mesh.position.y += (MARBLE_SIZE * i) + 1
 
         /** 確保物理引擎已經更新位置 */
         await nextFrame()
