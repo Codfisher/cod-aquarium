@@ -75,6 +75,8 @@ aside: false
 
 - [快取梗圖](/aquarium/meme-cache/){target="_blank" rel="noopener"}
 
+- [鱈魚的彈珠](/aquarium/codmarbles/){target="_blank" rel="noopener"}
+
 還會持續更新，敬請期待！◝(≧∀≦)◟
 
 有任何問題或建議，歡迎在社群私訊我，或寄信給我喔。♪(^∇^*)（<hi@codlin.me>）
