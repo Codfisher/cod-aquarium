@@ -12,37 +12,11 @@
 
     <!-- label -->
     <div
-      class="label relative font-black tracking-widest"
+      class="label relative font-black tracking-widest stroke"
       :style="labelStyle"
     >
       {{ props.label }}
-
-      <!-- stroke -->
-      <div
-        class="label-stroke absolute"
-        :style="strokeStyle"
-      >
-        {{ props.label }}
-      </div>
     </div>
-
-    <svg
-      version="1.1"
-      style="display: none;"
-    >
-      <defs>
-        <filter :id="svgFilterId">
-          <feMorphology
-            operator="dilate"
-            :radius="props.strokeSize"
-          />
-          <feComposite
-            operator="xor"
-            in="SourceGraphic"
-          />
-        </filter>
-      </defs>
-    </svg>
   </div>
 </template>
 
@@ -70,7 +44,7 @@ const props = withDefaults(defineProps<Props>(), {
   labelHoverColor: undefined,
   strokeColor: '#888',
   strokeHoverColor: undefined,
-  strokeSize: '3',
+  strokeSize: '10',
 })
 
 const emit = defineEmits<{
@@ -95,20 +69,7 @@ const labelStyle = computed(() => {
 
   return {
     color,
-  }
-})
-
-const svgFilterId = `svg-filter-${nanoid()}`
-const strokeStyle = computed(() => {
-  let color = props.strokeColor
-
-  if (props.strokeHoverColor) {
-    color = state.value.hover ? props.strokeHoverColor : props.strokeColor
-  }
-
-  return {
-    color,
-    filter: `url(#${svgFilterId})`,
+    '-webkit-text-stroke': `${props.strokeSize}px ${props.strokeColor}`,
   }
 })
 
@@ -142,6 +103,8 @@ function handleMouseup() {
 </script>
 
 <style scoped lang="sass">
+.stroke
+  paint-order: stroke fill
 .btn
   font-family: 'Titan One'
   backdrop-filter: blur(6px)
