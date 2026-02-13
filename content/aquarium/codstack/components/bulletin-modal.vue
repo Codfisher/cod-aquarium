@@ -68,7 +68,7 @@ const props = withDefaults(defineProps<Props>(), {
   label: '',
 })
 
-const currentTab = ref('quick-start')
+const currentTab = ref('intro')
 const tabItems = computed(() => [
   {
     label: 'Intro',
