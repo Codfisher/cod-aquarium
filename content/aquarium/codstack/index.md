@@ -1,7 +1,7 @@
 ---
 title: CodStack
 description: 在網頁上組裝 3D 模型像疊積木一樣簡單 (・∀・)９
-image: https://codlin.me/cover.webp
+image: https://codlin.me/codstack.webp
 layout: false
 ---
 
