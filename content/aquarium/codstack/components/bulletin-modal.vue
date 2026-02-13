@@ -1,10 +1,17 @@
 <template>
-  <u-modal title="Welcome to CodStack!">
+  <u-modal
+    title="Welcome to CodStack!"
+    :ui="{
+      content: 'min-w-full md:min-w-160',
+    }"
+  >
     <slot />
 
     <template #content>
       <u-tabs
+        v-model="currentTab"
         :items="tabItems"
+        value-key="slot"
         :ui="{
           content: 'p-10 pt-4 space-y-4 h-[65vh] overflow-auto',
         }"
@@ -18,14 +25,30 @@
         </template>
 
         <template #quick-start>
-          <ol class="list-decimal px-4">
-            <li
-              v-for="(text, index) in t('start')"
-              :key="index"
-            >
-              {{ text }}
-            </li>
-          </ol>
+          <u-carousel
+            v-slot="{ item }"
+            dots
+            :items="quickStartItems"
+            class="w-full h-full"
+          >
+            <div class=" relative">
+              <img
+                v-if="!item.img.includes('.mp4')"
+                :src="item.img"
+                class="rounded-lg w-full h-full object-contain mb-4 border"
+              >
+              <video
+                v-else
+                :src="item.img"
+                class="rounded-lg w-full h-full object-contain mb-4"
+                autoplay
+                loop
+                muted
+              />
+
+              <div v-html="item.description" />
+            </div>
+          </u-carousel>
         </template>
       </u-tabs>
     </template>
@@ -35,7 +58,7 @@
 <script setup lang="ts">
 import type { TabsItem } from '@nuxt/ui/.'
 import { usePreferredLanguages } from '@vueuse/core'
-import { computed, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useSimpleI18n } from '../composables/use-simple-i18n'
 
 interface Props {
@@ -45,6 +68,7 @@ const props = withDefaults(defineProps<Props>(), {
   label: '',
 })
 
+const currentTab = ref('intro')
 const tabItems = computed(() => [
   {
     label: 'Intro',
@@ -57,6 +81,16 @@ const tabItems = computed(() => [
     slot: 'quick-start',
   },
 ] satisfies TabsItem[])
+
+const quickStartItems = computed(() => {
+  const descriptionList = t('start')
+  const imgList = t('startImg')
+
+  return descriptionList.map((text, index) => ({
+    img: imgList[index] || '',
+    description: text,
+  }))
+})
 
 const { locale, t } = useSimpleI18n({
   'zh-hant': {
@@ -73,11 +107,28 @@ const { locale, t } = useSimpleI18n({
       '有空的話也可以來我的<a href="https://codlin.me/" >部落格</a>逛逛，裡面還有很多酷東西喔！(・∀・)９',
     ],
     start: [
-      '下載您喜歡的模型套組並解壓縮（目前僅支援 glb、gltf 檔案）',
-      '將檔案放置到網頁專案的靜態目錄中（若只是單純查看模型，則可忽略此步驟）',
-      '點擊左上角資料夾圖示，選擇上一步的資料夾',
+      `下載您喜歡的模型套組並解壓縮（目前僅支援 glb、gltf 檔案）
+
+      <br><br>
+      找不到模型的話可以來這裡下載 ( \´ ▽ \` )ﾉ：
+      <a href="https://kenney.nl/assets" target="_blank">Kenney</a>、<a href="https://kaylousberg.itch.io" target="_blank">Kay</a>、<a href="https://tinytreats.itch.io/" target="_blank">Isa</a>`,
+
+      `將檔案放置到網頁專案的靜態目錄中，因為 CodStack 最後輸出是依照路徑輸出，若檔案結構與最終引用路經相同，就不用再轉換一次，會更方便
+  
+      <br><br>
+      （若只是單純查看模型，則可忽略此步驟）`,
+      '點擊左上角資料夾圖示，選擇先前步驟下載的模型資料夾',
       '選擇後，CodStack 會自動掃描資料夾中的模型檔案，並產生模型預覽圖',
-      '點擊模型預覽圖，就可以在右側預覽、放置模型了 ◝( •ω• )◟',
+      '點擊模型預覽圖，就可以在右側預覽、放置模型了',
+      '場景完成後，即可輸出結構化資料，也可以再次匯入過往輸出的場景資料',
+    ],
+    startImg: [
+      '/codstack/quick-start/step01.png',
+      '/codstack/quick-start/step02.png',
+      '/codstack/quick-start/step03.gif',
+      '/codstack/quick-start/step04.mp4',
+      '/codstack/quick-start/step05.mp4',
+      '/codstack/quick-start/step06.mp4',
     ],
   },
   'en': {
@@ -90,6 +141,14 @@ const { locale, t } = useSimpleI18n({
       '1. Click the folder icon in the top-left corner to select a folder.',
       '2. After selection, CodStack will automatically scan the folder for model files.',
       '3. Click on the model preview image to preview the model on the right.',
+    ],
+    startImg: [
+      '/codstack/quick-start/step01.png',
+      '/codstack/quick-start/step02.png',
+      '/codstack/quick-start/step03.gif',
+      '/codstack/quick-start/step04.mp4',
+      '/codstack/quick-start/step05.mp4',
+      '/codstack/quick-start/step06.mp4',
     ],
   },
 } as const)
