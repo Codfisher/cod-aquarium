@@ -15,8 +15,8 @@
           class="text-yellow-500 text-xs bg-white duration-500!
             absolute  whitespace-nowrap shadow -z-1
             text-ellipsis overflow-hidden py-1.5 px-4
-            max-md:rounded-t
-            md:rounded-r
+            md:-mx-2 max-md:-my-1
+            rounded-full
             right-1/2 top-1/2 -translate-y-1/2 translate-x-1/2
             opacity-0
             transform
