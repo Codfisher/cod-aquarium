@@ -1,68 +1,19 @@
 <template>
   <div class=" relative leading-none">
-    <div
-      ref="titleDiv"
-      class=" flex flex-col justify-center items-center text-white pb-20"
-    >
-      <div class=" text-[3rem] md:text-[6rem] font-game jelly-bounce">
+    <div class=" flex flex-col justify-center items-center text-white pb-20">
+      <div class=" text-[3rem] md:text-[6rem] stroke font-game jelly-bounce">
         CodMarbles
       </div>
     </div>
-
-    <!-- stroke -->
-    <div
-      class=" absolute top-0 flex flex-col justify-center items-center stroke-color"
-      :style="strokeStyle"
-      v-html="titleDiv?.innerHTML"
-    />
-
-    <svg
-      version="1.1"
-      style="display: none;"
-    >
-      <defs>
-        <filter :id="svgFilterId">
-          <feMorphology
-            operator="dilate"
-            :radius="radius"
-          />
-          <feComposite
-            operator="xor"
-            in="SourceGraphic"
-          />
-        </filter>
-      </defs>
-    </svg>
   </div>
 </template>
 
-<script setup lang="ts">
-import { nanoid } from 'nanoid'
-import { computed, ref } from 'vue'
-
-const titleDiv = ref<HTMLDivElement>()
-
-const svgFilterId = `svg-filter-${nanoid()}`
-const strokeStyle = computed(() => {
-  return {
-    filter: `url(#${svgFilterId})`,
-  }
-})
-
-const radius = computed(() => {
-  return 6
-})
-</script>
-
 <style scoped lang="sass">
+.stroke
+  -webkit-text-stroke: 16px #4a3410
+  paint-order: stroke fill
 .font-game
   font-family: 'Titan One'
-
-// 避免顏色顏色覆蓋外框艷色
-.stroke-color
-  color: #4a3410
-  span
-    color: #4a3410
 
 .jelly-bounce
   animation: jelly-bounce 3.2s infinite
