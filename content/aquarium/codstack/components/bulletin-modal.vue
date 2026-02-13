@@ -31,11 +31,11 @@
             :items="quickStartItems"
             class="w-full h-full"
           >
-            <div class="">
+            <div class=" relative">
               <img
                 v-if="!item.img.includes('.mp4')"
                 :src="item.img"
-                class="rounded-lg w-full h-full object-contain mb-4"
+                class="rounded-lg w-full h-full object-contain mb-4 border"
               >
               <video
                 v-else
@@ -88,7 +88,6 @@ const quickStartItems = computed(() => {
 
   return descriptionList.map((text, index) => ({
     img: imgList[index] || '',
-    index: index + 1,
     description: text,
   }))
 })

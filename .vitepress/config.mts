@@ -229,6 +229,14 @@ export default ({ mode }: { mode: string }) => {
             text: '酷東西',
             items: [
               {
+                text: 'MCU Windows',
+                link: 'https://codfish-210716.notion.site/MCU-Windows-2f896774ea2f4742af974c753f947bd4#4fcf87c34f544b71bce9a76d96adb39a',
+              },
+              {
+                text: '酷酷的元件',
+                link: 'https://chillcomponent.codlin.me/',
+              },
+              {
                 text: 'Cyber Scales Desktop',
                 link: '/aquarium/cyber-scales-desktop/',
               },
@@ -239,6 +247,10 @@ export default ({ mode }: { mode: string }) => {
               {
                 text: '鱈魚的彈珠',
                 link: '/aquarium/codmarbles/',
+              },
+              {
+                text: 'CodStack',
+                link: '/aquarium/codstack/',
               },
             ],
           }),
@@ -282,26 +294,6 @@ export default ({ mode }: { mode: string }) => {
                 //   text: '酷酷元件背後的星點',
                 //   link: getOldestDocPath('/column-chill-components/'),
                 // },
-              ],
-            },
-            {
-              text: '酷東西',
-              items: [
-                {
-                  text: 'Cyber Scales Desktop',
-                  link: '/aquarium/cyber-scales-desktop/',
-                  target: '_blank',
-                },
-                {
-                  text: '快取梗圖',
-                  link: '/aquarium/meme-cache/',
-                  target: '_blank',
-                },
-                {
-                  text: '鱈魚的彈珠',
-                  link: '/aquarium/codmarbles/',
-                  target: '_blank',
-                },
               ],
             },
           ],
