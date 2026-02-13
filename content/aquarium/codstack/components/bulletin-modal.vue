@@ -13,42 +13,60 @@
         :items="tabItems"
         value-key="slot"
         :ui="{
-          content: 'p-10 pt-4 space-y-4 h-[65vh] overflow-auto',
+          content: 'overflow-auto',
         }"
       >
         <template #intro>
-          <p
-            v-for="(text, index) in t('intro')"
-            :key="index"
-            v-html="text"
-          />
+          <div class="p-10 pt-4 space-y-5">
+            <p
+              v-for="(text, index) in t('intro')"
+              :key="index"
+              v-html="text"
+            />
+          </div>
         </template>
 
         <template #quick-start>
-          <u-carousel
-            v-slot="{ item }"
-            dots
-            :items="quickStartItems"
-            class="w-full h-full"
-          >
-            <div class=" relative">
-              <img
-                v-if="!item.img.includes('.mp4')"
-                :src="item.img"
-                class="rounded-lg w-full h-full object-contain mb-4 border"
-              >
-              <video
-                v-else
-                :src="item.img"
-                class="rounded-lg w-full h-full object-contain mb-4"
-                autoplay
-                loop
-                muted
-              />
+          <div class="p-10 pt-6">
+            <u-carousel
+              v-slot="{ item, index }"
+              dots
+              :items="quickStartItems"
+              class="w-full h-full"
+              :ui="{ item: 'flex flex-col' }"
+            >
+              <div class=" relative ">
+                <div class="rounded-lg border overflow-hidden border-default">
+                  <img
+                    v-if="!item.img.includes('.mp4')"
+                    :src="item.img"
+                    class=" w-full h-full object-contain "
+                  >
 
-              <div v-html="item.description" />
-            </div>
-          </u-carousel>
+                  <video
+                    v-else
+                    :src="item.img"
+                    autoplay
+                    loop
+                    muted
+                  />
+                </div>
+
+                <div class="mt-2 relative z-10 pb-16">
+                  <span
+                    class="absolute bottom-0 right-0 text-[4rem] font-black opacity-10 select-none -z-10 font-mono leading-16"
+                  >
+                    0{{ index + 1 }}
+                  </span>
+
+                  <div
+                    class="text-sm text-gray-600"
+                    v-html="item.description"
+                  />
+                </div>
+              </div>
+            </u-carousel>
+          </div>
         </template>
       </u-tabs>
     </template>
@@ -133,14 +151,32 @@ const { locale, t } = useSimpleI18n({
   },
   'en': {
     intro: [
-      'Welcome to CodStack! ✧⁑｡٩(ˊᗜˋ*)و✧⁕｡',
-      'Thanks to <a href="https://kenney.nl/assets" target="_blank">Kenny</a> and <a href="https://kaylousberg.itch.io" target="_blank">Kay</a> for providing free 3D models.',
-      'Otherwise, if I drew them myself, it would probably take 10 years to finish (╥ω╥ )',
+      '<div class="font-bold text-2xl mb-6">Welcome to CodStack! ⁑｡٩(ˊᗜˋ*)و✧⁕</div>',
+      'Ever since <a href="https://youtu.be/PPWyUhT6gRk?si=XVD7uTdHl3Mr9kFU" target="_blank">Party Animals</a>, I\'ve wanted to create more fun 3D projects. However, 3D modeling is incredibly difficult. My passion would usually cool down just trying to model, before I could even start writing the code. ゜・(PД`q｡)・゜',
+      'That is, until I discovered ready-made model packs! Huge thanks to the benevolent legends <a href="https://kenney.nl/assets" target="_blank">Kenney</a>, <a href="https://kaylousberg.itch.io" target="_blank">Kay</a>, and <a href="https://tinytreats.itch.io/" target="_blank">Isa</a> for providing free 3D model packs. If I had to make them myself, it would probably take 10 years to finish. ( ´•̥̥̥ ω •̥̥̥` )',
+      '<span></span>',
+      'However, I ran into some minor annoyances when using these 3D packs. Aside from not being able to quickly preview the content, assembling them via code was absolute torture. (›´ω`‹ )',
+      'Assembling them in 3D software first meant losing the flexibility of programmatic control, <span class="font-bold">and thus, CodStack was born! (/≧▽≦)/</span>',
+      '<span></span>',
+      'CodStack is developed using <a href="https://www.babylonjs.com/" target="_blank">babylon.js</a>, <a href="https://vuejs.org/" target="_blank">Vue</a>, and <a href="https://ui.nuxt.com/" target="_blank">Nuxt UI</a>. The goal is to make assembling 3D models as simple as playing with building blocks. It exports structured data that can be re-imported for editing, making it easy to load models into 3D web projects. No installation required—give it a try now!',
+      'Feel free to contact me with any questions or feature requests. If this tool helps you, you can also <a href="https://portaly.cc/codfish/support" target="_blank">buy me a coffee</a> to support me! (*´∀`)~♥',
+      'If you have time, feel free to visit my <a href="https://codlin.me/" >blog</a>—there are lots of other cool things there! (・∀・)９',
     ],
     start: [
-      '1. Click the folder icon in the top-left corner to select a folder.',
-      '2. After selection, CodStack will automatically scan the folder for model files.',
-      '3. Click on the model preview image to preview the model on the right.',
+      `Download your favorite model pack and unzip it (currently only supports glb and gltf files).
+
+      <br><br>
+      If you can't find any models, you can download them here ( \´ ▽ \` )ﾉ:
+      <a href="https://kenney.nl/assets" target="_blank">Kenney</a>, <a href="https://kaylousberg.itch.io" target="_blank">Kay</a>, <a href="https://tinytreats.itch.io/" target="_blank">Isa</a>`,
+
+      `Place the files into your web project's static directory. Since CodStack exports based on file paths, it's more convenient if the file structure matches your final import path, saving you from having to convert it later.
+  
+      <br><br>
+      (You can skip this step if you are simply viewing models).`,
+      'Click the folder icon in the top left corner and select the model folder downloaded in the previous step.',
+      'Once selected, CodStack will automatically scan for model files in the folder and generate preview images.',
+      'Click on a model preview image to preview and place the model on the right side.',
+      'Once the scene is complete, you can export the structured data. You can also re-import previously exported scene data.',
     ],
     startImg: [
       '/codstack/quick-start/step01.png',
@@ -157,6 +193,8 @@ const languages = usePreferredLanguages()
 
 watch(languages, ([lang]) => {
   locale.value = lang?.includes('zh') ? 'zh-hant' : 'en'
+
+  // locale.value = 'en'
 }, {
   immediate: true,
 })
