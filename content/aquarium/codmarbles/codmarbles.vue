@@ -95,10 +95,10 @@
 </template>
 
 <script setup lang="ts">
-import type { Scene, StandardMaterial } from '@babylonjs/core'
+import type { Scene } from '@babylonjs/core'
 import type { TrackSegment } from './domains/track-segment'
 import type { GameState, Marble } from './types'
-import { ActionManager, AssetsManager, Color3, DirectionalLight, ExecuteCodeAction, MeshBuilder, PhysicsMotionType, PhysicsShapeType, Quaternion, Ray, ShadowGenerator, TransformNode, Vector3 } from '@babylonjs/core'
+import { ActionManager, AssetsManager, Color3, DirectionalLight, ExecuteCodeAction, MeshBuilder, PhysicsMotionType, ShadowGenerator, TransformNode, Vector3 } from '@babylonjs/core'
 import { breakpointsTailwind, useBreakpoints, useColorMode, useEventListener, useThrottleFn } from '@vueuse/core'
 import { animate, cubicBezier } from 'animejs'
 import { filter, firstBy, map, pipe, shuffle, tap, values } from 'remeda'
