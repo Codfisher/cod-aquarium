@@ -1,6 +1,6 @@
 <template>
   <div
-    class="btn flex flex-center text-4xl md:text-5xl p-8 px-24 md:p-10 md:px-30 rounded-full"
+    class="btn flex justify-center items-center text-3xl md:text-4xl p-8  rounded-full"
     :class="btnClass"
     @click="handleClick()"
     @mouseenter="handleMouseenter"
@@ -22,7 +22,6 @@
 
 <script setup lang="ts">
 import { promiseTimeout } from '@vueuse/core'
-import { nanoid } from 'nanoid'
 import { computed, ref } from 'vue'
 
 export interface State {
@@ -44,7 +43,7 @@ const props = withDefaults(defineProps<Props>(), {
   labelHoverColor: undefined,
   strokeColor: '#888',
   strokeHoverColor: undefined,
-  strokeSize: '10',
+  strokeSize: '8',
 })
 
 const emit = defineEmits<{

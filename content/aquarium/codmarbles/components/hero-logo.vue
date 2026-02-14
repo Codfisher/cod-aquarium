@@ -1,6 +1,6 @@
 <template>
   <div class=" relative leading-none">
-    <div class=" flex flex-col justify-center items-center text-white pb-20">
+    <div class=" flex flex-col justify-center items-center text-white">
       <div class=" text-[3rem] md:text-[6rem] stroke font-game jelly-bounce">
         CodMarbles
       </div>

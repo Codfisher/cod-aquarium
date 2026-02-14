@@ -2,7 +2,7 @@
 layout: false
 ---
 
-<div ref="el" class="flex h-screen flex-col justify-center px-6 pb-5"></div>
+<div ref="el" class="w-dvw h-dvh"></div>
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'

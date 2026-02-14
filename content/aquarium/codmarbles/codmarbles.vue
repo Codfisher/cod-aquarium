@@ -1,97 +1,133 @@
 <template>
-  <div class="fixed w-screen inset-0">
-    <canvas
-      v-once
-      ref="canvasRef"
-      class="canvas w-full h-full"
-    />
-    <ranking-list
-      v-model:focused-marble="focusedMarble"
-      :start-time="startTime"
-      :ranking-list="marbleList"
-      :game-state="gameState"
-      class="fixed left-0 bottom-0"
-    />
-
-    <transition name="opacity">
-      <div
-        v-if="canStartGame"
-        class="absolute top-0 left-0 flex flex-col justify-center items-center w-full h-full pointer-events-none"
-      >
-        <hero-logo />
-
-        <!-- 遊戲開始按鈕 -->
-        <base-btn
-          v-slot="{ hover }"
-          label="Start"
-          class="pointer-events-auto border-3 md:border-5 border-white/80"
-          stroke-color="#4a3410"
-          @click="startGame"
-        >
-          <div
-            class="btn-content absolute inset-0"
-            :class="{ hover }"
-          >
-            <base-polygon
-              class="absolute left-0 top-0 -translate-x-[70%] -translate-y-[50%] -rotate-30"
-              size="13rem"
-              shape="round"
-              fill="fence"
-              opacity="1"
-            />
-
-            <base-polygon
-              class="absolute right-0 bottom-0 translate-x-[60%] translate-y-[70%]"
-              size="13rem"
-              shape="round"
-              fill="solid"
-              opacity="1"
-            />
-
-            <base-polygon
-              class="absolute right-0 top-0 -translate-x-[40%] -translate-y-[70%]"
-              size="4rem"
-              shape="round"
-              fill="spot"
-              opacity="0.8"
-            />
-          </div>
-        </base-btn>
-      </div>
-    </transition>
-
-    <div class="md:max-w-1/2 absolute top-0 right-0 p-4">
-      <u-alert
-        v-if="alertVisible"
-        v-model:open="alertVisible"
-        title="歡迎來到鱈魚的彈珠！"
-        icon="i-ph:fish-simple-bold"
-        close
-        color="neutral"
-      >
-        <template #description>
-          經研究證實，看彈珠滾啊滾，能有效降低大腦 CPU 使用率，這是為了防止社畜們過勞而生的醫療級網頁。(ゝ∀・)b
-
-          <br><br>
-          以上純屬瞎掰，其實沒什麼偉大的技術願景，純粹就是我想看東西滾來滾去而誕生的專案 (´,,•ω•,,)
-
-          <br><br>
-          不定期追加有趣的內容，歡迎一起<a
-            href="https://www.threads.com/@codfish2140"
-            target="_blank"
-            class=" underline!"
-          >放空、交流或許願功能</a> (*´∀`)~♥
-        </template>
-      </u-alert>
-    </div>
-
-    <transition name="opacity">
-      <loading-overlay
-        v-if="isLoading"
-        class="absolute left-0 top-0 w-full h-full "
+  <u-app
+    :toaster="{
+      position: 'top-right',
+    }"
+  >
+    <div class="fixed w-dvw h-dvh p-0 m-0">
+      <canvas
+        v-once
+        ref="canvasRef"
+        class="canvas w-full h-full"
       />
-    </transition>
-  </div>
+      <ranking-list
+        v-model:focused-marble="focusedMarble"
+        :start-time="startTime"
+        :ranking-list="marbleList"
+        :game-state="gameState"
+        class="fixed left-0 bottom-0"
+      />
+
+      <transition name="opacity">
+        <div
+          v-if="defaultMenuVisible"
+          class="absolute top-0 left-0 flex flex-col justify-center items-center w-full h-full pointer-events-none gap-10"
+        >
+          <hero-logo class="mb-10" />
+
+          <!-- 遊戲開始按鈕 -->
+          <base-btn
+            v-slot="{ hover }"
+            label="Zen Mode"
+            class="pointer-events-auto border-3 md:border-5 border-white/80 w-[40vw]"
+            stroke-color="#4a3410"
+            @click="startZenMode"
+          >
+            <div
+              class="btn-content absolute inset-0"
+              :class="{ hover }"
+            >
+              <base-polygon
+                class="absolute left-0 top-0 -translate-x-[70%] -translate-y-[50%] -rotate-30"
+                size="13rem"
+                shape="round"
+                fill="fence"
+                opacity="1"
+              />
+
+              <base-polygon
+                class="absolute right-0 bottom-0 translate-x-[60%] translate-y-[70%]"
+                size="13rem"
+                shape="round"
+                fill="solid"
+                opacity="1"
+              />
+
+              <base-polygon
+                class="absolute right-0 top-0 -translate-x-[40%] -translate-y-[70%]"
+                size="4rem"
+                shape="round"
+                fill="spot"
+                opacity="0.8"
+              />
+            </div>
+          </base-btn>
+
+          <!-- 多人遊戲 -->
+          <base-btn
+            v-slot="{ hover }"
+            label="Party Mode"
+            class="pointer-events-auto border-3 md:border-5 border-white/80 w-[40vw]"
+            stroke-color="#4a3410"
+            @click="startPartyMode"
+          >
+            <div
+              class="btn-content absolute inset-0"
+              :class="{ hover }"
+            >
+              <base-polygon
+                class="absolute left-0 top-0 -translate-x-[70%] -translate-y-[50%] -rotate-30"
+                size="13rem"
+                shape="pentagon"
+                fill="spot"
+                opacity="1"
+              />
+
+              <base-polygon
+                class="absolute right-0 bottom-0 translate-x-[50%] translate-y-[70%] rotate-45"
+                size="13rem"
+                shape="pentagon"
+                fill="spot"
+                opacity="1"
+              />
+            </div>
+          </base-btn>
+        </div>
+      </transition>
+
+      <div class="md:max-w-1/2 absolute top-0 right-0 p-4">
+        <u-alert
+          v-if="alertVisible"
+          v-model:open="alertVisible"
+          title="歡迎來到鱈魚的彈珠！"
+          icon="i-ph:fish-simple-bold"
+          close
+          color="neutral"
+        >
+          <template #description>
+            經研究證實，看彈珠滾啊滾，能有效降低大腦 CPU 使用率，這是為了防止社畜們過勞而生的醫療級網頁。(ゝ∀・)b
+
+            <br><br>
+            以上純屬瞎掰，其實沒什麼偉大的技術願景，純粹就是我想看東西滾來滾去而誕生的專案 (´,,•ω•,,)
+
+            <br><br>
+            不定期追加有趣的內容，歡迎一起<a
+              href="https://www.threads.com/@codfish2140"
+              target="_blank"
+              class=" underline!"
+            >放空、交流或許願功能</a> (*´∀`)~♥
+          </template>
+        </u-alert>
+      </div>
+
+      <transition name="opacity">
+        <loading-overlay
+          v-if="isLoading"
+          class="absolute left-0 top-0 w-full h-full "
+        />
+      </transition>
+    </div>
+  </u-app>
 </template>
 
 <script setup lang="ts">
@@ -110,8 +146,10 @@ import HeroLogo from './components/hero-logo.vue'
 import LoadingOverlay from './components/loading-overlay.vue'
 import RankingList from './components/ranking-list.vue'
 import { useFontLoader } from './composables/use-font-loader'
+import { useGameStore } from './domains/game/game-store'
 import { useBabylonScene } from './domains/game/use-babylon-scene'
 import { createMarble, GHOST_RENDERING_GROUP_ID, MARBLE_SIZE } from './domains/marble'
+import PartySetupModal from './domains/party-mode/party-setup-modal.vue'
 import { connectTracks, createTrackSegment } from './domains/track-segment'
 import { TrackSegmentType } from './domains/track-segment/data'
 import { useAssetStore } from './stores/asset-store'
@@ -126,6 +164,7 @@ colorMode.value = 'light'
 
 useFontLoader()
 const assetStore = useAssetStore()
+const gameStore = useGameStore()
 
 const breakpoint = useBreakpoints(breakpointsTailwind)
 const isMobile = breakpoint.smaller('md')
@@ -279,11 +318,15 @@ function respawnWithAnimation(
   })
 }
 
-const canStartGame = computed(() => {
+const defaultMenuVisible = computed(() => {
+  if (gameStore.mode === 'party') {
+    return false
+  }
+
   return gameState.value === 'idle' || gameState.value === 'over'
 })
 
-async function startGame() {
+async function startZenMode() {
   gameState.value = 'preparing'
 
   const firstTrackSegment = trackSegmentList.value[0]
@@ -352,6 +395,12 @@ async function startGame() {
 
   gameState.value = 'playing'
   startTime.value = Date.now()
+}
+
+const overlay = useOverlay()
+function startPartyMode() {
+  const modal = overlay.create(PartySetupModal)
+  modal.open()
 }
 
 const {
