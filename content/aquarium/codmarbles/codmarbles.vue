@@ -95,11 +95,11 @@
 </template>
 
 <script setup lang="ts">
-import type { Scene, StandardMaterial } from '@babylonjs/core'
+import type { Scene } from '@babylonjs/core'
 import type { TrackSegment } from './domains/track-segment'
 import type { GameState, Marble } from './types'
-import { ActionManager, AssetsManager, Color3, DirectionalLight, ExecuteCodeAction, MeshBuilder, PhysicsMotionType, PhysicsShapeType, Quaternion, Ray, ShadowGenerator, TransformNode, Vector3 } from '@babylonjs/core'
-import { breakpointsTailwind, useBreakpoints, useEventListener, useThrottleFn } from '@vueuse/core'
+import { ActionManager, AssetsManager, Color3, DirectionalLight, ExecuteCodeAction, MeshBuilder, PhysicsMotionType, ShadowGenerator, TransformNode, Vector3 } from '@babylonjs/core'
+import { breakpointsTailwind, useBreakpoints, useColorMode, useEventListener, useThrottleFn } from '@vueuse/core'
 import { animate, cubicBezier } from 'animejs'
 import { filter, firstBy, map, pipe, shuffle, tap, values } from 'remeda'
 import { computed, ref, shallowRef, triggerRef } from 'vue'
@@ -119,6 +119,10 @@ import { useAssetStore } from './stores/asset-store'
 const alertVisible = ref(true)
 const isLoading = ref(true)
 const gameState = ref<GameState>('idle')
+
+// Nuxt UI 接管 vitepress 的 dark 設定，故改用 useColorMode
+const colorMode = useColorMode()
+colorMode.value = 'light'
 
 useFontLoader()
 const assetStore = useAssetStore()
