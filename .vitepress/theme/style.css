@@ -165,6 +165,10 @@ img {
   border: solid 1px #F0F0F0;
 }
 
+a {
+  text-decoration: none;
+}
+
 .vp-doc {
   text-align: left;
 }
