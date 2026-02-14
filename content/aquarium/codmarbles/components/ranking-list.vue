@@ -79,26 +79,29 @@ function handleFocusMarble(marble: Marble) {
   focusedMarble.value = marble
 }
 
-const marbleList = computed(() => props.rankingList.map((marble) => {
-  const className: string[] = []
+const marbleList = computed(() => props.rankingList
+  .filter(({ mesh }) => mesh.isEnabled())
+  .map((marble) => {
+    const className: string[] = []
 
-  if (marble.finishedAt > 0 && recordVisible.value) {
-    className.push('bg-yellow-50 border-yellow-400 shadow-md')
-  }
-  else {
-    className.push('bg-white border-transparent')
-  }
+    if (marble.finishedAt > 0 && recordVisible.value) {
+      className.push('bg-yellow-50 border-yellow-400 shadow-md')
+    }
+    else {
+      className.push('bg-white border-transparent')
+    }
 
-  if (focusedMarble.value?.mesh.name === marble.mesh.name) {
-    className.push('scale-105 ring-2 ring-red-500')
-  }
+    if (focusedMarble.value?.mesh.name === marble.mesh.name) {
+      className.push('scale-105 ring-2 ring-red-500')
+    }
 
-  return {
-    ...marble,
-    finishedAt: props.startTime > 0 ? marble.finishedAt - props.startTime : 0,
-    className,
-  }
-}))
+    return {
+      ...marble,
+      finishedAt: props.startTime > 0 ? marble.finishedAt - props.startTime : 0,
+      className,
+    }
+  }),
+)
 
 const recordVisible = computed(() => props.gameState === 'over' || props.gameState === 'playing')
 </script>

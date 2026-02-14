@@ -122,7 +122,7 @@ export function createMarble({
   }
 
   // 建立幽靈彈珠，可穿透障礙物，方便觀察
-  pipe(
+  const ghostMarble = pipe(
     marble.clone('ghostMarble'),
     tap((ghostMarble) => {
       ghostMarble.material = ghostMat
@@ -161,6 +161,10 @@ export function createMarble({
     { mass: 1, restitution: 0.1, friction: 0 },
     scene,
   )
+
+  marble.onEnabledStateChangedObservable.add((isEnabled) => {
+    ghostMarble.setEnabled(isEnabled)
+  })
 
   const result = {
     name: getRandomMarbleName(),

@@ -399,6 +399,13 @@ async function startZenMode() {
 
 const overlay = useOverlay()
 function startPartyMode() {
+  marbleList.value = marbleList.value.map((marble, i) => {
+    if (i !== 0) {
+      marble.mesh.setEnabled(false)
+    }
+    return marble
+  })
+
   const modal = overlay.create(PartySetupModal)
   modal.open()
 }
