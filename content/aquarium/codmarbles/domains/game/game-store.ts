@@ -6,6 +6,28 @@ import { defineStore } from 'pinia'
 import QRCode from 'qrcode'
 import { pipe, tap } from 'remeda'
 import { computed, ref, shallowRef } from 'vue'
+import z from 'zod/v4'
+
+export const peerDataSchema = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('players'),
+    players: z.array(z.object({
+      id: z.string(),
+      name: z.string(),
+      index: z.number(),
+    })),
+  }),
+  z.object({
+    type: z.literal('client-join'),
+    name: z.string(),
+  }),
+  z.object({
+    type: z.literal('server-reject'),
+    title: z.string(),
+    description: z.string(),
+  }),
+])
+export type PeerData = z.infer<typeof peerDataSchema>
 
 export const useGameStore = defineStore('game', () => {
   /** 玩家端之目標房間 ID */
@@ -13,6 +35,7 @@ export const useGameStore = defineStore('game', () => {
     new URLSearchParams(window.location.search),
     (urlParams) => urlParams.get('host'),
   )
+    console.log(`🚀 ~ window.location.search:`, window.location);
   console.log(`🚀 ~ hostId:`, hostId)
 
   const mode = ref<GameMode>()
@@ -26,10 +49,15 @@ export const useGameStore = defineStore('game', () => {
     }
 
     const joinUrl = `${window.location.origin}/aquarium/codmarbles/?host=${id}`
+    console.log(`🚀 ~ joinUrl:`, joinUrl);
     return QRCode.toDataURL(joinUrl)
   }, '')
 
-  const connections = new Map<string, DataConnection>()
+  const playerList = ref<Array<{
+    id: string;
+    name: string;
+    index: number;
+  }>>([])
 
   function init() {
     const newPeer = new Peer()
@@ -63,18 +91,44 @@ export const useGameStore = defineStore('game', () => {
         console.log('新玩家連線:', dataConnection.peer)
 
         dataConnection.on('open', () => {
-          connections.set(dataConnection.peer, dataConnection)
-          // TODO: 在 Babylon 場景中生成一顆彈珠，綁定 conn.peer 為 ID
-          // createMarble(conn.peer);
+          playerList.value.push({
+            id: dataConnection.peer,
+            name: '',
+            index: playerList.value.length,
+          })
         })
 
-        dataConnection.on('data', (data: any) => {
-          console.log(`🚀 ~ data:`, data)
+        dataConnection.on('data', (data: unknown) => {
+          const parsedData = peerDataSchema.safeParse(data)
+          if (!parsedData.success) {
+            console.error('Invalid data:', parsedData.error)
+            return
+          }
+
+          const { type } = parsedData.data
+          switch (type) {
+            case 'players': {
+              playerList.value = parsedData.data.players
+              break
+            }
+            case 'client-join': {
+              playerList.value.push({
+                id: dataConnection.peer,
+                name: parsedData.data.name,
+                index: playerList.value.length,
+              })
+              break
+            }
+          }
+          console.log(`🚀 ~ data:`, parsedData)
         })
 
         dataConnection.on('close', () => {
           console.log('玩家斷線:', dataConnection.peer)
-          connections.delete(dataConnection.peer)
+          const index = playerList.value.findIndex((player) => player.id === dataConnection.peer)
+          if (index !== -1) {
+            playerList.value.splice(index, 1)
+          }
         })
       })
     }
@@ -83,7 +137,7 @@ export const useGameStore = defineStore('game', () => {
   }
   init()
 
-  function createParty() {
+  function setupParty() {
     mode.value = 'party'
     isHost.value = true
   }
@@ -93,7 +147,8 @@ export const useGameStore = defineStore('game', () => {
     isHost: computed(() => isHost.value),
     peerId: computed(() => peerId.value),
     joinUrlQrCode,
+    playerList,
 
-    createParty,
+    setupParty,
   }
 })

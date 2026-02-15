@@ -7,6 +7,7 @@ export interface Marble {
   name: string;
   hexColor: string;
   mesh: Mesh;
+  index: number;
   lastCheckPointIndex: number;
   isRespawning: boolean;
   isGrounded: boolean;

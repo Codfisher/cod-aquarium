@@ -72,6 +72,7 @@ export function createMarble({
   startPosition = Vector3.Zero(),
   color,
   gameState,
+  index,
 }: {
   scene: Scene;
   engine: BabylonEngine;
@@ -79,6 +80,7 @@ export function createMarble({
   startPosition?: Vector3;
   color?: Color3;
   gameState: Ref<GameState>;
+  index: number;
 }): Marble {
   const marble = MeshBuilder.CreateSphere(nanoid(), {
     diameter: MARBLE_SIZE,
@@ -167,6 +169,7 @@ export function createMarble({
   })
 
   const result = {
+    index,
     name: getRandomMarbleName(),
     hexColor: finalColor.toGammaSpace().toHexString(),
     mesh: marble,

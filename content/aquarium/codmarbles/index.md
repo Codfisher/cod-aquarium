@@ -10,5 +10,5 @@ import Codmarbles from './codmarbles.vue'
 </script>
 
 <iframe data-why class=" fixed w-dvw h-dvh">
-<codmarbles />
+  <codmarbles />
 </iframe>

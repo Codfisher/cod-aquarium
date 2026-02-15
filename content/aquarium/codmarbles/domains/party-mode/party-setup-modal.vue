@@ -5,7 +5,6 @@
     :ui="{
       content: 'rounded-2xl',
     }"
-    @update:open="handleOpen"
   >
     <slot />
 
@@ -20,15 +19,7 @@
 </template>
 
 <script setup lang="ts">
-import { computedAsync } from '@vueuse/core'
-import QRCode from 'qrcode'
 import { useGameStore } from '../game/game-store'
 
 const gameStore = useGameStore()
-
-function handleOpen(open: boolean) {
-  if (open) {
-    gameStore.createParty()
-  }
-}
 </script>

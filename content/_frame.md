@@ -6,7 +6,6 @@ layout: false
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { createI18n } from 'vue-i18n'
 import { createApp } from 'whyframe:app'
 
 const el = ref<HTMLDivElement>()

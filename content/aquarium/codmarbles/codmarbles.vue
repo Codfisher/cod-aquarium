@@ -1,9 +1,7 @@
 <template>
-  <u-app
-    :toaster="{
-      position: 'top-right',
-    }"
-  >
+  <u-app :toaster="{
+    position: 'top-right',
+  }">
     <div class="fixed w-dvw h-dvh p-0 m-0">
       <canvas
         v-once
@@ -25,73 +23,133 @@
         >
           <hero-logo class="mb-10" />
 
-          <!-- 遊戲開始按鈕 -->
-          <base-btn
-            v-slot="{ hover }"
-            label="Zen Mode"
-            class="pointer-events-auto border-3 md:border-5 border-white/80 w-[40vw]"
-            stroke-color="#4a3410"
-            @click="startZenMode"
+          <!-- 主選單 -->
+          <transition
+            name="opacity"
+            mode="out-in"
           >
             <div
-              class="btn-content absolute inset-0"
-              :class="{ hover }"
+              v-if="gameStore.mode !== 'party'"
+              class="flex flex-col pointer-events-auto gap-10"
             >
-              <base-polygon
-                class="absolute left-0 top-0 -translate-x-[70%] -translate-y-[50%] -rotate-30"
-                size="13rem"
-                shape="round"
-                fill="fence"
-                opacity="1"
-              />
+              <!-- 遊戲開始按鈕 -->
+              <base-btn
+                v-slot="{ hover }"
+                label="Zen Mode"
+                class=" border-3 md:border-5 border-white/80 w-[40vw]"
+                stroke-color="#4a3410"
+                @click="startZenMode"
+              >
+                <div
+                  class="btn-content absolute inset-0"
+                  :class="{ hover }"
+                >
+                  <base-polygon
+                    class="absolute left-0 top-0 -translate-x-[70%] -translate-y-[50%] -rotate-30"
+                    size="13rem"
+                    shape="round"
+                    fill="fence"
+                    opacity="1"
+                  />
 
-              <base-polygon
-                class="absolute right-0 bottom-0 translate-x-[60%] translate-y-[70%]"
-                size="13rem"
-                shape="round"
-                fill="solid"
-                opacity="1"
-              />
+                  <base-polygon
+                    class="absolute right-0 bottom-0 translate-x-[60%] translate-y-[70%]"
+                    size="13rem"
+                    shape="round"
+                    fill="solid"
+                    opacity="1"
+                  />
 
-              <base-polygon
-                class="absolute right-0 top-0 -translate-x-[40%] -translate-y-[70%]"
-                size="4rem"
-                shape="round"
-                fill="spot"
-                opacity="0.8"
-              />
+                  <base-polygon
+                    class="absolute right-0 top-0 -translate-x-[40%] -translate-y-[70%]"
+                    size="4rem"
+                    shape="round"
+                    fill="spot"
+                    opacity="0.8"
+                  />
+                </div>
+              </base-btn>
+
+              <!-- 多人遊戲 -->
+              <base-btn
+                v-slot="{ hover }"
+                label="Party Mode"
+                class=" border-3 md:border-5 border-white/80 w-[40vw]"
+                stroke-color="#4a3410"
+                @click="openPartySetupModal"
+              >
+                <div
+                  class="btn-content absolute inset-0"
+                  :class="{ hover }"
+                >
+                  <base-polygon
+                    class="absolute left-0 top-0 -translate-x-[70%] -translate-y-[50%] -rotate-30"
+                    size="13rem"
+                    shape="pentagon"
+                    fill="spot"
+                    opacity="1"
+                  />
+
+                  <base-polygon
+                    class="absolute right-0 bottom-0 translate-x-[50%] translate-y-[70%] rotate-45"
+                    size="13rem"
+                    shape="pentagon"
+                    fill="spot"
+                    opacity="1"
+                  />
+                </div>
+              </base-btn>
             </div>
-          </base-btn>
 
-          <!-- 多人遊戲 -->
-          <base-btn
-            v-slot="{ hover }"
-            label="Party Mode"
-            class="pointer-events-auto border-3 md:border-5 border-white/80 w-[40vw]"
-            stroke-color="#4a3410"
-            @click="startPartyMode"
-          >
             <div
-              class="btn-content absolute inset-0"
-              :class="{ hover }"
+              v-else
+              class="flex flex-col pointer-events-auto gap-10"
             >
-              <base-polygon
-                class="absolute left-0 top-0 -translate-x-[70%] -translate-y-[50%] -rotate-30"
-                size="13rem"
-                shape="pentagon"
-                fill="spot"
-                opacity="1"
-              />
+              <!-- 開始多人遊戲 -->
+              <base-btn
+                v-slot="{ hover }"
+                label="Start Party"
+                class=" border-3 md:border-5 border-white/80 w-[40vw]"
+                stroke-color="#4a3410"
+                @click="start"
+              >
+                <div
+                  class="btn-content absolute inset-0"
+                  :class="{ hover }"
+                >
+                  <base-polygon
+                    class="absolute left-0 top-0 -translate-x-[70%] -translate-y-[50%] -rotate-30"
+                    size="13rem"
+                    shape="round"
+                    fill="fence"
+                    opacity="1"
+                  />
 
-              <base-polygon
-                class="absolute right-0 bottom-0 translate-x-[50%] translate-y-[70%] rotate-45"
-                size="13rem"
-                shape="pentagon"
-                fill="spot"
-                opacity="1"
+                  <base-polygon
+                    class="absolute right-0 bottom-0 translate-x-[60%] translate-y-[70%]"
+                    size="13rem"
+                    shape="round"
+                    fill="solid"
+                    opacity="1"
+                  />
+
+                  <base-polygon
+                    class="absolute right-0 top-0 -translate-x-[40%] -translate-y-[70%]"
+                    size="4rem"
+                    shape="round"
+                    fill="spot"
+                    opacity="0.8"
+                  />
+                </div>
+              </base-btn>
+
+              <u-icon
+                name="i-material-symbols:qr-code-scanner"
+                class=" absolute right-6 bottom-6 text-4xl text-white cursor-pointer"
+                @click="openPartySetupModal"
               />
             </div>
-          </base-btn>
+          </transition>
         </div>
       </transition>
 
@@ -138,7 +196,7 @@ import { ActionManager, AssetsManager, Color3, DirectionalLight, ExecuteCodeActi
 import { breakpointsTailwind, useBreakpoints, useColorMode, useEventListener, useThrottleFn } from '@vueuse/core'
 import { animate, cubicBezier } from 'animejs'
 import { filter, firstBy, map, pipe, shuffle, tap, values } from 'remeda'
-import { computed, ref, shallowRef, triggerRef } from 'vue'
+import { computed, ref, shallowRef, triggerRef, watch } from 'vue'
 import { nextFrame } from '../../../web/common/utils'
 import BaseBtn from './components/base-btn.vue'
 import BasePolygon from './components/base-polygon.vue'
@@ -154,6 +212,7 @@ import { connectTracks, createTrackSegment } from './domains/track-segment'
 import { TrackSegmentType } from './domains/track-segment/data'
 import { useAssetStore } from './stores/asset-store'
 
+const toast = useToast()
 const alertVisible = ref(true)
 const isLoading = ref(true)
 const gameState = ref<GameState>('idle')
@@ -319,14 +378,10 @@ function respawnWithAnimation(
 }
 
 const defaultMenuVisible = computed(() => {
-  if (gameStore.mode === 'party') {
-    return false
-  }
-
   return gameState.value === 'idle' || gameState.value === 'over'
 })
 
-async function startZenMode() {
+async function start() {
   gameState.value = 'preparing'
 
   const firstTrackSegment = trackSegmentList.value[0]
@@ -396,9 +451,13 @@ async function startZenMode() {
   gameState.value = 'playing'
   startTime.value = Date.now()
 }
+async function startZenMode() {
+  start()
+}
 
+// --- Party Mode ---
 const overlay = useOverlay()
-function startPartyMode() {
+function openPartySetupModal() {
   marbleList.value = marbleList.value.map((marble, i) => {
     if (i !== 0) {
       marble.mesh.setEnabled(false)
@@ -408,7 +467,23 @@ function startPartyMode() {
 
   const modal = overlay.create(PartySetupModal)
   modal.open()
+
+  gameStore.setupParty()
 }
+
+watch(() => gameStore.playerList, (list) => {
+  marbleList.value = marbleList.value.map((marble, i) => {
+    const player = list[i]
+    if (!player) {
+      marble.mesh.setEnabled(false)
+      return marble
+    }
+
+    marble.mesh.setEnabled(true)
+    marble.name = player.name
+    return marble
+  })
+})
 
 const {
   canvasRef,
@@ -483,6 +558,7 @@ const {
       )
 
       const marble = createMarble({
+        index: i,
         scene,
         engine,
         shadowGenerator,
@@ -715,8 +791,12 @@ const {
 useEventListener(canvasRef, 'webglcontextlost', (e) => {
   e.preventDefault()
 
-  // eslint-disable-next-line no-alert
-  alert('WebGL context lost, please try to reload the page')
+  toast.add({
+    title: 'WebGL context lost',
+    description: 'Please try to reload the page',
+    color: 'error',
+    duration: 0,
+  })
 })
 </script>
 
