@@ -58,11 +58,6 @@ function _useClientPlayer() {
           state.value = parsedData.data.state as GameState
           break
         }
-        case 'host:reject': {
-          rejectHook.trigger(parsedData.data)
-          console.log(`🚀 ~ parsedData:`, parsedData);
-          break
-        }
       }
     })
   }, {
@@ -82,7 +77,6 @@ function _useClientPlayer() {
         type: 'client:requestAllData',
       })
     },
-    onReject: rejectHook.on,
   }
 }
 

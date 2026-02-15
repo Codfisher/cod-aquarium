@@ -1,6 +1,6 @@
 import type { DataConnection, Peer } from 'peerjs'
 import type { GameMode, GameState } from '../../types'
-import { useIntervalFn } from '@vueuse/core'
+import { promiseTimeout, useIntervalFn } from '@vueuse/core'
 import { defineStore } from 'pinia'
 import { pipe, tap } from 'remeda'
 import { computed, onMounted, ref, shallowRef, watch } from 'vue'
@@ -193,6 +193,16 @@ export const useGameStore = defineStore('game', () => {
                 title: parsedData.data.title,
                 description: parsedData.data.description,
                 color: 'error',
+                duration: 0,
+                actions: [
+                  {
+                    label: '重新連線',
+                    color: 'error',
+                    onClick: () => {
+                      window.location.reload()
+                    },
+                  },
+                ],
               })
               break
             }
@@ -202,24 +212,34 @@ export const useGameStore = defineStore('game', () => {
     }
     // host 邏輯
     else {
-      newPeer.on('connection', (dataConnection) => {
-        if (playerList.value.length >= 10) {
-          send(dataConnection, {
-            type: 'host:reject',
-            title: '玩家已滿',
-            description: '無法加入遊戲',
-          })
+      newPeer.on('connection', async (dataConnection) => {
+        const rejected = await pipe('', async () => {
+          if (playerList.value.length >= 10) {
+            // 太快回應 client 會收不到
+            await promiseTimeout(3000)
+            send(dataConnection, {
+              type: 'host:reject',
+              title: '玩家已滿 ╭(°A ,°`)╮',
+              description: '無法加入遊戲，請稍後再試',
+            })
 
-          dataConnection.close()
-          return
-        }
-        if (state.value !== 'idle' && state.value !== 'over') {
-          send(dataConnection, {
-            type: 'host:reject',
-            title: '遊戲進行中',
-            description: '無法加入遊戲',
-          })
+            return true
+          }
+          if (state.value !== 'idle' && state.value !== 'over') {
+            await promiseTimeout(3000)
+            send(dataConnection, {
+              type: 'host:reject',
+              title: '遊戲進行中 (。-`ω´-)',
+              description: '遊戲結束後再加入',
+            })
 
+            return true
+          }
+
+          return false
+        })
+
+        if (rejected) {
           dataConnection.close()
           return
         }

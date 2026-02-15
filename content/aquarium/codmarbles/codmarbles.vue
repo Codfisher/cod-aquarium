@@ -111,7 +111,7 @@
                 label="Start Party"
                 class=" border-3 md:border-5 border-white/80 w-[80vw] md:w-[40vw] lg:w-[30vw]"
                 stroke-color="#4a3410"
-                @click="start"
+                @click="startPartyMode"
               >
                 <div
                   class="btn-content absolute inset-0"
@@ -361,27 +361,18 @@ const updateRanking = useThrottleFn(() => {
   rankingList.value = marbleList.value
     .filter((marble) => marble.mesh.isEnabled())
     .sort((a, b) => {
-      // 若有人正在掉落，則先不交換排名
-      if (!a.isGrounded || !b.isGrounded) {
-        return 0
-      }
-
       const aFinished = a.finishedAt > 0
       const bFinished = b.finishedAt > 0
 
-      if (aFinished !== bFinished) {
-        return aFinished ? -1 : 1
-      }
+      // ✅ 完賽的一定先排，且用 finishedAt 排名
+      if (aFinished !== bFinished) return aFinished ? -1 : 1
+      if (aFinished && bFinished) return a.finishedAt - b.finishedAt
 
-      if (aFinished && bFinished) {
-        return a.finishedAt - b.finishedAt
-      }
+      if (!a.isGrounded || !b.isGrounded) return 0
 
-      // 優先比較檢查點索引 (大的在前)
       if (a.lastCheckPointIndex !== b.lastCheckPointIndex) {
         return b.lastCheckPointIndex - a.lastCheckPointIndex
       }
-      // 如果在同一個檢查點區間，Y 越小代表跑越下面 (越快)
       return a.mesh.position.y - b.mesh.position.y
     })
 
@@ -512,6 +503,18 @@ async function start() {
   gameState.value = 'playing'
 }
 async function startZenMode() {
+  start()
+}
+async function startPartyMode() {
+  if (gameStore.playerList.length <= 1) {
+    toast.add({
+      title: '玩家數量不足 ԅ( ˘ω˘ԅ)',
+      description: '至少需要 2 位玩家才能開始派對模式',
+      color: 'error',
+    })
+    return
+  }
+
   start()
 }
 
