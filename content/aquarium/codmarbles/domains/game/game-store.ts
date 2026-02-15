@@ -86,6 +86,7 @@ export const useGameStore = defineStore('game', () => {
     flush: 'post',
   })
 
+  const toast = useToast()
   const mode = ref<GameMode | undefined>(hostId ? 'party' : undefined)
   const isHost = ref(!hostId)
 
@@ -178,6 +179,25 @@ export const useGameStore = defineStore('game', () => {
       newPeer.on('open', () => {
         const dataConnection = newPeer.connect(hostId)
         selfConnection.value = dataConnection
+
+        dataConnection.on('data', (data) => {
+          const parsedData = peerDataSchema.safeParse(data)
+          if (!parsedData.success) {
+            console.error('Invalid data:', parsedData.error)
+            return
+          }
+
+          switch (parsedData.data.type) {
+            case 'host:reject': {
+              toast.add({
+                title: parsedData.data.title,
+                description: parsedData.data.description,
+                color: 'error',
+              })
+              break
+            }
+          }
+        })
       })
     }
     // host 邏輯
