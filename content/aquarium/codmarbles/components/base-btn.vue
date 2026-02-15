@@ -12,7 +12,7 @@
 
     <!-- label -->
     <div
-      class="label relative font-black tracking-widest stroke"
+      class="label relative tracking-widest stroke"
       :style="labelStyle"
     >
       {{ props.label }}
