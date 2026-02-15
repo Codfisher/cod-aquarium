@@ -852,14 +852,17 @@ const {
               return
             }
 
-            marble.mesh.position.set(
+            const target = new Vector3(
               marbleData.position[0]!,
               marbleData.position[1]!,
               marbleData.position[2]!,
             )
+            Vector3.LerpToRef(marble.mesh.position, target, 0.1, marble.mesh.position)
+
             marble.isGrounded = marbleData.isGrounded
             marble.finishedAt = marbleData.finishedAt
           })
+          marbleList.value = [...marbleList.value]
         }
       }, undefined, true)
     })
