@@ -148,7 +148,7 @@ export const useGameStore = defineStore('game', () => {
         marbleData: marbleDataList.value,
       })
     })
-  }, 10, {
+  }, 5, {
     immediate: false,
     immediateCallback: false,
   })

@@ -210,7 +210,7 @@ import type { Scene } from '@babylonjs/core'
 import type { TrackSegment } from './domains/track-segment'
 import type { GameState, Marble } from './types'
 import { ActionManager, AssetsManager, Color3, DirectionalLight, ExecuteCodeAction, MeshBuilder, PhysicsMotionType, ShadowGenerator, TransformNode, Vector3 } from '@babylonjs/core'
-import { breakpointsTailwind, useBreakpoints, useColorMode, useEventListener, useThrottleFn } from '@vueuse/core'
+import { breakpointsTailwind, promiseTimeout, useBreakpoints, useColorMode, useEventListener, useThrottleFn } from '@vueuse/core'
 import { animate, cubicBezier } from 'animejs'
 import { filter, firstBy, map, pipe, shuffle, tap, values } from 'remeda'
 import { computed, reactive, ref, shallowRef, triggerRef, watch } from 'vue'
@@ -437,48 +437,46 @@ async function start() {
     })
   }
 
-  const tasks = marbleList.value.map(async (marble, i) => {
-    if (!marble.mesh.isEnabled()) {
-      return
-    }
+  const tasks = marbleList.value
+    .filter((marble) => marble.mesh.isEnabled())
+    .map(async (marble, i) => {
+      const physicsBody = marble.mesh.physicsBody
+      if (!physicsBody)
+        return
 
-    const physicsBody = marble.mesh.physicsBody
-    if (!physicsBody)
-      return
+      physicsBody.disablePreStep = false
+      physicsBody.setMotionType(PhysicsMotionType.ANIMATED)
+      physicsBody.setLinearVelocity(Vector3.Zero())
+      physicsBody.setAngularVelocity(Vector3.Zero())
 
-    physicsBody.disablePreStep = false
-    physicsBody.setMotionType(PhysicsMotionType.ANIMATED)
-    physicsBody.setLinearVelocity(Vector3.Zero())
-    physicsBody.setAngularVelocity(Vector3.Zero())
+      const targetPosition = startPosition.clone()
+      targetPosition.x += Math.random() / 10
+      targetPosition.y += (MARBLE_SIZE * i) + 1
 
-    const targetPosition = startPosition.clone()
-    targetPosition.x += Math.random() / 10
-    targetPosition.y += (MARBLE_SIZE * i) + 1
+      const delay = i * 20
+      animate(marble.mesh.position, {
+        y: targetPosition.y,
+        duration,
+        delay,
+        ease: cubicBezier(0.1, 0.011, 0, 1),
+      })
 
-    const delay = i * 20
-    animate(marble.mesh.position, {
-      y: targetPosition.y,
-      duration,
-      delay,
-      ease: cubicBezier(0.1, 0.011, 0, 1),
+      return animate(marble.mesh.position, {
+        x: targetPosition.x,
+        z: targetPosition.z,
+        duration,
+        delay,
+        ease: cubicBezier(0.826, 0.005, 0.259, 0.971),
+        onComplete() {
+          marble.finishedAt = 0
+
+          marble.isRespawning = false
+          physicsBody.disablePreStep = true
+          marble.mesh.computeWorldMatrix(true)
+          physicsBody.setMotionType(PhysicsMotionType.DYNAMIC)
+        },
+      }).then()
     })
-
-    return animate(marble.mesh.position, {
-      x: targetPosition.x,
-      z: targetPosition.z,
-      duration,
-      delay,
-      ease: cubicBezier(0.826, 0.005, 0.259, 0.971),
-      onComplete() {
-        marble.finishedAt = 0
-
-        marble.isRespawning = false
-        physicsBody.disablePreStep = true
-        marble.mesh.computeWorldMatrix(true)
-        physicsBody.setMotionType(PhysicsMotionType.DYNAMIC)
-      },
-    }).then()
-  })
 
   await Promise.all(tasks)
 
@@ -856,8 +854,7 @@ const {
 
           })
         }
-
-      })
+      }, undefined, true)
     })
 
     await nextFrame()
@@ -866,7 +863,7 @@ const {
 
     if (isPartyClient) {
       clientPlayer.requestAllData()
-      await nextFrame()
+      await promiseTimeout(1000)
       clientPlayer.requestAllData()
     }
   },

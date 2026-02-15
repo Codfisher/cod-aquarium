@@ -2,7 +2,7 @@ import type { Scene, ShadowGenerator, TransformNode } from '@babylonjs/core'
 import type { Ref } from 'vue'
 import type { BabylonEngine } from '../../../codstack/composables/use-babylon-scene'
 import type { GameState, Marble } from '../../types'
-import { Color3, Engine, MeshBuilder, PBRMaterial, PhysicsAggregate, PhysicsShapeType, Quaternion, Ray, StandardMaterial, Vector3 } from '@babylonjs/core'
+import { Color3, Engine, MeshBuilder, PBRMaterial, PhysicsAggregate, PhysicsMotionType, PhysicsShapeType, Quaternion, Ray, StandardMaterial, Vector3 } from '@babylonjs/core'
 import { random } from 'lodash-es'
 import { nanoid } from 'nanoid'
 import { pipe, shuffle, tap } from 'remeda'
@@ -174,6 +174,17 @@ export function createMarble({
 
   marble.onEnabledStateChangedObservable.add((isEnabled) => {
     ghostMarble.setEnabled(isEnabled)
+
+    if (physicsAggregate) {
+      if (isEnabled) {
+        physicsAggregate.body.setMotionType(PhysicsMotionType.DYNAMIC)
+        physicsAggregate.body.disablePreStep = false
+      }
+      else {
+        physicsAggregate.body.setMotionType(PhysicsMotionType.STATIC)
+        physicsAggregate.body.disablePreStep = true
+      }
+    }
   })
 
   const result = {
