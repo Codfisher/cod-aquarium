@@ -9,6 +9,6 @@ layout: false
 import Codmarbles from './codmarbles.vue'
 </script>
 
-<!-- <iframe data-why class=" fixed inset-0 w-dvw h-dvh"> -->
-<codmarbles />
-<!-- </iframe> -->
+<iframe data-why class=" fixed w-dvw h-dvh">
+  <codmarbles />
+</iframe>

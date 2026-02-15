@@ -1,90 +1,88 @@
 <template>
-  <client-only>
-    <u-app
-      :toaster="{
-        position: 'top-right',
-      }"
-    >
-      <u-dashboard-group storage="local">
-        <u-dashboard-sidebar
-          :min-size="20"
-          :default-size="25"
-          resizable
-          :max-size="50"
-        >
-          <file-preview-panel
-            v-model:selected-model-file="selectedModelFile"
-            v-model:model-file-list="modelFileList"
-          />
-        </u-dashboard-sidebar>
+  <u-app
+    :toaster="{
+      position: 'top-right',
+    }"
+  >
+    <u-dashboard-group storage="local">
+      <u-dashboard-sidebar
+        :min-size="20"
+        :default-size="25"
+        resizable
+        :max-size="50"
+      >
+        <file-preview-panel
+          v-model:selected-model-file="selectedModelFile"
+          v-model:model-file-list="modelFileList"
+        />
+      </u-dashboard-sidebar>
 
-        <scene-viewer
-          v-slot="{ addedMeshList }"
-          class="w-full h-full"
-          :selected-model-file="selectedModelFile"
-          :imported-scene-data="importedSceneData"
-          @cancel-preview="cancelPreview"
-          @use-as-preview="handleUseAsPreview"
-        >
-          <div class="flex flex-col absolute left-0 bottom-0 p-2 gap-1">
-            <bulletin-modal v-model:open="bulletinVisible">
-              <u-icon
-                name="material-symbols:notifications-outline-rounded"
-                class="text-gray-400 size-14 p-2 cursor-pointer filter-[drop-shadow(0_0_4px_#FFF)]"
+      <scene-viewer
+        v-slot="{ addedMeshList }"
+        class="w-full h-full"
+        :selected-model-file="selectedModelFile"
+        :imported-scene-data="importedSceneData"
+        @cancel-preview="cancelPreview"
+        @use-as-preview="handleUseAsPreview"
+      >
+        <div class="flex flex-col absolute left-0 bottom-0 p-2 gap-1">
+          <bulletin-modal v-model:open="bulletinVisible">
+            <u-icon
+              name="material-symbols:notifications-outline-rounded"
+              class="text-gray-400 size-14 p-2 cursor-pointer filter-[drop-shadow(0_0_4px_#FFF)]"
+            />
+          </bulletin-modal>
+
+          <help-modal>
+            <u-icon
+              name="i-material-symbols:help-outline-rounded"
+              class="text-gray-400 size-14 p-2 cursor-pointer filter-[drop-shadow(0_0_4px_#FFF)]"
+            />
+          </help-modal>
+        </div>
+
+        <div class="flex flex-col absolute left-0 top-0 p-4 gap-2">
+          <import-modal @data="handleImportData">
+            <u-tooltip
+              :text="importBtnState.tooltip"
+              :content="{ side: 'right' }"
+              :delay-duration="importBtnState.disabled ? 0 : undefined"
+            >
+              <u-button
+                icon="i-material-symbols:database-upload-outline-rounded"
+                color="neutral"
+                variant="subtle"
+                size="xl"
+                :disabled="importBtnState.disabled"
               />
-            </bulletin-modal>
+            </u-tooltip>
+          </import-modal>
 
-            <help-modal>
-              <u-icon
-                name="i-material-symbols:help-outline-rounded"
-                class="text-gray-400 size-14 p-2 cursor-pointer filter-[drop-shadow(0_0_4px_#FFF)]"
+          <export-modal :mesh-list="addedMeshList">
+            <u-tooltip
+              text="Export scene"
+              :content="{ side: 'right' }"
+            >
+              <u-button
+                icon="i-material-symbols:download-2-rounded"
+                color="neutral"
+                variant="subtle"
+                size="xl"
               />
-            </help-modal>
-          </div>
+            </u-tooltip>
+          </export-modal>
+        </div>
+      </scene-viewer>
+    </u-dashboard-group>
 
-          <div class="flex flex-col absolute left-0 top-0 p-4 gap-2">
-            <import-modal @data="handleImportData">
-              <u-tooltip
-                :text="importBtnState.tooltip"
-                :content="{ side: 'right' }"
-                :delay-duration="importBtnState.disabled ? 0 : undefined"
-              >
-                <u-button
-                  icon="i-material-symbols:database-upload-outline-rounded"
-                  color="neutral"
-                  variant="subtle"
-                  size="xl"
-                  :disabled="importBtnState.disabled"
-                />
-              </u-tooltip>
-            </import-modal>
+    <div class="font-orbitron fixed right-0 bottom-0 p-2 px-3 opacity-50">
+      <span class="text-base">CodStack</span>
 
-            <export-modal :mesh-list="addedMeshList">
-              <u-tooltip
-                text="Export scene"
-                :content="{ side: 'right' }"
-              >
-                <u-button
-                  icon="i-material-symbols:download-2-rounded"
-                  color="neutral"
-                  variant="subtle"
-                  size="xl"
-                />
-              </u-tooltip>
-            </export-modal>
-          </div>
-        </scene-viewer>
-      </u-dashboard-group>
-
-      <div class="font-orbitron fixed right-0 bottom-0 p-2 px-3 opacity-50">
-        <span class="text-base">CodStack</span>
-
-        <span class="ml-1 text-xs text-gray-500">
-          v{{ version }}
-        </span>
-      </div>
-    </u-app>
-  </client-only>
+      <span class="ml-1 text-xs text-gray-500">
+        v{{ version }}
+      </span>
+    </div>
+  </u-app>
 </template>
 
 <script setup lang="ts">

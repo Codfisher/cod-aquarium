@@ -1,11 +1,13 @@
 import type { Mesh } from '@babylonjs/core'
 
+export type GameMode = 'zen' | 'party'
 export type GameState = 'idle' | 'preparing' | 'playing' | 'over'
 
 export interface Marble {
   name: string;
   hexColor: string;
   mesh: Mesh;
+  index: number;
   lastCheckPointIndex: number;
   isRespawning: boolean;
   isGrounded: boolean;

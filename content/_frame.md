@@ -2,11 +2,10 @@
 layout: false
 ---
 
-<div ref="el" class="flex h-screen flex-col justify-center px-6 pb-5"></div>
+<div ref="el" class="w-dvw h-dvh"></div>
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { createI18n } from 'vue-i18n'
 import { createApp } from 'whyframe:app'
 
 const el = ref<HTMLDivElement>()

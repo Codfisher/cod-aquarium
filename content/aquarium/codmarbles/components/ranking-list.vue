@@ -24,7 +24,7 @@
           :class="marble.finishedAt > 0 && recordVisible
             ? 'md:right-0 md:translate-x-full max-md:top-0 max-md:-translate-y-full opacity-100'
             : ''
-          "
+            "
         >
           {{ (marble.finishedAt / 1000).toFixed(2) }}s
         </div>
@@ -57,6 +57,9 @@
 </template>
 
 <script setup lang="ts">
+import { pipe } from 'zod/v4';
+import { useClientPlayer } from '../domains/game/use-client-player';
+import { useHostPlayer } from '../domains/game/use-host-player';
 import type { Marble } from '../types'
 import { computed } from 'vue'
 
@@ -69,6 +72,8 @@ const props = withDefaults(defineProps<Props>(), {
   rankingList: () => [],
 })
 
+const clientPlayer = useClientPlayer()
+const hostPlayer = useHostPlayer()
 const focusedMarble = defineModel<Marble>('focusedMarble')
 
 function handleFocusMarble(marble: Marble) {
@@ -79,7 +84,16 @@ function handleFocusMarble(marble: Marble) {
   focusedMarble.value = marble
 }
 
-const marbleList = computed(() => props.rankingList.map((marble) => {
+const validList = computed(() => props.rankingList.filter(({ mesh, index }) => {
+  if (!clientPlayer.isPartyClient.value) {
+    return mesh.isEnabled()
+  }
+
+  const player = hostPlayer.playerList.value.find((item) => item.index === index)
+  return !!player
+}))
+
+const marbleList = computed(() => validList.value.map((marble) => {
   const className: string[] = []
 
   if (marble.finishedAt > 0 && recordVisible.value) {

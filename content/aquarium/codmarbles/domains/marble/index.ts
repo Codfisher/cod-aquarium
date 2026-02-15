@@ -2,7 +2,7 @@ import type { Scene, ShadowGenerator, TransformNode } from '@babylonjs/core'
 import type { Ref } from 'vue'
 import type { BabylonEngine } from '../../../codstack/composables/use-babylon-scene'
 import type { GameState, Marble } from '../../types'
-import { Color3, Engine, MeshBuilder, PBRMaterial, PhysicsAggregate, PhysicsShapeType, Quaternion, Ray, StandardMaterial, Vector3 } from '@babylonjs/core'
+import { Color3, Engine, MeshBuilder, PBRMaterial, PhysicsAggregate, PhysicsMotionType, PhysicsShapeType, Quaternion, Ray, StandardMaterial, Vector3 } from '@babylonjs/core'
 import { random } from 'lodash-es'
 import { nanoid } from 'nanoid'
 import { pipe, shuffle, tap } from 'remeda'
@@ -56,7 +56,7 @@ const nameGenerator = {
   ]),
 }
 
-function getRandomMarbleName() {
+export function getRandomMarbleName() {
   // 依序拿取就好，因為有 shuffle
   const prefix = nameGenerator.prefixes.shift()!
   const suffix = nameGenerator.suffixes.shift()!
@@ -72,6 +72,8 @@ export function createMarble({
   startPosition = Vector3.Zero(),
   color,
   gameState,
+  index,
+  isPartyClient = false,
 }: {
   scene: Scene;
   engine: BabylonEngine;
@@ -79,6 +81,8 @@ export function createMarble({
   startPosition?: Vector3;
   color?: Color3;
   gameState: Ref<GameState>;
+  index: number;
+  isPartyClient?: boolean;
 }): Marble {
   const marble = MeshBuilder.CreateSphere(nanoid(), {
     diameter: MARBLE_SIZE,
@@ -122,7 +126,7 @@ export function createMarble({
   }
 
   // 建立幽靈彈珠，可穿透障礙物，方便觀察
-  pipe(
+  const ghostMarble = pipe(
     marble.clone('ghostMarble'),
     tap((ghostMarble) => {
       ghostMarble.material = ghostMat
@@ -155,14 +159,45 @@ export function createMarble({
   )
 
   // 建立物理體
-  const sphereAggregate = new PhysicsAggregate(
-    marble,
-    PhysicsShapeType.SPHERE,
-    { mass: 1, restitution: 0.1, friction: 0 },
-    scene,
-  )
+  let physicsAggregate = pipe(0, () => {
+    if (isPartyClient) {
+      return
+    }
+
+    return new PhysicsAggregate(
+      marble,
+      PhysicsShapeType.SPHERE,
+      { mass: 1, restitution: 0.1, friction: 0 },
+      scene,
+    )
+  })
+
+  marble.onEnabledStateChangedObservable.add((isEnabled) => {
+    ghostMarble.setEnabled(isEnabled)
+
+    if (isEnabled) {
+      physicsAggregate?.dispose()
+      physicsAggregate = new PhysicsAggregate(
+        marble,
+        PhysicsShapeType.SPHERE,
+        { mass: 1, restitution: 0.1, friction: 0 },
+        scene,
+      )
+
+      // 隨機施加一個力
+      physicsAggregate.body.applyImpulse(
+        new Vector3(random(-1, 1), 0, random(-1, 1)),
+        marble.position,
+      )
+    }
+    else {
+      physicsAggregate?.dispose()
+      physicsAggregate = undefined
+    }
+  })
 
   const result = {
+    index,
     name: getRandomMarbleName(),
     hexColor: finalColor.toGammaSpace().toHexString(),
     mesh: marble,
@@ -178,10 +213,14 @@ export function createMarble({
       return
     }
 
+    if (isPartyClient || !physicsAggregate) {
+      return
+    }
+
     result.isGrounded = isMarbleGrounded(marble, scene)
 
     // 速度過小時，累加 staticDurationSec
-    if (sphereAggregate.body.getLinearVelocity().length() < 0.1) {
+    if (physicsAggregate.body.getLinearVelocity().length() < 0.1) {
       const dt = engine.getDeltaTime() / 1000
       result.staticDurationSec += dt
     }
