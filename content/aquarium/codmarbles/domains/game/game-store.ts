@@ -33,6 +33,8 @@ export const peerDataSchema = z.discriminatedUnion('type', [
     type: z.literal('host:marbleData'),
     marbleData: z.array(z.object({
       index: z.number(),
+      isGrounded: z.boolean(),
+      finishedAt: z.number(),
       position: z.number().array(),
     })),
   }),
@@ -139,6 +141,8 @@ export const useGameStore = defineStore('game', () => {
 
   const marbleDataList = ref<Array<{
     index: number;
+    isGrounded: boolean;
+    finishedAt: number;
     position: number[];
   }>>([])
   const marbleDataInterval = useIntervalFn(() => {

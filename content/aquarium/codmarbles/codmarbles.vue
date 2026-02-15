@@ -208,8 +208,8 @@
 <script setup lang="ts">
 import type { Scene } from '@babylonjs/core'
 import type { TrackSegment } from './domains/track-segment'
-import type { GameState, Marble } from './types'
-import { ActionManager, AssetsManager, Color3, DirectionalLight, ExecuteCodeAction, MeshBuilder, PhysicsMotionType, ShadowGenerator, TransformNode, Vector3 } from '@babylonjs/core'
+import type { Marble } from './types'
+import { ActionManager, Color3, DirectionalLight, ExecuteCodeAction, MeshBuilder, PhysicsMotionType, ShadowGenerator, TransformNode, Vector3 } from '@babylonjs/core'
 import { breakpointsTailwind, promiseTimeout, useBreakpoints, useColorMode, useEventListener, useThrottleFn } from '@vueuse/core'
 import { animate, cubicBezier } from 'animejs'
 import { filter, firstBy, map, pipe, shuffle, tap, values } from 'remeda'
@@ -837,6 +837,8 @@ const {
             .filter((marble) => marble.mesh.isEnabled())
             .map((marble) => ({
               index: marble.index,
+              isGrounded: marble.isGrounded,
+              finishedAt: marble.finishedAt,
               position: marble.mesh.position.asArray(),
             }))
         }
@@ -850,8 +852,13 @@ const {
               return
             }
 
-            marble.mesh.position.set(marbleData.position[0]!, marbleData.position[1]!, marbleData.position[2]!)
-
+            marble.mesh.position.set(
+              marbleData.position[0]!,
+              marbleData.position[1]!,
+              marbleData.position[2]!,
+            )
+            marble.isGrounded = marbleData.isGrounded
+            marble.finishedAt = marbleData.finishedAt
           })
         }
       }, undefined, true)
