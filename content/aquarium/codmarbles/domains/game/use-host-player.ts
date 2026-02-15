@@ -64,7 +64,7 @@ function _useHostPlayer() {
     gameStore.mode = 'party'
     gameStore.isHost = true
 
-    if (playerList.value.length === 0) {
+    if (playerList.value.length < 1) {
       playerList.value.push({
         id: gameStore.peerId!,
         name: getRandomMarbleName(),

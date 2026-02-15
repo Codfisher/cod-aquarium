@@ -837,7 +837,7 @@ const {
             .filter((marble) => marble.mesh.isEnabled())
             .map((marble) => ({
               index: marble.index,
-              position: marble.mesh.getAbsolutePosition().asArray(),
+              position: marble.mesh.position.asArray(),
             }))
         }
         else {
@@ -850,7 +850,7 @@ const {
               return
             }
 
-            marble.mesh.setAbsolutePosition(Vector3.FromArray(marbleData.position))
+            marble.mesh.position.set(marbleData.position[0]!, marbleData.position[1]!, marbleData.position[2]!)
 
           })
         }
