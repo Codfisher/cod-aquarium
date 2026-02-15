@@ -213,26 +213,33 @@ export const useGameStore = defineStore('game', () => {
     // host 邏輯
     else {
       newPeer.on('connection', async (dataConnection) => {
-        if (playerList.value.length >= 10) {
-          // 太快回應 client 會收不到
-          await promiseTimeout(3000)
-          send(dataConnection, {
-            type: 'host:reject',
-            title: '玩家已滿',
-            description: '無法加入遊戲，請稍後再試',
-          })
+        const rejected = await pipe('', async () => {
+          if (playerList.value.length >= 10) {
+            // 太快回應 client 會收不到
+            await promiseTimeout(3000)
+            send(dataConnection, {
+              type: 'host:reject',
+              title: '玩家已滿 ╭(°A ,°`)╮',
+              description: '無法加入遊戲，請稍後再試',
+            })
 
-          dataConnection.close()
-          return
-        }
-        if (state.value !== 'idle' && state.value !== 'over') {
-          await promiseTimeout(3000)
-          send(dataConnection, {
-            type: 'host:reject',
-            title: '遊戲進行中',
-            description: '遊戲結束後再加入',
-          })
+            return true
+          }
+          if (state.value !== 'idle' && state.value !== 'over') {
+            await promiseTimeout(3000)
+            send(dataConnection, {
+              type: 'host:reject',
+              title: '遊戲進行中 (。-`ω´-)',
+              description: '遊戲結束後再加入',
+            })
 
+            return true
+          }
+
+          return false
+        })
+
+        if (rejected) {
           dataConnection.close()
           return
         }
