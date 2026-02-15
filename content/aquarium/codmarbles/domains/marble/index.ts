@@ -159,7 +159,7 @@ export function createMarble({
   )
 
   // 建立物理體
-  const physicsAggregate = pipe(0, () => {
+  let physicsAggregate = pipe(0, () => {
     if (isPartyClient) {
       return
     }
@@ -175,15 +175,18 @@ export function createMarble({
   marble.onEnabledStateChangedObservable.add((isEnabled) => {
     ghostMarble.setEnabled(isEnabled)
 
-    if (physicsAggregate) {
-      if (isEnabled) {
-        physicsAggregate.body.setMotionType(PhysicsMotionType.DYNAMIC)
-        physicsAggregate.body.disablePreStep = false
-      }
-      else {
-        physicsAggregate.body.setMotionType(PhysicsMotionType.STATIC)
-        physicsAggregate.body.disablePreStep = true
-      }
+    if (isEnabled) {
+      physicsAggregate?.dispose()
+      physicsAggregate = new PhysicsAggregate(
+        marble,
+        PhysicsShapeType.SPHERE,
+        { mass: 1, restitution: 0.1, friction: 0 },
+        scene,
+      )
+    }
+    else {
+      physicsAggregate?.dispose()
+      physicsAggregate = undefined
     }
   })
 

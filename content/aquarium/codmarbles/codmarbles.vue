@@ -11,7 +11,7 @@
       <ranking-list
         v-model:focused-marble="focusedMarble"
         :start-time="startTime"
-        :ranking-list="marbleList"
+        :ranking-list="rankingList"
         :game-state="gameState"
         class="fixed left-0 bottom-0"
       />
@@ -330,8 +330,15 @@ const hostPlayer = reactive(useHostPlayer())
 const isPartyClient = clientPlayer.isPartyClient
 
 const startTime = ref(0)
+watch(gameState, (value) => {
+  if (value === 'playing') {
+    startTime.value = Date.now()
+  }
+})
+
+const rankingList = shallowRef<Marble[]>([])
 const updateRanking = useThrottleFn(() => {
-  marbleList.value = marbleList.value.toSorted((a, b) => {
+  rankingList.value = marbleList.value.toSorted((a, b) => {
     // 若有人正在掉落，則先不交換排名
     if (!a.isGrounded || !b.isGrounded) {
       return 0
@@ -440,6 +447,7 @@ async function start() {
   const tasks = marbleList.value
     .filter((marble) => marble.mesh.isEnabled())
     .map(async (marble, i) => {
+      console.log(`🚀 ~ marble i:`, i);
       const physicsBody = marble.mesh.physicsBody
       if (!physicsBody)
         return
@@ -481,7 +489,6 @@ async function start() {
   await Promise.all(tasks)
 
   gameState.value = 'playing'
-  startTime.value = Date.now()
 }
 async function startZenMode() {
   start()
@@ -826,6 +833,8 @@ const {
 
     // 同步 marbleData
     pipe(0, () => {
+      /** 重複使用物件 */
+      const targetPosition = new Vector3()
       scene.onBeforeRenderObservable.add(() => {
         if (gameStore.mode !== 'party') {
           return
@@ -852,12 +861,12 @@ const {
               return
             }
 
-            const target = new Vector3(
+            targetPosition.set(
               marbleData.position[0]!,
               marbleData.position[1]!,
               marbleData.position[2]!,
             )
-            Vector3.LerpToRef(marble.mesh.position, target, 0.1, marble.mesh.position)
+            Vector3.LerpToRef(marble.mesh.position, targetPosition, 0.5, marble.mesh.position)
 
             marble.isGrounded = marbleData.isGrounded
             marble.finishedAt = marbleData.finishedAt
