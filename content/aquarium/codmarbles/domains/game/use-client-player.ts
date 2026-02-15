@@ -2,10 +2,18 @@
 import { peerDataSchema, useGameStore } from './game-store'
 import { createSharedComposable, whenever } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
+import { computed } from 'vue'
 
 function _useClientPlayer() {
   const gameStore = useGameStore()
-  const { selfConnection, playerList } = storeToRefs(gameStore)
+  const { selfConnection, playerList, marbleDataList } = storeToRefs(gameStore)
+
+  const isPartyClient = computed(() => !gameStore.isHost && gameStore.mode === 'party')
+
+  const marbleIndex = computed(() => {
+    const player = playerList.value.find((player) => player.id === gameStore.peerId)
+    return player?.index
+  })
 
   whenever(selfConnection, (conn) => {
     conn.on('open', () => {
@@ -27,8 +35,11 @@ function _useClientPlayer() {
       const { type } = parsedData.data
       switch (type) {
         case 'host:playerList': {
-          console.log(`🚀 ~ playerList:`, parsedData.data.playerList);
           playerList.value = parsedData.data.playerList
+          break
+        }
+        case 'host:marbleData': {
+          marbleDataList.value = parsedData.data.marbleData
           break
         }
       }
@@ -38,9 +49,16 @@ function _useClientPlayer() {
   })
 
   return {
+    isPartyClient,
+    marbleIndex,
     requestPlayerList() {
       selfConnection.value?.send({
         type: 'client:requestPlayerList',
+      })
+    },
+    requestAllData() {
+      selfConnection.value?.send({
+        type: 'client:requestAllData',
       })
     },
   }

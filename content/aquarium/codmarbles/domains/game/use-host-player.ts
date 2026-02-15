@@ -32,6 +32,17 @@ function _useHostPlayer() {
           })
           break
         }
+        case 'client:requestAllData': {
+          send(dataConnection, {
+            type: 'host:playerList',
+            playerList: playerList.value,
+          })
+          send(dataConnection, {
+            type: 'host:trackSegmentList',
+            trackSegmentList: gameStore.trackSegmentDataList,
+          })
+          break
+        }
       }
     })
   }), {
@@ -53,11 +64,13 @@ function _useHostPlayer() {
     gameStore.mode = 'party'
     gameStore.isHost = true
 
-    playerList.value.push({
-      id: gameStore.peerId!,
-      name: getRandomMarbleName(),
-      index: 0,
-    })
+    if (playerList.value.length === 0) {
+      playerList.value.push({
+        id: gameStore.peerId!,
+        name: getRandomMarbleName(),
+        index: 0,
+      })
+    }
   }
 
   return {

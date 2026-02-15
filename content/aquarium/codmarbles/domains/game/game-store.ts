@@ -42,6 +42,9 @@ export const peerDataSchema = z.discriminatedUnion('type', [
     type: z.literal('client:requestPlayerList'),
   }),
   z.object({
+    type: z.literal('client:requestAllData'),
+  }),
+  z.object({
     type: z.literal('host:reject'),
     title: z.string(),
     description: z.string(),

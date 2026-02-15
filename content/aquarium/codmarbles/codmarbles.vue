@@ -303,6 +303,7 @@ const marbleCount = 10
 const marbleList = shallowRef<Marble[]>([])
 const focusedMarble = shallowRef<Marble>()
 const trackSegmentList = shallowRef<TrackSegment[]>([])
+const endTrackSegment = shallowRef<TrackSegment>()
 const cameraTarget = shallowRef<TransformNode>()
 
 const clientPlayer = reactive(useClientPlayer())
@@ -492,28 +493,46 @@ watch(() => gameStore.playerList, (list) => {
     marble.name = player.name
     return marble
   })
-}, { deep: true })
+}, { deep: true, immediate: true })
+
+watch(() => gameStore.trackSegmentDataList, (list) => {
+  trackSegmentList.value = trackSegmentList.value.toSorted((a, b) => {
+    const aIndex = list.findIndex((item) => item.type === a.type)
+    const bIndex = list.findIndex((item) => item.type === b.type)
+    return aIndex - bIndex
+  })
+
+  // 重組軌道
+  trackSegmentList.value.reduce((prevTrack, nextTrack) => {
+    if (prevTrack) {
+      connectTracks(prevTrack, nextTrack)
+    }
+    return nextTrack
+  }, undefined as TrackSegment | undefined)
+
+  const lastTrackSegment = trackSegmentList.value[trackSegmentList.value.length - 1]
+  if (lastTrackSegment && endTrackSegment.value) {
+    connectTracks(lastTrackSegment, endTrackSegment.value)
+  }
+}, { deep: true, immediate: true })
 
 const {
   canvasRef,
 } = useBabylonScene({
   async init(params) {
-    const isPartyClient = !gameStore.isHost && gameStore.mode === 'party'
+    const isPartyClient = clientPlayer.isPartyClient
 
     const { scene, camera, canvas, engine } = params
 
-    // if (isPartyClient) {
-    //   scene.disablePhysicsEngine()
-    // }
+    if (isPartyClient) {
+      scene.disablePhysicsEngine()
+    }
 
     // Inspector.Show(scene, {
     //   embedMode: true,
     // })
 
     await assetStore.preloadTrackAssets(scene)
-
-    const assetsManager = new AssetsManager(scene)
-    assetsManager.useDefaultLoadingScreen = false
 
     // 畫 Group 1 (幽靈) 時，不要清除 Group 0 (牆壁) 的深度資訊，這樣才能進行深度比較
     scene.setRenderingAutoClearDepthStencil(GHOST_RENDERING_GROUP_ID, false)
@@ -546,12 +565,16 @@ const {
         return list
       },
     )
+    gameStore.trackSegmentDataList = trackSegmentList.value.map((trackSegment) => ({
+      type: trackSegment.type,
+    }))
 
-    const endTrackSegment = await createTrackSegment({
+    const endTrackSeg = await createTrackSegment({
       scene,
       assetStore,
       type: TrackSegmentType.end,
     })
+    endTrackSegment.value = endTrackSeg
 
     const firstTrackSegment = trackSegmentList.value[0]
     const lastTrackSegment = trackSegmentList.value[trackSegmentList.value.length - 1]
@@ -581,6 +604,7 @@ const {
         shadowGenerator,
         color,
         gameState,
+        isPartyClient,
       })
 
       // client 端停止物理模擬
@@ -598,11 +622,14 @@ const {
     marbleList.value = ballList
 
     if (lastTrackSegment) {
-      connectTracks(lastTrackSegment, endTrackSegment)
-      endTrackSegment.initPhysics()
+      connectTracks(lastTrackSegment, endTrackSeg)
+
+      if (!isPartyClient) {
+        endTrackSeg.initPhysics()
+      }
     }
 
-    const allTrackSegmentList = [...trackSegmentList.value, endTrackSegment]
+    const allTrackSegmentList = [...trackSegmentList.value, endTrackSeg]
     allTrackSegmentList.forEach((trackSegment) => {
       trackSegment.rootNode.getChildMeshes().forEach((mesh) => {
         shadowGenerator.addShadowCaster(mesh)
@@ -611,10 +638,6 @@ const {
 
     // 將彈珠移動到 lobby 位置
     pipe(0, () => {
-      if (isPartyClient) {
-        return
-      }
-
       const lobbyMesh = scene.getMeshByName('lobby')
       if (!lobbyMesh) {
         throw new Error('lobbyMesh is undefined')
@@ -624,33 +647,36 @@ const {
 
       cameraTarget.value?.position.copyFrom(lobbyPosition)
 
-      marbleList.value.forEach(async (marble, i) => {
-        const physicsBody = marble.mesh.physicsBody
-        if (!physicsBody)
-          return
-        physicsBody.disablePreStep = false
-        physicsBody.setMotionType(PhysicsMotionType.ANIMATED)
-        physicsBody.setLinearVelocity(Vector3.Zero())
-        physicsBody.setAngularVelocity(Vector3.Zero())
+      if (!isPartyClient) {
+        marbleList.value.forEach(async (marble, i) => {
+          const physicsBody = marble.mesh.physicsBody
+          if (!physicsBody)
+            return
+          physicsBody.disablePreStep = false
+          physicsBody.setMotionType(PhysicsMotionType.ANIMATED)
+          physicsBody.setLinearVelocity(Vector3.Zero())
+          physicsBody.setAngularVelocity(Vector3.Zero())
 
-        marble.mesh.position.copyFrom(lobbyPosition)
-        marble.mesh.position.x += Math.random()
-        marble.mesh.position.y += (MARBLE_SIZE * i) + 1
+          marble.mesh.position.copyFrom(lobbyPosition)
+          marble.mesh.position.x += Math.random()
+          marble.mesh.position.y += (MARBLE_SIZE * i) + 1
 
-        /** 確保物理引擎已經更新位置 */
-        await nextFrame()
+          /** 確保物理引擎已經更新位置 */
+          await nextFrame()
 
-        physicsBody.disablePreStep = true
-        marble.mesh.computeWorldMatrix(true)
-        physicsBody.setMotionType(PhysicsMotionType.DYNAMIC)
-      })
+          physicsBody.disablePreStep = true
+          marble.mesh.computeWorldMatrix(true)
+          physicsBody.setMotionType(PhysicsMotionType.DYNAMIC)
+        })
+      }
+
 
       camera.radius = 15
       camera.alpha = Math.PI / 5 * 2
       camera.beta = Math.PI / 5 * 4
     })
 
-    // 攝影機追蹤最低的彈珠
+    // 攝影機追蹤彈珠
     pipe(0, () => {
       let currentTrackedMarble: Marble | undefined
 
@@ -666,9 +692,15 @@ const {
           }
 
           // party mode 下只追蹤自己的彈珠
-          // if (!gameStore.isHost) {
-          //   return
-          // }
+          if (isPartyClient) {
+            const index = clientPlayer.marbleIndex
+            if (index === undefined) {
+              return
+            }
+
+            const marble = marbleList.value.find((marble) => marble.index === index)
+            return marble
+          }
 
           const lowestMarble = pipe(
             marbleList.value,
@@ -723,7 +755,7 @@ const {
 
       const checkPointPositionList = getCheckPointPositionList([
         ...trackSegmentList.value,
-        endTrackSegment,
+        endTrackSeg,
       ])
 
       marbleList.value.forEach((marble) => {
@@ -785,7 +817,7 @@ const {
         return
       }
 
-      const endCheckPointPosition = endTrackSegment.rootNode
+      const endCheckPointPosition = endTrackSeg.rootNode
         .getChildMeshes()
         .find((mesh) => mesh.name === 'end')
         ?.getAbsolutePosition()
@@ -835,7 +867,7 @@ const {
             .filter((marble) => marble.mesh.isEnabled())
             .map((marble) => ({
               index: marble.index,
-              position: marble.mesh.position.asArray(),
+              position: marble.mesh.getAbsolutePosition().asArray(),
             }))
         }
         else {
@@ -844,17 +876,12 @@ const {
             const marble = marbleList.value.find(
               (marble) => marble.index === marbleData.index
             )
-            console.log(marble?.mesh.physicsBody?.motionType === PhysicsMotionType.ANIMATED)
-
-            if (marble) {
-              Vector3.LerpToRef(
-                marble.mesh.position,
-                Vector3.FromArray(marbleData.position),
-                0.1,
-                marble.mesh.position,
-              )
-              marble.mesh.computeWorldMatrix(true)
+            if (!marble) {
+              return
             }
+
+            marble.mesh.setAbsolutePosition(Vector3.FromArray(marbleData.position))
+
           })
         }
 
@@ -866,7 +893,7 @@ const {
     isLoading.value = false
 
     if (isPartyClient) {
-      clientPlayer.requestPlayerList()
+      clientPlayer.requestAllData()
     }
   },
 })

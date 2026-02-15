@@ -73,6 +73,7 @@ export function createMarble({
   color,
   gameState,
   index,
+  isPartyClient = false,
 }: {
   scene: Scene;
   engine: BabylonEngine;
@@ -81,6 +82,7 @@ export function createMarble({
   color?: Color3;
   gameState: Ref<GameState>;
   index: number;
+  isPartyClient?: boolean;
 }): Marble {
   const marble = MeshBuilder.CreateSphere(nanoid(), {
     diameter: MARBLE_SIZE,
@@ -157,12 +159,18 @@ export function createMarble({
   )
 
   // 建立物理體
-  const sphereAggregate = new PhysicsAggregate(
-    marble,
-    PhysicsShapeType.SPHERE,
-    { mass: 1, restitution: 0.1, friction: 0 },
-    scene,
-  )
+  const physicsAggregate = pipe(0, () => {
+    if (isPartyClient) {
+      return
+    }
+
+    return new PhysicsAggregate(
+      marble,
+      PhysicsShapeType.SPHERE,
+      { mass: 1, restitution: 0.1, friction: 0 },
+      scene,
+    )
+  })
 
   marble.onEnabledStateChangedObservable.add((isEnabled) => {
     ghostMarble.setEnabled(isEnabled)
@@ -185,10 +193,14 @@ export function createMarble({
       return
     }
 
+    if (isPartyClient || !physicsAggregate) {
+      return
+    }
+
     result.isGrounded = isMarbleGrounded(marble, scene)
 
     // 速度過小時，累加 staticDurationSec
-    if (sphereAggregate.body.getLinearVelocity().length() < 0.1) {
+    if (physicsAggregate.body.getLinearVelocity().length() < 0.1) {
       const dt = engine.getDeltaTime() / 1000
       result.staticDurationSec += dt
     }
