@@ -36,7 +36,7 @@
               <base-btn
                 v-slot="{ hover }"
                 label="Zen Mode"
-                class=" border-3 md:border-5 border-white/80 w-[40vw]"
+                class=" border-3 md:border-5 border-white/80 w-[80vw] md:w-[40vw] lg:w-[30vw]"
                 stroke-color="#4a3410"
                 @click="startZenMode"
               >
@@ -74,7 +74,7 @@
               <base-btn
                 v-slot="{ hover }"
                 label="Party Mode"
-                class=" border-3 md:border-5 border-white/80 w-[40vw]"
+                class=" border-3 md:border-5 border-white/80 w-[80vw] md:w-[40vw] lg:w-[30vw]"
                 stroke-color="#4a3410"
                 @click="openPartySetupModal"
               >
@@ -109,7 +109,7 @@
               <base-btn
                 v-slot="{ hover }"
                 label="Start Party"
-                class=" border-3 md:border-5 border-white/80 w-[40vw]"
+                class=" border-3 md:border-5 border-white/80 w-[80vw] md:w-[40vw] lg:w-[30vw]"
                 stroke-color="#4a3410"
                 @click="start"
               >
