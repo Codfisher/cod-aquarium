@@ -1,6 +1,6 @@
 
-import { peerDataSchema, useGameStore } from './game-store'
-import { createSharedComposable, whenever } from '@vueuse/core'
+import { PeerData, peerDataSchema, useGameStore } from './game-store'
+import { createEventHook, createSharedComposable, whenever } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { computed } from 'vue'
 import { GameState } from '../../types'
@@ -22,6 +22,7 @@ function _useClientPlayer() {
     return player?.index
   })
 
+  const rejectHook = createEventHook<Extract<PeerData, { type: 'host:reject' }>>()
   whenever(selfConnection, (conn) => {
     conn.on('open', () => {
       console.log(`🚀[player] ~ open:`)
@@ -57,6 +58,11 @@ function _useClientPlayer() {
           state.value = parsedData.data.state as GameState
           break
         }
+        case 'host:reject': {
+          rejectHook.trigger(parsedData.data)
+          console.log(`🚀 ~ parsedData:`, parsedData);
+          break
+        }
       }
     })
   }, {
@@ -76,6 +82,7 @@ function _useClientPlayer() {
         type: 'client:requestAllData',
       })
     },
+    onReject: rejectHook.on,
   }
 }
 

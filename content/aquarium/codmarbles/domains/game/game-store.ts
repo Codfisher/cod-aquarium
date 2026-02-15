@@ -183,6 +183,28 @@ export const useGameStore = defineStore('game', () => {
     // host 邏輯
     else {
       newPeer.on('connection', (dataConnection) => {
+        if (playerList.value.length >= 10) {
+          send(dataConnection, {
+            type: 'host:reject',
+            title: '玩家已滿',
+            description: '無法加入遊戲',
+          })
+
+          dataConnection.close()
+          return
+        }
+        if (state.value !== 'idle' && state.value !== 'over') {
+          send(dataConnection, {
+            type: 'host:reject',
+            title: '遊戲進行中',
+            description: '無法加入遊戲',
+          })
+
+          dataConnection.close()
+          return
+        }
+
+        // 允許加入
         connectionMap.set(dataConnection.peer, dataConnection)
         playerList.value.push({
           id: dataConnection.peer,

@@ -345,6 +345,14 @@ const endTrackSegment = shallowRef<TrackSegment>()
 const cameraTarget = shallowRef<TransformNode>()
 
 const clientPlayer = reactive(useClientPlayer())
+clientPlayer.onReject((data) => {
+  toast.add({
+    title: data.title,
+    description: data.description,
+    color: 'error',
+  })
+})
+
 const hostPlayer = reactive(useHostPlayer())
 
 const isPartyClient = clientPlayer.isPartyClient
