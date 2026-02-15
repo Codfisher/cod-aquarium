@@ -3,10 +3,17 @@ import { peerDataSchema, useGameStore } from './game-store'
 import { createSharedComposable, whenever } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { computed } from 'vue'
+import { GameState } from '../../types'
 
 function _useClientPlayer() {
   const gameStore = useGameStore()
-  const { selfConnection, playerList, marbleDataList } = storeToRefs(gameStore)
+  const {
+    selfConnection,
+    playerList,
+    marbleDataList,
+    trackSegmentDataList,
+    state,
+  } = storeToRefs(gameStore)
 
   const isPartyClient = computed(() => !gameStore.isHost && gameStore.mode === 'party')
 
@@ -40,6 +47,14 @@ function _useClientPlayer() {
         }
         case 'host:marbleData': {
           marbleDataList.value = parsedData.data.marbleData
+          break
+        }
+        case 'host:trackSegmentList': {
+          trackSegmentDataList.value = parsedData.data.trackSegmentList
+          break
+        }
+        case 'host:state': {
+          state.value = parsedData.data.state as GameState
           break
         }
       }

@@ -1,22 +1,24 @@
 import type { DataConnection } from 'peerjs'
-import type { GameMode } from '../../types'
-import { computedAsync, useIntervalFn, watchThrottled } from '@vueuse/core'
+import type { GameMode, GameState } from '../../types'
+import { useIntervalFn } from '@vueuse/core'
 import { Peer } from 'peerjs'
 import { defineStore } from 'pinia'
-import QRCode from 'qrcode'
 import { pipe, tap } from 'remeda'
 import { computed, ref, shallowRef, watch } from 'vue'
 import z from 'zod/v4'
 import { getRandomMarbleName } from '../marble'
 import { nextFrame } from '../../../../../web/common/utils'
 import { TrackSegmentType } from '../track-segment/data'
-import { fa } from 'zod/dist/types/v4/locales'
 
 export const peerDataSchema = z.discriminatedUnion('type', [
   z.object({
+    type: z.literal('host:state'),
+    state: z.string(),
+  }),
+  z.object({
     type: z.literal('host:trackSegmentList'),
     trackSegmentList: z.array(z.object({
-      type: z.string(),
+      type: z.enum(TrackSegmentType),
     })),
   }),
   z.object({
@@ -64,6 +66,24 @@ export const useGameStore = defineStore('game', () => {
     (urlParams) => urlParams.get('host'),
   )
 
+  const state = ref<GameState>('idle')
+  watch(state, async (value) => {
+    if (!isHost.value) {
+      return
+    }
+
+    await nextFrame()
+
+    connectionMap.forEach((connection) => {
+      send(connection, {
+        type: 'host:state',
+        state: value,
+      })
+    })
+  }, {
+    flush: 'post',
+  })
+
   const mode = ref<GameMode | undefined>(hostId ? 'party' : undefined)
   const isHost = ref(!hostId)
 
@@ -78,6 +98,10 @@ export const useGameStore = defineStore('game', () => {
     index: number;
   }>>([])
   watch(playerList, async (list) => {
+    if (!isHost.value) {
+      return
+    }
+
     await nextFrame()
 
     connectionMap.forEach((connection) => {
@@ -93,9 +117,13 @@ export const useGameStore = defineStore('game', () => {
 
   /** 紀錄軌道與順序 */
   const trackSegmentDataList = ref<Array<{
-    type: `${TrackSegmentType}`
+    type: TrackSegmentType
   }>>([]);
   watch(trackSegmentDataList, async (list) => {
+    if (!isHost.value) {
+      return
+    }
+
     await nextFrame()
 
     connectionMap.forEach((connection) => {
@@ -120,7 +148,7 @@ export const useGameStore = defineStore('game', () => {
         marbleData: marbleDataList.value,
       })
     })
-  }, 100, {
+  }, 10, {
     immediate: false,
     immediateCallback: false,
   })
@@ -171,6 +199,7 @@ export const useGameStore = defineStore('game', () => {
   init()
 
   return {
+    state,
     mode,
     isHost,
     peer,

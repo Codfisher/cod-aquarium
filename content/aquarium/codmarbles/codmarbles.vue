@@ -153,6 +153,23 @@
         </div>
       </transition>
 
+      <!-- client player 提示 -->
+      <transition name="opacity">
+        <div
+          v-if="isPartyClient"
+          class="absolute top-0 left-0 flex flex-col justify-center items-center w-full h-full pointer-events-none gap-10"
+        >
+          <transition name="opacity">
+            <div
+              v-if="gameState === 'idle'"
+              class="text-4xl text-white text-shadow-lg"
+            >
+              等待主機開始遊戲...
+            </div>
+          </transition>
+        </div>
+      </transition>
+
       <div class="md:max-w-1/2 absolute top-0 right-0 p-4">
         <u-alert
           v-if="alertVisible"
@@ -213,11 +230,13 @@ import { TrackSegmentType } from './domains/track-segment/data'
 import { useAssetStore } from './stores/asset-store'
 import { useClientPlayer } from './domains/game/use-client-player'
 import { useHostPlayer } from './domains/game/use-host-player'
+import { storeToRefs } from 'pinia'
 
 const toast = useToast()
 const alertVisible = ref(true)
 const isLoading = ref(true)
-const gameState = ref<GameState>('idle')
+const gameStore = useGameStore()
+const { state: gameState } = storeToRefs(gameStore)
 
 // Nuxt UI 接管 vitepress 的 dark 設定，故改用 useColorMode
 const colorMode = useColorMode()
@@ -225,7 +244,6 @@ colorMode.value = 'light'
 
 useFontLoader()
 const assetStore = useAssetStore()
-const gameStore = useGameStore()
 
 const breakpoint = useBreakpoints(breakpointsTailwind)
 const isMobile = breakpoint.smaller('md')
@@ -308,6 +326,8 @@ const cameraTarget = shallowRef<TransformNode>()
 
 const clientPlayer = reactive(useClientPlayer())
 const hostPlayer = reactive(useHostPlayer())
+
+const isPartyClient = clientPlayer.isPartyClient
 
 const startTime = ref(0)
 const updateRanking = useThrottleFn(() => {
@@ -418,6 +438,10 @@ async function start() {
   }
 
   const tasks = marbleList.value.map(async (marble, i) => {
+    if (!marble.mesh.isEnabled()) {
+      return
+    }
+
     const physicsBody = marble.mesh.physicsBody
     if (!physicsBody)
       return
@@ -465,59 +489,9 @@ async function startZenMode() {
   start()
 }
 
-// --- Party Mode ---
-const overlay = useOverlay()
-function openPartySetupModal() {
-  marbleList.value = marbleList.value.map((marble, i) => {
-    if (i !== 0) {
-      marble.mesh.setEnabled(false)
-    }
-    return marble
-  })
-
-  const modal = overlay.create(PartySetupModal)
-  modal.open()
-
-  hostPlayer.setupParty()
-}
-
-watch(() => gameStore.playerList, (list) => {
-  marbleList.value = marbleList.value.map((marble, i) => {
-    const player = list[i]
-    if (!player) {
-      marble.mesh.setEnabled(false)
-      return marble
-    }
-
-    marble.mesh.setEnabled(true)
-    marble.name = player.name
-    return marble
-  })
-}, { deep: true, immediate: true })
-
-watch(() => gameStore.trackSegmentDataList, (list) => {
-  trackSegmentList.value = trackSegmentList.value.toSorted((a, b) => {
-    const aIndex = list.findIndex((item) => item.type === a.type)
-    const bIndex = list.findIndex((item) => item.type === b.type)
-    return aIndex - bIndex
-  })
-
-  // 重組軌道
-  trackSegmentList.value.reduce((prevTrack, nextTrack) => {
-    if (prevTrack) {
-      connectTracks(prevTrack, nextTrack)
-    }
-    return nextTrack
-  }, undefined as TrackSegment | undefined)
-
-  const lastTrackSegment = trackSegmentList.value[trackSegmentList.value.length - 1]
-  if (lastTrackSegment && endTrackSegment.value) {
-    connectTracks(lastTrackSegment, endTrackSegment.value)
-  }
-}, { deep: true, immediate: true })
-
 const {
   canvasRef,
+  scene,
 } = useBabylonScene({
   async init(params) {
     const isPartyClient = clientPlayer.isPartyClient
@@ -565,9 +539,11 @@ const {
         return list
       },
     )
-    gameStore.trackSegmentDataList = trackSegmentList.value.map((trackSegment) => ({
-      type: trackSegment.type,
-    }))
+    if (!isPartyClient) {
+      gameStore.trackSegmentDataList = trackSegmentList.value.map((trackSegment) => ({
+        type: trackSegment.type as TrackSegmentType,
+      }))
+    }
 
     const endTrackSeg = await createTrackSegment({
       scene,
@@ -682,9 +658,9 @@ const {
 
       // 攝影機持續跟蹤「目前 Y 座標最小（最低）」的彈珠
       scene.onBeforeRenderObservable.add(() => {
-        if (gameState.value !== 'playing') {
-          return
-        }
+        // if (gameState.value !== 'playing') {
+        //   return
+        // }
 
         const trackTarget = pipe(0, () => {
           if (focusedMarble.value) {
@@ -692,7 +668,7 @@ const {
           }
 
           // party mode 下只追蹤自己的彈珠
-          if (isPartyClient) {
+          if (gameStore.mode === 'party') {
             const index = clientPlayer.marbleIndex
             if (index === undefined) {
               return
@@ -704,7 +680,7 @@ const {
 
           const lowestMarble = pipe(
             marbleList.value,
-            filter((marble) => marble.isGrounded),
+            filter((marble) => marble.mesh.isEnabled() && marble.isGrounded),
             firstBy((marble) => marble.mesh.position.y),
           )
 
@@ -730,11 +706,7 @@ const {
 
         currentTrackedMarble = trackTarget
 
-        if (!trackTarget) {
-          return
-        }
-
-        if (cameraTarget.value) {
+        if (cameraTarget.value && trackTarget) {
           Vector3.LerpToRef(
             cameraTarget.value.position,
             trackTarget.mesh.position,
@@ -894,9 +866,79 @@ const {
 
     if (isPartyClient) {
       clientPlayer.requestAllData()
+      await nextFrame()
+      clientPlayer.requestAllData()
     }
   },
 })
+
+// --- Party Mode ---
+const overlay = useOverlay()
+function openPartySetupModal() {
+  marbleList.value = marbleList.value.map((marble, i) => {
+    if (i !== 0) {
+      marble.mesh.setEnabled(false)
+    }
+    return marble
+  })
+
+  const modal = overlay.create(PartySetupModal)
+  modal.open()
+
+  hostPlayer.setupParty()
+}
+
+watch(() => gameStore.playerList, (list) => {
+  marbleList.value = marbleList.value.map((marble, i) => {
+    const player = list[i]
+    if (!player) {
+      marble.mesh.setEnabled(false)
+      return marble
+    }
+
+    marble.mesh.setEnabled(true)
+    marble.name = player.name
+    return marble
+  })
+}, { deep: true })
+
+// 重組軌道
+watch(() => gameStore.trackSegmentDataList, (list) => {
+  // 依照 host 順序
+  trackSegmentList.value = trackSegmentList.value.toSorted((a, b) => {
+    const aIndex = list.findIndex((item) => item.type === a.type)
+    const bIndex = list.findIndex((item) => item.type === b.type)
+    return aIndex - bIndex
+  })
+
+  // 必須先將第一個軌道之出口移動至 0, 0, 0
+  const firstTrackSegment = trackSegmentList.value[0]
+  if (firstTrackSegment) {
+    firstTrackSegment.rootNode.position = Vector3.Zero()
+  }
+
+  trackSegmentList.value.reduce((prevTrack, nextTrack) => {
+    if (prevTrack) {
+      connectTracks(prevTrack, nextTrack)
+    }
+    return nextTrack
+  }, undefined as TrackSegment | undefined)
+
+  const lastTrackSegment = trackSegmentList.value[trackSegmentList.value.length - 1]
+  if (lastTrackSegment && endTrackSegment.value) {
+    connectTracks(lastTrackSegment, endTrackSegment.value)
+  }
+
+  // 將鏡頭移動至大廳
+  const lobbyMesh = scene.value?.getMeshByName('lobby')
+  if (lobbyMesh) {
+    lobbyMesh.computeWorldMatrix(true)
+    const lobbyPosition = lobbyMesh.getAbsolutePosition()
+
+    cameraTarget.value?.position.copyFrom(lobbyPosition)
+  }
+}, { deep: true })
+
 
 useEventListener(canvasRef, 'webglcontextlost', (e) => {
   e.preventDefault()
