@@ -1,10 +1,9 @@
-import type { DataConnection } from 'peerjs'
+import type { DataConnection, Peer } from 'peerjs'
 import type { GameMode, GameState } from '../../types'
 import { useIntervalFn } from '@vueuse/core'
-import { Peer } from 'peerjs'
 import { defineStore } from 'pinia'
 import { pipe, tap } from 'remeda'
-import { computed, ref, shallowRef, watch } from 'vue'
+import { computed, onMounted, ref, shallowRef, watch } from 'vue'
 import z from 'zod/v4'
 import { getRandomMarbleName } from '../marble'
 import { nextFrame } from '../../../../../web/common/utils'
@@ -167,7 +166,8 @@ export const useGameStore = defineStore('game', () => {
     immediate: true,
   })
 
-  function init() {
+  async function init() {
+    const { default: Peer } = await import('peerjs')
     const newPeer = new Peer()
     newPeer.on('open', (id) => {
       peerId.value = id
@@ -242,7 +242,9 @@ export const useGameStore = defineStore('game', () => {
       })
     }
   }
-  init()
+  onMounted(async () => {
+    init()
+  })
 
   return {
     state,
