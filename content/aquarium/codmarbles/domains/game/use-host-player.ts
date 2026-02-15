@@ -1,0 +1,70 @@
+import { peerDataSchema, send, useGameStore } from './game-store'
+import { computedAsync, createSharedComposable, whenever } from '@vueuse/core'
+import QRCode from 'qrcode'
+import { storeToRefs } from 'pinia'
+import { getRandomMarbleName } from '../marble'
+
+function _useHostPlayer() {
+  const gameStore = useGameStore()
+  const { playerList, peer } = storeToRefs(gameStore)
+
+  whenever(peer, (p) => p.on('connection', (dataConnection) => {
+    dataConnection.on('data', (data) => {
+      const parsedData = peerDataSchema.safeParse(data)
+      if (!parsedData.success) {
+        console.error('Invalid data:', parsedData.error)
+        return
+      }
+
+      const { type } = parsedData.data
+      switch (type) {
+        case 'client:updateInfo': {
+          const player = playerList.value.find((player) => player.id === dataConnection.peer)
+          if (player) {
+            player.name = parsedData.data.name
+          }
+          break
+        }
+        case 'client:requestPlayerList': {
+          send(dataConnection, {
+            type: 'host:playerList',
+            playerList: playerList.value,
+          })
+          break
+        }
+      }
+    })
+  }), {
+    immediate: true,
+  })
+
+  const joinUrlQrCode = computedAsync(async () => {
+    const id = gameStore.peerId
+    if (!id) {
+      return ''
+    }
+
+    const joinUrl = `${window.location.origin}/aquarium/codmarbles/?host=${id}`
+    console.log(`🚀 ~ joinUrl:`, joinUrl);
+    return QRCode.toDataURL(joinUrl)
+  }, '')
+
+  function setupParty() {
+    gameStore.mode = 'party'
+    gameStore.isHost = true
+
+    playerList.value.push({
+      id: gameStore.peerId!,
+      name: getRandomMarbleName(),
+      index: 0,
+    })
+  }
+
+  return {
+    joinUrlQrCode,
+    playerList,
+    setupParty,
+  }
+}
+
+export const useHostPlayer = createSharedComposable(_useHostPlayer)

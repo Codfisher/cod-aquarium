@@ -5,6 +5,7 @@ import { ImportMeshAsync, PBRMaterial, PhysicsAggregate, PhysicsShapeType, Quate
 import { trackSegmentData } from './data'
 
 export interface TrackSegment {
+  type: `${TrackSegmentType}`;
   rootNode: TransformNode;
   /** 起點座標 */
   startPosition: Vector3;
@@ -126,6 +127,7 @@ export async function createTrackSegment({
   }
 
   return {
+    type,
     rootNode,
     startPosition,
     endPosition,

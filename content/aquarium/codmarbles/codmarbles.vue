@@ -196,7 +196,7 @@ import { ActionManager, AssetsManager, Color3, DirectionalLight, ExecuteCodeActi
 import { breakpointsTailwind, useBreakpoints, useColorMode, useEventListener, useThrottleFn } from '@vueuse/core'
 import { animate, cubicBezier } from 'animejs'
 import { filter, firstBy, map, pipe, shuffle, tap, values } from 'remeda'
-import { computed, ref, shallowRef, triggerRef, watch } from 'vue'
+import { computed, reactive, ref, shallowRef, triggerRef, watch } from 'vue'
 import { nextFrame } from '../../../web/common/utils'
 import BaseBtn from './components/base-btn.vue'
 import BasePolygon from './components/base-polygon.vue'
@@ -211,6 +211,8 @@ import PartySetupModal from './domains/party-mode/party-setup-modal.vue'
 import { connectTracks, createTrackSegment } from './domains/track-segment'
 import { TrackSegmentType } from './domains/track-segment/data'
 import { useAssetStore } from './stores/asset-store'
+import { useClientPlayer } from './domains/game/use-client-player'
+import { useHostPlayer } from './domains/game/use-host-player'
 
 const toast = useToast()
 const alertVisible = ref(true)
@@ -303,6 +305,9 @@ const focusedMarble = shallowRef<Marble>()
 const trackSegmentList = shallowRef<TrackSegment[]>([])
 const cameraTarget = shallowRef<TransformNode>()
 
+const clientPlayer = reactive(useClientPlayer())
+const hostPlayer = reactive(useHostPlayer())
+
 const startTime = ref(0)
 const updateRanking = useThrottleFn(() => {
   marbleList.value = marbleList.value.toSorted((a, b) => {
@@ -378,6 +383,10 @@ function respawnWithAnimation(
 }
 
 const defaultMenuVisible = computed(() => {
+  if (gameStore.mode === 'party' && !gameStore.isHost) {
+    return false
+  }
+
   return gameState.value === 'idle' || gameState.value === 'over'
 })
 
@@ -468,10 +477,11 @@ function openPartySetupModal() {
   const modal = overlay.create(PartySetupModal)
   modal.open()
 
-  gameStore.setupParty()
+  hostPlayer.setupParty()
 }
 
 watch(() => gameStore.playerList, (list) => {
+  console.log(`🚀 ~ list:`, list);
   marbleList.value = marbleList.value.map((marble, i) => {
     const player = list[i]
     if (!player) {
@@ -483,7 +493,7 @@ watch(() => gameStore.playerList, (list) => {
     marble.name = player.name
     return marble
   })
-})
+}, { deep: true })
 
 const {
   canvasRef,
@@ -565,6 +575,7 @@ const {
         color,
         gameState,
       })
+
       ballList.push(marble)
       shadowGenerator.addShadowCaster(marble.mesh)
 
@@ -785,6 +796,8 @@ const {
     await nextFrame()
 
     isLoading.value = false
+
+    clientPlayer.requestPlayerList()
   },
 })
 

@@ -56,7 +56,7 @@ const nameGenerator = {
   ]),
 }
 
-function getRandomMarbleName() {
+export function getRandomMarbleName() {
   // 依序拿取就好，因為有 shuffle
   const prefix = nameGenerator.prefixes.shift()!
   const suffix = nameGenerator.suffixes.shift()!

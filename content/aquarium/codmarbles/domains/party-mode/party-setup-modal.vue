@@ -11,7 +11,7 @@
     <template #body>
       <div class="flex flex-col items-center gap-4 p-2">
         <div>
-          <img :src="gameStore.joinUrlQrCode">
+          <img :src="hostPlayer.joinUrlQrCode">
         </div>
       </div>
     </template>
@@ -19,7 +19,8 @@
 </template>
 
 <script setup lang="ts">
-import { useGameStore } from '../game/game-store'
+import { reactive } from 'vue';
+import { useHostPlayer } from '../game/use-host-player'
 
-const gameStore = useGameStore()
+const hostPlayer = reactive(useHostPlayer())
 </script>
