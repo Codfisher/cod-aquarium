@@ -183,6 +183,12 @@ export function createMarble({
         { mass: 1, restitution: 0.1, friction: 0 },
         scene,
       )
+
+      // 隨機施加一個力
+      physicsAggregate.body.applyImpulse(
+        new Vector3(random(-1, 1), 0, random(-1, 1)),
+        marble.position,
+      )
     }
     else {
       physicsAggregate?.dispose()

@@ -159,12 +159,32 @@
           v-if="isPartyClient"
           class="absolute top-0 left-0 flex flex-col justify-center items-center w-full h-full pointer-events-none gap-10"
         >
-          <transition name="opacity">
+          <transition
+            name="opacity"
+            mode="out-in"
+          >
             <div
               v-if="gameState === 'idle'"
-              class="text-4xl text-white text-shadow-lg"
+              class="text-2xl text-white text-shadow-lg"
             >
               等待主機開始遊戲...
+            </div>
+          </transition>
+
+          <transition
+            name="opacity"
+            mode="out-in"
+          >
+            <div
+              v-if="gameState === 'over'"
+              class=" text-white text-shadow-lg flex flex-col gap-6 items-center"
+            >
+              <div class="text-4xl">
+                遊戲結束！
+              </div>
+              <div class="text-2xl">
+                等待主機重新開始遊戲...
+              </div>
             </div>
           </transition>
         </div>
@@ -338,37 +358,39 @@ watch(gameState, (value) => {
 
 const rankingList = shallowRef<Marble[]>([])
 const updateRanking = useThrottleFn(() => {
-  rankingList.value = marbleList.value.toSorted((a, b) => {
-    // 若有人正在掉落，則先不交換排名
-    if (!a.isGrounded || !b.isGrounded) {
-      return 0
+  rankingList.value = marbleList.value
+    .filter((marble) => marble.mesh.isEnabled())
+    .sort((a, b) => {
+      // 若有人正在掉落，則先不交換排名
+      if (!a.isGrounded || !b.isGrounded) {
+        return 0
+      }
+
+      const aFinished = a.finishedAt > 0
+      const bFinished = b.finishedAt > 0
+
+      if (aFinished !== bFinished) {
+        return aFinished ? -1 : 1
+      }
+
+      if (aFinished && bFinished) {
+        return a.finishedAt - b.finishedAt
+      }
+
+      // 優先比較檢查點索引 (大的在前)
+      if (a.lastCheckPointIndex !== b.lastCheckPointIndex) {
+        return b.lastCheckPointIndex - a.lastCheckPointIndex
+      }
+      // 如果在同一個檢查點區間，Y 越小代表跑越下面 (越快)
+      return a.mesh.position.y - b.mesh.position.y
+    })
+
+  if (gameState.value === 'playing') {
+    const allFinished = !rankingList.value.some((marble) => !marble.finishedAt)
+    if (allFinished) {
+      gameState.value = 'over'
     }
-
-    const aFinished = a.finishedAt > 0
-    const bFinished = b.finishedAt > 0
-
-    if (aFinished !== bFinished) {
-      return aFinished ? -1 : 1
-    }
-
-    if (aFinished && bFinished) {
-      return a.finishedAt - b.finishedAt
-    }
-
-    // 優先比較檢查點索引 (大的在前)
-    if (a.lastCheckPointIndex !== b.lastCheckPointIndex) {
-      return b.lastCheckPointIndex - a.lastCheckPointIndex
-    }
-    // 如果在同一個檢查點區間，Y 越小代表跑越下面 (越快)
-    return a.mesh.position.y - b.mesh.position.y
-  })
-
-  const allFinished = !marbleList.value.some((marble) => !marble.finishedAt)
-  if (allFinished) {
-    gameState.value = 'over'
   }
-
-  triggerRef(marbleList)
 }, 500)
 
 function respawnWithAnimation(
@@ -447,7 +469,6 @@ async function start() {
   const tasks = marbleList.value
     .filter((marble) => marble.mesh.isEnabled())
     .map(async (marble, i) => {
-      console.log(`🚀 ~ marble i:`, i);
       const physicsBody = marble.mesh.physicsBody
       if (!physicsBody)
         return
