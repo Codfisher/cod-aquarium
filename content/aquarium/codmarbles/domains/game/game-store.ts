@@ -1,6 +1,6 @@
 import type { DataConnection } from 'peerjs'
 import type { GameMode } from '../../types'
-import { computedAsync } from '@vueuse/core'
+import { computedAsync, useIntervalFn, watchThrottled } from '@vueuse/core'
 import { Peer } from 'peerjs'
 import { defineStore } from 'pinia'
 import QRCode from 'qrcode'
@@ -10,6 +10,7 @@ import z from 'zod/v4'
 import { getRandomMarbleName } from '../marble'
 import { nextFrame } from '../../../../../web/common/utils'
 import { TrackSegmentType } from '../track-segment/data'
+import { fa } from 'zod/dist/types/v4/locales'
 
 export const peerDataSchema = z.discriminatedUnion('type', [
   z.object({
@@ -24,6 +25,13 @@ export const peerDataSchema = z.discriminatedUnion('type', [
       id: z.string(),
       name: z.string(),
       index: z.number(),
+    })),
+  }),
+  z.object({
+    type: z.literal('host:marbleData'),
+    marbleData: z.array(z.object({
+      index: z.number(),
+      position: z.number().array(),
     })),
   }),
   z.object({
@@ -81,10 +89,10 @@ export const useGameStore = defineStore('game', () => {
   })
 
   /** 紀錄軌道與順序 */
-  const trackSegmentList = ref<Array<{
+  const trackSegmentDataList = ref<Array<{
     type: `${TrackSegmentType}`
   }>>([]);
-  watch(trackSegmentList, async (list) => {
+  watch(trackSegmentDataList, async (list) => {
     await nextFrame()
 
     connectionMap.forEach((connection) => {
@@ -96,6 +104,31 @@ export const useGameStore = defineStore('game', () => {
   }, {
     flush: 'post',
     deep: true
+  })
+
+  const marbleDataList = ref<Array<{
+    index: number;
+    position: number[];
+  }>>([])
+  const marbleDataInterval = useIntervalFn(() => {
+    connectionMap.forEach((connection) => {
+      send(connection, {
+        type: 'host:marbleData',
+        marbleData: marbleDataList.value,
+      })
+    })
+  }, 100, {
+    immediate: false,
+    immediateCallback: false,
+  })
+  watch(isHost, (isHost) => {
+    if (isHost) {
+      marbleDataInterval.resume()
+    } else {
+      marbleDataInterval.pause()
+    }
+  }, {
+    immediate: true,
   })
 
   function init() {
@@ -111,7 +144,7 @@ export const useGameStore = defineStore('game', () => {
         const dataConnection = newPeer.connect(hostId)
         selfConnection.value = dataConnection
       })
-    } 
+    }
     // host 邏輯
     else {
       newPeer.on('connection', (dataConnection) => {
@@ -140,6 +173,8 @@ export const useGameStore = defineStore('game', () => {
     peer,
     peerId: computed(() => peerId.value),
     playerList,
+    trackSegmentDataList,
+    marbleDataList,
     connectionMap,
     selfConnection,
   }

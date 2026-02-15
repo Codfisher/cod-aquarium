@@ -481,7 +481,6 @@ function openPartySetupModal() {
 }
 
 watch(() => gameStore.playerList, (list) => {
-  console.log(`🚀 ~ list:`, list);
   marbleList.value = marbleList.value.map((marble, i) => {
     const player = list[i]
     if (!player) {
@@ -499,7 +498,13 @@ const {
   canvasRef,
 } = useBabylonScene({
   async init(params) {
+    const isPartyClient = !gameStore.isHost && gameStore.mode === 'party'
+
     const { scene, camera, canvas, engine } = params
+
+    // if (isPartyClient) {
+    //   scene.disablePhysicsEngine()
+    // }
 
     // Inspector.Show(scene, {
     //   embedMode: true,
@@ -532,9 +537,11 @@ const {
           return nextTrack
         }, undefined as TrackSegment | undefined)
 
-        list.forEach((trackSegment) => {
-          trackSegment.initPhysics()
-        })
+        if (!isPartyClient) {
+          list.forEach((trackSegment) => {
+            trackSegment.initPhysics()
+          })
+        }
 
         return list
       },
@@ -576,6 +583,11 @@ const {
         gameState,
       })
 
+      // client 端停止物理模擬
+      if (isPartyClient) {
+        marble.mesh.physicsBody?.dispose()
+      }
+
       ballList.push(marble)
       shadowGenerator.addShadowCaster(marble.mesh)
 
@@ -599,6 +611,10 @@ const {
 
     // 將彈珠移動到 lobby 位置
     pipe(0, () => {
+      if (isPartyClient) {
+        return
+      }
+
       const lobbyMesh = scene.getMeshByName('lobby')
       if (!lobbyMesh) {
         throw new Error('lobbyMesh is undefined')
@@ -649,6 +665,11 @@ const {
             return focusedMarble.value
           }
 
+          // party mode 下只追蹤自己的彈珠
+          // if (!gameStore.isHost) {
+          //   return
+          // }
+
           const lowestMarble = pipe(
             marbleList.value,
             filter((marble) => marble.isGrounded),
@@ -696,6 +717,10 @@ const {
 
     // 設定檢查點
     pipe(0, () => {
+      if (isPartyClient) {
+        return
+      }
+
       const checkPointPositionList = getCheckPointPositionList([
         ...trackSegmentList.value,
         endTrackSegment,
@@ -756,6 +781,10 @@ const {
 
     // 終點檢查
     pipe(0, () => {
+      if (isPartyClient) {
+        return
+      }
+
       const endCheckPointPosition = endTrackSegment.rootNode
         .getChildMeshes()
         .find((mesh) => mesh.name === 'end')
@@ -793,11 +822,52 @@ const {
       })
     })
 
+    // 同步 marbleData
+    pipe(0, () => {
+      scene.onBeforeRenderObservable.add(() => {
+        if (gameStore.mode !== 'party') {
+          return
+        }
+
+        // host 負責傳送
+        if (gameStore.isHost) {
+          gameStore.marbleDataList = marbleList.value
+            .filter((marble) => marble.mesh.isEnabled())
+            .map((marble) => ({
+              index: marble.index,
+              position: marble.mesh.position.asArray(),
+            }))
+        }
+        else {
+          // client 負責接收
+          gameStore.marbleDataList.forEach((marbleData) => {
+            const marble = marbleList.value.find(
+              (marble) => marble.index === marbleData.index
+            )
+            console.log(marble?.mesh.physicsBody?.motionType === PhysicsMotionType.ANIMATED)
+
+            if (marble) {
+              Vector3.LerpToRef(
+                marble.mesh.position,
+                Vector3.FromArray(marbleData.position),
+                0.1,
+                marble.mesh.position,
+              )
+              marble.mesh.computeWorldMatrix(true)
+            }
+          })
+        }
+
+      })
+    })
+
     await nextFrame()
 
     isLoading.value = false
 
-    clientPlayer.requestPlayerList()
+    if (isPartyClient) {
+      clientPlayer.requestPlayerList()
+    }
   },
 })
 

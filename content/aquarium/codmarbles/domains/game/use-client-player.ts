@@ -9,16 +9,15 @@ function _useClientPlayer() {
 
   whenever(selfConnection, (conn) => {
     conn.on('open', () => {
-      console.log(`🚀[player] ~ open:`, open)
+      console.log(`🚀[player] ~ open:`)
     })
 
     conn.on('close', () => {
-      console.log(`🚀[player] ~ close:`, close)
+      console.log(`🚀[player] ~ close:`)
     })
 
     conn.on('data', (data) => {
-      console.log(`[useClientPlayer] ~ data:`, data)
-
+      // console.log(`[useClientPlayer] ~ data:`, data);
       const parsedData = peerDataSchema.safeParse(data)
       if (!parsedData.success) {
         console.error('Invalid data:', parsedData.error)
@@ -28,6 +27,7 @@ function _useClientPlayer() {
       const { type } = parsedData.data
       switch (type) {
         case 'host:playerList': {
+          console.log(`🚀 ~ playerList:`, parsedData.data.playerList);
           playerList.value = parsedData.data.playerList
           break
         }
@@ -39,7 +39,6 @@ function _useClientPlayer() {
 
   return {
     requestPlayerList() {
-      console.log(`[requestPlayerList] ~ selfConnection:`, selfConnection);
       selfConnection.value?.send({
         type: 'client:requestPlayerList',
       })
