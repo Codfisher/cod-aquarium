@@ -167,10 +167,7 @@
           v-if="isPartyClient"
           class="absolute top-0 left-0 flex flex-col justify-center items-center w-full h-full pointer-events-none gap-10"
         >
-          <transition
-            name="opacity"
-            mode="out-in"
-          >
+          <transition name="opacity">
             <div
               v-if="gameState === 'idle'"
               class="text-2xl text-white text-shadow-lg"
@@ -179,10 +176,7 @@
             </div>
           </transition>
 
-          <transition
-            name="opacity"
-            mode="out-in"
-          >
+          <transition name="opacity">
             <div
               v-if="gameState === 'over'"
               class=" text-white text-shadow-lg flex flex-col gap-6 items-center"
@@ -196,13 +190,18 @@
             </div>
           </transition>
 
-          <div class="absolute right-0 bottom-0 flex flex-col p-6 gap-4 pointer-events-auto">
-            <u-icon
-              name="i-material-symbols:settings-account-box-rounded"
-              class="text-4xl text-white cursor-pointer"
-              @click="openPartyPlayerSettingsModal"
-            />
-          </div>
+          <transition name="opacity">
+            <div
+              v-if="gameState !== 'playing'"
+              class="absolute right-0 bottom-0 flex flex-col p-6 gap-4 pointer-events-auto"
+            >
+              <u-icon
+                name="i-material-symbols:settings-account-box-rounded"
+                class="text-4xl text-white cursor-pointer"
+                @click="openPartyPlayerSettingsModal"
+              />
+            </div>
+          </transition>
         </div>
       </transition>
 
