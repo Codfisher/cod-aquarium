@@ -1,7 +1,7 @@
 <template>
   <u-modal
     title="玩家設定"
-    description="請設定你的玩家資訊"
+    description="可變更你的玩家資訊"
     :ui="{
       content: 'rounded-2xl',
       footer: 'flex justify-end gap-4',
