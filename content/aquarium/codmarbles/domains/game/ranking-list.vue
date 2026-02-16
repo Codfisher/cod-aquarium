@@ -58,9 +58,9 @@
 
 <script setup lang="ts">
 import { pipe } from 'zod/v4';
-import { useClientPlayer } from '../domains/game/use-client-player';
-import { useHostPlayer } from '../domains/game/use-host-player';
-import type { Marble } from '../types'
+import { useClientPlayer } from './use-client-player';
+import { useHostPlayer } from './use-host-player';
+import type { Marble } from '../../types'
 import { computed } from 'vue'
 
 interface Props {
