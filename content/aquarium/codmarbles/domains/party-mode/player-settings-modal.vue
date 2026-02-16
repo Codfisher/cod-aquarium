@@ -11,12 +11,8 @@
 
     <template #body>
       <div class="flex flex-col items-center gap-4 p-2">
-        <u-form-field
-          label="玩家名稱"
-        >
-          <u-input
-            v-model="name"
-          />
+        <u-form-field label="玩家名稱">
+          <u-input v-model="playerInfo.name" />
         </u-form-field>
       </div>
     </template>
@@ -37,9 +33,15 @@ import { useClientPlayer } from '../game/use-client-player';
 
 const clientPlayer = reactive(useClientPlayer())
 
-const name = ref('')
+const playerInfo = ref({
+  name: '',
+})
+function init() {
+  playerInfo.value.name = clientPlayer.playerData?.name || ''
+}
+init()
 
 function updatePlayerName() {
-
+  clientPlayer.updateInfo(playerInfo.value)
 }
 </script>

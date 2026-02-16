@@ -17,12 +17,11 @@ function _useClientPlayer() {
 
   const isPartyClient = computed(() => !gameStore.isHost && gameStore.mode === 'party')
 
-  const marbleIndex = computed(() => {
+  const playerData = computed(() => {
     const player = playerList.value.find((player) => player.id === gameStore.peerId)
-    return player?.index
+    return player
   })
 
-  const rejectHook = createEventHook<Extract<PeerData, { type: 'host:reject' }>>()
   whenever(selfConnection, (conn) => {
     conn.on('open', () => {
       console.log(`🚀[player] ~ open:`)
@@ -66,7 +65,7 @@ function _useClientPlayer() {
 
   return {
     isPartyClient,
-    marbleIndex,
+    playerData,
     requestPlayerList() {
       selfConnection.value?.send({
         type: 'client:requestPlayerList',
@@ -75,6 +74,12 @@ function _useClientPlayer() {
     requestAllData() {
       selfConnection.value?.send({
         type: 'client:requestAllData',
+      })
+    },
+    updateInfo(info: Omit<Extract<PeerData, { type: 'client:updateInfo' }>, 'type'>) {
+      selfConnection.value?.send({
+        type: 'client:updateInfo',
+        ...info,
       })
     },
   }

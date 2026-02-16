@@ -195,6 +195,14 @@
               </div>
             </div>
           </transition>
+
+          <div class="absolute right-0 bottom-0 flex flex-col p-6 gap-4 pointer-events-auto">
+            <u-icon
+              name="i-material-symbols:settings-account-box-rounded"
+              class="text-4xl text-white cursor-pointer"
+              @click="openPartyPlayerSettingsModal"
+            />
+          </div>
         </div>
       </transition>
 
@@ -707,7 +715,7 @@ const {
 
           // party mode 下只追蹤自己的彈珠
           if (gameStore.mode === 'party') {
-            const index = clientPlayer.marbleIndex
+            const index = clientPlayer.playerData?.index
             if (index === undefined) {
               return
             }

@@ -3,7 +3,7 @@
     <transition-group
       name="list"
       tag="div"
-      class="flex md:flex-col gap-2 max-md:gap-1 overflow-x-auto max-w-screen p-4 md:pr-20 max-md:pt-10"
+      class="flex justify-end md:flex-col gap-2 max-md:gap-1 overflow-x-auto max-w-screen p-4 md:pr-20 max-md:pt-10 md:h-dvh"
     >
       <div
         v-for="(marble, index) in marbleList"
