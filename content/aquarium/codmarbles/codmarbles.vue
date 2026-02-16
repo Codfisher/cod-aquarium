@@ -143,11 +143,19 @@
                 </div>
               </base-btn>
 
-              <u-icon
-                name="i-material-symbols:qr-code-scanner"
-                class=" absolute right-6 bottom-6 text-4xl text-white cursor-pointer"
-                @click="openPartySetupModal"
-              />
+              <div class="absolute right-0 bottom-0 flex flex-col p-6 gap-4">
+                <u-icon
+                  name="i-material-symbols:qr-code-scanner"
+                  class="text-4xl text-white cursor-pointer"
+                  @click="openPartySetupModal"
+                />
+
+                <u-icon
+                  name="i-material-symbols:settings-account-box-rounded"
+                  class="text-4xl text-white cursor-pointer"
+                  @click="openPartyPlayerSettingsModal"
+                />
+              </div>
             </div>
           </transition>
         </div>
@@ -244,13 +252,14 @@ import { useFontLoader } from './composables/use-font-loader'
 import { useGameStore } from './domains/game/game-store'
 import { useBabylonScene } from './domains/game/use-babylon-scene'
 import { createMarble, GHOST_RENDERING_GROUP_ID, MARBLE_SIZE } from './domains/marble'
-import PartySetupModal from './domains/party-mode/party-setup-modal.vue'
+import PartySetupModal from './domains/party-mode/setup-modal.vue'
 import { connectTracks, createTrackSegment } from './domains/track-segment'
 import { TrackSegmentType } from './domains/track-segment/data'
 import { useAssetStore } from './stores/asset-store'
 import { useClientPlayer } from './domains/game/use-client-player'
 import { useHostPlayer } from './domains/game/use-host-player'
 import { storeToRefs } from 'pinia'
+import PlayerSettingsModal from './domains/party-mode/player-settings-modal.vue'
 
 const toast = useToast()
 const alertVisible = ref(true)
@@ -926,6 +935,11 @@ function openPartySetupModal() {
   modal.open()
 
   hostPlayer.setupParty()
+}
+
+function openPartyPlayerSettingsModal() {
+  const modal = overlay.create(PlayerSettingsModal)
+  modal.open()
 }
 
 watch(() => gameStore.playerList, (list) => {
