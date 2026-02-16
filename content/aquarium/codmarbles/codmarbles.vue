@@ -246,10 +246,10 @@ import type { Scene } from '@babylonjs/core'
 import type { TrackSegment } from './domains/track-segment'
 import type { Marble } from './types'
 import { ActionManager, Color3, DirectionalLight, ExecuteCodeAction, MeshBuilder, PhysicsMotionType, ShadowGenerator, TransformNode, Vector3 } from '@babylonjs/core'
-import { breakpointsTailwind, promiseTimeout, useBreakpoints, useColorMode, useEventListener, useThrottleFn } from '@vueuse/core'
+import { breakpointsTailwind, promiseTimeout, until, useBreakpoints, useColorMode, useEventListener, useThrottleFn } from '@vueuse/core'
 import { animate, cubicBezier } from 'animejs'
 import { filter, firstBy, map, pipe, shuffle, tap, values } from 'remeda'
-import { computed, reactive, ref, shallowRef, triggerRef, watch } from 'vue'
+import { computed, onMounted, reactive, ref, shallowRef, triggerRef, watch } from 'vue'
 import { nextFrame } from '../../../web/common/utils'
 import BaseBtn from './components/base-btn.vue'
 import BasePolygon from './components/base-polygon.vue'
@@ -949,6 +949,12 @@ function openPartyPlayerSettingsModal() {
   const modal = overlay.create(PlayerSettingsModal)
   modal.open()
 }
+onMounted(async () => {
+  if (clientPlayer.isPartyClient) {
+    await until(() => clientPlayer.playerData).toBeTruthy()
+    openPartyPlayerSettingsModal()
+  }
+})
 
 watch(() => gameStore.playerList, (list) => {
   marbleList.value = marbleList.value.map((marble, i) => {
