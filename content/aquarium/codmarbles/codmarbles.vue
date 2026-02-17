@@ -143,7 +143,7 @@
                 </div>
               </base-btn>
 
-              <div class="absolute right-0 bottom-0 flex flex-col p-6 gap-4">
+              <div class="absolute right-2 top-2 flex flex-col p-4 gap-4 bg-black/10 rounded-2xl">
                 <u-icon
                   name="i-material-symbols:qr-code-scanner"
                   class="text-4xl text-white cursor-pointer"
@@ -193,7 +193,7 @@
           <transition name="opacity">
             <div
               v-if="gameState !== 'playing'"
-              class="absolute right-0 bottom-0 flex flex-col p-6 gap-4 pointer-events-auto"
+              class="absolute right-2 top-2 flex flex-col p-4 gap-4 bg-black/10 rounded-2xl pointer-events-auto"
             >
               <u-icon
                 name="i-material-symbols:settings-account-box-rounded"
