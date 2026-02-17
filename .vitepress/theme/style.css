@@ -166,15 +166,19 @@ img {
 }
 
 a {
-  text-decoration: none;
+  text-decoration: none !important;
 }
 
 .vp-doc {
   text-align: left;
-}
 
-.vp-doc p {
-  line-height: 1.8;
+  p {
+    line-height: 1.8;
+  }
+
+  a {
+    text-decoration: underline !important;
+  }
 }
 
 .VPSidebarItem .VPLink {
