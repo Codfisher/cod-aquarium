@@ -30,14 +30,14 @@
         </div>
 
         <div
+          class=" absolute -top-1 -left-1 size-3 rounded-full border-2 border-white z-2 shadow-inner"
+          :style="{ backgroundColor: marble.hexColor }"
+        />
+
+        <div
           class="flex rounded-lg transition-all duration-300 border-2 box-content cursor-pointer z-1 overflow-hidden relative"
           :class="marble.className"
         >
-          <div
-            class="w-2 rounded-full"
-            :style="{ backgroundColor: marble.hexColor }"
-          />
-
           <div class="text-xs text-gray-700 font-medium text-nowrap p-2 flex-1">
             {{ marble.name }}
           </div>
