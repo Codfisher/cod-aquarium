@@ -10,8 +10,15 @@
 
     <template #body>
       <div class="flex flex-col items-center gap-4 p-2">
-        <div>
+        <div class="flex flex-col items-center gap-4 p-2">
           <img :src="hostPlayer.joinUrlQrCode">
+
+          <u-button
+            label="複製連結"
+            class="w-full"
+            :ui="{ label: 'text-center w-full' }"
+            @click="copyJoinUrl"
+          />
         </div>
       </div>
     </template>
@@ -22,5 +29,15 @@
 import { reactive } from 'vue';
 import { useHostPlayer } from '../game/use-host-player'
 
+const toast = useToast()
 const hostPlayer = reactive(useHostPlayer())
+
+function copyJoinUrl() {
+  navigator.clipboard.writeText(hostPlayer.joinUrl)
+  toast.add({
+    title: '已複製連結',
+    description: '可以分享給快樂夥伴們囉！੭ ˙ᗜ˙ )੭',
+    color: 'success',
+  })
+}
 </script>
