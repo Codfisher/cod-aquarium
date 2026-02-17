@@ -215,17 +215,24 @@
           color="neutral"
         >
           <template #description>
-            此專案沒有偉大的技術願景，純粹就是我想看東西滾來滾去而誕生的專案 (´,,•ω•,,)
+            此專案沒有偉大的技術願景，純粹就是我想看東西滾來滾去而誕生的專案<span class="text-nowrap"> (´,,•ω•,,)</span>
 
             <br><br>
-            支援多人模式，趕快找快樂夥伴們一起滾彈珠吧！੭ ˙ᗜ˙ )੭
+            支援多人模式，趕快找快樂夥伴們一起滾彈珠吧！<span class="text-nowrap">੭ ˙ᗜ˙ )੭</span>
 
             <br><br>
-            不定期追加有趣的內容，歡迎一起<a
+
+            <a
+              href="https://github.com/Codfisher/cod-aquarium/tree/main/content/aquarium/codmarbles"
+              target="_blank"
+              class=" underline!"
+            >原始碼在此</a>
+
+            ，不定期追加有趣的內容，歡迎一起<a
               href="https://www.threads.com/@codfish2140"
               target="_blank"
               class=" underline!"
-            >放空、交流或許願功能</a> (*´∀`)~♥
+            >放空、交流或許願功能</a><span class="text-nowrap"> (*´∀`)~♥</span>
           </template>
         </u-alert>
       </div>
