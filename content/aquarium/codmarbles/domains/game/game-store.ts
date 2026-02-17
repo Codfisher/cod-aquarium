@@ -13,6 +13,7 @@ export const peerDataSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('host:state'),
     state: z.string(),
+    startedAt: z.number(),
   }),
   z.object({
     type: z.literal('host:trackSegmentList'),
@@ -34,6 +35,7 @@ export const peerDataSchema = z.discriminatedUnion('type', [
       index: z.number(),
       isGrounded: z.boolean(),
       finishedAt: z.number(),
+      lastCheckPointIndex: z.number(),
       position: z.number().array(),
     })),
   }),
@@ -68,7 +70,8 @@ export const useGameStore = defineStore('game', () => {
   )
 
   const state = ref<GameState>('idle')
-  watch(state, async (value) => {
+  const startedAt = ref<number>(0)
+  watch(() => [state.value, startedAt.value], async () => {
     if (!isHost.value) {
       return
     }
@@ -78,10 +81,12 @@ export const useGameStore = defineStore('game', () => {
     connectionMap.forEach((connection) => {
       send(connection, {
         type: 'host:state',
-        state: value,
+        state: state.value,
+        startedAt: startedAt.value,
       })
     })
   }, {
+    deep: true,
     flush: 'post',
   })
 
@@ -143,6 +148,7 @@ export const useGameStore = defineStore('game', () => {
     index: number;
     isGrounded: boolean;
     finishedAt: number;
+    lastCheckPointIndex: number;
     position: number[];
   }>>([])
   const marbleDataInterval = useIntervalFn(() => {
@@ -268,6 +274,7 @@ export const useGameStore = defineStore('game', () => {
 
   return {
     state,
+    startedAt,
     mode,
     isHost,
     peer,

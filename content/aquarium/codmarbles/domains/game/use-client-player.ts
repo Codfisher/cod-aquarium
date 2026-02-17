@@ -13,6 +13,7 @@ function _useClientPlayer() {
     marbleDataList,
     trackSegmentDataList,
     state,
+    startedAt,
   } = storeToRefs(gameStore)
 
   const isPartyClient = computed(() => !gameStore.isHost && gameStore.mode === 'party')
@@ -55,6 +56,7 @@ function _useClientPlayer() {
         }
         case 'host:state': {
           state.value = parsedData.data.state as GameState
+          startedAt.value = parsedData.data.startedAt
           break
         }
       }
@@ -66,6 +68,7 @@ function _useClientPlayer() {
   return {
     isPartyClient,
     playerData,
+    startedAt,
     requestPlayerList() {
       selfConnection.value?.send({
         type: 'client:requestPlayerList',

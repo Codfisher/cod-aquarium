@@ -31,6 +31,10 @@
 import { reactive, ref } from 'vue';
 import { useClientPlayer } from '../game/use-client-player';
 
+const emit = defineEmits<{
+  update: [],
+}>()
+
 const clientPlayer = reactive(useClientPlayer())
 
 const playerInfo = ref({
@@ -43,5 +47,6 @@ init()
 
 function updatePlayerName() {
   clientPlayer.updateInfo(playerInfo.value)
+  emit('update')
 }
 </script>

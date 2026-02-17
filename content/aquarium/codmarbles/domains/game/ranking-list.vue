@@ -42,9 +42,17 @@
             {{ marble.name }}
           </div>
 
-          <div class="font-mono font-bold translate-y-[70%] w-8 text-right leading-0 text-yellow-700/30 text-4xl">
-            {{ index + 1 }}
-          </div>
+          <transition
+            name="opacity"
+            mode="out-in"
+          >
+            <div
+              :key="index"
+              class="font-mono font-bold translate-y-[70%] w-8 flex justify-end leading-0 text-yellow-700/30 text-[3rem]"
+            >
+              {{ index + 1 }}
+            </div>
+          </transition>
         </div>
       </div>
     </transition-group>

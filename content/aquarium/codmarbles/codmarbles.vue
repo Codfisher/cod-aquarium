@@ -10,10 +10,10 @@
       />
       <ranking-list
         v-model:focused-marble="focusedMarble"
-        :start-time="startTime"
+        :start-time="startedAt"
         :ranking-list="rankingList"
         :game-state="gameState"
-        class="fixed left-0 bottom-0"
+        class=" absolute left-0 bottom-[env(safe-area-inset-bottom)]"
       />
 
       <transition name="opacity">
@@ -272,7 +272,7 @@ const toast = useToast()
 const alertVisible = ref(true)
 const isLoading = ref(true)
 const gameStore = useGameStore()
-const { state: gameState } = storeToRefs(gameStore)
+const { state: gameState, startedAt } = storeToRefs(gameStore)
 
 // Nuxt UI 接管 vitepress 的 dark 設定，故改用 useColorMode
 const colorMode = useColorMode()
@@ -365,38 +365,37 @@ const hostPlayer = reactive(useHostPlayer())
 
 const isPartyClient = clientPlayer.isPartyClient
 
-const startTime = ref(0)
-watch(gameState, (value) => {
-  if (value === 'playing') {
-    startTime.value = Date.now()
-  }
-})
-
 const rankingList = shallowRef<Marble[]>([])
 const updateRanking = useThrottleFn(() => {
+  // 記錄上一輪的順序
+  const prevOrder = new Map(
+    rankingList.value.map((m, i) => [m.index, i])
+  )
+
   rankingList.value = marbleList.value
-    .filter((marble) => marble.mesh.isEnabled())
-    .sort((a, b) => {
+    .filter((m) => m.mesh.isEnabled())
+    .toSorted((a, b) => {
       const aFinished = a.finishedAt > 0
       const bFinished = b.finishedAt > 0
 
-      // ✅ 完賽的一定先排，且用 finishedAt 排名
       if (aFinished !== bFinished) return aFinished ? -1 : 1
       if (aFinished && bFinished) return a.finishedAt - b.finishedAt
 
-      if (!a.isGrounded || !b.isGrounded) return 0
+      // 懸空時回傳 0 會導致排名不穩定，改用上一輪順序固定住
+      if (!a.isGrounded || !b.isGrounded) {
+        return (prevOrder.get(a.index) ?? 0) - (prevOrder.get(b.index) ?? 0)
+      }
 
       if (a.lastCheckPointIndex !== b.lastCheckPointIndex) {
         return b.lastCheckPointIndex - a.lastCheckPointIndex
       }
+
       return a.mesh.position.y - b.mesh.position.y
     })
 
   if (gameState.value === 'playing') {
-    const allFinished = !rankingList.value.some((marble) => !marble.finishedAt)
-    if (allFinished) {
-      gameState.value = 'over'
-    }
+    const allFinished = !rankingList.value.some((m) => !m.finishedAt)
+    if (allFinished) gameState.value = 'over'
   }
 }, 500)
 
@@ -517,6 +516,7 @@ async function start() {
   await Promise.all(tasks)
 
   gameState.value = 'playing'
+  startedAt.value = Date.now()
 }
 async function startZenMode() {
   start()
@@ -888,6 +888,7 @@ const {
               index: marble.index,
               isGrounded: marble.isGrounded,
               finishedAt: marble.finishedAt,
+              lastCheckPointIndex: marble.lastCheckPointIndex,
               position: marble.mesh.position.asArray(),
             }))
         }
@@ -910,6 +911,7 @@ const {
 
             marble.isGrounded = marbleData.isGrounded
             marble.finishedAt = marbleData.finishedAt
+            marble.lastCheckPointIndex = marbleData.lastCheckPointIndex
           })
           marbleList.value = [...marbleList.value]
         }
@@ -945,7 +947,17 @@ function openPartySetupModal() {
 }
 
 function openPartyPlayerSettingsModal() {
-  const modal = overlay.create(PlayerSettingsModal)
+  const modal = overlay.create(PlayerSettingsModal, {
+    props: {
+      onUpdate() {
+        modal.close()
+        toast.add({
+          title: '設定已更新',
+          color: 'success',
+        })
+      }
+    }
+  })
   modal.open()
 }
 onMounted(async () => {

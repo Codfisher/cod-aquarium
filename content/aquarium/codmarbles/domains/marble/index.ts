@@ -14,11 +14,9 @@ let ghostMaterial: StandardMaterial
 
 const nameGenerator = {
   prefixes: shuffle([
-    '漆黑烈焰的',
-    '被封印的',
-    '來自深淵的',
-    '覺醒的',
-    '諸神的',
+    '閃到腰的',
+    '被劇透的',
+    '沒睡飽的',
     '穿模的',
     '貼圖遺失的',
     '剛睡醒的',
