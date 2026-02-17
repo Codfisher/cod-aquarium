@@ -30,21 +30,29 @@
         </div>
 
         <div
+          class=" absolute -top-1 -right-1 size-3 rounded-full border-2 border-white z-2 shadow-inner"
+          :style="{ backgroundColor: marble.hexColor }"
+        />
+
+        <div
           class="flex rounded-lg transition-all duration-300 border-2 box-content cursor-pointer z-1 overflow-hidden relative"
           :class="marble.className"
         >
-          <div
-            class="w-2 rounded-full"
-            :style="{ backgroundColor: marble.hexColor }"
-          />
-
           <div class="text-xs text-gray-700 font-medium text-nowrap p-2 flex-1">
             {{ marble.name }}
           </div>
 
-          <div class="font-mono font-bold translate-y-[70%] w-8 text-right leading-0 text-yellow-700/30 text-4xl">
-            {{ index + 1 }}
-          </div>
+          <transition
+            name="opacity"
+            mode="out-in"
+          >
+            <div
+              :key="index"
+              class="font-mono font-bold translate-y-[70%] w-8 flex justify-end leading-0 text-yellow-700/30 text-[3rem]"
+            >
+              {{ index + 1 }}
+            </div>
+          </transition>
         </div>
       </div>
     </transition-group>

@@ -10,10 +10,10 @@
       />
       <ranking-list
         v-model:focused-marble="focusedMarble"
-        :start-time="startTime"
+        :start-time="startedAt"
         :ranking-list="rankingList"
         :game-state="gameState"
-        class="fixed left-0 bottom-0"
+        class=" absolute left-0 bottom-[env(safe-area-inset-bottom)]"
       />
 
       <transition name="opacity">
@@ -244,7 +244,7 @@
 import type { Scene } from '@babylonjs/core'
 import type { TrackSegment } from './domains/track-segment'
 import type { Marble } from './types'
-import { ActionManager, Color3, DirectionalLight, ExecuteCodeAction, MeshBuilder, PhysicsMotionType, ShadowGenerator, TransformNode, Vector3 } from '@babylonjs/core'
+import { ActionManager, Color3, Color4, DirectionalLight, ExecuteCodeAction, Material, MeshBuilder, PhysicsMotionType, ShadowGenerator, SolidParticleSystem, StandardMaterial, TransformNode, Vector3 } from '@babylonjs/core'
 import { breakpointsTailwind, promiseTimeout, until, useBreakpoints, useColorMode, useEventListener, useThrottleFn } from '@vueuse/core'
 import { animate, cubicBezier } from 'animejs'
 import { filter, firstBy, map, pipe, shuffle, tap, values } from 'remeda'
@@ -272,7 +272,7 @@ const toast = useToast()
 const alertVisible = ref(true)
 const isLoading = ref(true)
 const gameStore = useGameStore()
-const { state: gameState } = storeToRefs(gameStore)
+const { state: gameState, startedAt } = storeToRefs(gameStore)
 
 // Nuxt UI 接管 vitepress 的 dark 設定，故改用 useColorMode
 const colorMode = useColorMode()
@@ -353,6 +353,7 @@ function createCheckPointColliders(
 }
 
 // --- 主要遊戲邏輯 ---
+
 const marbleCount = 10
 const marbleList = shallowRef<Marble[]>([])
 const focusedMarble = shallowRef<Marble>()
@@ -365,38 +366,37 @@ const hostPlayer = reactive(useHostPlayer())
 
 const isPartyClient = clientPlayer.isPartyClient
 
-const startTime = ref(0)
-watch(gameState, (value) => {
-  if (value === 'playing') {
-    startTime.value = Date.now()
-  }
-})
-
 const rankingList = shallowRef<Marble[]>([])
 const updateRanking = useThrottleFn(() => {
+  // 記錄上一輪的順序
+  const prevOrder = new Map(
+    rankingList.value.map((m, i) => [m.index, i])
+  )
+
   rankingList.value = marbleList.value
-    .filter((marble) => marble.mesh.isEnabled())
-    .sort((a, b) => {
+    .filter((m) => m.mesh.isEnabled())
+    .toSorted((a, b) => {
       const aFinished = a.finishedAt > 0
       const bFinished = b.finishedAt > 0
 
-      // ✅ 完賽的一定先排，且用 finishedAt 排名
       if (aFinished !== bFinished) return aFinished ? -1 : 1
       if (aFinished && bFinished) return a.finishedAt - b.finishedAt
 
-      if (!a.isGrounded || !b.isGrounded) return 0
+      // 懸空時回傳 0 會導致排名不穩定，改用上一輪順序固定住
+      if (!a.isGrounded || !b.isGrounded) {
+        return (prevOrder.get(a.index) ?? 0) - (prevOrder.get(b.index) ?? 0)
+      }
 
       if (a.lastCheckPointIndex !== b.lastCheckPointIndex) {
         return b.lastCheckPointIndex - a.lastCheckPointIndex
       }
+
       return a.mesh.position.y - b.mesh.position.y
     })
 
   if (gameState.value === 'playing') {
-    const allFinished = !rankingList.value.some((marble) => !marble.finishedAt)
-    if (allFinished) {
-      gameState.value = 'over'
-    }
+    const allFinished = !rankingList.value.some((m) => !m.finishedAt)
+    if (allFinished) gameState.value = 'over'
   }
 }, 500)
 
@@ -438,6 +438,106 @@ function respawnWithAnimation(
     },
   })
 }
+
+function burstConfetti(
+  scene: Scene,
+  origin: Vector3,
+  options = { count: 10 },
+) {
+  const engine = scene.getEngine()
+
+  const count = options.count
+  const sps = new SolidParticleSystem('confettiSPS', scene, { updatable: true })
+
+  const proto = MeshBuilder.CreateBox('confettiProto', {
+    width: 0.2,
+    height: 0.01,
+    depth: 0.2,
+  }, scene)
+  proto.isVisible = false
+
+  sps.addShape(proto, count)
+  const mesh = sps.buildMesh()
+  mesh.position.copyFrom(origin)
+  mesh.isPickable = false
+  mesh.hasVertexAlpha = true
+
+  const mat = new StandardMaterial('confettiMat', scene)
+  mat.transparencyMode = Material.MATERIAL_ALPHABLEND
+  mesh.material = mat
+
+  const gravity = new Vector3(0, -9.8, 0)
+
+  sps.initParticles = () => {
+    sps.particles.forEach((particle) => {
+      // 初始在 origin 周圍一點點散開
+      particle.position.set(
+        (Math.random() - 0.5) * 0.6,
+        (Math.random() - 0.5) * 0.6,
+        (Math.random() - 0.5) * 0.6,
+      )
+
+      particle.rotation.set(
+        Math.random() * Math.PI,
+        Math.random() * Math.PI,
+        Math.random() * Math.PI,
+      )
+      particle.color = Color4.FromColor3(Color3.FromHSV(Math.random() * 360, 1, 1), 1)
+
+      // 用 props 存速度/角速度
+      particle.props = {
+        vel: new Vector3(
+          (Math.random() - 0.5) * 10,
+          10 + Math.random() * 10,
+          (Math.random() - 0.5) * 10,
+        ),
+        rotVel: new Vector3(
+          (Math.random() - 0.5) * 14,
+          (Math.random() - 0.5) * 14,
+          (Math.random() - 0.5) * 14,
+        ),
+      }
+    })
+  }
+
+  sps.updateParticle = (particles) => {
+    const dt = engine.getDeltaTime() / 1000
+    const props = particles.props as { vel: Vector3; rotVel: Vector3 }
+
+    // 重力 + 一點阻力
+    props.vel.addInPlace(gravity.scale(dt))
+    props.vel.scaleInPlace(0.985)
+
+    // 位置更新
+    particles.position.addInPlace(props.vel.scale(dt))
+
+    // 旋轉更新
+    particles.rotation.x += props.rotVel.x * dt
+    particles.rotation.y += props.rotVel.y * dt
+    particles.rotation.z += props.rotVel.z * dt
+
+    // 慢慢淡出
+    if (particles.color) particles.color.a = Math.max(0, particles.color.a - dt * 0.3)
+
+    return particles
+  }
+
+  sps.initParticles()
+  sps.setParticles()
+
+  const obs = scene.onBeforeRenderObservable.add(() => {
+    sps.setParticles()
+  })
+
+  setTimeout(() => {
+    scene.onBeforeRenderObservable.remove(obs)
+    mesh.dispose()
+    mat.dispose()
+    proto.dispose()
+    sps.dispose()
+  }, 5000)
+}
+
 
 const defaultMenuVisible = computed(() => {
   if (gameStore.mode === 'party' && !gameStore.isHost) {
@@ -517,6 +617,7 @@ async function start() {
   await Promise.all(tasks)
 
   gameState.value = 'playing'
+  startedAt.value = Date.now()
 }
 async function startZenMode() {
   start()
@@ -561,7 +662,7 @@ const {
     // 建立軌道
     trackSegmentList.value = await pipe(
       values(TrackSegmentType),
-      // [TrackSegmentType.g01],
+      // [TrackSegmentType.g02],
       shuffle(),
       filter((type) => type !== TrackSegmentType.end),
       map((type) => createTrackSegment({ scene, assetStore, type })),
@@ -854,7 +955,7 @@ const {
       const actionManager = new ActionManager(scene)
       endTriggerBox.actionManager = actionManager
 
-      marbleList.value.forEach((marble) => {
+      marbleList.value.forEach((marble, i) => {
         actionManager.registerAction(
           new ExecuteCodeAction(
             {
@@ -864,6 +965,7 @@ const {
             () => {
               if (marble.finishedAt === 0) {
                 marble.finishedAt = Date.now()
+                burstConfetti(scene, marble.mesh.getAbsolutePosition().clone())
               }
             },
           ),
@@ -888,6 +990,7 @@ const {
               index: marble.index,
               isGrounded: marble.isGrounded,
               finishedAt: marble.finishedAt,
+              lastCheckPointIndex: marble.lastCheckPointIndex,
               position: marble.mesh.position.asArray(),
             }))
         }
@@ -908,8 +1011,15 @@ const {
             )
             Vector3.LerpToRef(marble.mesh.position, targetPosition, 0.5, marble.mesh.position)
 
+            const wasFinished = marble.finishedAt > 0
+            const nowFinished = marbleData.finishedAt > 0
+            if (!wasFinished && nowFinished) {
+              burstConfetti(scene, targetPosition.clone())
+            }
+
             marble.isGrounded = marbleData.isGrounded
             marble.finishedAt = marbleData.finishedAt
+            marble.lastCheckPointIndex = marbleData.lastCheckPointIndex
           })
           marbleList.value = [...marbleList.value]
         }
@@ -945,7 +1055,17 @@ function openPartySetupModal() {
 }
 
 function openPartyPlayerSettingsModal() {
-  const modal = overlay.create(PlayerSettingsModal)
+  const modal = overlay.create(PlayerSettingsModal, {
+    props: {
+      onUpdate() {
+        modal.close()
+        toast.add({
+          title: '設定已更新',
+          color: 'success',
+        })
+      }
+    }
+  })
   modal.open()
 }
 onMounted(async () => {
