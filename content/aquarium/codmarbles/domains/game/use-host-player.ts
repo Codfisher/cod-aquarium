@@ -3,6 +3,7 @@ import { computedAsync, createSharedComposable, whenever } from '@vueuse/core'
 import QRCode from 'qrcode'
 import { storeToRefs } from 'pinia'
 import { getRandomMarbleName } from '../marble'
+import { computed } from 'vue'
 
 function _useHostPlayer() {
   const gameStore = useGameStore()
@@ -49,15 +50,21 @@ function _useHostPlayer() {
     immediate: true,
   })
 
-  const joinUrlQrCode = computedAsync(async () => {
+  const joinUrl = computed(() => {
     const id = gameStore.peerId
     if (!id) {
       return ''
     }
 
-    const joinUrl = `${window.location.origin}/aquarium/codmarbles/?host=${id}`
-    console.log(`🚀 ~ joinUrl:`, joinUrl);
-    return QRCode.toDataURL(joinUrl)
+    return `${window.location.origin}/aquarium/codmarbles/?host=${id}`
+  })
+  const joinUrlQrCode = computedAsync(async () => {
+    if (!joinUrl.value) {
+      return ''
+    }
+
+    console.log(`🚀 ~ joinUrl.value:`, joinUrl.value);
+    return QRCode.toDataURL(joinUrl.value)
   }, '')
 
   function setupParty() {
@@ -74,6 +81,7 @@ function _useHostPlayer() {
   }
 
   return {
+    joinUrl,
     joinUrlQrCode,
     playerList,
     setupParty,
