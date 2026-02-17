@@ -244,7 +244,7 @@
 import type { Scene } from '@babylonjs/core'
 import type { TrackSegment } from './domains/track-segment'
 import type { Marble } from './types'
-import { ActionManager, Color3, DirectionalLight, ExecuteCodeAction, MeshBuilder, PhysicsMotionType, ShadowGenerator, TransformNode, Vector3 } from '@babylonjs/core'
+import { ActionManager, Color3, Color4, DirectionalLight, ExecuteCodeAction, Material, MeshBuilder, PhysicsMotionType, ShadowGenerator, SolidParticleSystem, StandardMaterial, TransformNode, Vector3 } from '@babylonjs/core'
 import { breakpointsTailwind, promiseTimeout, until, useBreakpoints, useColorMode, useEventListener, useThrottleFn } from '@vueuse/core'
 import { animate, cubicBezier } from 'animejs'
 import { filter, firstBy, map, pipe, shuffle, tap, values } from 'remeda'
@@ -353,6 +353,7 @@ function createCheckPointColliders(
 }
 
 // --- 主要遊戲邏輯 ---
+
 const marbleCount = 10
 const marbleList = shallowRef<Marble[]>([])
 const focusedMarble = shallowRef<Marble>()
@@ -437,6 +438,106 @@ function respawnWithAnimation(
     },
   })
 }
+
+function burstConfetti(
+  scene: Scene,
+  origin: Vector3,
+  options = { count: 10 },
+) {
+  const engine = scene.getEngine()
+
+  const count = options.count
+  const sps = new SolidParticleSystem('confettiSPS', scene, { updatable: true })
+
+  const proto = MeshBuilder.CreateBox('confettiProto', {
+    width: 0.2,
+    height: 0.01,
+    depth: 0.2,
+  }, scene)
+  proto.isVisible = false
+
+  sps.addShape(proto, count)
+  const mesh = sps.buildMesh()
+  mesh.position.copyFrom(origin)
+  mesh.isPickable = false
+  mesh.hasVertexAlpha = true
+
+  const mat = new StandardMaterial('confettiMat', scene)
+  mat.transparencyMode = Material.MATERIAL_ALPHABLEND
+  mesh.material = mat
+
+  const gravity = new Vector3(0, -9.8, 0)
+
+  sps.initParticles = () => {
+    sps.particles.forEach((particle) => {
+      // 初始在 origin 周圍一點點散開
+      particle.position.set(
+        (Math.random() - 0.5) * 0.6,
+        (Math.random() - 0.5) * 0.6,
+        (Math.random() - 0.5) * 0.6,
+      )
+
+      particle.rotation.set(
+        Math.random() * Math.PI,
+        Math.random() * Math.PI,
+        Math.random() * Math.PI,
+      )
+      particle.color = Color4.FromColor3(Color3.FromHSV(Math.random() * 360, 1, 1), 1)
+
+      // 用 props 存速度/角速度
+      particle.props = {
+        vel: new Vector3(
+          (Math.random() - 0.5) * 10,
+          10 + Math.random() * 10,
+          (Math.random() - 0.5) * 10,
+        ),
+        rotVel: new Vector3(
+          (Math.random() - 0.5) * 14,
+          (Math.random() - 0.5) * 14,
+          (Math.random() - 0.5) * 14,
+        ),
+      }
+    })
+  }
+
+  sps.updateParticle = (particles) => {
+    const dt = engine.getDeltaTime() / 1000
+    const props = particles.props as { vel: Vector3; rotVel: Vector3 }
+
+    // 重力 + 一點阻力
+    props.vel.addInPlace(gravity.scale(dt))
+    props.vel.scaleInPlace(0.985)
+
+    // 位置更新
+    particles.position.addInPlace(props.vel.scale(dt))
+
+    // 旋轉更新
+    particles.rotation.x += props.rotVel.x * dt
+    particles.rotation.y += props.rotVel.y * dt
+    particles.rotation.z += props.rotVel.z * dt
+
+    // 慢慢淡出
+    if (particles.color) particles.color.a = Math.max(0, particles.color.a - dt * 0.3)
+
+    return particles
+  }
+
+  sps.initParticles()
+  sps.setParticles()
+
+  const obs = scene.onBeforeRenderObservable.add(() => {
+    sps.setParticles()
+  })
+
+  setTimeout(() => {
+    scene.onBeforeRenderObservable.remove(obs)
+    mesh.dispose()
+    mat.dispose()
+    proto.dispose()
+    sps.dispose()
+  }, 5000)
+}
+
 
 const defaultMenuVisible = computed(() => {
   if (gameStore.mode === 'party' && !gameStore.isHost) {
@@ -561,7 +662,7 @@ const {
     // 建立軌道
     trackSegmentList.value = await pipe(
       values(TrackSegmentType),
-      // [TrackSegmentType.g01],
+      // [TrackSegmentType.g02],
       shuffle(),
       filter((type) => type !== TrackSegmentType.end),
       map((type) => createTrackSegment({ scene, assetStore, type })),
@@ -854,7 +955,7 @@ const {
       const actionManager = new ActionManager(scene)
       endTriggerBox.actionManager = actionManager
 
-      marbleList.value.forEach((marble) => {
+      marbleList.value.forEach((marble, i) => {
         actionManager.registerAction(
           new ExecuteCodeAction(
             {
@@ -864,6 +965,7 @@ const {
             () => {
               if (marble.finishedAt === 0) {
                 marble.finishedAt = Date.now()
+                burstConfetti(scene, marble.mesh.getAbsolutePosition().clone())
               }
             },
           ),
@@ -908,6 +1010,12 @@ const {
               marbleData.position[2]!,
             )
             Vector3.LerpToRef(marble.mesh.position, targetPosition, 0.5, marble.mesh.position)
+
+            const wasFinished = marble.finishedAt > 0
+            const nowFinished = marbleData.finishedAt > 0
+            if (!wasFinished && nowFinished) {
+              burstConfetti(scene, targetPosition.clone())
+            }
 
             marble.isGrounded = marbleData.isGrounded
             marble.finishedAt = marbleData.finishedAt

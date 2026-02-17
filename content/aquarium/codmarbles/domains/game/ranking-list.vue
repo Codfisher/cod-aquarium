@@ -30,7 +30,7 @@
         </div>
 
         <div
-          class=" absolute -top-1 -left-1 size-3 rounded-full border-2 border-white z-2 shadow-inner"
+          class=" absolute -top-1 -right-1 size-3 rounded-full border-2 border-white z-2 shadow-inner"
           :style="{ backgroundColor: marble.hexColor }"
         />
 
