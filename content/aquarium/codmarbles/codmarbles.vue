@@ -143,11 +143,19 @@
                 </div>
               </base-btn>
 
-              <u-icon
-                name="i-material-symbols:qr-code-scanner"
-                class=" absolute right-6 bottom-6 text-4xl text-white cursor-pointer"
-                @click="openPartySetupModal"
-              />
+              <div class="absolute right-0 bottom-0 flex flex-col p-6 gap-4">
+                <u-icon
+                  name="i-material-symbols:qr-code-scanner"
+                  class="text-4xl text-white cursor-pointer"
+                  @click="openPartySetupModal"
+                />
+
+                <u-icon
+                  name="i-material-symbols:settings-account-box-rounded"
+                  class="text-4xl text-white cursor-pointer"
+                  @click="openPartyPlayerSettingsModal"
+                />
+              </div>
             </div>
           </transition>
         </div>
@@ -159,10 +167,7 @@
           v-if="isPartyClient"
           class="absolute top-0 left-0 flex flex-col justify-center items-center w-full h-full pointer-events-none gap-10"
         >
-          <transition
-            name="opacity"
-            mode="out-in"
-          >
+          <transition name="opacity">
             <div
               v-if="gameState === 'idle'"
               class="text-2xl text-white text-shadow-lg"
@@ -171,10 +176,7 @@
             </div>
           </transition>
 
-          <transition
-            name="opacity"
-            mode="out-in"
-          >
+          <transition name="opacity">
             <div
               v-if="gameState === 'over'"
               class=" text-white text-shadow-lg flex flex-col gap-6 items-center"
@@ -185,6 +187,19 @@
               <div class="text-2xl">
                 等待主機重新開始遊戲...
               </div>
+            </div>
+          </transition>
+
+          <transition name="opacity">
+            <div
+              v-if="gameState !== 'playing'"
+              class="absolute right-0 bottom-0 flex flex-col p-6 gap-4 pointer-events-auto"
+            >
+              <u-icon
+                name="i-material-symbols:settings-account-box-rounded"
+                class="text-4xl text-white cursor-pointer"
+                @click="openPartyPlayerSettingsModal"
+              />
             </div>
           </transition>
         </div>
@@ -230,27 +245,28 @@ import type { Scene } from '@babylonjs/core'
 import type { TrackSegment } from './domains/track-segment'
 import type { Marble } from './types'
 import { ActionManager, Color3, DirectionalLight, ExecuteCodeAction, MeshBuilder, PhysicsMotionType, ShadowGenerator, TransformNode, Vector3 } from '@babylonjs/core'
-import { breakpointsTailwind, promiseTimeout, useBreakpoints, useColorMode, useEventListener, useThrottleFn } from '@vueuse/core'
+import { breakpointsTailwind, promiseTimeout, until, useBreakpoints, useColorMode, useEventListener, useThrottleFn } from '@vueuse/core'
 import { animate, cubicBezier } from 'animejs'
 import { filter, firstBy, map, pipe, shuffle, tap, values } from 'remeda'
-import { computed, reactive, ref, shallowRef, triggerRef, watch } from 'vue'
+import { computed, onMounted, reactive, ref, shallowRef, triggerRef, watch } from 'vue'
 import { nextFrame } from '../../../web/common/utils'
 import BaseBtn from './components/base-btn.vue'
 import BasePolygon from './components/base-polygon.vue'
 import HeroLogo from './components/hero-logo.vue'
 import LoadingOverlay from './components/loading-overlay.vue'
-import RankingList from './components/ranking-list.vue'
+import RankingList from './domains/game/ranking-list.vue'
 import { useFontLoader } from './composables/use-font-loader'
 import { useGameStore } from './domains/game/game-store'
 import { useBabylonScene } from './domains/game/use-babylon-scene'
 import { createMarble, GHOST_RENDERING_GROUP_ID, MARBLE_SIZE } from './domains/marble'
-import PartySetupModal from './domains/party-mode/party-setup-modal.vue'
+import PartySetupModal from './domains/party-mode/setup-modal.vue'
 import { connectTracks, createTrackSegment } from './domains/track-segment'
 import { TrackSegmentType } from './domains/track-segment/data'
 import { useAssetStore } from './stores/asset-store'
 import { useClientPlayer } from './domains/game/use-client-player'
 import { useHostPlayer } from './domains/game/use-host-player'
 import { storeToRefs } from 'pinia'
+import PlayerSettingsModal from './domains/party-mode/player-settings-modal.vue'
 
 const toast = useToast()
 const alertVisible = ref(true)
@@ -698,7 +714,7 @@ const {
 
           // party mode 下只追蹤自己的彈珠
           if (gameStore.mode === 'party') {
-            const index = clientPlayer.marbleIndex
+            const index = clientPlayer.playerData?.index
             if (index === undefined) {
               return
             }
@@ -927,6 +943,17 @@ function openPartySetupModal() {
 
   hostPlayer.setupParty()
 }
+
+function openPartyPlayerSettingsModal() {
+  const modal = overlay.create(PlayerSettingsModal)
+  modal.open()
+}
+onMounted(async () => {
+  if (clientPlayer.isPartyClient) {
+    await until(() => clientPlayer.playerData).toBeTruthy()
+    openPartyPlayerSettingsModal()
+  }
+})
 
 watch(() => gameStore.playerList, (list) => {
   marbleList.value = marbleList.value.map((marble, i) => {

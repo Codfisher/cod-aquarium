@@ -3,7 +3,7 @@
     <transition-group
       name="list"
       tag="div"
-      class="flex md:flex-col gap-2 max-md:gap-1 overflow-x-auto max-w-screen p-4 md:pr-20 max-md:pt-10"
+      class="flex md:justify-end md:flex-col gap-2 overflow-x-auto max-w-screen p-4 md:pr-20 max-md:pt-10 md:h-dvh"
     >
       <div
         v-for="(marble, index) in marbleList"
@@ -30,25 +30,20 @@
         </div>
 
         <div
-          class="flex flex-col md:flex-row px-5 md:px-2 p-2 rounded-full shadow-sm transition-all duration-300 border-2 cursor-pointer z-1 text-xs gap-2"
+          class="flex rounded-lg transition-all duration-300 border-2 box-content cursor-pointer z-1 overflow-hidden relative"
           :class="marble.className"
         >
-          <div class="flex items-center gap-1">
-            <div
-              class="font-mono font-bold w-4 text-center transition-colors "
-              :class="marble.finishedAt > 0 ? 'text-yellow-700' : 'text-gray-500'"
-            >
-              {{ index + 1 }}
-            </div>
+          <div
+            class="w-2 rounded-full"
+            :style="{ backgroundColor: marble.hexColor }"
+          />
 
-            <div
-              class="w-4 h-4 rounded-full border border-black/10 shadow-inner flex-1"
-              :style="{ backgroundColor: marble.hexColor }"
-            />
+          <div class="text-xs text-gray-700 font-medium text-nowrap p-2 flex-1">
+            {{ marble.name }}
           </div>
 
-          <div class="text-xs text-gray-700 font-medium text-nowrap col-span-2 md:col-span-1">
-            {{ marble.name }}
+          <div class="font-mono font-bold translate-y-[70%] w-8 text-right leading-0 text-yellow-700/30 text-4xl">
+            {{ index + 1 }}
           </div>
         </div>
       </div>
@@ -58,9 +53,9 @@
 
 <script setup lang="ts">
 import { pipe } from 'zod/v4';
-import { useClientPlayer } from '../domains/game/use-client-player';
-import { useHostPlayer } from '../domains/game/use-host-player';
-import type { Marble } from '../types'
+import { useClientPlayer } from './use-client-player';
+import { useHostPlayer } from './use-host-player';
+import type { Marble } from '../../types'
 import { computed } from 'vue'
 
 interface Props {
