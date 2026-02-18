@@ -1,5 +1,6 @@
 import type { CreateBlockParams } from '.'
 import {
+  ImportMeshAsync,
   SceneLoader,
   TransformNode,
   Vector3,
@@ -14,18 +15,9 @@ export async function createTreeBlock(
 ) {
   const [
     treeResult,
-    hexResult,
   ] = await Promise.all([
-    SceneLoader.ImportMeshAsync(
-      '',
-      '/assets/hexagon-pack/decoration/nature/',
-      'trees_B_medium.gltf',
-      scene,
-    ),
-    SceneLoader.ImportMeshAsync(
-      '',
-      '/assets/hexagon-pack/tiles/base/',
-      'hex_grass.gltf',
+    ImportMeshAsync(
+      '/assets/kenny-hexagon-pack/GLB format/building-archery.glb',
       scene,
     ),
   ])
@@ -41,23 +33,6 @@ export async function createTreeBlock(
       if (!rootMesh)
         return
 
-      rootMesh.position = new Vector3(0, 0.5, 0)
-      shadowGenerator?.addShadowCaster(rootMesh)
-
-      rootMesh.parent = rootNode
-    },
-  )
-
-  pipe(
-    hexResult.meshes,
-    forEach((mesh) => {
-      mesh.receiveShadows = true
-    }),
-    ([rootMesh]) => {
-      if (!rootMesh)
-        return
-
-      rootMesh.position = new Vector3(0, 0.5, 0)
       shadowGenerator?.addShadowCaster(rootMesh)
 
       rootMesh.parent = rootNode

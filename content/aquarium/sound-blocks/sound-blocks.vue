@@ -41,7 +41,10 @@ function createShadowGenerator(scene: Scene) {
   light.intensity = 0.7
 
   const shadowGenerator = new ShadowGenerator(1024, light)
-  shadowGenerator.usePoissonSampling = true
+  shadowGenerator.bias = 0.000001
+  shadowGenerator.normalBias = 0.0001
+  shadowGenerator.usePercentageCloserFiltering = true
+  shadowGenerator.forceBackFacesOnly = true
 
   return shadowGenerator
 }

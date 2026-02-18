@@ -32,18 +32,21 @@ interface UseBabylonSceneParam {
 }
 const defaultParam: Required<UseBabylonSceneParam> = {
   async createEngine({ canvas }) {
-    const webGPUSupported = await WebGPUEngine.IsSupportedAsync
-    if (webGPUSupported) {
-      const engine = new WebGPUEngine(canvas, {
-        antialias: true,
-      })
-      await engine.initAsync()
+    // const webGPUSupported = await WebGPUEngine.IsSupportedAsync
+    // if (webGPUSupported) {
+    //   const engine = new WebGPUEngine(canvas, {
+    //     antialias: true,
+    //     stencil: true,
+    //   })
+    //   await engine.initAsync()
 
-      return engine
-    }
+    //   return engine
+    // }
 
     return new Engine(canvas, true, {
+      antialias: true,
       alpha: true,
+      stencil: true,
     })
   },
   createScene({ engine }) {
@@ -80,11 +83,11 @@ const defaultParam: Required<UseBabylonSceneParam> = {
     camera.panningSensibility = 0
 
     camera.wheelDeltaPercentage = 0.01
-    camera.lowerRadiusLimit = 10
+    camera.lowerRadiusLimit = 5
     camera.upperRadiusLimit = 50
 
     // 限制鏡頭角度
-    camera.lowerBetaLimit = 0
+    camera.lowerBetaLimit = Math.PI / 3
     camera.upperBetaLimit = Math.PI / 3
 
     return camera
