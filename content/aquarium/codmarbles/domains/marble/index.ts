@@ -10,8 +10,6 @@ import { pipe, shuffle, tap } from 'remeda'
 export const MARBLE_SIZE = 0.5
 export const GHOST_RENDERING_GROUP_ID = 1
 
-let ghostMaterial: StandardMaterial
-
 const nameGenerator = {
   prefixes: shuffle([
     '閃到腰的',
@@ -105,10 +103,12 @@ export function createMarble({
   )
 
   const ghostMat = pipe(
-    ghostMaterial ?? new StandardMaterial('ghostMaterial', scene),
+    new StandardMaterial('ghostMaterial', scene),
     tap((ghostMaterial) => {
-      ghostMaterial.diffuseColor = new Color3(1, 1, 1)
-      ghostMaterial.emissiveColor = new Color3(1, 1, 1)
+      // 顏色基於彈珠的顏色調淡
+      ghostMaterial.diffuseColor = finalColor.scale(1)
+      ghostMaterial.emissiveColor = finalColor.scale(1)
+
       ghostMaterial.alpha = 0.1
       ghostMaterial.disableLighting = true
       ghostMaterial.backFaceCulling = false
@@ -119,9 +119,6 @@ export function createMarble({
       ghostMaterial.depthFunction = Engine.GREATER
     }),
   )
-  if (!ghostMaterial) {
-    ghostMaterial = ghostMat
-  }
 
   // 建立幽靈彈珠，可穿透障礙物，方便觀察
   const ghostMarble = pipe(
