@@ -8,4 +8,6 @@ layout: false
 import SoundBlocks from './sound-blocks.vue'
 </script>
 
-<!-- <sound-blocks /> -->
+<iframe data-why class=" fixed w-dvw h-dvh">
+  <sound-blocks />
+</iframe>

@@ -1,7 +1,9 @@
 <template>
-  <u-app :toaster="{
-    position: 'top-right',
-  }">
+  <u-app
+    :toaster="{
+      position: 'top-right',
+    }"
+  >
     <div class="fixed w-dvw h-dvh p-0 m-0">
       <canvas
         v-once
@@ -254,6 +256,7 @@ import type { Marble } from './types'
 import { ActionManager, Color3, Color4, DirectionalLight, ExecuteCodeAction, Material, MeshBuilder, PhysicsMotionType, ShadowGenerator, SolidParticleSystem, StandardMaterial, TransformNode, Vector3 } from '@babylonjs/core'
 import { breakpointsTailwind, promiseTimeout, until, useBreakpoints, useColorMode, useEventListener, useThrottleFn } from '@vueuse/core'
 import { animate, cubicBezier } from 'animejs'
+import { storeToRefs } from 'pinia'
 import { filter, firstBy, map, pipe, shuffle, tap, values } from 'remeda'
 import { computed, onMounted, reactive, ref, shallowRef, triggerRef, watch } from 'vue'
 import { nextFrame } from '../../../web/common/utils'
@@ -261,19 +264,18 @@ import BaseBtn from './components/base-btn.vue'
 import BasePolygon from './components/base-polygon.vue'
 import HeroLogo from './components/hero-logo.vue'
 import LoadingOverlay from './components/loading-overlay.vue'
-import RankingList from './domains/game/ranking-list.vue'
 import { useFontLoader } from './composables/use-font-loader'
 import { useGameStore } from './domains/game/game-store'
+import RankingList from './domains/game/ranking-list.vue'
 import { useBabylonScene } from './domains/game/use-babylon-scene'
+import { useClientPlayer } from './domains/game/use-client-player'
+import { useHostPlayer } from './domains/game/use-host-player'
 import { createMarble, GHOST_RENDERING_GROUP_ID, MARBLE_SIZE } from './domains/marble'
+import PlayerSettingsModal from './domains/party-mode/player-settings-modal.vue'
 import PartySetupModal from './domains/party-mode/setup-modal.vue'
 import { connectTracks, createTrackSegment } from './domains/track-segment'
 import { TrackSegmentType } from './domains/track-segment/data'
 import { useAssetStore } from './stores/asset-store'
-import { useClientPlayer } from './domains/game/use-client-player'
-import { useHostPlayer } from './domains/game/use-host-player'
-import { storeToRefs } from 'pinia'
-import PlayerSettingsModal from './domains/party-mode/player-settings-modal.vue'
 
 const toast = useToast()
 const alertVisible = ref(true)
@@ -377,7 +379,7 @@ const rankingList = shallowRef<Marble[]>([])
 const updateRanking = useThrottleFn(() => {
   // 記錄上一輪的順序
   const prevOrder = new Map(
-    rankingList.value.map((m, i) => [m.index, i])
+    rankingList.value.map((m, i) => [m.index, i]),
   )
 
   rankingList.value = marbleList.value
@@ -386,8 +388,10 @@ const updateRanking = useThrottleFn(() => {
       const aFinished = a.finishedAt > 0
       const bFinished = b.finishedAt > 0
 
-      if (aFinished !== bFinished) return aFinished ? -1 : 1
-      if (aFinished && bFinished) return a.finishedAt - b.finishedAt
+      if (aFinished !== bFinished)
+        return aFinished ? -1 : 1
+      if (aFinished && bFinished)
+        return a.finishedAt - b.finishedAt
 
       // 懸空時回傳 0 會導致排名不穩定，改用上一輪順序固定住
       if (!a.isGrounded || !b.isGrounded) {
@@ -403,7 +407,8 @@ const updateRanking = useThrottleFn(() => {
 
   if (gameState.value === 'playing') {
     const allFinished = !rankingList.value.some((m) => !m.finishedAt)
-    if (allFinished) gameState.value = 'over'
+    if (allFinished)
+      gameState.value = 'over'
   }
 }, 500)
 
@@ -524,7 +529,8 @@ function burstConfetti(
     particles.rotation.z += props.rotVel.z * dt
 
     // 慢慢淡出
-    if (particles.color) particles.color.a = Math.max(0, particles.color.a - dt * 0.3)
+    if (particles.color)
+      particles.color.a = Math.max(0, particles.color.a - dt * 0.3)
 
     return particles
   }
@@ -544,7 +550,6 @@ function burstConfetti(
     sps.dispose()
   }, 5000)
 }
-
 
 const defaultMenuVisible = computed(() => {
   if (gameStore.mode === 'party' && !gameStore.isHost) {
@@ -799,7 +804,6 @@ const {
         })
       }
 
-
       camera.radius = 15
       camera.alpha = Math.PI / 5 * 2
       camera.beta = Math.PI / 5 * 4
@@ -1005,7 +1009,7 @@ const {
           // client 負責接收
           gameStore.marbleDataList.forEach((marbleData) => {
             const marble = marbleList.value.find(
-              (marble) => marble.index === marbleData.index
+              (marble) => marble.index === marbleData.index,
             )
             if (!marble) {
               return
@@ -1070,8 +1074,8 @@ function openPartyPlayerSettingsModal() {
           title: '設定已更新',
           color: 'success',
         })
-      }
-    }
+      },
+    },
   })
   modal.open()
 }
@@ -1132,7 +1136,6 @@ watch(() => gameStore.trackSegmentDataList, (list) => {
     cameraTarget.value?.position.copyFrom(lobbyPosition)
   }
 }, { deep: true })
-
 
 useEventListener(canvasRef, 'webglcontextlost', (e) => {
   e.preventDefault()

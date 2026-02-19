@@ -15,3 +15,23 @@
   flex: 1 1 auto;
   overflow-y: auto;
 }
+
+/** 倒角 */
+@utility chamfer-* {
+/* 1. 處理 Tailwind 原生間距數字 (例如 4 會被 Tailwind 編譯為 calc(var(--spacing) * 4)) */
+  --size: --spacing(--value(number));
+  
+  /* 2. 處理任意值 (例如 [20px]) 或自訂變數 (作為 Fallback) */
+  --size: --value(--spacing-*, [*]);
+  
+  clip-path: polygon(
+    var(--size) 0, 
+    calc(100% - var(--size)) 0,
+    100% var(--size), 
+    100% calc(100% - var(--size)),
+    calc(100% - var(--size)) 100%, 
+    var(--size) 100%,
+    0 calc(100% - var(--size)), 
+    0 var(--size)
+  );
+}
