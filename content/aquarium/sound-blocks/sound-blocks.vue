@@ -6,6 +6,10 @@
         ref="canvasRef"
         class="canvas w-full h-full chamfer-5"
       />
+
+      <div class=" absolute bottom-0 right-0 p-6 opacity-20">
+        v{{ version }}
+      </div>
     </div>
   </u-app>
 </template>
@@ -27,6 +31,7 @@ import { useBabylonScene } from './composables/use-babylon-scene'
 import { useFontLoader } from './composables/use-font-loader'
 import { createBlock } from './domains/blocks'
 import { Hex, HexLayout } from './domains/hex-grid'
+import { version } from '../codstack/constants'
 
 // Nuxt UI 接管 vitepress 的 dark 設定，故改用 useColorMode
 const colorMode = useColorMode()

@@ -22,7 +22,7 @@
         </transition>
       </u-button>
 
-      <u-modal title="Scene Options">
+      <u-modal title="App Options">
         <u-button
           color="neutral"
           variant="ghost"
@@ -30,7 +30,7 @@
         />
 
         <template #body>
-          <scene-options-form />
+          <app-options-form />
         </template>
       </u-modal>
     </div>
@@ -296,8 +296,8 @@ import { chunk, clone, isTruthy, map, pipe, sortBy, tap } from 'remeda'
 import { computed, reactive, ref, useTemplateRef, watch } from 'vue'
 import { nextFrame } from '../../../../../web/common/utils'
 import { useMainStore } from '../../stores/main-store'
+import AppOptionsForm from '../app-options-form.vue'
 import ModelPreviewItem from '../model-preview-item.vue'
-import SceneOptionsForm from '../scene-options-form.vue'
 
 const toast = useToast()
 const mainStore = useMainStore()
