@@ -118,9 +118,13 @@ const { canvasRef } = useBabylonScene({
       return key
     }
 
+    const MAX_RADIUS = 2
+
     function addCandidate(hex: Hex) {
       const key = hexKey(hex)
       if (placedSet.has(key) || candidateMap.has(key))
+        return
+      if (hex.len() > MAX_RADIUS)
         return
 
       spawnTile(hex, COLOR_CANDIDATE, ALPHA_HIDDEN)

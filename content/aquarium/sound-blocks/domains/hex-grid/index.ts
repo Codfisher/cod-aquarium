@@ -79,6 +79,7 @@ export class Hex {
     return this.add(d)
   }
 
+  /** 原點到此格子的直線距離 */
   len(): number {
     return (Math.abs(this.q) + Math.abs(this.r) + Math.abs(this.s)) / 2
   }
