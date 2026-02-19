@@ -91,16 +91,17 @@ async function getThumbnailFile(fileName: string) {
   }
 }
 
-async function loadThumbnail() {
+async function loadThumbnail(force = false) {
   try {
     isLoading.value = true
-
-    // 暫時不用 OPFS，方便 devtool 測試
-    // const cachedData = await getThumbnailFile(cacheKey.value)
-    const cachedData = await get(cacheKey.value)
-    if (cachedData) {
-      thumbnailData.value = cachedData
-      return
+    if (!force) {
+      // 暫時不用 OPFS，方便 devtool 測試
+      // const cachedData = await getThumbnailFile(cacheKey.value)
+      const cachedData = await get(cacheKey.value)
+      if (cachedData) {
+        thumbnailData.value = cachedData
+        return
+      }
     }
 
     thumbnailData.value = await generateThumbnail(props.modelFile)
@@ -115,4 +116,9 @@ async function loadThumbnail() {
     isLoading.value = false
   }
 }
+
+defineExpose({
+  modelFile: props.modelFile,
+  loadThumbnail,
+})
 </script>

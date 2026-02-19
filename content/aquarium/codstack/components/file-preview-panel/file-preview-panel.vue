@@ -128,6 +128,7 @@
           :modal="false"
         >
           <model-preview-item
+            ref="previewItemListRef"
             :class="{ 'border-primary!': file.path === selectedModelFile?.path }"
             :model-file="file"
             :root-handle="mainStore.rootFsHandle"
@@ -282,8 +283,8 @@ import type { ContextMenuItem, DropdownMenuItem, TabsItem } from '@nuxt/ui/.'
 import type { ModelFile } from '../../type'
 import { refManualReset, useElementSize, useStorage } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
-import { chunk, clone, filter, isTruthy, map, pipe, tap } from 'remeda'
-import { computed, reactive, ref, useTemplateRef, watch, watchEffect } from 'vue'
+import { chunk, clone, isTruthy, map, pipe, tap } from 'remeda'
+import { computed, reactive, ref, useTemplateRef, watch } from 'vue'
 import { nextFrame } from '../../../../../web/common/utils'
 import { useMainStore } from '../../stores/main-store'
 import ModelPreviewItem from '../model-preview-item.vue'
@@ -301,6 +302,7 @@ const selectedFormatList = ref(['.gltf', '.glb'])
 const isScanning = ref(false)
 const statusMessage = refManualReset('Select folder to preview 3D models')
 
+const previewItemListRef = useTemplateRef<InstanceType<typeof ModelPreviewItem>[]>('previewItemListRef')
 const modelFileList = defineModel<ModelFile[]>('modelFileList', { default: [] })
 const selectedTagList = ref<string[]>([])
 function handleSelectedTag(tag: string) {
@@ -365,60 +367,68 @@ function createCustomTabContextMenuItems(data: ModelFile): ContextMenuItem[] {
   const key = `${rootName}/${data.path}`
 
   return pipe(
-    customTabList.value,
-    map((tab): DropdownMenuItem | undefined => {
-      const tagLabel = tab.label
-      if (!tagLabel) {
-        return undefined
-      }
-
-      const checked = modelTabMap.value[key]?.includes(tagLabel) ?? false
-      const list = modelTabMap.value[key] ?? []
-
-      return {
-        type: 'checkbox',
-        label: tagLabel,
-        checked,
-        onUpdateChecked(checked: boolean) {
-          if (checked) {
-            if (!modelTabMap.value[key]) {
-              modelTabMap.value[key] = []
-            }
-
-            modelTabMap.value[key]?.push(tagLabel)
-          }
-          else {
-            modelTabMap.value[key] = list.filter((tab) => tab !== tagLabel)
-            if (modelTabMap.value[key].length === 0) {
-              delete modelTabMap.value[key]
-            }
+    [
+      {
+        label: 'Reload Thumbnail',
+        onSelect() {
+          const previewItem = previewItemListRef.value?.find(
+            (item) => item.modelFile.path === data.path,
+          )
+          if (previewItem) {
+            previewItem.loadThumbnail(true)
           }
         },
-        // onSelect(e: Event) {
-        //   e.preventDefault()
-        // },
-      }
-    }),
-    filter(isTruthy),
-    tap((data) => {
-      if (data.length === 0) {
-        data.unshift({
-          type: 'label',
-          label: 'No custom tab',
-          class: 'text-xs opacity-50',
-        })
+      },
+    ] as DropdownMenuItem[],
+    tap((result) => {
+      if (customTabList.value.length === 0) {
         return
       }
 
-      data.unshift({
+      const tabMenu = customTabList.value
+        .map((tab): DropdownMenuItem | undefined => {
+          const tagLabel = tab.label
+          if (!tagLabel) {
+            return undefined
+          }
+
+          const checked = modelTabMap.value[key]?.includes(tagLabel) ?? false
+          const list = modelTabMap.value[key] ?? []
+
+          return {
+            type: 'checkbox',
+            label: tagLabel,
+            checked,
+            onUpdateChecked(checked: boolean) {
+              if (checked) {
+                if (!modelTabMap.value[key]) {
+                  modelTabMap.value[key] = []
+                }
+
+                modelTabMap.value[key]?.push(tagLabel)
+              }
+              else {
+                modelTabMap.value[key] = list.filter((tab) => tab !== tagLabel)
+                if (modelTabMap.value[key].length === 0) {
+                  delete modelTabMap.value[key]
+                }
+              }
+            },
+          }
+        })
+        .filter(isTruthy)
+
+      result.push({ type: 'separator' })
+      result.push({
         type: 'label',
         label: 'Add to Tab',
         class: 'text-xs opacity-50',
       })
-
-      data.push({ type: 'separator' })
-      data.push({
-        label: 'Clear',
+      result.push(...tabMenu)
+      result.push({ type: 'separator' })
+      result.push({
+        label: 'Clear All Tabs',
+        class: 'text-red-500',
         onSelect() {
           delete modelTabMap.value[key]
         },
