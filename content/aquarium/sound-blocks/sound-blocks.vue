@@ -1,6 +1,6 @@
 <template>
   <u-app>
-    <div class="fixed w-dvw h-dvh m-0 p-4 bg-black">
+    <div class="fixed w-dvw h-dvh m-0 p-4 bg-amber-50">
       <canvas
         v-once
         ref="canvasRef"
