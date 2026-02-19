@@ -40,15 +40,30 @@ function hexKey(h: { q: number; r: number; s: number }) {
   return `${h.q},${h.r},${h.s}`
 }
 
-function createHexTiles(scene: Scene, layout: HexLayout) {
-  // 模板 mesh（不顯示）
+function generateHexagon(sideLength: number) {
+  // sideLength=4 => radius=3（中心到角 3 格）
+  const radius = sideLength - 1
+  const results: Hex[] = []
+
+  for (let q = -radius; q <= radius; q++) {
+    const rMin = Math.max(-radius, -q - radius)
+    const rMax = Math.min(radius, -q + radius)
+    for (let r = rMin; r <= rMax; r++) {
+      results.push(new Hex(q, r, -q - r))
+    }
+  }
+
+  return results
+}
+
+function createHexTiles(scene: Scene, layout: HexLayout, sideLength = 4) {
   const base = MeshBuilder.CreateCylinder('hexTileBase', {
     diameter: layout.size * 2,
     height: 0.02,
     tessellation: 6,
   }, scene)
 
-  base.rotation.y = Math.PI / 6 // 覺得方向不對可改 0 或 Math.PI/6
+  base.rotation.y = Math.PI / 6
   base.isPickable = false
   base.isVisible = false
 
@@ -60,37 +75,36 @@ function createHexTiles(scene: Scene, layout: HexLayout) {
   baseMat.needDepthPrePass = true
   base.material = baseMat
 
-  const tiles: Mesh[] = []
-  const materials: StandardMaterial[] = []
-  const targets = new Map<string, number>() // key -> target alpha
+  const tileList: Mesh[] = []
+  const materialList: StandardMaterial[] = []
+  const targets = new Map<string, number>()
 
-  const rows = 4
-  const cols = 4
+  const hexList = generateHexagon(sideLength)
 
-  for (let row = 0; row < rows; row++) {
-    for (let col = 0; col < cols; col++) {
-      const h = offsetOddRToCube(col, row)
-      const key = hexKey(h)
+  for (const hex of hexList) {
+    const key = hexKey(hex)
 
-      const tile = base.clone(`hex_${col}_${row}`) as Mesh
-      tile.isVisible = true
-      tile.isPickable = true
-      tile.position.copyFrom(layout.hexToWorld(h, 0.02)) // 抬高一點避免 z-fighting
+    const tile = base.clone(`hex_${key}`) as Mesh
+    tile.isVisible = true
+    tile.isPickable = true
+    tile.position.copyFrom(layout.hexToWorld(hex, 0.02))
 
-      const material = baseMat.clone(`hexMat_${col}_${row}`) as StandardMaterial
-      material.alpha = 0
-      tile.material = material
+    const material = baseMat.clone(`hexMat_${key}`) as StandardMaterial
+    material.alpha = 0
+    tile.material = material
 
-      tile.metadata = { hexKey: key, hex: h }
+    tile.metadata = { hexKey: key, hex }
 
-      tiles.push(tile)
-      materials.push(material)
-      targets.set(key, 0)
-    }
+    tileList.push(tile)
+    materialList.push(material)
+    targets.set(key, 0)
   }
 
-  return { tiles, materials, targets }
+  return { tileList, materialList, targets }
 }
+
+const HOVER_ALPHA = 0.6
+const FADE_SPEED = 14
 
 const {
   canvasRef,
@@ -100,17 +114,11 @@ const {
 
     createGround({ scene })
 
-    const layout = new HexLayout(HexLayout.pointy, 1, new Vector3(0, 0, 0))
+    const layout = new HexLayout(HexLayout.pointy, 0.5, new Vector3(0, 0, 0))
 
-    const {
-      tiles,
-      materials,
-      targets,
-    } = createHexTiles(scene, layout)
+    const { tileList, materialList, targets } = createHexTiles(scene, layout, 4)
 
     let hoveredKey = ''
-    const hoverAlpha = 0.6
-    const fadeSpeed = 14
 
     scene.onPointerObservable.add((pointerInfo) => {
       if (pointerInfo.type !== PointerEventTypes.POINTERMOVE)
@@ -138,7 +146,7 @@ const {
 
       // 新的 hover：淡入
       if (hoveredKey) {
-        targets.set(hoveredKey, hoverAlpha)
+        targets.set(hoveredKey, HOVER_ALPHA)
         // 你要印出是哪格：
         // console.log("hover:", hoveredKey)
       }
@@ -146,19 +154,19 @@ const {
 
     scene.onBeforeRenderObservable.add(() => {
       const dt = scene.getEngine().getDeltaTime() / 1000
-      const alpha = 1 - Math.exp(-fadeSpeed * dt)
+      const alpha = 1 - Math.exp(-FADE_SPEED * dt)
 
-      for (let i = 0; i < tiles.length; i++) {
-        const tile = tiles[i]
-        const mat = materials[i]
-        if (!tile || !mat) {
+      for (let i = 0; i < tileList.length; i++) {
+        const tile = tileList[i]
+        const material = materialList[i]
+        if (!tile || !material) {
           continue
         }
 
         const key = (tile.metadata as any).hexKey as string
         const target = targets.get(key) ?? 0
 
-        mat.alpha = mat.alpha + (target - mat.alpha) * alpha
+        material.alpha = material.alpha + (target - material.alpha) * alpha
       }
     })
   },
