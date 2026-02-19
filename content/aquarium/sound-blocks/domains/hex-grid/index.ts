@@ -180,12 +180,13 @@ export class HexLayout {
 
   /**
    * Hex -> 世界座標（X,Z）
+   * @param hex Hex 座標
    * @param yOverride 把 tile 抬高一點避免 z-fighting
    */
-  hexToWorld(h: Hex, yOverride?: number): Vector3 {
+  hexToWorld(hex: Hex, yOverride?: number): Vector3 {
     const M = this.orientation
-    const x = (M.f0 * h.q + M.f1 * h.r) * this.size + this.origin.x
-    const z = (M.f2 * h.q + M.f3 * h.r) * this.size + this.origin.z
+    const x = (M.f0 * hex.q + M.f1 * hex.r) * this.size + this.origin.x
+    const z = (M.f2 * hex.q + M.f3 * hex.r) * this.size + this.origin.z
     const y = (yOverride ?? this.origin.y)
     return new Vector3(x, y, z)
   }
@@ -194,7 +195,7 @@ export class HexLayout {
   worldToHexFractional(world: Vector3): Hex {
     const M = this.orientation
     const px = (world.x - this.origin.x) / this.size
-    const py = (world.z - this.origin.z) / this.size // 注意：world.z 對應 pixel.y
+    const py = (world.z - this.origin.z) / this.size
     const q = M.b0 * px + M.b1 * py
     const r = M.b2 * px + M.b3 * py
     return new Hex(q, r, -q - r)
@@ -214,25 +215,12 @@ export class HexLayout {
   }
 
   /** 取得六角形六個角落點（世界座標） */
-  polygonCornersWorld(h: Hex, yOverride?: number): Vector3[] {
-    const center = this.hexToWorld(h, yOverride)
+  polygonCornersWorld(hex: Hex, yOverride?: number): Vector3[] {
+    const center = this.hexToWorld(hex, yOverride)
     const corners: Vector3[] = []
     for (let i = 0; i < 6; i++) {
       corners.push(center.add(this.hexCornerOffset(i)))
     }
     return corners
   }
-}
-
-/** 生成「六角形範圍」(hex radius) 的 cube 座標清單：中心到外圍 radius 格 */
-export function generateHexArea(radius: number): Hex[] {
-  const results: Hex[] = []
-  for (let q = -radius; q <= radius; q++) {
-    const rMin = Math.max(-radius, -q - radius)
-    const rMax = Math.min(radius, -q + radius)
-    for (let r = rMin; r <= rMax; r++) {
-      results.push(Hex.fromAxial(q, r))
-    }
-  }
-  return results
 }
