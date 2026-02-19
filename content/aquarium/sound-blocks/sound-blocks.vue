@@ -19,86 +19,38 @@ import {
   StandardMaterial,
   Vector3,
 } from '@babylonjs/core'
-import { createTreeBlock } from './domains/blocks'
 import { Hex, HexLayout } from './domains/hex-grid'
 import { useBabylonScene } from './use-babylon-scene'
 
-function createGround({ scene }: { scene: Scene }) {
-  const ground = MeshBuilder.CreateGround('ground', { width: 1000, height: 1000 }, scene)
-  const mat = new StandardMaterial('groundMat', scene)
-  mat.diffuseColor = new Color3(0.98, 0.98, 0.98)
-  ground.material = mat
-  ground.receiveShadows = true
+// ── 顏色 / Alpha 常數 ─────────────────────────────────────────
+const COLOR_PLACED = new Color3(0.25, 0.60, 1.00) // 藍（已放置）
+const COLOR_CANDIDATE = new Color3(0.55, 0.55, 0.55) // 灰（候補可點擊）
+const COLOR_HOVER = new Color3(0.50, 0.82, 1.00) // 淡藍（hover 候補）
 
-  return ground
-}
+const ALPHA_PLACED = 1.0
+const ALPHA_CANDIDATE = 0.35
+const ALPHA_HOVER = 0.65
+const ALPHA_HIDDEN = 0.0
 
+const FADE_SPEED = 14
+
+// ── hex key ────────────────────────────────────────────────────
 function hexKey(hex: Hex) {
   return `${hex.q},${hex.r},${hex.s}`
 }
 
-function generateHexagon(sideLength: number) {
-  const radius = sideLength - 1
-  const results: Hex[] = []
+// ── 建立地板 ────────────────────────────────────────────────────
+function createGround({ scene }: { scene: Scene }) {
+  const ground = MeshBuilder.CreateGround('ground', { width: 1000, height: 1000 }, scene)
+  const material = new StandardMaterial('groundMat', scene)
 
-  for (let q = -radius; q <= radius; q++) {
-    const rMin = Math.max(-radius, -q - radius)
-    const rMax = Math.min(radius, -q + radius)
-    for (let r = rMin; r <= rMax; r++) {
-      results.push(new Hex(q, r, -q - r))
-    }
-  }
-
-  return results
+  material.diffuseColor = new Color3(0.98, 0.98, 0.98)
+  ground.material = material
+  ground.receiveShadows = true
+  return ground
 }
 
-function createHexTiles(scene: Scene, layout: HexLayout, sideLength = 4) {
-  const base = MeshBuilder.CreateCylinder('hexTileBase', {
-    diameter: layout.size * 2,
-    height: 0.02,
-    tessellation: 6,
-  }, scene)
-
-  base.rotation.y = Math.PI / 6
-  base.isPickable = false
-  base.isVisible = false
-
-  const baseMat = new StandardMaterial('hexTileBaseMat', scene)
-  baseMat.diffuseColor = new Color3(0.2, 0.6, 1.0)
-  baseMat.emissiveColor = new Color3(0.2, 0.6, 1.0)
-  baseMat.specularColor = new Color3(0, 0, 0)
-  baseMat.backFaceCulling = false
-  baseMat.needDepthPrePass = true
-  base.material = baseMat
-
-  const tileList: Mesh[] = []
-  const materialList: StandardMaterial[] = []
-  const targets = new Map<string, number>()
-
-  const hexList = generateHexagon(sideLength)
-
-  for (const hex of hexList) {
-    const key = hexKey(hex)
-
-    const tile = base.clone(`hex_${key}`) as Mesh
-    tile.isVisible = true
-    tile.isPickable = true
-    tile.position.copyFrom(layout.hexToWorld(hex, 0.02))
-
-    const material = baseMat.clone(`hexMat_${key}`) as StandardMaterial
-    material.alpha = 1
-    tile.material = material
-
-    tile.metadata = { hexKey: key, hex }
-
-    tileList.push(tile)
-    materialList.push(material)
-    targets.set(key, 0)
-  }
-
-  return { tileList, materialList, targets }
-}
-
+// ── 陰影 ────────────────────────────────────────────────────────
 function createShadowGenerator(scene: Scene) {
   const light = new DirectionalLight('dir01', new Vector3(-5, -5, 0), scene)
   light.intensity = 0.7
@@ -112,70 +64,161 @@ function createShadowGenerator(scene: Scene) {
   return shadowGenerator
 }
 
-const HOVER_ALPHA = 0.6
-const FADE_SPEED = 14
-
-const {
-  canvasRef,
-} = useBabylonScene({
-  async init(params) {
-    const { scene } = params
-
+// ── 主邏輯 ─────────────────────────────────────────────────────
+const { canvasRef } = useBabylonScene({
+  async init({ scene }) {
     createGround({ scene })
-    const shadowGenerator = createShadowGenerator(scene)
+    createShadowGenerator(scene)
 
-    // await createTreeBlock({ scene, shadowGenerator })
+    const layout = new HexLayout(HexLayout.pointy, 0.5, Vector3.Zero())
 
-    const layout = new HexLayout(HexLayout.pointy, 0.5, new Vector3(0, 0, 0))
+    // 基礎 mesh（隱藏，用來 clone）
+    const baseMesh = MeshBuilder.CreateCylinder('hexBase', {
+      diameter: layout.size * 2,
+      height: 0.04,
+      tessellation: 6,
+    }, scene)
+    baseMesh.rotation.y = Math.PI / 6
+    baseMesh.isPickable = false
+    baseMesh.isVisible = false
 
-    const { tileList, materialList, targets } = createHexTiles(scene, layout, 3)
+    // ── 狀態 ─────────────────────────────────────────────────
+    // key -> mesh / material
+    const meshMap = new Map<string, Mesh>()
+    const materialMap = new Map<string, StandardMaterial>()
+    // 已放置格
+    const placedSet = new Set<string>()
+    // 候補格（允許點擊）key -> Hex
+    const candidateMap = new Map<string, Hex>()
+    // 目標 alpha / color（lerp 目標）
+    const tgtAlphaMap = new Map<string, number>()
+    const tgtColorMap = new Map<string, Color3>()
 
     let hoveredKey = ''
 
-    scene.onPointerObservable.add((pointerInfo) => {
-      if (pointerInfo.type !== PointerEventTypes.POINTERMOVE)
+    // ── 建立單格 mesh ─────────────────────────────────────────
+    function spawnTile(hex: Hex, color: Color3, alpha: number): string {
+      const key = hexKey(hex)
+      if (meshMap.has(key))
+        return key
+
+      const mesh = baseMesh.clone(`hex_${key}`) as Mesh
+      mesh.isVisible = true
+      mesh.isPickable = false
+      mesh.position.copyFrom(layout.hexToWorld(hex, 0.02))
+
+      const material = new StandardMaterial(`mat_${key}`, scene)
+      material.diffuseColor = color.clone()
+      material.emissiveColor = color.clone()
+      material.specularColor = Color3.Black()
+      material.backFaceCulling = false
+      material.needDepthPrePass = true
+      material.alpha = alpha
+      mesh.material = material
+      mesh.metadata = { hexKey: key, hex }
+
+      meshMap.set(key, mesh)
+      materialMap.set(key, material)
+      tgtAlphaMap.set(key, alpha)
+      tgtColorMap.set(key, color.clone())
+      return key
+    }
+
+    // ── 加入候補格 ───────────────────────────────────────────
+    function addCandidate(hex: Hex) {
+      const key = hexKey(hex)
+      if (placedSet.has(key) || candidateMap.has(key))
+        return
+
+      spawnTile(hex, COLOR_CANDIDATE, ALPHA_HIDDEN)
+      // 從隱藏 fade in 到 CANDIDATE
+      tgtAlphaMap.set(key, ALPHA_CANDIDATE)
+      tgtColorMap.set(key, COLOR_CANDIDATE.clone())
+      candidateMap.set(key, hex)
+      meshMap.get(key)!.isPickable = true
+    }
+
+    // ── 放置格子 ─────────────────────────────────────────────
+    function placeTile(hex: Hex) {
+      const key = hexKey(hex)
+      if (placedSet.has(key))
+        return
+
+      candidateMap.delete(key)
+      placedSet.add(key)
+
+      spawnTile(hex, COLOR_PLACED, ALPHA_CANDIDATE) // 若已 spawn 則 no-op
+      tgtAlphaMap.set(key, ALPHA_PLACED)
+      tgtColorMap.set(key, COLOR_PLACED.clone())
+      meshMap.get(key)!.isPickable = false
+
+      // 展開六個方向的候補
+      for (let d = 0; d < 6; d++) {
+        addCandidate(hex.neighbor(d))
+      }
+    }
+
+    // ── 初始放置原點 (0,0,0) ─────────────────────────────────
+    placeTile(new Hex(0, 0, 0))
+
+    // ── Pointer 事件 ─────────────────────────────────────────
+    scene.onPointerObservable.add((info) => {
+      const isMove = info.type === PointerEventTypes.POINTERMOVE
+      const isClick = info.type === PointerEventTypes.POINTERDOWN
+
+      if (!isMove && !isClick)
         return
 
       const pick = scene.pick(
         scene.pointerX,
         scene.pointerY,
-        (mesh) => !!mesh.metadata?.hexKey,
+        (mesh) => !!mesh.metadata?.hexKey && candidateMap.has(mesh.metadata.hexKey),
       )
 
-      let nextKey = ''
-      if (pick?.hit && pick.pickedMesh) {
-        nextKey = pick.pickedMesh.metadata.hexKey
+      const pickedKey: string = pick?.hit && pick.pickedMesh
+        ? (pick.pickedMesh.metadata.hexKey as string)
+        : ''
+
+      // hover 變化
+      if (isMove && pickedKey !== hoveredKey) {
+        // 還原舊 hover
+        if (hoveredKey && candidateMap.has(hoveredKey)) {
+          tgtAlphaMap.set(hoveredKey, ALPHA_CANDIDATE)
+          tgtColorMap.set(hoveredKey, COLOR_CANDIDATE.clone())
+        }
+        hoveredKey = pickedKey
+        // 設定新 hover
+        if (hoveredKey && candidateMap.has(hoveredKey)) {
+          tgtAlphaMap.set(hoveredKey, ALPHA_HOVER)
+          tgtColorMap.set(hoveredKey, COLOR_HOVER.clone())
+        }
       }
 
-      if (nextKey === hoveredKey)
-        return
-
-      if (hoveredKey)
-        targets.set(hoveredKey, 0)
-
-      hoveredKey = nextKey
-
-      if (hoveredKey) {
-        targets.set(hoveredKey, HOVER_ALPHA)
-        // console.log('hover:', hoveredKey)
+      // 點擊放置
+      if (isClick && pickedKey && candidateMap.has(pickedKey)) {
+        const hex = candidateMap.get(pickedKey)!
+        hoveredKey = ''
+        placeTile(hex)
       }
     })
 
+    // ── Render loop：smooth lerp ──────────────────────────────
     scene.onBeforeRenderObservable.add(() => {
       const dt = scene.getEngine().getDeltaTime() / 1000
-      const alpha = 1 - Math.exp(-FADE_SPEED * dt)
+      const t = 1 - Math.exp(-FADE_SPEED * dt)
 
-      for (let i = 0; i < tileList.length; i++) {
-        const tile = tileList[i]
-        const material = materialList[i]
-        if (!tile || !material) {
-          continue
+      for (const [key, mat] of materialMap) {
+        const ta = tgtAlphaMap.get(key) ?? ALPHA_HIDDEN
+        const tc = tgtColorMap.get(key)
+
+        mat.alpha = mat.alpha + (ta - mat.alpha) * t
+
+        if (tc) {
+          mat.emissiveColor.r += (tc.r - mat.emissiveColor.r) * t
+          mat.emissiveColor.g += (tc.g - mat.emissiveColor.g) * t
+          mat.emissiveColor.b += (tc.b - mat.emissiveColor.b) * t
+          mat.diffuseColor.copyFrom(mat.emissiveColor)
         }
-
-        const key = tile.metadata.hexKey
-        const target = targets.get(key) ?? 0
-
-        material.alpha = material.alpha + (target - material.alpha) * alpha
       }
     })
   },
