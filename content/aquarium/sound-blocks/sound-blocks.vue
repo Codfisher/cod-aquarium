@@ -124,7 +124,7 @@ const {
     createGround({ scene })
     const shadowGenerator = createShadowGenerator(scene)
 
-    await createTreeBlock({ scene, shadowGenerator })
+    // await createTreeBlock({ scene, shadowGenerator })
 
     const layout = new HexLayout(HexLayout.pointy, 0.5, new Vector3(0, 0, 0))
 
