@@ -182,37 +182,37 @@
         }"
       >
         <u-input
-          :model-value="selectedTagList.length ? selectedTagList.join(', ') : 'Select tag to filter models'"
+          :model-value="currentFilterOptions.selectedTagList.length ? currentFilterOptions.selectedTagList.join(', ') : 'Select tag to filter models'"
           class="col-span-2 @md:col-span-1"
           readonly
           placeholder="Select tag to filter models"
           leading-icon="i-material-symbols:filter-alt"
           :ui="{
-            base: !selectedTagList.length ? 'text-gray-300' : ' text-ellipsis',
+            base: !currentFilterOptions.selectedTagList.length ? 'text-gray-300' : ' text-ellipsis',
           }"
         >
           <template
-            v-if="selectedTagList.length"
+            v-if="currentFilterOptions.selectedTagList.length"
             #trailing
           >
             <u-icon
               name="i-material-symbols:close"
-              @click.stop="selectedTagList = []"
+              @click.stop="currentFilterOptions.selectedTagList = []"
             />
           </template>
         </u-input>
 
         <template #content>
           <div class="flex flex-col w-[20vw] gap-3 p-3">
-            <div class="flex flex-wrap gap-2 overflow-auto max-h-[60vh]">
+            <div class="flex flex-wrap gap-2 overflow-auto max-h-[50vh]">
               <u-badge
                 v-for="tag in filteredTagList"
                 :key="tag"
                 :label="tag"
                 color="neutral"
                 class=" duration-200 cursor-pointer select-none"
-                :variant="selectedTagList.includes(tag) ? 'solid' : 'outline'"
-                @click="handleSelectedTag(tag)"
+                :variant="currentFilterOptions.selectedTagList.includes(tag) ? 'solid' : 'outline'"
+                @click="handleSelectedTag(currentFilterOptions.selectedTagList, tag)"
               />
 
               <div
@@ -231,7 +231,7 @@
                 icon="i-material-symbols:filter-alt-off"
                 class=" w-full"
                 :ui="{ label: 'text-center w-full' }"
-                @click="selectedTagList = []"
+                @click="currentFilterOptions.selectedTagList = []"
               />
             </div>
 
@@ -271,6 +271,15 @@
               label="Use AND logic"
               description="Otherwise use OR logic"
             />
+
+            <u-checkbox
+              v-if="selectedTab !== 'all'"
+              v-model="currentFilterOptions.showAllItems"
+              as="label"
+              variant="card"
+              label="Show all items"
+              description="Show items not in this tab, but matching items will be pinned to the top"
+            />
           </div>
         </template>
       </u-popover>
@@ -283,7 +292,7 @@ import type { ContextMenuItem, DropdownMenuItem, TabsItem } from '@nuxt/ui/.'
 import type { ModelFile } from '../../type'
 import { refManualReset, useElementSize, useStorage } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
-import { chunk, clone, isTruthy, map, pipe, tap } from 'remeda'
+import { chunk, clone, isTruthy, map, pipe, sortBy, tap } from 'remeda'
 import { computed, reactive, ref, useTemplateRef, watch } from 'vue'
 import { nextFrame } from '../../../../../web/common/utils'
 import { useMainStore } from '../../stores/main-store'
@@ -304,13 +313,15 @@ const statusMessage = refManualReset('Select folder to preview 3D models')
 
 const previewItemListRef = useTemplateRef<InstanceType<typeof ModelPreviewItem>[]>('previewItemListRef')
 const modelFileList = defineModel<ModelFile[]>('modelFileList', { default: [] })
-const selectedTagList = ref<string[]>([])
-function handleSelectedTag(tag: string) {
-  const index = selectedTagList.value.indexOf(tag)
+function handleSelectedTag(
+  currentSelectedTagList: string[],
+  tag: string,
+) {
+  const index = currentSelectedTagList.indexOf(tag)
   if (index === -1)
-    selectedTagList.value.push(tag)
+    currentSelectedTagList.push(tag)
   else
-    selectedTagList.value.splice(index, 1)
+    currentSelectedTagList.splice(index, 1)
 }
 
 const baseTabItem = {
@@ -443,12 +454,15 @@ const tabList = computed(() => [
 ])
 
 const DEFAULT_FILTER_OPTIONS = {
+  selectedTagList: [] as string[],
   keyword: '',
   tagKeyword: '',
   /** 是否包含來自檔名的 tag */
   includeTagFromFileName: true,
   /** 過濾邏輯 */
   useAndLogic: false,
+  /** 用於非 All Tab 時，是否顯示所有項目。方便直接用 tag 過濾，就不用一個一個加入 tab */
+  showAllItems: false,
 }
 const filterOptions = ref<Record<string, typeof DEFAULT_FILTER_OPTIONS>>({
   [baseTabItem.value]: clone(DEFAULT_FILTER_OPTIONS),
@@ -590,19 +604,25 @@ const filteredModelFileList = computed(() => {
       )
     },
     (list) => {
-      if (selectedTagList.value.length === 0) {
+      const selectedTagList = optionsValue.selectedTagList
+      if (selectedTagList.length === 0) {
         return list
       }
 
       return list.filter((file) => {
         if (optionsValue.useAndLogic) {
-          return selectedTagList.value.every((tag) => file.path.includes(tag))
+          return selectedTagList.every((tag) => file.path.includes(tag))
         }
-        return selectedTagList.value.some((tag) => file.path.includes(tag))
+        return selectedTagList.some((tag) => file.path.includes(tag))
       })
     },
     (list) => {
       if (selectedTab.value === baseTabItem.value) {
+        return list
+      }
+
+      // 顯示非 all tab 時，可以使用 showAllItems 來顯示所有檔案
+      if (selectedTab.value !== baseTabItem.value && optionsValue.showAllItems) {
         return list
       }
 
@@ -619,6 +639,14 @@ const filteredModelFileList = computed(() => {
         ...datum,
         hasTab: !!modelTabMap.value[key]?.length,
       }
+    }),
+    // 依照 hasTab 排序
+    sortBy((datum) => {
+      if (selectedTab.value === baseTabItem.value) {
+        return 0
+      }
+
+      return datum.hasTab ? 0 : 1
     }),
   )
 })
@@ -651,7 +679,7 @@ async function handleSelectDirectory() {
     isScanning.value = true
     statusMessage.value = 'scanning...'
     modelFileList.value = []
-    selectedTagList.value = []
+    resetFilterOptions()
 
     const dirHandle = await window.showDirectoryPicker()
     mainStore.rootFsHandle = dirHandle
