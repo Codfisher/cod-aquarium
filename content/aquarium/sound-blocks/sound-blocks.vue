@@ -94,7 +94,7 @@ const {
 
     const hoverHex = createHoverHex(scene, layout)
 
-    let lastKey = ""
+    let lastKey = ''
 
     scene.onPointerObservable.add((pointerInfo) => {
       if (pointerInfo.type !== PointerEventTypes.POINTERMOVE) return
@@ -102,7 +102,7 @@ const {
       const pick = scene.pick(scene.pointerX, scene.pointerY, (m) => m === ground)
       if (!pick?.hit || !pick.pickedPoint) {
         hoverHex.setEnabled(false)
-        lastKey = ""
+        lastKey = ''
         return
       }
 
