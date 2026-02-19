@@ -1,9 +1,7 @@
 import type { CreateBlockParams } from '.'
 import {
   ImportMeshAsync,
-  SceneLoader,
   TransformNode,
-  Vector3,
 } from '@babylonjs/core'
 import { forEach, pipe } from 'remeda'
 

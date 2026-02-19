@@ -20,6 +20,7 @@ import {
   Vector3,
 } from '@babylonjs/core'
 import { pipe, tap } from 'remeda'
+import { createTreeBlock } from './domains/blocks'
 import { Hex, HexLayout } from './domains/hex-grid'
 import { useBabylonScene } from './use-babylon-scene'
 
@@ -135,7 +136,7 @@ const { canvasRef } = useBabylonScene({
       meshMap.get(key)!.isPickable = true
     }
 
-    function placeTile(hex: Hex) {
+    async function placeTile(hex: Hex) {
       const key = hexKey(hex)
       if (placedSet.has(key))
         return
@@ -143,7 +144,10 @@ const { canvasRef } = useBabylonScene({
       candidateMap.delete(key)
       placedSet.add(key)
 
-      spawnTile(hex, COLOR_PLACED, ALPHA_CANDIDATE)
+      // spawnTile(hex, COLOR_PLACED, ALPHA_CANDIDATE)
+      const block = await createTreeBlock({ scene })
+      block.rootNode.position.copyFrom(layout.hexToWorld(hex, 0.02))
+
       tgtAlphaMap.set(key, ALPHA_PLACED)
       tgtColorMap.set(key, COLOR_PLACED.clone())
       meshMap.get(key)!.isPickable = false
@@ -154,7 +158,7 @@ const { canvasRef } = useBabylonScene({
       }
     }
 
-    // 初始候補格：(0,0,0) 尚未放置，呈現為可點擊的灰色格
+    // 原點為初始候補格
     addCandidate(new Hex(0, 0, 0))
 
     scene.onPointerObservable.add((info) => {
