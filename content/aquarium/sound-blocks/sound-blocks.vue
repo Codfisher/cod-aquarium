@@ -9,11 +9,10 @@
 </template>
 
 <script setup lang="ts">
-import type { Camera, IShadowLight, Light, Mesh, Scene } from '@babylonjs/core'
+import type { Mesh, Scene } from '@babylonjs/core'
 import {
   Color3,
   DirectionalLight,
-  HemisphericLight,
   MeshBuilder,
   PointerEventTypes,
   ShadowGenerator,
@@ -30,22 +29,15 @@ function createGround({ scene }: { scene: Scene }) {
   mat.diffuseColor = new Color3(0.98, 0.98, 0.98)
   ground.material = mat
   ground.receiveShadows = true
+
   return ground
 }
 
-function offsetOddRToCube(col: number, row: number) {
-  const q = col - ((row - (row & 1)) / 2)
-  const r = row
-  const s = -q - r
-  return new Hex(q, r, s)
-}
-
-function hexKey(h: { q: number; r: number; s: number }) {
-  return `${h.q},${h.r},${h.s}`
+function hexKey(hex: Hex) {
+  return `${hex.q},${hex.r},${hex.s}`
 }
 
 function generateHexagon(sideLength: number) {
-  // sideLength=4 => radius=3（中心到角 3 格）
   const radius = sideLength - 1
   const results: Hex[] = []
 
