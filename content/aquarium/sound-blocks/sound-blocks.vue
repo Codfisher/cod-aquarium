@@ -90,7 +90,7 @@ function createHexTiles(scene: Scene, layout: HexLayout, sideLength = 4) {
     tile.position.copyFrom(layout.hexToWorld(hex, 0.02))
 
     const material = baseMat.clone(`hexMat_${key}`) as StandardMaterial
-    material.alpha = 0
+    material.alpha = 1
     tile.material = material
 
     tile.metadata = { hexKey: key, hex }
@@ -116,7 +116,7 @@ const {
 
     const layout = new HexLayout(HexLayout.pointy, 0.5, new Vector3(0, 0, 0))
 
-    const { tileList, materialList, targets } = createHexTiles(scene, layout, 4)
+    const { tileList, materialList, targets } = createHexTiles(scene, layout, 3)
 
     let hoveredKey = ''
 
@@ -138,17 +138,14 @@ const {
       if (nextKey === hoveredKey)
         return
 
-      // 舊的 hover：淡出
       if (hoveredKey)
         targets.set(hoveredKey, 0)
 
       hoveredKey = nextKey
 
-      // 新的 hover：淡入
       if (hoveredKey) {
         targets.set(hoveredKey, HOVER_ALPHA)
-        // 你要印出是哪格：
-        // console.log("hover:", hoveredKey)
+        // console.log('hover:', hoveredKey)
       }
     })
 
