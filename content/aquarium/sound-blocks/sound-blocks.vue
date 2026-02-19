@@ -19,10 +19,10 @@ import {
   StandardMaterial,
   Vector3,
 } from '@babylonjs/core'
+import { pipe, tap } from 'remeda'
 import { Hex, HexLayout } from './domains/hex-grid'
 import { useBabylonScene } from './use-babylon-scene'
 
-// ── 顏色 / Alpha 常數 ─────────────────────────────────────────
 const COLOR_PLACED = new Color3(0.25, 0.60, 1.00) // 藍（已放置）
 const COLOR_CANDIDATE = new Color3(0.55, 0.55, 0.55) // 灰（候補可點擊）
 const COLOR_HOVER = new Color3(0.50, 0.82, 1.00) // 淡藍（hover 候補）
@@ -34,12 +34,10 @@ const ALPHA_HIDDEN = 0.0
 
 const FADE_SPEED = 14
 
-// ── hex key ────────────────────────────────────────────────────
 function hexKey(hex: Hex) {
   return `${hex.q},${hex.r},${hex.s}`
 }
 
-// ── 建立地板 ────────────────────────────────────────────────────
 function createGround({ scene }: { scene: Scene }) {
   const ground = MeshBuilder.CreateGround('ground', { width: 1000, height: 1000 }, scene)
   const material = new StandardMaterial('groundMat', scene)
@@ -50,7 +48,6 @@ function createGround({ scene }: { scene: Scene }) {
   return ground
 }
 
-// ── 陰影 ────────────────────────────────────────────────────────
 function createShadowGenerator(scene: Scene) {
   const light = new DirectionalLight('dir01', new Vector3(-5, -5, 0), scene)
   light.intensity = 0.7
@@ -64,7 +61,6 @@ function createShadowGenerator(scene: Scene) {
   return shadowGenerator
 }
 
-// ── 主邏輯 ─────────────────────────────────────────────────────
 const { canvasRef } = useBabylonScene({
   async init({ scene }) {
     createGround({ scene })
@@ -73,30 +69,28 @@ const { canvasRef } = useBabylonScene({
     const layout = new HexLayout(HexLayout.pointy, 0.5, Vector3.Zero())
 
     // 基礎 mesh（隱藏，用來 clone）
-    const baseMesh = MeshBuilder.CreateCylinder('hexBase', {
-      diameter: layout.size * 2,
-      height: 0.04,
-      tessellation: 6,
-    }, scene)
-    baseMesh.rotation.y = Math.PI / 6
-    baseMesh.isPickable = false
-    baseMesh.isVisible = false
+    const baseMesh = pipe(
+      MeshBuilder.CreateCylinder('hexBase', {
+        diameter: layout.size * 2,
+        height: 0.04,
+        tessellation: 6,
+      }, scene),
+      tap((mesh) => {
+        mesh.rotation.y = Math.PI / 6
+        mesh.isPickable = false
+        mesh.isVisible = false
+      }),
+    )
 
-    // ── 狀態 ─────────────────────────────────────────────────
-    // key -> mesh / material
     const meshMap = new Map<string, Mesh>()
     const materialMap = new Map<string, StandardMaterial>()
-    // 已放置格
     const placedSet = new Set<string>()
-    // 候補格（允許點擊）key -> Hex
     const candidateMap = new Map<string, Hex>()
-    // 目標 alpha / color（lerp 目標）
     const tgtAlphaMap = new Map<string, number>()
     const tgtColorMap = new Map<string, Color3>()
 
     let hoveredKey = ''
 
-    // ── 建立單格 mesh ─────────────────────────────────────────
     function spawnTile(hex: Hex, color: Color3, alpha: number): string {
       const key = hexKey(hex)
       if (meshMap.has(key))
@@ -124,7 +118,6 @@ const { canvasRef } = useBabylonScene({
       return key
     }
 
-    // ── 加入候補格 ───────────────────────────────────────────
     function addCandidate(hex: Hex) {
       const key = hexKey(hex)
       if (placedSet.has(key) || candidateMap.has(key))
@@ -138,7 +131,6 @@ const { canvasRef } = useBabylonScene({
       meshMap.get(key)!.isPickable = true
     }
 
-    // ── 放置格子 ─────────────────────────────────────────────
     function placeTile(hex: Hex) {
       const key = hexKey(hex)
       if (placedSet.has(key))
@@ -147,7 +139,7 @@ const { canvasRef } = useBabylonScene({
       candidateMap.delete(key)
       placedSet.add(key)
 
-      spawnTile(hex, COLOR_PLACED, ALPHA_CANDIDATE) // 若已 spawn 則 no-op
+      spawnTile(hex, COLOR_PLACED, ALPHA_CANDIDATE)
       tgtAlphaMap.set(key, ALPHA_PLACED)
       tgtColorMap.set(key, COLOR_PLACED.clone())
       meshMap.get(key)!.isPickable = false
@@ -158,10 +150,8 @@ const { canvasRef } = useBabylonScene({
       }
     }
 
-    // ── 初始放置原點 (0,0,0) ─────────────────────────────────
     placeTile(new Hex(0, 0, 0))
 
-    // ── Pointer 事件 ─────────────────────────────────────────
     scene.onPointerObservable.add((info) => {
       const isMove = info.type === PointerEventTypes.POINTERMOVE
       const isClick = info.type === PointerEventTypes.POINTERDOWN
@@ -202,7 +192,6 @@ const { canvasRef } = useBabylonScene({
       }
     })
 
-    // ── Render loop：smooth lerp ──────────────────────────────
     scene.onBeforeRenderObservable.add(() => {
       const dt = scene.getEngine().getDeltaTime() / 1000
       const t = 1 - Math.exp(-FADE_SPEED * dt)
