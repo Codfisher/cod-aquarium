@@ -43,7 +43,7 @@
 import type { ModelFile } from '../type'
 import { computedAsync, until, useObjectUrl } from '@vueuse/core'
 import { get, set } from 'idb-keyval'
-import { computed, onMounted, ref, shallowRef } from 'vue'
+import { computed, onMounted, onUnmounted, ref, shallowRef } from 'vue'
 import { useThumbnailGenerator } from '../composables/use-thumbnail-generator'
 
 const props = withDefaults(defineProps<{
@@ -52,6 +52,11 @@ const props = withDefaults(defineProps<{
   size?: string;
 }>(), {
   size: '120px',
+})
+
+const abortController = ref<AbortController>()
+onUnmounted(() => {
+  abortController.value?.abort()
 })
 
 const { generateThumbnail } = useThumbnailGenerator(props.rootHandle)
@@ -94,6 +99,8 @@ async function getThumbnailFile(fileName: string) {
 async function loadThumbnail(force = false) {
   try {
     isLoading.value = true
+    abortController.value = new AbortController()
+
     if (!force) {
       // 暫時不用 OPFS，方便 devtool 測試
       // const cachedData = await getThumbnailFile(cacheKey.value)
@@ -104,11 +111,17 @@ async function loadThumbnail(force = false) {
       }
     }
 
-    thumbnailData.value = await generateThumbnail(props.modelFile)
+    thumbnailData.value = await generateThumbnail(
+      props.modelFile,
+      { signal: abortController.value.signal },
+    )
     // await saveThumbnail(cacheKey.value, thumbnailData.value)
     await set(cacheKey.value, thumbnailData.value)
   }
-  catch (e) {
+  catch (e: any) {
+    if (e.name === 'AbortError') {
+      return
+    }
     console.error('🚀 ~ loadThumbnail ~ e:', e)
     console.error(`Failed to load thumbnail for ${props.modelFile.name}`)
   }
