@@ -67,7 +67,7 @@ function createShadowGenerator(scene: Scene) {
 const { canvasRef } = useBabylonScene({
   async init({ scene }) {
     createGround({ scene })
-    createShadowGenerator(scene)
+    const shadowGenerator = createShadowGenerator(scene)
 
     const layout = new HexLayout(HexLayout.pointy, 0.5, Vector3.Zero())
 
@@ -145,7 +145,7 @@ const { canvasRef } = useBabylonScene({
       placedSet.add(key)
 
       // spawnTile(hex, COLOR_PLACED, ALPHA_CANDIDATE)
-      const block = await createTreeBlock({ scene })
+      const block = await createTreeBlock({ scene, shadowGenerator })
       block.rootNode.position.copyFrom(layout.hexToWorld(hex, 0.02))
 
       tgtAlphaMap.set(key, ALPHA_PLACED)
