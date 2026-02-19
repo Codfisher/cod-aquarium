@@ -1,17 +1,17 @@
 <template>
   <u-app>
-    <div class="fixed w-dvw h-dvh m-0 p-4 bg-amber-50">
+    <div class="fixed w-dvw h-dvh m-0 p-4 bg-gray-100">
       <canvas
         v-once
         ref="canvasRef"
-        class="canvas w-full h-full"
+        class="canvas w-full h-full chamfer-5"
       />
     </div>
   </u-app>
 </template>
 
 <script setup lang="ts">
-import type { Mesh, Scene } from '@babylonjs/core'
+import type { AbstractMesh, Mesh, Scene } from '@babylonjs/core'
 import {
   Color3,
   DirectionalLight,
@@ -25,7 +25,7 @@ import { useColorMode } from '@vueuse/core'
 import { pipe, tap } from 'remeda'
 import { useBabylonScene } from './composables/use-babylon-scene'
 import { useFontLoader } from './composables/use-font-loader'
-import { createTreeBlock } from './domains/blocks'
+import { createBlock } from './domains/blocks'
 import { Hex, HexLayout } from './domains/hex-grid'
 
 // Nuxt UI 接管 vitepress 的 dark 設定，故改用 useColorMode
@@ -46,6 +46,26 @@ const ALPHA_HIDDEN = 0.0
 const FADE_SPEED = 14
 /** 最大可放置半徑 */
 const MAX_RADIUS = 2
+
+interface HexMeshMetadata {
+  hexKey: string;
+  hex: Hex;
+}
+
+/** 取得或設定 hexMesh 的 metadata */
+function hexMeshMetadata(mesh: Mesh | AbstractMesh, update?: Partial<HexMeshMetadata>): HexMeshMetadata {
+  if (update) {
+    mesh.metadata = {
+      ...mesh.metadata,
+      ...update,
+    }
+  }
+
+  return {
+    hexKey: mesh.metadata?.hexKey,
+    hex: mesh.metadata?.hex,
+  }
+}
 
 function hexKey(hex: Hex) {
   return `${hex.q},${hex.r},${hex.s}`
@@ -122,7 +142,7 @@ const { canvasRef } = useBabylonScene({
       material.needDepthPrePass = true
       material.alpha = alpha
       mesh.material = material
-      mesh.metadata = { hexKey: key, hex }
+      hexMeshMetadata(mesh, { hexKey: key, hex })
 
       meshMap.set(key, mesh)
       materialMap.set(key, material)
@@ -155,7 +175,7 @@ const { canvasRef } = useBabylonScene({
       placedSet.add(key)
 
       // spawnTile(hex, COLOR_PLACED, ALPHA_CANDIDATE)
-      const block = await createTreeBlock({ scene, shadowGenerator })
+      const block = await createBlock({ scene, shadowGenerator })
       block.rootNode.position.copyFrom(layout.hexToWorld(hex, 0.02))
 
       tgtAlphaMap.set(key, ALPHA_PLACED)
@@ -181,11 +201,11 @@ const { canvasRef } = useBabylonScene({
       const pick = scene.pick(
         scene.pointerX,
         scene.pointerY,
-        (mesh) => !!mesh.metadata?.hexKey && candidateMap.has(mesh.metadata.hexKey),
+        (mesh) => !!hexMeshMetadata(mesh).hexKey && candidateMap.has(hexMeshMetadata(mesh).hexKey),
       )
 
       const pickedKey: string = pick?.hit && pick.pickedMesh
-        ? (pick.pickedMesh.metadata.hexKey as string)
+        ? (hexMeshMetadata(pick.pickedMesh).hexKey as string)
         : ''
 
       // hover 變化
@@ -236,23 +256,4 @@ const { canvasRef } = useBabylonScene({
 <style lang="sass" scoped>
 .canvas
   outline: none
-
-  $cornerRadius: 20px
-  clip-path: polygon(
-    /* 上邊緣 */
-    $cornerRadius 0,
-    calc(100% - $cornerRadius) 0,
-
-    /* 右邊緣 */
-    100% $cornerRadius,
-    100% calc(100% - $cornerRadius),
-
-    /* 下邊緣 */
-    calc(100% - $cornerRadius) 100%,
-    $cornerRadius 100%,
-
-    /* 左邊緣 */
-    0 calc(100% - $cornerRadius),
-    0 $cornerRadius
-  )
 </style>
