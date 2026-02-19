@@ -1,11 +1,13 @@
 <template>
-  <div class="fixed w-dvw h-dvh p-0 m-0">
-    <canvas
-      v-once
-      ref="canvasRef"
-      class="canvas w-full h-full"
-    />
-  </div>
+  <u-app>
+    <div class="fixed w-dvw h-dvh m-0 p-4 bg-black">
+      <canvas
+        v-once
+        ref="canvasRef"
+        class="canvas w-full h-full"
+      />
+    </div>
+  </u-app>
 </template>
 
 <script setup lang="ts">
@@ -19,10 +21,18 @@ import {
   StandardMaterial,
   Vector3,
 } from '@babylonjs/core'
+import { useColorMode } from '@vueuse/core'
 import { pipe, tap } from 'remeda'
+import { useBabylonScene } from './composables/use-babylon-scene'
+import { useFontLoader } from './composables/use-font-loader'
 import { createTreeBlock } from './domains/blocks'
 import { Hex, HexLayout } from './domains/hex-grid'
-import { useBabylonScene } from './use-babylon-scene'
+
+// Nuxt UI 接管 vitepress 的 dark 設定，故改用 useColorMode
+const colorMode = useColorMode()
+colorMode.value = 'light'
+
+useFontLoader()
 
 const COLOR_PLACED = new Color3(0.25, 0.60, 1.00)
 const COLOR_CANDIDATE = new Color3(0.3, 0.3, 0.3)
@@ -226,4 +236,23 @@ const { canvasRef } = useBabylonScene({
 <style lang="sass" scoped>
 .canvas
   outline: none
+
+  $cornerRadius: 20px
+  clip-path: polygon(
+    /* 上邊緣 */
+    $cornerRadius 0,
+    calc(100% - $cornerRadius) 0,
+
+    /* 右邊緣 */
+    100% $cornerRadius,
+    100% calc(100% - $cornerRadius),
+
+    /* 下邊緣 */
+    calc(100% - $cornerRadius) 100%,
+    $cornerRadius 100%,
+
+    /* 左邊緣 */
+    0 calc(100% - $cornerRadius),
+    0 $cornerRadius
+  )
 </style>
