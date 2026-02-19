@@ -87,7 +87,7 @@ const defaultParam: Required<UseBabylonSceneParam> = {
     camera.upperRadiusLimit = 50
 
     // 限制鏡頭角度
-    camera.lowerBetaLimit = Math.PI / 3
+    camera.lowerBetaLimit = 0
     camera.upperBetaLimit = Math.PI / 3
 
     return camera
