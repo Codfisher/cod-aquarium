@@ -4,6 +4,61 @@
     class="w-full flex flex-col gap-4"
   >
     <u-form-field
+      label="App"
+      description=""
+      v-bind="fieldProps"
+      :ui="{ label: 'text-lg font-semibold', ...fieldProps.ui }"
+    />
+
+    <u-form-field
+      label="Clear All Cache"
+      description="Clears all cache, such as model preview thumbnails. Useful when thumbnail errors occur."
+      v-bind="fieldProps"
+    >
+      <u-popover>
+        <u-button
+          label="Clear"
+          color="error"
+        />
+
+        <template #content="{ close }">
+          <div class="flex flex-col gap-2 p-4">
+            <div class="text-sm font-bold">
+              This action cannot be undone
+            </div>
+            <div class="text-xs opacity-50">
+              Are you sure you want to clear all cache?
+            </div>
+
+            <div class="flex justify-end gap-2 mt-2">
+              <u-button
+                label="Cancel"
+                color="neutral"
+                variant="soft"
+                @click="close"
+              />
+              <u-button
+                label="Clear All Cache"
+                color="error"
+                variant="solid"
+                @click="clearCache(); close()"
+              />
+            </div>
+          </div>
+        </template>
+      </u-popover>
+    </u-form-field>
+
+    <u-separator />
+
+    <u-form-field
+      label="Preview"
+      description=""
+      v-bind="fieldProps"
+      :ui="{ label: 'text-lg font-semibold', ...fieldProps.ui }"
+    />
+
+    <u-form-field
       as="label"
       label="Align to Surface"
       v-bind="fieldProps"
@@ -41,8 +96,7 @@
       description="Metadata for the models in the scene."
       v-bind="fieldProps"
       :ui="{ label: 'text-lg font-semibold', ...fieldProps.ui }"
-    >
-    </u-form-field>
+    />
 
     <u-form-field
       label="Mass"
@@ -80,9 +134,9 @@
 </template>
 
 <script setup lang="ts">
+import { clear } from 'idb-keyval'
 import { clone } from 'remeda'
 import { ref, watch } from 'vue'
-import z from 'zod/v4'
 import { useSceneStore } from '../domains/scene/scene-store'
 
 interface Props {
@@ -96,6 +150,7 @@ const emit = defineEmits<{
   'update:model-value': [value: string];
 }>()
 
+const toast = useToast()
 const sceneStore = useSceneStore()
 
 const fieldProps = {
@@ -103,29 +158,27 @@ const fieldProps = {
   ui: { description: 'text-xs opacity-50' },
 }
 
-// const optionSchema = z.object({
-//   /** 預覽時是否要旋轉 */
-//   enablePreviewRotation: z.boolean().default(false),
-//   /** 預覽模型的垂直軸起點 */
-//   previewGroundYOffset: z.number().default(0),
-//   metadata: z.object({
-//     mass: z.number().default(1),
-//     restitution: z.number().default(0),
-//     friction: z.number().default(0),
-//     otherFieldList: z.array(z.object({
-//       label: z.string(),
-//       type: z.string(),
-//       key: z.string(),
-//       defaultValue: z.any(),
-//     })).default([]),
-//   })
-// })
-
 const optionForm = ref(clone(sceneStore.settings))
 
 watch(optionForm, (newValue) => {
   sceneStore.patchSettings(newValue)
 }, { deep: true })
+
+function clearCache() {
+  clear().then(() => {
+    toast.add({
+      title: 'Cache cleared',
+      description: 'All cache has been cleared',
+      color: 'success',
+    })
+  }).catch(() => {
+    toast.add({
+      title: 'Cache cleared failed',
+      description: 'please try again',
+      color: 'error',
+    })
+  })
+}
 </script>
 
 <style scoped lang="sass">
