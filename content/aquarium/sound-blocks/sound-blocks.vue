@@ -23,9 +23,9 @@ import { pipe, tap } from 'remeda'
 import { Hex, HexLayout } from './domains/hex-grid'
 import { useBabylonScene } from './use-babylon-scene'
 
-const COLOR_PLACED = new Color3(0.25, 0.60, 1.00) // 藍（已放置）
-const COLOR_CANDIDATE = new Color3(0.55, 0.55, 0.55) // 灰（候補可點擊）
-const COLOR_HOVER = new Color3(0.50, 0.82, 1.00) // 淡藍（hover 候補）
+const COLOR_PLACED = new Color3(0.25, 0.60, 1.00)
+const COLOR_CANDIDATE = new Color3(0.3, 0.3, 0.3)
+const COLOR_HOVER = COLOR_CANDIDATE
 
 const ALPHA_PLACED = 1.0
 const ALPHA_CANDIDATE = 0.35
