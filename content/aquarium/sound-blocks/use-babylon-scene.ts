@@ -1,5 +1,6 @@
 import type {
   Camera,
+  WebGPUEngine,
 } from '@babylonjs/core'
 import {
   ArcRotateCamera,
@@ -9,7 +10,6 @@ import {
   HemisphericLight,
   Scene,
   Vector3,
-  WebGPUEngine,
 } from '@babylonjs/core'
 import { defaults } from 'lodash-es'
 import { onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'

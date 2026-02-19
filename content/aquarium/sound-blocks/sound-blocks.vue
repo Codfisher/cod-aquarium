@@ -9,73 +9,87 @@
 </template>
 
 <script setup lang="ts">
-import type { Scene } from '@babylonjs/core'
+import type { Mesh, Scene } from '@babylonjs/core'
 import {
   Color3,
-  DirectionalLight,
   MeshBuilder,
   PointerEventTypes,
-  ShadowGenerator,
   StandardMaterial,
   Vector3,
 } from '@babylonjs/core'
-import { onMounted, onUnmounted } from 'vue'
-import { createTreeBlock } from './domains/blocks'
+import { Hex, HexLayout } from './domains/hex-grid'
 import { useBabylonScene } from './use-babylon-scene'
-import { HexLayout, generateHexArea } from './domains/hex-grid'
 
-function createGround({ scene }: {
-  scene: Scene;
-}) {
-  const ground = MeshBuilder.CreateGround('ground', {
-    width: 1000,
-    height: 1000,
-  }, scene)
-
-  const groundMaterial = new StandardMaterial('groundMaterial', scene)
-  groundMaterial.diffuseColor = new Color3(0.98, 0.98, 0.98)
-  ground.material = groundMaterial
-
+function createGround({ scene }: { scene: Scene }) {
+  const ground = MeshBuilder.CreateGround('ground', { width: 1000, height: 1000 }, scene)
+  const mat = new StandardMaterial('groundMat', scene)
+  mat.diffuseColor = new Color3(0.98, 0.98, 0.98)
+  ground.material = mat
   ground.receiveShadows = true
   return ground
 }
 
-function createHoverHex(scene: Scene, layout: HexLayout) {
-  const hover = MeshBuilder.CreateCylinder("hoverHex", {
+function offsetOddRToCube(col: number, row: number) {
+  const q = col - ((row - (row & 1)) / 2)
+  const r = row
+  const s = -q - r
+  return new Hex(q, r, s)
+}
+
+function hexKey(h: { q: number; r: number; s: number }) {
+  return `${h.q},${h.r},${h.s}`
+}
+
+function createHexTiles(scene: Scene, layout: HexLayout) {
+  // 模板 mesh（不顯示）
+  const base = MeshBuilder.CreateCylinder('hexTileBase', {
     diameter: layout.size * 2,
     height: 0.02,
     tessellation: 6,
   }, scene)
 
-  hover.isPickable = false
-  hover.setEnabled(false)        // 沒指到格子時先隱藏
-  hover.rotation.y = Math.PI / 6 // 常用：轉 30° 讓視覺對齊（依你的格子方向可調整）
+  base.rotation.y = Math.PI / 6 // 覺得方向不對可改 0 或 Math.PI/6
+  base.isPickable = false
+  base.isVisible = false
 
-  const mat = new StandardMaterial("hoverHexMat", scene)
-  mat.diffuseColor = new Color3(0.2, 0.6, 1.0)
-  mat.emissiveColor = new Color3(0.2, 0.6, 1.0) // 讓它更亮、更像 highlight
-  mat.specularColor = new Color3(0, 0, 0)
-  mat.alpha = 0.35
-  mat.backFaceCulling = false
+  const baseMat = new StandardMaterial('hexTileBaseMat', scene)
+  baseMat.diffuseColor = new Color3(0.2, 0.6, 1.0)
+  baseMat.emissiveColor = new Color3(0.2, 0.6, 1.0)
+  baseMat.specularColor = new Color3(0, 0, 0)
+  baseMat.backFaceCulling = false
+  baseMat.needDepthPrePass = true
+  base.material = baseMat
 
-  // 透明物件有時會被深度遮住，用一點小技巧更穩：
-  mat.needDepthPrePass = true
+  const tiles: Mesh[] = []
+  const materials: StandardMaterial[] = []
+  const targets = new Map<string, number>() // key -> target alpha
 
-  hover.material = mat
-  return hover
-}
+  const rows = 4
+  const cols = 4
 
-function createShadowGenerator(scene: Scene) {
-  const light = new DirectionalLight('dir01', new Vector3(-5, -5, 0), scene)
-  light.intensity = 0.7
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < cols; col++) {
+      const h = offsetOddRToCube(col, row)
+      const key = hexKey(h)
 
-  const shadowGenerator = new ShadowGenerator(1024, light)
-  shadowGenerator.bias = 0.000001
-  shadowGenerator.normalBias = 0.0001
-  shadowGenerator.usePercentageCloserFiltering = true
-  shadowGenerator.forceBackFacesOnly = true
+      const tile = base.clone(`hex_${col}_${row}`) as Mesh
+      tile.isVisible = true
+      tile.isPickable = true
+      tile.position.copyFrom(layout.hexToWorld(h, 0.02)) // 抬高一點避免 z-fighting
 
-  return shadowGenerator
+      const material = baseMat.clone(`hexMat_${col}_${row}`) as StandardMaterial
+      material.alpha = 0
+      tile.material = material
+
+      tile.metadata = { hexKey: key, hex: h }
+
+      tiles.push(tile)
+      materials.push(material)
+      targets.set(key, 0)
+    }
+  }
+
+  return { tiles, materials, targets }
 }
 
 const {
@@ -83,39 +97,69 @@ const {
 } = useBabylonScene({
   async init(params) {
     const { scene } = params
-    const shadowGenerator = createShadowGenerator(scene)
 
-    const ground = createGround({ scene })
+    createGround({ scene })
 
-    // await createTreeBlock({ scene, shadowGenerator })
+    const layout = new HexLayout(HexLayout.pointy, 1, new Vector3(0, 0, 0))
 
-    const layout = new HexLayout(HexLayout.pointy, 0.5, new Vector3(0, 0, 0))
-    const hexes = generateHexArea(20)
+    const {
+      tiles,
+      materials,
+      targets,
+    } = createHexTiles(scene, layout)
 
-    const hoverHex = createHoverHex(scene, layout)
-
-    let lastKey = ''
+    let hoveredKey = ''
+    const hoverAlpha = 0.6
+    const fadeSpeed = 14
 
     scene.onPointerObservable.add((pointerInfo) => {
-      if (pointerInfo.type !== PointerEventTypes.POINTERMOVE) return
-
-      const pick = scene.pick(scene.pointerX, scene.pointerY, (m) => m === ground)
-      if (!pick?.hit || !pick.pickedPoint) {
-        hoverHex.setEnabled(false)
-        lastKey = ''
+      if (pointerInfo.type !== PointerEventTypes.POINTERMOVE)
         return
+
+      const pick = scene.pick(
+        scene.pointerX,
+        scene.pointerY,
+        (m) => !!(m as any)?.metadata?.hexKey,
+      )
+
+      let nextKey = ''
+      if (pick?.hit && pick.pickedMesh) {
+        nextKey = (pick.pickedMesh as any).metadata.hexKey as string
       }
 
-      const world = pick.pickedPoint
-      const hex = layout.worldToHexRounded(world)
+      if (nextKey === hoveredKey)
+        return
 
-      const key = `${hex.q},${hex.r},${hex.s}`
-      if (key === lastKey) return
-      lastKey = key
+      // 舊的 hover：淡出
+      if (hoveredKey)
+        targets.set(hoveredKey, 0)
 
-      const pos = layout.hexToWorld(hex, 0.02) // 比 ground 再高一點
-      hoverHex.position.copyFrom(pos)
-      hoverHex.setEnabled(true)
+      hoveredKey = nextKey
+
+      // 新的 hover：淡入
+      if (hoveredKey) {
+        targets.set(hoveredKey, hoverAlpha)
+        // 你要印出是哪格：
+        // console.log("hover:", hoveredKey)
+      }
+    })
+
+    scene.onBeforeRenderObservable.add(() => {
+      const dt = scene.getEngine().getDeltaTime() / 1000
+      const alpha = 1 - Math.exp(-fadeSpeed * dt)
+
+      for (let i = 0; i < tiles.length; i++) {
+        const tile = tiles[i]
+        const mat = materials[i]
+        if (!tile || !mat) {
+          continue
+        }
+
+        const key = (tile.metadata as any).hexKey as string
+        const target = targets.get(key) ?? 0
+
+        mat.alpha = mat.alpha + (target - mat.alpha) * alpha
+      }
     })
   },
 })
