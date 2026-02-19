@@ -33,6 +33,8 @@ const ALPHA_HOVER = 0.65
 const ALPHA_HIDDEN = 0.0
 
 const FADE_SPEED = 14
+/** 最大可放置半徑 */
+const MAX_RADIUS = 2
 
 function hexKey(hex: Hex) {
   return `${hex.q},${hex.r},${hex.s}`
@@ -118,8 +120,6 @@ const { canvasRef } = useBabylonScene({
       return key
     }
 
-    const MAX_RADIUS = 2
-
     function addCandidate(hex: Hex) {
       const key = hexKey(hex)
       if (placedSet.has(key) || candidateMap.has(key))
@@ -154,7 +154,8 @@ const { canvasRef } = useBabylonScene({
       }
     }
 
-    placeTile(new Hex(0, 0, 0))
+    // 初始候補格：(0,0,0) 尚未放置，呈現為可點擊的灰色格
+    addCandidate(new Hex(0, 0, 0))
 
     scene.onPointerObservable.add((info) => {
       const isMove = info.type === PointerEventTypes.POINTERMOVE
