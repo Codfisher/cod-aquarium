@@ -9,14 +9,18 @@
 </template>
 
 <script setup lang="ts">
-import type { Mesh, Scene } from '@babylonjs/core'
+import type { Camera, IShadowLight, Light, Mesh, Scene } from '@babylonjs/core'
 import {
   Color3,
+  DirectionalLight,
+  HemisphericLight,
   MeshBuilder,
   PointerEventTypes,
+  ShadowGenerator,
   StandardMaterial,
   Vector3,
 } from '@babylonjs/core'
+import { createTreeBlock } from './domains/blocks'
 import { Hex, HexLayout } from './domains/hex-grid'
 import { useBabylonScene } from './use-babylon-scene'
 
@@ -103,6 +107,19 @@ function createHexTiles(scene: Scene, layout: HexLayout, sideLength = 4) {
   return { tileList, materialList, targets }
 }
 
+function createShadowGenerator(scene: Scene) {
+  const light = new DirectionalLight('dir01', new Vector3(-5, -5, 0), scene)
+  light.intensity = 0.7
+
+  const shadowGenerator = new ShadowGenerator(1024, light)
+  shadowGenerator.bias = 0.000001
+  shadowGenerator.normalBias = 0.0001
+  shadowGenerator.usePercentageCloserFiltering = true
+  shadowGenerator.forceBackFacesOnly = true
+
+  return shadowGenerator
+}
+
 const HOVER_ALPHA = 0.6
 const FADE_SPEED = 14
 
@@ -113,6 +130,9 @@ const {
     const { scene } = params
 
     createGround({ scene })
+    const shadowGenerator = createShadowGenerator(scene)
+
+    await createTreeBlock({ scene, shadowGenerator })
 
     const layout = new HexLayout(HexLayout.pointy, 0.5, new Vector3(0, 0, 0))
 
@@ -127,12 +147,12 @@ const {
       const pick = scene.pick(
         scene.pointerX,
         scene.pointerY,
-        (m) => !!(m as any)?.metadata?.hexKey,
+        (mesh) => !!mesh.metadata?.hexKey,
       )
 
       let nextKey = ''
       if (pick?.hit && pick.pickedMesh) {
-        nextKey = (pick.pickedMesh as any).metadata.hexKey as string
+        nextKey = pick.pickedMesh.metadata.hexKey
       }
 
       if (nextKey === hoveredKey)
@@ -160,7 +180,7 @@ const {
           continue
         }
 
-        const key = (tile.metadata as any).hexKey as string
+        const key = tile.metadata.hexKey
         const target = targets.get(key) ?? 0
 
         material.alpha = material.alpha + (target - material.alpha) * alpha
