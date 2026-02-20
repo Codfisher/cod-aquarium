@@ -240,14 +240,16 @@ const { canvasRef, scene } = useBabylonScene({
 
       // hover 變化
       if (isMove && pickedKey !== hoveredKey) {
+        // 還原舊 hover
         if (hoveredKey && candidateMap.has(hoveredKey)) {
           targetAlphaMap.set(hoveredKey, ALPHA_CANDIDATE)
           targetColorMap.set(hoveredKey, COLOR_CANDIDATE.clone())
         }
         hoveredHex.value = pick.pickedMesh?.metadata?.hex
-        if (hoveredKey && candidateMap.has(hoveredKey)) {
-          targetAlphaMap.set(hoveredKey, ALPHA_HOVER)
-          targetColorMap.set(hoveredKey, COLOR_HOVER.clone())
+        // 設定新 hover
+        if (pickedKey && candidateMap.has(pickedKey)) {
+          targetAlphaMap.set(pickedKey, ALPHA_HOVER)
+          targetColorMap.set(pickedKey, COLOR_HOVER.clone())
         }
       }
 
