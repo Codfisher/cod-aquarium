@@ -1,13 +1,13 @@
 <template>
   <u-app>
-    <div class="fixed w-dvw h-dvh m-0 p-4 bg-gray-100">
+    <div class="fixed w-dvw h-dvh m-0 p-5 bg-gray-100">
       <canvas
         v-once
         ref="canvasRef"
         class="canvas w-full h-full chamfer-5"
       />
 
-      <div class=" absolute bottom-0 right-0 p-6 opacity-20">
+      <div class=" absolute bottom-0 right-0 p-1 opacity-20 text-xs">
         v{{ version }}
       </div>
     </div>
