@@ -1,10 +1,14 @@
+---
+trigger: always_on
+---
+
 # 專案概述
 
 此專案為鱈魚（codlin）的個人部落格
 
 ## Coding Style
 
-- 變數名稱禁止使用 `a`、`m` 等等這類無意義的縮寫
+- 變數名稱禁止使用縮，除非是 url 這種廣為人知的縮寫
 
 - **TypeScript**:
   - 禁止使用 `any`，必須定義明確的 Interface 或 Type。

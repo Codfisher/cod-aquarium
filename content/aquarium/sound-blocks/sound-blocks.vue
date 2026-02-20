@@ -16,6 +16,7 @@
 
 <script setup lang="ts">
 import type { AbstractMesh, Mesh, Scene } from '@babylonjs/core'
+import type { Block } from './domains/block/builder'
 import {
   Color3,
   DirectionalLight,
@@ -127,8 +128,9 @@ const { canvasRef } = useBabylonScene({
     const materialMap = new Map<string, StandardMaterial>()
     const placedSet = new Set<string>()
     const candidateMap = new Map<string, Hex>()
-    const tgtAlphaMap = new Map<string, number>()
-    const tgtColorMap = new Map<string, Color3>()
+    const targetAlphaMap = new Map<string, number>()
+
+    const placedBlockMap = new Map<string, Block>()
 
     let hoveredKey = ''
 
@@ -154,8 +156,7 @@ const { canvasRef } = useBabylonScene({
 
       meshMap.set(key, mesh)
       materialMap.set(key, material)
-      tgtAlphaMap.set(key, alpha)
-      tgtColorMap.set(key, color.clone())
+      targetAlphaMap.set(key, alpha)
       return key
     }
 
@@ -168,8 +169,7 @@ const { canvasRef } = useBabylonScene({
 
       spawnTile(hex, COLOR_CANDIDATE, ALPHA_HIDDEN)
       // 從隱藏 fade in 到 CANDIDATE
-      tgtAlphaMap.set(key, ALPHA_CANDIDATE)
-      tgtColorMap.set(key, COLOR_CANDIDATE.clone())
+      targetAlphaMap.set(key, ALPHA_CANDIDATE)
       candidateMap.set(key, hex)
       meshMap.get(key)!.isPickable = true
     }
@@ -187,8 +187,7 @@ const { canvasRef } = useBabylonScene({
       const block = await createBlock({ type, scene, shadowGenerator })
       block.rootNode.position.copyFrom(layout.hexToWorld(hex, 0.02))
 
-      tgtAlphaMap.set(key, ALPHA_PLACED)
-      tgtColorMap.set(key, COLOR_PLACED.clone())
+      targetAlphaMap.set(key, ALPHA_PLACED)
       meshMap.get(key)!.isPickable = false
 
       // 展開六個方向的候補
@@ -221,14 +220,12 @@ const { canvasRef } = useBabylonScene({
       if (isMove && pickedKey !== hoveredKey) {
         // 還原舊 hover
         if (hoveredKey && candidateMap.has(hoveredKey)) {
-          tgtAlphaMap.set(hoveredKey, ALPHA_CANDIDATE)
-          tgtColorMap.set(hoveredKey, COLOR_CANDIDATE.clone())
+          targetAlphaMap.set(hoveredKey, ALPHA_CANDIDATE)
         }
         hoveredKey = pickedKey
         // 設定新 hover
         if (hoveredKey && candidateMap.has(hoveredKey)) {
-          tgtAlphaMap.set(hoveredKey, ALPHA_HOVER)
-          tgtColorMap.set(hoveredKey, COLOR_HOVER.clone())
+          targetAlphaMap.set(hoveredKey, ALPHA_HOVER)
         }
       }
 
@@ -245,21 +242,18 @@ const { canvasRef } = useBabylonScene({
       const t = 1 - Math.exp(-FADE_SPEED * dt)
 
       for (const [key, mat] of materialMap) {
-        const ta = tgtAlphaMap.get(key) ?? ALPHA_HIDDEN
-        const tc = tgtColorMap.get(key)
+        const ta = targetAlphaMap.get(key) ?? ALPHA_HIDDEN
 
         mat.alpha = mat.alpha + (ta - mat.alpha) * t
-
-        if (tc) {
-          mat.emissiveColor.r += (tc.r - mat.emissiveColor.r) * t
-          mat.emissiveColor.g += (tc.g - mat.emissiveColor.g) * t
-          mat.emissiveColor.b += (tc.b - mat.emissiveColor.b) * t
-          mat.diffuseColor.copyFrom(mat.emissiveColor)
-        }
       }
     })
   },
 })
+
+const overlay = useOverlay()
+function openBlockPicker() {
+
+}
 </script>
 
 <style lang="sass" scoped>

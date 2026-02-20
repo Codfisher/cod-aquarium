@@ -1,6 +1,12 @@
-<!-- <template></template> -->
+<template>
+  <div>
+    安安
+  </div>
+</template>
 
 <script setup lang="ts">
+import type { Block } from './builder'
+
 interface Props {
   label?: string;
 }
@@ -9,11 +15,7 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const emit = defineEmits<{
-  'update:model-value': [value: string];
-}>()
-
-defineSlots<{
-  default: (props: { msg: string }) => any;
+  select: [block: Block];
 }>()
 </script>
 
