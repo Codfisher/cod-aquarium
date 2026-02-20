@@ -28,7 +28,7 @@ export async function createBlock(
     scene,
     shadowGenerator,
   }: CreateBlockParams,
-) {
+): Promise<Block> {
   const blockDefinition = blockDefinitions[type]
 
   const resultList = await Promise.all(
@@ -74,6 +74,7 @@ export async function createBlock(
   )
 
   return {
+    type,
     rootNode,
   }
 }
