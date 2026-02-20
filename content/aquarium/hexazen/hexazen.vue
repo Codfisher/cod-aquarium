@@ -304,7 +304,7 @@ const { canvasRef, scene } = useBabylonScene({
         ? (hexMeshMetadata(pick.pickedMesh)?.hex?.key() as string)
         : ''
 
-      if (!pickedKey) {
+      if (!pickedKey || animatingBlockSet.has(pickedKey)) {
         return
       }
 
@@ -313,14 +313,11 @@ const { canvasRef, scene } = useBabylonScene({
         return
       }
 
-      hoveredBlock.value = isMove ? block : undefined
       if (isMove) {
+        hoveredBlock.value = block
         return
       }
-
-      if (animatingBlockSet.has(pickedKey)) {
-        return
-      }
+      hoveredBlock.value = undefined
 
       animatingBlockSet.add(pickedKey)
       const duration = 800
