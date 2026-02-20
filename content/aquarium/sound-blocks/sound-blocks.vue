@@ -33,6 +33,7 @@ import { h, ref, shallowRef } from 'vue'
 import { version } from '../codstack/constants'
 import { useBabylonScene } from './composables/use-babylon-scene'
 import { useFontLoader } from './composables/use-font-loader'
+import { useThumbnailGenerator } from './composables/use-thumbnail-generator'
 import BlockPicker from './domains/block/block-picker.vue'
 import { Hex, HexLayout } from './domains/hex-grid'
 
@@ -310,6 +311,9 @@ function openBlockPicker() {
   slideover.open()
   blockPickerRef.value = slideover
 }
+
+// 預先初始化縮圖工具
+useThumbnailGenerator()
 </script>
 
 <style lang="sass" scoped>
