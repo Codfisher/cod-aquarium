@@ -1,5 +1,4 @@
 import type { AssetContainer } from '@babylonjs/core'
-import type { ModelFile } from '../type'
 import {
   ArcRotateCamera,
   Color4,
@@ -14,7 +13,6 @@ import { LoadAssetContainerAsync } from '@babylonjs/core/Loading/sceneLoader'
 import { createSharedComposable, tryOnScopeDispose } from '@vueuse/core'
 import PQueue from 'p-queue'
 import { pipe } from 'remeda'
-import { getFileFromPath } from '../utils/fs'
 
 function getOptimalConcurrency(): number {
   // 如果不在瀏覽器環境，給一個最保守的預設值
@@ -50,7 +48,7 @@ function getOptimalConcurrency(): number {
 const concurrency = getOptimalConcurrency()
 const size = 128
 
-function _useThumbnailGenerator(rootFsHandle: FileSystemDirectoryHandle) {
+function _useThumbnailGenerator() {
   const queue = new PQueue({ concurrency })
 
   let index = 0
@@ -94,7 +92,7 @@ function _useThumbnailGenerator(rootFsHandle: FileSystemDirectoryHandle) {
     const light = new HemisphericLight('light', new Vector3(0, 1, 0), scene)
 
     // 新增 options 參數來接收 signal
-    function generateThumbnail(modelFile: ModelFile, options?: { signal?: AbortSignal }) {
+    function generateThumbnail(modelPath: string, options?: { signal?: AbortSignal }) {
       const { signal } = options || {}
 
       // 將 signal 傳給 queue，如果任務還在排隊時被取消，p-queue 會自動拋出 AbortError 並拒絕執行
@@ -109,25 +107,7 @@ function _useThumbnailGenerator(rootFsHandle: FileSystemDirectoryHandle) {
 
         checkAbort()
 
-        const container = await LoadAssetContainerAsync(modelFile.file, scene, {
-          pluginOptions: {
-            gltf: {
-              async preprocessUrlAsync(url) {
-                checkAbort()
-
-                const file = await pipe(
-                  modelFile.path.replace(modelFile.name, ''),
-                  (path) => getFileFromPath(rootFsHandle, `${path}${url}`),
-                )
-
-                const blobUrl = URL.createObjectURL(file)
-                blobUrlList.push(blobUrl)
-
-                return blobUrl
-              },
-            },
-          },
-        })
+        const container = await LoadAssetContainerAsync(modelPath, scene)
 
         checkAbort()
 
@@ -171,14 +151,14 @@ function _useThumbnailGenerator(rootFsHandle: FileSystemDirectoryHandle) {
     }
   }
 
-  function generateThumbnail(modelFile: ModelFile, options?: { signal?: AbortSignal }) {
+  function generateThumbnail(modelPath: string, options?: { signal?: AbortSignal }) {
     const generator = generatorList[index]
     if (!generator) {
       throw new Error('Generator not found')
     }
 
     index = (index + 1) % concurrency
-    return generator.generateThumbnail(modelFile, options)
+    return generator.generateThumbnail(modelPath, options)
   }
 
   return { generateThumbnail }

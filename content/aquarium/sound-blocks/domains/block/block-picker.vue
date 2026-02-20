@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="w-full h-full bg-amber-300 p-6">
     安安
   </div>
 </template>

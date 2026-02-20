@@ -16,7 +16,6 @@
 
 <script setup lang="ts">
 import type { AbstractMesh, Mesh, Scene } from '@babylonjs/core'
-import type { Block } from './domains/block/builder'
 import {
   Color3,
   DirectionalLight,
@@ -28,14 +27,12 @@ import {
 } from '@babylonjs/core'
 import USlideover from '@nuxt/ui/components/Slideover.vue'
 import { useColorMode } from '@vueuse/core'
-import { pipe, sample, tap } from 'remeda'
-import { h } from 'vue'
+import { pipe, tap } from 'remeda'
+import { h, ref, shallowRef } from 'vue'
 import { version } from '../codstack/constants'
 import { useBabylonScene } from './composables/use-babylon-scene'
 import { useFontLoader } from './composables/use-font-loader'
 import BlockPicker from './domains/block/block-picker.vue'
-import { createBlock } from './domains/block/builder'
-import { blockTypeList } from './domains/block/builder/data'
 import { Hex, HexLayout } from './domains/hex-grid'
 
 // Nuxt UI 接管 vitepress 的 dark 設定，故改用 useColorMode
@@ -44,11 +41,13 @@ colorMode.value = 'light'
 
 useFontLoader()
 
+// ─── 顏色 / 透明度常數 ────────────────────────────────────────────────────────
+
 const COLOR_SELECTED = new Color3(0.25, 0.60, 1.00)
 const COLOR_CANDIDATE = new Color3(0.3, 0.3, 0.3)
 const COLOR_HOVER = COLOR_CANDIDATE
 
-const ALPHA_SELECTED = 1.0
+const ALPHA_SELECTED = 0.5
 const ALPHA_CANDIDATE = 0.35
 const ALPHA_HOVER = 0.65
 const ALPHA_HIDDEN = 0.0
@@ -56,6 +55,8 @@ const ALPHA_HIDDEN = 0.0
 const FADE_SPEED = 14
 /** 最大可放置半徑 */
 const MAX_RADIUS = 2
+
+// ─── Hex Mesh Metadata ───────────────────────────────────────────────────────
 
 interface HexMeshMetadata {
   hexKey: string;
@@ -70,7 +71,6 @@ function hexMeshMetadata(mesh: Mesh | AbstractMesh, update?: Partial<HexMeshMeta
       ...update,
     }
   }
-
   return {
     hexKey: mesh.metadata?.hexKey,
     hex: mesh.metadata?.hex,
@@ -81,10 +81,110 @@ function hexKey(hex: Hex) {
   return `${hex.q},${hex.r},${hex.s}`
 }
 
+// ─── Hex Tile 狀態 ───────────────────────────────────────────────────────────
+
+const meshMap = new Map<string, Mesh>()
+const materialMap = new Map<string, StandardMaterial>()
+const selectedSet = new Set<string>()
+const candidateMap = new Map<string, Hex>()
+const targetAlphaMap = new Map<string, number>()
+const targetColorMap = new Map<string, Color3>()
+
+let hoveredKey = ''
+let selectedKey = ''
+
+// ─── Hex Tile 操作函式（需要 scene / layout 的部分透過參數傳入）─────────────
+
+interface HexContext {
+  scene: Scene;
+  layout: HexLayout;
+  baseHexMesh: Mesh;
+}
+
+let hexContext: HexContext | null = null
+
+function spawnTile(hex: Hex, color: Color3, alpha: number): string {
+  const { scene, layout, baseHexMesh } = hexContext!
+  const key = hexKey(hex)
+  if (meshMap.has(key))
+    return key
+
+  const mesh = baseHexMesh.clone(`hex_${key}`)
+  mesh.isVisible = true
+  mesh.isPickable = false
+  mesh.position.copyFrom(layout.hexToWorld(hex, 0.02))
+
+  const material = new StandardMaterial(`mat_${key}`, scene)
+  material.diffuseColor = color.clone()
+  material.emissiveColor = color.clone()
+  material.specularColor = Color3.Black()
+  material.backFaceCulling = false
+  material.needDepthPrePass = true
+  material.alpha = alpha
+  mesh.material = material
+  hexMeshMetadata(mesh, { hexKey: key, hex })
+
+  meshMap.set(key, mesh)
+  materialMap.set(key, material)
+  targetAlphaMap.set(key, alpha)
+  targetColorMap.set(key, color.clone())
+  return key
+}
+
+function addCandidate(hex: Hex) {
+  const key = hexKey(hex)
+  if (selectedSet.has(key) || candidateMap.has(key))
+    return
+  if (hex.len() > MAX_RADIUS)
+    return
+
+  spawnTile(hex, COLOR_CANDIDATE, ALPHA_HIDDEN)
+  targetAlphaMap.set(key, ALPHA_CANDIDATE)
+  targetColorMap.set(key, COLOR_CANDIDATE.clone())
+  candidateMap.set(key, hex)
+  meshMap.get(key)!.isPickable = true
+}
+
+function deselectCurrent() {
+  if (!selectedKey)
+    return
+
+  const previousHex = hexMeshMetadata(meshMap.get(selectedKey)!).hex
+  const previousKey = selectedKey
+  selectedSet.delete(previousKey)
+
+  candidateMap.set(previousKey, previousHex)
+  targetAlphaMap.set(previousKey, ALPHA_CANDIDATE)
+  targetColorMap.set(previousKey, COLOR_CANDIDATE.clone())
+  meshMap.get(previousKey)!.isPickable = true
+
+  selectedKey = ''
+  blockPickerRef.value?.close()
+}
+
+function selectTile(hex: Hex) {
+  const key = hexKey(hex)
+  if (selectedSet.has(key))
+    return
+
+  deselectCurrent()
+
+  candidateMap.delete(key)
+  selectedSet.add(key)
+  selectedKey = key
+
+  targetAlphaMap.set(key, ALPHA_SELECTED)
+  targetColorMap.set(key, COLOR_SELECTED.clone())
+  meshMap.get(key)!.isPickable = false
+
+  openBlockPicker()
+}
+
+// ─── Scene 初始化 ─────────────────────────────────────────────────────────────
+
 function createGround({ scene }: { scene: Scene }) {
   const ground = MeshBuilder.CreateGround('ground', { width: 1000, height: 1000 }, scene)
   const material = new StandardMaterial('groundMat', scene)
-
   material.diffuseColor = new Color3(0.98, 0.98, 0.98)
   ground.material = material
   ground.receiveShadows = true
@@ -100,14 +200,13 @@ function createShadowGenerator(scene: Scene) {
   shadowGenerator.normalBias = 0.0001
   shadowGenerator.usePercentageCloserFiltering = true
   shadowGenerator.forceBackFacesOnly = true
-
   return shadowGenerator
 }
 
 const { canvasRef } = useBabylonScene({
-  async init({ scene }) {
+  async init({ scene, engine }) {
     createGround({ scene })
-    const shadowGenerator = createShadowGenerator(scene)
+    createShadowGenerator(scene)
 
     /** 對齊模型與 hex 的大小 */
     const HEX_SIZE = 0.575
@@ -127,101 +226,14 @@ const { canvasRef } = useBabylonScene({
       }),
     )
 
-    const meshMap = new Map<string, Mesh>()
-    const materialMap = new Map<string, StandardMaterial>()
-    const selectedSet = new Set<string>()
-    const candidateMap = new Map<string, Hex>()
-    const targetAlphaMap = new Map<string, number>()
-    const targetColorMap = new Map<string, Color3>()
-
-    let hoveredKey = ''
-    let selectedKey = ''
-
-    function spawnTile(hex: Hex, color: Color3, alpha: number): string {
-      const key = hexKey(hex)
-      if (meshMap.has(key))
-        return key
-
-      const mesh = baseHexMesh.clone(`hex_${key}`)
-      mesh.isVisible = true
-      mesh.isPickable = false
-      mesh.position.copyFrom(layout.hexToWorld(hex, 0.02))
-
-      const material = new StandardMaterial(`mat_${key}`, scene)
-      material.diffuseColor = color.clone()
-      material.emissiveColor = color.clone()
-      material.specularColor = Color3.Black()
-      material.backFaceCulling = false
-      material.needDepthPrePass = true
-      material.alpha = alpha
-      mesh.material = material
-      hexMeshMetadata(mesh, { hexKey: key, hex })
-
-      meshMap.set(key, mesh)
-      materialMap.set(key, material)
-      targetAlphaMap.set(key, alpha)
-      targetColorMap.set(key, color.clone())
-      return key
-    }
-
-    function addCandidate(hex: Hex) {
-      const key = hexKey(hex)
-      if (selectedSet.has(key) || candidateMap.has(key))
-        return
-      if (hex.len() > MAX_RADIUS)
-        return
-
-      spawnTile(hex, COLOR_CANDIDATE, ALPHA_HIDDEN)
-      // 從隱藏 fade in 到 CANDIDATE
-      targetAlphaMap.set(key, ALPHA_CANDIDATE)
-      targetColorMap.set(key, COLOR_CANDIDATE.clone())
-      candidateMap.set(key, hex)
-      meshMap.get(key)!.isPickable = true
-    }
-
-    function deselectCurrent() {
-      if (!selectedKey)
-        return
-
-      const previousHex = hexMeshMetadata(meshMap.get(selectedKey)!).hex
-
-      // 舊選取格退回為候補（保留其展開的鄰居候補格）
-      const previousKey = selectedKey
-      selectedSet.delete(previousKey)
-
-      candidateMap.set(previousKey, previousHex)
-      targetAlphaMap.set(previousKey, ALPHA_CANDIDATE)
-      targetColorMap.set(previousKey, COLOR_CANDIDATE.clone())
-      meshMap.get(previousKey)!.isPickable = true
-
-      selectedKey = ''
-    }
-
-    function selectTile(hex: Hex) {
-      const key = hexKey(hex)
-      if (selectedSet.has(key))
-        return
-
-      // 單選：先取消目前選取
-      deselectCurrent()
-
-      candidateMap.delete(key)
-      selectedSet.add(key)
-      selectedKey = key
-
-      targetAlphaMap.set(key, ALPHA_SELECTED)
-      targetColorMap.set(key, COLOR_SELECTED.clone())
-      meshMap.get(key)!.isPickable = false
-
-      openBlockPicker()
-    }
+    hexContext = { scene, layout, baseHexMesh }
 
     // 原點為初始候補格
     addCandidate(new Hex(0, 0, 0))
 
     scene.onPointerObservable.add((info) => {
       const isMove = info.type === PointerEventTypes.POINTERMOVE
-      const isClick = info.type === PointerEventTypes.POINTERDOWN
+      const isClick = info.type === PointerEventTypes.POINTERTAP
 
       if (!isMove && !isClick)
         return
@@ -238,13 +250,11 @@ const { canvasRef } = useBabylonScene({
 
       // hover 變化
       if (isMove && pickedKey !== hoveredKey) {
-        // 還原舊 hover
         if (hoveredKey && candidateMap.has(hoveredKey)) {
           targetAlphaMap.set(hoveredKey, ALPHA_CANDIDATE)
           targetColorMap.set(hoveredKey, COLOR_CANDIDATE.clone())
         }
         hoveredKey = pickedKey
-        // 設定新 hover
         if (hoveredKey && candidateMap.has(hoveredKey)) {
           targetAlphaMap.set(hoveredKey, ALPHA_HOVER)
           targetColorMap.set(hoveredKey, COLOR_HOVER.clone())
@@ -257,10 +267,13 @@ const { canvasRef } = useBabylonScene({
         hoveredKey = ''
         selectTile(hex)
       }
+      else if (isClick && !pickedKey) {
+        deselectCurrent()
+      }
     })
 
     scene.onBeforeRenderObservable.add(() => {
-      const dt = scene.getEngine().getDeltaTime() / 1000
+      const dt = engine.getDeltaTime() / 1000
       const t = 1 - Math.exp(-FADE_SPEED * dt)
 
       for (const [key, mat] of materialMap) {
@@ -280,15 +293,20 @@ const { canvasRef } = useBabylonScene({
   },
 })
 
+// ─── Block Picker ─────────────────────────────────────────────────────────────
+
 const overlay = useOverlay()
+
+const blockPickerRef = shallowRef<ReturnType<typeof overlay.create>>()
 function openBlockPicker() {
   const slideover = overlay.create(h(
     USlideover,
     {
       side: 'bottom',
       modal: false,
-      onClose: () => {
-        deselectCurrent()
+      inset: true,
+      ui: {
+        content: 'chamfer-3',
       },
     },
     {
@@ -296,6 +314,7 @@ function openBlockPicker() {
     },
   ))
   slideover.open()
+  blockPickerRef.value = slideover
 }
 </script>
 
