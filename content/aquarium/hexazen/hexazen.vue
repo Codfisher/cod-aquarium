@@ -61,6 +61,7 @@ import {
   Vector3,
 } from '@babylonjs/core'
 import { useColorMode } from '@vueuse/core'
+import { animate } from 'animejs'
 import { pipe, tap } from 'remeda'
 import { computed, ref, shallowRef } from 'vue'
 import { version } from '../codstack/constants'
@@ -275,6 +276,64 @@ const { canvasRef, scene } = useBabylonScene({
     // 原點為初始候補格
     addCandidate(new Hex(0, 0, 0))
 
+    /** 紀錄動畫中的 block */
+    const animatingBlockSet = new Set<string>()
+    // placedBlock 點擊
+    scene.onPointerObservable.add((info) => {
+      const isClick = info.type === PointerEventTypes.POINTERTAP
+
+      if (!isClick)
+        return
+
+      const pick = scene.pick(
+        scene.pointerX,
+        scene.pointerY,
+        (mesh) => {
+          const key = hexMeshMetadata(mesh)?.hex.key()
+          if (!key) {
+            return false
+          }
+
+          return placedBlockMap.has(key)
+        },
+      )
+
+      const pickedKey: string = pick?.hit && pick.pickedMesh
+        ? (hexMeshMetadata(pick.pickedMesh)?.hex?.key() as string)
+        : ''
+
+      if (!pickedKey) {
+        return
+      }
+
+      const block = placedBlockMap.get(pickedKey)
+      if (!block) {
+        return
+      }
+
+      if (animatingBlockSet.has(pickedKey)) {
+        return
+      }
+
+      animatingBlockSet.add(pickedKey)
+      const duration = 800
+      animate(block.rootNode.rotation, {
+        y: block.rootNode.rotation.y + Math.PI / 3,
+        duration,
+        ease: 'inOutCirc',
+      })
+
+      animate(block.rootNode.position, {
+        y: [0, 0.2, 0],
+        duration,
+        ease: 'inOutBack(3)',
+        onComplete() {
+          animatingBlockSet.delete(pickedKey)
+        },
+      })
+    })
+
+    // 處理 tile 之 hover、select
     scene.onPointerObservable.add((info) => {
       const isMove = info.type === PointerEventTypes.POINTERMOVE
       const isClick = info.type === PointerEventTypes.POINTERTAP
@@ -329,6 +388,7 @@ const { canvasRef, scene } = useBabylonScene({
       }
     })
 
+    // tile alpha、color 漸變
     scene.onBeforeRenderObservable.add(() => {
       const dt = engine.getDeltaTime() / 1000
       const t = 1 - Math.exp(-FADE_SPEED * dt)
