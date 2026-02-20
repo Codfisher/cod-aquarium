@@ -76,11 +76,11 @@ colorMode.value = 'light'
 
 useFontLoader()
 
-const COLOR_SELECTED = new Color3(0.25, 0.60, 1.00)
+const COLOR_SELECTED = new Color3(0.4, 0.3, 0.1)
 const COLOR_CANDIDATE = new Color3(0.3, 0.3, 0.3)
 const COLOR_HOVER = COLOR_CANDIDATE
 
-const ALPHA_SELECTED = 0.5
+const ALPHA_SELECTED = 0.6
 const ALPHA_CANDIDATE = 0.35
 const ALPHA_HOVER = 0.65
 const ALPHA_HIDDEN = 0.0
