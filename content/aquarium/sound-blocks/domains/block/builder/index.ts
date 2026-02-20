@@ -2,14 +2,17 @@ import type {
   Scene,
   ShadowGenerator,
 } from '@babylonjs/core'
-import type { BlockType } from './data'
 import {
   ImportMeshAsync,
+  Quaternion,
   TransformNode,
+  Vector3,
 } from '@babylonjs/core'
 import { forEach, pipe } from 'remeda'
+import { blockDefinitions, type BlockType } from './data'
 
 export interface CreateBlockParams {
+  type: BlockType;
   scene: Scene;
   shadowGenerator?: ShadowGenerator;
 }
@@ -21,34 +24,53 @@ export interface Block {
 
 export async function createBlock(
   {
+    type,
     scene,
     shadowGenerator,
   }: CreateBlockParams,
 ) {
-  const [
-    treeResult,
-  ] = await Promise.all([
-    ImportMeshAsync(
-      '/assets/kenny-hexagon-pack/GLB format/building-archery.glb',
-      scene,
-    ),
-  ])
+  const blockDefinition = blockDefinitions[type]
+
+  const resultList = await Promise.all(
+    blockDefinition.content.partList.map(async ({ path, position, rotationQuaternion, scaling }) => {
+      const fullPath = `${blockDefinition.content.rootFolderName}/${path}`
+      const model = await ImportMeshAsync(
+        fullPath,
+        scene,
+      )
+
+      return {
+        model,
+        position,
+        rotationQuaternion,
+        scaling,
+      }
+    }),
+  )
 
   const rootNode = new TransformNode('block-root', scene)
 
   pipe(
-    treeResult.meshes,
-    forEach((mesh) => {
-      mesh.receiveShadows = true
-    }),
-    ([rootMesh]) => {
-      if (!rootMesh)
+    resultList,
+    forEach((result) => {
+      const { model, position, rotationQuaternion, scaling } = result
+      const [rootMesh] = model.meshes
+
+      if (!rootMesh) {
         return
+      }
 
-      shadowGenerator?.addShadowCaster(rootMesh)
-
+      rootMesh.receiveShadows = true
+      rootMesh.position = new Vector3(...position)
+      rootMesh.rotationQuaternion = new Quaternion(...rotationQuaternion)
+      rootMesh.scaling = new Vector3(...scaling)
       rootMesh.parent = rootNode
-    },
+
+      rootMesh.getChildMeshes().forEach((mesh) => {
+        mesh.receiveShadows = true
+        shadowGenerator?.addShadowCaster(mesh)
+      })
+    }),
   )
 
   return {

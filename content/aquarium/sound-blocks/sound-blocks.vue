@@ -26,11 +26,12 @@ import {
   Vector3,
 } from '@babylonjs/core'
 import { useColorMode } from '@vueuse/core'
-import { pipe, tap } from 'remeda'
+import { pipe, sample, tap } from 'remeda'
 import { version } from '../codstack/constants'
 import { useBabylonScene } from './composables/use-babylon-scene'
 import { useFontLoader } from './composables/use-font-loader'
 import { createBlock } from './domains/block/builder'
+import { blockTypeList } from './domains/block/builder/data'
 import { Hex, HexLayout } from './domains/hex-grid'
 
 // Nuxt UI 接管 vitepress 的 dark 設定，故改用 useColorMode
@@ -104,7 +105,9 @@ const { canvasRef } = useBabylonScene({
     createGround({ scene })
     const shadowGenerator = createShadowGenerator(scene)
 
-    const layout = new HexLayout(HexLayout.pointy, 0.5, Vector3.Zero())
+    /** 校正模型與 hex 的大小 */
+    const HEX_SIZE = 0.57
+    const layout = new HexLayout(HexLayout.pointy, HEX_SIZE, Vector3.Zero())
 
     // 基礎 mesh（隱藏，用來 clone）
     const baseMesh = pipe(
@@ -180,7 +183,8 @@ const { canvasRef } = useBabylonScene({
       placedSet.add(key)
 
       // spawnTile(hex, COLOR_PLACED, ALPHA_CANDIDATE)
-      const block = await createBlock({ scene, shadowGenerator })
+      const type = sample(blockTypeList, 1)[0]!
+      const block = await createBlock({ type, scene, shadowGenerator })
       block.rootNode.position.copyFrom(layout.hexToWorld(hex, 0.02))
 
       tgtAlphaMap.set(key, ALPHA_PLACED)

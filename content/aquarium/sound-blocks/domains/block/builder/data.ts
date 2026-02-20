@@ -192,3 +192,4 @@ export const blockDefinitions = {
 } satisfies Record<string, BlockDefinition>
 
 export type BlockType = keyof typeof blockDefinitions
+export const blockTypeList = Object.keys(blockDefinitions) as BlockType[]
