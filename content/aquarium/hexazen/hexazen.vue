@@ -279,7 +279,7 @@ const { canvasRef, scene } = useBabylonScene({
 
     /** 紀錄動畫中的 block */
     const animatingBlockSet = new Set<string>()
-    // placedBlock 點擊
+    // 處理 placedBlock 點擊
     scene.onPointerObservable.add((info) => {
       const isMove = info.type === PointerEventTypes.POINTERMOVE
       const isClick = info.type === PointerEventTypes.POINTERTAP
