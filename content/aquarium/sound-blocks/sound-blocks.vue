@@ -1,11 +1,16 @@
 <template>
   <u-app>
     <div class="fixed w-dvw h-dvh m-0 p-5 bg-gray-100">
-      <canvas
-        v-once
-        ref="canvasRef"
-        class="canvas w-full h-full chamfer-5"
-      />
+      <div
+        class="w-full h-full chamfer-5"
+        :style="canvasStyle"
+      >
+        <canvas
+          v-once
+          ref="canvasRef"
+          class="canvas w-full h-full"
+        />
+      </div>
 
       <div class=" absolute bottom-0 right-0 p-1 opacity-20 text-xs">
         v{{ version }}
@@ -32,6 +37,7 @@
 
 <script setup lang="ts">
 import type { AbstractMesh, Mesh, Scene } from '@babylonjs/core'
+import type { CSSProperties } from 'vue'
 import type { Block } from './domains/block/builder'
 import type { BlockType } from './domains/block/builder/data'
 import {
@@ -44,9 +50,9 @@ import {
   Vector3,
 } from '@babylonjs/core'
 import USlideover from '@nuxt/ui/components/Slideover.vue'
-import { useColorMode } from '@vueuse/core'
+import { useColorMode, whenever } from '@vueuse/core'
 import { pipe, tap } from 'remeda'
-import { h, ref, shallowRef, useTemplateRef } from 'vue'
+import { computed, h, ref, shallowRef, useTemplateRef, watch } from 'vue'
 import { version } from '../codstack/constants'
 import { useBabylonScene } from './composables/use-babylon-scene'
 import { useFontLoader } from './composables/use-font-loader'
@@ -89,8 +95,12 @@ function hexMeshMetadata(mesh?: Mesh | AbstractMesh, update?: Partial<HexMeshMet
       ...update,
     }
   }
+  if (!mesh.metadata?.hex) {
+    return
+  }
+
   return {
-    hex: mesh.metadata?.hex,
+    hex: mesh.metadata.hex,
   }
 }
 
@@ -329,6 +339,12 @@ const { canvasRef, scene } = useBabylonScene({
       }
     })
   },
+})
+
+const canvasStyle = computed<CSSProperties>(() => {
+  return {
+    cursor: hoveredTile.value ? 'pointer' : 'default',
+  }
 })
 
 // 預先初始化縮圖工具

@@ -4,7 +4,7 @@
       <div
         v-for="(item) in blockThumbnailList"
         :key="item.type"
-        class="size-22 chamfer-4 p-0.5 bg-gray-100"
+        class="size-22 chamfer-4 p-0.5 bg-gray-100 cursor-pointer"
         @click="handleClick(item.type)"
       >
         <img
@@ -23,13 +23,6 @@ import { get, set } from 'idb-keyval'
 import { onBeforeUnmount } from 'vue'
 import { useThumbnailGenerator } from '../../composables/use-thumbnail-generator'
 import { blockDefinitions } from './builder/data'
-
-interface Props {
-  label?: string;
-}
-const props = withDefaults(defineProps<Props>(), {
-  label: '',
-})
 
 const emit = defineEmits<{
   select: [blockType: BlockType];
