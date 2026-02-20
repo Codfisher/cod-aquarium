@@ -79,7 +79,10 @@ interface HexMeshMetadata {
 }
 
 /** 取得或設定 hexMesh 的 metadata */
-function hexMeshMetadata(mesh: Mesh | AbstractMesh, update?: Partial<HexMeshMetadata>): HexMeshMetadata {
+function hexMeshMetadata(mesh?: Mesh | AbstractMesh, update?: Partial<HexMeshMetadata>): HexMeshMetadata | undefined {
+  if (!mesh) {
+    return undefined
+  }
   if (update) {
     mesh.metadata = {
       ...mesh.metadata,
@@ -173,7 +176,7 @@ function deselectCurrent() {
 
   const key = selectedTile.value.key()
 
-  const previousHex = hexMeshMetadata(meshMap.get(key)!).hex
+  const previousHex = hexMeshMetadata(meshMap.get(key)!)!.hex
   selectedTileSet.delete(key)
 
   candidateTileMap.set(key, previousHex)
@@ -198,7 +201,11 @@ function selectTile(hex: Hex) {
 
   targetTileAlphaMap.set(key, ALPHA_SELECTED)
   targetTileColorMap.set(key, COLOR_SELECTED.clone())
-  meshMap.get(key)!.isPickable = false
+
+  const mesh = meshMap.get(key)
+  if (mesh) {
+    mesh.isPickable = false
+  }
 
   openBlockPicker()
 }
@@ -259,11 +266,18 @@ const { canvasRef, scene } = useBabylonScene({
       const pick = scene.pick(
         scene.pointerX,
         scene.pointerY,
-        (mesh) => !!hexMeshMetadata(mesh).hex?.key() && candidateTileMap.has(hexMeshMetadata(mesh).hex?.key()),
+        (mesh) => {
+          const key = hexMeshMetadata(mesh)?.hex.key()
+          if (!key || placedBlockMap.has(key)) {
+            return false
+          }
+
+          return candidateTileMap.has(key) || selectedTileSet.has(key)
+        },
       )
 
       const pickedKey: string = pick?.hit && pick.pickedMesh
-        ? (hexMeshMetadata(pick.pickedMesh).hex?.key() as string)
+        ? (hexMeshMetadata(pick.pickedMesh)?.hex?.key() as string)
         : ''
 
       const hoveredKey = hoveredTile.value?.key()
@@ -285,9 +299,11 @@ const { canvasRef, scene } = useBabylonScene({
 
       // 點擊選取
       if (isClick && pickedKey && candidateTileMap.has(pickedKey)) {
-        const hex = candidateTileMap.get(pickedKey)!
-        hoveredTile.value = undefined
-        selectTile(hex)
+        const hex = candidateTileMap.get(pickedKey)
+        if (hex) {
+          hoveredTile.value = undefined
+          selectTile(hex)
+        }
       }
       else if (isClick && !pickedKey) {
         deselectCurrent()
@@ -326,6 +342,14 @@ function openBlockPicker() {
 function handleSelectBlock(blockType: BlockType) {
   if (selectedTile.value) {
     spawnBlock(blockType, selectedTile.value)
+
+    // 展開六個方向的候補
+    for (let d = 0; d < 6; d++) {
+      const neighbor = selectedTile.value.neighbor(d)
+      if (neighbor.len() <= MAX_RADIUS) {
+        addCandidate(neighbor)
+      }
+    }
   }
 
   blockPickerVisible.value = false
