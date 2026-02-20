@@ -41,8 +41,6 @@ colorMode.value = 'light'
 
 useFontLoader()
 
-// ─── 顏色 / 透明度常數 ────────────────────────────────────────────────────────
-
 const COLOR_SELECTED = new Color3(0.25, 0.60, 1.00)
 const COLOR_CANDIDATE = new Color3(0.3, 0.3, 0.3)
 const COLOR_HOVER = COLOR_CANDIDATE
@@ -55,8 +53,6 @@ const ALPHA_HIDDEN = 0.0
 const FADE_SPEED = 14
 /** 最大可放置半徑 */
 const MAX_RADIUS = 2
-
-// ─── Hex Mesh Metadata ───────────────────────────────────────────────────────
 
 interface HexMeshMetadata {
   hexKey: string;
@@ -81,7 +77,7 @@ function hexKey(hex: Hex) {
   return `${hex.q},${hex.r},${hex.s}`
 }
 
-// ─── Hex Tile 狀態 ───────────────────────────────────────────────────────────
+// --- Hex Tile 狀態 ---
 
 const meshMap = new Map<string, Mesh>()
 const materialMap = new Map<string, StandardMaterial>()
@@ -93,28 +89,26 @@ const targetColorMap = new Map<string, Color3>()
 let hoveredKey = ''
 let selectedKey = ''
 
-// ─── Hex Tile 操作函式（需要 scene / layout 的部分透過參數傳入）─────────────
-
-interface HexContext {
-  scene: Scene;
-  layout: HexLayout;
-  baseHexMesh: Mesh;
-}
-
-let hexContext: HexContext | null = null
+/** 對齊模型與 hex 的大小 */
+const HEX_SIZE = 0.575
+const hexLayout = new HexLayout(HexLayout.pointy, HEX_SIZE, Vector3.Zero())
+/** clone 用的基礎 hex mesh */
+const baseHexMesh = shallowRef<Mesh>()
 
 function spawnTile(hex: Hex, color: Color3, alpha: number): string {
-  const { scene, layout, baseHexMesh } = hexContext!
+  const sceneValue = scene.value
+  const hexMesh = baseHexMesh.value
+
   const key = hexKey(hex)
-  if (meshMap.has(key))
+  if (meshMap.has(key) || !sceneValue || !hexMesh)
     return key
 
-  const mesh = baseHexMesh.clone(`hex_${key}`)
+  const mesh = hexMesh.clone(`hex_${key}`)
   mesh.isVisible = true
   mesh.isPickable = false
-  mesh.position.copyFrom(layout.hexToWorld(hex, 0.02))
+  mesh.position.copyFrom(hexLayout.hexToWorld(hex, 0.02))
 
-  const material = new StandardMaterial(`mat_${key}`, scene)
+  const material = new StandardMaterial(`mat_${key}`, sceneValue)
   material.diffuseColor = color.clone()
   material.emissiveColor = color.clone()
   material.specularColor = Color3.Black()
@@ -180,7 +174,7 @@ function selectTile(hex: Hex) {
   openBlockPicker()
 }
 
-// ─── Scene 初始化 ─────────────────────────────────────────────────────────────
+// --- Scene 初始化 ---
 
 function createGround({ scene }: { scene: Scene }) {
   const ground = MeshBuilder.CreateGround('ground', { width: 1000, height: 1000 }, scene)
@@ -203,19 +197,14 @@ function createShadowGenerator(scene: Scene) {
   return shadowGenerator
 }
 
-const { canvasRef } = useBabylonScene({
+const { canvasRef, scene } = useBabylonScene({
   async init({ scene, engine }) {
     createGround({ scene })
     createShadowGenerator(scene)
 
-    /** 對齊模型與 hex 的大小 */
-    const HEX_SIZE = 0.575
-    const layout = new HexLayout(HexLayout.pointy, HEX_SIZE, Vector3.Zero())
-
-    /** clone 用的基礎 hex mesh */
-    const baseHexMesh = pipe(
+    baseHexMesh.value = pipe(
       MeshBuilder.CreateCylinder('hexBase', {
-        diameter: layout.size * 2,
+        diameter: hexLayout.size * 2,
         height: 0.04,
         tessellation: 6,
       }, scene),
@@ -225,8 +214,6 @@ const { canvasRef } = useBabylonScene({
         mesh.isVisible = false
       }),
     )
-
-    hexContext = { scene, layout, baseHexMesh }
 
     // 原點為初始候補格
     addCandidate(new Hex(0, 0, 0))
@@ -293,8 +280,6 @@ const { canvasRef } = useBabylonScene({
   },
 })
 
-// ─── Block Picker ─────────────────────────────────────────────────────────────
-
 const overlay = useOverlay()
 
 const blockPickerRef = shallowRef<ReturnType<typeof overlay.create>>()
@@ -306,7 +291,7 @@ function openBlockPicker() {
       modal: false,
       inset: true,
       ui: {
-        content: 'chamfer-3',
+        content: 'chamfer-3 flex justify-center items-center bg-transparent',
       },
     },
     {

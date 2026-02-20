@@ -1,11 +1,27 @@
 <template>
-  <div class="w-full h-full bg-amber-300 p-6">
-    安安
+  <div class="chamfer-4 p-1 bg-gray-200">
+    <div class="flex flex-wrap gap-1 bg-white chamfer-3 p-3">
+      <div
+        v-for="(blockThumbnail, index) in blockThumbnailList"
+        :key="index"
+        class="size-22 chamfer-4 p-0.5 bg-gray-100"
+      >
+        <img
+          :src="blockThumbnail.thumbnail"
+          class="border-none! bg-white chamfer-3.5"
+        >
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import type { Block } from './builder'
+import type { BlockType } from './builder/data'
+import { computedAsync } from '@vueuse/core'
+import { get, set } from 'idb-keyval'
+import { onBeforeUnmount } from 'vue'
+import { useThumbnailGenerator } from '../../composables/use-thumbnail-generator'
+import { blockDefinitions } from './builder/data'
 
 interface Props {
   label?: string;
@@ -15,8 +31,40 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const emit = defineEmits<{
-  select: [block: Block];
+  select: [blockType: BlockType];
 }>()
+
+const { generateThumbnail } = useThumbnailGenerator()
+
+const blockTypeList = Object.keys(blockDefinitions) as BlockType[]
+
+const blockThumbnailList = computedAsync(async () => {
+  const tasks = blockTypeList.map(async (blockType) => {
+    const cache = await get(`block-thumbnail-${blockType}`)
+    if (cache) {
+      return {
+        type: blockType,
+        thumbnail: URL.createObjectURL(cache),
+      }
+    }
+
+    const imgBlob = await generateThumbnail(blockType)
+    await set(`block-thumbnail-${blockType}`, imgBlob)
+
+    return {
+      type: blockType,
+      thumbnail: URL.createObjectURL(imgBlob),
+    }
+  })
+
+  return Promise.all(tasks)
+}, [])
+
+onBeforeUnmount(() => {
+  blockThumbnailList.value.forEach((blockThumbnail) => {
+    URL.revokeObjectURL(blockThumbnail.thumbnail)
+  })
+})
 </script>
 
 <style scoped lang="sass">

@@ -35,3 +35,18 @@
     0 var(--size)
   );
 }
+
+/**
+ * 倒角專用邊框 (利用 drop-shadow)
+ * 用法：class="chamfer-4 chamfer-border-[var(--ui-primary)]"
+ */
+@utility chamfer-border-* {
+  /* 匹配 Tailwind 顏色變數，若無則接收任意值 */
+  --cb-color: --value(--color-*, *);
+  
+  filter: 
+    drop-shadow(1px 0px 0 var(--cb-color))
+    drop-shadow(-1px 0px 0 var(--cb-color))
+    drop-shadow(0px 1px 0 var(--cb-color))
+    drop-shadow(0px -1px 0 var(--cb-color));
+}

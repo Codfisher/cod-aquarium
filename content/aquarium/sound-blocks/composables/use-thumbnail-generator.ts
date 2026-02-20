@@ -12,7 +12,7 @@ import {
 import { LoadAssetContainerAsync } from '@babylonjs/core/Loading/sceneLoader'
 import { createSharedComposable, tryOnScopeDispose } from '@vueuse/core'
 import PQueue from 'p-queue'
-import { pipe } from 'remeda'
+import { blockDefinitions, type BlockType } from '../domains/block/builder/data'
 
 function getOptimalConcurrency(): number {
   // 如果不在瀏覽器環境，給一個最保守的預設值
@@ -39,9 +39,6 @@ function getOptimalConcurrency(): number {
     optimal = 2
   }
 
-  // 就算設備再好，也不要超過 4 或 5。
-  // 因為瀏覽器單一分頁的 WebGL Context 總數上限通常是 8~16 個，
-  // 你必須保留一些 Context 給「主畫面顯示」或是 Vue 的其他視覺特效使用。
   return Math.min(optimal, 6)
 }
 
@@ -61,11 +58,13 @@ function _useThumbnailGenerator() {
   })
 
   function createGenerator() {
-    let lastContainer: AssetContainer | undefined
+    let lastContainerList: AssetContainer[] = []
     function clearLastContainer() {
-      lastContainer?.removeAllFromScene()
-      lastContainer?.dispose()
-      lastContainer = undefined
+      lastContainerList.forEach((c) => {
+        c.removeAllFromScene()
+        c.dispose()
+      })
+      lastContainerList = []
     }
 
     const canvas = document.createElement('canvas')
@@ -91,13 +90,10 @@ function _useThumbnailGenerator() {
 
     const light = new HemisphericLight('light', new Vector3(0, 1, 0), scene)
 
-    // 新增 options 參數來接收 signal
-    function generateThumbnail(modelPath: string, options?: { signal?: AbortSignal }) {
+    function generateThumbnail(blockType: BlockType, options?: { signal?: AbortSignal }) {
       const { signal } = options || {}
 
-      // 將 signal 傳給 queue，如果任務還在排隊時被取消，p-queue 會自動拋出 AbortError 並拒絕執行
       return queue.add(async () => {
-        // 定義檢查取消的 Helper 函式
         function checkAbort() {
           if (signal?.aborted) {
             clearLastContainer()
@@ -107,15 +103,22 @@ function _useThumbnailGenerator() {
 
         checkAbort()
 
-        const container = await LoadAssetContainerAsync(modelPath, scene)
+        const blockData = blockDefinitions[blockType]
+
+        const tasks = blockData.content.partList.map((part) => {
+          const modelPath = `${blockData.content.rootFolderName}/${part.path}`
+          return LoadAssetContainerAsync(modelPath, scene)
+        })
+
+        const containerList = await Promise.all(tasks)
 
         checkAbort()
 
         clearLastContainer()
-        lastContainer = container
-        container.addAllToScene()
+        lastContainerList = containerList
+        containerList.forEach((c) => c.addAllToScene())
 
-        const meshes = container.meshes.filter((m) => m.getTotalVertices() > 0)
+        const meshes = containerList.flatMap((c) => c.meshes).filter((m) => m.getTotalVertices() > 0)
         camera.framingBehavior?.zoomOnMeshesHierarchy(meshes, true)
 
         engine.runRenderLoop(() => {
@@ -151,14 +154,14 @@ function _useThumbnailGenerator() {
     }
   }
 
-  function generateThumbnail(modelPath: string, options?: { signal?: AbortSignal }) {
+  function generateThumbnail(blockType: BlockType, options?: { signal?: AbortSignal }) {
     const generator = generatorList[index]
     if (!generator) {
       throw new Error('Generator not found')
     }
 
     index = (index + 1) % concurrency
-    return generator.generateThumbnail(modelPath, options)
+    return generator.generateThumbnail(blockType, options)
   }
 
   return { generateThumbnail }
