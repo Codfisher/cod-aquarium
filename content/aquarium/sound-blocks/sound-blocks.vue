@@ -60,14 +60,12 @@ import {
   StandardMaterial,
   Vector3,
 } from '@babylonjs/core'
-import USlideover from '@nuxt/ui/components/Slideover.vue'
-import { useColorMode, whenever } from '@vueuse/core'
+import { useColorMode } from '@vueuse/core'
 import { pipe, tap } from 'remeda'
-import { computed, h, ref, shallowRef, useTemplateRef, watch } from 'vue'
+import { computed, ref, shallowRef } from 'vue'
 import { version } from '../codstack/constants'
 import { useBabylonScene } from './composables/use-babylon-scene'
 import { useFontLoader } from './composables/use-font-loader'
-import { useThumbnailGenerator } from './composables/use-thumbnail-generator'
 import BlockPicker from './domains/block/block-picker.vue'
 import { createBlock } from './domains/block/builder'
 import { Hex, HexLayout } from './domains/hex-grid'

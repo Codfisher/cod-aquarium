@@ -84,7 +84,7 @@ const defaultParam: Required<UseBabylonSceneParam> = {
 
     camera.wheelDeltaPercentage = 0.01
     camera.lowerRadiusLimit = 5
-    camera.upperRadiusLimit = 30
+    camera.upperRadiusLimit = 10
 
     // 限制鏡頭角度
     camera.lowerBetaLimit = Math.PI / 3
