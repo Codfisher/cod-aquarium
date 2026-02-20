@@ -1,13 +1,13 @@
 ---
-title: 聲音積木
+title: HexaZen
 image: https://codlin.me/cod-toys.webp
 layout: false
 ---
 
 <script setup>
-import SoundBlocks from './sound-blocks.vue'
+import Hexazen from './hexazen.vue'
 </script>
 
 <iframe data-why class=" fixed w-dvw h-dvh">
-  <sound-blocks />
+  <hexazen />
 </iframe>
