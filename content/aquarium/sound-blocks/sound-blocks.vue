@@ -26,11 +26,14 @@ import {
   StandardMaterial,
   Vector3,
 } from '@babylonjs/core'
+import USlideover from '@nuxt/ui/components/Slideover.vue'
 import { useColorMode } from '@vueuse/core'
 import { pipe, sample, tap } from 'remeda'
+import { h } from 'vue'
 import { version } from '../codstack/constants'
 import { useBabylonScene } from './composables/use-babylon-scene'
 import { useFontLoader } from './composables/use-font-loader'
+import BlockPicker from './domains/block/block-picker.vue'
 import { createBlock } from './domains/block/builder'
 import { blockTypeList } from './domains/block/builder/data'
 import { Hex, HexLayout } from './domains/hex-grid'
@@ -41,11 +44,11 @@ colorMode.value = 'light'
 
 useFontLoader()
 
-const COLOR_PLACED = new Color3(0.25, 0.60, 1.00)
+const COLOR_SELECTED = new Color3(0.25, 0.60, 1.00)
 const COLOR_CANDIDATE = new Color3(0.3, 0.3, 0.3)
 const COLOR_HOVER = COLOR_CANDIDATE
 
-const ALPHA_PLACED = 1.0
+const ALPHA_SELECTED = 1.0
 const ALPHA_CANDIDATE = 0.35
 const ALPHA_HOVER = 0.65
 const ALPHA_HIDDEN = 0.0
@@ -126,13 +129,13 @@ const { canvasRef } = useBabylonScene({
 
     const meshMap = new Map<string, Mesh>()
     const materialMap = new Map<string, StandardMaterial>()
-    const placedSet = new Set<string>()
+    const selectedSet = new Set<string>()
     const candidateMap = new Map<string, Hex>()
     const targetAlphaMap = new Map<string, number>()
-
-    const placedBlockMap = new Map<string, Block>()
+    const targetColorMap = new Map<string, Color3>()
 
     let hoveredKey = ''
+    let selectedKey = ''
 
     function spawnTile(hex: Hex, color: Color3, alpha: number): string {
       const key = hexKey(hex)
@@ -157,12 +160,13 @@ const { canvasRef } = useBabylonScene({
       meshMap.set(key, mesh)
       materialMap.set(key, material)
       targetAlphaMap.set(key, alpha)
+      targetColorMap.set(key, color.clone())
       return key
     }
 
     function addCandidate(hex: Hex) {
       const key = hexKey(hex)
-      if (placedSet.has(key) || candidateMap.has(key))
+      if (selectedSet.has(key) || candidateMap.has(key))
         return
       if (hex.len() > MAX_RADIUS)
         return
@@ -170,30 +174,46 @@ const { canvasRef } = useBabylonScene({
       spawnTile(hex, COLOR_CANDIDATE, ALPHA_HIDDEN)
       // 從隱藏 fade in 到 CANDIDATE
       targetAlphaMap.set(key, ALPHA_CANDIDATE)
+      targetColorMap.set(key, COLOR_CANDIDATE.clone())
       candidateMap.set(key, hex)
       meshMap.get(key)!.isPickable = true
     }
 
-    async function placeTile(hex: Hex) {
-      const key = hexKey(hex)
-      if (placedSet.has(key))
+    function deselectCurrent() {
+      if (!selectedKey)
         return
 
+      const previousHex = hexMeshMetadata(meshMap.get(selectedKey)!).hex
+
+      // 舊選取格退回為候補（保留其展開的鄰居候補格）
+      const previousKey = selectedKey
+      selectedSet.delete(previousKey)
+
+      candidateMap.set(previousKey, previousHex)
+      targetAlphaMap.set(previousKey, ALPHA_CANDIDATE)
+      targetColorMap.set(previousKey, COLOR_CANDIDATE.clone())
+      meshMap.get(previousKey)!.isPickable = true
+
+      selectedKey = ''
+    }
+
+    function selectTile(hex: Hex) {
+      const key = hexKey(hex)
+      if (selectedSet.has(key))
+        return
+
+      // 單選：先取消目前選取
+      deselectCurrent()
+
       candidateMap.delete(key)
-      placedSet.add(key)
+      selectedSet.add(key)
+      selectedKey = key
 
-      // spawnTile(hex, COLOR_PLACED, ALPHA_CANDIDATE)
-      const type = sample(blockTypeList, 1)[0]!
-      const block = await createBlock({ type, scene, shadowGenerator })
-      block.rootNode.position.copyFrom(layout.hexToWorld(hex, 0.02))
-
-      targetAlphaMap.set(key, ALPHA_PLACED)
+      targetAlphaMap.set(key, ALPHA_SELECTED)
+      targetColorMap.set(key, COLOR_SELECTED.clone())
       meshMap.get(key)!.isPickable = false
 
-      // 展開六個方向的候補
-      for (let d = 0; d < 6; d++) {
-        addCandidate(hex.neighbor(d))
-      }
+      openBlockPicker()
     }
 
     // 原點為初始候補格
@@ -221,19 +241,21 @@ const { canvasRef } = useBabylonScene({
         // 還原舊 hover
         if (hoveredKey && candidateMap.has(hoveredKey)) {
           targetAlphaMap.set(hoveredKey, ALPHA_CANDIDATE)
+          targetColorMap.set(hoveredKey, COLOR_CANDIDATE.clone())
         }
         hoveredKey = pickedKey
         // 設定新 hover
         if (hoveredKey && candidateMap.has(hoveredKey)) {
           targetAlphaMap.set(hoveredKey, ALPHA_HOVER)
+          targetColorMap.set(hoveredKey, COLOR_HOVER.clone())
         }
       }
 
-      // 點擊放置
+      // 點擊選取
       if (isClick && pickedKey && candidateMap.has(pickedKey)) {
         const hex = candidateMap.get(pickedKey)!
         hoveredKey = ''
-        placeTile(hex)
+        selectTile(hex)
       }
     })
 
@@ -243,8 +265,16 @@ const { canvasRef } = useBabylonScene({
 
       for (const [key, mat] of materialMap) {
         const ta = targetAlphaMap.get(key) ?? ALPHA_HIDDEN
+        const tc = targetColorMap.get(key)
 
         mat.alpha = mat.alpha + (ta - mat.alpha) * t
+
+        if (tc) {
+          mat.emissiveColor.r += (tc.r - mat.emissiveColor.r) * t
+          mat.emissiveColor.g += (tc.g - mat.emissiveColor.g) * t
+          mat.emissiveColor.b += (tc.b - mat.emissiveColor.b) * t
+          mat.diffuseColor.copyFrom(mat.emissiveColor)
+        }
       }
     })
   },
@@ -252,7 +282,20 @@ const { canvasRef } = useBabylonScene({
 
 const overlay = useOverlay()
 function openBlockPicker() {
-
+  const slideover = overlay.create(h(
+    USlideover,
+    {
+      side: 'bottom',
+      modal: false,
+      onClose: () => {
+        deselectCurrent()
+      },
+    },
+    {
+      content: () => h(BlockPicker),
+    },
+  ))
+  slideover.open()
 }
 </script>
 
