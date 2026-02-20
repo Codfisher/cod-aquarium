@@ -105,12 +105,12 @@ const { canvasRef } = useBabylonScene({
     createGround({ scene })
     const shadowGenerator = createShadowGenerator(scene)
 
-    /** 校正模型與 hex 的大小 */
-    const HEX_SIZE = 0.57
+    /** 對齊模型與 hex 的大小 */
+    const HEX_SIZE = 0.575
     const layout = new HexLayout(HexLayout.pointy, HEX_SIZE, Vector3.Zero())
 
-    // 基礎 mesh（隱藏，用來 clone）
-    const baseMesh = pipe(
+    /** clone 用的基礎 hex mesh */
+    const baseHexMesh = pipe(
       MeshBuilder.CreateCylinder('hexBase', {
         diameter: layout.size * 2,
         height: 0.04,
@@ -137,7 +137,7 @@ const { canvasRef } = useBabylonScene({
       if (meshMap.has(key))
         return key
 
-      const mesh = baseMesh.clone(`hex_${key}`) as Mesh
+      const mesh = baseHexMesh.clone(`hex_${key}`)
       mesh.isVisible = true
       mesh.isPickable = false
       mesh.position.copyFrom(layout.hexToWorld(hex, 0.02))
