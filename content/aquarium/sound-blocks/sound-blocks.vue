@@ -27,11 +27,11 @@ import {
 } from '@babylonjs/core'
 import { useColorMode } from '@vueuse/core'
 import { pipe, tap } from 'remeda'
+import { version } from '../codstack/constants'
 import { useBabylonScene } from './composables/use-babylon-scene'
 import { useFontLoader } from './composables/use-font-loader'
-import { createBlock } from './domains/blocks'
+import { createBlock } from './domains/block/builder'
 import { Hex, HexLayout } from './domains/hex-grid'
-import { version } from '../codstack/constants'
 
 // Nuxt UI 接管 vitepress 的 dark 設定，故改用 useColorMode
 const colorMode = useColorMode()

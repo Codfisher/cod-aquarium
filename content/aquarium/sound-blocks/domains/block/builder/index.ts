@@ -2,6 +2,7 @@ import type {
   Scene,
   ShadowGenerator,
 } from '@babylonjs/core'
+import type { BlockType } from './data'
 import {
   ImportMeshAsync,
   TransformNode,
@@ -11,6 +12,11 @@ import { forEach, pipe } from 'remeda'
 export interface CreateBlockParams {
   scene: Scene;
   shadowGenerator?: ShadowGenerator;
+}
+
+export interface Block {
+  type: BlockType;
+  rootNode: TransformNode;
 }
 
 export async function createBlock(
