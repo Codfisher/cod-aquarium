@@ -17,7 +17,8 @@
       </div>
     </div>
 
-    <u-slideover
+    <!-- u-slideover 開啟動畫不穩動，不知道為甚麼會抖動 -->
+    <!-- <u-slideover
       v-model:open="blockPickerVisible"
       side="bottom"
       :modal="false"
@@ -31,7 +32,17 @@
       <template #content>
         <block-picker @select="handleSelectBlock" />
       </template>
-    </u-slideover>
+</u-slideover> -->
+
+    <div
+      class=" fixed bottom-0 right-0 w-full flex justify-center p-10 duration-300 ease-in-out"
+      :class="{
+        'translate-y-0': blockPickerVisible,
+        'translate-y-full': !blockPickerVisible,
+      }"
+    >
+      <block-picker @select="handleSelectBlock" />
+    </div>
   </u-app>
 </template>
 
@@ -347,9 +358,6 @@ const canvasStyle = computed<CSSProperties>(() => {
   }
 })
 
-// 預先初始化縮圖工具
-useThumbnailGenerator()
-
 const blockPickerVisible = ref(false)
 function openBlockPicker() {
   blockPickerVisible.value = true
@@ -368,7 +376,6 @@ function handleSelectBlock(blockType: BlockType) {
     }
   }
 
-  blockPickerVisible.value = false
   deselectCurrent()
 }
 </script>

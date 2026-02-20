@@ -22,15 +22,13 @@ import { computedAsync } from '@vueuse/core'
 import { get, set } from 'idb-keyval'
 import { onBeforeUnmount } from 'vue'
 import { useThumbnailGenerator } from '../../composables/use-thumbnail-generator'
-import { blockDefinitions } from './builder/data'
+import { blockTypeList } from './builder/data'
 
 const emit = defineEmits<{
   select: [blockType: BlockType];
 }>()
 
 const { generateThumbnail } = useThumbnailGenerator()
-
-const blockTypeList = Object.keys(blockDefinitions) as BlockType[]
 
 const blockThumbnailList = computedAsync(async () => {
   const tasks = blockTypeList.map(async (blockType) => {
