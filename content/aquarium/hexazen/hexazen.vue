@@ -124,10 +124,11 @@ const candidateTileMap = new Map<string, Hex>()
 const targetTileAlphaMap = new Map<string, number>()
 const targetTileColorMap = new Map<string, Color3>()
 
-const placedBlockMap = new Map<string, Block>()
-
 const hoveredTile = shallowRef<Hex>()
 const selectedTile = shallowRef<Hex>()
+
+const placedBlockMap = new Map<string, Block>()
+const hoveredBlock = shallowRef<Block>()
 
 /** 對齊模型與 hex 的大小 */
 const HEX_SIZE = 0.575
@@ -280,9 +281,10 @@ const { canvasRef, scene } = useBabylonScene({
     const animatingBlockSet = new Set<string>()
     // placedBlock 點擊
     scene.onPointerObservable.add((info) => {
+      const isMove = info.type === PointerEventTypes.POINTERMOVE
       const isClick = info.type === PointerEventTypes.POINTERTAP
 
-      if (!isClick)
+      if (!isClick && !isMove)
         return
 
       const pick = scene.pick(
@@ -308,6 +310,11 @@ const { canvasRef, scene } = useBabylonScene({
 
       const block = placedBlockMap.get(pickedKey)
       if (!block) {
+        return
+      }
+
+      hoveredBlock.value = isMove ? block : undefined
+      if (isMove) {
         return
       }
 
@@ -411,8 +418,10 @@ const { canvasRef, scene } = useBabylonScene({
 })
 
 const canvasStyle = computed<CSSProperties>(() => {
+  const isPointer = hoveredTile.value || hoveredBlock.value
+
   return {
-    cursor: hoveredTile.value ? 'pointer' : 'default',
+    cursor: isPointer ? 'pointer' : 'default',
   }
 })
 
