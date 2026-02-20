@@ -2,12 +2,13 @@
   <div class="chamfer-4 p-1 bg-gray-200">
     <div class="flex flex-wrap gap-1 bg-white chamfer-3 p-3">
       <div
-        v-for="(blockThumbnail, index) in blockThumbnailList"
-        :key="index"
+        v-for="(item) in blockThumbnailList"
+        :key="item.type"
         class="size-22 chamfer-4 p-0.5 bg-gray-100"
+        @click="handleClick(item.type)"
       >
         <img
-          :src="blockThumbnail.thumbnail"
+          :src="item.thumbnail"
           class="border-none! bg-white chamfer-3.5"
         >
       </div>
@@ -65,6 +66,10 @@ onBeforeUnmount(() => {
     URL.revokeObjectURL(blockThumbnail.thumbnail)
   })
 })
+
+function handleClick(blockType: BlockType) {
+  emit('select', blockType)
+}
 </script>
 
 <style scoped lang="sass">

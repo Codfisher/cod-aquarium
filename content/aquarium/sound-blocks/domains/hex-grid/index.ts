@@ -5,6 +5,10 @@ export class Hex {
   public r: number
   public s: number
 
+  key() {
+    return `${this.q},${this.r},${this.s}`
+  }
+
   constructor(q: number, r: number, s: number) {
     // 用 epsilon 容忍浮點誤差
     const sum = q + r + s
