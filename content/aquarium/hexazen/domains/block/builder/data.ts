@@ -7,7 +7,8 @@ interface PartData {
 }
 
 interface BlockDefinition {
-  tags: string[];
+  /** 一個 block 可能會有多個特性，例如港口同時有 water、building */
+  traitList: string[];
   content: {
     version: number;
     rootFolderName: string;
@@ -18,7 +19,7 @@ interface BlockDefinition {
 export const blockDefinitions = {
   /** grass */
   g1: {
-    tags: [],
+    traitList: [],
     content: {
       version: 1,
       rootFolderName: 'assets',
@@ -40,7 +41,7 @@ export const blockDefinitions = {
   },
   /** tree */
   t1: {
-    tags: [],
+    traitList: [],
     content: {
       version: 1,
       rootFolderName: 'assets',
@@ -61,7 +62,7 @@ export const blockDefinitions = {
     },
   },
   t2: {
-    tags: [],
+    traitList: [],
     content: {
       version: 1,
       rootFolderName: 'assets',
@@ -83,7 +84,7 @@ export const blockDefinitions = {
   },
   /** building */
   b1: {
-    tags: [],
+    traitList: [],
     content: {
       version: 1,
       rootFolderName: 'assets',
@@ -104,7 +105,7 @@ export const blockDefinitions = {
     },
   },
   b2: {
-    tags: [],
+    traitList: [],
     content: {
       version: 1,
       rootFolderName: 'assets',
@@ -125,7 +126,7 @@ export const blockDefinitions = {
     },
   },
   b3: {
-    tags: [],
+    traitList: [],
     content: {
       version: 1,
       rootFolderName: 'assets',
@@ -145,9 +146,30 @@ export const blockDefinitions = {
       ],
     },
   },
+  b4: {
+    traitList: [],
+    content: {
+      version: 1,
+      rootFolderName: 'assets',
+      partList: [
+        {
+          path: 'kenny-hexagon-pack/GLB format/building-mill.glb',
+          position: [-0.000007, 0, 0.000009],
+          rotationQuaternion: [0, 1, 0, 0],
+          scaling: [1, 1, 1],
+          metadata: {
+            name: '',
+            mass: 0,
+            restitution: 0.5,
+            friction: 0,
+          },
+        },
+      ],
+    },
+  },
   /** alpine */
   a1: {
-    tags: [],
+    traitList: [],
     content: {
       version: 1,
       rootFolderName: 'assets',
@@ -169,13 +191,120 @@ export const blockDefinitions = {
   },
   /** water */
   w1: {
-    tags: [],
+    traitList: [],
     content: {
       version: 1,
       rootFolderName: 'assets',
       partList: [
         {
           path: 'kenny-hexagon-pack/GLB format/water.glb',
+          position: [0, 0, 0],
+          rotationQuaternion: [0, 1, 0, 0],
+          scaling: [1, 1, 1],
+          metadata: {
+            name: '',
+            mass: 0,
+            restitution: 0.5,
+            friction: 0,
+          },
+        },
+      ],
+    },
+  },
+
+  /** river */
+  r1: {
+    traitList: [],
+    content: {
+      version: 1,
+      rootFolderName: 'assets',
+      partList: [
+        {
+          path: 'kenny-hexagon-pack/GLB format/river-start.glb',
+          position: [0, 0, 0],
+          rotationQuaternion: [0, 1, 0, 0],
+          scaling: [1, 1, 1],
+          metadata: {
+            name: '',
+            mass: 0,
+            restitution: 0.5,
+            friction: 0,
+          },
+        },
+      ],
+    },
+  },
+  r2: {
+    traitList: [],
+    content: {
+      version: 1,
+      rootFolderName: 'assets',
+      partList: [
+        {
+          path: 'kenny-hexagon-pack/GLB format/river-corner.glb',
+          position: [0, 0, 0],
+          rotationQuaternion: [0, 1, 0, 0],
+          scaling: [1, 1, 1],
+          metadata: {
+            name: '',
+            mass: 0,
+            restitution: 0.5,
+            friction: 0,
+          },
+        },
+      ],
+    },
+  },
+  r3: {
+    traitList: [],
+    content: {
+      version: 1,
+      rootFolderName: 'assets',
+      partList: [
+        {
+          path: 'kenny-hexagon-pack/GLB format/river-straight.glb',
+          position: [0, 0, 0],
+          rotationQuaternion: [0, 1, 0, 0],
+          scaling: [1, 1, 1],
+          metadata: {
+            name: '',
+            mass: 0,
+            restitution: 0.5,
+            friction: 0,
+          },
+        },
+      ],
+    },
+  },
+  r4: {
+    traitList: [],
+    content: {
+      version: 1,
+      rootFolderName: 'assets',
+      partList: [
+        {
+          path: 'kenny-hexagon-pack/GLB format/bridge.glb',
+          position: [0, 0, 0],
+          rotationQuaternion: [0, 1, 0, 0],
+          scaling: [1, 1, 1],
+          metadata: {
+            name: '',
+            mass: 0,
+            restitution: 0.5,
+            friction: 0,
+          },
+        },
+      ],
+    },
+  },
+  r5: {
+    traitList: [],
+    content: {
+      version: 1,
+      rootFolderName: 'assets',
+      partList: [
+        {
+          path: 'kenny-hexagon-pack/GLB format/building-watermill.glb',
           position: [0, 0, 0],
           rotationQuaternion: [0, 1, 0, 0],
           scaling: [1, 1, 1],
