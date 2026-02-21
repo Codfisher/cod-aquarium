@@ -1,9 +1,7 @@
 <template>
-  <u-app
-    :toaster="{
-      position: 'top-right',
-    }"
-  >
+  <u-app :toaster="{
+    position: 'top-right',
+  }">
     <div class="fixed w-dvw h-dvh p-0 m-0">
       <canvas
         v-once
@@ -101,6 +99,20 @@
                   />
                 </div>
               </base-btn>
+
+              <div class="absolute right-2 top-2 flex flex-col p-4 gap-4 bg-black/10 rounded-2xl">
+                <u-modal>
+                  <u-icon
+                    name="i-material-symbols:settings-account-box-rounded"
+                    class="text-4xl text-white cursor-pointer"
+                    @click="openPartyPlayerSettingsModal"
+                  />
+
+                  <template #body>
+                    <marble-manager />
+                  </template>
+                </u-modal>
+              </div>
             </div>
 
             <div
@@ -276,6 +288,7 @@ import PartySetupModal from './domains/party-mode/setup-modal.vue'
 import { connectTracks, createTrackSegment } from './domains/track-segment'
 import { TrackSegmentType } from './domains/track-segment/data'
 import { useAssetStore } from './stores/asset-store'
+import MarbleManager from './domains/marble/marble-manager.vue'
 
 const toast = useToast()
 const alertVisible = ref(true)
