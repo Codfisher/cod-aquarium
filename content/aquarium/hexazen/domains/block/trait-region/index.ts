@@ -18,6 +18,8 @@ export interface TraitRegion {
   size: number;
 }
 
+type BlockSnapshot = Omit<Block, 'rootNode'>
+
 /**
  * 計算地圖上所有 trait 的連通區域。
  *
@@ -29,7 +31,9 @@ export interface TraitRegion {
  * @param blocks - 目前已放置的 block（若為 Map，其 key 必須為 hex.key()）
  * @returns 所有連通 trait 區域的列表
  */
-export function calcTraitRegionList(blocks: Map<string, Block> | Block[]): TraitRegion[] {
+export function calcTraitRegionList(
+  blocks: Map<string, BlockSnapshot> | BlockSnapshot[],
+): TraitRegion[] {
   const regionList: TraitRegion[] = []
 
   // 對每個 trait 獨立做連通分量分析
