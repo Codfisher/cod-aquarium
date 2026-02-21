@@ -211,6 +211,19 @@ function addCandidate(hex: Hex) {
   tileMeshMap.get(key)!.isPickable = true
 }
 
+function removeCandidate(hex: Hex) {
+  const key = hex.key()
+  if (!candidateTileMap.has(key))
+    return
+
+  tileMeshMap.get(key)?.dispose()
+  tileMeshMap.delete(key)
+  tileMaterialMap.delete(key)
+  targetTileAlphaMap.delete(key)
+  targetTileColorMap.delete(key)
+  candidateTileMap.delete(key)
+}
+
 /** 基於 placedBlockMap 同步候補格。
  *
  * 移除無相鄰 block 的孤立候補、補上缺少的鄰格候補
@@ -227,12 +240,7 @@ function syncAllCandidateTile() {
     if (hasAdjacentBlock || hasSelfBlock)
       return
 
-    tileMeshMap.get(key)?.dispose()
-    tileMeshMap.delete(key)
-    tileMaterialMap.delete(key)
-    targetTileAlphaMap.delete(key)
-    targetTileColorMap.delete(key)
-    candidateTileMap.delete(key)
+    removeCandidate(hex)
   })
 
   // 補上 placedBlock 鄰格中缺少的候補
@@ -245,14 +253,9 @@ function syncAllCandidateTile() {
   // 若 placedBlockMap 為空，確保原點候補存在
   if (placedBlockMap.size === 0) {
     // 移除所有候補格
-    candidateTileMap.forEach((hex, key) => {
-      tileMeshMap.get(key)?.dispose()
-      tileMeshMap.delete(key)
-      tileMaterialMap.delete(key)
-      targetTileAlphaMap.delete(key)
-      targetTileColorMap.delete(key)
+    candidateTileMap.forEach((hex) => {
+      removeCandidate(hex)
     })
-    candidateTileMap.clear()
 
     addCandidate(new Hex(0, 0, 0))
   }
@@ -389,6 +392,9 @@ const { canvasRef, scene } = useBabylonScene({
       // 移除
       if (isCleanMode.value) {
         block.rootNode.dispose()
+
+        removeCandidate(block.hex)
+
         placedBlockMap.delete(pickedKey)
         syncAllCandidateTile()
         return
