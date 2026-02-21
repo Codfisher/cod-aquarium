@@ -54,20 +54,22 @@ export class Hex {
     new Hex(0, 1, -1),
   ])
 
-  static direction(dir: number): Hex {
-    const i = ((dir % 6) + 6) % 6
-    const d = Hex.directions[i]
-    if (!d)
-      throw new Error(`Invalid direction index: ${dir}`)
-    return d
+  static direction(direction: number): Hex {
+    const index = ((direction % 6) + 6) % 6
+    const result = Hex.directions[index]
+    if (!result)
+      throw new Error(`Invalid direction index: ${direction}`)
+    return result
   }
 
-  /** 取得鄰居（六方向）
+  /** 取得共用**邊（edge）**的鄰居，距離恰好為 1。
    *
-   * @param dir 0 ~ 5
+   * 六角格每個格子有 6 條邊，因此有 6 個 edge 鄰居。
+   *
+   * @param direction 0 ~ 5，順時針方向索引
    */
-  neighbor(dir: number): Hex {
-    return this.add(Hex.direction(dir))
+  neighbor(direction: number): Hex {
+    return this.add(Hex.direction(direction))
   }
 
   static readonly diagonals: ReadonlyArray<Hex> = Object.freeze([
@@ -79,12 +81,19 @@ export class Hex {
     new Hex(1, 1, -2),
   ])
 
-  diagonalNeighbor(dir: number): Hex {
-    const i = ((dir % 6) + 6) % 6
-    const d = Hex.diagonals[i]
-    if (!d)
-      throw new Error(`Invalid diagonal direction index: ${dir}`)
-    return this.add(d)
+  /** 取得共用**頂點（vertex）**的斜向鄰居，距離為 2（中間跳過一格）。
+   *
+   * 與 {@link neighbor} 的差別：`neighbor` 是共用邊的緊鄰格（距離 1），
+   * `diagonalNeighbor` 是僅共用角的斜向格（距離 2），彼此之間沒有共用邊。
+   *
+   * @param direction 0 ~ 5，順時針方向索引
+   */
+  diagonalNeighbor(direction: number): Hex {
+    const index = ((direction % 6) + 6) % 6
+    const result = Hex.diagonals[index]
+    if (!result)
+      throw new Error(`Invalid diagonal direction index: ${direction}`)
+    return this.add(result)
   }
 
   /** 原點到此格子的直線距離 */
@@ -96,6 +105,11 @@ export class Hex {
     return this.subtract(b).len()
   }
 
+  /** 將浮點 Hex 四捨五入到最近的整數 Hex。
+   *
+   * 由於浮點誤差，`worldToHexFractional` 可能回傳非整數座標，
+   * 此方法將其 round 到最近的整數 Hex，並確保 `q + r + s === 0` 恆等式成立。
+   */
   round(): Hex {
     let qi = Math.round(this.q)
     let ri = Math.round(this.r)
@@ -117,6 +131,11 @@ export class Hex {
     return new Hex(qi, ri, si)
   }
 
+  /** 在兩點之間做線性插值（linear interpolation）。
+   *
+   * @param b 目標 Hex
+   * @param t 插值比例（0 ~ 1）
+   */
   lerp(b: Hex, t: number): Hex {
     return new Hex(
       this.q * (1 - t) + b.q * t,
@@ -125,6 +144,12 @@ export class Hex {
     )
   }
 
+  /** 取得從此 Hex 到目標 Hex 的整數 Hex 序列（包含起點與終點）。
+   *
+   * 使用 Bresenham 演算法的變體，確保在離散的六角格上畫出平滑的直線。
+   *
+   * @param b 目標 Hex
+   */
   lineDraw(b: Hex): Hex[] {
     const N = this.distance(b)
     // nudge 避免剛好落在邊界造成 round 跳格
