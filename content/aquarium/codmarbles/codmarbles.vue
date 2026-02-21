@@ -374,7 +374,7 @@ function createCheckPointColliders(
 
 // --- 主要遊戲邏輯 ---
 
-const marbleCount = 10
+const defaultMarbleCount = 10
 const marbleList = shallowRef<Marble[]>([])
 const marbleListNameList = computed(() => marbleList.value
   .filter((marble) => marble.mesh.isEnabled())
@@ -406,6 +406,9 @@ function handleMarbleListSubmit(list: string[]) {
   const newList: Marble[] = []
   if (list.length > existingCount) {
     list.slice(existingCount).forEach((name, offset) => {
+      const startPosition = lobbyPosition.clone()
+      startPosition.y += (MARBLE_SIZE * offset) + 1
+
       const newIndex = existingCount + offset
       const marble = createMarble({
         index: newIndex,
@@ -414,8 +417,10 @@ function handleMarbleListSubmit(list: string[]) {
         shadowGenerator: shadowGeneratorValue,
         gameState,
         isPartyClient,
+        startPosition,
       })
       marble.name = name
+
       newList.push(marble)
     })
   }
@@ -715,6 +720,7 @@ async function startPartyMode() {
 }
 
 const shadowGenerator = shallowRef<ShadowGenerator>()
+const lobbyPosition = new Vector3(0, 0, 0)
 
 const {
   canvasRef,
@@ -795,9 +801,9 @@ const {
     )
 
     const ballList: Marble[] = []
-    for (let i = 0; i < marbleCount; i++) {
+    for (let i = 0; i < defaultMarbleCount; i++) {
       const color = Color3.FromHSV(
-        340 * (i / marbleCount),
+        340 * (i / defaultMarbleCount),
         1,
         1,
       )
@@ -848,7 +854,7 @@ const {
         throw new Error('lobbyMesh is undefined')
       }
       lobbyMesh.computeWorldMatrix(true)
-      const lobbyPosition = lobbyMesh.getAbsolutePosition()
+      lobbyPosition.copyFrom(lobbyMesh.getAbsolutePosition())
 
       cameraTarget.value?.position.copyFrom(lobbyPosition)
 
