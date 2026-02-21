@@ -1,5 +1,5 @@
 import type { Block } from '../../block/type'
 
-export function resolveCluster(blockList: Block[]) {
+export function resolveSoundscape(blockList: Block[]) {
 
 }
