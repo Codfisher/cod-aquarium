@@ -101,17 +101,12 @@
               </base-btn>
 
               <div class="absolute right-2 top-2 flex flex-col p-4 gap-4 bg-black/10 rounded-2xl">
-                <u-modal>
+                <marble-manager-modal :list="marbleListNameList">
                   <u-icon
                     name="i-material-symbols:settings-account-box-rounded"
                     class="text-4xl text-white cursor-pointer"
-                    @click="openPartyPlayerSettingsModal"
                   />
-
-                  <template #body>
-                    <marble-manager />
-                  </template>
-                </u-modal>
+                </marble-manager-modal>
               </div>
             </div>
 
@@ -269,7 +264,7 @@ import { ActionManager, Color3, Color4, DirectionalLight, ExecuteCodeAction, Mat
 import { breakpointsTailwind, promiseTimeout, until, useBreakpoints, useColorMode, useEventListener, useThrottleFn } from '@vueuse/core'
 import { animate, cubicBezier } from 'animejs'
 import { storeToRefs } from 'pinia'
-import { filter, firstBy, map, pipe, shuffle, tap, values } from 'remeda'
+import { filter, firstBy, map, pipe, prop, shuffle, tap, values } from 'remeda'
 import { computed, onMounted, reactive, ref, shallowRef, triggerRef, watch } from 'vue'
 import { nextFrame } from '../../../web/common/utils'
 import BaseBtn from './components/base-btn.vue'
@@ -288,7 +283,7 @@ import PartySetupModal from './domains/party-mode/setup-modal.vue'
 import { connectTracks, createTrackSegment } from './domains/track-segment'
 import { TrackSegmentType } from './domains/track-segment/data'
 import { useAssetStore } from './stores/asset-store'
-import MarbleManager from './domains/marble/marble-manager.vue'
+import MarbleManagerModal from './domains/marble/marble-manager-modal.vue'
 
 const toast = useToast()
 const alertVisible = ref(true)
@@ -378,6 +373,8 @@ function createCheckPointColliders(
 
 const marbleCount = 10
 const marbleList = shallowRef<Marble[]>([])
+const marbleListNameList = computed(() => marbleList.value.map(prop('name')))
+
 const focusedMarble = shallowRef<Marble>()
 const trackSegmentList = shallowRef<TrackSegment[]>([])
 const endTrackSegment = shallowRef<TrackSegment>()
