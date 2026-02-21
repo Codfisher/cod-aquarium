@@ -12,7 +12,7 @@ import { blockDefinitions } from '../builder/data'
 export interface TraitRegion {
   /** 此區域的特性 */
   trait: `${TraitType}`;
-  /** 區域內所有格子（hex key → Hex） */
+  /** 區域內所有格子 */
   hexMap: Map<string, Hex>;
   /** 面積（格子數） */
   size: number;

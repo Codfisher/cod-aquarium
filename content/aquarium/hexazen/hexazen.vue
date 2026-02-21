@@ -572,8 +572,6 @@ function handleSelectBlock(blockType: BlockType) {
   deselectCurrent()
 }
 
-// --- 播放聲音 ---
-
 useSoundscapePlayer(placedBlockMap)
 
 </script>
