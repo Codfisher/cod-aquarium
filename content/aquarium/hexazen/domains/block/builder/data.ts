@@ -39,6 +39,39 @@ export const blockDefinitions = {
       ],
     },
   },
+  g2: {
+    traitList: [],
+    content: {
+      version: 1,
+      rootFolderName: 'assets',
+      partList: [
+        {
+          path: 'kenny-hexagon-pack/GLB format/grass.glb',
+          position: [0, 0, 0],
+          rotationQuaternion: [0, 1, 0, 0],
+          scaling: [1, 1, 1],
+          metadata: {
+            name: '',
+            mass: 0,
+            restitution: 0.5,
+            friction: 0,
+          },
+        },
+        {
+          path: 'kay-hexagon-pack/decoration/nature/rock_single_C.gltf',
+          position: [0.15486, 0.2, 0.214361],
+          rotationQuaternion: [0, 1, 0, 0],
+          scaling: [0.51202, 0.51202, 0.51202],
+          metadata: {
+            name: '',
+            mass: 0,
+            restitution: 0.5,
+            friction: 0,
+          },
+        },
+      ],
+    },
+  },
   /** tree */
   t1: {
     traitList: [],
@@ -176,6 +209,27 @@ export const blockDefinitions = {
       partList: [
         {
           path: 'kenny-hexagon-pack/GLB format/stone-mountain.glb',
+          position: [0, 0, 0],
+          rotationQuaternion: [0, 1, 0, 0],
+          scaling: [1, 1, 1],
+          metadata: {
+            name: '',
+            mass: 0,
+            restitution: 0.5,
+            friction: 0,
+          },
+        },
+      ],
+    },
+  },
+  a2: {
+    traitList: [],
+    content: {
+      version: 1,
+      rootFolderName: 'assets',
+      partList: [
+        {
+          path: 'kenny-hexagon-pack/GLB format/stone-hill.glb',
           position: [0, 0, 0],
           rotationQuaternion: [0, 1, 0, 0],
           scaling: [1, 1, 1],

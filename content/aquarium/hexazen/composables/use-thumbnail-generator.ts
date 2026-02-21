@@ -5,6 +5,7 @@ import {
   Engine,
   FramingBehavior,
   HemisphericLight,
+  Quaternion,
   Scene,
   Tools,
   Vector3,
@@ -105,9 +106,18 @@ function _useThumbnailGenerator() {
 
         const blockData = blockDefinitions[blockType]
 
-        const tasks = blockData.content.partList.map((part) => {
+        const tasks = blockData.content.partList.map(async (part) => {
           const modelPath = `${blockData.content.rootFolderName}/${part.path}`
-          return LoadAssetContainerAsync(modelPath, scene)
+          const model = await LoadAssetContainerAsync(modelPath, scene)
+          const root = model.meshes[0]
+
+          if (root) {
+            root.position.copyFrom(Vector3.FromArray(part.position))
+            root.rotationQuaternion?.copyFrom(Quaternion.FromArray(part.rotationQuaternion))
+            root.scaling.copyFrom(Vector3.FromArray(part.scaling))
+          }
+
+          return model
         })
 
         const containerList = await Promise.all(tasks)

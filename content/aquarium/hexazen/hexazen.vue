@@ -33,11 +33,7 @@
         <div class="absolute left-0 bottom-0 p-5 space-y-4">
           <u-icon
             :name="isMuted ? 'i-mingcute:volume-mute-fill' : 'i-mingcute:volume-fill'"
-            class="text-4xl cursor-pointer duration-500 outline-0 "
-            :class="{
-              'text-gray-600': !isMuted,
-              'text-gray-300': isMuted,
-            }"
+            class="text-4xl cursor-pointer outline-0 text-gray-400"
             @click="toggleMuted()"
           />
         </div>
