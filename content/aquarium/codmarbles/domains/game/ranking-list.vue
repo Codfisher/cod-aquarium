@@ -1,15 +1,15 @@
 <template>
   <div class="">
-    <div class="overflow-y-auto max-w-screen p-4 md:pr-20 max-md:pt-10 md:h-dvh">
+    <div class="overflow-y-auto max-w-screen p-4 md:pr-20 max-md:pt-10 md:h-dvh scroll-left">
       <transition-group
         name="list"
         tag="div"
-        class="flex md:flex-col md:justify-end gap-2 min-h-full"
+        class="flex md:flex-col md:pt-10 md:justify-end gap-2 min-h-full scrollbar-hide scroll-content"
       >
         <div
           v-for="(marble, index) in marbleList"
           :key="marble.mesh.name"
-          class="cursor-pointer relative z-0"
+          class="cursor-pointer relative z-0 "
           @click="handleFocusMarble(marble)"
         >
           <div
@@ -62,7 +62,6 @@
 </template>
 
 <script setup lang="ts">
-import { pipe } from 'zod/v4';
 import { useClientPlayer } from './use-client-player';
 import { useHostPlayer } from './use-host-player';
 import type { Marble } from '../../types'

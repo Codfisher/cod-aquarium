@@ -103,7 +103,7 @@
               <div class="absolute right-2 top-2 flex flex-col p-4 gap-4 bg-black/10 rounded-2xl">
                 <marble-manager-modal
                   :list="marbleListNameList"
-                  @submit="handleMarbleListSubmit"
+                  @submit="handleChangeMarbleList"
                 >
                   <u-icon
                     name="i-material-symbols:settings-account-box-rounded"
@@ -321,6 +321,7 @@ function createShadowGenerator(scene: Scene) {
   return shadowGenerator
 }
 
+let checkPointPositionList: Vector3[] = []
 /** 取得每一個 in Mesh 的位置（世界座標） */
 function getCheckPointPositionList(trackSegmentList: TrackSegment[]) {
   const list: Vector3[] = []
@@ -381,62 +382,6 @@ const marbleListNameList = computed(() => marbleList.value
   .map(prop('name'))
 )
 
-
-function handleMarbleListSubmit(list: string[]) {
-  marbleList.value.forEach((marble, index) => {
-    const name = list[index]
-    // 對應位置變更名稱
-    if (name !== undefined) {
-      marble.name = name
-      marble.mesh.setEnabled(true)
-    }
-    // 超出範圍：停用彈珠
-    else {
-      marble.mesh.setEnabled(false)
-    }
-  })
-
-  // list 超出現有彈珠數量時，動態新增彈珠
-  const [sceneValue, engineValue, shadowGeneratorValue] = [scene.value, engine.value, shadowGenerator.value]
-  if (!sceneValue || !engineValue || !shadowGeneratorValue) {
-    return
-  }
-
-  const existingCount = marbleList.value.length
-  const newList: Marble[] = []
-  if (list.length > existingCount) {
-    list.slice(existingCount).forEach((name, offset) => {
-      const startPosition = lobbyPosition.clone()
-      startPosition.y += (MARBLE_SIZE * offset) + 1
-
-      const newIndex = existingCount + offset
-      const marble = createMarble({
-        index: newIndex,
-        scene: sceneValue,
-        engine: engineValue,
-        shadowGenerator: shadowGeneratorValue,
-        gameState,
-        isPartyClient,
-        startPosition,
-      })
-      marble.name = name
-
-      newList.push(marble)
-    })
-  }
-  marbleList.value = [...marbleList.value, ...newList]
-
-  // 重新設定所有彈珠的顏色
-  marbleList.value.forEach((marble, index) => {
-    const color = Color3.FromHSV(
-      340 * (index / marbleList.value.length),
-      1,
-      1,
-    )
-    marble.setColor(color.toHexString())
-  })
-}
-
 const focusedMarble = shallowRef<Marble>()
 const trackSegmentList = shallowRef<TrackSegment[]>([])
 const endTrackSegment = shallowRef<TrackSegment>()
@@ -483,6 +428,68 @@ const updateRanking = useThrottleFn(() => {
       gameState.value = 'over'
   }
 }, 500)
+
+function handleChangeMarbleList(list: string[]) {
+  marbleList.value.forEach((marble, index) => {
+    const name = list[index]
+    // 對應位置變更名稱
+    if (name !== undefined) {
+      marble.name = name
+      marble.mesh.setEnabled(true)
+    }
+    // 超出範圍：停用彈珠
+    else {
+      marble.mesh.setEnabled(false)
+    }
+  })
+
+  // list 超出現有彈珠數量時，動態新增彈珠
+  const [sceneValue, engineValue, shadowGeneratorValue] = [scene.value, engine.value, shadowGenerator.value]
+  if (!sceneValue || !engineValue || !shadowGeneratorValue) {
+    return
+  }
+
+  const existingCount = marbleList.value.length
+  const newList: Marble[] = []
+  if (list.length > existingCount) {
+    list.slice(existingCount).forEach((name, offset) => {
+      const startPosition = lobbyPosition.clone()
+      startPosition.x += Math.random() / 10
+      startPosition.y += (MARBLE_SIZE * offset) + 1
+
+      const newIndex = existingCount + offset
+      const marble = createMarble({
+        index: newIndex,
+        scene: sceneValue,
+        engine: engineValue,
+        shadowGenerator: shadowGeneratorValue,
+        gameState,
+        isPartyClient,
+        startPosition,
+      })
+      marble.name = name
+
+      createCheckPointColliders({
+        scene: sceneValue,
+        pointPositionList: checkPointPositionList,
+        marble,
+      })
+
+      newList.push(marble)
+    })
+  }
+  marbleList.value = [...marbleList.value, ...newList]
+
+  // 重新設定所有彈珠的顏色
+  marbleList.value.forEach((marble, index) => {
+    const color = Color3.FromHSV(
+      340 * (index / marbleList.value.length),
+      1,
+      1,
+    )
+    marble.setColor(color.toHexString())
+  })
+}
 
 function respawnWithAnimation(
   marble: Marble,
@@ -959,7 +966,7 @@ const {
         return
       }
 
-      const checkPointPositionList = getCheckPointPositionList([
+      checkPointPositionList = getCheckPointPositionList([
         ...trackSegmentList.value,
         endTrackSeg,
       ])
