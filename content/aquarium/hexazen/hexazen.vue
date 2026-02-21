@@ -11,9 +11,9 @@
           class="canvas w-full h-full"
         />
 
-        <div class="absolute right-0 bottom-0 p-5 space-y-4">
+        <div class="absolute right-0 bottom-0 p-5 space-y-4 text-gray-400">
           <u-tooltip
-            text="移除模式"
+            text="Remove Mode"
             :content="{
               side: 'left',
             }"
@@ -22,12 +22,36 @@
               name="i-mingcute:shovel-fill"
               class="text-4xl cursor-pointer duration-500 outline-0"
               :class="{
-                'text-gray-400': !isCleanMode,
-                'text-primary': isCleanMode,
+                'text-primary': isRemoveMode,
               }"
-              @click="toggleCleanMode()"
+              @click="toggleRemoveMode()"
             />
           </u-tooltip>
+
+          <u-popover>
+            <u-icon
+              name="i-material-symbols:cleaning-services-rounded"
+              class="text-[32px] cursor-pointer duration-500 outline-0"
+            />
+
+            <template #content>
+              <div class="p-4 space-y-2">
+                <div class=" font-bold">
+                  Confirm to remove all blocks?
+                </div>
+                <div class=" text-sm">
+                  This action can't be undone
+                </div>
+                <div class="flex justify-end">
+                  <u-button
+                    label="Remove All"
+                    color="error"
+                    @click="removeAllBlocks()"
+                  />
+                </div>
+              </div>
+            </template>
+          </u-popover>
         </div>
 
         <div class="absolute left-0 bottom-0 p-5 space-y-4">
@@ -46,7 +70,7 @@
 
     <!-- u-slideover 開啟動畫不穩動，不知道為甚麼會抖動 -->
     <div
-      class=" fixed bottom-0 right-0 w-full flex justify-center p-10 duration-300 ease-in-out"
+      class=" fixed bottom-0 right-0 w-full flex justify-center p-10 duration-300 ease-in-out max-w-[90dvw]"
       :class="{
         'translate-y-0': blockPickerVisible,
         'translate-y-full': !blockPickerVisible,
@@ -128,7 +152,7 @@ function hexMeshMetadata(mesh?: Mesh | AbstractMesh, update?: Partial<HexMeshMet
 
 // --- Hex Tile 狀態 ---
 
-const [isCleanMode, toggleCleanMode] = useToggle(false)
+const [isRemoveMode, toggleRemoveMode] = useToggle(false)
 const [isMuted, toggleMuted] = useToggle(false)
 
 /** key 來自 Hex.key() */
@@ -161,6 +185,14 @@ async function spawnBlock(blockType: BlockType, hex: Hex) {
   })
 
   placedBlockMap.set(hex.key(), block)
+}
+async function removeAllBlocks() {
+  placedBlockMap.forEach((block) => {
+    block.rootNode.dispose()
+  })
+  placedBlockMap.clear()
+
+  syncAllCandidateTile()
 }
 
 function spawnTile(hex: Hex, color: Color3, alpha: number): string {
@@ -386,7 +418,7 @@ const { canvasRef, scene } = useBabylonScene({
       }
 
       // 移除
-      if (isCleanMode.value) {
+      if (isRemoveMode.value) {
         block.rootNode.dispose()
 
         removeCandidate(block.hex)
@@ -495,7 +527,7 @@ const { canvasRef, scene } = useBabylonScene({
 const canvasStyle = computed<CSSProperties>(() => {
   const isRotating = hoveredBlock.value
   if (isRotating) {
-    if (isCleanMode.value) {
+    if (isRemoveMode.value) {
       return {
         cursor: cursorDataUrl.shovelFill,
       }

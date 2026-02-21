@@ -1,15 +1,15 @@
 <template>
   <div class="chamfer-4 p-1 bg-gray-200">
-    <div class="flex flex-wrap gap-1 bg-white chamfer-3 p-3">
+    <div class="flex flex-wrap gap-1 bg-white chamfer-3.5 p-3">
       <div
         v-for="(item) in blockThumbnailList"
         :key="item.type"
-        class="size-22 chamfer-4 p-0.5 bg-gray-100 cursor-pointer"
+        class="size-22 chamfer-3 p-0.5 bg-gray-100 cursor-pointer"
         @click="handleClick(item.type)"
       >
         <img
           :src="item.thumbnail"
-          class="border-none! bg-white chamfer-3.5"
+          class="border-none! bg-white chamfer-2.5"
         >
       </div>
     </div>
