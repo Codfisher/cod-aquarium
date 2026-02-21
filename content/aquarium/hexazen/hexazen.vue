@@ -221,7 +221,10 @@ function syncAllCandidateTile() {
     const hasAdjacentBlock = Array.from({ length: 6 }, (_, d) => hex.neighbor(d))
       .some((neighbor) => placedBlockMap.has(neighbor.key()))
 
-    if (hasAdjacentBlock)
+    // 自身位置有 placed block 時也要保留（tile mesh 作為 block hover 偵測依據）
+    const hasSelfBlock = placedBlockMap.has(key)
+
+    if (hasAdjacentBlock || hasSelfBlock)
       return
 
     tileMeshMap.get(key)?.dispose()
@@ -241,6 +244,16 @@ function syncAllCandidateTile() {
 
   // 若 placedBlockMap 為空，確保原點候補存在
   if (placedBlockMap.size === 0) {
+    // 移除所有候補格
+    candidateTileMap.forEach((hex, key) => {
+      tileMeshMap.get(key)?.dispose()
+      tileMeshMap.delete(key)
+      tileMaterialMap.delete(key)
+      targetTileAlphaMap.delete(key)
+      targetTileColorMap.delete(key)
+    })
+    candidateTileMap.clear()
+
     addCandidate(new Hex(0, 0, 0))
   }
 }
