@@ -1,10 +1,12 @@
 <template>
   <div class="">
-    <div class="overflow-y-auto max-w-screen p-4 md:pr-20 max-md:pt-10 md:h-dvh scroll-left">
+    <div
+      class="max-w-screen p-4 md:pr-20 max-md:pt-10 md:h-dvh overflow-x-auto overflow-y-hidden md:overflow-y-auto md:overflow-x-hidden scroll-left"
+    >
       <transition-group
         name="list"
         tag="div"
-        class="flex md:flex-col md:pt-10 md:justify-end gap-2 min-h-full scrollbar-hide scroll-content"
+        class="flex gap-2 w-max md:flex-col md:pt-10 md:justify-end md:min-h-full md:w-auto scroll-content"
       >
         <div
           v-for="(marble, index) in marbleList"

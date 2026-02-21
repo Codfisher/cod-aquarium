@@ -260,7 +260,7 @@
 </template>
 
 <script setup lang="ts">
-import type { Scene } from '@babylonjs/core'
+import type { Mesh, Scene } from '@babylonjs/core'
 import type { TrackSegment } from './domains/track-segment'
 import type { Marble } from './types'
 import { ActionManager, Color3, Color4, DirectionalLight, ExecuteCodeAction, Material, MeshBuilder, PhysicsMotionType, ShadowGenerator, SolidParticleSystem, StandardMaterial, TransformNode, Vector3 } from '@babylonjs/core'
@@ -387,6 +387,8 @@ const trackSegmentList = shallowRef<TrackSegment[]>([])
 const endTrackSegment = shallowRef<TrackSegment>()
 const cameraTarget = shallowRef<TransformNode>()
 
+const endTriggerBox = shallowRef<Mesh>()
+
 const clientPlayer = reactive(useClientPlayer())
 const hostPlayer = reactive(useHostPlayer())
 
@@ -429,6 +431,33 @@ const updateRanking = useThrottleFn(() => {
   }
 }, 500)
 
+function createNewMarble(data: Parameters<typeof createMarble>[0]) {
+  const marble = createMarble(data)
+
+  createCheckPointColliders({
+    scene: data.scene,
+    pointPositionList: checkPointPositionList,
+    marble,
+  })
+
+  endTriggerBox.value?.actionManager?.registerAction(
+    new ExecuteCodeAction(
+      {
+        trigger: ActionManager.OnIntersectionEnterTrigger,
+        parameter: marble.mesh,
+      },
+      () => {
+        if (marble.finishedAt === 0) {
+          marble.finishedAt = Date.now()
+          burstConfetti(data.scene, marble.mesh.getAbsolutePosition().clone())
+        }
+      },
+    ),
+  )
+
+  return marble
+}
+
 function handleChangeMarbleList(list: string[]) {
   marbleList.value.forEach((marble, index) => {
     const name = list[index]
@@ -458,7 +487,7 @@ function handleChangeMarbleList(list: string[]) {
       startPosition.y += (MARBLE_SIZE * offset) + 1
 
       const newIndex = existingCount + offset
-      const marble = createMarble({
+      const marble = createNewMarble({
         index: newIndex,
         scene: sceneValue,
         engine: engineValue,
@@ -468,12 +497,6 @@ function handleChangeMarbleList(list: string[]) {
         startPosition,
       })
       marble.name = name
-
-      createCheckPointColliders({
-        scene: sceneValue,
-        pointPositionList: checkPointPositionList,
-        marble,
-      })
 
       newList.push(marble)
     })
@@ -1039,16 +1062,17 @@ const {
         throw new Error('endCheckPointPosition is undefined')
       }
 
-      const endTriggerBox = MeshBuilder.CreateBox('endTrigger', {
+      const _endTriggerBox = MeshBuilder.CreateBox('endTrigger', {
         width: 10,
         height: 10,
         depth: 1,
       }, scene)
+      endTriggerBox.value = _endTriggerBox
 
-      endTriggerBox.position.copyFrom(endCheckPointPosition)
-      endTriggerBox.isVisible = false
+      _endTriggerBox.position.copyFrom(endCheckPointPosition)
+      _endTriggerBox.isVisible = false
       const actionManager = new ActionManager(scene)
-      endTriggerBox.actionManager = actionManager
+      _endTriggerBox.actionManager = actionManager
 
       marbleList.value.forEach((marble, i) => {
         actionManager.registerAction(
