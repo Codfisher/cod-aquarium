@@ -1,5 +1,6 @@
 <template>
   <u-modal
+    v-model:open="isOpen"
     title="管理彈珠"
     description="新增或清空彈珠名稱"
     :ui="{
@@ -12,16 +13,15 @@
 
     <template #body>
       <div class="flex flex-col gap-4 p-2">
-        <!-- 新增彈珠 -->
         <div class="flex gap-2 items-end">
           <u-form-field
             class="flex-1"
-            label="新增彈珠"
+            label="彈珠名稱"
             description="可以使用 , 分隔多個名稱 "
           >
             <u-input
               v-model="newName"
-              placeholder="煞氣的鱈魚"
+              placeholder="ex: 煞氣的鱈魚"
               class="w-full"
               @keydown.enter="addMarble"
             />
@@ -112,7 +112,7 @@
 
 <script setup lang="ts">
 import { isTruthy } from 'remeda';
-import { ref, watch } from 'vue';
+import { ref, useTemplateRef, watch } from 'vue';
 
 interface Props {
   list?: string[];
@@ -124,6 +124,8 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<{
   submit: [list: string[]],
 }>()
+
+const isOpen = ref(false)
 
 const form = ref({
   list: [...props.list],
@@ -167,5 +169,6 @@ function clearAll() {
 
 function submit() {
   emit('submit', form.value.list)
+  isOpen.value = false
 }
 </script>

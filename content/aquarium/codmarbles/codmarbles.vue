@@ -101,7 +101,10 @@
               </base-btn>
 
               <div class="absolute right-2 top-2 flex flex-col p-4 gap-4 bg-black/10 rounded-2xl">
-                <marble-manager-modal :list="marbleListNameList">
+                <marble-manager-modal
+                  :list="marbleListNameList"
+                  @submit="handleMarbleListSubmit"
+                >
                   <u-icon
                     name="i-material-symbols:settings-account-box-rounded"
                     class="text-4xl text-white cursor-pointer"
@@ -265,7 +268,7 @@ import { breakpointsTailwind, promiseTimeout, until, useBreakpoints, useColorMod
 import { animate, cubicBezier } from 'animejs'
 import { storeToRefs } from 'pinia'
 import { filter, firstBy, map, pipe, prop, shuffle, tap, values } from 'remeda'
-import { computed, onMounted, reactive, ref, shallowRef, triggerRef, watch } from 'vue'
+import { computed, onMounted, reactive, ref, shallowRef, watch } from 'vue'
 import { nextFrame } from '../../../web/common/utils'
 import BaseBtn from './components/base-btn.vue'
 import BasePolygon from './components/base-polygon.vue'
@@ -373,7 +376,61 @@ function createCheckPointColliders(
 
 const marbleCount = 10
 const marbleList = shallowRef<Marble[]>([])
-const marbleListNameList = computed(() => marbleList.value.map(prop('name')))
+const marbleListNameList = computed(() => marbleList.value
+  .filter((marble) => marble.mesh.isEnabled())
+  .map(prop('name'))
+)
+
+
+function handleMarbleListSubmit(list: string[]) {
+  marbleList.value.forEach((marble, index) => {
+    const name = list[index]
+    // 對應位置變更名稱
+    if (name !== undefined) {
+      marble.name = name
+      marble.mesh.setEnabled(true)
+    }
+    // 超出範圍：停用彈珠
+    else {
+      marble.mesh.setEnabled(false)
+    }
+  })
+
+  // list 超出現有彈珠數量時，動態新增彈珠
+  const [sceneValue, engineValue, shadowGeneratorValue] = [scene.value, engine.value, shadowGenerator.value]
+  if (!sceneValue || !engineValue || !shadowGeneratorValue) {
+    return
+  }
+
+  const existingCount = marbleList.value.length
+  const newList: Marble[] = []
+  if (list.length > existingCount) {
+    list.slice(existingCount).forEach((name, offset) => {
+      const newIndex = existingCount + offset
+      const marble = createMarble({
+        index: newIndex,
+        scene: sceneValue,
+        engine: engineValue,
+        shadowGenerator: shadowGeneratorValue,
+        gameState,
+        isPartyClient,
+      })
+      marble.name = name
+      newList.push(marble)
+    })
+  }
+  marbleList.value = [...marbleList.value, ...newList]
+
+  // 重新設定所有彈珠的顏色
+  marbleList.value.forEach((marble, index) => {
+    const color = Color3.FromHSV(
+      340 * (index / marbleList.value.length),
+      1,
+      1,
+    )
+    marble.setColor(color.toHexString())
+  })
+}
 
 const focusedMarble = shallowRef<Marble>()
 const trackSegmentList = shallowRef<TrackSegment[]>([])
@@ -657,9 +714,12 @@ async function startPartyMode() {
   start()
 }
 
+const shadowGenerator = shallowRef<ShadowGenerator>()
+
 const {
   canvasRef,
   scene,
+  engine,
 } = useBabylonScene({
   async init(params) {
     const isPartyClient = clientPlayer.isPartyClient
@@ -679,7 +739,8 @@ const {
     // 畫 Group 1 (幽靈) 時，不要清除 Group 0 (牆壁) 的深度資訊，這樣才能進行深度比較
     scene.setRenderingAutoClearDepthStencil(GHOST_RENDERING_GROUP_ID, false)
 
-    const shadowGenerator = createShadowGenerator(scene)
+    const _shadowGenerator = createShadowGenerator(scene)
+    shadowGenerator.value = _shadowGenerator
 
     // 建立軌道
     trackSegmentList.value = await pipe(
@@ -745,7 +806,7 @@ const {
         index: i,
         scene,
         engine,
-        shadowGenerator,
+        shadowGenerator: _shadowGenerator,
         color,
         gameState,
         isPartyClient,
@@ -757,7 +818,7 @@ const {
       }
 
       ballList.push(marble)
-      shadowGenerator.addShadowCaster(marble.mesh)
+      _shadowGenerator.addShadowCaster(marble.mesh)
 
       if (i === 0) {
         cameraTarget.value?.position.copyFrom(marble.mesh.position)
@@ -776,7 +837,7 @@ const {
     const allTrackSegmentList = [...trackSegmentList.value, endTrackSeg]
     allTrackSegmentList.forEach((trackSegment) => {
       trackSegment.rootNode.getChildMeshes().forEach((mesh) => {
-        shadowGenerator.addShadowCaster(mesh)
+        _shadowGenerator.addShadowCaster(mesh)
       })
     })
 
