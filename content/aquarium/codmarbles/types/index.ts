@@ -14,4 +14,6 @@ export interface Marble {
   /** 已靜止秒數，停太久則強制回歸上一個檢查點 */
   staticDurationSec: number;
   finishedAt: number;
+
+  setColor(hexColor: string): void;
 }

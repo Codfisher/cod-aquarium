@@ -88,35 +88,36 @@ export function createMarble({
 
   const finalColor = color ?? Color3.FromHSV(random(0, 360), 0.8, 0.4)
 
-  marble.material = pipe(
+  const marbleMaterial = pipe(
     new PBRMaterial('marbleMaterial', scene),
-    tap((marbleMaterial) => {
-      marbleMaterial.albedoColor = finalColor
+    tap((material) => {
+      material.albedoColor = finalColor
 
-      marbleMaterial.metallic = 0
-      marbleMaterial.roughness = 0.5
+      material.metallic = 0
+      material.roughness = 0.5
 
       // marbleMaterial.clearCoat.isEnabled = true
       // marbleMaterial.clearCoat.intensity = 1
       // marbleMaterial.clearCoat.roughness = 0
     }),
   )
+  marble.material = marbleMaterial
 
-  const ghostMat = pipe(
+  const ghostMaterial = pipe(
     new StandardMaterial('ghostMaterial', scene),
-    tap((ghostMaterial) => {
+    tap((material) => {
       // 顏色基於彈珠的顏色調淡
-      ghostMaterial.diffuseColor = finalColor.scale(1)
-      ghostMaterial.emissiveColor = finalColor.scale(1)
+      material.diffuseColor = finalColor.scale(1)
+      material.emissiveColor = finalColor.scale(1)
 
-      ghostMaterial.alpha = 0.1
-      ghostMaterial.disableLighting = true
-      ghostMaterial.backFaceCulling = false
+      material.alpha = 0.1
+      material.disableLighting = true
+      material.backFaceCulling = false
 
       // 設定深度函數 (Depth Function)
       // 預設是 Engine.LEQUAL (小於等於時繪製，也就是在前面時繪製)
       // 我們改成 Engine.GREATER (大於時繪製，也就是在後面/被擋住時才繪製)
-      ghostMaterial.depthFunction = Engine.GREATER
+      material.depthFunction = Engine.GREATER
     }),
   )
 
@@ -124,7 +125,7 @@ export function createMarble({
   const ghostMarble = pipe(
     marble.clone('ghostMarble'),
     tap((ghostMarble) => {
-      ghostMarble.material = ghostMat
+      ghostMarble.material = ghostMaterial
 
       // 確保幽靈永遠黏在實體彈珠上，不受物理層級影響
       scene.onBeforeRenderObservable.add(() => {
@@ -201,6 +202,15 @@ export function createMarble({
     isGrounded: false,
     staticDurationSec: 0,
     finishedAt: 0,
+    setColor(hexColor: string) {
+      const color = Color3.FromHexString(hexColor)
+
+      marbleMaterial.albedoColor = color
+      ghostMaterial.diffuseColor = color.scale(1)
+      ghostMaterial.emissiveColor = color.scale(1)
+
+      result.hexColor = color.toGammaSpace().toHexString()
+    },
   }
 
   scene.onBeforeRenderObservable.add(() => {

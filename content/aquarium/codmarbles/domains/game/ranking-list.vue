@@ -1,18 +1,21 @@
 <template>
   <div class="">
-    <transition-group
-      name="list"
-      tag="div"
-      class="flex md:justify-end md:flex-col gap-2 overflow-x-auto max-w-screen p-4 md:pr-20 max-md:pt-10 md:h-dvh"
+    <div
+      class="max-w-screen p-4 md:pr-20 max-md:pt-10 md:h-dvh overflow-x-auto overflow-y-hidden md:overflow-y-auto md:overflow-x-hidden scroll-left"
     >
-      <div
-        v-for="(marble, index) in marbleList"
-        :key="marble.mesh.name"
-        class="cursor-pointer relative z-0"
-        @click="handleFocusMarble(marble)"
+      <transition-group
+        name="list"
+        tag="div"
+        class="flex gap-2 w-max md:flex-col md:pt-10 md:justify-end md:min-h-full md:w-auto scroll-content"
       >
         <div
-          class="text-yellow-500 text-xs bg-white duration-500!
+          v-for="(marble, index) in marbleList"
+          :key="marble.mesh.name"
+          class="cursor-pointer relative z-0 "
+          @click="handleFocusMarble(marble)"
+        >
+          <div
+            class="text-yellow-500 text-xs bg-white duration-500!
             absolute  whitespace-nowrap shadow -z-1
             text-ellipsis overflow-hidden py-1.5 px-4
             md:-mx-2 max-md:-my-1
@@ -21,46 +24,46 @@
             opacity-0
             transform
           "
-          :class="marble.finishedAt > 0 && recordVisible
-            ? 'md:right-0 md:translate-x-full max-md:top-0 max-md:-translate-y-full opacity-100'
-            : ''
-            "
-        >
-          {{ (marble.finishedAt / 1000).toFixed(2) }}s
-        </div>
-
-        <div
-          class=" absolute -top-1 -right-1 size-3 rounded-full border-2 border-white z-2 shadow-inner"
-          :style="{ backgroundColor: marble.hexColor }"
-        />
-
-        <div
-          class="flex rounded-lg transition-all duration-300 border-2 box-content cursor-pointer z-1 overflow-hidden relative"
-          :class="marble.className"
-        >
-          <div class="text-xs text-gray-700 font-medium text-nowrap p-2 flex-1">
-            {{ marble.name }}
+            :class="marble.finishedAt > 0 && recordVisible
+              ? 'md:right-0 md:translate-x-full max-md:top-0 max-md:-translate-y-full opacity-100'
+              : ''
+              "
+          >
+            {{ (marble.finishedAt / 1000).toFixed(2) }}s
           </div>
 
-          <transition
-            name="opacity"
-            mode="out-in"
+          <div
+            class=" absolute -top-1 -right-1 size-3 rounded-full border-2 border-white z-2 shadow-inner"
+            :style="{ backgroundColor: marble.hexColor }"
+          />
+
+          <div
+            class="flex rounded-lg transition-all duration-300 border-2 box-content cursor-pointer z-1 overflow-hidden relative"
+            :class="marble.className"
           >
-            <div
-              :key="index"
-              class="font-mono font-bold translate-y-[70%] w-8 flex justify-end leading-0 text-yellow-700/30 text-[3rem]"
-            >
-              {{ index + 1 }}
+            <div class="text-xs text-gray-700 font-medium text-nowrap p-2 flex-1">
+              {{ marble.name }}
             </div>
-          </transition>
+
+            <transition
+              name="opacity"
+              mode="out-in"
+            >
+              <div
+                :key="index"
+                class="font-mono font-bold translate-y-[70%] w-8 flex justify-end leading-0 text-yellow-700/30 text-[3rem]"
+              >
+                {{ index + 1 }}
+              </div>
+            </transition>
+          </div>
         </div>
-      </div>
-    </transition-group>
+      </transition-group>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { pipe } from 'zod/v4';
 import { useClientPlayer } from './use-client-player';
 import { useHostPlayer } from './use-host-player';
 import type { Marble } from '../../types'

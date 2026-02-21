@@ -1,6 +1,5 @@
 import type {
   Camera,
-  WebGPUEngine,
 } from '@babylonjs/core'
 import {
   ArcRotateCamera,
@@ -10,6 +9,7 @@ import {
   HemisphericLight,
   Scene,
   Vector3,
+  WebGPUEngine,
 } from '@babylonjs/core'
 import { defaults } from 'lodash-es'
 import { onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
@@ -32,16 +32,16 @@ interface UseBabylonSceneParam {
 }
 const defaultParam: Required<UseBabylonSceneParam> = {
   async createEngine({ canvas }) {
-    // const webGPUSupported = await WebGPUEngine.IsSupportedAsync
-    // if (webGPUSupported) {
-    //   const engine = new WebGPUEngine(canvas, {
-    //     antialias: true,
-    //     stencil: true,
-    //   })
-    //   await engine.initAsync()
+    const webGPUSupported = await WebGPUEngine.IsSupportedAsync
+    if (webGPUSupported) {
+      const engine = new WebGPUEngine(canvas, {
+        antialias: true,
+        stencil: true,
+      })
+      await engine.initAsync()
 
-    //   return engine
-    // }
+      return engine
+    }
 
     return new Engine(canvas, true, {
       antialias: true,
@@ -84,10 +84,10 @@ const defaultParam: Required<UseBabylonSceneParam> = {
 
     camera.wheelDeltaPercentage = 0.01
     camera.lowerRadiusLimit = 5
-    camera.upperRadiusLimit = 50
+    camera.upperRadiusLimit = 10
 
     // 限制鏡頭角度
-    camera.lowerBetaLimit = 0
+    camera.lowerBetaLimit = Math.PI / 3
     camera.upperBetaLimit = Math.PI / 3
 
     return camera

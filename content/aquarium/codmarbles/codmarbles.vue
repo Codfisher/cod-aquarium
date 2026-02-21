@@ -1,9 +1,7 @@
 <template>
-  <u-app
-    :toaster="{
-      position: 'top-right',
-    }"
-  >
+  <u-app :toaster="{
+    position: 'top-right',
+  }">
     <div class="fixed w-dvw h-dvh p-0 m-0">
       <canvas
         v-once
@@ -101,6 +99,18 @@
                   />
                 </div>
               </base-btn>
+
+              <div class="absolute right-2 top-2 flex flex-col p-4 gap-4 bg-black/10 rounded-2xl">
+                <marble-manager-modal
+                  :list="marbleListNameList"
+                  @submit="handleChangeMarbleList"
+                >
+                  <u-icon
+                    name="i-material-symbols:settings-account-box-rounded"
+                    class="text-4xl text-white cursor-pointer"
+                  />
+                </marble-manager-modal>
+              </div>
             </div>
 
             <div
@@ -250,15 +260,15 @@
 </template>
 
 <script setup lang="ts">
-import type { Scene } from '@babylonjs/core'
+import type { Mesh, Scene } from '@babylonjs/core'
 import type { TrackSegment } from './domains/track-segment'
 import type { Marble } from './types'
 import { ActionManager, Color3, Color4, DirectionalLight, ExecuteCodeAction, Material, MeshBuilder, PhysicsMotionType, ShadowGenerator, SolidParticleSystem, StandardMaterial, TransformNode, Vector3 } from '@babylonjs/core'
 import { breakpointsTailwind, promiseTimeout, until, useBreakpoints, useColorMode, useEventListener, useThrottleFn } from '@vueuse/core'
 import { animate, cubicBezier } from 'animejs'
 import { storeToRefs } from 'pinia'
-import { filter, firstBy, map, pipe, shuffle, tap, values } from 'remeda'
-import { computed, onMounted, reactive, ref, shallowRef, triggerRef, watch } from 'vue'
+import { filter, firstBy, map, pipe, prop, shuffle, tap, values } from 'remeda'
+import { computed, onMounted, reactive, ref, shallowRef, watch } from 'vue'
 import { nextFrame } from '../../../web/common/utils'
 import BaseBtn from './components/base-btn.vue'
 import BasePolygon from './components/base-polygon.vue'
@@ -276,6 +286,7 @@ import PartySetupModal from './domains/party-mode/setup-modal.vue'
 import { connectTracks, createTrackSegment } from './domains/track-segment'
 import { TrackSegmentType } from './domains/track-segment/data'
 import { useAssetStore } from './stores/asset-store'
+import MarbleManagerModal from './domains/marble/marble-manager-modal.vue'
 
 const toast = useToast()
 const alertVisible = ref(true)
@@ -310,6 +321,7 @@ function createShadowGenerator(scene: Scene) {
   return shadowGenerator
 }
 
+let checkPointPositionList: Vector3[] = []
 /** 取得每一個 in Mesh 的位置（世界座標） */
 function getCheckPointPositionList(trackSegmentList: TrackSegment[]) {
   const list: Vector3[] = []
@@ -363,12 +375,19 @@ function createCheckPointColliders(
 
 // --- 主要遊戲邏輯 ---
 
-const marbleCount = 10
+const defaultMarbleCount = 10
 const marbleList = shallowRef<Marble[]>([])
+const marbleListNameList = computed(() => marbleList.value
+  .filter((marble) => marble.mesh.isEnabled())
+  .map(prop('name'))
+)
+
 const focusedMarble = shallowRef<Marble>()
 const trackSegmentList = shallowRef<TrackSegment[]>([])
 const endTrackSegment = shallowRef<TrackSegment>()
 const cameraTarget = shallowRef<TransformNode>()
+
+const endTriggerBox = shallowRef<Mesh>()
 
 const clientPlayer = reactive(useClientPlayer())
 const hostPlayer = reactive(useHostPlayer())
@@ -411,6 +430,89 @@ const updateRanking = useThrottleFn(() => {
       gameState.value = 'over'
   }
 }, 500)
+
+function createNewMarble(data: Parameters<typeof createMarble>[0]) {
+  const marble = createMarble(data)
+
+  createCheckPointColliders({
+    scene: data.scene,
+    pointPositionList: checkPointPositionList,
+    marble,
+  })
+
+  endTriggerBox.value?.actionManager?.registerAction(
+    new ExecuteCodeAction(
+      {
+        trigger: ActionManager.OnIntersectionEnterTrigger,
+        parameter: marble.mesh,
+      },
+      () => {
+        if (marble.finishedAt === 0) {
+          marble.finishedAt = Date.now()
+          burstConfetti(data.scene, marble.mesh.getAbsolutePosition().clone())
+        }
+      },
+    ),
+  )
+
+  return marble
+}
+
+function handleChangeMarbleList(list: string[]) {
+  marbleList.value.forEach((marble, index) => {
+    const name = list[index]
+    // 對應位置變更名稱
+    if (name !== undefined) {
+      marble.name = name
+      marble.mesh.setEnabled(true)
+    }
+    // 超出範圍：停用彈珠
+    else {
+      marble.mesh.setEnabled(false)
+    }
+  })
+
+  // list 超出現有彈珠數量時，動態新增彈珠
+  const [sceneValue, engineValue, shadowGeneratorValue] = [scene.value, engine.value, shadowGenerator.value]
+  if (!sceneValue || !engineValue || !shadowGeneratorValue) {
+    return
+  }
+
+  const existingCount = marbleList.value.length
+  const newList: Marble[] = []
+  if (list.length > existingCount) {
+    list.slice(existingCount).forEach((name, offset) => {
+      const startPosition = lobbyPosition.clone()
+      startPosition.x += Math.random() / 10
+      startPosition.y += (MARBLE_SIZE * offset) + 1
+
+      const newIndex = existingCount + offset
+      const marble = createNewMarble({
+        index: newIndex,
+        scene: sceneValue,
+        engine: engineValue,
+        shadowGenerator: shadowGeneratorValue,
+        gameState,
+        isPartyClient,
+        startPosition,
+      })
+      marble.name = name
+
+      newList.push(marble)
+    })
+  }
+  marbleList.value = [...marbleList.value, ...newList]
+
+  // 重新設定所有彈珠的顏色
+  marbleList.value.forEach((marble, index) => {
+    const color = Color3.FromHSV(
+      340 * (index / marbleList.value.length),
+      1,
+      1,
+    )
+    marble.setColor(color.toHexString())
+  })
+}
 
 function respawnWithAnimation(
   marble: Marble,
@@ -647,9 +749,13 @@ async function startPartyMode() {
   start()
 }
 
+const shadowGenerator = shallowRef<ShadowGenerator>()
+const lobbyPosition = new Vector3(0, 0, 0)
+
 const {
   canvasRef,
   scene,
+  engine,
 } = useBabylonScene({
   async init(params) {
     const isPartyClient = clientPlayer.isPartyClient
@@ -669,7 +775,8 @@ const {
     // 畫 Group 1 (幽靈) 時，不要清除 Group 0 (牆壁) 的深度資訊，這樣才能進行深度比較
     scene.setRenderingAutoClearDepthStencil(GHOST_RENDERING_GROUP_ID, false)
 
-    const shadowGenerator = createShadowGenerator(scene)
+    const _shadowGenerator = createShadowGenerator(scene)
+    shadowGenerator.value = _shadowGenerator
 
     // 建立軌道
     trackSegmentList.value = await pipe(
@@ -724,9 +831,9 @@ const {
     )
 
     const ballList: Marble[] = []
-    for (let i = 0; i < marbleCount; i++) {
+    for (let i = 0; i < defaultMarbleCount; i++) {
       const color = Color3.FromHSV(
-        340 * (i / marbleCount),
+        340 * (i / defaultMarbleCount),
         1,
         1,
       )
@@ -735,7 +842,7 @@ const {
         index: i,
         scene,
         engine,
-        shadowGenerator,
+        shadowGenerator: _shadowGenerator,
         color,
         gameState,
         isPartyClient,
@@ -747,7 +854,7 @@ const {
       }
 
       ballList.push(marble)
-      shadowGenerator.addShadowCaster(marble.mesh)
+      _shadowGenerator.addShadowCaster(marble.mesh)
 
       if (i === 0) {
         cameraTarget.value?.position.copyFrom(marble.mesh.position)
@@ -766,7 +873,7 @@ const {
     const allTrackSegmentList = [...trackSegmentList.value, endTrackSeg]
     allTrackSegmentList.forEach((trackSegment) => {
       trackSegment.rootNode.getChildMeshes().forEach((mesh) => {
-        shadowGenerator.addShadowCaster(mesh)
+        _shadowGenerator.addShadowCaster(mesh)
       })
     })
 
@@ -777,7 +884,7 @@ const {
         throw new Error('lobbyMesh is undefined')
       }
       lobbyMesh.computeWorldMatrix(true)
-      const lobbyPosition = lobbyMesh.getAbsolutePosition()
+      lobbyPosition.copyFrom(lobbyMesh.getAbsolutePosition())
 
       cameraTarget.value?.position.copyFrom(lobbyPosition)
 
@@ -882,7 +989,7 @@ const {
         return
       }
 
-      const checkPointPositionList = getCheckPointPositionList([
+      checkPointPositionList = getCheckPointPositionList([
         ...trackSegmentList.value,
         endTrackSeg,
       ])
@@ -955,16 +1062,17 @@ const {
         throw new Error('endCheckPointPosition is undefined')
       }
 
-      const endTriggerBox = MeshBuilder.CreateBox('endTrigger', {
+      const _endTriggerBox = MeshBuilder.CreateBox('endTrigger', {
         width: 10,
         height: 10,
         depth: 1,
       }, scene)
+      endTriggerBox.value = _endTriggerBox
 
-      endTriggerBox.position.copyFrom(endCheckPointPosition)
-      endTriggerBox.isVisible = false
+      _endTriggerBox.position.copyFrom(endCheckPointPosition)
+      _endTriggerBox.isVisible = false
       const actionManager = new ActionManager(scene)
-      endTriggerBox.actionManager = actionManager
+      _endTriggerBox.actionManager = actionManager
 
       marbleList.value.forEach((marble, i) => {
         actionManager.registerAction(
