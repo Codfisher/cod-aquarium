@@ -2,6 +2,7 @@ import type {
   Scene,
   ShadowGenerator,
 } from '@babylonjs/core'
+import type { Hex, HexLayout } from '../../hex-grid'
 import {
   ImportMeshAsync,
   Quaternion,
@@ -15,11 +16,14 @@ export interface CreateBlockParams {
   type: BlockType;
   scene: Scene;
   shadowGenerator?: ShadowGenerator;
+  hex: Hex;
+  hexLayout: HexLayout;
 }
 
 export interface Block {
   type: BlockType;
   rootNode: TransformNode;
+  hex: Hex;
 }
 
 export async function createBlock(
@@ -27,6 +31,8 @@ export async function createBlock(
     type,
     scene,
     shadowGenerator,
+    hex,
+    hexLayout,
   }: CreateBlockParams,
 ): Promise<Block> {
   const blockDefinition = blockDefinitions[type]
@@ -73,8 +79,11 @@ export async function createBlock(
     }),
   )
 
+  rootNode.position.copyFrom(hexLayout.hexToWorld(hex))
+
   return {
     type,
     rootNode,
+    hex,
   }
 }

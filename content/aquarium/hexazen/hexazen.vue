@@ -160,8 +160,9 @@ async function spawnBlock(blockType: BlockType, hex: Hex) {
     type: blockType,
     scene: scene.value!,
     shadowGenerator: shadowGenerator.value!,
+    hex,
+    hexLayout,
   })
-  block.rootNode.position.copyFrom(hexLayout.hexToWorld(hex))
 
   placedBlockMap.set(hex.key(), block)
 }
@@ -208,6 +209,40 @@ function addCandidate(hex: Hex) {
   targetTileColorMap.set(key, COLOR_CANDIDATE.clone())
   candidateTileMap.set(key, hex)
   tileMeshMap.get(key)!.isPickable = true
+}
+
+/** 基於 placedBlockMap 同步候補格。
+ *
+ * 移除無相鄰 block 的孤立候補、補上缺少的鄰格候補
+ */
+function syncAllCandidateTile() {
+  // 移除沒有相鄰 placed block 的候補格
+  candidateTileMap.forEach((hex, key) => {
+    const hasAdjacentBlock = Array.from({ length: 6 }, (_, d) => hex.neighbor(d))
+      .some((neighbor) => placedBlockMap.has(neighbor.key()))
+
+    if (hasAdjacentBlock)
+      return
+
+    tileMeshMap.get(key)?.dispose()
+    tileMeshMap.delete(key)
+    tileMaterialMap.delete(key)
+    targetTileAlphaMap.delete(key)
+    targetTileColorMap.delete(key)
+    candidateTileMap.delete(key)
+  })
+
+  // 補上 placedBlock 鄰格中缺少的候補
+  placedBlockMap.forEach((block) => {
+    for (let d = 0; d < 6; d++) {
+      addCandidate(block.hex.neighbor(d))
+    }
+  })
+
+  // 若 placedBlockMap 為空，確保原點候補存在
+  if (placedBlockMap.size === 0) {
+    addCandidate(new Hex(0, 0, 0))
+  }
 }
 
 function deselectCurrent() {
@@ -342,6 +377,7 @@ const { canvasRef, scene } = useBabylonScene({
       if (isCleanMode.value) {
         block.rootNode.dispose()
         placedBlockMap.delete(pickedKey)
+        syncAllCandidateTile()
         return
       }
 

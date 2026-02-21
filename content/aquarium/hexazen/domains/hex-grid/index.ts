@@ -62,6 +62,10 @@ export class Hex {
     return d
   }
 
+  /** 取得鄰居（六方向）
+   *
+   * @param dir 0 ~ 5
+   */
   neighbor(dir: number): Hex {
     return this.add(Hex.direction(dir))
   }
