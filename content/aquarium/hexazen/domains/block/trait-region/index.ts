@@ -6,7 +6,7 @@ import { blockDefinitions } from '../builder/data'
 /**
  * 一塊連通的同 trait 區域。
  *
- * 由 {@link calcTraitRegions} 計算，代表地圖上所有
+ * 由 {@link calcTraitRegionList} 計算，代表地圖上所有
  * 擁有相同 trait 且彼此在六角格上相鄰（共用邊）的格子群。
  */
 export interface TraitRegion {
@@ -26,16 +26,21 @@ export interface TraitRegion {
  *
  * 一個 block 若有多個 trait，會分別被計入各 trait 的連通區域中。
  *
- * @param placedBlockMap - 目前已放置的 block（hex key → Block）
+ * @param blocks - 目前已放置的 block（若為 Map，其 key 必須為 hex.key()）
  * @returns 所有連通 trait 區域的列表
  */
-export function calcTraitRegions(placedBlockMap: Map<string, Block>): TraitRegion[] {
-  const regions: TraitRegion[] = []
+export function calcTraitRegionList(blocks: Map<string, Block> | Block[]): TraitRegion[] {
+  const regionList: TraitRegion[] = []
 
   // 對每個 trait 獨立做連通分量分析
   const traitToKeys = new Map<`${TraitType}`, Set<string>>()
 
-  for (const [key, block] of placedBlockMap) {
+  // BFS 展開鄰格時使用 Map（O(1)）比 Array（O(n)）更快
+  const blockMap = Array.isArray(blocks)
+    ? new Map(blocks.map((block) => [block.hex.key(), block]))
+    : blocks
+
+  for (const [key, block] of blockMap) {
     for (const trait of blockDefinitions[block.type].traitList) {
       if (!traitToKeys.has(trait)) {
         traitToKeys.set(trait, new Set())
@@ -50,7 +55,7 @@ export function calcTraitRegions(placedBlockMap: Map<string, Block>): TraitRegio
     while (unvisited.size > 0) {
       // 取出一個起點，開始 BFS
       const startKey = unvisited.values().next().value as string
-      const startBlock = placedBlockMap.get(startKey)!
+      const startBlock = blockMap.get(startKey)!
       unvisited.delete(startKey)
 
       const hexMap = new Map<string, Hex>([[startKey, startBlock.hex]])
@@ -66,14 +71,14 @@ export function calcTraitRegions(placedBlockMap: Map<string, Block>): TraitRegio
           if (!unvisited.has(neighborKey))
             continue
 
-          const neighborBlock = placedBlockMap.get(neighborKey)!
+          const neighborBlock = blockMap.get(neighborKey)!
           unvisited.delete(neighborKey)
           hexMap.set(neighborKey, neighborBlock.hex)
           queue.push(neighborBlock.hex)
         }
       }
 
-      regions.push({
+      regionList.push({
         trait,
         hexMap,
         size: hexMap.size,
@@ -81,5 +86,5 @@ export function calcTraitRegions(placedBlockMap: Map<string, Block>): TraitRegio
     }
   }
 
-  return regions
+  return regionList
 }
