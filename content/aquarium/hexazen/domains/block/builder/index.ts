@@ -3,6 +3,7 @@ import type {
   ShadowGenerator,
 } from '@babylonjs/core'
 import type { Hex, HexLayout } from '../../hex-grid'
+import type { Block, BlockType } from '../type'
 import {
   ImportMeshAsync,
   Quaternion,
@@ -10,7 +11,7 @@ import {
   Vector3,
 } from '@babylonjs/core'
 import { forEach, pipe } from 'remeda'
-import { blockDefinitions, type BlockType } from './data'
+import { blockDefinitions } from './data'
 
 export interface CreateBlockParams {
   type: BlockType;
@@ -18,12 +19,6 @@ export interface CreateBlockParams {
   shadowGenerator?: ShadowGenerator;
   hex: Hex;
   hexLayout: HexLayout;
-}
-
-export interface Block {
-  type: BlockType;
-  rootNode: TransformNode;
-  hex: Hex;
 }
 
 export async function createBlock(

@@ -84,8 +84,7 @@
 <script setup lang="ts">
 import type { AbstractMesh, Mesh, Scene } from '@babylonjs/core'
 import type { CSSProperties } from 'vue'
-import type { Block } from './domains/block/builder'
-import type { BlockType } from './domains/block/builder/data'
+import type { Block, BlockType } from './domains/block/type'
 import {
   Color3,
   DirectionalLight,

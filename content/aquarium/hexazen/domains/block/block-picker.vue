@@ -17,7 +17,7 @@
 </template>
 
 <script setup lang="ts">
-import type { BlockType } from './builder/data'
+import type { BlockType } from './type'
 import { computedAsync } from '@vueuse/core'
 import { get, set } from 'idb-keyval'
 import { onBeforeUnmount } from 'vue'

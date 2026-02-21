@@ -6,13 +6,13 @@ interface Content {
   blockList: any[];
 }
 
-interface ClusterRule {
+interface SoundscapeRule {
   type: string;
   condition: (content: Content) => boolean;
   transform: (content: Content) => Content;
 }
 
-export const clusterRuleList = [
+export const soundscapeRuleList = [
   /** 蟲鳴 */
   {
     type: 'insect',
@@ -56,6 +56,4 @@ export const clusterRuleList = [
       return content
     },
   },
-] as const satisfies ClusterRule[]
-
-export type ClusterType = (typeof clusterRuleList)[number]['type']
+] as const satisfies SoundscapeRule[]
