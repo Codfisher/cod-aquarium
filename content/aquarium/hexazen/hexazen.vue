@@ -286,6 +286,7 @@ const { canvasRef, scene } = useBabylonScene({
 
       if (!isClick && !isMove)
         return
+      hoveredBlock.value = undefined
 
       const pick = scene.pick(
         scene.pointerX,
@@ -317,7 +318,6 @@ const { canvasRef, scene } = useBabylonScene({
         hoveredBlock.value = block
         return
       }
-      hoveredBlock.value = undefined
 
       animatingBlockSet.add(pickedKey)
       const duration = 800
@@ -415,7 +415,14 @@ const { canvasRef, scene } = useBabylonScene({
 })
 
 const canvasStyle = computed<CSSProperties>(() => {
-  const isPointer = hoveredTile.value || hoveredBlock.value
+  const isRotating = hoveredBlock.value
+  if (isRotating) {
+    return {
+      cursor: 'grab',
+    }
+  }
+
+  const isPointer = hoveredTile.value
 
   return {
     cursor: isPointer ? 'pointer' : 'default',
