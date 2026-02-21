@@ -2,7 +2,7 @@
   <u-app>
     <div class="fixed w-dvw h-dvh m-0 p-5 bg-gray-100">
       <div
-        class="w-full h-full chamfer-5"
+        class="w-full h-full chamfer-5 relative"
         :style="canvasStyle"
       >
         <canvas
@@ -10,6 +10,37 @@
           ref="canvasRef"
           class="canvas w-full h-full"
         />
+
+        <div class="absolute right-0 bottom-0 p-5 space-y-4">
+          <u-tooltip
+            text="移除模式"
+            :content="{
+              side: 'left',
+            }"
+          >
+            <u-icon
+              name="i-mingcute:shovel-fill"
+              class="text-4xl cursor-pointer duration-500 outline-0"
+              :class="{
+                'text-gray-400': !isCleanMode,
+                'text-primary': isCleanMode,
+              }"
+              @click="toggleCleanMode()"
+            />
+          </u-tooltip>
+        </div>
+
+        <div class="absolute left-0 bottom-0 p-5 space-y-4">
+          <u-icon
+            :name="isMuted ? 'i-mingcute:volume-mute-fill' : 'i-mingcute:volume-fill'"
+            class="text-4xl cursor-pointer duration-500 outline-0 "
+            :class="{
+              'text-gray-600': !isMuted,
+              'text-gray-300': isMuted,
+            }"
+            @click="toggleMuted()"
+          />
+        </div>
       </div>
 
       <div class=" absolute bottom-0 right-0 p-1 opacity-20 text-xs">
@@ -60,7 +91,7 @@ import {
   StandardMaterial,
   Vector3,
 } from '@babylonjs/core'
-import { useColorMode } from '@vueuse/core'
+import { useColorMode, useToggle } from '@vueuse/core'
 import { animate } from 'animejs'
 import { pipe, tap } from 'remeda'
 import { computed, ref, shallowRef } from 'vue'
@@ -115,6 +146,9 @@ function hexMeshMetadata(mesh?: Mesh | AbstractMesh, update?: Partial<HexMeshMet
 }
 
 // --- Hex Tile 狀態 ---
+
+const [isCleanMode, toggleCleanMode] = useToggle(false)
+const [isMuted, toggleMuted] = useToggle(false)
 
 /** key 來自 Hex.key() */
 const meshMap = new Map<string, Mesh>()
