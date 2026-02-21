@@ -1,6 +1,6 @@
 /** 特性
  *
- * 用於判斷聲音
+ * block 可有多個 trait，不同規模的 trait 會產生對應的 soundscape
  */
 export enum TraitType {
   GRASS = 'grass',
