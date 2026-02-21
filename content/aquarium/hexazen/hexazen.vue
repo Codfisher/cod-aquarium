@@ -80,6 +80,7 @@ import { animate } from 'animejs'
 import { pipe, tap } from 'remeda'
 import { computed, ref, shallowRef } from 'vue'
 import { version } from '../codstack/constants'
+import { cursorDataUrl } from '../meme-cache/constants'
 import { useBabylonScene } from './composables/use-babylon-scene'
 import { useFontLoader } from './composables/use-font-loader'
 import BlockPicker from './domains/block/block-picker.vue'
@@ -445,12 +446,12 @@ const canvasStyle = computed<CSSProperties>(() => {
   if (isRotating) {
     if (isCleanMode.value) {
       return {
-        cursor: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='2em' height='2em' viewBox='0 0 24 24'%3E%3C!-- Icon from MingCute Icon by MingCute Design - https://github.com/Richard9394/MingCute/blob/main/LICENSE --%3E%3Cg fill='none'%3E%3Cpath d='m12.594 23.258l-.012.002l-.071.035l-.02.004l-.014-.004l-.071-.036q-.016-.004-.024.006l-.004.01l-.017.428l.005.02l.01.013l.104.074l.015.004l.012-.004l.104-.074l.012-.016l.004-.017l-.017-.427q-.004-.016-.016-.018m.264-.113l-.014.002l-.184.093l-.01.01l-.003.011l.018.43l.005.012l.008.008l.201.092q.019.005.029-.008l.004-.014l-.034-.614q-.005-.019-.02-.022m-.715.002a.02.02 0 0 0-.027.006l-.006.014l-.034.614q.001.018.017.024l.015-.002l.201-.093l.01-.008l.003-.011l.018-.43l-.003-.012l-.01-.01z'/%3E%3Cpath fill='white' d='M16.243 3.515a1 1 0 0 1 1.414 0l1.41 1.41l.004.004l.005.004l1.41 1.41a1 1 0 0 1-1.415 1.414l-.707-.707l-4.95 4.95l1.414 1.414a2 2 0 0 1 0 2.829l-2.494 2.494a5 5 0 0 1-5.117 1.208l-.949-.316a3 3 0 0 1-1.897-1.898l-.316-.948a5 5 0 0 1 1.208-5.117l2.494-2.495a2 2 0 0 1 2.829 0L12 10.586l4.95-4.95l-.707-.707a1 1 0 0 1 0-1.414'/%3E%3C/g%3E%3C/svg%3E") 12 12, pointer`,
+        cursor: cursorDataUrl.shovelFill,
       }
     }
 
     return {
-      cursor: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='2em' height='2em' viewBox='0 0 24 24'%3E%3C!-- Icon from Material Symbols by Google - https://github.com/google/material-design-icons/blob/master/LICENSE --%3E%3Cpath fill='%23FFFFFF' d='M13 22q-.925 0-1.812-.187t-1.738-.538q-.375-.15-.5-.537t.025-.763t.525-.537t.75.012q.65.275 1.338.413T13 20q2.925 0 4.963-2.037T20 13t-2.05-4.962T12.975 6H12.8l.9.9q.275.275.275.7t-.275.7t-.7.275t-.7-.275L9.7 5.7q-.125-.125-.2-.312T9.425 5t.075-.387t.2-.313l2.6-2.6q.275-.275.7-.275t.7.275t.275.7t-.275.7l-.9.9h.175q3.75 0 6.388 2.625T22 13t-2.625 6.375T13 22m-6-3.425q-.2 0-.375-.062T6.3 18.3l-4.6-4.6q-.15-.15-.212-.325T1.425 13t.063-.375t.212-.325l4.6-4.6q.15-.15.325-.213T7 7.426t.375.063t.325.212l4.6 4.6q.15.15.213.325t.062.375t-.062.375t-.213.325l-4.6 4.6q-.15.15-.325.213T7 18.575m0-2.425L10.15 13L7 9.85L3.85 13zM7 13'/%3E%3C/svg%3E") 12 12, pointer`,
+      cursor: cursorDataUrl.rotate,
     }
   }
 
