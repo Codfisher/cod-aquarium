@@ -1,6 +1,8 @@
 import type { TraitType } from '../../../types'
 import type { BlockType } from '../type'
 
+type TraitTypeUnion = `${TraitType}`
+
 interface PartData {
   path: string;
   position: [number, number, number];
@@ -11,7 +13,7 @@ interface PartData {
 
 interface BlockDefinition {
   /** 一個 block 可能會有多個特性，例如港口同時有 water、building */
-  traitList: Array<`${TraitType}`>;
+  traitList: TraitTypeUnion[];
   content: {
     version: number;
     rootFolderName: string;
@@ -22,7 +24,7 @@ interface BlockDefinition {
 export const blockDefinitions = {
   /** grass */
   g1: {
-    traitList: ['grass'],
+    traitList: ['grass'] as TraitTypeUnion[],
     content: {
       version: 1,
       rootFolderName: 'assets',
@@ -43,7 +45,7 @@ export const blockDefinitions = {
     },
   },
   g2: {
-    traitList: ['grass'],
+    traitList: ['grass'] as TraitTypeUnion[],
     content: {
       version: 1,
       rootFolderName: 'assets',
@@ -77,7 +79,7 @@ export const blockDefinitions = {
   },
   /** tree */
   t1: {
-    traitList: ['tree'],
+    traitList: ['tree'] as TraitTypeUnion[],
     content: {
       version: 1,
       rootFolderName: 'assets',
@@ -98,7 +100,7 @@ export const blockDefinitions = {
     },
   },
   t2: {
-    traitList: ['tree'],
+    traitList: ['tree'] as TraitTypeUnion[],
     content: {
       version: 1,
       rootFolderName: 'assets',
@@ -120,7 +122,7 @@ export const blockDefinitions = {
   },
   /** building */
   b1: {
-    traitList: ['building'],
+    traitList: ['building'] as TraitTypeUnion[],
     content: {
       version: 1,
       rootFolderName: 'assets',
@@ -141,7 +143,7 @@ export const blockDefinitions = {
     },
   },
   b2: {
-    traitList: ['building'],
+    traitList: ['building'] as TraitTypeUnion[],
     content: {
       version: 1,
       rootFolderName: 'assets',
@@ -162,7 +164,7 @@ export const blockDefinitions = {
     },
   },
   b3: {
-    traitList: ['building'],
+    traitList: ['building'] as TraitTypeUnion[],
     content: {
       version: 1,
       rootFolderName: 'assets',
@@ -183,7 +185,7 @@ export const blockDefinitions = {
     },
   },
   b4: {
-    traitList: ['building'],
+    traitList: ['building'] as TraitTypeUnion[],
     content: {
       version: 1,
       rootFolderName: 'assets',
@@ -205,7 +207,7 @@ export const blockDefinitions = {
   },
   /** alpine */
   a1: {
-    traitList: ['alpine'],
+    traitList: ['alpine'] as TraitTypeUnion[],
     content: {
       version: 1,
       rootFolderName: 'assets',
@@ -226,7 +228,7 @@ export const blockDefinitions = {
     },
   },
   a2: {
-    traitList: ['alpine'],
+    traitList: ['alpine'] as TraitTypeUnion[],
     content: {
       version: 1,
       rootFolderName: 'assets',
@@ -248,7 +250,7 @@ export const blockDefinitions = {
   },
   /** water */
   w1: {
-    traitList: ['water'],
+    traitList: ['water'] as TraitTypeUnion[],
     content: {
       version: 1,
       rootFolderName: 'assets',
@@ -271,7 +273,7 @@ export const blockDefinitions = {
 
   /** river */
   r1: {
-    traitList: ['river'],
+    traitList: ['river'] as TraitTypeUnion[],
     content: {
       version: 1,
       rootFolderName: 'assets',
@@ -292,7 +294,7 @@ export const blockDefinitions = {
     },
   },
   r2: {
-    traitList: ['river'],
+    traitList: ['river'] as TraitTypeUnion[],
     content: {
       version: 1,
       rootFolderName: 'assets',
@@ -313,7 +315,7 @@ export const blockDefinitions = {
     },
   },
   r3: {
-    traitList: ['river'],
+    traitList: ['river'] as TraitTypeUnion[],
     content: {
       version: 1,
       rootFolderName: 'assets',
@@ -334,7 +336,7 @@ export const blockDefinitions = {
     },
   },
   r4: {
-    traitList: ['river'],
+    traitList: ['river'] as TraitTypeUnion[],
     content: {
       version: 1,
       rootFolderName: 'assets',
@@ -355,7 +357,7 @@ export const blockDefinitions = {
     },
   },
   r5: {
-    traitList: ['river', 'building'],
+    traitList: ['river', 'building'] as TraitTypeUnion[],
     content: {
       version: 1,
       rootFolderName: 'assets',

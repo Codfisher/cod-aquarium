@@ -107,11 +107,8 @@ import { useBabylonScene } from './composables/use-babylon-scene'
 import { useFontLoader } from './composables/use-font-loader'
 import BlockPicker from './domains/block/block-picker.vue'
 import { createBlock } from './domains/block/builder'
-import { calcTraitRegionList } from './domains/block/trait-region'
 import { Hex, HexLayout } from './domains/hex-grid'
 import { useSoundscapePlayer } from './domains/soundscape/player/use-soundscape-player'
-import { resolveSoundscape } from './domains/soundscape/resolver'
-import { Soundscape, SoundscapeType } from './domains/soundscape/type'
 
 // Nuxt UI 接管 vitepress 的 dark 設定，故改用 useColorMode
 const colorMode = useColorMode()

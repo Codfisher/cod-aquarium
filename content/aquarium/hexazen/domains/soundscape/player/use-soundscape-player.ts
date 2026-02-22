@@ -1,19 +1,14 @@
 import type { Block } from '../../block/type'
 import type { SoundscapeType } from '../type'
 import { computed, watch } from 'vue'
-import { calcTraitRegionList } from '../../block/trait-region'
 import { resolveSoundscape } from '../resolver'
 import { SoundscapePlayer } from './player'
 
 export function useSoundscapePlayer(
   blockMap: Map<string, Block>,
 ) {
-  const traitRegionList = computed(
-    () => calcTraitRegionList(blockMap),
-  )
-
   const soundscapeList = computed(
-    () => resolveSoundscape(traitRegionList.value, blockMap),
+    () => resolveSoundscape(blockMap),
   )
 
   /** 目前正在播放的音效，key 為 SoundscapeType */
