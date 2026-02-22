@@ -16,7 +16,7 @@ export function resolveSoundscape(
     reduce((acc, rule) => {
       return rule.transform(acc)
     }, [] as Soundscape[]),
-    uniqueBy(prop('type')),
+    // uniqueBy(prop('type')),
   )
 
   return result

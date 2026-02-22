@@ -36,21 +36,30 @@ export const soundscapeRuleList: SoundscapeRule[] = [
       ],
     }]),
   },
+
   /** 蟲鳴 */
   {
     type: 'insect',
-    // 有任何 grass size >= 3
+    // grass size >= 3
     condition(traitRegionList) {
       return traitRegionList.some((traitRegion) => traitRegion.trait === 'grass' && traitRegion.size >= 3)
     },
     transform: concat([
       {
         type: 'insect',
-        mode: 'loop',
+        mode: 'interval',
         soundList: [
           {
             src: 'hexazen/sounds/insect.mp3',
-            volume: 0.1,
+            volume: 0.2,
+          },
+          {
+            src: 'hexazen/sounds/insect-cricket.mp3',
+            volume: 0.2,
+          },
+          {
+            src: 'hexazen/sounds/insect-dark-bush-cricket.mp3',
+            volume: 0.5,
           },
         ],
       },
@@ -134,6 +143,10 @@ export const soundscapeRuleList: SoundscapeRule[] = [
           {
             src: 'hexazen/sounds/frog-common-toad.mp3',
           },
+          {
+            src: 'hexazen/sounds/frog-burrowing-toad.mp3',
+            volume: 0.5,
+          },
         ],
       },
     ]),
@@ -173,7 +186,32 @@ export const soundscapeRuleList: SoundscapeRule[] = [
         soundList: [
           {
             src: 'hexazen/sounds/river-fast-flowing.mp3',
-            volume: 0.2,
+            volume: 0.5,
+          },
+        ],
+      },
+    ]),
+  },
+
+  /** 建築 */
+  {
+    type: 'building',
+    // 任意 building size >= 5
+    condition(traitRegionList) {
+      return traitRegionList.some((traitRegion) => traitRegion.trait === 'building' && traitRegion.size >= 5)
+    },
+    transform: concat([
+      {
+        type: 'building',
+        mode: 'interval',
+        soundList: [
+          {
+            src: 'hexazen/sounds/building-market.mp3',
+            volume: 0.5,
+          },
+          {
+            src: 'hexazen/sounds/building-british-museum.mp3',
+            volume: 0.5,
           },
         ],
       },
