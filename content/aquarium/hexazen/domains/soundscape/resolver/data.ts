@@ -81,10 +81,11 @@ export const soundscapeRuleList: SoundscapeRule[] = [
           for (let direction = 0; direction < 6; direction++) {
             const neighborHex = waterHex.neighbor(direction)
             const neighborBlock = blockMap.get(neighborHex.key())
+            // 鄰格沒有放 block，跳過
             if (!neighborBlock)
-              continue // 鄰格沒有放 block，跳過
-            // 鄰格有 block 且不帶 water trait → 符合條件
+              continue
 
+            // 鄰格有 block 且不帶 water trait → 符合條件
             const isNotWater = !blockDefinitions[neighborBlock.type].traitList.includes('water')
 
             if (isNotWater)
