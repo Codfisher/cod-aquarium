@@ -18,7 +18,7 @@ interface SoundscapeRule {
 }
 
 export const soundscapeRuleList: SoundscapeRule[] = [
-  /** 草地 */
+  /** 風吹草動 */
   {
     type: 'rustle',
     // grass size >= 3 或 tree size >= 1
@@ -59,7 +59,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
           },
           {
             src: 'hexazen/sounds/insect-dark-bush-cricket.mp3',
-            volume: 0.5,
+            volume: 0.2,
           },
         ],
       },
@@ -69,7 +69,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
   /** 鳥叫 */
   {
     type: 'bird',
-    // tree >= 3
+    // tree >= 5
     condition(traitRegionList) {
       return traitRegionList.some((traitRegion) => traitRegion.trait === 'tree' && traitRegion.size >= 5)
     },
@@ -175,9 +175,9 @@ export const soundscapeRuleList: SoundscapeRule[] = [
   /** 河流 */
   {
     type: 'river',
-    // 任意 river
+    // 任意 river size >= 2
     condition(traitRegionList) {
-      return traitRegionList.some((traitRegion) => traitRegion.trait === 'river')
+      return traitRegionList.some((traitRegion) => traitRegion.trait === 'river' && traitRegion.size >= 2)
     },
     transform: concat([
       {
