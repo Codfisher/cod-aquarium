@@ -46,7 +46,9 @@ export class SoundscapePlayer {
     const audioA = new Audio(soundData.src)
     const audioB = new Audio(soundData.src)
     audioA.volume = baseVolume
+    audioA.loop = true
     audioB.volume = baseVolume
+    audioB.loop = true
 
     this.activeAudios.add(audioA)
     this.activeAudios.add(audioB)
