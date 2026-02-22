@@ -1,13 +1,13 @@
-import type { soundscapeRuleList } from './resolver/data'
-
-export type SoundscapeType = (typeof soundscapeRuleList)[number]['type']
+export type SoundscapeType = 'grass' | 'insect' | 'bird' | 'frog' | 'beast'
 
 interface Sound {
-  src: string
-  volume?: number
+  src: string;
+  /** 0 ~ 1 */
+  volume?: number;
 }
 
 export interface Soundscape {
-  type: SoundscapeType
-  soundList: Sound[]
+  type: SoundscapeType;
+  mode: 'loop' | 'interval';
+  soundList: Sound[];
 }

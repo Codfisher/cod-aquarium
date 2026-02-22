@@ -66,8 +66,8 @@ export function calcTraitRegionList(
       const queue: Hex[] = [startBlock.hex]
 
       /** 建立游標，初始指向第 0 格
-       * 
-       * 避免使用 shift()，因為它會破壞陣列的記憶體連續性，導致效能下降 
+       *
+       * 避免使用 shift()，因為它會破壞陣列的記憶體連續性，導致效能下降
        */
       let head = 0
 
