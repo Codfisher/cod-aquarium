@@ -71,29 +71,40 @@ export const soundscapeRuleList: SoundscapeRule[] = [
   /** 蛙鳴 */
   {
     type: 'frog',
+    // 任意 water 旁至少有 5 個非 water
     condition(traitRegionList, blockMap) {
       // 找出所有 water TraitRegion
       const waterRegionList = traitRegionList.filter(
         (traitRegion) => traitRegion.trait === 'water',
       )
-      // 對每個 water 格，檢查 6 個鄰格
+
       for (const waterRegion of waterRegionList) {
         for (const [, waterHex] of waterRegion.hexMap) {
+          let nonWaterCount = 0
+
+          // 對每個 water 格，檢查 6 個鄰格
           for (let direction = 0; direction < 6; direction++) {
             const neighborHex = waterHex.neighbor(direction)
             const neighborBlock = blockMap.get(neighborHex.key())
+
             // 鄰格沒有放 block，跳過
             if (!neighborBlock)
               continue
 
-            // 鄰格有 block 且不帶 water trait → 符合條件
+            // 鄰格有 block 且不帶 water trait
             const isNotWater = !blockDefinitions[neighborBlock.type].traitList.includes('water')
 
-            if (isNotWater)
-              return true
+            if (isNotWater) {
+              nonWaterCount++
+
+              if (nonWaterCount >= 5) {
+                return true
+              }
+            }
           }
         }
       }
+
       return false
     },
     transform(result) {

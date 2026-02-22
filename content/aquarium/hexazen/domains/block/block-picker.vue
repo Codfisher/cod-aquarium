@@ -1,17 +1,24 @@
 <template>
   <div class="chamfer-4 p-1 bg-gray-200 ">
-    <div class="flex flex-nowrap gap-1 bg-white chamfer-3.5 p-3  overflow-x-auto">
-      <div
-        v-for="(item) in blockThumbnailList"
-        :key="item.type"
-        class="size-22 shrink-0 chamfer-3 p-0.5 bg-gray-100 cursor-pointer"
-        @click="handleClick(item.type)"
+    <div class="bg-white chamfer-3.5 p-3">
+      <u-carousel
+        v-slot="{ item }"
+        :items="blockThumbnailList"
+        :ui="{
+          item: 'basis-auto ps-2',
+          container: 'ms-0',
+        }"
       >
-        <img
-          :src="item.thumbnail"
-          class="border-none! bg-white chamfer-2.5"
+        <div
+          class="size-22 chamfer-3 p-0.5 bg-gray-100 cursor-pointer"
+          @click="handleClick(item.type)"
         >
-      </div>
+          <img
+            :src="item.thumbnail"
+            class="border-none! bg-white chamfer-2.5"
+          >
+        </div>
+      </u-carousel>
     </div>
   </div>
 </template>
