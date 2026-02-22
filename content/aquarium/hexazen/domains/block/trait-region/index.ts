@@ -12,7 +12,7 @@ import { blockDefinitions } from '../builder/data'
 export interface TraitRegion {
   /** 此區域的特性 */
   trait: `${TraitType}`;
-  /** 區域內所有格子（hex key → Hex） */
+  /** 區域內所有格子 */
   hexMap: Map<string, Hex>;
   /** 面積（格子數） */
   size: number;
@@ -65,8 +65,15 @@ export function calcTraitRegionList(
       const hexMap = new Map<string, Hex>([[startKey, startBlock.hex]])
       const queue: Hex[] = [startBlock.hex]
 
-      while (queue.length > 0) {
-        const current = queue.shift()!
+      /** 建立游標，初始指向第 0 格
+       *
+       * 避免使用 shift()，因為它會破壞陣列的記憶體連續性，導致效能下降
+       */
+      let head = 0
+
+      while (head < queue.length) {
+        const current = queue[head]!
+        head++
 
         for (let direction = 0; direction < 6; direction++) {
           const neighbor = current.neighbor(direction)

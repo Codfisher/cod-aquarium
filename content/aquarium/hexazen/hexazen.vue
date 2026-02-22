@@ -28,26 +28,33 @@
             />
           </u-tooltip>
 
-          <u-popover>
+          <u-popover
+            :ui="{
+              content: 'chamfer-3 bg-gray-200 p-0.5',
+            }"
+          >
             <u-icon
               name="i-material-symbols:cleaning-services-rounded"
               class="text-[32px] cursor-pointer duration-500 outline-0"
             />
 
-            <template #content>
-              <div class="p-4 space-y-2">
-                <div class=" font-bold">
-                  Confirm to remove all blocks?
-                </div>
-                <div class=" text-sm">
-                  This action can't be undone
-                </div>
-                <div class="flex justify-end">
-                  <u-button
-                    label="Remove All"
-                    color="error"
-                    @click="removeAllBlocks()"
-                  />
+            <template #content="{ close }">
+              <div class="chamfer-2.5 bg-white">
+                <div class="p-4 space-y-2 ">
+                  <div class=" font-bold">
+                    Confirm to remove all blocks?
+                  </div>
+                  <div class=" text-sm">
+                    This action can't be undone
+                  </div>
+
+                  <div class="flex justify-end">
+                    <base-btn
+                      label="Remove All"
+                      color="error"
+                      @click="removeAllBlocks(); close()"
+                    />
+                  </div>
                 </div>
               </div>
             </template>
@@ -70,13 +77,16 @@
 
     <!-- u-slideover 開啟動畫不穩動，不知道為甚麼會抖動 -->
     <div
-      class=" fixed bottom-0 right-0 w-full flex justify-center p-10 duration-300 ease-in-out max-w-[90dvw]"
+      class=" fixed bottom-0 left-0 right-0 flex justify-center p-10 duration-300 ease-in-out "
       :class="{
         'translate-y-0': blockPickerVisible,
         'translate-y-full': !blockPickerVisible,
       }"
     >
-      <block-picker @select="handleSelectBlock" />
+      <block-picker
+        class="max-w-[80dvw] md:max-w-[70dvw]"
+        @select="handleSelectBlock"
+      />
     </div>
   </u-app>
 </template>
@@ -97,14 +107,16 @@ import {
 import { useColorMode, useToggle } from '@vueuse/core'
 import { animate } from 'animejs'
 import { pipe, tap } from 'remeda'
-import { computed, ref, shallowRef } from 'vue'
+import { computed, ref, shallowReactive, shallowRef, watch } from 'vue'
 import { version } from '../codstack/constants'
 import { cursorDataUrl } from '../meme-cache/constants'
+import BaseBtn from './components/base-btn.vue'
 import { useBabylonScene } from './composables/use-babylon-scene'
 import { useFontLoader } from './composables/use-font-loader'
 import BlockPicker from './domains/block/block-picker.vue'
 import { createBlock } from './domains/block/builder'
 import { Hex, HexLayout } from './domains/hex-grid'
+import { useSoundscapePlayer } from './domains/soundscape/player/use-soundscape-player'
 
 // Nuxt UI 接管 vitepress 的 dark 設定，故改用 useColorMode
 const colorMode = useColorMode()
@@ -165,7 +177,7 @@ const targetTileColorMap = new Map<string, Color3>()
 const hoveredTile = shallowRef<Hex>()
 const selectedTile = shallowRef<Hex>()
 
-const placedBlockMap = new Map<string, Block>()
+const placedBlockMap = shallowReactive(new Map<string, Block>())
 const hoveredBlock = shallowRef<Block>()
 
 /** 對齊模型與 hex 的大小 */
@@ -564,6 +576,8 @@ function handleSelectBlock(blockType: BlockType) {
 
   deselectCurrent()
 }
+
+useSoundscapePlayer(placedBlockMap)
 </script>
 
 <style lang="sass" scoped>
