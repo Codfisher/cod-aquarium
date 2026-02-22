@@ -18,20 +18,19 @@ interface SoundscapeRule {
 }
 
 export const soundscapeRuleList: SoundscapeRule[] = [
-  /** 風吹草動 */
+  /** 風吹樹梢 */
   {
     type: 'rustle',
-    // grass size >= 3 或 tree size >= 1
+    // tree size >= 2
     condition: (traitRegionList) => [
-      traitRegionList.some((traitRegion) => traitRegion.trait === 'grass' && traitRegion.size >= 3),
-      traitRegionList.some((traitRegion) => traitRegion.trait === 'tree'),
+      traitRegionList.some((traitRegion) => traitRegion.trait === 'tree' && traitRegion.size >= 2),
     ].some(isTruthy),
     transform: concat([{
       type: 'rustle',
       mode: 'loop',
       soundList: [
         {
-          src: 'hexazen/sounds/rustle.mp3',
+          src: 'hexazen/sounds/rustle-tree.mp3',
         },
       ],
     }]),
