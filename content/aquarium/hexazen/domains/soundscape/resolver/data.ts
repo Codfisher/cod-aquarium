@@ -50,7 +50,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
         soundList: [
           {
             src: 'hexazen/sounds/insect.mp3',
-            volume: 0.5,
+            volume: 0.1,
           },
         ],
       },
@@ -60,12 +60,27 @@ export const soundscapeRuleList: SoundscapeRule[] = [
   /** 鳥叫 */
   {
     type: 'bird',
+    // tree >= 3
     condition(traitRegionList) {
-      return true
+      return traitRegionList.some((traitRegion) => traitRegion.trait === 'tree' && traitRegion.size >= 5)
     },
-    transform(result) {
-      return result
-    },
+    transform: concat([
+      {
+        type: 'bird',
+        mode: 'interval',
+        soundList: [
+          {
+            src: 'hexazen/sounds/bird-scottish-crossbill.mp3',
+          },
+          {
+            src: 'hexazen/sounds/bird-blackbird.mp3',
+          },
+          {
+            src: 'hexazen/sounds/bird-moorhen.mp3',
+          },
+        ],
+      },
+    ]),
   },
 
   /** 蛙鳴 */
@@ -107,29 +122,61 @@ export const soundscapeRuleList: SoundscapeRule[] = [
 
       return false
     },
-    transform(result) {
-      result.push({
+    transform: concat([
+      {
         type: 'frog',
         mode: 'interval',
         soundList: [
           {
             src: 'hexazen/sounds/frog.mp3',
+            volume: 0.5,
+          },
+          {
+            src: 'hexazen/sounds/frog-common-toad.mp3',
           },
         ],
-      })
-
-      return result
-    },
+      },
+    ]),
   },
 
   /** 獸鳴 */
   {
     type: 'beast',
+    // tree >= 10
     condition(traitRegionList) {
-      return true
+      return traitRegionList.some((traitRegion) => traitRegion.trait === 'tree' && traitRegion.size >= 10)
     },
-    transform(result) {
-      return result
+    transform: concat([
+      {
+        type: 'beast',
+        mode: 'interval',
+        soundList: [
+          {
+            src: 'hexazen/sounds/beast-american-pika.mp3',
+          },
+        ],
+      },
+    ]),
+  },
+
+  /** 河流 */
+  {
+    type: 'river',
+    // 任意 river
+    condition(traitRegionList) {
+      return traitRegionList.some((traitRegion) => traitRegion.trait === 'river')
     },
+    transform: concat([
+      {
+        type: 'river',
+        mode: 'interval',
+        soundList: [
+          {
+            src: 'hexazen/sounds/river-fast-flowing.mp3',
+            volume: 0.2,
+          },
+        ],
+      },
+    ]),
   },
 ]

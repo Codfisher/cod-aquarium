@@ -2,7 +2,8 @@ export type SoundscapeType = 'rustle' |
   'insect' |
   'bird' |
   'frog' |
-  'beast'
+  'beast' |
+  'river'
 
 interface Sound {
   src: string;
