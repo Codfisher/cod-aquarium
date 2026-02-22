@@ -28,26 +28,33 @@
             />
           </u-tooltip>
 
-          <u-popover>
+          <u-popover
+            :ui="{
+              content: 'chamfer-3 bg-gray-200 p-0.5',
+            }"
+          >
             <u-icon
               name="i-material-symbols:cleaning-services-rounded"
               class="text-[32px] cursor-pointer duration-500 outline-0"
             />
 
-            <template #content>
-              <div class="p-4 space-y-2">
-                <div class=" font-bold">
-                  Confirm to remove all blocks?
-                </div>
-                <div class=" text-sm">
-                  This action can't be undone
-                </div>
-                <div class="flex justify-end">
-                  <u-button
-                    label="Remove All"
-                    color="error"
-                    @click="removeAllBlocks()"
-                  />
+            <template #content="{ close }">
+              <div class="chamfer-2.5 bg-white">
+                <div class="p-4 space-y-2 ">
+                  <div class=" font-bold">
+                    Confirm to remove all blocks?
+                  </div>
+                  <div class=" text-sm">
+                    This action can't be undone
+                  </div>
+
+                  <div class="flex justify-end">
+                    <base-btn
+                      label="Remove All"
+                      color="error"
+                      @click="removeAllBlocks(); close()"
+                    />
+                  </div>
                 </div>
               </div>
             </template>
@@ -103,6 +110,7 @@ import { pipe, tap } from 'remeda'
 import { computed, ref, shallowReactive, shallowRef, watch } from 'vue'
 import { version } from '../codstack/constants'
 import { cursorDataUrl } from '../meme-cache/constants'
+import BaseBtn from './components/base-btn.vue'
 import { useBabylonScene } from './composables/use-babylon-scene'
 import { useFontLoader } from './composables/use-font-loader'
 import BlockPicker from './domains/block/block-picker.vue'
