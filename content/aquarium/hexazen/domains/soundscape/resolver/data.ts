@@ -5,7 +5,7 @@
 import type { TraitRegion } from '../../block/trait-region'
 import type { Block } from '../../block/type'
 import type { Soundscape, SoundscapeType } from '../type'
-import { concat } from 'remeda'
+import { concat, isTruthy } from 'remeda'
 import { blockDefinitions } from '../../block/builder/data'
 
 interface SoundscapeRule {
@@ -20,17 +20,18 @@ interface SoundscapeRule {
 export const soundscapeRuleList: SoundscapeRule[] = [
   /** 草地 */
   {
-    type: 'grass',
-    // 有任何 grass
-    condition(traitRegionList) {
-      return traitRegionList.some((traitRegion) => traitRegion.trait === 'grass')
-    },
+    type: 'rustle',
+    // grass size >= 3 或 tree size >= 1
+    condition: (traitRegionList) => [
+      traitRegionList.some((traitRegion) => traitRegion.trait === 'grass' && traitRegion.size >= 3),
+      traitRegionList.some((traitRegion) => traitRegion.trait === 'tree'),
+    ].some(isTruthy),
     transform: concat([{
-      type: 'grass',
+      type: 'rustle',
       mode: 'loop',
       soundList: [
         {
-          src: 'hexazen/sounds/grass.mp3',
+          src: 'hexazen/sounds/rustle.mp3',
         },
       ],
     }]),
