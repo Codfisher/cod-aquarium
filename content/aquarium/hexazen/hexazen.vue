@@ -16,7 +16,7 @@
           mode="out-in"
         >
           <div
-            v-if="isEditMode"
+            v-if="isEditMode && !isSharedView"
             class="absolute right-0 bottom-0 p-5 space-y-6 text-gray-400"
           >
             <u-tooltip
@@ -94,7 +94,7 @@
           </div>
 
           <div
-            v-else
+            v-else-if="!isSharedView"
             class="absolute right-0 bottom-0 p-5 space-y-6 text-gray-400"
           >
             <u-tooltip
@@ -114,6 +114,7 @@
 
         <div class="absolute left-0 bottom-0 p-5 space-y-6">
           <u-tooltip
+            v-if="!isSharedView"
             text="Share your soundscape with others"
             :content="{
               side: 'right',
@@ -187,9 +188,16 @@ colorMode.value = 'light'
 
 useFontLoader()
 
+const sharedViewEncodedData = pipe(
+  // 因為 whyframe 隔離，需要從 parent 取得 URL
+  new URLSearchParams(window.parent.location.search || window.location.search),
+  (urlParams) => urlParams.get('view'),
+)
+const isSharedView = !!sharedViewEncodedData
+
 const [isEditMode, toggleEditMode] = useToggle(true)
 const [isRemoveMode, toggleRemoveMode] = useToggle(false)
-const [isMuted, toggleMuted] = useToggle(false)
+const [isMuted, toggleMuted] = useToggle(isSharedView)
 
 // --- Tile、Block 狀態 ---
 
@@ -479,7 +487,7 @@ const { canvasRef, scene } = useBabylonScene({
     const animatingBlockSet = new Set<string>()
     // 處理 placedBlock 點擊
     scene.onPointerObservable.add((info) => {
-      if (!isEditMode.value) {
+      if (!isEditMode.value || isSharedView) {
         return
       }
 
@@ -553,7 +561,7 @@ const { canvasRef, scene } = useBabylonScene({
 
     // 處理 tile 之 hover、select
     scene.onPointerObservable.add((info) => {
-      if (!isEditMode.value) {
+      if (!isEditMode.value || isSharedView) {
         return
       }
 
@@ -616,7 +624,7 @@ const { canvasRef, scene } = useBabylonScene({
       const t = 1 - Math.exp(-FADE_SPEED * dt)
 
       for (const [key, material] of tileMaterialMap) {
-        if (!isEditMode.value) {
+        if (!isEditMode.value || isSharedView) {
           material.alpha = material.alpha + (ALPHA_HIDDEN - material.alpha) * t
           continue
         }

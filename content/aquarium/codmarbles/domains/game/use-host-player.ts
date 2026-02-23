@@ -1,9 +1,9 @@
-import { peerDataSchema, send, useGameStore } from './game-store'
 import { computedAsync, createSharedComposable, whenever } from '@vueuse/core'
-import QRCode from 'qrcode'
 import { storeToRefs } from 'pinia'
-import { getRandomMarbleName } from '../marble'
+import QRCode from 'qrcode'
 import { computed } from 'vue'
+import { getRandomMarbleName } from '../marble'
+import { peerDataSchema, send, useGameStore } from './game-store'
 
 function _useHostPlayer() {
   const gameStore = useGameStore()
@@ -63,7 +63,7 @@ function _useHostPlayer() {
       return ''
     }
 
-    console.log(`🚀 ~ joinUrl.value:`, joinUrl.value);
+    console.log(`🚀 ~ joinUrl.value:`, joinUrl.value)
     return QRCode.toDataURL(joinUrl.value)
   }, '')
 
