@@ -1,9 +1,9 @@
-
-import { PeerData, peerDataSchema, useGameStore } from './game-store'
-import { createEventHook, createSharedComposable, whenever } from '@vueuse/core'
+import type { GameState } from '../../types'
+import type { PeerData } from './game-store'
+import { createSharedComposable, whenever } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { computed } from 'vue'
-import { GameState } from '../../types'
+import { peerDataSchema, useGameStore } from './game-store'
 
 function _useClientPlayer() {
   const gameStore = useGameStore()

@@ -56,14 +56,17 @@ const defaultParam: Required<UseBabylonSceneParam> = {
 
     const defaultLight = scene.lights.at(-1)
     if (defaultLight instanceof HemisphericLight) {
+      defaultLight.diffuse = new Color3(1.0, 0.98, 0.95)
       defaultLight.direction = new Vector3(0.5, 1, 0)
+      defaultLight.intensity = 0.9
+      defaultLight.groundColor = new Color3(0.64, 0.56, 0.78)
     }
 
-    scene.clearColor = new Color4(1, 1, 1, 1)
+    scene.clearColor = new Color4(0.97, 0.97, 0.96, 1)
 
     scene.fogMode = Scene.FOGMODE_LINEAR
-    scene.fogColor = new Color3(0.8, 0.8, 0.8)
-    scene.fogStart = 20
+    scene.fogColor = new Color3(0.88, 0.87, 0.85)
+    scene.fogStart = 10
     scene.fogEnd = 30
 
     return scene
@@ -73,7 +76,7 @@ const defaultParam: Required<UseBabylonSceneParam> = {
       'camera',
       0,
       Math.PI / 3 * 2,
-      10,
+      5,
       new Vector3(0, 0, 0),
       scene,
     )
@@ -84,7 +87,7 @@ const defaultParam: Required<UseBabylonSceneParam> = {
 
     camera.wheelDeltaPercentage = 0.01
     camera.lowerRadiusLimit = 5
-    camera.upperRadiusLimit = 10
+    camera.upperRadiusLimit = 8
 
     // 限制鏡頭角度
     camera.lowerBetaLimit = Math.PI / 3

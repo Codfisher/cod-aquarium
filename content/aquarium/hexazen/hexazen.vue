@@ -16,8 +16,8 @@
           mode="out-in"
         >
           <div
-            v-if="isEditMode"
-            class="absolute right-0 bottom-0 p-5 space-y-4 text-gray-400"
+            v-if="isEditMode && !isSharedView"
+            class="absolute right-0 bottom-0 p-5 space-y-6 text-gray-400"
           >
             <u-tooltip
               text="Remove Mode"
@@ -27,7 +27,7 @@
             >
               <u-icon
                 name="i-mingcute:shovel-fill"
-                class="text-4xl cursor-pointer duration-500 outline-0"
+                class="text-3xl cursor-pointer duration-500 outline-0"
                 :class="{
                   'text-primary': isRemoveMode,
                 }"
@@ -47,8 +47,8 @@
                 }"
               >
                 <u-icon
-                  name="i-material-symbols:cleaning-services-rounded"
-                  class="text-[32px] cursor-pointer duration-500 outline-0"
+                  name="tdesign:clear-formatting-1-filled"
+                  class="text-3xl cursor-pointer duration-500 outline-0 scale-90"
                 />
               </u-tooltip>
 
@@ -76,6 +76,7 @@
 
             <u-separator
               size="sm"
+              :ui="{ border: 'border-gray-300' }"
               class="py-1"
             />
 
@@ -87,15 +88,15 @@
             >
               <u-icon
                 name="i-line-md:arrow-small-left"
-                class="text-4xl cursor-pointer duration-500 outline-0"
+                class="text-3xl cursor-pointer duration-500 outline-0"
                 @click="toggleEditMode()"
               />
             </u-tooltip>
           </div>
 
           <div
-            v-else
-            class="absolute right-0 bottom-0 p-5 space-y-4 text-gray-400"
+            v-else-if="!isSharedView"
+            class="absolute right-0 bottom-0 p-5 space-y-6 text-gray-400"
           >
             <u-tooltip
               text="Edit Mode"
@@ -105,17 +106,45 @@
             >
               <u-icon
                 name="i-line-md:pencil-alt-twotone"
-                class="text-4xl cursor-pointer duration-500 outline-0"
+                class="text-3xl cursor-pointer duration-500 outline-0"
                 @click="toggleEditMode()"
               />
             </u-tooltip>
           </div>
         </transition>
 
-        <div class="absolute left-0 bottom-0 p-5 space-y-4">
+        <div class="absolute left-0 bottom-0 p-5 space-y-6">
+          <u-slider
+            v-model="globalVolume"
+            orientation="vertical"
+            :min="0"
+            :max="1"
+            :step="0.01"
+            :ui="{
+              track: 'bg-gray-200',
+              range: 'bg-gray-300',
+              thumb: ' ring-gray-500 bg-gray-200',
+            }"
+            class="h-30"
+          />
+
+          <u-tooltip
+            v-if="!isSharedView"
+            text="Share your soundscape with others"
+            :content="{
+              side: 'right',
+            }"
+          >
+            <u-icon
+              name="i-material-symbols:share"
+              class="text-3xl cursor-pointer outline-0 text-gray-400"
+              @click="handleShare()"
+            />
+          </u-tooltip>
+
           <u-icon
             :name="isMuted ? 'i-mingcute:volume-mute-fill' : 'i-mingcute:volume-fill'"
-            class="text-4xl cursor-pointer outline-0 text-gray-400"
+            class="text-3xl cursor-pointer outline-0 text-gray-400"
             @click="toggleMuted()"
           />
         </div>
@@ -147,7 +176,13 @@ import type { AbstractMesh, Mesh, Scene } from '@babylonjs/core'
 import type { CSSProperties } from 'vue'
 import type { Block, BlockType } from './domains/block/type'
 import {
+  ArcRotateCamera,
   Color3,
+  Color4,
+  ColorCurves,
+  ColorGradingTexture,
+  DefaultRenderingPipeline,
+  DepthOfFieldEffectBlurLevel,
   DirectionalLight,
   MeshBuilder,
   PointerEventTypes,
@@ -155,7 +190,7 @@ import {
   StandardMaterial,
   Vector3,
 } from '@babylonjs/core'
-import { useColorMode, useToggle } from '@vueuse/core'
+import { useColorMode, useToggle, whenever } from '@vueuse/core'
 import { animate } from 'animejs'
 import { pipe, tap } from 'remeda'
 import { computed, ref, shallowReactive, shallowRef, watch } from 'vue'
@@ -167,6 +202,7 @@ import { version } from './constants'
 import BlockPicker from './domains/block/block-picker.vue'
 import { createBlock } from './domains/block/builder'
 import { Hex, HexLayout } from './domains/hex-grid'
+import { decodeBlocks, encodeBlocks } from './domains/share/codec'
 import { useSoundscapePlayer } from './domains/soundscape/player/use-soundscape-player'
 
 // Nuxt UI 接管 vitepress 的 dark 設定，故改用 useColorMode
@@ -175,13 +211,28 @@ colorMode.value = 'light'
 
 useFontLoader()
 
+const sharedViewEncodedData = pipe(
+  // 因為 whyframe 隔離，需要從 parent 取得 URL
+  new URLSearchParams(window.parent.location.search || window.location.search),
+  (urlParams) => urlParams.get('view'),
+)
+const isSharedView = !!sharedViewEncodedData
+
+const [isEditMode, toggleEditMode] = useToggle(true)
+const [isRemoveMode, toggleRemoveMode] = useToggle(false)
+const [isMuted, toggleMuted] = useToggle(isSharedView)
+
+const globalVolume = ref(0.5)
+
+// --- Tile、Block 狀態 ---
+
 const COLOR_SELECTED = new Color3(0.4, 0.3, 0.1)
 const COLOR_CANDIDATE = new Color3(0.3, 0.3, 0.3)
 const COLOR_HOVER = COLOR_CANDIDATE
 
 const ALPHA_SELECTED = 0.6
-const ALPHA_CANDIDATE = 0.35
-const ALPHA_HOVER = 0.65
+const ALPHA_CANDIDATE = 0.5
+const ALPHA_HOVER = 0.7
 const ALPHA_HIDDEN = 0.0
 
 const FADE_SPEED = 14
@@ -211,12 +262,6 @@ function hexMeshMetadata(mesh?: Mesh | AbstractMesh, update?: Partial<HexMeshMet
     hex: mesh.metadata.hex,
   }
 }
-
-const [isEditMode, toggleEditMode] = useToggle(true)
-const [isRemoveMode, toggleRemoveMode] = useToggle(false)
-const [isMuted, toggleMuted] = useToggle(false)
-
-// --- Tile、Block 狀態 ---
 
 /** key 來自 Hex.key() */
 const tileMeshMap = new Map<string, Mesh>()
@@ -248,6 +293,7 @@ async function spawnBlock(blockType: BlockType, hex: Hex) {
   })
 
   placedBlockMap.set(hex.key(), block)
+  return block
 }
 async function removeAllBlocks() {
   placedBlockMap.forEach((block) => {
@@ -413,24 +459,89 @@ function handleSelectBlock(blockType: BlockType) {
   deselectCurrent()
 }
 
-useSoundscapePlayer(placedBlockMap)
+useSoundscapePlayer(placedBlockMap, {
+  muted: isMuted,
+  volume: globalVolume,
+})
+
+// --- 分享功能 ---
+
+const toast = useToast()
+
+async function handleShare() {
+  const sharedBlocks = Array.from(placedBlockMap.values()).map((block) => {
+    const rotationStep = Math.round(block.rootNode.rotation.y / (Math.PI / 3))
+    const rotation = ((rotationStep % 6) + 6) % 6
+
+    return {
+      type: block.type,
+      hex: block.hex,
+      rotation,
+    }
+  })
+
+  if (sharedBlocks.length === 0) {
+    toast.add({
+      title: 'Nothing to share',
+      description: 'Place some blocks first!',
+      icon: 'i-mingcute:information-line',
+    })
+    return
+  }
+
+  const encoded = encodeBlocks(sharedBlocks)
+  const url = new URL(window.parent.location.href || window.location.href)
+  url.searchParams.set('view', encoded)
+
+  await navigator.clipboard.writeText(url.toString())
+  toast.add({
+    title: 'Link copied!',
+    description: 'Share this link so others can enjoy your soundscape.',
+    icon: 'i-material-symbols:check-circle',
+  })
+}
+
+async function restoreSharedView() {
+  if (!sharedViewEncodedData)
+    return
+
+  try {
+    const sharedBlocks = decodeBlocks(sharedViewEncodedData)
+    for (const { type, hex, rotation } of sharedBlocks) {
+      const block = await spawnBlock(type, hex)
+      block.rootNode.rotation.y = rotation * (Math.PI / 3)
+    }
+  }
+  catch (error) {
+    console.error('Failed to restore shared view:', error)
+  }
+}
 
 // --- Scene 初始化 ---
 
 const shadowGenerator = shallowRef<ShadowGenerator>()
+const pipeline = shallowRef<DefaultRenderingPipeline>()
+watch(() => [isEditMode.value, pipeline.value], ([isEdit]) => {
+  const enabled = isSharedView || !isEdit
+
+  if (pipeline.value) {
+    pipeline.value.depthOfFieldEnabled = enabled
+    pipeline.value.imageProcessing.vignetteEnabled = enabled
+  }
+}, { immediate: true, deep: true })
 
 function createGround({ scene }: { scene: Scene }) {
   const ground = MeshBuilder.CreateGround('ground', { width: 1000, height: 1000 }, scene)
   const material = new StandardMaterial('groundMat', scene)
-  material.diffuseColor = new Color3(0.98, 0.98, 0.98)
+  material.diffuseColor = new Color3(0.96, 0.95, 0.93)
   ground.material = material
   ground.receiveShadows = true
   return ground
 }
 
 function createShadowGenerator(scene: Scene) {
-  const light = new DirectionalLight('dir01', new Vector3(-5, -5, 0), scene)
-  light.intensity = 0.7
+  const light = new DirectionalLight('dir01', new Vector3(-3, -6, -2), scene)
+  light.intensity = 0.8
 
   const shadowGenerator = new ShadowGenerator(1024, light)
   shadowGenerator.bias = 0.000001
@@ -441,7 +552,7 @@ function createShadowGenerator(scene: Scene) {
 }
 
 const { canvasRef, scene } = useBabylonScene({
-  async init({ scene, engine }) {
+  async init({ scene, engine, camera }) {
     createGround({ scene })
     shadowGenerator.value = createShadowGenerator(scene)
 
@@ -458,14 +569,52 @@ const { canvasRef, scene } = useBabylonScene({
       }),
     )
 
-    // 原點為初始候補格
-    addCandidate(new Hex(0, 0, 0))
+    if (!isSharedView) {
+      // 原點為初始候補格
+      addCandidate(new Hex(0, 0, 0))
+    }
+
+    // 還原分享連結中的 block
+    await restoreSharedView()
+
+    pipeline.value = pipe(
+      new DefaultRenderingPipeline(
+        'hexazenPipeline',
+        true,
+        scene,
+        [camera],
+      ),
+      tap((pipeline) => {
+        pipeline.fxaaEnabled = true
+
+        pipeline.depthOfFieldEnabled = true
+        pipeline.depthOfFieldBlurLevel = DepthOfFieldEffectBlurLevel.High
+        pipeline.depthOfField.focalLength = 135
+        pipeline.depthOfField.fStop = 2.0
+
+        pipeline.imageProcessingEnabled = true
+        pipeline.imageProcessing.contrast = 1.25
+        pipeline.imageProcessing.exposure = 1.1
+
+        // 暗角
+        pipeline.imageProcessing.vignetteEnabled = true
+        pipeline.imageProcessing.vignetteWeight = 1.5
+        pipeline.imageProcessing.vignetteColor = new Color4(0, 0, 0, 0)
+
+        // 讓景深的對焦距離，永遠精準等於攝影機與中心點的距離
+        scene.onBeforeRenderObservable.add(() => {
+          if (pipeline.depthOfFieldEnabled && camera instanceof ArcRotateCamera) {
+            pipeline.depthOfField.focusDistance = camera.radius * 1000
+          }
+        })
+      }),
+    )
 
     /** 紀錄動畫中的 block */
     const animatingBlockSet = new Set<string>()
     // 處理 placedBlock 點擊
     scene.onPointerObservable.add((info) => {
-      if (!isEditMode.value) {
+      if (!isEditMode.value || isSharedView) {
         return
       }
 
@@ -539,7 +688,7 @@ const { canvasRef, scene } = useBabylonScene({
 
     // 處理 tile 之 hover、select
     scene.onPointerObservable.add((info) => {
-      if (!isEditMode.value) {
+      if (!isEditMode.value || isSharedView) {
         return
       }
 
@@ -602,7 +751,7 @@ const { canvasRef, scene } = useBabylonScene({
       const t = 1 - Math.exp(-FADE_SPEED * dt)
 
       for (const [key, material] of tileMaterialMap) {
-        if (!isEditMode.value) {
+        if (!isEditMode.value || isSharedView) {
           material.alpha = material.alpha + (ALPHA_HIDDEN - material.alpha) * t
           continue
         }

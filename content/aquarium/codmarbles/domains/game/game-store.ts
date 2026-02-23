@@ -5,8 +5,8 @@ import { defineStore } from 'pinia'
 import { pipe, tap } from 'remeda'
 import { computed, onMounted, ref, shallowRef, watch } from 'vue'
 import z from 'zod/v4'
-import { getRandomMarbleName } from '../marble'
 import { nextFrame } from '../../../../../web/common/utils'
+import { getRandomMarbleName } from '../marble'
 import { TrackSegmentType } from '../track-segment/data'
 
 export const peerDataSchema = z.discriminatedUnion('type', [
@@ -119,13 +119,13 @@ export const useGameStore = defineStore('game', () => {
     })
   }, {
     flush: 'post',
-    deep: true
+    deep: true,
   })
 
   /** 紀錄軌道與順序 */
   const trackSegmentDataList = ref<Array<{
-    type: TrackSegmentType
-  }>>([]);
+    type: TrackSegmentType;
+  }>>([])
   watch(trackSegmentDataList, async (list) => {
     if (!isHost.value) {
       return
@@ -141,7 +141,7 @@ export const useGameStore = defineStore('game', () => {
     })
   }, {
     flush: 'post',
-    deep: true
+    deep: true,
   })
 
   const marbleDataList = ref<Array<{
@@ -165,7 +165,8 @@ export const useGameStore = defineStore('game', () => {
   watch(isHost, (isHost) => {
     if (isHost) {
       marbleDataInterval.resume()
-    } else {
+    }
+    else {
       marbleDataInterval.pause()
     }
   }, {
