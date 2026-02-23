@@ -162,6 +162,8 @@ import type { CSSProperties } from 'vue'
 import type { Block, BlockType } from './domains/block/type'
 import {
   Color3,
+  DefaultRenderingPipeline,
+  DepthOfFieldEffectBlurLevel,
   DirectionalLight,
   MeshBuilder,
   PointerEventTypes,
@@ -500,15 +502,15 @@ const shadowGenerator = shallowRef<ShadowGenerator>()
 function createGround({ scene }: { scene: Scene }) {
   const ground = MeshBuilder.CreateGround('ground', { width: 1000, height: 1000 }, scene)
   const material = new StandardMaterial('groundMat', scene)
-  material.diffuseColor = new Color3(0.98, 0.98, 0.98)
+  material.diffuseColor = new Color3(0.96, 0.95, 0.93)
   ground.material = material
   ground.receiveShadows = true
   return ground
 }
 
 function createShadowGenerator(scene: Scene) {
-  const light = new DirectionalLight('dir01', new Vector3(-5, -5, 0), scene)
-  light.intensity = 0.7
+  const light = new DirectionalLight('dir01', new Vector3(-3, -6, -2), scene)
+  light.intensity = 0.8
 
   const shadowGenerator = new ShadowGenerator(1024, light)
   shadowGenerator.bias = 0.000001
@@ -519,7 +521,7 @@ function createShadowGenerator(scene: Scene) {
 }
 
 const { canvasRef, scene } = useBabylonScene({
-  async init({ scene, engine }) {
+  async init({ scene, engine, camera }) {
     createGround({ scene })
     shadowGenerator.value = createShadowGenerator(scene)
 
@@ -543,6 +545,29 @@ const { canvasRef, scene } = useBabylonScene({
 
     // 還原分享連結中的 block
     await restoreSharedView()
+
+    // --- 後處理 Pipeline ---
+    const pipeline = new DefaultRenderingPipeline(
+      'hexazenPipeline',
+      true,
+      scene,
+      [camera],
+    )
+
+    // FXAA 抗鋸齒
+    pipeline.fxaaEnabled = true
+
+    // Bloom 泛光
+    pipeline.bloomEnabled = true
+    pipeline.bloomThreshold = 0.8
+    pipeline.bloomWeight = 0.3
+    pipeline.bloomKernel = 32
+    pipeline.bloomScale = 0.5
+
+    // 色彩調整
+    pipeline.imageProcessingEnabled = true
+    pipeline.imageProcessing.contrast = 1.3
+    pipeline.imageProcessing.exposure = 1.1
 
     /** 紀錄動畫中的 block */
     const animatingBlockSet = new Set<string>()
