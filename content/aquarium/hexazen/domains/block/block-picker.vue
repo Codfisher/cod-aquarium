@@ -8,9 +8,10 @@
           item: 'basis-auto ps-2',
           container: 'ms-0',
         }"
+        drag-free
       >
         <div
-          class="size-22 chamfer-3 p-0.5 bg-gray-100 cursor-pointer"
+          class="size-22 chamfer-3 p-0.5 bg-gray-100 cursor-pointer select-none"
           @click="handleClick(item.type)"
         >
           <img
