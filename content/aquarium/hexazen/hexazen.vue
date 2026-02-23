@@ -162,6 +162,9 @@ import type { CSSProperties } from 'vue'
 import type { Block, BlockType } from './domains/block/type'
 import {
   Color3,
+  Color4,
+  ColorCurves,
+  ColorGradingTexture,
   DefaultRenderingPipeline,
   DepthOfFieldEffectBlurLevel,
   DirectionalLight,
@@ -553,21 +556,22 @@ const { canvasRef, scene } = useBabylonScene({
       scene,
       [camera],
     )
-
-    // FXAA 抗鋸齒
     pipeline.fxaaEnabled = true
 
-    // Bloom 泛光
-    pipeline.bloomEnabled = true
-    pipeline.bloomThreshold = 0.8
-    pipeline.bloomWeight = 0.3
-    pipeline.bloomKernel = 32
-    pipeline.bloomScale = 0.5
+    // pipeline.depthOfFieldEnabled = true
+    // pipeline.depthOfFieldBlurLevel = DepthOfFieldEffectBlurLevel.High
+    // pipeline.depthOfField.focusDistance = 1000
+    // pipeline.depthOfField.focalLength = 150
+    // pipeline.depthOfField.fStop = 1.4
 
-    // 色彩調整
     pipeline.imageProcessingEnabled = true
-    pipeline.imageProcessing.contrast = 1.3
+    pipeline.imageProcessing.contrast = 1.25
     pipeline.imageProcessing.exposure = 1.1
+
+    // 暗角
+    pipeline.imageProcessing.vignetteEnabled = true
+    pipeline.imageProcessing.vignetteWeight = 1.5
+    pipeline.imageProcessing.vignetteColor = new Color4(0, 0, 0, 0)
 
     /** 紀錄動畫中的 block */
     const animatingBlockSet = new Set<string>()
