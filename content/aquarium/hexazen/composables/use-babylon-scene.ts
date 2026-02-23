@@ -63,7 +63,7 @@ const defaultParam: Required<UseBabylonSceneParam> = {
 
     scene.fogMode = Scene.FOGMODE_LINEAR
     scene.fogColor = new Color3(0.8, 0.8, 0.8)
-    scene.fogStart = 20
+    scene.fogStart = 10
     scene.fogEnd = 30
 
     return scene
@@ -73,7 +73,7 @@ const defaultParam: Required<UseBabylonSceneParam> = {
       'camera',
       0,
       Math.PI / 3 * 2,
-      10,
+      5,
       new Vector3(0, 0, 0),
       scene,
     )
@@ -84,7 +84,7 @@ const defaultParam: Required<UseBabylonSceneParam> = {
 
     camera.wheelDeltaPercentage = 0.01
     camera.lowerRadiusLimit = 5
-    camera.upperRadiusLimit = 10
+    camera.upperRadiusLimit = 8
 
     // 限制鏡頭角度
     camera.lowerBetaLimit = Math.PI / 3
