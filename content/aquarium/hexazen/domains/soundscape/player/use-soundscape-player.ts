@@ -60,6 +60,8 @@ export function useSoundscapePlayer(
     else {
       for (const [_, player] of activePlayerMap) {
         player.unmuted()
+        // 重新播放，避免被瀏覽器阻擋
+        player.play()
       }
     }
   })
