@@ -205,6 +205,48 @@ export const blockDefinitions = {
       ],
     },
   },
+  b5: {
+    traitList: ['building'] as TraitTypeUnion[],
+    content: {
+      version: 1,
+      rootFolderName: 'assets',
+      partList: [
+        {
+          path: 'kenny-hexagon-pack/GLB format/building-farm.glb',
+          position: [0, 0, 0],
+          rotationQuaternion: [0, 1, 0, 0],
+          scaling: [1, 1, 1],
+          metadata: {
+            name: '',
+            mass: 0,
+            restitution: 0.5,
+            friction: 0,
+          },
+        },
+      ],
+    },
+  },
+  b6: {
+    traitList: ['building'] as TraitTypeUnion[],
+    content: {
+      version: 1,
+      rootFolderName: 'assets',
+      partList: [
+        {
+          path: 'kenny-hexagon-pack/GLB format/building-dock.glb',
+          position: [0, 0, 0],
+          rotationQuaternion: [0, 1, 0, 0],
+          scaling: [1, 1, 1],
+          metadata: {
+            name: '',
+            mass: 0,
+            restitution: 0.5,
+            friction: 0,
+          },
+        },
+      ],
+    },
+  },
   /** alpine */
   a1: {
     traitList: ['alpine'] as TraitTypeUnion[],
@@ -364,6 +406,71 @@ export const blockDefinitions = {
       partList: [
         {
           path: 'kenny-hexagon-pack/GLB format/building-watermill.glb',
+          position: [0, 0, 0],
+          rotationQuaternion: [0, 1, 0, 0],
+          scaling: [1, 1, 1],
+          metadata: {
+            name: '',
+            mass: 0,
+            restitution: 0.5,
+            friction: 0,
+          },
+        },
+      ],
+    },
+  },
+
+  /** sand */
+  s1: {
+    traitList: ['sand'] as TraitTypeUnion[],
+    content: {
+      version: 1,
+      rootFolderName: 'assets',
+      partList: [
+        {
+          path: 'kenny-hexagon-pack/GLB format/sand-rocks.glb',
+          position: [0, 0, 0],
+          rotationQuaternion: [0, 1, 0, 0],
+          scaling: [1, 1, 1],
+          metadata: {
+            name: '',
+            mass: 0,
+            restitution: 0.5,
+            friction: 0,
+          },
+        },
+      ],
+    },
+  },
+  s2: {
+    traitList: ['sand'] as TraitTypeUnion[],
+    content: {
+      version: 1,
+      rootFolderName: 'assets',
+      partList: [
+        {
+          path: 'kenny-hexagon-pack/GLB format/sand-desert.glb',
+          position: [0, 0, 0],
+          rotationQuaternion: [0, 1, 0, 0],
+          scaling: [1, 1, 1],
+          metadata: {
+            name: '',
+            mass: 0,
+            restitution: 0.5,
+            friction: 0,
+          },
+        },
+      ],
+    },
+  },
+  s3: {
+    traitList: ['sand'] as TraitTypeUnion[],
+    content: {
+      version: 1,
+      rootFolderName: 'assets',
+      partList: [
+        {
+          path: 'kenny-hexagon-pack/GLB format/sand.glb',
           position: [0, 0, 0],
           rotationQuaternion: [0, 1, 0, 0],
           scaling: [1, 1, 1],

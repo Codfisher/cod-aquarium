@@ -9,4 +9,5 @@ export enum TraitType {
   ALPINE = 'alpine',
   RIVER = 'river',
   WATER = 'water',
+  SAND = 'sand',
 }

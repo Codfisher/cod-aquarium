@@ -31,6 +31,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
       soundList: [
         {
           src: 'hexazen/sounds/rustle-tree.mp3',
+          volume: 0.8,
         },
       ],
     }]),
@@ -211,6 +212,73 @@ export const soundscapeRuleList: SoundscapeRule[] = [
           {
             src: 'hexazen/sounds/building-british-museum.mp3',
             volume: 0.5,
+          },
+        ],
+      },
+    ]),
+  },
+
+  /** 海 */
+  {
+    type: 'ocean',
+    // water size >= 15
+    condition(traitRegionList) {
+      return traitRegionList.some((traitRegion) => traitRegion.trait === 'water' && traitRegion.size >= 15)
+    },
+    transform: concat([
+      {
+        type: 'ocean',
+        mode: 'loop',
+        soundList: [
+          {
+            src: 'hexazen/sounds/ocean.mp3',
+            volume: 0.5,
+          },
+        ],
+      },
+    ]),
+  },
+  {
+    /** 海岸 */
+    type: 'ocean',
+    // water size >= 15，且有岸
+    condition(traitRegionList) {
+      return [
+        traitRegionList.some((traitRegion) => traitRegion.trait === 'water' && traitRegion.size >= 15),
+        traitRegionList.some((traitRegion) => traitRegion.trait !== 'water'),
+      ].every(isTruthy)
+    },
+    transform: concat([
+      {
+        type: 'ocean',
+        mode: 'loop',
+        soundList: [
+          {
+            src: 'hexazen/sounds/ocean-coastal.mp3',
+            volume: 0.8,
+          },
+        ],
+      },
+    ]),
+  },
+  {
+    type: 'ocean',
+    // water size >= 15
+    condition(traitRegionList) {
+      return traitRegionList.some((traitRegion) => traitRegion.trait === 'water' && traitRegion.size >= 15)
+    },
+    transform: concat([
+      {
+        type: 'ocean',
+        mode: 'interval',
+        soundList: [
+          {
+            src: 'hexazen/sounds/ocean-bottle-nosed-dolphin.mp3',
+            volume: 0.3,
+          },
+          {
+            src: 'hexazen/sounds/ocean-bottle-nosed-dolphin-2.mp3',
+            volume: 0.3,
           },
         ],
       },
