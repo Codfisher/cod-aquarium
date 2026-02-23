@@ -17,7 +17,7 @@
         >
           <div
             v-if="isEditMode && !isSharedView"
-            class="absolute right-0 bottom-0 p-5 space-y-6 text-gray-400"
+            class="absolute right-0 bottom-0 p-5 space-y-6 text-gray-400 btn-drop-shadow"
           >
             <u-tooltip
               text="Remove Mode"
@@ -27,7 +27,7 @@
             >
               <u-icon
                 name="i-mingcute:shovel-fill"
-                class="text-3xl cursor-pointer duration-500 outline-0"
+                class="text-3xl cursor-pointer duration-500 outline-0 "
                 :class="{
                   'text-primary': isRemoveMode,
                 }"
@@ -96,7 +96,7 @@
 
           <div
             v-else-if="!isSharedView"
-            class="absolute right-0 bottom-0 p-5 space-y-6 text-gray-400"
+            class="absolute right-0 bottom-0 p-5 space-y-6 text-gray-100 btn-drop-shadow"
           >
             <u-tooltip
               text="Edit Mode"
@@ -113,7 +113,13 @@
           </div>
         </transition>
 
-        <div class="absolute left-0 bottom-0 p-5 space-y-6">
+        <div
+          class="absolute left-0 bottom-0 p-5 space-y-6 duration-500 btn-drop-shadow"
+          :class="{
+            'text-gray-400': isEditMode,
+            'text-gray-100': !isEditMode,
+          }"
+        >
           <u-slider
             v-model="globalVolume"
             orientation="vertical"
@@ -137,14 +143,14 @@
           >
             <u-icon
               name="i-material-symbols:share"
-              class="text-3xl cursor-pointer outline-0 text-gray-400"
+              class="text-3xl cursor-pointer outline-0 "
               @click="handleShare()"
             />
           </u-tooltip>
 
           <u-icon
             :name="isMuted ? 'i-mingcute:volume-mute-fill' : 'i-mingcute:volume-fill'"
-            class="text-3xl cursor-pointer outline-0 text-gray-400"
+            class="text-3xl cursor-pointer outline-0 "
             @click="toggleMuted()"
           />
         </div>
@@ -519,15 +525,44 @@ async function restoreSharedView() {
 
 // --- Scene 初始化 ---
 
+const DEFAULT_F_STOP = 2.0
+const DEFAULT_VIGNETTE_WEIGHT = 1.2
+
 const shadowGenerator = shallowRef<ShadowGenerator>()
 const pipeline = shallowRef<DefaultRenderingPipeline>()
-watch(() => [isEditMode.value, pipeline.value], ([isEdit]) => {
+watch(() => [isEditMode.value, pipeline.value], ([isEdit], _, onCleanup) => {
+  if (!pipeline.value) {
+    return
+  }
+
   const enabled = isSharedView || !isEdit
 
-  if (pipeline.value) {
-    pipeline.value.depthOfFieldEnabled = enabled
-    pipeline.value.imageProcessing.vignetteEnabled = enabled
-  }
+  // pipeline 停用加入過度效果
+  const fStop = enabled ? DEFAULT_F_STOP : 20
+  const vignetteWeight = enabled ? DEFAULT_VIGNETTE_WEIGHT : 0
+
+  const instanceList = [
+    animate(
+      pipeline.value.depthOfField,
+      {
+        fStop,
+        duration: 1000,
+      },
+    ),
+    animate(
+      pipeline.value.imageProcessing,
+      {
+        vignetteWeight,
+        duration: 1000,
+      },
+    ),
+  ]
+
+  onCleanup(() => {
+    instanceList.forEach((instance) => {
+      instance.cancel()
+    })
+  })
 }, { immediate: true, deep: true })
 
 function createGround({ scene }: { scene: Scene }) {
@@ -590,7 +625,7 @@ const { canvasRef, scene } = useBabylonScene({
         pipeline.depthOfFieldEnabled = true
         pipeline.depthOfFieldBlurLevel = DepthOfFieldEffectBlurLevel.High
         pipeline.depthOfField.focalLength = 135
-        pipeline.depthOfField.fStop = 2.0
+        pipeline.depthOfField.fStop = DEFAULT_F_STOP
 
         pipeline.imageProcessingEnabled = true
         pipeline.imageProcessing.contrast = 1.25
@@ -598,7 +633,7 @@ const { canvasRef, scene } = useBabylonScene({
 
         // 暗角
         pipeline.imageProcessing.vignetteEnabled = true
-        pipeline.imageProcessing.vignetteWeight = 1.5
+        pipeline.imageProcessing.vignetteWeight = DEFAULT_VIGNETTE_WEIGHT
         pipeline.imageProcessing.vignetteColor = new Color4(0, 0, 0, 0)
 
         // 讓景深的對焦距離，永遠精準等於攝影機與中心點的距離
@@ -795,6 +830,8 @@ const canvasStyle = computed<CSSProperties>(() => {
 </script>
 
 <style lang="sass" scoped>
+.btn-drop-shadow
+  filter: drop-shadow(0px 0px 1px rgba(0, 0, 0, 0.4)) drop-shadow(0px 0px 6px rgba(0, 0, 0, 0.1))
 </style>
 
 <style lang="sass">
