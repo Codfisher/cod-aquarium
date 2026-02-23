@@ -114,6 +114,20 @@
         </transition>
 
         <div class="absolute left-0 bottom-0 p-5 space-y-6">
+          <u-slider
+            v-model="globalVolume"
+            orientation="vertical"
+            :min="0"
+            :max="1"
+            :step="0.01"
+            :ui="{
+              track: 'bg-gray-200',
+              range: 'bg-gray-300',
+              thumb: ' ring-gray-500 bg-gray-200',
+            }"
+            class="h-30"
+          />
+
           <u-tooltip
             v-if="!isSharedView"
             text="Share your soundscape with others"
@@ -207,6 +221,8 @@ const isSharedView = !!sharedViewEncodedData
 const [isEditMode, toggleEditMode] = useToggle(true)
 const [isRemoveMode, toggleRemoveMode] = useToggle(false)
 const [isMuted, toggleMuted] = useToggle(isSharedView)
+
+const globalVolume = ref(0.5)
 
 // --- Tile、Block 狀態 ---
 
