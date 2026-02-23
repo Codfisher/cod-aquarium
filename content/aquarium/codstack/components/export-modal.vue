@@ -33,7 +33,8 @@
           @click="copyToClipboard"
         >
           Copy to clipboard
-          <u-kbd value="Ctrl + C" />
+          <u-kbd value="meta" />
+          <u-kbd value="C" />
         </u-button>
       </div>
     </template>
@@ -42,7 +43,7 @@
 
 <script setup lang="ts">
 import { type AbstractMesh, Quaternion } from '@babylonjs/core'
-import { useClipboard, useMagicKeys, whenever } from '@vueuse/core'
+import { useClipboard } from '@vueuse/core'
 import dayjs from 'dayjs'
 import { pipe, tap } from 'remeda'
 import { computed, ref } from 'vue'
@@ -165,11 +166,12 @@ async function copyToClipboard() {
   }
 }
 
-const { ctrl_c: ctrlCKey } = useMagicKeys()
-whenever(() => ctrlCKey?.value, async () => {
-  updateTime()
-  await nextFrame()
-  copyToClipboard()
+defineShortcuts({
+  meta_c: async () => {
+    updateTime()
+    await nextFrame()
+    copyToClipboard()
+  },
 })
 </script>
 

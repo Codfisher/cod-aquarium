@@ -35,8 +35,8 @@ import type { JSAnimation } from 'animejs'
 import type { ComponentEmit } from 'vue-component-type-helpers'
 import type { MeshMeta, ModelFile, SceneData } from '../../type'
 import type { EmitsToObject } from '../../type/utils'
-import { ArcRotateCamera, Color3, ImportMeshAsync, Matrix, Mesh, PointerEventTypes, Quaternion, Scalar, StandardMaterial, Vector3 } from '@babylonjs/core'
-import { onKeyStroke, refManualReset, useActiveElement, useElementSize, useMagicKeys, useMouseInElement, useThrottledRefHistory, whenever } from '@vueuse/core'
+import { ArcRotateCamera, Color3, ImportMeshAsync, Mesh, PointerEventTypes, Quaternion, Scalar, StandardMaterial, Vector3 } from '@babylonjs/core'
+import { refManualReset, useMagicKeys, useThrottledRefHistory } from '@vueuse/core'
 import { animate } from 'animejs'
 import { nanoid } from 'nanoid'
 import { storeToRefs } from 'pinia'
@@ -80,9 +80,6 @@ const {
   g: gKey,
   s: sKey,
   r: rKey,
-  a_x: aXKey,
-  a_y: aYKey,
-  a_z: aZKey,
 } = useMagicKeys()
 
 const containerRef = useTemplateRef('containerRef')
@@ -663,12 +660,6 @@ const { canvasRef, scene, camera, engine } = useBabylonScene({
   },
 })
 
-const activeElement = useActiveElement()
-const isInput = computed(() => {
-  const el = activeElement.value
-  return el?.tagName === 'INPUT' || el?.tagName === 'TEXTAREA' || el?.isContentEditable
-})
-
 const {
   isBoxSelecting,
   selectionBoxStyle,
@@ -716,9 +707,6 @@ function selectAll() {
   })
 }
 function deleteSelectedMeshes() {
-  if (isInput.value)
-    return
-
   if (selectedMeshes.value.length > 0) {
     detachFromProxy()
 
@@ -1010,77 +998,56 @@ const contentMenuEvents: EmitsToObject<Events> = {
   },
 }
 
-/** 自動 preventDefault，但是不影響輸入框 */
-onKeyStroke((e) => {
-  if (isInput.value)
-    return
+const shortcuts = computed(() => {
+  const isPreviewing = !!previewMesh.value
+  const [firstMesh] = selectedMeshes.value
 
-  e.preventDefault()
-})
-onKeyStroke((e) => ['a', 'A'].includes(e.key) && e.ctrlKey, selectAll, { dedupe: true })
-onKeyStroke(['Delete', 'Backspace'], deleteSelectedMeshes, { dedupe: true })
-onKeyStroke((e) => ['d', 'D'].includes(e.key) && e.shiftKey, () => duplicateMeshes(selectedMeshes.value), { dedupe: true })
-onKeyStroke(['Escape', 'Esc'], () => {
-  // 如果正在預覽，則先結束預覽，無任何預覽才取消選取
-  if (previewMesh.value) {
-    emit('cancelPreview')
-    return
+  return {
+    'meta_a': selectAll,
+    'meta_z': undo,
+    'meta_y': redo,
+    'shift_d': () => duplicateMeshes(selectedMeshes.value),
+    'delete': deleteSelectedMeshes,
+    escape() {
+      // 如果正在預覽，則先結束預覽，無任何預覽才取消選取
+      if (isPreviewing) {
+        emit('cancelPreview')
+        return
+      }
+
+      clearSelection()
+    },
+
+    // 對齊
+    'a-x': firstMesh && (() => {
+      alignMeshesToAxis(selectedMeshes.value, firstMesh, 'x')
+      refreshProxy()
+    }),
+    'a-y': firstMesh && (() => {
+      alignMeshesToAxis(selectedMeshes.value, firstMesh, 'y')
+      refreshProxy()
+    }),
+    'a-z': firstMesh && (() => {
+      alignMeshesToAxis(selectedMeshes.value, firstMesh, 'z')
+      refreshProxy()
+    }),
+
+    // 預覽偏移
+    'q': isPreviewing && (() => {
+      previewOffset.value.vertical += 0.1
+    }),
+    'e': isPreviewing && (() => {
+      previewOffset.value.vertical -= 0.1
+    }),
+    'a': isPreviewing && (() => {
+      previewOffset.value.yRotation += Math.PI / 4
+    }),
+    'd': isPreviewing && (() => {
+      previewOffset.value.yRotation -= Math.PI / 4
+    }),
   }
-
-  clearSelection()
-}, { dedupe: true })
-onKeyStroke((e) => ['z', 'Z'].includes(e.key) && e.ctrlKey, undo, { dedupe: true })
-onKeyStroke((e) => ['y', 'Y'].includes(e.key) && e.ctrlKey, redo, { dedupe: true })
-// preview offset
-onKeyStroke((e) => ['q', 'Q'].includes(e.key), () => {
-  if (!previewMesh.value)
-    return
-
-  previewOffset.value.vertical += 0.1
 })
-onKeyStroke((e) => ['e', 'E'].includes(e.key), () => {
-  if (!previewMesh.value)
-    return
-
-  previewOffset.value.vertical -= 0.1
-})
-onKeyStroke((e) => ['a', 'A'].includes(e.key), () => {
-  if (!previewMesh.value)
-    return
-
-  previewOffset.value.yRotation += Math.PI / 4
-})
-onKeyStroke((e) => ['d', 'D'].includes(e.key), () => {
-  if (!previewMesh.value)
-    return
-
-  previewOffset.value.yRotation -= Math.PI / 4
-})
-// 對齊
-whenever(() => aXKey?.value, () => {
-  const [firstMesh] = selectedMeshes.value
-  if (!firstMesh)
-    return
-
-  alignMeshesToAxis(selectedMeshes.value, firstMesh, 'x')
-  refreshProxy()
-})
-whenever(() => aYKey?.value, () => {
-  const [firstMesh] = selectedMeshes.value
-  if (!firstMesh)
-    return
-
-  alignMeshesToAxis(selectedMeshes.value, firstMesh, 'y')
-  refreshProxy()
-})
-whenever(() => aZKey?.value, () => {
-  const [firstMesh] = selectedMeshes.value
-  if (!firstMesh)
-    return
-
-  alignMeshesToAxis(selectedMeshes.value, firstMesh, 'z')
-  refreshProxy()
-})
+defineShortcuts(shortcuts)
 
 const blobUrlList: string[] = []
 onBeforeUnmount(() => {

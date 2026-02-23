@@ -40,7 +40,7 @@
           </li>
 
           <li>
-            <u-kbd value="Ctrl" /> <u-kbd value="C" />
+            <u-kbd value="meta" /> <u-kbd value="C" />
             <span class="font-medium">Export scene and copy to clipboard</span>
           </li>
         </ul>
