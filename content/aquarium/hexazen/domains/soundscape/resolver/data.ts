@@ -182,7 +182,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
     transform: concat([
       {
         type: 'river',
-        mode: 'interval',
+        mode: 'loop',
         soundList: [
           {
             src: 'hexazen/sounds/river-fast-flowing.mp3',
