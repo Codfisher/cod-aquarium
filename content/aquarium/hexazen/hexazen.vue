@@ -113,10 +113,17 @@
         </transition>
 
         <div class="absolute left-0 bottom-0 p-5 space-y-6">
-          <u-icon
-            name="i-material-symbols:share"
-            class="text-3xl cursor-pointer outline-0 text-gray-400"
-          />
+          <u-tooltip
+            text="Share your soundscape with others"
+            :content="{
+              side: 'right',
+            }"
+          >
+            <u-icon
+              name="i-material-symbols:share"
+              class="text-3xl cursor-pointer outline-0 text-gray-400"
+            />
+          </u-tooltip>
 
           <u-icon
             :name="isMuted ? 'i-mingcute:volume-mute-fill' : 'i-mingcute:volume-fill'"
@@ -180,6 +187,12 @@ colorMode.value = 'light'
 
 useFontLoader()
 
+const [isEditMode, toggleEditMode] = useToggle(true)
+const [isRemoveMode, toggleRemoveMode] = useToggle(false)
+const [isMuted, toggleMuted] = useToggle(false)
+
+// --- Tile、Block 狀態 ---
+
 const COLOR_SELECTED = new Color3(0.4, 0.3, 0.1)
 const COLOR_CANDIDATE = new Color3(0.3, 0.3, 0.3)
 const COLOR_HOVER = COLOR_CANDIDATE
@@ -216,12 +229,6 @@ function hexMeshMetadata(mesh?: Mesh | AbstractMesh, update?: Partial<HexMeshMet
     hex: mesh.metadata.hex,
   }
 }
-
-const [isEditMode, toggleEditMode] = useToggle(true)
-const [isRemoveMode, toggleRemoveMode] = useToggle(false)
-const [isMuted, toggleMuted] = useToggle(false)
-
-// --- Tile、Block 狀態 ---
 
 /** key 來自 Hex.key() */
 const tileMeshMap = new Map<string, Mesh>()
