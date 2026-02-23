@@ -228,7 +228,7 @@ const [isEditMode, toggleEditMode] = useToggle(true)
 const [isRemoveMode, toggleRemoveMode] = useToggle(false)
 const [isMuted, toggleMuted] = useToggle(isSharedView)
 
-const globalVolume = ref(0.5)
+const globalVolume = ref(1)
 
 // --- Tile、Block 狀態 ---
 
