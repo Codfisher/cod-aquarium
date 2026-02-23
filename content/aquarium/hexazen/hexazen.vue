@@ -17,7 +17,7 @@
         >
           <div
             v-if="isEditMode && !isSharedView"
-            class="absolute right-0 bottom-0 p-5 space-y-6 text-gray-400 btn-drop-shadow"
+            class="absolute right-0 bottom-0 p-5 space-y-6 text-gray-400 "
           >
             <u-tooltip
               text="Remove Mode"
@@ -114,10 +114,10 @@
         </transition>
 
         <div
-          class="absolute left-0 bottom-0 p-5 space-y-6 duration-500 btn-drop-shadow"
+          class="absolute left-0 bottom-0 p-5 space-y-6 duration-500 "
           :class="{
             'text-gray-400': !enabledPipeline,
-            'text-gray-100': enabledPipeline,
+            'text-gray-100 btn-drop-shadow': enabledPipeline,
           }"
         >
           <u-slider
