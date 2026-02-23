@@ -17,7 +17,7 @@
         >
           <div
             v-if="isEditMode"
-            class="absolute right-0 bottom-0 p-5 space-y-4 text-gray-400"
+            class="absolute right-0 bottom-0 p-5 space-y-6 text-gray-400"
           >
             <u-tooltip
               text="Remove Mode"
@@ -27,7 +27,7 @@
             >
               <u-icon
                 name="i-mingcute:shovel-fill"
-                class="text-4xl cursor-pointer duration-500 outline-0"
+                class="text-3xl cursor-pointer duration-500 outline-0"
                 :class="{
                   'text-primary': isRemoveMode,
                 }"
@@ -48,7 +48,7 @@
               >
                 <u-icon
                   name="i-material-symbols:cleaning-services-rounded"
-                  class="text-[32px] cursor-pointer duration-500 outline-0"
+                  class="text-3xl cursor-pointer duration-500 outline-0"
                 />
               </u-tooltip>
 
@@ -87,7 +87,7 @@
             >
               <u-icon
                 name="i-line-md:arrow-small-left"
-                class="text-4xl cursor-pointer duration-500 outline-0"
+                class="text-3xl cursor-pointer duration-500 outline-0"
                 @click="toggleEditMode()"
               />
             </u-tooltip>
@@ -95,7 +95,7 @@
 
           <div
             v-else
-            class="absolute right-0 bottom-0 p-5 space-y-4 text-gray-400"
+            class="absolute right-0 bottom-0 p-5 space-y-6 text-gray-400"
           >
             <u-tooltip
               text="Edit Mode"
@@ -105,17 +105,22 @@
             >
               <u-icon
                 name="i-line-md:pencil-alt-twotone"
-                class="text-4xl cursor-pointer duration-500 outline-0"
+                class="text-3xl cursor-pointer duration-500 outline-0"
                 @click="toggleEditMode()"
               />
             </u-tooltip>
           </div>
         </transition>
 
-        <div class="absolute left-0 bottom-0 p-5 space-y-4">
+        <div class="absolute left-0 bottom-0 p-5 space-y-6">
+          <u-icon
+            name="i-material-symbols:share"
+            class="text-3xl cursor-pointer outline-0 text-gray-400"
+          />
+
           <u-icon
             :name="isMuted ? 'i-mingcute:volume-mute-fill' : 'i-mingcute:volume-fill'"
-            class="text-4xl cursor-pointer outline-0 text-gray-400"
+            class="text-3xl cursor-pointer outline-0 text-gray-400"
             @click="toggleMuted()"
           />
         </div>
