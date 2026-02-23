@@ -1,8 +1,6 @@
-import type {
-  Camera,
-} from '@babylonjs/core'
 import {
   ArcRotateCamera,
+  Camera,
   Color3,
   Color4,
   Engine,
@@ -98,6 +96,59 @@ const defaultParam: Required<UseBabylonSceneParam> = {
   init: () => Promise.resolve(),
 }
 
+function setupSmartCameraLimits(
+  engine: BabylonEngine,
+  camera: ArcRotateCamera,
+  scene: Scene,
+) {
+  /** 全場景包圍盒的中心點 */
+  const center = Vector3.Zero().clone()
+
+  const width = engine.getRenderWidth()
+  const height = engine.getRenderHeight()
+
+  if (width < height) {
+    camera.fovMode = Camera.FOVMODE_HORIZONTAL_FIXED
+  }
+  else {
+    camera.fovMode = Camera.FOVMODE_VERTICAL_FIXED
+  }
+
+  const updateCameraSettings = () => {
+    // scene.meshes.forEach((mesh) => mesh.computeWorldMatrix(true))
+
+    // const { min, max } = scene.getWorldExtends((mesh) => {
+    //   const isBackground = mesh.name === 'ground' || mesh.name === 'skyBox'
+
+    //   return mesh.isVisible && mesh.isEnabled() && !isBackground
+    // })
+
+    // center.copyFrom(Vector3.Center(min, max))
+    // const sceneRadius = Vector3.Distance(center, max)
+
+    // 實測後，目前固定值即可，暫時不需要動態變更，FOVMODE 比較重要
+    // const finalRadius = sceneRadius > 0 ? sceneRadius : 10
+    const finalRadius = 4
+    const safeDistance = finalRadius / Math.sin(camera.fov / 2)
+
+    camera.lowerRadiusLimit = safeDistance * 0.2
+    camera.upperRadiusLimit = safeDistance * 0.8
+
+    // 避免距離拉近時產生破圖或閃爍
+    camera.minZ = finalRadius * 0.1
+  }
+
+  updateCameraSettings()
+
+  // engine.onResizeObservable.add(() => {
+  //   updateCameraSettings()
+  // })
+
+  // scene.onNewMeshAddedObservable.add(() => {
+  //   updateCameraSettings()
+  // })
+}
+
 export function useBabylonScene(param?: UseBabylonSceneParam) {
   const canvasRef = ref<HTMLCanvasElement>()
 
@@ -142,6 +193,8 @@ export function useBabylonScene(param?: UseBabylonSceneParam) {
       scene: scene.value,
       camera: camera.value,
     })
+
+    setupSmartCameraLimits(engine.value, camera.value as ArcRotateCamera, scene.value)
   })
 
   onBeforeUnmount(() => {
