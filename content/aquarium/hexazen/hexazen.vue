@@ -8,58 +8,97 @@
         <canvas
           v-once
           ref="canvasRef"
-          class="canvas w-full h-full"
+          class="w-full h-full outline-0"
         />
 
-        <div class="absolute right-0 bottom-0 p-5 space-y-4 text-gray-400">
-          <u-tooltip
-            text="Remove Mode"
-            :content="{
-              side: 'left',
-            }"
+        <transition
+          name="fade"
+          mode="out-in"
+        >
+          <div
+            v-if="isEditMode"
+            class="absolute right-0 bottom-0 p-5 space-y-4 text-gray-400"
           >
-            <u-icon
-              name="i-mingcute:shovel-fill"
-              class="text-4xl cursor-pointer duration-500 outline-0"
-              :class="{
-                'text-primary': isRemoveMode,
+            <u-tooltip
+              text="Remove Mode"
+              :content="{
+                side: 'left',
               }"
-              @click="toggleRemoveMode()"
-            />
-          </u-tooltip>
+            >
+              <u-icon
+                name="i-mingcute:shovel-fill"
+                class="text-4xl cursor-pointer duration-500 outline-0"
+                :class="{
+                  'text-primary': isRemoveMode,
+                }"
+                @click="toggleRemoveMode()"
+              />
+            </u-tooltip>
 
-          <u-popover
-            :ui="{
-              content: 'chamfer-3 bg-gray-200 p-0.5',
-            }"
-          >
-            <u-icon
-              name="i-material-symbols:cleaning-services-rounded"
-              class="text-[32px] cursor-pointer duration-500 outline-0"
-            />
+            <u-popover
+              :ui="{
+                content: 'chamfer-3 bg-gray-200 p-0.5',
+              }"
+            >
+              <u-icon
+                name="i-material-symbols:cleaning-services-rounded"
+                class="text-[32px] cursor-pointer duration-500 outline-0"
+              />
 
-            <template #content="{ close }">
-              <div class="chamfer-2.5 bg-white">
-                <div class="p-4 space-y-2 ">
-                  <div class=" font-bold">
-                    Confirm to remove all blocks?
-                  </div>
-                  <div class=" text-sm">
-                    This action can't be undone
-                  </div>
+              <template #content="{ close }">
+                <div class="chamfer-2.5 bg-white">
+                  <div class="p-4 space-y-2 ">
+                    <div class=" font-bold">
+                      Confirm to remove all blocks?
+                    </div>
+                    <div class=" text-sm">
+                      This action can't be undone
+                    </div>
 
-                  <div class="flex justify-end">
-                    <base-btn
-                      label="Remove All"
-                      color="error"
-                      @click="removeAllBlocks(); close()"
-                    />
+                    <div class="flex justify-end">
+                      <base-btn
+                        label="Remove All"
+                        color="error"
+                        @click="removeAllBlocks(); close()"
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
-            </template>
-          </u-popover>
-        </div>
+              </template>
+            </u-popover>
+
+            <u-tooltip
+              text="Close edit mode"
+              :content="{
+                side: 'left',
+              }"
+            >
+              <u-icon
+                name="i-material-symbols:keyboard-return-rounded"
+                class="text-4xl cursor-pointer duration-500 outline-0"
+                @click="toggleEditMode()"
+              />
+            </u-tooltip>
+          </div>
+
+          <div
+            v-else
+            class="absolute right-0 bottom-0 p-5 space-y-4 text-gray-400"
+          >
+            <u-tooltip
+              text="Edit Mode"
+              :content="{
+                side: 'left',
+              }"
+            >
+              <u-icon
+                name="i-material-symbols:edit-outline-rounded"
+                class="text-4xl cursor-pointer duration-500 outline-0"
+                @click="toggleEditMode()"
+              />
+            </u-tooltip>
+          </div>
+        </transition>
 
         <div class="absolute left-0 bottom-0 p-5 space-y-4">
           <u-icon
@@ -108,11 +147,11 @@ import { useColorMode, useToggle } from '@vueuse/core'
 import { animate } from 'animejs'
 import { pipe, tap } from 'remeda'
 import { computed, ref, shallowReactive, shallowRef, watch } from 'vue'
-import { version } from '../codstack/constants'
 import { cursorDataUrl } from '../meme-cache/constants'
 import BaseBtn from './components/base-btn.vue'
 import { useBabylonScene } from './composables/use-babylon-scene'
 import { useFontLoader } from './composables/use-font-loader'
+import { version } from './constants'
 import BlockPicker from './domains/block/block-picker.vue'
 import { createBlock } from './domains/block/builder'
 import { Hex, HexLayout } from './domains/hex-grid'
@@ -161,10 +200,11 @@ function hexMeshMetadata(mesh?: Mesh | AbstractMesh, update?: Partial<HexMeshMet
   }
 }
 
-// --- Hex Tile 狀態 ---
-
+const [isEditMode, toggleEditMode] = useToggle(true)
 const [isRemoveMode, toggleRemoveMode] = useToggle(false)
 const [isMuted, toggleMuted] = useToggle(false)
+
+// --- Tile、Block 狀態 ---
 
 /** key 來自 Hex.key() */
 const tileMeshMap = new Map<string, Mesh>()
@@ -581,6 +621,13 @@ useSoundscapePlayer(placedBlockMap)
 </script>
 
 <style lang="sass" scoped>
-.canvas
-  outline: none
+</style>
+
+<style lang="sass">
+.fade
+  &-enter-active, &-leave-active
+    transition-duration: 0.4s !important
+  &-enter-from, &-leave-to
+    opacity: 0 !important
+    scale: 0.95 !important
 </style>
