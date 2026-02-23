@@ -17,6 +17,11 @@ interface SoundscapeRule {
   transform: (soundscapeList: Soundscape[]) => Soundscape[];
 }
 
+let idCounter = 0
+function getId() {
+  return idCounter++
+}
+
 export const soundscapeRuleList: SoundscapeRule[] = [
   /** 風吹樹梢 */
   {
@@ -26,6 +31,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
       traitRegionList.some((traitRegion) => traitRegion.trait === 'tree' && traitRegion.size >= 2),
     ].some(isTruthy),
     transform: concat([{
+      id: getId(),
       type: 'rustle',
       mode: 'loop',
       soundList: [
@@ -46,6 +52,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
     },
     transform: concat([
       {
+        id: getId(),
         type: 'insect',
         mode: 'interval',
         soundList: [
@@ -75,6 +82,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
     },
     transform: concat([
       {
+        id: getId(),
         type: 'bird',
         mode: 'interval',
         soundList: [
@@ -133,6 +141,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
     },
     transform: concat([
       {
+        id: getId(),
         type: 'frog',
         mode: 'interval',
         soundList: [
@@ -161,6 +170,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
     },
     transform: concat([
       {
+        id: getId(),
         type: 'beast',
         mode: 'interval',
         soundList: [
@@ -181,8 +191,9 @@ export const soundscapeRuleList: SoundscapeRule[] = [
     },
     transform: concat([
       {
+        id: getId(),
         type: 'river',
-        mode: 'interval',
+        mode: 'loop',
         soundList: [
           {
             src: 'hexazen/sounds/river-fast-flowing.mp3',
@@ -202,6 +213,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
     },
     transform: concat([
       {
+        id: getId(),
         type: 'building',
         mode: 'interval',
         soundList: [
@@ -227,6 +239,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
     },
     transform: concat([
       {
+        id: getId(),
         type: 'ocean',
         mode: 'loop',
         soundList: [
@@ -250,6 +263,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
     },
     transform: concat([
       {
+        id: getId(),
         type: 'ocean',
         mode: 'loop',
         soundList: [
@@ -269,6 +283,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
     },
     transform: concat([
       {
+        id: getId(),
         type: 'ocean',
         mode: 'interval',
         soundList: [
@@ -278,6 +293,49 @@ export const soundscapeRuleList: SoundscapeRule[] = [
           },
           {
             src: 'hexazen/sounds/ocean-bottle-nosed-dolphin-2.mp3',
+            volume: 0.3,
+          },
+        ],
+      },
+    ]),
+  },
+
+  /** 高山 */
+  {
+    // 強冷風
+    type: 'alpine',
+    // alpine size >= 10
+    condition(traitRegionList) {
+      return traitRegionList.some((traitRegion) => traitRegion.trait === 'alpine' && traitRegion.size >= 10)
+    },
+    transform: concat([
+      {
+        id: getId(),
+        type: 'alpine',
+        mode: 'loop',
+        soundList: [
+          {
+            src: 'hexazen/sounds/alpine-sinister-wind.mp3',
+          },
+        ],
+      },
+    ]),
+  },
+  {
+    // 高山雪藏雞
+    type: 'alpine',
+    // alpine size >= 10
+    condition(traitRegionList) {
+      return traitRegionList.some((traitRegion) => traitRegion.trait === 'alpine' && traitRegion.size >= 10)
+    },
+    transform: concat([
+      {
+        id: getId(),
+        type: 'alpine',
+        mode: 'interval',
+        soundList: [
+          {
+            src: 'hexazen/sounds/alpine-tibetan-snowcock.mp3',
             volume: 0.3,
           },
         ],

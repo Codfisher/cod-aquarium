@@ -1,6 +1,7 @@
 import type { Ref, ShallowReactive } from 'vue'
 import type { Block } from '../../block/type'
 import type { SoundscapeType } from '../type'
+import { prop } from 'remeda'
 import { computed, watch } from 'vue'
 import { resolveSoundscape } from '../resolver'
 import { SoundscapePlayer } from './player'
@@ -20,33 +21,33 @@ export function useSoundscapePlayer(
   )
 
   /** 目前正在播放的音效，key 為 SoundscapeType */
-  const activePlayerMap = new Map<SoundscapeType, SoundscapePlayer>()
+  const activePlayerMap = new Map<number, SoundscapePlayer>()
 
   watch(soundscapeList, (newList, oldList) => {
-    const newTypeSet = new Set(newList.map((s) => s.type))
-    const oldTypeSet = new Set((oldList ?? []).map((s) => s.type))
+    const newIdSet = new Set(newList.map(prop('id')))
+    const oldIdSet = new Set((oldList ?? []).map(prop('id')))
 
     // 淡出舊列表中有、新列表中沒有的音效
-    for (const oldType of oldTypeSet) {
-      if (!newTypeSet.has(oldType)) {
-        const player = activePlayerMap.get(oldType)
+    for (const oldId of oldIdSet) {
+      if (!newIdSet.has(oldId)) {
+        const player = activePlayerMap.get(oldId)
         if (player) {
           player.destroy()
-          activePlayerMap.delete(oldType)
+          activePlayerMap.delete(oldId)
         }
       }
     }
 
     // 播放新列表中有、舊列表中沒有的音效
     for (const scape of newList) {
-      if (!oldTypeSet.has(scape.type)) {
+      if (!oldIdSet.has(scape.id)) {
         const player = new SoundscapePlayer(scape)
         player.setGlobalVolume(volume.value)
         player.play()
         if (muted.value) {
           player.muted()
         }
-        activePlayerMap.set(scape.type, player)
+        activePlayerMap.set(scape.id, player)
       }
     }
   })
@@ -60,6 +61,8 @@ export function useSoundscapePlayer(
     else {
       for (const [_, player] of activePlayerMap) {
         player.unmuted()
+        // 重新播放，避免被瀏覽器阻擋
+        player.play()
       }
     }
   })

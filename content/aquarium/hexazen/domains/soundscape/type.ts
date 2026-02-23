@@ -5,7 +5,8 @@ export type SoundscapeType = 'rustle' |
   'beast' |
   'river' |
   'building' |
-  'ocean'
+  'ocean' |
+  'alpine'
 
 interface Sound {
   src: string;
@@ -14,6 +15,7 @@ interface Sound {
 }
 
 export interface Soundscape {
+  id: number;
   type: SoundscapeType;
   mode: 'loop' | 'interval';
   soundList: Sound[];

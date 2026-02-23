@@ -1,6 +1,6 @@
 import type { Block } from '../../block/type'
 import type { Soundscape } from '../type'
-import { pipe, prop, reduce, uniqueBy } from 'remeda'
+import { pipe, reduce } from 'remeda'
 import { calcTraitRegionList } from '../../block/trait-region'
 import { soundscapeRuleList } from './data'
 
