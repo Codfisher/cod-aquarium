@@ -215,14 +215,14 @@ export default ({ mode }: { mode: string }) => {
                 text: '用 Electron 仿造 PowerToys',
                 link: getOldestDocPath('/column-cod-toys/'),
               },
-              {
-                text: '來個 3D 白噪音混音器',
-                link: getOldestDocPath('/column-sound-blocks/'),
-              },
-              {
-                text: '酷酷元件背後的星點',
-                link: getOldestDocPath('/column-chill-components/'),
-              },
+              // {
+              //   text: '來個 3D 白噪音混音器',
+              //   link: getOldestDocPath('/column-sound-blocks/'),
+              // },
+              // {
+              //   text: '酷酷元件背後的星點',
+              //   link: getOldestDocPath('/column-chill-components/'),
+              // },
             ],
           }),
           getNavItem({
@@ -286,10 +286,10 @@ export default ({ mode }: { mode: string }) => {
                   text: '自己的工具自己做，用 Electron 仿造 PowerToys！',
                   link: getOldestDocPath('/column-cod-toys/'),
                 },
-                {
-                  text: '來個 3D 白噪音混音器',
-                  link: getOldestDocPath('/column-sound-blocks/'),
-                },
+                // {
+                //   text: '來個 3D 白噪音混音器',
+                //   link: getOldestDocPath('/column-sound-blocks/'),
+                // },
                 // {
                 //   text: '酷酷元件背後的星點',
                 //   link: getOldestDocPath('/column-chill-components/'),
