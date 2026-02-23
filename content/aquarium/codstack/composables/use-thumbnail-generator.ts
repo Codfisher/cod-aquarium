@@ -41,9 +41,6 @@ function getOptimalConcurrency(): number {
     optimal = 2
   }
 
-  // 就算設備再好，也不要超過 4 或 5。
-  // 因為瀏覽器單一分頁的 WebGL Context 總數上限通常是 8~16 個，
-  // 你必須保留一些 Context 給「主畫面顯示」或是 Vue 的其他視覺特效使用。
   return Math.min(optimal, 6)
 }
 
@@ -51,8 +48,6 @@ const concurrency = getOptimalConcurrency()
 const size = 128
 
 function _useThumbnailGenerator(rootFsHandle: FileSystemDirectoryHandle) {
-  const queue = new PQueue({ concurrency })
-
   let index = 0
   const generatorList = Array.from({ length: concurrency }, () => createGenerator())
   const blobUrlList: string[] = []
@@ -63,6 +58,8 @@ function _useThumbnailGenerator(rootFsHandle: FileSystemDirectoryHandle) {
   })
 
   function createGenerator() {
+    const queue = new PQueue({ concurrency: 1 })
+
     let lastContainer: AssetContainer | undefined
     function clearLastContainer() {
       lastContainer?.removeAllFromScene()
@@ -161,6 +158,7 @@ function _useThumbnailGenerator(rootFsHandle: FileSystemDirectoryHandle) {
     }
 
     function dispose() {
+      queue.clear()
       canvas.remove()
       engine.dispose()
     }

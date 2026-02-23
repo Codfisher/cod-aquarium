@@ -1,4 +1,5 @@
 import type { AssetContainer } from '@babylonjs/core'
+import type { BlockType } from '../domains/block/type'
 import {
   ArcRotateCamera,
   Color4,
@@ -13,7 +14,7 @@ import {
 import { LoadAssetContainerAsync } from '@babylonjs/core/Loading/sceneLoader'
 import { createSharedComposable, tryOnScopeDispose } from '@vueuse/core'
 import PQueue from 'p-queue'
-import { blockDefinitions, type BlockType } from '../domains/block/builder/data'
+import { blockDefinitions } from '../domains/block/builder/data'
 
 function getOptimalConcurrency(): number {
   // 如果不在瀏覽器環境，給一個最保守的預設值
@@ -47,8 +48,6 @@ const concurrency = getOptimalConcurrency()
 const size = 128
 
 function _useThumbnailGenerator() {
-  const queue = new PQueue({ concurrency })
-
   let index = 0
   const generatorList = Array.from({ length: concurrency }, () => createGenerator())
   const blobUrlList: string[] = []
@@ -59,6 +58,8 @@ function _useThumbnailGenerator() {
   })
 
   function createGenerator() {
+    const queue = new PQueue({ concurrency: 1 })
+
     let lastContainerList: AssetContainer[] = []
     function clearLastContainer() {
       lastContainerList.forEach((c) => {
@@ -154,6 +155,7 @@ function _useThumbnailGenerator() {
     }
 
     function dispose() {
+      queue.clear()
       canvas.remove()
       engine.dispose()
     }

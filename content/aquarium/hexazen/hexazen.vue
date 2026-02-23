@@ -8,58 +8,109 @@
         <canvas
           v-once
           ref="canvasRef"
-          class="canvas w-full h-full"
+          class="w-full h-full outline-0"
         />
 
-        <div class="absolute right-0 bottom-0 p-5 space-y-4 text-gray-400">
-          <u-tooltip
-            text="Remove Mode"
-            :content="{
-              side: 'left',
-            }"
+        <transition
+          name="fade"
+          mode="out-in"
+        >
+          <div
+            v-if="isEditMode"
+            class="absolute right-0 bottom-0 p-5 space-y-4 text-gray-400"
           >
-            <u-icon
-              name="i-mingcute:shovel-fill"
-              class="text-4xl cursor-pointer duration-500 outline-0"
-              :class="{
-                'text-primary': isRemoveMode,
+            <u-tooltip
+              text="Remove Mode"
+              :content="{
+                side: 'left',
               }"
-              @click="toggleRemoveMode()"
-            />
-          </u-tooltip>
+            >
+              <u-icon
+                name="i-mingcute:shovel-fill"
+                class="text-4xl cursor-pointer duration-500 outline-0"
+                :class="{
+                  'text-primary': isRemoveMode,
+                }"
+                @click="toggleRemoveMode()"
+              />
+            </u-tooltip>
 
-          <u-popover
-            :ui="{
-              content: 'chamfer-3 bg-gray-200 p-0.5',
-            }"
-          >
-            <u-icon
-              name="i-material-symbols:cleaning-services-rounded"
-              class="text-[32px] cursor-pointer duration-500 outline-0"
-            />
+            <u-popover
+              :ui="{
+                content: 'chamfer-3 bg-gray-200 p-0.5',
+              }"
+            >
+              <u-tooltip
+                text="Remove all blocks"
+                :content="{
+                  side: 'left',
+                }"
+              >
+                <u-icon
+                  name="i-material-symbols:cleaning-services-rounded"
+                  class="text-[32px] cursor-pointer duration-500 outline-0"
+                />
+              </u-tooltip>
 
-            <template #content="{ close }">
-              <div class="chamfer-2.5 bg-white">
-                <div class="p-4 space-y-2 ">
-                  <div class=" font-bold">
-                    Confirm to remove all blocks?
-                  </div>
-                  <div class=" text-sm">
-                    This action can't be undone
-                  </div>
+              <template #content="{ close }">
+                <div class="chamfer-2.5 bg-white">
+                  <div class="p-4 space-y-2 ">
+                    <div class=" font-bold">
+                      Confirm to remove all blocks?
+                    </div>
+                    <div class=" text-sm">
+                      This action can't be undone
+                    </div>
 
-                  <div class="flex justify-end">
-                    <base-btn
-                      label="Remove All"
-                      color="error"
-                      @click="removeAllBlocks(); close()"
-                    />
+                    <div class="flex justify-end">
+                      <base-btn
+                        label="Remove All"
+                        color="error"
+                        @click="removeAllBlocks(); close()"
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
-            </template>
-          </u-popover>
-        </div>
+              </template>
+            </u-popover>
+
+            <u-separator
+              size="sm"
+              class="py-1"
+            />
+
+            <u-tooltip
+              text="Close edit mode"
+              :content="{
+                side: 'left',
+              }"
+            >
+              <u-icon
+                name="i-line-md:arrow-small-left"
+                class="text-4xl cursor-pointer duration-500 outline-0"
+                @click="toggleEditMode()"
+              />
+            </u-tooltip>
+          </div>
+
+          <div
+            v-else
+            class="absolute right-0 bottom-0 p-5 space-y-4 text-gray-400"
+          >
+            <u-tooltip
+              text="Edit Mode"
+              :content="{
+                side: 'left',
+              }"
+            >
+              <u-icon
+                name="i-line-md:pencil-alt-twotone"
+                class="text-4xl cursor-pointer duration-500 outline-0"
+                @click="toggleEditMode()"
+              />
+            </u-tooltip>
+          </div>
+        </transition>
 
         <div class="absolute left-0 bottom-0 p-5 space-y-4">
           <u-icon
@@ -108,11 +159,11 @@ import { useColorMode, useToggle } from '@vueuse/core'
 import { animate } from 'animejs'
 import { pipe, tap } from 'remeda'
 import { computed, ref, shallowReactive, shallowRef, watch } from 'vue'
-import { version } from '../codstack/constants'
 import { cursorDataUrl } from '../meme-cache/constants'
 import BaseBtn from './components/base-btn.vue'
 import { useBabylonScene } from './composables/use-babylon-scene'
 import { useFontLoader } from './composables/use-font-loader'
+import { version } from './constants'
 import BlockPicker from './domains/block/block-picker.vue'
 import { createBlock } from './domains/block/builder'
 import { Hex, HexLayout } from './domains/hex-grid'
@@ -161,10 +212,11 @@ function hexMeshMetadata(mesh?: Mesh | AbstractMesh, update?: Partial<HexMeshMet
   }
 }
 
-// --- Hex Tile 狀態 ---
-
+const [isEditMode, toggleEditMode] = useToggle(true)
 const [isRemoveMode, toggleRemoveMode] = useToggle(false)
 const [isMuted, toggleMuted] = useToggle(false)
+
+// --- Tile、Block 狀態 ---
 
 /** key 來自 Hex.key() */
 const tileMeshMap = new Map<string, Mesh>()
@@ -340,6 +392,29 @@ function selectTile(hex: Hex) {
   openBlockPicker()
 }
 
+const blockPickerVisible = ref(false)
+function openBlockPicker() {
+  blockPickerVisible.value = true
+}
+
+function handleSelectBlock(blockType: BlockType) {
+  if (selectedTile.value) {
+    spawnBlock(blockType, selectedTile.value)
+
+    // 展開六個方向的候補
+    for (let d = 0; d < 6; d++) {
+      const neighbor = selectedTile.value.neighbor(d)
+      if (neighbor.len() <= MAX_RADIUS) {
+        addCandidate(neighbor)
+      }
+    }
+  }
+
+  deselectCurrent()
+}
+
+useSoundscapePlayer(placedBlockMap)
+
 // --- Scene 初始化 ---
 
 const shadowGenerator = shallowRef<ShadowGenerator>()
@@ -390,6 +465,10 @@ const { canvasRef, scene } = useBabylonScene({
     const animatingBlockSet = new Set<string>()
     // 處理 placedBlock 點擊
     scene.onPointerObservable.add((info) => {
+      if (!isEditMode.value) {
+        return
+      }
+
       const isMove = info.type === PointerEventTypes.POINTERMOVE
       const isClick = info.type === PointerEventTypes.POINTERTAP
 
@@ -460,6 +539,10 @@ const { canvasRef, scene } = useBabylonScene({
 
     // 處理 tile 之 hover、select
     scene.onPointerObservable.add((info) => {
+      if (!isEditMode.value) {
+        return
+      }
+
       const isMove = info.type === PointerEventTypes.POINTERMOVE
       const isClick = info.type === PointerEventTypes.POINTERTAP
 
@@ -518,17 +601,22 @@ const { canvasRef, scene } = useBabylonScene({
       const dt = engine.getDeltaTime() / 1000
       const t = 1 - Math.exp(-FADE_SPEED * dt)
 
-      for (const [key, mat] of tileMaterialMap) {
-        const ta = targetTileAlphaMap.get(key) ?? ALPHA_HIDDEN
-        const tc = targetTileColorMap.get(key)
+      for (const [key, material] of tileMaterialMap) {
+        if (!isEditMode.value) {
+          material.alpha = material.alpha + (ALPHA_HIDDEN - material.alpha) * t
+          continue
+        }
 
-        mat.alpha = mat.alpha + (ta - mat.alpha) * t
+        const targetAlpha = targetTileAlphaMap.get(key) ?? ALPHA_HIDDEN
+        const targetColor = targetTileColorMap.get(key)
 
-        if (tc) {
-          mat.emissiveColor.r += (tc.r - mat.emissiveColor.r) * t
-          mat.emissiveColor.g += (tc.g - mat.emissiveColor.g) * t
-          mat.emissiveColor.b += (tc.b - mat.emissiveColor.b) * t
-          mat.diffuseColor.copyFrom(mat.emissiveColor)
+        material.alpha = material.alpha + (targetAlpha - material.alpha) * t
+
+        if (targetColor) {
+          material.emissiveColor.r += (targetColor.r - material.emissiveColor.r) * t
+          material.emissiveColor.g += (targetColor.g - material.emissiveColor.g) * t
+          material.emissiveColor.b += (targetColor.b - material.emissiveColor.b) * t
+          material.diffuseColor.copyFrom(material.emissiveColor)
         }
       }
     })
@@ -555,32 +643,16 @@ const canvasStyle = computed<CSSProperties>(() => {
     cursor: isPointer ? 'pointer' : 'default',
   }
 })
-
-const blockPickerVisible = ref(false)
-function openBlockPicker() {
-  blockPickerVisible.value = true
-}
-
-function handleSelectBlock(blockType: BlockType) {
-  if (selectedTile.value) {
-    spawnBlock(blockType, selectedTile.value)
-
-    // 展開六個方向的候補
-    for (let d = 0; d < 6; d++) {
-      const neighbor = selectedTile.value.neighbor(d)
-      if (neighbor.len() <= MAX_RADIUS) {
-        addCandidate(neighbor)
-      }
-    }
-  }
-
-  deselectCurrent()
-}
-
-useSoundscapePlayer(placedBlockMap)
 </script>
 
 <style lang="sass" scoped>
-.canvas
-  outline: none
+</style>
+
+<style lang="sass">
+.fade
+  &-enter-active, &-leave-active
+    transition-duration: 0.4s !important
+  &-enter-from, &-leave-to
+    opacity: 0 !important
+    scale: 0.95 !important
 </style>
