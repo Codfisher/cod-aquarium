@@ -18,6 +18,7 @@ export function resolveSoundscape(
     }, [] as Soundscape[]),
     // uniqueBy(prop('type')),
   )
+  console.log(`🚀 ~ result:`, result)
 
   return result
 }

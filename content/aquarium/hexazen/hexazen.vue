@@ -116,8 +116,8 @@
         <div
           class="absolute left-0 bottom-0 p-5 space-y-6 duration-500 btn-drop-shadow"
           :class="{
-            'text-gray-400': isEditMode,
-            'text-gray-100': !isEditMode,
+            'text-gray-400': !enabledPipeline,
+            'text-gray-100': enabledPipeline,
           }"
         >
           <u-slider
@@ -530,12 +530,14 @@ const DEFAULT_VIGNETTE_WEIGHT = 1.2
 
 const shadowGenerator = shallowRef<ShadowGenerator>()
 const pipeline = shallowRef<DefaultRenderingPipeline>()
-watch(() => [isEditMode.value, pipeline.value], ([isEdit], _, onCleanup) => {
+const enabledPipeline = computed(() => isSharedView || !isEditMode.value)
+
+watch(() => [isEditMode.value, pipeline.value], (_, __, onCleanup) => {
   if (!pipeline.value) {
     return
   }
 
-  const enabled = isSharedView || !isEdit
+  const enabled = enabledPipeline.value
 
   // pipeline 停用加入過度效果
   const fStop = enabled ? DEFAULT_F_STOP : 20

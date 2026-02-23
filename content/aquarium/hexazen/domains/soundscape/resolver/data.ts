@@ -284,4 +284,45 @@ export const soundscapeRuleList: SoundscapeRule[] = [
       },
     ]),
   },
+
+  /** 高山 */
+  {
+    // 強冷風
+    type: 'alpine',
+    // alpine size >= 10
+    condition(traitRegionList) {
+      return traitRegionList.some((traitRegion) => traitRegion.trait === 'alpine' && traitRegion.size >= 10)
+    },
+    transform: concat([
+      {
+        type: 'alpine',
+        mode: 'loop',
+        soundList: [
+          {
+            src: 'hexazen/sounds/alpine-sinister-wind.mp3',
+          },
+        ],
+      },
+    ]),
+  },
+  {
+    // 高山雪藏雞
+    type: 'alpine',
+    // alpine size >= 10
+    condition(traitRegionList) {
+      return traitRegionList.some((traitRegion) => traitRegion.trait === 'alpine' && traitRegion.size >= 10)
+    },
+    transform: concat([
+      {
+        type: 'alpine',
+        mode: 'interval',
+        soundList: [
+          {
+            src: 'hexazen/sounds/alpine-tibetan-snowcock.mp3',
+            volume: 0.5,
+          },
+        ],
+      },
+    ]),
+  },
 ]
