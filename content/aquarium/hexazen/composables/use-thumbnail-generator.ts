@@ -83,6 +83,8 @@ function _useThumbnailGenerator() {
 
     camera.lowerBetaLimit = 0.05
     camera.upperBetaLimit = Math.PI / 2 - 0.05
+    camera.minZ = 0.001
+
     camera.useFramingBehavior = true
     if (camera.framingBehavior) {
       camera.framingBehavior.mode = FramingBehavior.FitFrustumSidesMode
