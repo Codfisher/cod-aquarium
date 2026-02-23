@@ -1,5 +1,5 @@
-import type { BlockType } from '../block/type'
-import { Hex } from '../hex-grid'
+import type { BlockType } from '../../block/type'
+import { Hex } from '../../hex-grid'
 
 export interface SharedBlock {
   type: BlockType;
