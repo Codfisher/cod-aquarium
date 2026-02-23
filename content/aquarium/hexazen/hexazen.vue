@@ -40,10 +40,17 @@
                 content: 'chamfer-3 bg-gray-200 p-0.5',
               }"
             >
-              <u-icon
-                name="i-material-symbols:cleaning-services-rounded"
-                class="text-[32px] cursor-pointer duration-500 outline-0"
-              />
+              <u-tooltip
+                text="Remove all blocks"
+                :content="{
+                  side: 'left',
+                }"
+              >
+                <u-icon
+                  name="i-material-symbols:cleaning-services-rounded"
+                  class="text-[32px] cursor-pointer duration-500 outline-0"
+                />
+              </u-tooltip>
 
               <template #content="{ close }">
                 <div class="chamfer-2.5 bg-white">
@@ -67,6 +74,11 @@
               </template>
             </u-popover>
 
+            <u-separator
+              size="sm"
+              class="py-1"
+            />
+
             <u-tooltip
               text="Close edit mode"
               :content="{
@@ -74,7 +86,7 @@
               }"
             >
               <u-icon
-                name="i-material-symbols:keyboard-return-rounded"
+                name="i-line-md:arrow-small-left"
                 class="text-4xl cursor-pointer duration-500 outline-0"
                 @click="toggleEditMode()"
               />
@@ -92,7 +104,7 @@
               }"
             >
               <u-icon
-                name="i-material-symbols:edit-outline-rounded"
+                name="i-line-md:pencil-alt-twotone"
                 class="text-4xl cursor-pointer duration-500 outline-0"
                 @click="toggleEditMode()"
               />
@@ -453,6 +465,10 @@ const { canvasRef, scene } = useBabylonScene({
     const animatingBlockSet = new Set<string>()
     // 處理 placedBlock 點擊
     scene.onPointerObservable.add((info) => {
+      if (!isEditMode.value) {
+        return
+      }
+
       const isMove = info.type === PointerEventTypes.POINTERMOVE
       const isClick = info.type === PointerEventTypes.POINTERTAP
 
@@ -523,6 +539,10 @@ const { canvasRef, scene } = useBabylonScene({
 
     // 處理 tile 之 hover、select
     scene.onPointerObservable.add((info) => {
+      if (!isEditMode.value) {
+        return
+      }
+
       const isMove = info.type === PointerEventTypes.POINTERMOVE
       const isClick = info.type === PointerEventTypes.POINTERTAP
 
@@ -581,17 +601,22 @@ const { canvasRef, scene } = useBabylonScene({
       const dt = engine.getDeltaTime() / 1000
       const t = 1 - Math.exp(-FADE_SPEED * dt)
 
-      for (const [key, mat] of tileMaterialMap) {
-        const ta = targetTileAlphaMap.get(key) ?? ALPHA_HIDDEN
-        const tc = targetTileColorMap.get(key)
+      for (const [key, material] of tileMaterialMap) {
+        if (!isEditMode.value) {
+          material.alpha = material.alpha + (ALPHA_HIDDEN - material.alpha) * t
+          continue
+        }
 
-        mat.alpha = mat.alpha + (ta - mat.alpha) * t
+        const targetAlpha = targetTileAlphaMap.get(key) ?? ALPHA_HIDDEN
+        const targetColor = targetTileColorMap.get(key)
 
-        if (tc) {
-          mat.emissiveColor.r += (tc.r - mat.emissiveColor.r) * t
-          mat.emissiveColor.g += (tc.g - mat.emissiveColor.g) * t
-          mat.emissiveColor.b += (tc.b - mat.emissiveColor.b) * t
-          mat.diffuseColor.copyFrom(mat.emissiveColor)
+        material.alpha = material.alpha + (targetAlpha - material.alpha) * t
+
+        if (targetColor) {
+          material.emissiveColor.r += (targetColor.r - material.emissiveColor.r) * t
+          material.emissiveColor.g += (targetColor.g - material.emissiveColor.g) * t
+          material.emissiveColor.b += (targetColor.b - material.emissiveColor.b) * t
+          material.diffuseColor.copyFrom(material.emissiveColor)
         }
       }
     })
