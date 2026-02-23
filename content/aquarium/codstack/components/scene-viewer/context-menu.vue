@@ -543,7 +543,7 @@ const baseMenuItems = computed<ContextMenuItem[]>(() => {
       return {
         icon: 'material-symbols:select-all-rounded',
         label: 'Select All',
-        kbds: ['ctrl', 'a'],
+        kbds: ['meta', 'a'],
         onSelect: () => emit('selectAll'),
       }
     }),
@@ -561,14 +561,14 @@ const baseMenuItems = computed<ContextMenuItem[]>(() => {
     {
       icon: 'material-symbols:undo-rounded',
       label: 'Undo',
-      kbds: ['ctrl', 'z'],
+      kbds: ['meta', 'z'],
       disabled: !props.canUndo,
       onSelect: () => emit('undo'),
     },
     {
       icon: 'material-symbols:redo-rounded',
       label: 'Redo',
-      kbds: ['ctrl', 'y'],
+      kbds: ['meta', 'y'],
       disabled: !props.canRedo,
       onSelect: () => emit('redo'),
     },
