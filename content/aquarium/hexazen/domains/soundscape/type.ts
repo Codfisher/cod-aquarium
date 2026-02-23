@@ -15,6 +15,7 @@ interface Sound {
 }
 
 export interface Soundscape {
+  id: number;
   type: SoundscapeType;
   mode: 'loop' | 'interval';
   soundList: Sound[];

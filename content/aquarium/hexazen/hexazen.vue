@@ -525,7 +525,7 @@ async function restoreSharedView() {
 
 // --- Scene 初始化 ---
 
-const DEFAULT_F_STOP = 2.0
+const DEFAULT_F_STOP = 2.8
 const DEFAULT_VIGNETTE_WEIGHT = 1.2
 
 const shadowGenerator = shallowRef<ShadowGenerator>()

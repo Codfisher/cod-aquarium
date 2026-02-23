@@ -17,6 +17,11 @@ interface SoundscapeRule {
   transform: (soundscapeList: Soundscape[]) => Soundscape[];
 }
 
+let idCounter = 0
+function getId() {
+  return idCounter++
+}
+
 export const soundscapeRuleList: SoundscapeRule[] = [
   /** 風吹樹梢 */
   {
@@ -26,6 +31,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
       traitRegionList.some((traitRegion) => traitRegion.trait === 'tree' && traitRegion.size >= 2),
     ].some(isTruthy),
     transform: concat([{
+      id: getId(),
       type: 'rustle',
       mode: 'loop',
       soundList: [
@@ -46,6 +52,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
     },
     transform: concat([
       {
+        id: getId(),
         type: 'insect',
         mode: 'interval',
         soundList: [
@@ -75,6 +82,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
     },
     transform: concat([
       {
+        id: getId(),
         type: 'bird',
         mode: 'interval',
         soundList: [
@@ -133,6 +141,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
     },
     transform: concat([
       {
+        id: getId(),
         type: 'frog',
         mode: 'interval',
         soundList: [
@@ -161,6 +170,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
     },
     transform: concat([
       {
+        id: getId(),
         type: 'beast',
         mode: 'interval',
         soundList: [
@@ -181,6 +191,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
     },
     transform: concat([
       {
+        id: getId(),
         type: 'river',
         mode: 'loop',
         soundList: [
@@ -202,6 +213,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
     },
     transform: concat([
       {
+        id: getId(),
         type: 'building',
         mode: 'interval',
         soundList: [
@@ -227,6 +239,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
     },
     transform: concat([
       {
+        id: getId(),
         type: 'ocean',
         mode: 'loop',
         soundList: [
@@ -250,6 +263,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
     },
     transform: concat([
       {
+        id: getId(),
         type: 'ocean',
         mode: 'loop',
         soundList: [
@@ -269,6 +283,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
     },
     transform: concat([
       {
+        id: getId(),
         type: 'ocean',
         mode: 'interval',
         soundList: [
@@ -295,6 +310,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
     },
     transform: concat([
       {
+        id: getId(),
         type: 'alpine',
         mode: 'loop',
         soundList: [
@@ -314,12 +330,13 @@ export const soundscapeRuleList: SoundscapeRule[] = [
     },
     transform: concat([
       {
+        id: getId(),
         type: 'alpine',
         mode: 'interval',
         soundList: [
           {
             src: 'hexazen/sounds/alpine-tibetan-snowcock.mp3',
-            volume: 0.5,
+            volume: 0.3,
           },
         ],
       },
