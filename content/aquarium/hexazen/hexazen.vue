@@ -48,7 +48,7 @@
               >
                 <u-icon
                   name="tdesign:clear-formatting-1-filled"
-                  class="text-3xl cursor-pointer duration-500 outline-0"
+                  class="text-3xl cursor-pointer duration-500 outline-0 scale-90"
                 />
               </u-tooltip>
 
