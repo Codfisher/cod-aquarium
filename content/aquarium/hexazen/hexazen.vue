@@ -380,6 +380,29 @@ function selectTile(hex: Hex) {
   openBlockPicker()
 }
 
+const blockPickerVisible = ref(false)
+function openBlockPicker() {
+  blockPickerVisible.value = true
+}
+
+function handleSelectBlock(blockType: BlockType) {
+  if (selectedTile.value) {
+    spawnBlock(blockType, selectedTile.value)
+
+    // 展開六個方向的候補
+    for (let d = 0; d < 6; d++) {
+      const neighbor = selectedTile.value.neighbor(d)
+      if (neighbor.len() <= MAX_RADIUS) {
+        addCandidate(neighbor)
+      }
+    }
+  }
+
+  deselectCurrent()
+}
+
+useSoundscapePlayer(placedBlockMap)
+
 // --- Scene 初始化 ---
 
 const shadowGenerator = shallowRef<ShadowGenerator>()
@@ -595,29 +618,6 @@ const canvasStyle = computed<CSSProperties>(() => {
     cursor: isPointer ? 'pointer' : 'default',
   }
 })
-
-const blockPickerVisible = ref(false)
-function openBlockPicker() {
-  blockPickerVisible.value = true
-}
-
-function handleSelectBlock(blockType: BlockType) {
-  if (selectedTile.value) {
-    spawnBlock(blockType, selectedTile.value)
-
-    // 展開六個方向的候補
-    for (let d = 0; d < 6; d++) {
-      const neighbor = selectedTile.value.neighbor(d)
-      if (neighbor.len() <= MAX_RADIUS) {
-        addCandidate(neighbor)
-      }
-    }
-  }
-
-  deselectCurrent()
-}
-
-useSoundscapePlayer(placedBlockMap)
 </script>
 
 <style lang="sass" scoped>
