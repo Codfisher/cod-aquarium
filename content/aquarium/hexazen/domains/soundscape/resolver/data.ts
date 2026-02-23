@@ -186,7 +186,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
         soundList: [
           {
             src: 'hexazen/sounds/river-fast-flowing.mp3',
-            volume: 0.5,
+            volume: 0.8,
           },
         ],
       },
