@@ -84,7 +84,7 @@ export class SoundscapePlayer {
       else {
         currentAudio.onloadedmetadata = () => {
           setupOverlap()
-          currentAudio.onloadedmetadata = null // 清除監聽
+          currentAudio.onloadedmetadata = null // 清除監聯
         }
       }
     }
@@ -185,5 +185,17 @@ export class SoundscapePlayer {
         }
       }, stepTime)
     })
+  }
+
+  public muted() {
+    for (const audio of this.activeAudios) {
+      audio.muted = true
+    }
+  }
+
+  public unmuted() {
+    for (const audio of this.activeAudios) {
+      audio.muted = false
+    }
   }
 }

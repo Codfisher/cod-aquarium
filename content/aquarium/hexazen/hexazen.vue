@@ -413,7 +413,9 @@ function handleSelectBlock(blockType: BlockType) {
   deselectCurrent()
 }
 
-useSoundscapePlayer(placedBlockMap)
+useSoundscapePlayer(placedBlockMap, {
+  muted: isMuted,
+})
 
 // --- Scene 初始化 ---
 

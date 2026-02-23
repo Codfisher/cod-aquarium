@@ -1,3 +1,4 @@
+import type { Ref, ShallowReactive } from 'vue'
 import type { Block } from '../../block/type'
 import type { SoundscapeType } from '../type'
 import { computed, watch } from 'vue'
@@ -5,8 +6,13 @@ import { resolveSoundscape } from '../resolver'
 import { SoundscapePlayer } from './player'
 
 export function useSoundscapePlayer(
-  blockMap: Map<string, Block>,
+  blockMap: ShallowReactive<Map<string, Block>>,
+  options: {
+    muted?: Ref<boolean>;
+  } = {},
 ) {
+  const muted = computed(() => options.muted?.value ?? true)
+
   const soundscapeList = computed(
     () => resolveSoundscape(blockMap),
   )
@@ -34,7 +40,23 @@ export function useSoundscapePlayer(
       if (!oldTypeSet.has(scape.type)) {
         const player = new SoundscapePlayer(scape)
         player.play()
+        if (muted.value) {
+          player.muted()
+        }
         activePlayerMap.set(scape.type, player)
+      }
+    }
+  })
+
+  watch(muted, (newMuted) => {
+    if (newMuted) {
+      for (const [_, player] of activePlayerMap) {
+        player.muted()
+      }
+    }
+    else {
+      for (const [_, player] of activePlayerMap) {
+        player.unmuted()
       }
     }
   })
