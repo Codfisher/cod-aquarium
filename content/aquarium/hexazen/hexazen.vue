@@ -123,6 +123,7 @@
             <u-icon
               name="i-material-symbols:share"
               class="text-3xl cursor-pointer outline-0 text-gray-400"
+              @click="handleShare()"
             />
           </u-tooltip>
 
@@ -180,6 +181,7 @@ import { version } from './constants'
 import BlockPicker from './domains/block/block-picker.vue'
 import { createBlock } from './domains/block/builder'
 import { Hex, HexLayout } from './domains/hex-grid'
+import { decodeBlocks, encodeBlocks } from './domains/share/codec'
 import { useSoundscapePlayer } from './domains/soundscape/player/use-soundscape-player'
 
 // Nuxt UI 接管 vitepress 的 dark 設定，故改用 useColorMode
@@ -268,6 +270,7 @@ async function spawnBlock(blockType: BlockType, hex: Hex) {
   })
 
   placedBlockMap.set(hex.key(), block)
+  return block
 }
 async function removeAllBlocks() {
   placedBlockMap.forEach((block) => {
@@ -437,6 +440,59 @@ useSoundscapePlayer(placedBlockMap, {
   muted: isMuted,
 })
 
+// --- 分享功能 ---
+
+const toast = useToast()
+
+async function handleShare() {
+  const sharedBlocks = Array.from(placedBlockMap.values()).map((block) => {
+    const rotationStep = Math.round(block.rootNode.rotation.y / (Math.PI / 3))
+    const rotation = ((rotationStep % 6) + 6) % 6
+
+    return {
+      type: block.type,
+      hex: block.hex,
+      rotation,
+    }
+  })
+
+  if (sharedBlocks.length === 0) {
+    toast.add({
+      title: 'Nothing to share',
+      description: 'Place some blocks first!',
+      icon: 'i-mingcute:information-line',
+    })
+    return
+  }
+
+  const encoded = encodeBlocks(sharedBlocks)
+  const url = new URL(window.parent.location.href || window.location.href)
+  url.searchParams.set('view', encoded)
+
+  await navigator.clipboard.writeText(url.toString())
+  toast.add({
+    title: 'Link copied!',
+    description: 'Share this link so others can enjoy your soundscape.',
+    icon: 'i-material-symbols:check-circle',
+  })
+}
+
+async function restoreSharedView() {
+  if (!sharedViewEncodedData)
+    return
+
+  try {
+    const sharedBlocks = decodeBlocks(sharedViewEncodedData)
+    for (const { type, hex, rotation } of sharedBlocks) {
+      const block = await spawnBlock(type, hex)
+      block.rootNode.rotation.y = rotation * (Math.PI / 3)
+    }
+  }
+  catch (error) {
+    console.error('Failed to restore shared view:', error)
+  }
+}
+
 // --- Scene 初始化 ---
 
 const shadowGenerator = shallowRef<ShadowGenerator>()
@@ -480,8 +536,13 @@ const { canvasRef, scene } = useBabylonScene({
       }),
     )
 
-    // 原點為初始候補格
-    addCandidate(new Hex(0, 0, 0))
+    if (!isSharedView) {
+      // 原點為初始候補格
+      addCandidate(new Hex(0, 0, 0))
+    }
+
+    // 還原分享連結中的 block
+    await restoreSharedView()
 
     /** 紀錄動畫中的 block */
     const animatingBlockSet = new Set<string>()
