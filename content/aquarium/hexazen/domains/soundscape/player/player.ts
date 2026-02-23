@@ -7,6 +7,12 @@ export class SoundscapePlayer {
   // 追蹤所有正在播放的 audio 元素，方便 destroy 時統一處理漸出
   private activeAudios: Set<HTMLAudioElement> = new Set()
 
+  /** 記錄每個 audio 的基礎音量，用來搭配 globalVolume 做等比縮放 */
+  private baseVolumeMap: Map<HTMLAudioElement, number> = new Map()
+
+  /** 主控音量 (0~1)，作為所有音效基礎音量的乘數 */
+  private globalVolume: number = 1
+
   // 記錄目前的計時器，方便隨時中斷
   private timeoutIds: Set<ReturnType<typeof setTimeout>> = new Set()
 
@@ -33,6 +39,19 @@ export class SoundscapePlayer {
     }
   }
 
+  /** 註冊 audio 並套用 globalVolume */
+  private registerAudio(audio: HTMLAudioElement, baseVolume: number) {
+    audio.volume = baseVolume * this.globalVolume
+    this.activeAudios.add(audio)
+    this.baseVolumeMap.set(audio, baseVolume)
+  }
+
+  /** 移除 audio 追蹤 */
+  private unregisterAudio(audio: HTMLAudioElement) {
+    this.activeAudios.delete(audio)
+    this.baseVolumeMap.delete(audio)
+  }
+
   /**
    * Loop 模式：雙軌交疊播放第一個聲音
    */
@@ -45,13 +64,11 @@ export class SoundscapePlayer {
     // 建立雙音軌
     const audioA = new Audio(soundData.src)
     const audioB = new Audio(soundData.src)
-    audioA.volume = baseVolume
     audioA.loop = true
-    audioB.volume = baseVolume
     audioB.loop = true
 
-    this.activeAudios.add(audioA)
-    this.activeAudios.add(audioB)
+    this.registerAudio(audioA, baseVolume)
+    this.registerAudio(audioB, baseVolume)
 
     let useAudioA = true
 
@@ -107,11 +124,10 @@ export class SoundscapePlayer {
     const baseVolume = randomSound.volume ?? 1
 
     const audio = new Audio(randomSound.src)
-    audio.volume = baseVolume
-    this.activeAudios.add(audio)
+    this.registerAudio(audio, baseVolume)
 
     audio.onended = () => {
-      this.activeAudios.delete(audio)
+      this.unregisterAudio(audio)
       if (this.isDestroying)
         return
 
@@ -158,6 +174,7 @@ export class SoundscapePlayer {
       audio.onended = null
     })
     this.activeAudios.clear()
+    this.baseVolumeMap.clear()
   }
 
   /**
@@ -185,6 +202,18 @@ export class SoundscapePlayer {
         }
       }, stepTime)
     })
+  }
+
+  /**
+   * 設定主控音量，按比例縮放所有正在播放的音效。
+   *
+   * 最終音量 = baseVolume × globalVolume
+   */
+  public setGlobalVolume(value: number) {
+    this.globalVolume = value
+    for (const [audio, baseVolume] of this.baseVolumeMap) {
+      audio.volume = baseVolume * this.globalVolume
+    }
   }
 
   public muted() {

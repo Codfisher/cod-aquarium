@@ -190,7 +190,7 @@ import {
   StandardMaterial,
   Vector3,
 } from '@babylonjs/core'
-import { useColorMode, useToggle } from '@vueuse/core'
+import { useColorMode, useToggle, whenever } from '@vueuse/core'
 import { animate } from 'animejs'
 import { pipe, tap } from 'remeda'
 import { computed, ref, shallowReactive, shallowRef, watch } from 'vue'
@@ -461,6 +461,7 @@ function handleSelectBlock(blockType: BlockType) {
 
 useSoundscapePlayer(placedBlockMap, {
   muted: isMuted,
+  volume: globalVolume,
 })
 
 // --- 分享功能 ---
@@ -519,6 +520,15 @@ async function restoreSharedView() {
 // --- Scene 初始化 ---
 
 const shadowGenerator = shallowRef<ShadowGenerator>()
+const pipeline = shallowRef<DefaultRenderingPipeline>()
+watch(() => [isEditMode.value, pipeline.value], ([isEdit]) => {
+  const enabled = isSharedView || !isEdit
+
+  if (pipeline.value) {
+    pipeline.value.depthOfFieldEnabled = enabled
+    pipeline.value.imageProcessing.vignetteEnabled = enabled
+  }
+}, { immediate: true, deep: true })
 
 function createGround({ scene }: { scene: Scene }) {
   const ground = MeshBuilder.CreateGround('ground', { width: 1000, height: 1000 }, scene)
@@ -567,7 +577,7 @@ const { canvasRef, scene } = useBabylonScene({
     // 還原分享連結中的 block
     await restoreSharedView()
 
-    const pipeline = pipe(
+    pipeline.value = pipe(
       new DefaultRenderingPipeline(
         'hexazenPipeline',
         true,
@@ -580,7 +590,7 @@ const { canvasRef, scene } = useBabylonScene({
         pipeline.depthOfFieldEnabled = true
         pipeline.depthOfFieldBlurLevel = DepthOfFieldEffectBlurLevel.High
         pipeline.depthOfField.focalLength = 135
-        pipeline.depthOfField.fStop = 1.4
+        pipeline.depthOfField.fStop = 2.0
 
         pipeline.imageProcessingEnabled = true
         pipeline.imageProcessing.contrast = 1.25

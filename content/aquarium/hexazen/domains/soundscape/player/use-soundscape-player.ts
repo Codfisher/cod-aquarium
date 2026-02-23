@@ -9,9 +9,11 @@ export function useSoundscapePlayer(
   blockMap: ShallowReactive<Map<string, Block>>,
   options: {
     muted?: Ref<boolean>;
+    volume?: Ref<number>;
   } = {},
 ) {
   const muted = computed(() => options.muted?.value ?? true)
+  const volume = computed(() => options.volume?.value ?? 1)
 
   const soundscapeList = computed(
     () => resolveSoundscape(blockMap),
@@ -39,6 +41,7 @@ export function useSoundscapePlayer(
     for (const scape of newList) {
       if (!oldTypeSet.has(scape.type)) {
         const player = new SoundscapePlayer(scape)
+        player.setGlobalVolume(volume.value)
         player.play()
         if (muted.value) {
           player.muted()
@@ -58,6 +61,12 @@ export function useSoundscapePlayer(
       for (const [_, player] of activePlayerMap) {
         player.unmuted()
       }
+    }
+  })
+
+  watch(volume, (newVolume) => {
+    for (const [_, player] of activePlayerMap) {
+      player.setGlobalVolume(newVolume)
     }
   })
 }
