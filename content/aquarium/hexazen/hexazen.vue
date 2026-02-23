@@ -76,6 +76,7 @@
 
             <u-separator
               size="sm"
+              :ui="{ border: 'border-gray-300' }"
               class="py-1"
             />
 
@@ -161,6 +162,7 @@ import type { AbstractMesh, Mesh, Scene } from '@babylonjs/core'
 import type { CSSProperties } from 'vue'
 import type { Block, BlockType } from './domains/block/type'
 import {
+  ArcRotateCamera,
   Color3,
   Color4,
   ColorCurves,
@@ -213,8 +215,8 @@ const COLOR_CANDIDATE = new Color3(0.3, 0.3, 0.3)
 const COLOR_HOVER = COLOR_CANDIDATE
 
 const ALPHA_SELECTED = 0.6
-const ALPHA_CANDIDATE = 0.35
-const ALPHA_HOVER = 0.65
+const ALPHA_CANDIDATE = 0.5
+const ALPHA_HOVER = 0.7
 const ALPHA_HIDDEN = 0.0
 
 const FADE_SPEED = 14
@@ -549,29 +551,38 @@ const { canvasRef, scene } = useBabylonScene({
     // 還原分享連結中的 block
     await restoreSharedView()
 
-    // --- 後處理 Pipeline ---
-    const pipeline = new DefaultRenderingPipeline(
-      'hexazenPipeline',
-      true,
-      scene,
-      [camera],
+    const pipeline = pipe(
+      new DefaultRenderingPipeline(
+        'hexazenPipeline',
+        true,
+        scene,
+        [camera],
+      ),
+      tap((pipeline) => {
+        pipeline.fxaaEnabled = true
+
+        pipeline.depthOfFieldEnabled = true
+        pipeline.depthOfFieldBlurLevel = DepthOfFieldEffectBlurLevel.High
+        pipeline.depthOfField.focalLength = 135
+        pipeline.depthOfField.fStop = 1.4
+
+        pipeline.imageProcessingEnabled = true
+        pipeline.imageProcessing.contrast = 1.25
+        pipeline.imageProcessing.exposure = 1.1
+
+        // 暗角
+        pipeline.imageProcessing.vignetteEnabled = true
+        pipeline.imageProcessing.vignetteWeight = 1.5
+        pipeline.imageProcessing.vignetteColor = new Color4(0, 0, 0, 0)
+
+        // 讓景深的對焦距離，永遠精準等於攝影機與中心點的距離
+        scene.onBeforeRenderObservable.add(() => {
+          if (pipeline.depthOfFieldEnabled && camera instanceof ArcRotateCamera) {
+            pipeline.depthOfField.focusDistance = camera.radius * 1000
+          }
+        })
+      }),
     )
-    pipeline.fxaaEnabled = true
-
-    // pipeline.depthOfFieldEnabled = true
-    // pipeline.depthOfFieldBlurLevel = DepthOfFieldEffectBlurLevel.High
-    // pipeline.depthOfField.focusDistance = 1000
-    // pipeline.depthOfField.focalLength = 150
-    // pipeline.depthOfField.fStop = 1.4
-
-    pipeline.imageProcessingEnabled = true
-    pipeline.imageProcessing.contrast = 1.25
-    pipeline.imageProcessing.exposure = 1.1
-
-    // 暗角
-    pipeline.imageProcessing.vignetteEnabled = true
-    pipeline.imageProcessing.vignetteWeight = 1.5
-    pipeline.imageProcessing.vignetteColor = new Color4(0, 0, 0, 0)
 
     /** 紀錄動畫中的 block */
     const animatingBlockSet = new Set<string>()
