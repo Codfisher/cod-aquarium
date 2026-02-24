@@ -21,7 +21,7 @@ export function useSoundscapePlayer(
   const traitRegionList = computed(() => calcTraitRegionList(blockMap))
   const soundscapeList = computed(() => resolveSoundscape(traitRegionList.value, blockMap))
 
-  /** 目前正在播放的音效，key 為 SoundscapeType */
+  /** 目前正在播放的音效，key 為 id */
   const activePlayerMap = shallowReactive(new Map<number, SoundscapePlayer>())
 
   watch(soundscapeList, (newList, oldList) => {

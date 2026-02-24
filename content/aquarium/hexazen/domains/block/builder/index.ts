@@ -6,6 +6,7 @@ import type { Hex, HexLayout } from '../../hex-grid'
 import type { Block, BlockType } from '../type'
 import {
   ImportMeshAsync,
+  PBRMaterial,
   Quaternion,
   TransformNode,
   Vector3,
@@ -39,6 +40,13 @@ export async function createBlock(
         fullPath,
         scene,
       )
+
+      model.meshes.forEach((mesh) => {
+        if (mesh.material instanceof PBRMaterial) {
+          mesh.material.metallic = 0
+          mesh.material.roughness = 0.3
+        }
+      })
 
       return {
         model,
