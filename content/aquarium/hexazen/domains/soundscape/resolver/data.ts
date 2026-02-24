@@ -26,9 +26,9 @@ export const soundscapeRuleList: SoundscapeRule[] = [
   /** 風吹樹梢 */
   {
     type: 'rustle',
-    // tree size >= 2
+    // tree size >= 3
     condition: (traitRegionList) => [
-      traitRegionList.some((traitRegion) => traitRegion.trait === 'tree' && traitRegion.size >= 2),
+      traitRegionList.some((traitRegion) => traitRegion.trait === 'tree' && traitRegion.size >= 3),
     ].some(isTruthy),
     transform: concat([{
       id: getId(),
@@ -37,7 +37,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
       soundList: [
         {
           src: 'hexazen/sounds/rustle-tree.mp3',
-          volume: 0.8,
+          volume: 0.6,
         },
       ],
     }]),
@@ -46,9 +46,9 @@ export const soundscapeRuleList: SoundscapeRule[] = [
   /** 蟲鳴 */
   {
     type: 'insect',
-    // grass size >= 3
+    // grass size >= 4
     condition(traitRegionList) {
-      return traitRegionList.some((traitRegion) => traitRegion.trait === 'grass' && traitRegion.size >= 3)
+      return traitRegionList.some((traitRegion) => traitRegion.trait === 'grass' && traitRegion.size >= 4)
     },
     transform: concat([
       {
@@ -76,9 +76,9 @@ export const soundscapeRuleList: SoundscapeRule[] = [
   /** 鳥叫 */
   {
     type: 'bird',
-    // tree >= 5
+    // tree >= 6
     condition(traitRegionList) {
-      return traitRegionList.some((traitRegion) => traitRegion.trait === 'tree' && traitRegion.size >= 5)
+      return traitRegionList.some((traitRegion) => traitRegion.trait === 'tree' && traitRegion.size >= 6)
     },
     transform: concat([
       {

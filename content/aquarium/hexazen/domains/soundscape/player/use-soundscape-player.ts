@@ -1,8 +1,10 @@
 import type { Ref, ShallowReactive } from 'vue'
 import type { Block } from '../../block/type'
 import type { SoundscapeType } from '../type'
+import { reactiveComputed } from '@vueuse/core'
 import { prop } from 'remeda'
-import { computed, watch } from 'vue'
+import { computed, shallowReactive, watch } from 'vue'
+import { calcTraitRegionList } from '../../block/trait-region'
 import { resolveSoundscape } from '../resolver'
 import { SoundscapePlayer } from './player'
 
@@ -16,12 +18,11 @@ export function useSoundscapePlayer(
   const muted = computed(() => options.muted?.value ?? true)
   const volume = computed(() => options.volume?.value ?? 1)
 
-  const soundscapeList = computed(
-    () => resolveSoundscape(blockMap),
-  )
+  const traitRegionList = computed(() => calcTraitRegionList(blockMap))
+  const soundscapeList = computed(() => resolveSoundscape(traitRegionList.value, blockMap))
 
   /** 目前正在播放的音效，key 為 SoundscapeType */
-  const activePlayerMap = new Map<number, SoundscapePlayer>()
+  const activePlayerMap = shallowReactive(new Map<number, SoundscapePlayer>())
 
   watch(soundscapeList, (newList, oldList) => {
     const newIdSet = new Set(newList.map(prop('id')))
@@ -42,6 +43,7 @@ export function useSoundscapePlayer(
     for (const scape of newList) {
       if (!oldIdSet.has(scape.id)) {
         const player = new SoundscapePlayer(scape)
+        console.log(`🚀 ~ player:`, player)
         player.setGlobalVolume(volume.value)
         player.play()
         if (muted.value) {
@@ -72,4 +74,10 @@ export function useSoundscapePlayer(
       player.setGlobalVolume(newVolume)
     }
   })
+
+  return {
+    traitRegionList,
+    soundscapeList,
+    activePlayerMap,
+  }
 }

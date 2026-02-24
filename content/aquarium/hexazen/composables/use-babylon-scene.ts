@@ -19,13 +19,13 @@ export interface InitParams {
   canvas: HTMLCanvasElement;
   engine: BabylonEngine;
   scene: Scene;
-  camera: Camera;
+  camera: ArcRotateCamera;
 }
 
 interface UseBabylonSceneParam {
   createEngine?: (param: Omit<InitParams, 'camera' | 'scene' | 'engine'>) => Promise<BabylonEngine>;
   createScene?: (param: Omit<InitParams, 'camera' | 'scene'>) => Scene;
-  createCamera?: (param: Omit<InitParams, 'camera'>) => Camera;
+  createCamera?: (param: Omit<InitParams, 'camera'>) => ArcRotateCamera;
   init?: (param: InitParams) => Promise<void>;
 }
 const defaultParam: Required<UseBabylonSceneParam> = {
@@ -108,10 +108,10 @@ function setupSmartCameraLimits(
   const height = engine.getRenderHeight()
 
   if (width < height) {
-    camera.fovMode = Camera.FOVMODE_HORIZONTAL_FIXED
+    camera.fovMode = Camera.FOVMODE_VERTICAL_FIXED
   }
   else {
-    camera.fovMode = Camera.FOVMODE_VERTICAL_FIXED
+    camera.fovMode = Camera.FOVMODE_HORIZONTAL_FIXED
   }
 
   const updateCameraSettings = () => {
@@ -132,7 +132,7 @@ function setupSmartCameraLimits(
     const safeDistance = finalRadius / Math.sin(camera.fov / 2)
 
     camera.lowerRadiusLimit = safeDistance * 0.2
-    camera.upperRadiusLimit = safeDistance * 0.8
+    camera.upperRadiusLimit = safeDistance * 1
 
     // 避免距離拉近時產生破圖或閃爍
     camera.minZ = finalRadius * 0.1
@@ -154,7 +154,7 @@ export function useBabylonScene(param?: UseBabylonSceneParam) {
 
   const engine = shallowRef<BabylonEngine>()
   const scene = shallowRef<Scene>()
-  const camera = shallowRef<Camera>()
+  const camera = shallowRef<ArcRotateCamera>()
 
   const {
     createEngine,

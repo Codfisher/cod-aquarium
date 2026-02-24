@@ -20,7 +20,6 @@
 @utility chamfer-* {
 /* 1. 處理 Tailwind 原生間距數字 (例如 4 會被 Tailwind 編譯為 calc(var(--spacing) * 4)) */
   --size: --spacing(--value(number));
-  
   /* 2. 處理任意值 (例如 [20px]) 或自訂變數 (作為 Fallback) */
   --size: --value(--spacing-*, [*]);
   
@@ -34,6 +33,21 @@
     0 calc(100% - var(--size)), 
     0 var(--size)
   );
+}
+@utility chamfer-border-* {
+  --border-inset: --spacing(--value(number));
+  --border-inset: --value(--spacing-*, [*]);
+  position: relative;
+  z-index: 0;
+}
+[class*="chamfer-border"]::after {
+  content: "";
+  position: absolute;
+  inset: var(--border-inset); 
+  background-color: #ffffff; 
+  clip-path: inherit;
+  z-index: -1;
+  pointer-events: none;
 }
 
 @utility scroll-left {
