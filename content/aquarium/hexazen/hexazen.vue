@@ -555,6 +555,7 @@ const DEFAULT_VIGNETTE_WEIGHT = 1.5
 const shadowGenerator = shallowRef<ShadowGenerator>()
 const pipeline = shallowRef<DefaultRenderingPipeline>()
 const rainParticleSystem = shallowRef<GPUParticleSystem>()
+const splashParticleSystem = shallowRef<GPUParticleSystem>()
 const enabledPipeline = computed(() => isSharedView || !isEditMode.value)
 
 // 開關 pipeline
@@ -609,19 +610,19 @@ function createRainSystem(scene: Scene) {
     return
   }
 
-  const particleSystem = new GPUParticleSystem('rain_system', { capacity: 100000 }, scene)
+  const particleSystem = new GPUParticleSystem('rain_system', { capacity: 50000 }, scene)
 
-  const dropTexture = new DynamicTexture('drop_tex', { width: 1, height: 32 }, scene, false)
+  const dropTexture = new DynamicTexture('drop_tex', { width: 1, height: 20 }, scene, false)
   const ctx = dropTexture.getContext()
   const gradient = ctx.createLinearGradient(0, 0, 0, 32)
-  gradient.addColorStop(0, 'rgba(255, 255, 255, 0)')    
+  gradient.addColorStop(0, 'rgba(255, 255, 255, 0)')
   gradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.6)')
-  gradient.addColorStop(1, 'rgba(255, 255, 255, 0)')    
-  
+  gradient.addColorStop(1, 'rgba(255, 255, 255, 0)')
+
   ctx.fillStyle = gradient
   ctx.fillRect(0, 0, 4, 32)
   dropTexture.update()
-  
+
   particleSystem.particleTexture = dropTexture
 
   const emitter = new BoxParticleEmitter()
@@ -629,32 +630,79 @@ function createRainSystem(scene: Scene) {
   emitter.direction2 = new Vector3(0, -1, 0)
   emitter.minEmitBox = new Vector3(-5, 3, -5)
   emitter.maxEmitBox = new Vector3(5, 3, 5)
-  
+
   particleSystem.particleEmitterType = emitter
-  particleSystem.emitter = Vector3.Zero() 
+  particleSystem.emitter = Vector3.Zero()
 
   particleSystem.billboardMode = ParticleSystem.BILLBOARDMODE_STRETCHED
   particleSystem.color1 = new Color4(0.8, 0.8, 0.9, 0.2)
   particleSystem.color2 = new Color4(0.6, 0.7, 0.8, 0.3)
   particleSystem.colorDead = new Color4(0.5, 0.6, 0.7, 0.0)
-  
+
   particleSystem.minSize = 0.01
   particleSystem.maxSize = 0.01
   particleSystem.minScaleX = 0.05
-  particleSystem.maxScaleX = 0.1
-  particleSystem.minScaleY = 3.0  
-  particleSystem.maxScaleY = 5.0  
+  particleSystem.maxScaleX = 0.05
+  particleSystem.minScaleY = 5.0
+  particleSystem.maxScaleY = 5.0
 
-  particleSystem.minLifeTime = 3
-  particleSystem.maxLifeTime = 3
-  particleSystem.emitRate = 5000 
-  particleSystem.minEmitPower = 1
-  particleSystem.maxEmitPower = 2
-  particleSystem.gravity = new Vector3(0, -2, 0)
+  particleSystem.minLifeTime = 5
+  particleSystem.maxLifeTime = 5
+  particleSystem.emitRate = 3000
+  particleSystem.minEmitPower = 0.5
+  particleSystem.maxEmitPower = 0.5
+  particleSystem.gravity = new Vector3(0, -1, 0)
 
   particleSystem.stop()
-  
+
   return particleSystem
+}
+function createSplashSystem(scene: Scene) {
+  if (!GPUParticleSystem.IsSupported) return 
+
+  const splashSystem = new GPUParticleSystem('splash_system', { capacity: 3000 }, scene)
+
+  const splashTexture = new DynamicTexture('splash_tex', { width: 20, height: 20 }, scene, false)
+  const ctx = splashTexture.getContext()
+  const gradient = ctx.createRadialGradient(16, 16, 0, 16, 16, 16)
+  gradient.addColorStop(0, 'rgba(255, 255, 255, 0.8)')
+  gradient.addColorStop(1, 'rgba(255, 255, 255, 0)')
+
+  ctx.fillStyle = gradient
+  ctx.fillRect(0, 0, 20, 20)
+  splashTexture.update()
+
+  splashSystem.particleTexture = splashTexture
+
+  const emitter = new BoxParticleEmitter()
+  emitter.direction1 = new Vector3(-0.5, 1, -0.5)
+  emitter.direction2 = new Vector3(0.5, 1.5, 0.5)
+  emitter.minEmitBox = new Vector3(-5, 0, -5)
+  emitter.maxEmitBox = new Vector3(5, 0.15, 5)
+
+  splashSystem.particleEmitterType = emitter
+  splashSystem.emitter = Vector3.Zero()
+
+  splashSystem.color1 = new Color4(0.8, 0.8, 0.9, 0.6)
+  splashSystem.color2 = new Color4(0.6, 0.7, 0.8, 0.4)
+  splashSystem.colorDead = new Color4(0.5, 0.6, 0.7, 0.0)
+
+  splashSystem.minSize = 0.005
+  splashSystem.maxSize = 0.01
+
+  splashSystem.minLifeTime = 0.15
+  splashSystem.maxLifeTime = 0.3
+
+  splashSystem.emitRate = 500
+
+  splashSystem.minEmitPower = 0.05
+  splashSystem.maxEmitPower = 0.1
+
+  splashSystem.gravity = new Vector3(0, -1, 0)
+
+  splashSystem.stop()
+
+  return splashSystem
 }
 
 function createShadowGenerator(scene: Scene) {
@@ -673,6 +721,7 @@ const { canvasRef, scene, camera } = useBabylonScene({
     createGround({ scene })
     shadowGenerator.value = createShadowGenerator(scene)
     rainParticleSystem.value = createRainSystem(scene)
+    splashParticleSystem.value = createSplashSystem(scene)
 
     baseHexMesh.value = pipe(
       MeshBuilder.CreateCylinder('hexBase', {
@@ -901,7 +950,7 @@ watch(() => [camera.value, isEditMode.value], () => {
   camera.value.useAutoRotationBehavior = enabled
 
   if (camera.value.autoRotationBehavior) {
-    camera.value.autoRotationBehavior.idleRotationSpeed = 0.04
+    camera.value.autoRotationBehavior.idleRotationSpeed = 0.02
     camera.value.autoRotationBehavior.idleRotationSpinupTime = 3000
   }
 }, { deep: true })
@@ -961,8 +1010,10 @@ watch(() => ({ isRain: isRain.value, scene: scene.value }), ({ isRain, scene }, 
 
   if (isRain) {
     rainParticleSystem.value?.start()
+    splashParticleSystem.value?.start()
   } else {
     rainParticleSystem.value?.stop()
+    splashParticleSystem.value?.stop()
   }
 
   const fogStart = isRain ? 1 : 10
