@@ -1,11 +1,9 @@
 <template>
-  <u-app
-    :toaster="{
-      ui: {
-        base: 'chamfer-2 chamfer-border-0.25 bg-gray-200',
-      },
-    }"
-  >
+  <u-app :toaster="{
+    ui: {
+      base: 'chamfer-2 chamfer-border-0.25 bg-gray-200',
+    },
+  }">
     <div class="fixed w-dvw h-dvh m-0 p-3 bg-gray-50">
       <div
         class="w-full h-full chamfer-5 relative"
@@ -23,7 +21,7 @@
         >
           <div
             v-if="isEditMode && !isSharedView"
-            class="absolute right-0 bottom-0 p-5 space-y-6 text-gray-400 btn-drop-shadow"
+            class="absolute right-0 bottom-0 p-5 space-y-6 text-gray-600 btn-drop-shadow opacity-50"
           >
             <u-tooltip
               text="Remove Mode"
@@ -41,11 +39,9 @@
               />
             </u-tooltip>
 
-            <u-popover
-              :ui="{
-                content: 'chamfer-3 bg-gray-200 p-0.5',
-              }"
-            >
+            <u-popover :ui="{
+              content: 'chamfer-3 bg-gray-200 p-0.5',
+            }">
               <u-tooltip
                 text="Remove all blocks"
                 :content="{
@@ -102,7 +98,7 @@
 
           <div
             v-else-if="!isSharedView"
-            class="absolute right-0 bottom-0 p-5 space-y-6 text-gray-400"
+            class="absolute right-0 bottom-0 p-5 space-y-6 text-gray-600 btn-drop-shadow opacity-50"
           >
             <u-tooltip
               v-if="!isSharedView"
@@ -133,7 +129,7 @@
           </div>
         </transition>
 
-        <div class="absolute left-0 bottom-0 p-5 space-y-6 duration-500 text-gray-400 btn-drop-shadow">
+        <div class="absolute left-0 bottom-0 p-5 space-y-6 duration-500 text-gray-600 btn-drop-shadow opacity-50">
           <u-slider
             v-model="globalVolume"
             orientation="vertical"
@@ -141,9 +137,9 @@
             :max="1"
             :step="0.01"
             :ui="{
-              track: 'bg-gray-200',
-              range: 'bg-gray-300',
-              thumb: ' ring-gray-500 bg-white',
+              track: 'bg-gray-300',
+              range: 'bg-gray-500',
+              thumb: ' ring-gray-600 bg-white',
             }"
             class="h-30"
           />
@@ -201,17 +197,20 @@
 </template>
 
 <script setup lang="ts">
-import type { AbstractMesh, Mesh, Scene } from '@babylonjs/core'
+import { AbstractMesh, GPUParticleSystem, Mesh, Scene } from '@babylonjs/core'
 import type { CSSProperties } from 'vue'
 import type { Block, BlockType } from './domains/block/type'
 import {
   ArcRotateCamera,
+  BoxParticleEmitter,
   Color3,
   Color4,
   DefaultRenderingPipeline,
   DepthOfFieldEffectBlurLevel,
   DirectionalLight,
+  DynamicTexture,
   MeshBuilder,
+  ParticleSystem,
   PointerEventTypes,
   ShadowGenerator,
   StandardMaterial,
@@ -555,6 +554,7 @@ const DEFAULT_VIGNETTE_WEIGHT = 1.5
 
 const shadowGenerator = shallowRef<ShadowGenerator>()
 const pipeline = shallowRef<DefaultRenderingPipeline>()
+const rainParticleSystem = shallowRef<GPUParticleSystem>()
 const enabledPipeline = computed(() => isSharedView || !isEditMode.value)
 
 // 開關 pipeline
@@ -602,6 +602,61 @@ function createGround({ scene }: { scene: Scene }) {
   return ground
 }
 
+function createRainSystem(scene: Scene) {
+  // 檢查裝置是否支援 GPU 粒子
+  if (!GPUParticleSystem.IsSupported) {
+    console.warn('此裝置不支援 GPU 粒子系統')
+    return
+  }
+
+  const particleSystem = new GPUParticleSystem('rain_system', { capacity: 100000 }, scene)
+
+  const dropTexture = new DynamicTexture('drop_tex', { width: 1, height: 32 }, scene, false)
+  const ctx = dropTexture.getContext()
+  const gradient = ctx.createLinearGradient(0, 0, 0, 32)
+  gradient.addColorStop(0, 'rgba(255, 255, 255, 0)')    
+  gradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.6)')
+  gradient.addColorStop(1, 'rgba(255, 255, 255, 0)')    
+  
+  ctx.fillStyle = gradient
+  ctx.fillRect(0, 0, 4, 32)
+  dropTexture.update()
+  
+  particleSystem.particleTexture = dropTexture
+
+  const emitter = new BoxParticleEmitter()
+  emitter.direction1 = new Vector3(0, -1, 0)
+  emitter.direction2 = new Vector3(0, -1, 0)
+  emitter.minEmitBox = new Vector3(-5, 3, -5)
+  emitter.maxEmitBox = new Vector3(5, 3, 5)
+  
+  particleSystem.particleEmitterType = emitter
+  particleSystem.emitter = Vector3.Zero() 
+
+  particleSystem.billboardMode = ParticleSystem.BILLBOARDMODE_STRETCHED
+  particleSystem.color1 = new Color4(0.8, 0.8, 0.9, 0.2)
+  particleSystem.color2 = new Color4(0.6, 0.7, 0.8, 0.3)
+  particleSystem.colorDead = new Color4(0.5, 0.6, 0.7, 0.0)
+  
+  particleSystem.minSize = 0.01
+  particleSystem.maxSize = 0.01
+  particleSystem.minScaleX = 0.05
+  particleSystem.maxScaleX = 0.1
+  particleSystem.minScaleY = 3.0  
+  particleSystem.maxScaleY = 5.0  
+
+  particleSystem.minLifeTime = 3
+  particleSystem.maxLifeTime = 3
+  particleSystem.emitRate = 5000 
+  particleSystem.minEmitPower = 1
+  particleSystem.maxEmitPower = 2
+  particleSystem.gravity = new Vector3(0, -2, 0)
+
+  particleSystem.stop()
+  
+  return particleSystem
+}
+
 function createShadowGenerator(scene: Scene) {
   const light = new DirectionalLight('dir01', new Vector3(-3, -5, -2), scene)
   light.intensity = 0.8
@@ -617,6 +672,7 @@ const { canvasRef, scene, camera } = useBabylonScene({
   async init({ scene, engine, camera }) {
     createGround({ scene })
     shadowGenerator.value = createShadowGenerator(scene)
+    rainParticleSystem.value = createRainSystem(scene)
 
     baseHexMesh.value = pipe(
       MeshBuilder.CreateCylinder('hexBase', {
@@ -903,6 +959,12 @@ watch(() => ({ isRain: isRain.value, scene: scene.value }), ({ isRain, scene }, 
     return
   }
 
+  if (isRain) {
+    rainParticleSystem.value?.start()
+  } else {
+    rainParticleSystem.value?.stop()
+  }
+
   const fogStart = isRain ? 1 : 10
   const fogEnd = isRain ? 20 : 100
 
@@ -911,7 +973,7 @@ watch(() => ({ isRain: isRain.value, scene: scene.value }), ({ isRain, scene }, 
     {
       fogStart,
       fogEnd,
-      duration: 1000,
+      duration: 3000,
     },
   )
 
