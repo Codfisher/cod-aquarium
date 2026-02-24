@@ -380,7 +380,7 @@ export const blockDefinitions = {
     },
   },
   b6: {
-    traitList: ['building'] as TraitTypeUnion[],
+    traitList: ['building', 'water'] as TraitTypeUnion[],
     content: {
       version: 1,
       rootFolderName: 'assets',
@@ -452,6 +452,27 @@ export const blockDefinitions = {
       partList: [
         {
           path: 'kenny-hexagon-pack/GLB format/water.glb',
+          position: [0, 0, 0],
+          rotationQuaternion: [0, 1, 0, 0],
+          scaling: [1, 1, 1],
+          metadata: {
+            name: '',
+            mass: 0,
+            restitution: 0.5,
+            friction: 0,
+          },
+        },
+      ],
+    },
+  },
+  w2: {
+    traitList: ['water'] as TraitTypeUnion[],
+    content: {
+      version: 1,
+      rootFolderName: 'assets',
+      partList: [
+        {
+          path: 'kenny-hexagon-pack/GLB format/water-rocks.glb',
           position: [0, 0, 0],
           rotationQuaternion: [0, 1, 0, 0],
           scaling: [1, 1, 1],
