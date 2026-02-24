@@ -43,7 +43,6 @@ export function useSoundscapePlayer(
     for (const scape of newList) {
       if (!oldIdSet.has(scape.id)) {
         const player = new SoundscapePlayer(scape)
-        console.log(`🚀 ~ player:`, player)
         player.setGlobalVolume(volume.value)
         player.play()
         if (muted.value) {
@@ -67,12 +66,16 @@ export function useSoundscapePlayer(
         player.play()
       }
     }
+  }, {
+    immediate: true,
   })
 
   watch(volume, (newVolume) => {
     for (const [_, player] of activePlayerMap) {
       player.setGlobalVolume(newVolume)
     }
+  }, {
+    immediate: true,
   })
 
   return {

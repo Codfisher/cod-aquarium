@@ -12,6 +12,7 @@ export class SoundscapePlayer {
 
   /** 主控音量 (0~1)，作為所有音效基礎音量的乘數 */
   private globalVolume: number = 1
+  private isMuted: boolean = false
 
   // 記錄目前的計時器，方便隨時中斷
   private timeoutIds: Set<ReturnType<typeof setTimeout>> = new Set()
@@ -42,6 +43,7 @@ export class SoundscapePlayer {
   /** 註冊 audio 並套用 globalVolume */
   private registerAudio(audio: HTMLAudioElement, baseVolume: number) {
     audio.volume = baseVolume * this.globalVolume
+    audio.muted = this.isMuted
     this.activeAudios.add(audio)
     this.baseVolumeMap.set(audio, baseVolume)
   }
@@ -63,8 +65,8 @@ export class SoundscapePlayer {
 
     // 建立雙音軌
     const audioA = new Audio(soundData.src)
-    const audioB = new Audio(soundData.src)
     audioA.loop = true
+    const audioB = new Audio(soundData.src)
     audioB.loop = true
 
     this.registerAudio(audioA, baseVolume)
@@ -217,12 +219,14 @@ export class SoundscapePlayer {
   }
 
   public muted() {
+    this.isMuted = true
     for (const audio of this.activeAudios) {
       audio.muted = true
     }
   }
 
   public unmuted() {
+    this.isMuted = false
     for (const audio of this.activeAudios) {
       audio.muted = false
     }

@@ -171,6 +171,11 @@ export function useBabylonScene(param?: UseBabylonSceneParam) {
     engine.value = await createEngine({
       canvas: canvasRef.value,
     })
+    engine.value.setHardwareScalingLevel(Math.max(
+      1,
+      window?.devicePixelRatio ?? 1,
+    ))
+
     scene.value = createScene({
       canvas: canvasRef.value,
       engine: engine.value,
