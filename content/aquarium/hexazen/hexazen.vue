@@ -292,7 +292,7 @@ const placedBlockMap = shallowReactive(new Map<string, Block>())
 const hoveredBlock = shallowRef<Block>()
 
 /** 對齊模型與 hex 的大小 */
-const HEX_SIZE = 0.575
+const HEX_SIZE = 0.5775
 const hexLayout = new HexLayout(HexLayout.pointy, HEX_SIZE, Vector3.Zero())
 /** clone 用的基礎 hex mesh */
 const baseHexMesh = shallowRef<Mesh>()
