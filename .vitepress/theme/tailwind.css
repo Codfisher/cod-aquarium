@@ -34,11 +34,6 @@
     0 var(--size)
   );
 }
-@utility chamfer-border-color-* {
-  --border-color: --value(--color-*, [*]);
-  background-color: var(--border-color); 
-}
-
 @utility chamfer-border-* {
   --border-inset: --spacing(--value(number));
   --border-inset: --value(--spacing-*, [*]);
