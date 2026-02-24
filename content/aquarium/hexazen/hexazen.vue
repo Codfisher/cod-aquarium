@@ -105,13 +105,27 @@
             class="absolute right-0 bottom-0 p-5 space-y-6 text-gray-400"
           >
             <u-tooltip
+              v-if="!isSharedView"
+              text="Share your soundscape with others"
+              :content="{
+                side: 'right',
+              }"
+            >
+              <u-icon
+                name="i-material-symbols:share"
+                class="text-3xl cursor-pointer outline-0 "
+                @click="handleShare()"
+              />
+            </u-tooltip>
+
+            <u-tooltip
               text="Edit Mode"
               :content="{
                 side: 'left',
               }"
             >
               <u-icon
-                name="i-line-md:pencil-alt-twotone"
+                name="i-material-symbols:edit-rounded"
                 class="text-3xl cursor-pointer duration-500 outline-0"
                 @click="toggleEditMode()"
               />
@@ -133,20 +147,6 @@
             }"
             class="h-30"
           />
-
-          <u-tooltip
-            v-if="!isSharedView"
-            text="Share your soundscape with others"
-            :content="{
-              side: 'right',
-            }"
-          >
-            <u-icon
-              name="i-material-symbols:share"
-              class="text-3xl cursor-pointer outline-0 "
-              @click="handleShare()"
-            />
-          </u-tooltip>
 
           <u-icon
             :name="isMuted ? 'i-mingcute:volume-mute-fill' : 'i-mingcute:volume-fill'"

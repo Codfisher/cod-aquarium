@@ -252,6 +252,10 @@ export default ({ mode }: { mode: string }) => {
                 text: 'CodStack',
                 link: '/aquarium/codstack/',
               },
+              {
+                text: 'HexaZen',
+                link: '/aquarium/hexazen/',
+              },
             ],
           }),
         ],

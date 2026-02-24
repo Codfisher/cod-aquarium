@@ -65,7 +65,7 @@ aside: false
 
 - [精靈球工作臺](https://side_project.gitlab.io/pokeball-workshop/)
 
-  在網頁中自定義精靈球，練習 `babylon.js`
+  在網頁中自定義精靈球，第一個 3D 網頁專案，練習 <a href="https://www.babylonjs.com/" target="_blank">babylon.js</a>
 
 - [MCU Windows](https://codfish-210716.notion.site/MCU-Windows-2f896774ea2f4742af974c753f947bd4#4fcf87c34f544b71bce9a76d96adb39a)
 
@@ -108,6 +108,18 @@ aside: false
   先在 3D 軟體中組裝，又會失去在程式中控制的彈性，於是 CodStack 誕生了！(/≧▽≦)/
 
   CodStack 使用 <a href="https://www.babylonjs.com/" target="_blank">babylon.js</a>、<a href="https://vuejs.org/" target="_blank">Vue</a> 與 <a href="https://ui.nuxt.com/" target="_blank">Nuxt UI</a> 開發，目標是讓組裝 3D 模型變得像拼積木一樣簡單，可輸出結構資料並再次匯入編輯，方便 3D 網頁專案載入模型，免安裝，趕快來試試看吧。
+
+- [HexaZen](/aquarium/hexazen/){target="_blank" rel="noopener"}
+
+  平常上班時耳機都常都是放白噪音、雨聲等等自然聲音。
+
+  同一個聲音聽太多次，連下一個雷聲甚麼時候出現我都快背起來了。%(›´ω`‹ )%
+
+  雖然有很多不錯的線上混音器網站，但是總感覺差了一點甚麼。
+
+  這次想嘗試用 Babylon.js 做一個 3D 白噪音混音器，聲音使用隨機播放的形式呈現。
+
+  HexaZen 使用 <a href="https://www.babylonjs.com/" target="_blank">babylon.js</a>、<a href="https://vuejs.org/" target="_blank">Vue</a> 與 <a href="https://ui.nuxt.com/" target="_blank">Nuxt UI</a> 開發
 
 ---
 
