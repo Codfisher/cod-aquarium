@@ -216,7 +216,7 @@ import {
   StandardMaterial,
   Vector3,
 } from '@babylonjs/core'
-import { useColorMode, useToggle } from '@vueuse/core'
+import { promiseTimeout, useColorMode, useToggle } from '@vueuse/core'
 import { animate } from 'animejs'
 import { maxBy } from 'lodash-es'
 import { pipe, tap } from 'remeda'
@@ -555,7 +555,7 @@ const DEFAULT_VIGNETTE_WEIGHT = 1.5
 const shadowGenerator = shallowRef<ShadowGenerator>()
 const pipeline = shallowRef<DefaultRenderingPipeline>()
 const rainParticleSystem = shallowRef<GPUParticleSystem>()
-const splashParticleSystem = shallowRef<GPUParticleSystem>()
+const splashParticleSystem = shallowRef<ParticleSystem>()
 const enabledPipeline = computed(() => isSharedView || !isEditMode.value)
 
 // 開關 pipeline
@@ -658,18 +658,17 @@ function createRainSystem(scene: Scene) {
   return particleSystem
 }
 function createSplashSystem(scene: Scene) {
-  if (!GPUParticleSystem.IsSupported) return 
+  const splashSystem = new ParticleSystem('splash_system', 10000, scene)
 
-  const splashSystem = new GPUParticleSystem('splash_system', { capacity: 3000 }, scene)
-
-  const splashTexture = new DynamicTexture('splash_tex', { width: 20, height: 20 }, scene, false)
+  const splashTexture = new DynamicTexture('splash_tex', { width: 32, height: 32 }, scene, false)
   const ctx = splashTexture.getContext()
   const gradient = ctx.createRadialGradient(16, 16, 0, 16, 16, 16)
-  gradient.addColorStop(0, 'rgba(255, 255, 255, 0.8)')
-  gradient.addColorStop(1, 'rgba(255, 255, 255, 0)')
+
+  gradient.addColorStop(0, 'rgba(200, 220, 240, 0.8)')
+  gradient.addColorStop(1, 'rgba(200, 220, 240, 0)')
 
   ctx.fillStyle = gradient
-  ctx.fillRect(0, 0, 20, 20)
+  ctx.fillRect(0, 0, 32, 32)
   splashTexture.update()
 
   splashSystem.particleTexture = splashTexture
@@ -677,28 +676,28 @@ function createSplashSystem(scene: Scene) {
   const emitter = new BoxParticleEmitter()
   emitter.direction1 = new Vector3(-0.5, 1, -0.5)
   emitter.direction2 = new Vector3(0.5, 1.5, 0.5)
-  emitter.minEmitBox = new Vector3(-5, 0, -5)
-  emitter.maxEmitBox = new Vector3(5, 0.15, 5)
-
+  emitter.minEmitBox = new Vector3(-5, 0.1, -5)
+  emitter.maxEmitBox = new Vector3(5, 0.3, 5)
   splashSystem.particleEmitterType = emitter
-  splashSystem.emitter = Vector3.Zero()
 
-  splashSystem.color1 = new Color4(0.8, 0.8, 0.9, 0.6)
-  splashSystem.color2 = new Color4(0.6, 0.7, 0.8, 0.4)
+  splashSystem.emitter = new Vector3(0, 0, 0)
+
+  splashSystem.billboardMode = ParticleSystem.BILLBOARDMODE_ALL
+
+  splashSystem.minSize = 0.002
+  splashSystem.maxSize = 0.005
+
+  splashSystem.color1 = new Color4(0.8, 0.8, 0.9, 0.8)
+  splashSystem.color2 = new Color4(0.6, 0.7, 0.8, 0.5)
   splashSystem.colorDead = new Color4(0.5, 0.6, 0.7, 0.0)
-
-  splashSystem.minSize = 0.005
-  splashSystem.maxSize = 0.01
 
   splashSystem.minLifeTime = 0.15
   splashSystem.maxLifeTime = 0.3
-
-  splashSystem.emitRate = 500
+  splashSystem.emitRate = 5000
 
   splashSystem.minEmitPower = 0.05
   splashSystem.maxEmitPower = 0.1
-
-  splashSystem.gravity = new Vector3(0, -1, 0)
+  splashSystem.gravity = new Vector3(0, -0.5, 0)
 
   splashSystem.stop()
 
@@ -1010,10 +1009,14 @@ watch(() => ({ isRain: isRain.value, scene: scene.value }), ({ isRain, scene }, 
 
   if (isRain) {
     rainParticleSystem.value?.start()
-    splashParticleSystem.value?.start()
+    promiseTimeout(2000).then(() => {
+      splashParticleSystem.value?.start()
+    })
   } else {
     rainParticleSystem.value?.stop()
-    splashParticleSystem.value?.stop()
+    promiseTimeout(2000).then(() => {
+      splashParticleSystem.value?.stop()
+    })
   }
 
   const fogStart = isRain ? 1 : 10
