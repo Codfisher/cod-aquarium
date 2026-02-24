@@ -8,6 +8,8 @@ import {
   ImportMeshAsync,
   PBRMaterial,
   Quaternion,
+  StandardMaterial,
+  Texture,
   TransformNode,
   Vector3,
 } from '@babylonjs/core'
@@ -45,6 +47,17 @@ export async function createBlock(
         if (mesh.material instanceof PBRMaterial) {
           mesh.material.metallic = 0
           mesh.material.roughness = 0.3
+
+          const texture = mesh.material.albedoTexture
+
+          if (texture instanceof Texture) {
+            /**
+             * 強制使用三線性過濾 (Trilinear Sampling)，這會讓紋理像素的邊緣被柔化「抹平」
+             *
+             * 否則草皮表面會在旋轉時一直閃爍，超不舒服
+             */
+            texture.updateSamplingMode(Texture.TRILINEAR_SAMPLINGMODE)
+          }
         }
       })
 
