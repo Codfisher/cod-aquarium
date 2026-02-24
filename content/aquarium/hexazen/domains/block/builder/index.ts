@@ -46,7 +46,7 @@ export async function createBlock(
       model.meshes.forEach((mesh) => {
         if (mesh.material instanceof PBRMaterial) {
           mesh.material.metallic = 0
-          mesh.material.roughness = 0.3
+          mesh.material.roughness = 0.4
 
           const texture = mesh.material.albedoTexture
 
