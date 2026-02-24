@@ -2,7 +2,7 @@
   <u-app
     :toaster="{
       ui: {
-        base: 'chamfer-2 chamfer-border-[1px] bg-gray-200',
+        base: 'chamfer-2 chamfer-border-0.25 bg-gray-200',
       },
     }"
   >
@@ -102,7 +102,7 @@
 
           <div
             v-else-if="!isSharedView"
-            class="absolute right-0 bottom-0 p-5 space-y-6 text-gray-100 btn-drop-shadow"
+            class="absolute right-0 bottom-0 p-5 space-y-6 text-gray-400"
           >
             <u-tooltip
               text="Edit Mode"
@@ -119,13 +119,7 @@
           </div>
         </transition>
 
-        <div
-          class="absolute left-0 bottom-0 p-5 space-y-6 duration-500 "
-          :class="{
-            'text-gray-400': !enabledPipeline,
-            'text-gray-100 btn-drop-shadow': enabledPipeline,
-          }"
-        >
+        <div class="absolute left-0 bottom-0 p-5 space-y-6 duration-500 text-gray-400">
           <u-slider
             v-model="globalVolume"
             orientation="vertical"
@@ -531,7 +525,7 @@ async function restoreSharedView() {
 
 // --- Scene 初始化 ---
 
-const DEFAULT_F_STOP = 4
+const DEFAULT_F_STOP = 2.8
 const DEFAULT_VIGNETTE_WEIGHT = 1.2
 
 const shadowGenerator = shallowRef<ShadowGenerator>()
