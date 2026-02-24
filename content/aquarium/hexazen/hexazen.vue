@@ -1,12 +1,10 @@
 <template>
-  <u-app
-    :toaster="{
-      ui: {
-        base: 'chamfer-2 chamfer-border-0.25 bg-gray-200',
-      },
-    }"
-  >
-    <div class="fixed w-dvw h-dvh m-0 p-5 bg-gray-100">
+  <u-app :toaster="{
+    ui: {
+      base: 'chamfer-2 chamfer-border-0.25 bg-gray-200',
+    },
+  }">
+    <div class="fixed w-dvw h-dvh m-0 p-3 bg-gray-50">
       <div
         class="w-full h-full chamfer-5 relative"
         :style="canvasStyle"
@@ -23,7 +21,7 @@
         >
           <div
             v-if="isEditMode && !isSharedView"
-            class="absolute right-0 bottom-0 p-5 space-y-6 text-gray-400 "
+            class="absolute right-0 bottom-0 p-5 space-y-6 text-gray-600 btn-drop-shadow opacity-50"
           >
             <u-tooltip
               text="Remove Mode"
@@ -41,11 +39,9 @@
               />
             </u-tooltip>
 
-            <u-popover
-              :ui="{
-                content: 'chamfer-3 bg-gray-200 p-0.5',
-              }"
-            >
+            <u-popover :ui="{
+              content: 'chamfer-3 bg-gray-200 p-0.5',
+            }">
               <u-tooltip
                 text="Remove all blocks"
                 :content="{
@@ -102,8 +98,22 @@
 
           <div
             v-else-if="!isSharedView"
-            class="absolute right-0 bottom-0 p-5 space-y-6 text-gray-400"
+            class="absolute right-0 bottom-0 p-5 space-y-6 text-gray-600 btn-drop-shadow opacity-50"
           >
+            <u-tooltip
+              v-if="!isSharedView"
+              text="Share your soundscape with others"
+              :content="{
+                side: 'right',
+              }"
+            >
+              <u-icon
+                name="i-material-symbols:share"
+                class="text-3xl cursor-pointer outline-0 "
+                @click="handleShare()"
+              />
+            </u-tooltip>
+
             <u-tooltip
               text="Edit Mode"
               :content="{
@@ -111,7 +121,7 @@
               }"
             >
               <u-icon
-                name="i-line-md:pencil-alt-twotone"
+                name="i-material-symbols:edit-rounded"
                 class="text-3xl cursor-pointer duration-500 outline-0"
                 @click="toggleEditMode()"
               />
@@ -119,7 +129,7 @@
           </div>
         </transition>
 
-        <div class="absolute left-0 bottom-0 p-5 space-y-6 duration-500 text-gray-400">
+        <div class="absolute left-0 bottom-0 p-5 space-y-6 duration-500 text-gray-600 btn-drop-shadow opacity-50">
           <u-slider
             v-model="globalVolume"
             orientation="vertical"
@@ -127,36 +137,45 @@
             :max="1"
             :step="0.01"
             :ui="{
-              track: 'bg-gray-200',
-              range: 'bg-gray-300',
-              thumb: ' ring-gray-500 bg-white',
+              track: 'bg-gray-300',
+              range: 'bg-gray-500',
+              thumb: ' ring-gray-600 bg-white',
             }"
             class="h-30"
           />
-
-          <u-tooltip
-            v-if="!isSharedView"
-            text="Share your soundscape with others"
-            :content="{
-              side: 'right',
-            }"
-          >
-            <u-icon
-              name="i-material-symbols:share"
-              class="text-3xl cursor-pointer outline-0 "
-              @click="handleShare()"
-            />
-          </u-tooltip>
 
           <u-icon
             :name="isMuted ? 'i-mingcute:volume-mute-fill' : 'i-mingcute:volume-fill'"
             class="text-3xl cursor-pointer outline-0 "
             @click="toggleMuted()"
           />
+
+          <u-tooltip
+            text="Toggle Rain"
+            :content="{
+              side: 'right',
+            }"
+          >
+            <u-icon
+              name="i-material-symbols:rainy"
+              class="text-3xl cursor-pointer duration-500 outline-0 "
+              :class="{
+                'text-primary': isRain,
+              }"
+              @click="toggleRain()"
+            />
+          </u-tooltip>
+
+          <bulletin-modal>
+            <u-icon
+              name="material-symbols:notifications-rounded"
+              class="text-3xl cursor-pointer outline-0 "
+            />
+          </bulletin-modal>
         </div>
       </div>
 
-      <div class=" absolute bottom-0 right-0 p-1 opacity-20 text-xs">
+      <div class=" absolute bottom-0 right-0 p-1 opacity-20 text-[8px]">
         v{{ version }}
       </div>
     </div>
@@ -178,29 +197,33 @@
 </template>
 
 <script setup lang="ts">
-import type { AbstractMesh, Mesh, Scene } from '@babylonjs/core'
+import { AbstractMesh, GPUParticleSystem, Mesh, Scene } from '@babylonjs/core'
 import type { CSSProperties } from 'vue'
 import type { Block, BlockType } from './domains/block/type'
 import {
   ArcRotateCamera,
+  BoxParticleEmitter,
   Color3,
   Color4,
   DefaultRenderingPipeline,
   DepthOfFieldEffectBlurLevel,
   DirectionalLight,
+  DynamicTexture,
   MeshBuilder,
+  ParticleSystem,
   PointerEventTypes,
   ShadowGenerator,
   StandardMaterial,
   Vector3,
 } from '@babylonjs/core'
-import { useColorMode, useToggle } from '@vueuse/core'
+import { promiseTimeout, useColorMode, useToggle } from '@vueuse/core'
 import { animate } from 'animejs'
 import { maxBy } from 'lodash-es'
 import { pipe, tap } from 'remeda'
 import { computed, ref, shallowReactive, shallowRef, watch } from 'vue'
 import { cursorDataUrl } from '../meme-cache/constants'
 import BaseBtn from './components/base-btn.vue'
+import BulletinModal from './components/bulletin-modal.vue'
 import { useBabylonScene } from './composables/use-babylon-scene'
 import { useFontLoader } from './composables/use-font-loader'
 import { version } from './constants'
@@ -224,6 +247,7 @@ const sharedViewEncodedData = pipe(
 )
 const isSharedView = !!sharedViewEncodedData
 
+const [isRain, toggleRain] = useToggle(false)
 const [isEditMode, toggleEditMode] = useToggle(true)
 const [isRemoveMode, toggleRemoveMode] = useToggle(false)
 const [isMuted, toggleMuted] = useToggle(isSharedView)
@@ -284,7 +308,7 @@ const placedBlockMap = shallowReactive(new Map<string, Block>())
 const hoveredBlock = shallowRef<Block>()
 
 /** 對齊模型與 hex 的大小 */
-const HEX_SIZE = 0.575
+const HEX_SIZE = 0.5775
 const hexLayout = new HexLayout(HexLayout.pointy, HEX_SIZE, Vector3.Zero())
 /** clone 用的基礎 hex mesh */
 const baseHexMesh = shallowRef<Mesh>()
@@ -526,10 +550,12 @@ async function restoreSharedView() {
 // --- Scene 初始化 ---
 
 const DEFAULT_F_STOP = 2.8
-const DEFAULT_VIGNETTE_WEIGHT = 1.2
+const DEFAULT_VIGNETTE_WEIGHT = 1.5
 
 const shadowGenerator = shallowRef<ShadowGenerator>()
 const pipeline = shallowRef<DefaultRenderingPipeline>()
+const rainParticleSystem = shallowRef<GPUParticleSystem>()
+const splashParticleSystem = shallowRef<ParticleSystem>()
 const enabledPipeline = computed(() => isSharedView || !isEditMode.value)
 
 // 開關 pipeline
@@ -577,6 +603,107 @@ function createGround({ scene }: { scene: Scene }) {
   return ground
 }
 
+function createRainSystem(scene: Scene) {
+  // 檢查裝置是否支援 GPU 粒子
+  if (!GPUParticleSystem.IsSupported) {
+    console.warn('此裝置不支援 GPU 粒子系統')
+    return
+  }
+
+  const particleSystem = new GPUParticleSystem('rain_system', { capacity: 50000 }, scene)
+
+  const dropTexture = new DynamicTexture('drop_tex', { width: 1, height: 20 }, scene, false)
+  const ctx = dropTexture.getContext()
+  const gradient = ctx.createLinearGradient(0, 0, 0, 32)
+  gradient.addColorStop(0, 'rgba(255, 255, 255, 0)')
+  gradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.6)')
+  gradient.addColorStop(1, 'rgba(255, 255, 255, 0)')
+
+  ctx.fillStyle = gradient
+  ctx.fillRect(0, 0, 4, 32)
+  dropTexture.update()
+
+  particleSystem.particleTexture = dropTexture
+
+  const emitter = new BoxParticleEmitter()
+  emitter.direction1 = new Vector3(0, -1, 0)
+  emitter.direction2 = new Vector3(0, -1, 0)
+  emitter.minEmitBox = new Vector3(-5, 3, -5)
+  emitter.maxEmitBox = new Vector3(5, 3, 5)
+
+  particleSystem.particleEmitterType = emitter
+  particleSystem.emitter = Vector3.Zero()
+
+  particleSystem.billboardMode = ParticleSystem.BILLBOARDMODE_STRETCHED
+  particleSystem.color1 = new Color4(0.8, 0.8, 0.9, 0.2)
+  particleSystem.color2 = new Color4(0.6, 0.7, 0.8, 0.3)
+  particleSystem.colorDead = new Color4(0.5, 0.6, 0.7, 0.0)
+
+  particleSystem.minSize = 0.01
+  particleSystem.maxSize = 0.01
+  particleSystem.minScaleX = 0.05
+  particleSystem.maxScaleX = 0.05
+  particleSystem.minScaleY = 5.0
+  particleSystem.maxScaleY = 5.0
+
+  particleSystem.minLifeTime = 5
+  particleSystem.maxLifeTime = 5
+  particleSystem.emitRate = 3000
+  particleSystem.minEmitPower = 0.5
+  particleSystem.maxEmitPower = 0.5
+  particleSystem.gravity = new Vector3(0, -1, 0)
+
+  particleSystem.stop()
+
+  return particleSystem
+}
+function createSplashSystem(scene: Scene) {
+  const splashSystem = new ParticleSystem('splash_system', 10000, scene)
+
+  const splashTexture = new DynamicTexture('splash_tex', { width: 32, height: 32 }, scene, false)
+  const ctx = splashTexture.getContext()
+  const gradient = ctx.createRadialGradient(16, 16, 0, 16, 16, 16)
+
+  gradient.addColorStop(0, 'rgba(200, 220, 240, 0.8)')
+  gradient.addColorStop(1, 'rgba(200, 220, 240, 0)')
+
+  ctx.fillStyle = gradient
+  ctx.fillRect(0, 0, 32, 32)
+  splashTexture.update()
+
+  splashSystem.particleTexture = splashTexture
+
+  const emitter = new BoxParticleEmitter()
+  emitter.direction1 = new Vector3(-0.5, 1, -0.5)
+  emitter.direction2 = new Vector3(0.5, 1.5, 0.5)
+  emitter.minEmitBox = new Vector3(-5, 0.1, -5)
+  emitter.maxEmitBox = new Vector3(5, 0.3, 5)
+  splashSystem.particleEmitterType = emitter
+
+  splashSystem.emitter = new Vector3(0, 0, 0)
+
+  splashSystem.billboardMode = ParticleSystem.BILLBOARDMODE_ALL
+
+  splashSystem.minSize = 0.002
+  splashSystem.maxSize = 0.005
+
+  splashSystem.color1 = new Color4(0.8, 0.8, 0.9, 0.8)
+  splashSystem.color2 = new Color4(0.6, 0.7, 0.8, 0.5)
+  splashSystem.colorDead = new Color4(0.5, 0.6, 0.7, 0.0)
+
+  splashSystem.minLifeTime = 0.15
+  splashSystem.maxLifeTime = 0.3
+  splashSystem.emitRate = 5000
+
+  splashSystem.minEmitPower = 0.05
+  splashSystem.maxEmitPower = 0.1
+  splashSystem.gravity = new Vector3(0, -0.5, 0)
+
+  splashSystem.stop()
+
+  return splashSystem
+}
+
 function createShadowGenerator(scene: Scene) {
   const light = new DirectionalLight('dir01', new Vector3(-3, -5, -2), scene)
   light.intensity = 0.8
@@ -592,6 +719,8 @@ const { canvasRef, scene, camera } = useBabylonScene({
   async init({ scene, engine, camera }) {
     createGround({ scene })
     shadowGenerator.value = createShadowGenerator(scene)
+    rainParticleSystem.value = createRainSystem(scene)
+    splashParticleSystem.value = createSplashSystem(scene)
 
     baseHexMesh.value = pipe(
       MeshBuilder.CreateCylinder('hexBase', {
@@ -820,7 +949,7 @@ watch(() => [camera.value, isEditMode.value], () => {
   camera.value.useAutoRotationBehavior = enabled
 
   if (camera.value.autoRotationBehavior) {
-    camera.value.autoRotationBehavior.idleRotationSpeed = 0.04
+    camera.value.autoRotationBehavior.idleRotationSpeed = 0.02
     camera.value.autoRotationBehavior.idleRotationSpinupTime = 3000
   }
 }, { deep: true })
@@ -872,6 +1001,41 @@ watch(() => [traitRegionList, pipeline.value], (_, __, onCleanup) => {
   deep: true,
 })
 
+// 切換雨天
+watch(() => ({ isRain: isRain.value, scene: scene.value }), ({ isRain, scene }, _, onCleanup) => {
+  if (!scene) {
+    return
+  }
+
+  if (isRain) {
+    rainParticleSystem.value?.start()
+    promiseTimeout(2000).then(() => {
+      splashParticleSystem.value?.start()
+    })
+  } else {
+    rainParticleSystem.value?.stop()
+    promiseTimeout(2000).then(() => {
+      splashParticleSystem.value?.stop()
+    })
+  }
+
+  const fogStart = isRain ? 1 : 10
+  const fogEnd = isRain ? 20 : 100
+
+  const instance = animate(
+    scene,
+    {
+      fogStart,
+      fogEnd,
+      duration: 3000,
+    },
+  )
+
+  onCleanup(() => {
+    instance.cancel()
+  })
+})
+
 const canvasStyle = computed<CSSProperties>(() => {
   const isRotating = hoveredBlock.value
   if (isRotating) {
@@ -896,7 +1060,7 @@ const canvasStyle = computed<CSSProperties>(() => {
 
 <style lang="sass" scoped>
 .btn-drop-shadow
-  filter: drop-shadow(0px 0px 1px rgba(0, 0, 0, 0.4)) drop-shadow(0px 0px 6px rgba(0, 0, 0, 0.1))
+  filter: drop-shadow(0px 0px 1px rgba(255, 255, 255, 1)) drop-shadow(0px 0px 2px rgba(255, 255, 255, 1)) drop-shadow(0px 0px 4px rgba(255, 255, 255, 0.6))
 </style>
 
 <style lang="sass">
