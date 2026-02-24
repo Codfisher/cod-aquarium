@@ -135,7 +135,7 @@
             :ui="{
               track: 'bg-gray-200',
               range: 'bg-gray-300',
-              thumb: ' ring-gray-500 bg-gray-200',
+              thumb: ' ring-gray-500 bg-white',
             }"
             class="h-30"
           />
