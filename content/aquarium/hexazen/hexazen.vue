@@ -648,7 +648,7 @@ function createRainSystem(scene: Scene) {
 
   particleSystem.minLifeTime = 5
   particleSystem.maxLifeTime = 5
-  particleSystem.emitRate = 3000
+  particleSystem.emitRate = 2000
   particleSystem.minEmitPower = 0.5
   particleSystem.maxEmitPower = 0.5
   particleSystem.gravity = new Vector3(0, -1, 0)
