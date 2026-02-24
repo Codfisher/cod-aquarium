@@ -197,7 +197,7 @@ import {
 } from '@babylonjs/core'
 import { useColorMode, useToggle, whenever } from '@vueuse/core'
 import { animate } from 'animejs'
-import { pipe, tap } from 'remeda'
+import { groupBy, map, mapValues, pipe, prop, sumBy, tap, values } from 'remeda'
 import { computed, ref, shallowReactive, shallowRef, watch } from 'vue'
 import { cursorDataUrl } from '../meme-cache/constants'
 import BaseBtn from './components/base-btn.vue'
@@ -209,6 +209,9 @@ import { createBlock } from './domains/block/builder'
 import { Hex, HexLayout } from './domains/hex-grid'
 import { decodeBlocks, encodeBlocks } from './domains/share/codec'
 import { useSoundscapePlayer } from './domains/soundscape/player/use-soundscape-player'
+import { Soundscape, SoundscapeType } from './domains/soundscape/type'
+import { maxBy } from 'lodash-es'
+import { TraitType } from './types'
 
 // Nuxt UI 接管 vitepress 的 dark 設定，故改用 useColorMode
 const colorMode = useColorMode()
@@ -464,7 +467,8 @@ function handleSelectBlock(blockType: BlockType) {
   deselectCurrent()
 }
 
-useSoundscapePlayer(placedBlockMap, {
+
+const { traitRegionList } = useSoundscapePlayer(placedBlockMap, {
   muted: isMuted,
   volume: globalVolume,
 })
@@ -531,6 +535,7 @@ const shadowGenerator = shallowRef<ShadowGenerator>()
 const pipeline = shallowRef<DefaultRenderingPipeline>()
 const enabledPipeline = computed(() => isSharedView || !isEditMode.value)
 
+// 停用 pipeline
 watch(() => [isEditMode.value, pipeline.value], (_, __, onCleanup) => {
   if (!pipeline.value) {
     return
@@ -816,7 +821,59 @@ watch(() => [camera.value, isEditMode.value], () => {
 
   const enabled = !isEditMode.value || isSharedView
   camera.value.useAutoRotationBehavior = enabled
+
+  if (camera.value.autoRotationBehavior) {
+    camera.value.autoRotationBehavior.idleRotationSpeed = 0.04
+    camera.value.autoRotationBehavior.idleRotationSpinupTime = 3000
+  }
 }, { deep: true })
+
+const traitVignetteColorMap: Record<`${TraitType}`, Color3> = {
+  'grass': new Color3(0, 0.2, 0),
+  'tree': new Color3(0, 0.2, 0),
+  'building': new Color3(0.5, 0.3, 0),
+  'alpine': new Color3(0, 0, 0),
+  'river': new Color3(0, 0.4, 0.4),
+  'water': new Color3(0, 0.4, 0.5),
+  'sand': new Color3(0.3, 0.3, 0),
+}
+// 根據 traitRegion 更新 vignette color
+watch(() => [traitRegionList, pipeline.value], (_, __, onCleanup) => {
+  if (!pipeline.value?.imageProcessing) {
+    return
+  }
+
+  // 取總和面積最大的 region
+  const sizeMap = traitRegionList.reduce((acc, region) => {
+    acc[region.trait] = (acc[region.trait] || 0) + region.size
+    return acc
+  }, {} as Record<`${TraitType}`, number>)
+
+  const targetColor = pipe(0, () => {
+    const maxTrait = maxBy(Object.values(TraitType), (trait) => sizeMap[trait])
+    if (!maxTrait) {
+      return Color3.Black()
+    }
+
+    return traitVignetteColorMap[maxTrait]
+  })
+
+  const instance = animate(
+    pipeline.value.imageProcessing.vignetteColor,
+    {
+      r: targetColor.r,
+      g: targetColor.g,
+      b: targetColor.b,
+      duration: 1000,
+    }
+  )
+
+  onCleanup(() => {
+    instance.cancel()
+  })
+}, {
+  deep: true,
+})
 
 const canvasStyle = computed<CSSProperties>(() => {
   const isRotating = hoveredBlock.value
