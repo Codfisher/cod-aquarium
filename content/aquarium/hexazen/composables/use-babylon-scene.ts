@@ -108,10 +108,10 @@ function setupSmartCameraLimits(
   const height = engine.getRenderHeight()
 
   if (width < height) {
-    camera.fovMode = Camera.FOVMODE_HORIZONTAL_FIXED
+    camera.fovMode = Camera.FOVMODE_VERTICAL_FIXED
   }
   else {
-    camera.fovMode = Camera.FOVMODE_VERTICAL_FIXED
+    camera.fovMode = Camera.FOVMODE_HORIZONTAL_FIXED
   }
 
   const updateCameraSettings = () => {
@@ -132,7 +132,7 @@ function setupSmartCameraLimits(
     const safeDistance = finalRadius / Math.sin(camera.fov / 2)
 
     camera.lowerRadiusLimit = safeDistance * 0.2
-    camera.upperRadiusLimit = safeDistance * 0.8
+    camera.upperRadiusLimit = safeDistance * 1
 
     // 避免距離拉近時產生破圖或閃爍
     camera.minZ = finalRadius * 0.1

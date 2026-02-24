@@ -35,11 +35,9 @@
               />
             </u-tooltip>
 
-            <u-popover
-              :ui="{
-                content: 'chamfer-3 bg-gray-200 p-0.5',
-              }"
-            >
+            <u-popover :ui="{
+              content: 'chamfer-3 bg-gray-200 p-0.5',
+            }">
               <u-tooltip
                 text="Remove all blocks"
                 :content="{
@@ -183,6 +181,7 @@ import type { CSSProperties } from 'vue'
 import type { Block, BlockType } from './domains/block/type'
 import {
   ArcRotateCamera,
+  AutoRotationBehavior,
   Color3,
   Color4,
   ColorCurves,
@@ -588,7 +587,7 @@ function createShadowGenerator(scene: Scene) {
   return shadowGenerator
 }
 
-const { canvasRef, scene } = useBabylonScene({
+const { canvasRef, scene, camera } = useBabylonScene({
   async init({ scene, engine, camera }) {
     createGround({ scene })
     shadowGenerator.value = createShadowGenerator(scene)
@@ -808,6 +807,16 @@ const { canvasRef, scene } = useBabylonScene({
     })
   },
 })
+
+// 鏡頭自動旋轉
+watch(() => [camera.value, isEditMode.value], () => {
+  if (!(camera.value instanceof ArcRotateCamera)) {
+    return
+  }
+
+  const enabled = !isEditMode.value || isSharedView
+  camera.value.useAutoRotationBehavior = enabled
+}, { deep: true })
 
 const canvasStyle = computed<CSSProperties>(() => {
   const isRotating = hoveredBlock.value
