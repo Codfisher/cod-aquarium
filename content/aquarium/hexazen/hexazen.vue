@@ -1,5 +1,11 @@
 <template>
-  <u-app>
+  <u-app
+    :toaster="{
+      ui: {
+        base: 'chamfer-2 chamfer-border-[1px] bg-gray-200',
+      },
+    }"
+  >
     <div class="fixed w-dvw h-dvh m-0 p-5 bg-gray-100">
       <div
         class="w-full h-full chamfer-5 relative"
