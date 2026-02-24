@@ -154,6 +154,22 @@
             @click="toggleMuted()"
           />
 
+          <u-tooltip
+            text="Toggle Rain"
+            :content="{
+              side: 'right',
+            }"
+          >
+            <u-icon
+              name="i-material-symbols:rainy"
+              class="text-3xl cursor-pointer duration-500 outline-0 "
+              :class="{
+                'text-primary': isRain,
+              }"
+              @click="toggleRain()"
+            />
+          </u-tooltip>
+
           <bulletin-modal>
             <u-icon
               name="material-symbols:notifications-rounded"
@@ -232,6 +248,7 @@ const sharedViewEncodedData = pipe(
 )
 const isSharedView = !!sharedViewEncodedData
 
+const [isRain, toggleRain] = useToggle(false)
 const [isEditMode, toggleEditMode] = useToggle(true)
 const [isRemoveMode, toggleRemoveMode] = useToggle(false)
 const [isMuted, toggleMuted] = useToggle(isSharedView)
@@ -878,6 +895,29 @@ watch(() => [traitRegionList, pipeline.value], (_, __, onCleanup) => {
   })
 }, {
   deep: true,
+})
+
+// 切換雨天
+watch(() => ({ isRain: isRain.value, scene: scene.value }), ({ isRain, scene }, _, onCleanup) => {
+  if (!scene) {
+    return
+  }
+
+  const fogStart = isRain ? 1 : 10
+  const fogEnd = isRain ? 20 : 100
+
+  const instance = animate(
+    scene,
+    {
+      fogStart,
+      fogEnd,
+      duration: 1000,
+    },
+  )
+
+  onCleanup(() => {
+    instance.cancel()
+  })
 })
 
 const canvasStyle = computed<CSSProperties>(() => {
