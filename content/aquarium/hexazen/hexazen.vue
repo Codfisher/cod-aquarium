@@ -23,7 +23,7 @@
         >
           <div
             v-if="isEditMode && !isSharedView"
-            class="absolute right-0 bottom-0 p-5 space-y-6 text-gray-400 "
+            class="absolute right-0 bottom-0 p-5 space-y-6 text-gray-400 btn-drop-shadow"
           >
             <u-tooltip
               text="Remove Mode"
@@ -119,7 +119,7 @@
           </div>
         </transition>
 
-        <div class="absolute left-0 bottom-0 p-5 space-y-6 duration-500 text-gray-400">
+        <div class="absolute left-0 bottom-0 p-5 space-y-6 duration-500 text-gray-400 btn-drop-shadow">
           <u-slider
             v-model="globalVolume"
             orientation="vertical"
@@ -153,6 +153,13 @@
             class="text-3xl cursor-pointer outline-0 "
             @click="toggleMuted()"
           />
+
+          <bulletin-modal>
+            <u-icon
+              name="material-symbols:notifications-rounded"
+              class="text-3xl cursor-pointer outline-0 "
+            />
+          </bulletin-modal>
         </div>
       </div>
 
@@ -201,6 +208,7 @@ import { pipe, tap } from 'remeda'
 import { computed, ref, shallowReactive, shallowRef, watch } from 'vue'
 import { cursorDataUrl } from '../meme-cache/constants'
 import BaseBtn from './components/base-btn.vue'
+import BulletinModal from './components/bulletin-modal.vue'
 import { useBabylonScene } from './composables/use-babylon-scene'
 import { useFontLoader } from './composables/use-font-loader'
 import { version } from './constants'
@@ -896,7 +904,7 @@ const canvasStyle = computed<CSSProperties>(() => {
 
 <style lang="sass" scoped>
 .btn-drop-shadow
-  filter: drop-shadow(0px 0px 1px rgba(0, 0, 0, 0.4)) drop-shadow(0px 0px 6px rgba(0, 0, 0, 0.1))
+  filter: drop-shadow(0px 0px 1px rgba(255, 255, 255, 1)) drop-shadow(0px 0px 2px rgba(255, 255, 255, 1)) drop-shadow(0px 0px 4px rgba(255, 255, 255, 0.6))
 </style>
 
 <style lang="sass">
