@@ -1,7 +1,7 @@
+import type { TraitRegion } from '../../block/trait-region'
 import type { Block } from '../../block/type'
 import type { Soundscape } from '../type'
 import { pipe, reduce } from 'remeda'
-import { calcTraitRegionList, TraitRegion } from '../../block/trait-region'
 import { soundscapeRuleList } from './data'
 
 export function resolveSoundscape(

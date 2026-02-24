@@ -30,6 +30,7 @@ import { computedAsync } from '@vueuse/core'
 import { get, set } from 'idb-keyval'
 import { onBeforeUnmount } from 'vue'
 import { useThumbnailGenerator } from '../../composables/use-thumbnail-generator'
+import { version } from '../../constants'
 import { blockTypeList } from './builder/data'
 
 const emit = defineEmits<{
@@ -40,7 +41,9 @@ const { generateThumbnail } = useThumbnailGenerator()
 
 const blockThumbnailList = computedAsync(async () => {
   const tasks = blockTypeList.map(async (blockType) => {
-    const cache = await get(`block-thumbnail-${blockType}`)
+    const key = `hexazen-${version}-block-thumbnail-${blockType}`
+
+    const cache = await get(key)
     if (cache) {
       return {
         type: blockType,
@@ -49,7 +52,7 @@ const blockThumbnailList = computedAsync(async () => {
     }
 
     const imgBlob = await generateThumbnail(blockType)
-    await set(`block-thumbnail-${blockType}`, imgBlob)
+    await set(key, imgBlob)
 
     return {
       type: blockType,

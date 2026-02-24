@@ -35,9 +35,11 @@
               />
             </u-tooltip>
 
-            <u-popover :ui="{
-              content: 'chamfer-3 bg-gray-200 p-0.5',
-            }">
+            <u-popover
+              :ui="{
+                content: 'chamfer-3 bg-gray-200 p-0.5',
+              }"
+            >
               <u-tooltip
                 text="Remove all blocks"
                 :content="{
@@ -197,6 +199,7 @@ import {
 } from '@babylonjs/core'
 import { useColorMode, useToggle, whenever } from '@vueuse/core'
 import { animate } from 'animejs'
+import { maxBy } from 'lodash-es'
 import { groupBy, map, mapValues, pipe, prop, sumBy, tap, values } from 'remeda'
 import { computed, ref, shallowReactive, shallowRef, watch } from 'vue'
 import { cursorDataUrl } from '../meme-cache/constants'
@@ -210,7 +213,6 @@ import { Hex, HexLayout } from './domains/hex-grid'
 import { decodeBlocks, encodeBlocks } from './domains/share/codec'
 import { useSoundscapePlayer } from './domains/soundscape/player/use-soundscape-player'
 import { Soundscape, SoundscapeType } from './domains/soundscape/type'
-import { maxBy } from 'lodash-es'
 import { TraitType } from './types'
 
 // Nuxt UI 接管 vitepress 的 dark 設定，故改用 useColorMode
@@ -466,7 +468,6 @@ function handleSelectBlock(blockType: BlockType) {
 
   deselectCurrent()
 }
-
 
 const { traitRegionList } = useSoundscapePlayer(placedBlockMap, {
   muted: isMuted,
@@ -829,13 +830,13 @@ watch(() => [camera.value, isEditMode.value], () => {
 }, { deep: true })
 
 const traitVignetteColorMap: Record<`${TraitType}`, Color3> = {
-  'grass': new Color3(0, 0.2, 0),
-  'tree': new Color3(0, 0.2, 0),
-  'building': new Color3(0.5, 0.3, 0),
-  'alpine': new Color3(0, 0, 0),
-  'river': new Color3(0, 0.4, 0.4),
-  'water': new Color3(0, 0.4, 0.5),
-  'sand': new Color3(0.3, 0.3, 0),
+  grass: new Color3(0, 0.2, 0),
+  tree: new Color3(0, 0.2, 0),
+  building: new Color3(0.5, 0.3, 0),
+  alpine: new Color3(0, 0, 0),
+  river: new Color3(0, 0.4, 0.4),
+  water: new Color3(0, 0.4, 0.5),
+  sand: new Color3(0.3, 0.3, 0),
 }
 // 根據 traitRegion 更新 vignette color
 watch(() => [traitRegionList, pipeline.value], (_, __, onCleanup) => {
@@ -844,7 +845,7 @@ watch(() => [traitRegionList, pipeline.value], (_, __, onCleanup) => {
   }
 
   // 取總和面積最大的 region
-  const sizeMap = traitRegionList.reduce((acc, region) => {
+  const sizeMap = traitRegionList.value.reduce((acc, region) => {
     acc[region.trait] = (acc[region.trait] || 0) + region.size
     return acc
   }, {} as Record<`${TraitType}`, number>)
@@ -865,7 +866,7 @@ watch(() => [traitRegionList, pipeline.value], (_, __, onCleanup) => {
       g: targetColor.g,
       b: targetColor.b,
       duration: 1000,
-    }
+    },
   )
 
   onCleanup(() => {
