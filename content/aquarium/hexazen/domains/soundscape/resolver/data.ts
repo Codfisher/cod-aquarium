@@ -153,7 +153,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
             src: 'hexazen/sounds/frog-common-toad.mp3',
           },
           {
-            src: 'hexazen/sounds/frog-burrowing-toad.mp3',
+            src: 'hexazen/sounds/frog-chorus-of-grey-tree-frog-and-green-frog.mp3',
             volume: 0.5,
           },
         ],

@@ -21,7 +21,7 @@ export function useSoundscapePlayer(
   const traitRegionList = computed(() => calcTraitRegionList(blockMap))
   const soundscapeList = computed(() => resolveSoundscape(traitRegionList.value, blockMap))
 
-  /** 目前正在播放的音效，key 為 SoundscapeType */
+  /** 目前正在播放的音效，key 為 id */
   const activePlayerMap = shallowReactive(new Map<number, SoundscapePlayer>())
 
   watch(soundscapeList, (newList, oldList) => {
@@ -43,7 +43,6 @@ export function useSoundscapePlayer(
     for (const scape of newList) {
       if (!oldIdSet.has(scape.id)) {
         const player = new SoundscapePlayer(scape)
-        console.log(`🚀 ~ player:`, player)
         player.setGlobalVolume(volume.value)
         player.play()
         if (muted.value) {
@@ -67,12 +66,16 @@ export function useSoundscapePlayer(
         player.play()
       }
     }
+  }, {
+    immediate: true,
   })
 
   watch(volume, (newVolume) => {
     for (const [_, player] of activePlayerMap) {
       player.setGlobalVolume(newVolume)
     }
+  }, {
+    immediate: true,
   })
 
   return {

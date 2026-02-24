@@ -2,7 +2,7 @@
   <u-app
     :toaster="{
       ui: {
-        base: 'chamfer-2 chamfer-border-[1px] bg-gray-200',
+        base: 'chamfer-2 chamfer-border-0.25 bg-gray-200',
       },
     }"
   >
@@ -102,7 +102,7 @@
 
           <div
             v-else-if="!isSharedView"
-            class="absolute right-0 bottom-0 p-5 space-y-6 text-gray-100 btn-drop-shadow"
+            class="absolute right-0 bottom-0 p-5 space-y-6 text-gray-400"
           >
             <u-tooltip
               text="Edit Mode"
@@ -119,13 +119,7 @@
           </div>
         </transition>
 
-        <div
-          class="absolute left-0 bottom-0 p-5 space-y-6 duration-500 "
-          :class="{
-            'text-gray-400': !enabledPipeline,
-            'text-gray-100 btn-drop-shadow': enabledPipeline,
-          }"
-        >
+        <div class="absolute left-0 bottom-0 p-5 space-y-6 duration-500 text-gray-400">
           <u-slider
             v-model="globalVolume"
             orientation="vertical"
@@ -135,7 +129,7 @@
             :ui="{
               track: 'bg-gray-200',
               range: 'bg-gray-300',
-              thumb: ' ring-gray-500 bg-gray-200',
+              thumb: ' ring-gray-500 bg-white',
             }"
             class="h-30"
           />
@@ -189,11 +183,8 @@ import type { CSSProperties } from 'vue'
 import type { Block, BlockType } from './domains/block/type'
 import {
   ArcRotateCamera,
-  AutoRotationBehavior,
   Color3,
   Color4,
-  ColorCurves,
-  ColorGradingTexture,
   DefaultRenderingPipeline,
   DepthOfFieldEffectBlurLevel,
   DirectionalLight,
@@ -203,10 +194,10 @@ import {
   StandardMaterial,
   Vector3,
 } from '@babylonjs/core'
-import { useColorMode, useToggle, whenever } from '@vueuse/core'
+import { useColorMode, useToggle } from '@vueuse/core'
 import { animate } from 'animejs'
 import { maxBy } from 'lodash-es'
-import { groupBy, map, mapValues, pipe, prop, sumBy, tap, values } from 'remeda'
+import { pipe, tap } from 'remeda'
 import { computed, ref, shallowReactive, shallowRef, watch } from 'vue'
 import { cursorDataUrl } from '../meme-cache/constants'
 import BaseBtn from './components/base-btn.vue'
@@ -218,7 +209,6 @@ import { createBlock } from './domains/block/builder'
 import { Hex, HexLayout } from './domains/hex-grid'
 import { decodeBlocks, encodeBlocks } from './domains/share/codec'
 import { useSoundscapePlayer } from './domains/soundscape/player/use-soundscape-player'
-import { Soundscape, SoundscapeType } from './domains/soundscape/type'
 import { TraitType } from './types'
 
 // Nuxt UI 接管 vitepress 的 dark 設定，故改用 useColorMode
@@ -542,7 +532,7 @@ const shadowGenerator = shallowRef<ShadowGenerator>()
 const pipeline = shallowRef<DefaultRenderingPipeline>()
 const enabledPipeline = computed(() => isSharedView || !isEditMode.value)
 
-// 停用 pipeline
+// 開關 pipeline
 watch(() => [isEditMode.value, pipeline.value], (_, __, onCleanup) => {
   if (!pipeline.value) {
     return
@@ -588,13 +578,12 @@ function createGround({ scene }: { scene: Scene }) {
 }
 
 function createShadowGenerator(scene: Scene) {
-  const light = new DirectionalLight('dir01', new Vector3(-3, -6, -2), scene)
+  const light = new DirectionalLight('dir01', new Vector3(-3, -5, -2), scene)
   light.intensity = 0.8
 
-  const shadowGenerator = new ShadowGenerator(1024, light)
+  const shadowGenerator = new ShadowGenerator(2048, light)
   shadowGenerator.bias = 0.000001
   shadowGenerator.normalBias = 0.0001
-  shadowGenerator.usePercentageCloserFiltering = true
   shadowGenerator.forceBackFacesOnly = true
   return shadowGenerator
 }
@@ -634,6 +623,7 @@ const { canvasRef, scene, camera } = useBabylonScene({
       ),
       tap((pipeline) => {
         pipeline.fxaaEnabled = true
+        pipeline.samples = 8
 
         pipeline.depthOfFieldEnabled = true
         pipeline.depthOfFieldBlurLevel = DepthOfFieldEffectBlurLevel.High
@@ -649,7 +639,7 @@ const { canvasRef, scene, camera } = useBabylonScene({
         pipeline.imageProcessing.vignetteWeight = DEFAULT_VIGNETTE_WEIGHT
         pipeline.imageProcessing.vignetteColor = new Color4(0, 0, 0, 0)
 
-        // 讓景深的對焦距離，永遠精準等於攝影機與中心點的距離
+        // 讓景深的對焦距離，永遠等於攝影機與中心點的距離
         scene.onBeforeRenderObservable.add(() => {
           if (pipeline.depthOfFieldEnabled && camera instanceof ArcRotateCamera) {
             pipeline.depthOfField.focusDistance = camera.radius * 1000
