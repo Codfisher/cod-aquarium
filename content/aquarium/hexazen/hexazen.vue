@@ -6,7 +6,7 @@
       },
     }"
   >
-    <div class="fixed w-dvw h-dvh m-0 p-5 bg-gray-100">
+    <div class="fixed w-dvw h-dvh m-0 p-3 bg-gray-50">
       <div
         class="w-full h-full chamfer-5 relative"
         :style="canvasStyle"
@@ -163,7 +163,7 @@
         </div>
       </div>
 
-      <div class=" absolute bottom-0 right-0 p-1 opacity-20 text-xs">
+      <div class=" absolute bottom-0 right-0 p-1 opacity-20 text-[8px]">
         v{{ version }}
       </div>
     </div>
@@ -534,7 +534,7 @@ async function restoreSharedView() {
 // --- Scene 初始化 ---
 
 const DEFAULT_F_STOP = 2.8
-const DEFAULT_VIGNETTE_WEIGHT = 1.2
+const DEFAULT_VIGNETTE_WEIGHT = 1.5
 
 const shadowGenerator = shallowRef<ShadowGenerator>()
 const pipeline = shallowRef<DefaultRenderingPipeline>()
