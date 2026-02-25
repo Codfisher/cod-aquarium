@@ -198,6 +198,46 @@
         @select="handleSelectBlock"
       />
     </div>
+
+    <transition name="fade">
+      <div
+        v-if="isMuted && !isRestoringView"
+        class="fixed inset-0 pointer-events-none w-full h-full flex flex-col gap-4 items-center justify-center p-10"
+      >
+        <div class="flex flex-col gap-4 items-center justify-center  text-white bg-black/30 p-10 chamfer-5">
+          <u-icon
+            name="i-mingcute:volume-mute-fill"
+            class="text-[4rem]"
+          />
+
+          <div class="text-xl flex justify-center items-center gap-2">
+            <u-icon
+              name="i-line-md:arrow-small-left"
+              class="text-[3rem] -rotate-45"
+            />
+            Your speakers are taking a nap. Wake 'em up!
+          </div>
+        </div>
+      </div>
+    </transition>
+
+    <transition name="fade">
+      <div
+        v-if="isRestoringView"
+        class="fixed inset-0"
+      >
+        <div
+          class="w-full h-full flex flex-col gap-4 items-center justify-center bg-gray-50/50 backdrop-blur-2xl text-white"
+        >
+          <u-icon
+            name="i-line-md:loading-twotone-loop"
+            class="text-[4rem]"
+          />
+
+          <div class="text-xl">Unpacking blocks...</div>
+        </div>
+      </div>
+    </transition>
   </u-app>
 </template>
 
@@ -211,7 +251,7 @@ import { promiseTimeout, useColorMode, useCycleList, useIntervalFn, useToggle } 
 import { animate } from 'animejs'
 import { maxBy } from 'lodash-es'
 import { pipe, tap } from 'remeda'
-import { computed, ref, shallowReactive, shallowRef, watch } from 'vue'
+import { computed, onWatcherCleanup, ref, shallowReactive, shallowRef, watch } from 'vue'
 import { cursorDataUrl } from '../meme-cache/constants'
 import BaseBtn from './components/base-btn.vue'
 import BulletinModal from './components/bulletin-modal.vue'
@@ -224,6 +264,7 @@ import { Hex, HexLayout } from './domains/hex-grid'
 import { decodeBlocks, encodeBlocks } from './domains/share/codec'
 import { useSoundscapePlayer } from './domains/soundscape/player/use-soundscape-player'
 import { TraitTypeEnum } from './types'
+import { nextFrame } from '../../../web/common/utils'
 
 // Nuxt UI 接管 vitepress 的 dark 設定，故改用 useColorMode
 const colorMode = useColorMode()
@@ -568,16 +609,23 @@ async function handleShare() {
   })
 }
 
+const isRestoringView = ref(false)
+const startedAt = new Date().getTime()
 async function restoreSharedView() {
   if (!sharedViewEncodedData)
     return
 
+  isRestoringView.value = true
   try {
     const sharedBlocks = decodeBlocks(sharedViewEncodedData)
-    for (const { type, hex, rotation } of sharedBlocks) {
-      const block = await spawnBlock(type, hex)
-      block.rootNode.rotation.y = rotation * (Math.PI / 3)
-    }
+
+    const tasks = sharedBlocks.map(({ type, hex, rotation }) => {
+      return spawnBlock(type, hex).then((block) => {
+        block.rootNode.rotation.y = rotation * (Math.PI / 3)
+      })
+    })
+
+    await Promise.all(tasks)
   }
   catch (error) {
     console.error('Failed to restore shared view:', error)
@@ -588,6 +636,10 @@ async function restoreSharedView() {
       duration: 0,
       color: 'error',
     })
+  }
+  finally {
+    await promiseTimeout(Math.max(3000, new Date().getTime() - startedAt))
+    isRestoringView.value = false
   }
 }
 
@@ -672,8 +724,8 @@ function createRainSystem(scene: Scene) {
   const emitter = new BoxParticleEmitter()
   emitter.direction1 = new Vector3(0, -1, 0)
   emitter.direction2 = new Vector3(0, -1, 0)
-  emitter.minEmitBox = new Vector3(-5, 3, -5)
-  emitter.maxEmitBox = new Vector3(5, 3, 5)
+  emitter.minEmitBox = new Vector3(-5, 4, -5)
+  emitter.maxEmitBox = new Vector3(5, 4, 5)
 
   particleSystem.particleEmitterType = emitter
   particleSystem.emitter = Vector3.Zero()
@@ -1086,21 +1138,35 @@ watch(() => [traitRegionList, pipeline.value], (_, __, onCleanup) => {
 })
 
 // 切換雨天
-watch(() => ({ isRain: weather.value === 'rain', scene: scene.value }), ({ isRain, scene }, _, onCleanup) => {
+watch(() => ({ isRain: weather.value === 'rain', scene: scene.value }), ({ isRain, scene }) => {
   if (!scene) {
     return
   }
 
   if (isRain) {
     rainParticleSystem.value?.start()
-    promiseTimeout(2000).then(() => {
+    promiseTimeout(3000).then(() => {
       splashParticleSystem.value?.start()
     })
   }
   else {
     rainParticleSystem.value?.stop()
-    promiseTimeout(2000).then(() => {
+    promiseTimeout(3000).then(() => {
       splashParticleSystem.value?.stop()
+    })
+  }
+
+  const shadowLight = shadowGenerator.value?.getLight()
+  if (shadowLight) {
+    const instance = animate(
+      shadowLight,
+      {
+        intensity: isRain ? 0.01 : 0.8,
+        duration: 3000,
+      },
+    )
+    onWatcherCleanup(() => {
+      instance.cancel()
     })
   }
 
@@ -1116,7 +1182,7 @@ watch(() => ({ isRain: weather.value === 'rain', scene: scene.value }), ({ isRai
     },
   )
 
-  onCleanup(() => {
+  onWatcherCleanup(() => {
     instance.cancel()
   })
 })
