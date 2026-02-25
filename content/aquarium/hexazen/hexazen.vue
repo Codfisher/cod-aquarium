@@ -138,8 +138,8 @@
             v-model="globalVolume"
             orientation="vertical"
             :min="0"
-            :max="1"
-            :step="0.01"
+            :max="15"
+            :step="0.1"
             :ui="{
               track: 'bg-gray-300',
               range: 'bg-gray-500',
