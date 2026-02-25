@@ -155,13 +155,13 @@
           />
 
           <u-tooltip
-            text="Toggle Rain"
+            :text="weatherModeInfo.tooltip"
             :content="{
               side: 'right',
             }"
           >
             <u-icon
-              :name="weatherModeIcon"
+              :name="weatherModeInfo.icon"
               class="text-3xl cursor-pointer duration-500 outline-0 "
               @click="nextWeatherMode()"
             />
@@ -203,7 +203,7 @@ import type { CSSProperties } from 'vue'
 import type { Block, BlockType } from './domains/block/type'
 import type { TraitType, Weather } from './types'
 import { ArcRotateCamera, BoxParticleEmitter, Color3, Color4, DefaultRenderingPipeline, DepthOfFieldEffectBlurLevel, DirectionalLight, DynamicTexture, GPUParticleSystem, MeshBuilder, ParticleSystem, PointerEventTypes, Ray, ShadowGenerator, StandardMaterial, Vector3 } from '@babylonjs/core'
-import { promiseTimeout, useColorMode, useCycleList, useToggle } from '@vueuse/core'
+import { promiseTimeout, useColorMode, useCycleList, useIntervalFn, useToggle } from '@vueuse/core'
 import { animate } from 'animejs'
 import { maxBy } from 'lodash-es'
 import { pipe, tap } from 'remeda'
@@ -244,14 +244,29 @@ const {
   'rain',
   'random-rain',
 ])
-const weatherModeIcon = computed(() => {
+useIntervalFn(() => {
+  if (weatherMode.value === 'random-rain') {
+    currentWeather.value = Math.random() < 0.5 ? 'rain' : undefined
+  }
+}, 5000)
+
+const weatherModeInfo = computed(() => {
   switch (weatherMode.value) {
     case undefined:
-      return 'material-symbols:sunny'
+      return {
+        icon: 'material-symbols:sunny',
+        tooltip: 'Sunny',
+      }
     case 'rain':
-      return 'material-symbols:rainy'
+      return {
+        icon: 'material-symbols:rainy',
+        tooltip: 'Rainy',
+      }
     default:
-      return 'material-symbols:cloud-sync-rounded'
+      return {
+        icon: 'material-symbols:cloud-sync-rounded',
+        tooltip: 'Random Rain',
+      }
   }
 })
 const currentWeather = ref<Weather | undefined>()
