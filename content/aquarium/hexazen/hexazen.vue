@@ -1,9 +1,11 @@
 <template>
-  <u-app :toaster="{
-    ui: {
-      base: 'chamfer-2 chamfer-border-0.25 bg-gray-200',
-    },
-  }">
+  <u-app
+    :toaster="{
+      ui: {
+        base: 'chamfer-2 chamfer-border-0.25 bg-gray-200',
+      },
+    }"
+  >
     <div class="fixed w-dvw h-dvh m-0 p-3 bg-gray-50">
       <div
         class="w-full h-full chamfer-5 relative"
@@ -39,9 +41,11 @@
               />
             </u-tooltip>
 
-            <u-popover :ui="{
-              content: 'chamfer-3 bg-gray-200 p-0.5',
-            }">
+            <u-popover
+              :ui="{
+                content: 'chamfer-3 bg-gray-200 p-0.5',
+              }"
+            >
               <u-tooltip
                 text="Remove all blocks"
                 :content="{
@@ -151,22 +155,27 @@
           />
 
           <u-tooltip
-            text="Toggle Rain"
+            :text="weatherModeInfo.tooltip"
             :content="{
               side: 'right',
             }"
           >
-            <u-icon
-              name="i-material-symbols:rainy"
-              class="text-3xl cursor-pointer duration-500 outline-0 "
-              :class="{
-                'text-primary': isRain,
-              }"
-              @click="toggleRain()"
-            />
+            <div>
+              <transition
+                name="fade"
+                mode="out-in"
+              >
+                <u-icon
+                  :key="weatherModeInfo.icon"
+                  :name="weatherModeInfo.icon"
+                  class="text-3xl cursor-pointer duration-500 outline-0"
+                  @click="nextWeatherMode()"
+                />
+              </transition>
+            </div>
           </u-tooltip>
 
-          <bulletin-modal>
+          <bulletin-modal v-model:open="bulletinVisible">
             <u-icon
               name="material-symbols:notifications-rounded"
               class="text-3xl cursor-pointer outline-0 "
@@ -200,8 +209,9 @@
 import type { AbstractMesh, Mesh, Scene } from '@babylonjs/core'
 import type { CSSProperties } from 'vue'
 import type { Block, BlockType } from './domains/block/type'
+import type { TraitType, Weather } from './types'
 import { ArcRotateCamera, BoxParticleEmitter, Color3, Color4, DefaultRenderingPipeline, DepthOfFieldEffectBlurLevel, DirectionalLight, DynamicTexture, GPUParticleSystem, MeshBuilder, ParticleSystem, PointerEventTypes, Ray, ShadowGenerator, StandardMaterial, Vector3 } from '@babylonjs/core'
-import { promiseTimeout, useColorMode, useToggle } from '@vueuse/core'
+import { promiseTimeout, useColorMode, useCycleList, useIntervalFn, useToggle } from '@vueuse/core'
 import { animate } from 'animejs'
 import { maxBy } from 'lodash-es'
 import { pipe, tap } from 'remeda'
@@ -217,7 +227,7 @@ import { createBlock } from './domains/block/builder'
 import { Hex, HexLayout } from './domains/hex-grid'
 import { decodeBlocks, encodeBlocks } from './domains/share/codec'
 import { useSoundscapePlayer } from './domains/soundscape/player/use-soundscape-player'
-import { TraitType } from './types'
+import { TraitTypeEnum } from './types'
 
 // Nuxt UI 接管 vitepress 的 dark 設定，故改用 useColorMode
 const colorMode = useColorMode()
@@ -232,7 +242,52 @@ const sharedViewEncodedData = pipe(
 )
 const isSharedView = !!sharedViewEncodedData
 
-const [isRain, toggleRain] = useToggle(false)
+const bulletinVisible = ref(!isSharedView)
+
+const {
+  state: weatherMode,
+  next: nextWeatherMode,
+} = useCycleList<
+  Weather | undefined | 'random-rain'
+>([
+  undefined,
+  'rain',
+  'random-rain',
+])
+useIntervalFn(() => {
+  // 每 5 分鐘隨機一次
+  if (weatherMode.value === 'random-rain') {
+    currentWeather.value = Math.random() < 0.5 ? 'rain' : undefined
+  }
+}, 1000 * 60 * 5)
+
+const weatherModeInfo = computed(() => {
+  switch (weatherMode.value) {
+    case undefined:
+      return {
+        icon: 'material-symbols:sunny',
+        tooltip: `Sun's Out!`,
+      }
+    case 'rain':
+      return {
+        icon: 'material-symbols:rainy',
+        tooltip: 'Cozy Weather',
+      }
+    default:
+      return {
+        icon: 'material-symbols:partly-cloudy-day-rounded',
+        tooltip: 'Surprise Showers',
+      }
+  }
+})
+const currentWeather = ref<Weather | undefined>()
+const weather = computed<Weather | undefined>(() => {
+  if (weatherMode.value === 'random-rain') {
+    return currentWeather.value
+  }
+  return weatherMode.value
+})
+
 const [isEditMode, toggleEditMode] = useToggle(true)
 const [isRemoveMode, toggleRemoveMode] = useToggle(false)
 const [isMuted, toggleMuted] = useToggle(isSharedView)
@@ -477,6 +532,7 @@ function handleSelectBlock(blockType: BlockType) {
 const { traitRegionList } = useSoundscapePlayer(placedBlockMap, {
   muted: isMuted,
   volume: globalVolume,
+  weather,
 })
 
 // --- 分享功能 ---
@@ -537,6 +593,7 @@ async function restoreSharedView() {
 const DEFAULT_F_STOP = 8
 const DEFAULT_VIGNETTE_WEIGHT = 1.5
 
+const ground = shallowRef<Mesh>()
 const shadowGenerator = shallowRef<ShadowGenerator>()
 const pipeline = shallowRef<DefaultRenderingPipeline>()
 const rainParticleSystem = shallowRef<GPUParticleSystem>()
@@ -727,7 +784,7 @@ function createShadowGenerator(scene: Scene) {
 
 const { canvasRef, scene, camera } = useBabylonScene({
   async init({ scene, engine, camera }) {
-    createGround({ scene })
+    ground.value = createGround({ scene })
     shadowGenerator.value = createShadowGenerator(scene)
     rainParticleSystem.value = createRainSystem(scene)
     splashParticleSystem.value = createSplashSystem(scene)
@@ -964,7 +1021,7 @@ watch(() => [camera.value, isEditMode.value], () => {
   }
 }, { deep: true })
 
-const traitVignetteColorMap: Record<`${TraitType}`, Color3> = {
+const traitVignetteColorMap: Record<TraitType, Color3> = {
   grass: new Color3(0, 0.2, 0),
   tree: new Color3(0, 0.2, 0),
   building: new Color3(0.5, 0.3, 0),
@@ -975,7 +1032,7 @@ const traitVignetteColorMap: Record<`${TraitType}`, Color3> = {
 }
 // 根據 traitRegion 更新 vignette color
 watch(() => [traitRegionList, pipeline.value], (_, __, onCleanup) => {
-  if (!pipeline.value?.imageProcessing) {
+  if (!pipeline.value?.imageProcessing || !ground.value?.material) {
     return
   }
 
@@ -983,10 +1040,10 @@ watch(() => [traitRegionList, pipeline.value], (_, __, onCleanup) => {
   const sizeMap = traitRegionList.value.reduce((acc, region) => {
     acc[region.trait] = (acc[region.trait] || 0) + region.size
     return acc
-  }, {} as Record<`${TraitType}`, number>)
+  }, {} as Record<TraitType, number>)
 
   const targetColor = pipe(0, () => {
-    const maxTrait = maxBy(Object.values(TraitType), (trait) => sizeMap[trait])
+    const maxTrait = maxBy(Object.values(TraitTypeEnum), (trait) => sizeMap[trait])
     if (!maxTrait) {
       return Color3.Black()
     }
@@ -1004,15 +1061,30 @@ watch(() => [traitRegionList, pipeline.value], (_, __, onCleanup) => {
     },
   )
 
+  const blendRatio = 0.7
+  const baseGroundColor = new Color3(0.96, 0.95, 0.93)
+  const groundColor = Color3.Lerp(targetColor, baseGroundColor, blendRatio)
+
+  const instance2 = animate(
+    (ground.value.material as StandardMaterial).diffuseColor,
+    {
+      r: groundColor.r,
+      g: groundColor.g,
+      b: groundColor.b,
+      duration: 1000,
+    },
+  )
+
   onCleanup(() => {
     instance.cancel()
+    instance2.cancel()
   })
 }, {
   deep: true,
 })
 
 // 切換雨天
-watch(() => ({ isRain: isRain.value, scene: scene.value }), ({ isRain, scene }, _, onCleanup) => {
+watch(() => ({ isRain: weather.value === 'rain', scene: scene.value }), ({ isRain, scene }, _, onCleanup) => {
   if (!scene) {
     return
   }

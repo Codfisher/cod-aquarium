@@ -63,7 +63,7 @@ const defaultParam: Required<UseBabylonSceneParam> = {
     scene.clearColor = new Color4(0.97, 0.97, 0.96, 1)
 
     scene.fogMode = Scene.FOGMODE_LINEAR
-    scene.fogColor = new Color3(0.8, 0.9, 0.9)
+    scene.fogColor = new Color3(0.55, 0.6, 0.65)
     scene.fogStart = 10
     scene.fogEnd = 100
 

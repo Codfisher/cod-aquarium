@@ -1,6 +1,8 @@
 import type { Soundscape } from '../type'
+import { pipe, sample } from 'remeda'
 
-// --- 播放器實作 ---
+const DEFAULT_BASE_VOLUME = 0.5
+
 export class SoundscapePlayer {
   private soundscape: Soundscape
 
@@ -32,7 +34,7 @@ export class SoundscapePlayer {
   /** 啟動播放器 */
   public play() {
     this.isDestroying = false
-    if (this.soundscape.mode === 'loop') {
+    if (this.soundscape.mode.value === 'loop') {
       this.playLoop()
     }
     else {
@@ -61,7 +63,7 @@ export class SoundscapePlayer {
     const soundData = this.soundscape.soundList[0]
     if (!soundData)
       return
-    const baseVolume = soundData.volume ?? 1
+    const baseVolume = soundData.volume ?? DEFAULT_BASE_VOLUME
 
     // 建立雙音軌
     const audioA = new Audio(soundData.src)
@@ -119,11 +121,10 @@ export class SoundscapePlayer {
     if (this.isDestroying)
       return
 
-    const list = this.soundscape.soundList
-    const randomSound = list[Math.floor(Math.random() * list.length)]
+    const [randomSound] = sample(this.soundscape.soundList, 1)
     if (!randomSound)
       return
-    const baseVolume = randomSound.volume ?? 1
+    const baseVolume = randomSound.volume ?? DEFAULT_BASE_VOLUME
 
     const audio = new Audio(randomSound.src)
     this.registerAudio(audio, baseVolume)
@@ -133,13 +134,16 @@ export class SoundscapePlayer {
       if (this.isDestroying)
         return
 
-      // 隨機等待 5000ms ~ 10000ms (5~10秒)
-      const waitTime = Math.random() * (10000 - 5000) + 5000
+      const { mode } = this.soundscape
+      const [min, max] = mode.value === 'interval' && mode.range
+        ? [Math.min(...mode.range), Math.max(...mode.range)]
+        : [5, 10]
+      const waitSec = Math.random() * (max - min) + min
 
       const timer = setTimeout(() => {
         this.timeoutIds.delete(timer)
         this.playInterval() // 遞迴呼叫下一輪
-      }, waitTime)
+      }, waitSec * 1000)
 
       this.timeoutIds.add(timer)
     }

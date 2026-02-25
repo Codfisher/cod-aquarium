@@ -11,7 +11,7 @@ import { blockDefinitions } from '../builder/data'
  */
 export interface TraitRegion {
   /** 此區域的特性 */
-  trait: `${TraitType}`;
+  trait: TraitType;
   /** 區域內所有格子 */
   hexMap: Map<string, Hex>;
   /** 面積（格子數） */
@@ -37,7 +37,7 @@ export function calcTraitRegionList(
   const regionList: TraitRegion[] = []
 
   // 對每個 trait 獨立做連通分量分析
-  const traitToKeys = new Map<`${TraitType}`, Set<string>>()
+  const traitToKeys = new Map<TraitType, Set<string>>()
 
   // BFS 展開鄰格時使用 Map（O(1)）比 Array（O(n)）更快
   const blockMap = Array.isArray(blocks)
