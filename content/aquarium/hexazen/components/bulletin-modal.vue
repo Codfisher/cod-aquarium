@@ -134,9 +134,10 @@ const { locale, t } = useSimpleI18n({
         <li>音源：<a href="https://sound-effects.bbcrewind.co.uk/" target="_blank">BBC Sound Effects</a></li>
         <li>工具：<a href="https://codlin.me/aquarium/codstack/" target="_blank">CodStack</a></li>
       </ul>`,
+      '有任何問題或功能許願，歡迎隨時連絡我。若您喜歡此網站，也可以<a href="https://portaly.cc/codfish/support" target="_blank">請我喝一杯咖啡</a>，鼓勵我喔！(*´∀`)~♥',
     ],
     start: [
-      `點擊灰色的六角積木，選擇、放置你喜歡的積木`,
+      `歡迎來到 Hexazen，此網站可以組合多種場景並產生不同的自然音效<br><br>點擊灰色的六角積木，選擇、放置你喜歡的積木`,
       `點擊積木可以旋轉，啟用鏟子圖示可以移除積木`,
       `不同組合、數量的場景會產生不同的自然音效<br><br>來試試看不同組合，仔細聽聽看有甚麼聲音，打造屬於您自己的音景吧！ヾ(◍'౪\`◍)ﾉﾞ`,
     ],
@@ -168,9 +169,10 @@ const { locale, t } = useSimpleI18n({
         <li>Audio Sources: <a href="https://sound-effects.bbcrewind.co.uk/" target="_blank">BBC Sound Effects</a></li>
         <li>Tools: <a href="https://codlin.me/aquarium/codstack/" target="_blank">CodStack</a></li>
       </ul>`,
+      'If you have any questions or feature requests, feel free to contact me anytime. If you find this tool helpful, you can also <a href="https://portaly.cc/codfish/support" target="_blank">buy me a coffee</a> to show your support! (*´∀`)~♥',
     ],
     start: [
-      `Click on the gray hexagonal blocks to select and place your favorite blocks.`,
+      `Welcome to Hexazen! Here, you can combine multiple scenes to create your own unique natural soundscapes.<br><br>Click on the gray hexagonal blocks to select and place your favorite blocks.`,
       `Click on a block to rotate it, and enable the shovel icon to remove blocks.`,
       `Different combinations and quantities of scene blocks will produce different natural sound effects.<br><br>Try out various combinations, listen closely to the sounds, and build your very own soundscape! ヾ(◍'౪\`◍)ﾉﾞ`,
     ],
