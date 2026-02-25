@@ -13,6 +13,7 @@
         :items="tabItems"
         value-key="slot"
         :ui="{
+          indicator: 'chamfer-2',
           content: 'overflow-auto',
         }"
       >
@@ -86,7 +87,7 @@ const props = withDefaults(defineProps<Props>(), {
   label: '',
 })
 
-const currentTab = ref('intro')
+const currentTab = ref('quick-start')
 const tabItems = computed(() => [
   {
     label: 'Intro',
@@ -135,8 +136,14 @@ const { locale, t } = useSimpleI18n({
       </ul>`,
     ],
     start: [
+      `點擊灰色的六角積木，選擇、放置你喜歡的積木`,
+      `點擊積木可以旋轉，啟用鏟子圖示可以移除積木`,
+      `不同組合、數量的場景會產生不同的自然音效<br><br>來試試看不同組合，仔細聽聽看有甚麼聲音，打造屬於您自己的音景吧！ヾ(◍'౪\`◍)ﾉﾞ`,
     ],
     startImg: [
+      '/hexazen/quick-start/step01.mp4',
+      '/hexazen/quick-start/step02.mp4',
+      '/hexazen/quick-start/step03.png',
     ],
   },
   'en': {

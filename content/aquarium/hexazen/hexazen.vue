@@ -175,7 +175,7 @@
             </div>
           </u-tooltip>
 
-          <bulletin-modal>
+          <bulletin-modal v-model:open="bulletinVisible">
             <u-icon
               name="material-symbols:notifications-rounded"
               class="text-3xl cursor-pointer outline-0 "
@@ -241,6 +241,8 @@ const sharedViewEncodedData = pipe(
   (urlParams) => urlParams.get('view'),
 )
 const isSharedView = !!sharedViewEncodedData
+
+const bulletinVisible = ref(!isSharedView)
 
 const {
   state: weatherMode,
