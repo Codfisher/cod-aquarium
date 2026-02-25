@@ -217,7 +217,7 @@ export default ({ mode }: { mode: string }) => {
               },
               // {
               //   text: '來個 3D 白噪音混音器',
-              //   link: getOldestDocPath('/column-sound-blocks/'),
+              //   link: getOldestDocPath('/column-hexazen/'),
               // },
               // {
               //   text: '酷酷元件背後的星點',
@@ -292,7 +292,7 @@ export default ({ mode }: { mode: string }) => {
                 },
                 // {
                 //   text: '來個 3D 白噪音混音器',
-                //   link: getOldestDocPath('/column-sound-blocks/'),
+                //   link: getOldestDocPath('/column-hexazen/'),
                 // },
                 // {
                 //   text: '酷酷元件背後的星點',
@@ -322,7 +322,7 @@ export default ({ mode }: { mode: string }) => {
           'asc',
         ),
         ...getSidebar(
-          '/column-sound-blocks/',
+          '/column-hexazen/',
           '來個 3D 白噪音混音器',
           'asc',
         ),
