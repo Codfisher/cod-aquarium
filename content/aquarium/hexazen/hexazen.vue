@@ -160,11 +160,19 @@
               side: 'right',
             }"
           >
-            <u-icon
-              :name="weatherModeInfo.icon"
-              class="text-3xl cursor-pointer duration-500 outline-0 "
-              @click="nextWeatherMode()"
-            />
+            <div>
+              <transition
+                name="fade"
+                mode="out-in"
+              >
+                <u-icon
+                  :key="weatherModeInfo.icon"
+                  :name="weatherModeInfo.icon"
+                  class="text-3xl cursor-pointer duration-500 outline-0"
+                  @click="nextWeatherMode()"
+                />
+              </transition>
+            </div>
           </u-tooltip>
 
           <bulletin-modal>
