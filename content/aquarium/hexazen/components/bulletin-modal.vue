@@ -113,6 +113,26 @@ const quickStartItems = computed(() => {
 const { locale, t } = useSimpleI18n({
   'zh-hant': {
     intro: [
+      '<div class="font-bold text-2xl mb-6">歡迎來到 Hexazen！⁑｡٩(ˊᗜˋ*)و✧⁕</div>',
+      `平常上班時耳機都常都是放白噪音、雨聲等等自然聲音。`,
+      `同一個聲音聽太多次，連下一個雷聲甚麼時候出現我都快背起來了。(›´ω\`‹ )`,
+      `雖然有很多不錯的線上混音器網站，但是總感覺差了一點甚麼，最後決定嘗試用 Babylon.js 做一個 3D 混音器，聲音使用隨機播放的形式呈現。`,
+
+      `可以任意組合場景積木，積木種類與規模會產生不同自然音效。`,
+      `<ul class="list-disc list-inside my-2 ml-2">
+        <li>樹木：風吹過樹葉聲音</li>
+        <li>房子：咖啡廳聲音</li>
+        <li>河：流水聲</li>
+      </ul>`,
+      `不同規模還會產生生態系，例如：樹木夠多會有蟲鳴、鳥叫等等。`,
+      `來發掘看看有甚麼聲音吧！(\ ´ ▽ \` )ﾉ`,
+      '<div class="font-bold text-xl">特別感謝</div>',
+      `使用以下工具或資源建構，感謝所有創作者！`,
+      `<ul class="list-disc list-inside my-2 ml-2">
+        <li>3D 模型：<a href="https://kenney.nl/assets/hexagon-kit" target="_blank">kenney Hexagon Kit</a></li>
+        <li>音源：<a href="https://sound-effects.bbcrewind.co.uk/" target="_blank">BBC Sound Effects</a></li>
+        <li>工具：<a href="https://codlin.me/aquarium/codstack/" target="_blank">CodStack</a></li>
+      </ul>`,
     ],
     start: [
     ],
