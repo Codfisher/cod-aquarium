@@ -56,7 +56,7 @@ const defaultParam: Required<UseBabylonSceneParam> = {
     if (defaultLight instanceof HemisphericLight) {
       defaultLight.diffuse = new Color3(1.0, 0.98, 0.95)
       defaultLight.direction = new Vector3(0.5, 1, 0)
-      defaultLight.intensity = 0.9
+      defaultLight.intensity = 1
       defaultLight.groundColor = new Color3(0.64, 0.56, 0.78)
     }
 
