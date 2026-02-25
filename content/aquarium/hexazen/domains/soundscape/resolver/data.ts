@@ -341,7 +341,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
         soundList: [
           {
             src: 'hexazen/sounds/alpine-sinister-wind.mp3',
-            volume: 0.2,
+            volume: 0.1,
           },
         ],
       },
@@ -426,7 +426,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
         return false
       }
 
-      return traitRegionList.some((traitRegion) => traitRegion.trait === 'tree' && traitRegion.size >= 5)
+      return traitRegionList.some((traitRegion) => traitRegion.trait === 'tree' && traitRegion.size >= 2)
     },
     transform: concat([
       {
@@ -436,6 +436,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
         soundList: [
           {
             src: 'hexazen/sounds/rain-foliage.mp3',
+            volume: 0.4,
           },
         ],
       },

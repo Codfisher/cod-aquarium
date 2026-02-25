@@ -400,6 +400,27 @@ export const blockDefinitions = {
       ],
     },
   },
+  b7: {
+    traitList: ['building', 'alpine'] as TraitTypeUnion[],
+    content: {
+      version: 1,
+      rootFolderName: 'assets',
+      partList: [
+        {
+          path: 'kenny-hexagon-pack/GLB format/building-cabin.glb',
+          position: [0, 0, 0],
+          rotationQuaternion: [0, 1, 0, 0],
+          scaling: [1, 1, 1],
+          metadata: {
+            name: '',
+            mass: 0,
+            restitution: 0.5,
+            friction: 0,
+          },
+        },
+      ],
+    },
+  },
   /** alpine */
   a1: {
     traitList: ['alpine'] as TraitTypeUnion[],
