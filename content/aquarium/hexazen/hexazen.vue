@@ -197,25 +197,10 @@
 </template>
 
 <script setup lang="ts">
-import { AbstractMesh, GPUParticleSystem, Mesh, Scene } from '@babylonjs/core'
+import type { AbstractMesh, Mesh, Scene } from '@babylonjs/core'
 import type { CSSProperties } from 'vue'
 import type { Block, BlockType } from './domains/block/type'
-import {
-  ArcRotateCamera,
-  BoxParticleEmitter,
-  Color3,
-  Color4,
-  DefaultRenderingPipeline,
-  DepthOfFieldEffectBlurLevel,
-  DirectionalLight,
-  DynamicTexture,
-  MeshBuilder,
-  ParticleSystem,
-  PointerEventTypes,
-  ShadowGenerator,
-  StandardMaterial,
-  Vector3,
-} from '@babylonjs/core'
+import { ArcRotateCamera, BoxParticleEmitter, Color3, Color4, DefaultRenderingPipeline, DepthOfFieldEffectBlurLevel, DirectionalLight, DynamicTexture, GPUParticleSystem, MeshBuilder, ParticleSystem, PointerEventTypes, Ray, ShadowGenerator, StandardMaterial, Vector3 } from '@babylonjs/core'
 import { promiseTimeout, useColorMode, useToggle } from '@vueuse/core'
 import { animate } from 'animejs'
 import { maxBy } from 'lodash-es'
@@ -549,7 +534,7 @@ async function restoreSharedView() {
 
 // --- Scene 初始化 ---
 
-const DEFAULT_F_STOP = 2.8
+const DEFAULT_F_STOP = 8
 const DEFAULT_VIGNETTE_WEIGHT = 1.5
 
 const shadowGenerator = shallowRef<ShadowGenerator>()
@@ -676,8 +661,8 @@ function createSplashSystem(scene: Scene) {
   const emitter = new BoxParticleEmitter()
   emitter.direction1 = new Vector3(-0.5, 1, -0.5)
   emitter.direction2 = new Vector3(0.5, 1.5, 0.5)
-  emitter.minEmitBox = new Vector3(-5, 0.1, -5)
-  emitter.maxEmitBox = new Vector3(5, 0.3, 5)
+  emitter.minEmitBox = new Vector3(-5, 5, -5)
+  emitter.maxEmitBox = new Vector3(5, 5, 5)
   splashSystem.particleEmitterType = emitter
 
   splashSystem.emitter = new Vector3(0, 0, 0)
@@ -700,6 +685,31 @@ function createSplashSystem(scene: Scene) {
   splashSystem.gravity = new Vector3(0, -0.5, 0)
 
   splashSystem.stop()
+
+  /** 使用射線投射來決定水花出生點，避免水花浮空，會覆蓋 emitter.emitBox 的設定 */
+  splashSystem.startPositionFunction = (worldMatrix, positionToUpdate, particle, isLocal) => {
+    const randomX = Math.random() * 10 - 5
+    const randomZ = Math.random() * 10 - 5
+
+    // 從高空垂直向下發射射線
+    const rayStart = new Vector3(randomX, 5, randomZ)
+    const rayDir = new Vector3(0, -1, 0)
+    const ray = new Ray(rayStart, rayDir, 30)
+
+    // 偵測射線打到了場景中的哪個表面
+    const hit = scene.pickWithRay(ray, (mesh) => {
+      return mesh.isVisible && mesh.isPickable
+    })
+
+    if (hit && hit.hit && hit.pickedPoint) {
+      // 稍微抬高避免被模型吃掉
+      positionToUpdate.copyFrom(hit.pickedPoint)
+      positionToUpdate.y += 0.01
+    }
+    else {
+      positionToUpdate.copyFromFloats(randomX, -100, randomZ)
+    }
+  }
 
   return splashSystem
 }
@@ -1012,7 +1022,8 @@ watch(() => ({ isRain: isRain.value, scene: scene.value }), ({ isRain, scene }, 
     promiseTimeout(2000).then(() => {
       splashParticleSystem.value?.start()
     })
-  } else {
+  }
+  else {
     rainParticleSystem.value?.stop()
     promiseTimeout(2000).then(() => {
       splashParticleSystem.value?.stop()
