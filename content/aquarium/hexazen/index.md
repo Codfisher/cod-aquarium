@@ -1,6 +1,6 @@
 ---
 title: HexaZen
-image: https://codlin.me/cod-toys.webp
+image: https://codlin.me/hexazen-cover.webp
 layout: false
 ---
 
