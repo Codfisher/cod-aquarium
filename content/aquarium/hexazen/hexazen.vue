@@ -245,10 +245,11 @@ const {
   'random-rain',
 ])
 useIntervalFn(() => {
+  // 每 5 分鐘隨機一次
   if (weatherMode.value === 'random-rain') {
     currentWeather.value = Math.random() < 0.5 ? 'rain' : undefined
   }
-}, 5000)
+}, 1000 * 60 * 5)
 
 const weatherModeInfo = computed(() => {
   switch (weatherMode.value) {
