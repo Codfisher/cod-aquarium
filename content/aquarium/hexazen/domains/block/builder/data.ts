@@ -1,7 +1,7 @@
 import type { TraitType } from '../../../types'
 import type { BlockType } from '../type'
 
-type TraitTypeUnion = `${TraitType}`
+type TraitTypeUnion = TraitType
 
 interface PartData {
   path: string;

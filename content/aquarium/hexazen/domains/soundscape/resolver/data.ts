@@ -7,13 +7,15 @@ import type { Block } from '../../block/type'
 import type { Soundscape, SoundscapeType } from '../type'
 import { concat, isTruthy } from 'remeda'
 import { blockDefinitions } from '../../block/builder/data'
+import { Weather } from '../../../types'
 
 interface SoundscapeRule {
   type: SoundscapeType;
-  predicate: (
+  predicate: (data: {
     traitRegionList: TraitRegion[],
-    blockMap: Map<string, Block>
-  ) => boolean;
+    blockMap: Map<string, Block>,
+    weather?: Weather,
+  }) => boolean;
   transform: (soundscapeList: Soundscape[]) => Soundscape[];
 }
 
@@ -27,13 +29,13 @@ export const soundscapeRuleList: SoundscapeRule[] = [
   {
     type: 'rustle',
     // tree size >= 3
-    predicate: (traitRegionList) => [
+    predicate: ({ traitRegionList }) => [
       traitRegionList.some((traitRegion) => traitRegion.trait === 'tree' && traitRegion.size >= 3),
     ].some(isTruthy),
     transform: concat([{
       id: getId(),
       type: 'rustle',
-      mode: 'loop',
+      mode: { value: 'loop' },
       soundList: [
         {
           src: 'hexazen/sounds/rustle-tree.mp3',
@@ -47,14 +49,14 @@ export const soundscapeRuleList: SoundscapeRule[] = [
   {
     type: 'insect',
     // grass size >= 4
-    predicate(traitRegionList) {
+    predicate({ traitRegionList }) {
       return traitRegionList.some((traitRegion) => traitRegion.trait === 'grass' && traitRegion.size >= 4)
     },
     transform: concat([
       {
         id: getId(),
         type: 'insect',
-        mode: 'interval',
+        mode: { value: 'interval' },
         soundList: [
           {
             src: 'hexazen/sounds/insect.mp3',
@@ -77,14 +79,14 @@ export const soundscapeRuleList: SoundscapeRule[] = [
   {
     type: 'bird',
     // tree >= 6
-    predicate(traitRegionList) {
+    predicate({ traitRegionList }) {
       return traitRegionList.some((traitRegion) => traitRegion.trait === 'tree' && traitRegion.size >= 6)
     },
     transform: concat([
       {
         id: getId(),
         type: 'bird',
-        mode: 'interval',
+        mode: { value: 'interval' },
         soundList: [
           {
             src: 'hexazen/sounds/bird-scottish-crossbill.mp3',
@@ -104,7 +106,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
   {
     type: 'frog',
     // 任意 water 旁至少有 5 個非 water
-    predicate(traitRegionList, blockMap) {
+    predicate({ traitRegionList, blockMap }) {
       // 找出所有 water TraitRegion
       const waterRegionList = traitRegionList.filter(
         (traitRegion) => traitRegion.trait === 'water',
@@ -143,7 +145,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
       {
         id: getId(),
         type: 'frog',
-        mode: 'interval',
+        mode: { value: 'interval' },
         soundList: [
           {
             src: 'hexazen/sounds/frog.mp3',
@@ -165,14 +167,14 @@ export const soundscapeRuleList: SoundscapeRule[] = [
   {
     type: 'beast',
     // tree >= 10
-    predicate(traitRegionList) {
+    predicate({ traitRegionList }) {
       return traitRegionList.some((traitRegion) => traitRegion.trait === 'tree' && traitRegion.size >= 10)
     },
     transform: concat([
       {
         id: getId(),
         type: 'beast',
-        mode: 'interval',
+        mode: { value: 'interval' },
         soundList: [
           {
             src: 'hexazen/sounds/beast-american-pika.mp3',
@@ -186,14 +188,14 @@ export const soundscapeRuleList: SoundscapeRule[] = [
   {
     type: 'river',
     // 任意 river size >= 2
-    predicate(traitRegionList) {
+    predicate({ traitRegionList }) {
       return traitRegionList.some((traitRegion) => traitRegion.trait === 'river' && traitRegion.size >= 2)
     },
     transform: concat([
       {
         id: getId(),
         type: 'river',
-        mode: 'loop',
+        mode: { value: 'loop' },
         soundList: [
           {
             src: 'hexazen/sounds/river-fast-flowing.mp3',
@@ -208,14 +210,14 @@ export const soundscapeRuleList: SoundscapeRule[] = [
   {
     type: 'building',
     // 任意 building size >= 5
-    predicate(traitRegionList) {
+    predicate({ traitRegionList }) {
       return traitRegionList.some((traitRegion) => traitRegion.trait === 'building' && traitRegion.size >= 5)
     },
     transform: concat([
       {
         id: getId(),
         type: 'building',
-        mode: 'interval',
+        mode: { value: 'interval' },
         soundList: [
           {
             src: 'hexazen/sounds/building-market.mp3',
@@ -234,14 +236,14 @@ export const soundscapeRuleList: SoundscapeRule[] = [
   {
     type: 'ocean',
     // water size >= 15
-    predicate(traitRegionList) {
+    predicate({ traitRegionList }) {
       return traitRegionList.some((traitRegion) => traitRegion.trait === 'water' && traitRegion.size >= 15)
     },
     transform: concat([
       {
         id: getId(),
         type: 'ocean',
-        mode: 'loop',
+        mode: { value: 'loop' },
         soundList: [
           {
             src: 'hexazen/sounds/ocean.mp3',
@@ -255,7 +257,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
     /** 海岸 */
     type: 'ocean',
     // water size >= 15，且有岸
-    predicate(traitRegionList) {
+    predicate({ traitRegionList }) {
       return [
         traitRegionList.some((traitRegion) => traitRegion.trait === 'water' && traitRegion.size >= 15),
         traitRegionList.some((traitRegion) => traitRegion.trait !== 'water'),
@@ -265,7 +267,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
       {
         id: getId(),
         type: 'ocean',
-        mode: 'loop',
+        mode: { value: 'loop' },
         soundList: [
           {
             src: 'hexazen/sounds/ocean-coastal.mp3',
@@ -278,14 +280,14 @@ export const soundscapeRuleList: SoundscapeRule[] = [
   {
     type: 'ocean',
     // water size >= 15
-    predicate(traitRegionList) {
+    predicate({ traitRegionList }) {
       return traitRegionList.some((traitRegion) => traitRegion.trait === 'water' && traitRegion.size >= 15)
     },
     transform: concat([
       {
         id: getId(),
         type: 'ocean',
-        mode: 'interval',
+        mode: { value: 'interval' },
         soundList: [
           {
             src: 'hexazen/sounds/ocean-bottle-nosed-dolphin.mp3',
@@ -305,14 +307,14 @@ export const soundscapeRuleList: SoundscapeRule[] = [
     // 強冷風
     type: 'alpine',
     // alpine size >= 10
-    predicate(traitRegionList) {
+    predicate({ traitRegionList }) {
       return traitRegionList.some((traitRegion) => traitRegion.trait === 'alpine' && traitRegion.size >= 10)
     },
     transform: concat([
       {
         id: getId(),
         type: 'alpine',
-        mode: 'loop',
+        mode: { value: 'loop' },
         soundList: [
           {
             src: 'hexazen/sounds/alpine-sinister-wind.mp3',
@@ -325,14 +327,14 @@ export const soundscapeRuleList: SoundscapeRule[] = [
     // 高山雪藏雞
     type: 'alpine',
     // alpine size >= 10
-    predicate(traitRegionList) {
+    predicate({ traitRegionList }) {
       return traitRegionList.some((traitRegion) => traitRegion.trait === 'alpine' && traitRegion.size >= 10)
     },
     transform: concat([
       {
         id: getId(),
         type: 'alpine',
-        mode: 'interval',
+        mode: { value: 'interval' },
         soundList: [
           {
             src: 'hexazen/sounds/alpine-tibetan-snowcock.mp3',
@@ -342,4 +344,29 @@ export const soundscapeRuleList: SoundscapeRule[] = [
       },
     ]),
   },
+
+  /** 雨 */
+  {
+    // 建築內的雨
+    type: 'rain',
+    predicate({ traitRegionList, weather }) {
+      if (weather !== 'rain') {
+        return false
+      }
+
+      return traitRegionList.some((traitRegion) => traitRegion.trait === 'building' && traitRegion.size >= 1)
+    },
+    transform: concat([
+      {
+        id: getId(),
+        type: 'rain',
+        mode: { value: 'loop' },
+        soundList: [
+          {
+            src: 'hexazen/sounds/rain-roof.mp3',
+          },
+        ],
+      },
+    ]),
+  }
 ]

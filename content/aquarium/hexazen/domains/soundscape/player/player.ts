@@ -1,3 +1,4 @@
+import { pipe } from 'remeda'
 import type { Soundscape } from '../type'
 
 // --- 播放器實作 ---
@@ -32,7 +33,7 @@ export class SoundscapePlayer {
   /** 啟動播放器 */
   public play() {
     this.isDestroying = false
-    if (this.soundscape.mode === 'loop') {
+    if (this.soundscape.mode.value === 'loop') {
       this.playLoop()
     }
     else {
@@ -133,13 +134,16 @@ export class SoundscapePlayer {
       if (this.isDestroying)
         return
 
-      // 隨機等待 5000ms ~ 10000ms (5~10秒)
-      const waitTime = Math.random() * (10000 - 5000) + 5000
+      const { mode } = this.soundscape
+      const [min, max] = mode.value === 'interval' && mode.range
+        ? [Math.min(...mode.range), Math.max(...mode.range)]
+        : [5, 10]
+      const waitSec = Math.random() * (max - min) + min
 
       const timer = setTimeout(() => {
         this.timeoutIds.delete(timer)
         this.playInterval() // 遞迴呼叫下一輪
-      }, waitTime)
+      }, waitSec * 1000)
 
       this.timeoutIds.add(timer)
     }

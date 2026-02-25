@@ -217,7 +217,7 @@ import { createBlock } from './domains/block/builder'
 import { Hex, HexLayout } from './domains/hex-grid'
 import { decodeBlocks, encodeBlocks } from './domains/share/codec'
 import { useSoundscapePlayer } from './domains/soundscape/player/use-soundscape-player'
-import { TraitType } from './types'
+import { TraitType, TraitTypeEnum } from './types'
 
 // Nuxt UI 接管 vitepress 的 dark 設定，故改用 useColorMode
 const colorMode = useColorMode()
@@ -965,7 +965,7 @@ watch(() => [camera.value, isEditMode.value], () => {
   }
 }, { deep: true })
 
-const traitVignetteColorMap: Record<`${TraitType}`, Color3> = {
+const traitVignetteColorMap: Record<TraitType, Color3> = {
   grass: new Color3(0, 0.2, 0),
   tree: new Color3(0, 0.2, 0),
   building: new Color3(0.5, 0.3, 0),
@@ -984,10 +984,10 @@ watch(() => [traitRegionList, pipeline.value], (_, __, onCleanup) => {
   const sizeMap = traitRegionList.value.reduce((acc, region) => {
     acc[region.trait] = (acc[region.trait] || 0) + region.size
     return acc
-  }, {} as Record<`${TraitType}`, number>)
+  }, {} as Record<TraitType, number>)
 
   const targetColor = pipe(0, () => {
-    const maxTrait = maxBy(Object.values(TraitType), (trait) => sizeMap[trait])
+    const maxTrait = maxBy(Object.values(TraitTypeEnum), (trait) => sizeMap[trait])
     if (!maxTrait) {
       return Color3.Black()
     }

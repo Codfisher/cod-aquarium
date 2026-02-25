@@ -2,7 +2,7 @@
  *
  * block 可有多個 trait，不同規模的 trait 會產生對應的 soundscape
  */
-export enum TraitType {
+export enum TraitTypeEnum {
   GRASS = 'grass',
   TREE = 'tree',
   BUILDING = 'building',
@@ -11,3 +11,9 @@ export enum TraitType {
   WATER = 'water',
   SAND = 'sand',
 }
+export type TraitType = `${TraitTypeEnum}`
+
+export enum WeatherEnum {
+  RAIN = 'rain'
+}
+export type Weather = `${WeatherEnum}`
