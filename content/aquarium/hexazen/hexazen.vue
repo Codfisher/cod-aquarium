@@ -217,7 +217,7 @@ import { createBlock } from './domains/block/builder'
 import { Hex, HexLayout } from './domains/hex-grid'
 import { decodeBlocks, encodeBlocks } from './domains/share/codec'
 import { useSoundscapePlayer } from './domains/soundscape/player/use-soundscape-player'
-import { TraitType, TraitTypeEnum } from './types'
+import { TraitType, TraitTypeEnum, Weather } from './types'
 
 // Nuxt UI 接管 vitepress 的 dark 設定，故改用 useColorMode
 const colorMode = useColorMode()
@@ -233,6 +233,8 @@ const sharedViewEncodedData = pipe(
 const isSharedView = !!sharedViewEncodedData
 
 const [isRain, toggleRain] = useToggle(false)
+const weather = computed<Weather | undefined>(() => isRain.value ? 'rain' : undefined)
+
 const [isEditMode, toggleEditMode] = useToggle(true)
 const [isRemoveMode, toggleRemoveMode] = useToggle(false)
 const [isMuted, toggleMuted] = useToggle(isSharedView)
@@ -477,6 +479,7 @@ function handleSelectBlock(blockType: BlockType) {
 const { traitRegionList } = useSoundscapePlayer(placedBlockMap, {
   muted: isMuted,
   volume: globalVolume,
+  weather
 })
 
 // --- 分享功能 ---

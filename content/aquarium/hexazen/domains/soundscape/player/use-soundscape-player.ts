@@ -19,11 +19,13 @@ export function useSoundscapePlayer(
 ) {
   const muted = computed(() => options.muted?.value ?? true)
   const volume = computed(() => options.volume?.value ?? 1)
+  const weather = computed(() => options.weather?.value)
 
   const traitRegionList = computed(() => calcTraitRegionList(blockMap))
   const soundscapeList = computed(() => resolveSoundscape({
     traitRegionList: traitRegionList.value,
     blockMap,
+    weather: weather.value,
   }))
 
   /** 目前正在播放的音效，key 為 id */

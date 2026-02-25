@@ -29,9 +29,15 @@ export const soundscapeRuleList: SoundscapeRule[] = [
   {
     type: 'rustle',
     // tree size >= 3
-    predicate: ({ traitRegionList }) => [
-      traitRegionList.some((traitRegion) => traitRegion.trait === 'tree' && traitRegion.size >= 3),
-    ].some(isTruthy),
+    predicate: ({ traitRegionList, weather }) => {
+      if (weather === 'rain') {
+        return false
+      }
+
+      return [
+        traitRegionList.some((traitRegion) => traitRegion.trait === 'tree' && traitRegion.size >= 3),
+      ].some(isTruthy)
+    },
     transform: concat([{
       id: getId(),
       type: 'rustle',
@@ -39,7 +45,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
       soundList: [
         {
           src: 'hexazen/sounds/rustle-tree.mp3',
-          volume: 0.6,
+          volume: 0.3,
         },
       ],
     }]),
@@ -49,7 +55,11 @@ export const soundscapeRuleList: SoundscapeRule[] = [
   {
     type: 'insect',
     // grass size >= 4
-    predicate({ traitRegionList }) {
+    predicate({ traitRegionList, weather }) {
+      if (weather === 'rain') {
+        return false
+      }
+
       return traitRegionList.some((traitRegion) => traitRegion.trait === 'grass' && traitRegion.size >= 4)
     },
     transform: concat([
@@ -60,15 +70,15 @@ export const soundscapeRuleList: SoundscapeRule[] = [
         soundList: [
           {
             src: 'hexazen/sounds/insect.mp3',
-            volume: 0.2,
+            volume: 0.1,
           },
           {
             src: 'hexazen/sounds/insect-cricket.mp3',
-            volume: 0.2,
+            volume: 0.1,
           },
           {
             src: 'hexazen/sounds/insect-dark-bush-cricket.mp3',
-            volume: 0.2,
+            volume: 0.1,
           },
         ],
       },
@@ -79,7 +89,11 @@ export const soundscapeRuleList: SoundscapeRule[] = [
   {
     type: 'bird',
     // tree >= 6
-    predicate({ traitRegionList }) {
+    predicate({ traitRegionList, weather }) {
+      if (weather === 'rain') {
+        return false
+      }
+
       return traitRegionList.some((traitRegion) => traitRegion.trait === 'tree' && traitRegion.size >= 6)
     },
     transform: concat([
@@ -149,14 +163,14 @@ export const soundscapeRuleList: SoundscapeRule[] = [
         soundList: [
           {
             src: 'hexazen/sounds/frog.mp3',
-            volume: 0.5,
+            volume: 0.2,
           },
           {
             src: 'hexazen/sounds/frog-common-toad.mp3',
           },
           {
             src: 'hexazen/sounds/frog-chorus-of-grey-tree-frog-and-green-frog.mp3',
-            volume: 0.5,
+            volume: 0.2,
           },
         ],
       },
@@ -167,7 +181,11 @@ export const soundscapeRuleList: SoundscapeRule[] = [
   {
     type: 'beast',
     // tree >= 10
-    predicate({ traitRegionList }) {
+    predicate({ traitRegionList, weather }) {
+      if (weather === 'rain') {
+        return false
+      }
+
       return traitRegionList.some((traitRegion) => traitRegion.trait === 'tree' && traitRegion.size >= 10)
     },
     transform: concat([
@@ -199,7 +217,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
         soundList: [
           {
             src: 'hexazen/sounds/river-fast-flowing.mp3',
-            volume: 0.8,
+            volume: 0.4,
           },
         ],
       },
@@ -221,11 +239,11 @@ export const soundscapeRuleList: SoundscapeRule[] = [
         soundList: [
           {
             src: 'hexazen/sounds/building-market.mp3',
-            volume: 0.5,
+            volume: 0.2,
           },
           {
             src: 'hexazen/sounds/building-british-museum.mp3',
-            volume: 0.5,
+            volume: 0.2,
           },
         ],
       },
@@ -247,14 +265,14 @@ export const soundscapeRuleList: SoundscapeRule[] = [
         soundList: [
           {
             src: 'hexazen/sounds/ocean.mp3',
-            volume: 0.5,
+            volume: 0.3,
           },
         ],
       },
     ]),
   },
   {
-    /** 海岸 */
+    // 海岸
     type: 'ocean',
     // water size >= 15，且有岸
     predicate({ traitRegionList }) {
@@ -271,16 +289,21 @@ export const soundscapeRuleList: SoundscapeRule[] = [
         soundList: [
           {
             src: 'hexazen/sounds/ocean-coastal.mp3',
-            volume: 0.8,
+            volume: 0.4,
           },
         ],
       },
     ]),
   },
   {
+    // 海豚
     type: 'ocean',
     // water size >= 15
-    predicate({ traitRegionList }) {
+    predicate({ traitRegionList, weather }) {
+      if (weather === 'rain') {
+        return false
+      }
+
       return traitRegionList.some((traitRegion) => traitRegion.trait === 'water' && traitRegion.size >= 15)
     },
     transform: concat([
@@ -291,11 +314,11 @@ export const soundscapeRuleList: SoundscapeRule[] = [
         soundList: [
           {
             src: 'hexazen/sounds/ocean-bottle-nosed-dolphin.mp3',
-            volume: 0.3,
+            volume: 0.1,
           },
           {
             src: 'hexazen/sounds/ocean-bottle-nosed-dolphin-2.mp3',
-            volume: 0.3,
+            volume: 0.1,
           },
         ],
       },
@@ -318,6 +341,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
         soundList: [
           {
             src: 'hexazen/sounds/alpine-sinister-wind.mp3',
+            volume: 0.5,
           },
         ],
       },
@@ -327,7 +351,11 @@ export const soundscapeRuleList: SoundscapeRule[] = [
     // 高山雪藏雞
     type: 'alpine',
     // alpine size >= 10
-    predicate({ traitRegionList }) {
+    predicate({ traitRegionList, weather }) {
+      if (weather === 'rain') {
+        return false
+      }
+
       return traitRegionList.some((traitRegion) => traitRegion.trait === 'alpine' && traitRegion.size >= 10)
     },
     transform: concat([
@@ -338,7 +366,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
         soundList: [
           {
             src: 'hexazen/sounds/alpine-tibetan-snowcock.mp3',
-            volume: 0.3,
+            volume: 0.1,
           },
         ],
       },
@@ -354,7 +382,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
         return false
       }
 
-      return traitRegionList.some((traitRegion) => traitRegion.trait === 'building' && traitRegion.size >= 1)
+      return traitRegionList.some((traitRegion) => traitRegion.trait === 'building' && traitRegion.size >= 5)
     },
     transform: concat([
       {
@@ -368,5 +396,68 @@ export const soundscapeRuleList: SoundscapeRule[] = [
         ],
       },
     ]),
-  }
+  },
+  {
+    // 草地的雨
+    type: 'rain',
+    predicate({ weather }) {
+      return weather === 'rain'
+    },
+    transform: concat([
+      {
+        id: getId(),
+        type: 'rain',
+        mode: { value: 'loop' },
+        soundList: [
+          {
+            src: 'hexazen/sounds/rain-grassland.mp3',
+          },
+        ],
+      },
+    ]),
+  },
+  {
+    // 森林的雨
+    type: 'rain',
+    predicate({ traitRegionList, weather }) {
+      if (weather !== 'rain') {
+        return false
+      }
+
+      return traitRegionList.some((traitRegion) => traitRegion.trait === 'tree' && traitRegion.size >= 5)
+    },
+    transform: concat([
+      {
+        id: getId(),
+        type: 'rain',
+        mode: { value: 'loop' },
+        soundList: [
+          {
+            src: 'hexazen/sounds/rain-foliage.mp3',
+          },
+        ],
+      },
+    ]),
+  },
+  {
+    // 雷聲
+    type: 'rain',
+    predicate({ weather }) {
+      return weather === 'rain'
+    },
+    transform: concat([
+      {
+        id: getId(),
+        type: 'rain',
+        mode: {
+          value: 'interval',
+          range: [10, 30],
+        },
+        soundList: [
+          { src: 'hexazen/sounds/thunder.mp3', volume: 0.2 },
+          { src: 'hexazen/sounds/thunder-2.mp3', volume: 0.2 },
+        ],
+      },
+    ]),
+  },
 ]

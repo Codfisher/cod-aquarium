@@ -1,4 +1,4 @@
-import { pipe } from 'remeda'
+import { pipe, sample } from 'remeda'
 import type { Soundscape } from '../type'
 
 // --- 播放器實作 ---
@@ -120,11 +120,10 @@ export class SoundscapePlayer {
     if (this.isDestroying)
       return
 
-    const list = this.soundscape.soundList
-    const randomSound = list[Math.floor(Math.random() * list.length)]
+    const [randomSound] = sample(this.soundscape.soundList, 1)
     if (!randomSound)
       return
-    const baseVolume = randomSound.volume ?? 1
+    const baseVolume = randomSound.volume ?? 0.5
 
     const audio = new Audio(randomSound.src)
     this.registerAudio(audio, baseVolume)

@@ -11,7 +11,10 @@ export type SoundscapeType = 'rustle' |
 
 interface Sound {
   src: string;
-  /** 0 ~ 1 */
+  /** 0 ~ 1
+   * 
+   * @default 0.5
+   */
   volume?: number;
 }
 
