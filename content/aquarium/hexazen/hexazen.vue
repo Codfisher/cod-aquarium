@@ -1,9 +1,11 @@
 <template>
-  <u-app :toaster="{
-    ui: {
-      base: 'chamfer-2 chamfer-border-0.25 bg-gray-200',
-    },
-  }">
+  <u-app
+    :toaster="{
+      ui: {
+        base: 'chamfer-2 chamfer-border-0.25 bg-gray-200',
+      },
+    }"
+  >
     <div class="fixed w-dvw h-dvh m-0 p-3 bg-gray-50">
       <div
         class="w-full h-full chamfer-5 relative"
@@ -39,9 +41,11 @@
               />
             </u-tooltip>
 
-            <u-popover :ui="{
-              content: 'chamfer-3 bg-gray-200 p-0.5',
-            }">
+            <u-popover
+              :ui="{
+                content: 'chamfer-3 bg-gray-200 p-0.5',
+              }"
+            >
               <u-tooltip
                 text="Remove all blocks"
                 :content="{
@@ -197,25 +201,10 @@
 </template>
 
 <script setup lang="ts">
-import { AbstractMesh, GPUParticleSystem, Mesh, Scene } from '@babylonjs/core'
+import type { AbstractMesh, Mesh, Scene } from '@babylonjs/core'
 import type { CSSProperties } from 'vue'
 import type { Block, BlockType } from './domains/block/type'
-import {
-  ArcRotateCamera,
-  BoxParticleEmitter,
-  Color3,
-  Color4,
-  DefaultRenderingPipeline,
-  DepthOfFieldEffectBlurLevel,
-  DirectionalLight,
-  DynamicTexture,
-  MeshBuilder,
-  ParticleSystem,
-  PointerEventTypes,
-  ShadowGenerator,
-  StandardMaterial,
-  Vector3,
-} from '@babylonjs/core'
+import { ArcRotateCamera, BoxParticleEmitter, Color3, Color4, DefaultRenderingPipeline, DepthOfFieldEffectBlurLevel, DirectionalLight, DynamicTexture, GPUParticleSystem, MeshBuilder, ParticleSystem, PointerEventTypes, ShadowGenerator, StandardMaterial, Vector3 } from '@babylonjs/core'
 import { promiseTimeout, useColorMode, useToggle } from '@vueuse/core'
 import { animate } from 'animejs'
 import { maxBy } from 'lodash-es'
@@ -549,7 +538,7 @@ async function restoreSharedView() {
 
 // --- Scene 初始化 ---
 
-const DEFAULT_F_STOP = 2.8
+const DEFAULT_F_STOP = 8
 const DEFAULT_VIGNETTE_WEIGHT = 1.5
 
 const shadowGenerator = shallowRef<ShadowGenerator>()
@@ -1012,7 +1001,8 @@ watch(() => ({ isRain: isRain.value, scene: scene.value }), ({ isRain, scene }, 
     promiseTimeout(2000).then(() => {
       splashParticleSystem.value?.start()
     })
-  } else {
+  }
+  else {
     rainParticleSystem.value?.stop()
     promiseTimeout(2000).then(() => {
       splashParticleSystem.value?.stop()
