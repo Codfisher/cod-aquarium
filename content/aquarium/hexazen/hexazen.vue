@@ -1,11 +1,9 @@
 <template>
-  <u-app
-    :toaster="{
-      ui: {
-        base: 'chamfer-2 chamfer-border-0.25 bg-gray-200',
-      },
-    }"
-  >
+  <u-app :toaster="{
+    ui: {
+      base: 'chamfer-2 chamfer-border-0.25 bg-gray-200',
+    },
+  }">
     <div class="fixed w-dvw h-dvh m-0 p-3 bg-gray-50">
       <div
         class="w-full h-full chamfer-5 relative"
@@ -41,11 +39,9 @@
               />
             </u-tooltip>
 
-            <u-popover
-              :ui="{
-                content: 'chamfer-3 bg-gray-200 p-0.5',
-              }"
-            >
+            <u-popover :ui="{
+              content: 'chamfer-3 bg-gray-200 p-0.5',
+            }">
               <u-tooltip
                 text="Remove all blocks"
                 :content="{
@@ -585,6 +581,13 @@ async function restoreSharedView() {
   }
   catch (error) {
     console.error('Failed to restore shared view:', error)
+    toast.add({
+      title: 'Failed to restore shared view',
+      description: 'The link may be invalid or corrupted.',
+      icon: 'i-material-symbols:error-outline',
+      duration: 0,
+      color: 'error',
+    })
   }
 }
 

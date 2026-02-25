@@ -1,13 +1,14 @@
 <template>
   <u-modal
-    title="Welcome to CodStack!"
+    title="Welcome to HexaZen!"
     :ui="{
-      content: 'min-w-full md:min-w-160 overflow-auto',
+      body: 'sm:p-1 p-1',
+      content: 'md:min-w-160 overflow-auto',
     }"
   >
     <slot />
 
-    <template #content>
+    <template #body>
       <u-tabs
         v-model="currentTab"
         :items="tabItems"
