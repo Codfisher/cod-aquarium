@@ -2,7 +2,7 @@
   <u-modal
     title="Welcome to CodStack!"
     :ui="{
-      content: 'min-w-full md:min-w-160',
+      content: 'min-w-full md:min-w-160 overflow-auto',
     }"
   >
     <slot />
@@ -14,7 +14,7 @@
         value-key="slot"
         :ui="{
           indicator: 'chamfer-2',
-          content: 'overflow-auto',
+          content: '',
         }"
       >
         <template #intro>
@@ -148,10 +148,36 @@ const { locale, t } = useSimpleI18n({
   },
   'en': {
     intro: [
+      '<div class="font-bold text-2xl mb-6">Welcome to Hexazen! ⁑｡٩(ˊᗜˋ*)و✧⁕</div>',
+      `I usually listen to white noise, rain, and other natural sounds with my headphones while working.`,
+      `After listening to the exact same audio too many times, I can almost memorize when the next thunderstrike will hit. (›´ω\`‹ )`,
+      `Although there are many great online audio mixer websites, they always felt like they were missing something. So, I decided to try building a 3D audio mixer using Babylon.js, featuring randomized sound playback.`,
+
+      `You can freely combine the scene blocks. Different types and scales of blocks will generate different natural sound effects.`,
+      `<ul class="list-disc list-inside my-2 ml-2">
+        <li>Trees: Wind rustling through leaves</li>
+        <li>Houses: Cafe ambiance</li>
+        <li>Rivers: Flowing water</li>
+      </ul>`,
+      `Different scales will also create ecosystems. For example, if there are enough trees, you'll hear insects chirping, birds singing, and more.`,
+      `Let's explore and see what sounds you can find! (\\ ´ ▽ \` )ﾉ`,
+      '<div class="font-bold text-xl">Special Thanks</div>',
+      `Built with the following tools and resources. Huge thanks to all the creators!`,
+      `<ul class="list-disc list-inside my-2 ml-2">
+        <li>3D Models: <a href="https://kenney.nl/assets/hexagon-kit" target="_blank">kenney Hexagon Kit</a></li>
+        <li>Audio Sources: <a href="https://sound-effects.bbcrewind.co.uk/" target="_blank">BBC Sound Effects</a></li>
+        <li>Tools: <a href="https://codlin.me/aquarium/codstack/" target="_blank">CodStack</a></li>
+      </ul>`,
     ],
     start: [
+      `Click on the gray hexagonal blocks to select and place your favorite blocks.`,
+      `Click on a block to rotate it, and enable the shovel icon to remove blocks.`,
+      `Different combinations and quantities of scene blocks will produce different natural sound effects.<br><br>Try out various combinations, listen closely to the sounds, and build your very own soundscape! ヾ(◍'౪\`◍)ﾉﾞ`,
     ],
     startImg: [
+      '/hexazen/quick-start/step01.mp4',
+      '/hexazen/quick-start/step02.mp4',
+      '/hexazen/quick-start/step03.png',
     ],
   },
 } as const)
