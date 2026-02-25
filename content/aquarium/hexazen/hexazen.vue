@@ -537,6 +537,7 @@ async function restoreSharedView() {
 const DEFAULT_F_STOP = 8
 const DEFAULT_VIGNETTE_WEIGHT = 1.5
 
+const ground = shallowRef<Mesh>()
 const shadowGenerator = shallowRef<ShadowGenerator>()
 const pipeline = shallowRef<DefaultRenderingPipeline>()
 const rainParticleSystem = shallowRef<GPUParticleSystem>()
@@ -727,7 +728,7 @@ function createShadowGenerator(scene: Scene) {
 
 const { canvasRef, scene, camera } = useBabylonScene({
   async init({ scene, engine, camera }) {
-    createGround({ scene })
+    ground.value = createGround({ scene })
     shadowGenerator.value = createShadowGenerator(scene)
     rainParticleSystem.value = createRainSystem(scene)
     splashParticleSystem.value = createSplashSystem(scene)
@@ -975,7 +976,7 @@ const traitVignetteColorMap: Record<`${TraitType}`, Color3> = {
 }
 // 根據 traitRegion 更新 vignette color
 watch(() => [traitRegionList, pipeline.value], (_, __, onCleanup) => {
-  if (!pipeline.value?.imageProcessing) {
+  if (!pipeline.value?.imageProcessing || !ground.value?.material) {
     return
   }
 
@@ -1004,8 +1005,23 @@ watch(() => [traitRegionList, pipeline.value], (_, __, onCleanup) => {
     },
   )
 
+  const blendRatio = 0.7
+  const baseGroundColor = new Color3(0.96, 0.95, 0.93)
+  const groundColor = Color3.Lerp(targetColor, baseGroundColor, blendRatio)
+
+  const instance2 = animate(
+    (ground.value.material as StandardMaterial).diffuseColor,
+    {
+      r: groundColor.r,
+      g: groundColor.g,
+      b: groundColor.b,
+      duration: 1000,
+    },
+  )
+
   onCleanup(() => {
     instance.cancel()
+    instance2.cancel()
   })
 }, {
   deep: true,
