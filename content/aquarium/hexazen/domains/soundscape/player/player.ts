@@ -1,27 +1,44 @@
 import type { Soundscape } from '../type'
-import { pipe, sample } from 'remeda'
+import { sample } from 'remeda'
 
 const DEFAULT_BASE_VOLUME = 0.5
 
+/** 所有 SoundscapePlayer 共用同一個 AudioContext */
+let sharedAudioContext: AudioContext | undefined
+function getAudioContext(): AudioContext {
+  if (!sharedAudioContext) {
+    sharedAudioContext = new AudioContext()
+  }
+  return sharedAudioContext
+}
+
+interface AudioTrack {
+  audio: HTMLAudioElement;
+  source: MediaElementAudioSourceNode;
+  /** 控制單軌基礎音量 */
+  trackGain: GainNode;
+}
+
 export class SoundscapePlayer {
   private soundscape: Soundscape
+  private audioContext: AudioContext
 
-  // 追蹤所有正在播放的 audio 元素，方便 destroy 時統一處理漸出
-  private activeAudios: Set<HTMLAudioElement> = new Set()
+  /** 主控音量 GainNode，所有音軌都連接到這裡 */
+  private globalGainNode: GainNode
+  /** 靜音用 GainNode */
+  private muteGainNode: GainNode
 
-  /** 記錄每個 audio 的基礎音量，用來搭配 globalVolume 做等比縮放 */
-  private baseVolumeMap: Map<HTMLAudioElement, number> = new Map()
+  /** 追蹤所有正在播放的音軌 */
+  private activeTracks: Set<AudioTrack> = new Set()
 
-  /** 主控音量 (0~1)，作為所有音效基礎音量的乘數 */
-  private globalVolume: number = 1
   private isMuted: boolean = false
 
-  // 記錄目前的計時器，方便隨時中斷
+  /** 記錄目前的計時器，方便隨時中斷 */
   private timeoutIds: Set<ReturnType<typeof setTimeout>> = new Set()
 
   private isDestroying: boolean = false
 
-  // Loop 模式下，提早交疊的秒數
+  /** Loop 模式下，提早交疊的秒數 */
   private readonly OVERLAP_SECONDS = 4
 
   constructor(soundscape: Soundscape) {
@@ -29,11 +46,25 @@ export class SoundscapePlayer {
       throw new Error('SoundList 不能為空')
     }
     this.soundscape = soundscape
+    this.audioContext = getAudioContext()
+
+    // 建立 GainNode 鏈：trackGain → globalGain → muteGain → destination
+    this.globalGainNode = this.audioContext.createGain()
+    this.muteGainNode = this.audioContext.createGain()
+
+    this.globalGainNode.connect(this.muteGainNode)
+    this.muteGainNode.connect(this.audioContext.destination)
   }
 
   /** 啟動播放器 */
   public play() {
     this.isDestroying = false
+
+    // 確保 AudioContext 處於 running 狀態（瀏覽器可能 suspend）
+    if (this.audioContext.state === 'suspended') {
+      this.audioContext.resume()
+    }
+
     if (this.soundscape.mode.value === 'loop') {
       this.playLoop()
     }
@@ -42,18 +73,25 @@ export class SoundscapePlayer {
     }
   }
 
-  /** 註冊 audio 並套用 globalVolume */
-  private registerAudio(audio: HTMLAudioElement, baseVolume: number) {
-    audio.volume = baseVolume * this.globalVolume
-    audio.muted = this.isMuted
-    this.activeAudios.add(audio)
-    this.baseVolumeMap.set(audio, baseVolume)
+  /** 建立音軌並連接到 GainNode 鏈 */
+  private createTrack(audio: HTMLAudioElement, baseVolume: number): AudioTrack {
+    const source = this.audioContext.createMediaElementSource(audio)
+    const trackGain = this.audioContext.createGain()
+    trackGain.gain.value = baseVolume
+
+    source.connect(trackGain)
+    trackGain.connect(this.globalGainNode)
+
+    const track: AudioTrack = { audio, source, trackGain }
+    this.activeTracks.add(track)
+    return track
   }
 
-  /** 移除 audio 追蹤 */
-  private unregisterAudio(audio: HTMLAudioElement) {
-    this.activeAudios.delete(audio)
-    this.baseVolumeMap.delete(audio)
+  /** 移除音軌追蹤並斷開連接 */
+  private removeTrack(track: AudioTrack) {
+    track.trackGain.disconnect()
+    track.source.disconnect()
+    this.activeTracks.delete(track)
   }
 
   /**
@@ -67,55 +105,57 @@ export class SoundscapePlayer {
 
     // 建立雙音軌
     const audioA = new Audio(soundData.src)
+    audioA.crossOrigin = 'anonymous'
     audioA.loop = true
     const audioB = new Audio(soundData.src)
+    audioB.crossOrigin = 'anonymous'
     audioB.loop = true
 
-    this.registerAudio(audioA, baseVolume)
-    this.registerAudio(audioB, baseVolume)
+    const trackA = this.createTrack(audioA, baseVolume)
+    const trackB = this.createTrack(audioB, baseVolume)
 
-    let useAudioA = true
+    let useTrackA = true
 
-    const scheduleNext = (currentAudio: HTMLAudioElement) => {
+    const scheduleNext = (track: AudioTrack) => {
       if (this.isDestroying)
         return
 
-      currentAudio.currentTime = 0
-      currentAudio.play().catch((e) => console.warn(`[${this.soundscape.type}] 播放被阻擋:`, e))
+      track.audio.currentTime = 0
+      track.audio.play().catch((e) => console.warn(`[${this.soundscape.type}] 播放被阻擋:`, e))
 
       // 取得音檔總長度來計算交疊時間點
       const setupOverlap = () => {
         // 確保交疊時間不會大於音檔本身長度的一半
-        const overlap = Math.min(this.OVERLAP_SECONDS, currentAudio.duration * 0.4)
-        const triggerTimeMs = (currentAudio.duration - overlap) * 1000
+        const overlap = Math.min(this.OVERLAP_SECONDS, track.audio.duration * 0.4)
+        const triggerTimeMs = (track.audio.duration - overlap) * 1000
 
         const timer = setTimeout(() => {
           this.timeoutIds.delete(timer)
-          useAudioA = !useAudioA
-          const nextAudio = useAudioA ? audioA : audioB
-          scheduleNext(nextAudio)
+          useTrackA = !useTrackA
+          const nextTrack = useTrackA ? trackA : trackB
+          scheduleNext(nextTrack)
         }, triggerTimeMs)
 
         this.timeoutIds.add(timer)
       }
 
-      if (currentAudio.readyState >= 1) {
+      if (track.audio.readyState >= 1) {
         setupOverlap()
       }
       else {
-        currentAudio.onloadedmetadata = () => {
+        track.audio.onloadedmetadata = () => {
           setupOverlap()
-          currentAudio.onloadedmetadata = null // 清除監聯
+          track.audio.onloadedmetadata = null
         }
       }
     }
 
     // 啟動第一軌
-    scheduleNext(audioA)
+    scheduleNext(trackA)
   }
 
   /**
-   * Interval 模式：隨機播放一個聲音，結束後等待 5~10 秒再播下一個
+   * Interval 模式：隨機播放一個聲音，結束後等待隨機秒數再播下一個
    */
   private playInterval() {
     if (this.isDestroying)
@@ -127,10 +167,11 @@ export class SoundscapePlayer {
     const baseVolume = randomSound.volume ?? DEFAULT_BASE_VOLUME
 
     const audio = new Audio(randomSound.src)
-    this.registerAudio(audio, baseVolume)
+    audio.crossOrigin = 'anonymous'
+    const track = this.createTrack(audio, baseVolume)
 
     audio.onended = () => {
-      this.unregisterAudio(audio)
+      this.removeTrack(track)
       if (this.isDestroying)
         return
 
@@ -142,7 +183,7 @@ export class SoundscapePlayer {
 
       const timer = setTimeout(() => {
         this.timeoutIds.delete(timer)
-        this.playInterval() // 遞迴呼叫下一輪
+        this.playInterval()
       }, waitSec * 1000)
 
       this.timeoutIds.add(timer)
@@ -166,73 +207,63 @@ export class SoundscapePlayer {
     this.timeoutIds.clear()
 
     // 2. 對所有正在播放的音軌執行漸出
-    const fadePromises = Array.from(this.activeAudios).map((audio) =>
-      this.fadeOutAudio(audio, fadeOutDurationMs),
-    )
+    const currentTime = this.audioContext.currentTime
+    const fadeEndTime = currentTime + fadeOutDurationMs / 1000
 
-    await Promise.all(fadePromises)
+    for (const track of this.activeTracks) {
+      track.trackGain.gain.setValueAtTime(
+        track.trackGain.gain.value,
+        currentTime,
+      )
+      track.trackGain.gain.linearRampToValueAtTime(0, fadeEndTime)
+    }
+
+    // 等待漸出完成
+    await new Promise<void>((resolve) => {
+      const timer = setTimeout(resolve, fadeOutDurationMs)
+      this.timeoutIds.add(timer)
+    })
 
     // 3. 徹底清理回收資源
-    this.activeAudios.forEach((audio) => {
-      audio.pause()
-      audio.removeAttribute('src')
-      audio.onloadedmetadata = null
-      audio.onended = null
-    })
-    this.activeAudios.clear()
-    this.baseVolumeMap.clear()
+    for (const track of this.activeTracks) {
+      track.audio.pause()
+      track.audio.removeAttribute('src')
+      track.audio.onloadedmetadata = null
+      track.audio.onended = null
+      track.trackGain.disconnect()
+      track.source.disconnect()
+    }
+    this.activeTracks.clear()
+
+    this.globalGainNode.disconnect()
+    this.muteGainNode.disconnect()
   }
 
   /**
-   * 單一 Audio 元素的漸出邏輯
-   */
-  private fadeOutAudio(audio: HTMLAudioElement, duration: number): Promise<void> {
-    return new Promise((resolve) => {
-      if (audio.paused || audio.volume === 0) {
-        resolve()
-        return
-      }
-
-      const steps = 20 // 將漸出分為 20 個刻度
-      const stepTime = duration / steps
-      const volumeStep = audio.volume / steps // 根據當前實際音量(可能是使用者設定的 volume)來決定每步要降多少
-
-      const fadeInterval = setInterval(() => {
-        if (audio.volume - volumeStep > 0) {
-          audio.volume -= volumeStep
-        }
-        else {
-          audio.volume = 0
-          clearInterval(fadeInterval)
-          resolve()
-        }
-      }, stepTime)
-    })
-  }
-
-  /**
-   * 設定主控音量，按比例縮放所有正在播放的音效。
+   * 設定主控音量，可超過 1.0 來放大音量。
    *
    * 最終音量 = baseVolume × globalVolume
    */
   public setGlobalVolume(value: number) {
-    this.globalVolume = value
-    for (const [audio, baseVolume] of this.baseVolumeMap) {
-      audio.volume = baseVolume * this.globalVolume
-    }
+    this.globalGainNode.gain.setValueAtTime(
+      value,
+      this.audioContext.currentTime,
+    )
   }
 
   public muted() {
     this.isMuted = true
-    for (const audio of this.activeAudios) {
-      audio.muted = true
-    }
+    this.muteGainNode.gain.setValueAtTime(
+      0,
+      this.audioContext.currentTime,
+    )
   }
 
   public unmuted() {
     this.isMuted = false
-    for (const audio of this.activeAudios) {
-      audio.muted = false
-    }
+    this.muteGainNode.gain.setValueAtTime(
+      1,
+      this.audioContext.currentTime,
+    )
   }
 }

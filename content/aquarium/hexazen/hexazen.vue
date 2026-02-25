@@ -138,8 +138,8 @@
             v-model="globalVolume"
             orientation="vertical"
             :min="0"
-            :max="1"
-            :step="0.01"
+            :max="10"
+            :step="0.1"
             :ui="{
               track: 'bg-gray-300',
               range: 'bg-gray-500',
@@ -292,7 +292,7 @@ const [isEditMode, toggleEditMode] = useToggle(true)
 const [isRemoveMode, toggleRemoveMode] = useToggle(false)
 const [isMuted, toggleMuted] = useToggle(isSharedView)
 
-const globalVolume = ref(1)
+const globalVolume = ref(3)
 
 // --- Tile、Block 狀態 ---
 

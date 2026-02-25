@@ -37,20 +37,23 @@
               :ui="{ item: 'flex flex-col' }"
             >
               <div class=" relative ">
-                <div class="rounded-lg border overflow-hidden border-default">
-                  <img
-                    v-if="!item.img.includes('.mp4')"
-                    :src="item.img"
-                    class=" w-full h-full object-contain "
-                  >
+                <div class="overflow-hidden p-0.5 chamfer-4.5 bg-gray-200">
+                  <div class="overflow-hidden chamfer-4 bg-white">
+                    <img
+                      v-if="!item.img.includes('.mp4')"
+                      :src="item.img"
+                      class=" w-full h-full object-contain rounded-none!"
+                    >
 
-                  <video
-                    v-else
-                    :src="item.img"
-                    autoplay
-                    loop
-                    muted
-                  />
+                    <video
+                      v-else
+                      :src="item.img"
+                      autoplay
+                      loop
+                      muted
+                      class="rounded-none!"
+                    />
+                  </div>
                 </div>
 
                 <div class="mt-2 relative z-10 pb-16">
