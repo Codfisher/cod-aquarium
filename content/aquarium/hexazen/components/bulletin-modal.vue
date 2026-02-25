@@ -1,13 +1,14 @@
 <template>
   <u-modal
-    title="Welcome to CodStack!"
+    title="Welcome to HexaZen!"
     :ui="{
-      content: 'min-w-full md:min-w-160 overflow-auto',
+      body: 'sm:p-1 p-1',
+      content: 'md:min-w-160 overflow-auto',
     }"
   >
     <slot />
 
-    <template #content>
+    <template #body>
       <u-tabs
         v-model="currentTab"
         :items="tabItems"
@@ -134,20 +135,22 @@ const { locale, t } = useSimpleI18n({
       `使用以下工具或資源建構，感謝所有創作者！`,
       `<ul class="list-disc list-inside my-2 ml-2">
         <li>3D 模型：<a href="https://kenney.nl/assets/hexagon-kit" target="_blank">kenney Hexagon Kit</a></li>
+        <li>組合工具：<a href="https://codlin.me/aquarium/codstack/" target="_blank">CodStack</a></li>
         <li>音源：<a href="https://sound-effects.bbcrewind.co.uk/" target="_blank">BBC Sound Effects</a></li>
-        <li>工具：<a href="https://codlin.me/aquarium/codstack/" target="_blank">CodStack</a></li>
       </ul>`,
       '有任何問題或功能許願，歡迎隨時連絡我。若您喜歡此網站，也可以<a href="https://portaly.cc/codfish/support" target="_blank">請我喝一杯咖啡</a>，鼓勵我喔！(*´∀`)~♥',
     ],
     start: [
       `歡迎來到 Hexazen，此網站可以組合多種場景並產生不同的自然音效<br><br>點擊灰色的六角積木，選擇、放置你喜歡的積木`,
       `點擊積木可以旋轉，啟用鏟子圖示可以移除積木`,
-      `不同組合、數量的場景會產生不同的自然音效<br><br>來試試看不同組合，仔細聽聽看有甚麼聲音，打造屬於您自己的音景吧！ヾ(◍'౪\`◍)ﾉﾞ`,
+      `不同組合、數量的場景會產生不同的自然音效<br><br>試試看不同組合，仔細聽聽看有甚麼聲音`,
+      `可以將你的音景透過網址分享給任何人，打造屬於您自己的獨特音景吧！ヾ(◍'౪\`◍)ﾉﾞ`,
     ],
     startImg: [
       '/hexazen/quick-start/step01.mp4',
       '/hexazen/quick-start/step02.mp4',
       '/hexazen/quick-start/step03.png',
+      '/hexazen/quick-start/step04.mp4',
     ],
   },
   'en': {
@@ -177,12 +180,14 @@ const { locale, t } = useSimpleI18n({
     start: [
       `Welcome to Hexazen! Here, you can combine multiple scenes to create your own unique natural soundscapes.<br><br>Click on the gray hexagonal blocks to select and place your favorite blocks.`,
       `Click on a block to rotate it, and enable the shovel icon to remove blocks.`,
-      `Different combinations and quantities of scene blocks will produce different natural sound effects.<br><br>Try out various combinations, listen closely to the sounds, and build your very own soundscape! ヾ(◍'౪\`◍)ﾉﾞ`,
+      `Different combinations and quantities of scenes will produce different natural sound effects.<br><br>Try different combinations and listen to the unique sounds they create.`,
+      `You can share your soundscape with anyone via a URL. Create and share your own unique soundscape! ヾ(◍'౪\`◍)ﾉﾞ`,
     ],
     startImg: [
       '/hexazen/quick-start/step01.mp4',
       '/hexazen/quick-start/step02.mp4',
       '/hexazen/quick-start/step03.png',
+      '/hexazen/quick-start/step04.mp4',
     ],
   },
 } as const)
