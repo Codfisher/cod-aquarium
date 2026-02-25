@@ -1,11 +1,9 @@
 <template>
-  <u-app
-    :toaster="{
-      ui: {
-        base: 'chamfer-2 chamfer-border-0.25 bg-gray-200',
-      },
-    }"
-  >
+  <u-app :toaster="{
+    ui: {
+      base: 'chamfer-2 chamfer-border-0.25 bg-gray-200',
+    },
+  }">
     <div class="fixed w-dvw h-dvh m-0 p-3 bg-gray-50">
       <div
         class="w-full h-full chamfer-5 relative"
@@ -41,11 +39,9 @@
               />
             </u-tooltip>
 
-            <u-popover
-              :ui="{
-                content: 'chamfer-3 bg-gray-200 p-0.5',
-              }"
-            >
+            <u-popover :ui="{
+              content: 'chamfer-3 bg-gray-200 p-0.5',
+            }">
               <u-tooltip
                 text="Remove all blocks"
                 :content="{
@@ -690,7 +686,7 @@ function createSplashSystem(scene: Scene) {
 
   splashSystem.stop()
 
-  // 使用射線投射來決定水花出生點，避免水花浮空
+  /** 使用射線投射來決定水花出生點，避免水花浮空，會覆蓋 emitter.emitBox 的設定 */
   splashSystem.startPositionFunction = (worldMatrix, positionToUpdate, particle, isLocal) => {
     const randomX = Math.random() * 10 - 5
     const randomZ = Math.random() * 10 - 5
