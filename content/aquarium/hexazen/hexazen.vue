@@ -256,17 +256,17 @@ const weatherModeInfo = computed(() => {
     case undefined:
       return {
         icon: 'material-symbols:sunny',
-        tooltip: 'Sunny',
+        tooltip: `Sun's Out!`,
       }
     case 'rain':
       return {
         icon: 'material-symbols:rainy',
-        tooltip: 'Rainy',
+        tooltip: 'Cozy Weather',
       }
     default:
       return {
-        icon: 'material-symbols:cloud-sync-rounded',
-        tooltip: 'Random Rain',
+        icon: 'material-symbols:partly-cloudy-day-rounded',
+        tooltip: 'Surprise Showers',
       }
   }
 })
