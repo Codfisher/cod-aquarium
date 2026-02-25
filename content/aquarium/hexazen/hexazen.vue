@@ -690,6 +690,7 @@ function createSplashSystem(scene: Scene) {
 
   splashSystem.stop()
 
+  // 使用射線投射來決定水花出生點，避免水花浮空
   splashSystem.startPositionFunction = (worldMatrix, positionToUpdate, particle, isLocal) => {
     const randomX = Math.random() * 10 - 5
     const randomZ = Math.random() * 10 - 5
