@@ -2,19 +2,19 @@
  * 將多個 block 組裝後可產生 cluster
  */
 
+import type { Weather } from '../../../types'
 import type { TraitRegion } from '../../block/trait-region'
 import type { Block } from '../../block/type'
 import type { Soundscape, SoundscapeType } from '../type'
 import { concat, isTruthy } from 'remeda'
 import { blockDefinitions } from '../../block/builder/data'
-import { Weather } from '../../../types'
 
 interface SoundscapeRule {
   type: SoundscapeType;
   predicate: (data: {
-    traitRegionList: TraitRegion[],
-    blockMap: Map<string, Block>,
-    weather?: Weather,
+    traitRegionList: TraitRegion[];
+    blockMap: Map<string, Block>;
+    weather?: Weather;
   }) => boolean;
   transform: (soundscapeList: Soundscape[]) => Soundscape[];
 }
@@ -341,7 +341,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
         soundList: [
           {
             src: 'hexazen/sounds/alpine-sinister-wind.mp3',
-            volume: 0.5,
+            volume: 0.2,
           },
         ],
       },
@@ -392,6 +392,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
         soundList: [
           {
             src: 'hexazen/sounds/rain-roof.mp3',
+            volume: 0.3,
           },
         ],
       },
@@ -411,6 +412,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
         soundList: [
           {
             src: 'hexazen/sounds/rain-grassland.mp3',
+            volume: 1,
           },
         ],
       },
@@ -454,8 +456,8 @@ export const soundscapeRuleList: SoundscapeRule[] = [
           range: [10, 30],
         },
         soundList: [
-          { src: 'hexazen/sounds/thunder.mp3', volume: 0.2 },
-          { src: 'hexazen/sounds/thunder-2.mp3', volume: 0.2 },
+          { src: 'hexazen/sounds/thunder.mp3', volume: 0.1 },
+          { src: 'hexazen/sounds/thunder-2.mp3', volume: 0.1 },
         ],
       },
     ]),

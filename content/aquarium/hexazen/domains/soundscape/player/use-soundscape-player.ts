@@ -1,4 +1,5 @@
 import type { Ref, ShallowReactive } from 'vue'
+import type { Weather } from '../../../types'
 import type { Block } from '../../block/type'
 import type { SoundscapeType } from '../type'
 import { reactiveComputed } from '@vueuse/core'
@@ -7,7 +8,6 @@ import { computed, shallowReactive, watch } from 'vue'
 import { calcTraitRegionList } from '../../block/trait-region'
 import { resolveSoundscape } from '../resolver'
 import { SoundscapePlayer } from './player'
-import { Weather } from '../../../types'
 
 export function useSoundscapePlayer(
   blockMap: ShallowReactive<Map<string, Block>>,

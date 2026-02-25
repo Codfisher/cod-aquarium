@@ -1,9 +1,11 @@
 <template>
-  <u-app :toaster="{
-    ui: {
-      base: 'chamfer-2 chamfer-border-0.25 bg-gray-200',
-    },
-  }">
+  <u-app
+    :toaster="{
+      ui: {
+        base: 'chamfer-2 chamfer-border-0.25 bg-gray-200',
+      },
+    }"
+  >
     <div class="fixed w-dvw h-dvh m-0 p-3 bg-gray-50">
       <div
         class="w-full h-full chamfer-5 relative"
@@ -39,9 +41,11 @@
               />
             </u-tooltip>
 
-            <u-popover :ui="{
-              content: 'chamfer-3 bg-gray-200 p-0.5',
-            }">
+            <u-popover
+              :ui="{
+                content: 'chamfer-3 bg-gray-200 p-0.5',
+              }"
+            >
               <u-tooltip
                 text="Remove all blocks"
                 :content="{
@@ -157,12 +161,9 @@
             }"
           >
             <u-icon
-              name="i-material-symbols:rainy"
+              :name="weatherModeIcon"
               class="text-3xl cursor-pointer duration-500 outline-0 "
-              :class="{
-                'text-primary': isRain,
-              }"
-              @click="toggleRain()"
+              @click="nextWeatherMode()"
             />
           </u-tooltip>
 
@@ -200,8 +201,9 @@
 import type { AbstractMesh, Mesh, Scene } from '@babylonjs/core'
 import type { CSSProperties } from 'vue'
 import type { Block, BlockType } from './domains/block/type'
+import type { TraitType, Weather } from './types'
 import { ArcRotateCamera, BoxParticleEmitter, Color3, Color4, DefaultRenderingPipeline, DepthOfFieldEffectBlurLevel, DirectionalLight, DynamicTexture, GPUParticleSystem, MeshBuilder, ParticleSystem, PointerEventTypes, Ray, ShadowGenerator, StandardMaterial, Vector3 } from '@babylonjs/core'
-import { promiseTimeout, useColorMode, useToggle } from '@vueuse/core'
+import { promiseTimeout, useColorMode, useCycleList, useToggle } from '@vueuse/core'
 import { animate } from 'animejs'
 import { maxBy } from 'lodash-es'
 import { pipe, tap } from 'remeda'
@@ -217,7 +219,7 @@ import { createBlock } from './domains/block/builder'
 import { Hex, HexLayout } from './domains/hex-grid'
 import { decodeBlocks, encodeBlocks } from './domains/share/codec'
 import { useSoundscapePlayer } from './domains/soundscape/player/use-soundscape-player'
-import { TraitType, TraitTypeEnum, Weather } from './types'
+import { TraitTypeEnum } from './types'
 
 // Nuxt UI 接管 vitepress 的 dark 設定，故改用 useColorMode
 const colorMode = useColorMode()
@@ -232,8 +234,33 @@ const sharedViewEncodedData = pipe(
 )
 const isSharedView = !!sharedViewEncodedData
 
-const [isRain, toggleRain] = useToggle(false)
-const weather = computed<Weather | undefined>(() => isRain.value ? 'rain' : undefined)
+const {
+  state: weatherMode,
+  next: nextWeatherMode,
+} = useCycleList<
+  Weather | undefined | 'random-rain'
+>([
+  undefined,
+  'rain',
+  'random-rain',
+])
+const weatherModeIcon = computed(() => {
+  switch (weatherMode.value) {
+    case undefined:
+      return 'material-symbols:sunny'
+    case 'rain':
+      return 'material-symbols:rainy'
+    default:
+      return 'material-symbols:cloud-sync-rounded'
+  }
+})
+const currentWeather = ref<Weather | undefined>()
+const weather = computed<Weather | undefined>(() => {
+  if (weatherMode.value === 'random-rain') {
+    return currentWeather.value
+  }
+  return weatherMode.value
+})
 
 const [isEditMode, toggleEditMode] = useToggle(true)
 const [isRemoveMode, toggleRemoveMode] = useToggle(false)
@@ -479,7 +506,7 @@ function handleSelectBlock(blockType: BlockType) {
 const { traitRegionList } = useSoundscapePlayer(placedBlockMap, {
   muted: isMuted,
   volume: globalVolume,
-  weather
+  weather,
 })
 
 // --- 分享功能 ---
@@ -1031,7 +1058,7 @@ watch(() => [traitRegionList, pipeline.value], (_, __, onCleanup) => {
 })
 
 // 切換雨天
-watch(() => ({ isRain: isRain.value, scene: scene.value }), ({ isRain, scene }, _, onCleanup) => {
+watch(() => ({ isRain: weather.value === 'rain', scene: scene.value }), ({ isRain, scene }, _, onCleanup) => {
   if (!scene) {
     return
   }

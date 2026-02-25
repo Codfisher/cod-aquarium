@@ -1,7 +1,8 @@
-import { pipe, sample } from 'remeda'
 import type { Soundscape } from '../type'
+import { pipe, sample } from 'remeda'
 
-// --- 播放器實作 ---
+const DEFAULT_BASE_VOLUME = 0.5
+
 export class SoundscapePlayer {
   private soundscape: Soundscape
 
@@ -62,7 +63,7 @@ export class SoundscapePlayer {
     const soundData = this.soundscape.soundList[0]
     if (!soundData)
       return
-    const baseVolume = soundData.volume ?? 1
+    const baseVolume = soundData.volume ?? DEFAULT_BASE_VOLUME
 
     // 建立雙音軌
     const audioA = new Audio(soundData.src)
@@ -123,7 +124,7 @@ export class SoundscapePlayer {
     const [randomSound] = sample(this.soundscape.soundList, 1)
     if (!randomSound)
       return
-    const baseVolume = randomSound.volume ?? 0.5
+    const baseVolume = randomSound.volume ?? DEFAULT_BASE_VOLUME
 
     const audio = new Audio(randomSound.src)
     this.registerAudio(audio, baseVolume)

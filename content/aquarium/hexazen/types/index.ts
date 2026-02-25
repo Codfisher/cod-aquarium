@@ -14,6 +14,6 @@ export enum TraitTypeEnum {
 export type TraitType = `${TraitTypeEnum}`
 
 export enum WeatherEnum {
-  RAIN = 'rain'
+  RAIN = 'rain',
 }
 export type Weather = `${WeatherEnum}`
