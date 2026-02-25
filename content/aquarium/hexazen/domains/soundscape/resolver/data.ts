@@ -10,7 +10,7 @@ import { blockDefinitions } from '../../block/builder/data'
 
 interface SoundscapeRule {
   type: SoundscapeType;
-  condition: (
+  predicate: (
     traitRegionList: TraitRegion[],
     blockMap: Map<string, Block>
   ) => boolean;
@@ -27,7 +27,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
   {
     type: 'rustle',
     // tree size >= 3
-    condition: (traitRegionList) => [
+    predicate: (traitRegionList) => [
       traitRegionList.some((traitRegion) => traitRegion.trait === 'tree' && traitRegion.size >= 3),
     ].some(isTruthy),
     transform: concat([{
@@ -47,7 +47,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
   {
     type: 'insect',
     // grass size >= 4
-    condition(traitRegionList) {
+    predicate(traitRegionList) {
       return traitRegionList.some((traitRegion) => traitRegion.trait === 'grass' && traitRegion.size >= 4)
     },
     transform: concat([
@@ -77,7 +77,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
   {
     type: 'bird',
     // tree >= 6
-    condition(traitRegionList) {
+    predicate(traitRegionList) {
       return traitRegionList.some((traitRegion) => traitRegion.trait === 'tree' && traitRegion.size >= 6)
     },
     transform: concat([
@@ -104,7 +104,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
   {
     type: 'frog',
     // 任意 water 旁至少有 5 個非 water
-    condition(traitRegionList, blockMap) {
+    predicate(traitRegionList, blockMap) {
       // 找出所有 water TraitRegion
       const waterRegionList = traitRegionList.filter(
         (traitRegion) => traitRegion.trait === 'water',
@@ -165,7 +165,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
   {
     type: 'beast',
     // tree >= 10
-    condition(traitRegionList) {
+    predicate(traitRegionList) {
       return traitRegionList.some((traitRegion) => traitRegion.trait === 'tree' && traitRegion.size >= 10)
     },
     transform: concat([
@@ -186,7 +186,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
   {
     type: 'river',
     // 任意 river size >= 2
-    condition(traitRegionList) {
+    predicate(traitRegionList) {
       return traitRegionList.some((traitRegion) => traitRegion.trait === 'river' && traitRegion.size >= 2)
     },
     transform: concat([
@@ -208,7 +208,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
   {
     type: 'building',
     // 任意 building size >= 5
-    condition(traitRegionList) {
+    predicate(traitRegionList) {
       return traitRegionList.some((traitRegion) => traitRegion.trait === 'building' && traitRegion.size >= 5)
     },
     transform: concat([
@@ -234,7 +234,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
   {
     type: 'ocean',
     // water size >= 15
-    condition(traitRegionList) {
+    predicate(traitRegionList) {
       return traitRegionList.some((traitRegion) => traitRegion.trait === 'water' && traitRegion.size >= 15)
     },
     transform: concat([
@@ -255,7 +255,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
     /** 海岸 */
     type: 'ocean',
     // water size >= 15，且有岸
-    condition(traitRegionList) {
+    predicate(traitRegionList) {
       return [
         traitRegionList.some((traitRegion) => traitRegion.trait === 'water' && traitRegion.size >= 15),
         traitRegionList.some((traitRegion) => traitRegion.trait !== 'water'),
@@ -278,7 +278,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
   {
     type: 'ocean',
     // water size >= 15
-    condition(traitRegionList) {
+    predicate(traitRegionList) {
       return traitRegionList.some((traitRegion) => traitRegion.trait === 'water' && traitRegion.size >= 15)
     },
     transform: concat([
@@ -305,7 +305,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
     // 強冷風
     type: 'alpine',
     // alpine size >= 10
-    condition(traitRegionList) {
+    predicate(traitRegionList) {
       return traitRegionList.some((traitRegion) => traitRegion.trait === 'alpine' && traitRegion.size >= 10)
     },
     transform: concat([
@@ -325,7 +325,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
     // 高山雪藏雞
     type: 'alpine',
     // alpine size >= 10
-    condition(traitRegionList) {
+    predicate(traitRegionList) {
       return traitRegionList.some((traitRegion) => traitRegion.trait === 'alpine' && traitRegion.size >= 10)
     },
     transform: concat([

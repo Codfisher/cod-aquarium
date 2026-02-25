@@ -8,7 +8,7 @@ export function resolveSoundscape(
   traitRegionList: TraitRegion[],
   blockMap: Map<string, Block>,
 ) {
-  const validRuleList = soundscapeRuleList.filter((rule) => rule.condition(traitRegionList, blockMap))
+  const validRuleList = soundscapeRuleList.filter((rule) => rule.predicate(traitRegionList, blockMap))
 
   const soundscapeList = pipe(
     validRuleList,
