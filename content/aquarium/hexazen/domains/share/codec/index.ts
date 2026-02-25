@@ -1,5 +1,5 @@
 import type { BlockType } from '../../block/type'
-import { blockTypeList } from '../../block/builder/data'
+import { blockDefinitions } from '../../block/builder/data'
 import { Hex } from '../../hex-grid'
 
 export interface SharedBlock {
@@ -12,23 +12,23 @@ export interface SharedBlock {
 // ────────────────── 常數 ──────────────────
 
 /** 二進位格式版本號 */
-const FORMAT_VERSION = 1
+const FORMAT_VERSION = 2
 
 /** 座標偏移量，將 [-3, 3] 映射到 [0, 6] */
 const COORDINATE_OFFSET = 3
 
 /** 各欄位位元寬度 */
 const BITS_VERSION = 4
-const BITS_TYPE = 5
+const BITS_CHAR = 8
+const BITS_TYPE = BITS_CHAR * 2
 const BITS_COORDINATE = 3
 const BITS_ROTATION = 3
 const BITS_PER_BLOCK = BITS_TYPE + BITS_COORDINATE + BITS_COORDINATE + BITS_ROTATION
 
 // ────────────────── 查表 ──────────────────
 
-const typeToIndex = new Map<BlockType, number>(
-  blockTypeList.map((type, index) => [type, index]),
-)
+/** 驗證 BlockType 是否存在 */
+const validBlockTypes = new Set<string>(Object.keys(blockDefinitions))
 
 // ────────────────── BitWriter / BitReader ──────────────────
 
@@ -128,13 +128,13 @@ function base64urlToUint8Array(encoded: string): Uint8Array {
 /**
  * 將 block 資料以位元打包（bit-packing）編碼為 URL 安全的字串。
  *
- * 格式（v1）：
+ * 格式（v2）：
  * ```
- * [version: 4 bits][block₁: 14 bits][block₂: 14 bits]...
+ * [version: 4 bits][block₁: 25 bits][block₂: 25 bits]...
  * ```
  *
- * 每個 block 佔 14 bits：
- * - type index: 5 bits
+ * 每個 block 佔 25 bits：
+ * - type: 16 bits（2 個 ASCII 字元，如 "g1"、"b7"）
  * - q + 3:      3 bits
  * - r + 3:      3 bits
  * - rotation:   3 bits
@@ -158,9 +158,12 @@ export function encodeBlocks(blocks: Iterable<SharedBlock>): string {
   writer.write(FORMAT_VERSION, BITS_VERSION)
 
   for (const block of blockArray) {
-    const typeIndex = typeToIndex.get(block.type)
-    if (typeIndex === undefined) {
+    if (!validBlockTypes.has(block.type)) {
       throw new TypeError(`未知的 BlockType: "${block.type}"`)
+    }
+
+    if (block.type.length !== 2) {
+      throw new TypeError(`BlockType 必須為 2 個字元: "${block.type}"`)
     }
 
     const encodedQ = block.hex.q + COORDINATE_OFFSET
@@ -176,7 +179,8 @@ export function encodeBlocks(blocks: Iterable<SharedBlock>): string {
       throw new RangeError(`rotation ${block.rotation} 超出可編碼範圍 [0, 7]`)
     }
 
-    writer.write(typeIndex, BITS_TYPE)
+    writer.write(block.type.charCodeAt(0), BITS_CHAR)
+    writer.write(block.type.charCodeAt(1), BITS_CHAR)
     writer.write(encodedQ, BITS_COORDINATE)
     writer.write(encodedR, BITS_COORDINATE)
     writer.write(block.rotation, BITS_ROTATION)
@@ -188,8 +192,6 @@ export function encodeBlocks(blocks: Iterable<SharedBlock>): string {
 /**
  * 將編碼後的字串解碼為 block 資料。
  *
- * 支援新版位元打包格式（v1）與舊版文字格式（向下相容）。
- *
  * @throws 當字串格式不正確時拋出錯誤
  */
 export function decodeBlocks(encoded: string): SharedBlock[] {
@@ -197,17 +199,10 @@ export function decodeBlocks(encoded: string): SharedBlock[] {
     return []
   }
 
-  // 嘗試新的二進位格式
-  try {
-    return decodeBinaryBlocks(encoded)
-  }
-  catch {
-    // fallback 到舊的文字格式
-    return decodeLegacyBlocks(encoded)
-  }
+  return decodeBinaryBlocks(encoded)
 }
 
-/** 新版二進位格式解碼 */
+/** 二進位格式解碼 */
 function decodeBinaryBlocks(encoded: string): SharedBlock[] {
   const bytes = base64urlToUint8Array(encoded)
   const reader = new BitReader(bytes)
@@ -224,10 +219,12 @@ function decodeBinaryBlocks(encoded: string): SharedBlock[] {
   const blocks: SharedBlock[] = []
 
   for (let i = 0; i < blockCount; i++) {
-    const typeIndex = reader.read(BITS_TYPE)
-    const blockType = blockTypeList[typeIndex]
-    if (!blockType) {
-      throw new TypeError(`無效的 type index: ${typeIndex}`)
+    const char1 = String.fromCharCode(reader.read(BITS_CHAR))
+    const char2 = String.fromCharCode(reader.read(BITS_CHAR))
+    const blockType = `${char1}${char2}` as BlockType
+
+    if (!validBlockTypes.has(blockType)) {
+      throw new TypeError(`無效的 BlockType: "${blockType}"`)
     }
 
     const q = reader.read(BITS_COORDINATE) - COORDINATE_OFFSET
@@ -242,34 +239,4 @@ function decodeBinaryBlocks(encoded: string): SharedBlock[] {
   }
 
   return blocks
-}
-
-/** 舊版文字格式解碼（向下相容） */
-function decodeLegacyBlocks(encoded: string): SharedBlock[] {
-  const raw = atob(encoded)
-  if (!raw) {
-    return []
-  }
-
-  return raw.split(';').map((part) => {
-    const [type, coords] = part.split(':')
-    if (!type || !coords) {
-      throw new TypeError(`Invalid shared block format: "${part}"`)
-    }
-
-    const [qStr, rStr, rotationStr] = coords.split(',')
-    const q = Number(qStr)
-    const r = Number(rStr)
-    const rotation = rotationStr ? Number(rotationStr) : 0
-
-    if (Number.isNaN(q) || Number.isNaN(r)) {
-      throw new TypeError(`Invalid coordinates in shared block: "${coords}"`)
-    }
-
-    return {
-      type: type as BlockType,
-      hex: Hex.fromAxial(q, r),
-      rotation,
-    }
-  })
 }

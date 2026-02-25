@@ -31,8 +31,6 @@ export class SoundscapePlayer {
   /** 追蹤所有正在播放的音軌 */
   private activeTracks: Set<AudioTrack> = new Set()
 
-  private isMuted: boolean = false
-
   /** 記錄目前的計時器，方便隨時中斷 */
   private timeoutIds: Set<ReturnType<typeof setTimeout>> = new Set()
 
@@ -252,7 +250,6 @@ export class SoundscapePlayer {
   }
 
   public muted() {
-    this.isMuted = true
     this.muteGainNode.gain.setValueAtTime(
       0,
       this.audioContext.currentTime,
@@ -260,7 +257,6 @@ export class SoundscapePlayer {
   }
 
   public unmuted() {
-    this.isMuted = false
     this.muteGainNode.gain.setValueAtTime(
       1,
       this.audioContext.currentTime,
