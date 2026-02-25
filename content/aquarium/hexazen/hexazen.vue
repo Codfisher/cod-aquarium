@@ -649,7 +649,6 @@ function createGround({ scene }: { scene: Scene }) {
 }
 
 function createRainSystem(scene: Scene) {
-  // 檢查裝置是否支援 GPU 粒子
   if (!GPUParticleSystem.IsSupported) {
     console.warn('此裝置不支援 GPU 粒子系統')
     return
@@ -1106,7 +1105,7 @@ watch(() => ({ isRain: weather.value === 'rain', scene: scene.value }), ({ isRai
   }
 
   const fogStart = isRain ? 1 : 10
-  const fogEnd = isRain ? 20 : 100
+  const fogEnd = isRain ? 30 : 100
 
   const instance = animate(
     scene,
