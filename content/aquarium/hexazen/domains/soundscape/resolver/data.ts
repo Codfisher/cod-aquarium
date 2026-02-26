@@ -6,7 +6,7 @@ import type { Weather } from '../../../types'
 import type { TraitRegion } from '../../block/trait-region'
 import type { Block } from '../../block/type'
 import type { Soundscape, SoundscapeType } from '../type'
-import { concat, isTruthy } from 'remeda'
+import { concat, filter, isTruthy, pipe, prop, sumBy } from 'remeda'
 import { blockDefinitions } from '../../block/builder/data'
 
 interface SoundscapeRule {
@@ -28,15 +28,16 @@ export const soundscapeRuleList: SoundscapeRule[] = [
   /** 風吹樹梢 */
   {
     type: 'rustle',
-    // tree size >= 3
+    // tree 總和 size >= 3
     predicate: ({ traitRegionList, weather }) => {
       if (weather === 'rain') {
         return false
       }
 
-      return [
-        traitRegionList.some((traitRegion) => traitRegion.trait === 'tree' && traitRegion.size >= 3),
-      ].some(isTruthy)
+      const totalSize = pipe(traitRegionList,
+        filter(({ trait }) => trait === 'tree'),
+        sumBy(prop('size')))
+      return totalSize >= 3
     },
     transform: concat([{
       id: getId(),
@@ -227,9 +228,12 @@ export const soundscapeRuleList: SoundscapeRule[] = [
   /** 建築 */
   {
     type: 'building',
-    // 任意 building size >= 5
+    // building 總和 size >= 5
     predicate({ traitRegionList }) {
-      return traitRegionList.some((traitRegion) => traitRegion.trait === 'building' && traitRegion.size >= 5)
+      const totalSize = pipe(traitRegionList,
+        filter(({ trait }) => trait === 'building'),
+        sumBy(prop('size')))
+      return totalSize >= 5
     },
     transform: concat([
       {
@@ -239,11 +243,11 @@ export const soundscapeRuleList: SoundscapeRule[] = [
         soundList: [
           {
             src: 'hexazen/sounds/building-market.mp3',
-            volume: 0.2,
+            volume: 0.1,
           },
           {
             src: 'hexazen/sounds/building-british-museum.mp3',
-            volume: 0.2,
+            volume: 0.1,
           },
         ],
       },
