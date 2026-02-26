@@ -359,7 +359,7 @@ export const blockDefinitions = {
     },
   },
   b5: {
-    traitList: ['building'] as TraitTypeUnion[],
+    traitList: ['grass'] as TraitTypeUnion[],
     content: {
       version: 1,
       rootFolderName: 'assets',
