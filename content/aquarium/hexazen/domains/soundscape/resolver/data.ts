@@ -28,16 +28,15 @@ export const soundscapeRuleList: SoundscapeRule[] = [
   /** 風吹樹梢 */
   {
     type: 'rustle',
-    // tree 總和 size >= 3
+    // tree size >= 3
     predicate: ({ traitRegionList, weather }) => {
       if (weather === 'rain') {
         return false
       }
 
-      const totalSize = pipe(traitRegionList,
-        filter(({ trait }) => trait === 'tree'),
-        sumBy(prop('size')))
-      return totalSize >= 3
+      return [
+        traitRegionList.some((traitRegion) => traitRegion.trait === 'tree' && traitRegion.size >= 3),
+      ].some(isTruthy)
     },
     transform: concat([{
       id: getId(),
