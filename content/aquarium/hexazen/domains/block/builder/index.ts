@@ -8,7 +8,6 @@ import {
   ImportMeshAsync,
   PBRMaterial,
   Quaternion,
-  StandardMaterial,
   Texture,
   TransformNode,
   Vector3,
@@ -97,9 +96,14 @@ export async function createBlock(
 
   rootNode.position.copyFrom(hexLayout.hexToWorld(hex))
 
+  function dispose() {
+    rootNode.dispose()
+  }
+
   return {
     type,
     rootNode,
     hex,
+    dispose,
   }
 }
