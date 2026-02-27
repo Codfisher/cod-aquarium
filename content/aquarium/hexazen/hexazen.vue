@@ -191,14 +191,14 @@
 
     <!-- u-slideover 開啟動畫不穩動，不知道為甚麼會抖動 -->
     <div
-      class=" fixed bottom-0 left-0 right-0 flex justify-center p-10 duration-300 ease-in-out "
+      class=" fixed bottom-0 left-0 right-0 flex justify-center p-10 duration-300 ease-in-out pointer-events-none"
       :class="{
         'translate-y-0': blockPickerVisible,
         'translate-y-full': !blockPickerVisible,
       }"
     >
       <block-picker
-        class="max-w-[80dvw] md:max-w-[70dvw]"
+        class="max-w-[80dvw] md:max-w-[70dvw] pointer-events-auto"
         @select="handleSelectBlock"
       />
     </div>
