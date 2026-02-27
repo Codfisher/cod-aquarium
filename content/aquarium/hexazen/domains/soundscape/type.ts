@@ -7,12 +7,13 @@ export type SoundscapeType = 'rustle' |
   'building' |
   'ocean' |
   'alpine' |
-  'rain'
+  'rain' |
+  'campfire'
 
 interface Sound {
   src: string;
   /** 0 ~ 1
-   * 
+   *
    * @default 0.5
    */
   volume?: number;
@@ -22,11 +23,11 @@ export interface Soundscape {
   id: number;
   type: SoundscapeType;
   mode: {
-    value: 'loop'
+    value: 'loop';
   } | {
-    value: 'interval'
+    value: 'interval';
     /** @default [5, 10] 秒 */
-    range?: [number, number],
+    range?: [number, number];
   };
   soundList: Sound[];
 }
