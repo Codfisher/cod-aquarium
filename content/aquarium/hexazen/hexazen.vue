@@ -402,15 +402,16 @@ async function spawnBlock(blockType: BlockType, hex: Hex) {
     shadowGenerator: shadowGenerator.value!,
     hex,
     hexLayout,
+    weather,
   })
 
   placedBlockMap.set(hex.key(), block)
   return block
 }
 async function removeAllBlocks() {
-  placedBlockMap.forEach((block) => {
-    block.dispose()
-  })
+  await Promise.all([...placedBlockMap.values()].map((block) => {
+    return block.dispose()
+  }))
   placedBlockMap.clear()
 
   syncAllCandidateTile()
@@ -850,7 +851,7 @@ const { canvasRef, scene, camera } = useBabylonScene({
 
     baseHexMesh.value = pipe(
       MeshBuilder.CreateCylinder('hexBase', {
-        diameter: hexLayout.size * 2,
+        diameter: hexLayout.size * 1.98,
         height: 0.04,
         tessellation: 6,
       }, scene),
@@ -906,7 +907,7 @@ const { canvasRef, scene, camera } = useBabylonScene({
     /** 紀錄動畫中的 block */
     const animatingBlockSet = new Set<string>()
     // 處理 placedBlock 點擊
-    scene.onPointerObservable.add((info) => {
+    scene.onPointerObservable.add(async (info) => {
       if (!isEditMode.value || isSharedView) {
         return
       }
@@ -951,7 +952,7 @@ const { canvasRef, scene, camera } = useBabylonScene({
 
       // 移除
       if (isRemoveMode.value) {
-        block.dispose()
+        await block.dispose()
 
         removeCandidate(block.hex)
 

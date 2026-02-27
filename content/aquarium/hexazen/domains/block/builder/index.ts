@@ -2,6 +2,7 @@ import type {
   Scene,
   ShadowGenerator,
 } from '@babylonjs/core'
+import type { Weather } from '../../../types'
 import type { Hex, HexLayout } from '../../hex-grid'
 import type { Block, BlockType } from '../type'
 import {
@@ -14,7 +15,9 @@ import {
   TransformNode,
   Vector3,
 } from '@babylonjs/core'
+import { animate } from 'animejs'
 import { forEach, pipe } from 'remeda'
+import { effectScope, type Ref, watch } from 'vue'
 import { blockDefinitions } from './data'
 
 export interface CreateBlockParams {
@@ -23,7 +26,10 @@ export interface CreateBlockParams {
   shadowGenerator?: ShadowGenerator;
   hex: Hex;
   hexLayout: HexLayout;
+  weather: Ref<Weather | undefined>;
 }
+
+const Z_OFFSET = 1
 
 export async function createBlock(
   {
@@ -32,6 +38,7 @@ export async function createBlock(
     shadowGenerator,
     hex,
     hexLayout,
+    weather,
   }: CreateBlockParams,
 ): Promise<Block> {
   const blockDefinition = blockDefinitions[type]
@@ -112,7 +119,7 @@ export async function createBlock(
     if (!campfireMesh || !campfireMesh.position) {
       return
     }
-    const position = campfireMesh.position
+    const position = campfireMesh.getAbsolutePosition()
 
     const particleSystem = new ParticleSystem('smokeParticles', 2000, scene)
     particleSystem.particleTexture = new Texture('assets/textures/cloud.png', scene)
@@ -148,10 +155,37 @@ export async function createBlock(
     return particleSystem
   })
 
-  function dispose() {
+  const scope = effectScope()
+  scope.run(() => {
+    watch(weather, (value) => {
+      if (value === 'rain') {
+        smoothParticleSystem?.stop()
+      }
+      else {
+        smoothParticleSystem?.start()
+      }
+    })
+  })
+
+  async function dispose() {
+    await animate(rootNode.position, {
+      y: -Z_OFFSET,
+      duration: 600,
+      ease: 'inBack',
+    }).then()
+
     rootNode.dispose()
     smoothParticleSystem?.dispose()
+    scope.stop()
   }
+
+  // 進入動畫
+  rootNode.position.y -= Z_OFFSET
+  await animate(rootNode.position, {
+    y: 0,
+    duration: 1000,
+    ease: 'outElastic(1,0.52)',
+  }).then()
 
   return {
     type,

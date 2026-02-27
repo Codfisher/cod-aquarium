@@ -8,5 +8,5 @@ export interface Block {
   type: BlockType;
   rootNode: TransformNode;
   hex: Hex;
-  dispose: () => void;
+  dispose: () => Promise<void>;
 }
