@@ -258,7 +258,6 @@ import { animate } from 'animejs'
 import { maxBy } from 'lodash-es'
 import { pipe, tap } from 'remeda'
 import { computed, onWatcherCleanup, ref, shallowReactive, shallowRef, watch } from 'vue'
-import { nextFrame } from '../../../web/common/utils'
 import { cursorDataUrl } from '../meme-cache/constants'
 import BaseBtn from './components/base-btn.vue'
 import BulletinModal from './components/bulletin-modal.vue'
@@ -410,7 +409,7 @@ async function spawnBlock(blockType: BlockType, hex: Hex) {
 }
 async function removeAllBlocks() {
   placedBlockMap.forEach((block) => {
-    block.rootNode.dispose()
+    block.dispose()
   })
   placedBlockMap.clear()
 
@@ -952,7 +951,7 @@ const { canvasRef, scene, camera } = useBabylonScene({
 
       // 移除
       if (isRemoveMode.value) {
-        block.rootNode.dispose()
+        block.dispose()
 
         removeCandidate(block.hex)
 

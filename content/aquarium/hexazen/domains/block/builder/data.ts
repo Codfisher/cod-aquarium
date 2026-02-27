@@ -8,7 +8,12 @@ interface PartData {
   position: [number, number, number];
   rotationQuaternion: [number, number, number, number];
   scaling: [number, number, number];
-  metadata: any;
+  metadata: {
+    name: string;
+    mass: number;
+    restitution: number;
+    friction: number;
+  };
 }
 
 interface BlockDefinition {
