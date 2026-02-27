@@ -2,18 +2,22 @@ import type {
   Scene,
   ShadowGenerator,
 } from '@babylonjs/core'
+import type { Weather } from '../../../types'
 import type { Hex, HexLayout } from '../../hex-grid'
 import type { Block, BlockType } from '../type'
 import {
+  Color4,
   ImportMeshAsync,
+  ParticleSystem,
   PBRMaterial,
   Quaternion,
-  StandardMaterial,
   Texture,
   TransformNode,
   Vector3,
 } from '@babylonjs/core'
+import { animate } from 'animejs'
 import { forEach, pipe } from 'remeda'
+import { effectScope, type Ref, watch } from 'vue'
 import { blockDefinitions } from './data'
 
 export interface CreateBlockParams {
@@ -22,7 +26,10 @@ export interface CreateBlockParams {
   shadowGenerator?: ShadowGenerator;
   hex: Hex;
   hexLayout: HexLayout;
+  weather: Ref<Weather | undefined>;
 }
+
+const Z_OFFSET = 1
 
 export async function createBlock(
   {
@@ -31,17 +38,23 @@ export async function createBlock(
     shadowGenerator,
     hex,
     hexLayout,
+    weather,
   }: CreateBlockParams,
 ): Promise<Block> {
   const blockDefinition = blockDefinitions[type]
 
   const resultList = await Promise.all(
-    blockDefinition.content.partList.map(async ({ path, position, rotationQuaternion, scaling }) => {
+    blockDefinition.content.partList.map(async ({ path, position, rotationQuaternion, scaling, metadata }) => {
       const fullPath = `${blockDefinition.content.rootFolderName}/${path}`
       const model = await ImportMeshAsync(
         fullPath,
         scene,
       )
+
+      const rootMesh = model.meshes[0]
+      if (rootMesh) {
+        rootMesh.name = metadata.name
+      }
 
       model.meshes.forEach((mesh) => {
         if (mesh.material instanceof PBRMaterial) {
@@ -97,9 +110,87 @@ export async function createBlock(
 
   rootNode.position.copyFrom(hexLayout.hexToWorld(hex))
 
+  const smoothParticleSystem = pipe(0, () => {
+    if (type !== 'c1') {
+      return
+    }
+
+    const campfireMesh = rootNode.getChildMeshes().find((mesh) => mesh.name === 'campfire')
+    if (!campfireMesh || !campfireMesh.position) {
+      return
+    }
+    const position = campfireMesh.getAbsolutePosition()
+
+    const particleSystem = new ParticleSystem('smokeParticles', 2000, scene)
+    particleSystem.particleTexture = new Texture('assets/textures/cloud.png', scene)
+
+    particleSystem.emitter = position
+
+    particleSystem.minEmitBox = new Vector3(0, 0, 0)
+    particleSystem.maxEmitBox = new Vector3(0, 0, 0)
+
+    particleSystem.color1 = new Color4(0.6, 0.6, 0.6, 0.5)
+    particleSystem.colorDead = new Color4(0, 0, 0, 0.0)
+
+    particleSystem.minSize = 0.1
+    particleSystem.maxSize = 0.15
+
+    particleSystem.minLifeTime = 3.0
+    particleSystem.maxLifeTime = 3.0
+
+    particleSystem.emitRate = 2
+
+    particleSystem.blendMode = ParticleSystem.BLENDMODE_STANDARD
+
+    particleSystem.gravity = new Vector3(0, 0, 0)
+    particleSystem.direction1 = new Vector3(0, 2, 0)
+    particleSystem.direction2 = new Vector3(0, 2, 0)
+
+    particleSystem.minEmitPower = 0.2
+    particleSystem.maxEmitPower = 0.2
+    particleSystem.updateSpeed = 0.01
+
+    particleSystem.start()
+
+    return particleSystem
+  })
+
+  const scope = effectScope()
+  scope.run(() => {
+    watch(weather, (value) => {
+      if (value === 'rain') {
+        smoothParticleSystem?.stop()
+      }
+      else {
+        smoothParticleSystem?.start()
+      }
+    })
+  })
+
+  async function dispose() {
+    await animate(rootNode.position, {
+      y: -Z_OFFSET,
+      duration: 600,
+      ease: 'inBack',
+    }).then()
+
+    rootNode.dispose()
+    smoothParticleSystem?.dispose()
+    scope.stop()
+  }
+
+  // 進入動畫
+  rootNode.position.y -= Z_OFFSET
+  await animate(rootNode.position, {
+    y: 0,
+    duration: 1000,
+    ease: 'outElastic(1,0.52)',
+  }).then()
+
   return {
     type,
     rootNode,
     hex,
+    dispose,
   }
 }

@@ -50,6 +50,31 @@ export const soundscapeRuleList: SoundscapeRule[] = [
       ],
     }]),
   },
+  /** 營火 */
+  {
+    type: 'campfire',
+    // 有 campfire
+    predicate({ traitRegionList, weather }) {
+      if (weather === 'rain') {
+        return false
+      }
+
+      return traitRegionList.some((traitRegion) => traitRegion.trait === 'campfire')
+    },
+    transform: concat([
+      {
+        id: getId(),
+        type: 'campfire',
+        mode: { value: 'loop' },
+        soundList: [
+          {
+            src: 'hexazen/sounds/campfire.mp3',
+            volume: 1,
+          },
+        ],
+      },
+    ]),
+  },
 
   /** 蟲鳴 */
   {
@@ -229,9 +254,11 @@ export const soundscapeRuleList: SoundscapeRule[] = [
     type: 'building',
     // building 總和 size >= 5
     predicate({ traitRegionList }) {
-      const totalSize = pipe(traitRegionList,
+      const totalSize = pipe(
+        traitRegionList,
         filter(({ trait }) => trait === 'building'),
-        sumBy(prop('size')))
+        sumBy(prop('size')),
+      )
       return totalSize >= 5
     },
     transform: concat([
