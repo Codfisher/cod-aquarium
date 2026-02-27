@@ -54,7 +54,11 @@ export const soundscapeRuleList: SoundscapeRule[] = [
   {
     type: 'campfire',
     // 有 campfire
-    predicate({ traitRegionList }) {
+    predicate({ traitRegionList, weather }) {
+      if (weather === 'rain') {
+        return false
+      }
+
       return traitRegionList.some((traitRegion) => traitRegion.trait === 'campfire')
     },
     transform: concat([
