@@ -1,9 +1,11 @@
 <template>
-  <u-app :toaster="{
-    ui: {
-      base: 'chamfer-2 chamfer-border-0.25 bg-gray-200',
-    },
-  }">
+  <u-app
+    :toaster="{
+      ui: {
+        base: 'chamfer-2 chamfer-border-0.25 bg-gray-200',
+      },
+    }"
+  >
     <div class="fixed w-dvw h-dvh m-0 p-3 bg-gray-50">
       <div
         class="w-full h-full chamfer-5 relative"
@@ -39,9 +41,11 @@
               />
             </u-tooltip>
 
-            <u-popover :ui="{
-              content: 'chamfer-3 bg-gray-200 p-0.5',
-            }">
+            <u-popover
+              :ui="{
+                content: 'chamfer-3 bg-gray-200 p-0.5',
+              }"
+            >
               <u-tooltip
                 text="Remove all blocks"
                 :content="{
@@ -234,7 +238,9 @@
             class="text-[4rem]"
           />
 
-          <div class="text-xl">Unpacking blocks...</div>
+          <div class="text-xl">
+            Unpacking blocks...
+          </div>
         </div>
       </div>
     </transition>
@@ -252,6 +258,7 @@ import { animate } from 'animejs'
 import { maxBy } from 'lodash-es'
 import { pipe, tap } from 'remeda'
 import { computed, onWatcherCleanup, ref, shallowReactive, shallowRef, watch } from 'vue'
+import { nextFrame } from '../../../web/common/utils'
 import { cursorDataUrl } from '../meme-cache/constants'
 import BaseBtn from './components/base-btn.vue'
 import BulletinModal from './components/bulletin-modal.vue'
@@ -264,7 +271,6 @@ import { Hex, HexLayout } from './domains/hex-grid'
 import { decodeBlocks, encodeBlocks } from './domains/share/codec'
 import { useSoundscapePlayer } from './domains/soundscape/player/use-soundscape-player'
 import { TraitTypeEnum } from './types'
-import { nextFrame } from '../../../web/common/utils'
 
 // Nuxt UI 接管 vitepress 的 dark 設定，故改用 useColorMode
 const colorMode = useColorMode()
@@ -1083,6 +1089,7 @@ const traitVignetteColorMap: Record<TraitType, Color3> = {
   river: new Color3(0, 0.4, 0.4),
   water: new Color3(0, 0.4, 0.5),
   sand: new Color3(0.3, 0.3, 0),
+  campfire: new Color3(0.3, 0.3, 0),
 }
 // 根據 traitRegion 更新 vignette color
 watch(() => [traitRegionList, pipeline.value], (_, __, onCleanup) => {

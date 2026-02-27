@@ -5,6 +5,7 @@
 export enum TraitTypeEnum {
   GRASS = 'grass',
   TREE = 'tree',
+  CAMPFIRE = 'campfire',
   BUILDING = 'building',
   ALPINE = 'alpine',
   RIVER = 'river',
