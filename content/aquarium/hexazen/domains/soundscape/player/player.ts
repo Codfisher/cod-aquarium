@@ -43,6 +43,10 @@ export class SoundscapePlayer {
     return this.soundscape.type
   }
 
+  public get title(): string {
+    return this.soundscape.title
+  }
+
   constructor(soundscape: Soundscape) {
     if (!soundscape.soundList || soundscape.soundList.length === 0) {
       throw new Error('SoundList 不能為空')

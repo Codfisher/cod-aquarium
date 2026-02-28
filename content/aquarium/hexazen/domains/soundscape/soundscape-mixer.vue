@@ -17,8 +17,8 @@
         class="text-xl text-gray-500 shrink-0"
       />
 
-      <span class="text-sm text-gray-600 w-20 shrink-0 capitalize">
-        {{ item.player.soundscape.title }}
+      <span class="text-sm text-gray-600 flex-1 capitalize ">
+        {{ item.player.title }}
       </span>
 
       <u-slider
