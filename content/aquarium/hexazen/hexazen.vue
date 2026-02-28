@@ -162,6 +162,20 @@
             @click="toggleMuted()"
           />
 
+          <u-modal
+            title="Soundscape Mixer"
+            description="Adjust the volume of each soundscape"
+          >
+            <u-icon
+              name="i-material-symbols:instant-mix-rounded"
+              class="text-3xl cursor-pointer outline-0 "
+            />
+
+            <template #body>
+              <soundscape-mixer :player-map="activePlayerMap" />
+            </template>
+          </u-modal>
+
           <u-tooltip
             :text="weatherModeInfo.tooltip"
             :content="{
@@ -270,6 +284,7 @@ import { version } from './constants'
 import BlockPicker from './domains/block/block-picker.vue'
 import { decodeBlocks, encodeBlocks } from './domains/share/codec'
 import { useSoundscapePlayer } from './domains/soundscape/player/use-soundscape-player'
+import SoundscapeMixer from './domains/soundscape/soundscape-mixer.vue'
 import MainScene from './main-scene.vue'
 
 // Nuxt UI 接管 vitepress 的 dark 設定，故改用 useColorMode

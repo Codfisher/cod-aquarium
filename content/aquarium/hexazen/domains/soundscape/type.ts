@@ -21,6 +21,7 @@ interface Sound {
 
 export interface Soundscape {
   id: number;
+  title: string;
   type: SoundscapeType;
   mode: {
     value: 'loop';

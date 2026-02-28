@@ -40,6 +40,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
     },
     transform: concat([{
       id: getId(),
+      title: 'The Whisper of the Treetops',
       type: 'rustle',
       mode: { value: 'loop' },
       soundList: [
@@ -64,6 +65,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
     transform: concat([
       {
         id: getId(),
+        title: 'The Crackle of the Campfire',
         type: 'campfire',
         mode: { value: 'loop' },
         soundList: [
@@ -90,6 +92,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
     transform: concat([
       {
         id: getId(),
+        title: 'The Chorus of Crickets',
         type: 'insect',
         mode: { value: 'interval' },
         soundList: [
@@ -124,6 +127,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
     transform: concat([
       {
         id: getId(),
+        title: 'The Song of the Birds',
         type: 'bird',
         mode: { value: 'interval' },
         soundList: [
@@ -183,6 +187,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
     transform: concat([
       {
         id: getId(),
+        title: 'The Thrum of Frogs',
         type: 'frog',
         mode: { value: 'interval' },
         soundList: [
@@ -216,6 +221,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
     transform: concat([
       {
         id: getId(),
+        title: 'The Call of the Pika',
         type: 'beast',
         mode: { value: 'interval' },
         soundList: [
@@ -237,6 +243,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
     transform: concat([
       {
         id: getId(),
+        title: 'The Rush of the River',
         type: 'river',
         mode: { value: 'loop' },
         soundList: [
@@ -264,6 +271,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
     transform: concat([
       {
         id: getId(),
+        title: 'The Bustle of the Market',
         type: 'building',
         mode: { value: 'interval' },
         soundList: [
@@ -290,6 +298,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
     transform: concat([
       {
         id: getId(),
+        title: 'The Swell of the Ocean',
         type: 'ocean',
         mode: { value: 'loop' },
         soundList: [
@@ -314,6 +323,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
     transform: concat([
       {
         id: getId(),
+        title: 'The Crash of the Tide',
         type: 'ocean',
         mode: { value: 'loop' },
         soundList: [
@@ -339,6 +349,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
     transform: concat([
       {
         id: getId(),
+        title: 'The Call of the Dolphins',
         type: 'ocean',
         mode: { value: 'interval' },
         soundList: [
@@ -366,6 +377,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
     transform: concat([
       {
         id: getId(),
+        title: 'The Howl of the Alpine Wind',
         type: 'alpine',
         mode: { value: 'loop' },
         soundList: [
@@ -391,6 +403,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
     transform: concat([
       {
         id: getId(),
+        title: 'The Cry of the Snowcock',
         type: 'alpine',
         mode: { value: 'interval' },
         soundList: [
@@ -417,6 +430,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
     transform: concat([
       {
         id: getId(),
+        title: 'The Rain on the Rooftop',
         type: 'rain',
         mode: { value: 'loop' },
         soundList: [
@@ -437,6 +451,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
     transform: concat([
       {
         id: getId(),
+        title: 'The Rain in the Meadow',
         type: 'rain',
         mode: { value: 'loop' },
         soundList: [
@@ -461,6 +476,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
     transform: concat([
       {
         id: getId(),
+        title: 'The Rain in the Forest',
         type: 'rain',
         mode: { value: 'loop' },
         soundList: [
@@ -481,6 +497,7 @@ export const soundscapeRuleList: SoundscapeRule[] = [
     transform: concat([
       {
         id: getId(),
+        title: 'The Rumble of Thunder',
         type: 'rain',
         mode: {
           value: 'interval',

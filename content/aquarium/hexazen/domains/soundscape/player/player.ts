@@ -1,4 +1,4 @@
-import type { Soundscape } from '../type'
+import type { Soundscape, SoundscapeType } from '../type'
 import { sample } from 'remeda'
 
 const DEFAULT_BASE_VOLUME = 0.5
@@ -20,7 +20,7 @@ interface AudioTrack {
 }
 
 export class SoundscapePlayer {
-  private soundscape: Soundscape
+  readonly soundscape: Soundscape
   private audioContext: AudioContext
 
   /** 主控音量 GainNode，所有音軌都連接到這裡 */
@@ -38,6 +38,10 @@ export class SoundscapePlayer {
 
   /** Loop 模式下，提早交疊的秒數 */
   private readonly OVERLAP_SECONDS = 4
+
+  public get type(): SoundscapeType {
+    return this.soundscape.type
+  }
 
   constructor(soundscape: Soundscape) {
     if (!soundscape.soundList || soundscape.soundList.length === 0) {
@@ -235,6 +239,18 @@ export class SoundscapePlayer {
 
     this.globalGainNode.disconnect()
     this.muteGainNode.disconnect()
+  }
+
+  /**
+   * 設定基礎音量，調整所有音軌的 trackGain。
+   *
+   * 最終音量 = baseVolume × globalVolume
+   */
+  public setVolume(value: number) {
+    const currentTime = this.audioContext.currentTime
+    for (const track of this.activeTracks) {
+      track.trackGain.gain.setValueAtTime(value, currentTime)
+    }
   }
 
   /**
