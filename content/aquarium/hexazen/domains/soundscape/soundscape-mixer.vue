@@ -22,17 +22,17 @@
       </span>
 
       <u-slider
-        :model-value="volumeMap[item.id] ?? 3"
+        :model-value="volumeMap[item.id] ?? 1"
         :min="0"
-        :max="10"
-        :step="0.1"
+        :max="2"
+        :step="0.01"
         :ui="{
           track: 'bg-gray-300',
           range: 'bg-gray-500',
           thumb: 'ring-gray-600 bg-white',
         }"
         class="flex-1"
-        @update:model-value="(value: number | undefined) => handleVolumeChange(item.id, value ?? 3)"
+        @update:model-value="(value: number | undefined) => handleVolumeChange(item.id, value ?? 1)"
       />
     </div>
   </div>
@@ -52,17 +52,17 @@ const soundscapeIconMap: Record<SoundscapeType, string> = {
   rustle: 'i-mingcute:leaf-fill',
   insect: 'i-mingcute:bug-fill',
   bird: 'i-material-symbols:raven',
-  frog: 'i-mingcute:mushroom-fill',
+  frog: 'i-fa7-solid:frog',
   beast: 'i-mingcute:cat-fill',
-  river: 'i-mingcute:water-fill',
-  building: 'i-mingcute:building-4-fill',
-  ocean: 'i-material-symbols:waves',
-  alpine: 'i-mingcute:mountain-2-fill',
+  river: 'i-material-symbols:water',
+  building: 'i-solar:buildings-2-bold',
+  ocean: 'i-lucide-lab:waves-birds',
+  alpine: 'i-mynaui:mountain-snow-solid',
   rain: 'i-material-symbols:rainy',
-  campfire: 'i-mingcute:fire-fill',
+  campfire: 'i-mingcute:campfire-fill',
 }
 
-/** 每個 player 的個別音量，key 為 soundscape id */
+/** 每個 player 的音量乘數，key 為 soundscape id，1.0 = 原始音量 */
 const volumeMap = reactive<Record<number, number>>({})
 
 interface PlayerListItem {
@@ -78,18 +78,17 @@ watchEffect(() => {
   for (const [id, player] of props.playerMap) {
     list.push({ id, type: player.type, player })
 
-    // 初始化音量（預設 3，與 globalVolume 一致）
     if (!(id in volumeMap)) {
-      volumeMap[id] = 3
+      volumeMap[id] = 1
     }
   }
   playerList.value = list
 })
 
-function handleVolumeChange(id: number, value: number) {
-  volumeMap[id] = value
+function handleVolumeChange(id: number, multiplier: number) {
+  volumeMap[id] = multiplier
   const player = props.playerMap.get(id)
-  player?.setVolume(value)
+  player?.setVolume(multiplier)
 }
 </script>
 
