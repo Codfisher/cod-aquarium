@@ -491,7 +491,7 @@ const { canvasRef, scene, camera } = useBabylonScene({
       ),
       tap((pipeline) => {
         pipeline.fxaaEnabled = true
-        pipeline.samples = 8
+        pipeline.samples = 4
 
         pipeline.depthOfFieldEnabled = true
         pipeline.depthOfFieldBlurLevel = DepthOfFieldEffectBlurLevel.High
