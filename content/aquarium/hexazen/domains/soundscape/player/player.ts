@@ -49,10 +49,6 @@ export class SoundscapePlayer {
     return this.soundscape.title
   }
 
-  public get baseVolume(): number {
-    return this.soundscape.soundList[0]?.volume ?? DEFAULT_BASE_VOLUME
-  }
-
   constructor(soundscape: Soundscape) {
     if (!soundscape.soundList || soundscape.soundList.length === 0) {
       throw new Error('SoundList 不能為空')
