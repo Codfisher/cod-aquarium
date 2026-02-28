@@ -1,4 +1,4 @@
-import type { Soundscape } from '../type'
+import type { Soundscape, SoundscapeType } from '../type'
 import { sample } from 'remeda'
 
 const DEFAULT_BASE_VOLUME = 0.5
@@ -20,10 +20,12 @@ interface AudioTrack {
 }
 
 export class SoundscapePlayer {
-  private soundscape: Soundscape
+  readonly soundscape: Soundscape
   private audioContext: AudioContext
 
-  /** 主控音量 GainNode，所有音軌都連接到這裡 */
+  /** 混音器音量 GainNode，由 setVolume 控制 */
+  private baseGainNode: GainNode
+  /** 主控音量 GainNode，由 setGlobalVolume 控制 */
   private globalGainNode: GainNode
   /** 靜音用 GainNode */
   private muteGainNode: GainNode
@@ -39,6 +41,14 @@ export class SoundscapePlayer {
   /** Loop 模式下，提早交疊的秒數 */
   private readonly OVERLAP_SECONDS = 4
 
+  public get type(): SoundscapeType {
+    return this.soundscape.type
+  }
+
+  public get title(): string {
+    return this.soundscape.title
+  }
+
   constructor(soundscape: Soundscape) {
     if (!soundscape.soundList || soundscape.soundList.length === 0) {
       throw new Error('SoundList 不能為空')
@@ -46,10 +56,12 @@ export class SoundscapePlayer {
     this.soundscape = soundscape
     this.audioContext = getAudioContext()
 
-    // 建立 GainNode 鏈：trackGain → globalGain → muteGain → destination
+    // 建立 GainNode 鏈：trackGain → baseGain → globalGain → muteGain → destination
+    this.baseGainNode = this.audioContext.createGain()
     this.globalGainNode = this.audioContext.createGain()
     this.muteGainNode = this.audioContext.createGain()
 
+    this.baseGainNode.connect(this.globalGainNode)
     this.globalGainNode.connect(this.muteGainNode)
     this.muteGainNode.connect(this.audioContext.destination)
   }
@@ -78,7 +90,7 @@ export class SoundscapePlayer {
     trackGain.gain.value = baseVolume
 
     source.connect(trackGain)
-    trackGain.connect(this.globalGainNode)
+    trackGain.connect(this.baseGainNode)
 
     const track: AudioTrack = { audio, source, trackGain }
     this.activeTracks.add(track)
@@ -233,8 +245,23 @@ export class SoundscapePlayer {
     }
     this.activeTracks.clear()
 
+    this.baseGainNode.disconnect()
     this.globalGainNode.disconnect()
     this.muteGainNode.disconnect()
+  }
+
+  /**
+   * 設定混音器音量（baseGainNode）。
+   *
+   * 最終音量 = trackGain × baseGain × globalGain
+   *
+   * @param value - 1.0 為原始音量
+   */
+  public setVolume(value: number) {
+    this.baseGainNode.gain.setValueAtTime(
+      value,
+      this.audioContext.currentTime,
+    )
   }
 
   /**

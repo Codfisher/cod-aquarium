@@ -43,8 +43,9 @@ const defaultParam: Required<UseBabylonSceneParam> = {
 
     return new Engine(canvas, true, {
       antialias: true,
-      alpha: true,
+      alpha: false,
       stencil: true,
+      preserveDrawingBuffer: true,
     })
   },
   createScene({ engine }) {
