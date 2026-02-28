@@ -680,8 +680,6 @@ const { canvasRef, scene, camera } = useBabylonScene({
   },
 })
 
-// --- Watches ---
-
 // 開關 pipeline
 watch(() => [props.isEditMode, pipeline.value], (_, __, onCleanup) => {
   if (!pipeline.value) {
@@ -736,7 +734,7 @@ watch(() => [camera.value, props.isEditMode], () => {
 const traitVignetteColorMap: Record<TraitType, Color3> = {
   grass: new Color3(0, 0.2, 0),
   tree: new Color3(0, 0.2, 0),
-  building: new Color3(0.5, 0.3, 0),
+  building: new Color3(0.4, 0.2, 0),
   alpine: new Color3(0, 0, 0),
   river: new Color3(0, 0.4, 0.4),
   water: new Color3(0, 0.4, 0.5),
