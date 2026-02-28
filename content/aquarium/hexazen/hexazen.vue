@@ -356,7 +356,10 @@ async function removeAllBlocks() {
 
 // --- Soundscape ---
 
-const { traitRegionList } = useSoundscapePlayer(placedBlockMap, {
+const {
+  traitRegionList,
+  activePlayerMap,
+} = useSoundscapePlayer(placedBlockMap, {
   muted: isMuted,
   volume: globalVolume,
   weather,

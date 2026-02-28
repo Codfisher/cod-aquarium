@@ -148,7 +148,8 @@ async function spawnBlock(blockType: BlockType, hex: Hex) {
 }
 
 async function removeAllBlocks() {
-  await Promise.all([...props.placedBlockMap.values()].map((block) => {
+  await Promise.all([...props.placedBlockMap.values()].map(async (block, i) => {
+    await promiseTimeout(i * 50)
     return block.dispose()
   }))
   props.placedBlockMap.clear()
