@@ -490,7 +490,7 @@ const { t } = useSimpleI18n({
     soundscapeMixer: '音景混音器',
     adjustVolume: '調整每個音景的音量',
     weatherSun: '陽光普照！(⌐■_■)',
-    weatherRain: '舒適的雨天',
+    weatherRain: '舒適的雨天 _(:3」ㄥ)_',
     weatherRandom: '晴時多雲偶陣雨（隨機降雨）',
     nothingToShare: '沒有東西可以分享 (*´･д･)?',
     placeBlocksFirst: '先放置一些方塊吧！',
