@@ -130,7 +130,7 @@ export async function createBlock(
     particleSystem.maxEmitBox = new Vector3(0, 0, 0)
 
     particleSystem.color1 = new Color4(0.6, 0.6, 0.6, 0.5)
-    particleSystem.colorDead = new Color4(0, 0, 0, 0.0)
+    particleSystem.colorDead = new Color4(0.6, 0.6, 0.6, 0.0)
 
     particleSystem.minSize = 0.1
     particleSystem.maxSize = 0.15
