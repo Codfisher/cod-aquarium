@@ -1,7 +1,7 @@
 import type { UnionToIntersection } from 'type-fest'
 import type { Ref } from 'vue'
-import { createSharedComposable } from '@vueuse/core'
-import { ref } from 'vue'
+import { createSharedComposable, usePreferredLanguages } from '@vueuse/core'
+import { ref, watch } from 'vue'
 
 /**
  * 寬鬆化：還原 as const 的型別
@@ -48,16 +48,29 @@ type MessageSchema = Record<string, string | string[]>
  *
  * 只好自己做一個簡易版
  */
-function _useSimpleI18n<
-  Messages extends Record<string, MessageSchema>,
-  Lang extends keyof Messages = keyof Messages,
-  Data = Messages[Lang],
+export function useSimpleI18n<
+  Messages extends Record<DefaultLang, MessageSchema>,
+  DefaultLang extends 'zh-hant' | 'en',
+  Data = Messages[DefaultLang],
 >(
   messages: Messages & StrictCheck<Messages>,
+  options?: {
+    defaultLocale?: DefaultLang;
+    autoDetect?: boolean;
+  },
 ) {
-  const currentLocale = ref(Object.keys(messages)[0]) as Ref<Lang>
+  const currentLocale = ref(options?.defaultLocale ?? Object.keys(messages)[0]) as Ref<DefaultLang>
 
-  function setLocale(lang: Lang) {
+  const languages = usePreferredLanguages()
+
+  watch(languages, ([lang]) => {
+    currentLocale.value = (lang?.includes('zh') ? 'zh-hant' : 'en') as DefaultLang
+    // currentLocale.value = 'en' as DefaultLang
+  }, {
+    immediate: true,
+  })
+
+  function setLocale(lang: DefaultLang) {
     currentLocale.value = lang
   }
 
@@ -96,5 +109,3 @@ function _useSimpleI18n<
     t,
   }
 }
-
-export const useSimpleI18n = createSharedComposable(_useSimpleI18n)

@@ -4,7 +4,7 @@
       v-if="playerList.length === 0"
       class="text-center text-gray-400 py-4"
     >
-      No active soundscapes
+      {{ t('noActiveSoundscapes') }}
     </div>
 
     <div
@@ -18,7 +18,7 @@
       />
 
       <span class="text-sm text-gray-600 flex-1 capitalize ">
-        {{ item.player.title }}
+        {{ t(item.player.title as any) }}
       </span>
 
       <u-slider
@@ -43,6 +43,7 @@ import type { ShallowReactive } from 'vue'
 import type { SoundscapePlayer } from './player/player'
 import type { SoundscapeType } from './type'
 import { reactive, ref, watchEffect } from 'vue'
+import { useSimpleI18n } from '../../composables/use-simple-i18n'
 
 const props = defineProps<{
   playerMap: ShallowReactive<Map<number, SoundscapePlayer>>;
@@ -90,6 +91,49 @@ function handleVolumeChange(id: number, multiplier: number) {
   const player = props.playerMap.get(id)
   player?.setVolume(multiplier)
 }
+
+const { t } = useSimpleI18n({
+  'zh-hant': {
+    'noActiveSoundscapes': '目前沒有播放中的音景',
+    'The Whisper of the Treetops': '樹梢的細語',
+    'The Crackle of the Campfire': '營火的劈啪聲',
+    'The Chorus of Crickets': '蟋蟀的合唱',
+    'The Song of the Birds': '鳥兒的歌聲',
+    'The Thrum of Frogs': '蛙鳴',
+    'The Call of the Pika': '鼠兔的叫聲',
+    'The Rush of the River': '河流的奔騰',
+    'The Bustle of the Market': '市集的喧囂',
+    'The Swell of the Ocean': '海洋的湧動',
+    'The Crash of the Tide': '潮汐的拍打',
+    'The Call of the Dolphins': '海豚的呼喚',
+    'The Howl of the Alpine Wind': '高山的風嘯',
+    'The Cry of the Snowcock': '雪雞的鳴叫',
+    'The Rain on the Rooftop': '屋頂上的雨聲',
+    'The Rain in the Meadow': '草地上的雨聲',
+    'The Rain in the Forest': '森林中的雨聲',
+    'The Rumble of Thunder': '雷聲隆隆',
+  },
+  'en': {
+    'noActiveSoundscapes': 'No active soundscapes',
+    'The Whisper of the Treetops': 'The Whisper of the Treetops',
+    'The Crackle of the Campfire': 'The Crackle of the Campfire',
+    'The Chorus of Crickets': 'The Chorus of Crickets',
+    'The Song of the Birds': 'The Song of the Birds',
+    'The Thrum of Frogs': 'The Thrum of Frogs',
+    'The Call of the Pika': 'The Call of the Pika',
+    'The Rush of the River': 'The Rush of the River',
+    'The Bustle of the Market': 'The Bustle of the Market',
+    'The Swell of the Ocean': 'The Swell of the Ocean',
+    'The Crash of the Tide': 'The Crash of the Tide',
+    'The Call of the Dolphins': 'The Call of the Dolphins',
+    'The Howl of the Alpine Wind': 'The Howl of the Alpine Wind',
+    'The Cry of the Snowcock': 'The Cry of the Snowcock',
+    'The Rain on the Rooftop': 'The Rain on the Rooftop',
+    'The Rain in the Meadow': 'The Rain in the Meadow',
+    'The Rain in the Forest': 'The Rain in the Forest',
+    'The Rumble of Thunder': 'The Rumble of Thunder',
+  },
+} as const)
 </script>
 
 <style scoped lang="sass">

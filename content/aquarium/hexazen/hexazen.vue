@@ -34,7 +34,7 @@
             class="absolute right-0 bottom-0 p-5 space-y-6 text-gray-600 btn-drop-shadow opacity-50"
           >
             <u-tooltip
-              text="Remove Mode"
+              :text="t('removeMode')"
               :content="{
                 side: 'left',
               }"
@@ -55,7 +55,7 @@
               }"
             >
               <u-tooltip
-                text="Remove all blocks"
+                :text="t('removeAllBlocks')"
                 :content="{
                   side: 'left',
                 }"
@@ -70,15 +70,15 @@
                 <div class="chamfer-2.5 bg-white">
                   <div class="p-4 space-y-2 ">
                     <div class=" font-bold">
-                      Confirm to remove all blocks?
+                      {{ t('confirmRemoveAll') }}
                     </div>
                     <div class=" text-sm">
-                      This action can't be undone
+                      {{ t('cannotUndo') }}
                     </div>
 
                     <div class="flex justify-end">
                       <base-btn
-                        label="Remove All"
+                        :label="t('removeAll')"
                         color="error"
                         @click="removeAllBlocks(); close()"
                       />
@@ -95,7 +95,7 @@
             />
 
             <u-tooltip
-              text="Close edit mode"
+              :text="t('closeEditMode')"
               :content="{
                 side: 'left',
               }"
@@ -114,7 +114,7 @@
           >
             <u-tooltip
               v-if="!isSharedView"
-              text="Share your soundscape with others"
+              :text="t('shareSoundscape')"
               :content="{
                 side: 'right',
               }"
@@ -127,7 +127,7 @@
             </u-tooltip>
 
             <u-tooltip
-              text="Edit Mode"
+              :text="t('editMode')"
               :content="{
                 side: 'left',
               }"
@@ -163,8 +163,8 @@
           />
 
           <u-modal
-            title="Soundscape Mixer"
-            description="Adjust the volume of each soundscape"
+            :title="t('soundscapeMixer')"
+            :description="t('adjustVolume')"
           >
             <u-icon
               name="i-material-symbols:instant-mix-rounded"
@@ -241,7 +241,7 @@
               name="i-line-md:arrow-small-left"
               class="text-[3rem] -rotate-45"
             />
-            Your speakers are taking a nap. Wake 'em up!
+            {{ t('speakersNapping') }}
           </div>
         </div>
       </div>
@@ -261,7 +261,7 @@
           />
 
           <div class="text-xl">
-            Unpacking blocks...
+            {{ t('unpackingBlocks') }}
           </div>
         </div>
       </div>
@@ -280,6 +280,7 @@ import { cursorDataUrl } from '../meme-cache/constants'
 import BaseBtn from './components/base-btn.vue'
 import BulletinModal from './components/bulletin-modal.vue'
 import { useFontLoader } from './composables/use-font-loader'
+import { useSimpleI18n } from './composables/use-simple-i18n'
 import { version } from './constants'
 import BlockPicker from './domains/block/block-picker.vue'
 import { decodeBlocks, encodeBlocks } from './domains/share/codec'
@@ -324,17 +325,17 @@ const weatherModeInfo = computed(() => {
     case undefined:
       return {
         icon: 'material-symbols:sunny',
-        tooltip: `Sun's Out!`,
+        tooltip: t('weatherSun'),
       }
     case 'rain':
       return {
         icon: 'material-symbols:rainy',
-        tooltip: 'Cozy Weather',
+        tooltip: t('weatherRain'),
       }
     default:
       return {
         icon: 'material-symbols:partly-cloudy-day-rounded',
-        tooltip: 'Surprise Showers',
+        tooltip: t('weatherRandom'),
       }
   }
 })
@@ -398,8 +399,8 @@ async function handleShare() {
 
   if (sharedBlocks.length === 0) {
     toast.add({
-      title: 'Nothing to share',
-      description: 'Place some blocks first!',
+      title: t('nothingToShare'),
+      description: t('placeBlocksFirst'),
       icon: 'i-mingcute:information-line',
     })
     return
@@ -411,8 +412,8 @@ async function handleShare() {
 
   await navigator.clipboard.writeText(url.toString())
   toast.add({
-    title: 'Link copied!',
-    description: 'Share this link so others can enjoy your soundscape.',
+    title: t('linkCopied'),
+    description: t('shareLinkDescription'),
     icon: 'i-material-symbols:check-circle',
   })
 }
@@ -440,8 +441,8 @@ async function restoreSharedView() {
   catch (error) {
     console.error('Failed to restore shared view:', error)
     toast.add({
-      title: 'Failed to restore shared view',
-      description: 'The link may be invalid or corrupted.',
+      title: t('restoreFailed'),
+      description: t('linkInvalid'),
       icon: 'i-material-symbols:error-outline',
       duration: 0,
       color: 'error',
@@ -475,6 +476,55 @@ const canvasStyle = computed<CSSProperties>(() => {
     cursor: isPointer ? 'pointer' : 'default',
   }
 })
+
+const { t } = useSimpleI18n({
+  'zh-hant': {
+    removeMode: '移除模式',
+    removeAllBlocks: '移除所有方塊',
+    confirmRemoveAll: '確認移除所有方塊？',
+    cannotUndo: '此操作無法復原 (´･ω･`)ﾉｼ',
+    removeAll: '全部移除',
+    closeEditMode: '關閉編輯模式',
+    shareSoundscape: '分享你的音景給其他人',
+    editMode: '編輯模式',
+    soundscapeMixer: '音景混音器',
+    adjustVolume: '調整每個音景的音量',
+    weatherSun: '陽光普照！(⌐■_■)',
+    weatherRain: '舒適的雨天 _(:3」ㄥ)_',
+    weatherRandom: '晴時多雲偶陣雨（隨機降雨）',
+    nothingToShare: '沒有東西可以分享 (*´･д･)?',
+    placeBlocksFirst: '先放置一些方塊吧！',
+    linkCopied: '連結已複製！੭ ˙ᗜ˙ )੭',
+    shareLinkDescription: '分享此連結，讓其他人也能享受你的音景。',
+    restoreFailed: '分享場景還原失敗 QQ',
+    linkInvalid: '連結無效或已損壞 (╥ω╥`)',
+    speakersNapping: '你的喇叭正在午睡，快把它叫醒！੭ ˙ᗜ˙ )੭',
+    unpackingBlocks: '正在從箱子倒出方塊...',
+  },
+  'en': {
+    removeMode: 'Remove Mode',
+    removeAllBlocks: 'Remove all blocks',
+    confirmRemoveAll: 'Confirm to remove all blocks?',
+    cannotUndo: `This action can't be undone`,
+    removeAll: 'Remove All',
+    closeEditMode: 'Close edit mode',
+    shareSoundscape: 'Share your soundscape with others',
+    editMode: 'Edit Mode',
+    soundscapeMixer: 'Soundscape Mixer',
+    adjustVolume: 'Adjust the volume of each soundscape',
+    weatherSun: `Sun's Out!`,
+    weatherRain: 'Cozy Weather',
+    weatherRandom: 'Surprise Showers',
+    nothingToShare: 'Nothing to share',
+    placeBlocksFirst: 'Place some blocks first!',
+    linkCopied: 'Link copied!',
+    shareLinkDescription: 'Share this link so others can enjoy your soundscape.',
+    restoreFailed: 'Failed to restore shared view',
+    linkInvalid: 'The link may be invalid or corrupted.',
+    speakersNapping: `Your speakers are taking a nap. Wake 'em up!`,
+    unpackingBlocks: 'Unpacking blocks...',
+  },
+} as const)
 </script>
 
 <style lang="sass" scoped>
