@@ -280,6 +280,7 @@ import { cursorDataUrl } from '../meme-cache/constants'
 import BaseBtn from './components/base-btn.vue'
 import BulletinModal from './components/bulletin-modal.vue'
 import { useFontLoader } from './composables/use-font-loader'
+import { useSimpleI18n } from './composables/use-simple-i18n'
 import { version } from './constants'
 import BlockPicker from './domains/block/block-picker.vue'
 import { decodeBlocks, encodeBlocks } from './domains/share/codec'
@@ -474,6 +475,15 @@ const canvasStyle = computed<CSSProperties>(() => {
   return {
     cursor: isPointer ? 'pointer' : 'default',
   }
+})
+
+const { t } = useSimpleI18n({
+  'zh-hant': {
+
+  },
+  'en': {
+
+  },
 })
 </script>
 
