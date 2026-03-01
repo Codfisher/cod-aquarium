@@ -97,7 +97,7 @@ const { t } = useSimpleI18n({
     'noActiveSoundscapes': '目前沒有播放中的音景',
     'The Whisper of the Treetops': '樹梢的細語',
     'The Crackle of the Campfire': '營火的劈啪聲',
-    'The Chorus of Crickets': '蟋蟀的合唱',
+    'The Chorus of Crickets': '昆蟲合唱',
     'The Song of the Birds': '鳥兒的歌聲',
     'The Thrum of Frogs': '蛙鳴',
     'The Call of the Pika': '鼠兔的叫聲',
