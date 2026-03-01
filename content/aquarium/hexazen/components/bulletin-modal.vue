@@ -191,16 +191,6 @@ const { locale, t } = useSimpleI18n({
     ],
   },
 } as const)
-
-const languages = usePreferredLanguages()
-
-watch(languages, ([lang]) => {
-  locale.value = lang?.includes('zh') ? 'zh-hant' : 'en'
-
-  // locale.value = 'en'
-}, {
-  immediate: true,
-})
 </script>
 
 <style scoped lang="sass">

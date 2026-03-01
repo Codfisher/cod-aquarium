@@ -61,6 +61,15 @@ export function useSimpleI18n<
 ) {
   const currentLocale = ref(options?.defaultLocale ?? Object.keys(messages)[0]) as Ref<DefaultLang>
 
+  const languages = usePreferredLanguages()
+
+  watch(languages, ([lang]) => {
+    currentLocale.value = (lang?.includes('zh') ? 'zh-hant' : 'en') as DefaultLang
+    // currentLocale.value = 'en'
+  }, {
+    immediate: true,
+  })
+
   function setLocale(lang: DefaultLang) {
     currentLocale.value = lang
   }
