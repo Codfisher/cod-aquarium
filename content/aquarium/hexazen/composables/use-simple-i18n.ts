@@ -65,7 +65,7 @@ export function useSimpleI18n<
 
   watch(languages, ([lang]) => {
     currentLocale.value = (lang?.includes('zh') ? 'zh-hant' : 'en') as DefaultLang
-    // currentLocale.value = 'en'
+    // currentLocale.value = 'en' as DefaultLang
   }, {
     immediate: true,
   })
