@@ -81,6 +81,7 @@ watchEffect(() => {
 
     if (!(id in volumeMap)) {
       volumeMap[id] = player.volume
+      console.log('🚀 ~ player.volume:', player.volume)
     }
   }
   playerList.value = list

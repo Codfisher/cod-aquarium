@@ -39,10 +39,9 @@ export function useSoundscapePlayer(
     for (const oldId of oldIdSet) {
       if (!newIdSet.has(oldId)) {
         const player = activePlayerMap.get(oldId)
-        if (player) {
-          player.destroy()
-          activePlayerMap.delete(oldId)
-        }
+        player?.muted()
+        console.log('🚀 ~ useSoundscapePlayer ~ player:', player)
+        activePlayerMap.delete(oldId)
       }
     }
 
@@ -56,6 +55,11 @@ export function useSoundscapePlayer(
           player.muted()
         }
         activePlayerMap.set(scape.id, player)
+      }
+      else {
+        const player = activePlayerMap.get(scape.id)
+        player?.unmuted()
+        player?.setGlobalVolume(volume.value)
       }
     }
   })

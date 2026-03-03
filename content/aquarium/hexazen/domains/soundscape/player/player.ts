@@ -283,17 +283,36 @@ export class SoundscapePlayer {
     )
   }
 
-  public muted() {
+  private _isMuted: boolean = false
+  public get isMuted(): boolean {
+    return this._isMuted
+  }
+
+  public muted(fadeDurationMs = 1000) {
+    this._isMuted = true
+    const { currentTime } = this.audioContext
+    this.muteGainNode.gain.cancelScheduledValues(currentTime)
     this.muteGainNode.gain.setValueAtTime(
+      this.muteGainNode.gain.value,
+      currentTime,
+    )
+    this.muteGainNode.gain.linearRampToValueAtTime(
       0,
-      this.audioContext.currentTime,
+      currentTime + fadeDurationMs / 1000,
     )
   }
 
-  public unmuted() {
+  public unmuted(fadeDurationMs = 1000) {
+    this._isMuted = false
+    const { currentTime } = this.audioContext
+    this.muteGainNode.gain.cancelScheduledValues(currentTime)
     this.muteGainNode.gain.setValueAtTime(
+      this.muteGainNode.gain.value,
+      currentTime,
+    )
+    this.muteGainNode.gain.linearRampToValueAtTime(
       1,
-      this.audioContext.currentTime,
+      currentTime + fadeDurationMs / 1000,
     )
   }
 }
