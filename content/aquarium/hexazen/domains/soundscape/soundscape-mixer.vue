@@ -80,7 +80,7 @@ watchEffect(() => {
     list.push({ id, type: player.type, player })
 
     if (!(id in volumeMap)) {
-      volumeMap[id] = 1
+      volumeMap[id] = player.volume
     }
   }
   playerList.value = list
