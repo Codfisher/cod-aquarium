@@ -23,6 +23,8 @@ export class SoundscapePlayer {
   readonly soundscape: Soundscape
   private audioContext: AudioContext
 
+  /** 用於 baseGainNode */
+  private baseVolume: number = 1
   /** 混音器音量 GainNode，由 setVolume 控制 */
   private baseGainNode: GainNode
   /** 主控音量 GainNode，由 setGlobalVolume 控制 */
@@ -47,6 +49,10 @@ export class SoundscapePlayer {
 
   public get title(): string {
     return this.soundscape.title
+  }
+
+  public get volume(): number {
+    return this.baseVolume
   }
 
   constructor(soundscape: Soundscape) {
@@ -258,6 +264,7 @@ export class SoundscapePlayer {
    * @param value - 1.0 為原始音量
    */
   public setVolume(value: number) {
+    this.baseVolume = value
     this.baseGainNode.gain.setValueAtTime(
       value,
       this.audioContext.currentTime,
@@ -276,17 +283,36 @@ export class SoundscapePlayer {
     )
   }
 
-  public muted() {
+  private _isMuted: boolean = false
+  public get isMuted(): boolean {
+    return this._isMuted
+  }
+
+  public muted(fadeDurationMs = 1000) {
+    this._isMuted = true
+    const { currentTime } = this.audioContext
+    this.muteGainNode.gain.cancelScheduledValues(currentTime)
     this.muteGainNode.gain.setValueAtTime(
+      this.muteGainNode.gain.value,
+      currentTime,
+    )
+    this.muteGainNode.gain.linearRampToValueAtTime(
       0,
-      this.audioContext.currentTime,
+      currentTime + fadeDurationMs / 1000,
     )
   }
 
-  public unmuted() {
+  public unmuted(fadeDurationMs = 1000) {
+    this._isMuted = false
+    const { currentTime } = this.audioContext
+    this.muteGainNode.gain.cancelScheduledValues(currentTime)
     this.muteGainNode.gain.setValueAtTime(
+      this.muteGainNode.gain.value,
+      currentTime,
+    )
+    this.muteGainNode.gain.linearRampToValueAtTime(
       1,
-      this.audioContext.currentTime,
+      currentTime + fadeDurationMs / 1000,
     )
   }
 }

@@ -77,10 +77,14 @@ const playerList = ref<PlayerListItem[]>([])
 watchEffect(() => {
   const list: PlayerListItem[] = []
   for (const [id, player] of props.playerMap) {
+    if (player.isMuted) {
+      continue
+    }
+
     list.push({ id, type: player.type, player })
 
     if (!(id in volumeMap)) {
-      volumeMap[id] = 1
+      volumeMap[id] = player.volume
     }
   }
   playerList.value = list
