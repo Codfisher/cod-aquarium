@@ -31,23 +31,19 @@ export function useSoundscapePlayer(
   /** 目前正在播放的音效，key 為 id */
   const activePlayerMap = shallowReactive(new Map<number, SoundscapePlayer>())
 
-  watch(soundscapeList, (newList, oldList) => {
+  watch(soundscapeList, (newList) => {
     const newIdSet = new Set(newList.map(prop('id')))
-    const oldIdSet = new Set((oldList ?? []).map(prop('id')))
 
-    // 淡出舊列表中有、新列表中沒有的音效
-    for (const oldId of oldIdSet) {
-      if (!newIdSet.has(oldId)) {
-        const player = activePlayerMap.get(oldId)
-        player?.muted()
-        console.log('🚀 ~ useSoundscapePlayer ~ player:', player)
-        activePlayerMap.delete(oldId)
+    // 讓原本有在播放但現在不在新列表中的音效靜音，但不刪除，保留其音量設定
+    for (const [id, player] of activePlayerMap) {
+      if (!newIdSet.has(id)) {
+        player.muted()
       }
     }
 
-    // 播放新列表中有、舊列表中沒有的音效
+    // 播放新列表中的音效
     for (const scape of newList) {
-      if (!oldIdSet.has(scape.id)) {
+      if (!activePlayerMap.has(scape.id)) {
         const player = new SoundscapePlayer(scape)
         player.setGlobalVolume(volume.value)
         player.play()
@@ -57,9 +53,11 @@ export function useSoundscapePlayer(
         activePlayerMap.set(scape.id, player)
       }
       else {
-        const player = activePlayerMap.get(scape.id)
-        player?.unmuted()
-        player?.setGlobalVolume(volume.value)
+        const player = activePlayerMap.get(scape.id)!
+        if (!muted.value) {
+          player.unmuted()
+        }
+        player.setGlobalVolume(volume.value)
       }
     }
   })
@@ -71,10 +69,13 @@ export function useSoundscapePlayer(
       }
     }
     else {
-      for (const [_, player] of activePlayerMap) {
-        player.unmuted()
-        // 重新播放，避免被瀏覽器阻擋
-        player.play()
+      const activeIds = new Set(soundscapeList.value.map(prop('id')))
+      for (const [id, player] of activePlayerMap) {
+        if (activeIds.has(id)) {
+          player.unmuted()
+          // 重新播放，避免被瀏覽器阻擋
+          player.play()
+        }
       }
     }
   }, {
