@@ -121,6 +121,11 @@ aside: false
 
   HexaZen 使用 <a href="https://www.babylonjs.com/" target="_blank">babylon.js</a>、<a href="https://vuejs.org/" target="_blank">Vue</a> 與 <a href="https://ui.nuxt.com/" target="_blank">Nuxt UI</a> 開發
 
+  沒靈感也沒關係，我有預先做了幾個場景給大家參考參考：%( ´ ▽ ` )ﾉ%
+  - [樹海小屋](https://codlin.me/aquarium/hexazen/?view=JiMmwzmkdZzaSuhm4HQxVDoZOl0MTS6GRgdDFQOhiWHQxSDoYph0Mmg6GURYTFkMJjCWExpTCY1N0Maw)
+  - [山居](https://codlin.me/aquarium/hexazen/?view=JhMW0wmKhYTE0MJkYGEyLDCYplhMUgwmTIYTGEuhk0GExiLEbxlnM6gzmNIdDKssJk4GExkLuZKh3MnS)
+  - [平原河流](https://codlin.me/aquarium/hexazen/?view=JyMmw7mNYYjaoM5jSGcyiDOYwhnM2U6GSQZzFoMJiWWExMDCYmlhMVUzmbgZzN0s5jIHIzULkaxhhMkw)
+
 ---
 
 還會持續更新，敬請期待！◝(≧∀≦)◟
