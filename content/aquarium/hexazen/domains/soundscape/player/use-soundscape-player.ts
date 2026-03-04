@@ -1,8 +1,6 @@
 import type { Ref, ShallowReactive } from 'vue'
 import type { Weather } from '../../../types'
 import type { Block } from '../../block/type'
-import type { SoundscapeType } from '../type'
-import { reactiveComputed } from '@vueuse/core'
 import { prop } from 'remeda'
 import { computed, shallowReactive, watch } from 'vue'
 import { calcTraitRegionList } from '../../block/trait-region'
