@@ -36,7 +36,7 @@ export interface VoxelRenderer {
 /**
  * 建立像素風格材質（關閉插值，保留像素感）
  */
-function createPixelMaterial(
+export function createPixelMaterial(
   name: string,
   texturePath: string,
   scene: Scene,

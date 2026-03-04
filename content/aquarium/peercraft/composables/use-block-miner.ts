@@ -10,6 +10,8 @@ interface UseBlockMinerParams {
   camera: UniversalCamera;
   canvas: HTMLCanvasElement;
   worldState: Uint8Array;
+  /** 控制是否允許開始或繼續挖掘 */
+  canMine?: () => boolean;
   /** 當方塊被成功挖掉時觸發 */
   onBlockMined: (hit: RaycastHit) => void;
 }
@@ -26,6 +28,7 @@ export function useBlockMiner({
   camera,
   canvas,
   worldState,
+  canMine,
   onBlockMined,
 }: UseBlockMinerParams) {
   const isMining = ref(false)
@@ -33,13 +36,13 @@ export function useBlockMiner({
 
   /** 正在挖掘的目標座標 */
   const targetBlock = ref<{ x: number; y: number; z: number } | null>(null)
-  let targetBlockId: BlockId | null = null
+  const targetBlockId = ref<BlockId | null>(null)
 
   function resetMining() {
     isMining.value = false
     miningProgress.value = 0
     targetBlock.value = null
-    targetBlockId = null
+    targetBlockId.value = null
   }
 
   function handleMouseDown(event: MouseEvent) {
@@ -48,12 +51,16 @@ export function useBlockMiner({
       return
     }
 
+    if (canMine && !canMine()) {
+      return
+    }
+
     const hit = castBlockRay(camera, worldState)
     if (hit) {
       isMining.value = true
       miningProgress.value = 0
       targetBlock.value = { x: hit.blockX, y: hit.blockY, z: hit.blockZ }
-      targetBlockId = hit.blockId
+      targetBlockId.value = hit.blockId
     }
   }
 
@@ -67,7 +74,12 @@ export function useBlockMiner({
   window.addEventListener('mouseup', handleMouseUp)
 
   const observer = scene.onBeforeRenderObservable.add(() => {
-    if (!isMining.value || !targetBlock.value || targetBlockId === null) {
+    if (!isMining.value || !targetBlock.value || targetBlockId.value === null) {
+      return
+    }
+
+    if (canMine && !canMine()) {
+      resetMining()
       return
     }
 
@@ -86,7 +98,7 @@ export function useBlockMiner({
 
     /** 累加挖掘進度 */
     const deltaTime = scene.getEngine().getDeltaTime() / 1000 // 秒
-    const requiredTime = BLOCK_MINING_TIMES[targetBlockId as keyof typeof BLOCK_MINING_TIMES] || 1
+    const requiredTime = BLOCK_MINING_TIMES[targetBlockId.value as keyof typeof BLOCK_MINING_TIMES] || 1
 
     miningProgress.value = Math.min(1, miningProgress.value + (deltaTime / requiredTime))
 
@@ -113,5 +125,6 @@ export function useBlockMiner({
     isMining,
     miningProgress,
     targetBlock,
+    targetBlockId,
   }
 }
