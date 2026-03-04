@@ -25,7 +25,7 @@
 <script setup lang="ts">
 import type { Mesh, UniversalCamera } from '@babylonjs/core'
 import type { VoxelRenderer } from '../renderer/voxel-renderer'
-import { Color3, Color4, HemisphericLight, MeshBuilder, ParticleSystem, Scene, Texture, TransformNode, UniversalCamera as UniversalCameraClass, Vector3 } from '@babylonjs/core'
+import { Color3, Color4, HemisphericLight, MeshBuilder, ParticleSystem, Scene, StandardMaterial, Texture, TransformNode, UniversalCamera as UniversalCameraClass, Vector3 } from '@babylonjs/core'
 import { ref } from 'vue'
 import { useBabylonScene } from '../../composables/use-babylon-scene'
 import { useBlockMiner } from '../../composables/use-block-miner'
@@ -196,6 +196,24 @@ const { canvasRef } = useBabylonScene({
 
     let currentParticleBlockId: BlockId | null = null
 
+    /** 建立破壞裂痕疊加層 (Destruction Overlay) */
+    const destroyMaterialList: StandardMaterial[] = []
+    for (let i = 0; i < 10; i++) {
+      const mat = new StandardMaterial(`destroy_stage_${i}`, scene)
+      const tex = new Texture(`/assets/minecraft/textures/block/destroy_stage_${i}.png`, scene, {
+        samplingMode: Texture.NEAREST_SAMPLINGMODE,
+      })
+      tex.hasAlpha = true
+      mat.diffuseTexture = tex
+      mat.useAlphaFromDiffuseTexture = true
+      mat.zOffset = -1 // 避免 Z-fighting
+      destroyMaterialList.push(mat)
+    }
+
+    const destroyOverlay = MeshBuilder.CreateBox('destroy-overlay', { size: 1.002 }, scene)
+    destroyOverlay.isVisible = false
+    destroyOverlay.isPickable = false
+
     /** 建立挖掘粒子系統 */
     const particleSystem = new ParticleSystem('mining-particles', 200, scene)
 
@@ -265,10 +283,22 @@ const { canvasRef } = useBabylonScene({
         if (!particleSystem.isStarted()) {
           particleSystem.start()
         }
+
+        // 更新裂痕疊加層
+        destroyOverlay.position.copyFrom(particleSystem.emitter as Vector3)
+        // 根據進度 0~1 決定階段 0~9
+        const stage = Math.min(9, Math.floor(miner.miningProgress.value * 10))
+        destroyOverlay.material = destroyMaterialList[stage] || null
+        if (!destroyOverlay.isVisible) {
+          destroyOverlay.isVisible = true
+        }
       }
       else {
         if (particleSystem.isStarted()) {
           particleSystem.stop()
+        }
+        if (destroyOverlay.isVisible) {
+          destroyOverlay.isVisible = false
         }
       }
     })
