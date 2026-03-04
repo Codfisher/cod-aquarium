@@ -81,6 +81,8 @@ const { canvasRef } = useBabylonScene({
 
     camera.attachControl(canvas, true)
     camera.minZ = 0.1
+    /** 擴大 FOV 讓畫面看起來比較寬廣、不會太有壓迫感 (預設是 0.8) */
+    camera.fov = 1.2
 
     return camera
   },
