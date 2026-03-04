@@ -65,8 +65,8 @@ const COLOR_CANDIDATE = new Color3(0.3, 0.3, 0.3)
 const COLOR_HOVER = COLOR_CANDIDATE
 
 const ALPHA_SELECTED = 0.6
-const ALPHA_CANDIDATE = 0.3
-const ALPHA_HOVER = 0.5
+const ALPHA_CANDIDATE = 0.5
+const ALPHA_HOVER = 0.7
 const ALPHA_HIDDEN = 0.0
 
 const FADE_SPEED = 14
@@ -317,11 +317,12 @@ function createGround({ scene }: { scene: Scene }) {
 
   const pbr = new PBRMaterial('groundPBR', scene)
   pbr.albedoColor = new Color3(0.9, 0.9, 0.9)
-  pbr.metallic = 0.1
-  pbr.roughness = 0.5
+  pbr.metallic = 0.2
+  pbr.roughness = 0.2
 
   const mirrorTexture = new MirrorTexture('groundMirror', 512, scene, true)
   mirrorTexture.mirrorPlane = new Plane(0, -1, 0, 0)
+  mirrorTexture.level = 0.5
 
   // 初始化 renderList
   mirrorTexture.renderList = []
@@ -526,9 +527,9 @@ const { canvasRef, scene, camera } = useBabylonScene({
         pipeline.depthOfField.focalLength = 135
         pipeline.depthOfField.fStop = DEFAULT_F_STOP
 
-        // pipeline.imageProcessingEnabled = true
-        // pipeline.imageProcessing.contrast = 1.25
-        // pipeline.imageProcessing.exposure = 1.1
+        pipeline.imageProcessingEnabled = true
+        pipeline.imageProcessing.contrast = 1.1
+        pipeline.imageProcessing.exposure = 1.1
 
         // 暗角
         pipeline.imageProcessing.vignetteEnabled = true
