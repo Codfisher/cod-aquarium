@@ -16,6 +16,8 @@ export enum PacketType {
   WORLD_SNAPSHOT = 'world_snapshot',
   /** 當有玩家挖掘或放置方塊時，同步單一座標點的更新 */
   BLOCK_UPDATE = 'block_update',
+  /** 同步正在挖掘的方塊進度 (視覺特效使用) */
+  MINING_PROGRESS = 'mining_progress',
 }
 
 /** 完整世界快照封包 */
@@ -36,4 +38,17 @@ export interface BlockUpdatePacket {
   };
 }
 
-export type NetworkPacket = WorldSnapshotPacket | BlockUpdatePacket
+/** 挖掘進度同步封包 */
+export interface MiningProgressPacket {
+  type: PacketType.MINING_PROGRESS;
+  data: {
+    peerId: string; // 發送者的 ID
+    x: number;
+    y: number;
+    z: number;
+    progress: number; // 0 ~ 1 之間的進度，若為 0 表示停止挖掘
+    blockId: BlockId; // 正在挖掘的方塊材質(提供給粒子)
+  };
+}
+
+export type NetworkPacket = WorldSnapshotPacket | BlockUpdatePacket | MiningProgressPacket

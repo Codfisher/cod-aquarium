@@ -13,6 +13,8 @@ export interface UsePeerNetworkParams {
   onClientConnected?: (peerId: string) => void;
   /** 事件：收到網路傳來的方塊更新 (挖掘或放置) */
   onBlockUpdateReceived?: (x: number, y: number, z: number, blockId: BlockId) => void;
+  /** 事件：收到網路傳來的挖掘進度 (同步視覺特效) */
+  onMiningProgressReceived?: (peerId: string, x: number, y: number, z: number, progress: number, blockId: BlockId) => void;
 }
 
 export const FIXED_ROOM_ID = 'peercraft-fixed-room-v1'
@@ -25,6 +27,7 @@ export function usePeerNetwork({
   onWorldSnapshotReceived,
   onClientConnected,
   onBlockUpdateReceived,
+  onMiningProgressReceived,
 }: UsePeerNetworkParams) {
   const isReady = ref(false)
   const currentPeerId = ref<string>('')
@@ -138,6 +141,13 @@ export function usePeerNetwork({
         // 將該變更廣播給其餘所有連線中的 Client
         broadcastBlockUpdate(x, y, z, blockId, connection.peer)
       }
+      else if (packet.type === PacketType.MINING_PROGRESS) {
+        const { peerId, x, y, z, progress, blockId } = packet.data
+        // Host 收到來自 Client 的進度
+        onMiningProgressReceived?.(peerId, x, y, z, progress, blockId)
+        // 廣播給其他 Client
+        broadcastMiningProgress(peerId, x, y, z, progress, blockId, connection.peer)
+      }
     })
 
     connection.on('close', () => {
@@ -174,6 +184,10 @@ export function usePeerNetwork({
       else if (packet.type === PacketType.BLOCK_UPDATE) {
         const { x, y, z, blockId } = packet.data
         onBlockUpdateReceived?.(x, y, z, blockId)
+      }
+      else if (packet.type === PacketType.MINING_PROGRESS) {
+        const { peerId, x, y, z, progress, blockId } = packet.data
+        onMiningProgressReceived?.(peerId, x, y, z, progress, blockId)
       }
     })
 
@@ -238,6 +252,57 @@ export function usePeerNetwork({
     }
   }
 
+  /**
+   * 【供 Host 呼叫】廣播正在挖掘的進度 (或停止)
+   */
+  function broadcastMiningProgress(
+    senderPeerId: string,
+    x: number,
+    y: number,
+    z: number,
+    progress: number,
+    blockId: BlockId,
+    excludePeerId?: string,
+  ) {
+    if (currentRole.value !== NetworkRole.HOST)
+      return
+
+    const packet: NetworkPacket = {
+      type: PacketType.MINING_PROGRESS,
+      data: { peerId: senderPeerId, x, y, z, progress, blockId },
+    }
+
+    connections.forEach((conn, peerId) => {
+      if (peerId !== excludePeerId && conn.open) {
+        conn.send(packet)
+      }
+    })
+  }
+
+  /**
+   * 【供 Client 呼叫】將自己的挖掘進度傳給 Host
+   */
+  function sendMiningProgressToHost(x: number, y: number, z: number, progress: number, blockId: BlockId) {
+    if (currentRole.value !== NetworkRole.CLIENT)
+      return
+
+    const hostConn = Array.from(connections.values())[0]
+    if (hostConn && hostConn.open) {
+      const packet: NetworkPacket = {
+        type: PacketType.MINING_PROGRESS,
+        data: {
+          peerId: currentPeerId.value,
+          x,
+          y,
+          z,
+          progress,
+          blockId,
+        },
+      }
+      hostConn.send(packet)
+    }
+  }
+
   onBeforeUnmount(() => {
     connections.forEach((conn) => conn.close())
     connections.clear()
@@ -254,6 +319,8 @@ export function usePeerNetwork({
     sendWorldSnapshot,
     broadcastBlockUpdate,
     sendBlockUpdateToHost,
+    broadcastMiningProgress,
+    sendMiningProgressToHost,
     /** 暴露給 Host 在有人連線時，能夠主動派送 Snapshot 的方法。
      * 暫時由外部直接監聽，這邊提供 connections reference 以便未來擴充
      */
