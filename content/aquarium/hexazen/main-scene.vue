@@ -23,7 +23,10 @@ import {
   DynamicTexture,
   GPUParticleSystem,
   MeshBuilder,
+  MirrorTexture,
   ParticleSystem,
+  PBRMaterial,
+  Plane,
   PointerEventTypes,
   Ray,
   ShadowGenerator,
@@ -62,8 +65,8 @@ const COLOR_CANDIDATE = new Color3(0.3, 0.3, 0.3)
 const COLOR_HOVER = COLOR_CANDIDATE
 
 const ALPHA_SELECTED = 0.6
-const ALPHA_CANDIDATE = 0.5
-const ALPHA_HOVER = 0.7
+const ALPHA_CANDIDATE = 0.3
+const ALPHA_HOVER = 0.5
 const ALPHA_HIDDEN = 0.0
 
 const FADE_SPEED = 14
@@ -311,10 +314,35 @@ function handleSelectBlock(blockType: BlockType) {
 
 function createGround({ scene }: { scene: Scene }) {
   const ground = MeshBuilder.CreateGround('ground', { width: 1000, height: 1000 }, scene)
-  const material = new StandardMaterial('groundMat', scene)
-  material.diffuseColor = new Color3(0.96, 0.95, 0.93)
-  ground.material = material
+
+  const pbr = new PBRMaterial('groundPBR', scene)
+  pbr.albedoColor = new Color3(0.9, 0.9, 0.9)
+  pbr.metallic = 0.1
+  pbr.roughness = 0.5
+
+  const mirrorTexture = new MirrorTexture('groundMirror', 512, scene, true)
+  mirrorTexture.mirrorPlane = new Plane(0, -1, 0, 0)
+
+  // 初始化 renderList
+  mirrorTexture.renderList = []
+  pbr.reflectionTexture = mirrorTexture
+
+  ground.material = pbr
   ground.receiveShadows = true
+
+  /** 將場景中既有與新增的 mesh 加入倒影的渲染清單 */
+  for (const mesh of scene.meshes) {
+    if (mesh !== ground) {
+      mirrorTexture.renderList.push(mesh)
+    }
+  }
+
+  scene.onNewMeshAddedObservable.add((mesh) => {
+    if (mesh !== ground) {
+      mirrorTexture.renderList?.push(mesh)
+    }
+  })
+
   return ground
 }
 
@@ -498,9 +526,9 @@ const { canvasRef, scene, camera } = useBabylonScene({
         pipeline.depthOfField.focalLength = 135
         pipeline.depthOfField.fStop = DEFAULT_F_STOP
 
-        pipeline.imageProcessingEnabled = true
-        pipeline.imageProcessing.contrast = 1.25
-        pipeline.imageProcessing.exposure = 1.1
+        // pipeline.imageProcessingEnabled = true
+        // pipeline.imageProcessing.contrast = 1.25
+        // pipeline.imageProcessing.exposure = 1.1
 
         // 暗角
         pipeline.imageProcessing.vignetteEnabled = true
