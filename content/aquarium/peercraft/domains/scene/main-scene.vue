@@ -38,7 +38,7 @@
 <script setup lang="ts">
 import type { Mesh, UniversalCamera } from '@babylonjs/core'
 import type { VoxelRenderer } from '../renderer/voxel-renderer'
-import { Color3, Color4, HemisphericLight, MeshBuilder, ParticleSystem, Scene, StandardMaterial, Texture, TransformNode, UniversalCamera as UniversalCameraClass, Vector3 } from '@babylonjs/core'
+import { Color3, Color4, HemisphericLight, MeshBuilder, ParticleSystem, Scene, StandardMaterial, Texture, TransformNode, Vector3 } from '@babylonjs/core'
 import { ref, watch } from 'vue'
 import { useBabylonScene } from '../../composables/use-babylon-scene'
 import { useBlockMiner } from '../../composables/use-block-miner'
@@ -47,7 +47,7 @@ import { FIXED_ROOM_ID, usePeerNetwork } from '../../composables/use-peer-networ
 import { NetworkRole } from '../../types/network'
 import { castBlockRay, placeBlock, setBlock } from '../player/block-interaction'
 import { createPixelMaterial, createVoxelRenderer } from '../renderer/voxel-renderer'
-import { BLOCK_TEXTURES, BlockId, WORLD_SIZE } from '../world/world-constants'
+import { BLOCK_TEXTURES, BlockId } from '../world/world-constants'
 import { createWorldState, generateTerrain } from '../world/world-state'
 
 const emit = defineEmits<{
@@ -65,55 +65,6 @@ const isReady = ref(false)
 const currentRole = ref<string>('')
 
 const { canvasRef } = useBabylonScene({
-  createScene({ engine }) {
-    const scene = new Scene(engine)
-
-    scene.clearColor = new Color4(0.53, 0.74, 0.93, 1)
-
-    const light = new HemisphericLight(
-      'sun',
-      new Vector3(0.3, 1, 0.5),
-      scene,
-    )
-    light.intensity = 1.1
-    light.diffuse = new Color3(1.0, 0.98, 0.92)
-    light.groundColor = new Color3(0.3, 0.3, 0.4)
-
-    scene.fogMode = Scene.FOGMODE_LINEAR
-    scene.fogColor = new Color3(0.53, 0.74, 0.93)
-    scene.fogStart = 40
-    scene.fogEnd = 90
-
-    return scene
-  },
-
-  createCamera({ scene, canvas }) {
-    const spawnPosition = new Vector3(
-      WORLD_SIZE / 2,
-      12,
-      WORLD_SIZE / 2,
-    )
-
-    const camera = new UniversalCameraClass(
-      'fps-camera',
-      spawnPosition,
-      scene,
-    )
-
-    camera.setTarget(new Vector3(
-      WORLD_SIZE / 2,
-      8,
-      WORLD_SIZE / 2 + 10,
-    ))
-
-    camera.attachControl(canvas, true)
-    camera.minZ = 0.1
-    /** 擴大 FOV 讓畫面看起來比較寬廣、不會太有壓迫感 (預設是 0.8) */
-    camera.fov = 1.2
-
-    return camera
-  },
-
   async init({ scene, camera, canvas }) {
     worldState = createWorldState()
 
@@ -173,7 +124,7 @@ const { canvasRef } = useBabylonScene({
       /** 啟動 FPS 控制器 */
       useFpsController({
         scene,
-        camera: camera as UniversalCamera,
+        camera,
         canvas,
         worldState,
       })

@@ -1,18 +1,16 @@
-import type {
-  Camera,
-} from '@babylonjs/core'
 import {
-  ArcRotateCamera,
   Color3,
   Color4,
   Engine,
   HemisphericLight,
   Scene,
+  UniversalCamera,
   Vector3,
   WebGPUEngine,
 } from '@babylonjs/core'
 import { defaults } from 'lodash-es'
 import { onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
+import { WORLD_SIZE } from '../domains/world/world-constants'
 
 type BabylonEngine = Engine | WebGPUEngine
 
@@ -20,13 +18,13 @@ export interface InitParams {
   canvas: HTMLCanvasElement;
   engine: BabylonEngine;
   scene: Scene;
-  camera: Camera;
+  camera: UniversalCamera;
 }
 
 interface UseBabylonSceneParam {
   createEngine?: (param: Omit<InitParams, 'camera' | 'scene' | 'engine'>) => Promise<BabylonEngine>;
   createScene?: (param: Omit<InitParams, 'camera' | 'scene'>) => Scene;
-  createCamera?: (param: Omit<InitParams, 'camera'>) => Camera;
+  createCamera?: (param: Omit<InitParams, 'camera'>) => UniversalCamera;
   init?: (param: InitParams) => Promise<void>;
 }
 
@@ -52,35 +50,48 @@ const defaultParam: Required<UseBabylonSceneParam> = {
   },
   createScene({ engine }) {
     const scene = new Scene(engine)
-    scene.createDefaultLight()
 
-    const defaultLight = scene.lights.at(-1)
-    if (defaultLight instanceof HemisphericLight) {
-      defaultLight.diffuse = new Color3(1.0, 0.98, 0.95)
-      defaultLight.direction = new Vector3(0.5, 1, 0)
-      defaultLight.intensity = 1
-      defaultLight.groundColor = new Color3(0.64, 0.56, 0.78)
-    }
+    scene.clearColor = new Color4(0.53, 0.74, 0.93, 1)
 
-    scene.clearColor = new Color4(0.97, 0.97, 0.96, 1)
+    const light = new HemisphericLight(
+      'sun',
+      new Vector3(0.3, 1, 0.5),
+      scene,
+    )
+    light.intensity = 1.1
+    light.diffuse = new Color3(1.0, 0.98, 0.92)
+    light.groundColor = new Color3(0.3, 0.3, 0.4)
+
+    scene.fogMode = Scene.FOGMODE_LINEAR
+    scene.fogColor = new Color3(0.53, 0.74, 0.93)
+    scene.fogStart = 40
+    scene.fogEnd = 90
 
     return scene
   },
   createCamera({ scene, canvas }) {
-    const camera = new ArcRotateCamera(
-      'camera',
-      0,
-      Math.PI / 3 * 2,
-      5,
-      new Vector3(0, 0, 0),
+    const spawnPosition = new Vector3(
+      WORLD_SIZE / 2,
+      12,
+      WORLD_SIZE / 2,
+    )
+
+    const camera = new UniversalCamera(
+      'fps-camera',
+      spawnPosition,
       scene,
     )
 
+    camera.setTarget(new Vector3(
+      WORLD_SIZE / 2,
+      8,
+      WORLD_SIZE / 2 + 10,
+    ))
+
     camera.attachControl(canvas, true)
-    camera.panningSensibility = 0
-    camera.wheelDeltaPercentage = 0.01
-    camera.lowerRadiusLimit = 5
-    camera.upperRadiusLimit = 8
+    camera.minZ = 0.1
+    /** 擴大 FOV 讓畫面看起來比較寬廣、不會太有壓迫感 (預設是 0.8) */
+    camera.fov = 1.2
 
     return camera
   },
@@ -92,7 +103,7 @@ export function useBabylonScene(param?: UseBabylonSceneParam) {
 
   const engine = shallowRef<BabylonEngine>()
   const scene = shallowRef<Scene>()
-  const camera = shallowRef<Camera>()
+  const camera = shallowRef<UniversalCamera>()
 
   const {
     createEngine,
