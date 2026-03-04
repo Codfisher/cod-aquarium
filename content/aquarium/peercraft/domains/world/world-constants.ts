@@ -24,6 +24,9 @@ export interface BlockTextureDef {
   top?: string;
   side?: string;
   bottom?: string;
+  /** 色調 tint（乘以灰階貼圖產生顏色），格式 [r, g, b] 範圍 0~1 */
+  topTint?: [number, number, number];
+  sideTint?: [number, number, number];
 }
 
 /** 方塊材質對照表 */
@@ -32,6 +35,8 @@ export const BLOCK_TEXTURES: Record<Exclude<BlockId, BlockId.AIR>, BlockTextureD
     top: `${TEXTURE_BASE}/grass_block_top.png`,
     side: `${TEXTURE_BASE}/grass_block_side.png`,
     bottom: `${TEXTURE_BASE}/dirt.png`,
+    /** Plains 生態域草地色調（取自 colormap/grass.png） */
+    topTint: [0.57, 0.74, 0.35],
   },
   [BlockId.STONE]: {
     all: `${TEXTURE_BASE}/stone.png`,

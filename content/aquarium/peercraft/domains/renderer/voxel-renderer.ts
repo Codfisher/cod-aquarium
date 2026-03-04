@@ -40,6 +40,7 @@ function createPixelMaterial(
   name: string,
   texturePath: string,
   scene: Scene,
+  tint?: [number, number, number],
 ): StandardMaterial {
   const material = new StandardMaterial(name, scene)
   const texture = new Texture(texturePath, scene, {
@@ -47,8 +48,11 @@ function createPixelMaterial(
   })
   material.diffuseTexture = texture
   material.specularColor = new Color3(0.1, 0.1, 0.1)
-  /** 關閉背面剔除，確保 Plane 雙面可見 */
   material.backFaceCulling = false
+
+  if (tint) {
+    material.diffuseColor = new Color3(tint[0], tint[1], tint[2])
+  }
 
   return material
 }
@@ -87,6 +91,7 @@ export function createVoxelRenderer(scene: Scene, worldState: Uint8Array): Voxel
         `block_${blockId}_top_mat`,
         textureDef.top ?? textureDef.side ?? '',
         scene,
+        textureDef.topTint,
       )
       const topMesh = MeshBuilder.CreatePlane(
         `block_${blockId}_top`,
