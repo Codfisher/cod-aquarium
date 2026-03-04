@@ -41,7 +41,17 @@ export function usePeerNetwork({
   const connections = new Map<string, DataConnection>()
 
   // 動態載入 peerjs，避免 SSR 問題（Vitepress build 階段沒有 window）
-  async function init() {
+  function cleanup() {
+    isReady.value = false
+    connections.forEach((conn) => conn.close())
+    connections.clear()
+    if (peer) {
+      peer.destroy()
+      peer = null
+    }
+  }
+
+  async function tryConnect() {
     if (typeof window === 'undefined')
       return
 
@@ -55,36 +65,45 @@ export function usePeerNetwork({
       currentPeerId.value = id
       console.log(`[Network] Initialize as Client. Attempting to connect to ${FIXED_ROOM_ID}...`)
 
-      const destroyTempClientAndBecomeHost = () => {
-        if (currentRole.value !== null)
+      const becomeHost = () => {
+        if (currentRole.value === NetworkRole.HOST)
           return
 
-        console.warn(`[Network] Room ${FIXED_ROOM_ID} not fully reachable or not found. Taking over as Host...`)
-        currentRole.value = NetworkRole.HOST
-        tempPeer.destroy()
+        cleanup()
+        console.warn(`[Network] Room ${FIXED_ROOM_ID} not reachable. Taking over as Host...`)
 
-        peer = new Peer(FIXED_ROOM_ID)
+        // 延遲一下再建立 Host，確保舊的 tempPeer 已經釋放
+        setTimeout(async () => {
+          const { Peer: PeerClass } = await import('peerjs')
+          peer = new PeerClass(FIXED_ROOM_ID)
+          currentRole.value = NetworkRole.HOST
 
-        peer.on('open', (hostId) => {
-          currentPeerId.value = hostId
-          isReady.value = true
-          console.log(`[Network] Successfully created room as Host: ${hostId}`)
-          onConnected?.()
-        })
+          peer.on('open', (hostId) => {
+            currentPeerId.value = hostId
+            isReady.value = true
+            console.log(`[Network] Successfully created room as Host: ${hostId}`)
+            onConnected?.()
+          })
 
-        peer.on('connection', (inboundConnection) => {
-          setupHostConnection(inboundConnection)
-        })
+          peer.on('connection', (inboundConnection) => {
+            setupHostConnection(inboundConnection)
+          })
 
-        peer.on('error', (hostErr) => {
-          console.error('[Network] Host creation error:', hostErr)
-        })
+          peer.on('error', (hostErr) => {
+            console.error('[Network] Host creation error:', hostErr)
+            // 如果 ID 衝突 (已經有人是 Host 了)，則重回 Client 模式
+            if (hostErr.type === 'unavailable-id') {
+              cleanup()
+              setTimeout(tryConnect, 1000)
+            }
+          })
+        }, 500)
       }
 
       // 設定 3 秒連線逾時，如果連不上就強制轉為 Host
       const clientConnectionTimeout = setTimeout(() => {
-        if (currentRole.value === null) {
-          destroyTempClientAndBecomeHost()
+        if (currentRole.value === null || currentRole.value === NetworkRole.CLIENT) {
+          becomeHost()
         }
       }, 3000)
 
@@ -93,31 +112,32 @@ export function usePeerNetwork({
       // 如果連線成功，代表房間存在，正式成為 Client
       connection.on('open', () => {
         clearTimeout(clientConnectionTimeout)
-        if (currentRole.value === null) {
-          currentRole.value = NetworkRole.CLIENT
-          setupClientConnection(connection)
-        }
+        currentRole.value = NetworkRole.CLIENT
+        setupClientConnection(connection)
       })
 
       connection.on('error', (err) => {
         console.error('[Network] Client connection to Host failed:', err)
-        if (currentRole.value === null) {
-          clearTimeout(clientConnectionTimeout)
-          destroyTempClientAndBecomeHost()
-        }
+        clearTimeout(clientConnectionTimeout)
+        becomeHost()
       })
 
       // 如果連線失敗 (找不到該 Peer)
       tempPeer.on('error', (err) => {
-        if (err.type === 'peer-unavailable' && currentRole.value === null) {
+        if (err.type === 'peer-unavailable') {
           clearTimeout(clientConnectionTimeout)
-          destroyTempClientAndBecomeHost()
+          becomeHost()
         }
         else {
           console.error('[Network] Client error:', err)
         }
       })
     })
+  }
+
+  // 代替舊的 init
+  function init() {
+    tryConnect()
   }
 
   /**
@@ -194,7 +214,10 @@ export function usePeerNetwork({
     connection.on('close', () => {
       connections.delete(connection.peer)
       isReady.value = false
-      console.warn('[Client] Lost connection to Host')
+      console.warn('[Client] Lost connection to Host. Attempting to reconnect or become Host...')
+      cleanup()
+      // 延遲後重試 (tryConnect 內部會先試 Client 後轉 Host)
+      setTimeout(tryConnect, 1000)
     })
   }
 

@@ -63,6 +63,7 @@ const miningProgress = ref(0)
 const heldBlockId = ref<BlockId | null>(null)
 const isReady = ref(false)
 const currentRole = ref<string>('')
+let hasStarted = false
 
 const { canvasRef } = useBabylonScene({
   async init({ scene, camera, canvas }) {
@@ -79,15 +80,28 @@ const { canvasRef } = useBabylonScene({
     } = usePeerNetwork({
       onConnected: () => {
         if (currentRole.value === NetworkRole.HOST) {
-          /** Host 負責生成世界 */
-          generateTerrain(worldState)
-          startGame()
+          /** Host 負責生成世界，如果已經啟動過地圖（如斷線重連轉 Host），則不再重新生成 */
+          if (!hasStarted) {
+            generateTerrain(worldState)
+            startGame()
+          }
+          else {
+            console.log('[Network] Reconnected as Host, keeping current world state.')
+          }
         }
       },
       onWorldSnapshotReceived: (receivedState) => {
         /** Client 接收來自 Host 的世界 */
         worldState.set(receivedState)
-        startGame()
+        if (!hasStarted) {
+          startGame()
+        }
+        else {
+          console.log('[Network] Received new snapshot, updating world.')
+          if (renderer) {
+            renderer.rebuildInstances(worldState)
+          }
+        }
       },
       onClientConnected: (peerId) => {
         if (currentRole.value === NetworkRole.HOST) {
@@ -118,6 +132,10 @@ const { canvasRef } = useBabylonScene({
     let handleRemoteMiningProgress: (peerId: string, x: number, y: number, z: number, progress: number, blockId: BlockId) => void = () => {}
 
     const startGame = () => {
+      if (hasStarted)
+        return
+      hasStarted = true
+
       /** 渲染體素 */
       renderer = createVoxelRenderer(scene, worldState)
 
