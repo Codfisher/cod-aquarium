@@ -45,7 +45,7 @@ import { useBlockMiner } from '../../composables/use-block-miner'
 import { useFpsController } from '../../composables/use-fps-controller'
 import { FIXED_ROOM_ID, usePeerNetwork } from '../../composables/use-peer-network'
 import { NetworkRole } from '../../types/network'
-import { castBlockRay, placeBlock } from '../player/block-interaction'
+import { castBlockRay, placeBlock, setBlock } from '../player/block-interaction'
 import { createPixelMaterial, createVoxelRenderer } from '../renderer/voxel-renderer'
 import { BLOCK_TEXTURES, BlockId, WORLD_SIZE } from '../world/world-constants'
 import { createWorldState, generateTerrain } from '../world/world-state'
@@ -117,7 +117,13 @@ const { canvasRef } = useBabylonScene({
   async init({ scene, camera, canvas }) {
     worldState = createWorldState()
 
-    const { isReady: networkReady, currentRole, sendWorldSnapshot } = usePeerNetwork({
+    const {
+      isReady: networkReady,
+      currentRole,
+      sendWorldSnapshot,
+      broadcastBlockUpdate,
+      sendBlockUpdateToHost,
+    } = usePeerNetwork({
       onConnected: () => {
         if (currentRole.value === NetworkRole.HOST) {
           /** Host 負責生成世界 */
@@ -133,6 +139,14 @@ const { canvasRef } = useBabylonScene({
       onClientConnected: (peerId) => {
         if (currentRole.value === NetworkRole.HOST) {
           sendWorldSnapshot(peerId, worldState)
+        }
+      },
+      onBlockUpdateReceived: (x, y, z, blockId) => {
+        // 接收到別人的變更，強迫更新本機資料
+        if (setBlock(worldState, x, y, z, blockId)) {
+          if (renderer) {
+            renderer.rebuildInstances(worldState)
+          }
         }
       },
     })
@@ -229,10 +243,18 @@ const { canvasRef } = useBabylonScene({
         worldState,
         canMine: () => heldBlockId.value === null,
         onBlockMined: (hit) => {
-        /** 挖掉方塊後，將該方塊拿在手上 */
+          /** 挖掉方塊後，將該方塊拿在手上 */
           heldBlockId.value = hit.blockId
           updateHandMesh(hit.blockId)
           renderer.rebuildInstances(worldState)
+
+          // 廣播或發送給伺服器 (挖掉 = 變為 AIR)
+          if (currentRole.value === NetworkRole.HOST) {
+            broadcastBlockUpdate(hit.blockX, hit.blockY, hit.blockZ, BlockId.AIR)
+          }
+          else if (currentRole.value === NetworkRole.CLIENT) {
+            sendBlockUpdateToHost(hit.blockX, hit.blockY, hit.blockZ, BlockId.AIR)
+          }
         },
       })
 
@@ -356,9 +378,18 @@ const { canvasRef } = useBabylonScene({
           if (hit) {
             /** 左鍵：放置持有的方塊 */
             if (placeBlock(worldState, hit.adjacentX, hit.adjacentY, hit.adjacentZ, heldBlockId.value)) {
+              const placedBlockId = heldBlockId.value
               heldBlockId.value = null // 放完後變回空手
               updateHandMesh(null)
               renderer.rebuildInstances(worldState)
+
+              // 廣播或發送給伺服器
+              if (currentRole.value === NetworkRole.HOST) {
+                broadcastBlockUpdate(hit.adjacentX, hit.adjacentY, hit.adjacentZ, placedBlockId)
+              }
+              else if (currentRole.value === NetworkRole.CLIENT) {
+                sendBlockUpdateToHost(hit.adjacentX, hit.adjacentY, hit.adjacentZ, placedBlockId)
+              }
             }
           }
         }

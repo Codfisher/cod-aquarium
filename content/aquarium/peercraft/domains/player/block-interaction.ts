@@ -186,3 +186,26 @@ export function placeBlock(
   worldState[index] = blockId
   return true
 }
+
+/**
+ * 直接設定方塊 (主要用於網路同步時)
+ */
+export function setBlock(
+  worldState: Uint8Array,
+  blockX: number,
+  blockY: number,
+  blockZ: number,
+  blockId: BlockId,
+): boolean {
+  if (
+    blockX < 0 || blockX >= WORLD_SIZE
+    || blockY < 0 || blockY >= WORLD_SIZE
+    || blockZ < 0 || blockZ >= WORLD_SIZE
+  ) {
+    return false
+  }
+
+  const index = coordinateToIndex(blockX, blockY, blockZ)
+  worldState[index] = blockId
+  return true
+}

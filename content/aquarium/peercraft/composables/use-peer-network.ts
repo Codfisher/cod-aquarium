@@ -1,5 +1,6 @@
 import type { DataConnection, Peer } from 'peerjs'
-import type { NetworkPacket, WorldSnapshotPacket } from '../types/network'
+import type { BlockId } from '../domains/world/world-constants'
+import type { BlockUpdatePacket, NetworkPacket, WorldSnapshotPacket } from '../types/network'
 import { onBeforeUnmount, ref } from 'vue'
 import { NetworkRole, PacketType } from '../types/network'
 
@@ -10,6 +11,8 @@ export interface UsePeerNetworkParams {
   onWorldSnapshotReceived?: (worldState: Uint8Array) => void;
   /** 事件：Host 偵測到有新 Client 連線成功，此時即可派送世界快照 */
   onClientConnected?: (peerId: string) => void;
+  /** 事件：收到網路傳來的方塊更新 (挖掘或放置) */
+  onBlockUpdateReceived?: (x: number, y: number, z: number, blockId: BlockId) => void;
 }
 
 export const FIXED_ROOM_ID = 'peercraft-fixed-room-v1'
@@ -21,6 +24,7 @@ export function usePeerNetwork({
   onConnected,
   onWorldSnapshotReceived,
   onClientConnected,
+  onBlockUpdateReceived,
 }: UsePeerNetworkParams) {
   const isReady = ref(false)
   const currentPeerId = ref<string>('')
@@ -126,7 +130,14 @@ export function usePeerNetwork({
     })
 
     connection.on('data', (data) => {
-      // Phase 4: 處理 Client 送來的動作封包
+      const packet = data as NetworkPacket
+      if (packet.type === PacketType.BLOCK_UPDATE) {
+        const { x, y, z, blockId } = packet.data
+        // Host 收到來自 Client 的變更
+        onBlockUpdateReceived?.(x, y, z, blockId)
+        // 將該變更廣播給其餘所有連線中的 Client
+        broadcastBlockUpdate(x, y, z, blockId, connection.peer)
+      }
     })
 
     connection.on('close', () => {
@@ -160,6 +171,10 @@ export function usePeerNetwork({
         console.log('[Client] Received world snapshot:', packet.data.byteLength, 'bytes')
         onWorldSnapshotReceived?.(packet.data)
       }
+      else if (packet.type === PacketType.BLOCK_UPDATE) {
+        const { x, y, z, blockId } = packet.data
+        onBlockUpdateReceived?.(x, y, z, blockId)
+      }
     })
 
     connection.on('close', () => {
@@ -187,6 +202,42 @@ export function usePeerNetwork({
     }
   }
 
+  /**
+   * 【供 Host 呼叫】廣播單一方塊更新給所有 Client (可排除發送者)
+   */
+  function broadcastBlockUpdate(x: number, y: number, z: number, blockId: BlockId, excludePeerId?: string) {
+    if (currentRole.value !== NetworkRole.HOST)
+      return
+
+    const packet: BlockUpdatePacket = {
+      type: PacketType.BLOCK_UPDATE,
+      data: { x, y, z, blockId },
+    }
+
+    connections.forEach((conn, peerId) => {
+      if (peerId !== excludePeerId && conn.open) {
+        conn.send(packet)
+      }
+    })
+  }
+
+  /**
+   * 【供 Client 呼叫】將單一方塊更新傳送給 Host
+   */
+  function sendBlockUpdateToHost(x: number, y: number, z: number, blockId: BlockId) {
+    if (currentRole.value !== NetworkRole.CLIENT)
+      return
+
+    const hostConn = Array.from(connections.values())[0]
+    if (hostConn && hostConn.open) {
+      const packet: BlockUpdatePacket = {
+        type: PacketType.BLOCK_UPDATE,
+        data: { x, y, z, blockId },
+      }
+      hostConn.send(packet)
+    }
+  }
+
   onBeforeUnmount(() => {
     connections.forEach((conn) => conn.close())
     connections.clear()
@@ -201,6 +252,8 @@ export function usePeerNetwork({
     currentRole,
     currentPeerId,
     sendWorldSnapshot,
+    broadcastBlockUpdate,
+    sendBlockUpdateToHost,
     /** 暴露給 Host 在有人連線時，能夠主動派送 Snapshot 的方法。
      * 暫時由外部直接監聽，這邊提供 connections reference 以便未來擴充
      */

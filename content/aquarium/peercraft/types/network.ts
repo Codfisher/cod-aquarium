@@ -1,3 +1,5 @@
+import type { BlockId } from '../domains/world/world-constants'
+
 /**
  * P2P 網路連線角色
  */
@@ -12,6 +14,8 @@ export enum NetworkRole {
 export enum PacketType {
   /** 初次連線時，Host 傳送完整世界快照給 Client */
   WORLD_SNAPSHOT = 'world_snapshot',
+  /** 當有玩家挖掘或放置方塊時，同步單一座標點的更新 */
+  BLOCK_UPDATE = 'block_update',
 }
 
 /** 完整世界快照封包 */
@@ -21,4 +25,15 @@ export interface WorldSnapshotPacket {
   data: Uint8Array;
 }
 
-export type NetworkPacket = WorldSnapshotPacket
+/** 單一方塊更新封包 (挖掘/放置) */
+export interface BlockUpdatePacket {
+  type: PacketType.BLOCK_UPDATE;
+  data: {
+    x: number;
+    y: number;
+    z: number;
+    blockId: BlockId;
+  };
+}
+
+export type NetworkPacket = WorldSnapshotPacket | BlockUpdatePacket
