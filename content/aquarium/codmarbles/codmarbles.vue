@@ -1,7 +1,9 @@
 <template>
-  <u-app :toaster="{
-    position: 'top-right',
-  }">
+  <u-app
+    :toaster="{
+      position: 'top-right',
+    }"
+  >
     <div class="fixed w-dvw h-dvh p-0 m-0">
       <canvas
         v-once
@@ -276,17 +278,16 @@ import HeroLogo from './components/hero-logo.vue'
 import LoadingOverlay from './components/loading-overlay.vue'
 import { useFontLoader } from './composables/use-font-loader'
 import { useGameStore } from './domains/game/game-store'
-import RankingList from './domains/game/ranking-list.vue'
 import { useBabylonScene } from './domains/game/use-babylon-scene'
 import { useClientPlayer } from './domains/game/use-client-player'
 import { useHostPlayer } from './domains/game/use-host-player'
 import { createMarble, GHOST_RENDERING_GROUP_ID, MARBLE_SIZE } from './domains/marble'
+import MarbleManagerModal from './domains/marble/marble-manager-modal.vue'
 import PlayerSettingsModal from './domains/party-mode/player-settings-modal.vue'
 import PartySetupModal from './domains/party-mode/setup-modal.vue'
 import { connectTracks, createTrackSegment } from './domains/track-segment'
 import { TrackSegmentType } from './domains/track-segment/data'
 import { useAssetStore } from './stores/asset-store'
-import MarbleManagerModal from './domains/marble/marble-manager-modal.vue'
 
 const toast = useToast()
 const alertVisible = ref(true)
@@ -379,7 +380,7 @@ const defaultMarbleCount = 10
 const marbleList = shallowRef<Marble[]>([])
 const marbleListNameList = computed(() => marbleList.value
   .filter((marble) => marble.mesh.isEnabled())
-  .map(prop('name'))
+  .map(prop('name')),
 )
 
 const focusedMarble = shallowRef<Marble>()

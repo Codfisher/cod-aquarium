@@ -23,7 +23,10 @@ import {
   DynamicTexture,
   GPUParticleSystem,
   MeshBuilder,
+  MirrorTexture,
   ParticleSystem,
+  PBRMaterial,
+  Plane,
   PointerEventTypes,
   Ray,
   ShadowGenerator,
@@ -311,10 +314,36 @@ function handleSelectBlock(blockType: BlockType) {
 
 function createGround({ scene }: { scene: Scene }) {
   const ground = MeshBuilder.CreateGround('ground', { width: 1000, height: 1000 }, scene)
-  const material = new StandardMaterial('groundMat', scene)
-  material.diffuseColor = new Color3(0.96, 0.95, 0.93)
-  ground.material = material
+
+  const pbr = new PBRMaterial('groundPBR', scene)
+  pbr.albedoColor = new Color3(0.9, 0.9, 0.9)
+  pbr.metallic = 0.2
+  pbr.roughness = 0.2
+
+  const mirrorTexture = new MirrorTexture('groundMirror', 512, scene, true)
+  mirrorTexture.mirrorPlane = new Plane(0, -1, 0, 0)
+  mirrorTexture.level = 0.5
+
+  // 初始化 renderList
+  mirrorTexture.renderList = []
+  pbr.reflectionTexture = mirrorTexture
+
+  ground.material = pbr
   ground.receiveShadows = true
+
+  /** 將場景中既有與新增的 mesh 加入倒影的渲染清單 */
+  for (const mesh of scene.meshes) {
+    if (mesh !== ground) {
+      mirrorTexture.renderList.push(mesh)
+    }
+  }
+
+  scene.onNewMeshAddedObservable.add((mesh) => {
+    if (mesh !== ground) {
+      mirrorTexture.renderList?.push(mesh)
+    }
+  })
+
   return ground
 }
 
@@ -499,7 +528,7 @@ const { canvasRef, scene, camera } = useBabylonScene({
         pipeline.depthOfField.fStop = DEFAULT_F_STOP
 
         pipeline.imageProcessingEnabled = true
-        pipeline.imageProcessing.contrast = 1.25
+        pipeline.imageProcessing.contrast = 1.1
         pipeline.imageProcessing.exposure = 1.1
 
         // 暗角
