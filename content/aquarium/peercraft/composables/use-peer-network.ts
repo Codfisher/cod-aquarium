@@ -4,34 +4,27 @@ import { onBeforeUnmount, ref } from 'vue'
 import { NetworkRole, PacketType } from '../types/network'
 
 export interface UsePeerNetworkParams {
-  /** 角色的網路身份 */
-  role: NetworkRole;
-  /**
-   * 若身分是 Client，必須提供目標 Host 的 ID。
-   * 若身分是 Host，此欄位無作用。
-   */
-  targetHostId?: string;
-
+  /** 事件：連線建立成功 (做為 Client 連上，或做為 Host 啟動完成) */
+  onConnected?: () => void;
   /** 事件：Client 收到 Host 傳來的世界快照 */
   onWorldSnapshotReceived?: (worldState: Uint8Array) => void;
-  /** 事件：連線建立成功 */
-  onConnected?: () => void;
-  /** 事件：建立 Host 成功並取得 PeerID */
-  onHostReady?: (hostId: string) => void;
+  /** 事件：Host 偵測到有新 Client 連線成功，此時即可派送世界快照 */
+  onClientConnected?: (peerId: string) => void;
 }
+
+export const FIXED_ROOM_ID = 'peercraft-fixed-room-v1'
 
 /**
  * 封裝 PeerJS 的 P2P 網路邏輯
  */
 export function usePeerNetwork({
-  role,
-  targetHostId,
-  onWorldSnapshotReceived,
   onConnected,
-  onHostReady,
+  onWorldSnapshotReceived,
+  onClientConnected,
 }: UsePeerNetworkParams) {
   const isReady = ref(false)
   const currentPeerId = ref<string>('')
+  const currentRole = ref<NetworkRole | null>(null)
 
   let peer: Peer | null = null
   /**
@@ -47,40 +40,89 @@ export function usePeerNetwork({
 
     const { Peer } = await import('peerjs')
 
-    peer = new Peer()
+    // 1. 先嘗試以匿名 Client 身份連線
+    const tempPeer = new Peer()
+    peer = tempPeer
 
-    peer.on('open', (id) => {
+    tempPeer.on('open', (id) => {
       currentPeerId.value = id
+      console.log(`[Network] Initialize as Client. Attempting to connect to ${FIXED_ROOM_ID}...`)
 
-      if (role === NetworkRole.HOST) {
-        isReady.value = true
-        onHostReady?.(id)
-        onConnected?.()
-      }
-      else if (role === NetworkRole.CLIENT && targetHostId) {
-        /** Client 取得自己的 ID 後，主動連向 Host */
-        const connection = peer!.connect(targetHostId, {
-          reliable: true,
+      const destroyTempClientAndBecomeHost = () => {
+        if (currentRole.value !== null)
+          return
+
+        console.warn(`[Network] Room ${FIXED_ROOM_ID} not fully reachable or not found. Taking over as Host...`)
+        currentRole.value = NetworkRole.HOST
+        tempPeer.destroy()
+
+        peer = new Peer(FIXED_ROOM_ID)
+
+        peer.on('open', (hostId) => {
+          currentPeerId.value = hostId
+          isReady.value = true
+          console.log(`[Network] Successfully created room as Host: ${hostId}`)
+          onConnected?.()
         })
-        setupClientConnection(connection)
-      }
-    })
 
-    if (role === NetworkRole.HOST) {
-      /** Host 監聽來自 Client 的連線 */
-      peer.on('connection', (connection) => {
-        setupHostConnection(connection)
+        peer.on('connection', (inboundConnection) => {
+          setupHostConnection(inboundConnection)
+        })
+
+        peer.on('error', (hostErr) => {
+          console.error('[Network] Host creation error:', hostErr)
+        })
+      }
+
+      // 設定 3 秒連線逾時，如果連不上就強制轉為 Host
+      const clientConnectionTimeout = setTimeout(() => {
+        if (currentRole.value === null) {
+          destroyTempClientAndBecomeHost()
+        }
+      }, 3000)
+
+      const connection = tempPeer.connect(FIXED_ROOM_ID)
+
+      // 如果連線成功，代表房間存在，正式成為 Client
+      connection.on('open', () => {
+        clearTimeout(clientConnectionTimeout)
+        if (currentRole.value === null) {
+          currentRole.value = NetworkRole.CLIENT
+          setupClientConnection(connection)
+        }
       })
-    }
+
+      connection.on('error', (err) => {
+        console.error('[Network] Client connection to Host failed:', err)
+        if (currentRole.value === null) {
+          clearTimeout(clientConnectionTimeout)
+          destroyTempClientAndBecomeHost()
+        }
+      })
+
+      // 如果連線失敗 (找不到該 Peer)
+      tempPeer.on('error', (err) => {
+        if (err.type === 'peer-unavailable' && currentRole.value === null) {
+          clearTimeout(clientConnectionTimeout)
+          destroyTempClientAndBecomeHost()
+        }
+        else {
+          console.error('[Network] Client error:', err)
+        }
+      })
+    })
   }
 
   /**
    * 設定 Host 側的連線邏輯
    */
   function setupHostConnection(connection: DataConnection) {
+    console.log(`[Host] Incoming connection from ${connection.peer}...`)
+
     connection.on('open', () => {
       connections.set(connection.peer, connection)
-      console.log('[Host] Client connected:', connection.peer)
+      console.log('[Host] Client connected successfully:', connection.peer)
+      onClientConnected?.(connection.peer)
     })
 
     connection.on('data', (data) => {
@@ -97,10 +139,18 @@ export function usePeerNetwork({
    * 設定 Client 側的連線邏輯
    */
   function setupClientConnection(connection: DataConnection) {
-    connection.on('open', () => {
+    // 防呆：有時候 open 事先就在上面觸發過了，此處檢查連線狀態
+    if (connection.open && !isReady.value) {
       connections.set(connection.peer, connection)
       isReady.value = true
       console.log('[Client] Connected to Host:', connection.peer)
+      onConnected?.()
+    }
+
+    connection.on('open', () => {
+      connections.set(connection.peer, connection)
+      isReady.value = true
+      console.log('[Client] Connected to Host (event):', connection.peer)
       onConnected?.()
     })
 
@@ -124,7 +174,7 @@ export function usePeerNetwork({
    * （使用 Uint8Array 傳輸，確保 256KB 效能）
    */
   function sendWorldSnapshot(targetPeerId: string, worldState: Uint8Array) {
-    if (role !== NetworkRole.HOST)
+    if (currentRole.value !== NetworkRole.HOST)
       return
 
     const connection = connections.get(targetPeerId)
@@ -148,6 +198,7 @@ export function usePeerNetwork({
 
   return {
     isReady,
+    currentRole,
     currentPeerId,
     sendWorldSnapshot,
     /** 暴露給 Host 在有人連線時，能夠主動派送 Snapshot 的方法。
