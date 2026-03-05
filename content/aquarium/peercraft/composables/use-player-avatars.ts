@@ -82,12 +82,12 @@ function peerIdToColor(peerId: string): Color3 {
 /**
  * 建立 Q 版末影人 avatar 的所有部件
  *
- * 身體比例（相對於 root 中心，root 在 AABB 垂直中央）：
- * - 頭部：正方大頭（0.55×0.55×0.55）  y = +0.25 (相對 root)
- * - 身體：Q 版軀幹（0.30×0.40×0.20）  y = -0.225 (相對 root)
- * - 雙腿：細長肢（0.10×0.825×0.10）  y = -0.8375 (相對 root)
- * - 雙臂：Q 版短臂（0.08×0.80×0.08）  y = -0.425 (相對 root)
- * - 眼睛：Q 版大眼，鏡頭高度 1.5 (相對腳底)
+ * 身體比例（相對於 root 中心，root 在 AABB 垂直中央，y = 0.95）：
+ * - 頭部：正方大頭（0.55×0.55×0.55）  y = +0.55 (相對 root，眼中點)
+ * - 身體：Q 版軀幹（0.30×0.40×0.20）  y = +0.075 (相對 root)
+ * - 雙腿：細長肢（0.10×0.825×0.10）  y = -0.5375 (相對 root)
+ * - 雙臂：Q 版短臂（0.08×0.80×0.08）  y = -0.175 (相對 root)
+ * - 眼睛：Q 版大眼，鏡位 1.5 (相對腳底)
  */
 function createEndermanAvatar(peerId: string, scene: Scene): AvatarEntry {
   const root = new TransformNode(`avatar-root-${peerId}`, scene)
@@ -118,7 +118,7 @@ function createEndermanAvatar(peerId: string, scene: Scene): AvatarEntry {
     depth: 0.55,
   }, scene)
   head.parent = root
-  head.position.y = 0.25
+  head.position.y = 0.55
   head.material = darkMat
   meshes.push(head)
 
@@ -129,12 +129,12 @@ function createEndermanAvatar(peerId: string, scene: Scene): AvatarEntry {
     depth: 0.20,
   }, scene)
   body.parent = root
-  body.position.y = -0.225
+  body.position.y = 0.075
   body.material = darkMat
   meshes.push(body)
 
   /** 眼睛（大一點，水平窄條，突出於頭部前方避免 Z-fighting） */
-  const eyeY = 0.25
+  const eyeY = 0.55
   const eyeZ = 0.55 / 2 + 0.03
 
   const leftEye = MeshBuilder.CreateBox(`avatar-leye-${peerId}`, {
@@ -173,10 +173,10 @@ function createEndermanAvatar(peerId: string, scene: Scene): AvatarEntry {
   }
 
   const joints = {
-    leftLeg: createLimb('lleg', 0.10, 0.825, 0.10, -0.10, -0.8375),
-    rightLeg: createLimb('rleg', 0.10, 0.825, 0.10, 0.10, -0.8375),
-    leftArm: createLimb('larm', 0.08, 0.80, 0.08, -0.19, -0.425),
-    rightArm: createLimb('rarm', 0.08, 0.80, 0.08, 0.19, -0.425),
+    leftLeg: createLimb('lleg', 0.10, 0.825, 0.10, -0.10, -0.5375),
+    rightLeg: createLimb('rleg', 0.10, 0.825, 0.10, 0.10, -0.5375),
+    leftArm: createLimb('larm', 0.08, 0.80, 0.08, -0.19, -0.175),
+    rightArm: createLimb('rarm', 0.08, 0.80, 0.08, 0.19, -0.175),
   }
 
   /** 初始狀態 */
