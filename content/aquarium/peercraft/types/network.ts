@@ -12,15 +12,15 @@ export enum NetworkRole {
 
 export enum PacketType {
   /** 初次連線時，Host 傳送完整世界快照給 Client */
-  WORLD_SNAPSHOT = 'world_snapshot',
+  WORLD_SNAPSHOT = 'world-snapshot',
   /** 當有玩家挖掘或放置方塊時，同步單一座標點的更新 */
-  BLOCK_UPDATE = 'block_update',
+  BLOCK_UPDATE = 'block-update',
   /** 同步正在挖掘的方塊進度 (視覺特效使用) */
-  MINING_PROGRESS = 'mining_progress',
+  MINING_PROGRESS = 'mining-progress',
   /** 同步玩家位置與朝向 */
-  PLAYER_POSITION = 'player_position',
+  PLAYER_POSITION = 'player-position',
   /** 同步玩家手上拿著的方塊 */
-  HELD_BLOCK = 'held_block',
+  HELD_BLOCK = 'held-block',
 }
 
 /** 完整世界快照封包 */
