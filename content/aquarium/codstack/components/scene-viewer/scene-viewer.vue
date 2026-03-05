@@ -868,14 +868,11 @@ type Events = ComponentEmit<typeof ContextMenu>
 const contentMenuEvents: EmitsToObject<Events> = {
   // preview
   cancelPreview: () => emit('cancelPreview'),
-  updatePreviewOffset: (data: Partial<{
-    vertical: number;
-    yRotation: number;
-  }>) => {
+  updatePreviewOffset(data) {
     previewOffset.value.vertical += data.vertical ?? 0
     previewOffset.value.yRotation += data.yRotation ?? 0
   },
-  useAsPreview: (path: string) => {
+  useAsPreview(path) {
     emit('useAsPreview', path)
   },
 
@@ -886,10 +883,10 @@ const contentMenuEvents: EmitsToObject<Events> = {
   deleteSelected: () => deleteSelectedMeshes(),
 
   // transform
-  rotate: (mesh: AbstractMesh, axis: 'x' | 'y' | 'z', angleRad: number) => {
+  rotate(mesh, axis, angleRad) {
     rotateMesh(mesh, axis, angleRad)
   },
-  enableGizmo(mode: 'position' | 'rotation' | 'scale') {
+  enableGizmo(mode) {
     if (!gizmoManager.value)
       return
     gizmoManager.value.positionGizmoEnabled = mode === 'position'
