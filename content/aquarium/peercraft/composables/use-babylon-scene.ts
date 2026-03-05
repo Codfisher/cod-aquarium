@@ -1,6 +1,8 @@
 import {
+  CascadedShadowGenerator,
   Color3,
   Color4,
+  DirectionalLight,
   Engine,
   HemisphericLight,
   Scene,
@@ -28,6 +30,8 @@ interface UseBabylonSceneParam {
   init?: (param: InitParams) => Promise<void>;
 }
 
+export const SUN_LIGHT_NAME = 'sun-directional'
+
 const defaultParam: Required<UseBabylonSceneParam> = {
   async createEngine({ canvas }) {
     const webGPUSupported = await WebGPUEngine.IsSupportedAsync
@@ -53,14 +57,36 @@ const defaultParam: Required<UseBabylonSceneParam> = {
 
     scene.clearColor = new Color4(0.53, 0.74, 0.93, 1)
 
-    const light = new HemisphericLight(
-      'sun',
-      new Vector3(0.3, 1, 0.5),
+    /** 環境補光（不投射陰影） */
+    const ambientLight = new HemisphericLight(
+      'ambient',
+      new Vector3(0, 1, 0),
       scene,
     )
-    light.intensity = 1.1
-    light.diffuse = new Color3(1.0, 0.98, 0.92)
-    light.groundColor = new Color3(0.3, 0.3, 0.4)
+    ambientLight.intensity = 0.5
+    ambientLight.diffuse = new Color3(0.9, 0.9, 1.0)
+    ambientLight.groundColor = new Color3(0.3, 0.3, 0.4)
+
+    /** 太陽（投射陰影） */
+    const sunLight = new DirectionalLight(
+      SUN_LIGHT_NAME,
+      new Vector3(-0.5, -1, 0.3).normalize(),
+      scene,
+    )
+    sunLight.intensity = 0.8
+    sunLight.diffuse = new Color3(1.0, 0.98, 0.92)
+
+    /** 級聯陰影 */
+    const csm = new CascadedShadowGenerator(1024, sunLight)
+    csm.numCascades = 4
+    csm.lambda = 0.7
+    csm.cascadeBlendPercentage = 0.05
+    csm.stabilizeCascades = true
+    csm.shadowMaxZ = 90
+    csm.usePercentageCloserFiltering = true
+    csm.bias = 0.005
+    // 偏移採樣點，消除斜面上的條紋
+    csm.normalBias = 0.005
 
     scene.fogMode = Scene.FOGMODE_LINEAR
     scene.fogColor = new Color3(0.53, 0.74, 0.93)

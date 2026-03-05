@@ -12,12 +12,12 @@
 
     <!-- 挖掘進度條 -->
     <div
-      v-show="isMining && miningProgress > 0 && isReady"
+      v-show="blockMiner.isMining.value && blockMiner.miningProgress.value > 0 && isReady"
       class="mining-progress-container"
     >
       <div
         class="mining-progress-bar"
-        :style="{ width: `${miningProgress * 100}%` }"
+        :style="{ width: `${blockMiner.miningProgress.value * 100}%` }"
       />
     </div>
 
@@ -29,9 +29,6 @@
       <div class="text-2xl font-bold mb-4 animate-pulse">
         {{ currentRole === 'client' ? '正在下載世界地圖...' : '連線至伺服器...' }}
       </div>
-      <!-- <div class="text-sm text-gray-400">
-        房間 ID: {{ FIXED_ROOM_ID }}
-      </div> -->
     </div>
   </div>
 </template>
@@ -39,7 +36,7 @@
 <script setup lang="ts">
 import type { Mesh, Scene, UniversalCamera } from '@babylonjs/core'
 import type { VoxelRenderer } from '../renderer/voxel-renderer'
-import { Color4, MeshBuilder, ParticleSystem, StandardMaterial, Texture, TransformNode, Vector3 } from '@babylonjs/core'
+import { MeshBuilder, TransformNode, Vector3 } from '@babylonjs/core'
 import { ref } from 'vue'
 import { useBabylonScene } from '../../composables/use-babylon-scene'
 import { useBlockMiner } from '../../composables/use-block-miner'
@@ -59,18 +56,11 @@ const emit = defineEmits<{
 let worldState: Uint8Array
 let renderer: VoxelRenderer
 
-const isMining = ref(false)
-const miningProgress = ref(0)
 const heldBlockId = ref<BlockId | null>(null)
 let hasStarted = false
 
-/** startGame 中建立，供 handleRemoteMiningProgress 使用 */
-let destroyMaterialList: StandardMaterial[] = []
-
-// 處理遠端玩家的挖掘特效
-const remoteMiningEffects = new Map<string, { overlay: Mesh; particleSystem: ParticleSystem; currentBlockId: BlockId | null }>()
-
 const fpsController = useFpsController()
+const blockMiner = useBlockMiner()
 
 const { canvasRef, scene, camera } = useBabylonScene({
   async init() {
@@ -126,97 +116,9 @@ const {
     }
   },
   onMiningProgressReceived: (peerId, x, y, z, progress, blockId) => {
-    handleRemoteMiningProgress(scene.value!, peerId, x, y, z, progress, blockId)
+    blockMiner.handleRemoteMiningProgress(peerId, x, y, z, progress, blockId)
   },
 })
-
-/**
- * 輔助函式：建立一組挖掘特效 (模型疊加層 + 粒子系統)
- */
-function createMiningEffects(id: string, sceneInstance: Scene) {
-  const overlay = MeshBuilder.CreateBox(`destroy-overlay-${id}`, { size: 1.002 }, sceneInstance)
-  overlay.isVisible = false
-  overlay.isPickable = false
-
-  const particleSystem = new ParticleSystem(`mining-particles-${id}`, 200, sceneInstance)
-  particleSystem.createBoxEmitter(
-    new Vector3(-1, 0, -1),
-    new Vector3(1, 1, 1),
-    new Vector3(-0.5, -0.5, -0.5),
-    new Vector3(0.5, 0.5, 0.5),
-  )
-  particleSystem.blendMode = ParticleSystem.BLENDMODE_STANDARD
-  particleSystem.color1 = new Color4(1.0, 1.0, 1.0, 1.0)
-  particleSystem.color2 = new Color4(1.0, 1.0, 1.0, 1.0)
-  particleSystem.colorDead = new Color4(1.0, 1.0, 1.0, 0.0)
-  particleSystem.minSize = 0.05
-  particleSystem.maxSize = 0.15
-  particleSystem.minLifeTime = 0.2
-  particleSystem.maxLifeTime = 0.4
-  particleSystem.emitRate = 60
-  particleSystem.gravity = new Vector3(0, -10, 0)
-  particleSystem.minEmitPower = 1
-  particleSystem.maxEmitPower = 3
-  particleSystem.updateSpeed = 0.01
-
-  particleSystem.isAnimationSheetEnabled = true
-  particleSystem.spriteCellWidth = 4
-  particleSystem.spriteCellHeight = 4
-  particleSystem.startSpriteCellID = 0
-  particleSystem.endSpriteCellID = 15
-  particleSystem.spriteCellChangeSpeed = 0
-  particleSystem.spriteRandomStartCell = true
-
-  return { overlay, particleSystem }
-}
-
-/** 處理遠端玩家的挖掘進度 */
-function handleRemoteMiningProgress(sceneInstance: Scene, peerId: string, x: number, y: number, z: number, progress: number, blockId: BlockId) {
-  let effect = remoteMiningEffects.get(peerId)
-  if (!effect) {
-    const { overlay, particleSystem } = createMiningEffects(peerId, sceneInstance)
-    effect = { overlay, particleSystem, currentBlockId: null }
-    remoteMiningEffects.set(peerId, effect)
-  }
-
-  if (progress > 0) {
-    // 強制轉型確保 TS 知道 effect 存在 (上面剛創過或拿過)
-    const eff = effect!
-    // 更新材質
-    if (eff.currentBlockId !== blockId) {
-      eff.currentBlockId = blockId
-      const textureDef = BLOCK_TEXTURES[blockId as keyof typeof BLOCK_TEXTURES]
-      const texturePath = textureDef.bottom ?? textureDef.all ?? ''
-      if (texturePath) {
-        if (eff.particleSystem.particleTexture)
-          eff.particleSystem.particleTexture.dispose()
-        eff.particleSystem.particleTexture = new Texture(texturePath, sceneInstance, {
-          samplingMode: Texture.NEAREST_SAMPLINGMODE,
-        })
-      }
-    }
-
-    // 更新位置
-    const pos = new Vector3(x, y, z)
-    eff.overlay.position.copyFrom(pos)
-    eff.particleSystem.emitter = pos
-
-    // 更新視覺
-    const stage = Math.min(9, Math.floor(progress * 10))
-    eff.overlay.material = destroyMaterialList[stage] || null
-    eff.overlay.isVisible = true
-
-    if (!eff.particleSystem.isStarted())
-      eff.particleSystem.start()
-  }
-  else {
-    // 停止挖掘
-    const eff = effect!
-    eff.overlay.isVisible = false
-    if (eff.particleSystem.isStarted())
-      eff.particleSystem.stop()
-  }
-}
 
 /** 啟動遊戲場景 */
 function startGame(sceneInstance: Scene, cameraInstance: UniversalCamera, canvas: HTMLCanvasElement) {
@@ -239,8 +141,6 @@ function startGame(sceneInstance: Scene, cameraInstance: UniversalCamera, canvas
   const handTransform = new TransformNode('hand-transform', sceneInstance)
   handTransform.parent = cameraInstance
   handTransform.position = new Vector3(0.5, -0.4, 0.8)
-
-  // 一點點傾斜度讓它看起來像拿在手中
   handTransform.rotation = new Vector3(Math.PI / 16, -Math.PI / 8, 0)
 
   let handMeshes: Mesh[] = []
@@ -302,19 +202,17 @@ function startGame(sceneInstance: Scene, cameraInstance: UniversalCamera, canvas
   }
 
   /** 啟動方塊挖掘控制器 */
-  const miner = useBlockMiner({
+  blockMiner.start({
     scene: sceneInstance,
     camera: cameraInstance,
     canvas,
     worldState,
     canMine: () => heldBlockId.value === null,
     onBlockMined(hit) {
-      /** 挖掉方塊後，將該方塊拿在手上 */
       heldBlockId.value = hit.blockId
       updateHandMesh(hit.blockId)
       renderer.rebuildInstances(worldState)
 
-      // 廣播或發送給伺服器 (挖掉 = 變為 AIR)
       if (currentRole.value === NetworkRole.HOST) {
         broadcastBlockUpdate(hit.blockX, hit.blockY, hit.blockZ, BlockId.AIR)
       }
@@ -322,88 +220,25 @@ function startGame(sceneInstance: Scene, cameraInstance: UniversalCamera, canvas
         sendBlockUpdateToHost(hit.blockX, hit.blockY, hit.blockZ, BlockId.AIR)
       }
     },
-  })
-
-  let localCurrentParticleBlockId: BlockId | null = null
-
-  /** 建立破壞裂痕疊加層的材質列表 (0~9 階段) */
-  destroyMaterialList = []
-  for (let i = 0; i < 10; i++) {
-    const mat = new StandardMaterial(`destroy_stage_${i}`, sceneInstance)
-    const tex = new Texture(`/assets/minecraft/textures/block/destroy_stage_${i}.png`, sceneInstance, {
-      samplingMode: Texture.NEAREST_SAMPLINGMODE,
-    })
-    tex.hasAlpha = true
-    mat.diffuseTexture = tex
-    mat.useAlphaFromDiffuseTexture = true
-    mat.zOffset = -1 // 避免 Z-fighting
-    destroyMaterialList.push(mat)
-  }
-
-  const localEffects = createMiningEffects('local', sceneInstance)
-
-  /** 同步狀態給 UI 與粒子系統 */
-  sceneInstance.onBeforeRenderObservable.add(() => {
-    isMining.value = miner.isMining.value
-    miningProgress.value = miner.miningProgress.value
-
-    // 處理粒子發發射與進度同步
-    if (miner.isMining.value && miner.targetBlock.value && miner.targetBlockId.value !== null) {
-      // 動態更換粒子材質為方塊底部貼圖
-      if (localCurrentParticleBlockId !== miner.targetBlockId.value) {
-        localCurrentParticleBlockId = miner.targetBlockId.value
-        const textureDef = BLOCK_TEXTURES[localCurrentParticleBlockId as keyof typeof BLOCK_TEXTURES]
-        const texturePath = textureDef.bottom ?? textureDef.all ?? ''
-        if (texturePath) {
-          if (localEffects.particleSystem.particleTexture) {
-            localEffects.particleSystem.particleTexture.dispose()
-          }
-          localEffects.particleSystem.particleTexture = new Texture(texturePath, sceneInstance, {
-            samplingMode: Texture.NEAREST_SAMPLINGMODE,
-          })
+    onMiningProgress(info) {
+      if (info) {
+        if (currentRole.value === NetworkRole.HOST) {
+          broadcastMiningProgress('host', info.x, info.y, info.z, info.progress, info.blockId)
+        }
+        else if (currentRole.value === NetworkRole.CLIENT) {
+          sendMiningProgressToHost(info.x, info.y, info.z, info.progress, info.blockId)
         }
       }
-
-      localEffects.particleSystem.emitter = new Vector3(
-        miner.targetBlock.value.x,
-        miner.targetBlock.value.y,
-        miner.targetBlock.value.z,
-      )
-      if (!localEffects.particleSystem.isStarted()) {
-        localEffects.particleSystem.start()
-      }
-
-      // 更新裂痕疊加層
-      localEffects.overlay.position.copyFrom(localEffects.particleSystem.emitter as Vector3)
-      const stage = Math.min(9, Math.floor(miner.miningProgress.value * 10))
-      localEffects.overlay.material = destroyMaterialList[stage] || null
-      localEffects.overlay.isVisible = true
-
-      // 【網路同步】傳送進度給他人 (如果是本機玩家在挖)
-      if (currentRole.value === NetworkRole.HOST) {
-        broadcastMiningProgress('host', miner.targetBlock.value.x, miner.targetBlock.value.y, miner.targetBlock.value.z, miner.miningProgress.value, miner.targetBlockId.value)
-      }
-      else if (currentRole.value === NetworkRole.CLIENT) {
-        sendMiningProgressToHost(miner.targetBlock.value.x, miner.targetBlock.value.y, miner.targetBlock.value.z, miner.miningProgress.value, miner.targetBlockId.value)
-      }
-    }
-    else {
-      // 如果剛停止挖掘，也要同步一次進度 0 給他人，讓他人能關閉特效
-      if (localCurrentParticleBlockId !== null) {
+      else {
+        // 停止挖掘，同步進度 0 給他人
         if (currentRole.value === NetworkRole.HOST) {
           broadcastMiningProgress('host', 0, 0, 0, 0, BlockId.AIR)
         }
         else if (currentRole.value === NetworkRole.CLIENT) {
           sendMiningProgressToHost(0, 0, 0, 0, BlockId.AIR)
         }
-        localCurrentParticleBlockId = null
       }
-
-      if (localEffects.particleSystem.isStarted()) {
-        localEffects.particleSystem.stop()
-      }
-      localEffects.overlay.isVisible = false
-    }
+    },
   })
 
   /** 滑鼠互動 */
@@ -420,11 +255,10 @@ function startGame(sceneInstance: Scene, cameraInstance: UniversalCamera, canvas
       /** 左鍵：放置持有的方塊 */
       if (placeBlock(worldState, hit.adjacentX, hit.adjacentY, hit.adjacentZ, heldBlockId.value)) {
         const placedBlockId = heldBlockId.value
-        heldBlockId.value = null // 放完後變回空手
+        heldBlockId.value = null
         updateHandMesh(null)
         renderer.rebuildInstances(worldState)
 
-        // 廣播或發送給伺服器
         if (currentRole.value === NetworkRole.HOST) {
           broadcastBlockUpdate(hit.adjacentX, hit.adjacentY, hit.adjacentZ, placedBlockId)
         }

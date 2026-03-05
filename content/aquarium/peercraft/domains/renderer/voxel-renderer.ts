@@ -1,4 +1,4 @@
-import type { Mesh, Scene } from '@babylonjs/core'
+import type { DirectionalLight, Mesh, Scene, ShadowGenerator } from '@babylonjs/core'
 import type { BlockTextureDef } from '../world/world-constants'
 import {
   Color3,
@@ -7,6 +7,7 @@ import {
   StandardMaterial,
   Texture,
 } from '@babylonjs/core'
+import { SUN_LIGHT_NAME } from '../../composables/use-babylon-scene'
 import {
   BLOCK_TEXTURES,
   BlockId,
@@ -175,6 +176,16 @@ export function createVoxelRenderer(scene: Scene, worldState: Uint8Array): Voxel
       mesh.material = material
       mesh.isVisible = false
       allEntries.set(`${blockId}`, { mesh, material })
+    }
+  }
+
+  /** 註冊陰影投射與接收 */
+  const sunLight = scene.getLightByName(SUN_LIGHT_NAME) as DirectionalLight | null
+  const shadowGenerator = sunLight?.getShadowGenerator() as ShadowGenerator | null
+  if (shadowGenerator) {
+    for (const { mesh } of allEntries.values()) {
+      mesh.receiveShadows = true
+      shadowGenerator.addShadowCaster(mesh)
     }
   }
 
