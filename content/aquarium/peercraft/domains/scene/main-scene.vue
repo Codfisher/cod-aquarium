@@ -21,6 +21,20 @@
       />
     </div>
 
+    <!-- 傳送集氣條 -->
+    <div
+      v-if="teleportProgress > 0"
+      class="teleport-charge-container"
+    >
+      <div
+        class="teleport-charge-bar"
+        :style="{ width: `${teleportProgress * 100}%` }"
+      />
+      <div class="teleport-charge-text">
+        TELEPORT CHARGING...
+      </div>
+    </div>
+
     <!-- ESC 暫停選單 -->
     <div
       v-if="fpsController.isPaused.value"
@@ -82,6 +96,7 @@ let hasStarted = false
 
 /** 長按右鍵傳送相關 */
 const rightClickStartTime = ref<number | null>(null)
+const teleportProgress = ref(0)
 const TELEPORT_HOLD_MS = 1000
 const MAX_TELEPORT_DISTANCE = 80
 
@@ -349,8 +364,22 @@ function startGame(sceneInstance: Scene, cameraInstance: UniversalCamera, canvas
   /** 廣播本機玩家位置 */
   let lastPositionBroadcast = 0
   const POSITION_BROADCAST_INTERVAL = 15 // ms
+  const BASE_FOV = cameraInstance.fov
 
   sceneInstance.onBeforeRenderObservable.add(() => {
+    /** 處理傳送進度與視覺效果 */
+    if (rightClickStartTime.value !== null) {
+      const elapsed = performance.now() - rightClickStartTime.value
+      teleportProgress.value = Math.min(1, elapsed / TELEPORT_HOLD_MS)
+
+      // FOV 縮放效果 (從 0.8 縮到 0.65)
+      cameraInstance.fov = BASE_FOV - (teleportProgress.value * 0.15)
+    }
+    else {
+      teleportProgress.value = 0
+      cameraInstance.fov = BASE_FOV
+    }
+
     const now = performance.now()
     if (now - lastPositionBroadcast < POSITION_BROADCAST_INTERVAL)
       return
@@ -461,4 +490,33 @@ function disconnect() {
   height: 100%
   background: rgba(255, 255, 255, 0.9)
   transition: width 0.05s linear
+
+.teleport-charge-container
+  position: absolute
+  top: 50%
+  left: 50%
+  transform: translate(-50%, 40px)
+  width: 120px
+  height: 6px
+  background: rgba(0, 0, 0, 0.6)
+  border: 1px solid rgba(255, 255, 255, 0.2)
+  pointer-events: none
+  display: flex
+  flex-direction: column
+  align-items: center
+
+.teleport-charge-bar
+  height: 100%
+  background: #a855f7
+  box-shadow: 0 0 10px #a855f7
+  align-self: flex-start
+  transition: width 0.05s linear
+
+.teleport-charge-text
+  font-size: 10px
+  font-weight: bold
+  color: #a855f7
+  margin-top: 4px
+  text-shadow: 0 0 4px black
+  letter-spacing: 1px
 </style>
