@@ -9,9 +9,8 @@ import {
 } from '@babylonjs/core'
 import { SUN_LIGHT_NAME } from '../../composables/use-babylon-scene'
 import {
-  BLOCK_TEXTURES,
+  BLOCK_DEFS,
   BlockId,
-  RENDERABLE_BLOCK_IDS,
 } from '../block/block-constants'
 import {
   indexToCoordinate,
@@ -83,8 +82,14 @@ export function createVoxelRenderer(scene: Scene, worldState: Uint8Array): Voxel
   /** 紀錄哪些 blockId 使用 per-face 渲染 */
   const perFaceBlocks = new Set<BlockId>()
 
-  for (const blockId of RENDERABLE_BLOCK_IDS) {
-    const textureDef = BLOCK_TEXTURES[blockId]
+  const blockIds = Object.values(BlockId).filter((v) => typeof v === 'number') as BlockId[]
+
+  for (const blockId of blockIds) {
+    const blockDef = BLOCK_DEFS[blockId]
+    if (blockDef.isHidden || !blockDef.textures)
+      continue
+
+    const textureDef = blockDef.textures
 
     if (needsPerFaceRendering(textureDef)) {
       perFaceBlocks.add(blockId)

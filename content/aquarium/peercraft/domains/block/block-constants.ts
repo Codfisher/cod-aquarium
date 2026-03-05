@@ -3,7 +3,7 @@ export enum BlockId {
   AIR,
   GRASS,
   STONE,
-  WOOD, // oak planks
+  WOOD,
   DIRT,
   BEDROCK,
   SAND,
@@ -11,7 +11,7 @@ export enum BlockId {
   GLASS,
   OAK_LEAVES,
   BRICKS,
-  OAK_LOG, // 原木 / 樹幹
+  OAK_LOG,
 }
 
 /** 材質路徑前綴 */
@@ -35,76 +35,95 @@ export interface BlockTextureDef {
   sideTint?: [number, number, number];
 }
 
-/** 方塊材質對照表 */
-export const BLOCK_TEXTURES: Record<Exclude<BlockId, BlockId.AIR>, BlockTextureDef> = {
+/** 方塊定義 */
+export interface BlockDef {
+  /** 材質定義 (如果是空氣方塊則不需要) */
+  textures?: BlockTextureDef;
+  /** 挖掘所需時間（秒） */
+  miningSeconds?: number;
+  /** 是否可以在挖掘後掉落/撿起（預設為 true） */
+  isDroppable?: boolean;
+  /** 是否隱藏（例如：空氣） */
+  isHidden?: boolean;
+}
+
+/** 所有方塊的詳細定義 */
+export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
+  [BlockId.AIR]: {
+    isHidden: true,
+  },
   [BlockId.GRASS]: {
-    top: `${TEXTURE_BASE}/grass_block_top.png`,
-    side: `${TEXTURE_BASE}/grass_block_side.png`,
-    bottom: `${TEXTURE_BASE}/dirt.png`,
-    /** Plains 生態域草地色調（取自 colormap/grass.png） */
-    topTint: [0.57, 0.74, 0.35],
+    miningSeconds: 0.75,
+    isDroppable: true,
+    textures: {
+      top: `${TEXTURE_BASE}/grass_block_top.png`,
+      side: `${TEXTURE_BASE}/grass_block_side.png`,
+      bottom: `${TEXTURE_BASE}/dirt.png`,
+      topTint: [0.57, 0.74, 0.35],
+    },
   },
   [BlockId.STONE]: {
-    all: `${TEXTURE_BASE}/stone.png`,
+    miningSeconds: 2.0,
+    textures: {
+      all: `${TEXTURE_BASE}/stone.png`,
+    },
   },
   [BlockId.WOOD]: {
-    all: `${TEXTURE_BASE}/oak_planks.png`,
+    miningSeconds: 1.5,
+    textures: {
+      all: `${TEXTURE_BASE}/oak_planks.png`,
+    },
   },
   [BlockId.DIRT]: {
-    all: `${TEXTURE_BASE}/dirt.png`,
+    miningSeconds: 0.5,
+    textures: {
+      all: `${TEXTURE_BASE}/dirt.png`,
+    },
   },
   [BlockId.BEDROCK]: {
-    all: `${TEXTURE_BASE}/bedrock.png`,
+    miningSeconds: Infinity,
+    textures: {
+      all: `${TEXTURE_BASE}/bedrock.png`,
+    },
   },
   [BlockId.SAND]: {
-    all: `${TEXTURE_BASE}/sand.png`,
+    miningSeconds: 0.5,
+    textures: {
+      all: `${TEXTURE_BASE}/sand.png`,
+    },
   },
   [BlockId.COBBLESTONE]: {
-    all: `${TEXTURE_BASE}/cobblestone.png`,
+    miningSeconds: 2.0,
+    textures: {
+      all: `${TEXTURE_BASE}/cobblestone.png`,
+    },
   },
   [BlockId.GLASS]: {
-    all: `${TEXTURE_BASE}/glass.png`,
-  },
-  [BlockId.OAK_LEAVES]: {
-    all: `${TEXTURE_BASE}/oak_leaves.png`,
-    tint: [0.57, 0.74, 0.35],
+    miningSeconds: 0.3,
+    textures: {
+      all: `${TEXTURE_BASE}/glass.png`,
+    },
   },
   [BlockId.BRICKS]: {
-    all: `${TEXTURE_BASE}/bricks.png`,
+    miningSeconds: 2.0,
+    textures: {
+      all: `${TEXTURE_BASE}/bricks.png`,
+    },
+  },
+  [BlockId.OAK_LEAVES]: {
+    miningSeconds: 0.2,
+    isDroppable: false,
+    textures: {
+      all: `${TEXTURE_BASE}/oak_leaves.png`,
+      tint: [0.57, 0.74, 0.35],
+    },
   },
   [BlockId.OAK_LOG]: {
-    top: `${TEXTURE_BASE}/oak_log_top.png`,
-    bottom: `${TEXTURE_BASE}/oak_log_top.png`,
-    side: `${TEXTURE_BASE}/oak_log.png`,
+    miningSeconds: 2.0,
+    textures: {
+      top: `${TEXTURE_BASE}/oak_log_top.png`,
+      bottom: `${TEXTURE_BASE}/oak_log_top.png`,
+      side: `${TEXTURE_BASE}/oak_log.png`,
+    },
   },
 }
-
-/** 方塊挖掘所需時間（秒） */
-export const BLOCK_MINING_TIMES: Record<Exclude<BlockId, BlockId.AIR>, number> = {
-  [BlockId.GRASS]: 0.75,
-  [BlockId.DIRT]: 0.5,
-  [BlockId.SAND]: 0.5,
-  [BlockId.WOOD]: 1.5,
-  [BlockId.STONE]: 2.0,
-  [BlockId.COBBLESTONE]: 2.0,
-  [BlockId.GLASS]: 0.3,
-  [BlockId.OAK_LEAVES]: 0.2,
-  [BlockId.BRICKS]: 2.0,
-  [BlockId.OAK_LOG]: 2.0,
-  [BlockId.BEDROCK]: Infinity,
-}
-
-/** 需要渲染的方塊 ID（排除 AIR） */
-export const RENDERABLE_BLOCK_IDS = [
-  BlockId.GRASS,
-  BlockId.STONE,
-  BlockId.WOOD,
-  BlockId.DIRT,
-  BlockId.BEDROCK,
-  BlockId.SAND,
-  BlockId.COBBLESTONE,
-  BlockId.GLASS,
-  BlockId.OAK_LEAVES,
-  BlockId.BRICKS,
-  BlockId.OAK_LOG,
-] as const

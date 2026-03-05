@@ -4,7 +4,7 @@ import type { RaycastHit } from './block-interaction'
 import { Color3, Color4, MeshBuilder, ParticleSystem, StandardMaterial, Texture, Vector3 } from '@babylonjs/core'
 import { tryOnScopeDispose } from '@vueuse/core'
 import { ref } from 'vue'
-import { BLOCK_MINING_TIMES, BLOCK_TEXTURES } from '../block/block-constants'
+import { BLOCK_DEFS } from '../block/block-constants'
 import { castBlockRay, digBlock } from './block-interaction'
 
 interface MiningProgressInfo {
@@ -128,7 +128,11 @@ export function useBlockMiner() {
       // 更新材質
       if (eff.currentBlockId !== blockId) {
         eff.currentBlockId = blockId
-        const textureDef = BLOCK_TEXTURES[blockId as keyof typeof BLOCK_TEXTURES]
+        const blockDef = BLOCK_DEFS[blockId]
+        const textureDef = blockDef.textures
+        if (!textureDef)
+          return
+
         const texturePath = textureDef.bottom ?? textureDef.all ?? ''
         if (texturePath) {
           if (eff.particleSystem.particleTexture)
@@ -246,7 +250,8 @@ export function useBlockMiner() {
         }
 
         const deltaTime = scene.getEngine().getDeltaTime() / 1000
-        const requiredTime = BLOCK_MINING_TIMES[targetBlockId.value as keyof typeof BLOCK_MINING_TIMES] || 1
+        const blockDef = BLOCK_DEFS[targetBlockId.value]
+        const requiredTime = blockDef.miningSeconds || 1
 
         miningProgress.value = Math.min(1, miningProgress.value + (deltaTime / requiredTime))
 
@@ -265,8 +270,9 @@ export function useBlockMiner() {
         // 動態更換粒子材質為方塊底部貼圖
         if (localCurrentParticleBlockId !== targetBlockId.value) {
           localCurrentParticleBlockId = targetBlockId.value
-          const textureDef = BLOCK_TEXTURES[localCurrentParticleBlockId as keyof typeof BLOCK_TEXTURES]
-          const texturePath = textureDef.bottom ?? textureDef.all ?? ''
+          const blockDef = BLOCK_DEFS[localCurrentParticleBlockId]
+          const textureDef = blockDef.textures
+          const texturePath = textureDef?.bottom ?? textureDef?.all ?? ''
           if (texturePath) {
             if (localEffects.particleSystem.particleTexture) {
               localEffects.particleSystem.particleTexture.dispose()

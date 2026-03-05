@@ -61,7 +61,7 @@ import { useFpsController } from '../../composables/use-fps-controller'
 import { usePeerNetwork } from '../../composables/use-peer-network'
 import { usePlayerAvatars } from '../../composables/use-player-avatars'
 import { NetworkRole } from '../../types/network'
-import { BLOCK_TEXTURES, BlockId } from '../block/block-constants'
+import { BLOCK_DEFS, BlockId } from '../block/block-constants'
 import { castBlockRay, placeBlock, setBlock } from '../player/block-interaction'
 import { useBlockMiner } from '../player/use-block-miner'
 import { createPixelMaterial, createVoxelRenderer } from '../renderer/voxel-renderer'
@@ -184,7 +184,11 @@ function startGame(sceneInstance: Scene, cameraInstance: UniversalCamera, canvas
     handMeshes = []
 
     if (blockId !== null && blockId !== BlockId.AIR) {
-      const textureDef = BLOCK_TEXTURES[blockId]
+      const blockDef = BLOCK_DEFS[blockId]
+      const textureDef = blockDef.textures
+      if (!textureDef)
+        return
+
       const size = 0.3
 
       if (textureDef.all) {
@@ -241,9 +245,12 @@ function startGame(sceneInstance: Scene, cameraInstance: UniversalCamera, canvas
     worldState,
     canMine: () => heldBlockId.value === null,
     onBlockMined(hit) {
-      heldBlockId.value = hit.blockId
-      if (updateHandMeshRef.value) {
-        updateHandMeshRef.value(hit.blockId)
+      const blockDef = BLOCK_DEFS[hit.blockId]
+      if (blockDef.isDroppable !== false) {
+        heldBlockId.value = hit.blockId
+        if (updateHandMeshRef.value) {
+          updateHandMeshRef.value(hit.blockId)
+        }
       }
       renderer.rebuildInstances(worldState)
 
@@ -338,7 +345,13 @@ window.addEventListener('wheel', (event) => {
   if (document.pointerLockElement !== canvasRef.value)
     return
 
-  const blockIds = Object.values(BlockId).filter((id) => typeof id === 'number' && id !== BlockId.AIR) as BlockId[]
+  const blockIds = Object.entries(BLOCK_DEFS)
+    .filter(([id, def]) => {
+      const numericId = Number(id)
+      return !Number.isNaN(numericId) && numericId !== BlockId.AIR && !(def as any).isHidden
+    })
+    .map(([id]) => Number(id) as BlockId)
+
   const currentIndex = heldBlockId.value === null ? -1 : blockIds.indexOf(heldBlockId.value)
 
   let nextIndex = currentIndex
