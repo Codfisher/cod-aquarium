@@ -21,9 +21,27 @@
       />
     </div>
 
+    <!-- ESC 暫停選單 -->
+    <div
+      v-if="fpsController.isPaused.value"
+      class="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white z-40 backdrop-blur-sm"
+    >
+      <h2 class="text-3xl font-bold mb-8 text-shadow-sm">
+        遊戲暫停
+      </h2>
+      <div class="flex flex-col gap-4 w-64">
+        <button
+          class="px-4 py-3 bg-neutral-600 hover:bg-neutral-500 border-2 border-neutral-800 hover:border-neutral-400 font-bold transition-colors shadow-inner"
+          @click="fpsController.resume()"
+        >
+          回到遊戲
+        </button>
+      </div>
+    </div>
+
     <!-- 連線中/載入中遮罩 -->
     <div
-      v-if="!isReady"
+      v-if="!isReady && !fpsController.isPaused.value"
       class="absolute inset-0 bg-black/80 flex flex-col items-center justify-center text-white z-50 backdrop-blur-sm"
     >
       <div class="text-2xl font-bold mb-4 animate-pulse">
@@ -58,6 +76,8 @@ let worldState = createWorldState()
 let renderer: VoxelRenderer
 
 const heldBlockId = ref<BlockId | null>(null)
+const updateHandMeshRef = ref<((blockId: BlockId | null) => void) | null>(null)
+let handMeshes: Mesh[] = []
 let hasStarted = false
 
 const fpsController = useFpsController()
@@ -90,7 +110,7 @@ const {
         startGame(scene.value!, camera.value!, canvasRef.value!)
       }
       else {
-        console.log('[Network] Reconnected as Host, keeping current world state.')
+        console.warn('[Network] Reconnected as Host, keeping current world state.')
       }
     }
   },
@@ -101,7 +121,7 @@ const {
       startGame(scene.value!, camera.value!, canvasRef.value!)
     }
     else {
-      console.log('[Network] Received new snapshot, updating world.')
+      console.warn('[Network] Received new snapshot, updating world.')
       if (renderer) {
         renderer.rebuildInstances(worldState)
       }
@@ -157,9 +177,7 @@ function startGame(sceneInstance: Scene, cameraInstance: UniversalCamera, canvas
   handTransform.position = new Vector3(0.5, -0.4, 0.8)
   handTransform.rotation = new Vector3(Math.PI / 16, -Math.PI / 8, 0)
 
-  let handMeshes: Mesh[] = []
-
-  function updateHandMesh(blockId: BlockId | null) {
+  updateHandMeshRef.value = (blockId: BlockId | null) => {
     for (const mesh of handMeshes) {
       mesh.dispose()
     }
@@ -224,7 +242,9 @@ function startGame(sceneInstance: Scene, cameraInstance: UniversalCamera, canvas
     canMine: () => heldBlockId.value === null,
     onBlockMined(hit) {
       heldBlockId.value = hit.blockId
-      updateHandMesh(hit.blockId)
+      if (updateHandMeshRef.value) {
+        updateHandMeshRef.value(hit.blockId)
+      }
       renderer.rebuildInstances(worldState)
 
       if (currentRole.value === NetworkRole.HOST) {
@@ -270,14 +290,20 @@ function startGame(sceneInstance: Scene, cameraInstance: UniversalCamera, canvas
       if (placeBlock(worldState, hit.adjacentX, hit.adjacentY, hit.adjacentZ, heldBlockId.value)) {
         const placedBlockId = heldBlockId.value
         heldBlockId.value = null
-        updateHandMesh(null)
+        if (updateHandMeshRef.value) {
+          updateHandMeshRef.value(null)
+        }
         renderer.rebuildInstances(worldState)
 
         if (currentRole.value === NetworkRole.HOST) {
-          broadcastBlockUpdate(hit.adjacentX, hit.adjacentY, hit.adjacentZ, placedBlockId)
+          if (typeof placedBlockId === 'number') {
+            broadcastBlockUpdate(hit.adjacentX, hit.adjacentY, hit.adjacentZ, placedBlockId)
+          }
         }
         else if (currentRole.value === NetworkRole.CLIENT) {
-          sendBlockUpdateToHost(hit.adjacentX, hit.adjacentY, hit.adjacentZ, placedBlockId)
+          if (typeof placedBlockId === 'number') {
+            sendBlockUpdateToHost(hit.adjacentX, hit.adjacentY, hit.adjacentZ, placedBlockId)
+          }
         }
       }
     }
@@ -305,6 +331,42 @@ function startGame(sceneInstance: Scene, cameraInstance: UniversalCamera, canvas
   })
 
   emit('ready')
+}
+
+// ── 遊戲玩法：切換拿在手上的方塊 ──
+window.addEventListener('wheel', (event) => {
+  if (document.pointerLockElement !== canvasRef.value)
+    return
+
+  const blockIds = Object.values(BlockId).filter((id) => typeof id === 'number' && id !== BlockId.AIR) as BlockId[]
+  const currentIndex = heldBlockId.value === null ? -1 : blockIds.indexOf(heldBlockId.value)
+
+  let nextIndex = currentIndex
+  if (event.deltaY < 0) {
+    // Scroll up
+    nextIndex = (currentIndex + 1) % blockIds.length
+  }
+  else {
+    // Scroll down
+    nextIndex = (currentIndex - 1 + blockIds.length) % blockIds.length
+  }
+
+  heldBlockId.value = blockIds[nextIndex] ?? null
+  if (updateHandMeshRef.value) {
+    updateHandMeshRef.value(heldBlockId.value)
+  }
+})
+
+/** 離開伺服器 */
+function disconnect() {
+  if (currentRole.value === NetworkRole.CLIENT) {
+    // Client 斷線返回主畫面
+    window.location.reload()
+  }
+  else {
+    // Host 斷線將關閉整個房間
+    window.location.reload()
+  }
 }
 </script>
 

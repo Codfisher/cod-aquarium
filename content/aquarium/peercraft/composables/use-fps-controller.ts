@@ -1,6 +1,6 @@
 import type { Scene, UniversalCamera } from '@babylonjs/core'
 import { Vector3 } from '@babylonjs/core'
-import { onBeforeUnmount } from 'vue'
+import { onBeforeUnmount, ref } from 'vue'
 import {
   PLAYER_EYE_HEIGHT,
   resolveCollision,
@@ -35,6 +35,8 @@ interface UseFpsControllerParams {
 export function useFpsController() {
   /** 清理用的陣列，start 時填入，unmount 時清除 */
   let cleanup: (() => void) | null = null
+  const isPaused = ref(false)
+  let canvasRef: HTMLCanvasElement | null = null
 
   onBeforeUnmount(() => {
     cleanup?.()
@@ -46,6 +48,8 @@ export function useFpsController() {
     canvas,
     worldState,
   }: UseFpsControllerParams) {
+    canvasRef = canvas
+
     /** 按鍵狀態 */
     const keys = {
       forward: false,
@@ -124,11 +128,19 @@ export function useFpsController() {
     window.addEventListener('keydown', handleKeyDown)
     window.addEventListener('keyup', handleKeyUp)
 
-    /** Pointer Lock：點擊 canvas 鎖定滑鼠 */
+    /** Pointer Lock：點擊 canvas 鎖定滑鼠 (如果沒在暫停選單) */
     function handleCanvasClick() {
-      canvas.requestPointerLock()
+      if (!isPaused.value) {
+        canvas.requestPointerLock()
+      }
     }
     canvas.addEventListener('click', handleCanvasClick)
+
+    /** 監聽 ESC / 離開 Pointer Lock */
+    function handlePointerLockChange() {
+      isPaused.value = document.pointerLockElement !== canvas
+    }
+    document.addEventListener('pointerlockchange', handlePointerLockChange)
 
     /** 每幀更新 */
     const observer = scene.onBeforeRenderObservable.add(() => {
@@ -142,6 +154,11 @@ export function useFpsController() {
       const right = camera.getDirection(Vector3.Right())
       right.y = 0
       right.normalize()
+
+      /** 暫停時不處理移動 */
+      if (isPaused.value) {
+        return
+      }
 
       /** 根據按鍵計算移動方向 */
       let moveX = 0
@@ -214,6 +231,7 @@ export function useFpsController() {
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('keyup', handleKeyUp)
       canvas.removeEventListener('click', handleCanvasClick)
+      document.removeEventListener('pointerlockchange', handlePointerLockChange)
       scene.onBeforeRenderObservable.remove(observer)
 
       if (document.pointerLockElement === canvas) {
@@ -222,5 +240,9 @@ export function useFpsController() {
     }
   }
 
-  return { start }
+  function resume() {
+    canvasRef?.requestPointerLock()
+  }
+
+  return { start, resume, isPaused }
 }

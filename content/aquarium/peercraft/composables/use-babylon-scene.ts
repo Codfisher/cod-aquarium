@@ -67,7 +67,6 @@ const defaultParam: Required<UseBabylonSceneParam> = {
     ambientLight.diffuse = new Color3(0.9, 0.9, 1.0)
     ambientLight.groundColor = new Color3(0.3, 0.3, 0.4)
 
-    /** 太陽（投射陰影） */
     const sunLightDirection = new Vector3(-0.5, -1, 0.3).normalize()
     const sunLight = new DirectionalLight(
       SUN_LIGHT_NAME,
@@ -90,11 +89,11 @@ const defaultParam: Required<UseBabylonSceneParam> = {
     sunLight.orthoBottom = -halfSize
     sunLight.autoCalcShadowZBounds = true
 
-    const sg = new ShadowGenerator(1024, sunLight)
+    const sg = new ShadowGenerator(2048, sunLight)
     sg.bias = 0.001
     sg.normalBias = 0.05
     sg.usePercentageCloserFiltering = true
-    sg.filteringQuality = ShadowGenerator.QUALITY_MEDIUM
+    sg.filteringQuality = ShadowGenerator.QUALITY_LOW
 
     scene.fogMode = Scene.FOGMODE_LINEAR
     scene.fogColor = new Color3(0.53, 0.74, 0.93)
