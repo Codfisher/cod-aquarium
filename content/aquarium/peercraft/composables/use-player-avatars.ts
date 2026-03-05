@@ -72,7 +72,10 @@ function peerIdToColor(peerId: string): Color3 {
  * 身體比例（相對於 root 中心，root 在 AABB 垂直中央）：
  * - 頭部：正方大頭（0.55×0.55×0.55）  y = +0.25 (相對 root)
  * - 身體：短小身（0.30×0.25×0.20）  y = -0.15 (相對 root)
- * - 雙腿：超長肢（0.10×0.975×0.10） y = -0.7625 (相對 root)
+ * 身體比例（相對於 root 中心，root 在 AABB 垂直中央）：
+ * - 頭部：正方大頭（0.55×0.55×0.55）  y = +0.25 (相對 root)
+ * - 身體：Q 版軀幹（0.30×0.40×0.20）  y = -0.225 (相對 root)
+ * - 雙腿：細長肢（0.10×0.825×0.10）  y = -0.8375 (相對 root)
  * - 雙臂：Q 版短臂（0.08×0.80×0.08）  y = -0.425 (相對 root)
  * - 眼睛：Q 版大眼，鏡頭高度 1.5 (相對腳底)
  */
@@ -106,40 +109,40 @@ function createEndermanAvatar(peerId: string, scene: Scene): AvatarEntry {
   head.material = darkMat
   meshes.push(head)
 
-  /** 身體 (原本的 Q 版短身體) */
+  /** 身體 (高度改為 0.4) */
   const body = MeshBuilder.CreateBox(`avatar-body-${peerId}`, {
     width: 0.30,
-    height: 0.25,
+    height: 0.40,
     depth: 0.20,
   }, scene)
   body.parent = root
-  body.position.y = -0.15
+  body.position.y = -0.225
   body.material = darkMat
   meshes.push(body)
 
-  /** 左腿 (肢體大幅加長) */
+  /** 左腿 (高度調整為 0.825) */
   const leftLeg = MeshBuilder.CreateBox(`avatar-lleg-${peerId}`, {
     width: 0.10,
-    height: 0.975,
+    height: 0.825,
     depth: 0.10,
   }, scene)
   leftLeg.parent = root
-  leftLeg.position = new Vector3(-0.10, -0.7625, 0)
+  leftLeg.position = new Vector3(-0.10, -0.8375, 0)
   leftLeg.material = darkMat
   meshes.push(leftLeg)
 
   /** 右腿 */
   const rightLeg = MeshBuilder.CreateBox(`avatar-rleg-${peerId}`, {
     width: 0.10,
-    height: 0.975,
+    height: 0.825,
     depth: 0.10,
   }, scene)
   rightLeg.parent = root
-  rightLeg.position = new Vector3(0.10, -0.7625, 0)
+  rightLeg.position = new Vector3(0.10, -0.8375, 0)
   rightLeg.material = darkMat
   meshes.push(rightLeg)
 
-  /** 左臂 (長度調回 0.8) */
+  /** 左臂 (y 座標調整至 -0.425) */
   const leftArm = MeshBuilder.CreateBox(`avatar-larm-${peerId}`, {
     width: 0.08,
     height: 0.80,
