@@ -1,5 +1,5 @@
 /** 世界寬度與深度 */
-export const WORLD_SIZE = 128
+export const WORLD_SIZE = 64
 /** 世界高度 */
 export const WORLD_HEIGHT = 64
 

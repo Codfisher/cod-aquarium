@@ -1,5 +1,5 @@
 import { BlockId } from '../block/block-constants'
-import { coordinateToIndex, WORLD_SIZE } from '../world/world-constants'
+import { coordinateToIndex, WORLD_HEIGHT, WORLD_SIZE } from '../world/world-constants'
 /** 玩家 AABB 尺寸 */
 export const PLAYER_WIDTH = 0.6
 export const PLAYER_HEIGHT = 1.8
@@ -26,13 +26,14 @@ export function isBlockSolid(
   blockY: number,
   blockZ: number,
 ): boolean {
-  if (
-    blockX < 0 || blockX >= WORLD_SIZE
-    || blockY < 0 || blockY >= WORLD_SIZE
-    || blockZ < 0 || blockZ >= WORLD_SIZE
-  ) {
-    /** 世界邊界外視為實體牆壁 */
+  if (blockX < 0 || blockX >= WORLD_SIZE || blockZ < 0 || blockZ >= WORLD_SIZE) {
+    /** 水平邊界外視為實體牆壁 */
     return true
+  }
+
+  if (blockY < 0 || blockY >= WORLD_HEIGHT) {
+    /** 垂直邊界外（天空/虛空）視為空氣 */
+    return false
   }
 
   const index = coordinateToIndex(blockX, blockY, blockZ)

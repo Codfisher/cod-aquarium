@@ -68,7 +68,6 @@ export function useFpsController() {
     const center = WORLD_SIZE / 2
     const spawnX = random(center - 10, center + 10)
     const spawnZ = random(center - 10, center + 10)
-    // const spawnY = getHighestBlockY(worldState, spawnX, spawnZ) + 2 // 站在方塊上
     const spawnY = WORLD_HEIGHT
 
     /** 玩家腳底位置（攝影機位置 = 腳底 + eyeHeight） */
