@@ -101,8 +101,8 @@ export function generateTerrain(state: Uint8Array): void {
       for (let z = 0; z < WORLD_SIZE; z++) {
         const index = coordinateToIndex(x, y, z)
         if (state[index] === BlockId.STONE || state[index] === BlockId.COBBLESTONE || state[index] === BlockId.DIRT) {
-          const caveNoise = fbm3D(x * 0.08, y * 0.12, z * 0.08, 2, 0.5)
-          if (caveNoise > 0.5) {
+          const caveNoise = fbm3D(x * 0.05, y * 0.08, z * 0.05, 2, 0.5)
+          if (caveNoise > 0.42) {
             state[index] = BlockId.AIR
           }
         }

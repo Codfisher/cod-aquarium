@@ -1,11 +1,9 @@
 import type { Scene, UniversalCamera } from '@babylonjs/core'
 import { Vector3 } from '@babylonjs/core'
 import { onBeforeUnmount, ref } from 'vue'
-import {
-  PLAYER_EYE_HEIGHT,
-  resolveCollision,
-} from '../domains/player/collision'
-import { WORLD_SIZE } from '../domains/world/world-constants'
+import { BLOCK_DEFS } from '../domains/block/block-constants'
+import { PLAYER_EYE_HEIGHT, resolveCollision } from '../domains/player/collision'
+import { coordinateToIndex, WORLD_HEIGHT, WORLD_SIZE } from '../domains/world/world-constants'
 import { getHighestBlockY } from '../domains/world/world-state'
 
 const GRAVITY = 20
