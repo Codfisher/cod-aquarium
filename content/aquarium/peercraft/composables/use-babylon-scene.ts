@@ -1,5 +1,4 @@
 import {
-  CascadedShadowGenerator,
   Color3,
   Color4,
   DirectionalLight,
@@ -69,24 +68,33 @@ const defaultParam: Required<UseBabylonSceneParam> = {
     ambientLight.groundColor = new Color3(0.3, 0.3, 0.4)
 
     /** 太陽（投射陰影） */
+    const sunLightDirection = new Vector3(-0.5, -1, 0.3).normalize()
     const sunLight = new DirectionalLight(
       SUN_LIGHT_NAME,
-      new Vector3(-0.5, -1, 0.3).normalize(),
+      sunLightDirection,
       scene,
     )
     sunLight.intensity = 0.8
     sunLight.diffuse = new Color3(1.0, 0.98, 0.92)
 
-    const csm = new CascadedShadowGenerator(512, sunLight)
-    csm.numCascades = 2
-    csm.lambda = 0.7
-    csm.cascadeBlendPercentage = 0.05
-    csm.stabilizeCascades = true
-    csm.shadowMaxZ = 50
-    csm.usePercentageCloserFiltering = true
-    csm.filteringQuality = ShadowGenerator.QUALITY_LOW
-    csm.bias = 0.001
-    csm.normalBias = 0.05
+    /**
+     * 一般 ShadowGenerator 需要明確的光源位置與正交投影範圍
+     * 以便建立 ShadowMap 的範圍
+     */
+    sunLight.position = new Vector3(WORLD_SIZE / 2, WORLD_SIZE, WORLD_SIZE / 2)
+    // 設定投影大小涵蓋整個世界
+    const halfSize = WORLD_SIZE / 1.5 // 留點緩衝
+    sunLight.orthoLeft = -halfSize
+    sunLight.orthoRight = halfSize
+    sunLight.orthoTop = halfSize
+    sunLight.orthoBottom = -halfSize
+    sunLight.autoCalcShadowZBounds = true
+
+    const sg = new ShadowGenerator(1024, sunLight)
+    sg.bias = 0.001
+    sg.normalBias = 0.05
+    sg.usePercentageCloserFiltering = true
+    sg.filteringQuality = ShadowGenerator.QUALITY_MEDIUM
 
     scene.fogMode = Scene.FOGMODE_LINEAR
     scene.fogColor = new Color3(0.53, 0.74, 0.93)
