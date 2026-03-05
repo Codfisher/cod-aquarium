@@ -8,6 +8,19 @@ interface AvatarEntry {
   root: TransformNode;
   meshes: Mesh[];
   materials: StandardMaterial[];
+  /** 動畫相關元件 */
+  joints: {
+    leftArm: TransformNode;
+    rightArm: TransformNode;
+    leftLeg: TransformNode;
+    rightLeg: TransformNode;
+  };
+  /** 狀態 */
+  state: {
+    lastPosition: Vector3;
+    walkCycle: number;
+    intensity: number;
+  };
 }
 
 /** 根據 peerId 產生確定性的顏色（用於眼睛發光色） */
@@ -71,9 +84,6 @@ function peerIdToColor(peerId: string): Color3 {
  *
  * 身體比例（相對於 root 中心，root 在 AABB 垂直中央）：
  * - 頭部：正方大頭（0.55×0.55×0.55）  y = +0.25 (相對 root)
- * - 身體：短小身（0.30×0.25×0.20）  y = -0.15 (相對 root)
- * 身體比例（相對於 root 中心，root 在 AABB 垂直中央）：
- * - 頭部：正方大頭（0.55×0.55×0.55）  y = +0.25 (相對 root)
  * - 身體：Q 版軀幹（0.30×0.40×0.20）  y = -0.225 (相對 root)
  * - 雙腿：細長肢（0.10×0.825×0.10）  y = -0.8375 (相對 root)
  * - 雙臂：Q 版短臂（0.08×0.80×0.08）  y = -0.425 (相對 root)
@@ -123,50 +133,6 @@ function createEndermanAvatar(peerId: string, scene: Scene): AvatarEntry {
   body.material = darkMat
   meshes.push(body)
 
-  /** 左腿 (高度調整為 0.825) */
-  const leftLeg = MeshBuilder.CreateBox(`avatar-lleg-${peerId}`, {
-    width: 0.10,
-    height: 0.825,
-    depth: 0.10,
-  }, scene)
-  leftLeg.parent = root
-  leftLeg.position = new Vector3(-0.10, -0.8375, 0)
-  leftLeg.material = darkMat
-  meshes.push(leftLeg)
-
-  /** 右腿 */
-  const rightLeg = MeshBuilder.CreateBox(`avatar-rleg-${peerId}`, {
-    width: 0.10,
-    height: 0.825,
-    depth: 0.10,
-  }, scene)
-  rightLeg.parent = root
-  rightLeg.position = new Vector3(0.10, -0.8375, 0)
-  rightLeg.material = darkMat
-  meshes.push(rightLeg)
-
-  /** 左臂 (y 座標調整至 -0.425) */
-  const leftArm = MeshBuilder.CreateBox(`avatar-larm-${peerId}`, {
-    width: 0.08,
-    height: 0.80,
-    depth: 0.08,
-  }, scene)
-  leftArm.parent = root
-  leftArm.position = new Vector3(-0.19, -0.425, 0)
-  leftArm.material = darkMat
-  meshes.push(leftArm)
-
-  /** 右臂 */
-  const rightArm = MeshBuilder.CreateBox(`avatar-rarm-${peerId}`, {
-    width: 0.08,
-    height: 0.80,
-    depth: 0.08,
-  }, scene)
-  rightArm.parent = root
-  rightArm.position = new Vector3(0.19, -0.425, 0)
-  rightArm.material = darkMat
-  meshes.push(rightArm)
-
   /** 眼睛（大一點，水平窄條，突出於頭部前方避免 Z-fighting） */
   const eyeY = 0.25
   const eyeZ = 0.55 / 2 + 0.03
@@ -191,6 +157,35 @@ function createEndermanAvatar(peerId: string, scene: Scene): AvatarEntry {
   rightEye.material = eyeMat
   meshes.push(rightEye)
 
+  /** 建立關節與肢體 */
+  const createLimb = (name: string, width: number, height: number, depth: number, x: number, y: number) => {
+    const joint = new TransformNode(`joint-${name}-${peerId}`, scene)
+    joint.parent = root
+    joint.position = new Vector3(x, y + height / 2, 0) // 關節定位在肢體頂部
+
+    const mesh = MeshBuilder.CreateBox(`mesh-${name}-${peerId}`, { width, height, depth }, scene)
+    mesh.parent = joint
+    mesh.position.y = -height / 2 // 網格相對於關節向下偏移一半高度
+    mesh.material = darkMat
+    meshes.push(mesh)
+
+    return joint
+  }
+
+  const joints = {
+    leftLeg: createLimb('lleg', 0.10, 0.825, 0.10, -0.10, -0.8375 - 0.4125),
+    rightLeg: createLimb('rleg', 0.10, 0.825, 0.10, 0.10, -0.8375 - 0.4125),
+    leftArm: createLimb('larm', 0.08, 0.80, 0.08, -0.19, -0.425 - 0.40),
+    rightArm: createLimb('rarm', 0.08, 0.80, 0.08, 0.19, -0.425 - 0.40),
+  }
+
+  /** 初始狀態 */
+  const state = {
+    lastPosition: root.position.clone(),
+    walkCycle: 0,
+    intensity: 0,
+  }
+
   /** 陰影 */
   const sunLight = scene.getLightByName(SUN_LIGHT_NAME) as DirectionalLight | null
   const shadowGenerator = sunLight?.getShadowGenerator() as ShadowGenerator | null
@@ -201,7 +196,7 @@ function createEndermanAvatar(peerId: string, scene: Scene): AvatarEntry {
     }
   }
 
-  return { root, meshes, materials }
+  return { root, meshes, materials, joints, state }
 }
 
 /**
@@ -222,7 +217,48 @@ export function usePlayerAvatars() {
   function start(params: { scene: Scene }) {
     sceneRef = params.scene
 
+    /** 動畫循環 */
+    const observer = sceneRef.onBeforeRenderObservable.add(() => {
+      const delta = sceneRef!.getEngine().getDeltaTime() / 1000
+
+      for (const entry of avatars.values()) {
+        const { joints, state, root } = entry
+
+        // 偵測移動 (水平)
+        const currentPos = root.position
+        const distance = Vector3.Distance(
+          new Vector3(state.lastPosition.x, 0, state.lastPosition.z),
+          new Vector3(currentPos.x, 0, currentPos.z),
+        )
+
+        // 更新移動強度 (平滑過渡)
+        const targetIntensity = distance > 0.01 ? 1 : 0
+        state.intensity += (targetIntensity - state.intensity) * Math.min(1, delta * 10)
+
+        if (state.intensity > 0.001) {
+          state.walkCycle += delta * 10 * state.intensity
+          const angle = Math.sin(state.walkCycle) * 0.5 * state.intensity
+
+          // 手腳交替擺動
+          joints.leftLeg.rotation.x = angle
+          joints.rightLeg.rotation.x = -angle
+          joints.leftArm.rotation.x = -angle
+          joints.rightArm.rotation.x = angle
+        }
+        else {
+          // 停止時回正
+          joints.leftLeg.rotation.x = 0
+          joints.rightLeg.rotation.x = 0
+          joints.leftArm.rotation.x = 0
+          joints.rightArm.rotation.x = 0
+        }
+
+        state.lastPosition.copyFrom(currentPos)
+      }
+    })
+
     cleanup = () => {
+      sceneRef?.onBeforeRenderObservable.remove(observer)
       for (const entry of avatars.values()) {
         for (const mesh of entry.meshes) mesh.dispose()
         for (const mat of entry.materials) mat.dispose()
