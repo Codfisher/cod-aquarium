@@ -73,7 +73,7 @@ function peerIdToColor(peerId: string): Color3 {
  * - 頭部：正方大頭（0.55×0.55×0.55）  y = +0.25 (相對 root)
  * - 身體：短小身（0.30×0.25×0.20）  y = -0.15 (相對 root)
  * - 雙腿：超長肢（0.10×0.975×0.10） y = -0.7625 (相對 root)
- * - 雙臂：超長肢（0.08×1.10×0.08）  y = -0.575 (相對 root)
+ * - 雙臂：Q 版短臂（0.08×0.80×0.08）  y = -0.425 (相對 root)
  * - 眼睛：Q 版大眼，鏡頭高度 1.5 (相對腳底)
  */
 function createEndermanAvatar(peerId: string, scene: Scene): AvatarEntry {
@@ -139,25 +139,25 @@ function createEndermanAvatar(peerId: string, scene: Scene): AvatarEntry {
   rightLeg.material = darkMat
   meshes.push(rightLeg)
 
-  /** 左臂 (肢體大幅加長) */
+  /** 左臂 (長度調回 0.8) */
   const leftArm = MeshBuilder.CreateBox(`avatar-larm-${peerId}`, {
     width: 0.08,
-    height: 1.10,
+    height: 0.80,
     depth: 0.08,
   }, scene)
   leftArm.parent = root
-  leftArm.position = new Vector3(-0.19, -0.575, 0)
+  leftArm.position = new Vector3(-0.19, -0.425, 0)
   leftArm.material = darkMat
   meshes.push(leftArm)
 
   /** 右臂 */
   const rightArm = MeshBuilder.CreateBox(`avatar-rarm-${peerId}`, {
     width: 0.08,
-    height: 1.10,
+    height: 0.80,
     depth: 0.08,
   }, scene)
   rightArm.parent = root
-  rightArm.position = new Vector3(0.19, -0.575, 0)
+  rightArm.position = new Vector3(0.19, -0.425, 0)
   rightArm.material = darkMat
   meshes.push(rightArm)
 
