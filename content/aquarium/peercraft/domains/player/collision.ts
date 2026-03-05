@@ -2,7 +2,7 @@ import { BlockId } from '../block/block-constants'
 import { coordinateToIndex, WORLD_HEIGHT, WORLD_SIZE } from '../world/world-constants'
 /** 玩家 AABB 尺寸 */
 export const PLAYER_WIDTH = 0.6
-export const PLAYER_HEIGHT = 2.5
+export const PLAYER_HEIGHT = 1.9
 /** 眼睛相對於腳底的高度 */
 export const PLAYER_EYE_HEIGHT = 1.5
 
