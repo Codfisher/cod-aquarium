@@ -67,7 +67,7 @@ export function useFpsController() {
     /** 隨機選擇重生點 X, Z，並尋找地表高度 */
     const spawnX = Math.floor(Math.random() * (WORLD_SIZE - 4)) + 2 // 避免邊界
     const spawnZ = Math.floor(Math.random() * (WORLD_SIZE - 4)) + 2
-    const spawnY = getHighestBlockY(worldState, spawnX, spawnZ) + 1 // +1 站在方塊上
+    const spawnY = getHighestBlockY(worldState, spawnX, spawnZ) + 2 // 站在方塊上
 
     /** 玩家腳底位置（攝影機位置 = 腳底 + eyeHeight） */
     let footX = spawnX + 0.5 // 站方塊正中央

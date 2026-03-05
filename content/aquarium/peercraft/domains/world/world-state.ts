@@ -1,5 +1,6 @@
+import { fbm2D, fbm3D } from '../../utils/noise'
 import { BlockId } from '../block/block-constants'
-import { coordinateToIndex, WORLD_SIZE, WORLD_VOLUME } from './world-constants'
+import { coordinateToIndex, WORLD_HEIGHT, WORLD_SIZE, WORLD_VOLUME } from './world-constants'
 
 /**
  * 建立空白世界狀態（全為 AIR）
@@ -9,73 +10,100 @@ export function createWorldState(): Uint8Array {
 }
 
 /**
- * 簡易地形生成：
- * - y=0：石頭層
- * - y=1~3：泥土層
- * - y=4 + 隨機起伏：草地表面
- *
- * 使用簡易 2D noise 模擬高低地形
+ * 高級地形生成：
+ * - 平原 (Plains)：主體地形，起伏平緩，偶爾有沙坑。
+ * - 峽谷 (Canyons)：利用 Noise 產生的深溝地形。
+ * - 使用 3D FBM Noise 生成地下洞穴。
  */
 export function generateTerrain(state: Uint8Array): void {
-  const baseHeight = 12
-  const maxVariation = 6
+  const baseHeight = 24 // 較高的基準面，方便挖掘峽谷
+  const plainsVariation = 4 // 平原起伏
+  const canyonDepth = 20 // 峽谷深度
 
+  // 第一階段：基礎地形與生態系
   for (let x = 0; x < WORLD_SIZE; x++) {
     for (let z = 0; z < WORLD_SIZE; z++) {
-      /** 簡易 pseudo-noise：組合多頻率正弦波模擬地形起伏 */
-      const height = baseHeight + Math.floor(
-        Math.sin(x * 0.1) * 2
-        + Math.cos(z * 0.15) * 2
-        + Math.sin((x + z) * 0.08) * 1.5
-        + maxVariation / 2,
-      )
+      /** 平原噪音 */
+      const plainsNoise = fbm2D(x * 0.02, z * 0.02, 3, 0.5)
 
-      const clampedHeight = Math.max(1, Math.min(height, WORLD_SIZE - 1))
+      /**
+       * 峽谷噪音：利用 abs(noise) 產生「脊線」感，反轉後即為「峽谷」
+       * 透過 ridged noise 效果來模擬河床或裂縫
+       */
+      const canyonNoiseRaw = fbm2D(x * 0.01, z * 0.01, 2, 0.5)
+      const canyonStrength = 1.0 - Math.abs(canyonNoiseRaw) // 靠近 1 表示在峽谷中
 
+      // 平原基礎高度
+      let height = baseHeight + Math.floor(plainsNoise * plainsVariation)
+
+      // 如果峽谷強度夠高，則向下挖掘 (門檻越低，峽谷越寬)
+      if (canyonStrength > 0.88) {
+        const factor = (canyonStrength - 0.88) / 0.12 // 0 ~ 1
+        height -= Math.floor(factor * canyonDepth)
+      }
+
+      const clampedHeight = Math.max(2, Math.min(height, WORLD_HEIGHT - 2))
+
+      // 判斷是否為「沙坑」 (僅限平原表面，且與峽谷保持距離)
+      const isSandPit = canyonStrength <= 0.88 && fbm2D(x * 0.1, z * 0.1, 2, 0.5) > 0.5
+
+      const isCanyon = canyonStrength > 0.88
+
+      // 判斷比例與渲染屬性
       for (let y = 0; y < clampedHeight; y++) {
         const index = coordinateToIndex(x, y, z)
 
         if (y === 0) {
           state[index] = BlockId.BEDROCK
         }
-        else if (y < clampedHeight - 4) {
-          // 下層使用石頭和些許鵝卵石
-          state[index] = Math.random() > 0.8 ? BlockId.COBBLESTONE : BlockId.STONE
+        else if (y < clampedHeight - 5) {
+          state[index] = Math.random() > 0.95 ? BlockId.COBBLESTONE : BlockId.STONE
         }
         else if (y < clampedHeight - 1) {
-          // 靠近地表使用泥土，如果高度很低（河谷）使用沙子
-          if (clampedHeight < baseHeight + 1) {
-            state[index] = BlockId.SAND
-          }
-          else {
-            state[index] = BlockId.DIRT
-          }
+          state[index] = (isSandPit || isCanyon) ? BlockId.SAND : BlockId.DIRT
         }
         else {
-          // 表面：沙子或草地
-          if (clampedHeight < baseHeight + 1) {
+          // 表面：沙坑或峽谷底部顯示沙子/石頭，平原顯示草地
+          if (isSandPit) {
             state[index] = BlockId.SAND
+          }
+          else if (isCanyon) {
+            // 峽谷底部：隨機使用石頭、鵝卵石或沙子
+            const rand = Math.random()
+            state[index] = rand > 0.7 ? BlockId.COBBLESTONE : rand > 0.3 ? BlockId.STONE : BlockId.SAND
           }
           else {
             state[index] = BlockId.GRASS
           }
         }
+      }
 
-        // 偶爾在草地上生成簡單的樹 (樹幹 + 樹葉)
-        if (y === clampedHeight - 1 && state[index] === BlockId.GRASS && Math.random() < 0.02) {
-          // 確保樹不會超出世界邊界
-          if (x > 2 && x < WORLD_SIZE - 2 && z > 2 && z < WORLD_SIZE - 2 && y + 5 < WORLD_SIZE) {
-            // 樹幹 (使用原木 OAK_LOG)
-            state[coordinateToIndex(x, y + 1, z)] = BlockId.OAK_LOG
-            state[coordinateToIndex(x, y + 2, z)] = BlockId.OAK_LOG
-            state[coordinateToIndex(x, y + 3, z)] = BlockId.OAK_LOG
+      // 樹木生成 (避開沙坑、峽谷與太深的地方)
+      const surfaceY = clampedHeight - 1
+      if (!isSandPit && !isCanyon && state[coordinateToIndex(x, surfaceY, z)] === BlockId.GRASS && Math.random() < 0.008) {
+        if (x > 2 && x < WORLD_SIZE - 2 && z > 2 && z < WORLD_SIZE - 2 && surfaceY + 5 < WORLD_HEIGHT) {
+          state[coordinateToIndex(x, surfaceY + 1, z)] = BlockId.OAK_LOG
+          state[coordinateToIndex(x, surfaceY + 2, z)] = BlockId.OAK_LOG
+          state[coordinateToIndex(x, surfaceY + 3, z)] = BlockId.OAK_LOG
+          state[coordinateToIndex(x, surfaceY + 4, z)] = BlockId.OAK_LEAVES
+          state[coordinateToIndex(x + 1, surfaceY + 3, z)] = BlockId.OAK_LEAVES
+          state[coordinateToIndex(x - 1, surfaceY + 3, z)] = BlockId.OAK_LEAVES
+          state[coordinateToIndex(x, surfaceY + 3, z + 1)] = BlockId.OAK_LEAVES
+          state[coordinateToIndex(x, surfaceY + 3, z - 1)] = BlockId.OAK_LEAVES
+        }
+      }
+    }
+  }
 
-            // 樹葉 (十字形)
-            state[coordinateToIndex(x, y + 4, z)] = BlockId.OAK_LEAVES
-            state[coordinateToIndex(x + 1, y + 3, z)] = BlockId.OAK_LEAVES
-            state[coordinateToIndex(x - 1, y + 3, z)] = BlockId.OAK_LEAVES
-            state[coordinateToIndex(x, y + 3, z + 1)] = BlockId.OAK_LEAVES
-            state[coordinateToIndex(x, y + 3, z - 1)] = BlockId.OAK_LEAVES
+  // 第二階段：挖掘地下洞穴 (3D Noise)
+  for (let x = 0; x < WORLD_SIZE; x++) {
+    for (let y = 1; y < WORLD_HEIGHT - 5; y++) {
+      for (let z = 0; z < WORLD_SIZE; z++) {
+        const index = coordinateToIndex(x, y, z)
+        if (state[index] === BlockId.STONE || state[index] === BlockId.COBBLESTONE || state[index] === BlockId.DIRT) {
+          const caveNoise = fbm3D(x * 0.08, y * 0.12, z * 0.08, 2, 0.5)
+          if (caveNoise > 0.5) {
+            state[index] = BlockId.AIR
           }
         }
       }
@@ -85,17 +113,17 @@ export function generateTerrain(state: Uint8Array): void {
 
 /**
  * 取得指定 X, Z 座標上最高的非空氣方塊的 Y 座標準位
- * 找不到則回傳 0
+ * 找不到則回傳 WORLD_HEIGHT
  */
 export function getHighestBlockY(state: Uint8Array, x: number, z: number): number {
   if (x < 0 || x >= WORLD_SIZE || z < 0 || z >= WORLD_SIZE)
-    return 0
+    return WORLD_HEIGHT
 
-  for (let y = WORLD_SIZE - 1; y >= 0; y--) {
+  for (let y = WORLD_HEIGHT - 1; y >= 0; y--) {
     const index = coordinateToIndex(x, y, z)
     if (state[index] !== BlockId.AIR) {
       return y
     }
   }
-  return 0
+  return WORLD_HEIGHT
 }
