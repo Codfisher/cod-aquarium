@@ -1,5 +1,6 @@
 import type { Scene, UniversalCamera } from '@babylonjs/core'
 import { Vector3 } from '@babylonjs/core'
+import { random } from 'lodash-es'
 import { onBeforeUnmount, ref } from 'vue'
 import { BLOCK_DEFS } from '../domains/block/block-constants'
 import { PLAYER_EYE_HEIGHT, resolveCollision } from '../domains/player/collision'
@@ -54,6 +55,7 @@ export function useFpsController() {
       left: false,
       right: false,
       jump: false,
+      sprint: false,
     }
 
     /** 玩家速度 */
@@ -63,9 +65,11 @@ export function useFpsController() {
     let isOnGround = false
 
     /** 隨機選擇重生點 X, Z，並尋找地表高度 */
-    const spawnX = Math.floor(Math.random() * (WORLD_SIZE - 4)) + 2 // 避免邊界
-    const spawnZ = Math.floor(Math.random() * (WORLD_SIZE - 4)) + 2
-    const spawnY = getHighestBlockY(worldState, spawnX, spawnZ) + 2 // 站在方塊上
+    const center = WORLD_SIZE / 2
+    const spawnX = random(center - 10, center + 10)
+    const spawnZ = random(center - 10, center + 10)
+    // const spawnY = getHighestBlockY(worldState, spawnX, spawnZ) + 2 // 站在方塊上
+    const spawnY = WORLD_HEIGHT
 
     /** 玩家腳底位置（攝影機位置 = 腳底 + eyeHeight） */
     let footX = spawnX + 0.5 // 站方塊正中央
@@ -99,6 +103,10 @@ export function useFpsController() {
           keys.jump = true
           event.preventDefault()
           break
+        case 'ControlLeft':
+        case 'ControlRight':
+          keys.sprint = true
+          break
       }
     }
 
@@ -118,6 +126,10 @@ export function useFpsController() {
           break
         case 'Space':
           keys.jump = false
+          break
+        case 'ControlLeft':
+        case 'ControlRight':
+          keys.sprint = false
           break
       }
     }
@@ -184,8 +196,9 @@ export function useFpsController() {
       /** 正規化水平移動方向 */
       const moveLength = Math.sqrt(moveX * moveX + moveZ * moveZ)
       if (moveLength > 0) {
-        moveX = (moveX / moveLength) * MOVE_SPEED * deltaTime
-        moveZ = (moveZ / moveLength) * MOVE_SPEED * deltaTime
+        const speed = keys.sprint ? MOVE_SPEED * 1.6 : MOVE_SPEED
+        moveX = (moveX / moveLength) * speed * deltaTime
+        moveZ = (moveZ / moveLength) * speed * deltaTime
       }
 
       /** 重力 */

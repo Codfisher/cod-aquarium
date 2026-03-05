@@ -20,6 +20,8 @@ export function generateTerrain(state: Uint8Array): void {
   const plainsVariation = 4 // 平原起伏
   const canyonDepth = 20 // 峽谷深度
 
+  const heightMap = new Uint8Array(WORLD_SIZE * WORLD_SIZE)
+
   // 第一階段：基礎地形與生態系
   for (let x = 0; x < WORLD_SIZE; x++) {
     for (let z = 0; z < WORLD_SIZE; z++) {
@@ -37,17 +39,18 @@ export function generateTerrain(state: Uint8Array): void {
       let height = baseHeight + Math.floor(plainsNoise * plainsVariation)
 
       // 如果峽谷強度夠高，則向下挖掘 (門檻越低，峽谷越寬)
-      if (canyonStrength > 0.88) {
-        const factor = (canyonStrength - 0.88) / 0.12 // 0 ~ 1
+      if (canyonStrength > 0.93) {
+        const factor = (canyonStrength - 0.93) / 0.07 // 0 ~ 1
         height -= Math.floor(factor * canyonDepth)
       }
 
       const clampedHeight = Math.max(2, Math.min(height, WORLD_HEIGHT - 2))
+      heightMap[x * WORLD_SIZE + z] = clampedHeight
 
       // 判斷是否為「沙坑」 (僅限平原表面，且與峽谷保持距離)
-      const isSandPit = canyonStrength <= 0.88 && fbm2D(x * 0.1, z * 0.1, 2, 0.5) > 0.5
+      const isSandPit = canyonStrength <= 0.93 && fbm2D(x * 0.1, z * 0.1, 2, 0.5) > 0.5
 
-      const isCanyon = canyonStrength > 0.88
+      const isCanyon = canyonStrength > 0.93
 
       // 判斷比例與渲染屬性
       for (let y = 0; y < clampedHeight; y++) {
@@ -60,7 +63,7 @@ export function generateTerrain(state: Uint8Array): void {
           state[index] = Math.random() > 0.95 ? BlockId.COBBLESTONE : BlockId.STONE
         }
         else if (y < clampedHeight - 1) {
-          state[index] = (isSandPit || isCanyon) ? BlockId.SAND : BlockId.DIRT
+          state[index] = isSandPit ? BlockId.SAND : BlockId.DIRT
         }
         else {
           // 表面：沙坑或峽谷底部顯示沙子/石頭，平原顯示草地
@@ -68,9 +71,9 @@ export function generateTerrain(state: Uint8Array): void {
             state[index] = BlockId.SAND
           }
           else if (isCanyon) {
-            // 峽谷底部：隨機使用石頭、鵝卵石或沙子
+            // 峽谷底部：隨機使用石頭或鵝卵石 (不再有沙子)
             const rand = Math.random()
-            state[index] = rand > 0.7 ? BlockId.COBBLESTONE : rand > 0.3 ? BlockId.STONE : BlockId.SAND
+            state[index] = rand > 0.95 ? BlockId.COBBLESTONE : BlockId.STONE
           }
           else {
             state[index] = BlockId.GRASS
@@ -97,12 +100,16 @@ export function generateTerrain(state: Uint8Array): void {
 
   // 第二階段：挖掘地下洞穴 (3D Noise)
   for (let x = 0; x < WORLD_SIZE; x++) {
-    for (let y = 1; y < WORLD_HEIGHT - 5; y++) {
-      for (let z = 0; z < WORLD_SIZE; z++) {
+    for (let z = 0; z < WORLD_SIZE; z++) {
+      const surfaceHeight = heightMap[x * WORLD_SIZE + z]!
+      // 限制洞穴最高只能挖到地表下方 5 層，確保地殼厚度
+      const caveMaxHeight = Math.min(surfaceHeight - 5, WORLD_HEIGHT - 6)
+
+      for (let y = 1; y < caveMaxHeight; y++) {
         const index = coordinateToIndex(x, y, z)
         if (state[index] === BlockId.STONE || state[index] === BlockId.COBBLESTONE || state[index] === BlockId.DIRT) {
           const caveNoise = fbm3D(x * 0.05, y * 0.08, z * 0.05, 2, 0.5)
-          if (caveNoise > 0.42) {
+          if (caveNoise > 0.35) {
             state[index] = BlockId.AIR
           }
         }
