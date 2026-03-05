@@ -42,6 +42,7 @@ import { useBabylonScene } from '../../composables/use-babylon-scene'
 import { useBlockMiner } from '../../composables/use-block-miner'
 import { useFpsController } from '../../composables/use-fps-controller'
 import { usePeerNetwork } from '../../composables/use-peer-network'
+import { usePlayerAvatars } from '../../composables/use-player-avatars'
 import { NetworkRole } from '../../types/network'
 import { castBlockRay, placeBlock, setBlock } from '../player/block-interaction'
 import { createPixelMaterial, createVoxelRenderer } from '../renderer/voxel-renderer'
@@ -61,6 +62,7 @@ let hasStarted = false
 
 const fpsController = useFpsController()
 const blockMiner = useBlockMiner()
+const playerAvatars = usePlayerAvatars()
 
 const { canvasRef, scene, camera } = useBabylonScene({
   async init() {
@@ -76,6 +78,8 @@ const {
   sendBlockUpdateToHost,
   broadcastMiningProgress,
   sendMiningProgressToHost,
+  broadcastPlayerPosition,
+  sendPlayerPositionToHost,
 } = usePeerNetwork({
   onConnected: () => {
     if (currentRole.value === NetworkRole.HOST) {
@@ -118,6 +122,12 @@ const {
   onMiningProgressReceived: (peerId, x, y, z, progress, blockId) => {
     blockMiner.handleRemoteMiningProgress(peerId, x, y, z, progress, blockId)
   },
+  onPlayerPositionReceived: (peerId, x, y, z, rotationY) => {
+    playerAvatars.updateAvatar(peerId, x, y, z, rotationY)
+  },
+  onClientDisconnected: (peerId) => {
+    playerAvatars.removeAvatar(peerId)
+  },
 })
 
 /** 啟動遊戲場景 */
@@ -136,6 +146,9 @@ function startGame(sceneInstance: Scene, cameraInstance: UniversalCamera, canvas
     canvas,
     worldState,
   })
+
+  /** 啟動玩家 avatar */
+  playerAvatars.start({ scene: sceneInstance })
 
   /** 建立手持方塊節點 */
   const handTransform = new TransformNode('hand-transform', sceneInstance)
@@ -266,6 +279,27 @@ function startGame(sceneInstance: Scene, cameraInstance: UniversalCamera, canvas
           sendBlockUpdateToHost(hit.adjacentX, hit.adjacentY, hit.adjacentZ, placedBlockId)
         }
       }
+    }
+  })
+
+  /** 廣播本機玩家位置 */
+  let lastPositionBroadcast = 0
+  const POSITION_BROADCAST_INTERVAL = 15 // ms
+
+  sceneInstance.onBeforeRenderObservable.add(() => {
+    const now = performance.now()
+    if (now - lastPositionBroadcast < POSITION_BROADCAST_INTERVAL)
+      return
+    lastPositionBroadcast = now
+
+    const pos = cameraInstance.position
+    const rotationY = cameraInstance.rotation.y
+
+    if (currentRole.value === NetworkRole.HOST) {
+      broadcastPlayerPosition('host', pos.x, pos.y, pos.z, rotationY)
+    }
+    else if (currentRole.value === NetworkRole.CLIENT) {
+      sendPlayerPositionToHost(pos.x, pos.y, pos.z, rotationY)
     }
   })
 

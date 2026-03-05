@@ -18,6 +18,8 @@ export enum PacketType {
   BLOCK_UPDATE = 'block_update',
   /** 同步正在挖掘的方塊進度 (視覺特效使用) */
   MINING_PROGRESS = 'mining_progress',
+  /** 同步玩家位置與朝向 */
+  PLAYER_POSITION = 'player_position',
 }
 
 /** 完整世界快照封包 */
@@ -51,4 +53,16 @@ export interface MiningProgressPacket {
   };
 }
 
-export type NetworkPacket = WorldSnapshotPacket | BlockUpdatePacket | MiningProgressPacket
+/** 玩家位置同步封包 */
+export interface PlayerPositionPacket {
+  type: PacketType.PLAYER_POSITION;
+  data: {
+    peerId: string;
+    x: number;
+    y: number;
+    z: number;
+    rotationY: number;
+  };
+}
+
+export type NetworkPacket = WorldSnapshotPacket | BlockUpdatePacket | MiningProgressPacket | PlayerPositionPacket

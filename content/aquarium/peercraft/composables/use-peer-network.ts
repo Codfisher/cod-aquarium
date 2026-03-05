@@ -11,10 +11,14 @@ export interface UsePeerNetworkParams {
   onWorldSnapshotReceived?: (worldState: Uint8Array) => void;
   /** 事件：Host 偵測到有新 Client 連線成功，此時即可派送世界快照 */
   onClientConnected?: (peerId: string) => void;
+  /** 事件：有 Client 斷線 */
+  onClientDisconnected?: (peerId: string) => void;
   /** 事件：收到網路傳來的方塊更新 (挖掘或放置) */
   onBlockUpdateReceived?: (x: number, y: number, z: number, blockId: BlockId) => void;
   /** 事件：收到網路傳來的挖掘進度 (同步視覺特效) */
   onMiningProgressReceived?: (peerId: string, x: number, y: number, z: number, progress: number, blockId: BlockId) => void;
+  /** 事件：收到網路傳來的玩家位置 */
+  onPlayerPositionReceived?: (peerId: string, x: number, y: number, z: number, rotationY: number) => void;
 }
 
 export const FIXED_ROOM_ID = 'peercraft-fixed-room-v1'
@@ -26,8 +30,10 @@ export function usePeerNetwork({
   onConnected,
   onWorldSnapshotReceived,
   onClientConnected,
+  onClientDisconnected,
   onBlockUpdateReceived,
   onMiningProgressReceived,
+  onPlayerPositionReceived,
 }: UsePeerNetworkParams) {
   const isReady = ref(false)
   const currentPeerId = ref<string>('')
@@ -163,16 +169,20 @@ export function usePeerNetwork({
       }
       else if (packet.type === PacketType.MINING_PROGRESS) {
         const { peerId, x, y, z, progress, blockId } = packet.data
-        // Host 收到來自 Client 的進度
         onMiningProgressReceived?.(peerId, x, y, z, progress, blockId)
-        // 廣播給其他 Client
         broadcastMiningProgress(peerId, x, y, z, progress, blockId, connection.peer)
+      }
+      else if (packet.type === PacketType.PLAYER_POSITION) {
+        const { peerId, x, y, z, rotationY } = packet.data
+        onPlayerPositionReceived?.(peerId, x, y, z, rotationY)
+        broadcastPlayerPosition(peerId, x, y, z, rotationY, connection.peer)
       }
     })
 
     connection.on('close', () => {
       connections.delete(connection.peer)
       console.log('[Host] Client disconnected:', connection.peer)
+      onClientDisconnected?.(connection.peer)
     })
   }
 
@@ -208,6 +218,10 @@ export function usePeerNetwork({
       else if (packet.type === PacketType.MINING_PROGRESS) {
         const { peerId, x, y, z, progress, blockId } = packet.data
         onMiningProgressReceived?.(peerId, x, y, z, progress, blockId)
+      }
+      else if (packet.type === PacketType.PLAYER_POSITION) {
+        const { peerId, x, y, z, rotationY } = packet.data
+        onPlayerPositionReceived?.(peerId, x, y, z, rotationY)
       }
     })
 
@@ -326,6 +340,55 @@ export function usePeerNetwork({
     }
   }
 
+  /**
+   * 【供 Host 呼叫】廣播玩家位置給所有 Client
+   */
+  function broadcastPlayerPosition(
+    senderPeerId: string,
+    x: number,
+    y: number,
+    z: number,
+    rotationY: number,
+    excludePeerId?: string,
+  ) {
+    if (currentRole.value !== NetworkRole.HOST)
+      return
+
+    const packet: NetworkPacket = {
+      type: PacketType.PLAYER_POSITION,
+      data: { peerId: senderPeerId, x, y, z, rotationY },
+    }
+
+    connections.forEach((conn, peerId) => {
+      if (peerId !== excludePeerId && conn.open) {
+        conn.send(packet)
+      }
+    })
+  }
+
+  /**
+   * 【供 Client 呼叫】將自己的位置傳給 Host
+   */
+  function sendPlayerPositionToHost(x: number, y: number, z: number, rotationY: number) {
+    if (currentRole.value !== NetworkRole.CLIENT)
+      return
+
+    const hostConn = Array.from(connections.values())[0]
+    if (hostConn && hostConn.open) {
+      const packet: NetworkPacket = {
+        type: PacketType.PLAYER_POSITION,
+        data: {
+          peerId: currentPeerId.value,
+          x,
+          y,
+          z,
+          rotationY,
+        },
+      }
+      hostConn.send(packet)
+    }
+  }
+
   onBeforeUnmount(() => {
     connections.forEach((conn) => conn.close())
     connections.clear()
@@ -344,6 +407,8 @@ export function usePeerNetwork({
     sendBlockUpdateToHost,
     broadcastMiningProgress,
     sendMiningProgressToHost,
+    broadcastPlayerPosition,
+    sendPlayerPositionToHost,
     /** 暴露給 Host 在有人連線時，能夠主動派送 Snapshot 的方法。
      * 暫時由外部直接監聽，這邊提供 connections reference 以便未來擴充
      */
