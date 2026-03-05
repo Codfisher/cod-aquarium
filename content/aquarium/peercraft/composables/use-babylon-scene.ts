@@ -90,8 +90,8 @@ const defaultParam: Required<UseBabylonSceneParam> = {
     sunLight.autoCalcShadowZBounds = true
 
     const sg = new ShadowGenerator(1024, sunLight)
-    sg.bias = 0.001
-    sg.normalBias = 0.05
+    sg.bias = 0.005
+    sg.normalBias = 0.08
     sg.usePercentageCloserFiltering = true
     sg.filteringQuality = ShadowGenerator.QUALITY_MEDIUM
 
