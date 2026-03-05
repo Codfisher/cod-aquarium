@@ -70,6 +70,8 @@ let destroyMaterialList: StandardMaterial[] = []
 // 處理遠端玩家的挖掘特效
 const remoteMiningEffects = new Map<string, { overlay: Mesh; particleSystem: ParticleSystem; currentBlockId: BlockId | null }>()
 
+const fpsController = useFpsController()
+
 const { canvasRef, scene, camera } = useBabylonScene({
   async init() {
     worldState = createWorldState()
@@ -226,7 +228,7 @@ function startGame(sceneInstance: Scene, cameraInstance: UniversalCamera, canvas
   renderer = createVoxelRenderer(sceneInstance, worldState)
 
   /** 啟動 FPS 控制器 */
-  useFpsController({
+  fpsController.start({
     scene: sceneInstance,
     camera: cameraInstance,
     canvas,
@@ -299,7 +301,7 @@ function startGame(sceneInstance: Scene, cameraInstance: UniversalCamera, canvas
     }
   }
 
-  /** 啟動方塊挖掘控制器 (取代原本的左鍵瞬間挖掘) */
+  /** 啟動方塊挖掘控制器 */
   const miner = useBlockMiner({
     scene: sceneInstance,
     camera: cameraInstance,
