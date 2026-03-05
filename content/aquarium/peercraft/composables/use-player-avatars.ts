@@ -84,15 +84,18 @@ function createEndermanAvatar(peerId: string, scene: Scene): AvatarEntry {
   const meshes: Mesh[] = []
   const materials: StandardMaterial[] = []
 
+  const eyeColor = peerIdToColor(peerId)
+
   /** 深色身體材質 */
   const darkMat = new StandardMaterial(`avatar-dark-${peerId}`, scene)
   darkMat.diffuseColor = new Color3(0.05, 0.02, 0.07)
   darkMat.specularColor = new Color3(0.1, 0.05, 0.15)
+  /** 身體發出微光 */
+  darkMat.emissiveColor = eyeColor.scale(0.2)
   materials.push(darkMat)
 
   /** 眼睛材質（每位玩家獨特發光色） */
   const eyeMat = new StandardMaterial(`avatar-eye-${peerId}`, scene)
-  const eyeColor = peerIdToColor(peerId)
   eyeMat.diffuseColor = eyeColor
   eyeMat.emissiveColor = eyeColor.scale(0.8)
   eyeMat.specularColor = new Color3(0.5, 0.5, 0.5)
