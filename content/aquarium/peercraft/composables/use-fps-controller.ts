@@ -33,9 +33,8 @@ interface UseFpsControllerParams {
  * 但延遲到 scene 就緒後才啟動。
  */
 export function useFpsController() {
-  /** 清理用的陣列，start 時填入，unmount 時清除 */
   let cleanup: (() => void) | null = null
-  const isPaused = ref(false)
+  const isPaused = ref(true)
   let canvasRef: HTMLCanvasElement | null = null
 
   onBeforeUnmount(() => {
