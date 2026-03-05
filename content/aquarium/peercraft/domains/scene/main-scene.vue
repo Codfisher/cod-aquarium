@@ -24,12 +24,14 @@
     <!-- 傳送集氣條 -->
     <div
       v-if="teleportProgress > 0"
-      class="teleport-charge-container"
+      class="teleport-charge-outer"
     >
-      <div
-        class="teleport-charge-bar"
-        :style="{ width: `${teleportProgress * 100}%` }"
-      />
+      <div class="teleport-charge-container">
+        <div
+          class="teleport-charge-bar"
+          :style="{ width: `${teleportProgress * 100}%` }"
+        />
+      </div>
       <div class="teleport-charge-text">
         TELEPORT CHARGING...
       </div>
@@ -495,32 +497,34 @@ function disconnect() {
   background: rgba(255, 255, 255, 0.9)
   transition: width 0.05s linear
 
-.teleport-charge-container
+.teleport-charge-outer
   position: absolute
   top: 50%
   left: 50%
   transform: translate(-50%, 40px)
+  display: flex
+  flex-direction: column
+  align-items: center
+  pointer-events: none
+
+.teleport-charge-container
   width: 120px
   height: 6px
   background: rgba(0, 0, 0, 0.6)
   border: 1px solid rgba(255, 255, 255, 0.2)
-  pointer-events: none
-  display: flex
-  flex-direction: column
-  align-items: center
+  overflow: hidden
 
 .teleport-charge-bar
   height: 100%
   background: #a855f7
   box-shadow: 0 0 10px #a855f7
-  align-self: flex-start
   transition: width 0.016s linear
 
 .teleport-charge-text
   font-size: 10px
   font-weight: bold
   color: #a855f7
-  margin-top: 4px
+  margin-top: 6px
   text-shadow: 0 0 4px black
   letter-spacing: 1px
 </style>
