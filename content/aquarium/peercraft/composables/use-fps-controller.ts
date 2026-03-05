@@ -155,30 +155,33 @@ export function useFpsController() {
       right.y = 0
       right.normalize()
 
-      /** 暫停時不處理移動 */
-      if (isPaused.value) {
-        return
-      }
-
       /** 根據按鍵計算移動方向 */
       let moveX = 0
       let moveZ = 0
 
-      if (keys.forward) {
-        moveX += forward.x
-        moveZ += forward.z
-      }
-      if (keys.backward) {
-        moveX -= forward.x
-        moveZ -= forward.z
-      }
-      if (keys.left) {
-        moveX -= right.x
-        moveZ -= right.z
-      }
-      if (keys.right) {
-        moveX += right.x
-        moveZ += right.z
+      /** 暫停時不處理移動 */
+      if (!isPaused.value) {
+        if (keys.forward) {
+          moveX += forward.x
+          moveZ += forward.z
+        }
+        if (keys.backward) {
+          moveX -= forward.x
+          moveZ -= forward.z
+        }
+        if (keys.left) {
+          moveX -= right.x
+          moveZ -= right.z
+        }
+        if (keys.right) {
+          moveX += right.x
+          moveZ += right.z
+        }
+
+        /** 跳躍 */
+        if (keys.jump && isOnGround) {
+          velocityY = JUMP_SPEED
+        }
       }
 
       /** 正規化水平移動方向 */
@@ -186,11 +189,6 @@ export function useFpsController() {
       if (moveLength > 0) {
         moveX = (moveX / moveLength) * MOVE_SPEED * deltaTime
         moveZ = (moveZ / moveLength) * MOVE_SPEED * deltaTime
-      }
-
-      /** 跳躍 */
-      if (keys.jump && isOnGround) {
-        velocityY = JUMP_SPEED
       }
 
       /** 重力 */
