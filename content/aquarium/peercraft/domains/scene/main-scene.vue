@@ -370,14 +370,18 @@ function startGame(sceneInstance: Scene, cameraInstance: UniversalCamera, canvas
     /** 處理傳送進度與視覺效果 */
     if (rightClickStartTime.value !== null) {
       const elapsed = performance.now() - rightClickStartTime.value
+      // 直接更新 ref 的 value 確保 Vue 響應式觸發
       teleportProgress.value = Math.min(1, elapsed / TELEPORT_HOLD_MS)
 
-      // FOV 縮放效果 (從 0.8 縮到 0.65)
+      // FOV 縮放效果 (從 BASE_FOV 縮到 BASE_FOV - 0.15)
       cameraInstance.fov = BASE_FOV - (teleportProgress.value * 0.15)
     }
     else {
-      teleportProgress.value = 0
-      cameraInstance.fov = BASE_FOV
+      // 重置進度
+      if (teleportProgress.value !== 0) {
+        teleportProgress.value = 0
+        cameraInstance.fov = BASE_FOV
+      }
     }
 
     const now = performance.now()
@@ -510,7 +514,7 @@ function disconnect() {
   background: #a855f7
   box-shadow: 0 0 10px #a855f7
   align-self: flex-start
-  transition: width 0.05s linear
+  transition: width 0.016s linear
 
 .teleport-charge-text
   font-size: 10px
