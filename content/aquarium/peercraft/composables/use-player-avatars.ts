@@ -70,11 +70,11 @@ function peerIdToColor(peerId: string): Color3 {
  * 建立 Q 版末影人 avatar 的所有部件
  *
  * 身體比例（相對於 root 中心，root 在 AABB 垂直中央）：
- * - 頭部：正方大頭（0.55×0.55×0.55）  y = +0.25
- * - 身體：短小身（0.30×0.25×0.20）  y = -0.15
- * - 雙腿：細長（0.10×0.50×0.10）    y = -0.525
- * - 雙臂：細長（0.08×0.55×0.08）    y = -0.15
- * - 眼睛：Q 版大眼，帶發光效果
+ * - 頭部：正方大頭（0.55×0.55×0.55）  y = +0.25 (相對 root)
+ * - 身體：短小身（0.30×0.25×0.20）  y = -0.15 (相對 root)
+ * - 雙腿：超長肢（0.10×0.975×0.10） y = -0.7625 (相對 root)
+ * - 雙臂：超長肢（0.08×1.10×0.08）  y = -0.575 (相對 root)
+ * - 眼睛：Q 版大眼，鏡頭高度 1.5 (相對腳底)
  */
 function createEndermanAvatar(peerId: string, scene: Scene): AvatarEntry {
   const root = new TransformNode(`avatar-root-${peerId}`, scene)
@@ -106,7 +106,7 @@ function createEndermanAvatar(peerId: string, scene: Scene): AvatarEntry {
   head.material = darkMat
   meshes.push(head)
 
-  /** 身體 (短) */
+  /** 身體 (原本的 Q 版短身體) */
   const body = MeshBuilder.CreateBox(`avatar-body-${peerId}`, {
     width: 0.30,
     height: 0.25,
@@ -117,47 +117,47 @@ function createEndermanAvatar(peerId: string, scene: Scene): AvatarEntry {
   body.material = darkMat
   meshes.push(body)
 
-  /** 左腿 (稍微加長一點補齊身體縮短的空間) */
+  /** 左腿 (肢體大幅加長) */
   const leftLeg = MeshBuilder.CreateBox(`avatar-lleg-${peerId}`, {
     width: 0.10,
-    height: 0.50,
+    height: 0.975,
     depth: 0.10,
   }, scene)
   leftLeg.parent = root
-  leftLeg.position = new Vector3(-0.10, -0.525, 0)
+  leftLeg.position = new Vector3(-0.10, -0.7625, 0)
   leftLeg.material = darkMat
   meshes.push(leftLeg)
 
   /** 右腿 */
   const rightLeg = MeshBuilder.CreateBox(`avatar-rleg-${peerId}`, {
     width: 0.10,
-    height: 0.50,
+    height: 0.975,
     depth: 0.10,
   }, scene)
   rightLeg.parent = root
-  rightLeg.position = new Vector3(0.10, -0.525, 0)
+  rightLeg.position = new Vector3(0.10, -0.7625, 0)
   rightLeg.material = darkMat
   meshes.push(rightLeg)
 
-  /** 左臂 (配合身體縮短，稍微加長) */
+  /** 左臂 (肢體大幅加長) */
   const leftArm = MeshBuilder.CreateBox(`avatar-larm-${peerId}`, {
     width: 0.08,
-    height: 0.55,
+    height: 1.10,
     depth: 0.08,
   }, scene)
   leftArm.parent = root
-  leftArm.position = new Vector3(-0.19, -0.15, 0)
+  leftArm.position = new Vector3(-0.19, -0.575, 0)
   leftArm.material = darkMat
   meshes.push(leftArm)
 
   /** 右臂 */
   const rightArm = MeshBuilder.CreateBox(`avatar-rarm-${peerId}`, {
     width: 0.08,
-    height: 0.55,
+    height: 1.10,
     depth: 0.08,
   }, scene)
   rightArm.parent = root
-  rightArm.position = new Vector3(0.19, -0.15, 0)
+  rightArm.position = new Vector3(0.19, -0.575, 0)
   rightArm.material = darkMat
   meshes.push(rightArm)
 
