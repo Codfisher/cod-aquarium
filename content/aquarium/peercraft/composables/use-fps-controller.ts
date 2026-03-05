@@ -110,6 +110,7 @@ export function useFpsController() {
         case 'ControlLeft':
         case 'ControlRight':
           keys.sprint = true
+          event.preventDefault()
           break
       }
     }
