@@ -90,7 +90,10 @@ const defaultParam: Required<UseBabylonSceneParam> = {
 
     camera.attachControl(canvas, true)
     camera.minZ = 0.1
-    /** 擴大 FOV 讓畫面看起來比較寬廣、不會太有壓迫感 (預設是 0.8) */
+    /** 擴大 FOV 讓畫面看起來比較寬廣、不會太有壓迫感 (預設是 0.8)
+     *
+     * 不然走個路都感覺臉貼在方塊上 (́⊙◞౪◟⊙‵)
+     */
     camera.fov = 1.2
 
     return camera

@@ -24,7 +24,10 @@ export interface BlockTextureDef {
   top?: string;
   side?: string;
   bottom?: string;
-  /** 色調 tint（乘以灰階貼圖產生顏色），格式 [r, g, b] 範圍 0~1 */
+  /** 色調 tint（乘以灰階貼圖產生顏色），格式 [r, g, b] 範圍 0~1
+   *
+   * minecraft 的草皮會基於生態系換顏色，所以原始貼圖是灰階圖
+   */
   topTint?: [number, number, number];
   sideTint?: [number, number, number];
 }
