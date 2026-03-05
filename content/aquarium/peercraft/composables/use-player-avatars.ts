@@ -236,7 +236,7 @@ export function usePlayerAvatars() {
       avatars.set(peerId, entry)
     }
 
-    /** 攝影機 Y 為眼睛高度，avatar 中心需偏移至身體中央 */
+    /** 攝影機 Y 為眼睛高度，avatar 中心需偏移至其腳底再向上移動 avatar 高度的一半 */
     entry.root.position = new Vector3(x, y - PLAYER_EYE_HEIGHT + PLAYER_HEIGHT / 2, z)
     entry.root.rotation.y = rotationY
   }
