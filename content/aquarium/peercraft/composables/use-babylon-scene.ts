@@ -84,9 +84,8 @@ const defaultParam: Required<UseBabylonSceneParam> = {
     csm.stabilizeCascades = true
     csm.shadowMaxZ = 90
     csm.usePercentageCloserFiltering = true
-    csm.bias = 0.005
-    // 偏移採樣點，消除斜面上的條紋
-    csm.normalBias = 0.005
+    csm.bias = 0.001
+    csm.normalBias = 0.002
 
     scene.fogMode = Scene.FOGMODE_LINEAR
     scene.fogColor = new Color3(0.53, 0.74, 0.93)

@@ -27,7 +27,7 @@
       class="absolute inset-0 bg-black/80 flex flex-col items-center justify-center text-white z-50 backdrop-blur-sm"
     >
       <div class="text-2xl font-bold mb-4 animate-pulse">
-        {{ currentRole === 'client' ? '正在下載世界地圖...' : '連線至伺服器...' }}
+        {{ currentRole === 'client' ? '正在努力擺方塊...' : '連線至伺服器...' }}
       </div>
     </div>
   </div>
@@ -73,6 +73,7 @@ const { canvasRef, scene, camera } = useBabylonScene({
 const {
   isReady,
   currentRole,
+  currentPeerId,
   sendWorldSnapshot,
   broadcastBlockUpdate,
   sendBlockUpdateToHost,
@@ -296,7 +297,7 @@ function startGame(sceneInstance: Scene, cameraInstance: UniversalCamera, canvas
     const rotationY = cameraInstance.rotation.y
 
     if (currentRole.value === NetworkRole.HOST) {
-      broadcastPlayerPosition('host', pos.x, pos.y, pos.z, rotationY)
+      broadcastPlayerPosition(currentPeerId.value, pos.x, pos.y, pos.z, rotationY)
     }
     else if (currentRole.value === NetworkRole.CLIENT) {
       sendPlayerPositionToHost(pos.x, pos.y, pos.z, rotationY)

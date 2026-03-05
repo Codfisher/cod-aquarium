@@ -1,7 +1,8 @@
-import type { Mesh, Scene } from '@babylonjs/core'
+import type { DirectionalLight, Mesh, Scene, ShadowGenerator } from '@babylonjs/core'
 import { Color3, MeshBuilder, StandardMaterial, Vector3 } from '@babylonjs/core'
 import { watchEffect } from 'vue'
 import { PLAYER_EYE_HEIGHT, PLAYER_HEIGHT, PLAYER_WIDTH } from '../domains/player/collision'
+import { SUN_LIGHT_NAME } from './use-babylon-scene'
 
 interface AvatarEntry {
   bodyMesh: Mesh;
@@ -109,6 +110,14 @@ export function usePlayerAvatars() {
         depth: PLAYER_WIDTH,
       }, sceneRef)
       bodyMesh.material = material
+      bodyMesh.receiveShadows = true
+
+      /** 註冊至陰影產生器 */
+      const sunLight = sceneRef.getLightByName(SUN_LIGHT_NAME) as DirectionalLight | null
+      const shadowGenerator = sunLight?.getShadowGenerator() as ShadowGenerator | null
+      if (shadowGenerator) {
+        shadowGenerator.addShadowCaster(bodyMesh)
+      }
 
       entry = { bodyMesh, material }
       avatars.set(peerId, entry)

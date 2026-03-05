@@ -226,9 +226,11 @@ export function usePeerNetwork({
     })
 
     connection.on('close', () => {
-      connections.delete(connection.peer)
+      const hostPeerId = connection.peer
+      connections.delete(hostPeerId)
       isReady.value = false
       console.warn('[Client] Lost connection to Host. Attempting to reconnect or become Host...')
+      onClientDisconnected?.(hostPeerId)
       cleanup()
       // 延遲後重試 (tryConnect 內部會先試 Client 後轉 Host)
       setTimeout(tryConnect, 1000)
@@ -237,7 +239,6 @@ export function usePeerNetwork({
 
   /**
    * 【供 Host 呼叫】廣播目前的世界快照給剛連入的單一 Client
-   * （使用 Uint8Array 傳輸，確保 256KB 效能）
    */
   function sendWorldSnapshot(targetPeerId: string, worldState: Uint8Array) {
     if (currentRole.value !== NetworkRole.HOST)
