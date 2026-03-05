@@ -16,8 +16,8 @@ export function createWorldState(): Uint8Array {
  * 使用簡易 2D noise 模擬高低地形
  */
 export function generateTerrain(state: Uint8Array): void {
-  const baseHeight = 4
-  const maxVariation = 4
+  const baseHeight = 12
+  const maxVariation = 6
 
   for (let x = 0; x < WORLD_SIZE; x++) {
     for (let z = 0; z < WORLD_SIZE; z++) {
@@ -35,6 +35,9 @@ export function generateTerrain(state: Uint8Array): void {
         const index = coordinateToIndex(x, y, z)
 
         if (y === 0) {
+          state[index] = BlockId.BEDROCK
+        }
+        else if (y < clampedHeight - 3) {
           state[index] = BlockId.STONE
         }
         else if (y < clampedHeight - 1) {
@@ -46,4 +49,21 @@ export function generateTerrain(state: Uint8Array): void {
       }
     }
   }
+}
+
+/**
+ * 取得指定 X, Z 座標上最高的非空氣方塊的 Y 座標準位
+ * 找不到則回傳 0
+ */
+export function getHighestBlockY(state: Uint8Array, x: number, z: number): number {
+  if (x < 0 || x >= WORLD_SIZE || z < 0 || z >= WORLD_SIZE)
+    return 0
+
+  for (let y = WORLD_SIZE - 1; y >= 0; y--) {
+    const index = coordinateToIndex(x, y, z)
+    if (state[index] !== BlockId.AIR) {
+      return y
+    }
+  }
+  return 0
 }

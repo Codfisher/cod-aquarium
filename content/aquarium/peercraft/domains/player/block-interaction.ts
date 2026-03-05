@@ -154,6 +154,10 @@ export function digBlock(
     return false
   }
 
+  if (worldState[index] === BlockId.BEDROCK) {
+    return false
+  }
+
   worldState[index] = BlockId.AIR
   return true
 }

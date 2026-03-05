@@ -5,6 +5,8 @@ import {
   PLAYER_EYE_HEIGHT,
   resolveCollision,
 } from '../domains/player/collision'
+import { WORLD_SIZE } from '../domains/world/world-constants'
+import { getHighestBlockY } from '../domains/world/world-state'
 
 const GRAVITY = 20
 const JUMP_SPEED = 7
@@ -59,10 +61,15 @@ export function useFpsController() {
     let velocityZ = 0
     let isOnGround = false
 
+    /** 隨機選擇重生點 X, Z，並尋找地表高度 */
+    const spawnX = Math.floor(Math.random() * (WORLD_SIZE - 4)) + 2 // 避免邊界
+    const spawnZ = Math.floor(Math.random() * (WORLD_SIZE - 4)) + 2
+    const spawnY = getHighestBlockY(worldState, spawnX, spawnZ) + 1 // +1 站在方塊上
+
     /** 玩家腳底位置（攝影機位置 = 腳底 + eyeHeight） */
-    let footX = camera.position.x
-    let footY = camera.position.y - PLAYER_EYE_HEIGHT
-    let footZ = camera.position.z
+    let footX = spawnX + 0.5 // 站方塊正中央
+    let footY = spawnY
+    let footZ = spawnZ + 0.5
 
     /** 停用 Babylon 內建的攝影機移動 */
     camera.keysUp = []

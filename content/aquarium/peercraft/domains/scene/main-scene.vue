@@ -54,7 +54,7 @@ const emit = defineEmits<{
 }>()
 
 /** 共享世界狀態 */
-let worldState: Uint8Array
+let worldState = createWorldState()
 let renderer: VoxelRenderer
 
 const heldBlockId = ref<BlockId | null>(null)

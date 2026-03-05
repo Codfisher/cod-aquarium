@@ -77,7 +77,7 @@ const defaultParam: Required<UseBabylonSceneParam> = {
     sunLight.diffuse = new Color3(1.0, 0.98, 0.92)
 
     /** 級聯陰影 */
-    const csm = new CascadedShadowGenerator(1024, sunLight)
+    const csm = new CascadedShadowGenerator(512, sunLight)
     csm.numCascades = 4
     csm.lambda = 0.7
     csm.cascadeBlendPercentage = 0.05
@@ -85,7 +85,7 @@ const defaultParam: Required<UseBabylonSceneParam> = {
     csm.shadowMaxZ = 90
     csm.usePercentageCloserFiltering = true
     csm.bias = 0.001
-    csm.normalBias = 0.002
+    csm.normalBias = 0.05
 
     scene.fogMode = Scene.FOGMODE_LINEAR
     scene.fogColor = new Color3(0.53, 0.74, 0.93)

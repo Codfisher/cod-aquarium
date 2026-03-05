@@ -11,6 +11,7 @@ export enum BlockId {
   STONE,
   WOOD,
   DIRT,
+  BEDROCK,
 }
 
 /** 材質路徑前綴 */
@@ -50,6 +51,9 @@ export const BLOCK_TEXTURES: Record<Exclude<BlockId, BlockId.AIR>, BlockTextureD
   [BlockId.DIRT]: {
     all: `${TEXTURE_BASE}/dirt.png`,
   },
+  [BlockId.BEDROCK]: {
+    all: `${TEXTURE_BASE}/bedrock.png`,
+  },
 }
 
 /** 方塊挖掘所需時間（秒） */
@@ -58,6 +62,7 @@ export const BLOCK_MINING_TIMES: Record<Exclude<BlockId, BlockId.AIR>, number> =
   [BlockId.DIRT]: 0.5,
   [BlockId.WOOD]: 1.5,
   [BlockId.STONE]: 2.0,
+  [BlockId.BEDROCK]: Infinity,
 }
 
 /** 需要渲染的方塊 ID（排除 AIR） */
@@ -66,6 +71,7 @@ export const RENDERABLE_BLOCK_IDS = [
   BlockId.STONE,
   BlockId.WOOD,
   BlockId.DIRT,
+  BlockId.BEDROCK,
 ] as const
 
 /**
