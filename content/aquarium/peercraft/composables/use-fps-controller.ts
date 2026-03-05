@@ -36,6 +36,11 @@ export function useFpsController() {
   const isPaused = ref(true)
   let canvasRef: HTMLCanvasElement | null = null
 
+  /** 玩家位置 (腳底) */
+  let footX = 0
+  let footY = 0
+  let footZ = 0
+
   onBeforeUnmount(() => {
     cleanup?.()
   })
@@ -71,9 +76,9 @@ export function useFpsController() {
     const spawnY = WORLD_HEIGHT
 
     /** 玩家腳底位置（攝影機位置 = 腳底 + eyeHeight） */
-    let footX = spawnX + 0.5 // 站方塊正中央
-    let footY = spawnY
-    let footZ = spawnZ + 0.5
+    footX = spawnX + 0.5 // 站方塊正中央
+    footY = spawnY
+    footZ = spawnZ + 0.5
 
     /** 停用 Babylon 內建的攝影機移動 */
     camera.keysUp = []
@@ -251,5 +256,11 @@ export function useFpsController() {
     canvasRef?.requestPointerLock()
   }
 
-  return { start, resume, isPaused }
+  function teleport(x: number, y: number, z: number) {
+    footX = x
+    footY = y
+    footZ = z
+  }
+
+  return { start, resume, isPaused, teleport }
 }

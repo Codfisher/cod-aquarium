@@ -334,13 +334,13 @@ function startGame(sceneInstance: Scene, cameraInstance: UniversalCamera, canvas
       if (duration >= TELEPORT_HOLD_MS) {
         const hit = castBlockRay(cameraInstance, worldState, MAX_TELEPORT_DISTANCE)
         if (hit) {
-          /** 傳送至方塊上方 1.5m (眼睛高度) */
-          const targetX = hit.blockX
-          const targetY = hit.blockY + 1.6 // 稍微高一點點，避免穿模
-          const targetZ = hit.blockZ
+          /** 傳送至方塊上方 (腳底位置) */
+          const targetX = hit.blockX + 0.5
+          const targetY = hit.blockY + 1.1 // 稍微高於一個方塊，避免卡住
+          const targetZ = hit.blockZ + 0.5
 
-          cameraInstance.position.set(targetX, targetY, targetZ)
-          console.log(`[Teleport] To (${targetX}, ${targetY}, ${targetZ})`)
+          fpsController.teleport(targetX, targetY, targetZ)
+          console.warn(`[Teleport] To (${targetX}, ${targetY}, ${targetZ})`)
         }
       }
     }
