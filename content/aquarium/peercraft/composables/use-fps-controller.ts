@@ -107,8 +107,8 @@ export function useFpsController() {
           keys.jump = true
           event.preventDefault()
           break
-        case 'ControlLeft':
-        case 'ControlRight':
+        case 'ShiftLeft':
+        case 'ShiftRight':
           keys.sprint = true
           event.preventDefault()
           break
@@ -132,8 +132,8 @@ export function useFpsController() {
         case 'Space':
           keys.jump = false
           break
-        case 'ControlLeft':
-        case 'ControlRight':
+        case 'ShiftLeft':
+        case 'ShiftRight':
           keys.sprint = false
           break
       }
