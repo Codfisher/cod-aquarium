@@ -63,81 +63,87 @@ export function usePeerNetwork({
 
     const { Peer } = await import('peerjs')
 
-    // 1. 先嘗試以匿名 Client 身份連線
-    const tempPeer = new Peer()
-    peer = tempPeer
+    console.log(`[Network] Attempting to create room as Host (${FIXED_ROOM_ID})...`)
+    // 1. 先嘗試以固定的房號建立 Host
+    const tempHostPeer = new Peer(FIXED_ROOM_ID)
+    peer = tempHostPeer
 
-    tempPeer.on('open', (id) => {
-      currentPeerId.value = id
-      console.log(`[Network] Initialize as Client. Attempting to connect to ${FIXED_ROOM_ID}...`)
+    const becomeClient = () => {
+      if (currentRole.value === NetworkRole.CLIENT)
+        return
 
-      const becomeHost = () => {
-        if (currentRole.value === NetworkRole.HOST)
-          return
+      cleanup()
+      console.warn(`[Network] Room ${FIXED_ROOM_ID} already exists. Joining as Client...`)
 
-        cleanup()
-        console.warn(`[Network] Room ${FIXED_ROOM_ID} not reachable. Taking over as Host...`)
+      // 延遲一下再建立 Client，確保資源釋放
+      setTimeout(async () => {
+        const { Peer: PeerClass } = await import('peerjs')
+        const clientPeer = new PeerClass()
+        peer = clientPeer
 
-        // 延遲一下再建立 Host，確保舊的 tempPeer 已經釋放
-        setTimeout(async () => {
-          const { Peer: PeerClass } = await import('peerjs')
-          peer = new PeerClass(FIXED_ROOM_ID)
-          currentRole.value = NetworkRole.HOST
+        clientPeer.on('open', (id) => {
+          currentPeerId.value = id
+          console.log(`[Network] Initialize as Client ${id}. Attempting to connect to ${FIXED_ROOM_ID}...`)
 
-          peer.on('open', (hostId) => {
-            currentPeerId.value = hostId
-            isReady.value = true
-            console.log(`[Network] Successfully created room as Host: ${hostId}`)
-            onConnected?.()
-          })
-
-          peer.on('connection', (inboundConnection) => {
-            setupHostConnection(inboundConnection)
-          })
-
-          peer.on('error', (hostErr) => {
-            console.error('[Network] Host creation error:', hostErr)
-            // 如果 ID 衝突 (已經有人是 Host 了)，則重回 Client 模式
-            if (hostErr.type === 'unavailable-id') {
+          // 設定 3 秒連線逾時，如果連不上就重試 (因為 Host 可能已經斷線但 ID 尚未釋放)
+          const clientConnectionTimeout = setTimeout(() => {
+            if (currentRole.value === null || currentRole.value === NetworkRole.CLIENT) {
+              console.warn(`[Network] Client connection to ${FIXED_ROOM_ID} timed out. Retrying as Host...`)
               cleanup()
               setTimeout(tryConnect, 1000)
             }
+          }, 3000)
+
+          const connection = clientPeer.connect(FIXED_ROOM_ID)
+
+          // 如果連線成功，代表房間存在，正式成為 Client
+          connection.on('open', () => {
+            clearTimeout(clientConnectionTimeout)
+            currentRole.value = NetworkRole.CLIENT
+            setupClientConnection(connection)
           })
-        }, 500)
-      }
 
-      // 設定 3 秒連線逾時，如果連不上就強制轉為 Host
-      const clientConnectionTimeout = setTimeout(() => {
-        if (currentRole.value === null || currentRole.value === NetworkRole.CLIENT) {
-          becomeHost()
-        }
-      }, 3000)
+          connection.on('error', (err) => {
+            console.error('[Network] Client connection to Host failed:', err)
+            clearTimeout(clientConnectionTimeout)
+            cleanup()
+            setTimeout(tryConnect, 1000)
+          })
+        })
 
-      const connection = tempPeer.connect(FIXED_ROOM_ID)
-
-      // 如果連線成功，代表房間存在，正式成為 Client
-      connection.on('open', () => {
-        clearTimeout(clientConnectionTimeout)
-        currentRole.value = NetworkRole.CLIENT
-        setupClientConnection(connection)
-      })
-
-      connection.on('error', (err) => {
-        console.error('[Network] Client connection to Host failed:', err)
-        clearTimeout(clientConnectionTimeout)
-        becomeHost()
-      })
-
-      // 如果連線失敗 (找不到該 Peer)
-      tempPeer.on('error', (err) => {
-        if (err.type === 'peer-unavailable') {
-          clearTimeout(clientConnectionTimeout)
-          becomeHost()
-        }
-        else {
+        clientPeer.on('error', (err) => {
           console.error('[Network] Client error:', err)
-        }
-      })
+          if (err.type === 'peer-unavailable') {
+            cleanup()
+            setTimeout(tryConnect, 1000)
+          }
+        })
+      }, 500)
+    }
+
+    tempHostPeer.on('open', (hostId) => {
+      currentRole.value = NetworkRole.HOST
+      currentPeerId.value = hostId
+      isReady.value = true
+      console.log(`[Network] Successfully created room as Host: ${hostId}`)
+      onConnected?.()
+    })
+
+    tempHostPeer.on('connection', (inboundConnection) => {
+      setupHostConnection(inboundConnection)
+    })
+
+    tempHostPeer.on('error', (hostErr) => {
+      console.error('[Network] Host creation error:', hostErr)
+      // 如果 ID 衝突 (已經有人是 Host 了)，則轉為 Client 模式連線
+      if (hostErr.type === 'unavailable-id') {
+        becomeClient()
+      }
+      else {
+        // 其他錯誤也先嘗試重連
+        cleanup()
+        setTimeout(tryConnect, 1000)
+      }
     })
   }
 
