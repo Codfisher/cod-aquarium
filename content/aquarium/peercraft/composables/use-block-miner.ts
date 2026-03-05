@@ -2,7 +2,8 @@ import type { Mesh, Scene, UniversalCamera } from '@babylonjs/core'
 import type { RaycastHit } from '../domains/player/block-interaction'
 import type { BlockId } from '../domains/world/world-constants'
 import { Color3, Color4, MeshBuilder, ParticleSystem, StandardMaterial, Texture, Vector3 } from '@babylonjs/core'
-import { ref, watchEffect } from 'vue'
+import { tryOnScopeDispose } from '@vueuse/core'
+import { ref } from 'vue'
 import { castBlockRay, digBlock } from '../domains/player/block-interaction'
 import { BLOCK_MINING_TIMES, BLOCK_TEXTURES } from '../domains/world/world-constants'
 
@@ -57,10 +58,8 @@ export function useBlockMiner() {
   let destroyMaterialList: StandardMaterial[] = []
   let sceneRef: Scene | null = null
 
-  watchEffect((onCleanup) => {
-    onCleanup(() => {
-      cleanup?.()
-    })
+  tryOnScopeDispose(() => {
+    cleanup?.()
   })
 
   function resetMining() {
@@ -214,7 +213,7 @@ export function useBlockMiner() {
       mat.diffuseTexture = tex
       mat.useAlphaFromDiffuseTexture = true
       mat.disableLighting = true
-      mat.emissiveColor = new Color3(0.2, 0.2, 0.2)
+      mat.emissiveColor = new Color3(0.8, 0.8, 0.8)
       mat.zOffset = -1 // 避免 Z-fighting
       destroyMaterialList.push(mat)
     }

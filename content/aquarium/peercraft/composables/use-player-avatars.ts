@@ -1,6 +1,6 @@
 import type { DirectionalLight, Mesh, Scene, ShadowGenerator } from '@babylonjs/core'
 import { Color3, MeshBuilder, StandardMaterial, Vector3 } from '@babylonjs/core'
-import { watchEffect } from 'vue'
+import { tryOnScopeDispose } from '@vueuse/core'
 import { PLAYER_EYE_HEIGHT, PLAYER_HEIGHT, PLAYER_WIDTH } from '../domains/player/collision'
 import { SUN_LIGHT_NAME } from './use-babylon-scene'
 
@@ -76,10 +76,8 @@ export function usePlayerAvatars() {
   let sceneRef: Scene | null = null
   let cleanup: (() => void) | null = null
 
-  watchEffect((onCleanup) => {
-    onCleanup(() => {
-      cleanup?.()
-    })
+  tryOnScopeDispose(() => {
+    cleanup?.()
   })
 
   function start(params: { scene: Scene }) {
