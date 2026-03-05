@@ -6,6 +6,7 @@ import {
   Engine,
   HemisphericLight,
   Scene,
+  ShadowGenerator,
   UniversalCamera,
   Vector3,
   WebGPUEngine,
@@ -76,14 +77,14 @@ const defaultParam: Required<UseBabylonSceneParam> = {
     sunLight.intensity = 0.8
     sunLight.diffuse = new Color3(1.0, 0.98, 0.92)
 
-    /** 級聯陰影 */
     const csm = new CascadedShadowGenerator(512, sunLight)
-    csm.numCascades = 4
+    csm.numCascades = 2
     csm.lambda = 0.7
     csm.cascadeBlendPercentage = 0.05
     csm.stabilizeCascades = true
-    csm.shadowMaxZ = 90
+    csm.shadowMaxZ = 50
     csm.usePercentageCloserFiltering = true
+    csm.filteringQuality = ShadowGenerator.QUALITY_LOW
     csm.bias = 0.001
     csm.normalBias = 0.05
 
