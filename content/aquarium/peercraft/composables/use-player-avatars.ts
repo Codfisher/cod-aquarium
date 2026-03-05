@@ -1,7 +1,9 @@
 import type { DirectionalLight, Mesh, Scene, ShadowGenerator } from '@babylonjs/core'
 import { Color3, MeshBuilder, StandardMaterial, TransformNode, Vector3 } from '@babylonjs/core'
 import { tryOnScopeDispose } from '@vueuse/core'
+import { BLOCK_DEFS, BlockId } from '../domains/block/block-constants'
 import { PLAYER_EYE_HEIGHT, PLAYER_HEIGHT } from '../domains/player/collision'
+import { createPixelMaterial } from '../domains/renderer/voxel-renderer'
 import { SUN_LIGHT_NAME } from './use-babylon-scene'
 
 interface AvatarEntry {
@@ -21,6 +23,9 @@ interface AvatarEntry {
     walkCycle: number;
     intensity: number;
   };
+  /** 手持方塊相關 */
+  hand: TransformNode;
+  heldBlockMesh: Mesh | null;
 }
 
 /** 根據 peerId 產生確定性的顏色（用於眼睛發光色） */
@@ -179,6 +184,12 @@ function createEndermanAvatar(peerId: string, scene: Scene): AvatarEntry {
     rightArm: createLimb('rarm', 0.08, 0.80, 0.08, 0.19, -0.175),
   }
 
+  /** 建立手部掛載點 (在右手臂下方) */
+  const hand = new TransformNode(`avatar-hand-${peerId}`, scene)
+  hand.parent = joints.rightArm
+  hand.position.y = -0.80 // 手臂高度底端
+  hand.rotation.x = -Math.PI / 4 // 稍微向前傾斜方便拿東西
+
   // 手臂不要貼緊身體
   const armOffset = 3 * Math.PI / 180
   joints.leftArm.rotation.z = -armOffset
@@ -201,7 +212,7 @@ function createEndermanAvatar(peerId: string, scene: Scene): AvatarEntry {
     }
   }
 
-  return { root, meshes, materials, joints, state }
+  return { root, meshes, materials, joints, state, hand, heldBlockMesh: null }
 }
 
 /**
@@ -291,6 +302,8 @@ export function usePlayerAvatars() {
   function removeAvatar(peerId: string) {
     const entry = avatars.get(peerId)
     if (entry) {
+      if (entry.heldBlockMesh)
+        entry.heldBlockMesh.dispose()
       for (const mesh of entry.meshes) mesh.dispose()
       for (const mat of entry.materials) mat.dispose()
       entry.root.dispose()
@@ -298,5 +311,73 @@ export function usePlayerAvatars() {
     }
   }
 
-  return { start, updateAvatar, removeAvatar }
+  /** 更新遠端玩家手持方塊 */
+  function updateHeldBlock(peerId: string, blockId: BlockId | null) {
+    const entry = avatars.get(peerId)
+    if (!entry)
+      return
+
+    // 清除舊的
+    if (entry.heldBlockMesh) {
+      entry.heldBlockMesh.dispose()
+      entry.heldBlockMesh = null
+    }
+
+    if (blockId !== null && blockId !== BlockId.AIR) {
+      const blockDef = BLOCK_DEFS[blockId]
+      const textureDef = blockDef.textures
+      if (!textureDef)
+        return
+
+      const size = 0.3
+      const half = size / 2
+      const blockRoot = new TransformNode(`held-block-root-${peerId}`, sceneRef!)
+      blockRoot.parent = entry.hand
+      blockRoot.position = new Vector3(0, -0.05, 0.05)
+
+      if (textureDef.all) {
+        const mesh = MeshBuilder.CreateBox(`avatar-held-${peerId}`, { size }, sceneRef!)
+        mesh.parent = blockRoot
+        mesh.material = createPixelMaterial(`held_${blockId}`, textureDef.all, sceneRef!)
+      }
+      else {
+        // 多面貼圖處理
+        const topMat = createPixelMaterial(`held_${peerId}_${blockId}_top`, textureDef.top ?? '', sceneRef!, textureDef.topTint)
+        const topMesh = MeshBuilder.CreatePlane(`held_${peerId}_${blockId}_top`, { size }, sceneRef!)
+        topMesh.rotation.x = Math.PI / 2
+        topMesh.position.y = half
+        topMesh.material = topMat
+        topMesh.parent = blockRoot
+
+        const bottomMat = createPixelMaterial(`held_${peerId}_${blockId}_bottom`, textureDef.bottom ?? '', sceneRef!)
+        const bottomMesh = MeshBuilder.CreatePlane(`held_${peerId}_${blockId}_bottom`, { size }, sceneRef!)
+        bottomMesh.rotation.x = -Math.PI / 2
+        bottomMesh.position.y = -half
+        bottomMesh.material = bottomMat
+        bottomMesh.parent = blockRoot
+
+        const sideMat = createPixelMaterial(`held_${peerId}_${blockId}_side`, textureDef.side ?? '', sceneRef!, textureDef.sideTint)
+        const sideRotations = [
+          { name: 'front', rotationY: 0, x: 0, z: half },
+          { name: 'back', rotationY: Math.PI, x: 0, z: -half },
+          { name: 'left', rotationY: -Math.PI / 2, x: -half, z: 0 },
+          { name: 'right', rotationY: Math.PI / 2, x: half, z: 0 },
+        ]
+
+        for (const { name, rotationY, x, z } of sideRotations) {
+          const sideMesh = MeshBuilder.CreatePlane(`held_${peerId}_${blockId}_${name}`, { size }, sceneRef!)
+          sideMesh.rotation.y = rotationY
+          sideMesh.position.x = x
+          sideMesh.position.z = z
+          sideMesh.material = sideMat
+          sideMesh.parent = blockRoot
+        }
+      }
+
+      // 統一儲存 root，方便下次 update 時整批 dispose
+      entry.heldBlockMesh = blockRoot as any
+    }
+  }
+
+  return { start, updateAvatar, removeAvatar, updateHeldBlock }
 }

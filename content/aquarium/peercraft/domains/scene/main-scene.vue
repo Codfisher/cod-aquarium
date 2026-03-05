@@ -60,7 +60,7 @@
 import type { Mesh, Scene, UniversalCamera } from '@babylonjs/core'
 import type { VoxelRenderer } from '../renderer/voxel-renderer'
 import { MeshBuilder, TransformNode, Vector3 } from '@babylonjs/core'
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import PauseMenu from '../../components/pause-menu.vue'
 import { useBabylonScene } from '../../composables/use-babylon-scene'
 import { useFpsController } from '../../composables/use-fps-controller'
@@ -113,6 +113,9 @@ const {
   sendMiningProgressToHost,
   broadcastPlayerPosition,
   sendPlayerPositionToHost,
+  broadcastHeldBlock,
+  sendHeldBlockToHost,
+  sendHeldBlockToClient,
 } = usePeerNetwork({
   onConnected: () => {
     if (currentRole.value === NetworkRole.HOST) {
@@ -124,6 +127,10 @@ const {
       else {
         console.warn('[Network] Reconnected as Host, keeping current world state.')
       }
+    }
+    else if (currentRole.value === NetworkRole.CLIENT) {
+      // Client 連線後，主動告知 Host 自己手上拿的東西
+      sendHeldBlockToHost(heldBlockId.value)
     }
   },
   onWorldSnapshotReceived: (receivedState) => {
@@ -142,6 +149,8 @@ const {
   onClientConnected: (peerId) => {
     if (currentRole.value === NetworkRole.HOST) {
       sendWorldSnapshot(peerId, worldState)
+      // 同步 Host 目前手上拿的東西給新進來的 Client
+      sendHeldBlockToClient(peerId, 'host', heldBlockId.value)
     }
   },
   onBlockUpdateReceived: (x, y, z, blockId) => {
@@ -158,6 +167,9 @@ const {
   onPlayerPositionReceived: (peerId, x, y, z, rotationY) => {
     playerAvatars.updateAvatar(peerId, x, y, z, rotationY)
   },
+  onHeldBlockReceived: (peerId, blockId) => {
+    playerAvatars.updateHeldBlock(peerId, blockId)
+  },
   onClientDisconnected: (peerId) => {
     playerAvatars.removeAvatar(peerId)
   },
@@ -168,6 +180,16 @@ function startGame(sceneInstance: Scene, cameraInstance: UniversalCamera, canvas
   if (hasStarted)
     return
   hasStarted = true
+
+  // 監聽手持方塊變更並同步
+  watch(heldBlockId, (newId) => {
+    if (currentRole.value === NetworkRole.HOST) {
+      broadcastHeldBlock('host', newId)
+    }
+    else if (currentRole.value === NetworkRole.CLIENT) {
+      sendHeldBlockToHost(newId)
+    }
+  })
 
   /** 渲染體素 */
   renderer = createVoxelRenderer(sceneInstance, worldState)

@@ -10,7 +10,6 @@ export enum NetworkRole {
   CLIENT = 'client',
 }
 
-/** 網路封包基本型別 */
 export enum PacketType {
   /** 初次連線時，Host 傳送完整世界快照給 Client */
   WORLD_SNAPSHOT = 'world_snapshot',
@@ -20,6 +19,8 @@ export enum PacketType {
   MINING_PROGRESS = 'mining_progress',
   /** 同步玩家位置與朝向 */
   PLAYER_POSITION = 'player_position',
+  /** 同步玩家手上拿著的方塊 */
+  HELD_BLOCK = 'held_block',
 }
 
 /** 完整世界快照封包 */
@@ -65,4 +66,13 @@ export interface PlayerPositionPacket {
   };
 }
 
-export type NetworkPacket = WorldSnapshotPacket | BlockUpdatePacket | MiningProgressPacket | PlayerPositionPacket
+/** 玩家持有的方塊同步封包 */
+export interface HeldBlockPacket {
+  type: PacketType.HELD_BLOCK;
+  data: {
+    peerId: string;
+    blockId: BlockId | null;
+  };
+}
+
+export type NetworkPacket = WorldSnapshotPacket | BlockUpdatePacket | MiningProgressPacket | PlayerPositionPacket | HeldBlockPacket

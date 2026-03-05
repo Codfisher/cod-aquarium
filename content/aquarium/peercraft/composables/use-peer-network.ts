@@ -19,6 +19,8 @@ export interface UsePeerNetworkParams {
   onMiningProgressReceived?: (peerId: string, x: number, y: number, z: number, progress: number, blockId: BlockId) => void;
   /** 事件：收到網路傳來的玩家位置 */
   onPlayerPositionReceived?: (peerId: string, x: number, y: number, z: number, rotationY: number) => void;
+  /** 事件：收到網路傳來的玩家持有方塊 */
+  onHeldBlockReceived?: (peerId: string, blockId: BlockId | null) => void;
 }
 
 export const FIXED_ROOM_ID = 'peercraft-fixed-room-v1'
@@ -34,6 +36,7 @@ export function usePeerNetwork({
   onBlockUpdateReceived,
   onMiningProgressReceived,
   onPlayerPositionReceived,
+  onHeldBlockReceived,
 }: UsePeerNetworkParams) {
   const isReady = ref(false)
   const currentPeerId = ref<string>('')
@@ -168,9 +171,7 @@ export function usePeerNetwork({
       const packet = data as NetworkPacket
       if (packet.type === PacketType.BLOCK_UPDATE) {
         const { x, y, z, blockId } = packet.data
-        // Host 收到來自 Client 的變更
         onBlockUpdateReceived?.(x, y, z, blockId)
-        // 將該變更廣播給其餘所有連線中的 Client
         broadcastBlockUpdate(x, y, z, blockId, connection.peer)
       }
       else if (packet.type === PacketType.MINING_PROGRESS) {
@@ -182,6 +183,11 @@ export function usePeerNetwork({
         const { peerId, x, y, z, rotationY } = packet.data
         onPlayerPositionReceived?.(peerId, x, y, z, rotationY)
         broadcastPlayerPosition(peerId, x, y, z, rotationY, connection.peer)
+      }
+      else if (packet.type === PacketType.HELD_BLOCK) {
+        const { peerId, blockId } = packet.data
+        onHeldBlockReceived?.(peerId, blockId)
+        broadcastHeldBlock(peerId, blockId, connection.peer)
       }
     })
 
@@ -214,7 +220,6 @@ export function usePeerNetwork({
     connection.on('data', (data) => {
       const packet = data as NetworkPacket
       if (packet.type === PacketType.WORLD_SNAPSHOT) {
-        console.log('[Client] Received world snapshot:', packet.data.byteLength, 'bytes')
         onWorldSnapshotReceived?.(packet.data)
       }
       else if (packet.type === PacketType.BLOCK_UPDATE) {
@@ -228,6 +233,10 @@ export function usePeerNetwork({
       else if (packet.type === PacketType.PLAYER_POSITION) {
         const { peerId, x, y, z, rotationY } = packet.data
         onPlayerPositionReceived?.(peerId, x, y, z, rotationY)
+      }
+      else if (packet.type === PacketType.HELD_BLOCK) {
+        const { peerId, blockId } = packet.data
+        onHeldBlockReceived?.(peerId, blockId)
       }
     })
 
@@ -396,6 +405,66 @@ export function usePeerNetwork({
     }
   }
 
+  /**
+   * 【供 Host 呼叫】廣播玩家持有方塊給所有 Client
+   */
+  function broadcastHeldBlock(
+    senderPeerId: string,
+    blockId: BlockId | null,
+    excludePeerId?: string,
+  ) {
+    if (currentRole.value !== NetworkRole.HOST)
+      return
+
+    const packet: NetworkPacket = {
+      type: PacketType.HELD_BLOCK,
+      data: { peerId: senderPeerId, blockId },
+    }
+
+    connections.forEach((conn, peerId) => {
+      if (peerId !== excludePeerId && conn.open) {
+        conn.send(packet)
+      }
+    })
+  }
+
+  /**
+   * 【供 Client 呼叫】將自己手持方塊傳給 Host
+   */
+  function sendHeldBlockToHost(blockId: BlockId | null) {
+    if (currentRole.value !== NetworkRole.CLIENT)
+      return
+
+    const hostConn = Array.from(connections.values())[0]
+    if (hostConn && hostConn.open) {
+      const packet: NetworkPacket = {
+        type: PacketType.HELD_BLOCK,
+        data: {
+          peerId: currentPeerId.value,
+          blockId,
+        },
+      }
+      hostConn.send(packet)
+    }
+  }
+
+  /**
+   * 【供 Host 呼叫】將持手方塊狀態傳給特定 Client
+   */
+  function sendHeldBlockToClient(targetPeerId: string, senderPeerId: string, blockId: BlockId | null) {
+    if (currentRole.value !== NetworkRole.HOST)
+      return
+
+    const conn = connections.get(targetPeerId)
+    if (conn && conn.open) {
+      const packet: NetworkPacket = {
+        type: PacketType.HELD_BLOCK,
+        data: { peerId: senderPeerId, blockId },
+      }
+      conn.send(packet)
+    }
+  }
+
   onBeforeUnmount(() => {
     connections.forEach((conn) => conn.close())
     connections.clear()
@@ -416,6 +485,9 @@ export function usePeerNetwork({
     sendMiningProgressToHost,
     broadcastPlayerPosition,
     sendPlayerPositionToHost,
+    broadcastHeldBlock,
+    sendHeldBlockToHost,
+    sendHeldBlockToClient,
     /** 暴露給 Host 在有人連線時，能夠主動派送 Snapshot 的方法。
      * 暫時由外部直接監聽，這邊提供 connections reference 以便未來擴充
      */
