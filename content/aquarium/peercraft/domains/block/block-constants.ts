@@ -53,7 +53,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     isHidden: true,
   },
   [BlockId.GRASS]: {
-    miningSeconds: 0.75,
+    miningSeconds: 0.2,
     isDroppable: true,
     textures: {
       top: `${TEXTURE_BASE}/grass_block_top.png`,
@@ -63,19 +63,19 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     },
   },
   [BlockId.STONE]: {
-    miningSeconds: 2.0,
+    miningSeconds: 1.0,
     textures: {
       all: `${TEXTURE_BASE}/stone.png`,
     },
   },
   [BlockId.WOOD]: {
-    miningSeconds: 1.5,
+    miningSeconds: 1,
     textures: {
       all: `${TEXTURE_BASE}/oak_planks.png`,
     },
   },
   [BlockId.DIRT]: {
-    miningSeconds: 0.5,
+    miningSeconds: 0.2,
     textures: {
       all: `${TEXTURE_BASE}/dirt.png`,
     },
@@ -87,13 +87,13 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     },
   },
   [BlockId.SAND]: {
-    miningSeconds: 0.5,
+    miningSeconds: 0.2,
     textures: {
       all: `${TEXTURE_BASE}/sand.png`,
     },
   },
   [BlockId.COBBLESTONE]: {
-    miningSeconds: 2.0,
+    miningSeconds: 1.0,
     textures: {
       all: `${TEXTURE_BASE}/cobblestone.png`,
     },
@@ -105,13 +105,13 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     },
   },
   [BlockId.BRICKS]: {
-    miningSeconds: 2.0,
+    miningSeconds: 1.0,
     textures: {
       all: `${TEXTURE_BASE}/bricks.png`,
     },
   },
   [BlockId.OAK_LEAVES]: {
-    miningSeconds: 0.2,
+    miningSeconds: 0.1,
     isDroppable: false,
     textures: {
       all: `${TEXTURE_BASE}/oak_leaves.png`,
@@ -119,7 +119,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     },
   },
   [BlockId.OAK_LOG]: {
-    miningSeconds: 2.0,
+    miningSeconds: 1.0,
     textures: {
       top: `${TEXTURE_BASE}/oak_log_top.png`,
       bottom: `${TEXTURE_BASE}/oak_log_top.png`,
