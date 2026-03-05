@@ -173,10 +173,10 @@ function createEndermanAvatar(peerId: string, scene: Scene): AvatarEntry {
   }
 
   const joints = {
-    leftLeg: createLimb('lleg', 0.10, 0.825, 0.10, -0.10, -0.8375 - 0.4125),
-    rightLeg: createLimb('rleg', 0.10, 0.825, 0.10, 0.10, -0.8375 - 0.4125),
-    leftArm: createLimb('larm', 0.08, 0.80, 0.08, -0.19, -0.425 - 0.40),
-    rightArm: createLimb('rarm', 0.08, 0.80, 0.08, 0.19, -0.425 - 0.40),
+    leftLeg: createLimb('lleg', 0.10, 0.825, 0.10, -0.10, -0.8375),
+    rightLeg: createLimb('rleg', 0.10, 0.825, 0.10, 0.10, -0.8375),
+    leftArm: createLimb('larm', 0.08, 0.80, 0.08, -0.19, -0.425),
+    rightArm: createLimb('rarm', 0.08, 0.80, 0.08, 0.19, -0.425),
   }
 
   /** 初始狀態 */
