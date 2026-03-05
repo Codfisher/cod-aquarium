@@ -179,6 +179,11 @@ function createEndermanAvatar(peerId: string, scene: Scene): AvatarEntry {
     rightArm: createLimb('rarm', 0.08, 0.80, 0.08, 0.19, -0.175),
   }
 
+  // 手臂稍微離身體 5 度角 (外展)
+  const armOffset = 5 * Math.PI / 180
+  joints.leftArm.rotation.z = -armOffset
+  joints.rightArm.rotation.z = armOffset
+
   /** 初始狀態 */
   const state = {
     lastPosition: root.position.clone(),
