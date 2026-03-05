@@ -28,6 +28,7 @@ const MAX_RAY_DISTANCE = 8
 export function castBlockRay(
   camera: UniversalCamera,
   worldState: Uint8Array,
+  maxDistance: number = MAX_RAY_DISTANCE,
 ): RaycastHit | null {
   const origin = camera.position.clone()
   /**
@@ -75,7 +76,7 @@ export function castBlockRay(
 
   let distance = 0
 
-  while (distance < MAX_RAY_DISTANCE) {
+  while (distance < maxDistance) {
     /** 檢測目前格子 */
     if (
       gridX >= 0 && gridX < WORLD_SIZE

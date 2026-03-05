@@ -80,6 +80,11 @@ const updateHandMeshRef = ref<((blockId: BlockId | null) => void) | null>(null)
 let handMeshes: Mesh[] = []
 let hasStarted = false
 
+/** 長按右鍵傳送相關 */
+const rightClickStartTime = ref<number | null>(null)
+const TELEPORT_HOLD_MS = 1000
+const MAX_TELEPORT_DISTANCE = 80
+
 const fpsController = useFpsController()
 const blockMiner = useBlockMiner()
 const playerAvatars = usePlayerAvatars()
@@ -311,6 +316,31 @@ function startGame(sceneInstance: Scene, cameraInstance: UniversalCamera, canvas
           if (typeof placedBlockId === 'number') {
             sendBlockUpdateToHost(hit.adjacentX, hit.adjacentY, hit.adjacentZ, placedBlockId)
           }
+        }
+      }
+    }
+    /** 右鍵按下：開始紀錄時間 */
+    else if (event.button === 2) {
+      rightClickStartTime.value = performance.now()
+    }
+  })
+
+  canvas.addEventListener('mouseup', (event) => {
+    if (event.button === 2 && rightClickStartTime.value !== null) {
+      const duration = performance.now() - rightClickStartTime.value
+      rightClickStartTime.value = null
+
+      /** 長按超過 1 秒：執行傳送 */
+      if (duration >= TELEPORT_HOLD_MS) {
+        const hit = castBlockRay(cameraInstance, worldState, MAX_TELEPORT_DISTANCE)
+        if (hit) {
+          /** 傳送至方塊上方 1.5m (眼睛高度) */
+          const targetX = hit.blockX
+          const targetY = hit.blockY + 1.6 // 稍微高一點點，避免穿模
+          const targetZ = hit.blockZ
+
+          cameraInstance.position.set(targetX, targetY, targetZ)
+          console.log(`[Teleport] To (${targetX}, ${targetY}, ${targetZ})`)
         }
       }
     }
