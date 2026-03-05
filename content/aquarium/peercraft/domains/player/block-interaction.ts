@@ -1,7 +1,7 @@
 import type { UniversalCamera } from '@babylonjs/core'
 import { Vector3 } from '@babylonjs/core'
-import { BlockId, coordinateToIndex, WORLD_SIZE } from '../world/world-constants'
-
+import { BlockId } from '../block/block-constants'
+import { coordinateToIndex, WORLD_SIZE } from '../world/world-constants'
 /** 射線命中結果 */
 export interface RaycastHit {
   /** 命中方塊的網格座標 */

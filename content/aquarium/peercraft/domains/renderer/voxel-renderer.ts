@@ -1,5 +1,5 @@
 import type { DirectionalLight, Mesh, Scene, ShadowGenerator } from '@babylonjs/core'
-import type { BlockTextureDef } from '../world/world-constants'
+import type { BlockTextureDef } from '../block/block-constants'
 import {
   Color3,
   Matrix,
@@ -11,8 +11,10 @@ import { SUN_LIGHT_NAME } from '../../composables/use-babylon-scene'
 import {
   BLOCK_TEXTURES,
   BlockId,
-  indexToCoordinate,
   RENDERABLE_BLOCK_IDS,
+} from '../block/block-constants'
+import {
+  indexToCoordinate,
   WORLD_VOLUME,
 } from '../world/world-constants'
 
@@ -171,6 +173,7 @@ export function createVoxelRenderer(scene: Scene, worldState: Uint8Array): Voxel
         `block_${blockId}_mat`,
         textureDef.all ?? '',
         scene,
+        textureDef.tint,
       )
       const mesh = MeshBuilder.CreateBox(`block_${blockId}`, { size: 1 }, scene)
       mesh.material = material

@@ -1,5 +1,5 @@
-import { BlockId, coordinateToIndex, WORLD_SIZE } from '../world/world-constants'
-
+import { BlockId } from '../block/block-constants'
+import { coordinateToIndex, WORLD_SIZE } from '../world/world-constants'
 /** 玩家 AABB 尺寸 */
 export const PLAYER_WIDTH = 0.6
 export const PLAYER_HEIGHT = 1.8

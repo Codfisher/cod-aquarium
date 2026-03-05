@@ -1,5 +1,5 @@
 import type { DataConnection, Peer } from 'peerjs'
-import type { BlockId } from '../domains/world/world-constants'
+import type { BlockId } from '../domains/block/block-constants'
 import type { BlockUpdatePacket, NetworkPacket, WorldSnapshotPacket } from '../types/network'
 import { onBeforeUnmount, ref } from 'vue'
 import { NetworkRole, PacketType } from '../types/network'

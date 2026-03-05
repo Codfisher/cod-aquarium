@@ -1,4 +1,5 @@
-import { BlockId, coordinateToIndex, WORLD_SIZE, WORLD_VOLUME } from './world-constants'
+import { BlockId } from '../block/block-constants'
+import { coordinateToIndex, WORLD_SIZE, WORLD_VOLUME } from './world-constants'
 
 /**
  * 建立空白世界狀態（全為 AIR）
@@ -37,14 +38,45 @@ export function generateTerrain(state: Uint8Array): void {
         if (y === 0) {
           state[index] = BlockId.BEDROCK
         }
-        else if (y < clampedHeight - 3) {
-          state[index] = BlockId.STONE
+        else if (y < clampedHeight - 4) {
+          // 下層使用石頭和些許鵝卵石
+          state[index] = Math.random() > 0.8 ? BlockId.COBBLESTONE : BlockId.STONE
         }
         else if (y < clampedHeight - 1) {
-          state[index] = BlockId.DIRT
+          // 靠近地表使用泥土，如果高度很低（河谷）使用沙子
+          if (clampedHeight < baseHeight + 1) {
+            state[index] = BlockId.SAND
+          }
+          else {
+            state[index] = BlockId.DIRT
+          }
         }
         else {
-          state[index] = BlockId.GRASS
+          // 表面：沙子或草地
+          if (clampedHeight < baseHeight + 1) {
+            state[index] = BlockId.SAND
+          }
+          else {
+            state[index] = BlockId.GRASS
+          }
+        }
+
+        // 偶爾在草地上生成簡單的樹 (樹幹 + 樹葉)
+        if (y === clampedHeight - 1 && state[index] === BlockId.GRASS && Math.random() < 0.02) {
+          // 確保樹不會超出世界邊界
+          if (x > 2 && x < WORLD_SIZE - 2 && z > 2 && z < WORLD_SIZE - 2 && y + 5 < WORLD_SIZE) {
+            // 樹幹 (使用原木 OAK_LOG)
+            state[coordinateToIndex(x, y + 1, z)] = BlockId.OAK_LOG
+            state[coordinateToIndex(x, y + 2, z)] = BlockId.OAK_LOG
+            state[coordinateToIndex(x, y + 3, z)] = BlockId.OAK_LOG
+
+            // 樹葉 (十字形)
+            state[coordinateToIndex(x, y + 4, z)] = BlockId.OAK_LEAVES
+            state[coordinateToIndex(x + 1, y + 3, z)] = BlockId.OAK_LEAVES
+            state[coordinateToIndex(x - 1, y + 3, z)] = BlockId.OAK_LEAVES
+            state[coordinateToIndex(x, y + 3, z + 1)] = BlockId.OAK_LEAVES
+            state[coordinateToIndex(x, y + 3, z - 1)] = BlockId.OAK_LEAVES
+          }
         }
       }
     }

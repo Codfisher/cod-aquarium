@@ -1,11 +1,11 @@
 import type { Mesh, Scene, UniversalCamera } from '@babylonjs/core'
-import type { RaycastHit } from '../domains/player/block-interaction'
-import type { BlockId } from '../domains/world/world-constants'
+import type { BlockId } from '../block/block-constants'
+import type { RaycastHit } from './block-interaction'
 import { Color3, Color4, MeshBuilder, ParticleSystem, StandardMaterial, Texture, Vector3 } from '@babylonjs/core'
 import { tryOnScopeDispose } from '@vueuse/core'
 import { ref } from 'vue'
-import { castBlockRay, digBlock } from '../domains/player/block-interaction'
-import { BLOCK_MINING_TIMES, BLOCK_TEXTURES } from '../domains/world/world-constants'
+import { BLOCK_MINING_TIMES, BLOCK_TEXTURES } from '../block/block-constants'
+import { castBlockRay, digBlock } from './block-interaction'
 
 interface MiningProgressInfo {
   x: number;

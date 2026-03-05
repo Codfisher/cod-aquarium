@@ -1,4 +1,4 @@
-import type { BlockId } from '../domains/world/world-constants'
+import type { BlockId } from '../domains/block/block-constants'
 
 /**
  * P2P 網路連線角色
