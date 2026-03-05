@@ -89,11 +89,11 @@ const defaultParam: Required<UseBabylonSceneParam> = {
     sunLight.orthoBottom = -halfSize
     sunLight.autoCalcShadowZBounds = true
 
-    const sg = new ShadowGenerator(2048, sunLight)
+    const sg = new ShadowGenerator(1024, sunLight)
     sg.bias = 0.001
     sg.normalBias = 0.05
     sg.usePercentageCloserFiltering = true
-    sg.filteringQuality = ShadowGenerator.QUALITY_LOW
+    sg.filteringQuality = ShadowGenerator.QUALITY_MEDIUM
 
     scene.fogMode = Scene.FOGMODE_LINEAR
     scene.fogColor = new Color3(0.53, 0.74, 0.93)
