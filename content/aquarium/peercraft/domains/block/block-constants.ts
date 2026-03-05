@@ -63,13 +63,13 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     },
   },
   [BlockId.STONE]: {
-    miningSeconds: 1.0,
+    miningSeconds: 0.5,
     textures: {
       all: `${TEXTURE_BASE}/stone.png`,
     },
   },
   [BlockId.WOOD]: {
-    miningSeconds: 1,
+    miningSeconds: 0.5,
     textures: {
       all: `${TEXTURE_BASE}/oak_planks.png`,
     },
@@ -87,13 +87,13 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     },
   },
   [BlockId.SAND]: {
-    miningSeconds: 0.2,
+    miningSeconds: 0.1,
     textures: {
       all: `${TEXTURE_BASE}/sand.png`,
     },
   },
   [BlockId.COBBLESTONE]: {
-    miningSeconds: 1.0,
+    miningSeconds: 0.5,
     textures: {
       all: `${TEXTURE_BASE}/cobblestone.png`,
     },
@@ -105,7 +105,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     },
   },
   [BlockId.BRICKS]: {
-    miningSeconds: 1.0,
+    miningSeconds: 0.5,
     textures: {
       all: `${TEXTURE_BASE}/bricks.png`,
     },
@@ -119,7 +119,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     },
   },
   [BlockId.OAK_LOG]: {
-    miningSeconds: 1.0,
+    miningSeconds: 0.5,
     textures: {
       top: `${TEXTURE_BASE}/oak_log_top.png`,
       bottom: `${TEXTURE_BASE}/oak_log_top.png`,
