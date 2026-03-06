@@ -7,8 +7,8 @@
       @contextmenu="$event.preventDefault()"
     />
 
-    <!-- 十字準星 -->
-    <div class="crosshair" />
+    <!-- 十字準星（手機模式隱藏） -->
+    <div v-if="!mobileControls.isMobile.value" class="crosshair" />
 
     <!-- 挖掘進度條 -->
     <div
@@ -45,6 +45,19 @@
       </div>
     </div>
 
+    <!-- 手機虛擬控制 -->
+    <mobile-controls
+      :is-mobile="mobileControls.isMobile.value"
+      :joystick-active="mobileControls.joystickActive.value"
+      :joystick-origin="mobileControls.joystickOrigin"
+      :joystick-offset="mobileControls.joystickOffset"
+      :has-block="heldBlockId !== null"
+      @jump="mobileControls.setJump"
+      @sprint="mobileControls.setSprint"
+      @action="mobileControls.setAction"
+      @teleport="mobileControls.setTeleport"
+    />
+
     <!-- ESC 暫停選單 (獨立元件) -->
     <pause-menu
       :show="fpsController.isPaused.value"
@@ -72,9 +85,11 @@ import { Material, MeshBuilder, TransformNode, Vector3 } from '@babylonjs/core'
 import { useEventListener } from '@vueuse/core'
 import { animate } from 'animejs'
 import { ref, watch } from 'vue'
+import MobileControls from '../../components/mobile-controls.vue'
 import PauseMenu from '../../components/pause-menu.vue'
 import { useBabylonScene } from '../../composables/use-babylon-scene'
 import { useFpsController } from '../../composables/use-fps-controller'
+import { useMobileControls } from '../../composables/use-mobile-controls'
 import { usePeerNetwork } from '../../composables/use-peer-network'
 import { usePlayerAvatars } from '../../composables/use-player-avatars'
 import { NetworkRole } from '../../types/network'
@@ -167,6 +182,7 @@ const teleportProgress = ref(0)
 const TELEPORT_HOLD_MS = 1000
 const MAX_TELEPORT_DISTANCE = 80
 
+const mobileControls = useMobileControls()
 const fpsController = useFpsController()
 const blockMiner = useBlockMiner()
 const playerAvatars = usePlayerAvatars()
@@ -271,12 +287,20 @@ function startGame(sceneInstance: Scene, cameraInstance: UniversalCamera, canvas
   /** 渲染體素 */
   renderer = createVoxelRenderer(sceneInstance, worldState)
 
+  /** 手機模式：設定觸控監聽 */
+  if (mobileControls.isMobile.value) {
+    mobileControls.setupTouchListeners(canvas)
+  }
+
   /** 啟動 FPS 控制器 */
   fpsController.start({
     scene: sceneInstance,
     camera: cameraInstance,
     canvas,
     worldState,
+    mobileControls: mobileControls.isMobile.value
+      ? { state: mobileControls.state, consumeLookDelta: mobileControls.consumeLookDelta }
+      : undefined,
   })
 
   /** 啟動玩家 avatar */
@@ -363,6 +387,7 @@ function startGame(sceneInstance: Scene, cameraInstance: UniversalCamera, canvas
     camera: cameraInstance,
     canvas,
     worldState,
+    isMobile: mobileControls.isMobile.value,
     canMine: () => heldBlockId.value === null,
     onBlockMined(hit) {
       const blockDef = BLOCK_DEFS[hit.blockId]
@@ -401,6 +426,79 @@ function startGame(sceneInstance: Scene, cameraInstance: UniversalCamera, canvas
       }
     },
   })
+
+  /** 手機動作按鈕（挖掘/放置） */
+  let mobileActionActive = false
+
+  if (mobileControls.isMobile.value) {
+    sceneInstance.onBeforeRenderObservable.add(() => {
+      const actionPressed = mobileControls.state.action
+
+      /** 放置方塊（按下瞬間觸發） */
+      if (actionPressed && !mobileActionActive && heldBlockId.value !== null) {
+        mobileActionActive = true
+        const hit = castBlockRay(cameraInstance, worldState)
+        if (hit) {
+          const playerFootX = cameraInstance.position.x
+          const playerFootY = cameraInstance.position.y - PLAYER_EYE_HEIGHT
+          const playerFootZ = cameraInstance.position.z
+          if (placeBlock(worldState, hit.adjacentX, hit.adjacentY, hit.adjacentZ, heldBlockId.value, playerFootX, playerFootY, playerFootZ)) {
+            const placedBlockId = heldBlockId.value
+            heldBlockId.value = null
+            if (updateHandMeshRef.value) {
+              updateHandMeshRef.value(null)
+            }
+            handleSandGravity(sceneInstance)
+
+            if (currentRole.value === NetworkRole.HOST) {
+              if (typeof placedBlockId === 'number') {
+                broadcastBlockUpdate(hit.adjacentX, hit.adjacentY, hit.adjacentZ, placedBlockId)
+              }
+            }
+            else if (currentRole.value === NetworkRole.CLIENT) {
+              if (typeof placedBlockId === 'number') {
+                sendBlockUpdateToHost(hit.adjacentX, hit.adjacentY, hit.adjacentZ, placedBlockId)
+              }
+            }
+          }
+        }
+      }
+
+      /** 挖掘方塊（持續按住由 blockMiner 處理） */
+      if (actionPressed && !mobileActionActive && heldBlockId.value === null) {
+        mobileActionActive = true
+        blockMiner.startMiningAtTarget(cameraInstance, worldState, () => heldBlockId.value === null)
+      }
+
+      if (!actionPressed && mobileActionActive) {
+        mobileActionActive = false
+        blockMiner.stopMining()
+      }
+
+      /** 傳送按鈕長按處理 */
+      if (mobileControls.state.teleport) {
+        if (rightClickStartTime.value === null) {
+          rightClickStartTime.value = performance.now()
+        }
+      }
+      else if (rightClickStartTime.value !== null) {
+        const duration = performance.now() - rightClickStartTime.value
+        rightClickStartTime.value = null
+
+        if (duration >= TELEPORT_HOLD_MS) {
+          const hit = castBlockRay(cameraInstance, worldState, MAX_TELEPORT_DISTANCE)
+          if (hit) {
+            const targetX = hit.blockX + 0.5
+            const targetZ = hit.blockZ + 0.5
+            const safeY = findSafeTeleportY(worldState, targetX, hit.blockY + 1, targetZ)
+            if (safeY !== null) {
+              fpsController.teleport(targetX, safeY, targetZ)
+            }
+          }
+        }
+      }
+    })
+  }
 
   /** 滑鼠互動 */
   useEventListener(canvas, 'mousedown', (event) => {

@@ -1,4 +1,5 @@
 import type { Scene, UniversalCamera } from '@babylonjs/core'
+import type { MobileControlState } from './use-mobile-controls'
 import { Color3, Vector3 } from '@babylonjs/core'
 import { useEventListener } from '@vueuse/core'
 import { random } from 'lodash-es'
@@ -24,6 +25,10 @@ interface UseFpsControllerParams {
   camera: UniversalCamera;
   canvas: HTMLCanvasElement;
   worldState: Uint8Array;
+  mobileControls?: {
+    state: MobileControlState;
+    consumeLookDelta: () => { deltaX: number; deltaY: number };
+  };
 }
 
 /**
@@ -63,6 +68,7 @@ export function useFpsController() {
     camera,
     canvas,
     worldState,
+    mobileControls,
   }: UseFpsControllerParams) {
     cleanup?.()
 
@@ -102,7 +108,14 @@ export function useFpsController() {
     camera.inputs.removeByType('FreeCameraTouchInput')
 
     camera.detachControl()
-    camera.attachControl(canvas, true)
+
+    /** 手機模式：不使用 Pointer Lock，也不讓 Babylon 處理觸控 */
+    if (mobileControls) {
+      isPaused.value = false
+    }
+    else {
+      camera.attachControl(canvas, true)
+    }
 
     /** 鍵盤事件 */
     function handleKeyDown(event: KeyboardEvent) {
@@ -158,9 +171,9 @@ export function useFpsController() {
     const cleanupKeyDown = useEventListener(window, 'keydown', handleKeyDown)
     const cleanupKeyUp = useEventListener(window, 'keyup', handleKeyUp)
 
-    /** Pointer Lock：點擊 canvas 鎖定滑鼠 (如果沒在暫停選單) */
+    /** Pointer Lock：點擊 canvas 鎖定滑鼠（僅桌面模式） */
     function handleCanvasClick() {
-      if (!isPaused.value) {
+      if (!mobileControls && !isPaused.value) {
         canvas.requestPointerLock()
       }
     }
@@ -183,8 +196,18 @@ export function useFpsController() {
       let moveX = 0
       let moveZ = 0
 
+      /** 手機觸控視角旋轉（在計算朝向前套用） */
+      if (mobileControls) {
+        const lookDelta = mobileControls.consumeLookDelta()
+        camera.rotation.y += lookDelta.deltaX
+        camera.rotation.x += lookDelta.deltaY
+        /** 限制俯仰角度避免翻轉 */
+        camera.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, camera.rotation.x))
+      }
+
       /** 暫停時不處理移動 */
       if (!isPaused.value) {
+        /** 鍵盤移動 */
         if (keys.forward) {
           moveX += forward.x
           moveZ += forward.z
@@ -202,8 +225,18 @@ export function useFpsController() {
           moveZ += right.z
         }
 
-        /** 跳躍 */
-        if (keys.jump && isOnGround) {
+        /** 手機搖桿移動（z 軸 = 前後，x 軸 = 左右） */
+        if (mobileControls) {
+          const joystick = mobileControls.state.joystick
+          if (joystick.x !== 0 || joystick.z !== 0) {
+            moveX += forward.x * (-joystick.z) + right.x * joystick.x
+            moveZ += forward.z * (-joystick.z) + right.z * joystick.x
+          }
+        }
+
+        /** 跳躍（鍵盤或手機按鈕） */
+        const shouldJump = keys.jump || (mobileControls?.state.jump ?? false)
+        if (shouldJump && isOnGround) {
           velocityY = JUMP_SPEED
         }
       }
@@ -211,7 +244,8 @@ export function useFpsController() {
       /** 正規化水平移動方向 */
       const moveLength = Math.sqrt(moveX * moveX + moveZ * moveZ)
       if (moveLength > 0) {
-        const speed = keys.sprint ? MOVE_SPEED * 1.6 : MOVE_SPEED
+        const isSprinting = keys.sprint || (mobileControls?.state.sprint ?? false)
+        const speed = isSprinting ? MOVE_SPEED * 1.6 : MOVE_SPEED
         moveX = (moveX / moveLength) * speed * deltaTime
         moveZ = (moveZ / moveLength) * speed * deltaTime
       }

@@ -1,0 +1,210 @@
+<template>
+  <div
+    v-if="isMobile"
+    class="mobile-controls"
+  >
+    <!-- 虛擬搖桿 -->
+    <div
+      v-show="joystickActive"
+      class="joystick-base"
+      :style="{
+        left: `${joystickOrigin.x}px`,
+        top: `${joystickOrigin.y}px`,
+      }"
+    >
+      <div
+        class="joystick-thumb"
+        :style="{
+          transform: `translate(${joystickOffset.x}px, ${joystickOffset.y}px)`,
+        }"
+      />
+    </div>
+
+    <!-- 右側按鈕群 -->
+    <div class="button-group-right">
+      <!-- 衝刺按鈕 -->
+      <button
+        class="control-button sprint-button"
+        @touchstart.prevent="setSprint(true)"
+        @touchend.prevent="setSprint(false)"
+        @touchcancel.prevent="setSprint(false)"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <path d="M13 4L19 12L13 20" />
+          <path d="M5 4L11 12L5 20" />
+        </svg>
+      </button>
+
+      <!-- 傳送按鈕 -->
+      <button
+        class="control-button teleport-button"
+        @touchstart.prevent="setTeleport(true)"
+        @touchend.prevent="setTeleport(false)"
+        @touchcancel.prevent="setTeleport(false)"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <circle cx="12" cy="12" r="3" />
+          <path d="M12 2V6" />
+          <path d="M12 18V22" />
+          <path d="M2 12H6" />
+          <path d="M18 12H22" />
+        </svg>
+      </button>
+
+      <!-- 跳躍按鈕 -->
+      <button
+        class="control-button jump-button"
+        @touchstart.prevent="setJump(true)"
+        @touchend.prevent="setJump(false)"
+        @touchcancel.prevent="setJump(false)"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <path d="M12 19V5" />
+          <path d="M5 12L12 5L19 12" />
+        </svg>
+      </button>
+    </div>
+
+    <!-- 動作按鈕（挖掘/放置） -->
+    <button
+      class="control-button action-button"
+      @touchstart.prevent="setAction(true)"
+      @touchend.prevent="setAction(false)"
+      @touchcancel.prevent="setAction(false)"
+    >
+      <svg v-if="hasBlock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <!-- 放置圖示：方塊 + 箭頭 -->
+        <rect x="6" y="6" width="12" height="12" rx="1" />
+        <path d="M12 2V6" />
+        <path d="M9 3L12 0L15 3" />
+      </svg>
+      <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <!-- 挖掘圖示：鎬 -->
+        <path d="M14 4L20 10" />
+        <path d="M4 20L14 10" />
+        <path d="M14 4L17 4L20 7L20 10" />
+      </svg>
+    </button>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { toRefs } from 'vue'
+
+const props = defineProps<{
+  isMobile: boolean;
+  joystickActive: boolean;
+  joystickOrigin: { x: number; y: number };
+  joystickOffset: { x: number; y: number };
+  hasBlock: boolean;
+}>()
+
+const emit = defineEmits<{
+  jump: [pressed: boolean];
+  sprint: [pressed: boolean];
+  action: [pressed: boolean];
+  teleport: [pressed: boolean];
+}>()
+
+const { joystickActive, joystickOrigin, joystickOffset } = toRefs(props)
+
+function setJump(pressed: boolean) {
+  emit('jump', pressed)
+}
+
+function setSprint(pressed: boolean) {
+  emit('sprint', pressed)
+}
+
+function setAction(pressed: boolean) {
+  emit('action', pressed)
+}
+
+function setTeleport(pressed: boolean) {
+  emit('teleport', pressed)
+}
+</script>
+
+<style scoped lang="sass">
+.mobile-controls
+  position: absolute
+  inset: 0
+  pointer-events: none
+  z-index: 30
+  user-select: none
+  -webkit-user-select: none
+
+// ── 搖桿 ──
+
+.joystick-base
+  position: fixed
+  width: 120px
+  height: 120px
+  border-radius: 50%
+  background: rgba(255, 255, 255, 0.1)
+  border: 2px solid rgba(255, 255, 255, 0.2)
+  transform: translate(-50%, -50%)
+  pointer-events: none
+
+.joystick-thumb
+  position: absolute
+  top: 50%
+  left: 50%
+  width: 44px
+  height: 44px
+  border-radius: 50%
+  background: rgba(255, 255, 255, 0.35)
+  border: 2px solid rgba(255, 255, 255, 0.5)
+  margin-left: -22px
+  margin-top: -22px
+  transition: none
+
+// ── 按鈕共用 ──
+
+.control-button
+  pointer-events: auto
+  width: 56px
+  height: 56px
+  border-radius: 50%
+  background: rgba(255, 255, 255, 0.12)
+  border: 2px solid rgba(255, 255, 255, 0.25)
+  color: rgba(255, 255, 255, 0.7)
+  display: flex
+  align-items: center
+  justify-content: center
+  backdrop-filter: blur(4px)
+  -webkit-backdrop-filter: blur(4px)
+  touch-action: none
+
+  &:active
+    background: rgba(255, 255, 255, 0.3)
+    border-color: rgba(255, 255, 255, 0.5)
+
+  svg
+    width: 24px
+    height: 24px
+
+// ── 右側按鈕群 ──
+
+.button-group-right
+  position: absolute
+  right: 16px
+  bottom: 24px
+  display: flex
+  flex-direction: column
+  gap: 12px
+  pointer-events: auto
+
+// ── 動作按鈕 ──
+
+.action-button
+  position: absolute
+  right: 88px
+  bottom: 24px
+  width: 64px
+  height: 64px
+
+  svg
+    width: 28px
+    height: 28px
+</style>

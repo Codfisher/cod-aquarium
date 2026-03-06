@@ -20,6 +20,8 @@ interface UseBlockMinerStartParams {
   camera: UniversalCamera;
   canvas: HTMLCanvasElement;
   worldState: Uint8Array;
+  /** 手機模式：跳過 Pointer Lock 檢查 */
+  isMobile?: boolean;
   /** 控制是否允許開始或繼續挖掘 */
   canMine?: () => boolean;
   /** 當方塊被成功挖掉時觸發 */
@@ -165,11 +167,29 @@ export function useBlockMiner() {
     }
   }
 
+  function startMiningAtTarget(cameraInstance: UniversalCamera, worldStateRef: Uint8Array, canMineCheck?: () => boolean) {
+    if (canMineCheck && !canMineCheck()) {
+      return
+    }
+    const hit = castBlockRay(cameraInstance, worldStateRef)
+    if (hit) {
+      isMining.value = true
+      miningProgress.value = 0
+      targetBlock.value = { x: hit.blockX, y: hit.blockY, z: hit.blockZ }
+      targetBlockId.value = hit.blockId
+    }
+  }
+
+  function stopMining() {
+    resetMining()
+  }
+
   function start({
     scene,
     camera,
     canvas,
     worldState,
+    isMobile,
     canMine,
     onBlockMined,
     onMiningProgress,
@@ -179,7 +199,10 @@ export function useBlockMiner() {
     // ── 挖掘互動 ──
 
     function handleMouseDown(event: MouseEvent) {
-      if (event.button !== 0 || document.pointerLockElement !== canvas) {
+      if (event.button !== 0) {
+        return
+      }
+      if (!isMobile && document.pointerLockElement !== canvas) {
         return
       }
 
@@ -334,6 +357,8 @@ export function useBlockMiner() {
     targetBlock,
     targetBlockId,
     start,
+    startMiningAtTarget,
+    stopMining,
     handleRemoteMiningProgress,
   }
 }
