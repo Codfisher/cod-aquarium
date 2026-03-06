@@ -58,8 +58,8 @@
       @menu="fpsController.pause()"
     />
 
-    <!-- ESC 暫停選單 (獨立元件) -->
-    <pause-menu
+    <!-- ESC 系統選單 (獨立元件) -->
+    <system-menu
       v-model:player-name="playerName"
       :show="fpsController.isPaused"
       @resume="fpsController.resume()"
@@ -85,7 +85,7 @@ import { Material, MeshBuilder, TransformNode, Vector3 } from '@babylonjs/core'
 import { useEventListener } from '@vueuse/core'
 import { animate } from 'animejs'
 import { reactive, ref, watch } from 'vue'
-import PauseMenu from '../../components/pause-menu.vue'
+import SystemMenu from '../../components/system-menu.vue'
 import TouchControlPanel from '../../components/touch-control-panel.vue'
 import { useBabylonScene } from '../../composables/use-babylon-scene'
 import { useFpsController } from '../../composables/use-fps-controller'

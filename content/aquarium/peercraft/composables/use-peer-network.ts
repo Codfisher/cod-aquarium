@@ -2,6 +2,7 @@ import type { DataConnection, Peer } from 'peerjs'
 import type { BlockId } from '../domains/block/block-constants'
 import type { BlockUpdatePacket, NetworkPacket, WorldSnapshotPacket } from '../types/network'
 import { onBeforeUnmount, ref } from 'vue'
+import { version } from '../constants'
 import { NetworkRole, PacketType } from '../types/network'
 
 export interface UsePeerNetworkParams {
@@ -26,7 +27,7 @@ export interface UsePeerNetworkParams {
 }
 
 export const FIXED_ROOM_ID = import.meta.env.PROD
-  ? 'peercraft-fixed-room-v1'
+  ? `peercraft-fixed-room-${version}`
   : 'peercraft-fixed-room-dev'
 
 /**
