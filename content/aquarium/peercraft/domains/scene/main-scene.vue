@@ -59,7 +59,9 @@
 <script setup lang="ts">
 import type { Mesh, Scene, UniversalCamera } from '@babylonjs/core'
 import type { VoxelRenderer } from '../renderer/voxel-renderer'
+import type { SandFall } from '../world/world-state'
 import { MeshBuilder, TransformNode, Vector3 } from '@babylonjs/core'
+import { animate, spring } from 'animejs'
 import { ref, watch } from 'vue'
 import PauseMenu from '../../components/pause-menu.vue'
 import { useBabylonScene } from '../../composables/use-babylon-scene'
@@ -71,7 +73,8 @@ import { BLOCK_DEFS, BlockId } from '../block/block-constants'
 import { castBlockRay, placeBlock, setBlock } from '../player/block-interaction'
 import { useBlockMiner } from '../player/use-block-miner'
 import { createPixelMaterial, createVoxelRenderer } from '../renderer/voxel-renderer'
-import { createWorldState, generateTerrain } from '../world/world-state'
+import { coordinateToIndex } from '../world/world-constants'
+import { createWorldState, generateTerrain, simulateSandGravity } from '../world/world-state'
 
 const emit = defineEmits<{
   ready: [];
@@ -85,6 +88,68 @@ const heldBlockId = ref<BlockId | null>(null)
 const updateHandMeshRef = ref<((blockId: BlockId | null) => void) | null>(null)
 let handMeshes: Mesh[] = []
 let hasStarted = false
+
+/** 沙子掉落動畫：建立臨時方塊從原位掉到目標位，動畫結束後才更新世界 */
+function animateSandFalls(falls: SandFall[], sceneInstance: Scene) {
+  const promises: Promise<void>[] = []
+
+  for (const fall of falls) {
+    const mesh = MeshBuilder.CreateBox('sand_fall', { size: 1 }, sceneInstance)
+    const sandDef = BLOCK_DEFS[BlockId.SAND]
+    if (sandDef.textures?.all) {
+      mesh.material = createPixelMaterial('sand_fall_mat', sandDef.textures.all, sceneInstance)
+    }
+    mesh.position.set(fall.x, fall.fromY, fall.z)
+
+    const distance = fall.fromY - fall.toY
+    const duration = Math.min(Math.sqrt(distance) * 150, 600)
+
+    const pos = { y: fall.fromY }
+    promises.push(animate(pos, {
+      y: fall.toY,
+      duration,
+      ease: 'inCirc',
+      onUpdate: () => {
+        mesh.position.y = pos.y
+      },
+      onComplete: () => {
+        mesh.material?.dispose()
+        mesh.dispose()
+      },
+    }).then())
+  }
+
+  // 所有沙子落地後才更新世界方塊
+  Promise.all(promises).then(() => {
+    if (renderer) {
+      renderer.rebuildInstances(worldState)
+    }
+  })
+}
+
+/** 處理沙子重力並播放動畫 */
+function handleSandGravity(sceneInstance?: Scene) {
+  const falls = simulateSandGravity(worldState)
+  if (falls.length > 0 && sceneInstance) {
+    // 暫時隱藏落地位置的沙子，讓動畫結束後才顯示
+    for (const fall of falls) {
+      const idx = coordinateToIndex(fall.x, fall.toY, fall.z)
+      worldState[idx] = BlockId.AIR
+    }
+    if (renderer) {
+      renderer.rebuildInstances(worldState)
+    }
+    // 還原落地位置（但視覺上由動畫 mesh 呈現）
+    for (const fall of falls) {
+      const idx = coordinateToIndex(fall.x, fall.toY, fall.z)
+      worldState[idx] = BlockId.SAND
+    }
+    animateSandFalls(falls, sceneInstance)
+  }
+  else if (renderer) {
+    renderer.rebuildInstances(worldState)
+  }
+}
 
 /** 長按右鍵傳送相關 */
 const rightClickStartTime = ref<number | null>(null)
@@ -122,6 +187,7 @@ const {
       /** Host 負責生成世界，如果已經啟動過地圖（如斷線重連轉 Host），則不再重新生成 */
       if (!hasStarted) {
         generateTerrain(worldState)
+        simulateSandGravity(worldState) // 初始地形不需動畫，直接結算
         startGame(scene.value!, camera.value!, canvasRef.value!)
       }
       else {
@@ -156,9 +222,10 @@ const {
   onBlockUpdateReceived: (x, y, z, blockId) => {
     // 接收到別人的變更，強迫更新本機資料
     if (setBlock(worldState, x, y, z, blockId)) {
-      if (renderer) {
-        renderer.rebuildInstances(worldState)
-      }
+      handleSandGravity(scene.value ?? undefined)
+    }
+    else if (renderer) {
+      renderer.rebuildInstances(worldState)
     }
   },
   onMiningProgressReceived: (peerId, x, y, z, progress, blockId) => {
@@ -286,7 +353,7 @@ function startGame(sceneInstance: Scene, cameraInstance: UniversalCamera, canvas
           updateHandMeshRef.value(hit.blockId)
         }
       }
-      renderer.rebuildInstances(worldState)
+      handleSandGravity(sceneInstance)
 
       if (currentRole.value === NetworkRole.HOST) {
         broadcastBlockUpdate(hit.blockX, hit.blockY, hit.blockZ, BlockId.AIR)
@@ -334,7 +401,7 @@ function startGame(sceneInstance: Scene, cameraInstance: UniversalCamera, canvas
         if (updateHandMeshRef.value) {
           updateHandMeshRef.value(null)
         }
-        renderer.rebuildInstances(worldState)
+        handleSandGravity(sceneInstance)
 
         if (currentRole.value === NetworkRole.HOST) {
           if (typeof placedBlockId === 'number') {

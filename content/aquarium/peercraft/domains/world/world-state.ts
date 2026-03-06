@@ -120,6 +120,54 @@ export function generateTerrain(state: Uint8Array): void {
   }
 }
 
+/** 沙子掉落資訊 */
+export interface SandFall {
+  x: number;
+  z: number;
+  fromY: number;
+  toY: number;
+}
+
+/**
+ * 偵測並處理懸空沙子的掉落
+ *
+ * 從底層往上掃描，遇到沙子下方為空氣時：
+ * - 將沙子從原位移除（設為 AIR）
+ * - 在落地位置放置沙子
+ * - 回傳所有掉落動作的清單（供動畫使用）
+ */
+export function simulateSandGravity(state: Uint8Array): SandFall[] {
+  const falls: SandFall[] = []
+
+  for (let x = 0; x < WORLD_SIZE; x++) {
+    for (let z = 0; z < WORLD_SIZE; z++) {
+      for (let y = 1; y < WORLD_HEIGHT; y++) {
+        const index = coordinateToIndex(x, y, z)
+        if (state[index] !== BlockId.SAND)
+          continue
+
+        const belowIndex = coordinateToIndex(x, y - 1, z)
+        if (state[belowIndex] !== BlockId.AIR)
+          continue
+
+        let landY = y - 1
+        while (landY > 0) {
+          const nextBelow = coordinateToIndex(x, landY - 1, z)
+          if (state[nextBelow] !== BlockId.AIR)
+            break
+          landY--
+        }
+
+        state[index] = BlockId.AIR
+        state[coordinateToIndex(x, landY, z)] = BlockId.SAND
+        falls.push({ x, z, fromY: y, toY: landY })
+      }
+    }
+  }
+
+  return falls
+}
+
 /**
  * 取得指定 X, Z 座標上最高的非空氣方塊的 Y 座標準位
  * 找不到則回傳 WORLD_HEIGHT
