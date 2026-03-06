@@ -1,6 +1,7 @@
-import { fbm2D, fbm3D } from '../../utils/noise'
+import { fbm2D } from '../../utils/noise'
 import { BlockId } from '../block/block-constants'
 import { checkOverlap } from '../player/collision'
+import { generateCaves } from './cave-generator'
 import { placeHouse } from './house-generator'
 import { placeTree } from './tree-generator'
 import { coordinateToIndex, WORLD_HEIGHT, WORLD_SIZE, WORLD_VOLUME } from './world-constants'
@@ -101,73 +102,8 @@ export function generateTerrain(state: Uint8Array): void {
     }
   }
 
-  // 第二階段：挖掘地下洞穴 (Spaghetti Cave)
-  // 取兩組偏移 3D Noise 的零值面交叉，形成連續管狀隧道
-  const caveFrequency = 0.035
-  const caveFrequencyY = caveFrequency * 0.4 // Y 軸壓扁，讓洞穴更水平
-  const caveWidth = 0.25 // 隧道寬度（值越大洞穴越粗）
-  const noiseOffset = 500 // 第二組噪音的座標偏移量
-
-  for (let x = 0; x < WORLD_SIZE; x++) {
-    for (let z = 0; z < WORLD_SIZE; z++) {
-      const surfaceHeight = heightMap[x * WORLD_SIZE + z]!
-      // 限制洞穴最高只能挖到地表下方 5 層，確保地殼厚度
-      const caveMaxHeight = Math.min(surfaceHeight - 5, WORLD_HEIGHT - 6)
-
-      for (let y = 1; y < caveMaxHeight; y++) {
-        const index = coordinateToIndex(x, y, z)
-        if (state[index] === BlockId.STONE || state[index] === BlockId.COBBLESTONE || state[index] === BlockId.DIRT) {
-          const noise1 = fbm3D(x * caveFrequency, y * caveFrequencyY, z * caveFrequency, 3, 0.5)
-          const noise2 = fbm3D(
-            (x + noiseOffset) * caveFrequency,
-            (y + noiseOffset) * caveFrequencyY,
-            (z + noiseOffset) * caveFrequency,
-            3,
-            0.5,
-          )
-          if (Math.abs(noise1) < caveWidth && Math.abs(noise2) < caveWidth) {
-            state[index] = BlockId.AIR
-          }
-        }
-      }
-    }
-  }
-
-  // 第三階段：洞穴地板平滑化
-  // 填平單格凹坑（下方為實體、左右或前後有空氣的孤立空格），讓地面更平坦
-  for (let x = 1; x < WORLD_SIZE - 1; x++) {
-    for (let z = 1; z < WORLD_SIZE - 1; z++) {
-      const surfaceHeight = heightMap[x * WORLD_SIZE + z]!
-      const caveMaxHeight = Math.min(surfaceHeight - 5, WORLD_HEIGHT - 6)
-
-      for (let y = 2; y < caveMaxHeight; y++) {
-        const index = coordinateToIndex(x, y, z)
-        if (state[index] !== BlockId.AIR)
-          continue
-
-        // 此格為空氣，檢查是否為地板凹坑：上方為空氣、下方為實體
-        const above = state[coordinateToIndex(x, y + 1, z)]
-        const below = state[coordinateToIndex(x, y - 1, z)]
-        if (above !== BlockId.AIR || below === BlockId.AIR)
-          continue
-
-        // 四個水平鄰居中，至少 3 個是實體 → 這是一個孤立凹坑，填平它
-        let solidNeighbors = 0
-        if (state[coordinateToIndex(x - 1, y, z)] !== BlockId.AIR)
-          solidNeighbors++
-        if (state[coordinateToIndex(x + 1, y, z)] !== BlockId.AIR)
-          solidNeighbors++
-        if (state[coordinateToIndex(x, y, z - 1)] !== BlockId.AIR)
-          solidNeighbors++
-        if (state[coordinateToIndex(x, y, z + 1)] !== BlockId.AIR)
-          solidNeighbors++
-
-        if (solidNeighbors >= 3) {
-          state[index] = BlockId.STONE
-        }
-      }
-    }
-  }
+  // 第二階段：洞穴生成（挖掘、天花板、加寬、斜坡、地板平坦化）
+  generateCaves(state, heightMap)
 }
 
 /** 沙子掉落資訊 */

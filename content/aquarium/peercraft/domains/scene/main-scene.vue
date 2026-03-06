@@ -435,11 +435,11 @@ function startGame(sceneInstance: Scene, cameraInstance: UniversalCamera, canvas
       if (duration >= TELEPORT_HOLD_MS) {
         const hit = castBlockRay(cameraInstance, worldState, MAX_TELEPORT_DISTANCE)
         if (hit) {
-          /** 從命中方塊上方開始，往上尋找安全位置（連續 2 格空氣） */
-          const safeY = findSafeTeleportY(worldState, hit.blockX, hit.blockY + 1, hit.blockZ)
+          /** 從命中方塊上方開始，往上尋找安全位置（用實際傳送座標檢查完整 AABB） */
+          const targetX = hit.blockX + 0.5
+          const targetZ = hit.blockZ + 0.5
+          const safeY = findSafeTeleportY(worldState, targetX, hit.blockY + 1, targetZ)
           if (safeY !== null) {
-            const targetX = hit.blockX + 0.5
-            const targetZ = hit.blockZ + 0.5
             fpsController.teleport(targetX, safeY, targetZ)
             console.warn(`[Teleport] To (${targetX}, ${safeY}, ${targetZ})`)
           }
