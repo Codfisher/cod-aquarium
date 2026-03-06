@@ -1,0 +1,383 @@
+import type { Scene, UniversalCamera } from '@babylonjs/core'
+import type { MobileControlState } from './use-mobile-controller'
+import { Color3, Vector3 } from '@babylonjs/core'
+import { useEventListener } from '@vueuse/core'
+import { random } from 'lodash-es'
+import { onBeforeUnmount, ref } from 'vue'
+import { BlockId } from '../domains/block/block-constants'
+import { PLAYER_EYE_HEIGHT, resolveCollision } from '../domains/player/collision'
+import { coordinateToIndex, WORLD_HEIGHT, WORLD_SIZE } from '../domains/world/world-constants'
+import { useSoundManager } from './use-sound-manager'
+
+const GRAVITY = 20
+const JUMP_SPEED = 7
+const MOVE_SPEED = 6
+
+/** 霧氣參數：Y 低於此高度時開始加濃霧氣 */
+const CAVE_FOG_THRESHOLD_Y = WORLD_HEIGHT / 2
+const SURFACE_FOG_START = 30
+const SURFACE_FOG_END = 60
+const CAVE_FOG_START = 0
+const CAVE_FOG_END = 20
+const SURFACE_FOG_COLOR = new Color3(0.53, 0.74, 0.93)
+const CAVE_FOG_COLOR = new Color3(0.2, 0.2, 0.25)
+
+/** 限制俯仰角度避免翻轉 */
+const PITCH_LIMIT = Math.PI / 2 - 0.01
+
+interface UseFpsControllerParams {
+  scene: Scene;
+  camera: UniversalCamera;
+  canvas: HTMLCanvasElement;
+  worldState: Uint8Array;
+  mobileControls?: {
+    state: MobileControlState;
+    consumeLookDelta: () => { deltaX: number; deltaY: number };
+  };
+}
+
+/**
+ * FPS 控制器
+ *
+ * 接管攝影機移動，整合：
+ * - WASD 鍵盤移動（相對攝影機朝向）
+ * - Space 跳躍（需落地）
+ * - 重力 + AABB 陣列碰撞
+ * - Pointer Lock 滑鼠鎖定
+ *
+ * 回傳 `start` 方法，呼叫後才會真正啟動控制器。
+ * 這樣可以在 setup 同步階段呼叫以收集 onBeforeUnmount，
+ * 但延遲到 scene 就緒後才啟動。
+ */
+export function useFpsController() {
+  let cleanup: (() => void) | null = null
+  const isPaused = ref(true)
+  let canvasRef: HTMLCanvasElement | null = null
+  let isMobile = false
+
+  const soundManager = useSoundManager()
+
+  /** 腳步聲間隔（秒），走路與衝刺不同節奏 */
+  const STEP_INTERVAL = 0.4
+  const SPRINT_STEP_INTERVAL = 0.28
+  let stepTimer = 0
+
+  /** 玩家位置 (腳底) */
+  let footX = 0
+  let footY = 0
+  let footZ = 0
+
+  onBeforeUnmount(() => {
+    cleanup?.()
+  })
+
+  function start({
+    scene,
+    camera,
+    canvas,
+    worldState,
+    mobileControls,
+  }: UseFpsControllerParams) {
+    cleanup?.()
+
+    isMobile = !!mobileControls
+    canvasRef = canvas
+
+    /** 按鍵狀態 */
+    const keys = {
+      forward: false,
+      backward: false,
+      left: false,
+      right: false,
+      jump: false,
+      sprint: false,
+    }
+
+    /** 玩家速度 */
+    let velocityX = 0
+    let velocityY = 0
+    let velocityZ = 0
+    let isOnGround = false
+
+    /** 隨機選擇重生點 X, Z，並尋找地表高度 */
+    const center = WORLD_SIZE / 2
+    const spawnX = random(center - 10, center + 10)
+    const spawnZ = random(center - 10, center + 10)
+    const spawnY = WORLD_HEIGHT
+
+    /** 玩家腳底位置（攝影機位置 = 腳底 + eyeHeight） */
+    footX = spawnX + 0.5 // 站方塊正中央
+    footY = spawnY
+    footZ = spawnZ + 0.5
+
+    /** 停用 Babylon 內建的鍵盤移動（由本控制器自行處理） */
+    camera.speed = 0
+    camera.inertia = 0.45
+    camera.inputs.removeByType('FreeCameraKeyboardMoveInput')
+    camera.inputs.removeByType('FreeCameraTouchInput')
+
+    camera.detachControl()
+
+    /** 手機模式：不使用 Pointer Lock，也不讓 Babylon 處理觸控 */
+    if (mobileControls) {
+      isPaused.value = false
+    }
+    else {
+      camera.attachControl(canvas, true)
+    }
+
+    /** 鍵盤事件 */
+    function handleKeyDown(event: KeyboardEvent) {
+      switch (event.code) {
+        case 'KeyW':
+          keys.forward = true
+          break
+        case 'KeyS':
+          keys.backward = true
+          break
+        case 'KeyA':
+          keys.left = true
+          break
+        case 'KeyD':
+          keys.right = true
+          break
+        case 'Space':
+          keys.jump = true
+          event.preventDefault()
+          break
+        case 'ShiftLeft':
+        case 'ShiftRight':
+          keys.sprint = true
+          event.preventDefault()
+          break
+      }
+    }
+
+    function handleKeyUp(event: KeyboardEvent) {
+      switch (event.code) {
+        case 'KeyW':
+          keys.forward = false
+          break
+        case 'KeyS':
+          keys.backward = false
+          break
+        case 'KeyA':
+          keys.left = false
+          break
+        case 'KeyD':
+          keys.right = false
+          break
+        case 'Space':
+          keys.jump = false
+          break
+        case 'ShiftLeft':
+        case 'ShiftRight':
+          keys.sprint = false
+          break
+      }
+    }
+
+    const cleanupKeyDown = useEventListener(window, 'keydown', handleKeyDown)
+    const cleanupKeyUp = useEventListener(window, 'keyup', handleKeyUp)
+
+    /** Pointer Lock：點擊 canvas 鎖定滑鼠（僅桌面模式） */
+    function handleCanvasClick() {
+      if (!mobileControls && !isPaused.value) {
+        canvas.requestPointerLock()
+      }
+    }
+    canvas.addEventListener('click', handleCanvasClick)
+
+    const vecForward = new Vector3()
+    const vecRight = new Vector3()
+
+    /** 每幀更新 */
+    const observer = scene.onBeforeRenderObservable.add(() => {
+      const deltaTime = scene.getEngine().getDeltaTime() / 1000
+
+      /** 計算攝影機的水平朝向（忽略 pitch） */
+      camera.getDirectionToRef(Vector3.Forward(), vecForward)
+      vecForward.y = 0
+      vecForward.normalize()
+
+      camera.getDirectionToRef(Vector3.Right(), vecRight)
+      vecRight.y = 0
+      vecRight.normalize()
+
+      /** 根據按鍵計算移動方向 */
+      let moveX = 0
+      let moveZ = 0
+
+      /** 手機觸控視角旋轉（在計算朝向前套用） */
+      if (mobileControls) {
+        const lookDelta = mobileControls.consumeLookDelta()
+        camera.rotation.y += lookDelta.deltaX
+        camera.rotation.x += lookDelta.deltaY
+        camera.rotation.x = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, camera.rotation.x))
+      }
+
+      /** 暫停時不處理移動 */
+      if (!isPaused.value) {
+        /** 鍵盤移動 */
+        if (keys.forward) {
+          moveX += vecForward.x
+          moveZ += vecForward.z
+        }
+        if (keys.backward) {
+          moveX -= vecForward.x
+          moveZ -= vecForward.z
+        }
+        if (keys.left) {
+          moveX -= vecRight.x
+          moveZ -= vecRight.z
+        }
+        if (keys.right) {
+          moveX += vecRight.x
+          moveZ += vecRight.z
+        }
+
+        /** 手機搖桿移動（z 軸 = 前後，x 軸 = 左右） */
+        if (mobileControls) {
+          const joystick = mobileControls.state.joystick
+          if (joystick.x !== 0 || joystick.z !== 0) {
+            moveX += vecForward.x * (-joystick.z) + vecRight.x * joystick.x
+            moveZ += vecForward.z * (-joystick.z) + vecRight.z * joystick.x
+          }
+        }
+
+        /** 跳躍（鍵盤或手機按鈕） */
+        const shouldJump = keys.jump || (mobileControls?.state.jump ?? false)
+        if (shouldJump && isOnGround) {
+          velocityY = JUMP_SPEED
+        }
+      }
+
+      /** 正規化水平移動方向，搖桿使用類比速度 */
+      const moveLength = Math.sqrt(moveX * moveX + moveZ * moveZ)
+      if (moveLength > 0) {
+        const joystickMagnitude = mobileControls?.state.joystickMagnitude ?? 0
+        const isSprinting = keys.sprint || (mobileControls?.state.sprint ?? false)
+        const sprintSpeed = MOVE_SPEED * 1.6
+        const speed = joystickMagnitude > 0
+          ? sprintSpeed * joystickMagnitude
+          : isSprinting ? sprintSpeed : MOVE_SPEED
+        moveX = (moveX / moveLength) * speed * deltaTime
+        moveZ = (moveZ / moveLength) * speed * deltaTime
+      }
+
+      /** 重力 */
+      velocityY -= GRAVITY * deltaTime
+
+      /** 碰撞解析 */
+      const result = resolveCollision(
+        worldState,
+        footX,
+        footY,
+        footZ,
+        moveX,
+        velocityY * deltaTime,
+        moveZ,
+      )
+
+      footX = result.x
+      footY = result.y
+      footZ = result.z
+      velocityX = result.velocityX
+      velocityY = result.velocityY / (deltaTime || 1)
+
+      /** velocityY 從 resolveCollision 回傳的是 delta，需還原 */
+      if (result.velocityY === 0) {
+        velocityY = 0
+      }
+
+      velocityZ = result.velocityZ
+      isOnGround = result.isOnGround
+
+      /** 更新攝影機位置 */
+      camera.position.x = footX
+      camera.position.y = footY + PLAYER_EYE_HEIGHT
+      camera.position.z = footZ
+
+      /** 腳步聲：在地面上移動時定時播放 */
+      if (isOnGround && moveLength > 0) {
+        const isSprinting = keys.sprint || (mobileControls?.state.sprint ?? false)
+        const interval = isSprinting ? SPRINT_STEP_INTERVAL : STEP_INTERVAL
+        stepTimer += deltaTime
+        if (stepTimer >= interval) {
+          stepTimer -= interval
+          /** 取得腳底下方一格的方塊 ID */
+          const blockBelowX = Math.floor(footX)
+          const blockBelowY = Math.floor(footY - 0.1)
+          const blockBelowZ = Math.floor(footZ)
+          if (blockBelowY >= 0) {
+            const blockId = worldState[coordinateToIndex(blockBelowX, blockBelowY, blockBelowZ)] as BlockId
+            if (blockId !== BlockId.AIR) {
+              soundManager.playStepSound(blockId)
+            }
+          }
+        }
+      }
+      else {
+        stepTimer = 0
+      }
+
+      /** 根據 Y 高度動態調整霧氣，越深霧越濃、顏色越灰 */
+      const fogRatio = Math.max(0, Math.min(1, (CAVE_FOG_THRESHOLD_Y - footY) / CAVE_FOG_THRESHOLD_Y))
+      scene.fogStart = SURFACE_FOG_START + (CAVE_FOG_START - SURFACE_FOG_START) * fogRatio
+      scene.fogEnd = SURFACE_FOG_END + (CAVE_FOG_END - SURFACE_FOG_END) * fogRatio
+      Color3.LerpToRef(SURFACE_FOG_COLOR, CAVE_FOG_COLOR, fogRatio, scene.fogColor)
+    })
+
+    cleanup = () => {
+      cleanupKeyDown()
+      cleanupKeyUp()
+      cleanupPointerLockChange()
+      scene.onBeforeRenderObservable.remove(observer)
+      document.exitPointerLock()
+
+      canvas.removeEventListener('click', handleCanvasClick)
+    }
+  }
+
+  function resume() {
+    isPaused.value = false
+    if (canvasRef && !isMobile) {
+      canvasRef.requestPointerLock()
+    }
+
+    if (isMobile) {
+      document.documentElement.requestFullscreen().catch(() => {
+        // 忽略全螢幕切換失敗（例如使用者未手動互動）
+      })
+    }
+  }
+
+  function pause() {
+    isPaused.value = true
+    if (canvasRef && !isMobile && document.pointerLockElement === canvasRef) {
+      document.exitPointerLock()
+    }
+
+    if (isMobile && document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {
+        // 忽略退出失敗
+      })
+    }
+  }
+
+  const cleanupPointerLockChange = useEventListener(
+    document,
+    'pointerlockchange',
+    () => {
+      document.pointerLockElement !== canvasRef ? pause() : resume()
+    },
+  )
+
+  function teleport(x: number, y: number, z: number) {
+    footX = x
+    footY = y
+    footZ = z
+  }
+
+  return { start, resume, pause, isPaused, teleport }
+}
