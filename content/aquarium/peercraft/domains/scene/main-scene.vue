@@ -32,8 +32,9 @@
           :style="{ width: `${teleportProgress * 100}%` }"
         />
       </div>
-      <div class="teleport-charge-text">
-        TELEPORT CHARGING...
+
+      <div class="teleport-charge-text text-left">
+        TELEPORT<br>CHARGING...
       </div>
     </div>
 
@@ -61,7 +62,7 @@ import type { Mesh, Scene, UniversalCamera } from '@babylonjs/core'
 import type { VoxelRenderer } from '../renderer/voxel-renderer'
 import type { SandFall } from '../world/world-state'
 import { MeshBuilder, TransformNode, Vector3 } from '@babylonjs/core'
-import { animate, spring } from 'animejs'
+import { animate } from 'animejs'
 import { ref, watch } from 'vue'
 import PauseMenu from '../../components/pause-menu.vue'
 import { useBabylonScene } from '../../composables/use-babylon-scene'
@@ -484,35 +485,35 @@ function startGame(sceneInstance: Scene, cameraInstance: UniversalCamera, canvas
   emit('ready')
 }
 
-// ── 遊戲玩法：切換拿在手上的方塊 ──
-window.addEventListener('wheel', (event) => {
-  if (document.pointerLockElement !== canvasRef.value)
-    return
+// ── 切換拿在手上的方塊 ──
+// window.addEventListener('wheel', (event) => {
+//   if (document.pointerLockElement !== canvasRef.value)
+//     return
 
-  const blockIds = Object.entries(BLOCK_DEFS)
-    .filter(([id, def]) => {
-      const numericId = Number(id)
-      return !Number.isNaN(numericId) && numericId !== BlockId.AIR && !(def as any).isHidden
-    })
-    .map(([id]) => Number(id) as BlockId)
+//   const blockIds = Object.entries(BLOCK_DEFS)
+//     .filter(([id, def]) => {
+//       const numericId = Number(id)
+//       return !Number.isNaN(numericId) && numericId !== BlockId.AIR && !(def as any).isHidden
+//     })
+//     .map(([id]) => Number(id) as BlockId)
 
-  const currentIndex = heldBlockId.value === null ? -1 : blockIds.indexOf(heldBlockId.value)
+//   const currentIndex = heldBlockId.value === null ? -1 : blockIds.indexOf(heldBlockId.value)
 
-  let nextIndex = currentIndex
-  if (event.deltaY < 0) {
-    // Scroll up
-    nextIndex = (currentIndex + 1) % blockIds.length
-  }
-  else {
-    // Scroll down
-    nextIndex = (currentIndex - 1 + blockIds.length) % blockIds.length
-  }
+//   let nextIndex = currentIndex
+//   if (event.deltaY < 0) {
+//     // Scroll up
+//     nextIndex = (currentIndex + 1) % blockIds.length
+//   }
+//   else {
+//     // Scroll down
+//     nextIndex = (currentIndex - 1 + blockIds.length) % blockIds.length
+//   }
 
-  heldBlockId.value = blockIds[nextIndex] ?? null
-  if (updateHandMeshRef.value) {
-    updateHandMeshRef.value(heldBlockId.value)
-  }
-})
+//   heldBlockId.value = blockIds[nextIndex] ?? null
+//   if (updateHandMeshRef.value) {
+//     updateHandMeshRef.value(heldBlockId.value)
+//   }
+// })
 
 /** 離開伺服器 */
 function disconnect() {
@@ -583,7 +584,7 @@ function disconnect() {
   transform: translate(-50%, 40px)
   display: flex
   flex-direction: column
-  align-items: center
+  align-items: start
   pointer-events: none
 
 .teleport-charge-container

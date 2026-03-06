@@ -12,6 +12,12 @@ export enum BlockId {
   OAK_LEAVES,
   BRICKS,
   OAK_LOG,
+  STONE_BRICKS,
+  DARK_OAK_LOG,
+  DARK_OAK_PLANKS,
+  SPRUCE_PLANKS,
+  BOOKSHELF,
+  CRAFTING_TABLE,
 }
 
 /** 材質路徑前綴 */
@@ -127,6 +133,48 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
       top: `${TEXTURE_BASE}/oak_log_top.png`,
       bottom: `${TEXTURE_BASE}/oak_log_top.png`,
       side: `${TEXTURE_BASE}/oak_log.png`,
+    },
+  },
+  [BlockId.STONE_BRICKS]: {
+    miningSeconds: 0.5,
+    textures: {
+      all: `${TEXTURE_BASE}/stone_bricks.png`,
+    },
+  },
+  [BlockId.DARK_OAK_LOG]: {
+    miningSeconds: 0.5,
+    textures: {
+      top: `${TEXTURE_BASE}/dark_oak_log_top.png`,
+      bottom: `${TEXTURE_BASE}/dark_oak_log_top.png`,
+      side: `${TEXTURE_BASE}/dark_oak_log.png`,
+    },
+  },
+  [BlockId.DARK_OAK_PLANKS]: {
+    miningSeconds: 0.5,
+    textures: {
+      all: `${TEXTURE_BASE}/dark_oak_planks.png`,
+    },
+  },
+  [BlockId.SPRUCE_PLANKS]: {
+    miningSeconds: 0.5,
+    textures: {
+      all: `${TEXTURE_BASE}/spruce_planks.png`,
+    },
+  },
+  [BlockId.BOOKSHELF]: {
+    miningSeconds: 0.3,
+    textures: {
+      top: `${TEXTURE_BASE}/oak_planks.png`,
+      bottom: `${TEXTURE_BASE}/oak_planks.png`,
+      side: `${TEXTURE_BASE}/bookshelf.png`,
+    },
+  },
+  [BlockId.CRAFTING_TABLE]: {
+    miningSeconds: 0.3,
+    textures: {
+      top: `${TEXTURE_BASE}/crafting_table_top.png`,
+      bottom: `${TEXTURE_BASE}/spruce_planks.png`,
+      side: `${TEXTURE_BASE}/crafting_table_side.png`,
     },
   },
 }
