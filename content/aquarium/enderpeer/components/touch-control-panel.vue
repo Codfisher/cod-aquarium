@@ -66,7 +66,7 @@
     </div>
 
     <!-- 右側按鈕群 -->
-    <div class="button-group-right">
+    <div class="button-group-right pr-16 pb-6">
       <!-- 跳躍按鈕 -->
       <button
         class="control-button size-20!"
