@@ -20,6 +20,9 @@ const CAVE_FOG_END = 20
 const SURFACE_FOG_COLOR = new Color3(0.53, 0.74, 0.93)
 const CAVE_FOG_COLOR = new Color3(0.2, 0.2, 0.25)
 
+/** 限制俯仰角度避免翻轉 */
+const PITCH_LIMIT = Math.PI / 2 - 0.01
+
 interface UseFpsControllerParams {
   scene: Scene;
   camera: UniversalCamera;
@@ -201,8 +204,7 @@ export function useFpsController() {
         const lookDelta = mobileControls.consumeLookDelta()
         camera.rotation.y += lookDelta.deltaX
         camera.rotation.x += lookDelta.deltaY
-        /** 限制俯仰角度避免翻轉 */
-        camera.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, camera.rotation.x))
+        camera.rotation.x = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, camera.rotation.x))
       }
 
       /** 暫停時不處理移動 */
