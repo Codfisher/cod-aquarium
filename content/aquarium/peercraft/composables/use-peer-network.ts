@@ -25,7 +25,9 @@ export interface UsePeerNetworkParams {
   onPlayerNameReceived?: (peerId: string, name: string) => void;
 }
 
-export const FIXED_ROOM_ID = 'peercraft-fixed-room-v1'
+export const FIXED_ROOM_ID = import.meta.env.PROD
+  ? 'peercraft-fixed-room-v1'
+  : 'peercraft-fixed-room-dev'
 
 /**
  * 封裝 PeerJS 的 P2P 網路邏輯
