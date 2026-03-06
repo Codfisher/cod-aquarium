@@ -12,7 +12,7 @@ const JUMP_SPEED = 7
 const MOVE_SPEED = 6
 
 /** 霧氣參數：Y 低於此高度時開始加濃霧氣 */
-const CAVE_FOG_THRESHOLD_Y = 20
+const CAVE_FOG_THRESHOLD_Y = WORLD_HEIGHT / 2
 const SURFACE_FOG_START = 30
 const SURFACE_FOG_END = 60
 const CAVE_FOG_START = 0
@@ -49,11 +49,6 @@ export function useFpsController() {
   const isPaused = ref(true)
   let canvasRef: HTMLCanvasElement | null = null
   let isMobile = false
-
-  function handlePointerLockChange() {
-    isPaused.value = document.pointerLockElement !== canvasRef
-  }
-  const cleanupPointerLockChange = useEventListener(document, 'pointerlockchange', handlePointerLockChange)
 
   /** 玩家位置 (腳底) */
   let footX = 0
@@ -304,10 +299,26 @@ export function useFpsController() {
   }
 
   function resume() {
+    isPaused.value = false
     if (canvasRef && !isMobile) {
       canvasRef.requestPointerLock()
     }
   }
+
+  function pause() {
+    isPaused.value = true
+    if (canvasRef && !isMobile && document.pointerLockElement === canvasRef) {
+      document.exitPointerLock()
+    }
+  }
+
+  const cleanupPointerLockChange = useEventListener(
+    document,
+    'pointerlockchange',
+    () => {
+      document.pointerLockElement !== canvasRef ? pause() : resume()
+    },
+  )
 
   function teleport(x: number, y: number, z: number) {
     footX = x
@@ -315,5 +326,5 @@ export function useFpsController() {
     footZ = z
   }
 
-  return { start, resume, isPaused, teleport }
+  return { start, resume, pause, isPaused, teleport }
 }

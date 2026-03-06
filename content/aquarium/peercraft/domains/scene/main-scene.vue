@@ -55,6 +55,7 @@
       @sprint="mobileController.setSprint"
       @action="mobileController.setAction"
       @teleport="mobileController.setTeleport"
+      @menu="fpsController.pause()"
     />
 
     <!-- ESC 暫停選單 (獨立元件) -->

@@ -19,22 +19,8 @@
       />
     </div>
 
-    <!-- 右側按鈕群 -->
-    <div class="button-group-right">
-      <!-- 衝刺按鈕 -->
-      <button
-        class="control-button sprint-button"
-        @touchstart.prevent="setSprint(true)"
-        @touchend.prevent="setSprint(false)"
-        @touchcancel.prevent="setSprint(false)"
-      >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-          <path d="M13 4L19 12L13 20" />
-          <path d="M5 4L11 12L5 20" />
-        </svg>
-      </button>
-
-      <!-- 傳送按鈕 -->
+    <!-- 左上角按鈕 (傳送) -->
+    <div class="top-left-group">
       <button
         class="control-button teleport-button"
         @touchstart.prevent="setTeleport(true)"
@@ -47,6 +33,36 @@
           <path d="M12 18V22" />
           <path d="M2 12H6" />
           <path d="M18 12H22" />
+        </svg>
+      </button>
+    </div>
+
+    <!-- 右上角按鈕 (選單) -->
+    <div class="top-right-group">
+      <button
+        class="control-button menu-button"
+        @click="emit('menu')"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <line x1="3" y1="12" x2="21" y2="12" />
+          <line x1="3" y1="6" x2="21" y2="6" />
+          <line x1="3" y1="18" x2="21" y2="18" />
+        </svg>
+      </button>
+    </div>
+
+    <!-- 右側按鈕群 -->
+    <div class="button-group-right">
+      <!-- 衝刺按鈕 -->
+      <button
+        class="control-button sprint-button"
+        @touchstart.prevent="setSprint(true)"
+        @touchend.prevent="setSprint(false)"
+        @touchcancel.prevent="setSprint(false)"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <path d="M13 4L19 12L13 20" />
+          <path d="M5 4L11 12L5 20" />
         </svg>
       </button>
 
@@ -102,6 +118,7 @@ const emit = defineEmits<{
   sprint: [pressed: boolean];
   action: [pressed: boolean];
   teleport: [pressed: boolean];
+  menu: [];
 }>()
 
 const { joystickActive, joystickOrigin, joystickOffset } = toRefs(props)
@@ -181,6 +198,20 @@ function setTeleport(pressed: boolean) {
   svg
     width: 24px
     height: 24px
+
+// ── 左上/右上按鈕群 ──
+
+.top-left-group
+  position: absolute
+  left: 16px
+  top: 16px
+  pointer-events: auto
+
+.top-right-group
+  position: absolute
+  right: 16px
+  top: 16px
+  pointer-events: auto
 
 // ── 右側按鈕群 ──
 

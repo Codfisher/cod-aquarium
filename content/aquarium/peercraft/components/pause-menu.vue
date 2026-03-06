@@ -3,14 +3,16 @@
     v-if="show"
     class="absolute inset-0 bg-black/60 flex flex-col items-center justify-center z-50 mc-font"
   >
-    <div class="mc-container flex flex-col items-center gap-10">
+    <div class="mc-container flex flex-col items-center gap-6 px-4">
       <span class="text-4xl text-neutral-200 font-bold leading-relaxed">
         遊戲暫停
       </span>
 
-      <div class="flex flex-col gap-8 w-full max-w-[400px]">
+      <div class="flex flex-col gap-8 w-full max-w-100">
         <div class="flex flex-col gap-3">
-          <label class="text-lg mc-text-shadow text-neutral-300">玩家名稱:</label>
+          <label class="text-lg mc-text-shadow text-neutral-300">
+            玩家名稱:
+          </label>
           <div class="mc-input-wrapper">
             <input
               v-model="localName"
