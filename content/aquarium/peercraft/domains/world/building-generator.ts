@@ -117,9 +117,14 @@ function placeCottage(state: Uint8Array, x: number, sy: number, z: number) {
   forceSet(state, x1, floorY + 2, z, BlockId.GLASS)
   forceSet(state, x2, floorY + 2, z, BlockId.GLASS)
 
-  // 室內裝飾：書架靠牆、工作台角落
+  // 室內裝飾：書架靠牆、工作台角落、熔爐
   forceSet(state, x1 + 1, floorY + 1, z1 + 1, BlockId.BOOKSHELF)
   forceSet(state, x2 - 1, floorY + 1, z1 + 1, BlockId.CRAFTING_TABLE)
+  forceSet(state, x2 - 1, floorY + 1, z2 - 1, BlockId.FURNACE)
+
+  // 外部裝飾：門旁木桶、屋側乾草堆
+  forceSet(state, x + 1, floorY + 1, z2, BlockId.BARREL)
+  forceSet(state, x1 - 1, floorY + 1, z1, BlockId.HAY_BLOCK)
 }
 
 /**
@@ -178,10 +183,18 @@ function placeBrickHouse(state: Uint8Array, x: number, sy: number, z: number) {
   forceSet(state, x, floorY + 2, z1, BlockId.GLASS)
   forceSet(state, x, floorY + 3, z1, BlockId.GLASS)
 
-  // 室內裝飾：沿牆書架
+  // 室內裝飾：沿牆書架、熔爐、木桶
   forceSet(state, x1 + 1, floorY + 1, z1 + 1, BlockId.BOOKSHELF)
   forceSet(state, x1 + 1, floorY + 2, z1 + 1, BlockId.BOOKSHELF)
   forceSet(state, x2 - 1, floorY + 1, z1 + 1, BlockId.CRAFTING_TABLE)
+  forceSet(state, x2 - 1, floorY + 1, z2 - 1, BlockId.FURNACE)
+  forceSet(state, x1 + 1, floorY + 1, z2 - 1, BlockId.BARREL)
+
+  // 底部裝飾帶改用鑿石磚點綴四角
+  forceSet(state, x1, floorY + 1, z1, BlockId.CHISELED_STONE_BRICKS)
+  forceSet(state, x2, floorY + 1, z1, BlockId.CHISELED_STONE_BRICKS)
+  forceSet(state, x1, floorY + 1, z2, BlockId.CHISELED_STONE_BRICKS)
+  forceSet(state, x2, floorY + 1, z2, BlockId.CHISELED_STONE_BRICKS)
 }
 
 /**
@@ -195,8 +208,8 @@ function placeWatchtower(state: Uint8Array, x: number, sy: number, z: number) {
   const z2 = z + 1
   const floorY = sy + 1
 
-  // 地基填充
-  fillFoundation(state, x1, z1, x2, z2, floorY - 1, BlockId.STONE_BRICKS)
+  // 地基填充（苔石）
+  fillFoundation(state, x1, z1, x2, z2, floorY - 1, BlockId.MOSSY_COBBLESTONE)
   // 地板（石磚）
   fillBox(state, x1, floorY, z1, x2, floorY, z2, BlockId.STONE_BRICKS)
   // 第一層牆壁（石磚）
@@ -243,11 +256,12 @@ function placeWatchtower(state: Uint8Array, x: number, sy: number, z: number) {
 
   // 頂部觀景台（5×5 平台，深色橡木板）
   fillBox(state, x - 2, floorY + 8, z - 2, x + 2, floorY + 8, z + 2, BlockId.DARK_OAK_PLANKS)
-  // 觀景台圍欄（深色橡木原木柱）
+  // 觀景台圍欄（四角鑿石磚柱、其餘石磚）
   for (let dx = -2; dx <= 2; dx++) {
     for (let dz = -2; dz <= 2; dz++) {
       if (Math.abs(dx) === 2 || Math.abs(dz) === 2) {
-        forceSet(state, x + dx, floorY + 9, z + dz, BlockId.DARK_OAK_LOG)
+        const isCorner = Math.abs(dx) === 2 && Math.abs(dz) === 2
+        forceSet(state, x + dx, floorY + 9, z + dz, isCorner ? BlockId.CHISELED_STONE_BRICKS : BlockId.STONE_BRICKS)
       }
     }
   }
@@ -260,8 +274,8 @@ function placeWatchtower(state: Uint8Array, x: number, sy: number, z: number) {
 function placeWell(state: Uint8Array, x: number, sy: number, z: number) {
   const floorY = sy + 1
 
-  // 地基填充
-  fillFoundation(state, x - 1, z - 1, x + 1, z + 1, floorY - 1, BlockId.COBBLESTONE)
+  // 地基填充（苔石，增加古老感）
+  fillFoundation(state, x - 1, z - 1, x + 1, z + 1, floorY - 1, BlockId.MOSSY_COBBLESTONE)
 
   // 圍牆（1 格高鵝卵石）
   for (let dx = -1; dx <= 1; dx++) {
@@ -289,6 +303,9 @@ function placeWell(state: Uint8Array, x: number, sy: number, z: number) {
 
   // 屋頂（雲杉木板，5×5）
   fillBox(state, x - 2, floorY + 4, z - 2, x + 2, floorY + 4, z + 2, BlockId.SPRUCE_PLANKS)
+
+  // 井旁裝飾：木桶
+  forceSet(state, x + 2, floorY + 1, z, BlockId.BARREL)
 }
 
 /** 建築所需的最大半徑（用於邊界檢查） */

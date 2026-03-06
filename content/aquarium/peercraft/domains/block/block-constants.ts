@@ -18,6 +18,11 @@ export enum BlockId {
   SPRUCE_PLANKS,
   BOOKSHELF,
   CRAFTING_TABLE,
+  BARREL,
+  FURNACE,
+  MOSSY_COBBLESTONE,
+  CHISELED_STONE_BRICKS,
+  HAY_BLOCK,
 }
 
 /** 材質路徑前綴 */
@@ -175,6 +180,42 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
       top: `${TEXTURE_BASE}/crafting_table_top.png`,
       bottom: `${TEXTURE_BASE}/spruce_planks.png`,
       side: `${TEXTURE_BASE}/crafting_table_side.png`,
+    },
+  },
+  [BlockId.BARREL]: {
+    miningSeconds: 0.3,
+    textures: {
+      top: `${TEXTURE_BASE}/barrel_top.png`,
+      bottom: `${TEXTURE_BASE}/barrel_bottom.png`,
+      side: `${TEXTURE_BASE}/barrel_side.png`,
+    },
+  },
+  [BlockId.FURNACE]: {
+    miningSeconds: 0.5,
+    textures: {
+      top: `${TEXTURE_BASE}/furnace_top.png`,
+      side: `${TEXTURE_BASE}/furnace_front.png`,
+      bottom: `${TEXTURE_BASE}/furnace_top.png`,
+    },
+  },
+  [BlockId.MOSSY_COBBLESTONE]: {
+    miningSeconds: 0.5,
+    textures: {
+      all: `${TEXTURE_BASE}/mossy_cobblestone.png`,
+    },
+  },
+  [BlockId.CHISELED_STONE_BRICKS]: {
+    miningSeconds: 0.5,
+    textures: {
+      all: `${TEXTURE_BASE}/chiseled_stone_bricks.png`,
+    },
+  },
+  [BlockId.HAY_BLOCK]: {
+    miningSeconds: 0.3,
+    textures: {
+      top: `${TEXTURE_BASE}/hay_block_top.png`,
+      bottom: `${TEXTURE_BASE}/hay_block_top.png`,
+      side: `${TEXTURE_BASE}/hay_block_side.png`,
     },
   },
 }
