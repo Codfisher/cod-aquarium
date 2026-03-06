@@ -11,6 +11,8 @@ interface JoystickState {
 export interface MobileControlState {
   /** 搖桿移動向量（-1 ~ 1） */
   joystick: JoystickState;
+  /** 搖桿偏移比例（0 ~ 1），用於類比速度控制 */
+  joystickMagnitude: number;
   /** 視角旋轉增量（每幀消費後歸零） */
   lookDeltaX: number;
   lookDeltaY: number;
@@ -34,6 +36,7 @@ export function useMobileController() {
 
   const state = reactive<MobileControlState>({
     joystick: { x: 0, z: 0 },
+    joystickMagnitude: 0,
     lookDeltaX: 0,
     lookDeltaY: 0,
     jump: false,
@@ -49,7 +52,6 @@ export function useMobileController() {
   let joystickCenterX = 0
   let joystickCenterY = 0
   const JOYSTICK_RADIUS = 60
-  const SPRINT_THRESHOLD_RATIO = 0.8
 
   /** 搖桿位置（供 UI 顯示用） */
   const joystickOffset = reactive({ x: 0, y: 0 })
@@ -81,11 +83,9 @@ export function useMobileController() {
       const clampedY = deltaY * ratio
       state.joystick.x = clampedX / JOYSTICK_RADIUS
       state.joystick.z = clampedY / JOYSTICK_RADIUS
+      state.joystickMagnitude = clampedDistance / JOYSTICK_RADIUS
       joystickOffset.x = clampedX
       joystickOffset.y = clampedY
-
-      // 距離超過閾值則衝刺
-      state.sprint = clampedDistance > JOYSTICK_RADIUS * SPRINT_THRESHOLD_RATIO
     }
   }
 
@@ -96,6 +96,7 @@ export function useMobileController() {
     joystickOffset.y = 0
     state.joystick.x = 0
     state.joystick.z = 0
+    state.joystickMagnitude = 0
     state.sprint = false
   }
 

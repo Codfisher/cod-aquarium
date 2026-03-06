@@ -241,11 +241,15 @@ export function useFpsController() {
         }
       }
 
-      /** 正規化水平移動方向 */
+      /** 正規化水平移動方向，搖桿使用類比速度 */
       const moveLength = Math.sqrt(moveX * moveX + moveZ * moveZ)
       if (moveLength > 0) {
+        const joystickMagnitude = mobileControls?.state.joystickMagnitude ?? 0
         const isSprinting = keys.sprint || (mobileControls?.state.sprint ?? false)
-        const speed = isSprinting ? MOVE_SPEED * 1.6 : MOVE_SPEED
+        const sprintSpeed = MOVE_SPEED * 1.6
+        const speed = joystickMagnitude > 0
+          ? sprintSpeed * joystickMagnitude
+          : isSprinting ? sprintSpeed : MOVE_SPEED
         moveX = (moveX / moveLength) * speed * deltaTime
         moveZ = (moveZ / moveLength) * speed * deltaTime
       }
