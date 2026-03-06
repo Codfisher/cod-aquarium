@@ -1,7 +1,7 @@
 import { fbm2D } from '../../utils/noise'
 import { BlockId } from '../block/block-constants'
 import { checkOverlap } from '../player/collision'
-import { placeBuilding } from './building-generator'
+import { placeBrickHouse, placeBuilding, placeCottage, placeWatchtower, placeWell } from './building-generator'
 import { generateCaves } from './cave-generator'
 import { placeTree } from './tree-generator'
 import { coordinateToIndex, WORLD_HEIGHT, WORLD_SIZE, WORLD_VOLUME } from './world-constants'
@@ -25,6 +25,8 @@ export function generateTerrain(state: Uint8Array): void {
   const canyonDepth = Math.floor(WORLD_HEIGHT * 0.3125) // 20 -> 0.3125 * 64
 
   const heightMap = new Uint8Array(WORLD_SIZE * WORLD_SIZE)
+  const placedBuildings = new Set<string>()
+  const potentialBuildingLocations: { x: number; y: number; z: number }[] = []
 
   // 第一階段：基礎地形與生態系
   for (let x = 0; x < WORLD_SIZE; x++) {
@@ -75,7 +77,7 @@ export function generateTerrain(state: Uint8Array): void {
             state[index] = BlockId.SAND
           }
           else if (isCanyon) {
-            // 峽谷底部：隨機使用石頭或鵝卵石 (不再有沙子)
+            // 峽谷底部：隨機使用石頭 or 鵝卵石 (不再有沙子)
             const rand = Math.random()
             state[index] = rand > 0.95 ? BlockId.COBBLESTONE : BlockId.STONE
           }
@@ -85,20 +87,48 @@ export function generateTerrain(state: Uint8Array): void {
         }
       }
 
-      // 樹木生成（避開沙坑、峽谷與太深的地方）
+      // 樹木與建築生成（避開沙坑、峽谷與太深的地方）
       const surfaceY = clampedHeight - 1
       if (!isSandPit && !isCanyon && state[coordinateToIndex(x, surfaceY, z)] === BlockId.GRASS) {
-        const margin = 3
-        if (x > margin && x < WORLD_SIZE - margin && z > margin && z < WORLD_SIZE - margin && surfaceY + 8 < WORLD_HEIGHT) {
+        const margin = 5 // 配合 BUILDING_MARGIN
+        if (x > margin && x < WORLD_SIZE - margin && z > margin && z < WORLD_SIZE - margin && surfaceY + 10 < WORLD_HEIGHT) {
+          potentialBuildingLocations.push({ x, y: surfaceY, z })
+
           const rand = Math.random()
           if (rand < 0.008) {
             placeTree(state, x, surfaceY, z)
           }
           else if (rand < 0.0095) {
-            placeBuilding(state, x, surfaceY, z)
+            const buildingType = placeBuilding(state, x, surfaceY, z)
+            if (buildingType)
+              placedBuildings.add(buildingType)
           }
         }
       }
+    }
+  }
+
+  // 強制產生缺失的建築物
+  const allBuildingTypes = ['cottage', 'brick_house', 'watchtower', 'well'] as const
+  for (const type of allBuildingTypes) {
+    if (!placedBuildings.has(type) && potentialBuildingLocations.length > 0) {
+      // 隨機選一個候選地點 (簡單起見就不做重疊檢查了，反正機率不高)
+      const locIdx = Math.floor(Math.random() * potentialBuildingLocations.length)
+      const loc = potentialBuildingLocations[locIdx]
+      if (!loc)
+        continue
+
+      const { x, y, z } = loc
+      if (type === 'cottage')
+        placeCottage(state, x, y, z)
+      else if (type === 'brick_house')
+        placeBrickHouse(state, x, y, z)
+      else if (type === 'watchtower')
+        placeWatchtower(state, x, y, z)
+      else if (type === 'well')
+        placeWell(state, x, y, z)
+
+      placedBuildings.add(type)
     }
   }
 

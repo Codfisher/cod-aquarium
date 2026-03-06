@@ -82,7 +82,7 @@ function fillWalls(
  * 正面（+Z 方向）有門，兩側有窗
  * 深色橡木原木作為框架柱子，雲杉木板地板，書架與工作台裝飾
  */
-function placeCottage(state: Uint8Array, x: number, sy: number, z: number) {
+export function placeCottage(state: Uint8Array, x: number, sy: number, z: number) {
   const x1 = x - 2
   const x2 = x + 2
   const z1 = z - 2
@@ -131,7 +131,7 @@ function placeCottage(state: Uint8Array, x: number, sy: number, z: number) {
  * 磚房：5×7 底面、4 格高、磚牆鵝卵石地板
  * 石磚裝飾帶、深色橡木原木框架、室內書架
  */
-function placeBrickHouse(state: Uint8Array, x: number, sy: number, z: number) {
+export function placeBrickHouse(state: Uint8Array, x: number, sy: number, z: number) {
   const x1 = x - 2
   const x2 = x + 2
   const z1 = z - 3
@@ -201,7 +201,7 @@ function placeBrickHouse(state: Uint8Array, x: number, sy: number, z: number) {
  * 瞭望塔：3×3 底面、石磚牆、兩層樓高，頂部有觀景台
  * 深色橡木原木邊角、雲杉木板隔層
  */
-function placeWatchtower(state: Uint8Array, x: number, sy: number, z: number) {
+export function placeWatchtower(state: Uint8Array, x: number, sy: number, z: number) {
   const x1 = x - 1
   const x2 = x + 1
   const z1 = z - 1
@@ -271,7 +271,7 @@ function placeWatchtower(state: Uint8Array, x: number, sy: number, z: number) {
  * 水井：3×3 鵝卵石圍牆、中央挖深 3 格水坑（用玻璃模擬水面）
  * 上方有深色橡木原木支架與雲杉木板屋頂
  */
-function placeWell(state: Uint8Array, x: number, sy: number, z: number) {
+export function placeWell(state: Uint8Array, x: number, sy: number, z: number) {
   const floorY = sy + 1
 
   // 地基填充（苔石，增加古老感）
@@ -315,26 +315,31 @@ const BUILDING_MAX_HEIGHT = 10
 
 /**
  * 在指定位置放置隨機樣式的建築物
+ * 回傳所放置的建築類型名稱，若未放置則傳回 null
  */
-export function placeBuilding(state: Uint8Array, x: number, surfaceY: number, z: number) {
+export function placeBuilding(state: Uint8Array, x: number, surfaceY: number, z: number): string | null {
   // 邊界檢查
   if (x < BUILDING_MARGIN || x >= WORLD_SIZE - BUILDING_MARGIN
     || z < BUILDING_MARGIN || z >= WORLD_SIZE - BUILDING_MARGIN
     || surfaceY + BUILDING_MAX_HEIGHT >= WORLD_HEIGHT) {
-    return
+    return null
   }
 
   const variant = Math.random()
   if (variant < 0.3) {
     placeCottage(state, x, surfaceY, z)
+    return 'cottage'
   }
   else if (variant < 0.55) {
     placeBrickHouse(state, x, surfaceY, z)
+    return 'brick_house'
   }
   else if (variant < 0.75) {
     placeWatchtower(state, x, surfaceY, z)
+    return 'watchtower'
   }
   else {
     placeWell(state, x, surfaceY, z)
+    return 'well'
   }
 }
