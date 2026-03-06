@@ -190,8 +190,23 @@ export function useMobileController() {
     state.sprint = pressed
   }
 
+  /** 動作按鈕按下時的佇列旗標，確保即使 touchend+touchstart 發生在同一幀間也不會遺漏 */
+  let actionPressQueued = false
+
   function setAction(pressed: boolean) {
     state.action = pressed
+    if (pressed) {
+      actionPressQueued = true
+    }
+  }
+
+  /** 消費一次「剛按下」事件，避免 render loop 因幀間快速切換而漏掉按下動作 */
+  function consumeActionPress(): boolean {
+    if (actionPressQueued) {
+      actionPressQueued = false
+      return true
+    }
+    return false
   }
 
   function setTeleport(pressed: boolean) {
@@ -209,6 +224,7 @@ export function useMobileController() {
     joystickOrigin,
     setupTouchListeners,
     consumeLookDelta,
+    consumeActionPress,
     setJump,
     setSprint,
     setAction,

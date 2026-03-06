@@ -175,6 +175,10 @@ export function useBlockMiner() {
   }
 
   function startMiningAtTarget(cameraInstance: UniversalCamera, worldStateRef: Uint8Array, canMineCheck?: () => boolean) {
+    /** 已在挖掘中則跳過，避免重複呼叫時重置進度 */
+    if (isMining.value) {
+      return
+    }
     if (canMineCheck && !canMineCheck()) {
       return
     }

@@ -525,29 +525,45 @@ function startGame(sceneInstance: Scene, cameraInstance: UniversalCamera, canvas
     },
   })
 
-  /** 手機動作按鈕（挖掘/放置） */
-  let mobileActionActive = false
-  /** 本次按住的動作模式：'place' 放置 / 'dig' 挖掘，放開後重置 */
-  let mobileActionMode: 'place' | 'dig' | null = null
+  /** 手機動作按鈕（挖掘/放置）
+   *
+   *  使用 consumeActionPress 偵測「按下」事件，避免 touchend+touchstart
+   *  發生在同一幀間時 render loop 漏掉按下動作的問題。
+   *
+   *  actionConsumedByPlace：標記本次按住已用於放置，
+   *  防止放置後 heldBlockId 變 null 時同一次按住又觸發挖掘。
+   */
+  let previousActionPressed = false
+  let actionConsumedByPlace = false
 
   if (mobileController.isMobile) {
     sceneInstance.onBeforeRenderObservable.add(() => {
       const actionPressed = mobileController.state.action
+      const actionJustPressed = mobileController.consumeActionPress()
 
-      /** 按下瞬間決定模式（整次按住期間不會切換） */
-      if (actionPressed && !mobileActionActive) {
-        mobileActionActive = true
-        mobileActionMode = heldBlockId.value !== null ? 'place' : 'dig'
+      /** 新的按下事件：重置放置消費旗標 */
+      if (actionJustPressed) {
+        actionConsumedByPlace = false
       }
 
-      /** 放置方塊（僅在 place 模式的第一幀執行） */
-      if (actionPressed && mobileActionMode === 'place' && heldBlockId.value !== null) {
+      /** 放置方塊（按下瞬間觸發，一次性） */
+      if (actionJustPressed && heldBlockId.value !== null) {
+        actionConsumedByPlace = true
         const hit = castBlockRay(cameraInstance, worldState)
         if (hit) {
-          const playerFootX = cameraInstance.position.x
-          const playerFootY = cameraInstance.position.y - PLAYER_EYE_HEIGHT
-          const playerFootZ = cameraInstance.position.z
-          if (placeBlock(worldState, hit.adjacentX, hit.adjacentY, hit.adjacentZ, heldBlockId.value, playerFootX, playerFootY, playerFootZ)) {
+          const playerFoot = {
+            x: cameraInstance.position.x,
+            y: cameraInstance.position.y - PLAYER_EYE_HEIGHT,
+            z: cameraInstance.position.z,
+          }
+          if (placeBlock({
+            worldState,
+            blockX: hit.adjacentX,
+            blockY: hit.adjacentY,
+            blockZ: hit.adjacentZ,
+            blockId: heldBlockId.value,
+            playerFoot,
+          })) {
             const placedBlockId = heldBlockId.value
             soundManager.playPlaceSound(placedBlockId!)
             heldBlockId.value = null
@@ -568,20 +584,21 @@ function startGame(sceneInstance: Scene, cameraInstance: UniversalCamera, canvas
             }
           }
         }
-        /** 放置只嘗試一次，之後鎖定不再動作 */
-        mobileActionMode = null
       }
 
-      /** 挖掘方塊（dig 模式下每幀嘗試啟動，直到成功對準方塊） */
-      if (actionPressed && mobileActionMode === 'dig' && !blockMiner.isMining) {
+      /** 挖掘方塊（持續按住期間每幀嘗試，startMiningAtTarget 內部防重複）
+       *  actionConsumedByPlace 確保放置後同一次按住不會轉為挖掘
+       */
+      if (actionPressed && heldBlockId.value === null && !actionConsumedByPlace) {
         blockMiner.startMiningAtTarget(cameraInstance, worldState, () => heldBlockId.value === null)
       }
 
-      if (!actionPressed && mobileActionActive) {
-        mobileActionActive = false
-        mobileActionMode = null
+      /** 放開按鈕時停止挖掘 */
+      if (!actionPressed && previousActionPressed) {
         blockMiner.stopMining()
       }
+
+      previousActionPressed = actionPressed
 
       /** 傳送按鈕長按處理 */
       if (mobileController.state.teleport) {
@@ -626,10 +643,12 @@ function startGame(sceneInstance: Scene, cameraInstance: UniversalCamera, canvas
       }
 
       /** 左鍵：放置持有的方塊（檢查不與玩家重疊） */
-      const playerFootX = cameraInstance.position.x
-      const playerFootY = cameraInstance.position.y - PLAYER_EYE_HEIGHT
-      const playerFootZ = cameraInstance.position.z
-      if (placeBlock(worldState, hit.adjacentX, hit.adjacentY, hit.adjacentZ, heldBlockId.value, playerFootX, playerFootY, playerFootZ)) {
+      const playerFoot = {
+        x: cameraInstance.position.x,
+        y: cameraInstance.position.y - PLAYER_EYE_HEIGHT,
+        z: cameraInstance.position.z,
+      }
+      if (placeBlock({ worldState, blockX: hit.adjacentX, blockY: hit.adjacentY, blockZ: hit.adjacentZ, blockId: heldBlockId.value, playerFoot })) {
         const placedBlockId = heldBlockId.value
         soundManager.playPlaceSound(placedBlockId!)
         heldBlockId.value = null

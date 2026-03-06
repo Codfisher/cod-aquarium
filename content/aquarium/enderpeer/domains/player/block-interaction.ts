@@ -196,16 +196,23 @@ function isBlockOverlappingPlayer(
  *
  * 檢查目標必須為 AIR、在世界邊界內、且不與玩家重疊
  */
-export function placeBlock(
-  worldState: Uint8Array,
-  blockX: number,
-  blockY: number,
-  blockZ: number,
-  blockId: BlockId,
-  playerFootX?: number,
-  playerFootY?: number,
-  playerFootZ?: number,
-): boolean {
+interface PlaceBlockParams {
+  worldState: Uint8Array;
+  blockX: number;
+  blockY: number;
+  blockZ: number;
+  blockId: BlockId;
+  playerFoot?: { x: number; y: number; z: number };
+}
+
+export function placeBlock({
+  worldState,
+  blockX,
+  blockY,
+  blockZ,
+  blockId,
+  playerFoot,
+}: PlaceBlockParams): boolean {
   if (
     blockX < 0 || blockX >= WORLD_SIZE
     || blockY < 0 || blockY >= WORLD_HEIGHT
@@ -220,10 +227,8 @@ export function placeBlock(
   }
 
   if (
-    playerFootX !== undefined
-    && playerFootY !== undefined
-    && playerFootZ !== undefined
-    && isBlockOverlappingPlayer(blockX, blockY, blockZ, playerFootX, playerFootY, playerFootZ)
+    playerFoot
+    && isBlockOverlappingPlayer(blockX, blockY, blockZ, playerFoot.x, playerFoot.y, playerFoot.z)
   ) {
     return false
   }
