@@ -1,7 +1,7 @@
 import type { UniversalCamera } from '@babylonjs/core'
 import { Vector3 } from '@babylonjs/core'
 import { BlockId } from '../block/block-constants'
-import { coordinateToIndex, WORLD_SIZE } from '../world/world-constants'
+import { coordinateToIndex, WORLD_HEIGHT, WORLD_SIZE } from '../world/world-constants'
 import { PLAYER_HEIGHT, PLAYER_WIDTH } from './collision'
 /** 射線命中結果 */
 export interface RaycastHit {
@@ -81,7 +81,7 @@ export function castBlockRay(
     /** 檢測目前格子 */
     if (
       gridX >= 0 && gridX < WORLD_SIZE
-      && gridY >= 0 && gridY < WORLD_SIZE
+      && gridY >= 0 && gridY < WORLD_HEIGHT
       && gridZ >= 0 && gridZ < WORLD_SIZE
     ) {
       const index = coordinateToIndex(gridX, gridY, gridZ)
@@ -145,7 +145,7 @@ export function digBlock(
 ): boolean {
   if (
     blockX < 0 || blockX >= WORLD_SIZE
-    || blockY < 0 || blockY >= WORLD_SIZE
+    || blockY < 0 || blockY >= WORLD_HEIGHT
     || blockZ < 0 || blockZ >= WORLD_SIZE
   ) {
     return false
@@ -208,7 +208,7 @@ export function placeBlock(
 ): boolean {
   if (
     blockX < 0 || blockX >= WORLD_SIZE
-    || blockY < 0 || blockY >= WORLD_SIZE
+    || blockY < 0 || blockY >= WORLD_HEIGHT
     || blockZ < 0 || blockZ >= WORLD_SIZE
   ) {
     return false
@@ -244,7 +244,7 @@ export function setBlock(
 ): boolean {
   if (
     blockX < 0 || blockX >= WORLD_SIZE
-    || blockY < 0 || blockY >= WORLD_SIZE
+    || blockY < 0 || blockY >= WORLD_HEIGHT
     || blockZ < 0 || blockZ >= WORLD_SIZE
   ) {
     return false

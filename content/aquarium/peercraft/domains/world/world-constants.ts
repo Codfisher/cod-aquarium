@@ -3,8 +3,8 @@ export const WORLD_SIZE = 64
 /** 世界高度 */
 export const WORLD_HEIGHT = 64
 
-/** 區塊大小 (16x16) */
-export const CHUNK_SIZE = 16
+/** 區塊大小 */
+export const CHUNK_SIZE = WORLD_SIZE / 4
 /** 每維度區塊數 */
 export const CHUNKS_PER_AXIS = WORLD_SIZE / CHUNK_SIZE
 /** 總區塊數 */
