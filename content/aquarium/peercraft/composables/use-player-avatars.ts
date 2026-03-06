@@ -138,27 +138,59 @@ function createEndermanAvatar(peerId: string, scene: Scene): AvatarEntry {
   body.material = darkMat
   meshes.push(body)
 
-  /** 眼睛（大一點，水平窄條，突出於頭部前方避免 Z-fighting） */
-  const eyeY = 0.55
-  const eyeZ = 0.55 / 2 + 0.03
+  /** 眼白材質 */
+  const whiteMat = new StandardMaterial(`avatar-white-${peerId}`, scene)
+  whiteMat.diffuseColor = new Color3(0.95, 0.95, 0.95)
+  whiteMat.specularColor = new Color3(0.2, 0.2, 0.2)
+  whiteMat.emissiveColor = new Color3(0.15, 0.15, 0.15)
+  materials.push(whiteMat)
 
+  /** 眼睛（眼白 + 瞳孔，突出於頭部前方避免 Z-fighting） */
+  const eyeY = 0.55
+  const whiteZ = 0.55 / 2 + 0.025
+  const pupilZ = 0.55 / 2 + 0.05
+
+  /** 左眼白 */
+  const leftWhite = MeshBuilder.CreateBox(`avatar-lwhite-${peerId}`, {
+    width: 0.20,
+    height: 0.14,
+    depth: 0.03,
+  }, scene)
+  leftWhite.parent = root
+  leftWhite.position = new Vector3(-0.13, eyeY, whiteZ)
+  leftWhite.material = whiteMat
+  meshes.push(leftWhite)
+
+  /** 右眼白 */
+  const rightWhite = MeshBuilder.CreateBox(`avatar-rwhite-${peerId}`, {
+    width: 0.20,
+    height: 0.14,
+    depth: 0.03,
+  }, scene)
+  rightWhite.parent = root
+  rightWhite.position = new Vector3(0.13, eyeY, whiteZ)
+  rightWhite.material = whiteMat
+  meshes.push(rightWhite)
+
+  /** 左瞳孔 */
   const leftEye = MeshBuilder.CreateBox(`avatar-leye-${peerId}`, {
-    width: 0.18,
-    height: 0.12,
-    depth: 0.04,
+    width: 0.12,
+    height: 0.10,
+    depth: 0.02,
   }, scene)
   leftEye.parent = root
-  leftEye.position = new Vector3(-0.13, eyeY, eyeZ)
+  leftEye.position = new Vector3(-0.13, eyeY, pupilZ)
   leftEye.material = eyeMat
   meshes.push(leftEye)
 
+  /** 右瞳孔 */
   const rightEye = MeshBuilder.CreateBox(`avatar-reye-${peerId}`, {
-    width: 0.18,
-    height: 0.12,
-    depth: 0.04,
+    width: 0.12,
+    height: 0.10,
+    depth: 0.02,
   }, scene)
   rightEye.parent = root
-  rightEye.position = new Vector3(0.13, eyeY, eyeZ)
+  rightEye.position = new Vector3(0.13, eyeY, pupilZ)
   rightEye.material = eyeMat
   meshes.push(rightEye)
 
