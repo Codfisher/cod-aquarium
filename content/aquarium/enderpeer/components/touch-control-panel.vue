@@ -54,7 +54,7 @@
     <!-- 右側按鈕群 -->
     <div class="button-group-right">
       <!-- 衝刺按鈕 -->
-      <button
+      <!-- <button
         class="control-button sprint-button"
         @touchstart.prevent="setSprint(true)"
         @touchend.prevent="setSprint(false)"
@@ -64,7 +64,7 @@
           <path d="M13 4L19 12L13 20" />
           <path d="M5 4L11 12L5 20" />
         </svg>
-      </button>
+      </button> -->
 
       <!-- 跳躍按鈕 -->
       <button
