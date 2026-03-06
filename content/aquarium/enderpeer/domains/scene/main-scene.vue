@@ -99,6 +99,7 @@ import { PLAYER_EYE_HEIGHT, PLAYER_HEIGHT } from '../player/collision'
 import { useBlockMiner } from '../player/use-block-miner'
 import { createPixelMaterial, createVoxelRenderer } from '../renderer/voxel-renderer'
 import {
+  CHUNK_SIZE,
   CHUNKS_PER_AXIS,
   coordinateToIndex,
   getChunkIndex,
@@ -147,6 +148,18 @@ function handleSandGravity(sceneInstance?: Scene, affectedX?: number, affectedZ?
       const cx = worldToChunkCoordinate(fall.x)
       const cz = worldToChunkCoordinate(fall.z)
       affectedChunks.add(getChunkIndex(cx, cz))
+
+      // 檢查跨區塊邊界：如果沙子掉落點在邊緣，鄰近區塊的面剔除也需要更新
+      const lx = fall.x % CHUNK_SIZE
+      const lz = fall.z % CHUNK_SIZE
+      if (lx === 0 && cx > 0)
+        affectedChunks.add(getChunkIndex(cx - 1, cz))
+      if (lx === CHUNK_SIZE - 1 && cx < CHUNKS_PER_AXIS - 1)
+        affectedChunks.add(getChunkIndex(cx + 1, cz))
+      if (lz === 0 && cz > 0)
+        affectedChunks.add(getChunkIndex(cx, cz - 1))
+      if (lz === CHUNK_SIZE - 1 && cz < CHUNKS_PER_AXIS - 1)
+        affectedChunks.add(getChunkIndex(cx, cz + 1))
     }
 
     if (renderer) {
@@ -166,9 +179,7 @@ function handleSandGravity(sceneInstance?: Scene, affectedX?: number, affectedZ?
   }
   else if (renderer) {
     if (affectedX !== undefined && affectedZ !== undefined) {
-      const cx = worldToChunkCoordinate(affectedX)
-      const cz = worldToChunkCoordinate(affectedZ)
-      renderer.rebuildChunk(worldState, cx, cz)
+      renderer.rebuildAt(worldState, affectedX, affectedZ)
     }
     else {
       renderer.rebuildInstances(worldState)
@@ -320,9 +331,7 @@ const {
       handleSandGravity(scene.value ?? undefined, x, z)
     }
     else if (renderer) {
-      const cx = worldToChunkCoordinate(x)
-      const cz = worldToChunkCoordinate(z)
-      renderer.rebuildChunk(worldState, cx, cz)
+      renderer.rebuildAt(worldState, x, z)
     }
   },
   onMiningProgressReceived: (peerId, x, y, z, progress, blockId) => {

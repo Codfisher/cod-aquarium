@@ -176,18 +176,21 @@ export function useFpsController() {
     }
     canvas.addEventListener('click', handleCanvasClick)
 
+    const vecForward = new Vector3()
+    const vecRight = new Vector3()
+
     /** 每幀更新 */
     const observer = scene.onBeforeRenderObservable.add(() => {
       const deltaTime = scene.getEngine().getDeltaTime() / 1000
 
       /** 計算攝影機的水平朝向（忽略 pitch） */
-      const forward = camera.getDirection(Vector3.Forward())
-      forward.y = 0
-      forward.normalize()
+      camera.getDirectionToRef(Vector3.Forward(), vecForward)
+      vecForward.y = 0
+      vecForward.normalize()
 
-      const right = camera.getDirection(Vector3.Right())
-      right.y = 0
-      right.normalize()
+      camera.getDirectionToRef(Vector3.Right(), vecRight)
+      vecRight.y = 0
+      vecRight.normalize()
 
       /** 根據按鍵計算移動方向 */
       let moveX = 0
@@ -206,28 +209,28 @@ export function useFpsController() {
       if (!isPaused.value) {
         /** 鍵盤移動 */
         if (keys.forward) {
-          moveX += forward.x
-          moveZ += forward.z
+          moveX += vecForward.x
+          moveZ += vecForward.z
         }
         if (keys.backward) {
-          moveX -= forward.x
-          moveZ -= forward.z
+          moveX -= vecForward.x
+          moveZ -= vecForward.z
         }
         if (keys.left) {
-          moveX -= right.x
-          moveZ -= right.z
+          moveX -= vecRight.x
+          moveZ -= vecRight.z
         }
         if (keys.right) {
-          moveX += right.x
-          moveZ += right.z
+          moveX += vecRight.x
+          moveZ += vecRight.z
         }
 
         /** 手機搖桿移動（z 軸 = 前後，x 軸 = 左右） */
         if (mobileControls) {
           const joystick = mobileControls.state.joystick
           if (joystick.x !== 0 || joystick.z !== 0) {
-            moveX += forward.x * (-joystick.z) + right.x * joystick.x
-            moveZ += forward.z * (-joystick.z) + right.z * joystick.x
+            moveX += vecForward.x * (-joystick.z) + vecRight.x * joystick.x
+            moveZ += vecForward.z * (-joystick.z) + vecRight.z * joystick.x
           }
         }
 

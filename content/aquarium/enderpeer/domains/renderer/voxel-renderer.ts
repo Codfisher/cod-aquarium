@@ -19,6 +19,8 @@ import {
   coordinateToIndex,
   getChunkIndex,
   WORLD_HEIGHT,
+  WORLD_SIZE,
+  worldToChunkCoordinate,
 } from '../world/world-constants'
 
 interface BlockMeshEntry {
@@ -38,6 +40,8 @@ export interface VoxelRenderer {
   rebuildInstances: (worldState: Uint8Array) => void;
   /** 重建指定區塊 */
   rebuildChunk: (worldState: Uint8Array, cx: number, cz: number) => void;
+  /** 重建指定座標及其鄰近區塊 */
+  rebuildAt: (worldState: Uint8Array, x: number, z: number) => void;
   /** 釋放所有資源 */
   dispose: () => void;
 }
@@ -158,6 +162,9 @@ class ChunkRenderer {
     const startX = this.cx * CHUNK_SIZE
     const startZ = this.cz * CHUNK_SIZE
 
+    // 預先建立一個 Matrix 物件供重複使用，減少 GC
+    const reusableMatrix = new Matrix()
+
     for (let x = startX; x < startX + CHUNK_SIZE; x++) {
       for (let z = startZ; z < startZ + CHUNK_SIZE; z++) {
         for (let y = 0; y < WORLD_HEIGHT; y++) {
@@ -166,14 +173,56 @@ class ChunkRenderer {
           if (blockId === BlockId.AIR)
             continue
 
-          const translationMatrix = Matrix.Translation(x, y, z)
-          const matrixArray = translationMatrix.toArray()
+          const blockDef = BLOCK_DEFS[blockId]
+          const isTransparent = (blockDef.alpha !== undefined && blockDef.alpha < 1) || blockId === BlockId.GLASS
+
+          // 隱藏面剔除 (Culling): 檢查 6 個鄰居
+          // 如果鄰居是不透明方塊，則不需要渲染該面
+          const checkFace = (nx: number, ny: number, nz: number) => {
+            if (nx < 0 || nx >= WORLD_SIZE || nz < 0 || nz >= WORLD_SIZE || ny < 0 || ny >= WORLD_HEIGHT) {
+              return true // 邊界外視為可見
+            }
+            const nIndex = coordinateToIndex(nx, ny, nz)
+            const nBlockId = state[nIndex] as BlockId
+            if (nBlockId === BlockId.AIR)
+              return true
+
+            const nBlockDef = BLOCK_DEFS[nBlockId]
+            const nIsTransparent = (nBlockDef.alpha !== undefined && nBlockDef.alpha < 1) || nBlockId === BlockId.GLASS
+
+            // 如果自己透明，鄰居也透明，且是同一種透明方塊，通常可以剔除內面（視需求）
+            // 但最基本的是：如果不透明鄰居擋住了，就不用畫
+            return nIsTransparent && !isTransparent ? true : nIsTransparent
+          }
+
+          const hasTop = checkFace(x, y + 1, z)
+          const hasBottom = checkFace(x, y - 1, z)
+          const hasFront = checkFace(x, y, z + 1)
+          const hasBack = checkFace(x, y, z - 1)
+          const hasLeft = checkFace(x - 1, y, z)
+          const hasRight = checkFace(x + 1, y, z)
+
+          // 如果 6 個面都被擋住了，整個方塊都不用畫
+          if (!hasTop && !hasBottom && !hasFront && !hasBack && !hasLeft && !hasRight)
+            continue
+
+          // 更新矩陣並存入
+          Matrix.TranslationToRef(x, y, z, reusableMatrix)
+          const matrixArray = reusableMatrix.toArray()
 
           if (this.perFaceBlocks.has(blockId)) {
-            // top/bottom 已經在 bake 時位移，這裡直接用中心點 matrix 即可
-            for (const key of ['top', 'bottom', 'front', 'back', 'left', 'right']) {
-              matricesMap.get(`${blockId}_${key}`)?.push(...matrixArray)
-            }
+            if (hasTop)
+              matricesMap.get(`${blockId}_top`)?.push(...matrixArray)
+            if (hasBottom)
+              matricesMap.get(`${blockId}_bottom`)?.push(...matrixArray)
+            if (hasFront)
+              matricesMap.get(`${blockId}_front`)?.push(...matrixArray)
+            if (hasBack)
+              matricesMap.get(`${blockId}_back`)?.push(...matrixArray)
+            if (hasLeft)
+              matricesMap.get(`${blockId}_left`)?.push(...matrixArray)
+            if (hasRight)
+              matricesMap.get(`${blockId}_right`)?.push(...matrixArray)
           }
           else {
             matricesMap.get(`${blockId}`)?.push(...matrixArray)
@@ -229,6 +278,25 @@ export function createVoxelRenderer(scene: Scene, worldState: Uint8Array): Voxel
     }
   }
 
+  function rebuildAt(state: Uint8Array, x: number, z: number): void {
+    const cx = worldToChunkCoordinate(x)
+    const cz = worldToChunkCoordinate(z)
+    rebuildChunk(state, cx, cz)
+
+    // 檢查是否位於區塊邊界，若是則需要重建鄰近區塊以正確計算隱藏面
+    const lx = x % CHUNK_SIZE
+    const lz = z % CHUNK_SIZE
+
+    if (lx === 0 && cx > 0)
+      rebuildChunk(state, cx - 1, cz)
+    if (lx === CHUNK_SIZE - 1 && cx < CHUNKS_PER_AXIS - 1)
+      rebuildChunk(state, cx + 1, cz)
+    if (lz === 0 && cz > 0)
+      rebuildChunk(state, cx, cz - 1)
+    if (lz === CHUNK_SIZE - 1 && cz < CHUNKS_PER_AXIS - 1)
+      rebuildChunk(state, cx, cz + 1)
+  }
+
   /** 初次渲染 */
   rebuildInstances(worldState)
 
@@ -242,6 +310,7 @@ export function createVoxelRenderer(scene: Scene, worldState: Uint8Array): Voxel
   return {
     rebuildInstances,
     rebuildChunk,
+    rebuildAt,
     dispose,
   }
 }
