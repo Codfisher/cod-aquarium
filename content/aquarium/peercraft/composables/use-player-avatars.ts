@@ -1,5 +1,5 @@
 import type { DirectionalLight, Mesh, Scene, ShadowGenerator } from '@babylonjs/core'
-import { Color3, MeshBuilder, StandardMaterial, TransformNode, Vector3 } from '@babylonjs/core'
+import { Color3, DynamicTexture, MeshBuilder, StandardMaterial, Texture, TransformNode, Vector3 } from '@babylonjs/core'
 import { tryOnScopeDispose } from '@vueuse/core'
 import { BLOCK_DEFS, BlockId } from '../domains/block/block-constants'
 import { PLAYER_EYE_HEIGHT, PLAYER_HEIGHT } from '../domains/player/collision'
@@ -17,11 +17,14 @@ interface AvatarEntry {
     leftLeg: TransformNode;
     rightLeg: TransformNode;
   };
+  /** 頭部節點（用於待機晃動） */
+  headNode: Mesh;
   /** 狀態 */
   state: {
     lastPosition: Vector3;
     walkCycle: number;
     intensity: number;
+    idleTime: number;
   };
   /** 手持方塊相關 */
   hand: TransformNode;
@@ -101,12 +104,34 @@ function createEndermanAvatar(peerId: string, scene: Scene): AvatarEntry {
 
   const eyeColor = peerIdToColor(peerId)
 
+  /** 像素噪點貼圖（模擬末影人粒子質感） */
+  const noiseSize = 8
+  const noiseTex = new DynamicTexture(`avatar-noise-${peerId}`, { width: noiseSize, height: noiseSize }, scene, false)
+  const ctx = noiseTex.getContext()
+  const er = eyeColor.r * 0.15
+  const eg = eyeColor.g * 0.15
+  const eb = eyeColor.b * 0.15
+  for (let py = 0; py < noiseSize; py++) {
+    for (let px = 0; px < noiseSize; px++) {
+      const v = 0.08 + Math.random() * 0.12
+      const pr = Math.min(255, Math.floor((v + er) * 255))
+      const pg = Math.min(255, Math.floor((v * 0.5 + eg) * 255))
+      const pb = Math.min(255, Math.floor((v * 1.8 + eb) * 255))
+      ctx.fillStyle = `rgb(${pr},${pg},${pb})`
+      ctx.fillRect(px, py, 1, 1)
+    }
+  }
+  noiseTex.update()
+  noiseTex.updateSamplingMode(Texture.NEAREST_SAMPLINGMODE)
+
   /** 深色身體材質 */
   const darkMat = new StandardMaterial(`avatar-dark-${peerId}`, scene)
-  darkMat.diffuseColor = new Color3(0.05, 0.02, 0.07)
-  darkMat.specularColor = new Color3(0.1, 0.05, 0.15)
+  darkMat.diffuseTexture = noiseTex
+  darkMat.diffuseColor = Color3.White()
+  darkMat.specularColor = new Color3(0.03, 0.02, 0.04)
+  darkMat.specularPower = 64
   /** 身體發出微光 */
-  darkMat.emissiveColor = eyeColor.scale(0.2)
+  darkMat.emissiveColor = eyeColor.scale(0.15)
   materials.push(darkMat)
 
   /** 眼睛材質（每位玩家獨特發光色） */
@@ -145,8 +170,7 @@ function createEndermanAvatar(peerId: string, scene: Scene): AvatarEntry {
   whiteMat.emissiveColor = new Color3(0.15, 0.15, 0.15)
   materials.push(whiteMat)
 
-  /** 眼睛（眼白 + 瞳孔，突出於頭部前方避免 Z-fighting） */
-  const eyeY = 0.55
+  /** 眼睛、腮紅、嘴巴皆掛在 head 下，隨頭部一起晃動 */
   const whiteZ = 0.55 / 2 + 0.025
   const pupilZ = 0.55 / 2 + 0.05
 
@@ -156,8 +180,8 @@ function createEndermanAvatar(peerId: string, scene: Scene): AvatarEntry {
     height: 0.14,
     depth: 0.03,
   }, scene)
-  leftWhite.parent = root
-  leftWhite.position = new Vector3(-0.13, eyeY, whiteZ)
+  leftWhite.parent = head
+  leftWhite.position = new Vector3(-0.13, 0, whiteZ)
   leftWhite.material = whiteMat
   meshes.push(leftWhite)
 
@@ -167,8 +191,8 @@ function createEndermanAvatar(peerId: string, scene: Scene): AvatarEntry {
     height: 0.14,
     depth: 0.03,
   }, scene)
-  rightWhite.parent = root
-  rightWhite.position = new Vector3(0.13, eyeY, whiteZ)
+  rightWhite.parent = head
+  rightWhite.position = new Vector3(0.13, 0, whiteZ)
   rightWhite.material = whiteMat
   meshes.push(rightWhite)
 
@@ -178,8 +202,8 @@ function createEndermanAvatar(peerId: string, scene: Scene): AvatarEntry {
     height: 0.10,
     depth: 0.02,
   }, scene)
-  leftEye.parent = root
-  leftEye.position = new Vector3(-0.13, eyeY, pupilZ)
+  leftEye.parent = head
+  leftEye.position = new Vector3(-0.13, 0, pupilZ)
   leftEye.material = eyeMat
   meshes.push(leftEye)
 
@@ -189,10 +213,56 @@ function createEndermanAvatar(peerId: string, scene: Scene): AvatarEntry {
     height: 0.10,
     depth: 0.02,
   }, scene)
-  rightEye.parent = root
-  rightEye.position = new Vector3(0.13, eyeY, pupilZ)
+  rightEye.parent = head
+  rightEye.position = new Vector3(0.13, 0, pupilZ)
   rightEye.material = eyeMat
   meshes.push(rightEye)
+
+  /** 腮紅材質 */
+  const blushMat = new StandardMaterial(`avatar-blush-${peerId}`, scene)
+  blushMat.diffuseColor = new Color3(0.55, 0.15, 0.25)
+  blushMat.emissiveColor = new Color3(0.25, 0.05, 0.10)
+  blushMat.specularColor = Color3.Black()
+  materials.push(blushMat)
+
+  /** 左腮紅 */
+  const leftBlush = MeshBuilder.CreateBox(`avatar-lblush-${peerId}`, {
+    width: 0.10,
+    height: 0.06,
+    depth: 0.03,
+  }, scene)
+  leftBlush.parent = head
+  leftBlush.position = new Vector3(-0.20, -0.12, whiteZ)
+  leftBlush.material = blushMat
+  meshes.push(leftBlush)
+
+  /** 右腮紅 */
+  const rightBlush = MeshBuilder.CreateBox(`avatar-rblush-${peerId}`, {
+    width: 0.10,
+    height: 0.06,
+    depth: 0.03,
+  }, scene)
+  rightBlush.parent = head
+  rightBlush.position = new Vector3(0.20, -0.12, whiteZ)
+  rightBlush.material = blushMat
+  meshes.push(rightBlush)
+
+  /** 嘴巴（微笑線） */
+  const mouthMat = new StandardMaterial(`avatar-mouth-${peerId}`, scene)
+  mouthMat.diffuseColor = new Color3(0.15, 0.05, 0.12)
+  mouthMat.emissiveColor = new Color3(0.08, 0.02, 0.06)
+  mouthMat.specularColor = Color3.Black()
+  materials.push(mouthMat)
+
+  const mouth = MeshBuilder.CreateBox(`avatar-mouth-${peerId}`, {
+    width: 0.10,
+    height: 0.03,
+    depth: 0.02,
+  }, scene)
+  mouth.parent = head
+  mouth.position = new Vector3(0, -0.18, pupilZ)
+  mouth.material = mouthMat
+  meshes.push(mouth)
 
   /** 建立關節與肢體 */
   const createLimb = (name: string, width: number, height: number, depth: number, x: number, y: number) => {
@@ -232,6 +302,7 @@ function createEndermanAvatar(peerId: string, scene: Scene): AvatarEntry {
     lastPosition: root.position.clone(),
     walkCycle: 0,
     intensity: 0,
+    idleTime: 0,
   }
 
   /** 陰影 */
@@ -244,7 +315,7 @@ function createEndermanAvatar(peerId: string, scene: Scene): AvatarEntry {
     }
   }
 
-  return { root, meshes, materials, joints, state, hand, heldBlockMesh: null }
+  return { root, meshes, materials, joints, headNode: head, state, hand, heldBlockMesh: null }
 }
 
 /**
@@ -270,7 +341,7 @@ export function usePlayerAvatars() {
       const delta = sceneRef!.getEngine().getDeltaTime() / 1000
 
       for (const entry of avatars.values()) {
-        const { joints, state, root } = entry
+        const { joints, headNode, state, root } = entry
 
         // 偵測移動 (水平)
         const currentPos = root.position
@@ -300,6 +371,13 @@ export function usePlayerAvatars() {
           joints.leftArm.rotation.x = 0
           joints.rightArm.rotation.x = 0
         }
+
+        // 待機頭部微微晃動（上下浮動 + 左右歪頭）
+        state.idleTime += delta
+        const bobY = Math.sin(state.idleTime * 1.5) * 0.02
+        const tiltZ = Math.sin(state.idleTime * 0.8) * 0.04
+        headNode.position.y = 0.55 + bobY
+        headNode.rotation.z = tiltZ
 
         state.lastPosition.copyFrom(currentPos)
       }
