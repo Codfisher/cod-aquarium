@@ -5,6 +5,7 @@ import { Color3, Color4, MeshBuilder, ParticleSystem, StandardMaterial, Texture,
 import { tryOnScopeDispose, useEventListener } from '@vueuse/core'
 import { ref } from 'vue'
 import { BLOCK_DEFS } from '../block/block-constants'
+import { useSoundManager } from '../../composables/use-sound-manager'
 import { castBlockRay, digBlock } from './block-interaction'
 
 interface MiningProgressInfo {
@@ -42,6 +43,11 @@ interface UseBlockMinerStartParams {
 export function useBlockMiner() {
   const isMining = ref(false)
   const miningProgress = ref(0)
+  const soundManager = useSoundManager()
+
+  /** 挖掘音效間隔（秒） */
+  const DIG_SOUND_INTERVAL = 0.25
+  let digSoundTimer = 0
 
   /** 正在挖掘的目標座標 */
   const targetBlock = ref<{ x: number; y: number; z: number } | null>(null)
@@ -69,6 +75,7 @@ export function useBlockMiner() {
     miningProgress.value = 0
     targetBlock.value = null
     targetBlockId.value = null
+    digSoundTimer = 0
   }
 
   /**
@@ -278,7 +285,16 @@ export function useBlockMiner() {
 
         miningProgress.value = Math.min(1, miningProgress.value + (deltaTime / requiredTime))
 
+        /** 挖掘過程中定時播放挖掘音效 */
+        digSoundTimer += deltaTime
+        if (digSoundTimer >= DIG_SOUND_INTERVAL) {
+          digSoundTimer -= DIG_SOUND_INTERVAL
+          soundManager.playDigSound(targetBlockId.value)
+        }
+
         if (miningProgress.value >= 1) {
+          /** 方塊破壞時播放破壞音效 */
+          soundManager.playBreakSound(targetBlockId.value)
           const success = digBlock(worldState, hit.blockX, hit.blockY, hit.blockZ)
           if (success) {
             onBlockMined(hit)

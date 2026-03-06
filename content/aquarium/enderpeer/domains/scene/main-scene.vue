@@ -92,6 +92,7 @@ import { useFpsController } from '../../composables/use-fps-controller'
 import { useMobileController } from '../../composables/use-mobile-controller'
 import { usePeerNetwork } from '../../composables/use-peer-network'
 import { usePlayerAvatars } from '../../composables/use-player-avatars'
+import { useSoundManager } from '../../composables/use-sound-manager'
 import { NetworkRole } from '../../types/network'
 import { BLOCK_DEFS, BlockId } from '../block/block-constants'
 import { castBlockRay, placeBlock, setBlock } from '../player/block-interaction'
@@ -239,6 +240,7 @@ const mobileController = reactive(useMobileController())
 const fpsController = reactive(useFpsController())
 const blockMiner = reactive(useBlockMiner())
 const playerAvatars = usePlayerAvatars()
+const soundManager = useSoundManager()
 
 const { canvasRef, scene, camera } = useBabylonScene({
   async init() {
@@ -540,6 +542,7 @@ function startGame(sceneInstance: Scene, cameraInstance: UniversalCamera, canvas
           const playerFootZ = cameraInstance.position.z
           if (placeBlock(worldState, hit.adjacentX, hit.adjacentY, hit.adjacentZ, heldBlockId.value, playerFootX, playerFootY, playerFootZ)) {
             const placedBlockId = heldBlockId.value
+            soundManager.playPlaceSound(placedBlockId!)
             heldBlockId.value = null
             if (updateHandMeshRef.value) {
               updateHandMeshRef.value(null)
@@ -560,8 +563,11 @@ function startGame(sceneInstance: Scene, cameraInstance: UniversalCamera, canvas
         }
       }
 
-      /** 挖掘方塊（持續按住由 blockMiner 處理） */
-      if (actionPressed && !mobileActionActive && heldBlockId.value === null) {
+      /** 挖掘方塊（持續按住由 blockMiner 處理）
+       *  每幀都嘗試啟動挖掘，直到成功對準方塊開始挖掘為止，
+       *  避免按下時準心尚未對準方塊而需要按兩次的問題。
+       */
+      if (actionPressed && heldBlockId.value === null && !blockMiner.isMining) {
         mobileActionActive = true
         blockMiner.startMiningAtTarget(cameraInstance, worldState, () => heldBlockId.value === null)
       }
@@ -619,6 +625,7 @@ function startGame(sceneInstance: Scene, cameraInstance: UniversalCamera, canvas
       const playerFootZ = cameraInstance.position.z
       if (placeBlock(worldState, hit.adjacentX, hit.adjacentY, hit.adjacentZ, heldBlockId.value, playerFootX, playerFootY, playerFootZ)) {
         const placedBlockId = heldBlockId.value
+        soundManager.playPlaceSound(placedBlockId!)
         heldBlockId.value = null
         if (updateHandMeshRef.value) {
           updateHandMeshRef.value(null)

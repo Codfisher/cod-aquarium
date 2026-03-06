@@ -4,8 +4,10 @@ import { Color3, Vector3 } from '@babylonjs/core'
 import { useEventListener } from '@vueuse/core'
 import { random } from 'lodash-es'
 import { onBeforeUnmount, ref } from 'vue'
+import { BlockId } from '../domains/block/block-constants'
 import { PLAYER_EYE_HEIGHT, resolveCollision } from '../domains/player/collision'
-import { WORLD_HEIGHT, WORLD_SIZE } from '../domains/world/world-constants'
+import { coordinateToIndex, WORLD_HEIGHT, WORLD_SIZE } from '../domains/world/world-constants'
+import { useSoundManager } from './use-sound-manager'
 
 const GRAVITY = 20
 const JUMP_SPEED = 7
@@ -52,6 +54,13 @@ export function useFpsController() {
   const isPaused = ref(true)
   let canvasRef: HTMLCanvasElement | null = null
   let isMobile = false
+
+  const soundManager = useSoundManager()
+
+  /** 腳步聲間隔（秒），走路與衝刺不同節奏 */
+  const STEP_INTERVAL = 0.4
+  const SPRINT_STEP_INTERVAL = 0.28
+  let stepTimer = 0
 
   /** 玩家位置 (腳底) */
   let footX = 0
@@ -288,6 +297,29 @@ export function useFpsController() {
       camera.position.x = footX
       camera.position.y = footY + PLAYER_EYE_HEIGHT
       camera.position.z = footZ
+
+      /** 腳步聲：在地面上移動時定時播放 */
+      if (isOnGround && moveLength > 0) {
+        const isSprinting = keys.sprint || (mobileControls?.state.sprint ?? false)
+        const interval = isSprinting ? SPRINT_STEP_INTERVAL : STEP_INTERVAL
+        stepTimer += deltaTime
+        if (stepTimer >= interval) {
+          stepTimer -= interval
+          /** 取得腳底下方一格的方塊 ID */
+          const blockBelowX = Math.floor(footX)
+          const blockBelowY = Math.floor(footY - 0.1)
+          const blockBelowZ = Math.floor(footZ)
+          if (blockBelowY >= 0) {
+            const blockId = worldState[coordinateToIndex(blockBelowX, blockBelowY, blockBelowZ)] as BlockId
+            if (blockId !== BlockId.AIR) {
+              soundManager.playStepSound(blockId)
+            }
+          }
+        }
+      }
+      else {
+        stepTimer = 0
+      }
 
       /** 根據 Y 高度動態調整霧氣，越深霧越濃、顏色越灰 */
       const fogRatio = Math.max(0, Math.min(1, (CAVE_FOG_THRESHOLD_Y - footY) / CAVE_FOG_THRESHOLD_Y))
