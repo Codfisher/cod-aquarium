@@ -1,6 +1,6 @@
 <template>
   <div
-    class="mobile-controls"
+    class="touch-control-panel"
   >
     <!-- 虛擬搖桿 -->
     <div
@@ -124,7 +124,7 @@ function setTeleport(pressed: boolean) {
 </script>
 
 <style scoped lang="sass">
-.mobile-controls
+.touch-control-panel
   position: absolute
   inset: 0
   pointer-events: none

@@ -27,7 +27,7 @@ export interface MobileControlState {
  * 手機虛擬控制 composable
  *
  * 管理觸控輸入狀態，供 FPS 控制器與場景使用。
- * 不直接操作 DOM 元素，由 mobile-controls.vue 元件負責 UI。
+ * 不直接操作 DOM 元素，由 touch-control-panel.vue 元件負責 UI。
  */
 export function useMobileController() {
   const isMobile = useMediaQuery('(pointer: coarse)')

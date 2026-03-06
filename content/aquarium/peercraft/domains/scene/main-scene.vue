@@ -45,7 +45,7 @@
     </div>
 
     <!-- 手機虛擬控制 -->
-    <mobile-controls
+    <touch-control-panel
       v-if="mobileController.isMobile"
       :joystick-active="mobileController.joystickActive"
       :joystick-origin="mobileController.joystickOrigin"
@@ -83,8 +83,8 @@ import { Material, MeshBuilder, TransformNode, Vector3 } from '@babylonjs/core'
 import { useEventListener } from '@vueuse/core'
 import { animate } from 'animejs'
 import { reactive, ref, watch } from 'vue'
-import MobileControls from '../../components/mobile-controls.vue'
 import PauseMenu from '../../components/pause-menu.vue'
+import TouchControlPanel from '../../components/touch-control-panel.vue'
 import { useBabylonScene } from '../../composables/use-babylon-scene'
 import { useFpsController } from '../../composables/use-fps-controller'
 import { useMobileController } from '../../composables/use-mobile-controller'
