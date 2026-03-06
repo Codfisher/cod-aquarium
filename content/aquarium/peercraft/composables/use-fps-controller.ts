@@ -1,8 +1,8 @@
 import type { Scene, UniversalCamera } from '@babylonjs/core'
 import { Color3, Vector3 } from '@babylonjs/core'
-import { useEventListener, usePointerLock } from '@vueuse/core'
+import { useEventListener } from '@vueuse/core'
 import { random } from 'lodash-es'
-import { computed, onBeforeUnmount } from 'vue'
+import { onBeforeUnmount, ref } from 'vue'
 import { PLAYER_EYE_HEIGHT, resolveCollision } from '../domains/player/collision'
 import { WORLD_HEIGHT, WORLD_SIZE } from '../domains/world/world-constants'
 
@@ -41,9 +41,13 @@ interface UseFpsControllerParams {
  */
 export function useFpsController() {
   let cleanup: (() => void) | null = null
-  const { lock, unlock, element: pointerLockElement } = usePointerLock()
-  const isPaused = computed(() => !pointerLockElement.value)
+  const isPaused = ref(true)
   let canvasRef: HTMLCanvasElement | null = null
+
+  function handlePointerLockChange() {
+    isPaused.value = document.pointerLockElement !== canvasRef
+  }
+  const cleanupPointerLockChange = useEventListener(document, 'pointerlockchange', handlePointerLockChange)
 
   /** 玩家位置 (腳底) */
   let footX = 0
@@ -60,6 +64,8 @@ export function useFpsController() {
     canvas,
     worldState,
   }: UseFpsControllerParams) {
+    cleanup?.()
+
     canvasRef = canvas
 
     /** 按鍵狀態 */
@@ -91,8 +97,12 @@ export function useFpsController() {
 
     /** 停用 Babylon 內建的鍵盤移動（由本控制器自行處理） */
     camera.speed = 0
-    camera.inertia = 0.5
+    camera.inertia = 0.45
+    camera.inputs.removeByType('FreeCameraKeyboardMoveInput')
     camera.inputs.removeByType('FreeCameraTouchInput')
+
+    camera.detachControl()
+    camera.attachControl(canvas, true)
 
     /** 鍵盤事件 */
     function handleKeyDown(event: KeyboardEvent) {
@@ -151,10 +161,10 @@ export function useFpsController() {
     /** Pointer Lock：點擊 canvas 鎖定滑鼠 (如果沒在暫停選單) */
     function handleCanvasClick() {
       if (!isPaused.value) {
-        lock(canvas)
+        canvas.requestPointerLock()
       }
     }
-    const cleanupCanvasClick = useEventListener(canvas, 'click', handleCanvasClick)
+    canvas.addEventListener('click', handleCanvasClick)
 
     /** 每幀更新 */
     const observer = scene.onBeforeRenderObservable.add(() => {
@@ -249,15 +259,17 @@ export function useFpsController() {
     cleanup = () => {
       cleanupKeyDown()
       cleanupKeyUp()
-      cleanupCanvasClick()
+      cleanupPointerLockChange()
       scene.onBeforeRenderObservable.remove(observer)
-      unlock()
+      document.exitPointerLock()
+
+      canvas.removeEventListener('click', handleCanvasClick)
     }
   }
 
   function resume() {
     if (canvasRef) {
-      lock(canvasRef)
+      canvasRef.requestPointerLock()
     }
   }
 
