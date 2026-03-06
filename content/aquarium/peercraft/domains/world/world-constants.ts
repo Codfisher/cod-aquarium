@@ -3,6 +3,13 @@ export const WORLD_SIZE = 64
 /** 世界高度 */
 export const WORLD_HEIGHT = 64
 
+/** 區塊大小 (16x16) */
+export const CHUNK_SIZE = 16
+/** 每維度區塊數 */
+export const CHUNKS_PER_AXIS = WORLD_SIZE / CHUNK_SIZE
+/** 總區塊數 */
+export const TOTAL_CHUNKS = CHUNKS_PER_AXIS * CHUNKS_PER_AXIS
+
 /** 世界總方塊數 */
 export const WORLD_VOLUME = WORLD_SIZE * WORLD_SIZE * WORLD_HEIGHT
 
@@ -25,4 +32,18 @@ export function indexToCoordinate(index: number): { x: number; y: number; z: num
   const z = remainder % WORLD_SIZE
 
   return { x, y, z }
+}
+
+/**
+ * 將世界座標轉換為區塊座標
+ */
+export function worldToChunkCoordinate(val: number): number {
+  return Math.floor(val / CHUNK_SIZE)
+}
+
+/**
+ * 取得區塊索引
+ */
+export function getChunkIndex(cx: number, cz: number): number {
+  return cx * CHUNKS_PER_AXIS + cz
 }

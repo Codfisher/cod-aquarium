@@ -117,16 +117,25 @@ export interface SandFall {
 /**
  * 偵測並處理懸空沙子的掉落
  *
+ * 可指定掃描範圍，若未指定則全域掃描。
  * 從底層往上掃描，遇到沙子下方為空氣時：
  * - 將沙子從原位移除（設為 AIR）
  * - 在落地位置放置沙子
  * - 回傳所有掉落動作的清單（供動畫使用）
  */
-export function simulateSandGravity(state: Uint8Array): SandFall[] {
+export function simulateSandGravity(
+  state: Uint8Array,
+  range?: { minX: number; maxX: number; minZ: number; maxZ: number },
+): SandFall[] {
   const falls: SandFall[] = []
 
-  for (let x = 0; x < WORLD_SIZE; x++) {
-    for (let z = 0; z < WORLD_SIZE; z++) {
+  const minX = range ? Math.max(0, range.minX) : 0
+  const maxX = range ? Math.min(WORLD_SIZE - 1, range.maxX) : WORLD_SIZE - 1
+  const minZ = range ? Math.max(0, range.minZ) : 0
+  const maxZ = range ? Math.min(WORLD_SIZE - 1, range.maxZ) : WORLD_SIZE - 1
+
+  for (let x = minX; x <= maxX; x++) {
+    for (let z = minZ; z <= maxZ; z++) {
       for (let y = 1; y < WORLD_HEIGHT; y++) {
         const index = coordinateToIndex(x, y, z)
         if (state[index] !== BlockId.SAND)

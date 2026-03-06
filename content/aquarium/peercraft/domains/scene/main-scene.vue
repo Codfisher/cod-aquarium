@@ -97,7 +97,12 @@ import { castBlockRay, placeBlock, setBlock } from '../player/block-interaction'
 import { PLAYER_EYE_HEIGHT, PLAYER_HEIGHT } from '../player/collision'
 import { useBlockMiner } from '../player/use-block-miner'
 import { createPixelMaterial, createVoxelRenderer } from '../renderer/voxel-renderer'
-import { coordinateToIndex } from '../world/world-constants'
+import {
+  CHUNKS_PER_AXIS,
+  coordinateToIndex,
+  getChunkIndex,
+  worldToChunkCoordinate,
+} from '../world/world-constants'
 import { createWorldState, findSafeTeleportY, generateTerrain, simulateSandGravity } from '../world/world-state'
 
 const emit = defineEmits<{
@@ -121,8 +126,57 @@ watch(playerName, (newName) => {
   localStorage.setItem(LOCAL_STORAGE_PLAYER_NAME, newName)
 })
 
+/** 處理沙子重力並播放動畫 */
+function handleSandGravity(sceneInstance?: Scene, affectedX?: number, affectedZ?: number) {
+  let range
+  if (affectedX !== undefined && affectedZ !== undefined) {
+    // 掃描受影響方塊周圍 1x1 區域的所有 y 層 (簡單起見，掃描整根柱子)
+    range = { minX: affectedX, maxX: affectedX, minZ: affectedZ, maxZ: affectedZ }
+  }
+
+  const falls = simulateSandGravity(worldState, range)
+  if (falls.length > 0 && sceneInstance) {
+    const affectedChunks = new Set<number>()
+
+    // 暫時隱藏落地位置的沙子，讓動畫結束後才顯示
+    for (const fall of falls) {
+      const idx = coordinateToIndex(fall.x, fall.toY, fall.z)
+      worldState[idx] = BlockId.AIR
+
+      const cx = worldToChunkCoordinate(fall.x)
+      const cz = worldToChunkCoordinate(fall.z)
+      affectedChunks.add(getChunkIndex(cx, cz))
+    }
+
+    if (renderer) {
+      for (const chunkIdx of affectedChunks) {
+        const cx = Math.floor(chunkIdx / CHUNKS_PER_AXIS)
+        const cz = chunkIdx % CHUNKS_PER_AXIS
+        renderer.rebuildChunk(worldState, cx, cz)
+      }
+    }
+
+    // 還原落地位置（但視覺上由動畫 mesh 呈現）
+    for (const fall of falls) {
+      const idx = coordinateToIndex(fall.x, fall.toY, fall.z)
+      worldState[idx] = BlockId.SAND
+    }
+    animateSandFalls(falls, sceneInstance, affectedChunks)
+  }
+  else if (renderer) {
+    if (affectedX !== undefined && affectedZ !== undefined) {
+      const cx = worldToChunkCoordinate(affectedX)
+      const cz = worldToChunkCoordinate(affectedZ)
+      renderer.rebuildChunk(worldState, cx, cz)
+    }
+    else {
+      renderer.rebuildInstances(worldState)
+    }
+  }
+}
+
 /** 沙子掉落動畫：建立臨時方塊從原位掉到目標位，動畫結束後才更新世界 */
-function animateSandFalls(falls: SandFall[], sceneInstance: Scene) {
+function animateSandFalls(falls: SandFall[], sceneInstance: Scene, affectedChunks: Set<number>) {
   const promises: Promise<void>[] = []
 
   for (const fall of falls) {
@@ -154,33 +208,13 @@ function animateSandFalls(falls: SandFall[], sceneInstance: Scene) {
   // 所有沙子落地後才更新世界方塊
   Promise.all(promises).then(() => {
     if (renderer) {
-      renderer.rebuildInstances(worldState)
+      for (const chunkIdx of affectedChunks) {
+        const cx = Math.floor(chunkIdx / CHUNKS_PER_AXIS)
+        const cz = chunkIdx % CHUNKS_PER_AXIS
+        renderer.rebuildChunk(worldState, cx, cz)
+      }
     }
   })
-}
-
-/** 處理沙子重力並播放動畫 */
-function handleSandGravity(sceneInstance?: Scene) {
-  const falls = simulateSandGravity(worldState)
-  if (falls.length > 0 && sceneInstance) {
-    // 暫時隱藏落地位置的沙子，讓動畫結束後才顯示
-    for (const fall of falls) {
-      const idx = coordinateToIndex(fall.x, fall.toY, fall.z)
-      worldState[idx] = BlockId.AIR
-    }
-    if (renderer) {
-      renderer.rebuildInstances(worldState)
-    }
-    // 還原落地位置（但視覺上由動畫 mesh 呈現）
-    for (const fall of falls) {
-      const idx = coordinateToIndex(fall.x, fall.toY, fall.z)
-      worldState[idx] = BlockId.SAND
-    }
-    animateSandFalls(falls, sceneInstance)
-  }
-  else if (renderer) {
-    renderer.rebuildInstances(worldState)
-  }
 }
 
 /** 長按右鍵傳送相關 */
@@ -282,10 +316,12 @@ const {
   onBlockUpdateReceived: (x, y, z, blockId) => {
     // 接收到別人的變更，強迫更新本機資料
     if (setBlock(worldState, x, y, z, blockId)) {
-      handleSandGravity(scene.value ?? undefined)
+      handleSandGravity(scene.value ?? undefined, x, z)
     }
     else if (renderer) {
-      renderer.rebuildInstances(worldState)
+      const cx = worldToChunkCoordinate(x)
+      const cz = worldToChunkCoordinate(z)
+      renderer.rebuildChunk(worldState, cx, cz)
     }
   },
   onMiningProgressReceived: (peerId, x, y, z, progress, blockId) => {
@@ -447,7 +483,7 @@ function startGame(sceneInstance: Scene, cameraInstance: UniversalCamera, canvas
           updateHandMeshRef.value(hit.blockId)
         }
       }
-      handleSandGravity(sceneInstance)
+      handleSandGravity(sceneInstance, hit.blockX, hit.blockZ)
 
       if (currentRole.value === NetworkRole.HOST) {
         broadcastBlockUpdate(hit.blockX, hit.blockY, hit.blockZ, BlockId.AIR)
@@ -498,7 +534,7 @@ function startGame(sceneInstance: Scene, cameraInstance: UniversalCamera, canvas
             if (updateHandMeshRef.value) {
               updateHandMeshRef.value(null)
             }
-            handleSandGravity(sceneInstance)
+            handleSandGravity(sceneInstance, hit.adjacentX, hit.adjacentZ)
 
             if (currentRole.value === NetworkRole.HOST) {
               if (typeof placedBlockId === 'number') {
@@ -577,7 +613,7 @@ function startGame(sceneInstance: Scene, cameraInstance: UniversalCamera, canvas
         if (updateHandMeshRef.value) {
           updateHandMeshRef.value(null)
         }
-        handleSandGravity(sceneInstance)
+        handleSandGravity(sceneInstance, hit.adjacentX, hit.adjacentZ)
 
         if (currentRole.value === NetworkRole.HOST) {
           if (typeof placedBlockId === 'number') {
@@ -682,12 +718,9 @@ function startGame(sceneInstance: Scene, cameraInstance: UniversalCamera, canvas
 //   if (document.pointerLockElement !== canvasRef.value)
 //     return
 
-//   const blockIds = Object.entries(BLOCK_DEFS)
-//     .filter(([id, def]) => {
-//       const numericId = Number(id)
-//       return !Number.isNaN(numericId) && numericId !== BlockId.AIR && !(def as any).isHidden
-//     })
-//     .map(([id]) => Number(id) as BlockId)
+//   const blockIds = Object.values(BlockId)
+//     .filter((v) => typeof v === 'number') as BlockId[]
+//     .filter((id) => id !== BlockId.AIR && !(BLOCK_DEFS[id] as any)?.isHidden)
 
 //   const currentIndex = heldBlockId.value === null ? -1 : blockIds.indexOf(heldBlockId.value)
 
