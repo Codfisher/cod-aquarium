@@ -49,6 +49,7 @@ export function useMobileController() {
   let joystickCenterX = 0
   let joystickCenterY = 0
   const JOYSTICK_RADIUS = 50
+  const SPRINT_THRESHOLD_RATIO = 0.8
 
   /** 搖桿位置（供 UI 顯示用） */
   const joystickOffset = reactive({ x: 0, y: 0 })
@@ -82,6 +83,9 @@ export function useMobileController() {
       state.joystick.z = clampedY / JOYSTICK_RADIUS
       joystickOffset.x = clampedX
       joystickOffset.y = clampedY
+
+      // 距離超過閾值則衝刺
+      state.sprint = clampedDistance > JOYSTICK_RADIUS * SPRINT_THRESHOLD_RATIO
     }
   }
 
@@ -92,6 +96,7 @@ export function useMobileController() {
     joystickOffset.y = 0
     state.joystick.x = 0
     state.joystick.z = 0
+    state.sprint = false
   }
 
   // ── 視角觸控 ──
