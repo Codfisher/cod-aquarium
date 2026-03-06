@@ -2,11 +2,11 @@
   <div class="touch-control-panel">
     <!-- 虛擬搖桿 -->
     <div
-      v-show="joystickActive"
       class="joystick-base"
       :style="{
         left: `${joystickOrigin.x}px`,
         top: `${joystickOrigin.y}px`,
+        opacity: joystickActive ? 1 : 0.2,
       }"
     >
       <div
@@ -19,28 +19,17 @@
 
     <!-- 左上角按鈕群 (傳送、挖掘) -->
     <div class="top-left-group space-y-4">
+      <!-- 傳送按鈕 -->
       <button
         class="control-button teleport-button"
         @touchstart.prevent="setTeleport(true)"
         @touchend.prevent="setTeleport(false)"
         @touchcancel.prevent="setTeleport(false)"
       >
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2.5"
-        >
-          <circle
-            cx="12"
-            cy="12"
-            r="3"
-          />
-          <path d="M12 2V6" />
-          <path d="M12 18V22" />
-          <path d="M2 12H6" />
-          <path d="M18 12H22" />
-        </svg>
+        <u-icon
+          name="i-pixelarticons:gps"
+          class="text-3xl"
+        />
       </button>
 
       <!-- 動作按鈕（挖掘/放置） -->
@@ -50,36 +39,16 @@
         @touchend.prevent="setAction(false)"
         @touchcancel.prevent="setAction(false)"
       >
-        <svg
+        <u-icon
           v-if="hasBlock"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2.5"
-        >
-          <!-- 放置圖示：方塊 + 箭頭 -->
-          <rect
-            x="6"
-            y="6"
-            width="12"
-            height="12"
-            rx="1"
-          />
-          <path d="M12 2V6" />
-          <path d="M9 3L12 0L15 3" />
-        </svg>
-        <svg
+          name="i-pixelarticons:corner-right-down"
+          class="text-4xl"
+        />
+        <u-icon
           v-else
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2.5"
-        >
-          <!-- 挖掘圖示：鎬 -->
-          <path d="M14 4L20 10" />
-          <path d="M4 20L14 10" />
-          <path d="M14 4L17 4L20 7L20 10" />
-        </svg>
+          name="i-pixelarticons:corner-right-up"
+          class="text-4xl"
+        />
       </button>
     </div>
 
@@ -89,49 +58,15 @@
         class="control-button menu-button"
         @click="emit('menu')"
       >
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2.5"
-        >
-          <line
-            x1="3"
-            y1="12"
-            x2="21"
-            y2="12"
-          />
-          <line
-            x1="3"
-            y1="6"
-            x2="21"
-            y2="6"
-          />
-          <line
-            x1="3"
-            y1="18"
-            x2="21"
-            y2="18"
-          />
-        </svg>
+        <u-icon
+          name="i-pixelarticons:menu"
+          class="text-4xl"
+        />
       </button>
     </div>
 
     <!-- 右側按鈕群 -->
     <div class="button-group-right">
-      <!-- 衝刺按鈕 -->
-      <!-- <button
-        class="control-button sprint-button"
-        @touchstart.prevent="setSprint(true)"
-        @touchend.prevent="setSprint(false)"
-        @touchcancel.prevent="setSprint(false)"
-      >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-          <path d="M13 4L19 12L13 20" />
-          <path d="M5 4L11 12L5 20" />
-        </svg>
-      </button> -->
-
       <!-- 跳躍按鈕 -->
       <button
         class="control-button jump-button"
@@ -139,15 +74,10 @@
         @touchend.prevent="setJump(false)"
         @touchcancel.prevent="setJump(false)"
       >
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2.5"
-        >
-          <path d="M12 19V5" />
-          <path d="M5 12L12 5L19 12" />
-        </svg>
+        <u-icon
+          name="i-pixelarticons:arrow-up"
+          class="text-4xl"
+        />
       </button>
     </div>
   </div>
@@ -245,7 +175,11 @@ function setTeleport(pressed: boolean) {
     background: rgba(255, 255, 255, 0.3)
     border-color: rgba(255, 255, 255, 0.5)
 
-  svg
+  .i-material-symbols-target,
+  .i-material-symbols-inventory-2,
+  .i-material-symbols-mining,
+  .i-material-symbols-menu,
+  .i-material-symbols-arrow-upward
     width: 24px
     height: 24px
 
@@ -280,7 +214,8 @@ function setTeleport(pressed: boolean) {
   width: 64px
   height: 64px
 
-  svg
+  .i-material-symbols-inventory-2,
+  .i-material-symbols-mining
     width: 28px
     height: 28px
 </style>
