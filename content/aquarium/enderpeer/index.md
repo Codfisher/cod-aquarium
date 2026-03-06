@@ -9,5 +9,5 @@ import EnderPeer from './enderpeer.vue'
 </script>
 
 <iframe data-why class=" fixed w-dvw h-dvh">
-  <enderpeer />
+  <ender-peer />
 </iframe>

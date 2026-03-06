@@ -48,7 +48,7 @@ export function useMobileController() {
   let joystickTouchId: number | null = null
   let joystickCenterX = 0
   let joystickCenterY = 0
-  const JOYSTICK_RADIUS = 50
+  const JOYSTICK_RADIUS = 60
   const SPRINT_THRESHOLD_RATIO = 0.8
 
   /** 搖桿位置（供 UI 顯示用） */
@@ -104,7 +104,7 @@ export function useMobileController() {
   let lookTouchId: number | null = null
   let lastLookX = 0
   let lastLookY = 0
-  const LOOK_SENSITIVITY = 0.004
+  const LOOK_SENSITIVITY = 0.008
 
   function handleLookStart(touch: Touch) {
     lookTouchId = touch.identifier

@@ -326,7 +326,7 @@ function createEndermanAvatar(peerId: string, scene: Scene): AvatarEntry {
     }
   }
 
-  return { root, meshes, materials, joints, headNode: head, state, hand, heldBlockMesh: null, name: `Player_${peerId.slice(0, 4)}` }
+  return { root, meshes, materials, joints, headNode: head, state, hand, heldBlockMesh: null, name: `Ender_${peerId.slice(0, 4)}` }
 }
 
 /** 建立玩家名字標籤 */
