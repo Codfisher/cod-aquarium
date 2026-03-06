@@ -303,12 +303,24 @@ export function useFpsController() {
     if (canvasRef && !isMobile) {
       canvasRef.requestPointerLock()
     }
+
+    if (isMobile) {
+      document.documentElement.requestFullscreen().catch(() => {
+        // 忽略全螢幕切換失敗（例如使用者未手動互動）
+      })
+    }
   }
 
   function pause() {
     isPaused.value = true
     if (canvasRef && !isMobile && document.pointerLockElement === canvasRef) {
       document.exitPointerLock()
+    }
+
+    if (isMobile && document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {
+        // 忽略退出失敗
+      })
     }
   }
 
