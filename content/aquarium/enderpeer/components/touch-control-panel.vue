@@ -1,7 +1,5 @@
 <template>
-  <div
-    class="touch-control-panel"
-  >
+  <div class="touch-control-panel">
     <!-- 虛擬搖桿 -->
     <div
       v-show="joystickActive"
@@ -19,20 +17,68 @@
       />
     </div>
 
-    <!-- 左上角按鈕 (傳送) -->
-    <div class="top-left-group">
+    <!-- 左上角按鈕群 (傳送、挖掘) -->
+    <div class="top-left-group space-y-4">
       <button
         class="control-button teleport-button"
         @touchstart.prevent="setTeleport(true)"
         @touchend.prevent="setTeleport(false)"
         @touchcancel.prevent="setTeleport(false)"
       >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-          <circle cx="12" cy="12" r="3" />
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.5"
+        >
+          <circle
+            cx="12"
+            cy="12"
+            r="3"
+          />
           <path d="M12 2V6" />
           <path d="M12 18V22" />
           <path d="M2 12H6" />
           <path d="M18 12H22" />
+        </svg>
+      </button>
+
+      <!-- 動作按鈕（挖掘/放置） -->
+      <button
+        class="control-button action-button"
+        @touchstart.prevent="setAction(true)"
+        @touchend.prevent="setAction(false)"
+        @touchcancel.prevent="setAction(false)"
+      >
+        <svg
+          v-if="hasBlock"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.5"
+        >
+          <!-- 放置圖示：方塊 + 箭頭 -->
+          <rect
+            x="6"
+            y="6"
+            width="12"
+            height="12"
+            rx="1"
+          />
+          <path d="M12 2V6" />
+          <path d="M9 3L12 0L15 3" />
+        </svg>
+        <svg
+          v-else
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.5"
+        >
+          <!-- 挖掘圖示：鎬 -->
+          <path d="M14 4L20 10" />
+          <path d="M4 20L14 10" />
+          <path d="M14 4L17 4L20 7L20 10" />
         </svg>
       </button>
     </div>
@@ -43,10 +89,30 @@
         class="control-button menu-button"
         @click="emit('menu')"
       >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-          <line x1="3" y1="12" x2="21" y2="12" />
-          <line x1="3" y1="6" x2="21" y2="6" />
-          <line x1="3" y1="18" x2="21" y2="18" />
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.5"
+        >
+          <line
+            x1="3"
+            y1="12"
+            x2="21"
+            y2="12"
+          />
+          <line
+            x1="3"
+            y1="6"
+            x2="21"
+            y2="6"
+          />
+          <line
+            x1="3"
+            y1="18"
+            x2="21"
+            y2="18"
+          />
         </svg>
       </button>
     </div>
@@ -73,33 +139,17 @@
         @touchend.prevent="setJump(false)"
         @touchcancel.prevent="setJump(false)"
       >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.5"
+        >
           <path d="M12 19V5" />
           <path d="M5 12L12 5L19 12" />
         </svg>
       </button>
     </div>
-
-    <!-- 動作按鈕（挖掘/放置） -->
-    <button
-      class="control-button action-button"
-      @touchstart.prevent="setAction(true)"
-      @touchend.prevent="setAction(false)"
-      @touchcancel.prevent="setAction(false)"
-    >
-      <svg v-if="hasBlock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-        <!-- 放置圖示：方塊 + 箭頭 -->
-        <rect x="6" y="6" width="12" height="12" rx="1" />
-        <path d="M12 2V6" />
-        <path d="M9 3L12 0L15 3" />
-      </svg>
-      <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-        <!-- 挖掘圖示：鎬 -->
-        <path d="M14 4L20 10" />
-        <path d="M4 20L14 10" />
-        <path d="M14 4L17 4L20 7L20 10" />
-      </svg>
-    </button>
   </div>
 </template>
 
@@ -227,9 +277,6 @@ function setTeleport(pressed: boolean) {
 // ── 動作按鈕 ──
 
 .action-button
-  position: absolute
-  right: 88px
-  bottom: 24px
   width: 64px
   height: 64px
 
