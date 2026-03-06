@@ -21,6 +21,8 @@ export enum PacketType {
   PLAYER_POSITION = 'player-position',
   /** 同步玩家手上拿著的方塊 */
   HELD_BLOCK = 'held-block',
+  /** 同步玩家名稱 */
+  PLAYER_NAME = 'player-name',
 }
 
 /** 完整世界快照封包 */
@@ -75,4 +77,13 @@ export interface HeldBlockPacket {
   };
 }
 
-export type NetworkPacket = WorldSnapshotPacket | BlockUpdatePacket | MiningProgressPacket | PlayerPositionPacket | HeldBlockPacket
+/** 玩家名稱同步封包 */
+export interface PlayerNamePacket {
+  type: PacketType.PLAYER_NAME;
+  data: {
+    peerId: string;
+    name: string;
+  };
+}
+
+export type NetworkPacket = WorldSnapshotPacket | BlockUpdatePacket | MiningProgressPacket | PlayerPositionPacket | HeldBlockPacket | PlayerNamePacket

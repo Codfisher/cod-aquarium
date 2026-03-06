@@ -59,6 +59,7 @@
 
     <!-- ESC 暫停選單 (獨立元件) -->
     <pause-menu
+      v-model:player-name="playerName"
       :show="fpsController.isPaused"
       @resume="fpsController.resume()"
     />
@@ -111,6 +112,14 @@ const heldBlockId = ref<BlockId | null>(null)
 const updateHandMeshRef = ref<((blockId: BlockId | null) => void) | null>(null)
 let handMeshes: Mesh[] = []
 let hasStarted = false
+
+/** 玩家姓名持久化 */
+const LOCAL_STORAGE_PLAYER_NAME = 'peercraft_player_name'
+const playerName = ref(localStorage.getItem(LOCAL_STORAGE_PLAYER_NAME) || `Player_${Math.floor(Math.random() * 1000)}`)
+
+watch(playerName, (newName) => {
+  localStorage.setItem(LOCAL_STORAGE_PLAYER_NAME, newName)
+})
 
 /** 沙子掉落動畫：建立臨時方塊從原位掉到目標位，動畫結束後才更新世界 */
 function animateSandFalls(falls: SandFall[], sceneInstance: Scene) {
@@ -205,6 +214,8 @@ const {
   broadcastHeldBlock,
   sendHeldBlockToHost,
   sendHeldBlockToClient,
+  broadcastPlayerName,
+  sendPlayerNameToHost,
 } = usePeerNetwork({
   onConnected: () => {
     if (currentRole.value === NetworkRole.HOST) {
@@ -217,10 +228,13 @@ const {
       else {
         console.warn('[Network] Reconnected as Host, keeping current world state.')
       }
+      // Host 廣播自己的名字
+      broadcastPlayerName(currentPeerId.value, playerName.value)
     }
     else if (currentRole.value === NetworkRole.CLIENT) {
-      // Client 連線後，主動告知 Host 自己手上拿的東西
+      // Client 連線後，主動告知 Host 自己手上拿的東西和姓名
       sendHeldBlockToHost(heldBlockId.value)
+      sendPlayerNameToHost(playerName.value)
     }
   },
   onWorldSnapshotReceived: (receivedState) => {
@@ -261,6 +275,9 @@ const {
   onHeldBlockReceived: (peerId, blockId) => {
     playerAvatars.updateHeldBlock(peerId, blockId)
   },
+  onPlayerNameReceived: (peerId, name) => {
+    playerAvatars.updatePlayerName(peerId, name)
+  },
   onClientDisconnected: (peerId) => {
     playerAvatars.removeAvatar(peerId)
   },
@@ -279,6 +296,16 @@ function startGame(sceneInstance: Scene, cameraInstance: UniversalCamera, canvas
     }
     else if (currentRole.value === NetworkRole.CLIENT) {
       sendHeldBlockToHost(newId)
+    }
+  })
+
+  // 監聽姓名變更並同步
+  watch(playerName, (newName) => {
+    if (currentRole.value === NetworkRole.HOST) {
+      broadcastPlayerName(currentPeerId.value, newName)
+    }
+    else if (currentRole.value === NetworkRole.CLIENT) {
+      sendPlayerNameToHost(newName)
     }
   })
 

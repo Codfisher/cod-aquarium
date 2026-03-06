@@ -21,6 +21,8 @@ export interface UsePeerNetworkParams {
   onPlayerPositionReceived?: (peerId: string, x: number, y: number, z: number, rotationY: number) => void;
   /** 事件：收到網路傳來的玩家持有方塊 */
   onHeldBlockReceived?: (peerId: string, blockId: BlockId | null) => void;
+  /** 事件：收到網路傳來的玩家名稱 */
+  onPlayerNameReceived?: (peerId: string, name: string) => void;
 }
 
 export const FIXED_ROOM_ID = 'peercraft-fixed-room-v1'
@@ -37,6 +39,7 @@ export function usePeerNetwork({
   onMiningProgressReceived,
   onPlayerPositionReceived,
   onHeldBlockReceived,
+  onPlayerNameReceived,
 }: UsePeerNetworkParams) {
   const isReady = ref(false)
   const currentPeerId = ref<string>('')
@@ -189,6 +192,11 @@ export function usePeerNetwork({
         onHeldBlockReceived?.(peerId, blockId)
         broadcastHeldBlock(peerId, blockId, connection.peer)
       }
+      else if (packet.type === PacketType.PLAYER_NAME) {
+        const { peerId, name } = packet.data
+        onPlayerNameReceived?.(peerId, name)
+        broadcastPlayerName(peerId, name, connection.peer)
+      }
     })
 
     connection.on('close', () => {
@@ -234,9 +242,9 @@ export function usePeerNetwork({
         const { peerId, x, y, z, rotationY } = packet.data
         onPlayerPositionReceived?.(peerId, x, y, z, rotationY)
       }
-      else if (packet.type === PacketType.HELD_BLOCK) {
-        const { peerId, blockId } = packet.data
-        onHeldBlockReceived?.(peerId, blockId)
+      else if (packet.type === PacketType.PLAYER_NAME) {
+        const { peerId, name } = packet.data
+        onPlayerNameReceived?.(peerId, name)
       }
     })
 
@@ -465,6 +473,49 @@ export function usePeerNetwork({
     }
   }
 
+  /**
+   * 【供 Host 呼叫】廣播玩家名稱給所有 Client
+   */
+  function broadcastPlayerName(
+    senderPeerId: string,
+    name: string,
+    excludePeerId?: string,
+  ) {
+    if (currentRole.value !== NetworkRole.HOST)
+      return
+
+    const packet: NetworkPacket = {
+      type: PacketType.PLAYER_NAME,
+      data: { peerId: senderPeerId, name },
+    }
+
+    connections.forEach((conn, peerId) => {
+      if (peerId !== excludePeerId && conn.open) {
+        conn.send(packet)
+      }
+    })
+  }
+
+  /**
+   * 【供 Client 呼叫】將自己的名稱傳給 Host
+   */
+  function sendPlayerNameToHost(name: string) {
+    if (currentRole.value !== NetworkRole.CLIENT)
+      return
+
+    const hostConn = Array.from(connections.values())[0]
+    if (hostConn && hostConn.open) {
+      const packet: NetworkPacket = {
+        type: PacketType.PLAYER_NAME,
+        data: {
+          peerId: currentPeerId.value,
+          name,
+        },
+      }
+      hostConn.send(packet)
+    }
+  }
+
   onBeforeUnmount(() => {
     connections.forEach((conn) => conn.close())
     connections.clear()
@@ -488,6 +539,8 @@ export function usePeerNetwork({
     broadcastHeldBlock,
     sendHeldBlockToHost,
     sendHeldBlockToClient,
+    broadcastPlayerName,
+    sendPlayerNameToHost,
     /** 暴露給 Host 在有人連線時，能夠主動派送 Snapshot 的方法。
      * 暫時由外部直接監聽，這邊提供 connections reference 以便未來擴充
      */

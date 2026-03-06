@@ -29,6 +29,11 @@ interface AvatarEntry {
   /** 手持方塊相關 */
   hand: TransformNode;
   heldBlockMesh: Mesh | null;
+  /** 名字標籤 */
+  nameTag?: {
+    mesh: Mesh;
+    texture: DynamicTexture;
+  };
 }
 
 /** 根據 peerId 產生確定性的顏色（用於眼睛發光色） */
@@ -318,6 +323,65 @@ function createEndermanAvatar(peerId: string, scene: Scene): AvatarEntry {
   return { root, meshes, materials, joints, headNode: head, state, hand, heldBlockMesh: null }
 }
 
+/** 建立玩家名字標籤 */
+function createNameTag(peerId: string, name: string, scene: Scene): { mesh: Mesh; texture: DynamicTexture } {
+  const font = 'bold 32px Arial'
+
+  // 建立暫時的 DynamicTexture 來測量文字寬度
+  const tempTexture = new DynamicTexture('temp', 64, scene)
+  const ctx = tempTexture.getContext()
+  ctx.font = font
+  const metrics = ctx.measureText(name)
+  const textWidth = metrics.width
+  tempTexture.dispose()
+
+  // 計算實際尺寸 (加一點 padding)
+  const paddingX = 30
+  const textureHeight = 64
+  const textureWidth = Math.max(64, textWidth + paddingX * 2)
+
+  // 3D 空間中的寬度 (比例換算，假設 64px 高度對應 0.3 單位)
+  const planeHeight = 0.3
+  const planeWidth = (textureWidth / textureHeight) * planeHeight
+
+  const dynamicTexture = new DynamicTexture(`name-tag-tex-${peerId}`, { width: textureWidth, height: textureHeight }, scene, false)
+  dynamicTexture.hasAlpha = true
+
+  const dCtx = dynamicTexture.getContext()
+  dCtx.clearRect(0, 0, textureWidth, textureHeight)
+
+  // 背景 (半透明黑)
+  dCtx.fillStyle = 'rgba(0, 0, 0, 0.4)'
+  const cornerRadius = 15
+  if ((dCtx as any).roundRect) {
+    (dCtx as any).roundRect(5, 5, textureWidth - 10, textureHeight - 10, cornerRadius)
+  }
+  else {
+    dCtx.fillRect(5, 5, textureWidth - 10, textureHeight - 10)
+  }
+  dCtx.fill()
+
+  // 文字 (置中)
+  dynamicTexture.drawText(name, null, null, font, 'white', 'transparent', true)
+
+  const plane = MeshBuilder.CreatePlane(`name-tag-mesh-${peerId}`, { width: planeWidth, height: planeHeight }, scene)
+  const mat = new StandardMaterial(`name-tag-mat-${peerId}`, scene)
+  mat.diffuseTexture = dynamicTexture
+  mat.useAlphaFromDiffuseTexture = true
+  mat.specularColor = Color3.Black()
+  mat.emissiveColor = Color3.White()
+  mat.backFaceCulling = false
+  // 讓名字標籤不被方塊遮擋 (519 = Engine.ALWAYS)
+  mat.depthFunction = 519
+  plane.renderingGroupId = 1
+  plane.material = mat
+
+  // 名字標籤不需要陰影
+  plane.receiveShadows = false
+
+  return { mesh: plane, texture: dynamicTexture }
+}
+
 /**
  * 管理遠端玩家的 3D avatar
  *
@@ -380,6 +444,11 @@ export function usePlayerAvatars() {
         headNode.rotation.z = tiltZ
 
         state.lastPosition.copyFrom(currentPos)
+
+        // 名稱標籤看著相機 (Billboard)
+        if (entry.nameTag) {
+          entry.nameTag.mesh.lookAt(sceneRef!.activeCamera!.globalPosition, Math.PI, 0, 0)
+        }
       }
     })
 
@@ -407,6 +476,34 @@ export function usePlayerAvatars() {
     /** 攝影機 Y 為眼睛高度，avatar 中心需偏移至其腳底再向上移動 avatar 高度的一半 */
     entry.root.position = new Vector3(x, y - PLAYER_EYE_HEIGHT + PLAYER_HEIGHT / 2, z)
     entry.root.rotation.y = rotationY
+
+    // 更新名字標籤位置 (在頭頂上方)
+    if (entry.nameTag) {
+      entry.nameTag.mesh.position.set(
+        entry.root.position.x,
+        entry.root.position.y + 1.0,
+        entry.root.position.z,
+      )
+    }
+  }
+
+  function updatePlayerName(peerId: string, name: string) {
+    if (!sceneRef)
+      return
+
+    let entry = avatars.get(peerId)
+    if (!entry) {
+      entry = createEndermanAvatar(peerId, sceneRef)
+      avatars.set(peerId, entry)
+    }
+
+    if (entry.nameTag) {
+      // 重新建立，因為動態寬度需要更換 mesh 尺寸與貼圖尺寸
+      entry.nameTag.mesh.dispose()
+      entry.nameTag.texture.dispose()
+    }
+
+    entry.nameTag = createNameTag(peerId, name, sceneRef)
   }
 
   function removeAvatar(peerId: string) {
@@ -414,6 +511,10 @@ export function usePlayerAvatars() {
     if (entry) {
       if (entry.heldBlockMesh)
         entry.heldBlockMesh.dispose()
+      if (entry.nameTag) {
+        entry.nameTag.mesh.dispose()
+        entry.nameTag.texture.dispose()
+      }
       for (const mesh of entry.meshes) mesh.dispose()
       for (const mat of entry.materials) mat.dispose()
       entry.root.dispose()
@@ -489,5 +590,5 @@ export function usePlayerAvatars() {
     }
   }
 
-  return { start, updateAvatar, removeAvatar, updateHeldBlock }
+  return { start, updateAvatar, removeAvatar, updateHeldBlock, updatePlayerName }
 }
