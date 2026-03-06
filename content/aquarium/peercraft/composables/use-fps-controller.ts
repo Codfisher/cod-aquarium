@@ -1,5 +1,5 @@
 import type { Scene, UniversalCamera } from '@babylonjs/core'
-import type { MobileControlState } from './use-mobile-controls'
+import type { MobileControlState } from './use-mobile-controller'
 import { Color3, Vector3 } from '@babylonjs/core'
 import { useEventListener } from '@vueuse/core'
 import { random } from 'lodash-es'
@@ -48,6 +48,7 @@ export function useFpsController() {
   let cleanup: (() => void) | null = null
   const isPaused = ref(true)
   let canvasRef: HTMLCanvasElement | null = null
+  let isMobile = false
 
   function handlePointerLockChange() {
     isPaused.value = document.pointerLockElement !== canvasRef
@@ -72,6 +73,7 @@ export function useFpsController() {
   }: UseFpsControllerParams) {
     cleanup?.()
 
+    isMobile = !!mobileControls
     canvasRef = canvas
 
     /** 按鍵狀態 */
@@ -302,7 +304,7 @@ export function useFpsController() {
   }
 
   function resume() {
-    if (canvasRef) {
+    if (canvasRef && !isMobile) {
       canvasRef.requestPointerLock()
     }
   }

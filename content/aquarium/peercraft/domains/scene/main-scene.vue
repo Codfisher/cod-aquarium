@@ -11,12 +11,12 @@
 
     <!-- 挖掘進度條 -->
     <div
-      v-show="blockMiner.isMining.value && blockMiner.miningProgress.value > 0 && isReady"
+      v-show="blockMiner.isMining && blockMiner.miningProgress > 0 && isReady"
       class="mining-progress-container"
     >
       <div
         class="mining-progress-bar"
-        :style="{ width: `${blockMiner.miningProgress.value * 100}%` }"
+        :style="{ width: `${blockMiner.miningProgress * 100}%` }"
       />
     </div>
 
@@ -46,27 +46,26 @@
 
     <!-- 手機虛擬控制 -->
     <mobile-controls
-      v-if="mobileControls.isMobile"
-      :joystick-active="mobileControls.joystickActive.value"
-      :joystick-origin="mobileControls.joystickOrigin"
-      :joystick-offset="mobileControls.joystickOffset"
+      v-if="mobileController.isMobile"
+      :joystick-active="mobileController.joystickActive"
+      :joystick-origin="mobileController.joystickOrigin"
+      :joystick-offset="mobileController.joystickOffset"
       :has-block="heldBlockId !== null"
-      @jump="mobileControls.setJump"
-      @sprint="mobileControls.setSprint"
-      @action="mobileControls.setAction"
-      @teleport="mobileControls.setTeleport"
+      @jump="mobileController.setJump"
+      @sprint="mobileController.setSprint"
+      @action="mobileController.setAction"
+      @teleport="mobileController.setTeleport"
     />
 
     <!-- ESC 暫停選單 (獨立元件) -->
     <pause-menu
-      :show="fpsController.isPaused.value"
+      :show="fpsController.isPaused"
       @resume="fpsController.resume()"
-      @quit="disconnect()"
     />
 
     <!-- 連線中/載入中遮罩 -->
     <div
-      v-if="!isReady && !fpsController.isPaused.value"
+      v-if="!isReady && !fpsController.isPaused"
       class="absolute inset-0 bg-black/80 flex flex-col items-center justify-center text-white z-50 backdrop-blur-sm"
     >
       <div class="text-2xl font-bold mb-4 animate-pulse">
@@ -83,12 +82,12 @@ import type { SandFall } from '../world/world-state'
 import { Material, MeshBuilder, TransformNode, Vector3 } from '@babylonjs/core'
 import { useEventListener } from '@vueuse/core'
 import { animate } from 'animejs'
-import { ref, watch } from 'vue'
+import { reactive, ref, watch } from 'vue'
 import MobileControls from '../../components/mobile-controls.vue'
 import PauseMenu from '../../components/pause-menu.vue'
 import { useBabylonScene } from '../../composables/use-babylon-scene'
 import { useFpsController } from '../../composables/use-fps-controller'
-import { useMobileControls } from '../../composables/use-mobile-controls'
+import { useMobileController } from '../../composables/use-mobile-controller'
 import { usePeerNetwork } from '../../composables/use-peer-network'
 import { usePlayerAvatars } from '../../composables/use-player-avatars'
 import { NetworkRole } from '../../types/network'
@@ -181,9 +180,9 @@ const teleportProgress = ref(0)
 const TELEPORT_HOLD_MS = 1000
 const MAX_TELEPORT_DISTANCE = 80
 
-const mobileControls = useMobileControls()
-const fpsController = useFpsController()
-const blockMiner = useBlockMiner()
+const mobileController = reactive(useMobileController())
+const fpsController = reactive(useFpsController())
+const blockMiner = reactive(useBlockMiner())
 const playerAvatars = usePlayerAvatars()
 
 const { canvasRef, scene, camera } = useBabylonScene({
@@ -287,8 +286,8 @@ function startGame(sceneInstance: Scene, cameraInstance: UniversalCamera, canvas
   renderer = createVoxelRenderer(sceneInstance, worldState)
 
   /** 手機模式：設定觸控監聽 */
-  if (mobileControls.isMobile.value) {
-    mobileControls.setupTouchListeners(canvas)
+  if (mobileController.isMobile) {
+    mobileController.setupTouchListeners(canvas)
   }
 
   /** 啟動 FPS 控制器 */
@@ -297,8 +296,11 @@ function startGame(sceneInstance: Scene, cameraInstance: UniversalCamera, canvas
     camera: cameraInstance,
     canvas,
     worldState,
-    mobileControls: mobileControls.isMobile.value
-      ? { state: mobileControls.state, consumeLookDelta: mobileControls.consumeLookDelta }
+    mobileControls: mobileController.isMobile
+      ? {
+          state: mobileController.state,
+          consumeLookDelta: mobileController.consumeLookDelta,
+        }
       : undefined,
   })
 
@@ -386,7 +388,7 @@ function startGame(sceneInstance: Scene, cameraInstance: UniversalCamera, canvas
     camera: cameraInstance,
     canvas,
     worldState,
-    isMobile: mobileControls.isMobile.value,
+    isMobile: mobileController.isMobile,
     canMine: () => heldBlockId.value === null,
     onBlockMined(hit) {
       const blockDef = BLOCK_DEFS[hit.blockId]
@@ -429,9 +431,9 @@ function startGame(sceneInstance: Scene, cameraInstance: UniversalCamera, canvas
   /** 手機動作按鈕（挖掘/放置） */
   let mobileActionActive = false
 
-  if (mobileControls.isMobile.value) {
+  if (mobileController.isMobile) {
     sceneInstance.onBeforeRenderObservable.add(() => {
-      const actionPressed = mobileControls.state.action
+      const actionPressed = mobileController.state.action
 
       /** 放置方塊（按下瞬間觸發） */
       if (actionPressed && !mobileActionActive && heldBlockId.value !== null) {
@@ -475,7 +477,7 @@ function startGame(sceneInstance: Scene, cameraInstance: UniversalCamera, canvas
       }
 
       /** 傳送按鈕長按處理 */
-      if (mobileControls.state.teleport) {
+      if (mobileController.state.teleport) {
         if (rightClickStartTime.value === null) {
           rightClickStartTime.value = performance.now()
         }

@@ -1,4 +1,4 @@
-import { useEventListener } from '@vueuse/core'
+import { useEventListener, useMediaQuery } from '@vueuse/core'
 import { computed, reactive, ref } from 'vue'
 
 /** 搖桿輸入狀態（-1 ~ 1） */
@@ -23,20 +23,14 @@ export interface MobileControlState {
   teleport: boolean;
 }
 
-/** 偵測是否為觸控裝置 */
-export function isTouchDevice(): boolean {
-  return navigator.maxTouchPoints > 0
-    || matchMedia('(pointer: coarse)').matches
-}
-
 /**
  * 手機虛擬控制 composable
  *
  * 管理觸控輸入狀態，供 FPS 控制器與場景使用。
  * 不直接操作 DOM 元素，由 mobile-controls.vue 元件負責 UI。
  */
-export function useMobileControls() {
-  const isMobile = ref(isTouchDevice())
+export function useMobileController() {
+  const isMobile = useMediaQuery('(pointer: coarse)')
 
   const state = reactive<MobileControlState>({
     joystick: { x: 0, z: 0 },
@@ -134,8 +128,7 @@ export function useMobileControls() {
       const canvasRect = canvas.getBoundingClientRect()
       const midX = canvasRect.left + canvasRect.width / 2
 
-      for (let i = 0; i < event.changedTouches.length; i++) {
-        const touch = event.changedTouches[i]
+      for (const touch of Array.from(event.changedTouches)) {
         if (touch.clientX < midX && joystickTouchId === null) {
           handleJoystickStart(touch)
         }
@@ -147,8 +140,7 @@ export function useMobileControls() {
 
     useEventListener(canvas, 'touchmove', (event: TouchEvent) => {
       event.preventDefault()
-      for (let i = 0; i < event.changedTouches.length; i++) {
-        const touch = event.changedTouches[i]
+      for (const touch of Array.from(event.changedTouches)) {
         if (touch.identifier === joystickTouchId) {
           handleJoystickMove(touch)
         }
@@ -159,8 +151,7 @@ export function useMobileControls() {
     }, { passive: false })
 
     const handleTouchEnd = (event: TouchEvent) => {
-      for (let i = 0; i < event.changedTouches.length; i++) {
-        const touch = event.changedTouches[i]
+      for (const touch of Array.from(event.changedTouches)) {
         if (touch.identifier === joystickTouchId) {
           handleJoystickEnd()
         }
