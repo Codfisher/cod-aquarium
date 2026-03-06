@@ -150,7 +150,7 @@ const {
     if (currentRole.value === NetworkRole.HOST) {
       sendWorldSnapshot(peerId, worldState)
       // 同步 Host 目前手上拿的東西給新進來的 Client
-      sendHeldBlockToClient(peerId, 'host', heldBlockId.value)
+      sendHeldBlockToClient(peerId, currentPeerId.value, heldBlockId.value)
     }
   },
   onBlockUpdateReceived: (x, y, z, blockId) => {
@@ -184,7 +184,7 @@ function startGame(sceneInstance: Scene, cameraInstance: UniversalCamera, canvas
   // 監聽手持方塊變更並同步
   watch(heldBlockId, (newId) => {
     if (currentRole.value === NetworkRole.HOST) {
-      broadcastHeldBlock('host', newId)
+      broadcastHeldBlock(currentPeerId.value, newId)
     }
     else if (currentRole.value === NetworkRole.CLIENT) {
       sendHeldBlockToHost(newId)
