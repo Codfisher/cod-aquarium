@@ -21,6 +21,13 @@
       />
     </div>
 
+    <!-- 傳送暗角 -->
+    <div
+      v-if="teleportProgress > 0"
+      class="teleport-vignette"
+      :style="{ opacity: teleportProgress * 0.8 }"
+    />
+
     <!-- 傳送集氣條 -->
     <div
       v-if="teleportProgress > 0"
@@ -399,6 +406,12 @@ function startGame(sceneInstance: Scene, cameraInstance: UniversalCamera, canvas
     if (document.pointerLockElement !== canvas)
       return
 
+    /** 左鍵取消傳送集氣 */
+    if (event.button === 0 && rightClickStartTime.value !== null) {
+      rightClickStartTime.value = null
+      return
+    }
+
     if (event.button === 0 && heldBlockId.value !== null) {
       const hit = castBlockRay(cameraInstance, worldState)
       if (!hit) {
@@ -470,7 +483,7 @@ function startGame(sceneInstance: Scene, cameraInstance: UniversalCamera, canvas
       teleportProgress.value = Math.min(1, elapsed / TELEPORT_HOLD_MS)
 
       // FOV 縮放效果 (從 BASE_FOV 縮到 BASE_FOV - 0.15)
-      cameraInstance.fov = BASE_FOV - (teleportProgress.value * 0.15)
+      cameraInstance.fov = BASE_FOV - (teleportProgress.value * 0.3)
     }
     else {
       // 重置進度
@@ -590,6 +603,13 @@ function disconnect() {
   height: 100%
   background: rgba(255, 255, 255, 0.9)
   transition: width 0.05s linear
+
+.teleport-vignette
+  position: absolute
+  inset: 0
+  pointer-events: none
+  background: radial-gradient(ellipse at center, transparent 40%, rgba(0, 0, 0, 1) 100%)
+  transition: opacity 0.1s linear
 
 .teleport-charge-outer
   position: absolute
