@@ -128,7 +128,7 @@ const defaultParam: Required<UseBabylonSceneParam> = {
      *
      * 不然走個路都感覺臉貼在方塊上 (́⊙◞౪◟⊙‵)
      */
-    camera.fov = 1.2
+    camera.fov = 1.3
 
     return camera
   },

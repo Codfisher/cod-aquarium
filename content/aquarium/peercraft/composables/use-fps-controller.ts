@@ -90,9 +90,9 @@ export function useFpsController() {
     footZ = spawnZ + 0.5
 
     /** 停用 Babylon 內建的鍵盤移動（由本控制器自行處理） */
-    camera.inputs.removeByType('FreeCameraKeyboardMoveInput')
     camera.speed = 0
-    camera.inertia = 0
+    camera.inertia = 0.5
+    camera.inputs.removeByType('FreeCameraTouchInput')
 
     /** 鍵盤事件 */
     function handleKeyDown(event: KeyboardEvent) {
