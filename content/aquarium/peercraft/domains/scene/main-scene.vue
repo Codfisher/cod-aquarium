@@ -72,10 +72,11 @@ import { usePlayerAvatars } from '../../composables/use-player-avatars'
 import { NetworkRole } from '../../types/network'
 import { BLOCK_DEFS, BlockId } from '../block/block-constants'
 import { castBlockRay, placeBlock, setBlock } from '../player/block-interaction'
+import { PLAYER_EYE_HEIGHT } from '../player/collision'
 import { useBlockMiner } from '../player/use-block-miner'
 import { createPixelMaterial, createVoxelRenderer } from '../renderer/voxel-renderer'
 import { coordinateToIndex } from '../world/world-constants'
-import { createWorldState, generateTerrain, simulateSandGravity } from '../world/world-state'
+import { createWorldState, findSafeTeleportY, generateTerrain, simulateSandGravity } from '../world/world-state'
 
 const emit = defineEmits<{
   ready: [];
@@ -103,7 +104,7 @@ function animateSandFalls(falls: SandFall[], sceneInstance: Scene) {
     mesh.position.set(fall.x, fall.fromY, fall.z)
 
     const distance = fall.fromY - fall.toY
-    const duration = Math.min(Math.sqrt(distance) * 150, 600)
+    const duration = Math.min(Math.sqrt(distance) * 300, 2000)
 
     const pos = { y: fall.fromY }
     promises.push(animate(pos, {
@@ -395,8 +396,11 @@ function startGame(sceneInstance: Scene, cameraInstance: UniversalCamera, canvas
         return
       }
 
-      /** 左鍵：放置持有的方塊 */
-      if (placeBlock(worldState, hit.adjacentX, hit.adjacentY, hit.adjacentZ, heldBlockId.value)) {
+      /** 左鍵：放置持有的方塊（檢查不與玩家重疊） */
+      const playerFootX = cameraInstance.position.x
+      const playerFootY = cameraInstance.position.y - PLAYER_EYE_HEIGHT
+      const playerFootZ = cameraInstance.position.z
+      if (placeBlock(worldState, hit.adjacentX, hit.adjacentY, hit.adjacentZ, heldBlockId.value, playerFootX, playerFootY, playerFootZ)) {
         const placedBlockId = heldBlockId.value
         heldBlockId.value = null
         if (updateHandMeshRef.value) {
@@ -431,13 +435,14 @@ function startGame(sceneInstance: Scene, cameraInstance: UniversalCamera, canvas
       if (duration >= TELEPORT_HOLD_MS) {
         const hit = castBlockRay(cameraInstance, worldState, MAX_TELEPORT_DISTANCE)
         if (hit) {
-          /** 傳送至方塊上方 (腳底位置) */
-          const targetX = hit.blockX + 0.5
-          const targetY = hit.blockY + 1.1 // 稍微高於一個方塊，避免卡住
-          const targetZ = hit.blockZ + 0.5
-
-          fpsController.teleport(targetX, targetY, targetZ)
-          console.warn(`[Teleport] To (${targetX}, ${targetY}, ${targetZ})`)
+          /** 從命中方塊上方開始，往上尋找安全位置（連續 2 格空氣） */
+          const safeY = findSafeTeleportY(worldState, hit.blockX, hit.blockY + 1, hit.blockZ)
+          if (safeY !== null) {
+            const targetX = hit.blockX + 0.5
+            const targetZ = hit.blockZ + 0.5
+            fpsController.teleport(targetX, safeY, targetZ)
+            console.warn(`[Teleport] To (${targetX}, ${safeY}, ${targetZ})`)
+          }
         }
       }
     }

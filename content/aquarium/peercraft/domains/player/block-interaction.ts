@@ -2,6 +2,7 @@ import type { UniversalCamera } from '@babylonjs/core'
 import { Vector3 } from '@babylonjs/core'
 import { BlockId } from '../block/block-constants'
 import { coordinateToIndex, WORLD_SIZE } from '../world/world-constants'
+import { PLAYER_HEIGHT, PLAYER_WIDTH } from './collision'
 /** 射線命中結果 */
 export interface RaycastHit {
   /** 命中方塊的網格座標 */
@@ -164,9 +165,36 @@ export function digBlock(
 }
 
 /**
+ * 檢查方塊是否與玩家 AABB 重疊
+ *
+ * 方塊佔據 [blockX - 0.5, blockX + 0.5] x [blockY - 0.5, blockY + 0.5] x [blockZ - 0.5, blockZ + 0.5]
+ * 玩家佔據 [footX ± halfWidth] x [footY, footY + height] x [footZ ± halfWidth]
+ */
+function isBlockOverlappingPlayer(
+  blockX: number,
+  blockY: number,
+  blockZ: number,
+  footX: number,
+  footY: number,
+  footZ: number,
+): boolean {
+  const halfW = PLAYER_WIDTH / 2
+  const blockMin = 0.5 // block occupies [coord - 0.5, coord + 0.5]
+
+  return (
+    blockX + blockMin > footX - halfW
+    && blockX - blockMin < footX + halfW
+    && blockY + blockMin > footY
+    && blockY - blockMin < footY + PLAYER_HEIGHT
+    && blockZ + blockMin > footZ - halfW
+    && blockZ - blockMin < footZ + halfW
+  )
+}
+
+/**
  * 放置方塊：在鄰接空格放置指定方塊
  *
- * 檢查目標必須為 AIR、且在世界邊界內
+ * 檢查目標必須為 AIR、在世界邊界內、且不與玩家重疊
  */
 export function placeBlock(
   worldState: Uint8Array,
@@ -174,6 +202,9 @@ export function placeBlock(
   blockY: number,
   blockZ: number,
   blockId: BlockId,
+  playerFootX?: number,
+  playerFootY?: number,
+  playerFootZ?: number,
 ): boolean {
   if (
     blockX < 0 || blockX >= WORLD_SIZE
@@ -185,6 +216,15 @@ export function placeBlock(
 
   const index = coordinateToIndex(blockX, blockY, blockZ)
   if (worldState[index] !== BlockId.AIR) {
+    return false
+  }
+
+  if (
+    playerFootX !== undefined
+    && playerFootY !== undefined
+    && playerFootZ !== undefined
+    && isBlockOverlappingPlayer(blockX, blockY, blockZ, playerFootX, playerFootY, playerFootZ)
+  ) {
     return false
   }
 

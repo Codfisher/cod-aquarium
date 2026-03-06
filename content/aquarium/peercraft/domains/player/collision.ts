@@ -48,7 +48,7 @@ export function isBlockSolid(
  * - Y: [y, y + height]
  * - Z: [z - halfWidth, z + halfWidth]
  */
-function checkOverlap(
+export function checkOverlap(
   worldState: Uint8Array,
   positionX: number,
   positionY: number,
