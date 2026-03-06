@@ -1,8 +1,8 @@
 import { fbm2D } from '../../utils/noise'
 import { BlockId } from '../block/block-constants'
 import { checkOverlap } from '../player/collision'
+import { placeBuilding } from './building-generator'
 import { generateCaves } from './cave-generator'
-import { placeHouse } from './house-generator'
 import { placeTree } from './tree-generator'
 import { coordinateToIndex, WORLD_HEIGHT, WORLD_SIZE, WORLD_VOLUME } from './world-constants'
 
@@ -95,7 +95,7 @@ export function generateTerrain(state: Uint8Array): void {
             placeTree(state, x, surfaceY, z)
           }
           else if (rand < 0.0095) {
-            placeHouse(state, x, surfaceY, z)
+            placeBuilding(state, x, surfaceY, z)
           }
         }
       }

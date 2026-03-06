@@ -8,6 +8,33 @@ function forceSet(state: Uint8Array, x: number, y: number, z: number, blockId: B
   }
 }
 
+/**
+ * 為建築底盤填充地基
+ * 對底面每一格 (x,z)，從 floorY 往下填充到碰到實體方塊為止
+ */
+function fillFoundation(
+  state: Uint8Array,
+  x1: number,
+  z1: number,
+  x2: number,
+  z2: number,
+  floorY: number,
+  blockId: BlockId,
+) {
+  for (let x = x1; x <= x2; x++) {
+    for (let z = z1; z <= z2; z++) {
+      for (let y = floorY; y >= 1; y--) {
+        if (x < 0 || x >= WORLD_SIZE || z < 0 || z >= WORLD_SIZE || y >= WORLD_HEIGHT)
+          continue
+        const index = coordinateToIndex(x, y, z)
+        if (state[index] !== BlockId.AIR)
+          break
+        state[index] = blockId
+      }
+    }
+  }
+}
+
 /** 填充長方體區域 */
 function fillBox(
   state: Uint8Array,
@@ -62,6 +89,8 @@ function placeCottage(state: Uint8Array, x: number, sy: number, z: number) {
   const z2 = z + 2
   const floorY = sy + 1
 
+  // 地基填充
+  fillFoundation(state, x1, z1, x2, z2, floorY - 1, BlockId.COBBLESTONE)
   // 地板（雲杉木板）
   fillBox(state, x1, floorY, z1, x2, floorY, z2, BlockId.SPRUCE_PLANKS)
   // 牆壁（橡木板）
@@ -104,6 +133,8 @@ function placeBrickHouse(state: Uint8Array, x: number, sy: number, z: number) {
   const z2 = z + 3
   const floorY = sy + 1
 
+  // 地基填充
+  fillFoundation(state, x1, z1, x2, z2, floorY - 1, BlockId.COBBLESTONE)
   // 地板
   fillBox(state, x1, floorY, z1, x2, floorY, z2, BlockId.COBBLESTONE)
   // 牆壁（磚牆）
@@ -164,6 +195,8 @@ function placeWatchtower(state: Uint8Array, x: number, sy: number, z: number) {
   const z2 = z + 1
   const floorY = sy + 1
 
+  // 地基填充
+  fillFoundation(state, x1, z1, x2, z2, floorY - 1, BlockId.STONE_BRICKS)
   // 地板（石磚）
   fillBox(state, x1, floorY, z1, x2, floorY, z2, BlockId.STONE_BRICKS)
   // 第一層牆壁（石磚）
@@ -220,30 +253,71 @@ function placeWatchtower(state: Uint8Array, x: number, sy: number, z: number) {
   }
 }
 
-/** 房屋所需的最大半徑（用於邊界檢查） */
-const HOUSE_MARGIN = 5
-/** 房屋所需的最大高度 */
-const HOUSE_MAX_HEIGHT = 10
+/**
+ * 水井：3×3 鵝卵石圍牆、中央挖深 3 格水坑（用玻璃模擬水面）
+ * 上方有深色橡木原木支架與雲杉木板屋頂
+ */
+function placeWell(state: Uint8Array, x: number, sy: number, z: number) {
+  const floorY = sy + 1
+
+  // 地基填充
+  fillFoundation(state, x - 1, z - 1, x + 1, z + 1, floorY - 1, BlockId.COBBLESTONE)
+
+  // 圍牆（1 格高鵝卵石）
+  for (let dx = -1; dx <= 1; dx++) {
+    for (let dz = -1; dz <= 1; dz++) {
+      if (dx === 0 && dz === 0)
+        continue
+      forceSet(state, x + dx, floorY, z + dz, BlockId.COBBLESTONE)
+    }
+  }
+
+  // 中央挖深坑（3 格深）
+  for (let dy = 0; dy >= -3; dy--)
+    forceSet(state, x, floorY + dy, z, BlockId.AIR)
+
+  // 坑底放玻璃模擬水面
+  forceSet(state, x, floorY - 3, z, BlockId.GLASS)
+
+  // 四角支架柱（深色橡木原木，3 格高）
+  for (let dy = 1; dy <= 3; dy++) {
+    forceSet(state, x - 1, floorY + dy, z - 1, BlockId.DARK_OAK_LOG)
+    forceSet(state, x + 1, floorY + dy, z - 1, BlockId.DARK_OAK_LOG)
+    forceSet(state, x - 1, floorY + dy, z + 1, BlockId.DARK_OAK_LOG)
+    forceSet(state, x + 1, floorY + dy, z + 1, BlockId.DARK_OAK_LOG)
+  }
+
+  // 屋頂（雲杉木板，5×5）
+  fillBox(state, x - 2, floorY + 4, z - 2, x + 2, floorY + 4, z + 2, BlockId.SPRUCE_PLANKS)
+}
+
+/** 建築所需的最大半徑（用於邊界檢查） */
+const BUILDING_MARGIN = 5
+/** 建築所需的最大高度 */
+const BUILDING_MAX_HEIGHT = 10
 
 /**
- * 在指定位置放置隨機樣式的小房子
+ * 在指定位置放置隨機樣式的建築物
  */
-export function placeHouse(state: Uint8Array, x: number, surfaceY: number, z: number) {
+export function placeBuilding(state: Uint8Array, x: number, surfaceY: number, z: number) {
   // 邊界檢查
-  if (x < HOUSE_MARGIN || x >= WORLD_SIZE - HOUSE_MARGIN
-    || z < HOUSE_MARGIN || z >= WORLD_SIZE - HOUSE_MARGIN
-    || surfaceY + HOUSE_MAX_HEIGHT >= WORLD_HEIGHT) {
+  if (x < BUILDING_MARGIN || x >= WORLD_SIZE - BUILDING_MARGIN
+    || z < BUILDING_MARGIN || z >= WORLD_SIZE - BUILDING_MARGIN
+    || surfaceY + BUILDING_MAX_HEIGHT >= WORLD_HEIGHT) {
     return
   }
 
   const variant = Math.random()
-  if (variant < 0.4) {
+  if (variant < 0.3) {
     placeCottage(state, x, surfaceY, z)
   }
-  else if (variant < 0.75) {
+  else if (variant < 0.55) {
     placeBrickHouse(state, x, surfaceY, z)
   }
-  else {
+  else if (variant < 0.75) {
     placeWatchtower(state, x, surfaceY, z)
+  }
+  else {
+    placeWell(state, x, surfaceY, z)
   }
 }

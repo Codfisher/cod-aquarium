@@ -61,7 +61,7 @@
 import type { Mesh, Scene, UniversalCamera } from '@babylonjs/core'
 import type { VoxelRenderer } from '../renderer/voxel-renderer'
 import type { SandFall } from '../world/world-state'
-import { MeshBuilder, TransformNode, Vector3 } from '@babylonjs/core'
+import { Material, MeshBuilder, TransformNode, Vector3 } from '@babylonjs/core'
 import { animate } from 'animejs'
 import { ref, watch } from 'vue'
 import PauseMenu from '../../components/pause-menu.vue'
@@ -335,6 +335,15 @@ function startGame(sceneInstance: Scene, cameraInstance: UniversalCamera, canvas
           sideMesh.material = sideMat
           sideMesh.parent = handTransform
           handMeshes.push(sideMesh)
+        }
+      }
+
+      // 透明方塊處理（如玻璃）
+      if (blockDef.alpha !== undefined && blockDef.alpha < 1) {
+        for (const mesh of handMeshes) {
+          const mat = mesh.material as import('@babylonjs/core').StandardMaterial
+          mat.alpha = blockDef.alpha
+          mat.transparencyMode = Material.MATERIAL_ALPHABLEND
         }
       }
     }
