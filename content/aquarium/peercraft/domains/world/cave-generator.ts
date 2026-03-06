@@ -4,8 +4,8 @@ import { coordinateToIndex, WORLD_HEIGHT, WORLD_SIZE } from './world-constants'
 /** 隧道生成參數 */
 const TUNNEL_COUNT = 12 // 隧道數量
 const TUNNEL_STEPS = 80 // 每條隧道的步數
-const TUNNEL_RADIUS = 2 // 基礎挖掘半徑
-const HALL_RADIUS = 4 // 大廳挖掘半徑
+const TUNNEL_RADIUS = 1 // 基礎挖掘半徑
+const HALL_RADIUS = 3 // 大廳挖掘半徑
 const HALL_CHANCE = 0.08 // 每步變成大廳的機率
 const HALL_DURATION = 8 // 大廳持續步數
 const TURN_RATE = 0.3 // 方向轉彎幅度（弧度）

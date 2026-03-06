@@ -1,16 +1,23 @@
 import type { Scene, UniversalCamera } from '@babylonjs/core'
-import { Vector3 } from '@babylonjs/core'
-import { useEventListener } from '@vueuse/core'
+import { Color3, Vector3 } from '@babylonjs/core'
+import { useEventListener, usePointerLock } from '@vueuse/core'
 import { random } from 'lodash-es'
-import { onBeforeUnmount, ref } from 'vue'
-import { BLOCK_DEFS } from '../domains/block/block-constants'
+import { computed, onBeforeUnmount } from 'vue'
 import { PLAYER_EYE_HEIGHT, resolveCollision } from '../domains/player/collision'
-import { coordinateToIndex, WORLD_HEIGHT, WORLD_SIZE } from '../domains/world/world-constants'
-import { getHighestBlockY } from '../domains/world/world-state'
+import { WORLD_HEIGHT, WORLD_SIZE } from '../domains/world/world-constants'
 
 const GRAVITY = 20
 const JUMP_SPEED = 7
 const MOVE_SPEED = 6
+
+/** 霧氣參數：Y 低於此高度時開始加濃霧氣 */
+const CAVE_FOG_THRESHOLD_Y = 20
+const SURFACE_FOG_START = 30
+const SURFACE_FOG_END = 60
+const CAVE_FOG_START = 0
+const CAVE_FOG_END = 20
+const SURFACE_FOG_COLOR = new Color3(0.53, 0.74, 0.93)
+const CAVE_FOG_COLOR = new Color3(0.2, 0.2, 0.25)
 
 interface UseFpsControllerParams {
   scene: Scene;
@@ -34,7 +41,8 @@ interface UseFpsControllerParams {
  */
 export function useFpsController() {
   let cleanup: (() => void) | null = null
-  const isPaused = ref(true)
+  const { lock, unlock, element: pointerLockElement } = usePointerLock()
+  const isPaused = computed(() => !pointerLockElement.value)
   let canvasRef: HTMLCanvasElement | null = null
 
   /** 玩家位置 (腳底) */
@@ -81,11 +89,8 @@ export function useFpsController() {
     footY = spawnY
     footZ = spawnZ + 0.5
 
-    /** 停用 Babylon 內建的攝影機移動 */
-    camera.keysUp = []
-    camera.keysDown = []
-    camera.keysLeft = []
-    camera.keysRight = []
+    /** 停用 Babylon 內建的鍵盤移動（由本控制器自行處理） */
+    camera.inputs.removeByType('FreeCameraKeyboardMoveInput')
     camera.speed = 0
     camera.inertia = 0
 
@@ -146,16 +151,10 @@ export function useFpsController() {
     /** Pointer Lock：點擊 canvas 鎖定滑鼠 (如果沒在暫停選單) */
     function handleCanvasClick() {
       if (!isPaused.value) {
-        canvas.requestPointerLock()
+        lock(canvas)
       }
     }
     const cleanupCanvasClick = useEventListener(canvas, 'click', handleCanvasClick)
-
-    /** 監聽 ESC / 離開 Pointer Lock */
-    function handlePointerLockChange() {
-      isPaused.value = document.pointerLockElement !== canvas
-    }
-    const cleanupPointerLock = useEventListener(document, 'pointerlockchange', handlePointerLockChange)
 
     /** 每幀更新 */
     const observer = scene.onBeforeRenderObservable.add(() => {
@@ -239,23 +238,27 @@ export function useFpsController() {
       camera.position.x = footX
       camera.position.y = footY + PLAYER_EYE_HEIGHT
       camera.position.z = footZ
+
+      /** 根據 Y 高度動態調整霧氣，越深霧越濃、顏色越灰 */
+      const fogRatio = Math.max(0, Math.min(1, (CAVE_FOG_THRESHOLD_Y - footY) / CAVE_FOG_THRESHOLD_Y))
+      scene.fogStart = SURFACE_FOG_START + (CAVE_FOG_START - SURFACE_FOG_START) * fogRatio
+      scene.fogEnd = SURFACE_FOG_END + (CAVE_FOG_END - SURFACE_FOG_END) * fogRatio
+      Color3.LerpToRef(SURFACE_FOG_COLOR, CAVE_FOG_COLOR, fogRatio, scene.fogColor)
     })
 
     cleanup = () => {
       cleanupKeyDown()
       cleanupKeyUp()
       cleanupCanvasClick()
-      cleanupPointerLock()
       scene.onBeforeRenderObservable.remove(observer)
-
-      if (document.pointerLockElement === canvas) {
-        document.exitPointerLock()
-      }
+      unlock()
     }
   }
 
   function resume() {
-    canvasRef?.requestPointerLock()
+    if (canvasRef) {
+      lock(canvasRef)
+    }
   }
 
   function teleport(x: number, y: number, z: number) {
