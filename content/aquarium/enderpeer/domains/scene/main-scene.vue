@@ -527,14 +527,21 @@ function startGame(sceneInstance: Scene, cameraInstance: UniversalCamera, canvas
 
   /** 手機動作按鈕（挖掘/放置） */
   let mobileActionActive = false
+  /** 本次按住的動作模式：'place' 放置 / 'dig' 挖掘，放開後重置 */
+  let mobileActionMode: 'place' | 'dig' | null = null
 
   if (mobileController.isMobile) {
     sceneInstance.onBeforeRenderObservable.add(() => {
       const actionPressed = mobileController.state.action
 
-      /** 放置方塊（按下瞬間觸發） */
-      if (actionPressed && !mobileActionActive && heldBlockId.value !== null) {
+      /** 按下瞬間決定模式（整次按住期間不會切換） */
+      if (actionPressed && !mobileActionActive) {
         mobileActionActive = true
+        mobileActionMode = heldBlockId.value !== null ? 'place' : 'dig'
+      }
+
+      /** 放置方塊（僅在 place 模式的第一幀執行） */
+      if (actionPressed && mobileActionMode === 'place' && heldBlockId.value !== null) {
         const hit = castBlockRay(cameraInstance, worldState)
         if (hit) {
           const playerFootX = cameraInstance.position.x
@@ -561,19 +568,18 @@ function startGame(sceneInstance: Scene, cameraInstance: UniversalCamera, canvas
             }
           }
         }
+        /** 放置只嘗試一次，之後鎖定不再動作 */
+        mobileActionMode = null
       }
 
-      /** 挖掘方塊（持續按住由 blockMiner 處理）
-       *  每幀都嘗試啟動挖掘，直到成功對準方塊開始挖掘為止，
-       *  避免按下時準心尚未對準方塊而需要按兩次的問題。
-       */
-      if (actionPressed && heldBlockId.value === null && !blockMiner.isMining) {
-        mobileActionActive = true
+      /** 挖掘方塊（dig 模式下每幀嘗試啟動，直到成功對準方塊） */
+      if (actionPressed && mobileActionMode === 'dig' && !blockMiner.isMining) {
         blockMiner.startMiningAtTarget(cameraInstance, worldState, () => heldBlockId.value === null)
       }
 
       if (!actionPressed && mobileActionActive) {
         mobileActionActive = false
+        mobileActionMode = null
         blockMiner.stopMining()
       }
 
