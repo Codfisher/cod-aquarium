@@ -1,7 +1,7 @@
 /** 世界寬度與深度 */
 export const WORLD_SIZE = 64
 /** 世界高度 */
-export const WORLD_HEIGHT = 64
+export const WORLD_HEIGHT = 128
 
 /** 區塊大小 */
 export const CHUNK_SIZE = WORLD_SIZE / 4

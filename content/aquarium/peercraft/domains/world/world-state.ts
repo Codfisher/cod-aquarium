@@ -20,9 +20,9 @@ export function createWorldState(): Uint8Array {
  * - 使用 3D FBM Noise 生成地下洞穴。
  */
 export function generateTerrain(state: Uint8Array): void {
-  const baseHeight = 24 // 較高的基準面，方便挖掘峽谷
-  const plainsVariation = 4 // 平原起伏
-  const canyonDepth = 20 // 峽谷深度
+  const baseHeight = Math.floor(WORLD_HEIGHT * 0.375) // 24 -> 0.375 * 64
+  const plainsVariation = Math.floor(WORLD_HEIGHT * 0.0625) // 4 -> 0.0625 * 64
+  const canyonDepth = Math.floor(WORLD_HEIGHT * 0.3125) // 20 -> 0.3125 * 64
 
   const heightMap = new Uint8Array(WORLD_SIZE * WORLD_SIZE)
 
