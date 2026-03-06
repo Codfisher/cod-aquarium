@@ -1,5 +1,5 @@
 import type { DirectionalLight, Mesh, Scene, ShadowGenerator } from '@babylonjs/core'
-import { Color3, DynamicTexture, MeshBuilder, StandardMaterial, Texture, TransformNode, Vector3 } from '@babylonjs/core'
+import { Color3, DynamicTexture, Engine, MeshBuilder, StandardMaterial, Texture, TransformNode, Vector3 } from '@babylonjs/core'
 import { tryOnScopeDispose } from '@vueuse/core'
 import { BLOCK_DEFS, BlockId } from '../domains/block/block-constants'
 import { PLAYER_EYE_HEIGHT, PLAYER_HEIGHT } from '../domains/player/collision'
@@ -371,8 +371,8 @@ function createNameTag(peerId: string, name: string, scene: Scene): { mesh: Mesh
   mat.specularColor = Color3.Black()
   mat.emissiveColor = Color3.White()
   mat.backFaceCulling = false
-  // 讓名字標籤不被方塊遮擋 (519 = Engine.ALWAYS)
-  mat.depthFunction = 519
+  // 讓名字標籤不被方塊遮擋
+  mat.depthFunction = Engine.ALWAYS
   plane.renderingGroupId = 1
   plane.material = mat
 
