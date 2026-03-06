@@ -1,6 +1,5 @@
 <template>
   <div
-    v-if="isMobile"
     class="mobile-controls"
   >
     <!-- 虛擬搖桿 -->
@@ -92,7 +91,6 @@
 import { toRefs } from 'vue'
 
 const props = defineProps<{
-  isMobile: boolean;
   joystickActive: boolean;
   joystickOrigin: { x: number; y: number };
   joystickOffset: { x: number; y: number };

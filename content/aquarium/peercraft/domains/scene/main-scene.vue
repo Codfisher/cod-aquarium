@@ -7,8 +7,7 @@
       @contextmenu="$event.preventDefault()"
     />
 
-    <!-- 十字準星（手機模式隱藏） -->
-    <div v-if="!mobileControls.isMobile.value" class="crosshair" />
+    <div class="crosshair" />
 
     <!-- 挖掘進度條 -->
     <div
@@ -47,7 +46,7 @@
 
     <!-- 手機虛擬控制 -->
     <mobile-controls
-      :is-mobile="mobileControls.isMobile.value"
+      v-if="mobileControls.isMobile"
       :joystick-active="mobileControls.joystickActive.value"
       :joystick-origin="mobileControls.joystickOrigin"
       :joystick-offset="mobileControls.joystickOffset"
