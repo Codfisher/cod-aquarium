@@ -41,6 +41,69 @@ export function usePeerNetwork({
   onHeldBlockReceived,
   onPlayerNameReceived,
 }: UsePeerNetworkParams) {
+  const encoder = new TextEncoder()
+  const decoder = new TextDecoder()
+
+  // 二進位封包類型常數
+  const BINARY_TYPE_POSITION = 0
+  const BINARY_TYPE_MINING = 1
+
+  function serializePosition(peerId: string, x: number, y: number, z: number, rotationY: number): Uint8Array {
+    const peerIdBytes = encoder.encode(peerId)
+    const buffer = new ArrayBuffer(2 + peerIdBytes.length + 16)
+    const view = new DataView(buffer)
+    view.setUint8(0, BINARY_TYPE_POSITION)
+    view.setUint8(1, peerIdBytes.length)
+    new Uint8Array(buffer, 2, peerIdBytes.length).set(peerIdBytes)
+    const offset = 2 + peerIdBytes.length
+    view.setFloat32(offset, x, true)
+    view.setFloat32(offset + 4, y, true)
+    view.setFloat32(offset + 8, z, true)
+    view.setFloat32(offset + 12, rotationY, true)
+    return new Uint8Array(buffer)
+  }
+
+  function deserializePosition(data: Uint8Array) {
+    const view = new DataView(data.buffer, data.byteOffset, data.byteLength)
+    const peerIdLen = view.getUint8(1)
+    const peerId = decoder.decode(data.subarray(2, 2 + peerIdLen))
+    const offset = 2 + peerIdLen
+    const x = view.getFloat32(offset, true)
+    const y = view.getFloat32(offset + 4, true)
+    const z = view.getFloat32(offset + 8, true)
+    const rotationY = view.getFloat32(offset + 12, true)
+    return { peerId, x, y, z, rotationY }
+  }
+
+  function serializeMining(peerId: string, x: number, y: number, z: number, progress: number, blockId: number): Uint8Array {
+    const peerIdBytes = encoder.encode(peerId)
+    const buffer = new ArrayBuffer(2 + peerIdBytes.length + 18)
+    const view = new DataView(buffer)
+    view.setUint8(0, BINARY_TYPE_MINING)
+    view.setUint8(1, peerIdBytes.length)
+    new Uint8Array(buffer, 2, peerIdBytes.length).set(peerIdBytes)
+    const offset = 2 + peerIdBytes.length
+    view.setInt32(offset, x, true)
+    view.setInt32(offset + 4, y, true)
+    view.setInt32(offset + 8, z, true)
+    view.setFloat32(offset + 12, progress, true)
+    view.setInt16(offset + 16, blockId, true)
+    return new Uint8Array(buffer)
+  }
+
+  function deserializeMining(data: Uint8Array) {
+    const view = new DataView(data.buffer, data.byteOffset, data.byteLength)
+    const peerIdLen = view.getUint8(1)
+    const peerId = decoder.decode(data.subarray(2, 2 + peerIdLen))
+    const offset = 2 + peerIdLen
+    const x = view.getInt32(offset, true)
+    const y = view.getInt32(offset + 4, true)
+    const z = view.getInt32(offset + 8, true)
+    const progress = view.getFloat32(offset + 12, true)
+    const blockId = view.getInt16(offset + 16, true)
+    return { peerId, x, y, z, progress, blockId }
+  }
+
   const isReady = ref(false)
   const currentPeerId = ref<string>('')
   const currentRole = ref<NetworkRole | null>(null)
@@ -171,6 +234,30 @@ export function usePeerNetwork({
     })
 
     connection.on('data', (data) => {
+      // 處理二進位封包
+      let binaryData: Uint8Array | null = null
+      if (data instanceof Uint8Array) {
+        binaryData = data
+      }
+      else if (data instanceof ArrayBuffer) {
+        binaryData = new Uint8Array(data)
+      }
+
+      if (binaryData) {
+        const type = binaryData[0]
+        if (type === BINARY_TYPE_POSITION) {
+          const { peerId, x, y, z, rotationY } = deserializePosition(binaryData)
+          onPlayerPositionReceived?.(peerId, x, y, z, rotationY)
+          broadcastPlayerPosition(peerId, x, y, z, rotationY, connection.peer)
+        }
+        else if (type === BINARY_TYPE_MINING) {
+          const { peerId, x, y, z, progress, blockId } = deserializeMining(binaryData)
+          onMiningProgressReceived?.(peerId, x, y, z, progress, blockId)
+          broadcastMiningProgress(peerId, x, y, z, progress, blockId, connection.peer)
+        }
+        return
+      }
+
       const packet = data as NetworkPacket
       if (packet.type === PacketType.BLOCK_UPDATE) {
         const { x, y, z, blockId } = packet.data
@@ -226,6 +313,28 @@ export function usePeerNetwork({
     })
 
     connection.on('data', (data) => {
+      // 處理二進位封包
+      let binaryData: Uint8Array | null = null
+      if (data instanceof Uint8Array) {
+        binaryData = data
+      }
+      else if (data instanceof ArrayBuffer) {
+        binaryData = new Uint8Array(data)
+      }
+
+      if (binaryData) {
+        const type = binaryData[0]
+        if (type === BINARY_TYPE_POSITION) {
+          const { peerId, x, y, z, rotationY } = deserializePosition(binaryData)
+          onPlayerPositionReceived?.(peerId, x, y, z, rotationY)
+        }
+        else if (type === BINARY_TYPE_MINING) {
+          const { peerId, x, y, z, progress, blockId } = deserializeMining(binaryData)
+          onMiningProgressReceived?.(peerId, x, y, z, progress, blockId)
+        }
+        return
+      }
+
       const packet = data as NetworkPacket
       if (packet.type === PacketType.WORLD_SNAPSHOT) {
         onWorldSnapshotReceived?.(packet.data)
@@ -328,14 +437,11 @@ export function usePeerNetwork({
     if (currentRole.value !== NetworkRole.HOST)
       return
 
-    const packet: NetworkPacket = {
-      type: PacketType.MINING_PROGRESS,
-      data: { peerId: senderPeerId, x, y, z, progress, blockId },
-    }
+    const data = serializeMining(senderPeerId, x, y, z, progress, blockId)
 
     connections.forEach((conn, peerId) => {
       if (peerId !== excludePeerId && conn.open) {
-        conn.send(packet)
+        conn.send(data)
       }
     })
   }
@@ -349,18 +455,8 @@ export function usePeerNetwork({
 
     const hostConn = Array.from(connections.values())[0]
     if (hostConn && hostConn.open) {
-      const packet: NetworkPacket = {
-        type: PacketType.MINING_PROGRESS,
-        data: {
-          peerId: currentPeerId.value,
-          x,
-          y,
-          z,
-          progress,
-          blockId,
-        },
-      }
-      hostConn.send(packet)
+      const data = serializeMining(currentPeerId.value, x, y, z, progress, blockId)
+      hostConn.send(data)
     }
   }
 
@@ -378,14 +474,11 @@ export function usePeerNetwork({
     if (currentRole.value !== NetworkRole.HOST)
       return
 
-    const packet: NetworkPacket = {
-      type: PacketType.PLAYER_POSITION,
-      data: { peerId: senderPeerId, x, y, z, rotationY },
-    }
+    const data = serializePosition(senderPeerId, x, y, z, rotationY)
 
     connections.forEach((conn, peerId) => {
       if (peerId !== excludePeerId && conn.open) {
-        conn.send(packet)
+        conn.send(data)
       }
     })
   }
@@ -399,17 +492,29 @@ export function usePeerNetwork({
 
     const hostConn = Array.from(connections.values())[0]
     if (hostConn && hostConn.open) {
-      const packet: NetworkPacket = {
-        type: PacketType.PLAYER_POSITION,
-        data: {
-          peerId: currentPeerId.value,
-          x,
-          y,
-          z,
-          rotationY,
-        },
-      }
-      hostConn.send(packet)
+      const data = serializePosition(currentPeerId.value, x, y, z, rotationY)
+      hostConn.send(data)
+    }
+  }
+
+  /**
+   * 【供 Host 呼叫】將特定玩家位置傳給特定 Client
+   */
+  function sendPlayerPositionToClient(
+    targetPeerId: string,
+    senderPeerId: string,
+    x: number,
+    y: number,
+    z: number,
+    rotationY: number,
+  ) {
+    if (currentRole.value !== NetworkRole.HOST)
+      return
+
+    const conn = connections.get(targetPeerId)
+    if (conn && conn.open) {
+      const data = serializePosition(senderPeerId, x, y, z, rotationY)
+      conn.send(data)
     }
   }
 
@@ -516,6 +621,23 @@ export function usePeerNetwork({
     }
   }
 
+  /**
+   * 【供 Host 呼叫】將特定玩家名稱傳給特定 Client
+   */
+  function sendPlayerNameToClient(targetPeerId: string, senderPeerId: string, name: string) {
+    if (currentRole.value !== NetworkRole.HOST)
+      return
+
+    const conn = connections.get(targetPeerId)
+    if (conn && conn.open) {
+      const packet: NetworkPacket = {
+        type: PacketType.PLAYER_NAME,
+        data: { peerId: senderPeerId, name },
+      }
+      conn.send(packet)
+    }
+  }
+
   onBeforeUnmount(() => {
     connections.forEach((conn) => conn.close())
     connections.clear()
@@ -536,11 +658,13 @@ export function usePeerNetwork({
     sendMiningProgressToHost,
     broadcastPlayerPosition,
     sendPlayerPositionToHost,
+    sendPlayerPositionToClient,
     broadcastHeldBlock,
     sendHeldBlockToHost,
     sendHeldBlockToClient,
     broadcastPlayerName,
     sendPlayerNameToHost,
+    sendPlayerNameToClient,
     /** 暴露給 Host 在有人連線時，能夠主動派送 Snapshot 的方法。
      * 暫時由外部直接監聽，這邊提供 connections reference 以便未來擴充
      */

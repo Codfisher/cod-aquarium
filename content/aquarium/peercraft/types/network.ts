@@ -86,4 +86,4 @@ export interface PlayerNamePacket {
   };
 }
 
-export type NetworkPacket = WorldSnapshotPacket | BlockUpdatePacket | MiningProgressPacket | PlayerPositionPacket | HeldBlockPacket | PlayerNamePacket
+export type NetworkPacket = { type: PacketType; data: any } | WorldSnapshotPacket | BlockUpdatePacket | MiningProgressPacket | PlayerPositionPacket | HeldBlockPacket | PlayerNamePacket

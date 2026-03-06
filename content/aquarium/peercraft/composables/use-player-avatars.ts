@@ -25,6 +25,8 @@ interface AvatarEntry {
     walkCycle: number;
     intensity: number;
     idleTime: number;
+    targetPosition: Vector3;
+    targetRotationY: number;
   };
   /** 手持方塊相關 */
   hand: TransformNode;
@@ -34,6 +36,8 @@ interface AvatarEntry {
     mesh: Mesh;
     texture: DynamicTexture;
   };
+  /** 玩家名稱 */
+  name: string;
 }
 
 /** 根據 peerId 產生確定性的顏色（用於眼睛發光色） */
@@ -308,6 +312,8 @@ function createEndermanAvatar(peerId: string, scene: Scene): AvatarEntry {
     walkCycle: 0,
     intensity: 0,
     idleTime: 0,
+    targetPosition: root.position.clone(),
+    targetRotationY: root.rotation.y,
   }
 
   /** 陰影 */
@@ -320,7 +326,7 @@ function createEndermanAvatar(peerId: string, scene: Scene): AvatarEntry {
     }
   }
 
-  return { root, meshes, materials, joints, headNode: head, state, hand, heldBlockMesh: null }
+  return { root, meshes, materials, joints, headNode: head, state, hand, heldBlockMesh: null, name: `Player_${peerId.slice(0, 4)}` }
 }
 
 /** 建立玩家名字標籤 */
@@ -407,6 +413,18 @@ export function usePlayerAvatars() {
       for (const entry of avatars.values()) {
         const { joints, headNode, state, root } = entry
 
+        // 插值平滑移動
+        const lerpFactor = Math.min(1, delta * 15) // 設定插值速度
+        root.position.x += (state.targetPosition.x - root.position.x) * lerpFactor
+        root.position.y += (state.targetPosition.y - root.position.y) * lerpFactor
+        root.position.z += (state.targetPosition.z - root.position.z) * lerpFactor
+
+        // 旋轉插值 (處理 0/360 跨越問題)
+        let diff = state.targetRotationY - root.rotation.y
+        while (diff < -Math.PI) diff += Math.PI * 2
+        while (diff > Math.PI) diff -= Math.PI * 2
+        root.rotation.y += diff * lerpFactor
+
         // 偵測移動 (水平)
         const currentPos = root.position
         const distance = Vector3.Distance(
@@ -415,7 +433,7 @@ export function usePlayerAvatars() {
         )
 
         // 更新移動強度 (平滑過渡)
-        const targetIntensity = distance > 0.01 ? 1 : 0
+        const targetIntensity = distance > 0.005 ? 1 : 0
         state.intensity += (targetIntensity - state.intensity) * Math.min(1, delta * 10)
 
         if (state.intensity > 0.001) {
@@ -447,6 +465,11 @@ export function usePlayerAvatars() {
 
         // 名稱標籤看著相機 (Billboard)
         if (entry.nameTag) {
+          entry.nameTag.mesh.position.set(
+            root.position.x,
+            root.position.y + 1.0,
+            root.position.z,
+          )
           entry.nameTag.mesh.lookAt(sceneRef!.activeCamera!.globalPosition, Math.PI, 0, 0)
         }
       }
@@ -471,20 +494,20 @@ export function usePlayerAvatars() {
     if (!entry) {
       entry = createEndermanAvatar(peerId, sceneRef)
       avatars.set(peerId, entry)
+
+      // 第一次更新：直接定位，避免從 (0,0,0) 飛過來
+      const targetY = y - PLAYER_EYE_HEIGHT + PLAYER_HEIGHT / 2
+      entry.root.position.set(x, targetY, z)
+      entry.root.rotation.y = rotationY
+      entry.state.lastPosition.copyFrom(entry.root.position)
+      entry.state.targetPosition.copyFrom(entry.root.position)
+      entry.state.targetRotationY = rotationY
     }
 
     /** 攝影機 Y 為眼睛高度，avatar 中心需偏移至其腳底再向上移動 avatar 高度的一半 */
-    entry.root.position = new Vector3(x, y - PLAYER_EYE_HEIGHT + PLAYER_HEIGHT / 2, z)
-    entry.root.rotation.y = rotationY
-
-    // 更新名字標籤位置 (在頭頂上方)
-    if (entry.nameTag) {
-      entry.nameTag.mesh.position.set(
-        entry.root.position.x,
-        entry.root.position.y + 1.0,
-        entry.root.position.z,
-      )
-    }
+    const targetY = y - PLAYER_EYE_HEIGHT + PLAYER_HEIGHT / 2
+    entry.state.targetPosition.set(x, targetY, z)
+    entry.state.targetRotationY = rotationY
   }
 
   function updatePlayerName(peerId: string, name: string) {
@@ -497,6 +520,10 @@ export function usePlayerAvatars() {
       avatars.set(peerId, entry)
     }
 
+    if (entry.nameTag && entry.name === name)
+      return // 避免重複建立
+
+    entry.name = name
     if (entry.nameTag) {
       // 重新建立，因為動態寬度需要更換 mesh 尺寸與貼圖尺寸
       entry.nameTag.mesh.dispose()
@@ -590,5 +617,5 @@ export function usePlayerAvatars() {
     }
   }
 
-  return { start, updateAvatar, removeAvatar, updateHeldBlock, updatePlayerName }
+  return { start, updateAvatar, removeAvatar, updateHeldBlock, updatePlayerName, avatars }
 }

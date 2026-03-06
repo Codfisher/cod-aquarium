@@ -94,7 +94,7 @@ import { usePlayerAvatars } from '../../composables/use-player-avatars'
 import { NetworkRole } from '../../types/network'
 import { BLOCK_DEFS, BlockId } from '../block/block-constants'
 import { castBlockRay, placeBlock, setBlock } from '../player/block-interaction'
-import { PLAYER_EYE_HEIGHT } from '../player/collision'
+import { PLAYER_EYE_HEIGHT, PLAYER_HEIGHT } from '../player/collision'
 import { useBlockMiner } from '../player/use-block-miner'
 import { createPixelMaterial, createVoxelRenderer } from '../renderer/voxel-renderer'
 import { coordinateToIndex } from '../world/world-constants'
@@ -211,11 +211,13 @@ const {
   sendMiningProgressToHost,
   broadcastPlayerPosition,
   sendPlayerPositionToHost,
+  sendPlayerPositionToClient,
   broadcastHeldBlock,
   sendHeldBlockToHost,
   sendHeldBlockToClient,
   broadcastPlayerName,
   sendPlayerNameToHost,
+  sendPlayerNameToClient,
 } = usePeerNetwork({
   onConnected: () => {
     if (currentRole.value === NetworkRole.HOST) {
@@ -253,8 +255,28 @@ const {
   onClientConnected: (peerId) => {
     if (currentRole.value === NetworkRole.HOST) {
       sendWorldSnapshot(peerId, worldState)
-      // 同步 Host 目前手上拿的東西給新進來的 Client
+      // 同步 Host 目前手上拿的東西、姓名與位置給新進來的 Client
       sendHeldBlockToClient(peerId, currentPeerId.value, heldBlockId.value)
+      sendPlayerNameToClient(peerId, currentPeerId.value, playerName.value)
+
+      const cameraPos = camera.value!.position
+      const rotationY = camera.value!.rotation.y
+      sendPlayerPositionToClient(peerId, currentPeerId.value, cameraPos.x, cameraPos.y, cameraPos.z, rotationY)
+
+      // 同步「其他」已經在場內的人給新進來的 Client
+      playerAvatars.avatars.forEach((entry: any, otherPeerId: string) => {
+        // 同步位置
+        const pos = entry.state.targetPosition
+        const rot = entry.state.targetRotationY
+        // 注意：這裡的 y 座標在 updateAvatar 會被還原回眼睛高度，所以要傳原始 y
+        const originalY = pos.y + PLAYER_EYE_HEIGHT - PLAYER_HEIGHT / 2
+        sendPlayerPositionToClient(peerId, otherPeerId, pos.x, originalY, pos.z, rot)
+
+        // 同步姓名
+        sendPlayerNameToClient(peerId, otherPeerId, entry.name)
+
+        // 同步手持 (暫留擴充空間)
+      })
     }
   },
   onBlockUpdateReceived: (x, y, z, blockId) => {
@@ -602,6 +624,12 @@ function startGame(sceneInstance: Scene, cameraInstance: UniversalCamera, canvas
   const POSITION_BROADCAST_INTERVAL = 15 // ms
   const BASE_FOV = cameraInstance.fov
 
+  // 用於過濾微小移動的變數
+  const lastSentPos = new Vector3()
+  let lastSentRotationY = 0
+  const MOVE_THRESHOLD = 0.01
+  const ROTATION_THRESHOLD = 0.01
+
   sceneInstance.onBeforeRenderObservable.add(() => {
     /** 處理傳送進度與視覺效果 */
     if (rightClickStartTime.value !== null) {
@@ -623,10 +651,20 @@ function startGame(sceneInstance: Scene, cameraInstance: UniversalCamera, canvas
     const now = performance.now()
     if (now - lastPositionBroadcast < POSITION_BROADCAST_INTERVAL)
       return
-    lastPositionBroadcast = now
 
     const pos = cameraInstance.position
     const rotationY = cameraInstance.rotation.y
+
+    // 檢查是否有顯著移動或轉動
+    const distance = Vector3.Distance(pos, lastSentPos)
+    const rotationDiff = Math.abs(rotationY - lastSentRotationY)
+
+    if (distance < MOVE_THRESHOLD && rotationDiff < ROTATION_THRESHOLD)
+      return
+
+    lastPositionBroadcast = now
+    lastSentPos.copyFrom(pos)
+    lastSentRotationY = rotationY
 
     if (currentRole.value === NetworkRole.HOST) {
       broadcastPlayerPosition(currentPeerId.value, pos.x, pos.y, pos.z, rotationY)
