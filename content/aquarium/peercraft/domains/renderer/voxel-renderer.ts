@@ -2,6 +2,7 @@ import type { DirectionalLight, Mesh, Scene, ShadowGenerator } from '@babylonjs/
 import type { BlockTextureDef } from '../block/block-constants'
 import {
   Color3,
+  Material,
   Matrix,
   MeshBuilder,
   StandardMaterial,
@@ -180,6 +181,15 @@ export function createVoxelRenderer(scene: Scene, worldState: Uint8Array): Voxel
         scene,
         textureDef.tint,
       )
+
+      /** 透明方塊處理 */
+      if (blockDef.alpha !== undefined && blockDef.alpha < 1) {
+        material.alpha = blockDef.alpha
+        material.transparencyMode = Material.MATERIAL_ALPHABLEND
+        material.backFaceCulling = true
+        material.needDepthPrePass = true
+      }
+
       const mesh = MeshBuilder.CreateBox(`block_${blockId}`, { size: 1 }, scene)
       mesh.material = material
       mesh.isVisible = false

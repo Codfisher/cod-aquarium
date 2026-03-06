@@ -1,5 +1,6 @@
 import { fbm2D, fbm3D } from '../../utils/noise'
 import { BlockId } from '../block/block-constants'
+import { placeHouse } from './house-generator'
 import { placeTree } from './tree-generator'
 import { coordinateToIndex, WORLD_HEIGHT, WORLD_SIZE, WORLD_VOLUME } from './world-constants'
 
@@ -84,10 +85,16 @@ export function generateTerrain(state: Uint8Array): void {
 
       // 樹木生成（避開沙坑、峽谷與太深的地方）
       const surfaceY = clampedHeight - 1
-      if (!isSandPit && !isCanyon && state[coordinateToIndex(x, surfaceY, z)] === BlockId.GRASS && Math.random() < 0.008) {
+      if (!isSandPit && !isCanyon && state[coordinateToIndex(x, surfaceY, z)] === BlockId.GRASS) {
         const margin = 3
         if (x > margin && x < WORLD_SIZE - margin && z > margin && z < WORLD_SIZE - margin && surfaceY + 8 < WORLD_HEIGHT) {
-          placeTree(state, x, surfaceY, z)
+          const rand = Math.random()
+          if (rand < 0.008) {
+            placeTree(state, x, surfaceY, z)
+          }
+          else if (rand < 0.0095) {
+            placeHouse(state, x, surfaceY, z)
+          }
         }
       }
     }

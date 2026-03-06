@@ -45,6 +45,8 @@ export interface BlockDef {
   isDroppable?: boolean;
   /** 是否隱藏（例如：空氣） */
   isHidden?: boolean;
+  /** 透明度，0~1，預設為 1（不透明） */
+  alpha?: number;
 }
 
 /** 所有方塊的詳細定義 */
@@ -100,6 +102,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
   },
   [BlockId.GLASS]: {
     miningSeconds: 0.3,
+    alpha: 0.5,
     textures: {
       all: `${TEXTURE_BASE}/glass.png`,
     },
