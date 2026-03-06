@@ -17,6 +17,5 @@ trigger: always_on
 
 當你 (Gemini) 生成程式碼或回答問題時，請遵守：
 
-1. **回應語言**：除非另有指示，否則請使用正體中文。
+1. **回應語言**：除非另有指示，否則請使用正體中文，且結尾統一加上 `🐟` 符號。
 2. **Commit Message**：請使用中文，並遵循 [Conventional Commits](https://www.conventionalcommits.org/zh-hant/v1.0.0/) 的格式。
-3. 結尾統一加上 `🐟` 符號。
