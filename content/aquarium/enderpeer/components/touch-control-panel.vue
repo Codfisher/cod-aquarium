@@ -21,7 +21,7 @@
     <div class="top-left-group space-y-4">
       <!-- 傳送按鈕 -->
       <button
-        class="control-button teleport-button"
+        class="control-button"
         @touchstart.prevent="setTeleport(true)"
         @touchend.prevent="setTeleport(false)"
         @touchcancel.prevent="setTeleport(false)"
@@ -34,7 +34,7 @@
 
       <!-- 動作按鈕（挖掘/放置） -->
       <button
-        class="control-button action-button"
+        class="control-button size-18!"
         @touchstart.prevent="setAction(true)"
         @touchend.prevent="setAction(false)"
         @touchcancel.prevent="setAction(false)"
@@ -55,7 +55,7 @@
     <!-- 右上角按鈕 (選單) -->
     <div class="top-right-group">
       <button
-        class="control-button menu-button"
+        class="control-button"
         @click="emit('menu')"
       >
         <u-icon
@@ -69,14 +69,14 @@
     <div class="button-group-right">
       <!-- 跳躍按鈕 -->
       <button
-        class="control-button jump-button"
+        class="control-button size-20!"
         @touchstart.prevent="setJump(true)"
         @touchend.prevent="setJump(false)"
         @touchcancel.prevent="setJump(false)"
       >
         <u-icon
           name="i-pixelarticons:arrow-up"
-          class="text-4xl"
+          class="text-5xl"
         />
       </button>
     </div>
@@ -213,9 +213,4 @@ function setTeleport(pressed: boolean) {
 .action-button
   width: 64px
   height: 64px
-
-  .i-material-symbols-inventory-2,
-  .i-material-symbols-mining
-    width: 28px
-    height: 28px
 </style>
