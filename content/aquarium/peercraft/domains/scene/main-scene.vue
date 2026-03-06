@@ -69,6 +69,7 @@ import type { Mesh, Scene, UniversalCamera } from '@babylonjs/core'
 import type { VoxelRenderer } from '../renderer/voxel-renderer'
 import type { SandFall } from '../world/world-state'
 import { Material, MeshBuilder, TransformNode, Vector3 } from '@babylonjs/core'
+import { useEventListener } from '@vueuse/core'
 import { animate } from 'animejs'
 import { ref, watch } from 'vue'
 import PauseMenu from '../../components/pause-menu.vue'
@@ -402,7 +403,7 @@ function startGame(sceneInstance: Scene, cameraInstance: UniversalCamera, canvas
   })
 
   /** 滑鼠互動 */
-  canvas.addEventListener('mousedown', (event) => {
+  useEventListener(canvas, 'mousedown', (event) => {
     if (document.pointerLockElement !== canvas)
       return
 
@@ -448,7 +449,7 @@ function startGame(sceneInstance: Scene, cameraInstance: UniversalCamera, canvas
     }
   })
 
-  canvas.addEventListener('mouseup', (event) => {
+  useEventListener(canvas, 'mouseup', (event) => {
     if (event.button === 2 && rightClickStartTime.value !== null) {
       const duration = performance.now() - rightClickStartTime.value
       rightClickStartTime.value = null
@@ -608,7 +609,7 @@ function disconnect() {
   position: absolute
   inset: 0
   pointer-events: none
-  background: radial-gradient(ellipse at center, transparent 40%, rgba(0, 0, 0, 1) 100%)
+  background: radial-gradient(ellipse at center, transparent 40%, rgba(0, 0, 0, 0.9) 100%)
   transition: opacity 0.1s linear
 
 .teleport-charge-outer

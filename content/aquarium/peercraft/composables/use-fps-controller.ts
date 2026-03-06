@@ -1,5 +1,6 @@
 import type { Scene, UniversalCamera } from '@babylonjs/core'
 import { Vector3 } from '@babylonjs/core'
+import { useEventListener } from '@vueuse/core'
 import { random } from 'lodash-es'
 import { onBeforeUnmount, ref } from 'vue'
 import { BLOCK_DEFS } from '../domains/block/block-constants'
@@ -139,8 +140,8 @@ export function useFpsController() {
       }
     }
 
-    window.addEventListener('keydown', handleKeyDown)
-    window.addEventListener('keyup', handleKeyUp)
+    const cleanupKeyDown = useEventListener(window, 'keydown', handleKeyDown)
+    const cleanupKeyUp = useEventListener(window, 'keyup', handleKeyUp)
 
     /** Pointer Lock：點擊 canvas 鎖定滑鼠 (如果沒在暫停選單) */
     function handleCanvasClick() {
@@ -148,13 +149,13 @@ export function useFpsController() {
         canvas.requestPointerLock()
       }
     }
-    canvas.addEventListener('click', handleCanvasClick)
+    const cleanupCanvasClick = useEventListener(canvas, 'click', handleCanvasClick)
 
     /** 監聽 ESC / 離開 Pointer Lock */
     function handlePointerLockChange() {
       isPaused.value = document.pointerLockElement !== canvas
     }
-    document.addEventListener('pointerlockchange', handlePointerLockChange)
+    const cleanupPointerLock = useEventListener(document, 'pointerlockchange', handlePointerLockChange)
 
     /** 每幀更新 */
     const observer = scene.onBeforeRenderObservable.add(() => {
@@ -241,10 +242,10 @@ export function useFpsController() {
     })
 
     cleanup = () => {
-      window.removeEventListener('keydown', handleKeyDown)
-      window.removeEventListener('keyup', handleKeyUp)
-      canvas.removeEventListener('click', handleCanvasClick)
-      document.removeEventListener('pointerlockchange', handlePointerLockChange)
+      cleanupKeyDown()
+      cleanupKeyUp()
+      cleanupCanvasClick()
+      cleanupPointerLock()
       scene.onBeforeRenderObservable.remove(observer)
 
       if (document.pointerLockElement === canvas) {

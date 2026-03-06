@@ -2,7 +2,7 @@ import type { Mesh, Scene, UniversalCamera } from '@babylonjs/core'
 import type { BlockId } from '../block/block-constants'
 import type { RaycastHit } from './block-interaction'
 import { Color3, Color4, MeshBuilder, ParticleSystem, StandardMaterial, Texture, Vector3 } from '@babylonjs/core'
-import { tryOnScopeDispose } from '@vueuse/core'
+import { tryOnScopeDispose, useEventListener } from '@vueuse/core'
 import { ref } from 'vue'
 import { BLOCK_DEFS } from '../block/block-constants'
 import { castBlockRay, digBlock } from './block-interaction'
@@ -202,8 +202,8 @@ export function useBlockMiner() {
       }
     }
 
-    canvas.addEventListener('mousedown', handleMouseDown)
-    window.addEventListener('mouseup', handleMouseUp)
+    const cleanupMouseDown = useEventListener(canvas, 'mousedown', handleMouseDown)
+    const cleanupMouseUp = useEventListener(window, 'mouseup', handleMouseUp)
 
     // ── 破壞裂痕材質列表 (0~9 階段) ──
 
@@ -322,8 +322,8 @@ export function useBlockMiner() {
     })
 
     cleanup = () => {
-      canvas.removeEventListener('mousedown', handleMouseDown)
-      window.removeEventListener('mouseup', handleMouseUp)
+      cleanupMouseDown()
+      cleanupMouseUp()
       scene.onBeforeRenderObservable.remove(observer)
     }
   }
