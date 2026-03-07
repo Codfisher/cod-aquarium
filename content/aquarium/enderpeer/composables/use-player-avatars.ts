@@ -385,6 +385,9 @@ function createNameTag(peerId: string, name: string, scene: Scene): { mesh: Mesh
   // 名字標籤不需要陰影
   plane.receiveShadows = false
 
+  // 讓名牌永遠面朝相機（全軸 Billboard）
+  plane.billboardMode = TransformNode.BILLBOARDMODE_ALL
+
   return { mesh: plane, texture: dynamicTexture }
 }
 
@@ -463,14 +466,13 @@ export function usePlayerAvatars() {
 
         state.lastPosition.copyFrom(currentPos)
 
-        // 名稱標籤看著相機 (Billboard)
+        // 名稱標籤位置追蹤（朝向由 billboardMode 自動處理）
         if (entry.nameTag) {
           entry.nameTag.mesh.position.set(
             root.position.x,
             root.position.y + 1.0,
             root.position.z,
           )
-          entry.nameTag.mesh.lookAt(sceneRef!.activeCamera!.globalPosition, Math.PI, 0, 0)
         }
       }
     })
