@@ -137,7 +137,7 @@ let handMeshes: Mesh[] = []
 let hasStarted = false
 
 /** 玩家姓名持久化 */
-const LOCAL_STORAGE_PLAYER_NAME = 'enderpeer_player_name'
+const LOCAL_STORAGE_PLAYER_NAME = 'enderbox_player_name'
 const playerName = ref(localStorage.getItem(LOCAL_STORAGE_PLAYER_NAME) || `Ender_${Math.floor(Math.random() * 1000)}`)
 
 watch(playerName, (newName) => {

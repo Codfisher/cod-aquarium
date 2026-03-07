@@ -27,8 +27,8 @@ export interface UsePeerNetworkParams {
 }
 
 export const FIXED_ROOM_ID = import.meta.env.PROD
-  ? `enderpeer-fixed-room-${version}`
-  : 'enderpeer-fixed-room-dev'
+  ? `enderbox-fixed-room-${version}`
+  : 'enderbox-fixed-room-dev'
 
 /**
  * 封裝 PeerJS 的 P2P 網路邏輯
