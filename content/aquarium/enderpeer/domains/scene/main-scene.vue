@@ -99,6 +99,8 @@ import { castBlockRay, placeBlock, setBlock } from '../player/block-interaction'
 import { PLAYER_EYE_HEIGHT, PLAYER_HEIGHT } from '../player/collision'
 import { useBlockMiner } from '../player/use-block-miner'
 import { createPixelMaterial, createVoxelRenderer } from '../renderer/voxel-renderer'
+import { useChunkWorker } from '../world/use-chunk-worker'
+import { useTerrainWorker } from '../world/use-terrain-worker/use-terrain-worker'
 import {
   CHUNK_SIZE,
   CHUNKS_PER_AXIS,
@@ -106,7 +108,7 @@ import {
   getChunkIndex,
   worldToChunkCoordinate,
 } from '../world/world-constants'
-import { createWorldState, findSafeTeleportY, generateTerrain, simulateSandGravity } from '../world/world-state'
+import { createWorldState, findSafeTeleportY, simulateSandGravity } from '../world/world-state'
 
 const emit = defineEmits<{
   ready: [];
@@ -267,12 +269,14 @@ const {
   sendPlayerNameToHost,
   sendPlayerNameToClient,
 } = usePeerNetwork({
-  onConnected: () => {
+  onConnected: async () => {
     if (currentRole.value === NetworkRole.HOST) {
       /** Host 負責生成世界，如果已經啟動過地圖（如斷線重連轉 Host），則不再重新生成 */
       if (!hasStarted) {
-        generateTerrain(worldState)
-        simulateSandGravity(worldState) // 初始地形不需動畫，直接結算
+        const { generate, terminate: terminateTerrainWorker } = useTerrainWorker()
+        const result = await generate()
+        worldState.set(result.worldState)
+        terminateTerrainWorker()
         startGame(scene.value!, camera.value!, canvasRef.value!)
       }
       else {
@@ -379,8 +383,9 @@ function startGame(sceneInstance: Scene, cameraInstance: UniversalCamera, canvas
     }
   })
 
-  /** 渲染體素 */
-  renderer = createVoxelRenderer(sceneInstance, worldState)
+  /** 渲染體素（使用 Worker 計算 chunk 矩陣） */
+  const chunkWorker = useChunkWorker()
+  renderer = createVoxelRenderer(sceneInstance, worldState, chunkWorker)
 
   /** 手機模式：設定觸控監聽 */
   if (mobileController.isMobile) {
