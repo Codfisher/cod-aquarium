@@ -122,9 +122,16 @@ export function placeCottage(state: Uint8Array, x: number, sy: number, z: number
   forceSet(state, x2 - 1, floorY + 1, z1 + 1, BlockId.CRAFTING_TABLE)
   forceSet(state, x2 - 1, floorY + 1, z2 - 1, BlockId.FURNACE)
 
+  // 背面窗戶
+  forceSet(state, x, floorY + 2, z1, BlockId.GLASS)
+
   // 外部裝飾：門旁木桶、屋側乾草堆
   forceSet(state, x + 1, floorY + 1, z2, BlockId.BARREL)
   forceSet(state, x1 - 1, floorY + 1, z1, BlockId.HAY_BLOCK)
+
+  // 煙囪（鵝卵石，屋頂角落延伸 2 格）
+  forceSet(state, x2, floorY + 5, z1, BlockId.COBBLESTONE)
+  forceSet(state, x2, floorY + 6, z1, BlockId.COBBLESTONE)
 }
 
 /**
@@ -195,6 +202,13 @@ export function placeBrickHouse(state: Uint8Array, x: number, sy: number, z: num
   forceSet(state, x2, floorY + 1, z1, BlockId.CHISELED_STONE_BRICKS)
   forceSet(state, x1, floorY + 1, z2, BlockId.CHISELED_STONE_BRICKS)
   forceSet(state, x2, floorY + 1, z2, BlockId.CHISELED_STONE_BRICKS)
+
+  // 煙囪（磚塊，屋頂角落延伸 2 格）
+  forceSet(state, x1, floorY + 6, z1, BlockId.BRICKS)
+  forceSet(state, x1, floorY + 7, z1, BlockId.BRICKS)
+
+  // 門前台階（鵝卵石）
+  forceSet(state, x, floorY, z2 + 1, BlockId.COBBLESTONE)
 }
 
 /**
@@ -304,8 +318,152 @@ export function placeWell(state: Uint8Array, x: number, sy: number, z: number) {
   // 屋頂（雲杉木板，5×5）
   fillBox(state, x - 2, floorY + 4, z - 2, x + 2, floorY + 4, z + 2, BlockId.SPRUCE_PLANKS)
 
-  // 井旁裝飾：木桶
+  // 井旁裝飾：木桶 + 工作台
   forceSet(state, x + 2, floorY + 1, z, BlockId.BARREL)
+  forceSet(state, x - 2, floorY + 1, z, BlockId.CRAFTING_TABLE)
+
+  // 圍牆四角加苔鵝卵石裝飾
+  forceSet(state, x - 1, floorY, z - 1, BlockId.MOSSY_COBBLESTONE)
+  forceSet(state, x + 1, floorY, z - 1, BlockId.MOSSY_COBBLESTONE)
+  forceSet(state, x - 1, floorY, z + 1, BlockId.MOSSY_COBBLESTONE)
+  forceSet(state, x + 1, floorY, z + 1, BlockId.MOSSY_COBBLESTONE)
+}
+
+/**
+ * 路燈：深色橡木原木柱 4 格高，頂部玻璃燈籠
+ */
+export function placeStreetLamp(state: Uint8Array, x: number, sy: number, z: number) {
+  const floorY = sy + 1
+
+  // 底座（鵝卵石）
+  forceSet(state, x, floorY, z, BlockId.COBBLESTONE)
+
+  // 柱子（深色橡木原木，3 格高）
+  for (let dy = 1; dy <= 3; dy++) {
+    forceSet(state, x, floorY + dy, z, BlockId.DARK_OAK_LOG)
+  }
+
+  // 燈籠頂部（玻璃 + 四角石磚裝飾）
+  forceSet(state, x, floorY + 4, z, BlockId.GLASS)
+  forceSet(state, x - 1, floorY + 4, z, BlockId.STONE_BRICKS)
+  forceSet(state, x + 1, floorY + 4, z, BlockId.STONE_BRICKS)
+  forceSet(state, x, floorY + 4, z - 1, BlockId.STONE_BRICKS)
+  forceSet(state, x, floorY + 4, z + 1, BlockId.STONE_BRICKS)
+
+  // 尖頂
+  forceSet(state, x, floorY + 5, z, BlockId.STONE_BRICKS)
+}
+
+/**
+ * 廢墟：3×3~5×5 隨機殘破石磚牆壁，苔石地板
+ * 模擬被遺棄的古代建築遺跡
+ */
+export function placeRuin(state: Uint8Array, x: number, sy: number, z: number) {
+  const floorY = sy + 1
+  const halfSize = Math.random() < 0.5 ? 1 : 2
+  const x1 = x - halfSize
+  const x2 = x + halfSize
+  const z1 = z - halfSize
+  const z2 = z + halfSize
+
+  // 苔石地板
+  fillBox(state, x1, floorY, z1, x2, floorY, z2, BlockId.MOSSY_COBBLESTONE)
+  fillFoundation(state, x1, z1, x2, z2, floorY - 1, BlockId.COBBLESTONE)
+
+  // 殘破牆壁（隨機高度 1~3 格，隨機缺口）
+  for (let bx = x1; bx <= x2; bx++) {
+    for (let bz = z1; bz <= z2; bz++) {
+      if (bx === x1 || bx === x2 || bz === z1 || bz === z2) {
+        if (Math.random() < 0.3)
+          continue // 30% 機率缺口
+        const wallHeight = 1 + Math.floor(Math.random() * 3)
+        for (let dy = 1; dy <= wallHeight; dy++) {
+          const wallRoll = Math.random()
+          let wallBlock: BlockId
+          if (wallRoll < 0.4) {
+            wallBlock = BlockId.MOSSY_STONE_BRICKS
+          }
+          else if (wallRoll < 0.7) {
+            wallBlock = BlockId.CRACKED_STONE_BRICKS
+          }
+          else {
+            wallBlock = BlockId.STONE_BRICKS
+          }
+          forceSet(state, bx, floorY + dy, bz, wallBlock)
+        }
+      }
+    }
+  }
+
+  // 角落隨機放置藤蔓般的苔石
+  if (Math.random() < 0.5) {
+    forceSet(state, x1, floorY + 1, z1, BlockId.MOSSY_COBBLESTONE)
+  }
+  if (Math.random() < 0.5) {
+    forceSet(state, x2, floorY + 1, z2, BlockId.MOSSY_COBBLESTONE)
+  }
+}
+
+/**
+ * 農田棚：3×2 小木棚，旁邊堆放乾草堆
+ */
+export function placeFarmShed(state: Uint8Array, x: number, sy: number, z: number) {
+  const floorY = sy + 1
+
+  // 地板（雲杉木板）
+  fillBox(state, x - 1, floorY, z, x + 1, floorY, z + 1, BlockId.SPRUCE_PLANKS)
+
+  // 後牆（橡木板，2 格高）
+  for (let dx = -1; dx <= 1; dx++) {
+    forceSet(state, x + dx, floorY + 1, z, BlockId.WOOD)
+    forceSet(state, x + dx, floorY + 2, z, BlockId.WOOD)
+  }
+
+  // 兩側柱子（橡木原木）
+  forceSet(state, x - 1, floorY + 1, z + 1, BlockId.OAK_LOG)
+  forceSet(state, x + 1, floorY + 1, z + 1, BlockId.OAK_LOG)
+
+  // 屋頂（雲杉木板，向前延伸）
+  fillBox(state, x - 1, floorY + 3, z - 1, x + 1, floorY + 3, z + 1, BlockId.SPRUCE_PLANKS)
+
+  // 棚內裝飾：木桶 + 工作台
+  forceSet(state, x - 1, floorY + 1, z, BlockId.BARREL)
+  forceSet(state, x + 1, floorY + 1, z, BlockId.CRAFTING_TABLE)
+
+  // 旁邊乾草堆（1~2 格高）
+  forceSet(state, x - 2, floorY + 1, z, BlockId.HAY_BLOCK)
+  forceSet(state, x - 2, floorY + 1, z + 1, BlockId.HAY_BLOCK)
+  if (Math.random() < 0.5) {
+    forceSet(state, x - 2, floorY + 2, z, BlockId.HAY_BLOCK)
+  }
+}
+
+/**
+ * 石碑：鑿石磚紀念碑，底座石磚，帶裝飾
+ */
+export function placeMonument(state: Uint8Array, x: number, sy: number, z: number) {
+  const floorY = sy + 1
+
+  // 底座（石磚 3×3）
+  fillBox(state, x - 1, floorY, z - 1, x + 1, floorY, z + 1, BlockId.STONE_BRICKS)
+
+  // 中央柱（鑿石磚，3 格高）
+  for (let dy = 1; dy <= 3; dy++) {
+    forceSet(state, x, floorY + dy, z, BlockId.CHISELED_STONE_BRICKS)
+  }
+
+  // 頂冠（石磚十字）
+  forceSet(state, x, floorY + 4, z, BlockId.STONE_BRICKS)
+  forceSet(state, x - 1, floorY + 3, z, BlockId.STONE_BRICKS)
+  forceSet(state, x + 1, floorY + 3, z, BlockId.STONE_BRICKS)
+  forceSet(state, x, floorY + 3, z - 1, BlockId.STONE_BRICKS)
+  forceSet(state, x, floorY + 3, z + 1, BlockId.STONE_BRICKS)
+
+  // 底座四角裝飾（苔鵝卵石）
+  forceSet(state, x - 1, floorY + 1, z - 1, BlockId.MOSSY_COBBLESTONE)
+  forceSet(state, x + 1, floorY + 1, z - 1, BlockId.MOSSY_COBBLESTONE)
+  forceSet(state, x - 1, floorY + 1, z + 1, BlockId.MOSSY_COBBLESTONE)
+  forceSet(state, x + 1, floorY + 1, z + 1, BlockId.MOSSY_COBBLESTONE)
 }
 
 /** 建築所需的最大半徑（用於邊界檢查） */
@@ -326,20 +484,36 @@ export function placeBuilding(state: Uint8Array, x: number, surfaceY: number, z:
   }
 
   const variant = Math.random()
-  if (variant < 0.3) {
+  if (variant < 0.15) {
     placeCottage(state, x, surfaceY, z)
     return 'cottage'
   }
-  else if (variant < 0.55) {
+  else if (variant < 0.28) {
     placeBrickHouse(state, x, surfaceY, z)
     return 'brick_house'
   }
-  else if (variant < 0.75) {
+  else if (variant < 0.38) {
     placeWatchtower(state, x, surfaceY, z)
     return 'watchtower'
   }
-  else {
+  else if (variant < 0.48) {
     placeWell(state, x, surfaceY, z)
     return 'well'
+  }
+  else if (variant < 0.63) {
+    placeStreetLamp(state, x, surfaceY, z)
+    return 'street_lamp'
+  }
+  else if (variant < 0.76) {
+    placeRuin(state, x, surfaceY, z)
+    return 'ruin'
+  }
+  else if (variant < 0.88) {
+    placeFarmShed(state, x, surfaceY, z)
+    return 'farm_shed'
+  }
+  else {
+    placeMonument(state, x, surfaceY, z)
+    return 'monument'
   }
 }

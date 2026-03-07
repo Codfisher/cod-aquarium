@@ -1,7 +1,7 @@
 import { fbm2D } from '../../utils/noise'
 import { BlockId } from '../block/block-constants'
 import { checkOverlap } from '../player/collision'
-import { placeBrickHouse, placeBuilding, placeCottage, placeWatchtower, placeWell } from './building-generator'
+import { placeBrickHouse, placeBuilding, placeCottage, placeFarmShed, placeMonument, placeRuin, placeStreetLamp, placeWatchtower, placeWell } from './building-generator'
 import { generateCaves } from './cave-generator'
 import { placeTree } from './tree-generator'
 import { generateUndergroundStructures } from './underground-structure-generator'
@@ -110,7 +110,7 @@ export function generateTerrain(state: Uint8Array): void {
   }
 
   // 強制產生缺失的建築物
-  const allBuildingTypes = ['cottage', 'brick_house', 'watchtower', 'well'] as const
+  const allBuildingTypes = ['cottage', 'brick_house', 'watchtower', 'well', 'street_lamp', 'ruin', 'farm_shed', 'monument'] as const
   for (const type of allBuildingTypes) {
     if (!placedBuildings.has(type) && potentialBuildingLocations.length > 0) {
       // 隨機選一個候選地點 (簡單起見就不做重疊檢查了，反正機率不高)
@@ -128,6 +128,14 @@ export function generateTerrain(state: Uint8Array): void {
         placeWatchtower(state, x, y, z)
       else if (type === 'well')
         placeWell(state, x, y, z)
+      else if (type === 'street_lamp')
+        placeStreetLamp(state, x, y, z)
+      else if (type === 'ruin')
+        placeRuin(state, x, y, z)
+      else if (type === 'farm_shed')
+        placeFarmShed(state, x, y, z)
+      else if (type === 'monument')
+        placeMonument(state, x, y, z)
 
       placedBuildings.add(type)
     }
