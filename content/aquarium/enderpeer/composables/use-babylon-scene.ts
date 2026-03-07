@@ -1,8 +1,12 @@
+import type {
+  AbstractEngine,
+} from '@babylonjs/core'
 import {
   Color3,
   Color4,
   DirectionalLight,
   Engine,
+  EngineFactory,
   HemisphericLight,
   Scene,
   ShadowGenerator,
@@ -15,17 +19,15 @@ import { defaults } from 'lodash-es'
 import { onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
 import { WORLD_SIZE } from '../domains/world/world-constants'
 
-type BabylonEngine = Engine | WebGPUEngine
-
 export interface InitParams {
   canvas: HTMLCanvasElement;
-  engine: BabylonEngine;
+  engine: AbstractEngine;
   scene: Scene;
   camera: UniversalCamera;
 }
 
 interface UseBabylonSceneParam {
-  createEngine?: (param: Omit<InitParams, 'camera' | 'scene' | 'engine'>) => Promise<BabylonEngine>;
+  createEngine?: (param: Omit<InitParams, 'camera' | 'scene' | 'engine'>) => Promise<AbstractEngine>;
   createScene?: (param: Omit<InitParams, 'camera' | 'scene'>) => Scene;
   createCamera?: (param: Omit<InitParams, 'camera'>) => UniversalCamera;
   init?: (param: InitParams) => Promise<void>;
@@ -35,18 +37,7 @@ export const SUN_LIGHT_NAME = 'sun-directional'
 
 const defaultParam: Required<UseBabylonSceneParam> = {
   async createEngine({ canvas }) {
-    const webGPUSupported = await WebGPUEngine.IsSupportedAsync
-    if (webGPUSupported) {
-      const engine = new WebGPUEngine(canvas, {
-        antialias: true,
-        stencil: true,
-      })
-      await engine.initAsync()
-
-      return engine
-    }
-
-    return new Engine(canvas, true, {
+    return EngineFactory.CreateAsync(canvas, {
       antialias: true,
       alpha: false,
       stencil: true,
@@ -138,7 +129,7 @@ const defaultParam: Required<UseBabylonSceneParam> = {
 export function useBabylonScene(param?: UseBabylonSceneParam) {
   const canvasRef = ref<HTMLCanvasElement>()
 
-  const engine = shallowRef<BabylonEngine>()
+  const engine = shallowRef<AbstractEngine>()
   const scene = shallowRef<Scene>()
   const camera = shallowRef<UniversalCamera>()
 
