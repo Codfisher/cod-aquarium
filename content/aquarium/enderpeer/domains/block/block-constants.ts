@@ -23,6 +23,10 @@ export enum BlockId {
   MOSSY_COBBLESTONE,
   CHISELED_STONE_BRICKS,
   HAY_BLOCK,
+  COAL_ORE,
+  IRON_ORE,
+  MOSSY_STONE_BRICKS,
+  CRACKED_STONE_BRICKS,
 }
 
 /** 材質路徑前綴 */
@@ -216,6 +220,30 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
       top: `${TEXTURE_BASE}/hay_block_top.png`,
       bottom: `${TEXTURE_BASE}/hay_block_top.png`,
       side: `${TEXTURE_BASE}/hay_block_side.png`,
+    },
+  },
+  [BlockId.COAL_ORE]: {
+    miningSeconds: 0.5,
+    textures: {
+      all: `${TEXTURE_BASE}/coal_ore.png`,
+    },
+  },
+  [BlockId.IRON_ORE]: {
+    miningSeconds: 0.6,
+    textures: {
+      all: `${TEXTURE_BASE}/iron_ore.png`,
+    },
+  },
+  [BlockId.MOSSY_STONE_BRICKS]: {
+    miningSeconds: 0.5,
+    textures: {
+      all: `${TEXTURE_BASE}/mossy_stone_bricks.png`,
+    },
+  },
+  [BlockId.CRACKED_STONE_BRICKS]: {
+    miningSeconds: 0.5,
+    textures: {
+      all: `${TEXTURE_BASE}/cracked_stone_bricks.png`,
     },
   },
 }

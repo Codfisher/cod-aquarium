@@ -4,6 +4,7 @@ import { checkOverlap } from '../player/collision'
 import { placeBrickHouse, placeBuilding, placeCottage, placeWatchtower, placeWell } from './building-generator'
 import { generateCaves } from './cave-generator'
 import { placeTree } from './tree-generator'
+import { generateUndergroundStructures } from './underground-structure-generator'
 import { coordinateToIndex, WORLD_HEIGHT, WORLD_SIZE, WORLD_VOLUME } from './world-constants'
 
 /**
@@ -132,7 +133,10 @@ export function generateTerrain(state: Uint8Array): void {
     }
   }
 
-  // 第二階段：洞穴生成（挖掘、天花板、加寬、斜坡、地板平坦化）
+  // 第二階段：地下結構（在洞穴挖掘前放置，確保區域為實心）
+  generateUndergroundStructures(state, heightMap)
+
+  // 第三階段：洞穴生成（挖掘、天花板、加寬、斜坡、地板平坦化）
   generateCaves(state, heightMap)
 }
 
