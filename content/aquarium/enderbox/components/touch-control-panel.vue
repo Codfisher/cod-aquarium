@@ -27,7 +27,7 @@
         @touchcancel.prevent="setTeleport(false)"
       >
         <u-icon
-          name="i-pixelarticons:gps"
+          name="i-pixelarticons:loader"
           class="text-3xl"
         />
       </button>
@@ -41,12 +41,12 @@
       >
         <u-icon
           v-if="hasBlock"
-          name="i-pixelarticons:corner-right-down"
+          name="i-pixelarticons:download"
           class="text-4xl"
         />
         <u-icon
           v-else
-          name="i-pixelarticons:corner-right-up"
+          name="i-pixelarticons:drop-area"
           class="text-4xl"
         />
       </button>
