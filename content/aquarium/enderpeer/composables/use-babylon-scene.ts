@@ -37,23 +37,23 @@ const defaultParam: Required<UseBabylonSceneParam> = {
   async createEngine({ canvas }) {
     const isMobile = useMediaQuery('(pointer: coarse)')
 
-    // if (!isMobile.value) {
-    try {
-      const webGPUSupported = await WebGPUEngine.IsSupportedAsync
-      if (webGPUSupported) {
-        const engine = new WebGPUEngine(canvas, {
-          antialias: false,
-          stencil: false,
-        })
-        await engine.initAsync()
+    if (!isMobile.value) {
+      try {
+        const webGPUSupported = await WebGPUEngine.IsSupportedAsync
+        if (webGPUSupported) {
+          const engine = new WebGPUEngine(canvas, {
+            antialias: false,
+            stencil: false,
+          })
+          await engine.initAsync()
 
-        return engine
+          return engine
+        }
+      }
+      catch (error) {
+        console.warn('WebGPU 初始化失敗，準備降級至 WebGL：', error)
       }
     }
-    catch (error) {
-      console.warn('WebGPU 初始化失敗，準備降級至 WebGL：', error)
-    }
-    // }
 
     return new Engine(canvas, true, {
       antialias: false,
