@@ -1,6 +1,3 @@
-import type {
-  WebGPUEngine,
-} from '@babylonjs/core'
 import {
   Color3,
   Color4,
@@ -11,8 +8,9 @@ import {
   ShadowGenerator,
   UniversalCamera,
   Vector3,
+  WebGPUEngine,
 } from '@babylonjs/core'
-import { useEventListener } from '@vueuse/core'
+import { useEventListener, useMediaQuery } from '@vueuse/core'
 import { defaults } from 'lodash-es'
 import { onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
 import { WORLD_SIZE } from '../domains/world/world-constants'
@@ -37,22 +35,26 @@ export const SUN_LIGHT_NAME = 'sun-directional'
 
 const defaultParam: Required<UseBabylonSceneParam> = {
   async createEngine({ canvas }) {
-    // FIX: 不知為甚麼手機都會出現網頁異常，先關閉 WebGPU
-    // try {
-    //   const webGPUSupported = await WebGPUEngine.IsSupportedAsync
-    //   if (webGPUSupported) {
-    //     const engine = new WebGPUEngine(canvas, {
-    //       antialias: false,
-    //       stencil: false,
-    //     })
-    //     await engine.initAsync()
+    const isMobile = useMediaQuery('(pointer: coarse)')
 
-    //     return engine
-    //   }
-    // }
-    // catch (error) {
-    //   console.warn('WebGPU 初始化失敗，準備降級至 WebGL：', error)
-    // }
+    // 不知為甚麼手機都會出現網頁異常
+    if (!isMobile.value) {
+      try {
+        const webGPUSupported = await WebGPUEngine.IsSupportedAsync
+        if (webGPUSupported) {
+          const engine = new WebGPUEngine(canvas, {
+            antialias: false,
+            stencil: false,
+          })
+          await engine.initAsync()
+
+          return engine
+        }
+      }
+      catch (error) {
+        console.warn('WebGPU 初始化失敗，準備降級至 WebGL：', error)
+      }
+    }
 
     return new Engine(canvas, true, {
       antialias: false,
