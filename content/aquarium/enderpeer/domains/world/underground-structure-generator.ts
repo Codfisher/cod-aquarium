@@ -2,7 +2,7 @@ import { BlockId } from '../block/block-constants'
 import { coordinateToIndex, WORLD_HEIGHT, WORLD_SIZE } from './world-constants'
 
 /** 廢棄礦坑數量 */
-const MINESHAFT_COUNT = 20
+const MINESHAFT_COUNT = 50
 /** 礦坑走廊長度範圍 */
 const MINESHAFT_MIN_LENGTH = 8
 const MINESHAFT_MAX_LENGTH = 15
@@ -10,7 +10,7 @@ const MINESHAFT_MAX_LENGTH = 15
 const PILLAR_SPACING = 4
 
 /** 地牢房間數量 */
-const DUNGEON_COUNT = 20
+const DUNGEON_COUNT = 50
 /** 放置嘗試上限（避免無限迴圈） */
 const MAX_PLACEMENT_ATTEMPTS = 200
 
