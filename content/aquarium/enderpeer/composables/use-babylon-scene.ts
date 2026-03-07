@@ -37,24 +37,23 @@ const defaultParam: Required<UseBabylonSceneParam> = {
   async createEngine({ canvas }) {
     const isMobile = useMediaQuery('(pointer: coarse)')
 
-    // 不知為甚麼手機都會出現網頁異常
-    if (!isMobile.value) {
-      try {
-        const webGPUSupported = await WebGPUEngine.IsSupportedAsync
-        if (webGPUSupported) {
-          const engine = new WebGPUEngine(canvas, {
-            antialias: false,
-            stencil: false,
-          })
-          await engine.initAsync()
+    // if (!isMobile.value) {
+    try {
+      const webGPUSupported = await WebGPUEngine.IsSupportedAsync
+      if (webGPUSupported) {
+        const engine = new WebGPUEngine(canvas, {
+          antialias: false,
+          stencil: false,
+        })
+        await engine.initAsync()
 
-          return engine
-        }
-      }
-      catch (error) {
-        console.warn('WebGPU 初始化失敗，準備降級至 WebGL：', error)
+        return engine
       }
     }
+    catch (error) {
+      console.warn('WebGPU 初始化失敗，準備降級至 WebGL：', error)
+    }
+    // }
 
     return new Engine(canvas, true, {
       antialias: false,
@@ -100,11 +99,17 @@ const defaultParam: Required<UseBabylonSceneParam> = {
     sunLight.orthoBottom = -halfSize
     sunLight.autoCalcShadowZBounds = true
 
-    const sg = new ShadowGenerator(512, sunLight)
+    const isMobile = useMediaQuery('(pointer: coarse)')
+    const sg = new ShadowGenerator(isMobile.value ? 256 : 512, sunLight)
     sg.bias = 0.005
     sg.normalBias = 0.08
-    sg.usePercentageCloserFiltering = true
-    sg.filteringQuality = ShadowGenerator.QUALITY_MEDIUM
+    if (isMobile.value) {
+      sg.usePercentageCloserFiltering = false
+    }
+    else {
+      sg.usePercentageCloserFiltering = true
+      sg.filteringQuality = ShadowGenerator.QUALITY_MEDIUM
+    }
 
     scene.fogMode = Scene.FOGMODE_LINEAR
     scene.fogColor = new Color3(0.53, 0.74, 0.93)
@@ -167,8 +172,12 @@ export function useBabylonScene(param?: UseBabylonSceneParam) {
     engine.value = await createEngine({
       canvas: canvasRef.value,
     })
+
+    const isMobile = useMediaQuery('(pointer: coarse)')
     engine.value.setHardwareScalingLevel(
-      1 / (window?.devicePixelRatio ?? 1),
+      isMobile.value
+        ? Math.max(1, window?.devicePixelRatio ?? 1)
+        : 1 / (window?.devicePixelRatio ?? 1),
     )
 
     scene.value = createScene({
@@ -182,6 +191,10 @@ export function useBabylonScene(param?: UseBabylonSceneParam) {
     })
 
     useEventListener(window, 'resize', handleResize)
+    useEventListener(canvasRef, 'webglcontextlost', (event) => {
+      event.preventDefault()
+      console.error('[Babylon] WebGL context lost')
+    })
 
     engine.value.runRenderLoop(() => {
       scene.value?.render()
