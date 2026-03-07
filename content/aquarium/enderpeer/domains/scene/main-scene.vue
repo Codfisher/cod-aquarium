@@ -65,9 +65,22 @@
       @resume="fpsController.resume()"
     />
 
+    <!-- 初始化錯誤 -->
+    <div
+      v-if="initError"
+      class="absolute inset-0 bg-black/90 flex flex-col items-center justify-center text-white z-50 p-8"
+    >
+      <div class="text-xl font-bold mb-4 text-red-400">
+        初始化失敗
+      </div>
+      <div class="text-sm text-gray-300 break-all max-w-md text-center">
+        {{ initError }}
+      </div>
+    </div>
+
     <!-- 連線中/載入中遮罩 -->
     <div
-      v-if="!isReady && !fpsController.isPaused"
+      v-if="!isReady && !fpsController.isPaused && !initError"
       class="absolute inset-0 bg-black/80 flex flex-col items-center justify-center text-white z-50 backdrop-blur-sm"
     >
       <div class="text-2xl font-bold mb-4 animate-pulse">
@@ -244,7 +257,7 @@ const blockMiner = reactive(useBlockMiner())
 const playerAvatars = usePlayerAvatars()
 const soundManager = useSoundManager()
 
-const { canvasRef, scene, camera } = useBabylonScene({
+const { canvasRef, scene, camera, initError } = useBabylonScene({
   async init() {
     worldState = createWorldState()
   },

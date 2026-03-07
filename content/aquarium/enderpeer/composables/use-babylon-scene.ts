@@ -164,48 +164,58 @@ export function useBabylonScene(param?: UseBabylonSceneParam) {
     init,
   } = defaults(param, defaultParam)
 
+  const initError = ref<string>()
+
   onMounted(async () => {
-    if (!canvasRef.value) {
-      console.error('無法取得 canvas DOM')
-      return
+    try {
+      if (!canvasRef.value) {
+        console.error('無法取得 canvas DOM')
+        return
+      }
+      engine.value = await createEngine({
+        canvas: canvasRef.value,
+      })
+
+      const isMobile = useMediaQuery('(pointer: coarse)')
+      engine.value.setHardwareScalingLevel(
+        isMobile.value
+          ? Math.max(1, window?.devicePixelRatio ?? 1)
+          : 1 / (window?.devicePixelRatio ?? 1),
+      )
+
+      scene.value = createScene({
+        canvas: canvasRef.value,
+        engine: engine.value,
+      })
+      camera.value = createCamera({
+        canvas: canvasRef.value,
+        engine: engine.value,
+        scene: scene.value,
+      })
+
+      useEventListener(window, 'resize', handleResize)
+      useEventListener(canvasRef, 'webglcontextlost', (event) => {
+        event.preventDefault()
+        console.error('[Babylon] WebGL context lost')
+        initError.value = 'WebGL context lost'
+      })
+
+      engine.value.runRenderLoop(() => {
+        scene.value?.render()
+      })
+
+      await init({
+        canvas: canvasRef.value,
+        engine: engine.value,
+        scene: scene.value,
+        camera: camera.value,
+      })
     }
-    engine.value = await createEngine({
-      canvas: canvasRef.value,
-    })
-
-    const isMobile = useMediaQuery('(pointer: coarse)')
-    engine.value.setHardwareScalingLevel(
-      isMobile.value
-        ? Math.max(1, window?.devicePixelRatio ?? 1)
-        : 1 / (window?.devicePixelRatio ?? 1),
-    )
-
-    scene.value = createScene({
-      canvas: canvasRef.value,
-      engine: engine.value,
-    })
-    camera.value = createCamera({
-      canvas: canvasRef.value,
-      engine: engine.value,
-      scene: scene.value,
-    })
-
-    useEventListener(window, 'resize', handleResize)
-    useEventListener(canvasRef, 'webglcontextlost', (event) => {
-      event.preventDefault()
-      console.error('[Babylon] WebGL context lost')
-    })
-
-    engine.value.runRenderLoop(() => {
-      scene.value?.render()
-    })
-
-    await init({
-      canvas: canvasRef.value,
-      engine: engine.value,
-      scene: scene.value,
-      camera: camera.value,
-    })
+    catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      console.error('[Babylon] 初始化失敗:', error)
+      initError.value = message
+    }
   })
 
   onBeforeUnmount(() => {
@@ -222,5 +232,6 @@ export function useBabylonScene(param?: UseBabylonSceneParam) {
     engine,
     scene,
     camera,
+    initError,
   }
 }
