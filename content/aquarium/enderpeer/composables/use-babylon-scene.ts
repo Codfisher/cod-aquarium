@@ -155,6 +155,8 @@ const defaultParam: Required<UseBabylonSceneParam> = {
 }
 
 export function useBabylonScene(param?: UseBabylonSceneParam) {
+  const isMobile = useMediaQuery('(pointer: coarse)')
+
   const canvasRef = ref<HTMLCanvasElement>()
 
   const engine = shallowRef<BabylonEngine>()
@@ -179,7 +181,9 @@ export function useBabylonScene(param?: UseBabylonSceneParam) {
       engine.value = await createEngine({
         canvas: canvasRef.value,
       })
-      engine.value.setHardwareScalingLevel(1 / (window?.devicePixelRatio ?? 1))
+
+      const dpr = window?.devicePixelRatio ?? 1
+      engine.value.setHardwareScalingLevel(isMobile.value ? 3 / dpr : 1 / dpr)
 
       scene.value = createScene({
         canvas: canvasRef.value,
