@@ -37,6 +37,7 @@ const defaultParam: Required<UseBabylonSceneParam> = {
   async createEngine({ canvas }) {
     const isMobile = useMediaQuery('(pointer: coarse)')
 
+    // 不知道為甚麼手機使用 WebGPU 很容易當掉
     if (!isMobile.value) {
       try {
         const webGPUSupported = await WebGPUEngine.IsSupportedAsync
@@ -100,15 +101,18 @@ const defaultParam: Required<UseBabylonSceneParam> = {
     sunLight.autoCalcShadowZBounds = true
 
     const isMobile = useMediaQuery('(pointer: coarse)')
-    const sg = new ShadowGenerator(isMobile.value ? 256 : 512, sunLight)
-    sg.bias = 0.005
-    sg.normalBias = 0.08
+
+    const shadowGenerator = new ShadowGenerator(512, sunLight)
+    shadowGenerator.bias = 0.005
+    shadowGenerator.normalBias = 0.08
+
     if (isMobile.value) {
-      sg.usePercentageCloserFiltering = false
+      shadowGenerator.useBlurExponentialShadowMap = true
+      shadowGenerator.blurKernel = 32
     }
     else {
-      sg.usePercentageCloserFiltering = true
-      sg.filteringQuality = ShadowGenerator.QUALITY_MEDIUM
+      shadowGenerator.usePercentageCloserFiltering = true
+      shadowGenerator.filteringQuality = ShadowGenerator.QUALITY_MEDIUM
     }
 
     scene.fogMode = Scene.FOGMODE_LINEAR
@@ -175,13 +179,7 @@ export function useBabylonScene(param?: UseBabylonSceneParam) {
       engine.value = await createEngine({
         canvas: canvasRef.value,
       })
-
-      const isMobile = useMediaQuery('(pointer: coarse)')
-      engine.value.setHardwareScalingLevel(
-        isMobile.value
-          ? Math.max(1, window?.devicePixelRatio ?? 1)
-          : 1 / (window?.devicePixelRatio ?? 1),
-      )
+      engine.value.setHardwareScalingLevel(1 / (window?.devicePixelRatio ?? 1))
 
       scene.value = createScene({
         canvas: canvasRef.value,
