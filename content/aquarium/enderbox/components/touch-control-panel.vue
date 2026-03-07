@@ -17,7 +17,7 @@
       />
     </div>
 
-    <!-- 左上角按鈕群 (傳送、挖掘) -->
+    <!-- 左上角按鈕 -->
     <div class="top-left-group space-y-4">
       <!-- 傳送按鈕 -->
       <button
@@ -32,7 +32,7 @@
         />
       </button>
 
-      <!-- 動作按鈕（挖掘/放置） -->
+      <!-- 挖掘/放置 -->
       <button
         class="control-button size-18!"
         @touchstart.prevent="setAction(true)"
@@ -52,7 +52,7 @@
       </button>
     </div>
 
-    <!-- 右上角按鈕 (選單) -->
+    <!-- 右上角按鈕 -->
     <div class="top-right-group">
       <button
         class="control-button"
@@ -65,9 +65,9 @@
       </button>
     </div>
 
-    <!-- 右側按鈕群 -->
+    <!-- 右下角按鈕 -->
     <div class="button-group-right pr-16 pb-6">
-      <!-- 跳躍按鈕 -->
+      <!-- 跳躍 -->
       <button
         class="control-button size-20!"
         @touchstart.prevent="setJump(true)"
