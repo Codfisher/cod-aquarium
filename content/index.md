@@ -126,6 +126,18 @@ aside: false
   - [山居](https://codlin.me/aquarium/hexazen/?view=JhMW0wmKhYTE0MJkYGEyLDCYplhMUgwmTIYTGEuhk0GExiLEbxlnM6gzmNIdDKssJk4GExkLuZKh3MnS)
   - [平原河流](https://codlin.me/aquarium/hexazen/?view=JyMmw7mNYYjaoM5jSGcyiDOYwhnM2U6GSQZzFoMJiWWExMDCYmlhMVUzmbgZzN0s5jIHIzULkaxhhMkw)
 
+- [EnderPeer](/aquarium/enderpeer/){target="_blank" rel="noopener"}
+
+  我把 Minecraft 搬到網頁上惹！%੭ ˙ᗜ˙ )੭%
+
+  不過這次不是扮演史帝夫，而是終界使者，所以一次只能挖一個方塊，不過多了瞬間移動的能力喔！%ԅ(´∀` ԅ)%
+
+  Minecraft 是我大學的時候最愛的遊戲，當時還做了很多地圖檔分享，成為社畜後沒有時間可以玩了，頂多就是做點相關的[小廢物](https://chillcomponent.codlin.me/components/wrapper-minecraft-block/)紀念紀念
+
+  不過感覺還是少了點甚麼，現在透過 AI 加速開發，終於實現這個夢想了。%(´,,•ω•,,)%
+
+  基於 <a href="https://www.babylonjs.com/" target="_blank">babylon.js</a>、<a href="https://vuejs.org/" target="_blank">Vue</a> 與 <a href="https://ui.nuxt.com/" target="_blank">Nuxt UI</a> 開發，可以多人遊玩，手機也能玩喔！%(/≧▽≦)/%
+
 ---
 
 還會持續更新，敬請期待！◝(≧∀≦)◟
