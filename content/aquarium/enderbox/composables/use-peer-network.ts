@@ -27,7 +27,7 @@ export interface UsePeerNetworkParams {
 }
 
 export const FIXED_ROOM_ID = import.meta.env.PROD
-  ? `enderbox-fixed-room-${version}`
+  ? `enderbox-fixed-room-${version}`.replace(/\./g, '-')
   : 'enderbox-fixed-room-dev'
 
 /**
