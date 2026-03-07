@@ -256,6 +256,10 @@ export default ({ mode }: { mode: string }) => {
                 text: 'HexaZen',
                 link: '/aquarium/hexazen/',
               },
+              {
+                text: 'EnderPeer',
+                link: '/aquarium/enderpeer/',
+              },
             ],
           }),
         ],

@@ -1,12 +1,8 @@
-import type {
-  AbstractEngine,
-} from '@babylonjs/core'
 import {
   Color3,
   Color4,
   DirectionalLight,
   Engine,
-  EngineFactory,
   HemisphericLight,
   Scene,
   ShadowGenerator,
@@ -19,15 +15,17 @@ import { defaults } from 'lodash-es'
 import { onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
 import { WORLD_SIZE } from '../domains/world/world-constants'
 
+type BabylonEngine = Engine | WebGPUEngine
+
 export interface InitParams {
   canvas: HTMLCanvasElement;
-  engine: AbstractEngine;
+  engine: BabylonEngine;
   scene: Scene;
   camera: UniversalCamera;
 }
 
 interface UseBabylonSceneParam {
-  createEngine?: (param: Omit<InitParams, 'camera' | 'scene' | 'engine'>) => Promise<AbstractEngine>;
+  createEngine?: (param: Omit<InitParams, 'camera' | 'scene' | 'engine'>) => Promise<BabylonEngine>;
   createScene?: (param: Omit<InitParams, 'camera' | 'scene'>) => Scene;
   createCamera?: (param: Omit<InitParams, 'camera'>) => UniversalCamera;
   init?: (param: InitParams) => Promise<void>;
@@ -37,11 +35,27 @@ export const SUN_LIGHT_NAME = 'sun-directional'
 
 const defaultParam: Required<UseBabylonSceneParam> = {
   async createEngine({ canvas }) {
-    return EngineFactory.CreateAsync(canvas, {
-      antialias: true,
+    try {
+      const webGPUSupported = await WebGPUEngine.IsSupportedAsync
+      if (webGPUSupported) {
+        const engine = new WebGPUEngine(canvas, {
+          antialias: false,
+          stencil: false,
+        })
+        await engine.initAsync()
+
+        return engine
+      }
+    }
+    catch (error) {
+      console.warn('WebGPU 初始化失敗，準備降級至 WebGL：', error)
+    }
+
+    return new Engine(canvas, true, {
+      antialias: false,
       alpha: false,
-      stencil: true,
-      preserveDrawingBuffer: true,
+      stencil: false,
+      preserveDrawingBuffer: false,
     })
   },
   createScene({ engine }) {
@@ -129,7 +143,7 @@ const defaultParam: Required<UseBabylonSceneParam> = {
 export function useBabylonScene(param?: UseBabylonSceneParam) {
   const canvasRef = ref<HTMLCanvasElement>()
 
-  const engine = shallowRef<AbstractEngine>()
+  const engine = shallowRef<BabylonEngine>()
   const scene = shallowRef<Scene>()
   const camera = shallowRef<UniversalCamera>()
 
