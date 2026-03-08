@@ -23,6 +23,8 @@ export enum PacketType {
   HELD_BLOCK = 'held-block',
   /** 同步玩家名稱 */
   PLAYER_NAME = 'player-name',
+  /** Host 拒絕連線（房間已滿） */
+  ROOM_FULL = 'room-full',
 }
 
 /** 完整世界快照封包 */

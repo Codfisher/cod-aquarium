@@ -26,9 +26,17 @@ export interface UsePeerNetworkParams {
   onPlayerNameReceived?: (peerId: string, name: string) => void;
 }
 
-export const FIXED_ROOM_ID = import.meta.env.PROD
+const BASE_ROOM_ID = import.meta.env.PROD
   ? `enderbox-fixed-room-${version}`.replace(/\./g, '-')
   : 'enderbox-fixed-room-dev'
+
+/** 根據 roomIndex 產生房間 ID（0 = 原始 ID，1 = -2，2 = -3...） */
+function getRoomId(roomIndex: number): string {
+  return roomIndex === 0 ? BASE_ROOM_ID : `${BASE_ROOM_ID}-${roomIndex + 1}`
+}
+
+/** 連線數上限，避免瀏覽器因過多 WebRTC 連線而崩潰 */
+const MAX_CONNECTIONS = 50
 
 /**
  * 封裝 PeerJS 的 P2P 網路邏輯
@@ -204,15 +212,15 @@ export function usePeerNetwork({
     }
   }
 
-  async function tryConnect() {
+  async function tryConnect(roomIndex = 0) {
     if (typeof window === 'undefined')
       return
-
+    const roomId = getRoomId(roomIndex)
     const { Peer } = await import('peerjs')
 
-    console.log(`[Network] Attempting to create room as Host (${FIXED_ROOM_ID})...`)
+    console.log(`[Network] Attempting to create room as Host (${roomId})...`)
     // 1. 先嘗試以固定的房號建立 Host
-    const tempHostPeer = new Peer(FIXED_ROOM_ID)
+    const tempHostPeer = new Peer(roomId)
     peer = tempHostPeer
 
     const becomeClient = () => {
@@ -220,7 +228,7 @@ export function usePeerNetwork({
         return
 
       cleanup()
-      console.warn(`[Network] Room ${FIXED_ROOM_ID} already exists. Joining as Client...`)
+      console.warn(`[Network] Room ${roomId} already exists. Joining as Client...`)
 
       // 延遲一下再建立 Client，確保資源釋放
       setTimeout(async () => {
@@ -230,31 +238,31 @@ export function usePeerNetwork({
 
         clientPeer.on('open', (id) => {
           currentPeerId.value = id
-          console.log(`[Network] Initialize as Client ${id}. Attempting to connect to ${FIXED_ROOM_ID}...`)
+          console.log(`[Network] Initialize as Client ${id}. Attempting to connect to ${roomId}...`)
 
           // 設定 3 秒連線逾時，如果連不上就重試 (因為 Host 可能已經斷線但 ID 尚未釋放)
           const clientConnectionTimeout = setTimeout(() => {
             if (currentRole.value === null || currentRole.value === NetworkRole.CLIENT) {
-              console.warn(`[Network] Client connection to ${FIXED_ROOM_ID} timed out. Retrying as Host...`)
+              console.warn(`[Network] Client connection to ${roomId} timed out. Retrying as Host...`)
               cleanup()
-              setTimeout(tryConnect, 1000)
+              setTimeout(() => tryConnect(roomIndex), 1000)
             }
           }, 3000)
 
-          const connection = clientPeer.connect(FIXED_ROOM_ID)
+          const connection = clientPeer.connect(roomId)
 
           // 如果連線成功，代表房間存在，正式成為 Client
           connection.on('open', () => {
             clearTimeout(clientConnectionTimeout)
             currentRole.value = NetworkRole.CLIENT
-            setupClientConnection(connection)
+            setupClientConnection(connection, roomIndex)
           })
 
           connection.on('error', (err) => {
             console.error('[Network] Client connection to Host failed:', err)
             clearTimeout(clientConnectionTimeout)
             cleanup()
-            setTimeout(tryConnect, 1000)
+            setTimeout(() => tryConnect(roomIndex), 1000)
           })
         })
 
@@ -262,7 +270,7 @@ export function usePeerNetwork({
           console.error('[Network] Client error:', err)
           if (err.type === 'peer-unavailable') {
             cleanup()
-            setTimeout(tryConnect, 1000)
+            setTimeout(() => tryConnect(roomIndex), 1000)
           }
         })
       }, 500)
@@ -289,18 +297,15 @@ export function usePeerNetwork({
       else {
         // 其他錯誤也先嘗試重連
         cleanup()
-        setTimeout(tryConnect, 1000)
+        setTimeout(() => tryConnect(roomIndex), 1000)
       }
     })
   }
 
   // 代替舊的 init
   function init() {
-    tryConnect()
+    tryConnect(0)
   }
-
-  /** 連線數上限，避免瀏覽器因過多 WebRTC 連線而崩潰 */
-  const MAX_CONNECTIONS = 50
 
   /**
    * 設定 Host 側的連線邏輯
@@ -312,7 +317,8 @@ export function usePeerNetwork({
       // 檢查連線數上限
       if (connections.size >= MAX_CONNECTIONS) {
         console.warn(`[Host] Connection limit reached (${MAX_CONNECTIONS}). Rejecting ${connection.peer}`)
-        connection.close()
+        connection.send({ type: PacketType.ROOM_FULL })
+        setTimeout(() => connection.close(), 100)
         return
       }
 
@@ -392,8 +398,13 @@ export function usePeerNetwork({
 
   /**
    * 設定 Client 側的連線邏輯
+   * @param connection 與 Host 的 DataConnection
+   * @param roomIndex 當前連線的房間索引，用於被拒絕時嘗試下一個房間
    */
-  function setupClientConnection(connection: DataConnection) {
+  function setupClientConnection(connection: DataConnection, roomIndex: number) {
+    /** 標記是否因房間已滿而被拒絕（避免 close 事件重複處理） */
+    let rejectedByRoomFull = false
+
     // 防呆：有時候 open 事先就在上面觸發過了，此處檢查連線狀態
     if (connection.open && !isReady.value) {
       connections.set(connection.peer, connection)
@@ -439,7 +450,15 @@ export function usePeerNetwork({
       }
 
       const packet = data as NetworkPacket
-      if (packet.type === PacketType.WORLD_SNAPSHOT) {
+      if (packet.type === PacketType.ROOM_FULL) {
+        // 房間已滿，嘗試下一個房間
+        rejectedByRoomFull = true
+        const nextRoomIndex = roomIndex + 1
+        console.warn(`[Client] Room ${getRoomId(roomIndex)} is full. Trying room ${getRoomId(nextRoomIndex)}...`)
+        cleanup()
+        setTimeout(() => tryConnect(nextRoomIndex), 500)
+      }
+      else if (packet.type === PacketType.WORLD_SNAPSHOT) {
         onWorldSnapshotReceived?.(packet.data)
       }
       else if (packet.type === PacketType.BLOCK_UPDATE) {
@@ -461,14 +480,18 @@ export function usePeerNetwork({
     })
 
     connection.on('close', () => {
+      // 如果是因為房間已滿被拒絕，已在 ROOM_FULL 處理中重連，不重複處理
+      if (rejectedByRoomFull)
+        return
+
       const hostPeerId = connection.peer
       connections.delete(hostPeerId)
       isReady.value = false
       console.warn('[Client] Lost connection to Host. Attempting to reconnect or become Host...')
       onClientDisconnected?.(hostPeerId)
       cleanup()
-      // 延遲後重試 (tryConnect 內部會先試 Client 後轉 Host)
-      setTimeout(tryConnect, 1000)
+      // 斷線時從同一個房間索引重試
+      setTimeout(() => tryConnect(roomIndex), 1000)
     })
   }
 
