@@ -10,10 +10,11 @@ import {
   Vector3,
   WebGPUEngine,
 } from '@babylonjs/core'
-import { useEventListener, useMediaQuery } from '@vueuse/core'
+import { useEventListener } from '@vueuse/core'
 import { defaults } from 'lodash-es'
-import { onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
+import { onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { WORLD_SIZE } from '../domains/world/world-constants'
+import { useGraphicsQuality } from './use-graphics-quality'
 
 type BabylonEngine = Engine | WebGPUEngine
 
@@ -35,9 +36,9 @@ export const SUN_LIGHT_NAME = 'sun-directional'
 
 const defaultParam: Required<UseBabylonSceneParam> = {
   async createEngine({ canvas }) {
-    const isMobile = useMediaQuery('(pointer: coarse)')
+    const { isMobile } = useGraphicsQuality()
 
-    // 不知道為甚麼手機使用 WebGPU 很容易當掉
+    // 手機使用 WebGPU 容易莫名異常
     if (!isMobile.value) {
       try {
         const webGPUSupported = await WebGPUEngine.IsSupportedAsync
@@ -78,43 +79,6 @@ const defaultParam: Required<UseBabylonSceneParam> = {
     ambientLight.diffuse = new Color3(0.9, 0.9, 1.0)
     ambientLight.groundColor = new Color3(0.3, 0.3, 0.4)
 
-    const sunLightDirection = new Vector3(-0.5, -1, 0.3).normalize()
-    const sunLight = new DirectionalLight(
-      SUN_LIGHT_NAME,
-      sunLightDirection,
-      scene,
-    )
-    sunLight.intensity = 0.8
-    sunLight.diffuse = new Color3(1.0, 0.98, 0.92)
-
-    /**
-     * 一般 ShadowGenerator 需要明確的光源位置與正交投影範圍
-     * 以便建立 ShadowMap 的範圍
-     */
-    sunLight.position = new Vector3(WORLD_SIZE / 2, WORLD_SIZE, WORLD_SIZE / 2)
-    // 設定投影大小涵蓋整個世界
-    const halfSize = WORLD_SIZE / 1.5 // 留點緩衝
-    sunLight.orthoLeft = -halfSize
-    sunLight.orthoRight = halfSize
-    sunLight.orthoTop = halfSize
-    sunLight.orthoBottom = -halfSize
-    sunLight.autoCalcShadowZBounds = true
-
-    const isMobile = useMediaQuery('(pointer: coarse)')
-
-    const shadowGenerator = new ShadowGenerator(512, sunLight)
-    shadowGenerator.bias = 0.005
-    shadowGenerator.normalBias = 0.08
-
-    if (isMobile.value) {
-      shadowGenerator.useBlurExponentialShadowMap = true
-      shadowGenerator.blurKernel = 32
-    }
-    else {
-      shadowGenerator.usePercentageCloserFiltering = true
-      shadowGenerator.filteringQuality = ShadowGenerator.QUALITY_MEDIUM
-    }
-
     scene.fogMode = Scene.FOGMODE_LINEAR
     scene.fogColor = new Color3(0.53, 0.74, 0.93)
     scene.fogStart = 30
@@ -154,14 +118,56 @@ const defaultParam: Required<UseBabylonSceneParam> = {
   init: () => Promise.resolve(),
 }
 
+function createShadowGenerator({ scene, engine }: { scene: Scene; engine: BabylonEngine }) {
+  const sunLightDirection = new Vector3(-0.5, -1, 0.3).normalize()
+  const sunLight = new DirectionalLight(
+    SUN_LIGHT_NAME,
+    sunLightDirection,
+    scene,
+  )
+  sunLight.intensity = 0.8
+  sunLight.diffuse = new Color3(1.0, 0.98, 0.92)
+
+  /**
+   * 一般 ShadowGenerator 需要明確的光源位置與正交投影範圍
+   * 以便建立 ShadowMap 的範圍
+   */
+  sunLight.position = new Vector3(WORLD_SIZE / 2, WORLD_SIZE, WORLD_SIZE / 2)
+  // 設定投影大小涵蓋整個世界
+  const halfSize = WORLD_SIZE / 1.5 // 留點緩衝
+  sunLight.orthoLeft = -halfSize
+  sunLight.orthoRight = halfSize
+  sunLight.orthoTop = halfSize
+  sunLight.orthoBottom = -halfSize
+  sunLight.autoCalcShadowZBounds = true
+
+  const { quality } = useGraphicsQuality()
+
+  const shadowGenerator = new ShadowGenerator(512, sunLight)
+  shadowGenerator.bias = 0.005
+  shadowGenerator.normalBias = 0.08
+
+  if (quality.value === 'low') {
+    shadowGenerator.useBlurExponentialShadowMap = true
+    shadowGenerator.blurKernel = 32
+  }
+  else {
+    shadowGenerator.usePercentageCloserFiltering = true
+    shadowGenerator.filteringQuality = ShadowGenerator.QUALITY_MEDIUM
+  }
+
+  return shadowGenerator
+}
+
 export function useBabylonScene(param?: UseBabylonSceneParam) {
-  const isMobile = useMediaQuery('(pointer: coarse)')
+  const { quality } = useGraphicsQuality()
 
   const canvasRef = ref<HTMLCanvasElement>()
 
   const engine = shallowRef<BabylonEngine>()
   const scene = shallowRef<Scene>()
   const camera = shallowRef<UniversalCamera>()
+  const shadowGenerator = shallowRef<ShadowGenerator>()
 
   const {
     createEngine,
@@ -171,6 +177,27 @@ export function useBabylonScene(param?: UseBabylonSceneParam) {
   } = defaults(param, defaultParam)
 
   const initError = ref<string>()
+
+  watch(quality, (newQuality) => {
+    if (!engine.value)
+      return
+
+    const dpr = window?.devicePixelRatio ?? 1
+    engine.value.setHardwareScalingLevel(newQuality === 'low' ? 3 / dpr : 1 / dpr)
+
+    if (shadowGenerator.value) {
+      if (newQuality === 'low') {
+        shadowGenerator.value.useBlurExponentialShadowMap = true
+        shadowGenerator.value.usePercentageCloserFiltering = false
+        shadowGenerator.value.blurKernel = 32
+      }
+      else {
+        shadowGenerator.value.useBlurExponentialShadowMap = false
+        shadowGenerator.value.usePercentageCloserFiltering = true
+        shadowGenerator.value.filteringQuality = ShadowGenerator.QUALITY_MEDIUM
+      }
+    }
+  })
 
   onMounted(async () => {
     try {
@@ -183,7 +210,7 @@ export function useBabylonScene(param?: UseBabylonSceneParam) {
       })
 
       const dpr = window?.devicePixelRatio ?? 1
-      engine.value.setHardwareScalingLevel(isMobile.value ? 3 / dpr : 1 / dpr)
+      engine.value.setHardwareScalingLevel(quality.value === 'low' ? 3 / dpr : 1 / dpr)
 
       scene.value = createScene({
         canvas: canvasRef.value,
@@ -193,6 +220,10 @@ export function useBabylonScene(param?: UseBabylonSceneParam) {
         canvas: canvasRef.value,
         engine: engine.value,
         scene: scene.value,
+      })
+      shadowGenerator.value = createShadowGenerator({
+        scene: scene.value,
+        engine: engine.value,
       })
 
       useEventListener(window, 'resize', handleResize)

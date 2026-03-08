@@ -23,6 +23,28 @@
           </div>
         </div>
 
+        <div class="flex flex-col gap-3">
+          <label class="text-lg mc-text-shadow text-neutral-300">
+            畫面等級:
+          </label>
+          <div class="flex gap-3">
+            <button
+              class="mc-button flex-1 py-3 text-lg"
+              :class="{ 'mc-button-active': quality === 'high' }"
+              @click="quality = 'high'"
+            >
+              高
+            </button>
+            <button
+              class="mc-button flex-1 py-3 text-lg"
+              :class="{ 'mc-button-active': quality === 'low' }"
+              @click="quality = 'low'"
+            >
+              低
+            </button>
+          </div>
+        </div>
+
         <controls-guide-modal>
           <button class="mc-button w-full py-3 text-lg">
             操控說明
@@ -42,6 +64,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
+import { useGraphicsQuality } from '../composables/use-graphics-quality'
 import ControlsGuideModal from './controls-guide-modal.vue'
 
 const props = defineProps<{
@@ -53,6 +76,8 @@ const emit = defineEmits<{
   'resume': [];
   'update:playerName': [name: string];
 }>()
+
+const { quality } = useGraphicsQuality()
 
 const localName = ref(props.playerName)
 
@@ -95,6 +120,14 @@ watch(localName, (newVal) => {
     transform: scale(0.98)
     box-shadow: inset 2px 4px 0px #555555, inset -2px -2px 0px #FFFFFF
     background: #777777
+
+.mc-button-active
+  background: #5A8A5A
+  box-shadow: inset -2px -4px 0px #3A5A3A, inset 2px 2px 0px #8ACA8A
+
+  &:hover
+    background: #6AAA6A
+    box-shadow: inset -2px -4px 0px #3A5A3A, inset 2px 2px 0px #8ACA8A, 0 0 0 2px white
 
 .mc-input-wrapper
   position: relative
