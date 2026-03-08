@@ -257,8 +257,8 @@ export default ({ mode }: { mode: string }) => {
                 link: '/aquarium/hexazen/',
               },
               {
-                text: 'EnderPeer',
-                link: '/aquarium/enderpeer/',
+                text: 'EnderBox',
+                link: '/aquarium/enderbox/',
               },
             ],
           }),
