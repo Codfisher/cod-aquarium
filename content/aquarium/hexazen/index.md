@@ -1,5 +1,6 @@
 ---
 title: HexaZen
+description: 組合多種場景並產生不同的自然音效
 image: https://codlin.me/hexazen-cover.webp
 layout: false
 ---
