@@ -1,6 +1,6 @@
 ---
 title: EnderBox
-image: https://codlin.me/enderpeer-cover.webp
+image: https://codlin.me/enderbox-cover.webp
 layout: false
 ---
 
