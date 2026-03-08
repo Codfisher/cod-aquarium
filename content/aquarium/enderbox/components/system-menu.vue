@@ -23,6 +23,12 @@
           </div>
         </div>
 
+        <controls-guide-modal>
+          <button class="mc-button w-full py-3 text-lg">
+            操控說明
+          </button>
+        </controls-guide-modal>
+
         <button
           class="mc-button w-full py-4 text-xl"
           @click="$emit('resume')"
@@ -36,6 +42,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
+import ControlsGuideModal from './controls-guide-modal.vue'
 
 const props = defineProps<{
   show: boolean;
