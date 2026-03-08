@@ -11,7 +11,7 @@
         class="w-full h-full"
       />
 
-      <div class="absolute bottom-0 right-0 p-1 opacity-20 text-[8px] text-white">
+      <div class="absolute bottom-0 right-0 p-1 text-xs text-white">
         v{{ version }}
       </div>
     </div>
