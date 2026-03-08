@@ -36,7 +36,7 @@ function getRoomId(roomIndex: number): string {
 }
 
 /** 連線數上限，避免瀏覽器因過多 WebRTC 連線而崩潰 */
-const MAX_CONNECTIONS = 50
+const MAX_CONNECTIONS = 30
 
 /**
  * 封裝 PeerJS 的 P2P 網路邏輯
@@ -200,6 +200,7 @@ export function usePeerNetwork({
   // 動態載入 peerjs，避免 SSR 問題（Vitepress build 階段沒有 window）
   function cleanup() {
     isReady.value = false
+    currentRole.value = null
     stopBatchFlush()
     pendingPositionBatches.clear()
     connections.forEach((conn) => conn.close())
@@ -290,6 +291,7 @@ export function usePeerNetwork({
 
     tempHostPeer.on('error', (hostErr) => {
       console.error('[Network] Host creation error:', hostErr)
+      console.error('[Network] error type:', hostErr.type)
       // 如果 ID 衝突 (已經有人是 Host 了)，則轉為 Client 模式連線
       if (hostErr.type === 'unavailable-id') {
         becomeClient()
