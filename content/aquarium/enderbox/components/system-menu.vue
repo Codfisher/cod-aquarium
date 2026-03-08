@@ -1,9 +1,9 @@
 <template>
   <div
     v-if="show"
-    class="absolute inset-0 bg-black/60 flex flex-col items-center justify-center z-50 mc-font"
+    class="absolute inset-0 bg-black/60 flex flex-col items-center z-50 mc-font overflow-y-auto"
   >
-    <div class="mc-container flex flex-col items-center gap-6 px-4">
+    <div class="mc-container flex flex-col items-center gap-6 px-4 py-8 my-auto">
       <span class="text-4xl text-neutral-200 font-bold leading-relaxed">
         系統選單
       </span>
