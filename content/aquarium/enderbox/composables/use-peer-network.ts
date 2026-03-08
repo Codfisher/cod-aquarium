@@ -44,12 +44,15 @@ export function usePeerNetwork({
   onHeldBlockReceived,
   onPlayerNameReceived,
 }: UsePeerNetworkParams) {
+  const toast = useToast()
+
   const encoder = new TextEncoder()
   const decoder = new TextDecoder()
 
   // 二進位封包類型常數
   const BINARY_TYPE_POSITION = 0
   const BINARY_TYPE_MINING = 1
+  const BINARY_TYPE_POSITION_BATCH = 2
 
   function serializePosition(peerId: string, x: number, y: number, z: number, rotationY: number): Uint8Array {
     const peerIdBytes = encoder.encode(peerId)
@@ -107,6 +110,66 @@ export function usePeerNetwork({
     return { peerId, x, y, z, progress, blockId }
   }
 
+  /**
+   * 序列化批次位置封包
+   * 格式：[type=2][1 byte: count][position1][position2]...
+   * 每個 position 格式同 serializePosition（不含 type byte）：
+   *   [1 byte: peerIdLen][peerId bytes][4×float32: x,y,z,rotationY]
+   */
+  function serializePositionBatch(entries: Array<{ peerId: string; x: number; y: number; z: number; rotationY: number }>): Uint8Array {
+    // 先計算總大小
+    const entryBuffers: Uint8Array[] = []
+    let totalSize = 2 // type + count
+    for (const entry of entries) {
+      const peerIdBytes = encoder.encode(entry.peerId)
+      const entrySize = 1 + peerIdBytes.length + 16 // peerIdLen + peerId + 4 floats
+      totalSize += entrySize
+      entryBuffers.push(peerIdBytes)
+    }
+
+    const buffer = new ArrayBuffer(totalSize)
+    const view = new DataView(buffer)
+    view.setUint8(0, BINARY_TYPE_POSITION_BATCH)
+    view.setUint8(1, entries.length)
+
+    let offset = 2
+    for (let i = 0; i < entries.length; i++) {
+      const entry = entries[i]!
+      const peerIdBytes = entryBuffers[i]!
+      view.setUint8(offset, peerIdBytes.length)
+      new Uint8Array(buffer, offset + 1, peerIdBytes.length).set(peerIdBytes)
+      const dataOffset = offset + 1 + peerIdBytes.length
+      view.setFloat32(dataOffset, entry.x, true)
+      view.setFloat32(dataOffset + 4, entry.y, true)
+      view.setFloat32(dataOffset + 8, entry.z, true)
+      view.setFloat32(dataOffset + 12, entry.rotationY, true)
+      offset = dataOffset + 16
+    }
+
+    return new Uint8Array(buffer)
+  }
+
+  function deserializePositionBatch(data: Uint8Array): Array<{ peerId: string; x: number; y: number; z: number; rotationY: number }> {
+    const view = new DataView(data.buffer, data.byteOffset, data.byteLength)
+    const count = view.getUint8(1)
+    const results: Array<{ peerId: string; x: number; y: number; z: number; rotationY: number }> = []
+
+    let offset = 2
+    for (let i = 0; i < count; i++) {
+      const peerIdLen = view.getUint8(offset)
+      const peerId = decoder.decode(data.subarray(offset + 1, offset + 1 + peerIdLen))
+      const dataOffset = offset + 1 + peerIdLen
+      const x = view.getFloat32(dataOffset, true)
+      const y = view.getFloat32(dataOffset + 4, true)
+      const z = view.getFloat32(dataOffset + 8, true)
+      const rotationY = view.getFloat32(dataOffset + 12, true)
+      results.push({ peerId, x, y, z, rotationY })
+      offset = dataOffset + 16
+    }
+
+    return results
+  }
+
   const isReady = ref(false)
   const currentPeerId = ref<string>('')
   const currentRole = ref<NetworkRole | null>(null)
@@ -118,11 +181,23 @@ export function usePeerNetwork({
    */
   const connections = new Map<string, DataConnection>()
 
+  /** AOI（Area of Interest）相關常數與狀態 */
+  const AOI_RADIUS = 30
+  const AOI_LOW_FREQ_INTERVAL = 1000 // 超出 AOI 的玩家更新頻續下降
+  /** Host 端追蹤每位玩家的最新位置 */
+  const playerPositions = new Map<string, { x: number; y: number; z: number }>()
+  /** 追蹤超出 AOI 的玩家上次低頻更新時間：key = `${senderPeerId}:${receiverPeerId}` */
+  const lastLowFreqUpdate = new Map<string, number>()
+
   // 動態載入 peerjs，避免 SSR 問題（Vitepress build 階段沒有 window）
   function cleanup() {
     isReady.value = false
+    stopBatchFlush()
+    pendingPositionBatches.clear()
     connections.forEach((conn) => conn.close())
     connections.clear()
+    playerPositions.clear()
+    lastLowFreqUpdate.clear()
     if (peer) {
       peer.destroy()
       peer = null
@@ -224,6 +299,9 @@ export function usePeerNetwork({
     tryConnect()
   }
 
+  /** 連線數上限，避免瀏覽器因過多 WebRTC 連線而崩潰 */
+  const MAX_CONNECTIONS = 50
+
   /**
    * 設定 Host 側的連線邏輯
    */
@@ -231,6 +309,13 @@ export function usePeerNetwork({
     console.log(`[Host] Incoming connection from ${connection.peer}...`)
 
     connection.on('open', () => {
+      // 檢查連線數上限
+      if (connections.size >= MAX_CONNECTIONS) {
+        console.warn(`[Host] Connection limit reached (${MAX_CONNECTIONS}). Rejecting ${connection.peer}`)
+        connection.close()
+        return
+      }
+
       connections.set(connection.peer, connection)
       console.log('[Host] Client connected successfully:', connection.peer)
       onClientConnected?.(connection.peer)
@@ -250,6 +335,8 @@ export function usePeerNetwork({
         const type = binaryData[0]
         if (type === BINARY_TYPE_POSITION) {
           const { peerId, x, y, z, rotationY } = deserializePosition(binaryData)
+          // 追蹤玩家位置供 AOI 過濾使用
+          playerPositions.set(peerId, { x, y, z })
           onPlayerPositionReceived?.(peerId, x, y, z, rotationY)
           broadcastPlayerPosition(peerId, x, y, z, rotationY, connection.peer)
         }
@@ -291,6 +378,13 @@ export function usePeerNetwork({
 
     connection.on('close', () => {
       connections.delete(connection.peer)
+      playerPositions.delete(connection.peer)
+      // 清理該玩家相關的低頻更新記錄
+      for (const key of lastLowFreqUpdate.keys()) {
+        if (key.startsWith(`${connection.peer}:`) || key.endsWith(`:${connection.peer}`)) {
+          lastLowFreqUpdate.delete(key)
+        }
+      }
       console.log('[Host] Client disconnected:', connection.peer)
       onClientDisconnected?.(connection.peer)
     })
@@ -334,6 +428,12 @@ export function usePeerNetwork({
         else if (type === BINARY_TYPE_MINING) {
           const { peerId, x, y, z, progress, blockId } = deserializeMining(binaryData)
           onMiningProgressReceived?.(peerId, x, y, z, progress, blockId)
+        }
+        else if (type === BINARY_TYPE_POSITION_BATCH) {
+          const entries = deserializePositionBatch(binaryData)
+          for (const { peerId, x, y, z, rotationY } of entries) {
+            onPlayerPositionReceived?.(peerId, x, y, z, rotationY)
+          }
         }
         return
       }
@@ -425,8 +525,12 @@ export function usePeerNetwork({
     }
   }
 
+  /** Mining Progress 的 AOI 半徑（比玩家位置的 AOI 小） */
+  const MINING_AOI_RADIUS = 20
+
   /**
    * 【供 Host 呼叫】廣播正在挖掘的進度 (或停止)
+   * 只發送給距離挖掘位置 MINING_AOI_RADIUS 內的玩家
    */
   function broadcastMiningProgress(
     senderPeerId: string,
@@ -443,9 +547,20 @@ export function usePeerNetwork({
     const data = serializeMining(senderPeerId, x, y, z, progress, blockId)
 
     connections.forEach((conn, peerId) => {
-      if (peerId !== excludePeerId && conn.open) {
-        conn.send(data)
+      if (peerId === excludePeerId || !conn.open)
+        return
+
+      // 只發送給距離挖掘位置夠近的玩家
+      const receiverPos = playerPositions.get(peerId)
+      if (receiverPos) {
+        const deltaX = x - receiverPos.x
+        const deltaZ = z - receiverPos.z
+        const distanceSquared = deltaX * deltaX + deltaZ * deltaZ
+        if (distanceSquared > MINING_AOI_RADIUS * MINING_AOI_RADIUS)
+          return
       }
+
+      conn.send(data)
     })
   }
 
@@ -464,7 +579,53 @@ export function usePeerNetwork({
   }
 
   /**
-   * 【供 Host 呼叫】廣播玩家位置給所有 Client
+   * 批次合併機制：Host 收集位置更新，定期批次發送
+   * key = receiverPeerId，value = 待發送的位置更新列表
+   */
+  const pendingPositionBatches = new Map<string, Array<{ peerId: string; x: number; y: number; z: number; rotationY: number }>>()
+  const BATCH_FLUSH_INTERVAL = 50 // ms
+  let batchFlushTimer: ReturnType<typeof setInterval> | null = null
+
+  function startBatchFlush() {
+    if (batchFlushTimer !== null)
+      return
+    batchFlushTimer = setInterval(() => {
+      for (const [receiverPeerId, entries] of pendingPositionBatches) {
+        if (entries.length === 0)
+          continue
+
+        const conn = connections.get(receiverPeerId)
+        if (!conn || !conn.open) {
+          entries.length = 0
+          continue
+        }
+
+        if (entries.length === 1) {
+          // 單一更新不需要 batch 封包
+          const entry = entries[0]!
+          conn.send(serializePosition(entry.peerId, entry.x, entry.y, entry.z, entry.rotationY))
+        }
+        else {
+          conn.send(serializePositionBatch(entries))
+        }
+        entries.length = 0
+      }
+    }, BATCH_FLUSH_INTERVAL)
+  }
+
+  function stopBatchFlush() {
+    if (batchFlushTimer !== null) {
+      clearInterval(batchFlushTimer)
+      batchFlushTimer = null
+    }
+  }
+
+  /**
+   * 【供 Host 呼叫】廣播玩家位置給所有 Client（含 AOI 過濾 + 批次合併）
+   *
+   * - AOI 範圍內的玩家：正常頻率接收位置更新
+   * - AOI 範圍外的玩家：每 2 秒才接收一次低頻更新
+   * - 所有更新先放入批次佇列，每 50ms 統一發送
    */
   function broadcastPlayerPosition(
     senderPeerId: string,
@@ -477,11 +638,46 @@ export function usePeerNetwork({
     if (currentRole.value !== NetworkRole.HOST)
       return
 
-    const data = serializePosition(senderPeerId, x, y, z, rotationY)
+    // 更新 sender 的位置記錄
+    playerPositions.set(senderPeerId, { x, y, z })
+
+    startBatchFlush()
+    const now = performance.now()
 
     connections.forEach((conn, peerId) => {
-      if (peerId !== excludePeerId && conn.open) {
-        conn.send(data)
+      if (peerId === excludePeerId || !conn.open)
+        return
+
+      // 取得接收者的位置，若尚無位置紀錄則視為在 AOI 內（確保新玩家能收到更新）
+      const receiverPos = playerPositions.get(peerId)
+      if (receiverPos) {
+        const deltaX = x - receiverPos.x
+        const deltaZ = z - receiverPos.z
+        const distanceSquared = deltaX * deltaX + deltaZ * deltaZ
+
+        if (distanceSquared > AOI_RADIUS * AOI_RADIUS) {
+          // 超出 AOI：低頻更新
+          const key = `${senderPeerId}:${peerId}`
+          const lastUpdate = lastLowFreqUpdate.get(key) ?? 0
+          if (now - lastUpdate < AOI_LOW_FREQ_INTERVAL)
+            return
+          lastLowFreqUpdate.set(key, now)
+        }
+      }
+
+      // 放入批次佇列
+      let batch = pendingPositionBatches.get(peerId)
+      if (!batch) {
+        batch = []
+        pendingPositionBatches.set(peerId, batch)
+      }
+      // 替換同一 sender 的舊更新（只保留最新位置）
+      const existingIndex = batch.findIndex((entry) => entry.peerId === senderPeerId)
+      if (existingIndex >= 0) {
+        batch[existingIndex] = { peerId: senderPeerId, x, y, z, rotationY }
+      }
+      else {
+        batch.push({ peerId: senderPeerId, x, y, z, rotationY })
       }
     })
   }
@@ -642,6 +838,7 @@ export function usePeerNetwork({
   }
 
   onBeforeUnmount(() => {
+    stopBatchFlush()
     connections.forEach((conn) => conn.close())
     connections.clear()
     peer?.destroy()

@@ -6,6 +6,19 @@ import { PLAYER_EYE_HEIGHT, PLAYER_HEIGHT } from '../domains/player/collision'
 import { createPixelMaterial } from '../domains/renderer/voxel-renderer'
 import { SUN_LIGHT_NAME } from './use-babylon-scene'
 
+/** Avatar LOD 層級 */
+const enum AvatarLodLevel {
+  /** 近距離（< 15 單位）：完整 Avatar + 動畫 + Nametag */
+  FULL = 0,
+  /** 中距離（15-40 單位）：隱藏肢體細節，停止動畫 */
+  SIMPLIFIED = 1,
+  /** 遠距離（> 40 單位）：隱藏 Avatar，只顯示 Nametag */
+  NAMETAG_ONLY = 2,
+}
+
+const LOD_DISTANCE_SIMPLIFIED = 15
+const LOD_DISTANCE_NAMETAG_ONLY = 40
+
 interface AvatarEntry {
   root: TransformNode;
   meshes: Mesh[];
@@ -38,6 +51,8 @@ interface AvatarEntry {
   };
   /** 玩家名稱 */
   name: string;
+  /** 當前 LOD 層級 */
+  currentLod: AvatarLodLevel;
 }
 
 /** 根據 peerId 產生確定性的顏色（用於眼睛發光色） */
@@ -326,7 +341,7 @@ function createEndermanAvatar(peerId: string, scene: Scene): AvatarEntry {
     }
   }
 
-  return { root, meshes, materials, joints, headNode: head, state, hand, heldBlockMesh: null, name: `Ender_${peerId.slice(0, 4)}` }
+  return { root, meshes, materials, joints, headNode: head, state, hand, heldBlockMesh: null, name: `Ender_${peerId.slice(0, 4)}`, currentLod: AvatarLodLevel.FULL }
 }
 
 /** 建立玩家名字標籤 */
@@ -412,6 +427,7 @@ export function usePlayerAvatars() {
     /** 動畫循環 */
     const observer = sceneRef.onBeforeRenderObservable.add(() => {
       const delta = sceneRef!.getEngine().getDeltaTime() / 1000
+      const camera = sceneRef!.activeCamera
 
       for (const entry of avatars.values()) {
         const { joints, headNode, state, root } = entry
@@ -428,43 +444,79 @@ export function usePlayerAvatars() {
         while (diff > Math.PI) diff -= Math.PI * 2
         root.rotation.y += diff * lerpFactor
 
-        // 偵測移動 (水平)
-        const currentPos = root.position
-        const distance = Vector3.Distance(
-          new Vector3(state.lastPosition.x, 0, state.lastPosition.z),
-          new Vector3(currentPos.x, 0, currentPos.z),
-        )
+        // LOD 計算：根據與相機的距離決定渲染層級
+        let targetLod = AvatarLodLevel.FULL
+        if (camera) {
+          const distanceToCamera = Vector3.Distance(root.position, camera.position)
+          if (distanceToCamera > LOD_DISTANCE_NAMETAG_ONLY) {
+            targetLod = AvatarLodLevel.NAMETAG_ONLY
+          }
+          else if (distanceToCamera > LOD_DISTANCE_SIMPLIFIED) {
+            targetLod = AvatarLodLevel.SIMPLIFIED
+          }
+        }
 
-        // 更新移動強度 (平滑過渡)
-        const targetIntensity = distance > 0.005 ? 1 : 0
-        state.intensity += (targetIntensity - state.intensity) * Math.min(1, delta * 10)
+        // LOD 層級變更時，切換 mesh 可見性
+        if (targetLod !== entry.currentLod) {
+          entry.currentLod = targetLod
+          const showMeshes = targetLod !== AvatarLodLevel.NAMETAG_ONLY
+          for (const mesh of entry.meshes) {
+            mesh.setEnabled(showMeshes)
+          }
+          if (entry.heldBlockMesh) {
+            entry.heldBlockMesh.setEnabled(showMeshes)
+          }
+        }
 
-        if (state.intensity > 0.001) {
-          state.walkCycle += delta * 10 * state.intensity
-          const angle = Math.sin(state.walkCycle) * 0.5 * state.intensity
+        // 只在 FULL LOD 時執行動畫計算
+        if (entry.currentLod === AvatarLodLevel.FULL) {
+          // 偵測移動 (水平)
+          const currentPos = root.position
+          const movementDistance = Vector3.Distance(
+            new Vector3(state.lastPosition.x, 0, state.lastPosition.z),
+            new Vector3(currentPos.x, 0, currentPos.z),
+          )
 
-          // 手腳交替擺動
-          joints.leftLeg.rotation.x = angle
-          joints.rightLeg.rotation.x = -angle
-          joints.leftArm.rotation.x = -angle
-          joints.rightArm.rotation.x = angle
+          // 更新移動強度 (平滑過渡)
+          const targetIntensity = movementDistance > 0.005 ? 1 : 0
+          state.intensity += (targetIntensity - state.intensity) * Math.min(1, delta * 10)
+
+          if (state.intensity > 0.001) {
+            state.walkCycle += delta * 10 * state.intensity
+            const angle = Math.sin(state.walkCycle) * 0.5 * state.intensity
+
+            // 手腳交替擺動
+            joints.leftLeg.rotation.x = angle
+            joints.rightLeg.rotation.x = -angle
+            joints.leftArm.rotation.x = -angle
+            joints.rightArm.rotation.x = angle
+          }
+          else {
+            // 停止時回正
+            joints.leftLeg.rotation.x = 0
+            joints.rightLeg.rotation.x = 0
+            joints.leftArm.rotation.x = 0
+            joints.rightArm.rotation.x = 0
+          }
+
+          // 待機頭部微微晃動（上下浮動 + 左右歪頭）
+          state.idleTime += delta
+          const bobY = Math.sin(state.idleTime * 1.5) * 0.02
+          const tiltZ = Math.sin(state.idleTime * 0.8) * 0.04
+          headNode.position.y = 0.55 + bobY
+          headNode.rotation.z = tiltZ
         }
         else {
-          // 停止時回正
+          // 非 FULL LOD 時重置動畫狀態
           joints.leftLeg.rotation.x = 0
           joints.rightLeg.rotation.x = 0
           joints.leftArm.rotation.x = 0
           joints.rightArm.rotation.x = 0
+          headNode.position.y = 0.55
+          headNode.rotation.z = 0
         }
 
-        // 待機頭部微微晃動（上下浮動 + 左右歪頭）
-        state.idleTime += delta
-        const bobY = Math.sin(state.idleTime * 1.5) * 0.02
-        const tiltZ = Math.sin(state.idleTime * 0.8) * 0.04
-        headNode.position.y = 0.55 + bobY
-        headNode.rotation.z = tiltZ
-
-        state.lastPosition.copyFrom(currentPos)
+        state.lastPosition.copyFrom(root.position)
 
         // 名稱標籤位置追蹤（朝向由 billboardMode 自動處理）
         if (entry.nameTag) {
