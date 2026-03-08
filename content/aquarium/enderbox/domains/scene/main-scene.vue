@@ -137,7 +137,7 @@ let handMeshes: Mesh[] = []
 let hasStarted = false
 
 /** 玩家姓名持久化 */
-const LOCAL_STORAGE_PLAYER_NAME = 'enderpeer_player_name'
+const LOCAL_STORAGE_PLAYER_NAME = 'enderbox_player_name'
 const playerName = ref(localStorage.getItem(LOCAL_STORAGE_PLAYER_NAME) || `Ender_${Math.floor(Math.random() * 1000)}`)
 
 watch(playerName, (newName) => {
@@ -717,14 +717,16 @@ function startGame(sceneInstance: Scene, cameraInstance: UniversalCamera, canvas
 
   /** 廣播本機玩家位置 */
   let lastPositionBroadcast = 0
-  const POSITION_BROADCAST_INTERVAL = 15 // ms
+  const POSITION_BROADCAST_INTERVAL_ACTIVE = 50 // ms (20Hz - 移動中)
+  const POSITION_BROADCAST_INTERVAL_IDLE = 200 // ms (5Hz - 靜止/緩慢移動)
   const BASE_FOV = cameraInstance.fov
 
   // 用於過濾微小移動的變數
   const lastSentPos = new Vector3()
   let lastSentRotationY = 0
-  const MOVE_THRESHOLD = 0.01
-  const ROTATION_THRESHOLD = 0.01
+  const MOVE_THRESHOLD = 0.05
+  const ROTATION_THRESHOLD = 0.05
+  let isPlayerMoving = false
 
   sceneInstance.onBeforeRenderObservable.add(() => {
     /** 處理傳送進度與視覺效果 */
@@ -745,7 +747,10 @@ function startGame(sceneInstance: Scene, cameraInstance: UniversalCamera, canvas
     }
 
     const now = performance.now()
-    if (now - lastPositionBroadcast < POSITION_BROADCAST_INTERVAL)
+    const broadcastInterval = isPlayerMoving
+      ? POSITION_BROADCAST_INTERVAL_ACTIVE
+      : POSITION_BROADCAST_INTERVAL_IDLE
+    if (now - lastPositionBroadcast < broadcastInterval)
       return
 
     const pos = cameraInstance.position
@@ -758,6 +763,7 @@ function startGame(sceneInstance: Scene, cameraInstance: UniversalCamera, canvas
     if (distance < MOVE_THRESHOLD && rotationDiff < ROTATION_THRESHOLD)
       return
 
+    isPlayerMoving = distance >= MOVE_THRESHOLD || rotationDiff >= ROTATION_THRESHOLD
     lastPositionBroadcast = now
     lastSentPos.copyFrom(pos)
     lastSentRotationY = rotationY

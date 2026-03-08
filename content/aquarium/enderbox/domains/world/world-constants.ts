@@ -4,7 +4,7 @@ export const WORLD_SIZE = 64
 export const WORLD_HEIGHT = 128
 
 /** 區塊大小 */
-export const CHUNK_SIZE = WORLD_SIZE / 4
+export const CHUNK_SIZE = 16
 /** 每維度區塊數 */
 export const CHUNKS_PER_AXIS = WORLD_SIZE / CHUNK_SIZE
 /** 總區塊數 */
