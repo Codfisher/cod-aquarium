@@ -59,7 +59,7 @@ export function useFpsController() {
 
   /** 腳步聲間隔（秒），走路與衝刺不同節奏 */
   const STEP_INTERVAL = 0.4
-  const SPRINT_STEP_INTERVAL = 0.28
+  const SPRINT_STEP_INTERVAL = 0.2
   let stepTimer = 0
 
   /** 玩家位置 (腳底) */
@@ -110,9 +110,9 @@ export function useFpsController() {
     footY = spawnY
     footZ = spawnZ + 0.5
 
-    /** 停用 Babylon 內建的鍵盤移動（由本控制器自行處理） */
+    /** 停用 Babylon 內建的鍵盤移動 */
     camera.speed = 0
-    camera.inertia = 0.45
+    camera.inertia = 0.4
     camera.inputs.removeByType('FreeCameraKeyboardMoveInput')
     camera.inputs.removeByType('FreeCameraTouchInput')
 
@@ -124,6 +124,7 @@ export function useFpsController() {
     }
     else {
       camera.attachControl(canvas, true)
+      camera.angularSensibility = 1500
     }
 
     /** 鍵盤事件 */
