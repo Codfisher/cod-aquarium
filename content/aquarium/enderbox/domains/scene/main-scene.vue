@@ -80,7 +80,7 @@
 
     <!-- 連線中/載入中遮罩 -->
     <div
-      v-if="!isReady && !fpsController.isPaused && !initError"
+      v-if="!isReady && !initError"
       class="absolute inset-0 bg-black/80 flex flex-col items-center justify-center text-white z-50 backdrop-blur-sm"
     >
       <div class="text-2xl font-bold mb-4 animate-pulse">
