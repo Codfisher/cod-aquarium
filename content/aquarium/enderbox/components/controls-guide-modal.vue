@@ -1,6 +1,6 @@
 <template>
   <u-modal
-    title="操控說明"
+    :title="t('title')"
     :ui="{
       overlay: 'mc-overlay',
       content: 'mc-panel mc-font rounded-none! shadow-none! ring-0! border-0! max-w-md',
@@ -43,7 +43,7 @@
               :key="item.action"
               class="flex items-center gap-2"
             >
-              <div class="flex gap-2 flex-wrap">
+              <div class="flex gap-2 flex-nowrap">
                 <kbd
                   v-for="key in item.keys"
                   :key="typeof key === 'string' ? key : key.icon"
@@ -69,8 +69,49 @@
 
 <script setup lang="ts">
 import { useMediaQuery } from '@vueuse/core'
+import { computed } from 'vue'
+import { useSimpleI18n } from '../composables/use-simple-i18n'
 
 const isMobile = useMediaQuery('(pointer: coarse)')
+
+const { t } = useSimpleI18n({
+  'zh-hant': {
+    title: '操控說明',
+    actionMove: '移動',
+    actionRotate: '視角旋轉',
+    actionJump: '跳躍',
+    actionPlace: '放置方塊（持有方塊時）',
+    actionMine: '挖掘方塊（未持有方塊時）',
+    actionTeleport: '傳送至瞄準位置（蓄力 1 秒）',
+    actionToggleMenu: '開啟 / 關閉系統選單',
+    actionPlaceMineMobile: '放置方塊（持有時）/ 挖掘方塊（未持有時）',
+    actionOpenMenu: '開啟系統選單',
+    keyMouseMove: '滑鼠移動',
+    keyLeftClick: '滑鼠左鍵',
+    keyLeftHold: '滑鼠左鍵 長按',
+    keyRightHold: '滑鼠右鍵 長按',
+    keyLeftJoystick: '左側搖桿',
+    keyRightSwipe: '右側滑動',
+  },
+  'en': {
+    title: 'Controls Guide',
+    actionMove: 'Move',
+    actionRotate: 'Rotate Camera',
+    actionJump: 'Jump',
+    actionPlace: 'Place Block (when holding)',
+    actionMine: 'Mine Block (empty-handed)',
+    actionTeleport: 'Teleport to target (hold 1s)',
+    actionToggleMenu: 'Toggle System Menu',
+    actionPlaceMineMobile: 'Place (holding) / Mine (empty-handed)',
+    actionOpenMenu: 'Open System Menu',
+    keyMouseMove: 'Mouse Move',
+    keyLeftClick: 'Mouse Left Click',
+    keyLeftHold: 'Mouse Left Hold',
+    keyRightHold: 'Mouse Right Hold',
+    keyLeftJoystick: 'Left Joystick',
+    keyRightSwipe: 'Right Swipe',
+  },
+} as const)
 
 type ControlKey = string | { icon: string }
 
@@ -79,24 +120,24 @@ interface ControlItem {
   action: string;
 }
 
-const desktopControls: ControlItem[] = [
-  { keys: ['W', 'A', 'S', 'D'], action: '移動' },
-  { keys: ['滑鼠移動'], action: '視角旋轉' },
-  { keys: ['Space'], action: '跳躍' },
-  { keys: ['左鍵'], action: '放置方塊（持有方塊時）' },
-  { keys: ['左鍵 長按'], action: '挖掘方塊（未持有方塊時）' },
-  { keys: ['右鍵 長按'], action: '傳送至瞄準位置（蓄力 1 秒）' },
-  { keys: ['ESC'], action: '開啟 / 關閉系統選單' },
-]
+const desktopControls = computed<ControlItem[]>(() => [
+  { keys: ['W', 'A', 'S', 'D'], action: t('actionMove') },
+  { keys: [t('keyMouseMove')], action: t('actionRotate') },
+  { keys: ['Space'], action: t('actionJump') },
+  { keys: [t('keyLeftClick')], action: t('actionPlace') },
+  { keys: [t('keyLeftHold')], action: t('actionMine') },
+  { keys: [t('keyRightHold')], action: t('actionTeleport') },
+  { keys: ['ESC'], action: t('actionToggleMenu') },
+])
 
-const mobileControls: ControlItem[] = [
-  { keys: ['左側搖桿'], action: '移動' },
-  { keys: ['右側滑動'], action: '視角旋轉' },
-  { keys: [{ icon: 'i-pixelarticons:arrow-up' }], action: '跳躍' },
-  { keys: [{ icon: 'i-pixelarticons:download' }, { icon: 'i-pixelarticons:drop-area' }], action: '放置方塊（持有時）/ 挖掘方塊（未持有時）' },
-  { keys: [{ icon: 'i-pixelarticons:loader' }], action: '傳送至瞄準位置（蓄力 1 秒）' },
-  { keys: [{ icon: 'i-pixelarticons:menu' }], action: '開啟系統選單' },
-]
+const mobileControls = computed<ControlItem[]>(() => [
+  { keys: [t('keyLeftJoystick')], action: t('actionMove') },
+  { keys: [t('keyRightSwipe')], action: t('actionRotate') },
+  { keys: [{ icon: 'i-pixelarticons:arrow-up' }], action: t('actionJump') },
+  { keys: [{ icon: 'i-pixelarticons:download' }, { icon: 'i-pixelarticons:drop-area' }], action: t('actionPlaceMineMobile') },
+  { keys: [{ icon: 'i-pixelarticons:loader' }], action: t('actionTeleport') },
+  { keys: [{ icon: 'i-pixelarticons:menu' }], action: t('actionOpenMenu') },
+])
 </script>
 
 <style scoped lang="sass">
