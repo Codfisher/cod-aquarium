@@ -39,8 +39,7 @@
         />
       </div>
 
-      <div class="teleport-charge-text text-left">
-        TELEPORT<br>CHARGING...
+      <div class="teleport-charge-text text-left" v-html="t('teleportCharging')">
       </div>
     </div>
 
@@ -71,7 +70,7 @@
       class="absolute inset-0 bg-black/90 flex flex-col items-center justify-center text-white z-50 p-8"
     >
       <div class="text-xl font-bold mb-4 text-red-400">
-        初始化失敗
+        {{ t('initFailed') }}
       </div>
       <div class="text-sm text-gray-300 break-all max-w-md text-center">
         {{ initError }}
@@ -84,7 +83,7 @@
       class="absolute inset-0 bg-black/80 flex flex-col items-center justify-center text-white z-50 backdrop-blur-sm"
     >
       <div class="text-2xl font-bold mb-4 animate-pulse">
-        {{ currentRole === 'client' ? '正在努力擺方塊...' : '連線至伺服器...' }}
+        {{ currentRole === 'client' ? t('placingBlocks') : t('connecting') }}
       </div>
     </div>
   </div>
@@ -105,8 +104,24 @@ import { useFpsController } from '../../composables/use-fps-controller'
 import { useMobileController } from '../../composables/use-mobile-controller'
 import { usePeerNetwork } from '../../composables/use-peer-network'
 import { usePlayerAvatars } from '../../composables/use-player-avatars'
+import { useSimpleI18n } from '../../composables/use-simple-i18n'
 import { useSoundManager } from '../../composables/use-sound-manager'
 import { NetworkRole } from '../../types/network'
+
+const { t } = useSimpleI18n({
+  'zh-hant': {
+    teleportCharging: '傳送<br>充能中...',
+    initFailed: '初始化失敗',
+    placingBlocks: '正在努力擺方塊...',
+    connecting: '連線至伺服器...',
+  },
+  'en': {
+    teleportCharging: 'TELEPORT<br>CHARGING...',
+    initFailed: 'Initialization Failed',
+    placingBlocks: 'Placing blocks...',
+    connecting: 'Connecting to server...',
+  },
+} as const)
 import { BLOCK_DEFS, BlockId } from '../block/block-constants'
 import { castBlockRay, placeBlock, setBlock } from '../player/block-interaction'
 import { PLAYER_EYE_HEIGHT, PLAYER_HEIGHT } from '../player/collision'

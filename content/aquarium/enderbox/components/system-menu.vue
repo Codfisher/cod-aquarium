@@ -5,27 +5,27 @@
   >
     <div class="mc-container flex flex-col items-center gap-6 px-4 py-8 my-auto">
       <span class="text-4xl text-neutral-200 font-bold leading-relaxed">
-        系統選單
+        {{ t('title') }}
       </span>
 
       <div class="flex flex-col gap-8 w-full max-w-100">
         <div class="flex flex-col gap-3">
           <label class="text-lg mc-text-shadow text-neutral-300">
-            玩家名稱:
+            {{ t('playerName') }}
           </label>
           <div class="mc-input-wrapper">
             <input
               v-model="localName"
               type="text"
               class="mc-input w-full"
-              placeholder="輸入玩家名稱..."
+              :placeholder="t('enterName')"
             >
           </div>
         </div>
 
         <div class="flex flex-col gap-3">
           <label class="text-lg mc-text-shadow text-neutral-300">
-            畫面等級:
+            {{ t('graphicsQuality') }}
           </label>
           <div class="flex gap-3">
             <button
@@ -33,21 +33,21 @@
               :class="{ 'mc-button-active': quality === 'high' }"
               @click="quality = 'high'"
             >
-              高
+              {{ t('high') }}
             </button>
             <button
               class="mc-button flex-1 py-3 text-lg"
               :class="{ 'mc-button-active': quality === 'low' }"
               @click="quality = 'low'"
             >
-              低
+              {{ t('low') }}
             </button>
           </div>
         </div>
 
         <controls-guide-modal>
           <button class="mc-button w-full py-3 text-lg">
-            操控說明
+            {{ t('controlsGuide') }}
           </button>
         </controls-guide-modal>
 
@@ -55,7 +55,7 @@
           class="mc-button w-full py-4 text-xl"
           @click="$emit('resume')"
         >
-          回到遊戲
+          {{ t('resumeGame') }}
         </button>
       </div>
     </div>
@@ -65,7 +65,31 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { useGraphicsQuality } from '../composables/use-graphics-quality'
+import { useSimpleI18n } from '../composables/use-simple-i18n'
 import ControlsGuideModal from './controls-guide-modal.vue'
+
+const { t } = useSimpleI18n({
+  'zh-hant': {
+    title: '系統選單',
+    playerName: '玩家名稱:',
+    enterName: '輸入玩家名稱...',
+    graphicsQuality: '畫面等級:',
+    high: '高',
+    low: '低',
+    controlsGuide: '操控說明',
+    resumeGame: '回到遊戲',
+  },
+  'en': {
+    title: 'System Menu',
+    playerName: 'Player Name:',
+    enterName: 'Enter player name...',
+    graphicsQuality: 'Graphics Quality:',
+    high: 'High',
+    low: 'Low',
+    controlsGuide: 'Controls Guide',
+    resumeGame: 'Resume Game',
+  },
+} as const)
 
 const props = defineProps<{
   show: boolean;
