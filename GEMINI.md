@@ -1,7 +1,3 @@
----
-trigger: always_on
----
-
 # 專案概述
 
 此專案為鱈魚（codlin）的個人部落格

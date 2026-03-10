@@ -39,8 +39,7 @@
         />
       </div>
 
-      <div class="teleport-charge-text text-left" v-html="t('teleportCharging')">
-      </div>
+      <div class="teleport-charge-text text-left" v-html="t('teleportCharging')" />
     </div>
 
     <!-- 手機虛擬控制 -->
@@ -107,21 +106,6 @@ import { usePlayerAvatars } from '../../composables/use-player-avatars'
 import { useSimpleI18n } from '../../composables/use-simple-i18n'
 import { useSoundManager } from '../../composables/use-sound-manager'
 import { NetworkRole } from '../../types/network'
-
-const { t } = useSimpleI18n({
-  'zh-hant': {
-    teleportCharging: '傳送<br>集氣中...',
-    initFailed: '初始化失敗',
-    placingBlocks: '正在努力擺方塊...',
-    connecting: '連線至伺服器...',
-  },
-  'en': {
-    teleportCharging: 'TELEPORT<br>CHARGING...',
-    initFailed: 'Initialization Failed',
-    placingBlocks: 'Placing blocks...',
-    connecting: 'Connecting to server...',
-  },
-} as const)
 import { BLOCK_DEFS, BlockId } from '../block/block-constants'
 import { castBlockRay, placeBlock, setBlock } from '../player/block-interaction'
 import { PLAYER_EYE_HEIGHT, PLAYER_HEIGHT } from '../player/collision'
@@ -141,6 +125,21 @@ import { createWorldState, findSafeTeleportY, simulateSandGravity } from '../wor
 const emit = defineEmits<{
   ready: [];
 }>()
+
+const { t } = useSimpleI18n({
+  'zh-hant': {
+    teleportCharging: '傳送<br>集氣中...',
+    initFailed: '初始化失敗',
+    placingBlocks: '正在努力擺方塊...',
+    connecting: '連線至伺服器...',
+  },
+  'en': {
+    teleportCharging: 'TELEPORT<br>CHARGING...',
+    initFailed: 'Initialization Failed',
+    placingBlocks: 'Placing blocks...',
+    connecting: 'Connecting to server...',
+  },
+} as const)
 
 /** 共享世界狀態 */
 let worldState = createWorldState()
