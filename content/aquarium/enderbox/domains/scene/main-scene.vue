@@ -110,7 +110,7 @@ import { NetworkRole } from '../../types/network'
 
 const { t } = useSimpleI18n({
   'zh-hant': {
-    teleportCharging: '傳送<br>充能中...',
+    teleportCharging: '傳送<br>集氣中...',
     initFailed: '初始化失敗',
     placingBlocks: '正在努力擺方塊...',
     connecting: '連線至伺服器...',
