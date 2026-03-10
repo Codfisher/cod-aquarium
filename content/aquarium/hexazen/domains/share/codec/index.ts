@@ -14,7 +14,7 @@ export interface SharedBlock {
 /** 二進位格式版本號 */
 const FORMAT_VERSION = 2
 
-/** 座標偏移量，將 [-3, 3] 映射到 [0, 6] */
+/** 座標偏移量，將 [-3, 3] 映射到 [0, 6]，剛好可以用 3 bits 表示 */
 const COORDINATE_OFFSET = 3
 
 /** 各欄位位元寬度 */
