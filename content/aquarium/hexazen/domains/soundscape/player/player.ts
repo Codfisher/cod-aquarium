@@ -111,7 +111,7 @@ export class SoundscapePlayer {
   }
 
   /**
-   * Loop 模式：雙軌交疊播放第一個聲音
+   * Loop 模式：雙軌交疊播放，以 crossfade 消除循環斷點
    */
   private playLoop() {
     const soundData = this.soundscape.soundList[0]
@@ -119,13 +119,10 @@ export class SoundscapePlayer {
       return
     const baseVolume = soundData.volume ?? DEFAULT_BASE_VOLUME
 
-    // 建立雙音軌
     const audioA = new Audio(soundData.src)
     audioA.crossOrigin = 'anonymous'
-    audioA.loop = true
     const audioB = new Audio(soundData.src)
     audioB.crossOrigin = 'anonymous'
-    audioB.loop = true
 
     const trackA = this.createTrack(audioA, baseVolume)
     const trackB = this.createTrack(audioB, baseVolume)
@@ -136,20 +133,41 @@ export class SoundscapePlayer {
       if (this.isDestroying)
         return
 
-      track.audio.currentTime = 0
-      track.audio.play().catch((e) => console.warn(`[${this.soundscape.type}] 播放被阻擋:`, e))
+      const otherTrack = track === trackA ? trackB : trackA
 
-      // 取得音檔總長度來計算交疊時間點
+      track.audio.currentTime = 0
+      // 新軌從靜音開始淡入
+      track.trackGain.gain.setValueAtTime(0, this.audioContext.currentTime)
+      track.trackGain.gain.linearRampToValueAtTime(
+        baseVolume,
+        this.audioContext.currentTime + Math.min(this.OVERLAP_SECONDS, 1),
+      )
+      track.audio.play().catch((error) => console.warn(`[${this.soundscape.type}] 播放被阻擋:`, error))
+
       const setupOverlap = () => {
-        // 確保交疊時間不會大於音檔本身長度的一半
         const overlap = Math.min(this.OVERLAP_SECONDS, track.audio.duration * 0.4)
         const triggerTimeMs = (track.audio.duration - overlap) * 1000
 
         const timer = setTimeout(() => {
           this.timeoutIds.delete(timer)
+          if (this.isDestroying)
+            return
+
+          // 舊軌淡出
+          const now = this.audioContext.currentTime
+          track.trackGain.gain.setValueAtTime(baseVolume, now)
+          track.trackGain.gain.linearRampToValueAtTime(0, now + overlap)
+
+          // 淡出結束後暫停舊軌，釋放資源
+          const stopTimer = setTimeout(() => {
+            this.timeoutIds.delete(stopTimer)
+            track.audio.pause()
+          }, overlap * 1000)
+          this.timeoutIds.add(stopTimer)
+
+          // 啟動下一軌
           useTrackA = !useTrackA
-          const nextTrack = useTrackA ? trackA : trackB
-          scheduleNext(nextTrack)
+          scheduleNext(otherTrack)
         }, triggerTimeMs)
 
         this.timeoutIds.add(timer)
@@ -166,8 +184,48 @@ export class SoundscapePlayer {
       }
     }
 
-    // 啟動第一軌
-    scheduleNext(trackA)
+    // 啟動第一軌（第一次直接以原始音量開始，不需淡入）
+    trackA.trackGain.gain.setValueAtTime(baseVolume, this.audioContext.currentTime)
+    trackA.audio.currentTime = 0
+    trackA.audio.play().catch((error) => console.warn(`[${this.soundscape.type}] 播放被阻擋:`, error))
+
+    const setupFirstOverlap = () => {
+      const overlap = Math.min(this.OVERLAP_SECONDS, trackA.audio.duration * 0.4)
+      const triggerTimeMs = (trackA.audio.duration - overlap) * 1000
+
+      const timer = setTimeout(() => {
+        this.timeoutIds.delete(timer)
+        if (this.isDestroying)
+          return
+
+        // 第一軌淡出
+        const now = this.audioContext.currentTime
+        trackA.trackGain.gain.setValueAtTime(baseVolume, now)
+        trackA.trackGain.gain.linearRampToValueAtTime(0, now + overlap)
+
+        const stopTimer = setTimeout(() => {
+          this.timeoutIds.delete(stopTimer)
+          trackA.audio.pause()
+        }, overlap * 1000)
+        this.timeoutIds.add(stopTimer)
+
+        // 啟動第二軌
+        useTrackA = false
+        scheduleNext(trackB)
+      }, triggerTimeMs)
+
+      this.timeoutIds.add(timer)
+    }
+
+    if (trackA.audio.readyState >= 1) {
+      setupFirstOverlap()
+    }
+    else {
+      trackA.audio.onloadedmetadata = () => {
+        setupFirstOverlap()
+        trackA.audio.onloadedmetadata = null
+      }
+    }
   }
 
   /**
