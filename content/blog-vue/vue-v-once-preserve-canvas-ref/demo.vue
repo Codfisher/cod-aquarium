@@ -32,7 +32,10 @@
           </div>
         </div>
 
-        <u-context-menu :items="menuItems">
+        <u-context-menu
+          :items="menuItems"
+          :modal="false"
+        >
           <canvas
             ref="canvasWithout"
             class="w-full h-32 rounded-lg border border-black/5 dark:border-white/5 outline-none block"
@@ -64,7 +67,10 @@
           </div>
         </div>
 
-        <u-context-menu :items="menuItems">
+        <u-context-menu
+          :items="menuItems"
+          :modal="false"
+        >
           <canvas
             v-once
             ref="canvasWith"
