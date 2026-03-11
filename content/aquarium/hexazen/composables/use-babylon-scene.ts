@@ -45,7 +45,6 @@ const defaultParam: Required<UseBabylonSceneParam> = {
       antialias: true,
       alpha: false,
       stencil: true,
-      preserveDrawingBuffer: true,
     })
   },
   createScene({ engine }) {
