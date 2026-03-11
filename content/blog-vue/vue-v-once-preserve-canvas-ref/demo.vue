@@ -2,7 +2,7 @@
   <div class="flex flex-col gap-4">
     <!-- 控制區 -->
     <div class="flex flex-wrap items-center gap-3">
-      <label class="opacity-50 shrink-0 text-xs">
+      <label class=" shrink-0 text-sm">
         調整寬度
       </label>
 
@@ -11,14 +11,6 @@
         :min="80"
         :max="100"
         class="flex-1 accent-primary"
-      />
-
-      <u-button
-        variant="outline"
-        color="neutral"
-        class="p-2!"
-        label="更新右鍵選單"
-        @click="updateContextMenu"
       />
     </div>
 
@@ -95,7 +87,6 @@
   </div>
 </template>
 
-
 <script setup lang="ts">
 import type { ContextMenuItem } from '@nuxt/ui/.'
 import { useElementSize } from '@vueuse/core'
@@ -111,17 +102,12 @@ useBabylonSimple(canvasWith, { hue: 160 })
 const sizeWithout = useElementSize(canvasWithout)
 const sizeWith = useElementSize(canvasWith)
 
-/** 模擬選取狀態切換，讓 items 結構改變 */
-const menuVariant = ref(0)
-
 /** 使用者拖曳控制的寬度（百分比） */
 const resizePercent = ref(100)
 
 /** 紀錄最新的 size */
 const lastSizeWithout = ref('')
 const lastSizeWith = ref('')
-
-const updateCount = ref(0)
 
 watch([sizeWithout.width, sizeWithout.height], ([width, height]) => {
   if (width === 0 && height === 0)
@@ -134,28 +120,6 @@ watch([sizeWith.width, sizeWith.height], ([width, height]) => {
   lastSizeWith.value = `${Math.round(width)} × ${Math.round(height)}`
 })
 
-
-
-/** 模擬右鍵選單 items 結構變化 */
-function updateContextMenu() {
-  menuVariant.value = menuVariant.value === 0 ? 1 : 0
-  updateCount.value++
-}
-
-function openContextMenu(e: MouseEvent) {
-  if (canvasWithout.value) {
-    const rect = canvasWithout.value.getBoundingClientRect()
-    canvasWithout.value.dispatchEvent(
-      new MouseEvent('contextmenu', {
-        bubbles: true,
-        cancelable: true,
-        clientX: rect.left + rect.width / 2,
-        clientY: rect.top + rect.height / 2,
-      }),
-    )
-  }
-}
-
 const menuItems = computed<ContextMenuItem[][]>(() => {
   const baseItems: ContextMenuItem[] = [
     {
@@ -167,39 +131,6 @@ const menuItems = computed<ContextMenuItem[][]>(() => {
       icon: 'material-symbols:flip-camera-ios-outline-rounded',
     },
   ]
-
-  if (menuVariant.value > 0) {
-    return [
-      [
-        { label: `已選取 ${menuVariant.value} 個物件`, type: 'label' as const },
-        {
-          label: 'Position',
-          icon: 'hugeicons:three-d-move',
-          children: [
-            { label: 'Snap to Ground' },
-            { label: 'Move to Origin' },
-          ],
-        },
-        {
-          label: 'Rotation',
-          icon: 'hugeicons:three-d-rotate',
-          children: [
-            { label: 'Rotate X 90°' },
-            { label: 'Rotate Y 90°' },
-            { label: 'Reset' },
-          ],
-        },
-        {
-          label: 'Delete',
-          icon: 'i-material-symbols:delete-outline-rounded',
-        },
-      ],
-      baseItems,
-    ]
-  }
-
   return [baseItems]
 })
-
-
 </script>

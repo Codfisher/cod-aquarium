@@ -1,17 +1,19 @@
+import type { MaybeRefOrGetter } from 'vue'
 import { Color3, Color4, Engine, FreeCamera, HemisphericLight, MeshBuilder, Scene, StandardMaterial, Vector3 } from '@babylonjs/core'
 import { useElementSize } from '@vueuse/core'
-import { MaybeRefOrGetter, onBeforeUnmount, onMounted, reactive, toValue, watch } from 'vue'
+import { onBeforeUnmount, onMounted, reactive, toValue, watch } from 'vue'
 
 export function useBabylonSimple(
   canvasRef: MaybeRefOrGetter<HTMLCanvasElement | null>,
-  options: { hue: number } = { hue: 0 }
+  options: { hue: number } = { hue: 0 },
 ) {
   let engine: Engine | null = null
   let scene: Scene | null = null
 
   onMounted(() => {
     const canvas = toValue(canvasRef)
-    if (!canvas) return
+    if (!canvas)
+      return
 
     engine = new Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true })
     scene = new Scene(engine)
@@ -21,11 +23,11 @@ export function useBabylonSimple(
     camera.setTarget(Vector3.Zero())
 
     const light = new HemisphericLight('light1', new Vector3(0, 1, 0), scene)
-    light.intensity = 0.8
+    light.intensity = 1
 
     const box = MeshBuilder.CreateBox('box', { size: 1.5 }, scene)
     const mat = new StandardMaterial('mat', scene)
-    mat.diffuseColor = Color3.FromHSV(options.hue, 0.7, 0.8)
+    mat.diffuseColor = Color3.FromHSV(options.hue, 1, 1)
     box.material = mat
 
     scene.onBeforeRenderObservable.add(() => {
