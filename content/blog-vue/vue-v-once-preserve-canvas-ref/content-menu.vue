@@ -22,7 +22,10 @@
       class="transition-all"
       :style="{ width: `${resizePercent}%` }"
     >
-      <u-context-menu :items="menuItems">
+      <u-context-menu
+        :items="menuItems"
+        :modal="false"
+      >
         <canvas
           ref="canvasRef"
           class="w-full h-32 rounded-lg border border-black/5 dark:border-white/5 outline-none block"
