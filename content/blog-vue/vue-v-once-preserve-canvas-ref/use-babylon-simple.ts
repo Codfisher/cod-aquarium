@@ -15,7 +15,7 @@ export function useBabylonSimple(
     if (!canvas)
       return
 
-    engine = new Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true })
+    engine = new Engine(canvas, true, { stencil: true })
     scene = new Scene(engine)
     scene.clearColor = new Color4(0, 0, 0, 0)
 
