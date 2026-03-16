@@ -5,6 +5,9 @@
 ## Coding Style
 
 - 變數名稱禁止使用縮，除非是 url 這種廣為人知的縮寫
+- 矩陣資料用 list 結尾。例如：Hole[]，應該命名為 holeList 而不是 holes。物件內多個參數才用複數結尾，例如 Vue 的 props、attrs
+  此目的是為了與 Vue 本身的命名規則保持相容，避免混淆。
+- Map、Set 資料用 map、set 結尾。例如：Map<string, Hole>，應該命名為 holeMap 而不是 holesMap。
 
 - **TypeScript**:
   - 禁止使用 `any`，必須定義明確的 Interface 或 Type。

@@ -381,10 +381,10 @@ export function placeRuin(state: Uint8Array, x: number, sy: number, z: number) {
           const wallRoll = Math.random()
           let wallBlock: BlockId
           if (wallRoll < 0.4) {
-            wallBlock = BlockId.MOSSY_STONE_BRICKS
+            wallBlock = BlockId.MOSSY_COBBLESTONE
           }
           else if (wallRoll < 0.7) {
-            wallBlock = BlockId.CRACKED_STONE_BRICKS
+            wallBlock = BlockId.STONE_BRICKS
           }
           else {
             wallBlock = BlockId.STONE_BRICKS

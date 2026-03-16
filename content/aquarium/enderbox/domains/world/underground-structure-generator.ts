@@ -223,10 +223,10 @@ function placeDungeon(state: Uint8Array, heightMap: Uint8Array): boolean {
             wallBlock = BlockId.STONE_BRICKS
           }
           else if (wallRoll < 0.8) {
-            wallBlock = BlockId.MOSSY_STONE_BRICKS
+            wallBlock = BlockId.MOSSY_COBBLESTONE
           }
           else {
-            wallBlock = BlockId.CRACKED_STONE_BRICKS
+            wallBlock = BlockId.STONE_BRICKS
           }
           forceSet(state, x, floorY + dy, z, wallBlock)
         }
