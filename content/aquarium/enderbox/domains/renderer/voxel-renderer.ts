@@ -3,6 +3,7 @@ import type { BlockTextureDef } from '../block/block-constants'
 import type { ChunkWorkerComposable } from '../world/use-chunk-worker'
 import {
   Color3,
+  DynamicTexture,
   Material,
   MeshBuilder,
   StandardMaterial,
@@ -42,6 +43,45 @@ export interface VoxelRenderer {
 }
 
 /**
+ * 將 base 與 overlay 圖片合成到 Canvas 上，產生 DynamicTexture
+ */
+function createCompositedTexture(
+  name: string,
+  basePath: string,
+  overlayPath: string,
+  scene: Scene,
+): DynamicTexture {
+  const size = 16
+  const dynamicTexture = new DynamicTexture(name, size, scene, false, Texture.NEAREST_SAMPLINGMODE)
+
+  const baseImg = new Image()
+  const overlayImg = new Image()
+  let loadedCount = 0
+
+  const tryComposite = () => {
+    loadedCount++
+    if (loadedCount < 2)
+      return
+
+    const ctx = dynamicTexture.getContext()
+    if (ctx instanceof CanvasRenderingContext2D) {
+      ctx.imageSmoothingEnabled = false
+    }
+    ctx.clearRect(0, 0, size, size)
+    ctx.drawImage(baseImg, 0, 0, size, size)
+    ctx.drawImage(overlayImg, 0, 0, size, size)
+    dynamicTexture.update()
+  }
+
+  baseImg.onload = tryComposite
+  overlayImg.onload = tryComposite
+  baseImg.src = basePath
+  overlayImg.src = overlayPath
+
+  return dynamicTexture
+}
+
+/**
  * 建立像素風格材質
  */
 export function createPixelMaterial(
@@ -49,12 +89,24 @@ export function createPixelMaterial(
   texturePath: string,
   scene: Scene,
   tint?: [number, number, number],
+  overlayPath?: string,
 ): StandardMaterial {
   const material = new StandardMaterial(name, scene)
-  const texture = new Texture(texturePath, scene, {
-    samplingMode: Texture.NEAREST_SAMPLINGMODE,
-  })
-  material.diffuseTexture = texture
+
+  if (overlayPath) {
+    material.diffuseTexture = createCompositedTexture(
+      `${name}_tex`,
+      texturePath,
+      overlayPath,
+      scene,
+    )
+  }
+  else {
+    material.diffuseTexture = new Texture(texturePath, scene, {
+      samplingMode: Texture.NEAREST_SAMPLINGMODE,
+    })
+  }
+
   material.specularColor = new Color3(0.1, 0.1, 0.1)
   material.backFaceCulling = false
 
@@ -111,8 +163,8 @@ class ChunkRenderer {
   private initPerFaceMeshes(blockId: BlockId, textureDef: BlockTextureDef) {
     const prefix = `chunk_${this.cx}_${this.cz}_block_${blockId}`
 
-    const addFace = (name: string, tex: string, rotX: number, rotY: number, posOffset: { x: number; y: number; z: number }, tint?: [number, number, number]) => {
-      const mat = createPixelMaterial(`${prefix}_${name}_mat`, tex, this.scene, tint)
+    const addFace = (name: string, tex: string, rotX: number, rotY: number, posOffset: { x: number; y: number; z: number }, tint?: [number, number, number], overlay?: string) => {
+      const mat = createPixelMaterial(`${prefix}_${name}_mat`, tex, this.scene, tint, overlay)
       const mesh = MeshBuilder.CreatePlane(`${prefix}_${name}`, { size: 1 }, this.scene)
       mesh.rotation.x = rotX
       mesh.rotation.y = rotY
@@ -125,15 +177,15 @@ class ChunkRenderer {
 
     addFace('top', textureDef.top ?? textureDef.side ?? '', Math.PI / 2, 0, { x: 0, y: 0.5, z: 0 }, textureDef.topTint)
     addFace('bottom', textureDef.bottom ?? textureDef.side ?? '', -Math.PI / 2, 0, { x: 0, y: -0.5, z: 0 })
-    addFace('front', textureDef.side ?? '', 0, 0, { x: 0, y: 0, z: 0.5 })
-    addFace('back', textureDef.side ?? '', 0, Math.PI, { x: 0, y: 0, z: -0.5 })
-    addFace('left', textureDef.side ?? '', 0, -Math.PI / 2, { x: -0.5, y: 0, z: 0 })
-    addFace('right', textureDef.side ?? '', 0, Math.PI / 2, { x: 0.5, y: 0, z: 0 })
+    addFace('front', textureDef.side ?? '', 0, 0, { x: 0, y: 0, z: 0.5 }, undefined, textureDef.sideOverlay)
+    addFace('back', textureDef.side ?? '', 0, Math.PI, { x: 0, y: 0, z: -0.5 }, undefined, textureDef.sideOverlay)
+    addFace('left', textureDef.side ?? '', 0, -Math.PI / 2, { x: -0.5, y: 0, z: 0 }, undefined, textureDef.sideOverlay)
+    addFace('right', textureDef.side ?? '', 0, Math.PI / 2, { x: 0.5, y: 0, z: 0 }, undefined, textureDef.sideOverlay)
   }
 
   private initSingleMaterialMesh(blockId: BlockId, blockDef: any, textureDef: BlockTextureDef) {
     const name = `chunk_${this.cx}_${this.cz}_block_${blockId}`
-    const mat = createPixelMaterial(`${name}_mat`, textureDef.all ?? '', this.scene, textureDef.tint)
+    const mat = createPixelMaterial(`${name}_mat`, textureDef.all ?? '', this.scene, textureDef.tint, textureDef.overlay)
 
     if (blockDef.alpha !== undefined && blockDef.alpha < 1) {
       mat.alpha = blockDef.alpha

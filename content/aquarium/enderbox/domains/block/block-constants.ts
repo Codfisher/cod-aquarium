@@ -25,12 +25,10 @@ export enum BlockId {
   HAY_BLOCK,
   COAL_ORE,
   IRON_ORE,
-  MOSSY_STONE_BRICKS,
-  CRACKED_STONE_BRICKS,
 }
 
 /** 材質路徑前綴 */
-const TEXTURE_BASE = '/assets/minecraft/textures/block'
+const TEXTURE_BASE = '/assets/minecraft-mini8x'
 
 /** 方塊材質定義：支援 per-face 或單一材質 */
 export interface BlockTextureDef {
@@ -40,6 +38,10 @@ export interface BlockTextureDef {
   top?: string;
   side?: string;
   bottom?: string;
+  /** 疊加在基底材質上的覆蓋層（例如礦物紋理疊在石頭上） */
+  overlay?: string;
+  /** 個別面的覆蓋層 */
+  sideOverlay?: string;
   /** 全部面色調 tint */
   tint?: [number, number, number];
   /** 色調 tint（乘以灰階貼圖產生顏色），格式 [r, g, b] 範圍 0~1
@@ -73,177 +75,166 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     miningSeconds: 0.2,
     isDroppable: true,
     textures: {
-      top: `${TEXTURE_BASE}/grass_block_top.png`,
-      side: `${TEXTURE_BASE}/grass_block_side.png`,
-      bottom: `${TEXTURE_BASE}/dirt.png`,
+      top: `${TEXTURE_BASE}/default_grass_top.png`,
+      side: `${TEXTURE_BASE}/default_dirt.png`,
+      sideOverlay: `${TEXTURE_BASE}/default_grass_side.png`,
+      bottom: `${TEXTURE_BASE}/default_dirt.png`,
       topTint: [0.57, 0.74, 0.35],
     },
   },
   [BlockId.STONE]: {
     miningSeconds: 0.5,
     textures: {
-      all: `${TEXTURE_BASE}/stone.png`,
+      all: `${TEXTURE_BASE}/default_stone.png`,
     },
   },
   [BlockId.WOOD]: {
     miningSeconds: 0.5,
     textures: {
-      all: `${TEXTURE_BASE}/oak_planks.png`,
+      all: `${TEXTURE_BASE}/default_wood.png`,
     },
   },
   [BlockId.DIRT]: {
     miningSeconds: 0.2,
     textures: {
-      all: `${TEXTURE_BASE}/dirt.png`,
+      all: `${TEXTURE_BASE}/default_dirt.png`,
     },
   },
   [BlockId.BEDROCK]: {
     miningSeconds: Infinity,
     textures: {
-      all: `${TEXTURE_BASE}/bedrock.png`,
+      all: `${TEXTURE_BASE}/default_obsidian.png`,
     },
   },
   [BlockId.SAND]: {
     miningSeconds: 0.1,
     textures: {
-      all: `${TEXTURE_BASE}/sand.png`,
+      all: `${TEXTURE_BASE}/default_sand.png`,
     },
   },
   [BlockId.COBBLESTONE]: {
     miningSeconds: 0.5,
     textures: {
-      all: `${TEXTURE_BASE}/cobblestone.png`,
+      all: `${TEXTURE_BASE}/default_cobble.png`,
     },
   },
   [BlockId.GLASS]: {
     miningSeconds: 0.3,
     alpha: 0.5,
     textures: {
-      all: `${TEXTURE_BASE}/glass.png`,
+      all: `${TEXTURE_BASE}/default_glass.png`,
     },
   },
   [BlockId.BRICKS]: {
     miningSeconds: 0.5,
     textures: {
-      all: `${TEXTURE_BASE}/bricks.png`,
+      all: `${TEXTURE_BASE}/default_brick.png`,
     },
   },
   [BlockId.OAK_LEAVES]: {
     miningSeconds: 0.1,
     isDroppable: false,
     textures: {
-      all: `${TEXTURE_BASE}/oak_leaves.png`,
+      all: `${TEXTURE_BASE}/default_leaves.png`,
       tint: [0.57, 0.74, 0.35],
     },
   },
   [BlockId.OAK_LOG]: {
     miningSeconds: 0.5,
     textures: {
-      top: `${TEXTURE_BASE}/oak_log_top.png`,
-      bottom: `${TEXTURE_BASE}/oak_log_top.png`,
-      side: `${TEXTURE_BASE}/oak_log.png`,
+      top: `${TEXTURE_BASE}/default_tree_top.png`,
+      bottom: `${TEXTURE_BASE}/default_tree_top.png`,
+      side: `${TEXTURE_BASE}/default_tree.png`,
     },
   },
   [BlockId.STONE_BRICKS]: {
     miningSeconds: 0.5,
     textures: {
-      all: `${TEXTURE_BASE}/stone_bricks.png`,
+      all: `${TEXTURE_BASE}/default_stone_brick.png`,
     },
   },
   [BlockId.DARK_OAK_LOG]: {
     miningSeconds: 0.5,
     textures: {
-      top: `${TEXTURE_BASE}/dark_oak_log_top.png`,
-      bottom: `${TEXTURE_BASE}/dark_oak_log_top.png`,
-      side: `${TEXTURE_BASE}/dark_oak_log.png`,
+      top: `${TEXTURE_BASE}/default_jungletree_top.png`,
+      bottom: `${TEXTURE_BASE}/default_jungletree_top.png`,
+      side: `${TEXTURE_BASE}/default_jungletree.png`,
     },
   },
   [BlockId.DARK_OAK_PLANKS]: {
     miningSeconds: 0.5,
     textures: {
-      all: `${TEXTURE_BASE}/dark_oak_planks.png`,
+      all: `${TEXTURE_BASE}/default_junglewood.png`,
     },
   },
   [BlockId.SPRUCE_PLANKS]: {
     miningSeconds: 0.5,
     textures: {
-      all: `${TEXTURE_BASE}/spruce_planks.png`,
+      all: `${TEXTURE_BASE}/default_pine_wood.png`,
     },
   },
   [BlockId.BOOKSHELF]: {
     miningSeconds: 0.3,
     textures: {
-      top: `${TEXTURE_BASE}/oak_planks.png`,
-      bottom: `${TEXTURE_BASE}/oak_planks.png`,
-      side: `${TEXTURE_BASE}/bookshelf.png`,
+      top: `${TEXTURE_BASE}/default_wood.png`,
+      bottom: `${TEXTURE_BASE}/default_wood.png`,
+      side: `${TEXTURE_BASE}/default_bookshelf.png`,
     },
   },
   [BlockId.CRAFTING_TABLE]: {
     miningSeconds: 0.3,
     textures: {
-      top: `${TEXTURE_BASE}/crafting_table_top.png`,
-      bottom: `${TEXTURE_BASE}/spruce_planks.png`,
-      side: `${TEXTURE_BASE}/crafting_table_side.png`,
+      top: `${TEXTURE_BASE}/xdecor_workbench_top.png`,
+      bottom: `${TEXTURE_BASE}/default_pine_wood.png`,
+      side: `${TEXTURE_BASE}/xdecor_workbench_front.png`,
     },
   },
   [BlockId.BARREL]: {
     miningSeconds: 0.3,
     textures: {
-      top: `${TEXTURE_BASE}/barrel_top.png`,
-      bottom: `${TEXTURE_BASE}/barrel_bottom.png`,
-      side: `${TEXTURE_BASE}/barrel_side.png`,
+      top: `${TEXTURE_BASE}/xdecor_barrel_top.png`,
+      bottom: `${TEXTURE_BASE}/xdecor_barrel_top.png`,
+      side: `${TEXTURE_BASE}/xdecor_barrel_sides.png`,
     },
   },
   [BlockId.FURNACE]: {
     miningSeconds: 0.5,
     textures: {
-      top: `${TEXTURE_BASE}/furnace_top.png`,
-      side: `${TEXTURE_BASE}/furnace_front.png`,
-      bottom: `${TEXTURE_BASE}/furnace_top.png`,
+      top: `${TEXTURE_BASE}/default_furnace_top.png`,
+      side: `${TEXTURE_BASE}/default_furnace_front.png`,
+      bottom: `${TEXTURE_BASE}/default_furnace_top.png`,
     },
   },
   [BlockId.MOSSY_COBBLESTONE]: {
     miningSeconds: 0.5,
     textures: {
-      all: `${TEXTURE_BASE}/mossy_cobblestone.png`,
+      all: `${TEXTURE_BASE}/default_mossycobble.png`,
     },
   },
   [BlockId.CHISELED_STONE_BRICKS]: {
     miningSeconds: 0.5,
     textures: {
-      all: `${TEXTURE_BASE}/chiseled_stone_bricks.png`,
+      all: `${TEXTURE_BASE}/default_stone_block.png`,
     },
   },
   [BlockId.HAY_BLOCK]: {
     miningSeconds: 0.3,
     textures: {
-      top: `${TEXTURE_BASE}/hay_block_top.png`,
-      bottom: `${TEXTURE_BASE}/hay_block_top.png`,
-      side: `${TEXTURE_BASE}/hay_block_side.png`,
+      all: `${TEXTURE_BASE}/farming_straw.png`,
     },
   },
   [BlockId.COAL_ORE]: {
     miningSeconds: 0.5,
     textures: {
-      all: `${TEXTURE_BASE}/coal_ore.png`,
+      all: `${TEXTURE_BASE}/default_stone.png`,
+      overlay: `${TEXTURE_BASE}/default_mineral_coal.png`,
     },
   },
   [BlockId.IRON_ORE]: {
     miningSeconds: 0.6,
     textures: {
-      all: `${TEXTURE_BASE}/iron_ore.png`,
-    },
-  },
-  [BlockId.MOSSY_STONE_BRICKS]: {
-    miningSeconds: 0.5,
-    textures: {
-      all: `${TEXTURE_BASE}/mossy_stone_bricks.png`,
-    },
-  },
-  [BlockId.CRACKED_STONE_BRICKS]: {
-    miningSeconds: 0.5,
-    textures: {
-      all: `${TEXTURE_BASE}/cracked_stone_bricks.png`,
+      all: `${TEXTURE_BASE}/default_stone.png`,
+      overlay: `${TEXTURE_BASE}/default_mineral_iron.png`,
     },
   },
 }
