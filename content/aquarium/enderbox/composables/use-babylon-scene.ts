@@ -1,4 +1,5 @@
 import {
+  Camera,
   Color3,
   Color4,
   DirectionalLight,
@@ -112,10 +113,19 @@ const defaultParam: Required<UseBabylonSceneParam> = {
      * 不然走個路都感覺臉貼在方塊上 (́⊙◞౪◟⊙‵)
      */
     camera.fov = 1.3
+    updateCameraFovMode(camera, canvas)
 
     return camera
   },
   init: () => Promise.resolve(),
+}
+
+/** 直螢幕時以寬度為基準計算 FOV，避免鏡頭過度放大 */
+function updateCameraFovMode(camera: UniversalCamera, canvas: HTMLCanvasElement) {
+  const isPortrait = canvas.clientHeight > canvas.clientWidth
+  camera.fovMode = isPortrait
+    ? Camera.FOVMODE_HORIZONTAL_FIXED
+    : Camera.FOVMODE_VERTICAL_FIXED
 }
 
 function createShadowGenerator({ scene, engine }: { scene: Scene; engine: BabylonEngine }) {
@@ -258,6 +268,10 @@ export function useBabylonScene(param?: UseBabylonSceneParam) {
 
   function handleResize() {
     engine.value?.resize()
+
+    if (camera.value && canvasRef.value) {
+      updateCameraFovMode(camera.value, canvasRef.value)
+    }
   }
 
   return {
