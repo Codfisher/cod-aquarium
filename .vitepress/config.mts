@@ -1,6 +1,7 @@
 import type { DefaultTheme } from 'vitepress'
 import type { Article } from './utils'
 import { dirname, resolve } from 'node:path'
+import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 import VueI18nPlugin from '@intlify/unplugin-vue-i18n/vite'
 import ui from '@nuxt/ui/vite'
@@ -440,6 +441,10 @@ export default ({ mode }: { mode: string }) => {
     },
     async buildEnd() {
       await generateImages()
+
+      // 第三方插件（如 vitepress-plugin-rss）持有未釋放的資源，導致 process 無法正常退出
+      // 延遲足夠時間讓後續插件完成後強制結束
+      setTimeout(() => process.exit(0), 10_000)
     },
   })
 }

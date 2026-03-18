@@ -107,5 +107,8 @@ export async function generateImages() {
     }
   }
 
+  // 清理 sharp 的 libvips 執行緒池與快取，避免 process 無法退出
+  sharp.cache(false)
+
   console.log(`[ generateImages ] 產生完成`)
 }
