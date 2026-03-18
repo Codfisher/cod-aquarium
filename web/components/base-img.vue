@@ -4,10 +4,12 @@
       <source
         v-if="isDark && !darkSrcError"
         :srcset="darkSrcset"
+        :sizes="sizes"
         type="image/webp"
       >
       <source
         :srcset="lightSrcset"
+        :sizes="sizes"
         type="image/webp"
       >
     </template>
@@ -29,10 +31,13 @@ interface Props extends /* @vue-ignore */ ImgHTMLAttributes {
   src: string;
   /** 指定特定尺寸 */
   useSize?: typeof WIDTH_LIST[number];
+  /** 圖片 sizes 屬性，用於搭配 srcset 讓瀏覽器選擇正確尺寸 */
+  sizes?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   useSize: undefined,
+  sizes: '(max-width: 700px) 100vw, 700px',
 })
 
 const { isDark } = useData()
