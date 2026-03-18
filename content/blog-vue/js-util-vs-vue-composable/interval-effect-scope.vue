@@ -1,6 +1,6 @@
 <template>
   <span class="text-xs opacity-50">
-    元件已安裝，interval 運作中
+    interval-effect-scope 已安裝
   </span>
 </template>
 

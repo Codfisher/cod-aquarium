@@ -1,11 +1,10 @@
 <template>
   <span class="text-xs opacity-50">
-    元件已安裝，interval 運作中
+    interval-in-timeout 已安裝
   </span>
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
 import { asyncCount } from './interval-store'
 import { useIntervalFnSimple } from './use-interval-fn-simple'
 
