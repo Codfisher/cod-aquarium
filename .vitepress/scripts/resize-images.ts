@@ -8,8 +8,12 @@ const OUTPUT_PATH = path.resolve(__dirname, '../../.vitepress/dist')
 
 const IGNORE_NAME_LIST = [
   'favicon',
-  // meme 檔案固定開頭
-  'meme-',
+]
+const IGNORE_PATH_LIST = [
+  'public/memes/',
+  'public/assets/',
+  'public/codstack/',
+  'public/hexazen/',
 ]
 const WIDTH_LIST = [700, 300]
 const SUFFIX_NAME_LIST = ['.png', '.jpg', '.jpeg', '.webp']
@@ -29,7 +33,14 @@ function getImagePathList(dirPath: string) {
     const isDir = isDirectory(filePath)
 
     if (isDir) {
-      result.push(...getImagePathList(filePath))
+      const relativePath = path.relative(path.resolve(__dirname, '../..'), filePath).replace(/\\/g, '/')
+      const isIgnoredPath = IGNORE_PATH_LIST.some(
+        (ignorePath) => relativePath.includes(ignorePath.replace(/\/$/, '')),
+      )
+
+      if (!isIgnoredPath) {
+        result.push(...getImagePathList(filePath))
+      }
       continue
     }
 
@@ -56,7 +67,9 @@ export async function generateImages() {
   // 產生對應寬度圖片至 .vitepress/dist，檔名後面加上寬度
   for (const imgPath of imgList) {
     const img = fs.readFileSync(imgPath)
-    const filePath = imgPath.replace(IMAGE_PATH, '').split('.')[0]
+    const relativePath = imgPath.replace(IMAGE_PATH, '')
+    const parsed = path.parse(relativePath)
+    const filePath = path.join(parsed.dir, parsed.name)
 
     try {
       const tasks = pipe(
