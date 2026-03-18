@@ -1,6 +1,6 @@
 <template>
   <span class="text-xs opacity-50">
-    元件已掛載，interval 運作中
+    元件已安裝，interval 運作中
   </span>
 </template>
 

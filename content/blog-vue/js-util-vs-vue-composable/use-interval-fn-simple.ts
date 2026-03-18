@@ -1,4 +1,4 @@
-import { onUnmounted, ref } from 'vue'
+import { onScopeDispose, onUnmounted, ref } from 'vue'
 
 /** 簡化版 useIntervalFn，用於示範 composable 的自動清除機制 */
 export function useIntervalFnSimple(
@@ -23,7 +23,7 @@ export function useIntervalFnSimple(
   }
 
   start()
-  onUnmounted(stop)
+  onScopeDispose(stop)
 
   return { isActive, start, stop }
 }
