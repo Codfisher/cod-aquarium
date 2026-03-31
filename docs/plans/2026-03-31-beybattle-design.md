@@ -27,12 +27,8 @@ content/aquarium/beybattle/
 ├── beybattle.vue              # 根元件
 ├── index.md                   # 部落格入口（iframe 嵌入）
 ├── main-scene.vue             # 主場景串接
-├── components/
-│   ├── base-btn.vue
-│   ├── qte-panel.vue          # QTE 發射介面
-│   ├── part-picker.vue        # 零件選擇器
-│   ├── stats-display.vue      # 屬性雷達圖
-│   └── battle-result.vue      # 戰鬥結果畫面
+├── components/                # 通用元件
+│   └── base-btn.vue
 ├── composables/
 │   ├── use-babylon-scene.ts   # Babylon.js 場景初始化
 │   ├── use-font-loader.ts
@@ -43,7 +39,9 @@ content/aquarium/beybattle/
 │   ├── beyblade/              # 陀螺零件與組裝
 │   │   ├── parts.ts           # 零件定義
 │   │   ├── builder.ts         # 程式化建模
-│   │   └── stats.ts           # 屬性計算
+│   │   ├── stats.ts           # 屬性計算
+│   │   ├── part-picker.vue    # 零件選擇器
+│   │   └── stats-display.vue  # 屬性雷達圖
 │   ├── arena/
 │   │   └── arena-builder.ts   # 碗狀場地建模
 │   ├── physics/
@@ -51,10 +49,12 @@ content/aquarium/beybattle/
 │   │   └── collision.ts       # 碰撞偵測與回應
 │   ├── battle/
 │   │   ├── battle-manager.ts  # 戰鬥狀態機
-│   │   └── ai-controller.ts   # AI 策略
+│   │   ├── ai-controller.ts   # AI 策略
+│   │   └── battle-result.vue  # 戰鬥結果畫面
 │   └── qte/
 │       ├── qte-engine.ts      # QTE 判定核心
-│       └── qte-stages.ts      # 三段 QTE 定義
+│       ├── qte-stages.ts      # 三段 QTE 定義
+│       └── qte-panel.vue      # QTE 發射介面
 └── types/
     └── index.ts
 ```
