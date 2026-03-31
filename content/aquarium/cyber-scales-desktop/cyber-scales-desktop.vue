@@ -5,8 +5,13 @@
       @click.self="handleClick"
     >
       <template v-if="!isFontLoading && !isMobile">
+        <boot-sequence
+          v-if="isBooting"
+          @complete="isBooting = false"
+        />
+
         <hexagon-layout
-          v-if="!isLoading"
+          v-if="!isBooting"
           class="pb-10"
           size-selector=".icon"
         >
@@ -16,21 +21,9 @@
             v-bind="item"
             :label="`0${i} ${item.label}`"
             :label-left="i % 2 === 0"
-            :delay="(i + 1) * 150"
+            :delay="(i + 1) * 150 + 500"
           />
         </hexagon-layout>
-
-        <transition
-          name="opacity"
-          appear
-        >
-          <div
-            v-if="isLoading"
-            class=" fixed inset-0 z-50 flex justify-center items-center text-2xl font-orbitron opacity-90 tracking-widest"
-          >
-            Loading...
-          </div>
-        </transition>
       </template>
 
       <div
@@ -40,6 +33,12 @@
         此專案暫時不支援手機版<br>請使用電腦版瀏覽 ◝( •ω• )◟
       </div>
 
+      <template v-if="!isBooting && !isMobile">
+        <grid-pulse />
+        <hud-overlay />
+        <cursor-effects />
+      </template>
+
       <window-container />
 
       <cursor-futuristic class="z-[99999]" />
@@ -48,14 +47,16 @@
 </template>
 
 <script setup lang="ts">
-import { promiseTimeout, useAsyncState, useColorMode, useWindowSize } from '@vueuse/core'
-import { useData } from 'vitepress'
-import { computed, onBeforeUnmount, onMounted, reactive } from 'vue'
-import { nextFrame } from '../../../web/common/utils'
+import { useAsyncState, useColorMode, useWindowSize } from '@vueuse/core'
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { usePageNoScroll } from '../../../web/composables/use-page-no-scroll'
+import BootSequence from './components/boot-sequence.vue'
+import CursorEffects from './components/cursor-effects.vue'
 import CursorFuturistic from './components/cursor-futuristic/cursor-futuristic.vue'
 import DesktopItem from './components/desktop-item/desktop-item.vue'
+import GridPulse from './components/grid-pulse.vue'
 import HexagonLayout from './components/hexagon-layout.vue'
+import HudOverlay from './components/hud-overlay.vue'
 import WindowContainer from './components/window-container.vue'
 import { useAppStore } from './stores/app-store'
 
@@ -85,6 +86,8 @@ onBeforeUnmount(() => {
   if (linkEl)
     document.head.removeChild(linkEl)
 })
+
+const isBooting = ref(true)
 
 const appStore = useAppStore()
 
@@ -132,28 +135,11 @@ function handleClick() {
   appStore.focus()
 }
 
-const {
-  isLoading: isAssetLoading,
-  execute: loadTime,
-} = useAsyncState(async () => {
-  await nextFrame()
-  await promiseTimeout(2000)
-}, undefined, {
-  immediate: false,
-})
-
 const { isLoading: isFontLoading } = useAsyncState(async () => {
-  await nextFrame()
   await document.fonts.ready
-}, undefined, {
-  onSuccess() {
-    loadTime()
-  },
-})
+}, undefined)
 
 const isMobile = computed(() => windowSize.width < 640)
-
-const isLoading = computed(() => isFontLoading.value || isAssetLoading.value)
 
 usePageNoScroll()
 </script>

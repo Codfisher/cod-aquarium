@@ -1,4 +1,4 @@
-import type { EaseStringParamNames } from 'animejs'
+import type { EaseStringParamNames, EasingFunction } from 'animejs'
 import type { MaybeRefOrGetter } from 'vue'
 import { animate } from 'animejs'
 import { clone, mapValues, pipe } from 'remeda'
@@ -15,12 +15,12 @@ export type TargetDataObject<T> = {
   [K in keyof T]: TargetDataObjectValue<T[K]>
 }
 
-export type EaseString = EaseStringParamNames | (string & {})
+export type EaseValue = EaseStringParamNames | EasingFunction
 
 interface UseAnimatableParams<Data extends object> {
   delay?: number | ((fieldKey: keyof Data) => number);
   duration?: number | ((fieldKey: keyof Data) => number);
-  ease?: EaseString | ((fieldKey: keyof Data) => EaseString | undefined);
+  ease?: EaseValue | ((fieldKey: keyof Data) => EaseValue | undefined);
   /** @default */
   immediate?: boolean;
 
@@ -93,9 +93,17 @@ export function useAnimatable<
         return typeof duration === 'function' ? duration(fieldKey) : duration
       })
 
-      const easeValue = typeof ease === 'function'
-        ? ease(fieldKey)
-        : ease
+      const easeValue = pipe(undefined, (): EaseValue | undefined => {
+        if (typeof ease === 'function') {
+          // EasingFunction 回傳數值，callback 回傳 EaseValue | undefined
+          const result = (ease as (...args: unknown[]) => unknown)(fieldKey)
+          if (typeof result === 'number') {
+            return ease as EasingFunction
+          }
+          return result as EaseValue | undefined
+        }
+        return ease
+      })
 
       const targetValue = pipe(undefined, () => {
         if (Array.isArray(value)) {

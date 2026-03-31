@@ -11,6 +11,7 @@
 import { usePrevious } from '@vueuse/core'
 import { omit, pipe } from 'remeda'
 import { computed, inject } from 'vue'
+import { cubicBezier } from 'animejs/easings/cubic-bezier'
 import { useAnimatable } from '../../../../../../web/composables/use-animatable'
 import { ComponentStatus } from '../../../types'
 import { resolveTransitionParamValue } from '../../../utils'
@@ -91,7 +92,7 @@ const { data: graphParams } = useAnimatable(
       },
     ),
     duration: props.duration,
-    ease: 'cubicBezier(1, 0.3, 0, 0.7)',
+    ease: cubicBezier(1, 0.3, 0, 0.7),
     animationTriggerBy: () => status.value,
   },
 )
