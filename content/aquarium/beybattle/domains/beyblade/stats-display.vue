@@ -1,15 +1,30 @@
 <template>
-  <canvas
-    ref="canvasRef"
-    :width="size"
-    :height="size"
-    class="block"
-  />
+  <div class="stats-root" :style="{ width: `${size}px`, height: `${size}px` }">
+    <canvas
+      ref="canvasRef"
+      :width="size"
+      :height="size"
+      class="stats-canvas"
+    />
+
+    <!-- 標籤 + Tooltip（HTML overlay） -->
+    <div
+      v-for="(label, index) in labelList"
+      :key="label.key"
+      class="stats-label"
+      :style="getLabelStyle(index)"
+      :title="label.tooltip"
+    >
+      <span class="stats-label__text">{{ label.key }}</span>
+      <span class="stats-label__value">{{ statValueList[index] }}</span>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
 import type { BeybladeStats } from '../../types'
-import { onMounted, useTemplateRef, watch } from 'vue'
+import { computed, onMounted, useTemplateRef, watch } from 'vue'
+import { useSimpleI18n } from '../../composables/use-simple-i18n'
 
 const props = withDefaults(defineProps<{
   stats: BeybladeStats;
@@ -22,8 +37,58 @@ const props = withDefaults(defineProps<{
 
 const canvasRef = useTemplateRef<HTMLCanvasElement>('canvasRef')
 
-const labelList = ['ATK', 'DEF', 'STA', 'SPD']
+const { t } = useSimpleI18n({
+  'zh-hant': {
+    atkTooltip: '攻擊力：碰撞時擊飛對手的力量',
+    defTooltip: '防禦力：抵抗被擊飛的能力',
+    staTooltip: '持久力：轉速衰減越慢，存活越久',
+    spdTooltip: '速度：場地上的移動速率',
+    crtTooltip: '爆擊率：每點 = 3% 機率觸發雙倍傷害',
+  },
+  'en': {
+    atkTooltip: 'Attack: knockback force on collision',
+    defTooltip: 'Defense: resistance to being knocked back',
+    staTooltip: 'Stamina: slower spin decay, longer survival',
+    spdTooltip: 'Speed: movement speed in arena',
+    crtTooltip: 'Critical: 3% per point for 2x damage hit',
+  },
+} as const)
+
+const labelList = computed(() => [
+  { key: 'ATK', tooltip: t('atkTooltip') },
+  { key: 'DEF', tooltip: t('defTooltip') },
+  { key: 'STA', tooltip: t('staTooltip') },
+  { key: 'SPD', tooltip: t('spdTooltip') },
+  { key: 'CRT', tooltip: t('crtTooltip') },
+])
+
 const maxStatValue = 30
+const maxCriticalValue = 10
+const axisCount = 5
+
+const statValueList = computed(() => [
+  props.stats.attack,
+  props.stats.defense,
+  props.stats.stamina,
+  props.stats.speed,
+  props.stats.critical,
+])
+
+const maxValueList = [
+  maxStatValue, maxStatValue, maxStatValue, maxStatValue, maxCriticalValue,
+]
+
+function getLabelStyle(index: number) {
+  const center = props.size / 2
+  const labelRadius = props.size * 0.34 + 18
+  const angle = (Math.PI * 2 * index) / axisCount - Math.PI / 2
+  const x = center + Math.cos(angle) * labelRadius
+  const y = center + Math.sin(angle) * labelRadius
+  return {
+    left: `${x}px`,
+    top: `${y}px`,
+  }
+}
 
 function hexToRgb(hex: string): { r: number; g: number; b: number } {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
@@ -40,22 +105,16 @@ function draw() {
 
   const center = props.size / 2
   const radius = props.size * 0.34
-  const statValueList = [
-    props.stats.attack,
-    props.stats.defense,
-    props.stats.stamina,
-    props.stats.speed,
-  ]
   const rgb = hexToRgb(props.color)
 
   context.clearRect(0, 0, props.size, props.size)
 
-  // 背景六邊形網格（三層）
+  // 背景網格（三層）
   for (let level = 1; level <= 3; level++) {
     const levelRadius = radius * (level / 3)
     context.beginPath()
-    for (let i = 0; i <= 4; i++) {
-      const angle = (Math.PI * 2 * i) / 4 - Math.PI / 2
+    for (let i = 0; i <= axisCount; i++) {
+      const angle = (Math.PI * 2 * i) / axisCount - Math.PI / 2
       const x = center + Math.cos(angle) * levelRadius
       const y = center + Math.sin(angle) * levelRadius
       if (i === 0) context.moveTo(x, y)
@@ -67,9 +126,9 @@ function draw() {
     context.stroke()
   }
 
-  // 軸線（虛線風格）
-  for (let i = 0; i < 4; i++) {
-    const angle = (Math.PI * 2 * i) / 4 - Math.PI / 2
+  // 軸線
+  for (let i = 0; i < axisCount; i++) {
+    const angle = (Math.PI * 2 * i) / axisCount - Math.PI / 2
     context.beginPath()
     context.setLineDash([3, 4])
     context.moveTo(center, center)
@@ -83,12 +142,12 @@ function draw() {
     context.setLineDash([])
   }
 
-  // 數值填充（漸層）
+  // 數值填充
   context.beginPath()
-  for (let i = 0; i <= 4; i++) {
-    const index = i % 4
-    const angle = (Math.PI * 2 * index) / 4 - Math.PI / 2
-    const ratio = Math.min(statValueList[index] / maxStatValue, 1)
+  for (let i = 0; i <= axisCount; i++) {
+    const index = i % axisCount
+    const angle = (Math.PI * 2 * index) / axisCount - Math.PI / 2
+    const ratio = Math.min(statValueList.value[index] / maxValueList[index], 1)
     const x = center + Math.cos(angle) * radius * ratio
     const y = center + Math.sin(angle) * radius * ratio
     if (i === 0) context.moveTo(x, y)
@@ -102,15 +161,14 @@ function draw() {
   context.fillStyle = fillGradient
   context.fill()
 
-  // 外框線
   context.strokeStyle = `rgba(${rgb.r},${rgb.g},${rgb.b},0.8)`
   context.lineWidth = 1.5
   context.stroke()
 
   // 頂點圓點
-  for (let i = 0; i < 4; i++) {
-    const angle = (Math.PI * 2 * i) / 4 - Math.PI / 2
-    const ratio = Math.min(statValueList[i] / maxStatValue, 1)
+  for (let i = 0; i < axisCount; i++) {
+    const angle = (Math.PI * 2 * i) / axisCount - Math.PI / 2
+    const ratio = Math.min(statValueList.value[i] / maxValueList[i], 1)
     const x = center + Math.cos(angle) * radius * ratio
     const y = center + Math.sin(angle) * radius * ratio
 
@@ -119,28 +177,56 @@ function draw() {
     context.fillStyle = props.color
     context.fill()
 
-    // 發光
     context.beginPath()
     context.arc(x, y, 5, 0, Math.PI * 2)
     context.fillStyle = `rgba(${rgb.r},${rgb.g},${rgb.b},0.3)`
     context.fill()
-  }
-
-  // 標籤
-  context.fillStyle = 'rgba(255,255,255,0.45)'
-  context.font = "600 9px 'Rajdhani', sans-serif"
-  context.textAlign = 'center'
-  context.textBaseline = 'middle'
-  context.letterSpacing = '2px'
-  for (let i = 0; i < 4; i++) {
-    const angle = (Math.PI * 2 * i) / 4 - Math.PI / 2
-    const labelRadius = radius + 14
-    const x = center + Math.cos(angle) * labelRadius
-    const y = center + Math.sin(angle) * labelRadius
-    context.fillText(labelList[i], x, y)
   }
 }
 
 onMounted(() => draw())
 watch(() => props.stats, () => draw(), { deep: true })
 </script>
+
+<style lang="sass" scoped>
+.stats-root
+  position: relative
+
+.stats-canvas
+  display: block
+
+.stats-label
+  position: absolute
+  transform: translate(-50%, -50%)
+  display: flex
+  flex-direction: column
+  align-items: center
+  gap: 1px
+  cursor: help
+  user-select: none
+  transition: opacity 0.2s ease
+
+  &:hover
+    opacity: 1 !important
+
+    .stats-label__text
+      color: rgba(255,255,255,0.8)
+
+    .stats-label__value
+      color: rgba(255,255,255,0.6)
+
+  &__text
+    font-family: 'Rajdhani', sans-serif
+    font-weight: 700
+    font-size: 0.5rem
+    letter-spacing: 0.15em
+    color: rgba(255,255,255,0.4)
+    transition: color 0.2s ease
+
+  &__value
+    font-family: 'Orbitron', sans-serif
+    font-weight: 600
+    font-size: 0.55rem
+    color: rgba(255,255,255,0.3)
+    transition: color 0.2s ease
+</style>

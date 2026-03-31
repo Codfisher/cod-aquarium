@@ -10,6 +10,7 @@
         :arena-type="arenaType"
         :focus-category="focusCategory"
         :qte-engine="qteEngine"
+        :cinematic="cinematic"
         @ready="handleReady()"
         @battle-end="handleBattleEnd"
       />
@@ -46,6 +47,34 @@
       <!-- 碰撞閃屏 -->
       <transition name="flash">
         <div v-if="showFlash" class="collision-flash" />
+      </transition>
+
+      <!-- 速度線（決戰期） -->
+      <div
+        v-if="cinematic.speedLineIntensity.value > 0"
+        class="speed-lines"
+        :style="{ opacity: cinematic.speedLineIntensity.value * 0.6 }"
+      />
+
+      <!-- Vignette（激烈期/決戰期） -->
+      <div
+        v-if="cinematic.vignetteIntensity.value > 0"
+        class="battle-vignette"
+        :style="{
+          boxShadow: `inset 0 0 ${80 * cinematic.vignetteIntensity.value}px ${40 * cinematic.vignetteIntensity.value}px ${cinematic.vignetteColor.value}`,
+        }"
+      />
+
+      <!-- 戲劇性事件文字 -->
+      <transition name="event-text">
+        <div
+          v-if="cinematic.showEventText.value"
+          :key="cinematic.eventTextKey.value"
+          class="event-text"
+          :style="{ color: cinematic.activeEventColor.value, textShadow: `0 0 40px ${cinematic.activeEventColor.value}, 0 0 80px ${cinematic.activeEventColor.value}` }"
+        >
+          {{ cinematic.activeEventText.value }}
+        </div>
       </transition>
 
       <!-- ====== 配置階段 ====== -->
@@ -118,6 +147,7 @@
         v-if="isQtePhase"
         :current-stage-name="qteEngine.currentStageName.value"
         :charge-value="qteEngine.chargeValue.value"
+        :time-remaining-ratio="qteEngine.timeRemainingRatio.value"
         @confirm="handleQteConfirm()"
       />
 
@@ -182,6 +212,7 @@ import { version } from './constants/version'
 import { arenaTypeList, getArenaName } from './domains/arena/arena-builder'
 import BattleResult from './domains/battle/battle-result.vue'
 import { useBattleManager } from './domains/battle/battle-manager'
+import { useCinematicManager } from './domains/battle/cinematic-manager'
 import { attackRingPartList, spinTipPartList, weightDiskPartList } from './domains/beyblade/parts'
 import { calculateFinalStats } from './domains/beyblade/stats'
 import PartPicker from './domains/beyblade/part-picker.vue'
@@ -206,6 +237,7 @@ const {
 } = useBattleManager()
 
 const qteEngine = useQteEngine()
+const cinematic = useCinematicManager()
 
 const difficulty = ref<Difficulty>('medium')
 const arenaType = ref<ArenaType>('classic')
@@ -283,6 +315,7 @@ function handleBattleEnd(result: BattleResultType) {
 
 function handleRestart() {
   lastPlayerSpin = 100
+  cinematic.reset()
   restart()
 }
 
@@ -784,6 +817,61 @@ $clip-angle: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)
   background: radial-gradient(ellipse at center, rgba(255,255,255,0.25) 0%, transparent 70%)
   pointer-events: none
   z-index: 25
+
+// ========================
+// Speed lines (決戰期背景)
+// ========================
+.speed-lines
+  position: fixed
+  inset: 0
+  pointer-events: none
+  z-index: 15
+  background: repeating-conic-gradient(from 0deg, transparent 0deg, transparent 4deg, rgba(255,255,255,0.04) 4deg, rgba(255,255,255,0.04) 5deg)
+  animation: speed-lines-rotate 0.8s linear infinite
+  mask-image: radial-gradient(ellipse at center, transparent 20%, black 70%)
+
+@keyframes speed-lines-rotate
+  to
+    transform: rotate(5deg)
+
+// ========================
+// Battle vignette
+// ========================
+.battle-vignette
+  position: fixed
+  inset: 0
+  pointer-events: none
+  z-index: 14
+  transition: box-shadow 0.5s ease
+
+// ========================
+// Event text (戲劇性事件)
+// ========================
+.event-text
+  position: fixed
+  inset: 0
+  display: flex
+  align-items: center
+  justify-content: center
+  pointer-events: none
+  z-index: 28
+  font-family: $font-display
+  font-weight: 900
+  font-size: clamp(2.5rem, 10vw, 5rem)
+  letter-spacing: 0.15em
+  user-select: none
+
+.event-text
+  &-enter-active
+    transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)
+  &-leave-active
+    transition: all 0.5s ease-out
+  &-enter-from
+    opacity: 0
+    transform: scale(0.4) translateY(10px)
+  &-leave-to
+    opacity: 0
+    transform: scale(1.2) translateY(-30px)
 
 // ========================
 // Version

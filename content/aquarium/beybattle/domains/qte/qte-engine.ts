@@ -38,6 +38,9 @@ export function useQteEngine() {
   let animationDirection = 1
   let elapsed = 0
 
+  /** 當前階段剩餘時間比例 0~1 */
+  const timeRemainingRatio = ref(1)
+
   const currentStageName = computed(() => {
     if (currentStageIndex.value >= qteStageConfigList.length) return 'done'
     return qteStageConfigList[currentStageIndex.value].name
@@ -61,6 +64,7 @@ export function useQteEngine() {
     if (!stageConfig) return
 
     elapsed += deltaTime
+    timeRemainingRatio.value = Math.max(0, 1 - elapsed / stageConfig.timeLimit)
 
     // 超時自動確認
     if (elapsed >= stageConfig.timeLimit) {
@@ -72,8 +76,9 @@ export function useQteEngine() {
 
     switch (currentStageIndex.value) {
       case 0: {
-        // 蓄力：指標來回擺動
-        chargeValue.value += animationDirection * speed * deltaTime
+        // 蓄力：來回擺動 + 越接近頂部越快（增加精準難度）
+        const accelerationFactor = 1 + chargeValue.value * 0.8
+        chargeValue.value += animationDirection * speed * accelerationFactor * deltaTime
         if (chargeValue.value >= 1) {
           chargeValue.value = 1
           animationDirection = -1
@@ -90,8 +95,9 @@ export function useQteEngine() {
         break
       }
       case 2: {
-        // 發射：方向箭頭旋轉
-        launchDirectionAngle.value += speed * deltaTime * Math.PI * 2
+        // 發射：箭頭變速旋轉（正弦加速，時快時慢更難抓）
+        const variableSpeed = speed * (0.6 + Math.sin(elapsed * 4) * 0.4)
+        launchDirectionAngle.value += variableSpeed * deltaTime * Math.PI * 2
         break
       }
     }
@@ -159,6 +165,8 @@ export function useQteEngine() {
     chargeValue,
     aimAngle,
     launchDirectionAngle,
+    lockedAimPosition,
+    timeRemainingRatio,
     start,
     update,
     confirmStage,

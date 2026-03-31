@@ -6,6 +6,23 @@
     tabindex="0"
     ref="panelRef"
   >
+    <!-- 倒數框 -->
+    <div class="qte-countdown">
+      <svg width="36" height="36" viewBox="0 0 36 36" class="qte-countdown__ring">
+        <circle cx="18" cy="18" r="16" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="2" />
+        <circle
+          cx="18" cy="18" r="16"
+          fill="none"
+          stroke="rgba(255,255,255,0.5)"
+          stroke-width="2"
+          stroke-linecap="round"
+          :stroke-dasharray="100.5"
+          :stroke-dashoffset="100.5 * (1 - (props.timeRemainingRatio ?? 1))"
+          transform="rotate(-90 18 18)"
+        />
+      </svg>
+    </div>
+
     <!-- 蓄力階段 -->
     <div v-if="currentStageName === 'charge'" class="qte-stage">
       <div class="qte-stage__label">{{ t('charge') }}</div>
@@ -66,9 +83,10 @@
 import { onMounted, useTemplateRef } from 'vue'
 import { useSimpleI18n } from '../../composables/use-simple-i18n'
 
-defineProps<{
+const props = defineProps<{
   currentStageName: string;
   chargeValue: number;
+  timeRemainingRatio?: number;
 }>()
 
 const emit = defineEmits<{
@@ -103,6 +121,15 @@ const { t } = useSimpleI18n({
 </script>
 
 <style lang="sass" scoped>
+.qte-countdown
+  position: fixed
+  top: 1.5rem
+  right: 1.5rem
+  z-index: 12
+
+  &__ring
+    filter: drop-shadow(0 0 4px rgba(255,255,255,0.3))
+
 .qte-overlay
   position: fixed
   inset: 0

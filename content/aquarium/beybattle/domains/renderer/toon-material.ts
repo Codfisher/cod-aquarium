@@ -84,7 +84,8 @@ export function createToonMaterial(
       'ambientColor',
       'opacity',
     ],
-    needAlphaBlending: true,
+    // 預設不開 alpha blending，避免 z-fighting 閃爍
+    needAlphaBlending: false,
   })
 
   material.setColor3('diffuseColor', color)
@@ -92,12 +93,22 @@ export function createToonMaterial(
   material.setColor3('ambientColor', new Color3(0.3, 0.3, 0.4))
   material.setFloat('opacity', 1.0)
   material.backFaceCulling = true
-  material.alphaMode = Constants.ALPHA_COMBINE
 
   return material
 }
 
-/** 設定 toon material 的透明度 */
+/** 設定 toon material 的透明度（自動切換 alpha blending） */
 export function setToonOpacity(material: ShaderMaterial, value: number) {
   material.setFloat('opacity', value)
+
+  if (value < 1.0) {
+    // 需要透明：開啟 alpha blending
+    material.needAlphaBlending = () => true
+    material.alphaMode = Constants.ALPHA_COMBINE
+  }
+  else {
+    // 不透明：關閉 alpha blending，正常寫入深度
+    material.needAlphaBlending = () => false
+    material.alphaMode = Constants.ALPHA_DISABLE
+  }
 }

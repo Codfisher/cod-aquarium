@@ -7,25 +7,28 @@ export interface QteStageConfig {
   indicatorSpeed: number;
 }
 
-/** Perfect 區間：頂部 15% */
-export const CHARGE_PERFECT_MIN = 0.85
-/** Great 區間：頂部 15%~25% 和 75%~85% */
-export const CHARGE_GREAT_MIN = 0.75
+/** Perfect 區間：頂部 10% (更窄更難) */
+export const CHARGE_PERFECT_MIN = 0.90
+/** Great 區間：80%~90% */
+export const CHARGE_GREAT_MIN = 0.80
 
 export const qteStageConfigList: QteStageConfig[] = [
   {
     name: 'charge',
-    timeLimit: 3,
-    indicatorSpeed: 0.8,
-  },
-  {
-    name: 'aim',
-    timeLimit: 3,
+    timeLimit: 2.5,
+    // 加速來回，更難精準
     indicatorSpeed: 1.2,
   },
   {
+    name: 'aim',
+    timeLimit: 2.5,
+    // 準心移動更快
+    indicatorSpeed: 1.6,
+  },
+  {
     name: 'launch',
-    timeLimit: 3,
-    indicatorSpeed: 1.5,
+    timeLimit: 2,
+    // 箭頭旋轉更快，時限更短
+    indicatorSpeed: 2.0,
   },
 ]

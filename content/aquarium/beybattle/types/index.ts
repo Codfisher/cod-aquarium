@@ -7,6 +7,8 @@ export interface BeybladeStats {
   stamina: number;
   /** 移動速率 */
   speed: number;
+  /** 爆擊率（0~10，每點 = 3% 機率） */
+  critical: number;
 }
 
 export interface BeybladeState {

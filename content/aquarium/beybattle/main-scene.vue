@@ -32,7 +32,10 @@ import { detectCollision, resolveCollision } from './domains/physics/collision'
 import { createInitialState, MAX_SPIN_RATE, updateBeybladePhysics } from './domains/physics/spin-physics'
 import { applyCameraShake, emitCollisionSparks } from './domains/renderer/collision-effect'
 import { createOutlinePostProcess } from './domains/renderer/outline-post-process'
+import { emitShockwave } from './domains/renderer/shockwave-effect'
 import { setToonOpacity } from './domains/renderer/toon-material'
+import type { useCinematicManager } from './domains/battle/cinematic-manager'
+import { ARENA_RADIUS as ARENA_R } from './domains/arena/arena-constants'
 import { BattlePhase } from './types'
 
 const props = defineProps<{
@@ -42,6 +45,7 @@ const props = defineProps<{
   arenaType: ArenaType;
   focusCategory: PartCategory | null;
   qteEngine: ReturnType<typeof useQteEngine>;
+  cinematic: ReturnType<typeof useCinematicManager>;
 }>()
 
 const emit = defineEmits<{
@@ -110,8 +114,43 @@ const {
       model.root.position.y = getBowlY(distance)
       model.root.rotation.y = state.rotationAngle
 
-      // --- 低轉速搖晃效果 ---
+      // --- 旋轉動態模糊 ---
       const spinRatio = state.spinRate / MAX_SPIN_RATE
+      // 轉速 > 40% 開始出現模糊，100% 時最強
+      const blurThreshold = 0.4
+      if (spinRatio > blurThreshold) {
+        const blurIntensity = (spinRatio - blurThreshold) / (1 - blurThreshold)
+        // 模糊圓盤透明度：0 → 0.6
+        const blurMat = model.blurDiscMesh.material
+        if (blurMat && 'setFloat' in blurMat) {
+          setToonOpacity(blurMat as import('@babylonjs/core').ShaderMaterial, blurIntensity * 0.6)
+        }
+        // 攻擊環子 mesh 透明度降低（但不完全消失）
+        const ringOpacity = 1 - blurIntensity * 0.7
+        model.attackRingMesh.getChildMeshes().forEach((child) => {
+          if (child.material && 'setFloat' in child.material) {
+            setToonOpacity(child.material as import('@babylonjs/core').ShaderMaterial, ringOpacity)
+          }
+        })
+        if (model.attackRingMesh.material && 'setFloat' in model.attackRingMesh.material) {
+          setToonOpacity(model.attackRingMesh.material as import('@babylonjs/core').ShaderMaterial, ringOpacity)
+        }
+      }
+      else {
+        // 低轉速：隱藏模糊圓盤，攻擊環完全可見
+        const blurMat = model.blurDiscMesh.material
+        if (blurMat && 'setFloat' in blurMat) {
+          setToonOpacity(blurMat as import('@babylonjs/core').ShaderMaterial, 0)
+        }
+        model.attackRingMesh.getChildMeshes().forEach((child) => {
+          if (child.material && 'setFloat' in child.material) {
+            setToonOpacity(child.material as import('@babylonjs/core').ShaderMaterial, 1)
+          }
+        })
+        if (model.attackRingMesh.material && 'setFloat' in model.attackRingMesh.material) {
+          setToonOpacity(model.attackRingMesh.material as import('@babylonjs/core').ShaderMaterial, 1)
+        }
+      }
 
       if (spinRatio < 0.3) {
         // 搖晃強度：轉速越低越劇烈（0.3 → 0, 0 → 最大）
@@ -307,7 +346,14 @@ const {
         isBattleActive = false
         hideCrosshair()
         hideArrow()
+        targetCameraRadius = DEFAULT_CAMERA_RADIUS
         targetCameraTargetY = PREVIEW_CAMERA_TARGET_Y
+        // 重置鏡頭 target 到中心
+        currentCamera.target.x = 0
+        currentCamera.target.z = 0
+        // 重置 cinematic 鏡頭狀態
+        props.cinematic.cameraZoomTarget.value = DEFAULT_CAMERA_RADIUS
+        props.cinematic.cameraLookAtTarget.value = null
         updatePreview()
       }
 
@@ -334,6 +380,13 @@ const {
         hideCrosshair()
         hideArrow()
         startBattle()
+      }
+
+      if (phase === BattlePhase.RESULT) {
+        // 結算後拉回全景
+        props.cinematic.cameraZoomTarget.value = DEFAULT_CAMERA_RADIUS
+        props.cinematic.cameraLookAtTarget.value = null
+        targetCameraTargetY = DEFAULT_CAMERA_TARGET_Y
       }
     })
 
@@ -362,21 +415,23 @@ const {
       playerModel = createBeybladeModel(currentScene, props.playerConfig, new Color3(0.9, 0.2, 0.2))
       aiModel = createBeybladeModel(currentScene, aiConfig, new Color3(0.2, 0.3, 0.9))
 
-      // 初始化狀態
-      const launchSpeed = 2.0
+      // 初始化狀態（發射速度由轉速決定，高轉速 = 更猛的初始衝刺）
+      const playerLaunchSpeed = 1.5 + playerQte.chargeRate * 2.0
+      const aiLaunchSpeed = 1.5 + aiQte.chargeRate * 2.0
+
       playerState = createInitialState(
         playerQte.aimPosition,
         {
-          x: Math.cos(playerQte.launchAngle) * launchSpeed,
-          y: Math.sin(playerQte.launchAngle) * launchSpeed,
+          x: Math.cos(playerQte.launchAngle) * playerLaunchSpeed,
+          y: Math.sin(playerQte.launchAngle) * playerLaunchSpeed,
         },
         MAX_SPIN_RATE * playerQte.chargeRate,
       )
       aiState = createInitialState(
         aiQte.aimPosition,
         {
-          x: Math.cos(aiQte.launchAngle) * launchSpeed,
-          y: Math.sin(aiQte.launchAngle) * launchSpeed,
+          x: Math.cos(aiQte.launchAngle) * aiLaunchSpeed,
+          y: Math.sin(aiQte.launchAngle) * aiLaunchSpeed,
         },
         MAX_SPIN_RATE * aiQte.chargeRate,
       )
@@ -441,32 +496,67 @@ const {
 
       // QTE 發射：箭頭從鎖定的落點旋轉
       if (arrowMesh?.isEnabled() && props.currentPhase === BattlePhase.QTE_LAUNCH) {
-        const qteResult = props.qteEngine
-        const lockedPos = qteResult.aimAngle.value // 用已鎖定的 aim 結果位置
-        const aimRadius = ARENA_RADIUS * 0.6
-        // 箭頭放在鎖定落點
-        const aimX = Math.cos(lockedPos) * aimRadius
-        const aimZ = Math.sin(lockedPos) * aimRadius
-        arrowMesh.position.x = aimX
-        arrowMesh.position.z = aimZ
-        arrowMesh.position.y = getBowlY(aimRadius) + 0.15
-        arrowMesh.rotation.y = props.qteEngine.launchDirectionAngle.value
+        // 用鎖定的 aim 落點位置
+        const lockedAim = props.qteEngine.lockedAimPosition
+        arrowMesh.position.x = lockedAim.value.x
+        arrowMesh.position.z = lockedAim.value.y
+        const aimDist = Math.sqrt(lockedAim.value.x ** 2 + lockedAim.value.y ** 2)
+        arrowMesh.position.y = getBowlY(aimDist) + 0.15
+
+        // 箭頭 rotation.y 轉換：物理角度 a → 3D 方向
+        // 物理: velocity.x = cos(a), velocity.y = sin(a)
+        // 3D:   position.x = cos(a), position.z = sin(a)
+        // 箭頭預設指向 Z+，rotation.y 順時針旋轉
+        // 要指向 (cos(a), 0, sin(a))，rotation.y = -a + PI/2
+        const physAngle = props.qteEngine.launchDirectionAngle.value
+        arrowMesh.rotation.y = -physAngle + Math.PI / 2
       }
 
-      // 戰鬥物理
+      // --- Cinematic 每幀更新（戰鬥結束後仍需倒數計時器，但淡出視覺效果） ---
+      props.cinematic.update(
+        spinPercentData.player, spinPercentData.ai, deltaTime, elapsedTime, isBattleActive,
+      )
+
+      // --- 鏡頭演出：覆蓋 radius 和 target ---
+      if (props.cinematic.cameraLookAtTarget.value) {
+        const lookTarget = props.cinematic.cameraLookAtTarget.value
+        const diffX = lookTarget.x - currentCamera.target.x
+        const diffZ = lookTarget.z - currentCamera.target.z
+        currentCamera.target.x += diffX * deltaTime * 8
+        currentCamera.target.z += diffZ * deltaTime * 8
+      }
+      else if (props.currentPhase === BattlePhase.BATTLE || props.currentPhase === BattlePhase.RESULT) {
+        // 無事件時，鏡頭 target 回歸中心
+        currentCamera.target.x += (0 - currentCamera.target.x) * deltaTime * 4
+        currentCamera.target.z += (0 - currentCamera.target.z) * deltaTime * 4
+      }
+      const cinematicRadius = props.cinematic.cameraZoomTarget.value
+      if (props.currentPhase === BattlePhase.BATTLE || props.currentPhase === BattlePhase.RESULT) {
+        const rDiff = cinematicRadius - currentCamera.radius
+        currentCamera.radius += rDiff * deltaTime * 5
+      }
+
+      // === 戰鬥物理 ===
       if (!isBattleActive || !playerModel || !aiModel) return
 
+      // 慢動作：物理 deltaTime 受 cinematic 縮放
+      const physDelta = deltaTime * props.cinematic.slowMotionTimeScale.value
+
       const playerResult = updateBeybladePhysics(
-        playerState, playerStats, playerFriction, deltaTime, currentTerrain,
+        playerState, playerStats, playerFriction, physDelta, currentTerrain,
       )
       const aiResult = updateBeybladePhysics(
-        aiState, aiStats, aiFriction, deltaTime, currentTerrain,
+        aiState, aiStats, aiFriction, physDelta, currentTerrain,
       )
 
       playerState = playerResult.state
       aiState = aiResult.state
 
-      // 碰撞
+      // 轉速百分比
+      const playerSpinPct = (playerState.spinRate / MAX_SPIN_RATE) * 100
+      const aiSpinPct = (aiState.spinRate / MAX_SPIN_RATE) * 100
+
+      // === 碰撞 ===
       const collision = detectCollision(
         playerState, aiState,
         playerCollisionRadius, aiCollisionRadius,
@@ -478,28 +568,50 @@ const {
           collision,
         )
 
-        // 碰撞特效
         const collisionX = (playerState.position.x + aiState.position.x) / 2
         const collisionZ = (playerState.position.y + aiState.position.y) / 2
         const collisionY = getBowlY(Math.sqrt(collisionX ** 2 + collisionZ ** 2))
         const collisionIntensity = collision.overlap / (playerCollisionRadius + aiCollisionRadius)
 
-        emitCollisionSparks(currentScene, collisionX, collisionY, collisionZ, collisionIntensity)
+        // 爆擊加成
+        const hasCritical = response.criticalA || response.criticalB
+        const criticalBoost = hasCritical ? 2.0 : 1.0
 
-        if (currentCamera && collisionIntensity > 0.3) {
-          applyCameraShake(currentCamera, collisionIntensity)
+        // 火花（根據演出強度 + 爆擊加倍）
+        const baseSparkIntensity = props.cinematic.intensityPhase.value === 'climax'
+          ? collisionIntensity * 2
+          : props.cinematic.intensityPhase.value === 'intense'
+            ? collisionIntensity * 1.5
+            : collisionIntensity
+        const sparkIntensity = baseSparkIntensity * criticalBoost
+        emitCollisionSparks(currentScene, collisionX, collisionY, collisionZ, sparkIntensity)
+
+        // 衝擊波環（激烈/決戰期，或爆擊時強制觸發）
+        const shockwavePhase = hasCritical ? 'climax' as const : props.cinematic.intensityPhase.value
+        emitShockwave(currentScene, collisionX, collisionY, collisionZ, shockwavePhase)
+
+        // 鏡頭震動
+        if (currentCamera) {
+          applyCameraShake(currentCamera, sparkIntensity)
         }
+
+        // Cinematic 碰撞事件
+        const isPlayerAttacker = collision.normalX * playerState.velocity.x + collision.normalY * playerState.velocity.y > 0
+        props.cinematic.onCollision(
+          collisionX, collisionZ,
+          playerSpinPct, aiSpinPct,
+          elapsedTime, isPlayerAttacker,
+        )
 
         playerState = response.stateA
         aiState = response.stateB
       }
 
-      // --- 障礙物碰撞 ---
+      // === 障礙物碰撞 ===
       for (const obstacle of currentObstacleList) {
         const playerObstacleHit = detectObstacleCollision(playerState, playerCollisionRadius, obstacle)
         if (playerObstacleHit) {
           playerState = applyObstacleCollision(playerState, playerObstacleHit)
-          // 彈射器碰撞火花
           if (playerObstacleHit.bounceForce > 1.5) {
             emitCollisionSparks(currentScene, obstacle.positionX, getBowlY(
               Math.sqrt(obstacle.positionX ** 2 + obstacle.positionY ** 2),
@@ -518,40 +630,65 @@ const {
         }
       }
 
-      // --- 區域效果 ---
+      // === 區域效果 ===
       const playerZone = getZoneEffectAtPosition(playerState.position.x, playerState.position.y, currentObstacleList)
-      playerState.spinRate *= Math.pow(playerZone.spinDecayFactor, deltaTime)
-      playerState.velocity.x *= Math.pow(playerZone.speedFactor, deltaTime)
-      playerState.velocity.y *= Math.pow(playerZone.speedFactor, deltaTime)
+      playerState.spinRate *= Math.pow(playerZone.spinDecayFactor, physDelta)
+      playerState.velocity.x *= Math.pow(playerZone.speedFactor, physDelta)
+      playerState.velocity.y *= Math.pow(playerZone.speedFactor, physDelta)
 
       const aiZone = getZoneEffectAtPosition(aiState.position.x, aiState.position.y, currentObstacleList)
-      aiState.spinRate *= Math.pow(aiZone.spinDecayFactor, deltaTime)
-      aiState.velocity.x *= Math.pow(aiZone.speedFactor, deltaTime)
-      aiState.velocity.y *= Math.pow(aiZone.speedFactor, deltaTime)
+      aiState.spinRate *= Math.pow(aiZone.spinDecayFactor, physDelta)
+      aiState.velocity.x *= Math.pow(aiZone.speedFactor, physDelta)
+      aiState.velocity.y *= Math.pow(aiZone.speedFactor, physDelta)
+
+      // === 接近出界偵測 ===
+      const playerDist = Math.sqrt(playerState.position.x ** 2 + playerState.position.y ** 2)
+      const aiDist = Math.sqrt(aiState.position.x ** 2 + aiState.position.y ** 2)
+      const edgeThreshold = ARENA_R * 0.9
+      if (playerDist > edgeThreshold) {
+        props.cinematic.onNearEdge('player', playerState.position.x, playerState.position.y, elapsedTime)
+      }
+      if (aiDist > edgeThreshold) {
+        props.cinematic.onNearEdge('ai', aiState.position.x, aiState.position.y, elapsedTime)
+      }
 
       // 同步模型
       syncModelToState(playerModel, playerState)
       syncModelToState(aiModel, aiState)
 
       // 回報轉速百分比
-      spinPercentData.player = (playerState.spinRate / MAX_SPIN_RATE) * 100
-      spinPercentData.ai = (aiState.spinRate / MAX_SPIN_RATE) * 100
+      spinPercentData.player = playerSpinPct
+      spinPercentData.ai = aiSpinPct
 
-      // 勝負判定
+      // === 勝負判定 ===
       const playerLost = playerResult.isOutOfBounds || playerResult.isStopped
       const aiLost = aiResult.isOutOfBounds || aiResult.isStopped
 
       if (playerLost || aiLost) {
+        // 最後一擊演出
+        if (collision) {
+          const finalX = (playerState.position.x + aiState.position.x) / 2
+          const finalZ = (playerState.position.y + aiState.position.y) / 2
+          props.cinematic.onFinalBlow(finalX, finalZ, elapsedTime)
+        }
+
+        // 延遲結算（等慢動作播完）
+        const delay = collision ? 600 : 200
+        setTimeout(() => {
+          isBattleActive = false
+          if (playerLost && aiLost) {
+            emit('battleEnd', 'draw')
+          }
+          else if (playerLost) {
+            emit('battleEnd', 'lose')
+          }
+          else {
+            emit('battleEnd', 'win')
+          }
+        }, delay)
+
+        // 停止物理但不停止渲染
         isBattleActive = false
-        if (playerLost && aiLost) {
-          emit('battleEnd', 'draw')
-        }
-        else if (playerLost) {
-          emit('battleEnd', 'lose')
-        }
-        else {
-          emit('battleEnd', 'win')
-        }
       }
     })
 

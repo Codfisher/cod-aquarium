@@ -23,57 +23,78 @@ export interface TerrainProfile {
   depth: number;
 }
 
+/**
+ * 邊緣護牆：ratio > 0.75 時急遽提升高度
+ * 所有場地共用，讓陀螺不容易飛出場地
+ */
+const WALL_START = 0.8
+/** 視覺高度（低，不擋視野） */
+const WALL_HEIGHT = 0.5
+
+function addEdgeWallHeight(baseHeight: number, ratio: number): number {
+  if (ratio <= WALL_START) return baseHeight
+  const wallRatio = (ratio - WALL_START) / (1 - WALL_START)
+  return baseHeight + wallRatio * wallRatio * WALL_HEIGHT
+}
+
+/** 物理推力仍然很強（反彈靠 spin-physics 的硬反彈處理） */
+function addEdgeWallGravity(baseGravity: number, ratio: number): number {
+  if (ratio <= WALL_START) return baseGravity
+  const wallRatio = (ratio - WALL_START) / (1 - WALL_START)
+  return baseGravity + wallRatio * 3.0
+}
+
 /** 經典：標準拋物線碗 */
 const classicProfile: TerrainProfile = {
   getHeightAtDistance(distance) {
     const ratio = distance / ARENA_RADIUS
-    return 1.2 * (ratio * ratio) - 1.2
+    const base = 1.2 * (ratio * ratio) - 1.2
+    return addEdgeWallHeight(base, ratio)
   },
   getGravityMultiplier(distance) {
-    return distance / ARENA_RADIUS
+    const ratio = distance / ARENA_RADIUS
+    return addEdgeWallGravity(ratio, ratio)
   },
   frictionMultiplier: 1.0,
   spinDecayMultiplier: 1.0,
   depth: 1.2,
 }
 
-/** 熔岩：深碗 + 中心凸起小丘，被撞到中心會彈開 */
+/** 熔岩：深碗 + 中心凸起小丘 */
 const volcanoProfile: TerrainProfile = {
   getHeightAtDistance(distance) {
     const ratio = distance / ARENA_RADIUS
-    // 深碗基底
     const bowl = 1.8 * (ratio * ratio) - 1.8
-    // 中心火山丘（半徑 0.3 內凸起）
     const volcanoRadius = 0.3
+    let base = bowl
     if (ratio < volcanoRadius) {
       const volcanoRatio = 1 - (ratio / volcanoRadius)
-      return bowl + volcanoRatio * volcanoRatio * 0.4
+      base = bowl + volcanoRatio * volcanoRatio * 0.4
     }
-    return bowl
+    return addEdgeWallHeight(base, ratio)
   },
   getGravityMultiplier(distance) {
     const ratio = distance / ARENA_RADIUS
-    // 中心附近反推力（火山丘斜面）
     if (ratio < 0.3) {
       return -1.5 * (1 - ratio / 0.3)
     }
-    // 外圍更強的向心力（深碗）
-    return ratio * 1.4
+    return addEdgeWallGravity(ratio * 1.4, ratio)
   },
   frictionMultiplier: 0.8,
   spinDecayMultiplier: 1.2,
   depth: 1.8,
 }
 
-/** 冰原：淺碗、極低摩擦，陀螺滑很遠 */
+/** 冰原：淺碗、極低摩擦 */
 const iceProfile: TerrainProfile = {
   getHeightAtDistance(distance) {
     const ratio = distance / ARENA_RADIUS
-    return 0.6 * (ratio * ratio) - 0.6
+    const base = 0.6 * (ratio * ratio) - 0.6
+    return addEdgeWallHeight(base, ratio)
   },
   getGravityMultiplier(distance) {
     const ratio = distance / ARENA_RADIUS
-    return ratio * 0.6
+    return addEdgeWallGravity(ratio * 0.6, ratio)
   },
   frictionMultiplier: 0.3,
   spinDecayMultiplier: 0.8,
@@ -84,55 +105,51 @@ const iceProfile: TerrainProfile = {
 const voidProfile: TerrainProfile = {
   getHeightAtDistance(distance) {
     const ratio = distance / ARENA_RADIUS
-    // 中心深坑
     const pit = 2.0 * (ratio * ratio) - 2.0
-    // 外環凸脊（0.6~0.8 之間）
     const ridgeCenter = 0.7
     const ridgeWidth = 0.1
     const ridgeDelta = Math.abs(ratio - ridgeCenter)
     const ridge = ridgeDelta < ridgeWidth
       ? Math.cos((ridgeDelta / ridgeWidth) * Math.PI * 0.5) * 0.25
       : 0
-    return pit + ridge
+    return addEdgeWallHeight(pit + ridge, ratio)
   },
   getGravityMultiplier(distance) {
     const ratio = distance / ARENA_RADIUS
-    // 中心強吸力
     if (ratio < 0.3) {
       return ratio * 3.0
     }
-    // 凸脊區域有反彈力
     if (ratio > 0.6 && ratio < 0.8) {
       const ridgeRatio = (ratio - 0.6) / 0.2
-      return ridgeRatio < 0.5 ? -0.5 : 1.0
+      return addEdgeWallGravity(ridgeRatio < 0.5 ? -0.5 : 1.0, ratio)
     }
-    return ratio * 1.2
+    return addEdgeWallGravity(ratio * 1.2, ratio)
   },
   frictionMultiplier: 1.0,
   spinDecayMultiplier: 1.3,
   depth: 2.0,
 }
 
-/** 櫻花：平坦中心 + 緩斜邊緣，比較溫和的場地 */
+/** 櫻花：平坦中心 + 緩斜邊緣 */
 const sakuraProfile: TerrainProfile = {
   getHeightAtDistance(distance) {
     const ratio = distance / ARENA_RADIUS
-    // 平坦中心（ratio < 0.4 幾乎是平的）
+    let base: number
     if (ratio < 0.4) {
-      return ratio * ratio * 0.3 - 0.8
+      base = ratio * ratio * 0.3 - 0.8
     }
-    // 之後快速爬升
-    const outerRatio = (ratio - 0.4) / 0.6
-    return -0.8 + outerRatio * outerRatio * 1.2
+    else {
+      const outerRatio = (ratio - 0.4) / 0.6
+      base = -0.8 + outerRatio * outerRatio * 1.2
+    }
+    return addEdgeWallHeight(base, ratio)
   },
   getGravityMultiplier(distance) {
     const ratio = distance / ARENA_RADIUS
     if (ratio < 0.4) {
-      // 平坦區域幾乎沒有向心力
-      return ratio * 0.3
+      return addEdgeWallGravity(ratio * 0.3, ratio)
     }
-    // 邊緣區域較強
-    return ((ratio - 0.4) / 0.6) * 1.5
+    return addEdgeWallGravity(((ratio - 0.4) / 0.6) * 1.5, ratio)
   },
   frictionMultiplier: 1.1,
   spinDecayMultiplier: 0.9,

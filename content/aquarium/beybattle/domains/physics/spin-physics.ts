@@ -72,9 +72,10 @@ export function updateBeybladePhysics(
   newState.velocity.x *= Math.max(frictionDamping, 0)
   newState.velocity.y *= Math.max(frictionDamping, 0)
 
-  // --- 速度上限 ---
+  // --- 速度上限（防禦壓制移動速度） ---
   const spinRatio = newState.spinRate / MAX_SPIN_RATE
-  const maxSpeed = (stats.speed / 10) * 4 * spinRatio
+  const defenseSpeedPenalty = 1 - stats.defense * 0.015
+  const maxSpeed = (stats.speed / 10) * 4 * spinRatio * Math.max(defenseSpeedPenalty, 0.5)
   const currentSpeed = Math.sqrt(
     newState.velocity.x ** 2 + newState.velocity.y ** 2,
   )
@@ -89,6 +90,38 @@ export function updateBeybladePhysics(
   newState.position.x += newState.velocity.x * deltaTime
   newState.position.y += newState.velocity.y * deltaTime
 
+  // --- 邊緣碰壁（軟反彈，有出界可能） ---
+  const newDistance = Math.sqrt(
+    newState.position.x ** 2 + newState.position.y ** 2,
+  )
+  const edgeLimit = ARENA_RADIUS * 0.88
+  if (newDistance > edgeLimit) {
+    const normalX = newState.position.x / newDistance
+    const normalY = newState.position.y / newDistance
+    const radialSpeed = newState.velocity.x * normalX + newState.velocity.y * normalY
+
+    if (radialSpeed > 0) {
+      // 穿透深度：越深反彈越弱（高速碰撞可能穿牆出界）
+      const penetration = (newDistance - edgeLimit) / (ARENA_RADIUS - edgeLimit)
+      // 反彈強度隨穿透深度遞減（0~1 → 1.2~0.3）
+      const bounceStrength = Math.max(0.3, 1.2 - penetration * 0.9)
+
+      newState.velocity.x -= normalX * radialSpeed * bounceStrength
+      newState.velocity.y -= normalY * radialSpeed * bounceStrength
+
+      // 碰壁轉速損失（越深損失越多，高速型更痛）
+      const speedWallPenalty = 1 + stats.speed * 0.08
+      newState.spinRate *= (0.92 - penetration * 0.1) / speedWallPenalty
+    }
+
+    // 輕微推回（不硬鎖位置，允許滑出）
+    if (newDistance > edgeLimit && newDistance < ARENA_RADIUS) {
+      const pushForce = 0.3
+      newState.position.x -= normalX * pushForce * deltaTime
+      newState.position.y -= normalY * pushForce * deltaTime
+    }
+  }
+
   // --- 轉速衰減 ---
   const staminaFactor = 1 - (stats.stamina / MAX_STAMINA)
   const spinDecay = BASE_SPIN_DECAY * (0.5 + staminaFactor) * terrainSpinDecayMultiplier
@@ -98,10 +131,10 @@ export function updateBeybladePhysics(
   newState.rotationAngle += (newState.spinRate / 60) * Math.PI * 2 * deltaTime
 
   // --- 判定 ---
-  const newDistance = Math.sqrt(
+  const finalDistance = Math.sqrt(
     newState.position.x ** 2 + newState.position.y ** 2,
   )
-  const isOutOfBounds = newDistance > ARENA_RADIUS
+  const isOutOfBounds = finalDistance > ARENA_RADIUS
   const isStopped = newState.spinRate <= 0
 
   return {
