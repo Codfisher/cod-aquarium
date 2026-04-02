@@ -130,8 +130,8 @@ interface Props {
   showVertexEditor?: boolean;
   /** 自訂預設範例列表 */
   presetList?: ShaderPreset[];
-  /** canvas 高度 */
-  height?: number;
+  /** canvas 高度，支援 CSS 單位（例如 '40vh'、'300px'） */
+  height?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -139,7 +139,7 @@ const props = withDefaults(defineProps<Props>(), {
   vertexCode: () => DEFAULT_VERTEX_SHADER,
   showVertexEditor: false,
   presetList: () => [],
-  height: 300,
+  height: '30vh',
 })
 
 const canvasRef = useTemplateRef('canvasRef')
@@ -365,7 +365,7 @@ watch(code, () => {
 .sp-editor {
   display: flex;
   position: relative;
-  max-height: 60dvh;
+  max-height: 40dvh;
   min-height: 30dvh;
   overflow: hidden;
   border-bottom: 1px solid var(--sp-border);
@@ -483,7 +483,7 @@ watch(code, () => {
 .sp-canvas {
   display: block;
   width: 100%;
-  height: v-bind("`${height}px`");
+  height: v-bind("props.height");
 }
 
 /* 錯誤 */

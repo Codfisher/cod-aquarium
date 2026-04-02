@@ -1,7 +1,7 @@
 <template>
   <div class="diagram-fragment not-prose">
     <svg
-      viewBox="0 0 620 110"
+      viewBox="0 0 280 340"
       class="fragment-svg"
       xmlns="http://www.w3.org/2000/svg"
     >
@@ -35,16 +35,16 @@
       <!-- ── 1. gl_FragCoord ── -->
       <g filter="url(#fr-glow)">
         <rect
-          x="10"
-          y="16"
-          width="165"
+          x="24"
+          y="12"
+          width="232"
           height="72"
           rx="12"
           class="card card-coord"
         />
         <rect
-          x="19"
-          y="24"
+          x="33"
+          y="20"
           width="6"
           height="56"
           rx="3"
@@ -52,16 +52,16 @@
         />
 
         <text
-          x="92"
-          y="48"
+          x="140"
+          y="44"
           text-anchor="middle"
           class="title title-coord"
         >
           gl_FragCoord
         </text>
         <text
-          x="92"
-          y="68"
+          x="140"
+          y="64"
           text-anchor="middle"
           class="subtitle subtitle-coord"
         >
@@ -71,26 +71,26 @@
 
       <!-- Arrow 1 -->
       <line
-        x1="180"
-        y1="52"
-        x2="218"
-        y2="52"
+        x1="140"
+        y1="88"
+        x2="140"
+        y2="118"
         class="arrow-line"
         marker-end="url(#fr-arrow)"
       />
       <line
-        x1="180"
-        y1="52"
-        x2="218"
-        y2="52"
+        x1="140"
+        y1="88"
+        x2="140"
+        y2="118"
         class="arrow-flow"
       />
 
       <!-- ── 2. 你的計算邏輯 ── -->
       <rect
-        x="224"
-        y="16"
-        width="165"
+        x="24"
+        y="124"
+        width="232"
         height="72"
         rx="12"
         class="card card-logic"
@@ -98,8 +98,8 @@
       />
 
       <text
-        x="306"
-        y="56"
+        x="140"
+        y="166"
         text-anchor="middle"
         class="title title-logic"
       >
@@ -108,34 +108,34 @@
 
       <!-- Arrow 2 -->
       <line
-        x1="394"
-        y1="52"
-        x2="432"
-        y2="52"
+        x1="140"
+        y1="200"
+        x2="140"
+        y2="230"
         class="arrow-line"
         marker-end="url(#fr-arrow)"
       />
       <line
-        x1="394"
-        y1="52"
-        x2="432"
-        y2="52"
+        x1="140"
+        y1="200"
+        x2="140"
+        y2="230"
         class="arrow-flow"
       />
 
       <!-- ── 3. gl_FragColor ── -->
       <g filter="url(#fr-glow)">
         <rect
-          x="438"
-          y="16"
-          width="170"
+          x="24"
+          y="236"
+          width="232"
           height="72"
           rx="12"
           class="card card-color"
         />
         <rect
-          x="447"
-          y="24"
+          x="33"
+          y="244"
           width="6"
           height="56"
           rx="3"
@@ -143,16 +143,16 @@
         />
 
         <text
-          x="524"
-          y="48"
+          x="140"
+          y="268"
           text-anchor="middle"
           class="title title-color"
         >
           gl_FragColor
         </text>
         <text
-          x="524"
-          y="68"
+          x="140"
+          y="288"
           text-anchor="middle"
           class="subtitle subtitle-color"
         >
@@ -165,6 +165,7 @@
 
 <style scoped>
 .diagram-fragment {
+  max-width: 280px;
   margin: 1.5rem auto;
 }
 
