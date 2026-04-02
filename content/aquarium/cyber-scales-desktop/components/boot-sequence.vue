@@ -19,12 +19,12 @@
           :class="{ 'opacity-30': index < visibleLineList.length - 1 }"
         >
           <span
-            class="text-xs tracking-widest shrink-0"
+            class="text-sm tracking-widest shrink-0"
             :class="line.statusClass"
           >
             [{{ line.statusText }}]
           </span>
-          <span class="text-xs tracking-wider opacity-60 truncate text-gray-400">
+          <span class="text-sm tracking-wider opacity-60 truncate text-gray-400">
             {{ line.decodedText }}
           </span>
         </div>
@@ -38,7 +38,7 @@
             :style="{ width: `${progress}%` }"
           />
         </div>
-        <div class="flex justify-between mt-2 text-[10px] tracking-widest text-gray-300">
+        <div class="flex justify-between mt-2 text-xs tracking-widest text-gray-300">
           <span>SYSTEM BOOT</span>
           <span>{{ Math.round(progress) }}%</span>
         </div>
@@ -50,7 +50,8 @@
 
 <script setup lang="ts">
 import { promiseTimeout } from '@vueuse/core'
-import { onMounted, ref, shallowRef } from 'vue'
+import { onMounted, ref, shallowRef, watch } from 'vue'
+import { useDecodingText } from '../../../../web/composables/use-decoding-text'
 
 interface Emits {
   complete: [];
@@ -77,44 +78,6 @@ const bootMessageList = [
 const visibleLineList = shallowRef<BootLine[]>([])
 const progress = ref(0)
 const isDone = ref(false)
-const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%&'
-
-function decodeText(text: string, onUpdate: (decoded: string) => void): Promise<void> {
-  return new Promise((resolve) => {
-    const charList = text.split('')
-    const result = charList.map(() => charset[Math.floor(Math.random() * charset.length)])
-    let decodedCount = 0
-    const totalSteps = charList.length
-
-    const interval = setInterval(() => {
-      if (decodedCount >= totalSteps) {
-        onUpdate(text)
-        clearInterval(interval)
-        resolve()
-        return
-      }
-
-      // 每步解碼 1-2 個字元
-      const decodeAmount = Math.random() > 0.5 ? 2 : 1
-      for (let i = 0; i < decodeAmount && decodedCount < totalSteps; i++) {
-        result[decodedCount] = charList[decodedCount]
-        decodedCount++
-      }
-
-      // 未解碼的部分持續隨機變化
-      for (let i = decodedCount; i < totalSteps; i++) {
-        if (charList[i] === ' ') {
-          result[i] = ' '
-        }
-        else {
-          result[i] = charset[Math.floor(Math.random() * charset.length)]
-        }
-      }
-
-      onUpdate(result.join(''))
-    }, 25)
-  })
-}
 
 async function runBootSequence() {
   const progressPerLine = 100 / bootMessageList.length
@@ -123,19 +86,28 @@ async function runBootSequence() {
     const message = bootMessageList[i] ?? ''
     const isLast = i === bootMessageList.length - 1
 
+    const decoder = useDecodingText(message, {
+      interval: 10,
+      count: 10,
+      decodeInterval: 5,
+    })
+
     const line: BootLine = {
       text: message,
       statusText: '....',
       statusClass: 'text-gray-300',
-      decodedText: '',
+      decodedText: decoder.text.value,
     }
 
     visibleLineList.value = [...visibleLineList.value, line]
 
-    await decodeText(message, (decoded) => {
-      line.decodedText = decoded
+    const unwatch = watch(decoder.text, (value) => {
+      line.decodedText = value
       visibleLineList.value = [...visibleLineList.value]
     })
+
+    await decoder.start()
+    unwatch()
 
     line.statusText = isLast ? 'DONE' : 'OK'
     line.statusClass = isLast ? 'text-gray-500' : 'text-gray-400'
@@ -143,7 +115,7 @@ async function runBootSequence() {
 
     progress.value = Math.min((i + 1) * progressPerLine, 100)
 
-    await promiseTimeout(isLast ? 400 : 120)
+    await promiseTimeout(isLast ? 600 : 400)
   }
 
   progress.value = 100

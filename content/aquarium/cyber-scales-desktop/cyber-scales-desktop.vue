@@ -21,7 +21,7 @@
             v-bind="item"
             :label="`0${i} ${item.label}`"
             :label-left="i % 2 === 0"
-            :delay="(i + 1) * 150 + 500"
+            :delay="(i + 1) * 200 + 200"
           />
         </hexagon-layout>
       </template>

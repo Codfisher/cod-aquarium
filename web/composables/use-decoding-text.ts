@@ -82,9 +82,25 @@ function useChar(
 }
 
 interface UseDecodingTextOptions {
+  /** 每個字元開始解碼的間隔時間（ms），控制字元依序啟動的速度。
+   * 值越小，字元越快接連開始解碼。
+   *
+   * @default 30
+   */
   interval?: number;
+  /** 初始顯示的字元。若未指定，則使用 charset 中的隨機字元 */
   initChar?: string;
+  /** 每個字元在顯示正確值前，隨機變換的次數。
+   * 值越大，解碼動畫持續越久。
+   *
+   * @default 12
+   */
   count?: number;
+  /** 單一字元每次隨機變換的間隔時間（ms）。
+   * 控制單一字元的閃爍速度。
+   *
+   * @default 20
+   */
   decodeInterval?: number;
 }
 export function useDecodingText(

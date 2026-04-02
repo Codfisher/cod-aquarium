@@ -1,8 +1,8 @@
 <template>
   <div
     ref="layoutRef"
-    class=" flex flex-col justify-center items-center "
-    :class="{ 'hexagon-layout-ready': isReady }"
+    class="flex flex-col justify-center items-center"
+    :class="isReady ? 'visible' : 'invisible'"
   >
     <slot />
   </div>
@@ -63,6 +63,4 @@ onMounted(async () => {
 </script>
 
 <style scoped lang="sass">
-div:not(.hexagon-layout-ready) > :deep(*)
-  visibility: hidden
 </style>
