@@ -161,7 +161,7 @@ onBeforeUnmount(clearAllTimeoutList)
 <style scoped>
 .root {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 20px;
   padding: 20px;
   border: 1px solid rgba(128, 128, 128, 0.12);

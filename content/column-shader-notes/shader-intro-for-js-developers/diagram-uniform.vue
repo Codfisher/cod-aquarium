@@ -1,7 +1,7 @@
 <template>
   <div class="diagram-uniform not-prose">
     <svg
-      viewBox="0 0 660 190"
+      viewBox="0 0 280 480"
       class="uniform-svg"
       xmlns="http://www.w3.org/2000/svg"
     >
@@ -24,26 +24,26 @@
 
       <!-- ═══ JS 世界 ═══ -->
       <rect
-        x="10"
+        x="14"
         y="10"
-        width="260"
+        width="252"
         height="170"
         rx="14"
         class="world world-js"
       />
       <!-- 標題底色條 -->
       <rect
-        x="10"
+        x="14"
         y="10"
-        width="260"
+        width="252"
         height="36"
         rx="14"
         class="world-header world-header-js"
       />
       <rect
-        x="10"
+        x="14"
         y="32"
-        width="260"
+        width="252"
         height="14"
         class="world-header world-header-js"
       />
@@ -92,33 +92,86 @@
         gl.uniform2f(loc, x, y)
       </text>
 
+      <!-- ═══ 連線 ═══ -->
+      <!-- 箭頭 1 -->
+      <line
+        x1="100"
+        y1="184"
+        x2="100"
+        y2="296"
+        class="bridge-line"
+        marker-end="url(#uni-arrow)"
+      />
+      <line
+        x1="100"
+        y1="184"
+        x2="100"
+        y2="296"
+        class="bridge-flow"
+      />
+
+      <!-- 箭頭 2 -->
+      <line
+        x1="180"
+        y1="184"
+        x2="180"
+        y2="296"
+        class="bridge-line"
+        marker-end="url(#uni-arrow)"
+      />
+      <line
+        x1="180"
+        y1="184"
+        x2="180"
+        y2="296"
+        class="bridge-flow bridge-flow-delay"
+      />
+
+      <!-- 中間 badge -->
+      <rect
+        x="106"
+        y="227"
+        width="68"
+        height="26"
+        rx="13"
+        class="badge-bg"
+      />
+      <text
+        x="140"
+        y="245"
+        text-anchor="middle"
+        class="badge-text"
+      >
+        uniform
+      </text>
+
       <!-- ═══ GLSL 世界 ═══ -->
       <rect
-        x="390"
-        y="10"
-        width="260"
+        x="14"
+        y="300"
+        width="252"
         height="170"
         rx="14"
         class="world world-glsl"
       />
       <rect
-        x="390"
-        y="10"
-        width="260"
+        x="14"
+        y="300"
+        width="252"
         height="36"
         rx="14"
         class="world-header world-header-glsl"
       />
       <rect
-        x="390"
-        y="32"
-        width="260"
+        x="14"
+        y="322"
+        width="252"
         height="14"
         class="world-header world-header-glsl"
       />
       <text
-        x="520"
-        y="34"
+        x="140"
+        y="324"
         text-anchor="middle"
         class="world-title world-title-glsl"
       >
@@ -127,16 +180,16 @@
 
       <!-- GLSL code 1 -->
       <rect
-        x="408"
-        y="58"
+        x="28"
+        y="348"
         width="224"
         height="40"
         rx="8"
         class="code-block code-block-glsl"
       />
       <text
-        x="520"
-        y="83"
+        x="140"
+        y="373"
         text-anchor="middle"
         class="code-text code-text-glsl"
       >
@@ -145,73 +198,20 @@
 
       <!-- GLSL code 2 -->
       <rect
-        x="408"
-        y="110"
+        x="28"
+        y="400"
         width="224"
         height="40"
         rx="8"
         class="code-block code-block-glsl"
       />
       <text
-        x="520"
-        y="135"
+        x="140"
+        y="425"
         text-anchor="middle"
         class="code-text code-text-glsl"
       >
         uniform vec2 u_mouse;
-      </text>
-
-      <!-- ═══ 連線 ═══ -->
-      <!-- 箭頭 1 -->
-      <line
-        x1="256"
-        y1="78"
-        x2="404"
-        y2="78"
-        class="bridge-line"
-        marker-end="url(#uni-arrow)"
-      />
-      <line
-        x1="256"
-        y1="78"
-        x2="404"
-        y2="78"
-        class="bridge-flow"
-      />
-
-      <!-- 箭頭 2 -->
-      <line
-        x1="256"
-        y1="130"
-        x2="404"
-        y2="130"
-        class="bridge-line"
-        marker-end="url(#uni-arrow)"
-      />
-      <line
-        x1="256"
-        y1="130"
-        x2="404"
-        y2="130"
-        class="bridge-flow bridge-flow-delay"
-      />
-
-      <!-- 中間 badge -->
-      <rect
-        x="296"
-        y="92"
-        width="68"
-        height="26"
-        rx="13"
-        class="badge-bg"
-      />
-      <text
-        x="330"
-        y="110"
-        text-anchor="middle"
-        class="badge-text"
-      >
-        uniform
       </text>
     </svg>
   </div>
@@ -219,6 +219,7 @@
 
 <style scoped>
 .diagram-uniform {
+  max-width: 280px;
   margin: 1.5rem auto;
 }
 
