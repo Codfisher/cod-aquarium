@@ -1,7 +1,8 @@
 <template>
   <div
     ref="layoutRef"
-    class=" flex flex-col justify-center items-center "
+    class="flex flex-col justify-center items-center"
+    :class="isReady ? 'visible' : 'invisible'"
   >
     <slot />
   </div>
@@ -9,7 +10,7 @@
 
 <script setup lang="ts">
 import { promiseTimeout } from '@vueuse/core'
-import { nextTick, onMounted, useTemplateRef } from 'vue'
+import { nextTick, onMounted, ref, useTemplateRef } from 'vue'
 import { nextFrame } from '../../../../web/common/utils'
 
 interface Props {
@@ -22,6 +23,7 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const layoutRef = useTemplateRef('layoutRef')
+const isReady = ref(false)
 
 onMounted(async () => {
   const el = layoutRef.value
@@ -55,6 +57,8 @@ onMounted(async () => {
     const x = (width / 2 + props.gap) * ((-1) ** i)
     child.style.transform = `translate(${x}px, 0px)`
   })
+
+  isReady.value = true
 })
 </script>
 

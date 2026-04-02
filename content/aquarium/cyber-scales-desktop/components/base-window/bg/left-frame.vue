@@ -29,6 +29,7 @@
 import { useEventListener, usePrevious } from '@vueuse/core'
 import { pipe } from 'remeda'
 import { computed, inject, ref, useTemplateRef, watch } from 'vue'
+import { cubicBezier } from 'animejs/easings/cubic-bezier'
 import { useAnimatable } from '../../../../../../web/composables/use-animatable'
 import { useDecodingText } from '../../../../../../web/composables/use-decoding-text'
 import { ComponentStatus } from '../../../types'
@@ -140,7 +141,7 @@ const { data: graphParams } = useAnimatable(
       },
     ),
     duration: props.duration,
-    ease: 'cubicBezier(1, 0.3, 0, 0.7)',
+    ease: cubicBezier(1, 0.3, 0, 0.7),
     animationTriggerBy: () => props.status,
   },
 )
