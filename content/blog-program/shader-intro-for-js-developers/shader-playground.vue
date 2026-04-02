@@ -3,9 +3,23 @@
     <div class="shader-playground not-prose">
       <!-- 標題列 -->
       <div class="sp-header">
-        <span class="sp-label">
-          Fragment Shader
-        </span>
+        <div class="sp-tab-list">
+          <button
+            class="sp-tab"
+            :class="{ 'sp-tab--active': activeTab === 'fragment' }"
+            @click="activeTab = 'fragment'"
+          >
+            Fragment Shader
+          </button>
+          <button
+            v-if="showVertexEditor"
+            class="sp-tab"
+            :class="{ 'sp-tab--active': activeTab === 'vertex' }"
+            @click="activeTab = 'vertex'"
+          >
+            Vertex Shader
+          </button>
+        </div>
 
         <!-- 預設範例 -->
         <div
@@ -48,9 +62,7 @@
             ref="highlightRef"
             class="sp-highlight"
             aria-hidden="true"
-          >
-          <code v-html="highlightedHtml" />
-        </pre>
+          ><code v-html="highlightedHtml" /></pre>
 
           <!-- 輸入層（前景，透明文字） -->
           <textarea
@@ -61,7 +73,7 @@
             autocorrect="off"
             autocapitalize="off"
             class="sp-textarea"
-            @input="onInput"
+            @input="handleInput"
             @scroll="syncScroll"
           />
         </div>
@@ -78,21 +90,23 @@
       </div>
 
       <!-- Canvas 渲染區 -->
-      <div class="sp-canvas-wrap">
-        <canvas
-          ref="canvasRef"
-          class="sp-canvas"
-        />
+      <lazy-render>
+        <div class="sp-canvas-wrap">
+          <canvas
+            ref="canvasRef"
+            class="sp-canvas"
+          />
 
-        <!-- 錯誤訊息 -->
-        <div
-          v-if="error"
-          class="sp-error"
-        >
-          <span class="sp-error-icon">✕</span>
-          <span>{{ error }}</span>
+          <!-- 錯誤訊息 -->
+          <div
+            v-if="error"
+            class="sp-error"
+          >
+            <span class="sp-error-icon">✕</span>
+            <span>{{ error }}</span>
+          </div>
         </div>
-      </div>
+      </lazy-render>
     </div>
   </client-only>
 </template>
@@ -100,13 +114,20 @@
 <script setup lang="ts">
 import { useDebounceFn } from '@vueuse/core'
 import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
+import LazyRender from '../../../web/components/lazy-render.vue'
 import { PRESET_SOLID_COLOR, shaderPresetList } from './shader-preset'
 import { useGlslHighlight } from './use-glsl-highlight'
-import { useWebGl } from './use-webgl'
+import { DEFAULT_VERTEX_SHADER, useWebGl } from './use-webgl'
+
+type ShaderTab = 'fragment' | 'vertex'
 
 interface Props {
-  /** 預設 GLSL 程式碼 */
+  /** 預設 Fragment Shader 程式碼 */
   initialCode?: string;
+  /** 預設 Vertex Shader 程式碼 */
+  vertexCode?: string;
+  /** 是否顯示 Vertex Shader 編輯區 */
+  showVertexEditor?: boolean;
   /** 是否顯示預設範例切換 */
   showPresetList?: boolean;
   /** canvas 高度 */
@@ -115,6 +136,8 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   initialCode: () => PRESET_SOLID_COLOR.code,
+  vertexCode: () => DEFAULT_VERTEX_SHADER,
+  showVertexEditor: false,
   showPresetList: false,
   height: 240,
 })
@@ -124,23 +147,46 @@ const textareaRef = useTemplateRef('textareaRef')
 const highlightRef = useTemplateRef('highlightRef')
 const lineNumberRef = useTemplateRef('lineNumberRef')
 
-const code = ref(props.initialCode)
-const shaderSource = ref(props.initialCode)
+const activeTab = ref<ShaderTab>('fragment')
+
+// Fragment Shader 狀態
+const fragmentCode = ref(props.initialCode)
+const fragmentSource = ref(props.initialCode)
+
+// Vertex Shader 狀態
+const vertexCode = ref(props.vertexCode)
+const vertexSource = ref(props.vertexCode)
+
 const currentPresetIndex = ref(-1)
+
+// 目前顯示的程式碼（依 tab 切換）
+const code = computed({
+  get: () => activeTab.value === 'fragment' ? fragmentCode.value : vertexCode.value,
+  set: (value: string) => {
+    if (activeTab.value === 'fragment') {
+      fragmentCode.value = value
+    }
+    else {
+      vertexCode.value = value
+    }
+  },
+})
 
 const { highlightedHtml } = useGlslHighlight(code)
 
 const lineCount = computed(() => code.value.split('\n').length)
 
 const { error } = useWebGl(canvasRef, {
-  fragmentShaderSource: shaderSource,
+  fragmentShaderSource: fragmentSource,
+  vertexShaderSource: vertexSource,
 })
 
 const debouncedCompile = useDebounceFn(() => {
-  shaderSource.value = code.value
+  fragmentSource.value = fragmentCode.value
+  vertexSource.value = vertexCode.value
 }, 500)
 
-function onInput() {
+function handleInput() {
   currentPresetIndex.value = -1
   debouncedCompile()
 }
@@ -164,11 +210,23 @@ function syncScroll() {
 function selectPreset(index: number) {
   currentPresetIndex.value = index
   if (shaderPresetList[index]) {
-    code.value = shaderPresetList[index].code
-    shaderSource.value = code.value
+    fragmentCode.value = shaderPresetList[index].code
+    fragmentSource.value = fragmentCode.value
   }
   nextTick(syncScroll)
 }
+
+// 切換 tab 時重置滾動位置
+watch(activeTab, () => {
+  nextTick(() => {
+    const textarea = textareaRef.value
+    if (textarea) {
+      textarea.scrollTop = 0
+      textarea.scrollLeft = 0
+    }
+    syncScroll()
+  })
+})
 
 watch(code, () => {
   nextTick(syncScroll)
@@ -245,6 +303,34 @@ watch(code, () => {
   letter-spacing: 0.02em;
 }
 
+/* Tab 切換 */
+.sp-tab-list {
+  display: flex;
+  gap: 2px;
+}
+
+.sp-tab {
+  padding: 4px 12px;
+  font-size: 11px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--sp-text-dim);
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
+  letter-spacing: 0.02em;
+}
+
+.sp-tab:hover {
+  color: var(--sp-text);
+}
+
+.sp-tab--active {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--sp-text);
+}
+
 /* 預設範例按鈕 */
 .sp-preset-list {
   display: flex;
@@ -279,8 +365,8 @@ watch(code, () => {
 .sp-editor {
   display: flex;
   position: relative;
-  max-height: 320px;
-  min-height: 160px;
+  max-height: 60dvh;
+  min-height: 30dvh;
   overflow: hidden;
   border-bottom: 1px solid var(--sp-border);
 }

@@ -8,16 +8,17 @@ import {
 } from 'vue'
 import { useMouseInElement, useElementSize } from '@vueuse/core'
 
-const VERTEX_SHADER_SOURCE = `
-attribute vec2 a_position;
+export const DEFAULT_VERTEX_SHADER = `attribute vec2 a_position;
+
 void main() {
   gl_Position = vec4(a_position, 0.0, 1.0);
-}
-`
+}`
 
 interface UseWebGlOptions {
-  /** 初始 fragment shader 程式碼 */
+  /** Fragment Shader 程式碼 */
   fragmentShaderSource: MaybeRefOrGetter<string>
+  /** Vertex Shader 程式碼，不傳則使用預設全螢幕四邊形 */
+  vertexShaderSource?: MaybeRefOrGetter<string>
 }
 
 export function useWebGl(
@@ -76,8 +77,16 @@ export function useWebGl(
     return program
   }
 
+  let bufferRef: WebGLBuffer | null = null
+
   function setupGeometry(gl: WebGLRenderingContext, program: WebGLProgram) {
+    // 清理舊 buffer
+    if (bufferRef) {
+      gl.deleteBuffer(bufferRef)
+    }
+
     const positionBuffer = gl.createBuffer()
+    bufferRef = positionBuffer
     gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer)
 
     // 全螢幕四邊形（兩個三角形）
@@ -96,6 +105,32 @@ export function useWebGl(
     gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0)
   }
 
+  /** 釋放所有 WebGL 資源 */
+  function dispose() {
+    cancelAnimationFrame(animationFrameId)
+    animationFrameId = 0
+
+    const gl = glRef.value
+    if (!gl) return
+
+    if (programRef.value) {
+      gl.deleteProgram(programRef.value)
+      programRef.value = null
+    }
+    if (bufferRef) {
+      gl.deleteBuffer(bufferRef)
+      bufferRef = null
+    }
+
+    // 強制釋放 WebGL context
+    const loseContext = gl.getExtension('WEBGL_lose_context')
+    if (loseContext) {
+      loseContext.loseContext()
+    }
+
+    glRef.value = null
+  }
+
   function compile(source: string) {
     const canvas = toValue(canvasRef)
     if (!canvas) return
@@ -112,7 +147,8 @@ export function useWebGl(
 
     error.value = ''
 
-    const vertexShader = createShader(gl, gl.VERTEX_SHADER, VERTEX_SHADER_SOURCE)
+    const vertexSource = toValue(options.vertexShaderSource) || DEFAULT_VERTEX_SHADER
+    const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexSource)
     if (!vertexShader) return
 
     const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, source)
@@ -186,19 +222,27 @@ export function useWebGl(
     animationFrameId = requestAnimationFrame(render)
   }
 
-  // 監聽 source 變化自動重新編譯
+  // 監聽 fragment / vertex source 變化自動重新編譯
   watch(
-    () => toValue(options.fragmentShaderSource),
-    (source) => {
-      compile(source)
+    [
+      () => toValue(options.fragmentShaderSource),
+      () => toValue(options.vertexShaderSource),
+    ],
+    () => {
+      compile(toValue(options.fragmentShaderSource))
     },
     { immediate: true },
   )
 
-  // 監聽 canvas 出現後初始化
+  // 監聽 canvas 出現/消失（配合 LazyRender）
   watch(
     () => toValue(canvasRef),
-    (canvas) => {
+    (canvas, oldCanvas) => {
+      if (!canvas && oldCanvas) {
+        // canvas 被移除，釋放資源
+        dispose()
+        return
+      }
       if (canvas) {
         compile(toValue(options.fragmentShaderSource))
         animationFrameId = requestAnimationFrame(render)
@@ -207,13 +251,7 @@ export function useWebGl(
     { immediate: true },
   )
 
-  onUnmounted(() => {
-    cancelAnimationFrame(animationFrameId)
-    const gl = glRef.value
-    if (gl && programRef.value) {
-      gl.deleteProgram(programRef.value)
-    }
-  })
+  onUnmounted(dispose)
 
   return {
     error,
