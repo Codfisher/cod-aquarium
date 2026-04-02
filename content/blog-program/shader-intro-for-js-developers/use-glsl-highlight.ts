@@ -1,8 +1,8 @@
 import { computed, type MaybeRefOrGetter, toValue } from 'vue'
 
 interface TokenRule {
-  pattern: RegExp
-  className: string
+  pattern: RegExp;
+  className: string;
 }
 
 const TOKEN_RULE_LIST: TokenRule[] = [
@@ -11,9 +11,9 @@ const TOKEN_RULE_LIST: TokenRule[] = [
   // 多行註解
   { pattern: /\/\*[\s\S]*?\*\//g, className: 'sh-comment' },
   // 預處理指令
-  { pattern: /^#\s*\w+.*/gm, className: 'sh-preprocessor' },
+  { pattern: /^#\s*\w.*/gm, className: 'sh-preprocessor' },
   // 數字（含浮點數）
-  { pattern: /\b\d+\.?\d*([eE][+-]?\d+)?\b/g, className: 'sh-number' },
+  { pattern: /\b\d+(?:\.\d*)?(e[+-]?\d+)?\b/gi, className: 'sh-number' },
   // 內建變數
   {
     pattern: /\b(gl_FragCoord|gl_FragColor|gl_Position|gl_PointSize|gl_FrontFacing|gl_PointCoord)\b/g,
@@ -36,7 +36,7 @@ const TOKEN_RULE_LIST: TokenRule[] = [
   },
   // Swizzle 成員（.rgba, .xyzw, .stpq）
   {
-    pattern: /\.([xyzwrgbastpq]{1,4})\b/g,
+    pattern: /\.([w-zp-tgba]{1,4})\b/g,
     className: 'sh-swizzle',
   },
 ]
@@ -50,18 +50,20 @@ function escapeHtml(text: string): string {
 
 export function highlightGlsl(source: string): string {
   interface Token {
-    start: number
-    end: number
-    className: string
+    start: number;
+    end: number;
+    className: string;
   }
 
   const tokenList: Token[] = []
 
   for (const rule of TOKEN_RULE_LIST) {
     const regex = new RegExp(rule.pattern.source, rule.pattern.flags)
-    let match: RegExpExecArray | null
-
-    while ((match = regex.exec(source)) !== null) {
+    for (
+      let match = regex.exec(source);
+      match !== null;
+      match = regex.exec(source)
+    ) {
       tokenList.push({
         start: match.index,
         end: match.index + match[0].length,

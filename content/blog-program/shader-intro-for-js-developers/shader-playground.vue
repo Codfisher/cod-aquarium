@@ -3,14 +3,9 @@
     <div class="shader-playground not-prose">
       <!-- 標題列 -->
       <div class="sp-header">
-        <div class="sp-header-left">
-          <span class="sp-dot sp-dot--red" />
-          <span class="sp-dot sp-dot--yellow" />
-          <span class="sp-dot sp-dot--green" />
-          <span class="sp-label">
-            Fragment Shader
-          </span>
-        </div>
+        <span class="sp-label">
+          Fragment Shader
+        </span>
 
         <!-- 預設範例 -->
         <div
@@ -53,7 +48,9 @@
             ref="highlightRef"
             class="sp-highlight"
             aria-hidden="true"
-          ><code v-html="highlightedHtml" /></pre>
+          >
+          <code v-html="highlightedHtml" />
+        </pre>
 
           <!-- 輸入層（前景，透明文字） -->
           <textarea
@@ -68,6 +65,16 @@
             @scroll="syncScroll"
           />
         </div>
+      </div>
+
+      <!-- 底部資訊列 -->
+      <div class="sp-footer">
+        <span class="sp-uniform-tag">u_time</span>
+        <span class="sp-uniform-desc">時間(秒)</span>
+        <span class="sp-uniform-tag">u_resolution</span>
+        <span class="sp-uniform-desc">畫布尺寸</span>
+        <span class="sp-uniform-tag">u_mouse</span>
+        <span class="sp-uniform-desc">滑鼠位置</span>
       </div>
 
       <!-- Canvas 渲染區 -->
@@ -85,16 +92,6 @@
           <span class="sp-error-icon">✕</span>
           <span>{{ error }}</span>
         </div>
-      </div>
-
-      <!-- 底部資訊列 -->
-      <div class="sp-footer">
-        <span class="sp-uniform-tag">u_time</span>
-        <span class="sp-uniform-desc">時間(秒)</span>
-        <span class="sp-uniform-tag">u_resolution</span>
-        <span class="sp-uniform-desc">畫布尺寸</span>
-        <span class="sp-uniform-tag">u_mouse</span>
-        <span class="sp-uniform-desc">滑鼠位置</span>
       </div>
     </div>
   </client-only>
