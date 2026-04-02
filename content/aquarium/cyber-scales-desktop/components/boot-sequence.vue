@@ -6,8 +6,6 @@
     <div
       v-if="!isDone"
       class="boot-sequence fixed inset-0 z-[9999] bg-white flex flex-col justify-center items-center font-orbitron overflow-hidden"
-      @click="skip"
-      @keydown.space="skip"
     >
       <!-- 掃描線效果 -->
       <div class="scanline" />
@@ -46,10 +44,6 @@
         </div>
       </div>
 
-      <!-- 跳過提示 -->
-      <div class="absolute bottom-6 text-[10px] tracking-widest text-gray-300 animate-pulse">
-        CLICK TO SKIP
-      </div>
     </div>
   </transition>
 </template>
@@ -83,8 +77,6 @@ const bootMessageList = [
 const visibleLineList = shallowRef<BootLine[]>([])
 const progress = ref(0)
 const isDone = ref(false)
-const isSkipped = ref(false)
-
 const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%&'
 
 function decodeText(text: string, onUpdate: (decoded: string) => void): Promise<void> {
@@ -95,7 +87,7 @@ function decodeText(text: string, onUpdate: (decoded: string) => void): Promise<
     const totalSteps = charList.length
 
     const interval = setInterval(() => {
-      if (isSkipped.value || decodedCount >= totalSteps) {
+      if (decodedCount >= totalSteps) {
         onUpdate(text)
         clearInterval(interval)
         resolve()
@@ -128,10 +120,6 @@ async function runBootSequence() {
   const progressPerLine = 100 / bootMessageList.length
 
   for (let i = 0; i < bootMessageList.length; i++) {
-    if (isSkipped.value) {
-      break
-    }
-
     const message = bootMessageList[i] ?? ''
     const isLast = i === bootMessageList.length - 1
 
@@ -155,34 +143,13 @@ async function runBootSequence() {
 
     progress.value = Math.min((i + 1) * progressPerLine, 100)
 
-    if (!isSkipped.value) {
-      await promiseTimeout(isLast ? 400 : 120)
-    }
+    await promiseTimeout(isLast ? 400 : 120)
   }
 
   progress.value = 100
 
-  if (!isSkipped.value) {
-    await promiseTimeout(600)
-  }
+  await promiseTimeout(600)
 
-  isDone.value = true
-}
-
-function skip() {
-  if (isSkipped.value) {
-    return
-  }
-  isSkipped.value = true
-
-  visibleLineList.value = bootMessageList.map((text, index) => ({
-    text,
-    decodedText: text,
-    statusText: index === bootMessageList.length - 1 ? 'DONE' : 'OK',
-    statusClass: index === bootMessageList.length - 1 ? 'text-gray-500' : 'text-gray-400',
-  }))
-
-  progress.value = 100
   isDone.value = true
 }
 
