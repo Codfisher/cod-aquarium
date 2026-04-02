@@ -139,7 +139,7 @@ const props = withDefaults(defineProps<Props>(), {
   vertexCode: () => DEFAULT_VERTEX_SHADER,
   showVertexEditor: false,
   showPresetList: false,
-  height: 240,
+  height: 300,
 })
 
 const canvasRef = useTemplateRef('canvasRef')
