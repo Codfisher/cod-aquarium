@@ -36,7 +36,7 @@
       <template v-if="!isBooting && !isMobile">
         <grid-pulse />
         <hud-overlay />
-        <cursor-effects />
+        <!-- <cursor-effects /> -->
       </template>
 
       <window-container />
