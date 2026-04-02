@@ -39,6 +39,9 @@ void main() {
   // 將座標原點移到畫面中心
   vec2 center = uv - 0.5;
 
+  // 修正長寬比，讓圓不會變橢圓
+  center.x *= u_resolution.x / u_resolution.y;
+
   // 計算到中心的距離
   float distance = length(center);
 
@@ -95,8 +98,13 @@ void main() {
   vec2 uv = gl_FragCoord.xy / u_resolution;
   vec2 mouseUv = u_mouse / u_resolution;
 
+  // 修正長寬比
+  float aspect = u_resolution.x / u_resolution.y;
+  vec2 diff = uv - mouseUv;
+  diff.x *= aspect;
+
   // 計算到滑鼠位置的距離
-  float distance = length(uv - mouseUv);
+  float distance = length(diff);
 
   // 用距離產生發光效果
   float glow = 0.05 / distance;
