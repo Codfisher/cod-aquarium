@@ -1,7 +1,7 @@
 <template>
   <div class="diagram-circle not-prose">
     <svg
-      viewBox="0 0 280 430"
+      viewBox="0 0 280 490"
       class="circle-svg"
       xmlns="http://www.w3.org/2000/svg"
     >
@@ -20,16 +20,6 @@
             class="arrow-fill"
           />
         </marker>
-
-        <filter id="ci-glow-teal">
-          <feDropShadow
-            dx="0"
-            dy="0"
-            stdDeviation="4"
-            flood-color="#2dd4bf"
-            flood-opacity="0.35"
-          />
-        </filter>
       </defs>
 
       <!-- ── 1. 修正長寬比 ── -->
@@ -98,7 +88,7 @@
         text-anchor="middle"
         class="code-label"
       >
-        distance = length(center)
+        dist = length(center)
       </text>
 
       <!-- Arrow -->
@@ -118,106 +108,126 @@
         class="arrow-flow"
       />
 
-      <!-- ── 3. 菱形判斷 ── -->
-      <polygon
-        points="140,188 244,232 140,276 36,232"
-        class="card card-diamond"
+      <!-- ── 3. step 產生 0 / 1 ── -->
+      <rect
+        x="24"
+        y="190"
+        width="232"
+        height="58"
+        rx="12"
+        class="card card-step-fn"
       />
       <text
         x="140"
-        y="236"
+        y="214"
         text-anchor="middle"
-        class="title title-diamond"
+        class="title title-step"
       >
-        distance &lt; 半徑
+        step 判斷邊界
+      </text>
+      <text
+        x="140"
+        y="234"
+        text-anchor="middle"
+        class="code-label"
+      >
+        circle = step(dist, 0.3)
       </text>
 
-      <!-- Arrow left: 是 -->
+      <!-- 左右標注 -->
+      <text
+        x="140"
+        y="268"
+        text-anchor="middle"
+        class="note"
+      >
+        圓內 → 1.0　　圓外 → 0.0
+      </text>
+
+      <!-- Arrow -->
       <line
-        x1="84"
-        y1="266"
-        x2="58"
-        y2="312"
+        x1="140"
+        y1="278"
+        x2="140"
+        y2="300"
         class="arrow-line"
         marker-end="url(#ci-arrow)"
       />
+      <line
+        x1="140"
+        y1="278"
+        x2="140"
+        y2="300"
+        class="arrow-flow"
+      />
+
+      <!-- ── 4. mix 混色 ── -->
       <rect
-        x="40"
-        y="275"
-        width="28"
-        height="20"
-        rx="10"
-        class="yn-badge yn-yes"
+        x="24"
+        y="306"
+        width="232"
+        height="58"
+        rx="12"
+        class="card card-mix"
       />
       <text
-        x="54"
-        y="289"
+        x="140"
+        y="330"
         text-anchor="middle"
-        class="yn-text yn-yes-text"
+        class="title title-mix"
       >
-        是
+        mix 混合顏色
+      </text>
+      <text
+        x="140"
+        y="350"
+        text-anchor="middle"
+        class="code-label"
+      >
+        mix(背景色, 圓色, circle)
       </text>
 
-      <!-- Arrow right: 否 -->
+      <!-- Arrow -->
       <line
-        x1="196"
-        y1="266"
-        x2="222"
-        y2="312"
+        x1="140"
+        y1="368"
+        x2="140"
+        y2="390"
         class="arrow-line"
         marker-end="url(#ci-arrow)"
       />
+      <line
+        x1="140"
+        y1="368"
+        x2="140"
+        y2="390"
+        class="arrow-flow"
+      />
+
+      <!-- ── 5. 輸出 ── -->
       <rect
-        x="212"
-        y="275"
-        width="28"
-        height="20"
-        rx="10"
-        class="yn-badge yn-no"
+        x="24"
+        y="396"
+        width="232"
+        height="58"
+        rx="12"
+        class="card card-output"
       />
       <text
-        x="226"
-        y="289"
+        x="140"
+        y="420"
         text-anchor="middle"
-        class="yn-text yn-no-text"
+        class="title title-output"
       >
-        否
+        輸出顏色
       </text>
-
-      <!-- ── 左結果：圓的顏色 ── -->
-      <g filter="url(#ci-glow-teal)">
-        <circle
-          cx="52"
-          cy="342"
-          r="24"
-          class="result result-circle"
-        />
-      </g>
       <text
-        x="52"
-        y="386"
+        x="140"
+        y="440"
         text-anchor="middle"
-        class="result-label result-label-circle"
+        class="code-label"
       >
-        圓的顏色
-      </text>
-
-      <!-- ── 右結果：背景色 ── -->
-      <rect
-        x="196"
-        y="318"
-        width="48"
-        height="48"
-        rx="8"
-        class="result result-bg"
-      />
-      <text
-        x="220"
-        y="386"
-        text-anchor="middle"
-        class="result-label result-label-bg"
-      >
-        背景色
+        gl_FragColor = vec4(color, 1.0)
       </text>
     </svg>
   </div>
@@ -234,16 +244,28 @@
 }
 
 /* ── Cards ── */
-.card-step {
-  fill: #f9fafb;
-  stroke: #d1d5db;
+.card {
   stroke-width: 1.5;
 }
 
-.card-diamond {
+.card-step {
+  fill: #f9fafb;
+  stroke: #d1d5db;
+}
+
+.card-step-fn {
   fill: #faf5ff;
   stroke: #a78bfa;
-  stroke-width: 1.5;
+}
+
+.card-mix {
+  fill: #fff1f2;
+  stroke: #fb7185;
+}
+
+.card-output {
+  fill: #f5f3ff;
+  stroke: #a78bfa;
 }
 
 /* ── Text ── */
@@ -253,10 +275,9 @@
   fill: #374151;
 }
 
-.title-diamond {
-  fill: #6d28d9;
-  font-weight: 700;
-}
+.title-step { fill: #6d28d9; }
+.title-mix { fill: #9f1239; }
+.title-output { fill: #5b21b6; }
 
 .code-label {
   font-size: 11px;
@@ -264,36 +285,10 @@
   fill: #9ca3af;
 }
 
-/* ── Yes/No badges ── */
-.yn-badge { stroke: none; }
-.yn-yes { fill: #d1fae5; }
-.yn-no { fill: #fee2e2; }
-
-.yn-text {
+.note {
   font-size: 11px;
-  font-weight: 600;
+  fill: #9ca3af;
 }
-
-.yn-yes-text { fill: #059669; }
-.yn-no-text { fill: #dc2626; }
-
-/* ── Results ── */
-.result-circle {
-  fill: #2dd4bf;
-  opacity: 0.75;
-}
-
-.result-bg {
-  fill: #1f2937;
-  opacity: 0.8;
-}
-
-.result-label {
-  font-size: 12px;
-}
-
-.result-label-circle { fill: #0d9488; }
-.result-label-bg { fill: #6b7280; }
 
 /* ── Arrows ── */
 .arrow-fill { fill: #d1d5db; }
@@ -322,25 +317,27 @@
   stroke: #4b5563;
 }
 
-:global(html.dark) .card-diamond {
+:global(html.dark) .card-step-fn {
+  fill: rgba(139, 92, 246, 0.08);
+  stroke: #7c3aed;
+}
+
+:global(html.dark) .card-mix {
+  fill: rgba(225, 29, 72, 0.08);
+  stroke: #e11d48;
+}
+
+:global(html.dark) .card-output {
   fill: rgba(139, 92, 246, 0.08);
   stroke: #7c3aed;
 }
 
 :global(html.dark) .title { fill: #d1d5db; }
-:global(html.dark) .title-diamond { fill: #c4b5fd; }
+:global(html.dark) .title-step { fill: #c4b5fd; }
+:global(html.dark) .title-mix { fill: #fda4af; }
+:global(html.dark) .title-output { fill: #c4b5fd; }
 :global(html.dark) .code-label { fill: #6b7280; }
-
-:global(html.dark) .yn-yes { fill: rgba(5, 150, 105, 0.15); }
-:global(html.dark) .yn-no { fill: rgba(220, 38, 38, 0.12); }
-:global(html.dark) .yn-yes-text { fill: #34d399; }
-:global(html.dark) .yn-no-text { fill: #f87171; }
-
-:global(html.dark) .result-circle { fill: #0d9488; opacity: 0.7; }
-:global(html.dark) .result-bg { fill: #d1d5db; opacity: 0.6; }
-
-:global(html.dark) .result-label-circle { fill: #5eead4; }
-:global(html.dark) .result-label-bg { fill: #9ca3af; }
+:global(html.dark) .note { fill: #6b7280; }
 
 :global(html.dark) .arrow-fill { fill: #4b5563; }
 :global(html.dark) .arrow-line { stroke: #4b5563; }

@@ -34,23 +34,25 @@ export const PRESET_CIRCLE: ShaderPreset = {
 uniform vec2 u_resolution;
 
 void main() {
+  // UV 正規化
   vec2 uv = gl_FragCoord.xy / u_resolution;
 
-  // 將座標原點移到畫面中心
+  // 把原點移到畫面中心（-0.5 ~ 0.5）
   vec2 center = uv - 0.5;
 
-  // 修正長寬比，讓圓不會變橢圓
+  // 修正長寬比，不然圓會變橢圓
   center.x *= u_resolution.x / u_resolution.y;
 
-  // 計算到中心的距離
-  float distance = length(center);
+  // 算出目前像素到中心的距離
+  float dist = length(center);
 
-  // 距離小於 0.3 就畫圓
-  float circle = step(distance, 0.3);
+  // 圓內 1.0，圓外 0.0
+  float circle = step(dist, 0.3);
 
+  // 用 circle 混合兩個顏色
   vec3 color = mix(
-    vec3(0.1, 0.1, 0.2),
-    vec3(0.2, 0.8, 0.6),
+    vec3(0.1, 0.1, 0.2),  // 背景色
+    vec3(0.2, 0.8, 0.6),  // 圓的顏色
     circle
   );
 
