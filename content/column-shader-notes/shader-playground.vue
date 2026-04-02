@@ -23,11 +23,11 @@
 
         <!-- 預設範例 -->
         <div
-          v-if="showPresetList"
+          v-if="props.presetList.length > 0"
           class="sp-preset-list"
         >
           <button
-            v-for="(preset, index) in shaderPresetList"
+            v-for="(preset, index) in props.presetList"
             :key="index"
             class="sp-preset-btn"
             :class="{ 'sp-preset-btn--active': currentPresetIndex === index }"
@@ -114,10 +114,10 @@
 <script setup lang="ts">
 import { useDebounceFn } from '@vueuse/core'
 import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
-import LazyRender from '../../../web/components/lazy-render.vue'
-import { PRESET_SOLID_COLOR, shaderPresetList } from './shader-preset'
-import { useGlslHighlight } from './use-glsl-highlight'
-import { DEFAULT_VERTEX_SHADER, useWebGl } from './use-webgl'
+import LazyRender from '../../web/components/lazy-render.vue'
+import { PRESET_SOLID_COLOR, type ShaderPreset } from './shader-intro-for-js-developers/shader-preset'
+import { useGlslHighlight } from './shader-intro-for-js-developers/use-glsl-highlight'
+import { DEFAULT_VERTEX_SHADER, useWebGl } from './shader-intro-for-js-developers/use-webgl'
 
 type ShaderTab = 'fragment' | 'vertex'
 
@@ -128,8 +128,8 @@ interface Props {
   vertexCode?: string;
   /** 是否顯示 Vertex Shader 編輯區 */
   showVertexEditor?: boolean;
-  /** 是否顯示預設範例切換 */
-  showPresetList?: boolean;
+  /** 自訂預設範例列表 */
+  presetList?: ShaderPreset[];
   /** canvas 高度 */
   height?: number;
 }
@@ -138,7 +138,7 @@ const props = withDefaults(defineProps<Props>(), {
   initialCode: () => PRESET_SOLID_COLOR.code,
   vertexCode: () => DEFAULT_VERTEX_SHADER,
   showVertexEditor: false,
-  showPresetList: false,
+  presetList: () => [],
   height: 300,
 })
 
@@ -209,8 +209,8 @@ function syncScroll() {
 
 function selectPreset(index: number) {
   currentPresetIndex.value = index
-  if (shaderPresetList[index]) {
-    fragmentCode.value = shaderPresetList[index].code
+  if (props.presetList[index]) {
+    fragmentCode.value = props.presetList[index].code
     fragmentSource.value = fragmentCode.value
   }
   nextTick(syncScroll)

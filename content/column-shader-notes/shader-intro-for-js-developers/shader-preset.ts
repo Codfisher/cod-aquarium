@@ -1,6 +1,6 @@
 export interface ShaderPreset {
-  label: string
-  code: string
+  label: string;
+  code: string;
 }
 
 export const PRESET_SOLID_COLOR: ShaderPreset = {

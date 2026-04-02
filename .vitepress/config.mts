@@ -220,6 +220,10 @@ export default ({ mode }: { mode: string }) => {
                 text: '來個 3D 白噪音混音器',
                 link: getOldestDocPath('/column-hexazen/'),
               },
+              {
+                text: '鱈魚的 Shader 筆記',
+                link: getOldestDocPath('/column-shader-notes/'),
+              },
               // {
               //   text: '酷酷元件背後的星點',
               //   link: getOldestDocPath('/column-chill-components/'),
@@ -299,6 +303,10 @@ export default ({ mode }: { mode: string }) => {
                   text: '來個 3D 白噪音混音器',
                   link: getOldestDocPath('/column-hexazen/'),
                 },
+                {
+                  text: '鱈魚的 Shader 筆記',
+                  link: getOldestDocPath('/column-shader-notes/'),
+                },
                 // {
                 //   text: '酷酷元件背後的星點',
                 //   link: getOldestDocPath('/column-chill-components/'),
@@ -329,6 +337,11 @@ export default ({ mode }: { mode: string }) => {
         ...getSidebar(
           '/column-hexazen/',
           '來個 3D 白噪音混音器',
+          'asc',
+        ),
+        ...getSidebar(
+          '/column-shader-notes/',
+          '鱈魚的 Shader 筆記',
           'asc',
         ),
         // ...getSidebar(
