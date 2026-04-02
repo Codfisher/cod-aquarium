@@ -1,6 +1,25 @@
 <template>
   <client-only>
     <div class="shader-playground not-prose">
+      <!-- Canvas 渲染區 -->
+      <lazy-render>
+        <div class="sp-canvas-wrap">
+          <canvas
+            ref="canvasRef"
+            class="sp-canvas"
+          />
+
+          <!-- 錯誤訊息 -->
+          <div
+            v-if="error"
+            class="sp-error"
+          >
+            <span class="sp-error-icon">✕</span>
+            <span>{{ error }}</span>
+          </div>
+        </div>
+      </lazy-render>
+
       <!-- 標題列 -->
       <div class="sp-header">
         <div class="sp-tab-list">
@@ -88,25 +107,6 @@
         <span class="sp-uniform-tag">u_mouse</span>
         <span class="sp-uniform-desc">滑鼠位置</span>
       </div>
-
-      <!-- Canvas 渲染區 -->
-      <lazy-render>
-        <div class="sp-canvas-wrap">
-          <canvas
-            ref="canvasRef"
-            class="sp-canvas"
-          />
-
-          <!-- 錯誤訊息 -->
-          <div
-            v-if="error"
-            class="sp-error"
-          >
-            <span class="sp-error-icon">✕</span>
-            <span>{{ error }}</span>
-          </div>
-        </div>
-      </lazy-render>
     </div>
   </client-only>
 </template>
