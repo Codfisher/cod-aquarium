@@ -285,10 +285,10 @@
 :global(html.dark) .icon-gear { fill: #6b7280; }
 
 :global(html.dark) .title-coord { fill: #5eead4; }
-:global(html.dark) .subtitle-coord { fill: #5eead4; opacity: 0.5; }
+:global(html.dark) .subtitle-coord { fill: #5eead4; opacity: 0.7; }
 :global(html.dark) .title-logic { fill: #9ca3af; }
 :global(html.dark) .title-color { fill: #fda4af; }
-:global(html.dark) .subtitle-color { fill: #fda4af; opacity: 0.5; }
+:global(html.dark) .subtitle-color { fill: #fda4af; opacity: 0.7; }
 
 :global(html.dark) .arrow-fill { fill: #4b5563; }
 :global(html.dark) .arrow-line { stroke: #4b5563; }

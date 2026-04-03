@@ -410,10 +410,10 @@
 :global(html.dark) .title-fragment { fill: #fda4af; }
 :global(html.dark) .title-output { fill: #c4b5fd; }
 
-:global(html.dark) .subtitle-js { fill: #fbbf24; opacity: 0.5; }
-:global(html.dark) .subtitle-vertex { fill: #5eead4; opacity: 0.5; }
-:global(html.dark) .subtitle-raster { fill: #6b7280; }
-:global(html.dark) .subtitle-fragment { fill: #fda4af; opacity: 0.5; }
+:global(html.dark) .subtitle-js { fill: #fbbf24; opacity: 0.7; }
+:global(html.dark) .subtitle-vertex { fill: #5eead4; opacity: 0.7; }
+:global(html.dark) .subtitle-raster { fill: #9ca3af; }
+:global(html.dark) .subtitle-fragment { fill: #fda4af; opacity: 0.7; }
 
 :global(html.dark) .badge-editable { fill: #6b7280; }
 

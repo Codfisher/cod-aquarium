@@ -394,7 +394,7 @@
 :global(html.dark) .shape-mark-good { fill: #5eead4; }
 
 :global(html.dark) .dim-line { stroke: #4b5563; }
-:global(html.dark) .dim-text { fill: #6b7280; }
+:global(html.dark) .dim-text { fill: #9ca3af; }
 
 :global(html.dark) .explain-problem { fill: #fb7185; }
 :global(html.dark) .explain-problem-bold { fill: #fb7185; }

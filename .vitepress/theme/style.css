@@ -164,6 +164,13 @@ html {
   --vp-font-family-base: 'Noto Sans TC', sans-serif;
 }
 
+/* 修正 Windows 暗黑模式下 SVG 亮色中文字因 halation 糊成一片的問題 */
+.dark svg text {
+  stroke: var(--vp-c-bg, #1b1b1f);
+  stroke-width: 0px;
+  paint-order: stroke fill;
+}
+
 img {
   border-radius: 1rem;
   border: solid 1px #F0F0F0;
