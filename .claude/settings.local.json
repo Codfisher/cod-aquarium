@@ -4,7 +4,9 @@
     "allow": [
       "Bash(find *)",
       "Bash(grep *)",
-      "Bash(ls *)"
+      "Bash(ls *)",
+      "WebFetch",
+      "Bash(xargs grep:*)"
     ]
   }
 }
