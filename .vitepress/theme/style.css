@@ -132,6 +132,10 @@
   --vp-custom-block-tip-code-bg: var(--vp-c-gray-soft);
 }
 
+html {
+  opacity: 1 !important; 
+}
+
 /**
  * Component: Algolia
  * -------------------------------------------------------------------------- */
