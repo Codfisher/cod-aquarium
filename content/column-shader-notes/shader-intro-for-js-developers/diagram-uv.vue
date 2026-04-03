@@ -306,9 +306,9 @@
 :global(html.dark) .range-bar circle { fill: #22d3ee; opacity: 0.3; }
 
 :global(html.dark) .title-pixel { fill: #fbbf24; }
-:global(html.dark) .subtitle-pixel { fill: #fbbf24; opacity: 0.45; }
+:global(html.dark) .subtitle-pixel { fill: #fbbf24; opacity: 0.7; }
 :global(html.dark) .title-uv { fill: #67e8f9; }
-:global(html.dark) .subtitle-uv { fill: #67e8f9; opacity: 0.45; }
+:global(html.dark) .subtitle-uv { fill: #67e8f9; opacity: 0.7; }
 
 :global(html.dark) .badge-bg {
   fill: rgba(75, 85, 99, 0.25);

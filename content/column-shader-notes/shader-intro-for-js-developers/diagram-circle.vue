@@ -336,8 +336,8 @@
 :global(html.dark) .title-step { fill: #c4b5fd; }
 :global(html.dark) .title-mix { fill: #fda4af; }
 :global(html.dark) .title-output { fill: #c4b5fd; }
-:global(html.dark) .code-label { fill: #6b7280; }
-:global(html.dark) .note { fill: #6b7280; }
+:global(html.dark) .code-label { fill: #9ca3af; }
+:global(html.dark) .note { fill: #9ca3af; }
 
 :global(html.dark) .arrow-fill { fill: #4b5563; }
 :global(html.dark) .arrow-line { stroke: #4b5563; }
