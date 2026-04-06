@@ -20,7 +20,7 @@
       :x="55 + progress * 100"
       y="55" width="90" height="90"
       :fill="targetColor" rx="4"
-      class="transition-[x] duration-150"
+      class="transition-[x] duration-50"
     />
 
     <!-- 右側灰色方塊（往左移動到中間） -->
@@ -28,7 +28,7 @@
       :x="255 - progress * 100"
       y="55" width="90" height="90"
       :fill="targetColor" rx="4"
-      class="transition-[x] duration-150"
+      class="transition-[x] duration-50"
     />
   </svg>
 </template>

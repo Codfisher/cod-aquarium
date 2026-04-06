@@ -11,7 +11,7 @@
       :cy="pos.y + (pos.y - 100) * progress * 2"
       :r="bigRadius * (1 - progress)"
       fill="#6366f1"
-      class="transition-[cx,cy,r] duration-150"
+      class="transition-[cx,cy,r] duration-50"
     />
 
     <!-- 左側中心圓 -->
@@ -25,7 +25,7 @@
       :cy="pos.y + (pos.y - 100) * progress * 2"
       :r="smallRadius * (1 - progress)"
       fill="#6366f1"
-      class="transition-[cx,cy,r] duration-150"
+      class="transition-[cx,cy,r] duration-50"
     />
 
     <!-- 右側中心圓 -->
@@ -36,13 +36,13 @@
       x1="100" y1="75" x2="300" y2="75"
       stroke="#ef4444" stroke-width="1" stroke-dasharray="4,4"
       :transform="`translate(0, ${(1 - progress) * -40})`"
-      class="transition-transform duration-150"
+      class="transition-transform duration-50"
     />
     <line
       x1="100" y1="125" x2="300" y2="125"
       stroke="#ef4444" stroke-width="1" stroke-dasharray="4,4"
       :transform="`translate(0, ${(1 - progress) * 40})`"
-      class="transition-transform duration-150"
+      class="transition-transform duration-50"
     />
   </svg>
 </template>

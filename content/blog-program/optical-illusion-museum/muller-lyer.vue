@@ -11,26 +11,26 @@
         x1="100" y1="70"
         :x2="100 - arrowOffset * (1 - progress)" :y2="70 - arrowSize * (1 - progress)"
         stroke="currentColor" stroke-width="3"
-        class="transition-[x2,y2] duration-150"
+        class="transition-[x2,y2] duration-50"
       />
       <line
         x1="100" y1="70"
         :x2="100 - arrowOffset * (1 - progress)" :y2="70 + arrowSize * (1 - progress)"
         stroke="currentColor" stroke-width="3"
-        class="transition-[x2,y2] duration-150"
+        class="transition-[x2,y2] duration-50"
       />
       <!-- 右側向外箭頭 -->
       <line
         x1="300" y1="70"
         :x2="300 + arrowOffset * (1 - progress)" :y2="70 - arrowSize * (1 - progress)"
         stroke="currentColor" stroke-width="3"
-        class="transition-[x2,y2] duration-150"
+        class="transition-[x2,y2] duration-50"
       />
       <line
         x1="300" y1="70"
         :x2="300 + arrowOffset * (1 - progress)" :y2="70 + arrowSize * (1 - progress)"
         stroke="currentColor" stroke-width="3"
-        class="transition-[x2,y2] duration-150"
+        class="transition-[x2,y2] duration-50"
       />
     </g>
 
@@ -42,26 +42,26 @@
         x1="100" y1="130"
         :x2="100 + arrowOffset * (1 - progress)" :y2="130 - arrowSize * (1 - progress)"
         stroke="currentColor" stroke-width="3"
-        class="transition-[x2,y2] duration-150"
+        class="transition-[x2,y2] duration-50"
       />
       <line
         x1="100" y1="130"
         :x2="100 + arrowOffset * (1 - progress)" :y2="130 + arrowSize * (1 - progress)"
         stroke="currentColor" stroke-width="3"
-        class="transition-[x2,y2] duration-150"
+        class="transition-[x2,y2] duration-50"
       />
       <!-- 右側向內箭頭 -->
       <line
         x1="300" y1="130"
         :x2="300 - arrowOffset * (1 - progress)" :y2="130 - arrowSize * (1 - progress)"
         stroke="currentColor" stroke-width="3"
-        class="transition-[x2,y2] duration-150"
+        class="transition-[x2,y2] duration-50"
       />
       <line
         x1="300" y1="130"
         :x2="300 - arrowOffset * (1 - progress)" :y2="130 + arrowSize * (1 - progress)"
         stroke="currentColor" stroke-width="3"
-        class="transition-[x2,y2] duration-150"
+        class="transition-[x2,y2] duration-50"
       />
     </g>
 
@@ -70,13 +70,13 @@
       x1="100" y1="55" x2="100" y2="145"
       stroke="#f97316" stroke-width="1.5" stroke-dasharray="4,4"
       :transform="`translate(${(1 - progress) * -40}, 0)`"
-      class="transition-transform duration-150"
+      class="transition-transform duration-50"
     />
     <line
       x1="300" y1="55" x2="300" y2="145"
       stroke="#f97316" stroke-width="1.5" stroke-dasharray="4,4"
       :transform="`translate(${(1 - progress) * 40}, 0)`"
-      class="transition-transform duration-150"
+      class="transition-transform duration-50"
     />
   </svg>
 </template>

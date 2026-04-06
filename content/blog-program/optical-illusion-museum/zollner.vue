@@ -24,7 +24,7 @@
         :y2="getLineY(row) + tickLength * (1 - progress)"
         stroke="currentColor"
         stroke-width="1.5"
-        class="transition-[x1,y1,x2,y2] duration-150"
+        class="transition-[x1,y1,x2,y2] duration-50"
       />
     </g>
 
@@ -33,13 +33,13 @@
       x1="25" y1="30" x2="25" y2="270"
       stroke="#ef4444" stroke-width="2" stroke-dasharray="4,4"
       :transform="`translate(${(1 - progress) * -30}, 0)`"
-      class="transition-transform duration-150"
+      class="transition-transform duration-50"
     />
     <line
       x1="375" y1="30" x2="375" y2="270"
       stroke="#ef4444" stroke-width="2" stroke-dasharray="4,4"
       :transform="`translate(${(1 - progress) * 30}, 0)`"
-      class="transition-transform duration-150"
+      class="transition-transform duration-50"
     />
   </svg>
 </template>

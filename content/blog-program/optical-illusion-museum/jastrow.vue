@@ -19,7 +19,7 @@
       fill="#6366f1"
       stroke="#4f46e5"
       stroke-width="1"
-      class="transition-[d] duration-150"
+      class="transition-[d] duration-50"
     />
 
     <!-- 下方弧形（看起來較大） -->
@@ -28,11 +28,11 @@
       fill="#f97316"
       stroke="#ea580c"
       stroke-width="1"
-      class="transition-[d] duration-150"
+      class="transition-[d] duration-50"
     />
 
     <!-- 揭示時的尺寸標記（上方） -->
-    <g :transform="`translate(0, ${(1 - progress) * -40})`" class="transition-transform duration-150">
+    <g :transform="`translate(0, ${(1 - progress) * -40})`" class="transition-transform duration-50">
       <line
         x1="80"
         :y1="topY - 35"
@@ -54,7 +54,7 @@
     </g>
 
     <!-- 揭示時的尺寸標記（下方） -->
-    <g :transform="`translate(0, ${(1 - progress) * 40})`" class="transition-transform duration-150">
+    <g :transform="`translate(0, ${(1 - progress) * 40})`" class="transition-transform duration-50">
       <line
         x1="80"
         :y1="bottomY + 65"

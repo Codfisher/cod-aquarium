@@ -46,7 +46,7 @@
       width="100" height="100"
       :fill="darkColor"
       :transform="`translate(${(1 - progress) * 300}, 0)`"
-      class="transition-transform duration-150"
+      class="transition-transform duration-50"
     />
   </svg>
 </template>
