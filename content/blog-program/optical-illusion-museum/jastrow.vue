@@ -1,79 +1,23 @@
 <template>
   <svg
-    viewBox="0 0 400 250"
+    viewBox="0 0 400 240"
     class="w-full max-w-sm mx-auto"
   >
-    <defs>
-      <!-- 扇形用的 clipPath -->
-      <clipPath id="jastrow-clip-top">
-        <path :d="getArcPath(200, 80, 120, 60)" />
-      </clipPath>
-      <clipPath id="jastrow-clip-bottom">
-        <path :d="getArcPath(200, 160, 120, 60)" />
-      </clipPath>
-    </defs>
-
-    <!-- 上方弧形（看起來較小） -->
+    <!-- 上方弧形 A（稍微偏右） -->
     <path
-      :d="getArcPath(200, topY, 120, 60)"
+      :d="getArcPath(topCx, topCy)"
       fill="#6366f1"
       stroke="#4f46e5"
-      stroke-width="1"
-      class="transition-[d] duration-50"
+      stroke-width="1.5"
     />
 
-    <!-- 下方弧形（看起來較大） -->
+    <!-- 下方弧形 B（稍微偏左，揭示時移動到與 A 重疊） -->
     <path
-      :d="getArcPath(200, bottomY, 120, 60)"
+      :d="getArcPath(bottomCx, bottomCy)"
       fill="#f97316"
       stroke="#ea580c"
-      stroke-width="1"
-      class="transition-[d] duration-50"
+      stroke-width="1.5"
     />
-
-    <!-- 揭示時的尺寸標記（上方） -->
-    <g :transform="`translate(0, ${(1 - progress) * -40})`" class="transition-transform duration-50">
-      <line
-        x1="80"
-        :y1="topY - 35"
-        x2="320"
-        :y2="topY - 35"
-        stroke="#6366f1"
-        stroke-width="2"
-      />
-      <line x1="80" :y1="topY - 40" x2="80" :y2="topY - 30" stroke="#6366f1" stroke-width="2" />
-      <line x1="320" :y1="topY - 40" x2="320" :y2="topY - 30" stroke="#6366f1" stroke-width="2" />
-      <text
-        x="200"
-        :y="topY - 42"
-        text-anchor="middle"
-        fill="#6366f1"
-        font-size="13"
-        font-weight="bold"
-      >240px</text>
-    </g>
-
-    <!-- 揭示時的尺寸標記（下方） -->
-    <g :transform="`translate(0, ${(1 - progress) * 40})`" class="transition-transform duration-50">
-      <line
-        x1="80"
-        :y1="bottomY + 65"
-        x2="320"
-        :y2="bottomY + 65"
-        stroke="#f97316"
-        stroke-width="2"
-      />
-      <line x1="80" :y1="bottomY + 60" x2="80" :y2="bottomY + 70" stroke="#f97316" stroke-width="2" />
-      <line x1="320" :y1="bottomY + 60" x2="320" :y2="bottomY + 70" stroke="#f97316" stroke-width="2" />
-      <text
-        x="200"
-        :y="bottomY + 82"
-        text-anchor="middle"
-        fill="#f97316"
-        font-size="13"
-        font-weight="bold"
-      >240px</text>
-    </g>
   </svg>
 </template>
 
@@ -86,46 +30,47 @@ const props = defineProps<{
 
 const progress = computed(() => props.revealPercent / 100)
 
-const topY = computed(() => {
-  const base = 80
-  const target = 90
-  return base + (target - base) * (props.revealPercent / 100)
-})
+const outerRadius = 280
+const innerRadius = 200
+const sweepDeg = 55
+const halfSweep = (sweepDeg / 2) * (Math.PI / 180)
 
-const bottomY = computed(() => {
-  const base = 140
-  const target = 150
-  return base + (target - base) * (props.revealPercent / 100)
-})
+function getArcPath(cx: number, cy: number): string {
+  const angleLeft = Math.PI / 2 + halfSweep
+  const angleRight = Math.PI / 2 - halfSweep
 
-function getArcPath(
-  cx: number,
-  cy: number,
-  width: number,
-  height: number,
-): string {
-  const outerRadius = width
-  const innerRadius = width - height
+  const oLx = cx + outerRadius * Math.cos(angleLeft)
+  const oLy = cy - outerRadius * Math.sin(angleLeft)
+  const oRx = cx + outerRadius * Math.cos(angleRight)
+  const oRy = cy - outerRadius * Math.sin(angleRight)
 
-  const startAngle = Math.PI + 0.3
-  const endAngle = 2 * Math.PI - 0.3
-
-  const outerX1 = cx + outerRadius * Math.cos(startAngle)
-  const outerY1 = cy + outerRadius * Math.sin(startAngle)
-  const outerX2 = cx + outerRadius * Math.cos(endAngle)
-  const outerY2 = cy + outerRadius * Math.sin(endAngle)
-
-  const innerX1 = cx + innerRadius * Math.cos(endAngle)
-  const innerY1 = cy + innerRadius * Math.sin(endAngle)
-  const innerX2 = cx + innerRadius * Math.cos(startAngle)
-  const innerY2 = cy + innerRadius * Math.sin(startAngle)
+  const iLx = cx + innerRadius * Math.cos(angleLeft)
+  const iLy = cy - innerRadius * Math.sin(angleLeft)
+  const iRx = cx + innerRadius * Math.cos(angleRight)
+  const iRy = cy - innerRadius * Math.sin(angleRight)
 
   return [
-    `M ${outerX1} ${outerY1}`,
-    `A ${outerRadius} ${outerRadius} 0 0 1 ${outerX2} ${outerY2}`,
-    `L ${innerX1} ${innerY1}`,
-    `A ${innerRadius} ${innerRadius} 0 0 0 ${innerX2} ${innerY2}`,
+    `M ${oLx} ${oLy}`,
+    `A ${outerRadius} ${outerRadius} 0 0 1 ${oRx} ${oRy}`,
+    `L ${iRx} ${iRy}`,
+    `A ${innerRadius} ${innerRadius} 0 0 0 ${iLx} ${iLy}`,
     'Z',
   ].join(' ')
 }
+
+// A 的位置（偏右，固定）
+const aCx = 215
+const aCy = 120 + outerRadius * Math.cos(halfSweep)
+
+// B 的錯覺位置（偏左，內弧頂部剛好貼著 A 外弧底部，不重疊）
+const bCx = 185
+const bCy = 110 + innerRadius
+
+// A 位置
+const topCx = aCx
+const topCy = aCy
+
+// B 位置：從錯覺位置移動到與 A 完全重疊
+const bottomCx = computed(() => bCx + (aCx - bCx) * progress.value)
+const bottomCy = computed(() => bCy + (aCy - bCy) * progress.value)
 </script>
