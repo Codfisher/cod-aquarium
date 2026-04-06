@@ -23,24 +23,10 @@
         :x2="getTickX(tick) + getTickDirection(row) * tickSpread * (1 - progress)"
         :y2="getLineY(row) + tickLength * (1 - progress)"
         stroke="currentColor"
-        stroke-width="1.5"
+        stroke-width="2"
         class="transition-[x1,y1,x2,y2] duration-50"
       />
     </g>
-
-    <!-- 揭示：平行對齊參考線 -->
-    <line
-      x1="25" y1="30" x2="25" y2="270"
-      stroke="#ef4444" stroke-width="2" stroke-dasharray="4,4"
-      :transform="`translate(${(1 - progress) * -30}, 0)`"
-      class="transition-transform duration-50"
-    />
-    <line
-      x1="375" y1="30" x2="375" y2="270"
-      stroke="#ef4444" stroke-width="2" stroke-dasharray="4,4"
-      :transform="`translate(${(1 - progress) * 30}, 0)`"
-      class="transition-transform duration-50"
-    />
   </svg>
 </template>
 
@@ -53,18 +39,18 @@ const props = defineProps<{
 
 const progress = computed(() => props.revealPercent / 100)
 
-const lineCount = 6
-const tickCount = 14
-const tickLength = 12
-const tickSpread = 14
-const lineSpacing = 44
+const lineCount = 7
+const tickCount = 18
+const tickLength = 18
+const tickSpread = 30
+const lineSpacing = 36
 
 function getLineY(row: number): number {
   return 30 + (row - 1) * lineSpacing
 }
 
 function getTickX(tick: number): number {
-  return 30 + (tick - 1) * 25
+  return 30 + (tick - 1) * 19
 }
 
 function getTickDirection(row: number): number {

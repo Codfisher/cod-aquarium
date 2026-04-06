@@ -39,19 +39,6 @@
       fill="#888888"
     />
 
-    <!-- 揭示用的平行對齊參考線 -->
-    <line
-      x1="5" y1="10" x2="5" y2="270"
-      stroke="#ef4444" stroke-width="2" stroke-dasharray="4,4"
-      :transform="`translate(${(1 - progress) * -30}, 0)`"
-      class="transition-transform duration-50"
-    />
-    <line
-      x1="395" y1="10" x2="395" y2="270"
-      stroke="#ef4444" stroke-width="2" stroke-dasharray="4,4"
-      :transform="`translate(${(1 - progress) * 30}, 0)`"
-      class="transition-transform duration-50"
-    />
   </svg>
 </template>
 
