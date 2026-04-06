@@ -52,15 +52,6 @@
       class="transition-[r] duration-150"
     />
 
-    <!-- 提示文字 -->
-    <text
-      x="180" y="352"
-      text-anchor="middle"
-      fill="#ef4444"
-      font-size="13"
-      :transform="`translate(0, ${(1 - progress) * 30})`"
-      class="transition-transform duration-150"
-    >交叉點沒有灰色圓點！</text>
   </svg>
 </template>
 

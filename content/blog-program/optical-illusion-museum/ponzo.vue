@@ -69,18 +69,6 @@
       :transform="`translate(0, ${(1 - progress) * 30})`"
       class="transition-transform duration-150"
     >110px</text>
-
-    <!-- 標籤 -->
-    <text
-      x="280" y="105" fill="#f97316" font-size="14"
-      :transform="`translate(${progress * 150}, 0)`"
-      class="transition-transform duration-150"
-    >較長？</text>
-    <text
-      x="280" y="225" fill="#6366f1" font-size="14"
-      :transform="`translate(${progress * 150}, 0)`"
-      class="transition-transform duration-150"
-    >較短？</text>
   </svg>
 </template>
 
