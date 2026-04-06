@@ -22,4 +22,6 @@
 
 ## 寫作風格規則（Writing Style）
 
-撰寫部落格文章時，請使用 `/write-style` skill 載入完整規則。
+1. 請使用精煉、道地的用語，去除冗詞贅字。
+2. 請避免翻譯腔，少用『的』、『把』、『進行』等字眼。具體可參考此[文件](https://zh.wikipedia.org/zh-tw/%E6%AD%90%E5%8C%96%E4%B8%AD%E6%96%87)
+3. 撰寫部落格文章時，請使用 `/write-style` skill 載入完整規則。
