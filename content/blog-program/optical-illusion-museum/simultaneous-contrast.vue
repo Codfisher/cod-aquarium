@@ -7,14 +7,14 @@
     <rect
       x="10" y="10" width="180" height="180"
       :fill="leftBackground" rx="8"
-      class="transition-[fill] duration-500"
+      class="transition-[fill] duration-150"
     />
 
     <!-- 右側背景（淺色 → 中灰） -->
     <rect
       x="210" y="10" width="180" height="180"
       :fill="rightBackground" rx="8"
-      class="transition-[fill] duration-500"
+      class="transition-[fill] duration-150"
     />
 
     <!-- 左側灰色方塊 -->
@@ -30,8 +30,8 @@
       width="110"
       height="50"
       :fill="targetColor"
-      :opacity="progress"
-      class="transition-opacity duration-500"
+      :transform="`translate(0, ${(1 - progress) * 200})`"
+      class="transition-transform duration-150"
     />
   </svg>
 </template>

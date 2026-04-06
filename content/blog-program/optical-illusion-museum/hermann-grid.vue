@@ -36,7 +36,7 @@
       :height="Math.max(0, shrunkCellSize)"
       fill="#1a1a1a"
       rx="2"
-      class="transition-[x,y,width,height] duration-500"
+      class="transition-[x,y,width,height] duration-150"
     />
 
     <!-- 揭示：在交叉點畫紅圈 -->
@@ -45,12 +45,11 @@
       :key="`circle-${index}`"
       :cx="pos.x"
       :cy="pos.y"
-      r="10"
+      :r="progress * 10"
       fill="none"
       stroke="#ef4444"
       stroke-width="2"
-      :opacity="progress"
-      class="transition-opacity duration-300"
+      class="transition-[r] duration-150"
     />
 
     <!-- 提示文字 -->
@@ -59,8 +58,8 @@
       text-anchor="middle"
       fill="#ef4444"
       font-size="13"
-      :opacity="progress"
-      class="transition-opacity duration-300"
+      :transform="`translate(0, ${(1 - progress) * 30})`"
+      class="transition-transform duration-150"
     >交叉點沒有灰色圓點！</text>
   </svg>
 </template>

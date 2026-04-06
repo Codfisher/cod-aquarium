@@ -6,7 +6,7 @@
     <!-- 左側區塊 -->
     <g>
       <!-- 背景 -->
-      <rect x="20" y="30" width="160" height="240" :fill="leftBackground" class="transition-[fill] duration-500" />
+      <rect x="20" y="30" width="160" height="240" :fill="leftBackground" class="transition-[fill] duration-150" />
 
       <!-- 條紋 -->
       <rect
@@ -18,7 +18,7 @@
         height="20"
         fill="#000000"
         :transform="`translate(${-progress * 180}, 0)`"
-        class="transition-transform duration-500"
+        class="transition-transform duration-150"
       />
 
       <!-- 灰色目標 -->
@@ -28,7 +28,7 @@
     <!-- 右側區塊 -->
     <g>
       <!-- 背景 -->
-      <rect x="220" y="30" width="160" height="240" :fill="rightBackground" class="transition-[fill] duration-500" />
+      <rect x="220" y="30" width="160" height="240" :fill="rightBackground" class="transition-[fill] duration-150" />
 
       <!-- 條紋 -->
       <rect
@@ -40,7 +40,7 @@
         height="20"
         fill="#ffffff"
         :transform="`translate(${progress * 180}, 0)`"
-        class="transition-transform duration-500"
+        class="transition-transform duration-150"
       />
 
       <!-- 灰色目標 -->
@@ -63,8 +63,8 @@
       fill="currentColor"
       font-size="14"
       font-weight="bold"
-      :opacity="progress"
-      class="transition-opacity duration-300"
+      :transform="`translate(0, ${(1 - progress) * 30})`"
+      class="transition-transform duration-150"
     >完全一樣！</text>
   </svg>
 </template>

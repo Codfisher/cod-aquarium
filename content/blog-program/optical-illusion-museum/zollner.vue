@@ -24,15 +24,23 @@
         :y2="getLineY(row) + tickLength * (1 - progress)"
         stroke="currentColor"
         stroke-width="1.5"
-        class="transition-[x1,y1,x2,y2] duration-500"
+        class="transition-[x1,y1,x2,y2] duration-150"
       />
     </g>
 
     <!-- 揭示：平行對齊參考線 -->
-    <g :opacity="progress" class="transition-opacity duration-300">
-      <line x1="25" y1="30" x2="25" y2="270" stroke="#ef4444" stroke-width="2" stroke-dasharray="4,4" />
-      <line x1="375" y1="30" x2="375" y2="270" stroke="#ef4444" stroke-width="2" stroke-dasharray="4,4" />
-    </g>
+    <line
+      x1="25" y1="30" x2="25" y2="270"
+      stroke="#ef4444" stroke-width="2" stroke-dasharray="4,4"
+      :transform="`translate(${(1 - progress) * -30}, 0)`"
+      class="transition-transform duration-150"
+    />
+    <line
+      x1="375" y1="30" x2="375" y2="270"
+      stroke="#ef4444" stroke-width="2" stroke-dasharray="4,4"
+      :transform="`translate(${(1 - progress) * 30}, 0)`"
+      class="transition-transform duration-150"
+    />
   </svg>
 </template>
 

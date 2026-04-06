@@ -26,7 +26,7 @@
         :height="brickHeight - 2"
         :fill="(col % 2 === 0) ? '#1a1a1a' : '#e8e8e8'"
         :transform="`translate(${getSlideOffset(row, col)}, 0)`"
-        class="transition-transform duration-500"
+        class="transition-transform duration-150"
       />
     </g>
 
@@ -40,10 +40,18 @@
     />
 
     <!-- 揭示用的平行對齊參考線 -->
-    <g :opacity="progress" class="transition-opacity duration-300">
-      <line x1="5" y1="10" x2="5" y2="270" stroke="#ef4444" stroke-width="2" stroke-dasharray="4,4" />
-      <line x1="395" y1="10" x2="395" y2="270" stroke="#ef4444" stroke-width="2" stroke-dasharray="4,4" />
-    </g>
+    <line
+      x1="5" y1="10" x2="5" y2="270"
+      stroke="#ef4444" stroke-width="2" stroke-dasharray="4,4"
+      :transform="`translate(${(1 - progress) * -30}, 0)`"
+      class="transition-transform duration-150"
+    />
+    <line
+      x1="395" y1="10" x2="395" y2="270"
+      stroke="#ef4444" stroke-width="2" stroke-dasharray="4,4"
+      :transform="`translate(${(1 - progress) * 30}, 0)`"
+      class="transition-transform duration-150"
+    />
   </svg>
 </template>
 

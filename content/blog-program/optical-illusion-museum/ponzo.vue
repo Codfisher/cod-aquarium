@@ -8,15 +8,15 @@
       x1="200" y1="20"
       :x2="60 - progress * 40" y2="280"
       stroke="currentColor" stroke-width="2"
-      :opacity="1 - progress"
-      class="transition-[x2,opacity] duration-500"
+      :transform="`translate(${-progress * 200}, 0)`"
+      class="transition-[x2,transform] duration-150"
     />
     <line
       x1="200" y1="20"
       :x2="340 + progress * 40" y2="280"
       stroke="currentColor" stroke-width="2"
-      :opacity="1 - progress"
-      class="transition-[x2,opacity] duration-500"
+      :transform="`translate(${progress * 200}, 0)`"
+      class="transition-[x2,transform] duration-150"
     />
 
     <!-- 橫向參考線（透視感） -->
@@ -29,8 +29,9 @@
       :y2="40 + i * 40"
       stroke="currentColor"
       stroke-width="1"
-      :opacity="(1 - progress) * 0.2"
-      class="transition-opacity duration-300"
+      opacity="0.2"
+      :transform="`translate(0, ${-progress * 300})`"
+      class="transition-transform duration-150"
     />
 
     <!-- 上方橫線 -->
@@ -46,16 +47,40 @@
     />
 
     <!-- 對齊輔助線 -->
-    <g :opacity="progress" class="transition-opacity duration-300">
-      <line x1="145" y1="90" x2="145" y2="230" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="4,4" />
-      <line x1="255" y1="90" x2="255" y2="230" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="4,4" />
-      <text x="200" y="88" text-anchor="middle" fill="#f97316" font-size="13" font-weight="bold">110px</text>
-      <text x="200" y="250" text-anchor="middle" fill="#6366f1" font-size="13" font-weight="bold">110px</text>
-    </g>
+    <line
+      x1="145" y1="90" x2="145" y2="230"
+      stroke="#ef4444" stroke-width="1.5" stroke-dasharray="4,4"
+      :transform="`translate(${(1 - progress) * -40}, 0)`"
+      class="transition-transform duration-150"
+    />
+    <line
+      x1="255" y1="90" x2="255" y2="230"
+      stroke="#ef4444" stroke-width="1.5" stroke-dasharray="4,4"
+      :transform="`translate(${(1 - progress) * 40}, 0)`"
+      class="transition-transform duration-150"
+    />
+    <text
+      x="200" y="88" text-anchor="middle" fill="#f97316" font-size="13" font-weight="bold"
+      :transform="`translate(0, ${(1 - progress) * -30})`"
+      class="transition-transform duration-150"
+    >110px</text>
+    <text
+      x="200" y="250" text-anchor="middle" fill="#6366f1" font-size="13" font-weight="bold"
+      :transform="`translate(0, ${(1 - progress) * 30})`"
+      class="transition-transform duration-150"
+    >110px</text>
 
     <!-- 標籤 -->
-    <text x="280" y="105" fill="#f97316" font-size="14" :opacity="1 - progress" class="transition-opacity duration-300">較長？</text>
-    <text x="280" y="225" fill="#6366f1" font-size="14" :opacity="1 - progress" class="transition-opacity duration-300">較短？</text>
+    <text
+      x="280" y="105" fill="#f97316" font-size="14"
+      :transform="`translate(${progress * 150}, 0)`"
+      class="transition-transform duration-150"
+    >較長？</text>
+    <text
+      x="280" y="225" fill="#6366f1" font-size="14"
+      :transform="`translate(${progress * 150}, 0)`"
+      class="transition-transform duration-150"
+    >較短？</text>
   </svg>
 </template>
 

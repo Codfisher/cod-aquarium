@@ -3,99 +3,51 @@
     viewBox="0 0 400 400"
     class="w-full max-w-sm mx-auto"
   >
-    <defs>
-      <clipPath id="checker-board-clip">
-        <rect x="0" y="0" width="400" height="400" />
-      </clipPath>
-    </defs>
-
     <!-- 棋盤格 -->
-    <g clip-path="url(#checker-board-clip)">
-      <template
-        v-for="row in 8"
-        :key="`row-${row}`"
-      >
-        <rect
-          v-for="col in 8"
-          :key="`cell-${row}-${col}`"
-          :x="getCellX(row, col)"
-          :y="getCellY(row, col)"
-          width="50"
-          height="50"
-          :fill="getCellColor(row, col)"
-          class="transition-[x,y] duration-500"
-        />
-      </template>
-    </g>
+    <template
+      v-for="row in 8"
+      :key="`row-${row}`"
+    >
+      <rect
+        v-for="col in 8"
+        :key="`cell-${row}-${col}`"
+        :x="(col - 1) * 50"
+        :y="(row - 1) * 50"
+        width="50"
+        height="50"
+        :fill="getCellColor(row, col)"
+      />
+    </template>
 
-    <!-- 圓柱陰影 -->
+    <!-- 圓柱陰影（opacity 0.45 讓亮格 #a0 降為 #58，與暗格相同） -->
     <ellipse
-      cx="225"
-      cy="225"
-      rx="100"
-      ry="100"
-      :fill="`rgba(0, 0, 0, ${0.4 * (1 - progress)})`"
-      class="transition-[fill] duration-300"
+      cx="250" cy="275"
+      rx="110" ry="100"
+      fill="rgba(0, 0, 0, 0.45)"
     />
 
-    <!-- 連接帶：揭示時在 A、B 之間畫同色帶 -->
+    <!-- A 標記（格內） -->
+    <text
+      x="175" y="181"
+      text-anchor="middle" fill="#ff4444"
+      font-size="16" font-weight="bold"
+    >A</text>
+
+    <!-- B 標記（格內） -->
+    <text
+      x="225" y="281"
+      text-anchor="middle" fill="#66aaff"
+      font-size="16" font-weight="bold"
+    >B</text>
+
+    <!-- 連接帶：從右側滑入，證明 A 與 B 同色 -->
     <rect
-      :x="175"
-      :y="175"
-      width="100"
-      height="150"
-      :fill="targetColor"
-      :opacity="Math.max(0, (progress - 0.5) * 2)"
-      class="transition-opacity duration-300"
+      x="150" y="175"
+      width="100" height="100"
+      :fill="darkColor"
+      :transform="`translate(${(1 - progress) * 300}, 0)`"
+      class="transition-transform duration-150"
     />
-
-    <!-- 標記 A 格 -->
-    <g>
-      <rect
-        :x="getCellX(4, 4)"
-        :y="getCellY(4, 4)"
-        width="50"
-        height="50"
-        fill="none"
-        stroke="#ff4444"
-        stroke-width="3"
-        rx="2"
-        class="transition-[x,y] duration-500"
-      />
-      <text
-        :x="getCellX(4, 4) + 25"
-        :y="getCellY(4, 4) - 8"
-        text-anchor="middle"
-        fill="#ff4444"
-        font-size="20"
-        font-weight="bold"
-        class="transition-[x,y] duration-500"
-      >A</text>
-    </g>
-
-    <!-- 標記 B 格 -->
-    <g>
-      <rect
-        :x="getCellX(7, 6)"
-        :y="getCellY(7, 6)"
-        width="50"
-        height="50"
-        fill="none"
-        stroke="#4488ff"
-        stroke-width="3"
-        rx="2"
-        class="transition-[x,y] duration-500"
-      />
-      <text
-        :x="getCellX(7, 6) + 25"
-        :y="getCellY(7, 6) - 8"
-        text-anchor="middle"
-        fill="#4488ff"
-        font-size="20"
-        font-weight="bold"
-        class="transition-[x,y] duration-500"
-      >B</text>
-    </g>
   </svg>
 </template>
 
@@ -106,35 +58,18 @@ const props = defineProps<{
   revealPercent: number;
 }>()
 
-const targetColor = '#787878'
-
 const progress = computed(() => props.revealPercent / 100)
 
-function isTarget(row: number, col: number): boolean {
-  return (row === 4 && col === 4) || (row === 7 && col === 6)
-}
+/**
+ * 暗格 #585858 (rgb 88)
+ * 亮格 #a0a0a0 (rgb 160)
+ * 陰影 opacity 0.45 → 亮格渲染為 160 × 0.55 = 88 = #585858
+ */
+const darkColor = '#585858'
+const lightColor = '#a0a0a0'
 
 function getCellColor(row: number, col: number): string {
-  if (isTarget(row, col)) return targetColor
   const isDark = (row + col) % 2 === 0
-  return isDark ? '#585858' : '#a0a0a0'
-}
-
-function getCellX(row: number, col: number): number {
-  const baseX = (col - 1) * 50
-  if (isTarget(row, col)) return baseX
-
-  const targetCenterX = row === 4 ? 175 : 275
-  const dx = baseX - targetCenterX
-  return baseX + dx * progress.value * 0.6
-}
-
-function getCellY(row: number, col: number): number {
-  const baseY = (row - 1) * 50
-  if (isTarget(row, col)) return baseY
-
-  const targetCenterY = row <= 5 ? 175 : 300
-  const dy = baseY - targetCenterY
-  return baseY + dy * progress.value * 0.6
+  return isDark ? darkColor : lightColor
 }
 </script>

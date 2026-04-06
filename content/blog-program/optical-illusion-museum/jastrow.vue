@@ -19,7 +19,7 @@
       fill="#6366f1"
       stroke="#4f46e5"
       stroke-width="1"
-      class="transition-[d] duration-500"
+      class="transition-[d] duration-150"
     />
 
     <!-- 下方弧形（看起來較大） -->
@@ -28,12 +28,11 @@
       fill="#f97316"
       stroke="#ea580c"
       stroke-width="1"
-      class="transition-[d] duration-500"
+      class="transition-[d] duration-150"
     />
 
-    <!-- 揭示時的尺寸標記 -->
-    <g :opacity="revealPercent / 100" class="transition-[opacity] duration-300">
-      <!-- 上方寬度標記 -->
+    <!-- 揭示時的尺寸標記（上方） -->
+    <g :transform="`translate(0, ${(1 - progress) * -40})`" class="transition-transform duration-150">
       <line
         x1="80"
         :y1="topY - 35"
@@ -44,8 +43,18 @@
       />
       <line x1="80" :y1="topY - 40" x2="80" :y2="topY - 30" stroke="#6366f1" stroke-width="2" />
       <line x1="320" :y1="topY - 40" x2="320" :y2="topY - 30" stroke="#6366f1" stroke-width="2" />
+      <text
+        x="200"
+        :y="topY - 42"
+        text-anchor="middle"
+        fill="#6366f1"
+        font-size="13"
+        font-weight="bold"
+      >240px</text>
+    </g>
 
-      <!-- 下方寬度標記 -->
+    <!-- 揭示時的尺寸標記（下方） -->
+    <g :transform="`translate(0, ${(1 - progress) * 40})`" class="transition-transform duration-150">
       <line
         x1="80"
         :y1="bottomY + 65"
@@ -56,15 +65,6 @@
       />
       <line x1="80" :y1="bottomY + 60" x2="80" :y2="bottomY + 70" stroke="#f97316" stroke-width="2" />
       <line x1="320" :y1="bottomY + 60" x2="320" :y2="bottomY + 70" stroke="#f97316" stroke-width="2" />
-
-      <text
-        x="200"
-        :y="topY - 42"
-        text-anchor="middle"
-        fill="#6366f1"
-        font-size="13"
-        font-weight="bold"
-      >240px</text>
       <text
         x="200"
         :y="bottomY + 82"
@@ -83,6 +83,8 @@ import { computed } from 'vue'
 const props = defineProps<{
   revealPercent: number;
 }>()
+
+const progress = computed(() => props.revealPercent / 100)
 
 const topY = computed(() => {
   const base = 80
