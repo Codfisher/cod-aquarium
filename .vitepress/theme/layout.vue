@@ -3,6 +3,7 @@ import { useDebounceFn } from '@vueuse/core'
 import { useRouter } from 'vitepress'
 import DefaultTheme from 'vitepress/theme'
 import { onMounted, onUnmounted } from 'vue'
+import DonateSection from '../../web/components/donate-section.vue'
 
 /** 非同步元件載入後重新定位錨點 */
 let resizeObserver: ResizeObserver | undefined
@@ -67,5 +68,9 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <DefaultTheme.Layout />
+  <DefaultTheme.Layout>
+    <template #doc-footer-before>
+      <donate-section />
+    </template>
+  </DefaultTheme.Layout>
 </template>
