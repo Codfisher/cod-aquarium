@@ -115,9 +115,9 @@
 import { useDebounceFn } from '@vueuse/core'
 import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
 import LazyRender from '../../web/components/lazy-render.vue'
-import { PRESET_SOLID_COLOR, type ShaderPreset } from './shader-intro-for-js-developers/shader-preset'
-import { useGlslHighlight } from './shader-intro-for-js-developers/use-glsl-highlight'
-import { DEFAULT_VERTEX_SHADER, useWebGl, type GeometryConfig } from './shader-intro-for-js-developers/use-webgl'
+import { PRESET_SOLID_COLOR, type ShaderPreset } from './shader-intro/shader-preset'
+import { useGlslHighlight } from './shader-intro/use-glsl-highlight'
+import { DEFAULT_VERTEX_SHADER, useWebGl, type GeometryConfig } from './shader-intro/use-webgl'
 
 type ShaderTab = 'fragment' | 'vertex'
 

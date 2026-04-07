@@ -1,5 +1,5 @@
-import type { ShaderPreset } from '../shader-intro-for-js-developers/shader-preset'
-import type { GeometryConfig } from '../shader-intro-for-js-developers/use-webgl'
+import type { ShaderPreset } from '../shader-intro/shader-preset'
+import type { GeometryConfig } from '../shader-intro/use-webgl'
 
 // ── 共用幾何資料 ──────────────────────────────────
 
