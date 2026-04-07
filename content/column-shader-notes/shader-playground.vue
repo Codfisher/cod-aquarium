@@ -117,7 +117,7 @@ import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
 import LazyRender from '../../web/components/lazy-render.vue'
 import { PRESET_SOLID_COLOR, type ShaderPreset } from './shader-intro-for-js-developers/shader-preset'
 import { useGlslHighlight } from './shader-intro-for-js-developers/use-glsl-highlight'
-import { DEFAULT_VERTEX_SHADER, useWebGl } from './shader-intro-for-js-developers/use-webgl'
+import { DEFAULT_VERTEX_SHADER, useWebGl, type GeometryConfig } from './shader-intro-for-js-developers/use-webgl'
 
 type ShaderTab = 'fragment' | 'vertex'
 
@@ -132,6 +132,8 @@ interface Props {
   presetList?: ShaderPreset[];
   /** canvas 高度，支援 CSS 單位（例如 '40vh'、'300px'） */
   height?: string;
+  /** 自訂幾何資料（頂點、繪圖模式） */
+  geometry?: GeometryConfig;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -140,6 +142,7 @@ const props = withDefaults(defineProps<Props>(), {
   showVertexEditor: false,
   presetList: () => [],
   height: '30vh',
+  geometry: undefined,
 })
 
 const canvasRef = useTemplateRef('canvasRef')
@@ -158,6 +161,7 @@ const vertexCode = ref(props.vertexCode)
 const vertexSource = ref(props.vertexCode)
 
 const currentPresetIndex = ref(-1)
+const geometryRef = ref(props.geometry)
 
 // 目前顯示的程式碼（依 tab 切換）
 const code = computed({
@@ -179,6 +183,7 @@ const lineCount = computed(() => code.value.split('\n').length)
 const { error } = useWebGl(canvasRef, {
   fragmentShaderSource: fragmentSource,
   vertexShaderSource: vertexSource,
+  geometry: geometryRef,
 })
 
 const debouncedCompile = useDebounceFn(() => {
@@ -208,11 +213,22 @@ function syncScroll() {
 }
 
 function selectPreset(index: number) {
+  const preset = props.presetList[index]
+  if (!preset) return
+
   currentPresetIndex.value = index
-  if (props.presetList[index]) {
-    fragmentCode.value = props.presetList[index].code
-    fragmentSource.value = fragmentCode.value
+  fragmentCode.value = preset.code
+  fragmentSource.value = preset.code
+
+  if (preset.vertexCode) {
+    vertexCode.value = preset.vertexCode
+    vertexSource.value = preset.vertexCode
   }
+
+  if (preset.geometry) {
+    geometryRef.value = preset.geometry
+  }
+
   nextTick(syncScroll)
 }
 
