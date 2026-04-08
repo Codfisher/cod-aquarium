@@ -38,6 +38,14 @@
           >
             Vertex Shader
           </button>
+          <button
+            v-if="jsCode"
+            class="sp-tab"
+            :class="{ 'sp-tab--active': activeTab === 'js' }"
+            @click="activeTab = 'js'"
+          >
+            JS
+          </button>
         </div>
 
         <!-- 預設範例 -->
@@ -76,25 +84,34 @@
 
         <!-- 語法高亮層 + 輸入層 -->
         <div class="sp-code-area">
-          <!-- 高亮層（背景） -->
+          <!-- JS 唯讀模式 -->
           <pre
-            ref="highlightRef"
-            class="sp-highlight"
-            aria-hidden="true"
-          ><code v-html="highlightedHtml" /></pre>
+            v-if="activeTab === 'js'"
+            class="sp-highlight sp-highlight--readonly"
+          ><code v-html="jsHighlightedHtml" /></pre>
 
-          <!-- 輸入層（前景，透明文字） -->
-          <textarea
-            ref="textareaRef"
-            v-model="code"
-            spellcheck="false"
-            autocomplete="off"
-            autocorrect="off"
-            autocapitalize="off"
-            class="sp-textarea"
-            @input="handleInput"
-            @scroll="syncScroll"
-          />
+          <!-- Shader 編輯模式 -->
+          <template v-else>
+            <!-- 高亮層（背景） -->
+            <pre
+              ref="highlightRef"
+              class="sp-highlight"
+              aria-hidden="true"
+            ><code v-html="highlightedHtml" /></pre>
+
+            <!-- 輸入層（前景，透明文字） -->
+            <textarea
+              ref="textareaRef"
+              v-model="code"
+              spellcheck="false"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="off"
+              class="sp-textarea"
+              @input="handleInput"
+              @scroll="syncScroll"
+            />
+          </template>
         </div>
       </div>
 
@@ -118,8 +135,10 @@ import LazyRender from '../../web/components/lazy-render.vue'
 import { PRESET_SOLID_COLOR, type ShaderPreset } from './shader-intro/shader-preset'
 import { useGlslHighlight } from './shader-intro/use-glsl-highlight'
 import { DEFAULT_VERTEX_SHADER, useWebGl, type GeometryConfig } from './shader-intro/use-webgl'
+import { generateJsCode } from './shader-playground-js-code'
+import { useJsHighlight } from './shader-playground-js-highlight'
 
-type ShaderTab = 'fragment' | 'vertex'
+type ShaderTab = 'fragment' | 'vertex' | 'js'
 
 interface Props {
   /** 預設 Fragment Shader 程式碼 */
@@ -178,7 +197,18 @@ const code = computed({
 
 const { highlightedHtml } = useGlslHighlight(code)
 
-const lineCount = computed(() => code.value.split('\n').length)
+const jsCode = computed(() => {
+  const geometry = geometryRef.value
+  if (!geometry) return ''
+  return generateJsCode(geometry)
+})
+
+const { highlightedHtml: jsHighlightedHtml } = useJsHighlight(jsCode)
+
+const lineCount = computed(() => {
+  const text = activeTab.value === 'js' ? jsCode.value : code.value
+  return text.split('\n').length
+})
 
 const { error } = useWebGl(canvasRef, {
   fragmentShaderSource: fragmentSource,
@@ -434,6 +464,12 @@ watch(code, () => {
   background: var(--sp-bg);
   pointer-events: none;
   z-index: 0;
+}
+
+.sp-highlight--readonly {
+  pointer-events: auto;
+  z-index: 1;
+  user-select: text;
 }
 
 .sp-highlight code {
