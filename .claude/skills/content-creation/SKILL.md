@@ -1,7 +1,6 @@
 ---
 name: content-creation
 description: Draft marketing content across channels — blog posts, social media, email newsletters, landing pages, press releases, and case studies. Use when writing any marketing content, when you need channel-specific formatting, SEO-optimized copy, headline options, or calls to action.
-user-invocable: false
 ---
 
 # Content Creation Skill
@@ -11,6 +10,7 @@ Guidelines and frameworks for creating effective marketing content across channe
 ## Content Type Templates
 
 ### Blog Post Structure
+
 1. **Headline** — clear, benefit-driven, includes primary keyword (aim for 60 characters or less for SEO)
 2. **Introduction** (100-150 words) — hook the reader with a question, statistic, bold claim, or relatable scenario. State what the post will cover. Include primary keyword.
 3. **Body sections** (3-5 sections) — each with a descriptive subheading (H2). Use H3 for subsections. One core idea per section with supporting evidence, examples, or data.
@@ -18,12 +18,14 @@ Guidelines and frameworks for creating effective marketing content across channe
 5. **Meta description** — under 160 characters, includes primary keyword, compels the click.
 
 ### Social Media Post Structure
+
 - **Hook** — first line grabs attention (question, bold statement, number)
 - **Body** — 2-4 concise points or a short narrative
 - **CTA** — what should the reader do next (comment, click, share, tag)
 - **Hashtags** — 3-5 relevant hashtags (platform-dependent)
 
 ### Email Newsletter Structure
+
 - **Subject line** — under 50 characters, creates curiosity or states clear value
 - **Preview text** — complements the subject line, does not repeat it
 - **Header/hero** — visual anchor and one-line value statement
@@ -32,6 +34,7 @@ Guidelines and frameworks for creating effective marketing content across channe
 - **Footer** — unsubscribe link, company info, social links
 
 ### Landing Page Structure
+
 - **Headline** — primary benefit in under 10 words
 - **Subheadline** — elaborates on the headline with supporting context
 - **Hero section** — headline, subheadline, primary CTA, supporting image or video
@@ -41,6 +44,7 @@ Guidelines and frameworks for creating effective marketing content across channe
 - **Final CTA** — repeat the primary call to action
 
 ### Press Release Structure
+
 - **Headline** — factual, newsworthy, under 80 characters
 - **Subheadline** — optional, adds context
 - **Dateline** — city, state, date
@@ -50,6 +54,7 @@ Guidelines and frameworks for creating effective marketing content across channe
 - **Media contact** — name, email, phone
 
 ### Case Study Structure
+
 - **Title** — "[Customer] achieves [result] with [product]"
 - **Snapshot** — customer name, industry, company size, product used, key result (sidebar or callout box)
 - **Challenge** — what problem the customer faced
@@ -61,6 +66,7 @@ Guidelines and frameworks for creating effective marketing content across channe
 ## Writing Best Practices by Channel
 
 ### Blog
+
 - Write at an 8th-grade reading level for broad audiences; adjust up for technical audiences
 - Use short paragraphs (2-4 sentences)
 - Include subheadings every 200-300 words
@@ -70,12 +76,14 @@ Guidelines and frameworks for creating effective marketing content across channe
 - Front-load key information in each section
 
 ### Social Media
+
 - **LinkedIn**: professional but human, paragraph breaks for readability, personal stories and lessons perform well, 1,300 characters is the sweet spot before "see more"
 - **Twitter/X**: concise and punchy, strong opening words, threads for longer narratives, engage with replies
 - **Instagram**: visual-first captions, storytelling hooks, line breaks for readability, hashtags in first comment or at end
 - **Facebook**: conversational tone, questions drive comments, shorter posts (under 80 characters) get more engagement for links
 
 ### Email
+
 - Write subject lines that create urgency, curiosity, or state clear value
 - Personalize where possible (name, company, behavior)
 - One primary CTA per email — make it visually distinct
@@ -84,6 +92,7 @@ Guidelines and frameworks for creating effective marketing content across channe
 - Mobile-first: most email is read on mobile
 
 ### Web (Landing Pages, Product Pages)
+
 - Lead with benefits, not features
 - Use "you" language — speak to the reader directly
 - Minimize jargon unless the audience expects it
@@ -93,12 +102,14 @@ Guidelines and frameworks for creating effective marketing content across channe
 ## SEO Fundamentals for Content
 
 ### Keyword Strategy
+
 - Identify one primary keyword and 2-3 secondary keywords per piece
 - Use the primary keyword in: headline, first paragraph, one subheading, meta description, URL slug
 - Use secondary keywords naturally in body copy and subheadings
 - Do not keyword-stuff — write for humans first
 
 ### On-Page SEO Checklist
+
 - Title tag: under 60 characters, includes primary keyword
 - Meta description: under 160 characters, includes primary keyword, compels click
 - URL slug: short, descriptive, includes primary keyword
@@ -109,6 +120,7 @@ Guidelines and frameworks for creating effective marketing content across channe
 - External links: 1-2 links to authoritative sources
 
 ### Content-SEO Integration
+
 - Aim for comprehensive coverage of the topic (search engines reward depth)
 - Answer related questions (check "People Also Ask" for ideas)
 - Update and refresh high-performing content regularly
@@ -117,6 +129,7 @@ Guidelines and frameworks for creating effective marketing content across channe
 ## Headline and Hook Formulas
 
 ### Headline Formulas
+
 - **How to [achieve result] [without common obstacle]** — "How to Double Your Email Open Rates Without Sending More Emails"
 - **[Number] [adjective] ways to [achieve result]** — "7 Proven Ways to Reduce Customer Churn"
 - **Why [common belief] is wrong (and what to do instead)** — "Why More Content Is Not the Answer (And What to Do Instead)"
@@ -126,6 +139,7 @@ Guidelines and frameworks for creating effective marketing content across channe
 - **[topic]: what [audience] needs to know in [year]** — "SEO: What Marketers Need to Know in 2025"
 
 ### Hook Formulas (Opening Lines)
+
 - **Surprising statistic**: "73% of marketers say their biggest challenge is not budget — it is focus."
 - **Contrarian statement**: "The best marketing campaigns start with saying no to most channels."
 - **Question**: "When was the last time a marketing email actually changed what you bought?"
@@ -136,6 +150,7 @@ Guidelines and frameworks for creating effective marketing content across channe
 ## Call-to-Action Best Practices
 
 ### CTA Principles
+
 - Use action verbs: "Get", "Start", "Download", "Join", "Try", "See"
 - Be specific about what happens next: "Start your free trial" is better than "Submit"
 - Create urgency when genuine: "Join 500 teams already using this" or "Limited spots available"
@@ -143,6 +158,7 @@ Guidelines and frameworks for creating effective marketing content across channe
 - One primary CTA per page or email — too many choices reduce conversions
 
 ### CTA Examples by Context
+
 - **Blog post**: "Read our complete guide to [topic]" / "Subscribe for weekly insights"
 - **Landing page**: "Start free trial" / "Get a demo" / "See pricing"
 - **Email**: "Read the full story" / "Claim your spot" / "Reply and tell us"
@@ -150,6 +166,7 @@ Guidelines and frameworks for creating effective marketing content across channe
 - **Case study**: "See how [product] can work for your team" / "Talk to our team"
 
 ### CTA Placement
+
 - Above the fold on landing pages (do not make users scroll to act)
 - After establishing value in emails (not in the first sentence)
 - At the end of blog posts (after you have earned the reader's trust)
