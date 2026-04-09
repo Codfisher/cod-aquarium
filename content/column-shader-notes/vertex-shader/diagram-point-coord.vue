@@ -11,11 +11,11 @@
         fill="currentColor" fill-opacity="0.03"
         stroke="currentColor" stroke-opacity="0.15" stroke-width="1"
       />
-      <text x="85" y="160" font-size="12" fill="currentColor" opacity="0.3" text-anchor="middle">畫布</text>
+      <text x="85" y="170" font-size="12" fill="currentColor" opacity="0.3" text-anchor="middle">畫布</text>
 
       <!-- 頂點位置（JS 提供的座標） -->
       <circle cx="70" cy="65" r="2.5" fill="#1a73e8" opacity="0.5" />
-      <text x="70" y="30" font-size="12" fill="#1a73e8" opacity="0.5" text-anchor="middle">某頂點</text>
+      <text x="70" y="84" font-size="12" fill="#1a73e8" opacity="0.5" text-anchor="middle">某頂點</text>
 
       <!-- gl_PointSize 範圍的正方形 -->
       <rect
