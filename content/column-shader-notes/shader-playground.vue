@@ -134,7 +134,7 @@ import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
 import LazyRender from '../../web/components/lazy-render.vue'
 import { PRESET_SOLID_COLOR, type ShaderPreset } from './shader-intro/shader-preset'
 import { useGlslHighlight } from './shader-intro/use-glsl-highlight'
-import { DEFAULT_VERTEX_SHADER, useWebGl, type GeometryConfig } from './shader-intro/use-webgl'
+import { DEFAULT_VERTEX_SHADER, type GeometryConfig, useWebGl } from './shader-intro/use-webgl'
 import { generateJsCode } from './shader-playground-js-code'
 import { useJsHighlight } from './shader-playground-js-highlight'
 
@@ -184,7 +184,8 @@ const geometryRef = ref(props.geometry)
 
 // 外部 geometry 變更時同步
 watch(() => props.geometry, (val) => {
-  if (val) geometryRef.value = val
+  if (val)
+    geometryRef.value = val
 })
 
 // 目前顯示的程式碼（依 tab 切換）
@@ -204,7 +205,8 @@ const { highlightedHtml } = useGlslHighlight(code)
 
 const jsCode = computed(() => {
   const geometry = geometryRef.value
-  if (!geometry) return ''
+  if (!geometry)
+    return ''
   return generateJsCode(geometry)
 })
 
@@ -249,7 +251,8 @@ function syncScroll() {
 
 function selectPreset(index: number) {
   const preset = props.presetList[index]
-  if (!preset) return
+  if (!preset)
+    return
 
   currentPresetIndex.value = index
   fragmentCode.value = preset.code
@@ -365,6 +368,7 @@ watch(code, () => {
   font-size: 11px;
   border-radius: 6px;
   border: none;
+  text-wrap: nowrap;
   background: transparent;
   color: var(--sp-text-dim);
   cursor: pointer;
@@ -391,7 +395,7 @@ watch(code, () => {
 
 .sp-preset-btn {
   padding: 3px 10px;
-  font-size: 11px;
+  font-size: 10px;
   border-radius: 6px;
   border: 1px solid var(--sp-border);
   background: transparent;

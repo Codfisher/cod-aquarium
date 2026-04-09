@@ -89,6 +89,7 @@ export const drawModePresetList: ShaderPreset[] = [
   createDrawModePreset('LINES', 'LINES'),
   createDrawModePreset('LINE_STRIP', 'LINE_STRIP'),
   createDrawModePreset('LINE_LOOP', 'LINE_LOOP'),
+  createDrawModePreset('TRIANGLES', 'TRIANGLES'),
   createDrawModePreset('TRIANGLE_STRIP', 'TRIANGLE_STRIP'),
   createDrawModePreset('TRIANGLE_FAN', 'TRIANGLE_FAN'),
 ]

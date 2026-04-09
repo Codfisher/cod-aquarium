@@ -1,5 +1,5 @@
 <template>
-  <div class="shader-editor not-prose">
+  <div class="not-prose flex flex-col gap-3">
     <geometry-editor
       v-if="geometryState"
       v-model="geometryState"
@@ -13,9 +13,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
-import type { GeometryConfig } from './shader-intro/use-webgl'
 import type { ShaderPreset } from './shader-intro/shader-preset'
+import type { GeometryConfig } from './shader-intro/use-webgl'
+import { computed, ref, watch } from 'vue'
 import GeometryEditor from './geometry-editor.vue'
 import ShaderPlayground from './shader-playground.vue'
 
@@ -52,11 +52,3 @@ const playgroundProps = computed(() => ({
   height: props.height,
 }))
 </script>
-
-<style scoped>
-.shader-editor {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-</style>
