@@ -209,7 +209,7 @@ function removeVertex(index: number) {
 }
 
 .df-panel-tag {
-  font-size: 9px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.1em;
   padding: 2px 7px;
@@ -289,7 +289,7 @@ function removeVertex(index: number) {
 }
 
 .df-card-label {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--c);
 }
@@ -330,7 +330,7 @@ function removeVertex(index: number) {
 }
 
 .df-field-name {
-  font-size: 11px;
+  font-size: 12px;
   opacity: 0.4;
   flex-shrink: 0;
 }
@@ -373,7 +373,7 @@ function removeVertex(index: number) {
   gap: 6px;
   width: 100%;
   padding: 8px;
-  font-size: 11px;
+  font-size: 12px;
   font-family: inherit;
   border: 1px dashed rgba(128, 128, 128, 0.25);
   border-radius: 8px;
@@ -419,7 +419,7 @@ function removeVertex(index: number) {
 }
 
 .df-row-idx {
-  font-size: 10px;
+  font-size: 12px;
   opacity: 0.3;
   min-width: 16px;
   text-align: right;
@@ -453,7 +453,7 @@ function removeVertex(index: number) {
 }
 
 .df-row-from {
-  font-size: 10px;
+  font-size: 12px;
   opacity: 0.3;
   white-space: nowrap;
   transition: opacity 0.15s;

@@ -182,6 +182,11 @@ const vertexSource = ref(props.vertexCode)
 const currentPresetIndex = ref(-1)
 const geometryRef = ref(props.geometry)
 
+// 外部 geometry 變更時同步
+watch(() => props.geometry, (val) => {
+  if (val) geometryRef.value = val
+})
+
 // 目前顯示的程式碼（依 tab 切換）
 const code = computed({
   get: () => activeTab.value === 'fragment' ? fragmentCode.value : vertexCode.value,
