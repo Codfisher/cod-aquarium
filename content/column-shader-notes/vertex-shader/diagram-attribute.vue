@@ -79,7 +79,7 @@
             x="40"
             y="106"
             text-anchor="middle"
-            font-size="9"
+            font-size="12"
             fill="currentColor"
             opacity="0.5"
           >
@@ -99,7 +99,7 @@
             x="100"
             y="106"
             text-anchor="middle"
-            font-size="9"
+            font-size="12"
             fill="currentColor"
             opacity="0.5"
           >
@@ -119,7 +119,7 @@
             x="160"
             y="106"
             text-anchor="middle"
-            font-size="9"
+            font-size="12"
             fill="currentColor"
             opacity="0.5"
           >
@@ -159,7 +159,7 @@
             x="36"
             y="27"
             text-anchor="middle"
-            font-size="10"
+            font-size="12"
             fill="#ff7b72"
             font-family="ui-monospace, monospace"
           >
@@ -181,7 +181,7 @@
             x="100"
             y="27"
             text-anchor="middle"
-            font-size="10"
+            font-size="12"
             fill="#7ee787"
             font-family="ui-monospace, monospace"
           >
@@ -203,7 +203,7 @@
             x="164"
             y="27"
             text-anchor="middle"
-            font-size="10"
+            font-size="12"
             fill="#58a6ff"
             font-family="ui-monospace, monospace"
           >
@@ -253,7 +253,7 @@
             x="40"
             y="106"
             text-anchor="middle"
-            font-size="9"
+            font-size="12"
             fill="#ff7b72"
             opacity="0.7"
           >
@@ -273,7 +273,7 @@
             x="100"
             y="106"
             text-anchor="middle"
-            font-size="9"
+            font-size="12"
             fill="#7ee787"
             opacity="0.7"
           >
@@ -293,7 +293,7 @@
             x="160"
             y="106"
             text-anchor="middle"
-            font-size="9"
+            font-size="12"
             fill="#58a6ff"
             opacity="0.7"
           >

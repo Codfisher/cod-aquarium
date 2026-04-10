@@ -21,24 +21,24 @@
       <polygon points="47,20 53,20 50,12" fill="currentColor" opacity="0.3" />
 
       <!-- 軸標籤 -->
-      <text x="348" y="172" font-size="11" fill="currentColor" opacity="0.4">dist</text>
-      <text x="34" y="8" font-size="11" fill="currentColor" opacity="0.4">alpha</text>
+      <text x="348" y="172" font-size="12" fill="currentColor" opacity="0.4">dist</text>
+      <text x="34" y="8" font-size="12" fill="currentColor" opacity="0.4">alpha</text>
 
       <!-- Y 軸刻度 -->
-      <text x="42" y="164" font-size="10" fill="currentColor" opacity="0.35" text-anchor="end">0</text>
-      <text x="42" y="44" font-size="10" fill="currentColor" opacity="0.35" text-anchor="end">1.0</text>
+      <text x="42" y="164" font-size="12" fill="currentColor" opacity="0.35" text-anchor="end">0</text>
+      <text x="42" y="44" font-size="12" fill="currentColor" opacity="0.35" text-anchor="end">1.0</text>
       <line
         x1="48" y1="40" x2="52" y2="40"
         stroke="currentColor" stroke-opacity="0.3" stroke-width="1"
       />
 
       <!-- X 軸刻度 -->
-      <text x="190" y="178" font-size="10" fill="currentColor" opacity="0.35" text-anchor="middle">0.35</text>
+      <text x="190" y="178" font-size="12" fill="currentColor" opacity="0.35" text-anchor="middle">0.35</text>
       <line
         x1="190" y1="158" x2="190" y2="162"
         stroke="currentColor" stroke-opacity="0.3" stroke-width="1"
       />
-      <text x="280" y="178" font-size="10" fill="currentColor" opacity="0.35" text-anchor="middle">0.5</text>
+      <text x="280" y="178" font-size="12" fill="currentColor" opacity="0.35" text-anchor="middle">0.5</text>
       <line
         x1="280" y1="158" x2="280" y2="162"
         stroke="currentColor" stroke-opacity="0.3" stroke-width="1"
@@ -92,9 +92,9 @@
       />
 
       <!-- 區間標註 -->
-      <text x="120" y="58" font-size="11" fill="#1e8e3e" opacity="0.6" text-anchor="middle">不透明</text>
-      <text x="235" y="106" font-size="11" fill="#e8710a" opacity="0.6" text-anchor="middle">漸變</text>
-      <text x="305" y="150" font-size="11" fill="#d93025" opacity="0.5" text-anchor="middle">透明</text>
+      <text x="120" y="58" font-size="12" fill="#1e8e3e" opacity="0.6" text-anchor="middle">不透明</text>
+      <text x="235" y="106" font-size="12" fill="#e8710a" opacity="0.6" text-anchor="middle">漸變</text>
+      <text x="305" y="150" font-size="12" fill="#d93025" opacity="0.5" text-anchor="middle">透明</text>
 
       <!-- alpha = 1.0 水平參考線 -->
       <line
@@ -104,7 +104,7 @@
       />
 
       <!-- 底部公式 -->
-      <text x="180" y="196" font-size="11" fill="currentColor" opacity="0.35" text-anchor="middle">
+      <text x="180" y="196" font-size="12" fill="currentColor" opacity="0.35" text-anchor="middle">
         alpha = 1.0 - smoothstep(0.35, 0.5, dist)
       </text>
     </svg>

@@ -280,13 +280,13 @@
 .title-output { fill: #5b21b6; }
 
 .code-label {
-  font-size: 11px;
+  font-size: 12px;
   font-family: ui-monospace, 'SF Mono', 'Cascadia Code', monospace;
   fill: #9ca3af;
 }
 
 .note {
-  font-size: 11px;
+  font-size: 12px;
   fill: #9ca3af;
 }
 

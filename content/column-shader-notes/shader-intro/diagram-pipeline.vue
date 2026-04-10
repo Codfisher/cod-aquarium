@@ -331,7 +331,7 @@
 .title-output { fill: #5b21b6; }
 
 .subtitle {
-  font-size: 11.5px;
+  font-size: 12px;
 }
 
 .subtitle-js { fill: #b45309; opacity: 0.6; }

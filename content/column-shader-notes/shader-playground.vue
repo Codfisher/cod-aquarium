@@ -352,7 +352,7 @@ watch(code, () => {
 
 .sp-label {
   margin-left: 8px;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--sp-text-dim);
   letter-spacing: 0.02em;
 }
@@ -365,7 +365,7 @@ watch(code, () => {
 
 .sp-tab {
   padding: 4px 12px;
-  font-size: 11px;
+  font-size: 12px;
   border-radius: 6px;
   border: none;
   text-wrap: nowrap;
@@ -395,7 +395,7 @@ watch(code, () => {
 
 .sp-preset-btn {
   padding: 3px 10px;
-  font-size: 10px;
+  font-size: 12px;
   border-radius: 6px;
   border: 1px solid var(--sp-border);
   background: transparent;
@@ -438,7 +438,7 @@ watch(code, () => {
 }
 
 .sp-line-number-item {
-  font-size: 11px;
+  font-size: 12px;
   line-height: 20px;
   padding-right: 10px;
   color: var(--sp-line-num);
@@ -558,7 +558,7 @@ watch(code, () => {
   background: rgba(0, 0, 0, 0.85);
   backdrop-filter: blur(4px);
   color: #ff7b72;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.6;
   font-family: inherit;
   white-space: pre-wrap;
@@ -574,7 +574,7 @@ watch(code, () => {
   height: 18px;
   border-radius: 50%;
   background: rgba(255, 123, 114, 0.15);
-  font-size: 10px;
+  font-size: 12px;
   margin-top: 1px;
 }
 
@@ -590,7 +590,7 @@ watch(code, () => {
 }
 
 .sp-uniform-tag {
-  font-size: 10px;
+  font-size: 12px;
   padding: 1px 6px;
   border-radius: 4px;
   background: rgba(88, 166, 255, 0.1);
@@ -599,7 +599,7 @@ watch(code, () => {
 }
 
 .sp-uniform-desc {
-  font-size: 10px;
+  font-size: 12px;
   color: var(--sp-text-dim);
   margin-right: 6px;
 }

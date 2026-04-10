@@ -17,7 +17,7 @@
               cy="40"
               r="14"
               fill="#ff7b72"
-              fill-opacity="0.2"
+              fill-opacity="0.4"
               stroke="#ff7b72"
               stroke-width="1.5"
             />
@@ -25,7 +25,7 @@
               x="40"
               y="44"
               text-anchor="middle"
-              font-size="10"
+              font-size="12"
               fill="#ff7b72"
               font-weight="600"
             >
@@ -35,7 +35,7 @@
               x="40"
               y="70"
               text-anchor="middle"
-              font-size="8"
+              font-size="12"
               fill="#ff7b72"
               opacity="0.7"
               font-family="ui-monospace, monospace"
@@ -49,7 +49,7 @@
               cy="40"
               r="14"
               fill="#7ee787"
-              fill-opacity="0.2"
+              fill-opacity="0.4"
               stroke="#7ee787"
               stroke-width="1.5"
             />
@@ -57,7 +57,7 @@
               x="110"
               y="44"
               text-anchor="middle"
-              font-size="10"
+              font-size="12"
               fill="#7ee787"
               font-weight="600"
             >
@@ -67,7 +67,7 @@
               x="110"
               y="70"
               text-anchor="middle"
-              font-size="8"
+              font-size="12"
               fill="#7ee787"
               opacity="0.7"
               font-family="ui-monospace, monospace"
@@ -81,7 +81,7 @@
               cy="40"
               r="14"
               fill="#58a6ff"
-              fill-opacity="0.2"
+              fill-opacity="0.4"
               stroke="#58a6ff"
               stroke-width="1.5"
             />
@@ -89,7 +89,7 @@
               x="180"
               y="44"
               text-anchor="middle"
-              font-size="10"
+              font-size="12"
               fill="#58a6ff"
               font-weight="600"
             >
@@ -99,7 +99,7 @@
               x="180"
               y="70"
               text-anchor="middle"
-              font-size="8"
+              font-size="12"
               fill="#58a6ff"
               opacity="0.7"
               font-family="ui-monospace, monospace"
@@ -227,7 +227,7 @@
   align-items: center;
   gap: 0;
   border-radius: 12px;
-  border: 1px solid rgba(128, 128, 128, 0.2);
+  border: 1px solid rgba(128, 128, 128, 0.4);
   overflow: hidden;
   background: rgba(128, 128, 128, 0.04);
   padding: 20px;
@@ -257,7 +257,7 @@
 
 .step-code {
   margin-top: 8px;
-  font-size: 11px;
+  font-size: 12px;
   font-family: ui-monospace, monospace;
   color: #d2a8ff;
   opacity: 0.8;
@@ -277,8 +277,8 @@
 }
 
 .flow-arrow-label {
-  font-size: 10px;
+  font-size: 12px;
   color: var(--vp-c-text-3, currentColor);
-  opacity: 0.5;
+  opacity: 0.8;
 }
 </style>

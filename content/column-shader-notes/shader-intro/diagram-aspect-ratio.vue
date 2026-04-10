@@ -329,7 +329,7 @@
 }
 
 .dim-text {
-  font-size: 11.5px;
+  font-size: 12px;
   fill: #9ca3af;
 }
 
@@ -352,7 +352,7 @@
 }
 
 .code-text {
-  font-size: 11px;
+  font-size: 12px;
   font-family: ui-monospace, 'SF Mono', 'Cascadia Code', monospace;
   font-weight: 500;
   fill: #0d9488;
