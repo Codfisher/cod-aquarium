@@ -82,6 +82,9 @@
   --vp-c-brand-soft: #1d4642;
 
   --vp-c-bg: color-mix(in srgb, var(--vp-c-brand-soft) 8%, #1b1b1f);
+
+  --vp-c-text-1: rgba(255, 255, 245, 0.86);
+  --vp-c-text-2: rgba(235, 235, 245, 0.6);
 }
 
 /**
