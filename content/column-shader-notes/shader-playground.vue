@@ -38,6 +38,14 @@
           >
             Vertex Shader
           </button>
+          <button
+            v-if="jsCode"
+            class="sp-tab"
+            :class="{ 'sp-tab--active': activeTab === 'js' }"
+            @click="activeTab = 'js'"
+          >
+            JS
+          </button>
         </div>
 
         <!-- 預設範例 -->
@@ -76,25 +84,34 @@
 
         <!-- 語法高亮層 + 輸入層 -->
         <div class="sp-code-area">
-          <!-- 高亮層（背景） -->
+          <!-- JS 唯讀模式 -->
           <pre
-            ref="highlightRef"
-            class="sp-highlight"
-            aria-hidden="true"
-          ><code v-html="highlightedHtml" /></pre>
+            v-if="activeTab === 'js'"
+            class="sp-highlight sp-highlight--readonly"
+          ><code v-html="jsHighlightedHtml" /></pre>
 
-          <!-- 輸入層（前景，透明文字） -->
-          <textarea
-            ref="textareaRef"
-            v-model="code"
-            spellcheck="false"
-            autocomplete="off"
-            autocorrect="off"
-            autocapitalize="off"
-            class="sp-textarea"
-            @input="handleInput"
-            @scroll="syncScroll"
-          />
+          <!-- Shader 編輯模式 -->
+          <template v-else>
+            <!-- 高亮層（背景） -->
+            <pre
+              ref="highlightRef"
+              class="sp-highlight"
+              aria-hidden="true"
+            ><code v-html="highlightedHtml" /></pre>
+
+            <!-- 輸入層（前景，透明文字） -->
+            <textarea
+              ref="textareaRef"
+              v-model="code"
+              spellcheck="false"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="off"
+              class="sp-textarea"
+              @input="handleInput"
+              @scroll="syncScroll"
+            />
+          </template>
         </div>
       </div>
 
@@ -115,11 +132,13 @@
 import { useDebounceFn } from '@vueuse/core'
 import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
 import LazyRender from '../../web/components/lazy-render.vue'
-import { PRESET_SOLID_COLOR, type ShaderPreset } from './shader-intro-for-js-developers/shader-preset'
-import { useGlslHighlight } from './shader-intro-for-js-developers/use-glsl-highlight'
-import { DEFAULT_VERTEX_SHADER, useWebGl } from './shader-intro-for-js-developers/use-webgl'
+import { PRESET_SOLID_COLOR, type ShaderPreset } from './shader-intro/shader-preset'
+import { useGlslHighlight } from './shader-intro/use-glsl-highlight'
+import { DEFAULT_VERTEX_SHADER, type GeometryConfig, useWebGl } from './shader-intro/use-webgl'
+import { generateJsCode } from './shader-playground-js-code'
+import { useJsHighlight } from './shader-playground-js-highlight'
 
-type ShaderTab = 'fragment' | 'vertex'
+type ShaderTab = 'fragment' | 'vertex' | 'js'
 
 interface Props {
   /** 預設 Fragment Shader 程式碼 */
@@ -132,6 +151,8 @@ interface Props {
   presetList?: ShaderPreset[];
   /** canvas 高度，支援 CSS 單位（例如 '40vh'、'300px'） */
   height?: string;
+  /** 自訂幾何資料（頂點、繪圖模式） */
+  geometry?: GeometryConfig;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -140,6 +161,7 @@ const props = withDefaults(defineProps<Props>(), {
   showVertexEditor: false,
   presetList: () => [],
   height: '30vh',
+  geometry: undefined,
 })
 
 const canvasRef = useTemplateRef('canvasRef')
@@ -158,6 +180,13 @@ const vertexCode = ref(props.vertexCode)
 const vertexSource = ref(props.vertexCode)
 
 const currentPresetIndex = ref(-1)
+const geometryRef = ref(props.geometry)
+
+// 外部 geometry 變更時同步
+watch(() => props.geometry, (val) => {
+  if (val)
+    geometryRef.value = val
+})
 
 // 目前顯示的程式碼（依 tab 切換）
 const code = computed({
@@ -174,11 +203,24 @@ const code = computed({
 
 const { highlightedHtml } = useGlslHighlight(code)
 
-const lineCount = computed(() => code.value.split('\n').length)
+const jsCode = computed(() => {
+  const geometry = geometryRef.value
+  if (!geometry)
+    return ''
+  return generateJsCode(geometry)
+})
+
+const { highlightedHtml: jsHighlightedHtml } = useJsHighlight(jsCode)
+
+const lineCount = computed(() => {
+  const text = activeTab.value === 'js' ? jsCode.value : code.value
+  return text.split('\n').length
+})
 
 const { error } = useWebGl(canvasRef, {
   fragmentShaderSource: fragmentSource,
   vertexShaderSource: vertexSource,
+  geometry: geometryRef,
 })
 
 const debouncedCompile = useDebounceFn(() => {
@@ -208,11 +250,23 @@ function syncScroll() {
 }
 
 function selectPreset(index: number) {
+  const preset = props.presetList[index]
+  if (!preset)
+    return
+
   currentPresetIndex.value = index
-  if (props.presetList[index]) {
-    fragmentCode.value = props.presetList[index].code
-    fragmentSource.value = fragmentCode.value
+  fragmentCode.value = preset.code
+  fragmentSource.value = preset.code
+
+  if (preset.vertexCode) {
+    vertexCode.value = preset.vertexCode
+    vertexSource.value = preset.vertexCode
   }
+
+  if (preset.geometry) {
+    geometryRef.value = preset.geometry
+  }
+
   nextTick(syncScroll)
 }
 
@@ -298,7 +352,7 @@ watch(code, () => {
 
 .sp-label {
   margin-left: 8px;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--sp-text-dim);
   letter-spacing: 0.02em;
 }
@@ -311,9 +365,10 @@ watch(code, () => {
 
 .sp-tab {
   padding: 4px 12px;
-  font-size: 11px;
+  font-size: 12px;
   border-radius: 6px;
   border: none;
+  text-wrap: nowrap;
   background: transparent;
   color: var(--sp-text-dim);
   cursor: pointer;
@@ -340,7 +395,7 @@ watch(code, () => {
 
 .sp-preset-btn {
   padding: 3px 10px;
-  font-size: 11px;
+  font-size: 12px;
   border-radius: 6px;
   border: 1px solid var(--sp-border);
   background: transparent;
@@ -383,7 +438,7 @@ watch(code, () => {
 }
 
 .sp-line-number-item {
-  font-size: 11px;
+  font-size: 12px;
   line-height: 20px;
   padding-right: 10px;
   color: var(--sp-line-num);
@@ -418,6 +473,12 @@ watch(code, () => {
   background: var(--sp-bg);
   pointer-events: none;
   z-index: 0;
+}
+
+.sp-highlight--readonly {
+  pointer-events: auto;
+  z-index: 1;
+  user-select: text;
 }
 
 .sp-highlight code {
@@ -497,7 +558,7 @@ watch(code, () => {
   background: rgba(0, 0, 0, 0.85);
   backdrop-filter: blur(4px);
   color: #ff7b72;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.6;
   font-family: inherit;
   white-space: pre-wrap;
@@ -513,7 +574,7 @@ watch(code, () => {
   height: 18px;
   border-radius: 50%;
   background: rgba(255, 123, 114, 0.15);
-  font-size: 10px;
+  font-size: 12px;
   margin-top: 1px;
 }
 
@@ -529,7 +590,7 @@ watch(code, () => {
 }
 
 .sp-uniform-tag {
-  font-size: 10px;
+  font-size: 12px;
   padding: 1px 6px;
   border-radius: 4px;
   background: rgba(88, 166, 255, 0.1);
@@ -538,7 +599,7 @@ watch(code, () => {
 }
 
 .sp-uniform-desc {
-  font-size: 10px;
+  font-size: 12px;
   color: var(--sp-text-dim);
   margin-right: 6px;
 }

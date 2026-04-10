@@ -275,7 +275,7 @@
 }
 
 .code-text {
-  font-size: 11px;
+  font-size: 12px;
   font-family: ui-monospace, 'SF Mono', 'Cascadia Code', monospace;
   font-weight: 500;
 }
@@ -312,7 +312,7 @@
 }
 
 .badge-text {
-  font-size: 11px;
+  font-size: 12px;
   font-family: ui-monospace, 'SF Mono', 'Cascadia Code', monospace;
   font-weight: 600;
   fill: #6d28d9;

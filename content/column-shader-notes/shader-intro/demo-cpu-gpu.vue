@@ -188,7 +188,7 @@ onBeforeUnmount(clearAllTimeoutList)
 }
 
 .sub {
-  font-size: 11px;
+  font-size: 12px;
   opacity: 0.3;
 }
 
@@ -261,7 +261,7 @@ onBeforeUnmount(clearAllTimeoutList)
 }
 
 .counter {
-  font-size: 11px;
+  font-size: 12px;
   font-family: monospace;
   opacity: 0.25;
   font-variant-numeric: tabular-nums;

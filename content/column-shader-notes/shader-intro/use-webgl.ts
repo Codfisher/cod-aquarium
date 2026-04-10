@@ -14,11 +14,28 @@ void main() {
   gl_Position = vec4(a_position, 0.0, 1.0);
 }`
 
+export type DrawMode = 'POINTS' | 'LINES' | 'LINE_STRIP' | 'LINE_LOOP' | 'TRIANGLES' | 'TRIANGLE_STRIP' | 'TRIANGLE_FAN'
+
+export interface VertexAttribute {
+  name: string
+  data: number[]
+  /** 每個頂點的分量數（1~4） */
+  size: number
+}
+
+export interface GeometryConfig {
+  attributeList: VertexAttribute[]
+  drawMode: DrawMode
+  vertexCount: number
+}
+
 interface UseWebGlOptions {
   /** Fragment Shader 程式碼 */
   fragmentShaderSource: MaybeRefOrGetter<string>
   /** Vertex Shader 程式碼，不傳則使用預設全螢幕四邊形 */
   vertexShaderSource?: MaybeRefOrGetter<string>
+  /** 自訂幾何資料，不傳則使用預設全螢幕四邊形 */
+  geometry?: MaybeRefOrGetter<GeometryConfig | undefined>
 }
 
 export function useWebGl(
@@ -77,32 +94,75 @@ export function useWebGl(
     return program
   }
 
-  let bufferRef: WebGLBuffer | null = null
+  let bufferRefList: WebGLBuffer[] = []
+  let currentDrawMode: DrawMode = 'TRIANGLES'
+  let currentVertexCount = 6
+
+  const DRAW_MODE_MAP: Record<DrawMode, number> = {
+    POINTS: 0,
+    LINES: 1,
+    LINE_STRIP: 3,
+    LINE_LOOP: 2,
+    TRIANGLES: 4,
+    TRIANGLE_STRIP: 5,
+    TRIANGLE_FAN: 6,
+  }
+
+  function cleanupBuffers(gl: WebGLRenderingContext) {
+    for (const buffer of bufferRefList) {
+      gl.deleteBuffer(buffer)
+    }
+    bufferRefList = []
+  }
 
   function setupGeometry(gl: WebGLRenderingContext, program: WebGLProgram) {
-    // 清理舊 buffer
-    if (bufferRef) {
-      gl.deleteBuffer(bufferRef)
+    cleanupBuffers(gl)
+
+    const geometry = toValue(options.geometry)
+
+    if (geometry) {
+      currentDrawMode = geometry.drawMode
+      currentVertexCount = geometry.vertexCount
+
+      for (const attribute of geometry.attributeList) {
+        const buffer = gl.createBuffer()
+        if (!buffer) continue
+
+        bufferRefList.push(buffer)
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(attribute.data), gl.STATIC_DRAW)
+
+        const location = gl.getAttribLocation(program, attribute.name)
+        if (location !== -1) {
+          gl.enableVertexAttribArray(location)
+          gl.vertexAttribPointer(location, attribute.size, gl.FLOAT, false, 0, 0)
+        }
+      }
     }
+    else {
+      currentDrawMode = 'TRIANGLES'
+      currentVertexCount = 6
 
-    const positionBuffer = gl.createBuffer()
-    bufferRef = positionBuffer
-    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer)
+      const positionBuffer = gl.createBuffer()
+      if (positionBuffer) {
+        bufferRefList.push(positionBuffer)
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer)
 
-    // 全螢幕四邊形（兩個三角形）
-    const positionList = new Float32Array([
-      -1, -1,
-      1, -1,
-      -1, 1,
-      -1, 1,
-      1, -1,
-      1, 1,
-    ])
-    gl.bufferData(gl.ARRAY_BUFFER, positionList, gl.STATIC_DRAW)
+        const positionList = new Float32Array([
+          -1, -1,
+          1, -1,
+          -1, 1,
+          -1, 1,
+          1, -1,
+          1, 1,
+        ])
+        gl.bufferData(gl.ARRAY_BUFFER, positionList, gl.STATIC_DRAW)
 
-    const positionLocation = gl.getAttribLocation(program, 'a_position')
-    gl.enableVertexAttribArray(positionLocation)
-    gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0)
+        const positionLocation = gl.getAttribLocation(program, 'a_position')
+        gl.enableVertexAttribArray(positionLocation)
+        gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0)
+      }
+    }
   }
 
   /** 釋放所有 WebGL 資源 */
@@ -117,10 +177,7 @@ export function useWebGl(
       gl.deleteProgram(programRef.value)
       programRef.value = null
     }
-    if (bufferRef) {
-      gl.deleteBuffer(bufferRef)
-      bufferRef = null
-    }
+    cleanupBuffers(gl)
 
     // 強制釋放 WebGL context
     const loseContext = gl.getExtension('WEBGL_lose_context')
@@ -218,15 +275,19 @@ export function useWebGl(
       )
     }
 
-    gl.drawArrays(gl.TRIANGLES, 0, 6)
+    gl.enable(gl.BLEND)
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+
+    gl.drawArrays(DRAW_MODE_MAP[currentDrawMode], 0, currentVertexCount)
     animationFrameId = requestAnimationFrame(render)
   }
 
-  // 監聽 fragment / vertex source 變化自動重新編譯
+  // 監聽 fragment / vertex / geometry 變化自動重新編譯
   watch(
     [
       () => toValue(options.fragmentShaderSource),
       () => toValue(options.vertexShaderSource),
+      () => toValue(options.geometry),
     ],
     () => {
       compile(toValue(options.fragmentShaderSource))

@@ -1,6 +1,10 @@
+import type { GeometryConfig } from './use-webgl'
+
 export interface ShaderPreset {
   label: string;
   code: string;
+  vertexCode?: string;
+  geometry?: GeometryConfig;
 }
 
 export const PRESET_SOLID_COLOR: ShaderPreset = {

@@ -7,7 +7,6 @@ import DefaultTheme from 'vitepress/theme'
 import { h } from 'vue'
 import { createI18n } from 'vue-i18n'
 import BaseImg from '../../web/components/base-img.vue'
-import DonateSection from '../../web/components/donate-section.vue'
 // import VConsole from 'vconsole'
 import Layout from './layout.vue'
 import '../ssr-guard'
@@ -26,12 +25,7 @@ const i18n = createI18n({
 
 export default {
   extends: DefaultTheme,
-  Layout: () => {
-    return h(Layout, null, {
-      // https://vitepress.dev/guide/extending-default-theme#layout-slots
-      'doc-footer-before': () => h(DonateSection),
-    })
-  },
+  Layout: () => h(Layout),
   enhanceApp({ app, router, siteData }) {
     app.component('BaseImg', BaseImg)
     app.use(createPinia())
