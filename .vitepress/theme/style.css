@@ -173,6 +173,10 @@ html {
   background-color: transparent;
 }
 
+body {
+  font-synthesis: weight style;
+}
+
 :root {
   --vp-font-family-base: 'Noto Sans TC', sans-serif;
 }
