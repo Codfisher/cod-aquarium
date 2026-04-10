@@ -68,6 +68,11 @@
   --vp-c-danger-2: var(--vp-c-red-2);
   --vp-c-danger-3: var(--vp-c-red-3);
   --vp-c-danger-soft: var(--vp-c-red-soft);
+
+  --vp-c-bg: color-mix(in srgb, var(--vp-c-brand-soft) 5%, #ffffff);
+
+  --vp-c-text-1: rgba(60, 60, 67, 0.9);
+  --vp-c-text-2: rgba(60, 60, 67, 0.6);
 }
 
 .dark {
@@ -75,6 +80,11 @@
   --vp-c-brand-2: #4ccab9;
   --vp-c-brand-3: #65dfd0;
   --vp-c-brand-soft: #1d4642;
+
+  --vp-c-bg: color-mix(in srgb, var(--vp-c-brand-soft) 8%, #1b1b1f);
+
+  --vp-c-text-1: rgba(255, 255, 245, 0.86);
+  --vp-c-text-2: rgba(235, 235, 245, 0.6);
 }
 
 /**
@@ -213,6 +223,7 @@ a {
     color: var(--vp-c-brand-soft);
     line-height: 1;
     font-style: italic;
+    margin-left: -0.05em;
   }
 
   /* 引用區塊：左邊線 + 品牌色底 */
@@ -285,7 +296,7 @@ body {
 
 @media (min-width: 960px) {
   :root {
-    --vp-sidebar-bg-color: #FFF
+    --vp-sidebar-bg-color: var(--vp-c-bg)
   }
 
   .dark {
