@@ -50,7 +50,9 @@ gl.vertexAttribPointer(${varName}Location, ${attribute.size}, gl.FLOAT, false, 0
 export function generateJsCode(geometry: GeometryConfig): string {
   const blockList = geometry.attributeList.map(generateAttributeBlock)
 
+  const blendBlock = `\n// ── Alpha Blending ──\ngl.enable(gl.BLEND)\ngl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)`
+
   const drawCall = `\n// ── 繪製 ──\ngl.drawArrays(gl.${geometry.drawMode}, 0, ${geometry.vertexCount})`
 
-  return `${blockList.join('\n\n')}\n${drawCall}\n`
+  return `${blockList.join('\n\n')}\n${blendBlock}\n${drawCall}\n`
 }
