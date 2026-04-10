@@ -74,7 +74,7 @@ export default ({ mode }: { mode: string }) => {
     head: [
       ['link', { rel: 'preconnect', href: 'https://fonts.googleapis.com' }],
       ['link', { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: 'true' }],
-      ['link', { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;800;900&display=swap' }],
+      ['link', { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;600;700;800;900&display=swap' }],
       ['link', { rel: 'icon', href: '/favicon.ico' }],
 
     ],
