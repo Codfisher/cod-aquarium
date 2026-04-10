@@ -213,6 +213,7 @@ a {
     color: var(--vp-c-brand-soft);
     line-height: 1;
     font-style: italic;
+    margin-left: -0.05em;
   }
 
   /* 引用區塊：左邊線 + 品牌色底 */
