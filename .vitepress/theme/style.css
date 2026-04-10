@@ -69,7 +69,10 @@
   --vp-c-danger-3: var(--vp-c-red-3);
   --vp-c-danger-soft: var(--vp-c-red-soft);
 
-  --vp-c-bg: color-mix(in srgb, var(--vp-c-brand-soft) 10%, #ffffff);
+  --vp-c-bg: color-mix(in srgb, var(--vp-c-brand-soft) 5%, #ffffff);
+
+  --vp-c-text-1: rgba(60, 60, 67, 0.9);
+  --vp-c-text-2: rgba(60, 60, 67, 0.6);
 }
 
 .dark {
