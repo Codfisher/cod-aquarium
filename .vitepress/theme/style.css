@@ -143,7 +143,10 @@
 }
 
 html {
-  opacity: 1 !important; 
+  opacity: 1 !important;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 /**
@@ -195,12 +198,28 @@ a {
   counter-reset: section;
 
   p {
-    line-height: 1.8;
+    line-height: 2;
     margin: 1.25rem 0;
   }
 
   a {
     text-decoration: underline !important;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.4;
+  }
+
+  h1 {
+    font-size: 2rem;
+    font-weight: 900;
   }
 
   /* 章節間距加大，營造呼吸感 */
@@ -267,6 +286,11 @@ a {
 
 .VPSidebarItem .VPLink {
   padding: 0.25rem 0rem;
+  transition: padding-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.VPSidebarItem .VPLink:hover {
+  padding-left: 0.25rem;
 }
 
 body {
@@ -333,4 +357,15 @@ body {
       }
     }
   }
+}
+
+/* 文字選取高亮：品牌色 */
+::selection {
+  background-color: color-mix(in srgb, var(--vp-c-brand-soft) 70%, transparent);
+  color: var(--vp-c-brand-1);
+}
+
+.dark ::selection {
+  background-color: color-mix(in srgb, var(--vp-c-brand-soft) 80%, transparent);
+  color: var(--vp-c-brand-1);
 }

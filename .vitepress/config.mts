@@ -74,7 +74,7 @@ export default ({ mode }: { mode: string }) => {
     head: [
       ['link', { rel: 'preconnect', href: 'https://fonts.googleapis.com' }],
       ['link', { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: 'true' }],
-      ['link', { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@100..900&display=swap' }],
+      ['link', { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;800;900&display=swap' }],
       ['link', { rel: 'icon', href: '/favicon.ico' }],
 
     ],
@@ -395,6 +395,16 @@ export default ({ mode }: { mode: string }) => {
             fileURLToPath(import.meta.url),
           ), 'locales/**'),
         }),
+        /** 停用 VitePress 預設 Inter 字體，改用 Noto Sans TC */
+        {
+          name: 'disable-vitepress-default-fonts',
+          enforce: 'pre',
+          transform(code, id) {
+            if (id.includes('theme-default/styles/fonts.css')) {
+              return { code: '', map: null }
+            }
+          },
+        },
         /** 強制停用 vitepress data loader 功能
          *
          * 避免 build 時出現以下錯誤：
