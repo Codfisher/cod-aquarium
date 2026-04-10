@@ -182,13 +182,75 @@ a {
 
 .vp-doc {
   text-align: left;
+  counter-reset: section;
 
   p {
     line-height: 1.8;
+    margin: 1.25rem 0;
   }
 
   a {
     text-decoration: underline !important;
+  }
+
+  /* 章節間距加大，營造呼吸感 */
+  h2 {
+    counter-increment: section;
+    position: relative;
+    margin-top: 5rem;
+    padding-top: 3.5rem;
+    border-top: none;
+  }
+
+  /* 裝飾性章節編號（絕對定位，不影響錨點） */
+  h2::before {
+    content: counter(section, decimal-leading-zero);
+    position: absolute;
+    top: 0;
+    left: 0;
+    font-size: 3rem;
+    font-weight: 700;
+    color: var(--vp-c-brand-soft);
+    line-height: 1;
+    font-style: italic;
+  }
+
+  /* 引用區塊：左邊線 + 品牌色底 */
+  blockquote {
+    border-left: 3px solid var(--vp-c-brand-1);
+    background-color: color-mix(in srgb, var(--vp-c-brand-soft) 40%, transparent);
+    padding: 1.25rem 1.5rem;
+    margin: 1.5rem 0;
+    color: var(--vp-c-text-2);
+    border-radius: 0 0.5rem 0.5rem 0;
+  }
+
+  blockquote p {
+    margin: 0.5rem 0;
+  }
+
+  /* 作品區塊：h3 之間加大間距與分隔線 */
+  h3 {
+    margin-top: 2.5rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--vp-c-divider);
+  }
+
+  /* 第一個 h3 或緊接 h2 後的 h3 不需要分隔線 */
+  h2 + h3 {
+    border-top: none;
+    padding-top: 0;
+  }
+}
+
+.dark .vp-doc {
+  h2::before {
+    color: var(--vp-c-brand-soft);
+  }
+
+  blockquote {
+    background-color: color-mix(in srgb, var(--vp-c-brand-soft) 40%, transparent);
+    border-left-color: var(--vp-c-brand-1);
   }
 }
 
