@@ -68,6 +68,8 @@
   --vp-c-danger-2: var(--vp-c-red-2);
   --vp-c-danger-3: var(--vp-c-red-3);
   --vp-c-danger-soft: var(--vp-c-red-soft);
+
+  --vp-c-bg: color-mix(in srgb, var(--vp-c-brand-soft) 10%, #ffffff);
 }
 
 .dark {
@@ -75,6 +77,8 @@
   --vp-c-brand-2: #4ccab9;
   --vp-c-brand-3: #65dfd0;
   --vp-c-brand-soft: #1d4642;
+
+  --vp-c-bg: color-mix(in srgb, var(--vp-c-brand-soft) 8%, #1b1b1f);
 }
 
 /**
@@ -286,7 +290,7 @@ body {
 
 @media (min-width: 960px) {
   :root {
-    --vp-sidebar-bg-color: #FFF
+    --vp-sidebar-bg-color: var(--vp-c-bg)
   }
 
   .dark {
