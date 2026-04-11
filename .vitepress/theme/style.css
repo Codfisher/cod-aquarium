@@ -266,8 +266,6 @@ a {
   /* 作品區塊：h3 之間加大間距與分隔線 */
   h3 {
     margin-top: 2.5rem;
-    padding-top: 2rem;
-    border-top: 1px solid var(--vp-c-divider);
   }
 
   /* 第一個 h3 或緊接 h2 後的 h3 不需要分隔線 */
