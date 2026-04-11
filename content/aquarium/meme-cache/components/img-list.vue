@@ -21,7 +21,7 @@
             <img
               :src="`/memes/${data.file}`"
               loading="lazy"
-              class="  object-contain h-full w-full border-none!"
+              class="object-contain h-full w-full border-none"
             >
           </div>
 
