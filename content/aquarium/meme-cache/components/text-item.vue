@@ -136,7 +136,7 @@
               label="顏色"
             >
               <u-popover :ui="{ content: 'z-[9999]' }">
-                <u-清空
+                <u-button
                   class="w-full h-[1.75rem]"
                   variant="outline"
                   :style="{ backgroundColor: settings.color }"
