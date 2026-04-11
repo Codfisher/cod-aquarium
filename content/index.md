@@ -67,9 +67,13 @@ aside: false
 
 在網頁中自定義精靈球，第一個 3D 網頁專案，練習 <a href="https://www.babylonjs.com/" target="_blank">babylon.js</a>
 
+---
+
 ### [MCU Windows](https://codfish-210716.notion.site/MCU-Windows-2f896774ea2f4742af974c753f947bd4#4fcf87c34f544b71bce9a76d96adb39a)
 
 此網頁為 Web Serial API 的實驗項目之一，目的是讓微控制器（MCU）與網頁連上線，讓真實的電子訊號在網頁上呈現豐富有趣的互動，並延伸更多有趣的應用。
+
+---
 
 ### [派動對物嗨起來](https://www.youtube.com/watch?v=PPWyUhT6gRk)
 
@@ -77,9 +81,13 @@ aside: false
 
 基於上述理由，網頁已夠格成為 3D 遊戲機，手機瀏覽器甚至能像 joy-con 一般，作為搖桿使用，於是本專案就這麼誕生了。( •̀ ω •́ )✧
 
+---
+
 ### [酷酷的元件](https://chillcomponent.codlin.me/)
 
 實驗各種 Web 技術，開發各種新奇、古怪的 Vue 元件
+
+---
 
 ### [Cyber Scales Desktop](/aquarium/cyber-scales-desktop/){target="_blank" rel="noopener"}
 
@@ -87,15 +95,21 @@ aside: false
 
 這個時候剛好看到 <a href="https://github.com/syxanash/awesome-web-desktops" target="_blank">awesome-web-desktops</a>，心想：「模仿桌面應用程式不就是很棒的實驗機會嗎？」，於是此專案就誕生了！ ✧⁑｡٩(ˊᗜˋ*)و✧⁕｡
 
+---
+
 ### [快取梗圖](/aquarium/meme-cache/){target="_blank" rel="noopener"}
 
 靈感來時沒辦法隨手找到記憶中那張梗圖，實在是超痛苦，所以做了一個工具網頁協助搜尋並快速加上文字
+
+---
 
 ### [鱈魚的彈珠](/aquarium/codmarbles/){target="_blank" rel="noopener"}
 
 經研究證實，看彈珠滾動能有效降低大腦 CPU 使用率，這是為了防止各位社畜過勞而生的醫療級網頁。
 
 以上純屬瞎掰，其實沒什麼偉大的技術願景，純粹就是我想看東西滾來滾去而誕生的專案 (´,,•ω•,,)
+
+---
 
 ### [CodStack](/aquarium/codstack/){target="_blank" rel="noopener"}
 
@@ -108,6 +122,8 @@ aside: false
 先在 3D 軟體中組裝，又會失去在程式中控制的彈性，於是 CodStack 誕生了！(/≧▽≦)/
 
 CodStack 使用 <a href="https://www.babylonjs.com/" target="_blank">babylon.js</a>、<a href="https://vuejs.org/" target="_blank">Vue</a> 與 <a href="https://ui.nuxt.com/" target="_blank">Nuxt UI</a> 開發，目標是讓組裝 3D 模型變得像拼積木一樣簡單，可輸出結構資料並再次匯入編輯，方便 3D 網頁專案載入模型，免安裝，趕快來試試看吧。
+
+---
 
 ### [HexaZen](/aquarium/hexazen/){target="_blank" rel="noopener"}
 
@@ -126,6 +142,8 @@ HexaZen 使用 <a href="https://www.babylonjs.com/" target="_blank">babylon.js</
 - [樹海小屋](https://codlin.me/aquarium/hexazen/?view=JiMmwzmkdZzaSuhm4HQxVDoZOl0MTS6GRgdDFQOhiWHQxSDoYph0Mmg6GURYTFkMJjCWExpTCY1N0Maw)
 - [山居](https://codlin.me/aquarium/hexazen/?view=JhMW0wmKhYTE0MJkYGEyLDCYplhMUgwmTIYTGEuhk0GExiLEbxlnM6gzmNIdDKssJk4GExkLuZKh3MnS)
 - [平原河流](https://codlin.me/aquarium/hexazen/?view=JyMmw7mNYYjaoM5jSGcyiDOYwhnM2U6GSQZzFoMJiWWExMDCYmlhMVUzmbgZzN0s5jIHIzULkaxhhMkw)
+
+---
 
 ### [EnderBox](/aquarium/enderbox/){target="_blank" rel="noopener"}
 
