@@ -86,12 +86,14 @@ const chunkList = computed(() => {
 
   return chunk(props.list, 2)
 })
-const { list: virtualList, containerProps, wrapperProps } = useVirtualList(
+const { list: virtualList, containerProps, wrapperProps, scrollTo } = useVirtualList(
   chunkList,
   {
     itemHeight: windowSize.height * 0.3,
   },
 )
+
+defineExpose({ scrollTo })
 
 function handleClick(data: MemeData) {
   emit('select', data)

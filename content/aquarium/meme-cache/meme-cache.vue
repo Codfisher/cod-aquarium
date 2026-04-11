@@ -22,6 +22,7 @@
         </transition>
 
         <img-list
+          ref="imgListRef"
           :list="filteredList"
           :detail-visible="settings.detailVisible"
           :style="{ height: listHeight }"
@@ -102,12 +103,13 @@
         </template>
 
         <template #footer="{ close }">
-          <div class=" flex w-full gap-4">
+          <div class=" flex w-full gap-1">
             <u-button
               label="分享/複製"
               icon="i-material-symbols:file-copy-rounded"
               variant="ghost"
               color="neutral"
+              size="sm"
               @click="copyImg"
             />
 
@@ -115,6 +117,7 @@
               label="版面設定"
               icon="i-material-symbols:mobile-layout-outline"
               variant="ghost"
+              size="sm"
               color="neutral"
               @click="toggleSettingForm()"
             />
@@ -127,6 +130,7 @@
                 label="清空"
                 variant="ghost"
                 color="neutral"
+                size="sm"
                 icon="i-material-symbols:cleaning-services-rounded"
               />
 
@@ -157,12 +161,14 @@
                 icon="i-lucide-ellipsis"
                 variant="ghost"
                 color="neutral"
+                size="sm"
               />
             </u-dropdown-menu>
 
             <u-button
               icon="i-material-symbols:close-rounded"
               color="error"
+              size="sm"
               @click="close"
             />
           </div>
@@ -180,11 +186,11 @@
 import type { DropdownMenuItem } from '@nuxt/ui'
 import type { MemeData } from './type'
 import UModal from '@nuxt/ui/components/Modal.vue'
-import { useActiveElement, useColorMode, useElementSize, useWindowSize, watchThrottled } from '@vueuse/core'
+import { promiseTimeout, useActiveElement, useColorMode, useElementSize, useWindowSize, watchThrottled } from '@vueuse/core'
 import { snapdom } from '@zumer/snapdom'
 import Fuse from 'fuse.js'
 import { filter, isTruthy, pipe, shuffle } from 'remeda'
-import { computed, h, onBeforeUnmount, onMounted, reactive, ref, shallowRef, useTemplateRef, watch } from 'vue'
+import { computed, h, onMounted, reactive, ref, shallowRef, useTemplateRef, watch } from 'vue'
 import { nextFrame } from '../../../web/common/utils'
 import { usePageNoScroll } from '../../../web/composables/use-page-no-scroll'
 import ImgEditor from './components/img-editor.vue'
@@ -294,13 +300,15 @@ watchThrottled(() => [keyword.value, memeDataMap.value], () => {
 }, {
   deep: true,
   throttle: 300,
-  leading: false,
   immediate: true,
 })
 
+const imgListRef = useTemplateRef('imgListRef')
 watch(keyword, async () => {
   await nextFrame()
-  window.scrollTo({ top: -100, behavior: 'smooth' })
+  await promiseTimeout(200)
+  imgListRef.value?.scrollTo(0)
+  window.scrollTo({ top: 0 })
 })
 
 const toolbarRef = useTemplateRef('toolbarRef')
