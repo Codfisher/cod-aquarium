@@ -18,7 +18,7 @@
           v-if="props.data"
           ref="imgRef"
           :src="`/memes/${props.data.file}`"
-          class=" object-contain rounded-none! border-none! pointer-events-none w-[80vw] md:max-w-[50vw]!"
+          class="object-contain rounded-none! border-none pointer-events-none w-[80vw] md:max-w-[50vw]"
           draggable="false"
         >
 
@@ -55,7 +55,7 @@
       }"
       arrow
     >
-      <div class="absolute right-0 bottom-0 p-6! opacity-60">
+      <div class="absolute right-0 bottom-0 p-6 opacity-60">
         <u-icon
           name="i-material-symbols:help-outline-rounded"
           class="size-10 text-white"
@@ -156,7 +156,7 @@
             >
               <u-input
                 v-model="layoutSetting.topPadding.height"
-                :ui="{ base: 'p-1! px-2! text-center' }"
+                :ui="{ base: 'p-1 px-2 text-center' }"
               >
                 <template #trailing>
                   <span class=" opacity-40 text-xs">px</span>
@@ -205,7 +205,7 @@
             >
               <u-input
                 v-model="layoutSetting.bottomPadding.height"
-                :ui="{ base: 'p-1! px-2! text-center' }"
+                :ui="{ base: 'p-1 px-2 text-center' }"
               >
                 <template #trailing>
                   <span class=" opacity-40 text-xs">px</span>
@@ -236,10 +236,10 @@
 import type { CSSProperties } from 'vue'
 import type { ComponentProps } from 'vue-component-type-helpers'
 import type { AlignTarget, MemeData } from '../type'
-import { onClickOutside, promiseTimeout, useElementBounding, useElementSize, useIntervalFn, useRafFn, useWindowSize, watchThrottled } from '@vueuse/core'
+import { onClickOutside, promiseTimeout, useElementBounding, useElementSize, useRafFn } from '@vueuse/core'
 import { nanoid } from 'nanoid'
 import { clone, pipe } from 'remeda'
-import { computed, nextTick, reactive, ref, shallowRef, triggerRef, useTemplateRef, watch } from 'vue'
+import { computed, nextTick, reactive, ref, shallowRef, triggerRef, useTemplateRef } from 'vue'
 import { nextFrame } from '../../../../web/common/utils'
 import TextItem from './text-item.vue'
 

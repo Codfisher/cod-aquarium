@@ -8,7 +8,7 @@
   >
     <div
       ref="textRef"
-      class="text whitespace-pre px-1 text-center outline-none!"
+      class="text whitespace-pre px-1 text-center outline-none"
       contenteditable
       :style="textStyle"
       @input="handleInput"
@@ -94,7 +94,7 @@
             <u-input
               v-model="settings.fontSize"
               class="flex-1"
-              :ui="{ base: 'p-1! px-2! text-center' }"
+              :ui="{ base: 'p-1 px-2 text-center' }"
             >
               <template #trailing>
                 <span class=" opacity-40 text-xs">px</span>
@@ -136,7 +136,7 @@
               label="顏色"
             >
               <u-popover :ui="{ content: 'z-[9999]' }">
-                <u-button
+                <u-清空
                   class="w-full h-[1.75rem]"
                   variant="outline"
                   :style="{ backgroundColor: settings.color }"
@@ -256,7 +256,7 @@
               <u-input
                 v-model="settings.strokeWidth"
                 class="flex-1"
-                :ui="{ base: 'p-1! px-2! text-center' }"
+                :ui="{ base: 'p-1 px-2 text-center' }"
               >
                 <template #trailing>
                   <span class=" opacity-40 text-xs">px</span>
@@ -316,22 +316,25 @@
   >
     <u-button
       icon="i-lucide-settings-2"
-      class="p-2! duration-300"
+      class="p-2 duration-300"
       size="lg"
-      :class="{ 'text-primary!': settingVisible }"
+      variant="subtitle"
+      :class="{ 'text-primary': settingVisible }"
       @click="toggleSettingVisible()"
     />
 
     <u-button
       icon="i-material-symbols:content-copy-outline-rounded"
-      class="p-2!"
+      class="p-2"
+      variant="subtitle"
       size="lg"
       @click="emit('duplicate')"
     />
 
     <u-button
       icon="i-lucide-trash-2"
-      class="p-2!"
+      class="p-2"
+      variant="subtitle"
       size="lg"
       @click="emit('delete')"
     />
@@ -445,8 +448,8 @@ watchThrottled(() => [settings.value, textRef.value], () => {
   }
 
   dom.contentEditable = 'false'
-  dom.classList.add('outline-none!')
-  dom.classList.add('transform-none!')
+  dom.classList.add('outline-none')
+  dom.classList.add('transform-none')
 
   textDom.value = dom.outerHTML
 }, {

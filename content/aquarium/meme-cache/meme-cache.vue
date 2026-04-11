@@ -40,7 +40,7 @@
             placeholder="輸入關鍵字或任何線索 (・∀・)９"
             class="w-full "
             :ui="{
-              base: 'py-4! px-6! rounded-full',
+              base: 'py-4 px-6 rounded-full',
               trailing: 'pe-4',
             }"
             data-clarity-unmask="true"
@@ -65,7 +65,7 @@
             :items="mainMenuItems"
             :ui="{
               content: 'z-70',
-              item: 'p-2!',
+              item: 'p-2',
             }"
           >
             <u-button icon="i-material-symbols:menu-rounded" />
@@ -87,7 +87,7 @@
         class="z-70 data-[state=open]:animate-[fade-in_200ms_ease-out] data-[state=closed]:animate-[fade-out_200ms_ease-in]"
         :ui="{
           header: ' hidden',
-          body: 'p-0!',
+          body: 'p-0',
         }"
       >
         <template #body>
@@ -102,12 +102,16 @@
             <u-button
               label="分享/複製"
               icon="i-material-symbols:file-copy-rounded"
+              variant="ghost"
+              color="neutral"
               @click="copyImg"
             />
 
             <u-button
               label="版面設定"
               icon="i-material-symbols:mobile-layout-outline"
+              variant="ghost"
+              color="neutral"
               @click="toggleSettingForm()"
             />
 
@@ -117,6 +121,8 @@
             >
               <u-button
                 label="清空"
+                variant="ghost"
+                color="neutral"
                 icon="i-material-symbols:cleaning-services-rounded"
               />
 
@@ -128,7 +134,7 @@
                 <div class="flex justify-end">
                   <u-button
                     label="確定"
-                    class=" px-2! bg-red-400! text-white!"
+                    class="px-2 bg-red-400 text-white"
                     @click="clean(); closePopover()"
                   />
                 </div>
@@ -140,14 +146,19 @@
               :items="moreFcnItems"
               :ui="{
                 content: 'z-70',
-                item: 'p-2!',
+                item: 'p-2',
               }"
             >
-              <u-button icon="i-lucide-ellipsis" />
+              <u-button
+                icon="i-lucide-ellipsis"
+                variant="ghost"
+                color="neutral"
+              />
             </u-dropdown-menu>
 
             <u-button
               icon="i-material-symbols:close-rounded"
+              color="error"
               @click="close"
             />
           </div>
@@ -380,7 +391,7 @@ async function copyImg() {
       {
         body: () => [h(
           'img',
-          { src: url, class: 'rounded-none!' },
+          { src: url, class: 'rounded-none' },
         )],
       },
     ),
@@ -463,7 +474,7 @@ const tipText = computed(() => {
     return [
       '沒找到相關圖片 ( ´•̥̥̥ ω •̥̥̥` )<br>可以<a href="',
       uploadUrl,
-      '" target="_blank" class=" text-teal-600! font-extrabold">在此上傳圖片</a>，我會努力建檔',
+      '" target="_blank" class="text-teal-600 font-extrabold">在此上傳圖片</a>，我會努力建檔',
     ].join('')
   }
 
@@ -482,7 +493,7 @@ onMounted(async () => {
       icon: 'line-md:uploading-loop',
       label: '按此投稿圖片',
       color: 'neutral',
-      class: 'py-1! px-2!',
+      class: 'py-1 px-2',
       variant: 'outline',
       onClick: () => {
         window.open(uploadUrl)
