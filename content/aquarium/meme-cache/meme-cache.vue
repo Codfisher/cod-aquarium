@@ -68,7 +68,11 @@
               item: 'p-2',
             }"
           >
-            <u-button icon="i-material-symbols:menu-rounded" />
+            <u-button
+              icon="i-material-symbols:menu-rounded"
+              variant="ghost"
+              color="neutral"
+            />
 
             <template #detail>
               <u-checkbox
