@@ -10,7 +10,6 @@ import BaseImg from '../../web/components/base-img.vue'
 // import VConsole from 'vconsole'
 import Layout from './layout.vue'
 import '../ssr-guard'
-
 import './style.css'
 import './tailwind.css'
 
