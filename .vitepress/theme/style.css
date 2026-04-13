@@ -219,7 +219,7 @@ a {
 
   p {
     line-height: 2;
-    margin: 1.25rem 0;
+    margin: 1.5rem 0;
   }
 
   a {
@@ -294,7 +294,7 @@ a {
     background-color: color-mix(in srgb, var(--vp-c-brand-soft) 35%, transparent);
     border: 1px solid color-mix(in srgb, var(--vp-c-brand-1) 15%, transparent);
     padding: 1.25rem 1.5rem;
-    margin: 1.5rem 0;
+    margin: 2rem 0;
     color: var(--vp-c-text-2);
     border-radius: 0.5rem;
   }
@@ -307,6 +307,42 @@ a {
   h2 + h3 {
     border-top: none;
     padding-top: 0;
+  }
+
+  /* 列表閱讀體驗 */
+  ul,
+  ol {
+    margin: 1.5rem 0;
+  }
+
+  li + li {
+    margin-top: 0.5rem;
+  }
+
+  li > ul,
+  li > ol {
+    margin: 0.375rem 0;
+  }
+
+  /* 程式碼區塊前後加大間距，與段落拉開層次 */
+  div[class*="language-"] {
+    margin: 2rem 0;
+  }
+
+  /* 緊接標題的段落縮小上方間距 */
+  h1 + p,
+  h2 + p,
+  h3 + p {
+    margin-top: 0.75rem;
+  }
+
+  /* 連續段落間的自然閱讀間距 */
+  p + div[class*="language-"] {
+    margin-top: 1.75rem;
+  }
+
+  div[class*="language-"] + p {
+    margin-top: 1.75rem;
   }
 }
 
