@@ -2,7 +2,7 @@
   <div
     :id
     ref="boxRef"
-    class="box flex justify-center absolute min-w-[10rem] py-1 px-10"
+    class="box flex justify-center absolute min-w-40 py-1 px-10"
     :style="boxStyle"
     v-bind="$attrs"
   >
@@ -18,7 +18,7 @@
       v-model:open="settingVisible"
       :overlay="false"
       side="bottom"
-      class="z-[100] border border-[#DDD] opacity-95"
+      class="z-100 border border-gray-300 dark:border-gray-600 opacity-95"
       :ui="{
         header: 'min-h-auto flex flex-col p-2',
         body: 'grid grid-cols-4 items-center',
@@ -53,7 +53,7 @@
               v-for="(item, i) in stylePresetList"
               :key="i"
               :style="item.style"
-              class="text p-3 border border-[#DDD] rounded cursor-pointer"
+              class="text p-3 border border-gray-300 dark:border-gray-600 rounded cursor-pointer"
               @click="presetStyle(item.data)"
             >
               文字
@@ -135,9 +135,9 @@
               class="col-span-2"
               label="顏色"
             >
-              <u-popover :ui="{ content: 'z-[9999]' }">
+              <u-popover :ui="{ content: 'z-9999' }">
                 <u-button
-                  class="w-full h-[1.75rem]"
+                  class="w-full h-7"
                   variant="outline"
                   :style="{ backgroundColor: settings.color }"
                 />
@@ -156,9 +156,9 @@
               class="col-span-2"
               label="背景色"
             >
-              <u-popover :ui="{ content: 'z-[9999]' }">
+              <u-popover :ui="{ content: 'z-9999' }">
                 <u-button
-                  class="w-full h-[1.75rem]"
+                  class="w-full h-7"
                   variant="outline"
                   :style="{ backgroundColor: settings.backgroundColor }"
                 />
@@ -203,9 +203,9 @@
               class="col-span-2"
               label="外框顏色"
             >
-              <u-popover :ui="{ content: 'z-[9999]' }">
+              <u-popover :ui="{ content: 'z-9999' }">
                 <u-button
-                  class="w-full h-[1.75rem]"
+                  class="w-full h-7"
                   variant="outline"
                   :style="{ backgroundColor: settings.strokeColor }"
                 />

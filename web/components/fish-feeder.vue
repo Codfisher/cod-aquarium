@@ -1,15 +1,15 @@
 <template>
   <div
     v-if="!!articleId"
-    class="flex flex-col gap-4 p-4 border border-[#DDD] rounded-lg"
+    class="fish-feeder-card flex flex-col items-center gap-4 p-5 rounded-xl"
   >
-    <span class="text-sm  ">
+    <span class="text-sm opacity-70">
       餵個魚飼料吧，會跑出小魚喔！<span class="text-nowrap">(ゝ∀・)b</span>
     </span>
 
     <button
       ref="btnRef"
-      class="feed-btn rounded-full p-6! text-xl tracking-wider select-none"
+      class="feed-btn w-full max-w-xs rounded-full py-6! px-12! text-lg tracking-wider select-none font-bold"
       :class="{ 'opacity-40': btnDisabled }"
       @click="addReaction()"
     >
@@ -21,21 +21,18 @@
       </transition>
     </button>
 
-    <span class="text-xs opacity-60 text-center">
+    <span class="text-xs opacity-50 text-center">
       <transition
         name="text"
         mode="out-in"
       >
         <span :key="totalText">
           {{ totalText }}
-
-          <span class="text-nowrap" />
         </span>
       </transition>
-
     </span>
 
-    <label class="text-xs opacity-80 text-center flex justify-center gap-1">
+    <label class="text-xs opacity-60 text-center flex justify-center gap-1 cursor-pointer select-none">
       <input
         v-model="isHiddenFish"
         type="checkbox"
@@ -252,8 +249,11 @@ const canvasVisible = computed(() => {
 </script>
 
 <style scoped lang="sass">
+.fish-feeder-card
+  border: 1px solid light-dark(oklch(0.92 0.02 175), oklch(0.28 0.02 175))
+
 .feed-btn
-  background: linear-gradient(135deg, #5894f5 0%, #06b6d4 100%)
+  background: linear-gradient(135deg, oklch(0.58 0.13 175) 0%, oklch(0.68 0.14 175) 100%)
   color: #fff
   transition-duration: 200ms
   &:active

@@ -1,10 +1,10 @@
 <template>
   <div
     ref="exRef"
-    class="grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-100"
+    class="grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-100 dark:divide-gray-800"
   >
     <div class="p-8 flex flex-col items-center space-y-6">
-      <span class="px-5 py-2 text-xs font-semibold bg-blue-100 text-blue-700 rounded-md">
+      <span class="px-5 py-2 text-xs font-semibold bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 rounded-md">
         Ref
       </span>
 
@@ -17,7 +17,7 @@
     </div>
 
     <div class="p-8 flex flex-col items-center space-y-6">
-      <span class="px-5 py-2 text-xs font-semibold bg-emerald-100 text-emerald-700 rounded-md">
+      <span class="px-5 py-2 text-xs font-semibold bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 rounded-md">
         Shallow Ref
       </span>
 

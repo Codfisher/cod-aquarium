@@ -1,11 +1,11 @@
 <template>
-  <div class="w-full border rounded p-2">
-    <div class="border rounded p-2 w-full">
+  <div class="w-full border border-gray-200 dark:border-gray-700 rounded p-2">
+    <div class="border border-gray-200 dark:border-gray-700 rounded p-2 w-full">
       <input
         v-model="keyword"
         type="text"
         placeholder="輸入關鍵字標記文字"
-        class="w-full"
+        class="w-full bg-transparent outline-none"
       >
     </div>
 

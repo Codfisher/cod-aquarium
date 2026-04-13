@@ -1,5 +1,5 @@
 <template>
-  <div class="text-highlight w-full border rounded p-4">
+  <div class="text-highlight w-full border border-gray-200 dark:border-gray-700 rounded p-4">
     這段文字的鱈魚會被標記
   </div>
 </template>

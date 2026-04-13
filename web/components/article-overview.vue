@@ -99,14 +99,14 @@
             ref="linkListRef"
             name="list"
             tag="div"
-            class="flex flex-col gap-10"
+            class="flex flex-col gap-2"
             @before-leave="handleBeforeLeave"
           >
             <div
               v-for="article in articleList"
               :key="article.link"
               role="link"
-              class="article-link flex items-center gap-2 rounded-sm"
+              class="article-link flex items-center gap-4 rounded-xl p-4 -mx-4"
               @click="to(article.link)"
             >
               <div class="flex flex-col items-center md:items-start flex-1 gap-2">
@@ -123,29 +123,29 @@
 
                 <div
                   v-if="article.frontmatter.date"
-                  class="text-xs opacity-50"
+                  class="text-xs opacity-40 font-mono tracking-wider"
                 >
                   {{ article.frontmatter.date }}
                 </div>
 
-                <div class="w-full text-center md:text-left text-xl md:text-2xl font-bold text-pretty">
+                <div class="w-full text-center md:text-left text-xl md:text-2xl font-bold text-pretty leading-snug">
                   {{ article.frontmatter.title }}
                 </div>
 
                 <div
                   v-if="article.frontmatter.tags"
-                  class="flex flex-wrap items-center justify-center gap-2"
+                  class="flex flex-wrap items-center justify-center md:justify-start gap-1.5"
                 >
                   <div
                     v-for="tag in article.frontmatter.tags"
                     :key="tag"
-                    class="tag px-3 py-1 rounded-full opacity-90 text-xs "
+                    class="tag px-2.5 py-0.5 rounded-full text-xs"
                   >
                     {{ tag }}
                   </div>
                 </div>
 
-                <div class="description w-full text-base leading-[1.8] opacity-80">
+                <div class="description w-full text-sm leading-relaxed opacity-70 mt-1">
                   {{ article.frontmatter.description }}
                 </div>
               </div>
@@ -153,10 +153,10 @@
               <base-img
                 v-if="article.frontmatter.image"
                 :src="article.frontmatter.image"
-                class="hidden md:block rounded-lg shadow-sm"
+                class="hidden md:block rounded-xl shrink-0"
                 :use-size="300"
-                width="160"
-                height="160"
+                width="140"
+                height="140"
                 loading="lazy"
                 decoding="async"
               />
@@ -274,9 +274,9 @@ function handleBeforeLeave(el: Element) {
 .tag-filter
   z-index: 1
   backdrop-filter: blur(10px)
-  background: light-dark(rgba(#FFF, 0.8), rgba(#333, 0.8))
+  background: light-dark(oklch(0.99 0.005 175 / 0.85), oklch(0.22 0.01 175 / 0.85))
   border-width: 1px
-  border-color: light-dark(#F0F0F0, #000)
+  border-color: light-dark(oklch(0.92 0.01 175), oklch(0.25 0.01 175))
 
 .tag-chip
   opacity: 0.4
@@ -287,9 +287,16 @@ function handleBeforeLeave(el: Element) {
   white-space: unset
   text-wrap: pretty
 .tag
-  background: light-dark(#AAA, #FFF)
-  color: light-dark(#FFF, #000)
+  background: light-dark(
+    color-mix(in oklch, var(--vp-c-brand-soft) 60%, oklch(0.94 0.01 175)),
+    color-mix(in oklch, var(--vp-c-brand-soft) 50%, oklch(0.22 0.01 175))
+  )
+  color: light-dark(
+    var(--vp-c-brand-1),
+    var(--vp-c-brand-2)
+  )
   letter-spacing: 0.6px
+  font-weight: 500
 
 .link-container
   will-change: height
@@ -298,11 +305,10 @@ function handleBeforeLeave(el: Element) {
 
 .article-link
   cursor: pointer
-  transition: all 0.3s ease
-  outline: 2px solid transparent
-  outline-offset: 0.5rem
+  transition: background-color 0.25s, transform 0.25s
   &:hover
-    outline: 2px solid rgba(0, 0, 0, 0.05)
+    background: light-dark(oklch(0.97 0.01 175 / 0.6), oklch(0.22 0.015 175 / 0.5))
+    transform: translateX(2px)
 
 .list-move, .list-enter-active, .list-leave-active
   transition: all 0.6s cubic-bezier(0.83, 0, 0.17, 1)

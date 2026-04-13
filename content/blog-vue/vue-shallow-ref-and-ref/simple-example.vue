@@ -15,7 +15,7 @@ async function updateShallowData() {
     </div>
 
     <button
-      class="bg-gray-400/50! duration-100 p-1! px-3! rounded! active:bg-gray-400/80!"
+      class="bg-gray-300/50 dark:bg-gray-600/50 duration-100 p-1! px-3! rounded! active:bg-gray-400/80"
       @click="updateShallowData"
     >
       更新資料

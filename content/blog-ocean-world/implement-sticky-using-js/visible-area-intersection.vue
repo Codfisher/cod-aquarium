@@ -1,6 +1,6 @@
 <template>
   <div class="space-y-4">
-    <label class="inline-flex items-center select-none p-4 px-5 cursor-pointer border-3 border-gray-200 rounded-lg w-full">
+    <label class="inline-flex items-center select-none p-4 px-5 cursor-pointer border-3 border-gray-200 dark:border-gray-700 rounded-lg w-full">
       <input
         v-model="overlayVisible"
         type="checkbox"
@@ -12,15 +12,15 @@
     <!-- scroll 結構 -->
     <div
       ref="outerRef"
-      class="h-[30vh] overflow-y-auto p-14 pl-6 rounded-lg border-3 border-gray-100"
+      class="h-[30vh] overflow-y-auto p-14 pl-6 rounded-lg border-3 border-gray-100 dark:border-gray-800"
     >
       <div
         ref="middleRef"
-        class="h-[35vh] overflow-y-auto p-14 pl-6 rounded-lg border-3 border-gray-200"
+        class="h-[35vh] overflow-y-auto p-14 pl-6 rounded-lg border-3 border-gray-200 dark:border-gray-700"
       >
         <div
           ref="innerRef"
-          class="h-[40vh] overflow-y-auto  border-3 rounded-lg p-14 pl-6 border-gray-300"
+          class="h-[40vh] overflow-y-auto border-3 rounded-lg p-14 pl-6 border-gray-300 dark:border-gray-600"
         >
           <div
             ref="stickyRef"
