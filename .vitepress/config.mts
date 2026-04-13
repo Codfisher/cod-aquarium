@@ -10,6 +10,7 @@ import { whyframeVue } from '@whyframe/vue'
 import dayjs from 'dayjs'
 import { filter, isTruthy, map, piped } from 'remeda'
 import Icons from 'unplugin-icons/vite'
+import llmstxt from 'vitepress-plugin-llms'
 import { withMermaid } from 'vitepress-plugin-mermaid'
 import { RssPlugin } from 'vitepress-plugin-rss'
 import { markdownItBaseImg } from './plugin/markdown-it-base-img'
@@ -453,6 +454,7 @@ export default ({ mode }: { mode: string }) => {
         ui({
           router: false,
         }),
+        llmstxt(),
 
         whyframe({
           defaultSrc: '/_frame',
