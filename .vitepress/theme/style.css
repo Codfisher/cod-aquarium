@@ -235,6 +235,11 @@ a {
     border-top: none;
   }
 
+  h2 .header-anchor {
+    top: auto;
+    bottom: 0;
+  }
+
   /* 裝飾性章節編號（絕對定位，不影響錨點） */
   h2::before {
     content: counter(section, decimal-leading-zero);
