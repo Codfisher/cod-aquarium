@@ -6,6 +6,7 @@
 }
 
 @theme {
+  --font-display: "Figtree", "Noto Sans TC", system-ui, sans-serif;
   --font-orbitron: "Orbitron", sans-serif;
   --font-sans: "Noto Sans TC", system-ui, sans-serif;
 }
