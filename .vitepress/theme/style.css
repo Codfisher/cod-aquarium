@@ -187,6 +187,13 @@ body {
   --vp-font-family-base: 'Noto Sans TC', sans-serif;
 }
 
+/* 導覽列標題使用展示字型 */
+.VPNavBarTitle .title {
+  font-family: 'Figtree', 'Noto Sans TC', sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
 /* 修正 Windows 暗黑模式下 SVG 亮色中文字因 halation 糊成一片的問題 */
 .dark svg text {
   stroke: var(--vp-c-bg, #1b1b1f);
@@ -233,6 +240,7 @@ a {
   h4,
   h5,
   h6 {
+    font-family: 'Figtree', 'Noto Sans TC', system-ui, sans-serif;
     font-weight: 800;
     letter-spacing: -0.02em;
     line-height: 1.4;
@@ -242,6 +250,7 @@ a {
     font-size: clamp(1.75rem, 1.5rem + 1.2vw, 2.5rem);
     font-weight: 900;
     margin-bottom: 0.5rem;
+    letter-spacing: -0.03em;
   }
 
   /* 章節間距加大，營造呼吸感 */
@@ -265,6 +274,7 @@ a {
     position: absolute;
     top: 0;
     left: 0;
+    font-family: 'Figtree', sans-serif;
     font-size: 2.5rem;
     font-weight: 800;
     color: var(--vp-c-brand-soft);
@@ -406,6 +416,26 @@ body {
       }
     }
   }
+}
+
+/* 頁面內容入場動畫 */
+@keyframes content-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.vp-doc > *:first-child {
+  animation: content-enter 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.vp-doc > h1 ~ * {
+  animation: content-enter 0.45s cubic-bezier(0.16, 1, 0.3, 1) 0.08s both;
 }
 
 /* 文字選取高亮：品牌色 */

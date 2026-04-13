@@ -82,11 +82,11 @@
       </div>
 
       <div class="flex flex-col gap-4 flex-[3]">
-        <h1 class="text-4xl font-bold">
+        <h1 class="text-4xl font-bold font-display">
           文章列表
         </h1>
 
-        <div class=" text-sm opacity-60">
+        <div class="text-sm opacity-60">
           共 {{ articleList.length }} 篇文章
         </div>
 

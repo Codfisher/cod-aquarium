@@ -9,7 +9,7 @@
 
     <button
       ref="btnRef"
-      class="feed-btn w-full max-w-xs rounded-full py-6! px-12! text-lg tracking-wider select-none font-bold"
+      class="feed-btn w-full max-w-sm rounded-full py-6! text-lg tracking-wider select-none font-bold"
       :class="{ 'opacity-40': btnDisabled }"
       @click="addReaction()"
     >
