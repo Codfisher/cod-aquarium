@@ -1,9 +1,9 @@
 <template>
-  <div class=" flex flex-col gap-2 border border-gray-400/80 p-4 rounded">
+  <div class="flex flex-col gap-2 border border-gray-300 dark:border-gray-600 p-4 rounded">
     <div class="flex gap-2 text-base">
       <div
         :class="{ 'bg-primary': currentMode === 'template' }"
-        class="  bg-gray-200/50 p-3 rounded cursor-pointer duration-300 flex-1"
+        class="bg-gray-200/50 dark:bg-gray-700/50 p-3 rounded cursor-pointer duration-300 flex-1"
         @click="currentMode = 'template'"
       >
         使用 Template
@@ -11,7 +11,7 @@
 
       <div
         :class="{ 'bg-primary': currentMode === 'h' }"
-        class="  bg-gray-200/50 p-3 rounded cursor-pointer duration-300 flex-1"
+        class="bg-gray-200/50 dark:bg-gray-700/50 p-3 rounded cursor-pointer duration-300 flex-1"
         @click="currentMode = 'h'"
       >
         使用 h()

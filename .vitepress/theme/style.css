@@ -49,10 +49,11 @@
   --vp-c-default-3: var(--vp-c-gray-3);
   --vp-c-default-soft: var(--vp-c-gray-soft);
 
-  --vp-c-brand-1: #0d9488;
-  --vp-c-brand-2: #2dd4bf;
-  --vp-c-brand-3: #14b8a6;
-  --vp-c-brand-soft: #d8f2ed;
+  /* 品牌色：OKLCH 定義，teal 海洋色系 */
+  --vp-c-brand-1: oklch(0.55 0.14 175);
+  --vp-c-brand-2: oklch(0.75 0.12 175);
+  --vp-c-brand-3: oklch(0.65 0.13 175);
+  --vp-c-brand-soft: oklch(0.92 0.04 175);
 
   --vp-c-tip-1: var(--vp-c-brand-1);
   --vp-c-tip-2: var(--vp-c-brand-2);
@@ -69,22 +70,24 @@
   --vp-c-danger-3: var(--vp-c-red-3);
   --vp-c-danger-soft: var(--vp-c-red-soft);
 
-  --vp-c-bg: color-mix(in srgb, var(--vp-c-brand-soft) 5%, #ffffff);
+  /* 背景帶微量品牌色調，營造溫暖感 */
+  --vp-c-bg: oklch(0.985 0.005 175);
 
-  --vp-c-text-1: rgba(60, 60, 67, 0.9);
-  --vp-c-text-2: rgba(60, 60, 67, 0.6);
+  /* 文字色帶品牌色調，避免純灰 */
+  --vp-c-text-1: oklch(0.28 0.01 175 / 0.9);
+  --vp-c-text-2: oklch(0.28 0.01 175 / 0.6);
 }
 
 .dark {
-  --vp-c-brand-1: #38ebdc;
-  --vp-c-brand-2: #4ccab9;
-  --vp-c-brand-3: #65dfd0;
-  --vp-c-brand-soft: #1d4642;
+  --vp-c-brand-1: oklch(0.82 0.12 175);
+  --vp-c-brand-2: oklch(0.72 0.10 175);
+  --vp-c-brand-3: oklch(0.77 0.11 175);
+  --vp-c-brand-soft: oklch(0.28 0.04 175);
 
-  --vp-c-bg: color-mix(in srgb, var(--vp-c-brand-soft) 8%, #1b1b1f);
+  --vp-c-bg: oklch(0.16 0.008 175);
 
-  --vp-c-text-1: rgba(255, 255, 245, 0.86);
-  --vp-c-text-2: rgba(235, 235, 245, 0.6);
+  --vp-c-text-1: oklch(0.95 0.005 175 / 0.86);
+  --vp-c-text-2: oklch(0.90 0.005 175 / 0.6);
 }
 
 /**
@@ -110,12 +113,12 @@
 :root {
   --vp-home-hero-name-color: transparent;
   --vp-home-hero-name-background: -webkit-linear-gradient(120deg,
-      #bd34fe 30%,
-      #41d1ff);
+      oklch(0.55 0.14 175) 30%,
+      oklch(0.75 0.12 175));
 
   --vp-home-hero-image-background-image: linear-gradient(-45deg,
-      #bd34fe 50%,
-      #47caff 50%);
+      oklch(0.55 0.14 175) 50%,
+      oklch(0.75 0.12 175) 50%);
   --vp-home-hero-image-filter: blur(44px);
 }
 
@@ -166,7 +169,10 @@ html {
 
 ::-webkit-scrollbar-thumb {
   border-radius: 2px;
-  background-color: #F0F0F0;
+  background-color: light-dark(
+    color-mix(in oklch, var(--vp-c-brand-1) 12%, #d4d4d4),
+    color-mix(in oklch, var(--vp-c-brand-1) 15%, #404040)
+  );
 }
 
 ::-webkit-scrollbar-track {
@@ -190,7 +196,10 @@ body {
 
 img {
   border-radius: 1rem;
-  border: solid 1px #F0F0F0;
+  border: solid 1px light-dark(
+    color-mix(in oklch, var(--vp-c-brand-1) 8%, #e8e8e8),
+    color-mix(in oklch, var(--vp-c-brand-1) 10%, #2a2a2a)
+  );
 }
 
 a {
@@ -208,6 +217,14 @@ a {
 
   a {
     text-decoration: underline !important;
+    text-underline-offset: 3px;
+    text-decoration-thickness: 1px;
+    text-decoration-color: color-mix(in oklch, var(--vp-c-brand-1) 40%, transparent);
+    transition: text-decoration-color 0.2s;
+  }
+
+  a:hover {
+    text-decoration-color: var(--vp-c-brand-1);
   }
 
   h1,
@@ -222,17 +239,19 @@ a {
   }
 
   h1 {
-    font-size: 2rem;
+    font-size: clamp(1.75rem, 1.5rem + 1.2vw, 2.5rem);
     font-weight: 900;
+    margin-bottom: 0.5rem;
   }
 
   /* 章節間距加大，營造呼吸感 */
   h2 {
     counter-increment: section;
     position: relative;
-    margin-top: 5rem;
-    padding-top: 3.5rem;
+    margin-top: 4rem;
+    padding-top: 3rem;
     border-top: none;
+    font-size: clamp(1.25rem, 1rem + 0.8vw, 1.75rem);
   }
 
   h2 .header-anchor {
@@ -246,31 +265,32 @@ a {
     position: absolute;
     top: 0;
     left: 0;
-    font-size: 3rem;
-    font-weight: 700;
+    font-size: 2.5rem;
+    font-weight: 800;
     color: var(--vp-c-brand-soft);
     line-height: 1;
     font-style: italic;
     margin-left: -0.05em;
+    opacity: 0.7;
   }
 
-  /* 引用區塊：左邊線 + 品牌色底 */
+  h3 {
+    margin-top: 2.5rem;
+    font-size: clamp(1.1rem, 1rem + 0.4vw, 1.35rem);
+  }
+
+  /* 引用區塊：品牌色背景 + 細邊框 */
   blockquote {
-    border-left: 3px solid var(--vp-c-brand-1);
-    background-color: color-mix(in srgb, var(--vp-c-brand-soft) 40%, transparent);
+    background-color: color-mix(in srgb, var(--vp-c-brand-soft) 35%, transparent);
+    border: 1px solid color-mix(in srgb, var(--vp-c-brand-1) 15%, transparent);
     padding: 1.25rem 1.5rem;
     margin: 1.5rem 0;
     color: var(--vp-c-text-2);
-    border-radius: 0 0.5rem 0.5rem 0;
+    border-radius: 0.5rem;
   }
 
   blockquote p {
     margin: 0.5rem 0;
-  }
-
-  /* 作品區塊：h3 之間加大間距與分隔線 */
-  h3 {
-    margin-top: 2.5rem;
   }
 
   /* 第一個 h3 或緊接 h2 後的 h3 不需要分隔線 */
@@ -286,14 +306,15 @@ a {
   }
 
   blockquote {
-    background-color: color-mix(in srgb, var(--vp-c-brand-soft) 40%, transparent);
-    border-left-color: var(--vp-c-brand-1);
+    background-color: color-mix(in srgb, var(--vp-c-brand-soft) 35%, transparent);
+    border-color: color-mix(in srgb, var(--vp-c-brand-1) 20%, transparent);
   }
 }
 
 .VPSidebarItem .VPLink {
   padding: 0.25rem 0rem;
-  transition: padding-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: padding-left 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              color 0.2s;
 }
 
 .VPSidebarItem .VPLink:hover {
@@ -309,6 +330,30 @@ body {
   height: 80vw;
   aspect-ratio: 1;
   max-height: 688px;
+  border: none !important;
+}
+
+/* 水平分隔線：品牌色調漸層 */
+.vp-doc hr {
+  border: none;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in oklch, var(--vp-c-brand-1) 30%, transparent) 50%,
+    transparent
+  );
+  margin: 2.5rem 0;
+}
+
+/* 首頁專案展示區塊 h3 連結：卡片化 hover 效果 */
+.vp-doc h3 a {
+  display: inline-block;
+  transition: color 0.2s;
+}
+
+.vp-doc h3 a:hover {
+  color: var(--vp-c-brand-1);
 }
 
 /* 用於 .vitepress\plugin\markdown-it-code-block-name.ts */
@@ -336,16 +381,13 @@ body {
 
   .VPDocAside,
   #VPSidebarNav {
-    opacity: 0.05;
-    filter: blur(2px);
-    transition-duration: 0.6s;
+    opacity: 0.25;
+    filter: blur(0px);
+    transition-duration: 0.4s;
 
     &:hover {
       opacity: 1;
-      filter: blur(0px);
     }
-
-    /* When #VPSidebarNav contains an element with class .article-overview */
 
   }
 

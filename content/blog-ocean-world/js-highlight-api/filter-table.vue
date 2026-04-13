@@ -1,16 +1,16 @@
 <template>
-  <div class="w-full border rounded p-2">
-    <div class="border rounded p-2 w-full">
+  <div class="w-full border border-gray-200 dark:border-gray-700 rounded p-2">
+    <div class="border border-gray-200 dark:border-gray-700 rounded p-2 w-full">
       <input
         v-model="keyword"
         type="text"
         placeholder="輸入關鍵字篩選資料"
-        class="w-full"
+        class="w-full bg-transparent outline-none"
       >
     </div>
 
     <div class="h-[25dvh] md:h-[32dvh] overflow-auto mt-2">
-      <table class="w-full !table !m-0">
+      <table class="w-full table! m-0!">
         <thead>
           <tr>
             <th

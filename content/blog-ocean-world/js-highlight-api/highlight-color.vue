@@ -1,6 +1,6 @@
 <template>
   <div ref="tableRef">
-    <div class=" flex items-center gap-1 border rounded p-2 mb-2">
+    <div class="flex items-center gap-1 border border-gray-200 dark:border-gray-700 rounded p-2 mb-2">
       <label>背景顏色</label>
       <input
         v-model="style.backgroundColor"

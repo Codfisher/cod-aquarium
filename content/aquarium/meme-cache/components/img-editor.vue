@@ -79,7 +79,7 @@
       v-model:open="layoutSettingVisible"
       :overlay="false"
       side="bottom"
-      class="z-[100] border border-[#EEE] opacity-95"
+      class="z-100 border border-gray-200 dark:border-gray-600 opacity-95"
       :ui="{
         header: 'min-h-auto ',
         body: 'grid grid-cols-4 gap-1',
@@ -106,7 +106,7 @@
           <div
             v-for="(item, i) in settingPresetList"
             :key="i"
-            class="text p-3 border border-[#DDD] rounded text-sm cursor-pointer"
+            class="text p-3 border border-gray-300 dark:border-gray-600 rounded text-sm cursor-pointer"
             @click="presetStyle(item.data)"
           >
             {{ item.label }}
