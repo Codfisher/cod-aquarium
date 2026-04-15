@@ -186,7 +186,7 @@
 import type { DropdownMenuItem } from '@nuxt/ui'
 import type { MemeData } from './type'
 import UModal from '@nuxt/ui/components/Modal.vue'
-import { promiseTimeout, useActiveElement, useColorMode, useElementSize, useWindowSize, watchThrottled } from '@vueuse/core'
+import { promiseTimeout, useActiveElement, useColorMode, useElementSize, useWebWorkerFn, useWindowSize, watchThrottled } from '@vueuse/core'
 import { snapdom } from '@zumer/snapdom'
 import Fuse from 'fuse.js'
 import { filter, isTruthy, pipe, shuffle } from 'remeda'
@@ -212,27 +212,11 @@ const overlay = useOverlay()
 
 const windowSize = reactive(useWindowSize())
 
-const { memeDataMap } = useMemeData()
+const { memeDataMap, memeDataList } = useMemeData()
 const activeElement = useActiveElement()
 function handleEnter() {
   activeElement.value?.blur()
 }
-
-const fuse = new Fuse<MemeData>([], {
-  keys: [
-    'describe',
-    'ocr',
-    {
-      name: 'keyword',
-      weight: 2,
-    },
-  ],
-  ignoreLocation: true,
-})
-watch(memeDataMap, (data) => {
-  const list = [...data.values()].reverse()
-  fuse.setCollection(list)
-})
 
 const inputRef = useTemplateRef('inputRef')
 const keyword = ref('')
@@ -290,53 +274,78 @@ function handleSelect(data: MemeData) {
   editorVisible.value = true
 }
 
-const fuseSearchKeyList: Array<keyof MemeData> = ['describe', 'ocr', 'keyword']
+const { workerFn: searchMemeWorker } = useWebWorkerFn(
+  (dataList: MemeData[], input: string) => {
+    const FUSE_MIN_LENGTH = 1
+    const SEARCH_KEY_LIST: Array<keyof MemeData> = ['describe', 'ocr', 'keyword']
 
-function matchByIncludes(item: MemeData, term: string): boolean {
-  return fuseSearchKeyList.some((key) => item[key].includes(term))
-}
+    /** 空格表示多單字 AND 查詢 */
+    const termList = input.split(/\s+/).filter(Boolean)
+    const firstTerm = termList[0]
+    if (!firstTerm)
+      return []
 
-const FUSE_MIN_LENGTH = 1
-function searchMeme(input: string): MemeData[] {
-  /** 空個表示多單字 AND 查詢 */
-  const termList = input.split(/\s+/).filter(Boolean)
-  const firstTerm = termList[0]
-  if (!firstTerm)
-    return []
+    function matchByIncludes(item: MemeData, term: string): boolean {
+      return SEARCH_KEY_LIST.some((key) => item[key].includes(term))
+    }
 
-  const allShort = termList.every((term) => term.length <= FUSE_MIN_LENGTH)
+    const allShort = termList.every((term) => term.length <= FUSE_MIN_LENGTH)
 
-  // 所有詞都很短時，全部用精確匹配
-  if (allShort) {
-    const allList = [...memeDataMap.value.values()].reverse()
-    return allList.filter((item) =>
-      termList.every((term) => matchByIncludes(item, term)),
-    )
-  }
+    // 所有詞都很短時，全部用精確匹配
+    if (allShort) {
+      return dataList.filter((item) =>
+        termList.every((term) => matchByIncludes(item, term)),
+      )
+    }
 
-  // 資料依序對每個詞進行模糊過濾
-  const fuseResultList = fuse.search(firstTerm).map(({ item }) => item)
-  if (termList.length === 1)
-    return fuseResultList
+    const shortTermList = termList.filter((term) => term.length <= FUSE_MIN_LENGTH)
+    const longTermList = termList.filter((term) => term.length > FUSE_MIN_LENGTH)
 
-  const remainingTermList = termList.slice(1)
-  return fuseResultList.filter((item) =>
-    remainingTermList.every((term) => {
-      if (term.length <= FUSE_MIN_LENGTH)
-        return matchByIncludes(item, term)
+    // 先用短詞精確匹配縮小範圍
+    let resultList = shortTermList.length > 0
+      ? dataList.filter((item) =>
+          shortTermList.every((term) => matchByIncludes(item, term)),
+        )
+      : dataList
 
-      return fuse.search(term).some(({ item: matched }) => matched === item)
-    }),
-  )
-}
+    if (longTermList.length === 0)
+      return resultList
 
-watchThrottled(() => [keyword.value, memeDataMap.value], () => {
+    const fuse = new Fuse<MemeData>(resultList, {
+      keys: [
+        'describe',
+        { name: 'ocr', weight: 2 },
+        { name: 'keyword', weight: 2 },
+      ],
+      ignoreLocation: true,
+    })
+
+    // 資料依序對每個長詞進行模糊過濾
+    const primaryTerm = longTermList[0]!
+    resultList = fuse.search(primaryTerm).map(({ item }) => item)
+
+    for (const term of longTermList.slice(1)) {
+      resultList = resultList.filter((item) =>
+        fuse.search(term).some(({ item: matched }) => matched === item),
+      )
+    }
+
+    return resultList
+  },
+  {
+    dependencies: [
+      'https://cdn.jsdelivr.net/npm/fuse.js@7.1.0/dist/fuse.min.js',
+    ],
+  },
+)
+
+watchThrottled(() => [keyword.value, memeDataMap.value], async () => {
   if (!keyword.value) {
-    filteredList.value = [...memeDataMap.value.values()].reverse()
+    filteredList.value = memeDataList.value
     return
   }
 
-  filteredList.value = searchMeme(keyword.value)
+  filteredList.value = await searchMemeWorker(memeDataList.value, keyword.value)
 }, {
   deep: true,
   throttle: 300,
