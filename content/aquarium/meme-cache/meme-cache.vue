@@ -276,13 +276,21 @@ function handleSelect(data: MemeData) {
 
 const { search: searchMeme } = useMemeSearch()
 
+let searchId = 0
 watchThrottled(() => [keyword.value, memeDataMap.value], async () => {
+  const currentId = ++searchId
+
   if (!keyword.value) {
-    filteredList.value = memeDataList.value
+    filteredList.value = shuffle(memeDataList.value)
     return
   }
 
-  filteredList.value = await searchMeme(memeDataList.value, keyword.value)
+  const result = await searchMeme(memeDataList.value, keyword.value)
+  // 避免舊的非同步結果覆蓋新的搜尋
+  if (currentId !== searchId)
+    return
+
+  filteredList.value = result
 }, {
   deep: true,
   throttle: 300,
