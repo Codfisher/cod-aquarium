@@ -1,12 +1,12 @@
 import { randomUUID } from 'node:crypto'
-import { createReadStream, createWriteStream, existsSync, readFileSync } from 'node:fs'
-import { readdir, readFile, rename, unlink, writeFile } from 'node:fs/promises'
+import { createReadStream, createWriteStream, existsSync } from 'node:fs'
+import { readdir, readFile, unlink, writeFile } from 'node:fs/promises'
 import path from 'node:path'
-import process, { nextTick } from 'node:process'
+import process from 'node:process'
 import readline from 'node:readline/promises'
 import { GoogleGenAI } from '@google/genai'
 import PQueue from 'p-queue'
-import { chunk, filter, pipe, tap } from 'remeda'
+import { filter, pipe } from 'remeda'
 import sharp from 'sharp'
 import phash from 'sharp-phash'
 import distance from 'sharp-phash/distance'
@@ -310,11 +310,15 @@ async function main() {
       },
       {
         text: [
-          '使用正體中文描述圖片，句子越精簡越好，描述人物、景色、情緒、出自甚麼作品，不要任何格式，忽略浮水印',
-          '若有文字，則說明有甚麼文字，否則忽略',
-          '若為諧音雙關，則說明原始文句，否則忽略',
-          '最後加上關鍵字同義詞，使用,分隔',
-        ].join('。'),
+          '分析圖片，回傳 JSON（不要 markdown）：',
+          '{"describe":"…","ocr":"…","keyword":"…"}',
+          '',
+          'describe：正體中文精簡描述主體、情緒、出處作品名。',
+          '  禁止寫「此為網路迷因」「背景模糊」「無文字」「無人物」「來源不明」。',
+          '  諧音雙關須說明原始文句。忽略浮水印。',
+          'ocr：圖上所有可見文字，原樣抄錄，多段以空格分隔。無文字則留空字串。',
+          'keyword：搜尋用關鍵字與同義詞，逗號分隔。',
+        ].join('\n'),
       },
     ]
 
@@ -322,14 +326,18 @@ async function main() {
       // model: 'gemini-2.5-pro',
       model: 'gemini-2.5-flash',
       contents,
+      config: {
+        responseMimeType: 'application/json',
+      },
     })
 
+    const parsed = JSON.parse(response.text ?? '{}')
     const result = pipe(
       {
         file: path.basename(filePath),
-        describe: response.text,
-        ocr: '',
-        keyword: '',
+        describe: parsed.describe ?? '',
+        ocr: parsed.ocr ?? '',
+        keyword: parsed.keyword ?? '',
       },
       (data) => JSON.stringify(data).replaceAll('\n', ''),
     )
