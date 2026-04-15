@@ -290,13 +290,53 @@ function handleSelect(data: MemeData) {
   editorVisible.value = true
 }
 
+const fuseSearchKeyList: Array<keyof MemeData> = ['describe', 'ocr', 'keyword']
+
+function matchByIncludes(item: MemeData, term: string): boolean {
+  return fuseSearchKeyList.some((key) => item[key].includes(term))
+}
+
+const FUSE_MIN_LENGTH = 1
+function searchMeme(input: string): MemeData[] {
+  /** 空個表示多單字 AND 查詢 */
+  const termList = input.split(/\s+/).filter(Boolean)
+  const firstTerm = termList[0]
+  if (!firstTerm)
+    return []
+
+  const allShort = termList.every((term) => term.length <= FUSE_MIN_LENGTH)
+
+  // 所有詞都很短時，全部用精確匹配
+  if (allShort) {
+    const allList = [...memeDataMap.value.values()].reverse()
+    return allList.filter((item) =>
+      termList.every((term) => matchByIncludes(item, term)),
+    )
+  }
+
+  // 資料依序對每個詞進行模糊過濾
+  const fuseResultList = fuse.search(firstTerm).map(({ item }) => item)
+  if (termList.length === 1)
+    return fuseResultList
+
+  const remainingTermList = termList.slice(1)
+  return fuseResultList.filter((item) =>
+    remainingTermList.every((term) => {
+      if (term.length <= FUSE_MIN_LENGTH)
+        return matchByIncludes(item, term)
+
+      return fuse.search(term).some(({ item: matched }) => matched === item)
+    }),
+  )
+}
+
 watchThrottled(() => [keyword.value, memeDataMap.value], () => {
   if (!keyword.value) {
     filteredList.value = [...memeDataMap.value.values()].reverse()
     return
   }
 
-  filteredList.value = fuse.search(keyword.value).map(({ item }) => item)
+  filteredList.value = searchMeme(keyword.value)
 }, {
   deep: true,
   throttle: 300,
