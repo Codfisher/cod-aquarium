@@ -1,6 +1,6 @@
 import { throttle } from 'lodash-es'
 import { omit } from 'remeda'
-import { onBeforeUnmount, shallowRef, triggerRef } from 'vue'
+import { computed, onBeforeUnmount, shallowRef, triggerRef } from 'vue'
 import { type MemeData, memeDataSchema } from '../type'
 
 /** 串流讀取 ndjson 檔案 */
@@ -49,6 +49,8 @@ async function consumeNdjsonPipeline<T = unknown>(
 
 export function useMemeData() {
   const memeDataMap = shallowRef(new Map<string, MemeData>())
+  const memeDataList = computed(() => [...memeDataMap.value.values()].reverse())
+
   const triggerMemeData = throttle(() => {
     triggerRef(memeDataMap)
   }, 500)
@@ -112,5 +114,5 @@ export function useMemeData() {
     controller.abort()
   })
 
-  return { memeDataMap }
+  return { memeDataMap, memeDataList }
 }

@@ -188,7 +188,6 @@ import type { MemeData } from './type'
 import UModal from '@nuxt/ui/components/Modal.vue'
 import { promiseTimeout, useActiveElement, useColorMode, useElementSize, useWindowSize, watchThrottled } from '@vueuse/core'
 import { snapdom } from '@zumer/snapdom'
-import Fuse from 'fuse.js'
 import { filter, isTruthy, pipe, shuffle } from 'remeda'
 import { computed, h, onMounted, reactive, ref, shallowRef, useTemplateRef, watch } from 'vue'
 import { nextFrame } from '../../../web/common/utils'
@@ -196,6 +195,7 @@ import { usePageNoScroll } from '../../../web/composables/use-page-no-scroll'
 import ImgEditor from './components/img-editor.vue'
 import ImgList from './components/img-list.vue'
 import { useMemeData } from './composables/use-meme-data'
+import { useMemeSearch } from './composables/use-meme-search'
 import { useStickyToolbar } from './composables/use-sticky-toolbar'
 
 const version = '0.5.0'
@@ -212,27 +212,11 @@ const overlay = useOverlay()
 
 const windowSize = reactive(useWindowSize())
 
-const { memeDataMap } = useMemeData()
+const { memeDataMap, memeDataList } = useMemeData()
 const activeElement = useActiveElement()
 function handleEnter() {
   activeElement.value?.blur()
 }
-
-const fuse = new Fuse<MemeData>([], {
-  keys: [
-    'describe',
-    'ocr',
-    {
-      name: 'keyword',
-      weight: 2,
-    },
-  ],
-  ignoreLocation: true,
-})
-watch(memeDataMap, (data) => {
-  const list = [...data.values()].reverse()
-  fuse.setCollection(list)
-})
 
 const inputRef = useTemplateRef('inputRef')
 const keyword = ref('')
@@ -290,13 +274,23 @@ function handleSelect(data: MemeData) {
   editorVisible.value = true
 }
 
-watchThrottled(() => [keyword.value, memeDataMap.value], () => {
+const { search: searchMeme } = useMemeSearch()
+
+let searchId = 0
+watchThrottled(() => [keyword.value, memeDataMap.value], async () => {
+  const currentId = ++searchId
+
   if (!keyword.value) {
-    filteredList.value = [...memeDataMap.value.values()].reverse()
+    filteredList.value = shuffle(memeDataList.value)
     return
   }
 
-  filteredList.value = fuse.search(keyword.value).map(({ item }) => item)
+  const result = await searchMeme(memeDataList.value, keyword.value)
+  // 避免舊的非同步結果覆蓋新的搜尋
+  if (currentId !== searchId)
+    return
+
+  filteredList.value = result
 }, {
   deep: true,
   throttle: 300,

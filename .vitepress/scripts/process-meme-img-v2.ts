@@ -1,12 +1,12 @@
 import { randomUUID } from 'node:crypto'
-import { createReadStream, createWriteStream, existsSync, readFileSync } from 'node:fs'
-import { readdir, readFile, rename, unlink, writeFile } from 'node:fs/promises'
+import { createReadStream, createWriteStream, existsSync } from 'node:fs'
+import { readdir, readFile, unlink, writeFile } from 'node:fs/promises'
 import path from 'node:path'
-import process, { nextTick } from 'node:process'
+import process from 'node:process'
 import readline from 'node:readline/promises'
 import { GoogleGenAI } from '@google/genai'
 import PQueue from 'p-queue'
-import { chunk, filter, pipe, tap } from 'remeda'
+import { filter, pipe } from 'remeda'
 import sharp from 'sharp'
 import phash from 'sharp-phash'
 import distance from 'sharp-phash/distance'
@@ -310,11 +310,23 @@ async function main() {
       },
       {
         text: [
-          '使用正體中文描述圖片，句子越精簡越好，描述人物、景色、情緒、出自甚麼作品，不要任何格式，忽略浮水印',
-          '若有文字，則說明有甚麼文字，否則忽略',
-          '若為諧音雙關，則說明原始文句，否則忽略',
-          '最後加上關鍵字同義詞，使用,分隔',
-        ].join('。'),
+          '分析圖片，回傳 JSON（不要 markdown）：',
+          '{"describe":"…","ocr":"…","keyword":"…"}',
+          '',
+          'describe：用正體中文寫 1-2 句話，只寫主體特徵、表情、出處作品名。',
+          '  禁止：「此為網路迷因」「背景模糊」「無文字」「無人物」「來源不明」「出處不明」「整體呈現…情緒」。',
+          '  禁止：「圖片顯示」「畫面中央是」等開頭贅詞。',
+          '  禁止：描述背景細節、服裝細節、氛圍總結。',
+          '  圖上文字不要寫進 describe，放 ocr 即可。',
+          '  諧音雙關格式：「X」為「Y」諧音。忽略浮水印。',
+          'ocr：圖上所有可見文字，原樣抄錄，多段以空格分隔。無文字則留空字串。',
+          'keyword：搜尋用關鍵字與同義詞，逗號分隔。諧音雙關，則要加上「諧音」',
+          '',
+          '範例：',
+          '紅色星際戰士頭盔與機械手，黃光眼，黑色鳥形徽章。出自《戰鎚40,000》',
+          '橙色兔耳熊絨毛玩具手持小斧從牆角探頭，神情滑稽卻帶威脅',
+          '白鴨站在趴臥狗背上，狗神情無奈，「背感鴨力」為「壓力」諧音',
+        ].join('\n'),
       },
     ]
 
@@ -322,14 +334,18 @@ async function main() {
       // model: 'gemini-2.5-pro',
       model: 'gemini-2.5-flash',
       contents,
+      config: {
+        responseMimeType: 'application/json',
+      },
     })
 
+    const parsed = JSON.parse(response.text ?? '{}')
     const result = pipe(
       {
         file: path.basename(filePath),
-        describe: response.text,
-        ocr: '',
-        keyword: '',
+        describe: parsed.describe ?? '',
+        ocr: parsed.ocr ?? '',
+        keyword: parsed.keyword ?? '',
       },
       (data) => JSON.stringify(data).replaceAll('\n', ''),
     )
