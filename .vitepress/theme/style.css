@@ -76,6 +76,16 @@
   /* 文字色帶品牌色調，避免純灰 */
   --vp-c-text-1: oklch(0.28 0.01 175 / 0.9);
   --vp-c-text-2: oklch(0.28 0.01 175 / 0.6);
+
+  /* 程式碼區塊固定暗黑模式 */
+  --vp-code-block-bg: #24292e;
+  --vp-code-block-color: rgba(255, 255, 255, 0.78);
+  --vp-code-line-number-color: rgba(255, 255, 255, 0.3);
+  --vp-code-lang-color: rgba(255, 255, 255, 0.3);
+  --vp-code-line-highlight-color: rgba(255, 255, 255, 0.08);
+  --vp-code-copy-code-border-color: rgba(255, 255, 255, 0.1);
+  --vp-code-copy-code-hover-border-color: rgba(255, 255, 255, 0.2);
+  --vp-code-block-divider-color: rgba(255, 255, 255, 0.1);
 }
 
 .dark {

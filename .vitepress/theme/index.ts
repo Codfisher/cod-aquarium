@@ -7,6 +7,7 @@ import DefaultTheme from 'vitepress/theme'
 import { h } from 'vue'
 import { createI18n } from 'vue-i18n'
 import BaseImg from '../../web/components/base-img.vue'
+import StackBlitzEmbed from '../../web/components/stackblitz-embed.vue'
 // import VConsole from 'vconsole'
 import Layout from './layout.vue'
 import '../ssr-guard'
@@ -27,6 +28,7 @@ export default {
   Layout: () => h(Layout),
   enhanceApp({ app, router, siteData }) {
     app.component('BaseImg', BaseImg)
+    app.component('StackBlitzEmbed', StackBlitzEmbed)
     app.use(createPinia())
     app.use(i18n)
 

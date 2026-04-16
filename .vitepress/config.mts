@@ -180,6 +180,10 @@ export default ({ mode }: { mode: string }) => {
     lastUpdated: true,
     markdown: {
       lineNumbers: true,
+      theme: {
+        light: 'github-dark',
+        dark: 'github-dark',
+      },
       config(md) {
         md.use((md) => markdownItBaseImg(md, mode))
         md.use(markdownItNowrap)
