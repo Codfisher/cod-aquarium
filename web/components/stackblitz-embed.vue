@@ -2,17 +2,18 @@
   <div
     ref="containerRef"
     class="stackblitz-embed"
+    :style="{ height: normalizedHeight }"
   />
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import type { Project } from '@stackblitz/sdk';
 
 interface Props {
   project: Project;
   openFile?: string;
-  height?: number;
+  height?: number | string;
   view?: 'preview' | 'editor' | 'default';
 }
 
@@ -22,6 +23,13 @@ const props = withDefaults(defineProps<Props>(), {
   view: 'preview',
 });
 
+/** 數字自動補 px，字串原樣使用（支援 vh、rem 等 CSS 單位） */
+const normalizedHeight = computed(() =>
+  typeof props.height === 'number'
+    ? `${props.height}px`
+    : props.height,
+);
+
 const containerRef = ref<HTMLElement>();
 
 onMounted(async () => {
@@ -29,9 +37,15 @@ onMounted(async () => {
     return;
 
   const sdk = await import('@stackblitz/sdk');
+
+  /** SDK 只接受 number，字串單位時改用 100% 撐滿已定高的容器 */
+  const sdkHeight = typeof props.height === 'number'
+    ? props.height
+    : containerRef.value.clientHeight;
+
   sdk.default.embedProject(containerRef.value, props.project, {
     openFile: props.openFile,
-    height: props.height,
+    height: sdkHeight,
     view: props.view,
     forceEmbedLayout: true,
   });
