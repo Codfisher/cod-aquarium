@@ -28,6 +28,44 @@ const MEME_META_EXTEND_PATH = path.resolve(__dirname, '../../content/public/meme
 /** 圖片相似度閾值 */
 const IMG_SIMILARITY_THRESHOLD = 5
 
+/** 計算圖片模糊程度（Laplacian Variance），分數越低越模糊 */
+async function computeBlurScore(filePath: string): Promise<number> {
+  const { data, info } = await sharp(filePath)
+    .grayscale()
+    .raw()
+    .toBuffer({ resolveWithObject: true })
+
+  const { width, height } = info
+
+  if (width <= 2 || height <= 2) {
+    return 0
+  }
+
+  let sum = 0
+  let sumSquare = 0
+  let count = 0
+
+  for (let y = 1; y < height - 1; y++) {
+    for (let x = 1; x < width - 1; x++) {
+      const index = y * width + x
+      const center = data[index] ?? 0
+      const top = data[(y - 1) * width + x] ?? 0
+      const bottom = data[(y + 1) * width + x] ?? 0
+      const left = data[y * width + (x - 1)] ?? 0
+      const right = data[y * width + (x + 1)] ?? 0
+      const laplacian = -4 * center + top + bottom + left + right
+
+      sum += laplacian
+      sumSquare += laplacian * laplacian
+      count++
+    }
+  }
+
+  const mean = sum / count
+  const variance = sumSquare / count - mean * mean
+  return Math.round(variance * 100) / 100
+}
+
 async function readExistingFilenames(ndjsonPath: string): Promise<Set<string>> {
   const names = new Set<string>()
   if (!existsSync(ndjsonPath))
@@ -284,6 +322,36 @@ async function importSourceMeme() {
   console.log(`[importSourceMeme] 已匯入 ${count} 張圖片`)
 }
 
+/** 為既有 ndjson 資料補上 blurScore */
+async function backfillBlurScore() {
+  const raw = await readFile(MEME_DATA_PATH, 'utf8')
+  const lineList = raw.split(/\r?\n/).filter((line) => line.trim())
+
+  const queue = new PQueue({ concurrency: 10 })
+  let updatedCount = 0
+
+  const updatedLineList: string[] = await Promise.all(
+    lineList.map((line) => queue.add<string>(async () => {
+      const obj = JSON.parse(line)
+      if (typeof obj.blurScore === 'number') {
+        return line
+      }
+
+      const filePath = path.resolve(MEME_FILE_PATH, obj.file)
+      if (!existsSync(filePath)) {
+        return line
+      }
+
+      obj.blurScore = await computeBlurScore(filePath)
+      updatedCount++
+      return JSON.stringify(obj).replaceAll('\n', '')
+    })),
+  )
+
+  await writeFile(MEME_DATA_PATH, `${updatedLineList.join('\n')}\n`, 'utf8')
+  console.log(`[backfillBlurScore] 已更新 ${updatedCount} 筆資料`)
+}
+
 async function main() {
   // await dedupeMeme()
   await importSourceMeme()
@@ -339,6 +407,8 @@ async function main() {
       },
     })
 
+    const blurScore = await computeBlurScore(filePath)
+
     const parsed = JSON.parse(response.text ?? '{}')
     const result = pipe(
       {
@@ -346,6 +416,7 @@ async function main() {
         describe: parsed.describe ?? '',
         ocr: parsed.ocr ?? '',
         keyword: parsed.keyword ?? '',
+        blurScore,
       },
       (data) => JSON.stringify(data).replaceAll('\n', ''),
     )
@@ -373,6 +444,8 @@ async function main() {
   )
   console.log('[main] done')
 }
+
+// backfillBlurScore().catch(console.error)
 
 main().catch((e) => {
   console.error(e)
