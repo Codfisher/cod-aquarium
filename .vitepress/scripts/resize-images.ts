@@ -82,7 +82,8 @@ export async function generateImages() {
 
           return sharp(img)
             .resize({ width })
-            .webp({ quality: 60, smartSubsample: true })
+            .sharpen({ sigma: 0.5 })
+            .webp({ quality: 80, effort: 6 })
             .toFile(outputPath)
         }),
         // 輸出一張原圖 quality 60 版本
@@ -93,7 +94,7 @@ export async function generateImages() {
           )
 
           list.push(sharp(img)
-            .webp({ quality: 60, smartSubsample: true })
+            .webp({ quality: 80, effort: 6 })
             .toFile(outputPath))
 
           return list
