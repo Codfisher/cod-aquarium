@@ -1,3 +1,4 @@
+import type { Buffer } from 'node:buffer'
 import { randomUUID } from 'node:crypto'
 import { createReadStream, createWriteStream, existsSync } from 'node:fs'
 import { readdir, readFile, unlink, writeFile } from 'node:fs/promises'
@@ -28,9 +29,63 @@ const MEME_META_EXTEND_PATH = path.resolve(__dirname, '../../content/public/meme
 /** 圖片相似度閾值 */
 const IMG_SIMILARITY_THRESHOLD = 5
 
-/** 計算圖片模糊程度（Laplacian Variance），分數越低越模糊 */
+const BLUR_SCORE_RESIZE = 200
+const BLUR_SCORE_GRID = 4
+
+/** 計算單一區塊的 Laplacian P75 */
+function computeBlockP75(
+  data: Buffer<ArrayBufferLike>,
+  width: number,
+  startX: number,
+  startY: number,
+  blockWidth: number,
+  blockHeight: number,
+): number {
+  const bucketList = new Uint32Array(1021)
+  let total = 0
+
+  const endY = startY + blockHeight
+  const endX = startX + blockWidth
+
+  for (let y = Math.max(startY, 1); y < Math.min(endY, endY - 1); y++) {
+    for (let x = Math.max(startX, 1); x < Math.min(endX, endX - 1); x++) {
+      const index = y * width + x
+      const center = data[index] ?? 0
+      const top = data[(y - 1) * width + x] ?? 0
+      const bottom = data[(y + 1) * width + x] ?? 0
+      const left = data[y * width + (x - 1)] ?? 0
+      const right = data[y * width + (x + 1)] ?? 0
+      const value = Math.abs(-4 * center + top + bottom + left + right)
+
+      bucketList[value] = (bucketList[value] ?? 0) + 1
+      total++
+    }
+  }
+
+  if (total === 0)
+    return 0
+
+  const p75Target = Math.floor(total * 0.75)
+  let cumulative = 0
+  for (let i = 0; i < bucketList.length; i++) {
+    cumulative += bucketList[i]!
+    if (cumulative > p75Target) {
+      return i
+    }
+  }
+
+  return 0
+}
+
+/** 計算圖片模糊程度（縮圖 + 分塊 Laplacian P75 的 P25），分數越低越模糊
+ *
+ * 1. 縮圖至 200px，降低文字與線稿邊緣的干擾
+ * 2. 分成 4×4 區塊，各自計算 Laplacian P75
+ * 3. 取區塊分數的第 25 百分位數，反映較弱區域的品質
+ */
 async function computeBlurScore(filePath: string): Promise<number> {
   const { data, info } = await sharp(filePath)
+    .resize(BLUR_SCORE_RESIZE, BLUR_SCORE_RESIZE, { fit: 'inside', withoutEnlargement: true })
     .grayscale()
     .raw()
     .toBuffer({ resolveWithObject: true })
@@ -41,29 +96,28 @@ async function computeBlurScore(filePath: string): Promise<number> {
     return 0
   }
 
-  let sum = 0
-  let sumSquare = 0
-  let count = 0
+  const grid = BLUR_SCORE_GRID
+  const blockWidth = Math.floor(width / grid)
+  const blockHeight = Math.floor(height / grid)
+  const blockScoreList: number[] = []
 
-  for (let y = 1; y < height - 1; y++) {
-    for (let x = 1; x < width - 1; x++) {
-      const index = y * width + x
-      const center = data[index] ?? 0
-      const top = data[(y - 1) * width + x] ?? 0
-      const bottom = data[(y + 1) * width + x] ?? 0
-      const left = data[y * width + (x - 1)] ?? 0
-      const right = data[y * width + (x + 1)] ?? 0
-      const laplacian = -4 * center + top + bottom + left + right
-
-      sum += laplacian
-      sumSquare += laplacian * laplacian
-      count++
+  for (let gy = 0; gy < grid; gy++) {
+    for (let gx = 0; gx < grid; gx++) {
+      const score = computeBlockP75(
+        data,
+        width,
+        gx * blockWidth,
+        gy * blockHeight,
+        blockWidth,
+        blockHeight,
+      )
+      blockScoreList.push(score)
     }
   }
 
-  const mean = sum / count
-  const variance = sumSquare / count - mean * mean
-  return Math.round(variance * 100) / 100
+  blockScoreList.sort((a, b) => a - b)
+  const p25Index = Math.floor(blockScoreList.length / 4)
+  return blockScoreList[p25Index] ?? 0
 }
 
 async function readExistingFilenames(ndjsonPath: string): Promise<Set<string>> {
@@ -445,8 +499,8 @@ async function main() {
   console.log('[main] done')
 }
 
-// backfillBlurScore().catch(console.error)
+backfillBlurScore().catch(console.error)
 
-main().catch((e) => {
-  console.error(e)
-})
+// main().catch((e) => {
+//   console.error(e)
+// })
