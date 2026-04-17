@@ -5,6 +5,7 @@ export const memeDataSchema = z.object({
   describe: z.string(),
   ocr: z.string(),
   keyword: z.string(),
+  blurScore: z.number().optional(),
 })
 export type MemeData = z.infer<typeof memeDataSchema>
 

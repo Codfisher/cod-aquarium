@@ -81,6 +81,30 @@
                 label="顯示細節"
               />
             </template>
+
+            <template #blur-filter>
+              <u-tooltip
+                text="過濾模糊圖片，分數由演算法自動評估"
+                :ui="{ content: 'z-[9999]' }"
+              >
+                <div class="flex items-center gap-3 text-sm">
+                  <span class="shrink-0">
+                    模糊度
+                  </span>
+                  <u-slider
+                    v-model="filterOptions.blurLevel"
+                    :min="0"
+                    :max="3"
+                    :step="1"
+                    size="xs"
+                    class="w-24"
+                  />
+                  <span class="text-xs opacity-60 shrink-0 tabular-nums">
+                    {{ blurLevelLabel }}
+                  </span>
+                </div>
+              </u-tooltip>
+            </template>
           </u-dropdown-menu>
         </div>
       </div>
@@ -188,7 +212,7 @@ import type { MemeData } from './type'
 import UModal from '@nuxt/ui/components/Modal.vue'
 import { promiseTimeout, useActiveElement, useColorMode, useElementSize, useWindowSize, watchThrottled } from '@vueuse/core'
 import { snapdom } from '@zumer/snapdom'
-import { filter, isTruthy, pipe, shuffle } from 'remeda'
+import { filter, isNullish, isTruthy, pipe, shuffle } from 'remeda'
 import { computed, h, onMounted, reactive, ref, shallowRef, useTemplateRef, watch } from 'vue'
 import { nextFrame } from '../../../web/common/utils'
 import { usePageNoScroll } from '../../../web/composables/use-page-no-scroll'
@@ -224,7 +248,17 @@ const settings = ref({
   detailVisible: false,
 })
 
-const filteredList = shallowRef<MemeData[]>([])
+const filterOptions = ref({
+  blurLevel: 0,
+})
+
+const BLUR_THRESHOLD_LIST = [0, 5, 15, 30] as const
+const blurThreshold = computed(() => BLUR_THRESHOLD_LIST[filterOptions.value.blurLevel] ?? 0)
+const BLUR_LEVEL_LABEL_LIST = ['全部', '略糊', '普通', '清晰'] as const
+const blurLevelLabel = computed(() => BLUR_LEVEL_LABEL_LIST[filterOptions.value.blurLevel] ?? '全部')
+
+const searchedList = shallowRef<MemeData[]>([])
+const filteredList = computed(() => filterList(searchedList.value))
 
 const mainMenuItems = pipe(
   [
@@ -232,11 +266,12 @@ const mainMenuItems = pipe(
       isDev
         ? { slot: 'detail' }
         : undefined,
+      { slot: 'blur-filter' },
       {
         icon: 'i-lets-icons:sort-random',
         label: '洗牌',
         onSelect() {
-          filteredList.value = shuffle(filteredList.value)
+          searchedList.value = shuffle(searchedList.value)
         },
       },
       {
@@ -276,12 +311,24 @@ function handleSelect(data: MemeData) {
 
 const { search: searchMeme } = useMemeSearch()
 
+function filterList(list: MemeData[]): MemeData[] {
+  const threshold = blurThreshold.value
+  if (threshold === 0)
+    return list
+
+  return list.filter((item) => {
+    if (isNullish(item.blurScore))
+      return true
+    return item.blurScore >= threshold
+  })
+}
+
 let searchId = 0
 watchThrottled(() => [keyword.value, memeDataMap.value], async () => {
   const currentId = ++searchId
 
   if (!keyword.value) {
-    filteredList.value = shuffle(memeDataList.value)
+    searchedList.value = shuffle(memeDataList.value)
     return
   }
 
@@ -290,7 +337,7 @@ watchThrottled(() => [keyword.value, memeDataMap.value], async () => {
   if (currentId !== searchId)
     return
 
-  filteredList.value = result
+  searchedList.value = result
 }, {
   deep: true,
   throttle: 300,

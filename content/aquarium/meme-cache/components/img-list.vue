@@ -43,6 +43,9 @@
             <div class="mt-2">
               keyword: {{ data.keyword }}
             </div>
+            <div class="mt-2">
+              blurScore: {{ data.blurScore }}
+            </div>
           </div>
         </div>
       </div>
