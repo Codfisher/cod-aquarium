@@ -84,7 +84,7 @@
 
             <template #blur-filter>
               <u-tooltip
-                text="過濾模糊圖片，分數由演算法自動評估"
+                text="過濾模糊圖片，分級由演算法自動評估"
                 :ui="{ content: 'z-[9999]' }"
               >
                 <div class="flex items-center gap-3 text-sm">
@@ -92,15 +92,15 @@
                     模糊度
                   </span>
                   <u-slider
-                    v-model="filterOptions.blurLevel"
+                    v-model="filterOptions.blurFilter"
                     :min="0"
-                    :max="3"
+                    :max="2"
                     :step="1"
                     size="xs"
                     class="w-24"
                   />
                   <span class="text-xs opacity-60 shrink-0 tabular-nums">
-                    {{ blurLevelLabel }}
+                    {{ blurFilterLabel }}
                   </span>
                 </div>
               </u-tooltip>
@@ -249,13 +249,12 @@ const settings = ref({
 })
 
 const filterOptions = ref({
-  blurLevel: 0,
+  /** 0 = 全部、1 = 排除非常模糊、2 = 只看清晰 */
+  blurFilter: 0,
 })
 
-const BLUR_THRESHOLD_LIST = [0, 5, 15, 30] as const
-const blurThreshold = computed(() => BLUR_THRESHOLD_LIST[filterOptions.value.blurLevel] ?? 0)
-const BLUR_LEVEL_LABEL_LIST = ['全部', '略糊', '普通', '清晰'] as const
-const blurLevelLabel = computed(() => BLUR_LEVEL_LABEL_LIST[filterOptions.value.blurLevel] ?? '全部')
+const BLUR_FILTER_LABEL_LIST = ['全部', '稍微模糊以上', '清晰'] as const
+const blurFilterLabel = computed(() => BLUR_FILTER_LABEL_LIST[filterOptions.value.blurFilter] ?? '全部')
 
 const searchedList = shallowRef<MemeData[]>([])
 const filteredList = computed(() => filterList(searchedList.value))
@@ -312,14 +311,15 @@ function handleSelect(data: MemeData) {
 const { search: searchMeme } = useMemeSearch()
 
 function filterList(list: MemeData[]): MemeData[] {
-  const threshold = blurThreshold.value
-  if (threshold === 0)
+  const filter = filterOptions.value.blurFilter
+  if (filter === 0)
     return list
 
+  const maxAllowedLevel = filter === 1 ? BlurLevel.LEVEL_1 : BlurLevel.LEVEL_0
   return list.filter((item) => {
-    if (isNullish(item.blurScore))
+    if (isNullish(item.blurLevel))
       return true
-    return item.blurScore >= threshold
+    return item.blurLevel <= maxAllowedLevel
   })
 }
 
