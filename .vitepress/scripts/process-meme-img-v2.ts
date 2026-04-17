@@ -1,4 +1,3 @@
-import type { Buffer } from 'node:buffer'
 import { randomUUID } from 'node:crypto'
 import { createReadStream, createWriteStream, existsSync } from 'node:fs'
 import { readdir, readFile, unlink, writeFile } from 'node:fs/promises'
@@ -11,6 +10,7 @@ import { filter, pipe } from 'remeda'
 import sharp from 'sharp'
 import phash from 'sharp-phash'
 import distance from 'sharp-phash/distance'
+import { computeBlurLevel } from '../utils/blur-estimator'
 
 const __dirname = import.meta.dirname
 
@@ -28,97 +28,6 @@ const MEME_META_EXTEND_PATH = path.resolve(__dirname, '../../content/public/meme
 
 /** 圖片相似度閾值 */
 const IMG_SIMILARITY_THRESHOLD = 5
-
-const BLUR_SCORE_RESIZE = 200
-const BLUR_SCORE_GRID = 4
-
-/** 計算單一區塊的 Laplacian P75 */
-function computeBlockP75(
-  data: Buffer<ArrayBufferLike>,
-  width: number,
-  startX: number,
-  startY: number,
-  blockWidth: number,
-  blockHeight: number,
-): number {
-  const bucketList = new Uint32Array(1021)
-  let total = 0
-
-  const endY = startY + blockHeight
-  const endX = startX + blockWidth
-
-  for (let y = Math.max(startY, 1); y < Math.min(endY, endY - 1); y++) {
-    for (let x = Math.max(startX, 1); x < Math.min(endX, endX - 1); x++) {
-      const index = y * width + x
-      const center = data[index] ?? 0
-      const top = data[(y - 1) * width + x] ?? 0
-      const bottom = data[(y + 1) * width + x] ?? 0
-      const left = data[y * width + (x - 1)] ?? 0
-      const right = data[y * width + (x + 1)] ?? 0
-      const value = Math.abs(-4 * center + top + bottom + left + right)
-
-      bucketList[value] = (bucketList[value] ?? 0) + 1
-      total++
-    }
-  }
-
-  if (total === 0)
-    return 0
-
-  const p75Target = Math.floor(total * 0.75)
-  let cumulative = 0
-  for (let i = 0; i < bucketList.length; i++) {
-    cumulative += bucketList[i]!
-    if (cumulative > p75Target) {
-      return i
-    }
-  }
-
-  return 0
-}
-
-/** 計算圖片模糊程度（縮圖 + 分塊 Laplacian P75 的 P25），分數越低越模糊
- *
- * 1. 縮圖至 200px，降低文字與線稿邊緣的干擾
- * 2. 分成 4×4 區塊，各自計算 Laplacian P75
- * 3. 取區塊分數的第 25 百分位數，反映較弱區域的品質
- */
-async function computeBlurScore(filePath: string): Promise<number> {
-  const { data, info } = await sharp(filePath)
-    .resize(BLUR_SCORE_RESIZE, BLUR_SCORE_RESIZE, { fit: 'inside', withoutEnlargement: true })
-    .grayscale()
-    .raw()
-    .toBuffer({ resolveWithObject: true })
-
-  const { width, height } = info
-
-  if (width <= 2 || height <= 2) {
-    return 0
-  }
-
-  const grid = BLUR_SCORE_GRID
-  const blockWidth = Math.floor(width / grid)
-  const blockHeight = Math.floor(height / grid)
-  const blockScoreList: number[] = []
-
-  for (let gy = 0; gy < grid; gy++) {
-    for (let gx = 0; gx < grid; gx++) {
-      const score = computeBlockP75(
-        data,
-        width,
-        gx * blockWidth,
-        gy * blockHeight,
-        blockWidth,
-        blockHeight,
-      )
-      blockScoreList.push(score)
-    }
-  }
-
-  blockScoreList.sort((a, b) => a - b)
-  const p25Index = Math.floor(blockScoreList.length / 4)
-  return blockScoreList[p25Index] ?? 0
-}
 
 async function readExistingFilenames(ndjsonPath: string): Promise<Set<string>> {
   const names = new Set<string>()
@@ -376,8 +285,8 @@ async function importSourceMeme() {
   console.log(`[importSourceMeme] 已匯入 ${count} 張圖片`)
 }
 
-/** 為既有 ndjson 資料補上 blurScore */
-async function backfillBlurScore() {
+/** 為既有 ndjson 資料補上 blurLevel */
+async function backfillBlurLevel() {
   const raw = await readFile(MEME_DATA_PATH, 'utf8')
   const lineList = raw.split(/\r?\n/).filter((line) => line.trim())
 
@@ -387,23 +296,21 @@ async function backfillBlurScore() {
   const updatedLineList: string[] = await Promise.all(
     lineList.map((line) => queue.add<string>(async () => {
       const obj = JSON.parse(line)
-      if (typeof obj.blurScore === 'number') {
-        return line
-      }
+      delete obj.blurScore
 
       const filePath = path.resolve(MEME_FILE_PATH, obj.file)
       if (!existsSync(filePath)) {
         return line
       }
 
-      obj.blurScore = await computeBlurScore(filePath)
+      obj.blurLevel = await computeBlurLevel(filePath)
       updatedCount++
       return JSON.stringify(obj).replaceAll('\n', '')
     })),
   )
 
   await writeFile(MEME_DATA_PATH, `${updatedLineList.join('\n')}\n`, 'utf8')
-  console.log(`[backfillBlurScore] 已更新 ${updatedCount} 筆資料`)
+  console.log(`[backfillBlurLevel] 已更新 ${updatedCount} 筆資料`)
 }
 
 async function main() {
@@ -461,7 +368,7 @@ async function main() {
       },
     })
 
-    const blurScore = await computeBlurScore(filePath)
+    const blurLevel = await computeBlurLevel(filePath)
 
     const parsed = JSON.parse(response.text ?? '{}')
     const result = pipe(
@@ -470,7 +377,7 @@ async function main() {
         describe: parsed.describe ?? '',
         ocr: parsed.ocr ?? '',
         keyword: parsed.keyword ?? '',
-        blurScore,
+        blurLevel,
       },
       (data) => JSON.stringify(data).replaceAll('\n', ''),
     )
@@ -499,7 +406,7 @@ async function main() {
   console.log('[main] done')
 }
 
-backfillBlurScore().catch(console.error)
+backfillBlurLevel().catch(console.error)
 
 // main().catch((e) => {
 //   console.error(e)
