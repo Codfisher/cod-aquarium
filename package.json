@@ -38,7 +38,7 @@
     "@iconify-json/mdi": "^1.2.3",
     "@intlify/unplugin-vue-i18n": "^11.0.3",
     "@mlc-ai/web-llm": "^0.2.79",
-    "@nuxt/ui": "4.4.0",
+    "@nuxt/ui": "4.6.1",
     "@types/lodash-es": "^4.17.12",
     "@types/node": "^22.15.30",
     "@types/peerjs": "^0.0.30",
