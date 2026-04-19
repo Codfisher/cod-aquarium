@@ -214,6 +214,7 @@ import { promiseTimeout, useActiveElement, useColorMode, useElementSize, useWind
 import { snapdom } from '@zumer/snapdom'
 import { filter, isNullish, isTruthy, pipe, shuffle } from 'remeda'
 import { computed, h, onMounted, reactive, ref, shallowRef, useTemplateRef, watch } from 'vue'
+import { BlurLevel } from '../../../.vitepress/utils/blur-level'
 import { nextFrame } from '../../../web/common/utils'
 import { usePageNoScroll } from '../../../web/composables/use-page-no-scroll'
 import ImgEditor from './components/img-editor.vue'

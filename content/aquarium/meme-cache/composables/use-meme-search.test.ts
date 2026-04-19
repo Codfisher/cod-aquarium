@@ -141,6 +141,16 @@ describe('searchMeme', () => {
 
     expect(fileList).toContain('target.webp')
   })
+
+  it('遺漏案例 - 葬禮', () => {
+    const dataList: MemeData[] = [
+      { file: 'target.webp', describe: '黑色相框，框緣飾以白色花朵，頂部有黑色緞帶與圓形花結。', ocr: '', keyword: '黑色相框, 空白相框, 遺照, 紀念相框, 悼念, 喪禮, 葬禮, 靈堂, 追思, 祭奠, 白花, 菊花, 緞帶, 花結, 莊嚴', blurLevel: 2 },
+    ]
+    const result = searchMeme(dataList, '葬禮')
+    const fileList = result.map((item) => item.file)
+
+    expect(fileList).toContain('target.webp')
+  })
 })
 
 describe('calcCharCoverage', () => {
