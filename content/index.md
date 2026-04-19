@@ -9,13 +9,9 @@ next: false
 aside: false
 ---
 
-<script setup>
-  import AniTest from '../web/components/ani-test.vue'
-</script>
-
 # 歡迎來到鱈魚的魚缸
 
-![鱈魚的魚缸](/cover.webp){class="aspect-[120/63]" .block}
+![鱈魚的魚缸](/cover.webp){class="aspect-[120/63]" .block fetchpriority="high" loading="eager" decoding="async"}
 
 大家好，我是鱈魚。( ´ ▽ ` )ﾉ
 
