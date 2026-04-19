@@ -17,6 +17,8 @@
     <u-slideover
       v-model:open="settingVisible"
       :overlay="false"
+      :dismissible="false"
+      :modal="false"
       side="bottom"
       class="z-100 border border-gray-300 dark:border-gray-600 opacity-95"
       :ui="{
@@ -239,7 +241,7 @@
                 class=""
                 :min="-180"
                 :max="180"
-                :step="5"
+                :step="1"
               />
 
               <u-button
@@ -313,6 +315,7 @@
     ref="toolbarRef"
     :style="toolbarStyle"
     class="toolbar absolute flex rounded pointer-events-auto text-white bg-black/50"
+    @pointerdown.stop
   >
     <u-button
       icon="i-lucide-settings-2"
@@ -321,6 +324,16 @@
       variant="subtitle"
       :class="{ 'text-primary': settingVisible }"
       @click="toggleSettingVisible()"
+    />
+
+    <u-button
+      icon="i-lucide-magnet"
+      class="p-2 duration-300"
+      size="lg"
+      variant="subtitle"
+      :class="{ 'text-primary': snapEnabled }"
+      :aria-label="snapEnabled ? '關閉自動對齊' : '開啟自動對齊'"
+      @click="snapEnabled = !snapEnabled"
     />
 
     <u-button
@@ -342,8 +355,8 @@
 
   <teleport to="body">
     <div
-      v-for="line, i in alignLineList"
-      :key="i"
+      v-for="line in alignLineList"
+      :key="`${line.class}-${line.style.left}-${line.style.top}`"
       class="align-line duration-200 z-999"
       v-bind="line"
     />
@@ -359,7 +372,7 @@ import { autoUpdate, flip, offset, shift, useFloating } from '@floating-ui/vue'
 import { refThrottled, useToggle, useVModel, watchThrottled } from '@vueuse/core'
 import interact from 'interactjs'
 import { join, keys, map, mapValues, omit, pipe } from 'remeda'
-import { computed, onBeforeUnmount, onMounted, ref, useId, useTemplateRef } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, useId, useTemplateRef, watch } from 'vue'
 import { nextFrame } from '../../../../../web/common/utils'
 import { hexToRgba, isClose } from '../../utils'
 
@@ -411,6 +424,9 @@ const emit = defineEmits<{
   'duplicate': [];
   'delete': [];
 }>()
+
+/** 自動對齊吸附開關，關閉時忽略 alignTargetList */
+const snapEnabled = ref(true)
 
 const id = useId()
 
@@ -538,10 +554,7 @@ function presetStyle(data: Partial<ModelValue>) {
 
 const isDragging = ref(false)
 
-const alignLineList = computed<Array<{
-  class: string;
-  style: CSSProperties;
-}>>(() => props.alignTargetList.map((item) => {
+function buildAlignLine(item: AlignTarget) {
   const { left, top } = pipe(
     undefined,
     () => {
@@ -600,7 +613,16 @@ const alignLineList = computed<Array<{
       opacity,
     },
   }
-}))
+}
+
+const alignLineList = computed<Array<{
+  class: string;
+  style: CSSProperties;
+}>>(() => {
+  if (!snapEnabled.value)
+    return []
+  return props.alignTargetList.map(buildAlignLine)
+})
 
 type SnapFn = (x: number, y: number) => { x: number; y: number; range?: number }
 /** 吸附半徑 */
@@ -622,6 +644,17 @@ function toInteractSnapTargets(list: AlignTarget[]): SnapFn[] {
   return result
 }
 
+function buildSnapModifierList(): ReturnType<typeof interact.modifiers.snap>[] {
+  if (!snapEnabled.value)
+    return []
+  return [
+    interact.modifiers.snap({
+      targets: toInteractSnapTargets(props.alignTargetList),
+      relativePoints: [{ x: 0.5, y: 0.5 }],
+    }),
+  ]
+}
+
 let interactable: ReturnType<typeof interact> | undefined
 onMounted(() => {
   const box = boxRef.value
@@ -634,12 +667,7 @@ onMounted(() => {
 
   interactable = interact(box)
     .draggable({
-      modifiers: [
-        interact.modifiers.snap({
-          targets: toInteractSnapTargets(props.alignTargetList),
-          relativePoints: [{ x: 0.5, y: 0.5 }],
-        }),
-      ],
+      modifiers: buildSnapModifierList(),
       listeners: {
         start() {
           isDragging.value = true
@@ -661,17 +689,12 @@ onMounted(() => {
       },
     })
 
-  // alignTargetList 變動需要更新
+  // alignTargetList 或 snapEnabled 變動時重建 snap modifier
   watchThrottled(
-    () => props.alignTargetList,
-    (list) => {
+    () => [props.alignTargetList, snapEnabled.value] as const,
+    () => {
       interactable?.draggable({
-        modifiers: [
-          interact.modifiers.snap({
-            targets: toInteractSnapTargets(list),
-            relativePoints: [{ x: 0.5, y: 0.5 }],
-          }),
-        ],
+        modifiers: buildSnapModifierList(),
       })
     },
     {
@@ -710,6 +733,13 @@ onBeforeUnmount(() => {
 })
 
 const [settingVisible, toggleSettingVisible] = useToggle(false)
+
+// 離開編輯狀態時一併關閉設定面板，避免下次選回 item 突兀彈出
+watch(() => props.isEditing, (value) => {
+  if (!value) {
+    settingVisible.value = false
+  }
+})
 </script>
 
 <style scoped lang="sass">

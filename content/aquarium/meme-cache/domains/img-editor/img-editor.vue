@@ -280,6 +280,9 @@ const imageMap = shallowRef(new Map<string, ImageItemData>())
 
 onClickOutside(boardRef, () => {
   targetKey.value = undefined
+}, {
+  // u-slideover、u-popover 會 teleport 到 body，點擊面板內按鈕不應視為「點到外面」
+  ignore: ['[role="dialog"]', '[data-reka-popper-content-wrapper]'],
 })
 
 function addItem(event: PointerEvent) {
