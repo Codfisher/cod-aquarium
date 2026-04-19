@@ -1,4 +1,4 @@
-import type { MemeData } from '../type'
+import type { MemeData } from './type'
 import { useWebWorkerFn } from '@vueuse/core'
 import Fuse from 'fuse.js'
 

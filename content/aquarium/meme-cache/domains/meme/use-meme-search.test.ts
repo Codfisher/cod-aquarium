@@ -1,4 +1,4 @@
-import type { MemeData } from '../type'
+import type { MemeData } from './type'
 import { describe, expect, it } from 'vitest'
 import { calcCharCoverage, searchMeme } from './use-meme-search'
 

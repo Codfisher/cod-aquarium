@@ -1,0 +1,127 @@
+import { throttle } from 'lodash-es'
+import { omit } from 'remeda'
+import { computed, onBeforeUnmount, shallowRef, triggerRef } from 'vue'
+import { type MemeData, memeDataSchema } from './type'
+
+/** 合併以逗號分隔的關鍵字字串，保留順序並去除重複 */
+function mergeKeyword(...sourceList: Array<string | undefined>): string {
+  const keywordList = sourceList
+    .filter((source): source is string => Boolean(source))
+    .flatMap((source) => source.split(',').map((item) => item.trim()))
+    .filter(Boolean)
+  return [...new Set(keywordList)].join(', ')
+}
+
+/** 串流讀取 ndjson 檔案 */
+async function consumeNdjsonPipeline<T = unknown>(
+  url: string,
+  onItem: (row: T) => void,
+  opts: { signal?: AbortSignal } = {},
+) {
+  const res = await fetch(url, {
+    headers: { Accept: 'application/x-ndjson' },
+    signal: opts.signal,
+  })
+  if (!res.ok)
+    throw new Error(`HTTP ${res.status}`)
+
+  let buffer = ''
+
+  const lineSplitter = new TransformStream<string, string>({
+    transform(chunk, controller) {
+      buffer += chunk
+      const lines = buffer.split(/\r?\n/)
+      buffer = lines.pop() ?? ''
+      for (const line of lines) {
+        if (line.trim())
+          controller.enqueue(line)
+      }
+    },
+    flush(controller) {
+      if (buffer.trim())
+        controller.enqueue(buffer)
+    },
+  })
+
+  const reader = res.body!
+    .pipeThrough(new TextDecoderStream())
+    .pipeThrough(lineSplitter)
+    .getReader()
+
+  for (; ;) {
+    const { value, done } = await reader.read()
+    if (done)
+      break
+    onItem(JSON.parse(value) as T)
+  }
+}
+
+export function useMemeData() {
+  const memeDataMap = shallowRef(new Map<string, MemeData>())
+  const memeDataList = computed(() => [...memeDataMap.value.values()].reverse())
+
+  const triggerMemeData = throttle(() => {
+    triggerRef(memeDataMap)
+  }, 500)
+
+  const controller = new AbortController()
+  async function main() {
+    // 串流讀取圖片資料
+    consumeNdjsonPipeline(`/memes/a-memes-data.ndjson`, (row) => {
+      const result = memeDataSchema.safeParse(row)
+      if (!result.success) {
+        return
+      }
+
+      const existedData = memeDataMap.value.get(result.data.file)
+
+      memeDataMap.value.set(
+        result.data.file,
+        {
+          ...existedData,
+          ...omit(result.data, ['ocr', 'keyword']),
+          keyword: mergeKeyword(existedData?.keyword, result.data.keyword),
+          ocr: [
+            existedData?.ocr ?? '',
+            result.data.ocr,
+          ].join(''),
+        },
+      )
+      triggerMemeData()
+    }, { signal: controller.signal })
+
+    // 手動標註的資料
+    consumeNdjsonPipeline(`/memes/a-memes-data-extend.ndjson`, (row) => {
+      const result = memeDataSchema.safeParse(row)
+      if (!result.success) {
+        return
+      }
+
+      const existedData = memeDataMap.value.get(result.data.file)
+      const { ocr, keyword, ...otherData } = result.data
+
+      memeDataMap.value.set(
+        result.data.file,
+        {
+          ...otherData,
+          ...existedData,
+          ocr: [
+            existedData?.ocr ?? '',
+            ocr,
+          ].join(''),
+          keyword: mergeKeyword(existedData?.keyword, keyword),
+        },
+      )
+      triggerMemeData()
+    }, { signal: controller.signal })
+  }
+  if (!import.meta.env.SSR) {
+    main()
+  }
+
+  onBeforeUnmount(() => {
+    controller.abort()
+  })
+
+  return { memeDataMap, memeDataList }
+}

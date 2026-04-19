@@ -235,12 +235,13 @@
 <script setup lang="ts">
 import type { CSSProperties } from 'vue'
 import type { ComponentProps } from 'vue-component-type-helpers'
-import type { AlignTarget, MemeData } from '../type'
+import type { MemeData } from '../meme/type'
+import type { AlignTarget } from './type'
 import { onClickOutside, promiseTimeout, useElementBounding, useElementSize, useRafFn } from '@vueuse/core'
 import { nanoid } from 'nanoid'
 import { clone, pipe } from 'remeda'
 import { computed, nextTick, reactive, ref, shallowRef, triggerRef, useTemplateRef } from 'vue'
-import { nextFrame } from '../../../../web/common/utils'
+import { nextFrame } from '../../../../../web/common/utils'
 import TextItem from './text-item.vue'
 
 interface TextItemData {

@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { BlurLevel } from '../../../.vitepress/utils/blur-level'
+import { BlurLevel } from '../../../../../.vitepress/utils/blur-level'
 
 export const memeDataSchema = z.object({
   file: z.string(),
@@ -9,15 +9,3 @@ export const memeDataSchema = z.object({
   blurLevel: z.nativeEnum(BlurLevel).optional(),
 })
 export type MemeData = z.infer<typeof memeDataSchema>
-
-export type AlignTarget = {
-  type: 'point';
-  x: number;
-  y: number;
-} | {
-  type: 'axis';
-  x: number;
-} | {
-  type: 'axis';
-  y: number;
-}

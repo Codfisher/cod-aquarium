@@ -54,7 +54,7 @@
 </template>
 
 <script setup lang="ts">
-import type { MemeData } from '../type'
+import type { MemeData } from '../meme/type'
 import { useVirtualList, useWindowSize } from '@vueuse/core'
 import { chunk } from 'remeda'
 import { computed, reactive } from 'vue'
