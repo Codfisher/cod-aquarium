@@ -28,6 +28,23 @@
         />
 
         <u-button
+          label="插入圖片"
+          icon="i-material-symbols:add-photo-alternate-outline-rounded"
+          variant="ghost"
+          color="neutral"
+          size="sm"
+          @click="pickImageFile"
+        />
+
+        <input
+          ref="fileInputRef"
+          type="file"
+          accept="image/*"
+          class="hidden"
+          @change="handleFileChange"
+        >
+
+        <u-button
           label="版面設定"
           icon="i-material-symbols:mobile-layout-outline"
           variant="ghost"
@@ -95,7 +112,7 @@ import type { DropdownMenuItem } from '@nuxt/ui'
 import type { MemeData } from '../meme/type'
 import UModal from '@nuxt/ui/components/Modal.vue'
 import { snapdom } from '@zumer/snapdom'
-import { h, useTemplateRef } from 'vue'
+import { h, onBeforeUnmount, useTemplateRef, watch } from 'vue'
 import ImgEditor from './img-editor.vue'
 
 interface Props {
@@ -109,6 +126,7 @@ const toast = useToast()
 const overlay = useOverlay()
 
 const editorRef = useTemplateRef('editorRef')
+const fileInputRef = useTemplateRef<HTMLInputElement>('fileInputRef')
 
 function toggleSettingForm() {
   editorRef.value?.toggleLayoutSettingVisible()
@@ -117,6 +135,66 @@ function toggleSettingForm() {
 function clean() {
   editorRef.value?.clean()
 }
+
+async function insertImage(source: Blob) {
+  try {
+    await editorRef.value?.addImage(source)
+  }
+  catch (error) {
+    console.warn('[meme-cache] 插入圖片失敗', error)
+    toast.add({
+      title: '插入圖片失敗',
+      description: '請嘗試其他圖片',
+      color: 'error',
+    })
+  }
+}
+
+function pickImageFile() {
+  fileInputRef.value?.click()
+}
+
+async function handleFileChange(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (file) {
+    await insertImage(file)
+  }
+  // 允許重複選取同一檔案
+  input.value = ''
+}
+
+async function handlePaste(event: ClipboardEvent) {
+  const items = event.clipboardData?.items
+  if (!items)
+    return
+
+  for (const item of Array.from(items)) {
+    if (!item.type.startsWith('image/'))
+      continue
+
+    const file = item.getAsFile()
+    if (!file)
+      continue
+
+    event.preventDefault()
+    await insertImage(file)
+    break
+  }
+}
+
+watch(open, (isOpen) => {
+  if (isOpen) {
+    window.addEventListener('paste', handlePaste)
+  }
+  else {
+    window.removeEventListener('paste', handlePaste)
+  }
+}, { immediate: true })
+
+onBeforeUnmount(() => {
+  window.removeEventListener('paste', handlePaste)
+})
 
 async function getImgBlob() {
   if (!editorRef.value?.boardRef)
