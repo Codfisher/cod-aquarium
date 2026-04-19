@@ -1,7 +1,8 @@
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { BlurLevel, computeBlurLevel } from './blur-estimator'
+import { BlurLevel } from './blur-level'
+import { computeBlurLevel } from './blur-estimator'
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url))
 const MEME_DIR = path.resolve(currentDir, '../../content/public/memes')
