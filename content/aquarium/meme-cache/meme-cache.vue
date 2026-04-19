@@ -167,7 +167,7 @@ const filterOptions = ref({
   blurFilter: 0,
 })
 
-const BLUR_FILTER_LABEL_LIST = ['全部', '稍微模糊以上', '清晰'] as const
+const BLUR_FILTER_LABEL_LIST = ['全部', '微糊', '清晰'] as const
 const blurFilterLabel = computed(() => BLUR_FILTER_LABEL_LIST[filterOptions.value.blurFilter] ?? '全部')
 
 const searchedList = shallowRef<MemeData[]>([])
