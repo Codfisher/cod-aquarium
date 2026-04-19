@@ -44,41 +44,6 @@
           @change="handleFileChange"
         >
 
-        <u-button
-          label="版面設定"
-          icon="i-material-symbols:mobile-layout-outline"
-          variant="ghost"
-          size="sm"
-          color="neutral"
-          @click="toggleSettingForm()"
-        />
-
-        <u-popover
-          :ui="{ content: 'z-9999 p-2' }"
-          arrow
-        >
-          <u-button
-            label="清空"
-            variant="ghost"
-            color="neutral"
-            size="sm"
-            icon="i-material-symbols:cleaning-services-rounded"
-          />
-
-          <template #content="{ close: closePopover }">
-            <div class=" text-sm p-2">
-              確定清空所有內容？
-            </div>
-
-            <div class="flex justify-end">
-              <u-button
-                label="確定"
-                class="px-2 bg-red-400 text-white"
-                @click="clean(); closePopover()"
-              />
-            </div>
-          </template>
-        </u-popover>
         <div class="flex-1" />
 
         <u-dropdown-menu
@@ -110,6 +75,7 @@
 <script setup lang="ts">
 import type { DropdownMenuItem } from '@nuxt/ui'
 import type { MemeData } from '../meme/type'
+import UButton from '@nuxt/ui/components/Button.vue'
 import UModal from '@nuxt/ui/components/Modal.vue'
 import { snapdom } from '@zumer/snapdom'
 import { h, onBeforeUnmount, useTemplateRef, watch } from 'vue'
@@ -132,8 +98,43 @@ function toggleSettingForm() {
   editorRef.value?.toggleLayoutSettingVisible()
 }
 
-function clean() {
-  editorRef.value?.clean()
+function confirmClean() {
+  const modal = overlay.create(
+    h(
+      UModal,
+      {
+        title: '清空內容',
+        description: '確定清空所有文字與圖片？此操作無法復原。',
+        ui: {
+          overlay: 'z-[99999]',
+          content: 'z-[999999]',
+        },
+      },
+      {
+        footer: ({ close }: { close: () => void }) => h(
+          'div',
+          { class: 'flex w-full justify-end gap-2' },
+          [
+            h(UButton, {
+              label: '取消',
+              variant: 'ghost',
+              color: 'neutral',
+              onClick: () => close(),
+            }),
+            h(UButton, {
+              label: '確定清空',
+              color: 'error',
+              onClick: () => {
+                editorRef.value?.clean()
+                close()
+              },
+            }),
+          ],
+        ),
+      },
+    ),
+  )
+  modal.open()
 }
 
 async function insertImage(source: Blob) {
@@ -273,67 +274,84 @@ async function copyImg() {
   // TODO: Web Share 沒有成功
 }
 
-const moreFcnItems = [
-  {
-    icon: 'i-lucide-image-down',
-    label: '下載',
-    async onSelect() {
-      const blob = await getImgBlob()
-      if (!blob) {
-        toast.add({
-          title: '產生圖片失敗',
-          description: '嘗試重新整理後再試一次',
-          color: 'error',
-        })
-        return
-      }
-
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = 'meme.png'
-      a.click()
-
-      toast.add({ title: '已開始下載' })
+const moreFcnItems: DropdownMenuItem[][] = [
+  [
+    {
+      icon: 'i-material-symbols:mobile-layout-outline',
+      label: '版面設定',
+      onSelect: () => toggleSettingForm(),
     },
-  },
-  {
-    icon: 'i-material-symbols:image-search-outline',
-    label: '預覽成果',
-    async onSelect() {
-      const blob = await getImgBlob()
-      if (!blob) {
-        toast.add({
-          title: '產生圖片失敗',
-          description: '嘗試重新整理後再試一次',
-          color: 'error',
-        })
-        return
-      }
+  ],
+  [
+    {
+      icon: 'i-lucide-image-down',
+      label: '下載',
+      async onSelect() {
+        const blob = await getImgBlob()
+        if (!blob) {
+          toast.add({
+            title: '產生圖片失敗',
+            description: '嘗試重新整理後再試一次',
+            color: 'error',
+          })
+          return
+        }
 
-      const url = URL.createObjectURL(blob)
-      const imgModal = overlay.create(
-        h(
-          UModal,
-          {
-            title: '成果',
-            description: '下圖為目前的成果圖片 (ゝ∀・)b',
-            ui: {
-              overlay: 'z-[99999]',
-              content: 'z-[999999] ',
-              body: 'bg-gray-100 dark:bg-gray-400',
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = 'meme.png'
+        a.click()
+
+        toast.add({ title: '已開始下載' })
+      },
+    },
+    {
+      icon: 'i-material-symbols:image-search-outline',
+      label: '預覽成果',
+      async onSelect() {
+        const blob = await getImgBlob()
+        if (!blob) {
+          toast.add({
+            title: '產生圖片失敗',
+            description: '嘗試重新整理後再試一次',
+            color: 'error',
+          })
+          return
+        }
+
+        const url = URL.createObjectURL(blob)
+        const imgModal = overlay.create(
+          h(
+            UModal,
+            {
+              title: '成果',
+              description: '下圖為目前的成果圖片 (ゝ∀・)b',
+              ui: {
+                overlay: 'z-[99999]',
+                content: 'z-[999999] ',
+                body: 'bg-gray-100 dark:bg-gray-400',
+              },
             },
-          },
-          {
-            body: () => [h(
-              'img',
-              { src: url, class: 'rounded-none!' },
-            )],
-          },
-        ),
-      )
-      imgModal.open()
+            {
+              body: () => [h(
+                'img',
+                { src: url, class: 'rounded-none!' },
+              )],
+            },
+          ),
+        )
+        imgModal.open()
+      },
     },
-  },
-] as const satisfies DropdownMenuItem[]
+  ],
+  [
+    {
+      icon: 'i-material-symbols:cleaning-services-rounded',
+      label: '清空',
+      color: 'error',
+      onSelect: () => confirmClean(),
+    },
+  ],
+]
 </script>
