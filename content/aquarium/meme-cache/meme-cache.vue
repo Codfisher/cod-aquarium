@@ -112,6 +112,7 @@
       <img-editor-modal
         v-model:open="editorVisible"
         :data="targetMeme"
+        :meme-data-list="memeDataList"
       />
 
       <div class=" fixed right-0 top-0 p-2 px-3 text-xs opacity-10">
