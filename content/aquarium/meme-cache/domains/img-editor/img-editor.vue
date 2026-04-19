@@ -34,46 +34,35 @@
         </div>
 
         <text-item
-          v-for="item in list"
+          v-for="item in textItemList"
           :key="item.key"
           :model-value="item.data"
           :board-origin="boardBounding"
           :is-editing="item.isEditing"
           :auto-focus="!isFromStorage"
           :align-target-list="item.alignTargetList"
-          @click="editItem(item)"
-          @duplicate="duplicateItem(item)"
-          @delete="deleteItem(item)"
-          @update:model-value="(data) => updateItem(item, data)"
+          @click="editTextItem(item)"
+          @duplicate="duplicateTextItem(item)"
+          @delete="deleteTextItem(item)"
+          @update:model-value="(data) => updateTextItem(item, data)"
+        />
+
+        <image-item
+          v-for="item in imageItemList"
+          :key="item.key"
+          :model-value="item.data"
+          :board-origin="boardBounding"
+          :is-editing="item.isEditing"
+          :align-target-list="item.alignTargetList"
+          @click="editImageItem(item)"
+          @duplicate="duplicateImageItem(item)"
+          @delete="deleteImageItem(item)"
+          @update:model-value="(data) => updateImageItem(item, data)"
         />
       </div>
     </div>
 
-    <u-popover
-      :ui="{
-        content: 'z-[9999] p-2 flex flex-col gap-2 text-sm',
-      }"
-      arrow
-    >
-      <div class="absolute right-0 bottom-0 p-6 opacity-60">
-        <u-icon
-          name="i-material-symbols:help-outline-rounded"
-          class="size-10 text-white"
-        />
-      </div>
-
-      <template #content>
-        <div>
-          點擊即可在指定位置新增文字
-        </div>
-        <div class="">
-          拖動文字可以移動文字
-        </div>
-        <div class="">
-          兩指可以旋轉文字
-        </div>
-      </template>
-    </u-popover>
+    <help-tip />
 
     <u-slideover
       v-model:open="layoutSettingVisible"
@@ -235,16 +224,25 @@
 <script setup lang="ts">
 import type { CSSProperties } from 'vue'
 import type { ComponentProps } from 'vue-component-type-helpers'
-import type { AlignTarget, MemeData } from '../type'
+import type { MemeData } from '../meme/type'
+import type { AlignTarget } from './type'
 import { onClickOutside, promiseTimeout, useElementBounding, useElementSize, useRafFn } from '@vueuse/core'
 import { nanoid } from 'nanoid'
 import { clone, pipe } from 'remeda'
 import { computed, nextTick, reactive, ref, shallowRef, triggerRef, useTemplateRef } from 'vue'
-import { nextFrame } from '../../../../web/common/utils'
+import { nextFrame } from '../../../../../web/common/utils'
+import { IMAGE_MAX_DIMENSION, IMAGE_MIN_DIMENSION } from './constants'
+import HelpTip from './help-tip.vue'
+import ImageItem from './image-item.vue'
 import TextItem from './text-item.vue'
 
 interface TextItemData {
   data: ComponentProps<typeof TextItem>['modelValue'];
+  key: string;
+}
+
+interface ImageItemData {
+  data: ComponentProps<typeof ImageItem>['modelValue'];
   key: string;
 }
 
@@ -276,16 +274,17 @@ const boardBounding = reactive(useElementBounding(boardRef, {
 const imgRef = useTemplateRef('imgRef')
 const imgSize = reactive(useElementSize(imgRef))
 
-const targetItem = ref<TextItemData>()
+const targetKey = ref<string>()
 const textMap = shallowRef(new Map<string, TextItemData>())
+const imageMap = shallowRef(new Map<string, ImageItemData>())
 
 onClickOutside(boardRef, () => {
-  targetItem.value = undefined
+  targetKey.value = undefined
 })
 
 function addItem(event: PointerEvent) {
-  if (targetItem.value) {
-    targetItem.value = undefined
+  if (targetKey.value) {
+    targetKey.value = undefined
     return
   }
 
@@ -296,7 +295,7 @@ function addItem(event: PointerEvent) {
   const x = event.clientX - rect.left
   const y = event.clientY - rect.top
 
-  const newItem = {
+  const newItem: TextItemData = {
     key: nanoid(),
     data: {
       text: '點擊編輯',
@@ -316,20 +315,20 @@ function addItem(event: PointerEvent) {
 
   textMap.value.set(newItem.key, newItem)
   triggerRef(textMap)
-  targetItem.value = newItem
+  targetKey.value = newItem.key
 }
 
-function editItem(item: TextItemData) {
-  targetItem.value = item
+function editTextItem(item: TextItemData) {
+  targetKey.value = item.key
 }
-function updateItem(item: TextItemData, data: TextItemData['data']) {
+function updateTextItem(item: TextItemData, data: TextItemData['data']) {
   textMap.value.set(item.key, {
     ...item,
     data,
   })
 }
-function duplicateItem(item: TextItemData) {
-  const newItem = {
+function duplicateTextItem(item: TextItemData) {
+  const newItem: TextItemData = {
     key: nanoid(),
     data: {
       text: '點擊編輯',
@@ -350,13 +349,97 @@ function duplicateItem(item: TextItemData) {
 
   textMap.value.set(newItem.key, newItem)
   triggerRef(textMap)
-  targetItem.value = newItem
+  targetKey.value = newItem.key
 }
-function deleteItem(item: TextItemData) {
+function deleteTextItem(item: TextItemData) {
   textMap.value.delete(item.key)
   triggerRef(textMap)
 
-  targetItem.value = undefined
+  targetKey.value = undefined
+}
+
+function editImageItem(item: ImageItemData) {
+  targetKey.value = item.key
+}
+function updateImageItem(item: ImageItemData, data: ImageItemData['data']) {
+  imageMap.value.set(item.key, {
+    ...item,
+    data,
+  })
+}
+function duplicateImageItem(item: ImageItemData) {
+  const newItem: ImageItemData = {
+    key: nanoid(),
+    data: {
+      url: '',
+      width: 100,
+      height: 100,
+      angle: 0,
+      ...item.data,
+      x: (item.data?.x ?? 0) + 10,
+      y: (item.data?.y ?? 0) + 10,
+    },
+  }
+
+  imageMap.value.set(newItem.key, newItem)
+  triggerRef(imageMap)
+  targetKey.value = newItem.key
+}
+function deleteImageItem(item: ImageItemData) {
+  imageMap.value.delete(item.key)
+  triggerRef(imageMap)
+
+  targetKey.value = undefined
+}
+
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = () => reject(reader.error ?? new Error('FileReader 失敗'))
+    reader.readAsDataURL(blob)
+  })
+}
+
+function loadImageSize(url: string): Promise<{ width: number; height: number }> {
+  return new Promise((resolve, reject) => {
+    const image = new Image()
+    image.onload = () => resolve({ width: image.naturalWidth, height: image.naturalHeight })
+    image.onerror = () => reject(new Error('圖片載入失敗'))
+    image.src = url
+  })
+}
+
+async function addImage(source: Blob | string) {
+  const url = typeof source === 'string'
+    ? source
+    : await blobToDataUrl(source)
+
+  const { width: naturalWidth, height: naturalHeight } = await loadImageSize(url)
+  if (naturalWidth <= 0 || naturalHeight <= 0) {
+    throw new Error('圖片尺寸無效')
+  }
+
+  let scale = Math.min(1, IMAGE_MAX_DIMENSION / Math.max(naturalWidth, naturalHeight))
+  // 若縮放後最短邊仍小於下限，放大補齊以維持長寬比
+  if (Math.min(naturalWidth, naturalHeight) * scale < IMAGE_MIN_DIMENSION) {
+    scale = IMAGE_MIN_DIMENSION / Math.min(naturalWidth, naturalHeight)
+  }
+  const width = Math.round(naturalWidth * scale)
+  const height = Math.round(naturalHeight * scale)
+
+  const rect = boardRef.value?.getBoundingClientRect()
+  const x = rect ? rect.width / 2 : width / 2
+  const y = rect ? rect.height / 2 : height / 2
+
+  const newItem: ImageItemData = {
+    key: nanoid(),
+    data: { url, x, y, width, height, angle: 0 },
+  }
+
+  imageMap.value.set(newItem.key, newItem)
+  triggerRef(imageMap)
+  targetKey.value = newItem.key
 }
 
 const settingValue = computed(() => ({
@@ -482,31 +565,44 @@ const baseAlignTargetList = computed<AlignTarget[]>(() => {
   return result
 })
 
-const list = computed(() => [...textMap.value.values()].map((item, i, allItems) => {
-  const { x, y } = boardBounding
+const allItemCenterList = computed(() => [
+  ...[...textMap.value.values()].map((item) => ({
+    key: item.key,
+    x: item.data?.x ?? 0,
+    y: item.data?.y ?? 0,
+  })),
+  ...[...imageMap.value.values()].map((item) => ({
+    key: item.key,
+    x: item.data?.x ?? 0,
+    y: item.data?.y ?? 0,
+  })),
+])
 
-  const alignTargetList: AlignTarget[] = [
+function buildAlignTargetList(itemKey: string): AlignTarget[] {
+  const { x: originX, y: originY } = boardBounding
+
+  return [
     ...baseAlignTargetList.value,
-    ...allItems
-      .filter(({ key }) => item.key !== key)
-      .flatMap((allItem) => [
-        {
-          type: 'axis',
-          x: x + (allItem.data?.x ?? 0),
-        },
-        {
-          type: 'axis',
-          y: y + (allItem.data?.y ?? 0),
-        },
-      ] as AlignTarget[]),
+    ...allItemCenterList.value
+      .filter(({ key }) => key !== itemKey)
+      .flatMap(({ x, y }): AlignTarget[] => [
+        { type: 'axis', x: originX + x },
+        { type: 'axis', y: originY + y },
+      ]),
   ]
+}
 
-  return {
-    ...item,
-    isEditing: targetItem.value?.key === item.key,
-    alignTargetList,
-  }
-}))
+const textItemList = computed(() => [...textMap.value.values()].map((item) => ({
+  ...item,
+  isEditing: targetKey.value === item.key,
+  alignTargetList: buildAlignTargetList(item.key),
+})))
+
+const imageItemList = computed(() => [...imageMap.value.values()].map((item) => ({
+  ...item,
+  isEditing: targetKey.value === item.key,
+  alignTargetList: buildAlignTargetList(item.key),
+})))
 
 // 儲存設定值至 localStorage
 const isFromStorage = ref(true)
@@ -573,8 +669,9 @@ if (!import.meta.env.SSR) {
 
 defineExpose({
   boardRef,
+  addImage,
   async blur() {
-    targetItem.value = undefined
+    targetKey.value = undefined
     layoutSettingVisible.value = false
     await nextFrame()
     await promiseTimeout(200)
@@ -586,7 +683,9 @@ defineExpose({
   },
   clean() {
     textMap.value.clear()
+    imageMap.value.clear()
     triggerRef(textMap)
+    triggerRef(imageMap)
   },
 })
 </script>

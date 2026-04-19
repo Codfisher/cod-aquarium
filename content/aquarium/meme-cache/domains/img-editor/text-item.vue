@@ -354,14 +354,14 @@
 /** 不知道為甚麼，控制點都按不到 */
 // import Moveable from 'moveable'
 import type { CSSProperties } from 'vue'
-import type { AlignTarget } from '../type'
+import type { AlignTarget } from './type'
 import { autoUpdate, flip, offset, shift, useFloating } from '@floating-ui/vue'
 import { refThrottled, useToggle, useVModel, watchThrottled } from '@vueuse/core'
 import interact from 'interactjs'
 import { join, keys, map, mapValues, omit, pipe } from 'remeda'
-import { computed, onMounted, ref, useId, useTemplateRef } from 'vue'
-import { nextFrame } from '../../../../web/common/utils'
-import { hexToRgba, isClose } from '../utils'
+import { computed, onBeforeUnmount, onMounted, ref, useId, useTemplateRef } from 'vue'
+import { nextFrame } from '../../../../../web/common/utils'
+import { hexToRgba, isClose } from '../../utils'
 
 interface ModelValue {
   text: string;
@@ -622,6 +622,7 @@ function toInteractSnapTargets(list: AlignTarget[]): SnapFn[] {
   return result
 }
 
+let interactable: ReturnType<typeof interact> | undefined
 onMounted(() => {
   const box = boxRef.value
   const text = textRef.value
@@ -631,7 +632,7 @@ onMounted(() => {
 
   text.textContent = settings.value.text
 
-  const interactable = interact(box)
+  interactable = interact(box)
     .draggable({
       modifiers: [
         interact.modifiers.snap({
@@ -664,7 +665,7 @@ onMounted(() => {
   watchThrottled(
     () => props.alignTargetList,
     (list) => {
-      interactable.draggable({
+      interactable?.draggable({
         modifiers: [
           interact.modifiers.snap({
             targets: toInteractSnapTargets(list),
@@ -702,6 +703,10 @@ onMounted(() => {
       }
     })
   }
+})
+
+onBeforeUnmount(() => {
+  interactable?.unset()
 })
 
 const [settingVisible, toggleSettingVisible] = useToggle(false)
