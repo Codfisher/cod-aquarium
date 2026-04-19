@@ -1,4 +1,4 @@
-import type { DefaultTheme } from 'vitepress'
+import type { DefaultTheme, HeadConfig } from 'vitepress'
 import type { Article } from './utils'
 import { dirname, resolve } from 'node:path'
 import process from 'node:process'
@@ -75,7 +75,14 @@ export default ({ mode }: { mode: string }) => {
     head: [
       ['link', { rel: 'preconnect', href: 'https://fonts.googleapis.com' }],
       ['link', { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: 'true' }],
-      ['link', { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Figtree:wght@400;600;700;800&family=Noto+Sans+TC:wght@400;600;800&display=swap' }],
+      /** 以非阻塞方式載入 Google Fonts，避免 CSS 阻擋首次繪製（配合 display=swap 以 fallback 字體先顯示） */
+      ['link', {
+        rel: 'preload',
+        as: 'style',
+        href: 'https://fonts.googleapis.com/css2?family=Figtree:wght@400;600;700;800&family=Noto+Sans+TC:wght@400;600;800&display=swap',
+        onload: 'this.onload=null;this.rel=\'stylesheet\'',
+      }],
+      ['noscript', {}, '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;600;700;800&family=Noto+Sans+TC:wght@400;600;800&display=swap">'],
       ['link', { rel: 'icon', href: '/favicon.ico' }],
 
     ],
@@ -108,7 +115,7 @@ export default ({ mode }: { mode: string }) => {
     transformHead({ page }) {
       const canonicalUrl = new URL(page.replace(/\.md$/, ''), baseConfig.hostname).toString()
 
-      return [
+      const headList: HeadConfig[] = [
         [
           'link',
           {
@@ -132,23 +139,26 @@ export default ({ mode }: { mode: string }) => {
           gtag('js', new Date());
           gtag('config', 'G-WL47JJHL0R');`,
         ],
+        /** Clarity 與 AdSense 延後至 load 事件後再注入，避免搶佔首屏主執行緒、改善 INP 與 LCP */
         [
           'script',
-          { type: 'text/javascript' },
-          `(function(c,l,a,r,i,t,y){
-        c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
-        t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
-        y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
-          })(window, document, "clarity", "script", "sbra2ic0u4");`,
-        ],
-        [
-          'script',
-          {
-            async: '',
-            src: 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6608581811170481',
-            crossorigin: 'anonymous',
-          },
-          '',
+          {},
+          `(function(){
+            function loadThirdParty(){
+              (function(c,l,a,r,i,t,y){
+                c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+                t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+                y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+              })(window, document, "clarity", "script", "sbra2ic0u4");
+              var s=document.createElement('script');
+              s.async=true;
+              s.crossOrigin='anonymous';
+              s.src='https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6608581811170481';
+              document.head.appendChild(s);
+            }
+            if(document.readyState==='complete'){setTimeout(loadThirdParty,2000);}
+            else{window.addEventListener('load',function(){setTimeout(loadThirdParty,2000);});}
+          })();`,
         ],
         [
           'meta',
@@ -158,6 +168,23 @@ export default ({ mode }: { mode: string }) => {
           },
         ],
       ]
+
+      /** 首頁 LCP 圖片 preload，讓瀏覽器盡早開始下載封面圖 */
+      if (page === 'index.md') {
+        headList.push([
+          'link',
+          {
+            rel: 'preload',
+            as: 'image',
+            href: '/cover.webp',
+            imagesrcset: '/cover-300.webp 300w, /cover-700.webp 700w',
+            imagesizes: '(max-width: 700px) 100vw, 700px',
+            fetchpriority: 'high',
+          },
+        ])
+      }
+
+      return headList
     },
     transformPageData(pageData) {
       pageData.frontmatter.head ??= []
