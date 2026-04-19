@@ -138,7 +138,7 @@ import ImgList from './domains/img-list/img-list.vue'
 import { useMemeData } from './domains/meme/use-meme-data'
 import { useMemeSearch } from './domains/meme/use-meme-search'
 
-const version = '0.5.0'
+const version = '0.6.0'
 
 const uploadUrl = 'https://drive.google.com/drive/u/2/folders/1UUpzhZPdI-i_7PhCYZNDS-BxbulATMlN'
 
