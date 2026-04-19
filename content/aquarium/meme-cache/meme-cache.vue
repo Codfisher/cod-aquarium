@@ -219,6 +219,7 @@ import { nextFrame } from '../../../web/common/utils'
 import { usePageNoScroll } from '../../../web/composables/use-page-no-scroll'
 import ImgEditor from './components/img-editor.vue'
 import ImgList from './components/img-list.vue'
+import { useKeywordQuery } from './composables/use-keyword-query'
 import { useMemeData } from './composables/use-meme-data'
 import { useMemeSearch } from './composables/use-meme-search'
 import { useStickyToolbar } from './composables/use-sticky-toolbar'
@@ -244,7 +245,7 @@ function handleEnter() {
 }
 
 const inputRef = useTemplateRef('inputRef')
-const keyword = ref('')
+const keyword = useKeywordQuery()
 const settings = ref({
   detailVisible: false,
 })

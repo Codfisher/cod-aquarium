@@ -406,8 +406,8 @@ async function main() {
   console.log('[main] done')
 }
 
-backfillBlurLevel().catch(console.error)
+// backfillBlurLevel().catch(console.error)
 
-// main().catch((e) => {
-//   console.error(e)
-// })
+main().catch((e) => {
+  console.error(e)
+})

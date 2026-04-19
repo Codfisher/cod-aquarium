@@ -3,6 +3,15 @@ import { omit } from 'remeda'
 import { computed, onBeforeUnmount, shallowRef, triggerRef } from 'vue'
 import { type MemeData, memeDataSchema } from '../type'
 
+/** 合併以逗號分隔的關鍵字字串，保留順序並去除重複 */
+function mergeKeyword(...sourceList: Array<string | undefined>): string {
+  const keywordList = sourceList
+    .filter((source): source is string => Boolean(source))
+    .flatMap((source) => source.split(',').map((item) => item.trim()))
+    .filter(Boolean)
+  return [...new Set(keywordList)].join(', ')
+}
+
 /** 串流讀取 ndjson 檔案 */
 async function consumeNdjsonPipeline<T = unknown>(
   url: string,
@@ -69,9 +78,9 @@ export function useMemeData() {
       memeDataMap.value.set(
         result.data.file,
         {
-          keyword: '',
           ...existedData,
           ...omit(result.data, ['ocr', 'keyword']),
+          keyword: mergeKeyword(existedData?.keyword, result.data.keyword),
           ocr: [
             existedData?.ocr ?? '',
             result.data.ocr,
@@ -100,7 +109,7 @@ export function useMemeData() {
             existedData?.ocr ?? '',
             ocr,
           ].join(''),
-          keyword,
+          keyword: mergeKeyword(existedData?.keyword, keyword),
         },
       )
       triggerMemeData()
