@@ -27,14 +27,21 @@
           @click="copyImg"
         />
 
-        <u-button
-          label="插入圖片"
-          icon="i-material-symbols:add-photo-alternate-outline-rounded"
-          variant="ghost"
-          color="neutral"
-          size="sm"
-          @click="pickImageFile"
-        />
+        <u-dropdown-menu
+          :items="insertItems"
+          :ui="{
+            content: 'z-70',
+            item: 'p-2',
+          }"
+        >
+          <u-button
+            label="插入圖片"
+            icon="i-material-symbols:add-photo-alternate-outline-rounded"
+            variant="ghost"
+            color="neutral"
+            size="sm"
+          />
+        </u-dropdown-menu>
 
         <input
           ref="fileInputRef"
@@ -70,6 +77,12 @@
       </div>
     </template>
   </u-modal>
+
+  <meme-picker-modal
+    v-model:open="memePickerVisible"
+    :data-list="memeDataList"
+    @select="handleMemePick"
+  />
 </template>
 
 <script setup lang="ts">
@@ -78,15 +91,19 @@ import type { MemeData } from '../meme/type'
 import UButton from '@nuxt/ui/components/Button.vue'
 import UModal from '@nuxt/ui/components/Modal.vue'
 import { snapdom } from '@zumer/snapdom'
-import { h, onBeforeUnmount, useTemplateRef, watch } from 'vue'
+import { h, onBeforeUnmount, ref, useTemplateRef, watch } from 'vue'
 import ImgEditor from './img-editor.vue'
+import MemePickerModal from './meme-picker-modal.vue'
 
 interface Props {
   data: MemeData | undefined;
+  memeDataList: MemeData[];
 }
 defineProps<Props>()
 
 const open = defineModel<boolean>('open', { default: false })
+
+const memePickerVisible = ref(false)
 
 const toast = useToast()
 const overlay = useOverlay()
@@ -153,6 +170,35 @@ async function insertImage(source: Blob) {
 
 function pickImageFile() {
   fileInputRef.value?.click()
+}
+
+const insertItems: DropdownMenuItem[][] = [[
+  {
+    icon: 'i-material-symbols:upload-rounded',
+    label: '上傳圖片',
+    onSelect: () => pickImageFile(),
+  },
+  {
+    icon: 'i-material-symbols:image-search-outline',
+    label: '選擇迷因',
+    onSelect: () => {
+      memePickerVisible.value = true
+    },
+  },
+]]
+
+async function handleMemePick(data: MemeData) {
+  try {
+    await editorRef.value?.addImage(`/memes/${data.file}`)
+  }
+  catch (error) {
+    console.warn('[meme-cache] 插入迷因失敗', error)
+    toast.add({
+      title: '插入迷因失敗',
+      description: '請嘗試其他圖片',
+      color: 'error',
+    })
+  }
 }
 
 async function handleFileChange(event: Event) {

@@ -112,6 +112,7 @@
       <img-editor-modal
         v-model:open="editorVisible"
         :data="targetMeme"
+        :meme-data-list="memeDataList"
       />
 
       <div class=" fixed right-0 top-0 p-2 px-3 text-xs opacity-10">
@@ -137,7 +138,7 @@ import ImgList from './domains/img-list/img-list.vue'
 import { useMemeData } from './domains/meme/use-meme-data'
 import { useMemeSearch } from './domains/meme/use-meme-search'
 
-const version = '0.5.0'
+const version = '0.6.0'
 
 const uploadUrl = 'https://drive.google.com/drive/u/2/folders/1UUpzhZPdI-i_7PhCYZNDS-BxbulATMlN'
 
@@ -167,7 +168,7 @@ const filterOptions = ref({
   blurFilter: 0,
 })
 
-const BLUR_FILTER_LABEL_LIST = ['全部', '稍微模糊以上', '清晰'] as const
+const BLUR_FILTER_LABEL_LIST = ['全部', '微糊', '清晰'] as const
 const blurFilterLabel = computed(() => BLUR_FILTER_LABEL_LIST[filterOptions.value.blurFilter] ?? '全部')
 
 const searchedList = shallowRef<MemeData[]>([])
