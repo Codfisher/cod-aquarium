@@ -700,5 +700,5 @@ defineExpose({
   font-weight: 100
   mix-blend-mode: exclusion
   color: white
-  opacity: 0.04
+  opacity: 0.01
 </style>
