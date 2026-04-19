@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { BlurLevel } from '../../../.vitepress/utils/blur-estimator'
+import { BlurLevel } from '../../../.vitepress/utils/blur-level'
 
 export const memeDataSchema = z.object({
   file: z.string(),

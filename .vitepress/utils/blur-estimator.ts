@@ -1,15 +1,6 @@
 import type { Buffer } from 'node:buffer'
 import sharp from 'sharp'
-
-/** 圖片模糊等級，分成 3 級 */
-export enum BlurLevel {
-  /** 清晰 */
-  LEVEL_0,
-  /** 稍微模糊 */
-  LEVEL_1,
-  /** 非常模糊 */
-  LEVEL_2,
-}
+import { BlurLevel } from './blur-level'
 
 const RESIZE_TARGET = 200
 const EDGE_THRESHOLD = 25
