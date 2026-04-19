@@ -172,11 +172,54 @@ function pickImageFile() {
   fileInputRef.value?.click()
 }
 
+async function pasteFromClipboard() {
+  if (!navigator.clipboard?.read) {
+    toast.add({
+      title: '此瀏覽器不支援讀取剪貼簿',
+      description: '請改用上傳圖片',
+      color: 'warning',
+    })
+    return
+  }
+
+  try {
+    const items = await navigator.clipboard.read()
+    for (const item of items) {
+      const imageType = item.types.find((type) => type.startsWith('image/'))
+      if (!imageType)
+        continue
+
+      const blob = await item.getType(imageType)
+      await insertImage(blob)
+      return
+    }
+
+    toast.add({
+      title: '剪貼簿沒有圖片',
+      description: '請先複製一張圖片再試一次',
+      color: 'warning',
+    })
+  }
+  catch (error) {
+    console.warn('[meme-cache] 讀取剪貼簿失敗', error)
+    toast.add({
+      title: '讀取剪貼簿失敗',
+      description: '請確認已授權瀏覽器讀取剪貼簿',
+      color: 'error',
+    })
+  }
+}
+
 const insertItems: DropdownMenuItem[][] = [[
   {
     icon: 'i-material-symbols:upload-rounded',
     label: '上傳圖片',
     onSelect: () => pickImageFile(),
+  },
+  {
+    icon: 'i-material-symbols:content-paste-rounded',
+    label: '來自剪貼簿',
+    onSelect: () => pasteFromClipboard(),
   },
   {
     icon: 'i-material-symbols:image-search-outline',
