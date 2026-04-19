@@ -61,17 +61,23 @@ aside: false
 
 ### [精靈球工作臺](https://side_project.gitlab.io/pokeball-workshop/)
 
+<iframe width="100%" height="400" src="https://www.youtube.com/embed/YU6zbUv6Okc?si=ZeTz3lsY52gelwXo" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen class="mt-4"></iframe>
+
 在網頁中自定義精靈球，第一個 3D 網頁專案，練習 <a href="https://www.babylonjs.com/" target="_blank">babylon.js</a>
 
 ---
 
 ### [MCU Windows](https://codfish-210716.notion.site/MCU-Windows-2f896774ea2f4742af974c753f947bd4#4fcf87c34f544b71bce9a76d96adb39a)
 
+<iframe width="100%" height="400" src="https://www.youtube.com/embed/OpayalfQ124?si=IcXxNB9yuV7b62Z-" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen class="mt-4"></iframe>
+
 此網頁為 Web Serial API 的實驗項目之一，目的是讓微控制器（MCU）與網頁連上線，讓真實的電子訊號在網頁上呈現豐富有趣的互動，並延伸更多有趣的應用。
 
 ---
 
 ### [派動對物嗨起來](https://www.youtube.com/watch?v=PPWyUhT6gRk)
+
+<iframe width="100%" height="400" src="https://www.youtube.com/embed/PPWyUhT6gRk?si=9GnmynDrAlD_C_Tu" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen class="mt-4"></iframe>
 
 隨著瀏覽器的蓬勃發展，網頁可以存取 GPS、加速度計、照度計、麥克風、攝影機等等硬體訊號，還可以配合 WebGPU、WebGL 運行複雜的 3D 內容。
 
@@ -81,11 +87,15 @@ aside: false
 
 ### [酷酷的元件](https://chillcomponent.codlin.me/)
 
+<iframe width="100%" height="400" src="https://www.youtube.com/embed/RT2mKsk9BT4?si=7LKxUI0VzU9MnfhB" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen class="mt-4"></iframe>
+
 實驗各種 Web 技術，開發各種新奇、古怪的 Vue 元件
 
 ---
 
 ### [Cyber Scales Desktop](/aquarium/cyber-scales-desktop/){target="_blank" rel="noopener"}
+
+<iframe width="100%" height="400" src="https://www.youtube.com/embed/58E7If-_LvY?si=8EVgOEfmCjU7oima" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen class="mt-4"></iframe>
 
 心中一直有個打造 FUI 元件庫的夢想，但是直接開發實在是沒什麼頭緒，導致進度緩慢
 
@@ -101,6 +111,8 @@ aside: false
 
 ### [鱈魚的彈珠](/aquarium/codmarbles/){target="_blank" rel="noopener"}
 
+<iframe width="100%" height="400" src="https://www.youtube.com/embed/WgrCar3e6TM?si=j9jHMzmPfEytf-md" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen class="mt-4"></iframe>
+
 經研究證實，看彈珠滾動能有效降低大腦 CPU 使用率，這是為了防止各位社畜過勞而生的醫療級網頁。
 
 以上純屬瞎掰，其實沒什麼偉大的技術願景，純粹就是我想看東西滾來滾去而誕生的專案 (´,,•ω•,,)
@@ -108,6 +120,8 @@ aside: false
 ---
 
 ### [CodStack](/aquarium/codstack/){target="_blank" rel="noopener"}
+
+<iframe width="100%" height="400" src="https://www.youtube.com/embed/mbET5EXGsl8?si=_PKVWEFb2sOFEaFL" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen class="mt-4"></iframe>
 
 自<a href="https://youtu.be/PPWyUhT6gRk?si=XVD7uTdHl3Mr9kFU" target="_blank">派對動物</a>之後，我一直想繼續做其他有趣的 3D 專案，但 3D 建模實在是太難了，程式還沒開始寫，搞建模就搞到熱情冷卻了。゜・(PД`q｡)・゜
 
@@ -142,6 +156,8 @@ HexaZen 使用 <a href="https://www.babylonjs.com/" target="_blank">babylon.js</
 ---
 
 ### [EnderBox](/aquarium/enderbox/){target="_blank" rel="noopener"}
+
+<iframe width="100%" height="400" src="https://www.youtube.com/embed/ZEXe3G2BWyQ?si=qS6-tc_tCGMhG8IY" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen class="mt-4"></iframe>
 
 我把 Minecraft 搬到網頁上惹！%੭ ˙ᗜ˙ )੭%
 
