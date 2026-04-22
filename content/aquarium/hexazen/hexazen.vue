@@ -141,7 +141,9 @@
           </div>
         </transition>
 
-        <div class="absolute left-0 bottom-0 p-5 space-y-6 duration-500 text-gray-600 btn-drop-shadow opacity-50">
+        <div
+          class="absolute left-0 bottom-0 p-5 space-y-6 duration-500 text-gray-600 btn-drop-shadow opacity-50"
+        >
           <u-slider
             v-model="globalVolume"
             orientation="vertical"
@@ -209,7 +211,7 @@
             v-model:muted="isMuted"
           >
             <template #default="{ isRunning, isPaused, mode, pomodoroPhase, formattedTime }">
-              <div class="flex flex-col items-center">
+              <div class="relative">
                 <u-tooltip
                   :text="t('timer')"
                   :content="{ side: 'right' }"
@@ -227,7 +229,7 @@
                 </u-tooltip>
                 <div
                   v-if="isRunning || isPaused"
-                  class="text-xs leading-none font-mono"
+                  class="absolute top-full left-1/2 -translate-x-1/2 pt-0.5 text-xs leading-none font-mono whitespace-nowrap"
                   :class="{
                     'text-blue-500': mode === 'sleep',
                     'text-orange-400': mode === 'pomodoro' && pomodoroPhase === 'work',
