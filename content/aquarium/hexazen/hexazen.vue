@@ -141,7 +141,9 @@
           </div>
         </transition>
 
-        <div class="absolute left-0 bottom-0 p-5 space-y-6 duration-500 text-gray-600 btn-drop-shadow opacity-50">
+        <div
+          class="absolute left-0 bottom-0 p-5 space-y-6 duration-500 text-gray-600 btn-drop-shadow opacity-50"
+        >
           <u-slider
             v-model="globalVolume"
             orientation="vertical"
@@ -203,6 +205,42 @@
               class="text-3xl cursor-pointer outline-0 "
             />
           </bulletin-modal>
+
+          <timer-popover
+            v-model:volume="globalVolume"
+            v-model:muted="isMuted"
+          >
+            <template #default="{ isRunning, isPaused, mode, pomodoroPhase, formattedTime }">
+              <div class="relative">
+                <u-tooltip
+                  :text="t('timer')"
+                  :content="{ side: 'right' }"
+                >
+                  <u-icon
+                    name="i-material-symbols:timer-outline-rounded"
+                    class="text-3xl cursor-pointer outline-0 duration-300"
+                    :class="{
+                      'text-blue-500': isRunning && mode === 'sleep',
+                      'text-orange-500': isRunning && mode === 'pomodoro' && pomodoroPhase === 'work',
+                      'text-green-400': isRunning && mode === 'pomodoro' && pomodoroPhase === 'break',
+                      'text-green-500': isPaused,
+                    }"
+                  />
+                </u-tooltip>
+                <div
+                  v-if="isRunning || isPaused"
+                  class="absolute top-full left-1/2 -translate-x-1/2 pt-0.5 text-xs leading-none font-mono whitespace-nowrap"
+                  :class="{
+                    'text-blue-500': mode === 'sleep',
+                    'text-orange-400': mode === 'pomodoro' && pomodoroPhase === 'work',
+                    'text-green-500': mode === 'pomodoro' && pomodoroPhase === 'break',
+                  }"
+                >
+                  {{ formattedTime }}
+                </div>
+              </div>
+            </template>
+          </timer-popover>
         </div>
       </div>
 
@@ -286,6 +324,7 @@ import BlockPicker from './domains/block/block-picker.vue'
 import { decodeBlocks, encodeBlocks } from './domains/share/codec'
 import { useSoundscapePlayer } from './domains/soundscape/player/use-soundscape-player'
 import SoundscapeMixer from './domains/soundscape/soundscape-mixer.vue'
+import TimerPopover from './domains/timer/timer-popover.vue'
 import MainScene from './main-scene.vue'
 
 // Nuxt UI 接管 vitepress 的 dark 設定，故改用 useColorMode
@@ -500,6 +539,7 @@ const { t } = useSimpleI18n({
     linkInvalid: '連結無效或已損壞 (╥ω╥`)',
     speakersNapping: '你的喇叭正在午睡，快把它叫醒！੭ ˙ᗜ˙ )੭',
     unpackingBlocks: '正在從箱子倒出方塊...',
+    timer: '計時器',
   },
   'en': {
     removeMode: 'Remove Mode',
@@ -523,6 +563,7 @@ const { t } = useSimpleI18n({
     linkInvalid: 'The link may be invalid or corrupted.',
     speakersNapping: `Your speakers are taking a nap. Wake 'em up!`,
     unpackingBlocks: 'Unpacking blocks...',
+    timer: 'Timer',
   },
 } as const)
 </script>

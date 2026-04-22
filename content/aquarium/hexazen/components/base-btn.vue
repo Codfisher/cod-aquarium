@@ -3,6 +3,9 @@
     <u-button
       :style="style"
       v-bind="props"
+      :ui="{
+        label: 'w-full text-center',
+      }"
     />
   </div>
 </template>
