@@ -209,7 +209,7 @@
             v-model:muted="isMuted"
           >
             <template #default="{ isRunning, isPaused, mode, pomodoroPhase, formattedTime }">
-              <div class="relative">
+              <div class="flex flex-col items-center">
                 <u-tooltip
                   :text="t('timer')"
                   :content="{ side: 'right' }"
@@ -227,7 +227,7 @@
                 </u-tooltip>
                 <div
                   v-if="isRunning || isPaused"
-                  class="text-xs text-center leading-none -mt-1 font-mono"
+                  class="text-xs leading-none font-mono"
                   :class="{
                     'text-blue-500': mode === 'sleep',
                     'text-orange-400': mode === 'pomodoro' && pomodoroPhase === 'work',
