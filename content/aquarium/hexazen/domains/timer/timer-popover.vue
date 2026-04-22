@@ -17,105 +17,111 @@
     />
 
     <template #content>
-      <chamfer-border-card content-class="p-4 space-y-4 w-64 text-gray-700">
-        <!-- 模式切換 -->
-        <div class="grid grid-cols-2 gap-1.5">
-          <base-btn
-            :label="t('sleep')"
-            :color="mode === 'sleep' ? 'primary' : 'neutral'"
-            :variant="mode === 'sleep' ? 'solid' : 'soft'"
-            size="sm"
-            class="w-full "
-            @click="setMode('sleep')"
-          />
-          <base-btn
-            :label="t('pomodoro')"
-            :color="mode === 'pomodoro' ? 'primary' : 'neutral'"
-            :variant="mode === 'pomodoro' ? 'solid' : 'soft'"
-            size="sm"
-            class="w-full "
-            @click="setMode('pomodoro')"
-          />
-        </div>
+      <chamfer-border-card content-class="p-4 w-64 text-gray-700">
+        <div
+          v-auto-animate
+          class="space-y-4"
+        >
+          <!-- 模式切換 -->
+          <div class="grid grid-cols-2 gap-1.5">
+            <base-btn
+              :label="t('sleep')"
+              :color="mode === 'sleep' ? 'primary' : 'neutral'"
+              :variant="mode === 'sleep' ? 'solid' : 'soft'"
+              size="sm"
+              class="w-full "
+              @click="setMode('sleep')"
+            />
+            <base-btn
+              :label="t('pomodoro')"
+              :color="mode === 'pomodoro' ? 'primary' : 'neutral'"
+              :variant="mode === 'pomodoro' ? 'solid' : 'soft'"
+              size="sm"
+              class="w-full "
+              @click="setMode('pomodoro')"
+            />
+          </div>
 
-        <!-- 設定區 -->
-        <div class="space-y-2.5 ">
-          <!-- 睡眠設定 -->
-          <template v-if="mode === 'sleep'">
-            <div class="grid grid-cols-4 gap-1">
-              <base-btn
-                v-for="preset in SLEEP_PRESET_LIST"
-                :key="preset"
-                :label="`${preset}`"
-                size="xs"
-                :color="sleepMinutes === preset ? 'primary' : 'neutral'"
-                :variant="sleepMinutes === preset ? 'soft' : 'ghost'"
-                @click="selectSleepPreset(preset)"
-              />
-            </div>
+          <!-- 設定區 -->
+          <div
+            v-auto-animate
+            class="space-y-2.5"
+          >
+            <!-- 睡眠設定 -->
+            <template v-if="mode === 'sleep'">
+              <div class="grid grid-cols-4 gap-1">
+                <base-btn
+                  v-for="preset in SLEEP_PRESET_LIST"
+                  :key="preset"
+                  :label="`${preset}`"
+                  size="xs"
+                  :color="sleepMinutes === preset ? 'primary' : 'neutral'"
+                  :variant="sleepMinutes === preset ? 'soft' : 'ghost'"
+                  @click="selectSleepPreset(preset)"
+                />
+              </div>
 
-            <div class="flex items-center gap-2">
-              <span class="text-xs text-gray-400 shrink-0 w-10">{{ t('custom') }}</span>
-              <u-input
-                v-model.number="customSleepMinutes"
-                type="number"
-                size="xs"
-                :min="1"
-                :max="999"
-                class="flex-1 min-w-0"
-                @change="applyCustomSleep"
-              />
-              <span class="text-xs text-gray-400 shrink-0">{{ t('min') }}</span>
-            </div>
-          </template>
-
-          <!-- 番茄鐘設定 -->
-          <template v-else>
-            <div class="grid grid-cols-3 gap-1">
-              <base-btn
-                v-for="preset in POMODORO_PRESET_LIST"
-                :key="`${preset.workMinutes}/${preset.breakMinutes}`"
-                :label="`${preset.workMinutes}/${preset.breakMinutes}`"
-                size="xs"
-                :color="workMinutes === preset.workMinutes && breakMinutes === preset.breakMinutes ? 'primary' : 'neutral'"
-                :variant="workMinutes === preset.workMinutes && breakMinutes === preset.breakMinutes ? 'soft' : 'ghost'"
-                @click="selectPomodoroPreset(preset)"
-              />
-            </div>
-
-            <div class="space-y-1.5">
               <div class="flex items-center gap-2">
-                <span class="text-xs text-gray-400 shrink-0 w-10">{{ t('work') }}</span>
+                <span class="text-xs text-gray-400 shrink-0 w-10">{{ t('custom') }}</span>
                 <u-input
-                  v-model.number="workMinutes"
+                  v-model.number="customSleepMinutes"
                   type="number"
                   size="xs"
                   :min="1"
                   :max="999"
-                  :disabled="isRunning || isPaused"
                   class="flex-1 min-w-0"
+                  @change="applyCustomSleep"
                 />
                 <span class="text-xs text-gray-400 shrink-0">{{ t('min') }}</span>
               </div>
-              <div class="flex items-center gap-2">
-                <span class="text-xs text-gray-400 shrink-0 w-10">{{ t('break') }}</span>
-                <u-input
-                  v-model.number="breakMinutes"
-                  type="number"
-                  size="xs"
-                  :min="1"
-                  :max="999"
-                  :disabled="isRunning || isPaused"
-                  class="flex-1 min-w-0"
-                />
-                <span class="text-xs text-gray-400 shrink-0">{{ t('min') }}</span>
-              </div>
-            </div>
-          </template>
-        </div>
+            </template>
 
-        <!-- 倒數顯示 -->
-        <transition name="timer-counter">
+            <!-- 番茄鐘設定 -->
+            <template v-else>
+              <div class="grid grid-cols-3 gap-1">
+                <base-btn
+                  v-for="preset in POMODORO_PRESET_LIST"
+                  :key="`${preset.workMinutes}/${preset.breakMinutes}`"
+                  :label="`${preset.workMinutes}/${preset.breakMinutes}`"
+                  size="xs"
+                  :color="workMinutes === preset.workMinutes && breakMinutes === preset.breakMinutes ? 'primary' : 'neutral'"
+                  :variant="workMinutes === preset.workMinutes && breakMinutes === preset.breakMinutes ? 'soft' : 'ghost'"
+                  @click="selectPomodoroPreset(preset)"
+                />
+              </div>
+
+              <div class="space-y-1.5">
+                <div class="flex items-center gap-2">
+                  <span class="text-xs text-gray-400 shrink-0 w-10">{{ t('work') }}</span>
+                  <u-input
+                    v-model.number="workMinutes"
+                    type="number"
+                    size="xs"
+                    :min="1"
+                    :max="999"
+                    :disabled="isRunning || isPaused"
+                    class="flex-1 min-w-0"
+                  />
+                  <span class="text-xs text-gray-400 shrink-0">{{ t('min') }}</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="text-xs text-gray-400 shrink-0 w-10">{{ t('break') }}</span>
+                  <u-input
+                    v-model.number="breakMinutes"
+                    type="number"
+                    size="xs"
+                    :min="1"
+                    :max="999"
+                    :disabled="isRunning || isPaused"
+                    class="flex-1 min-w-0"
+                  />
+                  <span class="text-xs text-gray-400 shrink-0">{{ t('min') }}</span>
+                </div>
+              </div>
+            </template>
+          </div>
+
+          <!-- 倒數顯示 -->
           <div
             v-if="isRunning || isPaused"
             class="space-y-2"
@@ -156,62 +162,62 @@
               </div>
             </div>
           </div>
-        </transition>
 
-        <!-- 控制按鈕 -->
-        <div class="flex items-center gap-1.5">
-          <!-- 未開始：全寬主要按鈕 -->
-          <template v-if="!isRunning && !isPaused">
-            <base-btn
-              :label="t('start')"
-              color="primary"
-              variant="solid"
-              size="sm"
-              class="flex-1"
-              @click="start()"
-            />
-          </template>
+          <!-- 控制按鈕 -->
+          <div class="flex items-center gap-1.5">
+            <!-- 未開始：全寬主要按鈕 -->
+            <template v-if="!isRunning && !isPaused">
+              <base-btn
+                :label="t('start')"
+                color="primary"
+                variant="solid"
+                size="sm"
+                class="flex-1"
+                @click="start()"
+              />
+            </template>
 
-          <!-- 進行中：主動作 + 縮小的破壞性按鈕 -->
-          <template v-else-if="isRunning">
-            <base-btn
-              v-if="mode === 'pomodoro'"
-              :label="t('pause')"
-              color="neutral"
-              variant="solid"
-              size="sm"
-              class="flex-1"
-              @click="pause()"
-            />
-            <base-btn
-              :label="t('stop')"
-              color="error"
-              variant="ghost"
-              size="sm"
-              :class="mode === 'pomodoro' ? 'shrink-0' : 'flex-1'"
-              @click="stop()"
-            />
-          </template>
+            <!-- 進行中：主動作 + 縮小的破壞性按鈕 -->
+            <template v-else-if="isRunning">
+              <base-btn
+                v-if="mode === 'pomodoro'"
+                :label="t('pause')"
+                color="neutral"
+                variant="solid"
+                size="sm"
+                class="flex-1"
+                @click="pause()"
+              />
+              <base-btn
+                :label="t('stop')"
+                color="error"
+                variant="ghost"
+                size="sm"
+                :class="mode === 'pomodoro' ? 'shrink-0' : 'flex-1'"
+                @click="stop()"
+              />
+            </template>
 
-          <!-- 暫停中：恢復優先，停止退場 -->
-          <template v-else>
-            <base-btn
-              :label="t('resume')"
-              color="primary"
-              variant="solid"
-              size="sm"
-              class="flex-1"
-              @click="resume()"
-            />
-            <base-btn
-              :label="t('stop')"
-              color="error"
-              variant="ghost"
-              size="sm"
-              class="shrink-0"
-              @click="stop()"
-            />
-          </template>
+            <!-- 暫停中：恢復優先，停止退場 -->
+            <template v-else>
+              <base-btn
+                :label="t('resume')"
+                color="primary"
+                variant="solid"
+                size="sm"
+                class="flex-1"
+                @click="resume()"
+              />
+              <base-btn
+                :label="t('stop')"
+                color="error"
+                variant="ghost"
+                size="sm"
+                class="shrink-0"
+                @click="stop()"
+              />
+            </template>
+          </div>
         </div>
       </chamfer-border-card>
     </template>
@@ -220,6 +226,7 @@
 
 <script setup lang="ts">
 import type { PomodoroPhase, PomodoroPreset } from './type'
+import { vAutoAnimate } from '@formkit/auto-animate/vue'
 import { ref } from 'vue'
 import BaseBtn from '../../components/base-btn.vue'
 import ChamferBorderCard from '../../components/chamfer-border-card.vue'
@@ -343,12 +350,3 @@ const { t } = useSimpleI18n({
   },
 } as const)
 </script>
-
-<style scoped lang="sass">
-.timer-counter
-  &-enter-active, &-leave-active
-    transition: opacity 0.3s, transform 0.3s
-  &-enter-from, &-leave-to
-    opacity: 0
-    transform: translateY(-4px)
-</style>
