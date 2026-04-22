@@ -18,7 +18,7 @@
           v-if="props.data"
           ref="imgRef"
           :src="`/memes/${props.data.file}`"
-          class="object-contain select-none rounded-none! border-none pointer-events-none w-[80vw] md:max-w-[50vw]"
+          class="object-contain select-none rounded-none! border-none! pointer-events-none w-[80vw] md:max-w-[50vw]"
           draggable="false"
         >
 
