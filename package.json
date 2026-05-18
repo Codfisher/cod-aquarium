@@ -3,7 +3,7 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "vitepress dev --port 3000 --host",
+    "dev": "vitepress dev --port 3030 --host",
     "task:process-meme": "npx vite-node .vitepress/scripts/process-meme-img-v2.ts",
     "build": "vitepress build",
     "preview": "npm run build && vitepress preview",
