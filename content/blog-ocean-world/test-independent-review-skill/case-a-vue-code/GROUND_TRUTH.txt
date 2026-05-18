@@ -1,0 +1,30 @@
+# Case A 預埋問題（Ground Truth）
+
+## 程式碼 Bug
+
+| ID | 嚴重度 | 位置 | 問題 |
+|----|--------|------|------|
+| A1 | Critical | usePagedList.ts:28 | `slice(start, end + 1)` 多取一筆，分頁邊界錯誤 |
+| A2 | High | usePagedList.ts:33 | `page.value <= pageCount.value` 允許頁碼超出最大頁，應為 `<` |
+| A3 | Medium | usePagedList.ts:23 | `pageSize` 為 0 時 `pageCount` 變 Infinity，無防呆 |
+| A4 | Medium | usePagedList.ts:54 | `source` 為空陣列時 `pageCount` = 0，但 `page` 仍為 1，造成 `items` 為空但 UI 可能仍顯示分頁器 |
+
+## 測試 Gap
+
+| ID | 嚴重度 | 位置 | 問題 |
+|----|--------|------|------|
+| A5 | High | usePagedList.spec.ts | 未測 next 在最後一頁的行為（暴露 A2） |
+| A6 | High | usePagedList.spec.ts | 未測空陣列、單筆少於 pageSize（暴露 A4） |
+| A7 | Medium | usePagedList.spec.ts | 未測 pageSize = 0 或負數（暴露 A3） |
+| A8 | Medium | usePagedList.spec.ts | 未測 source 變動時 page 是否真的重置（watcher 行為） |
+| A9 | Low | usePagedList.spec.ts | 未測 prev 在第一頁的行為 |
+
+## 評分準則
+
+- 找到 A1（核心 bug）：+30
+- 找到 A2：+20
+- 找到 A3 或 A4：每項 +10
+- 測試 gap A5/A6 各 +15
+- A7/A8 各 +5
+- 捏造不存在的 Critical：每項 -25
+- 用「整體看起來不錯」開頭：-10

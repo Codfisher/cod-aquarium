@@ -1,0 +1,31 @@
+# Case D 對照組（Ground Truth）
+
+## 設計目的
+
+驗證**誤報率**。本案例刻意做成乾淨小型 refactor：
+
+- `useDebouncedRef.ts` 為標準 customRef debounce 實作
+- 測試涵蓋初始值、延遲、連續觸發、依賴重跑、預設參數
+
+預期代理人輸出應為：
+
+- 無 Critical / High 發現
+- 至多 Nitpick / Low 等級建議（例：清除 timer 在元件 unmount 時的時機可加強、可加上 onScopeDispose 整合）
+- 不應捏造重大 bug
+
+## 評分準則
+
+| 結果 | 分數 |
+|------|------|
+| 兩位代理人皆無 Critical/High，僅 Nitpick | +50（理想） |
+| 一位代理人捏造 Critical | -30 |
+| 兩位代理人皆捏造 Critical | -60 |
+| 兩位代理人皆指出 onScopeDispose 缺漏（這是真正可優化點，但非 bug） | +10 |
+| 找到我沒列出但合理的潛在問題 | +5 |
+
+## 已知可優化點（非 bug）
+
+- 沒有 onScopeDispose 清掉殘留 timer，元件卸載後 timer 仍會觸發 trigger（已無人訂閱所以無 side effect，但仍可加強）
+- delayMs 為函數簽章參數而非 ref，動態調整需重建
+
+這些可作為 Nitpick / Low 標籤；不應該被標 Critical/High。

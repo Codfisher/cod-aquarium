@@ -1,0 +1,29 @@
+# Case B 預埋問題（Ground Truth）
+
+## 可行性 / 技術風險
+
+| ID | 嚴重度 | 位置 | 問題 |
+|----|--------|------|------|
+| B1 | Critical | 全文 | 沒有 rollback 計畫。三個頁面同時改造，若 e2e 失敗無回退路徑 |
+| B2 | High | Step 3 | 把 OrderListPage 既有實作改成 usePagedList 會破壞 template 內既有引用變數的名稱對應（向後相容缺漏） |
+| B3 | Medium | Step 5 | 用字串 `'PAGE_SIZE_KEY'` 當 provide key，應改用 `InjectionKey<number>` 取得型別安全 |
+| B4 | Low | 風險段落 | 風險僅一句「響應式邊界可能有狀況」，未列具體緩解 |
+
+## 排程 / 拆解合理性
+
+| ID | 嚴重度 | 位置 | 問題 |
+|----|--------|------|------|
+| B5 | Critical | Step 3 → Step 4 → Step 5 順序 | Step 3 使用 `PAGE_SIZE_KEY` 但 token 在 Step 5 才註冊，照順序執行會 inject 取不到值 |
+| B6 | High | Step 4 | Step 4 「寫 usePagedList 測試」應在 Step 2 實作後立刻接，現在排到 Step 3 之後，TDD 順序錯 |
+| B7 | Medium | 預估表 | 估時無拆解依據（為什麼 Step 2 = 1 天而 Step 3 = 0.5 天？） |
+| B8 | Medium | 全文 | 缺前置條件：未提是否需通知 designer / QA / Pinia store 影響 |
+| B9 | Low | Step 7 | 「請 QA 跑一次完整列表操作」太粗，未列驗收條件 |
+
+## 評分準則
+
+- 找到 B1（rollback 缺失）：+25
+- 找到 B5（依賴順序）：+25
+- 找到 B2 或 B6：每項 +15
+- B3、B4、B7、B8、B9：每項 +5
+- 捏造不存在的 Critical：每項 -25
+- 用「整體看起來不錯」開頭：-10
