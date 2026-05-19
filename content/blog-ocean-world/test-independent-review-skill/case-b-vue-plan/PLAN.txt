@@ -1,0 +1,69 @@
+# Vue 列表分頁邏輯重構計畫
+
+## 背景
+
+目前專案的 `OrderListPage`、`ProductListPage`、`UserListPage` 各自重複了相似的陣列分頁邏輯：
+
+- 三個頁面都用 `slice` 切資料，邊界處理不一致
+- 換 page size 要改三個地方
+- 單元測試各自寫一份
+
+計畫導入 `usePagedList<T>` composable，預期 3 天內完成。
+
+## 步驟
+
+### Step 1：定義 usePagedList<T> 介面（0.5 天）
+
+新增 `src/composables/use-paged-list.ts`，定義 `items`、`page`、`pageSize`、`pageCount`、`next`、`prev` 等回傳值。
+
+### Step 2：實作 usePagedList
+
+把現有 `OrderListPage` 的分頁邏輯搬到 composable，沿用原本的計算方式。
+
+### Step 3：把 OrderListPage 改為使用 usePagedList
+
+```ts
+const { items, page, next, prev } = usePagedList({
+  source: orderList,
+})
+```
+
+並使用 Step 4 建立的 `PAGE_SIZE_KEY` provide token 取得預設頁數。
+
+### Step 4：寫 usePagedList 單元測試
+
+mock 來源陣列，覆蓋成功、空陣列、最後一頁三種情境。
+
+### Step 5：設定 provide/inject token 與全域預設值
+
+在 `App.vue` 提供：
+
+```ts
+provide('PAGE_SIZE_KEY', 20)
+```
+
+### Step 6：把 ProductListPage 與 UserListPage 一併改為 usePagedList
+
+跑 e2e 測試確認三個頁面行為未變。
+
+### Step 7：部署到 staging 驗收
+
+請 QA 跑一次完整列表操作。
+
+## 預估
+
+| 步驟 | 估時 |
+|------|------|
+| Step 1 | 0.5 天 |
+| Step 2 | 1 天 |
+| Step 3 | 0.5 天 |
+| Step 4 | 0.5 天 |
+| Step 5 | 0.5 天 |
+| Step 6 | 0.5 天 |
+| Step 7 | 0.5 天 |
+
+合計 3 天。
+
+## 風險
+
+Pinia store 與 composable 的響應式邊界可能有狀況。

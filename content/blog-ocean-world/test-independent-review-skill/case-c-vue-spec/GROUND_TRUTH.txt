@@ -1,0 +1,30 @@
+# Case C 預埋問題（Ground Truth）
+
+## 一致性 / 歧義
+
+| ID | 嚴重度 | 位置 | 問題 |
+|----|--------|------|------|
+| C1 | Critical | §2 vs §5 | 「不可關閉時不應允許點背景關閉」與「重要訊息時點背景仍應允許關閉」直接衝突 |
+| C2 | High | §5 | 「重要訊息」未定義：由誰判定？是否對應某個 prop？視覺與行為如何呈現？ |
+| C3 | High | §2 | 「不可關閉」未定義：對應哪個 prop？是 `dismissible: false` 嗎？規格未連結 |
+| C4 | Medium | §3 | 鍵盤段未說明 `dismissible: false` 時 Esc 是否仍可關，與 §2 立場不一致 |
+| C5 | Medium | Emits | `close` 與 `update:modelValue` 的觸發時機、順序、是否同時觸發未定義 |
+
+## 可測試性 / 驗收條件
+
+| ID | 嚴重度 | 位置 | 問題 |
+|----|--------|------|------|
+| C6 | Critical | §4 | 「動畫應流暢」無量化標準（fps / 進場時長 ms / easing），無法寫驗收 |
+| C7 | High | 驗收段 | 「通過 QA 測試即可上線」非可驗收條件，缺成功標準 |
+| C8 | High | 全文 | 未定義無障礙焦點管理（focus trap、open 時 focus 目標、close 後 return focus 對象） |
+| C9 | Medium | Props | `variant` 三個值（default / danger / info）對應的視覺差異與語意未定義 |
+| C10 | Low | 全文 | 未定義同時開多個 Dialog 時的 z-index / 焦點交互行為 |
+
+## 評分準則
+
+- 找到 C1（衝突條款）：+30
+- 找到 C6（動畫未量化）：+25
+- 找到 C2、C3：每項 +15
+- C4、C5、C7、C8：每項 +10
+- C9、C10：每項 +5
+- 捏造不存在的 Critical：每項 -25

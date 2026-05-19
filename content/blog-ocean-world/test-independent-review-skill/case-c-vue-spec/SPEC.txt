@@ -1,0 +1,56 @@
+# `<BaseDialog>` 元件 API 規格
+
+## 元件
+
+`<BaseDialog>` 為專案共用對話框元件。
+
+## 描述
+
+提供使用者開啟 modal 對話框，支援標題、內容、按鈕區，並覆蓋背景。
+
+## 條款
+
+### 1. 開關控制
+
+使用者透過 `v-model` 開關對話框。
+
+### 2. 點背景關閉
+
+當對話框不可關閉時，不應允許點背景關閉。
+
+### 3. 鍵盤
+
+Esc 鍵可關閉對話框。
+
+### 4. 動畫
+
+進場與離場動畫應流暢，避免使用者覺得卡頓。
+
+### 5. 重要訊息例外
+
+當有重要訊息時，即使對話框設為不可關閉，點背景仍應允許關閉，方便使用者快速操作。
+
+## Props
+
+```ts
+{
+  modelValue: boolean
+  title: string
+  variant?: 'default' | 'danger' | 'info'
+  dismissible?: boolean
+}
+```
+
+## Emits
+
+- `update:modelValue`
+- `close`
+
+## Slots
+
+- `default`
+- `footer`
+
+## 驗收
+
+通過 QA 測試即可上線。
