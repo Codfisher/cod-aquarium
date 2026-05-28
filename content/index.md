@@ -137,6 +137,8 @@ CodStack 使用 <a href="https://www.babylonjs.com/" target="_blank">babylon.js<
 
 ### [HexaZen](/aquarium/hexazen/){target="_blank" rel="noopener"}
 
+<iframe width="100%" height="500" src="https://www.youtube.com/embed/U_FEOSPR0kI?si=hUOOGZntenjl2vxi" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+
 平常上班時耳機都常都是放白噪音、雨聲等等自然聲音。
 
 同一個聲音聽太多次，連下一個雷聲甚麼時候出現我都快背起來了。%(›´ω`‹ )%
