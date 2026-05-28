@@ -297,6 +297,10 @@ export default ({ mode }: { mode: string }) => {
                 text: 'EnderBox',
                 link: '/aquarium/enderbox/',
               },
+              {
+                text: '速速湊',
+                link: 'https://susugo.codlin.me/',
+              },
             ],
           }),
         ],
