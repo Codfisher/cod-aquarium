@@ -75,7 +75,7 @@ aside: false
 
 ---
 
-### [派動對物嗨起來](https://www.youtube.com/watch?v=PPWyUhT6gRk)
+### [派動動物嗨起來](https://www.youtube.com/watch?v=PPWyUhT6gRk)
 
 <iframe width="100%" height="400" src="https://www.youtube.com/embed/PPWyUhT6gRk?si=9GnmynDrAlD_C_Tu" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen class="mt-4"></iframe>
 
