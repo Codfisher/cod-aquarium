@@ -83,6 +83,10 @@ aside: false
 
 基於上述理由，網頁已夠格成為 3D 遊戲機，手機瀏覽器甚至能像 joy-con 一般，作為搖桿使用，於是本專案就這麼誕生了。( •̀ ω •́ )✧
 
+[遊戲連結](https://animalsparty.codlin.me/)
+
+[GitHub 原始碼](https://github.com/Codfisher/animals-party)
+
 ---
 
 ### [酷酷的元件](https://chillcomponent.codlin.me/)
