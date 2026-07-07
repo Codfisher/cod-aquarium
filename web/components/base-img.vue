@@ -55,10 +55,17 @@ const fileName = computed(() => props.src
 )
 
 const src = computed(() => isDark.value ? props.src.replace('.webp', '-dark.webp') : props.src)
+
+/** 封面圖為首屏 LCP 元素，需優先載入；其餘圖片延後載入以釋放頻寬 */
+const isCover = computed(() => String(attrs.class ?? '').includes('cover'))
+
 const imgProps = computed(() => ({
   ...props,
   ...attrs,
   src: src.value,
+  loading: isCover.value ? 'eager' : 'lazy',
+  fetchpriority: isCover.value ? 'high' : undefined,
+  decoding: isCover.value ? undefined : 'async',
 }))
 
 /** 抽取邏輯：根據傳入的檔名 (baseName) 產生對應的 srcset 字串

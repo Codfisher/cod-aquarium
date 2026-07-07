@@ -1,4 +1,4 @@
-import { Vector3 } from '@babylonjs/core'
+import { Vector3 } from '@babylonjs/core/Maths/math.vector'
 
 /** 小於此值視為 0 */
 export const epsilon = 1e-8

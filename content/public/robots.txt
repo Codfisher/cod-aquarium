@@ -1,2 +1,4 @@
 User-agent: *
-Disallow:
+Disallow: /_frame
+
+Sitemap: https://codlin.me/sitemap.xml

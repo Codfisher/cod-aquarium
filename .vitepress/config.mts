@@ -1,5 +1,7 @@
+import type { Buffer } from 'node:buffer'
 import type { DefaultTheme, HeadConfig } from 'vitepress'
 import type { Article } from './utils'
+import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
@@ -26,6 +28,161 @@ import {
 
 export interface Config extends DefaultTheme.Config {
   articleList: Article[];
+}
+
+const HOSTNAME = 'https://codlin.me'
+const SITE_TITLE = '鱈魚的魚缸'
+const SITE_DESCRIPTION = '各種鱈魚滾鍵盤的雜記與研究'
+const AUTHOR_NAME = '鱈魚 (Cod Lin)'
+/** public 目錄絕對路徑，供讀取封面圖尺寸使用 */
+const CONTENT_PUBLIC_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '../content/public')
+
+/** 作者於各社群平台的連結，供 JSON-LD sameAs 建立實體關聯 */
+const socialLinkList = [
+  'https://github.com/Codfisher/cod-aquarium',
+  'https://gitlab.com/codfish2140',
+  'https://www.youtube.com/@codfish2140',
+  'https://www.linkedin.com/in/shih-chen-lin-codfish/',
+  'https://www.threads.com/@codfish2140',
+]
+
+/** 作者 Person 實體，以固定 @id 供各文章 author 跨頁引用，匯聚作者權重 */
+const PERSON_ID = `${HOSTNAME}/#person`
+const ORGANIZATION_ID = `${HOSTNAME}/#organization`
+const WEBSITE_ID = `${HOSTNAME}/#website`
+const personNode: Record<string, unknown> = {
+  '@type': 'Person',
+  '@id': PERSON_ID,
+  'name': AUTHOR_NAME,
+  'url': `${HOSTNAME}/`,
+  'image': `${HOSTNAME}/codfish.webp`,
+  'jobTitle': '前端工程師',
+  'description': '熱衷於結合各類領域技術、開發酷酷的東西',
+  'worksFor': { '@id': ORGANIZATION_ID },
+  'sameAs': socialLinkList,
+}
+
+/** 發布者 Organization 實體，供 BlogPosting publisher 引用 */
+const organizationNode: Record<string, unknown> = {
+  '@type': 'Organization',
+  '@id': ORGANIZATION_ID,
+  'name': SITE_TITLE,
+  'url': `${HOSTNAME}/`,
+  'founder': { '@id': PERSON_ID },
+  'logo': {
+    '@type': 'ImageObject',
+    'url': `${HOSTNAME}/favicon.png`,
+    'width': 446,
+    'height': 393,
+  },
+}
+
+/** 網站 WebSite 實體，供文章 isPartOf 與首頁引用，串起完整實體圖 */
+const websiteNode: Record<string, unknown> = {
+  '@type': 'WebSite',
+  '@id': WEBSITE_ID,
+  'name': SITE_TITLE,
+  'url': `${HOSTNAME}/`,
+  'description': SITE_DESCRIPTION,
+  'inLanguage': 'zh-Hant',
+  'publisher': { '@id': ORGANIZATION_ID },
+}
+
+/** 文章分類對應的顯示名稱與該分類的入口頁，供麵包屑（BreadcrumbList）使用 */
+const sectionMap: Record<string, { name: string; landing: string }> = {
+  'blog-ocean-world': { name: '蔚藍世界', landing: getLatestDocPath('/blog-ocean-world/') },
+  'blog-program': { name: '程式浮潛', landing: getLatestDocPath('/blog-program/') },
+  'blog-vue': { name: 'Vue', landing: getLatestDocPath('/blog-vue/') },
+  'column-cod-toys': { name: '自己的工具自己做，用 Electron 仿造 PowerToys！', landing: getOldestDocPath('/column-cod-toys/') },
+  'column-hexazen': { name: '來個 3D 白噪音混音器', landing: getOldestDocPath('/column-hexazen/') },
+  'column-shader-notes': { name: '鱈魚的 Shader 筆記', landing: getOldestDocPath('/column-shader-notes/') },
+  'column-chill-components': { name: '酷酷元件背後的星點', landing: getOldestDocPath('/column-chill-components/') },
+}
+
+/** 將 frontmatter 的 pubDate（YYYYMMDD 數字）轉為含時區的 ISO 8601 字串 */
+function toIsoDate(pubDate?: number): string | undefined {
+  if (!pubDate)
+    return undefined
+
+  const value = String(pubDate)
+  if (value.length !== 8)
+    return undefined
+
+  return `${value.slice(0, 4)}-${value.slice(4, 6)}-${value.slice(6, 8)}T00:00:00+08:00`
+}
+
+/** 將 build 的頁面相對路徑轉為正規化網站路徑，處理首頁與巢狀 index 的尾斜線 */
+function toUrlPath(page: string): string {
+  const cleanPath = page.replace(/\.md$/, '')
+  if (cleanPath === 'index')
+    return '/'
+
+  // 目錄型頁面（如 aquarium/xxx/index）實際網址為帶尾斜線的目錄，不可保留 index
+  if (cleanPath.endsWith('/index'))
+    return `/${cleanPath.slice(0, -'index'.length)}`
+
+  return `/${cleanPath}`
+}
+
+/** 解析 webp 檔頭取得寬高，支援 VP8 / VP8L / VP8X 三種 chunk */
+function parseWebpSize(buffer: Buffer): { width: number; height: number } | undefined {
+  if (buffer.length < 30 || buffer.toString('ascii', 0, 4) !== 'RIFF')
+    return undefined
+
+  const format = buffer.toString('ascii', 12, 16)
+  if (format === 'VP8 ') {
+    return {
+      width: buffer.readUInt16LE(26) & 0x3FFF,
+      height: buffer.readUInt16LE(28) & 0x3FFF,
+    }
+  }
+  if (format === 'VP8L') {
+    const bits = buffer.readUInt32LE(21)
+    return {
+      width: (bits & 0x3FFF) + 1,
+      height: ((bits >> 14) & 0x3FFF) + 1,
+    }
+  }
+  if (format === 'VP8X') {
+    return {
+      width: 1 + (buffer[24] | (buffer[25] << 8) | (buffer[26] << 16)),
+      height: 1 + (buffer[27] | (buffer[28] << 8) | (buffer[29] << 16)),
+    }
+  }
+  return undefined
+}
+
+/** 讀取 public 目錄中封面圖的實際尺寸（含快取），供 og:image 與 ImageObject 使用 */
+const imageSizeMap = new Map<string, { width: number; height: number } | undefined>()
+function getImageSize(imageUrl?: string): { width: number; height: number } | undefined {
+  if (!imageUrl)
+    return undefined
+
+  if (imageSizeMap.has(imageUrl))
+    return imageSizeMap.get(imageUrl)
+
+  let result: { width: number; height: number } | undefined
+  try {
+    const { pathname } = new URL(imageUrl, HOSTNAME)
+    if (pathname.endsWith('.webp')) {
+      result = parseWebpSize(readFileSync(resolve(CONTENT_PUBLIC_DIR, `.${pathname}`)))
+    }
+  }
+  catch {
+    result = undefined
+  }
+
+  imageSizeMap.set(imageUrl, result)
+  return result
+}
+
+/** 將結構化資料序列化為安全的 JSON-LD script，跳脫 < > & 避免提前關閉標籤或注入 */
+function toJsonLdScript(data: Record<string, unknown>): HeadConfig {
+  const json = JSON.stringify(data)
+    .replace(/</g, '\\u003c')
+    .replace(/>/g, '\\u003e')
+    .replace(/&/g, '\\u0026')
+  return ['script', { type: 'application/ld+json' }, json]
 }
 
 function getNavItem(data: DefaultTheme.NavItem) {
@@ -57,10 +214,19 @@ function getNavItem(data: DefaultTheme.NavItem) {
 export default ({ mode }: { mode: string }) => {
   const articleList = getArticleList()
 
+  /** 以正規化後的網址精確比對文章（避免 includes 子字串誤配互為前綴的文章） */
+  const findArticleByUrl = (url: string) => {
+    const key = url.replace(/^\//, '').replace(/\.html$/, '')
+    return articleList.find((article) => article.link.replace(/^\//, '') === key)
+  }
+
+  /** 首頁與總覽頁的 lastmod，以最新文章發布日為代表（新增文章時內容才變動） */
+  const latestArticleDate = toIsoDate(articleList[0]?.frontmatter?.pubDate)
+
   const baseConfig = {
-    title: '鱈魚的魚缸',
-    description: '各種鱈魚滾鍵盤的雜記與研究',
-    hostname: 'https://codlin.me',
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    hostname: HOSTNAME,
     email: 'hi@codlin.me',
     lang: 'zh-Hant',
     copyright: 'Copyright © 2024-present <a href="mailto:hi@codlin.me">Cod Lin</a>',
@@ -84,15 +250,32 @@ export default ({ mode }: { mode: string }) => {
       }],
       ['noscript', {}, '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;600;700;800&family=Noto+Sans+TC:wght@400;600;800&display=swap">'],
       ['link', { rel: 'icon', href: '/favicon.ico' }],
-
+      /** 讓瀏覽器與 RSS 閱讀器自動發現訂閱來源 */
+      ['link', { rel: 'alternate', type: 'application/rss+xml', title: SITE_TITLE, href: '/feed.rss' }],
+      /** 行動裝置瀏覽器 UI 底色，淺色用品牌 teal、深色對齊 VitePress 深色底 */
+      ['meta', { name: 'theme-color', media: '(prefers-color-scheme: light)', content: '#0d9a88' }],
+      ['meta', { name: 'theme-color', media: '(prefers-color-scheme: dark)', content: '#1b1b1f' }],
+      /** rel=me 供 IndieWeb 與部分平台驗證作者身分 */
+      ['link', { rel: 'me', href: 'https://github.com/Codfisher' }],
+      ['link', { rel: 'me', href: 'https://www.threads.com/@codfish2140' }],
+      ['link', { rel: 'me', href: 'https://www.linkedin.com/in/shih-chen-lin-codfish/' }],
     ],
     sitemap: {
       hostname: baseConfig.hostname,
       transformItems: piped(
         filter((item) => {
-          const target = articleList.find((article) =>
-            item.url.includes(article.link),
-          )
+          const url = item.url.startsWith('/') ? item.url : `/${item.url}`
+          // 首頁、文章總覽、酷東西頁皆為重要入口，一律納入 sitemap
+          if (
+            url === '/'
+            || url === '/index.html'
+            || url === '/article-overview.html'
+            || url.startsWith('/aquarium')
+          ) {
+            return true
+          }
+
+          const target = findArticleByUrl(item.url)
           if (!target) {
             console.warn(`[ sitemap ] ${item.url} 不在 articleList 之中`)
             return false
@@ -100,11 +283,28 @@ export default ({ mode }: { mode: string }) => {
 
           return !target?.frontmatter?.draft
         }),
-        map((item) => ({
-          ...item,
+        map((item) => {
           // 去除 .html，否則 search console 會因重新導向導致無法抓取
-          url: item.url.replace('.html', ''),
-        })),
+          const url = item.url.replace('.html', '')
+          // 首頁實際網址為根路徑（VitePress 會把 index 洗成空字串或 /index，統一正規化為 /）
+          const normalizedUrl = (url === '' || url === '/index' || url === 'index') ? '/' : url
+
+          // 首頁與總覽頁補上 lastmod，其餘沿用 VitePress 依 git 產生的值
+          const bareUrl = normalizedUrl.replace(/^\//, '')
+          const isEntryPage = bareUrl === '' || bareUrl === 'article-overview'
+          const lastmod = (isEntryPage && latestArticleDate && !item.lastmod)
+            ? latestArticleDate
+            : item.lastmod
+
+          // 文章附上封面圖，供 Google 圖片搜尋收錄
+          const image = findArticleByUrl(item.url)?.frontmatter?.image
+          return {
+            ...item,
+            url: normalizedUrl,
+            ...(lastmod ? { lastmod } : {}),
+            ...(image ? { img: [{ url: image }] } : {}),
+          }
+        }),
       ),
     },
     rewrites(id) {
@@ -112,8 +312,24 @@ export default ({ mode }: { mode: string }) => {
       const result = id.replace(/\d{6}\./, '')
       return result
     },
-    transformHead({ page }) {
-      const canonicalUrl = new URL(page.replace(/\.md$/, ''), baseConfig.hostname).toString()
+    transformHead({ page, pageData }) {
+      const urlPath = toUrlPath(page)
+      // canonical 與 og:url 皆用正規化後的實際網址，避免指向 /index 等不存在路徑
+      const canonicalUrl = `${baseConfig.hostname}${urlPath}`
+
+      const frontmatter = pageData.frontmatter ?? {}
+      const isDraft = !!frontmatter.draft
+      // 草稿不視為正式文章，避免輸出正式文章的結構化資料
+      const isArticle = !!frontmatter.pubDate && !isDraft
+      const pageTitle = frontmatter.title ?? pageData.title ?? baseConfig.title
+      const pageDescription = frontmatter.description ?? baseConfig.description
+      const ogImage = frontmatter.image
+        ? new URL(frontmatter.image, baseConfig.hostname).toString()
+        : `${baseConfig.hostname}/cover.webp`
+      const ogImageSize = getImageSize(ogImage)
+      // 大圖卡需接近 1.91:1，否則正方或直式圖會被裁切，改用不裁切的一般卡
+      const isWideImage = !ogImageSize || ogImageSize.width / ogImageSize.height >= 1.6
+      const twitterCard = isWideImage ? 'summary_large_image' : 'summary'
 
       const headList: HeadConfig[] = [
         [
@@ -123,6 +339,20 @@ export default ({ mode }: { mode: string }) => {
             href: canonicalUrl,
           },
         ],
+        /** Open Graph：社群平台（LINE、Threads、Facebook 等）分享時的預覽卡片資訊 */
+        ['meta', { property: 'og:type', content: isArticle ? 'article' : 'website' }],
+        ['meta', { property: 'og:site_name', content: baseConfig.title }],
+        ['meta', { property: 'og:locale', content: 'zh_TW' }],
+        ['meta', { property: 'og:title', content: pageTitle }],
+        ['meta', { property: 'og:url', content: canonicalUrl }],
+        ['meta', { property: 'og:description', content: pageDescription }],
+        ['meta', { property: 'og:image', content: ogImage }],
+        ['meta', { property: 'og:image:alt', content: pageTitle }],
+        /** Twitter / X 卡片 */
+        ['meta', { name: 'twitter:card', content: twitterCard }],
+        ['meta', { name: 'twitter:title', content: pageTitle }],
+        ['meta', { name: 'twitter:description', content: pageDescription }],
+        ['meta', { name: 'twitter:image', content: ogImage }],
         [
           'script',
           {
@@ -169,6 +399,19 @@ export default ({ mode }: { mode: string }) => {
         ],
       ]
 
+      /** 提供 og:image 尺寸，讓社群平台首次分享即可正確渲染大圖、避免掉版 */
+      if (ogImageSize) {
+        headList.push(
+          ['meta', { property: 'og:image:width', content: String(ogImageSize.width) }],
+          ['meta', { property: 'og:image:height', content: String(ogImageSize.height) }],
+        )
+      }
+
+      /** 草稿頁仍會被 build 出來，明確標示 noindex 以免被搜尋引擎當正式內容收錄 */
+      if (isDraft) {
+        headList.push(['meta', { name: 'robots', content: 'noindex, nofollow' }])
+      }
+
       /** 首頁 LCP 圖片 preload，讓瀏覽器盡早開始下載封面圖 */
       if (page === 'index.md') {
         headList.push([
@@ -183,27 +426,175 @@ export default ({ mode }: { mode: string }) => {
           },
         ])
       }
+      else {
+        /** 文章頁 LCP 圖片 preload：封面圖與 frontmatter.image 同源，
+         * 依 base-img 的響應式 srcset 產生對應 imagesrcset，讓瀏覽器盡早下載封面。 */
+        const coverPath = new URL(pageData?.frontmatter?.image ?? '', baseConfig.hostname).pathname
+        if (coverPath.endsWith('.webp')) {
+          const coverBaseName = coverPath.replace(/\.webp$/, '')
+          headList.push([
+            'link',
+            {
+              rel: 'preload',
+              as: 'image',
+              href: coverPath,
+              imagesrcset: `${coverBaseName}-300.webp 300w, ${coverBaseName}-700.webp 700w`,
+              imagesizes: '(max-width: 700px) 100vw, 700px',
+              fetchpriority: 'high',
+            },
+          ])
+        }
+      }
+
+      /** 封面圖 ImageObject，帶尺寸利於搜尋引擎與社群平台判斷 */
+      const imageObject: Record<string, unknown> = ogImageSize
+        ? { '@type': 'ImageObject', 'url': ogImage, 'width': ogImageSize.width, 'height': ogImageSize.height }
+        : { '@type': 'ImageObject', 'url': ogImage }
+
+      /** 結構化資料（JSON-LD）：協助搜尋引擎理解內容、爭取複合式搜尋結果 */
+      if (isArticle) {
+        const publishedTime = toIsoDate(frontmatter.pubDate)
+        const modifiedTime = pageData.lastUpdated
+          ? new Date(pageData.lastUpdated).toISOString()
+          : publishedTime
+        const tagList: string[] = Array.isArray(frontmatter.tags) ? frontmatter.tags : []
+        const section = sectionMap[page.replace(/\.md$/, '').split('/')[0]]
+
+        /** Open Graph article 專屬欄位 */
+        if (publishedTime) {
+          headList.push(['meta', { property: 'article:published_time', content: publishedTime }])
+        }
+        if (modifiedTime) {
+          headList.push(['meta', { property: 'article:modified_time', content: modifiedTime }])
+        }
+        headList.push(['meta', { property: 'article:author', content: AUTHOR_NAME }])
+        if (section) {
+          headList.push(['meta', { property: 'article:section', content: section.name }])
+        }
+        tagList.forEach((tag) => {
+          headList.push(['meta', { property: 'article:tag', content: tag }])
+        })
+
+        const blogPosting: Record<string, unknown> = {
+          '@type': 'BlogPosting',
+          'headline': pageTitle,
+          'description': pageDescription,
+          'image': imageObject,
+          'datePublished': publishedTime,
+          'dateModified': modifiedTime,
+          'inLanguage': 'zh-Hant',
+          // author 以 @id 指回首頁宣告的 Person，匯聚同一作者實體的權重
+          'author': { '@id': PERSON_ID },
+          'publisher': { '@id': ORGANIZATION_ID },
+          'isPartOf': { '@id': WEBSITE_ID },
+          'mainEntityOfPage': {
+            '@type': 'WebPage',
+            '@id': canonicalUrl,
+          },
+          // 無 tag 時省略 keywords，避免輸出空字串
+          ...(tagList.length ? { keywords: tagList.join(', ') } : {}),
+          ...(section ? { articleSection: section.name } : {}),
+        }
+
+        /** 麵包屑：首頁 →（分類）→ 文章。若正在看的就是分類入口文章，省略重複的分類層 */
+        const breadcrumbItemList: Record<string, unknown>[] = [
+          {
+            '@type': 'ListItem',
+            'position': 1,
+            'name': '首頁',
+            'item': `${baseConfig.hostname}/`,
+          },
+        ]
+        if (section && section.landing !== urlPath) {
+          breadcrumbItemList.push({
+            '@type': 'ListItem',
+            'position': 2,
+            'name': section.name,
+            'item': `${baseConfig.hostname}${section.landing}`,
+          })
+        }
+        breadcrumbItemList.push({
+          '@type': 'ListItem',
+          'position': breadcrumbItemList.length + 1,
+          'name': pageTitle,
+          'item': canonicalUrl,
+        })
+
+        const graph: Record<string, unknown> = {
+          '@context': 'https://schema.org',
+          '@graph': [
+            websiteNode,
+            personNode,
+            organizationNode,
+            blogPosting,
+            {
+              '@type': 'BreadcrumbList',
+              'itemListElement': breadcrumbItemList,
+            },
+          ],
+        }
+
+        headList.push(toJsonLdScript(graph))
+      }
+      else if (urlPath === '/') {
+        /** 首頁：宣告 WebSite 與作者 Person、Organization 實體，強化知識圖譜關聯 */
+        const graph: Record<string, unknown> = {
+          '@context': 'https://schema.org',
+          '@graph': [
+            websiteNode,
+            personNode,
+            organizationNode,
+          ],
+        }
+        headList.push(toJsonLdScript(graph))
+      }
+      else if (urlPath === '/article-overview') {
+        /** 文章總覽為文章集合頁，宣告 CollectionPage（含文章 ItemList）+ 麵包屑 */
+        const itemList = articleList.map((article, index) => ({
+          '@type': 'ListItem',
+          'position': index + 1,
+          'url': `${baseConfig.hostname}/${article.link.replace(/^\//, '')}`,
+          'name': article.text,
+        }))
+
+        const graph: Record<string, unknown> = {
+          '@context': 'https://schema.org',
+          '@graph': [
+            websiteNode,
+            {
+              '@type': 'CollectionPage',
+              'name': pageTitle,
+              'description': pageDescription,
+              'url': canonicalUrl,
+              'inLanguage': 'zh-Hant',
+              'isPartOf': { '@id': WEBSITE_ID },
+              'mainEntity': {
+                '@type': 'ItemList',
+                'numberOfItems': itemList.length,
+                'itemListElement': itemList,
+              },
+            },
+            {
+              '@type': 'BreadcrumbList',
+              'itemListElement': [
+                { '@type': 'ListItem', 'position': 1, 'name': '首頁', 'item': `${baseConfig.hostname}/` },
+                { '@type': 'ListItem', 'position': 2, 'name': pageTitle, 'item': canonicalUrl },
+              ],
+            },
+          ],
+        }
+        headList.push(toJsonLdScript(graph))
+      }
 
       return headList
     },
-    transformPageData(pageData) {
-      pageData.frontmatter.head ??= []
-
-      if (pageData?.frontmatter?.description) {
-        pageData.frontmatter.head.push(['meta', {
-          property: 'og:description',
-          content: pageData?.frontmatter?.description ?? '',
-        }])
-      }
-
-      if (pageData?.frontmatter?.image) {
-        pageData.frontmatter.head.push(['meta', {
-          property: 'og:image',
-          content: pageData?.frontmatter?.image ?? `${baseConfig.hostname}/cover.webp`,
-        }])
-      }
+    /** 移除每頁 head 對 mermaid 圖表 chunk 的 modulepreload。
+     * 這些 link 由 VitePress 依 SSR manifest 注入，讓「沒有圖表的文章」也白載約 0.8 MB；
+     * mermaid 內部會在真正有圖表時以 dynamic import 載入，移除 preload 不影響功能。 */
+    transformHtml(code) {
+      const mermaidPreloadPattern = /<link\s+rel="modulepreload"[^>]*href="[^"]*(?:Diagram|dagre-|diagram-|mindmap-|kanban-|sankey|timeline-|journey|architecture|virtual_mermaid)[^"]*"[^>]*>/gi
+      return code.replace(mermaidPreloadPattern, '')
     },
-
     lastUpdated: true,
     markdown: {
       lineNumbers: true,

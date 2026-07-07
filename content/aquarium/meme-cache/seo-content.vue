@@ -115,7 +115,8 @@ function absoluteUrl(path: string) {
   if (typeof window !== 'undefined' && path.startsWith('/')) {
     return window.location.origin + path
   }
-  return `https://codlin.me/${path}`
+  // 避免 path 帶前導斜線時與網域串接產生雙斜線
+  return `https://codlin.me/${path.replace(/^\//, '')}`
 }
 
 const isMounted = useMounted()
