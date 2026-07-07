@@ -1,5 +1,5 @@
 import type { BoidOptions } from './boid'
-import { Vector3 } from '@babylonjs/core'
+import { Vector3 } from '@babylonjs/core/Maths/math.vector'
 import { pipe } from 'remeda'
 import { Boid } from './boid'
 import { fromSphericalCoords, limitLength, normalizeSafe, setLength } from './utils'

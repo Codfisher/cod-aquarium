@@ -17,7 +17,7 @@
 import type { ShallowRef } from 'vue'
 import type { Boid, BoidOptions } from './boid'
 import type { BehaviorRadii, BehaviorWeights } from './flock'
-import { Vector3 } from '@babylonjs/core'
+import { Vector3 } from '@babylonjs/core/Maths/math.vector'
 import { useElementSize, useIntersectionObserver, useMouseInElement, useRafFn, useWindowFocus } from '@vueuse/core'
 import { computed, onMounted, reactive, ref, shallowRef, triggerRef, useTemplateRef, watch } from 'vue'
 import DefaultCanvas from './default-canvas.vue'

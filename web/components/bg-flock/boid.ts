@@ -1,4 +1,5 @@
-import { Axis, Quaternion, Vector3 } from '@babylonjs/core'
+import { Axis } from '@babylonjs/core/Maths/math.axis'
+import { Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector'
 import { clamp01, epsilon, fromSphericalCoords, limitLength } from './utils'
 
 /** 避免跨 ±π 的角度跳動（連續化） */
