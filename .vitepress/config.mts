@@ -112,7 +112,7 @@ export default ({ mode }: { mode: string }) => {
       const result = id.replace(/\d{6}\./, '')
       return result
     },
-    transformHead({ page }) {
+    transformHead({ page, pageData }) {
       const canonicalUrl = new URL(page.replace(/\.md$/, ''), baseConfig.hostname).toString()
 
       const headList: HeadConfig[] = [
@@ -183,8 +183,34 @@ export default ({ mode }: { mode: string }) => {
           },
         ])
       }
+      else {
+        /** 文章頁 LCP 圖片 preload：封面圖與 frontmatter.image 同源，
+         * 依 base-img 的響應式 srcset 產生對應 imagesrcset，讓瀏覽器盡早下載封面。 */
+        const coverPath = new URL(pageData?.frontmatter?.image ?? '', baseConfig.hostname).pathname
+        if (coverPath.endsWith('.webp')) {
+          const coverBaseName = coverPath.replace(/\.webp$/, '')
+          headList.push([
+            'link',
+            {
+              rel: 'preload',
+              as: 'image',
+              href: coverPath,
+              imagesrcset: `${coverBaseName}-300.webp 300w, ${coverBaseName}-700.webp 700w`,
+              imagesizes: '(max-width: 700px) 100vw, 700px',
+              fetchpriority: 'high',
+            },
+          ])
+        }
+      }
 
       return headList
+    },
+    /** 移除每頁 head 對 mermaid 圖表 chunk 的 modulepreload。
+     * 這些 link 由 VitePress 依 SSR manifest 注入，讓「沒有圖表的文章」也白載約 0.8 MB；
+     * mermaid 內部會在真正有圖表時以 dynamic import 載入，移除 preload 不影響功能。 */
+    transformHtml(code) {
+      const mermaidPreloadPattern = /<link\s+rel="modulepreload"[^>]*href="[^"]*(?:Diagram|dagre-|diagram-|mindmap-|kanban-|sankey|timeline-|journey|architecture|virtual_mermaid)[^"]*"[^>]*>/gi
+      return code.replace(mermaidPreloadPattern, '')
     },
     transformPageData(pageData) {
       pageData.frontmatter.head ??= []
