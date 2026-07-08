@@ -5,7 +5,6 @@ import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
-import VueI18nPlugin from '@intlify/unplugin-vue-i18n/vite'
 import ui from '@nuxt/ui/vite'
 import { whyframe } from '@whyframe/core'
 import { whyframeVue } from '@whyframe/vue'
@@ -241,14 +240,16 @@ export default ({ mode }: { mode: string }) => {
     head: [
       ['link', { rel: 'preconnect', href: 'https://fonts.googleapis.com' }],
       ['link', { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: 'true' }],
-      /** 以非阻塞方式載入 Google Fonts，避免 CSS 阻擋首次繪製（配合 display=swap 以 fallback 字體先顯示） */
+      /** 以非阻塞方式載入 Google Fonts，避免 CSS 阻擋首次繪製（配合 display=swap 以 fallback 字體先顯示）。
+       * Figtree 僅標題（800）與導覽列標題（700）使用，不載入未用到的 400、600
+       */
       ['link', {
         rel: 'preload',
         as: 'style',
-        href: 'https://fonts.googleapis.com/css2?family=Figtree:wght@400;600;700;800&family=Noto+Sans+TC:wght@400;600;800&display=swap',
+        href: 'https://fonts.googleapis.com/css2?family=Figtree:wght@700;800&family=Noto+Sans+TC:wght@400;600;800&display=swap',
         onload: 'this.onload=null;this.rel=\'stylesheet\'',
       }],
-      ['noscript', {}, '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;600;700;800&family=Noto+Sans+TC:wght@400;600;800&display=swap">'],
+      ['noscript', {}, '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@700;800&family=Noto+Sans+TC:wght@400;600;800&display=swap">'],
       ['link', { rel: 'icon', href: '/favicon.ico' }],
       /** 讓瀏覽器與 RSS 閱讀器自動發現訂閱來源 */
       ['link', { rel: 'alternate', type: 'application/rss+xml', title: SITE_TITLE, href: '/feed.rss' }],
@@ -353,14 +354,9 @@ export default ({ mode }: { mode: string }) => {
         ['meta', { name: 'twitter:title', content: pageTitle }],
         ['meta', { name: 'twitter:description', content: pageDescription }],
         ['meta', { name: 'twitter:image', content: ogImage }],
-        [
-          'script',
-          {
-            async: '',
-            src: 'https://www.googletagmanager.com/gtag/js?id=G-WL47JJHL0R',
-          },
-          '',
-        ],
+        /** gtag 先建立佇列 stub，事件照常累積；實際 gtag.js 延後至 load 事件才注入，
+         * 避免其下載與執行（實測約 1.7 秒主執行緒）搶佔首屏，載入後會自動消化佇列
+         */
         [
           'script',
           {},
@@ -369,11 +365,19 @@ export default ({ mode }: { mode: string }) => {
           gtag('js', new Date());
           gtag('config', 'G-WL47JJHL0R');`,
         ],
-        /** Clarity 與 AdSense 延後至 load 事件後再注入，避免搶佔首屏主執行緒、改善 INP 與 LCP */
+        /** 第三方腳本延後注入，避免搶佔首屏主執行緒、改善 INP 與 LCP：
+         * gtag 於 load 事件立即載入（降低漏記 pageview 機率）、Clarity 與 AdSense 再延 2 秒
+         */
         [
           'script',
           {},
           `(function(){
+            function loadGtag(){
+              var g=document.createElement('script');
+              g.async=true;
+              g.src='https://www.googletagmanager.com/gtag/js?id=G-WL47JJHL0R';
+              document.head.appendChild(g);
+            }
             function loadThirdParty(){
               (function(c,l,a,r,i,t,y){
                 c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
@@ -386,8 +390,9 @@ export default ({ mode }: { mode: string }) => {
               s.src='https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6608581811170481';
               document.head.appendChild(s);
             }
-            if(document.readyState==='complete'){setTimeout(loadThirdParty,2000);}
-            else{window.addEventListener('load',function(){setTimeout(loadThirdParty,2000);});}
+            function onLoaded(){loadGtag();setTimeout(loadThirdParty,2000);}
+            if(document.readyState==='complete'){onLoaded();}
+            else{window.addEventListener('load',onLoaded);}
           })();`,
         ],
         [
@@ -428,7 +433,8 @@ export default ({ mode }: { mode: string }) => {
       }
       else {
         /** 文章頁 LCP 圖片 preload：封面圖與 frontmatter.image 同源，
-         * 依 base-img 的響應式 srcset 產生對應 imagesrcset，讓瀏覽器盡早下載封面。 */
+         * 依 base-img 的響應式 srcset 產生對應 imagesrcset，讓瀏覽器盡早下載封面。
+         */
         const coverPath = new URL(pageData?.frontmatter?.image ?? '', baseConfig.hostname).pathname
         if (coverPath.endsWith('.webp')) {
           const coverBaseName = coverPath.replace(/\.webp$/, '')
@@ -588,11 +594,18 @@ export default ({ mode }: { mode: string }) => {
 
       return headList
     },
-    /** 移除每頁 head 對 mermaid 圖表 chunk 的 modulepreload。
+    /** 移除每頁 head 對 mermaid 圖表 chunk（含 katex）的 modulepreload。
      * 這些 link 由 VitePress 依 SSR manifest 注入，讓「沒有圖表的文章」也白載約 0.8 MB；
-     * mermaid 內部會在真正有圖表時以 dynamic import 載入，移除 preload 不影響功能。 */
+     * mermaid 內部會在真正有圖表時以 dynamic import 載入（katex 亦為其數學式的動態依賴），
+     * 移除 preload 不影響功能。
+     *
+     * 比對特徵：mermaid 產出的 chunk 檔名帶 8 碼大寫雜湊（如 flowDiagram-4HSFHLVR、
+     * dagre-OKDRZEBW），以此與自製元件（如 diagram-uv）區分，並錨定 chunks/ 路徑
+     * 避免誤殺檔名含相同關鍵字的文章頁 chunk。若 mermaid 改版後命名慣例改變，
+     * 此規則會失效回退為「保留 preload」，僅損失效能不影響功能。
+     */
     transformHtml(code) {
-      const mermaidPreloadPattern = /<link\s+rel="modulepreload"[^>]*href="[^"]*(?:Diagram|dagre-|diagram-|mindmap-|kanban-|sankey|timeline-|journey|architecture|virtual_mermaid)[^"]*"[^>]*>/gi
+      const mermaidPreloadPattern = /<link\s+rel="modulepreload"[^>]*href="[^"]*\/chunks\/(?:[\w-]*[Dd]iagram-(?:v2-)?[0-9A-Z]{8}|dagre-[0-9A-Z]{8}|(?:mindmap|kanban|timeline)-definition-[0-9A-Z]{8}|virtual_mermaid[\w-]*|katex)\.[^"]*"[^>]*>/g
       return code.replace(mermaidPreloadPattern, '')
     },
     lastUpdated: true,
@@ -810,18 +823,7 @@ export default ({ mode }: { mode: string }) => {
           },
         },
       },
-      resolve: {
-        alias: {
-          'vue-i18n': 'vue-i18n/dist/vue-i18n.cjs.js',
-        },
-      },
       plugins: [
-        VueI18nPlugin({
-          strictMessage: false,
-          include: resolve(dirname(
-            fileURLToPath(import.meta.url),
-          ), 'locales/**'),
-        }),
         /** 停用 VitePress 預設 Inter 字體，改用 Noto Sans TC */
         {
           name: 'disable-vitepress-default-fonts',
