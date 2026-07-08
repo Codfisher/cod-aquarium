@@ -42,24 +42,35 @@
 
       <!-- 手機板 -->
       <div class="tag-filter md:hidden flex-1 sticky top-[4.5rem] p-3 rounded-lg">
-        <div
-          class="flex gap-3 opacity-70 text-xs"
-          @click.stop="isFilterVisible = !isFilterVisible"
-        >
+        <div class="flex items-center gap-3 text-xs">
           <div
             role="button"
-            class="cursor-pointer border p-1 px-4 rounded-full"
-            @click.stop="selectAllTags"
+            class="flex items-center gap-1 cursor-pointer opacity-70"
+            @click="isFilterVisible = !isFilterVisible"
           >
-            全選
+            <span>篩選標籤</span>
+            <span
+              class="chevron duration-300"
+              :class="{ 'rotate-180': isFilterVisible }"
+            >▾</span>
           </div>
 
-          <div
-            role="button"
-            class="cursor-pointer border p-1 px-4 rounded-full"
-            @click.stop="clearAllTags"
-          >
-            清除
+          <div class="flex gap-2 ml-auto opacity-70">
+            <div
+              role="button"
+              class="cursor-pointer border p-1 px-4 rounded-full"
+              @click="selectAllTags"
+            >
+              全選
+            </div>
+
+            <div
+              role="button"
+              class="cursor-pointer border p-1 px-4 rounded-full"
+              @click="clearAllTags"
+            >
+              清除
+            </div>
           </div>
         </div>
 
@@ -277,6 +288,10 @@ function handleBeforeLeave(el: Element) {
   background: light-dark(oklch(0.99 0.005 175 / 0.85), oklch(0.22 0.01 175 / 0.85))
   border-width: 1px
   border-color: light-dark(oklch(0.92 0.01 175), oklch(0.25 0.01 175))
+
+.chevron
+  display: inline-block
+  line-height: 1
 
 .tag-chip
   opacity: 0.4
