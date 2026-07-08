@@ -20,7 +20,7 @@ import { Vector3 } from '@babylonjs/core/Maths/math.vector'
 import { useDevicePixelRatio, useElementSize, useEventListener, useIntersectionObserver, useMouse, useRafFn, useWindowFocus } from '@vueuse/core'
 import { useData } from 'vitepress'
 import { computed, onMounted, reactive, ref, useTemplateRef, watch } from 'vue'
-import { computeCanvasPixelRatio } from './fish-model'
+import { FishShaderRenderer } from './fish-shader-renderer'
 import { Flock } from './flock'
 import { FlockRenderer } from './flock-renderer'
 
@@ -127,12 +127,8 @@ const target = computed(() => {
   return outside ? center : { x: elementX, y: elementY }
 })
 
-const canvasPixelRatio = computed(() => computeCanvasPixelRatio({
-  devicePixelRatio: pixelRatio.value,
-  fishCount: props.count,
-  width: sceneSize.width,
-  height: sceneSize.height,
-}))
+/** shader 渲染下每像素成本由 GPU 吸收，直接用完整 DPR 讓邊緣銳利 */
+const canvasPixelRatio = computed(() => pixelRatio.value)
 
 const canvasWidth = computed(
   () => Math.max(1, Math.round(sceneSize.width * canvasPixelRatio.value)),
@@ -154,7 +150,10 @@ const flock = new Flock({
   weights: props.behaviorWeights,
   targetShell: props.targetShell,
 })
-let renderer: FlockRenderer | undefined
+/** 主要路徑為 WebGL2 shader 渲染（連續姿態、SDF 抗鋸齒），
+ * 不支援 WebGL2 時退回 2D sprite 圖集渲染
+ */
+let renderer: FishShaderRenderer | FlockRenderer | undefined
 
 watch(() => ({
   targetShell: props.targetShell,
@@ -280,8 +279,16 @@ function recordPerf(workMs: number, deltaMs: number) {
 }
 // #endregion 開發模式效能量測
 
+/** 單幀 dt 上限（ms）。
+ *
+ * 主執行緒偶發任務（GC、路由預載）造成掉幀時，
+ * 未夾限的 dt 會讓魚單幀跳兩倍距離，把掉幀放大成明顯的顛簸；
+ * 夾限後只是極短的慢動作，肉眼幾乎無感
+ */
+const MAX_FRAME_DELTA_MS = 34
+
 const { pause: pauseLoop, resume: resumeLoop } = useRafFn(({ delta }) => {
-  const deltaSeconds = props.playbackRate * delta / 1000
+  const deltaSeconds = props.playbackRate * Math.min(delta, MAX_FRAME_DELTA_MS) / 1000
 
   if (import.meta.env.DEV) {
     const frameStart = performance.now()
@@ -312,7 +319,7 @@ onMounted(() => {
     return
   }
 
-  renderer = new FlockRenderer(canvas)
+  renderer = FishShaderRenderer.tryCreate(canvas) ?? new FlockRenderer(canvas)
   renderer.setSize(sceneSize.width, sceneSize.height, canvasPixelRatio.value)
   renderer.setFogColor(fogColor.value)
   renderer.setDepthFadeRange(props.targetShell.radius + props.targetShell.band)

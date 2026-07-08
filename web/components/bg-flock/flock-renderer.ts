@@ -1,6 +1,6 @@
 import type { Boid } from './boid'
 import Zdog from 'zdog'
-import { createFish } from './fish-model'
+import { computeUprightRotation, createFish } from './fish-model'
 import { computeShellCountScale } from './flock'
 import { clamp01 } from './utils'
 
@@ -37,12 +37,13 @@ const FOG_LEVEL_COUNT = 16
 /** 最遠處的魚混向背景色的最大比例 */
 const MAX_DEPTH_FOG = 0.7
 
-/** 霧化變體的解析度比例。
+/** 最遠霧化等級對應的繪製縮放，用來配置變體解析度。
  *
- * 有霧的魚都在遠處、繪製尺寸小，變體用半解析度即可，
- * 記憶體只剩全解析度的四分之一，抵銷相位數增加的成本
+ * 霧化等級與距離對應：等級越高越遠、繪製尺寸越小，
+ * 變體解析度照各等級實際的繪製尺寸線性配置——
+ * 近的等級維持全解析度（避免放大模糊），遠的等級才降低省記憶體
  */
-const FOG_VARIANT_SCALE = 0.5
+const FAR_VARIANT_DEPTH_SCALE = 0.75
 
 /** 圖集超取樣倍率中，景深縮放貢獻的上限。
  * 完整涵蓋最近景深（約 2 倍）會讓圖集記憶體翻倍，
@@ -78,9 +79,15 @@ const MIRROR_BLEND_RATE = 7
 
 const BUBBLE_LIMIT = 60
 
+interface SpriteAtlasVariant {
+  canvas: HTMLCanvasElement;
+  /** 相對原色圖集的解析度比例（遠處等級較低以省記憶體） */
+  scaleRatio: number;
+}
+
 interface SpriteAtlas {
   /** 各霧化等級的圖集變體；索引 0 為原色，其餘等級首次使用時才合成 */
-  variantList: (HTMLCanvasElement | undefined)[];
+  variantList: (SpriteAtlasVariant | undefined)[];
   /** 單格邊長（實體像素） */
   cellSize: number;
   /** 圖集繪製時的縮放倍率（含 DPR 與景深縮放的超取樣） */
@@ -142,28 +149,10 @@ function wrapAngleDifference(difference: number) {
   return ((difference + Math.PI) % TWO_PI + TWO_PI) % TWO_PI - Math.PI
 }
 
-/** 計算讓魚「背鰭朝上、不翻滾」的螢幕旋轉角。
+/** 主執行緒 sprite 渲染器：管理圖集快取、魚外觀設定與泡泡。
  *
- * 直接用平面內分量的方向角（atan2(y, x)）在魚朝向／背對鏡頭時會出錯：
- * 殘餘的垂直漂移會把正面照整隻轉 90 度（躺平）。
- * 這裡對投影後的「前向、上向」兩軸做最小平方擬合：
- * φ = atan2(hy·(inPlane + hx), inPlane·hx + 1 − hy²)
- *
- * - 平面內游動（inPlane = 1）→ 精確等於前進方向角
- * - 正對／背對鏡頭（inPlane → 0）→ 0，維持直立
+ * 作為不支援 WebGL2 環境的 fallback，主要路徑見 fish-shader-renderer
  */
-function computeUprightRotation(
-  headingX: number,
-  headingY: number,
-  inPlaneLength: number,
-) {
-  return Math.atan2(
-    headingY * (inPlaneLength + headingX),
-    inPlaneLength * headingX + 1 - headingY * headingY,
-  )
-}
-
-/** 主執行緒 sprite 渲染器：管理圖集快取、魚外觀設定與泡泡 */
 export class FlockRenderer {
   private readonly canvas: HTMLCanvasElement
   private readonly context: CanvasRenderingContext2D | null
@@ -274,6 +263,8 @@ export class FlockRenderer {
 
     context.setTransform(1, 0, 0, 1, 0, 0)
     context.clearRect(0, 0, canvas.width, canvas.height)
+    // canvas 尺寸變更會重置 context 狀態，每幀設定一次確保縮放品質
+    context.imageSmoothingQuality = 'high'
 
     const count = Math.min(boidList.length, this.fishConfigList.length)
 
@@ -413,22 +404,21 @@ export class FlockRenderer {
       }
 
       const variant = this.getAtlasVariant(atlas, fogLevel)
-      // 霧化變體是半解析度，來源座標同步縮放
-      const variantScale = fogLevel === 0 ? 1 : FOG_VARIANT_SCALE
-      const variantSourceX = sourceX * variantScale
-      const variantSourceY = sourceY * variantScale
-      const variantCellSize = atlas.cellSize * variantScale
+      // 變體解析度依等級不同，來源座標同步縮放
+      const variantSourceX = sourceX * variant.scaleRatio
+      const variantSourceY = sourceY * variant.scaleRatio
+      const variantCellSize = atlas.cellSize * variant.scaleRatio
 
       if (config.mirrorBlend <= 0.001) {
-        this.drawFishSprite(variant, variantSourceX, variantSourceY, variantCellSize, boid, rotationNormal, stretch, drawSize, false, 1)
+        this.drawFishSprite(variant.canvas, variantSourceX, variantSourceY, variantCellSize, boid, rotationNormal, stretch, drawSize, false, 1)
       }
       else if (config.mirrorBlend >= 0.999) {
-        this.drawFishSprite(variant, variantSourceX, variantSourceY, variantCellSize, boid, rotationMirrored, stretch, drawSize, true, 1)
+        this.drawFishSprite(variant.canvas, variantSourceX, variantSourceY, variantCellSize, boid, rotationMirrored, stretch, drawSize, true, 1)
       }
       else {
         // 翻面過渡中：兩面交叉淡化
-        this.drawFishSprite(variant, variantSourceX, variantSourceY, variantCellSize, boid, rotationNormal, stretch, drawSize, false, 1 - config.mirrorBlend)
-        this.drawFishSprite(variant, variantSourceX, variantSourceY, variantCellSize, boid, rotationMirrored, stretch, drawSize, true, config.mirrorBlend)
+        this.drawFishSprite(variant.canvas, variantSourceX, variantSourceY, variantCellSize, boid, rotationNormal, stretch, drawSize, false, 1 - config.mirrorBlend)
+        this.drawFishSprite(variant.canvas, variantSourceX, variantSourceY, variantCellSize, boid, rotationMirrored, stretch, drawSize, true, config.mirrorBlend)
       }
     }
 
@@ -582,20 +572,31 @@ export class FlockRenderer {
       }
     }
 
-    return { variantList: [atlasCanvas], cellSize, renderScale }
+    return {
+      variantList: [{ canvas: atlasCanvas, scaleRatio: 1 }],
+      cellSize,
+      renderScale,
+    }
   }
 
   /** 取得指定霧化等級的圖集變體，首次使用時以原色圖集合成 */
-  private getAtlasVariant(atlas: SpriteAtlas, level: number): HTMLCanvasElement {
+  private getAtlasVariant(atlas: SpriteAtlas, level: number): SpriteAtlasVariant {
     const cached = atlas.variantList[level]
     if (cached) {
       return cached
     }
 
-    const baseCanvas = atlas.variantList[0]!
+    /** 該等級對應的繪製縮放（等級越高越遠越小），解析度隨之配置 */
+    const levelRatio = level / (FOG_LEVEL_COUNT - 1)
+    const variantDepthScale = MAX_SUPERSAMPLE_DEPTH_SCALE
+      + (FAR_VARIANT_DEPTH_SCALE - MAX_SUPERSAMPLE_DEPTH_SCALE) * levelRatio
+    const atlasDepthScale = atlas.renderScale / this.pixelRatio
+    const scaleRatio = Math.min(1, variantDepthScale / Math.max(atlasDepthScale, 0.01))
+
+    const baseCanvas = atlas.variantList[0]!.canvas
     const variantCanvas = document.createElement('canvas')
-    variantCanvas.width = Math.max(1, Math.ceil(baseCanvas.width * FOG_VARIANT_SCALE))
-    variantCanvas.height = Math.max(1, Math.ceil(baseCanvas.height * FOG_VARIANT_SCALE))
+    variantCanvas.width = Math.max(1, Math.ceil(baseCanvas.width * scaleRatio))
+    variantCanvas.height = Math.max(1, Math.ceil(baseCanvas.height * scaleRatio))
     const variantContext = variantCanvas.getContext('2d')!
 
     variantContext.drawImage(
@@ -611,8 +612,12 @@ export class FlockRenderer {
     variantContext.fillStyle = this.fogColor
     variantContext.fillRect(0, 0, variantCanvas.width, variantCanvas.height)
 
-    atlas.variantList[level] = variantCanvas
-    return variantCanvas
+    const variant: SpriteAtlasVariant = {
+      canvas: variantCanvas,
+      scaleRatio: variantCanvas.width / baseCanvas.width,
+    }
+    atlas.variantList[level] = variant
+    return variant
   }
 
   /** 更新泡泡：偶爾讓隨機一隻魚吐泡，泡泡上浮、左右漂、逾期淘汰 */
