@@ -11,7 +11,7 @@
 
 <script setup lang="ts">
 import { useDevicePixelRatio, useElementSize, useRafFn } from '@vueuse/core'
-import { computed, onBeforeMount, onMounted, reactive, toRaw, useTemplateRef, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, toRaw, useTemplateRef, watch } from 'vue'
 import Zdog from 'zdog'
 
 interface Position { x: number; y: number; z: number }
@@ -22,8 +22,10 @@ interface Props {
   size?: number;
   boidCount: number;
   boidList: Array<{ position: Position; yaw: number; pitch: number }>;
+  /** 是否運轉繪製迴圈，false 時暫停以節省 CPU */
+  active?: boolean;
 }
-const props = withDefaults(defineProps<Props>(), { size: 15 })
+const props = withDefaults(defineProps<Props>(), { size: 15, active: true })
 
 const { Illustration, Group, Ellipse, Shape } = Zdog
 
@@ -43,6 +45,7 @@ const canvasStyle = computed(() => ({
 }))
 
 let illo: InstanceType<typeof Illustration> | undefined
+let context: CanvasRenderingContext2D | null = null
 const fishList: Fish[] = []
 
 function createFish(
@@ -98,6 +101,8 @@ onMounted(() => {
   if (!canvasRef.value)
     return
 
+  context = canvasRef.value.getContext('2d')
+
   illo = new Illustration({
     element: canvasRef.value,
     resize: false,
@@ -108,22 +113,20 @@ onMounted(() => {
   syncFishCount(props.boidCount)
 })
 
-onBeforeMount(() => {
+onBeforeUnmount(() => {
   // 清理
   illo?.remove()
+  illo = undefined
+  context = null
   fishList.length = 0
 })
 
 function rescaleContext() {
-  const el = canvasRef.value
-  if (!el || !illo)
-    return
-  const ctx = el.getContext('2d')
-  if (!ctx)
+  if (!context || !illo)
     return
 
-  ctx.setTransform(1, 0, 0, 1, 0, 0)
-  ctx.scale(dpr.value, dpr.value)
+  context.setTransform(1, 0, 0, 1, 0, 0)
+  context.scale(dpr.value, dpr.value)
 }
 
 watch(() => [wrapSize.width, wrapSize.height, dpr.value], () => {
@@ -163,8 +166,8 @@ watch(() => props.boidCount, (newCount) => {
   syncFishCount(newCount)
 })
 
-useRafFn(() => {
-  if (!illo || !canvasRef.value)
+const { pause: pauseRender, resume: resumeRender } = useRafFn(() => {
+  if (!illo || !canvasRef.value || !context)
     return
 
   // 使用 toRaw 獲取原始資料，避免高頻迴圈中觸發 Vue 的 Proxy Getter，提升效能
@@ -184,10 +187,20 @@ useRafFn(() => {
     fish.rotate.y = -boid.yaw
   }
 
-  const ctx = canvasRef.value.getContext('2d')!
-  ctx.clearRect(0, 0, canvasRef.value.width, canvasRef.value.height)
+  context.clearRect(0, 0, canvasRef.value.width, canvasRef.value.height)
 
   illo.updateRenderGraph()
+}, {
+  immediate: props.active,
+})
+
+watch(() => props.active, (value) => {
+  if (value) {
+    resumeRender()
+  }
+  else {
+    pauseRender()
+  }
 })
 </script>
 

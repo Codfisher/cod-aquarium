@@ -8,6 +8,7 @@
       :boid-count="boidCount"
       :boid-list="boidList"
       :size="props.size"
+      :active="shouldAnimate"
       class="absolute h-full w-full"
     />
   </div>
@@ -25,12 +26,16 @@ import { Flock } from './flock'
 
 // #region Props
 interface Props {
-  /** 初始 boid 數量 */
+  /** boid 數量，變更時會差量增減 */
   count?: number;
   /** 小魚尺寸 */
   size?: number;
   /** 速度倍率 */
   playbackRate?: number;
+  /** 是否運轉動畫。false 時暫停模擬與繪製，
+   * 供外部（例如元件不在視野內時）徹底停止消耗 CPU
+   */
+  active?: boolean;
 
   boidOptions?: Partial<Pick<
     BoidOptions,
@@ -54,6 +59,7 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   count: 150,
   playbackRate: 1,
+  active: true,
   targetShell: () => ({
     radius: 120,
     band: 50,
@@ -89,9 +95,6 @@ watch(() => ({
 
 const boidCount = ref(0)
 const boidList = shallowRef(flock.boidList)
-useRafFn(() => {
-  triggerRef(boidList)
-})
 
 watch(() => ({
   mouse,
@@ -126,29 +129,64 @@ const world = computed(() => ({
   ),
 }))
 
-const { resume } = useRafFn(({ delta }) => {
-  if (!visible.value || props.playbackRate === 0 || !isFocused.value) {
-    return
-  }
+/** 所有動畫迴圈共用的運轉條件，false 時完全暫停，不做任何每幀工作 */
+const shouldAnimate = computed(() => (
+  props.active
+  && visible.value
+  && isFocused.value
+  && props.playbackRate !== 0
+))
+
+const { pause: pauseStep, resume: resumeStep } = useRafFn(({ delta }) => {
   flock.step(props.playbackRate * delta / 1000)
 }, {
   immediate: false,
 })
 
+watch(shouldAnimate, (value) => {
+  if (value) {
+    resumeStep()
+  }
+  else {
+    pauseStep()
+  }
+})
+
+/** 差量同步 boid 數量，避免整批重建 */
+function syncBoidCount(count: number) {
+  const diff = count - boidCount.value
+
+  if (diff > 0) {
+    flock.addRandomBoids(
+      diff,
+      {
+        min: new Vector3(0, world.value.max.y, world.value.max.z),
+        max: world.value.max,
+      },
+      props.boidOptions,
+    )
+  }
+  else if (diff < 0) {
+    flock.boidList.length = count
+  }
+
+  boidCount.value = count
+  triggerRef(boidList)
+}
+
+watch(() => props.count, (value) => {
+  syncBoidCount(value)
+})
+
 onMounted(() => {
   // 初始化 boids
   flock.boidList.length = 0
-  flock.addRandomBoids(
-    props.count,
-    {
-      min: new Vector3(0, world.value.max.y, world.value.max.z),
-      max: world.value.max,
-    },
-    props.boidOptions,
-  )
-  boidCount.value = props.count
+  boidCount.value = 0
+  syncBoidCount(props.count)
 
-  resume()
+  if (shouldAnimate.value) {
+    resumeStep()
+  }
 })
 
 // #region Methods
@@ -160,15 +198,7 @@ interface Expose {
 defineExpose<Expose>({
   boidList,
   addRandomBoids(count: number) {
-    boidCount.value += count
-
-    flock.addRandomBoids(
-      count,
-      {
-        min: new Vector3(0, world.value.max.y, world.value.max.z),
-        max: world.value.max,
-      },
-    )
+    syncBoidCount(boidCount.value + count)
   },
 })
 </script>

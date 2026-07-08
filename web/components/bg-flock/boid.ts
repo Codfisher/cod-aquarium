@@ -1,6 +1,6 @@
 import { Axis } from '@babylonjs/core/Maths/math.axis'
 import { Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector'
-import { clamp01, epsilon, fromSphericalCoords, limitLength } from './utils'
+import { clamp01, epsilon, fromSphericalCoords, limitLengthInPlace } from './utils'
 
 /** 避免跨 ±π 的角度跳動（連續化） */
 function unwrap(now: number, prev: number) {
@@ -13,6 +13,10 @@ function unwrap(now: number, prev: number) {
     a += TWO_PI
   return a
 }
+
+/** 模組層級暫存物件，避免高頻迴圈中重複配置 */
+const targetQuaternionScratch = new Quaternion()
+const eulerScratch = new Vector3()
 
 export interface BoidOptions {
   position?: Vector3;
@@ -79,15 +83,15 @@ export class Boid {
   }
 
   applyForce(force: Vector3) {
-    this.acceleration = this.acceleration.add(force)
+    this.acceleration.addInPlace(force)
   }
 
   update(dt = 1) {
-    this.velocity = this.velocity.add(this.acceleration.scale(dt))
-    this.velocity = limitLength(this.velocity, this.maxSpeed)
-    this.position = this.position.add(this.velocity.scale(dt))
+    this.acceleration.scaleAndAddToRef(dt, this.velocity)
+    limitLengthInPlace(this.velocity, this.maxSpeed)
+    this.velocity.scaleAndAddToRef(dt, this.position)
     this.updateOrientation(dt)
-    this.acceleration = Vector3.Zero()
+    this.acceleration.setAll(0)
   }
 
   /** 基於四元數轉換方向 */
@@ -102,17 +106,18 @@ export class Boid {
     const a = 1 - (1 - this.angSmooth) ** frames
 
     // 平滑轉向
-    const velocityDirection = velocity.scale(1 / Math.sqrt(vLen2))
-    this.heading = this.heading.scale(1 - a).add(velocityDirection.scale(a)).normalize()
+    this.heading.scaleInPlace(1 - a)
+    velocity.scaleAndAddToRef(a / Math.sqrt(vLen2), this.heading)
+    this.heading.normalize()
 
     // 根據 heading 產生目標四元數（避免 up 奇異：heading 太靠近 up 時改用 Z 當 up）
     const worldUp = Axis.Y
     const upDot = Math.abs(Vector3.Dot(this.heading, worldUp))
     const safeUp = (upDot > 0.98) ? Axis.Z : worldUp
-    const targetQuaternion = Quaternion.FromLookDirectionLH(this.heading, safeUp)
+    Quaternion.FromLookDirectionLHToRef(this.heading, safeUp, targetQuaternionScratch)
 
     // 角速度上限（rad/s）：計算指向目標向量的夾角，限制單步旋轉量
-    const dot = Math.min(1, Math.max(-1, Quaternion.Dot(this.rotationQuaternion, targetQuaternion)))
+    const dot = Math.min(1, Math.max(-1, Quaternion.Dot(this.rotationQuaternion, targetQuaternionScratch)))
     const ang = 2 * Math.acos(Math.abs(dot)) // [0, π]
     const maxStep = Math.max(0, this.maxTurnRate * dt)
     const turnRate = (ang > epsilon) ? maxStep / ang : 1
@@ -120,13 +125,13 @@ export class Boid {
     // 將平滑係數 a 與角速率限制合併，取較保守者
     const turn = Math.min(a, turnRate)
 
-    this.rotationQuaternion = Quaternion.Slerp(this.rotationQuaternion, targetQuaternion, turn)
+    Quaternion.SlerpToRef(this.rotationQuaternion, targetQuaternionScratch, turn, this.rotationQuaternion)
 
     // 從四元數反解 yaw、pitch
-    const { x: pitchRaw, y: yawRaw } = this.rotationQuaternion.toEulerAngles()
+    this.rotationQuaternion.toEulerAnglesToRef(eulerScratch)
 
     /** 不知道為甚麼 yaw 會差 90 度，手動追加 */
-    this.yaw = unwrap(yawRaw, this.yaw) + Math.PI / 2
-    this.pitch = unwrap(pitchRaw, this.pitch)
+    this.yaw = unwrap(eulerScratch.y, this.yaw) + Math.PI / 2
+    this.pitch = unwrap(eulerScratch.x, this.pitch)
   }
 }

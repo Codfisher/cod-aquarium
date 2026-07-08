@@ -29,14 +29,36 @@
       鱈魚感謝您！<span class="text-nowrap">(´▽`ʃ💖ƪ)</span>
     </div>
 
-    <client-only>
-      <fish-feeder />
-    </client-only>
+    <div ref="feederAnchorRef">
+      <client-only>
+        <fish-feeder v-if="feederVisible" />
+      </client-only>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import FishFeeder from './fish-feeder.vue'
+import { useIntersectionObserver } from '@vueuse/core'
+import { defineAsyncComponent, ref, useTemplateRef } from 'vue'
+
+/** fish-feeder 依賴 FingerprintJS、Babylon 數學模組、zdog 等大型套件，
+ * 改為非同步元件並等接近視野才掛載，避免拖慢每一頁的首屏載入
+ */
+const FishFeeder = defineAsyncComponent(() => import('./fish-feeder.vue'))
+
+const feederAnchorRef = useTemplateRef('feederAnchorRef')
+const feederVisible = ref(false)
+
+const { stop: stopFeederObserver } = useIntersectionObserver(
+  feederAnchorRef,
+  ([entry]) => {
+    if (entry?.isIntersecting) {
+      feederVisible.value = true
+      stopFeederObserver()
+    }
+  },
+  { rootMargin: '200px' },
+)
 </script>
 
 <style scoped lang="sass">

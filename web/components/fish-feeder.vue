@@ -43,14 +43,13 @@
     <transition name="opacity">
       <div
         v-if="canvasVisible"
-        :key="reactionData.total"
         class=" fixed w-screen h-screen top-0 left-0 pointer-events-none z-[999999999999] duration-300"
         :class="{ 'opacity-0': !btnVisible, 'opacity-80': btnVisible }"
       >
         <bg-flock
-          ref="flockRef"
           :count="totalReaction"
           :size="fishSize"
+          :active="btnVisible"
         />
       </div>
     </transition>
@@ -59,31 +58,35 @@
 
 <script setup lang="ts">
 import type { AppType } from '../../server'
-import FingerprintJS from '@fingerprintjs/fingerprintjs'
-import { until, useArraySome, useAsyncState, useIntersectionObserver, useWindowFocus, whenever } from '@vueuse/core'
+import { useAsyncState, useIntersectionObserver, useWindowFocus, whenever } from '@vueuse/core'
 import { hc } from 'hono/client'
 import { debounce } from 'lodash-es'
-import { pipe, prop } from 'remeda'
 import { useRoute } from 'vitepress'
 import { computed, ref, useTemplateRef, watch } from 'vue'
-import { then } from '../common/remeda'
 import BgFlock from './bg-flock/bg-flock.vue'
 
 const MAX_FEED_COUNT = 10
 
 const route = useRoute()
 
-const flockRef = useTemplateRef('flockRef')
 const isFocused = useWindowFocus()
 
-const {
-  isLoading: isUserLoading,
-  state: userId,
-} = useAsyncState(async () => pipe(
-  FingerprintJS.load(),
-  then((agent) => agent.get()),
-  then(prop('visitorId')),
-), '')
+let userIdPromise: Promise<string> | undefined
+/** 取得瀏覽器指紋當使用者 ID。
+ *
+ * FingerprintJS 採集成本高，延後到第一次呼叫 API 才動態載入並執行，
+ * 避免佔用頁面載入時的主執行緒
+ */
+function getUserId() {
+  if (!userIdPromise) {
+    userIdPromise = import('@fingerprintjs/fingerprintjs')
+      .then(({ default: FingerprintJS }) => FingerprintJS.load())
+      .then((agent) => agent.get())
+      .then((result) => result.visitorId)
+  }
+
+  return userIdPromise
+}
 
 const articleId = computed(() => {
   // 去除頭尾 /、.html
@@ -101,20 +104,20 @@ const currentReaction = ref(0)
 const loadingOnce = ref(false)
 
 const {
-  isLoading: isReactionDataLoading,
+  isLoading,
   state: reactionData,
   execute: refreshReactionData,
 } = useAsyncState(
   async () => {
-    await until(isUserLoading).toBe(false)
-
     if (!articleId.value) {
       return { total: 0, yours: 0 }
     }
 
+    const userId = await getUserId()
+
     const res = await client.api.reactions.$get(
       { query: { articleId: articleId.value } },
-      { headers: { 'x-user-id': userId.value } },
+      { headers: { 'x-user-id': userId } },
     )
 
     if (!res.ok) {
@@ -149,9 +152,11 @@ const totalReaction = computed(
 
 const postReaction = debounce(
   async () => {
+    const userId = await getUserId()
+
     const res = await client.api.reactions.$post(
       { json: { articleId: articleId.value, count: currentReaction.value } },
-      { headers: { 'x-user-id': userId.value } },
+      { headers: { 'x-user-id': userId } },
     )
 
     if (res.status === 429) {
@@ -170,19 +175,11 @@ function addReaction() {
     return
   }
 
+  // totalReaction 隨之 +1，bg-flock 會依 count 差量長出新的小魚
   currentReaction.value++
-  flockRef.value?.addRandomBoids(1)
 
   postReaction()
 }
-
-const isLoading = useArraySome(
-  () => [
-    isUserLoading,
-    isReactionDataLoading,
-  ],
-  Boolean,
-)
 
 const fishSize = computed(() => {
   if (totalReaction.value > 2000) {
@@ -198,7 +195,10 @@ const fishSize = computed(() => {
 const isHiddenFish = ref(false)
 
 const btnRef = useTemplateRef('btnRef')
-const btnIntersection = ref(true)
+/** 初始需為 false，讓 IntersectionObserver 第一次回報可見時，
+ * btnVisible 產生 false → true 的變化，whenever 才會觸發載入
+ */
+const btnIntersection = ref(false)
 useIntersectionObserver(btnRef, ([entry]) => {
   btnIntersection.value = entry?.isIntersecting || false
 })
