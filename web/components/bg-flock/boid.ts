@@ -40,8 +40,12 @@ export class Boid {
   yaw: number
   pitch: number
 
-  /** 平滑後的朝向單位向量（以 +X 為機首） */
-  private heading: Vector3
+  /** 平滑後的朝向單位向量（以 +X 為機首）。
+   *
+   * 渲染請直接用這個向量，不要用 yaw/pitch——
+   * 尤拉角在垂直方向有萬向鎖，垂直游動時 yaw 會病態亂擺
+   */
+  readonly heading: Vector3
   /** 四元數姿態（請把 mesh.rotationQuaternion 指向這個） */
   rotationQuaternion: Quaternion
 

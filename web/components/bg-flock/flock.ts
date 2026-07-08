@@ -36,14 +36,18 @@ export interface FlockOptions {
   radii?: BehaviorRadii;
   /** 空間雜湊網格之立方體邊長 */
   cellSize?: number;
+  /** 每隻 boid 考量的鄰居數量上限。
+   *
+   * 少量鄰居即可產生自然的群體行為，
+   * 封頂可避免魚群聚集成團時鄰居數量暴增，讓計算量維持線性
+   */
+  maxNeighborCount?: number;
   /** Shell 模式，用於模擬魚環繞特定目標成球的樣子
    *
    * 無則維持原本單點 target 的行為
    */
   targetShell?: TargetShellOptions;
 }
-
-type NeighborProvider = (boidList: Boid[], index: number, radius: number) => number[]
 
 /** 三維空間雜湊網格 */
 class SpatialHashGrid3D {
@@ -83,8 +87,17 @@ class SpatialHashGrid3D {
     }
   }
 
-  /** 查詢範圍內的候選 boid，結果寫入 result，重複利用同一個陣列 */
-  queryToRef(center: Vector3, radius: number, result: number[]): number[] {
+  /** 查詢範圍內的候選 boid，結果寫入 result，重複利用同一個陣列。
+   *
+   * limit 用來在魚群擠成一團（大量 boid 落在同幾格）時封頂查詢成本，
+   * 避免每隻魚都撈出整團候選，讓計算量退化回 O(n²)
+   */
+  queryToRef(
+    center: Vector3,
+    radius: number,
+    result: number[],
+    limit = Number.POSITIVE_INFINITY,
+  ): number[] {
     result.length = 0
 
     const r = Math.max(radius, 0)
@@ -104,12 +117,27 @@ class SpatialHashGrid3D {
 
           for (const boidIndex of bucket) {
             result.push(boidIndex)
+
+            if (result.length >= limit)
+              return result
           }
         }
       }
     }
     return result
   }
+}
+
+/** 殼半徑的數量縮放：魚少時縮小殼，避免少數魚繞著過大的空殼。
+ *
+ * 殼上可站的位置與表面積（半徑平方）成正比，
+ * 因此縮放取數量比例的平方根，並設下限避免縮成一個點
+ */
+export function computeShellCountScale(boidCount: number) {
+  const referenceCount = 300
+  const scale = Math.sqrt(boidCount / referenceCount)
+  // 下限不宜太小：殼太小時整團縮成一坨，繞圓感會消失
+  return Math.min(1, Math.max(0.45, scale))
 }
 
 const defaultWeights: Required<BehaviorWeights> = {
@@ -123,16 +151,20 @@ const defaultRadii: Required<BehaviorRadii> = {
   alignment: 10,
   cohesion: 20,
 }
+const defaultMaxNeighborCount = 12
 
 export class Flock {
   boidList: Boid[] = []
   weights: Required<BehaviorWeights>
   radii: Required<BehaviorRadii>
+  maxNeighborCount: number
 
   private grid?: SpatialHashGrid3D
-  private neighborProvider: NeighborProvider
 
-  private elapsedTime = 0
+  /** 殼旋轉的累積角度。
+   * 逐幀積分而非「時間 × 角速度」，角速度隨魚數變動時相位才不會跳
+   */
+  private swirlAngle = 0
   private target?: Vector3
   targetShell?: Required<TargetShellOptions>
 
@@ -141,7 +173,11 @@ export class Flock {
   private readonly behaviorScratch = new Vector3()
   private readonly vectorScratch = new Vector3()
   private readonly aimScratch = new Vector3()
+  private readonly separationScratch = new Vector3()
+  private readonly alignmentScratch = new Vector3()
+  private readonly cohesionScratch = new Vector3()
   private readonly neighborScratch: number[] = []
+  private readonly neighborDistanceSquaredScratch: number[] = []
   private readonly candidateScratch: number[] = []
 
   constructor(options: FlockOptions = {}) {
@@ -153,6 +189,7 @@ export class Flock {
       ...defaultRadii,
       ...options.radii,
     }
+    this.maxNeighborCount = options.maxNeighborCount ?? defaultMaxNeighborCount
 
     if (options.targetShell) {
       this.targetShell = {
@@ -162,32 +199,12 @@ export class Flock {
       }
     }
 
-    const avgR = (this.radii.separation + this.radii.alignment + this.radii.cohesion) / 3
-    const cellSize = options.cellSize ?? Math.max(4, Math.floor(avgR))
+    /** cell 尺寸對齊最大查詢半徑：查詢範圍固定只跨 3×3×3 格，
+     * 比對齊平均半徑（需跨 4×4×4 格以上）少近六成的格子查找
+     */
+    const maxRadius = Math.max(this.radii.separation, this.radii.alignment, this.radii.cohesion)
+    const cellSize = options.cellSize ?? Math.max(4, Math.ceil(maxRadius))
     this.grid = new SpatialHashGrid3D(cellSize)
-    this.neighborProvider = (boidList, index, radius) => {
-      const out = this.neighborScratch
-      out.length = 0
-
-      const boid = boidList[index]
-      if (!boid)
-        return out
-
-      const candidateList = this.grid!.queryToRef(boid.position, radius, this.candidateScratch)
-      const radiusSquared = radius * radius
-      for (const candidateIndex of candidateList) {
-        if (candidateIndex === index)
-          continue
-
-        const other = boidList[candidateIndex]
-        if (!other)
-          continue
-
-        if (Vector3.DistanceSquared(boid.position, other.position) <= radiusSquared)
-          out.push(candidateIndex)
-      }
-      return out
-    }
   }
 
   setTarget(x: number, y: number, z = 0) {
@@ -235,40 +252,151 @@ export class Flock {
   }
 
   step(dt = 1) {
-    this.elapsedTime += dt
+    // 殼縮小（魚少）時角速度等比放大，維持切線速度、保留繞圓感
+    const shellSwirlSpeed = (this.targetShell?.swirlSpeed ?? 0)
+      / computeShellCountScale(this.boidList.length)
+    this.swirlAngle = (this.swirlAngle + shellSwirlSpeed * dt) % (2 * Math.PI)
 
     if (this.grid)
       this.grid.rebuild(this.boidList)
 
     const maxRadius = Math.max(this.radii.separation, this.radii.alignment, this.radii.cohesion)
+    const separationRadiusSquared = this.radii.separation * this.radii.separation
+    const alignmentRadiusSquared = this.radii.alignment * this.radii.alignment
+    const cohesionRadiusSquared = this.radii.cohesion * this.radii.cohesion
+
     const steer = this.steerScratch
-    const behavior = this.behaviorScratch
+    const difference = this.vectorScratch
+    const separationSum = this.separationScratch
+    const alignmentSum = this.alignmentScratch
+    const cohesionSum = this.cohesionScratch
 
     for (let i = 0; i < this.boidList.length; i++) {
       const boid = this.boidList[i]
       if (!boid)
         continue
 
-      const neighborIndexList = this.neighborProvider(this.boidList, i, maxRadius)
+      this.collectNeighbors(i, maxRadius)
+      const neighborIndexList = this.neighborScratch
+      const neighborDistanceSquaredList = this.neighborDistanceSquaredScratch
+
+      /** 三個行為共用同一批鄰居與距離，單次掃描一起累加，
+       * 距離只算一次，且只有 separation 需要開根號
+       */
+      separationSum.setAll(0)
+      alignmentSum.setAll(0)
+      cohesionSum.setAll(0)
+      let separationCount = 0
+      let alignmentCount = 0
+      let cohesionCount = 0
+
+      for (let n = 0; n < neighborIndexList.length; n++) {
+        const other = this.boidList[neighborIndexList[n]!]
+        if (!other)
+          continue
+
+        const distanceSquared = neighborDistanceSquaredList[n]!
+
+        // 分離：遠離過近的鄰居
+        if (distanceSquared > 0 && distanceSquared < separationRadiusSquared) {
+          boid.position.subtractToRef(other.position, difference)
+          difference.scaleInPlace(1 / Math.sqrt(distanceSquared))
+          separationSum.addInPlace(difference)
+          separationCount++
+        }
+        // 對齊：匹配鄰居平均速度方向
+        if (distanceSquared < alignmentRadiusSquared) {
+          alignmentSum.addInPlace(other.velocity)
+          alignmentCount++
+        }
+        // 凝聚：朝向鄰居的質心
+        if (distanceSquared < cohesionRadiusSquared) {
+          cohesionSum.addInPlace(other.position)
+          cohesionCount++
+        }
+      }
 
       steer.setAll(0)
 
-      this.separationToRef(i, neighborIndexList, behavior)
-      behavior.scaleAndAddToRef(this.weights.separation, steer)
+      if (separationCount > 0) {
+        separationSum.scaleInPlace(1 / separationCount)
+        this.finalizeSteerInPlace(separationSum, boid)
+        separationSum.scaleAndAddToRef(this.weights.separation, steer)
+      }
 
-      this.alignmentToRef(i, neighborIndexList, behavior)
-      behavior.scaleAndAddToRef(this.weights.alignment, steer)
+      if (alignmentCount > 0) {
+        alignmentSum.scaleInPlace(1 / alignmentCount)
+        this.finalizeSteerInPlace(alignmentSum, boid)
+        alignmentSum.scaleAndAddToRef(this.weights.alignment, steer)
+      }
 
-      this.cohesionToRef(i, neighborIndexList, behavior)
-      behavior.scaleAndAddToRef(this.weights.cohesion, steer)
+      if (cohesionCount > 0) {
+        cohesionSum.scaleInPlace(1 / cohesionCount) // 質心
+        cohesionSum.subtractInPlace(boid.position)
+        this.finalizeSteerInPlace(cohesionSum, boid)
+        cohesionSum.scaleAndAddToRef(this.weights.cohesion, steer)
+      }
 
-      this.seekToRef(i, this.target, behavior)
-      behavior.scaleAndAddToRef(this.weights.target, steer)
+      this.seekToRef(i, this.target, this.behaviorScratch)
+      this.behaviorScratch.scaleAndAddToRef(this.weights.target, steer)
 
       boid.applyForce(steer)
     }
 
     for (const boid of this.boidList) boid.update(dt)
+  }
+
+  /** 收集第 index 隻 boid 的鄰居與其平方距離，
+   * 結果寫入 neighborScratch 與 neighborDistanceSquaredScratch，
+   * 數量以 maxNeighborCount 封頂
+   */
+  private collectNeighbors(index: number, radius: number) {
+    const neighborIndexList = this.neighborScratch
+    const neighborDistanceSquaredList = this.neighborDistanceSquaredScratch
+    neighborIndexList.length = 0
+    neighborDistanceSquaredList.length = 0
+
+    const boid = this.boidList[index]
+    if (!boid)
+      return
+
+    /** 候選上限預留 4 倍空間，容納自身與距離檢查刷掉的格內候選 */
+    const candidateLimit = this.maxNeighborCount * 4
+    const candidateList = this.grid!.queryToRef(
+      boid.position,
+      radius,
+      this.candidateScratch,
+      candidateLimit,
+    )
+    const radiusSquared = radius * radius
+
+    for (const candidateIndex of candidateList) {
+      if (candidateIndex === index)
+        continue
+
+      const other = this.boidList[candidateIndex]
+      if (!other)
+        continue
+
+      const distanceSquared = Vector3.DistanceSquared(boid.position, other.position)
+      if (distanceSquared > radiusSquared)
+        continue
+
+      neighborIndexList.push(candidateIndex)
+      neighborDistanceSquaredList.push(distanceSquared)
+
+      if (neighborIndexList.length >= this.maxNeighborCount)
+        break
+    }
+  }
+
+  /** 將 desired 向量就地轉為受限的轉向力：
+   * 設為 maxSpeed 長度 → 減去目前速度 → 以 maxForce 封頂
+   */
+  private finalizeSteerInPlace(desired: Vector3, boid: Boid) {
+    setLengthInPlace(desired, boid.maxSpeed)
+    desired.subtractInPlace(boid.velocity)
+    limitLengthInPlace(desired, boid.maxForce)
   }
 
   /** 追向 target，結果寫入 out */
@@ -289,107 +417,7 @@ export class Flock {
       target.subtractToRef(boid.position, out)
     }
 
-    setLengthInPlace(out, boid.maxSpeed)
-    out.subtractInPlace(boid.velocity)
-    limitLengthInPlace(out, boid.maxForce)
-  }
-
-  /** 分離：遠離過近的鄰居，結果寫入 out */
-  private separationToRef(index: number, neighborIndexList: number[], out: Vector3) {
-    out.setAll(0)
-
-    const boid = this.boidList[index]
-    if (!boid)
-      return
-
-    const difference = this.vectorScratch
-    let count = 0
-
-    for (const neighborIndex of neighborIndexList) {
-      const other = this.boidList[neighborIndex]
-      if (!other)
-        continue
-
-      const distance = Vector3.Distance(boid.position, other.position)
-      if (distance > 0 && distance < this.radii.separation) {
-        // 距離越近權重越大（1/d）
-        boid.position.subtractToRef(other.position, difference)
-        difference.scaleInPlace(1 / distance)
-        out.addInPlace(difference)
-        count++
-      }
-    }
-
-    if (count === 0)
-      return
-
-    out.scaleInPlace(1 / count)
-    setLengthInPlace(out, boid.maxSpeed)
-    out.subtractInPlace(boid.velocity)
-    limitLengthInPlace(out, boid.maxForce)
-  }
-
-  /** 對齊：匹配鄰居平均速度方向，結果寫入 out */
-  private alignmentToRef(index: number, neighborIndexList: number[], out: Vector3) {
-    out.setAll(0)
-
-    const boid = this.boidList[index]
-    if (!boid)
-      return
-
-    let count = 0
-
-    for (const neighborIndex of neighborIndexList) {
-      const other = this.boidList[neighborIndex]
-      if (!other)
-        continue
-
-      const distance = Vector3.Distance(boid.position, other.position)
-      if (distance < this.radii.alignment) {
-        out.addInPlace(other.velocity)
-        count++
-      }
-    }
-
-    if (count === 0)
-      return
-
-    out.scaleInPlace(1 / count)
-    setLengthInPlace(out, boid.maxSpeed)
-    out.subtractInPlace(boid.velocity)
-    limitLengthInPlace(out, boid.maxForce)
-  }
-
-  /** 凝聚：朝向鄰居的質心，結果寫入 out */
-  private cohesionToRef(index: number, neighborIndexList: number[], out: Vector3) {
-    out.setAll(0)
-
-    const boid = this.boidList[index]
-    if (!boid)
-      return
-
-    let count = 0
-
-    for (const neighborIndex of neighborIndexList) {
-      const other = this.boidList[neighborIndex]
-      if (!other)
-        continue
-
-      const distance = Vector3.Distance(boid.position, other.position)
-      if (distance < this.radii.cohesion) {
-        out.addInPlace(other.position)
-        count++
-      }
-    }
-
-    if (count === 0)
-      return
-
-    out.scaleInPlace(1 / count) // 質心
-    out.subtractInPlace(boid.position)
-    setLengthInPlace(out, boid.maxSpeed)
-    out.subtractInPlace(boid.velocity)
-    limitLengthInPlace(out, boid.maxForce)
+    this.finalizeSteerInPlace(out, boid)
   }
 
   /** 在球面上近似均勻分配方向（Fibonacci sphere），並可隨時間繞行，結果寫入 out */
@@ -398,14 +426,17 @@ export class Flock {
     const k = index + 0.5
     /** 黃金角 */
     const golden = Math.PI * (3 - Math.sqrt(5))
-    /** 極角，去除球頂部與底部，以免 boid 看起來很像迷路 */
+    /** 極角，去除球頂部與底部，以免 boid 看起來很像迷路。
+     * 用 acos(2u - 1) 讓索引小的排在殼頂部（畫面 y 軸負向），
+     * 金色領頭魚（索引 0）因此固定在魚群頂端
+     */
     const theta = pipe(
       0.05,
       (cap) => cap + (1 - 2 * cap) * (k / n),
-      (u) => Math.acos(1 - 2 * u),
+      (u) => Math.acos(2 * u - 1),
     )
     const phiBase = k * golden
-    const phi = (phiBase + this.elapsedTime * (this.targetShell?.swirlSpeed ?? 0)) % (2 * Math.PI)
+    const phi = (phiBase + this.swirlAngle) % (2 * Math.PI)
 
     fromSphericalCoordsToRef(1, theta, phi, out)
     normalizeSafeInPlace(out)
@@ -421,10 +452,11 @@ export class Flock {
   private shellAimPointToRef(index: number, target: Vector3, out: Vector3) {
     this.shellDirectionToRef(index, out)
 
+    const shellScale = computeShellCountScale(this.boidList.length)
     const baseRadius = this.targetShell!.radius
     const band = this.targetShell!.band
     // 在半徑上加一點個體差，避免全部站在同一圈
-    const radius = baseRadius + band * (this.random(index * 97 + 13) - 0.5)
+    const radius = (baseRadius + band * (this.random(index * 97 + 13) - 0.5)) * shellScale
     out.scaleInPlace(radius)
     out.addInPlace(target)
   }
