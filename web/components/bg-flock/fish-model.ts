@@ -106,38 +106,23 @@ export function createFish(options: CreateFishOptions): Fish {
   return group
 }
 
-/** canvas 像素總量預算。
+/** 計算讓魚「背鰭朝上、不翻滾」的螢幕旋轉角。
  *
- * 全螢幕 canvas 每幀送進 GPU 合成器的頻寬與像素總量成正比，
- * 實測超過此量級時合成器開始掉幀（執行緒都滿幀、上屏卻不足 60），
- * 因此超過預算就等比降低 DPR、由 CSS 放大
+ * 直接用平面內分量的方向角（atan2(y, x)）在魚朝向／背對鏡頭時會出錯：
+ * 殘餘的垂直漂移會把正面照整隻轉 90 度（躺平）。
+ * 這裡對投影後的「前向、上向」兩軸做最小平方擬合：
+ * φ = atan2(hy·(inPlane + hx), inPlane·hx + 1 − hy²)
+ *
+ * - 平面內游動（inPlane = 1）→ 精確等於前進方向角
+ * - 正對／背對鏡頭（inPlane → 0）→ 0，維持直立
  */
-const CANVAS_PIXEL_BUDGET = 2_600_000
-
-interface CanvasPixelRatioOptions {
-  devicePixelRatio: number;
-  fishCount: number;
-  /** canvas 的 CSS 尺寸 */
-  width: number;
-  height: number;
-}
-
-/** 依魚群數量與畫面尺寸調整 canvas DPR，換取繪製與合成效能 */
-export function computeCanvasPixelRatio(options: CanvasPixelRatioOptions) {
-  const { devicePixelRatio, fishCount, width, height } = options
-
-  let maxRatio = 2
-  if (fishCount > 600) {
-    maxRatio = 1.25
-  }
-  else if (fishCount > 300) {
-    maxRatio = 1.5
-  }
-
-  const area = width * height
-  if (area > 0) {
-    maxRatio = Math.min(maxRatio, Math.sqrt(CANVAS_PIXEL_BUDGET / area))
-  }
-
-  return Math.max(0.5, Math.min(devicePixelRatio, maxRatio))
+export function computeUprightRotation(
+  headingX: number,
+  headingY: number,
+  inPlaneLength: number,
+) {
+  return Math.atan2(
+    headingY * (inPlaneLength + headingX),
+    inPlaneLength * headingX + 1 - headingY * headingY,
+  )
 }
