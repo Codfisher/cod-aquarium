@@ -25,12 +25,12 @@ export function createFish(options: CreateFishOptions): Fish {
   const thickness = size / 5
   const group = new Zdog.Group({ addTo, translate: position })
 
-  // 背鰭：先畫，讓身體蓋住相接處
+  // 背鰭：峰頂與後方基點同 x，使靠尾巴的後緣為垂直線，前緣自魚頭斜升
   void new Zdog.Shape({
     addTo: group,
     path: [
       { x: size * 0.16, y: size * -0.24 },
-      { x: size * -0.04, y: size * -0.52 },
+      { x: size * -0.2, y: size * -0.52 },
       { x: size * -0.2, y: size * -0.26 },
     ],
     closed: true,

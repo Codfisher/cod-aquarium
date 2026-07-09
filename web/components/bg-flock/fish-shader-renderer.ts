@@ -93,7 +93,7 @@ const vec3 CROWN_GOLD = vec3(0.961, 0.702, 0.004);
 const vec3 BODY_AXES = vec3(0.55, 0.33, 0.14);
 
 // 描邊寬度（size 單位；p 已正規化為 size 單位）
-const float OUTLINE_WIDTH = 0.05;
+const float OUTLINE_WIDTH = 0.03;
 
 /** 平面三角形 SDF（面積正負號判斷內外，跨 GPU 穩定） */
 float sdTriangle(vec2 p, vec2 p0, vec2 p1, vec2 p2) {
@@ -231,10 +231,11 @@ void main() {
   float bodyZ = zCenter + sqrt(max(0.0, (1.0 - eBody)) / q22);
   consider(acc, bodyCov, bodyOutline, bodyZ, bodyColor);
 
-  // 背鰭（平面三角形）
+  // 背鰭（平面三角形）：峰頂與後方基點同 x，使靠尾巴的後緣為垂直線，
+  // 前緣自魚頭斜升到峰頂
   addTriangle(
     acc, p,
-    vec3(0.16, -0.24, 0.0), vec3(-0.04, -0.52, 0.0), vec3(-0.2, -0.26, 0.0),
+    vec3(0.16, -0.24, 0.0), vec3(-0.2, -0.52, 0.0), vec3(-0.2, -0.26, 0.0),
     f, u, s, 0.06, bodyColor
   );
 
