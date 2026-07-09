@@ -202,11 +202,12 @@ function syncBoidCount(count: number) {
   if (diff > 0) {
     const startIndex = flock.boidList.length
 
+    // 出生點 z 對齊殼目標（z = 0），避免一開機整群往螢幕深處鑽
     flock.addRandomBoids(
       diff,
       {
-        min: new Vector3(0, world.value.max.y, world.value.max.z),
-        max: world.value.max,
+        min: new Vector3(0, world.value.max.y, 0),
+        max: new Vector3(world.value.max.x, world.value.max.y, 0),
       },
       props.boidOptions,
     )
@@ -224,7 +225,17 @@ function syncBoidCount(count: number) {
     flock.boidList.length = count
   }
 
-  renderer?.syncFishCount(count, props.size)
+  // 領頭魚（index 0）游速為一般魚的 1.2 倍。
+  // 以一般魚（index 1）為基準設定絕對值，重複呼叫不會累乘
+  const leader = flock.boidList[0]
+  const normal = flock.boidList[1]
+  if (leader && normal) {
+    leader.maxSpeed = normal.maxSpeed * 1.2
+    leader.maxForce = normal.maxForce * 1.2
+  }
+
+  // 整體魚體放大 1.2 倍（領頭魚再套內部的 1.5 倍）
+  renderer?.syncFishCount(count, props.size * 1.2)
 }
 
 watch(() => props.count, (value) => {
@@ -242,43 +253,6 @@ watch(fogColor, (value) => {
   renderer?.setFogColor(value)
 })
 
-// #region 開發模式效能量測
-const PERF_SAMPLE_FRAME_COUNT = 120
-let perfFrameCount = 0
-let perfWorkTotal = 0
-let perfWorkMax = 0
-let perfDeltaTotal = 0
-let perfDeltaMax = 0
-
-function recordPerf(workMs: number, deltaMs: number) {
-  perfFrameCount++
-  perfWorkTotal += workMs
-  perfWorkMax = Math.max(perfWorkMax, workMs)
-  perfDeltaTotal += deltaMs
-  perfDeltaMax = Math.max(perfDeltaMax, deltaMs)
-
-  if (perfFrameCount < PERF_SAMPLE_FRAME_COUNT) {
-    return
-  }
-
-  const fps = perfDeltaTotal > 0 ? 1000 / (perfDeltaTotal / perfFrameCount) : 0
-
-  // eslint-disable-next-line no-console
-  console.log(
-    `[bg-flock] boids: ${flock.boidList.length}, `
-    + `work avg: ${(perfWorkTotal / perfFrameCount).toFixed(2)}ms, `
-    + `work max: ${perfWorkMax.toFixed(2)}ms, `
-    + `fps: ${fps.toFixed(1)}, `
-    + `delta max: ${perfDeltaMax.toFixed(1)}ms`,
-  )
-  perfFrameCount = 0
-  perfWorkTotal = 0
-  perfWorkMax = 0
-  perfDeltaTotal = 0
-  perfDeltaMax = 0
-}
-// #endregion 開發模式效能量測
-
 /** 單幀 dt 上限（ms）。
  *
  * 主執行緒偶發任務（GC、路由預載）造成掉幀時，
@@ -290,16 +264,8 @@ const MAX_FRAME_DELTA_MS = 34
 const { pause: pauseLoop, resume: resumeLoop } = useRafFn(({ delta }) => {
   const deltaSeconds = props.playbackRate * Math.min(delta, MAX_FRAME_DELTA_MS) / 1000
 
-  if (import.meta.env.DEV) {
-    const frameStart = performance.now()
-    flock.step(deltaSeconds)
-    renderer?.render(flock.boidList, deltaSeconds)
-    recordPerf(performance.now() - frameStart, delta)
-  }
-  else {
-    flock.step(deltaSeconds)
-    renderer?.render(flock.boidList, deltaSeconds)
-  }
+  flock.step(deltaSeconds)
+  renderer?.render(flock.boidList, deltaSeconds)
 }, {
   immediate: false,
 })

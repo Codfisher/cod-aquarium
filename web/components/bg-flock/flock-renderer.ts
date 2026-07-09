@@ -113,9 +113,6 @@ interface FishRenderConfig {
   mirrorCooldown: number;
   /** 鏡像過渡進度（0 = 未鏡像、1 = 鏡像），朝 mirrored 對應值滑動 */
   mirrorBlend: number;
-  /** 開發模式姿態跳變偵測用的前一幀狀態 */
-  lastDepthIndex: number;
-  lastAppliedRotation: number;
 }
 
 interface Bubble {
@@ -144,11 +141,6 @@ function computeDepthScale(z: number) {
   return 1 + z / 500
 }
 
-/** 將角度差正規化到 -π～π */
-function wrapAngleDifference(difference: number) {
-  return ((difference + Math.PI) % TWO_PI + TWO_PI) % TWO_PI - Math.PI
-}
-
 /** 主執行緒 sprite 渲染器：管理圖集快取、魚外觀設定與泡泡。
  *
  * 作為不支援 WebGL2 環境的 fallback，主要路徑見 fish-shader-renderer
@@ -172,12 +164,6 @@ export class FlockRenderer {
   /** 景深淡化的半徑，通常等於殼半徑＋殼厚度 */
   private depthFadeRange = 200
   private bubbleSpawnCooldown = 1
-
-  /** 開發模式姿態跳變統計 */
-  private poseSampleFrameCount = 0
-  private mirrorFlipCount = 0
-  private depthCellJumpCount = 0
-  private rotationJumpCount = 0
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas
@@ -216,9 +202,11 @@ export class FlockRenderer {
   /** 差量同步魚的外觀設定 */
   syncFishCount(count: number, fishSize: number) {
     while (this.fishConfigList.length < count) {
+      const isFirst = this.fishConfigList.length === 0
       this.fishConfigList.push({
-        size: fishSize,
-        isFirst: this.fishConfigList.length === 0,
+        // 領頭魚放大 1.5 倍，更顯眼
+        size: isFirst ? fishSize * 1.5 : fishSize,
+        isFirst,
         wagPhase: Math.random(),
         wagRateScale: 0.85 + Math.random() * 0.3,
         displayHeadingX: Number.NaN,
@@ -227,8 +215,6 @@ export class FlockRenderer {
         mirrored: false,
         mirrorCooldown: 0,
         mirrorBlend: 0,
-        lastDepthIndex: -1,
-        lastAppliedRotation: Number.NaN,
       })
     }
 
@@ -331,10 +317,6 @@ export class FlockRenderer {
         }
       }
 
-      if (import.meta.env.DEV && config.mirrored !== wasMirrored) {
-        this.mirrorFlipCount++
-      }
-
       // 尾擺相位逐幀累加，游速越快擺越快
       const wagRate = (0.8 + boid.velocity.length() / 60) * config.wagRateScale
       config.wagPhase = (config.wagPhase + wagRate * deltaSeconds) % 1
@@ -343,31 +325,6 @@ export class FlockRenderer {
       ]!
 
       const depthIndex = computeDepthIndex(depthAngle)
-
-      if (import.meta.env.DEV) {
-        if (
-          config.lastDepthIndex >= 0
-          && Math.abs(depthIndex - config.lastDepthIndex) > 1
-        ) {
-          this.depthCellJumpCount++
-        }
-        config.lastDepthIndex = depthIndex
-
-        const appliedRotation = config.mirrored
-          ? rotationMirrored
-          : rotationNormal
-        if (
-          !Number.isNaN(config.lastAppliedRotation)
-          && config.mirrored === wasMirrored
-          && Math.abs(
-            wrapAngleDifference(appliedRotation - config.lastAppliedRotation),
-          ) > 0.3
-        ) {
-          this.rotationJumpCount++
-        }
-        config.lastAppliedRotation = appliedRotation
-      }
-
       const cellIndex = tailPhaseIndex * DEPTH_STEP_COUNT + depthIndex
       const sourceX = (cellIndex % ATLAS_COLUMN_COUNT) * atlas.cellSize
       const sourceY = Math.floor(cellIndex / ATLAS_COLUMN_COUNT) * atlas.cellSize
@@ -426,22 +383,6 @@ export class FlockRenderer {
 
     this.updateBubbles(boidList, deltaSeconds)
     this.drawBubbles()
-
-    if (import.meta.env.DEV) {
-      this.poseSampleFrameCount++
-      if (this.poseSampleFrameCount >= 120) {
-        // eslint-disable-next-line no-console
-        console.log(
-          `[bg-flock:pose] mirror flips: ${this.mirrorFlipCount}, `
-          + `cell jumps: ${this.depthCellJumpCount}, `
-          + `rotation jumps: ${this.rotationJumpCount}`,
-        )
-        this.poseSampleFrameCount = 0
-        this.mirrorFlipCount = 0
-        this.depthCellJumpCount = 0
-        this.rotationJumpCount = 0
-      }
-    }
   }
 
   /** 繪製單面魚 sprite。
@@ -507,7 +448,8 @@ export class FlockRenderer {
   private computeDepthFog(z: number) {
     const range = this.depthFadeRange
       * computeShellCountScale(this.fishConfigList.length)
-    const ratio = clamp01((z + range) / (2 * range))
+    // z ≥ 0（殼的近半與中心）清晰，只有背面（z < 0）往深處漸淡
+    const ratio = clamp01((z + range) / range)
     return MAX_DEPTH_FOG * (1 - ratio)
   }
 
