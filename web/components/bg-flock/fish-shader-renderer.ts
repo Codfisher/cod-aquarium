@@ -92,6 +92,9 @@ const vec3 CROWN_GOLD = vec3(0.961, 0.702, 0.004);
 // 身體橢球半軸（size 單位）：長、高、厚
 const vec3 BODY_AXES = vec3(0.55, 0.33, 0.14);
 
+// 描邊寬度（size 單位；p 已正規化為 size 單位）
+const float OUTLINE_WIDTH = 0.05;
+
 /** 平面三角形 SDF（面積正負號判斷內外，跨 GPU 穩定） */
 float sdTriangle(vec2 p, vec2 p0, vec2 p1, vec2 p2) {
   vec2 e0 = p1 - p0;
@@ -122,12 +125,14 @@ struct Acc {
   vec3 col;
   bool got;
   float uni;
+  float outline;
   float fbCov;
   vec3 fbCol;
 };
 
-void consider(inout Acc a, float cov, float z, vec3 color) {
+void consider(inout Acc a, float cov, float outlineCov, float z, vec3 color) {
   a.uni = max(a.uni, cov);
+  a.outline = max(a.outline, outlineCov);
   if (cov > a.fbCov) {
     a.fbCov = cov;
     a.fbCol = color;
@@ -156,6 +161,7 @@ void addTriangle(
   float d = sdTriangle(p, w0.xy, w1.xy, w2.xy) - round;
   float aa = fwidth(d) + 1e-4;
   float cov = 1.0 - smoothstep(-aa, aa, d);
+  float outlineCov = 1.0 - smoothstep(-aa, aa, d - OUTLINE_WIDTH);
 
   vec3 n = cross(w1 - w0, w2 - w0);
   // 平面近乎與視線平行（edge-on）時投影三角形退化，cov 自然趨近 0
@@ -163,7 +169,7 @@ void addTriangle(
     ? -1e9
     : (dot(n, w0) - n.x * p.x - n.y * p.y) / n.z;
 
-  consider(a, cov, z, color);
+  consider(a, cov, outlineCov, z, color);
 }
 
 /** 眼睛：3D 球，投影為圓；靠 frontZ 深度排序自動達成背面遮蔽 */
@@ -177,7 +183,8 @@ void addEye(
   float aa = fwidth(d) + 1e-4;
   float cov = 1.0 - smoothstep(-aa, aa, d);
   float z = w.z + sqrt(max(0.0, radius * radius - dist * dist));
-  consider(a, cov, z, color);
+  // 眼睛在身體內，不外擴描邊（outlineCov = cov）
+  consider(a, cov, cov, z, color);
 }
 
 void main() {
@@ -198,7 +205,7 @@ void main() {
   vec3 bodyColor = (leader ? BODY_GOLD : BODY_BLUE) * shade;
   vec3 eyeColor = leader ? EYE_GOLD : EYE_BLUE;
 
-  Acc acc = Acc(-1e9, vec3(0.0), false, 0.0, 0.0, vec3(0.0));
+  Acc acc = Acc(-1e9, vec3(0.0), false, 0.0, 0.0, 0.0, vec3(0.0));
 
   // 身體橢球：以 Q = R·diag(1/軸²)·Rᵀ 的 Schur 補數，
   // 解析求出正交投影下的真實輪廓橢圓（任何朝向都正確、含厚度）
@@ -215,11 +222,14 @@ void main() {
   float m11 = q11 - q12 * q12 / q22;
   float eBody = m00 * p.x * p.x + 2.0 * m01 * p.x * p.y + m11 * p.y * p.y;
 
-  float aaBody = fwidth(eBody) + 1e-4;
-  float bodyCov = 1.0 - smoothstep(1.0 - aaBody, 1.0 + aaBody, eBody);
+  // 取 sqrt 讓場在邊界附近近似正規化距離，描邊寬度較均勻
+  float gBody = sqrt(max(eBody, 0.0));
+  float aaBody = fwidth(gBody) + 1e-4;
+  float bodyCov = 1.0 - smoothstep(1.0 - aaBody, 1.0 + aaBody, gBody);
+  float bodyOutline = 1.0 - smoothstep(1.0 - aaBody, 1.0 + aaBody, gBody - OUTLINE_WIDTH);
   float zCenter = -(q02 * p.x + q12 * p.y) / q22;
   float bodyZ = zCenter + sqrt(max(0.0, (1.0 - eBody)) / q22);
-  consider(acc, bodyCov, bodyZ, bodyColor);
+  consider(acc, bodyCov, bodyOutline, bodyZ, bodyColor);
 
   // 背鰭（平面三角形）
   addTriangle(
@@ -252,9 +262,12 @@ void main() {
   addEye(acc, p, vec3(0.25, -0.05, -0.16), 0.055, f, u, s, eyeColor);
 
   vec3 base = acc.got ? acc.col : acc.fbCol;
+  // 描邊：外輪廓（uni → outline 之間的環）填同色系深色，內部填部位色
+  vec3 outlineColor = mix(bodyColor, eyeColor, 0.15);
+  vec3 shaded = mix(outlineColor, base, acc.uni);
   // 景深霧化：顏色混向背景色，透明度不變
-  vec3 color = mix(base, uFogColor, fog);
-  float a = acc.uni * alpha;
+  vec3 color = mix(shaded, uFogColor, fog);
+  float a = acc.outline * alpha;
   outColor = vec4(color * a, a);
 }
 `
