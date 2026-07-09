@@ -202,11 +202,12 @@ function syncBoidCount(count: number) {
   if (diff > 0) {
     const startIndex = flock.boidList.length
 
+    // 出生點 z 對齊殼目標（z = 0），避免一開機整群往螢幕深處鑽
     flock.addRandomBoids(
       diff,
       {
-        min: new Vector3(0, world.value.max.y, world.value.max.z),
-        max: world.value.max,
+        min: new Vector3(0, world.value.max.y, 0),
+        max: new Vector3(world.value.max.x, world.value.max.y, 0),
       },
       props.boidOptions,
     )
@@ -224,7 +225,17 @@ function syncBoidCount(count: number) {
     flock.boidList.length = count
   }
 
-  renderer?.syncFishCount(count, props.size)
+  // 領頭魚（index 0）游速為一般魚的 1.2 倍。
+  // 以一般魚（index 1）為基準設定絕對值，重複呼叫不會累乘
+  const leader = flock.boidList[0]
+  const normal = flock.boidList[1]
+  if (leader && normal) {
+    leader.maxSpeed = normal.maxSpeed * 1.2
+    leader.maxForce = normal.maxForce * 1.2
+  }
+
+  // 整體魚體放大 1.2 倍（領頭魚再套內部的 1.5 倍）
+  renderer?.syncFishCount(count, props.size * 1.2)
 }
 
 watch(() => props.count, (value) => {

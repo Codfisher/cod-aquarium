@@ -1,28 +1,22 @@
 import type { Boid } from './boid'
-import { computeUprightRotation } from './fish-model'
 import { computeShellCountScale } from './flock'
 import { clamp01 } from './utils'
 
-/** WebGL2 shader 渲染器。
+/** WebGL2 shader 渲染器（真 3D）。
  *
- * 以 SDF（有號距離場）在 fragment shader 解析重現 zdog 的質感——
- * zdog 的視覺特徵是「正交投影＋定寬圓頭筆畫＋平塗色＋畫家排序」，
- * 每個部位（身體、背鰭、眼睛、尾巴、皇冠）都是同一套投影數學：
- * x 軸乘上 cos(深度角)、筆畫為固定半徑的圓頭描邊、依 z 順序覆蓋合成。
+ * 每隻魚傳入完整朝向的兩個基向量（f 前向、u 上向），fragment 在每個像素
+ * 沿視線方向對真正的 3D 部位做深度排序投影：
+ * - 身體：扁橢球，用 Schur 補數解析算出任何朝向下的真實投影輪廓
+ * - 雙眼：3D 球，靠深度排序自動達成 zdog 的 backface 遮蔽
+ * - 尾／鰭／皇冠：真 3D 平面三角形，隨朝向投影、邊緣自然收合
  *
- * 相較 sprite 圖集，所有姿態參數（深度角、尾擺、霧化）都是連續值，
- * 不再有量化格與相位跳變，邊緣由 SDF 抗鋸齒、任何縮放下都銳利。
- * 幾何常數與 fish-model.ts 的 zdog 模型一一對應
+ * 因此任何角度都是真投影、翻身是真的轉過正面/背面，
+ * 不需要鏡像、翻轉縮放、深度角這類 2D 假招。
+ * 幾何常數以魚體尺寸為單位（size = 1），對應 fish-model.ts 的 zdog 模型
  */
 
 /** 顯示朝向的追隨速率（每秒），濾掉轉向力造成的微抖 */
 const ORIENTATION_SMOOTH_RATE = 12
-/** 左右鏡像切換的遲滯量 */
-const FLIP_HYSTERESIS = 0.25
-/** 鏡像切換後的冷卻秒數 */
-const FLIP_COOLDOWN_SECONDS = 0.4
-/** 鏡像過渡速率（每秒），以交叉淡化取代瞬間翻面 */
-const MIRROR_BLEND_RATE = 7
 
 /** 尾鰭擺動幅度（rad），連續正弦擺動，繞垂直軸左右擺 */
 const TAIL_WAG_AMPLITUDE = 0.6
@@ -33,42 +27,43 @@ const MAX_DEPTH_FOG = 0.7
 const BUBBLE_LIMIT = 60
 const TWO_PI = Math.PI * 2
 
-/** 每個魚 instance 的 float 數（3 個 vec4 屬性） */
-const FISH_INSTANCE_FLOAT_COUNT = 12
+/** 每個魚 instance 的 float 數（4 個 vec4 屬性） */
+const FISH_INSTANCE_FLOAT_COUNT = 16
 /** 每個泡泡 instance 的 float 數（1 個 vec4 屬性） */
 const BUBBLE_INSTANCE_FLOAT_COUNT = 4
 
 const FISH_VERTEX_SHADER = `#version 300 es
 layout(location = 0) in vec2 aQuad;
-/** x, y, 縮放, 螢幕旋轉角 */
+/** 中心 x, 中心 y, 景深縮放, 魚體尺寸 */
 layout(location = 1) in vec4 aTransform;
-/** 深度角, 尾擺角, 鏡像(+1/-1), 透明度 */
-layout(location = 2) in vec4 aPose;
-/** 魚體尺寸, 霧量, 是否領頭魚, 明度差異 */
-layout(location = 3) in vec4 aStyle;
+/** 前向 f.xyz, 尾擺角 */
+layout(location = 2) in vec4 aForward;
+/** 上向 u.xyz, 霧量 */
+layout(location = 3) in vec4 aUp;
+/** 是否領頭魚, 明度差異, 透明度, 保留 */
+layout(location = 4) in vec4 aStyle;
 
 uniform vec2 uResolution;
 
 out vec2 vLocal;
-flat out vec4 vPose;
-flat out vec4 vStyle;
+flat out vec3 vForward;
+flat out vec3 vUp;
+/** 尺寸, 尾擺角, 霧量, 領頭魚 */
+flat out vec4 vParams;
+/** 明度差異, 透明度 */
+flat out vec2 vStyle;
 
 void main() {
-  float size = aStyle.x;
-  // quad 半徑取魚體尺寸（含尾巴、皇冠與筆畫的外接範圍）
+  float size = aTransform.w;
+  // quad 半徑取魚體尺寸（含尾、鰭、皇冠與筆畫的外接範圍）
   vec2 local = aQuad * size;
   vLocal = local;
-  vPose = aPose;
-  vStyle = aStyle;
+  vForward = aForward.xyz;
+  vUp = aUp.xyz;
+  vParams = vec4(size, aForward.w, aUp.w, aStyle.x);
+  vStyle = aStyle.yz;
 
-  vec2 scaled = local * aTransform.z;
-  float c = cos(aTransform.w);
-  float s = sin(aTransform.w);
-  vec2 rotated = vec2(c * scaled.x - s * scaled.y, s * scaled.x + c * scaled.y);
-  // 鏡像為最外層變換，與 2D 版 scale(-1, 1) 後再旋轉等價
-  rotated.x *= aPose.z;
-
-  vec2 screen = aTransform.xy + rotated;
+  vec2 screen = aTransform.xy + local * aTransform.z;
   vec2 ndc = screen / uResolution * 2.0 - 1.0;
   gl_Position = vec4(ndc.x, -ndc.y, 0.0, 1.0);
 }
@@ -78,8 +73,10 @@ const FISH_FRAGMENT_SHADER = `#version 300 es
 precision highp float;
 
 in vec2 vLocal;
-flat in vec4 vPose;
-flat in vec4 vStyle;
+flat in vec3 vForward;
+flat in vec3 vUp;
+flat in vec4 vParams;
+flat in vec2 vStyle;
 
 uniform vec3 uFogColor;
 
@@ -92,13 +89,10 @@ const vec3 EYE_BLUE = vec3(0.247, 0.498, 0.651);
 const vec3 EYE_GOLD = vec3(0.671, 0.549, 0.169);
 const vec3 CROWN_GOLD = vec3(0.961, 0.702, 0.004);
 
-/** 近似橢圓 SDF（梯度正規化），邊界附近誤差極小 */
-float sdEllipse(vec2 p, vec2 r) {
-  float k1 = length(p / r);
-  float k2 = length(p / (r * r));
-  return k1 * (k1 - 1.0) / max(k2, 1e-6);
-}
+// 身體橢球半軸（size 單位）：長、高、厚
+const vec3 BODY_AXES = vec3(0.55, 0.33, 0.14);
 
+/** 平面三角形 SDF（面積正負號判斷內外，跨 GPU 穩定） */
 float sdTriangle(vec2 p, vec2 p0, vec2 p1, vec2 p2) {
   vec2 e0 = p1 - p0;
   vec2 e1 = p2 - p1;
@@ -120,126 +114,148 @@ float sdTriangle(vec2 p, vec2 p0, vec2 p1, vec2 p2) {
   return -sqrt(d.x) * sign(d.y);
 }
 
-float sdPolygon7(vec2 p, vec2 v0, vec2 v1, vec2 v2, vec2 v3, vec2 v4, vec2 v5, vec2 v6) {
-  vec2 v[7] = vec2[7](v0, v1, v2, v3, v4, v5, v6);
-  float d = dot(p - v[0], p - v[0]);
-  float s = 1.0;
-  for (int i = 0, j = 6; i < 7; j = i, i++) {
-    vec2 e = v[j] - v[i];
-    vec2 w = p - v[i];
-    vec2 b = w - e * clamp(dot(w, e) / dot(e, e), 0.0, 1.0);
-    d = min(d, dot(b, b));
-    bvec3 c = bvec3(p.y >= v[i].y, p.y < v[j].y, e.x * w.y > e.y * w.x);
-    if (all(c) || all(not(c))) {
-      s *= -1.0;
-    }
+/** 深度排序累加器：nearest（frontZ 最大）的實心部位決定顏色，
+ * uni 為聯集覆蓋率（外輪廓抗鋸齒），fb 為邊緣退路顏色
+ */
+struct Acc {
+  float bestZ;
+  vec3 col;
+  bool got;
+  float uni;
+  float fbCov;
+  vec3 fbCol;
+};
+
+void consider(inout Acc a, float cov, float z, vec3 color) {
+  a.uni = max(a.uni, cov);
+  if (cov > a.fbCov) {
+    a.fbCov = cov;
+    a.fbCol = color;
   }
-  return s * sqrt(d);
+  if (cov > 0.5 && z > a.bestZ) {
+    a.bestZ = z;
+    a.col = color;
+    a.got = true;
+  }
 }
 
-/** 畫家式覆蓋合成：後畫的形狀蓋住先畫的，邊緣以 SDF 抗鋸齒。
- * 全程使用 premultiplied alpha，邊緣半覆蓋像素才不會混進黑底產生黑邊
- */
-vec4 paintShape(vec4 acc, float sd, vec3 color) {
-  float aa = max(fwidth(sd), 1e-4);
-  float coverage = 1.0 - smoothstep(-aa, aa, sd);
-  return vec4(
-    color * coverage + acc.rgb * (1.0 - coverage),
-    coverage + acc.a * (1.0 - coverage)
-  );
+/** 本地座標轉世界（R 的欄為 f, u, s） */
+vec3 toWorld(vec3 local, vec3 f, vec3 u, vec3 s) {
+  return f * local.x + u * local.y + s * local.z;
+}
+
+/** 平面三角形部位：投影三頂點、2D 三角形 SDF 覆蓋、平面交點求 frontZ */
+void addTriangle(
+  inout Acc a, vec2 p, vec3 v0, vec3 v1, vec3 v2,
+  vec3 f, vec3 u, vec3 s, float round, vec3 color
+) {
+  vec3 w0 = toWorld(v0, f, u, s);
+  vec3 w1 = toWorld(v1, f, u, s);
+  vec3 w2 = toWorld(v2, f, u, s);
+
+  float d = sdTriangle(p, w0.xy, w1.xy, w2.xy) - round;
+  float aa = fwidth(d) + 1e-4;
+  float cov = 1.0 - smoothstep(-aa, aa, d);
+
+  vec3 n = cross(w1 - w0, w2 - w0);
+  // 平面近乎與視線平行（edge-on）時投影三角形退化，cov 自然趨近 0
+  float z = abs(n.z) < 1e-3
+    ? -1e9
+    : (dot(n, w0) - n.x * p.x - n.y * p.y) / n.z;
+
+  consider(a, cov, z, color);
+}
+
+/** 眼睛：3D 球，投影為圓；靠 frontZ 深度排序自動達成背面遮蔽 */
+void addEye(
+  inout Acc a, vec2 p, vec3 center, float radius,
+  vec3 f, vec3 u, vec3 s, vec3 color
+) {
+  vec3 w = toWorld(center, f, u, s);
+  float dist = length(p - w.xy);
+  float d = dist - radius;
+  float aa = fwidth(d) + 1e-4;
+  float cov = 1.0 - smoothstep(-aa, aa, d);
+  float z = w.z + sqrt(max(0.0, radius * radius - dist * dist));
+  consider(a, cov, z, color);
 }
 
 void main() {
-  float size = vStyle.x;
-  float fog = vStyle.y;
-  bool leader = vStyle.z > 0.5;
-  float shade = vStyle.w;
-  float depthAngle = vPose.x;
-  float wagAngle = vPose.y;
-  float alpha = vPose.w;
+  float size = vParams.x;
+  float wag = vParams.y;
+  float fog = vParams.z;
+  bool leader = vParams.w > 0.5;
+  float shade = vStyle.x;
+  float alpha = vStyle.y;
 
-  // 每隻魚有些微明度差異，重疊時能看出層次而不糊成一團
+  // 世界座標沿用 zdog 的 y 向下慣例（背鰭在負 y = 螢幕上方），size 為單位
+  vec2 p = vLocal / size;
+
+  vec3 f = normalize(vForward);
+  vec3 u = normalize(vUp);
+  vec3 s = cross(f, u);
+
   vec3 bodyColor = (leader ? BODY_GOLD : BODY_BLUE) * shade;
   vec3 eyeColor = leader ? EYE_GOLD : EYE_BLUE;
-  // 描邊為身體色略往眼睛色（同色系深色調）偏移，保持淡淡的輪廓
-  vec3 outlineColor = mix(bodyColor, eyeColor, 0.2);
 
-  float thickness = size / 5.0;
-  float cosD = cos(depthAngle);
-  float sinD = sin(depthAngle);
-  vec2 p = vLocal;
+  Acc acc = Acc(-1e9, vec3(0.0), false, 0.0, 0.0, vec3(0.0));
 
-  // 各部位 SDF
-  float sdFin = sdTriangle(
-    p,
-    vec2(size * 0.16 * cosD, size * -0.24),
-    vec2(size * -0.04 * cosD, size * -0.52),
-    vec2(size * -0.2 * cosD, size * -0.26)
-  ) - thickness * 0.3;
+  // 身體橢球：以 Q = R·diag(1/軸²)·Rᵀ 的 Schur 補數，
+  // 解析求出正交投影下的真實輪廓橢圓（任何朝向都正確、含厚度）
+  vec3 invSq = 1.0 / (BODY_AXES * BODY_AXES);
+  float q00 = invSq.x * f.x * f.x + invSq.y * u.x * u.x + invSq.z * s.x * s.x;
+  float q01 = invSq.x * f.x * f.y + invSq.y * u.x * u.y + invSq.z * s.x * s.y;
+  float q02 = invSq.x * f.x * f.z + invSq.y * u.x * u.z + invSq.z * s.x * s.z;
+  float q11 = invSq.x * f.y * f.y + invSq.y * u.y * u.y + invSq.z * s.y * s.y;
+  float q12 = invSq.x * f.y * f.z + invSq.y * u.y * u.z + invSq.z * s.y * s.z;
+  float q22 = invSq.x * f.z * f.z + invSq.y * u.z * u.z + invSq.z * s.z * s.z;
 
-  // 身體：橢圓 + 定寬圓頭描邊，x 軸依深度角透視收縮
-  float sdBody = sdEllipse(
-    p,
-    vec2(max(size * 0.5 * cosD, 0.75), size * 0.3)
-  ) - thickness * 0.5;
+  float m00 = q00 - q02 * q02 / q22;
+  float m01 = q01 - q02 * q12 / q22;
+  float m11 = q11 - q12 * q12 / q22;
+  float eBody = m00 * p.x * p.x + 2.0 * m01 * p.x * p.y + m11 * p.y * p.y;
 
-  // 尾巴：繞尾根做深度角 + 擺動角旋轉，投影為 x 縮放
-  float cosTail = cos(depthAngle + wagAngle);
-  vec2 tailPoint = p - vec2(size * -0.5 * cosD, 0.0);
-  float sdTail = sdTriangle(
-    tailPoint,
-    vec2(0.0, 0.0),
-    vec2(thickness * -1.5 * cosTail, -thickness),
-    vec2(thickness * -1.5 * cosTail, thickness)
-  ) - thickness * 0.5;
+  float aaBody = fwidth(eBody) + 1e-4;
+  float bodyCov = 1.0 - smoothstep(1.0 - aaBody, 1.0 + aaBody, eBody);
+  float zCenter = -(q02 * p.x + q12 * p.y) / q22;
+  float bodyZ = zCenter + sqrt(max(0.0, (1.0 - eBody)) / q22);
+  consider(acc, bodyCov, bodyZ, bodyColor);
 
-  vec4 acc = vec4(0.0);
-
-  // 輪廓描邊：整體剪影向外擴一圈先畫深色，
-  // 部位疊上後剩下的環就是描邊，重疊的魚彼此有輪廓分隔
-  float outlineWidth = max(0.6, size * 0.04);
-  float sdSilhouette = min(sdBody, min(sdFin, sdTail));
-  acc = paintShape(acc, sdSilhouette - outlineWidth, outlineColor);
-
-  // 背鰭（先畫，讓身體蓋住相接處）
-  acc = paintShape(acc, sdFin, bodyColor);
-  acc = paintShape(acc, sdBody, bodyColor);
-  acc = paintShape(acc, sdTail, bodyColor);
-
-  // 領頭魚的小皇冠
-  if (leader) {
-    acc = paintShape(
-      acc,
-      sdPolygon7(
-        p,
-        vec2(size * 0.04 * cosD, size * -0.4),
-        vec2(size * 0.08 * cosD, size * -0.56),
-        vec2(size * 0.13 * cosD, size * -0.46),
-        vec2(size * 0.18 * cosD, size * -0.6),
-        vec2(size * 0.23 * cosD, size * -0.46),
-        vec2(size * 0.28 * cosD, size * -0.56),
-        vec2(size * 0.32 * cosD, size * -0.4)
-      ) - thickness * 0.2,
-      CROWN_GOLD
-    );
-  }
-
-  // 眼睛：zdog backface 規則下，深度角範圍內永遠是 +z 側那顆可見，
-  // 位置隨轉向水平位移。圓片隨深度角透視收縮，
-  // 並保留 zdog 筆畫厚度的最小寬度——側視時縮成細條而非瞬間消失
-  float eyeOffsetZ = thickness * 0.5 + 1.0;
-  vec2 eyeCenter = vec2(size * 0.25 * cosD - eyeOffsetZ * sinD, size * -0.05);
-  float eyeRadius = size * 0.05;
-  acc = paintShape(
-    acc,
-    sdEllipse(p - eyeCenter, vec2(max(eyeRadius * cosD, 0.6), eyeRadius)),
-    eyeColor
+  // 背鰭（平面三角形）
+  addTriangle(
+    acc, p,
+    vec3(0.16, -0.24, 0.0), vec3(-0.04, -0.52, 0.0), vec3(-0.2, -0.26, 0.0),
+    f, u, s, 0.06, bodyColor
   );
 
-  // 景深霧化：顏色混向背景色（霧色乘上相同 alpha 保持 premultiplied），
-  // 透明度不變
-  vec3 color = mix(acc.rgb, uFogColor * acc.a, fog);
-  outColor = vec4(color * alpha, acc.a * alpha);
+  // 尾巴：繞垂直軸擺動的平面三角形
+  float cosW = cos(wag);
+  float sinW = sin(wag);
+  addTriangle(
+    acc, p,
+    vec3(-0.5, 0.0, 0.0),
+    vec3(-0.5 - 0.3 * cosW, 0.2, 0.3 * sinW),
+    vec3(-0.5 - 0.3 * cosW, -0.2, 0.3 * sinW),
+    f, u, s, 0.1, bodyColor
+  );
+
+  // 領頭魚的小皇冠：3 個尖角。底邊塞進頭頂（約 -0.3），
+  // 塞入部分會被身體依深度遮住，只露出上方尖角，看起來戴在頭上
+  if (leader) {
+    addTriangle(acc, p, vec3(0.03, -0.3, 0.0), vec3(0.13, -0.3, 0.0), vec3(0.08, -0.47, 0.0), f, u, s, 0.04, CROWN_GOLD);
+    addTriangle(acc, p, vec3(0.12, -0.3, 0.0), vec3(0.24, -0.3, 0.0), vec3(0.18, -0.52, 0.0), f, u, s, 0.04, CROWN_GOLD);
+    addTriangle(acc, p, vec3(0.23, -0.3, 0.0), vec3(0.33, -0.3, 0.0), vec3(0.28, -0.47, 0.0), f, u, s, 0.04, CROWN_GOLD);
+  }
+
+  // 雙眼：兩側各一，near 側靠 frontZ 勝出、far 側被身體遮蔽
+  addEye(acc, p, vec3(0.25, -0.05, 0.16), 0.055, f, u, s, eyeColor);
+  addEye(acc, p, vec3(0.25, -0.05, -0.16), 0.055, f, u, s, eyeColor);
+
+  vec3 base = acc.got ? acc.col : acc.fbCol;
+  // 景深霧化：顏色混向背景色，透明度不變
+  vec3 color = mix(base, uFogColor, fog);
+  float a = acc.uni * alpha;
+  outColor = vec4(color * a, a);
 }
 `
 
@@ -299,12 +315,6 @@ interface FishRenderConfig {
   displayHeadingX: number;
   displayHeadingY: number;
   displayHeadingZ: number;
-  /** 是否左右鏡像（魚頭朝左時鏡像 nose-right 的姿態），帶遲滯 */
-  mirrored: boolean;
-  /** 鏡像切換的剩餘冷卻秒數 */
-  mirrorCooldown: number;
-  /** 鏡像過渡進度（0 = 未鏡像、1 = 鏡像），朝 mirrored 對應值滑動 */
-  mirrorBlend: number;
   /** 個體明度差異（約 0.97~1.03），讓重疊的魚看得出層次 */
   shadeScale: number;
 }
@@ -484,7 +494,7 @@ export class FishShaderRenderer {
 
     this.fishInstanceBuffer = gl.createBuffer()!
     gl.bindBuffer(gl.ARRAY_BUFFER, this.fishInstanceBuffer)
-    setupInstanceAttributes(gl, 1, 3)
+    setupInstanceAttributes(gl, 1, 4)
 
     // 泡泡
     this.bubbleProgram = createProgram(gl, BUBBLE_VERTEX_SHADER, BUBBLE_FRAGMENT_SHADER)
@@ -524,17 +534,16 @@ export class FishShaderRenderer {
   /** 差量同步魚的外觀設定 */
   syncFishCount(count: number, fishSize: number) {
     while (this.fishConfigList.length < count) {
+      const isFirst = this.fishConfigList.length === 0
       this.fishConfigList.push({
-        size: fishSize,
-        isFirst: this.fishConfigList.length === 0,
+        // 領頭魚放大 1.5 倍，更顯眼
+        size: isFirst ? fishSize * 1.5 : fishSize,
+        isFirst,
         wagPhase: Math.random(),
         wagRateScale: 0.85 + Math.random() * 0.3,
         displayHeadingX: Number.NaN,
         displayHeadingY: Number.NaN,
         displayHeadingZ: Number.NaN,
-        mirrored: false,
-        mirrorCooldown: 0,
-        mirrorBlend: 0,
         shadeScale: 0.97 + Math.random() * 0.06,
       })
     }
@@ -610,7 +619,7 @@ export class FishShaderRenderer {
   private fillFishInstances(boidList: Boid[], deltaSeconds: number): number {
     const count = Math.min(boidList.length, this.fishConfigList.length)
 
-    // 畫家演算法：z 小（遠）的先畫，與 zdog 的 z 排序一致
+    // 畫家演算法：z 小（遠）的先畫，與整體景深一致
     const drawOrder = this.drawOrderScratch
     drawOrder.length = count
     for (let i = 0; i < count; i++) {
@@ -620,8 +629,7 @@ export class FishShaderRenderer {
       (a, b) => boidList[a]!.position.z - boidList[b]!.position.z,
     )
 
-    // 鏡像過渡中每隻魚需要兩個 instance，預留兩倍容量
-    const requiredCapacity = count * 2 * FISH_INSTANCE_FLOAT_COUNT
+    const requiredCapacity = count * FISH_INSTANCE_FLOAT_COUNT
     if (this.fishInstanceData.length < requiredCapacity) {
       this.fishInstanceData = new Float32Array(requiredCapacity)
     }
@@ -650,42 +658,6 @@ export class FishShaderRenderer {
           += (boid.heading.z - config.displayHeadingZ) * orientationAlpha
       }
 
-      const headingX = config.displayHeadingX
-      const headingY = config.displayHeadingY
-      const headingZ = config.displayHeadingZ
-
-      const inPlaneLength = Math.hypot(headingX, headingY)
-      const depthAngle = Math.atan2(headingZ, inPlaneLength)
-      const rotationNormal = computeUprightRotation(headingX, headingY, inPlaneLength)
-      const rotationMirrored = computeUprightRotation(-headingX, headingY, inPlaneLength)
-
-      // 魚頭朝左時左右鏡像（遲滯＋冷卻＋交叉淡化）
-      config.mirrorCooldown = Math.max(0, config.mirrorCooldown - deltaSeconds)
-      if (config.mirrorCooldown <= 0) {
-        const wasMirrored = config.mirrored
-        if (config.mirrored) {
-          if (headingX > FLIP_HYSTERESIS) {
-            config.mirrored = false
-          }
-        }
-        else if (headingX < -FLIP_HYSTERESIS) {
-          config.mirrored = true
-        }
-
-        if (config.mirrored !== wasMirrored) {
-          config.mirrorCooldown = FLIP_COOLDOWN_SECONDS
-        }
-      }
-
-      const mirrorBlendTarget = config.mirrored ? 1 : 0
-      if (config.mirrorBlend !== mirrorBlendTarget) {
-        const maxStep = MIRROR_BLEND_RATE * deltaSeconds
-        config.mirrorBlend += Math.max(
-          -maxStep,
-          Math.min(maxStep, mirrorBlendTarget - config.mirrorBlend),
-        )
-      }
-
       // 尾擺：連續正弦擺動，游速越快擺越快
       const wagRate = (0.8 + boid.velocity.length() / 60) * config.wagRateScale
       config.wagPhase = (config.wagPhase + wagRate * deltaSeconds) % 1
@@ -694,50 +666,71 @@ export class FishShaderRenderer {
       const scale = 1 + boid.position.z / 500
       const fog = this.computeDepthFog(boid.position.z)
 
-      if (config.mirrorBlend <= 0.001) {
-        instanceCount = this.writeFishInstance(instanceCount, boid, config, scale, rotationNormal, depthAngle, wagAngle, fog, 1, 1)
-      }
-      else if (config.mirrorBlend >= 0.999) {
-        instanceCount = this.writeFishInstance(instanceCount, boid, config, scale, rotationMirrored, depthAngle, wagAngle, fog, -1, 1)
-      }
-      else {
-        // 翻面過渡中：兩面交叉淡化
-        instanceCount = this.writeFishInstance(instanceCount, boid, config, scale, rotationNormal, depthAngle, wagAngle, fog, 1, 1 - config.mirrorBlend)
-        instanceCount = this.writeFishInstance(instanceCount, boid, config, scale, rotationMirrored, depthAngle, wagAngle, fog, -1, config.mirrorBlend)
-      }
+      instanceCount = this.writeFishInstance(instanceCount, boid, config, scale, wagAngle, fog)
     }
 
     return instanceCount
   }
 
-  /** 寫入單一 instance，參數採位置引數避免高頻迴圈中配置暫時物件 */
+  /** 由平滑朝向建立正交基（f 前向、u 為本地 +y），寫入單一 instance。
+   *
+   * 世界座標系沿用 zdog：x 向右、y 向下、z 朝觀者，與 heading 同向，
+   * 故 f = heading。u 取世界 (0,1,0) 去除 f 分量（背鰭在本地 -y，
+   * 因此本地 +y 對應螢幕下方），near-vertical 奇異時改用 z 參考
+   */
   private writeFishInstance(
     instanceIndex: number,
     boid: Boid,
     config: FishRenderConfig,
     scale: number,
-    rotation: number,
-    depthAngle: number,
     wagAngle: number,
     fog: number,
-    mirror: number,
-    alpha: number,
   ): number {
+    let fx = config.displayHeadingX
+    let fy = config.displayHeadingY
+    let fz = config.displayHeadingZ
+    const fLen = Math.hypot(fx, fy, fz) || 1
+    fx /= fLen
+    fy /= fLen
+    fz /= fLen
+
+    // u = 世界上方 (0,1,0) 去除 f 分量後正規化
+    let dot = fy
+    let ux = -fx * dot
+    let uy = 1 - fy * dot
+    let uz = -fz * dot
+    let uLen = Math.hypot(ux, uy, uz)
+    if (uLen < 1e-3) {
+      // f 幾乎垂直，改用世界前方 (0,0,1) 當參考
+      dot = fz
+      ux = -fx * dot
+      uy = -fy * dot
+      uz = 1 - fz * dot
+      uLen = Math.hypot(ux, uy, uz) || 1
+    }
+    ux /= uLen
+    uy /= uLen
+    uz /= uLen
+
     const data = this.fishInstanceData
     const offset = instanceIndex * FISH_INSTANCE_FLOAT_COUNT
 
     data[offset] = boid.position.x
     data[offset + 1] = boid.position.y
     data[offset + 2] = scale
-    data[offset + 3] = rotation
-    data[offset + 4] = depthAngle
-    data[offset + 5] = wagAngle
-    data[offset + 6] = mirror
-    data[offset + 7] = alpha
-    data[offset + 8] = config.size
-    data[offset + 9] = fog
-    data[offset + 10] = config.isFirst ? 1 : 0
-    data[offset + 11] = config.shadeScale
+    data[offset + 3] = config.size
+    data[offset + 4] = fx
+    data[offset + 5] = fy
+    data[offset + 6] = fz
+    data[offset + 7] = wagAngle
+    data[offset + 8] = ux
+    data[offset + 9] = uy
+    data[offset + 10] = uz
+    data[offset + 11] = fog
+    data[offset + 12] = config.isFirst ? 1 : 0
+    data[offset + 13] = config.shadeScale
+    data[offset + 14] = 1
+    data[offset + 15] = 0
 
     return instanceIndex + 1
   }
@@ -749,7 +742,8 @@ export class FishShaderRenderer {
   private computeDepthFog(z: number) {
     const range = this.depthFadeRange
       * computeShellCountScale(this.fishConfigList.length)
-    const ratio = clamp01((z + range) / (2 * range))
+    // z ≥ 0（殼的近半與中心）清晰，只有背面（z < 0）往深處漸淡
+    const ratio = clamp01((z + range) / range)
     return MAX_DEPTH_FOG * (1 - ratio)
   }
 

@@ -202,9 +202,11 @@ export class FlockRenderer {
   /** 差量同步魚的外觀設定 */
   syncFishCount(count: number, fishSize: number) {
     while (this.fishConfigList.length < count) {
+      const isFirst = this.fishConfigList.length === 0
       this.fishConfigList.push({
-        size: fishSize,
-        isFirst: this.fishConfigList.length === 0,
+        // 領頭魚放大 1.5 倍，更顯眼
+        size: isFirst ? fishSize * 1.5 : fishSize,
+        isFirst,
         wagPhase: Math.random(),
         wagRateScale: 0.85 + Math.random() * 0.3,
         displayHeadingX: Number.NaN,
@@ -446,7 +448,8 @@ export class FlockRenderer {
   private computeDepthFog(z: number) {
     const range = this.depthFadeRange
       * computeShellCountScale(this.fishConfigList.length)
-    const ratio = clamp01((z + range) / (2 * range))
+    // z ≥ 0（殼的近半與中心）清晰，只有背面（z < 0）往深處漸淡
+    const ratio = clamp01((z + range) / range)
     return MAX_DEPTH_FOG * (1 - ratio)
   }
 
