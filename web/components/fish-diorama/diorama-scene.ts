@@ -47,11 +47,12 @@ const CAMERA_BETA = Math.PI / 3
 const FISH_SCALE = 0.8
 /** 側躺角：讓背鰭朝向鏡頭、單眼朝天 */
 const LYING_ROLL = -Math.PI / 2
-/** 初始朝向微調（rad）。基準（0）為頭朝畫面水平、背鰭朝鏡頭；
- * 每 ±Math.PI/2 讓魚在畫面上轉 90°，+Math.PI 則頭轉到相反方向。
- * 覺得魚頭朝著自己就調這個。
+/** 初始側躺朝向（rad）。橫向與直向兩顆相機方位角差 90°，加上魚側躺繞 Y 轉會換到不同側面，
+ * 故兩種取景的起始角分開設定。每 ±Math.PI/2 讓魚在畫面上轉 90°，+Math.PI 頭轉到相反方向。
+ * 覺得魚頭朝著自己就調對應的那個。
  */
-const INITIAL_HEADING_OFFSET = Math.PI / 4 * 3
+const INITIAL_HEADING_LANDSCAPE = Math.PI / 4 * 5
+const INITIAL_HEADING_PORTRAIT = Math.PI / 3 * 5
 /** 單幀 dt 上限（ms），比照 bg-flock 避免掉幀時瞬移 */
 const MAX_FRAME_DELTA_MS = 34
 /** 點擊判定：pointer 位移小於此值（px）才視為點擊而非拖曳/捲動 */
@@ -175,10 +176,11 @@ export function createDioramaScene(
 
   applyCameraFraming()
 
-  // 初始側躺：頭朝畫面水平方向、背鰭面向鏡頭（-camera.alpha 為基準，兩種取景一致）
+  // 初始側躺：頭朝畫面水平方向、背鰭面向鏡頭。橫/直取景畫面水平方向不同，分開給角度
+  const isPortraitFraming = camera.alpha === Math.PI
   flopController.teleport(
     { x: 0, z: 0 },
-    -camera.alpha + INITIAL_HEADING_OFFSET,
+    isPortraitFraming ? INITIAL_HEADING_PORTRAIT : INITIAL_HEADING_LANDSCAPE,
   )
 
   function setDarkMode(value: boolean) {
