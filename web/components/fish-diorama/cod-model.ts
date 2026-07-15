@@ -1,0 +1,515 @@
+/** 程序化卡通鱈魚模型。
+ *
+ * 座標慣例：頭朝 +z、背朝 +y，身長約 2.5 單位。
+ * 節點結構：rootNode（位置/朝向/擠壓）→ lieNode（側躺翻滾）→ 各部件。
+ * 每個鰭與眼睛都掛在自己的 pivot 節點上，方便繞根部做動畫。
+ *
+ * 卡通化重點：圓胖身形、放大的雙眼（眼白＋瞳孔＋高光）、
+ * 少而圓潤的鰭、明亮平塗配色。
+ *
+ * 動畫（update 每幀驅動）：身體 S 形扭動、胸鰭划水、背鰭搖擺、
+ * 尾鰭拍打、偶發眨眼、瞳孔轉動。移動時全部加快加大。
+ */
+import type { Scene } from '@babylonjs/core/scene'
+import { VertexBuffer } from '@babylonjs/core/Buffers/buffer'
+import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial'
+import { Color3 } from '@babylonjs/core/Maths/math.color'
+import { Matrix, Vector3 } from '@babylonjs/core/Maths/math.vector'
+import { CreateSphere } from '@babylonjs/core/Meshes/Builders/sphereBuilder'
+import { Mesh } from '@babylonjs/core/Meshes/mesh'
+import { VertexData } from '@babylonjs/core/Meshes/mesh.vertexData'
+import { TransformNode } from '@babylonjs/core/Meshes/transformNode'
+
+export interface CodModelUpdateParams {
+  deltaSeconds: number;
+  /** 移動中（跳躍/滑行）時扭動與鰭擺加快加大 */
+  isMoving: boolean;
+  /** 世界空間注視點（滑鼠游標在沙地的投影）。有值時眼睛看向它，null 則自主張望 */
+  gazeTarget?: Vector3 | null;
+}
+
+export interface CodModel {
+  rootNode: TransformNode;
+  /** 側躺姿態節點，rotation.z = 側躺角 + 翻滾擺動 */
+  lieNode: TransformNode;
+  /** 全部網格，供加入陰影投射清單 */
+  meshList: Mesh[];
+  /** 每幀更新身體與所有部件動畫 */
+  update: (params: CodModelUpdateParams) => void;
+}
+
+/** 身長（未縮放） */
+export const COD_BODY_LENGTH = 2.5
+/** 側躺時身體中心離地高度 */
+export const COD_LYING_LIFT = 0.34
+
+/** 卡通配色：明亮青藍背、奶油白腹 */
+const BACK_COLOR = { red: 0.44, green: 0.71, blue: 0.85 }
+const BELLY_COLOR = { red: 0.98, green: 0.96, blue: 0.9 }
+
+// --- 身體扭動參數 ---
+/** 沿長軸 z 的波數。刻意壓低到不足半個波，讓全身大致同向擺動（魚），
+ * 而非身上同時多個彎（蛇）
+ */
+const BODY_WAVE_NUMBER = 1.1
+/** 扭動包絡的頭尾錨點：愈靠頭愈穩、愈靠尾擺幅愈大 */
+const WAVE_HEAD_Z = 1
+const WAVE_TAIL_Z = -1.5
+const WAVE_AMPLITUDE_MOVING = 0.48
+const WAVE_AMPLITUDE_IDLE = 0
+const WAVE_SPEED_MOVING = 19
+const WAVE_SPEED_IDLE = 4.5
+
+// --- 鰭擺動參數 ---
+const PECTORAL_SPEED_MOVING = 15
+const PECTORAL_SPEED_IDLE = 3.5
+const PECTORAL_SWING_MOVING = 0.7
+const PECTORAL_SWING_IDLE = 0.2
+/** 尾鰭順著身體波甩動的相位延遲，做出鞭梢感 */
+const TAIL_PHASE_LAG = 0.7
+const TAIL_SWING_MOVING = 0.9
+const TAIL_SWING_IDLE = 0.14
+
+// --- 眼睛動畫參數 ---
+const BLINK_DURATION = 0.16
+const PUPIL_SHIFT_RANGE = 0.04
+/** 注視方向轉成瞳孔偏移的放大倍率 */
+const GAZE_GAIN = 3
+
+type Point3 = [number, number, number]
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value))
+}
+
+/** 身體扭動包絡：頭與前半身幾乎不動（趨近 0），越往尾二次放大到 1，
+ * 呈現魚類「前段穩、後段與尾巴大擺」的擺動，而非全身均勻起伏的蛇形
+ */
+function waveEnvelope(z: number): number {
+  const ratio = clamp((WAVE_HEAD_Z - z) / (WAVE_HEAD_Z - WAVE_TAIL_Z), 0, 1)
+  return ratio ** 2
+}
+
+/** 某長軸位置 z 的橫向位移量 */
+function waveOffset(z: number, phase: number, amplitude: number): number {
+  return amplitude * waveEnvelope(z) * Math.sin(z * BODY_WAVE_NUMBER - phase)
+}
+
+/** 以邊界頂點（繞一圈）扇形三角化建立圓潤鰭片（雙面、flat shading） */
+function createFinMesh(
+  name: string,
+  scene: Scene,
+  boundaryPointList: Point3[],
+  material: StandardMaterial,
+): Mesh {
+  const mesh = new Mesh(name, scene)
+  const vertexData = new VertexData()
+
+  const positionList = boundaryPointList.flat()
+  const indexList: number[] = []
+  // triangle fan：以第 0 點為軸心接出所有三角形
+  for (let index = 1; index < boundaryPointList.length - 1; index++) {
+    indexList.push(0, index, index + 1)
+  }
+
+  const normalList: number[] = []
+  VertexData.ComputeNormals(positionList, indexList, normalList)
+
+  vertexData.positions = positionList
+  vertexData.indices = indexList
+  vertexData.normals = normalList
+  vertexData.applyToMesh(mesh)
+
+  mesh.material = material
+  mesh.isPickable = false
+  return mesh
+}
+
+interface BodyMeshResult {
+  mesh: Mesh;
+  /** 未扭動的基準頂點座標，每幀據此重算 S 波 */
+  basePositions: Float32Array;
+}
+
+/** 變形低段數球體成圓胖卡通魚身：頭大尾收、略側扁 */
+function buildBodyMesh(scene: Scene, material: StandardMaterial): BodyMeshResult {
+  const body = CreateSphere('codBodyMesh', { diameter: 1, segments: 5 }, scene)
+
+  const positionList = body.getVerticesData(VertexBuffer.PositionKind)
+  if (positionList) {
+    for (let index = 0; index < positionList.length; index += 3) {
+      const x = positionList[index] ?? 0
+      const y = positionList[index + 1] ?? 0
+      const z = positionList[index + 2] ?? 0
+
+      /** 球半徑 0.5，轉為 [-1, 1]，頭在 +1 */
+      const normalizedZ = z * 2
+      const headToTail = clamp((normalizedZ + 1) / 2, 0, 1)
+      /** 頭端圓胖、往尾柄收細，pow < 1 讓中前段保持飽滿 */
+      const taper = 0.26 + 0.74 * headToTail ** 0.6
+
+      // 側扁保留一點（0.72），但比寫實版胖，讓身體圓滾
+      positionList[index] = x * taper * 0.72
+      positionList[index + 1] = y * taper
+      positionList[index + 2] = z * COD_BODY_LENGTH
+    }
+    body.updateVerticesData(VertexBuffer.PositionKind, positionList)
+  }
+
+  body.convertToFlatShadedMesh()
+
+  // 頂點色：背青藍、腹奶油白，分界沿身體中線水平帶輕微起伏
+  const flatPositionList = body.getVerticesData(VertexBuffer.PositionKind)
+  if (flatPositionList) {
+    const vertexCount = flatPositionList.length / 3
+    const colorList: number[] = Array.from({ length: vertexCount * 4 })
+
+    for (let index = 0; index < vertexCount; index++) {
+      const y = flatPositionList[index * 3 + 1] ?? 0
+      const z = flatPositionList[index * 3 + 2] ?? 0
+
+      const boundary = -0.02 + 0.04 * Math.sin(z * 3.2 + 0.6)
+      const color = y > boundary ? BACK_COLOR : BELLY_COLOR
+
+      colorList[index * 4] = color.red
+      colorList[index * 4 + 1] = color.green
+      colorList[index * 4 + 2] = color.blue
+      colorList[index * 4 + 3] = 1
+    }
+    body.setVerticesData(VertexBuffer.ColorKind, colorList)
+  }
+
+  const finalPositionList = body.getVerticesData(VertexBuffer.PositionKind)
+  const basePositions = finalPositionList
+    ? Float32Array.from(finalPositionList)
+    : new Float32Array()
+  // 標記為可更新，之後每幀重寫頂點做身體扭動
+  body.markVerticesDataAsUpdatable(VertexBuffer.PositionKind, true)
+
+  body.material = material
+  body.isPickable = false
+  return { mesh: body, basePositions }
+}
+
+interface EyeParts {
+  pivot: TransformNode;
+  /** 瞳孔（含高光子節點），供轉動 */
+  pupil: TransformNode;
+  meshList: Mesh[];
+}
+
+/** 建立一顆卡通大眼（眼白＋瞳孔＋高光），掛在可眨眼、可轉瞳的 pivot 上 */
+function buildEye(
+  scene: Scene,
+  side: 'left' | 'right',
+  materials: {
+    white: StandardMaterial;
+    pupil: StandardMaterial;
+    highlight: StandardMaterial;
+  },
+): EyeParts {
+  const sign = side === 'right' ? 1 : -1
+
+  const pivot = new TransformNode(`codEyePivot-${side}`, scene)
+  pivot.position.set(0.28 * sign, 0.16, 0.82)
+
+  const white = CreateSphere(`codEyeWhite-${side}`, { diameter: 0.4, segments: 6 }, scene)
+  white.scaling.set(0.8, 1, 0.8)
+  white.material = materials.white
+  white.isPickable = false
+  white.parent = pivot
+
+  // 瞳孔壓扁貼合眼白前表面，做成黑點而非凸出的黑珠
+  const pupil = CreateSphere(`codEyePupil-${side}`, { diameter: 0.15, segments: 5 }, scene)
+  pupil.position.set(0.07 * sign, -0.01, 0.12)
+  pupil.scaling.z = 0.55
+  pupil.material = materials.pupil
+  pupil.isPickable = false
+  pupil.parent = pivot
+
+  const highlight = CreateSphere(`codEyeHighlight-${side}`, { diameter: 0.05, segments: 5 }, scene)
+  highlight.position.set(0.03 * sign, 0.035, 0.05)
+  highlight.material = materials.highlight
+  highlight.isPickable = false
+  // 高光掛瞳孔下，瞳孔轉動時一起走
+  highlight.parent = pupil
+
+  return { pivot, pupil, meshList: [white, pupil, highlight] }
+}
+
+interface WavePart {
+  node: TransformNode;
+  baseX: number;
+  baseZ: number;
+}
+
+interface EyeRuntime {
+  parts: EyeParts;
+  /** 右眼 1、左眼 -1 */
+  sign: number;
+  /** 瞳孔當前偏移（lerp 狀態），x 左右、y 上下 */
+  shiftX: number;
+  shiftY: number;
+}
+
+export function createCodModel(scene: Scene): CodModel {
+  const rootNode = new TransformNode('codRoot', scene)
+  const lieNode = new TransformNode('codLie', scene)
+  lieNode.parent = rootNode
+
+  const bodyMaterial = new StandardMaterial('codBodyMaterial', scene)
+  bodyMaterial.diffuseColor = Color3.White()
+  // 給一點窄高光，讓魚身有濕潤光澤層次而非死平
+  bodyMaterial.specularColor = new Color3(0.14, 0.16, 0.18)
+  bodyMaterial.specularPower = 48
+
+  const finMaterial = new StandardMaterial('codFinMaterial', scene)
+  finMaterial.diffuseColor = Color3.FromHexString('#4f9ac2')
+  finMaterial.specularColor = new Color3(0.1, 0.12, 0.14)
+  finMaterial.specularPower = 48
+  finMaterial.backFaceCulling = false
+
+  const eyeWhiteMaterial = new StandardMaterial('codEyeWhiteMaterial', scene)
+  eyeWhiteMaterial.diffuseColor = Color3.White()
+  eyeWhiteMaterial.specularColor = Color3.Black()
+
+  const pupilMaterial = new StandardMaterial('codPupilMaterial', scene)
+  pupilMaterial.diffuseColor = Color3.FromHexString('#1b2a33')
+  pupilMaterial.specularColor = Color3.Black()
+
+  const highlightMaterial = new StandardMaterial('codHighlightMaterial', scene)
+  highlightMaterial.diffuseColor = Color3.White()
+  highlightMaterial.emissiveColor = Color3.White()
+  highlightMaterial.disableLighting = true
+
+  const meshList: Mesh[] = []
+  const wavePartList: WavePart[] = []
+
+  const { mesh: bodyMesh, basePositions } = buildBodyMesh(scene, bodyMaterial)
+  bodyMesh.parent = lieNode
+  meshList.push(bodyMesh)
+
+  // 單片圓潤背鰭（相對 pivot 定義，可隨身體搖擺）
+  const dorsalPivot = new TransformNode('codDorsalPivot', scene)
+  dorsalPivot.position.set(0, 0.24, 0.03)
+  dorsalPivot.parent = lieNode
+  const dorsalFin = createFinMesh(
+    'codDorsalFin',
+    scene,
+    [
+      [0, 0, 0.47],
+      [0, 0.42, 0.13],
+      [0, 0.42, -0.15],
+      [0, 0, -0.47],
+    ],
+    finMaterial,
+  )
+  dorsalFin.parent = dorsalPivot
+  meshList.push(dorsalFin)
+  wavePartList.push({ node: dorsalPivot, baseX: 0, baseZ: 0.03 })
+
+  // 胸鰭（左右各一小圓鰭，繞肩部 pivot 划水）
+  const rightPectoralPointList: Point3[] = [
+    [0, 0, 0],
+    [0.34, 0.12, -0.12],
+    [0.32, -0.02, -0.28],
+    [0.14, -0.14, -0.18],
+  ]
+  const pectoralPivotRight = new TransformNode('codPectoralPivotRight', scene)
+  pectoralPivotRight.position.set(0.3, -0.05, 0.42)
+  pectoralPivotRight.parent = lieNode
+  const rightPectoralFin = createFinMesh('codPectoralFinRight', scene, rightPectoralPointList, finMaterial)
+  rightPectoralFin.parent = pectoralPivotRight
+
+  const leftPectoralPointList = rightPectoralPointList.map(
+    ([x, y, z]): Point3 => [-x, y, z],
+  )
+  const pectoralPivotLeft = new TransformNode('codPectoralPivotLeft', scene)
+  pectoralPivotLeft.position.set(-0.3, -0.05, 0.42)
+  pectoralPivotLeft.parent = lieNode
+  const leftPectoralFin = createFinMesh('codPectoralFinLeft', scene, leftPectoralPointList, finMaterial)
+  leftPectoralFin.parent = pectoralPivotLeft
+
+  meshList.push(rightPectoralFin, leftPectoralFin)
+  wavePartList.push(
+    { node: pectoralPivotRight, baseX: 0.3, baseZ: 0.42 },
+    { node: pectoralPivotLeft, baseX: -0.3, baseZ: 0.42 },
+  )
+
+  // 尾鰭：掛在尾關節上，圓潤大扇形，繞 y 拍打
+  const tailPivot = new TransformNode('codTailPivot', scene)
+  tailPivot.position.set(0, 0, -1.12)
+  tailPivot.parent = lieNode
+  const tailFin = createFinMesh(
+    'codTailFin',
+    scene,
+    [
+      [0, 0, 0.08],
+      [0, 0.42, -0.5],
+      [0, 0.28, -0.64],
+      [0, 0, -0.7],
+      [0, -0.28, -0.64],
+      [0, -0.42, -0.5],
+    ],
+    finMaterial,
+  )
+  tailFin.parent = tailPivot
+  meshList.push(tailFin)
+  wavePartList.push({ node: tailPivot, baseX: 0, baseZ: -1.12 })
+
+  // 放大的卡通雙眼
+  const eyeMaterials = {
+    white: eyeWhiteMaterial,
+    pupil: pupilMaterial,
+    highlight: highlightMaterial,
+  }
+  const eyeRuntimeList: EyeRuntime[] = []
+  for (const side of ['right', 'left'] as const) {
+    const eyeParts = buildEye(scene, side, eyeMaterials)
+    eyeParts.pivot.parent = lieNode
+    for (const eyeMesh of eyeParts.meshList) {
+      meshList.push(eyeMesh)
+    }
+    eyeRuntimeList.push({
+      parts: eyeParts,
+      sign: side === 'right' ? 1 : -1,
+      shiftX: 0,
+      shiftY: 0,
+    })
+    wavePartList.push({
+      node: eyeParts.pivot,
+      baseX: eyeParts.pivot.position.x,
+      baseZ: eyeParts.pivot.position.z,
+    })
+  }
+
+  // --- 動畫狀態（閉包內累積） ---
+  const bodyWaveBuffer = new Float32Array(basePositions.length)
+  let bodyIsBent = false
+  let bodyWaveAmplitude = 0
+  let bodyWavePhase = 0
+  let pectoralPhase = 0
+  let tailSwing = TAIL_SWING_IDLE
+  let blinkTimer = 2 + Math.random() * 3
+  let blinkElapsed = BLINK_DURATION
+  // 自主張望時兩眼共用的隨機瞳孔偏移目標
+  let autoTargetX = 0
+  let autoTargetY = 0
+  let pupilTimer = 1 + Math.random() * 2
+  const inverseEyeMatrix = new Matrix()
+  const gazeDirection = new Vector3()
+
+  /** 依當前相位與擺幅重寫身體頂點與各部件的橫向位移 */
+  function applyBodyWave() {
+    if (bodyWaveAmplitude <= 1e-4) {
+      if (bodyIsBent) {
+        bodyMesh.updateVerticesData(VertexBuffer.PositionKind, basePositions)
+        for (const part of wavePartList) {
+          part.node.position.x = part.baseX
+        }
+        bodyIsBent = false
+      }
+      return
+    }
+
+    for (let index = 0; index < basePositions.length; index += 3) {
+      const baseX = basePositions[index] ?? 0
+      const baseZ = basePositions[index + 2] ?? 0
+      bodyWaveBuffer[index] = baseX + waveOffset(baseZ, bodyWavePhase, bodyWaveAmplitude)
+      bodyWaveBuffer[index + 1] = basePositions[index + 1] ?? 0
+      bodyWaveBuffer[index + 2] = baseZ
+    }
+    bodyMesh.updateVerticesData(VertexBuffer.PositionKind, bodyWaveBuffer)
+
+    for (const part of wavePartList) {
+      part.node.position.x = part.baseX + waveOffset(part.baseZ, bodyWavePhase, bodyWaveAmplitude)
+    }
+    bodyIsBent = true
+  }
+
+  function update({ deltaSeconds, isMoving, gazeTarget }: CodModelUpdateParams) {
+    // 身體 S 波
+    const targetAmplitude = isMoving ? WAVE_AMPLITUDE_MOVING : WAVE_AMPLITUDE_IDLE
+    bodyWaveAmplitude += (targetAmplitude - bodyWaveAmplitude) * Math.min(1, deltaSeconds * 10)
+    bodyWavePhase += deltaSeconds * (isMoving ? WAVE_SPEED_MOVING : WAVE_SPEED_IDLE)
+    applyBodyWave()
+
+    // 胸鰭划水（左右反向繞 z，視覺上同步上下撥）
+    pectoralPhase += deltaSeconds * (isMoving ? PECTORAL_SPEED_MOVING : PECTORAL_SPEED_IDLE)
+    const pectoralSwing = isMoving ? PECTORAL_SWING_MOVING : PECTORAL_SWING_IDLE
+    const pectoralWave = Math.sin(pectoralPhase) * pectoralSwing
+    pectoralPivotRight.rotation.z = -0.15 - pectoralWave
+    pectoralPivotLeft.rotation.z = 0.15 + pectoralWave
+
+    // 背鰭搖擺強度跟著身體扭動幅度，靜止時不搖
+    const bodyMotionRatio = bodyWaveAmplitude / WAVE_AMPLITUDE_MOVING
+    dorsalPivot.rotation.z = Math.sin(bodyWavePhase * 0.6) * 0.14 * bodyMotionRatio
+
+    // 尾鰭順著身體波甩動（相位略延遲成鞭梢），擺幅在移動/靜止間平滑過渡
+    const tailSwingTarget = isMoving ? TAIL_SWING_MOVING : TAIL_SWING_IDLE
+    tailSwing += (tailSwingTarget - tailSwing) * Math.min(1, deltaSeconds * 8)
+    tailPivot.rotation.y = Math.sin(bodyWavePhase - TAIL_PHASE_LAG) * tailSwing
+
+    // 眨眼：倒數到 0 觸發一次，短暫壓扁眼睛
+    if (blinkElapsed >= BLINK_DURATION) {
+      blinkTimer -= deltaSeconds
+      if (blinkTimer <= 0) {
+        blinkElapsed = 0
+        blinkTimer = 2.5 + Math.random() * 3.5
+      }
+    }
+    let eyeOpenness = 1
+    if (blinkElapsed < BLINK_DURATION) {
+      blinkElapsed += deltaSeconds
+      const progress = Math.min(blinkElapsed / BLINK_DURATION, 1)
+      eyeOpenness = 1 - Math.sin(progress * Math.PI) * 0.9
+    }
+
+    // 自主張望：無注視點且靜止時，定時抽換共用的瞳孔目標
+    if (!gazeTarget && !isMoving) {
+      pupilTimer -= deltaSeconds
+      if (pupilTimer <= 0) {
+        autoTargetX = (Math.random() - 0.5) * 2 * PUPIL_SHIFT_RANGE
+        autoTargetY = (Math.random() - 0.5) * 2 * PUPIL_SHIFT_RANGE
+        pupilTimer = 1.2 + Math.random() * 2.5
+      }
+    }
+
+    const pupilLerp = Math.min(1, deltaSeconds * 8)
+    for (const eye of eyeRuntimeList) {
+      eye.parts.pivot.scaling.y = eyeOpenness
+
+      let targetX: number
+      let targetY: number
+      if (gazeTarget) {
+        // 把「眼睛→注視點」的世界方向轉進眼睛局部空間，取水平與垂直分量轉成瞳孔偏移
+        gazeTarget.subtractToRef(eye.parts.pivot.getAbsolutePosition(), gazeDirection)
+        eye.parts.pivot.getWorldMatrix().invertToRef(inverseEyeMatrix)
+        const localDirection = Vector3.TransformNormal(gazeDirection, inverseEyeMatrix)
+        const length = localDirection.length()
+        if (length > 1e-4) {
+          localDirection.scaleInPlace(1 / length)
+        }
+        targetX = clamp(localDirection.x * GAZE_GAIN, -1, 1) * PUPIL_SHIFT_RANGE
+        targetY = clamp(localDirection.y * GAZE_GAIN, -1, 1) * PUPIL_SHIFT_RANGE
+      }
+      else if (isMoving) {
+        // 移動時盯著前方
+        targetX = 0
+        targetY = 0
+      }
+      else {
+        targetX = autoTargetX
+        targetY = autoTargetY
+      }
+
+      eye.shiftX += (targetX - eye.shiftX) * pupilLerp
+      eye.shiftY += (targetY - eye.shiftY) * pupilLerp
+      eye.parts.pupil.position.x = 0.07 * eye.sign + eye.shiftX
+      eye.parts.pupil.position.y = -0.01 + eye.shiftY
+      eye.parts.pupil.position.z = 0.12
+    }
+  }
+
+  return { rootNode, lieNode, meshList, update }
+}
