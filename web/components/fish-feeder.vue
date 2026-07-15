@@ -43,7 +43,7 @@
     <transition name="opacity">
       <div
         v-if="canvasVisible"
-        class=" fixed w-screen h-screen top-0 left-0 pointer-events-none z-[999999999999] duration-300"
+        class=" fixed w-screen h-screen top-0 left-0 pointer-events-none z-999999999999 duration-300"
         :class="{ 'opacity-0': !btnVisible, 'opacity-100': btnVisible }"
       >
         <bg-flock
