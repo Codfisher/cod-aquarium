@@ -1,8 +1,47 @@
 /** 箱庭共用的程序化幾何工具。 */
 import type { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial'
 import type { Scene } from '@babylonjs/core/scene'
+import { VertexBuffer } from '@babylonjs/core/Buffers/buffer'
 import { Mesh } from '@babylonjs/core/Meshes/mesh'
 import { VertexData } from '@babylonjs/core/Meshes/mesh.vertexData'
+
+/** 沿高度加漸層頂點色，模擬環境光遮蔽讓純色不死板（Kenney 風）。
+ * 除了明度（底暗頂亮），也帶色相偏移（底部偏冷、頂部偏暖），漸層更有層次。
+ */
+export function applyHeightGradient(mesh: Mesh, darkenBottom = 0.22, hueShift = 0.05) {
+  const positionData = mesh.getVerticesData(VertexBuffer.PositionKind)
+  if (!positionData) {
+    return
+  }
+
+  let minY = Number.POSITIVE_INFINITY
+  let maxY = Number.NEGATIVE_INFINITY
+  for (let index = 1; index < positionData.length; index += 3) {
+    const y = positionData[index] ?? 0
+    if (y < minY) {
+      minY = y
+    }
+    if (y > maxY) {
+      maxY = y
+    }
+  }
+  const range = maxY - minY || 1
+
+  const vertexCount = positionData.length / 3
+  const colorData: number[] = []
+  for (let index = 0; index < vertexCount; index++) {
+    const y = positionData[index * 3 + 1] ?? 0
+    const ratio = (y - minY) / range
+    const shade = (1 - darkenBottom) + darkenBottom * ratio
+    // 底部 -hueShift（偏冷）、頂部 +hueShift（偏暖），紅升藍降
+    const warm = (ratio - 0.5) * 2 * hueShift
+    const r = Math.min(1, shade * (1 + warm))
+    const g = Math.min(1, shade * (1 + warm * 0.2))
+    const b = Math.min(1, shade * (1 - warm))
+    colorData.push(r, g, b, 1)
+  }
+  mesh.setVerticesData(VertexBuffer.ColorKind, colorData)
+}
 
 export interface BeveledBoxOptions {
   width: number;
@@ -195,6 +234,7 @@ export function createBeveledBox(
   vertexData.normals = normalList
   vertexData.applyToMesh(mesh)
   mesh.convertToFlatShadedMesh()
+  applyHeightGradient(mesh)
   mesh.material = material
   mesh.isPickable = false
   return mesh

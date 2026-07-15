@@ -15,10 +15,12 @@ import { VertexBuffer } from '@babylonjs/core/Buffers/buffer'
 import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial'
 import { Color3 } from '@babylonjs/core/Maths/math.color'
 import { Matrix, Vector3 } from '@babylonjs/core/Maths/math.vector'
+import { CreateIcoSphere } from '@babylonjs/core/Meshes/Builders/icoSphereBuilder'
 import { CreateSphere } from '@babylonjs/core/Meshes/Builders/sphereBuilder'
 import { Mesh } from '@babylonjs/core/Meshes/mesh'
 import { VertexData } from '@babylonjs/core/Meshes/mesh.vertexData'
 import { TransformNode } from '@babylonjs/core/Meshes/transformNode'
+import { applyHeightGradient } from './geometry-utils'
 
 export interface CodModelUpdateParams {
   deltaSeconds: number;
@@ -72,9 +74,14 @@ const TAIL_SWING_IDLE = 0.14
 
 // --- 眼睛動畫參數 ---
 const BLINK_DURATION = 0.16
-const PUPIL_SHIFT_RANGE = 0.04
+const PUPIL_SHIFT_RANGE = 0.085
+/** 瞳孔中性位置的外偏量（較小 → 左右轉動更對稱、範圍更大） */
+const PUPIL_BASE_X = 0.03
+/** 眼白橢球半徑（diameter 0.44 × scaling 0.8/1），瞳孔沿此球面滑動，避免偏移大時陷入眼白 */
+const EYE_WHITE_RADIUS_H = 0.176
+const EYE_WHITE_RADIUS_V = 0.22
 /** 注視方向轉成瞳孔偏移的放大倍率 */
-const GAZE_GAIN = 3
+const GAZE_GAIN = 3.5
 
 type Point3 = [number, number, number]
 
@@ -119,6 +126,8 @@ function createFinMesh(
   vertexData.indices = indexList
   vertexData.normals = normalList
   vertexData.applyToMesh(mesh)
+  // 沿高度加漸層頂點色，讓鰭與尾巴也有層次而非死板純色
+  applyHeightGradient(mesh, 0.3)
 
   mesh.material = material
   mesh.isPickable = false
@@ -133,7 +142,9 @@ interface BodyMeshResult {
 
 /** 變形低段數球體成圓胖卡通魚身：頭大尾收、略側扁 */
 function buildBodyMesh(scene: Scene, material: StandardMaterial): BodyMeshResult {
-  const body = CreateSphere('codBodyMesh', { diameter: 1, segments: 5 }, scene)
+  // 用 icosphere（均勻三角、無極點）而非 UV 球，避免背腹極點在變形擾動後雜亂。
+  // flat: false 用共享頂點，擾動時相鄰面才不會裂開露縫，之後再 convertToFlatShadedMesh
+  const body = CreateIcoSphere('codBodyMesh', { radius: 0.5, subdivisions: 2, flat: false }, scene)
 
   const positionList = body.getVerticesData(VertexBuffer.PositionKind)
   if (positionList) {
@@ -148,10 +159,16 @@ function buildBodyMesh(scene: Scene, material: StandardMaterial): BodyMeshResult
       /** 頭端圓胖、往尾柄收細，pow < 1 讓中前段保持飽滿 */
       const taper = 0.26 + 0.74 * headToTail ** 0.6
 
-      // 側扁保留一點（0.72），但比寫實版胖，讓身體圓滾
-      positionList[index] = x * taper * 0.72
-      positionList[index + 1] = y * taper
-      positionList[index + 2] = z * COD_BODY_LENGTH
+      // 側扁保留一點（0.72），但比寫實版胖，讓身體圓滾；加小幅頂點擾動讓塊面不規則。
+      // 用基於原始位置的確定性 noise（而非 per-vertex random），
+      // 讓 UV 接縫上重複的頂點得到一致位移，面才不會裂開露縫
+      const jitter = 0.04
+      const noiseX = Math.sin(x * 13.1 + y * 7.7 + z * 4.3)
+      const noiseY = Math.sin(x * 5.3 + y * 11.9 + z * 8.1)
+      const noiseZ = Math.sin(x * 9.7 + y * 3.1 + z * 14.3)
+      positionList[index] = x * taper * 0.72 + noiseX * jitter
+      positionList[index + 1] = y * taper + noiseY * jitter
+      positionList[index + 2] = z * COD_BODY_LENGTH + noiseZ * jitter
     }
     body.updateVerticesData(VertexBuffer.PositionKind, positionList)
   }
@@ -213,7 +230,7 @@ function buildEye(
   const pivot = new TransformNode(`codEyePivot-${side}`, scene)
   pivot.position.set(0.28 * sign, 0.16, 0.82)
 
-  const white = CreateSphere(`codEyeWhite-${side}`, { diameter: 0.4, segments: 6 }, scene)
+  const white = CreateSphere(`codEyeWhite-${side}`, { diameter: 0.44, segments: 6 }, scene)
   white.scaling.set(0.8, 1, 0.8)
   white.material = materials.white
   white.isPickable = false
@@ -221,7 +238,7 @@ function buildEye(
 
   // 瞳孔壓扁貼合眼白前表面，做成黑點而非凸出的黑珠
   const pupil = CreateSphere(`codEyePupil-${side}`, { diameter: 0.15, segments: 5 }, scene)
-  pupil.position.set(0.07 * sign, -0.01, 0.12)
+  pupil.position.set(PUPIL_BASE_X * sign, -0.01, 0.12)
   pupil.scaling.z = 0.55
   pupil.material = materials.pupil
   pupil.isPickable = false
@@ -482,15 +499,20 @@ export function createCodModel(scene: Scene): CodModel {
       let targetX: number
       let targetY: number
       if (gazeTarget) {
-        // 把「眼睛→注視點」的世界方向轉進眼睛局部空間，取水平與垂直分量轉成瞳孔偏移
+        // 強制重算世界矩陣，確保納入本幀魚的位置、朝向與側躺旋轉。
+        // 世界矩陣預設延遲到 render 階段才更新，這裡在動畫階段就要用，
+        // 不強制重算會拿到上一幀的姿態，導致 gaze 方向沒跟上魚的轉向
+        const eyeWorldMatrix = eye.parts.pivot.computeWorldMatrix(true)
         gazeTarget.subtractToRef(eye.parts.pivot.getAbsolutePosition(), gazeDirection)
-        eye.parts.pivot.getWorldMatrix().invertToRef(inverseEyeMatrix)
+        eyeWorldMatrix.invertToRef(inverseEyeMatrix)
         const localDirection = Vector3.TransformNormal(gazeDirection, inverseEyeMatrix)
         const length = localDirection.length()
         if (length > 1e-4) {
           localDirection.scaleInPlace(1 / length)
         }
-        targetX = clamp(localDirection.x * GAZE_GAIN, -1, 1) * PUPIL_SHIFT_RANGE
+        // 魚側躺，眼睛朝魚頭前方；游標的水平方向落在魚自身的 y(左右) 與 z(前後) 兩軸，
+        // 對應瞳孔的左右與上下。魚自身 x 軸對應世界垂直，游標在沙地上幾乎不變，故不採用
+        targetX = clamp(localDirection.z * GAZE_GAIN, -1, 1) * PUPIL_SHIFT_RANGE
         targetY = clamp(localDirection.y * GAZE_GAIN, -1, 1) * PUPIL_SHIFT_RANGE
       }
       else if (isMoving) {
@@ -505,9 +527,13 @@ export function createCodModel(scene: Scene): CodModel {
 
       eye.shiftX += (targetX - eye.shiftX) * pupilLerp
       eye.shiftY += (targetY - eye.shiftY) * pupilLerp
-      eye.parts.pupil.position.x = 0.07 * eye.sign + eye.shiftX
-      eye.parts.pupil.position.y = -0.01 + eye.shiftY
-      eye.parts.pupil.position.z = 0.12
+      // 讓瞳孔沿眼白球面滑動（而非固定 z 平面），偏移大時才不會陷進眼白裡看不到
+      const pupilX = PUPIL_BASE_X * eye.sign + eye.shiftX
+      const pupilY = -0.01 + eye.shiftY
+      const normalizedX = pupilX / EYE_WHITE_RADIUS_H
+      const normalizedY = pupilY / EYE_WHITE_RADIUS_V
+      const surface = Math.sqrt(Math.max(0, 1 - normalizedX * normalizedX - normalizedY * normalizedY))
+      eye.parts.pupil.position.set(pupilX, pupilY, EYE_WHITE_RADIUS_H * surface - 0.02)
     }
   }
 

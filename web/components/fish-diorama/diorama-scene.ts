@@ -9,6 +9,8 @@ import { HemisphericLight } from '@babylonjs/core/Lights/hemisphericLight'
 import { ShadowGenerator } from '@babylonjs/core/Lights/Shadows/shadowGenerator'
 import { Color3, Color4 } from '@babylonjs/core/Maths/math.color'
 import { Vector3 } from '@babylonjs/core/Maths/math.vector'
+import { DepthOfFieldEffectBlurLevel } from '@babylonjs/core/PostProcesses/depthOfFieldEffect'
+import { DefaultRenderingPipeline } from '@babylonjs/core/PostProcesses/RenderPipeline/Pipelines/defaultRenderingPipeline'
 import { Scene } from '@babylonjs/core/scene'
 import { COD_LYING_LIFT, createCodModel } from './cod-model'
 import { FlopController } from './flop-controller'
@@ -22,6 +24,7 @@ import {
 } from './tank-environment'
 import '@babylonjs/core/Culling/ray'
 import '@babylonjs/core/Lights/Shadows/shadowGeneratorSceneComponent'
+import '@babylonjs/core/Rendering/depthRendererSceneComponent'
 
 export interface DioramaSceneOptions {
   isDark: boolean;
@@ -74,6 +77,18 @@ export function createDioramaScene(
   )
   camera.fov = 0.7
 
+  // 景深 + 影像處理：淺景深讓前後景模糊、暗角與對比拉高，營造微縮模型（tilt-shift）的感覺
+  const pipeline = new DefaultRenderingPipeline('dioramaPipeline', true, scene, [camera])
+  pipeline.depthOfFieldEnabled = true
+  pipeline.depthOfFieldBlurLevel = DepthOfFieldEffectBlurLevel.Low
+  pipeline.depthOfField.fStop = 2.6
+  pipeline.depthOfField.focalLength = 75
+  pipeline.imageProcessingEnabled = true
+  pipeline.imageProcessing.contrast = 1.12
+  pipeline.imageProcessing.exposure = 1
+  // 後處理管線會繞過 canvas 原生 MSAA，用 FXAA 抗鋸齒
+  pipeline.fxaaEnabled = true
+
   const hemisphericLight = new HemisphericLight(
     'dioramaHemisphericLight',
     new Vector3(0.2, 1, 0.1),
@@ -123,6 +138,7 @@ export function createDioramaScene(
     const isPortrait = aspect < 0.9
 
     camera.alpha = isPortrait ? Math.PI : -Math.PI / 2
+    environment.setPortrait(isPortrait)
 
     const horizontalHalf = (isPortrait ? TANK_DEPTH : TANK_WIDTH) / 2
     const verticalHalf = (isPortrait ? TANK_WIDTH : TANK_DEPTH) / 2
@@ -147,6 +163,9 @@ export function createDioramaScene(
     camera.radius = distanceForFullWidth <= baseRadius * 1.4
       ? Math.max(baseRadius, distanceForFullWidth)
       : baseRadius
+
+    // 對焦在場景中心（相機到 target 的距離，單位 mm），前後景自然模糊成微縮感
+    pipeline.depthOfField.focusDistance = camera.radius * 1000
   }
 
   applyCameraFraming()
@@ -267,7 +286,7 @@ export function createDioramaScene(
     timeSeconds += deltaSeconds
 
     updateFish(deltaSeconds)
-    environment.update(timeSeconds, deltaSeconds)
+    environment.update(timeSeconds, deltaSeconds, codModel.rootNode.position.x, codModel.rootNode.position.z)
     scene.render()
   }
 

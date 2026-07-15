@@ -1,25 +1,24 @@
-/** 乾涸魚缸箱庭場景：沙地、玻璃缸壁、石頭、水草、小城堡與點擊標記。
+/** 乾涸魚缸箱庭場景：沙地、玻璃缸壁、石頭、水草、遊戲手把、相機與點擊標記。
  *
  * 座標中心在缸底中央，x 為長邊、z 為短邊。
  */
+import type { Mesh } from '@babylonjs/core/Meshes/mesh'
 import type { Scene } from '@babylonjs/core/scene'
 import { VertexBuffer } from '@babylonjs/core/Buffers/buffer'
 import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial'
 import { Color3 } from '@babylonjs/core/Maths/math.color'
-import { CreateBox } from '@babylonjs/core/Meshes/Builders/boxBuilder'
 import { CreateCylinder } from '@babylonjs/core/Meshes/Builders/cylinderBuilder'
 import { CreateGround } from '@babylonjs/core/Meshes/Builders/groundBuilder'
 import { CreatePolyhedron } from '@babylonjs/core/Meshes/Builders/polyhedronBuilder'
 import { CreateSphere } from '@babylonjs/core/Meshes/Builders/sphereBuilder'
 import { CreateTorus } from '@babylonjs/core/Meshes/Builders/torusBuilder'
-import { Mesh } from '@babylonjs/core/Meshes/mesh'
-import { VertexData } from '@babylonjs/core/Meshes/mesh.vertexData'
 import { TransformNode } from '@babylonjs/core/Meshes/transformNode'
 import { createBeveledBox } from './geometry-utils'
 
 export const TANK_WIDTH = 11
 export const TANK_DEPTH = 7
-export const WALL_HEIGHT = 1.9
+/** 場景垂直參考高度（已無玻璃缸壁，僅供相機取景估算裝飾與跳躍所佔的高度） */
+export const WALL_HEIGHT = 0.9
 
 /** 魚可移動的沙地範圍（內縮避免貼牆） */
 export const MOVE_BOUNDS_RECT = {
@@ -35,10 +34,12 @@ export interface TankEnvironment {
   /** 需要投影的網格 */
   shadowCasterMeshList: Mesh[];
   /** 每幀更新水草搖擺與點擊標記 */
-  update: (timeSeconds: number, deltaSeconds: number) => void;
+  update: (timeSeconds: number, deltaSeconds: number, fishX: number, fishZ: number) => void;
   /** 在指定位置播放 RPG 目的地漣漪標記 */
   showClickMarker: (x: number, z: number) => void;
   setDarkMode: (value: boolean) => void;
+  /** 直式時把有正面的裝飾轉向觀眾，補償相機環繞角度 */
+  setPortrait: (isPortrait: boolean) => void;
 }
 
 /** 沙地起伏高度，魚與標記貼地時共用同一公式 */
@@ -78,6 +79,16 @@ interface SwayItem {
   baseLean: number;
 }
 
+interface PushItem {
+  node: TransformNode;
+  rootX: number;
+  rootZ: number;
+}
+
+/** 魚推開水草的影響半徑與最大傾倒角 */
+const SEAWEED_PUSH_RADIUS = 1.2
+const SEAWEED_PUSH_ANGLE = 0.9
+
 const MARKER_DURATION_SECONDS = 0.6
 
 function buildSandMesh(scene: Scene, material: StandardMaterial): Mesh {
@@ -116,60 +127,19 @@ function buildSandMesh(scene: Scene, material: StandardMaterial): Mesh {
   sand.material = material
   sand.receiveShadows = true
   sand.isPickable = true
+
+  // 沙層厚度：底座用同一沙色材質（高度漸層讓沙層往下漸深），頂面與沙地重疊貼合，
+  // 讓沙地像實體沙盤而非漂浮的薄平面
+  const baseThickness = 0.4
+  const base = createBeveledBox(
+    'tankSandBase',
+    scene,
+    { width: TANK_WIDTH, height: baseThickness, depth: TANK_DEPTH, bevel: 0.05 },
+    material,
+  )
+  base.position.y = -0.09 - baseThickness / 2
+
   return sand
-}
-
-function buildGlassWallList(
-  scene: Scene,
-  glassMaterial: StandardMaterial,
-  rimMaterial: StandardMaterial,
-): Mesh[] {
-  const wallThickness = 0.12
-  const wallY = WALL_HEIGHT / 2 - 0.12
-  const meshList: Mesh[] = []
-
-  const wallConfigList = [
-    { name: 'front', width: TANK_WIDTH + wallThickness * 2, depth: wallThickness, x: 0, z: -TANK_DEPTH / 2 - wallThickness / 2 },
-    { name: 'back', width: TANK_WIDTH + wallThickness * 2, depth: wallThickness, x: 0, z: TANK_DEPTH / 2 + wallThickness / 2 },
-    { name: 'left', width: wallThickness, depth: TANK_DEPTH, x: -TANK_WIDTH / 2 - wallThickness / 2, z: 0 },
-    { name: 'right', width: wallThickness, depth: TANK_DEPTH, x: TANK_WIDTH / 2 + wallThickness / 2, z: 0 },
-  ]
-
-  for (const config of wallConfigList) {
-    const wall = CreateBox(
-      `tankGlassWall-${config.name}`,
-      { width: config.width, height: WALL_HEIGHT, depth: config.depth },
-      scene,
-    )
-    wall.position.set(config.x, wallY, config.z)
-    wall.material = glassMaterial
-    wall.isPickable = false
-    meshList.push(wall)
-  }
-
-  // 上下缸框：頂部提高辨識度、底部收邊
-  const rimSize = 0.18
-  for (const levelY of [WALL_HEIGHT - 0.12 + rimSize / 2, -0.1]) {
-    const horizontalRimConfigList = [
-      { width: TANK_WIDTH + rimSize * 2, depth: rimSize, x: 0, z: -TANK_DEPTH / 2 - rimSize / 2 },
-      { width: TANK_WIDTH + rimSize * 2, depth: rimSize, x: 0, z: TANK_DEPTH / 2 + rimSize / 2 },
-      { width: rimSize, depth: TANK_DEPTH, x: -TANK_WIDTH / 2 - rimSize / 2, z: 0 },
-      { width: rimSize, depth: TANK_DEPTH, x: TANK_WIDTH / 2 + rimSize / 2, z: 0 },
-    ]
-    for (const [index, config] of horizontalRimConfigList.entries()) {
-      const rim = CreateBox(
-        `tankRim-${levelY.toFixed(1)}-${index}`,
-        { width: config.width, height: rimSize, depth: config.depth },
-        scene,
-      )
-      rim.position.set(config.x, levelY, config.z)
-      rim.material = rimMaterial
-      rim.isPickable = false
-      meshList.push(rim)
-    }
-  }
-
-  return meshList
 }
 
 function buildRockList(
@@ -229,6 +199,7 @@ function buildSeaweed(
   scene: Scene,
   random: () => number,
   swayItemList: SwayItem[],
+  pushItemList: PushItem[],
 ): Mesh[] {
   const colorList = ['#3f8560', '#4f9f6f', '#357a5e']
   const materialList = colorList.map((color, index) => {
@@ -256,13 +227,21 @@ function buildSeaweed(
       const upperHeight = lowerHeight * (0.7 + random() * 0.2)
       const material = materialList[bladeIndex % materialList.length]!
 
+      // 錨點：世界對齊，位於水草根部
+      const anchorNode = new TransformNode(`tankSeaweedAnchor-${x.toFixed(2)}-${z.toFixed(2)}`, scene)
+      anchorNode.position.set(x, getSandHeight(x, z), z)
+
+      // 被魚推開的節點：魚靠近時繞水平軸往遠離魚方向傾倒
+      const pushNode = new TransformNode(`${anchorNode.name}-push`, scene)
+      pushNode.parent = anchorNode
+
       // 乾涸魚缸沒水浮力，水草倒伏在沙上：baseNode 決定倒向與傾倒角（固定，不受搖擺覆蓋）
-      const baseNode = new TransformNode(`tankSeaweedBase-${x.toFixed(2)}-${z.toFixed(2)}`, scene)
-      baseNode.position.set(x, getSandHeight(x, z), z)
+      const baseNode = new TransformNode(`${anchorNode.name}-base`, scene)
       baseNode.rotation.set(1.05 + random() * 0.3, random() * Math.PI * 2, 0)
+      baseNode.parent = pushNode
 
       // 子節點只做微弱擺動（乾草被氣流輕拂），不影響倒伏姿態
-      const swayNode = new TransformNode(`${baseNode.name}-sway`, scene)
+      const swayNode = new TransformNode(`${anchorNode.name}-sway`, scene)
       swayNode.parent = baseNode
 
       const lowerBlade = createBeveledBox(
@@ -296,6 +275,7 @@ function buildSeaweed(
         amplitude: 0.03,
         baseLean: 0,
       })
+      pushItemList.push({ node: pushNode, rootX: x, rootZ: z })
 
       meshList.push(lowerBlade, upperBlade)
     }
@@ -305,117 +285,112 @@ function buildSeaweed(
 }
 
 /** 立在沙地的相框，裡頭是一張拍到小魚的照片，呼應「魚缸相簿」 */
-function buildPhotoFrame(scene: Scene): Mesh[] {
-  const frameX = 3.7
-  const frameZ = 2.3
-  const groundY = getSandHeight(frameX, frameZ)
+/** 平放沙地的遊戲手把，呼應鱈魚的網頁遊戲機作品 */
+function buildGamepad(scene: Scene): { meshList: Mesh[]; root: TransformNode } {
+  const gamepadX = 3.7
+  const gamepadZ = 2.3
+  const groundY = getSandHeight(gamepadX, gamepadZ)
 
-  const woodMaterial = new StandardMaterial('tankFrameWoodMaterial', scene)
-  woodMaterial.diffuseColor = Color3.FromHexString('#a06a3a')
-  woodMaterial.specularColor = Color3.FromHexString('#2a1c10')
+  const baseMaterial = new StandardMaterial('tankGamepadBaseMaterial', scene)
+  baseMaterial.diffuseColor = Color3.FromHexString('#cc4436')
+  baseMaterial.specularColor = Color3.FromHexString('#3a1712')
+  baseMaterial.specularPower = 32
 
-  // 照片帶點自發光，像有打光的相片
-  const photoMaterial = new StandardMaterial('tankFramePhotoMaterial', scene)
-  photoMaterial.diffuseColor = Color3.FromHexString('#f3ece0')
-  photoMaterial.emissiveColor = Color3.FromHexString('#f3ece0').scale(0.25)
-  photoMaterial.specularColor = Color3.Black()
+  const panelMaterial = new StandardMaterial('tankGamepadPanelMaterial', scene)
+  panelMaterial.diffuseColor = Color3.FromHexString('#ece7dc')
+  panelMaterial.specularColor = Color3.Black()
 
-  const fishMaterial = new StandardMaterial('tankFrameFishMaterial', scene)
-  fishMaterial.diffuseColor = Color3.FromHexString('#5aa0c8')
-  fishMaterial.specularColor = Color3.Black()
-  fishMaterial.backFaceCulling = false
+  const shaftMaterial = new StandardMaterial('tankGamepadShaftMaterial', scene)
+  shaftMaterial.diffuseColor = Color3.FromHexString('#222228')
+  shaftMaterial.specularColor = Color3.FromHexString('#44444e')
 
-  // root 定位與轉向，tilt 讓相框略後仰站著
-  const root = new TransformNode('tankFrameRoot', scene)
-  root.position.set(frameX, groundY, frameZ)
-  root.rotation.y = -0.4
-  const tilt = new TransformNode('tankFrameTilt', scene)
-  tilt.parent = root
-  tilt.rotation.x = 0.12
+  const ballMaterial = new StandardMaterial('tankGamepadBallMaterial', scene)
+  ballMaterial.diffuseColor = Color3.FromHexString('#d0553f')
+  ballMaterial.emissiveColor = Color3.FromHexString('#d0553f').scale(0.18)
+  ballMaterial.specularColor = Color3.FromHexString('#7a3226')
+
+  // 兩顆按鈕不同色
+  const buttonColorList = ['#d0553f', '#e0b53f']
+  const buttonMaterialList = buttonColorList.map((color, index) => {
+    const material = new StandardMaterial(`tankGamepadButtonMaterial${index}`, scene)
+    material.diffuseColor = Color3.FromHexString(color)
+    material.emissiveColor = Color3.FromHexString(color).scale(0.18)
+    material.specularColor = Color3.Black()
+    return material
+  })
+
+  const root = new TransformNode('tankGamepadRoot', scene)
+  root.position.set(gamepadX, groundY, gamepadZ)
+  root.rotation.y = -0.35
 
   const meshList: Mesh[] = []
-  const centerY = 0.74
-  const innerWidth = 0.8
-  const innerHeight = 1
-  const borderThickness = 0.2
-  const frameDepth = 0.16
 
-  // 照片面
-  const photo = createBeveledBox(
-    'tankFramePhoto',
-    scene,
-    { width: innerWidth, height: innerHeight, depth: 0.05, bevel: 0.015 },
-    photoMaterial,
-  )
-  photo.position.set(0, centerY, -0.02)
-  photo.parent = tilt
-  meshList.push(photo)
+  // 矩形底座
+  const baseHeight = 0.22
+  const baseCenterY = baseHeight / 2 + 0.02
+  const baseTopY = baseCenterY + baseHeight / 2
+  const base = createBeveledBox('tankGamepadBase', scene, { width: 0.92, height: baseHeight, depth: 0.6, bevel: 0.05 }, baseMaterial)
+  base.position.set(0, baseCenterY, 0)
+  base.parent = root
+  meshList.push(base)
 
-  // 照片裡的小魚剪影（身 + 尾）
-  const fishBody = CreateSphere('tankFrameFishBody', { diameter: 0.34, segments: 6 }, scene)
-  fishBody.scaling.set(1, 0.62, 0.35)
-  fishBody.position.set(-0.04, centerY, -0.06)
-  fishBody.material = fishMaterial
-  fishBody.isPickable = false
-  fishBody.parent = tilt
-  meshList.push(fishBody)
+  // 白色面板（與紅底座構成紅白配色），搖桿與按鈕都裝在面板上
+  const panelHeight = 0.06
+  const panelTopY = baseTopY + panelHeight
+  const panel = createBeveledBox('tankGamepadPanel', scene, { width: 0.84, height: panelHeight, depth: 0.52, bevel: 0.03 }, panelMaterial)
+  panel.position.set(0, baseTopY + panelHeight / 2, 0)
+  panel.parent = root
+  meshList.push(panel)
 
-  const fishTail = createFlatTriangle(
-    'tankFrameFishTail',
-    scene,
-    [0.1, 0.12, 0, 0.28, 0.2, 0, 0.28, -0.12, 0],
-    fishMaterial,
-  )
-  fishTail.position.set(0, centerY, -0.06)
-  fishTail.parent = tilt
-  meshList.push(fishTail)
+  // 搖桿：左側立起一根桿 + 頂部紅球
+  const stickX = -0.24
+  const shaftHeight = 0.42
+  const shaft = CreateCylinder('tankGamepadShaft', { diameter: 0.075, height: shaftHeight, tessellation: 10 }, scene)
+  shaft.position.set(stickX, panelTopY + shaftHeight / 2, 0)
+  shaft.material = shaftMaterial
+  shaft.isPickable = false
+  shaft.parent = root
+  meshList.push(shaft)
 
-  // 四邊木框
-  const halfWidth = innerWidth / 2 + borderThickness / 2
-  const halfHeight = innerHeight / 2 + borderThickness / 2
-  const borderConfigList = [
-    { name: 'top', width: innerWidth + borderThickness * 2, height: borderThickness, x: 0, y: centerY + halfHeight },
-    { name: 'bottom', width: innerWidth + borderThickness * 2, height: borderThickness, x: 0, y: centerY - halfHeight },
-    { name: 'left', width: borderThickness, height: innerHeight, x: -halfWidth, y: centerY },
-    { name: 'right', width: borderThickness, height: innerHeight, x: halfWidth, y: centerY },
+  const ball = CreateSphere('tankGamepadBall', { diameter: 0.17, segments: 8 }, scene)
+  ball.position.set(stickX, panelTopY + shaftHeight + 0.05, 0)
+  ball.material = ballMaterial
+  ball.isPickable = false
+  ball.parent = root
+  meshList.push(ball)
+
+  // 右側兩顆按鈕
+  const buttonOffsetList = [
+    { x: 0.14, z: -0.1 },
+    { x: 0.32, z: 0.06 },
   ]
-  for (const config of borderConfigList) {
-    const border = createBeveledBox(
-      `tankFrameBorder-${config.name}`,
-      scene,
-      { width: config.width, height: config.height, depth: frameDepth, bevel: 0.022 },
-      woodMaterial,
-    )
-    border.position.set(config.x, config.y, 0)
-    border.parent = tilt
-    meshList.push(border)
-  }
+  buttonOffsetList.forEach((offset, index) => {
+    const button = CreateCylinder(`tankGamepadButton${index}`, { diameter: 0.16, height: 0.07, tessellation: 14 }, scene)
+    button.position.set(offset.x, panelTopY + 0.02, offset.z)
+    button.material = buttonMaterialList[index]!
+    button.isPickable = false
+    button.parent = root
+    meshList.push(button)
+  })
 
-  // 背後斜撐，讓相框站著
-  const stand = createBeveledBox(
-    'tankFrameStand',
-    scene,
-    { width: 0.1, height: 0.95, depth: 0.06, bevel: 0.018 },
-    woodMaterial,
-  )
-  stand.position.set(0, 0.4, 0.18)
-  stand.rotation.x = -0.55
-  stand.parent = tilt
-  meshList.push(stand)
-
-  return meshList
+  return { meshList, root }
 }
 
 /** 復古卡通相機：機身、軍艦部、凸出的鏡頭、快門鈕與觀景窗 */
-function buildCamera(scene: Scene): Mesh[] {
+function buildCamera(scene: Scene): { meshList: Mesh[]; root: TransformNode } {
   const cameraX = -3.4
   const cameraZ = 2.5
   const groundY = getSandHeight(cameraX, cameraZ)
 
   const bodyMaterial = new StandardMaterial('tankCameraBodyMaterial', scene)
-  bodyMaterial.diffuseColor = Color3.FromHexString('#34353c')
-  bodyMaterial.specularColor = Color3.FromHexString('#20202a')
+  bodyMaterial.diffuseColor = Color3.FromHexString('#26262a')
+  bodyMaterial.specularColor = Color3.FromHexString('#15151a')
   bodyMaterial.specularPower = 32
+
+  // 白色部件，與黑機身黑白交錯
+  const whiteMaterial = new StandardMaterial('tankCameraWhiteMaterial', scene)
+  whiteMaterial.diffuseColor = Color3.FromHexString('#e6e2d8')
+  whiteMaterial.specularColor = Color3.FromHexString('#40403a')
 
   const accentMaterial = new StandardMaterial('tankCameraAccentMaterial', scene)
   accentMaterial.diffuseColor = Color3.FromHexString('#25262b')
@@ -455,7 +430,7 @@ function buildCamera(scene: Scene): Mesh[] {
   meshList.push(body)
 
   // 軍艦部（頂部平台，橫跨機身）
-  const topDeck = createBeveledBox('tankCameraTopDeck', scene, { width: 0.62, height: 0.12, depth: 0.34, bevel: 0.022 }, bodyMaterial)
+  const topDeck = createBeveledBox('tankCameraTopDeck', scene, { width: 0.62, height: 0.12, depth: 0.34, bevel: 0.022 }, whiteMaterial)
   topDeck.position.set(0, bodyTopY + 0.06, 0)
   topDeck.parent = root
   meshList.push(topDeck)
@@ -468,7 +443,7 @@ function buildCamera(scene: Scene): Mesh[] {
   meshList.push(prism)
 
   // 握把（機身右側凸起）
-  const grip = createBeveledBox('tankCameraGrip', scene, { width: 0.16, height: 0.5, depth: 0.34, bevel: 0.028 }, bodyMaterial)
+  const grip = createBeveledBox('tankCameraGrip', scene, { width: 0.16, height: 0.5, depth: 0.34, bevel: 0.028 }, whiteMaterial)
   grip.position.set(0.52, bodyCenterY, -0.02)
   grip.parent = root
   meshList.push(grip)
@@ -476,7 +451,7 @@ function buildCamera(scene: Scene): Mesh[] {
   // 鏡頭：置中機身前，多層次朝 -z 凸出
   const lensPartList = [
     { key: 'Mount', diameter: 0.44, height: 0.1, z: -0.25, material: accentMaterial },
-    { key: 'Barrel', diameter: 0.4, height: 0.26, z: -0.43, material: accentMaterial },
+    { key: 'Barrel', diameter: 0.4, height: 0.26, z: -0.43, material: whiteMaterial },
     { key: 'Ring', diameter: 0.46, height: 0.06, z: -0.59, material: ringMaterial },
     { key: 'Glass', diameter: 0.32, height: 0.04, z: -0.62, material: lensMaterial },
   ]
@@ -510,28 +485,7 @@ function buildCamera(scene: Scene): Mesh[] {
   dial.parent = root
   meshList.push(dial)
 
-  return meshList
-}
-
-/** 單面平面三角（給魚剪影尾巴等用），positionList 為 3 個頂點共 9 個座標 */
-function createFlatTriangle(
-  name: string,
-  scene: Scene,
-  positionList: number[],
-  material: StandardMaterial,
-): Mesh {
-  const mesh = new Mesh(name, scene)
-  const vertexData = new VertexData()
-  const indexList = [0, 1, 2]
-  const normalList: number[] = []
-  VertexData.ComputeNormals(positionList, indexList, normalList)
-  vertexData.positions = positionList
-  vertexData.indices = indexList
-  vertexData.normals = normalList
-  vertexData.applyToMesh(mesh)
-  mesh.material = material
-  mesh.isPickable = false
-  return mesh
+  return { meshList, root }
 }
 
 export function createTankEnvironment(scene: Scene): TankEnvironment {
@@ -540,22 +494,25 @@ export function createTankEnvironment(scene: Scene): TankEnvironment {
   const sandMaterial = new StandardMaterial('tankSandMaterial', scene)
   sandMaterial.specularColor = Color3.Black()
 
-  const glassMaterial = new StandardMaterial('tankGlassMaterial', scene)
-  glassMaterial.alpha = 0.1
-  glassMaterial.specularPower = 64
-  glassMaterial.backFaceCulling = false
-
-  const rimMaterial = new StandardMaterial('tankRimMaterial', scene)
-  rimMaterial.specularColor = Color3.Black()
-
   const sandMesh = buildSandMesh(scene, sandMaterial)
-  buildGlassWallList(scene, glassMaterial, rimMaterial)
 
   const swayItemList: SwayItem[] = []
+  const pushItemList: PushItem[] = []
   const rockMeshList = buildRockList(scene, random)
-  const seaweedMeshList = buildSeaweed(scene, random, swayItemList)
-  const frameMeshList = buildPhotoFrame(scene)
-  const cameraMeshList = buildCamera(scene)
+  const seaweedMeshList = buildSeaweed(scene, random, swayItemList, pushItemList)
+  const gamepad = buildGamepad(scene)
+  const camera = buildCamera(scene)
+
+  // 直式（手機）時相機環繞轉 90°，讓有正面的裝飾（相機、搖桿）跟著轉向觀眾
+  const orientationList = [
+    { node: camera.root, baseRotationY: camera.root.rotation.y },
+    { node: gamepad.root, baseRotationY: gamepad.root.rotation.y },
+  ]
+  function setPortrait(isPortrait: boolean) {
+    for (const item of orientationList) {
+      item.node.rotation.y = item.baseRotationY + (isPortrait ? Math.PI / 2 : 0)
+    }
+  }
 
   // 點擊目的地漣漪標記
   const markerMaterial = new StandardMaterial('tankMarkerMaterial', scene)
@@ -578,22 +535,33 @@ export function createTankEnvironment(scene: Scene): TankEnvironment {
     sandMaterial.diffuseColor = value
       ? Color3.FromHexString('#635b42')
       : Color3.FromHexString('#d0bb87')
-    glassMaterial.diffuseColor = value
-      ? Color3.FromHexString('#274743')
-      : Color3.FromHexString('#cfeeea')
-    glassMaterial.alpha = value ? 0.16 : 0.1
-    rimMaterial.diffuseColor = value
-      ? Color3.FromHexString('#33413f')
-      : Color3.FromHexString('#5b7672')
   }
 
   setDarkMode(false)
 
-  function update(timeSeconds: number, deltaSeconds: number) {
+  function update(timeSeconds: number, deltaSeconds: number, fishX: number, fishZ: number) {
     for (const swayItem of swayItemList) {
       swayItem.node.rotation.z = swayItem.baseLean
         + Math.sin(timeSeconds * swayItem.speed + swayItem.phase) * swayItem.amplitude
       swayItem.node.rotation.x = Math.cos(timeSeconds * swayItem.speed * 0.8 + swayItem.phase) * swayItem.amplitude * 0.6
+    }
+
+    // 魚靠近時把水草往遠離魚的方向推倒，離開後平滑回彈
+    for (const pushItem of pushItemList) {
+      const dx = pushItem.rootX - fishX
+      const dz = pushItem.rootZ - fishZ
+      const distance = Math.hypot(dx, dz)
+      let targetRotationX = 0
+      let targetRotationZ = 0
+      if (distance < SEAWEED_PUSH_RADIUS) {
+        const strength = (1 - distance / SEAWEED_PUSH_RADIUS) * SEAWEED_PUSH_ANGLE
+        const inverse = 1 / (distance || 1)
+        targetRotationX = dz * inverse * strength
+        targetRotationZ = -dx * inverse * strength
+      }
+      const lerp = Math.min(1, deltaSeconds * 6)
+      pushItem.node.rotation.x += (targetRotationX - pushItem.node.rotation.x) * lerp
+      pushItem.node.rotation.z += (targetRotationZ - pushItem.node.rotation.z) * lerp
     }
 
     if (markerElapsed < MARKER_DURATION_SECONDS) {
@@ -618,9 +586,10 @@ export function createTankEnvironment(scene: Scene): TankEnvironment {
 
   return {
     sandMesh,
-    shadowCasterMeshList: [...rockMeshList, ...seaweedMeshList, ...frameMeshList, ...cameraMeshList],
+    shadowCasterMeshList: [...rockMeshList, ...seaweedMeshList, ...gamepad.meshList, ...camera.meshList],
     update,
     showClickMarker,
     setDarkMode,
+    setPortrait,
   }
 }
