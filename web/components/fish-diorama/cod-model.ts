@@ -62,7 +62,7 @@ const BODY_WHIP_LAG = 1.1
 const WAVE_HEAD_Z = 1
 const WAVE_TAIL_Z = -1.5
 /** 尾端最大擺角（rad）。擺動的誇張程度調這裡 */
-const WAVE_AMPLITUDE_MOVING = 0.6
+const WAVE_AMPLITUDE_MOVING = 0.4
 const WAVE_AMPLITUDE_IDLE = 0
 /** 大開大合的掃動，速度放慢才讀得出來 */
 const WAVE_SPEED_MOVING = 15
@@ -85,7 +85,9 @@ const TAIL_SWING_IDLE = 0.14
 
 // --- 眼睛動畫參數 ---
 const BLINK_DURATION = 0.16
-const PUPIL_SHIFT_RANGE = 0.085
+/** 瞳孔偏移範圍：垂直比水平大（眼白是直立橢球，上下空間較多），上下看更有戲 */
+const PUPIL_SHIFT_RANGE_HORIZONTAL = 0.1
+const PUPIL_SHIFT_RANGE_VERTICAL = 0.175
 /** 瞳孔中性位置的外偏量（較小 → 左右轉動更對稱、範圍更大） */
 const PUPIL_BASE_X = 0.03
 /** 眼白橢球半徑（diameter 0.44 × scaling 0.8/1），瞳孔沿此球面滑動，避免偏移大時陷入眼白 */
@@ -537,8 +539,8 @@ export function createCodModel(scene: Scene): CodModel {
     if (!gazeTarget && !isMoving) {
       pupilTimer -= deltaSeconds
       if (pupilTimer <= 0) {
-        autoTargetX = (Math.random() - 0.5) * 2 * PUPIL_SHIFT_RANGE
-        autoTargetY = (Math.random() - 0.5) * 2 * PUPIL_SHIFT_RANGE
+        autoTargetX = (Math.random() - 0.5) * 2 * PUPIL_SHIFT_RANGE_HORIZONTAL
+        autoTargetY = (Math.random() - 0.5) * 2 * PUPIL_SHIFT_RANGE_VERTICAL
         pupilTimer = 1.2 + Math.random() * 2.5
       }
     }
@@ -563,8 +565,8 @@ export function createCodModel(scene: Scene): CodModel {
         }
         // 魚側躺，眼睛朝魚頭前方；游標的水平方向落在魚自身的 y(左右) 與 z(前後) 兩軸，
         // 對應瞳孔的左右與上下。魚自身 x 軸對應世界垂直，游標在沙地上幾乎不變，故不採用
-        targetX = clamp(localDirection.z * GAZE_GAIN, -1, 1) * PUPIL_SHIFT_RANGE
-        targetY = clamp(localDirection.y * GAZE_GAIN, -1, 1) * PUPIL_SHIFT_RANGE
+        targetX = clamp(localDirection.z * GAZE_GAIN, -1, 1) * PUPIL_SHIFT_RANGE_HORIZONTAL
+        targetY = clamp(localDirection.y * GAZE_GAIN, -1, 1) * PUPIL_SHIFT_RANGE_VERTICAL
       }
       else if (isMoving) {
         // 移動時盯著前方

@@ -85,7 +85,7 @@ export interface FlopControllerOptions {
 
 const defaultOptions: FlopControllerOptions = {
   hopDistance: 0.9,
-  hopHeight: 0.5,
+  hopHeight: 1,
   hopDuration: 0.34,
   restDuration: 0.16,
   maxTurnPerHop: Math.PI / 2,

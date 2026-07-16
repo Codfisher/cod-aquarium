@@ -259,97 +259,106 @@ function buildSeaweed(
   return { meshList, plantList }
 }
 
-/** 立在沙地的相框，裡頭是一張拍到小魚的照片，呼應「魚缸相簿」 */
-/** 平放沙地的遊戲手把，呼應鱈魚的網頁遊戲機作品 */
-function buildGamepad(scene: Scene): { meshList: Mesh[]; root: TransformNode; obstacle: ObstacleCircle } {
-  const gamepadX = 3.7
-  const gamepadZ = 2.3
-  const groundY = GROUND_Y
+/** 幾支胖蠟筆（三立一躺），代表繪畫創作。
+ * 粗短圓柱貼地穩固，色彩鮮明、遠看即辨。
+ */
+function buildCrayonSet(scene: Scene): { meshList: Mesh[]; root: TransformNode; obstacle: ObstacleCircle } {
+  const crayonSetX = 3.7
+  const crayonSetZ = 2.3
 
-  const baseMaterial = new StandardMaterial('tankGamepadBaseMaterial', scene)
-  baseMaterial.diffuseColor = Color3.FromHexString('#cc4436')
-  baseMaterial.specularColor = Color3.FromHexString('#3a1712')
-  baseMaterial.specularPower = 32
+  const bandMaterial = new StandardMaterial('tankCrayonBandMaterial', scene)
+  bandMaterial.diffuseColor = Color3.FromHexString('#f0ead8')
+  bandMaterial.specularColor = Color3.Black()
 
-  const panelMaterial = new StandardMaterial('tankGamepadPanelMaterial', scene)
-  panelMaterial.diffuseColor = Color3.FromHexString('#ece7dc')
-  panelMaterial.specularColor = Color3.Black()
-
-  const shaftMaterial = new StandardMaterial('tankGamepadShaftMaterial', scene)
-  shaftMaterial.diffuseColor = Color3.FromHexString('#222228')
-  shaftMaterial.specularColor = Color3.FromHexString('#44444e')
-
-  const ballMaterial = new StandardMaterial('tankGamepadBallMaterial', scene)
-  ballMaterial.diffuseColor = Color3.FromHexString('#d0553f')
-  ballMaterial.emissiveColor = Color3.FromHexString('#d0553f').scale(0.18)
-  ballMaterial.specularColor = Color3.FromHexString('#7a3226')
-
-  // 兩顆按鈕不同色
-  const buttonColorList = ['#d0553f', '#e0b53f']
-  const buttonMaterialList = buttonColorList.map((color, index) => {
-    const material = new StandardMaterial(`tankGamepadButtonMaterial${index}`, scene)
-    material.diffuseColor = Color3.FromHexString(color)
-    material.emissiveColor = Color3.FromHexString(color).scale(0.18)
-    material.specularColor = Color3.Black()
-    return material
-  })
-
-  const root = new TransformNode('tankGamepadRoot', scene)
-  root.position.set(gamepadX, groundY, gamepadZ)
+  const root = new TransformNode('tankCrayonSetRoot', scene)
+  root.position.set(crayonSetX, GROUND_Y, crayonSetZ)
   root.rotation.y = -0.35
 
   const meshList: Mesh[] = []
 
-  // 矩形底座
-  const baseHeight = 0.22
-  const baseCenterY = baseHeight / 2 + 0.02
-  const baseTopY = baseCenterY + baseHeight / 2
-  const base = createBeveledBox('tankGamepadBase', scene, { width: 0.92, height: baseHeight, depth: 0.6, bevel: 0.05 }, baseMaterial)
-  base.position.set(0, baseCenterY, 0)
-  base.parent = root
-  meshList.push(base)
+  const bodyDiameter = 0.17
+  const bodyHeight = 0.62
+  const tipHeight = 0.17
 
-  // 白色面板（與紅底座構成紅白配色），搖桿與按鈕都裝在面板上
-  const panelHeight = 0.06
-  const panelTopY = baseTopY + panelHeight
-  const panel = createBeveledBox('tankGamepadPanel', scene, { width: 0.84, height: panelHeight, depth: 0.52, bevel: 0.03 }, panelMaterial)
-  panel.position.set(0, baseTopY + panelHeight / 2, 0)
-  panel.parent = root
-  meshList.push(panel)
+  /** 組一支蠟筆（筆身＋筆尖＋紙環），回傳可擺位的節點 */
+  function buildCrayon(index: number, color: string): TransformNode {
+    const crayonMaterial = new StandardMaterial(`tankCrayonMaterial${index}`, scene)
+    crayonMaterial.diffuseColor = Color3.FromHexString(color)
+    crayonMaterial.emissiveColor = Color3.FromHexString(color).scale(0.12)
+    crayonMaterial.specularColor = Color3.Black()
 
-  // 搖桿：左側立起一根桿 + 頂部紅球
-  const stickX = -0.24
-  const shaftHeight = 0.42
-  const shaft = CreateCylinder('tankGamepadShaft', { diameter: 0.075, height: shaftHeight, tessellation: 10 }, scene)
-  shaft.position.set(stickX, panelTopY + shaftHeight / 2, 0)
-  shaft.material = shaftMaterial
-  shaft.isPickable = false
-  shaft.parent = root
-  meshList.push(shaft)
+    const crayonNode = new TransformNode(`tankCrayon${index}`, scene)
+    crayonNode.parent = root
 
-  const ball = CreateSphere('tankGamepadBall', { diameter: 0.17, segments: 8 }, scene)
-  ball.position.set(stickX, panelTopY + shaftHeight + 0.05, 0)
-  ball.material = ballMaterial
-  ball.isPickable = false
-  ball.parent = root
-  meshList.push(ball)
+    const body = CreateCylinder(`tankCrayonBody${index}`, { diameter: bodyDiameter, height: bodyHeight, tessellation: 10 }, scene)
+    body.position.y = bodyHeight / 2
+    body.material = crayonMaterial
+    body.isPickable = false
+    body.parent = crayonNode
+    meshList.push(body)
 
-  // 右側兩顆按鈕
-  const buttonOffsetList = [
-    { x: 0.14, z: -0.1 },
-    { x: 0.32, z: 0.06 },
+    const tip = CreateCylinder(
+      `tankCrayonTip${index}`,
+      { diameterTop: 0.03, diameterBottom: bodyDiameter, height: tipHeight, tessellation: 10 },
+      scene,
+    )
+    tip.position.y = bodyHeight + tipHeight / 2
+    tip.material = crayonMaterial
+    tip.isPickable = false
+    tip.parent = crayonNode
+    meshList.push(tip)
+
+    // 紙套：同色系深一階的包裝紙包覆大半筆身（經典蠟筆look），
+    // 筆尖端與筆尾露出蠟的本色，套緣略粗一圈做出紙的厚度
+    const wrapperMaterial = new StandardMaterial(`tankCrayonWrapperMaterial${index}`, scene)
+    wrapperMaterial.diffuseColor = Color3.FromHexString(color).scale(0.72)
+    wrapperMaterial.specularColor = Color3.Black()
+
+    const wrapper = CreateCylinder(
+      `tankCrayonWrapper${index}`,
+      { diameter: bodyDiameter + 0.024, height: 0.36, tessellation: 10 },
+      scene,
+    )
+    wrapper.position.y = bodyHeight * 0.44
+    wrapper.material = wrapperMaterial
+    wrapper.isPickable = false
+    wrapper.parent = crayonNode
+    meshList.push(wrapper)
+
+    // 紙套中段的奶油色標籤帶（再粗一圈，疊在紙套上）
+    const label = CreateCylinder(
+      `tankCrayonLabel${index}`,
+      { diameter: bodyDiameter + 0.034, height: 0.11, tessellation: 10 },
+      scene,
+    )
+    label.position.y = bodyHeight * 0.44
+    label.material = bandMaterial
+    label.isPickable = false
+    label.parent = crayonNode
+    meshList.push(label)
+
+    return crayonNode
+  }
+
+  // 三支直立微傾（底部略沉入地面），互相靠攏成一小叢
+  const standingItemList = [
+    { color: '#d0553f', x: -0.16, z: -0.05, tiltX: -0.05, tiltZ: -0.08 },
+    { color: '#4f9ac2', x: 0.05, z: 0.1, tiltX: 0.06, tiltZ: 0.05 },
+    { color: '#4f9f6f', x: 0.16, z: -0.12, tiltX: -0.04, tiltZ: 0.09 },
   ]
-  buttonOffsetList.forEach((offset, index) => {
-    const button = CreateCylinder(`tankGamepadButton${index}`, { diameter: 0.16, height: 0.07, tessellation: 14 }, scene)
-    button.position.set(offset.x, panelTopY + 0.02, offset.z)
-    button.material = buttonMaterialList[index]!
-    button.isPickable = false
-    button.parent = root
-    meshList.push(button)
+  standingItemList.forEach((item, index) => {
+    const crayonNode = buildCrayon(index, item.color)
+    crayonNode.position.set(item.x, -0.015, item.z)
+    crayonNode.rotation.set(item.tiltX, 0, item.tiltZ)
   })
 
-  // 俯視碰撞圓：涵蓋矩形底座對角
-  return { meshList, root, obstacle: { x: gamepadX, z: gamepadZ, radius: 0.58 } }
+  // 一支橫躺的黃蠟筆斜擺在立筆叢前側（-z 朝觀眾），不被擋住
+  const lyingCrayonNode = buildCrayon(3, '#e0b53f')
+  lyingCrayonNode.position.set(-0.4, bodyDiameter / 2 - 0.01, -0.3)
+  lyingCrayonNode.rotation.set(Math.PI / 2, -0.9, 0)
+
+  // 俯視碰撞圓：涵蓋立筆叢與橫躺那支
+  return { meshList, root, obstacle: { x: crayonSetX, z: crayonSetZ, radius: 0.5 } }
 }
 
 /** 復古卡通相機：機身、軍艦部、凸出的鏡頭、快門鈕與觀景窗 */
@@ -476,6 +485,112 @@ function buildCamera(scene: Scene): { meshList: Mesh[]; root: TransformNode; obs
   return { meshList, root, obstacle: { x: cameraX, z: cameraZ, radius: 0.56 } }
 }
 
+/** 復古打字機：芥末黃機身、斜置米白鍵盤、黑色滾筒與一張插著的白紙，
+ * 與相機（攝影）、搖桿（遊戲）並列，代表部落格的寫作
+ */
+function buildTypewriter(scene: Scene): { meshList: Mesh[]; root: TransformNode; obstacle: ObstacleCircle } {
+  const typewriterX = 0.3
+  const typewriterZ = 2.55
+
+  const bodyMaterial = new StandardMaterial('tankTypewriterBodyMaterial', scene)
+  bodyMaterial.diffuseColor = Color3.FromHexString('#3e5f52')
+  bodyMaterial.specularColor = Color3.FromHexString('#16241f')
+  bodyMaterial.specularPower = 32
+
+  const keyMaterial = new StandardMaterial('tankTypewriterKeyMaterial', scene)
+  keyMaterial.diffuseColor = Color3.FromHexString('#ece7dc')
+  keyMaterial.specularColor = Color3.Black()
+
+  const darkMaterial = new StandardMaterial('tankTypewriterDarkMaterial', scene)
+  darkMaterial.diffuseColor = Color3.FromHexString('#26262a')
+  darkMaterial.specularColor = Color3.FromHexString('#15151a')
+
+  const paperMaterial = new StandardMaterial('tankTypewriterPaperMaterial', scene)
+  paperMaterial.diffuseColor = Color3.FromHexString('#f5f2ea')
+  paperMaterial.specularColor = Color3.Black()
+  paperMaterial.backFaceCulling = false
+
+  // 鍵盤面向觀眾（-z），微轉一點角度展示立體
+  const root = new TransformNode('tankTypewriterRoot', scene)
+  root.position.set(typewriterX, GROUND_Y, typewriterZ)
+  root.rotation.y = 0.2
+
+  const meshList: Mesh[] = []
+
+  // 機身（後半較高的主體）
+  const body = createBeveledBox('tankTypewriterBody', scene, { width: 0.82, height: 0.26, depth: 0.5, bevel: 0.035 }, bodyMaterial)
+  body.position.set(0, 0.15, 0.08)
+  body.parent = root
+  meshList.push(body)
+
+  // 斜置鍵盤板：作為父節點，按鍵以板面座標擺放、跟著一起傾斜
+  const keyboardPlate = createBeveledBox('tankTypewriterKeyboard', scene, { width: 0.74, height: 0.07, depth: 0.36, bevel: 0.02 }, bodyMaterial)
+  keyboardPlate.position.set(0, 0.16, -0.3)
+  keyboardPlate.rotation.x = -0.38
+  keyboardPlate.parent = root
+  meshList.push(keyboardPlate)
+
+  // 三排圓鍵（5/4/5 交錯）＋空白鍵，貼在鍵盤板上
+  const keyRowList = [
+    { z: 0.1, count: 5 },
+    { z: 0.01, count: 4 },
+    { z: -0.08, count: 5 },
+  ]
+  for (const [rowIndex, row] of keyRowList.entries()) {
+    for (let keyIndex = 0; keyIndex < row.count; keyIndex++) {
+      const key = CreateCylinder(
+        `tankTypewriterKey${rowIndex}-${keyIndex}`,
+        { diameter: 0.075, height: 0.035, tessellation: 10 },
+        scene,
+      )
+      key.position.set((keyIndex - (row.count - 1) / 2) * 0.13, 0.05, row.z)
+      key.material = keyMaterial
+      key.isPickable = false
+      key.parent = keyboardPlate
+      meshList.push(key)
+    }
+  }
+  const spaceBar = createBeveledBox('tankTypewriterSpaceBar', scene, { width: 0.3, height: 0.035, depth: 0.06, bevel: 0.012 }, keyMaterial)
+  spaceBar.position.set(0, 0.05, -0.15)
+  spaceBar.parent = keyboardPlate
+  meshList.push(spaceBar)
+
+  // 字桿區（鍵盤與滾筒之間的深色凹槽）
+  const typeBarInset = createBeveledBox('tankTypewriterInset', scene, { width: 0.56, height: 0.05, depth: 0.18, bevel: 0.015 }, darkMaterial)
+  typeBarInset.position.set(0, 0.29, 0.0)
+  typeBarInset.parent = root
+  meshList.push(typeBarInset)
+
+  // 滾筒（橫置圓柱）與兩端旋鈕
+  const platen = CreateCylinder('tankTypewriterPlaten', { diameter: 0.15, height: 0.74, tessellation: 12 }, scene)
+  platen.rotation.z = Math.PI / 2
+  platen.position.set(0, 0.36, 0.16)
+  platen.material = darkMaterial
+  platen.isPickable = false
+  platen.parent = root
+  meshList.push(platen)
+
+  for (const side of [-1, 1]) {
+    const knob = CreateCylinder(`tankTypewriterKnob${side}`, { diameter: 0.08, height: 0.06, tessellation: 10 }, scene)
+    knob.rotation.z = Math.PI / 2
+    knob.position.set(side * 0.41, 0.36, 0.16)
+    knob.material = keyMaterial
+    knob.isPickable = false
+    knob.parent = root
+    meshList.push(knob)
+  }
+
+  // 插在滾筒後的白紙，微微後仰
+  const paper = createBeveledBox('tankTypewriterPaper', scene, { width: 0.46, height: 0.38, depth: 0.015, bevel: 0.005 }, paperMaterial)
+  paper.position.set(0, 0.55, 0.2)
+  paper.rotation.x = 0.14
+  paper.parent = root
+  meshList.push(paper)
+
+  // 俯視碰撞圓：涵蓋機身與前凸的鍵盤
+  return { meshList, root, obstacle: { x: typewriterX, z: typewriterZ, radius: 0.58 } }
+}
+
 /** 在兩個剛體間建立「線性鎖死＋角度彈簧回正」的 6DoF 約束，樞紐設在 pivotWorld。
  * 以子物體當前世界軸作共同參考軸，讓約束零位 = 建立當下的姿態，
  * 被撞開後彈簧會把它拉回這個原始姿態。
@@ -531,16 +646,23 @@ export function createTankEnvironment(scene: Scene): TankEnvironment {
   const pushItemList: PushItem[] = []
   const rocks = buildRockList(scene, random)
   const seaweed = buildSeaweed(scene, random, swayItemList, pushItemList)
-  const gamepad = buildGamepad(scene)
+  const crayonSet = buildCrayonSet(scene)
   const camera = buildCamera(scene)
+  const typewriter = buildTypewriter(scene)
 
-  // 石頭、搖桿、相機的俯視碰撞圓，供魚繞行
-  const obstacleList: ObstacleCircle[] = [...rocks.obstacleList, gamepad.obstacle, camera.obstacle]
+  // 石頭、蠟筆、相機、打字機的俯視碰撞圓，供魚繞行
+  const obstacleList: ObstacleCircle[] = [
+    ...rocks.obstacleList,
+    crayonSet.obstacle,
+    camera.obstacle,
+    typewriter.obstacle,
+  ]
 
-  // 直式（手機）時相機環繞轉 90°，讓有正面的裝飾（相機、搖桿）跟著轉向觀眾
+  // 直式（手機）時相機環繞轉 90°，讓有正面的裝飾（相機、蠟筆、打字機）跟著轉向觀眾
   const orientationList = [
     { node: camera.root, baseRotationY: camera.root.rotation.y },
-    { node: gamepad.root, baseRotationY: gamepad.root.rotation.y },
+    { node: crayonSet.root, baseRotationY: crayonSet.root.rotation.y },
+    { node: typewriter.root, baseRotationY: typewriter.root.rotation.y },
   ]
   function setPortrait(isPortrait: boolean) {
     for (const item of orientationList) {
@@ -580,8 +702,8 @@ export function createTankEnvironment(scene: Scene): TankEnvironment {
       rockAggregate.shape.filterCollideMask = PHYSICS_GROUP_SEAWEED
     }
 
-    // 靜態：搖桿與相機用隱形圓柱涵蓋（外形近似即可）
-    const staticSpotList = [gamepad.obstacle, camera.obstacle]
+    // 靜態：蠟筆、相機、打字機用隱形圓柱涵蓋（外形近似即可）
+    const staticSpotList = [crayonSet.obstacle, camera.obstacle, typewriter.obstacle]
     staticSpotList.forEach((obstacle, index) => {
       const collider = CreateCylinder(
         `tankStaticCollider${index}`,
@@ -686,7 +808,7 @@ export function createTankEnvironment(scene: Scene): TankEnvironment {
   }
 
   return {
-    shadowCasterMeshList: [...rocks.meshList, ...seaweed.meshList, ...gamepad.meshList, ...camera.meshList],
+    shadowCasterMeshList: [...rocks.meshList, ...seaweed.meshList, ...crayonSet.meshList, ...camera.meshList, ...typewriter.meshList],
     obstacleList,
     update,
     showClickMarker,
