@@ -9,6 +9,7 @@
  *
  * 動畫（update 每幀驅動）：身體 S 形扭動、胸鰭划水、背鰭搖擺、
  * 尾鰭拍打、偶發眨眼、瞳孔轉動。移動時全部加快加大。
+ * 待機時另有呼吸起伏與偶發尾拍，讓靜止的魚保持生命感。
  */
 import type { Scene } from '@babylonjs/core/scene'
 import { VertexBuffer } from '@babylonjs/core/Buffers/buffer'
@@ -82,6 +83,14 @@ const PECTORAL_SWING_IDLE = 0.2
 const TAIL_PHASE_LAG = 0.7
 const TAIL_SWING_MOVING = 1.15
 const TAIL_SWING_IDLE = 0.14
+
+// --- 待機小動作參數 ---
+/** 呼吸起伏：速度（rad/s）與幅度。側躺時身體極輕微鼓起收縮，讓靜止的魚仍是活的 */
+const BREATH_SPEED = 1.7
+const BREATH_SCALE_AMPLITUDE = 0.018
+/** 偶發尾拍：靜止一陣子後尾巴快速拍兩下（像側躺魚拍地），時長與擺幅 */
+const TAIL_FLICK_DURATION = 0.55
+const TAIL_FLICK_SWING = 0.55
 
 // --- 眼睛動畫參數 ---
 const BLINK_DURATION = 0.16
@@ -436,6 +445,11 @@ export function createCodModel(scene: Scene): CodModel {
   let tailSwing = TAIL_SWING_IDLE
   let blinkTimer = 2 + Math.random() * 3
   let blinkElapsed = BLINK_DURATION
+  // 待機小動作：呼吸相位隨機起點避免多實例同步；強度移動時淡出
+  let breathPhase = Math.random() * Math.PI * 2
+  let breathStrength = 0
+  let tailFlickTimer = 4 + Math.random() * 6
+  let tailFlickElapsed = TAIL_FLICK_DURATION
   // 自主張望時兩眼共用的隨機瞳孔偏移目標
   let autoTargetX = 0
   let autoTargetY = 0
@@ -520,6 +534,27 @@ export function createCodModel(scene: Scene): CodModel {
     const tailBendAngle = getBendAngle(-1.12, bodyWavePhase, bodyWaveAmplitude)
     tailPivot.rotation.y = tailBendAngle
       - Math.cos(bodyWavePhase - BODY_WHIP_LAG - TAIL_PHASE_LAG) * tailSwing * (bodyWaveAmplitude / WAVE_AMPLITUDE_MOVING)
+
+    // 呼吸起伏：待機時腹背向極輕微鼓起收縮，移動時淡出（避免與跳躍擠壓疊加）
+    const breathTarget = isMoving ? 0 : 1
+    breathStrength += (breathTarget - breathStrength) * Math.min(1, deltaSeconds * 4)
+    breathPhase += deltaSeconds * BREATH_SPEED
+    const breathWave = Math.sin(breathPhase) * BREATH_SCALE_AMPLITUDE * breathStrength
+    lieNode.scaling.set(1 + breathWave * 0.5, 1 + breathWave, 1)
+
+    // 偶發尾拍：靜止倒數到 0 觸發一次，尾巴快拍兩下、包絡漸弱
+    if (!isMoving && tailFlickElapsed >= TAIL_FLICK_DURATION) {
+      tailFlickTimer -= deltaSeconds
+      if (tailFlickTimer <= 0) {
+        tailFlickElapsed = 0
+        tailFlickTimer = 5 + Math.random() * 7
+      }
+    }
+    if (tailFlickElapsed < TAIL_FLICK_DURATION) {
+      tailFlickElapsed += deltaSeconds
+      const flickProgress = Math.min(tailFlickElapsed / TAIL_FLICK_DURATION, 1)
+      tailPivot.rotation.y += Math.sin(flickProgress * Math.PI * 4) * TAIL_FLICK_SWING * (1 - flickProgress)
+    }
 
     // 眨眼：倒數到 0 觸發一次，短暫壓扁眼睛
     if (blinkElapsed >= BLINK_DURATION) {

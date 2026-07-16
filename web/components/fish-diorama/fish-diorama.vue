@@ -221,8 +221,8 @@ onUnmounted(() => {
 <style scoped lang="sass">
 .fish-diorama
   // 紙紋濃度：light-dark() 只適用於顏色值，數字得用變數＋.dark 覆寫。
-  // 亮色維持 1（歷來核可的外觀即全濃度），深色壓到若有似無
-  --grain-background-opacity: 1
+  // 亮色 tile 烘焙對比已拉高（讓地板紋理讀得到），背景層壓回原本的清爽濃度
+  --grain-background-opacity: 0.6
   --grain-floor-opacity: 1
   // 手機版導覽列佔版面高度，扣掉才剛好一屏；桌機導覽列為 fixed 覆蓋，用整屏
   height: calc(100vh - var(--vp-nav-height))

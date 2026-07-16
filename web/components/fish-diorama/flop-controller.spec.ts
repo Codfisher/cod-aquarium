@@ -60,6 +60,37 @@ describe('flopController', () => {
     expect(controller.isMoving).toBe(false)
   })
 
+  it('startle 指定翻滾圈數時，空中會轉滿整圈且視覺上無縫（2π ≡ 0）', () => {
+    const controller = new FlopController()
+    controller.teleport({ x: 0, z: 0 }, 0)
+
+    const hasStartled = controller.startle(1.9, 1)
+    expect(hasStartled).toBe(true)
+
+    const poseList = runUntilStopped(controller)
+    const maxRoll = Math.max(...poseList.map((pose) => Math.abs(pose.roll)))
+
+    // 翻滾超過一般擺滾幅度（預設 rollAmplitude 0.55），確實是整圈翻轉
+    expect(maxRoll).toBeGreaterThan(Math.PI)
+    expect(maxRoll).toBeLessThanOrEqual(Math.PI * 2 + 1e-6)
+    // 結束回到 0，姿態無跳變
+    expect(poseList[poseList.length - 1]!.roll).toBe(0)
+  })
+
+  it('翻滾只作用於該次 startle，後續一般跳躍恢復小幅擺滾', () => {
+    const controller = new FlopController()
+    controller.teleport({ x: 0, z: 0 }, 0)
+
+    controller.startle(1.9, 1)
+    runUntilStopped(controller)
+
+    controller.setTarget({ x: 3, z: 0 })
+    const poseList = runUntilStopped(controller)
+    const maxRoll = Math.max(...poseList.map((pose) => Math.abs(pose.roll)))
+
+    expect(maxRoll).toBeLessThanOrEqual(0.55 + 1e-6)
+  })
+
   it('跳躍中 startle 不會重設進行中的跳躍', () => {
     const controller = new FlopController()
     controller.teleport({ x: 0, z: 0 }, 0)

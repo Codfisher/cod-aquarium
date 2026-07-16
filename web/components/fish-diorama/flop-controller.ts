@@ -229,6 +229,8 @@ export class FlopController {
   private hopWaveCycles = 1
   /** 翻滾方向逐跳交替 */
   private hopRollSign = 1
+  /** 本跳空中翻滾整圈數（startle 彩蛋用），一般跳躍為 0 走左右擺動 */
+  private hopSpinTurnCount = 0
   /** 起跳當下的朝向，跳躍過程由此插值到目標朝向，避免瞬間轉向 */
   private hopStartHeading = 0
   /** 本次跳躍的總轉角（rad），已受 maxTurnPerHop 限制 */
@@ -291,20 +293,24 @@ export class FlopController {
   }
 
   /** 原地驚嚇彈跳（魚被點到時的回饋）：立即起跳、不位移、跳高小幅加成。
+   * spinTurnCount > 0 時空中沿身體長軸翻滾整圈（連點彩蛋用）。
    * 跳躍中呼叫忽略（已在空中）；滑行模式沒有跳躍，也忽略。
+   * 回傳是否真的起跳，供呼叫端判斷這次點擊有沒有生效。
    */
-  startle(heightScale = 1.25) {
+  startle(heightScale = 1.25, spinTurnCount = 0): boolean {
     if (this.isSlideMode || this.phase === 'hopping') {
-      return
+      return false
     }
     this.hopStart = { x: this.positionX, z: this.positionZ }
     this.hopEnd = { x: this.positionX, z: this.positionZ }
     this.hopStartHeading = this.heading
     this.hopTurn = 0
     this.hopHeightScale = heightScale
+    this.hopSpinTurnCount = spinTurnCount
     this.hopWaveCycles = Math.max(0.5, this.options.waveCyclesPerHop * heightScale)
     this.phase = 'hopping'
     this.phaseElapsed = 0
+    return true
   }
 
   /** 切換滑行模式（prefers-reduced-motion）。跳躍中切換會先落地 */
@@ -426,6 +432,7 @@ export class FlopController {
       ? resolvePointOutsideObstacles(rawEndX, rawEndZ, this.obstacleList)
       : { x: rawEndX, z: rawEndZ }
     this.hopHeightScale = clamp(hopLength / this.options.hopDistance, 0.35, 1)
+    this.hopSpinTurnCount = 0
     // 跳得高空中多擺、短碎跳少擺；不取整，相位由 waveBasePhase 跨跳累積保持連續
     this.hopWaveCycles = Math.max(
       0.5,
@@ -546,7 +553,11 @@ export class FlopController {
         y: this.options.hopHeight * this.hopHeightScale * 4 * progress * (1 - progress),
         z: this.hopStart.z + (this.hopEnd.z - this.hopStart.z) * progress,
         heading: normalizeAngle(this.hopStartHeading + this.hopTurn * turnEase),
-        roll: this.hopRollSign * this.options.rollAmplitude * wave,
+        // 彩蛋翻滾：整圈連續轉（smoothstep 起收和緩），起點與終點都是 0 不跳變；
+        // 一般跳躍維持左右交替的小幅擺滾
+        roll: this.hopSpinTurnCount > 0
+          ? this.hopRollSign * Math.PI * 2 * this.hopSpinTurnCount * turnEase
+          : this.hopRollSign * this.options.rollAmplitude * wave,
         squash: 1 + this.options.stretchAmount * wave,
         // 從上一跳結束的相位接續走 hopWaveCycles 圈：
         // 第一圈是起跳下甩（拍地彈跳感），之後是空中的加擺；小數圈讓時點逐跳漂移

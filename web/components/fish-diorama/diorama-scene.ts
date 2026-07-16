@@ -90,6 +90,15 @@ const INTERACTION_TRIGGER_DISTANCE = 1.3
 const MAX_FRAME_DELTA_MS = 34
 /** 點擊判定：pointer 位移小於此值（px）才視為點擊而非拖曳/捲動 */
 const TAP_DISTANCE_THRESHOLD = 8
+/** 連點魚彩蛋：時間窗（秒）內戳魚滿此次數，觸發大跳空中翻滾 */
+const FISH_COMBO_CLICK_COUNT = 3
+const FISH_COMBO_WINDOW_SECONDS = 2.5
+/** 滑鼠視差：游標偏離畫面中心時鏡頭方位角/俯角的最大偏移（rad）。
+ * 幅度刻意極小，只求「探頭看箱庭」的立體感，不能大到影響取景與暈眩
+ */
+const PARALLAX_ALPHA_RANGE = 0.035
+const PARALLAX_BETA_RANGE = 0.02
+const PARALLAX_LERP_RATE = 3
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value))
@@ -100,7 +109,10 @@ export function createDioramaScene(
   options: DioramaSceneOptions,
 ): DioramaSceneHandle {
   const engine = new Engine(canvas, true, { alpha: true }, false)
-  engine.setHardwareScalingLevel(1 / Math.min(window.devicePixelRatio || 1, 2))
+  // 內部渲染解析度至少 1.5 倍、上限 2 倍（超取樣）：一般桌面螢幕 dpr = 1，
+  // 光靠 MSAA＋FXAA 壓不掉高對比硬邊的階梯感；低多邊形場景填充成本低，
+  // 用解析度換邊緣品質最划算
+  engine.setHardwareScalingLevel(1 / Math.min(Math.max(window.devicePixelRatio || 1, 1.5), 2))
 
   const scene = new Scene(engine)
   // 背景交給 CSS 漸層，canvas 保持透明
@@ -123,7 +135,9 @@ export function createDioramaScene(
   pipeline.imageProcessingEnabled = true
   pipeline.imageProcessing.contrast = 1.12
   pipeline.imageProcessing.exposure = 1
-  // 後處理管線會繞過 canvas 原生 MSAA，用 FXAA 抗鋸齒
+  // 後處理管線會繞過 canvas 原生 MSAA：改開管線自身的 MSAA（WebGL2，幾何硬邊主力），
+  // 再疊 FXAA 收掉殘餘閃爍。只靠 FXAA 對低多邊形硬邊效果很差、鋸齒明顯
+  pipeline.samples = 4
   pipeline.fxaaEnabled = true
 
   const hemisphericLight = new HemisphericLight(
@@ -259,12 +273,16 @@ export function createDioramaScene(
       console.warn('[fish-diorama] Havok 物理載入失敗，改用簡易推草效果', error)
     })
 
+  /** 取景基準方位角，滑鼠視差以此為中心微幅偏移 */
+  let baseCameraAlpha = -Math.PI / 2
+
   /** 依畫面比例取景：直式改從側邊看（畫面水平對應缸身長邊） */
   function applyCameraFraming() {
     const aspect = engine.getRenderWidth() / Math.max(1, engine.getRenderHeight())
     const isPortrait = aspect < 0.9
 
-    camera.alpha = isPortrait ? Math.PI : -Math.PI / 2
+    baseCameraAlpha = isPortrait ? Math.PI : -Math.PI / 2
+    camera.alpha = baseCameraAlpha
     environment.setPortrait(isPortrait)
 
     const horizontalHalf = (isPortrait ? TANK_DEPTH : TANK_WIDTH) / 2
@@ -296,7 +314,7 @@ export function createDioramaScene(
   applyCameraFraming()
 
   // 初始側躺：頭朝畫面水平方向、背鰭面向鏡頭。橫/直取景畫面水平方向不同，分開給角度
-  const isPortraitFraming = camera.alpha === Math.PI
+  const isPortraitFraming = baseCameraAlpha === Math.PI
   flopController.teleport(
     { x: 0, z: 0 },
     isPortraitFraming ? INITIAL_HEADING_PORTRAIT : INITIAL_HEADING_LANDSCAPE,
@@ -330,6 +348,8 @@ export function createDioramaScene(
   let pointerDownX = 0
   let pointerDownY = 0
   let pointerDownId: number | undefined
+  /** 近期成功戳到魚（有觸發驚嚇跳）的時間戳（秒），連點彩蛋用 */
+  let fishStartleTimeList: number[] = []
 
   function handlePointerDown(event: PointerEvent) {
     pointerDownX = event.clientX
@@ -369,7 +389,24 @@ export function createDioramaScene(
     }
 
     if (pickInfo.pickedMesh && hasFishBodyMetadata(pickInfo.pickedMesh.metadata)) {
-      flopController.startle()
+      // 連點彩蛋：時間窗內連續戳到魚（每次都真的起跳）滿次數，
+      // 惹惱鱈魚 → 大跳空中翻滾一整圈，落地水花也隨跳高加大
+      const nowSeconds = performance.now() / 1000
+      fishStartleTimeList = fishStartleTimeList.filter(
+        (time) => nowSeconds - time < FISH_COMBO_WINDOW_SECONDS,
+      )
+      const isComboReached = fishStartleTimeList.length >= FISH_COMBO_CLICK_COUNT - 1
+      const hasStartled = isComboReached
+        ? flopController.startle(1.9, 1)
+        : flopController.startle()
+      if (hasStartled) {
+        if (isComboReached) {
+          fishStartleTimeList = []
+        }
+        else {
+          fishStartleTimeList.push(nowSeconds)
+        }
+      }
       return
     }
 
@@ -412,6 +449,12 @@ export function createDioramaScene(
   let gazeWorldPoint: Vector3 | null = null
   let hoveredSpotKey: InteractionSpotKey | null = null
 
+  // 滑鼠視差：游標相對畫面中心的偏移（-1 ~ 1），每幀平滑趨近後微轉鏡頭
+  let parallaxTargetX = 0
+  let parallaxTargetY = 0
+  let parallaxCurrentX = 0
+  let parallaxCurrentY = 0
+
   function readInteractionSpotKey(metadata: unknown): InteractionSpotKey | undefined {
     return (metadata as { interactionSpotKey?: InteractionSpotKey } | null)?.interactionSpotKey
   }
@@ -425,6 +468,13 @@ export function createDioramaScene(
     if (event.pointerType !== 'mouse') {
       return
     }
+
+    // 視差目標：游標偏離畫布中心的比例
+    const canvasWidth = Math.max(1, canvas.clientWidth)
+    const canvasHeight = Math.max(1, canvas.clientHeight)
+    parallaxTargetX = clamp((event.offsetX / canvasWidth - 0.5) * 2, -1, 1)
+    parallaxTargetY = clamp((event.offsetY / canvasHeight - 0.5) * 2, -1, 1)
+
     const pickInfo = scene.pick(
       event.offsetX,
       event.offsetY,
@@ -445,6 +495,8 @@ export function createDioramaScene(
   }
   function handlePointerLeave() {
     gazeWorldPoint = null
+    parallaxTargetX = 0
+    parallaxTargetY = 0
     if (hoveredSpotKey) {
       hoveredSpotKey = null
       environment.setSpotHover(null)
@@ -605,6 +657,13 @@ export function createDioramaScene(
   function renderFrame() {
     const deltaSeconds = Math.min(engine.getDeltaTime(), MAX_FRAME_DELTA_MS) / 1000
     timeSeconds += deltaSeconds
+
+    // 滑鼠視差：平滑趨近目標偏移後微轉鏡頭（游標往上 = 視角略升高俯瞰）
+    const parallaxLerp = Math.min(1, deltaSeconds * PARALLAX_LERP_RATE)
+    parallaxCurrentX += (parallaxTargetX - parallaxCurrentX) * parallaxLerp
+    parallaxCurrentY += (parallaxTargetY - parallaxCurrentY) * parallaxLerp
+    camera.alpha = baseCameraAlpha + parallaxCurrentX * PARALLAX_ALPHA_RANGE
+    camera.beta = CAMERA_BETA + parallaxCurrentY * PARALLAX_BETA_RANGE
 
     const pose = updateFish(deltaSeconds)
     environment.update(timeSeconds, deltaSeconds, codModel.rootNode.position.x, codModel.rootNode.position.z)

@@ -54,10 +54,12 @@ const paperRgbMap: Record<GrainPaperVariant, readonly [number, number, number]> 
 }
 
 /** CSS 疊加版的紋理濃度（以中灰為軸縮放起伏）。
+ * 淺色底解算出的 alpha 天生偏低，對比拉高地板紋理才讀得到，
+ * 上方背景層再用 --grain-background-opacity 壓回清爽濃度；
  * 深色底解算出的 alpha 天生偏高，對比要壓低很多才不會像迷彩斑
  */
 const cssGrainContrastMap: Record<GrainPaperVariant, number> = {
-  light: 1.1,
+  light: 1.8,
   dark: 0.5,
 }
 
