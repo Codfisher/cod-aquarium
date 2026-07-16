@@ -176,6 +176,12 @@ export function createDioramaScene(
   const environment = createTankEnvironment(scene)
   const codModel = createCodModel(scene)
 
+  // 魚身可點擊：點到魚時原地驚嚇彈跳（handlePointerUp 依 metadata 辨認）
+  for (const mesh of codModel.meshList) {
+    mesh.isPickable = true
+    mesh.metadata = { isFishBody: true }
+  }
+
   for (const mesh of [...codModel.meshList, ...environment.shadowCasterMeshList]) {
     shadowGenerator.addShadowCaster(mesh)
   }
@@ -297,9 +303,25 @@ export function createDioramaScene(
   )
 
   function setDarkMode(value: boolean) {
-    hemisphericLight.intensity = value ? 0.5 : 0.72
-    directionalLight.intensity = value ? 0.55 : 0.85
-    fillLight.intensity = value ? 0.16 : 0.3
+    // 月夜藍風格化夜景：畫面依然清晰明亮，只是整體換上冷藍色調（動森式）。
+    // 主光轉淡藍月光、環境光偏藍紫；陰影維持原本的柔和平行光影，
+    // 亮點交給路燈柔光暈與螢火點綴
+    hemisphericLight.intensity = value ? 0.62 : 0.72
+    hemisphericLight.diffuse = value
+      ? Color3.FromHexString('#aec4e8')
+      : new Color3(1, 0.95, 0.87)
+    hemisphericLight.groundColor = value
+      ? Color3.FromHexString('#2c3a55')
+      : new Color3(0.3, 0.35, 0.43)
+    directionalLight.intensity = value ? 0.72 : 0.85
+    directionalLight.diffuse = value
+      ? Color3.FromHexString('#c4d4f2')
+      : new Color3(1, 0.96, 0.9)
+    fillLight.intensity = value ? 0.35 : 0.3
+    fillLight.diffuse = value
+      ? Color3.FromHexString('#7f9fe8')
+      : new Color3(0.55, 0.68, 0.85)
+    environment.setNightMode(value)
   }
 
   setDarkMode(options.isDark)
@@ -334,13 +356,20 @@ export function createDioramaScene(
       return
     }
 
-    // 可互動裝飾優先於地板：點到裝飾時裝飾彈跳回饋，並把魚派到裝飾旁
+    // 魚與可互動裝飾優先於地板：點到魚是驚嚇跳、點到裝飾是彈跳回饋＋派魚過去
     const pickInfo = scene.pick(
       event.offsetX,
       event.offsetY,
-      (mesh) => mesh === groundFloor || Boolean(readInteractionSpotKey(mesh.metadata)),
+      (mesh) => mesh === groundFloor
+        || Boolean(readInteractionSpotKey(mesh.metadata))
+        || hasFishBodyMetadata(mesh.metadata),
     )
     if (!pickInfo.hit || !pickInfo.pickedPoint) {
+      return
+    }
+
+    if (pickInfo.pickedMesh && hasFishBodyMetadata(pickInfo.pickedMesh.metadata)) {
+      flopController.startle()
       return
     }
 
@@ -387,6 +416,10 @@ export function createDioramaScene(
     return (metadata as { interactionSpotKey?: InteractionSpotKey } | null)?.interactionSpotKey
   }
 
+  function hasFishBodyMetadata(metadata: unknown): boolean {
+    return Boolean((metadata as { isFishBody?: boolean } | null)?.isFishBody)
+  }
+
   function handlePointerMove(event: PointerEvent) {
     // 只追滑鼠 hover；觸控不觸發，維持自主張望
     if (event.pointerType !== 'mouse') {
@@ -415,6 +448,45 @@ export function createDioramaScene(
     if (hoveredSpotKey) {
       hoveredSpotKey = null
       environment.setSpotHover(null)
+    }
+  }
+
+  // --- 自動注視：沒有游標注視點時，魚偶爾看向裝飾，其餘時間交給自主張望 ---
+  const autoGazeVector = new Vector3()
+  let autoGazePoint: Vector3 | null = null
+  let autoGazeRemainingSeconds = 1.5
+
+  function updateAutoGaze(deltaSeconds: number, isFishMoving: boolean) {
+    if (isFishMoving) {
+      autoGazePoint = null
+      return
+    }
+
+    // 停靠在裝飾旁時盯著它看，與 popup 演出呼應
+    if (activeSpotKey) {
+      const spot = environment.interactionSpotList.find((item) => item.key === activeSpotKey)
+      if (spot) {
+        autoGazeVector.set(spot.x, spot.anchorY * 0.5, spot.z)
+        autoGazePoint = autoGazeVector
+      }
+      return
+    }
+
+    autoGazeRemainingSeconds -= deltaSeconds
+    if (autoGazeRemainingSeconds > 0) {
+      return
+    }
+    if (Math.random() < 0.45) {
+      const spotList = environment.interactionSpotList
+      const spot = spotList[Math.floor(Math.random() * spotList.length)]!
+      autoGazeVector.set(spot.x, spot.anchorY * 0.5, spot.z)
+      autoGazePoint = autoGazeVector
+      autoGazeRemainingSeconds = 1.2 + Math.random() * 0.8
+    }
+    else {
+      // 放空一陣子：交給模型內建的自主張望隨機轉眼
+      autoGazePoint = null
+      autoGazeRemainingSeconds = 1.5 + Math.random() * 2
     }
   }
   canvas.addEventListener('pointermove', handlePointerMove)
@@ -469,7 +541,8 @@ export function createDioramaScene(
     const yRatio = projectedPoint.y / renderHeight
 
     // 位置幾乎沒變就不重複回報，避免每幀觸發外層響應式更新
-    const hasChanged = nextSpotKey !== activeSpotKey
+    const isNewSpot = nextSpotKey !== activeSpotKey
+    const hasChanged = isNewSpot
       || Math.abs(xRatio - notifiedXRatio) > 0.002
       || Math.abs(yRatio - notifiedYRatio) > 0.002
     if (hasChanged) {
@@ -477,6 +550,10 @@ export function createDioramaScene(
       notifiedXRatio = xRatio
       notifiedYRatio = yRatio
       options.onNearbySpotChange({ key: nextSpotKey, xRatio, yRatio })
+      // 剛停靠到新裝飾：播放該裝飾的專屬展示動畫，與 popup 一起出場
+      if (isNewSpot) {
+        environment.playSpotShowcase(nextSpotKey)
+      }
     }
   }
 
@@ -485,6 +562,13 @@ export function createDioramaScene(
 
   function updateFish(deltaSeconds: number) {
     const pose = flopController.update(deltaSeconds)
+
+    // 落地瞬間濺小水滴，強度跟著本跳跳高
+    if (pose.hasLanded) {
+      environment.spawnLandingBurst(pose.x, pose.z, pose.hopStrength)
+    }
+
+    updateAutoGaze(deltaSeconds, pose.isMoving)
 
     codModel.rootNode.position.set(
       pose.x,
@@ -512,7 +596,7 @@ export function createDioramaScene(
       isMoving: pose.isMoving,
       wavePhase: pose.wavePhase,
       waveStrength: pose.hopStrength,
-      gazeTarget: gazeWorldPoint,
+      gazeTarget: gazeWorldPoint ?? autoGazePoint,
     })
 
     return pose

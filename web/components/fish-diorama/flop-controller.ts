@@ -290,6 +290,23 @@ export class FlopController {
     this.slideStuckSeconds = 0
   }
 
+  /** 原地驚嚇彈跳（魚被點到時的回饋）：立即起跳、不位移、跳高小幅加成。
+   * 跳躍中呼叫忽略（已在空中）；滑行模式沒有跳躍，也忽略。
+   */
+  startle(heightScale = 1.25) {
+    if (this.isSlideMode || this.phase === 'hopping') {
+      return
+    }
+    this.hopStart = { x: this.positionX, z: this.positionZ }
+    this.hopEnd = { x: this.positionX, z: this.positionZ }
+    this.hopStartHeading = this.heading
+    this.hopTurn = 0
+    this.hopHeightScale = heightScale
+    this.hopWaveCycles = Math.max(0.5, this.options.waveCyclesPerHop * heightScale)
+    this.phase = 'hopping'
+    this.phaseElapsed = 0
+  }
+
   /** 切換滑行模式（prefers-reduced-motion）。跳躍中切換會先落地 */
   setSlideMode(value: boolean) {
     if (this.isSlideMode === value) {

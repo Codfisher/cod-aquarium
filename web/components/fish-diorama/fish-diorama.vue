@@ -18,6 +18,9 @@
       :style="{ backgroundImage: `url(${grainUrl})` }"
     />
 
+    <!-- 夜間星空：深色模式時上半部浮現星點（vp-raw：閃爍不受 reduced-motion 歸零） -->
+    <div class="night-star-layer vp-raw absolute inset-0 pointer-events-none" />
+
     <canvas
       ref="canvasRef"
       class="diorama-canvas relative block h-full w-full"
@@ -114,8 +117,12 @@ const isFocused = useWindowFocus()
 
 const isReady = ref(false)
 const hasFailed = ref(false)
-/** 背景紙紋 tile 的 Blob URL，產生失敗就不鋪（優雅降級） */
-const grainUrl = ref('')
+/** 背景紙紋 tile 的 Blob URL（明暗各一版，soft-light 對各自底色解算），
+ * 產生失敗就不鋪（優雅降級）
+ */
+const lightGrainUrl = ref('')
+const darkGrainUrl = ref('')
+const grainUrl = computed(() => (isDark.value ? darkGrainUrl.value : lightGrainUrl.value))
 
 /** 各可互動裝飾對應的 popup 文字與連結（點擊開新分頁） */
 const spotContentMap: Record<InteractionSpotKey, { text: string; url: string }> = {
@@ -157,9 +164,14 @@ const hintText = computed(() => {
 
 onMounted(async () => {
   // 背景紙紋非關鍵路徑：失敗就維持純漸層
-  getGrainCssBlobUrl()
+  getGrainCssBlobUrl('light')
     .then((url) => {
-      grainUrl.value = url
+      lightGrainUrl.value = url
+    })
+    .catch(() => {})
+  getGrainCssBlobUrl('dark')
+    .then((url) => {
+      darkGrainUrl.value = url
     })
     .catch(() => {})
 
@@ -208,6 +220,10 @@ onUnmounted(() => {
 
 <style scoped lang="sass">
 .fish-diorama
+  // 紙紋濃度：light-dark() 只適用於顏色值，數字得用變數＋.dark 覆寫。
+  // 亮色維持 1（歷來核可的外觀即全濃度），深色壓到若有似無
+  --grain-background-opacity: 1
+  --grain-floor-opacity: 1
   // 手機版導覽列佔版面高度，扣掉才剛好一屏；桌機導覽列為 fixed 覆蓋，用整屏
   height: calc(100vh - var(--vp-nav-height))
   height: calc(100dvh - var(--vp-nav-height))
@@ -228,17 +244,21 @@ onUnmounted(() => {
   &.is-ready
     opacity: 1
 
+// 深色模式用深底色烘焙的專屬紋理，濃度壓到極低、若有似無
+:global(html.dark .fish-diorama)
+  --grain-background-opacity: 0.2
+  --grain-floor-opacity: 0.5
+
 .paper-grain-background
   background-repeat: repeat
-  // 深色模式下淺色紙紋會偏灰濁，壓低濃度
-  opacity: light-dark(0.6, 0.35)
+  opacity: var(--grain-background-opacity)
   // 下半部（地板區）淡出，交給透視變形的地板層，避免重複疊加
   mask-image: linear-gradient(to bottom, black 0%, black 26%, transparent 48%)
   -webkit-mask-image: linear-gradient(to bottom, black 0%, black 26%, transparent 48%)
 
 .paper-grain-floor
   background-repeat: repeat
-  opacity: light-dark(0.6, 0.35)
+  opacity: var(--grain-floor-opacity)
   // 傾成地板面：以上緣（地平線附近）為軸做透視旋轉，紋理近大遠小。
   // 寬度左右外擴，旋轉後才不會在畫面兩側露出缺角
   top: 24%
@@ -250,6 +270,24 @@ onUnmounted(() => {
   // 上緣淡入，與上方平鋪層平滑銜接
   mask-image: linear-gradient(to bottom, transparent 0%, black 18%)
   -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 18%)
+
+.night-star-layer
+  // 多組不同週期的 radial-gradient 疊出擬隨機星野，只鋪在畫面上半（天空區）
+  opacity: 0
+  background-image: radial-gradient(1.2px 1.2px at 22% 31%, rgba(255, 255, 255, 0.9), transparent 60%), radial-gradient(1px 1px at 68% 12%, rgba(255, 255, 255, 0.7), transparent 60%), radial-gradient(1.6px 1.6px at 45% 52%, rgba(255, 235, 200, 0.8), transparent 60%), radial-gradient(1px 1px at 85% 40%, rgba(255, 255, 255, 0.6), transparent 60%), radial-gradient(1.3px 1.3px at 8% 66%, rgba(210, 225, 255, 0.7), transparent 60%)
+  background-size: 280px 280px, 360px 360px, 440px 440px, 320px 320px, 400px 400px
+  background-repeat: repeat
+  mask-image: linear-gradient(to bottom, black 0%, black 28%, transparent 52%)
+  -webkit-mask-image: linear-gradient(to bottom, black 0%, black 28%, transparent 52%)
+
+:global(html.dark) .night-star-layer
+  animation: star-breathe 6s ease-in-out infinite
+
+@keyframes star-breathe
+  0%, 100%
+    opacity: 1
+  50%
+    opacity: 0.55
 
 .move-hint
   // 上方偏中央：桌機導覽列是 fixed 覆蓋，往下留些距離避開

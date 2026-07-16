@@ -6,6 +6,10 @@ import type { Mesh } from '@babylonjs/core/Meshes/mesh'
 import type { Scene } from '@babylonjs/core/scene'
 import type { ObstacleCircle } from './flop-controller'
 import { VertexBuffer } from '@babylonjs/core/Buffers/buffer'
+import { Constants } from '@babylonjs/core/Engines/constants'
+import { GlowLayer } from '@babylonjs/core/Layers/glowLayer'
+import { ClusteredLightContainer } from '@babylonjs/core/Lights/Clustered/clusteredLightContainer'
+import { PointLight } from '@babylonjs/core/Lights/pointLight'
 import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial'
 import { Color3 } from '@babylonjs/core/Maths/math.color'
 import { Matrix, Vector3 } from '@babylonjs/core/Maths/math.vector'
@@ -18,6 +22,8 @@ import { PhysicsConstraintAxis, PhysicsShapeType } from '@babylonjs/core/Physics
 import { PhysicsAggregate } from '@babylonjs/core/Physics/v2/physicsAggregate'
 import { Physics6DoFConstraint } from '@babylonjs/core/Physics/v2/physicsConstraint'
 import { createBeveledBox } from './geometry-utils'
+import '@babylonjs/core/Layers/effectLayerSceneComponent'
+import '@babylonjs/core/Lights/Clustered/clusteredLightingSceneComponent'
 
 export const TANK_WIDTH = 11
 export const TANK_DEPTH = 7
@@ -71,10 +77,16 @@ export interface TankEnvironment {
   playSpotBounce: (key: InteractionSpotKey) => void;
   /** 設定滑鼠懸停的裝飾（null 取消）：微微長高放大＋增亮，提示可點擊 */
   setSpotHover: (key: InteractionSpotKey | null) => void;
+  /** 播放裝飾的停靠展示動畫（魚停到旁邊時）：相機閃燈、打字機抖紙、蠟筆搖擺 */
+  playSpotShowcase: (key: InteractionSpotKey) => void;
+  /** 切換夜燈（深色模式）：路燈亮起（自發光＋泛光＋局部暖光），平滑過渡 */
+  setNightMode: (enabled: boolean) => void;
   /** 每幀更新水草搖擺與點擊標記 */
   update: (timeSeconds: number, deltaSeconds: number, fishX: number, fishZ: number) => void;
   /** 在指定位置播放 RPG 目的地漣漪標記 */
   showClickMarker: (x: number, z: number) => void;
+  /** 魚落地時在該處濺出小水滴（strength = 本跳跳高縮放，影響數量與噴發力道） */
+  spawnLandingBurst: (x: number, z: number, strength: number) => void;
   /** 直式時把有正面的裝飾轉向觀眾，補償相機環繞角度 */
   setPortrait: (isPortrait: boolean) => void;
   /** Havok 就緒後呼叫：水草葉片轉成動態剛體（彈簧回正），石頭/搖桿/相機建靜態碰撞體。
@@ -220,6 +232,8 @@ function buildSeaweed(
     { x: -3.9, z: 1.9, bladeCount: 4 },
     { x: -2.3, z: -2.5, bladeCount: 3 },
     { x: 4.35, z: 0.2, bladeCount: 4 },
+    // 後排中央（原檯燈位置）的補位叢
+    { x: 0.2, z: 2.7, bladeCount: 4 },
   ]
 
   const meshList: Mesh[] = []
@@ -294,7 +308,13 @@ function buildSeaweed(
 /** 幾支胖蠟筆（三立一躺），代表繪畫創作。
  * 粗短圓柱貼地穩固，色彩鮮明、遠看即辨。
  */
-function buildCrayonSet(scene: Scene): { meshList: Mesh[]; root: TransformNode; obstacle: ObstacleCircle } {
+function buildCrayonSet(scene: Scene): {
+  meshList: Mesh[];
+  root: TransformNode;
+  obstacle: ObstacleCircle;
+  /** 直立的三支蠟筆節點，供停靠展示動畫左右搖擺 */
+  standingCrayonNodeList: TransformNode[];
+} {
   const crayonSetX = 3.7
   const crayonSetZ = 2.3
 
@@ -378,10 +398,11 @@ function buildCrayonSet(scene: Scene): { meshList: Mesh[]; root: TransformNode; 
     { color: '#4f9ac2', x: 0.05, z: 0.1, tiltX: 0.06, tiltZ: 0.05 },
     { color: '#4f9f6f', x: 0.16, z: -0.12, tiltX: -0.04, tiltZ: 0.09 },
   ]
-  standingItemList.forEach((item, index) => {
+  const standingCrayonNodeList = standingItemList.map((item, index) => {
     const crayonNode = buildCrayon(index, item.color)
     crayonNode.position.set(item.x, -0.015, item.z)
     crayonNode.rotation.set(item.tiltX, 0, item.tiltZ)
+    return crayonNode
   })
 
   // 一支橫躺的黃蠟筆斜擺在立筆叢前側（-z 朝觀眾），不被擋住
@@ -390,11 +411,19 @@ function buildCrayonSet(scene: Scene): { meshList: Mesh[]; root: TransformNode; 
   lyingCrayonNode.rotation.set(Math.PI / 2, -0.9, 0)
 
   // 俯視碰撞圓：涵蓋立筆叢與橫躺那支
-  return { meshList, root, obstacle: { x: crayonSetX, z: crayonSetZ, radius: 0.5 } }
+  return { meshList, root, obstacle: { x: crayonSetX, z: crayonSetZ, radius: 0.5 }, standingCrayonNodeList }
 }
 
 /** 復古卡通相機：機身、軍艦部、凸出的鏡頭、快門鈕與觀景窗 */
-function buildCamera(scene: Scene): { meshList: Mesh[]; root: TransformNode; obstacle: ObstacleCircle } {
+function buildCamera(scene: Scene): {
+  meshList: Mesh[];
+  root: TransformNode;
+  obstacle: ObstacleCircle;
+  /** 鏡片材質，停靠展示動畫用 emissive 做閃光 */
+  flashMaterial: StandardMaterial;
+  /** 快門鈕，展示動畫按壓用 */
+  shutterButton: Mesh;
+} {
   const cameraX = -3.4
   const cameraZ = 2.5
   const groundY = GROUND_Y
@@ -514,15 +543,31 @@ function buildCamera(scene: Scene): { meshList: Mesh[]; root: TransformNode; obs
   meshList.push(dial)
 
   // 俯視碰撞圓：涵蓋機身與前凸的鏡頭
-  return { meshList, root, obstacle: { x: cameraX, z: cameraZ, radius: 0.56 } }
+  return {
+    meshList,
+    root,
+    obstacle: { x: cameraX, z: cameraZ, radius: 0.56 },
+    flashMaterial: lensMaterial,
+    shutterButton: shutter,
+  }
 }
 
 /** 復古打字機：芥末黃機身、斜置米白鍵盤、黑色滾筒與一張插著的白紙，
  * 與相機（攝影）、搖桿（遊戲）並列，代表部落格的寫作
  */
-function buildTypewriter(scene: Scene): { meshList: Mesh[]; root: TransformNode; obstacle: ObstacleCircle } {
-  const typewriterX = 0.3
-  const typewriterZ = 2.55
+function buildTypewriter(scene: Scene): {
+  meshList: Mesh[];
+  root: TransformNode;
+  obstacle: ObstacleCircle;
+  /** 滾筒上的白紙，停靠展示動畫抖動用 */
+  paper: Mesh;
+  /** 三排圓形鍵帽，停靠展示動畫依序按壓用 */
+  keyList: Mesh[];
+} {
+  // 放在場景前方（-z）：橫式在畫面前方中央偏右；直式畫面右側＝世界 -z，
+  // 剛好與左側的相機、蠟筆分兩邊，兩種取景構圖都平衡
+  const typewriterX = 0.6
+  const typewriterZ = -2.55
 
   const bodyMaterial = new StandardMaterial('tankTypewriterBodyMaterial', scene)
   bodyMaterial.diffuseColor = Color3.FromHexString('#3e5f52')
@@ -563,6 +608,7 @@ function buildTypewriter(scene: Scene): { meshList: Mesh[]; root: TransformNode;
   meshList.push(keyboardPlate)
 
   // 三排圓鍵（5/4/5 交錯）＋空白鍵，貼在鍵盤板上
+  const keyList: Mesh[] = []
   const keyRowList = [
     { z: 0.1, count: 5 },
     { z: 0.01, count: 4 },
@@ -580,6 +626,7 @@ function buildTypewriter(scene: Scene): { meshList: Mesh[]; root: TransformNode;
       key.isPickable = false
       key.parent = keyboardPlate
       meshList.push(key)
+      keyList.push(key)
     }
   }
   const spaceBar = createBeveledBox('tankTypewriterSpaceBar', scene, { width: 0.3, height: 0.035, depth: 0.06, bevel: 0.012 }, keyMaterial)
@@ -620,7 +667,7 @@ function buildTypewriter(scene: Scene): { meshList: Mesh[]; root: TransformNode;
   meshList.push(paper)
 
   // 俯視碰撞圓：涵蓋機身與前凸的鍵盤
-  return { meshList, root, obstacle: { x: typewriterX, z: typewriterZ, radius: 0.58 } }
+  return { meshList, root, obstacle: { x: typewriterX, z: typewriterZ, radius: 0.58 }, paper, keyList }
 }
 
 /** 在兩個剛體間建立「線性鎖死＋角度彈簧回正」的 6DoF 約束，樞紐設在 pivotWorld。
@@ -727,6 +774,8 @@ export function createTankEnvironment(scene: Scene): TankEnvironment {
     hoverProgress: number;
     /** 上次套用 emissive 的 hover 進度，變化夠大才重寫材質 */
     appliedHoverProgress: number;
+    /** 進場演出的起跳延遲（秒），由進場註冊時回填 */
+    entranceDelay: number;
     materialEntryList: { material: StandardMaterial; baseEmissiveColor: Color3 }[];
   }
 
@@ -743,6 +792,7 @@ export function createTankEnvironment(scene: Scene): TankEnvironment {
         bounceElapsed: SPOT_BOUNCE_DURATION,
         hoverProgress: 0,
         appliedHoverProgress: 0,
+        entranceDelay: 0,
         materialEntryList: [...materialSet].map((material) => ({
           material,
           baseEmissiveColor: material.emissiveColor.clone(),
@@ -779,10 +829,12 @@ export function createTankEnvironment(scene: Scene): TankEnvironment {
         wobble = Math.sin(progress * Math.PI * 3) * (1 - progress) * 0.16
       }
 
-      const horizontalScale = 1 + effectItem.hoverProgress * SPOT_HOVER_SCALE_HORIZONTAL + wobble * 0.6
+      // 進場縮放與 hover / 彈跳倍率相乘，兩套效果共寫 scaling 不互蓋
+      const entranceScale = computeEntranceScale(effectItem.entranceDelay)
+      const horizontalScale = (1 + effectItem.hoverProgress * SPOT_HOVER_SCALE_HORIZONTAL + wobble * 0.6) * entranceScale
       effectItem.node.scaling.set(
         horizontalScale,
-        1 + effectItem.hoverProgress * SPOT_HOVER_SCALE_VERTICAL - wobble,
+        (1 + effectItem.hoverProgress * SPOT_HOVER_SCALE_VERTICAL - wobble) * entranceScale,
         horizontalScale,
       )
 
@@ -795,6 +847,387 @@ export function createTankEnvironment(scene: Scene): TankEnvironment {
             .addInPlace(SPOT_HOVER_EMISSIVE_BOOST.scale(effectItem.hoverProgress))
         }
       }
+    }
+  }
+
+  // --- 停靠展示動畫：魚停到裝飾旁時各裝飾的專屬小演出 ---
+  const SHOWCASE_DURATION = 1
+  const showcaseElapsedMap = new Map<InteractionSpotKey, number>([
+    ['camera', SHOWCASE_DURATION],
+    ['crayonSet', SHOWCASE_DURATION],
+    ['typewriter', SHOWCASE_DURATION],
+  ])
+  const cameraFlashBaseEmissiveColor = camera.flashMaterial.emissiveColor.clone()
+  const cameraShutterBaseY = camera.shutterButton.position.y
+  const typewriterPaperBaseRotationX = typewriter.paper.rotation.x
+  const typewriterKeyBaseY = typewriter.keyList[0]?.position.y ?? 0.05
+  /** 打字順序（鍵帽索引亂序跳動，看起來像真的在打字） */
+  const typewriterPressOrderList = [3, 9, 5, 12, 1, 7, 10, 4]
+  const crayonBaseRotationZList = crayonSet.standingCrayonNodeList.map((node) => node.rotation.z)
+
+  function playSpotShowcase(key: InteractionSpotKey) {
+    showcaseElapsedMap.set(key, 0)
+  }
+
+  function updateShowcase(deltaSeconds: number) {
+    for (const [key, elapsed] of showcaseElapsedMap) {
+      if (elapsed >= SHOWCASE_DURATION) {
+        continue
+      }
+      const nextElapsed = Math.min(elapsed + deltaSeconds, SHOWCASE_DURATION)
+      showcaseElapsedMap.set(key, nextElapsed)
+      const progress = nextElapsed / SHOWCASE_DURATION
+      // 衰減包絡：所有擺動收斂回原位，結束時不跳變
+      const settle = 1 - progress
+
+      if (key === 'camera') {
+        // 快門按下彈起（前 0.3），閃光快速亮起後衰減
+        const pressProgress = Math.min(1, progress / 0.3)
+        camera.shutterButton.position.y
+          = cameraShutterBaseY - Math.sin(pressProgress * Math.PI) * 0.025
+        const flashIntensity = progress < 0.12
+          ? progress / 0.12
+          : Math.max(0, 1 - (progress - 0.12) / 0.45)
+        const flashBoost = flashIntensity * 0.85
+        camera.flashMaterial.emissiveColor.set(
+          Math.min(1, cameraFlashBaseEmissiveColor.r + flashBoost),
+          Math.min(1, cameraFlashBaseEmissiveColor.g + flashBoost),
+          Math.min(1, cameraFlashBaseEmissiveColor.b + flashBoost),
+        )
+      }
+      else if (key === 'typewriter') {
+        // 紙張前後抖兩下
+        typewriter.paper.rotation.x
+          = typewriterPaperBaseRotationX + Math.sin(progress * Math.PI * 4) * 0.14 * settle
+
+        // 依亂序逐顆按壓鍵帽，像有人在打字；每幀先全部歸位再壓當前那顆
+        for (const keyMesh of typewriter.keyList) {
+          keyMesh.position.y = typewriterKeyBaseY
+        }
+        const pressCount = typewriterPressOrderList.length
+        const pressIndex = Math.min(pressCount - 1, Math.floor(progress * pressCount))
+        const pressProgress = progress * pressCount - pressIndex
+        const pressedKeyIndex = typewriterPressOrderList[pressIndex] ?? 0
+        const pressedKey = typewriter.keyList[pressedKeyIndex]
+        if (pressedKey) {
+          pressedKey.position.y = typewriterKeyBaseY - Math.sin(pressProgress * Math.PI) * 0.024
+        }
+      }
+      else {
+        // 三支立蠟筆交錯方向左右搖擺
+        crayonSet.standingCrayonNodeList.forEach((crayonNode, index) => {
+          const direction = index % 2 === 0 ? 1 : -1
+          crayonNode.rotation.z = (crayonBaseRotationZList[index] ?? 0)
+            + Math.sin(progress * Math.PI * 3) * 0.09 * settle * direction
+        })
+      }
+    }
+  }
+
+  // --- 夜間過渡（深色模式）：螢火亮度與泛光平滑過渡 ---
+  const NIGHT_TRANSITION_RATE = 3
+  let nightTarget = 0
+  let nightProgress = 0
+
+  function setNightMode(enabled: boolean) {
+    nightTarget = enabled ? 1 : 0
+  }
+
+  function updateNightLight(deltaSeconds: number) {
+    if (Math.abs(nightProgress - nightTarget) < 0.001) {
+      return
+    }
+    nightProgress += (nightTarget - nightProgress) * Math.min(1, deltaSeconds * NIGHT_TRANSITION_RATE)
+    if (Math.abs(nightProgress - nightTarget) < 0.001) {
+      nightProgress = nightTarget
+    }
+    nightGlowLayer.intensity = nightProgress * 0.9
+  }
+
+  // --- 夜間螢火：深色模式時在暗區漂浮的微光點 ---
+  const FIREFLY_COUNT = 12
+
+  interface FireflyItem {
+    mesh: Mesh;
+    baseX: number;
+    baseY: number;
+    baseZ: number;
+    phase: number;
+    speed: number;
+    driftRadius: number;
+  }
+
+  const fireflyMaterial = new StandardMaterial('tankFireflyMaterial', scene)
+  fireflyMaterial.emissiveColor = Color3.FromHexString('#ffe2a0')
+  fireflyMaterial.disableLighting = true
+  fireflyMaterial.alphaMode = Constants.ALPHA_ADD
+
+  // 錨定在水草叢與石頭附近：地板吃不到光（純陰影材質），
+  // 螢火要貼著有東西的地方飛，實體光照才照得到物件
+  const fireflyAnchorList = [
+    { x: -3.9, z: 1.9 },
+    { x: -2.3, z: -2.5 },
+    { x: 4.35, z: 0.2 },
+    { x: 0.2, z: 2.7 },
+    { x: -4.5, z: -2.5 },
+    { x: 4.5, z: -2.6 },
+    { x: -4.3, z: 2.4 },
+    { x: 1.8, z: 2.9 },
+  ]
+
+  const fireflyList: FireflyItem[] = []
+  for (let index = 0; index < FIREFLY_COUNT; index++) {
+    const mesh = CreateSphere(`tankFirefly${index}`, { diameter: 0.05, segments: 6 }, scene)
+    mesh.material = fireflyMaterial
+    mesh.isPickable = false
+    mesh.visibility = 0
+
+    const anchor = fireflyAnchorList[index % fireflyAnchorList.length]!
+    fireflyList.push({
+      mesh,
+      baseX: anchor.x + (random() - 0.5) * 1.6,
+      baseY: 0.35 + random() * 0.75,
+      baseZ: anchor.z + (random() - 0.5) * 1.2,
+      phase: random() * Math.PI * 2,
+      speed: 0.3 + random() * 0.4,
+      driftRadius: 0.25 + random() * 0.3,
+    })
+  }
+
+  // 夜間泛光：只收錄螢火與燈泡，其他 emissive 材質（蠟筆、水草）不跟著暈開
+  const nightGlowLayer = new GlowLayer('tankNightGlowLayer', scene, { blurKernelSize: 48 })
+  nightGlowLayer.intensity = 0
+  for (const firefly of fireflyList) {
+    nightGlowLayer.addIncludedOnlyMesh(firefly.mesh)
+  }
+
+  // 螢火蟲實體光照：clustered lighting 把多盞微型點光叢集處理，
+  // 只佔一個 shader 光槽就能讓每隻螢火真的照亮周遭。
+  // 需要 WebGL2 可混合浮點緩衝，不支援就退回純視覺光暈
+  const fireflyLightList: PointLight[] = []
+  for (const firefly of fireflyList) {
+    // dontAddToScene：光只透過叢集容器渲染（官方建議，效能較佳）。
+    // 直接共用 mesh.position 的參考，螢火移動時光源自動跟隨
+    const fireflyLight = new PointLight(`${firefly.mesh.name}-light`, firefly.mesh.position, scene, true)
+    fireflyLight.diffuse = Color3.FromHexString('#ffd98a')
+    fireflyLight.specular = Color3.Black()
+    fireflyLight.range = 2.4
+    fireflyLight.intensity = 0
+    fireflyLightList.push(fireflyLight)
+  }
+  const fireflyLightContainer = new ClusteredLightContainer('tankFireflyLightContainer', fireflyLightList, scene)
+  if (!fireflyLightContainer.isSupported) {
+    console.warn('[fish-diorama] 環境不支援 clustered lighting，螢火退回純視覺光暈')
+    fireflyLightContainer.dispose()
+    for (const fireflyLight of fireflyLightList) {
+      fireflyLight.dispose()
+    }
+    fireflyLightList.length = 0
+  }
+
+  let firefliesHidden = true
+
+  function updateFireflyList(timeSeconds: number) {
+    if (nightProgress <= 0.001) {
+      if (!firefliesHidden) {
+        firefliesHidden = true
+        for (const firefly of fireflyList) {
+          firefly.mesh.visibility = 0
+        }
+        for (const fireflyLight of fireflyLightList) {
+          fireflyLight.intensity = 0
+        }
+      }
+      return
+    }
+    firefliesHidden = false
+    for (const [index, firefly] of fireflyList.entries()) {
+      const driftTime = timeSeconds * firefly.speed + firefly.phase
+      firefly.mesh.position.set(
+        firefly.baseX + Math.cos(driftTime) * firefly.driftRadius,
+        firefly.baseY + Math.sin(driftTime * 1.7) * 0.15,
+        firefly.baseZ + Math.sin(driftTime * 0.9) * firefly.driftRadius,
+      )
+      // 明滅呼吸；加色混合下 visibility 直接當亮度用，實體光強度跟著同步
+      const twinkle = 0.35 + 0.35 * Math.sin(driftTime * 2.3)
+      firefly.mesh.visibility = nightProgress * twinkle
+      const fireflyLight = fireflyLightList[index]
+      if (fireflyLight) {
+        fireflyLight.intensity = nightProgress * twinkle * 2.4
+      }
+    }
+  }
+
+  // --- 進場演出：擺設依序從 0 彈出到原尺寸（easeOutBack 過衝） ---
+  const ENTRANCE_ITEM_DURATION = 0.5
+  const ENTRANCE_STAGGER = 0.07
+
+  interface EntranceItem {
+    node: TransformNode;
+    baseScaling: Vector3;
+    delay: number;
+  }
+
+  const entranceItemList: EntranceItem[] = []
+  let entranceElapsed = 0
+  let entranceRegisterCount = 0
+  let isEntranceFinished = false
+
+  function registerEntranceNode(node: TransformNode) {
+    entranceItemList.push({
+      node,
+      baseScaling: node.scaling.clone(),
+      delay: entranceRegisterCount * ENTRANCE_STAGGER,
+    })
+    // 開演前縮到近乎不可見（不用 0，避免縮放矩陣退化）
+    node.scaling.setAll(0.001)
+    entranceRegisterCount += 1
+  }
+
+  for (const rock of rocks.meshList) {
+    registerEntranceNode(rock)
+  }
+  for (const plant of seaweed.plantList) {
+    registerEntranceNode(plant.anchorNode)
+  }
+  // 三個可互動裝飾的 scaling 由 updateSpotEffects 統一寫入，進場只回填延遲、
+  // 由 computeEntranceScale 提供倍率（放最後壓軸彈出）
+  for (const effectItem of spotEffectItemMap.values()) {
+    effectItem.entranceDelay = entranceRegisterCount * ENTRANCE_STAGGER
+    entranceRegisterCount += 1
+  }
+  const entranceTotalSeconds
+    = entranceRegisterCount * ENTRANCE_STAGGER + ENTRANCE_ITEM_DURATION
+
+  /** 指定延遲項目目前的進場縮放倍率（0.001 ~ 1，easeOutBack 過衝） */
+  function computeEntranceScale(delay: number): number {
+    const progress = Math.min(1, Math.max(0, (entranceElapsed - delay) / ENTRANCE_ITEM_DURATION))
+    if (progress <= 0) {
+      return 0.001
+    }
+    if (progress >= 1) {
+      return 1
+    }
+    const overshoot = 1.70158
+    const offset = progress - 1
+    return 1 + (overshoot + 1) * offset ** 3 + overshoot * offset ** 2
+  }
+
+  function updateEntrance(deltaSeconds: number) {
+    if (isEntranceFinished) {
+      return
+    }
+    entranceElapsed += deltaSeconds
+    for (const entranceItem of entranceItemList) {
+      const scale = computeEntranceScale(entranceItem.delay)
+      entranceItem.node.scaling.set(
+        entranceItem.baseScaling.x * scale,
+        entranceItem.baseScaling.y * scale,
+        entranceItem.baseScaling.z * scale,
+      )
+    }
+    if (entranceElapsed >= entranceTotalSeconds) {
+      isEntranceFinished = true
+      // 演出結束才建碰撞體：剛體會以「當下的世界矩陣」烘焙形狀，
+      // 縮放中建立會得到縮小的碰撞外形
+      if (hasPendingPhysicsEnable) {
+        hasPendingPhysicsEnable = false
+        enablePhysics()
+      }
+    }
+  }
+
+  // --- 落地水滴：小水珠濺出、拋物落下、貼地後縮小消失 ---
+  const BURST_PARTICLE_POOL_SIZE = 24
+  const BURST_GRAVITY = 8
+  /** 水滴縱向拉長比例，微微的淚滴感 */
+  const BURST_DROPLET_STRETCH = 1.35
+
+  interface BurstParticle {
+    mesh: Mesh;
+    velocity: Vector3;
+    life: number;
+    maxLife: number;
+    baseScale: number;
+  }
+
+  const burstMaterialList = ['#8fd8e8', '#6ec3da', '#b5e8f2'].map((color, index) => {
+    const material = new StandardMaterial(`tankDropletMaterial${index}`, scene)
+    material.diffuseColor = Color3.FromHexString(color)
+    material.emissiveColor = Color3.FromHexString(color).scale(0.3)
+    material.specularColor = Color3.Black()
+    return material
+  })
+
+  const burstParticleList: BurstParticle[] = []
+  for (let index = 0; index < BURST_PARTICLE_POOL_SIZE; index++) {
+    const mesh = CreateSphere(`tankDropletParticle${index}`, { diameter: 0.06, segments: 6 }, scene)
+    mesh.material = burstMaterialList[index % burstMaterialList.length]!
+    mesh.isPickable = false
+    mesh.setEnabled(false)
+    burstParticleList.push({
+      mesh,
+      velocity: new Vector3(),
+      life: 0,
+      maxLife: 1,
+      baseScale: 1,
+    })
+  }
+
+  // 粒子屬短暫演出、不需跨次載入一致，用 Math.random 而非固定種子
+  function spawnLandingBurst(x: number, z: number, strength: number) {
+    const spawnTarget = Math.round(4 + strength * 4)
+    let spawnedCount = 0
+    for (const particle of burstParticleList) {
+      if (spawnedCount >= spawnTarget) {
+        break
+      }
+      if (particle.life > 0) {
+        continue
+      }
+      spawnedCount += 1
+      const angle = Math.random() * Math.PI * 2
+      const speed = 0.8 + Math.random() * 1.4
+      particle.velocity.set(
+        Math.cos(angle) * speed,
+        (1.3 + Math.random() * 1.3) * (0.5 + strength * 0.5),
+        Math.sin(angle) * speed,
+      )
+      particle.maxLife = 0.55 + Math.random() * 0.3
+      particle.life = particle.maxLife
+      particle.baseScale = 0.7 + Math.random() * 0.6
+      particle.mesh.position.set(x + Math.cos(angle) * 0.15, 0.08, z + Math.sin(angle) * 0.15)
+      particle.mesh.scaling.set(
+        particle.baseScale,
+        particle.baseScale * BURST_DROPLET_STRETCH,
+        particle.baseScale,
+      )
+      particle.mesh.setEnabled(true)
+    }
+  }
+
+  function updateBurstParticleList(deltaSeconds: number) {
+    for (const particle of burstParticleList) {
+      if (particle.life <= 0) {
+        continue
+      }
+      particle.life -= deltaSeconds
+      if (particle.life <= 0) {
+        particle.mesh.setEnabled(false)
+        continue
+      }
+      particle.velocity.y -= BURST_GRAVITY * deltaSeconds
+      particle.mesh.position.x += particle.velocity.x * deltaSeconds
+      particle.mesh.position.y += particle.velocity.y * deltaSeconds
+      particle.mesh.position.z += particle.velocity.z * deltaSeconds
+      if (particle.mesh.position.y < 0.02) {
+        // 貼地就停住不再滑動，等生命末段縮小消失
+        particle.mesh.position.y = 0.02
+        particle.velocity.set(0, 0, 0)
+      }
+      const lifeRatio = particle.life / particle.maxLife
+      const scale = particle.baseScale * Math.min(1, lifeRatio / 0.35)
+      particle.mesh.scaling.set(scale, scale * BURST_DROPLET_STRETCH, scale)
     }
   }
 
@@ -829,8 +1262,14 @@ export function createTankEnvironment(scene: Scene): TankEnvironment {
 
   // --- Havok 物理：水草剛體 + 靜態碰撞體 ---
   let hasPhysics = false
+  /** Havok 比進場演出先就緒時，延到演出結束再建碰撞體（剛體形狀以當下世界矩陣烘焙） */
+  let hasPendingPhysicsEnable = false
   function enablePhysics() {
     if (hasPhysics) {
+      return
+    }
+    if (!isEntranceFinished) {
+      hasPendingPhysicsEnable = true
       return
     }
     hasPhysics = true
@@ -903,7 +1342,12 @@ export function createTankEnvironment(scene: Scene): TankEnvironment {
   }
 
   function update(timeSeconds: number, deltaSeconds: number, fishX: number, fishZ: number) {
+    updateEntrance(deltaSeconds)
     updateSpotEffects(deltaSeconds)
+    updateShowcase(deltaSeconds)
+    updateBurstParticleList(deltaSeconds)
+    updateNightLight(deltaSeconds)
+    updateFireflyList(timeSeconds)
 
     for (const swayItem of swayItemList) {
       swayItem.node.rotation.z = swayItem.baseLean
@@ -955,8 +1399,11 @@ export function createTankEnvironment(scene: Scene): TankEnvironment {
     interactionSpotList,
     playSpotBounce,
     setSpotHover,
+    playSpotShowcase,
+    setNightMode,
     update,
     showClickMarker,
+    spawnLandingBurst,
     setPortrait,
     enablePhysics,
   }

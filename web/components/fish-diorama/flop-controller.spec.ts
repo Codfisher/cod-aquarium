@@ -43,6 +43,40 @@ describe('flopController', () => {
     expect(distance).toBeLessThanOrEqual(0.12 + 1e-6)
   })
 
+  it('startle 會原地跳起後回到原位', () => {
+    const controller = new FlopController()
+    controller.teleport({ x: 1.5, z: -0.5 }, 0.8)
+
+    controller.startle()
+    const poseList = runUntilStopped(controller)
+    const maxHeight = Math.max(...poseList.map((pose) => pose.y))
+    const lastPose = poseList[poseList.length - 1]
+
+    expect(maxHeight).toBeGreaterThan(0.2)
+    expect(lastPose!.x).toBe(1.5)
+    expect(lastPose!.z).toBe(-0.5)
+    expect(lastPose!.y).toBe(0)
+    expect(lastPose!.heading).toBeCloseTo(0.8)
+    expect(controller.isMoving).toBe(false)
+  })
+
+  it('跳躍中 startle 不會重設進行中的跳躍', () => {
+    const controller = new FlopController()
+    controller.teleport({ x: 0, z: 0 }, 0)
+    controller.setTarget({ x: 3, z: 0 })
+
+    // 跳到半空
+    for (let index = 0; index < 8; index++) {
+      controller.update(FRAME_SECONDS)
+    }
+    const poseBeforeStartle = controller.getPose()
+    controller.startle()
+    const poseAfterStartle = controller.getPose()
+
+    expect(poseAfterStartle.y).toBe(poseBeforeStartle.y)
+    expect(poseAfterStartle.x).toBe(poseBeforeStartle.x)
+  })
+
   it('跳躍過程會離地，且最後回到地面', () => {
     const controller = new FlopController()
     controller.teleport({ x: 0, z: 0 }, 0)

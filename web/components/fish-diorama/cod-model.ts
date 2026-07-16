@@ -301,7 +301,8 @@ export function createCodModel(scene: Scene): CodModel {
   lieNode.parent = rootNode
 
   const bodyMaterial = new StandardMaterial('codBodyMaterial', scene)
-  bodyMaterial.diffuseColor = Color3.White()
+  // 純白在多光源下會過曝死白，壓成帶點冷灰的淺色
+  bodyMaterial.diffuseColor = Color3.FromHexString('#e3e9ec')
   // 給一點窄高光，讓魚身有濕潤光澤層次而非死平
   bodyMaterial.specularColor = new Color3(0.14, 0.16, 0.18)
   bodyMaterial.specularPower = 48

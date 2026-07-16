@@ -42,11 +42,24 @@ function buildNoiseSvg(layer: NoiseLayer): string {
 </svg>`
 }
 
-/** 解算 soft-light 用的紙底色（貼近箱庭的淺青背景） */
-const PAPER_RGB: readonly [number, number, number] = [242, 248, 245]
+/** CSS 疊加紋理的紙底色變體：明暗模式的背景色差異大，
+ * soft-light 必須對各自的底色解算，拿淺色版貼深背景會像髒污灰斑
+ */
+export type GrainPaperVariant = 'dark' | 'light'
 
-/** CSS 疊加版的紋理濃度（以中灰為軸放大起伏） */
-const CSS_GRAIN_CONTRAST = 1.1
+/** 解算 soft-light 用的紙底色（貼近箱庭兩種模式的漸層背景） */
+const paperRgbMap: Record<GrainPaperVariant, readonly [number, number, number]> = {
+  light: [242, 248, 245],
+  dark: [35, 52, 61],
+}
+
+/** CSS 疊加版的紋理濃度（以中灰為軸縮放起伏）。
+ * 深色底解算出的 alpha 天生偏高，對比要壓低很多才不會像迷彩斑
+ */
+const cssGrainContrastMap: Record<GrainPaperVariant, number> = {
+  light: 1.1,
+  dark: 0.5,
+}
 
 function scheduleIdle(callback: () => void): void {
   // iOS Safari 沒有 requestIdleCallback，退而求其次用 setTimeout
@@ -133,11 +146,12 @@ function applySoftLight(backdrop: number, source: number): number {
  * 「normal 合成 (color, alpha) over 紙底色 ＝ soft-light(紙底色, 灰階)」，
  * 讓 CSS 疊加只需普通 alpha 合成、不需 mix-blend-mode
  */
-function buildBakedLookupTable(): Uint8ClampedArray {
-  const paperList = PAPER_RGB.map((channel) => channel / 255)
+function buildBakedLookupTable(variant: GrainPaperVariant): Uint8ClampedArray {
+  const paperList = paperRgbMap[variant].map((channel) => channel / 255)
+  const contrast = cssGrainContrastMap[variant]
   const table = new Uint8ClampedArray(256 * 4)
   for (let gray = 0; gray < 256; gray++) {
-    const source = Math.min(1, Math.max(0, 0.5 + (gray / 255 - 0.5) * CSS_GRAIN_CONTRAST))
+    const source = Math.min(1, Math.max(0, 0.5 + (gray / 255 - 0.5) * contrast))
     const deltaList = paperList.map((paper) => applySoftLight(paper, source) - paper)
     let alpha = 0
     for (let channel = 0; channel < 3; channel++) {
@@ -163,7 +177,7 @@ function buildBakedLookupTable(): Uint8ClampedArray {
 }
 
 let pendingTileUrl: Promise<string> | null = null
-let pendingCssUrl: Promise<string> | null = null
+const pendingCssUrlMap = new Map<GrainPaperVariant, Promise<string>>()
 
 /** 灰階紙紋 tile 的 Blob URL（3D 材質三平面投影取樣用，中灰 0.5 為中性）。
  * rasterize 延後到 idle 才做；失敗時 reject — 呼叫端自行 catch 並降級。
@@ -176,14 +190,15 @@ export function getGrainTileBlobUrl(): Promise<string> {
   return pendingTileUrl
 }
 
-/** CSS 疊加用紙紋 tile 的 Blob URL：soft-light 對紙底色預解算成半透明 RGBA，
- * 鋪在漸層背景上時只需普通 alpha 合成。
+/** CSS 疊加用紙紋 tile 的 Blob URL：soft-light 對指定變體的紙底色預解算成
+ * 半透明 RGBA，鋪在漸層背景上時只需普通 alpha 合成。
  */
-export function getGrainCssBlobUrl(): Promise<string> {
-  if (pendingCssUrl) {
-    return pendingCssUrl
+export function getGrainCssBlobUrl(variant: GrainPaperVariant = 'light'): Promise<string> {
+  const pendingUrl = pendingCssUrlMap.get(variant)
+  if (pendingUrl) {
+    return pendingUrl
   }
-  pendingCssUrl = getGrayscaleCanvas().then((sourceCanvas) => {
+  const nextUrl = getGrayscaleCanvas().then((sourceCanvas) => {
     const canvas = document.createElement('canvas')
     canvas.width = GRAIN_TILE_SIZE
     canvas.height = GRAIN_TILE_SIZE
@@ -193,7 +208,7 @@ export function getGrainCssBlobUrl(): Promise<string> {
     }
     context.drawImage(sourceCanvas, 0, 0)
     const imageData = context.getImageData(0, 0, GRAIN_TILE_SIZE, GRAIN_TILE_SIZE)
-    const table = buildBakedLookupTable()
+    const table = buildBakedLookupTable(variant)
     const data = imageData.data
     for (let index = 0; index < data.length; index += 4) {
       const offset = data[index]! * 4
@@ -205,5 +220,6 @@ export function getGrainCssBlobUrl(): Promise<string> {
     context.putImageData(imageData, 0, 0)
     return convertCanvasToBlobUrl(canvas)
   })
-  return pendingCssUrl
+  pendingCssUrlMap.set(variant, nextUrl)
+  return nextUrl
 }
