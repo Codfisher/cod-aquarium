@@ -108,7 +108,9 @@ export function createDioramaScene(
   canvas: HTMLCanvasElement,
   options: DioramaSceneOptions,
 ): DioramaSceneHandle {
-  const engine = new Engine(canvas, true, { alpha: true }, false)
+  // doNotHandleTouchAction：Engine 預設會把 canvas inline style 設成 touch-action: none，
+  // 蓋掉樣式表的 pan-y，導致觸控無法在魚缸區直向捲動頁面。場景只需點擊，不需要 Babylon 手勢
+  const engine = new Engine(canvas, true, { alpha: true, doNotHandleTouchAction: true }, false)
   // 內部渲染解析度至少 1.5 倍、上限 2 倍（超取樣）：一般桌面螢幕 dpr = 1，
   // 光靠 MSAA＋FXAA 壓不掉高對比硬邊的階梯感；低多邊形場景填充成本低，
   // 用解析度換邊緣品質最划算
