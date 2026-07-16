@@ -7,6 +7,7 @@ import { Engine } from '@babylonjs/core/Engines/engine'
 import { DirectionalLight } from '@babylonjs/core/Lights/directionalLight'
 import { HemisphericLight } from '@babylonjs/core/Lights/hemisphericLight'
 import { ShadowGenerator } from '@babylonjs/core/Lights/Shadows/shadowGenerator'
+import { Texture } from '@babylonjs/core/Materials/Textures/texture'
 import { Color3, Color4 } from '@babylonjs/core/Maths/math.color'
 import { Vector3 } from '@babylonjs/core/Maths/math.vector'
 import { CreateGround } from '@babylonjs/core/Meshes/Builders/groundBuilder'
@@ -14,12 +15,13 @@ import { CreateSphere } from '@babylonjs/core/Meshes/Builders/sphereBuilder'
 import { PhysicsMotionType, PhysicsShapeType } from '@babylonjs/core/Physics/v2/IPhysicsEnginePlugin'
 import { PhysicsAggregate } from '@babylonjs/core/Physics/v2/physicsAggregate'
 import { HavokPlugin } from '@babylonjs/core/Physics/v2/Plugins/havokPlugin'
-import { DepthOfFieldEffectBlurLevel } from '@babylonjs/core/PostProcesses/depthOfFieldEffect'
 import { DefaultRenderingPipeline } from '@babylonjs/core/PostProcesses/RenderPipeline/Pipelines/defaultRenderingPipeline'
 import { Scene } from '@babylonjs/core/scene'
 import { ShadowOnlyMaterial } from '@babylonjs/materials/shadowOnly/shadowOnlyMaterial'
 import { COD_LYING_LIFT, createCodModel } from './cod-model'
 import { FlopController, resolvePointOutsideObstacles } from './flop-controller'
+import { getGrainTileBlobUrl } from './paper-grain'
+import { attachPaperGrainPlugins, setPaperGrainTexture } from './paper-grain-plugin'
 import {
   createTankEnvironment,
   GROUND_Y,
@@ -97,12 +99,10 @@ export function createDioramaScene(
   )
   camera.fov = 0.7
 
-  // 景深 + 影像處理：淺景深讓前後景模糊、暗角與對比拉高，營造微縮模型（tilt-shift）的感覺
+  // 影像處理：對比微調 + FXAA。
+  // 景深（DOF）已停用：失焦溢光會在物體邊緣產生明顯白色光暈
   const pipeline = new DefaultRenderingPipeline('dioramaPipeline', true, scene, [camera])
-  pipeline.depthOfFieldEnabled = true
-  pipeline.depthOfFieldBlurLevel = DepthOfFieldEffectBlurLevel.Low
-  pipeline.depthOfField.fStop = 2.6
-  pipeline.depthOfField.focalLength = 75
+  pipeline.depthOfFieldEnabled = false
   pipeline.imageProcessingEnabled = true
   pipeline.imageProcessing.contrast = 1.12
   pipeline.imageProcessing.exposure = 1
@@ -178,10 +178,27 @@ export function createDioramaScene(
   }))
   flopController.setObstacleList(obstacleList)
 
+  /** 場景已銷毀旗標：非同步資源（紙紋、Havok WASM）載入完成時若已銷毀就不再初始化 */
+  let isDisposed = false
+
+  // --- 紙紋材質 ---
+  // 外掛必須在材質首次渲染前掛上（此時 define 關閉、零成本）；
+  // 噪點 tile 非同步產生，就緒後翻開 define，以三平面投影混進每個面；失敗維持平塗
+  attachPaperGrainPlugins(scene)
+  getGrainTileBlobUrl()
+    .then((url) => {
+      if (isDisposed) {
+        return
+      }
+      setPaperGrainTexture(scene, new Texture(url, scene))
+    })
+    .catch((error) => {
+      console.warn('[fish-diorama] 紙紋產生失敗，維持平塗材質', error)
+    })
+
   // --- Havok 物理（非同步載入 WASM）---
   // 就緒後：水草葉片轉動態剛體被魚推開、彈簧回正；載入失敗保留手動推草，場景照常運作
   let fishColliderMesh: ReturnType<typeof CreateSphere> | undefined
-  let isDisposed = false
 
   import('@babylonjs/havok')
     .then(async (havokModule) => havokModule.default())
@@ -250,9 +267,6 @@ export function createDioramaScene(
     camera.radius = distanceForFullWidth <= baseRadius * 1.4
       ? Math.max(baseRadius, distanceForFullWidth)
       : baseRadius
-
-    // 對焦在場景中心（相機到 target 的距離，單位 mm），前後景自然模糊成微縮感
-    pipeline.depthOfField.focusDistance = camera.radius * 1000
   }
 
   applyCameraFraming()

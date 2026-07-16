@@ -5,9 +5,16 @@
     class="fish-diorama relative w-full overflow-hidden select-none"
     aria-label="鱈魚箱庭互動場景：點擊沙地讓鱈魚跳過去"
   >
+    <!-- 背景紙紋：墊在透明 canvas 下方，只鋪在 CSS 漸層上（模型的紙紋由材質內混合） -->
+    <div
+      v-if="grainUrl"
+      class="paper-grain-background absolute inset-0 pointer-events-none"
+      :style="{ backgroundImage: `url(${grainUrl})` }"
+    />
+
     <canvas
       ref="canvasRef"
-      class="diorama-canvas block h-full w-full"
+      class="diorama-canvas relative block h-full w-full"
       :class="{ 'is-ready': isReady }"
     />
 
@@ -49,6 +56,7 @@ import {
 } from '@vueuse/core'
 import { useData } from 'vitepress'
 import { computed, onMounted, onUnmounted, ref, useTemplateRef, watch } from 'vue'
+import { getGrainCssBlobUrl } from './paper-grain'
 
 const sectionRef = useTemplateRef('sectionRef')
 const canvasRef = useTemplateRef('canvasRef')
@@ -58,6 +66,8 @@ const isFocused = useWindowFocus()
 
 const isReady = ref(false)
 const hasFailed = ref(false)
+/** 背景紙紋 tile 的 Blob URL，產生失敗就不鋪（優雅降級） */
+const grainUrl = ref('')
 
 /** Babylon 場景控制器。非響應式資料，不放進 ref */
 let dioramaHandle: DioramaSceneHandle | undefined
@@ -79,6 +89,13 @@ const hintText = computed(() => {
 })
 
 onMounted(async () => {
+  // 背景紙紋非關鍵路徑：失敗就維持純漸層
+  getGrainCssBlobUrl()
+    .then((url) => {
+      grainUrl.value = url
+    })
+    .catch(() => {})
+
   const canvas = canvasRef.value
   if (!canvas) {
     return
@@ -140,6 +157,11 @@ onUnmounted(() => {
 
   &.is-ready
     opacity: 1
+
+.paper-grain-background
+  background-repeat: repeat
+  // 深色模式下淺色紙紋會偏灰濁，壓低濃度
+  opacity: light-dark(0.6, 0.35)
 
 .hint-text, .hint-arrow
   color: light-dark(oklch(0.45 0.06 175), oklch(0.85 0.05 175))
