@@ -5,10 +5,16 @@
     class="fish-diorama relative w-full overflow-hidden select-none"
     aria-label="鱈魚箱庭互動場景：點擊沙地讓鱈魚跳過去"
   >
-    <!-- 背景紙紋：墊在透明 canvas 下方，只鋪在 CSS 漸層上（模型的紙紋由材質內混合） -->
+    <!-- 背景紙紋：墊在透明 canvas 下方，只鋪在 CSS 漸層上（模型的紙紋由材質內混合）。
+         上層平鋪負責遠景，下層用 CSS 透視變形傾成地板面（近大遠小） -->
     <div
       v-if="grainUrl"
       class="paper-grain-background absolute inset-0 pointer-events-none"
+      :style="{ backgroundImage: `url(${grainUrl})` }"
+    />
+    <div
+      v-if="grainUrl"
+      class="paper-grain-floor absolute pointer-events-none"
       :style="{ backgroundImage: `url(${grainUrl})` }"
     />
 
@@ -162,6 +168,24 @@ onUnmounted(() => {
   background-repeat: repeat
   // 深色模式下淺色紙紋會偏灰濁，壓低濃度
   opacity: light-dark(0.6, 0.35)
+  // 下半部（地板區）淡出，交給透視變形的地板層，避免重複疊加
+  mask-image: linear-gradient(to bottom, black 0%, black 26%, transparent 48%)
+  -webkit-mask-image: linear-gradient(to bottom, black 0%, black 26%, transparent 48%)
+
+.paper-grain-floor
+  background-repeat: repeat
+  opacity: light-dark(0.6, 0.35)
+  // 傾成地板面：以上緣（地平線附近）為軸做透視旋轉，紋理近大遠小。
+  // 寬度左右外擴，旋轉後才不會在畫面兩側露出缺角
+  top: 24%
+  bottom: -30%
+  left: -40%
+  right: -40%
+  transform-origin: top center
+  transform: perspective(900px) rotateX(54deg)
+  // 上緣淡入，與上方平鋪層平滑銜接
+  mask-image: linear-gradient(to bottom, transparent 0%, black 18%)
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 18%)
 
 .hint-text, .hint-arrow
   color: light-dark(oklch(0.45 0.06 175), oklch(0.85 0.05 175))
