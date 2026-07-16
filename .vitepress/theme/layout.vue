@@ -83,3 +83,19 @@ onUnmounted(() => {
     </template>
   </DefaultTheme.Layout>
 </template>
+
+<style>
+/* 首頁手機版：VitePress 導覽列在窄螢幕是正常流排版，會被排在整屏箱庭 hero 之後（跑到畫面最下面）。
+   把 .Layout 轉成 flex 直排、將導覽列 order 提到 hero 之前，維持在頂部。
+   桌機（≥960px）導覽列本來就是 fixed 覆蓋，不受此影響。pageClass 由 index.md frontmatter 指定。 */
+@media (max-width: 959px) {
+  .Layout.home-diorama {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .Layout.home-diorama > .VPNav {
+    order: -1;
+  }
+}
+</style>

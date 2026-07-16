@@ -3,6 +3,7 @@ title: 鱈魚的魚缸
 titleTemplate: 各種鱈魚滾鍵盤的雜記與研究
 description: 各種鱈魚滾鍵盤的雜記與其他酷酷的東西 (´,,•ω•,,)
 image: https://codlin.me/cover.webp
+pageClass: home-diorama
 sidebar: false
 lastUpdated: false
 prev: false
