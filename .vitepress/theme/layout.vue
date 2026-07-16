@@ -2,9 +2,16 @@
 import { useDebounceFn } from '@vueuse/core'
 import { useData, useRouter } from 'vitepress'
 import DefaultTheme from 'vitepress/theme'
-import { computed, onMounted, onUnmounted } from 'vue'
+import { computed, defineAsyncComponent, onMounted, onUnmounted } from 'vue'
 import DonateSection from '../../web/components/donate-section.vue'
-import FishDiorama from '../../web/components/fish-diorama/fish-diorama.vue'
+
+/** 箱庭 hero 只有首頁用得到，lazy import 拆出獨立 chunk，其他頁面不用付這份載入成本 */
+const FishDiorama = defineAsyncComponent(
+  () => import('../../web/components/fish-diorama/fish-diorama.vue'),
+)
+
+/** 模板規範要求 kebab-case 元件名，成員表達式寫法（DefaultTheme.Layout）過不了 lint，取別名使用 */
+const DefaultLayout = DefaultTheme.Layout
 
 const { page } = useData()
 /** 首頁頂部的 3D 箱庭 hero，只在首頁出現 */
@@ -73,7 +80,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <DefaultTheme.Layout>
+  <default-layout>
     <template #layout-top>
       <fish-diorama v-if="dioramaVisible" />
     </template>
@@ -81,7 +88,7 @@ onUnmounted(() => {
     <template #doc-footer-before>
       <donate-section />
     </template>
-  </DefaultTheme.Layout>
+  </default-layout>
 </template>
 
 <style>
