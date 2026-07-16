@@ -44,7 +44,6 @@
 import type { DioramaSceneHandle } from './diorama-scene'
 import {
   useIntersectionObserver,
-  usePreferredReducedMotion,
   useResizeObserver,
   useWindowFocus,
 } from '@vueuse/core'
@@ -56,7 +55,6 @@ const canvasRef = useTemplateRef('canvasRef')
 
 const { isDark } = useData()
 const isFocused = useWindowFocus()
-const reducedMotionPreference = usePreferredReducedMotion()
 
 const isReady = ref(false)
 const hasFailed = ref(false)
@@ -77,7 +75,7 @@ const hintText = computed(() => {
   if (!isReady.value) {
     return '正在佈置魚缸...(´,,•ω•,,)'
   }
-  return '點沙地叫鱈魚過去 (ゝ∀・)b'
+  return '下面還有很多內容 (ゝ∀・)b'
 })
 
 onMounted(async () => {
@@ -92,7 +90,6 @@ onMounted(async () => {
 
     dioramaHandle = createDioramaScene(canvas, {
       isDark: isDark.value,
-      isReducedMotion: reducedMotionPreference.value === 'reduce',
     })
     dioramaHandle.resize()
     isReady.value = true
@@ -110,10 +107,6 @@ watch(shouldRun, (value) => {
 
 watch(isDark, (value) => {
   dioramaHandle?.setDarkMode(value)
-})
-
-watch(reducedMotionPreference, (value) => {
-  dioramaHandle?.setReducedMotion(value === 'reduce')
 })
 
 useResizeObserver(sectionRef, () => {

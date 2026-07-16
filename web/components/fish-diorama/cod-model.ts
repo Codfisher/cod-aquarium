@@ -26,6 +26,10 @@ export interface CodModelUpdateParams {
   deltaSeconds: number;
   /** 移動中（跳躍/滑行）時扭動與鰭擺加快加大 */
   isMoving: boolean;
+  /** 與跳躍同步的擺動相位（rad）。有給就直接採用（擺尾配合跳躍節奏），沒給則自積分 */
+  wavePhase?: number;
+  /** 擺動強度（0~1，= 本跳跳高縮放）：短跳擺幅等比縮小，大跳才大甩 */
+  waveStrength?: number;
   /** 世界空間注視點（滑鼠游標在沙地的投影）。有值時眼睛看向它，null 則自主張望 */
   gazeTarget?: Vector3 | null;
 }
@@ -49,18 +53,25 @@ export const COD_LYING_LIFT = 0.34
 const BACK_COLOR = { red: 0.44, green: 0.71, blue: 0.85 }
 const BELLY_COLOR = { red: 0.98, green: 0.96, blue: 0.9 }
 
-// --- 身體扭動參數 ---
-/** 沿長軸 z 的波數。刻意壓低到不足半個波，讓全身大致同向擺動（魚），
- * 而非身上同時多個彎（蛇）
- */
-const BODY_WAVE_NUMBER = 1.1
-/** 扭動包絡的頭尾錨點：愈靠頭愈穩、愈靠尾擺幅愈大 */
+// --- 身體擺動參數 ---
+/** 擺動樞紐的長軸位置：頭前段固定，後身從這裡開始繞樞紐彎轉 */
+const BEND_PIVOT_Z = 0.6
+/** 尾端相對前身的相位延遲（rad）：尾巴略晚跟上，掃出鞭甩感 */
+const BODY_WHIP_LAG = 1.1
+/** 擺動包絡的頭尾錨點：愈靠頭愈穩、愈靠尾擺角愈大 */
 const WAVE_HEAD_Z = 1
 const WAVE_TAIL_Z = -1.5
-const WAVE_AMPLITUDE_MOVING = 0.48
+/** 尾端最大擺角（rad）。擺動的誇張程度調這裡 */
+const WAVE_AMPLITUDE_MOVING = 0.6
 const WAVE_AMPLITUDE_IDLE = 0
-const WAVE_SPEED_MOVING = 19
+/** 大開大合的掃動，速度放慢才讀得出來 */
+const WAVE_SPEED_MOVING = 15
 const WAVE_SPEED_IDLE = 4.5
+/** 擺幅趨近目標值的速率（1/s）：移動中快速跟上；
+ * 停止後放慢，讓殘餘擺動以漸緩的小幅擺動收斂回自然直身，而非瞬間凍結
+ */
+const WAVE_LERP_RATE_MOVING = 10
+const WAVE_LERP_RATE_IDLE = 2.5
 
 // --- 鰭擺動參數 ---
 const PECTORAL_SPEED_MOVING = 15
@@ -69,7 +80,7 @@ const PECTORAL_SWING_MOVING = 0.7
 const PECTORAL_SWING_IDLE = 0.2
 /** 尾鰭順著身體波甩動的相位延遲，做出鞭梢感 */
 const TAIL_PHASE_LAG = 0.7
-const TAIL_SWING_MOVING = 0.9
+const TAIL_SWING_MOVING = 1.15
 const TAIL_SWING_IDLE = 0.14
 
 // --- 眼睛動畫參數 ---
@@ -89,17 +100,30 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value))
 }
 
-/** 身體扭動包絡：頭與前半身幾乎不動（趨近 0），越往尾二次放大到 1，
- * 呈現魚類「前段穩、後段與尾巴大擺」的擺動，而非全身均勻起伏的蛇形
+/** 身體扭動包絡：頭與前半身幾乎不動（趨近 0），越往尾放大到 1，
+ * 呈現魚類「前段穩、後段與尾巴大擺」的擺動，而非全身均勻起伏的蛇形。
+ * 指數 1.6：比平方稍多中段參與，後身整片一起掃、擺感更強
  */
 function waveEnvelope(z: number): number {
   const ratio = clamp((WAVE_HEAD_Z - z) / (WAVE_HEAD_Z - WAVE_TAIL_Z), 0, 1)
-  return ratio ** 2
+  return ratio ** 1.6
 }
 
-/** 某長軸位置 z 的橫向位移量 */
-function waveOffset(z: number, phase: number, amplitude: number): number {
-  return amplitude * waveEnvelope(z) * Math.sin(z * BODY_WAVE_NUMBER - phase)
+/** 某長軸位置 z 的彎轉角（rad）。
+ * 擺動的本質是「後身繞樞紐旋轉」（等同脊椎骨鏈），而非頂點側向平移：
+ * 平移振幅一大就變成剪切變形（像被橫向抹開），旋轉則保持體長、
+ * 截面沿弧線掃過去，才是真的擺動。
+ *
+ * 波形用 cos 配合跳躍相位（每跳一整圈）：相位 0（起跳）= 上彎蓄力、
+ * π（半空）= 下擺到底——上升段全程往下甩尾，做出拍地把自己彈起來的感覺。
+ * 魚側躺，此彎轉在世界空間正是垂直方向的上下擺。
+ *
+ * 開頭的負號決定「下」的方向（實測校正）。注意不可改負 WAVE_AMPLITUDE_MOVING 來翻方向：
+ * applyBodyWave 以「振幅趨近 0」當作免變形的早退條件，負振幅會被當成 0 而完全不擺。
+ */
+function getBendAngle(z: number, phase: number, amplitude: number): number {
+  const lagRatio = clamp((WAVE_HEAD_Z - z) / (WAVE_HEAD_Z - WAVE_TAIL_Z), 0, 1)
+  return -amplitude * waveEnvelope(z) * Math.cos(phase - BODY_WHIP_LAG * lagRatio)
 }
 
 /** 以邊界頂點（繞一圈）扇形三角化建立圓潤鰭片（雙面、flat shading） */
@@ -416,13 +440,17 @@ export function createCodModel(scene: Scene): CodModel {
   const inverseEyeMatrix = new Matrix()
   const gazeDirection = new Vector3()
 
-  /** 依當前相位與擺幅重寫身體頂點與各部件的橫向位移 */
+  /** 依當前相位與擺角重寫身體頂點與各部件位置：
+   * 每個頂點繞樞紐（BEND_PIVOT_Z）在 x-z 平面旋轉、角度往尾端放大，
+   * 等同一條連續脊椎骨鏈的彎曲，體長不變、尾巴沿弧線掃
+   */
   function applyBodyWave() {
     if (bodyWaveAmplitude <= 1e-4) {
       if (bodyIsBent) {
         bodyMesh.updateVerticesData(VertexBuffer.PositionKind, basePositions)
         for (const part of wavePartList) {
           part.node.position.x = part.baseX
+          part.node.position.z = part.baseZ
         }
         bodyIsBent = false
       }
@@ -432,23 +460,43 @@ export function createCodModel(scene: Scene): CodModel {
     for (let index = 0; index < basePositions.length; index += 3) {
       const baseX = basePositions[index] ?? 0
       const baseZ = basePositions[index + 2] ?? 0
-      bodyWaveBuffer[index] = baseX + waveOffset(baseZ, bodyWavePhase, bodyWaveAmplitude)
+      const bendAngle = getBendAngle(baseZ, bodyWavePhase, bodyWaveAmplitude)
+      const sinValue = Math.sin(bendAngle)
+      const cosValue = Math.cos(bendAngle)
+      const deltaZ = baseZ - BEND_PIVOT_Z
+      bodyWaveBuffer[index] = baseX * cosValue + deltaZ * sinValue
       bodyWaveBuffer[index + 1] = basePositions[index + 1] ?? 0
-      bodyWaveBuffer[index + 2] = baseZ
+      bodyWaveBuffer[index + 2] = BEND_PIVOT_Z + deltaZ * cosValue - baseX * sinValue
     }
     bodyMesh.updateVerticesData(VertexBuffer.PositionKind, bodyWaveBuffer)
 
     for (const part of wavePartList) {
-      part.node.position.x = part.baseX + waveOffset(part.baseZ, bodyWavePhase, bodyWaveAmplitude)
+      const bendAngle = getBendAngle(part.baseZ, bodyWavePhase, bodyWaveAmplitude)
+      const sinValue = Math.sin(bendAngle)
+      const cosValue = Math.cos(bendAngle)
+      const deltaZ = part.baseZ - BEND_PIVOT_Z
+      part.node.position.x = part.baseX * cosValue + deltaZ * sinValue
+      part.node.position.z = BEND_PIVOT_Z + deltaZ * cosValue - part.baseX * sinValue
     }
     bodyIsBent = true
   }
 
-  function update({ deltaSeconds, isMoving, gazeTarget }: CodModelUpdateParams) {
-    // 身體 S 波
-    const targetAmplitude = isMoving ? WAVE_AMPLITUDE_MOVING : WAVE_AMPLITUDE_IDLE
-    bodyWaveAmplitude += (targetAmplitude - bodyWaveAmplitude) * Math.min(1, deltaSeconds * 10)
-    bodyWavePhase += deltaSeconds * (isMoving ? WAVE_SPEED_MOVING : WAVE_SPEED_IDLE)
+  function update({ deltaSeconds, isMoving, wavePhase, waveStrength, gazeTarget }: CodModelUpdateParams) {
+    // 身體擺動：外部（跳躍）相位優先，擺尾與跳躍節奏同步；沒有就自積分。
+    // 擺幅乘上跳躍強度：跳得低擺得小、跳得高才大甩
+    const targetAmplitude = isMoving
+      ? WAVE_AMPLITUDE_MOVING * (waveStrength ?? 1)
+      : WAVE_AMPLITUDE_IDLE
+    const amplitudeLerpRate = isMoving ? WAVE_LERP_RATE_MOVING : WAVE_LERP_RATE_IDLE
+    bodyWaveAmplitude += (targetAmplitude - bodyWaveAmplitude) * Math.min(1, deltaSeconds * amplitudeLerpRate)
+    if (isMoving && wavePhase !== undefined) {
+      bodyWavePhase = wavePhase
+    }
+    else {
+      // 停止後不採用外部凍結的相位，改用慢速自積分：
+      // 殘餘擺動從落地當下的姿態接續、漸緩收斂回自然直身，而非瞬間凍結
+      bodyWavePhase += deltaSeconds * (isMoving ? WAVE_SPEED_MOVING : WAVE_SPEED_IDLE)
+    }
     applyBodyWave()
 
     // 胸鰭划水（左右反向繞 z，視覺上同步上下撥）
@@ -462,10 +510,13 @@ export function createCodModel(scene: Scene): CodModel {
     const bodyMotionRatio = bodyWaveAmplitude / WAVE_AMPLITUDE_MOVING
     dorsalPivot.rotation.z = Math.sin(bodyWavePhase * 0.6) * 0.14 * bodyMotionRatio
 
-    // 尾鰭順著身體波甩動（相位略延遲成鞭梢），擺幅在移動/靜止間平滑過渡
+    // 尾鰭先跟上身體在尾柄處的彎轉角，再疊上「身體波形再延遲」的鞭甩（同方向、只是更晚），
+    // 擺幅在移動/靜止間平滑過渡
     const tailSwingTarget = isMoving ? TAIL_SWING_MOVING : TAIL_SWING_IDLE
     tailSwing += (tailSwingTarget - tailSwing) * Math.min(1, deltaSeconds * 8)
-    tailPivot.rotation.y = Math.sin(bodyWavePhase - TAIL_PHASE_LAG) * tailSwing
+    const tailBendAngle = getBendAngle(-1.12, bodyWavePhase, bodyWaveAmplitude)
+    tailPivot.rotation.y = tailBendAngle
+      - Math.cos(bodyWavePhase - BODY_WHIP_LAG - TAIL_PHASE_LAG) * tailSwing * (bodyWaveAmplitude / WAVE_AMPLITUDE_MOVING)
 
     // 眨眼：倒數到 0 觸發一次，短暫壓扁眼睛
     if (blinkElapsed >= BLINK_DURATION) {

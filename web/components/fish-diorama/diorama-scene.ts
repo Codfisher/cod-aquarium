@@ -9,33 +9,41 @@ import { HemisphericLight } from '@babylonjs/core/Lights/hemisphericLight'
 import { ShadowGenerator } from '@babylonjs/core/Lights/Shadows/shadowGenerator'
 import { Color3, Color4 } from '@babylonjs/core/Maths/math.color'
 import { Vector3 } from '@babylonjs/core/Maths/math.vector'
+import { CreateGround } from '@babylonjs/core/Meshes/Builders/groundBuilder'
+import { CreateSphere } from '@babylonjs/core/Meshes/Builders/sphereBuilder'
+import { PhysicsMotionType, PhysicsShapeType } from '@babylonjs/core/Physics/v2/IPhysicsEnginePlugin'
+import { PhysicsAggregate } from '@babylonjs/core/Physics/v2/physicsAggregate'
+import { HavokPlugin } from '@babylonjs/core/Physics/v2/Plugins/havokPlugin'
 import { DepthOfFieldEffectBlurLevel } from '@babylonjs/core/PostProcesses/depthOfFieldEffect'
 import { DefaultRenderingPipeline } from '@babylonjs/core/PostProcesses/RenderPipeline/Pipelines/defaultRenderingPipeline'
 import { Scene } from '@babylonjs/core/scene'
+import { ShadowOnlyMaterial } from '@babylonjs/materials/shadowOnly/shadowOnlyMaterial'
 import { COD_LYING_LIFT, createCodModel } from './cod-model'
-import { FlopController } from './flop-controller'
+import { FlopController, resolvePointOutsideObstacles } from './flop-controller'
 import {
   createTankEnvironment,
-  getSandHeight,
+  GROUND_Y,
   MOVE_BOUNDS_RECT,
+  PHYSICS_GROUP_FISH,
+  PHYSICS_GROUP_SEAWEED,
+  PHYSICS_GROUP_STATIC,
   TANK_DEPTH,
   TANK_WIDTH,
   WALL_HEIGHT,
 } from './tank-environment'
 import '@babylonjs/core/Culling/ray'
 import '@babylonjs/core/Lights/Shadows/shadowGeneratorSceneComponent'
+import '@babylonjs/core/Physics/v2/physicsEngineComponent'
 import '@babylonjs/core/Rendering/depthRendererSceneComponent'
 
 export interface DioramaSceneOptions {
   isDark: boolean;
-  isReducedMotion: boolean;
 }
 
 export interface DioramaSceneHandle {
   /** 開關渲染迴圈（不可見或失焦時停止） */
   setRunning: (value: boolean) => void;
   setDarkMode: (value: boolean) => void;
-  setReducedMotion: (value: boolean) => void;
   /** 容器尺寸變更時重設緩衝區並重新取景 */
   resize: () => void;
   dispose: () => void;
@@ -53,6 +61,12 @@ const LYING_ROLL = -Math.PI / 2
  */
 const INITIAL_HEADING_LANDSCAPE = Math.PI / 4 * 5
 const INITIAL_HEADING_PORTRAIT = Math.PI / 3 * 5
+/** 魚身避讓障礙的額外邊界（加在障礙半徑上）。魚身長約 2 單位、避障以中心為準，
+ * 這裡需涵蓋魚半身長度避免身體/尾巴插進障礙；還會穿模就再加大。
+ */
+const FISH_COLLISION_MARGIN = 0.9
+/** 魚的 kinematic 碰撞球半徑（Havok 推開水草用） */
+const FISH_COLLIDER_RADIUS = 0.55
 /** 單幀 dt 上限（ms），比照 bg-flock 避免掉幀時瞬移 */
 const MAX_FRAME_DELTA_MS = 34
 /** 點擊判定：pointer 位移小於此值（px）才視為點擊而非拖曳/捲動 */
@@ -125,6 +139,23 @@ export function createDioramaScene(
   const shadowGenerator = new ShadowGenerator(1024, directionalLight)
   shadowGenerator.usePercentageCloserFiltering = true
 
+  // 大地板：只顯示陰影的材質，承接浮島落下的接觸陰影把場景接地，同時保留透明畫布的 CSS 漸層背景
+  const groundFloor = CreateGround(
+    'dioramaGroundFloor',
+    { width: TANK_WIDTH * 3, height: TANK_DEPTH * 3 },
+    scene,
+  )
+  groundFloor.position.y = GROUND_Y
+  groundFloor.receiveShadows = true
+  // 大地板是場景唯一可 pick 的目標（點擊移動、游標注視都打在它上面）
+  groundFloor.isPickable = true
+  const groundFloorMaterial = new ShadowOnlyMaterial('dioramaGroundFloorMaterial', scene)
+  groundFloorMaterial.activeLight = directionalLight
+  groundFloorMaterial.shadowColor = Color3.FromHexString('#1b2a33')
+  // 陰影是跳躍高度的主要視覺線索（魚離地時影子分離），不能太淡
+  groundFloorMaterial.alpha = 0.45
+  groundFloor.material = groundFloorMaterial
+
   const environment = createTankEnvironment(scene)
   const codModel = createCodModel(scene)
 
@@ -132,11 +163,61 @@ export function createDioramaScene(
     shadowGenerator.addShadowCaster(mesh)
   }
 
+  // 跳高與滯空刻意偏大：畫面同時有前進位移與身體扭動，跳躍弧線要夠明顯才讀得出來
   const flopController = new FlopController({
     hopDistance: 0.95,
-    hopHeight: 0.55,
+    hopHeight: 0.85,
+    hopDuration: 0.42,
   })
-  flopController.setSlideMode(options.isReducedMotion)
+
+  // 障礙圓（石頭/搖桿/相機）加上魚身邊界後交給移動控制器，魚會繞行且落點不踩進去
+  const obstacleList = environment.obstacleList.map((obstacle) => ({
+    x: obstacle.x,
+    z: obstacle.z,
+    radius: obstacle.radius + FISH_COLLISION_MARGIN,
+  }))
+  flopController.setObstacleList(obstacleList)
+
+  // --- Havok 物理（非同步載入 WASM）---
+  // 就緒後：水草葉片轉動態剛體被魚推開、彈簧回正；載入失敗保留手動推草，場景照常運作
+  let fishColliderMesh: ReturnType<typeof CreateSphere> | undefined
+  let isDisposed = false
+
+  import('@babylonjs/havok')
+    .then(async (havokModule) => havokModule.default())
+    .then((havokInstance) => {
+      if (isDisposed) {
+        return
+      }
+      const havokPlugin = new HavokPlugin(true, havokInstance)
+      scene.enablePhysics(new Vector3(0, -9.81, 0), havokPlugin)
+
+      // 大地板剛體：倒伏的葉片靠在上面
+      const groundAggregate = new PhysicsAggregate(groundFloor, PhysicsShapeType.BOX, { mass: 0 }, scene)
+      groundAggregate.shape.filterMembershipMask = PHYSICS_GROUP_STATIC
+      groundAggregate.shape.filterCollideMask = PHYSICS_GROUP_SEAWEED
+
+      // 魚的 kinematic 碰撞球：每幀跟隨魚（含跳躍高度），由物理引擎算速度撞開水草
+      fishColliderMesh = CreateSphere(
+        'dioramaFishCollider',
+        { diameter: FISH_COLLIDER_RADIUS * 2, segments: 8 },
+        scene,
+      )
+      fishColliderMesh.isVisible = false
+      fishColliderMesh.isPickable = false
+      fishColliderMesh.position.copyFrom(codModel.rootNode.position)
+      const fishAggregate = new PhysicsAggregate(fishColliderMesh, PhysicsShapeType.SPHERE, { mass: 1 }, scene)
+      fishAggregate.body.setMotionType(PhysicsMotionType.ANIMATED)
+      // 每幀把 mesh 位置同步進物理世界（kinematic 追隨）
+      fishAggregate.body.disablePreStep = false
+      fishAggregate.shape.filterMembershipMask = PHYSICS_GROUP_FISH
+      fishAggregate.shape.filterCollideMask = PHYSICS_GROUP_SEAWEED
+
+      environment.enablePhysics()
+    })
+    .catch((error) => {
+      console.warn('[fish-diorama] Havok 物理載入失敗，改用簡易推草效果', error)
+    })
 
   /** 依畫面比例取景：直式改從側邊看（畫面水平對應缸身長邊） */
   function applyCameraFraming() {
@@ -184,7 +265,6 @@ export function createDioramaScene(
   )
 
   function setDarkMode(value: boolean) {
-    environment.setDarkMode(value)
     hemisphericLight.intensity = value ? 0.5 : 0.72
     directionalLight.intensity = value ? 0.55 : 0.85
     fillLight.intensity = value ? 0.16 : 0.3
@@ -209,6 +289,11 @@ export function createDioramaScene(
     }
     pointerDownId = undefined
 
+    // 只認主鍵（左鍵/觸控），避免右鍵、中鍵誤觸移動
+    if (event.button !== 0) {
+      return
+    }
+
     const moveDistance = Math.hypot(
       event.clientX - pointerDownX,
       event.clientY - pointerDownY,
@@ -220,14 +305,18 @@ export function createDioramaScene(
     const pickInfo = scene.pick(
       event.offsetX,
       event.offsetY,
-      (mesh) => mesh === environment.sandMesh,
+      (mesh) => mesh === groundFloor,
     )
     if (!pickInfo.hit || !pickInfo.pickedPoint) {
       return
     }
 
-    const targetX = clamp(pickInfo.pickedPoint.x, MOVE_BOUNDS_RECT.minX, MOVE_BOUNDS_RECT.maxX)
-    const targetZ = clamp(pickInfo.pickedPoint.z, MOVE_BOUNDS_RECT.minZ, MOVE_BOUNDS_RECT.maxZ)
+    const boundedX = clamp(pickInfo.pickedPoint.x, MOVE_BOUNDS_RECT.minX, MOVE_BOUNDS_RECT.maxX)
+    const boundedZ = clamp(pickInfo.pickedPoint.z, MOVE_BOUNDS_RECT.minZ, MOVE_BOUNDS_RECT.maxZ)
+    // 點到障礙圓內就推到邊界外，避免魚永遠搆不到目標而在原地反覆微跳
+    const resolved = resolvePointOutsideObstacles(boundedX, boundedZ, obstacleList)
+    const targetX = clamp(resolved.x, MOVE_BOUNDS_RECT.minX, MOVE_BOUNDS_RECT.maxX)
+    const targetZ = clamp(resolved.z, MOVE_BOUNDS_RECT.minZ, MOVE_BOUNDS_RECT.maxZ)
 
     flopController.setTarget({ x: targetX, z: targetZ })
     environment.showClickMarker(targetX, targetZ)
@@ -246,7 +335,7 @@ export function createDioramaScene(
     const pickInfo = scene.pick(
       event.offsetX,
       event.offsetY,
-      (mesh) => mesh === environment.sandMesh,
+      (mesh) => mesh === groundFloor,
     )
     if (pickInfo.hit && pickInfo.pickedPoint) {
       gazeWorldPoint = pickInfo.pickedPoint
@@ -263,15 +352,19 @@ export function createDioramaScene(
 
   function updateFish(deltaSeconds: number) {
     const pose = flopController.update(deltaSeconds)
-    const groundHeight = getSandHeight(pose.x, pose.z)
 
     codModel.rootNode.position.set(
       pose.x,
-      groundHeight + COD_LYING_LIFT * FISH_SCALE + pose.y,
+      GROUND_Y + COD_LYING_LIFT * FISH_SCALE + pose.y,
       pose.z,
     )
     codModel.rootNode.rotation.y = pose.heading
+    // Babylon rotation.x 正值為低頭，pose.pitch 正值為抬頭，故取負
+    codModel.rootNode.rotation.x = -pose.pitch
     codModel.lieNode.rotation.z = LYING_ROLL + pose.roll
+
+    // 物理碰撞球跟著魚身中心（含跳躍高度）：跳起時抬離水草、落下才壓草
+    fishColliderMesh?.position.copyFrom(codModel.rootNode.position)
 
     const horizontalScale = FISH_SCALE / Math.sqrt(pose.squash)
     codModel.rootNode.scaling.set(
@@ -280,10 +373,12 @@ export function createDioramaScene(
       horizontalScale,
     )
 
-    // 身體 S 形扭動、胸鰭划水、尾鰭拍打、眨眼、瞳孔（有游標則看向游標）
+    // 身體擺動（與跳躍同步）、胸鰭划水、尾鰭拍打、眨眼、瞳孔（有游標則看向游標）
     codModel.update({
       deltaSeconds,
       isMoving: pose.isMoving,
+      wavePhase: pose.wavePhase,
+      waveStrength: pose.hopStrength,
       gazeTarget: gazeWorldPoint,
     })
   }
@@ -314,14 +409,12 @@ export function createDioramaScene(
       }
     },
     setDarkMode,
-    setReducedMotion(value: boolean) {
-      flopController.setSlideMode(value)
-    },
     resize() {
       engine.resize()
       applyCameraFraming()
     },
     dispose() {
+      isDisposed = true
       canvas.removeEventListener('pointerdown', handlePointerDown)
       canvas.removeEventListener('pointerup', handlePointerUp)
       canvas.removeEventListener('pointermove', handlePointerMove)
