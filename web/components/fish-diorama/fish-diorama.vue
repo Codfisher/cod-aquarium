@@ -127,7 +127,7 @@ const grainUrl = computed(() => (isDark.value ? darkGrainUrl.value : lightGrainU
 /** 各可互動裝飾對應的 popup 文字與連結（點擊開新分頁） */
 const spotContentMap: Record<InteractionSpotKey, { text: string; url: string }> = {
   typewriter: { text: '點我看文章作品', url: 'https://www.flickr.com/photos/coodfish/albums/72157642297573993/' },
-  camera: { text: '點我看攝影作品', url: 'https://www.flickr.com/photos/coodfish/with/54831135204' },
+  camera: { text: '點我看攝影作品', url: 'https://www.flickr.com/photos/coodfish/' },
   crayonSet: { text: '點我看繪圖作品', url: 'https://www.flickr.com/photos/coodfish/albums/72157644028504527/' },
 }
 
