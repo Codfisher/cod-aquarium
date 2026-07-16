@@ -9,7 +9,7 @@ import { HemisphericLight } from '@babylonjs/core/Lights/hemisphericLight'
 import { ShadowGenerator } from '@babylonjs/core/Lights/Shadows/shadowGenerator'
 import { Texture } from '@babylonjs/core/Materials/Textures/texture'
 import { Color3, Color4 } from '@babylonjs/core/Maths/math.color'
-import { Vector3 } from '@babylonjs/core/Maths/math.vector'
+import { Matrix, Vector3 } from '@babylonjs/core/Maths/math.vector'
 import { CreateGround } from '@babylonjs/core/Meshes/Builders/groundBuilder'
 import { CreateSphere } from '@babylonjs/core/Meshes/Builders/sphereBuilder'
 import { PhysicsMotionType, PhysicsShapeType } from '@babylonjs/core/Physics/v2/IPhysicsEnginePlugin'
@@ -23,8 +23,10 @@ import { FlopController, resolvePointOutsideObstacles } from './flop-controller'
 import { getGrainTileBlobUrl } from './paper-grain'
 import { attachPaperGrainPlugins, setPaperGrainTexture } from './paper-grain-plugin'
 import {
+  CAMERA_FRAME_RECT,
   createTankEnvironment,
   GROUND_Y,
+  type InteractionSpotKey,
   MOVE_BOUNDS_RECT,
   PHYSICS_GROUP_FISH,
   PHYSICS_GROUP_SEAWEED,
@@ -38,8 +40,19 @@ import '@babylonjs/core/Lights/Shadows/shadowGeneratorSceneComponent'
 import '@babylonjs/core/Physics/v2/physicsEngineComponent'
 import '@babylonjs/core/Rendering/depthRendererSceneComponent'
 
+/** 魚停在可互動裝飾旁時的回報資料 */
+export interface NearbyInteractionInfo {
+  key: InteractionSpotKey;
+  /** popup 錨點投影在畫布上的水平位置比例（0 ~ 1） */
+  xRatio: number;
+  /** popup 錨點投影在畫布上的垂直位置比例（0 ~ 1） */
+  yRatio: number;
+}
+
 export interface DioramaSceneOptions {
   isDark: boolean;
+  /** 魚停在可互動裝飾旁時回報錨點畫面位置；離開或移動中回報 null，供外層收合 popup */
+  onNearbySpotChange?: (info: NearbyInteractionInfo | null) => void;
 }
 
 export interface DioramaSceneHandle {
@@ -69,6 +82,10 @@ const INITIAL_HEADING_PORTRAIT = Math.PI / 3 * 5
 const FISH_COLLISION_MARGIN = 0.9
 /** 魚的 kinematic 碰撞球半徑（Havok 推開水草用） */
 const FISH_COLLIDER_RADIUS = 0.55
+/** 魚身中心到裝飾邊緣小於此距離且停下時，觸發互動 popup。
+ * 魚避障後最近只能停在裝飾邊緣外約 FISH_COLLISION_MARGIN 處，此值需略大於它
+ */
+const INTERACTION_TRIGGER_DISTANCE = 1.3
 /** 單幀 dt 上限（ms），比照 bg-flock 避免掉幀時瞬移 */
 const MAX_FRAME_DELTA_MS = 34
 /** 點擊判定：pointer 位移小於此值（px）才視為點擊而非拖曳/捲動 */
@@ -147,7 +164,7 @@ export function createDioramaScene(
   )
   groundFloor.position.y = GROUND_Y
   groundFloor.receiveShadows = true
-  // 大地板是場景唯一可 pick 的目標（點擊移動、游標注視都打在它上面）
+  // 大地板承接點擊移動與游標注視的 pick；可互動裝飾另外開放 pick（見 handlePointerUp）
   groundFloor.isPickable = true
   const groundFloorMaterial = new ShadowOnlyMaterial('dioramaGroundFloorMaterial', scene)
   groundFloorMaterial.activeLight = directionalLight
@@ -246,9 +263,10 @@ export function createDioramaScene(
 
     const horizontalHalf = (isPortrait ? TANK_DEPTH : TANK_WIDTH) / 2
     const verticalHalf = (isPortrait ? TANK_WIDTH : TANK_DEPTH) / 2
+    // 取景以裝飾群核心區為準，不隨魚的可移動範圍擴大而拉遠鏡頭
     const playableHorizontalHalf = isPortrait
-      ? MOVE_BOUNDS_RECT.maxZ
-      : MOVE_BOUNDS_RECT.maxX
+      ? CAMERA_FRAME_RECT.maxZ
+      : CAMERA_FRAME_RECT.maxX
 
     const tanHalfVertical = Math.tan(camera.fov / 2)
     const tanHalfHorizontal = tanHalfVertical * aspect
@@ -316,17 +334,38 @@ export function createDioramaScene(
       return
     }
 
+    // 可互動裝飾優先於地板：點到裝飾時裝飾彈跳回饋，並把魚派到裝飾旁
     const pickInfo = scene.pick(
       event.offsetX,
       event.offsetY,
-      (mesh) => mesh === groundFloor,
+      (mesh) => mesh === groundFloor || Boolean(readInteractionSpotKey(mesh.metadata)),
     )
     if (!pickInfo.hit || !pickInfo.pickedPoint) {
       return
     }
 
-    const boundedX = clamp(pickInfo.pickedPoint.x, MOVE_BOUNDS_RECT.minX, MOVE_BOUNDS_RECT.maxX)
-    const boundedZ = clamp(pickInfo.pickedPoint.z, MOVE_BOUNDS_RECT.minZ, MOVE_BOUNDS_RECT.maxZ)
+    let pickedX = pickInfo.pickedPoint.x
+    let pickedZ = pickInfo.pickedPoint.z
+    const pickedSpotKey = pickInfo.pickedMesh
+      ? readInteractionSpotKey(pickInfo.pickedMesh.metadata)
+      : undefined
+    if (pickedSpotKey) {
+      environment.playSpotBounce(pickedSpotKey)
+      const pickedSpot = environment.interactionSpotList.find((spot) => spot.key === pickedSpotKey)
+      if (pickedSpot) {
+        // 目標設在障礙圓上朝魚這一側的點：方向明確（用裝飾中心會讓推出方向退化、
+        // 連鎖彈到別的障礙旁），魚會停靠在裝飾面向自己的邊上、觸發 popup
+        const directionX = codModel.rootNode.position.x - pickedSpot.x
+        const directionZ = codModel.rootNode.position.z - pickedSpot.z
+        const directionLength = Math.hypot(directionX, directionZ) || 1
+        const stopRadius = pickedSpot.radius + FISH_COLLISION_MARGIN + 0.05
+        pickedX = pickedSpot.x + (directionX / directionLength) * stopRadius
+        pickedZ = pickedSpot.z + (directionZ / directionLength) * stopRadius
+      }
+    }
+
+    const boundedX = clamp(pickedX, MOVE_BOUNDS_RECT.minX, MOVE_BOUNDS_RECT.maxX)
+    const boundedZ = clamp(pickedZ, MOVE_BOUNDS_RECT.minZ, MOVE_BOUNDS_RECT.maxZ)
     // 點到障礙圓內就推到邊界外，避免魚永遠搆不到目標而在原地反覆微跳
     const resolved = resolvePointOutsideObstacles(boundedX, boundedZ, obstacleList)
     const targetX = clamp(resolved.x, MOVE_BOUNDS_RECT.minX, MOVE_BOUNDS_RECT.maxX)
@@ -339,8 +378,15 @@ export function createDioramaScene(
   canvas.addEventListener('pointerdown', handlePointerDown)
   canvas.addEventListener('pointerup', handlePointerUp)
 
-  // --- 眼睛追游標：滑鼠 hover 時把游標投影到沙地作為注視點 ---
+  // --- 眼睛追游標與裝飾 hover：滑鼠 hover 時把游標投影到沙地作為注視點，
+  //     懸停在可互動裝飾上則讓裝飾微放大增亮 ---
   let gazeWorldPoint: Vector3 | null = null
+  let hoveredSpotKey: InteractionSpotKey | null = null
+
+  function readInteractionSpotKey(metadata: unknown): InteractionSpotKey | undefined {
+    return (metadata as { interactionSpotKey?: InteractionSpotKey } | null)?.interactionSpotKey
+  }
+
   function handlePointerMove(event: PointerEvent) {
     // 只追滑鼠 hover；觸控不觸發，維持自主張望
     if (event.pointerType !== 'mouse') {
@@ -349,17 +395,90 @@ export function createDioramaScene(
     const pickInfo = scene.pick(
       event.offsetX,
       event.offsetY,
-      (mesh) => mesh === groundFloor,
+      (mesh) => mesh === groundFloor || Boolean(readInteractionSpotKey(mesh.metadata)),
     )
+
+    const nextHoveredSpotKey = pickInfo.pickedMesh
+      ? readInteractionSpotKey(pickInfo.pickedMesh.metadata) ?? null
+      : null
+    if (nextHoveredSpotKey !== hoveredSpotKey) {
+      hoveredSpotKey = nextHoveredSpotKey
+      environment.setSpotHover(hoveredSpotKey)
+    }
+
     if (pickInfo.hit && pickInfo.pickedPoint) {
       gazeWorldPoint = pickInfo.pickedPoint
     }
   }
   function handlePointerLeave() {
     gazeWorldPoint = null
+    if (hoveredSpotKey) {
+      hoveredSpotKey = null
+      environment.setSpotHover(null)
+    }
   }
   canvas.addEventListener('pointermove', handlePointerMove)
   canvas.addEventListener('pointerleave', handlePointerLeave)
+
+  // --- 靠近裝飾的互動 popup ---
+  let activeSpotKey: InteractionSpotKey | null = null
+  let notifiedXRatio = -1
+  let notifiedYRatio = -1
+
+  /** 魚停下且離某裝飾邊緣夠近時，把該裝飾的錨點投影成畫布位置比例回報外層；
+   * 需在 scene.render() 之後呼叫（投影用的視圖矩陣才是當前取景）
+   */
+  function updateNearbyInteraction(fishX: number, fishZ: number, isFishMoving: boolean) {
+    if (!options.onNearbySpotChange) {
+      return
+    }
+
+    let nextSpotKey: InteractionSpotKey | null = null
+    if (!isFishMoving) {
+      let bestEdgeDistance = INTERACTION_TRIGGER_DISTANCE
+      for (const spot of environment.interactionSpotList) {
+        const edgeDistance = Math.hypot(fishX - spot.x, fishZ - spot.z) - spot.radius
+        if (edgeDistance < bestEdgeDistance) {
+          bestEdgeDistance = edgeDistance
+          nextSpotKey = spot.key
+        }
+      }
+    }
+
+    if (!nextSpotKey) {
+      if (activeSpotKey) {
+        activeSpotKey = null
+        options.onNearbySpotChange(null)
+      }
+      return
+    }
+
+    const spot = environment.interactionSpotList.find((item) => item.key === nextSpotKey)
+    if (!spot) {
+      return
+    }
+    const renderWidth = Math.max(1, engine.getRenderWidth())
+    const renderHeight = Math.max(1, engine.getRenderHeight())
+    const projectedPoint = Vector3.Project(
+      new Vector3(spot.x, spot.anchorY, spot.z),
+      Matrix.IdentityReadOnly,
+      scene.getTransformMatrix(),
+      camera.viewport.toGlobal(renderWidth, renderHeight),
+    )
+    const xRatio = projectedPoint.x / renderWidth
+    const yRatio = projectedPoint.y / renderHeight
+
+    // 位置幾乎沒變就不重複回報，避免每幀觸發外層響應式更新
+    const hasChanged = nextSpotKey !== activeSpotKey
+      || Math.abs(xRatio - notifiedXRatio) > 0.002
+      || Math.abs(yRatio - notifiedYRatio) > 0.002
+    if (hasChanged) {
+      activeSpotKey = nextSpotKey
+      notifiedXRatio = xRatio
+      notifiedYRatio = yRatio
+      options.onNearbySpotChange({ key: nextSpotKey, xRatio, yRatio })
+    }
+  }
 
   // --- 每幀更新 ---
   let timeSeconds = 0
@@ -395,15 +514,18 @@ export function createDioramaScene(
       waveStrength: pose.hopStrength,
       gazeTarget: gazeWorldPoint,
     })
+
+    return pose
   }
 
   function renderFrame() {
     const deltaSeconds = Math.min(engine.getDeltaTime(), MAX_FRAME_DELTA_MS) / 1000
     timeSeconds += deltaSeconds
 
-    updateFish(deltaSeconds)
+    const pose = updateFish(deltaSeconds)
     environment.update(timeSeconds, deltaSeconds, codModel.rootNode.position.x, codModel.rootNode.position.z)
     scene.render()
+    updateNearbyInteraction(pose.x, pose.z, pose.isMoving)
   }
 
   let isRunning = false

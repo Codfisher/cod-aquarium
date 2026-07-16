@@ -26,19 +26,51 @@ export const WALL_HEIGHT = 0.9
 /** 大地板（魚與擺設落腳的水平面）的 y */
 export const GROUND_Y = 0
 
-/** 魚可移動的範圍（大地板上的活動區，維持在擺設之間） */
+/** 魚可移動的範圍（點擊落點的允許區）。遠大於裝飾群，涵蓋鏡頭可見的大地板；
+ * 點擊只會落在畫面內，故魚不會被送出視野
+ */
 export const MOVE_BOUNDS_RECT = {
+  minX: -9,
+  maxX: 9,
+  minZ: -6,
+  maxZ: 6,
+} as const
+
+/** 相機取景參考的核心區（裝飾群所在的原始缸區）。
+ * 與 MOVE_BOUNDS_RECT 脫鉤：移動範圍擴大時鏡頭不跟著拉遠
+ */
+export const CAMERA_FRAME_RECT = {
   minX: -TANK_WIDTH / 2 + 0.8,
   maxX: TANK_WIDTH / 2 - 0.8,
   minZ: -TANK_DEPTH / 2 + 0.7,
   maxZ: TANK_DEPTH / 2 - 0.7,
 } as const
 
+/** 可互動裝飾的識別鍵，外層依鍵值對應 popup 的文字與連結 */
+export type InteractionSpotKey = 'camera' | 'crayonSet' | 'typewriter'
+
+/** 可互動裝飾的位置與 popup 錨點資訊 */
+export interface InteractionSpot {
+  key: InteractionSpotKey;
+  x: number;
+  z: number;
+  /** popup 錨點高度（物體頂端略上方，供投影成畫面座標） */
+  anchorY: number;
+  /** 俯視半徑（同障礙圓，供計算魚與物體邊緣的距離） */
+  radius: number;
+}
+
 export interface TankEnvironment {
   /** 需要投影的網格 */
   shadowCasterMeshList: Mesh[];
   /** 石頭、搖桿、相機的俯視碰撞圓，供魚繞行避讓 */
   obstacleList: ObstacleCircle[];
+  /** 魚靠近時顯示連結 popup 的裝飾（相機、蠟筆、打字機） */
+  interactionSpotList: InteractionSpot[];
+  /** 播放指定裝飾的點擊彈跳（卡通 squash 回饋） */
+  playSpotBounce: (key: InteractionSpotKey) => void;
+  /** 設定滑鼠懸停的裝飾（null 取消）：微微長高放大＋增亮，提示可點擊 */
+  setSpotHover: (key: InteractionSpotKey | null) => void;
   /** 每幀更新水草搖擺與點擊標記 */
   update: (timeSeconds: number, deltaSeconds: number, fishX: number, fishZ: number) => void;
   /** 在指定位置播放 RPG 目的地漣漪標記 */
@@ -658,6 +690,114 @@ export function createTankEnvironment(scene: Scene): TankEnvironment {
     typewriter.obstacle,
   ]
 
+  // 可互動裝飾：魚停在旁邊時，外層在錨點位置顯示連結 popup
+  const interactionSpotList: InteractionSpot[] = [
+    { key: 'camera', ...camera.obstacle, anchorY: 1.15 },
+    { key: 'crayonSet', ...crayonSet.obstacle, anchorY: 1 },
+    { key: 'typewriter', ...typewriter.obstacle, anchorY: 1.05 },
+  ]
+
+  // 可互動裝飾的 mesh 開放 pick 並掛上識別鍵，點擊時外層可辨認點到哪個裝飾
+  const interactionDecorationList: { key: InteractionSpotKey; root: TransformNode; meshList: Mesh[] }[] = [
+    { key: 'camera', root: camera.root, meshList: camera.meshList },
+    { key: 'crayonSet', root: crayonSet.root, meshList: crayonSet.meshList },
+    { key: 'typewriter', root: typewriter.root, meshList: typewriter.meshList },
+  ]
+  for (const decoration of interactionDecorationList) {
+    for (const mesh of decoration.meshList) {
+      mesh.isPickable = true
+      mesh.metadata = { interactionSpotKey: decoration.key }
+    }
+  }
+
+  // 裝飾互動回饋：點擊彈跳（衰減 squash & stretch）與 hover 微放大增亮，
+  // 兩者都寫入 root.scaling，集中在同一處計算避免互相覆蓋
+  const SPOT_BOUNCE_DURATION = 0.55
+  /** hover 進出的彈簧速率（每秒收斂比例） */
+  const SPOT_HOVER_LERP_RATE = 12
+  /** hover 時的放大量：長高比長寬多一點，有「挺起來打招呼」的感覺 */
+  const SPOT_HOVER_SCALE_HORIZONTAL = 0.04
+  const SPOT_HOVER_SCALE_VERTICAL = 0.08
+  /** hover 增亮的 emissive 疊加量（微暖白，避免發光感太重） */
+  const SPOT_HOVER_EMISSIVE_BOOST = new Color3(0.1, 0.1, 0.085)
+
+  interface SpotEffectItem {
+    node: TransformNode;
+    bounceElapsed: number;
+    hoverProgress: number;
+    /** 上次套用 emissive 的 hover 進度，變化夠大才重寫材質 */
+    appliedHoverProgress: number;
+    materialEntryList: { material: StandardMaterial; baseEmissiveColor: Color3 }[];
+  }
+
+  const spotEffectItemMap = new Map<InteractionSpotKey, SpotEffectItem>(
+    interactionDecorationList.map((decoration) => {
+      const materialSet = new Set<StandardMaterial>()
+      for (const mesh of decoration.meshList) {
+        if (mesh.material instanceof StandardMaterial) {
+          materialSet.add(mesh.material)
+        }
+      }
+      return [decoration.key, {
+        node: decoration.root,
+        bounceElapsed: SPOT_BOUNCE_DURATION,
+        hoverProgress: 0,
+        appliedHoverProgress: 0,
+        materialEntryList: [...materialSet].map((material) => ({
+          material,
+          baseEmissiveColor: material.emissiveColor.clone(),
+        })),
+      }]
+    }),
+  )
+
+  let hoveredSpotKey: InteractionSpotKey | null = null
+
+  function playSpotBounce(key: InteractionSpotKey) {
+    const effectItem = spotEffectItemMap.get(key)
+    if (effectItem) {
+      effectItem.bounceElapsed = 0
+    }
+  }
+
+  function setSpotHover(key: InteractionSpotKey | null) {
+    hoveredSpotKey = key
+  }
+
+  function updateSpotEffects(deltaSeconds: number) {
+    for (const [key, effectItem] of spotEffectItemMap) {
+      // hover 進度彈簧收斂
+      const hoverTarget = key === hoveredSpotKey ? 1 : 0
+      effectItem.hoverProgress
+        += (hoverTarget - effectItem.hoverProgress) * Math.min(1, deltaSeconds * SPOT_HOVER_LERP_RATE)
+
+      // 點擊彈跳：先壓扁再回彈的衰減震盪；root 原點在地面，往下壓不會浮空
+      let wobble = 0
+      if (effectItem.bounceElapsed < SPOT_BOUNCE_DURATION) {
+        effectItem.bounceElapsed += deltaSeconds
+        const progress = Math.min(effectItem.bounceElapsed / SPOT_BOUNCE_DURATION, 1)
+        wobble = Math.sin(progress * Math.PI * 3) * (1 - progress) * 0.16
+      }
+
+      const horizontalScale = 1 + effectItem.hoverProgress * SPOT_HOVER_SCALE_HORIZONTAL + wobble * 0.6
+      effectItem.node.scaling.set(
+        horizontalScale,
+        1 + effectItem.hoverProgress * SPOT_HOVER_SCALE_VERTICAL - wobble,
+        horizontalScale,
+      )
+
+      // 增亮：hover 進度變化夠大才重寫材質 emissive
+      if (Math.abs(effectItem.hoverProgress - effectItem.appliedHoverProgress) > 0.01) {
+        effectItem.appliedHoverProgress = effectItem.hoverProgress
+        for (const materialEntry of effectItem.materialEntryList) {
+          materialEntry.material.emissiveColor
+            .copyFrom(materialEntry.baseEmissiveColor)
+            .addInPlace(SPOT_HOVER_EMISSIVE_BOOST.scale(effectItem.hoverProgress))
+        }
+      }
+    }
+  }
+
   // 直式（手機）時相機環繞轉 90°，讓有正面的裝飾（相機、蠟筆、打字機）跟著轉向觀眾
   const orientationList = [
     { node: camera.root, baseRotationY: camera.root.rotation.y },
@@ -763,6 +903,8 @@ export function createTankEnvironment(scene: Scene): TankEnvironment {
   }
 
   function update(timeSeconds: number, deltaSeconds: number, fishX: number, fishZ: number) {
+    updateSpotEffects(deltaSeconds)
+
     for (const swayItem of swayItemList) {
       swayItem.node.rotation.z = swayItem.baseLean
         + Math.sin(timeSeconds * swayItem.speed + swayItem.phase) * swayItem.amplitude
@@ -810,6 +952,9 @@ export function createTankEnvironment(scene: Scene): TankEnvironment {
   return {
     shadowCasterMeshList: [...rocks.meshList, ...seaweed.meshList, ...crayonSet.meshList, ...camera.meshList, ...typewriter.meshList],
     obstacleList,
+    interactionSpotList,
+    playSpotBounce,
+    setSpotHover,
     update,
     showClickMarker,
     setPortrait,
