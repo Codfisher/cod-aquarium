@@ -55,10 +55,30 @@ export interface DioramaSceneOptions {
   onNearbySpotChange?: (info: NearbyInteractionInfo | null) => void;
 }
 
+/** 快門挑戰用的魚即時資訊：投影到畫布的位置比例與跳躍高度比例 */
+export interface FishShotInfo {
+  xRatio: number;
+  yRatio: number;
+  /** 離地高度 / 滿力跳最高點（0 = 貼地、1 = 最高點附近） */
+  heightRatio: number;
+}
+
 export interface DioramaSceneHandle {
   /** 開關渲染迴圈（不可見或失焦時停止） */
   setRunning: (value: boolean) => void;
   setDarkMode: (value: boolean) => void;
+  /** 快門挑戰模式：魚自動四處跳、停用點擊移動與停靠 popup */
+  setCameraChallengeActive: (value: boolean) => void;
+  /** 快門挑戰：取得魚當前投影位置與跳躍高度，供取景判定 */
+  getFishShotInfo: () => FishShotInfo | null;
+  /** 快門挑戰：以魚為中心截下場景畫面，回傳 dataURL（拍立得用）；失敗回傳 null */
+  captureFishSnapshot: () => string | null;
+  /** 播放指定裝飾的展示動畫（打字機挑戰的按鍵回饋用） */
+  playSpotShowcase: (key: InteractionSpotKey) => void;
+  /** 設定裝飾鎖定狀態：鎖定呈灰白紙模＋鎖頭旗標；skipTransition 供載入時直接套用 */
+  setSpotLocked: (key: InteractionSpotKey, isLocked: boolean, skipTransition?: boolean) => void;
+  /** 解鎖慶祝：裝飾彈跳＋展示動畫＋大水花 */
+  celebrateSpotUnlock: (key: InteractionSpotKey) => void;
   /** 容器尺寸變更時重設緩衝區並重新取景 */
   resize: () => void;
   dispose: () => void;
@@ -83,9 +103,10 @@ const FISH_COLLISION_MARGIN = 0.9
 /** 魚的 kinematic 碰撞球半徑（Havok 推開水草用） */
 const FISH_COLLIDER_RADIUS = 0.55
 /** 魚身中心到裝飾邊緣小於此距離且停下時，觸發互動 popup。
- * 魚避障後最近只能停在裝飾邊緣外約 FISH_COLLISION_MARGIN 處，此值需略大於它
+ * 魚避障後最近只能停在裝飾邊緣外約 FISH_COLLISION_MARGIN 處，此值需略大於它；
+ * 點在裝飾旁的地板時落點會更遠一些，再放寬一截才不會差一點點就不觸發
  */
-const INTERACTION_TRIGGER_DISTANCE = 1.3
+const INTERACTION_TRIGGER_DISTANCE = 1.6
 /** 單幀 dt 上限（ms），比照 bg-flock 避免掉幀時瞬移 */
 const MAX_FRAME_DELTA_MS = 34
 /** 點擊判定：pointer 位移小於此值（px）才視為點擊而非拖曳/捲動 */
@@ -99,6 +120,28 @@ const FISH_COMBO_WINDOW_SECONDS = 2.5
 const PARALLAX_ALPHA_RANGE = 0.035
 const PARALLAX_BETA_RANGE = 0.02
 const PARALLAX_LERP_RATE = 3
+/** 魚的進場演出：先讓擺設彈出再落魚（秒）、落下重力。
+ * 重力比真實值大，下墜節奏才不拖泥帶水
+ */
+const FISH_ENTRANCE_DELAY_SECONDS = 0.55
+const FISH_ENTRANCE_GRAVITY = 26
+/** 起始高度依取景動態解算（保證在畫面外）；解算前先藏在遠高於任何取景的天上 */
+const FISH_ENTRANCE_HIDDEN_HEIGHT = 40
+/** 起始高度需高出畫面頂端的邊距（畫面高度比例） */
+const FISH_ENTRANCE_OFFSCREEN_MARGIN_RATIO = 0.12
+/** 進場落地的擠壓緩衝時長（秒）與擠壓量 */
+const FISH_ENTRANCE_SQUASH_DURATION = 0.24
+const FISH_ENTRANCE_SQUASH_AMOUNT = 0.2
+/** 快門挑戰自動遊走的目標距離下限：跳得夠遠，跳躍弧線才夠明顯好拍 */
+const CAMERA_WANDER_MIN_DISTANCE = 2.2
+/** 魚的滿力跳高（FlopController 設定值），供快門挑戰換算跳躍高度比例 */
+const FISH_HOP_HEIGHT = 0.85
+/** 拍立得快照：以魚為中心的取景範圍（渲染畫面高度比例）與輸出上限。
+ * 關鍵：實際輸出尺寸取「裁切區的裝置像素數」與上限的較小值，永遠不放大來源，
+ * 照片才不會糊。取景比例不能太小，否則裁切區像素太少、放大檢視時就模糊
+ */
+const SNAPSHOT_MAX_OUTPUT = 480
+const SNAPSHOT_CROP_HEIGHT_RATIO = 0.38
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value))
@@ -205,7 +248,7 @@ export function createDioramaScene(
   // 跳高與滯空刻意偏大：畫面同時有前進位移與身體扭動，跳躍弧線要夠明顯才讀得出來
   const flopController = new FlopController({
     hopDistance: 0.95,
-    hopHeight: 0.85,
+    hopHeight: FISH_HOP_HEIGHT,
     hopDuration: 0.42,
   })
 
@@ -322,7 +365,11 @@ export function createDioramaScene(
     isPortraitFraming ? INITIAL_HEADING_PORTRAIT : INITIAL_HEADING_LANDSCAPE,
   )
 
+  /** 目前是否為夜間模式（拍立得快照的底色跟著切換） */
+  let isDarkModeActive = options.isDark
+
   function setDarkMode(value: boolean) {
+    isDarkModeActive = value
     // 月夜藍風格化夜景：畫面依然清晰明亮，只是整體換上冷藍色調（動森式）。
     // 主光轉淡藍月光、環境光偏藍紫；陰影維持原本的柔和平行光影，
     // 亮點交給路燈柔光暈與螢火點綴
@@ -347,6 +394,12 @@ export function createDioramaScene(
   setDarkMode(options.isDark)
 
   // --- 點擊移動 ---
+  /** 渲染迴圈是否運轉中。未運轉（迎賓頁、分頁失焦）時忽略指標互動，
+   * 避免迎賓頁的「點擊繼續」那一下順帶對魚下移動指令
+   */
+  let isRunning = false
+  /** 快門挑戰模式：魚自動遊走供玩家抓拍，期間停用點擊移動與停靠 popup */
+  let isCameraChallengeActive = false
   let pointerDownX = 0
   let pointerDownY = 0
   let pointerDownId: number | undefined
@@ -364,6 +417,11 @@ export function createDioramaScene(
       return
     }
     pointerDownId = undefined
+
+    // 未運轉、魚還在進場下落中、或快門挑戰進行中，不接受移動/互動指令
+    if (!isRunning || !isFishEntranceDone || isCameraChallengeActive) {
+      return
+    }
 
     // 只認主鍵（左鍵/觸控），避免右鍵、中鍵誤觸移動
     if (event.button !== 0) {
@@ -467,7 +525,7 @@ export function createDioramaScene(
 
   function handlePointerMove(event: PointerEvent) {
     // 只追滑鼠 hover；觸控不觸發，維持自主張望
-    if (event.pointerType !== 'mouse') {
+    if (!isRunning || event.pointerType !== 'mouse') {
       return
     }
 
@@ -560,7 +618,7 @@ export function createDioramaScene(
     }
 
     let nextSpotKey: InteractionSpotKey | null = null
-    if (!isFishMoving) {
+    if (!isFishMoving && !isCameraChallengeActive) {
       let bestEdgeDistance = INTERACTION_TRIGGER_DISTANCE
       for (const spot of environment.interactionSpotList) {
         const edgeDistance = Math.hypot(fishX - spot.x, fishZ - spot.z) - spot.radius
@@ -614,19 +672,103 @@ export function createDioramaScene(
   // --- 每幀更新 ---
   let timeSeconds = 0
 
+  /** 最新一幀的魚姿態，快門挑戰的拍照判定用 */
+  let latestPose = flopController.getPose()
+
+  /** 快門挑戰：挑選離現在位置夠遠的隨機落點，讓魚跳出明顯弧線 */
+  function setRandomWanderTarget() {
+    for (let attempt = 0; attempt < 8; attempt++) {
+      const candidateX = CAMERA_FRAME_RECT.minX + Math.random() * (CAMERA_FRAME_RECT.maxX - CAMERA_FRAME_RECT.minX)
+      const candidateZ = CAMERA_FRAME_RECT.minZ + Math.random() * (CAMERA_FRAME_RECT.maxZ - CAMERA_FRAME_RECT.minZ)
+      if (Math.hypot(candidateX - latestPose.x, candidateZ - latestPose.z) < CAMERA_WANDER_MIN_DISTANCE) {
+        continue
+      }
+      const resolved = resolvePointOutsideObstacles(candidateX, candidateZ, obstacleList)
+      flopController.setTarget({
+        x: clamp(resolved.x, MOVE_BOUNDS_RECT.minX, MOVE_BOUNDS_RECT.maxX),
+        z: clamp(resolved.z, MOVE_BOUNDS_RECT.minZ, MOVE_BOUNDS_RECT.maxZ),
+      })
+      return
+    }
+  }
+
+  // --- 魚的進場：擺設彈出後從高空落下，落地濺大水花 ---
+  let fishEntranceElapsedSeconds = 0
+  let isFishEntranceDone = false
+  let fishEntranceSquashRemainingSeconds = 0
+  /** 進場起始高度，0 = 尚未解算（相機矩陣要等首幀渲染後才有效） */
+  let fishEntranceDropHeight = 0
+
+  /** 由低往高找第一個投影在畫面頂端之上（含邊距）的高度，
+   * 讓魚在任何視窗比例（含手機直式的高天空取景）都保證從螢幕外落下
+   */
+  function resolveEntranceDropHeight(): number {
+    const renderWidth = Math.max(1, engine.getRenderWidth())
+    const renderHeight = Math.max(1, engine.getRenderHeight())
+    for (let height = 6; height <= FISH_ENTRANCE_HIDDEN_HEIGHT; height += 1) {
+      const projectedPoint = Vector3.Project(
+        new Vector3(0, height, 0),
+        Matrix.IdentityReadOnly,
+        scene.getTransformMatrix(),
+        camera.viewport.toGlobal(renderWidth, renderHeight),
+      )
+      if (projectedPoint.y < -renderHeight * FISH_ENTRANCE_OFFSCREEN_MARGIN_RATIO) {
+        return height
+      }
+    }
+    return FISH_ENTRANCE_HIDDEN_HEIGHT
+  }
+
   function updateFish(deltaSeconds: number) {
     const pose = flopController.update(deltaSeconds)
+    latestPose = pose
 
     // 落地瞬間濺小水滴，強度跟著本跳跳高
     if (pose.hasLanded) {
       environment.spawnLandingBurst(pose.x, pose.z, pose.hopStrength)
     }
 
+    // 快門挑戰：魚停下就立刻挑下一個落點，維持連續跳躍供玩家抓拍
+    if (isCameraChallengeActive && isFishEntranceDone && !flopController.isMoving) {
+      setRandomWanderTarget()
+    }
+
+    // 進場落下：延遲後自由落體；落地觸發大水花與擠壓緩衝
+    let entranceOffsetY = 0
+    let entranceSquash = 1
+    let isEntranceFalling = false
+    if (!isFishEntranceDone) {
+      fishEntranceElapsedSeconds += deltaSeconds
+      // 首幀渲染後相機矩陣才有效，延遲期間解算起始高度；解算前先藏在天上
+      if (fishEntranceDropHeight === 0 && fishEntranceElapsedSeconds > 0.1) {
+        fishEntranceDropHeight = resolveEntranceDropHeight()
+      }
+      const dropHeight = fishEntranceDropHeight || FISH_ENTRANCE_HIDDEN_HEIGHT
+      const fallSeconds = Math.max(0, fishEntranceElapsedSeconds - FISH_ENTRANCE_DELAY_SECONDS)
+      const fallDistance = 0.5 * FISH_ENTRANCE_GRAVITY * fallSeconds * fallSeconds
+      if (fishEntranceDropHeight > 0 && fallDistance >= dropHeight) {
+        isFishEntranceDone = true
+        fishEntranceSquashRemainingSeconds = FISH_ENTRANCE_SQUASH_DURATION
+        environment.spawnLandingBurst(pose.x, pose.z, 1.6)
+      }
+      else {
+        entranceOffsetY = dropHeight - fallDistance
+        isEntranceFalling = true
+        // 下落時身體微拉長，與落地擠壓形成對比
+        entranceSquash = 1.08
+      }
+    }
+    if (fishEntranceSquashRemainingSeconds > 0) {
+      fishEntranceSquashRemainingSeconds = Math.max(0, fishEntranceSquashRemainingSeconds - deltaSeconds)
+      const squashRatio = fishEntranceSquashRemainingSeconds / FISH_ENTRANCE_SQUASH_DURATION
+      entranceSquash = 1 - FISH_ENTRANCE_SQUASH_AMOUNT * squashRatio * squashRatio
+    }
+
     updateAutoGaze(deltaSeconds, pose.isMoving)
 
     codModel.rootNode.position.set(
       pose.x,
-      GROUND_Y + COD_LYING_LIFT * FISH_SCALE + pose.y,
+      GROUND_Y + COD_LYING_LIFT * FISH_SCALE + pose.y + entranceOffsetY,
       pose.z,
     )
     codModel.rootNode.rotation.y = pose.heading
@@ -637,20 +779,22 @@ export function createDioramaScene(
     // 物理碰撞球跟著魚身中心（含跳躍高度）：跳起時抬離水草、落下才壓草
     fishColliderMesh?.position.copyFrom(codModel.rootNode.position)
 
-    const horizontalScale = FISH_SCALE / Math.sqrt(pose.squash)
+    const combinedSquash = pose.squash * entranceSquash
+    const horizontalScale = FISH_SCALE / Math.sqrt(combinedSquash)
     codModel.rootNode.scaling.set(
       horizontalScale,
-      FISH_SCALE * pose.squash,
+      FISH_SCALE * combinedSquash,
       horizontalScale,
     )
 
-    // 身體擺動（與跳躍同步）、胸鰭划水、尾鰭拍打、眨眼、瞳孔（有游標則看向游標）
+    // 身體擺動（與跳躍同步）、胸鰭划水、尾鰭拍打、眨眼、瞳孔（有游標則看向游標）。
+    // 進場下落時視為移動且不給外部相位：身體自跑擺動，像在空中掙扎
     codModel.update({
       deltaSeconds,
-      isMoving: pose.isMoving,
-      wavePhase: pose.wavePhase,
-      waveStrength: pose.hopStrength,
-      gazeTarget: gazeWorldPoint ?? autoGazePoint,
+      isMoving: pose.isMoving || isEntranceFalling,
+      wavePhase: isEntranceFalling ? undefined : pose.wavePhase,
+      waveStrength: isEntranceFalling ? 1 : pose.hopStrength,
+      gazeTarget: isEntranceFalling ? null : (gazeWorldPoint ?? autoGazePoint),
     })
 
     return pose
@@ -673,9 +817,97 @@ export function createDioramaScene(
     updateNearbyInteraction(pose.x, pose.z, pose.isMoving)
   }
 
-  let isRunning = false
-
   return {
+    setCameraChallengeActive(value: boolean) {
+      isCameraChallengeActive = value
+    },
+    getFishShotInfo() {
+      if (!isRunning) {
+        return null
+      }
+      const renderWidth = Math.max(1, engine.getRenderWidth())
+      const renderHeight = Math.max(1, engine.getRenderHeight())
+      const projectedPoint = Vector3.Project(
+        codModel.rootNode.position,
+        Matrix.IdentityReadOnly,
+        scene.getTransformMatrix(),
+        camera.viewport.toGlobal(renderWidth, renderHeight),
+      )
+      return {
+        xRatio: projectedPoint.x / renderWidth,
+        yRatio: projectedPoint.y / renderHeight,
+        heightRatio: clamp(latestPose.y / FISH_HOP_HEIGHT, 0, 1),
+      }
+    },
+    captureFishSnapshot() {
+      try {
+        // WebGL 預設不保留繪圖緩衝，同步渲染一幀後立刻讀取才拿得到畫面
+        scene.render()
+        const renderWidth = Math.max(1, engine.getRenderWidth())
+        const renderHeight = Math.max(1, engine.getRenderHeight())
+        const projectedPoint = Vector3.Project(
+          codModel.rootNode.position,
+          Matrix.IdentityReadOnly,
+          scene.getTransformMatrix(),
+          camera.viewport.toGlobal(renderWidth, renderHeight),
+        )
+        const cropSize = Math.min(renderHeight * SNAPSHOT_CROP_HEIGHT_RATIO, renderWidth)
+        const cropX = clamp(projectedPoint.x - cropSize / 2, 0, Math.max(0, renderWidth - cropSize))
+        const cropY = clamp(projectedPoint.y - cropSize / 2, 0, Math.max(0, renderHeight - cropSize))
+
+        // 輸出尺寸不超過裁切區的實際像素數：只會 1:1 或縮小，永不放大 → 不糊
+        const outputSize = Math.round(Math.min(SNAPSHOT_MAX_OUTPUT, cropSize))
+        const outputCanvas = document.createElement('canvas')
+        outputCanvas.width = outputSize
+        outputCanvas.height = outputSize
+        const context = outputCanvas.getContext('2d')
+        if (!context) {
+          return null
+        }
+        // 場景 canvas 是透明背景，先鋪上與頁面漸層相近的底色
+        const gradient = context.createLinearGradient(0, 0, 0, outputSize)
+        if (isDarkModeActive) {
+          gradient.addColorStop(0, '#22333f')
+          gradient.addColorStop(1, '#182631')
+        }
+        else {
+          gradient.addColorStop(0, '#eef7f4')
+          gradient.addColorStop(1, '#dcefe9')
+        }
+        context.fillStyle = gradient
+        context.fillRect(0, 0, outputSize, outputSize)
+        context.drawImage(
+          canvas,
+          cropX,
+          cropY,
+          cropSize,
+          cropSize,
+          0,
+          0,
+          outputSize,
+          outputSize,
+        )
+        return outputCanvas.toDataURL('image/png')
+      }
+      catch (error) {
+        console.warn('[fish-diorama] 拍立得快照擷取失敗', error)
+        return null
+      }
+    },
+    playSpotShowcase(key: InteractionSpotKey) {
+      environment.playSpotShowcase(key)
+    },
+    setSpotLocked(key: InteractionSpotKey, isLocked: boolean, skipTransition?: boolean) {
+      environment.setSpotLocked(key, isLocked, skipTransition)
+    },
+    celebrateSpotUnlock(key: InteractionSpotKey) {
+      environment.playSpotBounce(key)
+      environment.playSpotShowcase(key)
+      const spot = environment.interactionSpotList.find((item) => item.key === key)
+      if (spot) {
+        environment.spawnLandingBurst(spot.x, spot.z, 2)
+      }
+    },
     setRunning(value: boolean) {
       if (isRunning === value) {
         return

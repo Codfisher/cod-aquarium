@@ -11,9 +11,11 @@ import { GlowLayer } from '@babylonjs/core/Layers/glowLayer'
 import { ClusteredLightContainer } from '@babylonjs/core/Lights/Clustered/clusteredLightContainer'
 import { PointLight } from '@babylonjs/core/Lights/pointLight'
 import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial'
+import { DynamicTexture } from '@babylonjs/core/Materials/Textures/dynamicTexture'
 import { Color3 } from '@babylonjs/core/Maths/math.color'
 import { Matrix, Vector3 } from '@babylonjs/core/Maths/math.vector'
 import { CreateCylinder } from '@babylonjs/core/Meshes/Builders/cylinderBuilder'
+import { CreatePlane } from '@babylonjs/core/Meshes/Builders/planeBuilder'
 import { CreatePolyhedron } from '@babylonjs/core/Meshes/Builders/polyhedronBuilder'
 import { CreateSphere } from '@babylonjs/core/Meshes/Builders/sphereBuilder'
 import { CreateTorus } from '@babylonjs/core/Meshes/Builders/torusBuilder'
@@ -79,6 +81,10 @@ export interface TankEnvironment {
   setSpotHover: (key: InteractionSpotKey | null) => void;
   /** 播放裝飾的停靠展示動畫（魚停到旁邊時）：相機閃燈、打字機抖紙、蠟筆搖擺 */
   playSpotShowcase: (key: InteractionSpotKey) => void;
+  /** 設定裝飾的鎖定狀態：鎖定時呈未上色灰白紙模＋漂浮鎖頭旗標，
+   * 解鎖時顏色暈染回來、旗標上飄消失。skipTransition 用於載入時直接套用
+   */
+  setSpotLocked: (key: InteractionSpotKey, isLocked: boolean, skipTransition?: boolean) => void;
   /** 切換夜燈（深色模式）：路燈亮起（自發光＋泛光＋局部暖光），平滑過渡 */
   setNightMode: (enabled: boolean) => void;
   /** 每幀更新水草搖擺與點擊標記 */
@@ -768,6 +774,85 @@ export function createTankEnvironment(scene: Scene): TankEnvironment {
   /** hover 增亮的 emissive 疊加量（微暖白，避免發光感太重） */
   const SPOT_HOVER_EMISSIVE_BOOST = new Color3(0.1, 0.1, 0.085)
 
+  /** 解鎖顏色過渡速率（1/s）：解鎖瞬間顏色約半秒暈染回來 */
+  const UNLOCK_TRANSITION_RATE = 2.4
+
+  /** 鎖定時的「未上色紙模」顏色：保留明度層次、拉到灰白紙的亮度帶，微微偏暖 */
+  function computeLockedPaperColor(color: Color3): Color3 {
+    const luminance = color.r * 0.299 + color.g * 0.587 + color.b * 0.114
+    const paperValue = 0.56 + luminance * 0.36
+    return new Color3(paperValue, paperValue * 0.985, paperValue * 0.955)
+  }
+
+  /** 鎖定裝飾上方漂浮的紙片鎖頭旗標（billboard 面向鏡頭）。
+   * 鎖頭以 canvas 向量繪製（非 emoji），跨平台外觀一致
+   */
+  function buildSpotLockFlag(key: InteractionSpotKey, anchorY: number, parent: TransformNode): Mesh {
+    const textureSize = 128
+    const texture = new DynamicTexture(`tankSpotLockTexture-${key}`, textureSize, scene, true)
+    texture.hasAlpha = true
+    const context = texture.getContext() as CanvasRenderingContext2D
+    const hasRoundRect = typeof context.roundRect === 'function'
+    context.clearRect(0, 0, textureSize, textureSize)
+
+    // 先鋪一層奶油色描邊（同形狀放大版），像紙貼紙的裁切邊，夜間也不糊底
+    context.strokeStyle = 'rgba(255, 253, 247, 0.9)'
+    context.fillStyle = 'rgba(255, 253, 247, 0.9)'
+    context.lineCap = 'round'
+    context.lineWidth = 17
+    context.beginPath()
+    context.arc(64, 54, 20, Math.PI, Math.PI * 2)
+    context.stroke()
+    context.beginPath()
+    if (hasRoundRect) {
+      context.roundRect(29, 49, 70, 56, 13)
+    }
+    else {
+      context.rect(29, 49, 70, 56)
+    }
+    context.fill()
+
+    // 鎖鉤：上半圓弧
+    context.strokeStyle = '#4a5a63'
+    context.lineWidth = 10
+    context.beginPath()
+    context.arc(64, 54, 20, Math.PI, Math.PI * 2)
+    context.stroke()
+    // 鎖體：圓角矩形
+    context.fillStyle = '#4a5a63'
+    context.beginPath()
+    if (hasRoundRect) {
+      context.roundRect(34, 54, 60, 46, 9)
+    }
+    else {
+      context.rect(34, 54, 60, 46)
+    }
+    context.fill()
+    // 鎖孔
+    context.fillStyle = '#f4efe4'
+    context.beginPath()
+    context.arc(64, 71, 6.5, 0, Math.PI * 2)
+    context.fill()
+    context.fillRect(61, 71, 7, 16)
+    texture.update()
+
+    const material = new StandardMaterial(`tankSpotLockMaterial-${key}`, scene)
+    material.diffuseTexture = texture
+    material.useAlphaFromDiffuseTexture = true
+    material.emissiveColor = Color3.White()
+    material.disableLighting = true
+    material.backFaceCulling = false
+
+    const flagMesh = CreatePlane(`tankSpotLockFlag-${key}`, { size: 0.42 }, scene)
+    flagMesh.material = material
+    flagMesh.billboardMode = TransformNode.BILLBOARDMODE_ALL
+    flagMesh.isPickable = false
+    flagMesh.parent = parent
+    flagMesh.position.set(0, anchorY + 0.34, 0)
+    flagMesh.setEnabled(false)
+    return flagMesh
+  }
+
   interface SpotEffectItem {
     node: TransformNode;
     bounceElapsed: number;
@@ -776,17 +861,31 @@ export function createTankEnvironment(scene: Scene): TankEnvironment {
     appliedHoverProgress: number;
     /** 進場演出的起跳延遲（秒），由進場註冊時回填 */
     entranceDelay: number;
-    materialEntryList: { material: StandardMaterial; baseEmissiveColor: Color3 }[];
+    materialEntryList: {
+      material: StandardMaterial;
+      baseEmissiveColor: Color3;
+      baseDiffuseColor: Color3;
+      lockedDiffuseColor: Color3;
+    }[];
+    /** 解鎖顏色進度：0 = 灰白紙模、1 = 原色 */
+    unlockProgress: number;
+    targetUnlockProgress: number;
+    appliedUnlockProgress: number;
+    lockFlagMesh: Mesh;
+    lockFlagBaseY: number;
+    lockFlagBobPhase: number;
   }
 
   const spotEffectItemMap = new Map<InteractionSpotKey, SpotEffectItem>(
-    interactionDecorationList.map((decoration) => {
+    interactionDecorationList.map((decoration, decorationIndex) => {
       const materialSet = new Set<StandardMaterial>()
       for (const mesh of decoration.meshList) {
         if (mesh.material instanceof StandardMaterial) {
           materialSet.add(mesh.material)
         }
       }
+      const spot = interactionSpotList.find((item) => item.key === decoration.key)
+      const anchorY = spot?.anchorY ?? 1
       return [decoration.key, {
         node: decoration.root,
         bounceElapsed: SPOT_BOUNCE_DURATION,
@@ -796,12 +895,33 @@ export function createTankEnvironment(scene: Scene): TankEnvironment {
         materialEntryList: [...materialSet].map((material) => ({
           material,
           baseEmissiveColor: material.emissiveColor.clone(),
+          baseDiffuseColor: material.diffuseColor.clone(),
+          lockedDiffuseColor: computeLockedPaperColor(material.diffuseColor),
         })),
+        unlockProgress: 1,
+        targetUnlockProgress: 1,
+        appliedUnlockProgress: 1,
+        lockFlagMesh: buildSpotLockFlag(decoration.key, anchorY, decoration.root),
+        lockFlagBaseY: anchorY + 0.34,
+        lockFlagBobPhase: decorationIndex * 2.1,
       }]
     }),
   )
 
+  function setSpotLocked(key: InteractionSpotKey, isLocked: boolean, skipTransition = false) {
+    const effectItem = spotEffectItemMap.get(key)
+    if (!effectItem) {
+      return
+    }
+    effectItem.targetUnlockProgress = isLocked ? 0 : 1
+    if (skipTransition) {
+      effectItem.unlockProgress = effectItem.targetUnlockProgress
+    }
+  }
+
   let hoveredSpotKey: InteractionSpotKey | null = null
+  /** 鎖頭旗標漂浮動畫的累積時間 */
+  let spotLockTimeSeconds = 0
 
   function playSpotBounce(key: InteractionSpotKey) {
     const effectItem = spotEffectItemMap.get(key)
@@ -815,7 +935,41 @@ export function createTankEnvironment(scene: Scene): TankEnvironment {
   }
 
   function updateSpotEffects(deltaSeconds: number) {
+    spotLockTimeSeconds += deltaSeconds
     for (const [key, effectItem] of spotEffectItemMap) {
+      // 解鎖顏色過渡：灰白紙模 ↔ 原色 平滑暈染
+      effectItem.unlockProgress
+        += (effectItem.targetUnlockProgress - effectItem.unlockProgress)
+          * Math.min(1, deltaSeconds * UNLOCK_TRANSITION_RATE)
+      if (Math.abs(effectItem.unlockProgress - effectItem.appliedUnlockProgress) > 0.004) {
+        effectItem.appliedUnlockProgress = effectItem.unlockProgress
+        for (const materialEntry of effectItem.materialEntryList) {
+          Color3.LerpToRef(
+            materialEntry.lockedDiffuseColor,
+            materialEntry.baseDiffuseColor,
+            effectItem.unlockProgress,
+            materialEntry.material.diffuseColor,
+          )
+        }
+      }
+
+      // 鎖頭旗標：鎖定時上下漂浮，解鎖過程上飄縮小淡出
+      const flagVisibility = 1 - effectItem.unlockProgress
+      if (flagVisibility <= 0.01) {
+        if (effectItem.lockFlagMesh.isEnabled()) {
+          effectItem.lockFlagMesh.setEnabled(false)
+        }
+      }
+      else {
+        if (!effectItem.lockFlagMesh.isEnabled()) {
+          effectItem.lockFlagMesh.setEnabled(true)
+        }
+        const bobOffset = Math.sin(spotLockTimeSeconds * 2.1 + effectItem.lockFlagBobPhase) * 0.045
+        effectItem.lockFlagMesh.position.y
+          = effectItem.lockFlagBaseY + bobOffset + effectItem.unlockProgress * 0.5
+        effectItem.lockFlagMesh.scaling.setAll(flagVisibility)
+        effectItem.lockFlagMesh.visibility = flagVisibility
+      }
       // hover 進度彈簧收斂
       const hoverTarget = key === hoveredSpotKey ? 1 : 0
       effectItem.hoverProgress
@@ -1400,6 +1554,7 @@ export function createTankEnvironment(scene: Scene): TankEnvironment {
     playSpotBounce,
     setSpotHover,
     playSpotShowcase,
+    setSpotLocked,
     setNightMode,
     update,
     showClickMarker,
