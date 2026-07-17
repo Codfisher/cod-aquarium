@@ -24,11 +24,27 @@
     <canvas
       ref="canvasRef"
       class="diorama-canvas relative block h-full w-full"
-      :class="{ 'is-ready': isReady }"
-      @click="hasInteracted = true"
+      :class="{ 'is-ready': isReady && hasEntered }"
+      @click="handleCanvasClick"
     />
 
-    <!-- 首次點擊前的移動提示（vp-raw：淡出動畫不受 reduced-motion 歸零影響） -->
+    <!-- 迎賓頁：場景進場前只鋪漸層與紙紋，點擊後才啟動渲染與進場演出。
+         這也讓背景分頁開啟（視窗無 focus、渲染暫停）時不會是一片空白 -->
+    <transition name="text">
+      <div
+        v-if="welcomeVisible"
+        class="welcome-overlay vp-raw absolute text-center pointer-events-none"
+      >
+        <div class="welcome-title">
+          歡迎來到鱈魚的魚缸
+        </div>
+        <div class="welcome-subtitle">
+          {{ welcomeSubtitleText }}
+        </div>
+      </div>
+    </transition>
+
+    <!-- 進場後的移動提示（vp-raw：淡出動畫不受 reduced-motion 歸零影響） -->
     <transition name="text">
       <div
         v-if="moveHintVisible"
@@ -131,10 +147,35 @@ const spotContentMap: Record<InteractionSpotKey, { text: string; url: string }> 
   crayonSet: { text: '點我看繪圖作品', url: 'https://www.flickr.com/photos/coodfish/albums/72157644028504527/' },
 }
 
-/** 使用者是否點擊過場景（點過就收掉移動提示） */
-const hasInteracted = ref(false)
+/** 是否已點擊迎賓頁進場（點擊後才啟動渲染迴圈與進場演出） */
+const hasEntered = ref(false)
+/** 進場後是否已下過移動指令（下過就收掉移動提示） */
+const hasCommandedMove = ref(false)
+/** 移動提示延後到進場演出大致播完才出現 */
+const moveHintDelayDone = ref(false)
+let moveHintTimer: ReturnType<typeof setTimeout> | undefined
 
-const moveHintVisible = computed(() => isReady.value && !hasInteracted.value)
+const welcomeVisible = computed(() => !hasEntered.value)
+const welcomeSubtitleText = computed(() => (
+  isReady.value ? '點擊任意處繼續' : '正在佈置魚缸...(´,,•ω•,,)'
+))
+const moveHintVisible = computed(() => (
+  hasEntered.value && moveHintDelayDone.value && !hasCommandedMove.value
+))
+
+function handleCanvasClick() {
+  if (!isReady.value) {
+    return
+  }
+  if (!hasEntered.value) {
+    hasEntered.value = true
+    moveHintTimer = setTimeout(() => {
+      moveHintDelayDone.value = true
+    }, 1600)
+    return
+  }
+  hasCommandedMove.value = true
+}
 
 /** 魚目前停靠的裝飾與 popup 錨點位置，由場景每幀回報 */
 const nearbySpot = ref<NearbyInteractionInfo | null>(null)
@@ -151,16 +192,13 @@ useIntersectionObserver(sectionRef, ([entry]) => {
   visible.value = entry?.isIntersecting || false
 })
 
+// 進場前不啟動渲染：迎賓頁只需要 CSS 漸層與紙紋，
+// 也避免視窗無 focus 時（渲染暫停）首屏是一片空白
 const shouldRun = computed(() => (
-  isReady.value && visible.value && isFocused.value
+  isReady.value && hasEntered.value && visible.value && isFocused.value
 ))
 
-const hintText = computed(() => {
-  if (!isReady.value) {
-    return '正在佈置魚缸...(´,,•ω•,,)'
-  }
-  return '下面還有很多內容 (ゝ∀・)b'
-})
+const hintText = '下面還有很多內容 (ゝ∀・)b'
 
 onMounted(async () => {
   // 背景紙紋非關鍵路徑：失敗就維持純漸層
@@ -213,6 +251,9 @@ useResizeObserver(sectionRef, () => {
 })
 
 onUnmounted(() => {
+  if (moveHintTimer) {
+    clearTimeout(moveHintTimer)
+  }
   dioramaHandle?.dispose()
   dioramaHandle = undefined
 })
@@ -289,15 +330,41 @@ onUnmounted(() => {
   50%
     opacity: 0.55
 
+.welcome-overlay
+  // 視覺重心略高於正中，迎賓文字不壓到場景主體
+  top: 34%
+  left: 0
+  right: 0
+  color: #fff
+  text-shadow: 0 1px 3px rgba(15, 30, 40, 0.8), 0 2px 10px rgba(15, 30, 40, 0.6), 0 0 24px rgba(15, 30, 40, 0.4)
+
+.welcome-title
+  font-size: clamp(26px, 5vw, 36px)
+  font-weight: 600
+  letter-spacing: 8px
+  // 置中補償 letter-spacing 只加在字後造成的視覺偏左
+  text-indent: 8px
+
+.welcome-subtitle
+  margin-top: 16px
+  font-size: 14px
+  letter-spacing: 4px
+  text-indent: 4px
+  animation: move-hint-breathe 2.6s ease-in-out infinite
+
+// 淡出時停掉呼吸動畫，opacity 才輪得到 transition 接手
+.welcome-overlay.text-leave-active .welcome-subtitle
+  animation: none
+
 .move-hint
   // 上方偏中央：桌機導覽列是 fixed 覆蓋，往下留些距離避開
   top: 13%
   left: 0
   right: 0
   color: #fff
-  font-size: 22px
+  font-size: 18px
   font-weight: 500
-  letter-spacing: 4px
+  letter-spacing: 2px
   // 深色多層陰影：襯著淡色背景與遠景丘陵也要讀得清楚
   text-shadow: 0 1px 3px rgba(15, 30, 40, 0.8), 0 2px 10px rgba(15, 30, 40, 0.6), 0 0 24px rgba(15, 30, 40, 0.4)
   animation: move-hint-breathe 2.6s ease-in-out infinite

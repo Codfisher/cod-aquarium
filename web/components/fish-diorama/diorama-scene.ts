@@ -99,6 +99,18 @@ const FISH_COMBO_WINDOW_SECONDS = 2.5
 const PARALLAX_ALPHA_RANGE = 0.035
 const PARALLAX_BETA_RANGE = 0.02
 const PARALLAX_LERP_RATE = 3
+/** 魚的進場演出：先讓擺設彈出再落魚（秒）、落下重力。
+ * 重力比真實值大，下墜節奏才不拖泥帶水
+ */
+const FISH_ENTRANCE_DELAY_SECONDS = 0.55
+const FISH_ENTRANCE_GRAVITY = 26
+/** 起始高度依取景動態解算（保證在畫面外）；解算前先藏在遠高於任何取景的天上 */
+const FISH_ENTRANCE_HIDDEN_HEIGHT = 40
+/** 起始高度需高出畫面頂端的邊距（畫面高度比例） */
+const FISH_ENTRANCE_OFFSCREEN_MARGIN_RATIO = 0.12
+/** 進場落地的擠壓緩衝時長（秒）與擠壓量 */
+const FISH_ENTRANCE_SQUASH_DURATION = 0.24
+const FISH_ENTRANCE_SQUASH_AMOUNT = 0.2
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value))
@@ -347,6 +359,10 @@ export function createDioramaScene(
   setDarkMode(options.isDark)
 
   // --- 點擊移動 ---
+  /** 渲染迴圈是否運轉中。未運轉（迎賓頁、分頁失焦）時忽略指標互動，
+   * 避免迎賓頁的「點擊繼續」那一下順帶對魚下移動指令
+   */
+  let isRunning = false
   let pointerDownX = 0
   let pointerDownY = 0
   let pointerDownId: number | undefined
@@ -364,6 +380,11 @@ export function createDioramaScene(
       return
     }
     pointerDownId = undefined
+
+    // 未運轉或魚還在進場下落中，不接受移動/互動指令
+    if (!isRunning || !isFishEntranceDone) {
+      return
+    }
 
     // 只認主鍵（左鍵/觸控），避免右鍵、中鍵誤觸移動
     if (event.button !== 0) {
@@ -467,7 +488,7 @@ export function createDioramaScene(
 
   function handlePointerMove(event: PointerEvent) {
     // 只追滑鼠 hover；觸控不觸發，維持自主張望
-    if (event.pointerType !== 'mouse') {
+    if (!isRunning || event.pointerType !== 'mouse') {
       return
     }
 
@@ -614,6 +635,33 @@ export function createDioramaScene(
   // --- 每幀更新 ---
   let timeSeconds = 0
 
+  // --- 魚的進場：擺設彈出後從高空落下，落地濺大水花 ---
+  let fishEntranceElapsedSeconds = 0
+  let isFishEntranceDone = false
+  let fishEntranceSquashRemainingSeconds = 0
+  /** 進場起始高度，0 = 尚未解算（相機矩陣要等首幀渲染後才有效） */
+  let fishEntranceDropHeight = 0
+
+  /** 由低往高找第一個投影在畫面頂端之上（含邊距）的高度，
+   * 讓魚在任何視窗比例（含手機直式的高天空取景）都保證從螢幕外落下
+   */
+  function resolveEntranceDropHeight(): number {
+    const renderWidth = Math.max(1, engine.getRenderWidth())
+    const renderHeight = Math.max(1, engine.getRenderHeight())
+    for (let height = 6; height <= FISH_ENTRANCE_HIDDEN_HEIGHT; height += 1) {
+      const projectedPoint = Vector3.Project(
+        new Vector3(0, height, 0),
+        Matrix.IdentityReadOnly,
+        scene.getTransformMatrix(),
+        camera.viewport.toGlobal(renderWidth, renderHeight),
+      )
+      if (projectedPoint.y < -renderHeight * FISH_ENTRANCE_OFFSCREEN_MARGIN_RATIO) {
+        return height
+      }
+    }
+    return FISH_ENTRANCE_HIDDEN_HEIGHT
+  }
+
   function updateFish(deltaSeconds: number) {
     const pose = flopController.update(deltaSeconds)
 
@@ -622,11 +670,42 @@ export function createDioramaScene(
       environment.spawnLandingBurst(pose.x, pose.z, pose.hopStrength)
     }
 
+    // 進場落下：延遲後自由落體；落地觸發大水花與擠壓緩衝
+    let entranceOffsetY = 0
+    let entranceSquash = 1
+    let isEntranceFalling = false
+    if (!isFishEntranceDone) {
+      fishEntranceElapsedSeconds += deltaSeconds
+      // 首幀渲染後相機矩陣才有效，延遲期間解算起始高度；解算前先藏在天上
+      if (fishEntranceDropHeight === 0 && fishEntranceElapsedSeconds > 0.1) {
+        fishEntranceDropHeight = resolveEntranceDropHeight()
+      }
+      const dropHeight = fishEntranceDropHeight || FISH_ENTRANCE_HIDDEN_HEIGHT
+      const fallSeconds = Math.max(0, fishEntranceElapsedSeconds - FISH_ENTRANCE_DELAY_SECONDS)
+      const fallDistance = 0.5 * FISH_ENTRANCE_GRAVITY * fallSeconds * fallSeconds
+      if (fishEntranceDropHeight > 0 && fallDistance >= dropHeight) {
+        isFishEntranceDone = true
+        fishEntranceSquashRemainingSeconds = FISH_ENTRANCE_SQUASH_DURATION
+        environment.spawnLandingBurst(pose.x, pose.z, 1.6)
+      }
+      else {
+        entranceOffsetY = dropHeight - fallDistance
+        isEntranceFalling = true
+        // 下落時身體微拉長，與落地擠壓形成對比
+        entranceSquash = 1.08
+      }
+    }
+    if (fishEntranceSquashRemainingSeconds > 0) {
+      fishEntranceSquashRemainingSeconds = Math.max(0, fishEntranceSquashRemainingSeconds - deltaSeconds)
+      const squashRatio = fishEntranceSquashRemainingSeconds / FISH_ENTRANCE_SQUASH_DURATION
+      entranceSquash = 1 - FISH_ENTRANCE_SQUASH_AMOUNT * squashRatio * squashRatio
+    }
+
     updateAutoGaze(deltaSeconds, pose.isMoving)
 
     codModel.rootNode.position.set(
       pose.x,
-      GROUND_Y + COD_LYING_LIFT * FISH_SCALE + pose.y,
+      GROUND_Y + COD_LYING_LIFT * FISH_SCALE + pose.y + entranceOffsetY,
       pose.z,
     )
     codModel.rootNode.rotation.y = pose.heading
@@ -637,20 +716,22 @@ export function createDioramaScene(
     // 物理碰撞球跟著魚身中心（含跳躍高度）：跳起時抬離水草、落下才壓草
     fishColliderMesh?.position.copyFrom(codModel.rootNode.position)
 
-    const horizontalScale = FISH_SCALE / Math.sqrt(pose.squash)
+    const combinedSquash = pose.squash * entranceSquash
+    const horizontalScale = FISH_SCALE / Math.sqrt(combinedSquash)
     codModel.rootNode.scaling.set(
       horizontalScale,
-      FISH_SCALE * pose.squash,
+      FISH_SCALE * combinedSquash,
       horizontalScale,
     )
 
-    // 身體擺動（與跳躍同步）、胸鰭划水、尾鰭拍打、眨眼、瞳孔（有游標則看向游標）
+    // 身體擺動（與跳躍同步）、胸鰭划水、尾鰭拍打、眨眼、瞳孔（有游標則看向游標）。
+    // 進場下落時視為移動且不給外部相位：身體自跑擺動，像在空中掙扎
     codModel.update({
       deltaSeconds,
-      isMoving: pose.isMoving,
-      wavePhase: pose.wavePhase,
-      waveStrength: pose.hopStrength,
-      gazeTarget: gazeWorldPoint ?? autoGazePoint,
+      isMoving: pose.isMoving || isEntranceFalling,
+      wavePhase: isEntranceFalling ? undefined : pose.wavePhase,
+      waveStrength: isEntranceFalling ? 1 : pose.hopStrength,
+      gazeTarget: isEntranceFalling ? null : (gazeWorldPoint ?? autoGazePoint),
     })
 
     return pose
@@ -672,8 +753,6 @@ export function createDioramaScene(
     scene.render()
     updateNearbyInteraction(pose.x, pose.z, pose.isMoving)
   }
-
-  let isRunning = false
 
   return {
     setRunning(value: boolean) {
