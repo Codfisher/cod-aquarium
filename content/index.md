@@ -3,7 +3,6 @@ title: 鱈魚的魚缸
 titleTemplate: 各種鱈魚滾鍵盤的雜記與研究
 description: 各種鱈魚滾鍵盤的雜記與其他酷酷的東西 (´,,•ω•,,)
 image: https://codlin.me/cover.webp
-pageClass: home-diorama
 sidebar: false
 lastUpdated: false
 prev: false
@@ -196,3 +195,11 @@ Minecraft 是我大學的時候最愛的遊戲，當時還做了很多地圖檔�
 還會持續更新，敬請期待！◝(≧∀≦)◟
 
 有任何問題或建議，歡迎在社群私訊我，或寄信給我喔。♪(^∇^*)（<hi@codlin.me>）
+
+<br>
+
+路人：「就這樣嗎？還有別的嗎？」
+
+真拿你沒辦法，去挑戰吧！我把一切都放在這裡了！╰(°▽°)╯
+
+<fish-diorama />
