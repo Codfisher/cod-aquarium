@@ -217,6 +217,8 @@ const props = defineProps<{
   getFishShotInfo: () => FishShotInfo | null;
   /** 以魚為中心截下場景畫面（拍立得內容） */
   captureSnapshot: () => string | null;
+  /** 快門瞬間的 3D 場景回饋：相機模型閃燈，拍到清晰照再加彈跳與彩帶 */
+  playShutterFeedback?: (isSharpShot: boolean) => void;
 }>()
 
 const emit = defineEmits<{
@@ -348,6 +350,8 @@ function releaseShutter() {
   flashTimer = setTimeout(() => {
     flashVisible.value = false
   }, 140)
+  // 3D 相機同步演出：閃燈；清晰照再加彈跳＋彩帶
+  props.playShutterFeedback?.(isFocusSharp && isFishAirborne)
 
   const snapshotUrl = props.captureSnapshot()
   if (!snapshotUrl) {

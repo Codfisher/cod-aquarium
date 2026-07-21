@@ -1,8 +1,10 @@
-/** 箱庭場景：大地板上的石頭、水草、遊戲手把、相機與點擊標記。
+/** 箱庭場景：大地板上的石頭、水草、卵石、蠟筆、相機、打字機與點擊標記。
  *
  * 座標中心在場景中央，x 為長邊、z 為短邊。
  */
+import type { AbstractMesh } from '@babylonjs/core/Meshes/abstractMesh'
 import type { Mesh } from '@babylonjs/core/Meshes/mesh'
+import type { PhysicsBody } from '@babylonjs/core/Physics/v2/physicsBody'
 import type { Scene } from '@babylonjs/core/scene'
 import type { ObstacleCircle } from './flop-controller'
 import { VertexBuffer } from '@babylonjs/core/Buffers/buffer'
@@ -14,6 +16,7 @@ import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial'
 import { DynamicTexture } from '@babylonjs/core/Materials/Textures/dynamicTexture'
 import { Color3 } from '@babylonjs/core/Maths/math.color'
 import { Matrix, Vector3 } from '@babylonjs/core/Maths/math.vector'
+import { CreateBox } from '@babylonjs/core/Meshes/Builders/boxBuilder'
 import { CreateCylinder } from '@babylonjs/core/Meshes/Builders/cylinderBuilder'
 import { CreatePlane } from '@babylonjs/core/Meshes/Builders/planeBuilder'
 import { CreatePolyhedron } from '@babylonjs/core/Meshes/Builders/polyhedronBuilder'
@@ -93,12 +96,20 @@ export interface TankEnvironment {
   showClickMarker: (x: number, z: number) => void;
   /** 魚落地時在該處濺出小水滴（strength = 本跳跳高縮放，影響數量與噴發力道） */
   spawnLandingBurst: (x: number, z: number, strength: number) => void;
+  /** 戳一下卵石：對剛體施小衝量彈起（物理未就緒則無反應） */
+  pokePebble: (mesh: AbstractMesh) => void;
+  /** 慶祝彩帶：在指定位置向上噴發（count 控制張數，預設整池） */
+  spawnConfettiBurst: (x: number, z: number, count?: number) => void;
   /** 直式時把有正面的裝飾轉向觀眾，補償相機環繞角度 */
   setPortrait: (isPortrait: boolean) => void;
   /** Havok 就緒後呼叫：水草葉片轉成動態剛體（彈簧回正），石頭/搖桿/相機建靜態碰撞體。
    * 啟用後手動推草自動失效（葉片已脫離動畫節點）。
    */
   enablePhysics: () => void;
+  /** 挑戰舞台需直接操作的打字機部件（鍵帽下壓、紙張文字、卡紙抖動） */
+  typewriterPartMap: { root: TransformNode; keyList: Mesh[]; paper: Mesh };
+  /** 蠟筆組錨點：畫室舞台的畫架擺放參考 */
+  crayonAnchor: { x: number; z: number };
 }
 
 /** mulberry32 偽隨機數產生器，固定種子讓每次載入的擺設一致 */
@@ -119,6 +130,8 @@ interface SwayItem {
   speed: number;
   amplitude: number;
   baseLean: number;
+  /** 根部世界 x：統一風場沿 x 掃過時計算相位差用 */
+  rootX: number;
 }
 
 interface PushItem {
@@ -136,6 +149,13 @@ interface SeaweedPlant {
   upperBlade: Mesh;
 }
 
+/** 一顆卵石／貝殼；body 於物理啟用後回填，供出界歸位 */
+interface PebbleItem {
+  mesh: Mesh;
+  spawnPosition: Vector3;
+  body?: PhysicsBody;
+}
+
 /** 魚推開水草的影響半徑與最大傾倒角（Havok 未啟用時的手動後備） */
 const SEAWEED_PUSH_RADIUS = 1.2
 const SEAWEED_PUSH_ANGLE = 0.9
@@ -145,11 +165,17 @@ const SEAWEED_PUSH_ANGLE = 0.9
 export const PHYSICS_GROUP_FISH = 1
 export const PHYSICS_GROUP_SEAWEED = 2
 export const PHYSICS_GROUP_STATIC = 4
+/** 自由剛體（卵石、貝殼）：與魚、靜態物、彼此碰撞，不干擾水草葉片 */
+export const PHYSICS_GROUP_DEBRIS = 8
 /** 單節葉片質量（愈輕愈容易被魚撥飛） */
 const SEAWEED_BLADE_MASS = 0.15
-/** 拉回原姿態的角度彈簧：剛度（回正力道）與阻尼（擺盪衰減） */
+/** 拉回原姿態的角度彈簧：剛度（回正力道）與阻尼（擺盪衰減）。
+ * 阻尼偏高（過阻尼）配合物理子步進，吸收彈簧與接觸互搶的震盪
+ */
 const SEAWEED_SPRING_STIFFNESS = 40
-const SEAWEED_SPRING_DAMPING = 3
+const SEAWEED_SPRING_DAMPING = 8
+/** 卵石／貝殼質量：夠輕才會被魚犁開 */
+const PEBBLE_MASS = 0.05
 
 const MARKER_DURATION_SECONDS = 0.6
 
@@ -300,6 +326,7 @@ function buildSeaweed(
         speed: 0.5 + random() * 0.3,
         amplitude: 0.03,
         baseLean: 0,
+        rootX: x,
       })
       pushItemList.push({ node: pushNode, rootX: x, rootZ: z })
 
@@ -309,6 +336,89 @@ function buildSeaweed(
   }
 
   return { meshList, plantList }
+}
+
+/** 沙地上散落的小卵石與貝殼：Havok 啟用後是自由剛體，
+ * 會被魚犁開；出界由 update 歸位
+ */
+function buildPebbleList(
+  scene: Scene,
+  random: () => number,
+): { meshList: Mesh[]; itemList: PebbleItem[] } {
+  const pebbleColorList = ['#b8a98f', '#9b8f7c', '#c7b9a1']
+  const pebbleMaterialList = pebbleColorList.map((color, index) => {
+    const material = new StandardMaterial(`tankPebbleMaterial${index}`, scene)
+    material.diffuseColor = Color3.FromHexString(color)
+    material.specularColor = Color3.Black()
+    return material
+  })
+  const shellMaterial = new StandardMaterial('tankShellMaterial', scene)
+  shellMaterial.diffuseColor = Color3.FromHexString('#dbb5a4')
+  shellMaterial.specularColor = Color3.Black()
+
+  const pebbleSpotList = [
+    { x: -3, z: -0.6 },
+    { x: -1.2, z: 0.8 },
+    { x: 0.9, z: 1.7 },
+    { x: 2.6, z: -0.9 },
+    { x: 4.1, z: -1.9 },
+    { x: -4.5, z: 1.1 },
+    { x: 1.9, z: 2.3 },
+    { x: -0.4, z: -1.8 },
+    { x: 5, z: 0.4 },
+    { x: -2, z: 2.1 },
+  ]
+
+  const meshList: Mesh[] = []
+  const itemList: PebbleItem[] = []
+
+  for (const [index, spot] of pebbleSpotList.entries()) {
+    const x = spot.x + (random() - 0.5) * 0.5
+    const z = spot.z + (random() - 0.5) * 0.4
+    const isShell = index % 4 === 3
+    let mesh: Mesh
+    let restingY: number
+    if (isShell) {
+      // 貝殼：壓扁的低分段球，淡粉色
+      const diameter = 0.16 + random() * 0.05
+      mesh = CreateSphere(`tankShell${index}`, { diameter, segments: 5 }, scene)
+      mesh.scaling.set(1, 0.42, 0.85)
+      mesh.material = shellMaterial
+      mesh.convertToFlatShadedMesh()
+      restingY = diameter * 0.42 * 0.5
+    }
+    else {
+      // 中高面數多面體＋頂點擾動＋不等比壓扁，與大石頭同做法的迷你版，
+      // 低面數的正多面體太規則、看起來單調
+      const size = 0.06 + random() * 0.05
+      const polyhedronTypeList = [2, 3, 4]
+      const type = polyhedronTypeList[index % polyhedronTypeList.length]!
+      mesh = CreatePolyhedron(`tankPebble${index}`, { type, size, flat: false }, scene)
+      const positionList = mesh.getVerticesData(VertexBuffer.PositionKind)
+      if (positionList) {
+        const jitter = size * 0.35
+        for (let vertexIndex = 0; vertexIndex < positionList.length; vertexIndex += 3) {
+          positionList[vertexIndex] = (positionList[vertexIndex] ?? 0) + (random() - 0.5) * jitter
+          positionList[vertexIndex + 1] = (positionList[vertexIndex + 1] ?? 0) + (random() - 0.5) * jitter
+          positionList[vertexIndex + 2] = (positionList[vertexIndex + 2] ?? 0) + (random() - 0.5) * jitter
+        }
+        mesh.updateVerticesData(VertexBuffer.PositionKind, positionList)
+      }
+      mesh.convertToFlatShadedMesh()
+      mesh.scaling.set(0.9 + random() * 0.4, 0.6 + random() * 0.3, 0.9 + random() * 0.4)
+      mesh.material = pebbleMaterialList[index % pebbleMaterialList.length]!
+      restingY = size * 0.55
+    }
+    mesh.rotation.y = random() * Math.PI * 2
+    mesh.position.set(x, GROUND_Y + restingY, z)
+    // 可點擊戳一下（點擊處理依 metadata 辨認，戳卵石不會誤派魚移動）
+    mesh.isPickable = true
+    mesh.metadata = { isPokeablePebble: true }
+    meshList.push(mesh)
+    itemList.push({ mesh, spawnPosition: mesh.position.clone() })
+  }
+
+  return { meshList, itemList }
 }
 
 /** 幾支胖蠟筆（三立一躺），代表繪畫創作。
@@ -731,6 +841,7 @@ export function createTankEnvironment(scene: Scene): TankEnvironment {
   const pushItemList: PushItem[] = []
   const rocks = buildRockList(scene, random)
   const seaweed = buildSeaweed(scene, random, swayItemList, pushItemList)
+  const pebbles = buildPebbleList(scene, random)
   const crayonSet = buildCrayonSet(scene)
   const camera = buildCamera(scene)
   const typewriter = buildTypewriter(scene)
@@ -1227,15 +1338,21 @@ export function createTankEnvironment(scene: Scene): TankEnvironment {
   let entranceRegisterCount = 0
   let isEntranceFinished = false
 
-  function registerEntranceNode(node: TransformNode) {
+  function registerEntranceNode(node: TransformNode, sharesPreviousDelay = false) {
+    // 共拍：數量多的小物（卵石）跟前一項同拍彈出，進場總長不被拉太長
+    const delayIndex = sharesPreviousDelay
+      ? Math.max(0, entranceRegisterCount - 1)
+      : entranceRegisterCount
     entranceItemList.push({
       node,
       baseScaling: node.scaling.clone(),
-      delay: entranceRegisterCount * ENTRANCE_STAGGER,
+      delay: delayIndex * ENTRANCE_STAGGER,
     })
     // 開演前縮到近乎不可見（不用 0，避免縮放矩陣退化）
     node.scaling.setAll(0.001)
-    entranceRegisterCount += 1
+    if (!sharesPreviousDelay) {
+      entranceRegisterCount += 1
+    }
   }
 
   for (const rock of rocks.meshList) {
@@ -1243,6 +1360,9 @@ export function createTankEnvironment(scene: Scene): TankEnvironment {
   }
   for (const plant of seaweed.plantList) {
     registerEntranceNode(plant.anchorNode)
+  }
+  for (const [pebbleIndex, pebbleItem] of pebbles.itemList.entries()) {
+    registerEntranceNode(pebbleItem.mesh, pebbleIndex % 3 !== 0)
   }
   // 三個可互動裝飾的 scaling 由 updateSpotEffects 統一寫入，進場只回填延遲、
   // 由 computeEntranceScale 提供倍率（放最後壓軸彈出）
@@ -1385,6 +1505,120 @@ export function createTankEnvironment(scene: Scene): TankEnvironment {
     }
   }
 
+  // --- 全解鎖慶典彩帶：小紙片向上噴發、翻轉飄落 ---
+  const CONFETTI_POOL_SIZE = 30
+  const CONFETTI_GRAVITY = 4.5
+
+  interface ConfettiParticle {
+    mesh: Mesh;
+    velocity: Vector3;
+    spinX: number;
+    spinZ: number;
+    life: number;
+    maxLife: number;
+  }
+
+  const confettiMaterialList = ['#f2a3b3', '#ffd166', '#7bd389', '#6ec3da', '#c39bd3'].map((color, index) => {
+    const material = new StandardMaterial(`tankConfettiMaterial${index}`, scene)
+    material.diffuseColor = Color3.FromHexString(color)
+    material.emissiveColor = Color3.FromHexString(color).scale(0.35)
+    material.specularColor = Color3.Black()
+    material.backFaceCulling = false
+    return material
+  })
+
+  const confettiParticleList: ConfettiParticle[] = []
+  for (let index = 0; index < CONFETTI_POOL_SIZE; index++) {
+    const mesh = CreateBox(`tankConfetti${index}`, { width: 0.1, height: 0.014, depth: 0.06 }, scene)
+    mesh.material = confettiMaterialList[index % confettiMaterialList.length]!
+    mesh.isPickable = false
+    mesh.setEnabled(false)
+    confettiParticleList.push({
+      mesh,
+      velocity: new Vector3(),
+      spinX: 0,
+      spinZ: 0,
+      life: 0,
+      maxLife: 1,
+    })
+  }
+
+  function spawnConfettiBurst(x: number, z: number, count = CONFETTI_POOL_SIZE) {
+    let spawnedCount = 0
+    for (const particle of confettiParticleList) {
+      if (spawnedCount >= count) {
+        break
+      }
+      // 跳過還在飄的紙片，連續呼叫不會硬生生重置進行中的彩帶
+      if (particle.life > 0) {
+        continue
+      }
+      spawnedCount += 1
+      const angle = Math.random() * Math.PI * 2
+      const horizontalSpeed = 0.5 + Math.random() * 1.4
+      particle.velocity.set(
+        Math.cos(angle) * horizontalSpeed,
+        2.4 + Math.random() * 1.6,
+        Math.sin(angle) * horizontalSpeed,
+      )
+      particle.spinX = (Math.random() - 0.5) * 14
+      particle.spinZ = (Math.random() - 0.5) * 14
+      particle.maxLife = 1.5 + Math.random() * 0.8
+      particle.life = particle.maxLife
+      particle.mesh.position.set(x + Math.cos(angle) * 0.12, 0.35 + Math.random() * 0.4, z + Math.sin(angle) * 0.12)
+      particle.mesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI)
+      particle.mesh.scaling.setAll(1)
+      particle.mesh.setEnabled(true)
+    }
+  }
+
+  function updateConfettiList(deltaSeconds: number) {
+    for (const particle of confettiParticleList) {
+      if (particle.life <= 0) {
+        continue
+      }
+      particle.life -= deltaSeconds
+      if (particle.life <= 0) {
+        particle.mesh.setEnabled(false)
+        continue
+      }
+      // 空氣阻力：水平速度衰減，紙片飄而不是射
+      particle.velocity.y -= CONFETTI_GRAVITY * deltaSeconds
+      const drag = Math.max(0, 1 - deltaSeconds * 1.1)
+      particle.velocity.x *= drag
+      particle.velocity.z *= drag
+      particle.mesh.position.x += particle.velocity.x * deltaSeconds
+      particle.mesh.position.y += particle.velocity.y * deltaSeconds
+      particle.mesh.position.z += particle.velocity.z * deltaSeconds
+      particle.mesh.rotation.x += particle.spinX * deltaSeconds
+      particle.mesh.rotation.z += particle.spinZ * deltaSeconds
+      if (particle.mesh.position.y < 0.02) {
+        particle.mesh.position.y = 0.02
+        particle.velocity.set(0, 0, 0)
+        particle.spinX = 0
+        particle.spinZ = 0
+      }
+      const lifeRatio = particle.life / particle.maxLife
+      const scale = Math.min(1, lifeRatio / 0.25)
+      particle.mesh.scaling.setAll(scale)
+    }
+  }
+
+  /** 戳卵石：對剛體施一記向上為主的小衝量，彈起翻滾一下 */
+  function pokePebble(mesh: AbstractMesh) {
+    const pebbleItem = pebbles.itemList.find((item) => item.mesh === mesh)
+    const body = pebbleItem?.body
+    if (!body) {
+      return
+    }
+    const impulse = new Vector3(
+      (Math.random() - 0.5) * 1.2,
+      2.2,
+      (Math.random() - 0.5) * 1.2,
+    ).scaleInPlace(PEBBLE_MASS)
+    body.applyImpulse(impulse, mesh.getAbsolutePosition())
+  }
+
   // 直式（手機）時相機環繞轉 90°，讓有正面的裝飾（相機、蠟筆、打字機）跟著轉向觀眾
   const orientationList = [
     { node: camera.root, baseRotationY: camera.root.rotation.y },
@@ -1428,11 +1662,11 @@ export function createTankEnvironment(scene: Scene): TankEnvironment {
     }
     hasPhysics = true
 
-    // 靜態：石頭凸包，擋住被魚推來的葉片
+    // 靜態：石頭凸包，擋住被魚推來的葉片與滾來的卵石
     for (const rock of rocks.meshList) {
       const rockAggregate = new PhysicsAggregate(rock, PhysicsShapeType.CONVEX_HULL, { mass: 0 }, scene)
       rockAggregate.shape.filterMembershipMask = PHYSICS_GROUP_STATIC
-      rockAggregate.shape.filterCollideMask = PHYSICS_GROUP_SEAWEED
+      rockAggregate.shape.filterCollideMask = PHYSICS_GROUP_SEAWEED | PHYSICS_GROUP_DEBRIS
     }
 
     // 靜態：蠟筆、相機、打字機用隱形圓柱涵蓋（外形近似即可）
@@ -1448,11 +1682,24 @@ export function createTankEnvironment(scene: Scene): TankEnvironment {
       collider.isPickable = false
       const staticAggregate = new PhysicsAggregate(collider, PhysicsShapeType.CYLINDER, { mass: 0 }, scene)
       staticAggregate.shape.filterMembershipMask = PHYSICS_GROUP_STATIC
-      staticAggregate.shape.filterCollideMask = PHYSICS_GROUP_SEAWEED
+      staticAggregate.shape.filterCollideMask = PHYSICS_GROUP_SEAWEED | PHYSICS_GROUP_DEBRIS
     })
 
+    /** 錨點剛體：隱形小球，不參與碰撞，純當角度彈簧的約束基座 */
+    function createAnchorAggregate(name: string, position: Vector3): PhysicsAggregate {
+      const anchorMesh = CreateSphere(`${name}-body`, { diameter: 0.06, segments: 4 }, scene)
+      anchorMesh.position.copyFrom(position)
+      anchorMesh.isVisible = false
+      anchorMesh.isPickable = false
+      const anchorAggregate = new PhysicsAggregate(anchorMesh, PhysicsShapeType.SPHERE, { mass: 0 }, scene)
+      anchorAggregate.shape.filterMembershipMask = 0
+      anchorAggregate.shape.filterCollideMask = 0
+      return anchorAggregate
+    }
+
     // 水草：每株兩節葉片轉成動態剛體（葉片 mesh 幾何直接當碰撞體），
-    // 錨點→下葉→上葉串起角度彈簧，被魚撞開後拉回原姿態
+    // 錨點→下葉→上葉串起角度彈簧，被魚撞開後拉回原姿態。
+    // 彈簧＋接觸的穩定性仰賴物理子步進（見 diorama-scene 的 setSubTimeStep）
     for (const plant of seaweed.plantList) {
       plant.lowerBlade.computeWorldMatrix(true)
       plant.upperBlade.computeWorldMatrix(true)
@@ -1464,14 +1711,7 @@ export function createTankEnvironment(scene: Scene): TankEnvironment {
       plant.lowerBlade.setParent(null)
       plant.upperBlade.setParent(null)
 
-      // 錨點剛體：隱形小球，不參與碰撞，純當約束基座
-      const anchorMesh = CreateSphere(`${plant.anchorNode.name}-body`, { diameter: 0.06, segments: 4 }, scene)
-      anchorMesh.position.copyFrom(anchorPosition)
-      anchorMesh.isVisible = false
-      anchorMesh.isPickable = false
-      const anchorAggregate = new PhysicsAggregate(anchorMesh, PhysicsShapeType.SPHERE, { mass: 0 }, scene)
-      anchorAggregate.shape.filterMembershipMask = 0
-      anchorAggregate.shape.filterCollideMask = 0
+      const anchorAggregate = createAnchorAggregate(plant.anchorNode.name, anchorPosition)
 
       const lowerAggregate = new PhysicsAggregate(
         plant.lowerBlade,
@@ -1488,10 +1728,27 @@ export function createTankEnvironment(scene: Scene): TankEnvironment {
       for (const bladeAggregate of [lowerAggregate, upperAggregate]) {
         bladeAggregate.shape.filterMembershipMask = PHYSICS_GROUP_SEAWEED
         bladeAggregate.shape.filterCollideMask = PHYSICS_GROUP_FISH | PHYSICS_GROUP_STATIC
+        // 本體阻尼吸收殘餘擺盪
+        bladeAggregate.body.setLinearDamping(1.5)
+        bladeAggregate.body.setAngularDamping(2.5)
       }
 
       connectWithAngularSpring(anchorAggregate, lowerAggregate, anchorPosition, scene)
       connectWithAngularSpring(lowerAggregate, upperAggregate, jointPosition, scene)
+    }
+
+    // 卵石／貝殼：自由剛體，會被魚犁開；出界由 update 歸位
+    for (const pebbleItem of pebbles.itemList) {
+      const pebbleAggregate = new PhysicsAggregate(
+        pebbleItem.mesh,
+        PhysicsShapeType.CONVEX_HULL,
+        { mass: PEBBLE_MASS, friction: 0.8, restitution: 0.25 },
+        scene,
+      )
+      pebbleAggregate.shape.filterMembershipMask = PHYSICS_GROUP_DEBRIS
+      pebbleAggregate.shape.filterCollideMask
+        = PHYSICS_GROUP_FISH | PHYSICS_GROUP_STATIC | PHYSICS_GROUP_DEBRIS
+      pebbleItem.body = pebbleAggregate.body
     }
   }
 
@@ -1502,10 +1759,16 @@ export function createTankEnvironment(scene: Scene): TankEnvironment {
     updateBurstParticleList(deltaSeconds)
     updateNightLight(deltaSeconds)
     updateFireflyList(timeSeconds)
+    updateConfettiList(deltaSeconds)
 
+    // 統一風場：一道陣風沿 x 掃過全場，所有搖擺項同乘包絡、依位置給相位差，
+    // 「一起被風吹到」比各自獨立亂晃更有生命感
+    const gustEnvelope = 0.35 + 0.65 * Math.max(0, Math.sin(timeSeconds * 0.26))
     for (const swayItem of swayItemList) {
+      const windAngle = Math.sin(timeSeconds * 1.15 - swayItem.rootX * 0.45) * 0.05 * gustEnvelope
       swayItem.node.rotation.z = swayItem.baseLean
         + Math.sin(timeSeconds * swayItem.speed + swayItem.phase) * swayItem.amplitude
+        + windAngle
       swayItem.node.rotation.x = Math.cos(timeSeconds * swayItem.speed * 0.8 + swayItem.phase) * swayItem.amplitude * 0.6
     }
 
@@ -1525,6 +1788,31 @@ export function createTankEnvironment(scene: Scene): TankEnvironment {
       const lerp = Math.min(1, deltaSeconds * 6)
       pushItem.node.rotation.x += (targetRotationX - pushItem.node.rotation.x) * lerp
       pushItem.node.rotation.z += (targetRotationZ - pushItem.node.rotation.z) * lerp
+    }
+
+    // 卵石被踢出邊界或掉出地板外就靜靜歸位重生
+    if (hasPhysics) {
+      for (const pebbleItem of pebbles.itemList) {
+        const body = pebbleItem.body
+        if (!body) {
+          continue
+        }
+        const position = pebbleItem.mesh.position
+        const isOutOfBounds = position.y < GROUND_Y - 2
+          || Math.abs(position.x) > MOVE_BOUNDS_RECT.maxX + 0.8
+          || Math.abs(position.z) > MOVE_BOUNDS_RECT.maxZ + 0.8
+        if (!isOutOfBounds) {
+          continue
+        }
+        // 動態剛體不能直接搬位置：暫時讓物理讀回節點位置，下一步結束後恢復
+        body.disablePreStep = false
+        body.setLinearVelocity(Vector3.Zero())
+        body.setAngularVelocity(Vector3.Zero())
+        pebbleItem.mesh.position.copyFrom(pebbleItem.spawnPosition)
+        scene.onAfterPhysicsObservable.addOnce(() => {
+          body.disablePreStep = true
+        })
+      }
     }
 
     if (markerElapsed < MARKER_DURATION_SECONDS) {
@@ -1548,7 +1836,7 @@ export function createTankEnvironment(scene: Scene): TankEnvironment {
   }
 
   return {
-    shadowCasterMeshList: [...rocks.meshList, ...seaweed.meshList, ...crayonSet.meshList, ...camera.meshList, ...typewriter.meshList],
+    shadowCasterMeshList: [...rocks.meshList, ...seaweed.meshList, ...pebbles.meshList, ...crayonSet.meshList, ...camera.meshList, ...typewriter.meshList],
     obstacleList,
     interactionSpotList,
     playSpotBounce,
@@ -1559,6 +1847,10 @@ export function createTankEnvironment(scene: Scene): TankEnvironment {
     update,
     showClickMarker,
     spawnLandingBurst,
+    pokePebble,
+    spawnConfettiBurst,
+    typewriterPartMap: { root: typewriter.root, keyList: typewriter.keyList, paper: typewriter.paper },
+    crayonAnchor: { x: crayonSet.obstacle.x, z: crayonSet.obstacle.z },
     setPortrait,
     enablePhysics,
   }

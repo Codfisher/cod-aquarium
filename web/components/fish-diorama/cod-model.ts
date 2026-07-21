@@ -39,6 +39,8 @@ export interface CodModel {
   rootNode: TransformNode;
   /** 側躺姿態節點，rotation.z = 側躺角 + 翻滾擺動 */
   lieNode: TransformNode;
+  /** 魚身主網格：物理碰撞體直接用它的凸包（跟著節點姿態自動同步） */
+  bodyMesh: Mesh;
   /** 全部網格，供加入陰影投射清單 */
   meshList: Mesh[];
   /** 每幀更新身體與所有部件動畫 */
@@ -626,5 +628,5 @@ export function createCodModel(scene: Scene): CodModel {
     }
   }
 
-  return { rootNode, lieNode, meshList, update }
+  return { rootNode, lieNode, bodyMesh, meshList, update }
 }
