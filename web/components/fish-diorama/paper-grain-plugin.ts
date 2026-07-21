@@ -4,6 +4,11 @@
  * 依面法線的三軸權重，分別從 xy/xz/zy 三個平面取樣噪點再混合，
  * 任何朝向的面都有均勻不拉伸的紋理，並跟著物件移動旋轉。
  * 取樣值以中灰 0.5 為中性，乘在最終顏色上（亮部提亮、暗部壓暗）。
+ *
+ * 手繪感三層處理：
+ * 1. 雙尺度取樣：細顆粒（紙 tooth）混大尺度斑塊（顏料塗抹不均的暈染）。
+ * 2. 濃度隨明暗變化：暗部紋理加重、亮部讓紙白透出，像顏料在陰影處堆積。
+ * 3. 蠟筆疊色：紋理亮處往暖橘、暗處往藍紫微偏色，呼應場景 split toning。
  */
 import type { MaterialDefines } from '@babylonjs/core/Materials/materialDefines'
 import type { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial'
@@ -12,6 +17,7 @@ import type { UniformBuffer } from '@babylonjs/core/Materials/uniformBuffer'
 import type { Scene } from '@babylonjs/core/scene'
 import { Material } from '@babylonjs/core/Materials/material'
 import { MaterialPluginBase } from '@babylonjs/core/Materials/materialPluginBase'
+import { Color3 } from '@babylonjs/core/Maths/math.color'
 
 /** 紋理濃度：最終顏色的明暗起伏 ±(0.5 × 此值) */
 const GRAIN_STRENGTH = 2
@@ -19,10 +25,17 @@ const GRAIN_STRENGTH = 2
 const GRAIN_SCALE = 0.22
 
 let sharedGrainTexture: Texture | null = null
+/** 輪廓光（rim light）：面向邊緣混入的環境色光，日夜切換時由場景更新 */
+let sharedRimColor = new Color3(1, 0.86, 0.63)
+let sharedRimStrength = 0.08
 
 class PaperGrainPlugin extends MaterialPluginBase {
+  /** 輪廓光只掛在 StandardMaterial：ShadowOnly 的著色器沒有 vEyePosition */
+  private readonly hasRimSupport: boolean
+
   constructor(material: Material) {
-    super(material, 'PaperGrain', 200, { PAPER_GRAIN: false })
+    super(material, 'PaperGrain', 200, { PAPER_GRAIN: false, PAPER_GRAIN_RIM: false })
+    this.hasRimSupport = material.getClassName() === 'StandardMaterial'
     this._enable(true)
   }
 
@@ -32,6 +45,7 @@ class PaperGrainPlugin extends MaterialPluginBase {
 
   override prepareDefines(defines: MaterialDefines): void {
     defines.PAPER_GRAIN = sharedGrainTexture !== null
+    defines.PAPER_GRAIN_RIM = sharedGrainTexture !== null && this.hasRimSupport
   }
 
   override getSamplers(samplers: string[]): void {
@@ -43,10 +57,14 @@ class PaperGrainPlugin extends MaterialPluginBase {
       ubo: [
         { name: 'paperGrainStrength', size: 1, type: 'float' },
         { name: 'paperGrainScale', size: 1, type: 'float' },
+        { name: 'paperGrainRimColor', size: 3, type: 'vec3' },
+        { name: 'paperGrainRimStrength', size: 1, type: 'float' },
       ],
       fragment: `#ifdef PAPER_GRAIN
         uniform float paperGrainStrength;
         uniform float paperGrainScale;
+        uniform vec3 paperGrainRimColor;
+        uniform float paperGrainRimStrength;
         #endif`,
     }
   }
@@ -55,6 +73,8 @@ class PaperGrainPlugin extends MaterialPluginBase {
     if (sharedGrainTexture) {
       uniformBuffer.updateFloat('paperGrainStrength', GRAIN_STRENGTH)
       uniformBuffer.updateFloat('paperGrainScale', GRAIN_SCALE)
+      uniformBuffer.updateColor3('paperGrainRimColor', sharedRimColor)
+      uniformBuffer.updateFloat('paperGrainRimStrength', sharedRimStrength)
       uniformBuffer.setTexture('paperGrainSampler', sharedGrainTexture)
     }
   }
@@ -66,18 +86,39 @@ class PaperGrainPlugin extends MaterialPluginBase {
     return {
       CUSTOM_FRAGMENT_DEFINITIONS: `#ifdef PAPER_GRAIN
         uniform sampler2D paperGrainSampler;
+        float samplePaperGrain(vec3 positionValue, vec3 weightList, float scale) {
+          float grainX = texture2D(paperGrainSampler, positionValue.zy * scale).r;
+          float grainY = texture2D(paperGrainSampler, positionValue.xz * scale).r;
+          float grainZ = texture2D(paperGrainSampler, positionValue.xy * scale).r;
+          return grainX * weightList.x + grainY * weightList.y + grainZ * weightList.z;
+        }
         #endif`,
       CUSTOM_FRAGMENT_MAIN_END: `#ifdef PAPER_GRAIN
         {
           vec3 paperWeightList = abs(normalize(vNormalW));
           paperWeightList /= (paperWeightList.x + paperWeightList.y + paperWeightList.z);
-          float paperGrainX = texture2D(paperGrainSampler, vPositionW.zy * paperGrainScale).r;
-          float paperGrainY = texture2D(paperGrainSampler, vPositionW.xz * paperGrainScale).r;
-          float paperGrainZ = texture2D(paperGrainSampler, vPositionW.xy * paperGrainScale).r;
-          float paperGrainValue = paperGrainX * paperWeightList.x
-            + paperGrainY * paperWeightList.y
-            + paperGrainZ * paperWeightList.z;
-          gl_FragColor.rgb *= 1.0 + (paperGrainValue - 0.5) * paperGrainStrength;
+          // 細顆粒為主，混入大尺度斑塊：顏料塗抹不均的暈染感
+          float paperGrainFine = samplePaperGrain(vPositionW, paperWeightList, paperGrainScale);
+          float paperGrainCoarse = samplePaperGrain(vPositionW, paperWeightList, paperGrainScale * 0.3);
+          float paperGrainValue = mix(paperGrainFine, paperGrainCoarse, 0.45);
+          // 暗部紋理加重、亮部讓紙白透出：像顏料在陰影處堆積
+          float paperLuminance = clamp(dot(gl_FragColor.rgb, vec3(0.299, 0.587, 0.114)), 0.0, 1.0);
+          float paperGrainDelta = (paperGrainValue - 0.5) * paperGrainStrength * mix(1.35, 0.65, paperLuminance);
+          gl_FragColor.rgb *= max(0.0, 1.0 + paperGrainDelta);
+          // 蠟筆疊色：紋理亮處往暖橘、暗處往藍紫微偏色，表面像多色蠟筆層層疊出來
+          vec3 paperTintColor = mix(
+            vec3(0.94, 0.96, 1.07),
+            vec3(1.06, 1.0, 0.93),
+            smoothstep(-0.35, 0.35, paperGrainValue - 0.5)
+          );
+          gl_FragColor.rgb *= paperTintColor;
+          // 輪廓光：面向邊緣混入環境色光，把物件從背景托出。
+          // flat shading 下呈塊面提亮（面愈側向愈亮），像紙模邊緣接光
+          #ifdef PAPER_GRAIN_RIM
+          vec3 paperViewDirection = normalize(vEyePosition.xyz - vPositionW);
+          float paperRimFactor = pow(1.0 - clamp(dot(normalize(vNormalW), paperViewDirection), 0.0, 1.0), 4.0);
+          gl_FragColor.rgb += paperGrainRimColor * (paperRimFactor * paperGrainRimStrength);
+          #endif
         }
         #endif`,
     }
@@ -109,4 +150,10 @@ export function attachPaperGrainPlugins(scene: Scene): void {
 export function setPaperGrainTexture(scene: Scene, grainTexture: Texture): void {
   sharedGrainTexture = grainTexture
   scene.markAllMaterialsAsDirty(Material.AllDirtyFlag)
+}
+
+/** 設定輪廓光顏色與強度（日夜切換用）。每幀 bind 時讀取，不需重編譯 */
+export function setPaperGrainRimLight(color: Color3, strength: number): void {
+  sharedRimColor = color
+  sharedRimStrength = strength
 }

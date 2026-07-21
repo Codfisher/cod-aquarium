@@ -54,7 +54,7 @@
         v-if="moveHintVisible"
         class="move-hint vp-raw absolute tracking-wide text-center pointer-events-none"
       >
-        點一下地板，鱈魚就會跳過去
+        {{ moveHintText }}
       </div>
     </transition>
 
@@ -140,8 +140,16 @@
       v-if="activeChallengeComponent"
       :key="activeChallengeKey ?? 'none'"
       v-bind="activeChallengeKey === 'camera'
-        ? { getFishShotInfo: getChallengeFishShotInfo, captureSnapshot: captureChallengeSnapshot }
-        : {}"
+        ? {
+          getFishShotInfo: getChallengeFishShotInfo,
+          captureSnapshot: captureChallengeSnapshot,
+          playShutterFeedback: playChallengeShutterFeedback,
+        }
+        : activeChallengeKey === 'typewriter'
+          ? { sceneStage: dioramaHandle?.typewriterStage }
+          : activeChallengeKey === 'crayonSet'
+            ? { sceneStage: dioramaHandle?.crayonStage }
+            : {}"
       @success="handleChallengeSuccess"
       @close="closeChallenge"
       @typed="handleTypewriterTyped"
@@ -173,6 +181,42 @@
           class="reset-icon"
           aria-hidden="true"
         />
+      </button>
+    </div>
+
+    <!-- dev 測試選單：僅開發模式出現，收合式 dropmenu，模擬深夜訪客與各種彩蛋演出 -->
+    <div
+      v-if="isDevMode && hasEntered"
+      class="dev-test-menu vp-raw absolute"
+    >
+      <transition name="text">
+        <div
+          v-if="devMenuVisible"
+          class="dev-menu-panel"
+        >
+          <button
+            type="button"
+            class="dev-menu-item"
+            @click="cycleSleepyOverride"
+          >
+            深夜訪客：{{ sleepyOverrideLabel }}
+          </button>
+          <button
+            type="button"
+            class="dev-menu-item"
+            @click="toggleDevCelebration"
+          >
+            慶典模式：{{ devCelebrationActive ? '開' : '關' }}
+          </button>
+        </div>
+      </transition>
+      <button
+        type="button"
+        class="dev-menu-trigger"
+        :class="{ 'is-open': devMenuVisible }"
+        @click="devMenuVisible = !devMenuVisible"
+      >
+        DEV
       </button>
     </div>
   </section>
@@ -232,6 +276,50 @@ const welcomeSubtitleText = computed(() => (
 const moveHintVisible = computed(() => (
   hasEntered.value && moveHintDelayDone.value && !hasCommandedMove.value
 ))
+
+// --- 深夜訪客：深色模式＋凌晨時段，魚戴睡帽、動作變慢；dev 測試選單可強制切換 ---
+const isDevMode = import.meta.env.DEV
+type SleepyOverride = 'auto' | 'on' | 'off'
+const sleepyOverride = ref<SleepyOverride>('auto')
+const currentHour = ref(new Date().getHours())
+let hourTimer: ReturnType<typeof setInterval> | undefined
+
+const sleepyActive = computed(() => {
+  if (sleepyOverride.value !== 'auto') {
+    return sleepyOverride.value === 'on'
+  }
+  return isDark.value && currentHour.value < 5
+})
+const sleepyOverrideLabel = computed(() => (
+  ({ auto: '自動', on: '開', off: '關' } as const)[sleepyOverride.value]
+))
+const moveHintText = computed(() => (
+  sleepyActive.value ? '噓⋯鱈魚在睡覺，輕輕點一下地板' : '點一下地板，鱈魚就會跳過去'
+))
+
+function cycleSleepyOverride() {
+  const orderList: SleepyOverride[] = ['auto', 'on', 'off']
+  const nextIndex = (orderList.indexOf(sleepyOverride.value) + 1) % orderList.length
+  sleepyOverride.value = orderList[nextIndex]!
+}
+
+/** dev 選單展開狀態與慶典模式模擬開關（開＝播慶典戴皇冠、關＝摘皇冠） */
+const devMenuVisible = ref(false)
+const devCelebrationActive = ref(false)
+
+function toggleDevCelebration() {
+  devCelebrationActive.value = !devCelebrationActive.value
+  if (devCelebrationActive.value) {
+    dioramaHandle?.celebrateFullUnlock()
+  }
+  else {
+    dioramaHandle?.setCrownVisible(false)
+  }
+}
+
+watch(sleepyActive, (value) => {
+  dioramaHandle?.setSleepyMode(value)
+})
 
 function handleCanvasClick() {
   if (!isReady.value) {
@@ -329,6 +417,9 @@ function closeChallenge() {
   activeChallengeKey.value = null
 }
 
+/** 全解鎖慶典的延遲計時器：先讓單項解鎖演出播完，再開慶典 */
+let fullUnlockTimer: ReturnType<typeof setTimeout> | undefined
+
 function handleChallengeSuccess() {
   const challengeKey = activeChallengeKey.value
   if (!challengeKey) {
@@ -339,9 +430,16 @@ function handleChallengeSuccess() {
   unlockedSpotSet.value = nextSet
   saveUnlockedSpotList()
   activeChallengeKey.value = null
-  // 解鎖演出：灰白紙模暈染回原色＋鎖頭旗標飛走＋彈跳水花
+  // 解鎖演出：灰白紙模暈染回原色＋鎖頭旗標飛走＋彈跳水花＋彩帶
   dioramaHandle?.setSpotLocked(challengeKey, false)
   dioramaHandle?.celebrateSpotUnlock(challengeKey)
+  // 三款全解鎖：稍候片刻讓解鎖演出先播，再開慶典（皇冠＋整池彩帶＋翻滾跳）
+  if (interactionSpotKeyList.every((key) => nextSet.has(key))) {
+    clearTimeout(fullUnlockTimer)
+    fullUnlockTimer = setTimeout(() => {
+      dioramaHandle?.celebrateFullUnlock()
+    }, 900)
+  }
 }
 
 /** 打字挑戰每敲對一鍵，讓 3D 打字機同步演出 */
@@ -371,10 +469,11 @@ function handleResetClick() {
   catch {
     // 寫入失敗就只重置本次瀏覽
   }
-  // 模型鎖回灰白紙模＋鎖頭旗標（播過渡，看得出「上鎖」的變化）
+  // 模型鎖回灰白紙模＋鎖頭旗標（播過渡，看得出「上鎖」的變化），皇冠一併摘掉
   for (const spotKey of interactionSpotKeyList) {
     dioramaHandle?.setSpotLocked(spotKey, true)
   }
+  dioramaHandle?.setCrownVisible(false)
 }
 
 function getChallengeFishShotInfo() {
@@ -383,6 +482,10 @@ function getChallengeFishShotInfo() {
 
 function captureChallengeSnapshot() {
   return dioramaHandle?.captureFishSnapshot() ?? null
+}
+
+function playChallengeShutterFeedback(isSharpShot: boolean) {
+  dioramaHandle?.playCameraShutterFeedback(isSharpShot)
 }
 
 watch(activeChallengeKey, (key) => {
@@ -434,10 +537,19 @@ onMounted(async () => {
       },
     })
     dioramaHandle.resize()
-    // 依保存的解鎖進度直接套用鎖定視覺（載入時不播過渡）
+    // 依保存的解鎖進度直接套用鎖定視覺（載入時不播過渡）；全解鎖回訪直接戴皇冠
     for (const spotKey of interactionSpotKeyList) {
       dioramaHandle.setSpotLocked(spotKey, !unlockedSpotSet.value.has(spotKey), true)
     }
+    dioramaHandle.setCrownVisible(
+      interactionSpotKeyList.every((key) => unlockedSpotSet.value.has(key)),
+      true,
+    )
+    // 深夜訪客：套用當前狀態，並每分鐘刷新時刻（跨過凌晨界線時自動切換）
+    dioramaHandle.setSleepyMode(sleepyActive.value)
+    hourTimer = setInterval(() => {
+      currentHour.value = new Date().getHours()
+    }, 60_000)
     isReady.value = true
   }
   catch (error) {
@@ -464,6 +576,8 @@ onUnmounted(() => {
     clearTimeout(moveHintTimer)
   }
   clearTimeout(resetConfirmTimer)
+  clearTimeout(fullUnlockTimer)
+  clearInterval(hourTimer)
   dioramaHandle?.dispose()
   dioramaHandle = undefined
 })
@@ -551,20 +665,26 @@ onUnmounted(() => {
   left: 0
   right: 0
   color: #fff
-  text-shadow: 0 1px 3px rgba(15, 30, 40, 0.8), 0 2px 10px rgba(15, 30, 40, 0.6), 0 0 24px rgba(15, 30, 40, 0.4)
+  // flex + gap 控制標題與副標的間距：兄弟 margin 會互相合併取大值，gap 不會
+  display: flex
+  flex-direction: column
+  gap: 40px
 
+// 標題字大筆畫粗，陰影收淡就足夠襯底，太深會像描黑邊
 .welcome-title
   font-size: clamp(26px, 5vw, 36px)
   font-weight: 600
   letter-spacing: 8px
   // 置中補償 letter-spacing 只加在字後造成的視覺偏左
   text-indent: 8px
+  text-shadow: 0 1px 2px rgba(15, 30, 40, 0.55), 0 2px 8px rgba(15, 30, 40, 0.35)
 
+// 副標字小又細，陰影得更深更聚才讀得清楚
 .welcome-subtitle
-  margin-top: 16px
   font-size: 14px
   letter-spacing: 4px
   text-indent: 4px
+  text-shadow: 0 1px 3px rgba(15, 30, 40, 0.9), 0 2px 8px rgba(15, 30, 40, 0.7), 0 0 16px rgba(15, 30, 40, 0.5)
   animation: move-hint-breathe 2.6s ease-in-out infinite
 
 // 淡出時停掉呼吸動畫，opacity 才輪得到 transition 接手
@@ -795,6 +915,62 @@ onUnmounted(() => {
 
 .reset-icon
   font-size: 15px
+
+// dev 測試選單：右下角收合式 dropmenu（向上展開），僅開發模式出現
+.dev-test-menu
+  right: 16px
+  bottom: 14px
+  display: flex
+  flex-direction: column
+  align-items: flex-end
+  gap: 6px
+  z-index: 20
+
+.dev-menu-trigger
+  appearance: none
+  padding: 3px 12px
+  border: 1px dashed light-dark(rgba(62, 95, 82, 0.4), rgba(255, 255, 255, 0.3))
+  border-radius: 999px
+  font-family: inherit
+  font-size: 12px
+  font-weight: 600
+  letter-spacing: 2px
+  cursor: pointer
+  color: light-dark(oklch(0.4 0.05 195), oklch(0.9 0.02 195))
+  background: light-dark(rgba(255, 253, 247, 0.9), rgba(36, 46, 52, 0.9))
+  opacity: 0.6
+  transition: opacity 0.2s
+
+  &:hover, &.is-open
+    opacity: 1
+
+.dev-menu-panel
+  display: flex
+  flex-direction: column
+  padding: 6px
+  gap: 2px
+  border: 1px solid light-dark(rgba(62, 95, 82, 0.28), rgba(255, 255, 255, 0.16))
+  border-radius: 12px
+  background: light-dark(rgba(255, 253, 247, 0.95), rgba(36, 46, 52, 0.95))
+  box-shadow: 0 6px 18px light-dark(rgba(27, 42, 51, 0.2), rgba(0, 0, 0, 0.45))
+
+.dev-menu-item
+  appearance: none
+  border: none
+  padding: 6px 12px
+  border-radius: 8px
+  text-align: left
+  font-family: inherit
+  font-size: 12px
+  letter-spacing: 1px
+  cursor: pointer
+  white-space: nowrap
+  color: light-dark(oklch(0.4 0.05 195), oklch(0.9 0.02 195))
+  background: transparent
+  transition: background 0.15s
+
+  &:hover
+    background: light-dark(rgba(27, 42, 51, 0.06), rgba(255, 255, 255, 0.08))
 
 // 進場：從尾巴根部長出來的果凍彈跳；離場：快速淡出下沉
 @keyframes popup-bounce-in

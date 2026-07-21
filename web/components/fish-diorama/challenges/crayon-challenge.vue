@@ -1,6 +1,8 @@
 <template>
   <div class="crayon-challenge vp-raw absolute inset-0 z-20 select-none">
+    <!-- 開場才鋪暗幕；開始後撤掉，3D 畫架（鏡頭推近的蠟筆組旁）就是舞台 -->
     <div
+      v-if="stage === 'intro'"
       class="challenge-backdrop"
       @click="emit('close')"
     />
@@ -14,7 +16,8 @@
         小小畫室
       </div>
       <p class="intro-description">
-        拿起蠟筆沿虛線描出小魚，<br>
+        蠟筆組旁架起了畫架！<br>
+        拿起蠟筆沿畫布上的虛線描出小魚，<br>
         描完會依路徑匹配度評分，<br>
         要衝到 {{ PASS_SCORE_PERCENT }}% 才算完成，手要穩喔 (๑•̀ㅂ•́)و✧
       </p>
@@ -27,83 +30,36 @@
       </button>
     </div>
 
-    <!-- 畫室工作檯 -->
+    <!-- 3D 舞台 HUD：整面接收描線，工具浮在畫面邊緣 -->
     <div
       v-else
-      class="studio-panel"
-      :class="{ 'is-framed': stage === 'gallery' }"
+      class="stage-hud"
+      :class="{ 'is-drawing-stage': stage === 'draw' }"
+      @pointerdown.prevent="handlePointerDown"
+      @pointermove.prevent="handlePointerMove"
+      @pointerup="handlePointerUp"
+      @pointercancel="handlePointerUp"
+      @pointerleave="handlePointerUp"
     >
       <button
         type="button"
         class="challenge-close"
         aria-label="關閉挑戰"
-        @click="emit('close')"
+        @click.stop="emit('close')"
+        @pointerdown.stop
       >
         ✕
       </button>
 
       <div class="studio-title">
-        {{ stage === 'draw' ? '沿虛線描出小魚' : '完成！' }}
+        {{ stage === 'draw' ? '沿畫布上的虛線描出小魚' : '完成！' }}
       </div>
-
-      <!-- 裱框膠帶（畫廊階段） -->
-      <template v-if="stage === 'gallery'">
-        <span class="frame-tape tape-top-left" />
-        <span class="frame-tape tape-top-right" />
-      </template>
-
-      <svg
-        ref="drawingCanvasRef"
-        class="drawing-canvas"
-        :class="{ 'is-drawing-stage': stage === 'draw' }"
-        viewBox="0 0 320 220"
-        role="img"
-        aria-label="小小畫室畫布"
-        @pointerdown.prevent="handlePointerDown"
-        @pointermove.prevent="handlePointerMove"
-        @pointerup="handlePointerUp"
-        @pointercancel="handlePointerUp"
-        @pointerleave="handlePointerUp"
-      >
-        <!-- 參考虛線輪廓 -->
-        <polygon
-          v-if="stage === 'draw'"
-          class="guide-outline"
-          :points="outlinePointsText"
-        />
-
-        <!-- 過關後自動上色 -->
-        <polygon
-          v-if="stage === 'gallery'"
-          class="crayon-fill"
-          :points="outlinePointsText"
-          :fill="selectedCrayonColor"
-        />
-
-        <!-- 玩家畫的筆觸 -->
-        <polyline
-          v-for="(stroke, strokeIndex) in strokeList"
-          :key="strokeIndex"
-          class="crayon-line"
-          :points="stroke.pointsText"
-          :stroke="stroke.color"
-        />
-
-        <!-- 完成後的眼睛 -->
-        <g v-if="stage === 'gallery'">
-          <circle
-            class="crayon-eye"
-            cx="252"
-            cy="98"
-            r="6"
-          />
-        </g>
-      </svg>
 
       <!-- 匹配度量表 -->
       <div
         v-if="stage === 'draw'"
         class="score-area"
+        @pointerdown.stop
       >
         <div class="score-track">
           <div
@@ -131,6 +87,7 @@
       <div
         v-if="stage === 'draw'"
         class="drawing-toolbar"
+        @pointerdown.stop
       >
         <div class="crayon-box">
           <button
@@ -162,10 +119,11 @@
       <div
         v-if="stage === 'gallery'"
         class="gallery-block"
+        @pointerdown.stop
       >
         <div class="gallery-caption">
           <span class="gallery-sparkle">✦</span>
-          匹配度 {{ scorePercent }}%，掛上畫廊！
+          匹配度 {{ scorePercent }}%，掛上畫架展示！
           <span class="gallery-sparkle">✦</span>
         </div>
         <button
@@ -181,8 +139,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, useTemplateRef } from 'vue'
+import type { CrayonStageHandle } from '../diorama-scene'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { playSuccessSound } from './challenge-audio'
+
+const props = defineProps<{
+  /** 3D 舞台操作介面：畫架畫布、筆觸與蠟筆跟隨都畫進場景 */
+  sceneStage?: CrayonStageHandle;
+}>()
 
 const emit = defineEmits<{
   success: [];
@@ -202,7 +166,6 @@ interface PlanarPoint {
 interface CrayonStroke {
   color: string;
   pointList: PlanarPoint[];
-  pointsText: string;
 }
 
 /** 小魚輪廓的控制點（頭朝右），實際輪廓由 Catmull-Rom 平滑內插產生。
@@ -277,8 +240,6 @@ const crayonList = [
 
 type CrayonKey = (typeof crayonList)[number]['key']
 
-const drawingCanvasRef = useTemplateRef('drawingCanvasRef')
-
 const stage = ref<'intro' | 'draw' | 'gallery'>('intro')
 const strokeList = ref<CrayonStroke[]>([])
 const selectedCrayonKey = ref<CrayonKey>('blue')
@@ -288,11 +249,14 @@ const isDrawing = ref(false)
 
 let scoreHintTimer: ReturnType<typeof setTimeout> | undefined
 
-const outlinePointsText = dotList.map((dot) => `${dot.x},${dot.y}`).join(' ')
-
 const selectedCrayonColor = computed(() => (
   crayonList.find((crayon) => crayon.key === selectedCrayonKey.value)?.color ?? '#4f9ac2'
 ))
+
+// 換色時 3D 蠟筆同步換裝
+watch(selectedCrayonColor, (color) => {
+  props.sceneStage?.setCrayonColor(color)
+})
 
 /** 參考輪廓沿邊等距取樣（覆蓋率的比對基準），建構一次重複使用 */
 const outlineSamplePointList: PlanarPoint[] = []
@@ -310,20 +274,9 @@ for (let index = 0; index < dotList.length; index++) {
   }
 }
 
-/** 事件座標轉 viewBox 座標 */
+/** 事件座標轉畫布座標：投影到 3D 畫布平面（沒點到畫布回傳 null） */
 function toCanvasPoint(event: PointerEvent): PlanarPoint | null {
-  const canvasElement = drawingCanvasRef.value
-  if (!canvasElement) {
-    return null
-  }
-  const boundingRect = canvasElement.getBoundingClientRect()
-  if (boundingRect.width <= 0 || boundingRect.height <= 0) {
-    return null
-  }
-  return {
-    x: ((event.clientX - boundingRect.left) / boundingRect.width) * 320,
-    y: ((event.clientY - boundingRect.top) / boundingRect.height) * 220,
-  }
+  return props.sceneStage?.pickCanvasPoint(event.clientX, event.clientY) ?? null
 }
 
 function getDistanceToSegment(point: PlanarPoint, segmentStart: PlanarPoint, segmentEnd: PlanarPoint): number {
@@ -400,8 +353,9 @@ function evaluateDrawing() {
 
   if (scorePercent.value >= PASS_SCORE_PERCENT) {
     stage.value = 'gallery'
-    // 掛上畫廊後不自動結束，由玩家按「完成」確認
+    // 掛上畫架後不自動結束，由玩家按「完成」確認；3D 畫布上色點睛＋彩帶
     playSuccessSound()
+    props.sceneStage?.finishArtwork(selectedCrayonColor.value)
     return
   }
 
@@ -417,6 +371,7 @@ function clearDrawing() {
   strokeList.value = []
   scorePercent.value = 0
   scoreHintText.value = ''
+  props.sceneStage?.clearCanvas()
 }
 
 function handlePointerDown(event: PointerEvent) {
@@ -431,8 +386,8 @@ function handlePointerDown(event: PointerEvent) {
   strokeList.value = [...strokeList.value, {
     color: selectedCrayonColor.value,
     pointList: [point],
-    pointsText: `${point.x.toFixed(1)},${point.y.toFixed(1)}`,
   }]
+  props.sceneStage?.beginStroke(point, selectedCrayonColor.value)
 }
 
 function handlePointerMove(event: PointerEvent) {
@@ -453,9 +408,7 @@ function handlePointerMove(event: PointerEvent) {
     return
   }
   activeStroke.pointList.push(point)
-  activeStroke.pointsText += ` ${point.x.toFixed(1)},${point.y.toFixed(1)}`
-  // 觸發響應式更新（就地 mutate 陣列元素屬性不會被 shallow 比對捕捉）
-  strokeList.value = [...strokeList.value]
+  props.sceneStage?.strokeTo(point)
 }
 
 function handlePointerUp() {
@@ -463,6 +416,7 @@ function handlePointerUp() {
     return
   }
   isDrawing.value = false
+  props.sceneStage?.endStroke()
   evaluateDrawing()
 }
 
@@ -474,11 +428,14 @@ function handleKeydown(event: KeyboardEvent) {
 
 onMounted(() => {
   window.addEventListener('keydown', handleKeydown)
+  // 進入 3D 舞台：鏡頭推近蠟筆組、畫架長出來、畫布鋪好虛線底圖
+  props.sceneStage?.enter(dotList)
 })
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown)
   clearTimeout(scoreHintTimer)
+  props.sceneStage?.exit()
 })
 </script>
 
@@ -544,114 +501,62 @@ onUnmounted(() => {
     opacity: 1
     transform: translate(-50%, -52%) scale(1)
 
-// --- 畫室工作檯 ---
-// 垂直置中：內嵌區塊在手機上很高，錨定頂端會像吊在半空
-.studio-panel
+// --- 3D 舞台 HUD：工具與資訊浮在場景邊緣，畫布本體在 3D 場景裡 ---
+.stage-hud
   position: absolute
-  top: 50%
-  left: 50%
-  transform: translate(-50%, -50%)
-  width: min(92vw, 480px)
-  max-height: calc(70dvh - 20px)
-  overflow-y: auto
-  padding: 20px 20px 22px
-  border-radius: 16px
-  text-align: center
-  background-color: light-dark(rgba(255, 253, 247, 0.97), rgba(36, 46, 52, 0.97))
-  background-image: var(--paper-grain-url, none)
-  background-repeat: repeat
-  background-size: 200px 200px
-  color: light-dark(oklch(0.35 0.05 195), oklch(0.9 0.02 195))
-  box-shadow: 0 10px 34px rgba(15, 30, 40, 0.3)
-  transition: box-shadow 0.5s
-
-  &.is-framed
-    box-shadow: 0 0 0 10px light-dark(#c9a86a, #8a744d), 0 0 0 13px light-dark(#a8874b, #6d5a3a), 0 18px 44px rgba(15, 30, 40, 0.45)
-
-.challenge-close
-  position: absolute
-  top: 10px
-  right: 10px
-  z-index: 1
-  width: 30px
-  height: 30px
-  border: none
-  border-radius: 50%
-  font-size: 13px
-  line-height: 1
-  cursor: pointer
-  color: inherit
-  background: light-dark(rgba(27, 42, 51, 0.08), rgba(255, 255, 255, 0.1))
-
-  &:hover
-    background: light-dark(rgba(27, 42, 51, 0.16), rgba(255, 255, 255, 0.2))
-
-.studio-title
-  font-size: 16px
-  font-weight: 600
-  letter-spacing: 3px
-
-.frame-tape
-  position: absolute
-  width: 92px
-  height: 26px
-  background: rgba(129, 199, 190, 0.6)
-  background-image: repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.15) 0 5px, transparent 5px 10px)
-  clip-path: polygon(0% 12%, 4% 0%, 96% 5%, 100% 16%, 97% 86%, 93% 100%, 5% 95%, 1% 86%)
-  z-index: 1
-
-.tape-top-left
-  top: -12px
-  left: 28px
-  transform: rotate(-38deg)
-
-.tape-top-right
-  top: -12px
-  right: 28px
-  transform: rotate(38deg)
-
-// --- 畫布 ---
-.drawing-canvas
-  display: block
-  width: 100%
-  margin-top: 10px
+  inset: 0
   touch-action: none
 
   &.is-drawing-stage
     cursor: crosshair
 
-.guide-outline
-  fill: none
-  stroke: light-dark(rgba(58, 74, 82, 0.35), rgba(223, 232, 236, 0.3))
-  stroke-width: 2
-  stroke-dasharray: 7 6
-  stroke-linejoin: round
+.challenge-close
+  position: absolute
+  top: 12px
+  right: 12px
+  z-index: 1
+  width: 32px
+  height: 32px
+  border: none
+  border-radius: 50%
+  font-size: 13px
+  line-height: 1
+  cursor: pointer
+  color: #fff
+  background: rgba(15, 30, 40, 0.45)
 
-.crayon-line
-  fill: none
-  stroke-width: 5
-  stroke-linecap: round
-  stroke-linejoin: round
-  opacity: 0.85
+  &:hover
+    background: rgba(15, 30, 40, 0.65)
 
-.crayon-fill
-  opacity: 0.35
-
-.crayon-eye
-  fill: #2f3d45
+.studio-title
+  position: absolute
+  top: 14px
+  left: 0
+  right: 0
+  text-align: center
+  font-size: 14px
+  font-weight: 600
+  letter-spacing: 3px
+  color: #fff
+  text-shadow: 0 1px 3px rgba(15, 30, 40, 0.85)
+  pointer-events: none
 
 // --- 匹配度量表 ---
 .score-area
-  margin-top: 8px
+  position: absolute
+  top: 40px
+  left: 0
+  right: 0
+  text-align: center
 
 .score-track
   position: relative
-  width: min(88%, 340px)
+  width: min(72%, 320px)
   height: 18px
   margin: 0 auto
   border-radius: 999px
   overflow: hidden
-  background: light-dark(rgba(27, 42, 51, 0.1), rgba(255, 255, 255, 0.1))
+  background: rgba(15, 30, 40, 0.45)
 
 .score-bar
   height: 100%
@@ -676,17 +581,22 @@ onUnmounted(() => {
   font-size: 12px
   line-height: 18px
   letter-spacing: 1px
-  color: light-dark(#2f3d45, #dfe8ec)
+  color: #fff
+  text-shadow: 0 1px 2px rgba(15, 30, 40, 0.7)
 
 .score-hint
   margin-top: 6px
   font-size: 13px
   letter-spacing: 2px
-  color: light-dark(#b3562f, #ffb28a)
+  color: #ffb28a
+  text-shadow: 0 1px 3px rgba(15, 30, 40, 0.8)
 
 // --- 蠟筆盒與重畫 ---
 .drawing-toolbar
-  margin-top: 10px
+  position: absolute
+  bottom: 14px
+  left: 0
+  right: 0
   display: flex
   align-items: center
   justify-content: center
@@ -731,18 +641,18 @@ onUnmounted(() => {
 .clear-button
   appearance: none
   padding: 7px 16px
-  border: 1px solid light-dark(rgba(62, 95, 82, 0.3), rgba(255, 255, 255, 0.18))
+  border: 1px solid rgba(255, 255, 255, 0.35)
   border-radius: 999px
   font-family: inherit
   font-size: 13px
   letter-spacing: 2px
   cursor: pointer
-  color: inherit
-  background: transparent
+  color: #fff
+  background: rgba(15, 30, 40, 0.45)
   transition: background 0.2s, opacity 0.2s
 
   &:hover:not(:disabled)
-    background: light-dark(rgba(27, 42, 51, 0.06), rgba(255, 255, 255, 0.08))
+    background: rgba(15, 30, 40, 0.65)
 
   &:disabled
     opacity: 0.35
@@ -750,7 +660,10 @@ onUnmounted(() => {
 
 // --- 畫廊 ---
 .gallery-block
-  margin-top: 12px
+  position: absolute
+  bottom: 12%
+  left: 0
+  right: 0
   display: flex
   flex-direction: column
   align-items: center
@@ -760,6 +673,8 @@ onUnmounted(() => {
   font-size: 17px
   font-weight: 600
   letter-spacing: 3px
+  color: #fff
+  text-shadow: 0 1px 3px rgba(15, 30, 40, 0.85), 0 2px 10px rgba(15, 30, 40, 0.6)
   animation: gallery-caption-pop 0.4s 0.3s ease-out both
 
 .gallery-confirm-button
