@@ -158,17 +158,23 @@ export function createTypewriterStage(
     }
 
     // 紙張文字面：beveled box 沒有 UV，貼一片有 UV 的平面在紙前
-    // 自發光呈現：紙張浮空飛行時若吃場景光照，背光角度會整張偏暗
+    // 自發光呈現：紙張浮空飛行時若吃場景光照，背光角度會整張偏暗。
+    // 貼圖掛 diffuseTexture＋白色 emissive（與節奏字塊、鎖頭旗標同一套做法）：
+    // 只掛 emissiveTexture 在此管線下取不到樣，整片會黑掉，紙上就看不到字
     paperTextTexture = new DynamicTexture('stagePaperTexture', { width: 256, height: 224 }, scene, false)
     const paperMaterial = new StandardMaterial('stagePaperTextMaterial', scene)
-    paperMaterial.emissiveTexture = paperTextTexture
+    paperMaterial.diffuseTexture = paperTextTexture
+    paperMaterial.emissiveColor = Color3.White()
     paperMaterial.disableLighting = true
     paperMaterial.specularColor = Color3.Black()
+    // 直式取景整台打字機轉 90°，關掉背面剔除確保哪個方位都看得到字
+    paperMaterial.backFaceCulling = false
     // CreatePlane 正面朝 -z，貼在紙前不需再旋轉，正面即朝向鏡頭
     paperTextPlane = CreatePlane('stagePaperTextPlane', { width: 0.43, height: 0.36 }, scene)
     paperTextPlane.material = paperMaterial
     paperTextPlane.isPickable = false
-    paperTextPlane.position.set(0, 0.005, -0.012)
+    // 離紙面 0.01（紙半厚 0.0075）：貼太近會被 SSAO 當成夾縫壓暗
+    paperTextPlane.position.set(0, 0.005, -0.018)
     paperTextPlane.parent = partMap.paper
     paperPlaneBasePosition.copyFrom(paperTextPlane.position)
     paperPlaneBaseRotation.copyFrom(paperTextPlane.rotation)

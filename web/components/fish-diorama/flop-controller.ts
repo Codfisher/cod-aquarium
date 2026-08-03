@@ -59,10 +59,22 @@ export interface FlopControllerOptions {
   rollAmplitude: number;
   /** 跳躍中俯仰幅度（rad）：起跳抬頭、下落低頭的最大角度 */
   pitchAmplitude: number;
-  /** 落地擠壓量（0.16 代表壓到 0.84 倍） */
+  /** 落地撞擊給彈簧的速度衝擊量；阻尼會吃掉一些，實際壓下去約為此值的 0.65 倍 */
   squashAmount: number;
-  /** 騰空伸展量 */
+  /** 無蓄力起跳（驚嚇跳）的伸展衝擊量。一般跳躍的伸展由蓄力釋放自然產生 */
   stretchAmount: number;
+  /** 起跳前的蓄力時長（秒）：先壓扁再彈出去的前置動作。
+   * 需大於彈簧的四分之一週期（約 0.045 秒）壓縮才來得及做滿
+   */
+  crouchDuration: number;
+  /** 蓄力的擠壓目標（0.2 = 壓向 0.8 倍）；彈簧會再過衝約 25%，實際壓到約 0.74 */
+  crouchSquashAmount: number;
+  /** 擠壓彈簧剛度：ω = √stiffness，決定晃動快慢（1200 ≈ 0.18 秒晃一次） */
+  squashStiffness: number;
+  /** 擠壓彈簧阻尼：低於 2√stiffness（≈ 69）才會過衝。20 ≈ 阻尼比 0.29，
+   * 落地後晃兩三下收斂，是「果凍感」的來源
+   */
+  squashDamping: number;
   /** 滑行模式速度（單位/秒），供 prefers-reduced-motion 使用 */
   slideSpeed: number;
   /** 滑行模式轉向速度（rad/秒） */
@@ -94,6 +106,10 @@ const defaultOptions: FlopControllerOptions = {
   pitchAmplitude: 0.4,
   squashAmount: 0.16,
   stretchAmount: 0.14,
+  crouchDuration: 0.12,
+  crouchSquashAmount: 0.2,
+  squashStiffness: 1200,
+  squashDamping: 20,
   slideSpeed: 2.4,
   slideTurnSpeed: 4,
   waveCyclesPerHop: 1.5,
@@ -102,7 +118,15 @@ const defaultOptions: FlopControllerOptions = {
   obstacleLookAhead: 2.6,
 }
 
-type FlopPhase = 'idle' | 'hopping' | 'resting'
+/** crouching：起跳前的蓄力，原地壓扁、姿態維持上一跳的朝向 */
+type FlopPhase = 'idle' | 'crouching' | 'hopping' | 'resting'
+
+/** 蓄力進行到此比例就放開（目標拉回 1）：身體在還沒離地時就開始伸展，
+ * 離地那刻已經在往上長，而不是先浮起來才想到要伸展
+ */
+const CROUCH_RELEASE_RATIO = 0.6
+/** 擠壓彈簧的積分步長上限（秒）：大 delta 時分段積分，彈簧不會發散 */
+const SQUASH_SPRING_MAX_STEP = 1 / 240
 
 /** 將角度正規化至 (-π, π] */
 function normalizeAngle(angle: number): number {
@@ -252,6 +276,13 @@ export class FlopController {
   /** 剛結束的那一跳的相位速度（rad/s），休息期由此平滑減速 */
   private restStartWaveSpeed = 0
 
+  /** 身體擠壓比例與其變化率。整套彈跳的縮放都由這條彈簧產生：
+   * 蓄力期把目標壓到 crouchSquashAmount、釋放時拉回 1（身體自己往上彈），
+   * 落地撞擊給一次負向速度衝擊，之後過衝、回彈、收斂都是彈簧自然的結果
+   */
+  private squashValue = 1
+  private squashVelocity = 0
+
   constructor(options?: Partial<FlopControllerOptions>) {
     this.options = { ...defaultOptions, ...options }
   }
@@ -276,6 +307,8 @@ export class FlopController {
     this.phase = 'idle'
     this.phaseElapsed = 0
     this.waveBasePhase = 0
+    this.squashValue = 1
+    this.squashVelocity = 0
   }
 
   /** 設定移動目標；移動中呼叫會在下一跳改道。
@@ -310,6 +343,8 @@ export class FlopController {
     this.hopWaveCycles = Math.max(0.5, this.options.waveCyclesPerHop * heightScale)
     this.phase = 'hopping'
     this.phaseElapsed = 0
+    // 驚嚇跳沒有蓄力（要即時反應），改用一次伸展衝擊補上彈出去的力道
+    this.applySquashImpulse(this.options.stretchAmount * heightScale)
     return true
   }
 
@@ -328,10 +363,43 @@ export class FlopController {
   }
 
   update(deltaSeconds: number): FlopPose {
+    // 先積分彈簧再推進階段：這幀新加的衝擊下一幀才顯現，差一幀看不出來，
+    // 但可以讓 composePose 直接取用已積分的值，不必分散在各個 return 前
+    this.updateSquashSpring(deltaSeconds)
     if (this.isSlideMode) {
       return this.updateSlide(deltaSeconds)
     }
     return this.updateFlop(deltaSeconds)
+  }
+
+  /** 給彈簧一次速度衝擊。v = 峰值 × ω，衝擊後大約就彈到指定幅度 */
+  private applySquashImpulse(peak: number) {
+    this.squashVelocity += peak * Math.sqrt(this.options.squashStiffness)
+  }
+
+  /** 擠壓彈簧：目標值由當前階段決定，以固定小步長積分 */
+  private updateSquashSpring(deltaSeconds: number) {
+    const target = this.getSquashTarget()
+    const stepCount = Math.max(1, Math.ceil(deltaSeconds / SQUASH_SPRING_MAX_STEP))
+    const step = deltaSeconds / stepCount
+    for (let index = 0; index < stepCount; index++) {
+      const acceleration = (target - this.squashValue) * this.options.squashStiffness
+        - this.squashVelocity * this.options.squashDamping
+      this.squashVelocity += acceleration * step
+      this.squashValue += this.squashVelocity * step
+    }
+  }
+
+  /** 彈簧目標：只有蓄力前段壓扁，其餘階段都回到 1（伸展交給過衝與衝擊） */
+  private getSquashTarget(): number {
+    if (this.phase !== 'crouching') {
+      return 1
+    }
+    const crouchProgress = clamp(this.phaseElapsed / this.options.crouchDuration, 0, 1)
+    if (crouchProgress >= CROUCH_RELEASE_RATIO) {
+      return 1
+    }
+    return 1 - this.options.crouchSquashAmount * Math.min(1, this.hopHeightScale)
   }
 
   getPose(): FlopPose {
@@ -351,6 +419,22 @@ export class FlopController {
         if (!this.tryStartHop()) {
           break
         }
+        continue
+      }
+
+      // crouching：蓄力壓扁，人還在地上；尾巴以休息期的速度續擺，不會凍住
+      if (this.phase === 'crouching') {
+        const crouchLeft = this.options.crouchDuration - this.phaseElapsed
+        if (remaining < crouchLeft) {
+          this.phaseElapsed += remaining
+          this.waveBasePhase += remaining * this.options.restWaveSpeed
+          remaining = 0
+          break
+        }
+        remaining -= crouchLeft
+        this.waveBasePhase += crouchLeft * this.options.restWaveSpeed
+        this.phase = 'hopping'
+        this.phaseElapsed = 0
         continue
       }
 
@@ -438,7 +522,8 @@ export class FlopController {
       0.5,
       this.options.waveCyclesPerHop * this.hopHeightScale,
     )
-    this.phase = 'hopping'
+    // 先進蓄力：壓扁一下再起跳，蓄力結束才換到 hopping
+    this.phase = 'crouching'
     this.phaseElapsed = 0
     return true
   }
@@ -447,6 +532,9 @@ export class FlopController {
     this.positionX = this.hopEnd.x
     this.positionZ = this.hopEnd.z
     this.hopRollSign *= -1
+    // 觸地撞擊：往下的速度衝擊，壓下去之後由彈簧自己回彈、過衝、收斂。
+    // 跳得高（落得快）壓得深
+    this.applySquashImpulse(-this.options.squashAmount * this.hopHeightScale)
     // 把本跳實際擺過的相位累積進基準，下一跳從這裡接續（小數圈也連續）；
     // 並記下本跳的相位速度，休息期由此平滑減速、避免急停凍結感
     this.waveBasePhase += Math.PI * 2 * this.hopWaveCycles
@@ -542,6 +630,23 @@ export class FlopController {
   }
 
   private composePose(hasLanded: boolean): FlopPose {
+    if (this.phase === 'crouching') {
+      return {
+        x: this.positionX,
+        y: 0,
+        z: this.positionZ,
+        // 轉向留到跳躍中插值，蓄力期維持起跳前的朝向
+        heading: this.hopStartHeading,
+        roll: 0,
+        squash: this.squashValue,
+        wavePhase: this.slideWavePhase + this.waveBasePhase,
+        pitch: 0,
+        hopStrength: this.hopHeightScale,
+        isMoving: true,
+        hasLanded,
+      }
+    }
+
     if (this.phase === 'hopping') {
       const progress = clamp(this.phaseElapsed / this.options.hopDuration, 0, 1)
       const wave = Math.sin(progress * Math.PI)
@@ -558,7 +663,7 @@ export class FlopController {
         roll: this.hopSpinTurnCount > 0
           ? this.hopRollSign * Math.PI * 2 * this.hopSpinTurnCount * turnEase
           : this.hopRollSign * this.options.rollAmplitude * wave,
-        squash: 1 + this.options.stretchAmount * wave,
+        squash: this.squashValue,
         // 從上一跳結束的相位接續走 hopWaveCycles 圈：
         // 第一圈是起跳下甩（拍地彈跳感），之後是空中的加擺；小數圈讓時點逐跳漂移
         wavePhase: this.slideWavePhase + this.waveBasePhase + progress * Math.PI * 2 * this.hopWaveCycles,
@@ -571,17 +676,14 @@ export class FlopController {
     }
 
     if (this.phase === 'resting') {
-      const restProgress = clamp(this.phaseElapsed / this.options.restDuration, 0, 1)
-      // easeOutQuad 回彈
-      const recovery = 1 - (1 - restProgress) ** 2
-
       return {
         x: this.positionX,
         y: 0,
         z: this.positionZ,
         heading: this.heading,
         roll: 0,
-        squash: 1 - this.options.squashAmount * (1 - recovery),
+        // 落地衝擊後的壓扁、回彈與收斂全由彈簧產生
+        squash: this.squashValue,
         wavePhase: this.slideWavePhase + this.waveBasePhase,
         pitch: 0,
         hopStrength: this.hopHeightScale,
@@ -596,7 +698,7 @@ export class FlopController {
       z: this.positionZ,
       heading: this.heading,
       roll: 0,
-      squash: 1,
+      squash: this.squashValue,
       wavePhase: this.slideWavePhase + this.waveBasePhase,
       pitch: 0,
       hopStrength: this.hopHeightScale,
