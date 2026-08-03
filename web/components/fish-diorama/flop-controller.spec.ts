@@ -1,3 +1,4 @@
+import type { FlopPose } from './flop-controller'
 import { describe, expect, it } from 'vitest'
 import { FlopController, resolvePointOutsideObstacles } from './flop-controller'
 
@@ -5,7 +6,7 @@ const FRAME_SECONDS = 1 / 60
 
 /** 反覆 update 直到停止移動，回傳過程中所有姿態 */
 function runUntilStopped(controller: FlopController, maxFrameCount = 3000) {
-  const poseList = []
+  const poseList: FlopPose[] = []
   for (let index = 0; index < maxFrameCount; index++) {
     const pose = controller.update(FRAME_SECONDS)
     poseList.push(pose)
@@ -182,6 +183,65 @@ describe('flopController', () => {
     expect(laterHeading).toBeGreaterThan(firstPose.heading)
   })
 
+  it('起跳前先原地壓扁蓄力，離地時已在伸展，最大伸展落在上升段', () => {
+    const controller = new FlopController()
+    controller.teleport({ x: 0, z: 0 }, 0)
+    controller.setTarget({ x: 3, z: 0 })
+
+    const poseList: FlopPose[] = []
+    for (let index = 0; index < 40; index++) {
+      poseList.push(controller.update(FRAME_SECONDS))
+    }
+
+    const firstAirborneIndex = poseList.findIndex((pose) => pose.y > 0)
+    // 不是第一幀就離地：中間夾著蓄力
+    expect(firstAirborneIndex).toBeGreaterThan(0)
+
+    const crouchPoseList = poseList.slice(0, firstAirborneIndex)
+    for (const pose of crouchPoseList) {
+      expect(pose.y).toBe(0)
+      expect(pose.isMoving).toBe(true)
+    }
+
+    // 蓄力確實壓扁；離地那刻已經從最扁往回長，起跳力道是身體自己撐出來的
+    const deepestSquash = Math.min(...crouchPoseList.map((pose) => pose.squash))
+    expect(deepestSquash).toBeLessThan(0.85)
+    expect(poseList[firstAirborneIndex]!.squash).toBeGreaterThan(deepestSquash + 0.1)
+
+    // 最大伸展落在上升段，不是浮到最高點才慢慢變長
+    const apexIndex = poseList.reduce((best, pose, index) => (pose.y > poseList[best]!.y ? index : best), 0)
+    const maxStretchIndex = poseList.reduce(
+      (best, pose, index) => (pose.squash > poseList[best]!.squash ? index : best),
+      0,
+    )
+    expect(poseList[maxStretchIndex]!.squash).toBeGreaterThan(1.05)
+    expect(maxStretchIndex).toBeLessThan(apexIndex)
+  })
+
+  it('落地後壓下去再彈過頭，是彈簧收斂而非單調回正', () => {
+    const controller = new FlopController()
+    controller.teleport({ x: 0, z: 0 }, 0)
+    controller.setTarget({ x: 3, z: 0 })
+
+    const poseList: FlopPose[] = []
+    for (let index = 0; index < 40; index++) {
+      poseList.push(controller.update(FRAME_SECONDS))
+    }
+
+    const landedIndex = poseList.findIndex((pose) => pose.hasLanded)
+    expect(landedIndex).toBeGreaterThan(0)
+
+    const squashAfterLandingList = poseList
+      .slice(landedIndex, landedIndex + 12)
+      .map((pose) => pose.squash)
+    const bottomSquash = Math.min(...squashAfterLandingList)
+    expect(bottomSquash).toBeLessThan(0.95)
+
+    // 壓到底之後回彈超過原尺寸（過衝），代表確實在來回而不是單向趨近
+    const reboundList = squashAfterLandingList.slice(squashAfterLandingList.indexOf(bottomSquash))
+    expect(Math.max(...reboundList)).toBeGreaterThan(1.01)
+  })
+
   it('squash 全程維持在合理範圍', () => {
     const controller = new FlopController()
     controller.teleport({ x: 0, z: 0 }, 0)
@@ -189,7 +249,8 @@ describe('flopController', () => {
 
     const poseList = runUntilStopped(controller)
     for (const pose of poseList) {
-      expect(pose.squash).toBeGreaterThanOrEqual(0.8)
+      // 下限含蓄力目標（0.8）之外的彈簧過衝
+      expect(pose.squash).toBeGreaterThanOrEqual(0.7)
       expect(pose.squash).toBeLessThanOrEqual(1.2)
     }
   })
