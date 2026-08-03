@@ -23,7 +23,7 @@ import { CreatePolyhedron } from '@babylonjs/core/Meshes/Builders/polyhedronBuil
 import { CreateSphere } from '@babylonjs/core/Meshes/Builders/sphereBuilder'
 import { CreateTorus } from '@babylonjs/core/Meshes/Builders/torusBuilder'
 import { TransformNode } from '@babylonjs/core/Meshes/transformNode'
-import { PhysicsConstraintAxis, PhysicsShapeType } from '@babylonjs/core/Physics/v2/IPhysicsEnginePlugin'
+import { PhysicsConstraintAxis, PhysicsConstraintAxisLimitMode, PhysicsShapeType } from '@babylonjs/core/Physics/v2/IPhysicsEnginePlugin'
 import { PhysicsAggregate } from '@babylonjs/core/Physics/v2/physicsAggregate'
 import { Physics6DoFConstraint } from '@babylonjs/core/Physics/v2/physicsConstraint'
 import { createBeveledBox } from './geometry-utils'
@@ -138,6 +138,9 @@ interface PushItem {
   node: TransformNode;
   rootX: number;
   rootZ: number;
+  /** 傾倒角速度（rad/s）：回彈彈簧積分用 */
+  angularVelocityX: number;
+  angularVelocityZ: number;
 }
 
 /** 一株水草的葉片與節點，供物理啟用時轉成剛體 */
@@ -159,6 +162,11 @@ interface PebbleItem {
 /** 魚推開水草的影響半徑與最大傾倒角（Havok 未啟用時的手動後備） */
 const SEAWEED_PUSH_RADIUS = 1.2
 const SEAWEED_PUSH_ANGLE = 0.9
+/** 手動推草的回彈彈簧：剛度決定挺回速度，阻尼低於臨界值（2√k ≈ 12.6）才會過衝擺盪。
+ * 魚離開後約半秒挺回、末端輕輕晃兩下，不是瞬間歸位
+ */
+const SEAWEED_PUSH_SPRING_STIFFNESS = 40
+const SEAWEED_PUSH_SPRING_DAMPING = 6.5
 
 // --- Havok 物理參數（可調） ---
 /** 碰撞群組：葉片只跟魚與靜態物碰撞，彼此不撞避免叢聚抖動 */
@@ -169,11 +177,13 @@ export const PHYSICS_GROUP_STATIC = 4
 export const PHYSICS_GROUP_DEBRIS = 8
 /** 單節葉片質量（愈輕愈容易被魚撥飛） */
 const SEAWEED_BLADE_MASS = 0.15
-/** 拉回原姿態的角度彈簧：剛度（回正力道）與阻尼（擺盪衰減）。
- * 阻尼偏高（過阻尼）配合物理子步進，吸收彈簧與接觸互搶的震盪
+/** 拉回原姿態的角度彈簧：剛度（回正力道，N·m/rad）與阻尼（擺盪衰減）。
+ * 葉片轉動慣量極小（約 0.018），剛度只要幾 N·m 就撐得住自重（下垂約 3°），
+ * 剛度愈低挺回愈慢、阻尼低於臨界值（2√(k·I) ≈ 0.76）才會過衝回彈。
+ * 穩定性靠物理子步進與葉片本體角阻尼撐住
  */
-const SEAWEED_SPRING_STIFFNESS = 40
-const SEAWEED_SPRING_DAMPING = 8
+const SEAWEED_SPRING_STIFFNESS = 8
+const SEAWEED_SPRING_DAMPING = 0.4
 /** 卵石／貝殼質量：夠輕才會被魚犁開 */
 const PEBBLE_MASS = 0.05
 
@@ -328,7 +338,13 @@ function buildSeaweed(
         baseLean: 0,
         rootX: x,
       })
-      pushItemList.push({ node: pushNode, rootX: x, rootZ: z })
+      pushItemList.push({
+        node: pushNode,
+        rootX: x,
+        rootZ: z,
+        angularVelocityX: 0,
+        angularVelocityZ: 0,
+      })
 
       meshList.push(lowerBlade, upperBlade)
       plantList.push({ anchorNode, jointNode: upperNode, lowerBlade, upperBlade })
@@ -813,25 +829,40 @@ function connectWithAngularSpring(
   const axisB = Vector3.TransformNormal(worldAxis, childInverse).normalize()
   const perpAxisB = Vector3.TransformNormal(worldPerpAxis, childInverse).normalize()
 
-  const springLimit = {
-    minLimit: 0,
-    maxLimit: 0,
-    stiffness: SEAWEED_SPRING_STIFFNESS,
-    damping: SEAWEED_SPRING_DAMPING,
-  }
+  const angularAxisList = [
+    PhysicsConstraintAxis.ANGULAR_X,
+    PhysicsConstraintAxis.ANGULAR_Y,
+    PhysicsConstraintAxis.ANGULAR_Z,
+  ]
   const constraint = new Physics6DoFConstraint(
     { pivotA, pivotB, axisA, axisB, perpAxisA, perpAxisB },
     [
       { axis: PhysicsConstraintAxis.LINEAR_X, minLimit: 0, maxLimit: 0 },
       { axis: PhysicsConstraintAxis.LINEAR_Y, minLimit: 0, maxLimit: 0 },
       { axis: PhysicsConstraintAxis.LINEAR_Z, minLimit: 0, maxLimit: 0 },
-      { axis: PhysicsConstraintAxis.ANGULAR_X, ...springLimit },
-      { axis: PhysicsConstraintAxis.ANGULAR_Y, ...springLimit },
-      { axis: PhysicsConstraintAxis.ANGULAR_Z, ...springLimit },
+      // 剛度／阻尼只能在建構時帶入（plugin 初始化約束時寫進 Havok），之後沒有對應的 setter
+      ...angularAxisList.map((axis) => ({
+        axis,
+        minLimit: 0,
+        maxLimit: 0,
+        stiffness: SEAWEED_SPRING_STIFFNESS,
+        damping: SEAWEED_SPRING_DAMPING,
+      })),
     ],
     scene,
   )
   parentAggregate.body.addConstraint(childAggregate.body, constraint)
+
+  // 角度軸改成「軟限制」：plugin 看到 min = max = 0 會把軸設為 LOCKED（硬約束），
+  // 硬約束被魚（kinematic、等同無限質量）擠開後，接觸一消失就直接投影回原姿態，
+  // 這正是「瞬間復原」的來源——剛度、阻尼調得再軟都沒用。
+  // 約束建好後把角度軸改回 LIMITED（範圍仍是 0），Havok 才會以彈簧求解，
+  // 葉片挺回才有回彈的過程
+  for (const axis of angularAxisList) {
+    constraint.setAxisMode(axis, PhysicsConstraintAxisLimitMode.LIMITED)
+    constraint.setAxisMinLimit(axis, 0)
+    constraint.setAxisMaxLimit(axis, 0)
+  }
 }
 
 export function createTankEnvironment(scene: Scene): TankEnvironment {
@@ -1728,9 +1759,9 @@ export function createTankEnvironment(scene: Scene): TankEnvironment {
       for (const bladeAggregate of [lowerAggregate, upperAggregate]) {
         bladeAggregate.shape.filterMembershipMask = PHYSICS_GROUP_SEAWEED
         bladeAggregate.shape.filterCollideMask = PHYSICS_GROUP_FISH | PHYSICS_GROUP_STATIC
-        // 本體阻尼吸收殘餘擺盪
+        // 本體阻尼吸收殘餘擺盪：留一點餘裕讓回正的擺盪看得見，太高會變成瞬間歸位
         bladeAggregate.body.setLinearDamping(1.5)
-        bladeAggregate.body.setAngularDamping(2.5)
+        bladeAggregate.body.setAngularDamping(0.7)
       }
 
       connectWithAngularSpring(anchorAggregate, lowerAggregate, anchorPosition, scene)
@@ -1772,7 +1803,8 @@ export function createTankEnvironment(scene: Scene): TankEnvironment {
       swayItem.node.rotation.x = Math.cos(timeSeconds * swayItem.speed * 0.8 + swayItem.phase) * swayItem.amplitude * 0.6
     }
 
-    // 魚靠近時把水草往遠離魚的方向推倒，離開後平滑回彈
+    // 魚靠近時把水草往遠離魚的方向推倒，離開後以彈簧挺回（帶過衝回彈，不是瞬間歸位）。
+    // 積分步長切上限，分頁切回來的大 delta 不會把彈簧炸開
     for (const pushItem of pushItemList) {
       const dx = pushItem.rootX - fishX
       const dz = pushItem.rootZ - fishZ
@@ -1785,9 +1817,17 @@ export function createTankEnvironment(scene: Scene): TankEnvironment {
         targetRotationX = dz * inverse * strength
         targetRotationZ = -dx * inverse * strength
       }
-      const lerp = Math.min(1, deltaSeconds * 6)
-      pushItem.node.rotation.x += (targetRotationX - pushItem.node.rotation.x) * lerp
-      pushItem.node.rotation.z += (targetRotationZ - pushItem.node.rotation.z) * lerp
+      const springStep = Math.min(deltaSeconds, 1 / 60)
+      const accelerationX
+        = (targetRotationX - pushItem.node.rotation.x) * SEAWEED_PUSH_SPRING_STIFFNESS
+          - pushItem.angularVelocityX * SEAWEED_PUSH_SPRING_DAMPING
+      const accelerationZ
+        = (targetRotationZ - pushItem.node.rotation.z) * SEAWEED_PUSH_SPRING_STIFFNESS
+          - pushItem.angularVelocityZ * SEAWEED_PUSH_SPRING_DAMPING
+      pushItem.angularVelocityX += accelerationX * springStep
+      pushItem.angularVelocityZ += accelerationZ * springStep
+      pushItem.node.rotation.x += pushItem.angularVelocityX * springStep
+      pushItem.node.rotation.z += pushItem.angularVelocityZ * springStep
     }
 
     // 卵石被踢出邊界或掉出地板外就靜靜歸位重生
