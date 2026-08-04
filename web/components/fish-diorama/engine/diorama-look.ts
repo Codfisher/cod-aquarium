@@ -11,6 +11,7 @@ import { Color4 } from '@babylonjs/core/Maths/math.color'
 import { PostProcess } from '@babylonjs/core/PostProcesses/postProcess'
 import { DefaultRenderingPipeline } from '@babylonjs/core/PostProcesses/RenderPipeline/Pipelines/defaultRenderingPipeline'
 import { SSAO2RenderingPipeline } from '@babylonjs/core/PostProcesses/RenderPipeline/Pipelines/ssao2RenderingPipeline'
+import { isCoarsePointerDevice } from '../shared/device-tier'
 
 /** 移軸微縮的清晰帶設定。垂直捲動類遊戲把 halfHeight 放大，
  * 才不會把玩家正在操作的上下區域糊掉
@@ -140,6 +141,9 @@ export function applyDioramaLook(
     shadowsDensityScale = 1,
     vignetteWeightScale = 1,
   } = toneVariation
+  // 手機（觸控為主要輸入）GPU／記憶體有限，MSAA＋SSAO 疊在一起容易在場景初始化時
+  // 把 WebGL context 擠爆；六個世界共用這支函式，這裡降級才會全部一起生效
+  const isLowPowerDevice = isCoarsePointerDevice()
 
   // 影像處理：對比微調 + FXAA。
   // 景深（DOF）刻意停用：失焦溢光會在高對比物體邊緣產生明顯白色光暈
@@ -150,8 +154,9 @@ export function applyDioramaLook(
   pipeline.imageProcessing.contrast = 1.05
   pipeline.imageProcessing.exposure = exposure
   // 後處理管線會繞過 canvas 原生 MSAA：改開管線自身的 MSAA（WebGL2，幾何硬邊主力），
-  // 再疊 FXAA 收掉殘餘閃爍。只靠 FXAA 對低多邊形硬邊效果很差、鋸齒明顯
-  pipeline.samples = 4
+  // 再疊 FXAA 收掉殘餘閃爍。只靠 FXAA 對低多邊形硬邊效果很差、鋸齒明顯。
+  // 手機降到 2 samples：仍有 MSAA 兜底，但顯存與頻寬成本減半
+  pipeline.samples = isLowPowerDevice ? 2 : 4
   pipeline.fxaaEnabled = true
 
   // 質感細調：暗角聚焦視線（染暗藍紫呼應 split toning）、
@@ -192,15 +197,17 @@ export function applyDioramaLook(
     ssaoPipeline = new SSAO2RenderingPipeline(
       `${namePrefix}SsaoPipeline`,
       scene,
-      { ssaoRatio: 0.5, blurRatio: 1 },
+      // ratio／blurRatio 直接決定 SSAO 額外 render target 的解析度；
+      // 手機收緊到原本的六成左右，初始化時要多配置的顯存少一截
+      { ssaoRatio: isLowPowerDevice ? 0.3 : 0.5, blurRatio: isLowPowerDevice ? 0.5 : 1 },
       [camera],
       true,
     )
     // 低多邊小場景：取樣半徑貼近物件尺度，強度壓在陰影提示而非髒污的程度
     ssaoPipeline.radius = ambientOcclusion.radius
     ssaoPipeline.totalStrength = ambientOcclusion.strength
-    ssaoPipeline.samples = 12
-    ssaoPipeline.expensiveBlur = true
+    ssaoPipeline.samples = isLowPowerDevice ? 8 : 12
+    ssaoPipeline.expensiveBlur = !isLowPowerDevice
     ssaoPipeline.maxZ = ambientOcclusion.maxZ
   }
 

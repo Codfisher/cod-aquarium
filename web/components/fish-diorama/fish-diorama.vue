@@ -58,6 +58,18 @@
       </div>
     </transition>
 
+    <!-- WebGL context 遺失的過渡提示：手機切背景、記憶體吃緊時常見。
+         Babylon 會嘗試自動重建畫面，這裡只是讓玩家知道畫面暫時卡住不是壞掉；
+         逾時仍未恢復就退回既有的失敗畫面（見 handleContextLost） -->
+    <transition name="text">
+      <div
+        v-if="contextLost"
+        class="context-lost-overlay vp-raw absolute text-center pointer-events-none"
+      >
+        畫面連線中斷，正在重新整理...
+      </div>
+    </transition>
+
     <!-- 魚停在裝飾旁時浮出的連結 popup。外層錨點只管定位（錨定物體頂端投影位置），
          內層泡泡負責外觀與進出場動畫，兩層 transform 才不會互相覆蓋。
          動畫掛在內層，Vue 偵測不到根元素時長，需明確給 duration -->
@@ -313,6 +325,26 @@ const isFocused = useWindowFocus()
 
 const isReady = ref(false)
 const hasFailed = ref(false)
+/** WebGL context 暫時遺失（手機切背景、記憶體吃緊時常見）。true 時畫面顯示過渡提示，
+ * 逾時仍未恢復（見 CONTEXT_LOST_FAIL_MS）就判定救不回來，退回 hasFailed 的失敗畫面
+ */
+const contextLost = ref(false)
+const CONTEXT_LOST_FAIL_MS = 8000
+let contextLostFailTimer: ReturnType<typeof setTimeout> | undefined
+
+function handleContextLost() {
+  contextLost.value = true
+  clearTimeout(contextLostFailTimer)
+  contextLostFailTimer = setTimeout(() => {
+    hasFailed.value = true
+  }, CONTEXT_LOST_FAIL_MS)
+}
+
+function handleContextRestored() {
+  clearTimeout(contextLostFailTimer)
+  contextLost.value = false
+}
+
 /** 背景紙紋 tile 的 Blob URL（明暗各一版，soft-light 對各自底色解算），
  * 產生失敗就不鋪（優雅降級）
  */
@@ -809,6 +841,8 @@ onMounted(async () => {
       onNearbySpotChange(info) {
         nearbySpot.value = info
       },
+      onContextLost: handleContextLost,
+      onContextRestored: handleContextRestored,
     })
     dioramaHandle.resize()
     // 依保存的解鎖進度直接套用鎖定視覺（載入時不播過渡）；全解鎖回訪直接戴皇冠
@@ -870,6 +904,7 @@ onUnmounted(() => {
   clearTimeout(fullUnlockTimer)
   clearTimeout(toastTimer)
   clearTimeout(inkTransitionTimer)
+  clearTimeout(contextLostFailTimer)
   clearInterval(hourTimer)
   // 宿主先收：它的 Scene 掛在箱庭的 Engine 上，engine.dispose 之後才收會摸到已釋放的資源
   gameHost?.dispose()
@@ -1001,6 +1036,23 @@ onUnmounted(() => {
   animation: move-hint-breathe 2.6s ease-in-out infinite
 
   // 淡出時停掉呼吸動畫，opacity 才輪得到 transition 接手
+  &.text-leave-active
+    animation: none
+
+// WebGL context 遺失的過渡提示：疊在畫面偏中央，樣式比照 move-hint 但不佔用同一個位置。
+// 不能用 transform: translateY(-50%) 做置中——.text 這個共用 transition 的
+// enter-from/leave-to 會覆寫 transform 做位移動畫，兩邊搶同一個屬性會在轉場瞬間跳位置
+.context-lost-overlay
+  top: 46%
+  left: 0
+  right: 0
+  color: #fff
+  font-size: 15px
+  font-weight: 500
+  letter-spacing: 1px
+  text-shadow: 0 1px 3px rgba(15, 30, 40, 0.8), 0 2px 10px rgba(15, 30, 40, 0.6), 0 0 24px rgba(15, 30, 40, 0.4)
+  animation: move-hint-breathe 1.6s ease-in-out infinite
+
   &.text-leave-active
     animation: none
 
