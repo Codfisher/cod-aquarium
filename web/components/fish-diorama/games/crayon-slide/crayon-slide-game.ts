@@ -307,6 +307,9 @@ export const createCrayonSlideGame: MiniGameFactory = (context) => {
   const paperBodyMaterial = createPaperMaterial('crayonSlidePaperBody', PAPER_WHITE_HEX)
   /** 峽谷牆：比背景深一階的暖岩色，low poly 硬面靠光影自己長出層次 */
   const wallMaterial = createPaperMaterial('crayonSlideWall', '#eee3cc')
+  // 牆的幾何是零厚度的細分格網（見 createWallUnit），法線朝哪一面純靠旋轉烤進頂點資料算出來，
+  // 算錯方向就整片背對鏡頭被裁掉——關掉背面剔除當保底，法線方向錯了也不會整片消失
+  wallMaterial.backFaceCulling = false
   // 牆佔掉大半畫面，預設紙紋在暗部加重到 1.35 倍會把整面壓灰。
   // 這關的牆改鋪淡顆粒、尺度放大，質感留著但不吃亮度
   setPaperGrainProfile(wallMaterial, { strengthScale: 0.5, scaleScale: 0.75 })
@@ -531,7 +534,7 @@ export const createCrayonSlideGame: MiniGameFactory = (context) => {
    * 深度方向只留 2 段——牆很薄，不需要那個方向的細節
    */
   const WALL_HEIGHT_SUBDIVISION_COUNT = 12
-  const WALL_DEPTH_SUBDIVISION_COUNT = 2
+  const WALL_THICKNESS_SUBDIVISION_COUNT = 2
 
   function createWallUnit(index: number, side: -1 | 1): WallUnit {
     // 種子混入側別，左右牆的頂點抖動從源頭就不同；
@@ -539,26 +542,28 @@ export const createCrayonSlideGame: MiniGameFactory = (context) => {
     const unitSeed = createSeedFrom(300 + index, side)
     const sideVariation = createSideVariation(unitSeed, side)
 
-    // CreateGround 原生攤平在 xz 平面（y=0），width 對應 x、height 參數對應 z。
-    // 抖動先在這個原生方向上做，抖完再繞 z 轉 90 度並烤進頂點資料，
-    // 原本的 x（width 軸）就變成牆的高度軸、原生的 y（抖動軸）變成牆朝向峽谷內側的厚度軸，
-    // 轉完 activateWall 沿用的「local x/y/z 對應厚度/高度/深度」縮放邏輯完全不用改
+    // CreateGround 原生攤平在 xz 平面、法線朝 +y（像地板）。width 對應 x、height 參數對應 z
+    // （subdivisionsX/Y 是 Babylon 的欄位命名，指格網的兩個方向，跟世界座標 y 軸無關）。
+    // 相機側視、沿 z 看向場景，牆需要的是一片「法線朝 z、朝著鏡頭」的板子，
+    // 不是「法線朝上」的板子——繞 z 軸轉 90 度會把板子轉成側面朝鏡頭（法線變 x 軸），
+    // 可視面等於整個消失，這是先前版本牆壁不見的原因。改繞 x 軸轉：
+    // 原生 x 不變（還是厚度軸）、原生 z 變成高度軸、原生 y（攤平前是 0）變成深度軸
     const mesh = CreateGround(`crayonSlideWall${index}`, {
       width: 1,
       height: 1,
-      subdivisionsX: WALL_HEIGHT_SUBDIVISION_COUNT,
-      subdivisionsY: WALL_DEPTH_SUBDIVISION_COUNT,
+      subdivisionsX: WALL_THICKNESS_SUBDIVISION_COUNT,
+      subdivisionsY: WALL_HEIGHT_SUBDIVISION_COUNT,
     }, scene)
-    // 牆會沿高度拉十幾倍，高度軸（此時還是原生 x）的抖動量要等比壓回去；
+    // 牆會沿高度拉十幾倍，高度軸（此時是原生 z）的抖動量要等比壓回去；
     // 內側輪廓因此有 low poly 的碎稜，但幅度小於碰撞線的厚度，不會看到魚穿牆。
-    // 抖動軸（原生 y，轉向後變成牆的厚度軸）除以 WALL_WIDTH：
+    // 厚度軸（原生 x，繞 x 轉不受影響）除以 WALL_WIDTH：
     // 抖動要看的是內側稜線在**世界單位**位移多少，不這樣換算，牆一加厚同一組係數就會把稜線抖進碰撞線裡
     roughenLowPoly(mesh, unitSeed, 0.07 + sideVariation * 0.02, {
-      x: 0.045 + sideVariation * 0.03,
-      y: (0.99 + sideVariation * 0.45) / WALL_WIDTH,
-      z: 0.9,
+      x: (0.99 + sideVariation * 0.45) / WALL_WIDTH,
+      y: 0.9,
+      z: 0.045 + sideVariation * 0.03,
     })
-    mesh.rotation.z = Math.PI / 2
+    mesh.rotation.x = Math.PI / 2
     mesh.bakeCurrentTransformIntoVertices()
     mesh.material = wallMaterial
     mesh.isPickable = false

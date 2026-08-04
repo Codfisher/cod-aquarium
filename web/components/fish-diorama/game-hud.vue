@@ -771,7 +771,9 @@ const newRewardList = computed<RewardDefinition[]>(() => (
   padding: 20px 22px 18px
   border-radius: 16px
   background-color: light-dark(rgba(255, 253, 247, 0.97), rgba(34, 43, 50, 0.97))
-  background-image: var(--paper-grain-url, none)
+  // 深色模式疊一層同色蓋色壓淡紙紋：貼著說明文字的卡片，紙紋比在大面積背景上顯眼很多，
+  // 蓋色壓下去才夠淡；淺色模式蓋色 alpha 0，維持原樣
+  background-image: linear-gradient(light-dark(rgba(34, 43, 50, 0), rgba(34, 43, 50, 0.6)), light-dark(rgba(34, 43, 50, 0), rgba(34, 43, 50, 0.6))), var(--paper-grain-url, none)
   background-repeat: repeat
   background-size: 200px 200px
   border: 1px solid light-dark(rgba(62, 95, 82, 0.24), rgba(255, 255, 255, 0.14))

@@ -245,12 +245,12 @@ export function createDioramaScene(
   engine.onContextRestoredObservable.add(() => {
     options.onContextRestored?.()
   })
-  // 內部渲染解析度超取樣：桌機至少 1.5 倍、上限 2 倍，一般桌面螢幕 dpr = 1，
+  // 內部渲染解析度超取樣：至少 1.5 倍、上限 2 倍，一般桌面螢幕 dpr = 1，
   // 光靠 MSAA＋FXAA 壓不掉高對比硬邊的階梯感，低多邊形場景填充成本低，用解析度換邊緣品質最划算。
-  // 手機不強制墊高下限（devicePixelRatio 本來就常是 2～3，硬性乘 1.5 倍等於雙重超取樣），
-  // 上限也收緊到 1.25 倍，降低初始化瞬間的顯存與填充壓力
-  const superSampleFloor = isLowPowerDevice ? 1 : 1.5
-  const superSampleCeiling = isLowPowerDevice ? 1.25 : 2
+  // 手機原本連下限帶上限都收緊過，畫面明顯變糊——SSAO 才是真正的顯存大戶（見下方 isLowPowerDevice
+  // 判斷式，手機直接跳過整條 SSAO pipeline），省下來的預算讓給解析度，手機跟桌機用同一組門檻
+  const superSampleFloor = 1.5
+  const superSampleCeiling = 2
   engine.setHardwareScalingLevel(1 / Math.min(Math.max(window.devicePixelRatio || 1, superSampleFloor), superSampleCeiling))
 
   const scene = new Scene(engine)
@@ -313,22 +313,22 @@ export function createDioramaScene(
   // SSAO：物體接縫、凹角與貼地處產生柔和環境遮蔽，接地感與體積感明顯提升。
   // 走 geometry buffer（非 prepass），避開透明 canvas＋MSAA 管線的相容性問題；
   // 在此建立（描邊之前），AO 疊在色調處理後的畫面上、鉛筆線條保持在最上層。
-  // WebGL1 不支援就跳過，畫面只是少了 AO
-  if (SSAO2RenderingPipeline.IsSupported) {
+  // WebGL1 不支援就跳過，畫面只是少了 AO。
+  // 手機也直接跳過：SSAO 是額外一組 render target 加模糊 pass，是這整條管線裡最吃顯存的部分，
+  // 犧牲這裡的陰影細節、換超取樣解析度不縮水，畫面清晰度的取捨更划算
+  if (SSAO2RenderingPipeline.IsSupported && !isLowPowerDevice) {
     const ssaoPipeline = new SSAO2RenderingPipeline(
       'dioramaSsaoPipeline',
       scene,
-      // SSAO 是額外一組 render target，ratio／blurRatio 直接決定它的解析度；
-      // 手機收緊到原本的六成左右，初始化時要多配置的顯存少一截
-      { ssaoRatio: isLowPowerDevice ? 0.3 : 0.5, blurRatio: isLowPowerDevice ? 0.5 : 1 },
+      { ssaoRatio: 0.5, blurRatio: 1 },
       [camera],
       true,
     )
     // 低多邊小場景：取樣半徑貼近物件尺度，強度壓在陰影提示而非髒污的程度
     ssaoPipeline.radius = 0.8
     ssaoPipeline.totalStrength = 0.68
-    ssaoPipeline.samples = isLowPowerDevice ? 8 : 12
-    ssaoPipeline.expensiveBlur = !isLowPowerDevice
+    ssaoPipeline.samples = 12
+    ssaoPipeline.expensiveBlur = true
     // 相機距離 14，場景深度不超過此值；限制範圍讓遠景不吃 AO 雜訊
     ssaoPipeline.maxZ = 45
   }

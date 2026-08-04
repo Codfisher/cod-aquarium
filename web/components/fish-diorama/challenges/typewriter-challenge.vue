@@ -428,7 +428,9 @@ onUnmounted(() => {
   border-radius: 16px
   text-align: center
   background-color: light-dark(rgba(255, 253, 247, 0.97), rgba(36, 46, 52, 0.97))
-  background-image: var(--paper-grain-url, none)
+  // 深色模式疊一層同色蓋色壓淡紙紋：貼著說明文字的卡片，紙紋比在大面積背景上顯眼很多，
+  // 蓋色壓下去才夠淡；淺色模式蓋色 alpha 0，維持原樣
+  background-image: linear-gradient(light-dark(rgba(36, 46, 52, 0), rgba(36, 46, 52, 0.6)), light-dark(rgba(36, 46, 52, 0), rgba(36, 46, 52, 0.6))), var(--paper-grain-url, none)
   background-repeat: repeat
   background-size: 200px 200px
   color: light-dark(oklch(0.35 0.05 195), oklch(0.9 0.02 195))
