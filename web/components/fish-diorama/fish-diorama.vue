@@ -70,7 +70,7 @@
            popup 的輕量回饋動畫不該因此消失 -->
       <!-- 錨點以 clamp 限制在畫面內：留出說明卡半寬與上方卡高，貼近邊緣的裝飾不會讓卡片破圖 -->
       <div
-        v-if="nearbySpot && nearbySpotContent && !activeChallengeKey"
+        v-if="nearbySpot && nearbySpotContent && !activeGameId"
         :key="nearbySpot.key"
         class="spot-popup-anchor vp-raw absolute z-10"
         :style="{
@@ -97,7 +97,7 @@
             class="spot-replay"
             aria-label="再玩一次"
             title="再玩一次"
-            @click="startChallenge"
+            @click="startSpotGame"
           >
             <u-icon
               name="i-material-symbols:sports-esports-rounded"
@@ -106,9 +106,9 @@
             />
           </button>
         </div>
-        <!-- 未解鎖：遊戲說明卡（名稱＋玩法＋獎勵提示＋開始按鈕） -->
+        <!-- 未解鎖：遊戲說明卡（名稱＋玩法＋過關門檻＋開始按鈕） -->
         <div
-          v-else-if="nearbyChallengeInfo"
+          v-else-if="nearbyGameMeta"
           class="spot-challenge-card"
         >
           <div class="challenge-card-title">
@@ -117,51 +117,86 @@
               class="lock-icon"
               aria-hidden="true"
             />
-            {{ nearbyChallengeInfo.title }}
+            {{ nearbyGameMeta.title }}
           </div>
           <p class="challenge-card-description">
-            {{ nearbyChallengeInfo.description }}
+            {{ nearbyGameMeta.description }}
           </p>
           <button
             type="button"
             class="challenge-card-start"
-            @click="startChallenge"
+            @click="startSpotGame"
           >
             開始挑戰
           </button>
-          <span class="challenge-card-footer">過關即可解鎖連結</span>
+          <span class="challenge-card-footer">
+            達到 {{ nearbyGameMeta.clearScore }} {{ nearbyGameMeta.scoreUnit }} 解鎖連結
+          </span>
         </div>
       </div>
     </transition>
 
-    <!-- 小遊戲挑戰 overlay（lazy chunk，開啟才載入） -->
-    <component
-      :is="activeChallengeComponent"
-      v-if="activeChallengeComponent"
-      :key="activeChallengeKey ?? 'none'"
-      v-bind="activeChallengeKey === 'camera'
-        ? {
-          getFishShotInfo: getChallengeFishShotInfo,
-          captureSnapshot: captureChallengeSnapshot,
-          playShutterFeedback: playChallengeShutterFeedback,
-        }
-        : activeChallengeKey === 'typewriter'
-          ? { sceneStage: dioramaHandle?.typewriterStage }
-          : activeChallengeKey === 'crayonSet'
-            ? { sceneStage: dioramaHandle?.crayonStage }
-            : {}"
-      @success="handleChallengeSuccess"
-      @close="closeChallenge"
-      @typed="handleTypewriterTyped"
+    <!-- 遊戲轉場：墨水暈染蓋過整個畫面，底下趁機把 Scene 換掉。
+         進出場都走它，玩家不會看到場景切換的破綻 -->
+    <transition name="ink">
+      <div
+        v-if="inkTransitionVisible"
+        class="ink-transition vp-raw absolute inset-0 pointer-events-none"
+      />
+    </transition>
+
+    <!-- 遊戲 HUD：遊戲進行中接管整個箱庭畫面（lazy chunk，開玩才載入） -->
+    <game-hud
+      v-if="activeGameMeta"
+      :meta="activeGameMeta"
+      :phase="hudPhase"
+      :score="gameScore"
+      :best-score="activeGameBestScore"
+      :toast-text="toastText"
+      :new-reward-id-list="newRewardIdList"
+      :has-just-cleared="hasJustCleared"
+      :hud-state="gameHudState"
+      @begin="beginActiveGame"
+      @retry="restartActiveGame"
+      @close="closeGame"
+      @hud-action="gameHost?.triggerHudAction($event)"
     />
 
-    <!-- 解鎖進度徽章：左下角安靜的小字＋重置鈕，遊戲進行中隱藏 -->
+    <!-- 收藏冊：配件穿脫與最佳紀錄（lazy chunk） -->
+    <reward-collection
+      v-if="collectionVisible"
+      :unlocked-reward-id-list="gameProgress.unlockedRewardIdList"
+      :equipped-reward-id-list="gameProgress.equippedRewardIdList"
+      :best-score-map="gameProgress.bestScoreMap"
+      @close="collectionVisible = false"
+      @equip="handleEquipAccessory"
+      @unequip="handleUnequipAccessory"
+    />
+
+    <!-- 解鎖進度徽章：左下角安靜的小字＋收藏冊＋重置鈕，遊戲進行中隱藏 -->
     <div
-      v-if="hasEntered && !activeChallengeKey"
+      v-if="hasEntered && !activeGameId"
       class="unlock-progress vp-raw absolute"
       aria-label="小遊戲解鎖進度"
     >
-      <span class="unlock-progress-text">解鎖進度 {{ unlockedSpotSet.size }}/{{ interactionSpotKeyList.length }}</span>
+      <span class="unlock-progress-text">
+        解鎖 {{ unlockedSpotSet.size }}/{{ interactionSpotKeyList.length }}
+        ・配件 {{ unlockedAccessoryCount }}/{{ totalAccessoryCount }}
+      </span>
+      <!-- 收藏冊：看配件與最佳紀錄，也是配件穿脫的唯一入口 -->
+      <button
+        type="button"
+        class="unlock-reset-button"
+        aria-label="打開收藏冊"
+        title="收藏冊"
+        @click="collectionVisible = true"
+      >
+        <u-icon
+          name="i-material-symbols:book-2-outline-rounded"
+          class="reset-icon"
+          aria-hidden="true"
+        />
+      </button>
       <!-- 重置遊戲紀錄：兩段式確認防誤觸 -->
       <button
         v-if="unlockedSpotSet.size > 0"
@@ -208,6 +243,24 @@
           >
             慶典模式：{{ devCelebrationActive ? '開' : '關' }}
           </button>
+          <button
+            type="button"
+            class="dev-menu-item"
+            @click="unlockAllRewardList"
+          >
+            解鎖全部獎勵
+          </button>
+          <!-- 六款遊戲只有三個入口裝飾，其餘三款在正式綁定前先從這裡試玩 -->
+          <div class="dev-menu-divider" />
+          <button
+            v-for="gameMeta in miniGameMetaList"
+            :key="gameMeta.id"
+            type="button"
+            class="dev-menu-item"
+            @click="startGame(gameMeta.id)"
+          >
+            ▸ {{ gameMeta.title }}
+          </button>
         </div>
       </transition>
       <button
@@ -224,6 +277,10 @@
 
 <script setup lang="ts">
 import type { DioramaSceneHandle, NearbyInteractionInfo } from './diorama-scene'
+import type { GameHudPhase } from './game-hud.vue'
+import type { GameHudState, MiniGameId } from './games/game-contract'
+import type { GameHost } from './games/game-host'
+import type { RewardId } from './rewards/reward-registry'
 import type { InteractionSpotKey } from './tank-environment'
 import {
   useIntersectionObserver,
@@ -232,12 +289,21 @@ import {
 } from '@vueuse/core'
 import { useData } from 'vitepress'
 import { computed, defineAsyncComponent, onMounted, onUnmounted, ref, useTemplateRef, watch } from 'vue'
+import { collectNewMilestoneList } from './games/game-contract'
+import { miniGameIdList, miniGameMetaMap, spotGameMap } from './games/game-registry'
 import { getGrainCssBlobUrl } from './paper-grain'
+import { rewardDefinitionList, rewardIdList } from './rewards/reward-registry'
+import {
+  clearGameProgress,
+  equipAccessory,
+  loadGameProgress,
+  saveGameProgress,
+  unequipAccessory,
+} from './rewards/reward-storage'
 
-// 挑戰小遊戲各自拆 chunk，點開挑戰才載入
-const CameraChallenge = defineAsyncComponent(() => import('./challenges/camera-challenge.vue'))
-const TypewriterChallenge = defineAsyncComponent(() => import('./challenges/typewriter-challenge.vue'))
-const CrayonChallenge = defineAsyncComponent(() => import('./challenges/crayon-challenge.vue'))
+// HUD 與收藏冊各自拆 chunk：首屏只需要箱庭本身，玩起來才載
+const GameHud = defineAsyncComponent(() => import('./game-hud.vue'))
+const RewardCollection = defineAsyncComponent(() => import('./reward-collection.vue'))
 
 const sectionRef = useTemplateRef('sectionRef')
 const canvasRef = useTemplateRef('canvasRef')
@@ -342,43 +408,19 @@ const nearbySpotContent = computed(() => (
   nearbySpot.value ? spotContentMap[nearbySpot.value.key] : undefined
 ))
 
-// --- 挑戰小遊戲與解鎖進度 ---
+// --- 作品連結的解鎖進度（過關即解鎖，與高分獎勵是兩套） ---
 /** 解鎖進度的 localStorage key（永久保存，過關後回訪直接看到連結） */
 const UNLOCK_STORAGE_KEY = 'fish-diorama-unlocked-spot-list'
 const interactionSpotKeyList: InteractionSpotKey[] = ['camera', 'typewriter', 'crayonSet']
-/** 鎖定說明卡的遊戲名稱與玩法簡介 */
-const challengeInfoMap: Record<InteractionSpotKey, { title: string; description: string }> = {
-  camera: {
-    title: '追焦快門',
-    description: '按住畫面對焦，趁鱈魚跳在空中放開快門，拍下 3 張清晰跳躍照。',
-  },
-  typewriter: {
-    title: '節奏打字機',
-    description: '文字滑進打字圈的瞬間敲任意鍵，跟上節奏把三句稿子打完！',
-  },
-  crayonSet: {
-    title: '小小畫室',
-    description: '拿蠟筆沿虛線描出小魚，路徑匹配度衝到 95% 才算完成，手要穩喔！',
-  },
-}
-const challengeComponentMap = {
-  camera: CameraChallenge,
-  typewriter: TypewriterChallenge,
-  crayonSet: CrayonChallenge,
-}
 
 const unlockedSpotSet = ref(new Set<InteractionSpotKey>())
-/** 進行中的挑戰；開啟時收起 popup、快門挑戰同時切換場景模式 */
-const activeChallengeKey = ref<InteractionSpotKey | null>(null)
 
-const activeChallengeComponent = computed(() => (
-  activeChallengeKey.value ? challengeComponentMap[activeChallengeKey.value] : undefined
-))
 const isNearbySpotUnlocked = computed(() => (
   nearbySpot.value ? unlockedSpotSet.value.has(nearbySpot.value.key) : false
 ))
-const nearbyChallengeInfo = computed(() => (
-  nearbySpot.value ? challengeInfoMap[nearbySpot.value.key] : undefined
+/** 停靠裝飾對應的遊戲資料，說明卡直接讀它 */
+const nearbyGameMeta = computed(() => (
+  nearbySpot.value ? miniGameMetaMap[spotGameMap[nearbySpot.value.key]] : undefined
 ))
 
 function loadUnlockedSpotList() {
@@ -406,45 +448,253 @@ function saveUnlockedSpotList() {
   }
 }
 
-function startChallenge() {
+// --- 高分獎勵進度（配件與彩蛋） ---
+const gameProgress = ref(loadGameProgress())
+const collectionVisible = ref(false)
+
+const totalAccessoryCount = rewardDefinitionList.length
+const unlockedAccessoryCount = computed(() => {
+  return gameProgress.value.unlockedRewardIdList.length
+})
+
+function persistGameProgress() {
+  saveGameProgress(gameProgress.value)
+  dioramaHandle?.setEquippedAccessoryList(gameProgress.value.equippedRewardIdList)
+}
+
+function handleEquipAccessory(rewardId: RewardId) {
+  gameProgress.value = equipAccessory(gameProgress.value, rewardId)
+  persistGameProgress()
+}
+
+function handleUnequipAccessory(rewardId: RewardId) {
+  gameProgress.value = unequipAccessory(gameProgress.value, rewardId)
+  persistGameProgress()
+}
+
+// --- 迷你遊戲的生命週期 ---
+const miniGameMetaList = miniGameIdList.map((gameId) => miniGameMetaMap[gameId])
+
+/** 進行中的遊戲；null = 待在箱庭 */
+const activeGameId = ref<MiniGameId | null>(null)
+const hudPhase = ref<GameHudPhase>('loading')
+const gameScore = ref(0)
+const toastText = ref('')
+const newRewardIdList = ref<RewardId[]>([])
+const hasJustCleared = ref(false)
+/** 遊戲自訂 HUD 的內容（電量、大絕槽、生命燈、按鈕）。由遊戲每幀回報、host 過濾沒變的 */
+const gameHudState = ref<GameHudState>({ gaugeList: [], pipRowList: [], actionList: [] })
+/** 墨水轉場：蓋住畫面的期間偷偷把 Scene 換掉 */
+const inkTransitionVisible = ref(false)
+
+let toastTimer: ReturnType<typeof setTimeout> | undefined
+let inkTransitionTimer: ReturnType<typeof setTimeout> | undefined
+/** 遊戲宿主借用箱庭的 Engine，非響應式資料不放進 ref */
+let gameHost: GameHost | undefined
+
+const activeGameMeta = computed(() => (
+  activeGameId.value ? miniGameMetaMap[activeGameId.value] : undefined
+))
+/** 開局當下的歷史最佳分數快照。
+ * 不能用 computed 直接讀 bestScoreMap——結算時那份資料已經被本場成績覆蓋，
+ * 「新紀錄」的判定會拿本場分數跟自己比，永遠不成立
+ */
+const activeGameBestScore = ref(0)
+
+/** 建立宿主。箱庭初始化成功後才有 engine 可借 */
+function ensureGameHost(): GameHost | undefined {
+  if (gameHost || !dioramaHandle || !canvasRef.value) {
+    return gameHost
+  }
+  gameHost = createGameHostLazy(dioramaHandle.engine, canvasRef.value)
+  return gameHost
+}
+
+/** createGameHost 走動態 import，避免遊戲宿主與契約進首屏 bundle。
+ * 宿主本身很輕，但它牽出的 Babylon 後製與物理模組不輕
+ */
+let createGameHostFactory: typeof import('./games/game-host').createGameHost | undefined
+
+function createGameHostLazy(engine: DioramaSceneHandle['engine'], canvas: HTMLCanvasElement): GameHost | undefined {
+  if (!createGameHostFactory) {
+    return undefined
+  }
+  return createGameHostFactory({
+    canvas,
+    engine,
+    isDark: isDark.value,
+    onScoreChange(score) {
+      gameScore.value = score
+    },
+    onGameOver(finalScore) {
+      finishGame(finalScore)
+    },
+    onToast(text) {
+      toastText.value = text
+      clearTimeout(toastTimer)
+      toastTimer = setTimeout(() => {
+        toastText.value = ''
+      }, 1400)
+    },
+    onHudStateChange(state) {
+      gameHudState.value = state
+    },
+    onReady() {
+      // 世界建好了但還沒開始跑，先給玩家看說明
+      hudPhase.value = 'briefing'
+    },
+  })
+}
+
+async function startGame(gameId: MiniGameId) {
+  if (!dioramaHandle || !canvasRef.value) {
+    return
+  }
+  devMenuVisible.value = false
+  collectionVisible.value = false
+  // 墨水先蓋住畫面，換 Scene 的破綻藏在裡面
+  playInkTransition()
+  activeGameId.value = gameId
+  activeGameBestScore.value = gameProgress.value.bestScoreMap[gameId] ?? 0
+  hudPhase.value = 'loading'
+  gameScore.value = 0
+  toastText.value = ''
+  newRewardIdList.value = []
+  hasJustCleared.value = false
+
+  // 箱庭讓出渲染迴圈：Engine 的 render loop 是全域的，
+  // 必須先停箱庭再啟遊戲，否則兩邊會互相蓋掉對方的 callback
+  dioramaHandle.setRunning(false)
+
+  try {
+    createGameHostFactory ??= (await import('./games/game-host')).createGameHost
+    const host = ensureGameHost()
+    if (!host) {
+      throw new Error('遊戲宿主建立失敗')
+    }
+    await host.launch(miniGameMetaMap[gameId])
+  }
+  catch (error) {
+    // 載入失敗（chunk 抓不到、WebGL 出事）就退回箱庭。
+    // 少了這層，箱庭會停在暫停狀態，玩家只剩一片靜止的畫面
+    console.error('[fish-diorama] 遊戲啟動失敗', error)
+    gameHost?.close()
+    activeGameId.value = null
+    hudPhase.value = 'loading'
+    dioramaHandle.setRunning(shouldRun.value)
+  }
+}
+
+function startSpotGame() {
   if (!nearbySpot.value) {
     return
   }
-  activeChallengeKey.value = nearbySpot.value.key
+  startGame(spotGameMap[nearbySpot.value.key])
 }
 
-function closeChallenge() {
-  activeChallengeKey.value = null
+/** 玩家看完說明按下開始，世界才真的動起來 */
+function beginActiveGame() {
+  gameHost?.beginPlay()
+  hudPhase.value = 'playing'
+}
+
+function restartActiveGame() {
+  if (activeGameId.value) {
+    startGame(activeGameId.value)
+  }
 }
 
 /** 全解鎖慶典的延遲計時器：先讓單項解鎖演出播完，再開慶典 */
 let fullUnlockTimer: ReturnType<typeof setTimeout> | undefined
 
-function handleChallengeSuccess() {
-  const challengeKey = activeChallengeKey.value
-  if (!challengeKey) {
+/** 遊戲結束：寫入最佳分數、結算里程碑獎勵、判定作品連結是否過關 */
+function finishGame(finalScore: number) {
+  const gameId = activeGameId.value
+  if (!gameId) {
     return
   }
-  const nextSet = new Set(unlockedSpotSet.value)
-  nextSet.add(challengeKey)
-  unlockedSpotSet.value = nextSet
-  saveUnlockedSpotList()
-  activeChallengeKey.value = null
-  // 解鎖演出：灰白紙模暈染回原色＋鎖頭旗標飛走＋彈跳水花＋彩帶
-  dioramaHandle?.setSpotLocked(challengeKey, false)
-  dioramaHandle?.celebrateSpotUnlock(challengeKey)
-  // 三款全解鎖：稍候片刻讓解鎖演出先播，再開慶典（皇冠＋整池彩帶＋翻滾跳）
-  if (interactionSpotKeyList.every((key) => nextSet.has(key))) {
-    clearTimeout(fullUnlockTimer)
-    fullUnlockTimer = setTimeout(() => {
-      dioramaHandle?.celebrateFullUnlock()
-    }, 900)
+  const meta = miniGameMetaMap[gameId]
+  const previousBestScore = gameProgress.value.bestScoreMap[gameId] ?? 0
+
+  const earnedRewardIdList = collectNewMilestoneList(meta, previousBestScore, finalScore)
+    .map((milestone) => milestone.rewardId)
+    .filter((rewardId) => !gameProgress.value.unlockedRewardIdList.includes(rewardId))
+
+  gameProgress.value = {
+    ...gameProgress.value,
+    bestScoreMap: {
+      ...gameProgress.value.bestScoreMap,
+      [gameId]: Math.max(previousBestScore, finalScore),
+    },
+    unlockedRewardIdList: [...gameProgress.value.unlockedRewardIdList, ...earnedRewardIdList],
   }
+  persistGameProgress()
+  newRewardIdList.value = earnedRewardIdList
+
+  // 作品連結解鎖：達到門檻且該裝飾尚未解鎖
+  const spotKey = (Object.keys(spotGameMap) as InteractionSpotKey[])
+    .find((key) => spotGameMap[key] === gameId)
+  hasJustCleared.value = Boolean(
+    spotKey && finalScore >= meta.clearScore && !unlockedSpotSet.value.has(spotKey),
+  )
+  if (spotKey && hasJustCleared.value) {
+    const nextSet = new Set(unlockedSpotSet.value)
+    nextSet.add(spotKey)
+    unlockedSpotSet.value = nextSet
+    saveUnlockedSpotList()
+  }
+
+  gameScore.value = finalScore
+  hudPhase.value = 'over'
 }
 
-/** 打字挑戰每敲對一鍵，讓 3D 打字機同步演出 */
-function handleTypewriterTyped() {
-  dioramaHandle?.playSpotShowcase('typewriter')
+/** 離開遊戲回到箱庭，順便播剛才掙來的解鎖演出 */
+function closeGame() {
+  const clearedSpotKey = hasJustCleared.value && activeGameId.value
+    ? (Object.keys(spotGameMap) as InteractionSpotKey[])
+        .find((key) => spotGameMap[key] === activeGameId.value)
+    : undefined
+
+  playInkTransition()
+  gameHost?.close()
+  activeGameId.value = null
+  hudPhase.value = 'loading'
+  toastText.value = ''
+  clearTimeout(toastTimer)
+  dioramaHandle?.setRunning(shouldRun.value)
+
+  if (clearedSpotKey) {
+    // 解鎖演出：灰白紙模暈染回原色＋鎖頭旗標飛走＋彈跳水花＋彩帶
+    dioramaHandle?.setSpotLocked(clearedSpotKey, false)
+    dioramaHandle?.celebrateSpotUnlock(clearedSpotKey)
+    if (interactionSpotKeyList.every((key) => unlockedSpotSet.value.has(key))) {
+      clearTimeout(fullUnlockTimer)
+      fullUnlockTimer = setTimeout(() => {
+        dioramaHandle?.celebrateFullUnlock()
+      }, 900)
+    }
+  }
+  hasJustCleared.value = false
+}
+
+/** 墨水暈染：進出遊戲都走它，蓋住 Scene 切換的瞬間 */
+function playInkTransition() {
+  inkTransitionVisible.value = true
+  clearTimeout(inkTransitionTimer)
+  inkTransitionTimer = setTimeout(() => {
+    inkTransitionVisible.value = false
+  }, 520)
+}
+
+/** dev 用：一次解鎖全部獎勵，方便檢查配件建模與收藏冊排版 */
+function unlockAllRewardList() {
+  gameProgress.value = {
+    ...gameProgress.value,
+    unlockedRewardIdList: [...rewardIdList],
+  }
+  persistGameProgress()
+  collectionVisible.value = true
+  devMenuVisible.value = false
 }
 
 // --- 重置遊戲紀錄（兩段式確認） ---
@@ -469,28 +719,17 @@ function handleResetClick() {
   catch {
     // 寫入失敗就只重置本次瀏覽
   }
+  // 連同高分紀錄與獎勵一起清空：玩家按的是「重置遊戲紀錄」，
+  // 只清一半反而會讓收藏冊留著解不掉的配件
+  gameProgress.value = { bestScoreMap: {}, unlockedRewardIdList: [], equippedRewardIdList: [] }
+  clearGameProgress()
+  dioramaHandle?.setEquippedAccessoryList([])
   // 模型鎖回灰白紙模＋鎖頭旗標（播過渡，看得出「上鎖」的變化），皇冠一併摘掉
   for (const spotKey of interactionSpotKeyList) {
     dioramaHandle?.setSpotLocked(spotKey, true)
   }
   dioramaHandle?.setCrownVisible(false)
 }
-
-function getChallengeFishShotInfo() {
-  return dioramaHandle?.getFishShotInfo() ?? null
-}
-
-function captureChallengeSnapshot() {
-  return dioramaHandle?.captureFishSnapshot() ?? null
-}
-
-function playChallengeShutterFeedback(isSharpShot: boolean) {
-  dioramaHandle?.playCameraShutterFeedback(isSharpShot)
-}
-
-watch(activeChallengeKey, (key) => {
-  dioramaHandle?.setCameraChallengeActive(key === 'camera')
-})
 
 /** Babylon 場景控制器。非響應式資料，不放進 ref */
 let dioramaHandle: DioramaSceneHandle | undefined
@@ -501,9 +740,10 @@ useIntersectionObserver(sectionRef, ([entry]) => {
 })
 
 // 進場前不啟動渲染：迎賓頁只需要 CSS 漸層與紙紋，
-// 也避免視窗無 focus 時（渲染暫停）首屏是一片空白
+// 也避免視窗無 focus 時（渲染暫停）首屏是一片空白。
+// 遊戲進行中箱庭必須停著——Engine 的 render loop 是全域的，兩邊同時跑會互相蓋掉
 const shouldRun = computed(() => (
-  isReady.value && hasEntered.value && visible.value && isFocused.value
+  isReady.value && hasEntered.value && visible.value && isFocused.value && !activeGameId.value
 ))
 
 onMounted(async () => {
@@ -545,6 +785,8 @@ onMounted(async () => {
       interactionSpotKeyList.every((key) => unlockedSpotSet.value.has(key)),
       true,
     )
+    // 穿戴中的配件在載入時就套上，回訪不會少了裝扮
+    dioramaHandle.setEquippedAccessoryList(gameProgress.value.equippedRewardIdList)
     // 深夜訪客：套用當前狀態，並每分鐘刷新時刻（跨過凌晨界線時自動切換）
     dioramaHandle.setSleepyMode(sleepyActive.value)
     hourTimer = setInterval(() => {
@@ -563,11 +805,24 @@ watch(shouldRun, (value) => {
   dioramaHandle?.setRunning(value)
 })
 
+// 遊戲不可見或視窗失焦時也要停：兩邊各自管自己的迴圈
+watch(
+  () => Boolean(activeGameId.value) && visible.value && isFocused.value,
+  (value) => {
+    gameHost?.setRunning(value)
+  },
+)
+
 watch(isDark, (value) => {
   dioramaHandle?.setDarkMode(value)
+  gameHost?.setDarkMode(value)
 })
 
 useResizeObserver(sectionRef, () => {
+  if (activeGameId.value) {
+    gameHost?.resize()
+    return
+  }
   dioramaHandle?.resize()
 })
 
@@ -577,7 +832,12 @@ onUnmounted(() => {
   }
   clearTimeout(resetConfirmTimer)
   clearTimeout(fullUnlockTimer)
+  clearTimeout(toastTimer)
+  clearTimeout(inkTransitionTimer)
   clearInterval(hourTimer)
+  // 宿主先收：它的 Scene 掛在箱庭的 Engine 上，engine.dispose 之後才收會摸到已釋放的資源
+  gameHost?.dispose()
+  gameHost = undefined
   dioramaHandle?.dispose()
   dioramaHandle = undefined
 })
@@ -954,6 +1214,11 @@ onUnmounted(() => {
   background: light-dark(rgba(255, 253, 247, 0.95), rgba(36, 46, 52, 0.95))
   box-shadow: 0 6px 18px light-dark(rgba(27, 42, 51, 0.2), rgba(0, 0, 0, 0.45))
 
+.dev-menu-divider
+  height: 1px
+  margin: 3px 6px
+  background: light-dark(rgba(62, 95, 82, 0.2), rgba(255, 255, 255, 0.14))
+
 .dev-menu-item
   appearance: none
   border: none
@@ -971,6 +1236,28 @@ onUnmounted(() => {
 
   &:hover
     background: light-dark(rgba(27, 42, 51, 0.06), rgba(255, 255, 255, 0.08))
+
+// 遊戲轉場：墨水從中心暈開蓋滿畫面再散去，Scene 就在最濃的那一刻換掉。
+// 用 radial-gradient 的縮放模擬墨滴擴散，比單純淡入淡出更有紙上作業的語彙
+.ink-transition
+  z-index: 25
+  background: radial-gradient(circle at 50% 50%, light-dark(#f5efe2, #1a222b) 0%, light-dark(#f5efe2, #1a222b) 62%, transparent 74%)
+
+.ink-enter-active
+  animation: ink-spread 0.26s ease-out both
+
+.ink-leave-active
+  animation: ink-spread 0.26s ease-in reverse both
+
+@keyframes ink-spread
+  0%
+    opacity: 0
+    transform: scale(0.35)
+  60%
+    opacity: 1
+  100%
+    opacity: 1
+    transform: scale(3)
 
 // 進場：從尾巴根部長出來的果凍彈跳；離場：快速淡出下沉
 @keyframes popup-bounce-in

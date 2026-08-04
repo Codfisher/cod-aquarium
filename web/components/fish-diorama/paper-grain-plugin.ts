@@ -29,13 +29,42 @@ let sharedGrainTexture: Texture | null = null
 let sharedRimColor = new Color3(1, 0.86, 0.63)
 let sharedRimStrength = 0.08
 
+/** 材質分層的顆粒個性。全場均一的顆粒參數本身就是均質感的來源——
+ * 真實材質的紋理密度天差地遠：岩石粗、葉片細、金屬近乎無紋。
+ */
+export interface PaperGrainProfile {
+  /** 顆粒濃度倍率：岩石 > 1、葉片 < 1、金屬與玻璃趨近 0 */
+  strengthScale?: number;
+  /** 顆粒尺度倍率：> 1 顆粒更細 */
+  scaleScale?: number;
+  /** 輪廓光強度倍率 */
+  rimStrengthScale?: number;
+}
+
+interface PaperGrainMetadata {
+  paperGrain?: PaperGrainProfile;
+}
+
+/** 指定材質的顆粒個性。在 attachPaperGrainPlugins 前後設定皆可，每幀 bind 時讀取 */
+export function setPaperGrainProfile(material: Material, profile: PaperGrainProfile): void {
+  const metadata = (material.metadata ?? {}) as PaperGrainMetadata
+  metadata.paperGrain = profile
+  material.metadata = metadata
+}
+
+function readPaperGrainProfile(material: Material): PaperGrainProfile {
+  return (material.metadata as PaperGrainMetadata | null)?.paperGrain ?? {}
+}
+
 class PaperGrainPlugin extends MaterialPluginBase {
   /** 輪廓光只掛在 StandardMaterial：ShadowOnly 的著色器沒有 vEyePosition */
   private readonly hasRimSupport: boolean
+  private readonly targetMaterial: Material
 
   constructor(material: Material) {
     super(material, 'PaperGrain', 200, { PAPER_GRAIN: false, PAPER_GRAIN_RIM: false })
     this.hasRimSupport = material.getClassName() === 'StandardMaterial'
+    this.targetMaterial = material
     this._enable(true)
   }
 
@@ -45,7 +74,8 @@ class PaperGrainPlugin extends MaterialPluginBase {
 
   override prepareDefines(defines: MaterialDefines): void {
     defines.PAPER_GRAIN = sharedGrainTexture !== null
-    defines.PAPER_GRAIN_RIM = sharedGrainTexture !== null && this.hasRimSupport
+    // 輪廓光與表面顆粒解耦：low poly 不鋪顆粒，但仍需要輪廓光把切面托出來
+    defines.PAPER_GRAIN_RIM = this.hasRimSupport
   }
 
   override getSamplers(samplers: string[]): void {
@@ -63,6 +93,8 @@ class PaperGrainPlugin extends MaterialPluginBase {
       fragment: `#ifdef PAPER_GRAIN
         uniform float paperGrainStrength;
         uniform float paperGrainScale;
+        #endif
+        #ifdef PAPER_GRAIN_RIM
         uniform vec3 paperGrainRimColor;
         uniform float paperGrainRimStrength;
         #endif`,
@@ -70,11 +102,15 @@ class PaperGrainPlugin extends MaterialPluginBase {
   }
 
   override bindForSubMesh(uniformBuffer: UniformBuffer): void {
-    if (sharedGrainTexture) {
-      uniformBuffer.updateFloat('paperGrainStrength', GRAIN_STRENGTH)
-      uniformBuffer.updateFloat('paperGrainScale', GRAIN_SCALE)
+    const profile = readPaperGrainProfile(this.targetMaterial)
+    // 輪廓光不依賴表面顆粒，所以無條件寫入——沒鋪顆粒時仍要有輪廓
+    if (this.hasRimSupport) {
       uniformBuffer.updateColor3('paperGrainRimColor', sharedRimColor)
-      uniformBuffer.updateFloat('paperGrainRimStrength', sharedRimStrength)
+      uniformBuffer.updateFloat('paperGrainRimStrength', sharedRimStrength * (profile.rimStrengthScale ?? 1))
+    }
+    if (sharedGrainTexture) {
+      uniformBuffer.updateFloat('paperGrainStrength', GRAIN_STRENGTH * (profile.strengthScale ?? 1))
+      uniformBuffer.updateFloat('paperGrainScale', GRAIN_SCALE * (profile.scaleScale ?? 1))
       uniformBuffer.setTexture('paperGrainSampler', sharedGrainTexture)
     }
   }
@@ -112,13 +148,15 @@ class PaperGrainPlugin extends MaterialPluginBase {
             smoothstep(-0.35, 0.35, paperGrainValue - 0.5)
           );
           gl_FragColor.rgb *= paperTintColor;
-          // 輪廓光：面向邊緣混入環境色光，把物件從背景托出。
-          // flat shading 下呈塊面提亮（面愈側向愈亮），像紙模邊緣接光
-          #ifdef PAPER_GRAIN_RIM
+        }
+        #endif
+        // 輪廓光獨立於表面顆粒之外：面向邊緣混入環境色光，把物件從背景托出。
+        // flat shading 下呈塊面提亮（面愈側向愈亮），這正是 low poly 讀出切面的關鍵
+        #ifdef PAPER_GRAIN_RIM
+        {
           vec3 paperViewDirection = normalize(vEyePosition.xyz - vPositionW);
           float paperRimFactor = pow(1.0 - clamp(dot(normalize(vNormalW), paperViewDirection), 0.0, 1.0), 4.0);
           gl_FragColor.rgb += paperGrainRimColor * (paperRimFactor * paperGrainRimStrength);
-          #endif
         }
         #endif`,
     }

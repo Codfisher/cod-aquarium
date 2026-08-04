@@ -22,6 +22,8 @@ import { Mesh } from '@babylonjs/core/Meshes/mesh'
 import { VertexData } from '@babylonjs/core/Meshes/mesh.vertexData'
 import { TransformNode } from '@babylonjs/core/Meshes/transformNode'
 import { applyHeightGradient } from './geometry-utils'
+import { computeDecayingWobble, computePressPulse, sampleOrganicSway } from './shared/easing'
+import { damp } from './shared/random-generator'
 
 export interface CodModelUpdateParams {
   deltaSeconds: number;
@@ -81,6 +83,13 @@ const PECTORAL_SPEED_MOVING = 15
 const PECTORAL_SPEED_IDLE = 3.5
 const PECTORAL_SWING_MOVING = 0.7
 const PECTORAL_SWING_IDLE = 0.2
+/** 左右胸鰭刻意不同步：左鰭相位落後、擺幅略小、靜止角略開。
+ * 完美鏡像對拍是程式味的破綻，真魚兩鰭永遠各划各的
+ */
+const PECTORAL_REST_ANGLE_RIGHT = -0.15
+const PECTORAL_REST_ANGLE_LEFT = 0.18
+const PECTORAL_LEFT_PHASE_LAG = 0.55
+const PECTORAL_LEFT_SWING_RATIO = 0.9
 /** 尾鰭順著身體波甩動的相位延遲，做出鞭梢感 */
 const TAIL_PHASE_LAG = 0.7
 const TAIL_SWING_MOVING = 1.15
@@ -203,7 +212,11 @@ function buildBodyMesh(scene: Scene, material: StandardMaterial): BodyMeshResult
       const noiseX = Math.sin(x * 13.1 + y * 7.7 + z * 4.3)
       const noiseY = Math.sin(x * 5.3 + y * 11.9 + z * 8.1)
       const noiseZ = Math.sin(x * 9.7 + y * 3.1 + z * 14.3)
-      positionList[index] = x * taper * 0.72 + noiseX * jitter
+      // 低頻不對稱：沿身長讓左右腹側略胖瘦不同。完美鏡像的身體是程式味，
+      // 真魚兩側必有差。乘在 x 上（中線 x=0 不受影響，接縫不裂），幅度壓在 2% 內
+      const sideBias = Math.sin(normalizedZ * 1.9 + 0.8) * 0.02
+      const asymmetryScale = 1 + (x > 0 ? sideBias : -sideBias)
+      positionList[index] = x * taper * 0.72 * asymmetryScale + noiseX * jitter
       positionList[index + 1] = y * taper + noiseY * jitter
       positionList[index + 2] = z * COD_BODY_LENGTH + noiseZ * jitter
     }
@@ -249,7 +262,17 @@ interface EyeParts {
   pivot: TransformNode;
   /** 瞳孔（含高光子節點），供轉動 */
   pupil: TransformNode;
+  /** pivot 的基準縮放（兩眼刻意不同大），眨眼壓扁 scaling.y 時以此為基準 */
+  baseScale: number;
   meshList: Mesh[];
+}
+
+/** 兩眼刻意不完全鏡像：大小差約 3%、位置差 1~2%。
+ * 完美對稱的臉最有程式味；差異壓在這個量級，讀起來是「活」而非「壞掉」
+ */
+const eyeSideConfigMap: Record<'left' | 'right', { position: Point3; scale: number }> = {
+  right: { position: [0.284, 0.163, 0.824], scale: 1.015 },
+  left: { position: [-0.276, 0.157, 0.813], scale: 0.982 },
 }
 
 /** 建立一顆卡通大眼（眼白＋瞳孔＋高光），掛在可眨眼、可轉瞳的 pivot 上 */
@@ -263,9 +286,11 @@ function buildEye(
   },
 ): EyeParts {
   const sign = side === 'right' ? 1 : -1
+  const sideConfig = eyeSideConfigMap[side]
 
   const pivot = new TransformNode(`codEyePivot-${side}`, scene)
-  pivot.position.set(0.28 * sign, 0.16, 0.82)
+  pivot.position.set(...sideConfig.position)
+  pivot.scaling.setAll(sideConfig.scale)
 
   const white = CreateSphere(`codEyeWhite-${side}`, { diameter: 0.44, segments: 6 }, scene)
   white.scaling.set(0.8, 1, 0.8)
@@ -288,7 +313,7 @@ function buildEye(
   // 高光掛瞳孔下，瞳孔轉動時一起走
   highlight.parent = pupil
 
-  return { pivot, pupil, meshList: [white, pupil, highlight] }
+  return { pivot, pupil, baseScale: sideConfig.scale, meshList: [white, pupil, highlight] }
 }
 
 interface WavePart {
@@ -306,7 +331,25 @@ interface EyeRuntime {
   shiftY: number;
 }
 
-export function createCodModel(scene: Scene): CodModel {
+/** 瞳孔的看向模式。
+ *
+ * 瞳孔貼在眼白的**前**半球（沿 +z 凸出，也就是魚頭正前方），箱庭裡鏡頭大致
+ * 從魚的斜前方看過來，這樣最有神。但遊戲場景的取景是側視（蠟筆滑道）或俯視
+ * （靈感溯源、快門無雙），視線幾乎與魚的前後軸垂直，正面的瞳孔就轉到眼球側邊
+ * 被自己的眼白擋掉，只剩一顆白球。
+ */
+export type PupilGazeMode = 'auto' | 'sideways'
+
+export interface CodModelOptions {
+  /** 'auto'：自主張望並可追注視點（箱庭用）。
+   * 'sideways'：兩眼固定看向各自的外側，側視與俯視下才看得到眼珠（遊戲用）
+   */
+  pupilGazeMode?: PupilGazeMode;
+}
+
+export function createCodModel(scene: Scene, options: CodModelOptions = {}): CodModel {
+  const { pupilGazeMode = 'auto' } = options
+
   const rootNode = new TransformNode('codRoot', scene)
   const lieNode = new TransformNode('codLie', scene)
   lieNode.parent = rootNode
@@ -352,9 +395,10 @@ export function createCodModel(scene: Scene): CodModel {
     'codDorsalFin',
     scene,
     [
+      // 頂點略拉高（前高後低約 7%）：縮圖剪影靠輪廓認魚，背鰭高一點個性就出來
       [0, 0, 0.47],
-      [0, 0.42, 0.13],
-      [0, 0.42, -0.15],
+      [0, 0.45, 0.13],
+      [0, 0.43, -0.15],
       [0, 0, -0.47],
     ],
     finMaterial,
@@ -409,6 +453,8 @@ export function createCodModel(scene: Scene): CodModel {
     finMaterial,
   )
   tailFin.parent = tailPivot
+  // 尾鰭整體放大 7%：輪廓最大的識別特徵，稍微誇張讓剪影更有個性（身體比例不動）
+  tailFin.scaling.setAll(1.07)
   meshList.push(tailFin)
   wavePartList.push({ node: tailPivot, baseX: 0, baseZ: -1.12 })
 
@@ -507,7 +553,7 @@ export function createCodModel(scene: Scene): CodModel {
       ? WAVE_AMPLITUDE_MOVING * (waveStrength ?? 1)
       : WAVE_AMPLITUDE_IDLE
     const amplitudeLerpRate = isMoving ? WAVE_LERP_RATE_MOVING : WAVE_LERP_RATE_IDLE
-    bodyWaveAmplitude += (targetAmplitude - bodyWaveAmplitude) * Math.min(1, deltaSeconds * amplitudeLerpRate)
+    bodyWaveAmplitude = damp(bodyWaveAmplitude, targetAmplitude, amplitudeLerpRate, deltaSeconds)
     if (isMoving && wavePhase !== undefined) {
       bodyWavePhase = wavePhase
     }
@@ -518,30 +564,31 @@ export function createCodModel(scene: Scene): CodModel {
     }
     applyBodyWave()
 
-    // 胸鰭划水（左右反向繞 z，視覺上同步上下撥）
+    // 胸鰭划水（左右反向繞 z，視覺上同步上下撥）；左鰭落後半拍、擺幅略小
     pectoralPhase += deltaSeconds * (isMoving ? PECTORAL_SPEED_MOVING : PECTORAL_SPEED_IDLE)
     const pectoralSwing = isMoving ? PECTORAL_SWING_MOVING : PECTORAL_SWING_IDLE
-    const pectoralWave = Math.sin(pectoralPhase) * pectoralSwing
-    pectoralPivotRight.rotation.z = -0.15 - pectoralWave
-    pectoralPivotLeft.rotation.z = 0.15 + pectoralWave
+    pectoralPivotRight.rotation.z = PECTORAL_REST_ANGLE_RIGHT - Math.sin(pectoralPhase) * pectoralSwing
+    pectoralPivotLeft.rotation.z = PECTORAL_REST_ANGLE_LEFT
+      + Math.sin(pectoralPhase - PECTORAL_LEFT_PHASE_LAG) * pectoralSwing * PECTORAL_LEFT_SWING_RATIO
 
-    // 背鰭搖擺強度跟著身體扭動幅度，靜止時不搖
+    // 背鰭搖擺強度跟著身體扭動幅度，靜止時不搖；多頻搖曳讓節奏不機械
     const bodyMotionRatio = bodyWaveAmplitude / WAVE_AMPLITUDE_MOVING
-    dorsalPivot.rotation.z = Math.sin(bodyWavePhase * 0.6) * 0.14 * bodyMotionRatio
+    dorsalPivot.rotation.z = sampleOrganicSway(bodyWavePhase * 0.6) * 0.14 * bodyMotionRatio
 
     // 尾鰭先跟上身體在尾柄處的彎轉角，再疊上「身體波形再延遲」的鞭甩（同方向、只是更晚），
     // 擺幅在移動/靜止間平滑過渡
     const tailSwingTarget = isMoving ? TAIL_SWING_MOVING : TAIL_SWING_IDLE
-    tailSwing += (tailSwingTarget - tailSwing) * Math.min(1, deltaSeconds * 8)
+    tailSwing = damp(tailSwing, tailSwingTarget, 8, deltaSeconds)
     const tailBendAngle = getBendAngle(-1.12, bodyWavePhase, bodyWaveAmplitude)
     tailPivot.rotation.y = tailBendAngle
       - Math.cos(bodyWavePhase - BODY_WHIP_LAG - TAIL_PHASE_LAG) * tailSwing * (bodyWaveAmplitude / WAVE_AMPLITUDE_MOVING)
 
-    // 呼吸起伏：待機時腹背向極輕微鼓起收縮，移動時淡出（避免與跳躍擠壓疊加）
+    // 呼吸起伏：待機時腹背向極輕微鼓起收縮，移動時淡出（避免與跳躍擠壓疊加）。
+    // 多頻搖曳取代單一 sin：呼吸深淺帶自然起伏，不是節拍器
     const breathTarget = isMoving ? 0 : 1
-    breathStrength += (breathTarget - breathStrength) * Math.min(1, deltaSeconds * 4)
+    breathStrength = damp(breathStrength, breathTarget, 4, deltaSeconds)
     breathPhase += deltaSeconds * BREATH_SPEED
-    const breathWave = Math.sin(breathPhase) * BREATH_SCALE_AMPLITUDE * breathStrength
+    const breathWave = sampleOrganicSway(breathPhase) * BREATH_SCALE_AMPLITUDE * breathStrength
     lieNode.scaling.set(1 + breathWave * 0.5, 1 + breathWave, 1)
 
     // 偶發尾拍：靜止倒數到 0 觸發一次，尾巴快拍兩下、包絡漸弱
@@ -555,7 +602,8 @@ export function createCodModel(scene: Scene): CodModel {
     if (tailFlickElapsed < TAIL_FLICK_DURATION) {
       tailFlickElapsed += deltaSeconds
       const flickProgress = Math.min(tailFlickElapsed / TAIL_FLICK_DURATION, 1)
-      tailPivot.rotation.y += Math.sin(flickProgress * Math.PI * 4) * TAIL_FLICK_SWING * (1 - flickProgress)
+      // 衰減震盪：第一下最重、之後收斂，比線性包絡的等幅拍打更像肌肉發力
+      tailPivot.rotation.y += computeDecayingWobble(flickProgress, 4, 1) * TAIL_FLICK_SWING
     }
 
     // 眨眼：倒數到 0 觸發一次，短暫壓扁眼睛
@@ -570,11 +618,12 @@ export function createCodModel(scene: Scene): CodModel {
     if (blinkElapsed < BLINK_DURATION) {
       blinkElapsed += deltaSeconds
       const progress = Math.min(blinkElapsed / BLINK_DURATION, 1)
-      eyeOpenness = 1 - Math.sin(progress * Math.PI) * 0.9
+      // 閉快睜慢：真實眨眼不對稱，對稱的 sin 峰看起來像機械快門
+      eyeOpenness = 1 - computePressPulse(progress) * 0.9
     }
 
     // 自主張望：無注視點且靜止時，定時抽換共用的瞳孔目標
-    if (!gazeTarget && !isMoving) {
+    if (pupilGazeMode === 'auto' && !gazeTarget && !isMoving) {
       pupilTimer -= deltaSeconds
       if (pupilTimer <= 0) {
         autoTargetX = (Math.random() - 0.5) * 2 * PUPIL_SHIFT_RANGE_HORIZONTAL
@@ -583,13 +632,19 @@ export function createCodModel(scene: Scene): CodModel {
       }
     }
 
-    const pupilLerp = Math.min(1, deltaSeconds * 8)
     for (const eye of eyeRuntimeList) {
-      eye.parts.pivot.scaling.y = eyeOpenness
+      // 眨眼壓扁以該眼的基準縮放為底，兩眼大小差才不會被眨眼蓋掉
+      eye.parts.pivot.scaling.y = eye.parts.baseScale * eyeOpenness
 
       let targetX: number
       let targetY: number
-      if (gazeTarget) {
+      if (pupilGazeMode === 'sideways') {
+        // 各自看向外側：瞳孔滑到眼球的外半邊，側視時正對鏡頭、
+        // 俯視時落在輪廓邊緣仍讀得出來。注視點與自主張望一律不理會
+        targetX = eye.sign * PUPIL_SHIFT_RANGE_HORIZONTAL
+        targetY = 0
+      }
+      else if (gazeTarget) {
         // 強制重算世界矩陣，確保納入本幀魚的位置、朝向與側躺旋轉。
         // 世界矩陣預設延遲到 render 階段才更新，這裡在動畫階段就要用，
         // 不強制重算會拿到上一幀的姿態，導致 gaze 方向沒跟上魚的轉向
@@ -616,8 +671,8 @@ export function createCodModel(scene: Scene): CodModel {
         targetY = autoTargetY
       }
 
-      eye.shiftX += (targetX - eye.shiftX) * pupilLerp
-      eye.shiftY += (targetY - eye.shiftY) * pupilLerp
+      eye.shiftX = damp(eye.shiftX, targetX, 8, deltaSeconds)
+      eye.shiftY = damp(eye.shiftY, targetY, 8, deltaSeconds)
       // 讓瞳孔沿眼白球面滑動（而非固定 z 平面），偏移大時才不會陷進眼白裡看不到
       const pupilX = PUPIL_BASE_X * eye.sign + eye.shiftX
       const pupilY = -0.01 + eye.shiftY

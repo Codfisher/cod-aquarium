@@ -44,8 +44,8 @@ describe('flopController', () => {
     expect(distance).toBeLessThanOrEqual(0.12 + 1e-6)
   })
 
-  it('startle 會原地跳起後回到原位', () => {
-    const controller = new FlopController()
+  it('startle 會跳往隨機方向，落點離原位一個跳躍距離', () => {
+    const controller = new FlopController({ random: () => 0.25 })
     controller.teleport({ x: 1.5, z: -0.5 }, 0.8)
 
     controller.startle()
@@ -54,11 +54,45 @@ describe('flopController', () => {
     const lastPose = poseList[poseList.length - 1]
 
     expect(maxHeight).toBeGreaterThan(0.2)
-    expect(lastPose!.x).toBe(1.5)
-    expect(lastPose!.z).toBe(-0.5)
+    const distance = Math.hypot(lastPose!.x - 1.5, lastPose!.z - (-0.5))
+    expect(distance).toBeCloseTo(0.9, 5)
     expect(lastPose!.y).toBe(0)
-    expect(lastPose!.heading).toBeCloseTo(0.8)
+    // 朝向轉去實際跳躍方向，不再維持起跳前的朝向
+    expect(lastPose!.heading).not.toBeCloseTo(0.8, 1)
     expect(controller.isMoving).toBe(false)
+  })
+
+  it('startle 每次呼叫方向不同（不同隨機值對應不同落點）', () => {
+    const controllerA = new FlopController({ random: () => 0 })
+    controllerA.teleport({ x: 0, z: 0 }, 0)
+    controllerA.startle()
+    const poseA = runUntilStopped(controllerA)
+    const lastA = poseA[poseA.length - 1]!
+
+    const controllerB = new FlopController({ random: () => 0.5 })
+    controllerB.teleport({ x: 0, z: 0 }, 0)
+    controllerB.startle()
+    const poseB = runUntilStopped(controllerB)
+    const lastB = poseB[poseB.length - 1]!
+
+    expect(Math.hypot(lastA.x - lastB.x, lastA.z - lastB.z)).toBeGreaterThan(0.5)
+  })
+
+  it('startle 落點不會踩進障礙，也不會被推出移動邊界', () => {
+    const controller = new FlopController({ random: () => 0 })
+    controller.setObstacleList([{ x: 0, z: 0.9, radius: 0.5 }])
+    controller.setMoveBounds({ minX: -1, maxX: 1, minZ: -1, maxZ: 1 })
+    controller.teleport({ x: 0, z: 0 }, 0)
+
+    controller.startle()
+    const poseList = runUntilStopped(controller)
+    const lastPose = poseList[poseList.length - 1]!
+
+    expect(Math.hypot(lastPose.x - 0, lastPose.z - 0.9)).toBeGreaterThanOrEqual(0.5 - 1e-6)
+    expect(lastPose.x).toBeGreaterThanOrEqual(-1 - 1e-6)
+    expect(lastPose.x).toBeLessThanOrEqual(1 + 1e-6)
+    expect(lastPose.z).toBeGreaterThanOrEqual(-1 - 1e-6)
+    expect(lastPose.z).toBeLessThanOrEqual(1 + 1e-6)
   })
 
   it('startle 指定翻滾圈數時，空中會轉滿整圈且視覺上無縫（2π ≡ 0）', () => {
