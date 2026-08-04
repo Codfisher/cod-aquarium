@@ -27,6 +27,18 @@ import { PhysicsConstraintAxis, PhysicsConstraintAxisLimitMode, PhysicsShapeType
 import { PhysicsAggregate } from '@babylonjs/core/Physics/v2/physicsAggregate'
 import { Physics6DoFConstraint } from '@babylonjs/core/Physics/v2/physicsConstraint'
 import { createBeveledBox } from './geometry-utils'
+import { setPaperGrainProfile } from './paper-grain-plugin'
+import {
+  clampRatio,
+  computeDecayingWobble,
+  computePressPulse,
+  DEFAULT_BACK_OVERSHOOT,
+  easeInCubic,
+  easeOutBack,
+  easeOutCubic,
+  sampleOrganicSway,
+} from './shared/easing'
+import { createRandomGenerator, damp, randomBetween } from './shared/random-generator'
 import '@babylonjs/core/Layers/effectLayerSceneComponent'
 import '@babylonjs/core/Lights/Clustered/clusteredLightingSceneComponent'
 
@@ -100,6 +112,8 @@ export interface TankEnvironment {
   pokePebble: (mesh: AbstractMesh) => void;
   /** 慶祝彩帶：在指定位置向上噴發（count 控制張數，預設整池） */
   spawnConfettiBurst: (x: number, z: number, count?: number) => void;
+  /** 慶典模式的天空彩帶雨：開啟後畫面上方持續飄落彩帶，關閉後飄完現有的就停 */
+  setSkyConfettiActive: (active: boolean) => void;
   /** 直式時把有正面的裝飾轉向觀眾，補償相機環繞角度 */
   setPortrait: (isPortrait: boolean) => void;
   /** Havok 就緒後呼叫：水草葉片轉成動態剛體（彈簧回正），石頭/搖桿/相機建靜態碰撞體。
@@ -112,26 +126,17 @@ export interface TankEnvironment {
   crayonAnchor: { x: number; z: number };
 }
 
-/** mulberry32 偽隨機數產生器，固定種子讓每次載入的擺設一致 */
-function createRandomGenerator(seed: number): () => number {
-  let state = seed
-  return () => {
-    state |= 0
-    state = (state + 0x6D2B79F5) | 0
-    let result = Math.imul(state ^ (state >>> 15), 1 | state)
-    result = (result + Math.imul(result ^ (result >>> 7), 61 | result)) ^ result
-    return ((result ^ (result >>> 14)) >>> 0) / 4294967296
-  }
-}
-
 interface SwayItem {
   node: TransformNode;
   phase: number;
   speed: number;
   amplitude: number;
   baseLean: number;
-  /** 根部世界 x：統一風場沿 x 掃過時計算相位差用 */
+  /** 根部世界 x：陣風沿 x 掃過時計算相位差用 */
   rootX: number;
+  /** 所屬叢的陣風包絡相位與起伏速度：各叢錯開，不會全場同時強弱 */
+  gustPhase: number;
+  gustSpeed: number;
 }
 
 interface PushItem {
@@ -196,14 +201,17 @@ function buildRockList(
   const rockMaterial = new StandardMaterial('tankRockMaterial', scene)
   rockMaterial.diffuseColor = Color3.FromHexString('#8f8a80')
   rockMaterial.specularColor = Color3.Black()
+  // 岩面顆粒粗一階，與細葉、金屬拉開材質對比
+  setPaperGrainProfile(rockMaterial, { strengthScale: 1.25, scaleScale: 0.8 })
 
+  // 前兩顆刻意靠成一組（自然的石頭常成雙倚靠），其餘拉開距離留白
   const rockSpotList = [
-    { x: -4.5, z: -2.5 },
-    { x: 4.5, z: -2.6 },
-    { x: -4.3, z: 2.4 },
-    { x: -1.6, z: -2.9 },
-    { x: 1.8, z: 2.9 },
-    { x: 4.8, z: 1 },
+    { x: -4.7, z: -2.3 },
+    { x: -4.05, z: -2.75 },
+    { x: 4.6, z: -2.6 },
+    { x: -4.35, z: 2.35 },
+    { x: 1.9, z: 3.05 },
+    { x: 4.85, z: 0.85 },
   ]
 
   // 中高面數多面體混用（十二面體、二十面體、斜方截半立方體），
@@ -267,6 +275,8 @@ function buildSeaweed(
     material.emissiveColor = Color3.FromHexString(color).scale(0.18)
     material.specularColor = Color3.Black()
     material.backFaceCulling = false
+    // 葉面顆粒細一階，對比岩石的粗紋
+    setPaperGrainProfile(material, { strengthScale: 0.7, scaleScale: 1.3 })
     return material
   })
 
@@ -282,6 +292,10 @@ function buildSeaweed(
   const plantList: SeaweedPlant[] = []
 
   for (const cluster of clusterSpotList) {
+    // 每叢自己的陣風包絡參數：相位隨機錯開、起伏週期各異，
+    // 這叢被風掃到時另一叢可能正靜著
+    const gustPhase = random() * Math.PI * 2
+    const gustSpeed = 0.18 + random() * 0.16
     for (let bladeIndex = 0; bladeIndex < cluster.bladeCount; bladeIndex++) {
       const x = cluster.x + (random() - 0.5) * 0.7
       const z = cluster.z + (random() - 0.5) * 0.5
@@ -334,9 +348,11 @@ function buildSeaweed(
         node: swayNode,
         phase: random() * Math.PI * 2,
         speed: 0.5 + random() * 0.3,
-        amplitude: 0.03,
+        amplitude: 0.02 + random() * 0.025,
         baseLean: 0,
         rootX: x,
+        gustPhase,
+        gustSpeed,
       })
       pushItemList.push({
         node: pushNode,
@@ -366,32 +382,65 @@ function buildPebbleList(
     const material = new StandardMaterial(`tankPebbleMaterial${index}`, scene)
     material.diffuseColor = Color3.FromHexString(color)
     material.specularColor = Color3.Black()
+    // 卵石與大石同族，顆粒同樣粗一階
+    setPaperGrainProfile(material, { strengthScale: 1.25, scaleScale: 0.8 })
     return material
   })
   const shellMaterial = new StandardMaterial('tankShellMaterial', scene)
   shellMaterial.diffuseColor = Color3.FromHexString('#dbb5a4')
   shellMaterial.specularColor = Color3.Black()
+  setPaperGrainProfile(shellMaterial, { strengthScale: 1.25, scaleScale: 0.8 })
 
-  const pebbleSpotList = [
-    { x: -3, z: -0.6 },
-    { x: -1.2, z: 0.8 },
-    { x: 0.9, z: 1.7 },
-    { x: 2.6, z: -0.9 },
-    { x: 4.1, z: -1.9 },
-    { x: -4.5, z: 1.1 },
-    { x: 1.9, z: 2.3 },
-    { x: -0.4, z: -1.8 },
-    { x: 5, z: 0.4 },
-    { x: -2, z: 2.1 },
+  // 群聚＋留白：水流沖積的小石子會擠成幾窩，剩下零星幾顆散在空處。
+  // 均勻鋪滿整個地板反而最不自然
+  const clusterCenterList = [
+    { x: -2.7, z: -0.8, count: 4 },
+    { x: 2.2, z: 1.7, count: 3 },
+    { x: 4.4, z: -1.7, count: 3 },
   ]
+  const lonePebbleSpotList = [
+    { x: -4.5, z: 1 },
+    { x: -0.6, z: 1.9 },
+    { x: 0.4, z: -1.5 },
+  ]
+  const pebbleSpotList: { x: number; z: number }[] = []
+  for (const cluster of clusterCenterList) {
+    for (let memberIndex = 0; memberIndex < cluster.count; memberIndex++) {
+      // 叢內以極座標散開，半徑小到可以部分相疊，才有擠在一起的感覺
+      const scatterAngle = random() * Math.PI * 2
+      const scatterRadius = random() * 0.3
+      pebbleSpotList.push({
+        x: cluster.x + Math.cos(scatterAngle) * scatterRadius,
+        z: cluster.z + Math.sin(scatterAngle) * scatterRadius,
+      })
+    }
+  }
+  for (const spot of lonePebbleSpotList) {
+    pebbleSpotList.push({
+      x: spot.x + (random() - 0.5) * 0.5,
+      z: spot.z + (random() - 0.5) * 0.4,
+    })
+  }
+
+  // 貝殼混在卵石間：每顆約 1/4 機率，種子化保證每次載入一致；
+  // 全滅太冷清，保底至少兩顆
+  const shellFlagList = pebbleSpotList.map(() => random() < 0.25)
+  let shellTotal = shellFlagList.filter((hasShell) => hasShell).length
+  while (shellTotal < 2) {
+    const candidateIndex = Math.floor(random() * shellFlagList.length)
+    if (!shellFlagList[candidateIndex]) {
+      shellFlagList[candidateIndex] = true
+      shellTotal += 1
+    }
+  }
 
   const meshList: Mesh[] = []
   const itemList: PebbleItem[] = []
 
   for (const [index, spot] of pebbleSpotList.entries()) {
-    const x = spot.x + (random() - 0.5) * 0.5
-    const z = spot.z + (random() - 0.5) * 0.4
-    const isShell = index % 4 === 3
+    const x = spot.x
+    const z = spot.z
+    const isShell = shellFlagList[index] === true
     let mesh: Mesh
     let restingY: number
     if (isShell) {
@@ -408,7 +457,7 @@ function buildPebbleList(
       // 低面數的正多面體太規則、看起來單調
       const size = 0.06 + random() * 0.05
       const polyhedronTypeList = [2, 3, 4]
-      const type = polyhedronTypeList[index % polyhedronTypeList.length]!
+      const type = polyhedronTypeList[Math.floor(random() * polyhedronTypeList.length)]!
       mesh = CreatePolyhedron(`tankPebble${index}`, { type, size, flat: false }, scene)
       const positionList = mesh.getVerticesData(VertexBuffer.PositionKind)
       if (positionList) {
@@ -422,7 +471,7 @@ function buildPebbleList(
       }
       mesh.convertToFlatShadedMesh()
       mesh.scaling.set(0.9 + random() * 0.4, 0.6 + random() * 0.3, 0.9 + random() * 0.4)
-      mesh.material = pebbleMaterialList[index % pebbleMaterialList.length]!
+      mesh.material = pebbleMaterialList[Math.floor(random() * pebbleMaterialList.length)]!
       restingY = size * 0.55
     }
     mesh.rotation.y = random() * Math.PI * 2
@@ -546,8 +595,10 @@ function buildCrayonSet(scene: Scene): {
   return { meshList, root, obstacle: { x: crayonSetX, z: crayonSetZ, radius: 0.5 }, standingCrayonNodeList }
 }
 
-/** 復古卡通相機：機身、軍艦部、凸出的鏡頭、快門鈕與觀景窗 */
-function buildCamera(scene: Scene): {
+/** `buildCamera` 的回傳形狀。快門無雙的手持相機道具直接重用這個模型與素材，
+ * 不再另外畫一台簡化版——同一台相機，玩家才認得出鱈魚手上拿的是什麼
+ */
+export interface TankCameraModel {
   meshList: Mesh[];
   root: TransformNode;
   obstacle: ObstacleCircle;
@@ -555,7 +606,10 @@ function buildCamera(scene: Scene): {
   flashMaterial: StandardMaterial;
   /** 快門鈕，展示動畫按壓用 */
   shutterButton: Mesh;
-} {
+}
+
+/** 復古卡通相機：機身、軍艦部、凸出的鏡頭、快門鈕與觀景窗 */
+export function buildCamera(scene: Scene): TankCameraModel {
   const cameraX = -3.4
   const cameraZ = 2.5
   const groundY = GROUND_Y
@@ -578,12 +632,16 @@ function buildCamera(scene: Scene): {
   ringMaterial.diffuseColor = Color3.FromHexString('#b8bac2')
   ringMaterial.specularColor = Color3.FromHexString('#6a6a72')
   ringMaterial.specularPower = 24
+  // 金屬鏡圈近乎無紋，光滑感靠反光撐
+  setPaperGrainProfile(ringMaterial, { strengthScale: 0.15 })
 
   // 鏡片深藍帶反光微光
   const lensMaterial = new StandardMaterial('tankCameraLensMaterial', scene)
   lensMaterial.diffuseColor = Color3.FromHexString('#2f5a7a')
   lensMaterial.emissiveColor = Color3.FromHexString('#2f5a7a').scale(0.35)
   lensMaterial.specularColor = Color3.FromHexString('#8fb8d8')
+  // 玻璃鏡面同樣不吃顆粒
+  setPaperGrainProfile(lensMaterial, { strengthScale: 0.15 })
 
   const shutterMaterial = new StandardMaterial('tankCameraShutterMaterial', scene)
   shutterMaterial.diffuseColor = Color3.FromHexString('#d0553f')
@@ -709,6 +767,8 @@ function buildTypewriter(scene: Scene): {
   const keyMaterial = new StandardMaterial('tankTypewriterKeyMaterial', scene)
   keyMaterial.diffuseColor = Color3.FromHexString('#ece7dc')
   keyMaterial.specularColor = Color3.Black()
+  // 鍵帽是拋光塑料，近乎無紋
+  setPaperGrainProfile(keyMaterial, { strengthScale: 0.15 })
 
   const darkMaterial = new StandardMaterial('tankTypewriterDarkMaterial', scene)
   darkMaterial.diffuseColor = Color3.FromHexString('#26262a')
@@ -1001,8 +1061,9 @@ export function createTankEnvironment(scene: Scene): TankEnvironment {
     hoverProgress: number;
     /** 上次套用 emissive 的 hover 進度，變化夠大才重寫材質 */
     appliedHoverProgress: number;
-    /** 進場演出的起跳延遲（秒），由進場註冊時回填 */
+    /** 進場演出的起跳延遲（秒）與過衝量，由進場註冊時回填 */
     entranceDelay: number;
+    entranceOvershoot: number;
     materialEntryList: {
       material: StandardMaterial;
       baseEmissiveColor: Color3;
@@ -1034,6 +1095,7 @@ export function createTankEnvironment(scene: Scene): TankEnvironment {
         hoverProgress: 0,
         appliedHoverProgress: 0,
         entranceDelay: 0,
+        entranceOvershoot: DEFAULT_BACK_OVERSHOOT,
         materialEntryList: [...materialSet].map((material) => ({
           material,
           baseEmissiveColor: material.emissiveColor.clone(),
@@ -1080,9 +1142,12 @@ export function createTankEnvironment(scene: Scene): TankEnvironment {
     spotLockTimeSeconds += deltaSeconds
     for (const [key, effectItem] of spotEffectItemMap) {
       // 解鎖顏色過渡：灰白紙模 ↔ 原色 平滑暈染
-      effectItem.unlockProgress
-        += (effectItem.targetUnlockProgress - effectItem.unlockProgress)
-          * Math.min(1, deltaSeconds * UNLOCK_TRANSITION_RATE)
+      effectItem.unlockProgress = damp(
+        effectItem.unlockProgress,
+        effectItem.targetUnlockProgress,
+        UNLOCK_TRANSITION_RATE,
+        deltaSeconds,
+      )
       if (Math.abs(effectItem.unlockProgress - effectItem.appliedUnlockProgress) > 0.004) {
         effectItem.appliedUnlockProgress = effectItem.unlockProgress
         for (const materialEntry of effectItem.materialEntryList) {
@@ -1114,19 +1179,18 @@ export function createTankEnvironment(scene: Scene): TankEnvironment {
       }
       // hover 進度彈簧收斂
       const hoverTarget = key === hoveredSpotKey ? 1 : 0
-      effectItem.hoverProgress
-        += (hoverTarget - effectItem.hoverProgress) * Math.min(1, deltaSeconds * SPOT_HOVER_LERP_RATE)
+      effectItem.hoverProgress = damp(effectItem.hoverProgress, hoverTarget, SPOT_HOVER_LERP_RATE, deltaSeconds)
 
       // 點擊彈跳：先壓扁再回彈的衰減震盪；root 原點在地面，往下壓不會浮空
       let wobble = 0
       if (effectItem.bounceElapsed < SPOT_BOUNCE_DURATION) {
         effectItem.bounceElapsed += deltaSeconds
         const progress = Math.min(effectItem.bounceElapsed / SPOT_BOUNCE_DURATION, 1)
-        wobble = Math.sin(progress * Math.PI * 3) * (1 - progress) * 0.16
+        wobble = computeDecayingWobble(progress, 3, 1.4) * 0.16
       }
 
       // 進場縮放與 hover / 彈跳倍率相乘，兩套效果共寫 scaling 不互蓋
-      const entranceScale = computeEntranceScale(effectItem.entranceDelay)
+      const entranceScale = computeEntranceScale(effectItem.entranceDelay, effectItem.entranceOvershoot)
       const horizontalScale = (1 + effectItem.hoverProgress * SPOT_HOVER_SCALE_HORIZONTAL + wobble * 0.6) * entranceScale
       effectItem.node.scaling.set(
         horizontalScale,
@@ -1173,14 +1237,12 @@ export function createTankEnvironment(scene: Scene): TankEnvironment {
       const nextElapsed = Math.min(elapsed + deltaSeconds, SHOWCASE_DURATION)
       showcaseElapsedMap.set(key, nextElapsed)
       const progress = nextElapsed / SHOWCASE_DURATION
-      // 衰減包絡：所有擺動收斂回原位，結束時不跳變
-      const settle = 1 - progress
 
       if (key === 'camera') {
-        // 快門按下彈起（前 0.3），閃光快速亮起後衰減
+        // 快門按下彈起（前 0.3）：快壓慢回的按壓脈衝；閃光快速亮起後衰減
         const pressProgress = Math.min(1, progress / 0.3)
         camera.shutterButton.position.y
-          = cameraShutterBaseY - Math.sin(pressProgress * Math.PI) * 0.025
+          = cameraShutterBaseY - computePressPulse(pressProgress) * 0.025
         const flashIntensity = progress < 0.12
           ? progress / 0.12
           : Math.max(0, 1 - (progress - 0.12) / 0.45)
@@ -1192,9 +1254,9 @@ export function createTankEnvironment(scene: Scene): TankEnvironment {
         )
       }
       else if (key === 'typewriter') {
-        // 紙張前後抖兩下
+        // 紙張前後抖兩下，衰減收回原位
         typewriter.paper.rotation.x
-          = typewriterPaperBaseRotationX + Math.sin(progress * Math.PI * 4) * 0.14 * settle
+          = typewriterPaperBaseRotationX + computeDecayingWobble(progress, 4) * 0.14
 
         // 依亂序逐顆按壓鍵帽，像有人在打字；每幀先全部歸位再壓當前那顆
         for (const keyMesh of typewriter.keyList) {
@@ -1206,15 +1268,15 @@ export function createTankEnvironment(scene: Scene): TankEnvironment {
         const pressedKeyIndex = typewriterPressOrderList[pressIndex] ?? 0
         const pressedKey = typewriter.keyList[pressedKeyIndex]
         if (pressedKey) {
-          pressedKey.position.y = typewriterKeyBaseY - Math.sin(pressProgress * Math.PI) * 0.024
+          pressedKey.position.y = typewriterKeyBaseY - computePressPulse(pressProgress) * 0.024
         }
       }
       else {
-        // 三支立蠟筆交錯方向左右搖擺
+        // 三支立蠟筆交錯方向左右搖擺，衰減收回原位
         crayonSet.standingCrayonNodeList.forEach((crayonNode, index) => {
           const direction = index % 2 === 0 ? 1 : -1
           crayonNode.rotation.z = (crayonBaseRotationZList[index] ?? 0)
-            + Math.sin(progress * Math.PI * 3) * 0.09 * settle * direction
+            + computeDecayingWobble(progress, 3) * 0.09 * direction
         })
       }
     }
@@ -1233,7 +1295,7 @@ export function createTankEnvironment(scene: Scene): TankEnvironment {
     if (Math.abs(nightProgress - nightTarget) < 0.001) {
       return
     }
-    nightProgress += (nightTarget - nightProgress) * Math.min(1, deltaSeconds * NIGHT_TRANSITION_RATE)
+    nightProgress = damp(nightProgress, nightTarget, NIGHT_TRANSITION_RATE, deltaSeconds)
     if (Math.abs(nightProgress - nightTarget) < 0.001) {
       nightProgress = nightTarget
     }
@@ -1251,6 +1313,9 @@ export function createTankEnvironment(scene: Scene): TankEnvironment {
     phase: number;
     speed: number;
     driftRadius: number;
+    /** 明滅節奏：每隻自己的相位與速度，不會整群同步呼吸 */
+    twinklePhase: number;
+    twinkleSpeed: number;
   }
 
   const fireflyMaterial = new StandardMaterial('tankFireflyMaterial', scene)
@@ -1287,6 +1352,8 @@ export function createTankEnvironment(scene: Scene): TankEnvironment {
       phase: random() * Math.PI * 2,
       speed: 0.3 + random() * 0.4,
       driftRadius: 0.25 + random() * 0.3,
+      twinklePhase: random() * Math.PI * 2,
+      twinkleSpeed: 1.4 + random() * 1.4,
     })
   }
 
@@ -1344,8 +1411,10 @@ export function createTankEnvironment(scene: Scene): TankEnvironment {
         firefly.baseY + Math.sin(driftTime * 1.7) * 0.15,
         firefly.baseZ + Math.sin(driftTime * 0.9) * firefly.driftRadius,
       )
-      // 明滅呼吸；加色混合下 visibility 直接當亮度用，實體光強度跟著同步
-      const twinkle = 0.35 + 0.35 * Math.sin(driftTime * 2.3)
+      // 明滅呼吸：多頻率搖曳再過 easeInCubic 整形——亮起短促、暗得綿長，
+      // 螢火的閃法本來就不對稱；加色混合下 visibility 直接當亮度用，實體光強度跟著同步
+      const twinkleSway = sampleOrganicSway(timeSeconds * firefly.twinkleSpeed, firefly.twinklePhase)
+      const twinkle = 0.06 + 0.7 * easeInCubic((twinkleSway + 1) / 2)
       firefly.mesh.visibility = nightProgress * twinkle
       const fireflyLight = fireflyLightList[index]
       if (fireflyLight) {
@@ -1354,36 +1423,48 @@ export function createTankEnvironment(scene: Scene): TankEnvironment {
     }
   }
 
-  // --- 進場演出：擺設依序從 0 彈出到原尺寸（easeOutBack 過衝） ---
+  // --- 進場演出：擺設依序從 0 彈出到原尺寸（easeOutBack 過衝）。
+  // 拍距與過衝量都帶種子化隨機：等距拍點＋一致彈性是節拍器，
+  // 錯落的間隔與各自不同的 Q 度才像一件件手擺上去 ---
   const ENTRANCE_ITEM_DURATION = 0.5
-  const ENTRANCE_STAGGER = 0.07
 
   interface EntranceItem {
     node: TransformNode;
     baseScaling: Vector3;
     delay: number;
+    overshoot: number;
   }
 
   const entranceItemList: EntranceItem[] = []
   let entranceElapsed = 0
-  let entranceRegisterCount = 0
+  /** 下一個新拍點的延遲；共拍項沿用前一拍 */
+  let entranceNextDelay = 0
+  let entrancePreviousDelay = 0
   let isEntranceFinished = false
+
+  function computeEntranceStagger(): number {
+    return 0.05 + random() * 0.04
+  }
+
+  function computeEntranceOvershoot(): number {
+    return DEFAULT_BACK_OVERSHOOT * (0.8 + random() * 0.4)
+  }
 
   function registerEntranceNode(node: TransformNode, sharesPreviousDelay = false) {
     // 共拍：數量多的小物（卵石）跟前一項同拍彈出，進場總長不被拉太長
-    const delayIndex = sharesPreviousDelay
-      ? Math.max(0, entranceRegisterCount - 1)
-      : entranceRegisterCount
+    const delay = sharesPreviousDelay ? entrancePreviousDelay : entranceNextDelay
+    if (!sharesPreviousDelay) {
+      entrancePreviousDelay = entranceNextDelay
+      entranceNextDelay += computeEntranceStagger()
+    }
     entranceItemList.push({
       node,
       baseScaling: node.scaling.clone(),
-      delay: delayIndex * ENTRANCE_STAGGER,
+      delay,
+      overshoot: computeEntranceOvershoot(),
     })
     // 開演前縮到近乎不可見（不用 0，避免縮放矩陣退化）
     node.scaling.setAll(0.001)
-    if (!sharesPreviousDelay) {
-      entranceRegisterCount += 1
-    }
   }
 
   for (const rock of rocks.meshList) {
@@ -1395,27 +1476,25 @@ export function createTankEnvironment(scene: Scene): TankEnvironment {
   for (const [pebbleIndex, pebbleItem] of pebbles.itemList.entries()) {
     registerEntranceNode(pebbleItem.mesh, pebbleIndex % 3 !== 0)
   }
-  // 三個可互動裝飾的 scaling 由 updateSpotEffects 統一寫入，進場只回填延遲、
+  // 三個可互動裝飾的 scaling 由 updateSpotEffects 統一寫入，進場只回填延遲與過衝、
   // 由 computeEntranceScale 提供倍率（放最後壓軸彈出）
   for (const effectItem of spotEffectItemMap.values()) {
-    effectItem.entranceDelay = entranceRegisterCount * ENTRANCE_STAGGER
-    entranceRegisterCount += 1
+    effectItem.entranceDelay = entranceNextDelay
+    effectItem.entranceOvershoot = computeEntranceOvershoot()
+    entranceNextDelay += computeEntranceStagger()
   }
-  const entranceTotalSeconds
-    = entranceRegisterCount * ENTRANCE_STAGGER + ENTRANCE_ITEM_DURATION
+  const entranceTotalSeconds = entranceNextDelay + ENTRANCE_ITEM_DURATION
 
   /** 指定延遲項目目前的進場縮放倍率（0.001 ~ 1，easeOutBack 過衝） */
-  function computeEntranceScale(delay: number): number {
-    const progress = Math.min(1, Math.max(0, (entranceElapsed - delay) / ENTRANCE_ITEM_DURATION))
+  function computeEntranceScale(delay: number, overshoot: number): number {
+    const progress = clampRatio((entranceElapsed - delay) / ENTRANCE_ITEM_DURATION)
     if (progress <= 0) {
       return 0.001
     }
     if (progress >= 1) {
       return 1
     }
-    const overshoot = 1.70158
-    const offset = progress - 1
-    return 1 + (overshoot + 1) * offset ** 3 + overshoot * offset ** 2
+    return easeOutBack(progress, overshoot)
   }
 
   function updateEntrance(deltaSeconds: number) {
@@ -1424,7 +1503,7 @@ export function createTankEnvironment(scene: Scene): TankEnvironment {
     }
     entranceElapsed += deltaSeconds
     for (const entranceItem of entranceItemList) {
-      const scale = computeEntranceScale(entranceItem.delay)
+      const scale = computeEntranceScale(entranceItem.delay, entranceItem.overshoot)
       entranceItem.node.scaling.set(
         entranceItem.baseScaling.x * scale,
         entranceItem.baseScaling.y * scale,
@@ -1530,8 +1609,9 @@ export function createTankEnvironment(scene: Scene): TankEnvironment {
         particle.mesh.position.y = 0.02
         particle.velocity.set(0, 0, 0)
       }
+      // 收尾非線性：前段幾乎不縮、尾段快速吸乾，比等速縮小更像水滲進沙裡
       const lifeRatio = particle.life / particle.maxLife
-      const scale = particle.baseScale * Math.min(1, lifeRatio / 0.35)
+      const scale = particle.baseScale * (1 - easeInCubic(1 - clampRatio(lifeRatio / 0.35)))
       particle.mesh.scaling.set(scale, scale * BURST_DROPLET_STRETCH, scale)
     }
   }
@@ -1549,19 +1629,42 @@ export function createTankEnvironment(scene: Scene): TankEnvironment {
     maxLife: number;
   }
 
-  const confettiMaterialList = ['#f2a3b3', '#ffd166', '#7bd389', '#6ec3da', '#c39bd3'].map((color, index) => {
+  // 慶祝配色刻意偏心：暖色領銜、近白紙片提亮、一冷一深暖收味，
+  // 等距色相輪那種「五色平分」反而像取色器直出
+  const confettiColorEntryList = [
+    { color: '#f0857a', weight: 3 },
+    { color: '#e8b54a', weight: 3 },
+    { color: '#f5efe2', weight: 2 },
+    { color: '#6ec3da', weight: 2 },
+    { color: '#d0553f', weight: 1.5 },
+  ]
+  const confettiMaterialList = confettiColorEntryList.map((entry, index) => {
     const material = new StandardMaterial(`tankConfettiMaterial${index}`, scene)
-    material.diffuseColor = Color3.FromHexString(color)
-    material.emissiveColor = Color3.FromHexString(color).scale(0.35)
+    material.diffuseColor = Color3.FromHexString(entry.color)
+    material.emissiveColor = Color3.FromHexString(entry.color).scale(0.35)
     material.specularColor = Color3.Black()
     material.backFaceCulling = false
     return material
   })
+  const confettiWeightTotal = confettiColorEntryList
+    .reduce((total, entry) => total + entry.weight, 0)
+
+  /** 依權重抽一個彩帶材質：暖色出現得多，配色比例不均才有手撒的味道 */
+  function pickConfettiMaterial(): StandardMaterial {
+    let remaining = random() * confettiWeightTotal
+    for (const [index, entry] of confettiColorEntryList.entries()) {
+      remaining -= entry.weight
+      if (remaining <= 0) {
+        return confettiMaterialList[index]!
+      }
+    }
+    return confettiMaterialList[0]!
+  }
 
   const confettiParticleList: ConfettiParticle[] = []
   for (let index = 0; index < CONFETTI_POOL_SIZE; index++) {
     const mesh = CreateBox(`tankConfetti${index}`, { width: 0.1, height: 0.014, depth: 0.06 }, scene)
-    mesh.material = confettiMaterialList[index % confettiMaterialList.length]!
+    mesh.material = pickConfettiMaterial()
     mesh.isPickable = false
     mesh.setEnabled(false)
     confettiParticleList.push({
@@ -1629,9 +1732,117 @@ export function createTankEnvironment(scene: Scene): TankEnvironment {
         particle.spinX = 0
         particle.spinZ = 0
       }
+      // 收尾非線性：前段留在原尺寸、尾段快速縮沒，紙片消失才不像被等速抹掉
       const lifeRatio = particle.life / particle.maxLife
-      const scale = Math.min(1, lifeRatio / 0.25)
+      const scale = 1 - easeInCubic(1 - clampRatio(lifeRatio / 0.25))
       particle.mesh.scaling.setAll(scale)
+    }
+  }
+
+  // --- 慶典模式天空彩帶雨：全解鎖戴上皇冠期間，畫面上方持續飄落彩帶 ---
+  const SKY_CONFETTI_POOL_SIZE = 18
+  /** 高於鏡頭可見範圍才飄得出「從天而降」，不是憑空冒在半空 */
+  const SKY_CONFETTI_SPAWN_Y = 7.5
+  const SKY_CONFETTI_RECYCLE_Y = 0.05
+  const SKY_CONFETTI_FALL_SPEED_MIN = 0.5
+  const SKY_CONFETTI_FALL_SPEED_MAX = 0.85
+  const SKY_CONFETTI_SWAY_RADIUS_MIN = 0.4
+  const SKY_CONFETTI_SWAY_RADIUS_MAX = 0.9
+  /** 補片間隔（秒） */
+  const SKY_CONFETTI_SPAWN_INTERVAL_MIN = 0.4
+  const SKY_CONFETTI_SPAWN_INTERVAL_MAX = 0.9
+
+  interface SkyConfettiParticle {
+    mesh: Mesh;
+    /** 飄擺圍繞的中心點，飄擺不改變這個中心，落點才不會整片橫向漂移出畫面 */
+    baseX: number;
+    baseZ: number;
+    fallSpeed: number;
+    swayRadius: number;
+    swaySpeed: number;
+    swayPhase: number;
+    spinX: number;
+    spinZ: number;
+    isActive: boolean;
+  }
+
+  let skyConfettiActive = false
+  let skyConfettiSpawnCountdown = 0
+
+  const skyConfettiParticleList: SkyConfettiParticle[] = []
+  for (let index = 0; index < SKY_CONFETTI_POOL_SIZE; index++) {
+    const mesh = CreateBox(`tankSkyConfetti${index}`, { width: 0.1, height: 0.014, depth: 0.06 }, scene)
+    mesh.material = pickConfettiMaterial()
+    mesh.isPickable = false
+    mesh.setEnabled(false)
+    skyConfettiParticleList.push({
+      mesh,
+      baseX: 0,
+      baseZ: 0,
+      fallSpeed: 0,
+      swayRadius: 0,
+      swaySpeed: 0,
+      swayPhase: 0,
+      spinX: 0,
+      spinZ: 0,
+      isActive: false,
+    })
+  }
+
+  function launchSkyConfettiParticle(particle: SkyConfettiParticle) {
+    particle.baseX = randomBetween(random, CAMERA_FRAME_RECT.minX, CAMERA_FRAME_RECT.maxX)
+    particle.baseZ = randomBetween(random, CAMERA_FRAME_RECT.minZ, CAMERA_FRAME_RECT.maxZ)
+    particle.fallSpeed = randomBetween(random, SKY_CONFETTI_FALL_SPEED_MIN, SKY_CONFETTI_FALL_SPEED_MAX)
+    particle.swayRadius = randomBetween(random, SKY_CONFETTI_SWAY_RADIUS_MIN, SKY_CONFETTI_SWAY_RADIUS_MAX)
+    particle.swaySpeed = randomBetween(random, 0.6, 1.3)
+    particle.swayPhase = randomBetween(random, 0, Math.PI * 2)
+    particle.spinX = (random() - 0.5) * 3
+    particle.spinZ = (random() - 0.5) * 3
+    particle.mesh.position.set(particle.baseX, SKY_CONFETTI_SPAWN_Y, particle.baseZ)
+    particle.mesh.rotation.set(random() * Math.PI, random() * Math.PI, random() * Math.PI)
+    particle.mesh.scaling.setAll(1)
+    particle.isActive = true
+    particle.mesh.setEnabled(true)
+  }
+
+  /** 開關慶典彩帶雨。關閉時不強制收掉已在飄的彩帶，讓它們落地後自然消失，
+   * 才不會在皇冠一摘下的瞬間讓半空的彩帶憑空消失
+   */
+  function setSkyConfettiActive(active: boolean) {
+    skyConfettiActive = active
+  }
+
+  function updateSkyConfettiList(timeSeconds: number, deltaSeconds: number) {
+    if (skyConfettiActive) {
+      skyConfettiSpawnCountdown -= deltaSeconds
+      if (skyConfettiSpawnCountdown <= 0) {
+        skyConfettiSpawnCountdown = randomBetween(
+          random,
+          SKY_CONFETTI_SPAWN_INTERVAL_MIN,
+          SKY_CONFETTI_SPAWN_INTERVAL_MAX,
+        )
+        const nextParticle = skyConfettiParticleList.find((particle) => !particle.isActive)
+        if (nextParticle) {
+          launchSkyConfettiParticle(nextParticle)
+        }
+      }
+    }
+
+    for (const particle of skyConfettiParticleList) {
+      if (!particle.isActive) {
+        continue
+      }
+      particle.mesh.position.y -= particle.fallSpeed * deltaSeconds
+      // 左右前後飄擺，才像被氣流托著飄落而不是直直墜落
+      const swayTime = timeSeconds * particle.swaySpeed + particle.swayPhase
+      particle.mesh.position.x = particle.baseX + Math.sin(swayTime) * particle.swayRadius
+      particle.mesh.position.z = particle.baseZ + Math.cos(swayTime * 0.7) * particle.swayRadius * 0.6
+      particle.mesh.rotation.x += particle.spinX * deltaSeconds
+      particle.mesh.rotation.z += particle.spinZ * deltaSeconds
+      if (particle.mesh.position.y <= SKY_CONFETTI_RECYCLE_Y) {
+        particle.isActive = false
+        particle.mesh.setEnabled(false)
+      }
     }
   }
 
@@ -1791,16 +2002,20 @@ export function createTankEnvironment(scene: Scene): TankEnvironment {
     updateNightLight(deltaSeconds)
     updateFireflyList(timeSeconds)
     updateConfettiList(deltaSeconds)
+    updateSkyConfettiList(timeSeconds, deltaSeconds)
 
-    // 統一風場：一道陣風沿 x 掃過全場，所有搖擺項同乘包絡、依位置給相位差，
-    // 「一起被風吹到」比各自獨立亂晃更有生命感
-    const gustEnvelope = 0.35 + 0.65 * Math.max(0, Math.sin(timeSeconds * 0.26))
+    // 風場：陣風包絡以「叢」為單位各自起伏（相位、週期都錯開），
+    // 叢內再依根部 x 給相位差——一叢被風掃過時鄰叢可能正靜著，
+    // 比全場同一口氣的同步強弱更像真的氣流
     for (const swayItem of swayItemList) {
+      const gustEnvelope = 0.35
+        + 0.65 * Math.max(0, sampleOrganicSway(timeSeconds * swayItem.gustSpeed, swayItem.gustPhase))
       const windAngle = Math.sin(timeSeconds * 1.15 - swayItem.rootX * 0.45) * 0.05 * gustEnvelope
       swayItem.node.rotation.z = swayItem.baseLean
-        + Math.sin(timeSeconds * swayItem.speed + swayItem.phase) * swayItem.amplitude
+        + sampleOrganicSway(timeSeconds * swayItem.speed, swayItem.phase) * swayItem.amplitude
         + windAngle
-      swayItem.node.rotation.x = Math.cos(timeSeconds * swayItem.speed * 0.8 + swayItem.phase) * swayItem.amplitude * 0.6
+      swayItem.node.rotation.x
+        = sampleOrganicSway(timeSeconds * swayItem.speed * 0.8, swayItem.phase + 2.6) * swayItem.amplitude * 0.6
     }
 
     // 魚靠近時把水草往遠離魚的方向推倒，離開後以彈簧挺回（帶過衝回彈，不是瞬間歸位）。
@@ -1858,9 +2073,11 @@ export function createTankEnvironment(scene: Scene): TankEnvironment {
     if (markerElapsed < MARKER_DURATION_SECONDS) {
       markerElapsed += deltaSeconds
       const progress = Math.min(markerElapsed / MARKER_DURATION_SECONDS, 1)
-      const scale = 0.5 + progress * 0.9
+      // 漣漪快速撐開後放慢、透明度同曲線收掉，像水面真的盪了一圈
+      const easedProgress = easeOutCubic(progress)
+      const scale = 0.5 + easedProgress * 0.9
       markerMesh.scaling.set(scale, 1, scale)
-      markerMaterial.alpha = 0.85 * (1 - progress)
+      markerMaterial.alpha = 0.85 * (1 - easedProgress)
       if (progress >= 1) {
         markerMesh.setEnabled(false)
       }
@@ -1889,6 +2106,7 @@ export function createTankEnvironment(scene: Scene): TankEnvironment {
     spawnLandingBurst,
     pokePebble,
     spawnConfettiBurst,
+    setSkyConfettiActive,
     typewriterPartMap: { root: typewriter.root, keyList: typewriter.keyList, paper: typewriter.paper },
     crayonAnchor: { x: crayonSet.obstacle.x, z: crayonSet.obstacle.z },
     setPortrait,

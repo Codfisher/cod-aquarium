@@ -11,7 +11,6 @@ import { ShadowGenerator } from '@babylonjs/core/Lights/Shadows/shadowGenerator'
 import { ColorCurves } from '@babylonjs/core/Materials/colorCurves'
 import { Effect } from '@babylonjs/core/Materials/effect'
 import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial'
-import { Texture } from '@babylonjs/core/Materials/Textures/texture'
 import { Color3, Color4 } from '@babylonjs/core/Maths/math.color'
 import { Matrix, Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector'
 import { CreateCylinder } from '@babylonjs/core/Meshes/Builders/cylinderBuilder'
@@ -36,8 +35,9 @@ import {
 } from './challenge-stage'
 import { COD_LYING_LIFT, createCodModel } from './cod-model'
 import { FlopController, resolvePointOutsideObstacles } from './flop-controller'
-import { getGrainTileBlobUrl } from './paper-grain'
-import { attachPaperGrainPlugins, setPaperGrainRimLight, setPaperGrainTexture } from './paper-grain-plugin'
+import { attachPaperGrainPlugins, setPaperGrainRimLight } from './paper-grain-plugin'
+import { type AccessoryHandle, createAccessory } from './rewards/accessory-builder'
+import { rewardDefinitionMap, type RewardId } from './rewards/reward-registry'
 import {
   CAMERA_FRAME_RECT,
   createTankEnvironment,
@@ -110,6 +110,10 @@ export interface FishShotInfo {
 }
 
 export interface DioramaSceneHandle {
+  /** 底層引擎。迷你遊戲宿主借用同一個 Engine 開自己的 Scene，
+   * 箱庭 Scene 留在記憶體不重建，玩完回來是瞬間的
+   */
+  engine: Engine;
   /** 開關渲染迴圈（不可見或失焦時停止） */
   setRunning: (value: boolean) => void;
   setDarkMode: (value: boolean) => void;
@@ -133,6 +137,8 @@ export interface DioramaSceneHandle {
   setCrownVisible: (visible: boolean, skipTransition?: boolean) => void;
   /** 深夜訪客模式：魚戴上睡帽 */
   setSleepyMode: (enabled: boolean) => void;
+  /** 套用玩家穿戴中的高分配件。傳完整清單，內部做差異更新 */
+  setEquippedAccessoryList: (rewardIdList: readonly RewardId[]) => void;
   /** 打字機挑戰的 3D 舞台：進出場會帶鏡頭推近／拉回 */
   typewriterStage: TypewriterStageHandle;
   /** 畫室挑戰的 3D 舞台：進出場會帶鏡頭推近／拉回 */
@@ -167,9 +173,6 @@ const INTERACTION_TRIGGER_DISTANCE = 1.6
 const MAX_FRAME_DELTA_MS = 34
 /** 點擊判定：pointer 位移小於此值（px）才視為點擊而非拖曳/捲動 */
 const TAP_DISTANCE_THRESHOLD = 8
-/** 連點魚彩蛋：時間窗（秒）內戳魚滿此次數，觸發大跳空中翻滾 */
-const FISH_COMBO_CLICK_COUNT = 3
-const FISH_COMBO_WINDOW_SECONDS = 2.5
 /** 滑鼠視差：游標偏離畫面中心時鏡頭方位角/俯角的最大偏移（rad）。
  * 幅度刻意極小，只求「探頭看箱庭」的立體感，不能大到影響取景與暈眩
  */
@@ -474,8 +477,50 @@ export function createDioramaScene(
   crownNode.setEnabled(false)
   nightcapNode.setEnabled(false)
 
+  /** 慶典模式的天空彩帶雨跟皇冠同一套判斷：戴皇冠才下、深夜訪客模式摘皇冠時跟著停 */
+  function syncSkyConfetti() {
+    environment.setSkyConfettiActive(crownVisible && !sleepyActive)
+  }
+
+  /** 高分解鎖的穿戴配件。與皇冠/睡帽並存：皇冠佔頭部時，
+   * 玩家自選的頭部配件先讓位，摘掉皇冠才會回來
+   */
+  const equippedAccessoryMap = new Map<RewardId, AccessoryHandle>()
+
+  /** 卡通描邊色。配件新建的網格也要沿用，才與箱庭其他紙模同一語彙 */
+  const outlineColor = Color3.FromHexString('#2c2747')
+
+  function setEquippedAccessoryList(rewardIdList: readonly RewardId[]) {
+    const nextRewardIdSet = new Set(rewardIdList)
+    for (const [rewardId, handle] of equippedAccessoryMap) {
+      if (!nextRewardIdSet.has(rewardId)) {
+        handle.dispose()
+        equippedAccessoryMap.delete(rewardId)
+      }
+    }
+    for (const rewardId of rewardIdList) {
+      if (equippedAccessoryMap.has(rewardId)) {
+        continue
+      }
+      const handle = createAccessory(scene, codModel.lieNode, rewardId)
+      // 新建的網格要補上描邊與投影，否則配件會像浮貼在魚身上的色塊
+      for (const accessoryMesh of handle.node.getChildMeshes()) {
+        accessoryMesh.renderOutline = true
+        accessoryMesh.outlineWidth = 0.006
+        accessoryMesh.outlineColor = outlineColor
+        shadowGenerator.addShadowCaster(accessoryMesh)
+      }
+      equippedAccessoryMap.set(rewardId, handle)
+    }
+  }
+
   function updateAccessoryList(deltaSeconds: number) {
-    const crownTarget = crownVisible && !sleepyActive ? 1 : 0
+    // 玩家自己解鎖、戴上的頭部配件優先於皇冠：皇冠是全解鎖徽章，
+    // 不該讓最努力玩的玩家反而永遠戴不了自己解鎖的東西
+    const hasPlayerHeadAccessory = Array.from(equippedAccessoryMap.values()).some(
+      (handle) => rewardDefinitionMap[handle.rewardId].slot === 'head',
+    )
+    const crownTarget = crownVisible && !sleepyActive && !hasPlayerHeadAccessory ? 1 : 0
     const nightcapTarget = sleepyActive ? 1 : 0
     const lerp = Math.min(1, deltaSeconds * 6)
     crownScale += (crownTarget - crownScale) * lerp
@@ -484,6 +529,20 @@ export function createDioramaScene(
     nightcapNode.setEnabled(nightcapScale > 0.02)
     crownNode.scaling.setAll(Math.max(0.001, crownScale))
     nightcapNode.scaling.setAll(Math.max(0.001, nightcapScale))
+
+    // 頭頂只容得下一件：睡帽（深夜訪客模式）現身時，玩家的頭部配件縮起來讓位；
+    // 皇冠則反過來讓給玩家的頭部配件（見上）
+    const isHeadOccupied = nightcapScale > 0.02
+    const isFishMoving = flopController.isMoving
+    for (const handle of equippedAccessoryMap.values()) {
+      const shouldYield = isHeadOccupied && rewardDefinitionMap[handle.rewardId].slot === 'head'
+      const targetScale = shouldYield ? 0 : 1
+      const currentScale = handle.node.scaling.x
+      const nextScale = currentScale + (targetScale - currentScale) * lerp
+      handle.node.setEnabled(nextScale > 0.02)
+      handle.node.scaling.setAll(Math.max(0.001, nextScale))
+      handle.update?.(deltaSeconds, isFishMoving)
+    }
   }
 
   // 光槽：半球光＋主光＋補光＋反彈光＋螢火 clustered 容器共 5 盞，
@@ -496,7 +555,6 @@ export function createDioramaScene(
 
   // 卡通描邊：Babylon 內建 OutlineRenderer（內縮外殼式），
   // 細線深藍紫，讓紙模們像被細筆勾過邊
-  const outlineColor = Color3.FromHexString('#2c2747')
   for (const outlinedMesh of [...codModel.meshList, ...environment.shadowCasterMeshList]) {
     // billboard 貼圖面（鎖頭旗標等 UI 感元素）不描邊，描了會像貼紙鑲黑框
     if (outlinedMesh.billboardMode !== TransformNode.BILLBOARDMODE_NONE) {
@@ -507,7 +565,7 @@ export function createDioramaScene(
     outlinedMesh.outlineColor = outlineColor
   }
 
-  // 魚身可點擊：點到魚時原地驚嚇彈跳（handlePointerUp 依 metadata 辨認）
+  // 魚身可點擊：點到魚時驚嚇彈跳、往隨機方向躍開（handlePointerUp 依 metadata 辨認）
   for (const mesh of codModel.meshList) {
     mesh.isPickable = true
     mesh.metadata = { isFishBody: true }
@@ -531,24 +589,16 @@ export function createDioramaScene(
     radius: obstacle.radius + FISH_COLLISION_MARGIN,
   }))
   flopController.setObstacleList(obstacleList)
+  flopController.setMoveBounds(MOVE_BOUNDS_RECT)
 
   /** 場景已銷毀旗標：非同步資源（紙紋、Havok WASM）載入完成時若已銷毀就不再初始化 */
   let isDisposed = false
 
-  // --- 紙紋材質 ---
-  // 外掛必須在材質首次渲染前掛上（此時 define 關閉、零成本）；
-  // 噪點 tile 非同步產生，就緒後翻開 define，以三平面投影混進每個面；失敗維持平塗
+  // --- 表面著色外掛 ---
+  // 走 low poly：表面不鋪任何顆粒紋理，形體完全由切面的明暗讀出。
+  // 外掛留著是為了輪廓光——面向邊緣的提亮能把物件從背景托出，
+  // 在 flat shading 下呈塊面提亮，正是切面之間彼此分明的關鍵
   attachPaperGrainPlugins(scene)
-  getGrainTileBlobUrl()
-    .then((url) => {
-      if (isDisposed) {
-        return
-      }
-      setPaperGrainTexture(scene, new Texture(url, scene))
-    })
-    .catch((error) => {
-      console.warn('[fish-diorama] 紙紋產生失敗，維持平塗材質', error)
-    })
 
   // --- Havok 物理（非同步載入 WASM）---
   // 就緒後：水草葉片轉動態剛體被魚推開、彈簧回正；載入失敗保留手動推草，場景照常運作
@@ -711,8 +761,6 @@ export function createDioramaScene(
   let pointerDownX = 0
   let pointerDownY = 0
   let pointerDownId: number | undefined
-  /** 近期成功戳到魚（有觸發驚嚇跳）的時間戳（秒），連點彩蛋用 */
-  let fishStartleTimeList: number[] = []
 
   // --- 拖曳魚：按住魚拖動拎起，放開後從高處落下濺大水花 ---
   let isFishDragCandidate = false
@@ -732,6 +780,10 @@ export function createDioramaScene(
     isFishDragging = false
     isFishDropping = true
     dropVelocity = 0
+    // 快速甩動時跟隨會有延遲，放開瞬間再修正一次落點，確保不會直接落在障礙物內部
+    const resolved = resolvePointOutsideObstacles(dragCurrentX, dragCurrentZ, obstacleList)
+    dragCurrentX = clamp(resolved.x, MOVE_BOUNDS_RECT.minX, MOVE_BOUNDS_RECT.maxX)
+    dragCurrentZ = clamp(resolved.z, MOVE_BOUNDS_RECT.minZ, MOVE_BOUNDS_RECT.maxZ)
   }
 
   function handlePointerDown(event: PointerEvent) {
@@ -804,24 +856,10 @@ export function createDioramaScene(
     }
 
     if (pickInfo.pickedMesh && hasFishBodyMetadata(pickInfo.pickedMesh.metadata)) {
-      // 連點彩蛋：時間窗內連續戳到魚（每次都真的起跳）滿次數，
-      // 惹惱鱈魚 → 大跳空中翻滾一整圈，落地水花也隨跳高加大
-      const nowSeconds = performance.now() / 1000
-      fishStartleTimeList = fishStartleTimeList.filter(
-        (time) => nowSeconds - time < FISH_COMBO_WINDOW_SECONDS,
-      )
-      const isComboReached = fishStartleTimeList.length >= FISH_COMBO_CLICK_COUNT - 1
-      const hasStartled = isComboReached
-        ? flopController.startle(1.9, 1)
-        : flopController.startle()
-      if (hasStartled) {
-        if (isComboReached) {
-          fishStartleTimeList = []
-        }
-        else {
-          fishStartleTimeList.push(nowSeconds)
-        }
-      }
+      // 戳魚就是大跳空中翻滾一整圈，落地水花也隨跳高加大。
+      // 原本要在時間窗內連戳三下才會翻滾，但那個門檻藏得太深——
+      // 多數人戳一下看到普通小跳就走了，根本不知道有翻滾這回事
+      flopController.startle(1.9, 1)
       return
     }
 
@@ -905,8 +943,12 @@ export function createDioramaScene(
       if (isFishDragging) {
         const dragPickInfo = scene.pick(event.offsetX, event.offsetY, (mesh) => mesh === groundFloor)
         if (dragPickInfo.hit && dragPickInfo.pickedPoint) {
-          dragTargetX = clamp(dragPickInfo.pickedPoint.x, MOVE_BOUNDS_RECT.minX, MOVE_BOUNDS_RECT.maxX)
-          dragTargetZ = clamp(dragPickInfo.pickedPoint.z, MOVE_BOUNDS_RECT.minZ, MOVE_BOUNDS_RECT.maxZ)
+          const boundedX = clamp(dragPickInfo.pickedPoint.x, MOVE_BOUNDS_RECT.minX, MOVE_BOUNDS_RECT.maxX)
+          const boundedZ = clamp(dragPickInfo.pickedPoint.z, MOVE_BOUNDS_RECT.minZ, MOVE_BOUNDS_RECT.maxZ)
+          // 拖曳目標也要推出障礙圓外，落點才不會落在石頭等障礙物內部（穿模）
+          const resolved = resolvePointOutsideObstacles(boundedX, boundedZ, obstacleList)
+          dragTargetX = clamp(resolved.x, MOVE_BOUNDS_RECT.minX, MOVE_BOUNDS_RECT.maxX)
+          dragTargetZ = clamp(resolved.z, MOVE_BOUNDS_RECT.minZ, MOVE_BOUNDS_RECT.maxZ)
         }
         return
       }
@@ -1274,6 +1316,8 @@ export function createDioramaScene(
   }
 
   return {
+    engine,
+    setEquippedAccessoryList,
     setCameraChallengeActive(value: boolean) {
       isCameraChallengeActive = value
     },
@@ -1449,6 +1493,7 @@ export function createDioramaScene(
     },
     celebrateFullUnlock() {
       crownVisible = true
+      syncSkyConfetti()
       environment.spawnConfettiBurst(
         codModel.rootNode.position.x,
         codModel.rootNode.position.z,
@@ -1461,9 +1506,11 @@ export function createDioramaScene(
       if (skipTransition) {
         crownScale = visible && !sleepyActive ? 1 : 0
       }
+      syncSkyConfetti()
     },
     setSleepyMode(enabled: boolean) {
       sleepyActive = enabled
+      syncSkyConfetti()
     },
     setRunning(value: boolean) {
       if (isRunning === value) {
@@ -1491,6 +1538,10 @@ export function createDioramaScene(
       canvas.removeEventListener('pointerleave', handlePointerLeave)
       canvas.removeEventListener('pointercancel', handlePointerCancel)
       engine.stopRenderLoop()
+      for (const handle of equippedAccessoryMap.values()) {
+        handle.dispose()
+      }
+      equippedAccessoryMap.clear()
       scene.dispose()
       engine.dispose()
     },

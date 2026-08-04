@@ -17,6 +17,14 @@ export interface ObstacleCircle {
   radius: number;
 }
 
+/** 魚可移動的邊界（俯視矩形）：驚嚇跳的隨機落點不會被推出邊界外 */
+export interface MoveBoundsRect {
+  minX: number;
+  maxX: number;
+  minZ: number;
+  maxZ: number;
+}
+
 /** 每幀更新後的姿態，由場景端套用到 3D 節點 */
 export interface FlopPose {
   x: number;
@@ -93,6 +101,8 @@ export interface FlopControllerOptions {
   minMoveDistance: number;
   /** 障礙避讓前視距離：這麼近的障礙才納入偏轉計算 */
   obstacleLookAhead: number;
+  /** 驚嚇跳隨機方向所用的隨機數來源，預設 Math.random；測試可注入固定值排除隨機性 */
+  random: () => number;
 }
 
 const defaultOptions: FlopControllerOptions = {
@@ -116,6 +126,7 @@ const defaultOptions: FlopControllerOptions = {
   restWaveSpeed: 4.5,
   minMoveDistance: 0.5,
   obstacleLookAhead: 2.6,
+  random: Math.random,
 }
 
 /** crouching：起跳前的蓄力，原地壓扁、姿態維持上一跳的朝向 */
@@ -142,6 +153,14 @@ function normalizeAngle(angle: number): number {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value))
+}
+
+/** 把點夾回邊界矩形內 */
+function clampPointToBounds(x: number, z: number, bounds: MoveBoundsRect): PlanePoint {
+  return {
+    x: clamp(x, bounds.minX, bounds.maxX),
+    z: clamp(z, bounds.minZ, bounds.maxZ),
+  }
 }
 
 /** 把點推到所有障礙圓之外（落在圓內就投影到最近邊界）。供落點與點擊目標修正 */
@@ -263,6 +282,7 @@ export class FlopController {
   private isSlideMode = false
 
   private obstacleList: ObstacleCircle[] = []
+  private moveBounds: MoveBoundsRect | undefined
 
   /** 目標追蹤中曾達到的最近距離；連續數跳無進展就放棄，停在最近位置 */
   private bestTargetDistance = Number.POSITIVE_INFINITY
@@ -290,6 +310,11 @@ export class FlopController {
   /** 設定場景障礙圓，魚會繞開、落點與滑行不會踩進去 */
   setObstacleList(obstacleList: ObstacleCircle[]) {
     this.obstacleList = obstacleList
+  }
+
+  /** 設定魚可移動的邊界，驚嚇跳的隨機落點不會被推出邊界外 */
+  setMoveBounds(bounds: MoveBoundsRect) {
+    this.moveBounds = bounds
   }
 
   get isMoving(): boolean {
@@ -325,7 +350,7 @@ export class FlopController {
     this.slideStuckSeconds = 0
   }
 
-  /** 原地驚嚇彈跳（魚被點到時的回饋）：立即起跳、不位移、跳高小幅加成。
+  /** 驚嚇彈跳（魚被點到時的回饋）：立即起跳、往隨機方向躍開、跳高小幅加成。
    * spinTurnCount > 0 時空中沿身體長軸翻滾整圈（連點彩蛋用）。
    * 跳躍中呼叫忽略（已在空中）；滑行模式沒有跳躍，也忽略。
    * 回傳是否真的起跳，供呼叫端判斷這次點擊有沒有生效。
@@ -335,9 +360,30 @@ export class FlopController {
       return false
     }
     this.hopStart = { x: this.positionX, z: this.positionZ }
-    this.hopEnd = { x: this.positionX, z: this.positionZ }
+
+    const randomHeading = this.options.random() * Math.PI * 2
+    const rawEndX = this.positionX + Math.sin(randomHeading) * this.options.hopDistance
+    const rawEndZ = this.positionZ + Math.cos(randomHeading) * this.options.hopDistance
+    let hopEnd = this.obstacleList.length > 0
+      ? resolvePointOutsideObstacles(rawEndX, rawEndZ, this.obstacleList)
+      : { x: rawEndX, z: rawEndZ }
+    if (this.moveBounds) {
+      hopEnd = clampPointToBounds(hopEnd.x, hopEnd.z, this.moveBounds)
+    }
+    this.hopEnd = hopEnd
+
     this.hopStartHeading = this.heading
-    this.hopTurn = 0
+    // 身體朝向轉去實際位移的方向：落點可能被障礙或邊界修正過，
+    // 直接沿用隨機角度會讓轉向跟移動方向對不上
+    const travelDeltaX = this.hopEnd.x - this.hopStart.x
+    const travelDeltaZ = this.hopEnd.z - this.hopStart.z
+    const travelHeading = Math.hypot(travelDeltaX, travelDeltaZ) > 1e-4
+      ? Math.atan2(travelDeltaX, travelDeltaZ)
+      : this.heading
+    // 驚嚇跳不受 maxTurnPerHop 限制：受驚時猛然轉身正是這個動作要傳達的感覺
+    this.hopTurn = normalizeAngle(travelHeading - this.heading)
+    this.heading = travelHeading
+
     this.hopHeightScale = heightScale
     this.hopSpinTurnCount = spinTurnCount
     this.hopWaveCycles = Math.max(0.5, this.options.waveCyclesPerHop * heightScale)
