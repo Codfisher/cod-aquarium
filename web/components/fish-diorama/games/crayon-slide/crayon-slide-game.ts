@@ -144,6 +144,16 @@ const DIVE_LIGHT_INTENSITY = 1.45
 /** 照射半徑（線性衰減到 0）。比垂直可見範圍略大：前方的路看得到但明顯轉暗 */
 const DIVE_LIGHT_RANGE = 25
 
+// --- 頭燈 ---
+/** 頭燈道具，掛在魚頭頂：原本只有光沒有燈具，玩家會納悶光是哪來的。
+ * 位置估在雙眼上方略後（眼睛座標約 (±0.28, 0.16, 0.82)，見 cod-model.ts 的
+ * eyeSideConfigMap），頭頂最高點通常比眼睛略高、略靠後，數值是視覺估算，
+ * 之後可能還要再微調
+ */
+const HEADLAMP_MOUNT_Y = 0.42
+const HEADLAMP_MOUNT_Z = 0.66
+const HEADLAMP_SCALE = 0.26
+
 // --- 魚與相機 ---
 const FISH_START_Y = 0
 const FISH_VISUAL_SCALE = 0.62
@@ -1046,6 +1056,57 @@ export const createCrayonSlideGame: MiniGameFactory = (context) => {
   // 鱈魚模型頭朝 +z，側視預設頭朝 +x；往左游時 yaw 翻向、俯衝角跟著鏡像
   codModel.rootNode.rotation.y = Math.PI / 2
   codModel.rootNode.scaling.setAll(FISH_VISUAL_SCALE)
+
+  /** 頭燈道具：讓潛水燈的光「有個燈具在發」，不是憑空跟著魚的一團亮。
+   * 燈殼是躺平的圓柱（繞 x 轉 90 度，圓形端面才會朝 +z、朝著魚頭前方），
+   * 鏡片貼在燈殼前緣，用跟 diveLight 同色的自體發光材質，讀起來像燈已經亮著
+   */
+  const headlampStrapMaterial = createPaperMaterial('crayonSlideHeadlampStrap', '#8a7a63')
+  const headlampLensMaterial = new StandardMaterial('crayonSlideHeadlampLens', scene)
+  headlampLensMaterial.disableLighting = true
+  headlampLensMaterial.emissiveColor = diveLight.diffuse.clone()
+  headlampLensMaterial.specularColor = Color3.Black()
+
+  const headlampNode = new TransformNode('crayonSlideHeadlampRoot', scene)
+  headlampNode.parent = codModel.rootNode
+  headlampNode.position.set(0, HEADLAMP_MOUNT_Y, HEADLAMP_MOUNT_Z)
+  headlampNode.scaling.setAll(HEADLAMP_SCALE)
+
+  // 短柱：頭燈架在頭頂上方一點，不埋進頭裡
+  const headlampPost = CreateCylinder(
+    'crayonSlideHeadlampPost',
+    { diameterTop: 0.3, diameterBottom: 0.4, height: 0.9, tessellation: 6 },
+    scene,
+  )
+  headlampPost.material = headlampStrapMaterial
+  headlampPost.position.y = 0.45
+  headlampPost.parent = headlampNode
+
+  const HEADLAMP_HOUSING_HEIGHT = 0.85
+  const headlampHousing = CreateCylinder(
+    'crayonSlideHeadlampHousing',
+    { diameter: 1.2, height: HEADLAMP_HOUSING_HEIGHT, tessellation: 8 },
+    scene,
+  )
+  headlampHousing.material = headlampStrapMaterial
+  headlampHousing.rotation.x = Math.PI / 2
+  headlampHousing.position.set(0, 0.95, 0.3)
+  headlampHousing.parent = headlampNode
+
+  const headlampLens = CreateCylinder(
+    'crayonSlideHeadlampLens',
+    { diameter: 1.05, height: 0.1, tessellation: 8 },
+    scene,
+  )
+  headlampLens.material = headlampLensMaterial
+  headlampLens.rotation.x = Math.PI / 2
+  // 貼在燈殼 +z 端面外一點點，避免跟燈殼共面 z-fighting
+  headlampLens.position.set(0, 0.95, headlampHousing.position.z + HEADLAMP_HOUSING_HEIGHT / 2 + 0.02)
+  headlampLens.parent = headlampNode
+
+  for (const mesh of [headlampPost, headlampHousing, headlampLens]) {
+    mesh.isPickable = false
+  }
 
   const fishBallMesh = CreateSphere(
     'crayonSlideFishBall',
