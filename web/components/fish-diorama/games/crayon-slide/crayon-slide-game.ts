@@ -22,6 +22,7 @@ import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial'
 import { Color3 } from '@babylonjs/core/Maths/math.color'
 import { Matrix, Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector'
 import { CreateCylinder } from '@babylonjs/core/Meshes/Builders/cylinderBuilder'
+import { CreateGround } from '@babylonjs/core/Meshes/Builders/groundBuilder'
 import { CreateIcoSphere } from '@babylonjs/core/Meshes/Builders/icoSphereBuilder'
 import { CreateSphere } from '@babylonjs/core/Meshes/Builders/sphereBuilder'
 import { Mesh } from '@babylonjs/core/Meshes/mesh'
@@ -522,18 +523,15 @@ export const createCrayonSlideGame: MiniGameFactory = (context) => {
   }
 
   // --- 峽谷牆 ---
-  /** 牆單位改用多節堆疊，抖動才能沿整段高度分布。
-   * 單一方塊硬拉十幾倍高的話，createBeveledBox 只在頂底兩圈頂點有碎稜，
-   * 中段被拉成一片平滑無特徵的長板——不管段落多高，看起來都是同一塊板子等比例拉伸，
-   * 這才是「每段長度重複太固定」的根源。各節高度先抖出不均勻比例，接縫間距也不等分
+  /** 牆面內側改用細分網格，而不是拉伸一顆低多邊方塊。
+   * createBeveledBox 只在角落有頂點，大片側面完全沒有格點可抖，方塊拉伸十幾倍高之後，
+   * 中段就是一片光滑板子；改成堆疊分節雖然讓每節有頭尾碎稜，但節與節的接縫又讀成一顆一顆積木。
+   * 用 CreateGround 建一片沿高度細分的格網，每個格點各自獨立抖動，
+   * 整段高度隨時都有凹凸、不必分節也就沒有接縫，一次解掉「太規律」跟「太平整」兩個問題。
+   * 深度方向只留 2 段——牆很薄，不需要那個方向的細節
    */
-  const WALL_CHUNK_COUNT = 4
-  /** 每節自己的倒角量。不能沿用整塊牆原本的 0.08——那是給「高度=1」的完整方塊校準的，
-   * 切成小節後同一個絕對值會被 createBeveledBox 的 halfHeight*0.9 上限吃掉大半節高，
-   * 每一節變成頭尾都是斜面、幾乎沒有平面的橄欖球，接縫才會看起來像一顆一顆積木疊起來。
-   * 縮小成跟節高不成比例的小倒角，每節才留得住夠長的平面段
-   */
-  const WALL_CHUNK_BEVEL = 0.02
+  const WALL_HEIGHT_SUBDIVISION_COUNT = 12
+  const WALL_DEPTH_SUBDIVISION_COUNT = 2
 
   function createWallUnit(index: number, side: -1 | 1): WallUnit {
     // 種子混入側別，左右牆的頂點抖動從源頭就不同；
@@ -541,39 +539,29 @@ export const createCrayonSlideGame: MiniGameFactory = (context) => {
     const unitSeed = createSeedFrom(300 + index, side)
     const sideVariation = createSideVariation(unitSeed, side)
 
-    const rawHeightList = Array.from(
-      { length: WALL_CHUNK_COUNT },
-      (_, chunk) => 0.6 + createSideVariation(unitSeed, side, chunk) * 0.8,
-    )
-    const rawHeightTotal = rawHeightList.reduce((sum, value) => sum + value, 0)
-
-    const partList: Mesh[] = []
-    let cursorY = -0.5
-    for (let chunk = 0; chunk < WALL_CHUNK_COUNT; chunk++) {
-      const chunkHeight = rawHeightList[chunk]! / rawHeightTotal
-      const part = createBeveledBox(
-        `crayonSlideWall${index}Chunk${chunk}`,
-        scene,
-        { width: 1, height: chunkHeight, depth: 1, bevel: WALL_CHUNK_BEVEL },
-        wallMaterial,
-      )
-      part.position.y = cursorY + chunkHeight / 2
-      cursorY += chunkHeight
-      partList.push(part)
-    }
-    const mesh = mergePaperParts(partList)
-    mesh.name = `crayonSlideWall${index}`
-    // 牆會沿高度拉十幾倍，高度軸的抖動量要等比壓回去；
+    // CreateGround 原生攤平在 xz 平面（y=0），width 對應 x、height 參數對應 z。
+    // 抖動先在這個原生方向上做，抖完再繞 z 轉 90 度並烤進頂點資料，
+    // 原本的 x（width 軸）就變成牆的高度軸、原生的 y（抖動軸）變成牆朝向峽谷內側的厚度軸，
+    // 轉完 activateWall 沿用的「local x/y/z 對應厚度/高度/深度」縮放邏輯完全不用改
+    const mesh = CreateGround(`crayonSlideWall${index}`, {
+      width: 1,
+      height: 1,
+      subdivisionsX: WALL_HEIGHT_SUBDIVISION_COUNT,
+      subdivisionsY: WALL_DEPTH_SUBDIVISION_COUNT,
+    }, scene)
+    // 牆會沿高度拉十幾倍，高度軸（此時還是原生 x）的抖動量要等比壓回去；
     // 內側輪廓因此有 low poly 的碎稜，但幅度小於碰撞線的厚度，不會看到魚穿牆。
-    // x 向除以 WALL_WIDTH：抖動要看的是內側稜線在**世界單位**位移多少，
-    // 不這樣換算的話，牆一加厚同一組係數就會把稜線抖進碰撞線裡。
-    // 每節接縫處的兩圈頂點座標重合，同一個 seed 算出來的抖動量也會重合，
-    // 節與節之間才不會裂出看得見的縫
+    // 抖動軸（原生 y，轉向後變成牆的厚度軸）除以 WALL_WIDTH：
+    // 抖動要看的是內側稜線在**世界單位**位移多少，不這樣換算，牆一加厚同一組係數就會把稜線抖進碰撞線裡
     roughenLowPoly(mesh, unitSeed, 0.07 + sideVariation * 0.02, {
-      x: (0.99 + sideVariation * 0.45) / WALL_WIDTH,
-      y: 0.045 + sideVariation * 0.03,
+      x: 0.045 + sideVariation * 0.03,
+      y: (0.99 + sideVariation * 0.45) / WALL_WIDTH,
       z: 0.9,
     })
+    mesh.rotation.z = Math.PI / 2
+    mesh.bakeCurrentTransformIntoVertices()
+    mesh.material = wallMaterial
+    mesh.isPickable = false
     mesh.receiveShadows = true
     mesh.parent = worldRootNode
     mesh.setEnabled(false)
