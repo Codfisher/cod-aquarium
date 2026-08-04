@@ -38,6 +38,7 @@ import { FlopController, resolvePointOutsideObstacles } from './flop-controller'
 import { attachPaperGrainPlugins, setPaperGrainRimLight } from './paper-grain-plugin'
 import { type AccessoryHandle, createAccessory } from './rewards/accessory-builder'
 import { rewardDefinitionMap, type RewardId } from './rewards/reward-registry'
+import { isCoarsePointerDevice } from './shared/device-tier'
 import {
   CAMERA_FRAME_RECT,
   createTankEnvironment,
@@ -72,6 +73,13 @@ export interface DioramaSceneOptions {
   isDark: boolean;
   /** 魚停在可互動裝飾旁時回報錨點畫面位置；離開或移動中回報 null，供外層收合 popup */
   onNearbySpotChange?: (info: NearbyInteractionInfo | null) => void;
+  /** WebGL context 遺失時觸發（手機常見：背景切換、記憶體吃緊時系統會直接收回）。
+   * Babylon 引擎本身會在 context 恢復時嘗試重建底層 GPU 資源，這裡只負責通知外層
+   * 顯示過渡態；如果遲遲沒恢復，外層要自己決定要不要退回失敗畫面
+   */
+  onContextLost?: () => void;
+  /** WebGL context 恢復時觸發 */
+  onContextRestored?: () => void;
 }
 
 export type { PlanarPoint, TypewriterNoteView } from './challenge-stage'
@@ -219,13 +227,31 @@ export function createDioramaScene(
   canvas: HTMLCanvasElement,
   options: DioramaSceneOptions,
 ): DioramaSceneHandle {
+  // 手機（觸控為主要輸入）的 GPU／記憶體有限，超取樣＋高 MSAA＋SSAO 疊在一起，
+  // 常在初始化那瞬間把 WebGL context 擠爆，畫面就整個死掉、且沒有回頭路。
+  // 這裡先問清楚裝置等級，後面的解析度／抗鋸齒／SSAO 設定才有依據降級
+  const isLowPowerDevice = isCoarsePointerDevice()
+
   // doNotHandleTouchAction：Engine 預設會把 canvas inline style 設成 touch-action: none，
   // 蓋掉樣式表的 pan-y，導致觸控無法在魚缸區直向捲動頁面。場景只需點擊，不需要 Babylon 手勢
   const engine = new Engine(canvas, true, { alpha: true, doNotHandleTouchAction: true }, false)
-  // 內部渲染解析度至少 1.5 倍、上限 2 倍（超取樣）：一般桌面螢幕 dpr = 1，
-  // 光靠 MSAA＋FXAA 壓不掉高對比硬邊的階梯感；低多邊形場景填充成本低，
-  // 用解析度換邊緣品質最划算
-  engine.setHardwareScalingLevel(1 / Math.min(Math.max(window.devicePixelRatio || 1, 1.5), 2))
+  // WebGL context 遺失／恢復：Babylon 預設就會攔截瀏覽器的 context lost 事件並嘗試在恢復時
+  // 重建 GPU 資源（見 thinEngine 的 _onContextLost／_onContextRestored），這裡只是把狀態
+  // 轉發給外層，讓 UI 能顯示過渡態、逾時未恢復時退回失敗畫面
+  engine.onContextLostObservable.add(() => {
+    console.warn('[fish-diorama] WebGL context 遺失')
+    options.onContextLost?.()
+  })
+  engine.onContextRestoredObservable.add(() => {
+    options.onContextRestored?.()
+  })
+  // 內部渲染解析度超取樣：桌機至少 1.5 倍、上限 2 倍，一般桌面螢幕 dpr = 1，
+  // 光靠 MSAA＋FXAA 壓不掉高對比硬邊的階梯感，低多邊形場景填充成本低，用解析度換邊緣品質最划算。
+  // 手機不強制墊高下限（devicePixelRatio 本來就常是 2～3，硬性乘 1.5 倍等於雙重超取樣），
+  // 上限也收緊到 1.25 倍，降低初始化瞬間的顯存與填充壓力
+  const superSampleFloor = isLowPowerDevice ? 1 : 1.5
+  const superSampleCeiling = isLowPowerDevice ? 1.25 : 2
+  engine.setHardwareScalingLevel(1 / Math.min(Math.max(window.devicePixelRatio || 1, superSampleFloor), superSampleCeiling))
 
   const scene = new Scene(engine)
   // 背景交給 CSS 漸層，canvas 保持透明
@@ -250,8 +276,9 @@ export function createDioramaScene(
   pipeline.imageProcessing.contrast = 1.05
   pipeline.imageProcessing.exposure = 1
   // 後處理管線會繞過 canvas 原生 MSAA：改開管線自身的 MSAA（WebGL2，幾何硬邊主力），
-  // 再疊 FXAA 收掉殘餘閃爍。只靠 FXAA 對低多邊形硬邊效果很差、鋸齒明顯
-  pipeline.samples = 4
+  // 再疊 FXAA 收掉殘餘閃爍。只靠 FXAA 對低多邊形硬邊效果很差、鋸齒明顯。
+  // 手機降到 2 samples：仍有 MSAA 兜底，但顯存與頻寬成本減半
+  pipeline.samples = isLowPowerDevice ? 2 : 4
   pipeline.fxaaEnabled = true
 
   // 質感細調：暗角聚焦視線（染暗藍紫呼應 split toning）、
@@ -291,15 +318,17 @@ export function createDioramaScene(
     const ssaoPipeline = new SSAO2RenderingPipeline(
       'dioramaSsaoPipeline',
       scene,
-      { ssaoRatio: 0.5, blurRatio: 1 },
+      // SSAO 是額外一組 render target，ratio／blurRatio 直接決定它的解析度；
+      // 手機收緊到原本的六成左右，初始化時要多配置的顯存少一截
+      { ssaoRatio: isLowPowerDevice ? 0.3 : 0.5, blurRatio: isLowPowerDevice ? 0.5 : 1 },
       [camera],
       true,
     )
     // 低多邊小場景：取樣半徑貼近物件尺度，強度壓在陰影提示而非髒污的程度
     ssaoPipeline.radius = 0.8
     ssaoPipeline.totalStrength = 0.68
-    ssaoPipeline.samples = 12
-    ssaoPipeline.expensiveBlur = true
+    ssaoPipeline.samples = isLowPowerDevice ? 8 : 12
+    ssaoPipeline.expensiveBlur = !isLowPowerDevice
     // 相機距離 14，場景深度不超過此值；限制範圍讓遠景不吃 AO 雜訊
     ssaoPipeline.maxZ = 45
   }
