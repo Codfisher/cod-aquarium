@@ -1073,9 +1073,12 @@ onUnmounted(() => {
   align-items: stretch
   border-radius: 999px
   transform-origin: bottom center
-  // 紙紋鋪在底色上（背景層，內容自然在上），與整體手作箱庭一致
+  // 紙紋鋪在底色上（背景層，內容自然在上），與整體手作箱庭一致。
+  // 深色模式的紙紋預解算對比已經比淺色低（見 paper-grain.ts 的 cssGrainContrastMap），
+  // 但這種小面積 DOM 卡片緊貼著文字，紋理還是太搶戲——疊一層跟底色同色的淡淡蓋色壓下去，
+  // 淺色模式維持原樣（蓋色 alpha 0，不影響既有外觀）
   background-color: light-dark(rgba(255, 253, 247, 0.94), rgba(36, 46, 52, 0.94))
-  background-image: var(--paper-grain-url, none)
+  background-image: linear-gradient(light-dark(rgba(36, 46, 52, 0), rgba(36, 46, 52, 0.6)), light-dark(rgba(36, 46, 52, 0), rgba(36, 46, 52, 0.6))), var(--paper-grain-url, none)
   background-repeat: repeat
   background-size: 200px 200px
   border: 1px solid light-dark(rgba(62, 95, 82, 0.28), rgba(255, 255, 255, 0.14))
@@ -1148,7 +1151,8 @@ onUnmounted(() => {
   text-align: center
   transform-origin: bottom center
   background-color: light-dark(rgba(255, 253, 247, 0.96), rgba(36, 46, 52, 0.96))
-  background-image: var(--paper-grain-url, none)
+  // 深色模式疊一層同色蓋色壓淡紙紋，理由同 .spot-popup-row
+  background-image: linear-gradient(light-dark(rgba(36, 46, 52, 0), rgba(36, 46, 52, 0.6)), light-dark(rgba(36, 46, 52, 0), rgba(36, 46, 52, 0.6))), var(--paper-grain-url, none)
   background-repeat: repeat
   background-size: 200px 200px
   border: 1px solid light-dark(rgba(62, 95, 82, 0.28), rgba(255, 255, 255, 0.14))

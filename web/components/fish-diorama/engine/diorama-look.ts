@@ -191,23 +191,23 @@ export function applyDioramaLook(
 
   // SSAO：物體接縫、凹角與貼地處產生柔和環境遮蔽，接地感與體積感明顯提升。
   // 走 geometry buffer（非 prepass），避開透明 canvas＋MSAA 管線的相容性問題。
-  // WebGL1 不支援就跳過，畫面只是少了 AO
+  // WebGL1 不支援就跳過，畫面只是少了 AO。
+  // 手機也直接跳過：SSAO 是這整條管線裡最吃顯存的部分（額外 render target 加模糊 pass），
+  // 犧牲這裡的陰影細節、換超取樣解析度不縮水，畫面清晰度的取捨更划算
   let ssaoPipeline: SSAO2RenderingPipeline | undefined
-  if (ambientOcclusion && SSAO2RenderingPipeline.IsSupported) {
+  if (ambientOcclusion && SSAO2RenderingPipeline.IsSupported && !isLowPowerDevice) {
     ssaoPipeline = new SSAO2RenderingPipeline(
       `${namePrefix}SsaoPipeline`,
       scene,
-      // ratio／blurRatio 直接決定 SSAO 額外 render target 的解析度；
-      // 手機收緊到原本的六成左右，初始化時要多配置的顯存少一截
-      { ssaoRatio: isLowPowerDevice ? 0.3 : 0.5, blurRatio: isLowPowerDevice ? 0.5 : 1 },
+      { ssaoRatio: 0.5, blurRatio: 1 },
       [camera],
       true,
     )
     // 低多邊小場景：取樣半徑貼近物件尺度，強度壓在陰影提示而非髒污的程度
     ssaoPipeline.radius = ambientOcclusion.radius
     ssaoPipeline.totalStrength = ambientOcclusion.strength
-    ssaoPipeline.samples = isLowPowerDevice ? 8 : 12
-    ssaoPipeline.expensiveBlur = !isLowPowerDevice
+    ssaoPipeline.samples = 12
+    ssaoPipeline.expensiveBlur = true
     ssaoPipeline.maxZ = ambientOcclusion.maxZ
   }
 

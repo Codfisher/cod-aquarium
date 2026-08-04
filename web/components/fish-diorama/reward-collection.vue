@@ -140,7 +140,9 @@ function toggleAccessory(rewardId: RewardId) {
   border-radius: 16px
   color: light-dark(oklch(0.38 0.05 210), oklch(0.9 0.02 210))
   background-color: light-dark(rgba(255, 253, 247, 0.98), rgba(34, 43, 50, 0.98))
-  background-image: var(--paper-grain-url, none)
+  // 深色模式疊一層同色蓋色壓淡紙紋：紙紋的預解算對比在深色底已經比淺色低，
+  // 但貼著文字排版的 DOM 卡片還是太搶戲，蓋色壓下去才夠淡；淺色模式蓋色 alpha 0，維持原樣
+  background-image: linear-gradient(light-dark(rgba(34, 43, 50, 0), rgba(34, 43, 50, 0.6)), light-dark(rgba(34, 43, 50, 0), rgba(34, 43, 50, 0.6))), var(--paper-grain-url, none)
   background-repeat: repeat
   background-size: 200px 200px
   border: 1px solid light-dark(rgba(62, 95, 82, 0.24), rgba(255, 255, 255, 0.14))
@@ -154,7 +156,8 @@ function toggleAccessory(rewardId: RewardId) {
   z-index: 1
   padding: 18px 20px 10px
   background-color: light-dark(rgba(255, 253, 247, 0.98), rgba(34, 43, 50, 0.98))
-  background-image: var(--paper-grain-url, none)
+  // 深色模式疊一層同色蓋色壓淡紙紋，理由同 .collection-book
+  background-image: linear-gradient(light-dark(rgba(34, 43, 50, 0), rgba(34, 43, 50, 0.6)), light-dark(rgba(34, 43, 50, 0), rgba(34, 43, 50, 0.6))), var(--paper-grain-url, none)
   background-repeat: repeat
   background-size: 200px 200px
   border-bottom: 1px solid light-dark(rgba(62, 95, 82, 0.16), rgba(255, 255, 255, 0.1))
