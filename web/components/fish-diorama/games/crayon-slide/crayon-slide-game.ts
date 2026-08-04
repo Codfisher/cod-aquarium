@@ -527,7 +527,13 @@ export const createCrayonSlideGame: MiniGameFactory = (context) => {
    * 中段被拉成一片平滑無特徵的長板——不管段落多高，看起來都是同一塊板子等比例拉伸，
    * 這才是「每段長度重複太固定」的根源。各節高度先抖出不均勻比例，接縫間距也不等分
    */
-  const WALL_CHUNK_COUNT = 5
+  const WALL_CHUNK_COUNT = 4
+  /** 每節自己的倒角量。不能沿用整塊牆原本的 0.08——那是給「高度=1」的完整方塊校準的，
+   * 切成小節後同一個絕對值會被 createBeveledBox 的 halfHeight*0.9 上限吃掉大半節高，
+   * 每一節變成頭尾都是斜面、幾乎沒有平面的橄欖球，接縫才會看起來像一顆一顆積木疊起來。
+   * 縮小成跟節高不成比例的小倒角，每節才留得住夠長的平面段
+   */
+  const WALL_CHUNK_BEVEL = 0.02
 
   function createWallUnit(index: number, side: -1 | 1): WallUnit {
     // 種子混入側別，左右牆的頂點抖動從源頭就不同；
@@ -548,7 +554,7 @@ export const createCrayonSlideGame: MiniGameFactory = (context) => {
       const part = createBeveledBox(
         `crayonSlideWall${index}Chunk${chunk}`,
         scene,
-        { width: 1, height: chunkHeight, depth: 1, bevel: 0.08 },
+        { width: 1, height: chunkHeight, depth: 1, bevel: WALL_CHUNK_BEVEL },
         wallMaterial,
       )
       part.position.y = cursorY + chunkHeight / 2

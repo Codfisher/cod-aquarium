@@ -414,6 +414,12 @@ const UNLOCK_STORAGE_KEY = 'fish-diorama-unlocked-spot-list'
 const interactionSpotKeyList: InteractionSpotKey[] = ['camera', 'typewriter', 'crayonSet']
 
 const unlockedSpotSet = ref(new Set<InteractionSpotKey>())
+/** 畫面上（3D 鎖頭模型）目前已經演出過解鎖的裝飾。
+ * 用來跟 unlockedSpotSet 這份紀錄比對，才知道關閉遊戲時該不該補播解鎖演出——
+ * 不能直接看 hasJustCleared：玩家過關後選擇再玩一次，那一場的 hasJustCleared
+ * 會因為紀錄已經解鎖過而變 false，但畫面上的鎖頭其實還沒真的打開過
+ */
+const visuallyUnlockedSpotSet = ref(new Set<InteractionSpotKey>())
 
 const isNearbySpotUnlocked = computed(() => (
   nearbySpot.value ? unlockedSpotSet.value.has(nearbySpot.value.key) : false
@@ -552,8 +558,8 @@ async function startGame(gameId: MiniGameId) {
   }
   devMenuVisible.value = false
   collectionVisible.value = false
-  // 墨水先蓋住畫面，換 Scene 的破綻藏在裡面
-  playInkTransition()
+  // 墨水先蓋滿畫面，換 Scene 的破綻藏在蓋滿之後才做
+  await showInkCover()
   activeGameId.value = gameId
   activeGameBestScore.value = gameProgress.value.bestScoreMap[gameId] ?? 0
   hudPhase.value = 'loading'
@@ -582,6 +588,9 @@ async function startGame(gameId: MiniGameId) {
     activeGameId.value = null
     hudPhase.value = 'loading'
     dioramaHandle.setRunning(shouldRun.value)
+  }
+  finally {
+    hideInkCoverAfterHold()
   }
 }
 
@@ -648,14 +657,13 @@ function finishGame(finalScore: number) {
   hudPhase.value = 'over'
 }
 
-/** 離開遊戲回到箱庭，順便播剛才掙來的解鎖演出 */
-function closeGame() {
-  const clearedSpotKey = hasJustCleared.value && activeGameId.value
-    ? (Object.keys(spotGameMap) as InteractionSpotKey[])
-        .find((key) => spotGameMap[key] === activeGameId.value)
-    : undefined
-
-  playInkTransition()
+/** 離開遊戲回到箱庭，順便播剛才掙來的解鎖演出。
+ * 演出對象照 unlockedSpotSet 這份紀錄跟 visuallyUnlockedSpotSet 比對算出來，
+ * 玩家在結算畫面選擇再玩一次也補得到——不看 hasJustCleared 那個只代表「這一場」的旗標
+ */
+async function closeGame() {
+  // 等墨水真的蓋滿才關遊戲、切回箱庭，不然箱庭會在蓋板還半透明時先露出一瞬間，看起來像閃爍
+  await showInkCover()
   gameHost?.close()
   activeGameId.value = null
   hudPhase.value = 'loading'
@@ -663,10 +671,16 @@ function closeGame() {
   clearTimeout(toastTimer)
   dioramaHandle?.setRunning(shouldRun.value)
 
-  if (clearedSpotKey) {
-    // 解鎖演出：灰白紙模暈染回原色＋鎖頭旗標飛走＋彈跳水花＋彩帶
-    dioramaHandle?.setSpotLocked(clearedSpotKey, false)
-    dioramaHandle?.celebrateSpotUnlock(clearedSpotKey)
+  const newlyUnlockedSpotKeyList = interactionSpotKeyList.filter((key) => (
+    unlockedSpotSet.value.has(key) && !visuallyUnlockedSpotSet.value.has(key)
+  ))
+  if (newlyUnlockedSpotKeyList.length > 0) {
+    visuallyUnlockedSpotSet.value = new Set([...visuallyUnlockedSpotSet.value, ...newlyUnlockedSpotKeyList])
+    for (const spotKey of newlyUnlockedSpotKeyList) {
+      // 解鎖演出：灰白紙模暈染回原色＋鎖頭旗標飛走＋彈跳水花＋彩帶
+      dioramaHandle?.setSpotLocked(spotKey, false)
+      dioramaHandle?.celebrateSpotUnlock(spotKey)
+    }
     if (interactionSpotKeyList.every((key) => unlockedSpotSet.value.has(key))) {
       clearTimeout(fullUnlockTimer)
       fullUnlockTimer = setTimeout(() => {
@@ -675,15 +689,33 @@ function closeGame() {
     }
   }
   hasJustCleared.value = false
+  hideInkCoverAfterHold()
 }
 
-/** 墨水暈染：進出遊戲都走它，蓋住 Scene 切換的瞬間 */
-function playInkTransition() {
+/** 墨水淡入的時間，要跟 .ink-enter-active 的 animation duration 對齊 */
+const INK_ENTER_MS = 260
+/** 蓋滿之後多停一下才淡出，讓底下剛換好的 Scene 先穩定畫出一幀，揭曉才不會露餡 */
+const INK_HOLD_MS = 120
+
+/** 墨水暈染：進出遊戲都走它，蓋住 Scene 切換的瞬間。
+ * 回傳的 Promise 要等蓋板真的淡到全遮蔽才 resolve——
+ * 呼叫端得等這一刻才能動手換 Scene，不然換場動作在蓋板還半透明時就先做了，
+ * 玩家會先瞥見新畫面一閃，蓋板才追上來蓋住，看起來像閃爍
+ */
+function showInkCover(): Promise<void> {
   inkTransitionVisible.value = true
+  clearTimeout(inkTransitionTimer)
+  return new Promise((resolve) => {
+    inkTransitionTimer = setTimeout(resolve, INK_ENTER_MS)
+  })
+}
+
+/** Scene 換好之後呼叫，蓋滿再停一下才淡出揭曉 */
+function hideInkCoverAfterHold(): void {
   clearTimeout(inkTransitionTimer)
   inkTransitionTimer = setTimeout(() => {
     inkTransitionVisible.value = false
-  }, 520)
+  }, INK_HOLD_MS)
 }
 
 /** dev 用：一次解鎖全部獎勵，方便檢查配件建模與收藏冊排版 */
@@ -713,6 +745,8 @@ function handleResetClick() {
   clearTimeout(resetConfirmTimer)
   resetConfirmVisible.value = false
   unlockedSpotSet.value = new Set()
+  // 畫面也一併鎖回去，往後才會被視為「還沒補畫面」而重新觸發解鎖演出
+  visuallyUnlockedSpotSet.value = new Set()
   try {
     localStorage.removeItem(UNLOCK_STORAGE_KEY)
   }
@@ -781,6 +815,8 @@ onMounted(async () => {
     for (const spotKey of interactionSpotKeyList) {
       dioramaHandle.setSpotLocked(spotKey, !unlockedSpotSet.value.has(spotKey), true)
     }
+    // 畫面已經照紀錄套好視覺，等同全部同步過，往後只需要補「紀錄變了但畫面沒補」的差
+    visuallyUnlockedSpotSet.value = new Set(unlockedSpotSet.value)
     dioramaHandle.setCrownVisible(
       interactionSpotKeyList.every((key) => unlockedSpotSet.value.has(key)),
       true,
@@ -1237,27 +1273,24 @@ onUnmounted(() => {
   &:hover
     background: light-dark(rgba(27, 42, 51, 0.06), rgba(255, 255, 255, 0.08))
 
-// 遊戲轉場：墨水從中心暈開蓋滿畫面再散去，Scene 就在最濃的那一刻換掉。
-// 用 radial-gradient 的縮放模擬墨滴擴散，比單純淡入淡出更有紙上作業的語彙
+// 遊戲轉場：純色淡入淡出蓋住畫面，Scene 就在最深的那一刻換掉。
+// 原本用 radial-gradient 縮放模擬墨滴從中心暈開，但圓形要放大好幾倍才蓋滿畫面角落，
+// 過程中會看到一圈明顯的圓形邊界（寬螢幕更明顯），改回純色淡入淡出，蓋畫面更乾淨
 .ink-transition
   z-index: 25
-  background: radial-gradient(circle at 50% 50%, light-dark(#f5efe2, #1a222b) 0%, light-dark(#f5efe2, #1a222b) 62%, transparent 74%)
+  background: light-dark(#f5efe2, #1a222b)
 
 .ink-enter-active
-  animation: ink-spread 0.26s ease-out both
+  animation: ink-fade 0.26s ease-out both
 
 .ink-leave-active
-  animation: ink-spread 0.26s ease-in reverse both
+  animation: ink-fade 0.26s ease-in reverse both
 
-@keyframes ink-spread
+@keyframes ink-fade
   0%
     opacity: 0
-    transform: scale(0.35)
-  60%
-    opacity: 1
   100%
     opacity: 1
-    transform: scale(3)
 
 // 進場：從尾巴根部長出來的果凍彈跳；離場：快速淡出下沉
 @keyframes popup-bounce-in
