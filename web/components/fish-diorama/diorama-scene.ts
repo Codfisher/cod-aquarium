@@ -34,6 +34,7 @@ import {
   type TypewriterStage,
 } from './challenge-stage'
 import { COD_LYING_LIFT, createCodModel } from './cod-model'
+import { loadHavokInstance } from './engine/physics-boot'
 import {
   buildTiltShiftShaderSource,
   DEFAULT_TILT_SHIFT,
@@ -129,11 +130,6 @@ export interface DioramaSceneHandle {
   engine: Engine;
   /** 開關渲染迴圈（不可見或失焦時停止） */
   setRunning: (value: boolean) => void;
-  /** 開始載入 Havok 物理（水草被魚推開、卵石滾動）。
-   * 玩家點擊進場時呼叫，讓 WASM 的記憶體尖峰與場景初始化的顯存尖峰錯開；
-   * 重複呼叫只會真的載一次
-   */
-  startPhysics: () => void;
   /** 開關整套後製管線。傳 false 會真的把 PostProcess 與 SSAO 整組釋放，
    * 不只是停用——Babylon 的 render target 不會因為 Scene 停止渲染就歸還顯存。
    * 玩迷你遊戲時箱庭 Scene 留在記憶體，這時關掉才不會兩套全螢幕 RTT 並存
@@ -262,13 +258,20 @@ export function createDioramaScene(
   engine.onContextRestoredObservable.add(() => {
     options.onContextRestored?.()
   })
-  // 內部渲染解析度超取樣：至少 1.5 倍、上限 2 倍，一般桌面螢幕 dpr = 1，
+  // 內部渲染解析度超取樣：桌機至少 1.5 倍、上限 2 倍。一般桌面螢幕 dpr = 1，
   // 光靠 MSAA＋FXAA 壓不掉高對比硬邊的階梯感，低多邊形場景填充成本低，用解析度換邊緣品質最划算。
-  // 手機原本連下限帶上限都收緊過，畫面明顯變糊——SSAO 才是真正的顯存大戶（見下方 isLowPowerDevice
-  // 判斷式，手機直接跳過整條 SSAO pipeline），省下來的預算讓給解析度，手機跟桌機用同一組門檻
+  //
+  // 手機完全取消超取樣（scaling = 1，一個 CSS 像素畫一個像素）。超取樣是所有
+  // per-pixel 成本的共同乘數：畫面每個 pass 的填充量都跟著面積走，dpr 3 的手機
+  // 原本要畫四倍的像素。長時間扛著這個量正是 iOS Safari 看門狗回收 context 的原因，
+  // 而低多邊形硬邊還有 MSAA 與 FXAA 兜著，不是只剩解析度可以靠
   const superSampleFloor = 1.5
   const superSampleCeiling = 2
-  engine.setHardwareScalingLevel(1 / Math.min(Math.max(window.devicePixelRatio || 1, superSampleFloor), superSampleCeiling))
+  engine.setHardwareScalingLevel(
+    isLowPowerDevice
+      ? 1
+      : 1 / Math.min(Math.max(window.devicePixelRatio || 1, superSampleFloor), superSampleCeiling),
+  )
 
   const scene = new Scene(engine)
   // 背景交給 CSS 漸層，canvas 保持透明
@@ -295,12 +298,11 @@ export function createDioramaScene(
     // 影像處理：對比微調 + FXAA。
     // 景深（DOF）已停用：失焦溢光會在物體邊緣產生明顯白色光暈。
     //
-    // 第二個參數是 HDR。開啟後管線每一張 render target 都改用 half-float，
-    // 每像素 8 bytes、是 8-bit 的兩倍，MSAA 緩衝也跟著加倍。它換來的是
-    // bloom 與色調映射的亮部餘裕——而這個世界兩者都沒開，畫面差異只剩
-    // 漸層的細微色階。手機關掉，初始化瞬間要配置的顯存直接砍半，
-    // 而且 8-bit 的多重取樣緩衝在行動 GPU 上相容性也比 half-float 好
-    const pipeline = new DefaultRenderingPipeline('dioramaPipeline', !isLowPowerDevice, scene, [camera])
+    // 第二個參數是 HDR，全平台關閉。開啟後管線每一張 render target 都改用
+    // half-float，每像素 8 bytes、是 8-bit 的兩倍，MSAA 緩衝也跟著加倍。
+    // 它換來的是 bloom 與色調映射的亮部餘裕，而這個世界兩者都沒開——
+    // 付了兩倍的頻寬，買到的只有漸層的細微色階
+    const pipeline = new DefaultRenderingPipeline('dioramaPipeline', false, scene, [camera])
     pipeline.depthOfFieldEnabled = false
     pipeline.imageProcessingEnabled = true
     // 對比刻意收斂：柔和陰天感，不要正午烈日
@@ -651,67 +653,57 @@ export function createDioramaScene(
   // 就緒後：水草葉片轉動態剛體被魚推開、彈簧回正；載入失敗保留手動推草，場景照常運作
   let fishColliderMesh: Mesh | undefined
   let fishAggregate: PhysicsAggregate | undefined
-  /** Havok 是否已經開始載入。startPhysics 可重複呼叫，但只會真的載一次 */
-  let physicsBootStarted = false
+  // 建立場景時就開始載，不延後到玩家進場：迷你遊戲自己也要 Havok，
+  // 拖到進場才載的話，WASM 實例化很可能正好撞上玩家點開遊戲的那一刻，
+  // 手機扛不住兩件事同時來，遊戲就開不起來。提早載完，玩家走到裝飾旁時早已就緒。
+  //
+  // 走 physics-boot 的共用載入器而非自己 import：WASM 實例是無狀態的引擎核心，
+  // 箱庭與迷你遊戲共用同一份就好（各自建自己的 HavokPlugin＝各自的世界）。
+  // 原本兩邊各自呼叫 default() 會實例化兩份 WASM，等於白白多扛一整份 heap
+  loadHavokInstance()
+    .then((havokInstance) => {
+      if (isDisposed) {
+        return
+      }
+      const havokPlugin = new HavokPlugin(true, havokInstance)
+      scene.enablePhysics(new Vector3(0, -9.81, 0), havokPlugin)
+      // 物理子步進：預設每幀單步（16.7ms）積分，剛性彈簧＋接觸互搶時
+      // 解算器收斂不了會高頻抖動（魚壓住水草）；切成 4ms 小步讓每幀
+      // 跑約 4 次解算，彈簧與接觸能在步內達成平衡。場景剛體極少，成本可忽略
+      scene.getPhysicsEngine()?.setSubTimeStep(2)
 
-  /** 載入 Havok WASM 並把場景接上物理。
-   *
-   * 刻意不在建立場景時就跑：WASM 實例化是一大塊記憶體配置加主執行緒同步編譯，
-   * 疊在後製 render target 的配置尖峰上，手機常在初始化那一瞬間就被系統回收。
-   * 迎賓頁根本用不到物理——等玩家真的點擊進場再載，兩個尖峰就錯開了。
-   * 晚幾百毫秒到位對玩家無感：水草在物理接手前本來就有手動推草的降級效果
-   */
-  function startPhysics() {
-    if (physicsBootStarted || isDisposed) {
-      return
-    }
-    physicsBootStarted = true
-    import('@babylonjs/havok')
-      .then(async (havokModule) => havokModule.default())
-      .then((havokInstance) => {
-        if (isDisposed) {
-          return
-        }
-        const havokPlugin = new HavokPlugin(true, havokInstance)
-        scene.enablePhysics(new Vector3(0, -9.81, 0), havokPlugin)
-        // 物理子步進：預設每幀單步（16.7ms）積分，剛性彈簧＋接觸互搶時
-        // 解算器收斂不了會高頻抖動（魚壓住水草）；切成 4ms 小步讓每幀
-        // 跑約 4 次解算，彈簧與接觸能在步內達成平衡。場景剛體極少，成本可忽略
-        scene.getPhysicsEngine()?.setSubTimeStep(2)
+      // 大地板剛體：倒伏的葉片靠在上面、卵石在上面滾動
+      const groundAggregate = new PhysicsAggregate(groundFloor, PhysicsShapeType.BOX, { mass: 0 }, scene)
+      groundAggregate.shape.filterMembershipMask = PHYSICS_GROUP_STATIC
+      groundAggregate.shape.filterCollideMask = PHYSICS_GROUP_SEAWEED | PHYSICS_GROUP_DEBRIS
 
-        // 大地板剛體：倒伏的葉片靠在上面、卵石在上面滾動
-        const groundAggregate = new PhysicsAggregate(groundFloor, PhysicsShapeType.BOX, { mass: 0 }, scene)
-        groundAggregate.shape.filterMembershipMask = PHYSICS_GROUP_STATIC
-        groundAggregate.shape.filterCollideMask = PHYSICS_GROUP_SEAWEED | PHYSICS_GROUP_DEBRIS
+      // 魚的 kinematic 碰撞體：複製魚身幾何的隱形網格＋凸包，
+      // 貼合整條魚（含頭尾）——葉片被擋在真實身形之外，不會穿模。
+      // 不能直接掛在 bodyMesh 上：剛體會把世界座標寫回有 parent 的
+      // 節點的 local transform，造成模型部件分家；改用無 parent 的
+      // 複製網格，每幀同步魚身世界姿態（見 updateFish）
+      fishColliderMesh = codModel.bodyMesh.clone('dioramaFishCollider')
+      fishColliderMesh.setParent(null)
+      fishColliderMesh.isVisible = false
+      fishColliderMesh.isPickable = false
+      fishColliderMesh.metadata = null
+      fishAggregate = new PhysicsAggregate(
+        fishColliderMesh,
+        PhysicsShapeType.CONVEX_HULL,
+        { mass: 1 },
+        scene,
+      )
+      fishAggregate.body.setMotionType(PhysicsMotionType.ANIMATED)
+      // 每幀把節點姿態同步進物理世界（kinematic 追隨）
+      fishAggregate.body.disablePreStep = false
+      fishAggregate.shape.filterMembershipMask = PHYSICS_GROUP_FISH
+      fishAggregate.shape.filterCollideMask = PHYSICS_GROUP_SEAWEED | PHYSICS_GROUP_DEBRIS
 
-        // 魚的 kinematic 碰撞體：複製魚身幾何的隱形網格＋凸包，
-        // 貼合整條魚（含頭尾）——葉片被擋在真實身形之外，不會穿模。
-        // 不能直接掛在 bodyMesh 上：剛體會把世界座標寫回有 parent 的
-        // 節點的 local transform，造成模型部件分家；改用無 parent 的
-        // 複製網格，每幀同步魚身世界姿態（見 updateFish）
-        fishColliderMesh = codModel.bodyMesh.clone('dioramaFishCollider')
-        fishColliderMesh.setParent(null)
-        fishColliderMesh.isVisible = false
-        fishColliderMesh.isPickable = false
-        fishColliderMesh.metadata = null
-        fishAggregate = new PhysicsAggregate(
-          fishColliderMesh,
-          PhysicsShapeType.CONVEX_HULL,
-          { mass: 1 },
-          scene,
-        )
-        fishAggregate.body.setMotionType(PhysicsMotionType.ANIMATED)
-        // 每幀把節點姿態同步進物理世界（kinematic 追隨）
-        fishAggregate.body.disablePreStep = false
-        fishAggregate.shape.filterMembershipMask = PHYSICS_GROUP_FISH
-        fishAggregate.shape.filterCollideMask = PHYSICS_GROUP_SEAWEED | PHYSICS_GROUP_DEBRIS
-
-        environment.enablePhysics()
-      })
-      .catch((error) => {
-        console.warn('[fish-diorama] Havok 物理載入失敗，改用簡易推草效果', error)
-      })
-  }
+      environment.enablePhysics()
+    })
+    .catch((error) => {
+      console.warn('[fish-diorama] Havok 物理載入失敗，改用簡易推草效果', error)
+    })
 
   /** 取景基準方位角，滑鼠視差以此為中心微幅偏移 */
   let baseCameraAlpha = -Math.PI / 2
@@ -1589,7 +1581,6 @@ export function createDioramaScene(
       sleepyActive = enabled
       syncSkyConfetti()
     },
-    startPhysics,
     setRunning(value: boolean) {
       if (isRunning === value) {
         return

@@ -104,11 +104,11 @@ export function applyDioramaLook(
   // 影像處理：對比微調 + FXAA。
   // 景深（DOF）刻意停用：失焦溢光會在高對比物體邊緣產生明顯白色光暈。
   //
-  // 第二個參數是 HDR。開啟後管線每一張 render target 都改用 half-float，
-  // 每像素 8 bytes、是 8-bit 的兩倍，MSAA 緩衝也跟著加倍。它換來的是
-  // bloom 與色調映射的亮部餘裕——六個世界都沒開這兩者，畫面差異只剩
-  // 漸層的細微色階。手機關掉，建立場景瞬間要配置的顯存直接砍半
-  const pipeline = new DefaultRenderingPipeline(`${namePrefix}Pipeline`, !isLowPowerDevice, scene, [camera])
+  // 第二個參數是 HDR，全平台關閉。開啟後管線每一張 render target 都改用
+  // half-float，每像素 8 bytes、是 8-bit 的兩倍，MSAA 緩衝也跟著加倍。
+  // 它換來的是 bloom 與色調映射的亮部餘裕，而六個世界都沒開這兩者——
+  // 付了兩倍的頻寬，買到的只有漸層的細微色階
+  const pipeline = new DefaultRenderingPipeline(`${namePrefix}Pipeline`, false, scene, [camera])
   pipeline.depthOfFieldEnabled = false
   pipeline.imageProcessingEnabled = true
   // 對比刻意收斂：柔和陰天感，不要正午烈日
