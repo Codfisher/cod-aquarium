@@ -226,6 +226,40 @@ describe('致命判定', () => {
     expect(findHazardContact(body, [urchin], 0)).toBe(urchin)
     expect(findHazardContact(body, [urchin], 0.12)).toBe(null)
   })
+
+  describe('牆刺的膠囊判定', () => {
+    // 刺尖在 x = 3.5、根部在牆面：撐著刺的岩瘤佔掉中間那一段
+    const spike: CanyonHazardSpec = {
+      kind: 'wallSpike',
+      x: 3.5,
+      y: -10,
+      radius: 0.5,
+      baseX: CANYON_HALF_WIDTH,
+      wallSide: 1,
+    }
+
+    it('撞在刺尖與岩瘤之間都算死', () => {
+      const atTip = findHazardContact({ x: 3.5, y: -10, radius: FISH_RADIUS }, [spike])
+      const atBase = findHazardContact({ x: 4.6, y: -10, radius: FISH_RADIUS }, [spike])
+      const atWall = findHazardContact({ x: CANYON_HALF_WIDTH, y: -10, radius: FISH_RADIUS }, [spike])
+
+      expect(atTip).toBe(spike)
+      expect(atBase).toBe(spike)
+      expect(atWall).toBe(spike)
+    })
+
+    it('通道那一側的邊界仍是刺尖，膠囊不會往通道多長一截', () => {
+      const beyondTip = findHazardContact({ x: 2.4, y: -10, radius: FISH_RADIUS }, [spike])
+
+      expect(beyondTip).toBe(null)
+    })
+
+    it('沒有 baseX 的障礙維持原本的圓對圓', () => {
+      const besideUrchin = findHazardContact({ x: 3.5, y: -10, radius: FISH_RADIUS }, [urchin])
+
+      expect(besideUrchin).toBe(null)
+    })
+  })
 })
 
 describe('蠟筆存量', () => {
