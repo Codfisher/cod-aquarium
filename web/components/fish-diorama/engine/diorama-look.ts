@@ -12,20 +12,14 @@ import { PostProcess } from '@babylonjs/core/PostProcesses/postProcess'
 import { DefaultRenderingPipeline } from '@babylonjs/core/PostProcesses/RenderPipeline/Pipelines/defaultRenderingPipeline'
 import { SSAO2RenderingPipeline } from '@babylonjs/core/PostProcesses/RenderPipeline/Pipelines/ssao2RenderingPipeline'
 import { isCoarsePointerDevice } from '../shared/device-tier'
+import {
+  buildTiltShiftShaderSource,
+  DEFAULT_TILT_SHIFT,
+  getTiltShiftTapCount,
+  type TiltShiftOptions,
+} from './tilt-shift-shader'
 
-/** 移軸微縮的清晰帶設定。垂直捲動類遊戲把 halfHeight 放大，
- * 才不會把玩家正在操作的上下區域糊掉
- */
-export interface TiltShiftOptions {
-  /** 清晰帶中心（0 = 畫面底、1 = 頂） */
-  focusCenterY: number;
-  /** 清晰帶半高（畫面高度比例） */
-  focusHalfHeight: number;
-  /** 由清晰到最模糊的過渡帶寬度 */
-  focusFalloff: number;
-  /** 最大模糊半徑（px） */
-  maxBlurRadius: number;
-}
+export type { TiltShiftOptions }
 
 export interface DioramaLookOptions {
   /** 管線名稱前綴，多場景共存時避免撞名 */
@@ -57,13 +51,6 @@ export interface DioramaLook {
   dispose: () => void;
 }
 
-const DEFAULT_TILT_SHIFT: TiltShiftOptions = {
-  focusCenterY: 0.52,
-  focusHalfHeight: 0.12,
-  focusFalloff: 0.3,
-  maxBlurRadius: 10,
-}
-
 /** 移軸模糊的 shader 已註冊過的名稱集合。
  * ShadersStore 是全域的，同名重複寫入會讓先前建立的 PostProcess 取到不同參數，
  * 故每組參數各自一個 shader 名
@@ -72,49 +59,21 @@ const registeredShaderNameSet = new Set<string>()
 
 /** 依清晰帶參數註冊（或取用既有的）移軸 shader，回傳 shader 名 */
 function ensureTiltShiftShader(options: TiltShiftOptions): string {
+  const tapCount = getTiltShiftTapCount()
   const shaderName = [
     'tiltShift',
     options.focusCenterY.toFixed(3),
     options.focusHalfHeight.toFixed(3),
     options.focusFalloff.toFixed(3),
     options.maxBlurRadius.toFixed(1),
+    String(tapCount),
   ].join('_').replace(/\./g, 'p')
 
   if (registeredShaderNameSet.has(shaderName)) {
     return shaderName
   }
 
-  Effect.ShadersStore[`${shaderName}FragmentShader`] = /* glsl */ `
-    precision highp float;
-    varying vec2 vUV;
-    uniform sampler2D textureSampler;
-    uniform vec2 texelSize;
-
-    const float FOCUS_CENTER_Y = ${options.focusCenterY.toFixed(4)};
-    const float FOCUS_HALF_HEIGHT = ${options.focusHalfHeight.toFixed(4)};
-    const float FOCUS_FALLOFF = ${options.focusFalloff.toFixed(4)};
-    const float MAX_BLUR_RADIUS = ${options.maxBlurRadius.toFixed(2)};
-
-    void main(void) {
-      vec4 centerColor = texture2D(textureSampler, vUV);
-      float bandDistance = max(0.0, abs(vUV.y - FOCUS_CENTER_Y) - FOCUS_HALF_HEIGHT);
-      float blurStrength = smoothstep(0.0, FOCUS_FALLOFF, bandDistance);
-      if (blurStrength < 0.02) {
-        gl_FragColor = centerColor;
-        return;
-      }
-      float radius = blurStrength * MAX_BLUR_RADIUS;
-      // 12 向盤形取樣的簡化模糊，半徑交錯避免環狀感
-      vec4 accumulated = centerColor;
-      for (int index = 0; index < 12; index++) {
-        float angle = float(index) * 0.5236;
-        float sampleRadius = radius * (0.45 + 0.55 * fract(float(index) * 0.618));
-        vec2 sampleOffset = vec2(cos(angle), sin(angle)) * texelSize * sampleRadius;
-        accumulated += texture2D(textureSampler, vUV + sampleOffset);
-      }
-      gl_FragColor = accumulated / 13.0;
-    }
-  `
+  Effect.ShadersStore[`${shaderName}FragmentShader`] = buildTiltShiftShaderSource(options, tapCount)
   registeredShaderNameSet.add(shaderName)
   return shaderName
 }
@@ -143,8 +102,13 @@ export function applyDioramaLook(
   const isLowPowerDevice = isCoarsePointerDevice()
 
   // 影像處理：對比微調 + FXAA。
-  // 景深（DOF）刻意停用：失焦溢光會在高對比物體邊緣產生明顯白色光暈
-  const pipeline = new DefaultRenderingPipeline(`${namePrefix}Pipeline`, true, scene, [camera])
+  // 景深（DOF）刻意停用：失焦溢光會在高對比物體邊緣產生明顯白色光暈。
+  //
+  // 第二個參數是 HDR。開啟後管線每一張 render target 都改用 half-float，
+  // 每像素 8 bytes、是 8-bit 的兩倍，MSAA 緩衝也跟著加倍。它換來的是
+  // bloom 與色調映射的亮部餘裕——六個世界都沒開這兩者，畫面差異只剩
+  // 漸層的細微色階。手機關掉，建立場景瞬間要配置的顯存直接砍半
+  const pipeline = new DefaultRenderingPipeline(`${namePrefix}Pipeline`, !isLowPowerDevice, scene, [camera])
   pipeline.depthOfFieldEnabled = false
   pipeline.imageProcessingEnabled = true
   // 對比刻意收斂：柔和陰天感，不要正午烈日

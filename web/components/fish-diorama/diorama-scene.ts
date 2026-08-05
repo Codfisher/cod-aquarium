@@ -34,6 +34,11 @@ import {
   type TypewriterStage,
 } from './challenge-stage'
 import { COD_LYING_LIFT, createCodModel } from './cod-model'
+import {
+  buildTiltShiftShaderSource,
+  DEFAULT_TILT_SHIFT,
+  getTiltShiftTapCount,
+} from './engine/tilt-shift-shader'
 import { FlopController, resolvePointOutsideObstacles } from './flop-controller'
 import { attachPaperGrainPlugins, setPaperGrainRimLight } from './paper-grain-plugin'
 import { type AccessoryHandle, createAccessory } from './rewards/accessory-builder'
@@ -124,6 +129,11 @@ export interface DioramaSceneHandle {
   engine: Engine;
   /** 開關渲染迴圈（不可見或失焦時停止） */
   setRunning: (value: boolean) => void;
+  /** 開始載入 Havok 物理（水草被魚推開、卵石滾動）。
+   * 玩家點擊進場時呼叫，讓 WASM 的記憶體尖峰與場景初始化的顯存尖峰錯開；
+   * 重複呼叫只會真的載一次
+   */
+  startPhysics: () => void;
   /** 開關整套後製管線。傳 false 會真的把 PostProcess 與 SSAO 整組釋放，
    * 不只是停用——Babylon 的 render target 不會因為 Scene 停止渲染就歸還顯存。
    * 玩迷你遊戲時箱庭 Scene 留在記憶體，這時關掉才不會兩套全螢幕 RTT 並存
@@ -283,8 +293,14 @@ export function createDioramaScene(
    */
   function buildLook(): { dispose: () => void } {
     // 影像處理：對比微調 + FXAA。
-    // 景深（DOF）已停用：失焦溢光會在物體邊緣產生明顯白色光暈
-    const pipeline = new DefaultRenderingPipeline('dioramaPipeline', true, scene, [camera])
+    // 景深（DOF）已停用：失焦溢光會在物體邊緣產生明顯白色光暈。
+    //
+    // 第二個參數是 HDR。開啟後管線每一張 render target 都改用 half-float，
+    // 每像素 8 bytes、是 8-bit 的兩倍，MSAA 緩衝也跟著加倍。它換來的是
+    // bloom 與色調映射的亮部餘裕——而這個世界兩者都沒開，畫面差異只剩
+    // 漸層的細微色階。手機關掉，初始化瞬間要配置的顯存直接砍半，
+    // 而且 8-bit 的多重取樣緩衝在行動 GPU 上相容性也比 half-float 好
+    const pipeline = new DefaultRenderingPipeline('dioramaPipeline', !isLowPowerDevice, scene, [camera])
     pipeline.depthOfFieldEnabled = false
     pipeline.imageProcessingEnabled = true
     // 對比刻意收斂：柔和陰天感，不要正午烈日
@@ -349,40 +365,14 @@ export function createDioramaScene(
     // 移軸微縮（tilt-shift）：畫面上下緣漸進模糊、中央保持清晰帶。
     // 微縮感 = 俯視＋淺景深＋高對比（後兩者已有），這裡補上模糊。
     // 用螢幕空間垂直漸層而非深度 DOF，避開先前失焦溢光的邊緣光暈問題。
-    // 這個 pass 每像素取樣 12 次，是整條管線最貴的一個——但它正是「微縮箱庭」
-    // 的視覺核心，拿掉的話手機看到的就不是同一個作品了，寧可留著、用降幀去換
-    Effect.ShadersStore.tiltShiftFragmentShader = /* glsl */ `
-    precision highp float;
-    varying vec2 vUV;
-    uniform sampler2D textureSampler;
-    uniform vec2 texelSize;
-
-    // 清晰帶中心（0 = 畫面底、1 = 頂）、半高、過渡帶與最大模糊半徑（px）
-    const float FOCUS_CENTER_Y = 0.52;
-    const float FOCUS_HALF_HEIGHT = 0.12;
-    const float FOCUS_FALLOFF = 0.3;
-    const float MAX_BLUR_RADIUS = 10.0;
-
-    void main(void) {
-      vec4 centerColor = texture2D(textureSampler, vUV);
-      float bandDistance = max(0.0, abs(vUV.y - FOCUS_CENTER_Y) - FOCUS_HALF_HEIGHT);
-      float blurStrength = smoothstep(0.0, FOCUS_FALLOFF, bandDistance);
-      if (blurStrength < 0.02) {
-        gl_FragColor = centerColor;
-        return;
-      }
-      float radius = blurStrength * MAX_BLUR_RADIUS;
-      // 12 向盤形取樣的簡化模糊，半徑交錯避免環狀感
-      vec4 accumulated = centerColor;
-      for (int index = 0; index < 12; index++) {
-        float angle = float(index) * 0.5236;
-        float sampleRadius = radius * (0.45 + 0.55 * fract(float(index) * 0.618));
-        vec2 sampleOffset = vec2(cos(angle), sin(angle)) * texelSize * sampleRadius;
-        accumulated += texture2D(textureSampler, vUV + sampleOffset);
-      }
-      gl_FragColor = accumulated / 13.0;
-    }
-  `
+    //
+    // 這個 pass 是整條管線最貴的一個：清晰帶只佔畫面約四分之一（走 early-out），
+    // 其餘每個像素都要跑滿整圈取樣。它又正是「微縮箱庭」的視覺核心，
+    // 拿掉的話手機看到的就不是同一個作品——所以砍取樣數而不砍效果本身
+    Effect.ShadersStore.tiltShiftFragmentShader = buildTiltShiftShaderSource(
+      DEFAULT_TILT_SHIFT,
+      getTiltShiftTapCount(),
+    )
     const tiltShiftPostProcess = new PostProcess('tiltShift', 'tiltShift', ['texelSize'], null, 1, camera)
     tiltShiftPostProcess.onApply = (effect) => {
       effect.setFloat2(
@@ -661,52 +651,67 @@ export function createDioramaScene(
   // 就緒後：水草葉片轉動態剛體被魚推開、彈簧回正；載入失敗保留手動推草，場景照常運作
   let fishColliderMesh: Mesh | undefined
   let fishAggregate: PhysicsAggregate | undefined
+  /** Havok 是否已經開始載入。startPhysics 可重複呼叫，但只會真的載一次 */
+  let physicsBootStarted = false
 
-  import('@babylonjs/havok')
-    .then(async (havokModule) => havokModule.default())
-    .then((havokInstance) => {
-      if (isDisposed) {
-        return
-      }
-      const havokPlugin = new HavokPlugin(true, havokInstance)
-      scene.enablePhysics(new Vector3(0, -9.81, 0), havokPlugin)
-      // 物理子步進：預設每幀單步（16.7ms）積分，剛性彈簧＋接觸互搶時
-      // 解算器收斂不了會高頻抖動（魚壓住水草）；切成 4ms 小步讓每幀
-      // 跑約 4 次解算，彈簧與接觸能在步內達成平衡。場景剛體極少，成本可忽略
-      scene.getPhysicsEngine()?.setSubTimeStep(2)
+  /** 載入 Havok WASM 並把場景接上物理。
+   *
+   * 刻意不在建立場景時就跑：WASM 實例化是一大塊記憶體配置加主執行緒同步編譯，
+   * 疊在後製 render target 的配置尖峰上，手機常在初始化那一瞬間就被系統回收。
+   * 迎賓頁根本用不到物理——等玩家真的點擊進場再載，兩個尖峰就錯開了。
+   * 晚幾百毫秒到位對玩家無感：水草在物理接手前本來就有手動推草的降級效果
+   */
+  function startPhysics() {
+    if (physicsBootStarted || isDisposed) {
+      return
+    }
+    physicsBootStarted = true
+    import('@babylonjs/havok')
+      .then(async (havokModule) => havokModule.default())
+      .then((havokInstance) => {
+        if (isDisposed) {
+          return
+        }
+        const havokPlugin = new HavokPlugin(true, havokInstance)
+        scene.enablePhysics(new Vector3(0, -9.81, 0), havokPlugin)
+        // 物理子步進：預設每幀單步（16.7ms）積分，剛性彈簧＋接觸互搶時
+        // 解算器收斂不了會高頻抖動（魚壓住水草）；切成 4ms 小步讓每幀
+        // 跑約 4 次解算，彈簧與接觸能在步內達成平衡。場景剛體極少，成本可忽略
+        scene.getPhysicsEngine()?.setSubTimeStep(2)
 
-      // 大地板剛體：倒伏的葉片靠在上面、卵石在上面滾動
-      const groundAggregate = new PhysicsAggregate(groundFloor, PhysicsShapeType.BOX, { mass: 0 }, scene)
-      groundAggregate.shape.filterMembershipMask = PHYSICS_GROUP_STATIC
-      groundAggregate.shape.filterCollideMask = PHYSICS_GROUP_SEAWEED | PHYSICS_GROUP_DEBRIS
+        // 大地板剛體：倒伏的葉片靠在上面、卵石在上面滾動
+        const groundAggregate = new PhysicsAggregate(groundFloor, PhysicsShapeType.BOX, { mass: 0 }, scene)
+        groundAggregate.shape.filterMembershipMask = PHYSICS_GROUP_STATIC
+        groundAggregate.shape.filterCollideMask = PHYSICS_GROUP_SEAWEED | PHYSICS_GROUP_DEBRIS
 
-      // 魚的 kinematic 碰撞體：複製魚身幾何的隱形網格＋凸包，
-      // 貼合整條魚（含頭尾）——葉片被擋在真實身形之外，不會穿模。
-      // 不能直接掛在 bodyMesh 上：剛體會把世界座標寫回有 parent 的
-      // 節點的 local transform，造成模型部件分家；改用無 parent 的
-      // 複製網格，每幀同步魚身世界姿態（見 updateFish）
-      fishColliderMesh = codModel.bodyMesh.clone('dioramaFishCollider')
-      fishColliderMesh.setParent(null)
-      fishColliderMesh.isVisible = false
-      fishColliderMesh.isPickable = false
-      fishColliderMesh.metadata = null
-      fishAggregate = new PhysicsAggregate(
-        fishColliderMesh,
-        PhysicsShapeType.CONVEX_HULL,
-        { mass: 1 },
-        scene,
-      )
-      fishAggregate.body.setMotionType(PhysicsMotionType.ANIMATED)
-      // 每幀把節點姿態同步進物理世界（kinematic 追隨）
-      fishAggregate.body.disablePreStep = false
-      fishAggregate.shape.filterMembershipMask = PHYSICS_GROUP_FISH
-      fishAggregate.shape.filterCollideMask = PHYSICS_GROUP_SEAWEED | PHYSICS_GROUP_DEBRIS
+        // 魚的 kinematic 碰撞體：複製魚身幾何的隱形網格＋凸包，
+        // 貼合整條魚（含頭尾）——葉片被擋在真實身形之外，不會穿模。
+        // 不能直接掛在 bodyMesh 上：剛體會把世界座標寫回有 parent 的
+        // 節點的 local transform，造成模型部件分家；改用無 parent 的
+        // 複製網格，每幀同步魚身世界姿態（見 updateFish）
+        fishColliderMesh = codModel.bodyMesh.clone('dioramaFishCollider')
+        fishColliderMesh.setParent(null)
+        fishColliderMesh.isVisible = false
+        fishColliderMesh.isPickable = false
+        fishColliderMesh.metadata = null
+        fishAggregate = new PhysicsAggregate(
+          fishColliderMesh,
+          PhysicsShapeType.CONVEX_HULL,
+          { mass: 1 },
+          scene,
+        )
+        fishAggregate.body.setMotionType(PhysicsMotionType.ANIMATED)
+        // 每幀把節點姿態同步進物理世界（kinematic 追隨）
+        fishAggregate.body.disablePreStep = false
+        fishAggregate.shape.filterMembershipMask = PHYSICS_GROUP_FISH
+        fishAggregate.shape.filterCollideMask = PHYSICS_GROUP_SEAWEED | PHYSICS_GROUP_DEBRIS
 
-      environment.enablePhysics()
-    })
-    .catch((error) => {
-      console.warn('[fish-diorama] Havok 物理載入失敗，改用簡易推草效果', error)
-    })
+        environment.enablePhysics()
+      })
+      .catch((error) => {
+        console.warn('[fish-diorama] Havok 物理載入失敗，改用簡易推草效果', error)
+      })
+  }
 
   /** 取景基準方位角，滑鼠視差以此為中心微幅偏移 */
   let baseCameraAlpha = -Math.PI / 2
@@ -1584,6 +1589,7 @@ export function createDioramaScene(
       sleepyActive = enabled
       syncSkyConfetti()
     },
+    startPhysics,
     setRunning(value: boolean) {
       if (isRunning === value) {
         return
