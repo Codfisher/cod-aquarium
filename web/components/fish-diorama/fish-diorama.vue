@@ -74,6 +74,22 @@
       </div>
     </transition>
 
+    <!-- 遊戲啟動失敗的提示。原本只印 console 就默默退回箱庭，手機上等於什麼線索都沒有，
+         玩家也只覺得按了沒反應。這裡把真正的錯誤攤在畫面上 -->
+    <transition name="text">
+      <div
+        v-if="launchErrorText"
+        class="launch-error-overlay vp-raw absolute text-center"
+      >
+        <div class="launch-error-title">
+          遊戲啟動失敗 (´･ω･`)
+        </div>
+        <div class="launch-error-detail">
+          {{ launchErrorText }}
+        </div>
+      </div>
+    </transition>
+
     <!-- 魚停在裝飾旁時浮出的連結 popup。外層錨點只管定位（錨定物體頂端投影位置），
          內層泡泡負責外觀與進出場動畫，兩層 transform 才不會互相覆蓋。
          動畫掛在內層，Vue 偵測不到根元素時長，需明確給 duration -->
@@ -600,6 +616,24 @@ const hasJustCleared = ref(false)
 const gameHudState = ref<GameHudState>({ gaugeList: [], pipRowList: [], actionList: [] })
 /** 墨水轉場：蓋住畫面的期間偷偷把 Scene 換掉 */
 const inkTransitionVisible = ref(false)
+/** 遊戲啟動失敗時攤在畫面上的錯誤訊息。
+ * 只印 console 的話，手機上既查不到原因、玩家也只覺得按了沒反應
+ */
+const launchErrorText = ref('')
+/** 錯誤提示停留時間。夠久到手機上讀得完、抄得下來 */
+const LAUNCH_ERROR_VISIBLE_MS = 12_000
+let launchErrorTimer: ReturnType<typeof setTimeout> | undefined
+
+function showLaunchError(error: unknown) {
+  const message = error instanceof Error
+    ? `${error.name}: ${error.message}`
+    : String(error)
+  launchErrorText.value = message
+  clearTimeout(launchErrorTimer)
+  launchErrorTimer = setTimeout(() => {
+    launchErrorText.value = ''
+  }, LAUNCH_ERROR_VISIBLE_MS)
+}
 
 let toastTimer: ReturnType<typeof setTimeout> | undefined
 let inkTransitionTimer: ReturnType<typeof setTimeout> | undefined
@@ -673,6 +707,8 @@ async function startGame(gameId: MiniGameId) {
   hudPhase.value = 'loading'
   gameScore.value = 0
   toastText.value = ''
+  clearTimeout(launchErrorTimer)
+  launchErrorText.value = ''
   newRewardIdList.value = []
   hasJustCleared.value = false
 
@@ -695,6 +731,7 @@ async function startGame(gameId: MiniGameId) {
     // 載入失敗（chunk 抓不到、WebGL 出事）就退回箱庭。
     // 少了這層，箱庭會停在暫停狀態，玩家只剩一片靜止的畫面
     console.error('[fish-diorama] 遊戲啟動失敗', error)
+    showLaunchError(error)
     gameHost?.close()
     activeGameId.value = null
     hudPhase.value = 'loading'
@@ -1049,6 +1086,7 @@ onUnmounted(() => {
   clearTimeout(fullUnlockTimer)
   clearTimeout(toastTimer)
   clearTimeout(inkTransitionTimer)
+  clearTimeout(launchErrorTimer)
   clearTimeout(contextLostRetryTimer)
   clearTimeout(contextHealthyTimer)
   clearInterval(hourTimer)
@@ -1199,6 +1237,40 @@ onUnmounted(() => {
 
   &.text-leave-active
     animation: none
+
+// 遊戲啟動失敗的錯誤卡：擺在畫面中央偏上，訊息本身允許選取，
+// 手機上才有辦法長按複製整段回報
+.launch-error-overlay
+  top: 34%
+  left: 50%
+  transform: translateX(-50%)
+  max-width: min(88%, 420px)
+  padding: 12px 16px
+  border-radius: 12px
+  color: #fff
+  background: rgba(28, 22, 26, 0.9)
+  border: 1px solid rgba(255, 255, 255, 0.18)
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45)
+  user-select: text
+  -webkit-user-select: text
+
+  // .text 這個共用 transition 會用 transform 做位移，與置中的 translateX 是同一個屬性，
+  // 直接覆寫會讓轉場瞬間跳位置——進出場改用同時帶上兩者的寫法
+  &.text-enter-from, &.text-leave-to
+    transform: translateX(-50%) translateY(6px)
+
+.launch-error-title
+  font-size: 14px
+  font-weight: 600
+  letter-spacing: 2px
+
+.launch-error-detail
+  margin-top: 6px
+  font-size: 12px
+  line-height: 1.6
+  text-align: left
+  word-break: break-word
+  opacity: 0.85
 
 @keyframes move-hint-breathe
   0%, 100%
