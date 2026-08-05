@@ -11,6 +11,7 @@ import { ShadowGenerator } from '@babylonjs/core/Lights/Shadows/shadowGenerator'
 import { ColorCurves } from '@babylonjs/core/Materials/colorCurves'
 import { Effect } from '@babylonjs/core/Materials/effect'
 import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial'
+import { RenderTargetTexture } from '@babylonjs/core/Materials/Textures/renderTargetTexture'
 import { Color3, Color4 } from '@babylonjs/core/Maths/math.color'
 import { Matrix, Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector'
 import { CreateCylinder } from '@babylonjs/core/Meshes/Builders/cylinderBuilder'
@@ -191,8 +192,6 @@ const FISH_COLLISION_MARGIN = 0.9
 const INTERACTION_TRIGGER_DISTANCE = 1.6
 /** 單幀 dt 上限（ms），比照 bg-flock 避免掉幀時瞬移 */
 const MAX_FRAME_DELTA_MS = 34
-/** 手機的目標幀距（秒）。1/30 秒＝30fps，見 renderFrame 的降幀說明 */
-const LOW_POWER_FRAME_INTERVAL_SECONDS = 1 / 30
 /** 點擊判定：pointer 位移小於此值（px）才視為點擊而非拖曳/捲動 */
 const TAP_DISTANCE_THRESHOLD = 8
 /** 滑鼠視差：游標偏離畫面中心時鏡頭方位角/俯角的最大偏移（rad）。
@@ -322,7 +321,10 @@ export function createDioramaScene(
     // 手機 2 samples：解析度已經回到 0.67 倍實體像素，邊緣主要靠它，
     // MSAA 只是補覆蓋率，拉到 4 換不到相稱的畫質卻要多一份多重取樣緩衝
     pipeline.samples = isLowPowerDevice ? 2 : 4
-    pipeline.fxaaEnabled = true
+    // 手機關掉 FXAA。它內部是亮度取樣加邊緣搜尋，約十幾次取樣，跟移軸模糊同一個級距，
+    // 而且是一整個獨立的全螢幕 pass——是這條管線裡「單位畫質最貴」的一項。
+    // MSAA 還在，幾何邊緣照樣有覆蓋率取樣，少掉的只是殘餘閃爍的收尾
+    pipeline.fxaaEnabled = !isLowPowerDevice
 
     // 質感細調只留暗角：聚焦視線，染暗藍紫呼應 split toning。
     // 它是 imageProcessing 內建的，不額外增加 pass。
@@ -450,6 +452,13 @@ export function createDioramaScene(
   shadowGenerator.usePercentageCloserFiltering = true
   // 陰影不全黑：留近半環境光，柔和陰天的影子
   shadowGenerator.setDarkness(0.45)
+  // 陰影圖每兩幀才重畫一次。它是一整個幾何 pass——石頭、水草、卵石、蠟筆組、
+  // 相機、打字機、魚全部要再畫進 1024² 的深度圖一次，成本與主場景同級。
+  // 而這個場景動得慢，唯一快速移動的只有跳躍中的魚，影子晚一幀在這個節奏下看不出來
+  const shadowMap = shadowGenerator.getShadowMap()
+  if (shadowMap) {
+    shadowMap.refreshRate = RenderTargetTexture.REFRESHRATE_RENDER_ONEVERYTWOFRAMES
+  }
 
   // 大地板：只顯示陰影的材質，承接浮島落下的接觸陰影把場景接地，同時保留透明畫布的 CSS 漸層背景
   const groundFloor = CreateGround(
@@ -1171,8 +1180,6 @@ export function createDioramaScene(
 
   // --- 每幀更新 ---
   let timeSeconds = 0
-  /** 尚未消化的經過時間。降幀時把跳過的幀累加在這裡，真正渲染的那一幀才拿得到完整時距 */
-  let pendingDeltaSeconds = 0
 
   /** 最新一幀的魚姿態，快門挑戰的拍照判定用 */
   let latestPose = flopController.getPose()
@@ -1334,20 +1341,10 @@ export function createDioramaScene(
   }
 
   function renderFrame() {
-    // 手機降到 30fps：箱庭是文末的裝飾元件，卻是一個永不停歇的全螢幕 3D 渲染迴圈。
-    // 手機 GPU 長時間扛著超取樣＋多道全螢幕後製會持續發熱，iOS Safari 的看門狗
-    // 便會回收 WebGL context（畫面直接死掉）。裝飾元件不需要 60fps，
-    // 砍一半的持續負載換穩定，是這個場景最划算的取捨。
-    //
-    // 跳過的那些幀的時間要累加起來帶進 deltaSeconds：engine.getDeltaTime() 給的是
-    // 「上一個引擎幀到現在」，直接拿來用的話跳幀等於把經過的時間丟掉，動畫會慢一半
-    pendingDeltaSeconds += engine.getDeltaTime() / 1000
-    if (isLowPowerDevice && pendingDeltaSeconds < LOW_POWER_FRAME_INTERVAL_SECONDS) {
-      return
-    }
-
-    const deltaSeconds = Math.min(pendingDeltaSeconds * 1000, MAX_FRAME_DELTA_MS) / 1000
-    pendingDeltaSeconds = 0
+    // 手機曾經降到 30fps 換發熱穩定，現在拿掉了：HDR、超取樣換算、移軸取樣數、
+    // FXAA 與陰影重畫頻率一路砍下來，每幀成本已經低到付得起 60fps，
+    // 而箱庭與迷你遊戲手感一致比省那一半更值得
+    const deltaSeconds = Math.min(engine.getDeltaTime(), MAX_FRAME_DELTA_MS) / 1000
     timeSeconds += deltaSeconds
 
     // 滑鼠視差：平滑趨近目標偏移後微轉鏡頭（游標往上 = 視角略升高俯瞰）
