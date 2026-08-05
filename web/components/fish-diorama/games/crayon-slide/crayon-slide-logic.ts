@@ -66,13 +66,18 @@ const SEGMENT_EDGE_MARGIN = 1.5
 
 export type CanyonHazardKind = 'urchin' | 'wallSpike'
 
-/** 一顆致命障礙。致命判定一律化約成圓，兩種形態只差在視覺 */
+/** 一顆致命障礙。致命判定化約成圓或膠囊，形態只差在視覺 */
 export interface CanyonHazardSpec {
   kind: CanyonHazardKind;
-  /** 致命圓心 */
+  /** 致命圓心。wallSpike 是刺尖那一端 */
   x: number;
   y: number;
   radius: number;
+  /** wallSpike 專用：致命範圍是「牆面到刺尖」這條線段掃出來的膠囊。
+   * 撐住刺的岩瘤整段都凸在通道裡，只算刺尖那顆圓的話，
+   * 魚會直接穿過看得見的岩石而毫髮無傷
+   */
+  baseX?: number;
   /** wallSpike 附著的牆：-1 左牆、1 右牆；urchin 為 0 */
   wallSide: -1 | 0 | 1;
 }
@@ -201,6 +206,9 @@ function appendHazard(
     x: side * (CANYON_HALF_WIDTH - protrusion),
     y,
     radius: WALL_SPIKE_RADIUS,
+    // 岩瘤從牆面一路撐到刺尖，整段都要致命。膠囊只往牆的方向長，
+    // 通道那一側的邊界仍是刺尖那顆圓，公平性不受影響
+    baseX: side * CANYON_HALF_WIDTH,
     wallSide: side,
   })
 }
@@ -299,7 +307,12 @@ export function findHazardContact(
   grace: number = HAZARD_CONTACT_GRACE,
 ): CanyonHazardSpec | null {
   for (const hazard of hazardList) {
-    const distance = Math.hypot(body.x - hazard.x, body.y - hazard.y)
+    // 有 baseX 的是牆刺：致命範圍是牆面到刺尖的膠囊，取線段上最近的點來量距離。
+    // 沒有的話線段退化成一個點，等同原本的圓對圓
+    const nearestX = hazard.baseX === undefined
+      ? hazard.x
+      : clamp(body.x, Math.min(hazard.x, hazard.baseX), Math.max(hazard.x, hazard.baseX))
+    const distance = Math.hypot(body.x - nearestX, body.y - hazard.y)
     if (distance < body.radius + hazard.radius - grace) {
       return hazard
     }

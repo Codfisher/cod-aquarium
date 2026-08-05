@@ -18,8 +18,11 @@ import { applyHeightGradient } from '../geometry-utils'
  * 關鍵在於「按位置」而非「按頂點索引」——flat shading 會把共用頂點拆散成
  * 每面獨立的一份，若按索引各自抖動，相鄰面會在接縫處裂開。
  * 同位置同位移，網格才會整體變形而不破面。
+ *
+ * 對外開放給需要自訂變形規則的呼叫者（例如只准往某一側位移的牆面），
+ * 這類需求用不上 applyVertexJitter 的等向抖動，但仍要同一套「同位置同結果」的保證
  */
-function hashPosition(x: number, y: number, z: number, seed: number, channel: number): number {
+export function hashPosition(x: number, y: number, z: number, seed: number, channel: number): number {
   // 座標先量化，浮點誤差才不會讓「同一個點」算出兩組位移
   const quantizedX = Math.round(x * 2048)
   const quantizedY = Math.round(y * 2048)
@@ -33,6 +36,83 @@ function hashPosition(x: number, y: number, z: number, seed: number, channel: nu
   hashValue ^= hashValue >>> 13
   // 映射到 -1 ~ 1
   return ((hashValue >>> 0) / 2147483648) - 1
+}
+
+/** 一維值雜訊（-1 ~ 1）：整數格點各取一個雜湊值，格內以 smoothstep 內插。
+ *
+ * 要的是「連續但不重複」的起伏。正弦疊加寫起來簡單，但幾個波長一疊就會
+ * 出現看得出來的節拍；值雜訊沒有週期，沿著同一條軸走多遠都不會回到原樣。
+ * 位置吃的是無界的座標（例如世界 y），所以跨物件取樣也接得起來——
+ * 相鄰的兩塊網格只要餵同一個種子，接縫處自然就對上，不必特別收邊
+ */
+export function sampleValueNoise(seed: number, channel: number, position: number): number {
+  const cellIndex = Math.floor(position)
+  const cellRatio = position - cellIndex
+  const low = hashPosition(cellIndex, channel, 0, seed, 40)
+  const high = hashPosition(cellIndex + 1, channel, 0, seed, 40)
+  // smoothstep：線性內插會在格點留下折角，讀起來像一節節的
+  const blend = cellRatio * cellRatio * (3 - 2 * cellRatio)
+  return low + (high - low) * blend
+}
+
+/** 二維值雜訊（-1 ~ 1）：格點取雜湊值，格內雙線性內插。
+ *
+ * 一維版本只能做出整條橫紋。表面要讀成石頭而不是燈芯絨，
+ * 起伏得同時沿兩個方向變化——但又不能退化成逐頂點亂數：
+ * 細節的尺度必須由世界座標決定，網格加密時顆粒感才不會跟著碎成砂紙
+ */
+export function sampleValueNoise2d(
+  seed: number,
+  channel: number,
+  x: number,
+  y: number,
+): number {
+  const cellX = Math.floor(x)
+  const cellY = Math.floor(y)
+  const ratioX = x - cellX
+  const ratioY = y - cellY
+  const blendX = ratioX * ratioX * (3 - 2 * ratioX)
+  const blendY = ratioY * ratioY * (3 - 2 * ratioY)
+  const lowLeft = hashPosition(cellX, cellY, channel, seed, 41)
+  const lowRight = hashPosition(cellX + 1, cellY, channel, seed, 41)
+  const highLeft = hashPosition(cellX, cellY + 1, channel, seed, 41)
+  const highRight = hashPosition(cellX + 1, cellY + 1, channel, seed, 41)
+  const low = lowLeft + (lowRight - lowLeft) * blendX
+  const high = highLeft + (highRight - highLeft) * blendX
+  return low + (high - low) * blendY
+}
+
+/** 二維細胞雜訊（-1 ~ 1）：位置落在哪一塊碎片，就取那塊碎片的雜湊值。
+ *
+ * 值雜訊給的是平滑的丘陵，石頭要的卻是「一塊塊平面，交界是硬稜」。
+ * 同一塊碎片內的頂點拿到完全相同的值，那一片面就共平面，
+ * 碎片邊界自然成為銳利的裂縫——低多邊形讀成岩石而不是皺紙的關鍵
+ */
+export function sampleCellNoise(
+  seed: number,
+  channel: number,
+  x: number,
+  y: number,
+): number {
+  const baseX = Math.floor(x)
+  const baseY = Math.floor(y)
+  let nearestDistance = Number.POSITIVE_INFINITY
+  let nearestValue = 0
+  for (let offsetY = -1; offsetY <= 1; offsetY++) {
+    for (let offsetX = -1; offsetX <= 1; offsetX++) {
+      const cellX = baseX + offsetX
+      const cellY = baseY + offsetY
+      // 碎片中心各自偏離格心，切出來才不是棋盤格
+      const centerX = cellX + 0.5 + hashPosition(cellX, cellY, channel, seed, 42) * 0.45
+      const centerY = cellY + 0.5 + hashPosition(cellX, cellY, channel, seed, 43) * 0.45
+      const distance = (x - centerX) ** 2 + (y - centerY) ** 2
+      if (distance < nearestDistance) {
+        nearestDistance = distance
+        nearestValue = hashPosition(cellX, cellY, channel, seed, 44)
+      }
+    }
+  }
+  return nearestValue
 }
 
 export interface VertexJitterOptions {
@@ -91,8 +171,14 @@ export function applyVertexJitter(mesh: Mesh, options: VertexJitterOptions): voi
     positionList[vertexIndex + 2] = originalZ + hashPosition(originalX, originalY, originalZ, seed, 2) * amount * scaleZ
   }
 
-  mesh.updateVerticesData(VertexBuffer.PositionKind, positionList)
-  // updateVerticesData 預設不重算範圍。少了這行，先前變形過的網格會沿用
+  // 這裡必須用 setVerticesData 而不是 updateVerticesData。
+  // 內建產生器（CreateGround、CreateSphere⋯⋯）與 VertexData.applyToMesh 建出來的頂點緩衝
+  // 預設不可更新，convertToFlatShadedMesh 又會原樣沿用這個旗標；
+  // 而 Babylon 的 updateVerticesData 對不可更新的緩衝是靜靜地什麼都不做——
+  // CPU 這份陣列改到了、法線與頂點色也照著新座標重算，唯獨 GPU 拿到的還是原始格點，
+  // 於是畫面上看到的是「平整幾何配上碎面打光」。第三個參數就是把緩衝標成可更新
+  mesh.setVerticesData(VertexBuffer.PositionKind, positionList, true)
+  // 改頂點不會重算範圍。少了這行，變形過的網格會沿用
   // 建立時（例如半徑 1 的原始球）的包圍盒，視錐剔除因此形同虛設
   mesh.refreshBoundingInfo()
   if (shouldRecomputeNormals) {

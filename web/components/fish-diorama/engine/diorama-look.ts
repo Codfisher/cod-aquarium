@@ -34,8 +34,6 @@ export interface DioramaLookOptions {
   tiltShift?: TiltShiftOptions | null;
   /** 環境遮蔽的取樣半徑上限，依場景尺度調整。傳 null 關閉 SSAO */
   ambientOcclusion?: { radius: number; strength: number; maxZ: number } | null;
-  /** 膠片顆粒強度。大場景可調低，避免遠景雜訊 */
-  grainIntensity?: number;
   /** 曝光。預設略低於 1，把淺色紙材從溢出邊緣收回來 */
   exposure?: number;
   /** 場景個性偏移：六個世界共用同一配方，但同一組數值套六次會有
@@ -131,7 +129,6 @@ export function applyDioramaLook(
     namePrefix,
     tiltShift = DEFAULT_TILT_SHIFT,
     ambientOcclusion = { radius: 0.8, strength: 0.68, maxZ: 45 },
-    grainIntensity = 6,
     exposure = 0.92,
     toneVariation = {},
   } = options
@@ -159,21 +156,13 @@ export function applyDioramaLook(
   pipeline.samples = isLowPowerDevice ? 2 : 4
   pipeline.fxaaEnabled = true
 
-  // 質感細調：暗角聚焦視線（染暗藍紫呼應 split toning）、
-  // 輕微動態膠片顆粒（與紙紋同語彙）、銳化補償 FXAA 的細節損失、
-  // 邊緣極輕色散帶出鏡頭感
+  // 質感細調只留暗角：聚焦視線，染暗藍紫呼應 split toning。
+  // 它是 imageProcessing 內建的，不額外增加 pass。
+  // 色散、顆粒、銳化三者已全面移除，理由同 diorama-scene.ts：
+  // 光學瑕疵不屬於紙與蠟筆的世界，而各自一整個全螢幕 pass 的成本正是發熱主因
   pipeline.imageProcessing.vignetteEnabled = true
   pipeline.imageProcessing.vignetteWeight = 1.1 * vignetteWeightScale
   pipeline.imageProcessing.vignetteColor = new Color4(0.09, 0.08, 0.18, 0)
-  // 銳化壓到極輕：高對比邊緣過銳會產生白暈（像烈日反光）
-  pipeline.sharpenEnabled = true
-  pipeline.sharpen.edgeAmount = 0.06
-  pipeline.grainEnabled = grainIntensity > 0
-  pipeline.grain.intensity = grainIntensity
-  pipeline.grain.animated = true
-  pipeline.chromaticAberrationEnabled = true
-  pipeline.chromaticAberration.aberrationAmount = 6
-  pipeline.chromaticAberration.radialIntensity = 0.85
 
   // Split toning：亮部染暖橘、暗部染藍紫，整體光影冷暖對比更豐富。
   // 用後製 ColorCurves 統一處理，日夜模式都吃得到，不用逐一調材質

@@ -5,7 +5,7 @@
  * 一次收服越多分數也越高，玩家才會願意冒險放敵人靠近、聚成一團再按快門。
  */
 
-export type EnemyKind = 'shrimp' | 'crab' | 'jelly' | 'starfish' | 'octopus'
+export type EnemyKind = 'runner' | 'dasher' | 'splitter' | 'blocker' | 'boss'
 
 export interface EnemyStats {
   kind: EnemyKind;
@@ -21,27 +21,27 @@ export interface EnemyStats {
   contactRadius: number;
 }
 
-// 入鏡判定從寬：bodyRadius 對齊視覺輪廓的外緣（蝦含尾扇、蟹含螯、章魚含腕足），
+// 入鏡判定從寬：敵人全是重新配色的鱈魚，bodyRadius 要含到魚鰭與尾巴的外緣，
 // 閃光看起來有掃到就要算拍到，玩家才不會覺得被騙
 export const ENEMY_STATS_MAP: Record<EnemyKind, EnemyStats> = {
   // 雜兵：快、脆、成群。無雙感的數量來源
-  shrimp: { kind: 'shrimp', moveSpeed: 2.7, captureHitCount: 1, bodyRadius: 0.62, captureValue: 1, contactRadius: 0.5 },
+  runner: { kind: 'runner', moveSpeed: 2.7, captureHitCount: 1, bodyRadius: 0.62, captureValue: 1, contactRadius: 0.5 },
   // 橫著走，偶爾突然衝刺，逼玩家不能只盯正面
-  crab: { kind: 'crab', moveSpeed: 1.8, captureHitCount: 1, bodyRadius: 0.62, captureValue: 1, contactRadius: 0.58 },
-  // 慢慢飄，收服時會分裂成兩隻小水母——清得越快場上反而越亂
-  jelly: { kind: 'jelly', moveSpeed: 1.05, captureHitCount: 1, bodyRadius: 0.44, captureValue: 1, contactRadius: 0.56 },
+  dasher: { kind: 'dasher', moveSpeed: 1.8, captureHitCount: 1, bodyRadius: 0.62, captureValue: 1, contactRadius: 0.58 },
+  // 慢慢飄，收服時會分裂成兩隻小怪魚——清得越快場上反而越亂
+  splitter: { kind: 'splitter', moveSpeed: 1.05, captureHitCount: 1, bodyRadius: 0.44, captureValue: 1, contactRadius: 0.56 },
   // 耐拍，而且擋在前面，會替後面的雜兵擋掉一次閃光
-  starfish: { kind: 'starfish', moveSpeed: 1.25, captureHitCount: 2, bodyRadius: 0.58, captureValue: 2, contactRadius: 0.62 },
+  blocker: { kind: 'blocker', moveSpeed: 1.25, captureHitCount: 2, bodyRadius: 0.58, captureValue: 2, contactRadius: 0.62 },
   // 頭目：定期出現，要拍很多次，倒下時給一大筆
-  octopus: { kind: 'octopus', moveSpeed: 1.45, captureHitCount: 8, bodyRadius: 1.15, captureValue: 10, contactRadius: 1.05 },
+  boss: { kind: 'boss', moveSpeed: 1.45, captureHitCount: 8, bodyRadius: 1.15, captureValue: 10, contactRadius: 1.05 },
 }
 
-/** 水母被收服時分裂出的小水母數量。
- * 只有原生水母（出怪排程生出來的）會分裂，分裂出的小水母被拍到不會再分裂，
- * 否則場上水母只會越打越多、永遠清不完——這條上限由呼叫端（game.ts）的
+/** 分裂魚被收服時分裂出的小怪魚數量。
+ * 只有原生分裂魚（出怪排程生出來的）會分裂，分裂出的小怪魚被拍到不會再分裂，
+ * 否則場上分裂魚只會越打越多、永遠清不完——這條上限由呼叫端（game.ts）的
  * generation 旗標負責，這裡只定義「一次分幾隻」
  */
-export const JELLY_SPLIT_COUNT = 2
+export const SPLITTER_SPAWN_COUNT = 2
 
 // --- 場地與移動 ---
 
@@ -256,6 +256,14 @@ export const MUSOU_ULTIMATE_CONE: FlashCone = {
   range: ARENA_RADIUS + 3,
 }
 
+/** 必殺一發抵幾次普通快門。
+ *
+ * 給 3：雜兵（1 下）與耐拍的那種（2 下）當場全部收服，場面一次清空——「無雙」該有的樣子；
+ * 頭目要 8 下，等於還要三發必殺才收得掉，不會被一發秒殺失去頭目的份量。
+ * 若跟普通快門一樣只扣 1，必殺就只剩「範圍比較大」，蓄滿槽的獎勵感會很薄
+ */
+export const ULTIMATE_HIT_VALUE = 3
+
 // --- 鎮定（失敗條件）---
 
 export const COMPOSURE_MAX = 3
@@ -328,9 +336,9 @@ export function getSpawnBatchCount(elapsedSeconds: number): number {
 }
 
 /** 頭目的出現間隔 */
-export const OCTOPUS_INTERVAL_SECONDS = 34
+export const BOSS_INTERVAL_SECONDS = 34
 /** 開場先讓玩家玩一陣子再放頭目 */
-export const OCTOPUS_FIRST_SECONDS = 26
+export const BOSS_FIRST_SECONDS = 26
 
 interface EnemyWeight {
   kind: EnemyKind;
@@ -339,12 +347,12 @@ interface EnemyWeight {
   endWeight: number;
 }
 
-/** 開場幾乎全是蝦兵，後期螃蟹、水母、海星逐漸接手 */
+/** 開場幾乎全是快跑魚，後期衝刺魚、分裂魚、擋路魚逐漸接手 */
 const ENEMY_WEIGHT_LIST: EnemyWeight[] = [
-  { kind: 'shrimp', startWeight: 1, endWeight: 0.34 },
-  { kind: 'crab', startWeight: 0.12, endWeight: 0.3 },
-  { kind: 'jelly', startWeight: 0.04, endWeight: 0.22 },
-  { kind: 'starfish', startWeight: 0, endWeight: 0.18 },
+  { kind: 'runner', startWeight: 1, endWeight: 0.34 },
+  { kind: 'dasher', startWeight: 0.12, endWeight: 0.3 },
+  { kind: 'splitter', startWeight: 0.04, endWeight: 0.22 },
+  { kind: 'blocker', startWeight: 0, endWeight: 0.18 },
 ]
 
 /** 難度爬升的參考時長：到這個秒數時權重完全走到 endWeight */
@@ -369,7 +377,7 @@ export function pickEnemyKind(elapsedSeconds: number, random: () => number): Ene
       return entry.kind
     }
   }
-  return 'shrimp'
+  return 'runner'
 }
 
 /** 生成位置：擂台外緣一圈，讓敵人從畫面邊界走進來 */

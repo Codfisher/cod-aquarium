@@ -41,8 +41,6 @@ export const miniGameMetaMap: Record<MiniGameId, MiniGameMeta> = {
       look: {
         tiltShift: null,
         exposure: 1,
-        // 顆粒壓到最低：近乎全黑的背景上，動態顆粒的雜訊最顯眼，會把黑度洗成灰
-        grainIntensity: 1.5,
         ambientOcclusion: { radius: 0.8, strength: 0.35, maxZ: 45 },
         toneVariation: {
           highlightsHueOffset: 10,

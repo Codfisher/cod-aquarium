@@ -9,6 +9,7 @@
  * 牆、層架、蠟筆線與魚全部化約成「有厚度的線段 vs 圓」，
  * 障礙另外化約成致命圓，有無 Havok 兩條路徑才共用同一組判定資料。
  */
+import type { Scene } from '@babylonjs/core/scene'
 import type { GamePointerEvent, MiniGameFactory } from '../game-contract'
 import type {
   CanyonHazardSpec,
@@ -22,7 +23,6 @@ import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial'
 import { Color3 } from '@babylonjs/core/Maths/math.color'
 import { Matrix, Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector'
 import { CreateCylinder } from '@babylonjs/core/Meshes/Builders/cylinderBuilder'
-import { CreateGround } from '@babylonjs/core/Meshes/Builders/groundBuilder'
 import { CreateIcoSphere } from '@babylonjs/core/Meshes/Builders/icoSphereBuilder'
 import { CreateSphere } from '@babylonjs/core/Meshes/Builders/sphereBuilder'
 import { Mesh } from '@babylonjs/core/Meshes/mesh'
@@ -41,6 +41,10 @@ import {
   createClusteredAngleList,
   createSeedFrom,
   createSideVariation,
+  hashPosition,
+  sampleCellNoise,
+  sampleValueNoise,
+  sampleValueNoise2d,
 } from '../../shared/mesh-detail'
 import { clamp, createRandomGenerator, damp, randomBetween } from '../../shared/random-generator'
 import {
@@ -84,6 +88,10 @@ const PAPER_DEPTH = 2.4
 const SHELF_THICKNESS = 1
 const SHELF_HALF_THICKNESS = SHELF_THICKNESS / 2
 const SHELF_POOL_SIZE = 8
+/** 層架根部往牆裡多埋的長度（純視覺，碰撞線不動）。
+ * 牆的內緣是刻出來的起伏，根部若切齊名義牆面，遇到往外退的地方就會看到一截浮空
+ */
+const SHELF_WALL_EMBED = 0.7
 
 // --- 峽谷牆 ---
 /** 牆的厚度。內側表面固定在 ±CANYON_HALF_WIDTH，加厚只往外長，
@@ -92,6 +100,60 @@ const SHELF_POOL_SIZE = 8
 const WALL_WIDTH = 5.2
 const WALL_HALF_WIDTH = WALL_WIDTH / 2
 const WALL_POOL_SIZE = 16
+/** 牆面格網的細分數。石頭要的是「一堆小面各自吃到不同角度的光」，
+ * 面太少就只能是幾片大平板。兩軸的格子刻意抓成接近正方（約 0.26×0.27 世界單位）：
+ * 細長的格子一旦讓格點挪位，很容易被擠成沒有面積的細針，
+ * 法線算出來是零向量，畫面上就是一顆黑點。
+ * 整面牆是靜態網格、一段只雕一次，一片兩千五百面、場上同時十片，換質感很划算。
+ *
+ * 加密的前提是**細節尺度必須由世界座標決定**（見 WALL_DETAIL_*_CELL、WALL_PLATE_CELL）：
+ * 若照舊「每個格點抽一個亂數」，格網一密，起伏就退化成砂紙般的高頻雜訊，
+ * 面數加了反而更不像石頭
+ */
+const WALL_HEIGHT_SUBDIVISION_COUNT = 64
+const WALL_THICKNESS_SUBDIVISION_COUNT = 20
+/** 朝通道那道厚度面的細分數。它只有 PAPER_DEPTH 深，幾欄就夠交代轉折 */
+const WALL_RIM_SUBDIVISION_COUNT = 3
+/** 厚度面往深處的壓暗量。愈往裡愈背光，這道漸層讓厚度真的讀成厚度 */
+const WALL_RIM_SHADE = 0.4
+/** 內側輪廓最多往外退多少（世界單位）。碰撞面固定在 ±CANYON_HALF_WIDTH，
+ * 退太深會看到魚停在離牆一段的空水裡
+ */
+const WALL_INNER_RECESS = 0.3
+/** 內側輪廓最多往通道凸多少。魚半徑 0.55，這點重疊只讀成擦過岩壁 */
+const WALL_INNER_BULGE = 0.15
+/** 內緣的逐點碎屑，只往外缺不往內長。
+ * 光有平滑起伏的內緣像塑膠圓角，缺幾口才讀得出是刻出來的岩
+ */
+const WALL_INNER_CHIP = 0.15
+/** 外緣起伏。外緣不參與任何判定，放手抖大一點，
+ * 牆才是一條會胖瘦的岩帶而不是等寬的直帶
+ */
+const WALL_OUTER_RELIEF = 1.5
+/** 朝鏡頭的表面起伏。面的朝向差得夠開，潛水燈掃過才有明暗 */
+const WALL_SURFACE_RELIEF = 0.52
+/** 凹處的壓暗量（頂點色）。側視的牆整片正對鏡頭，光影本身分不出深淺，
+ * 靠這層跟著起伏走的假 AO 才讀得出凹凸
+ */
+const WALL_CREVICE_SHADE = 0.3
+/** 格點在平面內的挪移量，單位是「一格的幾成」。
+ * 大小一致的三角形排成整齊格網，加再多面也只是更細的格網而已；
+ * 岩石的碎面本來就有大有小、有胖有瘦，格點先挪開，三角形才不會一個樣。
+ * 上限 0.5：超過就會跟隔壁格點對調，三角形直接翻面
+ */
+const WALL_GRID_SHIFT = 0.36
+/** 岩面細節的取樣格距（世界單位）。粗的一層切出岩塊、細的一層是表面顆粒 */
+const WALL_DETAIL_COARSE_CELL = 2.4
+const WALL_DETAIL_FINE_CELL = 0.8
+/** 岩板尺度（世界單位）：一塊碎裂平面大概多大。
+ * 這層用細胞雜訊，同一塊碎片內共平面、邊界是硬稜——低多邊形的岩石感來自這裡，
+ * 平滑雜訊只會做出皺紙
+ */
+const WALL_PLATE_CELL = 2.2
+/** 三個尺度的起伏波長（世界單位）：整面岩壁的大彎、岩階、階上的皺褶 */
+const WALL_PROFILE_MAJOR_LENGTH = 24
+const WALL_PROFILE_MIDDLE_LENGTH = 9.5
+const WALL_PROFILE_DETAIL_LENGTH = 3.4
 
 // --- 障礙 ---
 const HAZARD_POOL_SIZE = 30
@@ -157,6 +219,14 @@ const HEADLAMP_SCALE = 0.26
 // --- 魚與相機 ---
 const FISH_START_Y = 0
 const FISH_VISUAL_SCALE = 0.62
+/** 模型腹部離原點的深度（已含 FISH_VISUAL_SCALE）。
+ * 鱈魚模型上下不對稱：背鰭把上緣頂到 +0.43，腹部只到 -0.28
+ */
+const FISH_BELLY_DEPTH = 0.28
+/** 停在表面上時刻意留的懸浮量。魚是游著的，貼死在線上反而僵 */
+const FISH_HOVER_CLEARANCE = 0.06
+/** 模型相對判定球往下沉的量，讓腹部落在球的接觸點上 */
+const FISH_VISUAL_DROP = FISH_RADIUS - FISH_BELLY_DEPTH - FISH_HOVER_CLEARANCE
 /** 俯衝時的最大低頭角，接近垂直但保留一點側身才像魚不像箭 */
 const FISH_DIVE_TILT_LIMIT = 1.35
 /** 被彈起時的最大抬頭角 */
@@ -217,6 +287,273 @@ function roughenLowPoly(
   applyHeightGradient(mesh)
 }
 
+/** 沿世界 y 取一段岩壁輪廓（約 -1 ~ 1）。
+ *
+ * 三個尺度的值雜訊疊加：大彎決定這一帶的岩壁整體往哪凹凸、
+ * 中彎切出岩階、細彎在每階上再起皺——石頭的特徵就是放大縮小看都不平。
+ *
+ * 取樣座標刻意用**世界 y** 而不是網格自己的高度比例：
+ * 峽谷是一段一段拼起來的，各段若各抖各的，接縫處輪廓會錯開一階，
+ * 於是每隔十幾單位就出現一次規律的斷點；改吃世界座標之後，
+ * 相鄰兩段在重疊處算出來就是同一條線，整條峽谷從頭到尾是一條連續的岩壁
+ */
+function sampleWallProfile(seed: number, channel: number, worldY: number): number {
+  const major = sampleValueNoise(seed, channel * 3, worldY / WALL_PROFILE_MAJOR_LENGTH)
+  const middle = sampleValueNoise(seed, channel * 3 + 1, worldY / WALL_PROFILE_MIDDLE_LENGTH)
+  const detail = sampleValueNoise(seed, channel * 3 + 2, worldY / WALL_PROFILE_DETAIL_LENGTH)
+  return major * 0.55 + middle * 0.3 + detail * 0.15
+}
+
+/** 胚料橫斷面上的一欄。x 是厚度方向、z 是深度方向，兩者都是本地座標（±0.5） */
+interface WallCrossSectionColumn {
+  x: number;
+  z: number;
+  /** 這一欄屬於側面（朝通道的那道厚度面）而不是正面 */
+  isRim: boolean;
+  /** 格點挪位在 x 上的倍率。側面整排要貼齊內緣，一動就跟正面脫開 */
+  shiftScaleX: number;
+}
+
+/** 牆的橫斷面：先一段朝向通道的側面，再一整片正對鏡頭的正面（左牆順序相反）。
+ *
+ * 只做正面的話，牆是一張沒有厚度的皮——場上其他東西（層架、障礙）都是 PAPER_DEPTH 深的立體物，
+ * 唯獨牆是紙片，鏡頭略帶透視的側視角一掃過去，通道邊緣就露出這件事。
+ * 補上朝通道的那道側面，牆才讀成一塊有厚度的岩板。
+ * 背面與外側面朝著鏡頭看不到的方向，不必生。
+ *
+ * 欄的走向必須一路同向（不能中途折返），三角形的頂點順序才會一致，
+ * 正面的法線朝 -z、側面的法線朝通道，兩者都正對鏡頭與潛水燈
+ */
+function buildWallCrossSection(side: -1 | 1): WallCrossSectionColumn[] {
+  const innerX = -side * 0.5
+  const faceColumnList: WallCrossSectionColumn[] = []
+  for (let column = 0; column <= WALL_THICKNESS_SUBDIVISION_COUNT; column++) {
+    const ratio = column / WALL_THICKNESS_SUBDIVISION_COUNT
+    faceColumnList.push({
+      x: ratio - 0.5,
+      z: -0.5,
+      isRim: false,
+      shiftScaleX: 1 / WALL_THICKNESS_SUBDIVISION_COUNT,
+    })
+  }
+
+  // 側面不含最前那一欄：那一欄就是正面的內緣，兩者共用同一批格點才不會裂開
+  const rimColumnList: WallCrossSectionColumn[] = []
+  for (let column = 1; column <= WALL_RIM_SUBDIVISION_COUNT; column++) {
+    const ratio = column / WALL_RIM_SUBDIVISION_COUNT
+    rimColumnList.push({ x: innerX, z: -0.5 + ratio, isRim: true, shiftScaleX: 0 })
+  }
+
+  return side === 1
+    // 右牆的內緣在 x = -0.5：側面排在最前面，由深到淺接上正面
+    ? [...rimColumnList.reverse(), ...faceColumnList]
+    // 左牆的內緣在 x = +0.5：正面走完才接側面，由淺到深
+    : [...faceColumnList, ...rimColumnList]
+}
+
+/** 建一片當岩壁胚料的格網。座標就是最終朝向：x 是厚度、y 是高度、z 是深度。
+ *
+ * 不用 CreateGround 是因為那是一張標準格網，而標準格網有兩個藏不住的破綻：
+ * 每個三角形一樣大、每個四邊形又都沿同一條對角線切。加再多面也只是更細的方格布，
+ * 起伏刻得再好，畫面上先讀到的還是那張網。這裡把兩件事都在建胚料時就打散：
+ * 格點各自在平面內挪位、每個四邊形沿較短的對角線切。
+ * 欄的走向由 buildWallCrossSection 決定，牆因此不只是一張皮，而是有厚度的岩板
+ */
+function createWallGridBlank(
+  name: string,
+  seed: number,
+  side: -1 | 1,
+  scene: Scene,
+): WallGridBlank {
+  const crossSectionList = buildWallCrossSection(side)
+  const columnCount = crossSectionList.length
+  const rowCount = WALL_HEIGHT_SUBDIVISION_COUNT + 1
+  const rowStep = 1 / WALL_HEIGHT_SUBDIVISION_COUNT
+
+  const positionList: number[] = []
+  const uvList: number[] = []
+  for (let row = 0; row < rowCount; row++) {
+    for (let column = 0; column < columnCount; column++) {
+      const crossSection = crossSectionList[column]!
+      // 這幾種格點不挪：內緣要對齊碰撞面、外緣的起伏另外由輪廓負責、
+      // 側面整排都得貼著內緣走，上下兩列則要留住段落之間的重疊，挪動就可能露出接縫
+      const isFixedColumn = column === 0 || column === columnCount - 1 || crossSection.isRim
+      const isEdgeRow = row === 0 || row === rowCount - 1
+      const shiftX = isFixedColumn ? 0 : hashPosition(column, row, 0, seed, 50) * WALL_GRID_SHIFT
+      const shiftY = isEdgeRow ? 0 : hashPosition(column, row, 1, seed, 51) * WALL_GRID_SHIFT
+      positionList.push(
+        crossSection.x + shiftX * crossSection.shiftScaleX,
+        (row + shiftY) * rowStep - 0.5,
+        crossSection.z,
+      )
+      uvList.push(column / (columnCount - 1), row * rowStep)
+    }
+  }
+
+  function measureGap(fromIndex: number, toIndex: number): number {
+    return Math.hypot(
+      positionList[fromIndex * 3]! - positionList[toIndex * 3]!,
+      positionList[fromIndex * 3 + 1]! - positionList[toIndex * 3 + 1]!,
+      positionList[fromIndex * 3 + 2]! - positionList[toIndex * 3 + 2]!,
+    )
+  }
+
+  const indexList: number[] = []
+  for (let row = 0; row < WALL_HEIGHT_SUBDIVISION_COUNT; row++) {
+    for (let column = 0; column < columnCount - 1; column++) {
+      const lowLeft = row * columnCount + column
+      const lowRight = lowLeft + 1
+      const highLeft = lowLeft + columnCount
+      const highRight = highLeft + 1
+      // 沿較短的那條對角線切。挪過位的格點讓兩條對角線長短不一，
+      // 這條規則因此自然給出約各半的兩種切法——整面牆不會浮出平行斜紋；
+      // 同時它也是三角形品質最好的切法，不會把格子切成沒有面積的細針。
+      // 兩種切法的頂點順序都要讓法線朝 -z（正對鏡頭與潛水燈），反了整片會變背光
+      if (measureGap(highLeft, lowRight) <= measureGap(lowLeft, highRight)) {
+        indexList.push(lowLeft, lowRight, highLeft, lowRight, highRight, highLeft)
+      }
+      else {
+        indexList.push(lowLeft, highRight, highLeft, lowLeft, lowRight, highRight)
+      }
+    }
+  }
+
+  const mesh = new Mesh(name, scene)
+  const vertexData = new VertexData()
+  const normalList: number[] = []
+  VertexData.ComputeNormals(positionList, indexList, normalList)
+  vertexData.positions = positionList
+  vertexData.indices = indexList
+  vertexData.normals = normalList
+  vertexData.uvs = uvList
+  vertexData.applyToMesh(mesh)
+  // 攤平法線讓每一格都是各自吃光的硬面。它把索引依序展開成獨立頂點，
+  // 所以展開後的第 n 個頂點對應的就是 indexList[n] 這個格點——
+  // 這張對照表讓雕刻只需按格點算一次，再照表填到每個頂點
+  mesh.convertToFlatShadedMesh()
+
+  return {
+    mesh,
+    pointList: new Float32Array(positionList),
+    pointIndexList: Int32Array.from(indexList),
+  }
+}
+
+/** 一片牆的格點數（正面加側面）。所有池單元的格網尺寸相同，取樣暫存因此可以共用同一組 */
+const WALL_POINT_COUNT = (WALL_THICKNESS_SUBDIVISION_COUNT + 1 + WALL_RIM_SUBDIVISION_COUNT)
+  * (WALL_HEIGHT_SUBDIVISION_COUNT + 1)
+/** 逐格點的雕刻結果。攤平法線後一片牆有七千多個頂點，但相異格點只有一千多個，
+ * 而且每個格點會被填到六個頂點上——按格點算一次再照表填，省掉五倍的雜訊取樣。
+ * 用平行的 Float32Array 而不是 Map 裝物件：一次活化就少配置一千多個物件，
+ * 生成新段落時的停頓才不會被 GC 放大
+ */
+const wallSampleXList = new Float32Array(WALL_POINT_COUNT)
+const wallSampleYList = new Float32Array(WALL_POINT_COUNT)
+const wallSampleZList = new Float32Array(WALL_POINT_COUNT)
+const wallSampleShadeList = new Float32Array(WALL_POINT_COUNT)
+const wallSampleBlueList = new Float32Array(WALL_POINT_COUNT)
+
+/** 把一片平整格網刻成這一段峽谷該有的岩壁。
+ *
+ * 三個方向各有各的規矩，等向抖動（applyVertexJitter）在這裡不夠用：
+ * - 內緣貼著碰撞面，只能小幅往通道凸、可以大幅往外退
+ * - 外緣不參與任何判定，抖得越大越不像等寬的紙帶
+ * - 深度方向的起伏是這面正對鏡頭的牆唯一的明暗來源，要夠大才吃得出光
+ *
+ * 刻的時機在「活化」而不是「建立」：位移全部由世界座標算出，
+ * 同一個池單元每次被擺到不同深度就長出不同的岩壁，玩家因此不會認出重複的牆。
+ * 位移按**格點**算、再照對照表填到每個頂點：同一個格點展開出去的六份頂點
+ * 必然拿到同一個位移，網格不會沿著三角形邊裂開
+ */
+function carveWallSurface(
+  unit: WallUnit,
+  centerX: number,
+  centerY: number,
+  heightScale: number,
+) {
+  const { mesh, pointList, pointIndexList, workPositionList, workColorList, side } = unit
+  // 同一側的所有牆共用一組種子，接縫處才會算出同一條輪廓；兩側不同，峽谷才不是鏡像
+  const seed = createSeedFrom(900, side)
+  const pointCount = pointList.length / 3
+
+  for (let pointIndex = 0; pointIndex < pointCount; pointIndex++) {
+    const baseX = pointList[pointIndex * 3]!
+    const baseY = pointList[pointIndex * 3 + 1]!
+    const baseZ = pointList[pointIndex * 3 + 2]!
+    // 胚料的本地座標：x 是厚度（±0.5）、y 是高度（±0.5）、z 是深度（先攤平為 0）。
+    // 0 = 內側（面向通道）、1 = 外緣；往外的方向在本地 x 上剛好就是 side
+    const columnRatio = 0.5 + side * baseX
+    const worldX = centerX + baseX * WALL_WIDTH
+    const worldY = centerY + baseY * heightScale
+
+    const profile = sampleWallProfile(seed, 0, worldY)
+    // 碎裂的岩板：同一塊碎片內的格點拿到同一個值，那片面就共平面、
+    // 碎片交界成為硬稜。石頭的低多邊形感幾乎全靠這一層，
+    // 平滑雜訊再怎麼疊都只是皺紙
+    const plate = sampleCellNoise(seed, 0, worldX / WALL_PLATE_CELL, worldY / WALL_PLATE_CELL)
+    // 岩塊起伏與表面顆粒：兩層都沿世界座標取樣，格網再怎麼加密，
+    // 凹凸的尺度都是固定的幾十公分，不會變成砂紙
+    const coarseDetail = sampleValueNoise2d(
+      seed,
+      0,
+      worldX / WALL_DETAIL_COARSE_CELL,
+      worldY / WALL_DETAIL_COARSE_CELL,
+    )
+    const fineDetail = sampleValueNoise2d(
+      seed,
+      1,
+      worldX / WALL_DETAIL_FINE_CELL,
+      worldY / WALL_DETAIL_FINE_CELL,
+    )
+
+    // 凸進通道的量抓得比退回去的小，碰撞面才不會埋進岩石裡太深；
+    // 碎屑只往外缺，缺口再深也不會擋到魚
+    const chip = (plate * 0.55 + fineDetail * 0.45 + 1) / 2
+    const profileOffset = profile >= 0
+      ? profile * WALL_INNER_RECESS
+      : profile * WALL_INNER_BULGE
+    const innerOffset = profileOffset + chip * WALL_INNER_CHIP
+    const outerOffset = (sampleWallProfile(seed, 1, worldY) * 0.6
+      + plate * 0.25
+      + coarseDetail * 0.15) * WALL_OUTER_RELIEF
+    // 內外緣各走各的輪廓，中間欄內插——牆因此會忽寬忽窄，而不是整條平移
+    const widthOffset = innerOffset * (1 - columnRatio) + outerOffset * columnRatio
+    const depthRatio = clamp(plate * 0.55 + coarseDetail * 0.25 + fineDetail * 0.2, -1, 1)
+
+    // 本地 z 越大代表離鏡頭越遠。凹處壓暗、帶一點冷色，
+    // 這層假 AO 是側視平牆讀出凹凸的主力，光影只能補強不能代替
+    const crevice = (depthRatio + 1) / 2
+    // 側面的格點在正面之後（本地 z 由 -0.5 往 +0.5），愈往裡愈暗，厚度才讀得出來
+    const backRatio = baseZ + 0.5
+    const shade = (1 - WALL_CREVICE_SHADE * crevice) * (1 - WALL_RIM_SHADE * backRatio)
+    wallSampleXList[pointIndex] = baseX + (side * widthOffset) / WALL_WIDTH
+    wallSampleYList[pointIndex] = baseY
+    wallSampleZList[pointIndex] = baseZ + (depthRatio * WALL_SURFACE_RELIEF) / PAPER_DEPTH
+    wallSampleShadeList[pointIndex] = shade
+    wallSampleBlueList[pointIndex] = Math.min(1, shade * (1 + crevice * 0.05))
+  }
+
+  for (let vertexIndex = 0; vertexIndex < pointIndexList.length; vertexIndex++) {
+    const pointIndex = pointIndexList[vertexIndex]!
+    const positionIndex = vertexIndex * 3
+    workPositionList[positionIndex] = wallSampleXList[pointIndex]!
+    workPositionList[positionIndex + 1] = wallSampleYList[pointIndex]!
+    workPositionList[positionIndex + 2] = wallSampleZList[pointIndex]!
+
+    const colorIndex = vertexIndex * 4
+    const shade = wallSampleShadeList[pointIndex]!
+    workColorList[colorIndex] = shade
+    workColorList[colorIndex + 1] = shade
+    workColorList[colorIndex + 2] = wallSampleBlueList[pointIndex]!
+    workColorList[colorIndex + 3] = 1
+  }
+
+  mesh.updateVerticesData(VertexBuffer.PositionKind, workPositionList)
+  mesh.updateVerticesData(VertexBuffer.ColorKind, workColorList)
+  mesh.refreshBoundingInfo()
+  mesh.createNormals(true)
+}
+
 /** 一片層架擺放到世界時的方位資料 */
 interface ShelfPlacement {
   angle: number;
@@ -249,9 +586,25 @@ interface WallUnit {
   physicsBody?: PhysicsBody;
   physicsShape?: PhysicsShapeBox;
   collider: SegmentCollider;
-  /** 這面牆專屬的側別：左右各吃自己的種子與抖動節奏，才不會互為鏡像 */
+  /** 這面牆專屬的側別：左右各吃自己的種子，才不會互為鏡像 */
   side: -1 | 1;
+  /** 未變形的格點位置（每點 3 個浮點）。每次活化都從這份原樣重刻，
+   * 位移才不會一次疊一次越積越歪
+   */
+  pointList: Float32Array;
+  /** 攤平法線後，每個頂點對應回哪一個格點 */
+  pointIndexList: Int32Array;
+  /** 刻出來的位置與頂點色寫在這兩份暫存再一次上傳，省掉每次活化的配置 */
+  workPositionList: Float32Array;
+  workColorList: Float32Array;
   isActive: boolean;
+}
+
+/** 建好的岩壁胚料：網格本身，加上雕刻要用的格點對照資料 */
+interface WallGridBlank {
+  mesh: Mesh;
+  pointList: Float32Array;
+  pointIndexList: Int32Array;
 }
 
 type HazardForm = 'none' | 'urchin' | 'wallSpike'
@@ -320,6 +673,9 @@ export const createCrayonSlideGame: MiniGameFactory = (context) => {
   // 牆的幾何是零厚度的細分格網（見 createWallUnit），法線朝哪一面純靠旋轉烤進頂點資料算出來，
   // 算錯方向就整片背對鏡頭被裁掉——關掉背面剔除當保底，法線方向錯了也不會整片消失
   wallMaterial.backFaceCulling = false
+  // 但沒被裁掉不等於照得到光：背面照樣拿原本朝外的法線算，對潛水燈是背光、
+  // 只剩環境光的死灰色。開這個讓背面翻轉法線，牆才吃得到魚身上那盞燈
+  wallMaterial.twoSidedLighting = true
   // 牆佔掉大半畫面，預設紙紋在暗部加重到 1.35 倍會把整面壓灰。
   // 這關的牆改鋪淡顆粒、尺度放大，質感留著但不吃亮度
   setPaperGrainProfile(wallMaterial, { strengthScale: 0.5, scaleScale: 0.75 })
@@ -469,16 +825,19 @@ export const createCrayonSlideGame: MiniGameFactory = (context) => {
 
   function layoutShelf(unit: ShelfUnit, placement: ShelfPlacement, colorIndex: number) {
     const { angle, length, normalX, normalY, surfaceCenterX, surfaceCenterY } = placement
+    const { tangentX, tangentY } = placement
 
     unit.mesh.material = paperAccentMaterialList[colorIndex % paperAccentMaterialList.length]
       ?? paperBodyMaterial
+    // 切線由牆指向自由端，中心往切線反向退半個埋入量：只有根部變長，
+    // 自由端與碰撞線都停在原處
     unit.mesh.position.set(
-      surfaceCenterX - normalX * SHELF_HALF_THICKNESS,
-      surfaceCenterY - normalY * SHELF_HALF_THICKNESS,
+      surfaceCenterX - normalX * SHELF_HALF_THICKNESS - tangentX * SHELF_WALL_EMBED / 2,
+      surfaceCenterY - normalY * SHELF_HALF_THICKNESS - tangentY * SHELF_WALL_EMBED / 2,
       0,
     )
     unit.mesh.rotation.z = angle
-    unit.mesh.scaling.set(length, SHELF_THICKNESS, PAPER_DEPTH)
+    unit.mesh.scaling.set(length + SHELF_WALL_EMBED, SHELF_THICKNESS, PAPER_DEPTH)
     unit.mesh.setEnabled(true)
   }
 
@@ -536,45 +895,29 @@ export const createCrayonSlideGame: MiniGameFactory = (context) => {
   }
 
   // --- 峽谷牆 ---
-  /** 牆面內側改用細分網格，而不是拉伸一顆低多邊方塊。
-   * createBeveledBox 只在角落有頂點，大片側面完全沒有格點可抖，方塊拉伸十幾倍高之後，
+  /** 牆用一片細分格網當胚，形狀全靠 carveWallSurface 在活化時刻出來。
+   * createBeveledBox 只在角落有頂點，大片側面完全沒有格點可動，方塊拉伸十幾倍高之後，
    * 中段就是一片光滑板子；改成堆疊分節雖然讓每節有頭尾碎稜，但節與節的接縫又讀成一顆一顆積木。
-   * 用 CreateGround 建一片沿高度細分的格網，每個格點各自獨立抖動，
-   * 整段高度隨時都有凹凸、不必分節也就沒有接縫，一次解掉「太規律」跟「太平整」兩個問題。
-   * 深度方向只留 2 段——牆很薄，不需要那個方向的細節
+   * 格網每一格都能各自進退，整段高度隨時都有凹凸，不必分節也就沒有接縫
    */
-  const WALL_HEIGHT_SUBDIVISION_COUNT = 12
-  const WALL_THICKNESS_SUBDIVISION_COUNT = 2
-
   function createWallUnit(index: number, side: -1 | 1): WallUnit {
-    // 種子混入側別，左右牆的頂點抖動從源頭就不同；
-    // 幅度與軸向節奏再依側各偏一點，兩面牆的凹凸韻律才讀不出同一套模子
-    const unitSeed = createSeedFrom(300 + index, side)
-    const sideVariation = createSideVariation(unitSeed, side)
+    // 胚料直接建在最終朝向上：x 是厚度、y 是高度、z 是深度，法線朝 -z 正對鏡頭與潛水燈。
+    // 十六個池單元各吃一顆種子，格點挪位與對角線方向因此各不相同——
+    // 起伏由世界座標決定、拓樸由種子決定，兩層都不一樣才不會被認出是同一片牆
+    const { mesh, pointList, pointIndexList } = createWallGridBlank(
+      `crayonSlideWall${index}`,
+      createSeedFrom(300 + index, side),
+      side,
+      scene,
+    )
 
-    // CreateGround 原生攤平在 xz 平面、法線朝 +y（像地板）。width 對應 x、height 參數對應 z
-    // （subdivisionsX/Y 是 Babylon 的欄位命名，指格網的兩個方向，跟世界座標 y 軸無關）。
-    // 相機側視、沿 z 看向場景，牆需要的是一片「法線朝 z、朝著鏡頭」的板子，
-    // 不是「法線朝上」的板子——繞 z 軸轉 90 度會把板子轉成側面朝鏡頭（法線變 x 軸），
-    // 可視面等於整個消失，這是先前版本牆壁不見的原因。改繞 x 軸轉：
-    // 原生 x 不變（還是厚度軸）、原生 z 變成高度軸、原生 y（攤平前是 0）變成深度軸
-    const mesh = CreateGround(`crayonSlideWall${index}`, {
-      width: 1,
-      height: 1,
-      subdivisionsX: WALL_THICKNESS_SUBDIVISION_COUNT,
-      subdivisionsY: WALL_HEIGHT_SUBDIVISION_COUNT,
-    }, scene)
-    // 牆會沿高度拉十幾倍，高度軸（此時是原生 z）的抖動量要等比壓回去；
-    // 內側輪廓因此有 low poly 的碎稜，但幅度小於碰撞線的厚度，不會看到魚穿牆。
-    // 厚度軸（原生 x，繞 x 轉不受影響）除以 WALL_WIDTH：
-    // 抖動要看的是內側稜線在**世界單位**位移多少，不這樣換算，牆一加厚同一組係數就會把稜線抖進碰撞線裡
-    roughenLowPoly(mesh, unitSeed, 0.07 + sideVariation * 0.02, {
-      x: (0.99 + sideVariation * 0.45) / WALL_WIDTH,
-      y: 0.9,
-      z: 0.045 + sideVariation * 0.03,
-    })
-    mesh.rotation.x = Math.PI / 2
-    mesh.bakeCurrentTransformIntoVertices()
+    // 兩條要反覆改寫的緩衝先標成可更新，之後每次活化才推得動 GPU 端的資料
+    const vertexCount = pointIndexList.length
+    const workPositionList = new Float32Array(vertexCount * 3)
+    const workColorList = new Float32Array(vertexCount * 4).fill(1)
+    mesh.setVerticesData(VertexBuffer.PositionKind, workPositionList.slice(), true)
+    mesh.setVerticesData(VertexBuffer.ColorKind, workColorList.slice(), true)
+
     mesh.material = wallMaterial
     mesh.isPickable = false
     mesh.receiveShadows = true
@@ -596,6 +939,10 @@ export const createCrayonSlideGame: MiniGameFactory = (context) => {
         isCrayon: false,
       },
       side,
+      pointList,
+      pointIndexList,
+      workPositionList,
+      workColorList,
       isActive: false,
     }
   }
@@ -604,13 +951,16 @@ export const createCrayonSlideGame: MiniGameFactory = (context) => {
     const centerX = side * (CANYON_HALF_WIDTH + WALL_HALF_WIDTH)
     const centerY = (segment.topY + segment.bottomY) / 2
     const height = segment.height
-    // 同一段的左右牆再錯開縱向縮放與微小位移：只動 transform 不重建幾何，
-    // 通道判定不變，但兩面牆的稜線節奏對不上，鏡像感就散了
+    // 段落之間留一點縱向重疊，接縫處才不會因為浮點誤差露出一條細縫
     const wallVariation = createSideVariation(createSeedFrom(segment.index), side)
     const overscan = 1.03 + wallVariation * 0.05
+    const heightScale = height * overscan
 
-    unit.mesh.position.set(centerX, centerY + (wallVariation - 0.5) * 0.3, 0)
-    unit.mesh.scaling.set(WALL_WIDTH, height * overscan, PAPER_DEPTH)
+    unit.mesh.position.set(centerX, centerY, 0)
+    unit.mesh.scaling.set(WALL_WIDTH, heightScale, PAPER_DEPTH)
+    // 擺好位置才刻：岩壁的起伏取樣自世界座標，位置與縮放要跟這次擺放完全一致，
+    // 上下相鄰的兩片牆在重疊處才會算出同一條輪廓
+    carveWallSurface(unit, centerX, centerY, heightScale)
     unit.mesh.setEnabled(true)
 
     // 碰撞線往上下各多延伸一點，跨段的接縫才不會卡出一條看不見的稜
@@ -1053,6 +1403,10 @@ export const createCrayonSlideGame: MiniGameFactory = (context) => {
   diveLight.intensity = DIVE_LIGHT_INTENSITY
   diveLight.range = DIVE_LIGHT_RANGE
   codModel.rootNode.parent = fishTiltNode
+  // 判定用的球（半徑 FISH_RADIUS）遠比模型的半高胖：魚身高 0.71、腹部只在原點下方 0.28，
+  // 球卻是 0.55。不補這一段，魚停在蠟筆線或層架上時會浮在表面上方將近半個身高。
+  // 球的大小不動——它是照魚的**體長**抓的，動了整套通道寬度與障礙判定都要重調
+  codModel.rootNode.position.y = -FISH_VISUAL_DROP
   // 鱈魚模型頭朝 +z，側視預設頭朝 +x；往左游時 yaw 翻向、俯衝角跟著鏡像
   codModel.rootNode.rotation.y = Math.PI / 2
   codModel.rootNode.scaling.setAll(FISH_VISUAL_SCALE)
@@ -1175,6 +1529,16 @@ export const createCrayonSlideGame: MiniGameFactory = (context) => {
   const GAUGE_FULL_LENGTH = 1
   const GAUGE_TIP_LENGTH = 0.24
   const GAUGE_WRAPPER_LENGTH = 0.34
+  const GAUGE_BODY_DIAMETER = 0.27
+  /** 筆身的頂點抖動幅度。抖動是逐軸各抖一次，徑向最多外擴 √2 倍幅度，
+   * 套在外面的東西要留得比這個多，才不會被筆身的稜戳穿
+   */
+  const GAUGE_JITTER_AMOUNT = 0.012
+  const GAUGE_RADIAL_JITTER = GAUGE_JITTER_AMOUNT * Math.SQRT2
+  /** 紙套內徑要能吃下筆身抖出來的最大半徑，再留一倍餘裕。
+   * 原本只比筆身粗 0.015 半徑，抖動一生效就整條黃色戳出白套子
+   */
+  const GAUGE_WRAPPER_DIAMETER = GAUGE_BODY_DIAMETER + GAUGE_RADIAL_JITTER * 4
   /** 相機前方多遠。要大於相機 minZ，又要遠離地形避免被穿插 */
   const GAUGE_DISTANCE = 4
 
@@ -1193,15 +1557,17 @@ export const createCrayonSlideGame: MiniGameFactory = (context) => {
     trayMesh.position.set(0, (GAUGE_FULL_LENGTH + GAUGE_TIP_LENGTH) / 2, 0.16)
 
     /** 六角柱的稜線太完美就變成工業製品，抖一點才像手上那支用舊的蠟筆。
-     * 存量條每幀改的是 scaling，抖動只在這裡做一次
+     * 存量條每幀改的是 scaling，抖動只在這裡做一次。
+     * 三截是互相套疊的，徑向抖動要各自節制：手作感集中在最顯眼的筆身，
+     * 外層與接合處讓它乾淨，才不會每一幀都在賭有沒有戳出來
      */
-    function finishGaugePart(mesh: Mesh, seed: number, axisScaleY: number) {
+    function finishGaugePart(
+      mesh: Mesh,
+      seed: number,
+      axisScale: { x: number; y: number; z: number },
+    ) {
       mesh.convertToFlatShadedMesh()
-      applyVertexJitter(mesh, {
-        seed,
-        amount: 0.016,
-        axisScale: { x: 1, y: axisScaleY, z: 1 },
-      })
+      applyVertexJitter(mesh, { seed, amount: GAUGE_JITTER_AMOUNT, axisScale })
       applyHeightGradient(mesh, 0.2)
       mesh.parent = gaugeRootNode
       mesh.isPickable = false
@@ -1210,29 +1576,38 @@ export const createCrayonSlideGame: MiniGameFactory = (context) => {
     // 六角柱：蠟筆的招牌斷面
     const bodyMesh = CreateCylinder(
       'crayonSlideGaugeBody',
-      { height: GAUGE_FULL_LENGTH, diameter: 0.27, tessellation: 6 },
+      { height: GAUGE_FULL_LENGTH, diameter: GAUGE_BODY_DIAMETER, tessellation: 6 },
       scene,
     )
     // 本體長度隨存量伸縮，兩端切面若也抖動會在縮放後歪出接縫
-    finishGaugePart(bodyMesh, createSeedFrom(902), 0.2)
+    finishGaugePart(bodyMesh, createSeedFrom(902), { x: 1, y: 0.2, z: 1 })
     bodyMesh.material = gaugeBodyMaterial
     gaugeBodyMesh = bodyMesh
 
     const tipMesh = CreateCylinder(
       'crayonSlideGaugeTip',
-      { height: GAUGE_TIP_LENGTH, diameterTop: 0.03, diameterBottom: 0.27, tessellation: 6 },
+      {
+        height: GAUGE_TIP_LENGTH,
+        diameterTop: 0.03,
+        // 錐底比筆身略粗：兩截各自抖動，錐底若剛好等寬，接縫處會露出筆身的稜
+        diameterBottom: GAUGE_BODY_DIAMETER + GAUGE_RADIAL_JITTER * 2,
+        tessellation: 6,
+      },
       scene,
     )
-    finishGaugePart(tipMesh, createSeedFrom(903), 0.5)
+    // 筆尖只抖長度方向：削過的錐面本來就滑順，徑向再抖就得跟筆身的稜賽跑
+    finishGaugePart(tipMesh, createSeedFrom(903), { x: 0, y: 0.5, z: 0 })
     tipMesh.material = gaugeBodyMaterial
     gaugeTipMesh = tipMesh
 
     const wrapperMesh = CreateCylinder(
       'crayonSlideGaugeWrapper',
-      { height: GAUGE_WRAPPER_LENGTH, diameter: 0.3, tessellation: 6 },
+      { height: GAUGE_WRAPPER_LENGTH, diameter: GAUGE_WRAPPER_DIAMETER, tessellation: 6 },
       scene,
     )
-    finishGaugePart(wrapperMesh, createSeedFrom(904), 0.3)
+    // 紙套是最外層，徑向不抖：包在外面的紙本來就平整，
+    // 只讓上下開口的邊緣歪一點，讀起來像撕過的紙口
+    finishGaugePart(wrapperMesh, createSeedFrom(904), { x: 0, y: 0.3, z: 0 })
     wrapperMesh.material = gaugeWrapperMaterial
     gaugeWrapperMesh = wrapperMesh
   }

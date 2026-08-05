@@ -685,8 +685,9 @@ const newRewardList = computed<RewardDefinition[]>(() => (
   border-radius: 999px
   transition: width 0.12s linear
 
+// 電力用綠色：與下方大絕槽的金色分得更開，餘光掃過就知道看的是哪一條
 .gauge-energy .gauge-fill
-  background: light-dark(#4f9ac2, #6bb0d4)
+  background: light-dark(#4a9e63, #6cc088)
 
 .gauge-ultimate
   height: 5px

@@ -1,7 +1,7 @@
-/** 快門無雙：鱈魚拿相機被一大群海怪包圍，每按一次快門就收服一片。
+/** 快門無雙：鱈魚拿相機被一大群怪魚包圍，每按一次快門就收服一片。
  *
  * 「拍」在中文裡同時是拍照與拍打，所以相機當武器不需要任何解釋。
- * 被拍到的海怪不是被打倒，是被收服成一張照片飛走——分數就是收服了幾隻。
+ * 被拍到的怪魚不是被打倒，是被收服成一張照片飛走——分數就是收服了幾隻。
  *
  * 設計核心是把「被包圍」從危機翻轉成機會：一張照片框住越多隻倍率越高，
  * 所以玩家會願意放敵人聚成一團再蓄滿一發。判定與難度全在 shutter-musou-logic。
@@ -24,6 +24,8 @@ import {
   advanceMusouGauge,
   applyContactDamage,
   BATTERY_CAPACITY,
+  BOSS_FIRST_SECONDS,
+  BOSS_INTERVAL_SECONDS,
   canFireShutter,
   capChargeRatioByBattery,
   COMPOSURE_MAX,
@@ -43,16 +45,15 @@ import {
   isMusouReady,
   isTargetInCone,
   isVulnerable,
-  JELLY_SPLIT_COUNT,
   KNOCKBACK_DISTANCE,
   MAX_ACTIVE_ENEMY_COUNT,
   MUSOU_GAUGE_MAX,
   MUSOU_ULTIMATE_CONE,
-  OCTOPUS_FIRST_SECONDS,
-  OCTOPUS_INTERVAL_SECONDS,
   pickEnemyKind,
   resolveAimDirection,
   resolveSpawnPosition,
+  SPLITTER_SPAWN_COUNT,
+  ULTIMATE_HIT_VALUE,
 } from './shutter-musou-logic'
 
 /** 鱈魚縮放。俯視斜角下約佔畫面 15%，低多邊在這個距離最耐看 */
@@ -71,17 +72,17 @@ const CAMERA_RADIUS_PORTRAIT = 30
  * 數值是血條相對台面的高度，體型愈大掛愈高，才不會插進魚身裡
  */
 const ENEMY_HP_BAR_HEIGHT_MAP: Partial<Record<EnemyKind, number>> = {
-  starfish: 0.55,
-  octopus: 1.35,
+  blocker: 0.55,
+  boss: 1.35,
 }
 
-/** 每種海怪的池子大小。水母要多一點，因為牠被收服時會分裂 */
+/** 每種怪魚的池子大小。分裂魚要多一點，因為牠被收服時會分裂 */
 const POOL_SIZE_MAP: Record<EnemyKind, number> = {
-  shrimp: 40,
-  crab: 20,
-  jelly: 26,
-  starfish: 14,
-  octopus: 3,
+  runner: 40,
+  dasher: 20,
+  splitter: 26,
+  blocker: 14,
+  boss: 3,
 }
 
 /** 收服演出的總時長。前段蓄力下壓、後段彈射上飄 */
@@ -124,7 +125,7 @@ interface ActiveEnemy {
   hitFlashRemain: number;
   /** 無敵時間內被碰到的消散進度，大於 0 代表正在安靜下沉消失中 */
   dodgeElapsed: number;
-  /** 螃蟹的衝刺冷卻。倒數到 0 且離魚夠近時，下一跳會變成大步衝刺 */
+  /** 衝刺魚的衝刺冷卻。倒數到 0 且離魚夠近時，下一跳會變成大步衝刺 */
   dashCooldown: number;
   /** 每隻的繞行偏移，一群同時朝魚走才不會疊成一直線 */
   approachOffset: number;
@@ -138,8 +139,8 @@ interface ActiveEnemy {
   hopStartZ: number;
   hopTargetX: number;
   hopTargetZ: number;
-  /** 水母被拍到時能不能再分裂。只有原生水母能分裂，分裂出來的小水母不行，
-   * 否則場上水母只會越打越多、永遠清不完
+  /** 分裂魚被拍到時能不能再分裂。只有原生分裂魚能分裂，分裂出來的小怪魚不行，
+   * 否則場上分裂魚只會越打越多、永遠清不完
    */
   canSplit: boolean;
   isActive: boolean;
@@ -211,7 +212,7 @@ export const createShutterMusouGame: MiniGameFactory = (context): MiniGameInstan
   // --- 遊戲狀態 ---
   let elapsedSeconds = 0
   let spawnTimer = 0
-  let octopusTimer = OCTOPUS_FIRST_SECONDS
+  let bossTimer = BOSS_FIRST_SECONDS
   let battery = BATTERY_CAPACITY
   /** 無雙槽：蓄滿後下一次放開快門會變成必殺，由玩家自己挑時機 */
   let musouGauge = 0
@@ -298,13 +299,13 @@ export const createShutterMusouGame: MiniGameFactory = (context): MiniGameInstan
     }
   }
 
-  /** 水母被收服時分裂出小水母，清得越快場上反而越亂——但小水母不能再分裂，
-   * 否則水母永遠打不完
+  /** 分裂魚被收服時分裂出小怪魚，清得越快場上反而越亂——但小怪魚不能再分裂，
+   * 否則分裂魚永遠打不完
    */
-  function splitJelly(x: number, z: number): void {
-    for (let index = 0; index < JELLY_SPLIT_COUNT; index++) {
+  function splitEnemy(x: number, z: number): void {
+    for (let index = 0; index < SPLITTER_SPAWN_COUNT; index++) {
       const angle = randomBetween(random, 0, Math.PI * 2)
-      spawnEnemy('jelly', x + Math.cos(angle) * 0.9, z + Math.sin(angle) * 0.9, false)
+      spawnEnemy('splitter', x + Math.cos(angle) * 0.9, z + Math.sin(angle) * 0.9, false)
     }
   }
 
@@ -331,7 +332,8 @@ export const createShutterMusouGame: MiniGameFactory = (context): MiniGameInstan
       if (!isTargetInCone(fishX, fishZ, shotAimRadians, cone, enemy.x, enemy.z, stats.bodyRadius)) {
         continue
       }
-      enemy.remainHitCount -= 1
+      // 必殺一發抵多次普通快門：耐拍的敵人不必再等好幾發才倒
+      enemy.remainHitCount -= isUltimate ? ULTIMATE_HIT_VALUE : 1
       hitCount += 1
       if (enemy.remainHitCount > 0) {
         // 還沒收服：白化一下當作打到的回饋
@@ -340,9 +342,9 @@ export const createShutterMusouGame: MiniGameFactory = (context): MiniGameInstan
       }
       enemy.captureElapsed = 1e-4
       captureCount += stats.captureValue
-      effects.burstScrap(enemy.x, ARENA_TOP_Y + 0.4, enemy.z, enemy.kind === 'octopus' ? 14 : 5, index + 1, shotAimRadians)
-      if (enemy.kind === 'jelly' && enemy.canSplit) {
-        splitJelly(enemy.x, enemy.z)
+      effects.burstScrap(enemy.x, ARENA_TOP_Y + 0.4, enemy.z, enemy.kind === 'boss' ? 14 : 5, index + 1, shotAimRadians)
+      if (enemy.kind === 'splitter' && enemy.canSplit) {
+        splitEnemy(enemy.x, enemy.z)
       }
     }
 
@@ -393,7 +395,7 @@ export const createShutterMusouGame: MiniGameFactory = (context): MiniGameInstan
 
     if (!canFireShutter(battery)) {
       // 電量見底：快門空響，給一點回饋但不扣連段
-      context.reportToast('沒電了⋯')
+      context.reportToast('沒電了⋯QQ')
       return
     }
     const cappedRatio = capChargeRatioByBattery(getChargeRatio(chargedSeconds), battery)
@@ -529,8 +531,8 @@ export const createShutterMusouGame: MiniGameFactory = (context): MiniGameInstan
         let hopSpeedMultiplier = 1
         let strafeRatio = enemy.approachOffset
 
-        if (enemy.kind === 'crab') {
-          // 螃蟹橫著走，冷卻好了且離魚夠近時，這一跳變成大步衝刺
+        if (enemy.kind === 'dasher') {
+          // 衝刺魚橫著走，冷卻好了且離魚夠近時，這一跳變成大步衝刺
           if (enemy.dashCooldown <= 0 && toFishDistance < 7) {
             hopSpeedMultiplier = 2.6
             strafeRatio = 0
@@ -540,8 +542,8 @@ export const createShutterMusouGame: MiniGameFactory = (context): MiniGameInstan
             strafeRatio = enemy.approachOffset * 2.2
           }
         }
-        else if (enemy.kind === 'jelly') {
-          // 水母飄忽，每一跳的側向偏移各自重擲，路徑左右盪
+        else if (enemy.kind === 'splitter') {
+          // 分裂魚飄忽，每一跳的側向偏移各自重擲，路徑左右盪
           strafeRatio = Math.sin(elapsedSeconds * 1.7 + enemy.approachOffset * 6) * 1.4
         }
 
@@ -587,7 +589,7 @@ export const createShutterMusouGame: MiniGameFactory = (context): MiniGameInstan
           composureState = applyContactDamage(composureState)
           // 撞到鱈魚的那隻直接消失（不再只是被推開），撞擊才有實際代價；
           // 給個小碎片噴散當作「消失」的回饋，不會顯得憑空不見
-          effects.burstScrap(enemy.x, ARENA_TOP_Y + 0.3, enemy.z, enemy.kind === 'octopus' ? 10 : 4, index + 211, 0)
+          effects.burstScrap(enemy.x, ARENA_TOP_Y + 0.3, enemy.z, enemy.kind === 'boss' ? 10 : 4, index + 211, 0)
           releaseEnemy(enemy)
           // 其餘還在逼近的敵人推開，給玩家喘息空間
           for (const other of activeEnemyList) {
@@ -630,11 +632,11 @@ export const createShutterMusouGame: MiniGameFactory = (context): MiniGameInstan
       spawnWave()
     }
 
-    octopusTimer -= deltaSeconds
-    if (octopusTimer <= 0) {
-      octopusTimer = OCTOPUS_INTERVAL_SECONDS
+    bossTimer -= deltaSeconds
+    if (bossTimer <= 0) {
+      bossTimer = BOSS_INTERVAL_SECONDS
       const position = resolveSpawnPosition(randomBetween(random, 0, Math.PI * 2))
-      spawnEnemy('octopus', position.x, position.z)
+      spawnEnemy('boss', position.x, position.z)
       context.reportToast('大傢伙來了')
     }
   }
@@ -766,7 +768,7 @@ export const createShutterMusouGame: MiniGameFactory = (context): MiniGameInstan
       // 開場先放一小群，玩家一進來就有東西可以拍
       for (let index = 0; index < 3; index++) {
         const position = resolveSpawnPosition(randomBetween(random, 0, Math.PI * 2))
-        spawnEnemy('shrimp', position.x, position.z)
+        spawnEnemy('runner', position.x, position.z)
       }
       update(0)
     },

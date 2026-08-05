@@ -1,6 +1,6 @@
 /** 敵人視覺：直接重用鱈魚模型（`createCodModel`），不再另外畫五種怪物造型。
  *
- * 每種敵人只靠顏色與體型區分：雜兵是縮小版的鱈魚，頭目章魚是明顯更大一尾——
+ * 每種敵人只靠顏色與體型區分：雜兵是縮小版的鱈魚，頭目是明顯更大一尾——
  * 「王則是更大的魚」，不需要另一套造型語彙，玩家一眼就認得出誰是頭目。
  *
  * 步態直接比照首頁主角魚（`FlopController`）：跳（拋物線）→ 貼地短停 → 再跳，
@@ -34,11 +34,11 @@ interface KindAppearance {
 }
 
 const KIND_APPEARANCE_MAP: Record<EnemyKind, KindAppearance> = {
-  shrimp: { bodyColorHex: LOW_POLY_PALETTE.coral, finColorHex: LOW_POLY_PALETTE.coralDeep, scale: 0.32 },
-  crab: { bodyColorHex: LOW_POLY_PALETTE.coralDeep, finColorHex: LOW_POLY_PALETTE.ink, scale: 0.38 },
-  jelly: { bodyColorHex: LOW_POLY_PALETTE.waterLight, finColorHex: LOW_POLY_PALETTE.water, scale: 0.36 },
-  starfish: { bodyColorHex: LOW_POLY_PALETTE.gold, finColorHex: LOW_POLY_PALETTE.goldDeep, scale: 0.4 },
-  octopus: { bodyColorHex: LOW_POLY_PALETTE.ink, finColorHex: LOW_POLY_PALETTE.inkDeep, scale: 0.86 },
+  runner: { bodyColorHex: LOW_POLY_PALETTE.coral, finColorHex: LOW_POLY_PALETTE.coralDeep, scale: 0.32 },
+  dasher: { bodyColorHex: LOW_POLY_PALETTE.coralDeep, finColorHex: LOW_POLY_PALETTE.ink, scale: 0.38 },
+  splitter: { bodyColorHex: LOW_POLY_PALETTE.waterLight, finColorHex: LOW_POLY_PALETTE.water, scale: 0.36 },
+  blocker: { bodyColorHex: LOW_POLY_PALETTE.gold, finColorHex: LOW_POLY_PALETTE.goldDeep, scale: 0.4 },
+  boss: { bodyColorHex: LOW_POLY_PALETTE.ink, finColorHex: LOW_POLY_PALETTE.inkDeep, scale: 0.86 },
 }
 
 export interface EnemyView {
@@ -159,7 +159,7 @@ function retintCodModel(meshList: Mesh[], kindMaterials: KindMaterialSet, eyeMat
   }
 }
 
-/** 建立一隻海怪：其實就是一尾重新配色配尺寸的鱈魚 */
+/** 建立一隻怪魚：其實就是一尾重新配色配尺寸的鱈魚 */
 export function createEnemyView(scene: Scene, kind: EnemyKind, instanceSeed: number): EnemyView {
   const random = createRandomGenerator(createSeedFrom(instanceSeed, 99))
   const appearance = KIND_APPEARANCE_MAP[kind]
@@ -180,9 +180,9 @@ export function createEnemyView(scene: Scene, kind: EnemyKind, instanceSeed: num
   // 側躺後身體比躺平前占的垂直空間更高，跟玩家魚一樣要墊高才不會半個身子插進地板
   // （比照 game.ts 的 COD_LYING_LIFT * FISH_SCALE 用法，這裡改乘各自的縮放）
   const liftY = COD_LYING_LIFT * baseScale
-  const hopHeight = randomBetween(random, 0.16, 0.24) * (kind === 'octopus' ? 1.3 : 1)
-  // 身體扭動的甩尾圈數：跳得高的頭目甩多一點，才配得上体型
-  const hopWaveCycles = kind === 'octopus' ? 1.4 : 1.1
+  const hopHeight = randomBetween(random, 0.16, 0.24) * (kind === 'boss' ? 1.3 : 1)
+  // 身體扭動的甩尾圈數：跳得高的頭目甩多一點，才配得上體型
+  const hopWaveCycles = kind === 'boss' ? 1.4 : 1.1
 
   return {
     root,
