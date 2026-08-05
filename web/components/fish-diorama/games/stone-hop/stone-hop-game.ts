@@ -59,12 +59,34 @@ import {
   START_PLATFORM,
   STRETCH_IMPULSE,
 } from './stone-hop-logic'
+import { attachUnderwaterShadowRipple, attachWaterRipple, setWaterRippleTime } from './water-ripple-plugin'
 
 // --- low poly箱庭配色 ---
 const PAPER_WHITE = LOW_POLY_PALETTE.bone
-const SAND_COLOR = LOW_POLY_PALETTE.soilLight
+/** 水底的沙。刻意不用岸上那階飽和的暖沙（`soilLight`）：
+ * 沙床整片是水色最大的混色對象，暖黃透過半透明的藍就是綠——水面偏綠的真正來源。
+ * 往骨白退四分之三，讀起來仍是淺沙、彩度卻低到不會把水拉綠；
+ * 泡在水裡的沉積物本來就會褪色，這個偏移同時也是對的
+ */
+const SAND_COLOR = Color3.Lerp(
+  Color3.FromHexString(LOW_POLY_PALETTE.soilLight),
+  Color3.FromHexString(LOW_POLY_PALETTE.bone),
+  0.75,
+).toHexString()
 const MOSS_GREEN = LOW_POLY_PALETTE.leaf
-const WATER_BLUE = LOW_POLY_PALETTE.waterLight
+/** 水色：深潭與中階水藍的中間值。
+ *
+ * 水面偏綠的成因不在這個色票本身，而在半透明的藍疊在暖沙床上——藍加黃就是綠，
+ * 水色再怎麼換都擰不過底下透上來的沙。所以偏綠是三處一起解：
+ * 色票往深潭靠一階（這裡）、沙床退掉彩度（`SAND_COLOR`）、
+ * 水面頂點色再往藍偏一手（見 `createWaterSurface`）。
+ * 水的透明度刻意留著不動，水底的沙與石頭要看得見
+ */
+const WATER_BLUE = Color3.Lerp(
+  Color3.FromHexString(LOW_POLY_PALETTE.waterDeep),
+  Color3.FromHexString(LOW_POLY_PALETTE.water),
+  0.45,
+).toHexString()
 const INK_BLUE = LOW_POLY_PALETTE.ink
 const WAX_YELLOW = LOW_POLY_PALETTE.gold
 const STONE_GRAY = '#9a958b'
@@ -327,18 +349,20 @@ interface DriftingPage {
   baseYaw: number;
 }
 
-/** 溪水波形。以世界座標取樣，水面網格跟著魚捲動時波紋不會跟著滑動；
- * 三組不同頻率與方向的正弦疊加，讀起來才像水而不是規律的布料
+/** 水面波形。以世界座標取樣，水面網格跟著魚捲動時波紋不會跟著滑動；
+ * 三組不同頻率與方向的正弦疊加，讀起來才像水而不是規律的布料。
+ *
+ * 調性是平靜的湖面：振幅壓到剛好讀得出水面在起伏、時間跑得慢，
+ * 不做激流那種明顯的推進感。倒影與水下陰影的抖動另外由
+ * water-ripple-plugin 在像素上做（幾何再怎麼起伏都擰不動那兩者，見該檔說明）
  */
 function getWaveHeight(worldX: number, worldZ: number, timeSeconds: number): number {
-  return 0.1 * Math.sin(worldX * 0.55 + timeSeconds * 1.5)
-    + 0.075 * Math.sin(worldZ * 0.42 + timeSeconds * 2.1)
-    + 0.05 * Math.sin((worldX + worldZ) * 0.31 + timeSeconds * 1.1)
-    // 高頻細波：平面鏡反射的取樣點是「水面頂點的世界座標」投影出來的，
-    // 水面起伏得越細碎，倒影被扭得越明顯。低頻大浪只會讓倒影整片平移，
-    // 要有細碎的波才讀得出水在流動
-    + 0.028 * Math.sin(worldX * 1.7 - timeSeconds * 3.4)
-    + 0.022 * Math.sin(worldZ * 2.1 + timeSeconds * 2.7)
+  return 0.055 * Math.sin(worldX * 0.55 + timeSeconds * 0.85)
+    + 0.04 * Math.sin(worldZ * 0.42 + timeSeconds * 1.15)
+    + 0.03 * Math.sin((worldX + worldZ) * 0.31 + timeSeconds * 0.6)
+    // 高頻細波：低頻大浪只會讓整片水面一起上下，切面之間的明暗差要靠這兩層撐出來
+    + 0.016 * Math.sin(worldX * 1.7 - timeSeconds * 1.8)
+    + 0.012 * Math.sin(worldZ * 2.1 + timeSeconds * 1.45)
 }
 
 /** 半透明流動水面。每格拆成兩個不共用頂點的三角形，flat shading 天生成立，
@@ -368,10 +392,12 @@ function createWaterSurface(scene: Scene, material: StandardMaterial): WaterSurf
       for (const [x, z] of cornerList) {
         indexList.push(positionList.length / 3)
         positionList.push(x, 0, z)
-        // 越靠岸越淺越亮，中央深槽偏暗，純色水面才有深淺層次
+        // 越靠岸越淺越亮，中央深槽偏暗，純色水面才有深淺層次。
+        // 三個通道不等比：頂點色順便當偏色濾鏡把水往藍推，
+        // 抵掉水底暖沙透上來的黃（藍加黃就是綠，那正是水面看起來偏綠的來源）
         const shallowRatio = clamp(Math.abs(x) / WATER_HALF_WIDTH, 0, 1)
         const shade = 0.82 + 0.24 * shallowRatio
-        colorList.push(shade, shade, Math.min(1, shade * 1.04), 1)
+        colorList.push(shade * 0.88, shade * 0.96, Math.min(1, shade * 1.12), 1)
       }
     }
   }
@@ -676,7 +702,16 @@ function createMossPatchMesh(
   return merged
 }
 
-/** 苔石的厚苔層：蓬鬆的苔蓋加一圈垂下來的苔絮。
+/** 邊緣垂下的苔絮數。八撮是「毛」與「流蘇」的分界：再少讀得出等距骨架，
+ * 再多在這個鏡頭距離下只是把輪廓糊成一圈綠邊
+ */
+const MOSS_TUFT_COUNT = 8
+/** 邊緣立起的短苔芽數。與苔絮方向相反（一個往下垂、一個往上冒），
+ * 輪廓上下緣都碎掉才是毛茸茸
+ */
+const MOSS_SPROUT_COUNT = 7
+
+/** 苔石的厚苔層：蓬鬆的苔蓋、一圈垂下來的苔絮，加一圈立起來的短苔芽。
  * 輪廓毛毛的、綠得徹底，玩家才會在起跳前就認出「這顆會滑」
  */
 function createMossFuzzMesh(
@@ -709,18 +744,21 @@ function createMossFuzzMesh(
   )
   partList.push(cap)
 
-  // 苔絮的方位不等分並留一側偏疏：等距四叢加擾動仍讀得出十字骨架
+  // 苔絮的方位不等分並留一側偏疏：等距四叢加擾動仍讀得出十字骨架。
+  // 數量從四叢加到八叢——毛茸茸讀的是輪廓：俯視鏡頭下苔石的「毛」全在邊緣那一圈，
+  // 頂面中央再怎麼加東西都只是一片綠。八叢長短胖瘦各異，邊緣才碎得起來
   const tuftAngleList = createClusteredAngleList({
     seed: seed ^ 0x711A9C4F,
-    count: 4,
-    unevenness: 0.6,
+    count: MOSS_TUFT_COUNT,
+    unevenness: 0.75,
     gapRatio: 0.15,
   })
-  for (let tuftIndex = 0; tuftIndex < 4; tuftIndex++) {
-    // 短而鈍：長度收斂、末端留寬成截頭錐，才不會抖出細長尖針
-    const tuftLength = randomBetween(random, 0.2, 0.3)
-    // 各叢胖瘦不同，四叢一樣粗會像同一支模具翻出來的
-    const tuftScale = randomBetween(random, 0.75, 1.25)
+  for (let tuftIndex = 0; tuftIndex < MOSS_TUFT_COUNT; tuftIndex++) {
+    // 短而鈍：長度收斂、末端留寬成截頭錐，才不會抖出細長尖針。
+    // 長短差距拉開到兩倍，一圈長度一致會讀成裙襬而不是苔
+    const tuftLength = randomBetween(random, 0.15, 0.32)
+    // 各叢胖瘦不同，一樣粗會像同一支模具翻出來的
+    const tuftScale = randomBetween(random, 0.6, 1.3)
     const tuftRatioList = createIrregularRadiusList(4, random, 0.7, 1)
     const tuft = createRingedSolidMesh(
       `${name}Tuft${tuftIndex}`,
@@ -735,15 +773,55 @@ function createMossFuzzMesh(
       { seed: seed + tuftIndex * 131, unevenness: 0.5 },
     )
     const angle = tuftAngleList[tuftIndex] ?? 0
-    const distance = randomBetween(random, 0.82, 0.94) * PLATFORM_BASE_RADIUS
+    const distance = randomBetween(random, 0.8, 0.96) * PLATFORM_BASE_RADIUS
     tuft.position.set(Math.sin(angle) * distance, -0.05, Math.cos(angle) * distance)
-    // 順著邊緣往外倒，苔絮才像垂掛而不是插在頂上的釘子
-    tuft.rotation.set(Math.cos(angle) * 0.3, 0, -Math.sin(angle) * 0.3)
+    // 順著邊緣往外倒，苔絮才像垂掛而不是插在頂上的釘子。
+    // 外倒的角度各叢不同，一致的傾角會讀成一圈整齊的流蘇
+    const tuftLean = randomBetween(random, 0.22, 0.46)
+    tuft.rotation.set(Math.cos(angle) * tuftLean, 0, -Math.sin(angle) * tuftLean)
     partList.push(tuft)
   }
 
+  // 邊緣立起來的短苔芽：苔絮是往下垂的，只有垂的會讀成裙襬；
+  // 立起來的這幾撮從輪廓上緣冒出去，才有「毛」的感覺。
+  // 高度壓在 0.05 以內——魚站在 y = 0、稿紙在 0.056，苔芽不能戳穿它們
+  const sproutAngleList = createClusteredAngleList({
+    seed: seed ^ 0x2545F491,
+    count: MOSS_SPROUT_COUNT,
+    unevenness: 0.85,
+    gapRatio: 0.25,
+  })
+  for (let sproutIndex = 0; sproutIndex < MOSS_SPROUT_COUNT; sproutIndex++) {
+    const sproutTopY = randomBetween(random, 0.005, 0.035)
+    // 苔芽要比整體抖動量（0.06）粗得多，否則末端會被抖成破碎的尖刺
+    const sproutRadius = randomBetween(random, 0.1, 0.16)
+    const sproutRatioList = createIrregularRadiusList(4, random, 0.65, 1)
+    const sprout = createRingedSolidMesh(
+      `${name}Sprout${sproutIndex}`,
+      scene,
+      material,
+      [
+        // 上細下粗的截頭錐，下半截整個埋在苔蓋裡，看得到的只有冒出來那一點
+        { y: sproutTopY, radiusList: sproutRatioList.map((ratio) => ratio * sproutRadius * 0.72) },
+        { y: -0.14, radiusList: sproutRatioList.map((ratio) => ratio * sproutRadius) },
+      ],
+      sproutTopY + 0.015,
+      -0.24,
+      { seed: seed + sproutIndex * 613, unevenness: 0.6 },
+    )
+    const angle = sproutAngleList[sproutIndex] ?? 0
+    // 只長在邊緣那一圈：中央是魚的落腳處，也是俯視下最看不出毛的位置
+    const distance = randomBetween(random, 0.52, 0.86) * PLATFORM_BASE_RADIUS
+    sprout.position.set(Math.sin(angle) * distance, 0, Math.cos(angle) * distance)
+    const sproutLean = randomBetween(random, -0.3, 0.3)
+    sprout.rotation.set(Math.cos(angle) * sproutLean, 0, -Math.sin(angle) * sproutLean)
+    partList.push(sprout)
+  }
+
   // 依模型準則「合併 → 攤平法線 → 整體抖動」一次收尾，
-  // 零件各抖各的會在接縫處讀出拼裝痕；抖動量取保守值，苔絮末端才不會抖穿
+  // 零件各抖各的會在接縫處讀出拼裝痕。抖動量仍取保守值——毛茸茸靠的是
+  // 苔絮與苔芽的數量與長短差，不是把抖動開大；抖動一旦逼近苔絮末端的半徑，
+  // 末端就不是毛而是破洞
   const merged = mergePartList(name, partList)
   merged.convertToFlatShadedMesh()
   applyVertexJitter(merged, { seed, amount: 0.06, axisScale: { y: 0.6 } })
@@ -754,9 +832,12 @@ function createMossFuzzMesh(
 // --- 荷葉 ---
 const LILY_SECTOR_COUNT = 14
 
-/** 荷葉：放射狀葉脈、中央微凹的碗狀、邊緣一道往上捲的缺口。
- * 缺口只收到 0.78 倍半徑，做視覺切口而不縮進判定圓內——
- * 判定是整個圓，缺口再深就會出現「看起來是洞、踩上去卻站得住」的錯讀
+/** 荷葉：放射狀葉脈、中央微凹的碗狀、邊緣一道朝葉心收的三角形缺口。
+ *
+ * 缺口是荷葉最好認的特徵，所以做成真的楔形（尖端收到 0.36 倍半徑），
+ * 不是淺淺一個凹。代價是判定圓仍是整個圓，缺口那一楔會出現
+ * 「看起來是缺口、踩上去卻站得住」——但缺口只佔十四分之三的角度，
+ * 而且是視覺辨識度換來的：認不出是荷葉，玩家連它會沉都不知道
  */
 function createLilyPadMesh(
   name: string,
@@ -799,12 +880,16 @@ function createLilyPadMesh(
     let rimRadius = randomBetween(random, 0.94, 1) * PLATFORM_BASE_RADIUS
     let rimY = 0.02
     if (notchDistance === 0) {
-      rimRadius *= 0.78
+      // 缺口尖端收到 0.36 倍半徑：荷葉的缺口是一道朝葉心收的楔形，
+      // 淺淺一個凹只會讀成「輪廓抖歪了」。內圈頂點跟著 rimRadius 等比內收
+      // （見下方 innerRowList），所以葉面本身就凹進去一塊，不只是邊緣缺一角
+      rimRadius *= 0.36
       rimY = -0.03
     }
     else if (notchDistance === 1) {
-      // 缺口兩側的葉緣捲起來，一眼看得出這是撕開的口子而不是模型破洞
-      rimRadius *= 0.84
+      // 缺口兩側是楔形的兩道斜邊，半徑取尖端與整圓的中間值，V 才是直的；
+      // 葉緣順勢捲起來，一眼看得出這是裂開的口子而不是模型破洞
+      rimRadius *= 0.7
       rimY = 0.12
     }
 
@@ -1434,6 +1519,16 @@ const STONE_PAPER_MAX_HALF_DIAGONAL = STONE_PAPER_MAX_RADIUS - STONE_PAPER_MAX_O
 const STONE_PAPER_LIFT = 0.042
 /** 苔石的苔蓋比石面蓬，紙跟著往上挪一點 */
 const MOSS_STONE_PAPER_LIFT = 0.056
+/** 苔石的石胎下沉量。
+ *
+ * 石胎頂面（-0.036~0.051）與苔蓋頂面（-0.096~0.056）原本整片交錯，
+ * 石胎的描邊外殼會從苔面下頂出來散成一片深紫楔形。沉到最壞情況下
+ * 「石胎頂面＋外殼厚度」仍低於苔蓋最低點，兩層才徹底分開：
+ * 0.051（石胎最高）+ 0.018（手機描邊最厚）- (-0.096)（苔蓋最低）≈ 0.165，
+ * 取 0.2 留一點餘裕。水線濕痕是烤在頂點色上的，跟著沉同樣的量，
+ * 但那道痕本身有 0.34 的漸層寬度，吃得下這點偏移
+ */
+const MOSS_BODY_SINK = -0.2
 
 /** 壓在石頭頂面的一兩張稿紙，一角用小石頭壓著。
  *
@@ -1671,15 +1766,16 @@ export const createStoneHopGame: MiniGameFactory = (context): MiniGameInstance =
     return material
   }
 
-  // 水色透一點，溪底的沙地與石頭要看得穿。反射是疊加上去的一層亮色，
-  // 加了倒影之後水面等於整體變不透明，所以底色的 alpha 要跟著往下讓
-  const waterMaterial = createFlatMaterial('stoneHopWaterMaterial', WATER_BLUE, 0.52)
+  // 水要透得出溪底的沙地與石頭，所以 alpha 壓回原本那一階。
+  // 「透了就變綠」改由沙床退彩度解決（見 SAND_COLOR），不靠遮住水底
+  const waterMaterial = createFlatMaterial('stoneHopWaterMaterial', WATER_BLUE, 0.55)
 
   // --- 水面真反射 ---
   // MirrorTexture 會以水面為鏡把場景再渲染一次，等於每幀多一個 pass，
   // 所以解析度只給 512，renderList 也只放水面上方看得到的東西（見 start）。
-  // 扭動不是靠法線貼圖：平面鏡的取樣點由水面頂點的世界座標投影而來，
-  // 水面本身逐幀起伏，倒影就跟著波形扭——省下一張貼圖與一次法線擾動
+  // 倒影的扭動不會自己發生：Babylon 的平面鏡取樣點是「該像素自己的螢幕位置」，
+  // 水面頂點怎麼起伏，片元與取樣點都一起動，倒影是釘在螢幕上的完美鏡子。
+  // 抖動一律交給 water-ripple-plugin 在取樣前推開螢幕 UV（見該檔說明）
   const waterMirror = new MirrorTexture('stoneHopWaterMirror', 512, scene, true)
   // 平面式 (0,-1,0,0)：法線朝下、通過 y = 0 的水面
   waterMirror.mirrorPlane = new Plane(0, -1, 0, 0)
@@ -1689,7 +1785,11 @@ export const createStoneHopGame: MiniGameFactory = (context): MiniGameInstance =
   // 更要緊的是倒影是「加上去」的亮色，越強水面越不透明、越看不見水底，
   // 所以這個值同時也是「水的透明度」的一半——點到為止就好
   waterMirror.level = 0.2
+  // 倒影的波紋擾動：外掛要在材質首次編譯前掛上，所以緊接著建材質做
+  attachWaterRipple(waterMaterial)
   const streamBedMaterial = createFlatMaterial('stoneHopStreamBedMaterial', SAND_COLOR)
+  // 落在溪床的影子是隔著水面看的，跟著同一片波場抖，水才不會像一層玻璃
+  attachUnderwaterShadowRipple(streamBedMaterial)
   const bankGroundMaterial = createFlatMaterial('stoneHopBankGroundMaterial', MOSS_GREEN)
   const bankRockMaterial = createFlatMaterial('stoneHopBankRockMaterial', STONE_GRAY)
   const grassMaterial = createFlatMaterial('stoneHopGrassMaterial', '#6f9268')
@@ -1947,6 +2047,12 @@ export const createStoneHopGame: MiniGameFactory = (context): MiniGameInstance =
       mossStoneMaterial,
       viewSeed ^ 0x1B873593,
     )
+    // 石胎整顆沉到苔蓋底下。兩者原本同高：石胎頂面在 -0.036~0.051、
+    // 苔蓋頂面在 -0.096~0.056，整片交錯在一起。表面互穿本身只是兩層綠在打架，
+    // 真正難看的是描邊——描邊的實作是放大一圈的深紫背面外殼，石胎的外殼
+    // 就從苔面下頂出來，在頂面散出一片片深紫楔形。沉下去讓兩個面徹底分開，
+    // 也才對得上「厚苔整顆包起來、露不出石胎」的原意
+    mossBodyMesh.position.y = MOSS_BODY_SINK
     mossBodyMesh.parent = mossStoneNode
     meshList.push(mossBodyMesh)
     const mossFuzzMesh = createMossFuzzMesh(`${rootNode.name}MossFuzz`, scene, mossPatchMaterial, viewSeed)
@@ -2900,6 +3006,7 @@ export const createStoneHopGame: MiniGameFactory = (context): MiniGameInstance =
     updateSplashRippleList(deltaSeconds)
     updateFishNode(deltaSeconds)
     waterSurface.update(elapsedSeconds, fishZ)
+    setWaterRippleTime(elapsedSeconds)
     streamBedMesh.position.z = fishZ
     for (const bankGround of bankGroundNodeList) {
       bankGround.position.z = fishZ
