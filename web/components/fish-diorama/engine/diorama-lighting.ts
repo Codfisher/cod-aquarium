@@ -27,7 +27,10 @@ const DEFAULT_BOUNCE_INTENSITY = 0.18
 
 export interface DioramaLightingOptions {
   namePrefix: string;
-  /** 陰影貼圖解析度。大場景可調高，小舞台 1024 已足夠 */
+  /** 陰影貼圖解析度。預設 512——影子在這套柔和陰天配方下本來就淡又走 PCF 模糊，
+   * 再高的解析度換不到看得出來的差別，深度圖卻是一整個幾何 pass 加顯存。
+   * 場地明顯更大、影子拉得很長的世界才需要調高
+   */
   shadowMapSize?: number;
   /** 陰影濃度（0 = 全黑、1 = 無影） */
   shadowDarkness?: number;
@@ -56,7 +59,7 @@ export function createDioramaLighting(
 ): DioramaLighting {
   const {
     namePrefix,
-    shadowMapSize = 1024,
+    shadowMapSize = 512,
     shadowDarkness = 0.45,
     sunDirection = new Vector3(-0.45, -1, -0.35).normalize(),
     sunPosition = new Vector3(7, 12, 6),
