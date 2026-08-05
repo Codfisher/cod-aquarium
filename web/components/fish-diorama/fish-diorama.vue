@@ -25,7 +25,11 @@
 
     <!-- is-scroll-locked：進場後鎖定觸控捲動，拖曳互動不會誤捲頁面；
          進場前維持 pan-y，訪客滑過文末的迎賓畫面不會被卡住 -->
+    <!-- :key 是重建 context 的關鍵：canvas 一旦丟掉 WebGL context 就再也拿不回來
+         （同一顆 element 呼叫 getContext 只會拿到那個已死的 context），
+         必須整顆換掉才有救，見 rebuildScene -->
     <canvas
+      :key="canvasKey"
       ref="canvasRef"
       class="diorama-canvas relative block h-full w-full"
       :class="{ 'is-ready': isReady && hasEntered, 'is-scroll-locked': hasEntered }"
@@ -300,7 +304,7 @@ import {
   useWindowFocus,
 } from '@vueuse/core'
 import { useData } from 'vitepress'
-import { computed, defineAsyncComponent, onMounted, onUnmounted, ref, useTemplateRef, watch } from 'vue'
+import { computed, defineAsyncComponent, nextTick, onMounted, onUnmounted, ref, useTemplateRef, watch } from 'vue'
 import { collectNewMilestoneList } from './games/game-contract'
 import { miniGameIdList, miniGameMetaMap, spotGameMap } from './games/game-registry'
 import { getGrainCssBlobUrl } from './paper-grain'
@@ -326,29 +330,95 @@ const isFocused = useWindowFocus()
 const isReady = ref(false)
 const hasFailed = ref(false)
 /** WebGL context 暫時遺失（手機切背景、記憶體吃緊時常見）。true 時畫面顯示過渡提示，
- * 逾時仍未恢復（見 CONTEXT_LOST_FAIL_MS）就判定救不回來，退回 hasFailed 的失敗畫面
+ * 等不到瀏覽器自動恢復就自己重建場景（見 rebuildScene），重建也失敗才退回失敗畫面
  */
 const contextLost = ref(false)
-const CONTEXT_LOST_FAIL_MS = 8000
-let contextLostFailTimer: ReturnType<typeof setTimeout> | undefined
+/** canvas element 的重建序號。context 一旦遺失，同一顆 canvas 是永遠救不回來的——
+ * 對它呼叫 getContext 只會拿到那個已死的 context，換掉 element 才拿得到新的
+ */
+const canvasKey = ref(0)
+/** 等待瀏覽器自動恢復 context 的時間，逾時就自己重建。
+ * 正常的 webglcontextrestored 只隔幾個 frame，等到秒級還沒來就是不會來了
+ */
+const CONTEXT_LOST_RETRY_MS = 3500
+/** 連續重建的次數上限。連著幾次都救不回來代表裝置真的撐不住，再試也只是空轉發熱 */
+const CONTEXT_REBUILD_LIMIT = 2
+/** 重建後撐過這段時間沒再中斷就視為恢復正常，額度歸零。
+ * 少了這個，玩家開著分頁一整天、中途手機收走 context 兩次就再也救不回來了
+ */
+const CONTEXT_HEALTHY_MS = 30_000
+let contextLostRetryTimer: ReturnType<typeof setTimeout> | undefined
+let contextHealthyTimer: ReturnType<typeof setTimeout> | undefined
+let rebuildCount = 0
+let isRebuilding = false
 
 function handleContextLost() {
   contextLost.value = true
-  clearTimeout(contextLostFailTimer)
-  contextLostFailTimer = setTimeout(() => {
-    // 只有「玩家正看著、卻仍沒恢復」才判定救不回來。
-    // 手機切到背景或鎖螢幕時，系統本來就會回收 WebGL context，那是正常現象；
-    // 這時若照樣判失敗，玩家切回來會發現整個箱庭消失了——比崩潰本身更糟
+  clearTimeout(contextHealthyTimer)
+  scheduleContextRebuild()
+}
+
+function scheduleContextRebuild() {
+  clearTimeout(contextLostRetryTimer)
+  contextLostRetryTimer = setTimeout(() => {
+    // 手機切到背景或鎖螢幕時，系統本來就會回收 WebGL context，那是正常現象。
+    // 玩家沒在看就別急著重建（重建也是在跟系統搶剛被收走的資源），
+    // 改成繼續等，等他切回來那一刻再動手
     if (!visible.value || !isFocused.value) {
+      scheduleContextRebuild()
       return
     }
-    hasFailed.value = true
-  }, CONTEXT_LOST_FAIL_MS)
+    rebuildScene()
+  }, CONTEXT_LOST_RETRY_MS)
 }
 
 function handleContextRestored() {
-  clearTimeout(contextLostFailTimer)
+  clearTimeout(contextLostRetryTimer)
   contextLost.value = false
+  // 瀏覽器自己把 context 還回來了，代表裝置狀況沒有惡化到底，重建額度歸零
+  rebuildCount = 0
+}
+
+/** context 等不到恢復時的最後手段：整組拆掉、換一顆 canvas、從頭建一次。
+ * 解鎖進度與配件都存在 localStorage，重建後的場景會照紀錄長回原樣，
+ * 玩家只會看到魚重新掉進箱庭一次
+ */
+async function rebuildScene() {
+  if (isRebuilding) {
+    return
+  }
+  if (rebuildCount >= CONTEXT_REBUILD_LIMIT) {
+    console.error('[fish-diorama] 重建仍拿不到 WebGL context，退回失敗畫面')
+    hasFailed.value = true
+    return
+  }
+  isRebuilding = true
+  rebuildCount += 1
+  console.warn(`[fish-diorama] context 未自動恢復，重建場景（第 ${rebuildCount} 次）`)
+
+  // 遊戲的 Scene 掛在箱庭的 Engine 上，一起收掉，HUD 也退回箱庭
+  disposeScene()
+  activeGameId.value = null
+  hudPhase.value = 'loading'
+  // 中斷有可能發生在轉場途中，蓋板留著會擋住重建好的畫面
+  clearTimeout(inkTransitionTimer)
+  inkTransitionVisible.value = false
+  isReady.value = false
+
+  canvasKey.value += 1
+  await nextTick()
+
+  const isCreated = await initDioramaScene()
+  isRebuilding = false
+  if (!isCreated) {
+    hasFailed.value = true
+    return
+  }
+  contextLost.value = false
+  clearTimeout(contextHealthyTimer)
+  contextHealthyTimer = setTimeout(() => {
+    rebuildCount = 0
+  }, CONTEXT_HEALTHY_MS)
 }
 
 /** 背景紙紋 tile 的 Blob URL（明暗各一版，soft-light 對各自底色解算），
@@ -824,24 +894,11 @@ const shouldRun = computed(() => (
   isReady.value && hasEntered.value && visible.value && isFocused.value && !activeGameId.value
 ))
 
-onMounted(async () => {
-  loadUnlockedSpotList()
-
-  // 背景紙紋非關鍵路徑：失敗就維持純漸層
-  getGrainCssBlobUrl('light')
-    .then((url) => {
-      lightGrainUrl.value = url
-    })
-    .catch(() => {})
-  getGrainCssBlobUrl('dark')
-    .then((url) => {
-      darkGrainUrl.value = url
-    })
-    .catch(() => {})
-
+/** 建立（或重建）箱庭場景。回傳是否成功，失敗時由呼叫端決定要重試還是退回失敗畫面 */
+async function initDioramaScene(): Promise<boolean> {
   const canvas = canvasRef.value
   if (!canvas) {
-    return
+    return false
   }
 
   try {
@@ -871,14 +928,90 @@ onMounted(async () => {
     dioramaHandle.setEquippedAccessoryList(gameProgress.value.equippedRewardIdList)
     // 深夜訪客：套用當前狀態，並每分鐘刷新時刻（跨過凌晨界線時自動切換）
     dioramaHandle.setSleepyMode(sleepyActive.value)
+    // 每分鐘刷新時刻（跨過凌晨界線時自動切換）。重建時重來一次，不留下舊的計時器
+    clearInterval(hourTimer)
     hourTimer = setInterval(() => {
       currentHour.value = new Date().getHours()
     }, 60_000)
     isReady.value = true
+    return true
   }
   catch (error) {
-    // WebGL 不可用或載入失敗：收起整個箱庭，首頁維持原樣
     console.error('[fish-diorama] 場景初始化失敗', error)
+    return false
+  }
+}
+
+/** 拆掉箱庭與借用同一個 Engine 的遊戲宿主。
+ * context 已經死掉時 Babylon 釋放資源會踩到失效的 GL 物件，包起來讓重建流程走得下去
+ */
+function disposeScene() {
+  try {
+    // 宿主先收：它的 Scene 掛在箱庭的 Engine 上，engine.dispose 之後才收會摸到已釋放的資源
+    gameHost?.dispose()
+  }
+  catch (error) {
+    console.warn('[fish-diorama] 遊戲宿主釋放失敗', error)
+  }
+  gameHost = undefined
+  try {
+    dioramaHandle?.dispose()
+  }
+  catch (error) {
+    console.warn('[fish-diorama] 箱庭場景釋放失敗', error)
+  }
+  dioramaHandle = undefined
+}
+
+/** 整頁離開（重新整理、關分頁）時主動歸還 WebGL context。
+ *
+ * 整頁重載不會觸發 onUnmounted，舊文件的 context 與顯存要等 GC 才還，
+ * 新文件卻已經在蓋同一份場景——兩份重疊就是重新整理後 context 被擠掉的原因。
+ * persisted 為 true 代表進了 bfcache（上一頁／切走還會原封不動回來），那就別動它
+ */
+function handlePageHide(event: PageTransitionEvent) {
+  if (event.persisted) {
+    return
+  }
+  disposeScene()
+  isReady.value = false
+}
+
+/** 從 bfcache 回來時場景若已經被釋放就補建。
+ * Safari 有回報 persisted=false 卻仍然把頁面放進 bfcache 的情況，
+ * 少了這道保險，上一頁回來會看到一片空白的箱庭
+ */
+async function handlePageShow(event: PageTransitionEvent) {
+  if (!event.persisted || dioramaHandle || isRebuilding) {
+    return
+  }
+  // 釋放時已經歸還 context，原本那顆 canvas 要不回來了，換一顆才建得起來
+  canvasKey.value += 1
+  await nextTick()
+  if (!await initDioramaScene()) {
+    hasFailed.value = true
+  }
+}
+
+onMounted(async () => {
+  loadUnlockedSpotList()
+  window.addEventListener('pagehide', handlePageHide)
+  window.addEventListener('pageshow', handlePageShow)
+
+  // 背景紙紋非關鍵路徑：失敗就維持純漸層
+  getGrainCssBlobUrl('light')
+    .then((url) => {
+      lightGrainUrl.value = url
+    })
+    .catch(() => {})
+  getGrainCssBlobUrl('dark')
+    .then((url) => {
+      darkGrainUrl.value = url
+    })
+    .catch(() => {})
+
+  // WebGL 不可用或載入失敗：收起整個箱庭，首頁維持原樣
+  if (!await initDioramaScene()) {
     hasFailed.value = true
   }
 })
@@ -916,13 +1049,12 @@ onUnmounted(() => {
   clearTimeout(fullUnlockTimer)
   clearTimeout(toastTimer)
   clearTimeout(inkTransitionTimer)
-  clearTimeout(contextLostFailTimer)
+  clearTimeout(contextLostRetryTimer)
+  clearTimeout(contextHealthyTimer)
   clearInterval(hourTimer)
-  // 宿主先收：它的 Scene 掛在箱庭的 Engine 上，engine.dispose 之後才收會摸到已釋放的資源
-  gameHost?.dispose()
-  gameHost = undefined
-  dioramaHandle?.dispose()
-  dioramaHandle = undefined
+  window.removeEventListener('pagehide', handlePageHide)
+  window.removeEventListener('pageshow', handlePageShow)
+  disposeScene()
 })
 </script>
 

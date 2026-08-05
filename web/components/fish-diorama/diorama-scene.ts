@@ -249,7 +249,17 @@ export function createDioramaScene(
 
   // doNotHandleTouchAction：Engine 預設會把 canvas inline style 設成 touch-action: none，
   // 蓋掉樣式表的 pan-y，導致觸控無法在魚缸區直向捲動頁面。場景只需點擊，不需要 Babylon 手勢
-  const engine = new Engine(canvas, true, { alpha: true, doNotHandleTouchAction: true }, false)
+  //
+  // loseContextOnDispose：dispose() 預設只是放掉 JS 端的參照，WebGL context 與它背後的
+  // 顯存要等瀏覽器 GC 才真的還回去。整頁重新整理時舊文件的 context 就這樣拖著不放，
+  // 新文件同時又在蓋一份一樣的場景，兩份疊在一起會把新的 context 擠掉——而被系統強制
+  // 收走的 context 不會自動恢復。開這個旗標讓 dispose 明確歸還 context（見 pagehide 的釋放）
+  const engine = new Engine(
+    canvas,
+    true,
+    { alpha: true, doNotHandleTouchAction: true, loseContextOnDispose: true },
+    false,
+  )
   // WebGL context 遺失／恢復：Babylon 預設就會攔截瀏覽器的 context lost 事件並嘗試在恢復時
   // 重建 GPU 資源（見 thinEngine 的 _onContextLost／_onContextRestored），這裡只是把狀態
   // 轉發給外層，讓 UI 能顯示過渡態、逾時未恢復時退回失敗畫面
