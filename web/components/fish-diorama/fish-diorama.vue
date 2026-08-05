@@ -336,6 +336,12 @@ function handleContextLost() {
   contextLost.value = true
   clearTimeout(contextLostFailTimer)
   contextLostFailTimer = setTimeout(() => {
+    // 只有「玩家正看著、卻仍沒恢復」才判定救不回來。
+    // 手機切到背景或鎖螢幕時，系統本來就會回收 WebGL context，那是正常現象；
+    // 這時若照樣判失敗，玩家切回來會發現整個箱庭消失了——比崩潰本身更糟
+    if (!visible.value || !isFocused.value) {
+      return
+    }
     hasFailed.value = true
   }, CONTEXT_LOST_FAIL_MS)
 }
@@ -603,6 +609,9 @@ async function startGame(gameId: MiniGameId) {
   // 箱庭讓出渲染迴圈：Engine 的 render loop 是全域的，
   // 必須先停箱庭再啟遊戲，否則兩邊會互相蓋掉對方的 callback
   dioramaHandle.setRunning(false)
+  // 箱庭的後製整組釋放，把顯存讓給遊戲場景：Scene 停止渲染不會歸還 render target，
+  // 不主動釋放的話，遊戲期間會有兩套全螢幕後製 RTT 同時佔著記憶體
+  dioramaHandle.setLookEnabled(false)
 
   try {
     createGameHostFactory ??= (await import('./games/game-host')).createGameHost
@@ -619,6 +628,7 @@ async function startGame(gameId: MiniGameId) {
     gameHost?.close()
     activeGameId.value = null
     hudPhase.value = 'loading'
+    dioramaHandle.setLookEnabled(true)
     dioramaHandle.setRunning(shouldRun.value)
   }
   finally {
@@ -701,6 +711,8 @@ async function closeGame() {
   hudPhase.value = 'loading'
   toastText.value = ''
   clearTimeout(toastTimer)
+  // 遊戲場景已釋放，把箱庭的後製建回來（進場時是在墨水蓋板底下重建，看不到過程）
+  dioramaHandle?.setLookEnabled(true)
   dioramaHandle?.setRunning(shouldRun.value)
 
   const newlyUnlockedSpotKeyList = interactionSpotKeyList.filter((key) => (

@@ -124,6 +124,11 @@ export interface DioramaSceneHandle {
   engine: Engine;
   /** 開關渲染迴圈（不可見或失焦時停止） */
   setRunning: (value: boolean) => void;
+  /** 開關整套後製管線。傳 false 會真的把 PostProcess 與 SSAO 整組釋放，
+   * 不只是停用——Babylon 的 render target 不會因為 Scene 停止渲染就歸還顯存。
+   * 玩迷你遊戲時箱庭 Scene 留在記憶體，這時關掉才不會兩套全螢幕 RTT 並存
+   */
+  setLookEnabled: (value: boolean) => void;
   setDarkMode: (value: boolean) => void;
   /** 快門挑戰模式：魚自動四處跳、停用點擊移動與停靠 popup */
   setCameraChallengeActive: (value: boolean) => void;
@@ -179,6 +184,8 @@ const FISH_COLLISION_MARGIN = 0.9
 const INTERACTION_TRIGGER_DISTANCE = 1.6
 /** 單幀 dt 上限（ms），比照 bg-flock 避免掉幀時瞬移 */
 const MAX_FRAME_DELTA_MS = 34
+/** 手機的目標幀距（秒）。1/30 秒＝30fps，見 renderFrame 的降幀說明 */
+const LOW_POWER_FRAME_INTERVAL_SECONDS = 1 / 30
 /** 點擊判定：pointer 位移小於此值（px）才視為點擊而非拖曳/捲動 */
 const TAP_DISTANCE_THRESHOLD = 8
 /** 滑鼠視差：游標偏離畫面中心時鏡頭方位角/俯角的最大偏移（rad）。
@@ -267,76 +274,84 @@ export function createDioramaScene(
   )
   camera.fov = 0.7
 
-  // 影像處理：對比微調 + FXAA。
-  // 景深（DOF）已停用：失焦溢光會在物體邊緣產生明顯白色光暈
-  const pipeline = new DefaultRenderingPipeline('dioramaPipeline', true, scene, [camera])
-  pipeline.depthOfFieldEnabled = false
-  pipeline.imageProcessingEnabled = true
-  // 對比刻意收斂：柔和陰天感，不要正午烈日
-  pipeline.imageProcessing.contrast = 1.05
-  pipeline.imageProcessing.exposure = 1
-  // 後處理管線會繞過 canvas 原生 MSAA：改開管線自身的 MSAA（WebGL2，幾何硬邊主力），
-  // 再疊 FXAA 收掉殘餘閃爍。只靠 FXAA 對低多邊形硬邊效果很差、鋸齒明顯。
-  // 手機降到 2 samples：仍有 MSAA 兜底，但顯存與頻寬成本減半
-  pipeline.samples = isLowPowerDevice ? 2 : 4
-  pipeline.fxaaEnabled = true
+  /** 建立整套後製管線，回傳可整組釋放的把手。
+   *
+   * 抽成「可重建」而不是建好就固定，是因為 Babylon 的 PostProcess render target
+   * 不會因為 Scene 停止渲染就釋放：玩迷你遊戲時箱庭 Scene 刻意留在記憶體
+   * （見 game-host.ts），這套後製若跟著留著，就等於兩套全螢幕 RTT 同時佔著顯存。
+   * 開遊戲前呼叫 setLookEnabled(false) 整組釋放，回箱庭時再重建
+   */
+  function buildLook(): { dispose: () => void } {
+    // 影像處理：對比微調 + FXAA。
+    // 景深（DOF）已停用：失焦溢光會在物體邊緣產生明顯白色光暈
+    const pipeline = new DefaultRenderingPipeline('dioramaPipeline', true, scene, [camera])
+    pipeline.depthOfFieldEnabled = false
+    pipeline.imageProcessingEnabled = true
+    // 對比刻意收斂：柔和陰天感，不要正午烈日
+    pipeline.imageProcessing.contrast = 1.05
+    pipeline.imageProcessing.exposure = 1
+    // 後處理管線會繞過 canvas 原生 MSAA：改開管線自身的 MSAA（WebGL2，幾何硬邊主力），
+    // 再疊 FXAA 收掉殘餘閃爍。只靠 FXAA 對低多邊形硬邊效果很差、鋸齒明顯。
+    // 手機降到 2 samples：仍有 MSAA 兜底，但顯存與頻寬成本減半
+    pipeline.samples = isLowPowerDevice ? 2 : 4
+    pipeline.fxaaEnabled = true
 
-  // 質感細調：暗角聚焦視線（染暗藍紫呼應 split toning）、
-  // 輕微動態膠片顆粒（與紙紋同語彙）、銳化補償 FXAA 的細節損失、
-  // 邊緣極輕色散帶出鏡頭感
-  pipeline.imageProcessing.vignetteEnabled = true
-  pipeline.imageProcessing.vignetteWeight = 1.1
-  pipeline.imageProcessing.vignetteColor = new Color4(0.09, 0.08, 0.18, 0)
-  // 銳化壓到極輕：高對比邊緣過銳會產生白暈（像烈日反光）
-  pipeline.sharpenEnabled = true
-  pipeline.sharpen.edgeAmount = 0.06
-  pipeline.grainEnabled = true
-  pipeline.grain.intensity = 6
-  pipeline.grain.animated = true
-  pipeline.chromaticAberrationEnabled = true
-  pipeline.chromaticAberration.aberrationAmount = 6
-  pipeline.chromaticAberration.radialIntensity = 0.85
-  // Split toning：亮部染暖橘、暗部染藍紫，整體光影冷暖對比更豐富。
-  // 用後製 ColorCurves 統一處理，日夜模式都吃得到，不用逐一調材質
-  const splitToningCurves = new ColorCurves()
-  splitToningCurves.highlightsHue = 32
-  splitToningCurves.highlightsDensity = 20
-  splitToningCurves.highlightsSaturation = 14
-  // 染色會推高亮部亮度，曝光往回收避免過曝
-  splitToningCurves.highlightsExposure = -14
-  splitToningCurves.shadowsHue = 264
-  splitToningCurves.shadowsDensity = 38
-  splitToningCurves.shadowsSaturation = 28
-  pipeline.imageProcessing.colorCurvesEnabled = true
-  pipeline.imageProcessing.colorCurves = splitToningCurves
+    // 質感細調只留暗角：聚焦視線，染暗藍紫呼應 split toning。
+    // 它是 imageProcessing 內建的，不額外增加 pass。
+    //
+    // 色散、顆粒、銳化三者已全面移除。它們原本是要疊出「鏡頭感」，但這個世界的質感
+    // 來自紙與蠟筆，光學瑕疵與膠片顆粒本來就不屬於這裡；而三者各自都是一整個
+    // 全螢幕 pass，在超取樣過的畫面上每幀多讀寫三次整張大圖，
+    // 正是長時間持續渲染時發熱、手機被系統回收 WebGL context 的主因。
+    // 拿掉之後畫質幾乎無感（銳化本來就只有 0.06），負擔卻少一半
+    pipeline.imageProcessing.vignetteEnabled = true
+    pipeline.imageProcessing.vignetteWeight = 1.1
+    pipeline.imageProcessing.vignetteColor = new Color4(0.09, 0.08, 0.18, 0)
+    // Split toning：亮部染暖橘、暗部染藍紫，整體光影冷暖對比更豐富。
+    // 用後製 ColorCurves 統一處理，日夜模式都吃得到，不用逐一調材質。
+    // 併在 imageProcessing 裡算，不是額外的 pass，手機也留著
+    const splitToningCurves = new ColorCurves()
+    splitToningCurves.highlightsHue = 32
+    splitToningCurves.highlightsDensity = 20
+    splitToningCurves.highlightsSaturation = 14
+    // 染色會推高亮部亮度，曝光往回收避免過曝
+    splitToningCurves.highlightsExposure = -14
+    splitToningCurves.shadowsHue = 264
+    splitToningCurves.shadowsDensity = 38
+    splitToningCurves.shadowsSaturation = 28
+    pipeline.imageProcessing.colorCurvesEnabled = true
+    pipeline.imageProcessing.colorCurves = splitToningCurves
 
-  // SSAO：物體接縫、凹角與貼地處產生柔和環境遮蔽，接地感與體積感明顯提升。
-  // 走 geometry buffer（非 prepass），避開透明 canvas＋MSAA 管線的相容性問題；
-  // 在此建立（描邊之前），AO 疊在色調處理後的畫面上、鉛筆線條保持在最上層。
-  // WebGL1 不支援就跳過，畫面只是少了 AO。
-  // 手機也直接跳過：SSAO 是額外一組 render target 加模糊 pass，是這整條管線裡最吃顯存的部分，
-  // 犧牲這裡的陰影細節、換超取樣解析度不縮水，畫面清晰度的取捨更划算
-  if (SSAO2RenderingPipeline.IsSupported && !isLowPowerDevice) {
-    const ssaoPipeline = new SSAO2RenderingPipeline(
-      'dioramaSsaoPipeline',
-      scene,
-      { ssaoRatio: 0.5, blurRatio: 1 },
-      [camera],
-      true,
-    )
-    // 低多邊小場景：取樣半徑貼近物件尺度，強度壓在陰影提示而非髒污的程度
-    ssaoPipeline.radius = 0.8
-    ssaoPipeline.totalStrength = 0.68
-    ssaoPipeline.samples = 12
-    ssaoPipeline.expensiveBlur = true
-    // 相機距離 14，場景深度不超過此值；限制範圍讓遠景不吃 AO 雜訊
-    ssaoPipeline.maxZ = 45
-  }
+    // SSAO：物體接縫、凹角與貼地處產生柔和環境遮蔽，接地感與體積感明顯提升。
+    // 走 geometry buffer（非 prepass），避開透明 canvas＋MSAA 管線的相容性問題；
+    // 在此建立（描邊之前），AO 疊在色調處理後的畫面上、鉛筆線條保持在最上層。
+    // WebGL1 不支援就跳過，畫面只是少了 AO。
+    // 手機也直接跳過：SSAO 是額外一組 render target 加模糊 pass，是這整條管線裡最吃顯存的部分，
+    // 犧牲這裡的陰影細節、換超取樣解析度不縮水，畫面清晰度的取捨更划算
+    let ssaoPipeline: SSAO2RenderingPipeline | undefined
+    if (SSAO2RenderingPipeline.IsSupported && !isLowPowerDevice) {
+      ssaoPipeline = new SSAO2RenderingPipeline(
+        'dioramaSsaoPipeline',
+        scene,
+        { ssaoRatio: 0.5, blurRatio: 1 },
+        [camera],
+        true,
+      )
+      // 低多邊小場景：取樣半徑貼近物件尺度，強度壓在陰影提示而非髒污的程度
+      ssaoPipeline.radius = 0.8
+      ssaoPipeline.totalStrength = 0.68
+      ssaoPipeline.samples = 12
+      ssaoPipeline.expensiveBlur = true
+      // 相機距離 14，場景深度不超過此值；限制範圍讓遠景不吃 AO 雜訊
+      ssaoPipeline.maxZ = 45
+    }
 
-  // 移軸微縮（tilt-shift）：畫面上下緣漸進模糊、中央保持清晰帶。
-  // 微縮感 = 俯視＋淺景深＋高對比（後兩者已有），這裡補上模糊。
-  // 用螢幕空間垂直漸層而非深度 DOF，避開先前失焦溢光的邊緣光暈問題
-  Effect.ShadersStore.tiltShiftFragmentShader = /* glsl */ `
+    // 移軸微縮（tilt-shift）：畫面上下緣漸進模糊、中央保持清晰帶。
+    // 微縮感 = 俯視＋淺景深＋高對比（後兩者已有），這裡補上模糊。
+    // 用螢幕空間垂直漸層而非深度 DOF，避開先前失焦溢光的邊緣光暈問題。
+    // 這個 pass 每像素取樣 12 次，是整條管線最貴的一個——但它正是「微縮箱庭」
+    // 的視覺核心，拿掉的話手機看到的就不是同一個作品了，寧可留著、用降幀去換
+    Effect.ShadersStore.tiltShiftFragmentShader = /* glsl */ `
     precision highp float;
     varying vec2 vUV;
     uniform sampler2D textureSampler;
@@ -368,14 +383,27 @@ export function createDioramaScene(
       gl_FragColor = accumulated / 13.0;
     }
   `
-  const tiltShiftPostProcess = new PostProcess('tiltShift', 'tiltShift', ['texelSize'], null, 1, camera)
-  tiltShiftPostProcess.onApply = (effect) => {
-    effect.setFloat2(
-      'texelSize',
-      1 / Math.max(1, tiltShiftPostProcess.width),
-      1 / Math.max(1, tiltShiftPostProcess.height),
-    )
+    const tiltShiftPostProcess = new PostProcess('tiltShift', 'tiltShift', ['texelSize'], null, 1, camera)
+    tiltShiftPostProcess.onApply = (effect) => {
+      effect.setFloat2(
+        'texelSize',
+        1 / Math.max(1, tiltShiftPostProcess.width),
+        1 / Math.max(1, tiltShiftPostProcess.height),
+      )
+    }
+
+    return {
+      dispose() {
+        // 由後往前拆，順序與建立時相反
+        tiltShiftPostProcess.dispose()
+        ssaoPipeline?.dispose()
+        pipeline.dispose()
+      },
+    }
   }
+
+  /** 目前掛著的後製資源。undefined = 已釋放（玩迷你遊戲期間） */
+  let lookHandle: { dispose: () => void } | undefined = buildLook()
 
   const hemisphericLight = new HemisphericLight(
     'dioramaHemisphericLight',
@@ -1133,6 +1161,8 @@ export function createDioramaScene(
 
   // --- 每幀更新 ---
   let timeSeconds = 0
+  /** 尚未消化的經過時間。降幀時把跳過的幀累加在這裡，真正渲染的那一幀才拿得到完整時距 */
+  let pendingDeltaSeconds = 0
 
   /** 最新一幀的魚姿態，快門挑戰的拍照判定用 */
   let latestPose = flopController.getPose()
@@ -1294,7 +1324,20 @@ export function createDioramaScene(
   }
 
   function renderFrame() {
-    const deltaSeconds = Math.min(engine.getDeltaTime(), MAX_FRAME_DELTA_MS) / 1000
+    // 手機降到 30fps：箱庭是文末的裝飾元件，卻是一個永不停歇的全螢幕 3D 渲染迴圈。
+    // 手機 GPU 長時間扛著超取樣＋多道全螢幕後製會持續發熱，iOS Safari 的看門狗
+    // 便會回收 WebGL context（畫面直接死掉）。裝飾元件不需要 60fps，
+    // 砍一半的持續負載換穩定，是這個場景最划算的取捨。
+    //
+    // 跳過的那些幀的時間要累加起來帶進 deltaSeconds：engine.getDeltaTime() 給的是
+    // 「上一個引擎幀到現在」，直接拿來用的話跳幀等於把經過的時間丟掉，動畫會慢一半
+    pendingDeltaSeconds += engine.getDeltaTime() / 1000
+    if (isLowPowerDevice && pendingDeltaSeconds < LOW_POWER_FRAME_INTERVAL_SECONDS) {
+      return
+    }
+
+    const deltaSeconds = Math.min(pendingDeltaSeconds * 1000, MAX_FRAME_DELTA_MS) / 1000
+    pendingDeltaSeconds = 0
     timeSeconds += deltaSeconds
 
     // 滑鼠視差：平滑趨近目標偏移後微轉鏡頭（游標往上 = 視角略升高俯瞰）
@@ -1554,6 +1597,17 @@ export function createDioramaScene(
         engine.stopRenderLoop()
       }
     },
+    setLookEnabled(value: boolean) {
+      if (value === (lookHandle !== undefined)) {
+        return
+      }
+      if (value) {
+        lookHandle = buildLook()
+        return
+      }
+      lookHandle?.dispose()
+      lookHandle = undefined
+    },
     setDarkMode,
     resize() {
       engine.resize()
@@ -1571,6 +1625,9 @@ export function createDioramaScene(
         handle.dispose()
       }
       equippedAccessoryMap.clear()
+      // 後製要先於 Scene 拆：反過來的話 pipeline.dispose() 會摸到已釋放的場景資源
+      lookHandle?.dispose()
+      lookHandle = undefined
       scene.dispose()
       engine.dispose()
     },
