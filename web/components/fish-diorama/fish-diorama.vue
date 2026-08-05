@@ -431,6 +431,9 @@ function handleCanvasClick() {
   }
   if (!hasEntered.value) {
     hasEntered.value = true
+    // 物理拖到這一刻才載：Havok WASM 的記憶體尖峰不該疊在場景初始化的顯存尖峰上，
+    // 而迎賓頁本來就用不到物理（見 createDioramaScene 的 startPhysics）
+    dioramaHandle?.startPhysics()
     moveHintTimer = setTimeout(() => {
       moveHintDelayDone.value = true
     }, 1600)
