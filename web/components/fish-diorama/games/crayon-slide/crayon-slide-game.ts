@@ -2096,7 +2096,7 @@ export const createCrayonSlideGame: MiniGameFactory = (context) => {
     if (hitHazard) {
       isGameOver = true
       // 講清楚死因：沒有這句，玩家會以為是判定出錯
-      context.reportToast(hitHazard.kind === 'urchin' ? '撞到海膽了！' : '撞到牆刺了！')
+      context.reportToast(hitHazard.kind === 'urchin' ? '撞到海膽了！(╥ω╥`)' : '撞到牆刺了！(╥ω╥`)')
       context.reportGameOver()
       return
     }
@@ -2107,7 +2107,7 @@ export const createCrayonSlideGame: MiniGameFactory = (context) => {
       fishRadius: FISH_RADIUS,
       hazardList: activeHazardSpecList,
     })) {
-      context.reportToast('好險！')
+      context.reportToast('好險！Σ(ˊДˋ;)')
     }
 
     const frame = depthTracker.update({
@@ -2130,13 +2130,13 @@ export const createCrayonSlideGame: MiniGameFactory = (context) => {
       lastReportedScore = frame.score
       context.reportScore(frame.score)
       if (milestone !== null) {
-        context.reportToast(`下潛 ${milestone} 公尺！`)
+        context.reportToast(`下潛 ${milestone} 公尺！=͟͟͞͞( •̀д•́)`)
       }
     }
 
     if (frame.endReason) {
       isGameOver = true
-      context.reportToast('卡住太久了…')
+      context.reportToast('卡住太久了…( ´•̥̥̥ ω •̥̥̥` )')
       context.reportGameOver()
     }
   }
