@@ -21,17 +21,12 @@ import { Scene } from '@babylonjs/core/scene'
 import { createDioramaLighting } from '../engine/diorama-lighting'
 import { applyDioramaLook } from '../engine/diorama-look'
 import { enableScenePhysics, loadHavokInstance } from '../engine/physics-boot'
+import { OUTLINE_COLOR, resolveOutlineWidth } from '../engine/scene-outline'
 import { attachPaperGrainPlugins, setPaperGrainRimLight } from '../paper-grain-plugin'
 import '../engine/babylon-side-effects'
 
 /** 單幀 dt 上限（ms）：掉幀時不讓遊戲物件瞬移穿牆 */
 const MAX_FRAME_DELTA_MS = 34
-
-/** 卡通描邊：與箱庭主場景同一組深藍紫細線，讓遊戲裡的物件也像被細筆勾過邊。
- * 少了這一層，同一批低多邊模型看起來就是廉價的塑膠塊
- */
-const OUTLINE_COLOR = Color3.FromHexString('#2c2747')
-const OUTLINE_WIDTH = 0.006
 
 function readSkipOutline(metadata: unknown): boolean {
   return Boolean((metadata as { skipOutline?: boolean } | null)?.skipOutline)
@@ -43,6 +38,8 @@ function readSkipOutline(metadata: unknown): boolean {
  * 疊圖類（HUD、瞄準扇形）一律跳過：它們是貼在鏡頭前的 2D 介面，描了邊會像貼紙鑲黑框
  */
 function applySceneCraft(scene: Scene, camera: ArcRotateCamera, isDark: boolean): void {
+  // 描邊寬度依實際渲染解析度換算，低解析度下才不會細到一個像素以下（見 resolveOutlineWidth）
+  const outlineWidth = resolveOutlineWidth(scene.getEngine() as Engine)
   for (const mesh of scene.meshes) {
     // billboard 面（血條、旗標這類永遠面向鏡頭的 UI 感元素）不描邊
     if (mesh.billboardMode !== TransformNode.BILLBOARDMODE_NONE) {
@@ -64,7 +61,7 @@ function applySceneCraft(scene: Scene, camera: ArcRotateCamera, isDark: boolean)
       continue
     }
     mesh.renderOutline = true
-    mesh.outlineWidth = OUTLINE_WIDTH
+    mesh.outlineWidth = outlineWidth
     mesh.outlineColor = OUTLINE_COLOR
   }
 

@@ -116,7 +116,9 @@ export function applyDioramaLook(
   pipeline.imageProcessing.exposure = exposure
   // 後處理管線會繞過 canvas 原生 MSAA：改開管線自身的 MSAA（WebGL2，幾何硬邊主力），
   // 再疊 FXAA 收掉殘餘閃爍。只靠 FXAA 對低多邊形硬邊效果很差、鋸齒明顯。
-  // 手機降到 2 samples：仍有 MSAA 兜底，但顯存與頻寬成本減半
+  //
+  // 手機 2 samples：解析度已經回到 0.67 倍實體像素，邊緣主要靠它，
+  // MSAA 只是補覆蓋率，拉到 4 換不到相稱的畫質卻要多一份多重取樣緩衝
   pipeline.samples = isLowPowerDevice ? 2 : 4
   pipeline.fxaaEnabled = true
 
