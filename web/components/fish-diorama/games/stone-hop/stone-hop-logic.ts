@@ -263,11 +263,18 @@ export function isLilyPadSunk(sinkDepth: number): boolean {
 }
 
 // --- 苔石打滑 ---
-/** 打滑總位移收斂到 speed / decay（約 0.41 單位）。
- * 這個量刻意小於半徑的一半：完美落點滑完仍站得住，落點偏了才會被推下水
+/** 打滑總位移收斂到 speed / decay（約 0.61 單位，半徑的六成）。
+ *
+ * 上限由「完美落點滑完仍站得住」定死：完美的落點誤差在 0.25 半徑內
+ * （PERFECT_RADIUS_RATIO），0.25 + 0.61 = 0.86 仍在半徑之內。
+ * 良好落點（到 0.72）滑完就會被推出去——苔石的風險就落在這個區間，
+ * 想踩苔石就得踩得夠準，不是踩得到就好。
+ *
+ * 衰減也放慢（4.6 → 3.5，時間常數 0.22 → 0.29 秒）：滑得遠之外還要滑得久，
+ * 「一路滑出去」的無力感才出得來，瞬間位移只會讀成落點被判錯
  */
-export const MOSS_SLIDE_SPEED = 1.9
-export const MOSS_SLIDE_DECAY = 4.6
+export const MOSS_SLIDE_SPEED = 2.15
+export const MOSS_SLIDE_DECAY = 3.5
 
 /** 打滑位移：初速指數衰減的積分。用解析解而非逐幀積分，
  * 才不會因幀率不同滑出不同距離

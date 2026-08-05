@@ -365,10 +365,10 @@ export const createShutterMusouGame: MiniGameFactory = (context): MiniGameInstan
       captureTotal += Math.round(captureCount * getGroupBonusMultiplier(captureCount))
       context.reportScore(captureTotal)
       if (isUltimate) {
-        context.reportToast(`全景快門 ×${captureCount}！`)
+        context.reportToast(`全景快門 ×${captureCount}！੭ ˙ᗜ˙ )੭`)
       }
       else if (captureCount >= GROUP_TOAST_THRESHOLD) {
-        context.reportToast(`團體照 ×${captureCount}！`)
+        context.reportToast(`團體照 ×${captureCount}！(ゝ∀・)b`)
       }
     }
     if (!isUltimate) {
@@ -691,7 +691,8 @@ export const createShutterMusouGame: MiniGameFactory = (context): MiniGameInstan
 
     updateFish(simulationDelta)
     updateEnemyList(simulationDelta)
-    arena.update(simulationDelta)
+    // 敵人直接當水草的推倒來源：鱈魚釘在場中央、碰不到台緣的草叢，不必另外傳
+    arena.update(simulationDelta, activeEnemyList)
     updateCameraPunch(deltaSeconds)
 
     const musouReady = isMusouReady(musouGauge)

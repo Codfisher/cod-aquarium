@@ -21,7 +21,7 @@ const BASE_SUPER_SAMPLE = 1.5
  * 細線少了後製收邊。加粗讓它回到「看得出是被筆勾過一圈」的份量。
  * 覺得還是太細或反而太重，動這個值就好
  */
-const MOBILE_OUTLINE_BOOST = 1.6
+const MOBILE_OUTLINE_BOOST = 2
 
 /** 依引擎目前的渲染解析度換算描邊寬度。
  *
