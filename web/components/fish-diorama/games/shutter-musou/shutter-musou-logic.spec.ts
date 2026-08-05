@@ -322,14 +322,14 @@ describe('出怪排程', () => {
     expect(getSpawnBatchCount(120)).toBeGreaterThan(getSpawnBatchCount(10))
   })
 
-  it('開場幾乎只有蝦兵，海星要到後期才登場', () => {
+  it('開場幾乎只有快跑魚，擋路魚要到後期才登場', () => {
     const earlyWeightMap = new Map(getEnemyWeightList(0).map((entry) => [entry.kind, entry.weight]))
-    expect(earlyWeightMap.get('starfish')).toBe(0)
-    expect(earlyWeightMap.get('shrimp')).toBeGreaterThan(earlyWeightMap.get('crab')!)
+    expect(earlyWeightMap.get('blocker')).toBe(0)
+    expect(earlyWeightMap.get('runner')).toBeGreaterThan(earlyWeightMap.get('dasher')!)
 
     const lateWeightMap = new Map(getEnemyWeightList(200).map((entry) => [entry.kind, entry.weight]))
-    expect(lateWeightMap.get('starfish')).toBeGreaterThan(0)
-    expect(lateWeightMap.get('shrimp')).toBeLessThan(earlyWeightMap.get('shrimp')!)
+    expect(lateWeightMap.get('blocker')).toBeGreaterThan(0)
+    expect(lateWeightMap.get('runner')).toBeLessThan(earlyWeightMap.get('runner')!)
   })
 
   it('抽出的種類一定在權重表內', () => {
@@ -363,20 +363,20 @@ describe('敵人數值', () => {
   })
 
   it('頭目最耐拍也最值錢', () => {
-    const octopus = ENEMY_STATS_MAP.octopus
+    const boss = ENEMY_STATS_MAP.boss
     for (const stats of Object.values(ENEMY_STATS_MAP)) {
-      if (stats.kind === 'octopus') {
+      if (stats.kind === 'boss') {
         continue
       }
-      expect(octopus.captureHitCount).toBeGreaterThan(stats.captureHitCount)
-      expect(octopus.captureValue).toBeGreaterThan(stats.captureValue)
+      expect(boss.captureHitCount).toBeGreaterThan(stats.captureHitCount)
+      expect(boss.captureValue).toBeGreaterThan(stats.captureValue)
     }
   })
 
-  it('蝦兵跑最快，補償牠最脆', () => {
-    const shrimp = ENEMY_STATS_MAP.shrimp
+  it('快跑魚跑最快，補償牠最脆', () => {
+    const runner = ENEMY_STATS_MAP.runner
     for (const stats of Object.values(ENEMY_STATS_MAP)) {
-      expect(shrimp.moveSpeed).toBeGreaterThanOrEqual(stats.moveSpeed)
+      expect(runner.moveSpeed).toBeGreaterThanOrEqual(stats.moveSpeed)
     }
   })
 })

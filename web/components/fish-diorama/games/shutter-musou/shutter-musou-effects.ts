@@ -75,7 +75,7 @@ export interface ShutterEffects {
   playUltimateFlash: (originX: number, originZ: number) => void;
   /** 從一個位置炸出碎片。impactRadians 是打擊方向，碎片往這個方向偏著噴 */
   burstScrap: (x: number, y: number, z: number, count: number, seedOffset: number, impactRadians: number) => void;
-  /** 敵人的剩餘血量條：只給要拍不只一次的敵人（海星、章魚）顯示，
+  /** 敵人的剩餘血量條：只給要拍不只一次的敵人（擋路魚、頭目）顯示，
    * 一拍就收服的雜兵沒有這個資訊可看，掛了也是純噪音
    */
   setEnemyHpBarList: (entryList: { x: number; y: number; z: number; ratio: number }[]) => void;
