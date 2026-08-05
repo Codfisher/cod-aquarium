@@ -192,6 +192,8 @@ const FISH_COLLISION_MARGIN = 0.9
 const INTERACTION_TRIGGER_DISTANCE = 1.6
 /** 單幀 dt 上限（ms），比照 bg-flock 避免掉幀時瞬移 */
 const MAX_FRAME_DELTA_MS = 34
+/** 陰影貼圖解析度。與迷你遊戲共用同一個值（見 diorama-lighting 的 shadowMapSize） */
+const DIORAMA_SHADOW_MAP_SIZE = 512
 /** 點擊判定：pointer 位移小於此值（px）才視為點擊而非拖曳/捲動 */
 const TAP_DISTANCE_THRESHOLD = 8
 /** 滑鼠視差：游標偏離畫面中心時鏡頭方位角/俯角的最大偏移（rad）。
@@ -448,7 +450,9 @@ export function createDioramaScene(
   bounceLight.specular = new Color3(0, 0, 0)
   bounceLight.intensity = 0.22
 
-  const shadowGenerator = new ShadowGenerator(1024, directionalLight)
+  // 512 而非 1024：影子在這個柔和陰天配方下本來就淡（darkness 0.45）又走 PCF 模糊，
+  // 解析度砍半只讓邊緣再軟一點，深度圖的頻寬與顯存卻只剩四分之一
+  const shadowGenerator = new ShadowGenerator(DIORAMA_SHADOW_MAP_SIZE, directionalLight)
   shadowGenerator.usePercentageCloserFiltering = true
   // 陰影不全黑：留近半環境光，柔和陰天的影子
   shadowGenerator.setDarkness(0.45)

@@ -3,6 +3,7 @@
  */
 import type { Engine } from '@babylonjs/core/Engines/engine'
 import { Color3 } from '@babylonjs/core/Maths/math.color'
+import { isCoarsePointerDevice } from '../shared/device-tier'
 
 /** 描邊色。箱庭、六個世界與配件新建的網格都沿用同一個值 */
 export const OUTLINE_COLOR = Color3.FromHexString('#2c2747')
@@ -12,6 +13,15 @@ export const OUTLINE_COLOR = Color3.FromHexString('#2c2747')
  */
 const BASE_OUTLINE_WIDTH = 0.006
 const BASE_SUPER_SAMPLE = 1.5
+
+/** 手機的描邊加粗倍率。
+ *
+ * 按解析度等比換算後，手機的線在螢幕上仍然偏細，有兩個原因：實體像素密度高，
+ * 同樣的渲染像素數攤在 dpr 3 的螢幕上顯得更細；而且手機關掉了 FXAA，
+ * 細線少了後製收邊。加粗讓它回到「看得出是被筆勾過一圈」的份量。
+ * 覺得還是太細或反而太重，動這個值就好
+ */
+const MOBILE_OUTLINE_BOOST = 1.6
 
 /** 依引擎目前的渲染解析度換算描邊寬度。
  *
@@ -24,5 +34,6 @@ const BASE_SUPER_SAMPLE = 1.5
  * 寬度按同一比例補償，線在各裝置上就維持差不多的像素粗細
  */
 export function resolveOutlineWidth(engine: Engine): number {
-  return BASE_OUTLINE_WIDTH * BASE_SUPER_SAMPLE * engine.getHardwareScalingLevel()
+  const deviceBoost = isCoarsePointerDevice() ? MOBILE_OUTLINE_BOOST : 1
+  return BASE_OUTLINE_WIDTH * BASE_SUPER_SAMPLE * engine.getHardwareScalingLevel() * deviceBoost
 }
