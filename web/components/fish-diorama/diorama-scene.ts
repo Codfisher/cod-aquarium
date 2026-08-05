@@ -35,6 +35,7 @@ import {
 } from './challenge-stage'
 import { COD_LYING_LIFT, createCodModel } from './cod-model'
 import { loadHavokInstance } from './engine/physics-boot'
+import { OUTLINE_COLOR, resolveOutlineWidth } from './engine/scene-outline'
 import {
   buildTiltShiftShaderSource,
   DEFAULT_TILT_SHIFT,
@@ -258,19 +259,26 @@ export function createDioramaScene(
   engine.onContextRestoredObservable.add(() => {
     options.onContextRestored?.()
   })
-  // 內部渲染解析度超取樣：桌機至少 1.5 倍、上限 2 倍。一般桌面螢幕 dpr = 1，
-  // 光靠 MSAA＋FXAA 壓不掉高對比硬邊的階梯感，低多邊形場景填充成本低，用解析度換邊緣品質最划算。
+  // 內部渲染解析度。
   //
-  // 手機完全取消超取樣（scaling = 1，一個 CSS 像素畫一個像素）。超取樣是所有
-  // per-pixel 成本的共同乘數：畫面每個 pass 的填充量都跟著面積走，dpr 3 的手機
-  // 原本要畫四倍的像素。長時間扛著這個量正是 iOS Safari 看門狗回收 context 的原因，
-  // 而低多邊形硬邊還有 MSAA 與 FXAA 兜著，不是只剩解析度可以靠
-  const superSampleFloor = 1.5
-  const superSampleCeiling = 2
+  // hardwareScalingLevel 的基準是 CSS 像素而非實體像素（渲染寬度 = clientWidth / scaling），
+  // 所以設定值一定要把 devicePixelRatio 換算回去，否則同一個數字在 dpr 1 的桌機與
+  // dpr 3 的手機上意思完全不同——手機曾經因此只畫到實體解析度的三分之一，
+  // 再被瀏覽器放大三倍貼上去，整張糊掉。這裡統一用「渲染像素 ÷ 實體像素」來描述。
+  //
+  // 手機／平板固定 0.67 倍實體解析度。解析度是所有 per-pixel 成本的共同乘數，
+  // 面積直接乘上去，是長時間發熱、被 iOS Safari 看門狗回收 context 的首要來源。
+  // 這個倍率是「看得出低於原生、但不會讀成模糊」的界線，HDR 與移軸取樣都砍過之後撐得住。
+  //
+  // 桌機沿用原本的夾擠式算法：dpr 1 的一般螢幕拉到 1.5 倍超取樣（低多邊形填充成本低，
+  // 用解析度換邊緣品質最划算），dpr 2 的高解析螢幕本身像素就夠密，收在 1 倍原生即可——
+  // 上限 2 這個夾擠正是在做這件事，改成固定倍率反而會讓 Retina 筆電要畫 2.25 倍的量
+  const devicePixelRatio = window.devicePixelRatio || 1
+  const MOBILE_RENDER_SCALE = 0.67
   engine.setHardwareScalingLevel(
     isLowPowerDevice
-      ? 1
-      : 1 / Math.min(Math.max(window.devicePixelRatio || 1, superSampleFloor), superSampleCeiling),
+      ? 1 / (devicePixelRatio * MOBILE_RENDER_SCALE)
+      : 1 / Math.min(Math.max(devicePixelRatio, 1.5), 2),
   )
 
   const scene = new Scene(engine)
@@ -310,7 +318,9 @@ export function createDioramaScene(
     pipeline.imageProcessing.exposure = 1
     // 後處理管線會繞過 canvas 原生 MSAA：改開管線自身的 MSAA（WebGL2，幾何硬邊主力），
     // 再疊 FXAA 收掉殘餘閃爍。只靠 FXAA 對低多邊形硬邊效果很差、鋸齒明顯。
-    // 手機降到 2 samples：仍有 MSAA 兜底，但顯存與頻寬成本減半
+    //
+    // 手機 2 samples：解析度已經回到 0.67 倍實體像素，邊緣主要靠它，
+    // MSAA 只是補覆蓋率，拉到 4 換不到相稱的畫質卻要多一份多重取樣緩衝
     pipeline.samples = isLowPowerDevice ? 2 : 4
     pipeline.fxaaEnabled = true
 
@@ -536,8 +546,11 @@ export function createDioramaScene(
    */
   const equippedAccessoryMap = new Map<RewardId, AccessoryHandle>()
 
-  /** 卡通描邊色。配件新建的網格也要沿用，才與箱庭其他紙模同一語彙 */
-  const outlineColor = Color3.FromHexString('#2c2747')
+  /** 卡通描邊色與寬度。配件新建的網格也要沿用，才與箱庭其他紙模同一語彙。
+   * 寬度依渲染解析度換算，低解析度下才不會細到一個像素以下（見 resolveOutlineWidth）
+   */
+  const outlineColor = OUTLINE_COLOR
+  const outlineWidth = resolveOutlineWidth(engine)
 
   function setEquippedAccessoryList(rewardIdList: readonly RewardId[]) {
     const nextRewardIdSet = new Set(rewardIdList)
@@ -555,7 +568,7 @@ export function createDioramaScene(
       // 新建的網格要補上描邊與投影，否則配件會像浮貼在魚身上的色塊
       for (const accessoryMesh of handle.node.getChildMeshes()) {
         accessoryMesh.renderOutline = true
-        accessoryMesh.outlineWidth = 0.006
+        accessoryMesh.outlineWidth = outlineWidth
         accessoryMesh.outlineColor = outlineColor
         shadowGenerator.addShadowCaster(accessoryMesh)
       }
@@ -610,7 +623,7 @@ export function createDioramaScene(
       continue
     }
     outlinedMesh.renderOutline = true
-    outlinedMesh.outlineWidth = 0.006
+    outlinedMesh.outlineWidth = outlineWidth
     outlinedMesh.outlineColor = outlineColor
   }
 
