@@ -232,6 +232,14 @@ a {
     margin: 1.5rem 0;
   }
 
+  /* mermaid 節點標籤是 foreignObject 內的 p，寬高由 mermaid 以 line-height 1.5 事先算好寫死，
+     若沿用上方段落樣式，內容會超出 foreignObject 而被裁切（多行標籤最明顯）
+   */
+  .mermaid p {
+    line-height: 1.5;
+    margin: 0;
+  }
+
   a {
     text-decoration: underline !important;
     text-underline-offset: 3px;
