@@ -8,6 +8,7 @@ import type { Mesh } from '@babylonjs/core/Meshes/mesh'
 import type { TransformNode } from '@babylonjs/core/Meshes/transformNode'
 import type { Scene } from '@babylonjs/core/scene'
 import type { AccessorySlot, RewardId } from './reward-registry'
+import { FresnelParameters } from '@babylonjs/core/Materials/fresnelParameters'
 import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial'
 import { Color3 } from '@babylonjs/core/Maths/math.color'
 import { Matrix, Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector'
@@ -56,6 +57,49 @@ function createPaperMaterial(scene: Scene, name: string, hex: string, emissiveSc
   return material
 }
 
+interface GlossyMaterialOptions {
+  /** 高光強度，0~1 */
+  specular: number;
+  /** 高光收斂程度。數字越大亮斑越小越銳利，玻璃取 128、金屬取 48 上下 */
+  specularPower: number;
+  emissiveScale?: number;
+  /** 邊緣打亮：正對視線處暗、掠角處亮，讀起來就是一層有厚度的玻璃殼 */
+  rimBoost?: number;
+}
+
+/** 玻璃、金屬用的材質。與紙質配件相反，保留高光才有光滑反光的表面。
+ * 場景裡只有太陽平行光帶 specular，補光與反彈光都關掉了，
+ * 所以亮斑只會有一顆，方向也跟場景其他受光一致
+ */
+function createGlossyMaterial(
+  scene: Scene,
+  name: string,
+  hex: string,
+  options: GlossyMaterialOptions,
+): StandardMaterial {
+  const material = new StandardMaterial(name, scene)
+  const color = Color3.FromHexString(hex)
+  material.diffuseColor = color
+  material.specularColor = new Color3(options.specular, options.specular, options.specular)
+  material.specularPower = options.specularPower
+  // 高光不隨透明度一起淡掉，半透明的玻璃才留得住表面那顆亮斑
+  material.useSpecularOverAlpha = true
+  if (options.emissiveScale) {
+    material.emissiveColor = color.scale(options.emissiveScale)
+  }
+  if (options.rimBoost) {
+    const rim = new FresnelParameters()
+    rim.bias = 0.1
+    rim.power = 2
+    // Babylon 的 fresnel term 在正對視線時為 1、掠角時趨近 0，
+    // 對應到 rightColor 是正面、leftColor 是邊緣
+    rim.leftColor = new Color3(options.rimBoost, options.rimBoost, options.rimBoost)
+    rim.rightColor = new Color3(0.45, 0.45, 0.45)
+    material.emissiveFresnelParameters = rim
+  }
+  return material
+}
+
 /** 建立配件的共用外殼：掛到部位錨點、關閉 pick、統一 flat shading */
 function createAccessoryRoot(scene: Scene, parentNode: TransformNode, rewardId: RewardId): TransformNode {
   const slot = rewardDefinitionMap[rewardId].slot
@@ -90,6 +134,20 @@ function attachPart(
   if (jitter) {
     applyVertexJitter(part, jitter)
   }
+}
+
+/** 平滑版的 attachPart：沿用產生器算好的共享法線，不切面也不抖動。
+ * 碎面與頂點抖動是紙質配件的手感來源，玻璃與金屬要的正好相反——
+ * 面數拉高之後只有共享法線才能把光連續地帶過整個曲面
+ */
+function attachSmoothPart(
+  part: ReturnType<typeof CreateBox>,
+  root: TransformNode,
+  material: StandardMaterial,
+): void {
+  part.material = material
+  part.isPickable = false
+  part.parent = root
 }
 
 /** 少數配件（例如彩虹尾跡的痕跡）會另外掛獨立於 root 的節點，
@@ -342,9 +400,20 @@ const accessoryFactoryMap: Record<RewardId, AccessoryFactory> = {
 
   flashBalloon(scene, root) {
     // 荒謬點：閃光燈泡本該鎖在相機頂上，卻被拆下來綁在左胸鰭上當氣球拖著跑
-    const glassMaterial = createPaperMaterial(scene, 'flashBalloonGlass', '#f2d9a0', 0.32)
+    // 燈泡是全場唯一該反光的東西，材質與面數都跳出紙質配件的規格：
+    // 玻璃走小而銳的亮斑加邊緣打亮，金屬走大而柔的亮斑
+    const glassMaterial = createGlossyMaterial(scene, 'flashBalloonGlass', '#f2d9a0', {
+      specular: 0.95,
+      specularPower: 128,
+      emissiveScale: 0.32,
+      rimBoost: 1.15,
+    })
     glassMaterial.alpha = 0.82
-    const metalMaterial = createPaperMaterial(scene, 'flashBalloonMetal', '#5c6470')
+    const metalMaterial = createGlossyMaterial(scene, 'flashBalloonMetal', '#5c6470', {
+      specular: 0.72,
+      specularPower: 48,
+    })
+    // 繩子維持紙質：綁在鰭上的是一段棉線，跟著反光反而假
     const cordMaterial = createPaperMaterial(scene, 'flashBalloonCord', '#c96f5a')
     const random = createRandomGenerator(createSeedFrom(4))
 
@@ -369,7 +438,7 @@ const accessoryFactoryMap: Record<RewardId, AccessoryFactory> = {
     // 那尺寸已跟整片鰭一樣寬）；改成讓結「吞掉」最外側的角，鰭尖收在結裡面，
     // 結外側就不會有任何鰭面戳出來。半徑 0.07、內縮 0.035 是實算過的最小安全解
     const knotCentre = new Vector3(-0.3162, 0.0966, -0.1305)
-    const knot = CreateSphere('flashBalloonKnot', { diameter: 0.14, segments: 8 }, scene)
+    const knot = CreateSphere('flashBalloonKnot', { diameter: 0.14, segments: 12 }, scene)
     knot.position.copyFrom(knotCentre)
     attachPart(knot, root, cordMaterial, { seed: createSeedFrom(4, 8), amount: 0.006 })
 
@@ -381,7 +450,7 @@ const accessoryFactoryMap: Record<RewardId, AccessoryFactory> = {
     balloonNode.rotationQuaternion = Quaternion.Identity()
 
     const cordLength = 0.56
-    const cord = CreateCylinder('flashBalloonCord', { diameter: 0.02, height: cordLength, tessellation: 6 }, scene)
+    const cord = CreateCylinder('flashBalloonCord', { diameter: 0.02, height: cordLength, tessellation: 10 }, scene)
     cord.position.y = cordLength / 2
     attachPart(cord, balloonNode, cordMaterial, { seed: createSeedFrom(4, 1), amount: 0.006, axisScale: { y: 0.3 } })
 
@@ -390,45 +459,47 @@ const accessoryFactoryMap: Record<RewardId, AccessoryFactory> = {
     buoyNode.parent = balloonNode
     buoyNode.position.y = cordLength
 
-    // 由下往上疊出燈泡輪廓：接點 → 螺紋座 → 收窄的頸 → 鼓起的玻璃球
-    const contact = CreateCylinder('flashBalloonContact', { diameter: 0.05, height: 0.03, tessellation: 8 }, scene)
+    // 由下往上疊出燈泡輪廓：接點 → 螺紋座 → 收窄的頸 → 鼓起的玻璃球。
+    // 這串全部走高面數 + 平滑法線：亮斑要滑過連續的曲面才像玻璃與金屬，
+    // 面數不夠的話高光會卡在某一面上，一轉就整片跳掉
+    const contact = CreateCylinder('flashBalloonContact', { diameter: 0.05, height: 0.03, tessellation: 24 }, scene)
     contact.position.y = 0.015
-    attachPart(contact, buoyNode, metalMaterial, { seed: createSeedFrom(4, 2), amount: 0.004, axisScale: { y: 0.3 } })
+    attachSmoothPart(contact, buoyNode, metalMaterial)
 
     const screwBase = CreateCylinder(
       'flashBalloonScrewBase',
-      { diameterTop: 0.13, diameterBottom: 0.09, height: 0.1, tessellation: 10 },
+      { diameterTop: 0.13, diameterBottom: 0.09, height: 0.1, tessellation: 32 },
       scene,
     )
     screwBase.position.y = 0.08
-    attachPart(screwBase, buoyNode, metalMaterial, { seed: createSeedFrom(4, 3), amount: 0.006, axisScale: { y: 0.3 } })
+    attachSmoothPart(screwBase, buoyNode, metalMaterial)
 
     // 兩圈螺紋：少了這個，底座只是一截錐體，讀不出「可以旋進燈座」
     for (let threadIndex = 0; threadIndex < 2; threadIndex++) {
       const thread = CreateTorus(
         `flashBalloonThread${threadIndex}`,
-        { diameter: 0.125, thickness: 0.016, tessellation: 10 },
+        { diameter: 0.125, thickness: 0.016, tessellation: 24 },
         scene,
       )
       thread.rotation.x = Math.PI / 2
       thread.position.y = 0.06 + threadIndex * 0.04
-      attachPart(thread, buoyNode, metalMaterial, { seed: createSeedFrom(4, 4 + threadIndex), amount: 0.004 })
+      attachSmoothPart(thread, buoyNode, metalMaterial)
     }
 
     // 頸部由底座往上外擴，接上玻璃球才是燈泡的腰身，直接球接柱會像插著的棒棒糖
     const neck = CreateCylinder(
       'flashBalloonNeck',
-      { diameterTop: 0.22, diameterBottom: 0.13, height: 0.08, tessellation: 12 },
+      { diameterTop: 0.22, diameterBottom: 0.13, height: 0.08, tessellation: 32 },
       scene,
     )
     neck.position.y = 0.17
-    attachPart(neck, buoyNode, glassMaterial, { seed: createSeedFrom(4, 6), amount: 0.006, axisScale: { y: 0.3 } })
+    attachSmoothPart(neck, buoyNode, glassMaterial)
 
-    const bulb = CreateSphere('flashBalloonBulb', { diameter: 0.36, segments: 12 }, scene)
+    const bulb = CreateSphere('flashBalloonBulb', { diameter: 0.36, segments: 32 }, scene)
     bulb.position.y = 0.37
     // 縱向稍微拉長：正球讀起來像顆球，微微的水滴感才是燈泡
     bulb.scaling.y = 1.1
-    attachPart(bulb, buoyNode, glassMaterial, { seed: createSeedFrom(4, 7), amount: 0.01 })
+    attachSmoothPart(bulb, buoyNode, glassMaterial)
 
     // --- 物理模擬 ---
     // 氣球視為質點，繩子是只能拉不能推的彈簧，外加淨浮力與水阻尼。
