@@ -18,6 +18,7 @@ import { Color3 } from '@babylonjs/core/Maths/math.color'
 import { Matrix, Vector3 } from '@babylonjs/core/Maths/math.vector'
 import { CreateBox } from '@babylonjs/core/Meshes/Builders/boxBuilder'
 import { CreateCylinder } from '@babylonjs/core/Meshes/Builders/cylinderBuilder'
+import { CreateGround } from '@babylonjs/core/Meshes/Builders/groundBuilder'
 import { CreatePlane } from '@babylonjs/core/Meshes/Builders/planeBuilder'
 import { CreatePolyhedron } from '@babylonjs/core/Meshes/Builders/polyhedronBuilder'
 import { CreateSphere } from '@babylonjs/core/Meshes/Builders/sphereBuilder'
@@ -1323,8 +1324,7 @@ export function createTankEnvironment(scene: Scene): TankEnvironment {
   fireflyMaterial.disableLighting = true
   fireflyMaterial.alphaMode = Constants.ALPHA_ADD
 
-  // 錨定在水草叢與石頭附近：地板吃不到光（純陰影材質），
-  // 螢火要貼著有東西的地方飛，實體光照才照得到物件
+  // 錨定在水草叢與石頭附近：螢火貼著有東西的地方飛，實體光照才照得到物件
   const fireflyAnchorList = [
     { x: -3.9, z: 1.9 },
     { x: -2.3, z: -2.5 },
@@ -1388,6 +1388,46 @@ export function createTankEnvironment(scene: Scene): TankEnvironment {
     fireflyLightList.length = 0
   }
 
+  // 地板接光板：大地板是 ShadowOnlyMaterial，只畫陰影不吃光，螢火照不亮它。
+  // 疊一張只受螢火叢集照明的薄地板，以加色混合把光暈畫上去——沒光的地方全黑，
+  // 加色下等同透明，CSS 漸層背景照樣透出來
+  let fireflyFloorGlow: Mesh | null = null
+  let fireflyFloorGlowMaterial: StandardMaterial | null = null
+  if (fireflyLightList.length > 0) {
+    const material = new StandardMaterial('tankFireflyFloorGlowMaterial', scene)
+    // 落在紙地板上的光偏暖，比光源本身再淡一階，才像漫射開的一圈而非投影燈
+    material.diffuseColor = Color3.FromHexString('#e8bc7a')
+    material.specularColor = Color3.Black()
+    material.emissiveColor = Color3.Black()
+    material.ambientColor = Color3.Black()
+    material.alphaMode = Constants.ALPHA_ADD
+    material.alpha = 0
+    // 輪廓光會在整片地板的掠射角均勻加亮，讓接光板露出方形邊界，關掉
+    setPaperGrainProfile(material, { rimStrengthScale: 0 })
+    fireflyFloorGlowMaterial = material
+
+    fireflyFloorGlow = CreateGround(
+      'tankFireflyFloorGlow',
+      { width: TANK_WIDTH + 4, height: TANK_DEPTH + 4 },
+      scene,
+    )
+    fireflyFloorGlow.material = material
+    // 略高於大地板，避免與陰影層在同一深度互搶
+    fireflyFloorGlow.position.y = GROUND_Y + 0.01
+    // 點擊要落到大地板上（魚的移動目標），接光板不能攔截
+    fireflyFloorGlow.isPickable = false
+    fireflyFloorGlow.receiveShadows = false
+    fireflyFloorGlow.setEnabled(false)
+
+    // 只吃螢火：其他四盞環境光若照到這張加色板，整片地板會被打成一塊亮斑
+    for (const light of scene.lights) {
+      if (light === fireflyLightContainer) {
+        continue
+      }
+      light.excludedMeshes.push(fireflyFloorGlow)
+    }
+  }
+
   let firefliesHidden = true
 
   function updateFireflyList(timeSeconds: number) {
@@ -1400,10 +1440,20 @@ export function createTankEnvironment(scene: Scene): TankEnvironment {
         for (const fireflyLight of fireflyLightList) {
           fireflyLight.intensity = 0
         }
+        fireflyFloorGlow?.setEnabled(false)
       }
       return
     }
+    if (firefliesHidden) {
+      fireflyFloorGlow?.setEnabled(true)
+    }
     firefliesHidden = false
+    if (fireflyFloorGlowMaterial) {
+      // 加色混合下 alpha 就是光暈亮度，隨日夜過渡淡入淡出。
+      // 壓到 0.15：正下方的地板法線正對光源，NdotL 滿檔又疊上多隻螢火，
+      // 不收緊會糊成一整片黃斑；地面只要透出一層淡暈，主角仍是螢火本身
+      fireflyFloorGlowMaterial.alpha = nightProgress * 0.15
+    }
     for (const [index, firefly] of fireflyList.entries()) {
       const driftTime = timeSeconds * firefly.speed + firefly.phase
       firefly.mesh.position.set(
