@@ -14,60 +14,35 @@
     </h1>
 
     <p class="lead">
-      以文字、圖中文字（OCR）搜尋 {{ seoMemeList.length }} 張以上的迷因梗圖，
-      找到記憶中的那一張。以下為最新收錄：
+      以描述或圖中文字（OCR）搜尋 {{ seoMemeTotal }} 張迷因梗圖，找到記憶中的那一張。
     </p>
 
-    <!-- 圖片清單 -->
+    <!-- 圖片清單。描述僅寫入 alt 與 head 的結構化資料，不顯示於畫面 -->
     <div class="grid">
       <figure
         v-for="(item) in seoMemeList"
         :key="item.file"
         class="card"
       >
-        <picture>
-          <img
-            :src="fileSrc(item.file)"
-            :alt="getMemeAlt(item)"
-            loading="lazy"
-            decoding="async"
-            :width="item.width || undefined"
-            :height="item.height || undefined"
-          >
-        </picture>
-        <figcaption class="caption">
-          <strong class="name">{{ getMemeName(item) }}</strong>
-          <span class="desc">{{ getCaption(item) }}</span>
-        </figcaption>
+        <img
+          :src="fileSrc(item.file)"
+          :alt="getMemeAlt(item)"
+          loading="lazy"
+          decoding="async"
+          :width="item.width || undefined"
+          :height="item.height || undefined"
+        >
       </figure>
     </div>
-
-    <!-- 關鍵字著陸頁入口，讓爬蟲能從此頁走到各關鍵字頁 -->
-    <section
-      v-if="seoKeywordList.length"
-      class="keyword-section"
-    >
-      <h2>熱門迷因關鍵字</h2>
-      <p class="keyword-list">
-        <a
-          v-for="item in seoKeywordList"
-          :key="item.keyword"
-          :href="withBase(`/aquarium/meme-cache/tag/${encodeURIComponent(item.keyword)}`)"
-          class="keyword"
-        >{{ item.keyword }}（{{ item.count }}）</a>
-      </p>
-    </section>
   </section>
 </template>
 
 <script setup lang="ts">
-import type { MemeItem } from './meme-seo'
-import { seoKeywordList, seoMemeList } from 'virtual:seo-meme-list'
+import { seoMemeList, seoMemeTotal } from 'virtual:seo-meme-list'
 import { withBase } from 'vitepress'
-import { getMemeAlt, getMemeName } from './meme-seo'
+import { getMemeAlt } from './meme-seo'
 
 const fileSrc = (file: string) => withBase(`/memes/${file}`)
-const getCaption = (item: MemeItem) => item.describe ?? ''
 </script>
 
 <style scoped lang="sass">
@@ -95,60 +70,16 @@ const getCaption = (item: MemeItem) => item.describe ?? ''
   gap: 1rem
 
 .card
-  display: flex
-  flex-direction: column
+  margin: 0
   background: var(--vp-c-bg-soft)
   border: 1px solid var(--vp-c-divider)
   border-radius: 16px
   overflow: hidden
 
-.card picture, .card img
+.card img
   display: block
   width: 100%
-
-.card picture
   aspect-ratio: 4 / 3
-  background: var(--vp-c-bg-alt)
-
-.card img
   object-fit: cover
-  height: 100%
-
-.caption
-  padding: .75rem .9rem
-  font-size: .95rem
-  line-height: 1.35
-  color: var(--vp-c-text-2)
-
-.caption .name
-  display: block
-  font-weight: 600
-  color: var(--vp-c-text-1)
-  margin-bottom: .2rem
-
-.keyword-section
-  margin-top: 2.5rem
-
-  h2
-    font-size: 1.2rem
-    font-weight: 700
-    margin: 0 0 .8rem
-
-.keyword-list
-  display: flex
-  flex-wrap: wrap
-  gap: .5rem
-  margin: 0
-
-.keyword
-  padding: .2rem .7rem
-  border-radius: 999px
-  background: var(--vp-c-bg-soft)
-  border: 1px solid var(--vp-c-divider)
-  color: var(--vp-c-text-2)
-  font-size: .85rem
-  text-decoration: none
-
-  &:hover
-    color: var(--vp-c-brand-1)
+  background: var(--vp-c-bg-alt)
 </style>

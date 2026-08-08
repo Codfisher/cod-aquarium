@@ -40,7 +40,6 @@ const AUTHOR_NAME = '鱈魚 (Cod Lin)'
 const CONTENT_PUBLIC_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '../content/public')
 /** 快取梗圖頁網址，供注入圖片集合的結構化資料 */
 const MEME_CACHE_PATH = '/aquarium/meme-cache/'
-const MEME_TAG_PATH_PREFIX = `${MEME_CACHE_PATH}tag/`
 const MEME_NDJSON_PATH = resolve(CONTENT_PUBLIC_DIR, 'memes/a-memes-data.ndjson')
 /** 單一 sitemap 的 <url> 最多容納 1000 張圖片，超過需拆分為多個 sitemap */
 const SITEMAP_IMAGE_LIMIT = 1000
@@ -202,26 +201,14 @@ function toJsonLdScript(data: Record<string, unknown>): HeadConfig {
   return ['script', { type: 'application/ld+json' }, json]
 }
 
-/** 首頁 →（中間層）→ 本頁的麵包屑 */
-function toBreadcrumbNode(
-  pageTitle: string,
-  canonicalUrl: string,
-  middleItemList: { name: string; item: string }[] = [],
-): Record<string, unknown> {
-  const itemList = [
-    { name: '首頁', item: `${HOSTNAME}/` },
-    ...middleItemList,
-    { name: pageTitle, item: canonicalUrl },
-  ]
-
+/** 首頁 → 本頁的兩層麵包屑 */
+function toBreadcrumbNode(pageTitle: string, canonicalUrl: string): Record<string, unknown> {
   return {
     '@type': 'BreadcrumbList',
-    'itemListElement': itemList.map((item, index) => ({
-      '@type': 'ListItem',
-      'position': index + 1,
-      'name': item.name,
-      'item': item.item,
-    })),
+    'itemListElement': [
+      { '@type': 'ListItem', 'position': 1, 'name': '首頁', 'item': `${HOSTNAME}/` },
+      { '@type': 'ListItem', 'position': 2, 'name': pageTitle, 'item': canonicalUrl },
+    ],
   }
 }
 
@@ -263,17 +250,8 @@ function toCollectionPageGraph(params: {
   itemList: Record<string, unknown>[];
   /** 頁面提供站內搜尋時的網址樣板，關鍵字以 {search_term_string} 標示 */
   searchUrlTemplate?: string;
-  /** 麵包屑中介層，例如關鍵字著陸頁需帶出所屬的快取梗圖頁 */
-  breadcrumbMiddleItemList?: { name: string; item: string }[];
 }): Record<string, unknown> {
-  const {
-    pageTitle,
-    pageDescription,
-    canonicalUrl,
-    itemList,
-    searchUrlTemplate,
-    breadcrumbMiddleItemList,
-  } = params
+  const { pageTitle, pageDescription, canonicalUrl, itemList, searchUrlTemplate } = params
 
   const searchAction = searchUrlTemplate
     ? {
@@ -306,7 +284,7 @@ function toCollectionPageGraph(params: {
         },
         ...searchAction,
       },
-      toBreadcrumbNode(pageTitle, canonicalUrl, breadcrumbMiddleItemList),
+      toBreadcrumbNode(pageTitle, canonicalUrl),
     ],
   }
 }
@@ -330,30 +308,6 @@ function toMemeSitemapImageList() {
     title: getMemeName(meme),
     caption: getMemeAlt(meme),
   }))
-}
-
-interface MemeTagParams {
-  keyword?: string;
-  count?: number;
-  memeListJson?: string;
-}
-
-/** 關鍵字著陸頁由動態路由產生，資料放在 params，於此取回供標題與結構化資料使用 */
-function getTagPageParams(pageData: { params?: Record<string, unknown> }): MemeTagParams {
-  return (pageData.params ?? {}) as MemeTagParams
-}
-
-function getTagPageMemeList(pageData: { params?: Record<string, unknown> }): MemeItem[] {
-  const { memeListJson } = getTagPageParams(pageData)
-  if (!memeListJson)
-    return []
-
-  try {
-    return JSON.parse(memeListJson) as MemeItem[]
-  }
-  catch {
-    return []
-  }
 }
 
 /** 迷因的圖片 ItemList，附上關鍵字與圖中文字（OCR），利於圖片搜尋比對 */
@@ -513,28 +467,6 @@ export default ({ mode }: { mode: string }) => {
       // 去除檔名前面的日期
       const result = id.replace(/\d{6}\./, '')
       return result
-    },
-    /** 關鍵字著陸頁的標題、描述與封面圖需依 params 動態產生，
-     * 於此補進 pageData，後續 head、Open Graph 與結構化資料即可沿用
-     */
-    transformPageData(pageData) {
-      const { keyword, count } = getTagPageParams(pageData)
-      if (!keyword)
-        return
-
-      const [firstMeme] = getTagPageMemeList(pageData)
-      const title = `${keyword} 迷因梗圖`
-      const description = `收錄 ${count ?? 0} 張與「${keyword}」相關的迷因梗圖，附上內容描述與圖中文字，快速找到記憶中的那一張。`
-
-      pageData.title = title
-      // VitePress 產生 meta description 時取用 pageData.description，需一併設定
-      pageData.description = description
-      pageData.frontmatter = {
-        ...pageData.frontmatter,
-        title,
-        description,
-        ...(firstMeme ? { image: `${baseConfig.hostname}/memes/${firstMeme.file}` } : {}),
-      }
     },
     transformHead({ page, pageData }) {
       const urlPath = toUrlPath(page)
@@ -776,18 +708,6 @@ export default ({ mode }: { mode: string }) => {
           canonicalUrl,
           itemList: toMemeImageItemList(getMemeList().slice(-SEO_MEME_LIMIT)),
           searchUrlTemplate: `${canonicalUrl}?q={search_term_string}`,
-        })))
-      }
-      else if (urlPath.startsWith(MEME_TAG_PATH_PREFIX)) {
-        /** 關鍵字著陸頁：宣告該關鍵字的圖片集合，麵包屑帶出所屬的快取梗圖頁 */
-        headList.push(toJsonLdScript(toCollectionPageGraph({
-          pageTitle,
-          pageDescription,
-          canonicalUrl,
-          itemList: toMemeImageItemList(getTagPageMemeList(pageData)),
-          breadcrumbMiddleItemList: [
-            { name: '快取梗圖', item: `${baseConfig.hostname}${MEME_CACHE_PATH}` },
-          ],
         })))
       }
 
