@@ -1,5 +1,6 @@
 import type { Buffer } from 'node:buffer'
 import type { DefaultTheme, HeadConfig } from 'vitepress'
+import type { MemeItem } from '../content/aquarium/meme-cache/meme-seo'
 import type { Article } from './utils'
 import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
@@ -14,7 +15,7 @@ import Icons from 'unplugin-icons/vite'
 import llmstxt from 'vitepress-plugin-llms'
 import { withMermaid } from 'vitepress-plugin-mermaid'
 import { RssPlugin } from 'vitepress-plugin-rss'
-import { getMemeAlt, getMemeKeywordList, getMemeName, getSeoMemeList } from '../content/aquarium/meme-cache/meme-seo'
+import { getMemeAlt, getMemeKeywordList, getMemeName, parseMemeNdjson, SEO_MEME_LIMIT } from '../content/aquarium/meme-cache/meme-seo'
 import { markdownItBaseImg } from './plugin/markdown-it-base-img'
 import { markdownItCodeBlockName } from './plugin/markdown-it-code-block-name'
 import { markdownItNowrap } from './plugin/markdown-it-nowrap'
@@ -39,6 +40,19 @@ const AUTHOR_NAME = '鱈魚 (Cod Lin)'
 const CONTENT_PUBLIC_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '../content/public')
 /** 快取梗圖頁網址，供注入圖片集合的結構化資料 */
 const MEME_CACHE_PATH = '/aquarium/meme-cache/'
+const MEME_TAG_PATH_PREFIX = `${MEME_CACHE_PATH}tag/`
+const MEME_NDJSON_PATH = resolve(CONTENT_PUBLIC_DIR, 'memes/a-memes-data.ndjson')
+/** 單一 sitemap 的 <url> 最多容納 1000 張圖片，超過需拆分為多個 sitemap */
+const SITEMAP_IMAGE_LIMIT = 1000
+
+let memeListCache: MemeItem[] | undefined
+/** 迷因資料於 build 期間不會變動，快取避免重複讀取與解析近千筆資料 */
+function getMemeList(): MemeItem[] {
+  if (!memeListCache) {
+    memeListCache = parseMemeNdjson(readFileSync(MEME_NDJSON_PATH, 'utf-8'))
+  }
+  return memeListCache
+}
 
 /** 作者於各社群平台的連結，供 JSON-LD sameAs 建立實體關聯 */
 const socialLinkList = [
@@ -188,14 +202,26 @@ function toJsonLdScript(data: Record<string, unknown>): HeadConfig {
   return ['script', { type: 'application/ld+json' }, json]
 }
 
-/** 首頁 → 本頁的兩層麵包屑 */
-function toBreadcrumbNode(pageTitle: string, canonicalUrl: string): Record<string, unknown> {
+/** 首頁 →（中間層）→ 本頁的麵包屑 */
+function toBreadcrumbNode(
+  pageTitle: string,
+  canonicalUrl: string,
+  middleItemList: { name: string; item: string }[] = [],
+): Record<string, unknown> {
+  const itemList = [
+    { name: '首頁', item: `${HOSTNAME}/` },
+    ...middleItemList,
+    { name: pageTitle, item: canonicalUrl },
+  ]
+
   return {
     '@type': 'BreadcrumbList',
-    'itemListElement': [
-      { '@type': 'ListItem', 'position': 1, 'name': '首頁', 'item': `${HOSTNAME}/` },
-      { '@type': 'ListItem', 'position': 2, 'name': pageTitle, 'item': canonicalUrl },
-    ],
+    'itemListElement': itemList.map((item, index) => ({
+      '@type': 'ListItem',
+      'position': index + 1,
+      'name': item.name,
+      'item': item.item,
+    })),
   }
 }
 
@@ -235,8 +261,32 @@ function toCollectionPageGraph(params: {
   pageDescription: string;
   canonicalUrl: string;
   itemList: Record<string, unknown>[];
+  /** 頁面提供站內搜尋時的網址樣板，關鍵字以 {search_term_string} 標示 */
+  searchUrlTemplate?: string;
+  /** 麵包屑中介層，例如關鍵字著陸頁需帶出所屬的快取梗圖頁 */
+  breadcrumbMiddleItemList?: { name: string; item: string }[];
 }): Record<string, unknown> {
-  const { pageTitle, pageDescription, canonicalUrl, itemList } = params
+  const {
+    pageTitle,
+    pageDescription,
+    canonicalUrl,
+    itemList,
+    searchUrlTemplate,
+    breadcrumbMiddleItemList,
+  } = params
+
+  const searchAction = searchUrlTemplate
+    ? {
+        potentialAction: {
+          '@type': 'SearchAction',
+          'target': {
+            '@type': 'EntryPoint',
+            'urlTemplate': searchUrlTemplate,
+          },
+          'query-input': 'required name=search_term_string',
+        },
+      }
+    : {}
 
   return {
     '@context': 'https://schema.org',
@@ -254,18 +304,60 @@ function toCollectionPageGraph(params: {
           'numberOfItems': itemList.length,
           'itemListElement': itemList,
         },
+        ...searchAction,
       },
-      toBreadcrumbNode(pageTitle, canonicalUrl),
+      toBreadcrumbNode(pageTitle, canonicalUrl, breadcrumbMiddleItemList),
     ],
   }
 }
 
-/** 快取梗圖的圖片 ItemList，附上關鍵字與圖中文字（OCR），利於圖片搜尋比對 */
-function toMemeItemList(): Record<string, unknown>[] {
-  const memeList = getSeoMemeList(
-    readFileSync(resolve(CONTENT_PUBLIC_DIR, 'memes/a-memes-data.ndjson'), 'utf-8'),
-  )
+/** 快取梗圖頁的 sitemap 圖片清單。
+ *
+ * 迷因圖僅存在於 app 執行時 fetch 的 ndjson，爬蟲無從發現，
+ * 於 sitemap 逐張列出才有機會進入 Google 圖片索引。
+ */
+function toMemeSitemapImageList() {
+  const memeList = getMemeList()
 
+  if (memeList.length > SITEMAP_IMAGE_LIMIT) {
+    console.warn(
+      `[ sitemap ] 迷因圖 ${memeList.length} 張已超過單一 <url> 的 ${SITEMAP_IMAGE_LIMIT} 張上限，需拆分 sitemap`,
+    )
+  }
+
+  return memeList.slice(-SITEMAP_IMAGE_LIMIT).map((meme) => ({
+    url: `${HOSTNAME}/memes/${meme.file}`,
+    title: getMemeName(meme),
+    caption: getMemeAlt(meme),
+  }))
+}
+
+interface MemeTagParams {
+  keyword?: string;
+  count?: number;
+  memeListJson?: string;
+}
+
+/** 關鍵字著陸頁由動態路由產生，資料放在 params，於此取回供標題與結構化資料使用 */
+function getTagPageParams(pageData: { params?: Record<string, unknown> }): MemeTagParams {
+  return (pageData.params ?? {}) as MemeTagParams
+}
+
+function getTagPageMemeList(pageData: { params?: Record<string, unknown> }): MemeItem[] {
+  const { memeListJson } = getTagPageParams(pageData)
+  if (!memeListJson)
+    return []
+
+  try {
+    return JSON.parse(memeListJson) as MemeItem[]
+  }
+  catch {
+    return []
+  }
+}
+
+/** 迷因的圖片 ItemList，附上關鍵字與圖中文字（OCR），利於圖片搜尋比對 */
+function toMemeImageItemList(memeList: MemeItem[]): Record<string, unknown>[] {
   return memeList.map((meme, index) => {
     const keywordList = getMemeKeywordList(meme)
     const ocrText = meme.ocr?.trim()
@@ -402,11 +494,17 @@ export default ({ mode }: { mode: string }) => {
 
           // 文章附上封面圖，供 Google 圖片搜尋收錄
           const image = findArticleByUrl(item.url)?.frontmatter?.image
+          // 快取梗圖頁改列出整份圖庫，讓爬蟲得以發現 app 內才會載入的迷因圖
+          const isMemeCachePage = `/${bareUrl}`.replace(/\/index$/, '/') === MEME_CACHE_PATH
+          const imageList = isMemeCachePage
+            ? toMemeSitemapImageList()
+            : (image ? [{ url: image }] : undefined)
+
           return {
             ...item,
             url: normalizedUrl,
             ...(lastmod ? { lastmod } : {}),
-            ...(image ? { img: [{ url: image }] } : {}),
+            ...(imageList ? { img: imageList } : {}),
           }
         }),
       ),
@@ -415,6 +513,28 @@ export default ({ mode }: { mode: string }) => {
       // 去除檔名前面的日期
       const result = id.replace(/\d{6}\./, '')
       return result
+    },
+    /** 關鍵字著陸頁的標題、描述與封面圖需依 params 動態產生，
+     * 於此補進 pageData，後續 head、Open Graph 與結構化資料即可沿用
+     */
+    transformPageData(pageData) {
+      const { keyword, count } = getTagPageParams(pageData)
+      if (!keyword)
+        return
+
+      const [firstMeme] = getTagPageMemeList(pageData)
+      const title = `${keyword} 迷因梗圖`
+      const description = `收錄 ${count ?? 0} 張與「${keyword}」相關的迷因梗圖，附上內容描述與圖中文字，快速找到記憶中的那一張。`
+
+      pageData.title = title
+      // VitePress 產生 meta description 時取用 pageData.description，需一併設定
+      pageData.description = description
+      pageData.frontmatter = {
+        ...pageData.frontmatter,
+        title,
+        description,
+        ...(firstMeme ? { image: `${baseConfig.hostname}/memes/${firstMeme.file}` } : {}),
+      }
     },
     transformHead({ page, pageData }) {
       const urlPath = toUrlPath(page)
@@ -654,7 +774,20 @@ export default ({ mode }: { mode: string }) => {
           pageTitle,
           pageDescription,
           canonicalUrl,
-          itemList: toMemeItemList(),
+          itemList: toMemeImageItemList(getMemeList().slice(-SEO_MEME_LIMIT)),
+          searchUrlTemplate: `${canonicalUrl}?q={search_term_string}`,
+        })))
+      }
+      else if (urlPath.startsWith(MEME_TAG_PATH_PREFIX)) {
+        /** 關鍵字著陸頁：宣告該關鍵字的圖片集合，麵包屑帶出所屬的快取梗圖頁 */
+        headList.push(toJsonLdScript(toCollectionPageGraph({
+          pageTitle,
+          pageDescription,
+          canonicalUrl,
+          itemList: toMemeImageItemList(getTagPageMemeList(pageData)),
+          breadcrumbMiddleItemList: [
+            { name: '快取梗圖', item: `${baseConfig.hostname}${MEME_CACHE_PATH}` },
+          ],
         })))
       }
 

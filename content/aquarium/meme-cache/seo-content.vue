@@ -10,8 +10,13 @@
       id="meme-gallery-title"
       class="page-title"
     >
-      最新梗圖
+      迷因梗圖搜尋
     </h1>
+
+    <p class="lead">
+      以文字、圖中文字（OCR）搜尋 {{ seoMemeList.length }} 張以上的迷因梗圖，
+      找到記憶中的那一張。以下為最新收錄：
+    </p>
 
     <!-- 圖片清單 -->
     <div class="grid">
@@ -36,12 +41,28 @@
         </figcaption>
       </figure>
     </div>
+
+    <!-- 關鍵字著陸頁入口，讓爬蟲能從此頁走到各關鍵字頁 -->
+    <section
+      v-if="seoKeywordList.length"
+      class="keyword-section"
+    >
+      <h2>熱門迷因關鍵字</h2>
+      <p class="keyword-list">
+        <a
+          v-for="item in seoKeywordList"
+          :key="item.keyword"
+          :href="withBase(`/aquarium/meme-cache/tag/${encodeURIComponent(item.keyword)}`)"
+          class="keyword"
+        >{{ item.keyword }}（{{ item.count }}）</a>
+      </p>
+    </section>
   </section>
 </template>
 
 <script setup lang="ts">
 import type { MemeItem } from './meme-seo'
-import { seoMemeList } from 'virtual:seo-meme-list'
+import { seoKeywordList, seoMemeList } from 'virtual:seo-meme-list'
 import { withBase } from 'vitepress'
 import { getMemeAlt, getMemeName } from './meme-seo'
 
@@ -62,6 +83,11 @@ const getCaption = (item: MemeItem) => item.describe ?? ''
 .page-title
   font-size: clamp(1.5rem, 2.5vw, 2rem)
   margin: 0 0 1rem
+
+.lead
+  color: var(--vp-c-text-2)
+  line-height: 1.7
+  margin: 0 0 1.5rem
 
 .grid
   display: grid
@@ -99,4 +125,30 @@ const getCaption = (item: MemeItem) => item.describe ?? ''
   font-weight: 600
   color: var(--vp-c-text-1)
   margin-bottom: .2rem
+
+.keyword-section
+  margin-top: 2.5rem
+
+  h2
+    font-size: 1.2rem
+    font-weight: 700
+    margin: 0 0 .8rem
+
+.keyword-list
+  display: flex
+  flex-wrap: wrap
+  gap: .5rem
+  margin: 0
+
+.keyword
+  padding: .2rem .7rem
+  border-radius: 999px
+  background: var(--vp-c-bg-soft)
+  border: 1px solid var(--vp-c-divider)
+  color: var(--vp-c-text-2)
+  font-size: .85rem
+  text-decoration: none
+
+  &:hover
+    color: var(--vp-c-brand-1)
 </style>
