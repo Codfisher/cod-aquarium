@@ -14,9 +14,11 @@ import Icons from 'unplugin-icons/vite'
 import llmstxt from 'vitepress-plugin-llms'
 import { withMermaid } from 'vitepress-plugin-mermaid'
 import { RssPlugin } from 'vitepress-plugin-rss'
+import { getMemeAlt, getMemeKeywordList, getMemeName, getSeoMemeList } from '../content/aquarium/meme-cache/meme-seo'
 import { markdownItBaseImg } from './plugin/markdown-it-base-img'
 import { markdownItCodeBlockName } from './plugin/markdown-it-code-block-name'
 import { markdownItNowrap } from './plugin/markdown-it-nowrap'
+import { viteSeoMemeList } from './plugin/vite-seo-meme-list'
 import { generateImages } from './scripts/resize-images'
 import {
   getArticleList,
@@ -35,6 +37,8 @@ const SITE_DESCRIPTION = '各種鱈魚滾鍵盤的雜記與研究'
 const AUTHOR_NAME = '鱈魚 (Cod Lin)'
 /** public 目錄絕對路徑，供讀取封面圖尺寸使用 */
 const CONTENT_PUBLIC_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '../content/public')
+/** 快取梗圖頁網址，供注入圖片集合的結構化資料 */
+const MEME_CACHE_PATH = '/aquarium/meme-cache/'
 
 /** 作者於各社群平台的連結，供 JSON-LD sameAs 建立實體關聯 */
 const socialLinkList = [
@@ -55,7 +59,7 @@ const personNode: Record<string, unknown> = {
   'name': AUTHOR_NAME,
   'url': `${HOSTNAME}/`,
   'image': `${HOSTNAME}/codfish.webp`,
-  'jobTitle': '前端工程師',
+  'jobTitle': '全端工程師',
   'description': '熱衷於結合各類領域技術、開發酷酷的東西',
   'worksFor': { '@id': ORGANIZATION_ID },
   'sameAs': socialLinkList,
@@ -182,6 +186,105 @@ function toJsonLdScript(data: Record<string, unknown>): HeadConfig {
     .replace(/>/g, '\\u003e')
     .replace(/&/g, '\\u0026')
   return ['script', { type: 'application/ld+json' }, json]
+}
+
+/** 首頁 → 本頁的兩層麵包屑 */
+function toBreadcrumbNode(pageTitle: string, canonicalUrl: string): Record<string, unknown> {
+  return {
+    '@type': 'BreadcrumbList',
+    'itemListElement': [
+      { '@type': 'ListItem', 'position': 1, 'name': '首頁', 'item': `${HOSTNAME}/` },
+      { '@type': 'ListItem', 'position': 2, 'name': pageTitle, 'item': canonicalUrl },
+    ],
+  }
+}
+
+/** 文章麵包屑：首頁 →（分類）→ 文章。若正在看的就是分類入口文章，省略重複的分類層 */
+function toArticleBreadcrumbNode(params: {
+  section?: { name: string; landing: string };
+  urlPath: string;
+  pageTitle: string;
+  canonicalUrl: string;
+}): Record<string, unknown> {
+  const { section, urlPath, pageTitle, canonicalUrl } = params
+
+  const itemList: Record<string, unknown>[] = [
+    { '@type': 'ListItem', 'position': 1, 'name': '首頁', 'item': `${HOSTNAME}/` },
+  ]
+  if (section && section.landing !== urlPath) {
+    itemList.push({
+      '@type': 'ListItem',
+      'position': 2,
+      'name': section.name,
+      'item': `${HOSTNAME}${section.landing}`,
+    })
+  }
+  itemList.push({
+    '@type': 'ListItem',
+    'position': itemList.length + 1,
+    'name': pageTitle,
+    'item': canonicalUrl,
+  })
+
+  return { '@type': 'BreadcrumbList', 'itemListElement': itemList }
+}
+
+/** 集合頁（文章總覽、快取梗圖）的結構化資料：WebSite + CollectionPage（含 ItemList）+ 麵包屑 */
+function toCollectionPageGraph(params: {
+  pageTitle: string;
+  pageDescription: string;
+  canonicalUrl: string;
+  itemList: Record<string, unknown>[];
+}): Record<string, unknown> {
+  const { pageTitle, pageDescription, canonicalUrl, itemList } = params
+
+  return {
+    '@context': 'https://schema.org',
+    '@graph': [
+      websiteNode,
+      {
+        '@type': 'CollectionPage',
+        'name': pageTitle,
+        'description': pageDescription,
+        'url': canonicalUrl,
+        'inLanguage': 'zh-Hant',
+        'isPartOf': { '@id': WEBSITE_ID },
+        'mainEntity': {
+          '@type': 'ItemList',
+          'numberOfItems': itemList.length,
+          'itemListElement': itemList,
+        },
+      },
+      toBreadcrumbNode(pageTitle, canonicalUrl),
+    ],
+  }
+}
+
+/** 快取梗圖的圖片 ItemList，附上關鍵字與圖中文字（OCR），利於圖片搜尋比對 */
+function toMemeItemList(): Record<string, unknown>[] {
+  const memeList = getSeoMemeList(
+    readFileSync(resolve(CONTENT_PUBLIC_DIR, 'memes/a-memes-data.ndjson'), 'utf-8'),
+  )
+
+  return memeList.map((meme, index) => {
+    const keywordList = getMemeKeywordList(meme)
+    const ocrText = meme.ocr?.trim()
+
+    return {
+      '@type': 'ListItem',
+      'position': index + 1,
+      'item': {
+        '@type': 'ImageObject',
+        'name': getMemeName(meme),
+        'caption': getMemeAlt(meme),
+        'description': getMemeAlt(meme),
+        'contentUrl': `${HOSTNAME}/memes/${meme.file}`,
+        'encodingFormat': 'image/webp',
+        ...(keywordList.length ? { keywords: keywordList } : {}),
+        ...(ocrText ? { text: ocrText } : {}),
+      },
+    }
+  })
 }
 
 function getNavItem(data: DefaultTheme.NavItem) {
@@ -502,30 +605,6 @@ export default ({ mode }: { mode: string }) => {
           ...(section ? { articleSection: section.name } : {}),
         }
 
-        /** 麵包屑：首頁 →（分類）→ 文章。若正在看的就是分類入口文章，省略重複的分類層 */
-        const breadcrumbItemList: Record<string, unknown>[] = [
-          {
-            '@type': 'ListItem',
-            'position': 1,
-            'name': '首頁',
-            'item': `${baseConfig.hostname}/`,
-          },
-        ]
-        if (section && section.landing !== urlPath) {
-          breadcrumbItemList.push({
-            '@type': 'ListItem',
-            'position': 2,
-            'name': section.name,
-            'item': `${baseConfig.hostname}${section.landing}`,
-          })
-        }
-        breadcrumbItemList.push({
-          '@type': 'ListItem',
-          'position': breadcrumbItemList.length + 1,
-          'name': pageTitle,
-          'item': canonicalUrl,
-        })
-
         const graph: Record<string, unknown> = {
           '@context': 'https://schema.org',
           '@graph': [
@@ -533,10 +612,7 @@ export default ({ mode }: { mode: string }) => {
             personNode,
             organizationNode,
             blogPosting,
-            {
-              '@type': 'BreadcrumbList',
-              'itemListElement': breadcrumbItemList,
-            },
+            toArticleBreadcrumbNode({ section, urlPath, pageTitle, canonicalUrl }),
           ],
         }
 
@@ -563,33 +639,23 @@ export default ({ mode }: { mode: string }) => {
           'name': article.text,
         }))
 
-        const graph: Record<string, unknown> = {
-          '@context': 'https://schema.org',
-          '@graph': [
-            websiteNode,
-            {
-              '@type': 'CollectionPage',
-              'name': pageTitle,
-              'description': pageDescription,
-              'url': canonicalUrl,
-              'inLanguage': 'zh-Hant',
-              'isPartOf': { '@id': WEBSITE_ID },
-              'mainEntity': {
-                '@type': 'ItemList',
-                'numberOfItems': itemList.length,
-                'itemListElement': itemList,
-              },
-            },
-            {
-              '@type': 'BreadcrumbList',
-              'itemListElement': [
-                { '@type': 'ListItem', 'position': 1, 'name': '首頁', 'item': `${baseConfig.hostname}/` },
-                { '@type': 'ListItem', 'position': 2, 'name': pageTitle, 'item': canonicalUrl },
-              ],
-            },
-          ],
-        }
-        headList.push(toJsonLdScript(graph))
+        headList.push(toJsonLdScript(toCollectionPageGraph({
+          pageTitle,
+          pageDescription,
+          canonicalUrl,
+          itemList,
+        })))
+      }
+      else if (urlPath === MEME_CACHE_PATH) {
+        /** 快取梗圖為圖片集合頁，宣告 CollectionPage（含圖片 ItemList）+ 麵包屑。
+         * 需於 head 注入，元件內以 script 標籤輸出會被 SSR 跳脫成 HTML 實體而無法剖析
+         */
+        headList.push(toJsonLdScript(toCollectionPageGraph({
+          pageTitle,
+          pageDescription,
+          canonicalUrl,
+          itemList: toMemeItemList(),
+        })))
       }
 
       return headList
@@ -850,6 +916,7 @@ export default ({ mode }: { mode: string }) => {
             )
           },
         },
+        viteSeoMemeList(),
         Icons({
           autoInstall: true,
           compiler: 'vue3',
