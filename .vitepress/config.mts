@@ -38,8 +38,10 @@ const SITE_DESCRIPTION = '各種鱈魚滾鍵盤的雜記與研究'
 const AUTHOR_NAME = '鱈魚 (Cod Lin)'
 /** public 目錄絕對路徑，供讀取封面圖尺寸使用 */
 const CONTENT_PUBLIC_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '../content/public')
+/** 酷東西頁的網址前綴，這些頁為可直接操作的網頁應用 */
+const AQUARIUM_PATH = '/aquarium/'
 /** 快取梗圖頁網址，供注入圖片集合的結構化資料 */
-const MEME_CACHE_PATH = '/aquarium/meme-cache/'
+const MEME_CACHE_PATH = `${AQUARIUM_PATH}meme-cache/`
 const MEME_NDJSON_PATH = resolve(CONTENT_PUBLIC_DIR, 'memes/a-memes-data.ndjson')
 
 let memeListCache: MemeItem[] | undefined
@@ -74,6 +76,19 @@ const personNode: Record<string, unknown> = {
   'description': '熱衷於結合各類領域技術、開發酷酷的東西',
   'worksFor': { '@id': ORGANIZATION_ID },
   'sameAs': socialLinkList,
+  /** 專業領域取自文章實際涵蓋的主題，供搜尋引擎判斷作者專業性 */
+  'knowsAbout': [
+    'Vue.js',
+    'TypeScript',
+    'JavaScript',
+    '前端開發',
+    'Babylon.js',
+    'WebGL',
+    'GLSL Shader',
+    'Electron',
+    'Node.js',
+    '網頁效能優化',
+  ],
 }
 
 /** 發布者 Organization 實體，供 BlogPosting publisher 引用 */
@@ -281,6 +296,49 @@ function toCollectionPageGraph(params: {
           'itemListElement': itemList,
         },
         ...searchAction,
+      },
+      toBreadcrumbNode(pageTitle, canonicalUrl),
+    ],
+  }
+}
+
+/** 酷東西頁的結構化資料：WebApplication + 麵包屑。
+ *
+ * 這些頁是可直接在瀏覽器操作的作品，宣告為應用程式而非文章。
+ * 無 /aquarium/ 入口頁（導覽列為下拉選單），麵包屑僅首頁與本頁兩層。
+ */
+function toWebApplicationGraph(params: {
+  pageTitle: string;
+  pageDescription: string;
+  canonicalUrl: string;
+  imageObject: Record<string, unknown>;
+}): Record<string, unknown> {
+  const { pageTitle, pageDescription, canonicalUrl, imageObject } = params
+
+  return {
+    '@context': 'https://schema.org',
+    '@graph': [
+      websiteNode,
+      personNode,
+      organizationNode,
+      {
+        '@type': 'WebApplication',
+        'name': pageTitle,
+        'description': pageDescription,
+        'url': canonicalUrl,
+        'image': imageObject,
+        'inLanguage': 'zh-Hant',
+        'isPartOf': { '@id': WEBSITE_ID },
+        'author': { '@id': PERSON_ID },
+        'applicationCategory': 'BrowserApplication',
+        'operatingSystem': 'Any',
+        'browserRequirements': 'Requires JavaScript',
+        // 全部免費，明確宣告避免被視為缺漏
+        'offers': {
+          '@type': 'Offer',
+          'price': '0',
+          'priceCurrency': 'TWD',
+        },
       },
       toBreadcrumbNode(pageTitle, canonicalUrl),
     ],
@@ -699,6 +757,15 @@ export default ({ mode }: { mode: string }) => {
           canonicalUrl,
           itemList: toMemeImageItemList(getMemeList().slice(-SEO_MEME_LIMIT)),
           searchUrlTemplate: `${canonicalUrl}?q={search_term_string}`,
+        })))
+      }
+      else if (urlPath.startsWith(AQUARIUM_PATH)) {
+        /** 其餘酷東西頁皆為可直接操作的網頁應用，宣告 WebApplication */
+        headList.push(toJsonLdScript(toWebApplicationGraph({
+          pageTitle,
+          pageDescription,
+          canonicalUrl,
+          imageObject,
         })))
       }
 
