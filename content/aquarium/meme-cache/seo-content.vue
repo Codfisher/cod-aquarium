@@ -1,7 +1,8 @@
-<!-- eslint-disable vue/no-v-text-v-html-on-component vue/no-useless-v-bind -->
+<!-- eslint-disable vue/no-useless-v-bind -->
 <template>
+  <!-- 結構化資料（JSON-LD）由 .vitepress/config.mts 的 transformHead 注入 head，
+       元件內以 script 標籤輸出會被 SSR 跳脫成 HTML 實體，導致 Google 無法剖析 -->
   <section
-    v-if="!isMounted"
     aria-labelledby="meme-gallery-title"
     class="gallery-wrap"
   >
@@ -15,14 +16,14 @@
     <!-- 圖片清單 -->
     <div class="grid">
       <figure
-        v-for="(item) in items"
+        v-for="(item) in seoMemeList"
         :key="item.file"
         class="card"
       >
         <picture>
           <img
             :src="fileSrc(item.file)"
-            :alt="toAlt(item)"
+            :alt="getMemeAlt(item)"
             loading="lazy"
             decoding="async"
             :width="item.width || undefined"
@@ -30,99 +31,28 @@
           >
         </picture>
         <figcaption class="caption">
-          <strong class="name">{{ toName(item) }}</strong>
-          <span class="desc">{{ toCaption(item) }}</span>
+          <strong class="name">{{ getMemeName(item) }}</strong>
+          <span class="desc">{{ getCaption(item) }}</span>
         </figcaption>
       </figure>
     </div>
-
-    <component
-      :is="'script'"
-      type="application/ld+json"
-    >
-      {{ jsonLdData }}
-    </component>
   </section>
 </template>
 
 <script setup lang="ts">
-import { useMounted } from '@vueuse/core'
-import { filter, isTruthy, map, pipe, takeLast } from 'remeda'
+import type { MemeItem } from './meme-seo'
+import { seoMemeList } from 'virtual:seo-meme-list'
 import { withBase } from 'vitepress'
-import { computed, ref } from 'vue'
-import rawNdjson from '../../public/memes/a-memes-data.ndjson?raw'
-
-interface MemeItem {
-  file: string;
-  describe?: string;
-  ocr?: string;
-  keyword?: string;
-  width?: number;
-  height?: number;
-}
-
-const items = ref(parseNdjson(rawNdjson))
-
-function parseNdjson(text: string): MemeItem[] {
-  return pipe(
-    text.split('\n'),
-    map((line) => line.trim()),
-    filter(Boolean),
-    map((line) => {
-      try {
-        const row = JSON.parse(line)
-        return row as MemeItem
-      }
-      catch {
-        return null
-      }
-    }),
-    filter(isTruthy),
-    takeLast(20),
-  ) as MemeItem[]
-}
+import { getMemeAlt, getMemeName } from './meme-seo'
 
 const fileSrc = (file: string) => withBase(`/memes/${file}`)
-
-/** 以描述前 18~24 字當標題；沒有就用檔名 */
-function toName(item: MemeItem) {
-  const d = (item.describe || '').replace(/\s+/g, '')
-  return d ? (d.length > 24 ? `${d.slice(0, 24)}…` : d) : item.file
-}
-function toAlt(item: MemeItem) {
-  return (item.describe || '').replace(/\s+/g, ' ').trim() || '迷因圖片'
-}
-const toCaption = (item: MemeItem) => item.describe || ''
-
-const jsonLdData = computed(() => {
-  const parts = items.value.map((it) => ({
-    '@type': 'ImageObject',
-    'name': toName(it),
-    'caption': toAlt(it),
-    'contentUrl': absoluteUrl(fileSrc(it.file)),
-  }))
-
-  return {
-    '@context': 'https://schema.org',
-    '@type': 'CollectionPage',
-    'name': '鱈魚 - 快取梗圖',
-    'inLanguage': 'zh-Hant-TW',
-    'hasPart': parts,
-  }
-})
-
-function absoluteUrl(path: string) {
-  if (typeof window !== 'undefined' && path.startsWith('/')) {
-    return window.location.origin + path
-  }
-  // 避免 path 帶前導斜線時與網域串接產生雙斜線
-  return `https://codlin.me/${path.replace(/^\//, '')}`
-}
-
-const isMounted = useMounted()
+const getCaption = (item: MemeItem) => item.describe ?? ''
 </script>
 
 <style scoped lang="sass">
+/** 主體 app 為 fixed 全螢幕 iframe，不佔文件流高度，此區塊若貼齊頂端會直接蓋住 app。
+ * 留兩個螢幕高的間距，使用者捲動即可看見，圖片也不會在首屏就被 lazy load 觸發下載
+ */
 .gallery-wrap
   max-width: 1100px
   margin: 0 auto
