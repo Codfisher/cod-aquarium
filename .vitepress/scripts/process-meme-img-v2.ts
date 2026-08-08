@@ -360,8 +360,7 @@ async function main() {
     ]
 
     const response = await ai.models.generateContent({
-      // model: 'gemini-2.5-pro',
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.5-flash',
       contents,
       config: {
         responseMimeType: 'application/json',
@@ -370,7 +369,12 @@ async function main() {
 
     const blurLevel = await computeBlurLevel(filePath)
 
-    const parsed = JSON.parse(response.text ?? '{}')
+    // 只取文字 part，避免 response.text 遇到 thoughtSignature 時印出警告
+    const textList = response.candidates?.[0]?.content?.parts
+      ?.map((part) => part.text)
+      .filter((text): text is string => Boolean(text)) ?? []
+
+    const parsed = JSON.parse(textList.join('') || '{}')
     const result = pipe(
       {
         file: path.basename(filePath),
