@@ -9,8 +9,10 @@ export interface MemeItem {
   height?: number;
 }
 
-/** SEO 靜態內容只呈現最新數筆，避免頁面與結構化資料過於肥大 */
-export const SEO_MEME_LIMIT = 60
+/** SEO 靜態內容、結構化資料與 sitemap 都只取最新數筆。
+ * 迷因近千張，全數列出會淹沒 sitemap 中的文章，也讓頁面與 head 過於肥大
+ */
+export const SEO_MEME_LIMIT = 20
 
 /** 解析 ndjson，略過格式損毀的行，避免單筆錯誤導致整份資料無法使用 */
 export function parseMemeNdjson(rawNdjson: string): MemeItem[] {

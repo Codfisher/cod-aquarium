@@ -41,8 +41,6 @@ const CONTENT_PUBLIC_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '../
 /** 快取梗圖頁網址，供注入圖片集合的結構化資料 */
 const MEME_CACHE_PATH = '/aquarium/meme-cache/'
 const MEME_NDJSON_PATH = resolve(CONTENT_PUBLIC_DIR, 'memes/a-memes-data.ndjson')
-/** 單一 sitemap 的 <url> 最多容納 1000 張圖片，超過需拆分為多個 sitemap */
-const SITEMAP_IMAGE_LIMIT = 1000
 
 let memeListCache: MemeItem[] | undefined
 /** 迷因資料於 build 期間不會變動，快取避免重複讀取與解析近千筆資料 */
@@ -292,18 +290,11 @@ function toCollectionPageGraph(params: {
 /** 快取梗圖頁的 sitemap 圖片清單。
  *
  * 迷因圖僅存在於 app 執行時 fetch 的 ndjson，爬蟲無從發現，
- * 於 sitemap 逐張列出才有機會進入 Google 圖片索引。
+ * 於 sitemap 列出才有機會進入 Google 圖片索引。
+ * 只放最新數張，避免近千張圖片淹沒 sitemap 中的文章。
  */
 function toMemeSitemapImageList() {
-  const memeList = getMemeList()
-
-  if (memeList.length > SITEMAP_IMAGE_LIMIT) {
-    console.warn(
-      `[ sitemap ] 迷因圖 ${memeList.length} 張已超過單一 <url> 的 ${SITEMAP_IMAGE_LIMIT} 張上限，需拆分 sitemap`,
-    )
-  }
-
-  return memeList.slice(-SITEMAP_IMAGE_LIMIT).map((meme) => ({
+  return getMemeList().slice(-SEO_MEME_LIMIT).map((meme) => ({
     url: `${HOSTNAME}/memes/${meme.file}`,
     title: getMemeName(meme),
     caption: getMemeAlt(meme),
