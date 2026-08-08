@@ -11,6 +11,7 @@ import sharp from 'sharp'
 import phash from 'sharp-phash'
 import distance from 'sharp-phash/distance'
 import { computeBlurLevel } from '../utils/blur-estimator'
+import { parseMemeAnalysis } from '../utils/meme-analysis-parser'
 
 const __dirname = import.meta.dirname
 
@@ -327,7 +328,23 @@ async function main() {
   console.log(`[main] ${memeFilePathList.length} 個檔案待處理`)
 
   let count = 0
+  let failedCount = 0
   const tasks = memeFilePathList.map(async (filePath) => queue.add(async () => {
+    try {
+      await analyzeMeme(filePath)
+    }
+    catch (e) {
+      failedCount++
+      console.error(`[main] 分析失敗，略過：${path.basename(filePath)}`, e)
+      return
+    }
+
+    count++
+    console.log(`[main] ${count}/${memeFilePathList.length}`)
+  }))
+
+  /** 分析單張迷因並寫入 ndjson */
+  async function analyzeMeme(filePath: string) {
     const base64ImageFile = await readFile(filePath, { encoding: 'base64' })
 
     const contents = [
@@ -370,11 +387,13 @@ async function main() {
     const blurLevel = await computeBlurLevel(filePath)
 
     // 只取文字 part，避免 response.text 遇到 thoughtSignature 時印出警告
+    // 思考內容不是答案，混進來會讓 JSON 解析失敗
     const textList = response.candidates?.[0]?.content?.parts
-      ?.map((part) => part.text)
+      ?.filter((part) => !part.thought)
+      .map((part) => part.text)
       .filter((text): text is string => Boolean(text)) ?? []
 
-    const parsed = JSON.parse(textList.join('') || '{}')
+    const parsed = parseMemeAnalysis(textList.join(''))
     const result = pipe(
       {
         file: path.basename(filePath),
@@ -386,13 +405,13 @@ async function main() {
       (data) => JSON.stringify(data).replaceAll('\n', ''),
     )
 
-    // console.log(result)
-    count++
-    console.log(`[main] ${count}/${memeFilePathList.length}`)
-
     ndjsonStream.write(`${result}\n`)
-  }))
+  }
+
   await Promise.all(tasks)
+  if (failedCount > 0) {
+    console.warn(`[main] ${failedCount} 張分析失敗，未寫入資料`)
+  }
 
   await new Promise<void>((resolve, reject) => {
     ndjsonStream.on('finish', resolve)
