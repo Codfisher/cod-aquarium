@@ -187,7 +187,7 @@ const { canvasRef, scene, camera, initError } = useBabylonScene({
     renderer = createVoxelRenderer(sceneInstance, chunkWorker)
     await renderer.build(worldState)
 
-    sheepFlock.start(sceneInstance, worldState)
+    sheepFlock.start({ scene: sceneInstance, worldState, camera: cameraInstance })
     createCampfireSmoke(sceneInstance, worldState)
 
     if (isMobile.value) {

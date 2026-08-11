@@ -1,9 +1,10 @@
-import type { DirectionalLight, Mesh, Scene, ShadowGenerator, StandardMaterial } from '@babylonjs/core'
+import type { DirectionalLight, Mesh, Scene, ShadowGenerator, StandardMaterial, UniversalCamera } from '@babylonjs/core'
 import { MeshBuilder, TransformNode } from '@babylonjs/core'
 import { onBeforeUnmount } from 'vue'
 import { SUN_LIGHT_NAME } from '../../composables/use-babylon-scene'
 import { createSeededRandom } from '../../utils/noise'
 import { WOOL_TEXTURE } from '../block/block-constants'
+import { PLAYER_EYE_HEIGHT, PLAYER_WIDTH } from '../player/collision'
 import { createPixelMaterial } from '../renderer/voxel-renderer'
 import { PASTURE_CENTER, PASTURE_HALF_SIZE } from '../world/structure-generator'
 import { getGroundY } from '../world/world-access'
@@ -16,6 +17,22 @@ const GRAZE_RANGE_SECOND: [number, number] = [4, 12]
 const TURN_SECOND = 0.9
 /** 活動範圍，比柵欄再縮一點，免得卡在欄杆上 */
 const ROAM_HALF_SIZE = PASTURE_HALF_SIZE - 2
+
+/** 一隻羊佔的半徑，身體 0.7 寬、1 長，取個折衷值當作圓形碰撞 */
+const SHEEP_RADIUS = 0.45
+/** 玩家佔的半徑 */
+const PLAYER_RADIUS = PLAYER_WIDTH / 2
+/**
+ * 每秒最多被推開多遠
+ *
+ * 不設上限的話，重疊多深就一次推多遠，
+ * 剛生成時兩隻疊在一起會瞬間彈開。限速後就是慢慢擠出去
+ */
+const PUSH_SPEED = 1.6
+/** 玩家推羊要更果斷一點，不然走進羊群像在推一堵牆 */
+const PLAYER_PUSH_SPEED = 3.2
+/** 腳底高度差超過這個值就當作不在同一層，例如站在乾草堆上 */
+const PUSH_HEIGHT_TOLERANCE = 1.2
 
 /** 羊的行為狀態 */
 type SheepAction = 'graze' | 'turn' | 'walk'
@@ -50,6 +67,13 @@ interface Sheep {
   walkSpeed: number;
 }
 
+export interface StartSheepFlockParams {
+  scene: Scene;
+  worldState: Uint8Array;
+  /** 玩家所在，走進羊群時要把羊擠開 */
+  camera: UniversalCamera;
+}
+
 /**
  * 牧場羊群
  *
@@ -60,7 +84,7 @@ export function useSheepFlock() {
   let sheepList: Sheep[] = []
   let disposeList: (() => void)[] = []
 
-  function start(scene: Scene, worldState: Uint8Array): void {
+  function start({ scene, worldState, camera }: StartSheepFlockParams): void {
     const sunLight = scene.getLightByName(SUN_LIGHT_NAME) as DirectionalLight | null
     const shadowGenerator = sunLight?.getShadowGenerator() as ShadowGenerator | null
     const random = createSeededRandom('minespace-sheep')
@@ -90,7 +114,21 @@ export function useSheepFlock() {
       const deltaTime = Math.min(0.1, scene.getEngine().getDeltaTime() / 1000)
 
       for (const sheep of sheepList) {
-        updateSheep(sheep, deltaTime, worldState, random)
+        updateSheep(sheep, deltaTime, random)
+      }
+
+      /**
+       * 位移都算完了才處理推擠
+       *
+       * 各自走各自的難免走到同一格上，最後統一把重疊的推開，
+       * 位置才不會這一隻剛閃開、下一隻又疊回去
+       */
+      pushSheepApart(sheepList, deltaTime)
+      pushSheepFromPlayer(sheepList, camera, deltaTime)
+
+      for (const sheep of sheepList) {
+        keepInPasture(sheep)
+        snapToGround(sheep, worldState)
       }
     })
 
@@ -281,21 +319,114 @@ function pickTarget(sheep: Sheep, random: () => number): void {
   sheep.actionTimeLeft = TURN_SECOND
 }
 
-/** 吃草 → 轉身 → 走動，走到了再回去吃草 */
-function updateSheep(
-  sheep: Sheep,
-  deltaTime: number,
-  worldState: Uint8Array,
-  random: () => number,
-): void {
-  sheep.phase += deltaTime
+/**
+ * 羊互相推擠
+ *
+ * 沒有這一步，兩隻羊會直接穿過彼此再疊在一起走，
+ * 遠看就是一隻長了八條腿的羊。
+ * 兩兩檢查，重疊了就各退一半，力道由 PUSH_SPEED 限住，
+ * 擠開的過程才是慢慢挪，不是彈開
+ */
+function pushSheepApart(sheepList: Sheep[], deltaTime: number): void {
+  const minDistance = SHEEP_RADIUS * 2
+  const maxPush = PUSH_SPEED * deltaTime
 
-  /** 貼齊腳下的地面，牧場整過地但邊緣仍可能有高低差 */
+  for (let index = 0; index < sheepList.length; index++) {
+    for (let otherIndex = index + 1; otherIndex < sheepList.length; otherIndex++) {
+      const sheep = sheepList[index]!
+      const other = sheepList[otherIndex]!
+
+      const deltaX = other.root.position.x - sheep.root.position.x
+      const deltaZ = other.root.position.z - sheep.root.position.z
+      const distance = Math.hypot(deltaX, deltaZ)
+
+      if (distance >= minDistance)
+        continue
+
+      /**
+       * 正好完全重疊時沒有方向可以推
+       *
+       * 依編號給一個固定的角度岔開，兩隻才不會卡在同一點上發抖
+       */
+      const angle = distance > 0.0001
+        ? Math.atan2(deltaX, deltaZ)
+        : index * 2.4
+      const directionX = distance > 0.0001 ? deltaX / distance : Math.sin(angle)
+      const directionZ = distance > 0.0001 ? deltaZ / distance : Math.cos(angle)
+      const push = Math.min((minDistance - distance) / 2, maxPush)
+
+      sheep.root.position.x -= directionX * push
+      sheep.root.position.z -= directionZ * push
+      other.root.position.x += directionX * push
+      other.root.position.z += directionZ * push
+    }
+  }
+}
+
+/**
+ * 玩家把羊擠開
+ *
+ * 玩家的碰撞只認方塊，穿得過羊，
+ * 走進羊群卻整群紋風不動看起來很假。
+ * 這裡反過來讓羊自己讓開：玩家踩進羊的範圍，羊就往外側被推出去
+ */
+function pushSheepFromPlayer(sheepList: Sheep[], camera: UniversalCamera, deltaTime: number): void {
+  const minDistance = SHEEP_RADIUS + PLAYER_RADIUS
+  const maxPush = PLAYER_PUSH_SPEED * deltaTime
+
+  /** 相機在眼睛的高度，要換算回腳底才好跟羊比 */
+  const playerFootY = camera.position.y - PLAYER_EYE_HEIGHT
+
+  for (const sheep of sheepList) {
+    /** 站在高處或在羊底下的洞裡，就不該推得到羊 */
+    if (Math.abs(playerFootY - sheep.root.position.y) > PUSH_HEIGHT_TOLERANCE)
+      continue
+
+    const deltaX = sheep.root.position.x - camera.position.x
+    const deltaZ = sheep.root.position.z - camera.position.z
+    const distance = Math.hypot(deltaX, deltaZ)
+
+    if (distance >= minDistance)
+      continue
+
+    /** 玩家正好站在羊的正中心，往羊面對的方向推出去 */
+    const directionX = distance > 0.0001 ? deltaX / distance : Math.sin(sheep.root.rotation.y)
+    const directionZ = distance > 0.0001 ? deltaZ / distance : Math.cos(sheep.root.rotation.y)
+    const push = Math.min(minDistance - distance, maxPush)
+
+    sheep.root.position.x += directionX * push
+    sheep.root.position.z += directionZ * push
+  }
+}
+
+/** 推擠不能把羊推出柵欄，出界就壓回活動範圍 */
+function keepInPasture(sheep: Sheep): void {
+  const { position } = sheep.root
+
+  position.x = clamp(position.x, PASTURE_CENTER.x - ROAM_HALF_SIZE, PASTURE_CENTER.x + ROAM_HALF_SIZE)
+  position.z = clamp(position.z, PASTURE_CENTER.z - ROAM_HALF_SIZE, PASTURE_CENTER.z + ROAM_HALF_SIZE)
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value))
+}
+
+/** 貼齊腳下的地面，牧場整過地但邊緣仍可能有高低差 */
+function snapToGround(sheep: Sheep, worldState: Uint8Array): void {
   sheep.root.position.y = getGroundY(
     worldState,
     Math.round(sheep.root.position.x),
     Math.round(sheep.root.position.z),
   ) - 0.5
+}
+
+/** 吃草 → 轉身 → 走動，走到了再回去吃草 */
+function updateSheep(
+  sheep: Sheep,
+  deltaTime: number,
+  random: () => number,
+): void {
+  sheep.phase += deltaTime
 
   /** 尾巴一直輕輕晃 */
   sheep.tail.rotation.x = Math.sin(sheep.phase * 3.1) * 0.22
