@@ -879,6 +879,10 @@ export default ({ mode }: { mode: string }) => {
                 link: '/aquarium/enderbox/',
               },
               {
+                text: 'Minespace',
+                link: '/aquarium/minespace/',
+              },
+              {
                 text: '速速湊',
                 link: 'https://susugo.codlin.me/',
               },
