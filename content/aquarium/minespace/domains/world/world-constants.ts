@@ -1,5 +1,5 @@
 /** 世界寬度與深度 */
-export const WORLD_SIZE = 192
+export const WORLD_SIZE = 224
 /** 世界高度
  *
  * 需要容得下雪山峰頂與峰頂上方的天空，太矮山頭會被削平
@@ -14,7 +14,7 @@ export const SEA_LEVEL = 12
  * Minespace 的世界不可編輯，重建粒度不重要，
  * 因此改用較大的區塊換取較少的 draw call
  */
-export const CHUNK_SIZE = 48
+export const CHUNK_SIZE = 56
 /** 每維度區塊數 */
 export const CHUNKS_PER_AXIS = WORLD_SIZE / CHUNK_SIZE
 /** 總區塊數 */

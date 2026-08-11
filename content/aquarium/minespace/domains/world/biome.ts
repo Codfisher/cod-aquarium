@@ -21,16 +21,25 @@ export interface BiomeDefinition {
 /** 島嶼中心 */
 export const ISLAND_CENTER = { x: WORLD_SIZE / 2, z: WORLD_SIZE / 2 }
 /**
- * 地形開始下沉的半徑，這裡形成沙灘
+ * 海岸剖面
  *
- * 島放大到接近世界邊界，陸地面積約為原本的一點三倍。
+ * 由內往外分成四段：內陸、下坡、沙灘、淺灘。
+ * 只給一個下沉半徑的話，地形會從內陸高度一路斜插進海裡，
+ * 貼著海平面的乾沙灘只剩兩三格寬，走到海邊等於直接落水。
+ * 中間多留一段幾乎是平的沙灘，海岸才走得起來。
+ *
  * 海岸線本身還會被噪音推移正負七格，所以外圍要留一點餘裕
  */
+/** 內陸地形開始往海岸下降 */
 export const ISLAND_SHORE_RADIUS = 78
-/** 地形完全沉入海中的半徑 */
-export const ISLAND_SEA_RADIUS = 90
+/** 降到沙灘高度，這裡開始是走得到的沙灘 */
+export const ISLAND_BEACH_RADIUS = 86
+/** 海岸線，沙灘在此沒入水中 */
+export const ISLAND_WATER_RADIUS = 94
+/** 地形完全沉入海床的半徑 */
+export const ISLAND_SEA_RADIUS = 104
 /** 空氣牆半徑，游到這裡就會被擋下來 */
-export const ISLAND_WALL_RADIUS = 90
+export const ISLAND_WALL_RADIUS = 104
 
 /**
  * 生態區佈局
@@ -122,15 +131,16 @@ export function getIslandDistance(x: number, z: number): number {
 }
 
 /**
- * 島嶼衰減係數：1 為內陸，0 為外海
+ * 島嶼衰減係數：1 為內陸，0 為海岸線
  *
- * 地形高度會依此係數往海底靠攏，島的邊緣自然沉進海裡
+ * 判斷「有多內陸」用的，植被與生態區判定都靠它。
+ * 地形高度另外由海岸剖面決定，不再直接吃這個係數
  */
 export function getIslandFalloff(x: number, z: number): number {
   const distance = getIslandDistance(x, z)
 
   return 1 - smoothStep(
-    (distance - ISLAND_SHORE_RADIUS) / (ISLAND_SEA_RADIUS - ISLAND_SHORE_RADIUS),
+    (distance - ISLAND_SHORE_RADIUS) / (ISLAND_WATER_RADIUS - ISLAND_SHORE_RADIUS),
   )
 }
 
@@ -161,12 +171,10 @@ export function getBiomeWeightList(x: number, z: number): { biome: BiomeDefiniti
   return weightList.map((item) => ({ ...item, weight: item.weight / total }))
 }
 
-/** 島嶼衰減低於此值就算進入海岸地帶 */
-const COAST_FALLOFF_THRESHOLD = 0.72
-
 /** 取得影響力最大的生態區 */
 export function getDominantBiomeId(x: number, z: number): BiomeId {
-  if (getIslandFalloff(x, z) < COAST_FALLOFF_THRESHOLD) {
+  /** 沙灘以外都算陸地，海岸地帶就從沙灘起算 */
+  if (getIslandDistance(x, z) >= ISLAND_BEACH_RADIUS) {
     return 'coast'
   }
 

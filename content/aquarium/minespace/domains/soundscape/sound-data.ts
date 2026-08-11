@@ -1,4 +1,5 @@
 import type { SoundEmitterDefinition } from './type'
+import { ISLAND_CENTER, ISLAND_SEA_RADIUS, ISLAND_WATER_RADIUS } from '../world/biome'
 import {
   APIARY_POSITION,
   CAMPFIRE_POSITION,
@@ -17,6 +18,29 @@ export const SOUND_BASE = '/minespace/sounds'
 
 /** 洞穴通道中段，滴水聲擺在這裡 */
 const CAVE_TUNNEL_POINT = CAVE_PATH[2] ?? CAVE_ENTRANCE
+
+/**
+ * 拍岸浪聲的音源數量
+ *
+ * 浪聲是沿著整條海岸線發出來的，用點音源模擬就得擺滿一圈。
+ * 數量太少會出現「站在兩個音源中間的海灘反而沒有浪聲，
+ * 走到內陸卻聽得到」的怪事，所以寧可多擺幾個、每個都壓小範圍
+ */
+const SHORE_EMITTER_COUNT = 12
+/** 音源擺在海岸線稍微內側，聲音才像從沙灘上傳來 */
+const SHORE_EMITTER_RADIUS = ISLAND_WATER_RADIUS - 4
+
+/** 以島心為圓心，等距排出一圈座標 */
+function createRingPositionList(count: number, radius: number): { x: number; z: number }[] {
+  return Array.from({ length: count }, (_, index) => {
+    const angle = (index / count) * Math.PI * 2
+
+    return {
+      x: Math.round(ISLAND_CENTER.x + Math.cos(angle) * radius),
+      z: Math.round(ISLAND_CENTER.z + Math.sin(angle) * radius),
+    }
+  })
+}
 
 /**
  * 音源佈局
@@ -324,12 +348,7 @@ const EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
   },
 
   // ── 環島海岸 ──
-  ...[
-    { x: 96, z: 30 },
-    { x: 162, z: 96 },
-    { x: 96, z: 162 },
-    { x: 30, z: 96 },
-  ].map((position, index) => ({
+  ...createRingPositionList(SHORE_EMITTER_COUNT, SHORE_EMITTER_RADIUS).map((position, index) => ({
     id: `coast-shore-${index}`,
     sound: 'ocean-shore',
     title: { 'zh-hant': '拍岸浪聲', 'en': 'Waves on the shore' },
@@ -338,13 +357,10 @@ const EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
     heightOffset: 3,
     mode: { type: 'loop' } as const,
     volume: 0.7,
-    minDistance: 10,
-    maxDistance: 46,
+    minDistance: 8,
+    maxDistance: 30,
   })),
-  ...[
-    { x: 96, z: 16 },
-    { x: 96, z: 176 },
-  ].map((position, index) => ({
+  ...createRingPositionList(2, ISLAND_SEA_RADIUS - 4).map((position, index) => ({
     id: `coast-ocean-${index}`,
     sound: 'ocean-wave',
     title: { 'zh-hant': '外海濤聲', 'en': 'Open sea' },
@@ -354,20 +370,20 @@ const EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
     mode: { type: 'loop' } as const,
     volume: 0.6,
     minDistance: 12,
-    maxDistance: 48,
+    maxDistance: 32,
   })),
   {
     id: 'coast-gull',
     sound: 'ocean-gull',
     title: { 'zh-hant': '海鷗', 'en': 'Seagulls' },
     zone: 'coast',
-    x: 100,
-    z: 158,
+    x: ISLAND_CENTER.x - 4,
+    z: ISLAND_CENTER.z + 88,
     heightOffset: 8,
     mode: { type: 'interval', rangeSecond: [12, 30] },
     volume: 0.7,
     minDistance: 8,
-    maxDistance: 44,
+    maxDistance: 32,
   },
   {
     /** 海豚放在外海，而且刻意壓小範圍，要真的游出去才聽得到 */
@@ -375,8 +391,8 @@ const EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
     sound: 'ocean-dolphin',
     title: { 'zh-hant': '海豚', 'en': 'Dolphins' },
     zone: 'coast',
-    x: 96,
-    z: 178,
+    x: ISLAND_CENTER.x,
+    z: ISLAND_CENTER.z + ISLAND_SEA_RADIUS - 6,
     y: 13,
     mode: { type: 'interval', rangeSecond: [16, 40] },
     volume: 0.9,

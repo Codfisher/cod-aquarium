@@ -112,8 +112,13 @@ export const SUN_INTENSITY = 1.3
 
 /** 外海往世界外圍延伸的距離，大到看不見盡頭 */
 const OPEN_SEA_MARGIN = 900
-/** 外海海床的高度，與島邊的海床同高 */
-const SEA_FLOOR_LEVEL = 5.5
+/**
+ * 外海海床的高度
+ *
+ * 方塊中心落在整數座標，海床最高那一層是 y = 4，頂面因此在 4.5，
+ * 外海的海床要接在同一個高度上
+ */
+const SEA_FLOOR_LEVEL = 4.5
 /** 與方塊海水同一張的水面動畫圖，六張畫格直向排列 */
 const ANIMATED_WATER_TEXTURE_PATH = '/assets/minecraft-mini8x/default_water_source_animated.png'
 const WATER_FRAME_COUNT = 6
@@ -123,22 +128,22 @@ const WATER_FRAME_SIZE = 8
 
 /** 建立一張可平鋪的外海水面貼圖，內容由動畫圖逐格複製過來 */
 function createOpenSeaTexture(name: string, scene: Scene, frameSource: HTMLImageElement): DynamicTexture {
+  /**
+   * 不產 mipmap，取樣方式與島上的方塊海水完全一致
+   *
+   * 這片水與方塊海水在世界邊界接在一起，只要取樣方式不同就會出現一條線：
+   * mipmap 會把八乘八的水紋平均掉，遠處於是變成一片比方塊海水更暗的藍。
+   * 帶 mipmap 的 NEAREST 更糟，不同距離各自落在不同層級，
+   * 海面會被切成一條一條深淺不同的橫帶。
+   * 水紋本身的明暗差很小，直接關掉 mipmap 也不太看得出鋸齒
+   */
   const texture = new DynamicTexture(
     name,
     { width: WATER_FRAME_SIZE, height: WATER_FRAME_SIZE },
     scene,
-    true,
+    false,
+    Texture.NEAREST_SAMPLINGMODE,
   )
-  /**
-   * 遠處改用三線性過濾與非等向性過濾
-   *
-   * 方塊要的是硬邊，所以島上一律用 NEAREST；
-   * 但這片水鋪了近千格，遠方每個像素涵蓋成百上千張貼圖，
-   * NEAREST 不會在 mipmap 層級之間內插，
-   * 於是不同距離各自落在不同層級，海面被切成一條一條深淺不同的橫帶
-   */
-  texture.updateSamplingMode(Texture.TRILINEAR_SAMPLINGMODE)
-  texture.anisotropicFilteringLevel = 8
 
   frameSource.addEventListener('load', () => drawWaterFrame(texture, frameSource, 0), { once: true })
 
@@ -699,7 +704,7 @@ export function getOvercastMaterial(scene: Scene): StandardMaterial | null {
 /**
  * 外海
  *
- * 島只有 128 格，方塊做的海到邊界就沒了。
+ * 方塊做的海到世界邊界就沒了。
  * 鋪一片大到看不見盡頭的水面接在後面，海平線才會落在霧氣裡而不是虛空
  */
 function createOpenSea(scene: Scene) {
@@ -775,7 +780,8 @@ function createOpenSea(scene: Scene) {
   const bedMaterial = new StandardMaterial('open-sea-bed', scene)
   /** 對齊島邊海床的礫石亮度：default_gravel.png 的平均值就是 0.642 */
   bedMaterial.diffuseColor = new Color3(0.642, 0.642, 0.642)
-  bedMaterial.specularColor = new Color3(0, 0, 0)
+  bedMaterial.specularColor = new Color3(0.08, 0.08, 0.08)
+  bedMaterial.maxSimultaneousLights = 6
 
   for (const [index, band] of bandList.entries()) {
     const bed = MeshBuilder.CreateGround(
@@ -806,6 +812,8 @@ function createOpenSea(scene: Scene) {
     material.diffuseColor = new Color3(0.55, 0.78, 1)
     material.specularColor = new Color3(0.08, 0.08, 0.08)
     material.alpha = 0.72
+    /** 方塊材質也是這個數字，燈光取捨方式要一致，亮度才不會差一階 */
+    material.maxSimultaneousLights = 6
     material.transparencyMode = Material.MATERIAL_ALPHABLEND
     /**
      * 兩面都要畫

@@ -1,11 +1,11 @@
 import type { LocalizedText } from '../soundscape/type'
+import { ISLAND_BEACH_RADIUS, ISLAND_CENTER, ISLAND_WATER_RADIUS } from './biome'
 import {
   CAMPFIRE_POSITION,
   PASTURE_CENTER,
   RAINVALE_POND,
   RUINS_CENTER,
   VILLAGE_CENTER,
-  WATERFALL_POSITION,
 } from './structure-generator'
 import { CAVE_ENTRANCE } from './world-generator'
 
@@ -38,13 +38,6 @@ export const LANDMARK_LIST: Landmark[] = [
     /** 站在營火旁邊，不要站在火上 */
     x: CAMPFIRE_POSITION.x - 3,
     z: CAMPFIRE_POSITION.z + 3,
-  },
-  {
-    id: 'waterfall',
-    title: { 'zh-hant': '山中瀑布', 'en': 'Mountain Waterfall' },
-    icon: 'i-material-symbols:water',
-    x: WATERFALL_POSITION.x - 8,
-    z: WATERFALL_POSITION.z + 4,
   },
   {
     id: 'alpine',
@@ -97,7 +90,8 @@ export const LANDMARK_LIST: Landmark[] = [
     id: 'coast',
     title: { 'zh-hant': '南方海岸', 'en': 'Southern Coast' },
     icon: 'i-material-symbols:waves',
-    x: 96,
-    z: 170,
+    /** 落在沙灘中段，往南幾步就是海 */
+    x: ISLAND_CENTER.x,
+    z: ISLAND_CENTER.z + (ISLAND_BEACH_RADIUS + ISLAND_WATER_RADIUS) / 2,
   },
 ]

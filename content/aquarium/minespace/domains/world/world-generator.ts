@@ -1,6 +1,15 @@
 import { createSeededRandom, fbm2D, fbm3D, smoothStep } from '../../utils/noise'
 import { BlockId, isPassableBlock } from '../block/block-constants'
-import { getBiomeWeightList, getDominantBiomeId, getIslandFalloff, SNOW_LINE } from './biome'
+import {
+  getBiomeWeightList,
+  getDominantBiomeId,
+  getIslandDistance,
+  ISLAND_BEACH_RADIUS,
+  ISLAND_SEA_RADIUS,
+  ISLAND_SHORE_RADIUS,
+  ISLAND_WATER_RADIUS,
+  SNOW_LINE,
+} from './biome'
 import { placeStructures, WATERFALL_POSITION } from './structure-generator'
 import { getBlock, setBlock } from './world-access'
 import {
@@ -12,13 +21,27 @@ import {
 
 /** 海床高度，島嶼邊緣的地形會往這個高度沉下去 */
 const SEA_FLOOR_HEIGHT = 5
+/**
+ * 沙灘頂端的高度
+ *
+ * 剛好壓在 getSurfaceBlock 判定為沙的上限，
+ * 整片沙灘才會是沙，草地則在沙灘上緣接住
+ */
+const BEACH_TOP_HEIGHT = SEA_LEVEL + 2
+/** 沙丘起伏，沙灘完全平坦會像一圈貼上去的色帶 */
+const DUNE_AMPLITUDE = 0.8
 
 interface PathPoint {
   x: number;
   z: number;
 }
 
-/** 主河道：自雪山南麓蜿蜒穿過草原，於南岸入海 */
+/**
+ * 主河道：自雪山南麓蜿蜒穿過草原，於南岸入海
+ *
+ * 最後兩點是島放大後補的，河得一路流到新的海岸線才有入海口，
+ * 否則河道會在半路憑空斷在草原中央
+ */
 const MAIN_RIVER_PATH: PathPoint[] = [
   { x: 124, z: 52 },
   { x: 114, z: 72 },
@@ -27,6 +50,8 @@ const MAIN_RIVER_PATH: PathPoint[] = [
   { x: 98, z: 132 },
   { x: 104, z: 152 },
   { x: 110, z: 172 },
+  { x: 112, z: 188 },
+  { x: 116, z: 204 },
 ]
 
 /** 山澗：自瀑布下的水潭流入主河道 */
@@ -115,10 +140,49 @@ function getTerrainHeight(x: number, z: number): number {
     height += ridge * ridge * 11 * alpineWeight
   }
 
-  /** 島嶼衰減：越靠外圍，地形越往海床靠攏，島的邊緣自然沉入海中 */
-  const falloff = getIslandFalloff(x, z)
+  return shapeCoast(height, x, z)
+}
 
-  return SEA_FLOOR_HEIGHT + (height - SEA_FLOOR_HEIGHT) * falloff
+/**
+ * 把內陸高度收成海岸的剖面
+ *
+ * 內陸 → 下坡 → 沙灘 → 淺灘四段接起來。
+ * 關鍵是中間那段沙灘：高度只從 BEACH_TOP_HEIGHT 緩緩掉到海平面，
+ * 八格的寬度都還踩得到沙，海岸才是一片走得起來的沙灘，
+ * 而不是一條把陸地與海切開的線
+ */
+function shapeCoast(inlandHeight: number, x: number, z: number): number {
+  const distance = getIslandDistance(x, z)
+
+  if (distance <= ISLAND_SHORE_RADIUS) {
+    return inlandHeight
+  }
+
+  /** 下坡：內陸高度平滑降到沙灘頂 */
+  if (distance <= ISLAND_BEACH_RADIUS) {
+    const ratio = smoothStep(
+      (distance - ISLAND_SHORE_RADIUS) / (ISLAND_BEACH_RADIUS - ISLAND_SHORE_RADIUS),
+    )
+
+    return inlandHeight + (BEACH_TOP_HEIGHT - inlandHeight) * ratio
+  }
+
+  /** 沙丘只鋪在沙灘與淺灘上，內陸有自己的地形起伏 */
+  const dune = fbm2D(x * 0.09, z * 0.09, 2, 0.5) * DUNE_AMPLITUDE
+
+  /** 沙灘：緩緩傾向海平面，這一段就是乾的沙灘 */
+  if (distance <= ISLAND_WATER_RADIUS) {
+    const ratio = (distance - ISLAND_BEACH_RADIUS) / (ISLAND_WATER_RADIUS - ISLAND_BEACH_RADIUS)
+
+    return BEACH_TOP_HEIGHT + (SEA_LEVEL - BEACH_TOP_HEIGHT) * ratio + dune
+  }
+
+  /** 淺灘：出了海岸線一路沉到海床 */
+  const ratio = smoothStep(
+    Math.min(1, (distance - ISLAND_WATER_RADIUS) / (ISLAND_SEA_RADIUS - ISLAND_WATER_RADIUS)),
+  )
+
+  return SEA_LEVEL + (SEA_FLOOR_HEIGHT - SEA_LEVEL) * ratio + dune * (1 - ratio)
 }
 
 interface RiverSample {
