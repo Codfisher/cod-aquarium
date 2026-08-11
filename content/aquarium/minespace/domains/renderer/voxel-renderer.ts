@@ -366,6 +366,31 @@ class ChunkRenderer {
         addBox('slab', { width: 1, height: 0.5, depth: 1 }, { x: 0, y: -0.25, z: 0 }, material)
         break
       }
+      case 'stairs': {
+        const material = createPixelMaterial(`${prefix}_mat`, texturePath, this.scene, blockDef.textures?.tint)
+        /** 座面：與半磚同樣的下半格 */
+        addBox('stairs-seat', { width: 1, height: 0.5, depth: 1 }, { x: 0, y: -0.25, z: 0 }, material)
+
+        /** 靠背：上半格只佔靠背那一側的半格深 */
+        const facing = blockDef.stairsFacing ?? 'north'
+        const isAlongZ = facing === 'north' || facing === 'south'
+        const backOffset = facing === 'north' || facing === 'west' ? -0.25 : 0.25
+        addBox(
+          'stairs-back',
+          {
+            width: isAlongZ ? 1 : 0.5,
+            height: 0.5,
+            depth: isAlongZ ? 0.5 : 1,
+          },
+          {
+            x: isAlongZ ? 0 : backOffset,
+            y: 0.25,
+            z: isAlongZ ? backOffset : 0,
+          },
+          material,
+        )
+        break
+      }
       case 'fence': {
         this.initFenceMeshes(blockId, blockDef, prefix)
         break
@@ -528,10 +553,18 @@ class ChunkRenderer {
           textureDef.frameCount,
         )
 
+    /**
+     * 自發光當成「這顆方塊自帶亮度」，而不是整片加上去的白光
+     *
+     * Babylon 的 emissiveColor 是一整片相加的顏色。
+     * 開了 useEmissiveAsIllumination 之後它會跳過貼圖直接加在最後，
+     * 而且最終顏色仍然夾在 1 以內——燈石與餘燼因此被洗成一塊死白，
+     * 貼圖的圖案整個看不見。
+     * 關掉它，自發光會先併進光照量再乘上貼圖，
+     * 效果等同 Minecraft 的亮度等級：方塊亮起來，圖案還在
+     */
     if (blockDef.emissive) {
       material.emissiveColor = new Color3(blockDef.emissive, blockDef.emissive, blockDef.emissive)
-      /** 自發光要最後相加且不夾限，燈石與餘燼才會真的透出光暈 */
-      material.useEmissiveAsIllumination = true
     }
 
     if (blockDef.alpha !== undefined && blockDef.alpha < 1) {

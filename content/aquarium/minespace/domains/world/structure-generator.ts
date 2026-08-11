@@ -137,7 +137,7 @@ function placeDeadTree(state: Uint8Array, x: number, groundY: number, z: number,
   setBlock(state, x, groundY + trunkHeight - 2, z - 1, BlockId.DEAD_LOG)
 }
 
-/** 林間營地：石圈營火、原木座椅與兩頂木棚 */
+/** 林間營地：石圈營火、四張木階梯座椅與兩頂木棚 */
 function placeCamp(state: Uint8Array): void {
   const { x, z } = CAMPFIRE_POSITION
   const groundY = getGroundY(state, x, z)
@@ -187,15 +187,20 @@ function placeCamp(state: Uint8Array): void {
     setBlock(state, x + step[0]!, groundY - 1, z + step[1]!, BlockId.OAK_LOG)
   }
 
-  /** 座椅原木 */
+  /**
+   * 座椅
+   *
+   * 四面各擺一張木階梯，靠背朝外、人面向火。
+   * 原木躺在那裡只是一根木頭，階梯有座面也有靠背，一看就知道是給人坐的
+   */
   const seatList = [
-    { x: x - 3, z },
-    { x: x + 3, z },
-    { x, z: z - 3 },
-    { x, z: z + 3 },
+    { x: x - 3, z, blockId: BlockId.WOOD_STAIRS_WEST },
+    { x: x + 3, z, blockId: BlockId.WOOD_STAIRS_EAST },
+    { x, z: z - 3, blockId: BlockId.WOOD_STAIRS_NORTH },
+    { x, z: z + 3, blockId: BlockId.WOOD_STAIRS_SOUTH },
   ]
   for (const seat of seatList) {
-    setBlock(state, seat.x, groundY, seat.z, BlockId.OAK_LOG)
+    setBlock(state, seat.x, groundY, seat.z, seat.blockId)
   }
 
   /** 木棚 */

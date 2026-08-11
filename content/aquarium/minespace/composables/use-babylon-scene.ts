@@ -55,6 +55,21 @@ export const SUN_DISC_NAME = 'sun-disc'
 export const SUN_GLOW_NAME = 'sun-glow'
 export const CLOUD_LAYER_NAME = 'cloud-layer'
 
+/**
+ * 繪製順序分成三層
+ *
+ * Babylon 一律先畫完不透明再畫半透明，所以雲（不透明）永遠比太陽（相加混合）早畫，
+ * 兩者只能靠深度決勝負——太陽掛在一百格外、雲卻遠得多，
+ * 於是雲被太陽從中間切開，看起來像太陽插在雲裡面。
+ *
+ * 改成分層繪製：天空層畫完才畫雲，雲畫完才畫天氣粒子。
+ * 各層之間不清除深度，地形擋住雲、雲擋住太陽的關係都還在，
+ * 只有先後順序被固定下來
+ */
+const CLOUD_RENDERING_GROUP = 1
+/** 天氣粒子畫在最後，雨絲才不會被陰天罩蓋掉 */
+export const WEATHER_RENDERING_GROUP = 2
+
 /** 雲層高度 */
 const CLOUD_HEIGHT = 78
 /** 單朵雲方塊的邊長 */
@@ -206,6 +221,10 @@ const defaultParam: Required<UseBabylonSceneParam> = {
     scene.fogStart = 60
     scene.fogEnd = 280
 
+    /** 各層之間保留深度，地形擋住雲、雲擋住太陽的關係才不會被清掉 */
+    scene.setRenderingAutoClearDepthStencil(CLOUD_RENDERING_GROUP, false)
+    scene.setRenderingAutoClearDepthStencil(WEATHER_RENDERING_GROUP, false)
+
     createSkyDome(scene)
     createSunDisc(scene)
     createCloudLayer(scene)
@@ -314,6 +333,8 @@ function createSunDisc(scene: Scene) {
   material.backFaceCulling = false
   material.alphaMode = Constants.ALPHA_ADD
   material.alpha = 0.999
+  /** 太陽是天空的一部分，不留下深度，雲才蓋得住它 */
+  material.disableDepthWrite = true
 
   const disc = MeshBuilder.CreatePlane(SUN_DISC_NAME, { size: 7.5 }, scene)
   disc.material = material
@@ -353,6 +374,8 @@ function createSunGlow(scene: Scene) {
   material.backFaceCulling = false
   material.alphaMode = Constants.ALPHA_ADD
   material.alpha = 0.999
+  /** 光暈跟太陽本體一樣不留深度，否則雲邊會被光暈糊掉一圈 */
+  material.disableDepthWrite = true
 
   const glow = MeshBuilder.CreatePlane(SUN_GLOW_NAME, { size: 24 }, scene)
   glow.material = material
@@ -595,6 +618,8 @@ function createCloudLayer(scene: Scene) {
   vertexData.normals = normalList
   vertexData.indices = indexList
   vertexData.applyToMesh(cloudMesh)
+  /** 雲畫在天空層之後，太陽只能整顆躲在雲後面 */
+  cloudMesh.renderingGroupId = CLOUD_RENDERING_GROUP
 
   cloudMesh.material = material
   cloudMesh.isPickable = false
@@ -646,9 +671,18 @@ function createOvercastDome(scene: Scene) {
   material.backFaceCulling = false
   material.fogEnabled = false
   material.alpha = 0
+  /**
+   * 陰天罩不留深度
+   *
+   * 它罩在鏡頭外一百多格，照常寫深度的話，
+   * 比它遠的半透明東西全部會被判定為擋住而消失
+   */
+  material.disableDepthWrite = true
 
   const dome = MeshBuilder.CreateBox(OVERCAST_NAME, { size: 250 }, scene)
   dome.material = material
+  /** 跟雲同一層，而且畫在雲之後，陰天時灰罩才蓋得住雲 */
+  dome.renderingGroupId = CLOUD_RENDERING_GROUP
   dome.infiniteDistance = true
   dome.isPickable = false
   dome.applyFog = false
@@ -966,13 +1000,11 @@ function createCampfireFlame(scene: Scene, x: number, groundY: number, z: number
   /**
    * 火自己會發光，不吃場景光照
    *
-   * 只設 emissiveColor 是不夠的：Babylon 預設會把自發光併進漫射項再一起夾到 1，
-   * 亮度永遠衝不破上限，經過色調映射就是一團灰。
-   * 開 useEmissiveAsIllumination 讓自發光改成最後才相加、而且不夾限，
-   * 數值超過 1 才會被泛光抓到，火看起來才是在發光而不是在反光
+   * 自發光給滿即可，讓火焰以貼圖原本的顏色全亮呈現。
+   * 千萬別開 useEmissiveAsIllumination：那會讓自發光跳過貼圖直接加在最後，
+   * 最終顏色又夾在 1 以內，整團火會被洗成一塊白，只剩下火舌的輪廓
    */
-  material.emissiveColor = new Color3(1.6, 1.45, 1.2)
-  material.useEmissiveAsIllumination = true
+  material.emissiveColor = new Color3(1, 1, 1)
   material.disableLighting = true
   material.backFaceCulling = false
 

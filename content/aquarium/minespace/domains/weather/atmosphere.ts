@@ -31,14 +31,15 @@ export const CLEAR_ATMOSPHERE = {
 /**
  * 沼澤的大氣參數
  *
- * 不是陰天，光線照樣亮，只是空氣裡浮著一層帶綠的濕氣，
- * 看得遠但看不清楚
+ * 不是陰天，光線照樣亮，只是空氣裡浮著一層帶綠的濕氣。
+ * 能見度收到只剩二十幾格，走進去只看得到眼前那幾棵枯木，
+ * 岸邊的東西全埋在白霧裡
  */
 export const SWAMP_ATMOSPHERE = {
-  fogColor: new Color3(0.62, 0.68, 0.6),
-  fogStart: 4,
-  fogEnd: 52,
-  lightRatio: 0.88,
+  fogColor: new Color3(0.68, 0.73, 0.66),
+  fogStart: 2,
+  fogEnd: 28,
+  lightRatio: 0.8,
 } as const
 
 /** 雨天的大氣參數 */

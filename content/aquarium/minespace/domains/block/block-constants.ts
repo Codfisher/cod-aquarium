@@ -49,6 +49,17 @@ export enum BlockId {
   STONE_SLAB,
   WOOD_SLAB,
   FLOWER_POT,
+  /**
+   * 木階梯
+   *
+   * 世界狀態一格只存得下一個編號，沒有地方放旋轉角度，
+   * 所以四個朝向各自是一種方塊。朝向指的是「靠背在哪一側」，
+   * 也就是面向的反方向：擺在營火北邊的椅子，靠背在北、人面向南
+   */
+  WOOD_STAIRS_NORTH,
+  WOOD_STAIRS_SOUTH,
+  WOOD_STAIRS_EAST,
+  WOOD_STAIRS_WEST,
 }
 
 /**
@@ -58,11 +69,15 @@ export enum BlockId {
  * - `cross`：兩片交叉的立板，草與花都用這個
  * - `flat`：貼在地面的平板，例如睡蓮
  * - `slab`：半格高的板，用來鋪路
+ * - `stairs`：半格高的板加上一側的靠背，當作椅子
  * - `fence`：柱子加橫桿的圍籬
  * - `pane`：薄玻璃片
  * - `pot`：花盆加上面的植物
  */
-export type BlockShape = 'cube' | 'cross' | 'flat' | 'slab' | 'fence' | 'pane' | 'pot'
+export type BlockShape = 'cube' | 'cross' | 'flat' | 'slab' | 'stairs' | 'fence' | 'pane' | 'pot'
+
+/** 階梯靠背所在的那一側 */
+export type StairsFacing = 'north' | 'south' | 'east' | 'west'
 
 /** 材質路徑前綴 */
 const TEXTURE_BASE = '/assets/minecraft-mini8x'
@@ -153,6 +168,8 @@ export interface BlockDef {
   receiveShadow?: boolean;
   /** 踩上去的腳步聲材質 */
   stepMaterial?: StepMaterial;
+  /** 階梯靠背所在的那一側，只有 shape 為 stairs 時有意義 */
+  stairsFacing?: StairsFacing;
 }
 
 /** 所有方塊的詳細定義 */
@@ -536,6 +553,48 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
   [BlockId.WOOD_SLAB]: {
     shape: 'slab',
     /** 踩得上去，但只擋住下半格 */
+    collisionHeight: 0.5,
+    stepMaterial: 'wood',
+    textures: {
+      all: `${TEXTURE_BASE}/default_wood.png`,
+    },
+  },
+  /**
+   * 木階梯
+   *
+   * 座面只有半格高，靠背貼在其中一側。
+   * 碰撞比照半磚，人踩得上去也跨得過，坐在營火邊剛好是矮凳的高度
+   */
+  [BlockId.WOOD_STAIRS_NORTH]: {
+    shape: 'stairs',
+    stairsFacing: 'north',
+    collisionHeight: 0.5,
+    stepMaterial: 'wood',
+    textures: {
+      all: `${TEXTURE_BASE}/default_wood.png`,
+    },
+  },
+  [BlockId.WOOD_STAIRS_SOUTH]: {
+    shape: 'stairs',
+    stairsFacing: 'south',
+    collisionHeight: 0.5,
+    stepMaterial: 'wood',
+    textures: {
+      all: `${TEXTURE_BASE}/default_wood.png`,
+    },
+  },
+  [BlockId.WOOD_STAIRS_EAST]: {
+    shape: 'stairs',
+    stairsFacing: 'east',
+    collisionHeight: 0.5,
+    stepMaterial: 'wood',
+    textures: {
+      all: `${TEXTURE_BASE}/default_wood.png`,
+    },
+  },
+  [BlockId.WOOD_STAIRS_WEST]: {
+    shape: 'stairs',
+    stairsFacing: 'west',
     collisionHeight: 0.5,
     stepMaterial: 'wood',
     textures: {

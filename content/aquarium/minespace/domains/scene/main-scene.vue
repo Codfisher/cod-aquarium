@@ -8,9 +8,16 @@
     />
 
     <div
-      v-if="hasStarted && !menuVisible"
+      v-if="hasStarted && !menuVisible && !isCursorFree"
       class="crosshair"
     />
+
+    <div
+      v-if="isCursorFree"
+      class="cursor-hint"
+    >
+      {{ t('cursorReleased') }}
+    </div>
 
     <ambience-panel
       v-if="hasStarted"
@@ -80,14 +87,16 @@ import { useWeather } from '../weather/use-weather'
 import { getDominantBiomeId } from '../world/biome'
 import { useChunkWorker } from '../world/use-chunk-worker'
 import { useTerrainWorker } from '../world/use-terrain-worker/use-terrain-worker'
-import { createWorldState, getSurfaceY } from '../world/world-access'
+import { castRainRay, createWorldState, getSurfaceY } from '../world/world-access'
 
 const { t } = useSimpleI18n({
   'zh-hant': {
     initFailed: '初始化失敗',
+    cursorReleased: '滑鼠已放開，點一下畫面回到漫遊',
   },
   'en': {
     initFailed: 'Initialization Failed',
+    cursorReleased: 'Cursor released — click the view to resume',
   },
 } as const)
 
@@ -122,6 +131,7 @@ const {
   pause,
   teleport,
   isPaused,
+  isCursorFree,
   isUnderground,
   position,
 } = useFpsController()
@@ -260,7 +270,7 @@ async function handleStart() {
     scene: scene.value,
     camera: camera.value as UniversalCamera,
     isSheltered: () => isUnderground.value,
-    getGroundY: () => position.y,
+    castRainRay: (blockX, blockZ) => castRainRay(worldState, blockX, blockZ),
   })
 
   resume()
@@ -305,4 +315,19 @@ onBeforeUnmount(() => {
   background: rgba(255, 255, 255, 0.55)
   mix-blend-mode: difference
   pointer-events: none
+
+.cursor-hint
+  position: absolute
+  left: 50%
+  bottom: 32px
+  transform: translateX(-50%)
+  padding: 6px 14px
+  border-radius: 999px
+  background: rgba(0, 0, 0, 0.55)
+  color: rgba(255, 255, 255, 0.86)
+  font-size: 13px
+  letter-spacing: 0.02em
+  white-space: nowrap
+  pointer-events: none
+  z-index: 40
 </style>

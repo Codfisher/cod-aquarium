@@ -131,12 +131,19 @@ const { locale, t } = useSimpleI18n({
 .sound-list
   display: flex
   flex-direction: column
-  gap: 7px
 
+/**
+ * 項目之間的距離用 padding 撐開，不用 gap
+ *
+ * 離場時要連同間距一起收合，gap 收不掉，
+ * 消失的那一項會留下一道 7px 的空隙才彈掉
+ */
 .sound-item
   display: flex
   flex-direction: column
   gap: 3px
+  padding-bottom: 7px
+  overflow: hidden
 
 .sound-title
   font-size: 12px
@@ -156,13 +163,26 @@ const { locale, t } = useSimpleI18n({
   font-size: 12px
   opacity: 0.6
 
+/**
+ * 進出場靠高度收合，不用絕對定位
+ *
+ * 離場項目改成 position: absolute 是常見寫法，但定位基準會落在整個面板上，
+ * 那一項會瞬間彈到面板左上角再淡出——也就是「跳到頂部」。
+ * 這裡讓它原地把高度與間距收掉，下面的項目自然遞補上來
+ */
 .sound-enter-active, .sound-leave-active
-  transition: opacity 0.5s ease, transform 0.5s ease
+  transition: opacity 0.35s ease, transform 0.35s ease, max-height 0.35s ease, padding-bottom 0.35s ease
 
 .sound-enter-from, .sound-leave-to
   opacity: 0
   transform: translateX(-8px)
+  max-height: 0
+  padding-bottom: 0
 
-.sound-leave-active
-  position: absolute
+.sound-enter-to, .sound-leave-from
+  max-height: 40px
+
+/** 排序變動時平順滑過去，不要瞬間換位 */
+.sound-move
+  transition: transform 0.35s ease
 </style>

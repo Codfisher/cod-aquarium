@@ -1,4 +1,4 @@
-import { BlockId, isPassableBlock, isWaterBlock } from '../block/block-constants'
+import { BlockId, getCollisionHeight, isPassableBlock, isWaterBlock } from '../block/block-constants'
 import {
   coordinateToIndex,
   isInsideWorld,
@@ -46,6 +46,29 @@ export function getSurfaceY(state: Uint8Array, x: number, z: number): number {
     }
   }
   return 1
+}
+
+/**
+ * 從天空往下打一道射線，找出雨滴打到的表面高度（世界座標，不是格子索引）
+ *
+ * 回傳頂面的實際高度：半磚只有半格高、水面擋在水的頂面，
+ * 花草這類穿得過去的方塊擋不住雨，直接落到底下的地面。
+ * 屋頂與樹冠會擋下射線，雨本來就打在上面而不是穿過去。
+ * 整根格柱都是空的時回傳 null，那裡沒有東西可以濺起水花
+ */
+export function castRainRay(state: Uint8Array, x: number, z: number): number | null {
+  for (let y = WORLD_HEIGHT - 1; y >= 0; y--) {
+    const blockId = getBlock(state, x, y, z)
+    if (blockId === BlockId.AIR)
+      continue
+    if (isPassableBlock(blockId) && !isWaterBlock(blockId))
+      continue
+
+    /** 方塊中心在整數座標，底面為 y - 0.5 */
+    return y - 0.5 + getCollisionHeight(blockId)
+  }
+
+  return null
 }
 
 /** 該座標的地表是否泡在水裡 */

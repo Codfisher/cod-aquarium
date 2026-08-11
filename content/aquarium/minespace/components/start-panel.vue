@@ -78,6 +78,7 @@ const controlList = computed(() => {
     { key: t('mouse'), action: t('look') },
     { key: 'Space', action: t('jumpSwim') },
     { key: 'Shift', action: t('sprint') },
+    { key: 'Tab', action: t('releaseCursor') },
     { key: 'Esc', action: t('menu') },
   ]
 })
@@ -98,6 +99,7 @@ const { t } = useSimpleI18n({
     look: '轉動視角',
     jumpSwim: '跳躍 / 上浮',
     sprint: '衝刺',
+    releaseCursor: '放開滑鼠',
     menu: '選單',
     mouse: '滑鼠',
     touchLeft: '左半螢幕拖曳',
@@ -120,6 +122,7 @@ const { t } = useSimpleI18n({
     look: 'Look around',
     jumpSwim: 'Jump / Swim up',
     sprint: 'Sprint',
+    releaseCursor: 'Release cursor',
     menu: 'Menu',
     mouse: 'Mouse',
     touchLeft: 'Drag left half',

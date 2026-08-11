@@ -133,6 +133,21 @@ export function useFpsController() {
   const isPaused = ref(true)
   const isSwimming = ref(false)
   const isUnderground = ref(false)
+  /**
+   * 滑鼠是否已交還給桌面
+   *
+   * 與暫停分開：Esc 解除鎖定會叫出選單擋住畫面，
+   * 想單純把滑鼠拿回來看看風景時走這條路，世界照樣運轉
+   */
+  const isCursorFree = ref(false)
+
+  /** 由 start() 掛上，鬆開操控時順手停下腳步 */
+  let clearMoveKeys: (() => void) | null = null
+
+  /** 是否正在操控人物：暫停中或放開滑鼠時鍵盤都不該有作用 */
+  function checkControlActive(): boolean {
+    return !isPaused.value && !isCursorFree.value
+  }
 
   /** 玩家腳底位置，音景與 HUD 都讀這個 */
   const position = reactive({
@@ -256,7 +271,52 @@ export function useFpsController() {
     const sunLight = scene.getLightByName(SUN_LIGHT_NAME) as DirectionalLight | null
     const skyDome = scene.getMeshByName(SKYBOX_NAME)
 
+    clearMoveKeys = () => {
+      keys.forward = false
+      keys.backward = false
+      keys.left = false
+      keys.right = false
+      keys.jump = false
+      keys.sprint = false
+    }
+
     function handleKeyDown(event: KeyboardEvent) {
+      /** 焦點在選單按鈕之類的元素上，鍵盤就該還給瀏覽器 */
+      if (event.target instanceof HTMLElement && event.target.closest('button, a, input, select, textarea')) {
+        return
+      }
+
+      /** 選單開著時不搶鍵盤，Tab 還要在按鈕之間移動焦點 */
+      if (isPaused.value) {
+        return
+      }
+
+      /**
+       * Tab 收放滑鼠
+       *
+       * Esc 是瀏覽器解除鎖定的固定行為，會連選單一起叫出來擋住畫面；
+       * 只想把滑鼠拿回來時按 Tab，世界照樣運轉
+       */
+      if (event.code === 'Tab') {
+        event.preventDefault()
+
+        if (isCursorFree.value) {
+          resume()
+        }
+        else {
+          releaseCursor()
+        }
+        return
+      }
+
+      /** 滑鼠已經放開，鍵盤就不該還在操控人物 */
+      if (isCursorFree.value) {
+        if (event.code === 'Escape') {
+          pause()
+        }
+        return
+      }
+
       switch (event.code) {
         case 'KeyW':
         case 'ArrowUp':
@@ -454,7 +514,7 @@ export function useFpsController() {
       let moveX = 0
       let moveZ = 0
 
-      if (!isPaused.value) {
+      if (checkControlActive()) {
         if (keys.forward) {
           moveX += forwardX
           moveZ += forwardZ
@@ -483,7 +543,7 @@ export function useFpsController() {
 
       const moveLength = Math.hypot(moveX, moveZ)
       const isSprinting = keys.sprint || (mobileControls?.state.sprint ?? false)
-      const shouldJump = !isPaused.value && (keys.jump || (mobileControls?.state.jump ?? false))
+      const shouldJump = checkControlActive() && (keys.jump || (mobileControls?.state.jump ?? false))
 
       if (moveLength > 0) {
         const joystickMagnitude = mobileControls?.state.joystickMagnitude ?? 0
@@ -565,6 +625,7 @@ export function useFpsController() {
       window.removeEventListener('mousemove', handleMouseMove)
       document.removeEventListener('pointerlockchange', handleLockStateChange)
       scene.onBeforeRenderObservable.remove(observer)
+      clearMoveKeys = null
       if (document.pointerLockElement) {
         document.exitPointerLock()
       }
@@ -594,6 +655,8 @@ export function useFpsController() {
 
   /** 桌機的暫停狀態交給 Pointer Lock 決定，避免鎖定失敗時狀態不同步 */
   function resume() {
+    isCursorFree.value = false
+
     if (isMobile) {
       isPaused.value = false
       return
@@ -603,9 +666,27 @@ export function useFpsController() {
   }
 
   function pause() {
+    isCursorFree.value = false
     isPaused.value = true
 
     if (canvasRef && !isMobile && document.pointerLockElement === canvasRef) {
+      document.exitPointerLock()
+    }
+  }
+
+  /**
+   * 把滑鼠交還給桌面，但不暫停
+   *
+   * 不叫出選單，畫面照樣跑，點一下畫面就回到操控
+   */
+  function releaseCursor() {
+    if (isMobile || isPaused.value)
+      return
+
+    isCursorFree.value = true
+    clearMoveKeys?.()
+
+    if (document.pointerLockElement === canvasRef) {
       document.exitPointerLock()
     }
   }
@@ -614,7 +695,15 @@ export function useFpsController() {
     if (isMobile)
       return
 
-    isPaused.value = document.pointerLockElement !== canvasRef
+    if (document.pointerLockElement === canvasRef) {
+      isCursorFree.value = false
+      isPaused.value = false
+      clearMoveKeys?.()
+      return
+    }
+
+    /** 自己放開滑鼠不算暫停，選單才不會跳出來擋住畫面 */
+    isPaused.value = !isCursorFree.value
   }
 
   document.addEventListener('pointerlockchange', handlePointerLockChange)
@@ -633,8 +722,10 @@ export function useFpsController() {
     start,
     resume,
     pause,
+    releaseCursor,
     teleport,
     isPaused,
+    isCursorFree,
     isSwimming,
     isUnderground,
     position,
