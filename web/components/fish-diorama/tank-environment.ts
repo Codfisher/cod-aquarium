@@ -1450,9 +1450,9 @@ export function createTankEnvironment(scene: Scene): TankEnvironment {
     firefliesHidden = false
     if (fireflyFloorGlowMaterial) {
       // 加色混合下 alpha 就是光暈亮度，隨日夜過渡淡入淡出。
-      // 壓到 0.15：正下方的地板法線正對光源，NdotL 滿檔又疊上多隻螢火，
+      // 壓到 0.22：正下方的地板法線正對光源，NdotL 滿檔又疊上多隻螢火，
       // 不收緊會糊成一整片黃斑；地面只要透出一層淡暈，主角仍是螢火本身
-      fireflyFloorGlowMaterial.alpha = nightProgress * 0.15
+      fireflyFloorGlowMaterial.alpha = nightProgress * 0.22
     }
     for (const [index, firefly] of fireflyList.entries()) {
       const driftTime = timeSeconds * firefly.speed + firefly.phase
