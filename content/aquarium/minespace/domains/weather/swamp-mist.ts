@@ -8,11 +8,24 @@ import {
 import { WEATHER_RENDERING_GROUP } from '../../composables/use-babylon-scene'
 import { SWAMP_CENTER } from '../world/structure-generator'
 
-/** 霧氣鋪滿的半徑，與 MIST_ZONE 的外圈對齊 */
-const MIST_RADIUS = 42
+/**
+ * 霧氣鋪滿的半徑
+ *
+ * 沼澤生態區的半徑是 28，一片霧本身又有十幾格寬，
+ * 散布半徑得再往內收，霧的外緣才會剛好落在沼澤邊界上。
+ * 直接用 MIST_ZONE 的外圈（42）會讓霧漫到草原上
+ */
+const MIST_RADIUS = 20
 /** 霧貼著地面浮動的高度範圍 */
 const MIST_MIN_HEIGHT = 0.5
 const MIST_MAX_HEIGHT = 5
+
+/** 帶一點綠的濕冷灰，與沼澤的場景霧同一個調性 */
+const MIST_TINT_LIGHT = new Color4(0.78, 0.83, 0.76, 0.3)
+const MIST_TINT_DARK = new Color4(0.68, 0.74, 0.7, 0.22)
+/** 只把 alpha 歸零，色調要留著，不然淡入淡出時霧會透出一層灰黑 */
+const MIST_TINT_LIGHT_CLEAR = new Color4(MIST_TINT_LIGHT.r, MIST_TINT_LIGHT.g, MIST_TINT_LIGHT.b, 0)
+const MIST_TINT_DARK_CLEAR = new Color4(MIST_TINT_DARK.r, MIST_TINT_DARK.g, MIST_TINT_DARK.b, 0)
 
 /**
  * 一片霧的貼圖
@@ -75,8 +88,14 @@ export function createSwampMist({
    * 越靠沼澤中心霧越低越濃，邊緣則稀疏地掛在半空
    */
   particleSystem.startPositionFunction = (_worldMatrix, positionToUpdate) => {
-    /** 開根號讓取樣在圓面上是均勻的，不會全擠在中心 */
-    const radius = Math.sqrt(Math.random()) * MIST_RADIUS
+    /**
+     * 稍微偏向中心取樣
+     *
+     * 開根號會讓霧在圓面上均勻分布，邊緣密度與中心一樣，
+     * 遠看就是一塊邊界清楚的圓餅。指數壓低一點，
+     * 越往外霧片越少，外圍自然散開
+     */
+    const radius = Math.random() ** 0.7 * MIST_RADIUS
     const angle = Math.random() * Math.PI * 2
     const x = SWAMP_CENTER.x + Math.cos(angle) * radius
     const z = SWAMP_CENTER.z + Math.sin(angle) * radius
@@ -89,10 +108,18 @@ export function createSwampMist({
     )
   }
 
-  /** 帶一點綠的濕冷灰，與沼澤的場景霧同一個調性 */
-  particleSystem.color1 = new Color4(0.78, 0.83, 0.76, 0.3)
-  particleSystem.color2 = new Color4(0.68, 0.74, 0.7, 0.22)
-  particleSystem.colorDead = new Color4(0.72, 0.78, 0.73, 0)
+  /**
+   * 一生的透明度：淡入、撐住、淡出
+   *
+   * 預設只有淡出，霧片是以全不透明的狀態憑空出現的，
+   * 一片接一片閃現，整團霧看起來就像在閃爍。
+   * 前三成的壽命拿來淡入，後四成拿來淡出，
+   * 每片霧都是慢慢浮出來、慢慢化掉，接替的過程才看不出來
+   */
+  particleSystem.addColorGradient(0, MIST_TINT_LIGHT_CLEAR, MIST_TINT_DARK_CLEAR)
+  particleSystem.addColorGradient(0.3, MIST_TINT_LIGHT, MIST_TINT_DARK)
+  particleSystem.addColorGradient(0.6, MIST_TINT_LIGHT, MIST_TINT_DARK)
+  particleSystem.addColorGradient(1, MIST_TINT_LIGHT_CLEAR, MIST_TINT_DARK_CLEAR)
 
   /** 一片就有十幾格寬，數量少而大才不會看起來像一堆小球 */
   particleSystem.minSize = 12

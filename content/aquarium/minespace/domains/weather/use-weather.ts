@@ -181,7 +181,8 @@ export function useWeather() {
 
     swampMist = createSwampMist({
       scene,
-      maxParticleCount: quality.value === 'low' ? 60 : 140,
+      /** 霧只鋪在沼澤上，範圍收窄後同樣的數量會濃到看不見路 */
+      maxParticleCount: quality.value === 'low' ? 36 : 80,
       castRainRay,
     })
 
