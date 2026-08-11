@@ -1,27 +1,47 @@
-import { createSeededRandom, fbm2D } from '../../utils/noise'
+import { createSeededRandom, fbm2D, smoothStep } from '../../utils/noise'
 import { BlockId, isPassableBlock, isWaterBlock } from '../block/block-constants'
 import { BIOME_LIST, getBiomeWeightList, getIslandFalloff, SNOW_LINE } from './biome'
 import { getBlock, getGroundY, getSurfaceY, setBlock } from './world-access'
 import { SEA_LEVEL, WORLD_SIZE } from './world-constants'
 
-/** 林間營地（營火所在），刻意排在雨谷影響範圍之外，營火才不會淋雨 */
-export const CAMPFIRE_POSITION = { x: 64, z: 52 }
+/**
+ * 林間營地（營火所在）
+ *
+ * 刻意排在雨谷影響範圍之外，營火才不會淋雨。
+ * 島放大後往內陸挪了一點，免得營地落在往海岸下降的坡上，
+ * 整平時得填出一面土牆
+ */
+export const CAMPFIRE_POSITION = { x: 72, z: 60 }
 /** 瀑布下的水潭，也是山澗的源頭。位置要在山腳下坡處，才有足夠落差 */
 export const WATERFALL_POSITION = { x: 120, z: 74 }
 /** 村莊中心 */
 export const VILLAGE_CENTER = { x: 140, z: 124 }
-/** 村莊的瞭望塔 */
-export const WATCH_TOWER_POSITION = { x: 132, z: 116 }
-/** 石造遺跡，在村莊北邊的高地上 */
-export const RUINS_CENTER = { x: 146, z: 110 }
+/**
+ * 村莊的瞭望塔
+ *
+ * 原本的位置與西北那間木屋的地基疊在一起，塔身直接從屋頂長出來。
+ * 往北挪四格，塔與屋子之間才留得下一條路
+ */
+export const WATCH_TOWER_POSITION = { x: 132, z: 112 }
+/**
+ * 石造遺跡，在村莊北邊的高地上
+ *
+ * 遺跡整地的範圍有十七格見方，擺在村邊會把麥田與東側那間木屋一起剷掉，
+ * 所以退到村莊外圍
+ */
+export const RUINS_CENTER = { x: 154, z: 100 }
 /** 草原上的蜂箱 */
 export const APIARY_POSITION = { x: 92, z: 100 }
 /** 雨谷中央的水潭，常年下雨的地方 */
 export const RAINVALE_POND = { x: 44, z: 116 }
 /** 南方沼澤的中心，終年罩著霧 */
 export const SWAMP_CENTER = { x: 78, z: 148 }
-/** 村莊旁的牧場，羊群所在 */
-export const PASTURE_CENTER = { x: 128, z: 132 }
+/**
+ * 村莊旁的牧場，羊群所在
+ *
+ * 往西退四格，柵欄才不會壓在村子西南那間木屋上
+ */
+export const PASTURE_CENTER = { x: 124, z: 134 }
 /** 牧場的半邊長 */
 export const PASTURE_HALF_SIZE = 8
 
@@ -56,7 +76,31 @@ const EXCLUSION_LIST: { x: number; z: number; radius: number }[] = [
   ...POND_LIST.map((pond) => ({ x: pond.x, z: pond.z, radius: pond.radius + 3 })),
 ]
 
-/** 把一塊區域整平到指定高度，並清掉上方雜物 */
+/**
+ * 天然地表
+ *
+ * 整地只能動這些方塊。這一格若已經是別人的屋頂或牆，
+ * 就完全不該碰，否則會把隔壁的房子當成地形填平
+ */
+const TERRAIN_BLOCK_SET = new Set<BlockId>([
+  BlockId.GRASS,
+  BlockId.DIRT,
+  BlockId.SAND,
+  BlockId.SANDSTONE,
+  BlockId.GRAVEL,
+  BlockId.CLAY,
+  BlockId.STONE,
+  BlockId.SNOW,
+])
+
+/**
+ * 把一塊區域整平到指定高度，並清掉上方雜物
+ *
+ * blendSize 給的是外圈的緩衝寬度：核心整平到 targetY，
+ * 外圈則一路過渡回原本的地形高度。
+ * 沒有這一圈的話，蓋在坡上的東西會整塊像積木一樣浮在地形上，
+ * 下坡側露出一面好幾格高的土牆
+ */
 function flattenArea(
   state: Uint8Array,
   centerX: number,
@@ -64,16 +108,57 @@ function flattenArea(
   halfSize: number,
   targetY: number,
   groundBlock: BlockId,
+  blendSize = 0,
 ): void {
-  for (let x = centerX - halfSize; x <= centerX + halfSize; x++) {
-    for (let z = centerZ - halfSize; z <= centerZ + halfSize; z++) {
-      for (let y = 1; y < targetY; y++) {
+  const outerSize = halfSize + blendSize
+
+  /**
+   * 原始地形高度要先量完再動工
+   *
+   * 邊改邊量的話，前一格填起來的土會被後一格當成原本的地形，
+   * 緩衝圈會一格比一格高，最後還是一塊平台。
+   * 地表不是天然方塊的格子直接記成 null，那是隔壁蓋好的房子，不能碰
+   */
+  const naturalHeightMap = new Map<string, number | null>()
+  for (let x = centerX - outerSize; x <= centerX + outerSize; x++) {
+    for (let z = centerZ - outerSize; z <= centerZ + outerSize; z++) {
+      const surfaceY = getGroundY(state, x, z) - 1
+      const isTerrain = TERRAIN_BLOCK_SET.has(getBlock(state, x, surfaceY, z))
+      naturalHeightMap.set(`${x},${z}`, isTerrain ? surfaceY : null)
+    }
+  }
+
+  for (let x = centerX - outerSize; x <= centerX + outerSize; x++) {
+    for (let z = centerZ - outerSize; z <= centerZ + outerSize; z++) {
+      /** 用棋盤距離，核心維持方形，與整平前的行為一致 */
+      const distance = Math.max(Math.abs(x - centerX), Math.abs(z - centerZ))
+      const ratio = blendSize <= 0 || distance <= halfSize
+        ? 1
+        : 1 - smoothStep((distance - halfSize) / blendSize)
+
+      const naturalY = naturalHeightMap.get(`${x},${z}`)
+      if (naturalY === null || naturalY === undefined)
+        continue
+
+      const levelY = Math.round(naturalY + (targetY - naturalY) * ratio)
+
+      for (let y = 1; y < levelY; y++) {
         if (getBlock(state, x, y, z) === BlockId.AIR) {
           setBlock(state, x, y, z, BlockId.DIRT)
         }
       }
-      setBlock(state, x, targetY, z, groundBlock)
-      for (let y = targetY + 1; y < targetY + 12; y++) {
+
+      const isCore = distance <= halfSize
+      /** 緩衝圈維持草地，只有核心才鋪成人踩出來的地面 */
+      setBlock(state, x, levelY, z, isCore ? groundBlock : BlockId.GRASS)
+
+      /**
+       * 核心要淨空到蓋得下房子，緩衝圈只清掉地面上的雜草
+       *
+       * 緩衝圈也清十二格的話，隔壁房子伸出來的屋簷會被一起削掉
+       */
+      const clearHeight = isCore ? 12 : 2
+      for (let y = levelY + 1; y < levelY + clearHeight; y++) {
         setBlock(state, x, y, z, BlockId.AIR)
       }
     }
@@ -142,7 +227,12 @@ function placeCamp(state: Uint8Array): void {
   const { x, z } = CAMPFIRE_POSITION
   const groundY = getGroundY(state, x, z)
 
-  flattenArea(state, x, z, 5, groundY - 1, BlockId.DIRT)
+  /**
+   * 只有火堆四周踩成泥地，外圈一路過渡回原本的林地
+   *
+   * 整片鋪成十一格見方的泥地，遠看就是林子裡挖出一塊土黃色的方框
+   */
+  flattenArea(state, x, z, 3, groundY - 1, BlockId.DIRT, 5)
 
   /**
    * 營火
@@ -203,16 +293,28 @@ function placeCamp(state: Uint8Array): void {
     setBlock(state, seat.x, groundY, seat.z, seat.blockId)
   }
 
-  /** 木棚 */
+  /**
+   * 木棚
+   *
+   * 棚柱從自己腳下的地面長到屋頂：棚子落在整平的緩衝圈上，
+   * 地面高度未必與營火同高，寫死兩格高的話柱子不是懸空就是只露出一截。
+   * 柱腳要在鋪屋頂之前先量，屋頂一蓋上去，那幾格的地面高度就變成屋頂了
+   */
+  const roofY = groundY + 2
+  const postList = [{ x: x + 4, z: z + 2 }, { x: x + 6, z: z + 4 }]
+    .map((post) => ({ ...post, baseY: getGroundY(state, post.x, post.z) }))
+
   for (let offsetX = 0; offsetX < 3; offsetX++) {
     for (let offsetZ = 0; offsetZ < 3; offsetZ++) {
-      setBlock(state, x + 4 + offsetX, groundY + 2, z + 2 + offsetZ, BlockId.DARK_PLANKS)
+      setBlock(state, x + 4 + offsetX, roofY, z + 2 + offsetZ, BlockId.DARK_PLANKS)
     }
   }
-  setBlock(state, x + 4, groundY, z + 2, BlockId.PLANKS)
-  setBlock(state, x + 4, groundY + 1, z + 2, BlockId.PLANKS)
-  setBlock(state, x + 6, groundY, z + 4, BlockId.PLANKS)
-  setBlock(state, x + 6, groundY + 1, z + 4, BlockId.PLANKS)
+
+  for (const post of postList) {
+    for (let y = post.baseY; y < roofY; y++) {
+      setBlock(state, post.x, y, post.z, BlockId.PLANKS)
+    }
+  }
 }
 
 /**
@@ -367,7 +469,15 @@ function placePondList(state: Uint8Array): void {
   }
 }
 
-/** 小木屋 */
+/**
+ * 小木屋
+ *
+ * 一個木頭盒子加一片平屋頂，遠看只是四方形的木塊。
+ * 這裡照著真的房子拆成幾件事做：
+ * 石砌基座撐住屋身、四角立原木柱、牆頂壓一道橫樑、
+ * 屋頂改成有屋脊與屋簷的斜頂。
+ * 這些線條會把一大片木牆切開，房子才有輪廓可看
+ */
 function placeHouse(
   state: Uint8Array,
   centerX: number,
@@ -378,40 +488,88 @@ function placeHouse(
   const groundY = getGroundY(state, centerX, centerZ)
   const floorY = groundY - 1
 
-  flattenArea(state, centerX, centerZ, Math.max(halfWidth, halfDepth) + 1, floorY, BlockId.DIRT)
+  /** 外圈留一圈緩衝，房子才不會連著一塊方形土台一起浮在草地上 */
+  flattenArea(state, centerX, centerZ, Math.max(halfWidth, halfDepth) + 1, floorY, BlockId.DIRT, 3)
 
   const wallHeight = 4
+  /** 屋脊沿著長邊走，短邊那側才是屋簷落下的方向 */
+  const isRidgeAlongX = halfWidth >= halfDepth
+  const slopeHalfSize = isRidgeAlongX ? halfDepth : halfWidth
+
   for (let offsetX = -halfWidth; offsetX <= halfWidth; offsetX++) {
     for (let offsetZ = -halfDepth; offsetZ <= halfDepth; offsetZ++) {
       const isEdge = Math.abs(offsetX) === halfWidth || Math.abs(offsetZ) === halfDepth
+      const isCorner = Math.abs(offsetX) === halfWidth && Math.abs(offsetZ) === halfDepth
       setBlock(state, centerX + offsetX, floorY, centerZ + offsetZ, BlockId.PLANKS)
 
       if (!isEdge)
         continue
 
-      for (let offsetY = 1; offsetY <= wallHeight; offsetY++) {
-        const isWindow = offsetY === 2 && (Math.abs(offsetX) + Math.abs(offsetZ)) % 3 === 0
+      /** 基座：牆腳墊一圈石頭，屋身才像坐在地上 */
+      setBlock(state, centerX + offsetX, floorY + 1, centerZ + offsetZ, BlockId.COBBLESTONE)
+
+      for (let offsetY = 2; offsetY <= wallHeight; offsetY++) {
+        /**
+         * 窗開在牆的正中央，兩側各留一格牆當窗框
+         *
+         * 原本用座標取餘數決定，開出來的窗會偏在一邊，
+         * 相鄰兩面牆還可能各開各的，看起來像牆破了幾個洞
+         */
+        const alongWall = Math.abs(offsetX) === halfWidth ? offsetZ : offsetX
+        const wallHalfSize = Math.abs(offsetX) === halfWidth ? halfDepth : halfWidth
+        const isWindow = !isCorner
+          && offsetY === 3
+          && alongWall === 0
+          && wallHalfSize >= 2
+
         setBlock(
           state,
           centerX + offsetX,
           floorY + offsetY,
           centerZ + offsetZ,
-          isWindow ? BlockId.GLASS_PANE : BlockId.PLANKS,
+          isCorner
+            ? BlockId.OAK_LOG
+            : isWindow ? BlockId.GLASS_PANE : BlockId.PLANKS,
         )
       }
-    }
-  }
 
-  /** 屋頂 */
-  for (let offsetX = -halfWidth - 1; offsetX <= halfWidth + 1; offsetX++) {
-    for (let offsetZ = -halfDepth - 1; offsetZ <= halfDepth + 1; offsetZ++) {
+      /** 牆頂壓一道深色橫樑，屋身與屋頂之間才有一條分界 */
       setBlock(state, centerX + offsetX, floorY + wallHeight + 1, centerZ + offsetZ, BlockId.DARK_PLANKS)
     }
   }
 
-  /** 門口 */
+  placeGableRoof(state, {
+    centerX,
+    centerZ,
+    halfWidth,
+    halfDepth,
+    baseY: floorY + wallHeight + 1,
+    isRidgeAlongX,
+  })
+
+  /**
+   * 山牆
+   *
+   * 斜屋頂在沒有坡度的那兩側會留下三角形的缺口，
+   * 不補起來會直接看穿屋內
+   */
+  for (let level = 1; level <= slopeHalfSize; level++) {
+    const gableHalfSize = slopeHalfSize - level
+    for (let offset = -gableHalfSize; offset <= gableHalfSize; offset++) {
+      for (const side of [-1, 1]) {
+        const x = isRidgeAlongX ? centerX + side * halfWidth : centerX + offset
+        const z = isRidgeAlongX ? centerZ + offset : centerZ + side * halfDepth
+        setBlock(state, x, floorY + wallHeight + 1 + level, z, BlockId.PLANKS)
+      }
+    }
+  }
+
+  /** 門口，門楣壓一根原木 */
   setBlock(state, centerX, floorY + 1, centerZ + halfDepth, BlockId.AIR)
   setBlock(state, centerX, floorY + 2, centerZ + halfDepth, BlockId.AIR)
+  setBlock(state, centerX, floorY + 3, centerZ + halfDepth, BlockId.OAK_LOG)
+  /** 門邊掛一盞燈，夜裡看得出哪一面是正面 */
+  setBlock(state, centerX + 1, floorY + 3, centerZ + halfDepth, BlockId.LANTERN)
 
   /** 屋內擺設 */
   setBlock(state, centerX - halfWidth + 1, floorY + 1, centerZ - halfDepth + 1, BlockId.BOOKSHELF)
@@ -422,7 +580,58 @@ function placeHouse(
   setBlock(state, centerX + 1, floorY + 1, centerZ + halfDepth + 1, BlockId.FLOWER_POT)
 }
 
-/** 水井 */
+interface GableRoofParams {
+  centerX: number;
+  centerZ: number;
+  halfWidth: number;
+  halfDepth: number;
+  /** 屋簷那一層的高度 */
+  baseY: number;
+  isRidgeAlongX: boolean;
+}
+
+/**
+ * 斜屋頂
+ *
+ * 每往屋脊靠近一格就升高一格，坡度剛好是階梯方塊的形狀。
+ * 屋簷往外多出一格，屋頂才會蓋過牆面，而不是與牆切齊像個蓋子
+ */
+function placeGableRoof(state: Uint8Array, params: GableRoofParams): void {
+  const { centerX, centerZ, halfWidth, halfDepth, baseY, isRidgeAlongX } = params
+
+  /** 沿著屋脊方向的半長，與垂直屋脊方向的半長 */
+  const ridgeHalfSize = isRidgeAlongX ? halfWidth : halfDepth
+  const slopeHalfSize = isRidgeAlongX ? halfDepth : halfWidth
+
+  for (let slope = -(slopeHalfSize + 1); slope <= slopeHalfSize + 1; slope++) {
+    /** 屋簷在最外圈，越往屋脊每格升高一級 */
+    const level = baseY + (slopeHalfSize + 1 - Math.abs(slope))
+    const isRidge = slope === 0
+
+    for (let along = -(ridgeHalfSize + 1); along <= ridgeHalfSize + 1; along++) {
+      const x = isRidgeAlongX ? centerX + along : centerX + slope
+      const z = isRidgeAlongX ? centerZ + slope : centerZ + along
+
+      if (isRidge) {
+        setBlock(state, x, level, z, BlockId.DARK_PLANKS)
+        continue
+      }
+
+      /** 靠背朝屋脊那一側，斜面才是往上收 */
+      const blockId = isRidgeAlongX
+        ? (slope < 0 ? BlockId.DARK_STAIRS_SOUTH : BlockId.DARK_STAIRS_NORTH)
+        : (slope < 0 ? BlockId.DARK_STAIRS_EAST : BlockId.DARK_STAIRS_WEST)
+      setBlock(state, x, level, z, blockId)
+    }
+  }
+}
+
+/**
+ * 水井
+ *
+ * 井口一圈石頭只是地上的一個洞，走過去不會發現那是井。
+ * 補上四根立柱與一片小屋頂，遠遠就看得出村子中央有口井
+ */
 function placeWell(state: Uint8Array, centerX: number, centerZ: number): void {
   const groundY = getGroundY(state, centerX, centerZ)
 
@@ -434,6 +643,24 @@ function placeWell(state: Uint8Array, centerX: number, centerZ: number): void {
   setBlock(state, centerX, groundY, centerZ, BlockId.WATER)
   setBlock(state, centerX, groundY - 1, centerZ, BlockId.WATER)
   setBlock(state, centerX, groundY - 2, centerZ, BlockId.WATER)
+
+  /** 四角立柱撐起井棚 */
+  const roofY = groundY + 3
+  for (const corner of [[-1, -1], [-1, 1], [1, -1], [1, 1]]) {
+    for (let y = groundY + 1; y < roofY; y++) {
+      setBlock(state, centerX + corner[0]!, y, centerZ + corner[1]!, BlockId.FENCE)
+    }
+  }
+
+  /** 井棚：三乘三的深色木板，中央壓一塊，看起來像個小尖頂 */
+  for (let offsetX = -1; offsetX <= 1; offsetX++) {
+    for (let offsetZ = -1; offsetZ <= 1; offsetZ++) {
+      setBlock(state, centerX + offsetX, roofY, centerZ + offsetZ, BlockId.DARK_PLANKS)
+    }
+  }
+  setBlock(state, centerX, roofY + 1, centerZ, BlockId.DARK_PLANKS)
+  /** 吊在井口正上方的燈 */
+  setBlock(state, centerX, roofY - 1, centerZ, BlockId.LANTERN)
 }
 
 /** 瞭望塔 */
@@ -442,7 +669,12 @@ function placeWatchTower(state: Uint8Array): void {
   const groundY = getGroundY(state, x, z)
   const height = 9
 
-  flattenArea(state, x, z, 3, groundY - 1, BlockId.COBBLESTONE)
+  /**
+   * 只整平塔基那五格見方
+   *
+   * 整平會把上方十二格一併清空，範圍再大一點就會削掉旁邊木屋的屋頂
+   */
+  flattenArea(state, x, z, 2, groundY - 1, BlockId.COBBLESTONE)
 
   for (let offsetY = 0; offsetY < height; offsetY++) {
     for (let offsetX = -1; offsetX <= 1; offsetX++) {
@@ -450,15 +682,36 @@ function placeWatchTower(state: Uint8Array): void {
         const isEdge = offsetX !== 0 || offsetZ !== 0
         if (!isEdge)
           continue
-        setBlock(state, x + offsetX, groundY + offsetY, z + offsetZ, BlockId.STONE_BRICKS)
+
+        const isCorner = offsetX !== 0 && offsetZ !== 0
+        /** 四角立原木柱，一整根從頭貫到尾，塔身才不是一根光溜溜的石管 */
+        if (isCorner) {
+          setBlock(state, x + offsetX, groundY + offsetY, z + offsetZ, BlockId.PINE_LOG)
+          continue
+        }
+
+        /** 四面各留一道瞭望口 */
+        const isLookout = offsetY === height - 3
+        setBlock(
+          state,
+          x + offsetX,
+          groundY + offsetY,
+          z + offsetZ,
+          isLookout ? BlockId.GLASS_PANE : BlockId.STONE_BRICKS,
+        )
       }
     }
   }
 
-  /** 塔頂 */
+  /** 塔頂：外挑一圈的平台，邊緣圍上木欄杆 */
   for (let offsetX = -2; offsetX <= 2; offsetX++) {
     for (let offsetZ = -2; offsetZ <= 2; offsetZ++) {
       setBlock(state, x + offsetX, groundY + height, z + offsetZ, BlockId.DARK_PLANKS)
+
+      const isRail = Math.abs(offsetX) === 2 || Math.abs(offsetZ) === 2
+      if (isRail) {
+        setBlock(state, x + offsetX, groundY + height + 1, z + offsetZ, BlockId.FENCE)
+      }
     }
   }
   setBlock(state, x, groundY + height - 1, z, BlockId.LANTERN)
@@ -482,22 +735,32 @@ function placeVillage(state: Uint8Array): void {
     { x: 0, z: 1 },
     { x: 0, z: -1 },
   ]
+  /**
+   * 只鋪在裸露的地面上
+   *
+   * 光看「上面是不是空的」會連屋頂都算數：
+   * 屋簷上方同樣是空氣，路就會沿著屋頂鋪過去
+   */
+  const pavePath = (pathX: number, pathZ: number): void => {
+    const pathY = getGroundY(state, pathX, pathZ)
+    const surfaceBlock = getBlock(state, pathX, pathY - 1, pathZ)
+
+    if (getBlock(state, pathX, pathY, pathZ) !== BlockId.AIR)
+      return
+    if (surfaceBlock !== BlockId.GRASS && surfaceBlock !== BlockId.DIRT)
+      return
+
+    setBlock(state, pathX, pathY, pathZ, BlockId.STONE_SLAB)
+  }
+
   for (const direction of pathDirectionList) {
     for (let step = 2; step <= 10; step++) {
       const pathX = x + direction.x * step
       const pathZ = z + direction.z * step
-      const pathY = getGroundY(state, pathX, pathZ)
 
-      if (getBlock(state, pathX, pathY, pathZ) !== BlockId.AIR)
-        continue
-
-      setBlock(state, pathX, pathY, pathZ, BlockId.STONE_SLAB)
+      pavePath(pathX, pathZ)
       /** 路寬兩格，看起來才像走出來的路 */
-      const sideX = pathX + direction.z
-      const sideZ = pathZ + direction.x
-      if (getBlock(state, sideX, getGroundY(state, sideX, sideZ), sideZ) === BlockId.AIR) {
-        setBlock(state, sideX, getGroundY(state, sideX, sideZ), sideZ, BlockId.STONE_SLAB)
-      }
+      pavePath(pathX + direction.z, pathZ + direction.x)
     }
   }
 

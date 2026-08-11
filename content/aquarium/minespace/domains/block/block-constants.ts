@@ -60,6 +60,11 @@ export enum BlockId {
   WOOD_STAIRS_SOUTH,
   WOOD_STAIRS_EAST,
   WOOD_STAIRS_WEST,
+  /** 深色木階梯，村屋的斜屋頂用它砌 */
+  DARK_STAIRS_NORTH,
+  DARK_STAIRS_SOUTH,
+  DARK_STAIRS_EAST,
+  DARK_STAIRS_WEST,
 }
 
 /**
@@ -599,6 +604,48 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     stepMaterial: 'wood',
     textures: {
       all: `${TEXTURE_BASE}/default_wood.png`,
+    },
+  },
+  /**
+   * 深色木階梯
+   *
+   * 與木階梯同一種外型，只換成深色木材質。
+   * 屋頂用它砌成斜面，屋身才不會與屋頂糊成同一片木色
+   */
+  [BlockId.DARK_STAIRS_NORTH]: {
+    shape: 'stairs',
+    stairsFacing: 'north',
+    collisionHeight: 0.5,
+    stepMaterial: 'wood',
+    textures: {
+      all: `${TEXTURE_BASE}/default_junglewood.png`,
+    },
+  },
+  [BlockId.DARK_STAIRS_SOUTH]: {
+    shape: 'stairs',
+    stairsFacing: 'south',
+    collisionHeight: 0.5,
+    stepMaterial: 'wood',
+    textures: {
+      all: `${TEXTURE_BASE}/default_junglewood.png`,
+    },
+  },
+  [BlockId.DARK_STAIRS_EAST]: {
+    shape: 'stairs',
+    stairsFacing: 'east',
+    collisionHeight: 0.5,
+    stepMaterial: 'wood',
+    textures: {
+      all: `${TEXTURE_BASE}/default_junglewood.png`,
+    },
+  },
+  [BlockId.DARK_STAIRS_WEST]: {
+    shape: 'stairs',
+    stairsFacing: 'west',
+    collisionHeight: 0.5,
+    stepMaterial: 'wood',
+    textures: {
+      all: `${TEXTURE_BASE}/default_junglewood.png`,
     },
   },
   [BlockId.FLOWER_POT]: {
