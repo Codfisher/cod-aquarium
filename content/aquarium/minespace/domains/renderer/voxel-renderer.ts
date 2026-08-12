@@ -84,6 +84,51 @@ function createCompositedTexture(
   return dynamicTexture
 }
 
+/**
+ * 直接在畫布上把貼圖的像素重新上色
+ *
+ * 材質的 tint 只能把顏色調暗：著色器是先把「光照 × tint」夾在 1 以內，
+ * 再乘上貼圖的顏色，所以某個通道最亮就是貼圖本身的值。
+ * 一張綠葉貼圖的紅只有 0.26，tint 的紅開到多大都紅不起來，
+ * 調出來永遠是偏綠的暗色。
+ *
+ * 要把綠葉變成秋天的橘黃，只能在像素層下手：
+ * 逐一乘上倍率再寫回畫布，鏤空的透明度原封不動留著
+ */
+function createRecoloredTexture(
+  name: string,
+  texturePath: string,
+  scene: Scene,
+  pixelTint: [number, number, number],
+): DynamicTexture {
+  const size = 16
+  const dynamicTexture = new DynamicTexture(name, size, scene, false, Texture.NEAREST_SAMPLINGMODE)
+
+  const image = new Image()
+  image.onload = () => {
+    const context = dynamicTexture.getContext()
+    if (context instanceof CanvasRenderingContext2D) {
+      context.imageSmoothingEnabled = false
+    }
+    context.clearRect(0, 0, size, size)
+    context.drawImage(image, 0, 0, size, size)
+
+    const imageData = context.getImageData(0, 0, size, size)
+    const { data } = imageData
+    for (let index = 0; index < data.length; index += 4) {
+      data[index] = Math.min(255, data[index]! * pixelTint[0])
+      data[index + 1] = Math.min(255, data[index + 1]! * pixelTint[1])
+      data[index + 2] = Math.min(255, data[index + 2]! * pixelTint[2])
+    }
+    context.putImageData(imageData, 0, 0)
+
+    dynamicTexture.update()
+  }
+  image.src = texturePath
+
+  return dynamicTexture
+}
+
 /** 動畫貼圖每秒播幾格 */
 const TEXTURE_FRAME_RATE = 3.5
 
@@ -117,6 +162,7 @@ export function createPixelMaterial(
   tint?: [number, number, number],
   overlayPath?: string,
   frameCount?: number,
+  pixelTint?: [number, number, number],
 ): StandardMaterial {
   const material = new StandardMaterial(name, scene)
 
@@ -127,6 +173,9 @@ export function createPixelMaterial(
       overlayPath,
       scene,
     )
+  }
+  else if (pixelTint) {
+    material.diffuseTexture = createRecoloredTexture(`${name}_tex`, texturePath, scene, pixelTint)
   }
   else {
     const texture = new Texture(texturePath, scene, {
@@ -162,8 +211,9 @@ function createCutoutMaterial(
   scene: Scene,
   tint?: [number, number, number],
   isTwoSidedLighting = true,
+  pixelTint?: [number, number, number],
 ): StandardMaterial {
-  const material = createPixelMaterial(name, texturePath, scene, tint)
+  const material = createPixelMaterial(name, texturePath, scene, tint, undefined, undefined, pixelTint)
   const texture = material.diffuseTexture as Texture
 
   texture.hasAlpha = true
@@ -350,14 +400,28 @@ class ChunkRenderer {
     switch (blockDef.shape) {
       case 'cross': {
         /** 法線已統一朝上，關掉背面翻轉才不會一面亮一面黑 */
-        const material = createCutoutMaterial(`${prefix}_mat`, texturePath, this.scene, blockDef.textures?.tint, false)
+        const material = createCutoutMaterial(
+          `${prefix}_mat`,
+          texturePath,
+          this.scene,
+          blockDef.textures?.tint,
+          false,
+          blockDef.textures?.pixelTint,
+        )
         addPlane('cross-a', 1, { x: 0, y: Math.PI / 4 }, { x: 0, y: 0, z: 0 }, material)
         addPlane('cross-b', 1, { x: 0, y: -Math.PI / 4 }, { x: 0, y: 0, z: 0 }, material)
         break
       }
       case 'flat': {
         /** 貼在水面上的葉片，高度要跟著矮八分之一格的水面一起降下來 */
-        const material = createCutoutMaterial(`${prefix}_mat`, texturePath, this.scene, blockDef.textures?.tint, false)
+        const material = createCutoutMaterial(
+          `${prefix}_mat`,
+          texturePath,
+          this.scene,
+          blockDef.textures?.tint,
+          false,
+          blockDef.textures?.pixelTint,
+        )
         addPlane('flat', 1, { x: Math.PI / 2, y: 0 }, { x: 0, y: -0.6, z: 0 }, material)
         break
       }
@@ -543,7 +607,14 @@ class ChunkRenderer {
   private initSingleMaterialMesh(blockId: BlockId, blockDef: BlockDef, textureDef: BlockTextureDef) {
     const name = `chunk_${this.chunkX}_${this.chunkZ}_block_${blockId}`
     const material = blockDef.cutout
-      ? createCutoutMaterial(`${name}_mat`, textureDef.all ?? '', this.scene, textureDef.tint)
+      ? createCutoutMaterial(
+          `${name}_mat`,
+          textureDef.all ?? '',
+          this.scene,
+          textureDef.tint,
+          true,
+          textureDef.pixelTint,
+        )
       : createPixelMaterial(
           `${name}_mat`,
           textureDef.all ?? '',
@@ -551,6 +622,7 @@ class ChunkRenderer {
           textureDef.tint,
           textureDef.overlay,
           textureDef.frameCount,
+          textureDef.pixelTint,
         )
 
     /**
