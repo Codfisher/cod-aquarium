@@ -1168,8 +1168,14 @@ function scatterVegetation(state: Uint8Array): void {
         placePineTree(state, x, groundY, z, 5 + Math.floor(random() * 4))
         planted = true
       }
-      else if (autumnWeight > 0.3 && density > -0.25 && random() < 0.26) {
-        if (hasNeighborTree(x, z, 2))
+      else if (autumnWeight > 0.3 && density > -0.25 && random() < 0.13) {
+        /**
+         * 樹距拉得比針闊葉林寬
+         *
+         * 落葉林要看得到光穿過樹冠灑下來，樹擠在一起就成了一片密不透風的橘色天花板，
+         * 底下的落葉與飄下來的葉子也全被擋住
+         */
+        if (hasNeighborTree(x, z, 4))
           continue
         /**
          * 兩種秋色以低頻噪音分片，再加一點隨機

@@ -171,13 +171,13 @@ export function createFallingLeaves({
    * 路徑於是彎彎曲曲，看起來才像被風捲著走
    */
   const noiseTexture = new NoiseProceduralTexture('autumn-leaf-noise', 128, scene)
-  noiseTexture.animationSpeedFactor = 0.6
+  noiseTexture.animationSpeedFactor = 1.2
   noiseTexture.brightness = 0.5
-  noiseTexture.octaves = 3
-  noiseTexture.persistence = 1.4
+  noiseTexture.octaves = 4
+  noiseTexture.persistence = 1.6
   particleSystem.noiseTexture = noiseTexture
   /** 橫向推得比縱向多，葉子才會飄開而不是上下彈跳 */
-  particleSystem.noiseStrength = new Vector3(6, 1.5, 6)
+  particleSystem.noiseStrength = new Vector3(14, 4, 14)
 
   /** 邊飄邊翻面 */
   particleSystem.minAngularSpeed = -1.8

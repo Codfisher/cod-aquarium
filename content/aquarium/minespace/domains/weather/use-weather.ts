@@ -191,7 +191,8 @@ export function useWeather() {
 
     fallingLeaves = createFallingLeaves({
       scene,
-      maxParticleCount: quality.value === 'low' ? 50 : 120,
+      /** 葉子小又薄，數量得堆起來才看得出整片林子都在落葉 */
+      maxParticleCount: quality.value === 'low' ? 130 : 320,
       castRainRay,
     })
 
