@@ -1,5 +1,5 @@
-import type { DirectionalLight, Mesh, Scene, ShadowGenerator } from '@babylonjs/core'
-import type { BlockDef, BlockTextureDef } from '../block/block-constants'
+import type { DirectionalLight, Mesh, Scene, ShadowGenerator } from '@babylonjs/core-v9'
+import type { BlockDef, BlockId, BlockTextureDef } from '../block/block-constants'
 import type { ChunkMeshData, ChunkWorkerComposable } from '../world/use-chunk-worker'
 import {
   Color3,
@@ -9,10 +9,10 @@ import {
   StandardMaterial,
   Texture,
   VertexBuffer,
-} from '@babylonjs/core'
+} from '@babylonjs/core-v9'
 import { SUN_LIGHT_NAME } from '../../composables/use-babylon-scene'
-import { BLOCK_DEFS, BlockId, isDecorationBlock } from '../block/block-constants'
-import { CHUNKS_PER_AXIS, getChunkIndex } from '../world/world-constants'
+import { BLOCK_DEFS, isDecorationBlock } from '../block/block-constants'
+import { TOTAL_CHUNKS } from '../world/world-constants'
 
 interface BlockMeshEntry {
   mesh: Mesh;
@@ -163,6 +163,7 @@ export function createPixelMaterial(
   overlayPath?: string,
   frameCount?: number,
   pixelTint?: [number, number, number],
+  noMipmap = false,
 ): StandardMaterial {
   const material = new StandardMaterial(name, scene)
 
@@ -180,6 +181,7 @@ export function createPixelMaterial(
   else {
     const texture = new Texture(texturePath, scene, {
       samplingMode: Texture.NEAREST_SAMPLINGMODE,
+      noMipmap,
     })
     if (frameCount && frameCount > 1) {
       playTextureFrames(texture, frameCount, scene)
@@ -191,6 +193,17 @@ export function createPixelMaterial(
   material.backFaceCulling = false
   /** 太陽、環境光，再加上洞裡的幾盞燈 */
   material.maxSimultaneousLights = 6
+  /**
+   * 接受場景的補光
+   *
+   * Babylon 的 ambientColor 是「場景的 × 材質的」，材質這一項預設是黑的，
+   * 也就是預設完全不吃場景補光。方塊要開起來：
+   * 夜裡那道補光是加在光照上、再乘上反照率的，
+   * 而方塊光正烘在反照率裡——這是燈火照得出範圍的唯一途徑。
+   *
+   * 天體與雲維持預設的黑，它們不該被地面的補光影響
+   */
+  material.ambientColor = new Color3(1, 1, 1)
 
   if (tint) {
     material.diffuseColor = new Color3(tint[0], tint[1], tint[2])
@@ -213,7 +226,21 @@ function createCutoutMaterial(
   isTwoSidedLighting = true,
   pixelTint?: [number, number, number],
 ): StandardMaterial {
-  const material = createPixelMaterial(name, texturePath, scene, tint, undefined, undefined, pixelTint)
+  /**
+   * 鏤空的貼圖不能有 mipmap
+   *
+   * 這些貼圖的 alpha 是全有全無的：不是完全透明就是完全不透明。
+   * 但 mipmap 是把相鄰像素平均出來的，縮小之後透明與不透明的邊界上
+   * 會生出 0.5 這種中間值——alpha test 判定它「要畫」，
+   * 於是花草上方浮出一道細細的十字，那正是交叉立板本身的輪廓。
+   *
+   * 低畫質把解析度降到三分之一，那條線被放大成三個像素才變得明顯；
+   * 高畫質其實也有，只是細到一個像素看不出來。
+   *
+   * 關掉 mipmap 之後永遠只取原圖，alpha 就維持全有全無，邊緣自然乾淨。
+   * 代價是遠處會有一點閃爍，但那本來就是方塊遊戲的樣子
+   */
+  const material = createPixelMaterial(name, texturePath, scene, tint, undefined, undefined, pixelTint, true)
   const texture = material.diffuseTexture as Texture
 
   texture.hasAlpha = true
@@ -230,6 +257,13 @@ function createCutoutMaterial(
   material.twoSidedLighting = isTwoSidedLighting
   /** 花草不該有高光 */
   material.specularColor = new Color3(0, 0, 0)
+  /**
+   * 裁切門檻
+   *
+   * 關掉 mipmap 之後 alpha 只剩 0 與 1 兩種值，門檻擺在中間最保險。
+   * 拉太高會連葉尖那種只有一兩個像素的部分一起啃掉
+   */
+  material.alphaCutOff = 0.5
 
   return material
 }
@@ -298,55 +332,97 @@ function alignSideFaceUvs(mesh: Mesh, height: number): void {
 /**
  * 區塊渲染器：管理單一區塊的 ThinInstances
  */
-class ChunkRenderer {
+/**
+ * 整個世界的方塊渲染器
+ *
+ * 原本是一個區塊一份：二十五個區塊各自替自己用到的方塊建網格，
+ * 同一種石頭在世界各處就有二十五份網格。網格數八百多，
+ * 每一幀主畫面與陰影各畫一次，等於一千七百次 draw call——
+ * 這是白沙與空網格處理掉之後，剩下最貴的一項。
+ *
+ * 方塊全部是靜態的，切成區塊的唯一理由是讓 Worker 能平行運算；
+ * 算完之後沒有必要繼續分開。這裡把各區塊的實例矩陣接成一條，
+ * 同一種方塊全世界共用一個網格，draw call 直接砍掉七成。
+ *
+ * 代價是失去逐區塊的視錐剔除。但這個世界只有兩百八十格見方、
+ * 霧又開到兩百二十格，本來就幾乎整片都在視野內，剔除省不到什麼
+ */
+class WorldRenderer {
   /** 一個 key 可能對應多個網格，例如花盆由盆身與植物兩片組成 */
   private allEntries = new Map<string, BlockMeshEntry[]>()
+  /** 已經建過網格的方塊，避免重建 */
+  private builtBlockSet = new Set<BlockId>()
+  /** 各區塊送回來的緩衝區，等全部到齊再接成一條 */
+  private pendingMatrixMap = new Map<string, Float32Array[]>()
+  private pendingShadeMap = new Map<string, Float32Array[]>()
+  private receivedChunkCount = 0
 
   constructor(
     private scene: Scene,
-    private chunkX: number,
-    private chunkZ: number,
-    shadowGenerator: ShadowGenerator | null,
-  ) {
-    const blockIdList = Object.values(BlockId).filter((value) => typeof value === 'number') as BlockId[]
+    private shadowGenerator: ShadowGenerator | null,
+  ) {}
 
-    for (const blockId of blockIdList) {
-      const blockDef = BLOCK_DEFS[blockId]
-      if (blockDef.isHidden || !blockDef.textures)
-        continue
+  /**
+   * 需要時才建網格
+   *
+   * 這裡原本在建構時就替「所有有貼圖的方塊」建好網格，一種都不漏。
+   * 但一個區塊裡通常只出現十來種方塊：整個世界一百多種、二十五個區塊，
+   * 算下來會建出七千多個網格，其中八成八一個實例都沒有。
+   * 空網格照樣要進每一幀的剔除與排序，白白吃掉大量時間。
+   *
+   * 改成等 Worker 算完、知道這個區塊實際用到哪些方塊之後才建，
+   * 網格數從七千三百降到八百八十
+   */
+  private ensureBlockMeshes(blockId: BlockId): void {
+    if (this.builtBlockSet.has(blockId))
+      return
 
-      if (isDecorationBlock(blockId)) {
-        this.initDecorationMeshes(blockId, blockDef)
-      }
-      else if (needsPerFaceRendering(blockDef.textures)) {
-        this.initPerFaceMeshes(blockId, blockDef.textures)
-      }
-      else {
-        this.initSingleMaterialMesh(blockId, blockDef, blockDef.textures)
-      }
+    this.builtBlockSet.add(blockId)
+
+    const blockDef = BLOCK_DEFS[blockId]
+    if (!blockDef || blockDef.isHidden || !blockDef.textures)
+      return
+
+    if (isDecorationBlock(blockId)) {
+      this.initDecorationMeshes(blockId, blockDef)
     }
+    else if (needsPerFaceRendering(blockDef.textures)) {
+      this.initPerFaceMeshes(blockId, blockDef.textures, blockDef.logAxis)
+    }
+    else {
+      this.initSingleMaterialMesh(blockId, blockDef, blockDef.textures)
+    }
+  }
 
-    if (shadowGenerator) {
-      for (const [key, entryList] of this.allEntries.entries()) {
-        const blockId = Number(key.split('_')[0]) as BlockId
-        const blockDef = BLOCK_DEFS[blockId]
-        /** 半透明的水面接陰影會變成一塊塊的黑洞，乾脆讓它不接 */
-        const receiveShadows = blockDef?.receiveShadow !== false
-        /** 水、冰、玻璃這類半透明方塊不該擋光 */
-        const isTransparent = blockDef?.alpha !== undefined && blockDef.alpha < 1
+  /** 網格一建好就設定陰影，改成延後建立之後沒有「事後統一處理」的時機了 */
+  private applyShadowSetting(key: string, mesh: Mesh): void {
+    if (!this.shadowGenerator)
+      return
 
-        for (const { mesh } of entryList) {
-          mesh.receiveShadows = receiveShadows
-          if (!isTransparent) {
-            shadowGenerator.addShadowCaster(mesh)
-          }
-        }
-      }
+    const blockId = Number(key.split('_')[0]) as BlockId
+    const blockDef = BLOCK_DEFS[blockId]
+    /** 半透明的水面接陰影會變成一塊塊的黑洞，乾脆讓它不接 */
+    mesh.receiveShadows = blockDef?.receiveShadow !== false
+    /** 水、冰、玻璃這類半透明方塊不該擋光 */
+    const isTransparent = blockDef?.alpha !== undefined && blockDef.alpha < 1
+    if (!isTransparent) {
+      this.shadowGenerator.addShadowCaster(mesh)
     }
   }
 
   private addEntry(key: string, mesh: Mesh, material: StandardMaterial) {
     mesh.isVisible = false
+    /**
+     * 這些網格生成之後就再也不會動
+     *
+     * 位置早就烘進頂點裡、實例矩陣也由 Worker 一次算好，
+     * 所以世界矩陣可以直接凍結，省下每一幀替上百個網格重算矩陣的成本。
+     * 順手關掉拾取，射線檢測不必再走過它們
+     */
+    mesh.freezeWorldMatrix()
+    mesh.isPickable = false
+    this.applyShadowSetting(key, mesh)
+
     const entryList = this.allEntries.get(key) ?? []
     entryList.push({ mesh, material })
     this.allEntries.set(key, entryList)
@@ -359,7 +435,7 @@ class ChunkRenderer {
    * 這樣一個方塊就能長成花盆、欄杆或一叢草
    */
   private initDecorationMeshes(blockId: BlockId, blockDef: BlockDef) {
-    const prefix = `chunk_${this.chunkX}_${this.chunkZ}_deco_${blockId}`
+    const prefix = `block_deco_${blockId}`
     const texturePath = blockDef.textures?.all ?? ''
     const key = `${blockId}`
 
@@ -486,12 +562,27 @@ class ChunkRenderer {
    * 否則每根柱子都會長出四根懸空的橫桿
    */
   private initFenceMeshes(blockId: BlockId, blockDef: BlockDef, prefix: string) {
-    const material = createPixelMaterial(
-      `${prefix}_mat`,
-      blockDef.textures?.all ?? '',
-      this.scene,
-      blockDef.textures?.tint,
-    )
+    /**
+     * 圍籬也可能需要鏤空
+     *
+     * 柱子與橫桿都是實心的小盒子，貼上帶透明像素的圖時，
+     * 那些洞沒有東西可以透出來，就會整片畫成黑的。
+     * 鐵鏈那種本來就大半是洞的東西一定要走 alpha test 這條路
+     */
+    const material = blockDef.cutout
+      ? createCutoutMaterial(
+          `${prefix}_mat`,
+          blockDef.textures?.all ?? '',
+          this.scene,
+          blockDef.textures?.tint,
+          false,
+        )
+      : createPixelMaterial(
+          `${prefix}_mat`,
+          blockDef.textures?.all ?? '',
+          this.scene,
+          blockDef.textures?.tint,
+        )
 
     const post = MeshBuilder.CreateBox(`${prefix}_post`, { width: 0.26, height: 1, depth: 0.26 }, this.scene)
     post.material = material
@@ -567,8 +658,12 @@ class ChunkRenderer {
     }
   }
 
-  private initPerFaceMeshes(blockId: BlockId, textureDef: BlockTextureDef) {
-    const prefix = `chunk_${this.chunkX}_${this.chunkZ}_block_${blockId}`
+  private initPerFaceMeshes(
+    blockId: BlockId,
+    textureDef: BlockTextureDef,
+    logAxis: 'x' | 'y' | 'z' = 'y',
+  ) {
+    const prefix = `block_face_${blockId}`
 
     const addFace = (
       name: string,
@@ -596,16 +691,39 @@ class ChunkRenderer {
      * 側面若不轉半圈，法線會朝方塊內部，
      * 結果就是照到太陽的那一面反而最暗，跟地上的影子方向對不起來
      */
-    addFace('top', textureDef.top ?? textureDef.side ?? '', Math.PI / 2, 0, { x: 0, y: 0.5, z: 0 }, textureDef.topTint)
-    addFace('bottom', textureDef.bottom ?? textureDef.side ?? '', -Math.PI / 2, 0, { x: 0, y: -0.5, z: 0 })
-    addFace('front', textureDef.side ?? '', 0, Math.PI, { x: 0, y: 0, z: 0.5 }, textureDef.sideTint, textureDef.sideOverlay)
-    addFace('back', textureDef.side ?? '', 0, 0, { x: 0, y: 0, z: -0.5 }, textureDef.sideTint, textureDef.sideOverlay)
-    addFace('left', textureDef.side ?? '', 0, Math.PI / 2, { x: -0.5, y: 0, z: 0 }, textureDef.sideTint, textureDef.sideOverlay)
-    addFace('right', textureDef.side ?? '', 0, -Math.PI / 2, { x: 0.5, y: 0, z: 0 }, textureDef.sideTint, textureDef.sideOverlay)
+    /**
+     * 哪兩面是「端面」
+     *
+     * 立著的樹幹端面在上下（年輪朝天），躺著的木頭端面則在兩端。
+     * 一格只存得下一個方塊編號、放不進旋轉角度，
+     * 所以躺著的木頭是另一種方塊，差別就在這裡把端面換到哪兩面
+     */
+    const endFaceSet = new Set(
+      logAxis === 'x'
+        ? ['left', 'right']
+        : logAxis === 'z'
+          ? ['front', 'back']
+          : ['top', 'bottom'],
+    )
+    const endTexture = textureDef.top ?? textureDef.side ?? ''
+    const barkTexture = textureDef.side ?? ''
+    const pickTexture = (face: string, fallback: string) => (
+      endFaceSet.has(face) ? endTexture : (logAxis === 'y' ? fallback : barkTexture)
+    )
+    /** 端面不吃側面的疊圖與色調，那是給樹皮用的 */
+    const pickSideTint = (face: string) => (endFaceSet.has(face) ? undefined : textureDef.sideTint)
+    const pickSideOverlay = (face: string) => (endFaceSet.has(face) ? undefined : textureDef.sideOverlay)
+
+    addFace('top', pickTexture('top', textureDef.top ?? textureDef.side ?? ''), Math.PI / 2, 0, { x: 0, y: 0.5, z: 0 }, endFaceSet.has('top') ? textureDef.topTint : undefined)
+    addFace('bottom', pickTexture('bottom', textureDef.bottom ?? textureDef.side ?? ''), -Math.PI / 2, 0, { x: 0, y: -0.5, z: 0 })
+    addFace('front', pickTexture('front', barkTexture), 0, Math.PI, { x: 0, y: 0, z: 0.5 }, pickSideTint('front'), pickSideOverlay('front'))
+    addFace('back', pickTexture('back', barkTexture), 0, 0, { x: 0, y: 0, z: -0.5 }, pickSideTint('back'), pickSideOverlay('back'))
+    addFace('left', pickTexture('left', barkTexture), 0, Math.PI / 2, { x: -0.5, y: 0, z: 0 }, pickSideTint('left'), pickSideOverlay('left'))
+    addFace('right', pickTexture('right', barkTexture), 0, -Math.PI / 2, { x: 0.5, y: 0, z: 0 }, pickSideTint('right'), pickSideOverlay('right'))
   }
 
   private initSingleMaterialMesh(blockId: BlockId, blockDef: BlockDef, textureDef: BlockTextureDef) {
-    const name = `chunk_${this.chunkX}_${this.chunkZ}_block_${blockId}`
+    const name = `block_${blockId}`
     const material = blockDef.cutout
       ? createCutoutMaterial(
           `${name}_mat`,
@@ -685,16 +803,57 @@ class ChunkRenderer {
     this.addEntry(`${blockId}_surface`, surfaceMesh, material)
   }
 
-  /** 套用 Worker 計算好的矩陣與環境遮蔽緩衝區 */
-  applyMeshData(meshData: ChunkMeshData): void {
-    for (const [key, entryList] of this.allEntries.entries()) {
-      const matrixBuffer = meshData.matrixMap[key]
+  /**
+   * 收下一個區塊的結果
+   *
+   * 先擱著不畫。全部到齊之後才一次接成整片，
+   * 中途每收到一塊就重設一次緩衝區的話，等於把同一份資料上傳好幾遍
+   */
+  collectMeshData(meshData: ChunkMeshData): void {
+    for (const [key, buffer] of Object.entries(meshData.matrixMap)) {
+      if (!buffer || buffer.length === 0)
+        continue
+
+      const matrixList = this.pendingMatrixMap.get(key) ?? []
+      matrixList.push(buffer)
+      this.pendingMatrixMap.set(key, matrixList)
+
       const shadeBuffer = meshData.shadeMap[key]
+      /**
+       * 遮蔽緩衝區要與矩陣一一對應
+       *
+       * 有些方塊沒有遮蔽資料。接成一條之後長度必須對得起來，
+       * 否則整批顏色會錯位，所以缺的那一段補上不影響顏色的白
+       */
+      const instanceCount = buffer.length / 16
+      const shadeList = this.pendingShadeMap.get(key) ?? []
+      shadeList.push(
+        shadeBuffer && shadeBuffer.length / 4 === instanceCount
+          ? shadeBuffer
+          : new Float32Array(instanceCount * 4).fill(1),
+      )
+      this.pendingShadeMap.set(key, shadeList)
+    }
+
+    this.receivedChunkCount++
+    if (this.receivedChunkCount >= TOTAL_CHUNKS) {
+      this.flush()
+    }
+  }
+
+  /** 把各區塊的緩衝區接成一條，一種方塊只設定一次 */
+  private flush(): void {
+    for (const key of this.pendingMatrixMap.keys()) {
+      this.ensureBlockMeshes(Number(key.split('_')[0]) as BlockId)
+    }
+
+    for (const [key, entryList] of this.allEntries.entries()) {
+      const matrixBuffer = mergeBufferList(this.pendingMatrixMap.get(key))
+      const shadeBuffer = mergeBufferList(this.pendingShadeMap.get(key))
 
       for (const entry of entryList) {
-        if (!matrixBuffer || matrixBuffer.length === 0) {
+        if (!matrixBuffer) {
           entry.mesh.isVisible = false
-          entry.mesh.thinInstanceSetBuffer('matrix', new Float32Array(0), 16, false)
           continue
         }
 
@@ -706,13 +865,21 @@ class ChunkRenderer {
          *
          * 遮蔽算好之後直接烘進緩衝區，執行期沒有任何額外成本
          */
-        const isShadeMatched = !!shadeBuffer
-          && shadeBuffer.length / 4 === matrixBuffer.length / 16
-        if (isShadeMatched) {
+        if (shadeBuffer && shadeBuffer.length / 4 === matrixBuffer.length / 16) {
           entry.mesh.thinInstanceSetBuffer('color', shadeBuffer, 4, false)
         }
+
+        /**
+         * 邊界盒已經在上面設定緩衝區時算好了
+         *
+         * 方塊之後不會再變，往後每一幀都不必再同步一次
+         */
+        entry.mesh.doNotSyncBoundingInfo = true
       }
     }
+
+    this.pendingMatrixMap.clear()
+    this.pendingShadeMap.clear()
   }
 
   dispose(): void {
@@ -733,6 +900,25 @@ class ChunkRenderer {
   }
 }
 
+/** 把一串緩衝區接成一條 */
+function mergeBufferList(bufferList: Float32Array[] | undefined): Float32Array | null {
+  if (!bufferList || bufferList.length === 0)
+    return null
+
+  const total = bufferList.reduce((sum, buffer) => sum + buffer.length, 0)
+  if (total === 0)
+    return null
+
+  const merged = new Float32Array(total)
+  let offset = 0
+  for (const buffer of bufferList) {
+    merged.set(buffer, offset)
+    offset += buffer.length
+  }
+
+  return merged
+}
+
 export function createVoxelRenderer(
   scene: Scene,
   chunkWorker: ChunkWorkerComposable,
@@ -740,26 +926,26 @@ export function createVoxelRenderer(
   const sunLight = scene.getLightByName(SUN_LIGHT_NAME) as DirectionalLight | null
   const shadowGenerator = sunLight?.getShadowGenerator() as ShadowGenerator | null
 
-  const chunkList: ChunkRenderer[] = []
+  const worldRenderer = new WorldRenderer(scene, shadowGenerator)
 
-  for (let chunkX = 0; chunkX < CHUNKS_PER_AXIS; chunkX++) {
-    for (let chunkZ = 0; chunkZ < CHUNKS_PER_AXIS; chunkZ++) {
-      chunkList.push(new ChunkRenderer(scene, chunkX, chunkZ, shadowGenerator))
-    }
-  }
+  /**
+   * 滑鼠移動時不要做拾取
+   *
+   * Babylon 預設每一次 pointermove 都會發一條射線去找游標下的網格。
+   * 這個場景用的是指標鎖定，游標下有什麼完全沒有意義，
+   * 但那條射線照樣要走過所有網格
+   */
+  scene.skipPointerMovePicking = true
 
-  chunkWorker.setOnChunkResult((chunkX, chunkZ, meshData) => {
-    chunkList[getChunkIndex(chunkX, chunkZ)]?.applyMeshData(meshData)
+  chunkWorker.setOnChunkResult((_chunkX, _chunkZ, meshData) => {
+    worldRenderer.collectMeshData(meshData)
   })
 
   return {
     build: (worldState: Uint8Array) => chunkWorker.rebuildAll(worldState),
     dispose() {
       chunkWorker.terminate()
-      for (const chunk of chunkList) {
-        chunk.dispose()
-      }
-      chunkList.length = 0
+      worldRenderer.dispose()
     },
   }
 }

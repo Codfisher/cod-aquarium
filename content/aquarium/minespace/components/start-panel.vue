@@ -16,16 +16,7 @@
         />
       </div>
 
-      <div class="control-guide">
-        <div
-          v-for="(item, index) in controlList"
-          :key="index"
-          class="control-row"
-        >
-          <span class="control-key">{{ item.key }}</span>
-          <span class="control-action">{{ item.action }}</span>
-        </div>
-      </div>
+      <control-guide class="mt-[22px]" />
 
       <button
         class="mc-button start-button"
@@ -41,9 +32,9 @@
 </template>
 
 <script setup lang="ts">
-import { useMediaQuery } from '@vueuse/core'
 import { computed } from 'vue'
 import { useSimpleI18n } from '../composables/use-simple-i18n'
+import ControlGuide from './control-guide.vue'
 
 const props = defineProps<{
   ready: boolean;
@@ -55,8 +46,6 @@ defineEmits<{
   start: [];
 }>()
 
-const isMobile = useMediaQuery('(pointer: coarse)')
-
 const confirmLabel = computed(() => {
   if (props.isReopened) {
     return t('back')
@@ -64,70 +53,33 @@ const confirmLabel = computed(() => {
   return props.ready ? t('start') : t('loading')
 })
 
-const controlList = computed(() => {
-  if (isMobile.value) {
-    return [
-      { key: t('touchLeft'), action: t('move') },
-      { key: t('touchRight'), action: t('look') },
-      { key: t('touchButton'), action: t('jumpSwim') },
-    ]
-  }
-
-  return [
-    { key: 'W A S D', action: t('move') },
-    { key: t('mouse'), action: t('look') },
-    { key: 'Space', action: t('jumpSwim') },
-    { key: 'Shift', action: t('sprint') },
-    { key: 'Tab', action: t('releaseCursor') },
-    { key: 'Esc', action: t('menu') },
-  ]
-})
-
 const { t } = useSimpleI18n({
   'zh-hant': {
-    subtitle: '戴上耳機，走進一座會發出聲音的島',
+    subtitle: '戴上耳機，走進一片白沙上的聲音庭園',
     intro: [
-      '這裡沒有任務、沒有方塊要挖，只有一座島與五十個聲音。',
-      '森林、雪山、落葉林、沼澤、海岸、村莊、洞窟，每個地方都有自己的聲響。營火在你左邊燒、瀑布在你右後方落下，<b>走近會變大聲，轉頭會換邊</b>。',
-      '島西邊的長雨谷終年下著雨，走過去就知道了。南邊的沼澤整天罩著霧，東邊的落葉林則一直在掉葉子。',
+      '一片無限延伸的白沙上，散落著十七座木頭底座的箱庭。',
+      '每一座只收一種聲音的質地：松籟林是連綿的寬頻風聲，蛙聲澤是低頻的一問一答，岩響窟只有稀疏的滴水拖著長長的迴響。<b>走近會變大聲，轉頭會換邊</b>。',
+      '箱庭與箱庭之間全是空白。那份安靜是刻意的——沒有聲音的時候，你才聽得出下一座在哪個方向。',
+      '霧收得很近，看不到的地方就往有聲音的方向走。沙地沒有盡頭，走多遠都走不出去。',
       '建議<b>戴上耳機</b>，方位感會清楚很多。( ´ ▽ ` )ﾉ',
     ],
     start: '開始漫遊',
     back: '回到漫遊',
-    loading: '正在堆方塊⋯⋯',
-    move: '移動',
-    look: '轉動視角',
-    jumpSwim: '跳躍 / 上浮',
-    sprint: '衝刺',
-    releaseCursor: '放開滑鼠',
-    menu: '選單',
-    mouse: '滑鼠',
-    touchLeft: '左半螢幕拖曳',
-    touchRight: '右半螢幕拖曳',
-    touchButton: '右下按鈕',
-    credit: '音源：<a href="https://sound-effects.bbcrewind.co.uk/" target="_blank" rel="noopener">BBC Sound Effects</a>　空間音效：<a href="https://www.babylonjs.com/" target="_blank" rel="noopener">Babylon.js</a>',
+    loading: '正在耙沙⋯⋯',
+    credit: '空間音效：<a href="https://www.babylonjs.com/" target="_blank" rel="noopener">Babylon.js</a>',
   },
   'en': {
-    subtitle: 'Put on headphones and walk onto an island that sounds back',
+    subtitle: 'Put on headphones and step into a garden of sound on white sand',
     intro: [
-      'No quests, no blocks to mine — just an island and fifty sounds.',
-      'Forest, snow ridge, golden grove, swamp, coast, village, cavern: each place has its own voice. The campfire crackles on your left, the waterfall falls behind your right shoulder. <b>Walk closer and it grows louder; turn your head and it switches sides.</b>',
-      'Everrain Vale in the west is under permanent rain; the swamp to the south sits in mist all day; the grove to the east is always shedding leaves. Walk there and see.',
+      'Seventeen dioramas rest on wooden plinths, scattered across an endless field of white sand.',
+      'Each holds one texture of sound. The Garden of Pines is unbroken broadband wind; the Garden of Frogs is a low call and answer; the Garden of Echoes has only sparse drops trailing long reverberation. <b>Walk closer and it grows louder; turn your head and it switches sides.</b>',
+      'Between the gardens there is nothing. That silence is deliberate — only when nothing is playing can you tell which way the next one lies.',
+      'The fog sits close. When you cannot see, walk toward a sound. The sand has no edge; however far you go, you never leave it.',
       '<b>Headphones recommended</b> — the direction is much easier to feel. ( ´ ▽ ` )ﾉ',
     ],
     start: 'Start Roaming',
     back: 'Back to Roaming',
-    loading: 'Stacking blocks...',
-    move: 'Move',
-    look: 'Look around',
-    jumpSwim: 'Jump / Swim up',
-    sprint: 'Sprint',
-    releaseCursor: 'Release cursor',
-    menu: 'Menu',
-    mouse: 'Mouse',
-    touchLeft: 'Drag left half',
-    touchRight: 'Drag right half',
-    touchButton: 'Bottom-right button',
+    loading: 'Raking the sand...',
     credit: 'Audio: <a href="https://sound-effects.bbcrewind.co.uk/" target="_blank" rel="noopener">BBC Sound Effects</a>　Spatial audio: <a href="https://www.babylonjs.com/" target="_blank" rel="noopener">Babylon.js</a>',
   },
 } as const)
@@ -139,15 +91,26 @@ const { t } = useSimpleI18n({
   inset: 0
   z-index: 50
   display: flex
-  align-items: center
+  /**
+   * 內容比螢幕高時要從頂端開始，不能置中
+   *
+   * align-items: center 配上 overflow-y: auto 是經典的陷阱：
+   * 內容一旦比容器高，溢出的部分會往「兩端」各推一半，
+   * 而捲軸只捲得到下半邊——上半邊被推到捲動範圍之外，永遠看不到。
+   * 改成靠上對齊，再讓內容自己用 margin: auto 置中：
+   * 空間夠時照樣置中，不夠時就從頂端排起，一格都不會被切掉
+   */
+  align-items: flex-start
   justify-content: center
-  padding: 24px
+  padding: max(24px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left))
   background: rgba(0, 0, 0, 0.72)
   backdrop-filter: blur(4px)
   -webkit-backdrop-filter: blur(4px)
   overflow-y: auto
 
 .panel-body
+  /** 空間夠就置中、不夠就靠上，與外層的 flex-start 搭配 */
+  margin: auto
   width: 100%
   max-width: 520px
   color: #E6E6E6
@@ -172,29 +135,6 @@ const { t } = useSimpleI18n({
   font-size: 14px
   line-height: 1.85
   opacity: 0.92
-
-.control-guide
-  margin-top: 22px
-  padding: 12px 14px
-  display: flex
-  flex-direction: column
-  gap: 6px
-  background: rgba(255, 255, 255, 0.06)
-  border: 1px solid rgba(255, 255, 255, 0.14)
-
-.control-row
-  display: flex
-  align-items: center
-  gap: 12px
-  font-size: 13px
-
-.control-key
-  min-width: 116px
-  font-weight: 700
-  opacity: 0.95
-
-.control-action
-  opacity: 0.7
 
 .mc-button
   display: block

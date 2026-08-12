@@ -1,7 +1,9 @@
+import type { GraphicsQuality } from './use-graphics-quality'
 import {
   Camera,
   Color3,
   Color4,
+  ColorCurves,
   Constants,
   DefaultRenderingPipeline,
   DirectionalLight,
@@ -21,15 +23,22 @@ import {
   UniversalCamera,
   Vector3,
   VertexData,
-} from '@babylonjs/core'
-import { SkyMaterial } from '@babylonjs/materials'
+} from '@babylonjs/core-v9'
+import { SkyMaterial } from '@babylonjs/materials-v9'
 import { useEventListener } from '@vueuse/core'
 import { defaults } from 'lodash-es'
 import { onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
-import { CAMPFIRE_POSITION } from '../domains/world/structure-generator'
+import { SAND_LEVEL } from '../domains/garden/garden-constants'
+import {
+  CAMPFIRE_POINT,
+  CAVE_CHAMBER,
+  CAVE_MOUTH,
+  CAVE_TUNNEL,
+  SPAWN_POSITION,
+} from '../domains/garden/garden-layout'
+import { GARDEN_FOG_COLOR, GARDEN_FOG_END, GARDEN_FOG_START } from '../domains/weather/atmosphere'
 import { getGroundY } from '../domains/world/world-access'
-import { SEA_LEVEL, WORLD_SIZE } from '../domains/world/world-constants'
-import { CAVE_PATH, SPAWN_POSITION } from '../domains/world/world-generator'
+import { WORLD_SIZE } from '../domains/world/world-constants'
 import { createSeededRandom } from '../utils/noise'
 import { useGraphicsQuality } from './use-graphics-quality'
 
@@ -53,49 +62,55 @@ export const SKYBOX_NAME = 'sky-dome'
 export const OVERCAST_NAME = 'overcast-dome'
 export const SUN_DISC_NAME = 'sun-disc'
 export const SUN_GLOW_NAME = 'sun-glow'
+export const MOON_DISC_NAME = 'moon-disc'
+export const MOON_GLOW_NAME = 'moon-glow'
+export const STAR_FIELD_NAME = 'star-field'
 export const CLOUD_LAYER_NAME = 'cloud-layer'
 
 /**
  * 繪製順序分成三層
  *
- * Babylon 一律先畫完不透明再畫半透明，所以雲（不透明）永遠比太陽（相加混合）早畫，
- * 兩者只能靠深度決勝負——太陽掛在一百格外、雲卻遠得多，
- * 於是雲被太陽從中間切開，看起來像太陽插在雲裡面。
- *
- * 改成分層繪製：天空層畫完才畫雲，雲畫完才畫天氣粒子。
- * 各層之間不清除深度，地形擋住雲、雲擋住太陽的關係都還在，
- * 只有先後順序被固定下來
+ * Babylon 一律先畫完不透明再畫半透明，順序不固定就會出現
+ * 「陰天罩把太陽從中間切開」這類問題。
+ * 改成分層繪製：天空層畫完才畫罩在外面的那一層，最後才畫天氣粒子。
+ * 各層之間不清除深度，地形擋住天空的關係都還在，只有先後順序被固定下來
  */
-const CLOUD_RENDERING_GROUP = 1
+const SKY_OVERLAY_RENDERING_GROUP = 1
 /** 天氣粒子畫在最後，雨絲才不會被陰天罩蓋掉 */
 export const WEATHER_RENDERING_GROUP = 2
 
-/** 雲層高度 */
-const CLOUD_HEIGHT = 78
+/**
+ * 雲層高度
+ *
+ * 抬得比原本高，而且雲本身也做小了。雲太低太大時，
+ * 從地面往上看整片是一塊沒有縫的灰天花板——
+ * 拉遠、縮小、再降低覆蓋率，才看得出一朵一朵的形狀與中間的藍天
+ */
+const CLOUD_HEIGHT = 104
 /** 單朵雲方塊的邊長 */
-const CLOUD_CELL_SIZE = 26
+const CLOUD_CELL_SIZE = 14
 /** 雲的厚度 */
-const CLOUD_THICKNESS = 7
+const CLOUD_THICKNESS = 5
 /** 雲的飄移速度（格 / 秒） */
 const CLOUD_DRIFT_SPEED = 0.6
-/**
- * 單一朵雲最多幾格
- *
- * 一格 26 單位，上限 22 格大約是 130 x 150 單位，
- * 抬頭看是一朵有頭有尾的雲；再大就會連成一片蓋住整片天
- */
-const MAX_CLOUD_CELL_COUNT = 22
+/** 單一朵雲最多幾格，再大就會連成一片蓋住整片天 */
+const MAX_CLOUD_CELL_COUNT = 10
 
-/** 地表的天空與霧氣顏色 */
-export const SKY_COLOR = new Color3(0.58, 0.76, 0.94)
+/**
+ * 天空的底色
+ *
+ * 禪庭是一片高明度的白沙，天空若還是原本那種飽和的藍，
+ * 整個畫面會被切成上下兩塊互不相干的顏色。
+ * 改成很淡的天青，天與地才連得起來，白沙也才顯得出它的白
+ */
+export const SKY_COLOR = new Color3(0.84, 0.89, 0.94)
 
 /**
  * 太陽方向（光線前進的方向）
  *
- * 方位定成「雪山 → 出生點 → 太陽」連成一線：
- * 太陽掛在出生點後方，從出生點望過去整面山是受光的正面，
- * 而不是逆著光只看到一片剪影。
- * 仰角壓低成午後的斜射光，影子才拉得長，方塊的三個面亮度也才拉得開
+ * 這只是日夜循環接上之前的第一幀，之後每一幀都由 use-day-night 覆寫。
+ * 仰角壓得低，是午後的斜射光：影子拉得長，木座的三個面亮度也才拉得開。
+ * 一整片白沙如果被正午的頂光照著，會平得像一張紙
  */
 export const SUN_DIRECTION = new Vector3(0.666, -0.62, -0.416).normalize()
 
@@ -110,68 +125,15 @@ export const AMBIENT_INTENSITY = 0.82
 /** 晴天的陽光強度 */
 export const SUN_INTENSITY = 1.3
 
-/** 外海往世界外圍延伸的距離，大到看不見盡頭 */
-const OPEN_SEA_MARGIN = 900
 /**
- * 外海海床的高度
+ * 陰影涵蓋範圍的半邊長
  *
- * 方塊中心落在整數座標，海床最高那一層是 y = 4，頂面因此在 4.5，
- * 外海的海床要接在同一個高度上
+ * 只需要罩住鏡頭附近走得到、看得清楚的那一塊。
+ * 再遠的東西不是被霧糊掉，就是小到看不出有沒有影子
  */
-const SEA_FLOOR_LEVEL = 4.5
-/** 與方塊海水同一張的水面動畫圖，六張畫格直向排列 */
-const ANIMATED_WATER_TEXTURE_PATH = '/assets/minecraft-mini8x/default_water_source_animated.png'
-const WATER_FRAME_COUNT = 6
-const WATER_FRAME_RATE = 3.5
-/** 單一畫格的邊長（像素） */
-const WATER_FRAME_SIZE = 8
-
-/** 建立一張可平鋪的外海水面貼圖，內容由動畫圖逐格複製過來 */
-function createOpenSeaTexture(name: string, scene: Scene, frameSource: HTMLImageElement): DynamicTexture {
-  /**
-   * 不產 mipmap，取樣方式與島上的方塊海水完全一致
-   *
-   * 這片水與方塊海水在世界邊界接在一起，只要取樣方式不同就會出現一條線：
-   * mipmap 會把八乘八的水紋平均掉，遠處於是變成一片比方塊海水更暗的藍。
-   * 帶 mipmap 的 NEAREST 更糟，不同距離各自落在不同層級，
-   * 海面會被切成一條一條深淺不同的橫帶。
-   * 水紋本身的明暗差很小，直接關掉 mipmap 也不太看得出鋸齒
-   */
-  const texture = new DynamicTexture(
-    name,
-    { width: WATER_FRAME_SIZE, height: WATER_FRAME_SIZE },
-    scene,
-    false,
-    Texture.NEAREST_SAMPLINGMODE,
-  )
-
-  frameSource.addEventListener('load', () => drawWaterFrame(texture, frameSource, 0), { once: true })
-
-  return texture
-}
-
-/** 把動畫圖的第 frameIndex 張畫格複製到貼圖上 */
-function drawWaterFrame(
-  texture: DynamicTexture,
-  frameSource: HTMLImageElement,
-  frameIndex: number,
-): void {
-  const context = texture.getContext() as CanvasRenderingContext2D
-  context.imageSmoothingEnabled = false
-  context.clearRect(0, 0, WATER_FRAME_SIZE, WATER_FRAME_SIZE)
-  context.drawImage(
-    frameSource,
-    0,
-    frameIndex * WATER_FRAME_SIZE,
-    WATER_FRAME_SIZE,
-    WATER_FRAME_SIZE,
-    0,
-    0,
-    WATER_FRAME_SIZE,
-    WATER_FRAME_SIZE,
-  )
-  texture.update()
-}
+const SHADOW_HALF_EXTENT = 48
+/** 光源沿著光線反方向退開多遠，要大到把最高的岩體整個含進去 */
+const SHADOW_LIGHT_DISTANCE = 90
 
 const defaultParam: Required<UseBabylonSceneParam> = {
   /**
@@ -191,7 +153,7 @@ const defaultParam: Required<UseBabylonSceneParam> = {
   createScene({ engine }) {
     const scene = new Scene(engine)
 
-    scene.clearColor = new Color4(SKY_COLOR.r, SKY_COLOR.g, SKY_COLOR.b, 1)
+    scene.clearColor = new Color4(GARDEN_FOG_COLOR.r, GARDEN_FOG_COLOR.g, GARDEN_FOG_COLOR.b, 1)
 
     /**
      * 環境補光（不投射陰影）
@@ -221,20 +183,28 @@ const defaultParam: Required<UseBabylonSceneParam> = {
     ambientLight.groundColor = new Color3(0.82, 0.77, 0.72)
     ambientLight.specular = new Color3(0, 0, 0)
 
+    /**
+     * 霧
+     *
+     * 這幾個值每一幀都會被漫遊控制器依大氣狀態覆寫，
+     * 這裡給的是還沒開始漫遊前的第一幀，照著禪庭的白霧設定
+     */
     scene.fogMode = Scene.FOGMODE_LINEAR
-    scene.fogColor = SKY_COLOR.clone()
-    scene.fogStart = 60
-    scene.fogEnd = 280
+    scene.fogColor = GARDEN_FOG_COLOR.clone()
+    scene.fogStart = GARDEN_FOG_START
+    scene.fogEnd = GARDEN_FOG_END
 
     /** 各層之間保留深度，地形擋住雲、雲擋住太陽的關係才不會被清掉 */
-    scene.setRenderingAutoClearDepthStencil(CLOUD_RENDERING_GROUP, false)
+    scene.setRenderingAutoClearDepthStencil(SKY_OVERLAY_RENDERING_GROUP, false)
     scene.setRenderingAutoClearDepthStencil(WEATHER_RENDERING_GROUP, false)
 
+    trackShadowToCamera(scene)
     createSkyDome(scene)
+    createStarField(scene)
     createSunDisc(scene)
+    createMoonDisc(scene)
     createCloudLayer(scene)
     createOvercastDome(scene)
-    createOpenSea(scene)
     createCaveLights(scene)
     createCaveDrips(scene)
 
@@ -243,17 +213,17 @@ const defaultParam: Required<UseBabylonSceneParam> = {
   createCamera({ scene, canvas }) {
     const camera = new UniversalCamera(
       'roam-camera',
-      new Vector3(SPAWN_POSITION.x, SEA_LEVEL + 8, SPAWN_POSITION.z),
+      new Vector3(SPAWN_POSITION.x, SAND_LEVEL + 3, SPAWN_POSITION.z),
       scene,
     )
 
-    /** 出生就面向西北方的森林 */
-    camera.setTarget(new Vector3(SPAWN_POSITION.x - 20, SEA_LEVEL + 6, SPAWN_POSITION.z - 20))
+    /** 出生就面向北方的枯山水 */
+    camera.setTarget(new Vector3(SPAWN_POSITION.x, SAND_LEVEL + 2, SPAWN_POSITION.z - 20))
 
     camera.attachControl(canvas, true)
     camera.minZ = 0.1
-    /** 要看得到延伸到天邊的海面 */
-    camera.maxZ = 1200
+    /** 要看得到延伸到天邊的沙地 */
+    camera.maxZ = 1600
     /** 擴大 FOV 讓視野寬廣一些（預設 0.8） */
     camera.fov = 1.15
     updateCameraFovMode(camera, canvas)
@@ -264,21 +234,63 @@ const defaultParam: Required<UseBabylonSceneParam> = {
 }
 
 /**
+ * 天空材質裡我們真正會動到的那幾個參數
+ *
+ * SkyMaterial 來自 @babylonjs/materials-v9，而那個套件內部是用寫死的
+ * 「@babylonjs/core」去 import 的。打包時的解析有 vite 的
+ * babylon-v9-resolve 外掛接住（換成 core-v9），
+ * 但 TypeScript 的型別解析接不到——它眼中的 Scene 與 Vector3
+ * 依然是根目錄那份 v8，跨過來就對不起來。
+ *
+ * 執行期兩邊是同一份 v9，沒有問題；需要一道窄門的只有型別。
+ * 與其把整個 SkyMaterial 硬轉過來，不如只描述我們真正會碰的那幾個欄位——
+ * 順帶也講清楚了這個材質對這個場景而言到底是什麼
+ */
+export interface SkyDomeMaterial {
+  luminance: number;
+  turbidity: number;
+  rayleigh: number;
+  mieCoefficient: number;
+  mieDirectionalG: number;
+  useSunPosition: boolean;
+  sunPosition: Vector3;
+  fogEnabled: boolean;
+  backFaceCulling: boolean;
+  disableDepthWrite: boolean;
+}
+
+/** 建立天空材質，並把型別收斂成上面那幾個欄位 */
+function createSkyMaterial(name: string, scene: Scene): SkyDomeMaterial {
+  const SkyMaterialClass = SkyMaterial as unknown as
+    new (name: string, scene: Scene) => SkyDomeMaterial
+
+  return new SkyMaterialClass(name, scene)
+}
+
+/**
  * 天空罩
  *
  * SkyMaterial 會依大氣散射參數即時算出天色，
  * 比單一底色多了地平線漸層與太陽光暈，天氣變化也只要調參數
  */
 function createSkyDome(scene: Scene) {
-  const skyMaterial = new SkyMaterial('sky-material', scene)
+  const skyMaterial = createSkyMaterial('sky-material', scene)
   skyMaterial.backFaceCulling = false
   /** 天空不吃霧氣，否則整片天會被霧染成一塊死板的顏色 */
   skyMaterial.fogEnabled = false
   skyMaterial.useSunPosition = true
   skyMaterial.sunPosition = SUN_DIRECTION.scale(-120)
-  skyMaterial.luminance = 0.55
-  skyMaterial.turbidity = 6
-  skyMaterial.rayleigh = 1.6
+  /**
+   * 大氣散射參數
+   *
+   * 霧是近乎純白的，遠處的東西一律被霧染白；它們背後若是飽和的藍天，
+   * 就會變成貼在藍色上的白色剪影，明明看不清楚卻反而看得一清二楚。
+   * 所以混濁度調高、瑞立散射調低：地平線那一圈變得灰白，
+   * 遠景融進去之後就真的看不見了，天頂才留住該有的藍
+   */
+  skyMaterial.luminance = 0.42
+  skyMaterial.turbidity = 14
+  skyMaterial.rayleigh = 0.75
   /** 把大氣散射的太陽壓到幾乎看不見，太陽改由方形貼圖負責 */
   skyMaterial.mieCoefficient = 0.0005
   skyMaterial.mieDirectionalG = 0.05
@@ -288,9 +300,8 @@ function createSkyDome(scene: Scene) {
    *
    * 這個盒子邊長只有 260，跟著鏡頭走，所以永遠在一百三十格外。
    * 它照常寫深度的話，比它遠的東西全部會被擋掉——
-   * 外海鋪了近千格，超過一百三十格的部分整片消失，
-   * 露出來的就是天空罩地平線以下那塊深藍。
-   * 那正是「遠方海面顏色不一樣」的真正原因：那根本不是海，是天空。
+   * 世界之外那片白沙鋪了一千多格，超過一百三十格的部分會整片消失，
+   * 露出來的其實是天空罩地平線以下的顏色，看起來卻像遠方的地面變了色。
    *
    * 天空罩是所有東西的背景，關掉深度寫入，
    * 它就只負責填底色，不會擋住任何東西
@@ -298,7 +309,7 @@ function createSkyDome(scene: Scene) {
   skyMaterial.disableDepthWrite = true
 
   const skyDome = MeshBuilder.CreateBox(SKYBOX_NAME, { size: 260 }, scene)
-  skyDome.material = skyMaterial
+  skyDome.material = skyMaterial as unknown as Material
   skyDome.infiniteDistance = true
   skyDome.isPickable = false
   skyDome.applyFog = false
@@ -307,9 +318,121 @@ function createSkyDome(scene: Scene) {
 }
 
 /** 取得場景中的天空材質 */
-export function getSkyMaterial(scene: Scene): SkyMaterial | null {
+export function getSkyMaterial(scene: Scene): SkyDomeMaterial | null {
   const skyDome = scene.getMeshByName(SKYBOX_NAME)
-  return (skyDome?.material as SkyMaterial | undefined) ?? null
+  return (skyDome?.material as unknown as SkyDomeMaterial | undefined) ?? null
+}
+
+/**
+ * 讓陰影範圍跟著鏡頭移動
+ *
+ * 投影中心必須對齊到貼圖的取樣格，不能連續地跟著走。
+ * 連續移動時投影矩陣一直在變，同一道邊緣每一幀落在不同的深度取樣點上，
+ * 影子邊緣會沿著走路的方向不停爬動（俗稱 shadow shimmering）。
+ *
+ * 關鍵是「對齊到哪個座標系」。這裡曾經直接把鏡頭的世界座標
+ * X、Y、Z 各自對齊取樣格——那是錯的：陰影貼圖的格子長在光源空間上，
+ * 而光源是斜的。世界座標對齊之後投影到光源空間並不會落在整數格上，
+ * 邊緣照樣每一幀重新取樣。更別說「沿著光線退開的那一段」完全沒有對齊，
+ * 光是那一項就足以讓整張格子每幀錯開。
+ *
+ * 正解是先把中心點投影到光源自己的三軸上，在那裡對齊，再轉回世界座標。
+ * 三軸的建法必須與 Babylon 算陰影視圖矩陣時完全一致
+ * （LookAtLH 以世界的上方為參考），否則對齊的還是另一組格子
+ */
+function trackShadowToCamera(scene: Scene) {
+  /** 光源空間的三軸與暫存，每幀就地覆寫，不重新配置 */
+  const forward = new Vector3()
+  const right = new Vector3()
+  const up = new Vector3()
+  const center = new Vector3()
+
+  /** 取樣格的大小要照實際的貼圖尺寸算，低畫質那張只有一半寬 */
+  let texelSize = 0
+
+  scene.onBeforeRenderObservable.add(() => {
+    const light = scene.getLightByName(SUN_LIGHT_NAME) as DirectionalLight | null
+    const camera = scene.activeCamera
+    if (!light || !camera)
+      return
+
+    if (texelSize === 0) {
+      const mapSize = light.getShadowGenerator()?.getShadowMap()?.getSize().width
+      if (!mapSize)
+        return
+
+      texelSize = (SHADOW_HALF_EXTENT * 2) / mapSize
+    }
+
+    /**
+     * 讀光源自己的方向，不要讀那個常數
+     *
+     * 日夜循環每一幀都在轉動這道光：白天從太陽射下、夜裡換成月亮。
+     * 這裡若還照著固定的方向退開，投影範圍就會歪到鏡頭以外的地方去
+     */
+    forward.copyFrom(light.direction).normalize()
+    Vector3.CrossToRef(Vector3.UpReadOnly, forward, right)
+    right.normalize()
+    Vector3.CrossToRef(forward, right, up)
+
+    /** 投影到光源的三軸上，橫向與縱向對齊取樣格；深度方向不必對齊 */
+    const alongRight = Math.round(Vector3.Dot(camera.position, right) / texelSize) * texelSize
+    const alongUp = Math.round(Vector3.Dot(camera.position, up) / texelSize) * texelSize
+    const alongForward = Vector3.Dot(camera.position, forward)
+
+    center.set(
+      right.x * alongRight + up.x * alongUp + forward.x * alongForward,
+      right.y * alongRight + up.y * alongUp + forward.y * alongForward,
+      right.z * alongRight + up.z * alongUp + forward.z * alongForward,
+    )
+
+    light.position.set(
+      center.x - forward.x * SHADOW_LIGHT_DISTANCE,
+      center.y - forward.y * SHADOW_LIGHT_DISTANCE,
+      center.z - forward.z * SHADOW_LIGHT_DISTANCE,
+    )
+  })
+}
+
+/**
+ * 天體共用的材質
+ *
+ * 太陽、月亮、星空與兩圈光暈都用這一套：貼圖決定形狀與顏色，
+ * 自發光的顏色決定它此刻該露出多少、該染成什麼色。
+ *
+ * 貼圖必須掛在 diffuseTexture，不能掛在 emissiveTexture——這是關鍵。
+ * Babylon 的著色器裡自發光是「顏色加上貼圖」：
+ *
+ *     emissiveColor = vEmissiveColor + texture * level
+ *
+ * 掛在自發光上的話，把顏色調成黑色貼圖照樣全亮（白天星星掛在藍天上），
+ * 調成白色則是整片加上一層白（夜裡整個天空被灌成一片灰）。
+ * 關掉光照之後，diffuse 那條路才是我們要的乘法：
+ *
+ *     finalDiffuse = clamp(emissiveColor) * 貼圖
+ *
+ * 於是自發光的顏色就成了一個乾淨的乘數，淡入淡出與染色都靠它
+ */
+function createSkyBodyMaterial(
+  name: string,
+  texture: DynamicTexture,
+  scene: Scene,
+): StandardMaterial {
+  const material = new StandardMaterial(name, scene)
+  material.diffuseTexture = texture
+  material.diffuseColor = new Color3(0, 0, 0)
+  material.specularColor = new Color3(0, 0, 0)
+  /** 不吃光照，關掉之後畫面上的顏色就只剩自發光乘上貼圖 */
+  material.disableLighting = true
+  material.fogEnabled = false
+  material.backFaceCulling = false
+  material.alphaMode = Constants.ALPHA_ADD
+  /** 相加混合要走半透明那條路才生效，alpha 得比 1 小一點點 */
+  material.alpha = 0.999
+  /** 天體是天空的一部分，不留下深度，雲才蓋得住它 */
+  material.disableDepthWrite = true
+
+  return material
 }
 
 /**
@@ -327,21 +450,11 @@ function createSunDisc(scene: Scene) {
   context.fillRect(0, 0, size, size)
   texture.update()
 
-  const material = new StandardMaterial(`${SUN_DISC_NAME}-material`, scene)
-  material.emissiveTexture = texture
-  /** 拉高自發光讓它衝過泛光門檻，太陽才有在發亮的感覺 */
-  material.emissiveColor = new Color3(2.4, 2.3, 2)
-  material.diffuseColor = new Color3(0, 0, 0)
-  material.specularColor = new Color3(0, 0, 0)
-  material.disableLighting = true
-  material.fogEnabled = false
-  material.backFaceCulling = false
-  material.alphaMode = Constants.ALPHA_ADD
-  material.alpha = 0.999
-  /** 太陽是天空的一部分，不留下深度，雲才蓋得住它 */
-  material.disableDepthWrite = true
+  const material = createSkyBodyMaterial(`${SUN_DISC_NAME}-material`, texture, scene)
+  /** 日夜循環拿這個顏色去乘貼圖，升起落下的淡入淡出與染色都靠它 */
+  material.emissiveColor = new Color3(1, 1, 1)
 
-  const disc = MeshBuilder.CreatePlane(SUN_DISC_NAME, { size: 7.5 }, scene)
+  const disc = MeshBuilder.CreatePlane(SUN_DISC_NAME, { size: 15 }, scene)
   disc.material = material
   /** 掛在天上固定的方位，跟著鏡頭走但不隨鏡頭轉 */
   disc.position = SUN_DIRECTION.scale(-110)
@@ -361,28 +474,30 @@ function createSunGlow(scene: Scene) {
   const texture = new DynamicTexture(SUN_GLOW_NAME, { width: size, height: size }, scene, false)
   const context = texture.getContext() as CanvasRenderingContext2D
 
+  /**
+   * 衰減要畫在顏色上，不能畫在透明度上
+   *
+   * 天體走的是相加混合，透明度在那條路上完全不起作用——
+   * 只有顏色會被加上去。漸層若照一般寫法讓 alpha 從 0.85 收到 0，
+   * 顏色卻一路維持在同一個亮度，畫出來就是一塊亮度均勻的圓餅，
+   * 邊緣還有一道硬生生的界線，那正是太陽與月亮外圍那一圈白圈的來源。
+   *
+   * 所以這裡把該有的透明度先乘進顏色裡，一路收到全黑；
+   * 黑色加上去等於沒加，暈開的效果自然就出來了
+   */
   const gradient = context.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2)
-  gradient.addColorStop(0, 'rgba(255, 248, 214, 0.85)')
-  gradient.addColorStop(0.35, 'rgba(255, 242, 196, 0.3)')
-  gradient.addColorStop(1, 'rgba(255, 238, 190, 0)')
+  gradient.addColorStop(0, 'rgb(217, 211, 182)')
+  gradient.addColorStop(0.35, 'rgb(77, 73, 59)')
+  gradient.addColorStop(0.7, 'rgb(20, 19, 15)')
+  gradient.addColorStop(1, 'rgb(0, 0, 0)')
   context.fillStyle = gradient
   context.fillRect(0, 0, size, size)
   texture.update()
 
-  const material = new StandardMaterial(`${SUN_GLOW_NAME}-material`, scene)
-  material.emissiveTexture = texture
-  material.emissiveColor = new Color3(1.4, 1.35, 1.2)
-  material.diffuseColor = new Color3(0, 0, 0)
-  material.specularColor = new Color3(0, 0, 0)
-  material.disableLighting = true
-  material.fogEnabled = false
-  material.backFaceCulling = false
-  material.alphaMode = Constants.ALPHA_ADD
-  material.alpha = 0.999
-  /** 光暈跟太陽本體一樣不留深度，否則雲邊會被光暈糊掉一圈 */
-  material.disableDepthWrite = true
+  const material = createSkyBodyMaterial(`${SUN_GLOW_NAME}-material`, texture, scene)
+  material.emissiveColor = new Color3(1, 1, 1)
 
-  const glow = MeshBuilder.CreatePlane(SUN_GLOW_NAME, { size: 24 }, scene)
+  const glow = MeshBuilder.CreatePlane(SUN_GLOW_NAME, { size: 48 }, scene)
   glow.material = material
   glow.position = SUN_DIRECTION.scale(-112)
   glow.infiniteDistance = true
@@ -394,6 +509,176 @@ function createSunGlow(scene: Scene) {
 }
 
 /**
+ * Minecraft 風格的月亮
+ *
+ * 與太陽一樣是填滿的方形——方塊世界的天上不該有圓的東西——
+ * 差別在表面：太陽是一片沒有細節的白，月亮則有月海、坑與明暗，
+ * 冷色調也與太陽的暖白分得開。同樣是方塊，一眼就認得出誰是誰
+ */
+function createMoonDisc(scene: Scene) {
+  const size = 16
+  const texture = new DynamicTexture(MOON_DISC_NAME, { width: size, height: size }, scene, false, Texture.NEAREST_SAMPLINGMODE)
+  const context = texture.getContext() as CanvasRenderingContext2D
+  context.imageSmoothingEnabled = false
+  /** 底色：偏冷的月白，整片填滿 */
+  context.fillStyle = 'rgb(226, 233, 250)'
+  context.fillRect(0, 0, size, size)
+
+  /**
+   * 月海：暗一階的幾塊斑
+   *
+   * 位置與大小刻意不規則，也刻意不對稱——
+   * 排得整齊會變成一顆骰子，均勻散開又會變成雜訊。
+   * 幾塊大的湊在一邊、幾塊小的散在另一邊，那才像月面
+   */
+  context.fillStyle = 'rgb(196, 206, 231)'
+  const seaList: [number, number, number, number][] = [
+    [2, 3, 5, 4],
+    [8, 2, 3, 3],
+    [10, 7, 4, 5],
+    [1, 9, 3, 3],
+    [5, 11, 4, 3],
+    [12, 1, 2, 2],
+  ]
+  for (const [x, y, width, height] of seaList) {
+    context.fillRect(x, y, width, height)
+  }
+
+  /** 再暗一階的坑，落在月海裡面，表面才有第三層深度 */
+  context.fillStyle = 'rgb(170, 181, 209)'
+  const craterList: [number, number, number, number][] = [
+    [3, 4, 2, 2],
+    [11, 9, 2, 2],
+    [6, 12, 2, 1],
+    [2, 10, 1, 1],
+  ]
+  for (const [x, y, width, height] of craterList) {
+    context.fillRect(x, y, width, height)
+  }
+
+  /**
+   * 右下角壓暗一層
+   *
+   * 一整片同亮度的方塊看起來是平的。讓一角暗下去，
+   * 月亮才有一點球的錯覺，卻又沒有真的把它畫成圓
+   */
+  context.fillStyle = 'rgba(120, 132, 164, 0.32)'
+  context.fillRect(9, 12, 7, 4)
+  context.fillRect(13, 8, 3, 4)
+
+  texture.update()
+
+  const material = createSkyBodyMaterial(`${MOON_DISC_NAME}-material`, texture, scene)
+  /**
+   * 比太陽暗一階
+   *
+   * 月亮是反射的光，不是自己在燒。壓在泛光門檻以下，
+   * 月面就維持乾淨的硬邊像素，只有外圈的暈負責散開
+   */
+  material.emissiveColor = new Color3(0.86, 0.88, 0.95)
+
+  /** 比太陽小一號，天上兩顆方塊才分得出主從 */
+  const disc = MeshBuilder.CreatePlane(MOON_DISC_NAME, { size: 12 }, scene)
+  disc.material = material
+  disc.position = SUN_DIRECTION.scale(110)
+  disc.infiniteDistance = true
+  disc.billboardMode = Mesh.BILLBOARDMODE_ALL
+  disc.isPickable = false
+  disc.applyFog = false
+
+  createMoonGlow(scene)
+
+  return material
+}
+
+/** 月亮外圍那一圈冷色的暈，夜裡的空氣感靠它 */
+function createMoonGlow(scene: Scene) {
+  const size = 128
+  const texture = new DynamicTexture(MOON_GLOW_NAME, { width: size, height: size }, scene, false)
+  const context = texture.getContext() as CanvasRenderingContext2D
+
+  /** 與太陽的光暈同一個道理：衰減乘進顏色裡，一路收到全黑 */
+  const gradient = context.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2)
+  gradient.addColorStop(0, 'rgb(103, 112, 128)')
+  gradient.addColorStop(0.4, 'rgb(34, 38, 46)')
+  gradient.addColorStop(0.7, 'rgb(10, 11, 14)')
+  gradient.addColorStop(1, 'rgb(0, 0, 0)')
+  context.fillStyle = gradient
+  context.fillRect(0, 0, size, size)
+  texture.update()
+
+  const material = createSkyBodyMaterial(`${MOON_GLOW_NAME}-material`, texture, scene)
+  material.emissiveColor = new Color3(1, 1, 1)
+
+  const glow = MeshBuilder.CreatePlane(MOON_GLOW_NAME, { size: 40 }, scene)
+  glow.material = material
+  glow.position = SUN_DIRECTION.scale(112)
+  glow.infiniteDistance = true
+  glow.billboardMode = Mesh.BILLBOARDMODE_ALL
+  glow.isPickable = false
+  glow.applyFog = false
+
+  return material
+}
+
+/**
+ * 星空
+ *
+ * 少了它，夜裡抬頭只有一片沒有東西的深藍，天空會像一塊布。
+ * 做法是一張隨機點上星點的貼圖，貼在一個罩住鏡頭的盒子上，
+ * 用相加混合疊在天空前面——黑色的底加上去等於沒加，只有星點會亮。
+ *
+ * 盒子六個面共用同一張圖，圖樣其實重複了六次；
+ * 但星點本來就是隨機散布、沒有結構，轉頭時看不出重複
+ */
+function createStarField(scene: Scene) {
+  const size = 512
+  const texture = new DynamicTexture(STAR_FIELD_NAME, { width: size, height: size }, scene, true)
+  const context = texture.getContext() as CanvasRenderingContext2D
+  context.fillStyle = '#000000'
+  context.fillRect(0, 0, size, size)
+
+  const random = createSeededRandom('minespace-star')
+  const starCount = 460
+  for (let index = 0; index < starCount; index++) {
+    const x = Math.floor(random() * size)
+    const y = Math.floor(random() * size)
+    /** 大部分是暗的小星，偶爾幾顆亮而大的，疏密才有層次 */
+    const isBright = random() < 0.1
+    const brightness = isBright ? 0.85 + random() * 0.15 : 0.25 + random() * 0.45
+    const pixelSize = isBright ? 2 : 1
+    context.fillStyle = `rgba(255, 252, 242, ${brightness})`
+    context.fillRect(x, y, pixelSize, pixelSize)
+  }
+  texture.update()
+
+  const material = createSkyBodyMaterial(`${STAR_FIELD_NAME}-material`, texture, scene)
+  /** 白天為零、夜裡為一，由日夜循環每一幀寫入 */
+  material.emissiveColor = new Color3(0, 0, 0)
+
+  const dome = MeshBuilder.CreateBox(STAR_FIELD_NAME, { size: 240 }, scene)
+  dome.material = material
+  dome.infiniteDistance = true
+  dome.isPickable = false
+  dome.applyFog = false
+
+  return material
+}
+
+/** 取得月亮本體與月暈的材質 */
+export function getMoonMaterialList(scene: Scene): StandardMaterial[] {
+  return [MOON_DISC_NAME, MOON_GLOW_NAME]
+    .map((name) => scene.getMeshByName(name)?.material as StandardMaterial | undefined)
+    .filter((material): material is StandardMaterial => !!material)
+}
+
+/** 取得星空的材質 */
+export function getStarFieldMaterial(scene: Scene): StandardMaterial | null {
+  const dome = scene.getMeshByName(STAR_FIELD_NAME)
+  return (dome?.material as StandardMaterial | undefined) ?? null
+}
+
+/**
  * Minecraft 風格的雲層
  *
  * 每一朵雲都是實際的方塊，不是貼圖，所以看得到厚度與側面。
@@ -401,10 +686,17 @@ function createSunGlow(scene: Scene) {
  * 這層雲同時也是投影者，地面上會有雲影慢慢掃過
  */
 function createCloudLayer(scene: Scene) {
-  /** 圖樣本身的格數，整片雲是這張圖樣平鋪出來的 */
-  const patternCount = 32
-  /** 平鋪幾份，鋪得夠大才不會在霧裡看到雲的邊界 */
-  const tileCount = 3
+  /**
+   * 圖樣本身的格數
+   *
+   * 格數乘上格寬必須剛好等於世界寬度（18 × 14 = 252）。
+   * 這是循環世界的硬性條件：玩家跨過邊界時位置會平移一整個世界的距離，
+   * 雲的圖樣若不是同一個週期，整片天會在那一瞬間換一副樣子——
+   * 那是全場景唯一不吃霧氣、藏不住的東西
+   */
+  const patternCount = 18
+  /** 平鋪幾份，鋪得夠大才不會在天邊看到雲層的邊界 */
+  const tileCount = 9
 
   const random = createSeededRandom('minespace-cloud')
   /**
@@ -413,7 +705,7 @@ function createCloudLayer(scene: Scene) {
    * 平滑規則會把孤立的格子吃掉，起始值太低整片天最後只剩零星幾朵，
    * 一抬頭常常什麼都沒有。填到接近一半，收斂後才是「多雲」該有的覆蓋率
    */
-  let cellList = Array.from({ length: patternCount * patternCount }, () => random() < 0.46)
+  let cellList = Array.from({ length: patternCount * patternCount }, () => random() < 0.34)
 
   const readCell = (grid: boolean[], x: number, z: number) => {
     /** 座標繞回去，圖樣才能無縫平鋪 */
@@ -624,13 +916,13 @@ function createCloudLayer(scene: Scene) {
   vertexData.indices = indexList
   vertexData.applyToMesh(cloudMesh)
   /** 雲畫在天空層之後，太陽只能整顆躲在雲後面 */
-  cloudMesh.renderingGroupId = CLOUD_RENDERING_GROUP
+  cloudMesh.renderingGroupId = SKY_OVERLAY_RENDERING_GROUP
 
   cloudMesh.material = material
   cloudMesh.isPickable = false
   cloudMesh.receiveShadows = false
   cloudMesh.applyFog = false
-  cloudMesh.position.set(WORLD_SIZE / 2, CLOUD_HEIGHT, WORLD_SIZE / 2)
+  cloudMesh.position.set(0, CLOUD_HEIGHT, 0)
 
   /**
    * 飄移
@@ -642,7 +934,7 @@ function createCloudLayer(scene: Scene) {
   let elapsed = 0
   scene.onBeforeRenderObservable.add(() => {
     elapsed += scene.getEngine().getDeltaTime() / 1000
-    cloudMesh.position.x = WORLD_SIZE / 2 + ((elapsed * CLOUD_DRIFT_SPEED) % driftPeriod)
+    cloudMesh.position.x = (elapsed * CLOUD_DRIFT_SPEED) % driftPeriod
   })
 
   return material
@@ -687,7 +979,7 @@ function createOvercastDome(scene: Scene) {
   const dome = MeshBuilder.CreateBox(OVERCAST_NAME, { size: 250 }, scene)
   dome.material = material
   /** 跟雲同一層，而且畫在雲之後，陰天時灰罩才蓋得住雲 */
-  dome.renderingGroupId = CLOUD_RENDERING_GROUP
+  dome.renderingGroupId = SKY_OVERLAY_RENDERING_GROUP
   dome.infiniteDistance = true
   dome.isPickable = false
   dome.applyFog = false
@@ -702,193 +994,31 @@ export function getOvercastMaterial(scene: Scene): StandardMaterial | null {
 }
 
 /**
- * 外海
- *
- * 方塊做的海到世界邊界就沒了。
- * 鋪一片大到看不見盡頭的水面接在後面，海平線才會落在霧氣裡而不是虛空
- */
-function createOpenSea(scene: Scene) {
-  /**
-   * 外海鋪成環繞世界的四塊，中間讓給方塊海水
-   *
-   * 若用一整片蓋過去，這片水面會從島的內部橫切過去，
-   * 山腹裡的洞穴會被一片藍色平面攔腰截斷
-   */
-  /** 對齊島上方塊海水的水面：方塊頂面再矮八分之一格 */
-  const seaLevel = SEA_LEVEL + 0.5 - 0.125
-  /**
-   * 方塊世界的實際邊界
-   *
-   * 方塊中心在整數座標，所以第一格的外緣是 -0.5、最後一格的外緣是 WORLD_SIZE - 0.5。
-   * 外海若從 0 與 WORLD_SIZE 起算，兩邊各會空出半格，
-   * 那條縫看下去是海床，就是海面上那條黑線
-   */
-  const worldMin = -0.5
-  const worldMax = WORLD_SIZE - 0.5
-  const worldCenter = (worldMin + worldMax) / 2
-  const worldSpan = worldMax - worldMin
-  const outerSize = worldSpan + OPEN_SEA_MARGIN * 2
-  const bandList = [
-    { width: outerSize, depth: OPEN_SEA_MARGIN, x: worldCenter, z: worldMin - OPEN_SEA_MARGIN / 2 },
-    { width: outerSize, depth: OPEN_SEA_MARGIN, x: worldCenter, z: worldMax + OPEN_SEA_MARGIN / 2 },
-    { width: OPEN_SEA_MARGIN, depth: worldSpan, x: worldMin - OPEN_SEA_MARGIN / 2, z: worldCenter },
-    { width: OPEN_SEA_MARGIN, depth: worldSpan, x: worldMax + OPEN_SEA_MARGIN / 2, z: worldCenter },
-  ]
-
-  const materialList: StandardMaterial[] = []
-
-  /**
-   * 海床
-   *
-   * 島上的海水是半透明方塊疊在深色海床上，看到的是兩者混色的結果。
-   * 外海若只鋪一片不透明的水，顏色永遠對不上，交界必定有一條線。
-   * 這裡照著島上的做法先鋪一層海床，水再半透明疊上去，混色方式完全相同
-   */
-  /**
-   * 外海的水面用的是與方塊海水完全相同的那幾張畫格
-   *
-   * 之前外海貼的是另一張靜態的 default_water.png，
-   * 島上的方塊海水播的卻是 default_water_source_animated 的六張畫格，
-   * 兩張圖的平均亮度本來就不一樣，接縫處自然對不上。
-   * 這裡把動畫圖的當前畫格逐格複製到一張 8x8 的畫布上，
-   * 平鋪與捲動都能照常做，顏色則保證一模一樣
-   */
-  const frameSource = new Image()
-  frameSource.src = ANIMATED_WATER_TEXTURE_PATH
-  const textureList: DynamicTexture[] = []
-
-  let elapsed = 0
-  let currentFrame = -1
-  scene.onBeforeRenderObservable.add(() => {
-    elapsed += scene.getEngine().getDeltaTime() / 1000
-    /** 慢慢捲動，遠遠看過去才是活的 */
-    for (const texture of textureList) {
-      texture.uOffset = (elapsed * 0.05) % 1
-      texture.vOffset = (elapsed * 0.03) % 1
-    }
-
-    const nextFrame = Math.floor(elapsed * WATER_FRAME_RATE) % WATER_FRAME_COUNT
-    if (nextFrame === currentFrame || !frameSource.complete)
-      return
-
-    currentFrame = nextFrame
-    for (const texture of textureList) {
-      drawWaterFrame(texture, frameSource, currentFrame)
-    }
-  })
-
-  const bedMaterial = new StandardMaterial('open-sea-bed', scene)
-  /** 對齊島邊海床的礫石亮度：default_gravel.png 的平均值就是 0.642 */
-  bedMaterial.diffuseColor = new Color3(0.642, 0.642, 0.642)
-  bedMaterial.specularColor = new Color3(0.08, 0.08, 0.08)
-  bedMaterial.maxSimultaneousLights = 6
-
-  for (const [index, band] of bandList.entries()) {
-    const bed = MeshBuilder.CreateGround(
-      `open-sea-bed-${index}`,
-      { width: band.width, height: band.depth },
-      scene,
-    )
-    bed.material = bedMaterial
-    bed.position.set(band.x, SEA_FLOOR_LEVEL, band.z)
-    bed.isPickable = false
-    bed.receiveShadows = false
-
-    /**
-     * 每一塊各配一份貼圖
-     *
-     * 四塊的長寬差了好幾倍，共用一份貼圖的話 uScale 只能取一個值，
-     * 每塊的貼圖密度就會差到十倍，交界處便出現筆直的分隔線。
-     * 改成一格一張，密度與島上的方塊海水完全一致
-     */
-    const texture = createOpenSeaTexture(`open-sea-texture-${index}`, scene, frameSource)
-    texture.uScale = band.width
-    texture.vScale = band.depth
-    textureList.push(texture)
-
-    const material = new StandardMaterial(`open-sea-${index}`, scene)
-    material.diffuseTexture = texture
-    /** 與方塊海水同一組色調與透明度，混色結果才會一致 */
-    material.diffuseColor = new Color3(0.55, 0.78, 1)
-    material.specularColor = new Color3(0.08, 0.08, 0.08)
-    material.alpha = 0.72
-    /** 方塊材質也是這個數字，燈光取捨方式要一致，亮度才不會差一階 */
-    material.maxSimultaneousLights = 6
-    material.transparencyMode = Material.MATERIAL_ALPHABLEND
-    /**
-     * 兩面都要畫
-     *
-     * 剔除背面的話，潛到水裡抬頭看到的是這片水面的底面，
-     * 整片外海會直接消失，只剩海床往外延伸到天邊
-     */
-    material.backFaceCulling = false
-
-    const sea = MeshBuilder.CreateGround(
-      `open-sea-${index}`,
-      { width: band.width, height: band.depth },
-      scene,
-    )
-    sea.material = material
-    sea.position.set(band.x, seaLevel, band.z)
-    sea.isPickable = false
-    sea.receiveShadows = false
-
-    materialList.push(material)
-  }
-
-  return materialList
-}
-
-/**
  * 洞穴裡的光
  *
  * 燈石的光已經由 Worker 烘進方塊表面，這幾盞只負責整體的空間感：
  * 洞口一盞冷色的光模擬透進來的天光，通道與洞窟各補一點暖色的層次
  */
 function createCaveLights(scene: Scene) {
-  const entrance = CAVE_PATH[0]
-  const chamber = CAVE_PATH[CAVE_PATH.length - 1]
-  if (!entrance || !chamber)
-    return
-
   /** 洞口：偏冷的天光，看起來像從外面透進來的 */
   const mouthLight = new PointLight(
     'cave-mouth-light',
-    new Vector3(entrance.x, entrance.y, entrance.z),
+    new Vector3(CAVE_MOUTH.x, CAVE_MOUTH.y + 1, CAVE_MOUTH.z),
     scene,
   )
   mouthLight.diffuse = new Color3(0.8, 0.88, 1)
   mouthLight.specular = new Color3(0, 0, 0)
   mouthLight.intensity = 0.8
-  mouthLight.range = 30
+  mouthLight.range = 22
 
-  /** 通道中段：兩盞暖光，對應牆上的柱燈 */
-  for (const index of [2, 4]) {
-    const point = CAVE_PATH[index]
-    if (!point)
-      continue
-
-    const light = new PointLight(
-      `cave-tunnel-light-${index}`,
-      new Vector3(point.x, point.y, point.z),
-      scene,
-    )
-    light.diffuse = new Color3(1, 0.82, 0.56)
-    light.specular = new Color3(0, 0, 0)
-    light.intensity = 0.85
-    light.range = 24
-  }
-
-  /** 洞窟深處：暖光當作指引 */
-  const chamberLight = new PointLight(
-    'cave-chamber-light',
-    new Vector3(chamber.x, chamber.y + 1, chamber.z),
-    scene,
-  )
-  chamberLight.diffuse = new Color3(1, 0.84, 0.6)
-  chamberLight.specular = new Color3(0, 0, 0)
-  chamberLight.intensity = 0.9
-  chamberLight.range = 38
+  /**
+   * 通道與洞室原本各有一盞手擺的暖光，現在收掉了
+   *
+   * 那兩盞是在燈池做出來以前的替代方案：洞裡的燈籠只有烘進反照率的假光，
+   * 暗處看不出照明，只好在旁邊補一盞真光。
+   * 現在燈池會自己找到洞裡那幾盞燈籠並給它們真光，
+   * 留著就是白白佔掉材質僅有的六個光源名額
+   */
 }
 
 /**
@@ -898,28 +1028,54 @@ function createCaveLights(scene: Scene) {
  * 在通道與洞窟各放一組粒子，從洞頂落下
  */
 function createCaveDrips(scene: Scene) {
-  const size = 16
-  const texture = new DynamicTexture('cave-drip-texture', { width: size, height: size }, scene, false)
+  /**
+   * 一滴水的貼圖：硬邊的像素，不是柔邊的光點
+   *
+   * 柔邊漸層做出來的是攝影機拍到的散景，那是寫實遊戲的語彙。
+   * Minecraft 的水滴就是幾格看得出邊界的方塊，
+   * 所以這裡畫一顆四格見方的水珠：中間亮、下緣暗一階當作重量，
+   * 取樣用 NEAREST 保住硬邊，再交給粒子系統拉長成一條
+   */
+  const size = 8
+  const texture = new DynamicTexture(
+    'cave-drip-texture',
+    { width: size, height: size },
+    scene,
+    false,
+    Texture.NEAREST_SAMPLINGMODE,
+  )
   const context = texture.getContext() as CanvasRenderingContext2D
-  const gradient = context.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2)
-  gradient.addColorStop(0, 'rgba(210, 235, 255, 0.95)')
-  gradient.addColorStop(1, 'rgba(190, 225, 255, 0)')
-  context.fillStyle = gradient
-  context.fillRect(0, 0, size, size)
+  context.imageSmoothingEnabled = false
+  context.clearRect(0, 0, size, size)
+  /** 水珠本體 */
+  context.fillStyle = 'rgba(206, 233, 255, 1)'
+  context.fillRect(2, 1, 4, 6)
+  /** 上緣收窄一格，看起來才像一顆水珠而不是一根柱子 */
+  context.clearRect(2, 1, 1, 1)
+  context.clearRect(5, 1, 1, 1)
+  /** 下緣暗一階，水滴才有上輕下重的感覺 */
+  context.fillStyle = 'rgba(150, 196, 240, 1)'
+  context.fillRect(2, 6, 4, 1)
+  /** 一格高光 */
+  context.fillStyle = 'rgba(255, 255, 255, 1)'
+  context.fillRect(3, 2, 1, 1)
   texture.update()
   texture.hasAlpha = true
 
-  for (const index of [2, 3, 4, 5]) {
-    const point = CAVE_PATH[index]
-    if (!point)
-      continue
+  /** 通道那一段矮、洞室那一段高，落點的範圍也跟著不同 */
+  const dripSpotList = [
+    { name: 'tunnel', point: CAVE_TUNNEL, ceilingOffset: 2, spread: 1.2 },
+    { name: 'chamber', point: CAVE_CHAMBER, ceilingOffset: 5, spread: 3.4 },
+  ]
 
-    const particleSystem = new ParticleSystem(`cave-drip-${index}`, 60, scene)
+  for (const spot of dripSpotList) {
+    const particleSystem = new ParticleSystem(`cave-drip-${spot.name}`, 60, scene)
     particleSystem.particleTexture = texture
-    particleSystem.emitter = new Vector3(point.x, point.y + point.radius - 1.2, point.z)
+    particleSystem.applyFog = true
+    particleSystem.emitter = new Vector3(spot.point.x, spot.point.y + spot.ceilingOffset, spot.point.z)
     /** 從洞頂一小片區域隨機落下 */
-    particleSystem.minEmitBox = new Vector3(-point.radius * 0.6, 0, -point.radius * 0.6)
-    particleSystem.maxEmitBox = new Vector3(point.radius * 0.6, 0, point.radius * 0.6)
+    particleSystem.minEmitBox = new Vector3(-spot.spread, 0, -spot.spread)
+    particleSystem.maxEmitBox = new Vector3(spot.spread, 0, spot.spread)
     particleSystem.color1 = new Color4(0.82, 0.92, 1, 0.9)
     particleSystem.color2 = new Color4(0.7, 0.85, 1, 0.7)
     particleSystem.colorDead = new Color4(0.7, 0.85, 1, 0)
@@ -956,8 +1112,14 @@ const FLAME_FRAME_RATE = 7
 function drawFlameFrame(context: CanvasRenderingContext2D, size: number, frameIndex: number): void {
   context.clearRect(0, 0, size, size)
 
-  /** 由下往上：白黃、亮黃、橘、暗紅 */
-  const colorList = ['#fff3c4', '#ffd24a', '#f28a1c', '#c73f12']
+  /**
+   * 由下往上：純白、亮黃、橘、暗紅
+   *
+   * 最底下那一段是火心，必須是不帶一點雜色的純白。
+   * 原本給的是 #fff3c4 這種奶油白，經過 ACES 色調映射之後
+   * 會被壓成一片灰撲撲的米色，看起來像燒到一半熄掉的灰
+   */
+  const colorList = ['#ffffff', '#ffd24a', '#f28a1c', '#c73f12']
 
   for (let column = 0; column < size; column++) {
     /** 中間高、兩側低，再疊一道會跑的波，火舌才會左右竄動 */
@@ -1010,9 +1172,13 @@ function createCampfireFlame(scene: Scene, x: number, groundY: number, z: number
    *
    * 自發光給滿即可，讓火焰以貼圖原本的顏色全亮呈現。
    * 千萬別開 useEmissiveAsIllumination：那會讓自發光跳過貼圖直接加在最後，
-   * 最終顏色又夾在 1 以內，整團火會被洗成一塊白，只剩下火舌的輪廓
+   * 最終顏色又夾在 1 以內，整團火會被洗成一塊白，只剩下火舌的輪廓。
+   *
+   * 倍率要推到一以上。只給到一的話，貼圖的白進到 ACES 色調映射時
+   * 剛好落在曲線開始壓縮的地方，出來會變成八成亮的灰白，火心因此永遠白不起來。
+   * 推到一點六，白才真的是白，而且越過泛光的門檻，火會透出一圈光暈
    */
-  material.emissiveColor = new Color3(1, 1, 1)
+  material.emissiveColor = new Color3(1.6, 1.6, 1.6)
   material.disableLighting = true
   material.backFaceCulling = false
 
@@ -1054,7 +1220,7 @@ function createCampfireFlame(scene: Scene, x: number, groundY: number, z: number
  * 火堆高度得等世界生成完才知道，所以由外面帶 worldState 進來
  */
 export function createCampfireSmoke(scene: Scene, worldState: Uint8Array): void {
-  const { x, z } = CAMPFIRE_POSITION
+  const { x, z } = CAMPFIRE_POINT
   const groundY = getGroundY(worldState, x, z)
 
   createCampfireFlame(scene, x, groundY, z)
@@ -1089,6 +1255,7 @@ export function createCampfireSmoke(scene: Scene, worldState: Uint8Array): void 
 
   const particleSystem = new ParticleSystem('campfire-smoke', 60, scene)
   particleSystem.particleTexture = texture
+  particleSystem.applyFog = true
   /** 煙從火焰上緣冒出來，接在火舌的高度才連得起來 */
   particleSystem.emitter = new Vector3(x, groundY + 0.7, z)
   particleSystem.minEmitBox = new Vector3(-0.16, 0, -0.16)
@@ -1141,6 +1308,16 @@ function createRenderingPipeline(scene: Scene, camera: UniversalCamera) {
   pipeline.imageProcessing.vignetteWeight = 2.2
   pipeline.imageProcessing.vignetteColor = new Color4(0, 0, 0, 0)
 
+  /**
+   * 色調曲線
+   *
+   * 日夜循環每一幀會改它的色相與濃度：夜裡整片畫面偏冷、黃昏偏暖。
+   * 這件事只靠調暗曝光做不到——「暗下來」與「換一種顏色」是兩回事，
+   * 而後者才是黃昏之所以是黃昏的原因
+   */
+  pipeline.imageProcessing.colorCurves = new ColorCurves()
+  pipeline.imageProcessing.colorCurvesEnabled = true
+
   pipeline.bloomEnabled = true
   pipeline.bloomThreshold = 0.86
   pipeline.bloomWeight = 0.22
@@ -1150,6 +1327,25 @@ function createRenderingPipeline(scene: Scene, camera: UniversalCamera) {
   pipeline.fxaaEnabled = true
 
   return pipeline
+}
+
+/**
+ * 決定實際要渲染多少像素
+ *
+ * 高畫質原本直接跟著裝置像素比走。在兩倍的螢幕上那代表要畫四倍的像素，
+ * 再疊上泛光與抗鋸齒，幀率掉下來之後轉動視角會一段一段跳——
+ * 因為視角轉多少是由滑鼠位移決定的，與幀率無關，
+ * 幀率一低，同樣的角度就被切成更少、更大的步進。
+ *
+ * 這裡把倍率壓在一點五以內：畫質幾乎看不出差別，像素量卻少了將近一半。
+ * 低畫質維持三分之一
+ */
+function getHardwareScalingLevel(quality: GraphicsQuality, devicePixelRatio: number): number {
+  if (quality === 'low') {
+    return 3 / devicePixelRatio
+  }
+
+  return 1 / Math.min(devicePixelRatio, 1.5)
 }
 
 /** 直螢幕時以寬度為基準計算 FOV，避免鏡頭過度放大 */
@@ -1168,39 +1364,44 @@ function createShadowGenerator({ scene }: { scene: Scene }) {
   sunLight.specular = new Color3(0.1, 0.1, 0.1)
 
   /**
-   * ShadowGenerator 需要明確的光源位置與正交投影範圍
+   * 陰影只照顧鏡頭附近那一塊
    *
-   * autoUpdateExtends 預設會每幀依投影者重算範圍，
-   * 關掉改用固定範圍，投影矩陣穩定，影子邊緣才不會隨著鏡頭移動抖動
+   * 原本的投影範圍罩住整個世界（三百五十格見方）。那代表每一幀都要把
+   * 全世界的幾何重畫進一張 4096 的深度圖裡，而其中絕大部分
+   * 玩家根本看不到——霧在兩百二十格就糊掉了，走遠的東西也沒有影子可看。
+   *
+   * 改成一塊跟著鏡頭移動的小範圍：邊長只有九十六格，
+   * 貼圖降到 2048 反而讓每一格分到的像素從十一個變成二十一個——
+   * 成本降到四分之一，影子還更銳利。
+   *
+   * autoUpdateExtends 要關掉：讓它每幀依投影者重算的話，
+   * 範圍會隨著視野裡的東西跳動，影子邊緣跟著抖
    */
-  /** 從世界中心沿著光線反方向退開，整座島才會落在深度範圍中段 */
-  sunLight.position = new Vector3(WORLD_SIZE / 2, SEA_LEVEL + 20, WORLD_SIZE / 2)
-    .subtract(SUN_DIRECTION.scale(220))
-  const halfSize = WORLD_SIZE / 1.6
   sunLight.autoUpdateExtends = false
-  sunLight.orthoLeft = -halfSize
-  sunLight.orthoRight = halfSize
-  sunLight.orthoTop = halfSize
-  sunLight.orthoBottom = -halfSize
+  sunLight.orthoLeft = -SHADOW_HALF_EXTENT
+  sunLight.orthoRight = SHADOW_HALF_EXTENT
+  sunLight.orthoTop = SHADOW_HALF_EXTENT
+  sunLight.orthoBottom = -SHADOW_HALF_EXTENT
   /**
-   * 深度範圍也要自己給
+   * 深度範圍
    *
-   * 關掉 autoUpdateExtends 之後 autoCalcShadowZBounds 就失效了。
-   * 範圍抓寬一點，山頂與雲層才不會被裁掉而投不出影子
+   * 關掉 autoUpdateExtends 之後 autoCalcShadowZBounds 就失效了，得自己給。
+   * 光源退開的距離加上世界高度，前後各留一點餘裕
    */
-  sunLight.shadowMinZ = 60
-  sunLight.shadowMaxZ = 400
+  sunLight.shadowMinZ = 10
+  sunLight.shadowMaxZ = SHADOW_LIGHT_DISTANCE + 80
+  sunLight.position = new Vector3(WORLD_SIZE / 2, SAND_LEVEL, WORLD_SIZE / 2)
+    .subtract(SUN_DIRECTION.scale(SHADOW_LIGHT_DISTANCE))
 
   const { quality } = useGraphicsQuality()
 
   /**
    * 陰影貼圖的解析度
    *
-   * 投影範圍是整座島的 240 格，2048 只有每格 8.5 個像素，
-   * 花草那種細到只有幾個像素寬的東西，投出來的影子撐不過一個取樣點。
-   * 拉到 4096 等於每格 17 個像素，同時也讓 bias 可以縮小一半
+   * 投影範圍縮到九十六格之後，2048 就有每格二十一個像素，
+   * 比原本「4096 罩住整個世界」還要細，成本卻只有四分之一
    */
-  const shadowGenerator = new ShadowGenerator(quality.value === 'low' ? 1024 : 4096, sunLight)
+  const shadowGenerator = new ShadowGenerator(quality.value === 'low' ? 1024 : 2048, sunLight)
   /**
    * bias 是正規化深度，要換算成世界單位才有意義
    *
@@ -1221,15 +1422,51 @@ function createShadowGenerator({ scene }: { scene: Scene }) {
    * 這裡只留剛好夠壓住條紋的量，其餘交給提高解析度
    */
   shadowGenerator.normalBias = 0.08
-  /** darkness 越大陰影越淡，0 全黑、1 等於沒有影子 */
-  shadowGenerator.darkness = 0.5
+  /**
+   * 陰影要把平行光整個擋掉，不能只擋一半
+   *
+   * darkness 越大陰影越淡，0 是全擋、1 等於沒有影子。原本給的是 0.5，
+   * 結果正午的白沙上完全看不到影子——這不是變淡，是數學上根本不存在。
+   *
+   * StandardMaterial 算漫射時有一道 clamp：
+   *
+   *     finalDiffuse = clamp(平行光 + 環境光, 0.0, 1.0) * 貼圖
+   *
+   * 正午的白沙正對太陽，環境光 0.72 加上平行光 1.03，合計 1.75；
+   * 影子裡擋掉一半也還有 1.24。兩個數字都超過 1，clamp 之後
+   * 一律變成 1.00——亮處與影子完全相同。
+   *
+   * 太陽很斜的凌晨黃昏，合計掉到 1 以下，影子就回來了；
+   * 月光強度只有 0.3，整晚都遠在天花板以下，所以夜裡的投影一直都在。
+   * 那正是「只有斜射時看得到日影、月影卻總是看得到」的原因。
+   *
+   * 改成全擋之後，影子裡只剩環境光的 0.72，與亮處的 1.00 就分得開了。
+   * 留 0.05 是不讓它硬生生地黑掉，白沙上的影子該是柔和偏藍的一片
+   */
+  shadowGenerator.darkness = 0.05
+
+  /**
+   * 一律用 PCF，不用指數陰影
+   *
+   * 這不只是畫質取捨。投影範圍現在只罩住鏡頭附近九十六格，
+   * 範圍外的地面照樣要決定自己有沒有被遮住——
+   * PCF 的著色器對範圍外會直接回傳「全亮」，這正是我們要的；
+   * 指數陰影那條路沒有這個判斷，範圍外會取到邊界的深度值，
+   * 於是遠處的沙地會浮出一圈莫名其妙的陰影
+   */
+  shadowGenerator.usePercentageCloserFiltering = true
+  /**
+   * 投影範圍的邊緣淡出
+   *
+   * 範圍外是全亮的，範圍內有影子，中間若沒有過渡就會是一條筆直的分界線。
+   * 讓陰影在接近邊緣時逐漸淡掉，那條線就融進去了
+   */
+  shadowGenerator.frustumEdgeFalloff = 0.2
 
   if (quality.value === 'low') {
-    shadowGenerator.useBlurExponentialShadowMap = true
-    shadowGenerator.blurKernel = 24
+    shadowGenerator.filteringQuality = ShadowGenerator.QUALITY_LOW
   }
   else {
-    shadowGenerator.usePercentageCloserFiltering = true
     /**
      * 用中等濾波
      *
@@ -1241,10 +1478,29 @@ function createShadowGenerator({ scene }: { scene: Scene }) {
   }
 
   /**
+   * 陰影貼圖必須每一幀重畫，不要再試著降更新率
+   *
+   * 這裡曾經設成隔一幀畫一次，想省下那一趟幾何重繪——理由是
+   * 「世界是靜態的，太陽十分鐘才走完一整天，慢得不得了」。
+   * 那個理由是錯的：慢不等於不動。
+   *
+   * 比對用的光源矩陣是每一幀從光源當下的位置與方向重算的，
+   * 深度資料卻停在上一次重畫的時刻。太陽一移動，兩者就對不起來，
+   * 整片地面會浮出自我遮蔽的髒污，下一幀重畫後又消失——
+   * 看起來就是地面上有黑影在閃。
+   *
+   * 光源位置對齊取樣格（見 trackShadowToCamera）也救不了：
+   * 走路時每秒會跨過上百個取樣格，位置照樣每一幀都在變。
+   *
+   * 真要省，得讓光源的方向與位置也停住，只在重畫的那一刻才更新——
+   * 但走動時本來就每幀都得重畫，省不到什麼
+   */
+
+  /**
    * 雲層也是投影者
    *
    * 雲是半透明的，預設不會被畫進陰影貼圖，要開 transparencyShadow。
-   * 雲一邊飄，地面上的雲影就跟著慢慢掃過去
+   * 雲一邊飄，白沙上的雲影就跟著慢慢掃過去
    */
   shadowGenerator.transparencyShadow = true
 
@@ -1281,7 +1537,7 @@ export function useBabylonScene(param?: UseBabylonSceneParam) {
       return
 
     const devicePixelRatio = window?.devicePixelRatio ?? 1
-    engine.value.setHardwareScalingLevel(newQuality === 'low' ? 3 / devicePixelRatio : 1 / devicePixelRatio)
+    engine.value.setHardwareScalingLevel(getHardwareScalingLevel(newQuality, devicePixelRatio))
 
     if (pipeline.value) {
       /** 低畫質保留色調映射，關掉比較吃資源的泛光與抗鋸齒 */
@@ -1292,16 +1548,9 @@ export function useBabylonScene(param?: UseBabylonSceneParam) {
     if (!shadowGenerator.value)
       return
 
-    if (newQuality === 'low') {
-      shadowGenerator.value.useBlurExponentialShadowMap = true
-      shadowGenerator.value.usePercentageCloserFiltering = false
-      shadowGenerator.value.blurKernel = 24
-    }
-    else {
-      shadowGenerator.value.useBlurExponentialShadowMap = false
-      shadowGenerator.value.usePercentageCloserFiltering = true
-      shadowGenerator.value.filteringQuality = ShadowGenerator.QUALITY_MEDIUM
-    }
+    shadowGenerator.value.filteringQuality = newQuality === 'low'
+      ? ShadowGenerator.QUALITY_LOW
+      : ShadowGenerator.QUALITY_MEDIUM
   })
 
   onMounted(async () => {
@@ -1314,9 +1563,7 @@ export function useBabylonScene(param?: UseBabylonSceneParam) {
       engine.value = await createEngine({ canvas: canvasRef.value })
 
       const devicePixelRatio = window?.devicePixelRatio ?? 1
-      engine.value.setHardwareScalingLevel(
-        quality.value === 'low' ? 3 / devicePixelRatio : 1 / devicePixelRatio,
-      )
+      engine.value.setHardwareScalingLevel(getHardwareScalingLevel(quality.value, devicePixelRatio))
 
       scene.value = createScene({
         canvas: canvasRef.value,
@@ -1375,6 +1622,8 @@ export function useBabylonScene(param?: UseBabylonSceneParam) {
     engine,
     scene,
     camera,
+    /** 日夜循環要拿它調曝光與色調 */
+    pipeline,
     initError,
   }
 }

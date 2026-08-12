@@ -1,4 +1,4 @@
-import type { Scene } from '@babylonjs/core'
+import type { Scene } from '@babylonjs/core-v9'
 import {
   Color4,
   DynamicTexture,
@@ -6,12 +6,15 @@ import {
   ParticleSystem,
   Texture,
   Vector3,
-} from '@babylonjs/core'
+} from '@babylonjs/core-v9'
 import { WEATHER_RENDERING_GROUP } from '../../composables/use-babylon-scene'
-import { AUTUMN_GROVE } from '../world/biome'
+import { getGarden } from '../garden/garden-layout'
+import { createParticleDimmer } from './particle-tint'
 
-/** 落葉飄散的半徑，比生態區小一點，讓葉子集中在真的長著樹的那一圈 */
-const LEAF_RADIUS = AUTUMN_GROVE.radius - 6
+/** 金葉苑，落葉只飄在這一座木座上 */
+const AUTUMN_GARDEN = getGarden('autumn')
+/** 落葉飄散的半徑，比木座小一點，葉子才不會飄到外面的白沙上 */
+const LEAF_RADIUS = AUTUMN_GARDEN.halfSize - 2
 /** 葉子從樹冠往上這個範圍內冒出來，看起來才像剛從枝頭鬆脫 */
 const CANOPY_OFFSET_RANGE: [number, number] = [-1.5, 1.5]
 /** 樹冠射線打不到東西時的保底高度 */
@@ -70,6 +73,8 @@ function createLeafTexture(scene: Scene): DynamicTexture {
 }
 
 export interface FallingLeaves {
+  /** 跟著日夜調亮度，1 為大白天 */
+  setBrightness: (ratio: number) => void;
   dispose: () => void;
 }
 
@@ -94,7 +99,15 @@ export function createFallingLeaves({
 }: CreateFallingLeavesParams): FallingLeaves {
   const particleSystem = new ParticleSystem('autumn-leaves', maxParticleCount, scene)
   particleSystem.particleTexture = createLeafTexture(scene)
-  particleSystem.emitter = new Vector3(AUTUMN_GROVE.x, 0, AUTUMN_GROVE.z)
+  /**
+   * 葉子也要吃霧
+   *
+   * Babylon 的粒子預設不套用場景霧氣。少了這一行，遠處的葉子會維持
+   * 飽滿的金黃浮在一片白霧前面，像貼在螢幕上的貼紙——
+   * 整個場景靠霧把遠方藏起來，粒子是唯一的漏網之魚
+   */
+  particleSystem.applyFog = true
+  particleSystem.emitter = new Vector3(AUTUMN_GARDEN.center.x, 0, AUTUMN_GARDEN.center.z)
   particleSystem.renderingGroupId = WEATHER_RENDERING_GROUP
 
   /**
@@ -107,8 +120,8 @@ export function createFallingLeaves({
     /** 開根號讓取樣在圓面上是均勻的，不會全擠在中心 */
     const radius = Math.sqrt(Math.random()) * LEAF_RADIUS
     const angle = Math.random() * Math.PI * 2
-    const x = AUTUMN_GROVE.x + Math.cos(angle) * radius
-    const z = AUTUMN_GROVE.z + Math.sin(angle) * radius
+    const x = AUTUMN_GARDEN.center.x + Math.cos(angle) * radius
+    const z = AUTUMN_GARDEN.center.z + Math.sin(angle) * radius
     const canopyY = castRainRay(Math.floor(x + 0.5), Math.floor(z + 0.5)) ?? FALLBACK_SPAWN_HEIGHT
     const [minOffset, maxOffset] = CANOPY_OFFSET_RANGE
 
@@ -144,9 +157,14 @@ export function createFallingLeaves({
 
   particleSystem.minSize = 0.28
   particleSystem.maxSize = 0.5
-  /** 從樹冠飄到地面得花上半分鐘，葉子才是慢慢盪下來的 */
-  particleSystem.minLifeTime = 18
-  particleSystem.maxLifeTime = 28
+  /**
+   * 一片葉子活多久
+   *
+   * 這個值要跟著下墜速度一起調：飄得快、壽命就得短，
+   * 否則葉子早就落到地面以下，還在繼續往下飄
+   */
+  particleSystem.minLifeTime = 13
+  particleSystem.maxLifeTime = 20
   particleSystem.emitRate = maxParticleCount / 44
 
   /**
@@ -155,23 +173,33 @@ export function createFallingLeaves({
    * 初速只給一點點，葉子是從枝頭鬆脫的，不是被彈出去的；
    * 重力也壓得很小，剩下的交給下面的速度上限
    */
-  particleSystem.gravity = new Vector3(0, -0.1, 0)
+  particleSystem.gravity = new Vector3(0, -0.5, 0)
   particleSystem.direction1 = new Vector3(-0.25, -0.3, -0.25)
   particleSystem.direction2 = new Vector3(0.25, -0.15, 0.25)
   particleSystem.minEmitPower = 0.4
   particleSystem.maxEmitPower = 0.8
 
   /**
-   * 速度上限：花瓣那種慢慢飄的關鍵
+   * 速度上限：調整落葉快慢的主要旋鈕
    *
    * 重力與亂流都是往速度上累加的，不設限的話葉子只會越飄越快。
    * 速度一超過上限就打對折，於是很快就穩定在上限附近，
    * 之後既不加速也不停下來——那正是空氣阻力下的等速下墜。
-   * 兩端給同一個值代表整段壽命都適用
+   * 兩端給同一個值代表整段壽命都適用。
+   *
+   * 想再快就把這個數字調大、想更慢就調小；
+   * 只影響落下的速度，橫向飄動與翻面的節奏不變
    */
-  particleSystem.addLimitVelocityGradient(0, 1.1)
-  particleSystem.addLimitVelocityGradient(1, 1.1)
-  particleSystem.limitVelocityDamping = 0.55
+  particleSystem.addLimitVelocityGradient(0, 3)
+  particleSystem.addLimitVelocityGradient(1, 3)
+  /**
+   * 阻尼放鬆一點
+   *
+   * 這個值是超過速度上限時被拉回來的力道。拉得太緊，
+   * 亂流每次把葉子推出去都立刻被壓平，擺盪的幅度出不來，
+   * 葉子只會直直往下掉
+   */
+  particleSystem.limitVelocityDamping = 0.35
 
   /**
    * 阻力：整體再放慢一成
@@ -209,20 +237,69 @@ export function createFallingLeaves({
    * 有了阻力之後，這股推力不會一直累積，而是被拉回來，
    * 於是葉子是左右盪過去又盪回來，不是被吹著一路衝
    */
-  particleSystem.noiseStrength = new Vector3(4, 1.2, 4)
+  /**
+   * 橫向推力給大一點，這是「翻轉看得出來」的關鍵
+   *
+   * 關掉廣告板之後，葉片的朝向是由它自己的行進方向決定的。
+   * 若下墜速度遠大於橫向速度，方向就永遠指著地面，葉片一直維持同一個姿態，
+   * 只會繞著垂直軸打轉——看起來是閃爍，不是翻滾。
+   * 把橫向推力拉到與下墜速度同一個量級，方向才會左右大幅擺盪，
+   * 葉面跟著一下攤開、一下側過去，那才是落葉翻著飄下來的樣子
+   */
+  particleSystem.noiseStrength = new Vector3(6, 2, 6)
 
-  /** 慢慢翻面，快了就像被捲進漩渦 */
-  particleSystem.minAngularSpeed = -0.7
-  particleSystem.maxAngularSpeed = 0.7
+  /**
+   * 翻轉的節奏
+   *
+   * 每片葉子一邊落一邊翻面，正反兩面的明暗交替出現，
+   * 才看得出它是一片薄薄的東西而不是一顆色點。
+   *
+   * 但翻轉的速度不能是固定的——那會變成一個等速轉動的機械零件。
+   * 真正的落葉是有節奏的：攤平滑翔一段、忽然失速猛翻幾圈、再攤開、再翻。
+   * 這裡沿著壽命鋪一條起伏的曲線，快慢交替出現；
+   * 每一段又給正負兩端，同一時刻不同葉子的轉向與快慢都不一樣，
+   * 甚至會在半途反轉——那正是葉子吃到一陣風、翻回去的樣子。
+   *
+   * 一旦用了梯度，min/maxAngularSpeed 就會被忽略，所以那兩個不用再設。
+   * 想整體調快調慢，把下面每一段的數字等比放大縮小即可
+   */
+  const angularRhythmList: [number, number][] = [
+    /** 剛從枝頭鬆脫，帶著各自的初速 */
+    [0, 6],
+    /** 攤平滑翔，幾乎不轉 */
+    [0.18, 1],
+    /** 失速，猛翻幾圈 */
+    [0.34, 8],
+    [0.52, 2],
+    [0.71, 7],
+    /** 快落地時慢下來 */
+    [0.88, 1.5],
+    [1, 5],
+  ]
+  for (const [life, speed] of angularRhythmList) {
+    particleSystem.addAngularSpeedGradient(life, -speed, speed)
+  }
+
   particleSystem.minInitialRotation = 0
   particleSystem.maxInitialRotation = Math.PI * 2
   /**
-   * 整套模擬跑得多快
+   * 立體地翻，不是平面地轉
    *
-   * 位移與壽命都照這個速度推進，所以調小只是把同一條軌跡放慢，
-   * 葉子飄過的路線不變，落地前的時間跟著拉長
+   * 粒子預設是廣告板：永遠正面朝著鏡頭，angularSpeed 只能讓它在畫面上打轉，
+   * 看起來像一枚在原地旋轉的貼紙。
+   * 關掉廣告板之後，葉片會依自己的行進方向立在空間裡，
+   * 一邊被風推著改變方向、一邊繞著自己的軸翻面——
+   * 於是有時看到整片葉面、有時只看到側面那一條線，那才是葉子在飄
    */
-  particleSystem.updateSpeed = 0.009
+  particleSystem.isBillboardBased = false
+  /**
+   * 整套模擬跑得多快：調整快慢的第二個旋鈕
+   *
+   * 位移與壽命都照這個速度推進，所以調小是把同一條軌跡整個放慢，
+   * 葉子飄過的路線不變，落地前的時間跟著拉長。
+   * 與上面的速度上限差別在於：那個只管往下掉，這個連橫向飄動與翻面一起加速
+   */
+  particleSystem.updateSpeed = 0.011
   particleSystem.blendMode = ParticleSystem.BLENDMODE_STANDARD
 
   const texture = particleSystem.particleTexture as Texture
@@ -239,7 +316,10 @@ export function createFallingLeaves({
   particleSystem.preWarmStepOffset = 20
   particleSystem.start()
 
+  const dimmer = createParticleDimmer([particleSystem])
+
   return {
+    setBrightness: dimmer.setBrightness,
     dispose() {
       particleSystem.dispose()
       noiseTexture.dispose()

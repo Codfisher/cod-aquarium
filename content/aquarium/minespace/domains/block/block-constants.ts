@@ -6,14 +6,45 @@ export enum BlockId {
   COBBLESTONE,
   MOSSY_COBBLESTONE,
   STONE_BRICKS,
+  /** 打磨過的石板，鋪成箱庭裡的參道 */
+  STONE_TILE,
+  /** 刻著紋樣的石碑，遺跡與石庭各立一塊 */
+  RUNE_STONE,
   GRAVEL,
   CLAY,
   DIRT,
   GRASS,
   SAND,
   SANDSTONE,
+  /**
+   * 枯山水的白沙
+   *
+   * 整座禪庭的底。銀沙那張貼圖本來就幾乎是純白，
+   * 一路鋪進霧裡就分不出哪裡是地面、哪裡是天光
+   */
+  WHITE_SAND,
+  /**
+   * 箱庭裡鋪的白沙
+   *
+   * 與地面那種是同一張貼圖、同一個顏色，差別只在「要不要畫成方塊」。
+   * 地面那片鋪滿整個世界、佔了全場六成五的繪製量，改用一片地面網格代替；
+   * 箱庭裡的沙只有幾百格，照常畫成方塊
+   */
+  GARDEN_SAND,
+  /** 耙出來的沙紋，只比白沙暗一階，遠看是一圈一圈的水波 */
+  RAKED_SAND,
+  /** 白砂岩，木座的墊腳石與石階都用它 */
+  WHITE_SANDSTONE,
   SNOW,
   ICE,
+  /** 壓實的冰，雪庭的池面 */
+  PACKED_ICE,
+  /** 黑曜石與它的磚，月語庭的深色底 */
+  OBSIDIAN_BRICKS,
+  /** 帶月紋的磚，只用在月語庭 */
+  MOON_BRICKS,
+  /** 熔岩，湯屋的熱源，埋在岩池底下透出光 */
+  LAVA,
   WATER,
   FLOWING_WATER,
   OAK_LOG,
@@ -25,15 +56,62 @@ export enum BlockId {
   PINE_LOG,
   PINE_LEAVES,
   DEAD_LOG,
+  /**
+   * 躺著的原木
+   *
+   * 世界狀態一格只存得下一個編號，沒有地方放旋轉角度，
+   * 所以每一種朝向各自是一種方塊——與木階梯同樣的處理。
+   * 少了這幾種，倒木的年輪會全部朝上，看起來像一排立著的樹頭被削平
+   */
+  DEAD_LOG_X,
+  DEAD_LOG_Z,
+  OAK_LOG_X,
+  OAK_LOG_Z,
+  /** 相思木與它扁平的樹冠，海岸箱庭的迎風樹 */
+  ACACIA_LOG,
+  ACACIA_LEAVES,
+  /** 濃綠闊葉，雨庭那幾株長得特別茂 */
+  JUNGLE_LEAVES,
   PLANKS,
   DARK_PLANKS,
+  /** 拼花木地板，木座的甲板面 */
+  WOOD_TILE,
+  /** 榻榻米，茶屋與村屋的室內地板 */
+  TATAMI,
+  /** 竹紋方塊，格柵與竹籬用它 */
+  BAMBOO_BLOCK,
+  /** 障子紙門 */
+  PAPER_DOOR,
   GLASS,
   HAY,
   BOOKSHELF,
+  /** 木桶、木箱與收納箱，村莊與營地的日常雜物 */
+  BARREL,
+  CRATE,
+  CHEST,
+  /** 灶與工作檯 */
+  FURNACE,
+  WORKBENCH,
+  /** 燒著水的鍋，冒著人住過的氣味 */
+  CAULDRON,
   LANTERN,
+  /** 和紙燈箱，暖黃的柔光 */
+  PAPER_LAMP,
+  /** 石燈籠中間那一節會發光的燈室 */
+  LANTERN_BOX,
   EMBER,
   BRICKS,
   HIVE,
+  /** 蜜塊，蜂巢圃的琥珀色 */
+  HONEY_BLOCK,
+  /** 攤開的書，擺在檯面上 */
+  OPEN_BOOK,
+  /** 白骨，枯木林裡偶爾遇上一副 */
+  BONES,
+  /** 珊瑚與白化的珊瑚骨，潮汐箱庭的水底 */
+  CORAL_ORANGE,
+  CORAL_BROWN,
+  CORAL_SKELETON,
   COAL_ORE,
   IRON_ORE,
   COPPER_ORE,
@@ -47,13 +125,50 @@ export enum BlockId {
   FLOWER_TULIP,
   FLOWER_DANDELION,
   MUSHROOM,
+  /** 更多花草：每一座箱庭都該有自己的一把植物 */
+  BROWN_MUSHROOM,
+  FLOWER_VIOLA,
+  FLOWER_WHITE_DANDELION,
+  BIG_FLOWER,
+  MOON_FLOWER,
+  FIRE_FLOWER,
+  CURLY_PLANT,
+  STONE_PLANT,
+  /** 叢生的野草，比一般高草更蓬 */
+  WILD_GRASS,
+  /** 熱帶的花，湯屋那一帶的濕氣養得出來 */
+  JUNGLE_FLOWER,
+  BUSH,
+  DRY_GRASS,
+  JUNGLE_GRASS,
+  /** 蘆葦，沼澤與水鏡箱庭的岸邊 */
+  PAPYRUS,
+  /** 仙人掌，乾燥的角落 */
+  CACTUS,
+  /** 蛛網與藤蔓，讓洞窟與遺跡有時間感 */
+  COBWEB,
+  IVY,
   LILY_PAD,
   FALLEN_LEAVES,
+  /** 林地腐葉，鋪在森林箱庭的地面 */
+  FOREST_LITTER,
   FENCE,
+  /** 竹籬 */
+  BAMBOO_FENCE,
+  /** 鐵鏈，吊鐘與吊燈用它 */
+  CHAIN,
   GLASS_PANE,
   STONE_SLAB,
   WOOD_SLAB,
+  /** 深色木半磚，木座的收邊 */
+  DARK_WOOD_SLAB,
+  /** 坐墊，茶室與湯屋的地板上散幾片 */
+  CUSHION,
+  /** 白砂岩半磚，木座外圈的墊腳石 */
+  WHITE_STONE_SLAB,
   FLOWER_POT,
+  /** 梯子，貼著牆爬上去 */
+  LADDER,
   /**
    * 木階梯
    *
@@ -173,8 +288,25 @@ export interface BlockDef {
    * 頭頂那半格照樣走得過去
    */
   collisionHeight?: number;
+  /**
+   * 水平方向的碰撞寬度，預設整格
+   *
+   * 圍籬看起來只有中央一根細柱，碰撞卻佔滿整格的話，
+   * 繞過一根柱子得多走一格，站在旁邊也會莫名其妙被卡住。
+   * 這個值只影響「沒有連到隔壁」的那幾側——連成一排時
+   * 碰撞會自動補滿到格子邊緣，玩家才擠不過去（見 collision.ts）
+   */
+  collisionWidth?: number;
   /** 自發光強度 0~1，燈籠與餘燼在暗處要看得出在發亮 */
   emissive?: number;
+  /**
+   * 照亮周圍的強度 0~1，未指定時跟著 emissive 走
+   *
+   * 「自己看起來多亮」與「照得多遠」是兩件事。
+   * 營火的餘燼若把自發光拉到滿，貼圖會被洗成一片白，
+   * 但它照出去的範圍本來就該比一盞燈籠大——分成兩個值才調得動
+   */
+  lightLevel?: number;
   /**
    * 平塗：六個面都用朝上的法線計算光照
    *
@@ -189,6 +321,13 @@ export interface BlockDef {
   stepMaterial?: StepMaterial;
   /** 階梯靠背所在的那一側，只有 shape 為 stairs 時有意義 */
   stairsFacing?: StairsFacing;
+  /**
+   * 原木躺的方向，決定年輪長在哪兩個面
+   *
+   * 預設是 y，也就是立著的樹幹：年輪在上下兩面、樹皮在四周。
+   * 改成 x 或 z 就是躺著的木頭，年輪跟著轉到兩端去
+   */
+  logAxis?: 'x' | 'y' | 'z';
 }
 
 /** 所有方塊的詳細定義 */
@@ -225,6 +364,18 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     stepMaterial: 'stone',
     textures: {
       all: `${TEXTURE_BASE}/default_stone_brick.png`,
+    },
+  },
+  [BlockId.STONE_TILE]: {
+    stepMaterial: 'stone',
+    textures: {
+      all: `${TEXTURE_BASE}/xdecor_stone_tile.png`,
+    },
+  },
+  [BlockId.RUNE_STONE]: {
+    stepMaterial: 'stone',
+    textures: {
+      all: `${TEXTURE_BASE}/xdecor_stone_rune.png`,
     },
   },
   [BlockId.GRAVEL]: {
@@ -267,6 +418,53 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
       all: `${TEXTURE_BASE}/default_sandstone.png`,
     },
   },
+  /**
+   * 枯山水的白沙
+   *
+   * 銀沙貼圖本身已經是很淡的米白，再往上推一點就幾乎是純白。
+   * 這片地要一路白到霧裡，稍微帶一點顏色都會在遠處顯出邊界
+   */
+  /**
+   * 地面的白沙
+   *
+   * 刻意不畫成方塊。它鋪滿兩百八十格見方的世界，一共五萬八千格，
+   * 佔掉全場六成五的繪製量——但那整片是完全平的，
+   * 用一片地面網格就能畫完，一個 draw call 取代五萬八千個實例。
+   *
+   * 方塊資料照樣留著：碰撞、腳步聲、雨滴射線都還讀得到它，
+   * 只有渲染器跳過去不畫
+   */
+  [BlockId.WHITE_SAND]: {
+    isHidden: true,
+    stepMaterial: 'sand',
+  },
+  /** 箱庭甲板上鋪的白沙，數量少，照常畫 */
+  [BlockId.GARDEN_SAND]: {
+    stepMaterial: 'sand',
+    textures: {
+      all: `${TEXTURE_BASE}/default_silver_sand.png`,
+      pixelTint: [1.1, 1.1, 1.1],
+    },
+  },
+  /**
+   * 耙紋
+   *
+   * 只比白沙暗一階。沙紋是靠受光角度看出來的，
+   * 在方塊世界裡沒有那個角度，只能用明度差假裝那道溝
+   */
+  [BlockId.RAKED_SAND]: {
+    stepMaterial: 'sand',
+    textures: {
+      all: `${TEXTURE_BASE}/default_silver_sand.png`,
+      pixelTint: [0.9, 0.9, 0.92],
+    },
+  },
+  [BlockId.WHITE_SANDSTONE]: {
+    stepMaterial: 'stone',
+    textures: {
+      all: `${TEXTURE_BASE}/default_silver_sandstone.png`,
+    },
+  },
   [BlockId.SNOW]: {
     stepMaterial: 'snow',
     textures: {
@@ -281,6 +479,42 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     receiveShadow: false,
     textures: {
       all: `${TEXTURE_BASE}/default_ice.png`,
+    },
+  },
+  /** 壓實的冰是不透明的，凍住的池面用它才踩得住、也看不穿 */
+  [BlockId.PACKED_ICE]: {
+    stepMaterial: 'stone',
+    textures: {
+      all: `${TEXTURE_BASE}/xdecor_packed_ice.png`,
+    },
+  },
+  [BlockId.OBSIDIAN_BRICKS]: {
+    stepMaterial: 'stone',
+    textures: {
+      all: `${TEXTURE_BASE}/default_obsidian_brick.png`,
+    },
+  },
+  /** 磚面上有一圈淡淡的月紋，是月語庭唯一的花樣 */
+  [BlockId.MOON_BRICKS]: {
+    stepMaterial: 'stone',
+    textures: {
+      all: `${TEXTURE_BASE}/xdecor_moonbrick.png`,
+    },
+  },
+  /**
+   * 熔岩
+   *
+   * 只埋在湯屋的岩池底下當熱源。自發光給滿，隔著水看下去
+   * 池底會透出一層橘紅，那是「這池水為什麼是燙的」唯一的解釋
+   */
+  [BlockId.LAVA]: {
+    stepMaterial: 'stone',
+    emissive: 1,
+    flatShaded: true,
+    receiveShadow: false,
+    textures: {
+      all: `${TEXTURE_BASE}/default_lava_source_animated.png`,
+      frameCount: 6,
     },
   },
   [BlockId.WATER]: {
@@ -381,12 +615,86 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
       tint: [0.42, 0.6, 0.42],
     },
   },
+  /**
+   * 枯木
+   *
+   * 原本用 default_jungletree，那張圖的平均色是 (89, 89, 42)——
+   * 一種灰綠的爛泥色，擺在乾淨的白沙庭園裡看起來只像發霉。
+   * 改用白楊那張淺灰的木紋再染成風化的灰褐，
+   * 才是曬了幾年、被雨水洗白的倒木
+   */
   [BlockId.DEAD_LOG]: {
     stepMaterial: 'wood',
     textures: {
-      top: `${TEXTURE_BASE}/default_jungletree_top.png`,
-      bottom: `${TEXTURE_BASE}/default_jungletree_top.png`,
-      side: `${TEXTURE_BASE}/default_jungletree.png`,
+      top: `${TEXTURE_BASE}/default_aspen_tree_top.png`,
+      bottom: `${TEXTURE_BASE}/default_aspen_tree_top.png`,
+      side: `${TEXTURE_BASE}/default_aspen_tree.png`,
+      tint: [0.72, 0.67, 0.58],
+    },
+  },
+  /** 躺著的枯木，年輪轉到兩端 */
+  [BlockId.DEAD_LOG_X]: {
+    stepMaterial: 'wood',
+    logAxis: 'x',
+    textures: {
+      top: `${TEXTURE_BASE}/default_aspen_tree_top.png`,
+      bottom: `${TEXTURE_BASE}/default_aspen_tree_top.png`,
+      side: `${TEXTURE_BASE}/default_aspen_tree.png`,
+      tint: [0.72, 0.67, 0.58],
+    },
+  },
+  [BlockId.DEAD_LOG_Z]: {
+    stepMaterial: 'wood',
+    logAxis: 'z',
+    textures: {
+      top: `${TEXTURE_BASE}/default_aspen_tree_top.png`,
+      bottom: `${TEXTURE_BASE}/default_aspen_tree_top.png`,
+      side: `${TEXTURE_BASE}/default_aspen_tree.png`,
+      tint: [0.72, 0.67, 0.58],
+    },
+  },
+  /** 躺著的橡木，柴堆與橫枝用它 */
+  [BlockId.OAK_LOG_X]: {
+    stepMaterial: 'wood',
+    logAxis: 'x',
+    textures: {
+      top: `${TEXTURE_BASE}/default_tree_top.png`,
+      bottom: `${TEXTURE_BASE}/default_tree_top.png`,
+      side: `${TEXTURE_BASE}/default_tree.png`,
+    },
+  },
+  [BlockId.OAK_LOG_Z]: {
+    stepMaterial: 'wood',
+    logAxis: 'z',
+    textures: {
+      top: `${TEXTURE_BASE}/default_tree_top.png`,
+      bottom: `${TEXTURE_BASE}/default_tree_top.png`,
+      side: `${TEXTURE_BASE}/default_tree.png`,
+    },
+  },
+  /** 相思木，樹皮偏紅，樹冠扁而寬 */
+  [BlockId.ACACIA_LOG]: {
+    stepMaterial: 'wood',
+    textures: {
+      top: `${TEXTURE_BASE}/default_acacia_tree_top.png`,
+      bottom: `${TEXTURE_BASE}/default_acacia_tree_top.png`,
+      side: `${TEXTURE_BASE}/default_acacia_tree.png`,
+    },
+  },
+  [BlockId.ACACIA_LEAVES]: {
+    stepMaterial: 'grass',
+    cutout: true,
+    textures: {
+      all: `${TEXTURE_BASE}/default_acacia_leaves.png`,
+      tint: [0.6, 0.72, 0.4],
+    },
+  },
+  [BlockId.JUNGLE_LEAVES]: {
+    stepMaterial: 'grass',
+    cutout: true,
+    textures: {
+      all: `${TEXTURE_BASE}/default_jungle_leaves.png`,
+      tint: [0.36, 0.6, 0.3],
     },
   },
   [BlockId.PLANKS]: {
@@ -399,6 +707,52 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     stepMaterial: 'wood',
     textures: {
       all: `${TEXTURE_BASE}/default_junglewood.png`,
+    },
+  },
+  /**
+   * 拼花木地板
+   *
+   * 木座的甲板面用它，紋路比整片木板細，
+   * 站上去看得出這是「做出來的台子」而不是一塊原木
+   */
+  [BlockId.WOOD_TILE]: {
+    stepMaterial: 'wood',
+    textures: {
+      all: `${TEXTURE_BASE}/xdecor_wood_tile.png`,
+    },
+  },
+  [BlockId.TATAMI]: {
+    stepMaterial: 'cloth',
+    textures: {
+      all: `${TEXTURE_BASE}/xdecor_tatami.png`,
+    },
+  },
+  /**
+   * 竹
+   *
+   * xdecor_bamboo_frame 是一片鏤空的格柵，五成以上是透明像素，
+   * 當成實心方塊用一樣會透出黑色。
+   * 改用實心的淺色木紋再染成竹的黃綠，才是一根竹子該有的樣子
+   */
+  [BlockId.BAMBOO_BLOCK]: {
+    stepMaterial: 'wood',
+    textures: {
+      all: `${TEXTURE_BASE}/default_aspen_wood.png`,
+      tint: [0.82, 0.88, 0.55],
+    },
+  },
+  /**
+   * 障子門
+   *
+   * 原本用 xdecor_japanese_door，但那是一張 19x16 的門片圖，
+   * 不是正方形的方塊面，貼上去會被拉成歪的。
+   * 改用直紋的簾布再染成米白，遠看就是紙門上那幾道木櫺
+   */
+  [BlockId.PAPER_DOOR]: {
+    stepMaterial: 'wood',
+    textures: {
+      all: `${TEXTURE_BASE}/xdecor_curtain.png`,
+      pixelTint: [1.55, 1.5, 1.38],
     },
   },
   /**
@@ -429,6 +783,61 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
       side: `${TEXTURE_BASE}/default_bookshelf.png`,
     },
   },
+  [BlockId.BARREL]: {
+    stepMaterial: 'wood',
+    textures: {
+      top: `${TEXTURE_BASE}/xdecor_barrel_top.png`,
+      bottom: `${TEXTURE_BASE}/xdecor_barrel_top.png`,
+      side: `${TEXTURE_BASE}/xdecor_barrel_sides.png`,
+    },
+  },
+  [BlockId.CRATE]: {
+    stepMaterial: 'wood',
+    textures: {
+      all: `${TEXTURE_BASE}/xdecor_crate.png`,
+    },
+  },
+  [BlockId.CHEST]: {
+    stepMaterial: 'wood',
+    textures: {
+      top: `${TEXTURE_BASE}/default_chest_top.png`,
+      bottom: `${TEXTURE_BASE}/default_chest_top.png`,
+      side: `${TEXTURE_BASE}/default_chest_side.png`,
+    },
+  },
+  /** 灶膛燒著火，正面那張是有火光的畫格 */
+  [BlockId.FURNACE]: {
+    stepMaterial: 'stone',
+    emissive: 0.35,
+    textures: {
+      top: `${TEXTURE_BASE}/default_furnace_top.png`,
+      bottom: `${TEXTURE_BASE}/default_furnace_bottom.png`,
+      side: `${TEXTURE_BASE}/default_furnace_front_active.png`,
+    },
+  },
+  [BlockId.WORKBENCH]: {
+    stepMaterial: 'wood',
+    textures: {
+      top: `${TEXTURE_BASE}/xdecor_workbench_top.png`,
+      bottom: `${TEXTURE_BASE}/default_wood.png`,
+      side: `${TEXTURE_BASE}/xdecor_workbench_sides.png`,
+    },
+  },
+  /**
+   * 灶上的鍋
+   *
+   * 頂面本來想用滾水的動畫圖，但 frameCount 是整顆方塊共用的：
+   * 那張圖有八張畫格、側面卻只有一張，一起套下去側面會被壓成八分之一。
+   * 動畫留給水與熔岩那種六面同圖的方塊，這裡改用靜態的鍋口
+   */
+  [BlockId.CAULDRON]: {
+    stepMaterial: 'stone',
+    textures: {
+      top: `${TEXTURE_BASE}/xdecor_cauldron_top_idle.png`,
+      bottom: `${TEXTURE_BASE}/xdecor_cauldron_sides.png`,
+      side: `${TEXTURE_BASE}/xdecor_cauldron_sides.png`,
+    },
+  },
   [BlockId.LANTERN]: {
     stepMaterial: 'stone',
     emissive: 0.95,
@@ -436,9 +845,37 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
       all: `${TEXTURE_BASE}/default_meselamp.png`,
     },
   },
+  /** 和紙燈箱，光比燈石柔，暖色也重一些 */
+  [BlockId.PAPER_LAMP]: {
+    stepMaterial: 'wood',
+    emissive: 0.8,
+    textures: {
+      all: `${TEXTURE_BASE}/xdecor_wooden_lightbox.png`,
+      /** 和紙偏冷的白，跟石燈籠那盞暖黃的燈室分得開 */
+      pixelTint: [0.92, 0.95, 1.02],
+    },
+  },
+  /**
+   * 石燈籠的燈室
+   *
+   * 原本用的是 default_mese_post_light：那張圖是給細柱狀的 nodebox 用的，
+   * 只有正中央一條是燈光、其餘四分之三是透明的。
+   * 貼到整顆立方體上，透明的部分沒有東西可透，就整片變成黑的——
+   * 燈籠因此長成一塊中間卡著兩條黃線的黑方塊。
+   * 換成本來就是整顆方塊的燈箱：木框圍著四面透光的紙
+   */
+  [BlockId.LANTERN_BOX]: {
+    stepMaterial: 'wood',
+    emissive: 0.7,
+    textures: {
+      all: `${TEXTURE_BASE}/xdecor_lightbox.png`,
+    },
+  },
   [BlockId.EMBER]: {
     stepMaterial: 'stone',
     emissive: 0.8,
+    /** 一團營火，照出去的範圍是全場最大的 */
+    lightLevel: 1,
     textures: {
       all: `${TEXTURE_BASE}/default_lava.png`,
     },
@@ -500,6 +937,62 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
       top: `${TEXTURE_BASE}/xdecor_hive_top.png`,
       bottom: `${TEXTURE_BASE}/xdecor_hive_top.png`,
       side: `${TEXTURE_BASE}/xdecor_hive_side.png`,
+    },
+  },
+  [BlockId.HONEY_BLOCK]: {
+    stepMaterial: 'cloth',
+    textures: {
+      all: `${TEXTURE_BASE}/mobs_honey_block.png`,
+    },
+  },
+  /**
+   * 攤開的書
+   *
+   * 這張圖有三成是透明的（書頁以外都挖空了），
+   * 當成立方體貼上去那些洞會變成黑邊。
+   * 改成與睡蓮同一種外型：一片貼在檯面上的薄板，才是一本攤開放著的書
+   */
+  [BlockId.OPEN_BOOK]: {
+    shape: 'flat',
+    cutout: true,
+    passable: true,
+    isThinFloor: true,
+    stepMaterial: 'wood',
+    textures: {
+      all: `${TEXTURE_BASE}/xdecor_book_open.png`,
+    },
+  },
+  /** 一副臥著的白骨，枯木林裡的時間感 */
+  [BlockId.BONES]: {
+    stepMaterial: 'stone',
+    textures: {
+      top: `${TEXTURE_BASE}/bones_top.png`,
+      bottom: `${TEXTURE_BASE}/bones_bottom.png`,
+      side: `${TEXTURE_BASE}/bones_side.png`,
+    },
+  },
+  /**
+   * 珊瑚
+   *
+   * 潮汐箱庭的水槽底下鋪這幾種，隔著半透明的水看下去是一片斑斕。
+   * 白化的珊瑚骨混一點進去，顏色才不會像調色盤
+   */
+  [BlockId.CORAL_ORANGE]: {
+    stepMaterial: 'coral',
+    textures: {
+      all: `${TEXTURE_BASE}/default_coral_orange.png`,
+    },
+  },
+  [BlockId.CORAL_BROWN]: {
+    stepMaterial: 'coral',
+    textures: {
+      all: `${TEXTURE_BASE}/default_coral_brown.png`,
+    },
+  },
+  [BlockId.CORAL_SKELETON]: {
+    stepMaterial: 'coral',
+    textures: {
+      all: `${TEXTURE_BASE}/default_coral_skeleton.png`,
     },
   },
 
@@ -567,6 +1060,164 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
       tint: [0.84, 0.84, 0.84],
     },
   },
+  [BlockId.BROWN_MUSHROOM]: {
+    shape: 'cross',
+    passable: true,
+    stepMaterial: 'grass',
+    textures: {
+      all: `${TEXTURE_BASE}/flowers_mushroom_brown.png`,
+      tint: [0.84, 0.84, 0.84],
+    },
+  },
+  [BlockId.FLOWER_VIOLA]: {
+    shape: 'cross',
+    passable: true,
+    stepMaterial: 'grass',
+    textures: {
+      all: `${TEXTURE_BASE}/flowers_viola.png`,
+      tint: [0.84, 0.84, 0.84],
+    },
+  },
+  [BlockId.FLOWER_WHITE_DANDELION]: {
+    shape: 'cross',
+    passable: true,
+    stepMaterial: 'grass',
+    textures: {
+      all: `${TEXTURE_BASE}/flowers_dandelion_white.png`,
+      tint: [0.9, 0.9, 0.9],
+    },
+  },
+  /** 大朵的野花，一叢裡放一兩株就有主次 */
+  [BlockId.BIG_FLOWER]: {
+    shape: 'cross',
+    passable: true,
+    stepMaterial: 'grass',
+    textures: {
+      all: `${TEXTURE_BASE}/moreplants_bigflower.png`,
+      tint: [0.86, 0.86, 0.86],
+    },
+  },
+  /** 月見草，夜庭與石庭的白色點綴 */
+  [BlockId.MOON_FLOWER]: {
+    shape: 'cross',
+    passable: true,
+    stepMaterial: 'grass',
+    textures: {
+      all: `${TEXTURE_BASE}/moreplants_moonflower.png`,
+      tint: [0.9, 0.9, 0.94],
+    },
+  },
+  [BlockId.FIRE_FLOWER]: {
+    shape: 'cross',
+    passable: true,
+    stepMaterial: 'grass',
+    textures: {
+      all: `${TEXTURE_BASE}/moreplants_fireflower.png`,
+      tint: [0.88, 0.82, 0.78],
+    },
+  },
+  [BlockId.CURLY_PLANT]: {
+    shape: 'cross',
+    passable: true,
+    stepMaterial: 'grass',
+    textures: {
+      all: `${TEXTURE_BASE}/moreplants_curly.png`,
+      tint: [0.5, 0.68, 0.36],
+    },
+  },
+  /** 長在岩縫裡的耐旱草，雪稜與石庭用它 */
+  [BlockId.STONE_PLANT]: {
+    shape: 'cross',
+    passable: true,
+    stepMaterial: 'grass',
+    textures: {
+      all: `${TEXTURE_BASE}/moreplants_stoneplant.png`,
+      tint: [0.62, 0.68, 0.56],
+    },
+  },
+  [BlockId.WILD_GRASS]: {
+    shape: 'cross',
+    passable: true,
+    stepMaterial: 'grass',
+    textures: {
+      all: `${TEXTURE_BASE}/default_grass_5.png`,
+      tint: [0.5, 0.72, 0.34],
+    },
+  },
+  [BlockId.JUNGLE_FLOWER]: {
+    shape: 'cross',
+    passable: true,
+    stepMaterial: 'grass',
+    textures: {
+      all: `${TEXTURE_BASE}/moreplants_jungleflower2.png`,
+      tint: [0.86, 0.8, 0.8],
+    },
+  },
+  [BlockId.BUSH]: {
+    shape: 'cross',
+    passable: true,
+    stepMaterial: 'grass',
+    textures: {
+      all: `${TEXTURE_BASE}/moreplants_bush.png`,
+      tint: [0.46, 0.64, 0.34],
+    },
+  },
+  [BlockId.DRY_GRASS]: {
+    shape: 'cross',
+    passable: true,
+    stepMaterial: 'grass',
+    textures: {
+      all: `${TEXTURE_BASE}/default_dry_grass_3.png`,
+      tint: [0.82, 0.74, 0.5],
+    },
+  },
+  [BlockId.JUNGLE_GRASS]: {
+    shape: 'cross',
+    passable: true,
+    stepMaterial: 'grass',
+    textures: {
+      all: `${TEXTURE_BASE}/default_junglegrass.png`,
+      tint: [0.4, 0.62, 0.32],
+    },
+  },
+  /** 蘆葦，長得比草高，站在水邊擋住半個視線才有岸的感覺 */
+  [BlockId.PAPYRUS]: {
+    shape: 'cross',
+    passable: true,
+    stepMaterial: 'grass',
+    textures: {
+      all: `${TEXTURE_BASE}/default_papyrus.png`,
+      tint: [0.6, 0.74, 0.42],
+    },
+  },
+  [BlockId.CACTUS]: {
+    stepMaterial: 'grass',
+    textures: {
+      top: `${TEXTURE_BASE}/default_cactus_top.png`,
+      bottom: `${TEXTURE_BASE}/default_cactus_top.png`,
+      side: `${TEXTURE_BASE}/default_cactus_side.png`,
+    },
+  },
+  /** 蛛網，掛在洞窟深處的岩縫之間 */
+  [BlockId.COBWEB]: {
+    shape: 'cross',
+    passable: true,
+    stepMaterial: 'cloth',
+    textures: {
+      all: `${TEXTURE_BASE}/xdecor_cobweb.png`,
+      tint: [0.9, 0.9, 0.9],
+    },
+  },
+  /** 藤蔓，爬在遺跡的石牆上 */
+  [BlockId.IVY]: {
+    shape: 'cross',
+    passable: true,
+    stepMaterial: 'grass',
+    textures: {
+      all: `${TEXTURE_BASE}/xdecor_ivy.png`,
+      tint: [0.44, 0.62, 0.34],
+    },
+  },
   [BlockId.LILY_PAD]: {
     shape: 'flat',
     passable: true,
@@ -595,11 +1246,62 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
       pixelTint: [2.88, 0.57, 1.03],
     },
   },
+  /**
+   * 林地腐葉
+   *
+   * 與落葉同樣是貼地的一片平板，顏色是踩爛之後的深褐。
+   * 針葉林的地面只有草會太乾淨，鋪一層才有落了幾年葉子的樣子
+   */
+  [BlockId.FOREST_LITTER]: {
+    shape: 'flat',
+    passable: true,
+    isThinFloor: true,
+    stepMaterial: 'grass',
+    textures: {
+      all: `${TEXTURE_BASE}/default_rainforest_litter.png`,
+      tint: [0.72, 0.66, 0.5],
+    },
+  },
   [BlockId.FENCE]: {
     shape: 'fence',
+    collisionWidth: 0.4,
     stepMaterial: 'wood',
     textures: {
       all: `${TEXTURE_BASE}/default_wood.png`,
+    },
+  },
+  /**
+   * 鐵鏈
+   *
+   * 用圍籬的外型：那本來就是一根立在格子中央的細柱，
+   * 拿來當垂下來的鏈子剛好。碰撞也跟著細，站在鐘底下不會被卡住
+   */
+  [BlockId.CHAIN]: {
+    shape: 'fence',
+    cutout: true,
+    collisionWidth: 0.3,
+    stepMaterial: 'stone',
+    textures: {
+      all: `${TEXTURE_BASE}/xdecor_chainlink.png`,
+    },
+  },
+  [BlockId.BAMBOO_FENCE]: {
+    shape: 'fence',
+    collisionWidth: 0.4,
+    stepMaterial: 'wood',
+    textures: {
+      all: `${TEXTURE_BASE}/default_aspen_wood.png`,
+      tint: [0.82, 0.88, 0.55],
+    },
+  },
+  /** 梯子：一片貼在牆上的薄板，穿得過去 */
+  [BlockId.LADDER]: {
+    shape: 'pane',
+    cutout: true,
+    passable: true,
+    stepMaterial: 'wood',
+    textures: {
+      all: `${TEXTURE_BASE}/default_ladder_wood.png`,
     },
   },
   [BlockId.GLASS_PANE]: {
@@ -626,6 +1328,31 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     stepMaterial: 'wood',
     textures: {
       all: `${TEXTURE_BASE}/default_wood.png`,
+    },
+  },
+  [BlockId.DARK_WOOD_SLAB]: {
+    shape: 'slab',
+    collisionHeight: 0.5,
+    stepMaterial: 'wood',
+    textures: {
+      all: `${TEXTURE_BASE}/default_junglewood.png`,
+    },
+  },
+  /** 坐墊：半格高的一片布，踩上去只差半階 */
+  [BlockId.CUSHION]: {
+    shape: 'slab',
+    collisionHeight: 0.5,
+    stepMaterial: 'cloth',
+    textures: {
+      all: `${TEXTURE_BASE}/xdecor_cushion.png`,
+    },
+  },
+  [BlockId.WHITE_STONE_SLAB]: {
+    shape: 'slab',
+    collisionHeight: 0.5,
+    stepMaterial: 'stone',
+    textures: {
+      all: `${TEXTURE_BASE}/default_silver_sandstone.png`,
     },
   },
   /**
@@ -757,6 +1484,11 @@ export function isWaterBlock(blockId: BlockId): boolean {
 /** 方塊的碰撞高度，預設一整格 */
 export function getCollisionHeight(blockId: BlockId): number {
   return BLOCK_DEFS[blockId]?.collisionHeight ?? 1
+}
+
+/** 方塊的水平碰撞寬度，預設整格 */
+export function getCollisionWidth(blockId: BlockId): number {
+  return BLOCK_DEFS[blockId]?.collisionWidth ?? 1
 }
 
 /** 方塊是否為只擋住墜落的薄地板 */

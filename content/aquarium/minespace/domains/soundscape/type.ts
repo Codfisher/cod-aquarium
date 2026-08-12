@@ -1,7 +1,12 @@
-import type { BiomeId } from '../world/biome'
+import type { GardenId } from '../garden/garden-layout'
 
-/** 音源所屬的區域，洞穴與湖泊不是地表生態區，另外列出來 */
-export type SoundZone = BiomeId | 'cave' | 'river' | 'pond'
+/**
+ * 音源所屬的區域
+ *
+ * 一座箱庭就是一個區域。走在箱庭之間的白沙上時不屬於任何一個，
+ * 那是刻意留的空白：整趟漫遊的節奏就是「有聲—無聲—有聲」
+ */
+export type SoundZone = GardenId
 
 /** 播放模式 */
 export type SoundPlayMode =
@@ -37,6 +42,14 @@ export interface SoundEmitterDefinition {
   maxDistance: number;
   /** 下雨時是否安靜下來，鳥與蟲都會躲雨 */
   silentInRain?: boolean;
+  /**
+   * 只在白天或只在夜裡出現，未指定則整天都在
+   *
+   * 這是同一座箱庭在一天之內換一副面孔的辦法：
+   * 蟲聲叢白天是蟬、夜裡是蟋蟀；市井坊的人聲入夜就散了，只剩灶上的火。
+   * 音量的交叉淡入淡出跟著日出日落走，不是到點切換
+   */
+  activeAt?: 'day' | 'night';
 }
 
 /** 天氣狀態 */

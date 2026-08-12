@@ -1,21 +1,24 @@
-import type { Scene, Texture } from '@babylonjs/core'
+import type { Scene, Texture } from '@babylonjs/core-v9'
 import {
   Color4,
   DynamicTexture,
   ParticleSystem,
   Vector3,
-} from '@babylonjs/core'
+} from '@babylonjs/core-v9'
 import { WEATHER_RENDERING_GROUP } from '../../composables/use-babylon-scene'
-import { SWAMP_CENTER } from '../world/structure-generator'
+import { getGarden } from '../garden/garden-layout'
+import { createParticleDimmer } from './particle-tint'
+
+/** 蛙聲澤，霧只罩在這一座木座上 */
+const SWAMP_GARDEN = getGarden('swamp')
 
 /**
  * 霧氣鋪滿的半徑
  *
- * 沼澤生態區的半徑是 28，一片霧本身又有十幾格寬，
- * 散布半徑得再往內收，霧的外緣才會剛好落在沼澤邊界上。
- * 直接用 MIST_ZONE 的外圈（42）會讓霧漫到草原上
+ * 一片霧本身就有十幾格寬，散布半徑得比木座再往內收，
+ * 霧的外緣才會剛好停在木框上，不會漫到外面那片乾淨的白沙
  */
-const MIST_RADIUS = 20
+const MIST_RADIUS = SWAMP_GARDEN.halfSize - 4
 /** 霧貼著地面浮動的高度範圍 */
 const MIST_MIN_HEIGHT = 0.5
 const MIST_MAX_HEIGHT = 5
@@ -53,6 +56,8 @@ function createMistTexture(scene: Scene): DynamicTexture {
 }
 
 export interface SwampMist {
+  /** 跟著日夜調亮度，1 為大白天 */
+  setBrightness: (ratio: number) => void;
   dispose: () => void;
 }
 
@@ -78,7 +83,8 @@ export function createSwampMist({
 }: CreateSwampMistParams): SwampMist {
   const particleSystem = new ParticleSystem('swamp-mist', maxParticleCount, scene)
   particleSystem.particleTexture = createMistTexture(scene)
-  particleSystem.emitter = new Vector3(SWAMP_CENTER.x, 0, SWAMP_CENTER.z)
+  particleSystem.applyFog = true
+  particleSystem.emitter = new Vector3(SWAMP_GARDEN.center.x, 0, SWAMP_GARDEN.center.z)
   particleSystem.renderingGroupId = WEATHER_RENDERING_GROUP
 
   /**
@@ -97,8 +103,8 @@ export function createSwampMist({
      */
     const radius = Math.random() ** 0.7 * MIST_RADIUS
     const angle = Math.random() * Math.PI * 2
-    const x = SWAMP_CENTER.x + Math.cos(angle) * radius
-    const z = SWAMP_CENTER.z + Math.sin(angle) * radius
+    const x = SWAMP_GARDEN.center.x + Math.cos(angle) * radius
+    const z = SWAMP_GARDEN.center.z + Math.sin(angle) * radius
     const surfaceY = castRainRay(Math.floor(x + 0.5), Math.floor(z + 0.5)) ?? 0
 
     positionToUpdate.set(
@@ -151,7 +157,10 @@ export function createSwampMist({
   particleSystem.preWarmStepOffset = 6
   particleSystem.start()
 
+  const dimmer = createParticleDimmer([particleSystem])
+
   return {
+    setBrightness: dimmer.setBrightness,
     dispose() {
       particleSystem.dispose()
     },

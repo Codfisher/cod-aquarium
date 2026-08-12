@@ -1,5 +1,5 @@
-import { BlockId, getCollisionHeight, isPassableBlock, isThinFloorBlock, isWaterBlock } from '../block/block-constants'
-import { ISLAND_CENTER, ISLAND_WALL_RADIUS } from '../world/biome'
+import { BlockId, getCollisionHeight, getCollisionWidth, isDecorationBlock, isPassableBlock, isThinFloorBlock, isWaterBlock } from '../block/block-constants'
+import { SAND_LEVEL } from '../garden/garden-constants'
 import { coordinateToIndex, WORLD_HEIGHT, WORLD_SIZE } from '../world/world-constants'
 
 /** 玩家 AABB 尺寸 */
@@ -48,25 +48,23 @@ export function isBlockSolid(
   blockY: number,
   blockZ: number,
 ): boolean {
-  if (blockX < 0 || blockX >= WORLD_SIZE || blockZ < 0 || blockZ >= WORLD_SIZE) {
-    /** 水平邊界外視為實體牆壁，避免走出世界 */
-    return true
-  }
-
   if (blockY < 0 || blockY >= WORLD_HEIGHT) {
     return false
   }
 
-  return !isPassableBlock(readBlock(worldState, blockX, blockY, blockZ))
-}
+  /**
+   * 水平邊界外一樣是白沙地
+   *
+   * 舊版在這裡回傳「實體牆壁」，因為那是一座四面環海的島。
+   * 現在世界是循環的：玩家會走過邊界再從另一頭出來，
+   * 邊界擺一道看不見的牆會讓他在跨過去的前一刻被卡住。
+   * 沙地在感覺上是無限延伸的，這裡就照著那個感覺繼續往外鋪
+   */
+  if (blockX < 0 || blockX >= WORLD_SIZE || blockZ < 0 || blockZ >= WORLD_SIZE) {
+    return blockY <= SAND_LEVEL
+  }
 
-/**
- * 是否游出島嶼範圍
- *
- * 海上看不見的那道牆，免得玩家一路游進沒有東西的外海
- */
-export function isOutsideIslandWall(positionX: number, positionZ: number): boolean {
-  return Math.hypot(positionX - ISLAND_CENTER.x, positionZ - ISLAND_CENTER.z) > ISLAND_WALL_RADIUS
+  return !isPassableBlock(readBlock(worldState, blockX, blockY, blockZ))
 }
 
 /**
@@ -83,10 +81,6 @@ export function checkOverlap(
   positionY: number,
   positionZ: number,
 ): boolean {
-  if (isOutsideIslandWall(positionX, positionZ)) {
-    return true
-  }
-
   const halfWidth = PLAYER_WIDTH / 2
 
   /** 方塊中心在整數座標，實體邊界位於 [coord - 0.5, coord + 0.5]，故加上 0.5 偏移 */
@@ -103,7 +97,20 @@ export function checkOverlap(
         if (!isBlockSolid(worldState, blockX, blockY, blockZ))
           continue
 
-        const collisionHeight = getCollisionHeight(readBlock(worldState, blockX, blockY, blockZ))
+        const blockId = readBlock(worldState, blockX, blockY, blockZ)
+
+        /** 細的東西（圍籬柱）只擋住格子中央那一小塊，得先看水平方向有沒有真的撞上 */
+        const bounds = getHorizontalBounds(worldState, blockX, blockY, blockZ, blockId)
+        if (bounds) {
+          const isHorizontalOverlap = positionX + halfWidth > blockX + bounds.minX
+            && positionX - halfWidth < blockX + bounds.maxX
+            && positionZ + halfWidth > blockZ + bounds.minZ
+            && positionZ - halfWidth < blockZ + bounds.maxZ
+          if (!isHorizontalOverlap)
+            continue
+        }
+
+        const collisionHeight = getCollisionHeight(blockId)
         if (collisionHeight >= 1) {
           return true
         }
@@ -121,6 +128,77 @@ export function checkOverlap(
   }
 
   return false
+}
+
+/** 水平方向的碰撞範圍，相對於方塊中心 */
+interface HorizontalBounds {
+  minX: number;
+  maxX: number;
+  minZ: number;
+  maxZ: number;
+}
+
+/**
+ * 一根圍籬柱與相鄰方塊算不算連在一起
+ *
+ * 判定要與渲染器完全一致，否則會出現「看得到橫桿卻穿得過去」，
+ * 或反過來「什麼都沒有卻走不過去」
+ */
+function checkFenceConnected(
+  worldState: Uint8Array,
+  blockX: number,
+  blockY: number,
+  blockZ: number,
+  blockId: BlockId,
+): boolean {
+  const neighborId = readBlock(worldState, blockX, blockY, blockZ)
+  if (neighborId === blockId)
+    return true
+
+  return neighborId !== BlockId.AIR
+    && !isPassableBlock(neighborId)
+    && !isDecorationBlock(neighborId)
+}
+
+/**
+ * 取得方塊的水平碰撞範圍
+ *
+ * 一般方塊佔滿整格，回傳 null 代表不必另外判斷。
+ * 圍籬則只有中央一根細柱：整格寬的碰撞箱會讓一根孤零零的柱子
+ * 像一堵看不見的牆，繞過去要多走一格。
+ *
+ * 但也不能一律只算細柱——一整排圍籬柱之間會空出縫隙，
+ * 玩家有機會擠過去。所以有連到隔壁的那幾側要補滿到格子邊緣，
+ * 連成一排時就是一道完整的牆，單獨立著時才是一根細柱
+ */
+function getHorizontalBounds(
+  worldState: Uint8Array,
+  blockX: number,
+  blockY: number,
+  blockZ: number,
+  blockId: BlockId,
+): HorizontalBounds | null {
+  const collisionWidth = getCollisionWidth(blockId)
+  if (collisionWidth >= 1)
+    return null
+
+  const half = collisionWidth / 2
+  const bounds: HorizontalBounds = { minX: -half, maxX: half, minZ: -half, maxZ: half }
+
+  if (checkFenceConnected(worldState, blockX - 1, blockY, blockZ, blockId)) {
+    bounds.minX = -0.5
+  }
+  if (checkFenceConnected(worldState, blockX + 1, blockY, blockZ, blockId)) {
+    bounds.maxX = 0.5
+  }
+  if (checkFenceConnected(worldState, blockX, blockY, blockZ - 1, blockId)) {
+    bounds.minZ = -0.5
+  }
+  if (checkFenceConnected(worldState, blockX, blockY, blockZ + 1, blockId)) {
+    bounds.maxZ = 0.5
+  }
+
+  return bounds
 }
 
 /**
@@ -364,8 +442,19 @@ export interface StandingPosition {
 const NON_STANDABLE_SET = new Set<BlockId>([BlockId.OAK_LEAVES, BlockId.PINE_LEAVES])
 
 /** 在單一方塊柱中，由上往下找第一個站得住又不會卡住的高度 */
+/**
+ * 找出這一柱最低的落腳點
+ *
+ * 由下往上找，不是由上往下。
+ * 由上往下找到的永遠是最高的那個平面——樹冠的頂端、屋頂的斜面、
+ * 山的稜線——於是快速前往一按，人就站在樹上或屋頂上，
+ * 還得自己想辦法爬下來。
+ *
+ * 由下往上找到的是地面：樹底下、屋簷下、山腳邊，
+ * 那才是「傳送到這座箱庭」該有的落點
+ */
 function findStandableFootY(worldState: Uint8Array, blockX: number, blockZ: number): number | null {
-  for (let blockY = WORLD_HEIGHT - 3; blockY >= 1; blockY--) {
+  for (let blockY = 1; blockY <= WORLD_HEIGHT - 3; blockY++) {
     if (!isBlockSolid(worldState, blockX, blockY, blockZ))
       continue
     if (NON_STANDABLE_SET.has(readBlock(worldState, blockX, blockY, blockZ)))

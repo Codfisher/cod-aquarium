@@ -1,11 +1,28 @@
 <template>
   <div class="ambience-panel">
-    <div class="zone-label">
-      <u-icon
-        :name="zoneIcon"
-        class="text-lg"
-      />
-      <span>{{ zoneName }}</span>
+    <div
+      v-auto-animate
+      class="zone-block"
+    >
+      <div
+        :key="zone ?? 'sand'"
+        class="zone-content"
+      >
+        <div class="zone-label">
+          <u-icon
+            :name="zoneIcon"
+            class="text-lg"
+          />
+          <span>{{ zoneName }}</span>
+        </div>
+
+        <div
+          v-if="zoneTimbre"
+          class="zone-timbre"
+        >
+          {{ zoneTimbre }}
+        </div>
+      </div>
     </div>
 
     <transition-group
@@ -42,12 +59,15 @@
 
 <script setup lang="ts">
 import type { AudibleSound, SoundZone } from '../domains/soundscape/type'
+import { vAutoAnimate } from '@formkit/auto-animate/vue'
 import { computed } from 'vue'
 import { useSimpleI18n } from '../composables/use-simple-i18n'
+import { GARDEN_LIST } from '../domains/garden/garden-layout'
 
 const props = defineProps<{
   audibleList: AudibleSound[];
-  zone: SoundZone;
+  /** 目前站在哪一座箱庭上，走在箱庭之間的白沙上時為 null */
+  zone: SoundZone | null;
 }>()
 
 /** 最多列幾個，太多會蓋掉畫面 */
@@ -55,51 +75,33 @@ const MAX_DISPLAY_COUNT = 6
 
 const displayList = computed(() => props.audibleList.slice(0, MAX_DISPLAY_COUNT))
 
-const ZONE_ICON_MAP: Record<SoundZone, string> = {
-  meadow: 'i-material-symbols:grass',
-  forest: 'i-material-symbols:forest',
-  alpine: 'i-material-symbols:landscape',
-  swamp: 'i-material-symbols:water-drop',
-  coast: 'i-material-symbols:waves',
-  village: 'i-material-symbols:home-work',
-  river: 'i-material-symbols:water',
-  cave: 'i-material-symbols:dark-mode',
-  pond: 'i-material-symbols:water-lux',
-  rainvale: 'i-material-symbols:rainy',
-  autumn: 'i-material-symbols:park',
-}
+/** 走在白沙上時顯示的圖示，一片留白 */
+const SAND_ICON = 'i-material-symbols:blur-on'
 
-const zoneIcon = computed(() => ZONE_ICON_MAP[props.zone])
-const zoneName = computed(() => t(props.zone))
+const currentGarden = computed(() => (
+  props.zone === null ? null : GARDEN_LIST.find((garden) => garden.id === props.zone) ?? null
+))
+
+const zoneIcon = computed(() => currentGarden.value?.icon ?? SAND_ICON)
+const zoneName = computed(() => (
+  currentGarden.value === null
+    ? t('sandField')
+    : (locale.value === 'en' ? currentGarden.value.title.en : currentGarden.value.title['zh-hant'])
+))
+const zoneTimbre = computed(() => (
+  currentGarden.value === null
+    ? null
+    : (locale.value === 'en' ? currentGarden.value.timbre.en : currentGarden.value.timbre['zh-hant'])
+))
 
 const { locale, t } = useSimpleI18n({
   'zh-hant': {
-    meadow: '中央草原',
-    forest: '低語森林',
-    alpine: '雪稜高地',
-    swamp: '霧氣沼澤',
-    coast: '環島海岸',
-    village: '石橋村',
-    river: '穿林河谷',
-    cave: '地底洞窟',
-    pond: '林間水塘',
-    rainvale: '長雨谷',
-    autumn: '金葉落葉林',
-    silence: '四下無聲⋯⋯走走看吧',
+    sandField: '白沙之間',
+    silence: '四下無聲⋯⋯往有聲音的方向走吧',
   },
   'en': {
-    meadow: 'Central Meadow',
-    forest: 'Whispering Forest',
-    alpine: 'Snow Ridge',
-    swamp: 'Misty Swamp',
-    coast: 'Island Shore',
-    village: 'Stonebridge Village',
-    river: 'River Valley',
-    cave: 'Underground Cavern',
-    pond: 'Woodland Pond',
-    rainvale: 'Everrain Vale',
-    autumn: 'Golden Grove',
-    silence: 'All quiet... try wandering around',
+    sandField: 'Between the gardens',
+    silence: 'All quiet... walk toward a sound',
   },
 } as const)
 </script>
@@ -120,6 +122,20 @@ const { locale, t } = useSimpleI18n({
   user-select: none
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8)
 
+.zone-block
+  padding-bottom: 8px
+  margin-bottom: 8px
+  border-bottom: 1px solid rgba(255, 255, 255, 0.16)
+
+/**
+ * 換箱庭的過場交給 auto-animate
+ *
+ * 手寫的 transition 只能淡入淡出內容本身，容器的高度是瞬間變的——
+ * 各座箱庭的名稱與說明長度不一，底下那條分隔線與整份音源清單
+ * 會跟著上下彈一下。auto-animate 會連同父容器的尺寸變化一起補間，
+ * 換庭時整塊面板是平順地長高或縮短
+ */
+
 .zone-label
   display: flex
   align-items: center
@@ -127,9 +143,13 @@ const { locale, t } = useSimpleI18n({
   font-size: 15px
   font-weight: 700
   letter-spacing: 0.02em
-  padding-bottom: 8px
-  margin-bottom: 8px
-  border-bottom: 1px solid rgba(255, 255, 255, 0.16)
+
+/** 聲音性質的一句話，字級壓到與音源清單同一階 */
+.zone-timbre
+  margin-top: 3px
+  font-size: 12px
+  line-height: 1.4
+  opacity: 0.72
 
 .sound-list
   display: flex

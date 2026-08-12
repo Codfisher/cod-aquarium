@@ -48,8 +48,10 @@ function prepareLightEmissionList(): Uint8Array {
   const emissionList = new Uint8Array(Math.max(...idList) + 1)
 
   for (const id of idList) {
-    const emissive = BLOCK_DEFS[id as BlockId].emissive ?? 0
-    emissionList[id] = Math.round(emissive * MAX_LIGHT_LEVEL)
+    const blockDef = BLOCK_DEFS[id as BlockId]
+    /** 沒特別指定就跟著自發光走：多數方塊「看起來多亮」與「照多遠」是同一件事 */
+    const level = blockDef.lightLevel ?? blockDef.emissive ?? 0
+    emissionList[id] = Math.round(level * MAX_LIGHT_LEVEL)
   }
 
   return emissionList
@@ -128,8 +130,14 @@ function computeChunkMatricesInWorker(
 
   /** 環境遮蔽的最深程度，0 等於沒有遮蔽 */
   const AO_STRENGTH = 0.3
-  /** 方塊光打在表面上的強度，會直接加在貼圖亮度上 */
-  const BLOCK_LIGHT_STRENGTH = 1.35
+  /**
+   * 方塊光打在表面上的強度，會直接加在貼圖亮度上
+   *
+   * 這個數字是「燈火照到的地方比沒照到的地方亮幾成」。
+   * 它乘的是反照率不是光照，所以夜裡還要靠場景的補光把它撐起來
+   * （見 day-night 的 NIGHT_FILL_COLOR），兩者是一組的
+   */
+  const BLOCK_LIGHT_STRENGTH = 1.55
   /** 燈火是暖色的，照到的地方會偏黃 */
   const BLOCK_LIGHT_COLOR = [1, 0.84, 0.58]
   const MAX_LIGHT = 15

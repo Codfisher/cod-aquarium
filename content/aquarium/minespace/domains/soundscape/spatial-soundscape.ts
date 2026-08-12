@@ -1,7 +1,7 @@
-import type { AudioEngineV2, StaticSound, StaticSoundBuffer } from '@babylonjs/core'
+import type { AudioEngineV2, StaticSound, StaticSoundBuffer } from '@babylonjs/core-v9'
 import type { ResolvedEmitter } from './sound-data'
 import type { AudibleSound, Weather } from './type'
-import { CreateSoundAsync, CreateSoundBufferAsync, Vector3 } from '@babylonjs/core'
+import { CreateSoundAsync, CreateSoundBufferAsync, Vector3 } from '@babylonjs/core-v9'
 import { BlockId, isPassableBlock } from '../block/block-constants'
 import { readBlock } from '../player/collision'
 import { getSoundUrl } from './sound-data'
@@ -38,12 +38,20 @@ const SOUND_TRANSPARENT_SET = new Set<BlockId>([
   BlockId.ICE,
 ])
 
+/**
+ * 低於這個音量比例就整個卸載
+ *
+ * 日夜切換是靠音量交叉淡出的，淡到聽不見之後沒有必要繼續播——
+ * 白天有一半的音源是啞的，全部留著只是白白佔著解碼與混音的資源
+ */
+const SILENT_UNLOAD_THRESHOLD = 0.02
+
 interface ActiveEmitter {
   definition: ResolvedEmitter;
   sound: StaticSound;
   timerId?: ReturnType<typeof setTimeout>;
-  /** 上一次套用的遮蔽係數，沒變就不用再設定一次音量 */
-  clarity: number;
+  /** 上一次套用的音量比例，沒變就不用再設定一次音量 */
+  gainRatio: number;
 }
 
 /**
@@ -60,6 +68,8 @@ export class SpatialSoundscape {
   private audibleList: AudibleSound[] = []
   private isDisposed = false
   private weather: Weather = 'clear'
+  /** 白晝的程度，0 為全暗、1 為大白天 */
+  private dayRatio = 1
 
   constructor(
     private audioEngine: AudioEngineV2,
@@ -87,15 +97,28 @@ export class SpatialSoundscape {
    *
    * 音量本身由 Web Audio 依距離自動計算，這裡只負責決定誰該存在。
    */
-  public update(listenerX: number, listenerY: number, listenerZ: number): void {
+  public update(
+    listenerX: number,
+    listenerY: number,
+    listenerZ: number,
+    dayRatio = this.dayRatio,
+  ): void {
     if (this.isDisposed)
       return
 
+    this.dayRatio = dayRatio
     const audibleList: AudibleSound[] = []
 
     for (const definition of this.emitterList) {
       /** 躲雨的音源直接卸載，雨停了再回來 */
       if (this.weather === 'rain' && definition.silentInRain) {
+        this.unload(definition.id)
+        continue
+      }
+
+      /** 只在白天或只在夜裡的音源，過了那段時間就卸載 */
+      const timeGate = measureTimeGate(definition, dayRatio)
+      if (timeGate < SILENT_UNLOAD_THRESHOLD) {
         this.unload(definition.id)
         continue
       }
@@ -118,9 +141,10 @@ export class SpatialSoundscape {
         continue
 
       const clarity = this.measureClarity(listenerX, listenerY, listenerZ, definition)
-      this.applyClarity(active, clarity)
+      const gainRatio = clarity * timeGate
+      this.applyGain(active, gainRatio)
 
-      const loudness = estimateLoudness(definition, distance) * clarity
+      const loudness = estimateLoudness(definition, distance) * gainRatio
       if (loudness > 0.02) {
         audibleList.push({
           id: definition.id,
@@ -180,13 +204,18 @@ export class SpatialSoundscape {
     return 1 - occlusion * (1 - OCCLUSION_FLOOR)
   }
 
-  /** 把清晰度換算成音量，差距夠大才重新設定，免得每次更新都在拉音量 */
-  private applyClarity(active: ActiveEmitter, clarity: number): void {
-    if (Math.abs(active.clarity - clarity) < 0.02)
+  /**
+   * 套用音量比例，差距夠大才重新設定，免得每次更新都在拉音量
+   *
+   * 比例是遮蔽與日夜兩個係數相乘：隔著山腹會悶掉，
+   * 天亮了夜行的聲音也會跟著退場，兩者走同一條淡入淡出的路徑
+   */
+  private applyGain(active: ActiveEmitter, gainRatio: number): void {
+    if (Math.abs(active.gainRatio - gainRatio) < 0.02)
       return
 
-    active.clarity = clarity
-    active.sound.setVolume(active.definition.volume * clarity, {
+    active.gainRatio = gainRatio
+    active.sound.setVolume(active.definition.volume * gainRatio, {
       duration: OCCLUSION_RAMP_SECOND,
     })
   }
@@ -228,12 +257,19 @@ export class SpatialSoundscape {
         return
 
       const isLoop = definition.mode.type === 'loop'
+      /**
+       * 一開聲就照當下的日夜比例
+       *
+       * 用滿音量建立再等下一次更新去拉的話，
+       * 破曉時剛載入的鳥會先整隻叫一聲才淡下去
+       */
+      const gainRatio = measureTimeGate(definition, this.dayRatio)
       const sound = await CreateSoundAsync(
         definition.id,
         buffer,
         {
           loop: isLoop,
-          volume: definition.volume,
+          volume: definition.volume * gainRatio,
           spatialEnabled: true,
           spatialDistanceModel: 'linear',
           spatialMinDistance: definition.minDistance,
@@ -250,7 +286,7 @@ export class SpatialSoundscape {
         return
       }
 
-      const active: ActiveEmitter = { definition, sound, clarity: 1 }
+      const active: ActiveEmitter = { definition, sound, gainRatio }
       this.activeMap.set(definition.id, active)
 
       if (isLoop) {
@@ -302,6 +338,23 @@ export class SpatialSoundscape {
     active.sound.stop()
     active.sound.dispose()
   }
+}
+
+/**
+ * 依日夜取得音源該有的音量比例
+ *
+ * 沒有指定時段的音源整天都是滿的。
+ * 指定了的話直接跟著白晝程度走：天亮到一半，蟬與蟋蟀就各出一半的力，
+ * 那正是黎明時兩種聲音疊在一起的樣子——不是到點換班
+ */
+function measureTimeGate(
+  definition: Pick<ResolvedEmitter, 'activeAt'>,
+  dayRatio: number,
+): number {
+  if (!definition.activeAt)
+    return 1
+
+  return definition.activeAt === 'day' ? dayRatio : 1 - dayRatio
 }
 
 /**

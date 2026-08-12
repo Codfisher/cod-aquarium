@@ -1,9 +1,10 @@
-import type { DirectionalLight, HemisphericLight, Scene, UniversalCamera } from '@babylonjs/core'
+import type { DirectionalLight, HemisphericLight, Scene, UniversalCamera } from '@babylonjs/core-v9'
 import type { AtmosphereState } from '../domains/weather/atmosphere'
 import type { MobileControlState } from './use-mobile-controller'
-import { Color3 } from '@babylonjs/core'
+import { Color3 } from '@babylonjs/core-v9'
 import { onBeforeUnmount, reactive, ref } from 'vue'
 import { BlockId, getStepMaterial } from '../domains/block/block-constants'
+import { SPAWN_POSITION } from '../domains/garden/garden-layout'
 import {
   findSafeStandingPosition,
   isHeadInWater,
@@ -13,15 +14,10 @@ import {
   readBlock,
   resolveCollision,
 } from '../domains/player/collision'
-import { SPAWN_POSITION } from '../domains/world/world-generator'
+import { CAVE_FOG_COLOR, EDGE_FOG_END, EDGE_FOG_START, getEdgeFogRatio } from '../domains/weather/atmosphere'
+import { WORLD_SIZE } from '../domains/world/world-constants'
 import { useStepSound } from './use-audio-engine'
-import {
-  AMBIENT_INTENSITY,
-  AMBIENT_LIGHT_NAME,
-  SKYBOX_NAME,
-  SUN_INTENSITY,
-  SUN_LIGHT_NAME,
-} from './use-babylon-scene'
+import { AMBIENT_LIGHT_NAME, SUN_LIGHT_NAME } from './use-babylon-scene'
 
 const GRAVITY = 22
 const JUMP_SPEED = 7.6
@@ -63,6 +59,14 @@ const MOUSE_LOOK_SENSITIVITY = 1 / 1600
  * 這種值不擋下來，畫面會瞬間轉過去
  */
 const MOUSE_MOVE_LIMIT = 260
+/**
+ * 單一幀最多轉多少弧度
+ *
+ * 約十八度。正常揮動滑鼠一幀轉不到這個角度，所以手感完全不受影響；
+ * 只有掉幀後累積出來的那一大批位移會被攤開，不會一次甩過去。
+ * 超出的部分不會被丟掉，留給接下來幾幀繼續轉完
+ */
+const MOUSE_LOOK_FRAME_LIMIT = 0.32
 
 /**
  * 洞穴內保留的環境光比例
@@ -72,6 +76,15 @@ const MOUSE_MOVE_LIMIT = 260
  * 洞穴的暗應該是烘進方塊的環境遮蔽做出來的，不是把燈全部關掉
  */
 const CAVE_AMBIENT_RATIO = 0.94
+
+/**
+ * 洞穴環境光的下限
+ *
+ * 地表的環境光跟著日夜走，入夜只剩三成；洞裡卻是不分晝夜的。
+ * 夜裡進洞若照著地表的強度再打折，會黑到什麼都看不見，
+ * 所以洞裡的環境光不低於這個值
+ */
+const CAVE_AMBIENT_FLOOR = 0.55
 
 /** 判定「被地形包住」時往上搜尋的格數 */
 const COVER_SCAN_HEIGHT = 14
@@ -89,21 +102,63 @@ const TRANSPARENT_COVER_SET = new Set<BlockId>([
   BlockId.GLASS,
   BlockId.OAK_LEAVES,
   BlockId.PINE_LEAVES,
+  BlockId.ASPEN_LOG,
+  BlockId.AMBER_LEAVES,
+  BlockId.GOLD_LEAVES,
+  BlockId.ACACIA_LOG,
+  BlockId.ACACIA_LEAVES,
+  BlockId.JUNGLE_LEAVES,
   BlockId.OAK_LOG,
   BlockId.PINE_LOG,
   BlockId.DEAD_LOG,
 ])
 
 /**
- * 洞穴的霧色
+ * 世界在幾何上的邊界
  *
- * 幾近全黑的霧一罩下去，兩步之外就什麼都看不見，
- * 進洞會像瞬間關燈。留一點岩石的灰藍，才是深處的空氣感
+ * 方塊中心落在整數座標，所以第一格的外緣是 -0.5、最後一格的外緣是 WORLD_SIZE - 0.5。
+ * 循環的區間必須對齊這兩條線，不能用 0 到 WORLD_SIZE：
+ * 差的那半格會讓人被送到最後一格的外面，腳下沒有方塊，
+ * 腳步聲會忽然消失，再走一步又立刻被彈回另一頭
  */
-const CAVE_FOG_COLOR = new Color3(0.13, 0.13, 0.17)
-/** 洞穴的能見度，太短會像貼著臉蒙布 */
-const CAVE_FOG_START = 10
-const CAVE_FOG_END = 62
+const WORLD_MIN_EDGE = -0.5
+
+/**
+ * 循環世界
+ *
+ * 走出邊界就平移一整個世界的距離，從對面出來。
+ * 是平移不是鏡射——鏡射會把左右整個顛倒過來，
+ * 轉頭時看到的東西對不上，那一下反而比接縫還明顯。
+ *
+ * 之所以察覺不到，是三件事對齊了：
+ * 箱庭全部排在離邊界四十二格以外、沙紋也收在三十六格以內，
+ * 而霧氣一走近邊界就濃到只剩二十六格（見 measureEdgeRatio）。
+ * 跨過去的前後，視野裡都只有同一片白
+ *
+ * 用 while 而不是 if：快速傳送可能一次跳出去好幾圈
+ */
+function wrapAxis(value: number): number {
+  let wrapped = value
+
+  while (wrapped < WORLD_MIN_EDGE) {
+    wrapped += WORLD_SIZE
+  }
+  while (wrapped >= WORLD_MIN_EDGE + WORLD_SIZE) {
+    wrapped -= WORLD_SIZE
+  }
+
+  return wrapped
+}
+
+/**
+ * 洞穴的能見度
+ *
+ * 岩響窟裡的洞只有二三十格深，能見度給到六十等於沒有霧。
+ * 收到二十六格剛好：站在洞室中央看不到洞口，
+ * 但也不至於像貼著臉蒙了一塊布
+ */
+const CAVE_FOG_START = 5
+const CAVE_FOG_END = 26
 const WATER_FOG_COLOR = new Color3(0.16, 0.36, 0.56)
 
 interface UseFpsControllerParams {
@@ -257,19 +312,33 @@ export function useFpsController() {
       }
     }
 
-    /** 取出並清空這一幀累積的視角位移，換算成弧度 */
+    /**
+     * 取出這一幀要套用的視角位移，換算成弧度
+     *
+     * 不能把累積的位移一次全部倒出來。掉幀時瀏覽器會把那段時間的
+     * mousemove 全部排隊，下一幀一口氣送達——同一幀套用十幾筆位移，
+     * 畫面就是瞬間甩過一大段角度。
+     *
+     * 這裡改成一幀最多轉一個上限，沒用完的留在累加器裡給下一幀。
+     * 總共轉過的角度分毫不差，只是被攤平到接下來幾幀，
+     * 看起來就是快速但連續地轉過去，而不是跳過去
+     */
     function consumeMouseLookDelta(): { deltaX: number; deltaY: number } {
-      const deltaX = mouseLookDelta.x * MOUSE_LOOK_SENSITIVITY
-      const deltaY = mouseLookDelta.y * MOUSE_LOOK_SENSITIVITY
-      mouseLookDelta.x = 0
-      mouseLookDelta.y = 0
+      const rawX = mouseLookDelta.x * MOUSE_LOOK_SENSITIVITY
+      const rawY = mouseLookDelta.y * MOUSE_LOOK_SENSITIVITY
+      const peak = Math.max(Math.abs(rawX), Math.abs(rawY))
+      const ratio = peak > MOUSE_LOOK_FRAME_LIMIT ? MOUSE_LOOK_FRAME_LIMIT / peak : 1
+
+      const deltaX = rawX * ratio
+      const deltaY = rawY * ratio
+      mouseLookDelta.x -= deltaX / MOUSE_LOOK_SENSITIVITY
+      mouseLookDelta.y -= deltaY / MOUSE_LOOK_SENSITIVITY
 
       return { deltaX, deltaY }
     }
 
     const ambientLight = scene.getLightByName(AMBIENT_LIGHT_NAME) as HemisphericLight | null
     const sunLight = scene.getLightByName(SUN_LIGHT_NAME) as DirectionalLight | null
-    const skyDome = scene.getMeshByName(SKYBOX_NAME)
 
     clearMoveKeys = () => {
       keys.forward = false
@@ -281,6 +350,22 @@ export function useFpsController() {
     }
 
     function handleKeyDown(event: KeyboardEvent) {
+      /**
+       * Esc 是開關，不是只有開
+       *
+       * 按第一次時，瀏覽器自己解除指標鎖定，選單跟著跳出來；
+       * 但再按一次什麼都不會發生——指標鎖定早就解除了，沒有第二次事件可以接。
+       * 所以選單開著的時候要自己把 Esc 接下來，重新鎖定指標回到漫遊。
+       *
+       * 這一段要擺在最前面：選單開著時焦點通常落在某個按鈕上，
+       * 底下那道「焦點在按鈕上就把鍵盤還給瀏覽器」會先攔截掉
+       */
+      if (event.code === 'Escape' && isPaused.value) {
+        event.preventDefault()
+        resume()
+        return
+      }
+
       /** 焦點在選單按鈕之類的元素上，鍵盤就該還給瀏覽器 */
       if (event.target instanceof HTMLElement && event.target.closest('button, a, input, select, textarea')) {
         return
@@ -428,21 +513,44 @@ export function useFpsController() {
       caveRatio += (caveTarget - caveRatio) * blendSpeed
       waterRatio += (waterTarget - waterRatio) * blendSpeed
       isUnderground.value = caveRatio > 0.5
+      /**
+       * 讓天氣那一側知道現在在洞裡多深
+       *
+       * 天空原本是整片關掉的（skyDome.setEnabled(false)），
+       * 但那會讓人從洞口往外看時，天空在某個深度忽然整片消失。
+       * 改成交給罩在外面的那一層淡入成岩壁的顏色，
+       * 深淺是連續的，走進走出都看不出切換
+       */
+      atmosphere.caveRatio = caveRatio
 
       Color3.LerpToRef(atmosphere.fogColor, CAVE_FOG_COLOR, caveRatio, scene.fogColor)
       Color3.LerpToRef(scene.fogColor, WATER_FOG_COLOR, waterRatio, scene.fogColor)
 
-      const caveFogStart = atmosphere.fogStart + (CAVE_FOG_START - atmosphere.fogStart) * caveRatio
-      const caveFogEnd = atmosphere.fogEnd + (CAVE_FOG_END - atmosphere.fogEnd) * caveRatio
+      /**
+       * 先套邊界的濃霧，再套洞穴
+       *
+       * 兩者不會同時發生（箱庭離邊界四十二格），順序只是為了讓洞裡的霧說了算
+       */
+      const edgeRatio = getEdgeFogRatio(position.x, position.z)
+      const edgeFogStart = atmosphere.fogStart + (EDGE_FOG_START - atmosphere.fogStart) * edgeRatio
+      const edgeFogEnd = atmosphere.fogEnd + (EDGE_FOG_END - atmosphere.fogEnd) * edgeRatio
+
+      const caveFogStart = edgeFogStart + (CAVE_FOG_START - edgeFogStart) * caveRatio
+      const caveFogEnd = edgeFogEnd + (CAVE_FOG_END - edgeFogEnd) * caveRatio
       scene.fogStart = caveFogStart * (1 - waterRatio)
       scene.fogEnd = caveFogEnd + (14 - caveFogEnd) * waterRatio
 
       scene.clearColor.set(scene.fogColor.r, scene.fogColor.g, scene.fogColor.b, 1)
 
-      /** 在洞裡就不用畫天空了 */
-      if (skyDome) {
-        skyDome.setEnabled(caveRatio < 0.98)
-      }
+      /**
+       * 夜裡的補光
+       *
+       * 場景的 ambientColor 在著色器裡是加在光照上、再乘上反照率的那一項，
+       * 而方塊光正是烘在反照率裡。所以這道補光除了讓夜色不至於全黑，
+       * 更重要的是讓燈火照到的那幾面照比例亮起來——沒有它，
+       * 烘進去的燈光會跟著夜色一起被壓掉，燈只照得亮自己
+       */
+      scene.ambientColor.copyFrom(atmosphere.fillColor)
 
       const weatherRatio = atmosphere.lightRatio + atmosphere.flashRatio * 1.4
 
@@ -455,10 +563,24 @@ export function useFpsController() {
       const ambientRatio = weatherRatio * (1 - caveRatio) + CAVE_AMBIENT_RATIO * caveRatio
 
       if (ambientLight) {
-        ambientLight.intensity = AMBIENT_INTENSITY * ambientRatio
+        /**
+         * 洞裡的環境光要有下限
+         *
+         * 地表的環境光是跟著日夜走的，入夜之後只剩三成。
+         * 洞裡本來就沒有天光，再乘上夜晚的三成會黑到連石壁都摸不到——
+         * 而洞裡是不分晝夜的，那份微光代表的是岩壁自己的反射
+         */
+        const caveAmbient = Math.max(atmosphere.ambientIntensity, CAVE_AMBIENT_FLOOR)
+        const ambientIntensity = atmosphere.ambientIntensity * (1 - caveRatio)
+          + caveAmbient * caveRatio
+
+        ambientLight.intensity = ambientIntensity * ambientRatio
+        ambientLight.diffuse.copyFrom(atmosphere.ambientSkyColor)
+        ambientLight.groundColor.copyFrom(atmosphere.ambientGroundColor)
       }
       if (sunLight) {
-        sunLight.intensity = SUN_INTENSITY * weatherRatio * (1 - caveRatio)
+        sunLight.intensity = atmosphere.lightIntensity * weatherRatio * (1 - caveRatio)
+        sunLight.diffuse.copyFrom(atmosphere.lightColor)
       }
     }
 
@@ -584,9 +706,15 @@ export function useFpsController() {
         isOnGround && velocityY <= 0,
       )
 
-      position.x = result.x
+      /**
+       * 位置更新完立刻繞回世界內
+       *
+       * 要在鏡頭定位之前做完，否則跨過邊界的那一幀鏡頭會停在界外，
+       * 下一幀才跳回來——那一下就是唯一會露餡的地方
+       */
+      position.x = wrapAxis(result.x)
       position.y = result.y
-      position.z = result.z
+      position.z = wrapAxis(result.z)
       isOnGround = result.isOnGround
       if (result.velocityY === 0) {
         velocityY = 0
@@ -713,9 +841,9 @@ export function useFpsController() {
 
   /** 直接把玩家送到指定座標，方便快速旅行 */
   function teleport(x: number, y: number, z: number) {
-    position.x = x
+    position.x = wrapAxis(x)
     position.y = y
-    position.z = z
+    position.z = wrapAxis(z)
   }
 
   return {

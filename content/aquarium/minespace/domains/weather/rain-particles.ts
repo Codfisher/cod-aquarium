@@ -1,13 +1,14 @@
-import type { Scene, UniversalCamera } from '@babylonjs/core'
+import type { Scene, UniversalCamera } from '@babylonjs/core-v9'
 import {
   Color4,
   DynamicTexture,
   ParticleSystem,
   Texture,
   Vector3,
-} from '@babylonjs/core'
+} from '@babylonjs/core-v9'
 import { WEATHER_RENDERING_GROUP } from '../../composables/use-babylon-scene'
 import { WORLD_SIZE } from '../world/world-constants'
+import { createParticleDimmer } from './particle-tint'
 
 /** 雨的覆蓋範圍（以玩家為中心的半邊長） */
 const RAIN_AREA_HALF_SIZE = 22
@@ -88,6 +89,8 @@ function createSplashTexture(scene: Scene): DynamicTexture {
 export interface RainParticles {
   /** 更新雨的位置與強度，ratio 為 0 ~ 1 */
   update: (camera: UniversalCamera, ratio: number) => void;
+  /** 跟著日夜調亮度，1 為大白天 */
+  setBrightness: (ratio: number) => void;
   dispose: () => void;
 }
 
@@ -167,6 +170,7 @@ export function createRainParticles({
 
   const particleSystem = new ParticleSystem('rain', maxParticleCount, scene)
   particleSystem.particleTexture = createRainTexture(scene)
+  particleSystem.applyFog = true
   particleSystem.emitter = emitterPosition
   /**
    * 雨畫在最後一層
@@ -223,6 +227,7 @@ export function createRainParticles({
   const splashCount = Math.round(maxParticleCount * 0.25)
   const splashSystem = new ParticleSystem('rain-splash', splashCount, scene)
   splashSystem.particleTexture = createSplashTexture(scene)
+  splashSystem.applyFog = true
   splashSystem.emitter = emitterPosition
   splashSystem.renderingGroupId = WEATHER_RENDERING_GROUP
   /** 方形碎片要正對鏡頭才不會被壓成一條線，低頭看也還是方的 */
@@ -270,7 +275,10 @@ export function createRainParticles({
   let isRainStarted = false
   let isSplashStarted = false
 
+  const dimmer = createParticleDimmer([particleSystem, splashSystem])
+
   return {
+    setBrightness: dimmer.setBrightness,
     update(camera, ratio) {
       emitterPosition.copyFrom(camera.position)
       collectSplashSpotList(camera.position.y)

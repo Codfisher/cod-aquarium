@@ -1,6 +1,6 @@
 import type { TerrainWorkerMessage, TerrainWorkerResponse } from './type'
+import { generateWorld } from '../../garden/garden-generator'
 import { createWorldState } from '../world-access'
-import { generateWorld } from '../world-generator'
 
 // eslint-disable-next-line no-restricted-globals
 const workerSelf = self as unknown as {

@@ -1,16 +1,21 @@
-import type { DirectionalLight, Mesh, Scene, ShadowGenerator, StandardMaterial, UniversalCamera } from '@babylonjs/core'
-import { MeshBuilder, TransformNode } from '@babylonjs/core'
+import type { DirectionalLight, Mesh, Scene, ShadowGenerator, StandardMaterial, UniversalCamera } from '@babylonjs/core-v9'
+import { MeshBuilder, TransformNode } from '@babylonjs/core-v9'
 import { onBeforeUnmount } from 'vue'
 import { SUN_LIGHT_NAME } from '../../composables/use-babylon-scene'
 import { createSeededRandom } from '../../utils/noise'
 import { WOOL_TEXTURE } from '../block/block-constants'
+import { PASTURE_CENTER, PASTURE_HALF_SIZE } from '../garden/garden-layout'
 import { PLAYER_EYE_HEIGHT, PLAYER_WIDTH } from '../player/collision'
 import { createPixelMaterial } from '../renderer/voxel-renderer'
-import { PASTURE_CENTER, PASTURE_HALF_SIZE } from '../world/structure-generator'
 import { getGroundY } from '../world/world-access'
 
-/** 羊隻數量 */
-const SHEEP_COUNT = 6
+/**
+ * 羊隻數量
+ *
+ * 牧野只有十五格見方，柵欄裡的活動範圍更小。
+ * 六隻擠在裡面會一直互相推擠，四隻剛好各自有地方吃草
+ */
+const SHEEP_COUNT = 4
 /** 吃草停留時間範圍（秒） */
 const GRAZE_RANGE_SECOND: [number, number] = [4, 12]
 /** 轉身所需時間（秒） */

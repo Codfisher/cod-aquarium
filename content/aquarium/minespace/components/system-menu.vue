@@ -37,6 +37,50 @@
       </div>
 
       <div class="menu-section">
+        <label class="menu-label">
+          {{ t('timeOfDay') }}
+          <span class="menu-value">{{ isAutoTime ? timeLabel : `${timeLabel}・${t('timeStopped')}` }}</span>
+        </label>
+
+        <div class="volume-row">
+          <button
+            class="mc-button icon-button"
+            :class="{ 'mc-button-active': isAutoTime }"
+            :title="isAutoTime ? t('timeAuto') : t('timeStopped')"
+            @click="isAutoTime = !isAutoTime"
+          >
+            <u-icon
+              :name="isAutoTime ? 'i-material-symbols:play-arrow-rounded' : 'i-material-symbols:pause-rounded'"
+              class="text-xl"
+            />
+          </button>
+
+          <input
+            v-model.number="timeOfDay"
+            type="range"
+            min="0"
+            max="0.999"
+            step="0.001"
+            class="volume-slider"
+          >
+        </div>
+
+        <label class="menu-label speed-label">
+          {{ t('daySpeed') }}
+          <span class="menu-value">{{ dayLengthText }}</span>
+        </label>
+
+        <input
+          v-model.number="daySpeedRatio"
+          type="range"
+          min="0"
+          max="1"
+          step="0.01"
+          class="volume-slider"
+        >
+      </div>
+
+      <div class="menu-section">
         <label class="menu-label">{{ t('graphicsQuality') }}</label>
         <div class="button-row">
           <button
@@ -63,6 +107,7 @@
             v-for="landmark in landmarkList"
             :key="landmark.id"
             class="mc-button landmark-button"
+            :title="locale === 'en' ? landmark.timbre.en : landmark.timbre['zh-hant']"
             @click="$emit('travel', landmark)"
           >
             <u-icon
@@ -72,6 +117,11 @@
             {{ locale === 'en' ? landmark.title.en : landmark.title['zh-hant'] }}
           </button>
         </div>
+      </div>
+
+      <div class="menu-section">
+        <label class="menu-label">{{ t('controls') }}</label>
+        <control-guide />
       </div>
 
       <button
@@ -97,12 +147,17 @@
 
 <script setup lang="ts">
 import type { Landmark } from '../domains/world/landmark'
+import { computed } from 'vue'
 import { useGraphicsQuality } from '../composables/use-graphics-quality'
 import { useSimpleI18n } from '../composables/use-simple-i18n'
+import { getDayLengthSecond } from '../domains/weather/day-night'
 import { LANDMARK_LIST } from '../domains/world/landmark'
+import ControlGuide from './control-guide.vue'
 
 defineProps<{
   open: boolean;
+  /** 目前的時刻讀數，例如「06:20 破曉」 */
+  timeLabel: string;
 }>()
 
 defineEmits<{
@@ -113,19 +168,42 @@ defineEmits<{
 
 const volume = defineModel<number>('volume', { required: true })
 const isMuted = defineModel<boolean>('muted', { required: true })
+/** 一天的時刻，0 為子夜、0.5 為正午 */
+const timeOfDay = defineModel<number>('timeOfDay', { required: true })
+/** 時間會不會自己走 */
+const isAutoTime = defineModel<boolean>('autoTime', { required: true })
+/** 一天走多快，0 為最緩、1 為最快 */
+const daySpeedRatio = defineModel<number>('daySpeed', { required: true })
 
 const { quality } = useGraphicsQuality()
 const landmarkList = LANDMARK_LIST
+
+/** 一天多長，超過一分鐘就用分鐘表示 */
+const dayLengthText = computed(() => {
+  const lengthSecond = Math.round(getDayLengthSecond(daySpeedRatio.value))
+
+  return lengthSecond >= 90
+    ? `${t('dayLength')} ${Math.round(lengthSecond / 60)} ${t('minute')}`
+    : `${t('dayLength')} ${lengthSecond} ${t('second')}`
+})
 
 const { locale, t } = useSimpleI18n({
   'zh-hant': {
     title: '暫停',
     volume: '音量',
     muted: '靜音',
+    timeOfDay: '時刻',
+    timeAuto: '日夜自動交替',
+    timeStopped: '時間停住',
+    daySpeed: '流速',
+    dayLength: '一天',
+    minute: '分',
+    second: '秒',
     graphicsQuality: '畫面等級',
     high: '高',
     low: '低',
     travel: '快速前往',
+    controls: '操作方式',
     intro: '遊玩說明',
     resume: '繼續漫遊',
   },
@@ -133,10 +211,18 @@ const { locale, t } = useSimpleI18n({
     title: 'Paused',
     volume: 'Volume',
     muted: 'Muted',
+    timeOfDay: 'Time of day',
+    timeAuto: 'Day cycle running',
+    timeStopped: 'Time held',
+    daySpeed: 'Flow',
+    dayLength: 'One day',
+    minute: 'min',
+    second: 'sec',
     graphicsQuality: 'Graphics',
     high: 'High',
     low: 'Low',
     travel: 'Fast Travel',
+    controls: 'Controls',
     intro: 'How to Play',
     resume: 'Resume',
   },
@@ -149,17 +235,28 @@ const { locale, t } = useSimpleI18n({
   inset: 0
   z-index: 40
   display: flex
-  align-items: center
+  /**
+   * 內容比螢幕高時要從頂端開始，不能置中
+   *
+   * align-items: center 配上 overflow-y: auto 是經典的陷阱：
+   * 內容一旦比容器高，溢出的部分會往「兩端」各推一半，
+   * 而捲軸只捲得到下半邊——上半邊被推到捲動範圍之外，永遠看不到。
+   * 改成靠上對齊，再讓內容自己用 margin: auto 置中：
+   * 空間夠時照樣置中，不夠時就從頂端排起，一格都不會被切掉
+   */
+  align-items: flex-start
   justify-content: center
-  padding: 24px
+  padding: max(24px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left))
   background: rgba(0, 0, 0, 0.65)
   backdrop-filter: blur(3px)
   -webkit-backdrop-filter: blur(3px)
   overflow-y: auto
 
 .menu-body
+  /** 空間夠就置中、不夠就靠上，與外層的 flex-start 搭配 */
+  margin: auto
   width: 100%
-  max-width: 420px
+  max-width: 560px
   display: flex
   flex-direction: column
   gap: 22px
@@ -201,10 +298,20 @@ const { locale, t } = useSimpleI18n({
   display: flex
   gap: 10px
 
+/**
+ * 地標一共十七座
+ *
+ * 兩欄要排九列，加上音量、畫質與操作說明之後整張選單長到得捲動。
+ * 桌機排三欄剛好一屏放得下；手機的寬度塞不下三欄的中文標題，
+ * 窄螢幕再退回兩欄
+ */
 .landmark-grid
   display: grid
-  grid-template-columns: repeat(2, minmax(0, 1fr))
+  grid-template-columns: repeat(3, minmax(0, 1fr))
   gap: 8px
+
+  @media (max-width: 480px)
+    grid-template-columns: repeat(2, minmax(0, 1fr))
 
 .mc-button
   display: flex
@@ -241,9 +348,17 @@ const { locale, t } = useSimpleI18n({
   width: 46px
   padding: 8px
 
-.landmark-button
+/** 流速是時刻底下的附屬設定，標題壓小一階並往內縮 */
+.speed-label
+  margin-top: 2px
   font-size: 13px
-  padding: 9px 8px
+  opacity: 0.7
+
+/** 三欄之後每一格變窄，字級與內距都要跟著收 */
+.landmark-button
+  font-size: 12px
+  padding: 8px 6px
+  gap: 4px
 
 .resume-button
   padding: 14px

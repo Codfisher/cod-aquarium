@@ -1,5 +1,6 @@
-import type { Scene, UniversalCamera } from '@babylonjs/core'
+import type { Scene, UniversalCamera } from '@babylonjs/core-v9'
 import type { AudibleSound, Weather } from './type'
+import { useStorage } from '@vueuse/core'
 import { onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { getAudioEngine } from '../../composables/use-audio-engine'
 import { createEmitterList } from './sound-data'
@@ -12,6 +13,14 @@ interface StartParams {
   scene: Scene;
   camera: UniversalCamera;
   worldState: Uint8Array;
+  /**
+   * 目前的白晝程度，0 為全暗、1 為大白天
+   *
+   * 夜行的聲音靠它淡入、日行的靠它淡出。
+   * 傳函數而不是傳值：這個數字每一幀都在變，
+   * 走反應式的話會每幀觸發一次更新，而音景其實四分之一秒才需要看一次
+   */
+  getDayRatio?: () => number;
 }
 
 /**
@@ -24,8 +33,15 @@ interface StartParams {
 export function useSoundscape() {
   const audibleList = shallowRef<AudibleSound[]>([])
   const isReady = ref(false)
-  const masterVolume = ref(0.8)
-  const isMuted = ref(false)
+  /**
+   * 音量與靜音記在瀏覽器裡
+   *
+   * 這是一個聽覺的作品，音量是使用者第一件會調的事。
+   * 每次重新整理都要再調一次很煩，尤其是把它靜音之後——
+   * 重載又整個播出來，在辦公室會嚇到人
+   */
+  const masterVolume = useStorage('minespace-volume', 0.8)
+  const isMuted = useStorage('minespace-muted', false)
 
   let soundscape: SpatialSoundscape | null = null
   let elapsed = 0
@@ -46,7 +62,7 @@ export function useSoundscape() {
    *
    * 必須在使用者互動後呼叫，瀏覽器才允許播放聲音。
    */
-  async function start({ scene, camera, worldState }: StartParams): Promise<void> {
+  async function start({ scene, camera, worldState, getDayRatio }: StartParams): Promise<void> {
     if (soundscape)
       return
 
@@ -70,7 +86,12 @@ export function useSoundscape() {
         return
 
       elapsed = 0
-      soundscape.update(camera.position.x, camera.position.y, camera.position.z)
+      soundscape.update(
+        camera.position.x,
+        camera.position.y,
+        camera.position.z,
+        getDayRatio?.() ?? 1,
+      )
       audibleList.value = soundscape.getAudibleList()
     })
   }
