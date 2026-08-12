@@ -1,0 +1,39 @@
+import type { TerrainWorkerResponse } from './type'
+import { useWebWorker } from '@vueuse/core'
+import { watch } from 'vue'
+
+/**
+ * 封裝地形生成 Worker
+ *
+ * 地形生成需要跑滿整張 128×128×48 的世界，
+ * 丟到 Worker 才不會讓首屏卡住。
+ */
+export function useTerrainWorker() {
+  const worker = new Worker(
+    new URL('./terrain-worker.ts', import.meta.url),
+    { type: 'module' },
+  )
+  const { data, post, terminate } = useWebWorker(worker)
+
+  function generate(): Promise<Uint8Array> {
+    return new Promise<Uint8Array>((resolve, reject) => {
+      const timeoutId = setTimeout(() => {
+        unwatch()
+        reject(new Error('[TerrainWorker] 地形生成逾時（20 秒）'))
+      }, 20_000)
+
+      const unwatch = watch(data, (message: TerrainWorkerResponse | null) => {
+        if (message?.type !== 'terrain-ready')
+          return
+
+        clearTimeout(timeoutId)
+        unwatch()
+        resolve(message.worldState)
+      })
+
+      post({ type: 'generate' } as never)
+    })
+  }
+
+  return { generate, terminate }
+}

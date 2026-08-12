@@ -1,0 +1,120 @@
+import type { GardenDefinition, GardenId } from './garden-layout'
+import { BlockId } from '../block/block-constants'
+import { setBlock } from '../world/world-access'
+import { WORLD_SIZE } from '../world/world-constants'
+import {
+  buildAlpineGarden,
+  buildAutumnGarden,
+  buildCaveGarden,
+  buildCoastGarden,
+  buildForestGarden,
+  buildRiverGarden,
+  buildStoneGarden,
+  buildSwampGarden,
+  buildVillageGarden,
+} from './garden-builders-major'
+import {
+  buildNocturneGarden,
+  buildOnsenGarden,
+  buildSongbirdGarden,
+} from './garden-builders-middle'
+import {
+  buildApiaryGarden,
+  buildCampfireGarden,
+  buildInsectGarden,
+  buildMeadowGarden,
+  buildPastureGarden,
+  buildPondGarden,
+  buildRainvaleGarden,
+  buildRuinsGarden,
+} from './garden-builders-minor'
+import { SAND_LEVEL } from './garden-constants'
+import { fillBox, placePedestal, placeStandingStone, rakeAround } from './garden-kit'
+import { GARDEN_LIST, SOLITARY_STONE_LIST } from './garden-layout'
+
+/** 每一座箱庭的內容生成器 */
+const BUILDER_MAP: Record<GardenId, (state: Uint8Array, garden: GardenDefinition) => void> = {
+  stonegarden: buildStoneGarden,
+  forest: buildForestGarden,
+  autumn: buildAutumnGarden,
+  alpine: buildAlpineGarden,
+  river: buildRiverGarden,
+  coast: buildCoastGarden,
+  swamp: buildSwampGarden,
+  village: buildVillageGarden,
+  cave: buildCaveGarden,
+  campfire: buildCampfireGarden,
+  ruins: buildRuinsGarden,
+  meadow: buildMeadowGarden,
+  pasture: buildPastureGarden,
+  apiary: buildApiaryGarden,
+  pond: buildPondGarden,
+  rainvale: buildRainvaleGarden,
+  insect: buildInsectGarden,
+  nocturne: buildNocturneGarden,
+  songbird: buildSongbirdGarden,
+  onsen: buildOnsenGarden,
+}
+
+/**
+ * 鋪滿整個世界的白沙
+ *
+ * 地表以下只是為了讓地面是實心的，玩家永遠看不到，
+ * 所以一律用白砂岩填掉，只有最上面那一層是白沙
+ */
+function paveSandField(state: Uint8Array): void {
+  fillBox(state, 0, 0, 0, WORLD_SIZE - 1, 0, WORLD_SIZE - 1, BlockId.BEDROCK)
+  fillBox(state, 0, 1, 0, WORLD_SIZE - 1, SAND_LEVEL - 1, WORLD_SIZE - 1, BlockId.WHITE_SANDSTONE)
+  fillBox(state, 0, SAND_LEVEL, 0, WORLD_SIZE - 1, SAND_LEVEL, WORLD_SIZE - 1, BlockId.WHITE_SAND)
+}
+
+/**
+ * 散在沙上的孤石
+ *
+ * 兩圈箱庭之間那一大片空白，全空著會像還沒做完。
+ * 一塊立石、周圍幾圈耙紋，走在霧裡時會一顆一顆浮出來又沉回去
+ */
+function placeSolitaryStoneList(state: Uint8Array): void {
+  for (const stone of SOLITARY_STONE_LIST) {
+    /** 石頭底下墊一片白砂岩，看起來才像有人擺上去的，不是長出來的 */
+    for (let offsetX = -1; offsetX <= 1; offsetX++) {
+      for (let offsetZ = -1; offsetZ <= 1; offsetZ++) {
+        setBlock(state, stone.x + offsetX, SAND_LEVEL, stone.z + offsetZ, BlockId.WHITE_SANDSTONE)
+      }
+    }
+
+    placeStandingStone(state, stone.x, SAND_LEVEL + 1, stone.z, stone.height, BlockId.MOSSY_COBBLESTONE)
+    rakeAround(state, stone.x, stone.z, 1, 3, 2)
+  }
+}
+
+/**
+ * 生成整座禪庭
+ *
+ * 順序不能換：先鋪沙、再搭木座、然後才放各自的內容，最後才耙沙紋。
+ * 耙紋只改「還是乾淨白沙」的格子，放在最後才不會把墊腳石一起染掉
+ */
+export function generateWorld(state: Uint8Array): void {
+  paveSandField(state)
+
+  for (const garden of GARDEN_LIST) {
+    placePedestal(state, garden)
+  }
+
+  for (const garden of GARDEN_LIST) {
+    BUILDER_MAP[garden.id](state, garden)
+  }
+
+  placeSolitaryStoneList(state)
+
+  /**
+   * 耙紋要貼著木座，不能往外鋪太遠
+   *
+   * 最外圈的木座離循環邊界只有四十二格，而霧在三十四格就糊掉了。
+   * 紋路一路耙出去的話，站在邊界上會看到幾道淡淡的線，
+   * 走過去之後它們卻消失了——那是唯一會拆穿循環的破綻
+   */
+  for (const garden of GARDEN_LIST) {
+    rakeAround(state, garden.center.x, garden.center.z, garden.halfSize, 2, 2)
+  }
+}
