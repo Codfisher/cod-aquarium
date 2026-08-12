@@ -1,5 +1,6 @@
 import type { Scene, StaticSound, UniversalCamera } from '@babylonjs/core'
 import type { Weather } from '../soundscape/type'
+import type { FallingLeaves } from './falling-leaves'
 import type { RainParticles } from './rain-particles'
 import type { SwampMist } from './swamp-mist'
 import { Color3, CreateSoundAsync } from '@babylonjs/core'
@@ -15,6 +16,7 @@ import { useGraphicsQuality } from '../../composables/use-graphics-quality'
 import { getSoundUrl } from '../soundscape/sound-data'
 import { RAINVALE_POND, SWAMP_CENTER } from '../world/structure-generator'
 import { CLEAR_ATMOSPHERE, createAtmosphereState, RAIN_ATMOSPHERE, SWAMP_ATMOSPHERE } from './atmosphere'
+import { createFallingLeaves } from './falling-leaves'
 import { createRainParticles } from './rain-particles'
 import { createSwampMist } from './swamp-mist'
 
@@ -118,6 +120,7 @@ export function useWeather() {
 
   let rainParticles: RainParticles | null = null
   let swampMist: SwampMist | null = null
+  let fallingLeaves: FallingLeaves | null = null
   let rainSound: StaticSound | null = null
   let thunderSound: StaticSound | null = null
   let thunderTimerId: ReturnType<typeof setTimeout> | undefined
@@ -183,6 +186,13 @@ export function useWeather() {
       scene,
       /** 霧只鋪在沼澤上，範圍收窄後同樣的數量會濃到看不見路 */
       maxParticleCount: quality.value === 'low' ? 36 : 80,
+      castRainRay,
+    })
+
+    fallingLeaves = createFallingLeaves({
+      scene,
+      /** 葉子小又薄，數量得堆起來才看得出整片林子都在落葉 */
+      maxParticleCount: quality.value === 'low' ? 130 : 320,
       castRainRay,
     })
 
@@ -319,6 +329,7 @@ export function useWeather() {
     clearTimeout(rumbleTimerId)
     rainParticles?.dispose()
     swampMist?.dispose()
+    fallingLeaves?.dispose()
     rainSound?.dispose()
     thunderSound?.dispose()
   })

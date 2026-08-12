@@ -18,6 +18,10 @@ export enum BlockId {
   FLOWING_WATER,
   OAK_LOG,
   OAK_LEAVES,
+  /** 落葉林的白楊木與兩種轉色的葉子 */
+  ASPEN_LOG,
+  AMBER_LEAVES,
+  GOLD_LEAVES,
   PINE_LOG,
   PINE_LEAVES,
   DEAD_LOG,
@@ -44,6 +48,7 @@ export enum BlockId {
   FLOWER_DANDELION,
   MUSHROOM,
   LILY_PAD,
+  FALLEN_LEAVES,
   FENCE,
   GLASS_PANE,
   STONE_SLAB,
@@ -101,6 +106,15 @@ export interface BlockTextureDef {
   sideOverlay?: string;
   /** 全部面色調 tint，格式 [r, g, b] 範圍 0~1 */
   tint?: [number, number, number];
+  /**
+   * 直接乘進貼圖像素的倍率，可以大於 1
+   *
+   * tint 只能把顏色調暗：著色器會先把「光照 × tint」夾在 1 以內再乘上貼圖，
+   * 某個通道最亮就是貼圖本身的值。綠葉的紅只有 0.26，
+   * 靠 tint 永遠調不出秋天的橘。
+   * 這個倍率則是在畫布上逐像素乘進去，才有辦法把綠葉整個換一種顏色
+   */
+  pixelTint?: [number, number, number];
   /** 頂面色調（灰階貼圖上色用） */
   topTint?: [number, number, number];
   sideTint?: [number, number, number];
@@ -318,6 +332,39 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
       tint: [0.5, 0.72, 0.32],
     },
   },
+  /** 白楊，樹皮是淺灰白色，一整片長在一起遠看就是一林子的白幹 */
+  [BlockId.ASPEN_LOG]: {
+    stepMaterial: 'wood',
+    textures: {
+      top: `${TEXTURE_BASE}/default_aspen_tree_top.png`,
+      bottom: `${TEXTURE_BASE}/default_aspen_tree_top.png`,
+      side: `${TEXTURE_BASE}/default_aspen_tree.png`,
+    },
+  },
+  /**
+   * 轉色的葉子
+   *
+   * 沒有現成的橘葉貼圖，這裡拿白楊葉那張綠葉重新上色。
+   * 貼圖只有兩階綠 (66,192,39) 與 (59,172,35)，
+   * 乘上倍率之後分別落在琥珀與金黃上，明暗的階差也跟著保留下來。
+   * 不能用 tint，那條路只會調出偏綠的暗色
+   */
+  [BlockId.AMBER_LEAVES]: {
+    stepMaterial: 'grass',
+    cutout: true,
+    textures: {
+      all: `${TEXTURE_BASE}/default_aspen_leaves.png`,
+      pixelTint: [3.27, 0.61, 0.82],
+    },
+  },
+  [BlockId.GOLD_LEAVES]: {
+    stepMaterial: 'grass',
+    cutout: true,
+    textures: {
+      all: `${TEXTURE_BASE}/default_aspen_leaves.png`,
+      pixelTint: [3.64, 0.99, 1.15],
+    },
+  },
   [BlockId.PINE_LOG]: {
     stepMaterial: 'wood',
     textures: {
@@ -529,6 +576,23 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     textures: {
       all: `${TEXTURE_BASE}/flowers_waterlily.png`,
       tint: [0.62, 0.78, 0.5],
+    },
+  },
+  /**
+   * 鋪在地上的落葉
+   *
+   * 與睡蓮同一種外型：貼在地面的一片平板，踩得過去。
+   * 落葉林的地面若只有草，抬頭是滿樹金黃、低頭卻是夏天
+   */
+  [BlockId.FALLEN_LEAVES]: {
+    shape: 'flat',
+    passable: true,
+    isThinFloor: true,
+    stepMaterial: 'grass',
+    textures: {
+      all: `${TEXTURE_BASE}/default_aspen_leaves.png`,
+      /** 落在地上的葉子已經乾了一陣子，顏色比枝頭上的暗一階 */
+      pixelTint: [2.88, 0.57, 1.03],
     },
   },
   [BlockId.FENCE]: {

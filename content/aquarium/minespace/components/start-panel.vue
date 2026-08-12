@@ -88,8 +88,8 @@ const { t } = useSimpleI18n({
     subtitle: '戴上耳機，走進一座會發出聲音的島',
     intro: [
       '這裡沒有任務、沒有方塊要挖，只有一座島與五十個聲音。',
-      '森林、雪山、沼澤、海岸、村莊、洞窟，每個地方都有自己的聲響。營火在你左邊燒、瀑布在你右後方落下，<b>走近會變大聲，轉頭會換邊</b>。',
-      '島西邊的長雨谷終年下著雨，走過去就知道了。南邊的沼澤則整天罩著霧。',
+      '森林、雪山、落葉林、沼澤、海岸、村莊、洞窟，每個地方都有自己的聲響。營火在你左邊燒、瀑布在你右後方落下，<b>走近會變大聲，轉頭會換邊</b>。',
+      '島西邊的長雨谷終年下著雨，走過去就知道了。南邊的沼澤整天罩著霧，東邊的落葉林則一直在掉葉子。',
       '建議<b>戴上耳機</b>，方位感會清楚很多。( ´ ▽ ` )ﾉ',
     ],
     start: '開始漫遊',
@@ -111,8 +111,8 @@ const { t } = useSimpleI18n({
     subtitle: 'Put on headphones and walk onto an island that sounds back',
     intro: [
       'No quests, no blocks to mine — just an island and fifty sounds.',
-      'Forest, snow ridge, swamp, coast, village, cavern: each place has its own voice. The campfire crackles on your left, the waterfall falls behind your right shoulder. <b>Walk closer and it grows louder; turn your head and it switches sides.</b>',
-      'Everrain Vale in the west is under permanent rain; the swamp to the south sits in mist all day. Walk there and see.',
+      'Forest, snow ridge, golden grove, swamp, coast, village, cavern: each place has its own voice. The campfire crackles on your left, the waterfall falls behind your right shoulder. <b>Walk closer and it grows louder; turn your head and it switches sides.</b>',
+      'Everrain Vale in the west is under permanent rain; the swamp to the south sits in mist all day; the grove to the east is always shedding leaves. Walk there and see.',
       '<b>Headphones recommended</b> — the direction is much easier to feel. ( ´ ▽ ` )ﾉ',
     ],
     start: 'Start Roaming',

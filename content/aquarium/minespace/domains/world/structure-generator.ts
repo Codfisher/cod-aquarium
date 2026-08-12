@@ -213,6 +213,43 @@ function placePineTree(state: Uint8Array, x: number, groundY: number, z: number,
   setBlock(state, x, groundY + trunkHeight, z, BlockId.PINE_LEAVES)
 }
 
+/**
+ * 落葉林的白楊
+ *
+ * 樹幹細直，樹冠比橡樹高一層也窄一點，一片林子站在一起才會像白楊林。
+ * 葉子的顏色由呼叫端決定，琥珀與金黃兩種混著長，秋色才不會是一片死板的橘
+ */
+function placeAspenTree(
+  state: Uint8Array,
+  x: number,
+  groundY: number,
+  z: number,
+  trunkHeight: number,
+  leafBlock: BlockId,
+): void {
+  for (let offsetY = 0; offsetY < trunkHeight; offsetY++) {
+    setBlock(state, x, groundY + offsetY, z, BlockId.ASPEN_LOG)
+  }
+
+  const crownY = groundY + trunkHeight
+  for (let offsetY = -3; offsetY <= 1; offsetY++) {
+    const radius = offsetY <= -2 ? 2 : offsetY <= 0 ? 2 : 1
+    for (let offsetX = -radius; offsetX <= radius; offsetX++) {
+      for (let offsetZ = -radius; offsetZ <= radius; offsetZ++) {
+        /** 角落挖掉，樹冠才是圓的而不是一個方塊 */
+        const isCorner = Math.abs(offsetX) === radius && Math.abs(offsetZ) === radius
+        if (isCorner && radius > 1)
+          continue
+        /** 樹幹那一柱只有最上面才長葉子 */
+        if (offsetX === 0 && offsetZ === 0 && offsetY < 0)
+          continue
+
+        setBlock(state, x + offsetX, crownY + offsetY, z + offsetZ, leafBlock)
+      }
+    }
+  }
+}
+
 /** 沼澤枯木 */
 function placeDeadTree(state: Uint8Array, x: number, groundY: number, z: number, trunkHeight: number): void {
   for (let offsetY = 0; offsetY < trunkHeight; offsetY++) {
@@ -1101,6 +1138,7 @@ function scatterVegetation(state: Uint8Array): void {
       const meadowWeight = weightMap.get('meadow') ?? 0
       const swampWeight = weightMap.get('swamp') ?? 0
       const rainvaleWeight = weightMap.get('rainvale') ?? 0
+      const autumnWeight = weightMap.get('autumn') ?? 0
       /** 海岸不是中心點式的生態區，改用島嶼衰減判斷 */
       const isCoast = getIslandFalloff(x, z) < 0.85
 
@@ -1128,6 +1166,27 @@ function scatterVegetation(state: Uint8Array): void {
         if (hasNeighborTree(x, z, 3))
           continue
         placePineTree(state, x, groundY, z, 5 + Math.floor(random() * 4))
+        planted = true
+      }
+      else if (autumnWeight > 0.3 && density > -0.25 && random() < 0.13) {
+        /**
+         * 樹距拉得比針闊葉林寬
+         *
+         * 落葉林要看得到光穿過樹冠灑下來，樹擠在一起就成了一片密不透風的橘色天花板，
+         * 底下的落葉與飄下來的葉子也全被擋住
+         */
+        if (hasNeighborTree(x, z, 4))
+          continue
+        /**
+         * 兩種秋色以低頻噪音分片，再加一點隨機
+         *
+         * 純看噪音的話，一整片林子可能剛好落在同一個波峰上而全是同一色；
+         * 摻進隨機值後，成片的色塊裡還是會混進幾棵另一種顏色的樹
+         */
+        const leafBlock = fbm2D(x * 0.05, z * 0.05, 2, 0.5) + (random() - 0.5) * 0.7 > 0
+          ? BlockId.AMBER_LEAVES
+          : BlockId.GOLD_LEAVES
+        placeAspenTree(state, x, groundY, z, 6 + Math.floor(random() * 4), leafBlock)
         planted = true
       }
       else if (swampWeight > 0.25 && random() < 0.06) {
@@ -1202,6 +1261,7 @@ function scatterGroundCover(state: Uint8Array): void {
       const rainvaleWeight = weightMap.get('rainvale') ?? 0
       const forestWeight = weightMap.get('forest') ?? 0
       const swampWeight = weightMap.get('swamp') ?? 0
+      const autumnWeight = weightMap.get('autumn') ?? 0
 
       if (surfaceBlock === BlockId.SAND) {
         /** 沙灘上偶爾長點乾枯的灌木 */
@@ -1237,6 +1297,23 @@ function scatterGroundCover(state: Uint8Array): void {
       if (forestWeight > 0.25) {
         if (random() < 0.32) {
           setBlock(state, x, groundY, z, random() < 0.75 ? BlockId.TALL_GRASS : BlockId.FERN)
+        }
+        continue
+      }
+
+      /**
+       * 落葉林：地上鋪一層落葉
+       *
+       * 抬頭是滿樹金黃、低頭卻是夏天的草地會很怪。
+       * 越靠林子中央落得越厚，邊緣才慢慢變回草原
+       */
+      if (autumnWeight > 0.25) {
+        const leafChance = 0.16 + autumnWeight * 0.5
+        if (random() < leafChance) {
+          setBlock(state, x, groundY, z, BlockId.FALLEN_LEAVES)
+        }
+        else if (random() < 0.2) {
+          setBlock(state, x, groundY, z, BlockId.TALL_GRASS)
         }
         continue
       }
