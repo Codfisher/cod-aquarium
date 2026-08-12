@@ -1,4 +1,4 @@
-import type { ParticleSystem } from '@babylonjs/core-v9'
+import type { ParticleSystem } from '@babylonjs/core'
 
 /**
  * 讓粒子跟著日夜一起明暗

@@ -1,4 +1,4 @@
-import type { DirectionalLight, Mesh, Scene, ShadowGenerator } from '@babylonjs/core-v9'
+import type { DirectionalLight, Mesh, Scene, ShadowGenerator } from '@babylonjs/core'
 import type { BlockDef, BlockId, BlockTextureDef } from '../block/block-constants'
 import type { ChunkMeshData, ChunkWorkerComposable } from '../world/use-chunk-worker'
 import {
@@ -9,7 +9,7 @@ import {
   StandardMaterial,
   Texture,
   VertexBuffer,
-} from '@babylonjs/core-v9'
+} from '@babylonjs/core'
 import { SUN_LIGHT_NAME } from '../../composables/use-babylon-scene'
 import { BLOCK_DEFS, isDecorationBlock } from '../block/block-constants'
 import { TOTAL_CHUNKS } from '../world/world-constants'

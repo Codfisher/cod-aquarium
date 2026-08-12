@@ -1,6 +1,6 @@
-import type { Scene, UniversalCamera } from '@babylonjs/core-v9'
+import type { Scene, UniversalCamera } from '@babylonjs/core'
 import type { BlockLightSource } from '../domains/world/light-source'
-import { ClusteredLightContainer, Color3, PointLight, Vector3 } from '@babylonjs/core-v9'
+import { ClusteredLightContainer, Color3, PointLight, Vector3 } from '@babylonjs/core'
 import { onBeforeUnmount } from 'vue'
 import { collectLightSourceList } from '../domains/world/light-source'
 

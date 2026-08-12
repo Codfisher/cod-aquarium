@@ -996,59 +996,6 @@ export default ({ mode }: { mode: string }) => {
     vite: {
       optimizeDeps: {
         exclude: ['@babylonjs/havok'],
-        /**
-         * core-v9 與 materials-v9 一定要一起預先打包
-         *
-         * 兩者若一個被打包、一個沒有，會拿到兩份不同的模組實例——
-         * 包括 ShaderStore。SkyMaterial 的 shader 註冊進其中一份，
-         * 引擎卻從另一份去找，找不到就退回用 HTTP 去撈 .fx 檔，
-         * 撈回來的是 VitePress 的 index.html，
-         * 於是 shader 第五行變成「<!DOCTYPE html>」而編譯失敗
-         */
-        include: ['@babylonjs/core-v9', '@babylonjs/materials-v9'],
-        esbuildOptions: {
-          plugins: [
-            /**
-             * 預先打包時也要把 core 換成 core-v9
-             *
-             * 這一步是 esbuild 自己做的，走不到下面那個 vite 外掛，
-             * 所以同一條規則得在這裡再寫一次
-             */
-            {
-              name: 'babylon-v9-prebundle',
-              setup(build: any) {
-                build.onResolve(
-                  { filter: /^@babylonjs\/core($|\/)/ },
-                  (args: { path: string; importer: string; kind: string; resolveDir: string }) => {
-                    if (!args.importer.includes('materials-v9'))
-                      return null
-
-                    return build.resolve(
-                      args.path.replace('@babylonjs/core', '@babylonjs/core-v9'),
-                      {
-                        kind: args.kind,
-                        importer: args.importer,
-                        resolveDir: args.resolveDir,
-                      },
-                    )
-                  },
-                )
-              },
-            },
-          ],
-        },
-      },
-      ssr: {
-        /**
-         * SSR 時也要把 materials-v9 拉進打包流程
-         *
-         * 預設 node_modules 裡的套件在 SSR 是 external 的，由 Node 直接 import；
-         * 那條路一樣繞過了 vite 的解析，於是 materials-v9 會去載入 v8 的 core，
-         * 撞上「tslib.es6.js does not provide an export named __esDecorate」——
-         * 那個匯出是 v9 才有的。
-         * 交給 vite 打包，import 才會被改寫成 core-v9
-         */
-        noExternal: ['@babylonjs/materials-v9'],
       },
       css: {
         preprocessorOptions: {
@@ -1058,45 +1005,6 @@ export default ({ mode }: { mode: string }) => {
         },
       },
       plugins: [
-        /**
-         * 讓 v9 的 materials 找到 v9 的 core
-         *
-         * minespace 用別名裝了一份 Babylon v9（@babylonjs/core-v9），
-         * 其他作品維持 v8。問題出在 @babylonjs/materials 內部是用
-         * 「@babylonjs/core/...」這種寫死的路徑去 import core 的，
-         * 別名管不到它——materials-v9 會去吃到 hoist 在根目錄的 v8 core，
-         * 於是 SkyMaterial 繼承的是 v8 的 PushMaterial，卻被丟進 v9 的場景。
-         *
-         * 這裡在解析階段攔下來：只要發起 import 的檔案本身是 v9 的套件，
-         * 就把它要的 @babylonjs/core 換成 @babylonjs/core-v9。
-         * 其他作品的 import 完全不受影響
-         */
-        {
-          name: 'babylon-v9-resolve',
-          enforce: 'pre',
-          async resolveId(source: string, importer: string | undefined) {
-            if (!importer || !source.startsWith('@babylonjs/core'))
-              return null
-
-            const isV9Importer = importer.includes('@babylonjs/materials-v9')
-              || importer.includes('@babylonjs/core-v9')
-            if (!isV9Importer)
-              return null
-
-            /**
-             * 整包回傳，不能只回傳 id
-             *
-             * SSR 時 core-v9 是 external 的，解析結果帶著 external 旗標；
-             * 只挑 id 回去會把旗標丟掉，vite 於是把那串裸模組名當成檔案路徑去讀，
-             * 然後在專案根目錄底下找不到而失敗
-             */
-            return await this.resolve(
-              source.replace('@babylonjs/core', '@babylonjs/core-v9'),
-              importer,
-              { skipSelf: true },
-            )
-          },
-        },
         /** 停用 VitePress 預設 Inter 字體，改用 Noto Sans TC */
         {
           name: 'disable-vitepress-default-fonts',

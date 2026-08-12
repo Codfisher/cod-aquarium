@@ -87,7 +87,7 @@
 </template>
 
 <script setup lang="ts">
-import type { Scene, UniversalCamera } from '@babylonjs/core-v9'
+import type { Scene, UniversalCamera } from '@babylonjs/core'
 import type { VoxelRenderer } from '../renderer/voxel-renderer'
 import type { AudibleSound, SoundZone } from '../soundscape/type'
 import type { Landmark } from '../world/landmark'

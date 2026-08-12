@@ -1,10 +1,10 @@
-import type { Scene, StaticSound, UniversalCamera } from '@babylonjs/core-v9'
+import type { Scene, StaticSound, UniversalCamera } from '@babylonjs/core'
 import type { Weather } from '../soundscape/type'
 import type { AtmosphereState } from './atmosphere'
 import type { FallingLeaves } from './falling-leaves'
 import type { RainParticles } from './rain-particles'
 import type { SwampMist } from './swamp-mist'
-import { Color3, CreateSoundAsync } from '@babylonjs/core-v9'
+import { Color3, CreateSoundAsync } from '@babylonjs/core'
 import { onBeforeUnmount, ref } from 'vue'
 import { getAudioEngine } from '../../composables/use-audio-engine'
 import {

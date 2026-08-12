@@ -23,8 +23,8 @@ import {
   UniversalCamera,
   Vector3,
   VertexData,
-} from '@babylonjs/core-v9'
-import { SkyMaterial } from '@babylonjs/materials-v9'
+} from '@babylonjs/core'
+import { SkyMaterial } from '@babylonjs/materials'
 import { useEventListener } from '@vueuse/core'
 import { defaults } from 'lodash-es'
 import { onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
@@ -234,47 +234,13 @@ const defaultParam: Required<UseBabylonSceneParam> = {
 }
 
 /**
- * 天空材質裡我們真正會動到的那幾個參數
- *
- * SkyMaterial 來自 @babylonjs/materials-v9，而那個套件內部是用寫死的
- * 「@babylonjs/core」去 import 的。打包時的解析有 vite 的
- * babylon-v9-resolve 外掛接住（換成 core-v9），
- * 但 TypeScript 的型別解析接不到——它眼中的 Scene 與 Vector3
- * 依然是根目錄那份 v8，跨過來就對不起來。
- *
- * 執行期兩邊是同一份 v9，沒有問題；需要一道窄門的只有型別。
- * 與其把整個 SkyMaterial 硬轉過來，不如只描述我們真正會碰的那幾個欄位——
- * 順帶也講清楚了這個材質對這個場景而言到底是什麼
- */
-export interface SkyDomeMaterial {
-  luminance: number;
-  turbidity: number;
-  rayleigh: number;
-  mieCoefficient: number;
-  mieDirectionalG: number;
-  useSunPosition: boolean;
-  sunPosition: Vector3;
-  fogEnabled: boolean;
-  backFaceCulling: boolean;
-  disableDepthWrite: boolean;
-}
-
-/** 建立天空材質，並把型別收斂成上面那幾個欄位 */
-function createSkyMaterial(name: string, scene: Scene): SkyDomeMaterial {
-  const SkyMaterialClass = SkyMaterial as unknown as
-    new (name: string, scene: Scene) => SkyDomeMaterial
-
-  return new SkyMaterialClass(name, scene)
-}
-
-/**
  * 天空罩
  *
  * SkyMaterial 會依大氣散射參數即時算出天色，
  * 比單一底色多了地平線漸層與太陽光暈，天氣變化也只要調參數
  */
 function createSkyDome(scene: Scene) {
-  const skyMaterial = createSkyMaterial('sky-material', scene)
+  const skyMaterial = new SkyMaterial('sky-material', scene)
   skyMaterial.backFaceCulling = false
   /** 天空不吃霧氣，否則整片天會被霧染成一塊死板的顏色 */
   skyMaterial.fogEnabled = false
@@ -309,7 +275,7 @@ function createSkyDome(scene: Scene) {
   skyMaterial.disableDepthWrite = true
 
   const skyDome = MeshBuilder.CreateBox(SKYBOX_NAME, { size: 260 }, scene)
-  skyDome.material = skyMaterial as unknown as Material
+  skyDome.material = skyMaterial
   skyDome.infiniteDistance = true
   skyDome.isPickable = false
   skyDome.applyFog = false
@@ -318,9 +284,9 @@ function createSkyDome(scene: Scene) {
 }
 
 /** 取得場景中的天空材質 */
-export function getSkyMaterial(scene: Scene): SkyDomeMaterial | null {
+export function getSkyMaterial(scene: Scene): SkyMaterial | null {
   const skyDome = scene.getMeshByName(SKYBOX_NAME)
-  return (skyDome?.material as unknown as SkyDomeMaterial | undefined) ?? null
+  return (skyDome?.material as SkyMaterial | undefined) ?? null
 }
 
 /**

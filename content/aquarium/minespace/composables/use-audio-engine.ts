@@ -1,6 +1,6 @@
-import type { AudioEngineV2, StaticSound } from '@babylonjs/core-v9'
+import type { AudioEngineV2, StaticSound } from '@babylonjs/core'
 import type { StepMaterial } from '../domains/block/block-constants'
-import { CreateAudioEngineAsync, CreateSoundAsync } from '@babylonjs/core-v9'
+import { CreateAudioEngineAsync, CreateSoundAsync } from '@babylonjs/core'
 
 let enginePromise: Promise<AudioEngineV2> | undefined
 
