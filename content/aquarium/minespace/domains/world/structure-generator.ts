@@ -1171,8 +1171,13 @@ function scatterVegetation(state: Uint8Array): void {
       else if (autumnWeight > 0.3 && density > -0.25 && random() < 0.26) {
         if (hasNeighborTree(x, z, 2))
           continue
-        /** 兩種秋色以低頻噪音分片，同一區的樹色相近，走幾步才換一種 */
-        const leafBlock = fbm2D(x * 0.06, z * 0.06, 2, 0.5) > 0
+        /**
+         * 兩種秋色以低頻噪音分片，再加一點隨機
+         *
+         * 純看噪音的話，一整片林子可能剛好落在同一個波峰上而全是同一色；
+         * 摻進隨機值後，成片的色塊裡還是會混進幾棵另一種顏色的樹
+         */
+        const leafBlock = fbm2D(x * 0.05, z * 0.05, 2, 0.5) + (random() - 0.5) * 0.7 > 0
           ? BlockId.AMBER_LEAVES
           : BlockId.GOLD_LEAVES
         placeAspenTree(state, x, groundY, z, 6 + Math.floor(random() * 4), leafBlock)

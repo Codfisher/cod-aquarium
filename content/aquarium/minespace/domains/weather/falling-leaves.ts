@@ -2,6 +2,7 @@ import type { Scene } from '@babylonjs/core'
 import {
   Color4,
   DynamicTexture,
+  NoiseProceduralTexture,
   ParticleSystem,
   Texture,
   Vector3,
@@ -118,9 +119,14 @@ export function createFallingLeaves({
     )
   }
 
-  /** 琥珀、金黃與一點偏紅的枯褐，與樹上的葉子同一組秋色 */
-  const LEAF_AMBER = new Color4(0.93, 0.55, 0.12, 1)
-  const LEAF_GOLD = new Color4(0.98, 0.78, 0.16, 1)
+  /**
+   * 與樹上那兩種葉子同一組秋色
+   *
+   * 粒子不吃光照，顏色直接就是看到的結果，
+   * 所以要比方塊的色調再亮一階，才對得上被陽光照著的樹冠
+   */
+  const LEAF_AMBER = new Color4(0.85, 0.42, 0.08, 1)
+  const LEAF_GOLD = new Color4(0.98, 0.82, 0.14, 1)
   const LEAF_AMBER_CLEAR = new Color4(LEAF_AMBER.r, LEAF_AMBER.g, LEAF_AMBER.b, 0)
   const LEAF_GOLD_CLEAR = new Color4(LEAF_GOLD.r, LEAF_GOLD.g, LEAF_GOLD.b, 0)
 
@@ -138,24 +144,44 @@ export function createFallingLeaves({
 
   particleSystem.minSize = 0.28
   particleSystem.maxSize = 0.5
-  particleSystem.minLifeTime = 9
-  particleSystem.maxLifeTime = 14
-  particleSystem.emitRate = maxParticleCount / 12
+  /** 從樹冠飄到地面得花上二十秒左右，落葉才不是一路直墜 */
+  particleSystem.minLifeTime = 16
+  particleSystem.maxLifeTime = 26
+  particleSystem.emitRate = maxParticleCount / 26
 
   /**
    * 落法
    *
-   * 重力壓得很小，葉子才是慢慢盪下來而不是像石頭直直墜落；
-   * 初速往同一邊偏，整片林子的葉子就都順著同一陣風走。
-   * 轉速給大一點，葉子在空中翻面才有那種輕飄飄的感覺
+   * 葉子那麼輕，空氣阻力早就把它拖成等速下降了，
+   * 所以重力只留一點點，讓它慢慢變快而不是自由落體。
+   * 下降的速度主要由初速決定，橫向的初速給得比縱向還大，
+   * 葉子才是斜斜地飄過去，而不是原地垂直落下
    */
-  particleSystem.gravity = new Vector3(0, -1.6, 0)
-  particleSystem.direction1 = new Vector3(0.5, -0.1, 0.25)
-  particleSystem.direction2 = new Vector3(1.2, 0.15, 0.8)
-  particleSystem.minEmitPower = 0.3
-  particleSystem.maxEmitPower = 0.9
-  particleSystem.minAngularSpeed = -2.4
-  particleSystem.maxAngularSpeed = 2.4
+  particleSystem.gravity = new Vector3(0, -0.05, 0)
+  particleSystem.direction1 = new Vector3(-0.5, -0.5, -0.5)
+  particleSystem.direction2 = new Vector3(0.5, -0.25, 0.5)
+  particleSystem.minEmitPower = 1
+  particleSystem.maxEmitPower = 1.6
+
+  /**
+   * 風
+   *
+   * 只有初速的話，每片葉子都是一條筆直的斜線。
+   * 掛上一張會動的噪音貼圖當作亂流，每片葉子都各自被推來推去，
+   * 路徑於是彎彎曲曲，看起來才像被風捲著走
+   */
+  const noiseTexture = new NoiseProceduralTexture('autumn-leaf-noise', 128, scene)
+  noiseTexture.animationSpeedFactor = 0.6
+  noiseTexture.brightness = 0.5
+  noiseTexture.octaves = 3
+  noiseTexture.persistence = 1.4
+  particleSystem.noiseTexture = noiseTexture
+  /** 橫向推得比縱向多，葉子才會飄開而不是上下彈跳 */
+  particleSystem.noiseStrength = new Vector3(6, 1.5, 6)
+
+  /** 邊飄邊翻面 */
+  particleSystem.minAngularSpeed = -1.8
+  particleSystem.maxAngularSpeed = 1.8
   particleSystem.minInitialRotation = 0
   particleSystem.maxInitialRotation = Math.PI * 2
   particleSystem.updateSpeed = 0.015
@@ -177,6 +203,7 @@ export function createFallingLeaves({
   return {
     dispose() {
       particleSystem.dispose()
+      noiseTexture.dispose()
     },
   }
 }

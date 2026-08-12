@@ -336,16 +336,18 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
    * 轉色的葉子
    *
    * 沒有現成的橘葉貼圖，這裡拿白楊葉那張綠葉來染。
-   * 貼圖只有兩階綠 (66,192,39) 與 (59,172,35)，
-   * 乘上這組色調之後剛好落在琥珀與金黃兩種暖色上，
-   * 明暗的階差也跟著保留下來
+   * 貼圖只有兩階綠 (66,192,39) 與 (59,172,35)，乘上色調就成了暖色。
+   *
+   * 兩種顏色的差距要拉得夠開：陽光強度有 1.3，
+   * 顏色訂得太亮的話兩種葉子都會被推到上限，看起來就是同一種橘。
+   * 所以琥珀壓暗成偏紅的橘，金黃才留在明亮的黃
    */
   [BlockId.AMBER_LEAVES]: {
     stepMaterial: 'grass',
     cutout: true,
     textures: {
       all: `${TEXTURE_BASE}/default_aspen_leaves.png`,
-      tint: [3.6, 0.9, 0.55],
+      tint: [2.6, 0.48, 0.3],
     },
   },
   [BlockId.GOLD_LEAVES]: {
@@ -353,7 +355,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     cutout: true,
     textures: {
       all: `${TEXTURE_BASE}/default_aspen_leaves.png`,
-      tint: [3.8, 1.12, 0.42],
+      tint: [3.5, 1.05, 0.32],
     },
   },
   [BlockId.PINE_LOG]: {
@@ -582,7 +584,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     stepMaterial: 'grass',
     textures: {
       all: `${TEXTURE_BASE}/default_aspen_leaves.png`,
-      tint: [3.2, 0.85, 0.5],
+      tint: [2.4, 0.6, 0.3],
     },
   },
   [BlockId.FENCE]: {
