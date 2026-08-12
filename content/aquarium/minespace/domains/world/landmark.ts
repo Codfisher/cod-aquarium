@@ -1,5 +1,5 @@
 import type { LocalizedText } from '../soundscape/type'
-import { ISLAND_BEACH_RADIUS, ISLAND_CENTER, ISLAND_WATER_RADIUS } from './biome'
+import { AUTUMN_GROVE, ISLAND_BEACH_RADIUS, ISLAND_CENTER, ISLAND_WATER_RADIUS } from './biome'
 import {
   CAMPFIRE_POSITION,
   PASTURE_CENTER,
@@ -65,6 +65,13 @@ export const LANDMARK_LIST: Landmark[] = [
     title: { 'zh-hant': '村外牧場', 'en': 'Village Pasture' },
     icon: 'i-material-symbols:pets',
     ...PASTURE_CENTER,
+  },
+  {
+    id: 'autumn',
+    title: { 'zh-hant': '金葉落葉林', 'en': 'Golden Grove' },
+    icon: 'i-material-symbols:park',
+    x: AUTUMN_GROVE.x,
+    z: AUTUMN_GROVE.z,
   },
   {
     id: 'ruins',

@@ -2,7 +2,7 @@ import { fbm2D, smoothStep } from '../../utils/noise'
 import { WORLD_SIZE } from './world-constants'
 
 /** 生態區代號 */
-export type BiomeId = 'meadow' | 'forest' | 'alpine' | 'swamp' | 'coast' | 'village' | 'rainvale'
+export type BiomeId = 'meadow' | 'forest' | 'alpine' | 'swamp' | 'coast' | 'village' | 'rainvale' | 'autumn'
 
 export interface BiomeDefinition {
   id: Exclude<BiomeId, 'coast'>;
@@ -42,6 +42,14 @@ export const ISLAND_SEA_RADIUS = 104
 export const ISLAND_WALL_RADIUS = 104
 
 /**
+ * 兩片林子的中心與範圍
+ *
+ * 另外開成常數，落葉粒子與林間的音源都要照著同一塊範圍鋪
+ */
+export const FOREST_CENTER = { x: 58, z: 62 }
+export const AUTUMN_GROVE = { x: 168, z: 96, radius: 26 }
+
+/**
  * 生態區佈局
  *
  * 全部塞在島嶼半徑內，走一趟就能聽完所有音景。
@@ -60,7 +68,7 @@ export const BIOME_LIST: BiomeDefinition[] = [
   /** 西北針闊葉混生林 */
   {
     id: 'forest',
-    center: { x: 58, z: 62 },
+    center: FOREST_CENTER,
     radius: 40,
     baseHeight: 19,
     amplitude: 3.5,
@@ -96,6 +104,20 @@ export const BIOME_LIST: BiomeDefinition[] = [
     baseHeight: 12,
     amplitude: 1.2,
     frequency: 0.06,
+  },
+  /**
+   * 東側落葉林
+   *
+   * 島放大之後東邊空出一大片草原，擺一林子轉色的白楊填起來。
+   * 地勢刻意比周圍高一點，從草原往東走會先上一段緩坡才進到林子裡
+   */
+  {
+    id: 'autumn',
+    center: { x: AUTUMN_GROVE.x, z: AUTUMN_GROVE.z },
+    radius: AUTUMN_GROVE.radius,
+    baseHeight: 19,
+    amplitude: 3,
+    frequency: 0.045,
   },
   /** 東南村莊 */
   {

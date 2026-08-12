@@ -1,5 +1,11 @@
 import type { SoundEmitterDefinition } from './type'
-import { ISLAND_CENTER, ISLAND_SEA_RADIUS, ISLAND_WATER_RADIUS } from '../world/biome'
+import {
+  AUTUMN_GROVE,
+  FOREST_CENTER,
+  ISLAND_CENTER,
+  ISLAND_SEA_RADIUS,
+  ISLAND_WATER_RADIUS,
+} from '../world/biome'
 import {
   APIARY_POSITION,
   CAMPFIRE_POSITION,
@@ -30,14 +36,32 @@ const SHORE_EMITTER_COUNT = 12
 /** 音源擺在海岸線稍微內側，聲音才像從沙灘上傳來 */
 const SHORE_EMITTER_RADIUS = ISLAND_WATER_RADIUS - 4
 
-/** 以島心為圓心，等距排出一圈座標 */
-function createRingPositionList(count: number, radius: number): { x: number; z: number }[] {
+/**
+ * 林子裡的風聲怎麼擺
+ *
+ * 風吹的是整片樹冠，不是林子裡的某幾個點。
+ * 原本四個音源擠在林子中央、各自罩著四十八格，
+ * 結果是走到林緣反而聽不到風，站在草原上卻聽得很清楚。
+ * 改成中心一個、外圍一圈，每個都壓小範圍：
+ * 人在林子裡時前後左右都有聲音，走出林子則很快就靜下來
+ */
+const WOODLAND_WIND_RING_COUNT = 6
+/** 音源圈的半徑，抓在樹長得最密的那一圈上 */
+const FOREST_WIND_RING_RADIUS = 18
+const GROVE_WIND_RING_RADIUS = 13
+
+/** 以指定座標為圓心，等距排出一圈座標 */
+function createRingPositionList(
+  count: number,
+  radius: number,
+  center: { x: number; z: number } = ISLAND_CENTER,
+): { x: number; z: number }[] {
   return Array.from({ length: count }, (_, index) => {
     const angle = (index / count) * Math.PI * 2
 
     return {
-      x: Math.round(ISLAND_CENTER.x + Math.cos(angle) * radius),
-      z: Math.round(ISLAND_CENTER.z + Math.sin(angle) * radius),
+      x: Math.round(center.x + Math.cos(angle) * radius),
+      z: Math.round(center.z + Math.sin(angle) * radius),
     }
   })
 }
@@ -52,10 +76,8 @@ function createRingPositionList(count: number, radius: number): { x: number; z: 
 const EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
   // ── 森林 ──
   ...[
-    { x: 48, z: 54 },
-    { x: 66, z: 68 },
-    { x: 44, z: 76 },
-    { x: 70, z: 48 },
+    FOREST_CENTER,
+    ...createRingPositionList(WOODLAND_WIND_RING_COUNT, FOREST_WIND_RING_RADIUS, FOREST_CENTER),
   ].map((position, index) => ({
     id: `forest-rustle-${index}`,
     sound: 'forest-rustle',
@@ -64,9 +86,9 @@ const EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
     ...position,
     heightOffset: 8,
     mode: { type: 'loop' } as const,
-    volume: 0.55,
-    minDistance: 10,
-    maxDistance: 48,
+    volume: 0.5,
+    minDistance: 8,
+    maxDistance: 28,
   })),
   {
     id: 'forest-blackbird',
@@ -138,6 +160,24 @@ const EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
     minDistance: 2,
     maxDistance: 22,
   },
+
+  // ── 落葉林 ──
+  ...[
+    { x: AUTUMN_GROVE.x, z: AUTUMN_GROVE.z },
+    ...createRingPositionList(WOODLAND_WIND_RING_COUNT, GROVE_WIND_RING_RADIUS, AUTUMN_GROVE),
+  ].map((position, index) => ({
+    id: `autumn-rustle-${index}`,
+    sound: 'forest-rustle',
+    title: { 'zh-hant': '落葉沙沙', 'en': 'Rustling autumn leaves' },
+    zone: 'autumn' as const,
+    ...position,
+    /** 擺得比針葉林低一些，白楊沒那麼高 */
+    heightOffset: 6,
+    mode: { type: 'loop' } as const,
+    volume: 0.5,
+    minDistance: 7,
+    maxDistance: 24,
+  })),
 
   // ── 草原 ──
   ...[

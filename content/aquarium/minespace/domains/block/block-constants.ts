@@ -18,6 +18,10 @@ export enum BlockId {
   FLOWING_WATER,
   OAK_LOG,
   OAK_LEAVES,
+  /** 落葉林的白楊木與兩種轉色的葉子 */
+  ASPEN_LOG,
+  AMBER_LEAVES,
+  GOLD_LEAVES,
   PINE_LOG,
   PINE_LEAVES,
   DEAD_LOG,
@@ -44,6 +48,7 @@ export enum BlockId {
   FLOWER_DANDELION,
   MUSHROOM,
   LILY_PAD,
+  FALLEN_LEAVES,
   FENCE,
   GLASS_PANE,
   STONE_SLAB,
@@ -318,6 +323,39 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
       tint: [0.5, 0.72, 0.32],
     },
   },
+  /** 白楊，樹皮是淺灰白色，一整片長在一起遠看就是一林子的白幹 */
+  [BlockId.ASPEN_LOG]: {
+    stepMaterial: 'wood',
+    textures: {
+      top: `${TEXTURE_BASE}/default_aspen_tree_top.png`,
+      bottom: `${TEXTURE_BASE}/default_aspen_tree_top.png`,
+      side: `${TEXTURE_BASE}/default_aspen_tree.png`,
+    },
+  },
+  /**
+   * 轉色的葉子
+   *
+   * 沒有現成的橘葉貼圖，這裡拿白楊葉那張綠葉來染。
+   * 貼圖只有兩階綠 (66,192,39) 與 (59,172,35)，
+   * 乘上這組色調之後剛好落在琥珀與金黃兩種暖色上，
+   * 明暗的階差也跟著保留下來
+   */
+  [BlockId.AMBER_LEAVES]: {
+    stepMaterial: 'grass',
+    cutout: true,
+    textures: {
+      all: `${TEXTURE_BASE}/default_aspen_leaves.png`,
+      tint: [3.6, 0.9, 0.55],
+    },
+  },
+  [BlockId.GOLD_LEAVES]: {
+    stepMaterial: 'grass',
+    cutout: true,
+    textures: {
+      all: `${TEXTURE_BASE}/default_aspen_leaves.png`,
+      tint: [3.8, 1.12, 0.42],
+    },
+  },
   [BlockId.PINE_LOG]: {
     stepMaterial: 'wood',
     textures: {
@@ -529,6 +567,22 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     textures: {
       all: `${TEXTURE_BASE}/flowers_waterlily.png`,
       tint: [0.62, 0.78, 0.5],
+    },
+  },
+  /**
+   * 鋪在地上的落葉
+   *
+   * 與睡蓮同一種外型：貼在地面的一片平板，踩得過去。
+   * 落葉林的地面若只有草，抬頭是滿樹金黃、低頭卻是夏天
+   */
+  [BlockId.FALLEN_LEAVES]: {
+    shape: 'flat',
+    passable: true,
+    isThinFloor: true,
+    stepMaterial: 'grass',
+    textures: {
+      all: `${TEXTURE_BASE}/default_aspen_leaves.png`,
+      tint: [3.2, 0.85, 0.5],
     },
   },
   [BlockId.FENCE]: {

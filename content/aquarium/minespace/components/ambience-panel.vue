@@ -66,6 +66,7 @@ const ZONE_ICON_MAP: Record<SoundZone, string> = {
   cave: 'i-material-symbols:dark-mode',
   pond: 'i-material-symbols:water-lux',
   rainvale: 'i-material-symbols:rainy',
+  autumn: 'i-material-symbols:park',
 }
 
 const zoneIcon = computed(() => ZONE_ICON_MAP[props.zone])
@@ -83,6 +84,7 @@ const { locale, t } = useSimpleI18n({
     cave: '地底洞窟',
     pond: '林間水塘',
     rainvale: '長雨谷',
+    autumn: '金葉落葉林',
     silence: '四下無聲⋯⋯走走看吧',
   },
   'en': {
@@ -96,6 +98,7 @@ const { locale, t } = useSimpleI18n({
     cave: 'Underground Cavern',
     pond: 'Woodland Pond',
     rainvale: 'Everrain Vale',
+    autumn: 'Golden Grove',
     silence: 'All quiet... try wandering around',
   },
 } as const)
