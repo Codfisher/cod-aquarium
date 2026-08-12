@@ -1,0 +1,602 @@
+import type { SoundEmitterDefinition } from './type'
+import { ISLAND_CENTER, ISLAND_SEA_RADIUS, ISLAND_WATER_RADIUS } from '../world/biome'
+import {
+  APIARY_POSITION,
+  CAMPFIRE_POSITION,
+  PASTURE_CENTER,
+  POND_LIST,
+  RAINVALE_POND,
+  RUINS_CENTER,
+  VILLAGE_CENTER,
+  WATERFALL_POSITION,
+} from '../world/structure-generator'
+import { getWaterlineY } from '../world/world-access'
+import { CAVE_CHAMBER, CAVE_ENTRANCE, CAVE_PATH } from '../world/world-generator'
+
+/** 音檔資料夾 */
+export const SOUND_BASE = '/minespace/sounds'
+
+/** 洞穴通道中段，滴水聲擺在這裡 */
+const CAVE_TUNNEL_POINT = CAVE_PATH[2] ?? CAVE_ENTRANCE
+
+/**
+ * 拍岸浪聲的音源數量
+ *
+ * 浪聲是沿著整條海岸線發出來的，用點音源模擬就得擺滿一圈。
+ * 數量太少會出現「站在兩個音源中間的海灘反而沒有浪聲，
+ * 走到內陸卻聽得到」的怪事，所以寧可多擺幾個、每個都壓小範圍
+ */
+const SHORE_EMITTER_COUNT = 12
+/** 音源擺在海岸線稍微內側，聲音才像從沙灘上傳來 */
+const SHORE_EMITTER_RADIUS = ISLAND_WATER_RADIUS - 4
+
+/** 以島心為圓心，等距排出一圈座標 */
+function createRingPositionList(count: number, radius: number): { x: number; z: number }[] {
+  return Array.from({ length: count }, (_, index) => {
+    const angle = (index / count) * Math.PI * 2
+
+    return {
+      x: Math.round(ISLAND_CENTER.x + Math.cos(angle) * radius),
+      z: Math.round(ISLAND_CENTER.z + Math.sin(angle) * radius),
+    }
+  })
+}
+
+/**
+ * 音源佈局
+ *
+ * 每個座標都是對著島嶼地圖手工挑的，讓玩家走一趟就能聽完所有音景。
+ * `maxDistance` 決定聲音的覆蓋範圍：環境底噪鋪得大、特徵音壓得小，
+ * 走近才聽得清楚，位置感才明顯。
+ */
+const EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
+  // ── 森林 ──
+  ...[
+    { x: 48, z: 54 },
+    { x: 66, z: 68 },
+    { x: 44, z: 76 },
+    { x: 70, z: 48 },
+  ].map((position, index) => ({
+    id: `forest-rustle-${index}`,
+    sound: 'forest-rustle',
+    title: { 'zh-hant': '樹梢的風聲', 'en': 'Rustling treetops' },
+    zone: 'forest' as const,
+    ...position,
+    heightOffset: 8,
+    mode: { type: 'loop' } as const,
+    volume: 0.55,
+    minDistance: 10,
+    maxDistance: 48,
+  })),
+  {
+    id: 'forest-blackbird',
+    sound: 'bird-blackbird',
+    title: { 'zh-hant': '烏鶇鳴唱', 'en': 'Blackbird song' },
+    zone: 'forest',
+    x: 54,
+    z: 58,
+    heightOffset: 7,
+    mode: { type: 'interval', rangeSecond: [10, 26] },
+    volume: 0.7,
+    minDistance: 6,
+    maxDistance: 36,
+    silentInRain: true,
+  },
+  {
+    id: 'forest-crossbill',
+    sound: 'bird-crossbill',
+    title: { 'zh-hant': '交嘴雀', 'en': 'Crossbill' },
+    zone: 'forest',
+    x: 64,
+    z: 72,
+    heightOffset: 7,
+    mode: { type: 'interval', rangeSecond: [14, 34] },
+    volume: 0.7,
+    minDistance: 6,
+    maxDistance: 32,
+    silentInRain: true,
+  },
+  {
+    id: 'forest-woodpecker',
+    sound: 'bird-woodpecker',
+    title: { 'zh-hant': '啄木鳥敲樹', 'en': 'Woodpecker drumming' },
+    zone: 'forest',
+    x: 42,
+    z: 62,
+    heightOffset: 6,
+    mode: { type: 'interval', rangeSecond: [18, 45] },
+    volume: 0.75,
+    minDistance: 8,
+    maxDistance: 42,
+    silentInRain: true,
+  },
+  {
+    id: 'forest-owl',
+    sound: 'bird-owl',
+    title: { 'zh-hant': '林中貓頭鷹', 'en': 'Owl in the woods' },
+    zone: 'forest',
+    x: 46,
+    z: 54,
+    heightOffset: 9,
+    mode: { type: 'interval', rangeSecond: [25, 60] },
+    volume: 0.8,
+    minDistance: 10,
+    maxDistance: 48,
+  },
+
+  // ── 林間營地 ──
+  {
+    id: 'camp-fire',
+    sound: 'campfire',
+    title: { 'zh-hant': '營火劈啪', 'en': 'Crackling campfire' },
+    zone: 'forest',
+    x: CAMPFIRE_POSITION.x,
+    z: CAMPFIRE_POSITION.z,
+    heightOffset: 1,
+    mode: { type: 'loop' },
+    volume: 0.9,
+    minDistance: 2,
+    maxDistance: 22,
+  },
+
+  // ── 草原 ──
+  ...[
+    { x: 96, z: 96 },
+    { x: 80, z: 108 },
+    { x: 110, z: 86 },
+  ].map((position, index) => ({
+    id: `meadow-wind-${index}`,
+    sound: 'meadow-wind',
+    title: { 'zh-hant': '草原的風', 'en': 'Wind over the meadow' },
+    zone: 'meadow' as const,
+    ...position,
+    heightOffset: 6,
+    mode: { type: 'loop' } as const,
+    volume: 0.45,
+    minDistance: 12,
+    maxDistance: 50,
+  })),
+  ...[
+    { x: 88, z: 104 },
+    { x: 104, z: 92 },
+  ].map((position, index) => ({
+    id: `meadow-insect-${index}`,
+    sound: 'meadow-insect',
+    title: { 'zh-hant': '草叢蟲鳴', 'en': 'Insects in the grass' },
+    zone: 'meadow' as const,
+    ...position,
+    heightOffset: 1,
+    mode: { type: 'loop' } as const,
+    volume: 0.4,
+    minDistance: 5,
+    maxDistance: 28,
+    silentInRain: true,
+  })),
+  {
+    id: 'meadow-cricket',
+    sound: 'insect-cricket',
+    title: { 'zh-hant': '蟋蟀', 'en': 'Cricket' },
+    zone: 'meadow',
+    x: 84,
+    z: 92,
+    heightOffset: 1,
+    mode: { type: 'interval', rangeSecond: [12, 30] },
+    volume: 0.5,
+    minDistance: 4,
+    maxDistance: 24,
+    silentInRain: true,
+  },
+  {
+    id: 'meadow-bush-cricket',
+    sound: 'insect-bush-cricket',
+    title: { 'zh-hant': '灌叢螽斯', 'en': 'Bush cricket' },
+    zone: 'meadow',
+    x: 106,
+    z: 104,
+    heightOffset: 1,
+    mode: { type: 'interval', rangeSecond: [14, 32] },
+    volume: 0.5,
+    minDistance: 4,
+    maxDistance: 24,
+    silentInRain: true,
+  },
+  {
+    id: 'meadow-bee',
+    sound: 'bee',
+    title: { 'zh-hant': '蜂箱嗡嗡', 'en': 'Buzzing beehive' },
+    zone: 'meadow',
+    x: APIARY_POSITION.x,
+    z: APIARY_POSITION.z,
+    heightOffset: 2,
+    mode: { type: 'loop' },
+    volume: 0.7,
+    minDistance: 4,
+    maxDistance: 24,
+    silentInRain: true,
+  },
+
+  // ── 河流與瀑布 ──
+  ...[
+    { x: 114, z: 72 },
+    { x: 102, z: 90 },
+    { x: 96, z: 110 },
+    { x: 98, z: 132 },
+    { x: 104, z: 152 },
+  ].map((position, index) => ({
+    id: `river-flow-${index}`,
+    sound: 'river-flow',
+    title: { 'zh-hant': '河水流動', 'en': 'Flowing river' },
+    zone: 'river' as const,
+    ...position,
+    heightOffset: 1,
+    mode: { type: 'loop' } as const,
+    volume: 0.6,
+    minDistance: 5,
+    maxDistance: 28,
+  })),
+  {
+    id: 'river-waterfall',
+    sound: 'waterfall',
+    title: { 'zh-hant': '瀑布', 'en': 'Waterfall' },
+    zone: 'river',
+    x: WATERFALL_POSITION.x,
+    z: WATERFALL_POSITION.z,
+    heightOffset: 4,
+    mode: { type: 'loop' },
+    volume: 1,
+    minDistance: 5,
+    maxDistance: 42,
+  },
+  {
+    id: 'river-moorhen',
+    sound: 'bird-moorhen',
+    title: { 'zh-hant': '紅冠水雞', 'en': 'Moorhen' },
+    zone: 'river',
+    x: 96,
+    z: 116,
+    heightOffset: 2,
+    mode: { type: 'interval', rangeSecond: [16, 38] },
+    volume: 0.6,
+    minDistance: 5,
+    maxDistance: 28,
+  },
+
+  // ── 長雨谷：全島唯一常年下雨的地方 ──
+  ...[
+    { x: 36, z: 106 },
+    { x: 52, z: 126 },
+  ].map((position, index) => ({
+    id: `rainvale-drip-${index}`,
+    sound: 'cave-drip',
+    title: { 'zh-hant': '葉尖滴水', 'en': 'Water dripping off leaves' },
+    zone: 'rainvale' as const,
+    ...position,
+    heightOffset: 3,
+    mode: { type: 'loop' } as const,
+    volume: 0.6,
+    minDistance: 5,
+    maxDistance: 30,
+  })),
+  {
+    id: 'rainvale-pond',
+    sound: 'river-flow',
+    title: { 'zh-hant': '谷底水潭', 'en': 'Pond in the vale' },
+    zone: 'rainvale',
+    x: RAINVALE_POND.x,
+    z: RAINVALE_POND.z,
+    heightOffset: 1,
+    mode: { type: 'loop' },
+    volume: 0.4,
+    minDistance: 6,
+    maxDistance: 26,
+  },
+  {
+    id: 'rainvale-toad',
+    sound: 'frog-toad',
+    title: { 'zh-hant': '雨中的蟾蜍', 'en': 'Toad in the rain' },
+    zone: 'rainvale',
+    x: 38,
+    z: 124,
+    heightOffset: 1,
+    mode: { type: 'interval', rangeSecond: [14, 34] },
+    volume: 0.6,
+    minDistance: 4,
+    maxDistance: 28,
+  },
+
+  // ── 沼澤 ──
+  ...[
+    { x: 78, z: 148 },
+    { x: 88, z: 140 },
+  ].map((position, index) => ({
+    id: `swamp-frog-${index}`,
+    sound: 'swamp-frog',
+    title: { 'zh-hant': '蛙鳴合唱', 'en': 'Frog chorus' },
+    zone: 'swamp' as const,
+    ...position,
+    heightOffset: 2,
+    mode: { type: 'loop' } as const,
+    volume: 0.6,
+    minDistance: 8,
+    maxDistance: 38,
+  })),
+  {
+    id: 'swamp-toad',
+    sound: 'frog-toad',
+    title: { 'zh-hant': '蟾蜍', 'en': 'Common toad' },
+    zone: 'swamp',
+    x: 70,
+    z: 152,
+    heightOffset: 1,
+    mode: { type: 'interval', rangeSecond: [10, 26] },
+    volume: 0.6,
+    minDistance: 4,
+    maxDistance: 26,
+  },
+  {
+    id: 'swamp-frog-single',
+    sound: 'frog-single',
+    title: { 'zh-hant': '池畔青蛙', 'en': 'Frog by the pond' },
+    zone: 'swamp',
+    x: 86,
+    z: 154,
+    heightOffset: 1,
+    mode: { type: 'interval', rangeSecond: [8, 20] },
+    volume: 0.6,
+    minDistance: 4,
+    maxDistance: 24,
+  },
+
+  // ── 環島海岸 ──
+  ...createRingPositionList(SHORE_EMITTER_COUNT, SHORE_EMITTER_RADIUS).map((position, index) => ({
+    id: `coast-shore-${index}`,
+    sound: 'ocean-shore',
+    title: { 'zh-hant': '拍岸浪聲', 'en': 'Waves on the shore' },
+    zone: 'coast' as const,
+    ...position,
+    heightOffset: 3,
+    mode: { type: 'loop' } as const,
+    volume: 0.7,
+    minDistance: 8,
+    maxDistance: 30,
+  })),
+  ...createRingPositionList(2, ISLAND_SEA_RADIUS - 4).map((position, index) => ({
+    id: `coast-ocean-${index}`,
+    sound: 'ocean-wave',
+    title: { 'zh-hant': '外海濤聲', 'en': 'Open sea' },
+    zone: 'coast' as const,
+    ...position,
+    y: 14,
+    mode: { type: 'loop' } as const,
+    volume: 0.6,
+    minDistance: 12,
+    maxDistance: 32,
+  })),
+  {
+    id: 'coast-gull',
+    sound: 'ocean-gull',
+    title: { 'zh-hant': '海鷗', 'en': 'Seagulls' },
+    zone: 'coast',
+    x: ISLAND_CENTER.x - 4,
+    z: ISLAND_CENTER.z + 88,
+    heightOffset: 8,
+    mode: { type: 'interval', rangeSecond: [12, 30] },
+    volume: 0.7,
+    minDistance: 8,
+    maxDistance: 32,
+  },
+  {
+    /** 海豚放在外海，而且刻意壓小範圍，要真的游出去才聽得到 */
+    id: 'coast-dolphin',
+    sound: 'ocean-dolphin',
+    title: { 'zh-hant': '海豚', 'en': 'Dolphins' },
+    zone: 'coast',
+    x: ISLAND_CENTER.x,
+    z: ISLAND_CENTER.z + ISLAND_SEA_RADIUS - 6,
+    y: 13,
+    mode: { type: 'interval', rangeSecond: [16, 40] },
+    volume: 0.9,
+    minDistance: 3,
+    maxDistance: 12,
+  },
+
+  // ── 雪山 ──
+  ...[
+    { x: 138, z: 58 },
+    { x: 126, z: 70 },
+    { x: 150, z: 68 },
+  ].map((position, index) => ({
+    id: `alpine-wind-${index}`,
+    sound: 'alpine-wind',
+    title: { 'zh-hant': '山稜的風', 'en': 'Wind along the ridge' },
+    zone: 'alpine' as const,
+    ...position,
+    heightOffset: 4,
+    mode: { type: 'loop' } as const,
+    volume: 0.6,
+    minDistance: 12,
+    maxDistance: 50,
+  })),
+  {
+    id: 'alpine-snowcock',
+    sound: 'alpine-snowcock',
+    title: { 'zh-hant': '雪雞', 'en': 'Snowcock' },
+    zone: 'alpine',
+    x: 142,
+    z: 48,
+    heightOffset: 2,
+    mode: { type: 'interval', rangeSecond: [18, 44] },
+    volume: 0.7,
+    minDistance: 8,
+    maxDistance: 42,
+  },
+  {
+    id: 'alpine-pika',
+    sound: 'beast-pika',
+    title: { 'zh-hant': '鼠兔', 'en': 'Pika' },
+    zone: 'alpine',
+    x: 130,
+    z: 62,
+    heightOffset: 1,
+    mode: { type: 'interval', rangeSecond: [14, 34] },
+    volume: 0.6,
+    minDistance: 5,
+    maxDistance: 30,
+  },
+
+  // ── 村莊與遺跡 ──
+  {
+    id: 'village-crowd',
+    sound: 'village-crowd',
+    title: { 'zh-hant': '市集人聲', 'en': 'Market chatter' },
+    zone: 'village',
+    x: VILLAGE_CENTER.x,
+    z: VILLAGE_CENTER.z,
+    heightOffset: 3,
+    mode: { type: 'loop' },
+    volume: 0.5,
+    minDistance: 8,
+    maxDistance: 36,
+  },
+  {
+    id: 'village-sheep',
+    sound: 'village-sheep',
+    title: { 'zh-hant': '牧場羊群', 'en': 'Sheep in the pasture' },
+    zone: 'village',
+    x: PASTURE_CENTER.x,
+    z: PASTURE_CENTER.z,
+    heightOffset: 1,
+    mode: { type: 'interval', rangeSecond: [12, 30] },
+    volume: 0.6,
+    minDistance: 5,
+    maxDistance: 32,
+  },
+  {
+    id: 'ruins-hall',
+    sound: 'ruins-hall',
+    title: { 'zh-hant': '石廳迴響', 'en': 'Echoing stone hall' },
+    zone: 'village',
+    x: RUINS_CENTER.x,
+    z: RUINS_CENTER.z,
+    heightOffset: 2,
+    mode: { type: 'loop' },
+    volume: 0.4,
+    minDistance: 6,
+    maxDistance: 26,
+  },
+
+  // ── 洞穴 ──
+  {
+    id: 'cave-drip',
+    sound: 'cave-drip',
+    title: { 'zh-hant': '洞頂滴水', 'en': 'Dripping from the ceiling' },
+    zone: 'cave',
+    x: CAVE_TUNNEL_POINT.x,
+    z: CAVE_TUNNEL_POINT.z,
+    y: CAVE_TUNNEL_POINT.y,
+    mode: { type: 'loop' },
+    volume: 0.8,
+    minDistance: 4,
+    maxDistance: 28,
+  },
+  {
+    id: 'cave-lake',
+    sound: 'cave-water',
+    title: { 'zh-hant': '地底湖', 'en': 'Underground lake' },
+    zone: 'cave',
+    x: CAVE_CHAMBER.x,
+    z: CAVE_CHAMBER.z,
+    y: CAVE_CHAMBER.y,
+    mode: { type: 'loop' },
+    volume: 0.8,
+    minDistance: 6,
+    maxDistance: 34,
+  },
+  {
+    id: 'cave-entrance-wind',
+    sound: 'alpine-wind',
+    title: { 'zh-hant': '洞口風聲', 'en': 'Wind at the cave mouth' },
+    zone: 'cave',
+    x: CAVE_ENTRANCE.x,
+    z: CAVE_ENTRANCE.z,
+    heightOffset: 1,
+    mode: { type: 'loop' },
+    volume: 0.5,
+    minDistance: 4,
+    maxDistance: 24,
+  },
+
+  // ── 內陸的小湖泊 ──
+  /**
+   * 每一窪水配三種聲音：蛙鳴、水鳥、水邊的蟲
+   *
+   * 覆蓋半徑壓得比生態區底噪小得多，走近才聽得到，
+   * 才有「拐個彎遇上一窪水」的感覺
+   */
+  ...POND_LIST.flatMap((pond, index): SoundEmitterDefinition[] => [
+    {
+      id: `pond-frog-${index}`,
+      sound: index % 2 === 0 ? 'frog-single' : 'frog-toad',
+      title: { 'zh-hant': '池畔蛙鳴', 'en': 'Pondside frogs' },
+      zone: 'pond',
+      x: pond.x,
+      z: pond.z,
+      heightOffset: 1,
+      mode: { type: 'interval', rangeSecond: [6, 18] },
+      volume: 0.65,
+      minDistance: 5,
+      maxDistance: 30,
+    },
+    {
+      id: `pond-moorhen-${index}`,
+      sound: 'bird-moorhen',
+      title: { 'zh-hant': '水鳥', 'en': 'Moorhen' },
+      zone: 'pond',
+      x: pond.x + Math.round(pond.radius),
+      z: pond.z - Math.round(pond.radius),
+      heightOffset: 1,
+      mode: { type: 'interval', rangeSecond: [18, 44] },
+      volume: 0.6,
+      minDistance: 5,
+      maxDistance: 28,
+      silentInRain: true,
+    },
+    {
+      id: `pond-insect-${index}`,
+      sound: 'insect-bush-cricket',
+      title: { 'zh-hant': '水邊的草蟲', 'en': 'Waterside crickets' },
+      zone: 'pond',
+      x: pond.x - Math.round(pond.radius),
+      z: pond.z + Math.round(pond.radius),
+      heightOffset: 1,
+      mode: { type: 'loop' },
+      volume: 0.4,
+      minDistance: 4,
+      maxDistance: 22,
+      silentInRain: true,
+    },
+  ]),
+]
+
+/** 已解析高度的音源 */
+export interface ResolvedEmitter extends SoundEmitterDefinition {
+  y: number;
+}
+
+/**
+ * 產生音源清單
+ *
+ * 沒有指定高度的音源會自動貼齊地面或水面，
+ * 免得地形被噪音推高後聲音埋進土裡，或是沉到河底去。
+ */
+export function createEmitterList(worldState: Uint8Array): ResolvedEmitter[] {
+  return EMITTER_DEFINITION_LIST.map((definition) => ({
+    ...definition,
+    y: definition.y ?? getWaterlineY(worldState, definition.x, definition.z) + (definition.heightOffset ?? 1),
+  }))
+}
+
+/** 取得音檔完整路徑 */
+export function getSoundUrl(sound: string): string {
+  return `${SOUND_BASE}/${sound}.mp3`
+}

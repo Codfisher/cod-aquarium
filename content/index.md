@@ -178,6 +178,20 @@ Minecraft 是我大學的時候最愛的遊戲，當時還做了很多地圖檔�
 
 ---
 
+### [Minespace](/aquarium/minespace/){target="_blank" rel="noopener"}
+
+做完 [HexaZen](/aquarium/hexazen/) 之後一直有個念頭：白噪音混音器都是「調旋鈕」，可是現實裡我們是靠**走過去**聽見聲音的。%( ´ ▽ ` )ﾉ%
+
+於是把 [EnderBox](/aquarium/enderbox/) 的方塊世界搬過來，拔掉挖礦，只留下走路，然後在地圖上埋了四十幾個聲音。
+
+森林的樹梢、營地的營火、山澗的瀑布、沼澤的蛙鳴、海岸的浪、村莊的市集、洞窟的滴水，全都待在它們該在的座標上。
+
+走近變大聲、轉頭換邊，靠的是 <a href="https://doc.babylonjs.com/features/featuresDeepDive/audio/playingSoundsMusic" target="_blank">babylon.js 的 Spatial Sound</a>，音量與方位交給 Web Audio 算，程式只負責決定「誰該存在」。%ԅ(´∀` ԅ)%
+
+建議戴上耳機，方位感會清楚很多。
+
+---
+
 ### [速速湊](http://susugo.codlin.me/){target="_blank" rel="noopener"}
 
 <iframe width="100%" height="500" src="https://www.youtube.com/embed/JDn7_Y-SdOs?si=NA2s-Rb_szhAb6oA" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
