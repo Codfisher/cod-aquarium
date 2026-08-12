@@ -129,9 +129,14 @@ export const SUN_INTENSITY = 1.3
  * 陰影涵蓋範圍的半邊長
  *
  * 只需要罩住鏡頭附近走得到、看得清楚的那一塊。
- * 再遠的東西不是被霧糊掉，就是小到看不出有沒有影子
+ * 再遠的東西不是被霧糊掉，就是小到看不出有沒有影子。
+ *
+ * 這個值同時決定一個取樣格有多大（範圍 ÷ 貼圖寬度）。
+ * 太陽在轉的時候，整張取樣格會跟著光源空間一起轉，邊緣必然重新取樣——
+ * 格子越小，每次重新取樣的落差就越小，抖動也就越不明顯。
+ * 從四十八收到四十，一格從 0.047 格縮到 0.039 格
  */
-const SHADOW_HALF_EXTENT = 48
+const SHADOW_HALF_EXTENT = 40
 /** 光源沿著光線反方向退開多遠，要大到把最高的岩體整個含進去 */
 const SHADOW_LIGHT_DISTANCE = 90
 
@@ -1434,13 +1439,18 @@ function createShadowGenerator({ scene }: { scene: Scene }) {
   }
   else {
     /**
-     * 用中等濾波
+     * 用高等濾波
      *
-     * QUALITY_HIGH 的取樣範圍換算成世界座標大約有半格寬，
-     * 草葉的影子本身還不到那個寬度，整條會被平均掉。
-     * 換成中等，邊緣硬一點，但細的東西留得住
+     * 這裡曾經是中等，理由是「QUALITY_HIGH 的取樣範圍大約有半格寬，
+     * 草葉的影子會整條被平均掉」——那個算法是投影範圍還罩著整個世界時
+     * 留下來的。範圍收到八十格見方之後，一個取樣格只有 0.039 格，
+     * 高等的五乘五核心換算成世界座標也才 0.2 格，草葉的影子撐得住。
+     *
+     * 換上去是為了太陽移動時的邊緣抖動：光源一轉，取樣格跟著轉，
+     * 邊緣必然重新取樣。硬邊會讓每一次重新取樣都看得一清二楚，
+     * 邊緣柔一點，那些跳動就融進過渡帶裡了
      */
-    shadowGenerator.filteringQuality = ShadowGenerator.QUALITY_MEDIUM
+    shadowGenerator.filteringQuality = ShadowGenerator.QUALITY_HIGH
   }
 
   /**
@@ -1516,7 +1526,7 @@ export function useBabylonScene(param?: UseBabylonSceneParam) {
 
     shadowGenerator.value.filteringQuality = newQuality === 'low'
       ? ShadowGenerator.QUALITY_LOW
-      : ShadowGenerator.QUALITY_MEDIUM
+      : ShadowGenerator.QUALITY_HIGH
   })
 
   onMounted(async () => {
