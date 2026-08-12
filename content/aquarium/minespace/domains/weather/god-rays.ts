@@ -1,5 +1,5 @@
-import type { Mesh, Scene, UniversalCamera } from '@babylonjs/core-v9'
-import { Texture, Vector3, VolumetricLightScatteringPostProcess } from '@babylonjs/core-v9'
+import type { Mesh, Scene, UniversalCamera } from '@babylonjs/core'
+import { Texture, Vector3, VolumetricLightScatteringPostProcess } from '@babylonjs/core'
 import { watch } from 'vue'
 import {
   CLOUD_LAYER_NAME,

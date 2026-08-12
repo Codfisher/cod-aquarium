@@ -1,5 +1,5 @@
-import type { Scene } from '@babylonjs/core-v9'
-import { Color3, MeshBuilder, StandardMaterial, Texture } from '@babylonjs/core-v9'
+import type { Scene } from '@babylonjs/core'
+import { Color3, MeshBuilder, StandardMaterial, Texture } from '@babylonjs/core'
 import { WORLD_SIZE } from '../world/world-constants'
 import { SAND_LEVEL } from './garden-constants'
 

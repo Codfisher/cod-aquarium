@@ -1,4 +1,4 @@
-import type { Scene, UniversalCamera } from '@babylonjs/core-v9'
+import type { Scene, UniversalCamera } from '@babylonjs/core'
 import type { AudibleSound, Weather } from './type'
 import { useStorage } from '@vueuse/core'
 import { onBeforeUnmount, ref, shallowRef, watch } from 'vue'

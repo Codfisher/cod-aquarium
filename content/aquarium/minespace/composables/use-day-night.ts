@@ -5,11 +5,11 @@ import type {
   Mesh,
   Scene,
   StandardMaterial,
-} from '@babylonjs/core-v9'
+} from '@babylonjs/core'
+import type { SkyMaterial } from '@babylonjs/materials'
 import type { AtmosphereState } from '../domains/weather/atmosphere'
 import type { DayPhase } from '../domains/weather/day-night'
 import type { GodRays } from '../domains/weather/god-rays'
-import type { SkyDomeMaterial } from './use-babylon-scene'
 import { useStorage } from '@vueuse/core'
 import { computed, onBeforeUnmount, ref } from 'vue'
 import {
@@ -306,7 +306,7 @@ export function useDayNight() {
   }
 
   /** 大氣散射：太陽的方位決定了整片天的漸層落在哪一邊 */
-  function applyToSky(skyMaterial: SkyDomeMaterial | null): void {
+  function applyToSky(skyMaterial: SkyMaterial | null): void {
     if (!skyMaterial)
       return
 

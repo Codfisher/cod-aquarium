@@ -1,5 +1,5 @@
-import type { DirectionalLight, Mesh, Scene, ShadowGenerator, StandardMaterial, UniversalCamera } from '@babylonjs/core-v9'
-import { MeshBuilder, TransformNode } from '@babylonjs/core-v9'
+import type { DirectionalLight, Mesh, Scene, ShadowGenerator, StandardMaterial, UniversalCamera } from '@babylonjs/core'
+import { MeshBuilder, TransformNode } from '@babylonjs/core'
 import { onBeforeUnmount } from 'vue'
 import { SUN_LIGHT_NAME } from '../../composables/use-babylon-scene'
 import { createSeededRandom } from '../../utils/noise'

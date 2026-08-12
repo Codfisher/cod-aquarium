@@ -1,4 +1,4 @@
-import { Color3, Vector3 } from '@babylonjs/core-v9'
+import { Color3, Vector3 } from '@babylonjs/core'
 
 /**
  * 日夜循環

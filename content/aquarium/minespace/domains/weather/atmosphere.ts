@@ -1,4 +1,4 @@
-import { Color3 } from '@babylonjs/core-v9'
+import { Color3 } from '@babylonjs/core'
 import { WORLD_SIZE } from '../world/world-constants'
 
 /**

@@ -1,4 +1,4 @@
-import type { Scene } from '@babylonjs/core-v9'
+import type { Scene } from '@babylonjs/core'
 import {
   Color4,
   DynamicTexture,
@@ -6,7 +6,7 @@ import {
   ParticleSystem,
   Texture,
   Vector3,
-} from '@babylonjs/core-v9'
+} from '@babylonjs/core'
 import { WEATHER_RENDERING_GROUP } from '../../composables/use-babylon-scene'
 import { getGarden } from '../garden/garden-layout'
 import { createParticleDimmer } from './particle-tint'
