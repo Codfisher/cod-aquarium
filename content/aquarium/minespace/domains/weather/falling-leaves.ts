@@ -147,7 +147,7 @@ export function createFallingLeaves({
   /** 從樹冠飄到地面得花上二十秒左右，落葉才不是一路直墜 */
   particleSystem.minLifeTime = 16
   particleSystem.maxLifeTime = 26
-  particleSystem.emitRate = maxParticleCount / 26
+  particleSystem.emitRate = maxParticleCount / 40
 
   /**
    * 落法
@@ -171,20 +171,33 @@ export function createFallingLeaves({
    * 路徑於是彎彎曲曲，看起來才像被風捲著走
    */
   const noiseTexture = new NoiseProceduralTexture('autumn-leaf-noise', 128, scene)
-  noiseTexture.animationSpeedFactor = 1.2
+  /**
+   * 亂流本身變化得慢一點
+   *
+   * 這個值調的是噪音場自己翻動的速度，不是葉子的速度。
+   * 轉得太快，葉子等於每一瞬間都被推往不同方向，看起來是在抖；
+   * 慢慢翻動才會變成一陣風推過去、再換另一陣的長弧線
+   */
+  noiseTexture.animationSpeedFactor = 0.45
   noiseTexture.brightness = 0.5
   noiseTexture.octaves = 4
   noiseTexture.persistence = 1.6
   particleSystem.noiseTexture = noiseTexture
   /** 橫向推得比縱向多，葉子才會飄開而不是上下彈跳 */
-  particleSystem.noiseStrength = new Vector3(14, 4, 14)
+  particleSystem.noiseStrength = new Vector3(10, 3, 10)
 
   /** 邊飄邊翻面 */
   particleSystem.minAngularSpeed = -1.8
   particleSystem.maxAngularSpeed = 1.8
   particleSystem.minInitialRotation = 0
   particleSystem.maxInitialRotation = Math.PI * 2
-  particleSystem.updateSpeed = 0.015
+  /**
+   * 整套模擬跑得多快
+   *
+   * 位移與壽命都照這個速度推進，所以調小只是把同一條軌跡放慢，
+   * 葉子飄過的路線不變，落地前的時間跟著拉長
+   */
+  particleSystem.updateSpeed = 0.009
   particleSystem.blendMode = ParticleSystem.BLENDMODE_STANDARD
 
   const texture = particleSystem.particleTexture as Texture
@@ -197,7 +210,8 @@ export function createFallingLeaves({
    * 像有人把一桶葉子倒下來
    */
   particleSystem.preWarmCycles = 150
-  particleSystem.preWarmStepOffset = 5
+  /** 預熱的步幅要夠大，一輪跑完才走得完一片葉子的一生 */
+  particleSystem.preWarmStepOffset = 20
   particleSystem.start()
 
   return {
