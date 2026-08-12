@@ -144,24 +144,44 @@ export function createFallingLeaves({
 
   particleSystem.minSize = 0.28
   particleSystem.maxSize = 0.5
-  /** 從樹冠飄到地面得花上二十秒左右，落葉才不是一路直墜 */
-  particleSystem.minLifeTime = 16
-  particleSystem.maxLifeTime = 26
-  particleSystem.emitRate = maxParticleCount / 40
+  /** 從樹冠飄到地面得花上半分鐘，葉子才是慢慢盪下來的 */
+  particleSystem.minLifeTime = 18
+  particleSystem.maxLifeTime = 28
+  particleSystem.emitRate = maxParticleCount / 44
 
   /**
    * 落法
    *
-   * 葉子那麼輕，空氣阻力早就把它拖成等速下降了，
-   * 所以重力只留一點點，讓它慢慢變快而不是自由落體。
-   * 下降的速度主要由初速決定，橫向的初速給得比縱向還大，
-   * 葉子才是斜斜地飄過去，而不是原地垂直落下
+   * 初速只給一點點，葉子是從枝頭鬆脫的，不是被彈出去的；
+   * 重力也壓得很小，剩下的交給下面的速度上限
    */
-  particleSystem.gravity = new Vector3(0, -0.05, 0)
-  particleSystem.direction1 = new Vector3(-0.5, -0.5, -0.5)
-  particleSystem.direction2 = new Vector3(0.5, -0.25, 0.5)
-  particleSystem.minEmitPower = 1
-  particleSystem.maxEmitPower = 1.6
+  particleSystem.gravity = new Vector3(0, -0.1, 0)
+  particleSystem.direction1 = new Vector3(-0.25, -0.3, -0.25)
+  particleSystem.direction2 = new Vector3(0.25, -0.15, 0.25)
+  particleSystem.minEmitPower = 0.4
+  particleSystem.maxEmitPower = 0.8
+
+  /**
+   * 速度上限：花瓣那種慢慢飄的關鍵
+   *
+   * 重力與亂流都是往速度上累加的，不設限的話葉子只會越飄越快。
+   * 速度一超過上限就打對折，於是很快就穩定在上限附近，
+   * 之後既不加速也不停下來——那正是空氣阻力下的等速下墜。
+   * 兩端給同一個值代表整段壽命都適用
+   */
+  particleSystem.addLimitVelocityGradient(0, 1.1)
+  particleSystem.addLimitVelocityGradient(1, 1.1)
+  particleSystem.limitVelocityDamping = 0.55
+
+  /**
+   * 阻力：整體再放慢一成
+   *
+   * Babylon 的阻力扣的是「這一幀移動多少」，不是速度本身，
+   * 所以它不會讓葉子停下來，效果單純是把移動整個放慢，
+   * 但壽命照原速走完，因此葉子飄過的距離也跟著縮短
+   */
+  particleSystem.addDragGradient(0, 0.1)
+  particleSystem.addDragGradient(1, 0.1)
 
   /**
    * 風
@@ -178,17 +198,22 @@ export function createFallingLeaves({
    * 轉得太快，葉子等於每一瞬間都被推往不同方向，看起來是在抖；
    * 慢慢翻動才會變成一陣風推過去、再換另一陣的長弧線
    */
-  noiseTexture.animationSpeedFactor = 0.45
+  noiseTexture.animationSpeedFactor = 0.35
   noiseTexture.brightness = 0.5
   noiseTexture.octaves = 4
   noiseTexture.persistence = 1.6
   particleSystem.noiseTexture = noiseTexture
-  /** 橫向推得比縱向多，葉子才會飄開而不是上下彈跳 */
-  particleSystem.noiseStrength = new Vector3(10, 3, 10)
+  /**
+   * 橫向推得比縱向多，葉子才會飄開而不是上下彈跳
+   *
+   * 有了阻力之後，這股推力不會一直累積，而是被拉回來，
+   * 於是葉子是左右盪過去又盪回來，不是被吹著一路衝
+   */
+  particleSystem.noiseStrength = new Vector3(4, 1.2, 4)
 
-  /** 邊飄邊翻面 */
-  particleSystem.minAngularSpeed = -1.8
-  particleSystem.maxAngularSpeed = 1.8
+  /** 慢慢翻面，快了就像被捲進漩渦 */
+  particleSystem.minAngularSpeed = -0.7
+  particleSystem.maxAngularSpeed = 0.7
   particleSystem.minInitialRotation = 0
   particleSystem.maxInitialRotation = Math.PI * 2
   /**
