@@ -45,6 +45,7 @@ import { getGroundY } from '../domains/world/world-access'
 import { WORLD_SIZE } from '../domains/world/world-constants'
 import { createSeededRandom } from '../utils/noise'
 import { useGraphicsQuality } from './use-graphics-quality'
+import { measureSection } from './use-performance-probe'
 
 export interface InitParams {
   canvas: HTMLCanvasElement;
@@ -326,61 +327,63 @@ function trackShadowToCamera(scene: Scene) {
   let knownMapSize = 0
 
   scene.onBeforeRenderObservable.add(() => {
-    const light = scene.getLightByName(SUN_LIGHT_NAME) as DirectionalLight | null
-    const camera = scene.activeCamera
-    if (!light || !camera)
-      return
+    measureSection('陰影追蹤', () => {
+      const light = scene.getLightByName(SUN_LIGHT_NAME) as DirectionalLight | null
+      const camera = scene.activeCamera
+      if (!light || !camera)
+        return
 
-    const mapSize = light.getShadowGenerator()?.getShadowMap()?.getSize().width
-    if (!mapSize)
-      return
+      const mapSize = light.getShadowGenerator()?.getShadowMap()?.getSize().width
+      if (!mapSize)
+        return
 
-    /** 貼圖尺寸換了就重算，不然會拿舊的格子去對齊新的貼圖 */
-    if (mapSize !== knownMapSize) {
-      knownMapSize = mapSize
-      texelSize = (SHADOW_HALF_EXTENT * 2) / mapSize
-    }
+      /** 貼圖尺寸換了就重算，不然會拿舊的格子去對齊新的貼圖 */
+      if (mapSize !== knownMapSize) {
+        knownMapSize = mapSize
+        texelSize = (SHADOW_HALF_EXTENT * 2) / mapSize
+      }
 
-    /**
-     * 讀光源自己的方向，不要讀那個常數
-     *
-     * 日夜循環每一幀都在轉動這道光：白天從太陽射下、夜裡換成月亮。
-     * 這裡若還照著固定的方向退開，投影範圍就會歪到鏡頭以外的地方去
-     */
-    forward.copyFrom(light.direction).normalize()
-    Vector3.CrossToRef(Vector3.UpReadOnly, forward, right)
-    right.normalize()
-    Vector3.CrossToRef(forward, right, up)
+      /**
+       * 讀光源自己的方向，不要讀那個常數
+       *
+       * 日夜循環每一幀都在轉動這道光：白天從太陽射下、夜裡換成月亮。
+       * 這裡若還照著固定的方向退開，投影範圍就會歪到鏡頭以外的地方去
+       */
+      forward.copyFrom(light.direction).normalize()
+      Vector3.CrossToRef(Vector3.UpReadOnly, forward, right)
+      right.normalize()
+      Vector3.CrossToRef(forward, right, up)
 
-    /**
-     * 投影到光源的三軸上，三軸都要對齊取樣格
-     *
-     * 橫向與縱向對齊是為了讓邊緣落在同一批取樣點上，這是老問題。
-     *
-     * 深度那一軸原本沒對齊，理由是「不影響取樣格的位置」——那是對的，
-     * 但它影響存進去的深度值。光源沿著光線連續前後移動時，
-     * 同一個表面每一幀被記下來的深度都差一點點，
-     * 而比較深度是有門檻的：那些剛好卡在門檻上的取樣點會在
-     * 「被自己擋住」與「沒被擋住」之間反覆翻面，看起來就是邊緣在閃。
-     *
-     * 三軸一起對齊之後，只要人沒有跨過一格取樣格，
-     * 整張陰影貼圖就是上一幀那一張，一個像素都不會變
-     */
-    const alongRight = Math.round(Vector3.Dot(camera.position, right) / texelSize) * texelSize
-    const alongUp = Math.round(Vector3.Dot(camera.position, up) / texelSize) * texelSize
-    const alongForward = Math.round(Vector3.Dot(camera.position, forward) / texelSize) * texelSize
+      /**
+       * 投影到光源的三軸上，三軸都要對齊取樣格
+       *
+       * 橫向與縱向對齊是為了讓邊緣落在同一批取樣點上，這是老問題。
+       *
+       * 深度那一軸原本沒對齊，理由是「不影響取樣格的位置」——那是對的，
+       * 但它影響存進去的深度值。光源沿著光線連續前後移動時，
+       * 同一個表面每一幀被記下來的深度都差一點點，
+       * 而比較深度是有門檻的：那些剛好卡在門檻上的取樣點會在
+       * 「被自己擋住」與「沒被擋住」之間反覆翻面，看起來就是邊緣在閃。
+       *
+       * 三軸一起對齊之後，只要人沒有跨過一格取樣格，
+       * 整張陰影貼圖就是上一幀那一張，一個像素都不會變
+       */
+      const alongRight = Math.round(Vector3.Dot(camera.position, right) / texelSize) * texelSize
+      const alongUp = Math.round(Vector3.Dot(camera.position, up) / texelSize) * texelSize
+      const alongForward = Math.round(Vector3.Dot(camera.position, forward) / texelSize) * texelSize
 
-    center.set(
-      right.x * alongRight + up.x * alongUp + forward.x * alongForward,
-      right.y * alongRight + up.y * alongUp + forward.y * alongForward,
-      right.z * alongRight + up.z * alongUp + forward.z * alongForward,
-    )
+      center.set(
+        right.x * alongRight + up.x * alongUp + forward.x * alongForward,
+        right.y * alongRight + up.y * alongUp + forward.y * alongForward,
+        right.z * alongRight + up.z * alongUp + forward.z * alongForward,
+      )
 
-    light.position.set(
-      center.x - forward.x * SHADOW_LIGHT_DISTANCE,
-      center.y - forward.y * SHADOW_LIGHT_DISTANCE,
-      center.z - forward.z * SHADOW_LIGHT_DISTANCE,
-    )
+      light.position.set(
+        center.x - forward.x * SHADOW_LIGHT_DISTANCE,
+        center.y - forward.y * SHADOW_LIGHT_DISTANCE,
+        center.z - forward.z * SHADOW_LIGHT_DISTANCE,
+      )
+    })
   })
 }
 
@@ -914,8 +917,10 @@ function createCloudLayer(scene: Scene) {
   const driftPeriod = patternCount * CLOUD_CELL_SIZE
   let elapsed = 0
   scene.onBeforeRenderObservable.add(() => {
-    elapsed += scene.getEngine().getDeltaTime() / 1000
-    cloudMesh.position.x = (elapsed * CLOUD_DRIFT_SPEED) % driftPeriod
+    measureSection('雲飄移', () => {
+      elapsed += scene.getEngine().getDeltaTime() / 1000
+      cloudMesh.position.x = (elapsed * CLOUD_DRIFT_SPEED) % driftPeriod
+    })
   })
 
   return material
@@ -1184,14 +1189,16 @@ function createCampfireFlame(scene: Scene, x: number, groundY: number, z: number
   let elapsed = 0
   let currentFrame = 0
   scene.onBeforeRenderObservable.add(() => {
-    elapsed += scene.getEngine().getDeltaTime() / 1000
-    const nextFrame = Math.floor(elapsed * FLAME_FRAME_RATE) % FLAME_FRAME_COUNT
-    if (nextFrame === currentFrame)
-      return
+    measureSection('營火動畫', () => {
+      elapsed += scene.getEngine().getDeltaTime() / 1000
+      const nextFrame = Math.floor(elapsed * FLAME_FRAME_RATE) % FLAME_FRAME_COUNT
+      if (nextFrame === currentFrame)
+        return
 
-    currentFrame = nextFrame
-    drawFlameFrame(context, size, currentFrame)
-    texture.update()
+      currentFrame = nextFrame
+      drawFlameFrame(context, size, currentFrame)
+      texture.update()
+    })
   })
 }
 

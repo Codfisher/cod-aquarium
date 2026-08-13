@@ -2,6 +2,7 @@ import type { DirectionalLight, Mesh, Scene, ShadowGenerator, StandardMaterial, 
 import { MeshBuilder, TransformNode } from '@babylonjs/core'
 import { onBeforeUnmount } from 'vue'
 import { SUN_LIGHT_NAME } from '../../composables/use-babylon-scene'
+import { measureSection } from '../../composables/use-performance-probe'
 import { createSeededRandom } from '../../utils/noise'
 import { WOOL_TEXTURE } from '../block/block-constants'
 import { PASTURE_CENTER, PASTURE_HALF_SIZE } from '../garden/garden-layout'
@@ -116,25 +117,27 @@ export function useSheepFlock() {
     }
 
     const observer = scene.onBeforeRenderObservable.add(() => {
-      const deltaTime = Math.min(0.1, scene.getEngine().getDeltaTime() / 1000)
+      measureSection('羊群', () => {
+        const deltaTime = Math.min(0.1, scene.getEngine().getDeltaTime() / 1000)
 
-      for (const sheep of sheepList) {
-        updateSheep(sheep, deltaTime, random)
-      }
+        for (const sheep of sheepList) {
+          updateSheep(sheep, deltaTime, random)
+        }
 
-      /**
-       * 位移都算完了才處理推擠
-       *
-       * 各自走各自的難免走到同一格上，最後統一把重疊的推開，
-       * 位置才不會這一隻剛閃開、下一隻又疊回去
-       */
-      pushSheepApart(sheepList, deltaTime)
-      pushSheepFromPlayer(sheepList, camera, deltaTime)
+        /**
+         * 位移都算完了才處理推擠
+         *
+         * 各自走各自的難免走到同一格上，最後統一把重疊的推開，
+         * 位置才不會這一隻剛閃開、下一隻又疊回去
+         */
+        pushSheepApart(sheepList, deltaTime)
+        pushSheepFromPlayer(sheepList, camera, deltaTime)
 
-      for (const sheep of sheepList) {
-        keepInPasture(sheep)
-        snapToGround(sheep, worldState)
-      }
+        for (const sheep of sheepList) {
+          keepInPasture(sheep)
+          snapToGround(sheep, worldState)
+        }
+      })
     })
 
     disposeList.push(() => {

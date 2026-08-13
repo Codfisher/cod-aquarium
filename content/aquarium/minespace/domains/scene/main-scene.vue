@@ -82,13 +82,55 @@
         v-if="probeVisible"
         class="status-readout probe-readout"
       >
-        <div>{{ probe.drawCallCount }} draw</div>
-        <div>{{ probe.activeMeshCount }} 網格</div>
-        <div>{{ probe.frameMs.toFixed(1) }} ms 幀 CPU</div>
-        <div>{{ probe.gpuMs.toFixed(1) }} ms 幀 GPU</div>
-        <div>{{ probe.meshSelectionMs.toFixed(2) }} ms 挑選</div>
-        <div>{{ probe.renderTargetMs.toFixed(2) }} ms 陰影</div>
-        <div>{{ probe.particleMs.toFixed(2) }} ms 粒子</div>
+        <div class="probe-row">
+          <span>繪製</span><span>{{ probe.drawCallCount }}</span>
+        </div>
+        <div class="probe-row">
+          <span>網格</span><span>{{ probe.activeMeshCount }}</span>
+        </div>
+        <div class="probe-row">
+          <span>三角形</span><span>{{ (probe.triangleCount / 1000).toFixed(0) }}k</span>
+        </div>
+
+        <div class="probe-divider" />
+
+        <div class="probe-row">
+          <span>幀 CPU</span><span>{{ probe.frameMs.toFixed(1) }}</span>
+        </div>
+        <div class="probe-row">
+          <span>幀 GPU</span><span>{{ probe.gpuMs.toFixed(1) }}</span>
+        </div>
+        <div class="probe-row">
+          <span>幀距</span><span>{{ probe.interFrameMs.toFixed(1) }}</span>
+        </div>
+
+        <div class="probe-divider" />
+
+        <div class="probe-row">
+          <span>挑選</span><span>{{ probe.meshSelectionMs.toFixed(2) }}</span>
+        </div>
+        <div class="probe-row">
+          <span>陰影</span><span>{{ probe.renderTargetMs.toFixed(2) }}</span>
+        </div>
+        <div class="probe-row">
+          <span>粒子</span><span>{{ probe.particleMs.toFixed(2) }}</span>
+        </div>
+        <div class="probe-row">
+          <span>編譯</span><span>{{ probe.shaderCompileMs.toFixed(2) }}</span>
+        </div>
+
+        <div class="probe-divider" />
+
+        <div class="probe-row probe-total">
+          <span>JS 合計</span><span>{{ probe.observerMs.toFixed(2) }}</span>
+        </div>
+        <div
+          v-for="section in probe.sectionList"
+          :key="section.name"
+          class="probe-row"
+        >
+          <span>{{ section.name }}</span><span>{{ section.averageMs.toFixed(2) }}</span>
+        </div>
       </div>
     </div>
 
@@ -531,10 +573,25 @@ onBeforeUnmount(() => {
 .probe-readout
   display: flex
   flex-direction: column
-  gap: 2px
+  gap: 1px
   font-family: ui-monospace, monospace
   font-size: 12px
   line-height: 1.35
+  min-width: 148px
+
+/** 名稱靠左、數字靠右，一整欄才對得齊 */
+.probe-row
+  display: flex
+  justify-content: space-between
+  gap: 12px
+
+.probe-total
+  font-weight: 700
+
+.probe-divider
+  height: 1px
+  margin: 3px 0
+  background: rgba(255, 255, 255, 0.18)
 
 .status-readout
   padding: 3px 8px

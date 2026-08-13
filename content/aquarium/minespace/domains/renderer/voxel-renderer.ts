@@ -12,6 +12,7 @@ import {
   VertexBuffer,
 } from '@babylonjs/core'
 import { SUN_LIGHT_NAME } from '../../composables/use-babylon-scene'
+import { measureSection } from '../../composables/use-performance-probe'
 import { BLOCK_DEFS, isDecorationBlock } from '../block/block-constants'
 import { TOTAL_CHUNKS } from '../world/world-constants'
 import { createWindSway, LEAF_SWAY_AMPLITUDE, PLANT_SWAY_AMPLITUDE } from './wind-sway'
@@ -149,8 +150,10 @@ function playTextureFrames(texture: Texture, frameCount: number, scene: Scene): 
 
   let elapsed = 0
   scene.onBeforeRenderObservable.add(() => {
-    elapsed += scene.getEngine().getDeltaTime() / 1000
-    texture.vOffset = Math.floor(elapsed * TEXTURE_FRAME_RATE) % frameCount / frameCount
+    measureSection('方塊動畫', () => {
+      elapsed += scene.getEngine().getDeltaTime() / 1000
+      texture.vOffset = Math.floor(elapsed * TEXTURE_FRAME_RATE) % frameCount / frameCount
+    })
   })
 }
 

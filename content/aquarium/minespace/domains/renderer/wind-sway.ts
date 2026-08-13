@@ -1,5 +1,6 @@
 import type { Engine, Scene, StandardMaterial, SubMesh, UniformBuffer } from '@babylonjs/core'
 import { MaterialPluginBase } from '@babylonjs/core'
+import { measureSection } from '../../composables/use-performance-probe'
 
 /**
  * 隨風搖擺
@@ -248,11 +249,13 @@ export function createWindSway(scene: Scene): WindSway {
   let elapsedSecond = 0
 
   const observer = scene.onBeforeRenderObservable.add(() => {
-    elapsedSecond += scene.getEngine().getDeltaTime() / 1000
+    measureSection('風', () => {
+      elapsedSecond += scene.getEngine().getDeltaTime() / 1000
 
-    for (const plugin of pluginList) {
-      plugin.setElapsedSecond(elapsedSecond)
-    }
+      for (const plugin of pluginList) {
+        plugin.setElapsedSecond(elapsedSecond)
+      }
+    })
   })
 
   return {

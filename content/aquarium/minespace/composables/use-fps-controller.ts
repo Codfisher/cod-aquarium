@@ -18,6 +18,7 @@ import { CAVE_FOG_COLOR, EDGE_FOG_END, EDGE_FOG_START, getEdgeFogRatio } from '.
 import { WORLD_SIZE } from '../domains/world/world-constants'
 import { useStepSound } from './use-audio-engine'
 import { AMBIENT_LIGHT_NAME, SUN_LIGHT_NAME } from './use-babylon-scene'
+import { measureSection } from './use-performance-probe'
 
 const GRAVITY = 22
 const JUMP_SPEED = 7.6
@@ -611,139 +612,141 @@ export function useFpsController() {
     }
 
     const observer = scene.onBeforeRenderObservable.add(() => {
-      const deltaTime = Math.min(0.05, scene.getEngine().getDeltaTime() / 1000)
+      measureSection('漫遊控制器', () => {
+        const deltaTime = Math.min(0.05, scene.getEngine().getDeltaTime() / 1000)
 
-      /**
-       * 視角旋轉
-       *
-       * 手機讀搖桿、桌機讀累積的滑鼠位移，兩邊都是每一幀原封不動套用一次。
-       * 不做慣性也不補間，滑鼠移多少畫面就轉多少，掉幀時也不會多轉
-       */
-      const lookDelta = mobileControls
-        ? mobileControls.consumeLookDelta()
-        : consumeMouseLookDelta()
-      camera.rotation.y += lookDelta.deltaX
-      camera.rotation.x += lookDelta.deltaY
-      camera.rotation.x = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, camera.rotation.x))
+        /**
+         * 視角旋轉
+         *
+         * 手機讀搖桿、桌機讀累積的滑鼠位移，兩邊都是每一幀原封不動套用一次。
+         * 不做慣性也不補間，滑鼠移多少畫面就轉多少，掉幀時也不會多轉
+         */
+        const lookDelta = mobileControls
+          ? mobileControls.consumeLookDelta()
+          : consumeMouseLookDelta()
+        camera.rotation.y += lookDelta.deltaX
+        camera.rotation.x += lookDelta.deltaY
+        camera.rotation.x = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, camera.rotation.x))
 
-      /** 依攝影機朝向算出水平移動方向 */
-      const yaw = camera.rotation.y
-      const forwardX = Math.sin(yaw)
-      const forwardZ = Math.cos(yaw)
-      const rightX = Math.cos(yaw)
-      const rightZ = -Math.sin(yaw)
+        /** 依攝影機朝向算出水平移動方向 */
+        const yaw = camera.rotation.y
+        const forwardX = Math.sin(yaw)
+        const forwardZ = Math.cos(yaw)
+        const rightX = Math.cos(yaw)
+        const rightZ = -Math.sin(yaw)
 
-      let moveX = 0
-      let moveZ = 0
+        let moveX = 0
+        let moveZ = 0
 
-      if (checkControlActive()) {
-        if (keys.forward) {
-          moveX += forwardX
-          moveZ += forwardZ
+        if (checkControlActive()) {
+          if (keys.forward) {
+            moveX += forwardX
+            moveZ += forwardZ
+          }
+          if (keys.backward) {
+            moveX -= forwardX
+            moveZ -= forwardZ
+          }
+          if (keys.left) {
+            moveX -= rightX
+            moveZ -= rightZ
+          }
+          if (keys.right) {
+            moveX += rightX
+            moveZ += rightZ
+          }
+
+          const joystick = mobileControls?.state.joystick
+          if (joystick && (joystick.x !== 0 || joystick.z !== 0)) {
+            moveX += forwardX * (-joystick.z) + rightX * joystick.x
+            moveZ += forwardZ * (-joystick.z) + rightZ * joystick.x
+          }
         }
-        if (keys.backward) {
-          moveX -= forwardX
-          moveZ -= forwardZ
+
+        isSwimming.value = isInWater(worldState, position.x, position.y, position.z)
+
+        const moveLength = Math.hypot(moveX, moveZ)
+        const isSprinting = keys.sprint || (mobileControls?.state.sprint ?? false)
+        const shouldJump = checkControlActive() && (keys.jump || (mobileControls?.state.jump ?? false))
+
+        if (moveLength > 0) {
+          const joystickMagnitude = mobileControls?.state.joystickMagnitude ?? 0
+          const analogRatio = joystickMagnitude > 0 ? joystickMagnitude : 1
+          const speed = MOVE_SPEED
+            * (isSprinting ? SPRINT_MULTIPLIER : 1)
+            * (isSwimming.value ? WATER_MOVE_RATIO : 1)
+            * analogRatio
+
+          moveX = (moveX / moveLength) * speed * deltaTime
+          moveZ = (moveZ / moveLength) * speed * deltaTime
         }
-        if (keys.left) {
-          moveX -= rightX
-          moveZ -= rightZ
+
+        /** 重力與跳躍 / 游泳 */
+        if (isSwimming.value) {
+          velocityY -= WATER_GRAVITY * deltaTime
+          velocityY = Math.max(velocityY, WATER_SINK_LIMIT)
+          if (shouldJump) {
+            velocityY = WATER_SWIM_SPEED
+          }
         }
-        if (keys.right) {
-          moveX += rightX
-          moveZ += rightZ
+        else {
+          if (shouldJump && isOnGround) {
+            velocityY = JUMP_SPEED
+          }
+          velocityY -= GRAVITY * deltaTime
         }
 
-        const joystick = mobileControls?.state.joystick
-        if (joystick && (joystick.x !== 0 || joystick.z !== 0)) {
-          moveX += forwardX * (-joystick.z) + rightX * joystick.x
-          moveZ += forwardZ * (-joystick.z) + rightZ * joystick.x
+        const result = resolveCollision(
+          worldState,
+          position.x,
+          position.y,
+          position.z,
+          moveX,
+          velocityY * deltaTime,
+          moveZ,
+          /** 站在地上、而且沒有往上跳，才允許自動跨過半磚 */
+          isOnGround && velocityY <= 0,
+        )
+
+        /**
+         * 位置更新完立刻繞回世界內
+         *
+         * 要在鏡頭定位之前做完，否則跨過邊界的那一幀鏡頭會停在界外，
+         * 下一幀才跳回來——那一下就是唯一會露餡的地方
+         */
+        position.x = wrapAxis(result.x)
+        position.y = result.y
+        position.z = wrapAxis(result.z)
+        isOnGround = result.isOnGround
+        if (result.velocityY === 0) {
+          velocityY = 0
         }
-      }
 
-      isSwimming.value = isInWater(worldState, position.x, position.y, position.z)
-
-      const moveLength = Math.hypot(moveX, moveZ)
-      const isSprinting = keys.sprint || (mobileControls?.state.sprint ?? false)
-      const shouldJump = checkControlActive() && (keys.jump || (mobileControls?.state.jump ?? false))
-
-      if (moveLength > 0) {
-        const joystickMagnitude = mobileControls?.state.joystickMagnitude ?? 0
-        const analogRatio = joystickMagnitude > 0 ? joystickMagnitude : 1
-        const speed = MOVE_SPEED
-          * (isSprinting ? SPRINT_MULTIPLIER : 1)
-          * (isSwimming.value ? WATER_MOVE_RATIO : 1)
-          * analogRatio
-
-        moveX = (moveX / moveLength) * speed * deltaTime
-        moveZ = (moveZ / moveLength) * speed * deltaTime
-      }
-
-      /** 重力與跳躍 / 游泳 */
-      if (isSwimming.value) {
-        velocityY -= WATER_GRAVITY * deltaTime
-        velocityY = Math.max(velocityY, WATER_SINK_LIMIT)
-        if (shouldJump) {
-          velocityY = WATER_SWIM_SPEED
+        /**
+         * 泡在水裡撞到岸邊就自動往上浮
+         *
+         * 水面與岸邊常常齊高，這時玩家踩不到底、跳不起來，
+         * 會被卡在水裡出不去。頂到牆就給一段上浮速度，自然地爬上岸
+         */
+        const isBlockedByShore = (moveX !== 0 && result.velocityX === 0)
+          || (moveZ !== 0 && result.velocityZ === 0)
+        if (isSwimming.value && isBlockedByShore) {
+          velocityY = Math.max(velocityY, WATER_CLIMB_SPEED)
         }
-      }
-      else {
-        if (shouldJump && isOnGround) {
-          velocityY = JUMP_SPEED
-        }
-        velocityY -= GRAVITY * deltaTime
-      }
 
-      const result = resolveCollision(
-        worldState,
-        position.x,
-        position.y,
-        position.z,
-        moveX,
-        velocityY * deltaTime,
-        moveZ,
-        /** 站在地上、而且沒有往上跳，才允許自動跨過半磚 */
-        isOnGround && velocityY <= 0,
-      )
+        /** 跨上半磚的瞬間鏡頭留在原處，再逐幀補上來 */
+        stepSmoothOffset += result.stepUpHeight
+        stepSmoothOffset = Math.max(0, stepSmoothOffset - STEP_SMOOTH_SPEED * deltaTime)
 
-      /**
-       * 位置更新完立刻繞回世界內
-       *
-       * 要在鏡頭定位之前做完，否則跨過邊界的那一幀鏡頭會停在界外，
-       * 下一幀才跳回來——那一下就是唯一會露餡的地方
-       */
-      position.x = wrapAxis(result.x)
-      position.y = result.y
-      position.z = wrapAxis(result.z)
-      isOnGround = result.isOnGround
-      if (result.velocityY === 0) {
-        velocityY = 0
-      }
+        camera.position.set(
+          position.x,
+          position.y + PLAYER_EYE_HEIGHT - stepSmoothOffset,
+          position.z,
+        )
 
-      /**
-       * 泡在水裡撞到岸邊就自動往上浮
-       *
-       * 水面與岸邊常常齊高，這時玩家踩不到底、跳不起來，
-       * 會被卡在水裡出不去。頂到牆就給一段上浮速度，自然地爬上岸
-       */
-      const isBlockedByShore = (moveX !== 0 && result.velocityX === 0)
-        || (moveZ !== 0 && result.velocityZ === 0)
-      if (isSwimming.value && isBlockedByShore) {
-        velocityY = Math.max(velocityY, WATER_CLIMB_SPEED)
-      }
-
-      /** 跨上半磚的瞬間鏡頭留在原處，再逐幀補上來 */
-      stepSmoothOffset += result.stepUpHeight
-      stepSmoothOffset = Math.max(0, stepSmoothOffset - STEP_SMOOTH_SPEED * deltaTime)
-
-      camera.position.set(
-        position.x,
-        position.y + PLAYER_EYE_HEIGHT - stepSmoothOffset,
-        position.z,
-      )
-
-      updateStepSound(deltaTime, moveLength > 0, isSprinting)
-      updateAtmosphere(deltaTime)
+        updateStepSound(deltaTime, moveLength > 0, isSprinting)
+        updateAtmosphere(deltaTime)
+      })
     })
 
     cleanup = () => {

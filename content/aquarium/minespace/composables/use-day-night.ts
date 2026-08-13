@@ -34,6 +34,7 @@ import {
   SUN_GLOW_NAME,
   SUN_LIGHT_NAME,
 } from './use-babylon-scene'
+import { measureSection } from './use-performance-probe'
 
 /**
  * 滾輪撥一格是多少分鐘
@@ -179,47 +180,49 @@ export function useDayNight() {
     let clockElapsed = 0
 
     const observer = scene.onBeforeRenderObservable.add(() => {
-      const deltaTime = Math.min(0.1, scene.getEngine().getDeltaTime() / 1000)
+      measureSection('日夜循環', () => {
+        const deltaTime = Math.min(0.1, scene.getEngine().getDeltaTime() / 1000)
 
-      /**
-       * 暫停時世界該停在原地，但選單裡拖時間軸還是要看得到變化
-       *
-       * 關掉自動交替之後也一樣：時間不再自己走，
-       * 但滾輪與時間軸撥出來的位移照樣要追過去
-       */
-      if (isRunning() && isAutoAdvance.value) {
-        currentTime = wrapTimeOfDay(currentTime + deltaTime / getDayLengthSecond(daySpeedRatio.value))
-      }
+        /**
+         * 暫停時世界該停在原地，但選單裡拖時間軸還是要看得到變化
+         *
+         * 關掉自動交替之後也一樣：時間不再自己走，
+         * 但滾輪與時間軸撥出來的位移照樣要追過去
+         */
+        if (isRunning() && isAutoAdvance.value) {
+          currentTime = wrapTimeOfDay(currentTime + deltaTime / getDayLengthSecond(daySpeedRatio.value))
+        }
 
-      sampleDayNight(currentTime, sample)
+        sampleDayNight(currentTime, sample)
 
-      applyToAtmosphere(atmosphere)
-      applyToLight(sunLight)
-      applyToSkyBody({
-        sunDisc,
-        sunGlow,
-        moonDisc,
-        moonGlow,
-        sunMaterialList,
-        sunBaseList,
-        moonMaterialList,
-        moonBaseList,
-        starMaterial,
-        skyBodyFade: atmosphere.skyBodyFade,
+        applyToAtmosphere(atmosphere)
+        applyToLight(sunLight)
+        applyToSkyBody({
+          sunDisc,
+          sunGlow,
+          moonDisc,
+          moonGlow,
+          sunMaterialList,
+          sunBaseList,
+          moonMaterialList,
+          moonBaseList,
+          starMaterial,
+          skyBodyFade: atmosphere.skyBodyFade,
+        })
+        applyToSky(skyMaterial)
+        applyToPipeline(pipeline)
+        /** 雨中與貼近邊界時整片天被白幕蓋住，光束也該跟著收掉 */
+        godRays?.setStrength(sample.godRayRatio * atmosphere.skyBodyFade)
+
+        clockElapsed += deltaTime
+        if (clockElapsed >= CLOCK_UPDATE_INTERVAL) {
+          clockElapsed = 0
+          timeOfDay.value = currentTime
+          dayRatio.value = sample.dayRatio
+          clockText.value = formatClock(currentTime)
+          phase.value = getDayPhase(currentTime)
+        }
       })
-      applyToSky(skyMaterial)
-      applyToPipeline(pipeline)
-      /** 雨中與貼近邊界時整片天被白幕蓋住，光束也該跟著收掉 */
-      godRays?.setStrength(sample.godRayRatio * atmosphere.skyBodyFade)
-
-      clockElapsed += deltaTime
-      if (clockElapsed >= CLOCK_UPDATE_INTERVAL) {
-        clockElapsed = 0
-        timeOfDay.value = currentTime
-        dayRatio.value = sample.dayRatio
-        clockText.value = formatClock(currentTime)
-        phase.value = getDayPhase(currentTime)
-      }
     })
 
     cleanup = () => {

@@ -3,6 +3,7 @@ import type { BlockLightSource } from '../domains/world/light-source'
 import { ClusteredLightContainer, Color3, PointLight, Vector3 } from '@babylonjs/core'
 import { onBeforeUnmount } from 'vue'
 import { collectLightSourceList } from '../domains/world/light-source'
+import { measureSection } from './use-performance-probe'
 
 /** 滿等的燈有多亮 */
 const MAX_INTENSITY = 1.15
@@ -183,12 +184,14 @@ function trackAllLights(
   let elapsed = 0
 
   return scene.onBeforeRenderObservable.add(() => {
-    elapsed += Math.min(0.1, scene.getEngine().getDeltaTime() / 1000)
-    const dayFactor = measureDayFactor(getDayRatio())
+    measureSection('方塊燈火', () => {
+      elapsed += Math.min(0.1, scene.getEngine().getDeltaTime() / 1000)
+      const dayFactor = measureDayFactor(getDayRatio())
 
-    for (const [index, entry] of entryList.entries()) {
-      entry.light.intensity = measureIntensity(entry.source, dayFactor, elapsed, index)
-    }
+      for (const [index, entry] of entryList.entries()) {
+        entry.light.intensity = measureIntensity(entry.source, dayFactor, elapsed, index)
+      }
+    })
   })
 }
 
@@ -242,32 +245,34 @@ function trackNearestLights(
   }
 
   return scene.onBeforeRenderObservable.add(() => {
-    const deltaTime = Math.min(0.1, scene.getEngine().getDeltaTime() / 1000)
-    elapsed += deltaTime
+    measureSection('方塊燈火', () => {
+      const deltaTime = Math.min(0.1, scene.getEngine().getDeltaTime() / 1000)
+      elapsed += deltaTime
 
-    pickElapsed += deltaTime
-    if (pickElapsed >= PICK_INTERVAL) {
-      pickElapsed = 0
-      pickNearest()
-    }
+      pickElapsed += deltaTime
+      if (pickElapsed >= PICK_INTERVAL) {
+        pickElapsed = 0
+        pickNearest()
+      }
 
-    const dayFactor = measureDayFactor(getDayRatio())
+      const dayFactor = measureDayFactor(getDayRatio())
 
-    for (const [index, entry] of entryList.entries()) {
-      const target = activeIndexList.includes(index)
-        ? measureIntensity(entry.source, dayFactor, elapsed, index)
-        : 0
+      for (const [index, entry] of entryList.entries()) {
+        const target = activeIndexList.includes(index)
+          ? measureIntensity(entry.source, dayFactor, elapsed, index)
+          : 0
 
-      /**
-       * 名單換人時亮度是追過去的
-       *
-       * 直接設定的話，走過一排燈籠會看到光一盞一盞地跳
-       */
-      const current = intensityList[index]!
-      const next = current + (target - current) * Math.min(1, deltaTime * INTENSITY_RESPONSE)
-      intensityList[index] = next
-      entry.light.intensity = next
-    }
+        /**
+         * 名單換人時亮度是追過去的
+         *
+         * 直接設定的話，走過一排燈籠會看到光一盞一盞地跳
+         */
+        const current = intensityList[index]!
+        const next = current + (target - current) * Math.min(1, deltaTime * INTENSITY_RESPONSE)
+        intensityList[index] = next
+        entry.light.intensity = next
+      }
+    })
   })
 }
 

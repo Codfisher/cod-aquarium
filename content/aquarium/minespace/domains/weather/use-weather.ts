@@ -13,6 +13,7 @@ import {
   getSkyMaterial,
 } from '../../composables/use-babylon-scene'
 import { useGraphicsQuality } from '../../composables/use-graphics-quality'
+import { measureSection } from '../../composables/use-performance-probe'
 import { getGarden } from '../garden/garden-layout'
 import { getSoundUrl } from '../soundscape/sound-data'
 import {
@@ -276,182 +277,184 @@ export function useWeather() {
     const cloudColor = new Color3()
 
     scene.onBeforeRenderObservable.add(() => {
-      const deltaTime = Math.min(0.1, scene.getEngine().getDeltaTime() / 1000)
+      measureSection('天氣', () => {
+        const deltaTime = Math.min(0.1, scene.getEngine().getDeltaTime() / 1000)
 
-      rainRatio = getRainRatio(camera.position.x, camera.position.z)
-      weather.value = rainRatio > RAIN_WEATHER_THRESHOLD ? 'rain' : 'clear'
+        rainRatio = getRainRatio(camera.position.x, camera.position.z)
+        weather.value = rainRatio > RAIN_WEATHER_THRESHOLD ? 'rain' : 'clear'
 
-      /**
-       * 先套沼澤的霧，再套雨
-       *
-       * 兩區隔得夠遠不會同時作用，順序只是為了讓雨天永遠蓋過霧天：
-       * 下雨時的能見度本來就比起霧更差
-       */
-      const mistRatio = getMistRatio(camera.position.x, camera.position.z)
-
-      /**
-       * 從日夜循環給的基準色開始疊
-       *
-       * 不能再從固定的晴天白開始：那是正午的顏色，
-       * 入夜之後霧會一直是白的，只有天空暗下來，兩者對不起來。
-       *
-       * 疊上去的雨霧與沼澤霧也要跟著壓暗。它們是寫死的中明度灰，
-       * 不壓的話，深夜裡走進聽雨亭會看到一團亮灰的霧浮在全黑的世界中央，
-       * 那座箱庭就成了唯一沒有入夜的地方
-       */
-      const nightScale = lerp(0.2, 1, measureDayBrightness(atmosphere))
-      nightMistColor.copyFrom(SWAMP_ATMOSPHERE.fogColor).scaleInPlace(nightScale)
-      nightRainColor.copyFrom(RAIN_ATMOSPHERE.fogColor).scaleInPlace(nightScale)
-
-      Color3.LerpToRef(
-        atmosphere.baseFogColor,
-        nightMistColor,
-        mistRatio,
-        atmosphere.fogColor,
-      )
-      Color3.LerpToRef(atmosphere.fogColor, nightRainColor, rainRatio, atmosphere.fogColor)
-
-      const mistFogStart = lerp(CLEAR_ATMOSPHERE.fogStart, SWAMP_ATMOSPHERE.fogStart, mistRatio)
-      const mistFogEnd = lerp(CLEAR_ATMOSPHERE.fogEnd, SWAMP_ATMOSPHERE.fogEnd, mistRatio)
-      const mistLightRatio = lerp(CLEAR_ATMOSPHERE.lightRatio, SWAMP_ATMOSPHERE.lightRatio, mistRatio)
-
-      atmosphere.fogStart = lerp(mistFogStart, RAIN_ATMOSPHERE.fogStart, rainRatio)
-      atmosphere.fogEnd = lerp(mistFogEnd, RAIN_ATMOSPHERE.fogEnd, rainRatio)
-      atmosphere.lightRatio = lerp(mistLightRatio, RAIN_ATMOSPHERE.lightRatio, rainRatio)
-
-      /** 閃電：短暫補光後迅速衰減，遠方的雷只亮一點點 */
-      if (flashTimeLeft > 0) {
-        flashTimeLeft = Math.max(0, flashTimeLeft - deltaTime)
-        atmosphere.flashRatio = flashTimeLeft / FLASH_DURATION_SECOND * flashStrength
-      }
-      else {
-        atmosphere.flashRatio = 0
-      }
-
-      /**
-       * 雨天的天色
-       *
-       * 基準值由日夜循環決定，這裡只負責「比那個時刻再陰一點」，
-       * 不管當下是正午還是黃昏，疊上去的都是同一個方向的變化。
-       *
-       * 下雨時整片天往霧色靠攏：真正的陰天就是這樣，
-       * 天頂與天邊的分界被雲蓋掉，看上去是一片沒有層次的鉛灰。
-       * 霞光也要一起收掉——雲層背後的太陽不會在天上留下光暈
-       */
-      if (skyMaterial) {
-        Color3.LerpToRef(atmosphere.skyZenithColor, atmosphere.fogColor, rainRatio * 0.85, rainZenithColor)
-        Color3.LerpToRef(atmosphere.skyMidColor, atmosphere.fogColor, rainRatio * 0.85, rainMidColor)
-
-        applySkyGradient(skyMaterial, {
-          zenithColor: rainZenithColor,
-          midColor: rainMidColor,
-          horizonColor: atmosphere.fogColor,
-          glowColor: atmosphere.skyGlowColor,
-          counterColor: atmosphere.skyCounterColor,
-          glowStrength: atmosphere.skyGlowStrength * (1 - rainRatio),
-        })
-      }
-
-      /**
-       * 罩住整片天的那一層
-       *
-       * 兩種情況會用到它：雨天要一片鉛灰的陰天，
-       * 走到世界邊界時則要一片與霧同色的白。
-       *
-       * 邊界那個尤其重要。地面的霧再濃也只糊得掉地面，天空與雲是不吃霧的，
-       * 玩家照樣看得見地平線與雲的位置——跨過邊界時雲一換位置就全露餡了。
-       * 天與地要一起收成同一片白，才是真正的什麼都看不見
-       */
-      const edgeRatio = getEdgeFogRatio(camera.position.x, camera.position.z)
-      if (overcastMaterial) {
         /**
-         * 這一層是兩件事：雨天的陰、邊界的白幕
+         * 先套沼澤的霧，再套雨
          *
-         * 它曾經還兼第三件事——洞裡的天花板，跟著 caveRatio 淡成岩壁的顏色。
-         * 那是錯的。洞頂本來就是實心方塊，抬頭看到的是岩石而不是天空，
-         * 這一層真正蓋到的只剩「從洞口望出去的那片天」，
-         * 也就是唯一該亮的地方：人站在洞裡往外看，外頭的地面是亮的，
-         * 天卻是一片黑，那比看得到藍天還怪。
-         *
-         * 洞裡的暗交給霧色與環境光就夠了，天空不必也不該一起關掉
+         * 兩區隔得夠遠不會同時作用，順序只是為了讓雨天永遠蓋過霧天：
+         * 下雨時的能見度本來就比起霧更差
          */
-        overcastMaterial.alpha = Math.min(1, Math.max(rainRatio * 1.15, edgeRatio))
+        const mistRatio = getMistRatio(camera.position.x, camera.position.z)
+
         /**
-         * 雨天是鉛灰、邊界則是與霧同色
+         * 從日夜循環給的基準色開始疊
          *
-         * 邊界那個顏色得跟著日夜走：白天是白幕、夜裡是一片深藍。
-         * 用固定的白會讓夜裡走近邊界時憑空亮起一面牆
+         * 不能再從固定的晴天白開始：那是正午的顏色，
+         * 入夜之後霧會一直是白的，只有天空暗下來，兩者對不起來。
+         *
+         * 疊上去的雨霧與沼澤霧也要跟著壓暗。它們是寫死的中明度灰，
+         * 不壓的話，深夜裡走進聽雨亭會看到一團亮灰的霧浮在全黑的世界中央，
+         * 那座箱庭就成了唯一沒有入夜的地方
          */
-        const brightness = lerp(0.66, 0.44, rainRatio) * measureDayBrightness(atmosphere)
-        overcastMaterial.emissiveColor.set(
-          lerp(brightness, atmosphere.baseFogColor.r, edgeRatio),
-          lerp(brightness + 0.03, atmosphere.baseFogColor.g, edgeRatio),
-          lerp(brightness + 0.08, atmosphere.baseFogColor.b, edgeRatio),
+        const nightScale = lerp(0.2, 1, measureDayBrightness(atmosphere))
+        nightMistColor.copyFrom(SWAMP_ATMOSPHERE.fogColor).scaleInPlace(nightScale)
+        nightRainColor.copyFrom(RAIN_ATMOSPHERE.fogColor).scaleInPlace(nightScale)
+
+        Color3.LerpToRef(
+          atmosphere.baseFogColor,
+          nightMistColor,
+          mistRatio,
+          atmosphere.fogColor,
         )
-      }
+        Color3.LerpToRef(atmosphere.fogColor, nightRainColor, rainRatio, atmosphere.fogColor)
 
-      /**
-       * 天體被遮住的程度交給日夜循環去套
-       *
-       * 太陽、月亮與星空都在灰罩前面，不自己淡出的話，
-       * 雨中或貼近邊界時還會有一顆太陽掛在白幕上。
-       * 但淡入淡出的基準亮度是日夜循環在管的，兩邊都寫會互相蓋掉，
-       * 所以這裡只回報「該露出多少」
-       */
-      atmosphere.skyBodyFade = Math.max(0, 1 - Math.max(rainRatio, edgeRatio) * 1.6)
+        const mistFogStart = lerp(CLEAR_ATMOSPHERE.fogStart, SWAMP_ATMOSPHERE.fogStart, mistRatio)
+        const mistFogEnd = lerp(CLEAR_ATMOSPHERE.fogEnd, SWAMP_ATMOSPHERE.fogEnd, mistRatio)
+        const mistLightRatio = lerp(CLEAR_ATMOSPHERE.lightRatio, SWAMP_ATMOSPHERE.lightRatio, mistRatio)
 
-      /**
-       * 雲的顏色
-       *
-       * 雨天轉成陰沉的鉛灰；走到世界邊界時則要整個化進霧裡。
-       *
-       * 邊界那個不能交給外面的灰罩去蓋。灰罩掛在鏡頭外一百二十五格，
-       * 雲卻只在頭頂一百格出頭——雲比灰罩近，深度測試會讓灰罩被雲擋在後面，
-       * 於是四周全白了，抬頭卻還看得到幾朵雲飄過去。
-       * 讓雲自己染成霧的顏色，就不必跟深度的先後打架：
-       * 它還在那裡，只是與整片白一模一樣，看不出來而已
-       */
-      for (const material of cloudMaterialList) {
-        /** 基準亮度由日夜循環給，雲才會跟著入夜一起暗下來 */
-        const brightness = lerp(atmosphere.cloudBrightness, atmosphere.cloudBrightness * 0.4, rainRatio)
-        cloudColor.set(
-          lerp(brightness, atmosphere.baseFogColor.r, edgeRatio),
-          lerp(brightness, atmosphere.baseFogColor.g, edgeRatio),
-          lerp(brightness + 0.03, atmosphere.baseFogColor.b, edgeRatio),
-        )
-        /** 遠方的雲化進霧色，才不會在地平線上疊成一道亮帶 */
-        applyCloudColor(material, {
-          color: cloudColor,
-          hazeColor: atmosphere.baseFogColor,
-        })
-      }
+        atmosphere.fogStart = lerp(mistFogStart, RAIN_ATMOSPHERE.fogStart, rainRatio)
+        atmosphere.fogEnd = lerp(mistFogEnd, RAIN_ATMOSPHERE.fogEnd, rainRatio)
+        atmosphere.lightRatio = lerp(mistLightRatio, RAIN_ATMOSPHERE.lightRatio, rainRatio)
 
-      /**
-       * 粒子跟著日夜一起暗
-       *
-       * 落葉、雨絲與沼澤的霧都不吃場景光照，顏色是寫死的。
-       * 入夜之後整個世界暗下來，只有它們維持著大白天的亮度，
-       * 會像貼在畫面上的貼紙。
-       *
-       * 三者的下限不一樣，因為它們在畫面上佔的面積差很多。
-       * 落葉與雨絲是細碎的小東西，留三成還看得出在飄；
-       * 沼澤那片霧卻是一大團橫在畫面中央的白，
-       * 只留三成在全黑的夜色前面依然像在發光，得再壓到剩下一成
-       */
-      const dayBrightness = measureDayBrightness(atmosphere)
-      fallingLeaves?.setBrightness(lerp(0.3, 1, dayBrightness))
-      rainParticles?.setBrightness(lerp(0.26, 1, dayBrightness))
-      swampMist?.setBrightness(lerp(0.1, 1, dayBrightness))
+        /** 閃電：短暫補光後迅速衰減，遠方的雷只亮一點點 */
+        if (flashTimeLeft > 0) {
+          flashTimeLeft = Math.max(0, flashTimeLeft - deltaTime)
+          atmosphere.flashRatio = flashTimeLeft / FLASH_DURATION_SECOND * flashStrength
+        }
+        else {
+          atmosphere.flashRatio = 0
+        }
 
-      /** 躲在洞裡時看不到雨，雨聲也只剩洞口傳進來的一點 */
-      const shelterRatio = isSheltered() ? 0.18 : 1
-      rainParticles?.update(camera, isSheltered() ? 0 : rainRatio)
+        /**
+         * 雨天的天色
+         *
+         * 基準值由日夜循環決定，這裡只負責「比那個時刻再陰一點」，
+         * 不管當下是正午還是黃昏，疊上去的都是同一個方向的變化。
+         *
+         * 下雨時整片天往霧色靠攏：真正的陰天就是這樣，
+         * 天頂與天邊的分界被雲蓋掉，看上去是一片沒有層次的鉛灰。
+         * 霞光也要一起收掉——雲層背後的太陽不會在天上留下光暈
+         */
+        if (skyMaterial) {
+          Color3.LerpToRef(atmosphere.skyZenithColor, atmosphere.fogColor, rainRatio * 0.85, rainZenithColor)
+          Color3.LerpToRef(atmosphere.skyMidColor, atmosphere.fogColor, rainRatio * 0.85, rainMidColor)
 
-      const volume = rainRatio * 0.5 * shelterRatio
-      if (rainSound) {
-        rainSound.volume = volume
-      }
-      rainStrength.value = volume
+          applySkyGradient(skyMaterial, {
+            zenithColor: rainZenithColor,
+            midColor: rainMidColor,
+            horizonColor: atmosphere.fogColor,
+            glowColor: atmosphere.skyGlowColor,
+            counterColor: atmosphere.skyCounterColor,
+            glowStrength: atmosphere.skyGlowStrength * (1 - rainRatio),
+          })
+        }
+
+        /**
+         * 罩住整片天的那一層
+         *
+         * 兩種情況會用到它：雨天要一片鉛灰的陰天，
+         * 走到世界邊界時則要一片與霧同色的白。
+         *
+         * 邊界那個尤其重要。地面的霧再濃也只糊得掉地面，天空與雲是不吃霧的，
+         * 玩家照樣看得見地平線與雲的位置——跨過邊界時雲一換位置就全露餡了。
+         * 天與地要一起收成同一片白，才是真正的什麼都看不見
+         */
+        const edgeRatio = getEdgeFogRatio(camera.position.x, camera.position.z)
+        if (overcastMaterial) {
+          /**
+           * 這一層是兩件事：雨天的陰、邊界的白幕
+           *
+           * 它曾經還兼第三件事——洞裡的天花板，跟著 caveRatio 淡成岩壁的顏色。
+           * 那是錯的。洞頂本來就是實心方塊，抬頭看到的是岩石而不是天空，
+           * 這一層真正蓋到的只剩「從洞口望出去的那片天」，
+           * 也就是唯一該亮的地方：人站在洞裡往外看，外頭的地面是亮的，
+           * 天卻是一片黑，那比看得到藍天還怪。
+           *
+           * 洞裡的暗交給霧色與環境光就夠了，天空不必也不該一起關掉
+           */
+          overcastMaterial.alpha = Math.min(1, Math.max(rainRatio * 1.15, edgeRatio))
+          /**
+           * 雨天是鉛灰、邊界則是與霧同色
+           *
+           * 邊界那個顏色得跟著日夜走：白天是白幕、夜裡是一片深藍。
+           * 用固定的白會讓夜裡走近邊界時憑空亮起一面牆
+           */
+          const brightness = lerp(0.66, 0.44, rainRatio) * measureDayBrightness(atmosphere)
+          overcastMaterial.emissiveColor.set(
+            lerp(brightness, atmosphere.baseFogColor.r, edgeRatio),
+            lerp(brightness + 0.03, atmosphere.baseFogColor.g, edgeRatio),
+            lerp(brightness + 0.08, atmosphere.baseFogColor.b, edgeRatio),
+          )
+        }
+
+        /**
+         * 天體被遮住的程度交給日夜循環去套
+         *
+         * 太陽、月亮與星空都在灰罩前面，不自己淡出的話，
+         * 雨中或貼近邊界時還會有一顆太陽掛在白幕上。
+         * 但淡入淡出的基準亮度是日夜循環在管的，兩邊都寫會互相蓋掉，
+         * 所以這裡只回報「該露出多少」
+         */
+        atmosphere.skyBodyFade = Math.max(0, 1 - Math.max(rainRatio, edgeRatio) * 1.6)
+
+        /**
+         * 雲的顏色
+         *
+         * 雨天轉成陰沉的鉛灰；走到世界邊界時則要整個化進霧裡。
+         *
+         * 邊界那個不能交給外面的灰罩去蓋。灰罩掛在鏡頭外一百二十五格，
+         * 雲卻只在頭頂一百格出頭——雲比灰罩近，深度測試會讓灰罩被雲擋在後面，
+         * 於是四周全白了，抬頭卻還看得到幾朵雲飄過去。
+         * 讓雲自己染成霧的顏色，就不必跟深度的先後打架：
+         * 它還在那裡，只是與整片白一模一樣，看不出來而已
+         */
+        for (const material of cloudMaterialList) {
+          /** 基準亮度由日夜循環給，雲才會跟著入夜一起暗下來 */
+          const brightness = lerp(atmosphere.cloudBrightness, atmosphere.cloudBrightness * 0.4, rainRatio)
+          cloudColor.set(
+            lerp(brightness, atmosphere.baseFogColor.r, edgeRatio),
+            lerp(brightness, atmosphere.baseFogColor.g, edgeRatio),
+            lerp(brightness + 0.03, atmosphere.baseFogColor.b, edgeRatio),
+          )
+          /** 遠方的雲化進霧色，才不會在地平線上疊成一道亮帶 */
+          applyCloudColor(material, {
+            color: cloudColor,
+            hazeColor: atmosphere.baseFogColor,
+          })
+        }
+
+        /**
+         * 粒子跟著日夜一起暗
+         *
+         * 落葉、雨絲與沼澤的霧都不吃場景光照，顏色是寫死的。
+         * 入夜之後整個世界暗下來，只有它們維持著大白天的亮度，
+         * 會像貼在畫面上的貼紙。
+         *
+         * 三者的下限不一樣，因為它們在畫面上佔的面積差很多。
+         * 落葉與雨絲是細碎的小東西，留三成還看得出在飄；
+         * 沼澤那片霧卻是一大團橫在畫面中央的白，
+         * 只留三成在全黑的夜色前面依然像在發光，得再壓到剩下一成
+         */
+        const dayBrightness = measureDayBrightness(atmosphere)
+        fallingLeaves?.setBrightness(lerp(0.3, 1, dayBrightness))
+        rainParticles?.setBrightness(lerp(0.26, 1, dayBrightness))
+        swampMist?.setBrightness(lerp(0.1, 1, dayBrightness))
+
+        /** 躲在洞裡時看不到雨，雨聲也只剩洞口傳進來的一點 */
+        const shelterRatio = isSheltered() ? 0.18 : 1
+        rainParticles?.update(camera, isSheltered() ? 0 : rainRatio)
+
+        const volume = rainRatio * 0.5 * shelterRatio
+        if (rainSound) {
+          rainSound.volume = volume
+        }
+        rainStrength.value = volume
+      })
     })
   }
 

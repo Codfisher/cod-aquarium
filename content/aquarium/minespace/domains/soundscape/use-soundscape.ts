@@ -3,6 +3,7 @@ import type { AudibleSound, Weather } from './type'
 import { useStorage } from '@vueuse/core'
 import { onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { getAudioEngine } from '../../composables/use-audio-engine'
+import { measureSection } from '../../composables/use-performance-probe'
 import { createEmitterList } from './sound-data'
 import { SpatialSoundscape } from './spatial-soundscape'
 
@@ -78,21 +79,23 @@ export function useSoundscape() {
     isReady.value = true
 
     scene.onBeforeRenderObservable.add(() => {
-      if (!soundscape)
-        return
+      measureSection('音景', () => {
+        if (!soundscape)
+          return
 
-      elapsed += scene.getEngine().getDeltaTime() / 1000
-      if (elapsed < UPDATE_INTERVAL)
-        return
+        elapsed += scene.getEngine().getDeltaTime() / 1000
+        if (elapsed < UPDATE_INTERVAL)
+          return
 
-      elapsed = 0
-      soundscape.update(
-        camera.position.x,
-        camera.position.y,
-        camera.position.z,
-        getDayRatio?.() ?? 1,
-      )
-      audibleList.value = soundscape.getAudibleList()
+        elapsed = 0
+        soundscape.update(
+          camera.position.x,
+          camera.position.y,
+          camera.position.z,
+          getDayRatio?.() ?? 1,
+        )
+        audibleList.value = soundscape.getAudibleList()
+      })
     })
   }
 
