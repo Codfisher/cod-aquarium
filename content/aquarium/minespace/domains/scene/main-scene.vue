@@ -108,8 +108,8 @@ import { createSandField } from '../garden/sand-field'
 import { findSafeStandingPosition } from '../player/collision'
 import { createVoxelRenderer } from '../renderer/voxel-renderer'
 import { useSoundscape } from '../soundscape/use-soundscape'
-import { createGodRays } from '../weather/god-rays'
 import { useWeather } from '../weather/use-weather'
+import { createVolumetricFog } from '../weather/volumetric-fog'
 import { useChunkWorker } from '../world/use-chunk-worker'
 import { useTerrainWorker } from '../world/use-terrain-worker/use-terrain-worker'
 import { castRainRay, createWorldState } from '../world/world-access'
@@ -309,7 +309,7 @@ const { canvasRef, scene, camera, pipeline, initError } = useBabylonScene({
       scene: sceneInstance,
       canvas,
       pipeline: pipeline.value,
-      godRays: createGodRays(sceneInstance, cameraInstance),
+      volumetricFog: createVolumetricFog(sceneInstance, cameraInstance),
       atmosphere,
       isRunning: () => hasStarted.value && !isPaused.value && !isCursorFree.value,
     })
