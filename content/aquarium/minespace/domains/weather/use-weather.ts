@@ -16,7 +16,6 @@ import { useGraphicsQuality } from '../../composables/use-graphics-quality'
 import { getGarden } from '../garden/garden-layout'
 import { getSoundUrl } from '../soundscape/sound-data'
 import {
-  CAVE_FOG_COLOR,
   CLEAR_ATMOSPHERE,
   createAtmosphereState,
   GARDEN_FOG_COLOR,
@@ -366,16 +365,17 @@ export function useWeather() {
       const edgeRatio = getEdgeFogRatio(camera.position.x, camera.position.z)
       if (overcastMaterial) {
         /**
-         * 這一層同時是三件事：雨天的陰、邊界的白幕、洞裡的天花板
+         * 這一層是兩件事：雨天的陰、邊界的白幕
          *
-         * 洞裡那個尤其重要。天空不吃霧氣，人在洞裡抬頭照樣看得到藍天；
-         * 原本的做法是整片關掉天空，但那會在某個深度忽然消失。
-         * 讓這一層淡入成岩壁的顏色，深淺是連續的，走進走出都看不出切換
+         * 它曾經還兼第三件事——洞裡的天花板，跟著 caveRatio 淡成岩壁的顏色。
+         * 那是錯的。洞頂本來就是實心方塊，抬頭看到的是岩石而不是天空，
+         * 這一層真正蓋到的只剩「從洞口望出去的那片天」，
+         * 也就是唯一該亮的地方：人站在洞裡往外看，外頭的地面是亮的，
+         * 天卻是一片黑，那比看得到藍天還怪。
+         *
+         * 洞裡的暗交給霧色與環境光就夠了，天空不必也不該一起關掉
          */
-        overcastMaterial.alpha = Math.min(
-          1,
-          Math.max(rainRatio * 1.15, edgeRatio, atmosphere.caveRatio),
-        )
+        overcastMaterial.alpha = Math.min(1, Math.max(rainRatio * 1.15, edgeRatio))
         /**
          * 雨天是鉛灰、邊界則是與霧同色
          *
@@ -387,13 +387,6 @@ export function useWeather() {
           lerp(brightness, atmosphere.baseFogColor.r, edgeRatio),
           lerp(brightness + 0.03, atmosphere.baseFogColor.g, edgeRatio),
           lerp(brightness + 0.08, atmosphere.baseFogColor.b, edgeRatio),
-        )
-        /** 洞裡蓋過前面所有的天色，換成岩壁那種暗灰藍 */
-        Color3.LerpToRef(
-          overcastMaterial.emissiveColor,
-          CAVE_FOG_COLOR,
-          atmosphere.caveRatio,
-          overcastMaterial.emissiveColor,
         )
       }
 

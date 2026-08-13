@@ -215,6 +215,38 @@ export function createRainParticles({
   particleSystem.blendMode = ParticleSystem.BLENDMODE_STANDARD
   particleSystem.preWarmCycles = 0
 
+  /**
+   * 雨滴打到東西就停
+   *
+   * 粒子系統本身沒有碰撞：雨絲一路落到壽命結束為止，
+   * 中間有沒有屋頂、地面、樹冠一概不管。
+   * 露天時看不太出來（雨落到地面以下就被地形擋住了），
+   * 但一走進有屋頂的地方就露餡——雨會直接穿過屋瓦下到室內。
+   *
+   * 落點的射線本來就有了（水花在用），這裡直接拿來用：
+   * 每一幀檢查雨滴有沒有落到它那一格柱的表面以下，
+   * 是的話就把年齡推到壽命，這一幀就回收。
+   *
+   * 於是屋子裡不會有雨、樹冠底下的雨會稀疏一點，
+   * 而站在屋裡往外看，開口外面照樣在下——
+   * 這正是「聽雨而自己是乾的」成立的條件
+   */
+  const updateParticles = particleSystem.updateFunction
+  particleSystem.updateFunction = (particleList) => {
+    updateParticles.call(particleSystem, particleList)
+
+    for (const particle of particleList) {
+      const impactY = readImpactY(
+        Math.floor(particle.position.x + 0.5),
+        Math.floor(particle.position.z + 0.5),
+      )
+      if (Number.isNaN(impactY) || particle.position.y > impactY)
+        continue
+
+      particle.age = particle.lifeTime
+    }
+  }
+
   const texture = particleSystem.particleTexture as Texture
   texture.hasAlpha = true
 
