@@ -50,6 +50,16 @@ const WHEEL_NOTCH_LIMIT = 3
 const SKY_BODY_DISTANCE = 110
 const SKY_GLOW_DISTANCE = 112
 
+/**
+ * 色調分級的最小改動量
+ *
+ * 小於這個差距就不寫進管線。寫一次的代價是全場材質失效一輪，
+ * 而這兩個門檻對應的視覺差異都在肉眼的解析度以下：
+ * 曝光千分之四、色相與濃度半個單位
+ */
+const EXPOSURE_STEP = 0.004
+const GRADE_STEP = 0.5
+
 /** HUD 的時刻讀數更新間隔（秒），每幀更新只是白白觸發重繪 */
 const CLOCK_UPDATE_INTERVAL = 0.2
 
@@ -114,6 +124,12 @@ export function useDayNight() {
   const clockText = ref(formatClock(INITIAL_TIME_OF_DAY))
 
   const sample = createDayNightSample()
+
+  /** 上一次真的寫進管線的色調值，用來判斷這一幀要不要再寫 */
+  let appliedExposure = Number.NaN
+  let appliedHue = Number.NaN
+  let appliedDensity = Number.NaN
+  let appliedSaturation = Number.NaN
 
   let cleanup: (() => void) | null = null
 
@@ -349,15 +365,42 @@ export function useDayNight() {
     if (!pipeline)
       return
 
-    pipeline.imageProcessing.exposure = sample.exposure
+    /**
+     * 只在真的差得夠多時才寫
+     *
+     * 這四個屬性每寫一次都很貴，貴在一個看不見的連鎖：
+     * 每一份用到場景影像處理設定的材質都訂閱了它的 onUpdateParameters，
+     * 收到通知就呼叫 _markAllSubMeshesAsImageProcessingDirty——
+     * 把自己所有子網格標記成待重建。
+     *
+     * 這個場景有兩百多顆網格，每幀寫四次等於每幀讓全場材質失效四次。
+     * 實測這一項就吃掉五毫秒，佔整幀的四分之一還多。
+     *
+     * 而這幾個值是色調分級，一整天才走完一輪。
+     * 曝光差不到千分之四、色相差不到半度，肉眼根本分不出來——
+     * 那一幀就不必寫。撥時間軸時因為變化夠大，照樣是即時跟上的
+     */
+    if (Math.abs(sample.exposure - appliedExposure) >= EXPOSURE_STEP) {
+      appliedExposure = sample.exposure
+      pipeline.imageProcessing.exposure = sample.exposure
+    }
 
     const colorCurves = pipeline.imageProcessing.colorCurves
     if (!colorCurves)
       return
 
-    colorCurves.globalHue = sample.gradeHue
-    colorCurves.globalDensity = sample.gradeDensity
-    colorCurves.globalSaturation = sample.gradeSaturation
+    if (Math.abs(sample.gradeHue - appliedHue) >= GRADE_STEP) {
+      appliedHue = sample.gradeHue
+      colorCurves.globalHue = sample.gradeHue
+    }
+    if (Math.abs(sample.gradeDensity - appliedDensity) >= GRADE_STEP) {
+      appliedDensity = sample.gradeDensity
+      colorCurves.globalDensity = sample.gradeDensity
+    }
+    if (Math.abs(sample.gradeSaturation - appliedSaturation) >= GRADE_STEP) {
+      appliedSaturation = sample.gradeSaturation
+      colorCurves.globalSaturation = sample.gradeSaturation
+    }
   }
 
   return {
