@@ -5,7 +5,6 @@ import {
   CAVE_MOUTH,
   CAVE_TUNNEL,
   getGarden,
-  SUIKINKUTSU_POINT,
   WATERFALL_POINT,
 } from '../garden/garden-layout'
 import { getWaterlineY } from '../world/world-access'
@@ -58,25 +57,64 @@ function at(gardenId: GardenId, offsetX = 0, offsetZ = 0): { x: number; z: numbe
 const WIND_RING_COUNT = 6
 
 const EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
-  // ── 枯山水：全庭最安靜的一座 ──
-  {
+  // ── 麥浪田：一陣風走過整片麥子 ──
+  ...[
+    at('wheatfield', -6, -6),
+    at('wheatfield', 6, 6),
+    at('wheatfield', 6, -6),
+    at('wheatfield', -6, 6),
+  ].map((position, index): SoundEmitterDefinition => ({
     /**
-     * 水琴窟
+     * 麥浪
      *
-     * 範圍刻意壓到只剩十二格：得走到石板旁邊才聽得見。
-     * 整座禪庭的中心是一個幾乎沒有聲音的地方，
-     * 那份安靜才是所有其他箱庭的參照點
+     * 用的是落葉的沙沙聲。那個音檔單獨聽是「乾掉的葉子」，
+     * 鋪成一整片、擺在及腰的高度之後就成了麥稈互相摩擦的聲音——
+     * 質地對了，聽的人自然會把它聽成眼前看到的東西。
+     *
+     * 四顆圍成一圈而不是中央一顆：風是從一邊掃到另一邊的，
+     * 走在田裡才會覺得聲音有方向
      */
-    id: 'stone-suikinkutsu',
-    sound: 'cave-drip',
-    title: { 'zh-hant': '水琴窟', 'en': 'Suikinkutsu' },
-    zone: 'stonegarden',
-    ...SUIKINKUTSU_POINT,
+    id: `wheat-rustle-${index}`,
+    sound: 'forest-rustle',
+    title: { 'zh-hant': '麥稈摩擦', 'en': 'Wheat stalks rubbing' },
+    zone: 'wheatfield',
+    ...position,
+    /** 及腰的高度，聲音要從麥子那一層來，不是從樹梢 */
+    heightOffset: 2,
+    mode: { type: 'loop' },
+    volume: 0.42,
+    minDistance: 5,
+    maxDistance: 20,
+  })),
+  {
+    /** 田裡的蟲，白天稀稀落落幾聲 */
+    id: 'wheat-insect',
+    activeAt: 'day',
+    sound: 'meadow-insect',
+    title: { 'zh-hant': '田間的蟲', 'en': 'Insects in the field' },
+    zone: 'wheatfield',
+    ...at('wheatfield', 3, -3),
     heightOffset: 1,
     mode: { type: 'loop' },
-    volume: 0.55,
-    minDistance: 2,
-    maxDistance: 12,
+    volume: 0.3,
+    minDistance: 4,
+    maxDistance: 16,
+    silentInRain: true,
+  },
+  {
+    /** 入夜換蟋蟀，一片田在夜裡是滿的 */
+    id: 'wheat-night-cricket',
+    activeAt: 'night',
+    sound: 'insect-cricket',
+    title: { 'zh-hant': '麥根下的蟲', 'en': 'Crickets under the stalks' },
+    zone: 'wheatfield',
+    ...at('wheatfield', -3, 3),
+    heightOffset: 1,
+    mode: { type: 'loop' },
+    volume: 0.42,
+    minDistance: 4,
+    maxDistance: 20,
+    silentInRain: true,
   },
 
   // ── 松籟林：連續寬頻的風，襯著高處的鳥 ──

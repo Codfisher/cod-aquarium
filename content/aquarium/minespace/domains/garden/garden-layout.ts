@@ -11,7 +11,7 @@ import { SAND_LEVEL } from './garden-constants'
  */
 export type GardenId =
   /** 枯山水，全庭最安靜的地方，只有一滴水 */
-  | 'stonegarden'
+  | 'wheatfield'
   // ── 外圈八座大箱庭 ──
   /** 連續寬頻的風穿樹梢，配上高頻的鳥囀 */
   | 'forest'
@@ -140,10 +140,10 @@ function getRingPosition(radius: number, degree: number): { x: number; z: number
  */
 export const GARDEN_LIST: GardenDefinition[] = [
   {
-    id: 'stonegarden',
-    title: { 'zh-hant': '枯山水', 'en': 'Dry Landscape' },
-    timbre: { 'zh-hant': '幾乎無聲，只有一滴水', 'en': 'Near silence, a single drop' },
-    icon: 'i-material-symbols:blur-on',
+    id: 'wheatfield',
+    title: { 'zh-hant': '麥浪田', 'en': 'Wheat Field' },
+    timbre: { 'zh-hant': '一陣風走過整片麥子', 'en': 'A gust crossing the whole field' },
+    icon: 'i-material-symbols:grass',
     center: GARDEN_CENTER,
     halfSize: 11,
     pedestalHeight: 1,

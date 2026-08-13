@@ -136,6 +136,10 @@ export enum BlockId {
   STONE_PLANT,
   /** 叢生的野草，比一般高草更蓬 */
   WILD_GRASS,
+  /** 麥株，麥田那一整片金色 */
+  WHEAT,
+  /** 抽穗的麥，比一般的麥再高一階，混在田裡讓高度不整齊 */
+  WHEAT_TALL,
   /** 熱帶的花，湯屋那一帶的濕氣養得出來 */
   JUNGLE_FLOWER,
   BUSH,
@@ -1172,6 +1176,35 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     textures: {
       all: `${TEXTURE_BASE}/default_grass_5.png`,
       tint: [0.5, 0.72, 0.34],
+    },
+  },
+  /**
+   * 麥
+   *
+   * 用乾草的貼圖逐像素推成金色。倍率大於一是必要的：
+   * tint 只能把顏色調暗，而乾草本來就偏灰綠，
+   * 靠 tint 永遠調不出被曬熟的那種黃。
+   *
+   * 麥田整片都會隨風擺——交叉立板一律吃搖擺，
+   * 這是全場最看得出那陣風的地方
+   */
+  [BlockId.WHEAT]: {
+    shape: 'cross',
+    passable: true,
+    stepMaterial: 'grass',
+    textures: {
+      all: `${TEXTURE_BASE}/default_dry_grass.png`,
+      pixelTint: [1.32, 1.06, 0.5],
+    },
+  },
+  /** 抽穗的那幾株，顏色再深一點，混在田裡高度才不整齊 */
+  [BlockId.WHEAT_TALL]: {
+    shape: 'cross',
+    passable: true,
+    stepMaterial: 'grass',
+    textures: {
+      all: `${TEXTURE_BASE}/default_dry_grass_5.png`,
+      pixelTint: [1.24, 0.94, 0.42],
     },
   },
   [BlockId.JUNGLE_FLOWER]: {
