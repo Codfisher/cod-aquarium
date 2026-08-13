@@ -24,6 +24,7 @@ import {
   RAIN_ATMOSPHERE,
   SWAMP_ATMOSPHERE,
 } from './atmosphere'
+import { applyCloudColor } from './cloud-material'
 import { createFallingLeaves } from './falling-leaves'
 import { createRainParticles } from './rain-particles'
 import { applySkyGradient } from './sky-gradient'
@@ -239,6 +240,8 @@ export function useWeather() {
     const nightRainColor = new Color3()
     /** 雨天往霧色靠攏後的天頂色，同樣就地覆寫 */
     const rainZenithColor = new Color3()
+    /** 這一刻的雲色 */
+    const cloudColor = new Color3()
 
     scene.onBeforeRenderObservable.add(() => {
       const deltaTime = Math.min(0.1, scene.getEngine().getDeltaTime() / 1000)
@@ -383,11 +386,16 @@ export function useWeather() {
       for (const material of cloudMaterialList) {
         /** 基準亮度由日夜循環給，雲才會跟著入夜一起暗下來 */
         const brightness = lerp(atmosphere.cloudBrightness, atmosphere.cloudBrightness * 0.4, rainRatio)
-        material.emissiveColor.set(
+        cloudColor.set(
           lerp(brightness, atmosphere.baseFogColor.r, edgeRatio),
           lerp(brightness, atmosphere.baseFogColor.g, edgeRatio),
           lerp(brightness + 0.03, atmosphere.baseFogColor.b, edgeRatio),
         )
+        /** 遠方的雲化進霧色，才不會在地平線上疊成一道亮帶 */
+        applyCloudColor(material, {
+          color: cloudColor,
+          hazeColor: atmosphere.baseFogColor,
+        })
       }
 
       /**

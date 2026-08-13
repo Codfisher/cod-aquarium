@@ -39,6 +39,7 @@ import {
   SPAWN_POSITION,
 } from '../domains/garden/garden-layout'
 import { GARDEN_FOG_COLOR, GARDEN_FOG_END, GARDEN_FOG_START } from '../domains/weather/atmosphere'
+import { applyCloudColor, createCloudMaterial } from '../domains/weather/cloud-material'
 import { applySkyGradient, createSkyGradientMaterial } from '../domains/weather/sky-gradient'
 import { getGroundY } from '../domains/world/world-access'
 import { WORLD_SIZE } from '../domains/world/world-constants'
@@ -765,21 +766,11 @@ function createCloudLayer(scene: Scene) {
     cellList = nextList
   }
 
-  const material = new StandardMaterial(`${CLOUD_LAYER_NAME}-material`, scene)
-  material.diffuseColor = new Color3(0, 0, 0)
-  material.emissiveColor = new Color3(1, 1, 1)
-  material.specularColor = new Color3(0, 0, 0)
-  material.disableLighting = true
-  material.backFaceCulling = true
-  /** 半透明的雲，飛過頭頂時還看得到後面的天色 */
-  material.alpha = 0.72
-  /**
-   * 先寫一次深度再上色
-   *
-   * 少了這一步，同一片雲自己的前後面會互相疊色，
-   * 邊緣會出現一塊深一塊淺的髒污
-   */
-  material.needDepthPrePass = true
+  const material = createCloudMaterial(`${CLOUD_LAYER_NAME}-material`, scene)
+  applyCloudColor(material, {
+    color: new Color3(1, 1, 1),
+    hazeColor: GARDEN_FOG_COLOR,
+  })
 
   /**
    * 整片雲是一個網格，只畫露在外面的那些面
@@ -904,8 +895,8 @@ function createCloudLayer(scene: Scene) {
 }
 
 /** 取得雲層材質 */
-export function getCloudMaterialList(scene: Scene): StandardMaterial[] {
-  const material = scene.getMeshByName(CLOUD_LAYER_NAME)?.material as StandardMaterial | undefined
+export function getCloudMaterialList(scene: Scene): ShaderMaterial[] {
+  const material = scene.getMeshByName(CLOUD_LAYER_NAME)?.material as ShaderMaterial | undefined
   return material ? [material] : []
 }
 
