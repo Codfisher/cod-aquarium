@@ -22,6 +22,8 @@ import { onBeforeUnmount, reactive, ref } from 'vue'
 export interface PerformanceReading {
   /** 一幀送出幾批繪製呼叫 */
   drawCallCount: number;
+  /** 這一幀有幾顆網格被判定為要畫 */
+  activeMeshCount: number;
   /** CPU 挑選要畫哪些網格花了幾毫秒 */
   meshSelectionMs: number;
   /** 離屏貼圖（陰影）花了幾毫秒 */
@@ -39,6 +41,7 @@ export function usePerformanceProbe() {
   const visible = ref(false)
   const reading = reactive<PerformanceReading>({
     drawCallCount: 0,
+    activeMeshCount: 0,
     meshSelectionMs: 0,
     renderTargetMs: 0,
     particleMs: 0,
@@ -78,7 +81,15 @@ export function usePerformanceProbe() {
     elapsed = 0
   }
 
-  /** 每幀呼叫，內部自己節流 */
+  /**
+   * 每幀呼叫，內部自己節流
+   *
+   * 必須掛在算繪之後
+   *
+   * 繪製呼叫的計數器每一幀開始時歸零，一路數到那一幀畫完。
+   * 在算繪之前讀它，讀到的永遠是剛歸零的那個零——
+   * 面板上那個「0 draw」就是這麼來的
+   */
   function update(scene: Scene): void {
     if (!instrumentation)
       return
@@ -89,6 +100,7 @@ export function usePerformanceProbe() {
 
     elapsed = 0
     reading.drawCallCount = instrumentation.drawCallsCounter.current
+    reading.activeMeshCount = scene.getActiveMeshes().length
     reading.meshSelectionMs = instrumentation.activeMeshesEvaluationTimeCounter.lastSecAverage
     reading.renderTargetMs = instrumentation.renderTargetsRenderTimeCounter.lastSecAverage
     reading.particleMs = instrumentation.particlesRenderTimeCounter.lastSecAverage

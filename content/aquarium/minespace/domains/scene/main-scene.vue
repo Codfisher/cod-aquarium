@@ -83,6 +83,7 @@
         class="status-readout probe-readout"
       >
         <div>{{ probe.drawCallCount }} draw</div>
+        <div>{{ probe.activeMeshCount }} 網格</div>
         <div>{{ probe.frameMs.toFixed(1) }} ms 幀</div>
         <div>{{ probe.meshSelectionMs.toFixed(2) }} ms 挑選</div>
         <div>{{ probe.renderTargetMs.toFixed(2) }} ms 陰影</div>
@@ -404,7 +405,8 @@ function trackFps(sceneInstance: Scene) {
     fps.value = sceneInstance.getEngine().getFps()
   })
 
-  sceneInstance.onBeforeRenderObservable.add(() => updateProbe(sceneInstance))
+  /** 繪製呼叫要等這一幀畫完才數得到，所以掛在算繪之後 */
+  sceneInstance.onAfterRenderObservable.add(() => updateProbe(sceneInstance))
 
   useEventListener(window, 'keydown', (event: KeyboardEvent) => {
     if (event.code !== 'F3')
