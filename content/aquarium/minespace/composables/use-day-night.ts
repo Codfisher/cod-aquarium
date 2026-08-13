@@ -235,7 +235,9 @@ export function useDayNight() {
     atmosphere.ambientIntensity = sample.ambientIntensity
     atmosphere.cloudBrightness = sample.cloudBrightness
     atmosphere.skyZenithColor.copyFrom(sample.skyZenithColor)
+    atmosphere.skyMidColor.copyFrom(sample.skyMidColor)
     atmosphere.skyGlowColor.copyFrom(sample.skyGlowColor)
+    atmosphere.skyCounterColor.copyFrom(sample.skyCounterColor)
     atmosphere.skyGlowStrength = sample.skyGlowStrength
   }
 
@@ -318,8 +320,10 @@ export function useDayNight() {
 
     applySkyGradient(skyMaterial, {
       zenithColor: sample.skyZenithColor,
+      midColor: sample.skyMidColor,
       horizonColor: sample.fogColor,
       glowColor: sample.skyGlowColor,
+      counterColor: sample.skyCounterColor,
       glowStrength: sample.skyGlowStrength,
       sunDirection: sample.sunPosition,
     })

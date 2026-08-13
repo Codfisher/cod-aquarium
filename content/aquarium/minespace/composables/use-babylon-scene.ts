@@ -264,9 +264,11 @@ function createSkyDome(scene: Scene) {
 
   /** 還沒開始漫遊前的第一幀，日夜循環一起跑就會接手 */
   applySkyGradient(skyMaterial, {
-    zenithColor: new Color3(0.3, 0.55, 0.92),
+    zenithColor: new Color3(0.26, 0.52, 0.98),
+    midColor: new Color3(0.6, 0.78, 0.99),
     horizonColor: GARDEN_FOG_COLOR,
-    glowColor: new Color3(1, 0.97, 0.85),
+    glowColor: new Color3(1, 0.98, 0.9),
+    counterColor: new Color3(0.8, 0.88, 0.98),
     glowStrength: 0.12,
     sunDirection: SUN_DIRECTION.scale(-1),
   })

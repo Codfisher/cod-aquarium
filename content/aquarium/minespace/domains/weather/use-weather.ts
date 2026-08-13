@@ -238,8 +238,9 @@ export function useWeather() {
     /** 壓暗過的天氣霧色，每幀就地覆寫，不要每幀配置新的顏色物件 */
     const nightMistColor = new Color3()
     const nightRainColor = new Color3()
-    /** 雨天往霧色靠攏後的天頂色，同樣就地覆寫 */
+    /** 雨天往霧色靠攏後的天頂色與中空色，同樣就地覆寫 */
     const rainZenithColor = new Color3()
+    const rainMidColor = new Color3()
     /** 這一刻的雲色 */
     const cloudColor = new Color3()
 
@@ -307,13 +308,15 @@ export function useWeather() {
        * 霞光也要一起收掉——雲層背後的太陽不會在天上留下光暈
        */
       if (skyMaterial) {
-        rainZenithColor.copyFrom(atmosphere.skyZenithColor)
-        Color3.LerpToRef(rainZenithColor, atmosphere.fogColor, rainRatio * 0.85, rainZenithColor)
+        Color3.LerpToRef(atmosphere.skyZenithColor, atmosphere.fogColor, rainRatio * 0.85, rainZenithColor)
+        Color3.LerpToRef(atmosphere.skyMidColor, atmosphere.fogColor, rainRatio * 0.85, rainMidColor)
 
         applySkyGradient(skyMaterial, {
           zenithColor: rainZenithColor,
+          midColor: rainMidColor,
           horizonColor: atmosphere.fogColor,
           glowColor: atmosphere.skyGlowColor,
+          counterColor: atmosphere.skyCounterColor,
           glowStrength: atmosphere.skyGlowStrength * (1 - rainRatio),
         })
       }

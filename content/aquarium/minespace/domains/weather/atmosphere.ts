@@ -47,9 +47,11 @@ export interface AtmosphereState {
   ambientIntensity: number;
   /** 雲的基準亮度 */
   cloudBrightness: number;
-  /** 天色的基準：天頂色、太陽周圍的暖光與其強度，天邊色直接用 baseFogColor */
+  /** 天色的基準：三段漸層、太陽的暖光與背後的反霞，天邊色直接用 baseFogColor */
   skyZenithColor: Color3;
+  skyMidColor: Color3;
   skyGlowColor: Color3;
+  skyCounterColor: Color3;
   skyGlowStrength: number;
 
   /**
@@ -174,8 +176,10 @@ export function createAtmosphereState(): AtmosphereState {
     lightIntensity: 1.3,
     ambientIntensity: 0.82,
     cloudBrightness: 1,
-    skyZenithColor: new Color3(0.28, 0.54, 0.98),
-    skyGlowColor: new Color3(1, 0.97, 0.85),
+    skyZenithColor: new Color3(0.26, 0.52, 0.98),
+    skyMidColor: new Color3(0.6, 0.78, 0.99),
+    skyGlowColor: new Color3(1, 0.98, 0.9),
+    skyCounterColor: new Color3(0.8, 0.88, 0.98),
     skyGlowStrength: 0.12,
     caveRatio: 0,
     skyBodyFade: 1,
