@@ -86,36 +86,6 @@ const EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
     minDistance: 5,
     maxDistance: 20,
   })),
-  {
-    /** 田裡的蟲，白天稀稀落落幾聲 */
-    id: 'wheat-insect',
-    activeAt: 'day',
-    sound: 'meadow-insect',
-    title: { 'zh-hant': '田間的蟲', 'en': 'Insects in the field' },
-    zone: 'wheatfield',
-    ...at('wheatfield', 3, -3),
-    heightOffset: 1,
-    mode: { type: 'loop' },
-    volume: 0.3,
-    minDistance: 4,
-    maxDistance: 16,
-    silentInRain: true,
-  },
-  {
-    /** 入夜換蟋蟀，一片田在夜裡是滿的 */
-    id: 'wheat-night-cricket',
-    activeAt: 'night',
-    sound: 'insect-cricket',
-    title: { 'zh-hant': '麥根下的蟲', 'en': 'Crickets under the stalks' },
-    zone: 'wheatfield',
-    ...at('wheatfield', -3, 3),
-    heightOffset: 1,
-    mode: { type: 'loop' },
-    volume: 0.42,
-    minDistance: 4,
-    maxDistance: 20,
-    silentInRain: true,
-  },
 
   // ── 松籟林：連續寬頻的風，襯著高處的鳥 ──
   ...[
@@ -814,6 +784,36 @@ const EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
   },
 
   // ── 聽雨亭：密集而柔軟 ──
+  /**
+   * 雨打在葉子上
+   *
+   * 雨聲是種在這裡的，不是天氣系統給的。
+   * 那邊只管看得到的那一半——雨絲、陰天、地濕（見 use-weather 開頭）。
+   *
+   * 一圈而不是一顆，理由與松籟林那圈風相同：
+   * 雨落的是整片樹冠，不是林子裡的某一個點。
+   * 走在亭子四周時前後左右都有雨，方向感才出得來。
+   *
+   * 這座沒有屋頂，走進去就是淋在身上，
+   * 用的是雨直接打在葉子上那段——亮而細碎。
+   * 隔壁雨聽堂是隔著屋瓦聽的那段，兩座擺在一起才成為對照
+   */
+  ...[
+    at('rainvale'),
+    ...createRingPositionList(getGarden('rainvale').center, 4, 6),
+  ].map((position, index): SoundEmitterDefinition => ({
+    id: `rainvale-rain-${index}`,
+    sound: 'rain-foliage',
+    title: { 'zh-hant': '雨打樹葉', 'en': 'Rain on the leaves' },
+    zone: 'rainvale',
+    ...position,
+    /** 聲音要從樹冠那一層落下來，不是從腳邊 */
+    heightOffset: 6,
+    mode: { type: 'loop' },
+    volume: 0.5,
+    minDistance: 6,
+    maxDistance: 18,
+  })),
   ...[
     at('rainvale', -4, -3),
     at('rainvale', 4, 3),
@@ -829,6 +829,35 @@ const EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
     minDistance: 3,
     maxDistance: 16,
   })),
+  {
+    /**
+     * 遠雷
+     *
+     * 全庭唯一會打雷的地方。雷聲原本掛在天氣系統上，
+     * 那表示雨聽堂也跟著轟隆——一間坐著聽雨的屋子不需要那個。
+     * 打雷是這座箱庭獨有的事，所以種在這裡。
+     *
+     * mode 是 trigger：它不自己響，等閃電來叫。
+     * 閃光先到、聲音隔零點四到三點四秒才傳來，
+     * 兩者共用同一個「遠近」的隨機值，對得起來才像真的雷。
+     * 若改成自己跑計時器，閃電與雷聲會各響各的。
+     *
+     * 擺在天上二十格，範圍給到全庭第二遠——
+     * 雷本來就是從很高、很遠的地方壓下來的聲音
+     */
+    id: 'rainvale-thunder',
+    sound: 'thunder',
+    title: { 'zh-hant': '遠雷', 'en': 'Distant thunder' },
+    zone: 'rainvale',
+    ...at('rainvale'),
+    /** 擺在天上，雷是從頭頂很高的地方壓下來的 */
+    heightOffset: 20,
+    mode: { type: 'trigger' },
+    /** 實際音量由閃電依遠近決定，這裡只是預設值 */
+    volume: 0.85,
+    minDistance: 10,
+    maxDistance: 38,
+  },
   {
     id: 'rainvale-toad',
     sound: 'frog-toad',
@@ -919,29 +948,37 @@ const EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
   },
 
   // ── 雨聽堂：從屋子裡聽外面的雨 ──
-  {
-    /**
-     * 打在屋瓦上的雨
-     *
-     * 只留一顆，掛在屋脊的高度。
-     *
-     * 這座箱庭現在真的會下雨（見 use-weather 的雨區清單），
-     * 天氣系統那道非空間的雨聲已經是整片雨的底了。
-     * 這裡再鋪三顆同一個音檔只會糊成一團，
-     * 留一顆在頭頂就夠——它負責的是「雨打在我上面那層屋瓦」，
-     * 那是站在露天裡聽不到的一層
-     */
-    id: 'rainhall-roof',
-    sound: 'rain-foliage',
+  /**
+   * 打在屋瓦上的雨
+   *
+   * 這座箱庭的雨聲同樣是種在這裡的。天氣系統那道全域雨底已經拿掉，
+   * 理由見 use-weather 開頭：一道共用的雨聲會把兩座雨區聽成同一座。
+   *
+   * 用的不是聽雨亭那段葉子雨，而是在屋頂底下錄的那一段：
+   * 四千赫以上低十分貝，細碎的高頻讓那層頂擋在外面，
+   * 剩下中頻的悶響。同一場雨，隔著一層東西聽是另一回事——
+   * 這座箱庭要的就是那個「另一回事」。
+   *
+   * 一圈而不是一顆。屋瓦是頭頂上一整片，
+   * 只擺一顆的話雨會縮成天花板上的一個點，
+   * 人一走動就發現聲音黏在某個角落
+   */
+  ...[
+    at('rainhall'),
+    ...createRingPositionList(getGarden('rainhall').center, 4, 4),
+  ].map((position, index): SoundEmitterDefinition => ({
+    id: `rainhall-roof-${index}`,
+    sound: 'rain-roof',
     title: { 'zh-hant': '打在屋瓦上的雨', 'en': 'Rain on the roof' },
     zone: 'rainhall',
-    ...at('rainhall'),
+    ...position,
+    /** 屋脊的高度，雨要從頭頂上那層下來 */
     heightOffset: 7,
     mode: { type: 'loop' },
-    volume: 0.38,
-    minDistance: 3,
-    maxDistance: 14,
-  },
+    volume: 0.5,
+    minDistance: 5,
+    maxDistance: 15,
+  })),
   ...[
     at('rainhall', -4, 4),
     at('rainhall', 4, 4),
