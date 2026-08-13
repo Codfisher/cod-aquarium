@@ -40,6 +40,34 @@ const PLAYER_PUSH_SPEED = 3.2
 /** 腳底高度差超過這個值就當作不在同一層，例如站在乾草堆上 */
 const PUSH_HEIGHT_TOLERANCE = 1.2
 
+/**
+ * 白晝程度低於這個值羊就臥下
+ *
+ * 這個數字要與羊叫聲對齊。音景那邊沒有「到點換班」這回事，
+ * 每個音源的音量直接乘上白晝程度（見 spatial-soundscape 的時段閘門），
+ * 羊叫是 activeAt: 'day'，天一暗就跟著淡掉。
+ *
+ * 所以羊臥下的時機也綁在同一個值上：聲音收乾淨的時候，
+ * 柵欄裡剛好是一片趴著不動的羊——這一段安靜才成立
+ */
+const SLEEP_DAY_RATIO = 0.3
+
+/**
+ * 每隻羊早睡晚睡的差異
+ *
+ * 四隻羊在同一幀一起趴下，看起來像有人按了開關。
+ * 給每隻一點偏移，牧野入夜就成了一隻接一隻安頓下來
+ */
+const SLEEP_BIAS_RANGE = 0.07
+
+/** 臥下時身體降到多低，腿會沒入草裡，那正是趴著的樣子 */
+const SLEEP_BODY_HEIGHT = 0.36
+/** 睡著時的呼吸起伏 */
+const SLEEP_BREATH_DEPTH = 0.014
+const SLEEP_BREATH_SPEED = 0.9
+/** 姿勢轉換的快慢，臥下與起身都靠它，慢一點才像動物而不是道具 */
+const SLEEP_POSE_SPEED = 2.2
+
 /** 羊的行為狀態 */
 type SheepAction = 'graze' | 'turn' | 'walk'
 
@@ -71,6 +99,10 @@ interface Sheep {
   phase: number;
   /** 每隻羊的步伐略有差異，看起來才不像複製貼上 */
   walkSpeed: number;
+  /** 這隻羊比別隻早睡或晚睡多少 */
+  sleepBias: number;
+  /** 是不是已經趴下了 */
+  isAsleep: boolean;
 }
 
 export interface StartSheepFlockParams {
@@ -78,6 +110,8 @@ export interface StartSheepFlockParams {
   worldState: Uint8Array;
   /** 玩家所在，走進羊群時要把羊擠開 */
   camera: UniversalCamera;
+  /** 白晝的程度，0 為全暗、1 為大白天。天一暗羊就趴下 */
+  getDayRatio: () => number;
 }
 
 /**
@@ -90,7 +124,7 @@ export function useSheepFlock() {
   let sheepList: Sheep[] = []
   let disposeList: (() => void)[] = []
 
-  function start({ scene, worldState, camera }: StartSheepFlockParams): void {
+  function start({ scene, worldState, camera, getDayRatio }: StartSheepFlockParams): void {
     const sunLight = scene.getLightByName(SUN_LIGHT_NAME) as DirectionalLight | null
     const shadowGenerator = sunLight?.getShadowGenerator() as ShadowGenerator | null
     const random = createSeededRandom('minespace-sheep')
@@ -112,6 +146,7 @@ export function useSheepFlock() {
       sheep.actionTimeLeft = random() * 8
       sheep.phase = random() * Math.PI * 2
       sheep.walkSpeed = 0.55 + random() * 0.5
+      sheep.sleepBias = (random() * 2 - 1) * SLEEP_BIAS_RANGE
 
       sheepList.push(sheep)
     }
@@ -119,8 +154,10 @@ export function useSheepFlock() {
     const observer = scene.onBeforeRenderObservable.add(() => {
       measureSection('羊群', () => {
         const deltaTime = Math.min(0.1, scene.getEngine().getDeltaTime() / 1000)
+        const dayRatio = getDayRatio()
 
         for (const sheep of sheepList) {
+          sheep.isAsleep = dayRatio < SLEEP_DAY_RATIO + sheep.sleepBias
           updateSheep(sheep, deltaTime, random)
         }
 
@@ -305,7 +342,39 @@ function createSheep({ scene, index, materialSet, shadowGenerator }: CreateSheep
     toRotation: 0,
     phase: 0,
     walkSpeed: 0.7,
+    sleepBias: 0,
+    isAsleep: false,
   }
+}
+
+/**
+ * 睡著的羊
+ *
+ * 趴下就是把身體降到地面、四條腿收進身體底下、頭往身側靠。
+ * 腿會沒入草裡，那不是穿模而是趴著的樣子——真正的羊臥下時
+ * 腿本來就整個藏在身體底下看不見。
+ *
+ * 剩下的只有呼吸：身體很慢地起伏。牧野入夜之後羊叫聲會淡掉，
+ * 那一片安靜要成立，柵欄裡就不能還有東西在走動；
+ * 但也不能完全靜止——完全不動的是石頭，不是睡著的動物
+ */
+function updateSleepingSheep(sheep: Sheep, deltaTime: number): void {
+  const blend = Math.min(1, deltaTime * SLEEP_POSE_SPEED)
+  const breath = Math.sin(sheep.phase * SLEEP_BREATH_SPEED) * SLEEP_BREATH_DEPTH
+
+  sheep.body.position.y += (SLEEP_BODY_HEIGHT + breath - sheep.body.position.y) * blend
+
+  /** 頭低下來、轉向身側靠著 */
+  sheep.head.rotation.x += (0.98 - sheep.head.rotation.x) * blend
+  sheep.head.rotation.y += (0.52 - sheep.head.rotation.y) * blend
+
+  /** 腿收直，收進身體底下 */
+  for (const pivot of sheep.legPivotList) {
+    pivot.rotation.x += (0 - pivot.rotation.x) * blend
+  }
+
+  /** 尾巴停下來 */
+  sheep.tail.rotation.x += (0 - sheep.tail.rotation.x) * blend
 }
 
 /** 挑一個新的目標點，並轉身面向它 */
@@ -435,6 +504,18 @@ function updateSheep(
   random: () => number,
 ): void {
   sheep.phase += deltaTime
+
+  if (sheep.isAsleep) {
+    /**
+     * 醒來時要從現在這個姿勢接回去
+     *
+     * 動作維持在吃草，天一亮下面那一段自然會把身體與頭慢慢帶回來，
+     * 不必為了起身另外寫一個狀態
+     */
+    sheep.action = 'graze'
+    updateSleepingSheep(sheep, deltaTime)
+    return
+  }
 
   /** 尾巴一直輕輕晃 */
   sheep.tail.rotation.x = Math.sin(sheep.phase * 3.1) * 0.22
