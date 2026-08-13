@@ -8,10 +8,10 @@ import {
   FrameGraphClearTextureTask,
   FrameGraphFXAATask,
   FrameGraphImageProcessingTask,
+  FrameGraphLightingVolumeTask,
   FrameGraphObjectRendererTask,
   FrameGraphShadowGeneratorTask,
   FrameGraphVolumetricLightingTask,
-  LightingVolume,
   ShadowGenerator as ShadowGeneratorClass,
   ThinImageProcessingPostProcess,
   Vector3,
@@ -103,8 +103,6 @@ export interface FrameGraphPipeline {
   setObjectList: (meshList: AbstractMesh[], casterList: AbstractMesh[]) => void;
   /** 設定體積光強度，0 為完全關閉 */
   setStrength: (ratio: number) => void;
-  /** 每一幀呼叫，內部會自己節流 */
-  update: () => void;
   dispose: () => void;
 }
 
@@ -201,26 +199,27 @@ export async function createFrameGraphPipeline({
   frameGraph.addTask(mainTask)
 
   /**
-   * 光體網格
+   * 光體網格交給專屬的任務
    *
-   * 體積光要知道「光照得到的立體範圍」長什麼樣子，
-   * 那是從陰影貼圖重建出來的一個網格。它不會被加進場景，
-   * 只交給體積光那個任務去畫
+   * 它是從陰影貼圖重建出來的「光照得到的立體範圍」，
+   * 體積光要靠它才知道光線走到哪裡為止。
+   *
+   * 這件事有專門的任務，不要自己 new 一個 LightingVolume 再手動 update——
+   * 那樣更新的時機會落在圖的外面，而它讀的是陰影貼圖，
+   * 必須在陰影那一關畫完之後、體積光之前才對得上
    */
-  const lightingVolume = new LightingVolume(
-    'sun-lighting-volume',
-    scene,
-    shadowTask.shadowGenerator,
-    LIGHTING_VOLUME_TESSELATION,
-  )
-  lightingVolume.frequency = LIGHTING_VOLUME_FREQUENCY
+  const lightingVolumeTask = new FrameGraphLightingVolumeTask('lighting-volume', frameGraph)
+  lightingVolumeTask.shadowGenerator = shadowTask
+  lightingVolumeTask.lightingVolume.tesselation = LIGHTING_VOLUME_TESSELATION
+  lightingVolumeTask.lightingVolume.frequency = LIGHTING_VOLUME_FREQUENCY
+  frameGraph.addTask(lightingVolumeTask)
 
   const volumetricTask = new FrameGraphVolumetricLightingTask('volumetric', frameGraph)
   volumetricTask.camera = camera
   volumetricTask.light = sunLight
   volumetricTask.targetTexture = mainTask.outputTexture
   volumetricTask.depthTexture = mainTask.outputDepthTexture
-  volumetricTask.lightingVolumeMesh = { meshes: [lightingVolume.mesh], particleSystems: [] }
+  volumetricTask.lightingVolumeMesh = lightingVolumeTask.outputMeshLightingVolume
   volumetricTask.phaseG = PHASE_G
   volumetricTask.lightPower = new Color3(0, 0, 0)
   volumetricTask.disabled = true
@@ -296,7 +295,8 @@ export async function createFrameGraphPipeline({
        *
        * 它只該被體積光那一關畫，那裡才有對的著色器
        */
-      mainTask.objectList.meshes = meshList.filter((mesh) => mesh !== lightingVolume.mesh)
+      mainTask.objectList.meshes = meshList
+        .filter((mesh) => mesh !== lightingVolumeTask.lightingVolume.mesh)
       shadowTask.objectList.meshes = casterList
     },
 
@@ -317,21 +317,8 @@ export async function createFrameGraphPipeline({
       volumetricTask.lightPower = lightPower
     },
 
-    update() {
-      /**
-       * 光體自己會節流
-       *
-       * frequency 設成三十，所以這裡每一幀呼叫，實際上半秒才重建一次。
-       * WebGL2 那條路要把整張陰影貼圖讀回 CPU，不節流會直接卡死
-       */
-      if (!volumetricTask.disabled && lightingVolume.isReady()) {
-        lightingVolume.update()
-      }
-    },
-
     dispose() {
       scene.frameGraph = null
-      lightingVolume.dispose()
       frameGraph.dispose()
     },
   }

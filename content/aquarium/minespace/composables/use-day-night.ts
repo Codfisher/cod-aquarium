@@ -196,7 +196,6 @@ export function useDayNight() {
       applyToImageProcessing(scene)
       /** 雨中與貼近邊界時整片天被白幕蓋住，光束也該跟著收掉 */
       volumetricFog?.setStrength(sample.godRayRatio * atmosphere.skyBodyFade)
-      volumetricFog?.update()
 
       clockElapsed += deltaTime
       if (clockElapsed >= CLOCK_UPDATE_INTERVAL) {
