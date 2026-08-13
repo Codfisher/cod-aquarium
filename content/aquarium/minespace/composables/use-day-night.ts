@@ -60,8 +60,20 @@ interface StartParams {
   godRays?: GodRays;
   /** 日夜循環把這個時刻的基準寫進去，天氣與漫遊控制器在上面疊自己的效果 */
   atmosphere: AtmosphereState;
-  /** 是否正在漫遊，暫停時時間跟著停下來 */
+  /**
+   * 世界是否在走，暫停時時間跟著停下來
+   *
+   * 按 Tab 把滑鼠交還給桌面不算暫停：那是「站在原地看風景」，
+   * 太陽該照樣走完它的弧線
+   */
   isRunning: () => boolean;
+  /**
+   * 滾輪是不是用來撥時間
+   *
+   * 這個場景嵌在一篇文章裡，滾輪只有在真正操控時才屬於它；
+   * 還沒開始漫遊、或按 Tab 放開滑鼠之後，捲動都該還給頁面
+   */
+  canScrubTime: () => boolean;
 }
 
 /**
@@ -123,7 +135,7 @@ export function useDayNight() {
     setTimeOfDay(currentTime + delta)
   }
 
-  function start({ scene, canvas, pipeline, godRays, atmosphere, isRunning }: StartParams): void {
+  function start({ scene, canvas, pipeline, godRays, atmosphere, isRunning, canScrubTime }: StartParams): void {
     cleanup?.()
 
     const sunLight = scene.getLightByName(SUN_LIGHT_NAME) as DirectionalLight | null
@@ -143,11 +155,11 @@ export function useDayNight() {
     /**
      * 滾輪撥時間
      *
-     * 只在真的正在漫遊時才攔截：這個場景嵌在一篇文章裡，
-     * 沒開始漫遊就把捲動吃掉的話，讀者會捲不動頁面
+     * 只在滾輪真的屬於這個場景時才攔截：沒開始漫遊、
+     * 或按 Tab 把滑鼠交還給桌面之後，捲動都該還給頁面
      */
     function handleWheel(event: WheelEvent) {
-      if (!isRunning())
+      if (!canScrubTime())
         return
 
       event.preventDefault()

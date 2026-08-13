@@ -334,7 +334,9 @@ const { canvasRef, scene, camera, pipeline, initError } = useBabylonScene({
       pipeline: pipeline.value,
       godRays: createGodRays(sceneInstance, cameraInstance),
       atmosphere,
-      isRunning: () => hasStarted.value && !isPaused.value && !isCursorFree.value,
+      /** 放開滑鼠只是把游標還給桌面，人站在原地看風景，太陽照樣走 */
+      isRunning: () => hasStarted.value && !isPaused.value,
+      canScrubTime: () => hasStarted.value && !isPaused.value && !isCursorFree.value,
     })
 
     /** 鏡頭是在這之後才存在的，記在瀏覽器裡的視野要在這裡補套一次 */
