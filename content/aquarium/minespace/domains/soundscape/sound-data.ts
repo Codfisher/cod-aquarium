@@ -881,30 +881,29 @@ const EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
   },
 
   // ── 雨聽堂：從屋子裡聽外面的雨 ──
-  ...[
-    at('rainhall', -5, 0),
-    at('rainhall', 5, 0),
-    at('rainhall', 0, -5),
-  ].map((position, index): SoundEmitterDefinition => ({
+  {
     /**
      * 打在屋瓦上的雨
      *
-     * 三顆繞著屋子擺，人在屋裡時四面都有聲音，
-     * 走出去反而會離開它們的中心——「在室內」是靠這個做出來的。
+     * 只留一顆，掛在屋脊的高度。
      *
-     * 掛在屋簷的高度：雨聲該從頭頂上方來
+     * 這座箱庭現在真的會下雨（見 use-weather 的雨區清單），
+     * 天氣系統那道非空間的雨聲已經是整片雨的底了。
+     * 這裡再鋪三顆同一個音檔只會糊成一團，
+     * 留一顆在頭頂就夠——它負責的是「雨打在我上面那層屋瓦」，
+     * 那是站在露天裡聽不到的一層
      */
-    id: `rainhall-roof-${index}`,
+    id: 'rainhall-roof',
     sound: 'rain-foliage',
     title: { 'zh-hant': '打在屋瓦上的雨', 'en': 'Rain on the roof' },
     zone: 'rainhall',
-    ...position,
-    heightOffset: 6,
+    ...at('rainhall'),
+    heightOffset: 7,
     mode: { type: 'loop' },
-    volume: 0.5,
-    minDistance: 5,
-    maxDistance: 24,
-  })),
+    volume: 0.38,
+    minDistance: 3,
+    maxDistance: 14,
+  },
   ...[
     at('rainhall', -4, 4),
     at('rainhall', 4, 4),

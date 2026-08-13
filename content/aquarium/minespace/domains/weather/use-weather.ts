@@ -33,20 +33,41 @@ import { createSwampMist } from './swamp-mist'
 /**
  * 常年下雨的區域
  *
- * 天氣不是全域的，而是綁在一座箱庭上：
- * 雨只下在聽雨亭那一小塊，走進去就淋雨，走出來就放晴。
- * 白沙地永遠是乾的、亮的，遠遠看過去只有那一座上面壓著一團灰——
- * 對比拉開了，那座箱庭才有它存在的理由
+ * 天氣不是全域的，而是綁在箱庭上：雨只下在那幾座木座那一小塊，
+ * 走進去就淋雨，走出來就放晴。
+ * 白沙地永遠是乾的、亮的，遠遠看過去只有那幾座上面壓著一團灰——
+ * 對比拉開了，那些箱庭才有它們存在的理由。
+ *
+ * 兩座雨區給的是同一場雨的兩種身分：
+ * 聽雨亭沒有屋頂，走進去就是淋在身上；
+ * 雨聽堂有屋頂，走進去是聽著雨而自己是乾的。
+ * 同一套天氣，因為造景不同而成為兩件事
  */
-const RAIN_GARDEN = getGarden('rainvale')
-export const RAIN_ZONE = {
-  x: RAIN_GARDEN.center.x,
-  z: RAIN_GARDEN.center.z,
+const RAIN_ZONE_LIST = [
+  {
+    garden: getGarden('rainvale'),
+    /** 過渡帶留得比木座本身還寬，走近時雨是慢慢大起來的 */
+    falloff: 14,
+  },
+  {
+    garden: getGarden('rainhall'),
+    /**
+     * 收得比聽雨亭緊
+     *
+     * 這座的重點在屋簷下那一圈，雨要下得剛好蓋住屋子與滴水線。
+     * 攤太開的話，從外面走過來時屋子還沒進到眼裡就已經在淋雨，
+     * 「進屋躲雨」那一下的對比就沒了
+     */
+    falloff: 9,
+  },
+].map(({ garden, falloff }) => ({
+  x: garden.center.x,
+  z: garden.center.z,
   /** 這個半徑內是傾盆大雨，剛好蓋住整座木座 */
-  innerRadius: RAIN_GARDEN.halfSize + 1,
-  /** 超過這個半徑就完全放晴，過渡帶留得比木座本身還寬 */
-  outerRadius: RAIN_GARDEN.halfSize + 14,
-}
+  innerRadius: garden.halfSize + 1,
+  /** 超過這個半徑就完全放晴 */
+  outerRadius: garden.halfSize + falloff,
+}))
 
 /**
  * 終年起霧的沼澤
@@ -110,9 +131,20 @@ export function getMistRatio(x: number, z: number): number {
   return measureZoneRatio(x, z, MIST_ZONE)
 }
 
-/** 依所在位置算出雨勢，0 為晴天、1 為大雨 */
+/**
+ * 依所在位置算出雨勢，0 為晴天、1 為大雨
+ *
+ * 取所有雨區裡最強的那一個。兩座隔得夠遠不會重疊，
+ * 取最大值只是為了「日後再加一座也不必改這裡」
+ */
 export function getRainRatio(x: number, z: number): number {
-  return measureZoneRatio(x, z, RAIN_ZONE)
+  let strongest = 0
+
+  for (const zone of RAIN_ZONE_LIST) {
+    strongest = Math.max(strongest, measureZoneRatio(x, z, zone))
+  }
+
+  return strongest
 }
 
 /**
