@@ -15,12 +15,24 @@ import { MaterialPluginBase } from '@babylonjs/core'
  */
 
 /**
- * 擺動幅度（格）
+ * 花草的擺動幅度（格）
  *
  * 一株草才一格見方，頂端偏移零點一四格大約是八度。
  * 再大就不像風吹，像草自己在跳舞
  */
-const SWAY_AMPLITUDE = 0.14
+export const PLANT_SWAY_AMPLITUDE = 0.14
+
+/**
+ * 樹葉的擺動幅度（格）
+ *
+ * 只有花草的三分之一，而且整塊一起移動、不從底部彎。
+ * 樹冠是一團互相緊貼的方塊，各自彎腰的話塊與塊之間會裂開；
+ * 整團同進同出才是一棵樹被風推的樣子。
+ *
+ * 幅度壓小還有一個理由：樹葉會投影子，而陰影貼圖走的是另一支著色器，
+ * 影子不會跟著擺。差零點零五格看不出來，差零點一五就對不上了
+ */
+export const LEAF_SWAY_AMPLITUDE = 0.05
 
 /**
  * 噪聲場的疏密
@@ -53,9 +65,12 @@ function toGlslFloat(value: number): string {
  *
  * 只有陣風的話，同一小塊裡的草會整齊得像一塊布。
  * 疊一層又快又小的擾動，每一株的相位由它自己的座標決定，
- * 葉尖那種細碎的顫動就出來了
+ * 葉尖那種細碎的顫動就出來了。
+ *
+ * 幅度寫成佔擺幅的比例，這樣調整主擺幅時顫動會跟著等比縮放，
+ * 不會出現「樹葉幾乎不動、卻抖得跟草一樣厲害」
  */
-const FLUTTER_AMPLITUDE = 0.035
+const FLUTTER_RATIO = 0.25
 const FLUTTER_SPEED = 2.2
 
 /**
@@ -134,16 +149,20 @@ const VERTEX_UPDATE_POSITION = `
   float flutter = sin(windTime * ${toGlslFloat(FLUTTER_SPEED)} + flutterPhase);
 
   /**
-   * 越高擺得越開
+   * 越高擺得越開，或整塊一起動
    *
-   * 立板的區域座標從負零點五到正零點五，加上零點五就是「離地多高」。
+   * 區域座標從負零點五到正零點五，加上零點五就是「離地多高」。
    * 再平方一次：根部幾乎釘在地上，只有頂端在動——
-   * 草是從底下長出來的，不是浮在空中的一片布
+   * 草是從底下長出來的，不是浮在空中的一片布。
+   *
+   * 樹葉則要整塊一起動（windHeightLeverage 給零）：
+   * 樹冠是一團互相緊貼的方塊，各自彎腰的話塊與塊之間會裂開
    */
   float height = clamp(positionUpdated.y + 0.5, 0.0, 1.0);
-  float leverage = height * height;
+  float leverage = mix(1.0, height * height, windHeightLeverage);
 
-  vec2 sway = windDirection * (gust * ${toGlslFloat(SWAY_AMPLITUDE)} + flutter * ${toGlslFloat(FLUTTER_AMPLITUDE)}) * leverage;
+  float amplitude = windAmplitude * (gust + flutter * ${toGlslFloat(FLUTTER_RATIO)});
+  vec2 sway = windDirection * amplitude * leverage;
 
   positionUpdated.x += sway.x;
   positionUpdated.z += sway.y;
@@ -161,7 +180,12 @@ class WindSwayPlugin extends MaterialPluginBase {
   /** 從場景開始到現在經過幾秒，風的節奏全靠它推 */
   private elapsedSecond = 0
 
-  constructor(material: StandardMaterial) {
+  constructor(
+    material: StandardMaterial,
+    private amplitude: number,
+    /** 一為從底部彎（花草），零為整塊一起移動（樹葉） */
+    private heightLeverage: number,
+  ) {
     super(material, 'WindSway', 200, { WIND_SWAY: true })
     this._enable(true)
   }
@@ -178,7 +202,11 @@ class WindSwayPlugin extends MaterialPluginBase {
    */
   getUniforms() {
     return {
-      ubo: [{ name: 'windTime', size: 1, type: 'float' }],
+      ubo: [
+        { name: 'windTime', size: 1, type: 'float' },
+        { name: 'windAmplitude', size: 1, type: 'float' },
+        { name: 'windHeightLeverage', size: 1, type: 'float' },
+      ],
     }
   }
 
@@ -189,6 +217,8 @@ class WindSwayPlugin extends MaterialPluginBase {
 
   bindForSubMesh(uniformBuffer: UniformBuffer, _scene: Scene, _engine: Engine, _subMesh: SubMesh): void {
     uniformBuffer.updateFloat('windTime', this.elapsedSecond)
+    uniformBuffer.updateFloat('windAmplitude', this.amplitude)
+    uniformBuffer.updateFloat('windHeightLeverage', this.heightLeverage)
   }
 
   getCustomCode(shaderType: string): Record<string, string> | null {
@@ -204,8 +234,12 @@ class WindSwayPlugin extends MaterialPluginBase {
 
 /** 一份場景共用的計時，掛上去的材質全部讀同一個數字 */
 export interface WindSway {
-  /** 讓一份材質跟著風走 */
-  attach: (material: StandardMaterial) => void;
+  /**
+   * 讓一份材質跟著風走
+   *
+   * followsHeight 為真時從底部彎（花草），為假時整塊一起移動（樹葉）
+   */
+  attach: (material: StandardMaterial, amplitude: number, followsHeight: boolean) => void;
   dispose: () => void;
 }
 
@@ -222,8 +256,8 @@ export function createWindSway(scene: Scene): WindSway {
   })
 
   return {
-    attach(material) {
-      const plugin = new WindSwayPlugin(material)
+    attach(material, amplitude, followsHeight) {
+      const plugin = new WindSwayPlugin(material, amplitude, followsHeight ? 1 : 0)
       plugin.setElapsedSecond(elapsedSecond)
       pluginList.push(plugin)
     },

@@ -804,29 +804,58 @@ const EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
     maxDistance: 18,
   },
 
-  // ── 蟲聲叢：高頻、顆粒感，成片鋪開 ──
+  /**
+   * ── 蟲聲叢：高頻、顆粒感，成片鋪開 ──
+   *
+   * 這座木座的日夜原本是反的：白天兩顆迴圈鋪成一片密實的合唱，
+   * 夜裡卻只剩兩顆間隔十幾秒才響一次的零星叫聲——
+   * 一座叫「蟲聲叢」的箱庭在蟲最該叫的時候是全庭最安靜的。
+   *
+   * 現在夜裡有兩顆迴圈當底、兩聲獨奏點綴，白天則收成稀疏的日行蟲。
+   * 走進來的人在夜裡會被整片蟲聲包住，那才是這座箱庭的名字
+   */
   ...[
     at('insect', -3, 3),
     at('insect', 4, -2),
   ].map((position, index): SoundEmitterDefinition => ({
-    id: `insect-chorus-${index}`,
+    id: `insect-day-chorus-${index}`,
     sound: 'meadow-insect',
     activeAt: 'day',
-    title: { 'zh-hant': '草叢裡的合唱', 'en': 'Chorus in the grass' },
+    title: { 'zh-hant': '日行的草蟲', 'en': 'Daytime insects' },
     zone: 'insect',
     ...position,
     heightOffset: 1,
+    /** 白天是稀疏的背景，讓位給夜裡那一片 */
+    volume: 0.26,
     mode: { type: 'loop' },
-    volume: 0.45,
     minDistance: 4,
-    maxDistance: 20,
+    maxDistance: 18,
+    silentInRain: true,
+  })),
+  ...[
+    { position: at('insect', -3, 3), sound: 'insect-cricket' },
+    { position: at('insect', 4, -2), sound: 'insect-bush-cricket' },
+  ].map(({ position, sound }, index): SoundEmitterDefinition => ({
+    id: `insect-night-chorus-${index}`,
+    sound,
+    activeAt: 'night',
+    title: { 'zh-hant': '入夜的合唱', 'en': 'Chorus after dark' },
+    zone: 'insect',
+    ...position,
+    heightOffset: 1,
+    /** 兩顆分別是蟋蟀與螽斯，頻段錯開才不會糊成一團嗡嗡 */
+    mode: { type: 'loop' },
+    volume: 0.5,
+    minDistance: 4,
+    maxDistance: 22,
     silentInRain: true,
   })),
   {
+    /** 底層之上的獨奏，讓那片合唱有前後景 */
     id: 'insect-cricket',
     activeAt: 'night',
     sound: 'insect-cricket',
-    title: { 'zh-hant': '蟋蟀', 'en': 'Cricket' },
+    title: { 'zh-hant': '近處的蟋蟀', 'en': 'Cricket nearby' },
     zone: 'insect',
     ...at('insect', -5, -4),
     heightOffset: 1,
@@ -851,73 +880,82 @@ const EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
     silentInRain: true,
   },
 
-  // ── 月語庭：只在黑暗中出現的聲音 ──
-  {
+  // ── 雨聽堂：從屋子裡聽外面的雨 ──
+  ...[
+    at('rainhall', -5, 0),
+    at('rainhall', 5, 0),
+    at('rainhall', 0, -5),
+  ].map((position, index): SoundEmitterDefinition => ({
     /**
-     * 貓頭鷹
+     * 打在屋瓦上的雨
      *
-     * 松籟林裡也有一隻，但那裡它是「林子中的一種鳥」；
-     * 擺到這裡與蟋蟀、蟾蜍站在一起，同一段叫聲就變成「夜」的一部分。
-     * 手上只有三十幾個音檔，能再生出新類別的辦法就是重新分類
+     * 三顆繞著屋子擺，人在屋裡時四面都有聲音，
+     * 走出去反而會離開它們的中心——「在室內」是靠這個做出來的。
+     *
+     * 掛在屋簷的高度：雨聲該從頭頂上方來
      */
-    id: 'nocturne-owl',
-    activeAt: 'night',
-    sound: 'bird-owl',
-    title: { 'zh-hant': '夜梟', 'en': 'Owl in the dark' },
-    zone: 'nocturne',
-    ...at('nocturne', -4, -4),
+    id: `rainhall-roof-${index}`,
+    sound: 'rain-foliage',
+    title: { 'zh-hant': '打在屋瓦上的雨', 'en': 'Rain on the roof' },
+    zone: 'rainhall',
+    ...position,
     heightOffset: 6,
-    mode: { type: 'interval', rangeSecond: [20, 48] },
-    volume: 0.8,
+    mode: { type: 'loop' },
+    volume: 0.5,
     minDistance: 5,
-    maxDistance: 26,
+    maxDistance: 24,
+  })),
+  ...[
+    at('rainhall', -4, 4),
+    at('rainhall', 4, 4),
+  ].map((position, index): SoundEmitterDefinition => ({
+    /**
+     * 順著出簷落下來的水
+     *
+     * 擺在滴水線上、與眼睛差不多高，範圍壓到十二格：
+     * 坐在開口前才聽得到那一排水滴打在卵石上
+     */
+    id: `rainhall-eave-${index}`,
+    sound: 'cave-drip',
+    title: { 'zh-hant': '簷下滴水', 'en': 'Dripping from the eaves' },
+    zone: 'rainhall',
+    ...position,
+    heightOffset: 2,
+    mode: { type: 'loop' },
+    volume: 0.55,
+    minDistance: 2,
+    maxDistance: 12,
+  })),
+  {
+    /** 手水缽接滿了水，多的那些溢出來，斷斷續續 */
+    id: 'rainhall-basin',
+    sound: 'river-flow',
+    title: { 'zh-hant': '缽緣溢水', 'en': 'Water spilling from the basin' },
+    zone: 'rainhall',
+    ...at('rainhall', 6, 3),
+    heightOffset: 1,
+    mode: { type: 'loop' },
+    volume: 0.32,
+    minDistance: 2,
+    maxDistance: 10,
   },
   {
-    id: 'nocturne-cricket',
-    activeAt: 'night',
-    sound: 'insect-cricket',
-    title: { 'zh-hant': '夜裡的蟋蟀', 'en': 'Cricket after dark' },
-    zone: 'nocturne',
-    ...at('nocturne', 3, 3),
+    /**
+     * 雨裡的蟾蜍
+     *
+     * 下雨天最活躍的就是牠。一天到晚都在，
+     * 因為這座箱庭的雨從來沒停過
+     */
+    id: 'rainhall-toad',
+    sound: 'frog-toad',
+    title: { 'zh-hant': '雨中的蟾蜍', 'en': 'Toad in the rain' },
+    zone: 'rainhall',
+    ...at('rainhall', -6, -3),
     heightOffset: 1,
-    mode: { type: 'interval', rangeSecond: [8, 22] },
+    mode: { type: 'interval', rangeSecond: [16, 40] },
     volume: 0.5,
     minDistance: 3,
     maxDistance: 18,
-  },
-  {
-    id: 'nocturne-toad',
-    activeAt: 'night',
-    sound: 'frog-toad',
-    title: { 'zh-hant': '水邊的蟾蜍', 'en': 'Toad by the water' },
-    zone: 'nocturne',
-    ...at('nocturne', -3, 3),
-    heightOffset: 1,
-    mode: { type: 'interval', rangeSecond: [12, 30] },
-    volume: 0.55,
-    minDistance: 3,
-    maxDistance: 18,
-  },
-
-  {
-    /**
-     * 白日的月語庭
-     *
-     * 夜行的三種聲音天一亮就全退場了，只留一座空木座。
-     * 補一道穿過草坡的風：白天的月語庭什麼都沒有，
-     * 那份空正是它與夜裡的差別
-     */
-    id: 'nocturne-daywind',
-    sound: 'meadow-wind',
-    title: { 'zh-hant': '白日的空庭', 'en': 'The garden by day' },
-    zone: 'nocturne',
-    ...at('nocturne'),
-    heightOffset: 4,
-    mode: { type: 'loop' },
-    volume: 0.3,
-    minDistance: 5,
-    maxDistance: 20,
-    activeAt: 'day',
   },
 
   // ── 鳴禽庭：不摻風聲水聲的純旋律 ──

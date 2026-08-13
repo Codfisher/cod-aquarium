@@ -318,6 +318,13 @@ export interface BlockDef {
   /** 是否承接陰影，預設 true。半透明的水面接陰影會像破洞 */
   receiveShadow?: boolean;
   /**
+   * 會不會隨風擺動
+   *
+   * 給樹葉用。交叉立板的花草一律會擺，不必特別指定；
+   * 立方體的方塊則要自己說——同樣是鏤空貼圖的玻璃就不該跟著晃
+   */
+  swaysInWind?: boolean;
+  /**
    * 是否投出陰影，預設 true
    *
    * 給那些「本來就該與地面同一個平面」的方塊用。
@@ -576,6 +583,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     },
   },
   [BlockId.OAK_LEAVES]: {
+    swaysInWind: true,
     stepMaterial: 'grass',
     cutout: true,
     textures: {
@@ -601,6 +609,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
    * 不能用 tint，那條路只會調出偏綠的暗色
    */
   [BlockId.AMBER_LEAVES]: {
+    swaysInWind: true,
     stepMaterial: 'grass',
     cutout: true,
     textures: {
@@ -609,6 +618,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     },
   },
   [BlockId.GOLD_LEAVES]: {
+    swaysInWind: true,
     stepMaterial: 'grass',
     cutout: true,
     textures: {
@@ -625,6 +635,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     },
   },
   [BlockId.PINE_LEAVES]: {
+    swaysInWind: true,
     stepMaterial: 'grass',
     cutout: true,
     textures: {
@@ -699,6 +710,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     },
   },
   [BlockId.ACACIA_LEAVES]: {
+    swaysInWind: true,
     stepMaterial: 'grass',
     cutout: true,
     textures: {
@@ -707,6 +719,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     },
   },
   [BlockId.JUNGLE_LEAVES]: {
+    swaysInWind: true,
     stepMaterial: 'grass',
     cutout: true,
     textures: {

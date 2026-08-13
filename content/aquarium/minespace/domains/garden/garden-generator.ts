@@ -14,8 +14,8 @@ import {
   buildVillageGarden,
 } from './garden-builders-major'
 import {
-  buildNocturneGarden,
   buildOnsenGarden,
+  buildRainhallGarden,
   buildSongbirdGarden,
 } from './garden-builders-middle'
 import {
@@ -51,7 +51,7 @@ const BUILDER_MAP: Record<GardenId, (state: Uint8Array, garden: GardenDefinition
   pond: buildPondGarden,
   rainvale: buildRainvaleGarden,
   insect: buildInsectGarden,
-  nocturne: buildNocturneGarden,
+  rainhall: buildRainhallGarden,
   songbird: buildSongbirdGarden,
   onsen: buildOnsenGarden,
 }

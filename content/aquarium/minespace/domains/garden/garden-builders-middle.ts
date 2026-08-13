@@ -10,11 +10,11 @@ import {
   fillSquare,
   getNoisyDistance,
   paveDeck,
-  placeBonsaiPine,
   placeOakTree,
   placeRoofCap,
   placeStandingStone,
   placeStoneLantern,
+  placeWaterBasin,
   scatterOnGround,
   setDecoration,
 } from './garden-kit'
@@ -32,59 +32,155 @@ import { getDeckBlockY, getDeckGroundY } from './garden-layout'
 const GRASS_SET = new Set([BlockId.GRASS])
 
 /**
- * 月語庭
+ * 雨聽堂
  *
- * 貓頭鷹、蟋蟀、蟾蜍——三種只在天黑之後才出現的聲音收在一起。
- * 但目前的世界永遠是午後，沒辦法真的把光關掉，
- * 所以改用顏色講這件事：整座庭只用銀白與墨黑兩色，
- * 白砂岩、黑曜磚、月見草、幾盞冷光的燈籠。
- * 之後若接上時間系統，這裡會是第一個活過來的地方
+ * 全庭唯一一座「從室內聽外面」的箱庭。
+ *
+ * 其他木座都是站在露天裡聽，這一座得走進屋子：三面牆圍起來、
+ * 南面整片敞開，人坐在榻榻米上往外看。雨打在屋瓦、順著出簷滴下來，
+ * 而你在乾的地方——「聽雨」與「淋雨」是兩件完全不同的事，
+ * 聽雨亭給的是後者，這裡給的是前者。
+ *
+ * 造景全部繞著「水從屋簷落到地上」這條線：出簷比屋身寬一格，
+ * 簷下沿著滴水線鋪一排卵石，卵石中間積著幾窪水
  */
-export function buildNocturneGarden(state: Uint8Array, garden: GardenDefinition): void {
-  const random = createSeededRandom('garden-nocturne')
+export function buildRainhallGarden(state: Uint8Array, garden: GardenDefinition): void {
+  const random = createSeededRandom('garden-rainhall')
   const deckY = getDeckBlockY(garden)
   const groundY = getDeckGroundY(garden)
   const { x: centerX, z: centerZ } = garden.center
   const inner = garden.halfSize - DECK_MARGIN
 
-  paveDeck(state, garden, BlockId.OBSIDIAN_BRICKS)
+  paveDeck(state, garden, BlockId.STONE_TILE)
 
-  /** 一道銀白的沙從東北斜切到西南，是黑底上唯一的亮色 */
-  for (let offset = -inner; offset <= inner; offset++) {
-    const driftX = Math.round(getNoisyDistance(centerX + offset, centerZ, centerX, centerZ, 0.3, 1.4) * 0.3)
-    for (let width = -1; width <= 1; width++) {
-      setBlock(state, centerX + offset, deckY, centerZ + offset + width + driftX, BlockId.GARDEN_SAND)
+  /** 屋子的半寬，南面整片敞開，所以只有三面牆 */
+  const hallHalf = 3
+  const wallHeight = 4
+
+  /** 屋內的地板：榻榻米，四周留一圈深色木當框 */
+  fillBox(
+    state,
+    centerX - hallHalf,
+    deckY,
+    centerZ - hallHalf,
+    centerX + hallHalf,
+    deckY,
+    centerZ + hallHalf,
+    BlockId.DARK_PLANKS,
+  )
+  fillBox(
+    state,
+    centerX - hallHalf + 1,
+    deckY,
+    centerZ - hallHalf + 1,
+    centerX + hallHalf - 1,
+    deckY,
+    centerZ + hallHalf - 1,
+    BlockId.TATAMI,
+  )
+
+  /**
+   * 三面牆
+   *
+   * 南面（offsetZ 為正的那一側）整排不砌，留成一道從地到頂的開口。
+   * 坐在裡面往南看出去就是整片庭院與落下來的雨——
+   * 屋子要有一面是完全開的，「在室內」才不會變成「被關起來」
+   */
+  for (let level = 0; level < wallHeight; level++) {
+    for (let offsetX = -hallHalf; offsetX <= hallHalf; offsetX++) {
+      for (let offsetZ = -hallHalf; offsetZ <= hallHalf; offsetZ++) {
+        const isEdge = Math.abs(offsetX) === hallHalf || Math.abs(offsetZ) === hallHalf
+        if (!isEdge || offsetZ === hallHalf)
+          continue
+
+        /** 側牆腰部開一排窗，雨聲從那裡透進來，光也是 */
+        const isWindow = level === 2 && Math.abs(offsetX) === hallHalf && Math.abs(offsetZ) % 2 === 1
+        setBlock(
+          state,
+          centerX + offsetX,
+          groundY + level,
+          centerZ + offsetZ,
+          isWindow ? BlockId.GLASS_PANE : BlockId.DARK_PLANKS,
+        )
+      }
     }
   }
 
-  /** 一窪暗水，月亮照在上面 */
-  for (let offsetX = -3; offsetX <= 3; offsetX++) {
-    for (let offsetZ = -3; offsetZ <= 3; offsetZ++) {
-      const x = centerX + offsetX - 3
-      const z = centerZ + offsetZ + 3
-      if (getNoisyDistance(x, z, centerX - 3, centerZ + 3, 0.34, 1.1) > 2.4)
+  /** 開口兩側各立一扇障子，框住那片景 */
+  setBlock(state, centerX - hallHalf, groundY, centerZ + hallHalf, BlockId.PAPER_DOOR)
+  setBlock(state, centerX + hallHalf, groundY, centerZ + hallHalf, BlockId.PAPER_DOOR)
+  setBlock(state, centerX - hallHalf, groundY + 1, centerZ + hallHalf, BlockId.PAPER_DOOR)
+  setBlock(state, centerX + hallHalf, groundY + 1, centerZ + hallHalf, BlockId.PAPER_DOOR)
+
+  /**
+   * 出簷比屋身寬一格
+   *
+   * 這一格是整座箱庭的重點：雨水沿著它落下來，
+   * 在地上連成一條線。四邊各用一種朝向的階梯，
+   * 靠背朝內、薄的那一側朝外，屋簷才是往外收薄的斜面
+   */
+  const eaveY = groundY + wallHeight
+  const eaveHalf = hallHalf + 1
+  for (let offsetX = -eaveHalf; offsetX <= eaveHalf; offsetX++) {
+    for (let offsetZ = -eaveHalf; offsetZ <= eaveHalf; offsetZ++) {
+      let blockId = BlockId.DARK_PLANKS
+      if (offsetZ === -eaveHalf)
+        blockId = BlockId.DARK_STAIRS_SOUTH
+      else if (offsetZ === eaveHalf)
+        blockId = BlockId.DARK_STAIRS_NORTH
+      else if (offsetX === -eaveHalf)
+        blockId = BlockId.DARK_STAIRS_EAST
+      else if (offsetX === eaveHalf)
+        blockId = BlockId.DARK_STAIRS_WEST
+
+      setBlock(state, centerX + offsetX, eaveY, centerZ + offsetZ, blockId)
+    }
+  }
+
+  /** 屋頂往上收兩層 */
+  placeRoofCap(state, centerX, eaveY + 1, centerZ, hallHalf, BlockId.DARK_WOOD_SLAB, BlockId.DARK_PLANKS)
+  placeRoofCap(state, centerX, eaveY + 2, centerZ, hallHalf - 1, BlockId.DARK_WOOD_SLAB, BlockId.DARK_PLANKS)
+
+  /**
+   * 滴水線
+   *
+   * 出簷正下方那一圈鋪卵石，這是日式庭園真的會做的事：
+   * 屋簷落下來的水打在裸土上會濺泥，鋪一排石頭才不會。
+   * 有了它，雨的路徑在地面上是看得見的
+   */
+  for (let offsetX = -eaveHalf; offsetX <= eaveHalf; offsetX++) {
+    for (let offsetZ = -eaveHalf; offsetZ <= eaveHalf; offsetZ++) {
+      const isDripLine = Math.abs(offsetX) === eaveHalf || Math.abs(offsetZ) === eaveHalf
+      if (!isDripLine)
         continue
 
-      carveWater(state, x, deckY, z, 1, BlockId.OBSIDIAN_BRICKS)
+      setBlock(state, centerX + offsetX, deckY, centerZ + offsetZ, BlockId.GRAVEL)
     }
   }
 
-  /** 幾塊帶月紋的磚砌成的矮台，上面立一盞燈 */
-  fillSquare(state, centerX + 3, centerZ - 3, 1, deckY, BlockId.MOON_BRICKS)
-  setBlock(state, centerX + 3, groundY, centerZ - 3, BlockId.MOON_BRICKS)
-  setBlock(state, centerX + 3, groundY + 1, centerZ - 3, BlockId.LANTERN)
-
-  /** 一株姿態很開的老松，夜裡看是一片剪影 */
-  placeBonsaiPine(state, centerX - 4, groundY, centerZ - 4, 1, 0)
-
-  for (const corner of [{ x: -5, z: 5 }, { x: 5, z: 5 }, { x: 5, z: -5 }]) {
-    placeStoneLantern(state, centerX + corner.x, groundY, centerZ + corner.z)
+  /** 滴水線上積起來的幾窪水，走過去會看到自己被雨打散的倒影 */
+  for (const puddle of [{ x: -eaveHalf, z: 2 }, { x: eaveHalf, z: -1 }, { x: 1, z: eaveHalf }]) {
+    carveWater(state, centerX + puddle.x, deckY, centerZ + puddle.z, 1, BlockId.GRAVEL)
   }
 
-  /** 只長白色的花，黑底上才看得見 */
-  scatterOnGround(state, centerX, centerZ, inner, groundY, random, 0.28, (pick) => (
-    pick() < 0.62 ? BlockId.MOON_FLOWER : BlockId.FLOWER_WHITE_DANDELION
-  ), new Set([BlockId.OBSIDIAN_BRICKS, BlockId.GARDEN_SAND]))
+  /** 承簷水的手水缽，擺在屋子的東南角外 */
+  placeWaterBasin(state, centerX + eaveHalf + 2, groundY, centerZ + eaveHalf - 1)
+
+  /** 屋內一盞和紙燈，雨天的室內要有一點暖 */
+  setBlock(state, centerX - hallHalf + 1, groundY, centerZ - hallHalf + 1, BlockId.PAPER_LAMP)
+
+  /** 坐墊擺在朝南的開口前，那是這座箱庭真正的位置 */
+  setBlock(state, centerX - 1, groundY, centerZ + hallHalf - 1, BlockId.CUSHION)
+  setBlock(state, centerX + 1, groundY, centerZ + hallHalf - 1, BlockId.CUSHION)
+
+  /** 屋外兩盞石燈籠，照著那條滴水線 */
+  placeStoneLantern(state, centerX - eaveHalf - 2, groundY, centerZ + eaveHalf - 2)
+  placeStoneLantern(state, centerX + eaveHalf + 2, groundY, centerZ - eaveHalf + 1)
+
+  /** 濕氣重的地方長的東西：苔色的蕨與幾叢野草 */
+  scatterOnGround(state, centerX, centerZ, inner, groundY, random, 0.22, (pick) => (
+    pick() < 0.6 ? BlockId.FERN : BlockId.CURLY_PLANT
+  ), new Set([BlockId.STONE_TILE]))
 }
 
 /**

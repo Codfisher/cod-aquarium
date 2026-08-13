@@ -14,7 +14,7 @@ import {
 import { SUN_LIGHT_NAME } from '../../composables/use-babylon-scene'
 import { BLOCK_DEFS, isDecorationBlock } from '../block/block-constants'
 import { TOTAL_CHUNKS } from '../world/world-constants'
-import { createWindSway } from './wind-sway'
+import { createWindSway, LEAF_SWAY_AMPLITUDE, PLANT_SWAY_AMPLITUDE } from './wind-sway'
 
 interface BlockMeshEntry {
   mesh: Mesh;
@@ -506,8 +506,8 @@ class WorldRenderer {
           false,
           blockDef.textures?.pixelTint,
         )
-        /** 交叉立板就是地上的花草，讓它們跟著風擺 */
-        this.windSway.attach(material)
+        /** 交叉立板就是地上的花草，從根部往上彎 */
+        this.windSway.attach(material, PLANT_SWAY_AMPLITUDE, true)
         addPlane('cross-a', 1, { x: 0, y: Math.PI / 4 }, { x: 0, y: 0, z: 0 }, material)
         addPlane('cross-b', 1, { x: 0, y: -Math.PI / 4 }, { x: 0, y: 0, z: 0 }, material)
         break
@@ -766,6 +766,16 @@ class WorldRenderer {
           textureDef.frameCount,
           textureDef.pixelTint,
         )
+
+    /**
+     * 樹葉整團一起晃
+     *
+     * 不從底部彎：樹冠是一團互相緊貼的方塊，
+     * 每一塊各自彎腰的話塊與塊之間會裂開一條縫
+     */
+    if (blockDef.swaysInWind) {
+      this.windSway.attach(material, LEAF_SWAY_AMPLITUDE, false)
+    }
 
     /**
      * 自發光當成「這顆方塊自帶亮度」，而不是整片加上去的白光

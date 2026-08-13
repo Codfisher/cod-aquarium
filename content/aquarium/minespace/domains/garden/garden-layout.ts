@@ -48,7 +48,7 @@ export type GardenId =
   | 'insect'
   // ── 中圈四座小箱庭 ──
   /** 只在黑暗中出現的聲音 */
-  | 'nocturne'
+  | 'rainhall'
   /** 不摻任何風聲水聲的純旋律 */
   | 'songbird'
   /** 滾水與柴火，正在加熱的水 */
@@ -319,10 +319,10 @@ export const GARDEN_LIST: GardenDefinition[] = [
 
   // ── 中圈：四座小箱庭，插在內外兩圈之間 ──
   {
-    id: 'nocturne',
-    title: { 'zh-hant': '月語庭', 'en': 'Moonlit Court' },
-    timbre: { 'zh-hant': '只在黑暗中出現的那幾種聲音', 'en': 'The sounds that only come out in the dark' },
-    icon: 'i-material-symbols:nights-stay',
+    id: 'rainhall',
+    title: { 'zh-hant': '雨聽堂', 'en': 'Rain Hall' },
+    timbre: { 'zh-hant': '從屋子裡聽外面的雨', 'en': 'Rain heard from indoors' },
+    icon: 'i-material-symbols:cottage',
     center: getRingPosition(MIDDLE_RING_RADIUS, 22.5),
     halfSize: SMALL_HALF_SIZE,
     pedestalHeight: 1,
