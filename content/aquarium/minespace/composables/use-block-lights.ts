@@ -2,7 +2,6 @@ import type { Scene, UniversalCamera } from '@babylonjs/core'
 import type { BlockLightSource } from '../domains/world/light-source'
 import { ClusteredLightContainer, Color3, PointLight, Vector3 } from '@babylonjs/core'
 import { onBeforeUnmount } from 'vue'
-import { collectLightSourceList } from '../domains/world/light-source'
 import { measureSection } from './use-performance-probe'
 
 /** 滿等的燈有多亮 */
@@ -61,7 +60,14 @@ const INTENSITY_RESPONSE = 5
 interface StartParams {
   scene: Scene;
   camera: UniversalCamera;
-  worldState: Uint8Array;
+  /**
+   * 世界裡所有的光源方塊
+   *
+   * 由外面掃好帶進來，不在這裡自己掃：夜裡的光暈用的是同一份清單，
+   * 各掃一次等於把三百萬格走兩遍，而且兩邊只要有一邊改了門檻，
+   * 燈的真光與它的暈就會對不起來
+   */
+  sourceList: BlockLightSource[];
   /** 白晝的程度，0 為全暗、1 為大白天 */
   getDayRatio: () => number;
 }
@@ -91,10 +97,9 @@ export function useBlockLights() {
 
   onBeforeUnmount(() => cleanup?.())
 
-  function start({ scene, camera, worldState, getDayRatio }: StartParams): void {
+  function start({ scene, camera, sourceList, getDayRatio }: StartParams): void {
     cleanup?.()
 
-    const sourceList = collectLightSourceList(worldState)
     if (sourceList.length === 0)
       return
 

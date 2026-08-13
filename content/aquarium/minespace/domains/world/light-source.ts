@@ -30,6 +30,17 @@ const LAMP_COLOR: [number, number, number] = [1, 0.86, 0.62]
 const FIRE_COLOR: [number, number, number] = [1, 0.66, 0.34]
 
 /**
+ * 這種方塊發的是什麼顏色的光
+ *
+ * 真光與光暈用的是同一份色表——燈籠在地上灑的那圈暖色，
+ * 與它自己外圍那圈暈本來就該是同一種暖。兩邊各寫一份，
+ * 調過其中一邊就會對不起來
+ */
+export function getBlockLightTint(blockId: BlockId): [number, number, number] {
+  return FIRE_BLOCK_SET.has(blockId) ? FIRE_COLOR : LAMP_COLOR
+}
+
+/**
  * 掃出世界裡所有夠亮的光源方塊
  *
  * 地形生成完只跑這一次。三百萬格的線性掃描在主執行緒上是幾毫秒的事，
@@ -70,7 +81,7 @@ export function collectLightSourceList(worldState: Uint8Array): BlockLightSource
           y,
           z,
           level,
-          color: isFire ? FIRE_COLOR : LAMP_COLOR,
+          color: getBlockLightTint(blockId as BlockId),
           isFire,
         })
       }
