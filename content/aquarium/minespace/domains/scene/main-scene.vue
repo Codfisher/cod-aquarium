@@ -89,6 +89,7 @@
 
 <script setup lang="ts">
 import type { Scene, UniversalCamera } from '@babylonjs/core'
+import type { FrameGraphPipeline } from '../renderer/frame-graph-pipeline'
 import type { VoxelRenderer } from '../renderer/voxel-renderer'
 import type { AudibleSound, SoundZone } from '../soundscape/type'
 import type { Landmark } from '../world/landmark'
@@ -98,7 +99,7 @@ import AmbiencePanel from '../../components/ambience-panel.vue'
 import StartPanel from '../../components/start-panel.vue'
 import SystemMenu from '../../components/system-menu.vue'
 import TouchControlPanel from '../../components/touch-control-panel.vue'
-import { createCampfireSmoke, DEFAULT_CAMERA_FOV, useBabylonScene } from '../../composables/use-babylon-scene'
+import { applyShadowSetting, createCampfireSmoke, DEFAULT_CAMERA_FOV, useBabylonScene } from '../../composables/use-babylon-scene'
 import { useBlockLights } from '../../composables/use-block-lights'
 import { useDayNight } from '../../composables/use-day-night'
 import { useFpsController } from '../../composables/use-fps-controller'
@@ -108,10 +109,10 @@ import { useSheepFlock } from '../fauna/use-sheep-flock'
 import { getGardenAt } from '../garden/garden-layout'
 import { createSandField } from '../garden/sand-field'
 import { findSafeStandingPosition } from '../player/collision'
+import { createFrameGraphPipeline } from '../renderer/frame-graph-pipeline'
 import { createVoxelRenderer } from '../renderer/voxel-renderer'
 import { useSoundscape } from '../soundscape/use-soundscape'
 import { useWeather } from '../weather/use-weather'
-import { createVolumetricFog } from '../weather/volumetric-fog'
 import { useChunkWorker } from '../world/use-chunk-worker'
 import { useTerrainWorker } from '../world/use-terrain-worker/use-terrain-worker'
 import { castRainRay, createWorldState } from '../world/world-access'
@@ -152,6 +153,7 @@ const FPS_UPDATE_INTERVAL = 0.5
 
 let worldState = createWorldState()
 let renderer: VoxelRenderer | null = null
+let framePipeline: FrameGraphPipeline | null = null
 
 const isWorldReady = ref(false)
 const hasStarted = ref(false)
@@ -287,15 +289,39 @@ const displayAudibleList = computed<AudibleSound[]>(() => {
   ]
 })
 
-const { canvasRef, scene, camera, pipeline, initError } = useBabylonScene({
+const { canvasRef, scene, camera, sunLight, initError } = useBabylonScene({
   async init({ scene: sceneInstance, camera: cameraInstance, canvas }) {
     const terrainWorker = useTerrainWorker()
     worldState = await terrainWorker.generate()
     terrainWorker.terminate()
 
+    /**
+     * 算繪圖要排在渲染器之前
+     *
+     * 陰影產生器現在是圖裡的任務自己建的，而渲染器一邊建網格
+     * 一邊要把投影者登記上去——順序顛倒的話它會找不到產生器
+     */
+    if (sunLight.value) {
+      framePipeline = await createFrameGraphPipeline({
+        scene: sceneInstance,
+        camera: cameraInstance,
+        sunLight: sunLight.value,
+        applyShadowSetting: (shadowGenerator) => applyShadowSetting(shadowGenerator, sceneInstance),
+      })
+    }
+
     const chunkWorker = useChunkWorker()
     renderer = createVoxelRenderer(sceneInstance, chunkWorker)
     await renderer.build(worldState)
+
+    /**
+     * 把場景的網格交給算繪圖
+     *
+     * 走圖之後，「要畫哪些東西」不再是引擎自己去掃場景，而是任務上的清單。
+     * 天空、太陽、雲這些不是渲染器建的，所以主場景直接給整個 scene.meshes；
+     * 投影者則要挑過，水與玻璃擋光的話水面下會整片變黑
+     */
+    framePipeline?.setObjectList(sceneInstance.meshes, renderer.getShadowCasterList())
 
     /** 方塊做的沙只到世界邊界，外面那片得等渲染器準備好材質再接上去 */
     createSandField(sceneInstance)
@@ -331,8 +357,7 @@ const { canvasRef, scene, camera, pipeline, initError } = useBabylonScene({
     startDayNight({
       scene: sceneInstance,
       canvas,
-      pipeline: pipeline.value,
-      volumetricFog: createVolumetricFog(sceneInstance, cameraInstance),
+      volumetricFog: framePipeline ?? undefined,
       atmosphere,
       isRunning: () => hasStarted.value && !isPaused.value && !isCursorFree.value,
     })
@@ -451,6 +476,7 @@ function handleTravel(landmark: Landmark) {
 }
 
 onBeforeUnmount(() => {
+  framePipeline?.dispose()
   renderer?.dispose()
 })
 </script>

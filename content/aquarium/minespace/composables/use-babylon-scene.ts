@@ -1,3 +1,6 @@
+import type {
+  ShadowGenerator,
+} from '@babylonjs/core'
 import type { GraphicsQuality } from './use-graphics-quality'
 import {
   Camera,
@@ -5,7 +8,6 @@ import {
   Color4,
   ColorCurves,
   Constants,
-  DefaultRenderingPipeline,
   DirectionalLight,
   DynamicTexture,
   Engine,
@@ -17,7 +19,6 @@ import {
   ParticleSystem,
   PointLight,
   Scene,
-  ShadowGenerator,
   StandardMaterial,
   Texture,
   UniversalCamera,
@@ -1270,24 +1271,27 @@ export function createCampfireSmoke(scene: Scene, worldState: Uint8Array): void 
 }
 
 /**
- * 後製程管線
+ * 影像處理
  *
  * 色調映射把過曝的天空拉回來，加一點對比與暗角，
- * 整體才不會像沒調過色的預設畫面
+ * 整體才不會像沒調過色的預設畫面。
+ *
+ * 這些設定寫在場景自己的 imageProcessingConfiguration 上，
+ * 不掛在某一條後製管線上。原因是算繪圖裡的影像處理任務讀的正是這一份——
+ * 設定與「誰來執行它」就此分開，日夜循環也只要對著這一份寫
  */
-function createRenderingPipeline(scene: Scene, camera: UniversalCamera) {
-  const pipeline = new DefaultRenderingPipeline('minespace-pipeline', false, scene, [camera])
+function configureImageProcessing(scene: Scene): void {
+  const configuration = scene.imageProcessingConfiguration
 
-  pipeline.imageProcessingEnabled = true
-  pipeline.imageProcessing.toneMappingEnabled = true
-  pipeline.imageProcessing.toneMappingType = ImageProcessingConfiguration.TONEMAPPING_ACES
+  configuration.toneMappingEnabled = true
+  configuration.toneMappingType = ImageProcessingConfiguration.TONEMAPPING_ACES
   /** 曝光壓低一點，陽光調亮後才不會整片過曝把影子洗掉 */
-  pipeline.imageProcessing.exposure = 1.06
+  configuration.exposure = 1.06
   /** 對比拉太高會把暗部壓成死黑，洞穴與背光面會整片糊掉 */
-  pipeline.imageProcessing.contrast = 1.05
-  pipeline.imageProcessing.vignetteEnabled = true
-  pipeline.imageProcessing.vignetteWeight = 2.2
-  pipeline.imageProcessing.vignetteColor = new Color4(0, 0, 0, 0)
+  configuration.contrast = 1.05
+  configuration.vignetteEnabled = true
+  configuration.vignetteWeight = 2.2
+  configuration.vignetteColor = new Color4(0, 0, 0, 0)
 
   /**
    * 色調曲線
@@ -1296,18 +1300,8 @@ function createRenderingPipeline(scene: Scene, camera: UniversalCamera) {
    * 這件事只靠調暗曝光做不到——「暗下來」與「換一種顏色」是兩回事，
    * 而後者才是黃昏之所以是黃昏的原因
    */
-  pipeline.imageProcessing.colorCurves = new ColorCurves()
-  pipeline.imageProcessing.colorCurvesEnabled = true
-
-  pipeline.bloomEnabled = true
-  pipeline.bloomThreshold = 0.86
-  pipeline.bloomWeight = 0.22
-  pipeline.bloomKernel = 48
-  pipeline.bloomScale = 0.5
-
-  pipeline.fxaaEnabled = true
-
-  return pipeline
+  configuration.colorCurves = new ColorCurves()
+  configuration.colorCurvesEnabled = true
 }
 
 /**
@@ -1337,7 +1331,13 @@ function updateCameraFovMode(camera: UniversalCamera, canvas: HTMLCanvasElement)
     : Camera.FOVMODE_VERTICAL_FIXED
 }
 
-function createShadowGenerator({ scene }: { scene: Scene }) {
+/**
+ * 建立太陽這道平行光
+ *
+ * 陰影產生器本身不在這裡建——那是算繪圖的任務自己建的。
+ * 這裡只負責光源與它的投影範圍，兩者的生命週期不一樣
+ */
+export function createSunLight(scene: Scene): DirectionalLight {
   const sunLight = new DirectionalLight(SUN_LIGHT_NAME, SUN_DIRECTION, scene)
   sunLight.intensity = SUN_INTENSITY
   /** 午後的暖色陽光，跟偏冷的環境光形成色溫差 */
@@ -1374,15 +1374,17 @@ function createShadowGenerator({ scene }: { scene: Scene }) {
   sunLight.position = new Vector3(WORLD_SIZE / 2, SAND_LEVEL, WORLD_SIZE / 2)
     .subtract(SUN_DIRECTION.scale(SHADOW_LIGHT_DISTANCE))
 
-  const { quality } = useGraphicsQuality()
+  return sunLight
+}
 
-  /**
-   * 陰影貼圖的解析度
-   *
-   * 投影範圍縮到九十六格之後，2048 就有每格二十一個像素，
-   * 比原本「4096 罩住整個世界」還要細，成本卻只有四分之一
-   */
-  const shadowGenerator = new ShadowGenerator(quality.value === 'low' ? 1024 : 2048, sunLight)
+/**
+ * 把調過的陰影設定套到產生器上
+ *
+ * 解析度與濾波等級是算繪圖的任務在管的（它自己建產生器），
+ * 剩下這些沒有在任務上開出來的，統一在這裡套。
+ * 拆開的原因很單純：產生器不再是我們建的，但這些值還是我們調的
+ */
+export function applyShadowSetting(shadowGenerator: ShadowGenerator, scene: Scene): void {
   /**
    * bias 是正規化深度，要換算成世界單位才有意義
    *
@@ -1444,24 +1446,18 @@ function createShadowGenerator({ scene }: { scene: Scene }) {
    */
   shadowGenerator.frustumEdgeFalloff = 0.2
 
-  if (quality.value === 'low') {
-    shadowGenerator.filteringQuality = ShadowGenerator.QUALITY_LOW
-  }
-  else {
-    /**
-     * 用高等濾波
-     *
-     * 這裡曾經是中等，理由是「QUALITY_HIGH 的取樣範圍大約有半格寬，
-     * 草葉的影子會整條被平均掉」——那個算法是投影範圍還罩著整個世界時
-     * 留下來的。範圍收到八十格見方之後，一個取樣格只有 0.039 格，
-     * 高等的五乘五核心換算成世界座標也才 0.2 格，草葉的影子撐得住。
-     *
-     * 換上去是為了太陽移動時的邊緣抖動：光源一轉，取樣格跟著轉，
-     * 邊緣必然重新取樣。硬邊會讓每一次重新取樣都看得一清二楚，
-     * 邊緣柔一點，那些跳動就融進過渡帶裡了
-     */
-    shadowGenerator.filteringQuality = ShadowGenerator.QUALITY_HIGH
-  }
+  /**
+   * 濾波等級由算繪圖的任務設定，這裡只留下當初的理由
+   *
+   * 這裡曾經是中等，理由是「QUALITY_HIGH 的取樣範圍大約有半格寬，
+   * 草葉的影子會整條被平均掉」——那個算法是投影範圍還罩著整個世界時
+   * 留下來的。範圍收到八十格見方之後，一個取樣格只有 0.039 格，
+   * 高等的五乘五核心換算成世界座標也才 0.2 格，草葉的影子撐得住。
+   *
+   * 換上去是為了太陽移動時的邊緣抖動：光源一轉，取樣格跟著轉，
+   * 邊緣必然重新取樣。硬邊會讓每一次重新取樣都看得一清二楚，
+   * 邊緣柔一點，那些跳動就融進過渡帶裡了
+   */
 
   /**
    * 陰影貼圖必須每一幀重畫，不要再試著降更新率
@@ -1494,8 +1490,6 @@ function createShadowGenerator({ scene }: { scene: Scene }) {
   if (cloudLayer) {
     shadowGenerator.addShadowCaster(cloudLayer)
   }
-
-  return shadowGenerator
 }
 
 export function useBabylonScene(param?: UseBabylonSceneParam) {
@@ -1506,8 +1500,7 @@ export function useBabylonScene(param?: UseBabylonSceneParam) {
   const engine = shallowRef<Engine>()
   const scene = shallowRef<Scene>()
   const camera = shallowRef<UniversalCamera>()
-  const shadowGenerator = shallowRef<ShadowGenerator>()
-  const pipeline = shallowRef<DefaultRenderingPipeline>()
+  const sunLight = shallowRef<DirectionalLight>()
 
   const {
     createEngine,
@@ -1525,18 +1518,12 @@ export function useBabylonScene(param?: UseBabylonSceneParam) {
     const devicePixelRatio = window?.devicePixelRatio ?? 1
     engine.value.setHardwareScalingLevel(getHardwareScalingLevel(newQuality, devicePixelRatio))
 
-    if (pipeline.value) {
-      /** 低畫質保留色調映射，關掉比較吃資源的泛光與抗鋸齒 */
-      pipeline.value.bloomEnabled = newQuality !== 'low'
-      pipeline.value.fxaaEnabled = newQuality !== 'low'
-    }
-
-    if (!shadowGenerator.value)
-      return
-
-    shadowGenerator.value.filteringQuality = newQuality === 'low'
-      ? ShadowGenerator.QUALITY_LOW
-      : ShadowGenerator.QUALITY_HIGH
+    /**
+     * 泛光、抗鋸齒與陰影的濾波等級都在算繪圖裡
+     *
+     * 那條鏈是 frame-graph-pipeline 建的，切換畫質時由它自己去調，
+     * 這裡只負責畫布的解析度
+     */
   })
 
   onMounted(async () => {
@@ -1560,10 +1547,8 @@ export function useBabylonScene(param?: UseBabylonSceneParam) {
         engine: engine.value,
         scene: scene.value,
       })
-      shadowGenerator.value = createShadowGenerator({ scene: scene.value })
-      pipeline.value = createRenderingPipeline(scene.value, camera.value)
-      pipeline.value.bloomEnabled = quality.value !== 'low'
-      pipeline.value.fxaaEnabled = quality.value !== 'low'
+      sunLight.value = createSunLight(scene.value)
+      configureImageProcessing(scene.value)
 
       useEventListener(window, 'resize', handleResize)
       useEventListener(canvasRef, 'webglcontextlost', (event) => {
@@ -1608,8 +1593,8 @@ export function useBabylonScene(param?: UseBabylonSceneParam) {
     engine,
     scene,
     camera,
-    /** 日夜循環要拿它調曝光與色調 */
-    pipeline,
+    /** 算繪圖要拿它建陰影任務 */
+    sunLight,
     initError,
   }
 }
