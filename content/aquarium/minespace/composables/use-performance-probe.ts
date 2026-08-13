@@ -1,5 +1,5 @@
 import type { Scene } from '@babylonjs/core'
-import { SceneInstrumentation } from '@babylonjs/core'
+import { EngineInstrumentation, SceneInstrumentation } from '@babylonjs/core'
 import { onBeforeUnmount, reactive, ref } from 'vue'
 
 /**
@@ -30,8 +30,19 @@ export interface PerformanceReading {
   renderTargetMs: number;
   /** 粒子花了幾毫秒 */
   particleMs: number;
-  /** 整幀花了幾毫秒 */
+  /** 整幀花了幾毫秒（CPU 這一側） */
   frameMs: number;
+  /**
+   * GPU 畫這一幀花了幾毫秒
+   *
+   * 這是整份面板最關鍵的一個數字：它與上面那個 CPU 的幀時間一比，
+   * 就知道該往哪個方向修。CPU 高、GPU 低是繪製呼叫或 JS 太重；
+   * 反過來則是像素太多——同樣是三十幀，兩者的處方完全相反。
+   *
+   * 讀不到時是 0：這需要 EXT_disjoint_timer_query，
+   * 有些瀏覽器基於資訊安全（時間側通道）預設關掉它
+   */
+  gpuMs: number;
 }
 
 /** 讀數更新間隔（秒），每幀更新只是白白觸發重繪 */
@@ -46,14 +57,18 @@ export function usePerformanceProbe() {
     renderTargetMs: 0,
     particleMs: 0,
     frameMs: 0,
+    gpuMs: 0,
   })
 
   let instrumentation: SceneInstrumentation | null = null
+  let engineProbe: EngineInstrumentation | null = null
   let elapsed = 0
 
   function stop() {
     instrumentation?.dispose()
     instrumentation = null
+    engineProbe?.dispose()
+    engineProbe = null
   }
 
   onBeforeUnmount(stop)
@@ -72,6 +87,9 @@ export function usePerformanceProbe() {
       stop()
       return
     }
+
+    engineProbe = new EngineInstrumentation(scene.getEngine())
+    engineProbe.captureGPUFrameTime = true
 
     instrumentation = new SceneInstrumentation(scene)
     instrumentation.captureActiveMeshesEvaluationTime = true
@@ -105,6 +123,8 @@ export function usePerformanceProbe() {
     reading.renderTargetMs = instrumentation.renderTargetsRenderTimeCounter.lastSecAverage
     reading.particleMs = instrumentation.particlesRenderTimeCounter.lastSecAverage
     reading.frameMs = instrumentation.frameTimeCounter.lastSecAverage
+    /** GPU 的計時器給的是奈秒 */
+    reading.gpuMs = (engineProbe?.gpuFrameTimeCounter.lastSecAverage ?? 0) / 1e6
   }
 
   return { visible, reading, toggle, update }

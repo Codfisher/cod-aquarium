@@ -84,7 +84,8 @@
       >
         <div>{{ probe.drawCallCount }} draw</div>
         <div>{{ probe.activeMeshCount }} 網格</div>
-        <div>{{ probe.frameMs.toFixed(1) }} ms 幀</div>
+        <div>{{ probe.frameMs.toFixed(1) }} ms 幀 CPU</div>
+        <div>{{ probe.gpuMs.toFixed(1) }} ms 幀 GPU</div>
         <div>{{ probe.meshSelectionMs.toFixed(2) }} ms 挑選</div>
         <div>{{ probe.renderTargetMs.toFixed(2) }} ms 陰影</div>
         <div>{{ probe.particleMs.toFixed(2) }} ms 粒子</div>
