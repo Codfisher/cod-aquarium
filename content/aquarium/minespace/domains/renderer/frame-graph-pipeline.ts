@@ -14,7 +14,6 @@ import {
   FrameGraphVolumetricLightingTask,
   ShadowGenerator as ShadowGeneratorClass,
   ThinImageProcessingPostProcess,
-  Vector3,
 } from '@babylonjs/core'
 import { useGraphicsQuality } from '../../composables/use-graphics-quality'
 
@@ -92,14 +91,6 @@ const BLOOM_SCALE = 0.5
  * 散射是沿著整條視線累積的，而視線可能穿過上百格的光體
  */
 const MAX_LIGHT_POWER = 0.12
-
-/**
- * 消光係數
- *
- * 光穿過空氣被吸收與散射掉的比例，也就是「越遠越淡」的那個衰減。
- * 沒有它，散射會沿路無限累加，遠處的天空會比近處還亮
- */
-const VOLUMETRIC_EXTINCTION_VALUE = 0.03
 
 /**
  * 散射的方向性
@@ -241,20 +232,23 @@ export async function createFrameGraphPipeline({
   scene.removeMesh(lightingVolumeTask.lightingVolume.mesh)
 
   /**
-   * 第三個參數是「啟用消光」
+   * 消光（enableExtinction）絕對不能開
    *
-   * 不開的話光線穿過介質完全不衰減，散射沿路一直累加。
-   * 我們的投影範圍是八十乘八十乘一百七十格，累積下來足以把整個畫面洗白——
-   * 那正是逆光時什麼都看不到的原因
+   * 它的混合公式是「背景 × exp(-extinction × eyeDist)」——乘在整條視線的
+   * 距離上。天空的視線長一千六百格，任何有感的係數乘上去都是零：
+   * 只要體積光開著，整片天就是純黑，而地面只有一二十格所以還亮著。
+   * 「早晨一片黑、只有地面有光」正是它。
+   *
+   * 這個場景的能見度是霧氣系統在管的（兩百二十格才收掉），
+   * 消光那套指數衰減跟它根本對不起來。亮度只靠 lightPower 控制
    */
-  const volumetricTask = new FrameGraphVolumetricLightingTask('volumetric', frameGraph, true)
+  const volumetricTask = new FrameGraphVolumetricLightingTask('volumetric', frameGraph)
   volumetricTask.camera = camera
   volumetricTask.light = sunLight
   volumetricTask.targetTexture = mainTask.outputTexture
   volumetricTask.depthTexture = mainTask.outputDepthTexture
   volumetricTask.lightingVolumeMesh = lightingVolumeTask.outputMeshLightingVolume
   volumetricTask.phaseG = PHASE_G
-  volumetricTask.extinction = VOLUMETRIC_EXTINCTION
   volumetricTask.lightPower = new Color3(0, 0, 0)
   volumetricTask.disabled = true
   frameGraph.addTask(volumetricTask)
@@ -314,6 +308,8 @@ export async function createFrameGraphPipeline({
   scene.frameGraph = frameGraph
 
   const lightPower = new Color3()
+  /** 只警告一次，每一幀刷 console 會把真正的錯誤淹掉 */
+  let hasCheckedDepthTexture = false
 
   return {
     shadowGenerator: shadowTask.shadowGenerator,
@@ -331,6 +327,21 @@ export async function createFrameGraphPipeline({
         return
 
       /**
+       * 診斷：光體的遠平面是從陰影貼圖的「深度紋理」重建的
+       *
+       * WebGL2 的重建路徑整段包在 try/catch 裡，失敗不會有任何聲音，
+       * 只會讓遠平面的頂點永遠停在原點——畫面上就是一把從一點張開的扇形。
+       * 這裡替它把死因喊出來，console 有沒有這行字決定了下一步往哪走
+       */
+      if (!hasCheckedDepthTexture) {
+        hasCheckedDepthTexture = true
+        const shadowMap = shadowTask.shadowGenerator.getShadowMap()
+        if (!shadowMap?.depthStencilTexture) {
+          console.warn('[minespace] 陰影貼圖缺少深度紋理，光體的遠平面無法重建，體積光會退化成扇形')
+        }
+      }
+
+      /**
        * 光量跟著太陽的顏色走
        *
        * 日出是橘的、正午是白的，散射出來的光當然是同一個顏色。
@@ -346,10 +357,3 @@ export async function createFrameGraphPipeline({
     },
   }
 }
-
-/** 消光係數，三個通道給同一個值代表空氣不偏色 */
-const VOLUMETRIC_EXTINCTION = new Vector3(
-  VOLUMETRIC_EXTINCTION_VALUE,
-  VOLUMETRIC_EXTINCTION_VALUE,
-  VOLUMETRIC_EXTINCTION_VALUE,
-)
