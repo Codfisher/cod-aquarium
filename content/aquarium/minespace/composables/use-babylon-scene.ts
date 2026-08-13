@@ -314,6 +314,8 @@ function trackShadowToCamera(scene: Scene) {
 
   /** 取樣格的大小要照實際的貼圖尺寸算，低畫質那張只有一半寬 */
   let texelSize = 0
+  /** 上一次拿到的貼圖寬度，換過就得重算取樣格 */
+  let knownMapSize = 0
 
   scene.onBeforeRenderObservable.add(() => {
     const light = scene.getLightByName(SUN_LIGHT_NAME) as DirectionalLight | null
@@ -321,11 +323,13 @@ function trackShadowToCamera(scene: Scene) {
     if (!light || !camera)
       return
 
-    if (texelSize === 0) {
-      const mapSize = light.getShadowGenerator()?.getShadowMap()?.getSize().width
-      if (!mapSize)
-        return
+    const mapSize = light.getShadowGenerator()?.getShadowMap()?.getSize().width
+    if (!mapSize)
+      return
 
+    /** 貼圖尺寸換了就重算，不然會拿舊的格子去對齊新的貼圖 */
+    if (mapSize !== knownMapSize) {
+      knownMapSize = mapSize
       texelSize = (SHADOW_HALF_EXTENT * 2) / mapSize
     }
 
@@ -340,10 +344,23 @@ function trackShadowToCamera(scene: Scene) {
     right.normalize()
     Vector3.CrossToRef(forward, right, up)
 
-    /** 投影到光源的三軸上，橫向與縱向對齊取樣格；深度方向不必對齊 */
+    /**
+     * 投影到光源的三軸上，三軸都要對齊取樣格
+     *
+     * 橫向與縱向對齊是為了讓邊緣落在同一批取樣點上，這是老問題。
+     *
+     * 深度那一軸原本沒對齊，理由是「不影響取樣格的位置」——那是對的，
+     * 但它影響存進去的深度值。光源沿著光線連續前後移動時，
+     * 同一個表面每一幀被記下來的深度都差一點點，
+     * 而比較深度是有門檻的：那些剛好卡在門檻上的取樣點會在
+     * 「被自己擋住」與「沒被擋住」之間反覆翻面，看起來就是邊緣在閃。
+     *
+     * 三軸一起對齊之後，只要人沒有跨過一格取樣格，
+     * 整張陰影貼圖就是上一幀那一張，一個像素都不會變
+     */
     const alongRight = Math.round(Vector3.Dot(camera.position, right) / texelSize) * texelSize
     const alongUp = Math.round(Vector3.Dot(camera.position, up) / texelSize) * texelSize
-    const alongForward = Vector3.Dot(camera.position, forward)
+    const alongForward = Math.round(Vector3.Dot(camera.position, forward) / texelSize) * texelSize
 
     center.set(
       right.x * alongRight + up.x * alongUp + forward.x * alongForward,
