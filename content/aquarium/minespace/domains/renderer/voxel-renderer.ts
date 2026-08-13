@@ -401,11 +401,30 @@ class WorldRenderer {
 
     const blockId = Number(key.split('_')[0]) as BlockId
     const blockDef = BLOCK_DEFS[blockId]
+
+    /**
+     * 交叉立板的花草整個退出陰影
+     *
+     * 這種植株是兩片交叉的薄板，貼圖還是鏤空的，兩件事同時出問題：
+     *
+     * 投影：一片葉子在陰影貼圖上只佔不到一個取樣格。太陽一移動，
+     * 整張貼圖重新光柵化，那些細節每一幀落在不同的格子上，
+     * 有的幀畫得出來、有的幀整個消失，地上的影子就一直在閃。
+     *
+     * 接影：立板是直的，法線卻為了打光統一改成朝上（見 createCutoutMaterial），
+     * 法線偏移的方向因此完全不對，自我遮蔽的髒污躲不掉，
+     * 太陽一動就在葉面上爬。
+     *
+     * 兩邊都退出去之後，花草只吃平行光與環境光，明暗穩定，
+     * 也正好是 Minecraft 本來的樣子——那裡的草從來不投影子
+     */
+    const isThinPlant = blockDef?.shape === 'cross'
+
     /** 半透明的水面接陰影會變成一塊塊的黑洞，乾脆讓它不接 */
-    mesh.receiveShadows = blockDef?.receiveShadow !== false
+    mesh.receiveShadows = blockDef?.receiveShadow !== false && !isThinPlant
     /** 水、冰、玻璃這類半透明方塊不該擋光 */
     const isTransparent = blockDef?.alpha !== undefined && blockDef.alpha < 1
-    if (!isTransparent && blockDef?.castShadow !== false) {
+    if (!isTransparent && !isThinPlant && blockDef?.castShadow !== false) {
       this.shadowGenerator.addShadowCaster(mesh)
     }
   }

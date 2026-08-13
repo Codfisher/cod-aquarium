@@ -26,6 +26,7 @@ import {
 } from './atmosphere'
 import { createFallingLeaves } from './falling-leaves'
 import { createRainParticles } from './rain-particles'
+import { applySkyGradient } from './sky-gradient'
 import { createSwampMist } from './swamp-mist'
 
 /**
@@ -236,6 +237,8 @@ export function useWeather() {
     /** 壓暗過的天氣霧色，每幀就地覆寫，不要每幀配置新的顏色物件 */
     const nightMistColor = new Color3()
     const nightRainColor = new Color3()
+    /** 雨天往霧色靠攏後的天頂色，同樣就地覆寫 */
+    const rainZenithColor = new Color3()
 
     scene.onBeforeRenderObservable.add(() => {
       const deltaTime = Math.min(0.1, scene.getEngine().getDeltaTime() / 1000)
@@ -291,33 +294,25 @@ export function useWeather() {
       }
 
       /**
-       * 變天時千萬別把大氣散射的太陽養出來
+       * 雨天的天色
        *
-       * SkyMaterial 自己就會畫一顆圓太陽，平常靠散射參數壓著才看不見。
-       * 一旦調低 rayleigh、調亮 luminance，那顆圓太陽就會從方形太陽底下浮出來，
-       * 變天的過程中天上會同時掛著一圓一方。
-       * 所以雨天改成「散射更強、天更暗」：
-       * rayleigh 往上加讓陽光被散得更徹底，圓太陽自然被吃掉；
-       * mieCoefficient 隨 turbidity 反向縮小，讓米氏散射總量維持不變，
-       * 免得混濁度一拉高就在太陽周圍糊出一圈光暈
+       * 基準值由日夜循環決定，這裡只負責「比那個時刻再陰一點」，
+       * 不管當下是正午還是黃昏，疊上去的都是同一個方向的變化。
+       *
+       * 下雨時整片天往霧色靠攏：真正的陰天就是這樣，
+       * 天頂與天邊的分界被雲蓋掉，看上去是一片沒有層次的鉛灰。
+       * 霞光也要一起收掉——雲層背後的太陽不會在天上留下光暈
        */
-
       if (skyMaterial) {
-        /**
-         * 基準值由日夜循環決定，這裡只負責「比那個時刻再陰一點」
-         *
-         * 雨天是散射更強、天更暗，所以混濁度與瑞立散射往上加。
-         * 不管當下是正午還是黃昏，疊上去的都是同一個方向的變化
-         */
-        const turbidity = lerp(atmosphere.skyTurbidity, atmosphere.skyTurbidity * 1.85, rainRatio)
+        rainZenithColor.copyFrom(atmosphere.skyZenithColor)
+        Color3.LerpToRef(rainZenithColor, atmosphere.fogColor, rainRatio * 0.85, rainZenithColor)
 
-        skyMaterial.luminance = lerp(atmosphere.skyLuminance, atmosphere.skyLuminance * 1.3, rainRatio)
-
-        skyMaterial.turbidity = turbidity
-
-        skyMaterial.rayleigh = lerp(atmosphere.skyRayleigh, atmosphere.skyRayleigh * 1.6, rainRatio)
-
-        skyMaterial.mieCoefficient = 0.0005 * (6 / Math.max(1, turbidity))
+        applySkyGradient(skyMaterial, {
+          zenithColor: rainZenithColor,
+          horizonColor: atmosphere.fogColor,
+          glowColor: atmosphere.skyGlowColor,
+          glowStrength: atmosphere.skyGlowStrength * (1 - rainRatio),
+        })
       }
 
       /**

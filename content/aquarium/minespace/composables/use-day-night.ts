@@ -4,9 +4,9 @@ import type {
   DirectionalLight,
   Mesh,
   Scene,
+  ShaderMaterial,
   StandardMaterial,
 } from '@babylonjs/core'
-import type { SkyMaterial } from '@babylonjs/materials'
 import type { AtmosphereState } from '../domains/weather/atmosphere'
 import type { DayPhase } from '../domains/weather/day-night'
 import type { GodRays } from '../domains/weather/god-rays'
@@ -22,6 +22,7 @@ import {
   sampleDayNight,
   wrapTimeOfDay,
 } from '../domains/weather/day-night'
+import { applySkyGradient } from '../domains/weather/sky-gradient'
 import {
   getMoonMaterialList,
   getSkyMaterial,
@@ -233,9 +234,9 @@ export function useDayNight() {
     atmosphere.lightIntensity = sample.lightIntensity
     atmosphere.ambientIntensity = sample.ambientIntensity
     atmosphere.cloudBrightness = sample.cloudBrightness
-    atmosphere.skyLuminance = sample.skyLuminance
-    atmosphere.skyRayleigh = sample.skyRayleigh
-    atmosphere.skyTurbidity = sample.skyTurbidity
+    atmosphere.skyZenithColor.copyFrom(sample.skyZenithColor)
+    atmosphere.skyGlowColor.copyFrom(sample.skyGlowColor)
+    atmosphere.skyGlowStrength = sample.skyGlowStrength
   }
 
   /** 轉動平行光。強度與顏色留給漫遊控制器套用，那裡還要疊洞穴與陰天 */
@@ -305,22 +306,23 @@ export function useDayNight() {
     }
   }
 
-  /** 大氣散射：太陽的方位決定了整片天的漸層落在哪一邊 */
-  function applyToSky(skyMaterial: SkyMaterial | null): void {
+  /**
+   * 天色：太陽的方位決定霞光落在哪一邊
+   *
+   * 天邊直接用霧色。遠處的地面本來就被霧染成那個顏色，
+   * 天與地在地平線上用同一個顏色交會，接縫才會消失
+   */
+  function applyToSky(skyMaterial: ShaderMaterial | null): void {
     if (!skyMaterial)
       return
 
-    skyMaterial.sunPosition.copyFrom(sample.sunPosition).scaleInPlace(120)
-    skyMaterial.luminance = sample.skyLuminance
-    skyMaterial.rayleigh = sample.skyRayleigh
-    skyMaterial.turbidity = sample.skyTurbidity
-    /**
-     * 米氏散射隨混濁度反向縮小
-     *
-     * 不這麼做的話，混濁度一拉高就會在太陽周圍糊出一大圈光暈，
-     * 把自己畫的方形太陽整個吃掉
-     */
-    skyMaterial.mieCoefficient = 0.0005 * (6 / Math.max(1, sample.skyTurbidity))
+    applySkyGradient(skyMaterial, {
+      zenithColor: sample.skyZenithColor,
+      horizonColor: sample.fogColor,
+      glowColor: sample.skyGlowColor,
+      glowStrength: sample.skyGlowStrength,
+      sunDirection: sample.sunPosition,
+    })
   }
 
   /** 色調：夜裡偏冷、黃昏偏暖，曝光也跟著時刻走 */

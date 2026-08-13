@@ -1,3 +1,6 @@
+import type {
+  ShaderMaterial,
+} from '@babylonjs/core'
 import type { GraphicsQuality } from './use-graphics-quality'
 import {
   Camera,
@@ -24,7 +27,6 @@ import {
   Vector3,
   VertexData,
 } from '@babylonjs/core'
-import { SkyMaterial } from '@babylonjs/materials'
 import { useEventListener } from '@vueuse/core'
 import { defaults } from 'lodash-es'
 import { onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
@@ -37,6 +39,7 @@ import {
   SPAWN_POSITION,
 } from '../domains/garden/garden-layout'
 import { GARDEN_FOG_COLOR, GARDEN_FOG_END, GARDEN_FOG_START } from '../domains/weather/atmosphere'
+import { applySkyGradient, createSkyGradientMaterial } from '../domains/weather/sky-gradient'
 import { getGroundY } from '../domains/world/world-access'
 import { WORLD_SIZE } from '../domains/world/world-constants'
 import { createSeededRandom } from '../utils/noise'
@@ -251,43 +254,21 @@ const defaultParam: Required<UseBabylonSceneParam> = {
 /**
  * 天空罩
  *
- * SkyMaterial 會依大氣散射參數即時算出天色，
- * 比單一底色多了地平線漸層與太陽光暈，天氣變化也只要調參數
+ * 天色是調出來的，不是算出來的：天頂與天邊各一個顏色，
+ * 再往太陽的方向疊一團暖光。整套由日夜的顏色表驅動，
+ * 詳見 sky-gradient 裡的說明
  */
 function createSkyDome(scene: Scene) {
-  const skyMaterial = new SkyMaterial('sky-material', scene)
-  skyMaterial.backFaceCulling = false
-  /** 天空不吃霧氣，否則整片天會被霧染成一塊死板的顏色 */
-  skyMaterial.fogEnabled = false
-  skyMaterial.useSunPosition = true
-  skyMaterial.sunPosition = SUN_DIRECTION.scale(-120)
-  /**
-   * 大氣散射參數
-   *
-   * 霧是近乎純白的，遠處的東西一律被霧染白；它們背後若是飽和的藍天，
-   * 就會變成貼在藍色上的白色剪影，明明看不清楚卻反而看得一清二楚。
-   * 所以混濁度調高、瑞立散射調低：地平線那一圈變得灰白，
-   * 遠景融進去之後就真的看不見了，天頂才留住該有的藍
-   */
-  skyMaterial.luminance = 0.42
-  skyMaterial.turbidity = 14
-  skyMaterial.rayleigh = 0.75
-  /** 把大氣散射的太陽壓到幾乎看不見，太陽改由方形貼圖負責 */
-  skyMaterial.mieCoefficient = 0.0005
-  skyMaterial.mieDirectionalG = 0.05
+  const skyMaterial = createSkyGradientMaterial('sky-material', scene)
 
-  /**
-   * 天空罩不寫深度
-   *
-   * 這個盒子邊長只有 260，跟著鏡頭走，所以永遠在一百三十格外。
-   * 它照常寫深度的話，比它遠的東西全部會被擋掉——
-   * 世界之外那片白沙鋪了一千多格，超過一百三十格的部分會整片消失，
-   * 露出來的其實是天空罩地平線以下的顏色，看起來卻像遠方的地面變了色。
-   *
-   * 天空罩是所有東西的背景，關掉深度寫入，
-   * 它就只負責填底色，不會擋住任何東西
-   */
-  skyMaterial.disableDepthWrite = true
+  /** 還沒開始漫遊前的第一幀，日夜循環一起跑就會接手 */
+  applySkyGradient(skyMaterial, {
+    zenithColor: new Color3(0.3, 0.55, 0.92),
+    horizonColor: GARDEN_FOG_COLOR,
+    glowColor: new Color3(1, 0.97, 0.85),
+    glowStrength: 0.12,
+    sunDirection: SUN_DIRECTION.scale(-1),
+  })
 
   const skyDome = MeshBuilder.CreateBox(SKYBOX_NAME, { size: 260 }, scene)
   skyDome.material = skyMaterial
@@ -299,9 +280,9 @@ function createSkyDome(scene: Scene) {
 }
 
 /** 取得場景中的天空材質 */
-export function getSkyMaterial(scene: Scene): SkyMaterial | null {
+export function getSkyMaterial(scene: Scene): ShaderMaterial | null {
   const skyDome = scene.getMeshByName(SKYBOX_NAME)
-  return (skyDome?.material as SkyMaterial | undefined) ?? null
+  return (skyDome?.material as ShaderMaterial | undefined) ?? null
 }
 
 /**
@@ -419,8 +400,9 @@ function createSkyBodyMaterial(
 /**
  * Minecraft 風格的方形太陽
  *
- * SkyMaterial 自己會算出一顆帶光暈的圓太陽，那太寫實了。
- * 把它的散射壓掉，改掛一張正方形貼圖，才是方塊世界該有的太陽
+ * 大氣散射算出來的太陽是一顆帶光暈的圓球，那太寫實了。
+ * 天空只負責漸層與霞光，太陽本體改掛一張正方形貼圖，
+ * 才是方塊世界該有的樣子
  */
 function createSunDisc(scene: Scene) {
   /** 太陽本體：一張純白的方形貼圖，用 NEAREST 取樣保住硬邊 */
@@ -937,8 +919,9 @@ export function getSunMaterialList(scene: Scene): StandardMaterial[] {
 /**
  * 陰天罩
  *
- * 光靠調暗 SkyMaterial 沒辦法讓太陽消失，太陽是它算出來的一部分。
- * 直接在天空外面再罩一層灰，下雨時淡入把整片天蓋掉，就是名副其實的陰天
+ * 天空罩、太陽、月亮與星空是四層各自獨立的東西，
+ * 要讓它們一起消失，最省事的做法是在外面再罩一層灰：
+ * 下雨時淡入把整片天蓋掉，就是名副其實的陰天
  */
 function createOvercastDome(scene: Scene) {
   const material = new StandardMaterial('overcast-material', scene)

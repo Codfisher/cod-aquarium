@@ -47,10 +47,10 @@ export interface AtmosphereState {
   ambientIntensity: number;
   /** 雲的基準亮度 */
   cloudBrightness: number;
-  /** 大氣散射的基準參數 */
-  skyLuminance: number;
-  skyRayleigh: number;
-  skyTurbidity: number;
+  /** 天色的基準：天頂色、太陽周圍的暖光與其強度，天邊色直接用 baseFogColor */
+  skyZenithColor: Color3;
+  skyGlowColor: Color3;
+  skyGlowStrength: number;
 
   /**
    * 被地形包住的程度，0 為露天、1 為深入山腹
@@ -174,9 +174,9 @@ export function createAtmosphereState(): AtmosphereState {
     lightIntensity: 1.3,
     ambientIntensity: 0.82,
     cloudBrightness: 1,
-    skyLuminance: 0.55,
-    skyRayleigh: 1.6,
-    skyTurbidity: 6,
+    skyZenithColor: new Color3(0.28, 0.54, 0.98),
+    skyGlowColor: new Color3(1, 0.97, 0.85),
+    skyGlowStrength: 0.12,
     caveRatio: 0,
     skyBodyFade: 1,
   }
