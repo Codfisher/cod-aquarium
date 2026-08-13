@@ -41,6 +41,7 @@
       v-model:time-of-day="timeOfDay"
       v-model:auto-time="isAutoAdvance"
       v-model:day-speed="daySpeedRatio"
+      v-model:camera-fov="cameraFov"
       :open="menuVisible"
       :time-label="timeLabel"
       @resume="closeMenu()"
@@ -91,12 +92,13 @@ import type { Scene, UniversalCamera } from '@babylonjs/core'
 import type { VoxelRenderer } from '../renderer/voxel-renderer'
 import type { AudibleSound, SoundZone } from '../soundscape/type'
 import type { Landmark } from '../world/landmark'
+import { useStorage } from '@vueuse/core'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import AmbiencePanel from '../../components/ambience-panel.vue'
 import StartPanel from '../../components/start-panel.vue'
 import SystemMenu from '../../components/system-menu.vue'
 import TouchControlPanel from '../../components/touch-control-panel.vue'
-import { createCampfireSmoke, useBabylonScene } from '../../composables/use-babylon-scene'
+import { createCampfireSmoke, DEFAULT_CAMERA_FOV, useBabylonScene } from '../../composables/use-babylon-scene'
 import { useBlockLights } from '../../composables/use-block-lights'
 import { useDayNight } from '../../composables/use-day-night'
 import { useFpsController } from '../../composables/use-fps-controller'
@@ -226,6 +228,27 @@ const {
 const sheepFlock = useSheepFlock()
 const blockLights = useBlockLights()
 
+/**
+ * 鏡頭的視野角度
+ *
+ * 視野寬窄是很個人的事：寬的看得到兩側的木座、走起來有速度感，
+ * 窄的則像站定了在看一幅畫。記在瀏覽器裡，下次進來還是同一個視角
+ */
+const cameraFov = useStorage('minespace-camera-fov', DEFAULT_CAMERA_FOV)
+
+/**
+ * 不能加 immediate
+ *
+ * 這個 watch 寫在 useBabylonScene 之前，而 camera 是那一行才解構出來的。
+ * 立即執行會在 camera 還在暫時性死區時就去讀它，直接拋錯。
+ * 初始值改在 init 裡等鏡頭建好之後補套一次
+ */
+watch(cameraFov, (value) => {
+  if (camera.value) {
+    camera.value.fov = value
+  }
+})
+
 watch(weather, (current) => setWeather(current))
 
 /** 右上角與選單都用同一份讀數：時刻加上這個時段的名字 */
@@ -313,6 +336,9 @@ const { canvasRef, scene, camera, pipeline, initError } = useBabylonScene({
       atmosphere,
       isRunning: () => hasStarted.value && !isPaused.value && !isCursorFree.value,
     })
+
+    /** 鏡頭是在這之後才存在的，記在瀏覽器裡的視野要在這裡補套一次 */
+    cameraInstance.fov = cameraFov.value
 
     startController({
       scene: sceneInstance,

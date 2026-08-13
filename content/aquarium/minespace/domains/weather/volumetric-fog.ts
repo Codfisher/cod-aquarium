@@ -34,12 +34,34 @@ const FOG_DENSITY = 0.055
  *
  * 零是各向同性，越接近一越集中在光線前進的方向。
  * 空氣中的塵埃是強烈前向散射的——這正是為什麼
- * 逆著光看得到光束，順著光什麼都沒有
+ * 逆著光看得到光束，順著光什麼都沒有。
+ *
+ * 這個值不能照物理給。相位函數在正對太陽時的值是
+ * (1 - g²) / (4π(1 - g)³)，g 給 0.72 時峰值是 1.75，
+ * 而各向同性只有 0.08——差二十二倍。乘上累積的散射之後
+ * 紅色通道會衝到三以上，泛光再把它抹成一大片白，太陽整個糊掉。
+ *
+ * 收到 0.55，峰值降到 0.61，方向性還在，但不會一望向太陽就爆掉
  */
-const PHASE_G = 0.72
+const PHASE_G = 0.55
 
-/** 光束最強時的整體強度 */
-const MAX_INTENSITY = 1.35
+/**
+ * 光束最強時的整體強度
+ *
+ * 與上面的相位一起決定正對太陽時會加上多少光。
+ * 兩者相乘之後，逆光的峰值大約是 0.4，
+ * 那是「看得出空氣裡有光」而不是「太陽變成一團白」
+ */
+const MAX_INTENSITY = 0.45
+
+/**
+ * 散射的上限
+ *
+ * 保險絲。上面兩個值是憑眼睛調的，日後任何一個被調大，
+ * 或是某個角度剛好疊上太陽本身的光暈，都可能再爆一次。
+ * 封頂在這裡，畫面就永遠不會被這道效果洗白
+ */
+const MAX_SCATTER = 0.85
 
 const SHADER_NAME = 'minespaceVolumetricFog'
 
@@ -150,7 +172,15 @@ void main(void) {
 
   float phase = measurePhase(dot(rayDirection, -sunDirection), phaseG);
 
-  gl_FragColor = vec4(sceneColor + sunColor * inScatter * phase * intensity, 1.0);
+  /**
+   * 封頂
+   *
+   * 前向散射的峰值很尖，正對太陽時很容易把畫面推過泛光的門檻，
+   * 然後被抹成一大片白。這裡直接限制這道效果最多能加多少光
+   */
+  vec3 scatter = min(sunColor * inScatter * phase * intensity, vec3(${MAX_SCATTER}));
+
+  gl_FragColor = vec4(sceneColor + scatter, 1.0);
 }
 `
 

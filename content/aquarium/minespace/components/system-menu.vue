@@ -81,6 +81,22 @@
       </div>
 
       <div class="menu-section">
+        <label class="menu-label">
+          {{ t('fieldOfView') }}
+          <span class="menu-value">{{ Math.round(cameraFov * 180 / Math.PI) }}°</span>
+        </label>
+
+        <input
+          v-model.number="cameraFov"
+          type="range"
+          :min="CAMERA_FOV_RANGE[0]"
+          :max="CAMERA_FOV_RANGE[1]"
+          step="0.01"
+          class="volume-slider"
+        >
+      </div>
+
+      <div class="menu-section">
         <label class="menu-label">{{ t('graphicsQuality') }}</label>
         <div class="button-row">
           <button
@@ -148,6 +164,7 @@
 <script setup lang="ts">
 import type { Landmark } from '../domains/world/landmark'
 import { computed } from 'vue'
+import { CAMERA_FOV_RANGE } from '../composables/use-babylon-scene'
 import { useGraphicsQuality } from '../composables/use-graphics-quality'
 import { useSimpleI18n } from '../composables/use-simple-i18n'
 import { getDayLengthSecond } from '../domains/weather/day-night'
@@ -174,6 +191,8 @@ const timeOfDay = defineModel<number>('timeOfDay', { required: true })
 const isAutoTime = defineModel<boolean>('autoTime', { required: true })
 /** 一天走多快，0 為最緩、1 為最快 */
 const daySpeedRatio = defineModel<number>('daySpeed', { required: true })
+/** 鏡頭的視野角度（弧度） */
+const cameraFov = defineModel<number>('cameraFov', { required: true })
 
 const { quality } = useGraphicsQuality()
 const landmarkList = LANDMARK_LIST
@@ -199,6 +218,7 @@ const { locale, t } = useSimpleI18n({
     dayLength: '一天',
     minute: '分',
     second: '秒',
+    fieldOfView: '視野',
     graphicsQuality: '畫面等級',
     high: '高',
     low: '低',
@@ -218,6 +238,7 @@ const { locale, t } = useSimpleI18n({
     dayLength: 'One day',
     minute: 'min',
     second: 'sec',
+    fieldOfView: 'Field of view',
     graphicsQuality: 'Graphics',
     high: 'High',
     low: 'Low',

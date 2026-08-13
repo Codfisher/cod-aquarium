@@ -126,6 +126,17 @@ export const AMBIENT_INTENSITY = 0.82
 export const SUN_INTENSITY = 1.3
 
 /**
+ * 鏡頭的視野角度（弧度）
+ *
+ * Babylon 預設是 0.8，那個視角很窄，走在箱庭之間會像從管子裡看出去。
+ * 一點一五大約是六十六度，寬到看得見兩側的木座，
+ * 又還沒到廣角鏡那種邊緣被拉長的程度
+ */
+export const DEFAULT_CAMERA_FOV = 1.15
+/** 視野的可調範圍（弧度），大約是四十六度到九十七度 */
+export const CAMERA_FOV_RANGE: [number, number] = [0.8, 1.7]
+
+/**
  * 陰影涵蓋範圍的半邊長
  *
  * 只需要罩住鏡頭附近走得到、看得清楚的那一塊。
@@ -229,8 +240,7 @@ const defaultParam: Required<UseBabylonSceneParam> = {
     camera.minZ = 0.1
     /** 要看得到延伸到天邊的沙地 */
     camera.maxZ = 1600
-    /** 擴大 FOV 讓視野寬廣一些（預設 0.8） */
-    camera.fov = 1.15
+    camera.fov = DEFAULT_CAMERA_FOV
     updateCameraFovMode(camera, canvas)
 
     return camera
