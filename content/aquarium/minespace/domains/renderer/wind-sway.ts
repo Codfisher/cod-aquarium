@@ -38,6 +38,17 @@ const WIND_DIRECTION: [number, number] = [0.94, 0.34]
 const WIND_SPEED = 2.6
 
 /**
+ * 寫成 GLSL 的浮點字面值
+ *
+ * 直接把數字內插進著色器有個陷阱：常數若哪天被調成整數，
+ * JS 會印出「3」，而 GLSL 的 3 是 int，vec2 乘 int 直接編譯失敗。
+ * 一律補到小數點後三位，改成什麼值都不會踩到
+ */
+function toGlslFloat(value: number): string {
+  return value.toFixed(3)
+}
+
+/**
  * 每一株自己的抖動
  *
  * 只有陣風的話，同一小塊裡的草會整齊得像一塊布。
@@ -47,9 +58,16 @@ const WIND_SPEED = 2.6
 const FLUTTER_AMPLITUDE = 0.035
 const FLUTTER_SPEED = 2.2
 
+/**
+ * 這裡不要自己宣告 windTime
+ *
+ * 它已經登記在 getUniforms 的 ubo 裡，Babylon 會把宣告注入
+ * 材質的 uniform 區塊（頂點與片段兩支都會拿到）。
+ * 在這裡再寫一次 uniform float windTime 就是重複宣告，
+ * 著色器編譯直接失敗——而編譯失敗的材質不會報錯，只會整批不畫，
+ * 畫面上看到的就是「所有的草突然消失」
+ */
 const VERTEX_DEFINITIONS = `
-uniform float windTime;
-
 /**
  * 柏林噪聲
  *
@@ -98,7 +116,7 @@ const VERTEX_UPDATE_POSITION = `
     vec3 plantOrigin = vec3(0.0);
   #endif
 
-  vec2 windDirection = normalize(vec2(${WIND_DIRECTION[0]}, ${WIND_DIRECTION[1]}));
+  vec2 windDirection = normalize(vec2(${toGlslFloat(WIND_DIRECTION[0])}, ${toGlslFloat(WIND_DIRECTION[1])}));
 
   /**
    * 取樣點隨時間往風的方向退，噪聲場因此像一陣風掃過草原
@@ -106,14 +124,14 @@ const VERTEX_UPDATE_POSITION = `
    * 兩層疊起來：大的那層是一陣一陣的強弱，
    * 小的那層讓陣與陣之間不會是同一個形狀
    */
-  vec2 samplePoint = plantOrigin.xz * ${WIND_FIELD_SCALE}
-    - windDirection * windTime * ${WIND_FIELD_SCALE} * ${WIND_SPEED};
+  vec2 samplePoint = plantOrigin.xz * ${toGlslFloat(WIND_FIELD_SCALE)}
+    - windDirection * windTime * ${toGlslFloat(WIND_FIELD_SCALE)} * ${toGlslFloat(WIND_SPEED)};
   float gust = windNoise(samplePoint) * 0.68
     + windNoise(samplePoint * 2.3 + 17.0) * 0.32;
 
   /** 每一株自己的細碎顫動，相位由它的座標決定 */
   float flutterPhase = plantOrigin.x * 1.7 + plantOrigin.z * 2.3;
-  float flutter = sin(windTime * ${FLUTTER_SPEED} + flutterPhase);
+  float flutter = sin(windTime * ${toGlslFloat(FLUTTER_SPEED)} + flutterPhase);
 
   /**
    * 越高擺得越開
@@ -125,7 +143,7 @@ const VERTEX_UPDATE_POSITION = `
   float height = clamp(positionUpdated.y + 0.5, 0.0, 1.0);
   float leverage = height * height;
 
-  vec2 sway = windDirection * (gust * ${SWAY_AMPLITUDE} + flutter * ${FLUTTER_AMPLITUDE}) * leverage;
+  vec2 sway = windDirection * (gust * ${toGlslFloat(SWAY_AMPLITUDE)} + flutter * ${toGlslFloat(FLUTTER_AMPLITUDE)}) * leverage;
 
   positionUpdated.x += sway.x;
   positionUpdated.z += sway.y;
@@ -152,10 +170,15 @@ class WindSwayPlugin extends MaterialPluginBase {
     return 'WindSwayPlugin'
   }
 
+  /**
+   * 只登記 ubo，不要再給 vertex 宣告字串
+   *
+   * 兩個都給的話 Babylon 會照單全收：ubo 那份注入 uniform 區塊、
+   * vertex 那份原樣貼進頂點著色器，同一個名字宣告兩次
+   */
   getUniforms() {
     return {
       ubo: [{ name: 'windTime', size: 1, type: 'float' }],
-      vertex: 'uniform float windTime;',
     }
   }
 
