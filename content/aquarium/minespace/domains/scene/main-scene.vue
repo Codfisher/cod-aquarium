@@ -71,6 +71,23 @@
       <div class="status-readout">
         {{ Math.round(fps) }} FPS
       </div>
+
+      <!--
+        效能面板
+
+        幀率只說「慢」，不說「慢在哪」。F3 打開才建立計時器，
+        平常一毫秒都不花
+      -->
+      <div
+        v-if="probeVisible"
+        class="status-readout probe-readout"
+      >
+        <div>{{ probe.drawCallCount }} draw</div>
+        <div>{{ probe.frameMs.toFixed(1) }} ms 幀</div>
+        <div>{{ probe.meshSelectionMs.toFixed(2) }} ms 挑選</div>
+        <div>{{ probe.renderTargetMs.toFixed(2) }} ms 陰影</div>
+        <div>{{ probe.particleMs.toFixed(2) }} ms 粒子</div>
+      </div>
     </div>
 
     <div
@@ -92,7 +109,7 @@ import type { Scene, UniversalCamera } from '@babylonjs/core'
 import type { VoxelRenderer } from '../renderer/voxel-renderer'
 import type { AudibleSound, SoundZone } from '../soundscape/type'
 import type { Landmark } from '../world/landmark'
-import { useStorage } from '@vueuse/core'
+import { useEventListener, useStorage } from '@vueuse/core'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import AmbiencePanel from '../../components/ambience-panel.vue'
 import StartPanel from '../../components/start-panel.vue'
@@ -103,6 +120,7 @@ import { useBlockLights } from '../../composables/use-block-lights'
 import { useDayNight } from '../../composables/use-day-night'
 import { useFpsController } from '../../composables/use-fps-controller'
 import { useMobileController } from '../../composables/use-mobile-controller'
+import { usePerformanceProbe } from '../../composables/use-performance-probe'
 import { useSimpleI18n } from '../../composables/use-simple-i18n'
 import { useSheepFlock } from '../fauna/use-sheep-flock'
 import { getGardenAt } from '../garden/garden-layout'
@@ -174,6 +192,19 @@ const currentZone = ref<SoundZone | null>(null)
  * 有個讀數才判斷得出「卡」是幀率問題還是別的原因
  */
 const fps = ref(0)
+
+/**
+ * 效能面板
+ *
+ * F3 開關，沿用方塊遊戲的老規矩。
+ * 平常不建立計時器，量測本身也是要錢的
+ */
+const {
+  visible: probeVisible,
+  reading: probe,
+  toggle: toggleProbe,
+  update: updateProbe,
+} = usePerformanceProbe()
 
 const {
   isMobile,
@@ -372,6 +403,17 @@ function trackFps(sceneInstance: Scene) {
     elapsed = 0
     fps.value = sceneInstance.getEngine().getFps()
   })
+
+  sceneInstance.onBeforeRenderObservable.add(() => updateProbe(sceneInstance))
+
+  useEventListener(window, 'keydown', (event: KeyboardEvent) => {
+    if (event.code !== 'F3')
+      return
+
+    /** F3 在瀏覽器是「尋找下一個」，這裡要攔下來 */
+    event.preventDefault()
+    toggleProbe(sceneInstance)
+  })
 }
 
 /** 定時更新玩家所在的箱庭，不需要每幀重算 */
@@ -481,6 +523,15 @@ onBeforeUnmount(() => {
   gap: 5px
   pointer-events: none
   user-select: none
+
+/** 效能面板的數字要能上下對齊掃過去，等寬字體是必要的 */
+.probe-readout
+  display: flex
+  flex-direction: column
+  gap: 2px
+  font-family: ui-monospace, monospace
+  font-size: 12px
+  line-height: 1.35
 
 .status-readout
   padding: 3px 8px
