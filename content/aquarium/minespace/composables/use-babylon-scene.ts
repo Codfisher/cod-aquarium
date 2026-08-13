@@ -163,8 +163,16 @@ const defaultParam: Required<UseBabylonSceneParam> = {
    * 這個場景也吃不到 WebGPU 的效能優勢，穩定優先。
    */
   async createEngine({ canvas }) {
-    return new Engine(canvas, true, {
-      antialias: true,
+    /**
+     * 不要開 canvas 的多重取樣
+     *
+     * 場景是畫進 DefaultRenderingPipeline 的離屏貼圖，
+     * canvas 那份 MSAA 緩衝區只接得到最後那一張全螢幕方塊——
+     * 上面沒有任何幾何邊緣可以抗鋸齒，等於白配置一份記憶體與頻寬。
+     * 真正在做抗鋸齒的是管線裡的 FXAA
+     */
+    return new Engine(canvas, false, {
+      antialias: false,
       alpha: false,
       stencil: false,
       preserveDrawingBuffer: false,
@@ -1308,7 +1316,15 @@ function createRenderingPipeline(scene: Scene, camera: UniversalCamera) {
   pipeline.bloomThreshold = 2.2
   pipeline.bloomWeight = 0.2
   pipeline.bloomKernel = 48
-  pipeline.bloomScale = 0.5
+  /**
+   * 泛光的成本在「整張畫面要多處理幾遍」，不在模糊的半徑
+   *
+   * 官方論壇量過：關掉泛光是五成五的 GPU，核心給 64 是滿載，
+   * 而核心收到 1 仍然是九成——調 bloomKernel 幾乎沒有用。
+   * 真正有效的是這個縮放：0.25 代表泛光在四分之一解析度上跑，
+   * 像素量直接剩四分之一。泛光本來就是一團糊開的光，看不出差別
+   */
+  pipeline.bloomScale = 0.25
 
   pipeline.fxaaEnabled = true
 

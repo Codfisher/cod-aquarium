@@ -892,7 +892,19 @@ class WorldRenderer {
         }
 
         entry.mesh.isVisible = true
-        entry.mesh.thinInstanceSetBuffer('matrix', matrixBuffer, 16, false)
+        /**
+         * 第四個參數是「這份緩衝區是靜態的」
+         *
+         * 這裡原本傳 false，等於告訴 Babylon 之後還會改它，
+         * 於是 GPU 緩衝區以 DYNAMIC_DRAW 配置。
+         * 但這些矩陣是 Worker 一次算好的，設完就再也不動——
+         * 一路撐到世界被釋放為止。
+         *
+         * 代價不是一點點：驅動層對動態緩衝區會另外做搬運與反交錯，
+         * 官方論壇有一個兩百五十萬個面的實測，只改這個旗標
+         * 就從十五幀變成六十幀
+         */
+        entry.mesh.thinInstanceSetBuffer('matrix', matrixBuffer, 16, true)
 
         /**
          * 每個實例一個顏色，著色器會拿去乘上貼圖顏色
@@ -900,7 +912,7 @@ class WorldRenderer {
          * 遮蔽算好之後直接烘進緩衝區，執行期沒有任何額外成本
          */
         if (shadeBuffer && shadeBuffer.length / 4 === matrixBuffer.length / 16) {
-          entry.mesh.thinInstanceSetBuffer('color', shadeBuffer, 4, false)
+          entry.mesh.thinInstanceSetBuffer('color', shadeBuffer, 4, true)
         }
 
         /**
@@ -909,6 +921,19 @@ class WorldRenderer {
          * 方塊之後不會再變，往後每一幀都不必再同步一次
          */
         entry.mesh.doNotSyncBoundingInfo = true
+        /**
+         * 這兩個旗標必須成對出現
+         *
+         * doNotSyncBoundingInfo 單獨用會讓網格整個消失：
+         * 邊界盒不再更新，視錐剔除卻照樣拿它去判斷，
+         * 判成「不在畫面裡」就整批不畫了。
+         *
+         * 而對 thin instance 來說剔除本來就幫不上忙：
+         * 一顆網格的邊界盒是它所有實例的聯集，在體素世界裡
+         * 通常橫跨整座場景，永遠剔不掉——那幾百次測試是白做的。
+         * 直接說「一律當成看得見」，省下測試也順便修掉消失的風險
+         */
+        entry.mesh.alwaysSelectAsActiveMesh = true
       }
     }
 
