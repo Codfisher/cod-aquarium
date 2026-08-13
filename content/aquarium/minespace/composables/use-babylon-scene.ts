@@ -1308,30 +1308,25 @@ function createRenderingPipeline(scene: Scene, camera: UniversalCamera) {
   pipeline.imageProcessing.colorCurvesEnabled = true
 
   /**
-   * 泛光的門檻要高過「被曬到的地面」
+   * 泛光關掉
    *
-   * 泛光是在色調映射之前跑的，看到的是線性值。
-   * 這個場景的光是滿的：陽光 1.3 加上環境光 0.82，
-   * 白沙的反照率又接近 1，被曬到的沙算出來大約是一點九——
-   * 門檻擺在 0.86 等於整片地、整片霧、連藍天的藍通道都在發光，
-   * 模糊之後往四周滲，最明顯的就是天地交界那一圈白暈。
+   * 這是量出來的決定，不是取捨。
    *
-   * 門檻拉到兩點二，被曬到的沙就退出去了，
-   * 只剩太陽本體與燈火那種真正過亮的東西還會發光
+   * 泛光跑在色調映射之前，看到的是線性值。這個場景的光是滿的，
+   * 被曬到的白沙算出來大約一點九，門檻原本擺在 0.86 等於整片地、
+   * 整片霧、連藍天的藍通道都在發光，天地交界因此糊出一圈白暈。
+   * 為了治那圈白暈，門檻被拉到兩點二——
+   * 但那個高度已經超過場景裡最亮的東西，於是泛光什麼都沒做。
+   *
+   * 而它的成本是無條件的：不管有沒有東西夠亮，那三趟全螢幕的
+   * 取樣、模糊與合併每一幀都要跑（官方論壇量過，關掉泛光是
+   * 五成五的 GPU、開著就滿載，連把模糊半徑收到 1 都還有九成）。
+   *
+   * 一個什麼都沒做卻每幀收費的效果，就該關掉。
+   * 日後若想要燈火在夜裡發光，該做的是把門檻降到燈火那一階，
+   * 而不是把它一直開著
    */
-  pipeline.bloomEnabled = true
-  pipeline.bloomThreshold = 2.2
-  pipeline.bloomWeight = 0.2
-  pipeline.bloomKernel = 48
-  /**
-   * 泛光的成本在「整張畫面要多處理幾遍」，不在模糊的半徑
-   *
-   * 官方論壇量過：關掉泛光是五成五的 GPU，核心給 64 是滿載，
-   * 而核心收到 1 仍然是九成——調 bloomKernel 幾乎沒有用。
-   * 真正有效的是這個縮放：0.25 代表泛光在四分之一解析度上跑，
-   * 像素量直接剩四分之一。泛光本來就是一團糊開的光，看不出差別
-   */
-  pipeline.bloomScale = 0.25
+  pipeline.bloomEnabled = false
 
   pipeline.fxaaEnabled = true
 
@@ -1554,8 +1549,7 @@ export function useBabylonScene(param?: UseBabylonSceneParam) {
     engine.value.setHardwareScalingLevel(getHardwareScalingLevel(newQuality, devicePixelRatio))
 
     if (pipeline.value) {
-      /** 低畫質保留色調映射，關掉比較吃資源的泛光與抗鋸齒 */
-      pipeline.value.bloomEnabled = newQuality !== 'low'
+      /** 低畫質保留色調映射，關掉比較吃資源的抗鋸齒 */
       pipeline.value.fxaaEnabled = newQuality !== 'low'
     }
 
@@ -1590,7 +1584,6 @@ export function useBabylonScene(param?: UseBabylonSceneParam) {
       })
       shadowGenerator.value = createShadowGenerator({ scene: scene.value })
       pipeline.value = createRenderingPipeline(scene.value, camera.value)
-      pipeline.value.bloomEnabled = quality.value !== 'low'
       pipeline.value.fxaaEnabled = quality.value !== 'low'
 
       useEventListener(window, 'resize', handleResize)
