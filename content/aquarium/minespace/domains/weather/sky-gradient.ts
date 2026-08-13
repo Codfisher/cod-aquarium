@@ -50,11 +50,14 @@ uniform float glowStrength;
 /**
  * 天頂色往下收的速度
  *
- * 二點二會讓天邊那條漸層鋪開大約二十度，
- * 抬頭三十度就已經有一半是天頂色了——與真實的天空接近，
- * 也不會讓天邊的顏色淹到頭頂上
+ * 天邊用的是霧色，而這片禪庭的霧幾乎是純白。
+ * 這個數字要是小的，那片白會從地平線一路淹上來十幾度，
+ * 在藍天底下鋪成一條又寬又亮的白帶——那正是原本刺眼的那一條。
+ *
+ * 收到六，白只留在地平線上方五度左右：
+ * 遠景照樣融得進去，抬頭卻馬上是藍天
  */
-const float HORIZON_FALLOFF = 2.2;
+const float HORIZON_FALLOFF = 6.0;
 
 void main() {
   vec3 direction = normalize(vDirection);
@@ -75,12 +78,18 @@ void main() {
    *
    * 兩層疊起來：緊的那層是太陽外圍那一圈亮，
    * 鬆的那層鋪滿太陽那半邊天。
-   * 鬆的那層還要隨高度收掉，霞光才會積在天邊而不是糊上天頂
+   * 鬆的那層還要隨高度收掉，霞光才會積在天邊而不是糊上天頂。
+   *
+   * 混色，不是相加。
+   * 相加的話，天邊本來就接近純白的霧色再加上一團暖光就會衝破一，
+   * 太陽貼近地平線時整片天糊成一大團白，霞色反而不見了。
+   * 混色有天花板：再濃也只會濃到霞光本身的顏色，
+   * 於是日落是「整片天燒成橘色」而不是「整片天燒成白色」
    */
   float towardSun = max(dot(direction, sunDirection), 0.0);
   float lowSky = 1.0 - smoothstep(0.0, 0.6, upward);
   float halo = pow(towardSun, 18.0) * 0.55 + pow(towardSun, 2.5) * 0.45 * lowSky;
-  color += glowColor * halo * glowStrength;
+  color = mix(color, glowColor, clamp(halo * glowStrength, 0.0, 1.0));
 
   /**
    * 打散色階

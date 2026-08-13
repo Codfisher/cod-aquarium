@@ -1273,9 +1273,21 @@ function createRenderingPipeline(scene: Scene, camera: UniversalCamera) {
   pipeline.imageProcessing.colorCurves = new ColorCurves()
   pipeline.imageProcessing.colorCurvesEnabled = true
 
+  /**
+   * 泛光的門檻要高過「被曬到的地面」
+   *
+   * 泛光是在色調映射之前跑的，看到的是線性值。
+   * 這個場景的光是滿的：陽光 1.3 加上環境光 0.82，
+   * 白沙的反照率又接近 1，被曬到的沙算出來大約是一點九——
+   * 門檻擺在 0.86 等於整片地、整片霧、連藍天的藍通道都在發光，
+   * 模糊之後往四周滲，最明顯的就是天地交界那一圈白暈。
+   *
+   * 門檻拉到兩點二，被曬到的沙就退出去了，
+   * 只剩太陽本體與燈火那種真正過亮的東西還會發光
+   */
   pipeline.bloomEnabled = true
-  pipeline.bloomThreshold = 0.86
-  pipeline.bloomWeight = 0.22
+  pipeline.bloomThreshold = 2.2
+  pipeline.bloomWeight = 0.2
   pipeline.bloomKernel = 48
   pipeline.bloomScale = 0.5
 
