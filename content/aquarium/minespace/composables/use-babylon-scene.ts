@@ -38,12 +38,16 @@ import {
   CAVE_TUNNEL,
   SPAWN_POSITION,
 } from '../domains/garden/garden-layout'
+import { createGlowTexture } from '../domains/renderer/glow-texture'
+import { registerAerialPerspective } from '../domains/weather/aerial-perspective'
 import { GARDEN_FOG_COLOR, GARDEN_FOG_END, GARDEN_FOG_START } from '../domains/weather/atmosphere'
 import { applyCloudColor, createCloudMaterial } from '../domains/weather/cloud-material'
+import { createColorGradeTexture } from '../domains/weather/color-grade'
 import { applySkyGradient, createSkyGradientMaterial } from '../domains/weather/sky-gradient'
 import { getGroundY } from '../domains/world/world-access'
 import { WORLD_SIZE } from '../domains/world/world-constants'
 import { createSeededRandom } from '../utils/noise'
+import { useDevToggles } from './use-dev-toggles'
 import { useGraphicsQuality } from './use-graphics-quality'
 import { measureSection } from './use-performance-probe'
 
@@ -180,6 +184,15 @@ const defaultParam: Required<UseBabylonSceneParam> = {
     })
   },
   createScene({ engine }) {
+    /**
+     * 大氣透視要搶在所有材質之前掛上
+     *
+     * 材質外掛是靠「材質被建立」這個事件自己接上去的，
+     * 註冊晚一步，先建好的那幾份材質就永遠收不到——
+     * 畫面上會看到部分方塊有兩層空氣、部分只有單色霧
+     */
+    registerAerialPerspective()
+
     const scene = new Scene(engine)
 
     scene.clearColor = new Color4(GARDEN_FOG_COLOR.r, GARDEN_FOG_COLOR.g, GARDEN_FOG_COLOR.b, 1)
@@ -228,6 +241,7 @@ const defaultParam: Required<UseBabylonSceneParam> = {
     scene.setRenderingAutoClearDepthStencil(WEATHER_RENDERING_GROUP, false)
 
     trackShadowToCamera(scene)
+    trackDevToggles(scene)
     createSkyDome(scene)
     createStarField(scene)
     createSunDisc(scene)
@@ -259,6 +273,26 @@ const defaultParam: Required<UseBabylonSceneParam> = {
     return camera
   },
   init: () => Promise.resolve(),
+}
+
+/**
+ * 除錯開關裡直接掛在場景上的那幾項
+ *
+ * 日月的光暈是兩顆有名字的網格，關掉就是把它們藏起來。
+ * 每一幀查兩個布林是不划算的，但這是除錯用的路徑，
+ * 開關要立刻反應才有意義——而它的成本也就只有兩次查詢
+ */
+function trackDevToggles(scene: Scene) {
+  const { state } = useDevToggles()
+
+  scene.onBeforeRenderObservable.add(() => {
+    for (const name of [SUN_GLOW_NAME, MOON_GLOW_NAME]) {
+      const mesh = scene.getMeshByName(name)
+      if (mesh && mesh.isEnabled(false) !== state.skyGlow) {
+        mesh.setEnabled(state.skyGlow)
+      }
+    }
+  })
 }
 
 /**
@@ -462,42 +496,44 @@ function createSunDisc(scene: Scene) {
   return material
 }
 
+/**
+ * 光暈的網格半徑要對應貼圖的內切圓
+ *
+ * 圓盤的 UV 是「邊緣落在貼圖內切圓上」，而放射狀漸層的外徑正是那個圓。
+ * 所以圓盤半徑等於原本方片邊長的一半，暈的大小才不會變
+ */
+function createGlowMesh(name: string, planeSize: number, scene: Scene): Mesh {
+  /**
+   * 用圓盤，不要用方片
+   *
+   * 光暈的衰減是放射狀的，網格的形狀本來就該跟著它。
+   * 方片的四個角落在衰減曲線之外，那一圈永遠是浪費掉的片元；
+   * 更要緊的是，一旦邊界上還剩下任何一點亮度，
+   * 露出來的會是一個方形——而圓盤露出來的至少是一圈圓
+   */
+  const mesh = MeshBuilder.CreateDisc(
+    name,
+    { radius: planeSize / 2, tessellation: 48 },
+    scene,
+  )
+  mesh.isPickable = false
+  mesh.applyFog = false
+  mesh.infiniteDistance = true
+  mesh.billboardMode = Mesh.BILLBOARDMODE_ALL
+
+  return mesh
+}
+
 /** 太陽外圍的光暈，讓方形太陽不至於像貼上去的白紙 */
 function createSunGlow(scene: Scene) {
-  const size = 128
-  const texture = new DynamicTexture(SUN_GLOW_NAME, { width: size, height: size }, scene, false)
-  const context = texture.getContext() as CanvasRenderingContext2D
-
-  /**
-   * 衰減要畫在顏色上，不能畫在透明度上
-   *
-   * 天體走的是相加混合，透明度在那條路上完全不起作用——
-   * 只有顏色會被加上去。漸層若照一般寫法讓 alpha 從 0.85 收到 0，
-   * 顏色卻一路維持在同一個亮度，畫出來就是一塊亮度均勻的圓餅，
-   * 邊緣還有一道硬生生的界線，那正是太陽與月亮外圍那一圈白圈的來源。
-   *
-   * 所以這裡把該有的透明度先乘進顏色裡，一路收到全黑；
-   * 黑色加上去等於沒加，暈開的效果自然就出來了
-   */
-  const gradient = context.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2)
-  gradient.addColorStop(0, 'rgb(217, 211, 182)')
-  gradient.addColorStop(0.35, 'rgb(77, 73, 59)')
-  gradient.addColorStop(0.7, 'rgb(20, 19, 15)')
-  gradient.addColorStop(1, 'rgb(0, 0, 0)')
-  context.fillStyle = gradient
-  context.fillRect(0, 0, size, size)
-  texture.update()
+  const texture = createGlowTexture(SUN_GLOW_NAME, scene, [217, 211, 182])
 
   const material = createSkyBodyMaterial(`${SUN_GLOW_NAME}-material`, texture, scene)
   material.emissiveColor = new Color3(1, 1, 1)
 
-  const glow = MeshBuilder.CreatePlane(SUN_GLOW_NAME, { size: 48 }, scene)
+  const glow = createGlowMesh(SUN_GLOW_NAME, 48, scene)
   glow.material = material
   glow.position = SUN_DIRECTION.scale(-112)
-  glow.infiniteDistance = true
-  glow.billboardMode = Mesh.BILLBOARDMODE_ALL
-  glow.isPickable = false
-  glow.applyFog = false
 
   return material
 }
@@ -587,30 +623,14 @@ function createMoonDisc(scene: Scene) {
 
 /** 月亮外圍那一圈冷色的暈，夜裡的空氣感靠它 */
 function createMoonGlow(scene: Scene) {
-  const size = 128
-  const texture = new DynamicTexture(MOON_GLOW_NAME, { width: size, height: size }, scene, false)
-  const context = texture.getContext() as CanvasRenderingContext2D
-
-  /** 與太陽的光暈同一個道理：衰減乘進顏色裡，一路收到全黑 */
-  const gradient = context.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2)
-  gradient.addColorStop(0, 'rgb(103, 112, 128)')
-  gradient.addColorStop(0.4, 'rgb(34, 38, 46)')
-  gradient.addColorStop(0.7, 'rgb(10, 11, 14)')
-  gradient.addColorStop(1, 'rgb(0, 0, 0)')
-  context.fillStyle = gradient
-  context.fillRect(0, 0, size, size)
-  texture.update()
+  const texture = createGlowTexture(MOON_GLOW_NAME, scene, [103, 112, 128])
 
   const material = createSkyBodyMaterial(`${MOON_GLOW_NAME}-material`, texture, scene)
   material.emissiveColor = new Color3(1, 1, 1)
 
-  const glow = MeshBuilder.CreatePlane(MOON_GLOW_NAME, { size: 40 }, scene)
+  const glow = createGlowMesh(MOON_GLOW_NAME, 40, scene)
   glow.material = material
   glow.position = SUN_DIRECTION.scale(112)
-  glow.infiniteDistance = true
-  glow.billboardMode = Mesh.BILLBOARDMODE_ALL
-  glow.isPickable = false
-  glow.applyFog = false
 
   return material
 }
@@ -1308,6 +1328,32 @@ function createRenderingPipeline(scene: Scene, camera: UniversalCamera) {
   pipeline.imageProcessing.colorCurvesEnabled = true
 
   /**
+   * 色彩分級
+   *
+   * 上面那條曲線管的是「這一刻的天色」，一整天都在漂；
+   * 這張立體查找表管的是「這個世界長什麼調子」，一整天都不動。
+   *
+   * 順序剛好對得上：影像處理的著色器是先套查找表、再套色調曲線，
+   * 所以這裡定的是底色，日夜在那個底上面漂。詳見 color-grade
+   */
+  pipeline.imageProcessing.colorGradingTexture = createColorGradeTexture(scene)
+  pipeline.imageProcessing.colorGradingEnabled = true
+
+  /**
+   * 打散色階
+   *
+   * 天空那個著色器自己已經加過雜訊了，但那是在它那一層。
+   * 畫面之後還要經過色調映射、查找表與色調曲線，出來時重新量化成八位元，
+   * 一整片從天頂到天邊的漸層又會浮出一圈圈的等高線。
+   *
+   * 以前這件事有一半是 FXAA 順手做掉的——它把落差大的地方抹開，
+   * 色階的邊界剛好也算落差。抗鋸齒換成多重取樣之後那個副作用沒了，
+   * 得由這一項正面處理。成本是每個像素一次雜訊，
+   * 換來的是肉眼看不見的顆粒取代看得見的圈
+   */
+  pipeline.imageProcessing.ditheringEnabled = true
+
+  /**
    * 泛光關掉
    *
    * 這是量出來的決定，不是取捨。
@@ -1328,9 +1374,38 @@ function createRenderingPipeline(scene: Scene, camera: UniversalCamera) {
    */
   pipeline.bloomEnabled = false
 
-  pipeline.fxaaEnabled = true
+  /**
+   * 抗鋸齒交給多重取樣，不要用 FXAA
+   *
+   * 這兩者處理的根本不是同一件事。FXAA 是一道後製：它拿畫好的成品去找
+   * 亮度落差大的地方，再把那一帶抹開。它分不出「這條邊是幾何的邊緣」
+   * 還是「這是貼圖上本來就該有的兩格不同顏色的像素」——
+   * 而這個世界的貼圖是十六格見方的像素畫，滿滿都是後者。
+   * 開著 FXAA 等於把整片牆的圖案輕輕糊掉一層，
+   * 那正是這套美術最不該失去的東西。
+   *
+   * 多重取樣則發生在光柵化的當下，只對真正的幾何邊緣多取幾個樣本：
+   * 方塊的稜線平順了，貼圖一個像素都沒被動到。
+   *
+   * 代價是它得配置一份多重取樣的緩衝區、每一幀多一次解析。
+   * 低畫質維持原樣（兩者都不開），那裡本來就在跟頻寬計較
+   */
+  pipeline.fxaaEnabled = false
 
   return pipeline
+}
+
+/**
+ * 幾何邊緣的取樣數
+ *
+ * 四倍是甜蜜點：方塊的斜稜線已經看不出階梯，
+ * 再往上加只換得到量不出來的差別，頻寬卻是線性成長
+ */
+const HIGH_QUALITY_SAMPLE_COUNT = 4
+
+/** 依畫質決定多重取樣的樣本數，一是關閉 */
+function getSampleCount(quality: GraphicsQuality): number {
+  return quality === 'low' ? 1 : HIGH_QUALITY_SAMPLE_COUNT
 }
 
 /**
@@ -1352,6 +1427,49 @@ function getHardwareScalingLevel(quality: GraphicsQuality, devicePixelRatio: num
   return 1 / Math.min(devicePixelRatio, 1.5)
 }
 
+/**
+ * 接觸硬化時，光源在陰影貼圖上佔多寬
+ *
+ * 這個數字就是「太陽有多大」。太陽在天上只張開半度，
+ * 給得太大，一根柱子離地兩格影子就散得看不出形狀；
+ * 給得太小則與硬邊的 PCF 沒有分別。
+ * 這裡的投影範圍是八十格見方，0.05 換算下來大約是四格的光源直徑——
+ * 貼著地的那一段仍然銳利，樹冠那一段已經化開
+ */
+const CONTACT_HARDENING_LIGHT_SIZE = 0.05
+
+/**
+ * 陰影的濾波方式
+ *
+ * 高畫質走接觸硬化（PCSS）：先找出擋在前面的是什麼、離得多遠，
+ * 再依那段距離決定要模糊多寬。影子因此在物體的根部是銳利的、
+ * 離遠了才散開——鳥居的柱腳、樹幹的底部會真的「站」在地上，
+ * 而不是浮在一片同樣柔軟的灰上。
+ *
+ * 這是整份清單裡最貴的一項：中等品質是十六次遮蔽搜尋加三十二次比較，
+ * 大約是原本 PCF 五乘五的兩倍。所以只給高畫質，
+ * 低畫質維持最省的那條路。要退回去的話，把這裡換成
+ * usePercentageCloserFiltering 就是原本的樣子
+ */
+function applyShadowFiltering(shadowGenerator: ShadowGenerator, quality: GraphicsQuality): void {
+  if (quality === 'low') {
+    shadowGenerator.usePercentageCloserFiltering = true
+    shadowGenerator.filteringQuality = ShadowGenerator.QUALITY_LOW
+    return
+  }
+
+  shadowGenerator.useContactHardeningShadow = true
+  shadowGenerator.contactHardeningLightSizeUVRatio = CONTACT_HARDENING_LIGHT_SIZE
+  /**
+   * 用中等，不用高等
+   *
+   * 高等是三十二次遮蔽搜尋加六十四次比較，那個級距是給
+   * 「畫面上只有幾樣東西」的展示場景用的。這裡整片視野都是方塊，
+   * 中等已經看不出顆粒，成本只有一半
+   */
+  shadowGenerator.filteringQuality = ShadowGenerator.QUALITY_MEDIUM
+}
+
 /** 直螢幕時以寬度為基準計算 FOV，避免鏡頭過度放大 */
 function updateCameraFovMode(camera: UniversalCamera, canvas: HTMLCanvasElement) {
   const isPortrait = canvas.clientHeight > canvas.clientWidth
@@ -1365,7 +1483,21 @@ function createShadowGenerator({ scene }: { scene: Scene }) {
   sunLight.intensity = SUN_INTENSITY
   /** 午後的暖色陽光，跟偏冷的環境光形成色溫差 */
   sunLight.diffuse = new Color3(1, 0.93, 0.78)
-  sunLight.specular = new Color3(0.1, 0.1, 0.1)
+  /**
+   * 高光給滿，讓材質自己決定要反射多少
+   *
+   * 這裡原本是 0.1。乘上方塊材質的 0.08 之後只剩 0.008——
+   * 也就是整個場景實質上沒有高光這回事。
+   * 那在只有乾方塊的時候看不出問題，但高光是這套渲染裡
+   * 唯一能突破亮度上限的通道（漫射與自發光在乘上貼圖之前
+   * 就被夾在 1.0，高光則是加在那道 clamp 外面的），
+   * 濕掉的木板與水面能不能真的反出一道光，全靠它。
+   *
+   * 所以光源這一端給滿，「這個表面有多亮」交還給各自的材質：
+   * 乾方塊 0.02 幾乎是霧面、淋濕的表面 0.42、水面 0.8。
+   * 高光也會跟著光源強度縮放，所以夜裡的月光只留下很淡的一道
+   */
+  sunLight.specular = new Color3(1, 1, 1)
 
   /**
    * 陰影只照顧鏡頭附近那一塊
@@ -1450,15 +1582,15 @@ function createShadowGenerator({ scene }: { scene: Scene }) {
   shadowGenerator.darkness = 0.05
 
   /**
-   * 一律用 PCF，不用指數陰影
+   * 不用指數陰影
    *
    * 這不只是畫質取捨。投影範圍現在只罩住鏡頭附近九十六格，
    * 範圍外的地面照樣要決定自己有沒有被遮住——
-   * PCF 的著色器對範圍外會直接回傳「全亮」，這正是我們要的；
-   * 指數陰影那條路沒有這個判斷，範圍外會取到邊界的深度值，
-   * 於是遠處的沙地會浮出一圈莫名其妙的陰影
+   * PCF 與接觸硬化的著色器對範圍外都會直接回傳「全亮」，
+   * 這正是我們要的；指數陰影那條路沒有這個判斷，
+   * 範圍外會取到邊界的深度值，於是遠處的沙地會浮出一圈莫名其妙的陰影
    */
-  shadowGenerator.usePercentageCloserFiltering = true
+  applyShadowFiltering(shadowGenerator, quality.value)
   /**
    * 投影範圍的邊緣淡出
    *
@@ -1466,25 +1598,6 @@ function createShadowGenerator({ scene }: { scene: Scene }) {
    * 讓陰影在接近邊緣時逐漸淡掉，那條線就融進去了
    */
   shadowGenerator.frustumEdgeFalloff = 0.2
-
-  if (quality.value === 'low') {
-    shadowGenerator.filteringQuality = ShadowGenerator.QUALITY_LOW
-  }
-  else {
-    /**
-     * 用高等濾波
-     *
-     * 這裡曾經是中等，理由是「QUALITY_HIGH 的取樣範圍大約有半格寬，
-     * 草葉的影子會整條被平均掉」——那個算法是投影範圍還罩著整個世界時
-     * 留下來的。範圍收到八十格見方之後，一個取樣格只有 0.039 格，
-     * 高等的五乘五核心換算成世界座標也才 0.2 格，草葉的影子撐得住。
-     *
-     * 換上去是為了太陽移動時的邊緣抖動：光源一轉，取樣格跟著轉，
-     * 邊緣必然重新取樣。硬邊會讓每一次重新取樣都看得一清二楚，
-     * 邊緣柔一點，那些跳動就融進過渡帶裡了
-     */
-    shadowGenerator.filteringQuality = ShadowGenerator.QUALITY_HIGH
-  }
 
   /**
    * 陰影貼圖必須每一幀重畫，不要再試著降更新率
@@ -1541,6 +1654,34 @@ export function useBabylonScene(param?: UseBabylonSceneParam) {
 
   const initError = ref<string>()
 
+  const { state: devToggle } = useDevToggles()
+
+  /**
+   * 除錯開關：管線與陰影那幾項
+   *
+   * 這幾樣都是設一個屬性就生效的，用 watch 接就好，
+   * 不必像光暈那樣每一幀去查
+   */
+  watch(
+    () => [devToggle.colorGrade, devToggle.dithering, devToggle.multiSample, devToggle.contactShadow],
+    () => {
+      if (pipeline.value) {
+        pipeline.value.imageProcessing.colorGradingEnabled = devToggle.colorGrade
+        pipeline.value.imageProcessing.ditheringEnabled = devToggle.dithering
+        pipeline.value.samples = devToggle.multiSample ? getSampleCount(quality.value) : 1
+        /** 關掉多重取樣時補回 FXAA，才比較得出兩者的差別 */
+        pipeline.value.fxaaEnabled = !devToggle.multiSample && quality.value !== 'low'
+      }
+
+      if (shadowGenerator.value) {
+        applyShadowFiltering(
+          shadowGenerator.value,
+          devToggle.contactShadow ? quality.value : 'low',
+        )
+      }
+    },
+  )
+
   watch(quality, (newQuality) => {
     if (!engine.value)
       return
@@ -1549,16 +1690,14 @@ export function useBabylonScene(param?: UseBabylonSceneParam) {
     engine.value.setHardwareScalingLevel(getHardwareScalingLevel(newQuality, devicePixelRatio))
 
     if (pipeline.value) {
-      /** 低畫質保留色調映射，關掉比較吃資源的抗鋸齒 */
-      pipeline.value.fxaaEnabled = newQuality !== 'low'
+      /** 低畫質保留色調映射，關掉比較吃頻寬的多重取樣 */
+      pipeline.value.samples = getSampleCount(newQuality)
     }
 
     if (!shadowGenerator.value)
       return
 
-    shadowGenerator.value.filteringQuality = newQuality === 'low'
-      ? ShadowGenerator.QUALITY_LOW
-      : ShadowGenerator.QUALITY_HIGH
+    applyShadowFiltering(shadowGenerator.value, newQuality)
   })
 
   onMounted(async () => {
@@ -1584,7 +1723,7 @@ export function useBabylonScene(param?: UseBabylonSceneParam) {
       })
       shadowGenerator.value = createShadowGenerator({ scene: scene.value })
       pipeline.value = createRenderingPipeline(scene.value, camera.value)
-      pipeline.value.fxaaEnabled = quality.value !== 'low'
+      pipeline.value.samples = getSampleCount(quality.value)
 
       useEventListener(window, 'resize', handleResize)
       useEventListener(canvasRef, 'webglcontextlost', (event) => {

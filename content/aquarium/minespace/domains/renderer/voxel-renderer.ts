@@ -44,6 +44,10 @@ export const CONNECT_DIRECTION_LIST = [
 export interface VoxelRenderer {
   /** 依目前 worldState 建構所有區塊 */
   build: (worldState: Uint8Array) => Promise<void>;
+  /** 淋得到雨、也淋濕得起來的那些材質 */
+  getWetMaterialList: () => StandardMaterial[];
+  /** 開關水面的日照高光，除錯面板用 */
+  setWaterGlintEnabled: (isEnabled: boolean) => void;
   /** 釋放所有資源 */
   dispose: () => void;
 }
@@ -194,7 +198,14 @@ export function createPixelMaterial(
     material.diffuseTexture = texture
   }
 
-  material.specularColor = new Color3(0.08, 0.08, 0.08)
+  /**
+   * 乾方塊幾乎不反光
+   *
+   * 平行光的高光已經給滿（見 use-babylon-scene），
+   * 所以這個值就是「這種表面有多亮」本身。石頭、泥土與木頭
+   * 都是霧面的，留一點點只是讓斜射的陽光在稜線上帶出一絲厚度
+   */
+  material.specularColor = new Color3(0.02, 0.02, 0.02)
   material.backFaceCulling = false
   /** 太陽、環境光，再加上洞裡的幾盞燈 */
   material.maxSimultaneousLights = 6
@@ -361,6 +372,10 @@ class WorldRenderer {
   private pendingMatrixMap = new Map<string, Float32Array[]>()
   private pendingShadeMap = new Map<string, Float32Array[]>()
   private receivedChunkCount = 0
+  /** 淋得濕的材質。同一份材質可能掛在好幾片網格上，用 Set 去重 */
+  private wetMaterialSet = new Set<StandardMaterial>()
+  /** 會反日光的液體材質，除錯開關要拿它比對有沒有高光的差別 */
+  private liquidMaterialList: StandardMaterial[] = []
 
   constructor(
     private scene: Scene,
@@ -398,6 +413,29 @@ class WorldRenderer {
     else {
       this.initSingleMaterialMesh(blockId, blockDef, blockDef.textures)
     }
+  }
+
+  /**
+   * 記下這份材質淋不淋得濕
+   *
+   * 得在建網格的當下決定：這裡是唯一同時握有
+   * 「方塊是哪一種」與「它用了哪一份材質」的地方。
+   *
+   * 三種東西要排除。半透明的水、冰與玻璃本來就是濕的，
+   * 再壓暗一次只會變成一塊髒玻璃；鏤空的花草沒有高光可言
+   * （它們的高光被刻意關成零），壓暗漫射只會讓整片草黑掉；
+   * 會自己發亮的燈火則是光源，光源不會因為淋雨而變暗
+   */
+  private collectWetMaterial(blockId: BlockId, material: StandardMaterial): void {
+    const blockDef = BLOCK_DEFS[blockId]
+    if (!blockDef)
+      return
+
+    const isTransparent = blockDef.alpha !== undefined && blockDef.alpha < 1
+    if (isTransparent || blockDef.cutout || (blockDef.emissive ?? 0) > 0)
+      return
+
+    this.wetMaterialSet.add(material)
   }
 
   /** 網格一建好就設定陰影，改成延後建立之後沒有「事後統一處理」的時機了 */
@@ -447,6 +485,7 @@ class WorldRenderer {
     mesh.freezeWorldMatrix()
     mesh.isPickable = false
     this.applyShadowSetting(key, mesh)
+    this.collectWetMaterial(Number(key.split('_')[0]) as BlockId, material)
 
     const entryList = this.allEntries.get(key) ?? []
     entryList.push({ mesh, material })
@@ -794,6 +833,22 @@ class WorldRenderer {
       material.emissiveColor = new Color3(blockDef.emissive, blockDef.emissive, blockDef.emissive)
     }
 
+    /**
+     * 水面反日光
+     *
+     * 水的法線已經統一改成朝上（flatShaded），整池水因此是一個
+     * 光學上的平面：太陽在上面只會反出一個點，人一走那個點就跟著移。
+     * 那道光是靜水最有說服力的東西——比任何波紋貼圖都有效。
+     *
+     * 指數給得很高，高光才收得緊。散開的高光是磨砂玻璃，
+     * 不是水。而它加在漫射的 clamp 外面，所以正午時真的會刺眼
+     */
+    if (blockDef.isLiquid) {
+      material.specularColor = new Color3(0.8, 0.82, 0.85)
+      material.specularPower = 160
+      this.liquidMaterialList.push(material)
+    }
+
     if (blockDef.alpha !== undefined && blockDef.alpha < 1) {
       material.alpha = blockDef.alpha
       material.transparencyMode = Material.MATERIAL_ALPHABLEND
@@ -944,6 +999,26 @@ class WorldRenderer {
     this.pendingShadeMap.clear()
   }
 
+  getWetMaterialList(): StandardMaterial[] {
+    return [...this.wetMaterialSet]
+  }
+
+  /**
+   * 水面高光的開關
+   *
+   * 高光是加在漫射的 clamp 外面的，也就是全場唯一能超過純白的通道。
+   * 關掉之後水面就回到與別的方塊一樣的霧面，正午那道刺眼的反光會消失
+   */
+  setWaterGlintEnabled(isEnabled: boolean): void {
+    for (const material of this.liquidMaterialList) {
+      material.specularColor.set(
+        isEnabled ? 0.8 : 0.02,
+        isEnabled ? 0.82 : 0.02,
+        isEnabled ? 0.85 : 0.02,
+      )
+    }
+  }
+
   dispose(): void {
     /** 一份材質可能掛在好幾個網格上（例如水的滿格與水面），只能釋放一次 */
     const materialSet = new Set<StandardMaterial>()
@@ -959,6 +1034,8 @@ class WorldRenderer {
       material.dispose()
     }
     this.allEntries.clear()
+    this.wetMaterialSet.clear()
+    this.liquidMaterialList.length = 0
   }
 }
 
@@ -1006,6 +1083,8 @@ export function createVoxelRenderer(
 
   return {
     build: (worldState: Uint8Array) => chunkWorker.rebuildAll(worldState),
+    getWetMaterialList: () => worldRenderer.getWetMaterialList(),
+    setWaterGlintEnabled: (isEnabled: boolean) => worldRenderer.setWaterGlintEnabled(isEnabled),
     dispose() {
       chunkWorker.terminate()
       worldRenderer.dispose()

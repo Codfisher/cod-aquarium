@@ -21,8 +21,9 @@
 
     <ambience-panel
       v-if="hasStarted"
-      :audible-list="displayAudibleList"
+      :audible-list="audibleList"
       :zone="currentZone"
+      @toggle-mute="toggleSoundMute"
     />
 
     <touch-control-panel
@@ -134,6 +135,8 @@
       </div>
     </div>
 
+    <dev-panel v-if="hasStarted && devPanelVisible" />
+
     <div
       v-if="initError"
       class="absolute inset-0 bg-black/90 flex flex-col items-center justify-center text-white z-60 p-8"
@@ -150,30 +153,37 @@
 
 <script setup lang="ts">
 import type { Scene, UniversalCamera } from '@babylonjs/core'
+import type { PondMirror } from '../garden/pond-mirror'
+import type { LampGlow } from '../renderer/lamp-glow'
 import type { VoxelRenderer } from '../renderer/voxel-renderer'
-import type { AudibleSound, SoundZone } from '../soundscape/type'
+import type { SoundZone } from '../soundscape/type'
 import type { Landmark } from '../world/landmark'
 import { useEventListener, useStorage } from '@vueuse/core'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import AmbiencePanel from '../../components/ambience-panel.vue'
+import DevPanel from '../../components/dev-panel.vue'
 import StartPanel from '../../components/start-panel.vue'
 import SystemMenu from '../../components/system-menu.vue'
 import TouchControlPanel from '../../components/touch-control-panel.vue'
 import { createCampfireSmoke, DEFAULT_CAMERA_FOV, useBabylonScene } from '../../composables/use-babylon-scene'
 import { useBlockLights } from '../../composables/use-block-lights'
 import { useDayNight } from '../../composables/use-day-night'
+import { useDevToggles } from '../../composables/use-dev-toggles'
 import { useFpsController } from '../../composables/use-fps-controller'
 import { useMobileController } from '../../composables/use-mobile-controller'
 import { usePerformanceProbe } from '../../composables/use-performance-probe'
 import { useSimpleI18n } from '../../composables/use-simple-i18n'
 import { useSheepFlock } from '../fauna/use-sheep-flock'
 import { getGardenAt } from '../garden/garden-layout'
+import { createPondMirror } from '../garden/pond-mirror'
 import { createSandField } from '../garden/sand-field'
 import { findSafeStandingPosition } from '../player/collision'
+import { createLampGlow } from '../renderer/lamp-glow'
 import { createVoxelRenderer } from '../renderer/voxel-renderer'
 import { useSoundscape } from '../soundscape/use-soundscape'
 import { createGodRays } from '../weather/god-rays'
 import { useWeather } from '../weather/use-weather'
+import { collectLightSourceList } from '../world/light-source'
 import { useChunkWorker } from '../world/use-chunk-worker'
 import { useTerrainWorker } from '../world/use-terrain-worker/use-terrain-worker'
 import { castRainRay, createWorldState } from '../world/world-access'
@@ -214,6 +224,8 @@ const FPS_UPDATE_INTERVAL = 0.5
 
 let worldState = createWorldState()
 let renderer: VoxelRenderer | null = null
+let lampGlow: LampGlow | null = null
+let pondMirror: PondMirror | null = null
 
 const isWorldReady = ref(false)
 const hasStarted = ref(false)
@@ -276,6 +288,8 @@ const {
 const {
   start: startSoundscape,
   setWeather,
+  triggerSound,
+  toggleSoundMute,
   audibleList,
   masterVolume,
   isMuted,
@@ -284,7 +298,6 @@ const {
 const {
   start: startWeather,
   weather,
-  rainStrength,
   atmosphere,
 } = useWeather()
 
@@ -292,6 +305,7 @@ const {
   start: startDayNight,
   setTimeOfDay,
   getDayRatio,
+  getTimeOfDay,
   timeOfDay: currentTimeOfDay,
   isAutoAdvance,
   daySpeedRatio,
@@ -302,6 +316,23 @@ const {
 
 const sheepFlock = useSheepFlock()
 const blockLights = useBlockLights()
+
+/**
+ * 除錯用的效果開關
+ *
+ * F4 叫出來，每一項對應一個看得見的效果。
+ * 畫面上冒出說不上來的東西時，一項一項關掉就知道是誰做的
+ */
+const {
+  visible: devPanelVisible,
+  state: devToggle,
+  togglePanel: toggleDevPanel,
+} = useDevToggles()
+
+/** 水面高光是材質層的東西，開關要等渲染器建好才有得改 */
+watch(() => devToggle.waterGlint, (isEnabled) => {
+  renderer?.setWaterGlintEnabled(isEnabled)
+})
 
 /**
  * 鏡頭的視野角度
@@ -340,28 +371,6 @@ const timeOfDay = computed({
   set: (value: number) => setTimeOfDay(value),
 })
 
-/**
- * HUD 顯示的音源清單
- *
- * 雨聲不是空間音源，不在音景清單裡，這裡補進去讓混音表完整
- */
-const displayAudibleList = computed<AudibleSound[]>(() => {
-  if (rainStrength.value < 0.02) {
-    return audibleList.value
-  }
-
-  return [
-    {
-      id: 'weather-rain',
-      title: { 'zh-hant': '落雨', 'en': 'Falling rain' },
-      zone: 'rainvale',
-      loudness: Math.min(1, rainStrength.value * 2),
-      distance: 0,
-    },
-    ...audibleList.value,
-  ]
-})
-
 const { canvasRef, scene, camera, pipeline, initError } = useBabylonScene({
   async init({ scene: sceneInstance, camera: cameraInstance, canvas }) {
     const terrainWorker = useTerrainWorker()
@@ -375,8 +384,34 @@ const { canvasRef, scene, camera, pipeline, initError } = useBabylonScene({
     /** 方塊做的沙只到世界邊界，外面那片得等渲染器準備好材質再接上去 */
     createSandField(sceneInstance)
 
-    sheepFlock.start({ scene: sceneInstance, worldState, camera: cameraInstance })
+    /** 水鏡池的天空倒影，走近才畫 */
+    pondMirror = createPondMirror(sceneInstance, cameraInstance)
+
+    sheepFlock.start({ scene: sceneInstance, worldState, camera: cameraInstance, getDayRatio })
     createCampfireSmoke(sceneInstance, worldState)
+
+    /**
+     * 世界裡的燈火只掃這一次
+     *
+     * 真光與夜裡的光暈用的是同一份清單，兩者本來就是同一盞燈的兩種表現
+     */
+    const lightSourceList = collectLightSourceList(worldState)
+
+    /**
+     * 燈火的光暈
+     *
+     * 方塊的自發光只讓燈自己看起來是亮的，光並沒有溢出它的邊界。
+     * 夜裡在每一盞燈前面掛一片面向鏡頭的加法圓盤，光才會溢出來。
+     *
+     * 要帶鏡頭進去：圓盤得每一幀往鏡頭的方向挪出方塊之外，
+     * 否則整團暈會被它自己那顆燈籠擋在後面
+     */
+    lampGlow = createLampGlow({
+      scene: sceneInstance,
+      camera: cameraInstance,
+      sourceList: lightSourceList,
+      getDayRatio,
+    })
 
     /**
      * 燈池：燈籠與營火的真光
@@ -388,7 +423,7 @@ const { canvasRef, scene, camera, pipeline, initError } = useBabylonScene({
     blockLights.start({
       scene: sceneInstance,
       camera: cameraInstance,
-      worldState,
+      sourceList: lightSourceList,
       getDayRatio,
     })
 
@@ -452,12 +487,18 @@ function trackFps(sceneInstance: Scene) {
   sceneInstance.onAfterRenderObservable.add(() => updateProbe(sceneInstance))
 
   useEventListener(window, 'keydown', (event: KeyboardEvent) => {
-    if (event.code !== 'F3')
+    if (event.code === 'F3') {
+      /** F3 在瀏覽器是「尋找下一個」，這裡要攔下來 */
+      event.preventDefault()
+      toggleProbe(sceneInstance)
       return
+    }
 
-    /** F3 在瀏覽器是「尋找下一個」，這裡要攔下來 */
-    event.preventDefault()
-    toggleProbe(sceneInstance)
+    /** F4 接在效能面板旁邊：一個看「慢在哪」、一個看「這是誰畫的」 */
+    if (event.code === 'F4') {
+      event.preventDefault()
+      toggleDevPanel()
+    }
   })
 }
 
@@ -511,7 +552,13 @@ async function handleStart() {
     scene: scene.value,
     camera: camera.value as UniversalCamera,
     isSheltered: () => isUnderground.value,
+    /** 閃電歸天氣，雷聲歸聽雨亭，這裡只是把兩邊接起來 */
+    playThunder: (volume) => triggerSound('rainvale-thunder', volume),
     castRainRay: (blockX, blockZ) => castRainRay(worldState, blockX, blockZ),
+    getDayRatio,
+    getTimeOfDay,
+    /** 雨停之後要慢慢乾回去的那些表面，水與花草不在其中 */
+    wetMaterialList: renderer?.getWetMaterialList() ?? [],
   })
 
   resume()
@@ -540,6 +587,8 @@ function handleTravel(landmark: Landmark) {
 }
 
 onBeforeUnmount(() => {
+  lampGlow?.dispose()
+  pondMirror?.dispose()
   renderer?.dispose()
 })
 </script>

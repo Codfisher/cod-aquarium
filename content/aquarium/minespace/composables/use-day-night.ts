@@ -415,6 +415,8 @@ export function useDayNight() {
     clockText,
     /** 給音景讀的即時值，不走 Vue 的反應式，免得每幀都在觸發更新 */
     getDayRatio: () => sample.dayRatio,
+    /** 同上，晨霧要靠它認出天亮前的那一段 */
+    getTimeOfDay: () => currentTime,
     isNight: computed(() => dayRatio.value < 0.5),
   }
 }

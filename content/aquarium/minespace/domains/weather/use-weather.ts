@@ -1,21 +1,25 @@
-import type { Scene, StaticSound, UniversalCamera } from '@babylonjs/core'
+import type { Scene, StandardMaterial, UniversalCamera } from '@babylonjs/core'
+import type { GardenId } from '../garden/garden-layout'
 import type { Weather } from '../soundscape/type'
+import type { AirMotes } from './air-motes'
 import type { AtmosphereState } from './atmosphere'
 import type { FallingLeaves } from './falling-leaves'
+import type { GroundMist } from './ground-mist'
 import type { RainParticles } from './rain-particles'
 import type { SwampMist } from './swamp-mist'
-import { Color3, CreateSoundAsync } from '@babylonjs/core'
+import type { Wetness } from './wetness'
+import { Color3 } from '@babylonjs/core'
 import { onBeforeUnmount, ref } from 'vue'
-import { getAudioEngine } from '../../composables/use-audio-engine'
 import {
   getCloudMaterialList,
   getOvercastMaterial,
   getSkyMaterial,
 } from '../../composables/use-babylon-scene'
+import { useDevToggles } from '../../composables/use-dev-toggles'
 import { useGraphicsQuality } from '../../composables/use-graphics-quality'
 import { measureSection } from '../../composables/use-performance-probe'
 import { getGarden } from '../garden/garden-layout'
-import { getSoundUrl } from '../soundscape/sound-data'
+import { createAirMotes } from './air-motes'
 import {
   CLEAR_ATMOSPHERE,
   createAtmosphereState,
@@ -26,9 +30,11 @@ import {
 } from './atmosphere'
 import { applyCloudColor } from './cloud-material'
 import { createFallingLeaves } from './falling-leaves'
+import { createGroundMist, getDawnMistRatio } from './ground-mist'
 import { createRainParticles } from './rain-particles'
 import { applySkyGradient } from './sky-gradient'
 import { createSwampMist } from './swamp-mist'
+import { createWetness } from './wetness'
 
 /**
  * 常年下雨的區域
@@ -41,33 +47,49 @@ import { createSwampMist } from './swamp-mist'
  * 兩座雨區給的是同一場雨的兩種身分：
  * 聽雨亭沒有屋頂，走進去就是淋在身上；
  * 雨聽堂有屋頂，走進去是聽著雨而自己是乾的。
- * 同一套天氣，因為造景不同而成為兩件事
+ * 同一套天氣，因為造景不同而成為兩件事。
+ *
+ * 共用的只有看得到的那一半：雨絲、陰天、霧、地濕。
+ * 聲音一律不共用，各庭在 sound-data 自己種。
+ * 這裡曾經掛過一道全域的雨聲，兩座雨區聽起來因此一模一樣——
+ * 那道雨底一響，箱庭自己種的雨就被蓋掉了，
+ * 「兩種身分」只剩畫面上成立。雨聲要各種各的，這條不要再破
  */
-const RAIN_ZONE_LIST = [
-  {
-    garden: getGarden('rainvale'),
-    /** 過渡帶留得比木座本身還寬，走近時雨是慢慢大起來的 */
-    falloff: 14,
-  },
-  {
-    garden: getGarden('rainhall'),
-    /**
-     * 收得比聽雨亭緊
-     *
-     * 這座的重點在屋簷下那一圈，雨要下得剛好蓋住屋子與滴水線。
-     * 攤太開的話，從外面走過來時屋子還沒進到眼裡就已經在淋雨，
-     * 「進屋躲雨」那一下的對比就沒了
-     */
-    falloff: 9,
-  },
-].map(({ garden, falloff }) => ({
-  x: garden.center.x,
-  z: garden.center.z,
-  /** 這個半徑內是傾盆大雨，剛好蓋住整座木座 */
-  innerRadius: garden.halfSize + 1,
-  /** 超過這個半徑就完全放晴 */
-  outerRadius: garden.halfSize + falloff,
-}))
+function createRainZone(gardenId: GardenId, falloff: number) {
+  const garden = getGarden(gardenId)
+
+  return {
+    x: garden.center.x,
+    z: garden.center.z,
+    /** 這個半徑內是傾盆大雨，剛好蓋住整座木座 */
+    innerRadius: garden.halfSize + 1,
+    /** 超過這個半徑就完全放晴 */
+    outerRadius: garden.halfSize + falloff,
+  }
+}
+
+/** 過渡帶留得比木座本身還寬，走近時雨是慢慢大起來的 */
+const RAINVALE_ZONE = createRainZone('rainvale', 14)
+
+/**
+ * 收得比聽雨亭緊
+ *
+ * 這座的重點在屋簷下那一圈，雨要下得剛好蓋住屋子與滴水線。
+ * 攤太開的話，從外面走過來時屋子還沒進到眼裡就已經在淋雨，
+ * 「進屋躲雨」那一下的對比就沒了
+ */
+const RAINHALL_ZONE = createRainZone('rainhall', 9)
+
+const RAIN_ZONE_LIST = [RAINVALE_ZONE, RAINHALL_ZONE]
+
+/**
+ * 打雷只發生在聽雨亭
+ *
+ * 雷是一場大雨的戲劇性，屬於那座露天的、淋在身上的箱庭。
+ * 雨聽堂要的是坐著聽雨那種安穩，一聲驚雷會把它整個打散——
+ * 同一場雨，兩座箱庭本來就該是兩件事
+ */
+const THUNDER_ZONE = RAINVALE_ZONE
 
 /**
  * 終年起霧的沼澤
@@ -98,13 +120,43 @@ const FLASH_DURATION_SECOND = 0.35
  */
 const THUNDER_DELAY_RANGE_SECOND: [number, number] = [0.4, 3.4]
 
+/**
+ * 淋濕的速度（每秒）
+ *
+ * 走進雨裡兩秒左右就濕透了。這一段不必慢——
+ * 站在傾盆大雨裡而地還是乾的，那才奇怪
+ */
+const WET_SOAK_SPEED = 0.5
+
+/**
+ * 乾掉的速度（每秒）
+ *
+ * 這一段要慢，慢才是重點。走出聽雨亭之後
+ * 腳下的木板還濕著、過了大半分鐘才恢復原本的顏色——
+ * 那半分鐘就是「剛剛下過雨」唯一說得出口的證據
+ */
+const WET_DRY_SPEED = 1 / 45
+
 interface StartParams {
   scene: Scene;
   camera: UniversalCamera;
-  /** 是否躲在洞裡，躲雨時不畫雨也把雨聲壓小 */
+  /** 是否躲在洞裡，躲雨時不畫雨 */
   isSheltered: () => boolean;
+  /**
+   * 把聽雨亭那顆雷叫出來
+   *
+   * 閃電是這裡的事，雷聲不是。聲音種在 sound-data，
+   * 天氣系統只在閃光之後隔一段時間通知它該響了
+   */
+  playThunder: (volume: number) => void;
   /** 從天空往指定格柱打射線，取得雨滴打到的表面高度，落地水花濺在這裡 */
   castRainRay: (blockX: number, blockZ: number) => number | null;
+  /** 白晝的程度，0 為全暗、1 為大白天。空氣裡飄什麼要看它 */
+  getDayRatio: () => number;
+  /** 這一刻是幾點，晨霧只在天亮前後那一段出現 */
+  getTimeOfDay: () => number;
+  /** 淋得濕的方塊材質，雨停之後要慢慢乾回去 */
+  wetMaterialList: StandardMaterial[];
 }
 
 /** 依距離算出區域效果的強度，0 為完全在外、1 為正中心 */
@@ -156,30 +208,44 @@ export function getRainRatio(x: number, z: number): number {
  */
 export function useWeather() {
   const weather = ref<Weather>('clear')
-  /** 目前雨勢，HUD 的音量條要用 */
-  const rainStrength = ref(0)
   const atmosphere = createAtmosphereState()
 
   const { quality } = useGraphicsQuality()
+  const { state: devToggle } = useDevToggles()
 
   let rainParticles: RainParticles | null = null
   let swampMist: SwampMist | null = null
+  let groundMist: GroundMist | null = null
+  let airMotes: AirMotes | null = null
   let fallingLeaves: FallingLeaves | null = null
-  let rainSound: StaticSound | null = null
-  let thunderSound: StaticSound | null = null
+  let wetness: Wetness | null = null
   let thunderTimerId: ReturnType<typeof setTimeout> | undefined
   let rumbleTimerId: ReturnType<typeof setTimeout> | undefined
   let flashTimeLeft = 0
   /** 這一道閃電的強度，遠方的雷只是天邊亮一下 */
   let flashStrength = 1
   let rainRatio = 0
+  /** 此刻在聽雨亭那片雨裡多深，只有這裡會打雷 */
+  let thunderRatio = 0
+  /** 地面此刻有多濕，0 為全乾、1 為濕透 */
+  let wetRatio = 0
+  /**
+   * 把雷聲叫出來
+   *
+   * 聲音種在聽雨亭，天氣系統只有觸發權，沒有所有權。
+   * 音景還沒啟動前是一個空函式，打雷就只是安靜地閃一下
+   */
+  let playThunder: (volume: number) => void = () => {}
 
   /**
    * 劈一道雷
    *
    * 先閃光，隔一段時間才傳來聲音。
    * 遠近以一個隨機值決定，同時牽動閃光強度、等待時間與音量，
-   * 三者對得起來，聽起來才像遠方或頭頂的雷
+   * 三者對得起來，聽起來才像遠方或頭頂的雷。
+   *
+   * 閃光是這裡的事，聲音不是：那顆雷種在聽雨亭（見 sound-data），
+   * 這裡只在該響的時候把它叫出來。天氣系統自己不持有任何聲音
    */
   function strikeThunder() {
     /** 0 為就在頭頂、1 為遠方天邊 */
@@ -193,11 +259,7 @@ export function useWeather() {
 
     clearTimeout(rumbleTimerId)
     rumbleTimerId = setTimeout(() => {
-      if (!thunderSound)
-        return
-
-      thunderSound.volume = lerp(0.85, 0.3, distanceRatio)
-      thunderSound.play()
+      playThunder(lerp(0.85, 0.3, distanceRatio))
     }, delaySecond * 1000)
   }
 
@@ -209,16 +271,27 @@ export function useWeather() {
     const waitSecond = min + Math.random() * (max - min)
 
     thunderTimerId = setTimeout(() => {
-      if (rainRatio > 0.5) {
+      if (thunderRatio > 0.5) {
         strikeThunder()
       }
       scheduleThunder()
     }, waitSecond * 1000)
   }
 
-  async function start({ scene, camera, isSheltered, castRainRay }: StartParams): Promise<void> {
+  async function start({
+    scene,
+    camera,
+    isSheltered,
+    playThunder: triggerThunder,
+    castRainRay,
+    getDayRatio,
+    getTimeOfDay,
+    wetMaterialList,
+  }: StartParams): Promise<void> {
     if (rainParticles)
       return
+
+    playThunder = triggerThunder
 
     rainParticles = createRainParticles({
       scene,
@@ -233,6 +306,20 @@ export function useWeather() {
       castRainRay,
     })
 
+    groundMist = createGroundMist({
+      scene,
+      /** 鋪的範圍比沼澤那片大得多，數量得跟著上去才連得成一片 */
+      maxParticleCount: quality.value === 'low' ? 40 : 96,
+      castRainRay,
+    })
+
+    airMotes = createAirMotes({
+      scene,
+      /** 顆粒只有幾個像素大，堆得起來才看得出空氣裡有東西 */
+      moteCount: quality.value === 'low' ? 90 : 220,
+      fireflyCount: quality.value === 'low' ? 20 : 48,
+    })
+
     fallingLeaves = createFallingLeaves({
       scene,
       /** 葉子小又薄，數量得堆起來才看得出整片林子都在落葉 */
@@ -240,26 +327,7 @@ export function useWeather() {
       castRainRay,
     })
 
-    try {
-      const audioEngine = await getAudioEngine()
-      rainSound = await CreateSoundAsync(
-        'weather-rain',
-        getSoundUrl('rain-foliage'),
-        { loop: true, volume: 0 },
-        audioEngine,
-      )
-      rainSound.play()
-
-      thunderSound = await CreateSoundAsync(
-        'weather-thunder',
-        getSoundUrl('thunder'),
-        { volume: 0.7 },
-        audioEngine,
-      )
-    }
-    catch (error) {
-      console.warn('[Weather] 天氣音效載入失敗:', error)
-    }
+    wetness = createWetness(wetMaterialList)
 
     scheduleThunder()
 
@@ -282,6 +350,9 @@ export function useWeather() {
 
         rainRatio = getRainRatio(camera.position.x, camera.position.z)
         weather.value = rainRatio > RAIN_WEATHER_THRESHOLD ? 'rain' : 'clear'
+
+        /** 站在聽雨亭那片雨裡才會打雷，雨聽堂不算 */
+        thunderRatio = measureZoneRatio(camera.position.x, camera.position.z, THUNDER_ZONE)
 
         /**
          * 先套沼澤的霧，再套雨
@@ -444,16 +515,47 @@ export function useWeather() {
         fallingLeaves?.setBrightness(lerp(0.3, 1, dayBrightness))
         rainParticles?.setBrightness(lerp(0.26, 1, dayBrightness))
         swampMist?.setBrightness(lerp(0.1, 1, dayBrightness))
+        /**
+         * 晨霧的下限給得比沼澤高
+         *
+         * 它出現的時段本來就是最暗的那幾刻——天還沒亮。
+         * 照沼澤那樣壓到剩一成，霧會暗到跟夜色分不開，等於沒有
+         */
+        groundMist?.setBrightness(lerp(0.35, 1, dayBrightness))
 
-        /** 躲在洞裡時看不到雨，雨聲也只剩洞口傳進來的一點 */
-        const shelterRatio = isSheltered() ? 0.18 : 1
+        /**
+         * 晨霧只在天亮前後那一段，而且要挑地方
+         *
+         * 三個地方不該有它：洞裡沒有天，霧無從積起；
+         * 雨區已經有一整片壓下來的雨霧；蛙聲澤終年就有一片更濃的。
+         * 硬鋪上去只會讓那幾處的白疊成一團看不出層次的糊
+         */
+        const dawnRatio = devToggle.groundMist ? getDawnMistRatio(getTimeOfDay()) : 0
+        groundMist?.update(
+          camera,
+          dawnRatio * (1 - atmosphere.caveRatio) * (1 - rainRatio) * (1 - mistRatio),
+        )
+
+        airMotes?.update(
+          camera,
+          devToggle.airMotes ? getDayRatio() : 0,
+          devToggle.airMotes ? atmosphere.caveRatio : 0,
+        )
+
+        /**
+         * 淋濕得快、乾得慢
+         *
+         * 這是整件事的重點。兩邊速度一樣的話，走出雨區的那一步
+         * 地就跟著乾了，看起來像雨從來沒下過
+         */
+        const wetTarget = devToggle.wetness ? rainRatio : 0
+        wetRatio = wetTarget > wetRatio
+          ? Math.min(wetTarget, wetRatio + WET_SOAK_SPEED * deltaTime)
+          : Math.max(wetTarget, wetRatio - WET_DRY_SPEED * deltaTime)
+        wetness?.setRatio(wetRatio)
+
+        /** 躲在洞裡時看不到雨 */
         rainParticles?.update(camera, isSheltered() ? 0 : rainRatio)
-
-        const volume = rainRatio * 0.5 * shelterRatio
-        if (rainSound) {
-          rainSound.volume = volume
-        }
-        rainStrength.value = volume
       })
     })
   }
@@ -463,14 +565,13 @@ export function useWeather() {
     clearTimeout(rumbleTimerId)
     rainParticles?.dispose()
     swampMist?.dispose()
+    groundMist?.dispose()
+    airMotes?.dispose()
     fallingLeaves?.dispose()
-    rainSound?.dispose()
-    thunderSound?.dispose()
   })
 
   return {
     weather,
-    rainStrength,
     atmosphere,
     start,
   }

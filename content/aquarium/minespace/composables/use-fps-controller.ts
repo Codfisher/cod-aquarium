@@ -14,10 +14,12 @@ import {
   readBlock,
   resolveCollision,
 } from '../domains/player/collision'
+import { updateAerialAir } from '../domains/weather/aerial-perspective'
 import { CAVE_FOG_COLOR, EDGE_FOG_END, EDGE_FOG_START, getEdgeFogRatio } from '../domains/weather/atmosphere'
 import { WORLD_SIZE } from '../domains/world/world-constants'
 import { useStepSound } from './use-audio-engine'
 import { AMBIENT_LIGHT_NAME, SUN_LIGHT_NAME } from './use-babylon-scene'
+import { useDevToggles } from './use-dev-toggles'
 import { measureSection } from './use-performance-probe'
 
 const GRAVITY = 22
@@ -185,6 +187,9 @@ export function useFpsController() {
   let cleanup: (() => void) | null = null
   let canvasRef: HTMLCanvasElement | null = null
   let isMobile = false
+
+  /** 大氣透視的開關掛在這裡，因為空氣色是跟著霧色一起算的 */
+  const { state: devToggle } = useDevToggles()
 
   const isPaused = ref(true)
   const isSwimming = ref(false)
@@ -542,6 +547,22 @@ export function useFpsController() {
       scene.fogEnd = caveFogEnd + (14 - caveFogEnd) * waterRatio
 
       scene.clearColor.set(scene.fogColor.r, scene.fogColor.g, scene.fogColor.b, 1)
+
+      /**
+       * 中距離那層空氣的顏色
+       *
+       * 要接在霧色算完之後：大氣透視是拿最終的霧色往天色偏過去的，
+       * 讀到還沒疊上洞穴與水面的那一份就會對不起來。
+       *
+       * 洞裡、水下與貼近邊界時一律收回純霧色——
+       * 那三處都沒有天空可以散射，硬給一層藍只會顯得莫名其妙
+       */
+      updateAerialAir(
+        scene.fogColor,
+        atmosphere.skyMidColor,
+        (1 - caveRatio) * (1 - waterRatio) * (1 - edgeRatio),
+        devToggle.aerialPerspective,
+      )
 
       /**
        * 夜裡的補光
