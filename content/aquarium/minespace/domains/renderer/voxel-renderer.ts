@@ -1,6 +1,7 @@
 import type { DirectionalLight, Mesh, Scene, ShadowGenerator } from '@babylonjs/core'
 import type { BlockDef, BlockId, BlockTextureDef } from '../block/block-constants'
 import type { ChunkMeshData, ChunkWorkerComposable } from '../world/use-chunk-worker'
+import type { WindSway } from './wind-sway'
 import {
   Color3,
   DynamicTexture,
@@ -13,6 +14,7 @@ import {
 import { SUN_LIGHT_NAME } from '../../composables/use-babylon-scene'
 import { BLOCK_DEFS, isDecorationBlock } from '../block/block-constants'
 import { TOTAL_CHUNKS } from '../world/world-constants'
+import { createWindSway } from './wind-sway'
 
 interface BlockMeshEntry {
   mesh: Mesh;
@@ -360,6 +362,7 @@ class WorldRenderer {
   constructor(
     private scene: Scene,
     private shadowGenerator: ShadowGenerator | null,
+    private windSway: WindSway,
   ) {}
 
   /**
@@ -503,6 +506,8 @@ class WorldRenderer {
           false,
           blockDef.textures?.pixelTint,
         )
+        /** 交叉立板就是地上的花草，讓它們跟著風擺 */
+        this.windSway.attach(material)
         addPlane('cross-a', 1, { x: 0, y: Math.PI / 4 }, { x: 0, y: 0, z: 0 }, material)
         addPlane('cross-b', 1, { x: 0, y: -Math.PI / 4 }, { x: 0, y: 0, z: 0 }, material)
         break
@@ -945,7 +950,8 @@ export function createVoxelRenderer(
   const sunLight = scene.getLightByName(SUN_LIGHT_NAME) as DirectionalLight | null
   const shadowGenerator = sunLight?.getShadowGenerator() as ShadowGenerator | null
 
-  const worldRenderer = new WorldRenderer(scene, shadowGenerator)
+  const windSway = createWindSway(scene)
+  const worldRenderer = new WorldRenderer(scene, shadowGenerator, windSway)
 
   /**
    * 滑鼠移動時不要做拾取
@@ -965,6 +971,7 @@ export function createVoxelRenderer(
     dispose() {
       chunkWorker.terminate()
       worldRenderer.dispose()
+      windSway.dispose()
     },
   }
 }
