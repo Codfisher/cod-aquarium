@@ -168,6 +168,27 @@ const EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
     minDistance: 5,
     maxDistance: 20,
   })),
+  {
+    /**
+     * 落葉堆裡的蟲
+     *
+     * 這座木座原本一天二十四小時都只有同一片沙沙聲，
+     * 日夜之間毫無差別。厚厚的落葉層本來就是蟲最愛躲的地方，
+     * 入夜讓它們接手，同一座箱庭才有兩副面孔
+     */
+    id: 'autumn-night-cricket',
+    activeAt: 'night',
+    sound: 'insect-bush-cricket',
+    title: { 'zh-hant': '落葉間的蟲', 'en': 'Crickets in the leaf litter' },
+    zone: 'autumn',
+    ...at('autumn', -6, 5),
+    heightOffset: 1,
+    mode: { type: 'loop' },
+    volume: 0.36,
+    minDistance: 3,
+    maxDistance: 18,
+    silentInRain: true,
+  },
 
   // ── 雪稜丘：稀薄而遠的嘯風 ──
   ...[
@@ -211,6 +232,31 @@ const EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
     volume: 0.6,
     minDistance: 4,
     maxDistance: 22,
+  },
+  {
+    /**
+     * 稜線上的狼
+     *
+     * 雪雞與鼠兔都是白天的動物，天一黑這座木座就只剩下風。
+     * 一聲拖得很長的狼嚎是雪線之上唯一該有的夜聲。
+     *
+     * 間隔給到兩分半到六分：這種聲音的重量全在稀有。
+     * 每分鐘都來一次就成了背景音，久久一次才會讓人停下腳步。
+     *
+     * 範圍三十八格，是全庭僅次於鐘樓的第二遠——
+     * 狼本來就該是「從很遠的地方傳過來」的那種聲音
+     */
+    id: 'alpine-wolf',
+    activeAt: 'night',
+    sound: 'beast-wolf',
+    title: { 'zh-hant': '稜線上的狼嚎', 'en': 'Wolf on the ridge' },
+    zone: 'alpine',
+    ...at('alpine', -12, -12),
+    heightOffset: 6,
+    mode: { type: 'interval', rangeSecond: [150, 360] },
+    volume: 0.8,
+    minDistance: 10,
+    maxDistance: 38,
   },
   // ── 遣水：沒有縫的白噪 ──
   {
@@ -392,8 +438,9 @@ const EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
     maxDistance: 40,
   },
   {
-    /** 灶上的火，走到攤子旁邊才聽得到 */
+    /** 灶上的火，走到攤子旁邊才聽得到。收攤了火自然也就熄了 */
     id: 'village-hearth',
+    activeAt: 'day',
     sound: 'campfire',
     title: { 'zh-hant': '灶上的火', 'en': 'Cooking fire' },
     zone: 'village',
@@ -403,6 +450,47 @@ const EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
     volume: 0.6,
     minDistance: 2,
     maxDistance: 12,
+  },
+  {
+    /**
+     * 食肆
+     *
+     * 這個音檔原本掛在石廊跡上叫「石廳迴響」，但它其實是一屋子的人聲，
+     * 擺在沒有屋頂的廢墟上聽起來像隔壁在辦桌。
+     * 挪到市井坊當一間店，範圍壓到十二格：
+     * 走過門口才聽得到裡面在吃飯，那是市集該有的層次
+     */
+    id: 'village-eatery',
+    activeAt: 'day',
+    sound: 'ruins-hall',
+    title: { 'zh-hant': '食肆人聲', 'en': 'Chatter from the eatery' },
+    zone: 'village',
+    ...at('village', -4, -5),
+    heightOffset: 2,
+    mode: { type: 'loop' },
+    volume: 0.45,
+    minDistance: 3,
+    maxDistance: 12,
+  },
+  {
+    /**
+     * 收攤之後
+     *
+     * 人聲與灶火入夜都退場，這座木座本來會只剩一口鐘。
+     * 補一片牆角的蟲聲：市集散了，地方還在
+     */
+    id: 'village-night-cricket',
+    activeAt: 'night',
+    sound: 'insect-cricket',
+    title: { 'zh-hant': '牆角的蟲', 'en': 'Crickets by the wall' },
+    zone: 'village',
+    ...at('village', 7, -6),
+    heightOffset: 1,
+    mode: { type: 'loop' },
+    volume: 0.34,
+    minDistance: 3,
+    maxDistance: 16,
+    silentInRain: true,
   },
 
   // ── 岩響窟：稀疏的瞬態，拖著長長的殘響 ──
@@ -462,16 +550,58 @@ const EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
 
   // ── 石廊跡：聲音進去要繞好幾圈才出得來 ──
   {
-    id: 'ruins-hall',
-    sound: 'ruins-hall',
-    title: { 'zh-hant': '石廳迴響', 'en': 'Echoing stone hall' },
+    /**
+     * 穿堂風
+     *
+     * 這座木座原本掛的是 ruins-hall，但那個音檔其實是一屋子的人聲，
+     * 擺在一座沒有屋頂的廢墟上聽起來像隔壁在辦桌。
+     * 它已經改調去市井坊當食肆，那裡才是它該在的地方。
+     *
+     * 廢墟該有的聲音是「沒有人」：風穿過斷掉的廊柱，
+     * 用雪稜那道嘯風壓低音量鋪底，空曠感就出來了
+     */
+    id: 'ruins-wind',
+    sound: 'alpine-wind',
+    title: { 'zh-hant': '廊間穿堂風', 'en': 'Wind through the colonnade' },
     zone: 'ruins',
     ...at('ruins'),
-    heightOffset: 2,
+    heightOffset: 3,
     mode: { type: 'loop' },
-    volume: 0.5,
+    volume: 0.4,
     minDistance: 4,
     maxDistance: 22,
+  },
+  {
+    /**
+     * 石縫滲水
+     *
+     * 廢墟的另一半是水。石頭縫裡滲下來的水滴在空廳裡拖著長長的殘響，
+     * 稀稀落落一聲一聲——那正是「這裡很久沒有人了」的聲音
+     */
+    id: 'ruins-seep',
+    sound: 'cave-drip',
+    title: { 'zh-hant': '石縫滲水', 'en': 'Water seeping through the stone' },
+    zone: 'ruins',
+    ...at('ruins', -5, 4),
+    heightOffset: 2,
+    mode: { type: 'loop' },
+    volume: 0.45,
+    minDistance: 3,
+    maxDistance: 16,
+  },
+  {
+    /** 塌了一半的樑上住著一隻鴞，入夜才叫，替這座廢墟收尾 */
+    id: 'ruins-owl',
+    activeAt: 'night',
+    sound: 'bird-owl',
+    title: { 'zh-hant': '棲在斷樑的鴞', 'en': 'Owl on the broken beam' },
+    zone: 'ruins',
+    ...at('ruins', 5, -5),
+    heightOffset: 6,
+    mode: { type: 'interval', rangeSecond: [26, 62] },
+    volume: 0.7,
+    minDistance: 5,
+    maxDistance: 24,
   },
 
   // ── 草苑：開闊而柔，沒有東西反射它 ──
@@ -491,10 +621,16 @@ const EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
     maxDistance: 26,
   })),
   {
+    /**
+     * 日頭下的草蟲
+     *
+     * 白天的草叢是蚱蜢那種乾而短的摩擦聲，稀稀落落。
+     * 真正成片的蟲鳴要等到天黑，見下面那一組
+     */
     id: 'meadow-insect',
     activeAt: 'day',
     sound: 'meadow-insect',
-    title: { 'zh-hant': '草叢蟲鳴', 'en': 'Insects in the grass' },
+    title: { 'zh-hant': '日頭下的草蟲', 'en': 'Grasshoppers in the sun' },
     zone: 'meadow',
     ...at('meadow', 3, -4),
     heightOffset: 1,
@@ -502,6 +638,29 @@ const EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
     volume: 0.32,
     minDistance: 3,
     maxDistance: 14,
+    silentInRain: true,
+  },
+  {
+    /**
+     * 入夜的草苑
+     *
+     * 一片草地最熱鬧的時候是晚上。原本這座木座天一黑就只剩風，
+     * 那是反過來的：蟲類多半入夜才叫，草原的夜該是滿滿一片蟋蟀。
+     *
+     * 音量給得比白天的草蟲高，範圍也拉寬——
+     * 白天是零星幾聲，夜裡是整片地一起響
+     */
+    id: 'meadow-night-cricket',
+    activeAt: 'night',
+    sound: 'insect-cricket',
+    title: { 'zh-hant': '草間的蟲聲', 'en': 'Crickets across the meadow' },
+    zone: 'meadow',
+    ...at('meadow', -4, 3),
+    heightOffset: 1,
+    mode: { type: 'loop' },
+    volume: 0.42,
+    minDistance: 4,
+    maxDistance: 22,
     silentInRain: true,
   },
 
