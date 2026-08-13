@@ -85,8 +85,21 @@ const BLOOM_KERNEL = 48
 const BLOOM_THRESHOLD = 0.86
 const BLOOM_SCALE = 0.5
 
-/** 體積光最強時的光量 */
-const MAX_LIGHT_POWER = 1.6
+/**
+ * 體積光最強時的光量
+ *
+ * 這個值乘上光源的顏色就是散射進來的光。一點六會把整個畫面洗白——
+ * 散射是沿著整條視線累積的，而視線可能穿過上百格的光體
+ */
+const MAX_LIGHT_POWER = 0.12
+
+/**
+ * 消光係數
+ *
+ * 光穿過空氣被吸收與散射掉的比例，也就是「越遠越淡」的那個衰減。
+ * 沒有它，散射會沿路無限累加，遠處的天空會比近處還亮
+ */
+const VOLUMETRIC_EXTINCTION_VALUE = 0.03
 
 /**
  * 散射的方向性
@@ -214,13 +227,34 @@ export async function createFrameGraphPipeline({
   lightingVolumeTask.lightingVolume.frequency = LIGHTING_VOLUME_FREQUENCY
   frameGraph.addTask(lightingVolumeTask)
 
-  const volumetricTask = new FrameGraphVolumetricLightingTask('volumetric', frameGraph)
+  /**
+   * 把光體網格移出場景
+   *
+   * 它是 new Mesh 建的，一出生就躺在 scene.meshes 裡。而主場景那一關
+   * 吃的就是 scene.meshes——留著它會被當成一般幾何畫出來，
+   * 變成一大片沒有材質的灰白蓋住整個畫面。
+   *
+   * 移出去之後它照樣能被體積光那一關畫（那裡拿的是任務自己的參照），
+   * 而主場景可以直接吃 scene.meshes 的「活參照」——
+   * 之後才建的沙地、羊群、營火火焰會自動被包含進來，不必再補呼叫
+   */
+  scene.removeMesh(lightingVolumeTask.lightingVolume.mesh)
+
+  /**
+   * 第三個參數是「啟用消光」
+   *
+   * 不開的話光線穿過介質完全不衰減，散射沿路一直累加。
+   * 我們的投影範圍是八十乘八十乘一百七十格，累積下來足以把整個畫面洗白——
+   * 那正是逆光時什麼都看不到的原因
+   */
+  const volumetricTask = new FrameGraphVolumetricLightingTask('volumetric', frameGraph, true)
   volumetricTask.camera = camera
   volumetricTask.light = sunLight
   volumetricTask.targetTexture = mainTask.outputTexture
   volumetricTask.depthTexture = mainTask.outputDepthTexture
   volumetricTask.lightingVolumeMesh = lightingVolumeTask.outputMeshLightingVolume
   volumetricTask.phaseG = PHASE_G
+  volumetricTask.extinction = VOLUMETRIC_EXTINCTION
   volumetricTask.lightPower = new Color3(0, 0, 0)
   volumetricTask.disabled = true
   frameGraph.addTask(volumetricTask)
@@ -285,18 +319,7 @@ export async function createFrameGraphPipeline({
     shadowGenerator: shadowTask.shadowGenerator,
 
     setObjectList(meshList, casterList) {
-      /**
-       * 光體網格絕對不能進主場景
-       *
-       * 它是 new Mesh 建的，所以一出生就躺在 scene.meshes 裡——
-       * 而它是一個罩住整個投影範圍的巨大幾何，又沒有材質，
-       * 被主場景畫出來就是一整片預設的灰白蓋掉所有東西，
-       * 底下還會露出被拉長的三角形。
-       *
-       * 它只該被體積光那一關畫，那裡才有對的著色器
-       */
       mainTask.objectList.meshes = meshList
-        .filter((mesh) => mesh !== lightingVolumeTask.lightingVolume.mesh)
       shadowTask.objectList.meshes = casterList
     },
 
@@ -324,5 +347,9 @@ export async function createFrameGraphPipeline({
   }
 }
 
-/** 給體積光用的散射係數，外面調參數時對得上名字 */
-export const VOLUMETRIC_EXTINCTION = new Vector3(0, 0, 0)
+/** 消光係數，三個通道給同一個值代表空氣不偏色 */
+const VOLUMETRIC_EXTINCTION = new Vector3(
+  VOLUMETRIC_EXTINCTION_VALUE,
+  VOLUMETRIC_EXTINCTION_VALUE,
+  VOLUMETRIC_EXTINCTION_VALUE,
+)

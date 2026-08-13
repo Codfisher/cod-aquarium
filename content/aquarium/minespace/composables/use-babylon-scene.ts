@@ -1,6 +1,8 @@
 import type {
+  AbstractMesh,
   ShadowGenerator,
 } from '@babylonjs/core'
+
 import type { GraphicsQuality } from './use-graphics-quality'
 import {
   Camera,
@@ -1486,10 +1488,29 @@ export function applyShadowSetting(shadowGenerator: ShadowGenerator, scene: Scen
    */
   shadowGenerator.transparencyShadow = true
 
+  /**
+   * 雲不能只靠 addShadowCaster
+   *
+   * 走算繪圖之後，投影者是由陰影任務的 objectList 決定的，
+   * 那份清單會覆蓋掉這裡登記的東西。所以雲要另外由 getCloudCasterList
+   * 交給那份清單，這一行只是讓 classic 路徑也還能用
+   */
   const cloudLayer = scene.getMeshByName(CLOUD_LAYER_NAME)
   if (cloudLayer) {
     shadowGenerator.addShadowCaster(cloudLayer)
   }
+}
+
+/**
+ * 會投影的天空物件
+ *
+ * 目前只有雲。它是半透明的，靠 transparencyShadow 才畫得進陰影貼圖，
+ * 白沙上那片慢慢掃過的雲影就是它投的
+ */
+export function getCloudCasterList(scene: Scene): AbstractMesh[] {
+  const cloudLayer = scene.getMeshByName(CLOUD_LAYER_NAME)
+
+  return cloudLayer ? [cloudLayer] : []
 }
 
 export function useBabylonScene(param?: UseBabylonSceneParam) {

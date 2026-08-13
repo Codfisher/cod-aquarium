@@ -99,7 +99,7 @@ import AmbiencePanel from '../../components/ambience-panel.vue'
 import StartPanel from '../../components/start-panel.vue'
 import SystemMenu from '../../components/system-menu.vue'
 import TouchControlPanel from '../../components/touch-control-panel.vue'
-import { applyShadowSetting, createCampfireSmoke, DEFAULT_CAMERA_FOV, useBabylonScene } from '../../composables/use-babylon-scene'
+import { applyShadowSetting, createCampfireSmoke, DEFAULT_CAMERA_FOV, getCloudCasterList, useBabylonScene } from '../../composables/use-babylon-scene'
 import { useBlockLights } from '../../composables/use-block-lights'
 import { useDayNight } from '../../composables/use-day-night'
 import { useFpsController } from '../../composables/use-fps-controller'
@@ -318,10 +318,15 @@ const { canvasRef, scene, camera, sunLight, initError } = useBabylonScene({
      * 把場景的網格交給算繪圖
      *
      * 走圖之後，「要畫哪些東西」不再是引擎自己去掃場景，而是任務上的清單。
-     * 天空、太陽、雲這些不是渲染器建的，所以主場景直接給整個 scene.meshes；
+     * 這裡交出去的是 scene.meshes 這個陣列本身、不是複本——
+     * 之後才建的沙地、羊群與營火火焰因此會自動被包含進來。
+     *
      * 投影者則要挑過，水與玻璃擋光的話水面下會整片變黑
      */
-    framePipeline?.setObjectList(sceneInstance.meshes, renderer.getShadowCasterList())
+    framePipeline?.setObjectList(
+      sceneInstance.meshes,
+      [...renderer.getShadowCasterList(), ...getCloudCasterList(sceneInstance)],
+    )
 
     /** 方塊做的沙只到世界邊界，外面那片得等渲染器準備好材質再接上去 */
     createSandField(sceneInstance)
