@@ -1,14 +1,15 @@
 import type {
   Color3,
+  DefaultRenderingPipeline,
   DirectionalLight,
   Mesh,
   Scene,
   StandardMaterial,
 } from '@babylonjs/core'
 import type { SkyMaterial } from '@babylonjs/materials'
-import type { FrameGraphPipeline } from '../domains/renderer/frame-graph-pipeline'
 import type { AtmosphereState } from '../domains/weather/atmosphere'
 import type { DayPhase } from '../domains/weather/day-night'
+import type { GodRays } from '../domains/weather/god-rays'
 import { useStorage } from '@vueuse/core'
 import { computed, onBeforeUnmount, ref } from 'vue'
 import {
@@ -53,8 +54,9 @@ const CLOCK_UPDATE_INTERVAL = 0.2
 interface StartParams {
   scene: Scene;
   canvas: HTMLCanvasElement;
-  /** 算繪圖，晨昏的體積光強度跟著太陽的高度走 */
-  volumetricFog?: FrameGraphPipeline;
+  pipeline: DefaultRenderingPipeline | undefined;
+  /** 晨昏的光束，強度跟著太陽的高度走 */
+  godRays?: GodRays;
   /** 日夜循環把這個時刻的基準寫進去，天氣與漫遊控制器在上面疊自己的效果 */
   atmosphere: AtmosphereState;
   /** 是否正在漫遊，暫停時時間跟著停下來 */
@@ -120,7 +122,7 @@ export function useDayNight() {
     setTimeOfDay(currentTime + delta)
   }
 
-  function start({ scene, canvas, volumetricFog, atmosphere, isRunning }: StartParams): void {
+  function start({ scene, canvas, pipeline, godRays, atmosphere, isRunning }: StartParams): void {
     cleanup?.()
 
     const sunLight = scene.getLightByName(SUN_LIGHT_NAME) as DirectionalLight | null
@@ -193,9 +195,9 @@ export function useDayNight() {
         skyBodyFade: atmosphere.skyBodyFade,
       })
       applyToSky(skyMaterial)
-      applyToImageProcessing(scene)
+      applyToPipeline(pipeline)
       /** 雨中與貼近邊界時整片天被白幕蓋住，光束也該跟著收掉 */
-      volumetricFog?.setStrength(sample.godRayRatio * atmosphere.skyBodyFade)
+      godRays?.setStrength(sample.godRayRatio * atmosphere.skyBodyFade)
 
       clockElapsed += deltaTime
       if (clockElapsed >= CLOCK_UPDATE_INTERVAL) {
@@ -321,18 +323,14 @@ export function useDayNight() {
     skyMaterial.mieCoefficient = 0.0005 * (6 / Math.max(1, sample.skyTurbidity))
   }
 
-  /**
-   * 色調：夜裡偏冷、黃昏偏暖，曝光也跟著時刻走
-   *
-   * 寫的是場景自己的那一份設定，不是某一條後製管線上的。
-   * 算繪圖裡的影像處理任務讀的正是這一份
-   */
-  function applyToImageProcessing(scene: Scene): void {
-    const configuration = scene.imageProcessingConfiguration
+  /** 色調：夜裡偏冷、黃昏偏暖，曝光也跟著時刻走 */
+  function applyToPipeline(pipeline: DefaultRenderingPipeline | undefined): void {
+    if (!pipeline)
+      return
 
-    configuration.exposure = sample.exposure
+    pipeline.imageProcessing.exposure = sample.exposure
 
-    const { colorCurves } = configuration
+    const colorCurves = pipeline.imageProcessing.colorCurves
     if (!colorCurves)
       return
 

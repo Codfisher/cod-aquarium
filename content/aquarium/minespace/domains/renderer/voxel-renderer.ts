@@ -41,15 +41,6 @@ export const CONNECT_DIRECTION_LIST = [
 export interface VoxelRenderer {
   /** 依目前 worldState 建構所有區塊 */
   build: (worldState: Uint8Array) => Promise<void>;
-  /** 全部的方塊網格，算繪圖要拿它當主場景的算繪清單 */
-  getMeshList: () => Mesh[];
-  /**
-   * 會擋光的方塊網格
-   *
-   * 水、冰、玻璃這類半透明方塊不在裡面——它們擋光的話，
-   * 水面下會整片變成黑的
-   */
-  getShadowCasterList: () => Mesh[];
   /** 釋放所有資源 */
   dispose: () => void;
 }
@@ -404,27 +395,18 @@ class WorldRenderer {
   }
 
   /** 網格一建好就設定陰影，改成延後建立之後沒有「事後統一處理」的時機了 */
-  /** 會擋光的網格，算繪圖的陰影任務要拿這份清單 */
-  private shadowCasterList: Mesh[] = []
-
-  getMeshList(): Mesh[] {
-    return [...this.allEntries.values()].flat().map((entry) => entry.mesh)
-  }
-
-  getShadowCasterList(): Mesh[] {
-    return this.shadowCasterList
-  }
-
   private applyShadowSetting(key: string, mesh: Mesh): void {
+    if (!this.shadowGenerator)
+      return
+
     const blockId = Number(key.split('_')[0]) as BlockId
     const blockDef = BLOCK_DEFS[blockId]
     /** 半透明的水面接陰影會變成一塊塊的黑洞，乾脆讓它不接 */
     mesh.receiveShadows = blockDef?.receiveShadow !== false
     /** 水、冰、玻璃這類半透明方塊不該擋光 */
     const isTransparent = blockDef?.alpha !== undefined && blockDef.alpha < 1
-    if (!isTransparent) {
-      this.shadowCasterList.push(mesh)
-      this.shadowGenerator?.addShadowCaster(mesh)
+    if (!isTransparent && blockDef?.castShadow !== false) {
+      this.shadowGenerator.addShadowCaster(mesh)
     }
   }
 
@@ -961,8 +943,6 @@ export function createVoxelRenderer(
 
   return {
     build: (worldState: Uint8Array) => chunkWorker.rebuildAll(worldState),
-    getMeshList: () => worldRenderer.getMeshList(),
-    getShadowCasterList: () => worldRenderer.getShadowCasterList(),
     dispose() {
       chunkWorker.terminate()
       worldRenderer.dispose()

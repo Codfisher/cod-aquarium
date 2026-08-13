@@ -317,6 +317,14 @@ export interface BlockDef {
   flatShaded?: boolean;
   /** 是否承接陰影，預設 true。半透明的水面接陰影會像破洞 */
   receiveShadow?: boolean;
+  /**
+   * 是否投出陰影，預設 true
+   *
+   * 給那些「本來就該與地面同一個平面」的方塊用。
+   * 它們的頂面與周圍的沙齊平，但陰影是照方塊的整個身體算的，
+   * 於是太陽一斜就從側面拖出一道影子，看起來像整塊浮起來了
+   */
+  castShadow?: boolean;
   /** 踩上去的腳步聲材質 */
   stepMaterial?: StepMaterial;
   /** 階梯靠背所在的那一側，只有 shape 為 stairs 時有意義 */
@@ -454,6 +462,15 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
    */
   [BlockId.RAKED_SAND]: {
     stepMaterial: 'sand',
+    /**
+     * 耙紋不投影子
+     *
+     * 這些方塊的頂面與整片白沙齊平，本來就該是同一個平面上的一道淺溝。
+     * 但陰影是照方塊的整個身體算的，太陽一斜就從側面拖出一道長影，
+     * 沙紋整條看起來像浮起來的矮牆。
+     * 溝的深淺交給貼圖的明度差就夠了
+     */
+    castShadow: false,
     textures: {
       all: `${TEXTURE_BASE}/default_silver_sand.png`,
       pixelTint: [0.9, 0.9, 0.92],
