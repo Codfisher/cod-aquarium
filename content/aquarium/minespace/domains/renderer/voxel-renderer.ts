@@ -13,6 +13,7 @@ import {
 import { SUN_LIGHT_NAME } from '../../composables/use-babylon-scene'
 import { BLOCK_DEFS, isDecorationBlock, LIQUID_SURFACE_DROP } from '../block/block-constants'
 import { TOTAL_CHUNKS } from '../world/world-constants'
+import { LEAF_TRANSLUCENCY, PLANT_TRANSLUCENCY } from './leaf-translucency'
 import { createWindSway, LEAF_SWAY_AMPLITUDE, PLANT_SWAY_AMPLITUDE } from './wind-sway'
 
 interface BlockMeshEntry {
@@ -322,6 +323,7 @@ class WorldRenderer {
           noMipmap: true,
           flatShaded: true,
           specularColor: NO_SPECULAR,
+          translucency: PLANT_TRANSLUCENCY,
         })
         /**
          * 交叉立板就是地上的花草，從根部往上彎
@@ -349,6 +351,7 @@ class WorldRenderer {
           noMipmap: true,
           flatShaded: true,
           specularColor: NO_SPECULAR,
+          translucency: PLANT_TRANSLUCENCY,
         })
         addPlane('flat', 1, { x: Math.PI / 2, y: 0 }, { x: 0, y: -0.6, z: 0 }, material)
         break
@@ -518,6 +521,7 @@ class WorldRenderer {
             noMipmap: true,
             flatShaded: true,
             specularColor: NO_SPECULAR,
+            translucency: PLANT_TRANSLUCENCY,
           })
           addPlane('plant-a', 0.7, { x: 0, y: Math.PI / 4 }, { x: 0, y: 0.2, z: 0 }, plantMaterial)
           addPlane('plant-b', 0.7, { x: 0, y: -Math.PI / 4 }, { x: 0, y: 0.2, z: 0 }, plantMaterial)
@@ -744,6 +748,8 @@ class WorldRenderer {
       /** 水與熔岩的法線同樣被改成朝上，掛不了法線貼圖 */
       flatShaded: blockDef.flatShaded,
       specularColor: blockDef.cutout ? NO_SPECULAR : undefined,
+      /** 立方體要自己說會不會透光，玻璃與鐵鏈同樣是鏤空的但不該發亮 */
+      translucency: blockDef.translucent ? LEAF_TRANSLUCENCY : undefined,
     })
 
     /**

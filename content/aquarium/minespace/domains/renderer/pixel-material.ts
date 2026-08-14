@@ -9,6 +9,7 @@ import {
 } from '@babylonjs/core'
 import { measureSection } from '../../composables/use-performance-probe'
 import { pickOverride, resolveTexture } from '../block/texture-pack'
+import { setLeafTranslucency } from './leaf-translucency'
 
 /** 動畫貼圖每秒播幾格 */
 const TEXTURE_FRAME_RATE = 3.5
@@ -46,6 +47,13 @@ export interface PixelMaterialRecipe {
   flatShaded?: boolean;
   /** 背面用翻轉後的法線打光，樹葉要、花草不要 */
   twoSidedLighting?: boolean;
+  /**
+   * 逆光時透出來多少，零是不透光
+   *
+   * 樹葉與花草才有。透出來的顏色由貼圖自己決定（見 leaf-translucency），
+   * 所以這裡只需要一個量，不必為每一種葉子各配一個顏色
+   */
+  translucency?: number;
   /** 高光的顏色，液體會另外調高 */
   specularColor?: Color3;
 }
@@ -387,6 +395,17 @@ export function createTextureSkinner(scene: Scene): TextureSkinner {
        * 拉太高會連葉尖那種只有一兩個像素的部分一起啃掉
        */
       material.alphaCutOff = 0.5
+    }
+
+    /**
+     * 逆光透光
+     *
+     * 設在這裡而不是換材質包時：透多少是方塊自己的性質——
+     * 一片葉子換了貼圖還是一片葉子。材質包只決定它透出來是什麼顏色，
+     * 而那件事是著色器拿貼圖的顏色去乘的，不必在這裡管
+     */
+    if (recipe.translucency) {
+      setLeafTranslucency(material, recipe.translucency)
     }
 
     const entry: MaterialEntry = { material, recipe, disposeList: [] }

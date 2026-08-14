@@ -39,9 +39,12 @@ import {
   SPAWN_POSITION,
 } from '../domains/garden/garden-layout'
 import { createGlowTexture } from '../domains/renderer/glow-texture'
+import { registerLeafTranslucency } from '../domains/renderer/leaf-translucency'
+import { registerPixelShadow } from '../domains/renderer/pixel-shadow'
 import { registerAerialPerspective } from '../domains/weather/aerial-perspective'
 import { GARDEN_FOG_COLOR, GARDEN_FOG_END, GARDEN_FOG_START } from '../domains/weather/atmosphere'
 import { applyCloudColor, createCloudMaterial } from '../domains/weather/cloud-material'
+import { disposeCloudShadow, registerCloudShadow, setCloudShadowDrift, setCloudShadowPattern } from '../domains/weather/cloud-shadow'
 import { applySkyGradient, createSkyGradientMaterial } from '../domains/weather/sky-gradient'
 import { getGroundY } from '../domains/world/world-access'
 import { WORLD_SIZE } from '../domains/world/world-constants'
@@ -191,6 +194,16 @@ const defaultParam: Required<UseBabylonSceneParam> = {
      * 畫面上會看到部分方塊有兩層空氣、部分只有單色霧
      */
     registerAerialPerspective()
+    /**
+     * 另外三道也是材質外掛，同樣要搶在材質之前
+     *
+     * 雲影與像素陰影改的是光照那一段，葉片透光是加在霧之前的一項。
+     * 三者互不相干，掛上去的先後順序沒有影響——
+     * 要緊的只有「比第一份材質早」這件事
+     */
+    registerCloudShadow()
+    registerLeafTranslucency()
+    registerPixelShadow()
 
     const scene = new Scene(engine)
 
@@ -815,6 +828,15 @@ function createCloudLayer(scene: Scene) {
     cellList = nextList
   }
 
+  /**
+   * 地上那塊暗要與頭頂這朵雲是同一朵
+   *
+   * 雲影拿的就是這份圖樣。與其在著色器裡另外鋪一張噪聲——
+   * 那會是另一副雲——不如把算好的結果交過去。
+   * 何況這個世界是循環的，雲影的週期非得與雲一樣不可
+   */
+  setCloudShadowPattern(scene, cellList, patternCount, CLOUD_CELL_SIZE, CLOUD_HEIGHT)
+
   const material = createCloudMaterial(`${CLOUD_LAYER_NAME}-material`, scene)
   applyCloudColor(material, {
     color: new Color3(1, 1, 1),
@@ -939,6 +961,8 @@ function createCloudLayer(scene: Scene) {
     measureSection('雲飄移', () => {
       elapsed += scene.getEngine().getDeltaTime() / 1000
       cloudMesh.position.x = (elapsed * CLOUD_DRIFT_SPEED) % driftPeriod
+      /** 地上的雲影要跟著一起飄，不然影子會停在原地 */
+      setCloudShadowDrift(cloudMesh.position.x)
     })
   })
 
@@ -1625,17 +1649,23 @@ function createShadowGenerator({ scene }: { scene: Scene }) {
    */
 
   /**
-   * 雲層也是投影者
+   * 雲影不走陰影貼圖，走的是材質外掛
    *
-   * 雲是半透明的，預設不會被畫進陰影貼圖，要開 transparencyShadow。
-   * 雲一邊飄，白沙上的雲影就跟著慢慢掃過去
+   * 這裡曾經把雲層加進投影者，還為此開了 transparencyShadow
+   * （雲是半透明的，預設不會被畫進陰影貼圖）。那條路走不通，原因在數字上：
+   *
+   * 投影用的鏡頭只沿著光線退開九十格，而雲在一百零四格高。
+   * 沙面在六格，太陽仰角約三十八度時，遮住腳下這一點的那朵雲
+   * 位在光線上游一百五十三格處——遠在投影鏡頭的近截面之外，
+   * 根本沒被畫進深度圖。太陽要爬到六十三度以上雲才進得了範圍，
+   * 而這個世界的太陽從來沒那麼高。
+   *
+   * 就算進得了範圍也只罩得住鏡頭附近八十格見方那一塊，
+   * 而雲影該是鋪滿整片視野、一路延伸到天邊的東西。
+   *
+   * 改由 cloud-shadow 那支材質外掛直接在著色器裡算：
+   * 沿著光線往上找雲的圖樣，沒有距離上限，也不必把雲畫進深度圖
    */
-  shadowGenerator.transparencyShadow = true
-
-  const cloudLayer = scene.getMeshByName(CLOUD_LAYER_NAME)
-  if (cloudLayer) {
-    shadowGenerator.addShadowCaster(cloudLayer)
-  }
 
   return shadowGenerator
 }
@@ -1756,6 +1786,14 @@ export function useBabylonScene(param?: UseBabylonSceneParam) {
   })
 
   onBeforeUnmount(() => {
+    /**
+     * 雲的覆蓋圖存在模組層，場景收掉不會連它一起收
+     *
+     * 那張圖是掛在場景上的，隨場景一起釋放沒錯，
+     * 但模組裡那個參照會指著一張已經死掉的貼圖——
+     * 下一次進來時若還沒重新生出圖樣，材質就會綁到它
+     */
+    disposeCloudShadow()
     engine.value?.dispose()
     scene.value?.dispose()
   })

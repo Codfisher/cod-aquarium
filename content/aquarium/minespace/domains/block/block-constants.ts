@@ -400,6 +400,17 @@ export interface BlockDef {
    */
   swaysInWind?: boolean;
   /**
+   * 逆光時會不會透光
+   *
+   * 給樹葉用。交叉立板的花草一律會透，不必特別指定——
+   * 那些東西薄到只有一層，逆光時本來就近乎半透明；
+   * 立方體的方塊則要自己說，同樣是鏤空貼圖的玻璃與鐵鏈都不該發亮。
+   *
+   * 與 swaysInWind 分開是刻意的：蜘蛛網不會擺（洞裡沒有風），
+   * 但它逆著洞口的光看確實是透的——兩件事沒有必然關係
+   */
+  translucent?: boolean;
+  /**
    * 是否投出陰影，預設 true
    *
    * 給那些「本來就該與地面同一個平面」的方塊用。
@@ -691,6 +702,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
   },
   [BlockId.OAK_LEAVES]: {
     swaysInWind: true,
+    translucent: true,
     stepMaterial: 'grass',
     cutout: true,
     textures: {
@@ -717,6 +729,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
    */
   [BlockId.AMBER_LEAVES]: {
     swaysInWind: true,
+    translucent: true,
     stepMaterial: 'grass',
     cutout: true,
     textures: {
@@ -726,6 +739,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
   },
   [BlockId.GOLD_LEAVES]: {
     swaysInWind: true,
+    translucent: true,
     stepMaterial: 'grass',
     cutout: true,
     textures: {
@@ -743,6 +757,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
   },
   [BlockId.PINE_LEAVES]: {
     swaysInWind: true,
+    translucent: true,
     stepMaterial: 'grass',
     cutout: true,
     textures: {
@@ -854,6 +869,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
   },
   [BlockId.ACACIA_LEAVES]: {
     swaysInWind: true,
+    translucent: true,
     stepMaterial: 'grass',
     cutout: true,
     textures: {
@@ -863,6 +879,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
   },
   [BlockId.JUNGLE_LEAVES]: {
     swaysInWind: true,
+    translucent: true,
     stepMaterial: 'grass',
     cutout: true,
     textures: {
@@ -1797,9 +1814,17 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     hangingTailTexture: 'paperDoor',
     stepMaterial: 'stone',
     textures: {
-      all: 'paperLamp',
-      /** 玻璃鈴身偏冷，與底下那片米白的紙分得開 */
-      pixelTint: [0.86, 0.96, 1.06],
+      /**
+       * 鈴身用冰，不用燈
+       *
+       * 原本借的是和紙燈那張圖，而它在原版對到的是螢石——
+       * 量過整張的亮度標準差是 62，全場最雜的一張。
+       * 貼在一顆只有三分之一格的小鈴上，看到的全是顆粒。
+       *
+       * 冰的標準差是 8，而且它本來就是「淡藍、半透、平滑」——
+       * 江戶風鈴本來就是玻璃做的，這比燈更接近它該有的樣子
+       */
+      all: 'ice',
     },
   },
   /** 吊在簷下的和紙提燈，比風鈴大，而且會亮 */
