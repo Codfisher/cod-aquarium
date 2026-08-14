@@ -42,7 +42,6 @@ import { createGlowTexture } from '../domains/renderer/glow-texture'
 import { registerAerialPerspective } from '../domains/weather/aerial-perspective'
 import { GARDEN_FOG_COLOR, GARDEN_FOG_END, GARDEN_FOG_START } from '../domains/weather/atmosphere'
 import { applyCloudColor, createCloudMaterial } from '../domains/weather/cloud-material'
-import { createColorGradeTexture } from '../domains/weather/color-grade'
 import { applySkyGradient, createSkyGradientMaterial } from '../domains/weather/sky-gradient'
 import { getGroundY } from '../domains/world/world-access'
 import { WORLD_SIZE } from '../domains/world/world-constants'
@@ -1328,16 +1327,23 @@ function createRenderingPipeline(scene: Scene, camera: UniversalCamera) {
   pipeline.imageProcessing.colorCurvesEnabled = true
 
   /**
-   * 色彩分級
+   * 這裡不做色彩分級
    *
-   * 上面那條曲線管的是「這一刻的天色」，一整天都在漂；
-   * 這張立體查找表管的是「這個世界長什麼調子」，一整天都不動。
+   * 曾經掛過一張算出來的立體查找表，想在日夜的色調曲線底下
+   * 再墊一層「這個世界是什麼調子」——抬暗部、補亮部的暖、
+   * 一條 S 形曲線、把過飽和的綠收一點。
    *
-   * 順序剛好對得上：影像處理的著色器是先套查找表、再套色調曲線，
-   * 所以這裡定的是底色，日夜在那個底上面漂。詳見 color-grade
+   * 拿掉的理由有兩個。收益太小是其一：實測下來最大的變化是 8/255，
+   * 多數落在 1 到 5 之間，是並排比較才看得出來的量級。
+   *
+   * 代價卻不小，這是其二。查找表的取樣走三線性內插，等於把一條平滑的
+   * 曲線換成幾十段折線，而每個節點上斜率會跳一下。天空的漸層加上
+   * 光暈那層放射狀的亮度都是極平滑的東西，兩者相加之後，
+   * 某一圈等亮度線壓在節點上就會浮出一道看得見的輪廓——
+   * 光源外面那個「淡淡的圓」正是這麼來的。
+   *
+   * 一個看不太出來的效果，換一個看得很清楚的瑕疵，不划算
    */
-  pipeline.imageProcessing.colorGradingTexture = createColorGradeTexture(scene)
-  pipeline.imageProcessing.colorGradingEnabled = true
 
   /**
    * 打散色階
@@ -1663,10 +1669,9 @@ export function useBabylonScene(param?: UseBabylonSceneParam) {
    * 不必像光暈那樣每一幀去查
    */
   watch(
-    () => [devToggle.colorGrade, devToggle.dithering, devToggle.multiSample, devToggle.contactShadow],
+    () => [devToggle.dithering, devToggle.multiSample, devToggle.contactShadow],
     () => {
       if (pipeline.value) {
-        pipeline.value.imageProcessing.colorGradingEnabled = devToggle.colorGrade
         pipeline.value.imageProcessing.ditheringEnabled = devToggle.dithering
         pipeline.value.samples = devToggle.multiSample ? getSampleCount(quality.value) : 1
         /** 關掉多重取樣時補回 FXAA，才比較得出兩者的差別 */

@@ -11,7 +11,6 @@ export const DEV_TOGGLE_LIST = [
   { key: 'lampGlow', label: '燈火光暈' },
   { key: 'skyGlow', label: '日月光暈' },
   { key: 'aerialPerspective', label: '大氣透視' },
-  { key: 'colorGrade', label: '色彩分級' },
   { key: 'dithering', label: '打散色階' },
   { key: 'multiSample', label: '多重取樣' },
   { key: 'contactShadow', label: '接觸硬化陰影' },
