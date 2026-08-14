@@ -534,6 +534,26 @@ function computeChunkMatricesInWorker(
             if (neighborId === blockId)
               return false
 
+            /**
+             * 鄰居是液面
+             *
+             * 與上面那段是同一件事，只是換成實心方塊靠著液面：
+             * 液面矮八分之一格，那一小截靠不到任何東西，
+             * 剔掉就會露出一條看得穿的縫——地獄谷的岩漿岸邊正是這樣。
+             *
+             * 水沒事只是因為它本來就算半透明，這一行永遠輪不到；
+             * 岩漿是不透明的，非得問這一句不可。
+             *
+             * 只管側面與底面：液面壓在頭上時，擋住的是滿滿一整格
+             */
+            if (
+              neighborY <= y
+              && (blockFlags[neighborId]! & F_LIQUID)
+              && isSurfaceLiquid(neighborX, neighborY, neighborZ)
+            ) {
+              return true
+            }
+
             return !!(blockFlags[neighborId]! & F_TRANSPARENT)
           }
 

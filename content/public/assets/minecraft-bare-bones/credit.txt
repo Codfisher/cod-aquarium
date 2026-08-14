@@ -1,0 +1,13 @@
+Bare Bones PBR x128
+-------------------
+
+彩色、法線（_n）與高光（_s）貼圖來源：
+Bare Bones PBR x128
+https://modrinth.com/resourcepack/bare-bones-pbr-x128
+
+授權：MIT
+
+此處只收錄 minespace 用得到的貼圖，檔案內容未經修改。
+缺少的幾張（水面與流水）沿用 /assets/minecraft/textures/block。
+
+本資料夾由 scripts/sync-texture-pack.mjs 產生。

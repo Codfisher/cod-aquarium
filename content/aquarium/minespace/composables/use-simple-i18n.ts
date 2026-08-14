@@ -85,19 +85,31 @@ export function useSimpleI18n<
   ): Data[Key] extends string[] ? string[] : string {
     const value = getMessage(key) as any
 
-    if (Array.isArray(value)) {
-      // @ts-expect-error 強制轉換
-      return value
+    /**
+     * 把 {name} 換成傳進來的值
+     *
+     * 陣列也要換。原本陣列是直接回傳的，於是「多段文字裡帶一個變數」
+     * 這種最常見的情況反而是唯一不會替換的——寫的人看不出哪裡錯，
+     * 只會看到畫面上留著一個大括號
+     */
+    const fillParams = (text: string): string => {
+      if (!params)
+        return text
+
+      return Object.entries(params).reduce(
+        (filled, [name, replacement]) => filled.replaceAll(`{${name}}`, String(replacement)),
+        text,
+      )
     }
 
-    // 如果是字串，且有參數，進行替換
-    if (typeof value === 'string' && params) {
-      let text = value
-      Object.entries(params).forEach(([k, v]) => {
-        text = text.replace(new RegExp(`{${k}}`, 'g'), String(v))
-      })
+    if (Array.isArray(value)) {
       // @ts-expect-error 強制轉換
-      return text
+      return value.map((item: unknown) => typeof item === 'string' ? fillParams(item) : item)
+    }
+
+    if (typeof value === 'string') {
+      // @ts-expect-error 強制轉換
+      return fillParams(value)
     }
 
     return value

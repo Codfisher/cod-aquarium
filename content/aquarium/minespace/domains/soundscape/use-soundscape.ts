@@ -56,6 +56,14 @@ export function useSoundscape() {
 
   let soundscape: SpatialSoundscape | null = null
   let elapsed = 0
+  /**
+   * 從開始到現在總共過了幾秒
+   *
+   * 上面那個 elapsed 每次更新都歸零，是用來節流的。
+   * 會移動的音源要的是一條不會斷的時間軸，
+   * 拿歸零的那個去算，海鷗會每四分之一秒回到原地一次
+   */
+  let totalElapsedSecond = 0
   let currentWeather: Weather = 'clear'
 
   watch([masterVolume, isMuted], () => {
@@ -125,7 +133,9 @@ export function useSoundscape() {
         if (!soundscape)
           return
 
-        elapsed += scene.getEngine().getDeltaTime() / 1000
+        const deltaSecond = scene.getEngine().getDeltaTime() / 1000
+        elapsed += deltaSecond
+        totalElapsedSecond += deltaSecond
         if (elapsed < UPDATE_INTERVAL)
           return
 
@@ -135,6 +145,7 @@ export function useSoundscape() {
           camera.position.y,
           camera.position.z,
           getDayRatio?.() ?? 1,
+          totalElapsedSecond,
         )
         audibleList.value = soundscape.getAudibleList()
       })

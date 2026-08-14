@@ -387,10 +387,22 @@ export function useWeather() {
         const mistFogStart = lerp(CLEAR_ATMOSPHERE.fogStart, SWAMP_ATMOSPHERE.fogStart, mistRatio)
         const mistFogEnd = lerp(CLEAR_ATMOSPHERE.fogEnd, SWAMP_ATMOSPHERE.fogEnd, mistRatio)
         const mistLightRatio = lerp(CLEAR_ATMOSPHERE.lightRatio, SWAMP_ATMOSPHERE.lightRatio, mistRatio)
+        const mistSpecularRatio = lerp(CLEAR_ATMOSPHERE.specularRatio, SWAMP_ATMOSPHERE.specularRatio, mistRatio)
+        const mistAmbientRatio = lerp(CLEAR_ATMOSPHERE.ambientRatio, SWAMP_ATMOSPHERE.ambientRatio, mistRatio)
 
         atmosphere.fogStart = lerp(mistFogStart, RAIN_ATMOSPHERE.fogStart, rainRatio)
         atmosphere.fogEnd = lerp(mistFogEnd, RAIN_ATMOSPHERE.fogEnd, rainRatio)
         atmosphere.lightRatio = lerp(mistLightRatio, RAIN_ATMOSPHERE.lightRatio, rainRatio)
+        /** 平行光收掉多少，天光就補回來多少，總亮度才不會跟著掉 */
+        atmosphere.ambientRatio = lerp(mistAmbientRatio, RAIN_ATMOSPHERE.ambientRatio, rainRatio)
+        /**
+         * 高光跟著雲量收掉，而且收得比漫射快得多
+         *
+         * 雨勢一起，濕地面上那道太陽的反光就該消失；雨停之後
+         * 它會隨著雲散開慢慢回來，那時地還是濕的——
+         * 「雨後的地面在斜射的陽光下亮到刺眼」是這個時候才發生的事
+         */
+        atmosphere.specularRatio = lerp(mistSpecularRatio, RAIN_ATMOSPHERE.specularRatio, rainRatio)
 
         /** 閃電：短暫補光後迅速衰減，遠方的雷只亮一點點 */
         if (flashTimeLeft > 0) {

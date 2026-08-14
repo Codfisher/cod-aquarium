@@ -10,6 +10,7 @@ import {
   fillSquare,
   getNoisyDistance,
   paveDeck,
+  placeBambooGrove,
   placeBonsaiPine,
   placeOakTree,
   placeRoofCap,
@@ -479,7 +480,23 @@ export function buildRainvaleGarden(state: Uint8Array, garden: GardenDefinition)
    * 靠背朝西，人面向東邊那窪積水——這座亭子本來就是為了聽雨才蓋的
    */
   setBlock(state, pavilionX, groundY, pavilionZ, BlockId.WOOD_STAIRS_WEST)
-  setBlock(state, pavilionX, groundY + 2, pavilionZ + 1, BlockId.PAPER_LAMP)
+  /**
+   * 燈改成吊的
+   *
+   * 原本是一格和紙燈箱浮在椅子旁邊的半空中，沒有東西托著它。
+   * 頭頂剛好就是屋頂，換成吊燈之後它貼著屋頂垂下來——
+   * 同一個位置、同一張貼圖，差別只在它現在有了來處
+   */
+  setBlock(state, pavilionX, groundY + 2, pavilionZ + 1, BlockId.HANGING_LAMP)
+
+  /**
+   * 簷角的風鈴
+   *
+   * 這座禪庭整座都在講聲音，卻一直沒有一個「因為風而響」的東西。
+   * 只掛一個，掛在屋簷伸出去的那一角——不掛成一排，
+   * 風鈴多了會變成裝飾，一個才是聲音
+   */
+  setBlock(state, pavilionX + 2, groundY + 2, pavilionZ - 2, BlockId.WIND_CHIME)
 
   /** 苔石與蕨，濕氣重的地方才長得出來 */
   placeStandingStone(state, centerX + 5, groundY, centerZ - 5, 2, BlockId.MOSSY_COBBLESTONE)
@@ -530,6 +547,15 @@ export function buildInsectGarden(state: Uint8Array, garden: GardenDefinition): 
   /** 一堆石，石縫是另一種蟲的家 */
   placeStandingStone(state, centerX - 5, groundY, centerZ + 4, 2, BlockId.COBBLESTONE)
   setDecoration(state, centerX - 4, groundY, centerZ + 4, BlockId.COBBLESTONE)
+
+  /**
+   * 北角一叢竹
+   *
+   * 蟲聲是從有遮蔽的地方傳出來的。整片草地一望無際的話，
+   * 那片高頻的叫聲聽起來會沒有來處——一叢竹子給了它一個位置，
+   * 而竹葉本身也在風裡沙沙作響，兩種聲音疊在一起
+   */
+  placeBambooGrove(state, centerX - 5, groundY, centerZ - 5, 3, 11, random)
 
   /** 乾土上兩株仙人掌，是全庭最乾的地方 */
   setBlock(state, centerX + 4, groundY, centerZ + 4, BlockId.CACTUS)

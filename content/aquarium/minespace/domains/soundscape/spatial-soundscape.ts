@@ -54,6 +54,73 @@ interface ActiveEmitter {
   gainRatio: number;
 }
 
+/** 空間中的一個點 */
+interface SoundPosition {
+  x: number;
+  y: number;
+  z: number;
+}
+
+/**
+ * 讓每個音源有自己的起跑點
+ *
+ * 兩隻海鷗若從同一個角度起飛，會永遠疊在一起繞同一個圈。
+ * 拿 id 的字元湊一個看起來隨機、但每次執行都一樣的相位——
+ * 不能用亂數：音源會反覆載入卸載，每次回來都跳到新位置就成了瞬移
+ */
+function measureIdPhase(id: string): number {
+  let hash = 0
+  for (let index = 0; index < id.length; index++) {
+    hash = (hash * 31 + id.charCodeAt(index)) % 3600
+  }
+
+  return (hash / 3600) * Math.PI * 2
+}
+
+/**
+ * 算出音源此刻在哪
+ *
+ * 不會動的就是它自己的座標。會動的則以那個座標為錨點，
+ * 依軌跡繞著它跑——錨點本身仍然是「這個聲音屬於哪裡」，
+ * 載入與卸載的判斷也還是照實際位置算，
+ * 所以一隻飄遠的鳥會自己淡出，不必另外處理
+ */
+export function measureEmitterPosition(
+  definition: ResolvedEmitter,
+  elapsedSecond: number,
+): SoundPosition {
+  const { motion } = definition
+  if (!motion)
+    return { x: definition.x, y: definition.y, z: definition.z }
+
+  const phase = measureIdPhase(definition.id)
+  const turn = (elapsedSecond / motion.periodSecond) * Math.PI * 2 + phase
+
+  if (motion.type === 'orbit') {
+    return {
+      x: definition.x + Math.cos(turn) * motion.radius,
+      /** 一圈之內起伏兩次，盤旋才有上下的層次 */
+      y: definition.y + Math.sin(turn * 2) * (motion.riseHeight ?? 0),
+      z: definition.z + Math.sin(turn) * motion.radius,
+    }
+  }
+
+  /**
+   * 兩個軸用互質的頻率
+   *
+   * 比例取黃金比例的倒數，兩條正弦永遠對不回同一個相位，
+   * 走出來的利薩茹曲線因此不會重複。
+   * 若兩軸同頻，畫出來的只是一個歪掉的圓——那又變回繞圈了
+   */
+  const crossRatio = 0.618
+
+  return {
+    x: definition.x + Math.sin(turn) * motion.radius,
+    y: definition.y + Math.sin(turn * 1.37) * (motion.riseHeight ?? 0),
+    z: definition.z + Math.sin(turn * crossRatio + phase) * motion.radius,
+  }
+}
+
 /**
  * 空間音景管理器
  *
@@ -77,6 +144,8 @@ export class SpatialSoundscape {
    * 有人只想聽風、有人受不了蟬——關掉一個音源不該連帶關掉別的
    */
   private mutedIdSet = new Set<string>()
+  /** 世界開始到現在幾秒，會動的音源靠它推 */
+  private elapsedSecond = 0
 
   constructor(
     private audioEngine: AudioEngineV2,
@@ -139,11 +208,13 @@ export class SpatialSoundscape {
     listenerY: number,
     listenerZ: number,
     dayRatio = this.dayRatio,
+    elapsedSecond = 0,
   ): void {
     if (this.isDisposed)
       return
 
     this.dayRatio = dayRatio
+    this.elapsedSecond = elapsedSecond
     const audibleList: AudibleSound[] = []
 
     for (const definition of this.emitterList) {
@@ -160,10 +231,17 @@ export class SpatialSoundscape {
         continue
       }
 
+      /**
+       * 一律照「此刻在哪」算
+       *
+       * 會動的音源若拿錨點算距離，飛到你頭上的海鷗會維持原本的音量，
+       * 而載入與卸載的邊界也會歪掉
+       */
+      const position = measureEmitterPosition(definition, elapsedSecond)
       const distance = Math.hypot(
-        listenerX - definition.x,
-        listenerY - definition.y,
-        listenerZ - definition.z,
+        listenerX - position.x,
+        listenerY - position.y,
+        listenerZ - position.z,
       )
 
       if (distance <= definition.maxDistance * LOAD_MARGIN) {
@@ -177,7 +255,17 @@ export class SpatialSoundscape {
       if (!active)
         continue
 
-      const clarity = this.measureClarity(listenerX, listenerY, listenerZ, definition)
+      /**
+       * 位置每次都要推給 Web Audio，否則聲音會留在載入時的那一點
+       *
+       * 直接改既有的向量而不是配一個新的：這段每四分之一秒
+       * 對每個會動的音源跑一次，沒必要一路生垃圾出來
+       */
+      if (definition.motion) {
+        active.sound.spatial.position.set(position.x, position.y, position.z)
+      }
+
+      const clarity = this.measureClarity(listenerX, listenerY, listenerZ, position)
       const gainRatio = clarity * timeGate
       const isMuted = this.mutedIdSet.has(definition.id)
       this.applyGain(active, isMuted ? 0 : gainRatio)
@@ -216,11 +304,11 @@ export class SpatialSoundscape {
     listenerX: number,
     listenerY: number,
     listenerZ: number,
-    definition: ResolvedEmitter,
+    position: SoundPosition,
   ): number {
-    const deltaX = definition.x - listenerX
-    const deltaY = definition.y - listenerY
-    const deltaZ = definition.z - listenerZ
+    const deltaX = position.x - listenerX
+    const deltaY = position.y - listenerY
+    const deltaZ = position.z - listenerZ
     const distance = Math.hypot(deltaX, deltaY, deltaZ)
     if (distance < 1)
       return 1
@@ -309,6 +397,8 @@ export class SpatialSoundscape {
        * 破曉時剛載入的鳥會先整隻叫一聲才淡下去
        */
       const gainRatio = measureTimeGate(definition, this.dayRatio)
+      /** 從它此刻該在的地方開聲，不是從錨點——會動的音源否則會先閃現一下 */
+      const origin = measureEmitterPosition(definition, this.elapsedSecond)
       const sound = await CreateSoundAsync(
         definition.id,
         buffer,
@@ -321,7 +411,7 @@ export class SpatialSoundscape {
           spatialMaxDistance: definition.maxDistance,
           spatialRolloffFactor: 1,
           spatialPanningModel: 'HRTF',
-          spatialPosition: new Vector3(definition.x, definition.y, definition.z),
+          spatialPosition: new Vector3(origin.x, origin.y, origin.z),
         },
         this.audioEngine,
       )

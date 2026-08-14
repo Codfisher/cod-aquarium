@@ -1,4 +1,5 @@
 import type { GardenDefinition, GardenId } from './garden-layout'
+import { createSeededRandom } from '../../utils/noise'
 import { BlockId } from '../block/block-constants'
 import { setBlock } from '../world/world-access'
 import { WORLD_SIZE } from '../world/world-constants'
@@ -14,7 +15,9 @@ import {
   buildWheatGarden,
 } from './garden-builders-major'
 import {
-  buildOnsenGarden,
+  buildCicadaGarden,
+  buildJigokuGarden,
+  buildLibraryGarden,
   buildRainhallGarden,
   buildSongbirdGarden,
 } from './garden-builders-middle'
@@ -29,7 +32,7 @@ import {
   buildRuinsGarden,
 } from './garden-builders-minor'
 import { SAND_LEVEL } from './garden-constants'
-import { fillBox, placePedestal, placeStandingStone, rakeAround } from './garden-kit'
+import { fillBox, placePedestal, placeStandingStone, placeSteppingStones, rakeAround } from './garden-kit'
 import { GARDEN_LIST, SOLITARY_STONE_LIST } from './garden-layout'
 
 /** 每一座箱庭的內容生成器 */
@@ -53,7 +56,9 @@ const BUILDER_MAP: Record<GardenId, (state: Uint8Array, garden: GardenDefinition
   insect: buildInsectGarden,
   rainhall: buildRainhallGarden,
   songbird: buildSongbirdGarden,
-  onsen: buildOnsenGarden,
+  cicada: buildCicadaGarden,
+  library: buildLibraryGarden,
+  jigoku: buildJigokuGarden,
 }
 
 /**
@@ -89,6 +94,42 @@ function placeSolitaryStoneList(state: Uint8Array): void {
 }
 
 /**
+ * 每一座箱庭外面那幾顆飛石
+ *
+ * 走向是「從世界中心往這座箱庭」的那一側——人是從中間往外逛的，
+ * 飛石因此永遠迎著來的方向。取兩軸中比較長的那一個當方向，
+ * 路才會垂直踩上木座的邊，而不是斜斜地擦過一角。
+ *
+ * 這件事集中做而不是每座箱庭各寫一次：二十二座的作法完全一樣，
+ * 而它屬於「箱庭與箱庭之間」，本來就不歸任何一座管
+ */
+function placeApproachStoneList(state: Uint8Array): void {
+  const worldCenter = WORLD_SIZE / 2
+
+  for (const garden of GARDEN_LIST) {
+    const towardCenterX = worldCenter - garden.center.x
+    const towardCenterZ = worldCenter - garden.center.z
+    const isAlongX = Math.abs(towardCenterX) >= Math.abs(towardCenterZ)
+    const stepX = isAlongX ? Math.sign(towardCenterX) : 0
+    const stepZ = isAlongX ? 0 : Math.sign(towardCenterZ)
+
+    /** 每座各自一組亂數，換一座箱庭石頭就散得不一樣 */
+    const random = createSeededRandom(`approach-${garden.id}`)
+
+    placeSteppingStones(
+      state,
+      garden.center.x + stepX * (garden.halfSize + 1),
+      garden.center.z + stepZ * (garden.halfSize + 1),
+      stepX,
+      stepZ,
+      6,
+      SAND_LEVEL + 1,
+      random,
+    )
+  }
+}
+
+/**
  * 生成整座禪庭
  *
  * 順序不能換：先鋪沙、再搭木座、然後才放各自的內容，最後才耙沙紋。
@@ -105,6 +146,8 @@ export function generateWorld(state: Uint8Array): void {
     BUILDER_MAP[garden.id](state, garden)
   }
 
+  /** 飛石排在孤石前面：撞在一起時該讓路的是飛石，孤石是地標 */
+  placeApproachStoneList(state)
   placeSolitaryStoneList(state)
 
   /**

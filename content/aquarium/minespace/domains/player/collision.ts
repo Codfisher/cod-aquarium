@@ -1,4 +1,4 @@
-import { BlockId, getCollisionHeight, getCollisionWidth, isDecorationBlock, isPassableBlock, isThinFloorBlock, isWaterBlock } from '../block/block-constants'
+import { BlockId, getCollisionHeight, getCollisionWidth, isDecorationBlock, isPassableBlock, isThinFloorBlock, isWaterBlock, LIQUID_SURFACE_DROP } from '../block/block-constants'
 import { SAND_LEVEL } from '../garden/garden-constants'
 import { coordinateToIndex, WORLD_HEIGHT, WORLD_SIZE } from '../world/world-constants'
 
@@ -212,6 +212,7 @@ export function isInWater(
   positionX: number,
   positionY: number,
   positionZ: number,
+  matchLiquid: (blockId: BlockId) => boolean = isWaterBlock,
 ): boolean {
   /**
    * 取身體四個角而不是只看正中央那一柱
@@ -229,8 +230,8 @@ export function isInWater(
       const blockZ = Math.floor(positionZ + offsetZ + 0.5)
 
       if (
-        isWaterBlock(readBlock(worldState, blockX, footY, blockZ))
-        || isWaterBlock(readBlock(worldState, blockX, chestY, blockZ))
+        matchLiquid(readBlock(worldState, blockX, footY, blockZ))
+        || matchLiquid(readBlock(worldState, blockX, chestY, blockZ))
       ) {
         return true
       }
@@ -246,12 +247,57 @@ export function isHeadInWater(
   positionX: number,
   positionY: number,
   positionZ: number,
+  matchLiquid: (blockId: BlockId) => boolean = isWaterBlock,
 ): boolean {
   const blockX = Math.floor(positionX + 0.5)
   const blockZ = Math.floor(positionZ + 0.5)
   const blockY = Math.floor(positionY + PLAYER_EYE_HEIGHT + 0.5)
 
-  return isWaterBlock(readBlock(worldState, blockX, blockY, blockZ))
+  return matchLiquid(readBlock(worldState, blockX, blockY, blockZ))
+}
+
+/**
+ * 液面往上還要找幾格
+ *
+ * 只找到眼睛那一格是不夠的：整個人沉在深池底下時，
+ * 液面在頭頂好幾格外，找不到就會誤判成剛好貼著液面。
+ * 四格足夠——再深的地方早就滿檔了，多找幾格算出來的數字一模一樣
+ */
+const LIQUID_SURFACE_SEARCH = 4
+
+/**
+ * 眼睛沉進液面底下多深（格）
+ *
+ * isHeadInWater 只回答是與不是，而視野的變化該是連續的：
+ * 液面剛碰到眼睛就要開始變，不是等整顆頭泡進去才一次跳完。
+ *
+ * 回傳零代表眼睛還在液面上，這一格液體與視野無關
+ */
+export function measureEyeSubmergeDepth(
+  worldState: Uint8Array,
+  positionX: number,
+  positionY: number,
+  positionZ: number,
+  matchLiquid: (blockId: BlockId) => boolean = isWaterBlock,
+): number {
+  const blockX = Math.floor(positionX + 0.5)
+  const blockZ = Math.floor(positionZ + 0.5)
+  const eyeY = positionY + PLAYER_EYE_HEIGHT
+  const eyeBlockY = Math.floor(eyeY + 0.5)
+
+  if (!matchLiquid(readBlock(worldState, blockX, eyeBlockY, blockZ)))
+    return 0
+
+  /** 一路往上找到最後一格液體，液面就是它的頂面 */
+  let topBlockY = eyeBlockY
+  while (
+    topBlockY - eyeBlockY < LIQUID_SURFACE_SEARCH
+    && matchLiquid(readBlock(worldState, blockX, topBlockY + 1, blockZ))
+  ) {
+    topBlockY++
+  }
+
+  return Math.max(0, topBlockY + 0.5 - LIQUID_SURFACE_DROP - eyeY)
 }
 
 /**

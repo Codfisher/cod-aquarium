@@ -51,8 +51,12 @@ export type GardenId =
   | 'rainhall'
   /** 不摻任何風聲水聲的純旋律 */
   | 'songbird'
-  /** 滾水與柴火，正在加熱的水 */
-  | 'onsen'
+  /** 盛夏的蟬，密到分不出是幾隻，而且一隻都看不見 */
+  | 'cicada'
+  /** 有人的安靜：翻頁、腳步、隔著書架傳過來的低語 */
+  | 'library'
+  /** 從地底下上來的低頻，黏稠而緩慢 */
+  | 'jigoku'
 
 export interface GardenDefinition {
   id: GardenId;
@@ -337,17 +341,100 @@ export const GARDEN_LIST: GardenDefinition[] = [
     pedestalHeight: 1,
   },
   {
-    id: 'onsen',
-    title: { 'zh-hant': '湯屋', 'en': 'Bathhouse' },
-    timbre: { 'zh-hant': '滾水與柴火，正在加熱的水', 'en': 'Boiling water over a wood fire' },
-    icon: 'i-material-symbols:hot-tub',
+    /**
+     * 蟬時雨
+     *
+     * 盛夏正午。整片樹冠同時在叫，密到分不出是幾隻，
+     * 也分不出是從哪個方向來的——日文把這個聲音叫「蟬しぐれ」，
+     * 蟬下的一場雨。
+     *
+     * 它與蟲聲叢是一組對照：那一座的蟲在地上、在夜裡、一聲一聲數得出來；
+     * 這一座的蟬在頭頂、在正午、連成一整片沒有縫。
+     * 同樣是高頻的蟲鳴，一個是點，一個是面。
+     *
+     * 最要緊的是「看不見」。樹冠密到不透光，聲音從四面八方壓下來，
+     * 而抬頭只看得到葉子——整座箱庭沒有一個東西是聲音的來源
+     */
+    id: 'cicada',
+    title: { 'zh-hant': '蟬時雨', 'en': 'Cicada Shower' },
+    timbre: { 'zh-hant': '整片樹冠同時在叫，一隻也看不見', 'en': 'The whole canopy at once, none of them visible' },
+    icon: 'i-material-symbols:sunny',
     center: getRingPosition(MIDDLE_RING_RADIUS, 292.5),
     halfSize: SMALL_HALF_SIZE,
     pedestalHeight: 1,
-    /** 正中央是那池熱水，落在池子北邊的石板上 */
+    /** 正中央是樹幹，落在南側那道緣廊前面 */
     travelPoint: {
       x: getRingPosition(MIDDLE_RING_RADIUS, 292.5).x,
-      z: getRingPosition(MIDDLE_RING_RADIUS, 292.5).z - 5,
+      z: getRingPosition(MIDDLE_RING_RADIUS, 292.5).z + 4,
+    },
+  },
+  {
+    /**
+     * 閱覽堂
+     *
+     * 這一座收的是「有人的安靜」。
+     *
+     * 圖書館從來不是沒有聲音的地方——它是唯一一種
+     * 「安靜到聽得見別人」的空間：隔兩排書架的翻頁、
+     * 走道另一頭的腳步、有人把書放回架上的那一下。
+     * 那些聲音在任何別的地方都會被蓋掉，在這裡卻是主角。
+     *
+     * 與石廊跡剛好相反：那一座是空房間把一個聲音放大成好幾圈，
+     * 這一座是滿屋子的紙把所有殘響吃掉，於是每個聲音都乾、短、
+     * 而且清楚地指著某一個人所在的位置。
+     *
+     * 造景因此要看得出是公共的：兩個門、中央幾張閱覽桌、
+     * 沿牆的書架留出走道。不是一間鎖起來的倉庫，
+     * 是一間隨時有人走進來的屋子
+     */
+    id: 'library',
+    title: { 'zh-hant': '閱覽堂', 'en': 'Reading Hall' },
+    timbre: { 'zh-hant': '有人的安靜，聽得見別人翻頁', 'en': 'The quiet of a room with people in it' },
+    icon: 'i-material-symbols:auto-stories',
+    center: getRingPosition(MIDDLE_RING_RADIUS, 112.5),
+    halfSize: SMALL_HALF_SIZE,
+    pedestalHeight: 1,
+    /** 正中央是書架之間那條走道，落在門外的石階前 */
+    travelPoint: {
+      x: getRingPosition(MIDDLE_RING_RADIUS, 112.5).x,
+      z: getRingPosition(MIDDLE_RING_RADIUS, 112.5).z + 6,
+    },
+  },
+  {
+    /**
+     * 地獄谷
+     *
+     * 日本把冒著熱氣、寸草不生的火山窪地叫「地獄」，別府那幾處
+     * 至今還是這個名字。這一座就是那種地方：一池滾著的熔岩、
+     * 燒黑的地、幾根站著死掉的枯木，以及一圈攔住人的柵欄。
+     *
+     * 聲音上它是全庭唯一的低頻連續音。爐火壇是密而高的劈啪、
+     * 岩響窟是稀疏的瞬態拖著長殘響，這一座黏稠而緩慢——
+     * 而且是從腳底下傳上來的，不是從前方。
+     *
+     * 位置刻意排在爐火壇的正外側：從禪庭中心沿著這條線往外走，
+     * 是一小盆火、然後是一整池，同一件事被放大了一個數量級
+     */
+    id: 'jigoku',
+    title: { 'zh-hant': '地獄谷', 'en': 'Hell Valley' },
+    timbre: { 'zh-hant': '從腳底下上來的低頻，黏稠而緩慢', 'en': 'A low churn rising from underfoot' },
+    icon: 'i-material-symbols:volcano',
+    center: getRingPosition(MIDDLE_RING_RADIUS, 247.5),
+    halfSize: SMALL_HALF_SIZE,
+    /**
+     * 箱底與別座一樣只有一格
+     *
+     * 曾經為了那道裂縫把整座抬到四格，但那是抬錯了東西：
+     * 木座是用來把庭園端起來的，不是高台，抬厚了會變成擋在庭園前面的一堵牆。
+     *
+     * 真正該抬的是谷壁。熔岩留在甲板的高度、兩側的地往上堆，
+     * 「谷」是這樣做出來的——而不是往下挖穿箱底
+     */
+    pedestalHeight: 1,
+    /** 正中央是那道裂縫，落在南岸的地面上 */
+    travelPoint: {
+      x: getRingPosition(MIDDLE_RING_RADIUS, 247.5).x,
+      z: getRingPosition(MIDDLE_RING_RADIUS, 247.5).z + 6,
     },
   },
 ]
@@ -433,9 +520,18 @@ export const CAVE_TUNNEL = {
  * 來判斷有沒有進洞的，偏得太外面，洞室上方的岩就薄到不足以讓世界暗下來
  */
 export const CAVE_CHAMBER = {
-  x: CAVE_GARDEN.center.x - 5,
+  /**
+   * 往山心再挪兩格
+   *
+   * 原本在 -5,-5，離山體中心七格；洞室半徑六格，最外緣因此貼到山腳，
+   * 而山的高度是往外遞減的——那裡的岩根本不夠厚，洞頂直接破出去，
+   * 站在地底湖邊抬頭看得到藍天。
+   *
+   * 挪到 -3,-3 之後最外緣離山心十格，上面還壓著十幾格的岩
+   */
+  x: CAVE_GARDEN.center.x - 3,
   y: getDeckGroundY(CAVE_GARDEN) + 1,
-  z: CAVE_GARDEN.center.z - 5,
+  z: CAVE_GARDEN.center.z - 3,
 }
 
 /** 遣水的瀑布，水從岩壁上落進水道 */
@@ -465,13 +561,17 @@ export const SUIKINKUTSU_POINT = {
  * 走在霧裡時它們會一顆一顆浮出來又沉回去
  */
 export const SOLITARY_STONE_LIST = [
-  /** 中圈沒被箱庭佔走的那幾個角度 */
-  ...Array.from({ length: 4 }, (_, index) => ({
-    ...getRingPosition(MIDDLE_RING_RADIUS, 67.5 + index * 90),
+  /**
+   * 中圈沒被箱庭佔走的那幾個角度
+   *
+   * 原本是四個等距的角度，247.5 那一格後來讓給了地獄谷。
+   * 剩下三個不再等距，但那反而好：中圈本來就已經有五座箱庭，
+   * 孤石只是拿來填空白的，排得太整齊會看起來像另一圈建築
+   */
+  ...[67.5, 157.5, 337.5].map((degree, index) => ({
+    ...getRingPosition(MIDDLE_RING_RADIUS, degree),
     height: 2 + (index % 3),
   })),
-  /** 啄木庭撤掉之後空下來的那一格 */
-  { ...getRingPosition(MIDDLE_RING_RADIUS, 112.5), height: 3 },
   /** 最外圈與循環邊界之間那一大片空白，也擺幾顆免得太空 */
   ...Array.from({ length: 4 }, (_, index) => ({
     ...getRingPosition(112, 22.5 + index * 90),

@@ -3,12 +3,13 @@ import type { AtmosphereState } from '../domains/weather/atmosphere'
 import type { MobileControlState } from './use-mobile-controller'
 import { Color3 } from '@babylonjs/core'
 import { onBeforeUnmount, reactive, ref } from 'vue'
-import { BlockId, getStepMaterial } from '../domains/block/block-constants'
+import { BlockId, getStepMaterial, isLavaBlock } from '../domains/block/block-constants'
 import { SPAWN_POSITION } from '../domains/garden/garden-layout'
 import {
   findSafeStandingPosition,
   isHeadInWater,
   isInWater,
+  measureEyeSubmergeDepth,
   PLAYER_EYE_HEIGHT,
   PLAYER_HEIGHT,
   readBlock,
@@ -163,6 +164,34 @@ function wrapAxis(value: number): number {
 const CAVE_FOG_START = 5
 const CAVE_FOG_END = 26
 const WATER_FOG_COLOR = new Color3(0.16, 0.36, 0.56)
+/** 泡在水裡還看得見十四格外的東西，那是水的性質 */
+const WATER_FOG_END = 14
+
+/**
+ * 沉進熔岩時的視野
+ *
+ * 紅通道給到滿檔以上，是因為畫面出去還要過一次 ACES 色調映射，
+ * 而那條曲線在高處會把飽和度往回收。照著眼睛想要的紅去填 0.72，
+ * 出來會是一塊悶掉的磚色——要燒起來就得給得比看起來需要的更多
+ */
+const LAVA_FOG_COLOR = new Color3(1.05, 0.16, 0.03)
+
+/**
+ * 熔岩把視野整個收掉
+ *
+ * 水是半透明的，所以水下只是「看得比較近」。熔岩不是——
+ * 它是一塊不透明的熔融岩石，眼睛貼上去就只剩下它自己。
+ * 霧從零開始、一格半外什麼都沒有，整片畫面燒成紅的
+ */
+const LAVA_FOG_END = 1.5
+
+/**
+ * 眼睛沉多深算是整個泡進去了
+ *
+ * 半格。這是一段很短的距離，但它把「剛碰到」與「泡進去」分成兩件事：
+ * 液面掠過眼睛時畫面已經開始泛紅，再沉半格才紅得什麼都看不見
+ */
+const LAVA_SUBMERGE_DEPTH = 0.5
 
 interface UseFpsControllerParams {
   scene: Scene;
@@ -254,6 +283,8 @@ export function useFpsController() {
     /** 環境轉換用的平滑係數，0 為地表、1 為洞穴 */
     let caveRatio = 0
     let waterRatio = 0
+    /** 沉在熔岩裡多深，用來把整片視野燒紅 */
+    let lavaRatio = 0
 
     const spawn = findSafeStandingPosition(worldState, SPAWN_POSITION.x, SPAWN_POSITION.z)
     position.x = spawn.x
@@ -513,11 +544,26 @@ export function useFpsController() {
     function updateAtmosphere(deltaTime: number) {
       const caveTarget = measureCoverRatio()
       const waterTarget = isHeadInWater(worldState, position.x, position.y, position.z) ? 1 : 0
+      /**
+       * 熔岩碰到眼睛就開始燒
+       *
+       * 不用「頭有沒有整顆泡進去」那個是非題：液面爬到眼睛的那一刻
+       * 視野就該開始變，而在液面上下浮沉時，是非題會讓整片紅
+       * 一下有一下沒有地閃。改成量眼睛沉進液面底下多深，
+       * 半格內從無到滿——碰到就看得出來，沉下去才紅得徹底
+       */
+      const lavaTarget = Math.min(
+        1,
+        measureEyeSubmergeDepth(worldState, position.x, position.y, position.z, isLavaBlock)
+        / LAVA_SUBMERGE_DEPTH,
+      )
       /** 洞穴的過渡放慢，走進洞口的那幾秒才有眼睛慢慢適應的感覺 */
       const blendSpeed = Math.min(1, deltaTime * 1.2)
 
       caveRatio += (caveTarget - caveRatio) * blendSpeed
       waterRatio += (waterTarget - waterRatio) * blendSpeed
+      /** 熔岩不必慢慢適應，沉進去的那一刻就該紅得徹底 */
+      lavaRatio += (lavaTarget - lavaRatio) * Math.min(1, blendSpeed * 3)
       isUnderground.value = caveRatio > 0.5
       /**
        * 讓天氣那一側知道現在在洞裡多深
@@ -531,6 +577,7 @@ export function useFpsController() {
 
       Color3.LerpToRef(atmosphere.fogColor, CAVE_FOG_COLOR, caveRatio, scene.fogColor)
       Color3.LerpToRef(scene.fogColor, WATER_FOG_COLOR, waterRatio, scene.fogColor)
+      Color3.LerpToRef(scene.fogColor, LAVA_FOG_COLOR, lavaRatio, scene.fogColor)
 
       /**
        * 先套邊界的濃霧，再套洞穴
@@ -543,8 +590,18 @@ export function useFpsController() {
 
       const caveFogStart = edgeFogStart + (CAVE_FOG_START - edgeFogStart) * caveRatio
       const caveFogEnd = edgeFogEnd + (CAVE_FOG_END - edgeFogEnd) * caveRatio
-      scene.fogStart = caveFogStart * (1 - waterRatio)
-      scene.fogEnd = caveFogEnd + (14 - caveFogEnd) * waterRatio
+      const waterFogStart = caveFogStart * (1 - waterRatio)
+      const waterFogEnd = caveFogEnd + (WATER_FOG_END - caveFogEnd) * waterRatio
+
+      /**
+       * 熔岩收在最後
+       *
+       * 前面每一層都是「看得比較近」，熔岩是「看不到」。
+       * 擺在最後面，不管人是從洞裡、水裡還是地表沉進去的，
+       * 出來的都是同一片紅
+       */
+      scene.fogStart = waterFogStart * (1 - lavaRatio)
+      scene.fogEnd = waterFogEnd + (LAVA_FOG_END - waterFogEnd) * lavaRatio
 
       scene.clearColor.set(scene.fogColor.r, scene.fogColor.g, scene.fogColor.b, 1)
 
@@ -554,13 +611,13 @@ export function useFpsController() {
        * 要接在霧色算完之後：大氣透視是拿最終的霧色往天色偏過去的，
        * 讀到還沒疊上洞穴與水面的那一份就會對不起來。
        *
-       * 洞裡、水下與貼近邊界時一律收回純霧色——
-       * 那三處都沒有天空可以散射，硬給一層藍只會顯得莫名其妙
+       * 洞裡、水下、熔岩裡與貼近邊界時一律收回純霧色——
+       * 那幾處都沒有天空可以散射，硬給一層藍只會顯得莫名其妙
        */
       updateAerialAir(
         scene.fogColor,
         atmosphere.skyMidColor,
-        (1 - caveRatio) * (1 - waterRatio) * (1 - edgeRatio),
+        (1 - caveRatio) * (1 - waterRatio) * (1 - lavaRatio) * (1 - edgeRatio),
         devToggle.aerialPerspective,
       )
 
@@ -575,6 +632,14 @@ export function useFpsController() {
       scene.ambientColor.copyFrom(atmosphere.fillColor)
 
       const weatherRatio = atmosphere.lightRatio + atmosphere.flashRatio * 1.4
+      /**
+       * 天光走自己那一份
+       *
+       * 陰天不是變暗，是光的來源換了：太陽被雲蓋住，
+       * 整片天空變成一盞巨大的柔光燈。平行光收到只剩一成二讓影子消失，
+       * 天光同時補上來，畫面才會是「陰而亮」而不是「傍晚」
+       */
+      const skyRatio = atmosphere.ambientRatio + atmosphere.flashRatio * 1.4
 
       /**
        * 洞裡照不到太陽，但不能真的全黑
@@ -582,7 +647,7 @@ export function useFpsController() {
        * 完全沒有光的話玩家連路都看不到，
        * 保留一份微光當作岩壁的反射，剛好夠摸黑前進
        */
-      const ambientRatio = weatherRatio * (1 - caveRatio) + CAVE_AMBIENT_RATIO * caveRatio
+      const ambientRatio = skyRatio * (1 - caveRatio) + CAVE_AMBIENT_RATIO * caveRatio
 
       if (ambientLight) {
         /**
@@ -603,6 +668,18 @@ export function useFpsController() {
       if (sunLight) {
         sunLight.intensity = atmosphere.lightIntensity * weatherRatio * (1 - caveRatio)
         sunLight.diffuse.copyFrom(atmosphere.lightColor)
+        /**
+         * 高光另外收
+         *
+         * Babylon 只用 intensity 同時縮放漫射與高光，但這兩件事
+         * 在天氣上的反應完全不同：雲層把太陽打散之後，天空整片還是亮的，
+         * 漫射只變柔；高光卻需要一個又小又亮的點，那是最先被抹掉的。
+         *
+         * 沒有這一行的話，暴雨裡的濕地面會被太陽打出一道刺眼的反光，
+         * 池面也還在閃——明明抬頭連太陽在哪都看不出來
+         */
+        const specular = atmosphere.specularRatio * (1 - caveRatio)
+        sunLight.specular.set(specular, specular, specular)
       }
     }
 
@@ -684,7 +761,15 @@ export function useFpsController() {
           }
         }
 
-        isSwimming.value = isInWater(worldState, position.x, position.y, position.z)
+        /**
+         * 熔岩與水共用同一套沉浮
+         *
+         * 兩者的物理是一樣的：踩不住、會往下沉、按跳躍才浮得上來。
+         * 差別全在感受——水是可以游的，熔岩是掉進去就完了。
+         * 那個差別用視覺講（整片視野燒紅），不用物理講
+         */
+        const inLava = isInWater(worldState, position.x, position.y, position.z, isLavaBlock)
+        isSwimming.value = inLava || isInWater(worldState, position.x, position.y, position.z)
 
         const moveLength = Math.hypot(moveX, moveZ)
         const isSprinting = keys.sprint || (mobileControls?.state.sprint ?? false)

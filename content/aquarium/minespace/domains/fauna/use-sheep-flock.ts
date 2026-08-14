@@ -1,4 +1,6 @@
 import type { DirectionalLight, Mesh, Scene, ShadowGenerator, StandardMaterial, UniversalCamera } from '@babylonjs/core'
+import type { TextureKey } from '../block/texture-pack'
+import type { TextureSkinner } from '../renderer/pixel-material'
 import { MeshBuilder, TransformNode } from '@babylonjs/core'
 import { onBeforeUnmount } from 'vue'
 import { SUN_LIGHT_NAME } from '../../composables/use-babylon-scene'
@@ -7,7 +9,6 @@ import { createSeededRandom } from '../../utils/noise'
 import { WOOL_TEXTURE } from '../block/block-constants'
 import { PASTURE_CENTER, PASTURE_HALF_SIZE } from '../garden/garden-layout'
 import { PLAYER_EYE_HEIGHT, PLAYER_WIDTH } from '../player/collision'
-import { createPixelMaterial } from '../renderer/voxel-renderer'
 import { getGroundY } from '../world/world-access'
 
 /**
@@ -107,6 +108,8 @@ interface Sheep {
 
 export interface StartSheepFlockParams {
   scene: Scene;
+  /** 羊毛也吃材質包，換一套整群羊跟著換 */
+  skinner: TextureSkinner;
   worldState: Uint8Array;
   /** 玩家所在，走進羊群時要把羊擠開 */
   camera: UniversalCamera;
@@ -124,16 +127,16 @@ export function useSheepFlock() {
   let sheepList: Sheep[] = []
   let disposeList: (() => void)[] = []
 
-  function start({ scene, worldState, camera, getDayRatio }: StartSheepFlockParams): void {
+  function start({ scene, worldState, camera, getDayRatio, skinner }: StartSheepFlockParams): void {
     const sunLight = scene.getLightByName(SUN_LIGHT_NAME) as DirectionalLight | null
     const shadowGenerator = sunLight?.getShadowGenerator() as ShadowGenerator | null
     const random = createSeededRandom('minespace-sheep')
 
     /** 羊毛顏色分三種，一群羊才不會像同一隻複製六份 */
     const materialSetList: SheepMaterialSet[] = [
-      createMaterialSet(scene, 'white', WOOL_TEXTURE.white, WOOL_TEXTURE.white),
-      createMaterialSet(scene, 'grey', WOOL_TEXTURE.grey, WOOL_TEXTURE.white),
-      createMaterialSet(scene, 'brown', WOOL_TEXTURE.brown, WOOL_TEXTURE.white),
+      createMaterialSet(skinner, 'white', WOOL_TEXTURE.white, WOOL_TEXTURE.white),
+      createMaterialSet(skinner, 'grey', WOOL_TEXTURE.grey, WOOL_TEXTURE.white),
+      createMaterialSet(skinner, 'brown', WOOL_TEXTURE.brown, WOOL_TEXTURE.white),
     ]
 
     for (let index = 0; index < SHEEP_COUNT; index++) {
@@ -204,17 +207,17 @@ export function useSheepFlock() {
 }
 
 function createMaterialSet(
-  scene: Scene,
+  skinner: TextureSkinner,
   name: string,
-  woolTexture: string,
-  fleeceTexture: string,
+  woolKey: TextureKey,
+  fleeceKey: TextureKey,
 ): SheepMaterialSet {
   return {
-    wool: createPixelMaterial(`sheep-${name}-wool`, woolTexture, scene),
-    fleece: createPixelMaterial(`sheep-${name}-fleece`, fleeceTexture, scene, [1.08, 1.08, 1.08]),
-    hoof: createPixelMaterial(`sheep-${name}-hoof`, WOOL_TEXTURE.darkGrey, scene),
-    face: createPixelMaterial(`sheep-${name}-face`, WOOL_TEXTURE.pink, scene),
-    eye: createPixelMaterial(`sheep-${name}-eye`, WOOL_TEXTURE.black, scene),
+    wool: skinner.create({ name: `sheep-${name}-wool`, textureKey: woolKey }),
+    fleece: skinner.create({ name: `sheep-${name}-fleece`, textureKey: fleeceKey, tint: [1.08, 1.08, 1.08] }),
+    hoof: skinner.create({ name: `sheep-${name}-hoof`, textureKey: WOOL_TEXTURE.darkGrey }),
+    face: skinner.create({ name: `sheep-${name}-face`, textureKey: WOOL_TEXTURE.pink }),
+    eye: skinner.create({ name: `sheep-${name}-eye`, textureKey: WOOL_TEXTURE.black }),
   }
 }
 

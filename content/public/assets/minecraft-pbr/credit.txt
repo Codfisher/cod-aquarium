@@ -1,0 +1,14 @@
+Excalibur - justPBR
+-------------------
+
+法線（_n）與高光（_s）貼圖來源：
+Excalibur - justPBR
+https://modrinth.com/resourcepack/excalibur-justpbr
+
+授權：CC-BY-4.0（姓名標示 4.0 國際）
+https://creativecommons.org/licenses/by/4.0/
+
+此處只收錄 minespace 用得到的貼圖，檔案內容未經修改。
+彩色貼圖本身不在此資料夾，沿用 /assets/minecraft/textures/block。
+
+本資料夾由 scripts/sync-texture-pack.mjs 產生。

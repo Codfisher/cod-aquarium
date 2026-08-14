@@ -334,6 +334,23 @@ export function buildAlpineGarden(state: Uint8Array, garden: GardenDefinition): 
       /** 高處積雪、低處露出岩，一座山才有兩種顏色。雪線也帶一點抖動 */
       const snowLine = 4 + fbm2D(x * 0.4, z * 0.4, 2, 0.5) * 1.2
       setBlock(state, x, deckY + height, z, height >= snowLine ? BlockId.SNOW : BlockId.COBBLESTONE)
+
+      /**
+       * 雪線底下那一帶撒薄雪
+       *
+       * 整格的雪與裸岩直接相接，會在山腰上切出一條看得見的界線——
+       * 而真正的雪線是一段，不是一條。雪線以下兩格內鋪一層薄雪，
+       * 岩石的顏色從邊緣透出來，那一段就化開了。
+       *
+       * 用噪聲決定哪一格有而不是抽亂數：抽亂數會挪動這座箱庭
+       * 後面所有的隨機序列，矮松與碎石會跟著全部重排
+       */
+      const isDusted = height < snowLine
+        && height > snowLine - 2.4
+        && fbm2D(x * 0.55, z * 0.55, 2, 0.5) > 0.42
+      if (isDusted) {
+        setBlock(state, x, deckY + height + 1, z, BlockId.SNOW_LAYER)
+      }
     }
   }
 
@@ -1012,13 +1029,39 @@ export function buildCaveGarden(state: Uint8Array, garden: GardenDefinition): vo
    * 從朝向禪庭中心那一側的洞口斜斜穿進山腹。
    * 淨高只有三格，得低著頭走；走到底空間忽然打開，那一下才是效果
    */
+  /**
+   * 通道的高低起伏，分成兩趟做
+   *
+   * 這件事先前失敗了兩次，兩次都是同一個原因：相鄰兩步挖的是重疊的 3×3，
+   * 一邊算高度一邊挖的話，後一步的地板會填掉前一步剛挖開的空氣，
+   * 一路下坡的路段就這樣被自己砌死。
+   *
+   * 所以拆成兩趟：第一趟只算出整條路徑的剖面（每一步的座標與地面高度），
+   * 第二趟先把所有地板鋪完、再把所有空間挖完。
+   * 挖是最後一道而且一次做完，沒有任何回填能蓋掉它
+   */
   const pathPointList = [
-    { x: CAVE_MOUTH.x, z: CAVE_MOUTH.z },
-    { x: centerX + 7, z: centerZ + 7 },
-    { x: CAVE_TUNNEL.x, z: CAVE_TUNNEL.z },
-    { x: centerX + 1, z: centerZ - 1 },
-    { x: CAVE_CHAMBER.x, z: CAVE_CHAMBER.z },
+    /**
+     * 只往上，不往下
+     *
+     * 往下挖會穿過木座、露出底下那層白沙——與地獄谷同一個問題。
+     * 那裡可以靠往上堆谷壁繞開，通道不行：通道是包在山體裡的，
+     * 只能挖不能堆。
+     *
+     * 所以起伏全部往上長，最多一格。幅度雖小但夠用：
+     * 看不見前面的時候，腳下抬起一格與踏平一格的差別是感覺得到的
+     */
+    { x: CAVE_MOUTH.x, z: CAVE_MOUTH.z, rise: 0 },
+    { x: centerX + 7, z: centerZ + 7, rise: 1 },
+    { x: CAVE_TUNNEL.x, z: CAVE_TUNNEL.z, rise: 0 },
+    { x: centerX + 1, z: centerZ - 1, rise: 1 },
+    { x: CAVE_CHAMBER.x, z: CAVE_CHAMBER.z, rise: 0 },
   ]
+
+  /** 第一趟：算出剖面，落差夾在一格以內，走得通是結構上的保證 */
+  const tunnelStepList: { x: number; z: number; floorY: number }[] = []
+  /** 走過幾步，噪聲照這個取才會沿路徑連續 */
+  let travelled = 0
 
   for (let index = 0; index < pathPointList.length - 1; index++) {
     const start = pathPointList[index]!
@@ -1029,10 +1072,55 @@ export function buildCaveGarden(state: Uint8Array, garden: GardenDefinition): vo
       const ratio = step / stepCount
       const x = Math.round(start.x + (end.x - start.x) * ratio)
       const z = Math.round(start.z + (end.z - start.z) * ratio)
-      fillBox(state, x - 1, deckY + 1, z - 1, x + 1, deckY + 3, z + 1, BlockId.AIR)
+      /**
+       * 高度沿路徑取，不是沿座標取
+       *
+       * 照 x/z 取噪聲的話，相鄰兩步的座標可能同時差一格，
+       * 取樣出來的值跳來跳去——夾成 0 與 1 之後，不是整條變平
+       * 就是每兩格抖一次。兩種都不是「起伏」。
+       *
+       * 改成沿著走過的距離取：同一段路上的取樣點是連續的，
+       * 抬起來的那幾格於是連成一段緩坡，而不是散在路上的門檻
+       */
+      travelled += 1
+      const slope = start.rise + (end.rise - start.rise) * ratio
+      const wave = fbm2D(travelled * 0.13, 0, 2, 0.5)
+      /** 只往上一格。往下會挖穿木座露出白沙，那是通道唯一不能做的事 */
+      const floorY = deckY + (slope + (wave - 0.5) * 1.6 > 0.5 ? 1 : 0)
+
+      tunnelStepList.push({ x, z, floorY })
     }
   }
 
+  /**
+   * 第二趟：先把每一格 column 的高度定下來，再一次鋪、一次挖
+   *
+   * 不能照著步驟一格一格處理。相鄰兩步挖的是重疊的 3×3——
+   * 抬高的那一步剛鋪好地板，隔壁那步（比較低）的挖掘就把它挖掉了，
+   * 整條通道於是被壓回同一個高度。先前改成兩趟只解決了一半：
+   * 填不會蓋掉挖，但挖會蓋掉填。
+   *
+   * 所以每一格 column 只能有一個高度，取覆蓋到它的所有步驟裡最高的那個。
+   * 高度定死之後鋪與挖各做一次，兩者永遠對得起來
+   */
+  const tunnelFloorMap = new Map<string, number>()
+  for (const tunnelStep of tunnelStepList) {
+    for (let offsetX = -1; offsetX <= 1; offsetX++) {
+      for (let offsetZ = -1; offsetZ <= 1; offsetZ++) {
+        const key = `${tunnelStep.x + offsetX},${tunnelStep.z + offsetZ}`
+        tunnelFloorMap.set(key, Math.max(tunnelFloorMap.get(key) ?? 0, tunnelStep.floorY))
+      }
+    }
+  }
+
+  for (const [key, floorY] of tunnelFloorMap) {
+    const [x, z] = key.split(',').map(Number) as [number, number]
+    setBlock(state, x, floorY, z, BlockId.STONE)
+  }
+  for (const [key, floorY] of tunnelFloorMap) {
+    const [x, z] = key.split(',').map(Number) as [number, number]
+    fillBox(state, x, floorY + 1, z, x, floorY + 3, z, BlockId.AIR)
+  }
   /** 洞室：走到底忽然開闊，頂上還有六格高 */
   for (let offsetX = -6; offsetX <= 6; offsetX++) {
     for (let offsetZ = -6; offsetZ <= 6; offsetZ++) {
@@ -1151,6 +1239,16 @@ export function buildCaveGarden(state: Uint8Array, garden: GardenDefinition): vo
     pick() < 0.5 ? BlockId.FERN : BlockId.STONE_PLANT
   ), new Set([BlockId.GRAVEL]))
 
-  placeStoneLantern(state, CAVE_MOUTH.x + 2, groundY, CAVE_MOUTH.z + 2)
-  placeStoneLantern(state, CAVE_MOUTH.x - 2, groundY, CAVE_MOUTH.z + 3)
+  /**
+   * 洞口兩側的石燈籠
+   *
+   * 通道是沿著對角線鑽進山腹的，所以「洞口的正前方」也在對角線上。
+   * 原本一盞擺在 (+2, +2)，那正好是那條軸線往外延伸的位置——
+   * 燈籠因此不是立在門邊，是立在門口正中央擋著路。
+   *
+   * 改成沿著通道的垂直方向各退一邊：兩盞連起來的那條線
+   * 與人走進去的方向成直角，這才是「門的兩側」
+   */
+  placeStoneLantern(state, CAVE_MOUTH.x + 3, groundY, CAVE_MOUTH.z - 1)
+  placeStoneLantern(state, CAVE_MOUTH.x - 1, groundY, CAVE_MOUTH.z + 3)
 }

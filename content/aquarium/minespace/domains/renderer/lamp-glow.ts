@@ -8,8 +8,11 @@ import {
   StandardMaterial,
   Vector3,
 } from '@babylonjs/core'
+import { watch } from 'vue'
 import { useDevToggles } from '../../composables/use-dev-toggles'
+import { useGraphicsQuality } from '../../composables/use-graphics-quality'
 import { createGlowTexture } from './glow-texture'
+import { attachHaloSoftFade, createHaloSoftFade } from './halo-soft-fade'
 
 /** 全暗時光暈最亮到什麼程度 */
 const NIGHT_STRENGTH = 0.85
@@ -55,7 +58,11 @@ const DISC_TESSELLATION = 24
  *
  * 解法是把那片圓盤沿著「往鏡頭看過去」的方向挪出方塊之外。
  * 一顆方塊的半對角線是 0.866，挪 0.95 剛好從任何角度都繞得出來。
- * 而它遠小於一堵牆的厚度，所以「隔著牆看不到燈」這件事仍然成立
+ * 而它遠小於一堵牆的厚度，所以「隔著牆看不到燈」這件事仍然成立。
+ *
+ * 這個數字同時是柔性淡出的上限：圓盤與那顆方塊的正面只差 0.45 格，
+ * 淡出距離一旦超過那個數字，光暈最亮的核心就會被自己的燈籠淡掉。
+ * 兩邊要一起看，見 halo-soft-fade.ts 的 FADE_DISTANCE
  */
 const HALO_LIFT = 0.95
 
@@ -86,6 +93,10 @@ export interface CreateLampGlowParams {
  * 也看得到牆後的燈在發光。對一個到處是實心方塊、還有洞穴的世界
  * 來說那是不能接受的。
  *
+ * 有辦法讓它擋得住：把不發光的網格也一起加進那一層，讓它們畫成全黑。
+ * 但那等於整個場景在離屏圖上再畫一趟，代價與自己開一張深度圖一樣，
+ * 換來的卻是「暈的形狀跟著方塊的輪廓走」——那不是這裡要的形狀。
+ *
  * ── 為什麼要往鏡頭的方向挪 ──
  *
  * 這是整件事唯一的難處，見 HALO_LIFT。光源的座標是那顆燈籠方塊的中心，
@@ -95,6 +106,23 @@ export interface CreateLampGlowParams {
  *
  * 代價是一盞燈一顆網格。幾十次繪製呼叫換一個看得到的效果，
  * 而它們是幾何而不是後製，被牆擋住就真的不見
+ *
+ * ── 那道切開方塊的直邊 ──
+ *
+ * 圓盤不寫深度，卻要通過深度測試，所以只要這個平面切進實體，
+ * 交線上就會出現一道邊。那道邊是筆直的，而暈是糊的，
+ * 一團糊東西被直線切齊看起來就是穿模。
+ *
+ * 掛在半空中的燈籠遇不到，坐在地上的營火與整片躺平的岩漿每次都遇到。
+ * 解法是柔性粒子，寫在 halo-soft-fade.ts
+ *
+ * ── 為什麼岩漿還是沒有光暈 ──
+ *
+ * 這一點與那道邊無關，淡出已經處理掉了。岩漿的問題是它根本不是一盞燈：
+ * 一整片液面上每兩格一顆圓盤，幾十片相加疊起來只會糊成一塊白，
+ * 而地獄谷正好是全場網格最多的地方。
+ *
+ * 它本來就自發光給滿、還點著真光把岸壁照成橘紅，不缺外面那一圈
  */
 export function createLampGlow({
   scene,
@@ -102,11 +130,29 @@ export function createLampGlow({
   sourceList,
   getDayRatio,
 }: CreateLampGlowParams): LampGlow | null {
-  if (sourceList.length === 0)
+  const haloSourceList = sourceList.filter((source) => source.hasHalo)
+  if (haloSourceList.length === 0)
     return null
 
   /** 與天上那兩圈暈用同一條衰減曲線，邊界才不會浮出一圈輪廓 */
   const texture = createGlowTexture('lamp-halo', scene, [230, 230, 230])
+
+  /**
+   * 柔性淡出：低畫質不開
+   *
+   * 深度圖要整個場景多畫一趟，而低畫質那一檔本來就在跟繪製呼叫計較。
+   * 關掉時光暈退回原本的樣子——邊緣是硬的，但東西還在。
+   *
+   * 跟著畫質走而不是只讀一次：切畫質不會重建場景，
+   * 只讀一次的話，切到低畫質那一趟深度預繪會一直留著
+   */
+  const { quality } = useGraphicsQuality()
+  const softFade = createHaloSoftFade({ scene, camera })
+  const stopQualityWatch = watch(
+    quality,
+    (currentQuality) => softFade.setEnabled(currentQuality !== 'low'),
+    { immediate: true },
+  )
 
   /**
    * 光色只有兩種，材質就只建兩份
@@ -148,12 +194,15 @@ export function createLampGlow({
     material.disableDepthWrite = true
     material.emissiveColor = new Color3(0, 0, 0)
 
+    /** 靠近實體就化開，那道切開方塊的直邊才不會出現 */
+    attachHaloSoftFade(material)
+
     materialMap.set(key, material)
 
     return material
   }
 
-  const haloList = sourceList.map((source, index) => {
+  const haloList = haloSourceList.map((source, index) => {
     const size = (source.isFire ? FIRE_SIZE : LAMP_SIZE) * source.level
     const mesh = MeshBuilder.CreateDisc(
       `lamp-halo-${index}`,
@@ -235,6 +284,8 @@ export function createLampGlow({
 
   return {
     dispose() {
+      stopQualityWatch()
+      softFade.dispose()
       scene.onBeforeRenderObservable.remove(observer)
       for (const halo of haloList) {
         halo.mesh.dispose()

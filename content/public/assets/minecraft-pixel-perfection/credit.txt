@@ -1,0 +1,22 @@
+Pixel Perfection Legacy
+-----------------------
+
+彩色貼圖來源：
+Pixel Perfection Legacy（XSSheep 的 Pixel Perfection 的續作）
+https://modrinth.com/resourcepack/pixel-perfection-legacy
+
+授權：CC-BY-4.0（姓名標示 4.0 國際）
+https://creativecommons.org/licenses/by/4.0/
+
+此處只收錄 minespace 用得到的貼圖，檔案內容未經修改。
+缺少的幾張沿用 /assets/minecraft/textures/block。
+
+本資料夾由 scripts/sync-texture-pack.mjs 產生。
+
+── 法線（_n）與高光（_s）──
+
+這兩種圖不在原始資源包裡，是由上述彩色貼圖推導而成：
+把明度當成高度、取相鄰像素的落差求斜率（強度 1.6）。
+屬於原作品的衍生著作，授權與上述相同。
+
+由 scripts/derive-normal-map.mjs 產生。

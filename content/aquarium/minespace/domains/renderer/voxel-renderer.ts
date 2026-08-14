@@ -1,19 +1,17 @@
-import type { DirectionalLight, Mesh, Scene, ShadowGenerator } from '@babylonjs/core'
+import type { DirectionalLight, Mesh, Scene, ShadowGenerator, StandardMaterial } from '@babylonjs/core'
 import type { BlockDef, BlockId, BlockTextureDef } from '../block/block-constants'
+import type { TextureKey } from '../block/texture-pack'
 import type { ChunkMeshData, ChunkWorkerComposable } from '../world/use-chunk-worker'
+import type { TextureSkinner } from './pixel-material'
 import type { WindSway } from './wind-sway'
 import {
   Color3,
-  DynamicTexture,
   Material,
   MeshBuilder,
-  StandardMaterial,
-  Texture,
   VertexBuffer,
 } from '@babylonjs/core'
 import { SUN_LIGHT_NAME } from '../../composables/use-babylon-scene'
-import { measureSection } from '../../composables/use-performance-probe'
-import { BLOCK_DEFS, isDecorationBlock } from '../block/block-constants'
+import { BLOCK_DEFS, isDecorationBlock, LIQUID_SURFACE_DROP } from '../block/block-constants'
 import { TOTAL_CHUNKS } from '../world/world-constants'
 import { createWindSway, LEAF_SWAY_AMPLITUDE, PLANT_SWAY_AMPLITUDE } from './wind-sway'
 
@@ -52,237 +50,8 @@ export interface VoxelRenderer {
   dispose: () => void;
 }
 
-/**
- * 將 base 與 overlay 圖片合成到 Canvas 上，產生 DynamicTexture
- */
-function createCompositedTexture(
-  name: string,
-  basePath: string,
-  overlayPath: string,
-  scene: Scene,
-): DynamicTexture {
-  const size = 16
-  const dynamicTexture = new DynamicTexture(name, size, scene, false, Texture.NEAREST_SAMPLINGMODE)
-
-  const baseImage = new Image()
-  const overlayImage = new Image()
-  let loadedCount = 0
-
-  const tryComposite = () => {
-    loadedCount++
-    if (loadedCount < 2)
-      return
-
-    const context = dynamicTexture.getContext()
-    if (context instanceof CanvasRenderingContext2D) {
-      context.imageSmoothingEnabled = false
-    }
-    context.clearRect(0, 0, size, size)
-    context.drawImage(baseImage, 0, 0, size, size)
-    context.drawImage(overlayImage, 0, 0, size, size)
-    dynamicTexture.update()
-  }
-
-  baseImage.onload = tryComposite
-  overlayImage.onload = tryComposite
-  baseImage.src = basePath
-  overlayImage.src = overlayPath
-
-  return dynamicTexture
-}
-
-/**
- * 直接在畫布上把貼圖的像素重新上色
- *
- * 材質的 tint 只能把顏色調暗：著色器是先把「光照 × tint」夾在 1 以內，
- * 再乘上貼圖的顏色，所以某個通道最亮就是貼圖本身的值。
- * 一張綠葉貼圖的紅只有 0.26，tint 的紅開到多大都紅不起來，
- * 調出來永遠是偏綠的暗色。
- *
- * 要把綠葉變成秋天的橘黃，只能在像素層下手：
- * 逐一乘上倍率再寫回畫布，鏤空的透明度原封不動留著
- */
-function createRecoloredTexture(
-  name: string,
-  texturePath: string,
-  scene: Scene,
-  pixelTint: [number, number, number],
-): DynamicTexture {
-  const size = 16
-  const dynamicTexture = new DynamicTexture(name, size, scene, false, Texture.NEAREST_SAMPLINGMODE)
-
-  const image = new Image()
-  image.onload = () => {
-    const context = dynamicTexture.getContext()
-    if (context instanceof CanvasRenderingContext2D) {
-      context.imageSmoothingEnabled = false
-    }
-    context.clearRect(0, 0, size, size)
-    context.drawImage(image, 0, 0, size, size)
-
-    const imageData = context.getImageData(0, 0, size, size)
-    const { data } = imageData
-    for (let index = 0; index < data.length; index += 4) {
-      data[index] = Math.min(255, data[index]! * pixelTint[0])
-      data[index + 1] = Math.min(255, data[index + 1]! * pixelTint[1])
-      data[index + 2] = Math.min(255, data[index + 2]! * pixelTint[2])
-    }
-    context.putImageData(imageData, 0, 0)
-
-    dynamicTexture.update()
-  }
-  image.src = texturePath
-
-  return dynamicTexture
-}
-
-/** 動畫貼圖每秒播幾格 */
-const TEXTURE_FRAME_RATE = 3.5
-
-/** 液體最上層比方塊頂面矮多少，與 Minecraft 相同取八分之一格 */
-const LIQUID_SURFACE_DROP = 0.125
-
-/**
- * 讓直向排列的連續畫格動起來
- *
- * 貼圖是 frameCount 張圖上下疊成一條，
- * v 軸縮到只取一格，再逐格往下捲，水面就流動起來了
- */
-function playTextureFrames(texture: Texture, frameCount: number, scene: Scene): void {
-  texture.vScale = 1 / frameCount
-  texture.wrapV = Texture.WRAP_ADDRESSMODE
-
-  let elapsed = 0
-  scene.onBeforeRenderObservable.add(() => {
-    measureSection('方塊動畫', () => {
-      elapsed += scene.getEngine().getDeltaTime() / 1000
-      texture.vOffset = Math.floor(elapsed * TEXTURE_FRAME_RATE) % frameCount / frameCount
-    })
-  })
-}
-
-/**
- * 建立像素風格材質
- */
-export function createPixelMaterial(
-  name: string,
-  texturePath: string,
-  scene: Scene,
-  tint?: [number, number, number],
-  overlayPath?: string,
-  frameCount?: number,
-  pixelTint?: [number, number, number],
-  noMipmap = false,
-): StandardMaterial {
-  const material = new StandardMaterial(name, scene)
-
-  if (overlayPath) {
-    material.diffuseTexture = createCompositedTexture(
-      `${name}_tex`,
-      texturePath,
-      overlayPath,
-      scene,
-    )
-  }
-  else if (pixelTint) {
-    material.diffuseTexture = createRecoloredTexture(`${name}_tex`, texturePath, scene, pixelTint)
-  }
-  else {
-    const texture = new Texture(texturePath, scene, {
-      samplingMode: Texture.NEAREST_SAMPLINGMODE,
-      noMipmap,
-    })
-    if (frameCount && frameCount > 1) {
-      playTextureFrames(texture, frameCount, scene)
-    }
-    material.diffuseTexture = texture
-  }
-
-  /**
-   * 乾方塊幾乎不反光
-   *
-   * 平行光的高光已經給滿（見 use-babylon-scene），
-   * 所以這個值就是「這種表面有多亮」本身。石頭、泥土與木頭
-   * 都是霧面的，留一點點只是讓斜射的陽光在稜線上帶出一絲厚度
-   */
-  material.specularColor = new Color3(0.02, 0.02, 0.02)
-  material.backFaceCulling = false
-  /** 太陽、環境光，再加上洞裡的幾盞燈 */
-  material.maxSimultaneousLights = 6
-  /**
-   * 接受場景的補光
-   *
-   * Babylon 的 ambientColor 是「場景的 × 材質的」，材質這一項預設是黑的，
-   * 也就是預設完全不吃場景補光。方塊要開起來：
-   * 夜裡那道補光是加在光照上、再乘上反照率的，
-   * 而方塊光正烘在反照率裡——這是燈火照得出範圍的唯一途徑。
-   *
-   * 天體與雲維持預設的黑，它們不該被地面的補光影響
-   */
-  material.ambientColor = new Color3(1, 1, 1)
-
-  if (tint) {
-    material.diffuseColor = new Color3(tint[0], tint[1], tint[2])
-  }
-
-  return material
-}
-
-/**
- * 建立會鏤空的像素材質
- *
- * 花草的貼圖四周是透明的，要用 alpha test 把那些像素整個丟掉，
- * 用半透明混合會出現排序錯誤，遠處的草會蓋掉近處的東西
- */
-function createCutoutMaterial(
-  name: string,
-  texturePath: string,
-  scene: Scene,
-  tint?: [number, number, number],
-  isTwoSidedLighting = true,
-  pixelTint?: [number, number, number],
-): StandardMaterial {
-  /**
-   * 鏤空的貼圖不能有 mipmap
-   *
-   * 這些貼圖的 alpha 是全有全無的：不是完全透明就是完全不透明。
-   * 但 mipmap 是把相鄰像素平均出來的，縮小之後透明與不透明的邊界上
-   * 會生出 0.5 這種中間值——alpha test 判定它「要畫」，
-   * 於是花草上方浮出一道細細的十字，那正是交叉立板本身的輪廓。
-   *
-   * 低畫質把解析度降到三分之一，那條線被放大成三個像素才變得明顯；
-   * 高畫質其實也有，只是細到一個像素看不出來。
-   *
-   * 關掉 mipmap 之後永遠只取原圖，alpha 就維持全有全無，邊緣自然乾淨。
-   * 代價是遠處會有一點閃爍，但那本來就是方塊遊戲的樣子
-   */
-  const material = createPixelMaterial(name, texturePath, scene, tint, undefined, undefined, pixelTint, true)
-  const texture = material.diffuseTexture as Texture
-
-  texture.hasAlpha = true
-  material.useAlphaFromDiffuseTexture = true
-  material.transparencyMode = Material.MATERIAL_ALPHATEST
-  material.backFaceCulling = false
-  /**
-   * 樹葉這種有體積的方塊，背面用翻轉後的法線計算光照，
-   * 從縫隙看進樹冠內部才不會是一片黑。
-   *
-   * 花草則相反：它們的法線已經統一改成朝上，
-   * 再翻轉就會讓背面朝下而變暗，所以要關掉
-   */
-  material.twoSidedLighting = isTwoSidedLighting
-  /** 花草不該有高光 */
-  material.specularColor = new Color3(0, 0, 0)
-  /**
-   * 裁切門檻
-   *
-   * 關掉 mipmap 之後 alpha 只剩 0 與 1 兩種值，門檻擺在中間最保險。
-   * 拉太高會連葉尖那種只有一兩個像素的部分一起啃掉
-   */
-  material.alphaCutOff = 0.5
-
-  return material
-}
+/** 花草與玻璃這類鏤空的東西不該有高光 */
+const NO_SPECULAR = new Color3(0, 0, 0)
 
 function needsPerFaceRendering(textureDef: BlockTextureDef): boolean {
   return !textureDef.all && !!(textureDef.top || textureDef.side || textureDef.bottom)
@@ -381,6 +150,7 @@ class WorldRenderer {
     private scene: Scene,
     private shadowGenerator: ShadowGenerator | null,
     private windSway: WindSway,
+    private skinner: TextureSkinner,
   ) {}
 
   /**
@@ -455,7 +225,7 @@ class WorldRenderer {
      * 整張貼圖重新光柵化，那些細節每一幀落在不同的格子上，
      * 有的幀畫得出來、有的幀整個消失，地上的影子就一直在閃。
      *
-     * 接影：立板是直的，法線卻為了打光統一改成朝上（見 createCutoutMaterial），
+     * 接影：立板是直的，法線卻為了打光統一改成朝上（見 pixel-material），
      * 法線偏移的方向因此完全不對，自我遮蔽的髒污躲不掉，
      * 太陽一動就在葉面上爬。
      *
@@ -500,8 +270,10 @@ class WorldRenderer {
    */
   private initDecorationMeshes(blockId: BlockId, blockDef: BlockDef) {
     const prefix = `block_deco_${blockId}`
-    const texturePath = blockDef.textures?.all ?? ''
+    const textureKey = blockDef.textures?.all
     const key = `${blockId}`
+    if (!textureKey)
+      return
 
     const addBox = (
       name: string,
@@ -540,40 +312,54 @@ class WorldRenderer {
     switch (blockDef.shape) {
       case 'cross': {
         /** 法線已統一朝上，關掉背面翻轉才不會一面亮一面黑 */
-        const material = createCutoutMaterial(
-          `${prefix}_mat`,
-          texturePath,
-          this.scene,
-          blockDef.textures?.tint,
-          false,
-          blockDef.textures?.pixelTint,
-        )
-        /** 交叉立板就是地上的花草，從根部往上彎 */
-        this.windSway.attach(material, PLANT_SWAY_AMPLITUDE, true)
+        const material = this.skinner.create({
+          name: `${prefix}_mat`,
+          textureKey,
+          tint: blockDef.textures?.tint,
+          pixelTint: blockDef.textures?.pixelTint,
+          cutout: true,
+          twoSidedLighting: false,
+          noMipmap: true,
+          flatShaded: true,
+          specularColor: NO_SPECULAR,
+        })
+        /**
+         * 交叉立板就是地上的花草，從根部往上彎
+         *
+         * 但不是每一種都該動。蜘蛛網長在洞裡、掛在岩壁之間，
+         * 那裡沒有風——而它跟著花草一起搖，會讓整個山洞看起來像在戶外。
+         * 方塊自己說了不算的話，這裡就得留一個能關掉的開關
+         */
+        if (blockDef.swaysInWind !== false) {
+          this.windSway.attach(material, PLANT_SWAY_AMPLITUDE, true)
+        }
         addPlane('cross-a', 1, { x: 0, y: Math.PI / 4 }, { x: 0, y: 0, z: 0 }, material)
         addPlane('cross-b', 1, { x: 0, y: -Math.PI / 4 }, { x: 0, y: 0, z: 0 }, material)
         break
       }
       case 'flat': {
         /** 貼在水面上的葉片，高度要跟著矮八分之一格的水面一起降下來 */
-        const material = createCutoutMaterial(
-          `${prefix}_mat`,
-          texturePath,
-          this.scene,
-          blockDef.textures?.tint,
-          false,
-          blockDef.textures?.pixelTint,
-        )
+        const material = this.skinner.create({
+          name: `${prefix}_mat`,
+          textureKey,
+          tint: blockDef.textures?.tint,
+          pixelTint: blockDef.textures?.pixelTint,
+          cutout: true,
+          twoSidedLighting: false,
+          noMipmap: true,
+          flatShaded: true,
+          specularColor: NO_SPECULAR,
+        })
         addPlane('flat', 1, { x: Math.PI / 2, y: 0 }, { x: 0, y: -0.6, z: 0 }, material)
         break
       }
       case 'slab': {
-        const material = createPixelMaterial(`${prefix}_mat`, texturePath, this.scene, blockDef.textures?.tint)
+        const material = this.skinner.create({ name: `${prefix}_mat`, textureKey, tint: blockDef.textures?.tint })
         addBox('slab', { width: 1, height: 0.5, depth: 1 }, { x: 0, y: -0.25, z: 0 }, material)
         break
       }
       case 'stairs': {
-        const material = createPixelMaterial(`${prefix}_mat`, texturePath, this.scene, blockDef.textures?.tint)
+        const material = this.skinner.create({ name: `${prefix}_mat`, textureKey, tint: blockDef.textures?.tint })
         /** 座面：與半磚同樣的下半格 */
         addBox('stairs-seat', { width: 1, height: 0.5, depth: 1 }, { x: 0, y: -0.25, z: 0 }, material)
 
@@ -602,20 +388,157 @@ class WorldRenderer {
         break
       }
       case 'pane': {
-        const material = createCutoutMaterial(`${prefix}_mat`, texturePath, this.scene, blockDef.textures?.tint)
+        const material = this.skinner.create({
+          name: `${prefix}_mat`,
+          textureKey,
+          tint: blockDef.textures?.tint,
+          cutout: true,
+          noMipmap: true,
+          specularColor: NO_SPECULAR,
+        })
         this.initPaneMeshes(blockId, material, prefix)
         break
       }
+      /**
+       * 薄層
+       *
+       * 一個扁盒子貼著格子底面。飛石、薄雪、榻榻米都是它——
+       * 差別只在厚度，而厚度是方塊自己說的
+       */
+      case 'layer': {
+        const thickness = blockDef.shapeThickness ?? 0.125
+        const material = this.skinner.create({ name: `${prefix}_mat`, textureKey, tint: blockDef.textures?.tint })
+        addBox(
+          'layer',
+          { width: 1, height: thickness, depth: 1 },
+          { x: 0, y: -0.5 + thickness / 2, z: 0 },
+          material,
+        )
+        break
+      }
+      /** 細柱：整格高，但四周瘦下來，兩根之間走得過去 */
+      case 'post': {
+        const thickness = blockDef.shapeThickness ?? 0.3
+        const material = this.skinner.create({ name: `${prefix}_mat`, textureKey, tint: blockDef.textures?.tint })
+        addBox(
+          'post',
+          { width: thickness, height: 1, depth: thickness },
+          { x: 0, y: 0, z: 0 },
+          material,
+        )
+        break
+      }
+      /**
+       * 薄板
+       *
+       * 立在格子正中央，順著一軸展開、在另一軸上薄下去。
+       * 不做鏤空：紙門的紙是整片的，透光靠的是顏色不是洞
+       */
+      case 'panel': {
+        const thickness = blockDef.shapeThickness ?? 0.15
+        const isAlongX = (blockDef.panelAxis ?? 'x') === 'x'
+        const material = this.skinner.create({
+          name: `${prefix}_mat`,
+          textureKey,
+          tint: blockDef.textures?.tint,
+          pixelTint: blockDef.textures?.pixelTint,
+        })
+        addBox(
+          'panel',
+          {
+            width: isAlongX ? 1 : thickness,
+            height: 1,
+            depth: isAlongX ? thickness : 1,
+          },
+          { x: 0, y: 0, z: 0 },
+          material,
+        )
+        break
+      }
+      /**
+       * 吊著的東西
+       *
+       * 主體貼著上一格的底面掛下來，底下再垂一片會搖的紙。
+       * 兩者分成兩份材質是刻意的：搖的只有紙，鈴身不動——
+       * 整團一起晃看起來會像掛在繩子上的燈籠在盪，那是另一回事
+       */
+      case 'hanging': {
+        const size = blockDef.shapeThickness ?? 0.4
+        const material = this.skinner.create({
+          name: `${prefix}_mat`,
+          textureKey,
+          tint: blockDef.textures?.tint,
+          pixelTint: blockDef.textures?.pixelTint,
+        })
+        addBox(
+          'hanging',
+          { width: size, height: size, depth: size },
+          { x: 0, y: 0.5 - size / 2, z: 0 },
+          material,
+        )
+
+        if (blockDef.hangingTailTexture) {
+          const tailMaterial = this.skinner.create({
+            name: `${prefix}_tail_mat`,
+            textureKey: blockDef.hangingTailTexture,
+            cutout: true,
+            twoSidedLighting: false,
+            noMipmap: true,
+            flatShaded: true,
+            specularColor: NO_SPECULAR,
+          })
+          /**
+           * 整片一起盪，不從底部彎
+           *
+           * 「從底部彎」是給地上的草用的：根釘在土裡，越往上倒得越多。
+           * 吊著的紙剛好相反，它的固定點在頂上——底部彎那條曲線
+           * 會把它畫成一片站在空中的草
+           */
+          this.windSway.attach(tailMaterial, PLANT_SWAY_AMPLITUDE, false)
+          addPlane(
+            'hanging-tail',
+            size * 0.7,
+            { x: 0, y: Math.PI / 4 },
+            { x: 0, y: 0.5 - size - size * 0.35, z: 0 },
+            tailMaterial,
+          )
+        }
+        break
+      }
       case 'pot': {
-        const potMaterial = createPixelMaterial(`${prefix}_pot_mat`, texturePath, this.scene)
+        const potMaterial = this.skinner.create({ name: `${prefix}_pot_mat`, textureKey })
         addBox('pot', { width: 0.42, height: 0.42, depth: 0.42 }, { x: 0, y: -0.28, z: 0 }, potMaterial)
 
         if (blockDef.plantTexture) {
-          const plantMaterial = createCutoutMaterial(`${prefix}_plant_mat`, blockDef.plantTexture, this.scene, undefined, false)
+          const plantMaterial = this.skinner.create({
+            name: `${prefix}_plant_mat`,
+            textureKey: blockDef.plantTexture,
+            cutout: true,
+            twoSidedLighting: false,
+            noMipmap: true,
+            flatShaded: true,
+            specularColor: NO_SPECULAR,
+          })
           addPlane('plant-a', 0.7, { x: 0, y: Math.PI / 4 }, { x: 0, y: 0.2, z: 0 }, plantMaterial)
           addPlane('plant-b', 0.7, { x: 0, y: -Math.PI / 4 }, { x: 0, y: 0.2, z: 0 }, plantMaterial)
         }
         break
+      }
+    }
+
+    /**
+     * 自發光
+     *
+     * 立方體那一條路在建材質的時候就處理掉了，非立方體這邊沒有——
+     * 於是吊燈會點著真光、外面也有一圈暈，唯獨它自己是暗的。
+     * 在這裡一次補上，往後任何一種外型的發光方塊都不必再想這件事。
+     *
+     * 換材質包只重做貼圖，材質物件本身不動，所以設一次就夠了
+     */
+    if (blockDef.emissive) {
+      const emissive = new Color3(blockDef.emissive, blockDef.emissive, blockDef.emissive)
+      for (const entry of this.allEntries.get(key) ?? []) {
+        entry.material.emissiveColor = emissive
       }
     }
   }
@@ -628,6 +551,10 @@ class WorldRenderer {
    * 否則每根柱子都會長出四根懸空的橫桿
    */
   private initFenceMeshes(blockId: BlockId, blockDef: BlockDef, prefix: string) {
+    const textureKey = blockDef.textures?.all
+    if (!textureKey)
+      return
+
     /**
      * 圍籬也可能需要鏤空
      *
@@ -635,20 +562,15 @@ class WorldRenderer {
      * 那些洞沒有東西可以透出來，就會整片畫成黑的。
      * 鐵鏈那種本來就大半是洞的東西一定要走 alpha test 這條路
      */
-    const material = blockDef.cutout
-      ? createCutoutMaterial(
-          `${prefix}_mat`,
-          blockDef.textures?.all ?? '',
-          this.scene,
-          blockDef.textures?.tint,
-          false,
-        )
-      : createPixelMaterial(
-          `${prefix}_mat`,
-          blockDef.textures?.all ?? '',
-          this.scene,
-          blockDef.textures?.tint,
-        )
+    const material = this.skinner.create({
+      name: `${prefix}_mat`,
+      textureKey,
+      tint: blockDef.textures?.tint,
+      cutout: blockDef.cutout,
+      twoSidedLighting: false,
+      noMipmap: blockDef.cutout,
+      specularColor: blockDef.cutout ? NO_SPECULAR : undefined,
+    })
 
     const post = MeshBuilder.CreateBox(`${prefix}_post`, { width: 0.26, height: 1, depth: 0.26 }, this.scene)
     post.material = material
@@ -733,14 +655,22 @@ class WorldRenderer {
 
     const addFace = (
       name: string,
-      texturePath: string,
+      textureKey: TextureKey | undefined,
       rotationX: number,
       rotationY: number,
       offset: { x: number; y: number; z: number },
       tint?: [number, number, number],
-      overlay?: string,
+      overlayKey?: TextureKey,
     ) => {
-      const material = createPixelMaterial(`${prefix}_${name}_mat`, texturePath, this.scene, tint, overlay)
+      if (!textureKey)
+        return
+
+      const material = this.skinner.create({
+        name: `${prefix}_${name}_mat`,
+        textureKey,
+        overlayKey,
+        tint,
+      })
       const mesh = MeshBuilder.CreatePlane(`${prefix}_${name}`, { size: 1 }, this.scene)
       mesh.rotation.x = rotationX
       mesh.rotation.y = rotationY
@@ -771,17 +701,17 @@ class WorldRenderer {
           ? ['front', 'back']
           : ['top', 'bottom'],
     )
-    const endTexture = textureDef.top ?? textureDef.side ?? ''
-    const barkTexture = textureDef.side ?? ''
-    const pickTexture = (face: string, fallback: string) => (
+    const endTexture = textureDef.top ?? textureDef.side
+    const barkTexture = textureDef.side
+    const pickTexture = (face: string, fallback: TextureKey | undefined) => (
       endFaceSet.has(face) ? endTexture : (logAxis === 'y' ? fallback : barkTexture)
     )
     /** 端面不吃側面的疊圖與色調，那是給樹皮用的 */
     const pickSideTint = (face: string) => (endFaceSet.has(face) ? undefined : textureDef.sideTint)
     const pickSideOverlay = (face: string) => (endFaceSet.has(face) ? undefined : textureDef.sideOverlay)
 
-    addFace('top', pickTexture('top', textureDef.top ?? textureDef.side ?? ''), Math.PI / 2, 0, { x: 0, y: 0.5, z: 0 }, endFaceSet.has('top') ? textureDef.topTint : undefined)
-    addFace('bottom', pickTexture('bottom', textureDef.bottom ?? textureDef.side ?? ''), -Math.PI / 2, 0, { x: 0, y: -0.5, z: 0 })
+    addFace('top', pickTexture('top', textureDef.top ?? textureDef.side), Math.PI / 2, 0, { x: 0, y: 0.5, z: 0 }, endFaceSet.has('top') ? textureDef.topTint : undefined)
+    addFace('bottom', pickTexture('bottom', textureDef.bottom ?? textureDef.side), -Math.PI / 2, 0, { x: 0, y: -0.5, z: 0 })
     addFace('front', pickTexture('front', barkTexture), 0, Math.PI, { x: 0, y: 0, z: 0.5 }, pickSideTint('front'), pickSideOverlay('front'))
     addFace('back', pickTexture('back', barkTexture), 0, 0, { x: 0, y: 0, z: -0.5 }, pickSideTint('back'), pickSideOverlay('back'))
     addFace('left', pickTexture('left', barkTexture), 0, Math.PI / 2, { x: -0.5, y: 0, z: 0 }, pickSideTint('left'), pickSideOverlay('left'))
@@ -790,24 +720,31 @@ class WorldRenderer {
 
   private initSingleMaterialMesh(blockId: BlockId, blockDef: BlockDef, textureDef: BlockTextureDef) {
     const name = `block_${blockId}`
-    const material = blockDef.cutout
-      ? createCutoutMaterial(
-          `${name}_mat`,
-          textureDef.all ?? '',
-          this.scene,
-          textureDef.tint,
-          true,
-          textureDef.pixelTint,
-        )
-      : createPixelMaterial(
-          `${name}_mat`,
-          textureDef.all ?? '',
-          this.scene,
-          textureDef.tint,
-          textureDef.overlay,
-          textureDef.frameCount,
-          textureDef.pixelTint,
-        )
+    const textureKey = textureDef.all
+    if (!textureKey)
+      return
+
+    const material = this.skinner.create({
+      name: `${name}_mat`,
+      textureKey,
+      overlayKey: textureDef.overlay,
+      tint: textureDef.tint,
+      pixelTint: textureDef.pixelTint,
+      frameCount: textureDef.frameCount,
+      cutout: blockDef.cutout,
+      /**
+       * 鏤空的貼圖不能有 mipmap
+       *
+       * 這些貼圖的 alpha 是全有全無的：不是完全透明就是完全不透明。
+       * 但 mipmap 是把相鄰像素平均出來的，縮小之後透明與不透明的邊界上
+       * 會生出 0.5 這種中間值——alpha test 判定它「要畫」，
+       * 於是花草上方浮出一道細細的十字，那正是交叉立板本身的輪廓
+       */
+      noMipmap: blockDef.cutout,
+      /** 水與熔岩的法線同樣被改成朝上，掛不了法線貼圖 */
+      flatShaded: blockDef.flatShaded,
+      specularColor: blockDef.cutout ? NO_SPECULAR : undefined,
+    })
 
     /**
      * 樹葉整團一起晃
@@ -1061,12 +998,13 @@ function mergeBufferList(bufferList: Float32Array[] | undefined): Float32Array |
 export function createVoxelRenderer(
   scene: Scene,
   chunkWorker: ChunkWorkerComposable,
+  skinner: TextureSkinner,
 ): VoxelRenderer {
   const sunLight = scene.getLightByName(SUN_LIGHT_NAME) as DirectionalLight | null
   const shadowGenerator = sunLight?.getShadowGenerator() as ShadowGenerator | null
 
   const windSway = createWindSway(scene)
-  const worldRenderer = new WorldRenderer(scene, shadowGenerator, windSway)
+  const worldRenderer = new WorldRenderer(scene, shadowGenerator, windSway, skinner)
 
   /**
    * 滑鼠移動時不要做拾取
