@@ -293,6 +293,19 @@ export interface BlockTextureDef {
    * 這個倍率則是在畫布上逐像素乘進去，才有辦法把綠葉整個換一種顏色
    */
   pixelTint?: [number, number, number];
+  /**
+   * 把 pixelTint 當成「目標色」而不是「倍率」
+   *
+   * 倍率是逐通道相乘，結果同時取決於底圖原本是什麼顏色。
+   * 綠葉的紅只有 0.26，要染成秋天的橘就得乘三倍多——
+   * 那組數字換一套材質包就不成立了：底圖偏灰白時紅會直接乘爆到滿檔、
+   * 藍又被乘大，出來是粉紅色的葉子。
+   *
+   * 開了這個旗標之後，改成先取這個像素的亮度、再乘上目標色。
+   * 明暗的層次留著，色相則完全由目標色決定，
+   * 底圖是綠的、灰的還是黃的都染得出同一種秋色
+   */
+  pixelRecolor?: boolean;
   /** 頂面色調（灰階貼圖上色用） */
   topTint?: [number, number, number];
   sideTint?: [number, number, number];
@@ -729,7 +742,9 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     cutout: true,
     textures: {
       all: 'aspenLeaves',
-      pixelTint: [3.27, 0.61, 0.82],
+      /** 琥珀：偏紅的橘。這是目標色不是倍率，見 pixelRecolor */
+      pixelTint: [0.94, 0.45, 0.16],
+      pixelRecolor: true,
     },
   },
   [BlockId.GOLD_LEAVES]: {
@@ -738,7 +753,9 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     cutout: true,
     textures: {
       all: 'aspenLeaves',
-      pixelTint: [3.64, 0.99, 1.15],
+      /** 金黃：這一座叫金葉苑，它得真的是金的 */
+      pixelTint: [0.97, 0.72, 0.2],
+      pixelRecolor: true,
     },
   },
   [BlockId.PINE_LOG]: {
@@ -1395,8 +1412,9 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     isThinFloor: true,
     textures: {
       all: 'fallenLeaves',
-      /** 落在地上的葉子已經乾了一陣子，顏色比枝頭上的暗一階 */
-      pixelTint: [2.88, 0.57, 1.03],
+      /** 落在地上的葉子已經乾了一陣子，顏色比枝頭上的暗一階、也更褐 */
+      pixelTint: [0.78, 0.38, 0.18],
+      pixelRecolor: true,
     },
   },
   /**

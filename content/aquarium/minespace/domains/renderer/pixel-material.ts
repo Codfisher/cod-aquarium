@@ -29,6 +29,8 @@ export interface PixelMaterialRecipe {
   /** 方塊定義給的色調，材質包可以覆寫 */
   tint?: [number, number, number];
   pixelTint?: [number, number, number];
+  /** pixelTint 是目標色而不是倍率，見 block-constants 的 pixelRecolor */
+  pixelRecolor?: boolean;
   frameCount?: number;
   /** 鏤空貼圖不能有 mipmap，否則邊界會生出半透明的中間值 */
   noMipmap?: boolean;
@@ -137,6 +139,7 @@ function createRecoloredTexture(
   size: number,
   scene: Scene,
   pixelTint: [number, number, number],
+  isRecolor: boolean,
 ): DynamicTexture {
   const dynamicTexture = new DynamicTexture(name, size, scene, false, Texture.NEAREST_SAMPLINGMODE)
 
@@ -152,6 +155,28 @@ function createRecoloredTexture(
     const imageData = context.getImageData(0, 0, size, size)
     const { data } = imageData
     for (let index = 0; index < data.length; index += 4) {
+      if (isRecolor) {
+        /**
+         * 先取亮度，再乘上目標色
+         *
+         * 亮度用的是人眼的加權，不是三個通道的平均：綠色看起來本來就比藍色亮，
+         * 平均會讓綠葉整片偏亮、藍花整片偏暗，明暗的層次就跑掉了。
+         *
+         * 乘二是把中間調當基準——亮度 0.5 的像素剛好染成目標色本身，
+         * 比它亮的往上、暗的往下，貼圖原本的紋理都還在
+         */
+        const luminance = (
+          data[index]! * 0.2126
+          + data[index + 1]! * 0.7152
+          + data[index + 2]! * 0.0722
+        ) / 255
+
+        data[index] = Math.min(255, luminance * 2 * pixelTint[0] * 255)
+        data[index + 1] = Math.min(255, luminance * 2 * pixelTint[1] * 255)
+        data[index + 2] = Math.min(255, luminance * 2 * pixelTint[2] * 255)
+        continue
+      }
+
       data[index] = Math.min(255, data[index]! * pixelTint[0])
       data[index + 1] = Math.min(255, data[index + 1]! * pixelTint[1])
       data[index + 2] = Math.min(255, data[index + 2]! * pixelTint[2])
@@ -244,6 +269,7 @@ export function createTextureSkinner(scene: Scene): TextureSkinner {
         canvasSize,
         scene,
         pixelTint,
+        recipe.pixelRecolor === true,
       )
     }
     else {

@@ -13,6 +13,7 @@ import type { GodRays } from '../domains/weather/god-rays'
 import { useStorage } from '@vueuse/core'
 import { computed, onBeforeUnmount, ref } from 'vue'
 import {
+  advanceSunriseDrift,
   createDayNightSample,
   formatClock,
   getDayLengthSecond,
@@ -206,7 +207,15 @@ export function useDayNight() {
          * 但滾輪與時間軸撥出來的位移照樣要追過去
          */
         if (isRunning() && isAutoAdvance.value) {
-          currentTime = wrapTimeOfDay(currentTime + deltaTime / getDayLengthSecond(daySpeedRatio.value))
+          const dayStep = deltaTime / getDayLengthSecond(daySpeedRatio.value)
+          currentTime = wrapTimeOfDay(currentTime + dayStep)
+          /**
+           * 日子過多少，日出的方位就漂多少
+           *
+           * 用同一個步長，暫停、快轉、改變流速都自動跟著。
+           * 而拖時間軸不會走到這裡——那是翻頁去看某個時刻，不是真的過了一天
+           */
+          advanceSunriseDrift(dayStep)
         }
 
         sampleDayNight(currentTime, sample)

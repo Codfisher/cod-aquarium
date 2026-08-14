@@ -766,26 +766,6 @@ export function placeStandingStone(
   }
 }
 
-/**
- * 蹲踞（洗手缽）
- *
- * 一塊石頭挖出一窪水，旁邊擱著竹製的水杓。
- * 進茶室之前在這裡淨手，是日式庭園裡少數會出聲的東西
- */
-export function placeWaterBasin(state: Uint8Array, x: number, groundY: number, z: number): void {
-  for (let offsetX = -1; offsetX <= 1; offsetX++) {
-    for (let offsetZ = -1; offsetZ <= 1; offsetZ++) {
-      setBlock(state, x + offsetX, groundY, z + offsetZ, BlockId.STONE_TILE)
-      if (offsetX !== 0 || offsetZ !== 0) {
-        setBlock(state, x + offsetX, groundY + 1, z + offsetZ, BlockId.STONE_TILE)
-      }
-    }
-  }
-  setBlock(state, x, groundY + 1, z, BlockId.WATER)
-  /** 竹製的水杓，用實心方塊：圍籬會往旁邊的石頭長出橫桿 */
-  setBlock(state, x + 2, groundY + 1, z, BlockId.BAMBOO_BLOCK)
-}
-
 /** 依機率在地面上撒一種裝飾，只落在指定的地表方塊上 */
 export function scatterOnGround(
   state: Uint8Array,

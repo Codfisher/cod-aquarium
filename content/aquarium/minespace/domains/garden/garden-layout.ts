@@ -146,7 +146,7 @@ export const GARDEN_LIST: GardenDefinition[] = [
   {
     id: 'wheatfield',
     title: { 'zh-hant': '麥浪田', 'en': 'Wheat Field' },
-    timbre: { 'zh-hant': '一陣風走過整片麥子', 'en': 'A gust crossing the whole field' },
+    timbre: { 'zh-hant': '風行處，金浪低伏', 'en': 'Wind sweeps past; golden waves bow low' },
     icon: 'i-material-symbols:grass',
     center: GARDEN_CENTER,
     halfSize: 11,
@@ -157,7 +157,7 @@ export const GARDEN_LIST: GardenDefinition[] = [
   {
     id: 'forest',
     title: { 'zh-hant': '松籟林', 'en': 'Pine Grove' },
-    timbre: { 'zh-hant': '連綿的寬頻風聲，襯著高處的鳥囀', 'en': 'Broadband wind under high birdsong' },
+    timbre: { 'zh-hant': '松梢風不歇，幽鳥自高鳴', 'en': 'Wind lingers in pines; distant birds call high' },
     icon: 'i-material-symbols:forest',
     center: getRingPosition(OUTER_RING_RADIUS, 270),
     halfSize: LARGE_HALF_SIZE,
@@ -166,7 +166,7 @@ export const GARDEN_LIST: GardenDefinition[] = [
   {
     id: 'autumn',
     title: { 'zh-hant': '金葉苑', 'en': 'Golden Court' },
-    timbre: { 'zh-hant': '乾燥、粗糙的沙沙', 'en': 'Dry, grainy rustling' },
+    timbre: { 'zh-hant': '枯葉翻風，一觸成響', 'en': 'Dry leaves turn, crisp upon the breeze' },
     icon: 'i-material-symbols:park',
     center: getRingPosition(OUTER_RING_RADIUS, 315),
     halfSize: LARGE_HALF_SIZE,
@@ -175,7 +175,7 @@ export const GARDEN_LIST: GardenDefinition[] = [
   {
     id: 'alpine',
     title: { 'zh-hant': '雪稜丘', 'en': 'Snow Ridge' },
-    timbre: { 'zh-hant': '稀薄而遠的嘯風', 'en': 'Thin, distant howling wind' },
+    timbre: { 'zh-hant': '孤稜風咽，餘聲落遠山', 'en': 'Wind skirts the ridge, echoed far beyond' },
     icon: 'i-material-symbols:landscape',
     center: getRingPosition(OUTER_RING_RADIUS, 0),
     halfSize: LARGE_HALF_SIZE,
@@ -189,7 +189,7 @@ export const GARDEN_LIST: GardenDefinition[] = [
   {
     id: 'village',
     title: { 'zh-hant': '市井坊', 'en': 'Market Quarter' },
-    timbre: { 'zh-hant': '唯一有人造聲響的地方', 'en': 'The only man-made sounds here' },
+    timbre: { 'zh-hant': '萬籟皆寂，獨此聞人聲', 'en': 'All rests quiet, save the hum of life' },
     icon: 'i-material-symbols:home-work',
     center: getRingPosition(OUTER_RING_RADIUS, 45),
     halfSize: LARGE_HALF_SIZE,
@@ -203,7 +203,7 @@ export const GARDEN_LIST: GardenDefinition[] = [
   {
     id: 'swamp',
     title: { 'zh-hant': '蛙聲澤', 'en': 'Frog Marsh' },
-    timbre: { 'zh-hant': '低頻、斷續，此起彼落', 'en': 'Low, broken, call and answer' },
+    timbre: { 'zh-hant': '一蛙初啼，群澤齊應', 'en': 'One frog calls; the marsh awakes in chorus' },
     icon: 'i-material-symbols:water-drop',
     center: getRingPosition(OUTER_RING_RADIUS, 90),
     halfSize: LARGE_HALF_SIZE,
@@ -212,7 +212,7 @@ export const GARDEN_LIST: GardenDefinition[] = [
   {
     id: 'coast',
     title: { 'zh-hant': '潮汐磯', 'en': 'Tidal Rocks' },
-    timbre: { 'zh-hant': '有呼吸週期的水聲', 'en': 'Water that breathes in cycles' },
+    timbre: { 'zh-hant': '潮汐往復，吞吐海之息', 'en': 'Waves ebb and swell, the ocean breathes' },
     icon: 'i-material-symbols:waves',
     center: getRingPosition(OUTER_RING_RADIUS, 135),
     halfSize: LARGE_HALF_SIZE,
@@ -221,7 +221,7 @@ export const GARDEN_LIST: GardenDefinition[] = [
   {
     id: 'river',
     title: { 'zh-hant': '遣水', 'en': 'Garden Stream' },
-    timbre: { 'zh-hant': '沒有起伏的白噪', 'en': 'White noise without a seam' },
+    timbre: { 'zh-hant': '潺湲無始，流響亦無終', 'en': 'Flowing without start, sounding without end' },
     icon: 'i-material-symbols:water',
     center: getRingPosition(OUTER_RING_RADIUS, 180),
     halfSize: LARGE_HALF_SIZE,
@@ -230,7 +230,7 @@ export const GARDEN_LIST: GardenDefinition[] = [
   {
     id: 'cave',
     title: { 'zh-hant': '岩響窟', 'en': 'Echo Cavern' },
-    timbre: { 'zh-hant': '稀疏的瞬態，拖著長長的殘響', 'en': 'Sparse drops, long reverberation' },
+    timbre: { 'zh-hant': '幽穴一滴，空谷久迴響', 'en': 'A single drop falls; the hollow keeps its echo' },
     icon: 'i-material-symbols:dark-mode',
     center: getRingPosition(OUTER_RING_RADIUS, 225),
     halfSize: LARGE_HALF_SIZE,
@@ -246,7 +246,7 @@ export const GARDEN_LIST: GardenDefinition[] = [
   {
     id: 'campfire',
     title: { 'zh-hant': '爐火壇', 'en': 'Fire Pit' },
-    timbre: { 'zh-hant': '一團持續的低頻劈啪', 'en': 'A steady low crackle' },
+    timbre: { 'zh-hant': '薪火微吟，時迸清脆', 'en': 'Embers softly hum, bursting with sudden sparks' },
     icon: 'i-material-symbols:local-fire-department',
     center: getRingPosition(INNER_RING_RADIUS, 247.5),
     halfSize: SMALL_HALF_SIZE,
@@ -255,7 +255,7 @@ export const GARDEN_LIST: GardenDefinition[] = [
   {
     id: 'ruins',
     title: { 'zh-hant': '石廊跡', 'en': 'Stone Colonnade' },
-    timbre: { 'zh-hant': '聲音進去要繞好幾圈才出得來', 'en': 'Sound circles before it leaves' },
+    timbre: { 'zh-hant': '殘廊鎖風，餘音逡巡難去', 'en': 'Colonnades catch the wind; echoes wander and stay' },
     icon: 'i-material-symbols:temple-buddhist',
     center: getRingPosition(INNER_RING_RADIUS, 292.5),
     halfSize: SMALL_HALF_SIZE,
@@ -264,7 +264,7 @@ export const GARDEN_LIST: GardenDefinition[] = [
   {
     id: 'meadow',
     title: { 'zh-hant': '草苑', 'en': 'Meadow Court' },
-    timbre: { 'zh-hant': '開闊而柔，沒有東西擋得住', 'en': 'Open and soft, nothing to reflect it' },
+    timbre: { 'zh-hant': '原野無界，風過不留痕', 'en': 'A boundless meadow where sound finds nothing to strike' },
     icon: 'i-material-symbols:grass',
     center: getRingPosition(INNER_RING_RADIUS, 337.5),
     halfSize: SMALL_HALF_SIZE,
@@ -273,7 +273,7 @@ export const GARDEN_LIST: GardenDefinition[] = [
   {
     id: 'pasture',
     title: { 'zh-hant': '牧野', 'en': 'Pasture' },
-    timbre: { 'zh-hant': '零星的獸鳴，位置一直在變', 'en': 'Scattered bleats that keep moving' },
+    timbre: { 'zh-hant': '羊鳴隨風轉，蹄踏草色新', 'en': 'A wandering bleat drifts across grazing grass' },
     icon: 'i-material-symbols:pets',
     center: getRingPosition(INNER_RING_RADIUS, 22.5),
     halfSize: SMALL_HALF_SIZE,
@@ -282,7 +282,7 @@ export const GARDEN_LIST: GardenDefinition[] = [
   {
     id: 'apiary',
     title: { 'zh-hant': '蜂巢圃', 'en': 'Bee Yard' },
-    timbre: { 'zh-hant': '一整團密集的中頻嗡鳴', 'en': 'A dense mid-range hum' },
+    timbre: { 'zh-hant': '萬翼同振，織作一聲', 'en': 'A thousand wings weave a single hum' },
     icon: 'i-material-symbols:hive',
     center: getRingPosition(INNER_RING_RADIUS, 67.5),
     halfSize: SMALL_HALF_SIZE,
@@ -296,7 +296,7 @@ export const GARDEN_LIST: GardenDefinition[] = [
   {
     id: 'pond',
     title: { 'zh-hant': '水鏡池', 'en': 'Mirror Pond' },
-    timbre: { 'zh-hant': '靜水面上零星的點狀聲響', 'en': 'Points of sound on still water' },
+    timbre: { 'zh-hant': '鏡水涵虛，偶落微波響', 'en': 'Glass-still water, stirred by fleeting ripples' },
     icon: 'i-material-symbols:water-lux',
     center: getRingPosition(INNER_RING_RADIUS, 112.5),
     halfSize: SMALL_HALF_SIZE,
@@ -305,7 +305,7 @@ export const GARDEN_LIST: GardenDefinition[] = [
   {
     id: 'rainvale',
     title: { 'zh-hant': '聽雨亭', 'en': 'Rain Pavilion' },
-    timbre: { 'zh-hant': '密集而柔軟，雨打在葉子上', 'en': 'Dense and soft, rain on leaves' },
+    timbre: { 'zh-hant': '翠葉沾雨，碎玉聲甚柔', 'en': 'Rain taps the leaves, soft as falling jade' },
     icon: 'i-material-symbols:rainy',
     center: getRingPosition(INNER_RING_RADIUS, 157.5),
     halfSize: SMALL_HALF_SIZE,
@@ -314,7 +314,7 @@ export const GARDEN_LIST: GardenDefinition[] = [
   {
     id: 'insect',
     title: { 'zh-hant': '蟲聲叢', 'en': 'Insect Thicket' },
-    timbre: { 'zh-hant': '高頻、有顆粒感，成片鋪開', 'en': 'High, grainy, spread across the field' },
+    timbre: { 'zh-hant': '微茫夜草，碎吟遍野深', 'en': 'Faint whispers rustle through the night grass' },
     icon: 'i-material-symbols:emoji-nature',
     center: getRingPosition(INNER_RING_RADIUS, 202.5),
     halfSize: SMALL_HALF_SIZE,
@@ -325,7 +325,7 @@ export const GARDEN_LIST: GardenDefinition[] = [
   {
     id: 'rainhall',
     title: { 'zh-hant': '雨聽堂', 'en': 'Rain Hall' },
-    timbre: { 'zh-hant': '從屋子裡聽外面的雨', 'en': 'Rain heard from indoors' },
+    timbre: { 'zh-hant': '深堂晏坐，晴內聽滂沱', 'en': 'Sheltered inside, listening to the torrent' },
     icon: 'i-material-symbols:cottage',
     center: getRingPosition(MIDDLE_RING_RADIUS, 22.5),
     halfSize: SMALL_HALF_SIZE,
@@ -334,107 +334,46 @@ export const GARDEN_LIST: GardenDefinition[] = [
   {
     id: 'songbird',
     title: { 'zh-hant': '鳴禽庭', 'en': 'Songbird Court' },
-    timbre: { 'zh-hant': '不摻一點風聲水聲的純旋律', 'en': 'Pure melody, no wind or water behind it' },
+    timbre: { 'zh-hant': '風泉俱寂，唯留清羽囀', 'en': 'Wind and stream quiet; pure song fills the air' },
     icon: 'i-material-symbols:raven',
     center: getRingPosition(MIDDLE_RING_RADIUS, 202.5),
     halfSize: SMALL_HALF_SIZE,
     pedestalHeight: 1,
   },
   {
-    /**
-     * 蟬時雨
-     *
-     * 盛夏正午。整片樹冠同時在叫，密到分不出是幾隻，
-     * 也分不出是從哪個方向來的——日文把這個聲音叫「蟬しぐれ」，
-     * 蟬下的一場雨。
-     *
-     * 它與蟲聲叢是一組對照：那一座的蟲在地上、在夜裡、一聲一聲數得出來；
-     * 這一座的蟬在頭頂、在正午、連成一整片沒有縫。
-     * 同樣是高頻的蟲鳴，一個是點，一個是面。
-     *
-     * 最要緊的是「看不見」。樹冠密到不透光，聲音從四面八方壓下來，
-     * 而抬頭只看得到葉子——整座箱庭沒有一個東西是聲音的來源
-     */
     id: 'cicada',
     title: { 'zh-hant': '蟬時雨', 'en': 'Cicada Shower' },
-    timbre: { 'zh-hant': '整片樹冠同時在叫，一隻也看不見', 'en': 'The whole canopy at once, none of them visible' },
+    timbre: { 'zh-hant': '濃蔭蔽日，蟬雨落無痕', 'en': 'Shaded boughs roar, a shower unseen' },
     icon: 'i-material-symbols:sunny',
     center: getRingPosition(MIDDLE_RING_RADIUS, 292.5),
     halfSize: SMALL_HALF_SIZE,
     pedestalHeight: 1,
-    /** 正中央是樹幹，落在南側那道緣廊前面 */
     travelPoint: {
       x: getRingPosition(MIDDLE_RING_RADIUS, 292.5).x,
       z: getRingPosition(MIDDLE_RING_RADIUS, 292.5).z + 4,
     },
   },
   {
-    /**
-     * 吹雪野
-     *
-     * 這一座收的是「聲音被拿走之後剩下什麼」。
-     *
-     * 全庭其他二十一座都在收集聲音——蛙、蟬、鳥、水、火。
-     * 這一座相反：暴風雪是一種會把別的聲音全部吃掉的聲音。
-     * 站在裡面聽不到鳥、聽不到蟲、聽不到自己的腳步，
-     * 只有一片壓在耳朵上的風。那也是一種聽，而且是最極端的一種。
-     *
-     * 與聽雨亭是一組對照：那一座是躲在屋簷下聽外面的雨，
-     * 有屋頂、有邊界、有「我在裡面」的安全感；
-     * 這一座沒有可躲的地方，走進去就是被包住。
-     *
-     * 造景因此要空到近乎沒有。三盞石燈籠、三株被壓彎的松，就這樣。
-     * 能見度只有十一格，任何一件有體積的東西一出現就佔滿整個畫面——
-     * 建築在這裡不是造景，是把主題擋住的東西。
-     *
-     * 石燈籠剛好：細、矮、自己會發光。走在白裡時先看到一團暈，
-     * 走近三步才看得出那是一盞燈——那是這裡唯一會發生的事
-     */
     id: 'blizzard',
     title: { 'zh-hant': '吹雪野', 'en': 'Whiteout Field' },
-    timbre: { 'zh-hant': '風把所有別的聲音都吹走了', 'en': 'Wind that has blown every other sound away' },
+    timbre: { 'zh-hant': '朔風吞萬籟，天地唯蒼茫', 'en': 'Fierce winds swallow all sound into white silence' },
     icon: 'i-material-symbols:weather-snowy',
     center: getRingPosition(MIDDLE_RING_RADIUS, 112.5),
     halfSize: SMALL_HALF_SIZE,
     pedestalHeight: 1,
-    /** 落在木座正中央往南一點，第一眼是最近的那盞燈籠 */
     travelPoint: {
       x: getRingPosition(MIDDLE_RING_RADIUS, 112.5).x,
       z: getRingPosition(MIDDLE_RING_RADIUS, 112.5).z + 6,
     },
   },
   {
-    /**
-     * 地獄谷
-     *
-     * 日本把冒著熱氣、寸草不生的火山窪地叫「地獄」，別府那幾處
-     * 至今還是這個名字。這一座就是那種地方：一池滾著的熔岩、
-     * 燒黑的地、幾根站著死掉的枯木，以及一圈攔住人的柵欄。
-     *
-     * 聲音上它是全庭唯一的低頻連續音。爐火壇是密而高的劈啪、
-     * 岩響窟是稀疏的瞬態拖著長殘響，這一座黏稠而緩慢——
-     * 而且是從腳底下傳上來的，不是從前方。
-     *
-     * 位置刻意排在爐火壇的正外側：從禪庭中心沿著這條線往外走，
-     * 是一小盆火、然後是一整池，同一件事被放大了一個數量級
-     */
     id: 'jigoku',
     title: { 'zh-hant': '地獄谷', 'en': 'Hell Valley' },
-    timbre: { 'zh-hant': '從腳底下上來的低頻，黏稠而緩慢', 'en': 'A low churn rising from underfoot' },
+    timbre: { 'zh-hant': '地脈暗湧，底處慢沸鳴', 'en': 'Earth stirs below, thick and slowly boiling' },
     icon: 'i-material-symbols:volcano',
     center: getRingPosition(MIDDLE_RING_RADIUS, 247.5),
     halfSize: SMALL_HALF_SIZE,
-    /**
-     * 箱底與別座一樣只有一格
-     *
-     * 曾經為了那道裂縫把整座抬到四格，但那是抬錯了東西：
-     * 木座是用來把庭園端起來的，不是高台，抬厚了會變成擋在庭園前面的一堵牆。
-     *
-     * 真正該抬的是谷壁。熔岩留在甲板的高度、兩側的地往上堆，
-     * 「谷」是這樣做出來的——而不是往下挖穿箱底
-     */
     pedestalHeight: 1,
-    /** 正中央是那道裂縫，落在南岸的地面上 */
     travelPoint: {
       x: getRingPosition(MIDDLE_RING_RADIUS, 247.5).x,
       z: getRingPosition(MIDDLE_RING_RADIUS, 247.5).z + 6,

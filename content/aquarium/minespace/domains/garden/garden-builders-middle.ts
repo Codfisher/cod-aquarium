@@ -19,7 +19,6 @@ import {
   placeStandingStone,
   placeStoneLantern,
   placeTorii,
-  placeWaterBasin,
   scatterOnGround,
   setDecoration,
 } from './garden-kit'
@@ -175,9 +174,6 @@ export function buildRainhallGarden(state: Uint8Array, garden: GardenDefinition)
     carveWater(state, centerX + puddle.x, deckY, centerZ + puddle.z, 1, BlockId.GRAVEL)
   }
 
-  /** 承簷水的手水缽，擺在屋子的東南角外 */
-  placeWaterBasin(state, centerX + eaveHalf + 2, groundY, centerZ + eaveHalf - 1)
-
   /** 屋內一盞和紙燈，雨天的室內要有一點暖 */
   setBlock(state, centerX - hallHalf + 1, groundY, centerZ - hallHalf + 1, BlockId.PAPER_LAMP)
 
@@ -282,8 +278,8 @@ export function buildSongbirdGarden(state: Uint8Array, garden: GardenDefinition)
  * 眼睛在這裡幾乎沒有東西可看——那正是要的效果，
  * 沒得看的時候人才會開始聽。
  *
- * 地面上只留兩樣人待過的痕跡：一道朝南的緣廊，
- * 以及廊邊那個手水缽。夏天的日式庭園就是這樣避暑的
+ * 地面上只留一樣人待過的痕跡：一道朝南的緣廊。
+ * 夏天的日式庭園就是這樣避暑的
  */
 export function buildCicadaGarden(state: Uint8Array, garden: GardenDefinition): void {
   const random = createSeededRandom('garden-cicada')
@@ -343,12 +339,21 @@ export function buildCicadaGarden(state: Uint8Array, garden: GardenDefinition): 
   const verandaZ = centerZ + inner - 1
   for (let offsetX = -3; offsetX <= 3; offsetX++) {
     setBlock(state, centerX + offsetX, deckY, verandaZ, BlockId.PLANKS)
-    setBlock(state, centerX + offsetX, groundY, verandaZ, BlockId.WOOD_SLAB)
   }
-  /** 廊的兩端各立一根柱子，撐起後面那道短簷 */
+  /**
+   * 廊的兩端各立一根柱子，撐起後面那道短簷
+   *
+   * 用圍籬而不是整格的原木。原木佔滿一整格，兩根立在只有七格寬的廊兩端
+   * 像兩堵牆，人坐在中間是被夾著的；圍籬是立在格子中央的細柱，
+   * 同樣撐得住那道簷，卻讓視線穿得過去。
+   *
+   * 圍籬會朝旁邊的實心方塊長橫桿，但這兩根不會：
+   * 廊上那幾個坐墊是半磚（非 cube 一律算裝飾），
+   * 前後左右其餘幾格都是空的
+   */
   for (const offsetX of [-3, 3]) {
     for (let level = 0; level < 3; level++) {
-      setBlock(state, centerX + offsetX, groundY + level, verandaZ + 1, BlockId.OAK_LOG)
+      setBlock(state, centerX + offsetX, groundY + level, verandaZ + 1, BlockId.FENCE)
     }
     setBlock(state, centerX + offsetX, groundY + 3, verandaZ + 1, BlockId.DARK_PLANKS)
   }
@@ -357,8 +362,19 @@ export function buildCicadaGarden(state: Uint8Array, garden: GardenDefinition): 
     setBlock(state, centerX + offsetX, groundY + 3, verandaZ, BlockId.DARK_STAIRS_NORTH)
   }
 
-  /** 廊上的坐墊，夏天的午後就是在這裡待過去的 */
-  setDecoration(state, centerX - 1, groundY + 1, verandaZ, BlockId.CUSHION)
+  /**
+   * 廊上的坐墊，夏天的午後就是在這裡待過去的
+   *
+   * 隔一格擺一個。連著排會變成一條紅色的帶子，
+   * 中間空出來的木板才讓人看得出「這裡可以坐幾個人」。
+   *
+   * 高度取 groundY——廊板在 deckY，坐墊就落在它正上方那一格。
+   * 這一格原本填著木半磚，坐墊疊上去會浮在半格高的地方，
+   * 所以那排半磚整個拿掉了，廊面直接就是那層木板
+   */
+  for (const offsetX of [-3, -1, 1, 3]) {
+    setBlock(state, centerX + offsetX, groundY, verandaZ, BlockId.CUSHION)
+  }
 
   /**
    * 簷下的吊燈
@@ -371,9 +387,6 @@ export function buildCicadaGarden(state: Uint8Array, garden: GardenDefinition): 
    * 差別只在它現在有了來處
    */
   setBlock(state, centerX + 2, groundY + 2, verandaZ, BlockId.HANGING_LAMP)
-
-  /** 廊邊的手水缽，夏天走過去先掬一瓢水 */
-  placeWaterBasin(state, centerX - 5, groundY, verandaZ - 2)
 
   /** 樹下的石燈籠，白天不亮，但它是這片陰影裡唯一的直線 */
   placeStoneLantern(state, centerX + 5, groundY, centerZ - 4)
