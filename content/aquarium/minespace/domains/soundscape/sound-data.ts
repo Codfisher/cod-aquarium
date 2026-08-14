@@ -8,6 +8,7 @@ import {
   getGarden,
   WATERFALL_POINT,
 } from '../garden/garden-layout'
+import { PLAYER_EYE_HEIGHT } from '../player/collision'
 import { getWaterlineY } from '../world/world-access'
 
 /** 音檔資料夾 */
@@ -1037,19 +1038,6 @@ const EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
     maxDistance: 12,
   })),
   {
-    /** 手水缽接滿了水，多的那些溢出來，斷斷續續 */
-    id: 'rainhall-basin',
-    sound: 'river-flow',
-    title: { 'zh-hant': '缽緣溢水', 'en': 'Water spilling from the basin' },
-    zone: 'rainhall',
-    ...at('rainhall', 6, 3),
-    heightOffset: 1,
-    mode: { type: 'loop' },
-    volume: 0.32,
-    minDistance: 2,
-    maxDistance: 10,
-  },
-  {
     /**
      * 雨裡的蟾蜍
      *
@@ -1384,9 +1372,30 @@ const MIN_DISTANCE_RATIO = 0.6
  * 這裡把它夾到「不會吵到鄰居的最遠距離」。
  *
  * 量的是到鄰居木座邊緣的距離，不是到中心：人是站在木座上聽的。
- * 會飄的音源還要扣掉飄的半徑，因為它可能正好飄向鄰居那一側
+ * 會飄的音源還要扣掉飄的半徑，因為它可能正好飄向鄰居那一側。
+ *
+ * 高度要算進去
+ *
+ * 衰減吃的是三維距離，而抬高的音源離鄰居本來就比水平距離遠：
+ * 掛在樹冠七格高的蟬，對站在四十格外木座上的人來說是四十點六格。
+ * 只量水平就是把那一截白白讓掉——而讓掉的代價全落在自己這一座：
+ * 蟬的可聽距離被砍到九格，光是垂直那七格就吃掉大半，
+ * 站在樹下橫向只剩七格聽得到；雨聽亭的雷更慘，
+ * 它掛在十八格高，可聽距離被夾到十七格，等於在地面上完全消失。
+ *
+ * 把抬高的量補回去（限制取斜邊而不是底邊），鄰居那一側的
+ * 三維距離仍然是原本那個門檻，一格都沒有多洩出去。
+ *
+ * 高度必須是量出來的，不能拿 heightOffset 估。兩者差在地面：
+ * heightOffset 是「離自己腳下的地多高」，而要的是「比鄰居的耳朵高多少」，
+ * 中間隔著兩座木座的高低差。雪稜丘在山上、雨聽堂在平地，
+ * 估出來的那一截可能整整差掉好幾格——估多了就洩出去，估少了自己聽不到
  */
-function measureNeighbourLimit(definition: SoundEmitterDefinition): number {
+function measureNeighbourLimit(
+  definition: SoundEmitterDefinition,
+  emitterY: number,
+  listenerYMap: Map<string, number>,
+): number {
   const motionRadius = definition.motion && 'radius' in definition.motion
     ? (definition.motion.radius ?? 0)
     : 0
@@ -1399,10 +1408,27 @@ function measureNeighbourLimit(definition: SoundEmitterDefinition): number {
 
     const deltaX = Math.max(0, Math.abs(definition.x - garden.center.x) - garden.halfSize)
     const deltaZ = Math.max(0, Math.abs(definition.z - garden.center.z) - garden.halfSize)
-    limit = Math.min(limit, Math.hypot(deltaX, deltaZ))
+    /** 會飄的音源可能正好飄向鄰居那一側，先把飄的半徑讓出去 */
+    const flat = Math.max(0, Math.hypot(deltaX, deltaZ) - motionRadius)
+    const lift = emitterY - (listenerYMap.get(garden.id) ?? emitterY)
+
+    limit = Math.min(limit, Math.hypot(flat, lift))
   }
 
-  return Math.max(0, limit - motionRadius)
+  return Math.max(0, limit)
+}
+
+/**
+ * 各箱庭木座上，人的耳朵在什麼高度
+ *
+ * 一座量一次就好。逐顆音源去問二十二座是同一批答案算一百多遍，
+ * 而這是世界生成後才跑得動的路徑，能省的就省
+ */
+function createListenerYMap(worldState: Uint8Array): Map<string, number> {
+  return new Map(GARDEN_LIST.map((garden) => [
+    garden.id,
+    getWaterlineY(worldState, garden.center.x, garden.center.z) + PLAYER_EYE_HEIGHT,
+  ]))
 }
 
 /**
@@ -1412,8 +1438,12 @@ function measureNeighbourLimit(definition: SoundEmitterDefinition): number {
  * 免得音源埋進木座裡，或是沉到水槽底下
  */
 export function createEmitterList(worldState: Uint8Array): ResolvedEmitter[] {
+  const listenerYMap = createListenerYMap(worldState)
+
   return EMITTER_DEFINITION_LIST.map((definition) => {
-    const limit = measureNeighbourLimit(definition)
+    const y = definition.y
+      ?? getWaterlineY(worldState, definition.x, definition.z) + (definition.heightOffset ?? 1)
+    const limit = measureNeighbourLimit(definition, y, listenerYMap)
     const maxDistance = Math.min(definition.maxDistance, limit)
 
     return {
@@ -1426,7 +1456,7 @@ export function createEmitterList(worldState: Uint8Array): ResolvedEmitter[] {
        * 被鄰居夾得很近的音源如果不跟著收，會整顆變成沒有衰減的硬邊
        */
       minDistance: Math.min(definition.minDistance, maxDistance * MIN_DISTANCE_RATIO),
-      y: definition.y ?? getWaterlineY(worldState, definition.x, definition.z) + (definition.heightOffset ?? 1),
+      y,
     }
   })
 }

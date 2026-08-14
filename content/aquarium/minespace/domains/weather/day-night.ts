@@ -50,24 +50,96 @@ export function getDayLengthSecond(ratio: number): number {
 export const INITIAL_TIME_OF_DAY = 0.42
 
 /**
+ * 太陽從哪個方位升起（度，0 ～ 360）
+ *
+ * 零度是 +Z 方向，順著 +X 遞增。預設一百一十九度是挑過的：
+ * 出生點面向北方的枯山水，日出與日落都落在視野的側邊，
+ * 不會一開場就對著太陽。
+ *
+ * 這個數字現在是設定裡的一項，玩家想讓太陽從哪裡出來都行
+ */
+export const DEFAULT_SUNRISE_AZIMUTH = 119.4
+
+/**
+ * 正午的仰角，拆成水平與垂直兩段
+ *
+ * 約五十八度，不是正頂上。一整片白沙被垂直的頂光照著會平得像一張紙，
+ * 留一點斜度，方塊的三個面才拉得開亮度。
+ *
+ * 拆成兩個分量是為了轉方位時不必每次重算三角函數：
+ * 轉的只有水平那一段，垂直的高度從頭到尾不變
+ */
+const NOON_HORIZONTAL = 0.528
+const NOON_HEIGHT = 0.849
+
+/**
  * 太陽升起的方位（水平單位向量）
  *
- * 從東南方升起、西北方落下。這個方位是挑過的：
- * 出生點面向北方的枯山水，日出與日落都會落在視野的側邊，
- * 不會一開場就對著太陽
- */
-const SUNRISE_AXIS = new Vector3(0.87, 0, -0.49).normalize()
-/**
- * 正午時太陽所在的方向
- *
- * 必須與 SUNRISE_AXIS 垂直，太陽才是沿著一個正圓在天球上走；
+ * 與 NOON_AXIS 必須互相垂直，太陽才是沿著一個正圓在天球上走；
  * 不垂直的話軌跡會歪成橢圓，日出與日落的高度也對不起來。
- *
- * y 給 0.85 而不是 1：正午的太陽仰角約五十八度，不是正頂上。
- * 一整片白沙被垂直的頂光照著會平得像一張紙，
- * 留一點斜度，方塊的三個面才拉得開亮度
+ * 兩者都由 setSunriseAzimuth 一起算出來，垂直這件事因此是結構保證的
  */
-const NOON_AXIS = new Vector3(-0.26, 0.85, -0.46).normalize()
+const SUNRISE_AXIS = new Vector3()
+/** 正午時太陽所在的方向 */
+const NOON_AXIS = new Vector3()
+
+/**
+ * 一天過去，日出的方位往前挪多少度
+ *
+ * 九度，四十天繞回原處。真實的太陽一年之內在地平線上來回擺盪，
+ * 這裡讓它一路繞下去——箱庭本來就不必照著地球轉。
+ *
+ * 數字挑得很小是刻意的：一天之內只挪九度，站著看不出來，
+ * 但隔幾天回來，日出已經換到另一叢樹的後面了。
+ * 這種「說不上來哪裡不同」正是想要的
+ */
+const AZIMUTH_DRIFT_PER_DAY = 9
+
+/** 設定裡選的方位，玩家給什麼就是什麼 */
+let baseAzimuth = DEFAULT_SUNRISE_AZIMUTH
+/** 日子累積下來漂了多少度，與設定分開記 */
+let driftAzimuth = 0
+
+function applySunAxes(): void {
+  const radian = (((baseAzimuth + driftAzimuth) % 360) * Math.PI) / 180
+
+  SUNRISE_AXIS.set(Math.sin(radian), 0, Math.cos(radian))
+
+  /** 正午在日出方位轉九十度的地方，這是兩軸垂直的來源 */
+  const noonRadian = radian + Math.PI / 2
+  NOON_AXIS.set(
+    Math.sin(noonRadian) * NOON_HORIZONTAL,
+    NOON_HEIGHT,
+    Math.cos(noonRadian) * NOON_HORIZONTAL,
+  )
+}
+
+/**
+ * 換一個日出的方位
+ *
+ * 只轉水平的那一圈，正午的高度不動——所以不論太陽從哪裡出來，
+ * 它中午都爬到同樣的高度，一天的光影節奏維持不變
+ */
+export function setSunriseAzimuth(degree: number): void {
+  baseAzimuth = degree
+  applySunAxes()
+}
+
+/**
+ * 日子往前走，方位跟著漂
+ *
+ * dayStep 是「過了幾天」，與時刻前進用的是同一個步長，
+ * 所以暫停、快轉、改變流速都自動跟著，不必各自處理。
+ *
+ * 拖時間軸不算數：那是翻頁去看某個時刻，不是真的過了一天。
+ * 只有讓時間自己走過去，日出的方位才會挪
+ */
+export function advanceSunriseDrift(dayStep: number): void {
+  driftAzimuth = (driftAzimuth + dayStep * AZIMUTH_DRIFT_PER_DAY) % 360
+  applySunAxes()
+}
+
+applySunAxes()
 
 /**
  * 太陽貼著地平線時把平行光關掉的高度範圍

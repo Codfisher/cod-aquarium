@@ -452,6 +452,34 @@ const MINECRAFT_TEXTURE_MAP: Partial<Record<TextureKey, PackTextureEntry>> = {
 const CRAYON_TEXTURE_MAP: Partial<Record<TextureKey, PackTextureEntry>> = {
   ...MINECRAFT_TEXTURE_MAP,
   lilyPad: { file: 'lily_pad', tint: null },
+  /**
+   * 這一套沒有畫動畫，五張圖都是單格
+   *
+   * 畫格數是材質包自己的性質，不是方塊的。原版的水是三十二格、
+   * 海燈籠五格，而這一套那幾張都只畫了一張靜態的圖。
+   * 沿用原版的張數會把單張圖切成三十二段輪播——
+   * 貼圖沒有動，畫面上卻一直在滑
+   */
+  waterStill: { file: 'water_still', frameCount: 1 },
+  waterFlowing: { file: 'water_flow', frameCount: 1 },
+  lava: { file: 'lava_still', frameCount: 1 },
+  ember: { file: 'magma', frameCount: 1 },
+  lantern: { file: 'sea_lantern', frameCount: 1 },
+}
+
+/**
+ * 細描：動畫張數與原版不同
+ *
+ * 這一套是重畫過的，水與熔岩收成十六格、岩漿塊四格、海燈籠四格。
+ * 其餘的貼圖照舊沿用原版那份對照
+ */
+const PIXEL_PERFECTION_TEXTURE_MAP: Partial<Record<TextureKey, PackTextureEntry>> = {
+  ...MINECRAFT_TEXTURE_MAP,
+  waterStill: { file: 'water_still', frameCount: 16 },
+  waterFlowing: { file: 'water_flow', frameCount: 16 },
+  lava: { file: 'lava_still', frameCount: 16 },
+  ember: { file: 'magma', frameCount: 4 },
+  lantern: { file: 'sea_lantern', frameCount: 4 },
 }
 
 /**
@@ -789,7 +817,7 @@ export const TEXTURE_PACK_LIST: TexturePack[] = [
     fallbackBaseUrl: VANILLA_BASE,
     normalFileSet: PIXEL_PERFECTION_FILE_SET,
     hasHeightMap: false,
-    textureMap: MINECRAFT_TEXTURE_MAP,
+    textureMap: PIXEL_PERFECTION_TEXTURE_MAP,
     credit: {
       title: 'Pixel Perfection Legacy',
       author: 'XSSheep / Nova_Wostra',

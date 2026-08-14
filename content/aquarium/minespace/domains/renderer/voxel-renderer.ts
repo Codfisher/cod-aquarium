@@ -327,6 +327,7 @@ class WorldRenderer {
           textureKey,
           tint: blockDef.textures?.tint,
           pixelTint: blockDef.textures?.pixelTint,
+          pixelRecolor: blockDef.textures?.pixelRecolor,
           cutout: true,
           twoSidedLighting: false,
           noMipmap: true,
@@ -355,6 +356,7 @@ class WorldRenderer {
           textureKey,
           tint: blockDef.textures?.tint,
           pixelTint: blockDef.textures?.pixelTint,
+          pixelRecolor: blockDef.textures?.pixelRecolor,
           cutout: true,
           twoSidedLighting: false,
           noMipmap: true,
@@ -454,6 +456,7 @@ class WorldRenderer {
           textureKey,
           tint: blockDef.textures?.tint,
           pixelTint: blockDef.textures?.pixelTint,
+          pixelRecolor: blockDef.textures?.pixelRecolor,
         })
         addBox(
           'panel',
@@ -481,6 +484,7 @@ class WorldRenderer {
           textureKey,
           tint: blockDef.textures?.tint,
           pixelTint: blockDef.textures?.pixelTint,
+          pixelRecolor: blockDef.textures?.pixelRecolor,
         })
         addBox(
           'hanging',
@@ -743,6 +747,7 @@ class WorldRenderer {
       overlayKey: textureDef.overlay,
       tint: textureDef.tint,
       pixelTint: textureDef.pixelTint,
+      pixelRecolor: textureDef.pixelRecolor,
       frameCount: textureDef.frameCount,
       cutout: blockDef.cutout,
       /**

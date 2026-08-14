@@ -43,6 +43,7 @@
       v-model:auto-time="isAutoAdvance"
       v-model:day-speed="daySpeedRatio"
       v-model:camera-fov="cameraFov"
+      v-model:sun-azimuth="sunAzimuth"
       :open="menuVisible"
       :time-label="timeLabel"
       @resume="closeMenu()"
@@ -197,6 +198,7 @@ import { createLampGlow } from '../renderer/lamp-glow'
 import { createTextureSkinner } from '../renderer/pixel-material'
 import { createVoxelRenderer } from '../renderer/voxel-renderer'
 import { useSoundscape } from '../soundscape/use-soundscape'
+import { DEFAULT_SUNRISE_AZIMUTH, setSunriseAzimuth } from '../weather/day-night'
 import { createGodRays } from '../weather/god-rays'
 import { useWeather } from '../weather/use-weather'
 import { collectLightSourceList } from '../world/light-source'
@@ -386,6 +388,18 @@ watch(cameraFov, (value) => {
     camera.value.fov = value
   }
 })
+
+/**
+ * 太陽從哪個方位升起
+ *
+ * 日出日落的位置原本是寫死的，挑的是「出生點面向北方時不會對著太陽」。
+ * 那個選擇對第一眼是好的，但這座禪庭是給人待很久的——
+ * 想看太陽從松籟林後面出來，或想讓整天的光都從池子那一側過來，
+ * 都該是玩家自己決定的事
+ */
+const sunAzimuth = useStorage('minespace-sun-azimuth', DEFAULT_SUNRISE_AZIMUTH)
+
+watch(sunAzimuth, (value) => setSunriseAzimuth(value), { immediate: true })
 
 watch(weather, (current) => setWeather(current))
 

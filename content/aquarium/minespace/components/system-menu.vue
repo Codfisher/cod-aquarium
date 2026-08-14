@@ -47,8 +47,15 @@
             :title="isAutoTime ? t('timeAuto') : t('timeStopped')"
             @click="isAutoTime = !isAutoTime"
           >
+            <!--
+              圖示畫的是「按下去會發生什麼」，不是「現在是什麼狀態」
+
+              時間正在走的時候要顯示暫停鍵——按它就停下來。
+              反過來畫成播放鍵的話，會讓人以為時間是停著的，
+              而它其實正在走
+            -->
             <u-icon
-              :name="isAutoTime ? 'i-material-symbols:play-arrow-rounded' : 'i-material-symbols:pause-rounded'"
+              :name="isAutoTime ? 'i-material-symbols:pause-rounded' : 'i-material-symbols:play-arrow-rounded'"
               class="text-lg"
             />
           </button>
@@ -87,6 +94,19 @@
             class="menu-slider slider-indent"
           >
           <span class="setting-value">{{ Math.round(cameraFov * 180 / Math.PI) }}°</span>
+        </div>
+
+        <div class="setting-row">
+          <span class="setting-name">{{ t('sunAzimuth') }}</span>
+          <input
+            v-model.number="sunAzimuth"
+            type="range"
+            min="0"
+            max="360"
+            step="1"
+            class="menu-slider slider-indent"
+          >
+          <span class="setting-value">{{ Math.round(sunAzimuth) }}°</span>
         </div>
 
         <div class="setting-row">
@@ -273,6 +293,8 @@ const isAutoTime = defineModel<boolean>('autoTime', { required: true })
 const daySpeedRatio = defineModel<number>('daySpeed', { required: true })
 /** 鏡頭的視野角度（弧度） */
 const cameraFov = defineModel<number>('cameraFov', { required: true })
+/** 太陽從哪個方位升起，0 ～ 360 度 */
+const sunAzimuth = defineModel<number>('sunAzimuth', { required: true })
 
 const { quality } = useGraphicsQuality()
 const {
@@ -313,7 +335,8 @@ const { locale, t } = useSimpleI18n({
     timeOfDay: '時刻',
     timeAuto: '日夜自動交替',
     timeStopped: '時間停住',
-    daySpeed: '流速',
+    daySpeed: '時間流速',
+    sunAzimuth: '日出方位',
     minute: '分',
     second: '秒',
     fieldOfView: '視野',
@@ -339,6 +362,7 @@ const { locale, t } = useSimpleI18n({
     timeAuto: 'Day cycle running',
     timeStopped: 'Time held',
     daySpeed: 'Flow',
+    sunAzimuth: 'Sunrise',
     minute: 'min',
     second: 'sec',
     fieldOfView: 'View',
@@ -421,9 +445,10 @@ const { locale, t } = useSimpleI18n({
 /** 名稱欄固定寬度，五列的控制項才會對齊在同一條線上 */
 .setting-name
   flex: none
-  width: 3.2em
+  width: 4.4em
   font-size: 13px
   opacity: 0.85
+  white-space: nowrap
 
 .setting-value
   flex: none
