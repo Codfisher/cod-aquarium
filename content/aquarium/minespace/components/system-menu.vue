@@ -108,6 +108,79 @@
             </button>
           </div>
         </div>
+
+        <!--
+          材質包
+
+          三套的解析度差了十六倍，換過去是整個世界換一種質地，
+          不是換個濾鏡。所以每一套都要說一句自己是什麼，
+          而且按鈕上直接標出格數——那是最誠實的差別
+        -->
+        <div class="setting-row">
+          <span class="setting-name">{{ t('texturePack') }}</span>
+          <div class="pack-row">
+            <button
+              v-for="pack in packList"
+              :key="pack.id"
+              class="mc-button pack-button"
+              :class="{ 'mc-button-active': packId === pack.id }"
+              :title="locale === 'en' ? pack.description.en : pack.description['zh-hant']"
+              @click="selectPack(pack.id)"
+            >
+              <span>{{ locale === 'en' ? pack.title.en : pack.title['zh-hant'] }}</span>
+              <span class="pack-resolution">{{ pack.resolution }}×</span>
+              <!--
+                有法線的標一個記號
+
+                下面那個立體開關只在支援的材質包上才出現，
+                於是「按了才知道有沒有」——換過一輪才發現想要的那套沒有。
+                在按之前就看得出來，這一格的資訊才是完整的
+              -->
+              <u-icon
+                v-if="pack.normalFileSet.size > 0"
+                name="i-material-symbols:landscape"
+                class="pack-bump-mark"
+                :title="t('supportsBump')"
+              />
+            </button>
+          </div>
+        </div>
+
+        <!--
+          立體紋理
+
+          只有附法線貼圖的材質包開得起來，八格見方那套沒有，
+          所以它那一列整個收起來——給一個永遠按不動的開關
+          只會讓人以為壞了
+        -->
+        <div
+          v-if="supportsBump"
+          class="setting-row"
+        >
+          <span class="setting-name">{{ t('bumpTexture') }}</span>
+          <button
+            class="mc-button icon-button"
+            :class="{ 'mc-button-active': bumpEnabled }"
+            :title="bumpEnabled ? t('bumpOn') : t('bumpOff')"
+            @click="bumpEnabled = !bumpEnabled"
+          >
+            <u-icon
+              :name="bumpEnabled ? 'i-material-symbols:landscape' : 'i-material-symbols:crop-square-outline'"
+              class="text-lg"
+            />
+          </button>
+          <span class="setting-hint">{{ bumpEnabled ? t('bumpOn') : t('bumpOff') }}</span>
+        </div>
+
+        <div class="pack-credit">
+          {{ t('textureFrom') }}
+          <a
+            :href="currentPack.credit.url"
+            target="_blank"
+            rel="noopener"
+          >{{ currentPack.credit.title }}</a>
+          <span class="pack-license">{{ currentPack.credit.license }}</span>
+        </div>
       </div>
 
       <div class="menu-section">
@@ -167,11 +240,13 @@
 </template>
 
 <script setup lang="ts">
+import type { TexturePackId } from '../domains/block/texture-pack'
 import type { Landmark } from '../domains/world/landmark'
 import { computed } from 'vue'
 import { CAMERA_FOV_RANGE } from '../composables/use-babylon-scene'
 import { useGraphicsQuality } from '../composables/use-graphics-quality'
 import { useSimpleI18n } from '../composables/use-simple-i18n'
+import { useTexturePack } from '../composables/use-texture-pack'
 import { getDayLengthSecond } from '../domains/weather/day-night'
 import { LANDMARK_LIST } from '../domains/world/landmark'
 import ControlGuide from './control-guide.vue'
@@ -182,7 +257,7 @@ defineProps<{
   timeLabel: string;
 }>()
 
-defineEmits<{
+const emit = defineEmits<{
   resume: [];
   intro: [];
   travel: [landmark: Landmark];
@@ -200,7 +275,26 @@ const daySpeedRatio = defineModel<number>('daySpeed', { required: true })
 const cameraFov = defineModel<number>('cameraFov', { required: true })
 
 const { quality } = useGraphicsQuality()
+const {
+  packId,
+  packList,
+  pack: currentPack,
+  bumpEnabled,
+  supportsBump,
+} = useTexturePack()
 const landmarkList = LANDMARK_LIST
+
+/**
+ * 換材質包就回到世界裡
+ *
+ * 這個選單蓋掉大半個畫面，而換材質包換的正是被蓋住的那部分。
+ * 留在選單裡只看得到邊角，得自己關掉才知道換成什麼樣——
+ * 但那正是按下去想看的東西
+ */
+function selectPack(id: TexturePackId) {
+  packId.value = id
+  emit('resume')
+}
 
 /** 一天多長，超過一分鐘就用分鐘表示 */
 const dayLengthText = computed(() => {
@@ -226,6 +320,12 @@ const { locale, t } = useSimpleI18n({
     graphicsQuality: '畫質',
     high: '高',
     low: '低',
+    texturePack: '材質',
+    bumpTexture: '立體',
+    bumpOn: '凹凸起伏',
+    bumpOff: '平面貼圖',
+    supportsBump: '這一套支援立體紋理',
+    textureFrom: '貼圖來自',
     travel: '快速前往',
     controls: '操作方式',
     intro: '遊玩說明',
@@ -245,6 +345,12 @@ const { locale, t } = useSimpleI18n({
     graphicsQuality: 'Quality',
     high: 'High',
     low: 'Low',
+    texturePack: 'Textures',
+    bumpTexture: 'Relief',
+    bumpOn: 'Surfaces in relief',
+    bumpOff: 'Flat textures',
+    supportsBump: 'This pack supports relief',
+    textureFrom: 'Textures from',
     travel: 'Fast Travel',
     controls: 'Controls',
     intro: 'How to Play',
@@ -335,6 +441,75 @@ const { locale, t } = useSimpleI18n({
 /** 沒有按鈕的那幾列要往內縮，滑桿的起點才與有按鈕的對齊 */
 .slider-indent
   margin-left: 56px
+
+/**
+ * 材質包排成等寬的格線
+ *
+ * 用 grid 而不是 flex，是因為材質包的數量不會剛好填滿一列。
+ * flex 的最後一列只剩一顆時，那一顆會把整列撐滿——
+ * 於是七套材質裡的最後一套長得比別人大三倍，看起來像它比較重要。
+ * grid 的欄寬是先分好的，落在哪一列都一樣寬。
+ *
+ * 每欄至少九個字寬。這個下限是照中文標題加格數抓的——
+ * 四個字的名字配上「16×」剛好排得下，窄螢幕也還留得住兩欄。
+ * 再窄就會掉成一欄，七套疊成七列，比原本更高
+ */
+.pack-row
+  flex: 1
+  display: grid
+  grid-template-columns: repeat(auto-fill, minmax(9em, 1fr))
+  gap: 6px
+
+/**
+ * 格數跟在名字後面，不是掛在下面
+ *
+ * 這一區有七顆按鈕、兩三列，每顆多一行就是整體多兩三行。
+ * 格數本來就是一句補充，橫著跟在名字旁邊讀起來一樣清楚。
+ *
+ * 不鎖 nowrap：英文的 Pixel Perfection 加上格數要一百五十像素，
+ * 鎖住只會讓字衝出按鈕。讓它折成兩行，該寬的時候還是一行
+ */
+.pack-button
+  gap: 5px
+  padding: 6px 8px
+  font-size: 12px
+
+.pack-resolution
+  font-size: 12px
+  opacity: 0.7
+  font-variant-numeric: tabular-nums
+
+/**
+ * 立體的記號
+ *
+ * 與下面那個開關用同一個圖示，兩者才對得起來——
+ * 看到這個記號的人按下去，開關長的就是這個樣子。
+ * 顏色比格數再淡一階：它是一句註腳，不該搶走名字
+ */
+.pack-bump-mark
+  font-size: 13px
+  opacity: 0.55
+
+.setting-hint
+  font-size: 12px
+  opacity: 0.7
+
+/** 授權標示，字級壓到最小但仍看得清 */
+.pack-credit
+  margin-top: 2px
+  font-size: 12px
+  opacity: 0.62
+
+  a
+    color: inherit
+    text-decoration: underline
+
+    &:hover
+      opacity: 1
+
+.pack-license
+  margin-left: 6px
+  opacity: 0.75
 
 .quality-row
   flex: 1

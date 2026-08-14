@@ -10,7 +10,7 @@
 
       <div class="intro">
         <p
-          v-for="(text, index) in t('intro')"
+          v-for="(text, index) in introList"
           :key="index"
           v-html="text"
         />
@@ -34,6 +34,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useSimpleI18n } from '../composables/use-simple-i18n'
+import { GARDEN_LIST } from '../domains/garden/garden-layout'
 import ControlGuide from './control-guide.vue'
 
 const props = defineProps<{
@@ -53,15 +54,44 @@ const confirmLabel = computed(() => {
   return props.ready ? t('start') : t('loading')
 })
 
-const { t } = useSimpleI18n({
+/** 一到九十九的中文數字，說明文裡不該出現阿拉伯數字 */
+const CHINESE_DIGIT_LIST = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九']
+
+function formatChineseNumber(value: number): string {
+  if (value < 10) {
+    return CHINESE_DIGIT_LIST[value] ?? String(value)
+  }
+
+  const tens = Math.floor(value / 10)
+  const ones = value % 10
+  const tensText = tens === 1 ? '十' : `${CHINESE_DIGIT_LIST[tens]}十`
+
+  return ones === 0 ? tensText : `${tensText}${CHINESE_DIGIT_LIST[ones]}`
+}
+
+/**
+ * 箱庭有幾座，數給讀的人聽
+ *
+ * 這個數字原本是寫死的，寫下時是十七座，後來加到二十一座卻沒人記得改。
+ * 這種數字不會有人特地回來核對——除非它自己去數
+ */
+const introList = computed(() => t('intro', {
+  count: locale.value === 'en' ? GARDEN_LIST.length : formatChineseNumber(GARDEN_LIST.length),
+}))
+
+const { t, locale } = useSimpleI18n({
   'zh-hant': {
     subtitle: '戴上耳機，走進一片白沙上的聲音庭園',
+    /**
+     * 說明只留三句
+     *
+     * 這是一座庭園的入口，不是說明書。走進去看得到的東西不必先講，
+     * 講了反而先替人看過一遍
+     */
     intro: [
-      '一片無限延伸的白沙上，散落著十七座木頭底座的箱庭。',
-      '每一座只收一種聲音的質地：松籟林是連綿的寬頻風聲，蛙聲澤是低頻的一問一答，岩響窟只有稀疏的滴水拖著長長的迴響。<b>走近會變大聲，轉頭會換邊</b>。',
-      '箱庭與箱庭之間全是空白。那份安靜是刻意的——沒有聲音的時候，你才聽得出下一座在哪個方向。',
-      '霧收得很近，看不到的地方就往有聲音的方向走。沙地沒有盡頭，走多遠都走不出去。',
-      '建議<b>戴上耳機</b>，方位感會清楚很多。( ´ ▽ ` )ﾉ',
+      '白沙無邊，其上落著{count}座箱庭。',
+      '一庭一音，松有風，澤有蛙。',
+      '庭與庭之間什麼也沒有，那是留給耳朵的空白。',
     ],
     start: '開始漫遊',
     back: '回到漫遊',
@@ -71,11 +101,9 @@ const { t } = useSimpleI18n({
   'en': {
     subtitle: 'Put on headphones and step into a garden of sound on white sand',
     intro: [
-      'Seventeen dioramas rest on wooden plinths, scattered across an endless field of white sand.',
-      'Each holds one texture of sound. The Garden of Pines is unbroken broadband wind; the Garden of Frogs is a low call and answer; the Garden of Echoes has only sparse drops trailing long reverberation. <b>Walk closer and it grows louder; turn your head and it switches sides.</b>',
-      'Between the gardens there is nothing. That silence is deliberate — only when nothing is playing can you tell which way the next one lies.',
-      'The fog sits close. When you cannot see, walk toward a sound. The sand has no edge; however far you go, you never leave it.',
-      '<b>Headphones recommended</b> — the direction is much easier to feel. ( ´ ▽ ` )ﾉ',
+      'Endless white sand. {count} dioramas rest upon it.',
+      'One garden, one sound. Wind in the pines, frogs in the marsh.',
+      'Between them, nothing. That emptiness is for the ears.',
     ],
     start: 'Start Roaming',
     back: 'Back to Roaming',

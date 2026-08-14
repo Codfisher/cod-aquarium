@@ -69,6 +69,18 @@
         {{ timeLabel }}
       </div>
 
+      <!--
+        目前用的是哪一套材質
+
+        換材質包會直接關掉選單回到世界裡，於是換完之後畫面上
+        沒有任何東西說得出剛剛換成了什麼。排在時刻底下而不是自成一格：
+        右上角只該有一落東西，兩落會疊在一起
+      -->
+      <div class="status-readout pack-readout">
+        <span>{{ locale === 'en' ? texturePack.title.en : texturePack.title['zh-hant'] }}</span>
+        <span class="pack-readout-resolution">{{ texturePack.resolution }}×</span>
+      </div>
+
       <div class="status-readout">
         {{ Math.round(fps) }} FPS
       </div>
@@ -154,7 +166,9 @@
 <script setup lang="ts">
 import type { Scene, UniversalCamera } from '@babylonjs/core'
 import type { PondMirror } from '../garden/pond-mirror'
+import type { SandField } from '../garden/sand-field'
 import type { LampGlow } from '../renderer/lamp-glow'
+import type { TextureSkinner } from '../renderer/pixel-material'
 import type { VoxelRenderer } from '../renderer/voxel-renderer'
 import type { SoundZone } from '../soundscape/type'
 import type { Landmark } from '../world/landmark'
@@ -173,12 +187,14 @@ import { useFpsController } from '../../composables/use-fps-controller'
 import { useMobileController } from '../../composables/use-mobile-controller'
 import { usePerformanceProbe } from '../../composables/use-performance-probe'
 import { useSimpleI18n } from '../../composables/use-simple-i18n'
+import { useTexturePack } from '../../composables/use-texture-pack'
 import { useSheepFlock } from '../fauna/use-sheep-flock'
 import { getGardenAt } from '../garden/garden-layout'
 import { createPondMirror } from '../garden/pond-mirror'
 import { createSandField } from '../garden/sand-field'
 import { findSafeStandingPosition } from '../player/collision'
 import { createLampGlow } from '../renderer/lamp-glow'
+import { createTextureSkinner } from '../renderer/pixel-material'
 import { createVoxelRenderer } from '../renderer/voxel-renderer'
 import { useSoundscape } from '../soundscape/use-soundscape'
 import { createGodRays } from '../weather/god-rays'
@@ -188,7 +204,7 @@ import { useChunkWorker } from '../world/use-chunk-worker'
 import { useTerrainWorker } from '../world/use-terrain-worker/use-terrain-worker'
 import { castRainRay, createWorldState } from '../world/world-access'
 
-const { t } = useSimpleI18n({
+const { t, locale } = useSimpleI18n({
   'zh-hant': {
     initFailed: '初始化失敗',
     cursorReleased: '滑鼠已放開，點一下畫面回到漫遊',
@@ -226,6 +242,8 @@ let worldState = createWorldState()
 let renderer: VoxelRenderer | null = null
 let lampGlow: LampGlow | null = null
 let pondMirror: PondMirror | null = null
+let skinner: TextureSkinner | null = null
+let sandField: SandField | null = null
 
 const isWorldReady = ref(false)
 const hasStarted = ref(false)
@@ -318,6 +336,20 @@ const sheepFlock = useSheepFlock()
 const blockLights = useBlockLights()
 
 /**
+ * 材質包
+ *
+ * 換一套不必重建世界：方塊、羊與那片白沙的材質物件全都留著，
+ * 只把貼圖換掉。風的擺動、淋雨會變暗的登記、水面的高光
+ * 都掛在材質上，重建一次全都要重接一遍
+ */
+const { pack: texturePack, bumpActive } = useTexturePack()
+
+watch([texturePack, bumpActive], ([currentPack, isBumpActive]) => {
+  skinner?.applyPack(currentPack, isBumpActive)
+  sandField?.applyPack(currentPack)
+})
+
+/**
  * 除錯用的效果開關
  *
  * F4 叫出來，每一項對應一個看得見的效果。
@@ -378,16 +410,19 @@ const { canvasRef, scene, camera, pipeline, initError } = useBabylonScene({
     terrainWorker.terminate()
 
     const chunkWorker = useChunkWorker()
-    renderer = createVoxelRenderer(sceneInstance, chunkWorker)
+    skinner = createTextureSkinner(sceneInstance)
+    skinner.applyPack(texturePack.value, bumpActive.value)
+
+    renderer = createVoxelRenderer(sceneInstance, chunkWorker, skinner)
     await renderer.build(worldState)
 
     /** 方塊做的沙只到世界邊界，外面那片得等渲染器準備好材質再接上去 */
-    createSandField(sceneInstance)
+    sandField = createSandField(sceneInstance, texturePack.value)
 
     /** 水鏡池的天空倒影，走近才畫 */
     pondMirror = createPondMirror(sceneInstance, cameraInstance)
 
-    sheepFlock.start({ scene: sceneInstance, worldState, camera: cameraInstance, getDayRatio })
+    sheepFlock.start({ scene: sceneInstance, worldState, camera: cameraInstance, getDayRatio, skinner })
     createCampfireSmoke(sceneInstance, worldState)
 
     /**
@@ -590,6 +625,8 @@ onBeforeUnmount(() => {
   lampGlow?.dispose()
   pondMirror?.dispose()
   renderer?.dispose()
+  sandField?.dispose()
+  skinner?.dispose()
 })
 </script>
 
@@ -671,4 +708,15 @@ onBeforeUnmount(() => {
   white-space: nowrap
   pointer-events: none
   z-index: 40
+
+/** 材質名稱與倍率同一行，名稱亮、倍率淡 */
+.pack-readout
+  display: flex
+  align-items: baseline
+  gap: 6px
+  color: rgba(255, 255, 255, 0.82)
+
+.pack-readout-resolution
+  opacity: 0.6
+  font-variant-numeric: tabular-nums
 </style>

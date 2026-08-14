@@ -1,3 +1,5 @@
+import type { TextureKey } from './texture-pack'
+
 /** 方塊 ID 定義 */
 export enum BlockId {
   AIR,
@@ -56,6 +58,16 @@ export enum BlockId {
   PINE_LOG,
   PINE_LEAVES,
   DEAD_LOG,
+  /**
+   * 燒焦的枯木
+   *
+   * 與枯木同一張貼圖，只是把色調壓成炭黑。
+   * 枯木是曬白的，燒焦的是黑的——地獄谷那幾株是被熱氣烤死的，
+   * 用曬白那一種會顯得那裡只是乾，而不是燙
+   */
+  CHARRED_LOG,
+  CHARRED_LOG_X,
+  CHARRED_LOG_Z,
   /**
    * 躺著的原木
    *
@@ -189,6 +201,41 @@ export enum BlockId {
   DARK_STAIRS_SOUTH,
   DARK_STAIRS_EAST,
   DARK_STAIRS_WEST,
+  /**
+   * 飛石
+   *
+   * 日本庭園的定義性元素。整格的石板鋪起來是「鋪面」，
+   * 而飛石是散在砂上、只高出來一點點的幾塊石頭——
+   * 它不是路，它是「請走這裡」
+   */
+  STEPPING_STONE,
+  /** 薄雪，積在地面與屋頂上的那一層 */
+  SNOW_LAYER,
+  /** 攤在木地板上的一疊榻榻米，比整格的榻榻米矮 */
+  TATAMI_MAT,
+  /** 竹稈，細得可以從兩根之間走過去 */
+  BAMBOO_STALK,
+  /** 木樁，棧橋與矮欄用它 */
+  WOOD_POST,
+  /**
+   * 障子門
+   *
+   * 立在格子正中央的薄板，兩種朝向各自是一種方塊。
+   * 與整格的紙門不同：那是一堵牆，這是一片能透光的紙
+   */
+  SHOJI_PANEL_X,
+  SHOJI_PANEL_Z,
+  /** 雨戶，擋在障子外面的木板 */
+  STORM_PANEL_X,
+  STORM_PANEL_Z,
+  /**
+   * 風鈴
+   *
+   * 一座聲音的禪庭本來就該有一個。吊在簷下，短籤跟著風搖
+   */
+  WIND_CHIME,
+  /** 吊在簷下的和紙提燈 */
+  HANGING_LAMP,
 }
 
 /**
@@ -202,27 +249,39 @@ export enum BlockId {
  * - `fence`：柱子加橫桿的圍籬
  * - `pane`：薄玻璃片
  * - `pot`：花盆加上面的植物
+ * - `layer`：貼著地面的薄層，飛石與薄雪都是這一種
+ * - `post`：立在中央的細柱，竹子與樁
+ * - `panel`：立在中央的薄板，紙門與雨戶
+ * - `hanging`：吊在上一格底下的小東西，風鈴與提燈
+ *
+ * 後面那四種共用 shapeThickness 決定「薄到什麼程度」，
+ * 一個屬性換四種外型，不必為每一種各開一個數字
  */
-export type BlockShape = 'cube' | 'cross' | 'flat' | 'slab' | 'stairs' | 'fence' | 'pane' | 'pot'
+export type BlockShape =
+  | 'cube' | 'cross' | 'flat' | 'slab' | 'stairs' | 'fence' | 'pane' | 'pot'
+  | 'layer' | 'post' | 'panel' | 'hanging'
 
 /** 階梯靠背所在的那一側 */
 export type StairsFacing = 'north' | 'south' | 'east' | 'west'
 
-/** 材質路徑前綴 */
-const TEXTURE_BASE = '/assets/minecraft-mini8x'
-
-/** 方塊材質定義：支援 per-face 或單一材質 */
+/**
+ * 方塊材質定義：支援 per-face 或單一材質
+ *
+ * 這裡寫的是貼圖的語意名稱而不是檔案路徑：
+ * 方塊只說「我要石頭」，哪一張圖由目前的材質包決定（見 texture-pack.ts）。
+ * 同一顆方塊因此能在八格見方的手繪貼圖與一二八格的立體貼圖之間直接對換
+ */
 export interface BlockTextureDef {
   /** 所有面使用同一材質時 */
-  all?: string;
+  all?: TextureKey;
   /** 個別面材質（覆寫 all） */
-  top?: string;
-  side?: string;
-  bottom?: string;
+  top?: TextureKey;
+  side?: TextureKey;
+  bottom?: TextureKey;
   /** 疊加在基底材質上的覆蓋層 */
-  overlay?: string;
+  overlay?: TextureKey;
   /** 個別面的覆蓋層 */
-  sideOverlay?: string;
+  sideOverlay?: TextureKey;
   /** 全部面色調 tint，格式 [r, g, b] 範圍 0~1 */
   tint?: [number, number, number];
   /**
@@ -241,10 +300,22 @@ export interface BlockTextureDef {
    * 動畫張數
    *
    * 貼圖是直向疊起來的連續畫格，水就是靠這個流動起來的。
-   * 材質會把 v 軸縮成 1 / frameCount，再逐格捲動
+   * 材質會把 v 軸縮成 1 / frameCount，再逐格捲動。
+   *
+   * 這裡寫的是預設值：張數其實是材質包的性質，
+   * 同一道瀑布在手繪貼圖裡是六張、在原版是三十二張，
+   * 所以材質包可以自己覆寫（見 texture-pack.ts 的 PackTexture）
    */
   frameCount?: number;
 }
+
+/**
+ * 液體最上層比方塊頂面矮多少，與 Minecraft 相同取八分之一格
+ *
+ * 繪製與碰撞都要用到這個數字：一邊決定水面畫在哪，
+ * 另一邊決定眼睛什麼時候算是沉到液面底下了。各寫一份就會對不起來
+ */
+export const LIQUID_SURFACE_DROP = 0.125
 
 /** 腳步聲材質類型 */
 export type StepMaterial = 'grass' | 'stone' | 'wood' | 'gravel' | 'sand' | 'snow' | 'cloth' | 'coral' | 'wet_grass'
@@ -263,7 +334,7 @@ export interface BlockDef {
    */
   cutout?: boolean;
   /** 花盆上種的植物材質 */
-  plantTexture?: string;
+  plantTexture?: TextureKey;
   /** 是否隱藏（例如空氣） */
   isHidden?: boolean;
   /** 透明度，0~1，預設 1（不透明） */
@@ -341,6 +412,29 @@ export interface BlockDef {
   /** 階梯靠背所在的那一側，只有 shape 為 stairs 時有意義 */
   stairsFacing?: StairsFacing;
   /**
+   * 薄到什麼程度（格）
+   *
+   * layer 拿它當高度、post 與 panel 拿它當厚度、hanging 拿它當整團的大小。
+   * 四種外型共用一個數字，是因為它們問的是同一件事：
+   * 「這東西比一整格瘦多少」
+   */
+  shapeThickness?: number;
+  /**
+   * 薄板順著哪一軸站
+   *
+   * 只有 shape 為 panel 時有意義。x 代表板面沿著 x 軸展開、厚度落在 z 上。
+   * 與躺著的原木同樣的處理：世界狀態一格只存得下一個編號，
+   * 沒有地方放旋轉角度，所以每一種朝向各自是一種方塊
+   */
+  panelAxis?: 'x' | 'z';
+  /**
+   * 吊著的東西底下還垂著一片布或紙
+   *
+   * 只有 shape 為 hanging 時有意義。風鈴的短籤、提燈底下的穗子都靠它，
+   * 而它會跟著風搖——那正是把「吊著」與「立著」分開的東西
+   */
+  hangingTailTexture?: TextureKey;
+  /**
    * 原木躺的方向，決定年輪長在哪兩個面
    *
    * 預設是 y，也就是立著的樹幹：年輪在上下兩面、樹皮在四周。
@@ -358,83 +452,83 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
   [BlockId.BEDROCK]: {
     stepMaterial: 'stone',
     textures: {
-      all: `${TEXTURE_BASE}/default_obsidian.png`,
+      all: 'bedrock',
     },
   },
   [BlockId.STONE]: {
     stepMaterial: 'stone',
     textures: {
-      all: `${TEXTURE_BASE}/default_stone.png`,
+      all: 'stone',
     },
   },
   [BlockId.COBBLESTONE]: {
     stepMaterial: 'stone',
     textures: {
-      all: `${TEXTURE_BASE}/default_cobble.png`,
+      all: 'cobblestone',
     },
   },
   [BlockId.MOSSY_COBBLESTONE]: {
     stepMaterial: 'stone',
     textures: {
-      all: `${TEXTURE_BASE}/default_mossycobble.png`,
+      all: 'mossyCobblestone',
     },
   },
   [BlockId.STONE_BRICKS]: {
     stepMaterial: 'stone',
     textures: {
-      all: `${TEXTURE_BASE}/default_stone_brick.png`,
+      all: 'stoneBricks',
     },
   },
   [BlockId.STONE_TILE]: {
     stepMaterial: 'stone',
     textures: {
-      all: `${TEXTURE_BASE}/xdecor_stone_tile.png`,
+      all: 'stoneTile',
     },
   },
   [BlockId.RUNE_STONE]: {
     stepMaterial: 'stone',
     textures: {
-      all: `${TEXTURE_BASE}/xdecor_stone_rune.png`,
+      all: 'runeStone',
     },
   },
   [BlockId.GRAVEL]: {
     stepMaterial: 'gravel',
     textures: {
-      all: `${TEXTURE_BASE}/default_gravel.png`,
+      all: 'gravel',
     },
   },
   [BlockId.CLAY]: {
     stepMaterial: 'gravel',
     textures: {
-      all: `${TEXTURE_BASE}/default_clay.png`,
+      all: 'clay',
     },
   },
   [BlockId.DIRT]: {
     stepMaterial: 'gravel',
     textures: {
-      all: `${TEXTURE_BASE}/default_dirt.png`,
+      all: 'dirt',
     },
   },
   [BlockId.GRASS]: {
     stepMaterial: 'grass',
     textures: {
-      top: `${TEXTURE_BASE}/default_grass_top.png`,
-      side: `${TEXTURE_BASE}/default_dirt.png`,
-      sideOverlay: `${TEXTURE_BASE}/default_grass_side.png`,
-      bottom: `${TEXTURE_BASE}/default_dirt.png`,
+      top: 'grassTop',
+      side: 'dirt',
+      sideOverlay: 'grassSideOverlay',
+      bottom: 'dirt',
       topTint: [0.55, 0.75, 0.36],
     },
   },
   [BlockId.SAND]: {
     stepMaterial: 'sand',
     textures: {
-      all: `${TEXTURE_BASE}/default_sand.png`,
+      all: 'sand',
     },
   },
   [BlockId.SANDSTONE]: {
     stepMaterial: 'stone',
     textures: {
-      all: `${TEXTURE_BASE}/default_sandstone.png`,
+      all: 'sandstone',
     },
   },
   /**
@@ -461,7 +555,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
   [BlockId.GARDEN_SAND]: {
     stepMaterial: 'sand',
     textures: {
-      all: `${TEXTURE_BASE}/default_silver_sand.png`,
+      all: 'whiteSand',
       pixelTint: [1.1, 1.1, 1.1],
     },
   },
@@ -483,22 +577,22 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
      */
     castShadow: false,
     textures: {
-      all: `${TEXTURE_BASE}/default_silver_sand.png`,
+      all: 'rakedSand',
       pixelTint: [0.9, 0.9, 0.92],
     },
   },
   [BlockId.WHITE_SANDSTONE]: {
     stepMaterial: 'stone',
     textures: {
-      all: `${TEXTURE_BASE}/default_silver_sandstone.png`,
+      all: 'whiteSandstone',
     },
   },
   [BlockId.SNOW]: {
     stepMaterial: 'snow',
     textures: {
-      top: `${TEXTURE_BASE}/default_snow.png`,
-      side: `${TEXTURE_BASE}/default_snow_side.png`,
-      bottom: `${TEXTURE_BASE}/default_dirt.png`,
+      top: 'snowTop',
+      side: 'snowSide',
+      bottom: 'dirt',
     },
   },
   [BlockId.ICE]: {
@@ -506,27 +600,27 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     alpha: 0.8,
     receiveShadow: false,
     textures: {
-      all: `${TEXTURE_BASE}/default_ice.png`,
+      all: 'ice',
     },
   },
   /** 壓實的冰是不透明的，凍住的池面用它才踩得住、也看不穿 */
   [BlockId.PACKED_ICE]: {
     stepMaterial: 'stone',
     textures: {
-      all: `${TEXTURE_BASE}/xdecor_packed_ice.png`,
+      all: 'packedIce',
     },
   },
   [BlockId.OBSIDIAN_BRICKS]: {
     stepMaterial: 'stone',
     textures: {
-      all: `${TEXTURE_BASE}/default_obsidian_brick.png`,
+      all: 'obsidianBricks',
     },
   },
   /** 磚面上有一圈淡淡的月紋，是月語庭唯一的花樣 */
   [BlockId.MOON_BRICKS]: {
     stepMaterial: 'stone',
     textures: {
-      all: `${TEXTURE_BASE}/xdecor_moonbrick.png`,
+      all: 'moonBricks',
     },
   },
   /**
@@ -538,10 +632,19 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
   [BlockId.LAVA]: {
     stepMaterial: 'stone',
     emissive: 1,
+    /**
+     * 與水一樣是可以沉進去的液體
+     *
+     * 熔岩原本是實心的，走過去就像踩在一塊發光的石頭上——
+     * 那讓整座地獄谷變成一個安全的裝置藝術。
+     * 會沉下去之後，那道縫才真的是一道不該踏進去的縫
+     */
+    passable: true,
+    isLiquid: true,
     flatShaded: true,
     receiveShadow: false,
     textures: {
-      all: `${TEXTURE_BASE}/default_lava_source_animated.png`,
+      all: 'lava',
       frameCount: 6,
     },
   },
@@ -553,7 +656,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     receiveShadow: false,
     flatShaded: true,
     textures: {
-      all: `${TEXTURE_BASE}/default_water_source_animated.png`,
+      all: 'waterStill',
       frameCount: 6,
       tint: [0.55, 0.78, 1],
     },
@@ -573,7 +676,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     receiveShadow: false,
     flatShaded: true,
     textures: {
-      all: `${TEXTURE_BASE}/default_water_flowing_animated.png`,
+      all: 'waterFlowing',
       frameCount: 14,
       tint: [0.6, 0.82, 1],
     },
@@ -581,9 +684,9 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
   [BlockId.OAK_LOG]: {
     stepMaterial: 'wood',
     textures: {
-      top: `${TEXTURE_BASE}/default_tree_top.png`,
-      bottom: `${TEXTURE_BASE}/default_tree_top.png`,
-      side: `${TEXTURE_BASE}/default_tree.png`,
+      top: 'oakLogTop',
+      bottom: 'oakLogTop',
+      side: 'oakLogSide',
     },
   },
   [BlockId.OAK_LEAVES]: {
@@ -591,7 +694,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     stepMaterial: 'grass',
     cutout: true,
     textures: {
-      all: `${TEXTURE_BASE}/default_leaves.png`,
+      all: 'oakLeaves',
       tint: [0.5, 0.72, 0.32],
     },
   },
@@ -599,9 +702,9 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
   [BlockId.ASPEN_LOG]: {
     stepMaterial: 'wood',
     textures: {
-      top: `${TEXTURE_BASE}/default_aspen_tree_top.png`,
-      bottom: `${TEXTURE_BASE}/default_aspen_tree_top.png`,
-      side: `${TEXTURE_BASE}/default_aspen_tree.png`,
+      top: 'aspenLogTop',
+      bottom: 'aspenLogTop',
+      side: 'aspenLogSide',
     },
   },
   /**
@@ -617,7 +720,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     stepMaterial: 'grass',
     cutout: true,
     textures: {
-      all: `${TEXTURE_BASE}/default_aspen_leaves.png`,
+      all: 'aspenLeaves',
       pixelTint: [3.27, 0.61, 0.82],
     },
   },
@@ -626,16 +729,16 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     stepMaterial: 'grass',
     cutout: true,
     textures: {
-      all: `${TEXTURE_BASE}/default_aspen_leaves.png`,
+      all: 'aspenLeaves',
       pixelTint: [3.64, 0.99, 1.15],
     },
   },
   [BlockId.PINE_LOG]: {
     stepMaterial: 'wood',
     textures: {
-      top: `${TEXTURE_BASE}/default_pine_tree_top.png`,
-      bottom: `${TEXTURE_BASE}/default_pine_tree_top.png`,
-      side: `${TEXTURE_BASE}/default_pine_tree.png`,
+      top: 'pineLogTop',
+      bottom: 'pineLogTop',
+      side: 'pineLogSide',
     },
   },
   [BlockId.PINE_LEAVES]: {
@@ -643,7 +746,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     stepMaterial: 'grass',
     cutout: true,
     textures: {
-      all: `${TEXTURE_BASE}/default_pine_needles.png`,
+      all: 'pineLeaves',
       tint: [0.42, 0.6, 0.42],
     },
   },
@@ -658,9 +761,9 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
   [BlockId.DEAD_LOG]: {
     stepMaterial: 'wood',
     textures: {
-      top: `${TEXTURE_BASE}/default_aspen_tree_top.png`,
-      bottom: `${TEXTURE_BASE}/default_aspen_tree_top.png`,
-      side: `${TEXTURE_BASE}/default_aspen_tree.png`,
+      top: 'aspenLogTop',
+      bottom: 'aspenLogTop',
+      side: 'aspenLogSide',
       tint: [0.72, 0.67, 0.58],
     },
   },
@@ -669,9 +772,9 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     stepMaterial: 'wood',
     logAxis: 'x',
     textures: {
-      top: `${TEXTURE_BASE}/default_aspen_tree_top.png`,
-      bottom: `${TEXTURE_BASE}/default_aspen_tree_top.png`,
-      side: `${TEXTURE_BASE}/default_aspen_tree.png`,
+      top: 'aspenLogTop',
+      bottom: 'aspenLogTop',
+      side: 'aspenLogSide',
       tint: [0.72, 0.67, 0.58],
     },
   },
@@ -679,10 +782,46 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     stepMaterial: 'wood',
     logAxis: 'z',
     textures: {
-      top: `${TEXTURE_BASE}/default_aspen_tree_top.png`,
-      bottom: `${TEXTURE_BASE}/default_aspen_tree_top.png`,
-      side: `${TEXTURE_BASE}/default_aspen_tree.png`,
+      top: 'aspenLogTop',
+      bottom: 'aspenLogTop',
+      side: 'aspenLogSide',
       tint: [0.72, 0.67, 0.58],
+    },
+  },
+  /**
+   * 燒焦的枯木
+   *
+   * 貼圖與枯木同一張，差別只在色調：枯木是 0.72 的曬白，
+   * 這裡壓到 0.19 的炭黑，再讓紅通道比藍通道高一點——
+   * 燒過的木頭不是中性灰，它帶著一點暗紅
+   */
+  [BlockId.CHARRED_LOG]: {
+    stepMaterial: 'wood',
+    textures: {
+      top: 'aspenLogTop',
+      bottom: 'aspenLogTop',
+      side: 'aspenLogSide',
+      tint: [0.21, 0.17, 0.16],
+    },
+  },
+  [BlockId.CHARRED_LOG_X]: {
+    stepMaterial: 'wood',
+    logAxis: 'x',
+    textures: {
+      top: 'aspenLogTop',
+      bottom: 'aspenLogTop',
+      side: 'aspenLogSide',
+      tint: [0.21, 0.17, 0.16],
+    },
+  },
+  [BlockId.CHARRED_LOG_Z]: {
+    stepMaterial: 'wood',
+    logAxis: 'z',
+    textures: {
+      top: 'aspenLogTop',
+      bottom: 'aspenLogTop',
+      side: 'aspenLogSide',
+      tint: [0.21, 0.17, 0.16],
     },
   },
   /** 躺著的橡木，柴堆與橫枝用它 */
@@ -690,27 +829,27 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     stepMaterial: 'wood',
     logAxis: 'x',
     textures: {
-      top: `${TEXTURE_BASE}/default_tree_top.png`,
-      bottom: `${TEXTURE_BASE}/default_tree_top.png`,
-      side: `${TEXTURE_BASE}/default_tree.png`,
+      top: 'oakLogTop',
+      bottom: 'oakLogTop',
+      side: 'oakLogSide',
     },
   },
   [BlockId.OAK_LOG_Z]: {
     stepMaterial: 'wood',
     logAxis: 'z',
     textures: {
-      top: `${TEXTURE_BASE}/default_tree_top.png`,
-      bottom: `${TEXTURE_BASE}/default_tree_top.png`,
-      side: `${TEXTURE_BASE}/default_tree.png`,
+      top: 'oakLogTop',
+      bottom: 'oakLogTop',
+      side: 'oakLogSide',
     },
   },
   /** 相思木，樹皮偏紅，樹冠扁而寬 */
   [BlockId.ACACIA_LOG]: {
     stepMaterial: 'wood',
     textures: {
-      top: `${TEXTURE_BASE}/default_acacia_tree_top.png`,
-      bottom: `${TEXTURE_BASE}/default_acacia_tree_top.png`,
-      side: `${TEXTURE_BASE}/default_acacia_tree.png`,
+      top: 'acaciaLogTop',
+      bottom: 'acaciaLogTop',
+      side: 'acaciaLogSide',
     },
   },
   [BlockId.ACACIA_LEAVES]: {
@@ -718,7 +857,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     stepMaterial: 'grass',
     cutout: true,
     textures: {
-      all: `${TEXTURE_BASE}/default_acacia_leaves.png`,
+      all: 'acaciaLeaves',
       tint: [0.6, 0.72, 0.4],
     },
   },
@@ -727,20 +866,20 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     stepMaterial: 'grass',
     cutout: true,
     textures: {
-      all: `${TEXTURE_BASE}/default_jungle_leaves.png`,
+      all: 'jungleLeaves',
       tint: [0.36, 0.6, 0.3],
     },
   },
   [BlockId.PLANKS]: {
     stepMaterial: 'wood',
     textures: {
-      all: `${TEXTURE_BASE}/default_wood.png`,
+      all: 'planks',
     },
   },
   [BlockId.DARK_PLANKS]: {
     stepMaterial: 'wood',
     textures: {
-      all: `${TEXTURE_BASE}/default_junglewood.png`,
+      all: 'darkPlanks',
     },
   },
   /**
@@ -752,13 +891,13 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
   [BlockId.WOOD_TILE]: {
     stepMaterial: 'wood',
     textures: {
-      all: `${TEXTURE_BASE}/xdecor_wood_tile.png`,
+      all: 'woodTile',
     },
   },
   [BlockId.TATAMI]: {
     stepMaterial: 'cloth',
     textures: {
-      all: `${TEXTURE_BASE}/xdecor_tatami.png`,
+      all: 'tatami',
     },
   },
   /**
@@ -771,7 +910,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
   [BlockId.BAMBOO_BLOCK]: {
     stepMaterial: 'wood',
     textures: {
-      all: `${TEXTURE_BASE}/default_aspen_wood.png`,
+      all: 'aspenPlanks',
       tint: [0.82, 0.88, 0.55],
     },
   },
@@ -785,7 +924,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
   [BlockId.PAPER_DOOR]: {
     stepMaterial: 'wood',
     textures: {
-      all: `${TEXTURE_BASE}/xdecor_curtain.png`,
+      all: 'paperDoor',
       pixelTint: [1.55, 1.5, 1.38],
     },
   },
@@ -800,43 +939,43 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     stepMaterial: 'stone',
     cutout: true,
     textures: {
-      all: `${TEXTURE_BASE}/default_glass.png`,
+      all: 'glass',
     },
   },
   [BlockId.HAY]: {
     stepMaterial: 'grass',
     textures: {
-      all: `${TEXTURE_BASE}/farming_straw.png`,
+      all: 'hay',
     },
   },
   [BlockId.BOOKSHELF]: {
     stepMaterial: 'wood',
     textures: {
-      top: `${TEXTURE_BASE}/default_wood.png`,
-      bottom: `${TEXTURE_BASE}/default_wood.png`,
-      side: `${TEXTURE_BASE}/default_bookshelf.png`,
+      top: 'planks',
+      bottom: 'planks',
+      side: 'bookshelfSide',
     },
   },
   [BlockId.BARREL]: {
     stepMaterial: 'wood',
     textures: {
-      top: `${TEXTURE_BASE}/xdecor_barrel_top.png`,
-      bottom: `${TEXTURE_BASE}/xdecor_barrel_top.png`,
-      side: `${TEXTURE_BASE}/xdecor_barrel_sides.png`,
+      top: 'barrelTop',
+      bottom: 'barrelTop',
+      side: 'barrelSide',
     },
   },
   [BlockId.CRATE]: {
     stepMaterial: 'wood',
     textures: {
-      all: `${TEXTURE_BASE}/xdecor_crate.png`,
+      all: 'crate',
     },
   },
   [BlockId.CHEST]: {
     stepMaterial: 'wood',
     textures: {
-      top: `${TEXTURE_BASE}/default_chest_top.png`,
-      bottom: `${TEXTURE_BASE}/default_chest_top.png`,
-      side: `${TEXTURE_BASE}/default_chest_side.png`,
+      top: 'chestTop',
+      bottom: 'chestTop',
+      side: 'chestSide',
     },
   },
   /** 灶膛燒著火，正面那張是有火光的畫格 */
@@ -844,17 +983,17 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     stepMaterial: 'stone',
     emissive: 0.35,
     textures: {
-      top: `${TEXTURE_BASE}/default_furnace_top.png`,
-      bottom: `${TEXTURE_BASE}/default_furnace_bottom.png`,
-      side: `${TEXTURE_BASE}/default_furnace_front_active.png`,
+      top: 'furnaceTop',
+      bottom: 'furnaceBottom',
+      side: 'furnaceFront',
     },
   },
   [BlockId.WORKBENCH]: {
     stepMaterial: 'wood',
     textures: {
-      top: `${TEXTURE_BASE}/xdecor_workbench_top.png`,
-      bottom: `${TEXTURE_BASE}/default_wood.png`,
-      side: `${TEXTURE_BASE}/xdecor_workbench_sides.png`,
+      top: 'workbenchTop',
+      bottom: 'planks',
+      side: 'workbenchSide',
     },
   },
   /**
@@ -867,16 +1006,16 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
   [BlockId.CAULDRON]: {
     stepMaterial: 'stone',
     textures: {
-      top: `${TEXTURE_BASE}/xdecor_cauldron_top_idle.png`,
-      bottom: `${TEXTURE_BASE}/xdecor_cauldron_sides.png`,
-      side: `${TEXTURE_BASE}/xdecor_cauldron_sides.png`,
+      top: 'cauldronTop',
+      bottom: 'cauldronSide',
+      side: 'cauldronSide',
     },
   },
   [BlockId.LANTERN]: {
     stepMaterial: 'stone',
     emissive: 0.95,
     textures: {
-      all: `${TEXTURE_BASE}/default_meselamp.png`,
+      all: 'lantern',
     },
   },
   /** 和紙燈箱，光比燈石柔，暖色也重一些 */
@@ -884,7 +1023,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     stepMaterial: 'wood',
     emissive: 0.8,
     textures: {
-      all: `${TEXTURE_BASE}/xdecor_wooden_lightbox.png`,
+      all: 'paperLamp',
       /** 和紙偏冷的白，跟石燈籠那盞暖黃的燈室分得開 */
       pixelTint: [0.92, 0.95, 1.02],
     },
@@ -902,7 +1041,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     stepMaterial: 'wood',
     emissive: 0.7,
     textures: {
-      all: `${TEXTURE_BASE}/xdecor_lightbox.png`,
+      all: 'lanternBox',
     },
   },
   [BlockId.EMBER]: {
@@ -911,13 +1050,13 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     /** 一團營火，照出去的範圍是全場最大的 */
     lightLevel: 1,
     textures: {
-      all: `${TEXTURE_BASE}/default_lava.png`,
+      all: 'ember',
     },
   },
   [BlockId.BRICKS]: {
     stepMaterial: 'stone',
     textures: {
-      all: `${TEXTURE_BASE}/default_brick.png`,
+      all: 'bricks',
     },
   },
   /**
@@ -932,51 +1071,51 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
   [BlockId.COAL_ORE]: {
     stepMaterial: 'stone',
     textures: {
-      all: `${TEXTURE_BASE}/default_stone.png`,
-      overlay: `${TEXTURE_BASE}/default_mineral_coal.png`,
+      all: 'coalOreBase',
+      overlay: 'coalOreOverlay',
     },
   },
   [BlockId.IRON_ORE]: {
     stepMaterial: 'stone',
     textures: {
-      all: `${TEXTURE_BASE}/default_stone.png`,
-      overlay: `${TEXTURE_BASE}/default_mineral_iron.png`,
+      all: 'ironOreBase',
+      overlay: 'ironOreOverlay',
     },
   },
   [BlockId.COPPER_ORE]: {
     stepMaterial: 'stone',
     textures: {
-      all: `${TEXTURE_BASE}/default_stone.png`,
-      overlay: `${TEXTURE_BASE}/default_mineral_copper.png`,
+      all: 'copperOreBase',
+      overlay: 'copperOreOverlay',
     },
   },
   [BlockId.GOLD_ORE]: {
     stepMaterial: 'stone',
     textures: {
-      all: `${TEXTURE_BASE}/default_stone.png`,
-      overlay: `${TEXTURE_BASE}/default_mineral_gold.png`,
+      all: 'goldOreBase',
+      overlay: 'goldOreOverlay',
     },
   },
   [BlockId.DIAMOND_ORE]: {
     stepMaterial: 'stone',
     emissive: 0.2,
     textures: {
-      all: `${TEXTURE_BASE}/default_stone.png`,
-      overlay: `${TEXTURE_BASE}/default_mineral_diamond.png`,
+      all: 'diamondOreBase',
+      overlay: 'diamondOreOverlay',
     },
   },
   [BlockId.HIVE]: {
     stepMaterial: 'wood',
     textures: {
-      top: `${TEXTURE_BASE}/xdecor_hive_top.png`,
-      bottom: `${TEXTURE_BASE}/xdecor_hive_top.png`,
-      side: `${TEXTURE_BASE}/xdecor_hive_side.png`,
+      top: 'hiveTop',
+      bottom: 'hiveTop',
+      side: 'hiveSide',
     },
   },
   [BlockId.HONEY_BLOCK]: {
     stepMaterial: 'cloth',
     textures: {
-      all: `${TEXTURE_BASE}/mobs_honey_block.png`,
+      all: 'honeyBlock',
     },
   },
   /**
@@ -993,16 +1132,16 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     isThinFloor: true,
     stepMaterial: 'wood',
     textures: {
-      all: `${TEXTURE_BASE}/xdecor_book_open.png`,
+      all: 'openBook',
     },
   },
   /** 一副臥著的白骨，枯木林裡的時間感 */
   [BlockId.BONES]: {
     stepMaterial: 'stone',
     textures: {
-      top: `${TEXTURE_BASE}/bones_top.png`,
-      bottom: `${TEXTURE_BASE}/bones_bottom.png`,
-      side: `${TEXTURE_BASE}/bones_side.png`,
+      top: 'bonesTop',
+      bottom: 'bonesBottom',
+      side: 'bonesSide',
     },
   },
   /**
@@ -1014,19 +1153,19 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
   [BlockId.CORAL_ORANGE]: {
     stepMaterial: 'coral',
     textures: {
-      all: `${TEXTURE_BASE}/default_coral_orange.png`,
+      all: 'coralOrange',
     },
   },
   [BlockId.CORAL_BROWN]: {
     stepMaterial: 'coral',
     textures: {
-      all: `${TEXTURE_BASE}/default_coral_brown.png`,
+      all: 'coralBrown',
     },
   },
   [BlockId.CORAL_SKELETON]: {
     stepMaterial: 'coral',
     textures: {
-      all: `${TEXTURE_BASE}/default_coral_skeleton.png`,
+      all: 'coralSkeleton',
     },
   },
 
@@ -1036,7 +1175,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     passable: true,
     stepMaterial: 'grass',
     textures: {
-      all: `${TEXTURE_BASE}/default_grass_3.png`,
+      all: 'tallGrass',
       tint: [0.55, 0.75, 0.36],
     },
   },
@@ -1045,7 +1184,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     passable: true,
     stepMaterial: 'grass',
     textures: {
-      all: `${TEXTURE_BASE}/moreplants_spikefern.png`,
+      all: 'fern',
       tint: [0.46, 0.66, 0.34],
     },
   },
@@ -1054,7 +1193,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     passable: true,
     stepMaterial: 'grass',
     textures: {
-      all: `${TEXTURE_BASE}/default_dry_shrub.png`,
+      all: 'dryShrub',
       tint: [0.72, 0.62, 0.44],
     },
   },
@@ -1063,7 +1202,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     passable: true,
     stepMaterial: 'grass',
     textures: {
-      all: `${TEXTURE_BASE}/flowers_rose.png`,
+      all: 'flowerRose',
       tint: [0.84, 0.84, 0.84],
     },
   },
@@ -1072,7 +1211,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     passable: true,
     stepMaterial: 'grass',
     textures: {
-      all: `${TEXTURE_BASE}/flowers_tulip.png`,
+      all: 'flowerTulip',
       tint: [0.84, 0.84, 0.84],
     },
   },
@@ -1081,25 +1220,36 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     passable: true,
     stepMaterial: 'grass',
     textures: {
-      all: `${TEXTURE_BASE}/flowers_dandelion_yellow.png`,
+      all: 'flowerDandelion',
       tint: [0.84, 0.84, 0.84],
     },
   },
+  /**
+   * 蘑菇不搖
+   *
+   * 交叉立板預設會跟著風彎，那是給草與花用的：它們是軟的、細的，
+   * 風一過整片倒下去。蘑菇不是植物那種構造——它是一根短而硬的柄
+   * 頂著一頂傘，現實裡風吹過去它動都不動。
+   *
+   * 讓它跟著草一起搖，整片林地看起來就像每一樣東西都是布做的
+   */
   [BlockId.MUSHROOM]: {
     shape: 'cross',
     passable: true,
+    swaysInWind: false,
     stepMaterial: 'grass',
     textures: {
-      all: `${TEXTURE_BASE}/flowers_mushroom_red.png`,
+      all: 'mushroomRed',
       tint: [0.84, 0.84, 0.84],
     },
   },
   [BlockId.BROWN_MUSHROOM]: {
     shape: 'cross',
     passable: true,
+    swaysInWind: false,
     stepMaterial: 'grass',
     textures: {
-      all: `${TEXTURE_BASE}/flowers_mushroom_brown.png`,
+      all: 'mushroomBrown',
       tint: [0.84, 0.84, 0.84],
     },
   },
@@ -1108,7 +1258,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     passable: true,
     stepMaterial: 'grass',
     textures: {
-      all: `${TEXTURE_BASE}/flowers_viola.png`,
+      all: 'flowerViola',
       tint: [0.84, 0.84, 0.84],
     },
   },
@@ -1117,7 +1267,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     passable: true,
     stepMaterial: 'grass',
     textures: {
-      all: `${TEXTURE_BASE}/flowers_dandelion_white.png`,
+      all: 'flowerWhiteDandelion',
       tint: [0.9, 0.9, 0.9],
     },
   },
@@ -1127,7 +1277,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     passable: true,
     stepMaterial: 'grass',
     textures: {
-      all: `${TEXTURE_BASE}/moreplants_bigflower.png`,
+      all: 'bigFlower',
       tint: [0.86, 0.86, 0.86],
     },
   },
@@ -1137,7 +1287,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     passable: true,
     stepMaterial: 'grass',
     textures: {
-      all: `${TEXTURE_BASE}/moreplants_moonflower.png`,
+      all: 'moonFlower',
       tint: [0.9, 0.9, 0.94],
     },
   },
@@ -1146,7 +1296,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     passable: true,
     stepMaterial: 'grass',
     textures: {
-      all: `${TEXTURE_BASE}/moreplants_fireflower.png`,
+      all: 'fireFlower',
       tint: [0.88, 0.82, 0.78],
     },
   },
@@ -1155,7 +1305,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     passable: true,
     stepMaterial: 'grass',
     textures: {
-      all: `${TEXTURE_BASE}/moreplants_curly.png`,
+      all: 'curlyPlant',
       tint: [0.5, 0.68, 0.36],
     },
   },
@@ -1165,7 +1315,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     passable: true,
     stepMaterial: 'grass',
     textures: {
-      all: `${TEXTURE_BASE}/moreplants_stoneplant.png`,
+      all: 'stonePlant',
       tint: [0.62, 0.68, 0.56],
     },
   },
@@ -1174,7 +1324,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     passable: true,
     stepMaterial: 'grass',
     textures: {
-      all: `${TEXTURE_BASE}/default_grass_5.png`,
+      all: 'wildGrass',
       tint: [0.5, 0.72, 0.34],
     },
   },
@@ -1193,7 +1343,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     passable: true,
     stepMaterial: 'grass',
     textures: {
-      all: `${TEXTURE_BASE}/default_dry_grass.png`,
+      all: 'wheat',
       pixelTint: [1.32, 1.06, 0.5],
     },
   },
@@ -1203,7 +1353,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     passable: true,
     stepMaterial: 'grass',
     textures: {
-      all: `${TEXTURE_BASE}/default_dry_grass_5.png`,
+      all: 'wheatTall',
       pixelTint: [1.24, 0.94, 0.42],
     },
   },
@@ -1212,7 +1362,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     passable: true,
     stepMaterial: 'grass',
     textures: {
-      all: `${TEXTURE_BASE}/moreplants_jungleflower2.png`,
+      all: 'jungleFlower',
       tint: [0.86, 0.8, 0.8],
     },
   },
@@ -1221,7 +1371,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     passable: true,
     stepMaterial: 'grass',
     textures: {
-      all: `${TEXTURE_BASE}/moreplants_bush.png`,
+      all: 'bush',
       tint: [0.46, 0.64, 0.34],
     },
   },
@@ -1230,7 +1380,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     passable: true,
     stepMaterial: 'grass',
     textures: {
-      all: `${TEXTURE_BASE}/default_dry_grass_3.png`,
+      all: 'dryGrass',
       tint: [0.82, 0.74, 0.5],
     },
   },
@@ -1239,7 +1389,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     passable: true,
     stepMaterial: 'grass',
     textures: {
-      all: `${TEXTURE_BASE}/default_junglegrass.png`,
+      all: 'jungleGrass',
       tint: [0.4, 0.62, 0.32],
     },
   },
@@ -1249,25 +1399,27 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     passable: true,
     stepMaterial: 'grass',
     textures: {
-      all: `${TEXTURE_BASE}/default_papyrus.png`,
+      all: 'papyrus',
       tint: [0.6, 0.74, 0.42],
     },
   },
   [BlockId.CACTUS]: {
     stepMaterial: 'grass',
     textures: {
-      top: `${TEXTURE_BASE}/default_cactus_top.png`,
-      bottom: `${TEXTURE_BASE}/default_cactus_top.png`,
-      side: `${TEXTURE_BASE}/default_cactus_side.png`,
+      top: 'cactusTop',
+      bottom: 'cactusTop',
+      side: 'cactusSide',
     },
   },
   /** 蛛網，掛在洞窟深處的岩縫之間 */
   [BlockId.COBWEB]: {
     shape: 'cross',
     passable: true,
+    /** 洞裡沒有風。蜘蛛網跟著花草一起搖，整個山洞會看起來像在戶外 */
+    swaysInWind: false,
     stepMaterial: 'cloth',
     textures: {
-      all: `${TEXTURE_BASE}/xdecor_cobweb.png`,
+      all: 'cobweb',
       tint: [0.9, 0.9, 0.9],
     },
   },
@@ -1277,7 +1429,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     passable: true,
     stepMaterial: 'grass',
     textures: {
-      all: `${TEXTURE_BASE}/xdecor_ivy.png`,
+      all: 'ivy',
       tint: [0.44, 0.62, 0.34],
     },
   },
@@ -1288,7 +1440,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     isThinFloor: true,
     stepMaterial: 'wet_grass',
     textures: {
-      all: `${TEXTURE_BASE}/flowers_waterlily.png`,
+      all: 'lilyPad',
       tint: [0.62, 0.78, 0.5],
     },
   },
@@ -1304,7 +1456,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     isThinFloor: true,
     stepMaterial: 'grass',
     textures: {
-      all: `${TEXTURE_BASE}/default_aspen_leaves.png`,
+      all: 'fallenLeaves',
       /** 落在地上的葉子已經乾了一陣子，顏色比枝頭上的暗一階 */
       pixelTint: [2.88, 0.57, 1.03],
     },
@@ -1321,7 +1473,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     isThinFloor: true,
     stepMaterial: 'grass',
     textures: {
-      all: `${TEXTURE_BASE}/default_rainforest_litter.png`,
+      all: 'forestLitter',
       tint: [0.72, 0.66, 0.5],
     },
   },
@@ -1330,7 +1482,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     collisionWidth: 0.4,
     stepMaterial: 'wood',
     textures: {
-      all: `${TEXTURE_BASE}/default_wood.png`,
+      all: 'planks',
     },
   },
   /**
@@ -1345,7 +1497,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     collisionWidth: 0.3,
     stepMaterial: 'stone',
     textures: {
-      all: `${TEXTURE_BASE}/xdecor_chainlink.png`,
+      all: 'chain',
     },
   },
   [BlockId.BAMBOO_FENCE]: {
@@ -1353,7 +1505,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     collisionWidth: 0.4,
     stepMaterial: 'wood',
     textures: {
-      all: `${TEXTURE_BASE}/default_aspen_wood.png`,
+      all: 'aspenPlanks',
       tint: [0.82, 0.88, 0.55],
     },
   },
@@ -1364,7 +1516,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     passable: true,
     stepMaterial: 'wood',
     textures: {
-      all: `${TEXTURE_BASE}/default_ladder_wood.png`,
+      all: 'ladder',
     },
   },
   [BlockId.GLASS_PANE]: {
@@ -1372,7 +1524,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     cutout: true,
     stepMaterial: 'stone',
     textures: {
-      all: `${TEXTURE_BASE}/default_glass.png`,
+      all: 'glass',
     },
   },
   [BlockId.STONE_SLAB]: {
@@ -1381,7 +1533,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     collisionHeight: 0.5,
     stepMaterial: 'stone',
     textures: {
-      all: `${TEXTURE_BASE}/default_cobble.png`,
+      all: 'cobblestone',
     },
   },
   [BlockId.WOOD_SLAB]: {
@@ -1390,7 +1542,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     collisionHeight: 0.5,
     stepMaterial: 'wood',
     textures: {
-      all: `${TEXTURE_BASE}/default_wood.png`,
+      all: 'planks',
     },
   },
   [BlockId.DARK_WOOD_SLAB]: {
@@ -1398,7 +1550,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     collisionHeight: 0.5,
     stepMaterial: 'wood',
     textures: {
-      all: `${TEXTURE_BASE}/default_junglewood.png`,
+      all: 'darkPlanks',
     },
   },
   /** 坐墊：半格高的一片布，踩上去只差半階 */
@@ -1407,7 +1559,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     collisionHeight: 0.5,
     stepMaterial: 'cloth',
     textures: {
-      all: `${TEXTURE_BASE}/xdecor_cushion.png`,
+      all: 'cushion',
     },
   },
   [BlockId.WHITE_STONE_SLAB]: {
@@ -1415,7 +1567,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     collisionHeight: 0.5,
     stepMaterial: 'stone',
     textures: {
-      all: `${TEXTURE_BASE}/default_silver_sandstone.png`,
+      all: 'whiteSandstone',
     },
   },
   /**
@@ -1430,7 +1582,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     collisionHeight: 0.5,
     stepMaterial: 'wood',
     textures: {
-      all: `${TEXTURE_BASE}/default_wood.png`,
+      all: 'planks',
     },
   },
   [BlockId.WOOD_STAIRS_SOUTH]: {
@@ -1439,7 +1591,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     collisionHeight: 0.5,
     stepMaterial: 'wood',
     textures: {
-      all: `${TEXTURE_BASE}/default_wood.png`,
+      all: 'planks',
     },
   },
   [BlockId.WOOD_STAIRS_EAST]: {
@@ -1448,7 +1600,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     collisionHeight: 0.5,
     stepMaterial: 'wood',
     textures: {
-      all: `${TEXTURE_BASE}/default_wood.png`,
+      all: 'planks',
     },
   },
   [BlockId.WOOD_STAIRS_WEST]: {
@@ -1457,7 +1609,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     collisionHeight: 0.5,
     stepMaterial: 'wood',
     textures: {
-      all: `${TEXTURE_BASE}/default_wood.png`,
+      all: 'planks',
     },
   },
   /**
@@ -1472,7 +1624,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     collisionHeight: 0.5,
     stepMaterial: 'wood',
     textures: {
-      all: `${TEXTURE_BASE}/default_junglewood.png`,
+      all: 'darkPlanks',
     },
   },
   [BlockId.DARK_STAIRS_SOUTH]: {
@@ -1481,7 +1633,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     collisionHeight: 0.5,
     stepMaterial: 'wood',
     textures: {
-      all: `${TEXTURE_BASE}/default_junglewood.png`,
+      all: 'darkPlanks',
     },
   },
   [BlockId.DARK_STAIRS_EAST]: {
@@ -1490,7 +1642,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     collisionHeight: 0.5,
     stepMaterial: 'wood',
     textures: {
-      all: `${TEXTURE_BASE}/default_junglewood.png`,
+      all: 'darkPlanks',
     },
   },
   [BlockId.DARK_STAIRS_WEST]: {
@@ -1499,16 +1651,167 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     collisionHeight: 0.5,
     stepMaterial: 'wood',
     textures: {
-      all: `${TEXTURE_BASE}/default_junglewood.png`,
+      all: 'darkPlanks',
     },
   },
   [BlockId.FLOWER_POT]: {
     shape: 'pot',
     passable: true,
     stepMaterial: 'stone',
-    plantTexture: `${TEXTURE_BASE}/flowers_geranium.png`,
+    plantTexture: 'pottedPlant',
     textures: {
-      all: `${TEXTURE_BASE}/xdecor_plant_pot_sides.png`,
+      all: 'flowerPot',
+    },
+  },
+  /**
+   * 飛石
+   *
+   * 三格厚（十六分之三）。再薄就看不出它高於地面，
+   * 再厚踩上去會像在爬階梯——飛石該是「走過去不必抬腳」的那種高度。
+   *
+   * 用圓石而不是打磨過的石板：飛石是撿來的石頭，不是切出來的
+   */
+  [BlockId.STEPPING_STONE]: {
+    shape: 'layer',
+    shapeThickness: 0.1875,
+    collisionHeight: 0.1875,
+    stepMaterial: 'stone',
+    textures: {
+      all: 'cobblestone',
+    },
+  },
+  /**
+   * 薄雪
+   *
+   * 兩格厚。整格的雪塊是「這裡被雪埋了」，薄雪是「這裡下過雪」——
+   * 底下那層地還看得見一點邊，差別全在這裡
+   */
+  [BlockId.SNOW_LAYER]: {
+    shape: 'layer',
+    shapeThickness: 0.125,
+    collisionHeight: 0.125,
+    stepMaterial: 'snow',
+    textures: {
+      all: 'snowTop',
+    },
+  },
+  /** 攤在木地板上的榻榻米，四格厚，坐上去看得出它是墊在上面的 */
+  [BlockId.TATAMI_MAT]: {
+    shape: 'layer',
+    shapeThickness: 0.25,
+    collisionHeight: 0.25,
+    stepMaterial: 'cloth',
+    textures: {
+      all: 'tatami',
+    },
+  },
+  /**
+   * 竹稈
+   *
+   * 貼圖與竹方塊同一張（淺色木紋染成竹的黃綠），差別只在它是細的。
+   * 碰撞寬度給到 0.3，一叢竹子因此走得進去——
+   * 那正是竹林與竹牆的差別
+   */
+  [BlockId.BAMBOO_STALK]: {
+    shape: 'post',
+    shapeThickness: 0.3,
+    collisionWidth: 0.3,
+    stepMaterial: 'wood',
+    textures: {
+      all: 'aspenPlanks',
+      tint: [0.82, 0.88, 0.55],
+    },
+  },
+  /** 木樁，比竹子粗一點，是有人削出來立在那裡的 */
+  [BlockId.WOOD_POST]: {
+    shape: 'post',
+    shapeThickness: 0.42,
+    collisionWidth: 0.42,
+    stepMaterial: 'wood',
+    textures: {
+      all: 'oakLogSide',
+    },
+  },
+  /**
+   * 障子門
+   *
+   * 立在格子正中央的薄板。紙門的意思是「這道牆會透光」，
+   * 所以它要薄——整格的紙門看起來是一堵糊了紙的牆，不是一扇門
+   */
+  [BlockId.SHOJI_PANEL_X]: {
+    shape: 'panel',
+    panelAxis: 'x',
+    shapeThickness: 0.14,
+    collisionWidth: 0.14,
+    stepMaterial: 'wood',
+    textures: {
+      all: 'paperDoor',
+      pixelTint: [1.55, 1.5, 1.38],
+    },
+  },
+  [BlockId.SHOJI_PANEL_Z]: {
+    shape: 'panel',
+    panelAxis: 'z',
+    shapeThickness: 0.14,
+    collisionWidth: 0.14,
+    stepMaterial: 'wood',
+    textures: {
+      all: 'paperDoor',
+      pixelTint: [1.55, 1.5, 1.38],
+    },
+  },
+  /** 雨戶：擋在障子外面的那片木板，厚一點也暗一點 */
+  [BlockId.STORM_PANEL_X]: {
+    shape: 'panel',
+    panelAxis: 'x',
+    shapeThickness: 0.2,
+    collisionWidth: 0.2,
+    stepMaterial: 'wood',
+    textures: {
+      all: 'darkPlanks',
+    },
+  },
+  [BlockId.STORM_PANEL_Z]: {
+    shape: 'panel',
+    panelAxis: 'z',
+    shapeThickness: 0.2,
+    collisionWidth: 0.2,
+    stepMaterial: 'wood',
+    textures: {
+      all: 'darkPlanks',
+    },
+  },
+  /**
+   * 風鈴
+   *
+   * 一顆小鈴加底下一片短籤，吊在上一格底下。短籤跟著風搖，
+   * 而鈴身不動——會動的是紙，不是玻璃。
+   *
+   * 這座禪庭整座都在講聲音，卻一直沒有一個「因為風而發聲」的東西。
+   * 風鈴是那個缺口
+   */
+  [BlockId.WIND_CHIME]: {
+    shape: 'hanging',
+    shapeThickness: 0.34,
+    passable: true,
+    hangingTailTexture: 'paperDoor',
+    stepMaterial: 'stone',
+    textures: {
+      all: 'paperLamp',
+      /** 玻璃鈴身偏冷，與底下那片米白的紙分得開 */
+      pixelTint: [0.86, 0.96, 1.06],
+    },
+  },
+  /** 吊在簷下的和紙提燈，比風鈴大，而且會亮 */
+  [BlockId.HANGING_LAMP]: {
+    shape: 'hanging',
+    shapeThickness: 0.5,
+    passable: true,
+    emissive: 0.8,
+    stepMaterial: 'wood',
+    textures: {
+      all: 'paperLamp',
+      pixelTint: [0.92, 0.95, 1.02],
     },
   },
 }
@@ -1521,13 +1824,13 @@ export function isDecorationBlock(blockId: BlockId): boolean {
 
 /** 綿羊身上的材質，交給 3D 模型使用 */
 export const WOOL_TEXTURE = {
-  white: `${TEXTURE_BASE}/wool_white.png`,
-  grey: `${TEXTURE_BASE}/wool_grey.png`,
-  darkGrey: `${TEXTURE_BASE}/wool_dark_grey.png`,
-  brown: `${TEXTURE_BASE}/wool_brown.png`,
-  black: `${TEXTURE_BASE}/wool_black.png`,
-  pink: `${TEXTURE_BASE}/wool_pink.png`,
-} as const
+  white: 'woolWhite',
+  grey: 'woolGrey',
+  darkGrey: 'woolDarkGrey',
+  brown: 'woolBrown',
+  black: 'woolBlack',
+  pink: 'woolPink',
+} as const satisfies Record<string, TextureKey>
 
 /** 取得方塊的腳步聲材質 */
 export function getStepMaterial(blockId: BlockId): StepMaterial {
@@ -1542,6 +1845,11 @@ export function isPassableBlock(blockId: BlockId): boolean {
 /** 是否為水，靜水與流水在物理上完全相同 */
 export function isWaterBlock(blockId: BlockId): boolean {
   return blockId === BlockId.WATER || blockId === BlockId.FLOWING_WATER
+}
+
+/** 熔岩也是液體，泡進去的物理與水一樣，只有視覺與致命感不同 */
+export function isLavaBlock(blockId: BlockId): boolean {
+  return blockId === BlockId.LAVA
 }
 
 /** 方塊的碰撞高度，預設一整格 */

@@ -157,6 +157,22 @@ export function placePedestal(state: Uint8Array, garden: GardenDefinition): void
   fillSquare(state, center.x, center.z, halfSize + 1, SAND_LEVEL, BlockId.WHITE_SANDSTONE)
 
   /**
+   * 木座底下換成岩
+   *
+   * 整個世界的地表以下都是白砂岩，那是給沙地用的填充料，
+   * 本來永遠不會被看到——直到有哪一座箱庭往下挖。
+   * 地獄谷的裂谷、岩響窟的下坡通道都挖穿過甲板，
+   * 露出來的是一整片慘白的沙，比不挖還糟。
+   *
+   * 與其在每一座箱庭裡各自補一次，不如在這裡一次換掉：
+   * 木座底下本來就不該是沙，那是一座庭園立著的地方。
+   * 之後任何一座要往下挖幾格都不必再想這件事
+   */
+  for (let y = 1; y <= SAND_LEVEL; y++) {
+    fillSquare(state, center.x, center.z, halfSize + 1, y, BlockId.STONE)
+  }
+
+  /**
    * 座身
    *
    * 外緣一圈用深色木，中間用淺色木。
@@ -451,6 +467,117 @@ export function placeAcaciaTree(
   }
 }
 
+/**
+ * 飛石
+ *
+ * 日本庭園裡最能一眼認出來的東西，而它的關鍵不在石頭本身，
+ * 在於「它不是一條路」。鋪滿的石板是路：走哪裡都行，於是不必想。
+ * 飛石是一顆一顆隔開的：只能踩在石頭上，於是每一步都得挑地方落腳，
+ * 步伐因此慢下來——那正是它存在的理由，庭園要的就是那個慢。
+ *
+ * 所以間距與偏移都要不規則。等距排成直線的話，人眼會把它讀成
+ * 一條虛線的路，那個「得挑地方落腳」的效果就整個沒了
+ */
+export function placeSteppingStones(
+  state: Uint8Array,
+  startX: number,
+  startZ: number,
+  stepX: number,
+  stepZ: number,
+  count: number,
+  y: number,
+  random: () => number,
+): void {
+  /** 側向偏移的方向：與前進方向垂直的那一軸 */
+  const sideX = stepZ
+  const sideZ = stepX
+
+  let travelled = 0
+  for (let index = 0; index < count; index++) {
+    /** 一到兩格一顆，疏密不勻才不像虛線 */
+    travelled += 1 + Math.floor(random() * 2)
+    const side = Math.round(random() * 2 - 1)
+    const x = startX + stepX * travelled + sideX * side
+    const z = startZ + stepZ * travelled + sideZ * side
+
+    /**
+     * 只擺在乾淨的沙上
+     *
+     * 這條路是從外面走過來的，沿途可能會碰到孤石、鄰座的木座
+     * 或另一條飛石。撞到就跳過那一顆，不要蓋掉別人的東西
+     */
+    if (getBlock(state, x, y - 1, z) !== BlockId.WHITE_SAND)
+      continue
+    if (getBlock(state, x, y, z) !== BlockId.AIR)
+      continue
+
+    setBlock(state, x, y, z, BlockId.STEPPING_STONE)
+  }
+}
+
+/**
+ * 竹叢
+ *
+ * 竹子與樹的差別在於它沒有樹冠：一根細桿直上去，
+ * 葉子只掛在最頂上那一小截。所以這裡不堆樹葉方塊，
+ * 只在稈頂放一兩片交叉立板——那也讓它跟著風搖。
+ *
+ * 高矮要差得夠多。一叢等高的竹子看起來是一排柵欄，
+ * 而竹林之所以是竹林，正因為它們搶著往上長、誰也沒長成一樣高
+ */
+export function placeBambooGrove(
+  state: Uint8Array,
+  centerX: number,
+  groundY: number,
+  centerZ: number,
+  radius: number,
+  count: number,
+  random: () => number,
+): void {
+  for (let index = 0; index < count; index++) {
+    const angle = random() * Math.PI * 2
+    const distance = Math.sqrt(random()) * radius
+    const x = centerX + Math.round(Math.cos(angle) * distance)
+    const z = centerZ + Math.round(Math.sin(angle) * distance)
+
+    /** 已經有東西的地方就讓開，竹子不該長在石燈籠上 */
+    if (getBlock(state, x, groundY, z) !== BlockId.AIR)
+      continue
+
+    const height = 4 + Math.floor(random() * 4)
+    for (let level = 0; level < height; level++) {
+      setBlock(state, x, groundY + level, z, BlockId.BAMBOO_STALK)
+    }
+
+    /** 葉子疊在稈頂上面，不是取代最後一節——那會讓竹子斷一格 */
+    setBlock(state, x, groundY + height, z, BlockId.JUNGLE_GRASS)
+    if (random() < 0.6) {
+      setBlock(state, x, groundY + height + 1, z, BlockId.JUNGLE_GRASS)
+    }
+  }
+}
+
+/** 枯木的三種朝向要成套換，只換直的那根會在岔枝上斷色 */
+export interface DeadTreeLogSet {
+  trunk: BlockId;
+  branchX: BlockId;
+  branchZ: BlockId;
+}
+
+/** 曬白的枯木：站在草原與雪地裡的那一種 */
+export const BLEACHED_LOG_SET: DeadTreeLogSet = {
+  trunk: BlockId.DEAD_LOG,
+  branchX: BlockId.DEAD_LOG_X,
+  branchZ: BlockId.DEAD_LOG_Z,
+}
+
+/** 燒焦的枯木：地獄谷那幾株是被熱氣烤死的，不是曬乾的 */
+export const CHARRED_LOG_SET: DeadTreeLogSet = {
+  trunk: BlockId.CHARRED_LOG,
+  branchX: BlockId.CHARRED_LOG_X,
+  branchZ: BlockId.CHARRED_LOG_Z,
+}
+
 /** 枯木，只剩幾根岔出去的枝 */
 export function placeDeadTree(
   state: Uint8Array,
@@ -458,13 +585,14 @@ export function placeDeadTree(
   groundY: number,
   z: number,
   trunkHeight: number,
+  logSet: DeadTreeLogSet = BLEACHED_LOG_SET,
 ): void {
   for (let offsetY = 0; offsetY < trunkHeight; offsetY++) {
-    setBlock(state, x, groundY + offsetY, z, BlockId.DEAD_LOG)
+    setBlock(state, x, groundY + offsetY, z, logSet.trunk)
   }
   /** 岔出去的兩根橫枝，各自用對應朝向的方塊 */
-  setDecoration(state, x + 1, groundY + trunkHeight - 1, z, BlockId.DEAD_LOG_X)
-  setDecoration(state, x, groundY + trunkHeight - 2, z - 1, BlockId.DEAD_LOG_Z)
+  setDecoration(state, x + 1, groundY + trunkHeight - 1, z, logSet.branchX)
+  setDecoration(state, x, groundY + trunkHeight - 2, z - 1, logSet.branchZ)
 }
 
 /**

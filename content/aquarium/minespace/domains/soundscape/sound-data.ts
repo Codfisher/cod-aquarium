@@ -111,6 +111,8 @@ const EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
     zone: 'forest',
     ...at('forest', 6, -6),
     heightOffset: 7,
+    /** 林子裡的鳥同樣會換枝，範圍比鳴禽庭那隻大一些 */
+    motion: { type: 'wander', radius: 9, periodSecond: 48, riseHeight: 2 },
     mode: { type: 'interval', rangeSecond: [10, 26] },
     volume: 0.7,
     minDistance: 5,
@@ -353,6 +355,14 @@ const EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
     zone: 'coast',
     ...at('coast', -4, -8),
     heightOffset: 9,
+    /**
+     * 在頭頂上繞圈
+     *
+     * 海鷗是全場最該動的一個：牠本來就在天上盤旋，
+     * 而且離地九格——聲音從斜上方繞過去，
+     * 抬不抬頭都聽得出牠在轉。半分鐘一圈，慢得像在滑翔
+     */
+    motion: { type: 'orbit', radius: 10, periodSecond: 34, riseHeight: 3 },
     mode: { type: 'interval', rangeSecond: [12, 30] },
     volume: 0.7,
     minDistance: 6,
@@ -366,6 +376,14 @@ const EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
     zone: 'coast',
     ...at('coast', 0, 14),
     heightOffset: 0,
+    /**
+     * 在水槽裡繞來繞去
+     *
+     * 半徑要壓得比別的音源小：牠只聽得到十二格，
+     * 而兩個軸同時走到底時對角線還會再拉一點四倍——
+     * 給三格才不會游出水槽、跑到甲板上去叫
+     */
+    motion: { type: 'wander', radius: 3, periodSecond: 44 },
     mode: { type: 'interval', rangeSecond: [16, 40] },
     volume: 0.9,
     minDistance: 2,
@@ -642,6 +660,8 @@ const EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
     zone: 'meadow',
     ...at('meadow', 3, -4),
     heightOffset: 1,
+    /** 草上的蟲，飄得很淺，只是讓那片嗡嗡聲不要釘死在一個點 */
+    motion: { type: 'wander', radius: 4, periodSecond: 34 },
     mode: { type: 'loop' },
     volume: 0.32,
     minDistance: 3,
@@ -681,6 +701,14 @@ const EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
     zone: 'pasture',
     ...at('pasture'),
     heightOffset: 1,
+    /**
+     * 羊群自己會走
+     *
+     * 柵欄裡那幾隻羊本來就在慢慢挪位置，聲音卻釘在牧地正中央——
+     * 站在欄邊聽久了會發現叫聲永遠從同一個點來。
+     * 走得很慢，一分鐘才換完一趟，那才是吃草的速度
+     */
+    motion: { type: 'wander', radius: 6, periodSecond: 62 },
     mode: { type: 'interval', rangeSecond: [10, 26] },
     volume: 0.6,
     minDistance: 4,
@@ -718,6 +746,14 @@ const EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
     zone: 'apiary',
     ...at('apiary'),
     heightOffset: 2,
+    /**
+     * 繞著蜂箱打轉
+     *
+     * 圈子小、轉得快，而且是持續的嗡鳴——
+     * 站在蜂箱旁邊時，那個聲音會實實在在地從左耳繞到右耳。
+     * 這是整片音景裡最容易察覺「聲音在動」的一個
+     */
+    motion: { type: 'orbit', radius: 3.5, periodSecond: 12, riseHeight: 1 },
     mode: { type: 'loop' },
     volume: 0.7,
     minDistance: 3,
@@ -1041,6 +1077,14 @@ const EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
     zone: 'songbird',
     ...at('songbird', -4, -3),
     heightOffset: 5,
+    /**
+     * 在樹梢之間換位置
+     *
+     * 鳥不會站在同一根枝子上唱一整天。牠叫的間隔是七到十八秒，
+     * 而飄一趟要四十秒——所以每次開口的方位都不一樣，
+     * 聽起來就是「牠剛剛換了一棵樹」
+     */
+    motion: { type: 'wander', radius: 7, periodSecond: 40, riseHeight: 2 },
     mode: { type: 'interval', rangeSecond: [7, 18] },
     volume: 0.8,
     minDistance: 4,
@@ -1097,50 +1141,269 @@ const EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
     activeAt: 'night',
   },
 
-  // ── 湯屋：兩個聲音疊起來才成立的一座 ──
+  // ── 蟬時雨：一整片沒有縫的高頻 ──
+  /**
+   * 蟬要用一整圈鋪，而且要在頭頂
+   *
+   * 蟬時雨的關鍵是「聽不出有幾隻，也聽不出從哪裡來」。
+   * 一顆音源做不到這件事——單一點的聲音一定有方向，
+   * 轉個頭就聽得出它在左邊還是右邊，那就變成「一隻蟬」了。
+   *
+   * 所以圍一圈六顆、全部掛在樹冠的高度、範圍互相重疊：
+   * 站在樹下時六顆同時進耳朵，方向互相抵消，
+   * 剩下的就是一片從頭頂壓下來的聲音
+   */
+  ...createRingPositionList(getGarden('cicada').center, WIND_RING_COUNT, 5)
+    .map((position, index): SoundEmitterDefinition => ({
+      /**
+       * 用的是灌叢螽斯那個音檔
+       *
+       * 手上沒有蟬。但那一段是連續不斷的高頻摩擦音，
+       * 與蟬的發音方式其實是同一類——差別只在密度與音高。
+       * 六顆疊起來、音量開大、擺到七格高的樹冠上之後，
+       * 它就不再是「草叢裡的一隻蟲」，而是「頭頂整片樹在響」
+       */
+      id: `cicada-chorus-${index}`,
+      activeAt: 'day',
+      sound: 'insect-bush-cricket',
+      title: { 'zh-hant': '樹冠上的蟬', 'en': 'Cicadas in the canopy' },
+      zone: 'cicada',
+      ...position,
+      /** 掛在樹冠裡。蟬是抱著樹幹上半段叫的，聲音必須從上方來 */
+      heightOffset: 7,
+      mode: { type: 'loop' },
+      volume: 0.62,
+      minDistance: 4,
+      maxDistance: 18,
+      /** 下雨時蟬全部停口，那是夏天最明顯的一種安靜 */
+      silentInRain: true,
+    })),
   {
     /**
-     * 滾水
+     * 一隻特別近的
      *
-     * 用的是地底湖那個音檔。它單獨聽是「洞裡的一潭水」，
-     * 但一旦與柴火的劈啪疊在一起，同一段聲音就變成「正在燒開的水」——
-     * 這是整套音景裡唯一靠疊加而不是靠單一音源說故事的地方
+     * 六顆合唱是一片沒有縫的底，聽久了會變成白噪。
+     * 加一隻位置會動、而且比別人近的，整片聲音才有前景與背景之分——
+     * 它飛過去的時候，你會下意識抬頭找
      */
-    id: 'onsen-water',
-    sound: 'cave-water',
-    title: { 'zh-hant': '池水翻滾', 'en': 'Simmering water' },
-    zone: 'onsen',
-    ...at('onsen'),
-    heightOffset: 1,
-    mode: { type: 'loop' },
-    volume: 0.7,
-    minDistance: 3,
-    maxDistance: 20,
-  },
-  {
-    id: 'onsen-fire',
-    sound: 'campfire',
-    title: { 'zh-hant': '池底的柴火', 'en': 'Fire beneath the pool' },
-    zone: 'onsen',
-    ...at('onsen', 0, 2),
-    heightOffset: 0,
-    mode: { type: 'loop' },
-    volume: 0.55,
-    minDistance: 2,
-    maxDistance: 14,
-  },
-  {
-    /** 屋簷滴下來的水，泡在池裡才聽得到 */
-    id: 'onsen-drip',
-    sound: 'cave-drip',
-    title: { 'zh-hant': '簷下滴水', 'en': 'Dripping from the eaves' },
-    zone: 'onsen',
-    ...at('onsen', -5, -5),
-    heightOffset: 3,
-    mode: { type: 'loop' },
-    volume: 0.45,
+    id: 'cicada-near',
+    activeAt: 'day',
+    sound: 'meadow-insect',
+    title: { 'zh-hant': '近處的一隻', 'en': 'One close by' },
+    zone: 'cicada',
+    ...at('cicada', 2, -1),
+    heightOffset: 5,
+    motion: { type: 'wander', radius: 4, periodSecond: 52, riseHeight: 2 },
+    mode: { type: 'interval', rangeSecond: [10, 26] },
+    volume: 0.5,
     minDistance: 2,
     maxDistance: 12,
+    silentInRain: true,
+  },
+  {
+    /**
+     * 手水缽的滴水
+     *
+     * 整座箱庭只有這一個低頻。夏天的庭園靠一點水聲降溫，
+     * 那是心理上的——但在滿耳的蟬聲裡，一滴水確實讓人覺得涼
+     */
+    id: 'cicada-basin',
+    sound: 'cave-drip',
+    title: { 'zh-hant': '缽裡的水', 'en': 'Water in the basin' },
+    zone: 'cicada',
+    ...at('cicada', -5, 3),
+    heightOffset: 1,
+    mode: { type: 'loop' },
+    volume: 0.3,
+    minDistance: 2,
+    maxDistance: 9,
+  },
+  {
+    /**
+     * 夜裡換成蟋蟀
+     *
+     * 蟬是日行的，太陽下山就整片停掉。若什麼都不留，
+     * 這座箱庭到了晚上會變成一個沒有聲音的洞——
+     * 而它旁邊沒有別的箱庭可以借聲音。
+     * 換一種蟲接手，同一棵樹底下於是有兩種夏天
+     */
+    id: 'cicada-night',
+    activeAt: 'night',
+    sound: 'insect-cricket',
+    title: { 'zh-hant': '入夜的蟋蟀', 'en': 'Crickets after dark' },
+    zone: 'cicada',
+    ...at('cicada', 0, 0),
+    heightOffset: 1,
+    mode: { type: 'loop' },
+    volume: 0.45,
+    minDistance: 3,
+    maxDistance: 16,
+    silentInRain: true,
+  },
+
+  // ── 地獄谷：從腳底下上來的低頻 ──
+  /**
+   * 熔岩要從低處來，而且要圍一圈
+   *
+   * 這一座與別座相反：聲音的來源在腳下而不是前方或頭頂。
+   * heightOffset 全部給零甚至更低，走到欄杆邊往下看的時候，
+   * 耳朵與眼睛才指著同一個地方。
+   *
+   * 圍一圈的理由與蟬時雨相同，但目的相反：蟬是要抹掉方向感，
+   * 這裡是要讓人繞著池子走一圈時，聲音始終在同一側——
+   * 那一池就是聲音的形狀
+   */
+  ...createRingPositionList(getGarden('jigoku').center, 5, 3)
+    .map((position, index): SoundEmitterDefinition => ({
+      /**
+       * 用的是柴火那個音檔，不是水
+       *
+       * 這裡原本擺的是地底湖，理由是「水與熔岩的差別在耳朵裡只有速度」——
+       * 那個推論是錯的。水聲最好認的特徵是流動的嘶嘶與濺落的點狀高頻，
+       * 而熔岩根本不會濺，它是黏的。放下去的結果就是一條發光的小溪。
+       *
+       * 真正的熔岩湖錄音聽起來最接近的是火：低頻的悶響加上不規則的爆裂。
+       * 所以改用柴火，五顆疊在裂縫上、壓到地面高度，
+       * 密度堆起來之後那個劈啪就從「一盆營火」變成「一整條在燒的地縫」
+       */
+      id: `jigoku-churn-${index}`,
+      sound: 'campfire',
+      title: { 'zh-hant': '裂縫裡的熔岩', 'en': 'Lava in the fissure' },
+      zone: 'jigoku',
+      ...position,
+      /** 貼著裂縫，聲音要從低處來 */
+      heightOffset: 0,
+      mode: { type: 'loop' },
+      volume: 0.55,
+      minDistance: 3,
+      maxDistance: 18,
+    })),
+  {
+    /**
+     * 地底下的悶響
+     *
+     * 用的是雷。但擺在地面以下、音量壓到一半、間隔拉到兩三分鐘，
+     * 同一段聲音就從「天上打雷」變成「地下有東西在動」——
+     * 方位是這裡唯一的差別，雷從上面來，這個從下面來。
+     *
+     * 間隔給得很長是刻意的：這種聲音久久一次才嚇人，
+     * 每半分鐘來一次就成了節拍器
+     */
+    id: 'jigoku-rumble',
+    sound: 'thunder',
+    title: { 'zh-hant': '地底的悶響', 'en': 'A rumble from below' },
+    zone: 'jigoku',
+    ...at('jigoku'),
+    /** 埋在地面下，聲音悶在土裡才對 */
+    heightOffset: -3,
+    mode: { type: 'interval', rangeSecond: [110, 260] },
+    volume: 0.5,
+    minDistance: 6,
+    maxDistance: 26,
+  },
+
+  // ── 閱覽堂：有人的安靜 ──
+  /**
+   * 這一座的重點是「聽得見別人」
+   *
+   * 原本的設計是「聲音的消失」，整座壓到幾乎無聲。
+   * 那在概念上成立，但走進去只會覺得音效壞了——
+   * 一個什麼都沒有的房間與一個「安靜的房間」，在耳朵裡是兩件事。
+   *
+   * 真正的圖書館安靜到聽得見別人：隔兩排書架的翻頁、
+   * 走道另一頭的低語。那些聲音在任何別的地方都會被蓋掉，
+   * 在這裡卻是主角。所以音量還是全庭最低的，
+   * 但底下要有一層人聲，而不是空白
+   */
+  ...[
+    at('library', -3, -2),
+    at('library', 3, 3),
+  ].map((position, index): SoundEmitterDefinition => ({
+    /**
+     * 隔著書架傳過來的低語
+     *
+     * 用的是市井坊那段人聲，但音量壓到一成五、範圍縮到七格。
+     * 那個音檔原本是市集的喧鬧，衰減到這個程度之後
+     * 只剩下含糊的人聲輪廓——那正是隔著兩排書架聽到的東西。
+     *
+     * 範圍必須小。人聲一旦傳得出屋子，這裡就變成第二個市井坊了
+     */
+    id: `library-murmur-${index}`,
+    sound: 'village-crowd',
+    title: { 'zh-hant': '隔著書架的低語', 'en': 'Murmur behind the shelves' },
+    zone: 'library',
+    ...position,
+    heightOffset: 1,
+    mode: { type: 'loop' },
+    volume: 0.15,
+    minDistance: 2,
+    maxDistance: 7,
+  })),
+  ...[
+    at('library', -2, 1),
+    at('library', 2, 0),
+    at('library', 1, 3),
+  ].map((position, index): SoundEmitterDefinition => ({
+    /**
+     * 翻頁
+     *
+     * 用的是落葉的沙沙聲，壓到剩兩成、間隔拉得很長。
+     * 紙與枯葉本來就是同一種東西，剩下的差別只在「一次只翻一頁」。
+     *
+     * 三顆散在不同的桌子上、各自用不同的間隔：
+     * 翻頁聲要從不同的方向零星地來，那才是「還有別人在讀」；
+     * 同一個位置規律地響，聽起來會像自己手上那本
+     */
+    id: `library-page-${index}`,
+    sound: 'forest-rustle',
+    title: { 'zh-hant': '翻頁', 'en': 'A page turning' },
+    zone: 'library',
+    ...position,
+    heightOffset: 2,
+    mode: { type: 'interval', rangeSecond: [9 + index * 4, 24 + index * 7] },
+    volume: 0.2,
+    minDistance: 1,
+    maxDistance: 8,
+  })),
+  {
+    /**
+     * 櫃檯那盞紙燈
+     *
+     * 火焰的劈啪壓到幾乎聽不見。用途不是「聽到火」，
+     * 是給這個房間一個定位點：極小的聲源讓人知道自己站在哪、朝著哪邊
+     */
+    id: 'library-lamp',
+    sound: 'campfire',
+    title: { 'zh-hant': '燈芯', 'en': 'The lamp wick' },
+    zone: 'library',
+    ...at('library', 1, 3),
+    heightOffset: 1,
+    mode: { type: 'loop' },
+    volume: 0.12,
+    minDistance: 1,
+    maxDistance: 6,
+  },
+  {
+    /**
+     * 竹圍外的鳥，永遠在門外
+     *
+     * 這一顆是拿來對比的。掛在屋外、範圍只有十格，
+     * 站在門口聽得到，往裡走兩步就沒了——
+     * 那一步的落差是「進到室內」唯一的聽覺證據
+     */
+    id: 'library-bamboo-bird',
+    activeAt: 'day',
+    sound: 'bird-crossbill',
+    title: { 'zh-hant': '竹叢外的鳥', 'en': 'A bird beyond the bamboo' },
+    zone: 'library',
+    ...at('library', -6, 6),
+    heightOffset: 5,
+    motion: { type: 'wander', radius: 3, periodSecond: 46, riseHeight: 1 },
+    mode: { type: 'interval', rangeSecond: [16, 40] },
+    volume: 0.45,
+    minDistance: 2,
+    maxDistance: 10,
+    silentInRain: true,
   },
 ]
 

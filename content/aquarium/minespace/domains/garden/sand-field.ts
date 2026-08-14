@@ -1,5 +1,7 @@
 import type { Scene } from '@babylonjs/core'
+import type { TexturePack } from '../block/texture-pack'
 import { Color3, MeshBuilder, StandardMaterial, Texture } from '@babylonjs/core'
+import { resolveTexture } from '../block/texture-pack'
 import { WORLD_SIZE } from '../world/world-constants'
 import { SAND_LEVEL } from './garden-constants'
 
@@ -10,9 +12,15 @@ import { SAND_LEVEL } from './garden-constants'
  * 但視覺上必須一路延伸出去，「無限」的錯覺才成立
  */
 const SAND_FIELD_MARGIN = 1200
-/** 與方塊白沙同一張貼圖、同一組色偏，兩片地才接得起來 */
-const WHITE_SAND_TEXTURE_PATH = '/assets/minecraft-mini8x/default_silver_sand.png'
+/** 與方塊白沙同一組色偏，兩片地才接得起來 */
 const WHITE_SAND_PIXEL_TINT: [number, number, number] = [1.1, 1.1, 1.1]
+
+/** 這片地會跟著材質包換皮 */
+export interface SandField {
+  /** 換一套材質包 */
+  applyPack: (pack: TexturePack) => void;
+  dispose: () => void;
+}
 
 /**
  * 整片白沙地
@@ -25,7 +33,7 @@ const WHITE_SAND_PIXEL_TINT: [number, number, number] = [1.1, 1.1, 1.1]
  * 只有渲染器把 WHITE_SAND 標成不畫（見 block-constants 的 isHidden）。
  * 箱庭甲板上那種沙是另一個方塊（GARDEN_SAND），數量少，照常畫成方塊
  */
-export function createSandField(scene: Scene): void {
+export function createSandField(scene: Scene, pack: TexturePack): SandField {
   /**
    * 比方塊頂面低一公分
    *
@@ -54,18 +62,36 @@ export function createSandField(scene: Scene): void {
    * 銀沙那張貼圖的亮度落在 200～230 之間，乘上 1.1 不會超過 255，
    * 所以色偏直接交給 diffuseColor 就好，結果與逐像素相乘完全一樣
    */
-  const texture = new Texture(WHITE_SAND_TEXTURE_PATH, scene, {
-    samplingMode: Texture.NEAREST_LINEAR_MIPLINEAR,
-  })
-  texture.wrapU = Texture.WRAP_ADDRESSMODE
-  texture.wrapV = Texture.WRAP_ADDRESSMODE
-  /** 一格一張，貼圖密度與箱庭裡的方塊白沙完全一致 */
-  texture.uScale = size
-  texture.vScale = size
-
   const material = new StandardMaterial('sand-field', scene)
-  material.diffuseTexture = texture
-  material.diffuseColor = new Color3(...WHITE_SAND_PIXEL_TINT)
+
+  /**
+   * 換材質包時只換這片地的貼圖
+   *
+   * 色偏也要跟著換：材質包若說「這張圖本身就是對的白」，
+   * 再乘上 1.1 只會把整片沙推成死白
+   */
+  const applyPack = (currentPack: TexturePack) => {
+    material.diffuseTexture?.dispose()
+
+    const resolved = resolveTexture(currentPack, 'whiteSand')
+    if (!resolved.url)
+      return
+
+    const texture = new Texture(resolved.url, scene, {
+      samplingMode: Texture.NEAREST_LINEAR_MIPLINEAR,
+    })
+    texture.wrapU = Texture.WRAP_ADDRESSMODE
+    texture.wrapV = Texture.WRAP_ADDRESSMODE
+    /** 一格一張，貼圖密度與箱庭裡的方塊白沙完全一致 */
+    texture.uScale = size
+    texture.vScale = size
+    material.diffuseTexture = texture
+
+    const pixelTint = resolved.pixelTint === null ? undefined : WHITE_SAND_PIXEL_TINT
+    material.diffuseColor = pixelTint ? new Color3(...pixelTint) : new Color3(1, 1, 1)
+  }
+
+  applyPack(pack)
   material.specularColor = new Color3(0.08, 0.08, 0.08)
   /** 與方塊材質一致，亮度才不會差一階 */
   material.maxSimultaneousLights = 6
@@ -88,4 +114,13 @@ export function createSandField(scene: Scene): void {
    * 再配上 frustumEdgeFalloff 讓邊緣淡出，看不出分界在哪
    */
   ground.receiveShadows = true
+
+  return {
+    applyPack,
+    dispose() {
+      material.diffuseTexture?.dispose()
+      material.dispose()
+      ground.dispose()
+    },
+  }
 }

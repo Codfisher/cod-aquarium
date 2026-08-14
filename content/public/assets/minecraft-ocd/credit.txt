@@ -1,0 +1,13 @@
+rE-oCd
+------
+
+彩色貼圖來源：
+rE-oCd（FVDisco 的 oCd 資源包的非官方續作）
+https://modrinth.com/resourcepack/re-ocd
+
+授權：Apache-2.0
+
+此處只收錄 minespace 用得到的貼圖，檔案內容未經修改。
+缺少的幾張沿用 /assets/minecraft/textures/block。
+
+本資料夾由 scripts/sync-texture-pack.mjs 產生。

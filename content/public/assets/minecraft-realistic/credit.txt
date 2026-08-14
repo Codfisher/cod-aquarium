@@ -1,0 +1,21 @@
+ambientCG 實拍材質
+------------------
+
+彩色、法線（_n）與高光（_s）貼圖，以及全部的花草，來源皆為：
+ambientCG
+https://ambientcg.com/
+
+授權：CC0 1.0 Universal（公眾領域貢獻）
+https://creativecommons.org/publicdomain/zero/1.0/
+
+CC0 不要求標註，這份說明純粹是出於感謝。
+
+表面材質經過縮放與通道重組：法線的 alpha 換成位移圖、
+高光由粗糙度反相而來，草地側面那張疊圖則是從草的彩色圖生出來的。
+
+花草來自 ambientCG 的 Atlas 類素材（Foliage、LeafSet、PineNeedles、
+FlowerSet），那些是一整張圖上散著十幾片各自去過背的葉子。
+這裡把它們切成一片一片，再重新排成一株草、一叢樹葉或一朵花；
+花的顏色是把同一組白色雛菊分別染出來的。
+
+本資料夾由 scripts/sync-realistic-pack.mjs 產生。

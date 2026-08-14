@@ -12,6 +12,17 @@ export interface BlockLightSource {
   color: [number, number, number];
   /** 是不是燒著的東西，火光要更亮、還要會晃 */
   isFire: boolean;
+  /**
+   * 這盞光要不要畫外圈的光暈
+   *
+   * 光暈是一片朝著鏡頭的圓盤，它成立的前提是「這是一個點，
+   * 而且四周是空氣」。岩漿兩者都不是：它是一整片躺平的面光源，
+   * 圓盤有一半永遠埋在自己的液面底下，被深度測試切掉，
+   * 留在畫面上的就是一條沿著液面的直邊。
+   *
+   * 詳細的來龍去脈寫在 lamp-glow.ts 的 hasHalo 那一段
+   */
+  hasHalo: boolean;
 }
 
 /**
@@ -24,6 +35,13 @@ const MIN_LIGHT_LEVEL = 0.5
 
 /** 這幾種是燒著的，光色比燈籠更橘 */
 const FIRE_BLOCK_SET = new Set<BlockId>([BlockId.EMBER, BlockId.LAVA, BlockId.FURNACE])
+
+/**
+ * 這幾種是躺平的面光源，不畫外圈的光暈
+ *
+ * 只有岩漿。它照樣點真光、照樣自己發亮，缺的只是那圈暈
+ */
+const AREA_LIGHT_SET = new Set<BlockId>([BlockId.LAVA])
 
 /** 燈籠、紙燈這類的光色：暖，但不到火的程度 */
 const LAMP_COLOR: [number, number, number] = [1, 0.86, 0.62]
@@ -83,6 +101,7 @@ export function collectLightSourceList(worldState: Uint8Array): BlockLightSource
           level,
           color: getBlockLightTint(blockId as BlockId),
           isFire,
+          hasHalo: !AREA_LIGHT_SET.has(blockId as BlockId),
         })
       }
     }

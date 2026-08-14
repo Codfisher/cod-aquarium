@@ -16,8 +16,28 @@ export interface AtmosphereState {
   fogStart: number;
   /** 霧氣終點距離 */
   fogEnd: number;
-  /** 光線強度倍率，陰天會壓低 */
+  /** 平行光的強度倍率，陰天會壓低 */
   lightRatio: number;
+  /**
+   * 天光的強度倍率
+   *
+   * 與平行光分開。陰天不是「變暗」，是「光的來源換了」——
+   * 太陽被雲蓋住，整片天空自己變成一盞巨大的柔光燈。
+   * 兩者若共用同一個倍率，把平行光壓到陰影消失時，
+   * 天光會跟著一起掉，整個世界暗成傍晚
+   */
+  ambientRatio: number;
+  /**
+   * 直射陽光還剩幾成，高光專用
+   *
+   * 高光與漫射該分開算。雲層把太陽打散之後，天空整片還是亮的——
+   * 漫射光只是變柔、沒有消失；但高光需要一個「又小又亮的點」才照得出來，
+   * 那正是雲最先抹掉的東西。
+   *
+   * 少了這一項，暴雨裡的濕地面照樣會被太陽打出一道刺眼的反光，
+   * 水面也還在閃——明明頭頂連太陽的位置都看不出來
+   */
+  specularRatio: number;
   /** 閃電補光，0 ~ 1 */
   flashRatio: number;
 
@@ -130,6 +150,8 @@ export const CLEAR_ATMOSPHERE = {
   fogStart: GARDEN_FOG_START,
   fogEnd: GARDEN_FOG_END,
   lightRatio: 1,
+  ambientRatio: 1,
+  specularRatio: 1,
 } as const
 
 /**
@@ -143,6 +165,10 @@ export const SWAMP_ATMOSPHERE = {
   fogStart: 2,
   fogEnd: 20,
   lightRatio: 0.82,
+  /** 濕氣散開的光又落回地面，天光反而比晴天更均勻 */
+  ambientRatio: 1.02,
+  /** 濕氣把陽光散開一半，水面的反光跟著鈍掉 */
+  specularRatio: 0.45,
 } as const
 
 /**
@@ -156,7 +182,25 @@ export const RAIN_ATMOSPHERE = {
   fogColor: new Color3(0.62, 0.66, 0.72),
   fogStart: 4,
   fogEnd: 26,
-  lightRatio: 0.55,
+  /**
+   * 雨天太陽整個藏在雲後
+   *
+   * 只留一成二。厚雲之後已經沒有一個「方向」可言，
+   * 地面上那些邊緣分明的影子在陰天本來就不該存在——
+   * 平行光壓到這裡，影子淡到幾乎看不出來，剩下的一點
+   * 只是讓物體還分得出上下面，不至於平成一張貼紙
+   */
+  lightRatio: 0.12,
+  /**
+   * 天光補回來
+   *
+   * 平行光壓到只剩一成二之後，地面幾乎沒有影子了——
+   * 但整個世界不該跟著暗掉。厚雲把陽光散成一整片天空的柔光，
+   * 落到地面的總光量其實掉得不多，只是「沒有方向」了。
+   * 天光開到與晴天相當，畫面才會是「陰而亮」而不是「傍晚」
+   */
+  ambientRatio: 1.05,
+  specularRatio: 0.05,
 } as const
 
 export function createAtmosphereState(): AtmosphereState {
@@ -165,6 +209,8 @@ export function createAtmosphereState(): AtmosphereState {
     fogStart: CLEAR_ATMOSPHERE.fogStart,
     fogEnd: CLEAR_ATMOSPHERE.fogEnd,
     lightRatio: CLEAR_ATMOSPHERE.lightRatio,
+    ambientRatio: CLEAR_ATMOSPHERE.ambientRatio,
+    specularRatio: CLEAR_ATMOSPHERE.specularRatio,
     flashRatio: 0,
 
     /** 日夜循環還沒接上前的第一幀，照著正午的樣子 */
