@@ -850,21 +850,6 @@ const EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
     minDistance: 6,
     maxDistance: 18,
   })),
-  ...[
-    at('rainvale', -4, -3),
-    at('rainvale', 4, 3),
-  ].map((position, index): SoundEmitterDefinition => ({
-    id: `rainvale-drip-${index}`,
-    sound: 'cave-drip',
-    title: { 'zh-hant': '葉尖滴水', 'en': 'Water dripping off leaves' },
-    zone: 'rainvale',
-    ...position,
-    heightOffset: 3,
-    mode: { type: 'loop' },
-    volume: 0.55,
-    minDistance: 3,
-    maxDistance: 16,
-  })),
   {
     /**
      * 遠雷
@@ -1156,23 +1141,31 @@ const EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
   ...createRingPositionList(getGarden('cicada').center, WIND_RING_COUNT, 5)
     .map((position, index): SoundEmitterDefinition => ({
       /**
-       * 用的是灌叢螽斯那個音檔
+       * 真的是蟬
        *
-       * 手上沒有蟬。但那一段是連續不斷的高頻摩擦音，
-       * 與蟬的發音方式其實是同一類——差別只在密度與音高。
-       * 六顆疊起來、音量開大、擺到七格高的樹冠上之後，
-       * 它就不再是「草叢裡的一隻蟲」，而是「頭頂整片樹在響」
+       * 這裡曾經借用灌叢螽斯的音檔頂替，理由是「同樣是連續的高頻摩擦音」。
+       * 那個推論是錯的：螽斯的顆粒是一顆一顆數得出來的，
+       * 蟬是一面糊成一片的牆，兩者在耳朵裡差得很遠。
+       *
+       * 換成蟬的合唱之後，那道牆才真的立起來
        */
       id: `cicada-chorus-${index}`,
       activeAt: 'day',
-      sound: 'insect-bush-cricket',
+      sound: 'insect-cicada',
       title: { 'zh-hant': '樹冠上的蟬', 'en': 'Cicadas in the canopy' },
       zone: 'cicada',
       ...position,
       /** 掛在樹冠裡。蟬是抱著樹幹上半段叫的，聲音必須從上方來 */
       heightOffset: 7,
       mode: { type: 'loop' },
-      volume: 0.62,
+      /**
+       * 六顆一起開到這麼大是刻意的
+       *
+       * 蟬時雨的字面意思就是「蟬聲像下雨」——它不是背景，是主角，
+       * 大到蓋掉別的東西才對。這個數字曾經是 0.62，
+       * 那是照著它頂替的那支螽斯抄來的，而螽斯本來就該是背景
+       */
+      volume: 0.85,
       minDistance: 4,
       maxDistance: 18,
       /** 下雨時蟬全部停口，那是夏天最明顯的一種安靜 */
@@ -1188,7 +1181,7 @@ const EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
      */
     id: 'cicada-near',
     activeAt: 'day',
-    sound: 'meadow-insect',
+    sound: 'insect-cicada',
     title: { 'zh-hant': '近處的一隻', 'en': 'One close by' },
     zone: 'cicada',
     ...at('cicada', 2, -1),
@@ -1199,24 +1192,6 @@ const EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
     minDistance: 2,
     maxDistance: 12,
     silentInRain: true,
-  },
-  {
-    /**
-     * 手水缽的滴水
-     *
-     * 整座箱庭只有這一個低頻。夏天的庭園靠一點水聲降溫，
-     * 那是心理上的——但在滿耳的蟬聲裡，一滴水確實讓人覺得涼
-     */
-    id: 'cicada-basin',
-    sound: 'cave-drip',
-    title: { 'zh-hant': '缽裡的水', 'en': 'Water in the basin' },
-    zone: 'cicada',
-    ...at('cicada', -5, 3),
-    heightOffset: 1,
-    mode: { type: 'loop' },
-    volume: 0.3,
-    minDistance: 2,
-    maxDistance: 9,
   },
   {
     /**
@@ -1302,108 +1277,52 @@ const EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
     maxDistance: 26,
   },
 
-  // ── 閱覽堂：有人的安靜 ──
+  // ── 雪聽庭：風把別的聲音都吹走了 ──
   /**
-   * 這一座的重點是「聽得見別人」
+   * 這一座的重點是「只剩一種聲音」
    *
-   * 原本的設計是「聲音的消失」，整座壓到幾乎無聲。
-   * 那在概念上成立，但走進去只會覺得音效壞了——
-   * 一個什麼都沒有的房間與一個「安靜的房間」，在耳朵裡是兩件事。
+   * 其他二十一座都在收集聲音，這一座在清空它們。
+   * 暴風雪是一種會把別的東西全部蓋掉的聲音——
+   * 所以這裡不種鳥、不種蟲、不種水，一樣都不留。
    *
-   * 真正的圖書館安靜到聽得見別人：隔兩排書架的翻頁、
-   * 走道另一頭的低語。那些聲音在任何別的地方都會被蓋掉，
-   * 在這裡卻是主角。所以音量還是全庭最低的，
-   * 但底下要有一層人聲，而不是空白
+   * 但也不能只有一顆音源。單獨一個點的風會被定位出來，
+   * 一旦聽得出「風在那邊」，被包住的感覺就沒了。
+   * 圍一圈六顆、全部同音量、範圍互相重疊，
+   * 方向互相抵消之後剩下的才是「四面八方都是風」
    */
-  ...[
-    at('library', -3, -2),
-    at('library', 3, 3),
-  ].map((position, index): SoundEmitterDefinition => ({
-    /**
-     * 隔著書架傳過來的低語
-     *
-     * 用的是市井坊那段人聲，但音量壓到一成五、範圍縮到七格。
-     * 那個音檔原本是市集的喧鬧，衰減到這個程度之後
-     * 只剩下含糊的人聲輪廓——那正是隔著兩排書架聽到的東西。
-     *
-     * 範圍必須小。人聲一旦傳得出屋子，這裡就變成第二個市井坊了
-     */
-    id: `library-murmur-${index}`,
-    sound: 'village-crowd',
-    title: { 'zh-hant': '隔著書架的低語', 'en': 'Murmur behind the shelves' },
-    zone: 'library',
-    ...position,
-    heightOffset: 1,
-    mode: { type: 'loop' },
-    volume: 0.15,
-    minDistance: 2,
-    maxDistance: 7,
-  })),
-  ...[
-    at('library', -2, 1),
-    at('library', 2, 0),
-    at('library', 1, 3),
-  ].map((position, index): SoundEmitterDefinition => ({
-    /**
-     * 翻頁
-     *
-     * 用的是落葉的沙沙聲，壓到剩兩成、間隔拉得很長。
-     * 紙與枯葉本來就是同一種東西，剩下的差別只在「一次只翻一頁」。
-     *
-     * 三顆散在不同的桌子上、各自用不同的間隔：
-     * 翻頁聲要從不同的方向零星地來，那才是「還有別人在讀」；
-     * 同一個位置規律地響，聽起來會像自己手上那本
-     */
-    id: `library-page-${index}`,
-    sound: 'forest-rustle',
-    title: { 'zh-hant': '翻頁', 'en': 'A page turning' },
-    zone: 'library',
-    ...position,
-    heightOffset: 2,
-    mode: { type: 'interval', rangeSecond: [9 + index * 4, 24 + index * 7] },
-    volume: 0.2,
-    minDistance: 1,
-    maxDistance: 8,
-  })),
+  ...createRingPositionList(getGarden('blizzard').center, WIND_RING_COUNT, 6)
+    .map((position, index): SoundEmitterDefinition => ({
+      id: `blizzard-roar-${index}`,
+      sound: 'blizzard-roar',
+      title: { 'zh-hant': '壓下來的風', 'en': 'The wind bearing down' },
+      zone: 'blizzard',
+      ...position,
+      /** 貼著地面，暴風雪是從地表捲起來的，不是從天上落下來 */
+      heightOffset: 2,
+      mode: { type: 'loop' },
+      volume: 0.8,
+      minDistance: 5,
+      maxDistance: 26,
+    })),
   {
     /**
-     * 櫃檯那盞紙燈
+     * 打旋的陣風
      *
-     * 火焰的劈啪壓到幾乎聽不見。用途不是「聽到火」，
-     * 是給這個房間一個定位點：極小的聲源讓人知道自己站在哪、朝著哪邊
+     * 底層那一圈是不會變的牆，聽久了會變成白噪。
+     * 這一顆位置會飄、而且時有時無，整片風才有了前後景——
+     * 它掃過來的時候，你會覺得剛剛那一陣比較大
      */
-    id: 'library-lamp',
-    sound: 'campfire',
-    title: { 'zh-hant': '燈芯', 'en': 'The lamp wick' },
-    zone: 'library',
-    ...at('library', 1, 3),
-    heightOffset: 1,
-    mode: { type: 'loop' },
-    volume: 0.12,
-    minDistance: 1,
-    maxDistance: 6,
-  },
-  {
-    /**
-     * 竹圍外的鳥，永遠在門外
-     *
-     * 這一顆是拿來對比的。掛在屋外、範圍只有十格，
-     * 站在門口聽得到，往裡走兩步就沒了——
-     * 那一步的落差是「進到室內」唯一的聽覺證據
-     */
-    id: 'library-bamboo-bird',
-    activeAt: 'day',
-    sound: 'bird-crossbill',
-    title: { 'zh-hant': '竹叢外的鳥', 'en': 'A bird beyond the bamboo' },
-    zone: 'library',
-    ...at('library', -6, 6),
-    heightOffset: 5,
-    motion: { type: 'wander', radius: 3, periodSecond: 46, riseHeight: 1 },
-    mode: { type: 'interval', rangeSecond: [16, 40] },
-    volume: 0.45,
-    minDistance: 2,
-    maxDistance: 10,
-    silentInRain: true,
+    id: 'blizzard-gust',
+    sound: 'blizzard-gust',
+    title: { 'zh-hant': '捲過去的雪', 'en': 'Snow whipping past' },
+    zone: 'blizzard',
+    ...at('blizzard', 0, 0),
+    heightOffset: 4,
+    motion: { type: 'wander', radius: 7, periodSecond: 23, riseHeight: 2 },
+    mode: { type: 'interval', rangeSecond: [6, 18] },
+    volume: 0.7,
+    minDistance: 3,
+    maxDistance: 20,
   },
 ]
 

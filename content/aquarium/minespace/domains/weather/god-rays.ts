@@ -1,4 +1,4 @@
-import type { Mesh, Scene, UniversalCamera } from '@babylonjs/core'
+import type { Camera, Mesh, Scene, UniversalCamera } from '@babylonjs/core'
 import { Texture, Vector3, VolumetricLightScatteringPostProcess } from '@babylonjs/core'
 import { watch } from 'vue'
 import {
@@ -78,6 +78,25 @@ export function createGodRays(scene: Scene, camera: UniversalCamera): GodRays {
     false,
     scene,
   )
+
+  /**
+   * 補上它自己漏掉的預設參數
+   *
+   * VolumetricLightScatteringPostProcess.dispose 的第一行是
+   * `camera.getScene().customRenderTargets.indexOf(...)`——它無條件讀 camera，
+   * 而基底類別的 dispose 那個參數本來是選填的。
+   *
+   * 場景自己回收後製時（Scene._disposeList）是不帶參數呼叫的，
+   * camera 於是是 undefined，整個 engine.dispose 當場中斷在這裡，
+   * 後面該收的東西全部沒收到。只要頁面卸載或熱更新就會踩到。
+   *
+   * 這是 Babylon 那邊的疏漏，我們改不了它的原始碼，
+   * 但可以把相機綁死在這個實例上：兩種呼叫方式都走得通
+   */
+  const disposeGodRays = godRays.dispose.bind(godRays)
+  godRays.dispose = (disposeCamera?: Camera) => {
+    disposeGodRays(disposeCamera ?? camera)
+  }
 
   /**
    * 太陽的位置要自己算

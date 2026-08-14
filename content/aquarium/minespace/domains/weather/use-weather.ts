@@ -6,6 +6,7 @@ import type { AtmosphereState } from './atmosphere'
 import type { FallingLeaves } from './falling-leaves'
 import type { GroundMist } from './ground-mist'
 import type { RainParticles } from './rain-particles'
+import type { SnowParticles } from './snow-particles'
 import type { SwampMist } from './swamp-mist'
 import type { Wetness } from './wetness'
 import { Color3 } from '@babylonjs/core'
@@ -26,6 +27,7 @@ import {
   GARDEN_FOG_COLOR,
   getEdgeFogRatio,
   RAIN_ATMOSPHERE,
+  SNOW_ATMOSPHERE,
   SWAMP_ATMOSPHERE,
 } from './atmosphere'
 import { applyCloudColor } from './cloud-material'
@@ -33,6 +35,7 @@ import { createFallingLeaves } from './falling-leaves'
 import { createGroundMist, getDawnMistRatio } from './ground-mist'
 import { createRainParticles } from './rain-particles'
 import { applySkyGradient } from './sky-gradient'
+import { createSnowParticles } from './snow-particles'
 import { createSwampMist } from './swamp-mist'
 import { createWetness } from './wetness'
 
@@ -55,21 +58,35 @@ import { createWetness } from './wetness'
  * 那道雨底一響，箱庭自己種的雨就被蓋掉了，
  * 「兩種身分」只剩畫面上成立。雨聲要各種各的，這條不要再破
  */
-function createRainZone(gardenId: GardenId, falloff: number) {
+function createWeatherZone(gardenId: GardenId, falloff: number) {
   const garden = getGarden(gardenId)
 
   return {
     x: garden.center.x,
     z: garden.center.z,
-    /** 這個半徑內是傾盆大雨，剛好蓋住整座木座 */
-    innerRadius: garden.halfSize + 1,
+    /**
+     * 滿檔的半徑收在木座裡面
+     *
+     * 這裡原本是 halfSize + 1，也就是「站上木座就已經是傾盆大雨」。
+     * 配上寬得多的過渡帶，實際效果是人還離十幾格遠雨就下起來了——
+     * 走過去的那一段變成「雨中的空白沙地」，而那不是任何一座箱庭。
+     *
+     * 收到木座內兩格：踏上甲板時雨勢還在漲，走到造景中間才滿檔
+     */
+    innerRadius: Math.max(2, garden.halfSize - 2),
     /** 超過這個半徑就完全放晴 */
     outerRadius: garden.halfSize + falloff,
   }
 }
 
-/** 過渡帶留得比木座本身還寬，走近時雨是慢慢大起來的 */
-const RAINVALE_ZONE = createRainZone('rainvale', 14)
+/**
+ * 過渡帶只留四格
+ *
+ * 原本給到十四格，那是照著大箱庭的尺度抓的，
+ * 而這座木座只有七格半邊長——雨因此在兩倍木座遠的地方就開始下。
+ * 收到四格：走到木座邊緣才開始飄雨，跨上甲板時已經下起來了
+ */
+const RAINVALE_ZONE = createWeatherZone('rainvale', 4)
 
 /**
  * 收得比聽雨亭緊
@@ -78,9 +95,18 @@ const RAINVALE_ZONE = createRainZone('rainvale', 14)
  * 攤太開的話，從外面走過來時屋子還沒進到眼裡就已經在淋雨，
  * 「進屋躲雨」那一下的對比就沒了
  */
-const RAINHALL_ZONE = createRainZone('rainhall', 9)
+const RAINHALL_ZONE = createWeatherZone('rainhall', 3)
 
 const RAIN_ZONE_LIST = [RAINVALE_ZONE, RAINHALL_ZONE]
+
+/**
+ * 暴風雪只颳在雪聽庭上
+ *
+ * 與雨同一套：天氣在這個世界裡是在地的，不是全域隨機的。
+ * 過渡帶收得比聽雨亭緊——暴風雪要有「一腳踏進去」的那一下，
+ * 攤太開會變成整片天空都在下雪，那就不是一座箱庭的事了
+ */
+const BLIZZARD_ZONE = createWeatherZone('blizzard', 3)
 
 /**
  * 打雷只發生在聽雨亭
@@ -200,6 +226,16 @@ export function getRainRatio(x: number, z: number): number {
 }
 
 /**
+ * 依所在位置算出雪勢，0 為晴天、1 為暴風雪
+ *
+ * 只有一區，不必像雨那樣取最大值。日後真要再加一座雪庭，
+ * 照著雨那邊改成清單就好
+ */
+export function getSnowRatio(x: number, z: number): number {
+  return measureZoneRatio(x, z, BLIZZARD_ZONE)
+}
+
+/**
  * 天氣系統
  *
  * 下雨時同時處理四件事：雨的粒子、雨聲與雷聲、天色轉陰、鳥蟲噤聲。
@@ -214,6 +250,7 @@ export function useWeather() {
   const { state: devToggle } = useDevToggles()
 
   let rainParticles: RainParticles | null = null
+  let snowParticles: SnowParticles | null = null
   let swampMist: SwampMist | null = null
   let groundMist: GroundMist | null = null
   let airMotes: AirMotes | null = null
@@ -225,6 +262,8 @@ export function useWeather() {
   /** 這一道閃電的強度，遠方的雷只是天邊亮一下 */
   let flashStrength = 1
   let rainRatio = 0
+  /** 此刻的雪勢，與雨互斥：兩座箱庭隔得很遠 */
+  let snowRatio = 0
   /** 此刻在聽雨亭那片雨裡多深，只有這裡會打雷 */
   let thunderRatio = 0
   /** 地面此刻有多濕，0 為全乾、1 為濕透 */
@@ -299,6 +338,18 @@ export function useWeather() {
       castRainRay,
     })
 
+    snowParticles = createSnowParticles({
+      scene,
+      /**
+       * 比雨少
+       *
+       * 雪片活得比雨滴久七八倍，同樣的生成率會累積出好幾倍的粒子。
+       * 一千八百片就足以在眼前糊成一片看不見路的白
+       */
+      maxParticleCount: quality.value === 'low' ? 700 : 1800,
+      castRainRay,
+    })
+
     swampMist = createSwampMist({
       scene,
       /** 霧只鋪在沼澤上，範圍收窄後同樣的數量會濃到看不見路 */
@@ -338,6 +389,7 @@ export function useWeather() {
     /** 壓暗過的天氣霧色，每幀就地覆寫，不要每幀配置新的顏色物件 */
     const nightMistColor = new Color3()
     const nightRainColor = new Color3()
+    const nightSnowColor = new Color3()
     /** 雨天往霧色靠攏後的天頂色與中空色，同樣就地覆寫 */
     const rainZenithColor = new Color3()
     const rainMidColor = new Color3()
@@ -349,7 +401,10 @@ export function useWeather() {
         const deltaTime = Math.min(0.1, scene.getEngine().getDeltaTime() / 1000)
 
         rainRatio = getRainRatio(camera.position.x, camera.position.z)
-        weather.value = rainRatio > RAIN_WEATHER_THRESHOLD ? 'rain' : 'clear'
+        snowRatio = getSnowRatio(camera.position.x, camera.position.z)
+        weather.value = rainRatio > RAIN_WEATHER_THRESHOLD
+          ? 'rain'
+          : snowRatio > RAIN_WEATHER_THRESHOLD ? 'snow' : 'clear'
 
         /** 站在聽雨亭那片雨裡才會打雷，雨聽堂不算 */
         thunderRatio = measureZoneRatio(camera.position.x, camera.position.z, THUNDER_ZONE)
@@ -375,6 +430,7 @@ export function useWeather() {
         const nightScale = lerp(0.2, 1, measureDayBrightness(atmosphere))
         nightMistColor.copyFrom(SWAMP_ATMOSPHERE.fogColor).scaleInPlace(nightScale)
         nightRainColor.copyFrom(RAIN_ATMOSPHERE.fogColor).scaleInPlace(nightScale)
+        nightSnowColor.copyFrom(SNOW_ATMOSPHERE.fogColor).scaleInPlace(nightScale)
 
         Color3.LerpToRef(
           atmosphere.baseFogColor,
@@ -383,6 +439,7 @@ export function useWeather() {
           atmosphere.fogColor,
         )
         Color3.LerpToRef(atmosphere.fogColor, nightRainColor, rainRatio, atmosphere.fogColor)
+        Color3.LerpToRef(atmosphere.fogColor, nightSnowColor, snowRatio, atmosphere.fogColor)
 
         const mistFogStart = lerp(CLEAR_ATMOSPHERE.fogStart, SWAMP_ATMOSPHERE.fogStart, mistRatio)
         const mistFogEnd = lerp(CLEAR_ATMOSPHERE.fogEnd, SWAMP_ATMOSPHERE.fogEnd, mistRatio)
@@ -390,11 +447,25 @@ export function useWeather() {
         const mistSpecularRatio = lerp(CLEAR_ATMOSPHERE.specularRatio, SWAMP_ATMOSPHERE.specularRatio, mistRatio)
         const mistAmbientRatio = lerp(CLEAR_ATMOSPHERE.ambientRatio, SWAMP_ATMOSPHERE.ambientRatio, mistRatio)
 
-        atmosphere.fogStart = lerp(mistFogStart, RAIN_ATMOSPHERE.fogStart, rainRatio)
-        atmosphere.fogEnd = lerp(mistFogEnd, RAIN_ATMOSPHERE.fogEnd, rainRatio)
-        atmosphere.lightRatio = lerp(mistLightRatio, RAIN_ATMOSPHERE.lightRatio, rainRatio)
+        /**
+         * 雪疊在雨後面
+         *
+         * 兩座箱庭隔得很遠，永遠不會同時作用，順序只是要有個定論。
+         * 白矇比雨更狠：能見度更短、天光更高，所以擺在最後蓋過去
+         */
+        const rainFogStart = lerp(mistFogStart, RAIN_ATMOSPHERE.fogStart, rainRatio)
+        const rainFogEnd = lerp(mistFogEnd, RAIN_ATMOSPHERE.fogEnd, rainRatio)
+        const rainLightRatio = lerp(mistLightRatio, RAIN_ATMOSPHERE.lightRatio, rainRatio)
+
+        atmosphere.fogStart = lerp(rainFogStart, SNOW_ATMOSPHERE.fogStart, snowRatio)
+        atmosphere.fogEnd = lerp(rainFogEnd, SNOW_ATMOSPHERE.fogEnd, snowRatio)
+        atmosphere.lightRatio = lerp(rainLightRatio, SNOW_ATMOSPHERE.lightRatio, snowRatio)
         /** 平行光收掉多少，天光就補回來多少，總亮度才不會跟著掉 */
-        atmosphere.ambientRatio = lerp(mistAmbientRatio, RAIN_ATMOSPHERE.ambientRatio, rainRatio)
+        atmosphere.ambientRatio = lerp(
+          lerp(mistAmbientRatio, RAIN_ATMOSPHERE.ambientRatio, rainRatio),
+          SNOW_ATMOSPHERE.ambientRatio,
+          snowRatio,
+        )
         /**
          * 高光跟著雲量收掉，而且收得比漫射快得多
          *
@@ -402,7 +473,11 @@ export function useWeather() {
          * 它會隨著雲散開慢慢回來，那時地還是濕的——
          * 「雨後的地面在斜射的陽光下亮到刺眼」是這個時候才發生的事
          */
-        atmosphere.specularRatio = lerp(mistSpecularRatio, RAIN_ATMOSPHERE.specularRatio, rainRatio)
+        atmosphere.specularRatio = lerp(
+          lerp(mistSpecularRatio, RAIN_ATMOSPHERE.specularRatio, rainRatio),
+          SNOW_ATMOSPHERE.specularRatio,
+          snowRatio,
+        )
 
         /** 閃電：短暫補光後迅速衰減，遠方的雷只亮一點點 */
         if (flashTimeLeft > 0) {
@@ -424,8 +499,17 @@ export function useWeather() {
          * 霞光也要一起收掉——雲層背後的太陽不會在天上留下光暈
          */
         if (skyMaterial) {
-          Color3.LerpToRef(atmosphere.skyZenithColor, atmosphere.fogColor, rainRatio * 0.85, rainZenithColor)
-          Color3.LerpToRef(atmosphere.skyMidColor, atmosphere.fogColor, rainRatio * 0.85, rainMidColor)
+          /**
+           * 暴風雪把天空收得比雨更徹底
+           *
+           * 雨天只往霧色偏八成五，還留得出一點天的層次——
+           * 那是對的，抬頭看得見雲在動。
+           * 暴風雪不是：那裡根本分不出哪裡是天、哪裡是地，
+           * 所以收到滿檔，天色與霧色完全相同
+           */
+          const skyFade = Math.max(rainRatio * 0.85, snowRatio)
+          Color3.LerpToRef(atmosphere.skyZenithColor, atmosphere.fogColor, skyFade, rainZenithColor)
+          Color3.LerpToRef(atmosphere.skyMidColor, atmosphere.fogColor, skyFade, rainMidColor)
 
           applySkyGradient(skyMaterial, {
             zenithColor: rainZenithColor,
@@ -433,7 +517,7 @@ export function useWeather() {
             horizonColor: atmosphere.fogColor,
             glowColor: atmosphere.skyGlowColor,
             counterColor: atmosphere.skyCounterColor,
-            glowStrength: atmosphere.skyGlowStrength * (1 - rainRatio),
+            glowStrength: atmosphere.skyGlowStrength * (1 - Math.max(rainRatio, snowRatio)),
           })
         }
 
@@ -460,7 +544,13 @@ export function useWeather() {
            *
            * 洞裡的暗交給霧色與環境光就夠了，天空不必也不該一起關掉
            */
-          overcastMaterial.alpha = Math.min(1, Math.max(rainRatio * 1.15, edgeRatio))
+          /**
+           * 陰天罩
+           *
+           * 暴風雪的係數比雨更兇：雨要 0.87 的雨勢才蓋滿，
+           * 雪只要 0.6 就整片不透光。走進吹雪野的半路上天就沒了
+           */
+          overcastMaterial.alpha = Math.min(1, Math.max(rainRatio * 1.15, snowRatio * 1.7, edgeRatio * 1.6))
           /**
            * 雨天是鉛灰、邊界則是與霧同色
            *
@@ -483,7 +573,8 @@ export function useWeather() {
          * 但淡入淡出的基準亮度是日夜循環在管的，兩邊都寫會互相蓋掉，
          * 所以這裡只回報「該露出多少」
          */
-        atmosphere.skyBodyFade = Math.max(0, 1 - Math.max(rainRatio, edgeRatio) * 1.6)
+        /** 太陽、月亮與星星在暴風雪裡一律看不到，係數給得比雨更高 */
+        atmosphere.skyBodyFade = Math.max(0, 1 - Math.max(rainRatio * 1.6, snowRatio * 2.2, edgeRatio * 1.6))
 
         /**
          * 雲的顏色
@@ -496,13 +587,26 @@ export function useWeather() {
          * 讓雲自己染成霧的顏色，就不必跟深度的先後打架：
          * 它還在那裡，只是與整片白一模一樣，看不出來而已
          */
+        /**
+         * 雲要比霧更早化進白裡
+         *
+         * 這裡原本直接用 edgeRatio，於是雲是與地面的霧同步變白的——
+         * 但霧在六格外就完全不透明，雲卻遠在頭頂一百格，
+         * 兩者在同一個比例上「一樣白」並不代表看起來一樣：
+         * 地面早就白成一片時，天上那幾朵還帶著三四成的自己的顏色，
+         * 抬頭就看得到它們飄過去。
+         *
+         * 乘 1.6 讓雲提前收乾淨，人走到邊界前雲就已經與白幕分不出來了
+         */
+        const cloudEdgeRatio = Math.min(1, edgeRatio * 1.6)
+
         for (const material of cloudMaterialList) {
           /** 基準亮度由日夜循環給，雲才會跟著入夜一起暗下來 */
           const brightness = lerp(atmosphere.cloudBrightness, atmosphere.cloudBrightness * 0.4, rainRatio)
           cloudColor.set(
-            lerp(brightness, atmosphere.baseFogColor.r, edgeRatio),
-            lerp(brightness, atmosphere.baseFogColor.g, edgeRatio),
-            lerp(brightness + 0.03, atmosphere.baseFogColor.b, edgeRatio),
+            lerp(brightness, atmosphere.baseFogColor.r, cloudEdgeRatio),
+            lerp(brightness, atmosphere.baseFogColor.g, cloudEdgeRatio),
+            lerp(brightness + 0.03, atmosphere.baseFogColor.b, cloudEdgeRatio),
           )
           /** 遠方的雲化進霧色，才不會在地平線上疊成一道亮帶 */
           applyCloudColor(material, {
@@ -526,6 +630,7 @@ export function useWeather() {
         const dayBrightness = measureDayBrightness(atmosphere)
         fallingLeaves?.setBrightness(lerp(0.3, 1, dayBrightness))
         rainParticles?.setBrightness(lerp(0.26, 1, dayBrightness))
+        snowParticles?.setBrightness(lerp(0.3, 1, dayBrightness))
         swampMist?.setBrightness(lerp(0.1, 1, dayBrightness))
         /**
          * 晨霧的下限給得比沼澤高
@@ -542,15 +647,30 @@ export function useWeather() {
          * 雨區已經有一整片壓下來的雨霧；蛙聲澤終年就有一片更濃的。
          * 硬鋪上去只會讓那幾處的白疊成一團看不出層次的糊
          */
+        /**
+         * 貼著邊界時所有跟著鏡頭跑的粒子一律收掉
+         *
+         * 這是整個循環世界的底線：跨過邊界的那一刻，兩側必須是
+         * 一模一樣的一片白，任何看得出「這裡和那裡不同」的東西都會拆穿它。
+         *
+         * 霧管不到粒子。晨霧、螢火蟲、空氣裡的浮塵全都生在鏡頭前一兩格，
+         * 而霧要六格外才全白——它們因此浮在那片白的前面，
+         * 一走過邊界就整批換了一組，位置全對不上。
+         *
+         * 係數給 1.6 是要它們比霧更早收乾淨：等到霧白了才開始淡，
+         * 那幾格路上人已經看到粒子在一片空白裡飛
+         */
+        const edgeHideRatio = 1 - Math.min(1, edgeRatio * 1.6)
+
         const dawnRatio = devToggle.groundMist ? getDawnMistRatio(getTimeOfDay()) : 0
         groundMist?.update(
           camera,
-          dawnRatio * (1 - atmosphere.caveRatio) * (1 - rainRatio) * (1 - mistRatio),
+          dawnRatio * (1 - atmosphere.caveRatio) * (1 - rainRatio) * (1 - mistRatio) * edgeHideRatio,
         )
 
         airMotes?.update(
           camera,
-          devToggle.airMotes ? getDayRatio() : 0,
+          devToggle.airMotes ? getDayRatio() * edgeHideRatio : 0,
           devToggle.airMotes ? atmosphere.caveRatio : 0,
         )
 
@@ -566,8 +686,9 @@ export function useWeather() {
           : Math.max(wetTarget, wetRatio - WET_DRY_SPEED * deltaTime)
         wetness?.setRatio(wetRatio)
 
-        /** 躲在洞裡時看不到雨 */
+        /** 躲在洞裡時看不到雨，雪也一樣 */
         rainParticles?.update(camera, isSheltered() ? 0 : rainRatio)
+        snowParticles?.update(camera, isSheltered() ? 0 : snowRatio)
       })
     })
   }
@@ -576,6 +697,7 @@ export function useWeather() {
     clearTimeout(thunderTimerId)
     clearTimeout(rumbleTimerId)
     rainParticles?.dispose()
+    snowParticles?.dispose()
     swampMist?.dispose()
     groundMist?.dispose()
     airMotes?.dispose()

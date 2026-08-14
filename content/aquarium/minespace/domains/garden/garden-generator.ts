@@ -15,9 +15,9 @@ import {
   buildWheatGarden,
 } from './garden-builders-major'
 import {
+  buildBlizzardGarden,
   buildCicadaGarden,
   buildJigokuGarden,
-  buildLibraryGarden,
   buildRainhallGarden,
   buildSongbirdGarden,
 } from './garden-builders-middle'
@@ -57,7 +57,7 @@ const BUILDER_MAP: Record<GardenId, (state: Uint8Array, garden: GardenDefinition
   rainhall: buildRainhallGarden,
   songbird: buildSongbirdGarden,
   cicada: buildCicadaGarden,
-  library: buildLibraryGarden,
+  blizzard: buildBlizzardGarden,
   jigoku: buildJigokuGarden,
 }
 

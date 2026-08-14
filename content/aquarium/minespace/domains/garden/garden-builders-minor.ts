@@ -10,7 +10,6 @@ import {
   fillSquare,
   getNoisyDistance,
   paveDeck,
-  placeBambooGrove,
   placeBonsaiPine,
   placeOakTree,
   placeRoofCap,
@@ -547,15 +546,6 @@ export function buildInsectGarden(state: Uint8Array, garden: GardenDefinition): 
   /** 一堆石，石縫是另一種蟲的家 */
   placeStandingStone(state, centerX - 5, groundY, centerZ + 4, 2, BlockId.COBBLESTONE)
   setDecoration(state, centerX - 4, groundY, centerZ + 4, BlockId.COBBLESTONE)
-
-  /**
-   * 北角一叢竹
-   *
-   * 蟲聲是從有遮蔽的地方傳出來的。整片草地一望無際的話，
-   * 那片高頻的叫聲聽起來會沒有來處——一叢竹子給了它一個位置，
-   * 而竹葉本身也在風裡沙沙作響，兩種聲音疊在一起
-   */
-  placeBambooGrove(state, centerX - 5, groundY, centerZ - 5, 3, 11, random)
 
   /** 乾土上兩株仙人掌，是全庭最乾的地方 */
   setBlock(state, centerX + 4, groundY, centerZ + 4, BlockId.CACTUS)

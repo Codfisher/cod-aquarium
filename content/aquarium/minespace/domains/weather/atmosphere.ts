@@ -203,6 +203,45 @@ export const RAIN_ATMOSPHERE = {
   specularRatio: 0.05,
 } as const
 
+/**
+ * 暴風雪的大氣參數
+ *
+ * 與雨天不同的不是「更暗」，是「更白」。
+ * 雨天是一層冷灰壓在頭上，看得遠但看得暗；
+ * 暴風雪相反——空氣裡飛滿了反光的雪，畫面是亮的，
+ * 但十來格外什麼都沒有，那叫白矇。
+ *
+ * 所以霧色比晴天還白、能見度收得比沼澤更緊，
+ * 而天光開到全庭最高：雪地會把光往上反射回來，
+ * 站在雪裡的人是被上下夾著照的
+ */
+export const SNOW_ATMOSPHERE = {
+  /** 比晴天的霧更白，接近純白但留一點冷 */
+  fogColor: new Color3(0.88, 0.91, 0.95),
+  /**
+   * 與世界邊界那道白幕同一組數字
+   *
+   * 這裡試過 17 格、也試過 11 格，兩個都還「看得見這是一座庭園」——
+   * 而暴風雪的定義正是看不見。整個專案裡唯一真正做到
+   * 「什麼都看不到」的是邊界那道簾子（EDGE_FOG_START / EDGE_FOG_END），
+   * 它存在的理由是要藏住循環世界的接縫，所以濃到極致。
+   *
+   * 吹雪野直接照抄那組數字：半格外開始褪色、六格外一片空白。
+   * 三盞石燈籠因此一次只看得到一盞，而且是先看到暈、再看到燈。
+   *
+   * 兩者的用途完全不同（一個藏破綻、一個是主題），
+   * 但「白到什麼都沒有」這件事只有一種寫法
+   */
+  fogStart: EDGE_FOG_START,
+  fogEnd: EDGE_FOG_END,
+  /** 太陽比雨天再藏得深一點，暴風雪裡沒有方向感 */
+  lightRatio: 0.1,
+  /** 雪把光從地面反回來，天光比任何一種天氣都高 */
+  ambientRatio: 1.15,
+  /** 雪面是漫射的，沒有一個能反出太陽的點 */
+  specularRatio: 0.04,
+} as const
+
 export function createAtmosphereState(): AtmosphereState {
   return {
     fogColor: CLEAR_ATMOSPHERE.fogColor.clone(),

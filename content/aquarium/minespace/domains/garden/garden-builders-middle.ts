@@ -3,6 +3,7 @@ import { createSeededRandom, fbm2D } from '../../utils/noise'
 import { BlockId } from '../block/block-constants'
 import { setBlock } from '../world/world-access'
 import {
+  capWithSnow,
   carveWater,
   CHARRED_LOG_SET,
   DECK_MARGIN,
@@ -11,9 +12,11 @@ import {
   fillSquare,
   getNoisyDistance,
   paveDeck,
+  placeBonsaiPine,
   placeDeadTree,
   placeOakTree,
   placeRoofCap,
+  placeStandingStone,
   placeStoneLantern,
   placeTorii,
   placeWaterBasin,
@@ -384,270 +387,99 @@ export function buildCicadaGarden(state: Uint8Array, garden: GardenDefinition): 
 }
 
 /**
- * 藏書樓
+ * 雪聽庭
  *
- * 一座文庫藏：日本寺院用來收經卷的那種厚牆倉庫，白灰牆、黑木框、
- * 開窗開得極少。這裡把它縮成一間，裡頭兩列書架夾出一條走道。
+ * 這一座的造景規矩與別座相反：不是「擺什麼進去」，是「留下多少」。
  *
- * 它的主題是「聲音的消失」。書是最好的吸音材——一整面架子的紙
- * 把殘響全部吃掉，房間於是死得徹底。石廊跡是這件事的另一端：
- * 同一句話在那裡繞好幾圈才出來，在這裡連一次回聲都沒有。
+ * 能見度只有十七格，而木座是三十一格見方——
+ * 站在中央看不到任何一道邊，於是這裡感覺不出自己站在一個台子上。
+ * 那正是要的效果：暴風雪沒有邊界。
  *
- * 造景全部服務這件事：牆砌得厚、窗開得高而小、門只有一個，
- * 而且屋子四周種一圈竹——竹葉會把還沒進門的聲音先削掉一層。
- * 走進去的那一步，外面就被關在外面了
+ * 所以東西要少而且要疏，讓人一次只看得見一樣：
+ * 走幾步遇上一盞燈籠，再走幾步一棵被壓彎的松從白裡浮出來，
+ * 最後才看到那間小屋。全部同時看得見的話，這座箱庭就變小了
  */
-export function buildLibraryGarden(state: Uint8Array, garden: GardenDefinition): void {
-  const random = createSeededRandom('garden-library')
-  const deckY = getDeckBlockY(garden)
+export function buildBlizzardGarden(state: Uint8Array, garden: GardenDefinition): void {
+  const random = createSeededRandom('garden-blizzard')
   const groundY = getDeckGroundY(garden)
   const { x: centerX, z: centerZ } = garden.center
   const inner = garden.halfSize - DECK_MARGIN
 
-  paveDeck(state, garden, BlockId.STONE_TILE)
+  paveDeck(state, garden, BlockId.SNOW)
 
   /**
-   * 屋子的半寬
+   * 積雪的深淺
    *
-   * 四格是被裡頭的東西決定的：兩列書架各佔一格、中間走道兩格、
-   * 左右各留一格靠牆走。再窄一格就得把走道縮成一格寬，
-   * 兩排書架會貼著人的肩膀，那是倉庫不是可以待著的地方
+   * 整片一樣厚的雪是一塊白色的板子。用噪聲鋪一層薄雪上去，
+   * 有的地方厚、有的地方露出底下那層——風把雪吹成一道一道的，
+   * 那些起伏才是「這裡颳著風」唯一看得見的證據
    */
-  const hallHalf = 4
-  const wallHeight = 5
-
-  /** 屋內鋪深色木地板，比外面的石板暖一階 */
-  fillBox(
-    state,
-    centerX - hallHalf + 1,
-    deckY,
-    centerZ - hallHalf + 1,
-    centerX + hallHalf - 1,
-    deckY,
-    centerZ + hallHalf - 1,
-    BlockId.DARK_PLANKS,
-  )
-
-  /**
-   * 四面牆，只留南面一個門
-   *
-   * 牆是白灰的，四個角用深色木收邊——文庫藏的樣子就出在這個對比上。
-   * 窗開在第四層，高過書架的頂：光斜斜地打進來落在天花板與走道上，
-   * 而不是直接曬在書背上。真正的藏書樓就是這樣防日曬的
-   */
-  const doorX = centerX
-  const sideDoorZ = centerZ - 1
-  for (let level = 0; level < wallHeight; level++) {
-    for (let offsetX = -hallHalf; offsetX <= hallHalf; offsetX++) {
-      for (let offsetZ = -hallHalf; offsetZ <= hallHalf; offsetZ++) {
-        const isEdge = Math.abs(offsetX) === hallHalf || Math.abs(offsetZ) === hallHalf
-        if (!isEdge)
-          continue
-
-        const x = centerX + offsetX
-        const z = centerZ + offsetZ
-
-        /**
-         * 南牆正中央那一格開成門，三格高
-         *
-         * 兩格高剛好等於人的高度，一點餘裕都沒有——
-         * 門前只要有任何一格墊高的東西（哪怕只是半格的石階），
-         * 踏上去頭就撞在門楣上，整座屋子於是進不去。
-         * 開三格，門前擺什麼都還走得過去
-         */
-        /**
-         * 兩個門，南面正門與東面側門
-         *
-         * 只有一個門的建築是倉庫，兩個門才是給人穿過去的。
-         * 這件事在聽覺上也成立：腳步聲從一頭進來、另一頭出去，
-         * 才會有「剛剛有人經過」的感覺；只有一個門的話，
-         * 每個聲音都得原路折返，聽起來像有人在門口徘徊
-         */
-        const isFrontDoor = offsetZ === hallHalf && x === doorX && level < 3
-        const isSideDoor = offsetX === hallHalf && z === sideDoorZ && level < 3
-        const isDoorway = isFrontDoor || isSideDoor
-        if (isDoorway) {
-          setBlock(state, x, groundY + level, z, BlockId.AIR)
-          continue
-        }
-
-        const isCorner = Math.abs(offsetX) === hallHalf && Math.abs(offsetZ) === hallHalf
-        /** 高窗，開在書架頂上那一層，每隔兩格一扇 */
-        const isWindow = level === 3 && !isCorner && (Math.abs(offsetX) + Math.abs(offsetZ)) % 3 === 0
-
-        /**
-         * 高窗用紙不用玻璃
-         *
-         * 這座屋子的設計理由本來就是「不讓陽光直接曬到書背」，
-         * 而紙窗正是那件事的答案——它把光散開，不讓光成束。
-         * 玻璃是相反的東西：它讓外面的一切原封不動地射進來。
-         *
-         * 薄板嵌在一格厚的牆上，兩側的牆會露出側面，
-         * 於是窗是凹進去的——那正是窗框
-         */
-        const isAlongZ = Math.abs(offsetX) === hallHalf
-
-        let blockId = BlockId.WHITE_SANDSTONE
-        if (isCorner)
-          blockId = BlockId.DARK_PLANKS
-        else if (isWindow)
-          blockId = isAlongZ ? BlockId.SHOJI_PANEL_Z : BlockId.SHOJI_PANEL_X
-
-        setBlock(state, x, groundY + level, z, blockId)
-      }
-    }
-  }
-
-  /** 門楣，門洞上方那一道深色橫木 */
-  setBlock(state, doorX, groundY + 3, centerZ + hallHalf, BlockId.DARK_PLANKS)
-  setBlock(state, centerX + hallHalf, groundY + 3, sideDoorZ, BlockId.DARK_PLANKS)
-
-  /**
-   * 書架沿著西牆與北牆排，中央整個讓出來
-   *
-   * 原本是兩列書架夾出一條走道，那是倉庫的排法——
-   * 走進去只能通過，沒有地方停。閱覽堂要的是相反的東西：
-   * 書退到牆邊，中間空出來擺桌子，人才會在裡面坐下。
-   *
-   * 刻意留幾格空著：滿滿一牆的書看起來像貼上去的壁紙，
-   * 缺了幾本才像有人真的來借過
-   */
-  for (let offsetZ = -hallHalf + 1; offsetZ <= hallHalf - 1; offsetZ++) {
-    for (let level = 0; level < 3; level++) {
-      if (random() < 0.12)
+  for (let offsetX = -inner; offsetX <= inner; offsetX++) {
+    for (let offsetZ = -inner; offsetZ <= inner; offsetZ++) {
+      const x = centerX + offsetX
+      const z = centerZ + offsetZ
+      /** 拉長成條狀：x 取得比 z 密，雪紋因此順著風向拖出去 */
+      if (fbm2D(x * 0.32, z * 0.11, 3, 0.5) < 0.48)
         continue
 
-      setBlock(state, centerX - hallHalf + 1, groundY + level, centerZ + offsetZ, BlockId.BOOKSHELF)
-    }
-  }
-  for (let offsetX = -hallHalf + 2; offsetX <= hallHalf - 1; offsetX++) {
-    for (let level = 0; level < 3; level++) {
-      if (random() < 0.12)
-        continue
-
-      setBlock(state, centerX + offsetX, groundY + level, centerZ - hallHalf + 1, BlockId.BOOKSHELF)
+      setBlock(state, x, groundY, z, BlockId.SNOW_LAYER)
     }
   }
 
   /**
-   * 中央兩張閱覽桌
+   * 人造物只有石燈籠
    *
-   * 這是整座箱庭最重要的一件家具。桌子代表「這裡是可以待的」——
-   * 而有人待著，才會有翻頁聲、椅子拖動聲、書本闔上的聲音。
-   * 一張桌子只是擺設，兩張才看得出這裡同時容得下好幾個人
+   * 這裡先後蓋過一間避雪小屋、立過兩組雪吊り，兩個都拿掉了。
+   * 理由是同一個：能見度只有十一格，任何一件有體積的東西
+   * 一出現就佔滿整個畫面，而暴風雪的重點是「什麼都看不到」——
+   * 建築在這裡不是造景，是把主題擋住的東西。
+   *
+   * 石燈籠剛好：它細、它矮、它自己會發光。走在白裡時
+   * 你先看到的是一團暈，走近三步才看得出那是一盞燈——
+   * 而那正是暴風雪裡唯一會發生的事
    */
-
-  /** 兩張桌子各配兩個座位，攤開的書留在其中幾個位子上 */
-  for (const desk of [{ z: 0, book: 0 }, { z: 2, book: 2 }]) {
-    for (let offsetX = -1; offsetX <= 2; offsetX++) {
-      setBlock(state, centerX + offsetX, groundY, centerZ + desk.z, BlockId.DARK_WOOD_SLAB)
-    }
-    setDecoration(state, centerX + desk.book, groundY + 1, centerZ + desk.z, BlockId.OPEN_BOOK)
-    setDecoration(state, centerX + desk.book, groundY, centerZ + desk.z - 1, BlockId.CUSHION)
-
-    /**
-     * 每張桌子頭頂各一盞吊燈
-     *
-     * 原本全屋只有櫃檯旁那一盞紙燈，桌上是暗的——
-     * 而這間屋子存在的理由就是有人坐在那裡讀書。
-     * 光該落在讀的地方，不是落在管理的地方
-     */
-    setBlock(state, centerX, groundY + wallHeight - 1, centerZ + desk.z, BlockId.HANGING_LAMP)
-  }
+  placeStoneLantern(state, centerX - 4, groundY, centerZ + 4)
+  placeStoneLantern(state, centerX + 4, groundY, centerZ - 3)
+  placeStoneLantern(state, centerX + 1, groundY, centerZ + 5)
 
   /**
-   * 借還書的木櫃，擺在正門進來的第一眼
+   * 被雪壓彎的松
    *
-   * 公共的建築要有一個「這裡有人管」的位置。
-   * 沒有它，這間屋子看起來只是剛好放了很多書
+   * 全部歪向同一邊，因為風只有一個方向。
+   * 松是長出來的不是蓋出來的，所以它們留著
    */
-  setBlock(state, centerX + 2, groundY, centerZ + hallHalf - 1, BlockId.WORKBENCH)
-  setDecoration(state, centerX + 2, groundY + 1, centerZ + hallHalf - 1, BlockId.OPEN_BOOK)
+  placeBonsaiPine(state, centerX + 3, groundY, centerZ + 2, -1, 0)
+  placeBonsaiPine(state, centerX - 3, groundY, centerZ - 3, -1, 0)
+  placeBonsaiPine(state, centerX - 1, groundY, centerZ + 1, -1, 0)
 
   /**
-   * 屋裡唯一的光
+   * 兩塊露出雪面的石頭，不能再多
    *
-   * 一盞紙燈擺在櫃檯旁。滿屋子的紙不敢用明火，燈要小、要遠離書架
+   * 原本撒了七塊，理由是「一片全白沒有東西可以定位」。
+   * 但那個理由是反的：暴風雪本來就該讓人失去定位，
+   * 石頭一多，這裡就變成一座擺著石頭的雪地，而不是一場暴風雪。
+   *
+   * 留兩塊，剛好夠讓人知道自己有在移動，不夠讓人知道自己在哪裡
    */
-  setBlock(state, centerX + 1, groundY, centerZ + hallHalf - 1, BlockId.PAPER_LAMP)
+  placeStandingStone(state, centerX - 4, groundY, centerZ - 4, 1, BlockId.COBBLESTONE)
+  placeStandingStone(state, centerX + 3, groundY, centerZ - 2, 2, BlockId.COBBLESTONE)
+
+  /** 雪地裡活得下來的只有枯枝，而且是曬白的那一種 */
+  scatterOnGround(state, centerX, centerZ, inner, groundY, random, 0.05, () => (
+    BlockId.DRY_SHRUB
+  ), new Set([BlockId.SNOW]))
 
   /**
-   * 西南角一塊席地而坐的位子
+   * 最後替所有東西蓋上一層雪
    *
-   * 桌椅是「來查東西」的地方，坐在地上才是「留下來讀完」的地方。
-   * 一疊榻榻米攤在木地板上、旁邊擺個坐墊，那一角就從走道變成角落——
-   * 而人會在角落待得比在走道久
-   */
-  for (let offsetX = -3; offsetX <= -2; offsetX++) {
-    for (let offsetZ = 1; offsetZ <= 3; offsetZ++) {
-      setBlock(state, centerX + offsetX, groundY, centerZ + offsetZ, BlockId.TATAMI_MAT)
-    }
-  }
-  /**
-   * 坐墊擺在席子當中，不是疊在席子上面
+   * 這一步必須擺在最末尾：雪是積在東西上面的，
+   * 樹、石燈籠、石頭全部就位之後才輪到它。
    *
-   * 薄層佔的仍然是一整格，所以「放在它上面」等於高一整格——
-   * 坐墊會浮在半空中。與席子並排、同樣坐在地板那一格才對得起來
+   * 少了這一步，這裡是「一片雪地上擺著幾樣沒沾到雪的東西」——
+   * 那不是暴風雪，那是有人把雪掃乾淨了。
+   * 掃過一遍之後，松樹的樹冠、燈籠的笠、石頭的頂面都各壓著一片白
    */
-  setBlock(state, centerX - 3, groundY, centerZ + 2, BlockId.CUSHION)
-
-  /** 還沒歸架的書，堆在走道邊的木箱上 */
-  setBlock(state, centerX - 2, groundY, centerZ + 3, BlockId.CRATE)
-  setDecoration(state, centerX - 2, groundY + 1, centerZ + 3, BlockId.OPEN_BOOK)
-  /**
-   * 屋頂
-   *
-   * 出簷一格，四邊用階梯收薄，再往上疊兩層收頂。
-   * 與雨聽堂同一種做法，因為兩者是同一個時代的屋子
-   */
-  const eaveY = groundY + wallHeight
-  const eaveHalf = hallHalf + 1
-  for (let offsetX = -eaveHalf; offsetX <= eaveHalf; offsetX++) {
-    for (let offsetZ = -eaveHalf; offsetZ <= eaveHalf; offsetZ++) {
-      let blockId = BlockId.DARK_PLANKS
-      if (offsetZ === -eaveHalf)
-        blockId = BlockId.DARK_STAIRS_SOUTH
-      else if (offsetZ === eaveHalf)
-        blockId = BlockId.DARK_STAIRS_NORTH
-      else if (offsetX === -eaveHalf)
-        blockId = BlockId.DARK_STAIRS_EAST
-      else if (offsetX === eaveHalf)
-        blockId = BlockId.DARK_STAIRS_WEST
-
-      setBlock(state, centerX + offsetX, eaveY, centerZ + offsetZ, blockId)
-    }
-  }
-  placeRoofCap(state, centerX, eaveY + 1, centerZ, hallHalf, BlockId.DARK_WOOD_SLAB, BlockId.DARK_PLANKS)
-  placeRoofCap(state, centerX, eaveY + 2, centerZ, hallHalf - 2, BlockId.DARK_WOOD_SLAB, BlockId.DARK_PLANKS)
-
-  /**
-   * 門前的一對石燈籠
-   *
-   * 這裡原本還有一塊踏石，已經拿掉了：甲板是平的，本來就沒有高低差要跨，
-   * 那塊石頭純粹是裝飾——而它剛好擋在唯一的入口上
-   */
-  placeStoneLantern(state, doorX - 2, groundY, centerZ + hallHalf + 1)
-  placeStoneLantern(state, doorX + 2, groundY, centerZ + hallHalf + 1)
-
-  /**
-   * 繞著屋子的一圈竹
-   *
-   * 不只是造景。竹葉是這座箱庭的第一道吸音層——
-   * 外面的鳥聲與風先在這裡被削掉一層，走進門的那一步才切得乾淨。
-   * 種在木座的四個角上，正好把屋子與外界隔開
-   */
-  for (const corner of [{ x: -1, z: -1 }, { x: 1, z: -1 }, { x: -1, z: 1 }, { x: 1, z: 1 }]) {
-    const bambooX = centerX + corner.x * (hallHalf + 2)
-    const bambooZ = centerZ + corner.z * (hallHalf + 2)
-    for (let level = 0; level < 4 + Math.floor(random() * 3); level++) {
-      setBlock(state, bambooX, groundY + level, bambooZ, BlockId.BAMBOO_BLOCK)
-    }
-  }
-
-  /** 牆根的青苔與蕨，背陰的那一面才長得起來 */
-  scatterOnGround(state, centerX, centerZ, inner, groundY, random, 0.22, (pick) => {
-    return pick() < 0.6 ? BlockId.FERN : BlockId.STONE_PLANT
-  }, new Set([BlockId.STONE_TILE]))
+  capWithSnow(state, centerX, centerZ, inner, groundY, groundY + 10)
 }
 
 /**

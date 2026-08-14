@@ -53,8 +53,8 @@ export type GardenId =
   | 'songbird'
   /** 盛夏的蟬，密到分不出是幾隻，而且一隻都看不見 */
   | 'cicada'
-  /** 有人的安靜：翻頁、腳步、隔著書架傳過來的低語 */
-  | 'library'
+  /** 只剩一種聲音的地方：風把別的全部吹走了 */
+  | 'blizzard'
   /** 從地底下上來的低頻，黏稠而緩慢 */
   | 'jigoku'
 
@@ -370,31 +370,34 @@ export const GARDEN_LIST: GardenDefinition[] = [
   },
   {
     /**
-     * 閱覽堂
+     * 吹雪野
      *
-     * 這一座收的是「有人的安靜」。
+     * 這一座收的是「聲音被拿走之後剩下什麼」。
      *
-     * 圖書館從來不是沒有聲音的地方——它是唯一一種
-     * 「安靜到聽得見別人」的空間：隔兩排書架的翻頁、
-     * 走道另一頭的腳步、有人把書放回架上的那一下。
-     * 那些聲音在任何別的地方都會被蓋掉，在這裡卻是主角。
+     * 全庭其他二十一座都在收集聲音——蛙、蟬、鳥、水、火。
+     * 這一座相反：暴風雪是一種會把別的聲音全部吃掉的聲音。
+     * 站在裡面聽不到鳥、聽不到蟲、聽不到自己的腳步，
+     * 只有一片壓在耳朵上的風。那也是一種聽，而且是最極端的一種。
      *
-     * 與石廊跡剛好相反：那一座是空房間把一個聲音放大成好幾圈，
-     * 這一座是滿屋子的紙把所有殘響吃掉，於是每個聲音都乾、短、
-     * 而且清楚地指著某一個人所在的位置。
+     * 與聽雨亭是一組對照：那一座是躲在屋簷下聽外面的雨，
+     * 有屋頂、有邊界、有「我在裡面」的安全感；
+     * 這一座沒有可躲的地方，走進去就是被包住。
      *
-     * 造景因此要看得出是公共的：兩個門、中央幾張閱覽桌、
-     * 沿牆的書架留出走道。不是一間鎖起來的倉庫，
-     * 是一間隨時有人走進來的屋子
+     * 造景因此要空到近乎沒有。三盞石燈籠、三株被壓彎的松，就這樣。
+     * 能見度只有十一格，任何一件有體積的東西一出現就佔滿整個畫面——
+     * 建築在這裡不是造景，是把主題擋住的東西。
+     *
+     * 石燈籠剛好：細、矮、自己會發光。走在白裡時先看到一團暈，
+     * 走近三步才看得出那是一盞燈——那是這裡唯一會發生的事
      */
-    id: 'library',
-    title: { 'zh-hant': '閱覽堂', 'en': 'Reading Hall' },
-    timbre: { 'zh-hant': '有人的安靜，聽得見別人翻頁', 'en': 'The quiet of a room with people in it' },
-    icon: 'i-material-symbols:auto-stories',
+    id: 'blizzard',
+    title: { 'zh-hant': '吹雪野', 'en': 'Whiteout Field' },
+    timbre: { 'zh-hant': '風把所有別的聲音都吹走了', 'en': 'Wind that has blown every other sound away' },
+    icon: 'i-material-symbols:weather-snowy',
     center: getRingPosition(MIDDLE_RING_RADIUS, 112.5),
     halfSize: SMALL_HALF_SIZE,
     pedestalHeight: 1,
-    /** 正中央是書架之間那條走道，落在門外的石階前 */
+    /** 落在木座正中央往南一點，第一眼是最近的那盞燈籠 */
     travelPoint: {
       x: getRingPosition(MIDDLE_RING_RADIUS, 112.5).x,
       z: getRingPosition(MIDDLE_RING_RADIUS, 112.5).z + 6,

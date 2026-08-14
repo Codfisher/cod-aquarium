@@ -1,6 +1,6 @@
 import type { GardenDefinition } from './garden-layout'
 import { fbm2D } from '../../utils/noise'
-import { BlockId } from '../block/block-constants'
+import { BlockId, isDecorationBlock, isPassableBlock } from '../block/block-constants'
 import { getBlock, setBlock } from '../world/world-access'
 import { SAND_LEVEL } from './garden-constants'
 import { getDeckBlockY } from './garden-layout'
@@ -516,43 +516,49 @@ export function placeSteppingStones(
 }
 
 /**
- * 竹叢
+ * 替整片範圍蓋上一層積雪
  *
- * 竹子與樹的差別在於它沒有樹冠：一根細桿直上去，
- * 葉子只掛在最頂上那一小截。所以這裡不堆樹葉方塊，
- * 只在稈頂放一兩片交叉立板——那也讓它跟著風搖。
+ * 逐格往下找到那一柱最上面的實心方塊，在它頭上放一片薄雪。
  *
- * 高矮要差得夠多。一叢等高的竹子看起來是一排柵欄，
- * 而竹林之所以是竹林，正因為它們搶著往上長、誰也沒長成一樣高
+ * 這件事必須最後做。雪是積在東西上面的，所以「東西」得先全部就位——
+ * 先蓋雪再種樹的話，樹會從雪裡長出來，而不是雪落在樹上。
+ *
+ * 三種東西不蓋：交叉立板的花草（雪會浮在半空中，它們沒有頂面）、
+ * 穿得過去的方塊，以及已經是雪的那些。
+ * 樹葉照蓋——一片壓著雪的樹冠正是雪景最說得出話的地方
  */
-export function placeBambooGrove(
+export function capWithSnow(
   state: Uint8Array,
   centerX: number,
-  groundY: number,
   centerZ: number,
-  radius: number,
-  count: number,
-  random: () => number,
+  halfSize: number,
+  fromY: number,
+  toY: number,
 ): void {
-  for (let index = 0; index < count; index++) {
-    const angle = random() * Math.PI * 2
-    const distance = Math.sqrt(random()) * radius
-    const x = centerX + Math.round(Math.cos(angle) * distance)
-    const z = centerZ + Math.round(Math.sin(angle) * distance)
+  for (let offsetX = -halfSize; offsetX <= halfSize; offsetX++) {
+    for (let offsetZ = -halfSize; offsetZ <= halfSize; offsetZ++) {
+      const x = centerX + offsetX
+      const z = centerZ + offsetZ
 
-    /** 已經有東西的地方就讓開，竹子不該長在石燈籠上 */
-    if (getBlock(state, x, groundY, z) !== BlockId.AIR)
-      continue
+      for (let y = toY; y >= fromY; y--) {
+        const blockId = getBlock(state, x, y, z)
+        if (blockId === BlockId.AIR)
+          continue
 
-    const height = 4 + Math.floor(random() * 4)
-    for (let level = 0; level < height; level++) {
-      setBlock(state, x, groundY + level, z, BlockId.BAMBOO_STALK)
-    }
+        /**
+         * 花草與可穿越的東西不算頂面，但也不能就此停手
+         *
+         * 一株草長在雪地上，草底下那格才是真正該積雪的地方。
+         * 這裡直接往下繼續找，雪就會鋪在草的腳邊而不是頭上
+         */
+        if (isDecorationBlock(blockId) || isPassableBlock(blockId))
+          continue
 
-    /** 葉子疊在稈頂上面，不是取代最後一節——那會讓竹子斷一格 */
-    setBlock(state, x, groundY + height, z, BlockId.JUNGLE_GRASS)
-    if (random() < 0.6) {
-      setBlock(state, x, groundY + height + 1, z, BlockId.JUNGLE_GRASS)
+        if (blockId !== BlockId.SNOW_LAYER && getBlock(state, x, y + 1, z) === BlockId.AIR) {
+          setBlock(state, x, y + 1, z, BlockId.SNOW_LAYER)
+        }
+        break
+      }
     }
   }
 }
