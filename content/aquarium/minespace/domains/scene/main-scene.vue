@@ -165,8 +165,8 @@
 
 <script setup lang="ts">
 import type { Scene, UniversalCamera } from '@babylonjs/core'
-import type { PondMirror } from '../garden/pond-mirror'
 import type { SandField } from '../garden/sand-field'
+import type { WaterMirrors } from '../garden/water-mirror'
 import type { LampGlow } from '../renderer/lamp-glow'
 import type { TextureSkinner } from '../renderer/pixel-material'
 import type { VoxelRenderer } from '../renderer/voxel-renderer'
@@ -190,8 +190,8 @@ import { useSimpleI18n } from '../../composables/use-simple-i18n'
 import { useTexturePack } from '../../composables/use-texture-pack'
 import { useSheepFlock } from '../fauna/use-sheep-flock'
 import { getGardenAt } from '../garden/garden-layout'
-import { createPondMirror } from '../garden/pond-mirror'
 import { createSandField } from '../garden/sand-field'
+import { createWaterMirrors } from '../garden/water-mirror'
 import { findSafeStandingPosition } from '../player/collision'
 import { createLampGlow } from '../renderer/lamp-glow'
 import { createTextureSkinner } from '../renderer/pixel-material'
@@ -241,7 +241,7 @@ const FPS_UPDATE_INTERVAL = 0.5
 let worldState = createWorldState()
 let renderer: VoxelRenderer | null = null
 let lampGlow: LampGlow | null = null
-let pondMirror: PondMirror | null = null
+let waterMirrors: WaterMirrors | null = null
 let skinner: TextureSkinner | null = null
 let sandField: SandField | null = null
 
@@ -420,7 +420,7 @@ const { canvasRef, scene, camera, pipeline, initError } = useBabylonScene({
     sandField = createSandField(sceneInstance, texturePack.value)
 
     /** 水鏡池的天空倒影，走近才畫 */
-    pondMirror = createPondMirror(sceneInstance, cameraInstance)
+    waterMirrors = createWaterMirrors(sceneInstance, cameraInstance, worldState)
 
     sheepFlock.start({ scene: sceneInstance, worldState, camera: cameraInstance, getDayRatio, skinner })
     createCampfireSmoke(sceneInstance, worldState)
@@ -623,7 +623,7 @@ function handleTravel(landmark: Landmark) {
 
 onBeforeUnmount(() => {
   lampGlow?.dispose()
-  pondMirror?.dispose()
+  waterMirrors?.dispose()
   renderer?.dispose()
   sandField?.dispose()
   skinner?.dispose()

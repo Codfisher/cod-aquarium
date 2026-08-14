@@ -11,6 +11,7 @@ import {
 import { watch } from 'vue'
 import { useDevToggles } from '../../composables/use-dev-toggles'
 import { useGraphicsQuality } from '../../composables/use-graphics-quality'
+import { optOutOfFog } from './fog-opt-out'
 import { createGlowTexture } from './glow-texture'
 import { attachHaloSoftFade, createHaloSoftFade } from './halo-soft-fade'
 
@@ -39,6 +40,26 @@ const DAY_STRENGTH_RATIO = 0.45
 const LAMP_SIZE = 3.2
 /** 火比燈籠大一圈，那是一團燒著的東西 */
 const FIRE_SIZE = 4.8
+/**
+ * 岩漿這種面光源的直徑
+ *
+ * 比一團營火再大一截，是要它蓋得過四格的格距——
+ * 液面上每四格一顆，圓盤若只有營火那麼大，
+ * 兩顆之間會露出一段沒有暈的液面，整池看起來像點著幾盞路燈
+ */
+const AREA_LIGHT_SIZE = 7.5
+
+/**
+ * 面光源每一片的濃度
+ *
+ * 相加混合是會累加的：一池岩漿上十幾顆圓盤彼此重疊，
+ * 每一片都照營火的濃度給，疊出來就是一塊沒有層次的白。
+ *
+ * 單片壓到三成半，重疊處剛好回到一團火的亮度，
+ * 而邊緣那些只有一兩片蓋到的地方就成了淡淡的熱氣。
+ * 一整池的亮度是疊出來的，不是單片給出來的
+ */
+const AREA_LIGHT_STRENGTH_RATIO = 0.35
 
 /** 差得夠多才重寫材質，這是每一幀都會走的路徑 */
 const STRENGTH_STEP = 0.01
@@ -116,13 +137,18 @@ export interface CreateLampGlowParams {
  * 掛在半空中的燈籠遇不到，坐在地上的營火與整片躺平的岩漿每次都遇到。
  * 解法是柔性粒子，寫在 halo-soft-fade.ts
  *
- * ── 為什麼岩漿還是沒有光暈 ──
+ * ── 岩漿的光暈是另一套參數 ──
  *
- * 這一點與那道邊無關，淡出已經處理掉了。岩漿的問題是它根本不是一盞燈：
- * 一整片液面上每兩格一顆圓盤，幾十片相加疊起來只會糊成一塊白，
- * 而地獄谷正好是全場網格最多的地方。
+ * 它曾經整個被排除在外，理由是「一整片液面上每兩格一顆圓盤，
+ * 幾十片相加疊起來只會糊成一塊白」。那個理由沒有錯，錯在結論：
+ * 該調的是格距與濃度，不是整個不畫。
  *
- * 它本來就自發光給滿、還點著真光把岸壁照成橘紅，不缺外面那一圈
+ * 現在分三處讓它成立：光源清單那邊把岩漿的格距放到四格一顆
+ * （見 light-source.ts 的 AREA_LIGHT_CELL_SHIFT），數量剩四分之一；
+ * 圓盤放大到蓋得過那個格距；單片的濃度壓到三成半，
+ * 讓一池的亮度是十幾片疊出來的，而不是單片給出來的。
+ *
+ * 埋在液面下的那半交給柔性淡出化開，所以它不會留下一條沿著液面的直邊
  */
 export function createLampGlow({
   scene,
@@ -130,9 +156,10 @@ export function createLampGlow({
   sourceList,
   getDayRatio,
 }: CreateLampGlowParams): LampGlow | null {
-  const haloSourceList = sourceList.filter((source) => source.hasHalo)
-  if (haloSourceList.length === 0)
+  if (sourceList.length === 0)
     return null
+
+  const haloSourceList = sourceList
 
   /** 與天上那兩圈暈用同一條衰減曲線，邊界才不會浮出一圈輪廓 */
   const texture = createGlowTexture('lamp-halo', scene, [230, 230, 230])
@@ -160,13 +187,29 @@ export function createLampGlow({
    * 燈籠的暖黃與火的橘。顏色寫在材質上，
    * 每一幀調亮度時只要改兩個顏色物件
    */
-  const materialMap = new Map<string, StandardMaterial>()
+  interface HaloMaterial {
+    material: StandardMaterial;
+    color: [number, number, number];
+    /** 面光源要壓淡，理由見 AREA_LIGHT_STRENGTH_RATIO */
+    strengthRatio: number;
+  }
 
-  function getMaterial(color: [number, number, number]): StandardMaterial {
-    const key = color.join(',')
+  const materialMap = new Map<string, HaloMaterial>()
+
+  function getMaterial(
+    color: [number, number, number],
+    isAreaLight: boolean,
+  ): StandardMaterial {
+    /**
+     * 鍵要帶上面光源這個旗標
+     *
+     * 岩漿與餘燼共用同一組火色，只用顏色當鍵的話兩者會拿到同一份材質，
+     * 而它們的濃度必須不一樣——壓淡了岩漿，營火會跟著一起暗
+     */
+    const key = `${color.join(',')}_${isAreaLight ? 'area' : 'point'}`
     const existing = materialMap.get(key)
     if (existing)
-      return existing
+      return existing.material
 
     const material = new StandardMaterial(`lamp-halo-${key}`, scene)
     material.diffuseTexture = texture
@@ -197,23 +240,30 @@ export function createLampGlow({
     /** 靠近實體就化開，那道切開方塊的直邊才不會出現 */
     attachHaloSoftFade(material)
 
-    materialMap.set(key, material)
+    materialMap.set(key, {
+      material,
+      color,
+      strengthRatio: isAreaLight ? AREA_LIGHT_STRENGTH_RATIO : 1,
+    })
 
     return material
   }
 
   const haloList = haloSourceList.map((source, index) => {
-    const size = (source.isFire ? FIRE_SIZE : LAMP_SIZE) * source.level
+    const baseSize = source.isAreaLight
+      ? AREA_LIGHT_SIZE
+      : source.isFire ? FIRE_SIZE : LAMP_SIZE
+    const size = baseSize * source.level
     const mesh = MeshBuilder.CreateDisc(
       `lamp-halo-${index}`,
       { radius: size / 2, tessellation: DISC_TESSELLATION },
       scene,
     )
-    mesh.material = getMaterial(source.color)
+    mesh.material = getMaterial(source.color, source.isAreaLight)
     mesh.billboardMode = Mesh.BILLBOARDMODE_ALL
     mesh.isPickable = false
     mesh.receiveShadows = false
-    mesh.applyFog = false
+    optOutOfFog(mesh, '燈釘在世界上，箱庭全排在離邊界四十二格外，走到邊界時它們早在白幕之外')
     mesh.setEnabled(false)
 
     /** 燈本身在哪。每一幀從這裡往鏡頭的方向挪出方塊之外 */
@@ -276,9 +326,10 @@ export function createLampGlow({
       return
 
     appliedStrength = strength
-    for (const [key, material] of materialMap) {
-      const [red, green, blue] = key.split(',').map(Number) as [number, number, number]
-      material.emissiveColor.set(red * strength, green * strength, blue * strength)
+    for (const entry of materialMap.values()) {
+      const [red, green, blue] = entry.color
+      const scale = strength * entry.strengthRatio
+      entry.material.emissiveColor.set(red * scale, green * scale, blue * scale)
     }
   })
 
@@ -290,8 +341,8 @@ export function createLampGlow({
       for (const halo of haloList) {
         halo.mesh.dispose()
       }
-      for (const material of materialMap.values()) {
-        material.dispose()
+      for (const entry of materialMap.values()) {
+        entry.material.dispose()
       }
       texture.dispose()
     },

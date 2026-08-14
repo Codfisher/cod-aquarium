@@ -116,7 +116,7 @@ export interface SoundEmitterDefinition {
 }
 
 /** 天氣狀態 */
-export type Weather = 'clear' | 'rain'
+export type Weather = 'clear' | 'rain' | 'snow'
 
 /** 正在發聲的音源狀態，供 HUD 顯示 */
 export interface AudibleSound {

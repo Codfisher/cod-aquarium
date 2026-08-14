@@ -11,13 +11,16 @@ export const DEV_TOGGLE_LIST = [
   { key: 'lampGlow', label: '燈火光暈' },
   { key: 'skyGlow', label: '日月光暈' },
   { key: 'aerialPerspective', label: '大氣透視' },
+  { key: 'cloudShadow', label: '雲影' },
+  { key: 'leafTranslucency', label: '葉片透光' },
+  { key: 'pixelShadow', label: '像素對齊陰影' },
   { key: 'dithering', label: '打散色階' },
   { key: 'multiSample', label: '多重取樣' },
   { key: 'contactShadow', label: '接觸硬化陰影' },
   { key: 'airMotes', label: '空氣顆粒' },
   { key: 'groundMist', label: '貼地晨霧' },
   { key: 'wetness', label: '雨後濕潤' },
-  { key: 'pondMirror', label: '水鏡池倒影' },
+  { key: 'pondMirror', label: '水面倒影' },
   { key: 'waterGlint', label: '水面高光' },
 ] as const
 

@@ -89,6 +89,20 @@ export interface AtmosphereState {
    * 太陽、月亮與星空都得跟著淡出，否則會浮在白幕前面
    */
   skyBodyFade: number;
+
+  /**
+   * 離世界邊界有多近，0 為平常、1 為貼著邊界
+   *
+   * 由漫遊控制器每幀量測後寫入，與 caveRatio 同一個路數。
+   *
+   * 之所以要放在這裡而不是各自呼叫 getEdgeFogRatio：那道白幕是靠霧遮的，
+   * 凡是跳出霧的東西都得自己接一條收乾淨的路，而新加的東西要先知道
+   * 「有 getEdgeFogRatio 這個函式」才想得到要用它。
+   * 擺成一個現成的狀態欄位，讀它比記得呼叫某個函式可靠得多。
+   *
+   * 忘了接的那一個由 fog-opt-out 的稽核在開發模式報出來
+   */
+  edgeRatio: number;
 }
 
 /**
@@ -172,6 +186,35 @@ export const SWAMP_ATMOSPHERE = {
 } as const
 
 /**
+ * 地獄谷的大氣參數
+ *
+ * 這一座要的是熱，而熱是看得到的：滾燙的空氣會把遠處扭曲、
+ * 把顏色往火的方向拖。畫面上做得到的是後面那半——
+ * 讓霧壓近，並且把霧色換成岩漿自己的橘紅。
+ *
+ * 霧色不是隨便挑的紅，是岩漿那池光反射在空氣裡的顏色，
+ * 所以紅通道給到滿檔以上、綠留一點、藍幾乎不留。
+ * 出去還要過一次 ACES，那條曲線在高處會把飽和度往回收——
+ * 照著眼睛想要的紅去填，出來會是一塊悶掉的磚色，
+ * 得給得比看起來需要的更多（與沉進岩漿時同一個道理）。
+ *
+ * 能見度收到二十二格：谷底那幾道岩漿縫看得清楚，
+ * 對面的岩壁則融在一片熱氣裡。再近就看不到這座箱庭的樣子了，
+ * 而它終究是一座要被看見的箱庭，不是一道遮蔽用的簾子
+ */
+export const JIGOKU_ATMOSPHERE = {
+  fogColor: new Color3(1.02, 0.34, 0.16),
+  fogStart: 3,
+  fogEnd: 22,
+  /** 熱氣把陽光散開，直射光收掉一截，影子跟著軟下來 */
+  lightRatio: 0.55,
+  /** 地面那池光往上打，環境光比晴天更亮 */
+  ambientRatio: 1.12,
+  /** 岩面是粗糙的，沒有一個能反出太陽的點 */
+  specularRatio: 0.12,
+} as const
+
+/**
  * 聽雨箱庭的大氣參數
  *
  * 雨只下在那一座箱庭上，所以霧也只在那裡壓下來。
@@ -203,6 +246,45 @@ export const RAIN_ATMOSPHERE = {
   specularRatio: 0.05,
 } as const
 
+/**
+ * 暴風雪的大氣參數
+ *
+ * 與雨天不同的不是「更暗」，是「更白」。
+ * 雨天是一層冷灰壓在頭上，看得遠但看得暗；
+ * 暴風雪相反——空氣裡飛滿了反光的雪，畫面是亮的，
+ * 但十來格外什麼都沒有，那叫白矇。
+ *
+ * 所以霧色比晴天還白、能見度收得比沼澤更緊，
+ * 而天光開到全庭最高：雪地會把光往上反射回來，
+ * 站在雪裡的人是被上下夾著照的
+ */
+export const SNOW_ATMOSPHERE = {
+  /** 比晴天的霧更白，接近純白但留一點冷 */
+  fogColor: new Color3(0.88, 0.91, 0.95),
+  /**
+   * 與世界邊界那道白幕同一組數字
+   *
+   * 這裡試過 17 格、也試過 11 格，兩個都還「看得見這是一座庭園」——
+   * 而暴風雪的定義正是看不見。整個專案裡唯一真正做到
+   * 「什麼都看不到」的是邊界那道簾子（EDGE_FOG_START / EDGE_FOG_END），
+   * 它存在的理由是要藏住循環世界的接縫，所以濃到極致。
+   *
+   * 吹雪野直接照抄那組數字：半格外開始褪色、六格外一片空白。
+   * 三盞石燈籠因此一次只看得到一盞，而且是先看到暈、再看到燈。
+   *
+   * 兩者的用途完全不同（一個藏破綻、一個是主題），
+   * 但「白到什麼都沒有」這件事只有一種寫法
+   */
+  fogStart: EDGE_FOG_START,
+  fogEnd: EDGE_FOG_END,
+  /** 太陽比雨天再藏得深一點，暴風雪裡沒有方向感 */
+  lightRatio: 0.1,
+  /** 雪把光從地面反回來，天光比任何一種天氣都高 */
+  ambientRatio: 1.15,
+  /** 雪面是漫射的，沒有一個能反出太陽的點 */
+  specularRatio: 0.04,
+} as const
+
 export function createAtmosphereState(): AtmosphereState {
   return {
     fogColor: CLEAR_ATMOSPHERE.fogColor.clone(),
@@ -229,6 +311,7 @@ export function createAtmosphereState(): AtmosphereState {
     skyGlowStrength: 0.12,
     caveRatio: 0,
     skyBodyFade: 1,
+    edgeRatio: 0,
   }
 }
 

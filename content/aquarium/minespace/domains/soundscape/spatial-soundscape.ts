@@ -218,8 +218,12 @@ export class SpatialSoundscape {
     const audibleList: AudibleSound[] = []
 
     for (const definition of this.emitterList) {
-      /** 躲雨的音源直接卸載，雨停了再回來 */
-      if (this.weather === 'rain' && definition.silentInRain) {
+      /**
+       * 躲雨的音源直接卸載，雨停了再回來
+       *
+       * 暴風雪一樣算。會躲雨的是鳥與蟲，而牠們在雪裡躲得比雨裡更徹底
+       */
+      if ((this.weather === 'rain' || this.weather === 'snow') && definition.silentInRain) {
         this.unload(definition.id)
         continue
       }

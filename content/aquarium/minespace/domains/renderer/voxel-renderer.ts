@@ -13,6 +13,7 @@ import {
 import { SUN_LIGHT_NAME } from '../../composables/use-babylon-scene'
 import { BLOCK_DEFS, isDecorationBlock, LIQUID_SURFACE_DROP } from '../block/block-constants'
 import { TOTAL_CHUNKS } from '../world/world-constants'
+import { LEAF_TRANSLUCENCY, PLANT_TRANSLUCENCY } from './leaf-translucency'
 import { createWindSway, LEAF_SWAY_AMPLITUDE, PLANT_SWAY_AMPLITUDE } from './wind-sway'
 
 interface BlockMeshEntry {
@@ -49,6 +50,15 @@ export interface VoxelRenderer {
   /** 釋放所有資源 */
   dispose: () => void;
 }
+
+/**
+ * 地景網格名字的共同開頭
+ *
+ * 三種網格都用它起頭：整格的方塊、逐面貼圖的方塊、以及花草那類裝飾。
+ * 水面的倒影靠這個前綴把整片地景一次撈進反射清單，
+ * 所以名字的規則不能只寫在各自產生的地方
+ */
+export const BLOCK_MESH_PREFIX = 'block_'
 
 /** 花草與玻璃這類鏤空的東西不該有高光 */
 const NO_SPECULAR = new Color3(0, 0, 0)
@@ -269,7 +279,7 @@ class WorldRenderer {
    * 這樣一個方塊就能長成花盆、欄杆或一叢草
    */
   private initDecorationMeshes(blockId: BlockId, blockDef: BlockDef) {
-    const prefix = `block_deco_${blockId}`
+    const prefix = `${BLOCK_MESH_PREFIX}deco_${blockId}`
     const textureKey = blockDef.textures?.all
     const key = `${blockId}`
     if (!textureKey)
@@ -322,6 +332,7 @@ class WorldRenderer {
           noMipmap: true,
           flatShaded: true,
           specularColor: NO_SPECULAR,
+          translucency: PLANT_TRANSLUCENCY,
         })
         /**
          * 交叉立板就是地上的花草，從根部往上彎
@@ -349,6 +360,7 @@ class WorldRenderer {
           noMipmap: true,
           flatShaded: true,
           specularColor: NO_SPECULAR,
+          translucency: PLANT_TRANSLUCENCY,
         })
         addPlane('flat', 1, { x: Math.PI / 2, y: 0 }, { x: 0, y: -0.6, z: 0 }, material)
         break
@@ -518,6 +530,7 @@ class WorldRenderer {
             noMipmap: true,
             flatShaded: true,
             specularColor: NO_SPECULAR,
+            translucency: PLANT_TRANSLUCENCY,
           })
           addPlane('plant-a', 0.7, { x: 0, y: Math.PI / 4 }, { x: 0, y: 0.2, z: 0 }, plantMaterial)
           addPlane('plant-b', 0.7, { x: 0, y: -Math.PI / 4 }, { x: 0, y: 0.2, z: 0 }, plantMaterial)
@@ -651,7 +664,7 @@ class WorldRenderer {
     textureDef: BlockTextureDef,
     logAxis: 'x' | 'y' | 'z' = 'y',
   ) {
-    const prefix = `block_face_${blockId}`
+    const prefix = `${BLOCK_MESH_PREFIX}face_${blockId}`
 
     const addFace = (
       name: string,
@@ -719,7 +732,7 @@ class WorldRenderer {
   }
 
   private initSingleMaterialMesh(blockId: BlockId, blockDef: BlockDef, textureDef: BlockTextureDef) {
-    const name = `block_${blockId}`
+    const name = `${BLOCK_MESH_PREFIX}${blockId}`
     const textureKey = textureDef.all
     if (!textureKey)
       return
@@ -744,6 +757,8 @@ class WorldRenderer {
       /** 水與熔岩的法線同樣被改成朝上，掛不了法線貼圖 */
       flatShaded: blockDef.flatShaded,
       specularColor: blockDef.cutout ? NO_SPECULAR : undefined,
+      /** 立方體要自己說會不會透光，玻璃與鐵鏈同樣是鏤空的但不該發亮 */
+      translucency: blockDef.translucent ? LEAF_TRANSLUCENCY : undefined,
     })
 
     /**

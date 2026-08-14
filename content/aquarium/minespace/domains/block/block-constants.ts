@@ -317,9 +317,6 @@ export interface BlockTextureDef {
  */
 export const LIQUID_SURFACE_DROP = 0.125
 
-/** 腳步聲材質類型 */
-export type StepMaterial = 'grass' | 'stone' | 'wood' | 'gravel' | 'sand' | 'snow' | 'cloth' | 'coral' | 'wet_grass'
-
 /** 方塊定義 */
 export interface BlockDef {
   /** 材質定義（空氣方塊不需要） */
@@ -372,7 +369,18 @@ export interface BlockDef {
    * 碰撞會自動補滿到格子邊緣，玩家才擠不過去（見 collision.ts）
    */
   collisionWidth?: number;
-  /** 自發光強度 0~1，燈籠與餘燼在暗處要看得出在發亮 */
+  /**
+   * 自發光強度，燈籠與餘燼在暗處要看得出在發亮
+   *
+   * 一是「貼圖原本的亮度」，也就是全亮的方塊。多數發光方塊到這裡就夠了。
+   *
+   * 要讓一顆方塊看起來是光源而不是一塊亮石頭，就得超過一。
+   * 這個值會併進光照量再乘上貼圖（見 voxel-renderer），
+   * 超過一的部分交給 ACES 色調映射去收——那條曲線在高處壓得很兇，
+   * 所以不會爆成死白，而是把顏色往光的方向推。
+   *
+   * 超過一時記得另外給 lightLevel，否則照出去的範圍會跟著一起漲
+   */
   emissive?: number;
   /**
    * 照亮周圍的強度 0~1，未指定時跟著 emissive 走
@@ -400,6 +408,17 @@ export interface BlockDef {
    */
   swaysInWind?: boolean;
   /**
+   * 逆光時會不會透光
+   *
+   * 給樹葉用。交叉立板的花草一律會透，不必特別指定——
+   * 那些東西薄到只有一層，逆光時本來就近乎半透明；
+   * 立方體的方塊則要自己說，同樣是鏤空貼圖的玻璃與鐵鏈都不該發亮。
+   *
+   * 與 swaysInWind 分開是刻意的：蜘蛛網不會擺（洞裡沒有風），
+   * 但它逆著洞口的光看確實是透的——兩件事沒有必然關係
+   */
+  translucent?: boolean;
+  /**
    * 是否投出陰影，預設 true
    *
    * 給那些「本來就該與地面同一個平面」的方塊用。
@@ -407,8 +426,6 @@ export interface BlockDef {
    * 於是太陽一斜就從側面拖出一道影子，看起來像整塊浮起來了
    */
   castShadow?: boolean;
-  /** 踩上去的腳步聲材質 */
-  stepMaterial?: StepMaterial;
   /** 階梯靠背所在的那一側，只有 shape 為 stairs 時有意義 */
   stairsFacing?: StairsFacing;
   /**
@@ -450,67 +467,56 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     passable: true,
   },
   [BlockId.BEDROCK]: {
-    stepMaterial: 'stone',
     textures: {
       all: 'bedrock',
     },
   },
   [BlockId.STONE]: {
-    stepMaterial: 'stone',
     textures: {
       all: 'stone',
     },
   },
   [BlockId.COBBLESTONE]: {
-    stepMaterial: 'stone',
     textures: {
       all: 'cobblestone',
     },
   },
   [BlockId.MOSSY_COBBLESTONE]: {
-    stepMaterial: 'stone',
     textures: {
       all: 'mossyCobblestone',
     },
   },
   [BlockId.STONE_BRICKS]: {
-    stepMaterial: 'stone',
     textures: {
       all: 'stoneBricks',
     },
   },
   [BlockId.STONE_TILE]: {
-    stepMaterial: 'stone',
     textures: {
       all: 'stoneTile',
     },
   },
   [BlockId.RUNE_STONE]: {
-    stepMaterial: 'stone',
     textures: {
       all: 'runeStone',
     },
   },
   [BlockId.GRAVEL]: {
-    stepMaterial: 'gravel',
     textures: {
       all: 'gravel',
     },
   },
   [BlockId.CLAY]: {
-    stepMaterial: 'gravel',
     textures: {
       all: 'clay',
     },
   },
   [BlockId.DIRT]: {
-    stepMaterial: 'gravel',
     textures: {
       all: 'dirt',
     },
   },
   [BlockId.GRASS]: {
-    stepMaterial: 'grass',
     textures: {
       top: 'grassTop',
       side: 'dirt',
@@ -520,13 +526,11 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     },
   },
   [BlockId.SAND]: {
-    stepMaterial: 'sand',
     textures: {
       all: 'sand',
     },
   },
   [BlockId.SANDSTONE]: {
-    stepMaterial: 'stone',
     textures: {
       all: 'sandstone',
     },
@@ -549,11 +553,9 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
    */
   [BlockId.WHITE_SAND]: {
     isHidden: true,
-    stepMaterial: 'sand',
   },
   /** 箱庭甲板上鋪的白沙，數量少，照常畫 */
   [BlockId.GARDEN_SAND]: {
-    stepMaterial: 'sand',
     textures: {
       all: 'whiteSand',
       pixelTint: [1.1, 1.1, 1.1],
@@ -566,7 +568,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
    * 在方塊世界裡沒有那個角度，只能用明度差假裝那道溝
    */
   [BlockId.RAKED_SAND]: {
-    stepMaterial: 'sand',
     /**
      * 耙紋不投影子
      *
@@ -582,13 +583,11 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     },
   },
   [BlockId.WHITE_SANDSTONE]: {
-    stepMaterial: 'stone',
     textures: {
       all: 'whiteSandstone',
     },
   },
   [BlockId.SNOW]: {
-    stepMaterial: 'snow',
     textures: {
       top: 'snowTop',
       side: 'snowSide',
@@ -596,7 +595,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     },
   },
   [BlockId.ICE]: {
-    stepMaterial: 'stone',
     alpha: 0.8,
     receiveShadow: false,
     textures: {
@@ -605,20 +603,17 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
   },
   /** 壓實的冰是不透明的，凍住的池面用它才踩得住、也看不穿 */
   [BlockId.PACKED_ICE]: {
-    stepMaterial: 'stone',
     textures: {
       all: 'packedIce',
     },
   },
   [BlockId.OBSIDIAN_BRICKS]: {
-    stepMaterial: 'stone',
     textures: {
       all: 'obsidianBricks',
     },
   },
   /** 磚面上有一圈淡淡的月紋，是月語庭唯一的花樣 */
   [BlockId.MOON_BRICKS]: {
-    stepMaterial: 'stone',
     textures: {
       all: 'moonBricks',
     },
@@ -630,8 +625,25 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
    * 池底會透出一層橘紅，那是「這池水為什麼是燙的」唯一的解釋
    */
   [BlockId.LAVA]: {
-    stepMaterial: 'stone',
-    emissive: 1,
+    /**
+     * 超過一，它才是一池燒著的東西
+     *
+     * 給一的時候岩漿只是「貼圖全亮」——夜裡看過去是一塊橘色的石頭，
+     * 它從來不會比一面被太陽照到的牆更亮，於是怎麼看都不像在發光。
+     *
+     * 這個場景沒有開 bloom，也刻意不給岩漿光暈
+     * （整片液面每兩格一顆圓盤會糊成一塊白，見 lamp-glow），
+     * 所以「看起來在發光」這件事只剩自發光本身能做。
+     * 推到一點七，ACES 會把超出的部分往橘紅收，亮起來而不是白掉
+     */
+    emissive: 1.7,
+    /**
+     * 照出去的範圍維持原樣
+     *
+     * 沒指定的話它會跟著自發光一起漲，整座地獄谷的岩壁會被烤亮一圈。
+     * 要改的是「岩漿自己看起來多亮」，不是「它照得多遠」
+     */
+    lightLevel: 1,
     /**
      * 與水一樣是可以沉進去的液體
      *
@@ -649,7 +661,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     },
   },
   [BlockId.WATER]: {
-    stepMaterial: 'wet_grass',
     alpha: 0.72,
     passable: true,
     isLiquid: true,
@@ -669,7 +680,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
    * 用在瀑布與河道的落差處，水才看得出來在往哪裡走
    */
   [BlockId.FLOWING_WATER]: {
-    stepMaterial: 'wet_grass',
     alpha: 0.72,
     passable: true,
     isLiquid: true,
@@ -682,7 +692,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     },
   },
   [BlockId.OAK_LOG]: {
-    stepMaterial: 'wood',
     textures: {
       top: 'oakLogTop',
       bottom: 'oakLogTop',
@@ -691,7 +700,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
   },
   [BlockId.OAK_LEAVES]: {
     swaysInWind: true,
-    stepMaterial: 'grass',
+    translucent: true,
     cutout: true,
     textures: {
       all: 'oakLeaves',
@@ -700,7 +709,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
   },
   /** 白楊，樹皮是淺灰白色，一整片長在一起遠看就是一林子的白幹 */
   [BlockId.ASPEN_LOG]: {
-    stepMaterial: 'wood',
     textures: {
       top: 'aspenLogTop',
       bottom: 'aspenLogTop',
@@ -717,7 +725,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
    */
   [BlockId.AMBER_LEAVES]: {
     swaysInWind: true,
-    stepMaterial: 'grass',
+    translucent: true,
     cutout: true,
     textures: {
       all: 'aspenLeaves',
@@ -726,7 +734,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
   },
   [BlockId.GOLD_LEAVES]: {
     swaysInWind: true,
-    stepMaterial: 'grass',
+    translucent: true,
     cutout: true,
     textures: {
       all: 'aspenLeaves',
@@ -734,7 +742,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     },
   },
   [BlockId.PINE_LOG]: {
-    stepMaterial: 'wood',
     textures: {
       top: 'pineLogTop',
       bottom: 'pineLogTop',
@@ -743,7 +750,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
   },
   [BlockId.PINE_LEAVES]: {
     swaysInWind: true,
-    stepMaterial: 'grass',
+    translucent: true,
     cutout: true,
     textures: {
       all: 'pineLeaves',
@@ -759,7 +766,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
    * 才是曬了幾年、被雨水洗白的倒木
    */
   [BlockId.DEAD_LOG]: {
-    stepMaterial: 'wood',
     textures: {
       top: 'aspenLogTop',
       bottom: 'aspenLogTop',
@@ -769,7 +775,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
   },
   /** 躺著的枯木，年輪轉到兩端 */
   [BlockId.DEAD_LOG_X]: {
-    stepMaterial: 'wood',
     logAxis: 'x',
     textures: {
       top: 'aspenLogTop',
@@ -779,7 +784,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     },
   },
   [BlockId.DEAD_LOG_Z]: {
-    stepMaterial: 'wood',
     logAxis: 'z',
     textures: {
       top: 'aspenLogTop',
@@ -796,7 +800,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
    * 燒過的木頭不是中性灰，它帶著一點暗紅
    */
   [BlockId.CHARRED_LOG]: {
-    stepMaterial: 'wood',
     textures: {
       top: 'aspenLogTop',
       bottom: 'aspenLogTop',
@@ -805,7 +808,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     },
   },
   [BlockId.CHARRED_LOG_X]: {
-    stepMaterial: 'wood',
     logAxis: 'x',
     textures: {
       top: 'aspenLogTop',
@@ -815,7 +817,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     },
   },
   [BlockId.CHARRED_LOG_Z]: {
-    stepMaterial: 'wood',
     logAxis: 'z',
     textures: {
       top: 'aspenLogTop',
@@ -826,7 +827,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
   },
   /** 躺著的橡木，柴堆與橫枝用它 */
   [BlockId.OAK_LOG_X]: {
-    stepMaterial: 'wood',
     logAxis: 'x',
     textures: {
       top: 'oakLogTop',
@@ -835,7 +835,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     },
   },
   [BlockId.OAK_LOG_Z]: {
-    stepMaterial: 'wood',
     logAxis: 'z',
     textures: {
       top: 'oakLogTop',
@@ -845,7 +844,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
   },
   /** 相思木，樹皮偏紅，樹冠扁而寬 */
   [BlockId.ACACIA_LOG]: {
-    stepMaterial: 'wood',
     textures: {
       top: 'acaciaLogTop',
       bottom: 'acaciaLogTop',
@@ -854,7 +852,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
   },
   [BlockId.ACACIA_LEAVES]: {
     swaysInWind: true,
-    stepMaterial: 'grass',
+    translucent: true,
     cutout: true,
     textures: {
       all: 'acaciaLeaves',
@@ -863,7 +861,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
   },
   [BlockId.JUNGLE_LEAVES]: {
     swaysInWind: true,
-    stepMaterial: 'grass',
+    translucent: true,
     cutout: true,
     textures: {
       all: 'jungleLeaves',
@@ -871,13 +869,11 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     },
   },
   [BlockId.PLANKS]: {
-    stepMaterial: 'wood',
     textures: {
       all: 'planks',
     },
   },
   [BlockId.DARK_PLANKS]: {
-    stepMaterial: 'wood',
     textures: {
       all: 'darkPlanks',
     },
@@ -889,13 +885,11 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
    * 站上去看得出這是「做出來的台子」而不是一塊原木
    */
   [BlockId.WOOD_TILE]: {
-    stepMaterial: 'wood',
     textures: {
       all: 'woodTile',
     },
   },
   [BlockId.TATAMI]: {
-    stepMaterial: 'cloth',
     textures: {
       all: 'tatami',
     },
@@ -908,7 +902,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
    * 改用實心的淺色木紋再染成竹的黃綠，才是一根竹子該有的樣子
    */
   [BlockId.BAMBOO_BLOCK]: {
-    stepMaterial: 'wood',
     textures: {
       all: 'aspenPlanks',
       tint: [0.82, 0.88, 0.55],
@@ -922,7 +915,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
    * 改用直紋的簾布再染成米白，遠看就是紙門上那幾道木櫺
    */
   [BlockId.PAPER_DOOR]: {
-    stepMaterial: 'wood',
     textures: {
       all: 'paperDoor',
       pixelTint: [1.55, 1.5, 1.38],
@@ -936,20 +928,17 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
    * 疊起來還會有排序問題；改用 alpha test 只留下邊框才是玻璃該有的樣子
    */
   [BlockId.GLASS]: {
-    stepMaterial: 'stone',
     cutout: true,
     textures: {
       all: 'glass',
     },
   },
   [BlockId.HAY]: {
-    stepMaterial: 'grass',
     textures: {
       all: 'hay',
     },
   },
   [BlockId.BOOKSHELF]: {
-    stepMaterial: 'wood',
     textures: {
       top: 'planks',
       bottom: 'planks',
@@ -957,7 +946,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     },
   },
   [BlockId.BARREL]: {
-    stepMaterial: 'wood',
     textures: {
       top: 'barrelTop',
       bottom: 'barrelTop',
@@ -965,13 +953,11 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     },
   },
   [BlockId.CRATE]: {
-    stepMaterial: 'wood',
     textures: {
       all: 'crate',
     },
   },
   [BlockId.CHEST]: {
-    stepMaterial: 'wood',
     textures: {
       top: 'chestTop',
       bottom: 'chestTop',
@@ -980,7 +966,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
   },
   /** 灶膛燒著火，正面那張是有火光的畫格 */
   [BlockId.FURNACE]: {
-    stepMaterial: 'stone',
     emissive: 0.35,
     textures: {
       top: 'furnaceTop',
@@ -989,7 +974,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     },
   },
   [BlockId.WORKBENCH]: {
-    stepMaterial: 'wood',
     textures: {
       top: 'workbenchTop',
       bottom: 'planks',
@@ -1004,7 +988,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
    * 動畫留給水與熔岩那種六面同圖的方塊，這裡改用靜態的鍋口
    */
   [BlockId.CAULDRON]: {
-    stepMaterial: 'stone',
     textures: {
       top: 'cauldronTop',
       bottom: 'cauldronSide',
@@ -1012,7 +995,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     },
   },
   [BlockId.LANTERN]: {
-    stepMaterial: 'stone',
     emissive: 0.95,
     textures: {
       all: 'lantern',
@@ -1020,7 +1002,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
   },
   /** 和紙燈箱，光比燈石柔，暖色也重一些 */
   [BlockId.PAPER_LAMP]: {
-    stepMaterial: 'wood',
     emissive: 0.8,
     textures: {
       all: 'paperLamp',
@@ -1038,14 +1019,12 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
    * 換成本來就是整顆方塊的燈箱：木框圍著四面透光的紙
    */
   [BlockId.LANTERN_BOX]: {
-    stepMaterial: 'wood',
     emissive: 0.7,
     textures: {
       all: 'lanternBox',
     },
   },
   [BlockId.EMBER]: {
-    stepMaterial: 'stone',
     emissive: 0.8,
     /** 一團營火，照出去的範圍是全場最大的 */
     lightLevel: 1,
@@ -1054,7 +1033,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     },
   },
   [BlockId.BRICKS]: {
-    stepMaterial: 'stone',
     textures: {
       all: 'bricks',
     },
@@ -1069,35 +1047,30 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
    * 鑽石帶一點自發光，在暗處會透出微光，走到深處才會遇上
    */
   [BlockId.COAL_ORE]: {
-    stepMaterial: 'stone',
     textures: {
       all: 'coalOreBase',
       overlay: 'coalOreOverlay',
     },
   },
   [BlockId.IRON_ORE]: {
-    stepMaterial: 'stone',
     textures: {
       all: 'ironOreBase',
       overlay: 'ironOreOverlay',
     },
   },
   [BlockId.COPPER_ORE]: {
-    stepMaterial: 'stone',
     textures: {
       all: 'copperOreBase',
       overlay: 'copperOreOverlay',
     },
   },
   [BlockId.GOLD_ORE]: {
-    stepMaterial: 'stone',
     textures: {
       all: 'goldOreBase',
       overlay: 'goldOreOverlay',
     },
   },
   [BlockId.DIAMOND_ORE]: {
-    stepMaterial: 'stone',
     emissive: 0.2,
     textures: {
       all: 'diamondOreBase',
@@ -1105,7 +1078,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     },
   },
   [BlockId.HIVE]: {
-    stepMaterial: 'wood',
     textures: {
       top: 'hiveTop',
       bottom: 'hiveTop',
@@ -1113,7 +1085,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     },
   },
   [BlockId.HONEY_BLOCK]: {
-    stepMaterial: 'cloth',
     textures: {
       all: 'honeyBlock',
     },
@@ -1130,14 +1101,12 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     cutout: true,
     passable: true,
     isThinFloor: true,
-    stepMaterial: 'wood',
     textures: {
       all: 'openBook',
     },
   },
   /** 一副臥著的白骨，枯木林裡的時間感 */
   [BlockId.BONES]: {
-    stepMaterial: 'stone',
     textures: {
       top: 'bonesTop',
       bottom: 'bonesBottom',
@@ -1151,19 +1120,16 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
    * 白化的珊瑚骨混一點進去，顏色才不會像調色盤
    */
   [BlockId.CORAL_ORANGE]: {
-    stepMaterial: 'coral',
     textures: {
       all: 'coralOrange',
     },
   },
   [BlockId.CORAL_BROWN]: {
-    stepMaterial: 'coral',
     textures: {
       all: 'coralBrown',
     },
   },
   [BlockId.CORAL_SKELETON]: {
-    stepMaterial: 'coral',
     textures: {
       all: 'coralSkeleton',
     },
@@ -1173,7 +1139,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
   [BlockId.TALL_GRASS]: {
     shape: 'cross',
     passable: true,
-    stepMaterial: 'grass',
     textures: {
       all: 'tallGrass',
       tint: [0.55, 0.75, 0.36],
@@ -1182,7 +1147,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
   [BlockId.FERN]: {
     shape: 'cross',
     passable: true,
-    stepMaterial: 'grass',
     textures: {
       all: 'fern',
       tint: [0.46, 0.66, 0.34],
@@ -1191,7 +1155,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
   [BlockId.DRY_SHRUB]: {
     shape: 'cross',
     passable: true,
-    stepMaterial: 'grass',
     textures: {
       all: 'dryShrub',
       tint: [0.72, 0.62, 0.44],
@@ -1200,7 +1163,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
   [BlockId.FLOWER_ROSE]: {
     shape: 'cross',
     passable: true,
-    stepMaterial: 'grass',
     textures: {
       all: 'flowerRose',
       tint: [0.84, 0.84, 0.84],
@@ -1209,7 +1171,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
   [BlockId.FLOWER_TULIP]: {
     shape: 'cross',
     passable: true,
-    stepMaterial: 'grass',
     textures: {
       all: 'flowerTulip',
       tint: [0.84, 0.84, 0.84],
@@ -1218,7 +1179,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
   [BlockId.FLOWER_DANDELION]: {
     shape: 'cross',
     passable: true,
-    stepMaterial: 'grass',
     textures: {
       all: 'flowerDandelion',
       tint: [0.84, 0.84, 0.84],
@@ -1237,7 +1197,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     shape: 'cross',
     passable: true,
     swaysInWind: false,
-    stepMaterial: 'grass',
     textures: {
       all: 'mushroomRed',
       tint: [0.84, 0.84, 0.84],
@@ -1247,7 +1206,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     shape: 'cross',
     passable: true,
     swaysInWind: false,
-    stepMaterial: 'grass',
     textures: {
       all: 'mushroomBrown',
       tint: [0.84, 0.84, 0.84],
@@ -1256,7 +1214,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
   [BlockId.FLOWER_VIOLA]: {
     shape: 'cross',
     passable: true,
-    stepMaterial: 'grass',
     textures: {
       all: 'flowerViola',
       tint: [0.84, 0.84, 0.84],
@@ -1265,7 +1222,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
   [BlockId.FLOWER_WHITE_DANDELION]: {
     shape: 'cross',
     passable: true,
-    stepMaterial: 'grass',
     textures: {
       all: 'flowerWhiteDandelion',
       tint: [0.9, 0.9, 0.9],
@@ -1275,7 +1231,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
   [BlockId.BIG_FLOWER]: {
     shape: 'cross',
     passable: true,
-    stepMaterial: 'grass',
     textures: {
       all: 'bigFlower',
       tint: [0.86, 0.86, 0.86],
@@ -1285,7 +1240,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
   [BlockId.MOON_FLOWER]: {
     shape: 'cross',
     passable: true,
-    stepMaterial: 'grass',
     textures: {
       all: 'moonFlower',
       tint: [0.9, 0.9, 0.94],
@@ -1294,7 +1248,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
   [BlockId.FIRE_FLOWER]: {
     shape: 'cross',
     passable: true,
-    stepMaterial: 'grass',
     textures: {
       all: 'fireFlower',
       tint: [0.88, 0.82, 0.78],
@@ -1303,7 +1256,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
   [BlockId.CURLY_PLANT]: {
     shape: 'cross',
     passable: true,
-    stepMaterial: 'grass',
     textures: {
       all: 'curlyPlant',
       tint: [0.5, 0.68, 0.36],
@@ -1313,7 +1265,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
   [BlockId.STONE_PLANT]: {
     shape: 'cross',
     passable: true,
-    stepMaterial: 'grass',
     textures: {
       all: 'stonePlant',
       tint: [0.62, 0.68, 0.56],
@@ -1322,7 +1273,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
   [BlockId.WILD_GRASS]: {
     shape: 'cross',
     passable: true,
-    stepMaterial: 'grass',
     textures: {
       all: 'wildGrass',
       tint: [0.5, 0.72, 0.34],
@@ -1341,7 +1291,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
   [BlockId.WHEAT]: {
     shape: 'cross',
     passable: true,
-    stepMaterial: 'grass',
     textures: {
       all: 'wheat',
       pixelTint: [1.32, 1.06, 0.5],
@@ -1351,7 +1300,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
   [BlockId.WHEAT_TALL]: {
     shape: 'cross',
     passable: true,
-    stepMaterial: 'grass',
     textures: {
       all: 'wheatTall',
       pixelTint: [1.24, 0.94, 0.42],
@@ -1360,7 +1308,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
   [BlockId.JUNGLE_FLOWER]: {
     shape: 'cross',
     passable: true,
-    stepMaterial: 'grass',
     textures: {
       all: 'jungleFlower',
       tint: [0.86, 0.8, 0.8],
@@ -1369,7 +1316,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
   [BlockId.BUSH]: {
     shape: 'cross',
     passable: true,
-    stepMaterial: 'grass',
     textures: {
       all: 'bush',
       tint: [0.46, 0.64, 0.34],
@@ -1378,7 +1324,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
   [BlockId.DRY_GRASS]: {
     shape: 'cross',
     passable: true,
-    stepMaterial: 'grass',
     textures: {
       all: 'dryGrass',
       tint: [0.82, 0.74, 0.5],
@@ -1387,7 +1332,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
   [BlockId.JUNGLE_GRASS]: {
     shape: 'cross',
     passable: true,
-    stepMaterial: 'grass',
     textures: {
       all: 'jungleGrass',
       tint: [0.4, 0.62, 0.32],
@@ -1397,14 +1341,12 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
   [BlockId.PAPYRUS]: {
     shape: 'cross',
     passable: true,
-    stepMaterial: 'grass',
     textures: {
       all: 'papyrus',
       tint: [0.6, 0.74, 0.42],
     },
   },
   [BlockId.CACTUS]: {
-    stepMaterial: 'grass',
     textures: {
       top: 'cactusTop',
       bottom: 'cactusTop',
@@ -1417,7 +1359,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     passable: true,
     /** 洞裡沒有風。蜘蛛網跟著花草一起搖，整個山洞會看起來像在戶外 */
     swaysInWind: false,
-    stepMaterial: 'cloth',
     textures: {
       all: 'cobweb',
       tint: [0.9, 0.9, 0.9],
@@ -1427,7 +1368,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
   [BlockId.IVY]: {
     shape: 'cross',
     passable: true,
-    stepMaterial: 'grass',
     textures: {
       all: 'ivy',
       tint: [0.44, 0.62, 0.34],
@@ -1438,7 +1378,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     passable: true,
     /** 踩得上去，游過去也不會被葉子擋住 */
     isThinFloor: true,
-    stepMaterial: 'wet_grass',
     textures: {
       all: 'lilyPad',
       tint: [0.62, 0.78, 0.5],
@@ -1454,7 +1393,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     shape: 'flat',
     passable: true,
     isThinFloor: true,
-    stepMaterial: 'grass',
     textures: {
       all: 'fallenLeaves',
       /** 落在地上的葉子已經乾了一陣子，顏色比枝頭上的暗一階 */
@@ -1471,7 +1409,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     shape: 'flat',
     passable: true,
     isThinFloor: true,
-    stepMaterial: 'grass',
     textures: {
       all: 'forestLitter',
       tint: [0.72, 0.66, 0.5],
@@ -1480,7 +1417,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
   [BlockId.FENCE]: {
     shape: 'fence',
     collisionWidth: 0.4,
-    stepMaterial: 'wood',
     textures: {
       all: 'planks',
     },
@@ -1495,7 +1431,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     shape: 'fence',
     cutout: true,
     collisionWidth: 0.3,
-    stepMaterial: 'stone',
     textures: {
       all: 'chain',
     },
@@ -1503,7 +1438,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
   [BlockId.BAMBOO_FENCE]: {
     shape: 'fence',
     collisionWidth: 0.4,
-    stepMaterial: 'wood',
     textures: {
       all: 'aspenPlanks',
       tint: [0.82, 0.88, 0.55],
@@ -1514,7 +1448,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     shape: 'pane',
     cutout: true,
     passable: true,
-    stepMaterial: 'wood',
     textures: {
       all: 'ladder',
     },
@@ -1522,7 +1455,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
   [BlockId.GLASS_PANE]: {
     shape: 'pane',
     cutout: true,
-    stepMaterial: 'stone',
     textures: {
       all: 'glass',
     },
@@ -1531,7 +1463,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     shape: 'slab',
     /** 踩得上去，但只擋住下半格 */
     collisionHeight: 0.5,
-    stepMaterial: 'stone',
     textures: {
       all: 'cobblestone',
     },
@@ -1540,7 +1471,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     shape: 'slab',
     /** 踩得上去，但只擋住下半格 */
     collisionHeight: 0.5,
-    stepMaterial: 'wood',
     textures: {
       all: 'planks',
     },
@@ -1548,7 +1478,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
   [BlockId.DARK_WOOD_SLAB]: {
     shape: 'slab',
     collisionHeight: 0.5,
-    stepMaterial: 'wood',
     textures: {
       all: 'darkPlanks',
     },
@@ -1557,7 +1486,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
   [BlockId.CUSHION]: {
     shape: 'slab',
     collisionHeight: 0.5,
-    stepMaterial: 'cloth',
     textures: {
       all: 'cushion',
     },
@@ -1565,7 +1493,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
   [BlockId.WHITE_STONE_SLAB]: {
     shape: 'slab',
     collisionHeight: 0.5,
-    stepMaterial: 'stone',
     textures: {
       all: 'whiteSandstone',
     },
@@ -1580,7 +1507,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     shape: 'stairs',
     stairsFacing: 'north',
     collisionHeight: 0.5,
-    stepMaterial: 'wood',
     textures: {
       all: 'planks',
     },
@@ -1589,7 +1515,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     shape: 'stairs',
     stairsFacing: 'south',
     collisionHeight: 0.5,
-    stepMaterial: 'wood',
     textures: {
       all: 'planks',
     },
@@ -1598,7 +1523,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     shape: 'stairs',
     stairsFacing: 'east',
     collisionHeight: 0.5,
-    stepMaterial: 'wood',
     textures: {
       all: 'planks',
     },
@@ -1607,7 +1531,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     shape: 'stairs',
     stairsFacing: 'west',
     collisionHeight: 0.5,
-    stepMaterial: 'wood',
     textures: {
       all: 'planks',
     },
@@ -1622,7 +1545,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     shape: 'stairs',
     stairsFacing: 'north',
     collisionHeight: 0.5,
-    stepMaterial: 'wood',
     textures: {
       all: 'darkPlanks',
     },
@@ -1631,7 +1553,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     shape: 'stairs',
     stairsFacing: 'south',
     collisionHeight: 0.5,
-    stepMaterial: 'wood',
     textures: {
       all: 'darkPlanks',
     },
@@ -1640,7 +1561,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     shape: 'stairs',
     stairsFacing: 'east',
     collisionHeight: 0.5,
-    stepMaterial: 'wood',
     textures: {
       all: 'darkPlanks',
     },
@@ -1649,7 +1569,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     shape: 'stairs',
     stairsFacing: 'west',
     collisionHeight: 0.5,
-    stepMaterial: 'wood',
     textures: {
       all: 'darkPlanks',
     },
@@ -1657,7 +1576,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
   [BlockId.FLOWER_POT]: {
     shape: 'pot',
     passable: true,
-    stepMaterial: 'stone',
     plantTexture: 'pottedPlant',
     textures: {
       all: 'flowerPot',
@@ -1675,7 +1593,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     shape: 'layer',
     shapeThickness: 0.1875,
     collisionHeight: 0.1875,
-    stepMaterial: 'stone',
     textures: {
       all: 'cobblestone',
     },
@@ -1690,7 +1607,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     shape: 'layer',
     shapeThickness: 0.125,
     collisionHeight: 0.125,
-    stepMaterial: 'snow',
     textures: {
       all: 'snowTop',
     },
@@ -1700,7 +1616,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     shape: 'layer',
     shapeThickness: 0.25,
     collisionHeight: 0.25,
-    stepMaterial: 'cloth',
     textures: {
       all: 'tatami',
     },
@@ -1716,7 +1631,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     shape: 'post',
     shapeThickness: 0.3,
     collisionWidth: 0.3,
-    stepMaterial: 'wood',
     textures: {
       all: 'aspenPlanks',
       tint: [0.82, 0.88, 0.55],
@@ -1727,7 +1641,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     shape: 'post',
     shapeThickness: 0.42,
     collisionWidth: 0.42,
-    stepMaterial: 'wood',
     textures: {
       all: 'oakLogSide',
     },
@@ -1743,7 +1656,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     panelAxis: 'x',
     shapeThickness: 0.14,
     collisionWidth: 0.14,
-    stepMaterial: 'wood',
     textures: {
       all: 'paperDoor',
       pixelTint: [1.55, 1.5, 1.38],
@@ -1754,7 +1666,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     panelAxis: 'z',
     shapeThickness: 0.14,
     collisionWidth: 0.14,
-    stepMaterial: 'wood',
     textures: {
       all: 'paperDoor',
       pixelTint: [1.55, 1.5, 1.38],
@@ -1766,7 +1677,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     panelAxis: 'x',
     shapeThickness: 0.2,
     collisionWidth: 0.2,
-    stepMaterial: 'wood',
     textures: {
       all: 'darkPlanks',
     },
@@ -1776,7 +1686,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     panelAxis: 'z',
     shapeThickness: 0.2,
     collisionWidth: 0.2,
-    stepMaterial: 'wood',
     textures: {
       all: 'darkPlanks',
     },
@@ -1795,11 +1704,18 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     shapeThickness: 0.34,
     passable: true,
     hangingTailTexture: 'paperDoor',
-    stepMaterial: 'stone',
     textures: {
-      all: 'paperLamp',
-      /** 玻璃鈴身偏冷，與底下那片米白的紙分得開 */
-      pixelTint: [0.86, 0.96, 1.06],
+      /**
+       * 鈴身用冰，不用燈
+       *
+       * 原本借的是和紙燈那張圖，而它在原版對到的是螢石——
+       * 量過整張的亮度標準差是 62，全場最雜的一張。
+       * 貼在一顆只有三分之一格的小鈴上，看到的全是顆粒。
+       *
+       * 冰的標準差是 8，而且它本來就是「淡藍、半透、平滑」——
+       * 江戶風鈴本來就是玻璃做的，這比燈更接近它該有的樣子
+       */
+      all: 'ice',
     },
   },
   /** 吊在簷下的和紙提燈，比風鈴大，而且會亮 */
@@ -1808,7 +1724,6 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     shapeThickness: 0.5,
     passable: true,
     emissive: 0.8,
-    stepMaterial: 'wood',
     textures: {
       all: 'paperLamp',
       pixelTint: [0.92, 0.95, 1.02],
@@ -1831,11 +1746,6 @@ export const WOOL_TEXTURE = {
   black: 'woolBlack',
   pink: 'woolPink',
 } as const satisfies Record<string, TextureKey>
-
-/** 取得方塊的腳步聲材質 */
-export function getStepMaterial(blockId: BlockId): StepMaterial {
-  return BLOCK_DEFS[blockId]?.stepMaterial ?? 'stone'
-}
 
 /** 方塊是否可穿越（不阻擋玩家） */
 export function isPassableBlock(blockId: BlockId): boolean {

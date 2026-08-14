@@ -3,7 +3,7 @@ import type { AtmosphereState } from '../domains/weather/atmosphere'
 import type { MobileControlState } from './use-mobile-controller'
 import { Color3 } from '@babylonjs/core'
 import { onBeforeUnmount, reactive, ref } from 'vue'
-import { BlockId, getStepMaterial, isLavaBlock } from '../domains/block/block-constants'
+import { BlockId, isLavaBlock } from '../domains/block/block-constants'
 import { SPAWN_POSITION } from '../domains/garden/garden-layout'
 import {
   findSafeStandingPosition,
@@ -15,13 +15,16 @@ import {
   readBlock,
   resolveCollision,
 } from '../domains/player/collision'
+import { updateLeafTranslucency } from '../domains/renderer/leaf-translucency'
+import { updatePixelShadow } from '../domains/renderer/pixel-shadow'
 import { updateAerialAir } from '../domains/weather/aerial-perspective'
 import { CAVE_FOG_COLOR, EDGE_FOG_END, EDGE_FOG_START, getEdgeFogRatio } from '../domains/weather/atmosphere'
+import { updateCloudShadow } from '../domains/weather/cloud-shadow'
 import { WORLD_SIZE } from '../domains/world/world-constants'
-import { useStepSound } from './use-audio-engine'
-import { AMBIENT_LIGHT_NAME, SUN_LIGHT_NAME } from './use-babylon-scene'
+import { AMBIENT_LIGHT_NAME, SUN_DIRECTION, SUN_LIGHT_NAME } from './use-babylon-scene'
 import { useDevToggles } from './use-dev-toggles'
 import { measureSection } from './use-performance-probe'
+import { useTexturePack } from './use-texture-pack'
 
 const GRAVITY = 22
 const JUMP_SPEED = 7.6
@@ -35,10 +38,6 @@ const WATER_SWIM_SPEED = 3.4
 const WATER_MOVE_RATIO = 0.6
 /** 貼著岸邊往上爬的速度 */
 const WATER_CLIMB_SPEED = 3.6
-
-/** 腳步聲間隔（秒） */
-const STEP_INTERVAL = 0.45
-const SPRINT_STEP_INTERVAL = 0.28
 
 /** 限制俯仰角度避免翻轉 */
 const PITCH_LIMIT = Math.PI / 2 - 0.01
@@ -123,7 +122,7 @@ const TRANSPARENT_COVER_SET = new Set<BlockId>([
  * 方塊中心落在整數座標，所以第一格的外緣是 -0.5、最後一格的外緣是 WORLD_SIZE - 0.5。
  * 循環的區間必須對齊這兩條線，不能用 0 到 WORLD_SIZE：
  * 差的那半格會讓人被送到最後一格的外面，腳下沒有方塊，
- * 腳步聲會忽然消失，再走一步又立刻被彈回另一頭
+ * 站上去會直接往下掉，再走一步又立刻被彈回另一頭
  */
 const WORLD_MIN_EDGE = -0.5
 
@@ -209,7 +208,7 @@ interface UseFpsControllerParams {
 /**
  * 漫遊控制器
  *
- * 整合鍵盤 / 觸控移動、重力與 AABB 碰撞、游泳、腳步聲，
+ * 整合鍵盤 / 觸控移動、重力與 AABB 碰撞、游泳，
  * 並依所在環境調整霧氣與環境光，走進洞穴會自然變暗。
  */
 export function useFpsController() {
@@ -219,6 +218,8 @@ export function useFpsController() {
 
   /** 大氣透視的開關掛在這裡，因為空氣色是跟著霧色一起算的 */
   const { state: devToggle } = useDevToggles()
+  /** 像素陰影的格距就是材質包的解析度：換一套圖，階梯跟著變細或變粗 */
+  const { pack: texturePack } = useTexturePack()
 
   const isPaused = ref(true)
   const isSwimming = ref(false)
@@ -246,11 +247,8 @@ export function useFpsController() {
     z: SPAWN_POSITION.z,
   })
 
-  const stepSound = useStepSound()
-
   onBeforeUnmount(() => {
     cleanup?.()
-    stepSound.dispose()
   })
 
   function start({
@@ -277,7 +275,6 @@ export function useFpsController() {
 
     let velocityY = 0
     let isOnGround = false
-    let stepTimer = 0
     /** 鏡頭還沒補上的跨階落差 */
     let stepSmoothOffset = 0
     /** 環境轉換用的平滑係數，0 為地表、1 為洞穴 */
@@ -585,6 +582,8 @@ export function useFpsController() {
        * 兩者不會同時發生（箱庭離邊界四十二格），順序只是為了讓洞裡的霧說了算
        */
       const edgeRatio = getEdgeFogRatio(position.x, position.z)
+      /** 量在這裡、放上大氣狀態，其他人讀它就好，不必各自再算一次 */
+      atmosphere.edgeRatio = edgeRatio
       const edgeFogStart = atmosphere.fogStart + (EDGE_FOG_START - atmosphere.fogStart) * edgeRatio
       const edgeFogEnd = atmosphere.fogEnd + (EDGE_FOG_END - atmosphere.fogEnd) * edgeRatio
 
@@ -606,6 +605,15 @@ export function useFpsController() {
       scene.clearColor.set(scene.fogColor.r, scene.fogColor.g, scene.fogColor.b, 1)
 
       /**
+       * 還看得見多少天空
+       *
+       * 洞裡、水下、熔岩裡與貼近邊界時都等於零。
+       * 大氣透視、雲影與葉片透光共用這一項——
+       * 三者的前提是同一件事：頭上那片天還在
+       */
+      const openSkyRatio = (1 - caveRatio) * (1 - waterRatio) * (1 - lavaRatio) * (1 - edgeRatio)
+
+      /**
        * 中距離那層空氣的顏色
        *
        * 要接在霧色算完之後：大氣透視是拿最終的霧色往天色偏過去的，
@@ -617,7 +625,7 @@ export function useFpsController() {
       updateAerialAir(
         scene.fogColor,
         atmosphere.skyMidColor,
-        (1 - caveRatio) * (1 - waterRatio) * (1 - lavaRatio) * (1 - edgeRatio),
+        openSkyRatio,
         devToggle.aerialPerspective,
       )
 
@@ -681,32 +689,43 @@ export function useFpsController() {
         const specular = atmosphere.specularRatio * (1 - caveRatio)
         sunLight.specular.set(specular, specular, specular)
       }
-    }
 
-    /** 踩在哪種方塊上就播哪種腳步聲 */
-    function updateStepSound(deltaTime: number, isMoving: boolean, isSprinting: boolean) {
-      if (!isOnGround || !isMoving || isSwimming.value) {
-        stepTimer = 0
-        return
-      }
+      /**
+       * 雲影與葉片透光都吃「直射陽光還剩幾成」
+       *
+       * 兩者要的是同一件事：天上有沒有一顆又小又亮的太陽。
+       * 雲層把它打散之後，地上不會有一塊一塊的暗（光是從四面八方來的），
+       * 逆光的葉子也不會亮起來（沒有一道明確的方向可以透）。
+       * specularRatio 量的正是這個，直接拿來用
+       */
+      const directSunRatio = atmosphere.specularRatio * openSkyRatio
 
-      const interval = isSprinting ? SPRINT_STEP_INTERVAL : STEP_INTERVAL
-      stepTimer += deltaTime
-      if (stepTimer < interval)
-        return
-
-      stepTimer -= interval
-
-      const blockId = readBlock(
-        worldState,
-        Math.floor(position.x + 0.5),
-        Math.floor(position.y - 0.1 + 0.5),
-        Math.floor(position.z + 0.5),
+      updateCloudShadow(
+        sunLight?.direction ?? SUN_DIRECTION,
+        directSunRatio,
+        devToggle.cloudShadow,
       )
 
-      if (blockId !== BlockId.AIR) {
-        void stepSound.playStep(getStepMaterial(blockId))
-      }
+      /**
+       * 透光的量跟著光源自己的強度走
+       *
+       * 上面那一行剛算完的 sunLight.intensity 已經把天氣、時刻與洞穴
+       * 全部疊完了，是這一刻陽光真正的強度。夜裡換成月光時它會掉到很低，
+       * 葉子也就跟著不再發亮——月光確實透不過一片葉子
+       */
+      updateLeafTranslucency(
+        sunLight?.direction ?? SUN_DIRECTION,
+        atmosphere.lightColor,
+        directSunRatio * Math.min(1, sunLight?.intensity ?? 0),
+        devToggle.leafTranslucency,
+      )
+
+      updatePixelShadow(
+        sunLight,
+        scene.activeCamera,
+        texturePack.value.resolution,
+        devToggle.pixelShadow,
+      )
     }
 
     const observer = scene.onBeforeRenderObservable.add(() => {
@@ -850,7 +869,6 @@ export function useFpsController() {
           position.z,
         )
 
-        updateStepSound(deltaTime, moveLength > 0, isSprinting)
         updateAtmosphere(deltaTime)
       })
     })

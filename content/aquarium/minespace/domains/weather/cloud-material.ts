@@ -66,12 +66,40 @@ const CLOUD_FADE_END = 900
 /** 半透明的雲，飛過頭頂時還看得到後面的天色 */
 const CLOUD_ALPHA = 0.72
 
+/**
+ * 濃到這個程度以上才寫深度
+ *
+ * 深度預寫是為了讓雲不自己疊自己，代價是雲會擋住畫在它後面的東西——
+ * 灰罩正是其中之一。灰罩掛在鏡頭外一百二十五格、雲只在頭頂一百格，
+ * 深度測試會判定灰罩被雲擋著，於是四周都蓋上了，
+ * 雲的位置卻留著一塊沒被蓋到的洞。
+ *
+ * 門檻抓在「開始淡就交出深度」而不是「快淡完才交出」，
+ * 是因為交出深度的那一瞬間，雲的位置會立刻補上灰罩的顏色。
+ * 灰罩那時愈不透明，這一下跳得愈明顯；
+ * 而剛開始淡的時候灰罩還幾乎是全透明的，補上去等於沒補。
+ *
+ * 代價是接下來那段淡出的過程裡雲會自己疊自己，
+ * 但那正是灰罩逐漸蓋過來的同一段路，疊出來的髒污蓋在底下看不到
+ */
+const DEPTH_PREPASS_MIN_RATIO = 0.98
+
 /** 這一刻的雲色 */
 export interface CloudColorParams {
   /** 雲本身的顏色，由日夜與天氣決定 */
   color: Color3;
   /** 遠方要化進去的顏色，用霧色 */
   hazeColor: Color3;
+  /**
+   * 此刻該有多濃，1 為平常、0 為完全看不見
+   *
+   * 走近世界邊界時要收到零。染成霧色是不夠的：
+   * 雲走的是自己寫的著色器，沒有 Babylon 那套色調映射，
+   * 而白幕與地面走的是 StandardMaterial，映射寫在材質裡。
+   * 同一個顏色進去，一邊出來是原值、另一邊被 ACES 壓過，
+   * 雲於是成了白幕上更白的一塊。真正能讓它消失的只有淡出
+   */
+  visibleRatio: number;
 }
 
 /** 建立雲的材質 */
@@ -116,4 +144,11 @@ export function createCloudMaterial(name: string, scene: Scene): ShaderMaterial 
 export function applyCloudColor(material: ShaderMaterial, params: CloudColorParams): void {
   material.setColor3('cloudColor', params.color)
   material.setColor3('hazeColor', params.hazeColor)
+
+  const alpha = CLOUD_ALPHA * Math.min(1, Math.max(0, params.visibleRatio))
+
+  material.setFloat('cloudAlpha', alpha)
+  /** 著色器吃的是 uniform，這一份是給 Babylon 排半透明佇列用的 */
+  material.alpha = alpha
+  material.needDepthPrePass = params.visibleRatio > DEPTH_PREPASS_MIN_RATIO
 }
