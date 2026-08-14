@@ -4,6 +4,7 @@ import {
   CAVE_CHAMBER,
   CAVE_MOUTH,
   CAVE_TUNNEL,
+  GARDEN_LIST,
   getGarden,
   WATERFALL_POINT,
 } from '../garden/garden-layout'
@@ -58,24 +59,38 @@ const WIND_RING_COUNT = 6
 
 const EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
   // ── 麥浪田：一陣風走過整片麥子 ──
+  /**
+   * 四顆收在木座內側，不是攤在角落
+   *
+   * 原本擺在 ±6、可聽距離二十格，加起來的腳印是二十八格半——
+   * 而這座木座的半邊長只有十一格，等於麥浪一路響到田外十七格的空沙地上。
+   *
+   * 收到 ±4 配十一格：腳印剩十六格半，大約就是木座的對角。
+   * 站在田中央四顆都在滿音量附近，走到角落最近那顆也還在十格內，
+   * 整片田都有聲音，但踏出木座沒幾步就靜下來
+   */
   ...[
-    at('wheatfield', -6, -6),
-    at('wheatfield', 6, 6),
-    at('wheatfield', 6, -6),
-    at('wheatfield', -6, 6),
+    at('wheatfield', -4, -4),
+    at('wheatfield', 4, 4),
+    at('wheatfield', 4, -4),
+    at('wheatfield', -4, 4),
   ].map((position, index): SoundEmitterDefinition => ({
     /**
      * 麥浪
      *
-     * 用的是落葉的沙沙聲。那個音檔單獨聽是「乾掉的葉子」，
-     * 鋪成一整片、擺在及腰的高度之後就成了麥稈互相摩擦的聲音——
-     * 質地對了，聽的人自然會把它聽成眼前看到的東西。
+     * 這裡原本借用松籟林那個樹梢的風聲，理由是「質地對了，
+     * 聽的人自然會把它聽成眼前看到的東西」。那個說法只對了一半：
+     * 落葉的沙沙是闊葉互相拍打，短促、有顆粒；
+     * 麥浪是幾百萬根乾稈同時彎下去再起來，聲音是連續的、會推移的。
+     * 兩者在頻譜上像，在時間上不像——閉上眼睛聽得出那是一棵樹。
+     *
+     * 現在用的是麥稈根部的實地錄音，來源見 sounds/CREDITS.md。
      *
      * 四顆圍成一圈而不是中央一顆：風是從一邊掃到另一邊的，
      * 走在田裡才會覺得聲音有方向
      */
     id: `wheat-rustle-${index}`,
-    sound: 'forest-rustle',
+    sound: 'wheat-wind',
     title: { 'zh-hant': '麥稈摩擦', 'en': 'Wheat stalks rubbing' },
     zone: 'wheatfield',
     ...position,
@@ -83,8 +98,8 @@ const EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
     heightOffset: 2,
     mode: { type: 'loop' },
     volume: 0.42,
-    minDistance: 5,
-    maxDistance: 20,
+    minDistance: 3,
+    maxDistance: 11,
   })),
 
   // ── 松籟林：連續寬頻的風，襯著高處的鳥 ──
@@ -1231,18 +1246,22 @@ const EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
   ...createRingPositionList(getGarden('jigoku').center, 5, 3)
     .map((position, index): SoundEmitterDefinition => ({
       /**
-       * 用的是柴火那個音檔，不是水
+       * 熔岩有自己的音檔，不再借用別的
        *
-       * 這裡原本擺的是地底湖，理由是「水與熔岩的差別在耳朵裡只有速度」——
+       * 這裡換過兩次。最早擺的是地底湖，理由是「水與熔岩的差別在耳朵裡只有速度」——
        * 那個推論是錯的。水聲最好認的特徵是流動的嘶嘶與濺落的點狀高頻，
-       * 而熔岩根本不會濺，它是黏的。放下去的結果就是一條發光的小溪。
+       * 而熔岩根本不會濺，它是黏的。放下去的結果是一條發光的小溪。
        *
-       * 真正的熔岩湖錄音聽起來最接近的是火：低頻的悶響加上不規則的爆裂。
-       * 所以改用柴火，五顆疊在裂縫上、壓到地面高度，
-       * 密度堆起來之後那個劈啪就從「一盆營火」變成「一整條在燒的地縫」
+       * 第二次改用柴火。方向對了——真正的熔岩湖錄音最接近的確實是火，
+       * 低頻的悶響加上不規則的爆裂——但柴火終究是柴火：
+       * 它的爆裂是乾的、短的、帶著木頭的脆響，
+       * 五顆疊起來只會聽成「五盆營火圍成一圈」，而不是一整條在燒的地縫。
+       *
+       * 現在用的是專為熔岩做的循環，來源見 sounds/CREDITS.md。
+       * 它的底是黏稠的滾沸而不是乾燒，疊起來才是一池而不是一堆火
        */
       id: `jigoku-churn-${index}`,
-      sound: 'campfire',
+      sound: 'jigoku-lava',
       title: { 'zh-hant': '裂縫裡的熔岩', 'en': 'Lava in the fissure' },
       zone: 'jigoku',
       ...position,
@@ -1288,9 +1307,20 @@ const EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
    * 但也不能只有一顆音源。單獨一個點的風會被定位出來，
    * 一旦聽得出「風在那邊」，被包住的感覺就沒了。
    * 圍一圈六顆、全部同音量、範圍互相重疊，
-   * 方向互相抵消之後剩下的才是「四面八方都是風」
+   * 方向互相抵消之後剩下的才是「四面八方都是風」。
+   *
+   * 整圈的腳印必須收在十四格以內
+   *
+   * 最近的鄰居是水鏡池，中心相距二十二格半、木座邊緣只有十五格半。
+   * 音源在半徑三的環上、maxDistance 十一，加起來十四——
+   * 剛好在踏上水鏡池的木座之前就斷乾淨。
+   *
+   * 環的半徑從六收到三，是為了在腳印變小的同時保住那份包覆感：
+   * 環愈大，站在木座邊緣時對面那幾顆就愈遠、愈聽不到，
+   * 剩下近側那兩三顆一響，風就又有方向了。
+   * 收緊之後六顆全部落在聽得到的範圍裡，抵消才成立
    */
-  ...createRingPositionList(getGarden('blizzard').center, WIND_RING_COUNT, 6)
+  ...createRingPositionList(getGarden('blizzard').center, WIND_RING_COUNT, 3)
     .map((position, index): SoundEmitterDefinition => ({
       id: `blizzard-roar-${index}`,
       sound: 'blizzard-roar',
@@ -1301,8 +1331,8 @@ const EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
       heightOffset: 2,
       mode: { type: 'loop' },
       volume: 0.8,
-      minDistance: 5,
-      maxDistance: 26,
+      minDistance: 3,
+      maxDistance: 11,
     })),
   {
     /**
@@ -1318,11 +1348,12 @@ const EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
     zone: 'blizzard',
     ...at('blizzard', 0, 0),
     heightOffset: 4,
-    motion: { type: 'wander', radius: 7, periodSecond: 23, riseHeight: 2 },
+    /** 飄的半徑與可聽距離加起來同樣收在十四格內，理由見上面那一圈 */
+    motion: { type: 'wander', radius: 5, periodSecond: 23, riseHeight: 2 },
     mode: { type: 'interval', rangeSecond: [6, 18] },
     volume: 0.7,
     minDistance: 3,
-    maxDistance: 20,
+    maxDistance: 9,
   },
 ]
 
@@ -1332,16 +1363,72 @@ export interface ResolvedEmitter extends SoundEmitterDefinition {
 }
 
 /**
+ * 滿音量半徑最多佔可聽距離的幾成
+ *
+ * 被鄰居夾住而收窄的音源要照比例把 minDistance 一起收，
+ * 不然「滿音量的圈」會追過「聽得到的圈」，衰減公式的分母歸零
+ */
+const MIN_DISTANCE_RATIO = 0.6
+
+/**
+ * 這個音源最遠能傳到多遠，才不會被隔壁的箱庭聽見
+ *
+ * 一座箱庭的聲音只屬於那一座。站在雨聽堂聽得到牧野的羊，
+ * 兩座箱庭就從「各有各的世界」退回「同一片草原上的兩個裝置」——
+ * 而整個禪庭的前提是每一座各自成立。
+ *
+ * 這件事不適合逐筆調。一百多顆音源、二十二座箱庭，
+ * 手動對過一輪之後只要有人搬動一座箱庭或改一個 maxDistance，
+ * 越界就會悄悄長回來，而且要走到那裡站著聽才發現得了。
+ * 所以把它寫成建立清單時的約束：資料裡的 maxDistance 是「希望傳多遠」，
+ * 這裡把它夾到「不會吵到鄰居的最遠距離」。
+ *
+ * 量的是到鄰居木座邊緣的距離，不是到中心：人是站在木座上聽的。
+ * 會飄的音源還要扣掉飄的半徑，因為它可能正好飄向鄰居那一側
+ */
+function measureNeighbourLimit(definition: SoundEmitterDefinition): number {
+  const motionRadius = definition.motion && 'radius' in definition.motion
+    ? (definition.motion.radius ?? 0)
+    : 0
+
+  let limit = Number.POSITIVE_INFINITY
+
+  for (const garden of GARDEN_LIST) {
+    if (garden.id === definition.zone)
+      continue
+
+    const deltaX = Math.max(0, Math.abs(definition.x - garden.center.x) - garden.halfSize)
+    const deltaZ = Math.max(0, Math.abs(definition.z - garden.center.z) - garden.halfSize)
+    limit = Math.min(limit, Math.hypot(deltaX, deltaZ))
+  }
+
+  return Math.max(0, limit - motionRadius)
+}
+
+/**
  * 產生音源清單
  *
  * 沒有指定高度的音源會自動貼齊地面或水面，
  * 免得音源埋進木座裡，或是沉到水槽底下
  */
 export function createEmitterList(worldState: Uint8Array): ResolvedEmitter[] {
-  return EMITTER_DEFINITION_LIST.map((definition) => ({
-    ...definition,
-    y: definition.y ?? getWaterlineY(worldState, definition.x, definition.z) + (definition.heightOffset ?? 1),
-  }))
+  return EMITTER_DEFINITION_LIST.map((definition) => {
+    const limit = measureNeighbourLimit(definition)
+    const maxDistance = Math.min(definition.maxDistance, limit)
+
+    return {
+      ...definition,
+      maxDistance,
+      /**
+       * 滿音量的半徑不能追過可聽距離
+       *
+       * 線性衰減的公式是 (max − d) / (max − min)，兩者相等時分母為零。
+       * 被鄰居夾得很近的音源如果不跟著收，會整顆變成沒有衰減的硬邊
+       */
+      minDistance: Math.min(definition.minDistance, maxDistance * MIN_DISTANCE_RATIO),
+      y: definition.y ?? getWaterlineY(worldState, definition.x, definition.z) + (definition.heightOffset ?? 1),
+    }
+  })
 }
 
 /** 取得音檔完整路徑 */

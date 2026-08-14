@@ -20,7 +20,7 @@ export const DEV_TOGGLE_LIST = [
   { key: 'airMotes', label: '空氣顆粒' },
   { key: 'groundMist', label: '貼地晨霧' },
   { key: 'wetness', label: '雨後濕潤' },
-  { key: 'pondMirror', label: '水鏡池倒影' },
+  { key: 'pondMirror', label: '水面倒影' },
   { key: 'waterGlint', label: '水面高光' },
 ] as const
 

@@ -201,19 +201,35 @@ class CloudShadowPlugin extends MaterialPluginBase {
        * 池面照樣閃著一道刺眼的反光——那道光的來源明明正被遮著。
        *
        * 這一行是 include 展開後每一盞燈各一份，正規式帶著 g 旗標
-       * 會全部換過，靠 $2 把燈的編號帶進條件裡。
+       * 會全部換過，靠 $3 把燈的編號帶進條件裡。
        * 哪天 Babylon 改了這行的寫法，正規式找不到就靜靜地不做事，
-       * 畫面退回沒有雲影的樣子，不會壞掉
+       * 畫面退回沒有雲影的樣子，不會壞掉。
+       *
+       * 每個 $n 只准出現一次。Babylon 代換捕獲群組用的是
+       * `newCode.replace('$' + i, match[i])`——字串比對，一個編號只換掉
+       * 最前面那一個，後面的原封不動留在著色器裡變成 `$` 字元，
+       * 整支著色器編不過。所以寧可多切幾個群組，也不要重複用同一個編號。
+       * 漫射與高光連同編號各自獨立成群，就是為了守住這條規則。
+       *
+       * 注入的那段 GLSL 裡不要寫註解。Babylon 的前處理器用
+       * `/(#ifdef)|(#else)|(#elif)|(#endif)|(#ifndef)|(#if)/` 掃每一行，
+       * 沒有錨定行首，也不先把註解拿掉——註解裡提到條件編譯指令的名字，
+       * 就會被當成真的指令，條件層數從此對不起來，
+       * 游標一路跑到檔尾，後面整段著色器憑空消失。
+       * 要解釋就寫在這裡，這裡的字不會進到著色器。
+       *
+       * 至於下面那段在做什麼：平行光以外的那幾盞，條件編譯整段會被拿掉，
+       * cloudShade 就是常數 1.0，乘法會被編譯器摺掉，不花錢
        */
-      '!info=computeLighting\\(viewDirectionW,normalW,([^,]+),diffuse(\\d+)\\.rgb,([^,]+),diffuse\\2\\.a,glossiness\\);': `
-        #ifdef DIRLIGHT$2
-          {
-            float cloudShade = minespaceCloudShade();
-            info = computeLighting(viewDirectionW, normalW, $1, diffuse$2.rgb * cloudShade, $3 * cloudShade, diffuse$2.a, glossiness);
-          }
-        #else
-          info = computeLighting(viewDirectionW, normalW, $1, diffuse$2.rgb, $3, diffuse$2.a, glossiness);
-        #endif
+      '!info=computeLighting\\(viewDirectionW,normalW,([^,]+),(diffuse(\\d+)\\.rgb),([^,]+),(diffuse\\3\\.a),glossiness\\);': `
+        {
+          float cloudShade = 1.0;
+          #ifdef DIRLIGHT$3
+            cloudShade = minespaceCloudShade();
+          #endif
+
+          info = computeLighting(viewDirectionW, normalW, $1, $2 * cloudShade, $4 * cloudShade, $5, glossiness);
+        }
       `,
     }
   }

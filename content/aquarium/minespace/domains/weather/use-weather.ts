@@ -25,7 +25,7 @@ import {
   CLEAR_ATMOSPHERE,
   createAtmosphereState,
   GARDEN_FOG_COLOR,
-  getEdgeFogRatio,
+  JIGOKU_ATMOSPHERE,
   RAIN_ATMOSPHERE,
   SNOW_ATMOSPHERE,
   SWAMP_ATMOSPHERE,
@@ -58,7 +58,7 @@ import { createWetness } from './wetness'
  * 那道雨底一響，箱庭自己種的雨就被蓋掉了，
  * 「兩種身分」只剩畫面上成立。雨聲要各種各的，這條不要再破
  */
-function createWeatherZone(gardenId: GardenId, falloff: number) {
+function createWeatherZone(gardenId: GardenId, falloff: number, fullRadiusInset = 2) {
   const garden = getGarden(gardenId)
 
   return {
@@ -71,9 +71,13 @@ function createWeatherZone(gardenId: GardenId, falloff: number) {
      * 配上寬得多的過渡帶，實際效果是人還離十幾格遠雨就下起來了——
      * 走過去的那一段變成「雨中的空白沙地」，而那不是任何一座箱庭。
      *
-     * 收到木座內兩格：踏上甲板時雨勢還在漲，走到造景中間才滿檔
+     * 收到木座內兩格：踏上甲板時雨勢還在漲，走到造景中間才滿檔。
+     *
+     * 吹雪野是例外，它把這個內縮設成零。那座箱庭的主題就是
+     * 「站在裡面什麼都看不到」，留兩格的漲勢等於木座外圈永遠不滿檔，
+     * 而那圈剛好是最容易望出去看到鄰居的地方
      */
-    innerRadius: Math.max(2, garden.halfSize - 2),
+    innerRadius: Math.max(2, garden.halfSize - fullRadiusInset),
     /** 超過這個半徑就完全放晴 */
     outerRadius: garden.halfSize + falloff,
   }
@@ -104,9 +108,15 @@ const RAIN_ZONE_LIST = [RAINVALE_ZONE, RAINHALL_ZONE]
  *
  * 與雨同一套：天氣在這個世界裡是在地的，不是全域隨機的。
  * 過渡帶收得比聽雨亭緊——暴風雪要有「一腳踏進去」的那一下，
- * 攤太開會變成整片天空都在下雪，那就不是一座箱庭的事了
+ * 攤太開會變成整片天空都在下雪，那就不是一座箱庭的事了。
+ *
+ * 兩個參數要一起看。內縮給零是要整座木座都滿檔（外圈才不會望得到鄰居），
+ * 而滿檔的半徑一旦推到木座邊緣，過渡帶就整段落在木座外面——
+ * 留三格的話，走下木座還要再走三格雪才停，
+ * 那三格是空白的沙地，看起來就是「雪跟著我出來了」。
+ * 收到一格半：踏出木座的那一步雪就開始收，再一步就沒了
  */
-const BLIZZARD_ZONE = createWeatherZone('blizzard', 3)
+const BLIZZARD_ZONE = createWeatherZone('blizzard', 1.5, 0)
 
 /**
  * 打雷只發生在聽雨亭
@@ -129,6 +139,21 @@ export const MIST_ZONE = {
   z: MIST_GARDEN.center.z,
   innerRadius: MIST_GARDEN.halfSize - 2,
   outerRadius: MIST_GARDEN.halfSize + 10,
+}
+
+/**
+ * 地獄谷的熱氣範圍
+ *
+ * 與蛙聲澤同一套做法。過渡帶留八格：從外面走過來時，
+ * 顏色與能見度在踏上木座之前就開始變，
+ * 「愈走愈熱」那一段路本身就是這座箱庭的一部分
+ */
+const JIGOKU_GARDEN = getGarden('jigoku')
+export const JIGOKU_ZONE = {
+  x: JIGOKU_GARDEN.center.x,
+  z: JIGOKU_GARDEN.center.z,
+  innerRadius: JIGOKU_GARDEN.halfSize - 2,
+  outerRadius: JIGOKU_GARDEN.halfSize + 8,
 }
 
 /** 超過這個雨勢就算「在雨中」，鳥與蟲會躲起來 */
@@ -162,6 +187,17 @@ const WET_SOAK_SPEED = 0.5
  * 那半分鐘就是「剛剛下過雨」唯一說得出口的證據
  */
 const WET_DRY_SPEED = 1 / 45
+
+/**
+ * 灰罩蓋到幾成不透明時，雲要已經完全不見
+ *
+ * 雲得走在灰罩前面。雲有深度預寫，只要還在就會在灰罩上挖出一塊
+ * 沒被蓋到的洞；等到灰罩都蓋滿了才開始淡，那塊洞會一直留到最後。
+ *
+ * 給 0.6 而不是 1：留四成的餘裕讓灰罩安靜地補上最後那一段，
+ * 人不會看到「雲剛好在天要暗下來的同一刻消失」這種巧合
+ */
+const CLOUD_VANISH_AT_OVERCAST = 0.6
 
 interface StartParams {
   scene: Scene;
@@ -207,6 +243,11 @@ function measureZoneRatio(
 /** 依所在位置算出霧氣濃度，0 為清朗、1 為濃霧 */
 export function getMistRatio(x: number, z: number): number {
   return measureZoneRatio(x, z, MIST_ZONE)
+}
+
+/** 依所在位置算出地獄谷的熱氣強度，0 為完全在外、1 為谷底正中 */
+export function getJigokuRatio(x: number, z: number): number {
+  return measureZoneRatio(x, z, JIGOKU_ZONE)
 }
 
 /**
@@ -388,6 +429,7 @@ export function useWeather() {
 
     /** 壓暗過的天氣霧色，每幀就地覆寫，不要每幀配置新的顏色物件 */
     const nightMistColor = new Color3()
+    const nightJigokuColor = new Color3()
     const nightRainColor = new Color3()
     const nightSnowColor = new Color3()
     /** 雨天往霧色靠攏後的天頂色與中空色，同樣就地覆寫 */
@@ -416,6 +458,7 @@ export function useWeather() {
          * 下雨時的能見度本來就比起霧更差
          */
         const mistRatio = getMistRatio(camera.position.x, camera.position.z)
+        const jigokuRatio = getJigokuRatio(camera.position.x, camera.position.z)
 
         /**
          * 從日夜循環給的基準色開始疊
@@ -427,13 +470,32 @@ export function useWeather() {
          * 不壓的話，深夜裡走進聽雨亭會看到一團亮灰的霧浮在全黑的世界中央，
          * 那座箱庭就成了唯一沒有入夜的地方
          */
-        const nightScale = lerp(0.2, 1, measureDayBrightness(atmosphere))
+        const dayBrightnessNow = measureDayBrightness(atmosphere)
+        const nightScale = lerp(0.2, 1, dayBrightnessNow)
         nightMistColor.copyFrom(SWAMP_ATMOSPHERE.fogColor).scaleInPlace(nightScale)
         nightRainColor.copyFrom(RAIN_ATMOSPHERE.fogColor).scaleInPlace(nightScale)
         nightSnowColor.copyFrom(SNOW_ATMOSPHERE.fogColor).scaleInPlace(nightScale)
 
+        /**
+         * 熱氣入夜幾乎不暗
+         *
+         * 別的霧是天光散在水氣裡，天暗了它們當然跟著暗。
+         * 這一片橘紅的來源是腳下那幾道岩漿——太陽下不下山它都燒著。
+         * 照 0.2 那個係數壓下去，入夜後整座地獄谷會變成一片死黑，
+         * 而那正是它最該亮的時候
+         */
+        nightJigokuColor
+          .copyFrom(JIGOKU_ATMOSPHERE.fogColor)
+          .scaleInPlace(lerp(0.82, 1, dayBrightnessNow))
+
         Color3.LerpToRef(
           atmosphere.baseFogColor,
+          nightJigokuColor,
+          jigokuRatio,
+          atmosphere.fogColor,
+        )
+        Color3.LerpToRef(
+          atmosphere.fogColor,
           nightMistColor,
           mistRatio,
           atmosphere.fogColor,
@@ -441,11 +503,18 @@ export function useWeather() {
         Color3.LerpToRef(atmosphere.fogColor, nightRainColor, rainRatio, atmosphere.fogColor)
         Color3.LerpToRef(atmosphere.fogColor, nightSnowColor, snowRatio, atmosphere.fogColor)
 
-        const mistFogStart = lerp(CLEAR_ATMOSPHERE.fogStart, SWAMP_ATMOSPHERE.fogStart, mistRatio)
-        const mistFogEnd = lerp(CLEAR_ATMOSPHERE.fogEnd, SWAMP_ATMOSPHERE.fogEnd, mistRatio)
-        const mistLightRatio = lerp(CLEAR_ATMOSPHERE.lightRatio, SWAMP_ATMOSPHERE.lightRatio, mistRatio)
-        const mistSpecularRatio = lerp(CLEAR_ATMOSPHERE.specularRatio, SWAMP_ATMOSPHERE.specularRatio, mistRatio)
-        const mistAmbientRatio = lerp(CLEAR_ATMOSPHERE.ambientRatio, SWAMP_ATMOSPHERE.ambientRatio, mistRatio)
+        /** 熱氣疊在晴天之上，後面的霧、雨、雪再依序疊上去 */
+        const jigokuFogStart = lerp(CLEAR_ATMOSPHERE.fogStart, JIGOKU_ATMOSPHERE.fogStart, jigokuRatio)
+        const jigokuFogEnd = lerp(CLEAR_ATMOSPHERE.fogEnd, JIGOKU_ATMOSPHERE.fogEnd, jigokuRatio)
+        const jigokuLightRatio = lerp(CLEAR_ATMOSPHERE.lightRatio, JIGOKU_ATMOSPHERE.lightRatio, jigokuRatio)
+        const jigokuSpecularRatio = lerp(CLEAR_ATMOSPHERE.specularRatio, JIGOKU_ATMOSPHERE.specularRatio, jigokuRatio)
+        const jigokuAmbientRatio = lerp(CLEAR_ATMOSPHERE.ambientRatio, JIGOKU_ATMOSPHERE.ambientRatio, jigokuRatio)
+
+        const mistFogStart = lerp(jigokuFogStart, SWAMP_ATMOSPHERE.fogStart, mistRatio)
+        const mistFogEnd = lerp(jigokuFogEnd, SWAMP_ATMOSPHERE.fogEnd, mistRatio)
+        const mistLightRatio = lerp(jigokuLightRatio, SWAMP_ATMOSPHERE.lightRatio, mistRatio)
+        const mistSpecularRatio = lerp(jigokuSpecularRatio, SWAMP_ATMOSPHERE.specularRatio, mistRatio)
+        const mistAmbientRatio = lerp(jigokuAmbientRatio, SWAMP_ATMOSPHERE.ambientRatio, mistRatio)
 
         /**
          * 雪疊在雨後面
@@ -531,7 +600,49 @@ export function useWeather() {
          * 玩家照樣看得見地平線與雲的位置——跨過邊界時雲一換位置就全露餡了。
          * 天與地要一起收成同一片白，才是真正的什麼都看不見
          */
-        const edgeRatio = getEdgeFogRatio(camera.position.x, camera.position.z)
+        /** 漫遊控制器每幀量好放上來的，這裡讀就好 */
+        const edgeRatio = atmosphere.edgeRatio
+
+        /**
+         * 灰罩此刻該多不透明
+         *
+         * 三種情況會用到它：雨天的鉛灰、暴風雪的白矇、世界邊界的白幕。
+         * 各自的係數都大於一，是要它們在天氣滿檔之前就蓋滿，
+         * 而不是剛好在最後一步才到位
+         */
+        const overcastRatio = Math.min(
+          1,
+          Math.max(rainRatio * 1.15, snowRatio * 1.7, edgeRatio * 1.6),
+        )
+
+        /**
+         * 灰罩要收成霧色的程度
+         *
+         * 雨天不算在內：那時它就該是一片壓下來的鉛灰。
+         * 暴風雪與世界邊界則相反，兩者的主題都是「什麼都看不見」，
+         * 天與地必須是同一片顏色——差一點點就會在地平線上留下一條線
+         */
+        const whiteoutRatio = Math.min(1, Math.max(snowRatio * 1.7, edgeRatio * 1.6))
+
+        /**
+         * 雲淡光的程度，1 為已經完全看不見
+         *
+         * 雲不能只染成霧色藏在灰罩裡，那是行不通的：
+         * 雲走自己寫的著色器，沒有 Babylon 那套色調映射；
+         * 灰罩與地面走 StandardMaterial，映射寫在材質著色器裡。
+         * 同一個霧色餵進去，雲出來是原值、灰罩被 ACES 壓過，
+         * 亮度差了快兩成，雲反而成了那片白上更白的一塊。
+         *
+         * 也不能指望灰罩蓋住它。灰罩掛在鏡頭外一百二十五格、
+         * 雲只在頭頂一百格，深度測試會判定灰罩被雲擋著，
+         * 於是四周都蓋上了，雲的位置卻留著一塊沒被蓋到的洞。
+         *
+         * 顏色對不起來、蓋也蓋不住，那就讓它自己淡掉。
+         * 除以 0.6 是要它在灰罩蓋到六成時就已經完全不見——
+         * 雲得先走，灰罩才收得乾淨
+         */
+        const cloudFadeRatio = Math.min(1, overcastRatio / CLOUD_VANISH_AT_OVERCAST)
+
         if (overcastMaterial) {
           /**
            * 這一層是兩件事：雨天的陰、邊界的白幕
@@ -550,18 +661,23 @@ export function useWeather() {
            * 暴風雪的係數比雨更兇：雨要 0.87 的雨勢才蓋滿，
            * 雪只要 0.6 就整片不透光。走進吹雪野的半路上天就沒了
            */
-          overcastMaterial.alpha = Math.min(1, Math.max(rainRatio * 1.15, snowRatio * 1.7, edgeRatio * 1.6))
+          overcastMaterial.alpha = overcastRatio
           /**
-           * 雨天是鉛灰、邊界則是與霧同色
+           * 雨天是鉛灰，暴風雪與邊界則是與霧同色
            *
-           * 邊界那個顏色得跟著日夜走：白天是白幕、夜裡是一片深藍。
-           * 用固定的白會讓夜裡走近邊界時憑空亮起一面牆
+           * 收的目標用 atmosphere.fogColor 而不是 baseFogColor：
+           * 前者是地面此刻真正吃到的那個顏色，暴風雪的白已經混在裡面。
+           * 用日夜的基準色會讓吹雪野的天比地暗一截，
+           * 兩片白之間浮出一條地平線——而這座箱庭的主題正是沒有地平線。
+           *
+           * 顏色本來就跟著日夜走，夜裡收到的是一片深藍而不是白，
+           * 不會有夜裡憑空亮起一面牆的事
            */
           const brightness = lerp(0.66, 0.44, rainRatio) * measureDayBrightness(atmosphere)
           overcastMaterial.emissiveColor.set(
-            lerp(brightness, atmosphere.baseFogColor.r, edgeRatio),
-            lerp(brightness + 0.03, atmosphere.baseFogColor.g, edgeRatio),
-            lerp(brightness + 0.08, atmosphere.baseFogColor.b, edgeRatio),
+            lerp(brightness, atmosphere.fogColor.r, whiteoutRatio),
+            lerp(brightness + 0.03, atmosphere.fogColor.g, whiteoutRatio),
+            lerp(brightness + 0.08, atmosphere.fogColor.b, whiteoutRatio),
           )
         }
 
@@ -577,41 +693,33 @@ export function useWeather() {
         atmosphere.skyBodyFade = Math.max(0, 1 - Math.max(rainRatio * 1.6, snowRatio * 2.2, edgeRatio * 1.6))
 
         /**
-         * 雲的顏色
+         * 雲的顏色與濃度
          *
-         * 雨天轉成陰沉的鉛灰；走到世界邊界時則要整個化進霧裡。
+         * 雨天轉成陰沉的鉛灰；走到世界邊界時整個淡掉。
          *
          * 邊界那個不能交給外面的灰罩去蓋。灰罩掛在鏡頭外一百二十五格，
          * 雲卻只在頭頂一百格出頭——雲比灰罩近，深度測試會讓灰罩被雲擋在後面，
          * 於是四周全白了，抬頭卻還看得到幾朵雲飄過去。
-         * 讓雲自己染成霧的顏色，就不必跟深度的先後打架：
-         * 它還在那裡，只是與整片白一模一樣，看不出來而已
-         */
-        /**
-         * 雲要比霧更早化進白裡
          *
-         * 這裡原本直接用 edgeRatio，於是雲是與地面的霧同步變白的——
-         * 但霧在六格外就完全不透明，雲卻遠在頭頂一百格，
-         * 兩者在同一個比例上「一樣白」並不代表看起來一樣：
-         * 地面早就白成一片時，天上那幾朵還帶著三四成的自己的顏色，
-         * 抬頭就看得到它們飄過去。
-         *
-         * 乘 1.6 讓雲提前收乾淨，人走到邊界前雲就已經與白幕分不出來了
+         * 也不能只把它染成霧色。雲與白幕跑的是兩套著色器，
+         * 一邊沒有色調映射、一邊有，同一個顏色餵進去出來就不一樣。
+         * 唯一可靠的是把它淡到沒有，順便把顏色也帶過去，
+         * 淡的過程才不會看到一朵有顏色的雲愈來愈透明
          */
-        const cloudEdgeRatio = Math.min(1, edgeRatio * 1.6)
-
         for (const material of cloudMaterialList) {
           /** 基準亮度由日夜循環給，雲才會跟著入夜一起暗下來 */
           const brightness = lerp(atmosphere.cloudBrightness, atmosphere.cloudBrightness * 0.4, rainRatio)
+          /** 淡的同時把顏色也帶到霧色，過程中才不會看到一朵有顏色的雲愈來愈透明 */
           cloudColor.set(
-            lerp(brightness, atmosphere.baseFogColor.r, cloudEdgeRatio),
-            lerp(brightness, atmosphere.baseFogColor.g, cloudEdgeRatio),
-            lerp(brightness + 0.03, atmosphere.baseFogColor.b, cloudEdgeRatio),
+            lerp(brightness, atmosphere.fogColor.r, cloudFadeRatio),
+            lerp(brightness, atmosphere.fogColor.g, cloudFadeRatio),
+            lerp(brightness + 0.03, atmosphere.fogColor.b, cloudFadeRatio),
           )
           /** 遠方的雲化進霧色，才不會在地平線上疊成一道亮帶 */
           applyCloudColor(material, {
             color: cloudColor,
             hazeColor: atmosphere.baseFogColor,
+            visibleRatio: 1 - cloudFadeRatio,
           })
         }
 
@@ -668,10 +776,18 @@ export function useWeather() {
           dawnRatio * (1 - atmosphere.caveRatio) * (1 - rainRatio) * (1 - mistRatio) * edgeHideRatio,
         )
 
+        /**
+         * 邊界與開關都走 visibleRatio，不折進 dayRatio
+         *
+         * 螢火是拿 1 - dayRatio 反推的，把「不該看見」折進白晝的程度，
+         * 對浮塵是關掉、對螢火卻是開到最大。
+         * 大白天走到邊界會召出一群螢火，關掉這個開關也一樣
+         */
         airMotes?.update(
           camera,
-          devToggle.airMotes ? getDayRatio() * edgeHideRatio : 0,
+          devToggle.airMotes ? getDayRatio() : 0,
           devToggle.airMotes ? atmosphere.caveRatio : 0,
+          devToggle.airMotes ? edgeHideRatio : 0,
         )
 
         /**
@@ -686,9 +802,16 @@ export function useWeather() {
           : Math.max(wetTarget, wetRatio - WET_DRY_SPEED * deltaTime)
         wetness?.setRatio(wetRatio)
 
-        /** 躲在洞裡時看不到雨，雪也一樣 */
-        rainParticles?.update(camera, isSheltered() ? 0 : rainRatio)
-        snowParticles?.update(camera, isSheltered() ? 0 : snowRatio)
+        /**
+         * 躲在洞裡時看不到雨，雪也一樣；貼近邊界時兩者一併收掉
+         *
+         * 雨雪跟著鏡頭跑，跨過邊界的前後本來就是同一片，
+         * 不收也拆穿不了循環。收是為了另一件事：
+         * 邊界那道白幕的定義是什麼都看不到，
+         * 而幾條落在鏡頭前一兩格的雨絲，就是那片空白裡唯一還在動的東西
+         */
+        rainParticles?.update(camera, isSheltered() ? 0 : rainRatio * edgeHideRatio)
+        snowParticles?.update(camera, isSheltered() ? 0 : snowRatio * edgeHideRatio)
       })
     })
   }

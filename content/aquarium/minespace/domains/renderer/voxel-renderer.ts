@@ -51,6 +51,15 @@ export interface VoxelRenderer {
   dispose: () => void;
 }
 
+/**
+ * 地景網格名字的共同開頭
+ *
+ * 三種網格都用它起頭：整格的方塊、逐面貼圖的方塊、以及花草那類裝飾。
+ * 水面的倒影靠這個前綴把整片地景一次撈進反射清單，
+ * 所以名字的規則不能只寫在各自產生的地方
+ */
+export const BLOCK_MESH_PREFIX = 'block_'
+
 /** 花草與玻璃這類鏤空的東西不該有高光 */
 const NO_SPECULAR = new Color3(0, 0, 0)
 
@@ -270,7 +279,7 @@ class WorldRenderer {
    * 這樣一個方塊就能長成花盆、欄杆或一叢草
    */
   private initDecorationMeshes(blockId: BlockId, blockDef: BlockDef) {
-    const prefix = `block_deco_${blockId}`
+    const prefix = `${BLOCK_MESH_PREFIX}deco_${blockId}`
     const textureKey = blockDef.textures?.all
     const key = `${blockId}`
     if (!textureKey)
@@ -655,7 +664,7 @@ class WorldRenderer {
     textureDef: BlockTextureDef,
     logAxis: 'x' | 'y' | 'z' = 'y',
   ) {
-    const prefix = `block_face_${blockId}`
+    const prefix = `${BLOCK_MESH_PREFIX}face_${blockId}`
 
     const addFace = (
       name: string,
@@ -723,7 +732,7 @@ class WorldRenderer {
   }
 
   private initSingleMaterialMesh(blockId: BlockId, blockDef: BlockDef, textureDef: BlockTextureDef) {
-    const name = `block_${blockId}`
+    const name = `${BLOCK_MESH_PREFIX}${blockId}`
     const textureKey = textureDef.all
     if (!textureKey)
       return

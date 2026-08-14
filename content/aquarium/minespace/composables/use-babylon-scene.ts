@@ -38,6 +38,7 @@ import {
   CAVE_TUNNEL,
   SPAWN_POSITION,
 } from '../domains/garden/garden-layout'
+import { auditFogOptOut, optOutOfFog } from '../domains/renderer/fog-opt-out'
 import { createGlowTexture } from '../domains/renderer/glow-texture'
 import { registerLeafTranslucency } from '../domains/renderer/leaf-translucency'
 import { registerPixelShadow } from '../domains/renderer/pixel-shadow'
@@ -332,7 +333,7 @@ function createSkyDome(scene: Scene) {
   skyDome.material = skyMaterial
   skyDome.infiniteDistance = true
   skyDome.isPickable = false
-  skyDome.applyFog = false
+  optOutOfFog(skyDome, '天色本身就是白幕的顏色，由 sky-gradient 每幀收成霧色')
 
   return skyMaterial
 }
@@ -501,7 +502,7 @@ function createSunDisc(scene: Scene) {
   disc.infiniteDistance = true
   disc.billboardMode = Mesh.BILLBOARDMODE_ALL
   disc.isPickable = false
-  disc.applyFog = false
+  optOutOfFog(disc, '交給 atmosphere.skyBodyFade 淡出，貼近邊界時歸零')
 
   createSunGlow(scene)
 
@@ -529,7 +530,7 @@ function createGlowMesh(name: string, planeSize: number, scene: Scene): Mesh {
     scene,
   )
   mesh.isPickable = false
-  mesh.applyFog = false
+  optOutOfFog(mesh, '交給 atmosphere.skyBodyFade 淡出，貼近邊界時歸零')
   mesh.infiniteDistance = true
   mesh.billboardMode = Mesh.BILLBOARDMODE_ALL
 
@@ -626,7 +627,7 @@ function createMoonDisc(scene: Scene) {
   disc.infiniteDistance = true
   disc.billboardMode = Mesh.BILLBOARDMODE_ALL
   disc.isPickable = false
-  disc.applyFog = false
+  optOutOfFog(disc, '交給 atmosphere.skyBodyFade 淡出，貼近邊界時歸零')
 
   createMoonGlow(scene)
 
@@ -686,7 +687,7 @@ function createStarField(scene: Scene) {
   dome.material = material
   dome.infiniteDistance = true
   dome.isPickable = false
-  dome.applyFog = false
+  optOutOfFog(dome, '星空整層交給 atmosphere.skyBodyFade 淡出')
 
   return material
 }
@@ -841,6 +842,7 @@ function createCloudLayer(scene: Scene) {
   applyCloudColor(material, {
     color: new Color3(1, 1, 1),
     hazeColor: GARDEN_FOG_COLOR,
+    visibleRatio: 1,
   })
 
   /**
@@ -946,7 +948,7 @@ function createCloudLayer(scene: Scene) {
   cloudMesh.material = material
   cloudMesh.isPickable = false
   cloudMesh.receiveShadows = false
-  cloudMesh.applyFog = false
+  optOutOfFog(cloudMesh, '交給 use-weather 的 cloudFadeRatio 淡到全透明')
   cloudMesh.position.set(0, CLOUD_HEIGHT, 0)
 
   /**
@@ -1012,7 +1014,7 @@ function createOvercastDome(scene: Scene) {
   dome.renderingGroupId = SKY_OVERLAY_RENDERING_GROUP
   dome.infiniteDistance = true
   dome.isPickable = false
-  dome.applyFog = false
+  optOutOfFog(dome, '它自己就是那道白幕，由 use-weather 的 overcastRatio 蓋滿')
 
   return material
 }
@@ -1777,6 +1779,17 @@ export function useBabylonScene(param?: UseBabylonSceneParam) {
         scene: scene.value,
         camera: camera.value,
       })
+
+      /**
+       * 東西都建好了才掃
+       *
+       * 掃的是「有誰跳出了霧卻沒交代到邊界怎麼收」。
+       * 世界邊界那道白幕靠霧遮，跳出霧的每一個都得自己接一條路，
+       * 而漏掉的症狀是走到邊界還看得到它——通常沒人會特地走過去確認
+       */
+      if (import.meta.env.DEV) {
+        auditFogOptOut(scene.value)
+      }
     }
     catch (error) {
       const message = error instanceof Error ? error.message : String(error)

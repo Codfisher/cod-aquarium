@@ -28,6 +28,21 @@ const SNOW_AREA_HALF_SIZE = 7
 const SNOW_SPAWN_HEIGHT = 5
 
 /**
+ * 發射率相對於粒子上限的倍率
+ *
+ * 這個系統的密度不是發射率決定的，是粒子上限決定的：
+ * 發射率一旦高到能把池子填滿，畫面上就永遠是上限那麼多片，
+ * 多出來的發射額度只是等著補上剛回收的那幾片。
+ *
+ * 風加快之後每一片穿過泡泡、落到地面的時間都變短，池子空得更快。
+ * 倍率就是留給這件事的餘裕——沒有它，加速的代價會是雪變稀，
+ * 「颳得更兇」看起來反而像「雪下得更小」。
+ *
+ * 它不會增加畫面上的粒子數，上限沒動，所以也不會多花繪製的錢
+ */
+const EMIT_RATE_HEADROOM = 2
+
+/**
  * 生成盒往上風處推多遠
  *
  * 風往 −x 吹、略微偏 +z，上風處因此在 +x、−z 那一側。
@@ -155,13 +170,19 @@ export function createSnowParticles({
   particleSystem.maxSize = 0.16
 
   /**
-   * 活得比雨久得多
+   * 活得比雨久，但不必久到飄出泡泡以外
    *
    * 雨從生成高度落到地面不到一秒，雪要飄好幾秒。
-   * 壽命短了雪會在半空中憑空消失，而那是最難不看到的破綻
+   * 壽命短了雪會在半空中消失，而那是最難不看到的破綻——
+   * colorDead 的透明度是零，時間到是淡掉不是憑空不見，
+   * 只要壽命長過「落到地面」所需的時間就看不出來。
+   *
+   * 從八格半高、以現在的速度落到地面約兩秒，三秒是留了餘裕的下限。
+   * 上限從七秒收到五秒，是因為飄出那顆看得見的泡泡之後
+   * 每一片都還佔著粒子上限的一格——那是拿密度換看不見的東西
    */
-  particleSystem.minLifeTime = 4
-  particleSystem.maxLifeTime = 7
+  particleSystem.minLifeTime = 3
+  particleSystem.maxLifeTime = 5
   particleSystem.emitRate = 0
 
   /**
@@ -180,11 +201,21 @@ export function createSnowParticles({
   /** 往下的分量與橫向的分量差不多，那個斜率就是雪被吹斜的角度 */
   particleSystem.direction1 = new Vector3(-1, -0.9, 0.2)
   particleSystem.direction2 = new Vector3(-0.72, -0.66, 0.5)
-  particleSystem.minEmitPower = 3.5
-  particleSystem.maxEmitPower = 5
-  /** 雪片自己會轉，那是它與雨最容易分辨的地方 */
-  particleSystem.minAngularSpeed = -2.4
-  particleSystem.maxAngularSpeed = 2.4
+  /**
+   * 風速
+   *
+   * 橫向與縱向一起放大，斜率不變——雪被吹斜的角度是 direction 那兩個
+   * 向量決定的，速度只決定它走得多快。所以加速不會讓雪整片飛出視野，
+   * 上風處的偏移量也不必跟著改（重力的份量相對變小，
+   * 落到地面的橫向位移只多了半格）。
+   *
+   * 這一段快慢是暴風雪唯一的表情。慢下來是飄雪，快起來才是颳
+   */
+  particleSystem.minEmitPower = 6
+  particleSystem.maxEmitPower = 8.5
+  /** 雪片自己會轉，那是它與雨最容易分辨的地方。風大了轉也該跟著快 */
+  particleSystem.minAngularSpeed = -3.6
+  particleSystem.maxAngularSpeed = 3.6
   particleSystem.updateSpeed = 0.02
   particleSystem.blendMode = ParticleSystem.BLENDMODE_STANDARD
   particleSystem.preWarmCycles = 0
@@ -222,7 +253,7 @@ export function createSnowParticles({
     setBrightness: dimmer.setBrightness,
     update(camera, ratio) {
       emitterPosition.copyFrom(camera.position)
-      particleSystem.emitRate = maxParticleCount * ratio
+      particleSystem.emitRate = maxParticleCount * ratio * EMIT_RATE_HEADROOM
 
       if (ratio > 0.01 && !isStarted) {
         particleSystem.start()

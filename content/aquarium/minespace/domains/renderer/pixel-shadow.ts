@@ -135,18 +135,26 @@ class PixelShadowPlugin extends MaterialPluginBase {
        * 三種濾波（PCSS、PCF、硬邊）的函式名字不同、參數也不同，
        * 所以只認前兩個參數，剩下的原封不動接回去。
        * 哪天 Babylon 改了這幾行的寫法，正規式找不到就靜靜地不做事，
-       * 陰影退回原本的柔邊，不會壞掉
+       * 陰影退回原本的柔邊，不會壞掉。
+       *
+       * 每個 $n 只准出現一次。Babylon 代換捕獲群組用的是
+       * `newCode.replace('$' + i, match[i])`——字串比對，一個編號只換掉
+       * 最前面那一個，後面的原封不動留在著色器裡變成 `$` 字元，
+       * 整支著色器編不過。取樣點、深度連同編號各自獨立成群，
+       * 就是為了守住這條規則
        */
-      '!shadow=(computeShadow[A-Za-z0-9]*)\\(vPositionFromLight(\\d+),vDepthMetric\\2,([^;]*)\\);': `
-        #ifdef DIRLIGHT$2
-          shadow = $1(
-            vPositionFromLight$2 + minespacePixelShadowDelta,
-            vDepthMetric$2 + minespacePixelShadowDelta.z * pixelShadowParam.y,
-            $3
-          );
-        #else
-          shadow = $1(vPositionFromLight$2, vDepthMetric$2, $3);
-        #endif
+      '!shadow=(computeShadow[A-Za-z0-9]*)\\((vPositionFromLight(\\d+)),(vDepthMetric\\3),([^;]*)\\);': `
+        {
+          vec4 minespaceShadowPosition = $2;
+          float minespaceShadowDepth = $4;
+
+          #ifdef DIRLIGHT$3
+            minespaceShadowPosition += minespacePixelShadowDelta;
+            minespaceShadowDepth += minespacePixelShadowDelta.z * pixelShadowParam.y;
+          #endif
+
+          shadow = $1(minespaceShadowPosition, minespaceShadowDepth, $5);
+        }
       `,
     }
   }

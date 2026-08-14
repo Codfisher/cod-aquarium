@@ -357,9 +357,20 @@ export function buildCicadaGarden(state: Uint8Array, garden: GardenDefinition): 
     setBlock(state, centerX + offsetX, groundY + 3, verandaZ, BlockId.DARK_STAIRS_NORTH)
   }
 
-  /** 廊上的坐墊與一盞紙燈，夏天的午後就是在這裡待過去的 */
+  /** 廊上的坐墊，夏天的午後就是在這裡待過去的 */
   setDecoration(state, centerX - 1, groundY + 1, verandaZ, BlockId.CUSHION)
-  setDecoration(state, centerX + 2, groundY + 1, verandaZ, BlockId.PAPER_LAMP)
+
+  /**
+   * 簷下的吊燈
+   *
+   * 原本是一格和紙燈箱擺在廊板上方一格的位置，下面沒有東西托著它，
+   * 看起來就是一顆浮在半空中的發光方塊。
+   *
+   * 廊的正上方 groundY + 3 就是那道短簷，所以換成吊燈、往上挪一格，
+   * 它就貼著簷板垂下來了——同一張貼圖、同一個色調，
+   * 差別只在它現在有了來處
+   */
+  setBlock(state, centerX + 2, groundY + 2, verandaZ, BlockId.HANGING_LAMP)
 
   /** 廊邊的手水缽，夏天走過去先掬一瓢水 */
   placeWaterBasin(state, centerX - 5, groundY, verandaZ - 2)

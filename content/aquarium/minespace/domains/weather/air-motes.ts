@@ -46,9 +46,19 @@ export interface AirMotes {
    * 每一幀更新
    *
    * dayRatio 為白晝的程度、caveRatio 為被地形包住的程度，
-   * 兩者一起決定此刻空氣裡飄的是什麼
+   * 兩者一起決定此刻空氣裡飄的是什麼。
+   *
+   * visibleRatio 是另一回事：它不管該飄什麼，只管此刻該不該看得見，
+   * 貼近世界邊界時收到零。這一項必須自己一個參數，不能折進 dayRatio——
+   * 螢火是拿 1 - dayRatio 反推的，把邊界折進去等於告訴牠們天黑了，
+   * 大白天走到邊界反而會召出一群螢火
    */
-  update: (camera: UniversalCamera, dayRatio: number, caveRatio: number) => void;
+  update: (
+    camera: UniversalCamera,
+    dayRatio: number,
+    caveRatio: number,
+    visibleRatio: number,
+  ) => void;
   dispose: () => void;
 }
 
@@ -113,12 +123,19 @@ export function createAirMotes({
   moteSystem.particleTexture = createMoteTexture('air-mote-texture', scene)
   moteSystem.emitter = moteEmitter
   /**
-   * 不吃霧
+   * 吃霧
    *
-   * 顆粒只散在身邊十來格內，那個距離連最濃的沼澤霧都還沒開始作用。
-   * 開著只是讓每一顆多算一次霧，換不到任何看得出來的差別
+   * 顆粒只散在身邊十來格內，平常那個距離連最濃的沼澤霧都還沒開始作用，
+   * 這一項確實換不到任何看得出來的差別。
+   *
+   * 世界邊界那道白幕是例外：它半格外就起霧、六格外全白，
+   * 顆粒整片都落在裡面。不吃霧的話，四周白成一片時
+   * 這些顆粒依然清清楚楚地浮在白幕前面，跨過邊界就整批換了一組。
+   *
+   * 停止發射只管得到還沒生出來的那些，已經飄在空中的要等壽命走完，
+   * 而那段時間人早就走到邊界了。只有霧管得到它們
    */
-  moteSystem.applyFog = false
+  moteSystem.applyFog = true
   moteSystem.renderingGroupId = WEATHER_RENDERING_GROUP
   moteSystem.minEmitBox = new Vector3(-SPREAD_RADIUS, -SPREAD_BELOW, -SPREAD_RADIUS)
   moteSystem.maxEmitBox = new Vector3(SPREAD_RADIUS, SPREAD_ABOVE, SPREAD_RADIUS)
@@ -164,7 +181,14 @@ export function createAirMotes({
   const fireflySystem = new ParticleSystem('air-firefly', fireflyCount, scene)
   fireflySystem.particleTexture = createMoteTexture('air-firefly-texture', scene)
   fireflySystem.emitter = fireflyEmitter
-  fireflySystem.applyFog = false
+  /**
+   * 同樣吃霧，理由與浮塵一致
+   *
+   * 螢火走相加混合，吃霧等於把加上去的那道光往霧色收。
+   * 牠們只在夜裡出來，而夜裡的霧色是一片深藍——
+   * 收過去就是暗下來，正是要的效果
+   */
+  fireflySystem.applyFog = true
   fireflySystem.renderingGroupId = WEATHER_RENDERING_GROUP
   /** 螢火貼著草叢飛，範圍收窄、也不往高處去 */
   fireflySystem.minEmitBox = new Vector3(-SPREAD_RADIUS * 0.8, -SPREAD_BELOW, -SPREAD_RADIUS * 0.8)
@@ -204,7 +228,7 @@ export function createAirMotes({
   let recenterElapsed = RECENTER_INTERVAL
 
   return {
-    update(camera, dayRatio, caveRatio) {
+    update(camera, dayRatio, caveRatio, visibleRatio) {
       measureSection('空氣顆粒', () => {
         const deltaTime = Math.min(0.1, scene.getEngine().getDeltaTime() / 1000)
 
@@ -239,7 +263,7 @@ export function createAirMotes({
          * 洞裡則相反：那裡永遠是暗的，但有燈火，塵照樣看得見
          */
         const litRatio = Math.max(dayRatio, caveRatio * 0.7)
-        moteSystem.emitRate = MOTE_EMIT_RATE * litRatio
+        moteSystem.emitRate = MOTE_EMIT_RATE * litRatio * visibleRatio
 
         /**
          * 螢火只在地表的夜裡出來
@@ -247,7 +271,7 @@ export function createAirMotes({
          * 洞裡沒有螢火——那裡沒有草。天一亮牠們也就散了
          */
         const nightRatio = Math.max(0, 1 - dayRatio / FIREFLY_DAY_THRESHOLD)
-        fireflySystem.emitRate = FIREFLY_EMIT_RATE * nightRatio * (1 - caveRatio)
+        fireflySystem.emitRate = FIREFLY_EMIT_RATE * nightRatio * (1 - caveRatio) * visibleRatio
       })
     },
     dispose() {

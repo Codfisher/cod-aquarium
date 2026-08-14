@@ -13,16 +13,17 @@ export interface BlockLightSource {
   /** 是不是燒著的東西，火光要更亮、還要會晃 */
   isFire: boolean;
   /**
-   * 這盞光要不要畫外圈的光暈
+   * 這是不是一片躺平的面光源
    *
-   * 光暈是一片朝著鏡頭的圓盤，它成立的前提是「這是一個點，
-   * 而且四周是空氣」。岩漿兩者都不是：它是一整片躺平的面光源，
-   * 圓盤有一半永遠埋在自己的液面底下，被深度測試切掉，
-   * 留在畫面上的就是一條沿著液面的直邊。
+   * 只有岩漿。它與一盞燈籠差在兩件事：它不是一個點，而是一整片；
+   * 而且圓盤有一半會埋在自己的液面底下。
    *
-   * 詳細的來龍去脈寫在 lamp-glow.ts 的 hasHalo 那一段
+   * 兩件事現在都有解：埋在液面下的那半交給柔性淡出化開
+   * （見 halo-soft-fade），一整片則靠更疏的格距與更大更淡的圓盤，
+   * 讓幾顆疊起來是一層熱氣而不是一塊白。
+   * 光暈那一側怎麼分別處理寫在 lamp-glow.ts
    */
-  hasHalo: boolean;
+  isAreaLight: boolean;
 }
 
 /**
@@ -37,11 +38,25 @@ const MIN_LIGHT_LEVEL = 0.5
 const FIRE_BLOCK_SET = new Set<BlockId>([BlockId.EMBER, BlockId.LAVA, BlockId.FURNACE])
 
 /**
- * 這幾種是躺平的面光源，不畫外圈的光暈
+ * 這幾種是躺平的面光源
  *
- * 只有岩漿。它照樣點真光、照樣自己發亮，缺的只是那圈暈
+ * 只有岩漿。它一樣點真光、一樣有暈，只是兩者的擺法都要放疏
  */
 const AREA_LIGHT_SET = new Set<BlockId>([BlockId.LAVA])
+
+/**
+ * 每幾格留一顆的格距指數
+ *
+ * 一般的燈是一個點，兩格一顆（指數一）剛好——燈籠本來就擺得比這疏，
+ * 只有連成一串的餘燼會被收掉幾顆，而它們照出來的範圍幾乎完全重疊。
+ *
+ * 岩漿是一整池，兩格一顆會在液面上排出幾十顆光暈，
+ * 相加混合疊起來就是一塊死白，而地獄谷正好是全場網格最多的地方。
+ * 放到四格一顆（指數二），數量剩四分之一，
+ * 再配上更大更淡的圓盤，疊出來的才是一層浮在液面上的熱氣
+ */
+const DEFAULT_CELL_SHIFT = 1
+const AREA_LIGHT_CELL_SHIFT = 2
 
 /** 燈籠、紙燈這類的光色：暖，但不到火的程度 */
 const LAMP_COLOR: [number, number, number] = [1, 0.86, 0.62]
@@ -88,7 +103,17 @@ export function collectLightSourceList(worldState: Uint8Array): BlockLightSource
         if (level < MIN_LIGHT_LEVEL)
           continue
 
-        const cellKey = `${x >> 1}_${y >> 1}_${z >> 1}`
+        const isAreaLight = AREA_LIGHT_SET.has(blockId as BlockId)
+        const shift = isAreaLight ? AREA_LIGHT_CELL_SHIFT : DEFAULT_CELL_SHIFT
+
+        /**
+         * 格距也寫進鍵裡
+         *
+         * 兩種格距共用一張表，不分開的話，一顆四格見方的岩漿格
+         * 會與兩格見方的燈籠格撞在同一個鍵上，其中一盞就這樣沒了。
+         * 湯屋的岩池底下正好埋著岩漿、岸邊又點著燈，那裡每次都會撞
+         */
+        const cellKey = `${shift}_${x >> shift}_${y >> shift}_${z >> shift}`
         const existing = cellMap.get(cellKey)
         if (existing && existing.level >= level)
           continue
@@ -101,7 +126,7 @@ export function collectLightSourceList(worldState: Uint8Array): BlockLightSource
           level,
           color: getBlockLightTint(blockId as BlockId),
           isFire,
-          hasHalo: !AREA_LIGHT_SET.has(blockId as BlockId),
+          isAreaLight,
         })
       }
     }

@@ -89,6 +89,20 @@ export interface AtmosphereState {
    * 太陽、月亮與星空都得跟著淡出，否則會浮在白幕前面
    */
   skyBodyFade: number;
+
+  /**
+   * 離世界邊界有多近，0 為平常、1 為貼著邊界
+   *
+   * 由漫遊控制器每幀量測後寫入，與 caveRatio 同一個路數。
+   *
+   * 之所以要放在這裡而不是各自呼叫 getEdgeFogRatio：那道白幕是靠霧遮的，
+   * 凡是跳出霧的東西都得自己接一條收乾淨的路，而新加的東西要先知道
+   * 「有 getEdgeFogRatio 這個函式」才想得到要用它。
+   * 擺成一個現成的狀態欄位，讀它比記得呼叫某個函式可靠得多。
+   *
+   * 忘了接的那一個由 fog-opt-out 的稽核在開發模式報出來
+   */
+  edgeRatio: number;
 }
 
 /**
@@ -169,6 +183,35 @@ export const SWAMP_ATMOSPHERE = {
   ambientRatio: 1.02,
   /** 濕氣把陽光散開一半，水面的反光跟著鈍掉 */
   specularRatio: 0.45,
+} as const
+
+/**
+ * 地獄谷的大氣參數
+ *
+ * 這一座要的是熱，而熱是看得到的：滾燙的空氣會把遠處扭曲、
+ * 把顏色往火的方向拖。畫面上做得到的是後面那半——
+ * 讓霧壓近，並且把霧色換成岩漿自己的橘紅。
+ *
+ * 霧色不是隨便挑的紅，是岩漿那池光反射在空氣裡的顏色，
+ * 所以紅通道給到滿檔以上、綠留一點、藍幾乎不留。
+ * 出去還要過一次 ACES，那條曲線在高處會把飽和度往回收——
+ * 照著眼睛想要的紅去填，出來會是一塊悶掉的磚色，
+ * 得給得比看起來需要的更多（與沉進岩漿時同一個道理）。
+ *
+ * 能見度收到二十二格：谷底那幾道岩漿縫看得清楚，
+ * 對面的岩壁則融在一片熱氣裡。再近就看不到這座箱庭的樣子了，
+ * 而它終究是一座要被看見的箱庭，不是一道遮蔽用的簾子
+ */
+export const JIGOKU_ATMOSPHERE = {
+  fogColor: new Color3(1.02, 0.34, 0.16),
+  fogStart: 3,
+  fogEnd: 22,
+  /** 熱氣把陽光散開，直射光收掉一截，影子跟著軟下來 */
+  lightRatio: 0.55,
+  /** 地面那池光往上打，環境光比晴天更亮 */
+  ambientRatio: 1.12,
+  /** 岩面是粗糙的，沒有一個能反出太陽的點 */
+  specularRatio: 0.12,
 } as const
 
 /**
@@ -268,6 +311,7 @@ export function createAtmosphereState(): AtmosphereState {
     skyGlowStrength: 0.12,
     caveRatio: 0,
     skyBodyFade: 1,
+    edgeRatio: 0,
   }
 }
 
