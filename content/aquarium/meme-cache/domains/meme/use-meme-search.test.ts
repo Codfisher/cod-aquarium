@@ -29,11 +29,13 @@ describe('searchMeme', () => {
     expect(fileList).toContain('006.webp')
   })
 
-  it('空格分隔的多詞 AND 搜尋', () => {
+  it('空格分隔的多詞 OR 搜尋，全命中者排最前', () => {
     const result = searchMeme(mockDataList, '指 貓')
     const fileList = result.map((item) => item.file)
 
-    expect(fileList).toContain('004.webp')
+    expect(fileList[0]).toBe('004.webp')
+    expect(fileList).toContain('002.webp')
+    expect(fileList).toContain('001.webp')
     expect(fileList).not.toContain('003.webp')
   })
 
@@ -84,15 +86,25 @@ describe('searchMeme', () => {
     expect(result).toEqual([])
   })
 
-  it('多詞 AND 搜尋 - 沙拉 貓', () => {
+  it('多詞 OR 搜尋 - 沙拉 貓', () => {
     const result = searchMeme(mockDataList, '沙拉 貓')
     const fileList = result.map((item) => item.file)
 
-    expect(fileList).toContain('006.webp')
-    expect(fileList).not.toContain('001.webp')
+    // 兩詞皆命中者排在只命中「貓」的項目之前
+    expect(fileList[0]).toBe('006.webp')
+    expect(fileList).toContain('001.webp')
+    expect(fileList.indexOf('006.webp')).toBeLessThan(fileList.indexOf('001.webp'))
   })
 
-  it('多詞 AND 模糊搜尋 - 指向 貓', () => {
+  it('多詞 OR 搜尋 - 只命中其中一詞也會出現', () => {
+    const result = searchMeme(mockDataList, '貓 汽車')
+    const fileList = result.map((item) => item.file)
+
+    expect(fileList).toContain('001.webp')
+    expect(fileList).toContain('006.webp')
+  })
+
+  it('多詞 OR 模糊搜尋 - 指向 貓', () => {
     const result = searchMeme(mockDataList, '指向 貓')
     const fileList = result.map((item) => item.file)
 
