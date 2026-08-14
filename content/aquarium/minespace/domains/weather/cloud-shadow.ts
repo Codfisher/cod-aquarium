@@ -92,6 +92,44 @@ let patternTexture: Texture | null = null
  * 既然週期非得一樣，不如直接拿同一份圖樣：把那 18×18 個布林值
  * 糊一糊烘成一張小圖，著色器沿著光線往上找就是了。
  * 一次貼圖取樣，換到的是「地上那塊暗確實是頭頂那朵雲的」
+ *
+ * ── 這個效果目前是沒有作用的 ──
+ *
+ * 畫面上看不到任何雲影。查過一輪，範圍已經縮到最後一小塊，
+ * 記在這裡免得下次從頭來過。
+ *
+ * 已經逐項驗證過、可以排除的：
+ *
+ * 一、著色器注入是好的。攔下真正送進 GPU 的原始碼確認過：
+ *     minespaceCloudShade 的定義在、cloudShade 有被賦值、
+ *     也確實乘進了 computeLighting。呼叫次數三次
+ *     （一個函式定義加兩處呼叫），對得上場景的燈組。
+ *     最終 GLSL 裡沒有 #ifdef 是正常的——前處理器早就把條件解掉了。
+ *
+ * 二、資料是對的。強度 0.5、雲高 104、取樣縮放 0.00397（= 1/252）、
+ *     斜率與飄移都在動，圖樣貼圖也建出來了。
+ *
+ * 三、uniform 真的送得到著色器。把函式改成
+ *     `return 1.0 - cloudShadowParam.x;`（跳過圖樣與座標）之後，
+ *     整片地面明顯變暗，而且開關一切換就恢復。
+ *
+ * 四、外掛機制沒問題。halo-soft-fade 用一模一樣的寫法
+ *     （同樣的 getSamplers、同樣的 super 參數、同樣的 setTexture），
+ *     而它是好的。
+ *
+ * 五、模組被載入兩次（場景跑在 whyframe 的 iframe 裡，
+ *     外層頁面與 iframe 各一份），但活著的那一份數值全對，
+ *     而且兩者是不同 realm，globalThis 也共用不了——與這個問題無關。
+ *
+ * 剩下唯一的嫌疑：cloudShadowSampler 那一次取樣讀出來恆為零。
+ * 把 cover 直接當遮蔽量用（跳過 smoothstep）、
+ * 甚至把取樣縮放拉到每十二格重複一次讓圖樣鋪滿整個視野，
+ * 地面都毫無變化。所以不是門檻卡太高，也不是圖樣太稀疏——
+ * 是那張圖根本沒被取樣到，或者取到的是全黑。
+ *
+ * 下次從這裡接：確認 RawTexture 有沒有真的綁上那個取樣器
+ * （isReady、通道格式、UniformBuffer.setTexture 有沒有找到位置），
+ * 或者換成 material.diffuseTexture 之類已知會綁的路徑對照看看
  */
 class CloudShadowPlugin extends MaterialPluginBase {
   constructor(material: Material) {
