@@ -71,9 +71,14 @@ export function buildCampfireGarden(state: Uint8Array, garden: GardenDefinition)
    * 沉到甲板那一層與地面齊平，才是「地上挖出來的一個火塘」
    */
   setBlock(state, centerX, deckY, centerZ, BlockId.EMBER)
-  /** 架在火上的兩根柴，橫著擺 */
-  setBlock(state, centerX + 1, groundY, centerZ, BlockId.OAK_LOG_X)
-  setBlock(state, centerX, groundY, centerZ - 1, BlockId.OAK_LOG_Z)
+  /**
+   * 火塘旁邊不放柴
+   *
+   * 這裡原本橫著擺兩根木頭當架在火上的柴。整格的原木與餘燼一樣高，
+   * 緊貼在火的兩側，從外面看是三個並排的方塊而不是一堆火——
+   * 而且它們會把火焰立板切掉一角。
+   * 留一個乾淨的火塘，柴堆交給棚子那邊那幾根
+   */
 
   /** 四張木階梯當矮凳，靠背朝外、人面向火 */
   setBlock(state, centerX, groundY, centerZ - 4, BlockId.WOOD_STAIRS_NORTH)

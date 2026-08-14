@@ -4,9 +4,9 @@ import type {
   DirectionalLight,
   Mesh,
   Scene,
+  ShaderMaterial,
   StandardMaterial,
 } from '@babylonjs/core'
-import type { SkyMaterial } from '@babylonjs/materials'
 import type { AtmosphereState } from '../domains/weather/atmosphere'
 import type { DayPhase } from '../domains/weather/day-night'
 import type { GodRays } from '../domains/weather/god-rays'
@@ -22,6 +22,7 @@ import {
   sampleDayNight,
   wrapTimeOfDay,
 } from '../domains/weather/day-night'
+import { applySkyGradient } from '../domains/weather/sky-gradient'
 import {
   getMoonMaterialList,
   getSkyMaterial,
@@ -33,6 +34,7 @@ import {
   SUN_GLOW_NAME,
   SUN_LIGHT_NAME,
 } from './use-babylon-scene'
+import { measureSection } from './use-performance-probe'
 
 /**
  * 滾輪撥一格是多少分鐘
@@ -48,6 +50,16 @@ const WHEEL_NOTCH_LIMIT = 3
 const SKY_BODY_DISTANCE = 110
 const SKY_GLOW_DISTANCE = 112
 
+/**
+ * 色調分級的最小改動量
+ *
+ * 小於這個差距就不寫進管線。寫一次的代價是全場材質失效一輪，
+ * 而這兩個門檻對應的視覺差異都在肉眼的解析度以下：
+ * 曝光千分之四、色相與濃度半個單位
+ */
+const EXPOSURE_STEP = 0.004
+const GRADE_STEP = 0.5
+
 /** HUD 的時刻讀數更新間隔（秒），每幀更新只是白白觸發重繪 */
 const CLOCK_UPDATE_INTERVAL = 0.2
 
@@ -59,8 +71,20 @@ interface StartParams {
   godRays?: GodRays;
   /** 日夜循環把這個時刻的基準寫進去，天氣與漫遊控制器在上面疊自己的效果 */
   atmosphere: AtmosphereState;
-  /** 是否正在漫遊，暫停時時間跟著停下來 */
+  /**
+   * 世界是否在走，暫停時時間跟著停下來
+   *
+   * 按 Tab 把滑鼠交還給桌面不算暫停：那是「站在原地看風景」，
+   * 太陽該照樣走完它的弧線
+   */
   isRunning: () => boolean;
+  /**
+   * 滾輪是不是用來撥時間
+   *
+   * 這個場景嵌在一篇文章裡，滾輪只有在真正操控時才屬於它；
+   * 還沒開始漫遊、或按 Tab 放開滑鼠之後，捲動都該還給頁面
+   */
+  canScrubTime: () => boolean;
 }
 
 /**
@@ -101,6 +125,12 @@ export function useDayNight() {
 
   const sample = createDayNightSample()
 
+  /** 上一次真的寫進管線的色調值，用來判斷這一幀要不要再寫 */
+  let appliedExposure = Number.NaN
+  let appliedHue = Number.NaN
+  let appliedDensity = Number.NaN
+  let appliedSaturation = Number.NaN
+
   let cleanup: (() => void) | null = null
 
   onBeforeUnmount(() => cleanup?.())
@@ -122,7 +152,7 @@ export function useDayNight() {
     setTimeOfDay(currentTime + delta)
   }
 
-  function start({ scene, canvas, pipeline, godRays, atmosphere, isRunning }: StartParams): void {
+  function start({ scene, canvas, pipeline, godRays, atmosphere, isRunning, canScrubTime }: StartParams): void {
     cleanup?.()
 
     const sunLight = scene.getLightByName(SUN_LIGHT_NAME) as DirectionalLight | null
@@ -142,11 +172,11 @@ export function useDayNight() {
     /**
      * 滾輪撥時間
      *
-     * 只在真的正在漫遊時才攔截：這個場景嵌在一篇文章裡，
-     * 沒開始漫遊就把捲動吃掉的話，讀者會捲不動頁面
+     * 只在滾輪真的屬於這個場景時才攔截：沒開始漫遊、
+     * 或按 Tab 把滑鼠交還給桌面之後，捲動都該還給頁面
      */
     function handleWheel(event: WheelEvent) {
-      if (!isRunning())
+      if (!canScrubTime())
         return
 
       event.preventDefault()
@@ -166,47 +196,49 @@ export function useDayNight() {
     let clockElapsed = 0
 
     const observer = scene.onBeforeRenderObservable.add(() => {
-      const deltaTime = Math.min(0.1, scene.getEngine().getDeltaTime() / 1000)
+      measureSection('日夜循環', () => {
+        const deltaTime = Math.min(0.1, scene.getEngine().getDeltaTime() / 1000)
 
-      /**
-       * 暫停時世界該停在原地，但選單裡拖時間軸還是要看得到變化
-       *
-       * 關掉自動交替之後也一樣：時間不再自己走，
-       * 但滾輪與時間軸撥出來的位移照樣要追過去
-       */
-      if (isRunning() && isAutoAdvance.value) {
-        currentTime = wrapTimeOfDay(currentTime + deltaTime / getDayLengthSecond(daySpeedRatio.value))
-      }
+        /**
+         * 暫停時世界該停在原地，但選單裡拖時間軸還是要看得到變化
+         *
+         * 關掉自動交替之後也一樣：時間不再自己走，
+         * 但滾輪與時間軸撥出來的位移照樣要追過去
+         */
+        if (isRunning() && isAutoAdvance.value) {
+          currentTime = wrapTimeOfDay(currentTime + deltaTime / getDayLengthSecond(daySpeedRatio.value))
+        }
 
-      sampleDayNight(currentTime, sample)
+        sampleDayNight(currentTime, sample)
 
-      applyToAtmosphere(atmosphere)
-      applyToLight(sunLight)
-      applyToSkyBody({
-        sunDisc,
-        sunGlow,
-        moonDisc,
-        moonGlow,
-        sunMaterialList,
-        sunBaseList,
-        moonMaterialList,
-        moonBaseList,
-        starMaterial,
-        skyBodyFade: atmosphere.skyBodyFade,
+        applyToAtmosphere(atmosphere)
+        applyToLight(sunLight)
+        applyToSkyBody({
+          sunDisc,
+          sunGlow,
+          moonDisc,
+          moonGlow,
+          sunMaterialList,
+          sunBaseList,
+          moonMaterialList,
+          moonBaseList,
+          starMaterial,
+          skyBodyFade: atmosphere.skyBodyFade,
+        })
+        applyToSky(skyMaterial)
+        applyToPipeline(pipeline)
+        /** 雨中與貼近邊界時整片天被白幕蓋住，光束也該跟著收掉 */
+        godRays?.setStrength(sample.godRayRatio * atmosphere.skyBodyFade)
+
+        clockElapsed += deltaTime
+        if (clockElapsed >= CLOCK_UPDATE_INTERVAL) {
+          clockElapsed = 0
+          timeOfDay.value = currentTime
+          dayRatio.value = sample.dayRatio
+          clockText.value = formatClock(currentTime)
+          phase.value = getDayPhase(currentTime)
+        }
       })
-      applyToSky(skyMaterial)
-      applyToPipeline(pipeline)
-      /** 雨中與貼近邊界時整片天被白幕蓋住，光束也該跟著收掉 */
-      godRays?.setStrength(sample.godRayRatio * atmosphere.skyBodyFade)
-
-      clockElapsed += deltaTime
-      if (clockElapsed >= CLOCK_UPDATE_INTERVAL) {
-        clockElapsed = 0
-        timeOfDay.value = currentTime
-        dayRatio.value = sample.dayRatio
-        clockText.value = formatClock(currentTime)
-        phase.value = getDayPhase(currentTime)
-      }
     })
 
     cleanup = () => {
@@ -233,9 +265,11 @@ export function useDayNight() {
     atmosphere.lightIntensity = sample.lightIntensity
     atmosphere.ambientIntensity = sample.ambientIntensity
     atmosphere.cloudBrightness = sample.cloudBrightness
-    atmosphere.skyLuminance = sample.skyLuminance
-    atmosphere.skyRayleigh = sample.skyRayleigh
-    atmosphere.skyTurbidity = sample.skyTurbidity
+    atmosphere.skyZenithColor.copyFrom(sample.skyZenithColor)
+    atmosphere.skyMidColor.copyFrom(sample.skyMidColor)
+    atmosphere.skyGlowColor.copyFrom(sample.skyGlowColor)
+    atmosphere.skyCounterColor.copyFrom(sample.skyCounterColor)
+    atmosphere.skyGlowStrength = sample.skyGlowStrength
   }
 
   /** 轉動平行光。強度與顏色留給漫遊控制器套用，那裡還要疊洞穴與陰天 */
@@ -305,22 +339,25 @@ export function useDayNight() {
     }
   }
 
-  /** 大氣散射：太陽的方位決定了整片天的漸層落在哪一邊 */
-  function applyToSky(skyMaterial: SkyMaterial | null): void {
+  /**
+   * 天色：太陽的方位決定霞光落在哪一邊
+   *
+   * 天邊直接用霧色。遠處的地面本來就被霧染成那個顏色，
+   * 天與地在地平線上用同一個顏色交會，接縫才會消失
+   */
+  function applyToSky(skyMaterial: ShaderMaterial | null): void {
     if (!skyMaterial)
       return
 
-    skyMaterial.sunPosition.copyFrom(sample.sunPosition).scaleInPlace(120)
-    skyMaterial.luminance = sample.skyLuminance
-    skyMaterial.rayleigh = sample.skyRayleigh
-    skyMaterial.turbidity = sample.skyTurbidity
-    /**
-     * 米氏散射隨混濁度反向縮小
-     *
-     * 不這麼做的話，混濁度一拉高就會在太陽周圍糊出一大圈光暈，
-     * 把自己畫的方形太陽整個吃掉
-     */
-    skyMaterial.mieCoefficient = 0.0005 * (6 / Math.max(1, sample.skyTurbidity))
+    applySkyGradient(skyMaterial, {
+      zenithColor: sample.skyZenithColor,
+      midColor: sample.skyMidColor,
+      horizonColor: sample.fogColor,
+      glowColor: sample.skyGlowColor,
+      counterColor: sample.skyCounterColor,
+      glowStrength: sample.skyGlowStrength,
+      sunDirection: sample.sunPosition,
+    })
   }
 
   /** 色調：夜裡偏冷、黃昏偏暖，曝光也跟著時刻走 */
@@ -328,15 +365,42 @@ export function useDayNight() {
     if (!pipeline)
       return
 
-    pipeline.imageProcessing.exposure = sample.exposure
+    /**
+     * 只在真的差得夠多時才寫
+     *
+     * 這四個屬性每寫一次都很貴，貴在一個看不見的連鎖：
+     * 每一份用到場景影像處理設定的材質都訂閱了它的 onUpdateParameters，
+     * 收到通知就呼叫 _markAllSubMeshesAsImageProcessingDirty——
+     * 把自己所有子網格標記成待重建。
+     *
+     * 這個場景有兩百多顆網格，每幀寫四次等於每幀讓全場材質失效四次。
+     * 實測這一項就吃掉五毫秒，佔整幀的四分之一還多。
+     *
+     * 而這幾個值是色調分級，一整天才走完一輪。
+     * 曝光差不到千分之四、色相差不到半度，肉眼根本分不出來——
+     * 那一幀就不必寫。撥時間軸時因為變化夠大，照樣是即時跟上的
+     */
+    if (Math.abs(sample.exposure - appliedExposure) >= EXPOSURE_STEP) {
+      appliedExposure = sample.exposure
+      pipeline.imageProcessing.exposure = sample.exposure
+    }
 
     const colorCurves = pipeline.imageProcessing.colorCurves
     if (!colorCurves)
       return
 
-    colorCurves.globalHue = sample.gradeHue
-    colorCurves.globalDensity = sample.gradeDensity
-    colorCurves.globalSaturation = sample.gradeSaturation
+    if (Math.abs(sample.gradeHue - appliedHue) >= GRADE_STEP) {
+      appliedHue = sample.gradeHue
+      colorCurves.globalHue = sample.gradeHue
+    }
+    if (Math.abs(sample.gradeDensity - appliedDensity) >= GRADE_STEP) {
+      appliedDensity = sample.gradeDensity
+      colorCurves.globalDensity = sample.gradeDensity
+    }
+    if (Math.abs(sample.gradeSaturation - appliedSaturation) >= GRADE_STEP) {
+      appliedSaturation = sample.gradeSaturation
+      colorCurves.globalSaturation = sample.gradeSaturation
+    }
   }
 
   return {
@@ -351,6 +415,8 @@ export function useDayNight() {
     clockText,
     /** 給音景讀的即時值，不走 Vue 的反應式，免得每幀都在觸發更新 */
     getDayRatio: () => sample.dayRatio,
+    /** 同上，晨霧要靠它認出天亮前的那一段 */
+    getTimeOfDay: () => currentTime,
     isNight: computed(() => dayRatio.value < 0.5),
   }
 }

@@ -204,6 +204,22 @@ Minecraft 是我大學的時候最愛的遊戲，當時還做了很多地圖檔�
 
 只好做一個自動算出最佳點餐法的網頁，一起來吃快樂餐吧！♪( ◜ω◝و(و
 
+### [花栽這](https://budgarden.chillapp.life/){target="_blank" rel="noopener"}
+
+<div style="max-width: 320px; margin: 0 auto; aspect-ratio: 9 / 16;">
+  <iframe width="100%" height="100%" src="https://www.youtube.com/embed/PqUMpy3XyCM" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+</div>
+
+把記帳變成種花，每一筆帳都會長出一朵美美的花！੭ ˙ᗜ˙ )੭
+
+預算是水桶，如果不小心超支，花花們會枯萎喔！ԅ(´∀` ԅ)
+
+完全免費，一起種花吧！( ´ ▽ ` )ﾉ
+
+支援語音記帳，出張嘴就可以記錄多筆帳。( •̀ ω •́ )✧
+
+有任何意見還請不吝告訴我 (*´∀`)~♥
+
 ---
 
 還會持續更新，敬請期待！◝(≧∀≦)◟

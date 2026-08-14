@@ -1,6 +1,7 @@
 import type { DirectionalLight, Mesh, Scene, ShadowGenerator } from '@babylonjs/core'
 import type { BlockDef, BlockId, BlockTextureDef } from '../block/block-constants'
 import type { ChunkMeshData, ChunkWorkerComposable } from '../world/use-chunk-worker'
+import type { WindSway } from './wind-sway'
 import {
   Color3,
   DynamicTexture,
@@ -11,8 +12,10 @@ import {
   VertexBuffer,
 } from '@babylonjs/core'
 import { SUN_LIGHT_NAME } from '../../composables/use-babylon-scene'
+import { measureSection } from '../../composables/use-performance-probe'
 import { BLOCK_DEFS, isDecorationBlock } from '../block/block-constants'
 import { TOTAL_CHUNKS } from '../world/world-constants'
+import { createWindSway, LEAF_SWAY_AMPLITUDE, PLANT_SWAY_AMPLITUDE } from './wind-sway'
 
 interface BlockMeshEntry {
   mesh: Mesh;
@@ -41,6 +44,10 @@ export const CONNECT_DIRECTION_LIST = [
 export interface VoxelRenderer {
   /** 依目前 worldState 建構所有區塊 */
   build: (worldState: Uint8Array) => Promise<void>;
+  /** 淋得到雨、也淋濕得起來的那些材質 */
+  getWetMaterialList: () => StandardMaterial[];
+  /** 開關水面的日照高光，除錯面板用 */
+  setWaterGlintEnabled: (isEnabled: boolean) => void;
   /** 釋放所有資源 */
   dispose: () => void;
 }
@@ -147,8 +154,10 @@ function playTextureFrames(texture: Texture, frameCount: number, scene: Scene): 
 
   let elapsed = 0
   scene.onBeforeRenderObservable.add(() => {
-    elapsed += scene.getEngine().getDeltaTime() / 1000
-    texture.vOffset = Math.floor(elapsed * TEXTURE_FRAME_RATE) % frameCount / frameCount
+    measureSection('方塊動畫', () => {
+      elapsed += scene.getEngine().getDeltaTime() / 1000
+      texture.vOffset = Math.floor(elapsed * TEXTURE_FRAME_RATE) % frameCount / frameCount
+    })
   })
 }
 
@@ -189,7 +198,14 @@ export function createPixelMaterial(
     material.diffuseTexture = texture
   }
 
-  material.specularColor = new Color3(0.08, 0.08, 0.08)
+  /**
+   * 乾方塊幾乎不反光
+   *
+   * 平行光的高光已經給滿（見 use-babylon-scene），
+   * 所以這個值就是「這種表面有多亮」本身。石頭、泥土與木頭
+   * 都是霧面的，留一點點只是讓斜射的陽光在稜線上帶出一絲厚度
+   */
+  material.specularColor = new Color3(0.02, 0.02, 0.02)
   material.backFaceCulling = false
   /** 太陽、環境光，再加上洞裡的幾盞燈 */
   material.maxSimultaneousLights = 6
@@ -356,10 +372,15 @@ class WorldRenderer {
   private pendingMatrixMap = new Map<string, Float32Array[]>()
   private pendingShadeMap = new Map<string, Float32Array[]>()
   private receivedChunkCount = 0
+  /** 淋得濕的材質。同一份材質可能掛在好幾片網格上，用 Set 去重 */
+  private wetMaterialSet = new Set<StandardMaterial>()
+  /** 會反日光的液體材質，除錯開關要拿它比對有沒有高光的差別 */
+  private liquidMaterialList: StandardMaterial[] = []
 
   constructor(
     private scene: Scene,
     private shadowGenerator: ShadowGenerator | null,
+    private windSway: WindSway,
   ) {}
 
   /**
@@ -394,6 +415,29 @@ class WorldRenderer {
     }
   }
 
+  /**
+   * 記下這份材質淋不淋得濕
+   *
+   * 得在建網格的當下決定：這裡是唯一同時握有
+   * 「方塊是哪一種」與「它用了哪一份材質」的地方。
+   *
+   * 三種東西要排除。半透明的水、冰與玻璃本來就是濕的，
+   * 再壓暗一次只會變成一塊髒玻璃；鏤空的花草沒有高光可言
+   * （它們的高光被刻意關成零），壓暗漫射只會讓整片草黑掉；
+   * 會自己發亮的燈火則是光源，光源不會因為淋雨而變暗
+   */
+  private collectWetMaterial(blockId: BlockId, material: StandardMaterial): void {
+    const blockDef = BLOCK_DEFS[blockId]
+    if (!blockDef)
+      return
+
+    const isTransparent = blockDef.alpha !== undefined && blockDef.alpha < 1
+    if (isTransparent || blockDef.cutout || (blockDef.emissive ?? 0) > 0)
+      return
+
+    this.wetMaterialSet.add(material)
+  }
+
   /** 網格一建好就設定陰影，改成延後建立之後沒有「事後統一處理」的時機了 */
   private applyShadowSetting(key: string, mesh: Mesh): void {
     if (!this.shadowGenerator)
@@ -401,11 +445,30 @@ class WorldRenderer {
 
     const blockId = Number(key.split('_')[0]) as BlockId
     const blockDef = BLOCK_DEFS[blockId]
+
+    /**
+     * 交叉立板的花草整個退出陰影
+     *
+     * 這種植株是兩片交叉的薄板，貼圖還是鏤空的，兩件事同時出問題：
+     *
+     * 投影：一片葉子在陰影貼圖上只佔不到一個取樣格。太陽一移動，
+     * 整張貼圖重新光柵化，那些細節每一幀落在不同的格子上，
+     * 有的幀畫得出來、有的幀整個消失，地上的影子就一直在閃。
+     *
+     * 接影：立板是直的，法線卻為了打光統一改成朝上（見 createCutoutMaterial），
+     * 法線偏移的方向因此完全不對，自我遮蔽的髒污躲不掉，
+     * 太陽一動就在葉面上爬。
+     *
+     * 兩邊都退出去之後，花草只吃平行光與環境光，明暗穩定，
+     * 也正好是 Minecraft 本來的樣子——那裡的草從來不投影子
+     */
+    const isThinPlant = blockDef?.shape === 'cross'
+
     /** 半透明的水面接陰影會變成一塊塊的黑洞，乾脆讓它不接 */
-    mesh.receiveShadows = blockDef?.receiveShadow !== false
+    mesh.receiveShadows = blockDef?.receiveShadow !== false && !isThinPlant
     /** 水、冰、玻璃這類半透明方塊不該擋光 */
     const isTransparent = blockDef?.alpha !== undefined && blockDef.alpha < 1
-    if (!isTransparent) {
+    if (!isTransparent && !isThinPlant && blockDef?.castShadow !== false) {
       this.shadowGenerator.addShadowCaster(mesh)
     }
   }
@@ -422,6 +485,7 @@ class WorldRenderer {
     mesh.freezeWorldMatrix()
     mesh.isPickable = false
     this.applyShadowSetting(key, mesh)
+    this.collectWetMaterial(Number(key.split('_')[0]) as BlockId, material)
 
     const entryList = this.allEntries.get(key) ?? []
     entryList.push({ mesh, material })
@@ -484,6 +548,8 @@ class WorldRenderer {
           false,
           blockDef.textures?.pixelTint,
         )
+        /** 交叉立板就是地上的花草，從根部往上彎 */
+        this.windSway.attach(material, PLANT_SWAY_AMPLITUDE, true)
         addPlane('cross-a', 1, { x: 0, y: Math.PI / 4 }, { x: 0, y: 0, z: 0 }, material)
         addPlane('cross-b', 1, { x: 0, y: -Math.PI / 4 }, { x: 0, y: 0, z: 0 }, material)
         break
@@ -744,6 +810,16 @@ class WorldRenderer {
         )
 
     /**
+     * 樹葉整團一起晃
+     *
+     * 不從底部彎：樹冠是一團互相緊貼的方塊，
+     * 每一塊各自彎腰的話塊與塊之間會裂開一條縫
+     */
+    if (blockDef.swaysInWind) {
+      this.windSway.attach(material, LEAF_SWAY_AMPLITUDE, false)
+    }
+
+    /**
      * 自發光當成「這顆方塊自帶亮度」，而不是整片加上去的白光
      *
      * Babylon 的 emissiveColor 是一整片相加的顏色。
@@ -755,6 +831,22 @@ class WorldRenderer {
      */
     if (blockDef.emissive) {
       material.emissiveColor = new Color3(blockDef.emissive, blockDef.emissive, blockDef.emissive)
+    }
+
+    /**
+     * 水面反日光
+     *
+     * 水的法線已經統一改成朝上（flatShaded），整池水因此是一個
+     * 光學上的平面：太陽在上面只會反出一個點，人一走那個點就跟著移。
+     * 那道光是靜水最有說服力的東西——比任何波紋貼圖都有效。
+     *
+     * 指數給得很高，高光才收得緊。散開的高光是磨砂玻璃，
+     * 不是水。而它加在漫射的 clamp 外面，所以正午時真的會刺眼
+     */
+    if (blockDef.isLiquid) {
+      material.specularColor = new Color3(0.8, 0.82, 0.85)
+      material.specularPower = 160
+      this.liquidMaterialList.push(material)
     }
 
     if (blockDef.alpha !== undefined && blockDef.alpha < 1) {
@@ -858,7 +950,19 @@ class WorldRenderer {
         }
 
         entry.mesh.isVisible = true
-        entry.mesh.thinInstanceSetBuffer('matrix', matrixBuffer, 16, false)
+        /**
+         * 第四個參數是「這份緩衝區是靜態的」
+         *
+         * 這裡原本傳 false，等於告訴 Babylon 之後還會改它，
+         * 於是 GPU 緩衝區以 DYNAMIC_DRAW 配置。
+         * 但這些矩陣是 Worker 一次算好的，設完就再也不動——
+         * 一路撐到世界被釋放為止。
+         *
+         * 代價不是一點點：驅動層對動態緩衝區會另外做搬運與反交錯，
+         * 官方論壇有一個兩百五十萬個面的實測，只改這個旗標
+         * 就從十五幀變成六十幀
+         */
+        entry.mesh.thinInstanceSetBuffer('matrix', matrixBuffer, 16, true)
 
         /**
          * 每個實例一個顏色，著色器會拿去乘上貼圖顏色
@@ -866,7 +970,7 @@ class WorldRenderer {
          * 遮蔽算好之後直接烘進緩衝區，執行期沒有任何額外成本
          */
         if (shadeBuffer && shadeBuffer.length / 4 === matrixBuffer.length / 16) {
-          entry.mesh.thinInstanceSetBuffer('color', shadeBuffer, 4, false)
+          entry.mesh.thinInstanceSetBuffer('color', shadeBuffer, 4, true)
         }
 
         /**
@@ -875,11 +979,44 @@ class WorldRenderer {
          * 方塊之後不會再變，往後每一幀都不必再同步一次
          */
         entry.mesh.doNotSyncBoundingInfo = true
+        /**
+         * 這兩個旗標必須成對出現
+         *
+         * doNotSyncBoundingInfo 單獨用會讓網格整個消失：
+         * 邊界盒不再更新，視錐剔除卻照樣拿它去判斷，
+         * 判成「不在畫面裡」就整批不畫了。
+         *
+         * 而對 thin instance 來說剔除本來就幫不上忙：
+         * 一顆網格的邊界盒是它所有實例的聯集，在體素世界裡
+         * 通常橫跨整座場景，永遠剔不掉——那幾百次測試是白做的。
+         * 直接說「一律當成看得見」，省下測試也順便修掉消失的風險
+         */
+        entry.mesh.alwaysSelectAsActiveMesh = true
       }
     }
 
     this.pendingMatrixMap.clear()
     this.pendingShadeMap.clear()
+  }
+
+  getWetMaterialList(): StandardMaterial[] {
+    return [...this.wetMaterialSet]
+  }
+
+  /**
+   * 水面高光的開關
+   *
+   * 高光是加在漫射的 clamp 外面的，也就是全場唯一能超過純白的通道。
+   * 關掉之後水面就回到與別的方塊一樣的霧面，正午那道刺眼的反光會消失
+   */
+  setWaterGlintEnabled(isEnabled: boolean): void {
+    for (const material of this.liquidMaterialList) {
+      material.specularColor.set(
+        isEnabled ? 0.8 : 0.02,
+        isEnabled ? 0.82 : 0.02,
+        isEnabled ? 0.85 : 0.02,
+      )
+    }
   }
 
   dispose(): void {
@@ -897,6 +1034,8 @@ class WorldRenderer {
       material.dispose()
     }
     this.allEntries.clear()
+    this.wetMaterialSet.clear()
+    this.liquidMaterialList.length = 0
   }
 }
 
@@ -926,7 +1065,8 @@ export function createVoxelRenderer(
   const sunLight = scene.getLightByName(SUN_LIGHT_NAME) as DirectionalLight | null
   const shadowGenerator = sunLight?.getShadowGenerator() as ShadowGenerator | null
 
-  const worldRenderer = new WorldRenderer(scene, shadowGenerator)
+  const windSway = createWindSway(scene)
+  const worldRenderer = new WorldRenderer(scene, shadowGenerator, windSway)
 
   /**
    * 滑鼠移動時不要做拾取
@@ -943,9 +1083,12 @@ export function createVoxelRenderer(
 
   return {
     build: (worldState: Uint8Array) => chunkWorker.rebuildAll(worldState),
+    getWetMaterialList: () => worldRenderer.getWetMaterialList(),
+    setWaterGlintEnabled: (isEnabled: boolean) => worldRenderer.setWaterGlintEnabled(isEnabled),
     dispose() {
       chunkWorker.terminate()
       worldRenderer.dispose()
+      windSway.dispose()
     },
   }
 }

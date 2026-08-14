@@ -19,10 +19,8 @@ import {
   placeOakTree,
   placePineTree,
   placeRoofCap,
-  placeStandingStone,
   placeStoneLantern,
   placeTorii,
-  placeWaterBasin,
   rakeRipple,
   scatterOnGround,
   setDecoration,
@@ -33,7 +31,6 @@ import {
   CAVE_TUNNEL,
   getDeckBlockY,
   getDeckGroundY,
-  SUIKINKUTSU_POINT,
   WATERFALL_POINT,
 } from './garden-layout'
 
@@ -62,89 +59,100 @@ const SOIL_SET = new Set([BlockId.GRASS, BlockId.DIRT, BlockId.CLAY])
  * 一片耙好的白沙、三組立石、角落一株修過的松，
  * 以及埋在石板底下的水琴窟——整座庭園只有那一滴水在響
  */
-export function buildStoneGarden(state: Uint8Array, garden: GardenDefinition): void {
-  const random = createSeededRandom('garden-stone')
+export function buildWheatGarden(state: Uint8Array, garden: GardenDefinition): void {
+  const random = createSeededRandom('garden-wheat')
   const deckY = getDeckBlockY(garden)
   const groundY = getDeckGroundY(garden)
   const { x: centerX, z: centerZ } = garden.center
+  const inner = garden.halfSize - DECK_MARGIN
 
-  paveDeck(state, garden, BlockId.GARDEN_SAND)
+  paveDeck(state, garden, BlockId.DIRT)
 
   /**
-   * 石組
+   * 麥子照壟種
    *
-   * 三組、七五三顆，是枯山水的老規矩。
-   * 位置刻意不對稱：三組連起來若成了等邊三角形，
-   * 眼睛會立刻認出這是排出來的，而不是擺出來的
+   * 隨機撒一片看起來是野地，不是田。田之所以是田，
+   * 在於那些一行一行的壟——人來過、翻過土、照著間距把種子放下去。
+   *
+   * 壟沿著 X 走，每三格留一格空當作走道；
+   * 邊界再用噪聲推一點，田埂才不會像用尺畫出來的
    */
-  const stoneGroupList = [
-    { x: centerX - 5, z: centerZ + 2, heightList: [3, 2, 2, 1, 1, 1, 1] },
-    { x: centerX + 4, z: centerZ + 6, heightList: [2, 2, 1, 1, 1] },
-    { x: centerX + 6, z: centerZ - 2, heightList: [3, 1, 1] },
-  ]
+  for (let offsetZ = -inner; offsetZ <= inner; offsetZ++) {
+    const isPath = ((offsetZ + inner) % 4) === 0
+    if (isPath)
+      continue
 
-  for (const group of stoneGroupList) {
-    for (const [index, height] of group.heightList.entries()) {
-      const angle = (index / group.heightList.length) * Math.PI * 2 + random()
-      const radius = index === 0 ? 0 : 1 + Math.floor(random() * 2)
-
-      placeStandingStone(
-        state,
-        group.x + Math.round(Math.cos(angle) * radius),
-        groundY,
-        group.z + Math.round(Math.sin(angle) * radius),
-        height,
-        random() < 0.35 ? BlockId.MOSSY_COBBLESTONE : BlockId.STONE,
+    for (let offsetX = -inner; offsetX <= inner; offsetX++) {
+      const edgeNoise = getNoisyDistance(
+        centerX + offsetX,
+        centerZ + offsetZ,
+        centerX,
+        centerZ,
+        0.22,
+        1.6,
       )
-    }
+      if (edgeNoise > inner - 0.5)
+        continue
 
-    /** 每一組石頭外面耙上幾圈，水波才有源頭 */
-    rakeRipple(state, group.x, group.z, deckY, 2, 4)
-  }
+      const x = centerX + offsetX
+      const z = centerZ + offsetZ
+      if (getBlock(state, x, deckY, z) !== BlockId.DIRT)
+        continue
 
-  /**
-   * 水琴窟
-   *
-   * 地面埋一只甕，上面壓一塊有孔的石板，水滴進去在甕裡響。
-   * 看得見的只有那塊石板與旁邊的竹管，聲音卻是從腳底下傳上來的
-   */
-  fillSquare(state, SUIKINKUTSU_POINT.x, SUIKINKUTSU_POINT.z, 1, deckY, BlockId.STONE_TILE)
-  carveWater(state, SUIKINKUTSU_POINT.x, deckY, SUIKINKUTSU_POINT.z, 1, BlockId.STONE)
-  /**
-   * 引水的竹管
-   *
-   * 這裡原本用竹籬，但圍籬會自動往相鄰的實心方塊長出橫桿，
-   * 立在石組旁邊就變成一根往兩側岔出短棒的怪東西。
-   * 竹管是獨立的一根，用實心方塊才對
-   */
-  setBlock(state, SUIKINKUTSU_POINT.x + 1, groundY, SUIKINKUTSU_POINT.z + 1, BlockId.BAMBOO_BLOCK)
-  setBlock(state, SUIKINKUTSU_POINT.x + 1, groundY + 1, SUIKINKUTSU_POINT.z + 1, BlockId.BAMBOO_BLOCK)
-
-  /** 角落一株修過的松，全庭唯一的綠 */
-  placeBonsaiPine(state, centerX - 8, groundY, centerZ - 7, 1, 1)
-
-  /** 蹲踞擺在另一角，跟水琴窟遙遙相對 */
-  placeWaterBasin(state, centerX - 7, groundY, centerZ + 7)
-
-  /** 四角各一盞石燈籠，在霧裡是唯一認得出方位的東西 */
-  for (const cornerX of [-9, 9]) {
-    for (const cornerZ of [-9, 9]) {
-      placeStoneLantern(state, centerX + cornerX, groundY, centerZ + cornerZ)
+      /** 兩成的麥抽了穗，高度與顏色都深一階，整片才不會像印出來的 */
+      setBlock(state, x, groundY, z, random() < 0.2 ? BlockId.WHEAT_TALL : BlockId.WHEAT)
     }
   }
 
-  /** 幾株貼著石縫的白花，一整片白沙上只留這一點顏色 */
-  scatterOnGround(
-    state,
-    centerX,
-    centerZ,
-    garden.halfSize - 2,
-    groundY,
-    random,
-    0.05,
-    (pick) => (pick() < 0.6 ? BlockId.MOON_FLOWER : BlockId.STONE_PLANT),
-    new Set([BlockId.GARDEN_SAND, BlockId.RAKED_SAND]),
-  )
+  /**
+   * 穿過田的那條路
+   *
+   * 一條土路從南走到北，人得沿著它走進麥田中央。
+   * 沒有這條路的話，整座木座只是一塊沒有入口的田
+   */
+  for (let offsetZ = -inner; offsetZ <= inner; offsetZ++) {
+    for (let offsetX = -1; offsetX <= 1; offsetX++) {
+      const x = centerX + offsetX
+      const z = centerZ + offsetZ
+      setBlock(state, x, groundY, z, BlockId.AIR)
+      setBlock(state, x, deckY, z, BlockId.GRAVEL)
+    }
+  }
+
+  /**
+   * 稻草人
+   *
+   * 一根柱子、一根橫桿、一顆草束當頭。
+   * 麥田裡總得有一個站著的東西，眼睛才有地方落
+   */
+  const scarecrowX = centerX + 5
+  const scarecrowZ = centerZ - 4
+  for (let level = 0; level < 3; level++) {
+    setBlock(state, scarecrowX, groundY + level, scarecrowZ, BlockId.BAMBOO_BLOCK)
+  }
+  setBlock(state, scarecrowX - 1, groundY + 2, scarecrowZ, BlockId.BAMBOO_BLOCK)
+  setBlock(state, scarecrowX + 1, groundY + 2, scarecrowZ, BlockId.BAMBOO_BLOCK)
+  setBlock(state, scarecrowX, groundY + 3, scarecrowZ, BlockId.HAY)
+
+  /** 收割過後堆起來的幾捆草束，散在田邊 */
+  for (const bale of [{ x: -7, z: 5 }, { x: -6, z: 7 }, { x: 7, z: 6 }]) {
+    const x = centerX + bale.x
+    const z = centerZ + bale.z
+    setBlock(state, x, groundY, z, BlockId.AIR)
+    setBlock(state, x, groundY, z, BlockId.HAY)
+    if (random() < 0.6) {
+      setBlock(state, x, groundY + 1, z, BlockId.HAY)
+    }
+  }
+
+  /** 田邊立一盞燈，夜裡那片金色才不會整個沉進黑裡 */
+  placeStoneLantern(state, centerX - 3, groundY, centerZ - 8)
+  placeStoneLantern(state, centerX + 3, groundY, centerZ + 8)
+
+  /** 麥田裡冒出來的野花，收割時被留下來的那幾株 */
+  scatterOnGround(state, centerX, centerZ, inner, groundY, random, 0.06, (pick) => (
+    pick() < 0.5 ? BlockId.FLOWER_DANDELION : BlockId.FLOWER_VIOLA
+  ), new Set([BlockId.DIRT]))
 }
 
 /**

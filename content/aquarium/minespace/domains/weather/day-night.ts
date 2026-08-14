@@ -126,10 +126,16 @@ interface DayNightKeyframe {
   ambientIntensity: number;
   /** 雲的基準亮度 */
   cloudBrightness: number;
-  /** 大氣散射參數，數字越大天越暗 */
-  skyLuminance: number;
-  skyRayleigh: number;
-  skyTurbidity: number;
+  /** 天頂的顏色，天邊的顏色直接沿用 fogColor */
+  skyZenithColor: [number, number, number];
+  /** 中空的顏色，日出的丁香紫與日落的洋紅都住在這裡 */
+  skyMidColor: [number, number, number];
+  /** 太陽周圍那團暖光的顏色 */
+  skyGlowColor: [number, number, number];
+  /** 背對太陽那道反霞的顏色 */
+  skyCounterColor: [number, number, number];
+  /** 暖光的強度，正午幾乎為零、日落最濃 */
+  skyGlowStrength: number;
   exposure: number;
   /** 色調：色相、濃度與飽和度，density 為 0 時完全不上色 */
   gradeHue: number;
@@ -156,9 +162,11 @@ const KEYFRAME_LIST: DayNightKeyframe[] = [
     lightIntensity: 0.3,
     ambientIntensity: 0.32,
     cloudBrightness: 0.2,
-    skyLuminance: 1.08,
-    skyRayleigh: 0.35,
-    skyTurbidity: 2.4,
+    skyZenithColor: [0.01, 0.016, 0.048],
+    skyMidColor: [0.03, 0.042, 0.098],
+    skyGlowColor: [0.12, 0.14, 0.26],
+    skyCounterColor: [0.06, 0.07, 0.14],
+    skyGlowStrength: 0,
     exposure: 0.95,
     gradeHue: 220,
     gradeDensity: 42,
@@ -174,9 +182,11 @@ const KEYFRAME_LIST: DayNightKeyframe[] = [
     lightIntensity: 0.38,
     ambientIntensity: 0.44,
     cloudBrightness: 0.34,
-    skyLuminance: 0.95,
-    skyRayleigh: 0.6,
-    skyTurbidity: 3.4,
+    skyZenithColor: [0.05, 0.085, 0.23],
+    skyMidColor: [0.17, 0.19, 0.38],
+    skyGlowColor: [0.66, 0.44, 0.56],
+    skyCounterColor: [0.3, 0.26, 0.45],
+    skyGlowStrength: 0.5,
     exposure: 0.98,
     gradeHue: 250,
     gradeDensity: 26,
@@ -192,9 +202,11 @@ const KEYFRAME_LIST: DayNightKeyframe[] = [
     lightIntensity: 0.85,
     ambientIntensity: 0.62,
     cloudBrightness: 0.74,
-    skyLuminance: 0.62,
-    skyRayleigh: 1.3,
-    skyTurbidity: 7,
+    skyZenithColor: [0.2, 0.4, 0.76],
+    skyMidColor: [0.63, 0.55, 0.74],
+    skyGlowColor: [1, 0.62, 0.34],
+    skyCounterColor: [0.76, 0.54, 0.64],
+    skyGlowStrength: 0.95,
     exposure: 1.02,
     gradeHue: 22,
     gradeDensity: 30,
@@ -210,9 +222,11 @@ const KEYFRAME_LIST: DayNightKeyframe[] = [
     lightIntensity: 1.16,
     ambientIntensity: 0.76,
     cloudBrightness: 0.92,
-    skyLuminance: 0.56,
-    skyRayleigh: 1.6,
-    skyTurbidity: 6,
+    skyZenithColor: [0.3, 0.55, 0.95],
+    skyMidColor: [0.62, 0.78, 0.96],
+    skyGlowColor: [1, 0.88, 0.68],
+    skyCounterColor: [0.78, 0.84, 0.95],
+    skyGlowStrength: 0.3,
     exposure: 1.05,
     gradeHue: 30,
     gradeDensity: 10,
@@ -228,9 +242,11 @@ const KEYFRAME_LIST: DayNightKeyframe[] = [
     lightIntensity: 1.3,
     ambientIntensity: 0.82,
     cloudBrightness: 1,
-    skyLuminance: 0.55,
-    skyRayleigh: 1.6,
-    skyTurbidity: 6,
+    skyZenithColor: [0.26, 0.52, 0.98],
+    skyMidColor: [0.6, 0.78, 0.99],
+    skyGlowColor: [1, 0.98, 0.9],
+    skyCounterColor: [0.8, 0.88, 0.98],
+    skyGlowStrength: 0.12,
     exposure: 1.06,
     gradeHue: 30,
     gradeDensity: 0,
@@ -246,9 +262,11 @@ const KEYFRAME_LIST: DayNightKeyframe[] = [
     lightIntensity: 1.2,
     ambientIntensity: 0.78,
     cloudBrightness: 0.96,
-    skyLuminance: 0.58,
-    skyRayleigh: 1.6,
-    skyTurbidity: 6.5,
+    skyZenithColor: [0.28, 0.52, 0.93],
+    skyMidColor: [0.64, 0.78, 0.95],
+    skyGlowColor: [1, 0.9, 0.72],
+    skyCounterColor: [0.82, 0.86, 0.94],
+    skyGlowStrength: 0.24,
     exposure: 1.05,
     gradeHue: 34,
     gradeDensity: 12,
@@ -264,9 +282,11 @@ const KEYFRAME_LIST: DayNightKeyframe[] = [
     lightIntensity: 0.8,
     ambientIntensity: 0.62,
     cloudBrightness: 0.68,
-    skyLuminance: 0.66,
-    skyRayleigh: 1.4,
-    skyTurbidity: 8,
+    skyZenithColor: [0.15, 0.27, 0.62],
+    skyMidColor: [0.73, 0.46, 0.62],
+    skyGlowColor: [1, 0.38, 0.16],
+    skyCounterColor: [0.64, 0.44, 0.68],
+    skyGlowStrength: 1.05,
     exposure: 1.02,
     gradeHue: 18,
     gradeDensity: 36,
@@ -282,9 +302,11 @@ const KEYFRAME_LIST: DayNightKeyframe[] = [
     lightIntensity: 0.36,
     ambientIntensity: 0.46,
     cloudBrightness: 0.36,
-    skyLuminance: 0.9,
-    skyRayleigh: 0.8,
-    skyTurbidity: 4.2,
+    skyZenithColor: [0.055, 0.085, 0.24],
+    skyMidColor: [0.29, 0.22, 0.44],
+    skyGlowColor: [0.74, 0.32, 0.42],
+    skyCounterColor: [0.34, 0.25, 0.46],
+    skyGlowStrength: 0.62,
     exposure: 0.99,
     gradeHue: 275,
     gradeDensity: 30,
@@ -300,9 +322,11 @@ const KEYFRAME_LIST: DayNightKeyframe[] = [
     lightIntensity: 0.3,
     ambientIntensity: 0.32,
     cloudBrightness: 0.2,
-    skyLuminance: 1.08,
-    skyRayleigh: 0.35,
-    skyTurbidity: 2.4,
+    skyZenithColor: [0.01, 0.016, 0.048],
+    skyMidColor: [0.03, 0.042, 0.098],
+    skyGlowColor: [0.12, 0.14, 0.26],
+    skyCounterColor: [0.06, 0.07, 0.14],
+    skyGlowStrength: 0,
     exposure: 0.95,
     gradeHue: 220,
     gradeDensity: 42,
@@ -344,9 +368,11 @@ export interface DayNightSample {
   lightIntensity: number;
   ambientIntensity: number;
   cloudBrightness: number;
-  skyLuminance: number;
-  skyRayleigh: number;
-  skyTurbidity: number;
+  skyZenithColor: Color3;
+  skyMidColor: Color3;
+  skyGlowColor: Color3;
+  skyCounterColor: Color3;
+  skyGlowStrength: number;
   exposure: number;
   gradeHue: number;
   gradeDensity: number;
@@ -372,9 +398,11 @@ export function createDayNightSample(): DayNightSample {
     lightIntensity: 1,
     ambientIntensity: 1,
     cloudBrightness: 1,
-    skyLuminance: 0.55,
-    skyRayleigh: 1.6,
-    skyTurbidity: 6,
+    skyZenithColor: new Color3(),
+    skyMidColor: new Color3(),
+    skyGlowColor: new Color3(),
+    skyCounterColor: new Color3(),
+    skyGlowStrength: 0.12,
     exposure: 1.06,
     gradeHue: 30,
     gradeDensity: 0,
@@ -474,9 +502,11 @@ function applyKeyframe(time: number, sample: DayNightSample): void {
   sample.lightIntensity = lerp(from.lightIntensity, to.lightIntensity, ratio)
   sample.ambientIntensity = lerp(from.ambientIntensity, to.ambientIntensity, ratio)
   sample.cloudBrightness = lerp(from.cloudBrightness, to.cloudBrightness, ratio)
-  sample.skyLuminance = lerp(from.skyLuminance, to.skyLuminance, ratio)
-  sample.skyRayleigh = lerp(from.skyRayleigh, to.skyRayleigh, ratio)
-  sample.skyTurbidity = lerp(from.skyTurbidity, to.skyTurbidity, ratio)
+  setColor(sample.skyZenithColor, from.skyZenithColor, to.skyZenithColor, ratio)
+  setColor(sample.skyMidColor, from.skyMidColor, to.skyMidColor, ratio)
+  setColor(sample.skyGlowColor, from.skyGlowColor, to.skyGlowColor, ratio)
+  setColor(sample.skyCounterColor, from.skyCounterColor, to.skyCounterColor, ratio)
+  sample.skyGlowStrength = lerp(from.skyGlowStrength, to.skyGlowStrength, ratio)
   sample.exposure = lerp(from.exposure, to.exposure, ratio)
   sample.gradeDensity = lerp(from.gradeDensity, to.gradeDensity, ratio)
   sample.gradeSaturation = lerp(from.gradeSaturation, to.gradeSaturation, ratio)

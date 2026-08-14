@@ -21,8 +21,9 @@
 
     <ambience-panel
       v-if="hasStarted"
-      :audible-list="displayAudibleList"
+      :audible-list="audibleList"
       :zone="currentZone"
+      @toggle-mute="toggleSoundMute"
     />
 
     <touch-control-panel
@@ -41,6 +42,7 @@
       v-model:time-of-day="timeOfDay"
       v-model:auto-time="isAutoAdvance"
       v-model:day-speed="daySpeedRatio"
+      v-model:camera-fov="cameraFov"
       :open="menuVisible"
       :time-label="timeLabel"
       @resume="closeMenu()"
@@ -70,7 +72,70 @@
       <div class="status-readout">
         {{ Math.round(fps) }} FPS
       </div>
+
+      <!--
+        效能面板
+
+        幀率只說「慢」，不說「慢在哪」。F3 打開才建立計時器，
+        平常一毫秒都不花
+      -->
+      <div
+        v-if="probeVisible"
+        class="status-readout probe-readout"
+      >
+        <div class="probe-row">
+          <span>繪製</span><span>{{ probe.drawCallCount }}</span>
+        </div>
+        <div class="probe-row">
+          <span>網格</span><span>{{ probe.activeMeshCount }}</span>
+        </div>
+        <div class="probe-row">
+          <span>三角形</span><span>{{ (probe.triangleCount / 1000).toFixed(0) }}k</span>
+        </div>
+
+        <div class="probe-divider" />
+
+        <div class="probe-row">
+          <span>幀 CPU</span><span>{{ probe.frameMs.toFixed(1) }}</span>
+        </div>
+        <div class="probe-row">
+          <span>幀 GPU</span><span>{{ probe.gpuMs.toFixed(1) }}</span>
+        </div>
+        <div class="probe-row">
+          <span>幀距</span><span>{{ probe.interFrameMs.toFixed(1) }}</span>
+        </div>
+
+        <div class="probe-divider" />
+
+        <div class="probe-row">
+          <span>挑選</span><span>{{ probe.meshSelectionMs.toFixed(2) }}</span>
+        </div>
+        <div class="probe-row">
+          <span>陰影</span><span>{{ probe.renderTargetMs.toFixed(2) }}</span>
+        </div>
+        <div class="probe-row">
+          <span>粒子</span><span>{{ probe.particleMs.toFixed(2) }}</span>
+        </div>
+        <div class="probe-row">
+          <span>編譯</span><span>{{ probe.shaderCompileMs.toFixed(2) }}</span>
+        </div>
+
+        <div class="probe-divider" />
+
+        <div class="probe-row probe-total">
+          <span>JS 合計</span><span>{{ probe.observerMs.toFixed(2) }}</span>
+        </div>
+        <div
+          v-for="section in probe.sectionList"
+          :key="section.name"
+          class="probe-row"
+        >
+          <span>{{ section.name }}</span><span>{{ section.averageMs.toFixed(2) }}</span>
+        </div>
+      </div>
     </div>
+
+    <dev-panel v-if="hasStarted && devPanelVisible" />
 
     <div
       v-if="initError"
@@ -88,28 +153,37 @@
 
 <script setup lang="ts">
 import type { Scene, UniversalCamera } from '@babylonjs/core'
+import type { PondMirror } from '../garden/pond-mirror'
+import type { LampGlow } from '../renderer/lamp-glow'
 import type { VoxelRenderer } from '../renderer/voxel-renderer'
-import type { AudibleSound, SoundZone } from '../soundscape/type'
+import type { SoundZone } from '../soundscape/type'
 import type { Landmark } from '../world/landmark'
+import { useEventListener, useStorage } from '@vueuse/core'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import AmbiencePanel from '../../components/ambience-panel.vue'
+import DevPanel from '../../components/dev-panel.vue'
 import StartPanel from '../../components/start-panel.vue'
 import SystemMenu from '../../components/system-menu.vue'
 import TouchControlPanel from '../../components/touch-control-panel.vue'
-import { createCampfireSmoke, useBabylonScene } from '../../composables/use-babylon-scene'
+import { createCampfireSmoke, DEFAULT_CAMERA_FOV, useBabylonScene } from '../../composables/use-babylon-scene'
 import { useBlockLights } from '../../composables/use-block-lights'
 import { useDayNight } from '../../composables/use-day-night'
+import { useDevToggles } from '../../composables/use-dev-toggles'
 import { useFpsController } from '../../composables/use-fps-controller'
 import { useMobileController } from '../../composables/use-mobile-controller'
+import { usePerformanceProbe } from '../../composables/use-performance-probe'
 import { useSimpleI18n } from '../../composables/use-simple-i18n'
 import { useSheepFlock } from '../fauna/use-sheep-flock'
 import { getGardenAt } from '../garden/garden-layout'
+import { createPondMirror } from '../garden/pond-mirror'
 import { createSandField } from '../garden/sand-field'
 import { findSafeStandingPosition } from '../player/collision'
+import { createLampGlow } from '../renderer/lamp-glow'
 import { createVoxelRenderer } from '../renderer/voxel-renderer'
 import { useSoundscape } from '../soundscape/use-soundscape'
 import { createGodRays } from '../weather/god-rays'
 import { useWeather } from '../weather/use-weather'
+import { collectLightSourceList } from '../world/light-source'
 import { useChunkWorker } from '../world/use-chunk-worker'
 import { useTerrainWorker } from '../world/use-terrain-worker/use-terrain-worker'
 import { castRainRay, createWorldState } from '../world/world-access'
@@ -150,6 +224,8 @@ const FPS_UPDATE_INTERVAL = 0.5
 
 let worldState = createWorldState()
 let renderer: VoxelRenderer | null = null
+let lampGlow: LampGlow | null = null
+let pondMirror: PondMirror | null = null
 
 const isWorldReady = ref(false)
 const hasStarted = ref(false)
@@ -172,6 +248,19 @@ const currentZone = ref<SoundZone | null>(null)
  * 有個讀數才判斷得出「卡」是幀率問題還是別的原因
  */
 const fps = ref(0)
+
+/**
+ * 效能面板
+ *
+ * F3 開關，沿用方塊遊戲的老規矩。
+ * 平常不建立計時器，量測本身也是要錢的
+ */
+const {
+  visible: probeVisible,
+  reading: probe,
+  toggle: toggleProbe,
+  update: updateProbe,
+} = usePerformanceProbe()
 
 const {
   isMobile,
@@ -199,6 +288,8 @@ const {
 const {
   start: startSoundscape,
   setWeather,
+  triggerSound,
+  toggleSoundMute,
   audibleList,
   masterVolume,
   isMuted,
@@ -207,7 +298,6 @@ const {
 const {
   start: startWeather,
   weather,
-  rainStrength,
   atmosphere,
 } = useWeather()
 
@@ -215,6 +305,7 @@ const {
   start: startDayNight,
   setTimeOfDay,
   getDayRatio,
+  getTimeOfDay,
   timeOfDay: currentTimeOfDay,
   isAutoAdvance,
   daySpeedRatio,
@@ -225,6 +316,44 @@ const {
 
 const sheepFlock = useSheepFlock()
 const blockLights = useBlockLights()
+
+/**
+ * 除錯用的效果開關
+ *
+ * F4 叫出來，每一項對應一個看得見的效果。
+ * 畫面上冒出說不上來的東西時，一項一項關掉就知道是誰做的
+ */
+const {
+  visible: devPanelVisible,
+  state: devToggle,
+  togglePanel: toggleDevPanel,
+} = useDevToggles()
+
+/** 水面高光是材質層的東西，開關要等渲染器建好才有得改 */
+watch(() => devToggle.waterGlint, (isEnabled) => {
+  renderer?.setWaterGlintEnabled(isEnabled)
+})
+
+/**
+ * 鏡頭的視野角度
+ *
+ * 視野寬窄是很個人的事：寬的看得到兩側的木座、走起來有速度感，
+ * 窄的則像站定了在看一幅畫。記在瀏覽器裡，下次進來還是同一個視角
+ */
+const cameraFov = useStorage('minespace-camera-fov', DEFAULT_CAMERA_FOV)
+
+/**
+ * 不能加 immediate
+ *
+ * 這個 watch 寫在 useBabylonScene 之前，而 camera 是那一行才解構出來的。
+ * 立即執行會在 camera 還在暫時性死區時就去讀它，直接拋錯。
+ * 初始值改在 init 裡等鏡頭建好之後補套一次
+ */
+watch(cameraFov, (value) => {
+  if (camera.value) {
+    camera.value.fov = value
+  }
+})
 
 watch(weather, (current) => setWeather(current))
 
@@ -242,28 +371,6 @@ const timeOfDay = computed({
   set: (value: number) => setTimeOfDay(value),
 })
 
-/**
- * HUD 顯示的音源清單
- *
- * 雨聲不是空間音源，不在音景清單裡，這裡補進去讓混音表完整
- */
-const displayAudibleList = computed<AudibleSound[]>(() => {
-  if (rainStrength.value < 0.02) {
-    return audibleList.value
-  }
-
-  return [
-    {
-      id: 'weather-rain',
-      title: { 'zh-hant': '落雨', 'en': 'Falling rain' },
-      zone: 'rainvale',
-      loudness: Math.min(1, rainStrength.value * 2),
-      distance: 0,
-    },
-    ...audibleList.value,
-  ]
-})
-
 const { canvasRef, scene, camera, pipeline, initError } = useBabylonScene({
   async init({ scene: sceneInstance, camera: cameraInstance, canvas }) {
     const terrainWorker = useTerrainWorker()
@@ -277,8 +384,34 @@ const { canvasRef, scene, camera, pipeline, initError } = useBabylonScene({
     /** 方塊做的沙只到世界邊界，外面那片得等渲染器準備好材質再接上去 */
     createSandField(sceneInstance)
 
-    sheepFlock.start({ scene: sceneInstance, worldState, camera: cameraInstance })
+    /** 水鏡池的天空倒影，走近才畫 */
+    pondMirror = createPondMirror(sceneInstance, cameraInstance)
+
+    sheepFlock.start({ scene: sceneInstance, worldState, camera: cameraInstance, getDayRatio })
     createCampfireSmoke(sceneInstance, worldState)
+
+    /**
+     * 世界裡的燈火只掃這一次
+     *
+     * 真光與夜裡的光暈用的是同一份清單，兩者本來就是同一盞燈的兩種表現
+     */
+    const lightSourceList = collectLightSourceList(worldState)
+
+    /**
+     * 燈火的光暈
+     *
+     * 方塊的自發光只讓燈自己看起來是亮的，光並沒有溢出它的邊界。
+     * 夜裡在每一盞燈前面掛一片面向鏡頭的加法圓盤，光才會溢出來。
+     *
+     * 要帶鏡頭進去：圓盤得每一幀往鏡頭的方向挪出方塊之外，
+     * 否則整團暈會被它自己那顆燈籠擋在後面
+     */
+    lampGlow = createLampGlow({
+      scene: sceneInstance,
+      camera: cameraInstance,
+      sourceList: lightSourceList,
+      getDayRatio,
+    })
 
     /**
      * 燈池：燈籠與營火的真光
@@ -290,7 +423,7 @@ const { canvasRef, scene, camera, pipeline, initError } = useBabylonScene({
     blockLights.start({
       scene: sceneInstance,
       camera: cameraInstance,
-      worldState,
+      sourceList: lightSourceList,
       getDayRatio,
     })
 
@@ -311,8 +444,13 @@ const { canvasRef, scene, camera, pipeline, initError } = useBabylonScene({
       pipeline: pipeline.value,
       godRays: createGodRays(sceneInstance, cameraInstance),
       atmosphere,
-      isRunning: () => hasStarted.value && !isPaused.value && !isCursorFree.value,
+      /** 放開滑鼠只是把游標還給桌面，人站在原地看風景，太陽照樣走 */
+      isRunning: () => hasStarted.value && !isPaused.value,
+      canScrubTime: () => hasStarted.value && !isPaused.value && !isCursorFree.value,
     })
+
+    /** 鏡頭是在這之後才存在的，記在瀏覽器裡的視野要在這裡補套一次 */
+    cameraInstance.fov = cameraFov.value
 
     startController({
       scene: sceneInstance,
@@ -343,6 +481,24 @@ function trackFps(sceneInstance: Scene) {
 
     elapsed = 0
     fps.value = sceneInstance.getEngine().getFps()
+  })
+
+  /** 繪製呼叫要等這一幀畫完才數得到，所以掛在算繪之後 */
+  sceneInstance.onAfterRenderObservable.add(() => updateProbe(sceneInstance))
+
+  useEventListener(window, 'keydown', (event: KeyboardEvent) => {
+    if (event.code === 'F3') {
+      /** F3 在瀏覽器是「尋找下一個」，這裡要攔下來 */
+      event.preventDefault()
+      toggleProbe(sceneInstance)
+      return
+    }
+
+    /** F4 接在效能面板旁邊：一個看「慢在哪」、一個看「這是誰畫的」 */
+    if (event.code === 'F4') {
+      event.preventDefault()
+      toggleDevPanel()
+    }
   })
 }
 
@@ -396,7 +552,13 @@ async function handleStart() {
     scene: scene.value,
     camera: camera.value as UniversalCamera,
     isSheltered: () => isUnderground.value,
+    /** 閃電歸天氣，雷聲歸聽雨亭，這裡只是把兩邊接起來 */
+    playThunder: (volume) => triggerSound('rainvale-thunder', volume),
     castRainRay: (blockX, blockZ) => castRainRay(worldState, blockX, blockZ),
+    getDayRatio,
+    getTimeOfDay,
+    /** 雨停之後要慢慢乾回去的那些表面，水與花草不在其中 */
+    wetMaterialList: renderer?.getWetMaterialList() ?? [],
   })
 
   resume()
@@ -425,6 +587,8 @@ function handleTravel(landmark: Landmark) {
 }
 
 onBeforeUnmount(() => {
+  lampGlow?.dispose()
+  pondMirror?.dispose()
   renderer?.dispose()
 })
 </script>
@@ -453,6 +617,30 @@ onBeforeUnmount(() => {
   gap: 5px
   pointer-events: none
   user-select: none
+
+/** 效能面板的數字要能上下對齊掃過去，等寬字體是必要的 */
+.probe-readout
+  display: flex
+  flex-direction: column
+  gap: 1px
+  font-family: ui-monospace, monospace
+  font-size: 12px
+  line-height: 1.35
+  min-width: 148px
+
+/** 名稱靠左、數字靠右，一整欄才對得齊 */
+.probe-row
+  display: flex
+  justify-content: space-between
+  gap: 12px
+
+.probe-total
+  font-weight: 700
+
+.probe-divider
+  height: 1px
+  margin: 3px 0
+  background: rgba(255, 255, 255, 0.18)
 
 .status-readout
   padding: 3px 8px

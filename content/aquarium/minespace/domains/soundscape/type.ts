@@ -14,6 +14,14 @@ export type SoundPlayMode =
   | { type: 'loop' }
   /** 每隔一段隨機時間播一次，適合鳥叫、蛙鳴這類點綴音 */
   | { type: 'interval'; rangeSecond: [number, number] }
+  /**
+   * 自己不響，等外面來觸發
+   *
+   * 給那種「必須跟著別的東西一起發生」的聲音用。
+   * 目前只有聽雨亭的雷：閃光先到、聲音隔一段才來，
+   * 兩者若各走各的計時器就對不起來，看起來會像雷聲亂響
+   */
+  | { type: 'trigger' }
 
 export interface LocalizedText {
   'zh-hant': string;
@@ -60,8 +68,16 @@ export interface AudibleSound {
   id: string;
   title: LocalizedText;
   zone: SoundZone;
-  /** 依距離估算的響度 0 ~ 1 */
+  /**
+   * 依距離估算的響度 0 ~ 1
+   *
+   * 這是「沒有被單獨關掉的話會有多響」。被關掉的音源照樣算這個值，
+   * 清單上那一條才還看得出它就在附近——不然關掉之後它會從清單消失，
+   * 也就再也沒有地方可以把它打開
+   */
   loudness: number;
   /** 與玩家的距離 */
   distance: number;
+  /** 是不是被單獨關掉了 */
+  isMuted: boolean;
 }

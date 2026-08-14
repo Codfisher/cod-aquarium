@@ -30,13 +30,27 @@
       tag="div"
       class="sound-list"
     >
-      <div
+      <!--
+        每一條都是一個開關
+
+        整片音景是十七座箱庭疊出來的，走到中間會同時聽見四五種聲音。
+        有人是為了聽風來的，那幾聲蟬就成了雜訊——
+        讓他關掉那一個，其餘的照舊
+      -->
+      <button
         v-for="sound in displayList"
         :key="sound.id"
         class="sound-item"
+        :class="{ 'sound-item-muted': sound.isMuted }"
+        :title="sound.isMuted ? t('unmuteHint') : t('muteHint')"
+        @click="$emit('toggleMute', sound.id)"
       >
         <div class="sound-title">
-          {{ locale === 'en' ? sound.title.en : sound.title['zh-hant'] }}
+          <u-icon
+            :name="sound.isMuted ? 'i-mingcute:volume-mute-fill' : 'i-mingcute:volume-fill'"
+            class="sound-icon"
+          />
+          <span>{{ locale === 'en' ? sound.title.en : sound.title['zh-hant'] }}</span>
         </div>
 
         <div class="loudness-track">
@@ -45,7 +59,7 @@
             :style="{ width: `${Math.round(sound.loudness * 100)}%` }"
           />
         </div>
-      </div>
+      </button>
     </transition-group>
 
     <div
@@ -68,6 +82,11 @@ const props = defineProps<{
   audibleList: AudibleSound[];
   /** 目前站在哪一座箱庭上，走在箱庭之間的白沙上時為 null */
   zone: SoundZone | null;
+}>()
+
+defineEmits<{
+  /** 開關單一音源 */
+  toggleMute: [id: string];
 }>()
 
 /** 最多列幾個，太多會蓋掉畫面 */
@@ -98,10 +117,14 @@ const { locale, t } = useSimpleI18n({
   'zh-hant': {
     sandField: '白沙之間',
     silence: '四下無聲⋯⋯往有聲音的方向走吧',
+    muteHint: '關掉這個聲音',
+    unmuteHint: '打開這個聲音',
   },
   'en': {
     sandField: 'Between the gardens',
     silence: 'All quiet... walk toward a sound',
+    muteHint: 'Mute this sound',
+    unmuteHint: 'Unmute this sound',
   },
 } as const)
 </script>
@@ -165,12 +188,50 @@ const { locale, t } = useSimpleI18n({
   display: flex
   flex-direction: column
   gap: 3px
-  padding-bottom: 7px
+  padding: 0 0 7px
   overflow: hidden
+  /**
+   * 整份面板是 pointer-events: none 的
+   *
+   * 那是刻意的：漫遊時滑鼠被鎖在畫面上，面板不該攔截任何東西。
+   * 只有這幾條開關要收回點擊——按 Tab 放開滑鼠之後才點得到，
+   * 而那正是「停下來調整」的時機
+   */
+  pointer-events: auto
+  /** 按鈕的預設樣式全部清掉，它看起來要跟原本那一列一模一樣 */
+  appearance: none
+  background: none
+  border: none
+  color: inherit
+  font: inherit
+  text-align: left
+  cursor: pointer
+
+.sound-item:hover .sound-title
+  opacity: 1
+
+.sound-item:hover .loudness-track
+  background: rgba(255, 255, 255, 0.3)
+
+/** 關掉的那一條整列壓暗，一眼看得出是自己關的而不是聽不到 */
+.sound-item-muted .sound-title
+  opacity: 0.42
+
+.sound-item-muted .loudness-bar
+  background: rgba(255, 255, 255, 0.24)
 
 .sound-title
+  display: flex
+  align-items: center
+  gap: 5px
   font-size: 12px
   opacity: 0.9
+  transition: opacity 0.2s ease
+
+.sound-icon
+  flex: none
+  font-size: 13px
+  opacity: 0.8
 
 .loudness-track
   height: 3px
@@ -201,6 +262,7 @@ const { locale, t } = useSimpleI18n({
   transform: translateX(-8px)
   max-height: 0
   padding-bottom: 0
+  pointer-events: none
 
 .sound-enter-to, .sound-leave-from
   max-height: 40px

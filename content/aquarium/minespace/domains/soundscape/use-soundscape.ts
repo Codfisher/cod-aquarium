@@ -3,6 +3,7 @@ import type { AudibleSound, Weather } from './type'
 import { useStorage } from '@vueuse/core'
 import { onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { getAudioEngine } from '../../composables/use-audio-engine'
+import { measureSection } from '../../composables/use-performance-probe'
 import { createEmitterList } from './sound-data'
 import { SpatialSoundscape } from './spatial-soundscape'
 
@@ -42,6 +43,16 @@ export function useSoundscape() {
    */
   const masterVolume = useStorage('minespace-volume', 0.8)
   const isMuted = useStorage('minespace-muted', false)
+  /**
+   * 被單獨關掉的音源
+   *
+   * 整片音景是十七座箱庭疊出來的，走到中間會同時聽見四五種聲音。
+   * 有人是為了聽風來的，那幾聲蟬就成了雜訊——
+   * 讓他關掉那一個，其餘的照舊。
+   *
+   * 存成陣列而不是 Set：useStorage 要序列化成 JSON，Set 存不進去
+   */
+  const mutedSoundIdList = useStorage<string[]>('minespace-muted-sounds', [])
 
   let soundscape: SpatialSoundscape | null = null
   let elapsed = 0
@@ -51,10 +62,40 @@ export function useSoundscape() {
     soundscape?.setMasterVolume(isMuted.value ? 0 : masterVolume.value)
   })
 
+  watch(mutedSoundIdList, (idList) => {
+    soundscape?.setMutedIdList(idList)
+  }, { deep: true })
+
+  /**
+   * 開關單一音源
+   *
+   * 清單上每一條都可以按。淡入淡出交給音景那邊既有的音量斜坡，
+   * 按下去不是「啪」一聲斷掉，而是那個聲音慢慢退出去
+   */
+  function toggleSoundMute(id: string): void {
+    const index = mutedSoundIdList.value.indexOf(id)
+    if (index === -1) {
+      mutedSoundIdList.value = [...mutedSoundIdList.value, id]
+      return
+    }
+
+    mutedSoundIdList.value = mutedSoundIdList.value.filter((mutedId) => mutedId !== id)
+  }
+
   /** 天氣會影響哪些音源該發聲，下雨時鳥與蟲會躲起來 */
   function setWeather(weather: Weather) {
     currentWeather = weather
     soundscape?.setWeather(weather)
+  }
+
+  /**
+   * 觸發一個 trigger 模式的音源
+   *
+   * 天氣系統的閃電靠它把聽雨亭那道雷叫出來。
+   * 聲音本身種在 sound-data，天氣只負責決定什麼時候響
+   */
+  function triggerSound(id: string, volume?: number) {
+    soundscape?.trigger(id, volume)
   }
 
   /**
@@ -75,24 +116,28 @@ export function useSoundscape() {
     soundscape = new SpatialSoundscape(audioEngine, createEmitterList(worldState), worldState)
     soundscape.setMasterVolume(isMuted.value ? 0 : masterVolume.value, 0.01)
     soundscape.setWeather(currentWeather)
+    /** 上次關掉的那幾個要一開始就是關著的，不能先響一聲再收掉 */
+    soundscape.setMutedIdList(mutedSoundIdList.value)
     isReady.value = true
 
     scene.onBeforeRenderObservable.add(() => {
-      if (!soundscape)
-        return
+      measureSection('音景', () => {
+        if (!soundscape)
+          return
 
-      elapsed += scene.getEngine().getDeltaTime() / 1000
-      if (elapsed < UPDATE_INTERVAL)
-        return
+        elapsed += scene.getEngine().getDeltaTime() / 1000
+        if (elapsed < UPDATE_INTERVAL)
+          return
 
-      elapsed = 0
-      soundscape.update(
-        camera.position.x,
-        camera.position.y,
-        camera.position.z,
-        getDayRatio?.() ?? 1,
-      )
-      audibleList.value = soundscape.getAudibleList()
+        elapsed = 0
+        soundscape.update(
+          camera.position.x,
+          camera.position.y,
+          camera.position.z,
+          getDayRatio?.() ?? 1,
+        )
+        audibleList.value = soundscape.getAudibleList()
+      })
     })
   }
 
@@ -104,6 +149,8 @@ export function useSoundscape() {
   return {
     start,
     setWeather,
+    triggerSound,
+    toggleSoundMute,
     audibleList,
     isReady,
     masterVolume,

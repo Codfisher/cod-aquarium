@@ -70,6 +70,13 @@ export class SpatialSoundscape {
   private weather: Weather = 'clear'
   /** 白晝的程度，0 為全暗、1 為大白天 */
   private dayRatio = 1
+  /**
+   * 被單獨關掉的音源
+   *
+   * 這與主音量是兩件事。整片音景是十七座箱庭疊出來的，
+   * 有人只想聽風、有人受不了蟬——關掉一個音源不該連帶關掉別的
+   */
+  private mutedIdSet = new Set<string>()
 
   constructor(
     private audioEngine: AudioEngineV2,
@@ -82,9 +89,39 @@ export class SpatialSoundscape {
     this.weather = weather
   }
 
+  /**
+   * 指定哪些音源被單獨關掉
+   *
+   * 關掉的音源照樣留在記憶體裡，只是音量歸零。
+   * 卸載掉會省一點記憶體，但重新打開時得再等它載入一次——
+   * 開關本來就該是即時的
+   */
+  public setMutedIdList(idList: readonly string[]): void {
+    this.mutedIdSet = new Set(idList)
+  }
+
   /** 目前聽得到的音源，響度由大到小 */
   public getAudibleList(): AudibleSound[] {
     return this.audibleList
+  }
+
+  /**
+   * 觸發一個 trigger 模式的音源
+   *
+   * 玩家離得太遠時音源根本沒載入，這時什麼也不做——
+   * 那正是想要的：聽不到的地方就不該有聲音。
+   *
+   * volume 每次都可以不一樣，遠方的雷本來就比頭頂的悶
+   */
+  public trigger(id: string, volume?: number): void {
+    const active = this.activeMap.get(id)
+    if (!active || active.definition.mode.type !== 'trigger')
+      return
+
+    if (volume !== undefined) {
+      active.sound.volume = volume * active.gainRatio
+    }
+    active.sound.play()
   }
 
   /** 已載入的音源數量 */
@@ -142,8 +179,15 @@ export class SpatialSoundscape {
 
       const clarity = this.measureClarity(listenerX, listenerY, listenerZ, definition)
       const gainRatio = clarity * timeGate
-      this.applyGain(active, gainRatio)
+      const isMuted = this.mutedIdSet.has(definition.id)
+      this.applyGain(active, isMuted ? 0 : gainRatio)
 
+      /**
+       * 響度照原本的算，不管有沒有被關掉
+       *
+       * 關掉之後若連清單上那一條也消失，就再也沒有地方可以把它打開了。
+       * 這個值代表的是「它就在附近，只是被你關著」
+       */
       const loudness = estimateLoudness(definition, distance) * gainRatio
       if (loudness > 0.02) {
         audibleList.push({
@@ -152,6 +196,7 @@ export class SpatialSoundscape {
           zone: definition.zone,
           loudness,
           distance,
+          isMuted,
         })
       }
     }

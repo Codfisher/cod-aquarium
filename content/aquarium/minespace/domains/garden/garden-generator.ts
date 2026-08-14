@@ -9,13 +9,13 @@ import {
   buildCoastGarden,
   buildForestGarden,
   buildRiverGarden,
-  buildStoneGarden,
   buildSwampGarden,
   buildVillageGarden,
+  buildWheatGarden,
 } from './garden-builders-major'
 import {
-  buildNocturneGarden,
   buildOnsenGarden,
+  buildRainhallGarden,
   buildSongbirdGarden,
 } from './garden-builders-middle'
 import {
@@ -34,7 +34,7 @@ import { GARDEN_LIST, SOLITARY_STONE_LIST } from './garden-layout'
 
 /** 每一座箱庭的內容生成器 */
 const BUILDER_MAP: Record<GardenId, (state: Uint8Array, garden: GardenDefinition) => void> = {
-  stonegarden: buildStoneGarden,
+  wheatfield: buildWheatGarden,
   forest: buildForestGarden,
   autumn: buildAutumnGarden,
   alpine: buildAlpineGarden,
@@ -51,7 +51,7 @@ const BUILDER_MAP: Record<GardenId, (state: Uint8Array, garden: GardenDefinition
   pond: buildPondGarden,
   rainvale: buildRainvaleGarden,
   insect: buildInsectGarden,
-  nocturne: buildNocturneGarden,
+  rainhall: buildRainhallGarden,
   songbird: buildSongbirdGarden,
   onsen: buildOnsenGarden,
 }

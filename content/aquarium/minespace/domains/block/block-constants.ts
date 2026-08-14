@@ -136,6 +136,10 @@ export enum BlockId {
   STONE_PLANT,
   /** 叢生的野草，比一般高草更蓬 */
   WILD_GRASS,
+  /** 麥株，麥田那一整片金色 */
+  WHEAT,
+  /** 抽穗的麥，比一般的麥再高一階，混在田裡讓高度不整齊 */
+  WHEAT_TALL,
   /** 熱帶的花，湯屋那一帶的濕氣養得出來 */
   JUNGLE_FLOWER,
   BUSH,
@@ -317,6 +321,21 @@ export interface BlockDef {
   flatShaded?: boolean;
   /** 是否承接陰影，預設 true。半透明的水面接陰影會像破洞 */
   receiveShadow?: boolean;
+  /**
+   * 會不會隨風擺動
+   *
+   * 給樹葉用。交叉立板的花草一律會擺，不必特別指定；
+   * 立方體的方塊則要自己說——同樣是鏤空貼圖的玻璃就不該跟著晃
+   */
+  swaysInWind?: boolean;
+  /**
+   * 是否投出陰影，預設 true
+   *
+   * 給那些「本來就該與地面同一個平面」的方塊用。
+   * 它們的頂面與周圍的沙齊平，但陰影是照方塊的整個身體算的，
+   * 於是太陽一斜就從側面拖出一道影子，看起來像整塊浮起來了
+   */
+  castShadow?: boolean;
   /** 踩上去的腳步聲材質 */
   stepMaterial?: StepMaterial;
   /** 階梯靠背所在的那一側，只有 shape 為 stairs 時有意義 */
@@ -454,6 +473,15 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
    */
   [BlockId.RAKED_SAND]: {
     stepMaterial: 'sand',
+    /**
+     * 耙紋不投影子
+     *
+     * 這些方塊的頂面與整片白沙齊平，本來就該是同一個平面上的一道淺溝。
+     * 但陰影是照方塊的整個身體算的，太陽一斜就從側面拖出一道長影，
+     * 沙紋整條看起來像浮起來的矮牆。
+     * 溝的深淺交給貼圖的明度差就夠了
+     */
+    castShadow: false,
     textures: {
       all: `${TEXTURE_BASE}/default_silver_sand.png`,
       pixelTint: [0.9, 0.9, 0.92],
@@ -559,6 +587,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     },
   },
   [BlockId.OAK_LEAVES]: {
+    swaysInWind: true,
     stepMaterial: 'grass',
     cutout: true,
     textures: {
@@ -584,6 +613,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
    * 不能用 tint，那條路只會調出偏綠的暗色
    */
   [BlockId.AMBER_LEAVES]: {
+    swaysInWind: true,
     stepMaterial: 'grass',
     cutout: true,
     textures: {
@@ -592,6 +622,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     },
   },
   [BlockId.GOLD_LEAVES]: {
+    swaysInWind: true,
     stepMaterial: 'grass',
     cutout: true,
     textures: {
@@ -608,6 +639,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     },
   },
   [BlockId.PINE_LEAVES]: {
+    swaysInWind: true,
     stepMaterial: 'grass',
     cutout: true,
     textures: {
@@ -682,6 +714,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     },
   },
   [BlockId.ACACIA_LEAVES]: {
+    swaysInWind: true,
     stepMaterial: 'grass',
     cutout: true,
     textures: {
@@ -690,6 +723,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     },
   },
   [BlockId.JUNGLE_LEAVES]: {
+    swaysInWind: true,
     stepMaterial: 'grass',
     cutout: true,
     textures: {
@@ -1142,6 +1176,35 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     textures: {
       all: `${TEXTURE_BASE}/default_grass_5.png`,
       tint: [0.5, 0.72, 0.34],
+    },
+  },
+  /**
+   * 麥
+   *
+   * 用乾草的貼圖逐像素推成金色。倍率大於一是必要的：
+   * tint 只能把顏色調暗，而乾草本來就偏灰綠，
+   * 靠 tint 永遠調不出被曬熟的那種黃。
+   *
+   * 麥田整片都會隨風擺——交叉立板一律吃搖擺，
+   * 這是全場最看得出那陣風的地方
+   */
+  [BlockId.WHEAT]: {
+    shape: 'cross',
+    passable: true,
+    stepMaterial: 'grass',
+    textures: {
+      all: `${TEXTURE_BASE}/default_dry_grass.png`,
+      pixelTint: [1.32, 1.06, 0.5],
+    },
+  },
+  /** 抽穗的那幾株，顏色再深一點，混在田裡高度才不整齊 */
+  [BlockId.WHEAT_TALL]: {
+    shape: 'cross',
+    passable: true,
+    stepMaterial: 'grass',
+    textures: {
+      all: `${TEXTURE_BASE}/default_dry_grass_5.png`,
+      pixelTint: [1.24, 0.94, 0.42],
     },
   },
   [BlockId.JUNGLE_FLOWER]: {
