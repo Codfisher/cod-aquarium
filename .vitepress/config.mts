@@ -125,6 +125,7 @@ const sectionMap: Record<string, { name: string; landing: string }> = {
   'column-cod-toys': { name: '自己的工具自己做，用 Electron 仿造 PowerToys！', landing: getOldestDocPath('/column-cod-toys/') },
   'column-hexazen': { name: '來個 3D 白噪音混音器', landing: getOldestDocPath('/column-hexazen/') },
   'column-shader-notes': { name: '鱈魚的 Shader 筆記', landing: getOldestDocPath('/column-shader-notes/') },
+  'column-minespace': { name: '從 Minecraft 開始的 babylon.js 之路', landing: getOldestDocPath('/column-minespace/') },
   'column-chill-components': { name: '酷酷元件背後的星點', landing: getOldestDocPath('/column-chill-components/') },
 }
 
@@ -837,6 +838,10 @@ export default ({ mode }: { mode: string }) => {
                 text: '鱈魚的 Shader 筆記',
                 link: getOldestDocPath('/column-shader-notes/'),
               },
+              {
+                text: '從 Minecraft 開始的 babylon.js 之路',
+                link: getOldestDocPath('/column-minespace/'),
+              },
               // {
               //   text: '酷酷元件背後的星點',
               //   link: getOldestDocPath('/column-chill-components/'),
@@ -928,6 +933,10 @@ export default ({ mode }: { mode: string }) => {
                   text: '鱈魚的 Shader 筆記',
                   link: getOldestDocPath('/column-shader-notes/'),
                 },
+                {
+                  text: '從 Minecraft 開始的 babylon.js 之路',
+                  link: getOldestDocPath('/column-minespace/'),
+                },
                 // {
                 //   text: '酷酷元件背後的星點',
                 //   link: getOldestDocPath('/column-chill-components/'),
@@ -963,6 +972,11 @@ export default ({ mode }: { mode: string }) => {
         ...getSidebar(
           '/column-shader-notes/',
           '鱈魚的 Shader 筆記',
+          'asc',
+        ),
+        ...getSidebar(
+          '/column-minespace/',
+          '從 Minecraft 開始的 babylon.js 之路',
           'asc',
         ),
         // ...getSidebar(
