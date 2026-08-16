@@ -83,21 +83,25 @@ const { t, locale } = useSimpleI18n({
   'zh-hant': {
     subtitle: '戴上耳機，走進一片白沙上的聲音庭園',
     /**
-     * 說明只留三句
+     * 說明只留四句
      *
      * 這是一座庭園的入口，不是說明書。走進去看得到的東西不必先講，
-     * 講了反而先替人看過一遍
+     * 講了反而先替人看過一遍。
+     *
+     * 兩種語言的句數必須一樣多。型別只管得到「這個鍵是不是字串陣列」，
+     * 管不到長度——少一句不會報錯，只會讓某一種語言的人少讀到一行
      */
     intro: [
       '白沙無邊，其上落著{count}座箱庭。',
       '一庭一音，松有風，澤有蛙。',
       '庭與庭之間什麼也沒有，那是留給耳朵的空白。',
-      '在日夜流轉之間，找一個安心的角落，聆聽吧',
+      '在日夜流轉之間，找一個安心的角落，聆聽吧。',
     ],
     start: '開始漫遊',
     back: '回到漫遊',
     loading: '正在耙沙⋯⋯',
-    credit: '空間音效：<a href="https://www.babylonjs.com/" target="_blank" rel="noopener">Babylon.js</a>',
+    /** 音效來源是版權標註，兩種語言都要有，不能只掛在其中一邊 */
+    credit: '音效：<a href="https://sound-effects.bbcrewind.co.uk/" target="_blank" rel="noopener">BBC Sound Effects</a>　空間音效：<a href="https://www.babylonjs.com/" target="_blank" rel="noopener">Babylon.js</a>',
   },
   'en': {
     subtitle: 'Put on headphones and step into a garden of sound on white sand',
@@ -105,6 +109,7 @@ const { t, locale } = useSimpleI18n({
       'Endless white sand. {count} dioramas rest upon it.',
       'One garden, one sound. Wind in the pines, frogs in the marsh.',
       'Between them, nothing. That emptiness is for the ears.',
+      'As day turns to night, find a quiet corner and listen.',
     ],
     start: 'Start Roaming',
     back: 'Back to Roaming',
