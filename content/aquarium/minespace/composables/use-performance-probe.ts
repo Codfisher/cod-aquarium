@@ -57,6 +57,40 @@ export interface SectionReading {
   averageMs: number;
 }
 
+/**
+ * 區段名稱的英文說法
+ *
+ * measureSection 的名字直接寫在十幾個呼叫點上，那是刻意的：
+ * 掛名的成本要低到隨手就能加一個，改成傳 key 反而沒人願意掛。
+ *
+ * 代價是那些名字是中文的。這裡補一份對照表，顯示時查一下就好，
+ * 呼叫端一個字都不必動。查不到就原樣顯示，新加的區段
+ * 頂多是英文介面上出現一個中文名字，不會變成空白
+ */
+const SECTION_LABEL_EN_MAP: Record<string, string> = {
+  風: 'Wind',
+  音景: 'Soundscape',
+  天氣: 'Weather',
+  晨霧: 'Ground mist',
+  空氣顆粒: 'Air motes',
+  方塊動畫: 'Block animation',
+  方塊燈火: 'Block lights',
+  日夜循環: 'Day & night',
+  漫遊控制器: 'Roam controller',
+  營火動畫: 'Campfire',
+  羊群: 'Sheep flock',
+  陰影追蹤: 'Shadow tracking',
+  雲飄移: 'Cloud drift',
+}
+
+/** 依語系取得區段的顯示名稱 */
+export function getSectionLabel(name: string, isEnglish: boolean): string {
+  if (!isEnglish)
+    return name
+
+  return SECTION_LABEL_EN_MAP[name] ?? name
+}
+
 export interface PerformanceReading {
   /** 一幀送出幾批繪製呼叫 */
   drawCallCount: number;

@@ -97,53 +97,53 @@
         class="status-readout probe-readout"
       >
         <div class="probe-row">
-          <span>繪製</span><span>{{ probe.drawCallCount }}</span>
+          <span>{{ t('probeDrawCall') }}</span><span>{{ probe.drawCallCount }}</span>
         </div>
         <div class="probe-row">
-          <span>網格</span><span>{{ probe.activeMeshCount }}</span>
+          <span>{{ t('probeActiveMesh') }}</span><span>{{ probe.activeMeshCount }}</span>
         </div>
         <div class="probe-row">
-          <span>三角形</span><span>{{ (probe.triangleCount / 1000).toFixed(0) }}k</span>
-        </div>
-
-        <div class="probe-divider" />
-
-        <div class="probe-row">
-          <span>幀 CPU</span><span>{{ probe.frameMs.toFixed(1) }}</span>
-        </div>
-        <div class="probe-row">
-          <span>幀 GPU</span><span>{{ probe.gpuMs.toFixed(1) }}</span>
-        </div>
-        <div class="probe-row">
-          <span>幀距</span><span>{{ probe.interFrameMs.toFixed(1) }}</span>
+          <span>{{ t('probeTriangle') }}</span><span>{{ (probe.triangleCount / 1000).toFixed(0) }}k</span>
         </div>
 
         <div class="probe-divider" />
 
         <div class="probe-row">
-          <span>挑選</span><span>{{ probe.meshSelectionMs.toFixed(2) }}</span>
+          <span>{{ t('probeFrameCpu') }}</span><span>{{ probe.frameMs.toFixed(1) }}</span>
         </div>
         <div class="probe-row">
-          <span>陰影</span><span>{{ probe.renderTargetMs.toFixed(2) }}</span>
+          <span>{{ t('probeFrameGpu') }}</span><span>{{ probe.gpuMs.toFixed(1) }}</span>
         </div>
         <div class="probe-row">
-          <span>粒子</span><span>{{ probe.particleMs.toFixed(2) }}</span>
+          <span>{{ t('probeInterFrame') }}</span><span>{{ probe.interFrameMs.toFixed(1) }}</span>
+        </div>
+
+        <div class="probe-divider" />
+
+        <div class="probe-row">
+          <span>{{ t('probeMeshSelection') }}</span><span>{{ probe.meshSelectionMs.toFixed(2) }}</span>
         </div>
         <div class="probe-row">
-          <span>編譯</span><span>{{ probe.shaderCompileMs.toFixed(2) }}</span>
+          <span>{{ t('probeRenderTarget') }}</span><span>{{ probe.renderTargetMs.toFixed(2) }}</span>
+        </div>
+        <div class="probe-row">
+          <span>{{ t('probeParticle') }}</span><span>{{ probe.particleMs.toFixed(2) }}</span>
+        </div>
+        <div class="probe-row">
+          <span>{{ t('probeShaderCompile') }}</span><span>{{ probe.shaderCompileMs.toFixed(2) }}</span>
         </div>
 
         <div class="probe-divider" />
 
         <div class="probe-row probe-total">
-          <span>JS 合計</span><span>{{ probe.observerMs.toFixed(2) }}</span>
+          <span>{{ t('probeObserver') }}</span><span>{{ probe.observerMs.toFixed(2) }}</span>
         </div>
         <div
           v-for="section in probe.sectionList"
           :key="section.name"
           class="probe-row"
         >
-          <span>{{ section.name }}</span><span>{{ section.averageMs.toFixed(2) }}</span>
+          <span>{{ getSectionLabel(section.name, locale === 'en') }}</span><span>{{ section.averageMs.toFixed(2) }}</span>
         </div>
       </div>
     </div>
@@ -186,7 +186,7 @@ import { useDayNight } from '../../composables/use-day-night'
 import { useDevToggles } from '../../composables/use-dev-toggles'
 import { useFpsController } from '../../composables/use-fps-controller'
 import { useMobileController } from '../../composables/use-mobile-controller'
-import { usePerformanceProbe } from '../../composables/use-performance-probe'
+import { getSectionLabel, usePerformanceProbe } from '../../composables/use-performance-probe'
 import { useSimpleI18n } from '../../composables/use-simple-i18n'
 import { useTexturePack } from '../../composables/use-texture-pack'
 import { useSheepFlock } from '../fauna/use-sheep-flock'
@@ -210,6 +210,17 @@ const { t, locale } = useSimpleI18n({
   'zh-hant': {
     initFailed: '初始化失敗',
     cursorReleased: '滑鼠已放開，點一下畫面回到漫遊',
+    probeDrawCall: '繪製',
+    probeActiveMesh: '網格',
+    probeTriangle: '三角形',
+    probeFrameCpu: '幀 CPU',
+    probeFrameGpu: '幀 GPU',
+    probeInterFrame: '幀距',
+    probeMeshSelection: '挑選',
+    probeRenderTarget: '陰影',
+    probeParticle: '粒子',
+    probeShaderCompile: '編譯',
+    probeObserver: 'JS 合計',
     midnight: '深夜',
     dawn: '破曉',
     sunrise: '日出',
@@ -223,6 +234,17 @@ const { t, locale } = useSimpleI18n({
   'en': {
     initFailed: 'Initialization Failed',
     cursorReleased: 'Cursor released — click the view to resume',
+    probeDrawCall: 'Draws',
+    probeActiveMesh: 'Meshes',
+    probeTriangle: 'Tris',
+    probeFrameCpu: 'CPU',
+    probeFrameGpu: 'GPU',
+    probeInterFrame: 'Frame gap',
+    probeMeshSelection: 'Culling',
+    probeRenderTarget: 'Shadow',
+    probeParticle: 'Particles',
+    probeShaderCompile: 'Compile',
+    probeObserver: 'JS total',
     midnight: 'Midnight',
     dawn: 'Dawn',
     sunrise: 'Sunrise',
