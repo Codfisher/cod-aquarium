@@ -180,15 +180,13 @@ Minecraft 是我大學的時候最愛的遊戲，當時還做了很多地圖檔�
 
 ### [Minespace](/aquarium/minespace/){target="_blank" rel="noopener"}
 
-做完 [HexaZen](/aquarium/hexazen/) 之後一直有個念頭：白噪音混音器都是「調旋鈕」，可是現實裡我們是靠**走過去**聽見聲音的。%( ´ ▽ ` )ﾉ%
+babylon.js 有一個很有趣的功能叫做 Spatial Sound，就是空間音效，讓聲音可以隨著距離、方位、環境而改變音量與音質，聽起來就像真的在現場一樣。
 
-於是把 [EnderBox](/aquarium/enderbox/) 的方塊世界搬過來，拔掉挖礦，只留下走路，然後在地圖上埋了四十幾個聲音。
+於是同時也順便嘗試各種 babylon.js 製作場景，於是 Mimespace 就這麼誕生了！( •̀ ω •́ )✧
 
-森林的樹梢、營地的營火、山澗的瀑布、沼澤的蛙鳴、海岸的浪、村莊的市集、洞窟的滴水，全都待在它們該在的座標上。
+森林的樹梢、營地的營火、山澗的瀑布、沼澤的蛙鳴、海岸的浪、村莊的市集、洞窟的滴水。
 
-走近變大聲、轉頭換邊，靠的是 <a href="https://doc.babylonjs.com/features/featuresDeepDive/audio/playingSoundsMusic" target="_blank">babylon.js 的 Spatial Sound</a>，音量與方位交給 Web Audio 算，程式只負責決定「誰該存在」。%ԅ(´∀` ԅ)%
-
-建議戴上耳機，方位感會清楚很多。
+一起在箱亭裡散步，聽聽各種環境音吧！( ´ ▽ ` )ﾉ
 
 ---
 
