@@ -105,8 +105,35 @@ const CLOUD_CELL_SIZE = 14
 const CLOUD_THICKNESS = 5
 /** 雲的飄移速度（格 / 秒） */
 const CLOUD_DRIFT_SPEED = 0.6
-/** 單一朵雲最多幾格，再大就會連成一片蓋住整片天 */
-const MAX_CLOUD_CELL_COUNT = 10
+/**
+ * 天空被雲蓋掉幾成
+ *
+ * 這個數字同時決定地面有多少機會走進雲影裡，兩件事是同一份圖樣。
+ * 給太多，貼著地平線那一圈會糊成一條連續的白帶——
+ * 越遠的雲落在越低的仰角上，一成四看起來就已經是「有幾朵雲」了。
+ *
+ * 給太少則會回到雲影查不出來的那個老問題。雲只往 +X 飄，
+ * 所以真正的下限不是「雲夠不夠多」，而是「每一條 Z 列上都要有雲經過」。
+ * 量過的數字，最後那一欄是整條 Z 列從頭到尾都曬不到雲影的數量：
+ *
+ *   0.16 → 25 朵，地面兩成六有影，0 條
+ *   0.14 → 24 朵，地面兩成四有影，0 條
+ *   0.12 → 23 朵，地面兩成一有影，2 條 ← 開始有地方永遠沒有雲影
+ *
+ * 一成四是踩在那條線上面一點
+ */
+const CLOUD_COVERAGE = 0.14
+/**
+ * 疊出雲形狀的兩層噪音
+ *
+ * 密度是相對於圖樣格數的比例：低頻那一層每兩格一個格點，決定一朵雲多大；
+ * 高頻那一層每格一個，權重只有三分之一，負責在邊緣咬出缺口。
+ * 少了高頻那一層，每朵雲都是圓滾滾的一團，看起來像水滴不像雲
+ */
+const CLOUD_NOISE_OCTAVE_LIST = [
+  { density: 1 / 2, weight: 1 },
+  { density: 1, weight: 0.35 },
+]
 
 /**
  * 天空的底色
@@ -706,127 +733,121 @@ export function getStarFieldMaterial(scene: Scene): StandardMaterial | null {
 }
 
 /**
+ * 平滑內插用的曲線
+ *
+ * 兩端的斜率都是零，接起來的格點之間才看不出直線的痕跡
+ */
+function smoothRatio(ratio: number): number {
+  return ratio * ratio * (3 - 2 * ratio)
+}
+
+/**
+ * 可平鋪的值噪音
+ *
+ * 先在稀疏的格點上灑亂數，再平滑內插放大到圖樣的大小。
+ * 讀格點時座標繞回去，所以放大出來的結果本身就是無縫平鋪的。
+ *
+ * 這是循環世界的硬性條件，一般的連續噪音給不了：
+ * simplex 那類函式沒有週期，接縫上兩側的值對不起來
+ */
+function createTileableNoise(
+  random: () => number,
+  size: number,
+  pointCount: number,
+): number[] {
+  const pointList = Array.from({ length: pointCount * pointCount }, () => random())
+  const readPoint = (x: number, z: number) => {
+    const wrappedX = ((x % pointCount) + pointCount) % pointCount
+    const wrappedZ = ((z % pointCount) + pointCount) % pointCount
+    return pointList[wrappedZ * pointCount + wrappedX] ?? 0
+  }
+
+  const scale = pointCount / size
+  return Array.from({ length: size * size }, (_, index) => {
+    const x = (index % size) * scale
+    const z = Math.floor(index / size) * scale
+    const baseX = Math.floor(x)
+    const baseZ = Math.floor(z)
+    const ratioX = smoothRatio(x - baseX)
+    const ratioZ = smoothRatio(z - baseZ)
+
+    const top = readPoint(baseX, baseZ) * (1 - ratioX)
+      + readPoint(baseX + 1, baseZ) * ratioX
+    const bottom = readPoint(baseX, baseZ + 1) * (1 - ratioX)
+      + readPoint(baseX + 1, baseZ + 1) * ratioX
+
+    return top * (1 - ratioZ) + bottom * ratioZ
+  })
+}
+
+/**
+ * 雲的圖樣
+ *
+ * 原本這裡是細胞自動機（相鄰滿五格就長雲）加上「削掉過大的雲團」兩道。
+ * 那組規則其實是收斂到空的：起始填充率不到一半時，四回合下來剩不到一成，
+ * 而削雲團那一段又是整團由外往內剝一圈、連剝六回——
+ * 一大塊會被剝到只剩正中心幾格。
+ *
+ * 實際跑出來全世界只有十二格雲，而且全擠在同一條 Z 帶上。
+ * 雲只往 +X 飄，那條帶以外的地面於是從頭到尾都不會有雲經過——
+ * 雲影查了很久查不出來，真正的原因就在這裡，著色器一直是好的。
+ *
+ * 改成兩層噪音疊起來、取分位數當門檻。覆蓋率是指定的而不是算出來的，
+ * 低頻那一層決定一朵雲多大，高頻那一層負責咬出邊緣的缺口
+ */
+function createCloudPattern(random: () => number, size: number): boolean[] {
+  const fieldList = Array.from({ length: size * size }, () => 0)
+
+  for (const octave of CLOUD_NOISE_OCTAVE_LIST) {
+    const noiseList = createTileableNoise(random, size, Math.round(size * octave.density))
+    for (let index = 0; index < fieldList.length; index++) {
+      fieldList[index] = (fieldList[index] ?? 0) + (noiseList[index] ?? 0) * octave.weight
+    }
+  }
+
+  /**
+   * 門檻取分位數而不是給定值
+   *
+   * 兩層噪音疊起來的分布會隨權重跑，寫死一個值就得重新試一輪。
+   * 由大到小排完取第 N 名當門檻，說覆蓋幾成就真的是幾成
+   */
+  const sortedList = fieldList.slice().sort((a, b) => b - a)
+  const threshold = sortedList[Math.floor(sortedList.length * CLOUD_COVERAGE)] ?? Infinity
+
+  return fieldList.map((value) => value > threshold)
+}
+
+/**
  * Minecraft 風格的雲層
  *
  * 每一朵雲都是實際的方塊，不是貼圖，所以看得到厚度與側面。
- * 用 thin instance 一次畫完幾千個方塊，成本只有一個 draw call。
+ * 整片雲是一個網格，成本只有一個 draw call。
  * 這層雲同時也是投影者，地面上會有雲影慢慢掃過
  */
 function createCloudLayer(scene: Scene) {
   /**
    * 圖樣本身的格數
    *
-   * 格數乘上格寬必須剛好等於世界寬度（18 × 14 = 252）。
-   * 這是循環世界的硬性條件：玩家跨過邊界時位置會平移一整個世界的距離，
+   * 格數乘上格寬必須剛好等於世界寬度。這是循環世界的硬性條件：
+   * 玩家跨過邊界時位置會平移一整個世界的距離，
    * 雲的圖樣若不是同一個週期，整片天會在那一瞬間換一副樣子——
-   * 那是全場景唯一不吃霧氣、藏不住的東西
+   * 那是全場景唯一不吃霧氣、藏不住的東西。
+   *
+   * 直接由世界寬度除出來。原本這裡寫死 18，乘上格寬 14 是 252，
+   * 而世界寬度是 280，兩個數字其實從來沒對上過；除出來就不會再有下一次
    */
-  const patternCount = 18
+  const patternCount = Math.round(WORLD_SIZE / CLOUD_CELL_SIZE)
   /** 平鋪幾份，鋪得夠大才不會在天邊看到雲層的邊界 */
   const tileCount = 9
 
   const random = createSeededRandom('minespace-cloud')
-  /**
-   * 初始填充率
-   *
-   * 平滑規則會把孤立的格子吃掉，起始值太低整片天最後只剩零星幾朵，
-   * 一抬頭常常什麼都沒有。填到接近一半，收斂後才是「多雲」該有的覆蓋率
-   */
-  let cellList = Array.from({ length: patternCount * patternCount }, () => random() < 0.34)
+  const cellList = createCloudPattern(random, patternCount)
 
   const readCell = (grid: boolean[], x: number, z: number) => {
     /** 座標繞回去，圖樣才能無縫平鋪 */
     const wrappedX = ((x % patternCount) + patternCount) % patternCount
     const wrappedZ = ((z % patternCount) + patternCount) % patternCount
     return grid[wrappedZ * patternCount + wrappedX] === true
-  }
-
-  /** 平滑幾輪，讓零散的格子聚成一朵一朵的雲 */
-  for (let pass = 0; pass < 4; pass++) {
-    const nextList = cellList.slice()
-    for (let x = 0; x < patternCount; x++) {
-      for (let z = 0; z < patternCount; z++) {
-        let neighborCount = 0
-        for (let offsetX = -1; offsetX <= 1; offsetX++) {
-          for (let offsetZ = -1; offsetZ <= 1; offsetZ++) {
-            if (offsetX === 0 && offsetZ === 0)
-              continue
-            if (readCell(cellList, x + offsetX, z + offsetZ))
-              neighborCount++
-          }
-        }
-        nextList[z * patternCount + x] = neighborCount > 4
-          || (neighborCount === 4 && readCell(cellList, x, z))
-      }
-    }
-    cellList = nextList
-  }
-
-  /**
-   * 把過大的雲團削小
-   *
-   * 平滑規則會讓相鄰的雲黏成一片，覆蓋率一高就連成一大塊蓋住半邊天。
-   * 這裡標記出每一團的大小，只對超標的那幾團由外往內剝一圈，
-   * 剝到符合上限為止：大塊會縮小，細長的一團也會自然斷成幾朵
-   */
-  const labelComponentSizeList = (grid: boolean[]): number[] => {
-    const labelList = Array.from({ length: grid.length }, () => -1)
-    const sizeList: number[] = []
-
-    for (let index = 0; index < grid.length; index++) {
-      if (!grid[index] || labelList[index] !== -1)
-        continue
-
-      const label = sizeList.length
-      const queue = [index]
-      labelList[index] = label
-      let size = 0
-
-      for (let head = 0; head < queue.length; head++) {
-        const current = queue[head]!
-        size++
-        const x = current % patternCount
-        const z = Math.floor(current / patternCount)
-
-        for (const step of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-          const nextX = ((x + step[0]!) % patternCount + patternCount) % patternCount
-          const nextZ = ((z + step[1]!) % patternCount + patternCount) % patternCount
-          const nextIndex = nextZ * patternCount + nextX
-          if (!grid[nextIndex] || labelList[nextIndex] !== -1)
-            continue
-
-          labelList[nextIndex] = label
-          queue.push(nextIndex)
-        }
-      }
-
-      sizeList.push(size)
-    }
-
-    return labelList.map((label) => (label === -1 ? 0 : sizeList[label]!))
-  }
-
-  for (let pass = 0; pass < 6; pass++) {
-    const sizeList = labelComponentSizeList(cellList)
-    if (sizeList.every((size) => size <= MAX_CLOUD_CELL_COUNT))
-      break
-
-    const nextList = cellList.slice()
-    for (let x = 0; x < patternCount; x++) {
-      for (let z = 0; z < patternCount; z++) {
-        const index = z * patternCount + x
-        if (sizeList[index]! <= MAX_CLOUD_CELL_COUNT)
-          continue
-
-        /** 只剝外圍那一圈 */
-        const isEdge = [[1, 0], [-1, 0], [0, 1], [0, -1]]
-          .some((step) => !readCell(cellList, x + step[0]!, z + step[1]!))
-        if (isEdge) {
-          nextList[index] = false
-        }
-      }
-    }
-    cellList = nextList
   }
 
   /**
