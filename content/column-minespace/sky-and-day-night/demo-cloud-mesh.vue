@@ -1,8 +1,8 @@
 <template>
   <demo-frame
     :setup="setupScene"
-    title="雲的細胞自動機與面剔除"
-    caption="平滑輪數決定零散的格子聚不聚得成一朵雲，剝團上限則負責把黏成一片的大塊削開。關掉面剔除之後，相鄰兩格之間那兩片牆照樣會畫出來，隔著半透明的雲面看過去就是一格一格的框線。"
+    title="雲的圖樣與面剔除"
+    caption="覆蓋率決定天空被蓋掉幾成，說幾成就是幾成；細節權重是高頻那一層噪音的份量，給零每朵雲都圓滾滾的像水滴，加上去才咬得出缺口。關掉面剔除之後，相鄰兩格之間那兩片牆照樣會畫出來，隔著半透明的雲面看過去就是一格一格的框線。"
     :camera-alpha="-Math.PI / 2.3"
     :camera-beta="Math.PI / 3.4"
     :camera-radius="170"
@@ -14,21 +14,20 @@
       label="只畫露在外面的面"
     />
     <demo-slider
-      v-model="smoothPass"
-      label="平滑輪數"
-      :min="0"
-      :max="6"
-      :step="1"
-      :digit="0"
+      v-model="coverage"
+      label="覆蓋率"
+      :min="0.05"
+      :max="0.45"
+      :step="0.01"
+      :digit="2"
     />
     <demo-slider
-      v-model="maxCellCount"
-      label="單朵上限"
-      :min="4"
-      :max="60"
-      :step="2"
-      :digit="0"
-      unit=" 格"
+      v-model="detailWeight"
+      label="細節權重"
+      :min="0"
+      :max="0.8"
+      :step="0.05"
+      :digit="2"
     />
   </demo-frame>
 </template>
@@ -42,11 +41,11 @@ import DemoSlider from '../demo/demo-slider.vue'
 import DemoToggle from '../demo/demo-toggle.vue'
 
 const hasFaceCulling = shallowRef(true)
-const smoothPass = shallowRef(4)
-const maxCellCount = shallowRef(10)
+const coverage = shallowRef(0.14)
+const detailWeight = shallowRef(0.35)
 
-/** 與本體同一組規格，格數乘上格寬剛好等於世界寬度 */
-const PATTERN_COUNT = 18
+/** 與本體同一組規格，格數乘上格寬剛好等於世界寬度（20 × 14 = 280） */
+const PATTERN_COUNT = 20
 const CLOUD_CELL_SIZE = 14
 const CLOUD_THICKNESS = 5
 
@@ -71,96 +70,65 @@ function readCell(grid: boolean[], x: number, z: number): boolean {
   return grid[wrappedZ * PATTERN_COUNT + wrappedX] === true
 }
 
-/** 標記每一團的大小，剝團時要靠它決定誰該瘦身 */
-function labelComponentSizeList(grid: boolean[]): number[] {
-  const labelList = Array.from({ length: grid.length }, () => -1)
-  const sizeList: number[] = []
-
-  for (let index = 0; index < grid.length; index++) {
-    if (!grid[index] || labelList[index] !== -1)
-      continue
-
-    const label = sizeList.length
-    const queue = [index]
-    labelList[index] = label
-    let size = 0
-
-    for (let head = 0; head < queue.length; head++) {
-      const current = queue[head]!
-      size++
-      const x = current % PATTERN_COUNT
-      const z = Math.floor(current / PATTERN_COUNT)
-
-      for (const step of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-        const nextX = ((x + step[0]!) % PATTERN_COUNT + PATTERN_COUNT) % PATTERN_COUNT
-        const nextZ = ((z + step[1]!) % PATTERN_COUNT + PATTERN_COUNT) % PATTERN_COUNT
-        const nextIndex = nextZ * PATTERN_COUNT + nextX
-        if (!grid[nextIndex] || labelList[nextIndex] !== -1)
-          continue
-
-        labelList[nextIndex] = label
-        queue.push(nextIndex)
-      }
-    }
-
-    sizeList.push(size)
-  }
-
-  return labelList.map((label) => (label === -1 ? 0 : sizeList[label]!))
+/** 兩端斜率都是零，格點之間才看不出直線的痕跡 */
+function smoothRatio(ratio: number): number {
+  return ratio * ratio * (3 - 2 * ratio)
 }
 
-function buildPattern(passCount: number, cellLimit: number): boolean[] {
+/**
+ * 可平鋪的值噪音
+ *
+ * 讀格點時座標繞回去，放大出來就是無縫的。
+ * simplex 那類函式沒有週期，接縫上兩側的值對不起來
+ */
+function createTileableNoise(
+  random: () => number,
+  pointCount: number,
+): number[] {
+  const pointList = Array.from({ length: pointCount * pointCount }, () => random())
+  const readPoint = (x: number, z: number) => {
+    const wrappedX = ((x % pointCount) + pointCount) % pointCount
+    const wrappedZ = ((z % pointCount) + pointCount) % pointCount
+    return pointList[wrappedZ * pointCount + wrappedX] ?? 0
+  }
+
+  const scale = pointCount / PATTERN_COUNT
+  return Array.from({ length: PATTERN_COUNT * PATTERN_COUNT }, (_, index) => {
+    const x = (index % PATTERN_COUNT) * scale
+    const z = Math.floor(index / PATTERN_COUNT) * scale
+    const baseX = Math.floor(x)
+    const baseZ = Math.floor(z)
+    const ratioX = smoothRatio(x - baseX)
+    const ratioZ = smoothRatio(z - baseZ)
+
+    const top = readPoint(baseX, baseZ) * (1 - ratioX)
+      + readPoint(baseX + 1, baseZ) * ratioX
+    const bottom = readPoint(baseX, baseZ + 1) * (1 - ratioX)
+      + readPoint(baseX + 1, baseZ + 1) * ratioX
+
+    return top * (1 - ratioZ) + bottom * ratioZ
+  })
+}
+
+function buildPattern(targetCoverage: number, detail: number): boolean[] {
   const random = createSeededRandom(20260821)
-  let cellList = Array.from(
-    { length: PATTERN_COUNT * PATTERN_COUNT },
-    () => random() < 0.34,
+
+  /** 低頻決定一朵雲多大，高頻負責在邊緣咬出缺口 */
+  const baseList = createTileableNoise(random, PATTERN_COUNT / 2)
+  const detailList = createTileableNoise(random, PATTERN_COUNT)
+  const fieldList = baseList.map(
+    (value, index) => value + (detailList[index] ?? 0) * detail,
   )
 
-  /** 平滑幾輪，讓零散的格子聚成一朵一朵的雲 */
-  for (let pass = 0; pass < passCount; pass++) {
-    const nextList = cellList.slice()
-    for (let x = 0; x < PATTERN_COUNT; x++) {
-      for (let z = 0; z < PATTERN_COUNT; z++) {
-        let neighborCount = 0
-        for (let offsetX = -1; offsetX <= 1; offsetX++) {
-          for (let offsetZ = -1; offsetZ <= 1; offsetZ++) {
-            if (offsetX === 0 && offsetZ === 0)
-              continue
-            if (readCell(cellList, x + offsetX, z + offsetZ))
-              neighborCount++
-          }
-        }
-        nextList[z * PATTERN_COUNT + x] = neighborCount > 4
-          || (neighborCount === 4 && readCell(cellList, x, z))
-      }
-    }
-    cellList = nextList
-  }
+  /**
+   * 門檻取分位數而不是給定值
+   *
+   * 排完序取第 N 名，說覆蓋幾成就真的是幾成
+   */
+  const sortedList = fieldList.slice().sort((a, b) => b - a)
+  const threshold = sortedList[Math.floor(sortedList.length * targetCoverage)] ?? Infinity
 
-  /** 把過大的雲團由外往內剝一圈，剝到符合上限為止 */
-  for (let pass = 0; pass < 6; pass++) {
-    const sizeList = labelComponentSizeList(cellList)
-    if (sizeList.every((size) => size <= cellLimit))
-      break
-
-    const nextList = cellList.slice()
-    for (let x = 0; x < PATTERN_COUNT; x++) {
-      for (let z = 0; z < PATTERN_COUNT; z++) {
-        const index = z * PATTERN_COUNT + x
-        if (sizeList[index]! <= cellLimit)
-          continue
-
-        const isEdge = [[1, 0], [-1, 0], [0, 1], [0, -1]]
-          .some((step) => !readCell(cellList, x + step[0]!, z + step[1]!))
-        if (isEdge) {
-          nextList[index] = false
-        }
-      }
-    }
-    cellList = nextList
-  }
-
-  return cellList
+  return fieldList.map((value) => value > threshold)
 }
 
 function buildMesh() {
@@ -169,7 +137,7 @@ function buildMesh() {
     return
 
   const { babylon, mesh } = current
-  const cellList = buildPattern(smoothPass.value, maxCellCount.value)
+  const cellList = buildPattern(coverage.value, detailWeight.value)
 
   const positionList: number[] = []
   const normalList: number[] = []
@@ -303,5 +271,5 @@ function setupScene({ babylon, scene }: BabylonDemoContext) {
   buildMesh()
 }
 
-watch([hasFaceCulling, smoothPass, maxCellCount], buildMesh)
+watch([hasFaceCulling, coverage, detailWeight], buildMesh)
 </script>
