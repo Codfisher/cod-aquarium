@@ -180,6 +180,8 @@ Minecraft 是我大學的時候最愛的遊戲，當時還做了很多地圖檔�
 
 ### [Minespace](/aquarium/minespace/){target="_blank" rel="noopener"}
 
+<iframe width="100%" height="400" src="https://www.youtube.com/embed/_j9SFeL6ppU?si=w-ik-TSxPGkTHUBy" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+
 開發 HexaZen 雖然很有趣，但是總覺得少了一點沉浸感。
 
 babylon.js 有一個很有趣的功能叫做 Spatial Sound，就是空間音效，讓聲音可以隨著距離、方位、環境而改變音量與音質，聽起來就像真的在現場一樣。
