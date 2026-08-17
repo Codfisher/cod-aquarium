@@ -1,6 +1,7 @@
 import type { Scene, StandardMaterial, UniversalCamera } from '@babylonjs/core'
 import type { GardenId } from '../garden/garden-layout'
 import type { Weather } from '../soundscape/type'
+import type { WaterMap } from '../world/water-body'
 import type { AirMotes } from './air-motes'
 import type { AtmosphereState } from './atmosphere'
 import type { FallingLeaves } from './falling-leaves'
@@ -213,6 +214,8 @@ interface StartParams {
   playThunder: (volume: number) => void;
   /** 從天空往指定格柱打射線，取得雨滴打到的表面高度，落地水花濺在這裡 */
   castRainRay: (blockX: number, blockZ: number) => number | null;
+  /** 世界上的水在哪裡，打在水面上的雨滴要多畫一圈漣漪 */
+  waterMap: WaterMap;
   /** 白晝的程度，0 為全暗、1 為大白天。空氣裡飄什麼要看它 */
   getDayRatio: () => number;
   /** 這一刻是幾點，晨霧只在天亮前後那一段出現 */
@@ -364,6 +367,7 @@ export function useWeather() {
     isSheltered,
     playThunder: triggerThunder,
     castRainRay,
+    waterMap,
     getDayRatio,
     getTimeOfDay,
     wetMaterialList,
@@ -376,6 +380,7 @@ export function useWeather() {
     rainParticles = createRainParticles({
       scene,
       maxParticleCount: quality.value === 'low' ? 1200 : 3600,
+      waterMap,
       castRainRay,
     })
 

@@ -1,12 +1,12 @@
 <template>
   <div class="dev-panel">
     <div class="dev-title">
-      <span>效果開關</span>
+      <span>{{ t('title') }}</span>
       <button
         class="dev-reset"
         @click="resetAll()"
       >
-        全開
+        {{ t('resetAll') }}
       </button>
     </div>
 
@@ -18,20 +18,34 @@
       @click="toggle(item.key)"
     >
       <span class="dev-mark">{{ state[item.key] ? '■' : '□' }}</span>
-      <span>{{ item.label }}</span>
+      <span>{{ locale === 'en' ? item.label.en : item.label['zh-hant'] }}</span>
     </button>
 
     <div class="dev-hint">
-      按 Tab 放開滑鼠才點得到
+      {{ t('hint') }}
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { DEV_TOGGLE_LIST, useDevToggles } from '../composables/use-dev-toggles'
+import { useSimpleI18n } from '../composables/use-simple-i18n'
 
 const { state, toggle, resetAll } = useDevToggles()
 const toggleList = DEV_TOGGLE_LIST
+
+const { t, locale } = useSimpleI18n({
+  'zh-hant': {
+    title: '效果開關',
+    resetAll: '全開',
+    hint: '按 Tab 放開滑鼠才點得到',
+  },
+  'en': {
+    title: 'Effect toggles',
+    resetAll: 'All on',
+    hint: 'Press Tab to release the cursor first',
+  },
+} as const)
 </script>
 
 <style scoped lang="sass">

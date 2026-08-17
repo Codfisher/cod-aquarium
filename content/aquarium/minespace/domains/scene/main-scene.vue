@@ -97,53 +97,53 @@
         class="status-readout probe-readout"
       >
         <div class="probe-row">
-          <span>繪製</span><span>{{ probe.drawCallCount }}</span>
+          <span>{{ t('probeDrawCall') }}</span><span>{{ probe.drawCallCount }}</span>
         </div>
         <div class="probe-row">
-          <span>網格</span><span>{{ probe.activeMeshCount }}</span>
+          <span>{{ t('probeActiveMesh') }}</span><span>{{ probe.activeMeshCount }}</span>
         </div>
         <div class="probe-row">
-          <span>三角形</span><span>{{ (probe.triangleCount / 1000).toFixed(0) }}k</span>
-        </div>
-
-        <div class="probe-divider" />
-
-        <div class="probe-row">
-          <span>幀 CPU</span><span>{{ probe.frameMs.toFixed(1) }}</span>
-        </div>
-        <div class="probe-row">
-          <span>幀 GPU</span><span>{{ probe.gpuMs.toFixed(1) }}</span>
-        </div>
-        <div class="probe-row">
-          <span>幀距</span><span>{{ probe.interFrameMs.toFixed(1) }}</span>
+          <span>{{ t('probeTriangle') }}</span><span>{{ (probe.triangleCount / 1000).toFixed(0) }}k</span>
         </div>
 
         <div class="probe-divider" />
 
         <div class="probe-row">
-          <span>挑選</span><span>{{ probe.meshSelectionMs.toFixed(2) }}</span>
+          <span>{{ t('probeFrameCpu') }}</span><span>{{ probe.frameMs.toFixed(1) }}</span>
         </div>
         <div class="probe-row">
-          <span>陰影</span><span>{{ probe.renderTargetMs.toFixed(2) }}</span>
+          <span>{{ t('probeFrameGpu') }}</span><span>{{ probe.gpuMs.toFixed(1) }}</span>
         </div>
         <div class="probe-row">
-          <span>粒子</span><span>{{ probe.particleMs.toFixed(2) }}</span>
+          <span>{{ t('probeInterFrame') }}</span><span>{{ probe.interFrameMs.toFixed(1) }}</span>
+        </div>
+
+        <div class="probe-divider" />
+
+        <div class="probe-row">
+          <span>{{ t('probeMeshSelection') }}</span><span>{{ probe.meshSelectionMs.toFixed(2) }}</span>
         </div>
         <div class="probe-row">
-          <span>編譯</span><span>{{ probe.shaderCompileMs.toFixed(2) }}</span>
+          <span>{{ t('probeRenderTarget') }}</span><span>{{ probe.renderTargetMs.toFixed(2) }}</span>
+        </div>
+        <div class="probe-row">
+          <span>{{ t('probeParticle') }}</span><span>{{ probe.particleMs.toFixed(2) }}</span>
+        </div>
+        <div class="probe-row">
+          <span>{{ t('probeShaderCompile') }}</span><span>{{ probe.shaderCompileMs.toFixed(2) }}</span>
         </div>
 
         <div class="probe-divider" />
 
         <div class="probe-row probe-total">
-          <span>JS 合計</span><span>{{ probe.observerMs.toFixed(2) }}</span>
+          <span>{{ t('probeObserver') }}</span><span>{{ probe.observerMs.toFixed(2) }}</span>
         </div>
         <div
           v-for="section in probe.sectionList"
           :key="section.name"
           class="probe-row"
         >
-          <span>{{ section.name }}</span><span>{{ section.averageMs.toFixed(2) }}</span>
+          <span>{{ getSectionLabel(section.name, locale === 'en') }}</span><span>{{ section.averageMs.toFixed(2) }}</span>
         </div>
       </div>
     </div>
@@ -170,7 +170,10 @@ import type { SandField } from '../garden/sand-field'
 import type { WaterMirrors } from '../garden/water-mirror'
 import type { LampGlow } from '../renderer/lamp-glow'
 import type { TextureSkinner } from '../renderer/pixel-material'
+import type { SceneDepth } from '../renderer/scene-depth'
 import type { VoxelRenderer } from '../renderer/voxel-renderer'
+import type { WaterCaustics } from '../renderer/water-caustics'
+import type { WaterSurface } from '../renderer/water-surface'
 import type { SoundZone } from '../soundscape/type'
 import type { Landmark } from '../world/landmark'
 import { useEventListener, useStorage } from '@vueuse/core'
@@ -186,7 +189,7 @@ import { useDayNight } from '../../composables/use-day-night'
 import { useDevToggles } from '../../composables/use-dev-toggles'
 import { useFpsController } from '../../composables/use-fps-controller'
 import { useMobileController } from '../../composables/use-mobile-controller'
-import { usePerformanceProbe } from '../../composables/use-performance-probe'
+import { getSectionLabel, usePerformanceProbe } from '../../composables/use-performance-probe'
 import { useSimpleI18n } from '../../composables/use-simple-i18n'
 import { useTexturePack } from '../../composables/use-texture-pack'
 import { useSheepFlock } from '../fauna/use-sheep-flock'
@@ -196,7 +199,10 @@ import { createWaterMirrors } from '../garden/water-mirror'
 import { findSafeStandingPosition } from '../player/collision'
 import { createLampGlow } from '../renderer/lamp-glow'
 import { createTextureSkinner } from '../renderer/pixel-material'
+import { createSceneDepth } from '../renderer/scene-depth'
 import { createVoxelRenderer } from '../renderer/voxel-renderer'
+import { createWaterCaustics } from '../renderer/water-caustics'
+import { createWaterSurface } from '../renderer/water-surface'
 import { useSoundscape } from '../soundscape/use-soundscape'
 import { DEFAULT_SUNRISE_AZIMUTH, setSunriseAzimuth } from '../weather/day-night'
 import { createGodRays } from '../weather/god-rays'
@@ -204,12 +210,24 @@ import { useWeather } from '../weather/use-weather'
 import { collectLightSourceList } from '../world/light-source'
 import { useChunkWorker } from '../world/use-chunk-worker'
 import { useTerrainWorker } from '../world/use-terrain-worker/use-terrain-worker'
+import { createEmptyWaterMap, scanWaterMap } from '../world/water-body'
 import { castRainRay, createWorldState } from '../world/world-access'
 
 const { t, locale } = useSimpleI18n({
   'zh-hant': {
     initFailed: '初始化失敗',
     cursorReleased: '滑鼠已放開，點一下畫面回到漫遊',
+    probeDrawCall: '繪製',
+    probeActiveMesh: '網格',
+    probeTriangle: '三角形',
+    probeFrameCpu: '幀 CPU',
+    probeFrameGpu: '幀 GPU',
+    probeInterFrame: '幀距',
+    probeMeshSelection: '挑選',
+    probeRenderTarget: '陰影',
+    probeParticle: '粒子',
+    probeShaderCompile: '編譯',
+    probeObserver: 'JS 合計',
     midnight: '深夜',
     dawn: '破曉',
     sunrise: '日出',
@@ -223,6 +241,17 @@ const { t, locale } = useSimpleI18n({
   'en': {
     initFailed: 'Initialization Failed',
     cursorReleased: 'Cursor released — click the view to resume',
+    probeDrawCall: 'Draws',
+    probeActiveMesh: 'Meshes',
+    probeTriangle: 'Tris',
+    probeFrameCpu: 'CPU',
+    probeFrameGpu: 'GPU',
+    probeInterFrame: 'Frame gap',
+    probeMeshSelection: 'Culling',
+    probeRenderTarget: 'Shadow',
+    probeParticle: 'Particles',
+    probeShaderCompile: 'Compile',
+    probeObserver: 'JS total',
     midnight: 'Midnight',
     dawn: 'Dawn',
     sunrise: 'Sunrise',
@@ -246,6 +275,11 @@ let lampGlow: LampGlow | null = null
 let waterMirrors: WaterMirrors | null = null
 let skinner: TextureSkinner | null = null
 let sandField: SandField | null = null
+let sceneDepth: SceneDepth | null = null
+let waterSurface: WaterSurface | null = null
+let waterCaustics: WaterCaustics | null = null
+/** 世界上的水在哪裡，掃過一次就記著：漣漪與焦散都要問它 */
+let waterMap = createEmptyWaterMap()
 
 const isWorldReady = ref(false)
 const hasStarted = ref(false)
@@ -427,14 +461,48 @@ const { canvasRef, scene, camera, pipeline, initError } = useBabylonScene({
     skinner = createTextureSkinner(sceneInstance)
     skinner.applyPack(texturePack.value, bumpActive.value)
 
+    /**
+     * 世界上的水掃一次記著
+     *
+     * 要在渲染器之前：水面材質是建網格時掛上去的，
+     * 而掛上去之後第一幀就會去讀這份資料
+     */
+    waterMap = scanWaterMap(worldState)
+
     renderer = createVoxelRenderer(sceneInstance, chunkWorker, skinner)
     await renderer.build(worldState)
+
+    /**
+     * 場景深度圖
+     *
+     * 光暈的柔性淡出與水面的岸線交線光共用這一張。
+     * 低畫質會在它自己那邊關掉，兩個效果跟著歸零
+     */
+    sceneDepth = createSceneDepth({ scene: sceneInstance, camera: cameraInstance })
 
     /** 方塊做的沙只到世界邊界，外面那片得等渲染器準備好材質再接上去 */
     sandField = createSandField(sceneInstance, texturePack.value)
 
     /** 水鏡池的天空倒影，走近才畫 */
     waterMirrors = createWaterMirrors(sceneInstance, cameraInstance, worldState)
+
+    /**
+     * 水面的泡沫、岸線與漣漪，以及水底的焦散
+     *
+     * 兩者都是材質外掛，網格那邊早就掛好了；這裡建的是推動它們的那一份，
+     * 負責寫時間、挑出離玩家最近的那片水、以及把腳步濺成一圈波
+     */
+    waterSurface = createWaterSurface({
+      scene: sceneInstance,
+      camera: cameraInstance,
+      waterMap,
+    })
+    waterCaustics = createWaterCaustics({
+      scene: sceneInstance,
+      camera: cameraInstance,
+      waterMap,
+      getDayRatio,
+    })
 
     sheepFlock.start({ scene: sceneInstance, worldState, camera: cameraInstance, getDayRatio, skinner })
     createCampfireSmoke(sceneInstance, worldState)
@@ -604,6 +672,7 @@ async function handleStart() {
     /** 閃電歸天氣，雷聲歸聽雨亭，這裡只是把兩邊接起來 */
     playThunder: (volume) => triggerSound('rainvale-thunder', volume),
     castRainRay: (blockX, blockZ) => castRainRay(worldState, blockX, blockZ),
+    waterMap,
     getDayRatio,
     getTimeOfDay,
     /** 雨停之後要慢慢乾回去的那些表面，水與花草不在其中 */
@@ -637,6 +706,9 @@ function handleTravel(landmark: Landmark) {
 
 onBeforeUnmount(() => {
   lampGlow?.dispose()
+  waterSurface?.dispose()
+  waterCaustics?.dispose()
+  sceneDepth?.dispose()
   waterMirrors?.dispose()
   renderer?.dispose()
   sandField?.dispose()

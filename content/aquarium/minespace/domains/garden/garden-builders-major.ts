@@ -21,6 +21,7 @@ import {
   placeRoofCap,
   placeStoneLantern,
   placeTorii,
+  plantWithStack,
   rakeRipple,
   scatterOnGround,
   setDecoration,
@@ -753,7 +754,13 @@ export function buildSwampGarden(state: Uint8Array, garden: GardenDefinition): v
     if (getBlock(state, x, deckY, z) !== BlockId.WATER)
       continue
 
-    setDecoration(state, x, groundY, z, random() < 0.62 ? BlockId.LILY_PAD : BlockId.PAPYRUS)
+    /** 睡蓮貼著水面就好，蘆葦則要從水裡抽高出來 */
+    if (random() < 0.62) {
+      setDecoration(state, x, groundY, z, BlockId.LILY_PAD)
+      continue
+    }
+
+    plantWithStack(state, x, groundY, z, BlockId.PAPYRUS, random)
   }
 
   scatterOnGround(state, centerX, centerZ, inner, groundY, random, 0.3, (pick) => {

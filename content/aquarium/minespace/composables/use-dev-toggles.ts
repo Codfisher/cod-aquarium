@@ -5,23 +5,30 @@ import { reactive, ref } from 'vue'
  * 可以單獨關掉的效果
  *
  * 每一項都對應到一個看得見的東西。名字是給人看的，
- * 不是給程式配對的——面板上顯示什麼就寫什麼
+ * 不是給程式配對的——面板上顯示什麼就寫什麼。
+ *
+ * 標籤跟著箱庭與音源那一套走，直接把兩種語言擺在一起。
+ * 這種「一份資料自帶兩種說法」的東西不必進 useSimpleI18n：
+ * 那份是給介面的固定字句用的，而這裡的清單本身就是資料
  */
 export const DEV_TOGGLE_LIST = [
-  { key: 'lampGlow', label: '燈火光暈' },
-  { key: 'skyGlow', label: '日月光暈' },
-  { key: 'aerialPerspective', label: '大氣透視' },
-  { key: 'cloudShadow', label: '雲影' },
-  { key: 'leafTranslucency', label: '葉片透光' },
-  { key: 'pixelShadow', label: '像素對齊陰影' },
-  { key: 'dithering', label: '打散色階' },
-  { key: 'multiSample', label: '多重取樣' },
-  { key: 'contactShadow', label: '接觸硬化陰影' },
-  { key: 'airMotes', label: '空氣顆粒' },
-  { key: 'groundMist', label: '貼地晨霧' },
-  { key: 'wetness', label: '雨後濕潤' },
-  { key: 'pondMirror', label: '水面倒影' },
-  { key: 'waterGlint', label: '水面高光' },
+  { key: 'lampGlow', label: { 'zh-hant': '燈火光暈', 'en': 'Lamp glow' } },
+  { key: 'skyGlow', label: { 'zh-hant': '日月光暈', 'en': 'Sun & moon glow' } },
+  { key: 'aerialPerspective', label: { 'zh-hant': '大氣透視', 'en': 'Aerial perspective' } },
+  { key: 'cloudShadow', label: { 'zh-hant': '雲影', 'en': 'Cloud shadow' } },
+  { key: 'leafTranslucency', label: { 'zh-hant': '葉片透光', 'en': 'Leaf translucency' } },
+  { key: 'pixelShadow', label: { 'zh-hant': '像素對齊陰影', 'en': 'Pixel-aligned shadow' } },
+  { key: 'dithering', label: { 'zh-hant': '打散色階', 'en': 'Dithering' } },
+  { key: 'multiSample', label: { 'zh-hant': '多重取樣', 'en': 'Multisampling' } },
+  { key: 'contactShadow', label: { 'zh-hant': '接觸硬化陰影', 'en': 'Contact-hardening shadow' } },
+  { key: 'airMotes', label: { 'zh-hant': '空氣顆粒', 'en': 'Air motes' } },
+  { key: 'groundMist', label: { 'zh-hant': '貼地晨霧', 'en': 'Ground mist' } },
+  { key: 'wetness', label: { 'zh-hant': '雨後濕潤', 'en': 'Wetness' } },
+  { key: 'pondMirror', label: { 'zh-hant': '水面倒影', 'en': 'Water reflection' } },
+  { key: 'waterGlint', label: { 'zh-hant': '水面高光', 'en': 'Water glint' } },
+  { key: 'waterShoreline', label: { 'zh-hant': '岸線與漣漪', 'en': 'Shoreline & ripples' } },
+  { key: 'waterCaustics', label: { 'zh-hant': '水下焦散', 'en': 'Underwater caustics' } },
+  { key: 'grassTrample', label: { 'zh-hant': '草叢踩踏', 'en': 'Grass trampling' } },
 ] as const
 
 export type DevToggleKey = typeof DEV_TOGGLE_LIST[number]['key']

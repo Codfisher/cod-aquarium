@@ -1,6 +1,6 @@
 import type { GardenDefinition } from './garden-layout'
 import { fbm2D } from '../../utils/noise'
-import { BlockId, isDecorationBlock, isPassableBlock } from '../block/block-constants'
+import { BlockId, getStackHeightMax, isDecorationBlock, isPassableBlock } from '../block/block-constants'
 import { getBlock, setBlock } from '../world/world-access'
 import { SAND_LEVEL } from './garden-constants'
 import { getDeckBlockY } from './garden-layout'
@@ -791,8 +791,40 @@ export function scatterOnGround(
       if (blockId === null)
         continue
 
-      setBlock(state, x, groundY, z, blockId)
+      plantWithStack(state, x, groundY, z, blockId, random)
     }
+  }
+}
+
+/**
+ * 種一株植物，會疊高的就疊起來
+ *
+ * 竹稈是一節一節長上去的：一叢裡有一格的新芽也有五格的老稈，
+ * 全部齊頭一格高看起來像地上鋪了一排短樁。
+ *
+ * 高度是方塊自己的性質（見 block-constants 的 stackHeightMax），
+ * 不是呼叫端的參數——同一種竹子在沼澤與在水鏡池該長成一樣的樣子，
+ * 而每一處各給一個數字遲早會不一致。
+ *
+ * 撞到東西就停：一叢五格高的竹子長在棧道底下時，
+ * 該被截斷的是竹子，不是穿過那塊木板
+ */
+export function plantWithStack(
+  state: Uint8Array,
+  x: number,
+  groundY: number,
+  z: number,
+  blockId: BlockId,
+  random: () => number,
+): void {
+  const heightMax = getStackHeightMax(blockId)
+  const height = heightMax <= 1 ? 1 : 1 + Math.floor(random() * heightMax)
+
+  for (let level = 0; level < height; level++) {
+    if (getBlock(state, x, groundY + level, z) !== BlockId.AIR)
+      return
+
+    setBlock(state, x, groundY + level, z, blockId)
   }
 }
 

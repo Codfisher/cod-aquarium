@@ -10,6 +10,7 @@ import {
 import { measureSection } from '../../composables/use-performance-probe'
 import { pickOverride, resolveTexture } from '../block/texture-pack'
 import { setLeafTranslucency } from './leaf-translucency'
+import { attachWaterCaustics } from './water-caustics'
 
 /** 動畫貼圖每秒播幾格 */
 const TEXTURE_FRAME_RATE = 3.5
@@ -58,6 +59,14 @@ export interface PixelMaterialRecipe {
   translucency?: number;
   /** 高光的顏色，液體會另外調高 */
   specularColor?: Color3;
+  /**
+   * 這是不是液體
+   *
+   * 只影響一件事：液體不掛水下焦散。水面自己有一套效果
+   * （見 water-surface），兩者共用同一份 GLSL 函式，
+   * 同時掛上去等於把同一個函式宣告兩次，整份材質會編譯失敗
+   */
+  isLiquid?: boolean;
 }
 
 interface MaterialEntry {
@@ -432,6 +441,18 @@ export function createTextureSkinner(scene: Scene): TextureSkinner {
      */
     if (recipe.translucency) {
       setLeafTranslucency(material, recipe.translucency)
+    }
+
+    /**
+     * 泡在水裡的東西要有水面聚出來的光網
+     *
+     * 掛在這裡而不是渲染器那邊：方塊材質全部從這個工廠出來，
+     * 而「哪些方塊會被水淹到」是問不出來的——地形是生成的，
+     * 沙、石、黏土、水草、走到水裡的羊都可能在水面下。
+     * 與其猜，不如全部掛上，由著色器自己判斷這個片元在不在水下
+     */
+    if (!recipe.isLiquid) {
+      attachWaterCaustics(material)
     }
 
     const entry: MaterialEntry = { material, recipe, disposeList: [] }

@@ -8,12 +8,10 @@ import {
   StandardMaterial,
   Vector3,
 } from '@babylonjs/core'
-import { watch } from 'vue'
 import { useDevToggles } from '../../composables/use-dev-toggles'
-import { useGraphicsQuality } from '../../composables/use-graphics-quality'
 import { optOutOfFog } from './fog-opt-out'
 import { createGlowTexture } from './glow-texture'
-import { attachHaloSoftFade, createHaloSoftFade } from './halo-soft-fade'
+import { attachHaloSoftFade } from './halo-soft-fade'
 
 /** 全暗時光暈最亮到什麼程度 */
 const NIGHT_STRENGTH = 0.85
@@ -163,23 +161,6 @@ export function createLampGlow({
 
   /** 與天上那兩圈暈用同一條衰減曲線，邊界才不會浮出一圈輪廓 */
   const texture = createGlowTexture('lamp-halo', scene, [230, 230, 230])
-
-  /**
-   * 柔性淡出：低畫質不開
-   *
-   * 深度圖要整個場景多畫一趟，而低畫質那一檔本來就在跟繪製呼叫計較。
-   * 關掉時光暈退回原本的樣子——邊緣是硬的，但東西還在。
-   *
-   * 跟著畫質走而不是只讀一次：切畫質不會重建場景，
-   * 只讀一次的話，切到低畫質那一趟深度預繪會一直留著
-   */
-  const { quality } = useGraphicsQuality()
-  const softFade = createHaloSoftFade({ scene, camera })
-  const stopQualityWatch = watch(
-    quality,
-    (currentQuality) => softFade.setEnabled(currentQuality !== 'low'),
-    { immediate: true },
-  )
 
   /**
    * 光色只有兩種，材質就只建兩份
@@ -335,8 +316,6 @@ export function createLampGlow({
 
   return {
     dispose() {
-      stopQualityWatch()
-      softFade.dispose()
       scene.onBeforeRenderObservable.remove(observer)
       for (const halo of haloList) {
         halo.mesh.dispose()

@@ -15,7 +15,7 @@
           class="flex-1 item flex justify-center items-center gap-2 h-full "
         >
           <div
-            class="flex bg-gray-200 cursor-pointer rounded-xl h-full flex-1"
+            class="group relative flex bg-gray-200 cursor-pointer rounded-xl h-full flex-1"
             @click="handleClick(data)"
           >
             <img
@@ -23,6 +23,21 @@
               loading="lazy"
               class="object-contain h-full w-full border-none"
             >
+
+            <u-button
+              :icon="props.favoriteFileSet.has(data.file)
+                ? 'i-material-symbols:favorite-rounded'
+                : 'i-material-symbols:favorite-outline-rounded'"
+              :aria-label="props.favoriteFileSet.has(data.file) ? '取消收藏' : '加入收藏'"
+              color="neutral"
+              variant="ghost"
+              size="sm"
+              class="favorite-button absolute top-1 right-1 rounded-full bg-black/40 text-white duration-200 hover:bg-black/60"
+              :class="{
+                'text-red-400': props.favoriteFileSet.has(data.file),
+              }"
+              @click.stop="emit('toggleFavorite', data)"
+            />
           </div>
 
           <div
@@ -44,6 +59,9 @@
               keyword: {{ data.keyword }}
             </div>
             <div class="mt-2">
+              emotion: {{ data.emotion }}
+            </div>
+            <div class="mt-2">
               blurLevel: {{ data.blurLevel }}
             </div>
           </div>
@@ -62,12 +80,15 @@ import { computed, reactive } from 'vue'
 interface Props {
   list: MemeData[];
   detailVisible?: boolean;
+  favoriteFileSet?: Set<string>;
 }
 const props = withDefaults(defineProps<Props>(), {
   detailVisible: false,
+  favoriteFileSet: () => new Set<string>(),
 })
 const emit = defineEmits<{
   select: [data: MemeData];
+  toggleFavorite: [data: MemeData];
 }>()
 
 const windowSize = reactive(useWindowSize())

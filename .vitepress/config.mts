@@ -19,6 +19,7 @@ import { getMemeAlt, getMemeKeywordList, getMemeName, parseMemeNdjson, SEO_MEME_
 import { markdownItBaseImg } from './plugin/markdown-it-base-img'
 import { markdownItCodeBlockName } from './plugin/markdown-it-code-block-name'
 import { markdownItNowrap } from './plugin/markdown-it-nowrap'
+import { viteMemeSearchIndex } from './plugin/vite-meme-search-index'
 import { viteSeoMemeList } from './plugin/vite-seo-meme-list'
 import { generateImages } from './scripts/resize-images'
 import {
@@ -125,6 +126,7 @@ const sectionMap: Record<string, { name: string; landing: string }> = {
   'column-cod-toys': { name: '自己的工具自己做，用 Electron 仿造 PowerToys！', landing: getOldestDocPath('/column-cod-toys/') },
   'column-hexazen': { name: '來個 3D 白噪音混音器', landing: getOldestDocPath('/column-hexazen/') },
   'column-shader-notes': { name: '鱈魚的 Shader 筆記', landing: getOldestDocPath('/column-shader-notes/') },
+  'column-minespace': { name: '從 Minecraft 開始的 babylon.js 之路', landing: getOldestDocPath('/column-minespace/') },
   'column-chill-components': { name: '酷酷元件背後的星點', landing: getOldestDocPath('/column-chill-components/') },
 }
 
@@ -837,6 +839,10 @@ export default ({ mode }: { mode: string }) => {
                 text: '鱈魚的 Shader 筆記',
                 link: getOldestDocPath('/column-shader-notes/'),
               },
+              {
+                text: '從 Minecraft 開始的 babylon.js 之路',
+                link: getOldestDocPath('/column-minespace/'),
+              },
               // {
               //   text: '酷酷元件背後的星點',
               //   link: getOldestDocPath('/column-chill-components/'),
@@ -928,6 +934,10 @@ export default ({ mode }: { mode: string }) => {
                   text: '鱈魚的 Shader 筆記',
                   link: getOldestDocPath('/column-shader-notes/'),
                 },
+                {
+                  text: '從 Minecraft 開始的 babylon.js 之路',
+                  link: getOldestDocPath('/column-minespace/'),
+                },
                 // {
                 //   text: '酷酷元件背後的星點',
                 //   link: getOldestDocPath('/column-chill-components/'),
@@ -963,6 +973,11 @@ export default ({ mode }: { mode: string }) => {
         ...getSidebar(
           '/column-shader-notes/',
           '鱈魚的 Shader 筆記',
+          'asc',
+        ),
+        ...getSidebar(
+          '/column-minespace/',
+          '從 Minecraft 開始的 babylon.js 之路',
           'asc',
         ),
         // ...getSidebar(
@@ -1032,6 +1047,7 @@ export default ({ mode }: { mode: string }) => {
           },
         },
         viteSeoMemeList(),
+        viteMemeSearchIndex(),
         Icons({
           autoInstall: true,
           compiler: 'vue3',

@@ -24,7 +24,7 @@
           variant="ghost"
           color="neutral"
           size="sm"
-          @click="copyImg"
+          @click="shareImg"
         />
 
         <u-dropdown-menu
@@ -52,6 +52,26 @@
         >
 
         <div class="flex-1" />
+
+        <u-button
+          icon="i-material-symbols:undo-rounded"
+          aria-label="復原"
+          variant="ghost"
+          color="neutral"
+          size="sm"
+          :disabled="!editorRef?.undoable"
+          @click="editorRef?.undo()"
+        />
+
+        <u-button
+          icon="i-material-symbols:redo-rounded"
+          aria-label="重做"
+          variant="ghost"
+          color="neutral"
+          size="sm"
+          :disabled="!editorRef?.redoable"
+          @click="editorRef?.redo()"
+        />
 
         <u-dropdown-menu
           :items="moreFcnItems"
@@ -91,7 +111,13 @@ import type { MemeData } from '../meme/type'
 import UButton from '@nuxt/ui/components/Button.vue'
 import UModal from '@nuxt/ui/components/Modal.vue'
 import { snapdom } from '@zumer/snapdom'
-import { h, onBeforeUnmount, ref, useTemplateRef, watch } from 'vue'
+import { computed, h, onBeforeUnmount, ref, useTemplateRef, watch } from 'vue'
+import {
+  DEFAULT_OUTPUT_RATIO_VALUE,
+  fitImageToRatio,
+  getOutputRatioOption,
+  OUTPUT_RATIO_LIST,
+} from '../../utils/fit-image-to-ratio'
 import ImgEditor from './img-editor.vue'
 import MemePickerModal from './meme-picker-modal.vue'
 
@@ -286,6 +312,9 @@ onBeforeUnmount(() => {
   window.removeEventListener('paste', handlePaste)
 })
 
+const outputRatioValue = ref(DEFAULT_OUTPUT_RATIO_VALUE)
+const outputRatioOption = computed(() => getOutputRatioOption(outputRatioValue.value))
+
 async function getImgBlob() {
   if (!editorRef.value?.boardRef)
     return
@@ -301,50 +330,97 @@ async function getImgBlob() {
 
   await editorRef.value.blur()
 
-  const blob = await snapdom.toBlob(editorRef.value.boardRef, {
-    quality: 0.8,
-    backgroundColor: '#FFF',
-    type: 'png',
-  })
-  toast.remove(loadingToast.id)
+  try {
+    // 自選字型是延遲載入的，沒等它備妥就截圖會拍到 fallback 字型
+    await document.fonts.ready
 
-  return blob
+    const blob = await snapdom.toBlob(editorRef.value.boardRef, {
+      quality: 0.8,
+      backgroundColor: '#FFF',
+      type: 'png',
+      // Google Fonts 的字型檔允許跨域讀取，可直接內嵌進截圖
+      embedFonts: true,
+    })
+
+    return await fitImageToRatio(blob, outputRatioOption.value.ratio)
+  }
+  finally {
+    toast.remove(loadingToast.id)
+  }
 }
 
-async function copyImg() {
-  const blob = await getImgBlob()
-  if (!blob) {
-    toast.add({
-      title: '產生圖片失敗',
-      description: '嘗試重新整理後再試一次',
-      color: 'error',
-    })
-    return
-  }
+const OUTPUT_FILE_NAME = 'meme.png'
 
-  // 嘗試 Clipboard API
-  if (window.ClipboardItem && navigator.clipboard?.write) {
-    try {
-      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
-      toast.add({
-        title: '處理完成',
-        description: '圖片已寫入剪貼簿 (ゝ∀・)b',
-      })
-      return
-    }
-    catch (e) {
-      console.warn('Clipboard API failed, fallback to execCommand', e)
-    }
-  }
+function toImgFile(blob: Blob) {
+  return new File([blob], OUTPUT_FILE_NAME, { type: 'image/png' })
+}
 
-  // 開啟圖片，自行分享
+/** 使用者按下取消不算失敗，不該再跳錯誤提示 */
+function isAbortError(error: unknown) {
+  return error instanceof Error && error.name === 'AbortError'
+}
+
+/**
+ * 呼叫系統分享面板。
+ *
+ * 過去用 Web Share 失敗，原因有二：傳的是 Blob 而非 File，
+ * 以及產圖是非同步的，等圖產好時 Safari 已認定使用者手勢過期。
+ * 故此處只負責分享，且必須由某個點擊事件直接觸發。
+ */
+async function shareImgFile(blob: Blob): Promise<boolean> {
+  const file = toImgFile(blob)
+  if (!navigator.canShare?.({ files: [file] }))
+    return false
+
+  try {
+    await navigator.share({ files: [file] })
+    return true
+  }
+  catch (error) {
+    if (isAbortError(error))
+      return true
+
+    console.warn('[meme-cache] Web Share 失敗', error)
+    return false
+  }
+}
+
+async function writeImgToClipboard(blob: Blob): Promise<boolean> {
+  if (!window.ClipboardItem || !navigator.clipboard?.write)
+    return false
+
+  try {
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
+    return true
+  }
+  catch (error) {
+    console.warn('[meme-cache] 寫入剪貼簿失敗', error)
+    return false
+  }
+}
+
+function downloadImg(blob: Blob) {
   const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = OUTPUT_FILE_NAME
+  anchor.click()
+  URL.revokeObjectURL(url)
+}
+
+/** 自動路徑都失敗時，給一個由使用者親自點擊的出口，手勢才會是新鮮的 */
+function openManualShareModal(blob: Blob) {
+  const url = URL.createObjectURL(blob)
+  const canShare = Boolean(navigator.canShare?.({ files: [toImgFile(blob)] }))
+
   const imgModal = overlay.create(
     h(
       UModal,
       {
         title: '手動分享',
-        description: '無法寫入剪貼簿，請長按或右鍵圖片，手動分享 ლ(╹ε╹ლ)',
+        description: canShare
+          ? '按下方的分享，或長按圖片自行儲存 ლ(╹ε╹ლ)'
+          : '請長按或右鍵圖片，手動分享 ლ(╹ε╹ლ)',
         ui: {
           overlay: 'z-[99999]',
           content: 'z-[999999]',
@@ -355,20 +431,77 @@ async function copyImg() {
           'img',
           { src: url, class: 'rounded-none' },
         )],
+        footer: () => [h(
+          'div',
+          { class: 'flex w-full gap-2' },
+          [
+            canShare
+              ? h(UButton, {
+                  label: '分享',
+                  icon: 'i-material-symbols:share',
+                  onClick: () => shareImgFile(blob),
+                })
+              : undefined,
+            h(UButton, {
+              label: '下載',
+              icon: 'i-lucide-image-down',
+              color: 'neutral',
+              variant: 'outline',
+              onClick: () => downloadImg(blob),
+            }),
+          ].filter(Boolean),
+        )],
       },
     ),
   )
   imgModal.open()
-
-  // TODO: Web Share 沒有成功
 }
 
-const moreFcnItems: DropdownMenuItem[][] = [
+async function shareImg() {
+  const blob = await getImgBlob()
+  if (!blob) {
+    toast.add({
+      title: '產生圖片失敗',
+      description: '嘗試重新整理後再試一次',
+      color: 'error',
+    })
+    return
+  }
+
+  // 手機有系統分享面板，可直接送進 LINE 等 app，優先走這條
+  if (await shareImgFile(blob))
+    return
+
+  if (await writeImgToClipboard(blob)) {
+    toast.add({
+      title: '處理完成',
+      description: '圖片已寫入剪貼簿 (ゝ∀・)b',
+    })
+    return
+  }
+
+  openManualShareModal(blob)
+}
+
+const moreFcnItems = computed<DropdownMenuItem[][]>(() => [
   [
     {
       icon: 'i-material-symbols:mobile-layout-outline',
       label: '版面設定',
       onSelect: () => toggleSettingForm(),
+    },
+    {
+      icon: 'i-material-symbols:aspect-ratio-outline-rounded',
+      label: `輸出尺寸：${outputRatioOption.value.label}`,
+      children: OUTPUT_RATIO_LIST.map((item) => ({
+        label: item.label,
+        icon: item.value === outputRatioValue.value
+          ? 'i-material-symbols:check-rounded'
+          : undefined,
+        onSelect: () => {
+          outputRatioValue.value = item.value
+        },
+      })),
     },
   ],
   [
@@ -386,12 +519,7 @@ const moreFcnItems: DropdownMenuItem[][] = [
           return
         }
 
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = 'meme.png'
-        a.click()
-
+        downloadImg(blob)
         toast.add({ title: '已開始下載' })
       },
     },
@@ -442,5 +570,5 @@ const moreFcnItems: DropdownMenuItem[][] = [
       onSelect: () => confirmClean(),
     },
   ],
-]
+])
 </script>

@@ -25,87 +25,137 @@
           ref="imgListRef"
           :list="filteredList"
           :detail-visible="settings.detailVisible"
+          :favorite-file-set="favoriteFileSet"
           :style="{ height: listHeight }"
           class="overflow-auto"
           @select="handleSelect"
+          @toggle-favorite="handleToggleFavorite"
         />
 
         <div
           ref="toolbarRef"
-          class="toolbar flex gap-2 w-full fixed left-0 p-4 bg-white dark:bg-black "
+          class="toolbar flex flex-col gap-2 w-full fixed left-0 p-4 bg-white dark:bg-black "
           :style="toolbarStyle"
         >
-          <u-input
-            ref="inputRef"
-            v-model.trim="keyword"
-            placeholder="輸入關鍵字或任何線索 (・∀・)９"
-            class="w-full "
-            :ui="{
-              base: 'py-4 px-6 rounded-full',
-              trailing: 'pe-4',
-            }"
-            data-clarity-unmask="true"
-            @keydown.enter="handleEnter"
+          <div
+            v-if="availableEmotionList.length || collectionMode !== 'all'"
+            class="filter-list flex gap-2 items-center"
           >
-            <template
-              v-if="keyword?.length"
-              #trailing
-            >
-              <u-button
-                color="neutral"
-                variant="link"
-                size="sm"
-                icon="i-material-symbols:cancel-rounded"
-                aria-label="Clear input"
-                @click="keyword = ''"
-              />
-            </template>
-          </u-input>
-
-          <u-dropdown-menu
-            :items="mainMenuItems"
-            :ui="{
-              content: 'z-70',
-              item: 'p-2',
-            }"
-          >
+            <!-- 模式獨立於情緒標籤之外，才不會被橫向捲動帶出畫面 -->
             <u-button
-              icon="i-material-symbols:menu-rounded"
-              variant="ghost"
+              v-if="collectionMode !== 'all'"
+              :label="COLLECTION_MODE_LABEL[collectionMode]"
+              trailing-icon="i-material-symbols:close-rounded"
               color="neutral"
+              variant="solid"
+              size="xs"
+              aria-label="回到全部"
+              class="shrink-0 rounded-full"
+              @click="collectionMode = 'all'"
             />
 
-            <template #detail>
-              <u-checkbox
-                v-model="settings.detailVisible"
-                label="顯示細節"
+            <div class="emotion-list flex gap-2 overflow-x-auto">
+              <u-button
+                v-for="emotion in availableEmotionList"
+                :key="emotion"
+                :label="emotion"
+                :variant="selectedEmotionSet.has(emotion) ? 'solid' : 'outline'"
+                :color="selectedEmotionSet.has(emotion) ? 'primary' : 'neutral'"
+                :aria-pressed="selectedEmotionSet.has(emotion)"
+                size="xs"
+                class="shrink-0 rounded-full"
+                @click="toggleEmotion(emotion)"
               />
-            </template>
+            </div>
+          </div>
 
-            <template #blur-filter>
-              <u-tooltip
-                text="過濾模糊圖片，分級由演算法自動評估"
-                :ui="{ content: 'z-[9999]' }"
+          <div class="flex gap-2 w-full">
+            <u-input
+              ref="inputRef"
+              v-model.trim="keyword"
+              placeholder="輸入關鍵字或任何線索 (・∀・)９"
+              class="w-full "
+              :ui="{
+                base: 'py-4 px-6 rounded-full',
+                trailing: 'pe-4',
+              }"
+              data-clarity-unmask="true"
+              @keydown.enter="handleEnter"
+            >
+              <template
+                v-if="keyword?.length"
+                #trailing
               >
-                <div class="flex items-center gap-3 text-sm">
-                  <span class="shrink-0">
-                    模糊度
-                  </span>
-                  <u-slider
-                    v-model="filterOptions.blurFilter"
-                    :min="0"
-                    :max="2"
-                    :step="1"
+                <u-button
+                  color="neutral"
+                  variant="link"
+                  size="sm"
+                  icon="i-material-symbols:cancel-rounded"
+                  aria-label="Clear input"
+                  @click="keyword = ''"
+                />
+              </template>
+            </u-input>
+
+            <u-dropdown-menu
+              :items="mainMenuItems"
+              :ui="{
+                content: 'z-70',
+                item: 'p-2',
+              }"
+            >
+              <u-button
+                icon="i-material-symbols:menu-rounded"
+                variant="ghost"
+                color="neutral"
+              />
+
+              <template #detail>
+                <u-checkbox
+                  v-model="settings.detailVisible"
+                  label="顯示細節"
+                />
+              </template>
+
+              <template #collection>
+                <div class="flex items-center gap-1 text-sm">
+                  <u-button
+                    v-for="item in collectionModeItemList"
+                    :key="item.value"
+                    :label="item.label"
+                    :variant="collectionMode === item.value ? 'solid' : 'ghost'"
+                    :color="collectionMode === item.value ? 'primary' : 'neutral'"
                     size="xs"
-                    class="w-24"
+                    @click="collectionMode = item.value"
                   />
-                  <span class="text-xs opacity-60 shrink-0 tabular-nums">
-                    {{ blurFilterLabel }}
-                  </span>
                 </div>
-              </u-tooltip>
-            </template>
-          </u-dropdown-menu>
+              </template>
+
+              <template #blur-filter>
+                <u-tooltip
+                  text="過濾模糊圖片，分級由演算法自動評估"
+                  :ui="{ content: 'z-[9999]' }"
+                >
+                  <div class="flex items-center gap-3 text-sm">
+                    <span class="shrink-0">
+                      模糊度
+                    </span>
+                    <u-slider
+                      v-model="filterOptions.blurFilter"
+                      :min="0"
+                      :max="2"
+                      :step="1"
+                      size="xs"
+                      class="w-24"
+                    />
+                    <span class="text-xs opacity-60 shrink-0 tabular-nums">
+                      {{ blurFilterLabel }}
+                    </span>
+                  </div>
+                </u-tooltip>
+              </template>
+            </u-dropdown-menu>
+          </div>
         </div>
       </div>
 
@@ -129,16 +179,19 @@ import { promiseTimeout, useActiveElement, useColorMode, useElementSize, useWind
 import { filter, isNullish, isTruthy, pipe, shuffle } from 'remeda'
 import { computed, onMounted, reactive, ref, shallowRef, useTemplateRef, watch } from 'vue'
 import { BlurLevel } from '../../../.vitepress/utils/blur-level'
+import { type Emotion, EMOTION_LIST, parseEmotionList } from '../../../.vitepress/utils/meme-emotion'
 import { nextFrame } from '../../../web/common/utils'
 import { usePageNoScroll } from '../../../web/composables/use-page-no-scroll'
 import { useKeywordQuery } from './composables/use-keyword-query'
+import { COLLECTION_MODE_LABEL, type CollectionMode, useMemeCollection } from './composables/use-meme-collection'
+import { useMissingKeywordReport } from './composables/use-missing-keyword-report'
 import { useStickyToolbar } from './composables/use-sticky-toolbar'
 import ImgEditorModal from './domains/img-editor/img-editor-modal.vue'
 import ImgList from './domains/img-list/img-list.vue'
 import { useMemeData } from './domains/meme/use-meme-data'
 import { useMemeSearch } from './domains/meme/use-meme-search'
 
-const version = '0.7.0'
+const version = '0.8.0'
 
 const uploadUrl = 'https://drive.google.com/drive/u/2/folders/1UUpzhZPdI-i_7PhCYZNDS-BxbulATMlN'
 
@@ -151,7 +204,7 @@ const toast = useToast()
 
 const windowSize = reactive(useWindowSize())
 
-const { memeDataMap, memeDataList } = useMemeData()
+const { memeDataList, loaded } = useMemeData()
 const activeElement = useActiveElement()
 function handleEnter() {
   activeElement.value?.blur()
@@ -171,8 +224,42 @@ const filterOptions = ref({
 const BLUR_FILTER_LABEL_LIST = ['全部', '微糊', '清晰'] as const
 const blurFilterLabel = computed(() => BLUR_FILTER_LABEL_LIST[filterOptions.value.blurFilter] ?? '全部')
 
+const {
+  mode: collectionMode,
+  favoriteFileSet,
+  toggleFavorite,
+  markRecent,
+  filterByMode,
+  sortByCollection,
+} = useMemeCollection()
+
+const collectionModeItemList = (Object.keys(COLLECTION_MODE_LABEL) as CollectionMode[])
+  .map((value) => ({ value, label: COLLECTION_MODE_LABEL[value] }))
+
+const selectedEmotionList = ref<Emotion[]>([])
+const selectedEmotionSet = computed(() => new Set(selectedEmotionList.value))
+
+/** 只列出資料中真的出現過的標籤，尚未標註完成時整列自動消失 */
+const availableEmotionList = computed(() => {
+  const existedSet = new Set(
+    memeDataList.value.flatMap((item) => parseEmotionList(item.emotion)),
+  )
+  return EMOTION_LIST.filter((emotion) => existedSet.has(emotion))
+})
+
+function toggleEmotion(emotion: Emotion) {
+  selectedEmotionList.value = selectedEmotionSet.value.has(emotion)
+    ? selectedEmotionList.value.filter((item) => item !== emotion)
+    : [...selectedEmotionList.value, emotion]
+}
+
 const searchedList = shallowRef<MemeData[]>([])
-const filteredList = computed(() => filterList(searchedList.value))
+const filteredList = computed(() => {
+  const list = filterList(searchedList.value)
+
+  // 有關鍵字時相關度優先，否則依收藏／使用順序排列
+  return keyword.value ? list : sortByCollection(list)
+})
 
 const mainMenuItems = pipe(
   [
@@ -180,6 +267,7 @@ const mainMenuItems = pipe(
       isDev
         ? { slot: 'detail' }
         : undefined,
+      { slot: 'collection' },
       { slot: 'blur-filter' },
       {
         icon: 'i-lets-icons:sort-random',
@@ -221,16 +309,21 @@ const targetMeme = shallowRef<MemeData>()
 function handleSelect(data: MemeData) {
   targetMeme.value = data
   editorVisible.value = true
+  markRecent(data.file)
+}
+
+function handleToggleFavorite(data: MemeData) {
+  toggleFavorite(data.file)
 }
 
 const { search: searchMeme } = useMemeSearch()
 
-function filterList(list: MemeData[]): MemeData[] {
-  const filter = filterOptions.value.blurFilter
-  if (filter === 0)
+function filterByBlur(list: MemeData[]): MemeData[] {
+  const level = filterOptions.value.blurFilter
+  if (level === 0)
     return list
 
-  const maxAllowedLevel = filter === 1 ? BlurLevel.LEVEL_1 : BlurLevel.LEVEL_0
+  const maxAllowedLevel = level === 1 ? BlurLevel.LEVEL_1 : BlurLevel.LEVEL_0
   return list.filter((item) => {
     if (isNullish(item.blurLevel))
       return true
@@ -238,8 +331,22 @@ function filterList(list: MemeData[]): MemeData[] {
   })
 }
 
+/** 多選標籤為 OR，命中任一即保留 */
+function filterByEmotion(list: MemeData[]): MemeData[] {
+  if (selectedEmotionList.value.length === 0)
+    return list
+
+  return list.filter(
+    (item) => parseEmotionList(item.emotion).some((emotion) => selectedEmotionSet.value.has(emotion)),
+  )
+}
+
+function filterList(list: MemeData[]): MemeData[] {
+  return pipe(list, filterByBlur, filterByEmotion, filterByMode)
+}
+
 let searchId = 0
-watchThrottled(() => [keyword.value, memeDataMap.value], async () => {
+watchThrottled(() => [keyword.value, memeDataList.value] as const, async () => {
   const currentId = ++searchId
 
   if (!keyword.value) {
@@ -254,9 +361,15 @@ watchThrottled(() => [keyword.value, memeDataMap.value], async () => {
 
   searchedList.value = result
 }, {
-  deep: true,
   throttle: 300,
   immediate: true,
+})
+
+useMissingKeywordReport({
+  keyword,
+  // 用搜尋結果而非畫面結果，避免把「被標籤篩掉」誤記成「沒有這張圖」
+  resultCount: computed(() => searchedList.value.length),
+  loaded,
 })
 
 const imgListRef = useTemplateRef('imgListRef')
@@ -282,7 +395,26 @@ const listHeight = computed(
   () => `${windowSize.height - toolbarSize.height - tipSize.height}px`,
 )
 
+const EMPTY_COLLECTION_TIP: Record<CollectionMode, string> = {
+  all: '',
+  favorite: '收藏是空的 ( ˘･з･)\n點圖片右上角的愛心就能收進來',
+  recent: '還沒用過任何圖 ( ˘･з･)\n點開圖片編輯後就會記錄在這',
+}
+
+/** 選單收起後就看不到目前模式，故提示列也要說清楚正在看哪一種 */
+const COLLECTION_TIP: Record<CollectionMode, (count: number) => string> = {
+  all: () => '',
+  favorite: (count) => `收藏了 ${count} 張 ੭ ˙ᗜ˙ )੭`,
+  recent: (count) => `最近用過 ${count} 張 ੭ ˙ᗜ˙ )੭`,
+}
+
 const tipText = computed(() => {
+  if (collectionMode.value !== 'all') {
+    return filteredList.value.length === 0
+      ? EMPTY_COLLECTION_TIP[collectionMode.value]
+      : COLLECTION_TIP[collectionMode.value](filteredList.value.length)
+  }
+
   if (!keyword.value) {
     return '常常找不到記憶中的梗圖嗎？\n我來幫你找找 ԅ(´∀` ԅ)'
   }
