@@ -233,3 +233,166 @@ export function findNearestWaterBody(
 
   return nearest
 }
+
+/**
+ * 編碼水面高度時除以這個數
+ *
+ * 世界只有四十格高，除以六十四之後一定落在 0 到 1 之間，
+ * 而六十四是二的冪，除下去不會有浮點數的零頭
+ */
+export const WATER_LEVEL_ENCODE_RANGE = 64
+
+/**
+ * 離岸距離量到幾格為止
+ *
+ * 超過這個距離就一律當成「外海」。湧浪的相位吃這個數字，
+ * 而整座潮汐磯的水從岸線到外緣也只有十來格，三十二格綽綽有餘。
+ * 存成一個位元組，一階是八分之一格——遠小於一個波長，相位不會跳
+ */
+export const SHORE_DISTANCE_MAX = 32
+
+/**
+ * 每一格水離岸邊有多遠
+ *
+ * ── 為什麼需要它 ──
+ *
+ * 湧浪原本的相位是「離箱庭中心多少 Z」，也就是一條直線。
+ * 真正的浪不是那樣：波進到淺水會變慢（淺水波速約為 √(gh)），
+ * 同一道浪頭上先碰到淺水的那一段先慢下來，整條浪頭於是被拗彎，
+ * 愈接近岸邊愈貼合岸的形狀——這叫折射，也是為什麼不管湧浪從哪個方向來，
+ * 拍上沙灘時永遠幾乎與海岸平行，還會繞著岬角包過去。
+ *
+ * 要重現這件事，最省事的作法不是去解波速，而是換一個相位座標：
+ * 把「離岸多遠」當成相位，浪頭就是這個距離場的等值線。
+ * 等值線本來就與岸平行、本來就會繞過岬角——折射的結果自己長出來，
+ * 一個 sin 都不必多算。
+ *
+ * ── 怎麼算 ──
+ *
+ * 兩趟的 chamfer 距離轉換，不是廣度優先。
+ *
+ * 廣度優先只走四方向，量出來是曼哈頓距離，等值線是四十五度的菱形——
+ * 浪頭會照著菱形的稜線折，看起來像折紙不像浪。
+ * 而且距離只有整數，一格差一整格；波長才五格，
+ * 一整個波長只有五個離散的階，浪不會前進，只會一塊一塊地跳。
+ *
+ * chamfer 走八方向，斜角的權重給根號二，逼近的是歐氏距離，
+ * 等值線是圓的；而且它會算出小數，相位才連續得起來
+ */
+export function createShoreDistanceList(waterMap: WaterMap): Float32Array {
+  const distanceList = new Float32Array(WORLD_SIZE * WORLD_SIZE)
+  const diagonal = Math.SQRT2
+
+  /** 陸地是零，水先給一個大得不可能的值，兩趟掃描再把它壓下來 */
+  for (let index = 0; index < distanceList.length; index++) {
+    distanceList[index] = waterMap.levelList[index] === NO_WATER ? 0 : Number.POSITIVE_INFINITY
+  }
+
+  const relax = (index: number, fromIndex: number, weight: number) => {
+    const candidate = distanceList[fromIndex]! + weight
+    if (candidate < distanceList[index]!) {
+      distanceList[index] = candidate
+    }
+  }
+
+  /** 往前掃：只看左邊與上面那幾格 */
+  for (let x = 1; x < WORLD_SIZE; x++) {
+    for (let z = 1; z < WORLD_SIZE - 1; z++) {
+      const index = toColumnIndex(x, z)
+      if (distanceList[index] === 0)
+        continue
+
+      relax(index, toColumnIndex(x - 1, z), 1)
+      relax(index, toColumnIndex(x, z - 1), 1)
+      relax(index, toColumnIndex(x - 1, z - 1), diagonal)
+      relax(index, toColumnIndex(x - 1, z + 1), diagonal)
+    }
+  }
+
+  /** 往回掃：補上右邊與下面那幾格 */
+  for (let x = WORLD_SIZE - 2; x >= 0; x--) {
+    for (let z = WORLD_SIZE - 2; z >= 1; z--) {
+      const index = toColumnIndex(x, z)
+      if (distanceList[index] === 0)
+        continue
+
+      relax(index, toColumnIndex(x + 1, z), 1)
+      relax(index, toColumnIndex(x, z + 1), 1)
+      relax(index, toColumnIndex(x + 1, z + 1), diagonal)
+      relax(index, toColumnIndex(x + 1, z - 1), diagonal)
+    }
+  }
+
+  return distanceList
+}
+
+/**
+ * 把水面地圖烘成一張貼圖
+ *
+ * ── 為什麼需要它 ──
+ *
+ * 焦散原本問的是「我在不在最近那片水的圓圈裡，而且比水面矮」。
+ * 圓圈是拿中心加最遠一格的距離框出來的，遇到形狀規矩的池子還好，
+ * 遇到蛙聲澤那種散在整片箱庭上的淺水就整個失準：
+ * 圓圈的半徑會長到二十格，把箱庭連同它外圈那道台壁一起框進去，
+ * 於是台壁上凡是比水面矮的地方全都亮起了水底才有的網。
+ *
+ * 一張圖就沒有這個問題。每一格柱存自己的水面高度，
+ * 著色器查一次就知道「我頭頂上到底有沒有水」——
+ * 那才是這個問題本來的樣子，圓圈只是它的近似。
+ *
+ * ── 編碼 ──
+ *
+ * 高度用兩個通道存十六位元。只用一個通道的話一階是四分之一格，
+ * 而焦散的深度門檻本身只有 0.05 格，那個精度會讓岸邊一階一階地跳。
+ *
+ * 藍色通道存「這裡有沒有水」。用高度是零來代表沒有水不行，
+ * 世界的最底層本來就在零附近。
+ *
+ * 離岸距離不放在這張，它必須雙線性內插而這張必須最近鄰，
+ * 兩者不能共存（見 water-map-texture 的 getShoreDistanceTexture）
+ */
+export function createWaterLevelTextureData(waterMap: WaterMap): Uint8Array {
+  const data = new Uint8Array(WORLD_SIZE * WORLD_SIZE * 4)
+
+  for (let x = 0; x < WORLD_SIZE; x++) {
+    for (let z = 0; z < WORLD_SIZE; z++) {
+      const columnIndex = toColumnIndex(x, z)
+      const level = waterMap.levelList[columnIndex]!
+      if (level === NO_WATER)
+        continue
+
+      /**
+       * 貼圖是逐列存的，而格柱索引是逐行存的
+       *
+       * 這兩個順序不一樣。搞反的話整張圖會沿著對角線鏡射，
+       * 而鏡射過的水面地圖看起來仍然「有水」，只是水在錯的地方——
+       * 那種錯很難從畫面上看出來
+       */
+      const texel = (z * WORLD_SIZE + x) * 4
+      const encoded = Math.round(
+        Math.min(1, Math.max(0, level / WATER_LEVEL_ENCODE_RANGE)) * 65535,
+      )
+
+      data[texel] = encoded >> 8
+      data[texel + 1] = encoded & 255
+      data[texel + 2] = 255
+      data[texel + 3] = 255
+    }
+  }
+
+  return data
+}
+
+/** 全世界最高的那一片水面，著色器拿它當「這個片元不必查圖」的早退門檻 */
+export function getMaxWaterLevel(waterMap: WaterMap): number {
+  let maxLevel = NO_WATER
+
+  for (const level of waterMap.levelList) {
+    if (level > maxLevel) {
+      maxLevel = level
+    }
+  }
+
+  return maxLevel === NO_WATER ? 0 : maxLevel
+}

@@ -157,6 +157,10 @@ interface WaterSurface {
   centerZ: number;
   /** 水面的世界高度，倒影面就貼在這裡 */
   surfaceY: number;
+  /** 水真正佔到的範圍，兩個軸各自量 */
+  halfWidth: number;
+  halfDepth: number;
+  /** 兩個半徑取長的那一個，挑貼圖解析度與判斷遠近用 */
   radius: number;
 }
 
@@ -215,26 +219,45 @@ function measureReflectiveSurface(
   if (topColumnList.length < MIN_WATER_COLUMN_COUNT)
     return null
 
-  let sumX = 0
-  let sumZ = 0
+  /**
+   * 用外接矩形，不用「重心加最遠一格的距離」
+   *
+   * 那個算法會把面積灌水，而且水愈散愈嚴重。蛙聲澤的水鋪滿整座箱庭，
+   * 重心落在正中央、最遠的是四個角，量出來的半徑是 14 × √2 ≈ 19.8，
+   * 於是鋪出一面四十格見方的鏡子——而那座箱庭的木座只有三十二格寬。
+   *
+   * 多出來的那四格從台座邊緣探出去，懸在外圈的石板路上方。
+   * 那面鏡子是半透明的，貼著地平視過去就是一整片washed 的倒影
+   * 蓋在路面與台壁上，看起來像整個水面漏了出來。
+   *
+   * 外接矩形量的是水真正佔到的範圍，鋪不出水面以外的地方。
+   * 中心也一起改成矩形的中心：水池偏在箱庭一角時，
+   * 重心與外接矩形的中心是兩個位置，用錯了鏡子會歪一邊
+   */
+  let waterMinX = Number.POSITIVE_INFINITY
+  let waterMaxX = Number.NEGATIVE_INFINITY
+  let waterMinZ = Number.POSITIVE_INFINITY
+  let waterMaxZ = Number.NEGATIVE_INFINITY
   for (const column of topColumnList) {
-    sumX += column.x
-    sumZ += column.z
+    waterMinX = Math.min(waterMinX, column.x)
+    waterMaxX = Math.max(waterMaxX, column.x)
+    waterMinZ = Math.min(waterMinZ, column.z)
+    waterMaxZ = Math.max(waterMaxZ, column.z)
   }
-  const centerX = sumX / topColumnList.length
-  const centerZ = sumZ / topColumnList.length
 
-  let radius = 0
-  for (const column of topColumnList) {
-    radius = Math.max(radius, Math.hypot(column.x - centerX, column.z - centerZ))
-  }
+  /** 格子的中心到邊還有半格，外接矩形要往外各補半格才蓋得住最外那一圈 */
+  const halfWidth = Math.max(1, (waterMaxX - waterMinX) / 2 + 0.5 - RADIUS_INSET)
+  const halfDepth = Math.max(1, (waterMaxZ - waterMinZ) / 2 + 0.5 - RADIUS_INSET)
 
   return {
-    centerX,
-    centerZ,
+    centerX: (waterMinX + waterMaxX) / 2,
+    centerZ: (waterMinZ + waterMaxZ) / 2,
     /** 液體的最上層會矮掉八分之一格，實心的冰則是整格 */
     surfaceY: topLayerY + 0.5 - (target.surface === 'water' ? LIQUID_SURFACE_DROP : 0),
-    radius: Math.max(1, radius - RADIUS_INSET),
+    halfWidth,
+    halfDepth,
+    /** 挑貼圖解析度與判斷遠近用的，取長邊 */
+    radius: Math.max(halfWidth, halfDepth),
   }
 }
 
@@ -343,7 +366,7 @@ export function createWaterMirrors(
 
     const mesh = MeshBuilder.CreateGround(
       `water-mirror-${gardenId}-surface`,
-      { width: surface.radius * 2, height: surface.radius * 2 },
+      { width: surface.halfWidth * 2, height: surface.halfDepth * 2 },
       scene,
     )
     mesh.material = material

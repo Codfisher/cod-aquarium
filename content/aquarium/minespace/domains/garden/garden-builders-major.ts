@@ -21,7 +21,6 @@ import {
   placeRoofCap,
   placeStoneLantern,
   placeTorii,
-  plantWithStack,
   rakeRipple,
   scatterOnGround,
   setDecoration,
@@ -662,14 +661,21 @@ export function buildCoastGarden(state: Uint8Array, garden: GardenDefinition): v
   setBlock(state, centerX + 10, groundY + 1, centerZ - 2, BlockId.FENCE)
   setBlock(state, centerX + 10, groundY + 2, centerZ - 2, BlockId.FENCE)
 
+  /**
+   * 沙灘上長不出竹子
+   *
+   * 這裡原本有 PAPYRUS。那個名字騙人，它的貼圖是一根有節的竹稈
+   * （見 block-constants 那一段），不是紙莎草——一片海砂與漂流木之間
+   * 插著幾根竹子，違和得很明顯。
+   *
+   * 竹子留給竹林與沼澤那兩座，海邊只留耐旱耐鹽的那幾種
+   */
   scatterOnGround(state, centerX, centerZ, inner, groundY, random, 0.14, (pick) => {
     const roll = pick()
-    if (roll < 0.45)
+    if (roll < 0.5)
       return BlockId.DRY_SHRUB
-    if (roll < 0.7)
+    if (roll < 0.8)
       return BlockId.DRY_GRASS
-    if (roll < 0.88)
-      return BlockId.PAPYRUS
     return BlockId.STONE_PLANT
   }, SAND_SET)
 
@@ -747,20 +753,29 @@ export function buildSwampGarden(state: Uint8Array, garden: GardenDefinition): v
     placeDeadTree(state, treeX, groundY, treeZ, 4 + Math.floor(random() * 4))
   }
 
-  /** 睡蓮與蘆葦鋪滿水面 */
+  /**
+   * 水面上只鋪睡蓮
+   *
+   * 這裡原本還會從水裡抽出一叢叢的稈，想做的是蘆葦。兩個問題。
+   *
+   * 一是它浮在半空中。水是液體，最上層那一格會矮掉八分之一格，
+   * 水面因此落在 deckY + 0.375；而植株種在 groundY，也就是 deckY + 1，
+   * 底面在 deckY + 0.5。中間那八分之一格是空氣，
+   * 一根立在水上的稈於是看得出底下沒有東西撐著。
+   *
+   * 二是它根本不是蘆葦。用的方塊叫 PAPYRUS，貼圖卻是一根有節的竹稈
+   * （見 block-constants 那一段），而竹子不會長在開闊的水面上。
+   *
+   * 睡蓮沒有這個問題，它本來就是貼著水面漂的一片。
+   * 稈類留給岸上那一趟散佈，那裡踩得到實地
+   */
   for (let attempt = 0; attempt < 220; attempt++) {
     const x = centerX + Math.round((random() * 2 - 1) * inner)
     const z = centerZ + Math.round((random() * 2 - 1) * inner)
     if (getBlock(state, x, deckY, z) !== BlockId.WATER)
       continue
 
-    /** 睡蓮貼著水面就好，蘆葦則要從水裡抽高出來 */
-    if (random() < 0.62) {
-      setDecoration(state, x, groundY, z, BlockId.LILY_PAD)
-      continue
-    }
-
-    plantWithStack(state, x, groundY, z, BlockId.PAPYRUS, random)
+    setDecoration(state, x, groundY, z, BlockId.LILY_PAD)
   }
 
   scatterOnGround(state, centerX, centerZ, inner, groundY, random, 0.3, (pick) => {

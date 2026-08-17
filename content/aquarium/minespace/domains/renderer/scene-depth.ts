@@ -1,4 +1,4 @@
-import type { BaseTexture, Scene, UniversalCamera } from '@babylonjs/core'
+import type { AbstractMesh, BaseTexture, Scene, UniversalCamera } from '@babylonjs/core'
 import { Color4, Texture } from '@babylonjs/core'
 import { watch } from 'vue'
 import { useGraphicsQuality } from '../../composables/use-graphics-quality'
@@ -23,6 +23,42 @@ export interface SceneDepth {
 export interface CreateSceneDepthParams {
   scene: Scene;
   camera: UniversalCamera;
+}
+
+/**
+ * 會被風吹動的東西不進深度圖
+ *
+ * ── 為什麼 ──
+ *
+ * 深度圖是 Babylon 的 DepthRenderer 畫的，而它走自己那支 depth 著色器，
+ * 與 StandardMaterial 是兩條路，材質外掛一個都套不上去。
+ * 而風的擺動（wind-sway）正是一個頂點外掛。
+ *
+ * 於是畫面上的草在擺，深度圖裡的同一叢草永遠停在沒擺動的原位。
+ *
+ * 這件事在水面上會現形，而且不必植株真的碰到水。岸線那一段是這樣寫的：
+ *
+ *   float waterGap = max(waterSceneZ - vWaterViewZ, 0.0);
+ *   float waterLine = 1.0 - smoothstep(0.0, waterScreen.z, waterGap);
+ *
+ * 只要深度圖裡有東西比這個水面片元「更近」，waterGap 就被夾成零，
+ * 而零距離換算出來的 waterLine 是滿的一。也就是說，任何擋在
+ * 鏡頭與水面之間的東西，都會在它背後的水上印出一片全白的沫。
+ *
+ * 岸邊那叢草就是這樣。它站在鏡頭與水之間，深度圖裡的它停在原位，
+ * 於是水面上留下一片草形狀的白沫——草在晃，那片沫不動。
+ *
+ * ── 代價 ──
+ *
+ * 這些植株與水面的交界不再有那圈白沫。枯木、莖桿與棧道柱子
+ * 那圈「自己浮出來」的沫會少掉會擺動的那幾種。
+ *
+ * 另一條路是替深度那一趟也寫一份帶擺動的材質，但那等於把頂點位移
+ * 維護兩份，改一邊忘了另一邊就會再度錯開——而錯開的樣子
+ * 正是現在這個殘影，不會有任何錯誤訊息
+ */
+function isWindSwayMesh(mesh: AbstractMesh): boolean {
+  return Boolean(mesh.material?.pluginManager?.getPlugin('WindSway'))
 }
 
 /**
@@ -73,6 +109,20 @@ export function createSceneDepth({ scene, camera }: CreateSceneDepthParams): Sce
 
   const depthMap = depthRenderer.getDepthMap()
   sceneDepthState.texture = depthMap
+
+  /**
+   * 每一幀把會擺動的網格濾掉
+   *
+   * 用 getCustomRenderList 而不是自己指定 renderList：
+   * 後者一旦給定就是一份寫死的清單，日後world 多長出一種方塊、
+   * 或是換材質包重建網格，那份清單都會靜靜地漏掉它們
+   */
+  depthMap.getCustomRenderList = (_layerOrFace, renderList) => {
+    if (!renderList)
+      return null
+
+    return renderList.filter((mesh) => !isWindSwayMesh(mesh))
+  }
 
   const { quality } = useGraphicsQuality()
   const stopQualityWatch = watch(

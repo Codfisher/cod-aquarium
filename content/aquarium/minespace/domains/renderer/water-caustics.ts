@@ -4,7 +4,9 @@ import { MaterialPluginBase } from '@babylonjs/core'
 import { useDevToggles } from '../../composables/use-dev-toggles'
 import { useGraphicsQuality } from '../../composables/use-graphics-quality'
 import { measureSection } from '../../composables/use-performance-probe'
-import { findNearestWaterBody } from '../world/water-body'
+import { getMaxWaterLevel, WATER_LEVEL_ENCODE_RANGE } from '../world/water-body'
+import { disposeWaterMapTexture, getWaterMapTexture } from '../world/water-map-texture'
+import { WORLD_SIZE } from '../world/world-constants'
 import { WATER_CELL_GLSL, WATER_HASH_GLSL } from './water-noise'
 
 /**
@@ -50,12 +52,6 @@ const CAUSTIC_DEPTH_FALLOFF = 0.55
  */
 const CAUSTIC_COLOR: [number, number, number] = [0.72, 0.95, 1]
 
-/** 離最近的一片水多遠就不必畫了 */
-const ACTIVE_DISTANCE = 40
-
-/** 挑水的間隔（秒），這件事不必每一幀做 */
-const CHECK_INTERVAL = 0.3
-
 /**
  * 這一刻的焦散
  *
@@ -65,12 +61,17 @@ const CHECK_INTERVAL = 0.3
 const causticState = {
   time: 0,
   strength: 0,
-  /** 目前這一片水：中心 XZ、半徑、水面高度 */
-  centerX: 0,
-  centerZ: 0,
-  radius: 0,
-  surfaceY: 0,
+  /**
+   * 全世界最高的那一片水面
+   *
+   * 著色器拿它當早退門檻：比它還高的片元頭頂上不可能有水，
+   * 連查圖那一次取樣都省下來。整個世界絕大多數的片元都在這一刀之上
+   */
+  maxSurfaceY: 0,
 }
+
+/** 水面地圖烘成的貼圖，與湧浪共用同一張（見 water-map-texture） */
+let waterLevelTexture: import('@babylonjs/core').Texture | null = null
 
 /**
  * 水底的焦散
@@ -102,10 +103,10 @@ const causticState = {
  * 所以多數時候看不出來；真正會露餡的是水池旁邊還有一個更低的坑。
  *
  * 精確的做法是把每一格柱的水面高度烘成一張貼圖讓著色器去查，
- * 那才是「這個點在不在水下」的正解。沒有走那條路是因為
- * 這個場景已經有一個懸案：cloud-shadow 那張 RawTexture
- * 至今取樣不到（見它的說明）。在那件事查清楚以前，
- * 不要把第二個效果押在同一個機制上
+ * 那才是「這個點在不在水下」的正解。沒有走那條路只是因為圓夠用了：
+ * 四座箱庭的水池本來就接近圓形，而多框到的那一圈幾乎都在岸上。
+ * 真要走貼圖那條路，cloud-shadow 已經把外掛取樣器的寫法跑通了，
+ * 照著抄就是（那個效果曾經看起來像壞掉，但問題出在雲的圖樣，不在機制）
  */
 class WaterCausticsPlugin extends MaterialPluginBase {
   constructor(material: Material) {
@@ -117,10 +118,13 @@ class WaterCausticsPlugin extends MaterialPluginBase {
     return 'WaterCausticsPlugin'
   }
 
+  getSamplers(samplerList: string[]): void {
+    samplerList.push('causticWaterSampler')
+  }
+
   getUniforms() {
     return {
       ubo: [
-        { name: 'causticRegion', size: 4, type: 'vec4' },
         { name: 'causticParam', size: 4, type: 'vec4' },
       ],
     }
@@ -128,19 +132,22 @@ class WaterCausticsPlugin extends MaterialPluginBase {
 
   bindForSubMesh(uniformBuffer: UniformBuffer): void {
     uniformBuffer.updateFloat4(
-      'causticRegion',
-      causticState.centerX,
-      causticState.centerZ,
-      causticState.radius,
-      causticState.surfaceY,
-    )
-    uniformBuffer.updateFloat4(
       'causticParam',
       causticState.time,
       causticState.strength,
       CAUSTIC_DEPTH_FALLOFF,
-      0,
+      causticState.maxSurfaceY,
     )
+
+    /**
+     * 地圖還沒烘出來時不綁
+     *
+     * 沒綁的取樣器讀出來是全黑，而全黑的藍色通道等於「這裡沒有水」，
+     * 畫面只是那幾幀沒有焦散，不會壞掉
+     */
+    if (waterLevelTexture) {
+      uniformBuffer.setTexture('causticWaterSampler', waterLevelTexture)
+    }
   }
 
   getCustomCode(shaderType: string): { [pointName: string]: string } | null {
@@ -149,6 +156,8 @@ class WaterCausticsPlugin extends MaterialPluginBase {
 
     return {
       CUSTOM_FRAGMENT_DEFINITIONS: `
+        uniform sampler2D causticWaterSampler;
+
         ${WATER_HASH_GLSL}
         ${WATER_CELL_GLSL}
       `,
@@ -159,19 +168,24 @@ class WaterCausticsPlugin extends MaterialPluginBase {
        * 所以水底的亮網會跟著天色走。夜裡的水底不該有陽光聚出來的光斑，
        * 而強度那一項本來就已經乘過白晝的程度了——這裡是第二道保險
        *
-       * 三層條件由外往內收，最貴的細胞紋排在最裡面：
-       * 絕大多數的片元在第一道（沒有水）或第二道（在水面之上）就出去了
+       * 三層條件由外往內收，最貴的細胞紋排在最裡面。
+       * 第一道刷掉沒開這個效果的時候，第二道刷掉「比全世界最高的水面
+       * 還高」的片元——那是絕大多數，而且不必查圖。
+       * 撐到第三道才真的去問那張水面地圖
        */
       CUSTOM_FRAGMENT_UPDATE_DIFFUSE: `
-        if (causticParam.y > 0.0) {
-          float causticDepth = causticRegion.w - vPositionW.y;
-          if (causticDepth > 0.05) {
-            float causticReach = 1.0 - smoothstep(
-              causticRegion.z * 0.8,
-              causticRegion.z + 1.0,
-              length(vPositionW.xz - causticRegion.xy)
-            );
-            if (causticReach > 0.0) {
+        if (causticParam.y > 0.0 && vPositionW.y < causticParam.w) {
+          vec4 causticWater = texture2D(
+            causticWaterSampler,
+            (vPositionW.xz + 0.5) * ${(1 / WORLD_SIZE).toFixed(8)}
+          );
+
+          if (causticWater.b > 0.5) {
+            float causticSurfaceY = (causticWater.r * 65280.0 + causticWater.g * 255.0)
+              / 65535.0 * ${WATER_LEVEL_ENCODE_RANGE.toFixed(1)};
+            float causticDepth = causticSurfaceY - vPositionW.y;
+
+            if (causticDepth > 0.05) {
               float causticEdge = waterCellEdge(
                 waterQuantize(vPositionW.xz) * ${CAUSTIC_CELL_SCALE.toFixed(3)},
                 causticParam.x * ${CAUSTIC_CELL_SPEED.toFixed(3)},
@@ -184,7 +198,6 @@ class WaterCausticsPlugin extends MaterialPluginBase {
               );
               baseColor.rgb += vec3(${CAUSTIC_COLOR.map((channel) => channel.toFixed(3)).join(', ')})
                 * caustic
-                * causticReach
                 * exp(-causticDepth * causticParam.z)
                 * causticParam.y;
             }
@@ -223,30 +236,25 @@ export interface CreateWaterCausticsParams {
 /**
  * 推動焦散
  *
- * 挑水這件事每 0.3 秒做一次就夠：人走 0.3 秒不會從一座箱庭
- * 換到另一座，而水是不會動的
+ * 水面地圖只烘一次。地形生成之後水就不再變動，
+ * 而「哪裡有水」這件事整份都在那張圖裡，不必再每隔幾秒去挑一片最近的
  */
 export function createWaterCaustics({
   scene,
-  camera,
   waterMap,
   getDayRatio,
 }: CreateWaterCausticsParams): WaterCaustics {
   const { state: devToggle } = useDevToggles()
   const { quality } = useGraphicsQuality()
 
-  let elapsed = CHECK_INTERVAL
+  waterLevelTexture = getWaterMapTexture(scene, waterMap)
+
+  /** 留一點餘裕給水面本身那一格，門檻卡在水面上會讓最淺的一層閃掉 */
+  causticState.maxSurfaceY = getMaxWaterLevel(waterMap) + 0.5
 
   const observer = scene.onBeforeRenderObservable.add(() => {
     measureSection('水下焦散', () => {
-      const deltaSecond = scene.getEngine().getDeltaTime() / 1000
-      causticState.time += deltaSecond
-
-      elapsed += deltaSecond
-      if (elapsed < CHECK_INTERVAL)
-        return
-
-      elapsed = 0
+      causticState.time += scene.getEngine().getDeltaTime() / 1000
 
       /**
        * 低畫質不做
@@ -256,28 +264,9 @@ export function createWaterCaustics({
        */
       const dayRatio = Math.min(1, Math.max(0, getDayRatio()))
       const isEnabled = devToggle.waterCaustics && quality.value !== 'low' && dayRatio > 0.01
-      if (!isEnabled) {
-        causticState.strength = 0
-        return
-      }
 
-      const body = findNearestWaterBody(
-        waterMap,
-        camera.position.x,
-        camera.position.z,
-        ACTIVE_DISTANCE,
-      )
-      if (!body) {
-        causticState.strength = 0
-        return
-      }
-
-      causticState.centerX = body.centerX
-      causticState.centerZ = body.centerZ
-      causticState.radius = body.radius
-      causticState.surfaceY = body.surfaceY
       /** 陽光穿過水才有焦散，夜裡沒有東西可以聚 */
-      causticState.strength = CAUSTIC_STRENGTH * dayRatio
+      causticState.strength = isEnabled ? CAUSTIC_STRENGTH * dayRatio : 0
     })
   })
 
@@ -285,6 +274,8 @@ export function createWaterCaustics({
     dispose() {
       scene.onBeforeRenderObservable.remove(observer)
       causticState.strength = 0
+      waterLevelTexture = null
+      disposeWaterMapTexture()
     },
   }
 }

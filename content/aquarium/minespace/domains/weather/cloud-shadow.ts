@@ -4,22 +4,59 @@ import { MaterialPluginBase, RawTexture, RegisterMaterialPlugin, StandardMateria
 /**
  * 雲影最深時擋掉幾成的直射光
  *
- * 不是全擋。一朵積雲底下並不是黑的——太陽被擋住了，
- * 整片天空還在補光，而環境光這一項本來就不受雲影影響
- * （這個效果只乘進平行光）。半成剛好是「明顯暗了一塊」
- * 但還看得見地面紋理的程度
+ * 這個數字比「物理上該有的」大。理由與色調映射有關，
+ * 寫在下面 SKY_SHADE_DEPTH 那一段，兩個要一起讀
  */
-const SHADE_DEPTH = 0.5
+const SHADE_DEPTH = 0.72
+
+/**
+ * 雲影連天光一起收掉幾成
+ *
+ * 原本這一項是零，理由寫得很篤定：「雲擋住的是太陽，不是天空」。
+ * 那句話只對了一半。一朵積雲罩在頭頂時，它擋掉的除了那顆太陽，
+ * 還有頭頂那一大塊天空，站在雲底下天光確實也少了一截。
+ *
+ * 而真正逼著這一項從零長出來的，是色調映射。
+ *
+ * 這座庭園的地是白沙。正午時平行光加天光加上環境色，
+ * 線性亮度是 1.75，早就衝過 ACES 的膝點，整片地貼在天花板上。
+ * 量過的數字：只收平行光、深度給到 0.6，最暗處是 204，
+ * 沒有雲影的地方是 209——差五階，等於看不見。
+ * 雲影一直都算對了，只是全部被壓在那道天花板底下。
+ *
+ * 天光跟著收，兩邊一起把總量壓到膝點以下，那塊暗才掉得出來。
+ * 量過的組合（白沙 / 一般方塊，數字是最深處與無雲處）：
+ *
+ *   0.60 / 0.30 → 204..209 / 142..209   白沙上還是看不見
+ *   0.72 / 0.42 → 174..209 / 108..209   白沙看得出來，深色地面也不死黑
+ *   0.82 / 0.55 → 130..209 /  75..209   太深，像雲飄過去整個世界暗一下
+ *
+ * 所以這兩個數字是照著這座場景的曝光配的，不是物理值。
+ * 哪天 pipeline 的 exposure 或日夜的光強調低、畫面離開了膝點，
+ * 這兩個數字就該一起往回收
+ */
+const SKY_SHADE_DEPTH = 0.42
+
+/**
+ * 天光那一份相對於直射光的比例
+ *
+ * 兩者共用同一個覆蓋率與同一組淡出，差的只有深度。
+ * 直接把比例算成常數塞進著色器，就不必為了它多開一個 uniform
+ */
+const SKY_SHADE_RATIO = SKY_SHADE_DEPTH / SHADE_DEPTH
 
 /**
  * 覆蓋率要到多少才開始遮、多少才遮到滿
  *
  * 圖樣本身是全有全無的格子，模糊過之後才有中間值。
  * 這兩個門檻決定雲影的邊緣有多硬：拉近是輪廓分明的積雲影，
- * 拉遠是糊成一片的高層雲。留一段距離，邊緣才有那圈半影
+ * 拉遠是糊成一片的高層雲。留一段距離，邊緣才有那圈半影。
+ *
+ * 這兩個數字是照著「零到一」訂的，所以糊完的圖樣必須先正規化，
+ * 否則雲小一點就永遠踩不到 COVER_FULL——見 blurPattern
  */
-const COVER_START = 0.2
-const COVER_FULL = 0.78
+const COVER_START = 0.1
+const COVER_FULL = 0.5
 
 /**
  * 太陽壓到這麼低就把雲影收掉
@@ -35,13 +72,34 @@ const SUN_HEIGHT_FADE_START = 0.1
 const SUN_HEIGHT_FADE_FULL = 0.32
 
 /**
+ * 一格雲要切成幾個紋素
+ *
+ * 這是雲影邊緣清不清楚的關鍵，而它一開始是一（貼圖與雲的圖樣同解析度）。
+ *
+ * 問題在於一格雲有十四格寬。糊兩輪等於糊掉兩個紋素，也就是二十八格；
+ * 量出來的半影寬度是二十格，而一朵雲的影子總共才五十來格寬——
+ * 半影吃掉了將近一半，剩下的不是影子，是一團髒污。
+ *
+ * 切細之後模糊的半徑就與雲的大小脫鉤了。四倍是每個紋素三點五格，
+ * 同樣糊兩輪，半影收到四格。貼圖從 1.6 KB 長到 25 KB，換得回來。
+ *
+ * 邊緣清楚之後看得出雲的方格輪廓，那是對的：
+ * 天上那朵雲本來就是方塊堆的，影子理當跟著有稜有角
+ */
+const SHADOW_TEXEL_PER_CELL = 4
+
+/**
  * 圖樣要模糊幾輪
  *
- * 原始圖樣是一格十四格寬的布林值，直接雙線性取樣會拉出菱形的塊。
- * 先在畫布上糊開，取樣時才是一團有濃有淡的雲影。
+ * 直接雙線性取樣一張全有全無的圖會拉出菱形的塊，糊過才有中間值。
+ * 在切細之後的格子上跑，兩輪大約是四格寬的半影。
  *
- * 順帶一提這也是物理上對的：太陽有半度的張角，
- * 雲在一百格高投下來的影子，邊緣本來就有好幾格寬的半影
+ * 這裡原本寫著「太陽有半度的張角，邊緣本來就有好幾格寬的半影」。
+ * 那句話是錯的，而且錯得很遠：雲在地面上方約七十四格，
+ * 半度張角投下來的半影是 74 × tan(0.53°)，也就是零點七格，不到一格。
+ *
+ * 真正該糊的理由不是太陽的大小，是雲自己的邊本來就不是一刀切的——
+ * 厚度往邊緣遞減，遮光量跟著遞減。這幾格半影模擬的是那件事
  */
 const BLUR_PASS_COUNT = 2
 
@@ -89,47 +147,37 @@ let patternTexture: Texture | null = null
  * （見 createCloudLayer 那段說明）。雲影若用另一個週期，
  * 跨過邊界的那一瞬間地上的暗塊會整片換一副樣子。
  *
- * 既然週期非得一樣，不如直接拿同一份圖樣：把那 18×18 個布林值
- * 糊一糊烘成一張小圖，著色器沿著光線往上找就是了。
+ * 既然週期非得一樣，不如直接拿同一份圖樣：把那些布林值糊一糊烘成一張小圖，
+ * 著色器沿著光線往上找就是了。
  * 一次貼圖取樣，換到的是「地上那塊暗確實是頭頂那朵雲的」
  *
- * ── 這個效果目前是沒有作用的 ──
+ * ── 這個效果曾經看起來像壞掉的 ──
  *
- * 畫面上看不到任何雲影。查過一輪，範圍已經縮到最後一小塊，
- * 記在這裡免得下次從頭來過。
+ * 有很長一段時間畫面上完全看不到雲影，而所有跡象都指向取樣器沒綁上。
+ * 那個方向查到底都是錯的，機制從頭到尾都是好的，問題在資料：
  *
- * 已經逐項驗證過、可以排除的：
+ * 一、雲的圖樣幾乎是空的。舊的雲形狀是細胞自動機加上一道削雲團的侵蝕，
+ *     兩者疊起來收斂到只剩十二格雲，而且全擠在同一條 Z 帶上。
+ *     雲只往 +X 飄，那條帶以外的地面永遠等不到雲經過
+ *     （見 use-babylon-scene 的 createCloudPattern）。
  *
- * 一、著色器注入是好的。攔下真正送進 GPU 的原始碼確認過：
- *     minespaceCloudShade 的定義在、cloudShade 有被賦值、
- *     也確實乘進了 computeLighting。呼叫次數三次
- *     （一個函式定義加兩處呼叫），對得上場景的燈組。
- *     最終 GLSL 裡沒有 #ifdef 是正常的——前處理器早就把條件解掉了。
+ * 二、門檻踩不到。三乘三糊兩輪之後最濃的一格只剩零點七幾，
+ *     而 COVER_FULL 是 0.78——最深的雲影也到不了滿格
+ *     （見 blurPattern 末尾那一段正規化）。
  *
- * 二、資料是對的。強度 0.5、雲高 104、取樣縮放 0.00397（= 1/252）、
- *     斜率與飄移都在動，圖樣貼圖也建出來了。
+ * 三、週期對不上世界。圖樣寫死 18 格、格寬 14，乘起來是 252，
+ *     而世界寬度是 280。
  *
- * 三、uniform 真的送得到著色器。把函式改成
- *     `return 1.0 - cloudShadowParam.x;`（跳過圖樣與座標）之後，
- *     整片地面明顯變暗，而且開關一切換就恢復。
+ * 四、算對了也看不見。白沙在正午的線性亮度是 1.75，貼在 ACES 的天花板上，
+ *     只收平行光的話最暗處與無雲處只差五階
+ *     （見 SKY_SHADE_DEPTH 那一段的量測）。
  *
- * 四、外掛機制沒問題。halo-soft-fade 用一模一樣的寫法
- *     （同樣的 getSamplers、同樣的 super 參數、同樣的 setTexture），
- *     而它是好的。
+ * 留兩句給下次。查外掛的取樣器有沒有綁上，最快的方法是拿掉所有變因，
+ * 用一張全白的 RawTexture 去比對，地面該整片黑掉；
+ * 分不出「沒綁上」與「綁上了但圖是空的」的時候，先讓資料變成常數。
  *
- * 五、模組被載入兩次（場景跑在 whyframe 的 iframe 裡，
- *     外層頁面與 iframe 各一份），但活著的那一份數值全對，
- *     而且兩者是不同 realm，globalThis 也共用不了——與這個問題無關。
- *
- * 剩下唯一的嫌疑：cloudShadowSampler 那一次取樣讀出來恆為零。
- * 把 cover 直接當遮蔽量用（跳過 smoothstep）、
- * 甚至把取樣縮放拉到每十二格重複一次讓圖樣鋪滿整個視野，
- * 地面都毫無變化。所以不是門檻卡太高，也不是圖樣太稀疏——
- * 是那張圖根本沒被取樣到，或者取到的是全黑。
- *
- * 下次從這裡接：確認 RawTexture 有沒有真的綁上那個取樣器
- * （isReady、通道格式、UniformBuffer.setTexture 有沒有找到位置），
- * 或者換成 material.diffuseTexture 之類已知會綁的路徑對照看看
+ * 而畫面上看不到效果，不代表效果沒算。加東西之前先確認那塊地
+ * 還在色調映射的線性段裡，貼著天花板的地方加什麼都不會動
  */
 class CloudShadowPlugin extends MaterialPluginBase {
   constructor(material: Material) {
@@ -213,9 +261,9 @@ class CloudShadowPlugin extends MaterialPluginBase {
       'CUSTOM_FRAGMENT_DEFINITIONS': `
         uniform sampler2D cloudShadowSampler;
 
-        float minespaceCloudShade() {
+        float minespaceCloudCover() {
           if (cloudShadowParam.x <= 0.0) {
-            return 1.0;
+            return 0.0;
           }
 
           vec2 cloudPoint = vPositionW.xz
@@ -224,14 +272,44 @@ class CloudShadowPlugin extends MaterialPluginBase {
 
           float cover = texture2D(cloudShadowSampler, cloudPoint * cloudShadowParam.y).r;
 
-          return 1.0 - cloudShadowParam.x * smoothstep(cloudShadowParam.z, cloudShadowParam.w, cover);
+          return smoothstep(cloudShadowParam.z, cloudShadowParam.w, cover);
         }
       `,
 
       /**
-       * 只乘進平行光，而且漫射與高光都要乘
+       * 覆蓋率一幀只算一次
        *
-       * 雲擋住的是太陽，不是天空。環境光、洞裡那幾盞燈都不該跟著暗——
+       * 平行光與天光都要用到它，而它裡面有一次貼圖取樣。
+       * 擺在光照之前算好存起來，兩盞燈共用同一個值——
+       * 與 pixel-shadow 的位移用的是同一招
+       */
+      'CUSTOM_FRAGMENT_BEFORE_LIGHTS': `
+        float minespaceCloudCoverValue = minespaceCloudCover();
+      `,
+
+      /**
+       * 天光也收一截
+       *
+       * 這一行是半球光專用的，條件編譯已經把它框在 HEMILIGHT 裡面，
+       * 不必再自己加一層條件。場景裡的半球光只有一盞，就是天光。
+       *
+       * 天空色與地面反射色兩份都乘。雲罩在頭頂時擋掉的是天空那一半，
+       * 而地面反射的光本來就是曬到的地面反上來的，
+       * 那塊地一起在影子裡，反上來的自然也少
+       */
+      '!info=computeHemisphericLighting\\(viewDirectionW,normalW,([^,]+),(diffuse(\\d+)\\.rgb),([^,]+),([^,]+),glossiness\\);': `
+        {
+          float cloudSkyShade = 1.0 - cloudShadowParam.x * ${SKY_SHADE_RATIO.toFixed(4)} * minespaceCloudCoverValue;
+
+          info = computeHemisphericLighting(viewDirectionW, normalW, $1, $2 * cloudSkyShade, $4, $5 * cloudSkyShade, glossiness);
+        }
+      `,
+
+      /**
+       * 平行光收得最深，而且漫射與高光都要乘
+       *
+       * 雲擋掉的主要是那顆太陽，天光只是連帶收了一截（見 SKY_SHADE_DEPTH）。
+       * 洞裡那幾盞燈則完全不該跟著暗——
        * DIRLIGHT 這個條件就是在挑「這一盞是不是平行光」，
        * 而整個場景裡只有日月那一盞是。
        *
@@ -263,7 +341,7 @@ class CloudShadowPlugin extends MaterialPluginBase {
         {
           float cloudShade = 1.0;
           #ifdef DIRLIGHT$3
-            cloudShade = minespaceCloudShade();
+            cloudShade = 1.0 - cloudShadowParam.x * minespaceCloudCoverValue;
           #endif
 
           info = computeLighting(viewDirectionW, normalW, $1, $2 * cloudShade, $4 * cloudShade, $5, glossiness);
@@ -302,13 +380,29 @@ function readWrapped(valueList: number[], size: number, x: number, z: number): n
 }
 
 /**
- * 把布林的雲格糊成有濃淡的覆蓋率
+ * 把每一格雲切成 SHADOW_TEXEL_PER_CELL 個紋素
+ *
+ * 純放大，不內插。要的只是「讓後面的模糊有比較細的格子可以糊」，
+ * 這一步本身不該讓邊緣變樣
+ */
+function upsamplePattern(cellList: boolean[], size: number, factor: number): number[] {
+  const fineSize = size * factor
+
+  return Array.from({ length: fineSize * fineSize }, (_, index) => {
+    const x = Math.floor((index % fineSize) / factor)
+    const z = Math.floor(Math.floor(index / fineSize) / factor)
+    return cellList[z * size + x] ? 1 : 0
+  })
+}
+
+/**
+ * 把全有全無的雲格糊成有濃淡的覆蓋率
  *
  * 三乘三取平均，跑幾輪。邊界要繞回去，否則圖樣接縫上會出現一條亮線——
  * 而這張圖是要拿去無限平鋪的
  */
-function blurPattern(cellList: boolean[], size: number): number[] {
-  let valueList: number[] = cellList.map((isCloud) => (isCloud ? 1 : 0))
+function blurPattern(cellValueList: number[], size: number): number[] {
+  let valueList: number[] = cellValueList.slice()
 
   for (let pass = 0; pass < BLUR_PASS_COUNT; pass++) {
     const nextList = valueList.slice()
@@ -326,7 +420,23 @@ function blurPattern(cellList: boolean[], size: number): number[] {
     valueList = nextList
   }
 
-  return valueList
+  /**
+   * 糊完之後把最濃的一格拉回滿格
+   *
+   * 三乘三取平均只有在「一朵雲寬到中心那格的鄰居全是雲」時才留得住 1.0。
+   * 兩輪之後那要五格寬，而多數雲不到那麼大——最濃的地方只剩零點七幾。
+   * 門檻卻是照著 0 到 1 訂的，於是最深的雲影也永遠踩不到 COVER_FULL，
+   * 整個效果被壓成一層看不太出來的灰。
+   *
+   * 拉回去之後，「雲最厚的地方」對上的就是「影子最深的程度」，
+   * 這兩個數字本來就該是同一件事。雲多雲少都不必再回頭改門檻
+   */
+  const peak = Math.max(...valueList)
+  if (peak <= 0) {
+    return valueList
+  }
+
+  return valueList.map((value) => value / peak)
 }
 
 /**
@@ -345,16 +455,26 @@ export function setCloudShadowPattern(
 ): void {
   patternTexture?.dispose()
 
-  const coverList = blurPattern(cellList, patternCount)
+  /**
+   * 貼圖比雲的圖樣細，取樣座標卻不必跟著改
+   *
+   * 座標是拿世界座標除以「圖樣涵蓋的世界寬度」算出來的，
+   * 那個寬度與貼圖有幾個紋素無關。切細只是讓同一塊範圍多幾格可以糊
+   */
+  const shadowCount = patternCount * SHADOW_TEXEL_PER_CELL
+  const coverList = blurPattern(
+    upsamplePattern(cellList, patternCount, SHADOW_TEXEL_PER_CELL),
+    shadowCount,
+  )
 
   /**
    * 用四通道，不用單通道
    *
    * 單通道格式在不同裝置上的支援情況要一個一個確認，
-   * 而這張圖只有十八格見方——多三個通道也才多一千個位元組。
+   * 而這張圖只有八十格見方——多三個通道也才多兩萬個位元組。
    * 拿確定不會出事換掉那點記憶體很划算
    */
-  const data = new Uint8Array(patternCount * patternCount * 4)
+  const data = new Uint8Array(shadowCount * shadowCount * 4)
   for (const [index, cover] of coverList.entries()) {
     const value = Math.round(Math.min(1, Math.max(0, cover)) * 255)
     data[index * 4] = value
@@ -365,8 +485,8 @@ export function setCloudShadowPattern(
 
   const texture = RawTexture.CreateRGBATexture(
     data,
-    patternCount,
-    patternCount,
+    shadowCount,
+    shadowCount,
     scene,
     false,
     false,

@@ -25,8 +25,6 @@
       >
         {{ confirmLabel }}
       </button>
-
-      <div class="credit" v-html="t('credit')" />
     </div>
   </div>
 </template>
@@ -95,13 +93,11 @@ const { t, locale } = useSimpleI18n({
       '白沙無邊，其上落著{count}座箱庭。',
       '一庭一音，松有風，澤有蛙。',
       '庭與庭之間什麼也沒有，那是留給耳朵的空白。',
-      '在日夜流轉之間，找一個安心的角落，聆聽吧。',
+      '在日夜流轉之間，找一個安心的角落放空、聆聽吧。',
     ],
     start: '開始漫遊',
     back: '回到漫遊',
     loading: '正在耙沙⋯⋯',
-    /** 音效來源是版權標註，兩種語言都要有，不能只掛在其中一邊 */
-    credit: '音效：<a href="https://sound-effects.bbcrewind.co.uk/" target="_blank" rel="noopener">BBC Sound Effects</a>　空間音效：<a href="https://www.babylonjs.com/" target="_blank" rel="noopener">Babylon.js</a>',
   },
   'en': {
     subtitle: 'Put on headphones and step into a garden of sound on white sand',
@@ -114,7 +110,6 @@ const { t, locale } = useSimpleI18n({
     start: 'Start Roaming',
     back: 'Back to Roaming',
     loading: 'Raking the sand...',
-    credit: 'Audio: <a href="https://sound-effects.bbcrewind.co.uk/" target="_blank" rel="noopener">BBC Sound Effects</a>　Spatial audio: <a href="https://www.babylonjs.com/" target="_blank" rel="noopener">Babylon.js</a>',
   },
 } as const)
 </script>
@@ -200,12 +195,4 @@ const { t, locale } = useSimpleI18n({
   padding: 16px
   font-size: 1.25rem
   font-weight: 700
-
-.credit
-  margin-top: 16px
-  font-size: 12px
-  opacity: 0.55
-
-  :deep(a)
-    text-decoration: underline
 </style>

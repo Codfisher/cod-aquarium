@@ -175,7 +175,7 @@ const TRAIL_STAMP_DISTANCE_MAX = 4
  * 改這個數字不必再動別的：腳印的間距是照它與速度算出來的
  * （見 measureStampDistance），縮短恢復時間，間距會自己跟著縮
  */
-const TRAIL_RECOVER_SECOND = 2.5
+const TRAIL_RECOVER_SECOND = 1
 
 /**
  * 速度估計的跟隨快慢（每秒收斂幾成）
