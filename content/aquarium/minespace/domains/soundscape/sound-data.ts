@@ -1312,7 +1312,7 @@ const EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
     .map((position, index): SoundEmitterDefinition => ({
       id: `blizzard-roar-${index}`,
       sound: 'blizzard-roar',
-      title: { 'zh-hant': '壓下來的風', 'en': 'The wind bearing down' },
+      title: { 'zh-hant': '四面的暴風雪', 'en': 'Blizzard on all sides' },
       zone: 'blizzard',
       ...position,
       /** 貼著地面，暴風雪是從地表捲起來的，不是從天上落下來 */

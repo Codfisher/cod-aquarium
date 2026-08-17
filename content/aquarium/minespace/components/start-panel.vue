@@ -79,7 +79,7 @@ const introList = computed(() => t('intro', {
 
 const { t, locale } = useSimpleI18n({
   'zh-hant': {
-    subtitle: '戴上耳機，走進一片白沙上的聲音庭園',
+    subtitle: '戴上耳機，在箱庭一隅聆聽',
     /**
      * 說明只留四句
      *
@@ -100,7 +100,7 @@ const { t, locale } = useSimpleI18n({
     loading: '正在耙沙⋯⋯',
   },
   'en': {
-    subtitle: 'Put on headphones and step into a garden of sound on white sand',
+    subtitle: 'Put on headphones and listen from a corner of the dioramas',
     intro: [
       'Endless white sand. {count} dioramas rest upon it.',
       'One garden, one sound. Wind in the pines, frogs in the marsh.',
