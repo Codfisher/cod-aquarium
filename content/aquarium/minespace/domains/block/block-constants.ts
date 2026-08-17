@@ -421,6 +421,17 @@ export interface BlockDef {
    */
   swaysInWind?: boolean;
   /**
+   * 這種植物最高疊幾格（含自己），不給就是一格
+   *
+   * 竹稈是一節一節長上去的，一叢裡有高有矮才像一叢竹子；
+   * 全部一格高則像地上鋪了一層短短的樁。
+   *
+   * 疊出來的每一格都是各自獨立的方塊，所以它們不能會擺——
+   * 每一節從自己那一格的底部彎的話，節與節之間會錯開
+   * （見 PAPYRUS 的 swaysInWind）
+   */
+  stackHeightMax?: number;
+  /**
    * 逆光時會不會透光
    *
    * 給樹葉用。交叉立板的花草一律會透，不必特別指定——
@@ -1358,6 +1369,25 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
   [BlockId.PAPYRUS]: {
     shape: 'cross',
     passable: true,
+    /**
+     * 竹稈不搖也不倒
+     *
+     * 這是一根有節的硬稈，不是一叢草。草被風推是因為它軟，
+     * 而稈的動法是整根從根部微微擺，不是頂端被吹歪——
+     * 那個差別在畫面上很清楚：一片草跟著風倒過去很好看，
+     * 同一個動作套在竹稈上會變成幾根麵條在扭。
+     *
+     * 它還會疊高。一根三格高的稈是三顆各自獨立的方塊，
+     * 每一顆都從自己那一格的底部彎，所以節與節之間會錯開——
+     * 上面那截的根跟著上面那截走，下面那截的頂跟著下面那截走，
+     * 中間就裂成一段一段。這是「整株一起動」與「逐塊動」的差別，
+     * 而立板沒有辦法知道自己是第幾節。
+     *
+     * 與蜘蛛網同一個開關，理由不同：那裡是洞裡沒有風，這裡是它不該軟
+     */
+    swaysInWind: false,
+    /** 一叢竹子要有高有矮，一到五格 */
+    stackHeightMax: 5,
     textures: {
       all: 'papyrus',
       tint: [0.6, 0.74, 0.42],
@@ -1783,6 +1813,11 @@ export function isLavaBlock(blockId: BlockId): boolean {
 /** 方塊的碰撞高度，預設一整格 */
 export function getCollisionHeight(blockId: BlockId): number {
   return BLOCK_DEFS[blockId]?.collisionHeight ?? 1
+}
+
+/** 這種植物最高疊幾格，預設一格 */
+export function getStackHeightMax(blockId: BlockId): number {
+  return BLOCK_DEFS[blockId]?.stackHeightMax ?? 1
 }
 
 /** 方塊的水平碰撞寬度，預設整格 */

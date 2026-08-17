@@ -2,7 +2,7 @@ import type { DirectionalLight, Mesh, Scene, ShadowGenerator, StandardMaterial }
 import type { BlockDef, BlockId, BlockTextureDef } from '../block/block-constants'
 import type { TextureKey } from '../block/texture-pack'
 import type { ChunkMeshData, ChunkWorkerComposable } from '../world/use-chunk-worker'
-import type { TextureSkinner } from './pixel-material'
+import type { PixelMaterialRecipe, TextureSkinner } from './pixel-material'
 import type { WindSway } from './wind-sway'
 import {
   Color3,
@@ -11,9 +11,10 @@ import {
   VertexBuffer,
 } from '@babylonjs/core'
 import { SUN_LIGHT_NAME } from '../../composables/use-babylon-scene'
-import { BLOCK_DEFS, isDecorationBlock, LIQUID_SURFACE_DROP } from '../block/block-constants'
+import { BLOCK_DEFS, isDecorationBlock, isWaterBlock, LIQUID_SURFACE_DROP } from '../block/block-constants'
 import { TOTAL_CHUNKS } from '../world/world-constants'
 import { LEAF_TRANSLUCENCY, PLANT_TRANSLUCENCY } from './leaf-translucency'
+import { attachWaterSurface } from './water-surface'
 import { createWindSway, LEAF_SWAY_AMPLITUDE, PLANT_SWAY_AMPLITUDE } from './wind-sway'
 
 interface BlockMeshEntry {
@@ -741,7 +742,7 @@ class WorldRenderer {
     if (!textureKey)
       return
 
-    const material = this.skinner.create({
+    const recipe: PixelMaterialRecipe = {
       name: `${name}_mat`,
       textureKey,
       overlayKey: textureDef.overlay,
@@ -764,7 +765,10 @@ class WorldRenderer {
       specularColor: blockDef.cutout ? NO_SPECULAR : undefined,
       /** 立方體要自己說會不會透光，玻璃與鐵鏈同樣是鏤空的但不該發亮 */
       translucency: blockDef.translucent ? LEAF_TRANSLUCENCY : undefined,
-    })
+      isLiquid: blockDef.isLiquid,
+    }
+
+    const material = this.skinner.create(recipe)
 
     /**
      * 樹葉整團一起晃
@@ -790,28 +794,7 @@ class WorldRenderer {
       material.emissiveColor = new Color3(blockDef.emissive, blockDef.emissive, blockDef.emissive)
     }
 
-    /**
-     * 水面反日光
-     *
-     * 水的法線已經統一改成朝上（flatShaded），整池水因此是一個
-     * 光學上的平面：太陽在上面只會反出一個點，人一走那個點就跟著移。
-     * 那道光是靜水最有說服力的東西——比任何波紋貼圖都有效。
-     *
-     * 指數給得很高，高光才收得緊。散開的高光是磨砂玻璃，
-     * 不是水。而它加在漫射的 clamp 外面，所以正午時真的會刺眼
-     */
-    if (blockDef.isLiquid) {
-      material.specularColor = new Color3(0.8, 0.82, 0.85)
-      material.specularPower = 160
-      this.liquidMaterialList.push(material)
-    }
-
-    if (blockDef.alpha !== undefined && blockDef.alpha < 1) {
-      material.alpha = blockDef.alpha
-      material.transparencyMode = Material.MATERIAL_ALPHABLEND
-      material.backFaceCulling = true
-      material.needDepthPrePass = true
-    }
+    this.applyLiquidLook(material, blockDef)
 
     const mesh = MeshBuilder.CreateBox(name, { size: 1 }, this.scene)
     /** 逐格播放的貼圖要靠一致的 UV 方向，動畫才會四面都往同一邊跑 */
@@ -848,8 +831,75 @@ class WorldRenderer {
     if (blockDef.flatShaded) {
       applyUpwardNormals(surfaceMesh)
     }
-    surfaceMesh.material = material
-    this.addEntry(`${blockId}_surface`, surfaceMesh, material)
+
+    const surfaceMaterial = this.createLiquidSurfaceMaterial(blockId, blockDef, recipe, material)
+    surfaceMesh.material = surfaceMaterial
+    this.addEntry(`${blockId}_surface`, surfaceMesh, surfaceMaterial)
+  }
+
+  /**
+   * 液體的兩件事：反日光的高光與半透明
+   *
+   * 抽出來是因為水的最上層有自己的一份材質（見 createLiquidSurfaceMaterial），
+   * 而那一份與水底下那些滿格的水必須是同一種水——
+   * 高光的強度、透明度與混合方式差一點，岸邊就會看到一條界線
+   */
+  private applyLiquidLook(material: StandardMaterial, blockDef: BlockDef): void {
+    /**
+     * 水面反日光
+     *
+     * 水的法線已經統一改成朝上（flatShaded），整池水因此是一個
+     * 光學上的平面：太陽在上面只會反出一個點，人一走那個點就跟著移。
+     * 那道光是靜水最有說服力的東西——比任何波紋貼圖都有效。
+     *
+     * 指數給得很高，高光才收得緊。散開的高光是磨砂玻璃，
+     * 不是水。而它加在漫射的 clamp 外面，所以正午時真的會刺眼
+     */
+    if (blockDef.isLiquid) {
+      material.specularColor = new Color3(0.8, 0.82, 0.85)
+      material.specularPower = 160
+      this.liquidMaterialList.push(material)
+    }
+
+    if (blockDef.alpha !== undefined && blockDef.alpha < 1) {
+      material.alpha = blockDef.alpha
+      material.transparencyMode = Material.MATERIAL_ALPHABLEND
+      material.backFaceCulling = true
+      material.needDepthPrePass = true
+    }
+  }
+
+  /**
+   * 水的最上層要自己一份材質
+   *
+   * 泡沫、岸線與漣漪都只該出現在真正的水面上，
+   * 而水面以下那些滿格的水方塊與最上層共用同一份材質——
+   * 掛上去等於整個水體裡外都在冒泡。
+   *
+   * 一份材質只能整份掛或整份不掛，所以最上層那一層另外開一份。
+   * 代價是每種水多一份材質與一張動畫貼圖（水與流水各一，共兩份），
+   * 換到的是「效果只作用在該作用的地方」。
+   *
+   * 岩漿不走這條路：它不是水，沒有泡沫也沒有岸線，
+   * 直接沿用同一份材質，連多出來的那份都省下
+   */
+  private createLiquidSurfaceMaterial(
+    blockId: BlockId,
+    blockDef: BlockDef,
+    recipe: PixelMaterialRecipe,
+    fallback: StandardMaterial,
+  ): StandardMaterial {
+    if (!isWaterBlock(blockId))
+      return fallback
+
+    const surfaceMaterial = this.skinner.create({
+      ...recipe,
+      name: `${recipe.name}_surface`,
+    })
+    this.applyLiquidLook(surfaceMaterial, blockDef)
+    attachWaterSurface(surfaceMaterial)
+
+    return surfaceMaterial
   }
 
   /**

@@ -1,4 +1,5 @@
 import type { Scene, UniversalCamera } from '@babylonjs/core'
+import type { WaterMap } from '../world/water-body'
 import {
   Color4,
   DynamicTexture,
@@ -7,6 +8,7 @@ import {
   Vector3,
 } from '@babylonjs/core'
 import { WEATHER_RENDERING_GROUP } from '../../composables/use-babylon-scene'
+import { emitRainRipple } from '../renderer/water-surface'
 import { WORLD_SIZE } from '../world/world-constants'
 import { createParticleDimmer } from './particle-tint'
 
@@ -97,6 +99,8 @@ export interface RainParticles {
 export interface CreateRainParticlesParams {
   scene: Scene;
   maxParticleCount: number;
+  /** 世界上的水在哪裡，落在水上的雨滴要多打一圈漣漪 */
+  waterMap: WaterMap;
   /**
    * 從天空往指定格柱打一道射線，取得雨滴打到的表面高度（世界座標 Y）
    *
@@ -114,6 +118,7 @@ export interface CreateRainParticlesParams {
 export function createRainParticles({
   scene,
   maxParticleCount,
+  waterMap,
   castRainRay,
 }: CreateRainParticlesParams): RainParticles {
   /** 發射點以參考傳入，每幀直接改座標讓雨跟著玩家走 */
@@ -165,6 +170,17 @@ export function createRainParticles({
       splashSpotList[offset + 1] = impactY + SPLASH_SURFACE_OFFSET
       splashSpotList[offset + 2] = z
       splashSpotCount++
+
+      /**
+       * 落在水上的那幾滴要多打一圈漣漪
+       *
+       * 射線已經告訴我們雨滴會打在哪裡，這裡只是再問一句
+       * 「那裡是不是水」——查表一次，比重掃一根格柱便宜得多。
+       *
+       * 打在屋瓦與石板上的雨不進來，而水面上的槽位只有八個，
+       * 節流與篩選都在那一頭做（見 emitRainRipple）
+       */
+      emitRainRipple(waterMap, x, z, impactY)
     }
   }
 

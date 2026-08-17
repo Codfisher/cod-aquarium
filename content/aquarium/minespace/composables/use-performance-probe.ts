@@ -74,6 +74,8 @@ const SECTION_LABEL_EN_MAP: Record<string, string> = {
   晨霧: 'Ground mist',
   空氣顆粒: 'Air motes',
   方塊動畫: 'Block animation',
+  水下焦散: 'Caustics',
+  水面: 'Water surface',
   方塊燈火: 'Block lights',
   日夜循環: 'Day & night',
   漫遊控制器: 'Roam controller',

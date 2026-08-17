@@ -26,6 +26,9 @@ export const DEV_TOGGLE_LIST = [
   { key: 'wetness', label: { 'zh-hant': '雨後濕潤', 'en': 'Wetness' } },
   { key: 'pondMirror', label: { 'zh-hant': '水面倒影', 'en': 'Water reflection' } },
   { key: 'waterGlint', label: { 'zh-hant': '水面高光', 'en': 'Water glint' } },
+  { key: 'waterShoreline', label: { 'zh-hant': '岸線與漣漪', 'en': 'Shoreline & ripples' } },
+  { key: 'waterCaustics', label: { 'zh-hant': '水下焦散', 'en': 'Underwater caustics' } },
+  { key: 'grassTrample', label: { 'zh-hant': '草叢踩踏', 'en': 'Grass trampling' } },
 ] as const
 
 export type DevToggleKey = typeof DEV_TOGGLE_LIST[number]['key']

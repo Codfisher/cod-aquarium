@@ -170,7 +170,10 @@ import type { SandField } from '../garden/sand-field'
 import type { WaterMirrors } from '../garden/water-mirror'
 import type { LampGlow } from '../renderer/lamp-glow'
 import type { TextureSkinner } from '../renderer/pixel-material'
+import type { SceneDepth } from '../renderer/scene-depth'
 import type { VoxelRenderer } from '../renderer/voxel-renderer'
+import type { WaterCaustics } from '../renderer/water-caustics'
+import type { WaterSurface } from '../renderer/water-surface'
 import type { SoundZone } from '../soundscape/type'
 import type { Landmark } from '../world/landmark'
 import { useEventListener, useStorage } from '@vueuse/core'
@@ -196,7 +199,10 @@ import { createWaterMirrors } from '../garden/water-mirror'
 import { findSafeStandingPosition } from '../player/collision'
 import { createLampGlow } from '../renderer/lamp-glow'
 import { createTextureSkinner } from '../renderer/pixel-material'
+import { createSceneDepth } from '../renderer/scene-depth'
 import { createVoxelRenderer } from '../renderer/voxel-renderer'
+import { createWaterCaustics } from '../renderer/water-caustics'
+import { createWaterSurface } from '../renderer/water-surface'
 import { useSoundscape } from '../soundscape/use-soundscape'
 import { DEFAULT_SUNRISE_AZIMUTH, setSunriseAzimuth } from '../weather/day-night'
 import { createGodRays } from '../weather/god-rays'
@@ -204,6 +210,7 @@ import { useWeather } from '../weather/use-weather'
 import { collectLightSourceList } from '../world/light-source'
 import { useChunkWorker } from '../world/use-chunk-worker'
 import { useTerrainWorker } from '../world/use-terrain-worker/use-terrain-worker'
+import { createEmptyWaterMap, scanWaterMap } from '../world/water-body'
 import { castRainRay, createWorldState } from '../world/world-access'
 
 const { t, locale } = useSimpleI18n({
@@ -268,6 +275,11 @@ let lampGlow: LampGlow | null = null
 let waterMirrors: WaterMirrors | null = null
 let skinner: TextureSkinner | null = null
 let sandField: SandField | null = null
+let sceneDepth: SceneDepth | null = null
+let waterSurface: WaterSurface | null = null
+let waterCaustics: WaterCaustics | null = null
+/** 世界上的水在哪裡，掃過一次就記著：漣漪與焦散都要問它 */
+let waterMap = createEmptyWaterMap()
 
 const isWorldReady = ref(false)
 const hasStarted = ref(false)
@@ -449,14 +461,48 @@ const { canvasRef, scene, camera, pipeline, initError } = useBabylonScene({
     skinner = createTextureSkinner(sceneInstance)
     skinner.applyPack(texturePack.value, bumpActive.value)
 
+    /**
+     * 世界上的水掃一次記著
+     *
+     * 要在渲染器之前：水面材質是建網格時掛上去的，
+     * 而掛上去之後第一幀就會去讀這份資料
+     */
+    waterMap = scanWaterMap(worldState)
+
     renderer = createVoxelRenderer(sceneInstance, chunkWorker, skinner)
     await renderer.build(worldState)
+
+    /**
+     * 場景深度圖
+     *
+     * 光暈的柔性淡出與水面的岸線交線光共用這一張。
+     * 低畫質會在它自己那邊關掉，兩個效果跟著歸零
+     */
+    sceneDepth = createSceneDepth({ scene: sceneInstance, camera: cameraInstance })
 
     /** 方塊做的沙只到世界邊界，外面那片得等渲染器準備好材質再接上去 */
     sandField = createSandField(sceneInstance, texturePack.value)
 
     /** 水鏡池的天空倒影，走近才畫 */
     waterMirrors = createWaterMirrors(sceneInstance, cameraInstance, worldState)
+
+    /**
+     * 水面的泡沫、岸線與漣漪，以及水底的焦散
+     *
+     * 兩者都是材質外掛，網格那邊早就掛好了；這裡建的是推動它們的那一份，
+     * 負責寫時間、挑出離玩家最近的那片水、以及把腳步濺成一圈波
+     */
+    waterSurface = createWaterSurface({
+      scene: sceneInstance,
+      camera: cameraInstance,
+      waterMap,
+    })
+    waterCaustics = createWaterCaustics({
+      scene: sceneInstance,
+      camera: cameraInstance,
+      waterMap,
+      getDayRatio,
+    })
 
     sheepFlock.start({ scene: sceneInstance, worldState, camera: cameraInstance, getDayRatio, skinner })
     createCampfireSmoke(sceneInstance, worldState)
@@ -626,6 +672,7 @@ async function handleStart() {
     /** 閃電歸天氣，雷聲歸聽雨亭，這裡只是把兩邊接起來 */
     playThunder: (volume) => triggerSound('rainvale-thunder', volume),
     castRainRay: (blockX, blockZ) => castRainRay(worldState, blockX, blockZ),
+    waterMap,
     getDayRatio,
     getTimeOfDay,
     /** 雨停之後要慢慢乾回去的那些表面，水與花草不在其中 */
@@ -659,6 +706,9 @@ function handleTravel(landmark: Landmark) {
 
 onBeforeUnmount(() => {
   lampGlow?.dispose()
+  waterSurface?.dispose()
+  waterCaustics?.dispose()
+  sceneDepth?.dispose()
   waterMirrors?.dispose()
   renderer?.dispose()
   sandField?.dispose()

@@ -1,5 +1,6 @@
-import type { AbstractEngine, BaseTexture, Material, Scene, StandardMaterial, UniformBuffer, UniversalCamera } from '@babylonjs/core'
-import { Color4, MaterialPluginBase, Texture } from '@babylonjs/core'
+import type { AbstractEngine, Material, Scene, StandardMaterial, UniformBuffer } from '@babylonjs/core'
+import { MaterialPluginBase } from '@babylonjs/core'
+import { sceneDepthState } from './scene-depth'
 
 /**
  * 從幾格外開始化開
@@ -15,13 +16,6 @@ import { Color4, MaterialPluginBase, Texture } from '@babylonjs/core'
  * 掠射角下會被拉成一整片漸層——那正是它最醜的角度
  */
 const FADE_DISTANCE = 0.6
-
-/** 所有光暈材質共讀這一份，深度圖只有一張 */
-const fadeState = {
-  depthTexture: null as BaseTexture | null,
-  /** 關掉時淡出距離歸零，著色器那段就整個跳過，深度圖也停止更新 */
-  isEnabled: false,
-}
 
 /**
  * 柔性粒子
@@ -57,7 +51,7 @@ class HaloSoftFadePlugin extends MaterialPluginBase {
   }
 
   bindForSubMesh(uniformBuffer: UniformBuffer, _scene: Scene, engine: AbstractEngine): void {
-    const texture = fadeState.depthTexture
+    const texture = sceneDepthState.texture
 
     /**
      * 深度圖與場景畫在同一個尺寸上，所以像素座標除以畫面大小
@@ -67,7 +61,7 @@ class HaloSoftFadePlugin extends MaterialPluginBase {
       'haloFade',
       1 / engine.getRenderWidth(),
       1 / engine.getRenderHeight(),
-      texture && fadeState.isEnabled ? FADE_DISTANCE : 0,
+      texture && sceneDepthState.isEnabled ? FADE_DISTANCE : 0,
       0,
     )
 
@@ -120,92 +114,6 @@ class HaloSoftFadePlugin extends MaterialPluginBase {
         }
       `,
     }
-  }
-}
-
-export interface HaloSoftFade {
-  /** 低畫質時整套關掉：深度圖停止更新，淡出距離歸零 */
-  setEnabled: (isEnabled: boolean) => void;
-  dispose: () => void;
-}
-
-export interface CreateHaloSoftFadeParams {
-  scene: Scene;
-  camera: UniversalCamera;
-}
-
-/**
- * 開一張場景深度圖給光暈用
- *
- * ── 代價 ──
- *
- * WebGL 拿不到主畫面正在用的那份深度緩衝區（Babylon 的作者直接說了
- * 這件事做不到），所以深度圖只能自己再畫一趟。整個場景要多跑一次，
- * 雖然著色器只寫一個數字、幾乎不吃填充率，但繪製呼叫是實打實的一倍。
- *
- * 這是為什麼低畫質不開：那一檔本來就在跟繪製呼叫計較，
- * 寧可留著那道邊。淡出距離會一併歸零，著色器那段就整個跳過
- */
-export function createHaloSoftFade({
-  scene,
-  camera,
-}: CreateHaloSoftFadeParams): HaloSoftFade {
-  const depthRenderer = scene.enableDepthRenderer(
-    camera,
-    false,
-    false,
-    /** 浮點深度圖的雙線性取樣不是每張顯卡都支援，取最近的那一格就好 */
-    Texture.NEAREST_SAMPLINGMODE,
-    /**
-     * 直接存視空間的 Z
-     *
-     * 另一條路存的是正規化過的深度，要用就得把近遠平面再乘回去，
-     * 而那組數字散在相機上，日後有人動了 maxZ 這裡會靜靜地算錯。
-     * 存原始的 Z 值，比對時一個字都不必換算
-     */
-    true,
-  )
-
-  /**
-   * 沒有東西的地方要當成無限遠
-   *
-   * 存視空間 Z 時的預設底色是零，那等於「實體就貼在鏡頭上」——
-   * 天空前面的光暈會整團被自己淡掉。改成遠平面之後，
-   * 對著天空的光暈維持全亮
-   */
-  depthRenderer.clearColor = new Color4(camera.maxZ, 0, 0, 1)
-
-  const depthMap = depthRenderer.getDepthMap()
-  fadeState.depthTexture = depthMap
-  fadeState.isEnabled = true
-
-  /**
-   * 換視窗大小時要跟著換
-   *
-   * 這張圖是照建立當下的畫面尺寸開的，而 Babylon 不會自己重開它。
-   * 放著不管的話，畫深度時的長寬比會沿用舊的那張圖——
-   * 深度與畫面就對不起來，淡出會淡錯位置。
-   * 調畫質也會走到這裡：硬體縮放一改就是一次重設大小
-   */
-  const engine = scene.getEngine()
-  const resizeObserver = engine.onResizeObservable.add(() => {
-    depthMap.resize({
-      width: engine.getRenderWidth(),
-      height: engine.getRenderHeight(),
-    })
-  })
-
-  return {
-    setEnabled(isEnabled: boolean) {
-      fadeState.isEnabled = isEnabled
-      depthRenderer.enabled = isEnabled
-    },
-    dispose() {
-      engine.onResizeObservable.remove(resizeObserver)
-      fadeState.depthTexture = null
-      fadeState.isEnabled = false
-      scene.disableDepthRenderer(camera)
-    },
   }
 }
 
