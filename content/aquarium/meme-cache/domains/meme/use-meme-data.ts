@@ -1,16 +1,7 @@
 import { throttle } from 'lodash-es'
-import { omit } from 'remeda'
-import { computed, onBeforeUnmount, shallowRef, triggerRef } from 'vue'
+import { computed, onBeforeUnmount, ref, shallowRef, triggerRef } from 'vue'
+import { mergeMemeDataList } from './merge-meme-data'
 import { type MemeData, memeDataSchema } from './type'
-
-/** 合併以逗號分隔的關鍵字字串，保留順序並去除重複 */
-function mergeKeyword(...sourceList: Array<string | undefined>): string {
-  const keywordList = sourceList
-    .filter((source): source is string => Boolean(source))
-    .flatMap((source) => source.split(',').map((item) => item.trim()))
-    .filter(Boolean)
-  return [...new Set(keywordList)].join(', ')
-}
 
 /** 串流讀取 ndjson 檔案 */
 async function consumeNdjsonPipeline<T = unknown>(
@@ -57,63 +48,52 @@ async function consumeNdjsonPipeline<T = unknown>(
 }
 
 export function useMemeData() {
-  const memeDataMap = shallowRef(new Map<string, MemeData>())
-  const memeDataList = computed(() => [...memeDataMap.value.values()].reverse())
+  /** 自動分析結果，寫入順序即檔案順序 */
+  const baseMap = shallowRef(new Map<string, MemeData>())
+  /** 手動標註的補充資料 */
+  const extendMap = shallowRef(new Map<string, MemeData>())
+
+  const memeDataList = computed(() => mergeMemeDataList(baseMap.value, extendMap.value))
+
+  /** 兩份 ndjson 都讀完才算完整，預建索引與缺圖回報都要等這個訊號 */
+  const loaded = ref(false)
 
   const triggerMemeData = throttle(() => {
-    triggerRef(memeDataMap)
+    triggerRef(baseMap)
+    triggerRef(extendMap)
   }, 500)
 
   const controller = new AbortController()
   async function main() {
-    // 串流讀取圖片資料
-    consumeNdjsonPipeline(`/memes/a-memes-data.ndjson`, (row) => {
-      const result = memeDataSchema.safeParse(row)
-      if (!result.success) {
-        return
-      }
+    const taskList = [
+      consumeNdjsonPipeline('/memes/a-memes-data.ndjson', (row) => {
+        const result = memeDataSchema.safeParse(row)
+        if (!result.success)
+          return
 
-      const existedData = memeDataMap.value.get(result.data.file)
+        baseMap.value.set(result.data.file, result.data)
+        triggerMemeData()
+      }, { signal: controller.signal }),
 
-      memeDataMap.value.set(
-        result.data.file,
-        {
-          ...existedData,
-          ...omit(result.data, ['ocr', 'keyword']),
-          keyword: mergeKeyword(existedData?.keyword, result.data.keyword),
-          ocr: [
-            existedData?.ocr ?? '',
-            result.data.ocr,
-          ].join(''),
-        },
-      )
-      triggerMemeData()
-    }, { signal: controller.signal })
+      consumeNdjsonPipeline('/memes/a-memes-data-extend.ndjson', (row) => {
+        const result = memeDataSchema.safeParse(row)
+        if (!result.success)
+          return
 
-    // 手動標註的資料
-    consumeNdjsonPipeline(`/memes/a-memes-data-extend.ndjson`, (row) => {
-      const result = memeDataSchema.safeParse(row)
-      if (!result.success) {
-        return
-      }
+        extendMap.value.set(result.data.file, result.data)
+        triggerMemeData()
+      }, { signal: controller.signal }),
+    ]
 
-      const existedData = memeDataMap.value.get(result.data.file)
-      const { ocr, keyword, ...otherData } = result.data
+    const resultList = await Promise.allSettled(taskList)
+    resultList
+      .filter((item): item is PromiseRejectedResult => item.status === 'rejected')
+      .forEach(({ reason }) => {
+        console.warn('[meme-cache] 讀取迷因資料失敗', reason)
+      })
 
-      memeDataMap.value.set(
-        result.data.file,
-        {
-          ...otherData,
-          ...existedData,
-          ocr: [
-            existedData?.ocr ?? '',
-            ocr,
-          ].join(''),
-          keyword: mergeKeyword(existedData?.keyword, keyword),
-        },
-      )
-      triggerMemeData()
-    }, { signal: controller.signal })
+    triggerMemeData.flush()
+    loaded.value = true
   }
   if (!import.meta.env.SSR) {
     main()
@@ -123,5 +103,5 @@ export function useMemeData() {
     controller.abort()
   })
 
-  return { memeDataMap, memeDataList }
+  return { memeDataList, loaded }
 }

@@ -226,12 +226,13 @@ import type { CSSProperties } from 'vue'
 import type { ComponentProps } from 'vue-component-type-helpers'
 import type { MemeData } from '../meme/type'
 import type { AlignTarget } from './type'
-import { onClickOutside, promiseTimeout, useElementBounding, useElementSize, useRafFn } from '@vueuse/core'
+import { onClickOutside, promiseTimeout, useElementBounding, useElementSize, useEventListener, useRafFn } from '@vueuse/core'
 import { nanoid } from 'nanoid'
 import { clone, pipe } from 'remeda'
 import { computed, nextTick, reactive, ref, shallowRef, triggerRef, useTemplateRef } from 'vue'
 import { nextFrame } from '../../../../../web/common/utils'
 import { IMAGE_MAX_DIMENSION, IMAGE_MIN_DIMENSION } from './constants'
+import { DEFAULT_FONT_VALUE } from './fonts'
 import HelpTip from './help-tip.vue'
 import ImageItem from './image-item.vue'
 import TextItem from './text-item.vue'
@@ -307,6 +308,7 @@ function addItem(event: PointerEvent) {
       angle: 0,
       fontSize: 16,
       fontWeight: 400,
+      fontValue: DEFAULT_FONT_VALUE,
       lineHeight: 1.2,
       strokeWidth: 4,
       strokeColor: '#FFF',
@@ -338,6 +340,7 @@ function duplicateTextItem(item: TextItemData) {
       angle: 0,
       fontSize: 16,
       fontWeight: 400,
+      fontValue: DEFAULT_FONT_VALUE,
       lineHeight: 1.2,
       strokeWidth: 4,
       strokeColor: '#FFF',
@@ -607,10 +610,141 @@ const imageItemList = computed(() => [...imageMap.value.values()].map((item) => 
   alignTargetList: buildAlignTargetList(item.key),
 })))
 
+/**
+ * 復原／重做。
+ *
+ * 文字與圖片皆存於 shallowRef 的 Map，且拖曳是直接改物件本身，
+ * 深層監聽不見得會觸發，故沿用既有的定時輪詢比對序列化結果。
+ */
+const HISTORY_MAX_COUNT = 50
+
+interface EditorSnapshot {
+  textList: Array<[string, TextItemData]>;
+  imageList: Array<[string, ImageItemData]>;
+  layoutSetting: typeof layoutSetting['value'];
+}
+
+/**
+ * 插入的圖片是 data URL，動輒數 MB。
+ * 每半秒序列化一次、又要存進最多 50 筆歷史，記憶體與 CPU 都吃不消，
+ * 故快照只留位置與尺寸，圖片內容另外放在這裡以 key 對應。
+ */
+const imageUrlMap = new Map<string, string>()
+
+function serializeEditor(): string {
+  const imageList = [...imageMap.value.entries()].map(
+    ([key, item]) => {
+      const { url, ...data } = item.data ?? {}
+      if (url) {
+        imageUrlMap.set(key, url)
+      }
+      return [key, { ...item, data }] as [string, ImageItemData]
+    },
+  )
+
+  return JSON.stringify({
+    textList: [...textMap.value.entries()],
+    imageList,
+    layoutSetting: layoutSetting.value,
+  } satisfies EditorSnapshot)
+}
+
+const historyList = shallowRef<string[]>([])
+const historyIndex = ref(-1)
+/** 上一輪偵測到的狀態，連續兩輪相同才視為編輯結束 */
+let pendingSnapshot: string | undefined
+
+const undoable = computed(() => historyIndex.value > 0)
+const redoable = computed(() => historyIndex.value < historyList.value.length - 1)
+
+function commitSnapshot(value: string) {
+  const nextList = [
+    ...historyList.value.slice(0, historyIndex.value + 1),
+    value,
+  ].slice(-HISTORY_MAX_COUNT)
+
+  historyList.value = nextList
+  historyIndex.value = nextList.length - 1
+}
+
+function recordHistory() {
+  const current = serializeEditor()
+
+  if (current === historyList.value[historyIndex.value]) {
+    pendingSnapshot = undefined
+    return
+  }
+
+  // 拖曳中每輪都在變，等狀態靜止再記，否則一次拖曳會塞滿整個歷史
+  if (current !== pendingSnapshot) {
+    pendingSnapshot = current
+    return
+  }
+
+  commitSnapshot(current)
+  pendingSnapshot = undefined
+}
+
+function applySnapshot(raw: string) {
+  const snapshot = JSON.parse(raw) as EditorSnapshot
+
+  textMap.value = new Map(snapshot.textList)
+  imageMap.value = new Map(snapshot.imageList.map(([key, item]) => [
+    key,
+    // 快照沒帶圖片內容，還原時從 imageUrlMap 補回
+    { ...item, data: { ...item.data, url: imageUrlMap.get(key) ?? '' } } as ImageItemData,
+  ]))
+  layoutSetting.value = snapshot.layoutSetting
+  triggerRef(textMap)
+  triggerRef(imageMap)
+
+  targetKey.value = undefined
+  pendingSnapshot = undefined
+}
+
+function undo() {
+  if (!undoable.value)
+    return
+
+  historyIndex.value -= 1
+  applySnapshot(historyList.value[historyIndex.value]!)
+}
+
+function redo() {
+  if (!redoable.value)
+    return
+
+  historyIndex.value += 1
+  applySnapshot(historyList.value[historyIndex.value]!)
+}
+
+// 不指定 target，VueUse 會用 SSR 安全的 defaultWindow
+useEventListener('keydown', (event: KeyboardEvent) => {
+  if (!event.ctrlKey && !event.metaKey)
+    return
+
+  const key = event.key.toLowerCase()
+  if (key !== 'z' && key !== 'y')
+    return
+
+  event.preventDefault()
+  if (key === 'y' || event.shiftKey) {
+    redo()
+    return
+  }
+  undo()
+})
+
 // 儲存設定值至 localStorage
 const isFromStorage = ref(true)
 const storageKey = computed(() => `img-data:${props.data?.file}`)
 useRafFn(() => {
+  if (isFromStorage.value) {
+    return
+  }
+
+  recordHistory()
+
   const { file } = props.data ?? {}
   if (!localStorage || !file) {
     return
@@ -620,6 +754,8 @@ useRafFn(() => {
     `${storageKey.value}:textMap`,
     JSON.stringify([...textMap.value.entries()]),
   )
+
+  // 插入的圖片是 data URL，動輒數 MB，寫進 localStorage 會直接爆掉配額，故不保存
 
   localStorage.setItem(
     `${storageKey.value}:layoutSetting`,
@@ -664,6 +800,9 @@ async function initData() {
 
   await nextFrame()
   await nextTick()
+
+  // 以載入後的狀態當作歷史起點，才不會一按復原就跳回空白
+  commitSnapshot(serializeEditor())
   isFromStorage.value = false
 }
 if (!import.meta.env.SSR) {
@@ -673,6 +812,10 @@ if (!import.meta.env.SSR) {
 defineExpose({
   boardRef,
   addImage,
+  undo,
+  redo,
+  undoable,
+  redoable,
   async blur() {
     targetKey.value = undefined
     layoutSettingVisible.value = false

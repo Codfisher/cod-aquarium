@@ -12,6 +12,7 @@ import phash from 'sharp-phash'
 import distance from 'sharp-phash/distance'
 import { computeBlurLevel } from '../utils/blur-estimator'
 import { parseMemeAnalysis } from '../utils/meme-analysis-parser'
+import { EMOTION_LIST, EMOTION_MAX_COUNT, parseEmotionList } from '../utils/meme-emotion'
 
 const __dirname = import.meta.dirname
 
@@ -357,7 +358,7 @@ async function main() {
       {
         text: [
           '分析圖片，回傳 JSON（不要 markdown）：',
-          '{"describe":"…","ocr":"…","keyword":"…"}',
+          '{"describe":"…","ocr":"…","keyword":"…","emotion":"…"}',
           '',
           'describe：用正體中文寫 1-2 句話，只寫主體特徵、表情、出處作品名。',
           '  禁止：「此為網路迷因」「背景模糊」「無文字」「無人物」「來源不明」「出處不明」「整體呈現…情緒」。',
@@ -367,6 +368,9 @@ async function main() {
           '  諧音雙關格式：「X」為「Y」諧音。忽略浮水印。',
           'ocr：圖上所有可見文字，原樣抄錄，多段以空格分隔。無文字則留空字串。',
           'keyword：搜尋用關鍵字與同義詞，逗號分隔。諧音雙關，則要加上「諧音」',
+          `emotion：這張圖「拿來表達」的情緒，只能從此清單挑，逗號分隔，最多 ${EMOTION_MAX_COUNT} 個：`,
+          `  ${EMOTION_LIST.join('、')}`,
+          '  判斷依據是使用時機，不是圖中人物的心情。挑不出來就留空字串。',
           '',
           '範例：',
           '紅色星際戰士頭盔與機械手，黃光眼，黑色鳥形徽章。出自《戰鎚40,000》',
@@ -400,6 +404,7 @@ async function main() {
         describe: parsed.describe ?? '',
         ocr: parsed.ocr ?? '',
         keyword: parsed.keyword ?? '',
+        emotion: parseEmotionList(parsed.emotion).join(','),
         blurLevel,
       },
       (data) => JSON.stringify(data).replaceAll('\n', ''),

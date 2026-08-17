@@ -19,6 +19,7 @@ import { getMemeAlt, getMemeKeywordList, getMemeName, parseMemeNdjson, SEO_MEME_
 import { markdownItBaseImg } from './plugin/markdown-it-base-img'
 import { markdownItCodeBlockName } from './plugin/markdown-it-code-block-name'
 import { markdownItNowrap } from './plugin/markdown-it-nowrap'
+import { viteMemeSearchIndex } from './plugin/vite-meme-search-index'
 import { viteSeoMemeList } from './plugin/vite-seo-meme-list'
 import { generateImages } from './scripts/resize-images'
 import {
@@ -1046,6 +1047,7 @@ export default ({ mode }: { mode: string }) => {
           },
         },
         viteSeoMemeList(),
+        viteMemeSearchIndex(),
         Icons({
           autoInstall: true,
           compiler: 'vue3',

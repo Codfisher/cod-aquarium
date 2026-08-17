@@ -2,6 +2,8 @@ export interface MemeAnalysis {
   describe?: string;
   ocr?: string;
   keyword?: string;
+  /** 逗號分隔的情緒／情境標籤，取值限於 EMOTION_LIST */
+  emotion?: string;
 }
 
 /**

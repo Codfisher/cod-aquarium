@@ -62,6 +62,25 @@
             </div>
           </div>
 
+          <div class=" text-sm opacity-50 col-span-4 mt-2">
+            字型
+          </div>
+
+          <div class="font-list col-span-4 flex flex-wrap gap-2">
+            <div
+              v-for="item in FONT_LIST"
+              :key="item.value"
+              :style="{ fontFamily: item.cssFamily }"
+              class="text p-2 px-3 border rounded cursor-pointer duration-200"
+              :class="(settings.fontValue ?? DEFAULT_FONT_VALUE) === item.value
+                ? 'border-primary text-primary'
+                : 'border-gray-300 dark:border-gray-600'"
+              @click="settings.fontValue = item.value"
+            >
+              {{ item.label }}
+            </div>
+          </div>
+
           <u-form-field
             class="col-span-2"
             label="字重"
@@ -375,6 +394,7 @@ import { join, keys, map, mapValues, omit, pipe } from 'remeda'
 import { computed, onBeforeUnmount, onMounted, ref, useId, useTemplateRef, watch } from 'vue'
 import { nextFrame } from '../../../../../web/common/utils'
 import { hexToRgba, isClose } from '../../utils'
+import { DEFAULT_FONT_VALUE, FONT_LIST, getFontOption, loadFont } from './fonts'
 
 interface ModelValue {
   text: string;
@@ -389,6 +409,8 @@ interface ModelValue {
   color: string;
   backgroundColor: string;
   backgroundOpacity: number;
+  /** FONT_LIST 的識別字，舊資料沒有此欄位，一律回落到預設字型 */
+  fontValue?: string;
 }
 
 interface Props {
@@ -451,11 +473,31 @@ const textRef = useTemplateRef('textRef')
 const textStyle = computed<CSSProperties>(() => ({
   'fontSize': `${settings.value.fontSize}px`,
   'fontWeight': settings.value.fontWeight,
+  'fontFamily': getFontOption(settings.value.fontValue).cssFamily,
   'lineHeight': settings.value.lineHeight,
   'color': settings.value.color,
   'backgroundColor': hexToRgba(settings.value.backgroundColor, settings.value.backgroundOpacity),
   '-webkit-text-stroke': `${settings.value.strokeWidth}px ${settings.value.strokeColor}`,
 }))
+
+// 選了字型才下載，並等字型備妥，避免截圖拍到 fallback 字型
+watch(() => [settings.value.fontValue, settings.value.text] as const, ([fontValue, text]) => {
+  if (!fontValue)
+    return
+  loadFont(fontValue, text)
+}, { immediate: true })
+
+/**
+ * 復原／重做會直接換掉文字內容，但 contenteditable 的內容不由 Vue 綁定，
+ * 故需手動同步；正在輸入時 DOM 與資料本就一致，不會互相干擾
+ */
+watch(() => settings.value.text, (value) => {
+  const element = textRef.value
+  if (!element || element.textContent === value)
+    return
+
+  element.textContent = value
+})
 const textDom = ref('')
 watchThrottled(() => [settings.value, textRef.value], () => {
   const dom = textRef.value?.cloneNode(true) as HTMLElement
