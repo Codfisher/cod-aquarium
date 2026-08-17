@@ -1,0 +1,39 @@
+# 換行符一律以 LF 存進版控
+#
+# 這份檔案是補上去的，起因是一次真實的意外：幾個原本是 CRLF 的檔案
+# 被工具改寫成 LF，git 因此把整份檔案判定為全部改過——三十行的修改
+# 在 diff 上長成三千行，code review 完全失去意義。
+#
+# 專案沒有 .gitattributes、core.autocrlf 又是 false 時，換行符是
+# 「每個檔案自己記著」的，於是同一個資料夾裡有的是 LF、有的是 CRLF，
+# 而任何一次跨工具的編輯都可能翻動它。
+#
+# 釘死之後，工作目錄上是什麼樣子都不影響版控裡的內容，這種假 diff 就消失了。
+# 選 LF 而不是 CRLF：這個站是部署到 Cloudflare 的，
+# 而 Node、Vite 與各家 CI 的原生換行都是 LF
+* text=auto eol=lf
+
+# 二進位資產不要碰
+#
+# text=auto 會自己偵測二進位，但偵測是看檔案開頭有沒有 NUL 位元組——
+# 對一張剛好開頭沒有 NUL 的圖來說那是會猜錯的，而猜錯的後果是
+# 圖片被當成文字做換行轉換，直接損毀。副檔名寫死最保險
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.svg text eol=lf
+*.mp3 binary
+*.wav binary
+*.ogg binary
+*.mp4 binary
+*.glb binary
+*.bin binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.pdf binary
+*.traineddata binary
