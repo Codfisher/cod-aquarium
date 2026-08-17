@@ -10,7 +10,7 @@ import MemeCache from './meme-cache.vue'
 import SeoContent from './seo-content.vue'
 </script>
 
-<iframe data-why class="fixed w-dvw h-dvh">
+<iframe data-why class="fixed inset-0 w-dvw h-dvh">
   <meme-cache />
 </iframe>
 

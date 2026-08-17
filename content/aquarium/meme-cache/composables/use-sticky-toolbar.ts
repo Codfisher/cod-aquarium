@@ -4,6 +4,8 @@ import { computed, onBeforeUnmount, onMounted, ref, type Ref } from 'vue'
 export interface StickyToolbarOptions {
   /** 是否加上 safe-area（預設 true） */
   includeSafeArea?: boolean;
+  /** 工具列自身的下內距，safe-area 會疊加在此之上 */
+  basePaddingBottom?: string;
   zIndex?: number;
   keyboardMinInset?: number;
   watchWhileFocusedOnly?: boolean;
@@ -15,6 +17,7 @@ export function useStickyToolbar(
 ) {
   const {
     includeSafeArea = true,
+    basePaddingBottom = '1rem',
     zIndex = 60,
     keyboardMinInset = 120,
     watchWhileFocusedOnly = true,
@@ -77,25 +80,32 @@ export function useStickyToolbar(
     })
   }
 
-  const baseBottom = includeSafeArea ? 'env(safe-area-inset-bottom)' : '0px'
-  const bottomValue = computed(() => baseBottom)
+  /**
+   * safe-area 放在工具列自己的下內距，而非 bottom 偏移。
+   *
+   * 用 bottom 撐開的話，那段空隙不算在 getBoundingClientRect 的高度內，
+   * 依 toolbarHeight 計算的內容區就會多算一截，被工具列蓋住。
+   */
+  const paddingBottomValue = includeSafeArea
+    ? `calc(${basePaddingBottom} + env(safe-area-inset-bottom))`
+    : basePaddingBottom
+
   const transformValue = computed(() => `translate3d(0, -${occluded.value}px, 0)`)
 
   const toolbarStyle = computed<Record<string, string | number>>(() => ({
     position: 'fixed',
     left: 0,
     right: 0,
-    bottom: bottomValue.value,
+    bottom: 0,
+    paddingBottom: paddingBottomValue,
     transform: transformValue.value,
     willChange: 'transform',
     zIndex,
   }))
 
-  /** 保留 toolbar 之底部空間 */
+  /** 保留 toolbar 之底部空間，safe-area 已含在 toolbarHeight 內 */
   const contentStyle = computed<Record<string, string>>(() => ({
-    paddingBottom: includeSafeArea
-      ? `calc(${toolbarHeight.value}px + env(safe-area-inset-bottom))`
-      : `${toolbarHeight.value}px`,
+    paddingBottom: `${toolbarHeight.value}px`,
   }))
 
   return { toolbarStyle, contentStyle, occluded, toolbarHeight, refresh }
