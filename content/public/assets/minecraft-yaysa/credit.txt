@@ -1,0 +1,14 @@
+Yaysa 8x
+--------
+
+彩色貼圖來源：
+Yaysa 8x（poiqzy）
+https://modrinth.com/resourcepack/yaysa-8x
+
+授權：CC-BY-4.0（姓名標示 4.0 國際）
+https://creativecommons.org/licenses/by/4.0/
+
+此處只收錄 minespace 用得到的貼圖，檔案內容未經修改。
+缺少的幾張沿用 /assets/minecraft-mini8x。
+
+本資料夾由 scripts/sync-texture-pack.mjs 產生。

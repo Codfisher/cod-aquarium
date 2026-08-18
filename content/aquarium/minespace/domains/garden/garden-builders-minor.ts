@@ -497,20 +497,30 @@ export function buildRainvaleGarden(state: Uint8Array, garden: GardenDefinition)
    */
   setBlock(state, pavilionX + 2, groundY + 2, pavilionZ - 2, BlockId.WIND_CHIME)
 
-  /** 苔石與蕨，濕氣重的地方才長得出來 */
+  /** 苔石，濕氣重的地方才長得出來 */
   placeStandingStone(state, centerX + 5, groundY, centerZ - 5, 2, BlockId.MOSSY_COBBLESTONE)
 
-  scatterOnGround(state, centerX, centerZ, inner, groundY, random, 0.52, (pick) => {
+  /**
+   * 地上以蘑菇為主，草只留一點點
+   *
+   * 這座甲板十一格見方，三棵樹的樹冠已經壓掉大半個天空，
+   * 地面再鋪滿蕨與野草就只剩一片糊掉的綠——亭子、苔石與那窪積水
+   * 全被蓋在草裡，而它們才是這一座要人看的東西。
+   *
+   * 但一株草都不長也不對，那是打掃過的地面，不是林子裡的地面。
+   * 三種草收成一種：留蕨，濕氣重又照不到太陽的地方本來就長它，
+   * 且株數收到原本的三分之一上下——遠看是幾叢點綴，走近才數得出來。
+   *
+   * 機率從原本的 0.52 收到 0.19。分母變了，各項的比例得重算，
+   * 蘑菇與腐葉每一格長出來的機會才與改動前一樣
+   */
+  scatterOnGround(state, centerX, centerZ, inner, groundY, random, 0.19, (pick) => {
     const roll = pick()
-    if (roll < 0.36)
+    if (roll < 0.29)
       return BlockId.FERN
-    if (roll < 0.58)
-      return BlockId.JUNGLE_GRASS
-    if (roll < 0.74)
-      return BlockId.CURLY_PLANT
-    if (roll < 0.86)
+    if (roll < 0.62)
       return BlockId.FOREST_LITTER
-    if (roll < 0.94)
+    if (roll < 0.84)
       return BlockId.BROWN_MUSHROOM
     return BlockId.MUSHROOM
   }, GRASS_SET)
