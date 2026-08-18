@@ -156,6 +156,58 @@ const PACK_LIST = [
       '本資料夾由 scripts/sync-texture-pack.mjs 產生。',
     ].join('\n'),
   },
+  {
+    name: 'Yaysa 8x',
+    setName: 'YAYSA',
+    /**
+     * 只有彩色圖，而且刻意不縮也不放大
+     *
+     * 它本來就是八格見方的，與迷你像素同一個尺度。
+     * 缺的那二十九張退回迷你像素，退路寫在 texture-pack.ts 裡
+     */
+    outputDir: 'minecraft-yaysa',
+    withDiffuse: true,
+    url: 'https://cdn.modrinth.com/data/hNp0NZSM/versions/9ZY1szRY/Yaysa%208x%20-%20v2022.333_1.19.zip',
+    credit: [
+      'Yaysa 8x',
+      '--------',
+      '',
+      '彩色貼圖來源：',
+      'Yaysa 8x（poiqzy）',
+      'https://modrinth.com/resourcepack/yaysa-8x',
+      '',
+      '授權：CC-BY-4.0（姓名標示 4.0 國際）',
+      'https://creativecommons.org/licenses/by/4.0/',
+      '',
+      '此處只收錄 minespace 用得到的貼圖，檔案內容未經修改。',
+      '缺少的幾張沿用 /assets/minecraft-mini8x。',
+      '',
+      '本資料夾由 scripts/sync-texture-pack.mjs 產生。',
+    ].join('\n'),
+  },
+  {
+    name: 'PotatoCraft 8x',
+    setName: 'POTATO_CRAFT',
+    outputDir: 'minecraft-potato-craft',
+    withDiffuse: true,
+    url: 'https://cdn.modrinth.com/data/cCiIp0Ns/versions/VTx0xLfp/PotatoCraft%208x%20v1.3.zip',
+    credit: [
+      'PotatoCraft 8x',
+      '--------------',
+      '',
+      '彩色貼圖來源：',
+      'PotatoCraft 8x（Saransh）',
+      'https://modrinth.com/resourcepack/potato-craft-8x',
+      '',
+      '授權：CC-BY-4.0（姓名標示 4.0 國際）',
+      'https://creativecommons.org/licenses/by/4.0/',
+      '',
+      '此處只收錄 minespace 用得到的貼圖，檔案內容未經修改。',
+      '缺少的幾張沿用 /assets/minecraft-mini8x。',
+      '',
+      '本資料夾由 scripts/sync-texture-pack.mjs 產生。',
+    ].join('\n'),
+  },
 ]
 
 /**
@@ -263,7 +315,7 @@ async function main() {
     resultList.push(await collectPack(pack, archive, neededFileList))
   }
 
-  const [vanillaPbr, ocd, pixelPerfection, crayon, bareBones] = resultList
+  const [vanillaPbr, ocd, pixelPerfection, crayon, bareBones, yaysa, potatoCraft] = resultList
   const manifest = [
     '/**',
     ' * 材質包實際有哪些檔案',
@@ -281,6 +333,8 @@ async function main() {
     formatSet('CRAYON_FILE_SET', crayon.diffuseList),
     formatSet('BARE_BONES_FILE_SET', bareBones.diffuseList),
     formatSet('BARE_BONES_NORMAL_SET', bareBones.normalList),
+    formatSet('YAYSA_FILE_SET', yaysa.diffuseList),
+    formatSet('POTATO_CRAFT_FILE_SET', potatoCraft.diffuseList),
   ].join('\n')
 
   writeFileSync(manifestPath, manifest, 'utf8')

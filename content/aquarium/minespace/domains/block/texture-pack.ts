@@ -14,7 +14,9 @@ import {
   CRAYON_FILE_SET,
   OCD_FILE_SET,
   PIXEL_PERFECTION_FILE_SET,
+  POTATO_CRAFT_FILE_SET,
   VANILLA_NORMAL_SET,
+  YAYSA_FILE_SET,
 } from './texture-pack-manifest'
 
 /**
@@ -630,6 +632,8 @@ const REALISTIC_TEXTURE_MAP: Partial<Record<TextureKey, PackTextureEntry>> = {
 /** 材質包的識別名 */
 export type TexturePackId =
   | 'miniPixel'
+  | 'yaysa'
+  | 'potatoCraft'
   | 'vanilla'
   | 'ocd'
   | 'pixelPerfection'
@@ -653,7 +657,16 @@ export interface TexturePack {
    * 原版的立體貼圖只補了法線，圖本身還是躺在原版資料夾裡
    */
   fileSet: ReadonlySet<string>;
-  /** 缺檔時往哪一層退，通常是原版的完整貼圖 */
+  /**
+   * 缺檔時往哪一層退，通常是原版的完整貼圖
+   *
+   * 沒填就退回迷你像素那一套。差別不只是換一個資料夾：
+   * 原版那一層是照檔名退的，退過去還是同一個名字的圖；
+   * 迷你像素用的是另一套命名，得回到 key 重查一次。
+   *
+   * 八格見方的材質包一律留空。它們缺的那幾張若退到原版，
+   * 一面十六格的牆會突兀地貼在一片八格的世界裡
+   */
   fallbackBaseUrl?: string;
   /** 有法線貼圖的檔案，其餘的就是純平面 */
   normalFileSet: ReadonlySet<string>;
@@ -733,6 +746,65 @@ export const TEXTURE_PACK_LIST: TexturePack[] = [
       author: 'D00Med',
       license: 'CC-BY-SA 3.0',
       url: 'https://github.com/minetest/minetest_game',
+    },
+  },
+  {
+    /**
+     * 淡彩
+     *
+     * 同樣是八格見方，卻不是把原版縮一半縮出來的——整套只用八十九個顏色，
+     * 每一格都是照著那份調色盤重畫的。石頭是一整面乾淨的灰，木板只有兩階明暗，
+     * 沒有一顆多餘的雜點。
+     *
+     * 它缺二十九張圖，缺的那幾張退回迷你像素。兩套都是八格，
+     * 退過去只是換一種筆觸，不會突然多出四倍的細節
+     */
+    id: 'yaysa',
+    title: { 'zh-hant': '淡彩', 'en': 'Yaysa' },
+    description: {
+      'zh-hant': '同樣八格見方，整套只用八十九個顏色',
+      'en': 'Also 8×, drawn from a palette of just 89 colors',
+    },
+    resolution: 8,
+    baseUrl: '/assets/minecraft-yaysa',
+    fileSet: YAYSA_FILE_SET,
+    normalFileSet: EMPTY_FILE_SET,
+    hasHeightMap: false,
+    textureMap: MINECRAFT_TEXTURE_MAP,
+    credit: {
+      title: 'Yaysa 8x',
+      author: 'poiqzy',
+      license: 'CC-BY 4.0',
+      url: 'https://modrinth.com/resourcepack/yaysa-8x',
+    },
+  },
+  {
+    /**
+     * 輕省
+     *
+     * 原版縮成八格見方的那一種，本來是畫給跑不動的機器用的。
+     * 少掉一半的像素之後，磚縫還在、礦點還在，只是每一樣都粗了一號——
+     * 是原版的樣子隔著一層毛玻璃看過去。
+     *
+     * 與淡彩擺在一起剛好是兩個方向：一個重畫，一個保留原味
+     */
+    id: 'potatoCraft',
+    title: { 'zh-hant': '輕省', 'en': 'PotatoCraft' },
+    description: {
+      'zh-hant': '原版縮成八格，粗了一號的老樣子',
+      'en': 'Vanilla shrunk to 8× — the same world, one size coarser',
+    },
+    resolution: 8,
+    baseUrl: '/assets/minecraft-potato-craft',
+    fileSet: POTATO_CRAFT_FILE_SET,
+    normalFileSet: EMPTY_FILE_SET,
+    hasHeightMap: false,
+    textureMap: MINECRAFT_TEXTURE_MAP,
+    credit: {
+      title: 'PotatoCraft 8x',
+      author: 'Saransh',
+      license: 'CC-BY 4.0',
+      url: 'https://modrinth.com/resourcepack/potato-craft-8x',
     },
   },
   {
@@ -960,6 +1032,21 @@ function normalizeEntry(entry: PackTextureEntry): PackTexture | null {
 }
 
 /**
+ * 退回迷你像素的那一張
+ *
+ * 只給網址，不帶原本那套的色調與動畫張數——那些是照著別人的圖調的，
+ * 套到這一張上只會錯。什麼都不給，方塊定義的預設值就會接手，
+ * 而那份預設值本來就是照迷你像素調的
+ */
+function fallBackToMiniPixel(key: TextureKey): ResolvedTexture {
+  return {
+    url: `${MINI_PIXEL_BASE}/${MINI_PIXEL_TEXTURE_MAP[key]}.png`,
+    normalUrl: null,
+    specularUrl: null,
+  }
+}
+
+/**
  * 查出一個 key 在這套材質包裡該用哪張圖
  *
  * 三層退路：材質包自己的檔案、材質包的退路資料夾、最後是迷你像素。
@@ -973,7 +1060,7 @@ export function resolveTexture(pack: TexturePack, key: TextureKey): ResolvedText
   if (mapped === undefined) {
     return pack.id === 'miniPixel'
       ? empty
-      : { ...empty, url: `${MINI_PIXEL_BASE}/${MINI_PIXEL_TEXTURE_MAP[key]}.png` }
+      : fallBackToMiniPixel(key)
   }
 
   const texture = normalizeEntry(mapped)
@@ -983,6 +1070,15 @@ export function resolveTexture(pack: TexturePack, key: TextureKey): ResolvedText
 
   const { file } = texture
   const hasOwnFile = pack.fileSet.has(file)
+  /**
+   * 有這個 key、卻沒有這張圖
+   *
+   * 沒指定退路資料夾的包就退回迷你像素。八格見方的那幾套走的是這條，
+   * 缺的那些不必照原版的檔名去別的地方撿
+   */
+  if (!hasOwnFile && pack.fallbackBaseUrl === undefined && pack.id !== 'miniPixel')
+    return fallBackToMiniPixel(key)
+
   const baseUrl = hasOwnFile
     ? pack.baseUrl
     : pack.fallbackBaseUrl ?? pack.baseUrl
