@@ -839,10 +839,10 @@ export default ({ mode }: { mode: string }) => {
                 text: '鱈魚的 Shader 筆記',
                 link: getOldestDocPath('/column-shader-notes/'),
               },
-              {
-                text: '從 Minecraft 開始的 babylon.js 之路',
-                link: getOldestDocPath('/column-minespace/'),
-              },
+              // {
+              //   text: '從 Minecraft 開始的 babylon.js 之路',
+              //   link: getOldestDocPath('/column-minespace/'),
+              // },
               // {
               //   text: '酷酷元件背後的星點',
               //   link: getOldestDocPath('/column-chill-components/'),
