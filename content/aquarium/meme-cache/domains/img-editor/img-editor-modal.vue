@@ -111,13 +111,15 @@ import type { MemeData } from '../meme/type'
 import UButton from '@nuxt/ui/components/Button.vue'
 import UModal from '@nuxt/ui/components/Modal.vue'
 import { snapdom } from '@zumer/snapdom'
-import { computed, h, onBeforeUnmount, ref, useTemplateRef, watch } from 'vue'
+import { computed, h, nextTick, onBeforeUnmount, ref, useTemplateRef, watch } from 'vue'
+import { nextFrame } from '../../../../../web/common/utils'
 import {
   DEFAULT_OUTPUT_RATIO_VALUE,
   fitImageToRatio,
   getOutputRatioOption,
   OUTPUT_RATIO_LIST,
 } from '../../utils/fit-image-to-ratio'
+import { encodeGif, encodeMp4, GIF_MAX_SIZE, GIF_MIN_SIZE, isMp4Supported } from './animated-output'
 import ImgEditor from './img-editor.vue'
 import MemePickerModal from './meme-picker-modal.vue'
 
@@ -125,7 +127,7 @@ interface Props {
   data: MemeData | undefined;
   memeDataList: MemeData[];
 }
-defineProps<Props>()
+const props = defineProps<Props>()
 
 const open = defineModel<boolean>('open', { default: false })
 
@@ -315,44 +317,207 @@ onBeforeUnmount(() => {
 const outputRatioValue = ref(DEFAULT_OUTPUT_RATIO_VALUE)
 const outputRatioOption = computed(() => getOutputRatioOption(outputRatioValue.value))
 
+/**
+ * 動圖的輸出格式。
+ *
+ * 預設 mp4：剪貼簿只吃 png，動圖實際都是走系統分享或下載，
+ * 而 Instagram、Threads 這類平台不收 GIF。GIF 留給需要聊天室自動播放的場合
+ */
+const ANIMATED_FORMAT_LIST = [
+  { value: 'mp4', label: 'MP4（平台通吃、檔案小）' },
+  { value: 'gif', label: 'GIF（聊天室自動播放）' },
+] as const
+const animatedFormatValue = ref<'gif' | 'mp4'>('mp4')
+const animatedFormatOption = computed(
+  () => ANIMATED_FORMAT_LIST.find((item) => item.value === animatedFormatValue.value) ?? ANIMATED_FORMAT_LIST[0],
+)
+
+const OUTPUT_BACKGROUND_COLOR = '#FFF'
+
+/** 有影格資料才輸出得了動圖 */
+const animatedOutputAvailable = computed(
+  () => Boolean(props.data?.animated && props.data.frameDelayList?.length),
+)
+
+async function getStaticImgBlob(board: HTMLElement) {
+  const blob = await snapdom.toBlob(board, {
+    quality: 0.8,
+    backgroundColor: OUTPUT_BACKGROUND_COLOR,
+    type: 'png',
+    // Google Fonts 的字型檔允許跨域讀取，可直接內嵌進截圖
+    embedFonts: true,
+  })
+
+  return fitImageToRatio(blob, outputRatioOption.value.ratio)
+}
+
+/**
+ * 逐格重新合成動圖。
+ *
+ * 截圖一次只拍得到動圖當下的那一格，逐格截圖又太慢，
+ * 故先把底圖藏起來單獨拍上層內容，再用影格長圖逐格墊回底下，全程只截一次圖
+ */
+async function getAnimatedImgBlob(board: HTMLElement): Promise<Blob> {
+  const editor = editorRef.value
+  const baseImg = editor?.imgRef
+  const sprite = editor?.frameSprite
+  if (!editor || !baseImg || !sprite) {
+    throw new Error('缺少動圖資料')
+  }
+
+  const overlayFrameIndexList = editor.overlayFrameIndexList
+  const bitmapMap = new Map<number, ImageBitmap>()
+
+  editor.baseImgVisible = false
+  try {
+    // 文字可設顯示區間，各影格的上層內容未必一樣，故依代表影格各拍一張
+    for (const frameIndex of new Set(overlayFrameIndexList)) {
+      editor.seekFrame(frameIndex)
+      await nextTick()
+      await nextFrame()
+
+      const overlayBlob = await snapdom.toBlob(board, {
+        quality: 1,
+        backgroundColor: 'transparent',
+        type: 'png',
+        embedFonts: true,
+      })
+      bitmapMap.set(frameIndex, await createImageBitmap(overlayBlob))
+    }
+  }
+  finally {
+    editor.baseImgVisible = true
+    editor.playFrame()
+  }
+
+  const overlayList = overlayFrameIndexList
+    .map((frameIndex) => bitmapMap.get(frameIndex))
+    .filter((bitmap): bitmap is ImageBitmap => Boolean(bitmap))
+  const overlay = overlayList[0]
+  if (!overlay) {
+    throw new Error('上層內容截圖失敗')
+  }
+
+  try {
+    const boardRect = board.getBoundingClientRect()
+    const imgRect = baseImg.getBoundingClientRect()
+    /** 截圖像素與 CSS 像素的比例 */
+    const captureScale = overlay.width / boardRect.width
+
+    // 與 fitImageToRatio 相同的補邊算法，差別在這裡要逐格套用
+    const ratio = outputRatioOption.value.ratio
+    const paddedWidth = ratio ? Math.max(overlay.width, Math.round(overlay.height * ratio)) : overlay.width
+    const paddedHeight = ratio ? Math.max(overlay.height, Math.round(overlay.width / ratio)) : overlay.height
+    const paddingLeft = (paddedWidth - overlay.width) / 2
+    const paddingTop = (paddedHeight - overlay.height) / 2
+
+    /*
+     * 底圖放大只會存到放大出來的假細節，故以影格長圖的原生解析度為準；
+     * 但文字是即時算繪的，跟著縮下去會糊到看不清楚，所以再給一個長邊下限
+     */
+    const nativeScale = sprite.frameWidth / (imgRect.width * captureScale)
+    const legibleScale = GIF_MIN_SIZE / Math.max(overlay.width, overlay.height)
+    const outputScale = Math.min(
+      1,
+      GIF_MAX_SIZE / Math.max(paddedWidth, paddedHeight),
+      Math.max(nativeScale, legibleScale),
+    )
+
+    // 只有動圖需要選格式，GIF 到處都動得了，mp4 則是平台上傳的最大公約數
+    const encode = animatedFormatValue.value === 'mp4' && isMp4Supported()
+      ? encodeMp4
+      : encodeGif
+
+    return await encode({
+      sprite,
+      overlayList,
+      outputWidth: Math.round(paddedWidth * outputScale),
+      outputHeight: Math.round(paddedHeight * outputScale),
+      baseRect: {
+        x: (paddingLeft + (imgRect.left - boardRect.left) * captureScale) * outputScale,
+        y: (paddingTop + (imgRect.top - boardRect.top) * captureScale) * outputScale,
+        width: imgRect.width * captureScale * outputScale,
+        height: imgRect.height * captureScale * outputScale,
+      },
+      overlayRect: {
+        x: paddingLeft * outputScale,
+        y: paddingTop * outputScale,
+        width: overlay.width * outputScale,
+        height: overlay.height * outputScale,
+      },
+      backgroundColor: OUTPUT_BACKGROUND_COLOR,
+    })
+  }
+  finally {
+    for (const bitmap of bitmapMap.values()) {
+      bitmap.close()
+    }
+  }
+}
+
 async function getImgBlob() {
-  if (!editorRef.value?.boardRef)
+  const board = editorRef.value?.boardRef
+  if (!board)
     return
 
   const loadingToast = toast.add({
     title: '請稍等片刻',
-    description: '正在奮力處理圖片...◝( •ω• )◟',
+    description: animatedOutputAvailable.value
+      ? '正在逐格合成動圖...◝( •ω• )◟'
+      : '正在奮力處理圖片...◝( •ω• )◟',
     icon: 'i-lucide-loader-circle',
     ui: { icon: 'animate-spin' },
     progress: false,
     close: false,
   })
 
-  await editorRef.value.blur()
+  await editorRef.value?.blur()
 
   try {
     // 自選字型是延遲載入的，沒等它備妥就截圖會拍到 fallback 字型
     await document.fonts.ready
 
-    const blob = await snapdom.toBlob(editorRef.value.boardRef, {
-      quality: 0.8,
-      backgroundColor: '#FFF',
-      type: 'png',
-      // Google Fonts 的字型檔允許跨域讀取，可直接內嵌進截圖
-      embedFonts: true,
-    })
+    if (!animatedOutputAvailable.value)
+      return await getStaticImgBlob(board)
 
-    return await fitImageToRatio(blob, outputRatioOption.value.ratio)
+    try {
+      return await getAnimatedImgBlob(board)
+    }
+    catch (error) {
+      console.warn('[meme-cache] 動圖輸出失敗，改輸出靜態圖', error)
+      toast.add({
+        title: '動圖輸出失敗',
+        description: '已改成輸出靜態圖 ( ˘･з･)',
+        color: 'warning',
+      })
+      return await getStaticImgBlob(board)
+    }
   }
   finally {
     toast.remove(loadingToast.id)
   }
 }
 
-const OUTPUT_FILE_NAME = 'meme.png'
+const OUTPUT_EXTENSION_MAP: Record<string, string> = {
+  'image/gif': 'gif',
+  'video/mp4': 'mp4',
+}
+
+function getOutputFileName(blob: Blob) {
+  return `meme.${OUTPUT_EXTENSION_MAP[blob.type] ?? 'png'}`
+}
+
+/** mp4 放進 img 不會動，預覽要依格式換成 video */
+function renderPreview(url: string, blob: Blob, className: string) {
+  if (blob.type.startsWith('video/')) {
+    return h('video', { src: url, class: className, autoplay: true, loop: true, muted: true, playsinline: true })
+  }
+
+  return h('img', { src: url, class: className })
+}
 
 function toImgFile(blob: Blob) {
-  return new File([blob], OUTPUT_FILE_NAME, { type: 'image/png' })
+  return new File([blob], getOutputFileName(blob), { type: blob.type || 'image/png' })
 }
 
 /** 使用者按下取消不算失敗，不該再跳錯誤提示 */
@@ -386,6 +551,10 @@ async function shareImgFile(blob: Blob): Promise<boolean> {
 }
 
 async function writeImgToClipboard(blob: Blob): Promise<boolean> {
+  // 剪貼簿實務上只吃 png，動圖寫進去會只剩一格，不如直接讓它走下載
+  if (blob.type !== 'image/png')
+    return false
+
   if (!window.ClipboardItem || !navigator.clipboard?.write)
     return false
 
@@ -403,7 +572,7 @@ function downloadImg(blob: Blob) {
   const url = URL.createObjectURL(blob)
   const anchor = document.createElement('a')
   anchor.href = url
-  anchor.download = OUTPUT_FILE_NAME
+  anchor.download = getOutputFileName(blob)
   anchor.click()
   URL.revokeObjectURL(url)
 }
@@ -427,10 +596,7 @@ function openManualShareModal(blob: Blob) {
         },
       },
       {
-        body: () => [h(
-          'img',
-          { src: url, class: 'rounded-none' },
-        )],
+        body: () => [renderPreview(url, blob, 'rounded-none')],
         footer: () => [h(
           'div',
           { class: 'flex w-full gap-2' },
@@ -503,6 +669,22 @@ const moreFcnItems = computed<DropdownMenuItem[][]>(() => [
         },
       })),
     },
+    // 靜態圖只有 png 一種，沒得選就不要占版面
+    ...(animatedOutputAvailable.value && isMp4Supported()
+      ? [{
+          icon: 'i-material-symbols:movie-outline-rounded',
+          label: `輸出格式：${animatedFormatOption.value.value.toUpperCase()}`,
+          children: ANIMATED_FORMAT_LIST.map((item) => ({
+            label: item.label,
+            icon: item.value === animatedFormatValue.value
+              ? 'i-material-symbols:check-rounded'
+              : undefined,
+            onSelect: () => {
+              animatedFormatValue.value = item.value
+            },
+          })),
+        }]
+      : []),
   ],
   [
     {
@@ -551,10 +733,7 @@ const moreFcnItems = computed<DropdownMenuItem[][]>(() => [
               },
             },
             {
-              body: () => [h(
-                'img',
-                { src: url, class: 'rounded-none!' },
-              )],
+              body: () => [renderPreview(url, blob, 'rounded-none!')],
             },
           ),
         )

@@ -13,5 +13,9 @@ export const memeDataSchema = z.object({
   /** 逗號分隔的情緒／情境標籤，取值限於 EMOTION_LIST */
   emotion: z.string().default(''),
   blurLevel: z.nativeEnum(BlurLevel).optional(),
+  /** 動圖 */
+  animated: z.boolean().optional(),
+  /** 各影格顯示毫秒數。長度即影格數，編輯器輸出動圖時要靠它切影格長圖 */
+  frameDelayList: z.array(z.number()).optional(),
 })
 export type MemeData = z.infer<typeof memeDataSchema>

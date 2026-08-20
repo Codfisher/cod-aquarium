@@ -1,6 +1,8 @@
+import type { MemeFingerprint } from '../utils/meme-dedupe'
+import type { FrameSheet } from '../utils/meme-frame-sheet'
 import { randomUUID } from 'node:crypto'
 import { createReadStream, createWriteStream, existsSync } from 'node:fs'
-import { readdir, readFile, unlink, writeFile } from 'node:fs/promises'
+import { mkdir, readdir, readFile, unlink, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import process from 'node:process'
 import readline from 'node:readline/promises'
@@ -8,18 +10,27 @@ import { GoogleGenAI } from '@google/genai'
 import PQueue from 'p-queue'
 import { filter, pipe } from 'remeda'
 import sharp from 'sharp'
-import phash from 'sharp-phash'
-import distance from 'sharp-phash/distance'
 import { computeBlurLevel } from '../utils/blur-estimator'
 import { parseMemeAnalysis } from '../utils/meme-analysis-parser'
+import { buildFrameSprite, buildPoster, getSpriteFrameDelayList, normalizeAnimatedMeme } from '../utils/meme-animation'
+import { createFingerprint, isDuplicateFingerprint } from '../utils/meme-dedupe'
 import { EMOTION_LIST, EMOTION_MAX_COUNT, parseEmotionList } from '../utils/meme-emotion'
+import { buildFrameSheet, getFrameCount } from '../utils/meme-frame-sheet'
 
 const __dirname = import.meta.dirname
 
-const SOURCE_PATH = 'D:/Google 雲端硬碟/待處理 meme'
-const IMAGE_EXTS = new Set(['.jpg', '.jpeg', '.png', '.webp'])
+/** 待處理圖片的來源資料夾。各台電腦路徑不同，可在 .env.local 覆寫 */
+const SOURCE_PATH = process.env.MEME_SOURCE_PATH ?? 'D:/Google 雲端硬碟/待處理 meme'
+const IMAGE_EXTS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif'])
+
+/** 靜態圖輸出的最長邊 */
+const STATIC_MAX_SIZE = 700
 
 const MEME_FILE_PATH = path.resolve(__dirname, '../../content/public/memes')
+/** 動圖的首格靜態圖，列表用 */
+const MEME_POSTER_PATH = path.resolve(__dirname, '../../content/public/meme-posters')
+/** 動圖的影格長圖，編輯器輸出動圖用 */
+const MEME_SPRITE_PATH = path.resolve(__dirname, '../../content/public/meme-sprites')
 
 /** 附加資料。版本等等 */
 const MEME_META_PATH = path.resolve(__dirname, '../../content/public/memes/a-memes-meta.json')
@@ -28,8 +39,34 @@ const MEME_DATA_PATH = path.resolve(__dirname, '../../content/public/memes/a-mem
 /** 手動加入的資料 */
 const MEME_META_EXTEND_PATH = path.resolve(__dirname, '../../content/public/memes/a-memes-data-extend.ndjson')
 
-/** 圖片相似度閾值 */
-const IMG_SIMILARITY_THRESHOLD = 5
+/** 動圖的衍生檔案。首格圖給列表，影格長圖給編輯器 */
+async function writeAnimatedAsset(memePath: string) {
+  const filename = path.basename(memePath)
+
+  await mkdir(MEME_POSTER_PATH, { recursive: true })
+  await writeFile(path.join(MEME_POSTER_PATH, filename), await buildPoster(memePath))
+
+  await mkdir(MEME_SPRITE_PATH, { recursive: true })
+  await writeFile(path.join(MEME_SPRITE_PATH, filename), await buildFrameSprite(memePath))
+}
+
+/** 刪迷因時一併清掉衍生檔案，免得殘留成孤兒 */
+async function removeAnimatedAsset(memePath: string) {
+  const filename = path.basename(memePath)
+
+  for (const directory of [MEME_POSTER_PATH, MEME_SPRITE_PATH]) {
+    const assetPath = path.join(directory, filename)
+    if (!existsSync(assetPath))
+      continue
+
+    try {
+      await unlink(assetPath)
+    }
+    catch (e) {
+      console.warn('[removeAnimatedAsset] 刪除衍生檔案失敗：', assetPath, e)
+    }
+  }
+}
 
 async function readExistingFilenames(ndjsonPath: string): Promise<Set<string>> {
   const names = new Set<string>()
@@ -107,37 +144,65 @@ async function updateJsonData(dataPath: string, removedPaths: string[]) {
 
   await writeFile(dataPath, lines.join('\n'), 'utf8')
 }
+interface MemeHash {
+  filePath: string;
+  fingerprint: MemeFingerprint;
+}
+
+/** 讀出每張迷因的感知雜湊。動圖會取樣多格，避免只憑第一格誤判 */
+async function getMemeHashList(memePathList: string[]): Promise<MemeHash[]> {
+  return Promise.all(memePathList.map(async (filePath) => ({
+    filePath,
+    fingerprint: await createFingerprint(await readFile(filePath)),
+  })))
+}
+
+/** 移除迷因本體、衍生檔案與資料 */
+async function removeMeme(memePathList: string[]) {
+  for (const memePath of memePathList) {
+    try {
+      await unlink(memePath)
+    }
+    catch (e) {
+      console.warn('[removeMeme] 刪除圖片失敗：', memePath, e)
+    }
+    await removeAnimatedAsset(memePath)
+  }
+
+  await updateJsonData(MEME_DATA_PATH, memePathList)
+  await updateJsonData(MEME_META_EXTEND_PATH, memePathList)
+}
+
 /** 刪除重複迷因 */
 async function dedupeMeme() {
-  const memePathList = await getFilePathList(MEME_FILE_PATH)
+  const hashList = await getMemeHashList(await getFilePathList(MEME_FILE_PATH))
 
-  const hashList = await Promise.all(memePathList.map(async (filePath) => {
-    const file = await readFile(filePath)
-    const hash = await phash(file)
-    return { filePath, hash }
-  }))
-
-  const keptMemeList: { filePath: string; hash: string }[] = []
+  const keptMemeList: MemeHash[] = []
   const removedMemeList: string[] = []
 
   for (const item of hashList) {
-    const isDuplicate = keptMemeList.some(
-      (k) => distance(k.hash, item.hash) <= IMG_SIMILARITY_THRESHOLD,
+    const duplicateIndex = keptMemeList.findIndex(
+      (kept) => isDuplicateFingerprint(kept.fingerprint, item.fingerprint),
     )
 
-    if (isDuplicate) {
-      await unlink(item.filePath)
-      removedMemeList.push(item.filePath)
+    if (duplicateIndex === -1) {
+      // 留第一張
+      keptMemeList.push(item)
       continue
     }
 
-    // 留第一張
-    keptMemeList.push(item)
+    // 動圖的資訊量高於靜態圖，撞到靜態圖時反過來讓動圖留下
+    const kept = keptMemeList[duplicateIndex]
+    if (kept && item.fingerprint.animated && !kept.fingerprint.animated) {
+      removedMemeList.push(kept.filePath)
+      keptMemeList[duplicateIndex] = item
+      continue
+    }
+
+    removedMemeList.push(item.filePath)
   }
 
-  // 更新資料
-  await updateJsonData(MEME_DATA_PATH, removedMemeList)
-  await updateJsonData(MEME_META_EXTEND_PATH, removedMemeList)
+  await removeMeme(removedMemeList)
 
   console.log(`[dedupeMeme] 已刪除 ${removedMemeList.length} 張重複圖片`)
 }
@@ -168,6 +233,11 @@ async function minifyCurrentMeme() {
 
 /** 從上傳資料夾引入 meme */
 async function importSourceMeme() {
+  if (!existsSync(SOURCE_PATH)) {
+    console.warn(`[importSourceMeme] 來源資料夾不存在，略過匯入：${SOURCE_PATH}`)
+    return
+  }
+
   const fileList = await pipe(
     await readdir(SOURCE_PATH, { withFileTypes: true }),
     filter((item) => item.isFile()),
@@ -175,9 +245,9 @@ async function importSourceMeme() {
       const tasks = list.map(async (entry) => {
         const srcPath = path.join(SOURCE_PATH, entry.name)
         const file = await readFile(srcPath)
-        let hash = ''
+        let fingerprint: MemeFingerprint | undefined
         try {
-          hash = await phash(file)
+          fingerprint = await createFingerprint(file)
         }
         catch (error) {
           console.error(`🚀 ~ file:`, entry.name)
@@ -188,50 +258,56 @@ async function importSourceMeme() {
           entry,
           file,
           srcPath,
-          hash,
+          fingerprint,
         }
       })
 
       const dataList = pipe(
         await Promise.all(tasks),
-        filter(({ hash }) => hash !== ''),
+        filter((item) => Boolean(item.fingerprint)),
+        (list) => list.map((item) => ({ ...item, fingerprint: item.fingerprint! })),
       )
 
+      function dropSourceFile(filePath: string) {
+        const filename = path.basename(filePath)
+        unlink(filePath)
+          .then(() => {
+            console.log('[importSourceMeme] 刪除來源重複圖片：', filename)
+          })
+          .catch((e) => {
+            console.warn('[importSourceMeme] 刪除來源重複圖片失敗：', filename, e)
+          })
+      }
+
       return dataList.reduce((result, dataItem) => {
-        const isDuplicate = result.some((resultItem) =>
-          distance(resultItem.hash, dataItem.hash) <= IMG_SIMILARITY_THRESHOLD,
+        const duplicateIndex = result.findIndex((resultItem) =>
+          isDuplicateFingerprint(resultItem.fingerprint, dataItem.fingerprint),
         )
 
-        if (!isDuplicate) {
+        if (duplicateIndex === -1) {
           result.push(dataItem)
-        }
-        else {
-          const filename = path.basename(dataItem.srcPath)
-          unlink(dataItem.srcPath)
-            .then(() => {
-              console.log('[importSourceMeme] 刪除來源重複圖片：', filename)
-            })
-            .catch((e) => {
-              console.warn('[importSourceMeme] 刪除來源重複圖片失敗：', filename, e)
-            })
+          return result
         }
 
+        // 同一批同時上傳動圖與其靜態截圖時，留資訊量高的動圖
+        const duplicate = result[duplicateIndex]
+        if (duplicate && dataItem.fingerprint.animated && !duplicate.fingerprint.animated) {
+          result[duplicateIndex] = dataItem
+          dropSourceFile(duplicate.srcPath)
+          return result
+        }
+
+        dropSourceFile(dataItem.srcPath)
         return result
       }, [] as typeof dataList)
     },
   )
 
-  const hashList = await pipe(
-    await getFilePathList(MEME_FILE_PATH),
-    (memePathList) => Promise.all(memePathList.map(async (filePath) => {
-      const file = await readFile(filePath)
-      const hash = await phash(file)
-      return { filePath, hash }
-    })),
-  )
+  const hashList = await getMemeHashList(await getFilePathList(MEME_FILE_PATH))
 
   let count = 0
-  for (const { entry, file, hash, srcPath } of fileList) {
+  for (const { entry, file, fingerprint, srcPath } of fileList) {
+    const animated = fingerprint.animated
     const ext = path.extname(entry.name).toLowerCase()
 
     // 刪除不符合格式的檔案
@@ -246,29 +322,47 @@ async function importSourceMeme() {
     }
 
     // 判斷是否重複
-    const isDuplicate = hashList.some((data) => distance(data.hash, hash) <= IMG_SIMILARITY_THRESHOLD)
-    if (isDuplicate) {
-      try {
-        await unlink(srcPath)
-        console.log('[importSourceMeme] 刪除重複圖片：', path.basename(srcPath))
+    const duplicateIndex = hashList.findIndex(
+      (data) => isDuplicateFingerprint(data.fingerprint, fingerprint),
+    )
+    if (duplicateIndex !== -1) {
+      const duplicate = hashList[duplicateIndex]
+
+      // 來源是動圖、既有是靜態圖時，讓動圖取代靜態圖，其餘一律丟掉來源
+      if (!duplicate || !animated || duplicate.fingerprint.animated) {
+        try {
+          await unlink(srcPath)
+          console.log('[importSourceMeme] 刪除重複圖片：', path.basename(srcPath))
+        }
+        catch (e) {
+          console.warn('[importSourceMeme] 刪除重複圖片失敗：', path.basename(srcPath), e)
+        }
+        continue
       }
-      catch (e) {
-        console.warn('[importSourceMeme] 刪除重複圖片失敗：', path.basename(srcPath), e)
-      }
-      continue
+
+      await removeMeme([duplicate.filePath])
+      hashList.splice(duplicateIndex, 1)
+      console.log('[importSourceMeme] 動圖取代既有靜態圖：', path.basename(duplicate.filePath))
     }
 
-    // 轉 webp、最長邊 700px
+    // 一律轉 webp，動圖輸出動態 webp。副檔名不變，前端 <img> 原生就會播
     const id = randomUUID()
     const dstPath = path.join(MEME_FILE_PATH, `meme-${id}.webp`)
 
     try {
-      await sharp(file)
-        .resize({ width: 700, height: 700, fit: 'inside', withoutEnlargement: true })
-        .flatten({ background: '#fff' })
-        .webp({ quality: 60, effort: 6, smartSubsample: true })
-        .toFile(dstPath)
+      if (animated) {
+        await writeFile(dstPath, await normalizeAnimatedMeme(file))
+        await writeAnimatedAsset(dstPath)
+      }
+      else {
+        await sharp(file)
+          .resize({ width: STATIC_MAX_SIZE, height: STATIC_MAX_SIZE, fit: 'inside', withoutEnlargement: true })
+          .flatten({ background: '#fff' })
+          .webp({ quality: 60, effort: 6, smartSubsample: true })
+          .toFile(dstPath)
+      }
 
+      hashList.push({ filePath: dstPath, fingerprint })
       count++
 
       // 刪除來源檔
@@ -315,6 +409,59 @@ async function backfillBlurLevel() {
   console.log(`[backfillBlurLevel] 已更新 ${updatedCount} 筆資料`)
 }
 
+/** 產生分析用提示詞。傳入影格拼圖資訊時，改用動圖的敘述規則 */
+function buildAnalysisPrompt(sheet?: FrameSheet): string {
+  const animatedRuleList = sheet
+    ? [
+        `這張圖是動圖抽出的 ${sheet.frameCount} 格連續影格拼圖，每列 ${sheet.columnCount} 格，由左至右、由上至下依序播放。灰色格線只是分隔用，不是畫面內容。`,
+        'describe 要寫出動作變化與結果，禁止逐格敘述，禁止出現「影格」「拼圖」「格線」「連續」等字眼。',
+        'ocr：各格文字可能不同，依播放順序全部抄錄，重複的只抄一次。',
+        '',
+      ]
+    : []
+
+  return [
+    '分析圖片，回傳 JSON（不要 markdown）：',
+    '{"describe":"…","ocr":"…","keyword":"…","emotion":"…"}',
+    '',
+    ...animatedRuleList,
+    'describe：用正體中文寫 1-2 句話，只寫主體特徵、表情、動作與結果、出處作品名。',
+    '  禁止：「此為網路迷因」「背景模糊」「無文字」「無人物」「來源不明」「出處不明」「整體呈現…情緒」。',
+    '  禁止：「圖片顯示」「畫面中央是」等開頭贅詞。',
+    '  禁止：描述背景細節、服裝細節、氛圍總結。',
+    '  圖上文字不要寫進 describe，放 ocr 即可。',
+    '  諧音雙關格式：「X」為「Y」諧音。忽略浮水印。',
+    '  出處沒把握就不要寫。畫風相似不代表同一部作品，寫錯比不寫更糟。',
+    '  角色名、作品名認不出來就用外觀描述帶過，別猜。',
+    'ocr：圖上所有可見文字，原樣抄錄，多段以空格分隔。無文字則留空字串。',
+    '  原圖是簡體就抄簡體、是日文就抄日文，一律不要轉換字體或翻譯。',
+    '  諧音梗常靠單一個字成立，改字等於把梗弄丟。',
+    '  忽略浮水印、頻道標記、平台台標與譯者署名（ViralHog、LAD BIBLE、reddit、Bilibili 頻道名等）。',
+    'keyword：搜尋用關鍵字與同義詞，逗號分隔，至少 8 個。想的是「使用者會用什麼線索找這張圖」：',
+    '  動作與結果（摔碗、敲暈、拖走、掀桌）。',
+    '  實際使用情境（催飯、掛名組員、被叫去上班、豬隊友）。',
+    '  作品別稱與外語名（超人力霸王／鹹蛋超人／奧特曼／Ultraman）。',
+    '  諧音雙關要同時收錄諧音詞與本體詞，並加上「諧音」。',
+    `emotion：這張圖「拿來表達」的情緒，只能從此清單挑，逗號分隔，最多 ${EMOTION_MAX_COUNT} 個：`,
+    `  ${EMOTION_LIST.join('、')}`,
+    '  判斷依據是使用時機，不是圖中人物的心情。挑不出來就留空字串。',
+    '',
+    '範例：',
+    '{"describe":"紅色星際戰士頭盔與機械手向前伸出，黃光眼，黑色鳥形徽章。出自《戰鎚40,000》",'
+    + '"ocr":"拿来吧你","keyword":"戰鎚40K,戰鎚,星際戰士,頭盔,拿來吧你,伸手,討東西,索取,給我","emotion":"得意"}',
+    '{"describe":"橙色兔耳熊絨毛玩具手持小斧從牆角探頭，神情滑稽卻帶威脅",'
+    + '"ocr":"你好 我是來搶劫的 把錢錢交出來！","keyword":"兔耳熊,玩偶,斧頭,搶劫,討錢,催款,要債,威脅,裝兇,可愛又兇","emotion":"可愛,嘲諷"}',
+    '{"describe":"白鴨站在趴臥狗背上，狗神情無奈，「背感鴨力」為「壓力」諧音",'
+    + '"ocr":"背感鴨力","keyword":"背感鴨力,倍感壓力,壓力,諧音,鴨子,狗,被壓,重擔,喘不過氣,累","emotion":"無奈,疲憊"}',
+  ].join('\n')
+}
+
+/**
+ * 匯入來源圖片並產生初稿資料。
+ *
+ * 這裡的分析結果只是初稿，動作方向與出處常出錯，
+ * 之後一律要跑 `npm run task:review-meme` 由人逐張核對過才算完成
+ */
 async function main() {
   // await dedupeMeme()
   await importSourceMeme()
@@ -330,65 +477,38 @@ async function main() {
 
   let count = 0
   let failedCount = 0
-  const tasks = memeFilePathList.map(async (filePath) => queue.add(async () => {
-    try {
-      await analyzeMeme(filePath)
-    }
-    catch (e) {
-      failedCount++
-      console.error(`[main] 分析失敗，略過：${path.basename(filePath)}`, e)
-      return
-    }
-
-    count++
-    console.log(`[main] ${count}/${memeFilePathList.length}`)
-  }))
 
   /** 分析單張迷因並寫入 ndjson */
   async function analyzeMeme(filePath: string) {
-    const base64ImageFile = await readFile(filePath, { encoding: 'base64' })
+    const frameCount = await getFrameCount(filePath)
+    const animated = frameCount > 1
 
-    const contents = [
-      {
-        inlineData: {
-          mimeType: 'image/webp',
-          data: base64ImageFile,
-        },
-      },
-      {
-        text: [
-          '分析圖片，回傳 JSON（不要 markdown）：',
-          '{"describe":"…","ocr":"…","keyword":"…","emotion":"…"}',
-          '',
-          'describe：用正體中文寫 1-2 句話，只寫主體特徵、表情、出處作品名。',
-          '  禁止：「此為網路迷因」「背景模糊」「無文字」「無人物」「來源不明」「出處不明」「整體呈現…情緒」。',
-          '  禁止：「圖片顯示」「畫面中央是」等開頭贅詞。',
-          '  禁止：描述背景細節、服裝細節、氛圍總結。',
-          '  圖上文字不要寫進 describe，放 ocr 即可。',
-          '  諧音雙關格式：「X」為「Y」諧音。忽略浮水印。',
-          'ocr：圖上所有可見文字，原樣抄錄，多段以空格分隔。無文字則留空字串。',
-          'keyword：搜尋用關鍵字與同義詞，逗號分隔。諧音雙關，則要加上「諧音」',
-          `emotion：這張圖「拿來表達」的情緒，只能從此清單挑，逗號分隔，最多 ${EMOTION_MAX_COUNT} 個：`,
-          `  ${EMOTION_LIST.join('、')}`,
-          '  判斷依據是使用時機，不是圖中人物的心情。挑不出來就留空字串。',
-          '',
-          '範例：',
-          '紅色星際戰士頭盔與機械手，黃光眼，黑色鳥形徽章。出自《戰鎚40,000》',
-          '橙色兔耳熊絨毛玩具手持小斧從牆角探頭，神情滑稽卻帶威脅',
-          '白鴨站在趴臥狗背上，狗神情無奈，「背感鴨力」為「壓力」諧音',
-        ].join('\n'),
-      },
-    ]
+    // 模型讀不到動圖的動作，故改送影格拼圖
+    const sheet = animated ? await buildFrameSheet(filePath) : undefined
+    const base64ImageFile = sheet
+      ? sheet.buffer.toString('base64')
+      : await readFile(filePath, { encoding: 'base64' })
 
     const response = await ai.models.generateContent({
       model: 'gemini-3.5-flash',
-      contents,
+      contents: [
+        {
+          inlineData: {
+            mimeType: 'image/webp',
+            data: base64ImageFile,
+          },
+        },
+        {
+          text: buildAnalysisPrompt(sheet),
+        },
+      ],
       config: {
         responseMimeType: 'application/json',
       },
     })
 
-    const blurLevel = await computeBlurLevel(filePath)
+    // 動圖首格常是淡入或空畫面，取中間格才代表得了整體清晰度
+    const blurLevel = await computeBlurLevel(filePath, Math.floor(frameCount / 2))
 
     // 只取文字 part，避免 response.text 遇到 thoughtSignature 時印出警告
     // 思考內容不是答案，混進來會讓 JSON 解析失敗
@@ -406,12 +526,33 @@ async function main() {
         keyword: parsed.keyword ?? '',
         emotion: parseEmotionList(parsed.emotion).join(','),
         blurLevel,
+        // 影格長圖的格數少於動圖本身，編輯器讀的是長圖，故間隔要對齊長圖
+        ...(animated
+          ? {
+              animated: true,
+              frameDelayList: await getSpriteFrameDelayList(filePath),
+            }
+          : {}),
       },
       (data) => JSON.stringify(data).replaceAll('\n', ''),
     )
 
     ndjsonStream.write(`${result}\n`)
   }
+
+  const tasks = memeFilePathList.map(async (filePath) => queue.add(async () => {
+    try {
+      await analyzeMeme(filePath)
+    }
+    catch (e) {
+      failedCount++
+      console.error(`[main] 分析失敗，略過：${path.basename(filePath)}`, e)
+      return
+    }
+
+    count++
+    console.log(`[main] ${count}/${memeFilePathList.length}`)
+  }))
 
   await Promise.all(tasks)
   if (failedCount > 0) {
@@ -431,7 +572,8 @@ async function main() {
     }),
     'utf8',
   )
-  console.log('[main] done')
+
+  console.log(`[main] done，${count} 張待審。接著執行 npm run task:review-meme -- list`)
 }
 
 // backfillBlurLevel().catch(console.error)

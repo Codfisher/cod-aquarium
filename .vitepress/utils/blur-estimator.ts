@@ -25,8 +25,8 @@ interface ImageFeatures {
  * 分類規則針對 16 張示範圖人工調校，屬示範性質。
  * 若要推廣到更大資料集，閾值需要重新擬合
  */
-export async function computeBlurLevel(filePath: string): Promise<BlurLevel> {
-  const { data, info } = await sharp(filePath)
+export async function computeBlurLevel(filePath: string, page = 0): Promise<BlurLevel> {
+  const { data, info } = await sharp(filePath, { page })
     .rotate()
     .resize(RESIZE_TARGET, RESIZE_TARGET, { fit: 'inside', withoutEnlargement: true })
     .grayscale()

@@ -1,5 +1,6 @@
 <template>
   <div
+    v-show="props.visible"
     :id
     ref="boxRef"
     class="box absolute"
@@ -206,6 +207,8 @@ interface ModelValue {
   width: number;
   height: number;
   angle: number;
+  /** 動圖中顯示的影格區間 [起, 訖]，含端點。未設定表示全程顯示 */
+  frameRange?: [number, number];
 }
 
 interface Props {
@@ -213,6 +216,8 @@ interface Props {
   isEditing?: boolean;
   modelValue?: ModelValue;
   alignTargetList?: AlignTarget[];
+  /** 動圖播到顯示區間外時要整張隱藏 */
+  visible?: boolean;
 }
 const props = withDefaults(defineProps<Props>(), {
   isEditing: false,
@@ -225,6 +230,7 @@ const props = withDefaults(defineProps<Props>(), {
     angle: 0,
   }),
   alignTargetList: () => [],
+  visible: true,
 })
 
 const emit = defineEmits<{

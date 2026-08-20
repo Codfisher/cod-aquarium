@@ -1,5 +1,7 @@
 <template>
+  <!-- 本元件是多根節點，父層的 v-show 不會生效，故顯示與否要自己處理 -->
   <div
+    v-show="props.visible"
     :id
     ref="boxRef"
     class="box flex justify-center absolute min-w-40 py-1 px-10"
@@ -330,7 +332,7 @@
   </div>
 
   <div
-    v-if="props.isEditing"
+    v-if="props.isEditing && props.visible"
     ref="toolbarRef"
     :style="toolbarStyle"
     class="toolbar absolute flex rounded pointer-events-auto text-white bg-black/50"
@@ -411,6 +413,8 @@ interface ModelValue {
   backgroundOpacity: number;
   /** FONT_LIST 的識別字，舊資料沒有此欄位，一律回落到預設字型 */
   fontValue?: string;
+  /** 動圖中顯示的影格區間 [起, 訖]，含端點。未設定表示全程顯示 */
+  frameRange?: [number, number];
 }
 
 interface Props {
@@ -420,6 +424,8 @@ interface Props {
   autoFocus?: boolean;
   modelValue?: ModelValue;
   alignTargetList?: AlignTarget[];
+  /** 動圖播到顯示區間外時要整段隱藏 */
+  visible?: boolean;
 }
 const props = withDefaults(defineProps<Props>(), {
   isEditing: false,
@@ -439,6 +445,7 @@ const props = withDefaults(defineProps<Props>(), {
     backgroundOpacity: 0,
   }),
   alignTargetList: () => [],
+  visible: true,
 })
 
 const emit = defineEmits<{
@@ -748,27 +755,37 @@ onMounted(() => {
   )
 
   if (props.autoFocus) {
-    nextFrame().then(() => {
-      text.focus()
-
-      try {
-        const selection = window.getSelection()
-        if (selection) {
-          const range = document.createRange()
-          range.selectNodeContents(text)
-          selection.removeAllRanges()
-          selection.addRange(range)
-        }
-      }
-      catch { }
-
-      // 考慮相容性
-      if (!window.getSelection()?.toString()) {
-        document.execCommand?.('selectAll', false)
-      }
-    })
+    focusText()
   }
 })
+
+/** 聚焦並全選文字內容，供時間軸點標籤時直接跳來改字 */
+async function focusText() {
+  const text = textRef.value
+  if (!text)
+    return
+
+  await nextFrame()
+  text.focus()
+
+  try {
+    const selection = window.getSelection()
+    if (selection) {
+      const range = document.createRange()
+      range.selectNodeContents(text)
+      selection.removeAllRanges()
+      selection.addRange(range)
+    }
+  }
+  catch { }
+
+  // 考慮相容性
+  if (!window.getSelection()?.toString()) {
+    document.execCommand?.('selectAll', false)
+  }
+}
+
+defineExpose({ focusText })
 
 onBeforeUnmount(() => {
   interactable?.unset()

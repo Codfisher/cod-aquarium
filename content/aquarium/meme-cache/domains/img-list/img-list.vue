@@ -19,10 +19,21 @@
             @click="handleClick(data)"
           >
             <img
-              :src="`/memes/${data.file}`"
+              :src="getImgSrc(data)"
               loading="lazy"
               class="object-contain h-full w-full border-none"
+              @mouseenter="playAnimated(data)"
+              @mouseleave="pauseAnimated(data)"
+              @error="handleImgError(data)"
             >
+
+            <!-- 文字最小只能到 12px，縮不下來，改用 icon 才省得了空間 -->
+            <u-icon
+              v-if="data.animated && props.animatedBadgeVisible"
+              name="i-material-symbols:play-arrow-rounded"
+              aria-label="動圖"
+              class="absolute bottom-1 left-1 size-5 rounded-full bg-black/50 text-white"
+            />
 
             <u-button
               :icon="props.favoriteFileSet.has(data.file)
@@ -73,18 +84,21 @@
 
 <script setup lang="ts">
 import type { MemeData } from '../meme/type'
-import { useVirtualList, useWindowSize } from '@vueuse/core'
+import { useMediaQuery, useVirtualList, useWindowSize } from '@vueuse/core'
 import { chunk } from 'remeda'
-import { computed, reactive } from 'vue'
+import { computed, reactive, ref } from 'vue'
 
 interface Props {
   list: MemeData[];
   detailVisible?: boolean;
   favoriteFileSet?: Set<string>;
+  /** 整份清單都是動圖時（例如只顯示動圖），標記反而是雜訊 */
+  animatedBadgeVisible?: boolean;
 }
 const props = withDefaults(defineProps<Props>(), {
   detailVisible: false,
   favoriteFileSet: () => new Set<string>(),
+  animatedBadgeVisible: true,
 })
 const emit = defineEmits<{
   select: [data: MemeData];
@@ -92,6 +106,48 @@ const emit = defineEmits<{
 }>()
 
 const windowSize = reactive(useWindowSize())
+
+/** 沒有游標的裝置一屏圖片少，動圖直接播；桌機一屏十幾張全播會吃滿 CPU */
+const hoverCapable = useMediaQuery('(hover: hover)')
+const playingFileSet = ref(new Set<string>())
+/** 首格圖缺檔時退回動圖本身，免得整格破圖 */
+const posterMissingSet = ref(new Set<string>())
+
+function getImgSrc(data: MemeData): string {
+  if (!data.animated)
+    return `/memes/${data.file}`
+
+  const usePoster = hoverCapable.value
+    && !playingFileSet.value.has(data.file)
+    && !posterMissingSet.value.has(data.file)
+
+  return usePoster
+    ? `/meme-posters/${data.file}`
+    : `/memes/${data.file}`
+}
+
+function playAnimated(data: MemeData) {
+  if (!data.animated)
+    return
+
+  playingFileSet.value = new Set(playingFileSet.value).add(data.file)
+}
+
+function pauseAnimated(data: MemeData) {
+  if (!data.animated || !playingFileSet.value.has(data.file))
+    return
+
+  const nextSet = new Set(playingFileSet.value)
+  nextSet.delete(data.file)
+  playingFileSet.value = nextSet
+}
+
+function handleImgError(data: MemeData) {
+  if (!data.animated || posterMissingSet.value.has(data.file))
+    return
+
+  posterMissingSet.value = new Set(posterMissingSet.value).add(data.file)
+}
 
 const chunkList = computed(() => {
   if (props.detailVisible) {

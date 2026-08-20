@@ -10,11 +10,18 @@ export default defineConfig({
           include: [
             '**/*.{test,spec}.ts',
           ],
+          // 瀏覽器測試在 node 環境必定失敗，交給 browser 專案跑
+          exclude: [
+            '**/node_modules/**',
+            '**/*.browser.{test,spec}.ts',
+          ],
           name: 'unit',
           environment: 'node',
         },
       },
       {
+        // 專案設定不會繼承根層 plugins，少了它就編不了 .vue
+        plugins: [vue()],
         test: {
           include: [
             '**/*.browser.{test,spec}.ts',

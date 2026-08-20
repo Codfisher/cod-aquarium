@@ -26,6 +26,9 @@ export function mergeMemeData(base: MemeData | undefined, extend: MemeData | und
     keyword: mergeKeyword(base?.keyword, extend?.keyword),
     emotion: mergeEmotion(base?.emotion, extend?.emotion),
     blurLevel: base?.blurLevel ?? extend?.blurLevel,
+    // 手動標註只能補標動圖，不能把動圖改回靜態
+    animated: base?.animated || extend?.animated,
+    frameDelayList: base?.frameDelayList ?? extend?.frameDelayList,
   }
 }
 
