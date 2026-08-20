@@ -1,4 +1,6 @@
 import { applyPalette, GIFEncoder, quantize } from 'gifenc'
+import { ArrayBufferTarget, Muxer } from 'mp4-muxer'
+import { getSpriteColumnCount, SPRITE_LAYOUT_VERSION } from '../../../../../.vitepress/utils/meme-sprite-layout'
 
 /**
  * GIF 輸出的最長邊。
@@ -48,6 +50,8 @@ export interface Rect {
 export interface FrameSprite {
   image: HTMLImageElement;
   frameCount: number;
+  /** 長圖的欄數，影格是排成格狀而非單欄 */
+  columnCount: number;
   frameWidth: number;
   frameHeight: number;
   delayList: number[];
@@ -66,18 +70,26 @@ export async function loadFrameSprite(file: string, delayList: number[]): Promis
   }
 
   const image = new Image()
-  image.src = `/meme-sprites/${file}`
+  image.src = `/meme-sprites/${file}?v=${SPRITE_LAYOUT_VERSION}`
   await image.decode()
 
-  const frameHeight = image.naturalHeight / frameCount
-  if (!Number.isInteger(frameHeight)) {
-    throw new TypeError(`影格長圖與影格資料對不上：${image.naturalHeight} / ${frameCount}`)
+  // 欄數與建置端用同一條公式，差一格整段就會錯位
+  const columnCount = getSpriteColumnCount(frameCount)
+  const rowCount = Math.ceil(frameCount / columnCount)
+  const frameWidth = image.naturalWidth / columnCount
+  const frameHeight = image.naturalHeight / rowCount
+
+  if (!Number.isInteger(frameWidth) || !Number.isInteger(frameHeight)) {
+    throw new TypeError(
+      `影格長圖與影格資料對不上：${image.naturalWidth}x${image.naturalHeight} / ${frameCount} 格`,
+    )
   }
 
   return {
     image,
     frameCount,
-    frameWidth: image.naturalWidth,
+    columnCount,
+    frameWidth,
     frameHeight,
     delayList,
   }
@@ -106,8 +118,15 @@ interface ComposedFrame {
   delay: number;
 }
 
-/** 讓出主執行緒，量化與合成很吃 CPU，全程佔著會讓載入提示卡住不動 */
-function releaseMainThread() {
+/** 每處理幾格才讓出一次主執行緒。每格都讓的話，長動圖光是等 rAF 就多花好幾秒 */
+const YIELD_FRAME_INTERVAL = 4
+
+/** 讓出主執行緒，量化與編碼很吃 CPU，全程佔著會讓載入提示卡住不動 */
+function releaseMainThread(index = 0) {
+  if (index % YIELD_FRAME_INTERVAL !== 0) {
+    return Promise.resolve()
+  }
+
   return new Promise((resolve) => requestAnimationFrame(resolve))
 }
 
@@ -138,13 +157,53 @@ function reduceFrameList(frameList: ComposedFrame[], maxCount: number): Composed
   })
 }
 
+/**
+ * 把單一影格的底圖與上層內容畫到畫布上。
+ *
+ * offset 供影片編碼補邊時把內容置中，GIF 不需要就留 0
+ */
+function drawFrame(
+  context: CanvasRenderingContext2D,
+  options: EncodeGifOptions,
+  index: number,
+  offsetX = 0,
+  offsetY = 0,
+) {
+  const { sprite, overlayList, baseRect, overlayRect, backgroundColor } = options
+  const { canvas } = context
+
+  context.fillStyle = backgroundColor
+  context.fillRect(0, 0, canvas.width, canvas.height)
+
+  context.drawImage(
+    sprite.image,
+    (index % sprite.columnCount) * sprite.frameWidth,
+    Math.floor(index / sprite.columnCount) * sprite.frameHeight,
+    sprite.frameWidth,
+    sprite.frameHeight,
+    baseRect.x + offsetX,
+    baseRect.y + offsetY,
+    baseRect.width,
+    baseRect.height,
+  )
+
+  const overlay = overlayList[index]
+  if (overlay) {
+    context.drawImage(
+      overlay,
+      overlayRect.x + offsetX,
+      overlayRect.y + offsetY,
+      overlayRect.width,
+      overlayRect.height,
+    )
+  }
+}
+
 /** 逐格把底圖與上層內容合成到輸出畫布 */
 async function composeFrameList(options: EncodeGifOptions): Promise<ComposedFrame[]> {
-  const { sprite, overlayList, outputWidth, outputHeight, baseRect, overlayRect, backgroundColor } = options
-
   const canvas = document.createElement('canvas')
-  canvas.width = outputWidth
-  canvas.height = outputHeight
+  canvas.width = options.outputWidth
+  canvas.height = options.outputHeight
 
   const context = canvas.getContext('2d', { willReadFrequently: true })
   if (!context) {
@@ -152,32 +211,15 @@ async function composeFrameList(options: EncodeGifOptions): Promise<ComposedFram
   }
 
   const frameList: ComposedFrame[] = []
-  for (let index = 0; index < sprite.frameCount; index++) {
-    context.fillStyle = backgroundColor
-    context.fillRect(0, 0, outputWidth, outputHeight)
-
-    context.drawImage(
-      sprite.image,
-      0,
-      index * sprite.frameHeight,
-      sprite.frameWidth,
-      sprite.frameHeight,
-      baseRect.x,
-      baseRect.y,
-      baseRect.width,
-      baseRect.height,
-    )
-    const overlay = overlayList[index]
-    if (overlay) {
-      context.drawImage(overlay, overlayRect.x, overlayRect.y, overlayRect.width, overlayRect.height)
-    }
+  for (let index = 0; index < options.sprite.frameCount; index++) {
+    drawFrame(context, options, index)
 
     frameList.push({
-      data: context.getImageData(0, 0, outputWidth, outputHeight),
-      delay: sprite.delayList[index] ?? DEFAULT_FRAME_DELAY,
+      data: context.getImageData(0, 0, canvas.width, canvas.height),
+      delay: options.sprite.delayList[index] ?? DEFAULT_FRAME_DELAY,
     })
 
-    await releaseMainThread()
+    await releaseMainThread(index)
   }
 
   return frameList
@@ -237,9 +279,129 @@ export async function encodeGif(options: EncodeGifOptions): Promise<Blob> {
     if (bytes.length <= TARGET_BYTE_SIZE)
       break
 
+    // 降階只有寥寥幾次，每次都讓出以免整段編碼把畫面凍住
     await releaseMainThread()
     bytes = encodeFrameList(reduceFrameList(frameList, step.maxFrameCount), step.colorCount)
   }
 
   return new Blob([bytes], { type: 'image/gif' })
+}
+
+/**
+ * H.264 的色度取樣要求邊長為偶數，奇數會被編碼器拒絕。
+ *
+ * 少掉的那 1px 落在邊緣的補邊區，看不出來
+ */
+function toEvenSize(value: number) {
+  return Math.max(2, value - (value % 2))
+}
+
+/** 每隔幾格插入一個關鍵影格，播放器拖曳進度時才不會花屏 */
+const KEY_FRAME_INTERVAL = 15
+
+/**
+ * H.264 編碼器可接受的最小邊長。
+ *
+ * 實測 Chromium 在 96px 以下一律拒絕，不足的一邊補背景色置中，
+ * 極寬或極高的梗圖才不會編不出來
+ */
+const MIN_VIDEO_DIMENSION = 128
+
+/** 位元率取像素量的比例，讓小圖不會被灌水、大圖不會糊掉 */
+const BITRATE_PER_PIXEL = 6
+
+/**
+ * 瀏覽器能不能編碼 mp4。
+ *
+ * WebCodecs 的 VideoEncoder 在 Safari 16.4 以後才有，
+ * 沒有的話只能退回 GIF
+ */
+export function isMp4Supported() {
+  return typeof VideoEncoder !== 'undefined'
+}
+
+/**
+ * 逐格編碼成 H.264 的 mp4。
+ *
+ * GIF 有些平台不接受上傳，且同樣畫面下體積是 mp4 的數倍。
+ * 這裡不必像 GIF 那樣先把整段存成點陣圖再量化，逐格編碼即可，記憶體也省得多
+ */
+export async function encodeMp4(options: EncodeGifOptions): Promise<Blob> {
+  if (!isMp4Supported()) {
+    throw new Error('此瀏覽器不支援影片編碼')
+  }
+
+  const { sprite } = options
+  const width = toEvenSize(Math.max(MIN_VIDEO_DIMENSION, options.outputWidth))
+  const height = toEvenSize(Math.max(MIN_VIDEO_DIMENSION, options.outputHeight))
+  const offsetX = Math.round((width - options.outputWidth) / 2)
+  const offsetY = Math.round((height - options.outputHeight) / 2)
+
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+
+  const context = canvas.getContext('2d')
+  if (!context) {
+    throw new Error('無法取得 canvas context')
+  }
+
+  const target = new ArrayBufferTarget()
+  const muxer = new Muxer({
+    target,
+    video: { codec: 'avc', width, height },
+    // 讓 moov 落在檔案開頭，行動裝置與網頁播放器才能邊載邊播
+    fastStart: 'in-memory',
+  })
+
+  let encodeError: Error | undefined
+  const encoder = new VideoEncoder({
+    output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
+    error: (error) => {
+      encodeError = error
+    },
+  })
+
+  const config = {
+    codec: 'avc1.42001f',
+    width,
+    height,
+    bitrate: width * height * BITRATE_PER_PIXEL,
+  }
+
+  // 先問過再設定，不支援時才有機會退回 GIF，而不是丟一個難懂的例外
+  const { supported } = await VideoEncoder.isConfigSupported(config)
+  if (!supported) {
+    encoder.close()
+    throw new Error(`編碼器不支援此設定：${width}x${height}`)
+  }
+  encoder.configure(config)
+
+  let timestamp = 0
+  for (let index = 0; index < sprite.frameCount; index++) {
+    if (encodeError) {
+      throw encodeError
+    }
+
+    drawFrame(context, options, index, offsetX, offsetY)
+
+    // WebCodecs 的時間單位是微秒
+    const duration = (sprite.delayList[index] ?? DEFAULT_FRAME_DELAY) * 1000
+    const frame = new VideoFrame(canvas, { timestamp, duration })
+
+    encoder.encode(frame, { keyFrame: index % KEY_FRAME_INTERVAL === 0 })
+    frame.close()
+    timestamp += duration
+
+    await releaseMainThread(index)
+  }
+
+  await encoder.flush()
+  encoder.close()
+  if (encodeError) {
+    throw encodeError
+  }
+
+  muxer.finalize()
+  return new Blob([target.buffer], { type: 'video/mp4' })
 }

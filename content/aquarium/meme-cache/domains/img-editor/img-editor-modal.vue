@@ -119,7 +119,7 @@ import {
   getOutputRatioOption,
   OUTPUT_RATIO_LIST,
 } from '../../utils/fit-image-to-ratio'
-import { encodeGif, GIF_MAX_SIZE, GIF_MIN_SIZE } from './animated-output'
+import { encodeGif, encodeMp4, GIF_MAX_SIZE, GIF_MIN_SIZE, isMp4Supported } from './animated-output'
 import ImgEditor from './img-editor.vue'
 import MemePickerModal from './meme-picker-modal.vue'
 
@@ -317,6 +317,21 @@ onBeforeUnmount(() => {
 const outputRatioValue = ref(DEFAULT_OUTPUT_RATIO_VALUE)
 const outputRatioOption = computed(() => getOutputRatioOption(outputRatioValue.value))
 
+/**
+ * 動圖的輸出格式。
+ *
+ * 預設 mp4：剪貼簿只吃 png，動圖實際都是走系統分享或下載，
+ * 而 Instagram、Threads 這類平台不收 GIF。GIF 留給需要聊天室自動播放的場合
+ */
+const ANIMATED_FORMAT_LIST = [
+  { value: 'mp4', label: 'MP4（平台通吃、檔案小）' },
+  { value: 'gif', label: 'GIF（聊天室自動播放）' },
+] as const
+const animatedFormatValue = ref<'gif' | 'mp4'>('mp4')
+const animatedFormatOption = computed(
+  () => ANIMATED_FORMAT_LIST.find((item) => item.value === animatedFormatValue.value) ?? ANIMATED_FORMAT_LIST[0],
+)
+
 const OUTPUT_BACKGROUND_COLOR = '#FFF'
 
 /** 有影格資料才輸出得了動圖 */
@@ -408,7 +423,12 @@ async function getAnimatedImgBlob(board: HTMLElement): Promise<Blob> {
       Math.max(nativeScale, legibleScale),
     )
 
-    return await encodeGif({
+    // 只有動圖需要選格式，GIF 到處都動得了，mp4 則是平台上傳的最大公約數
+    const encode = animatedFormatValue.value === 'mp4' && isMp4Supported()
+      ? encodeMp4
+      : encodeGif
+
+    return await encode({
       sprite,
       overlayList,
       outputWidth: Math.round(paddedWidth * outputScale),
@@ -478,8 +498,22 @@ async function getImgBlob() {
   }
 }
 
+const OUTPUT_EXTENSION_MAP: Record<string, string> = {
+  'image/gif': 'gif',
+  'video/mp4': 'mp4',
+}
+
 function getOutputFileName(blob: Blob) {
-  return blob.type === 'image/gif' ? 'meme.gif' : 'meme.png'
+  return `meme.${OUTPUT_EXTENSION_MAP[blob.type] ?? 'png'}`
+}
+
+/** mp4 放進 img 不會動，預覽要依格式換成 video */
+function renderPreview(url: string, blob: Blob, className: string) {
+  if (blob.type.startsWith('video/')) {
+    return h('video', { src: url, class: className, autoplay: true, loop: true, muted: true, playsinline: true })
+  }
+
+  return h('img', { src: url, class: className })
 }
 
 function toImgFile(blob: Blob) {
@@ -562,10 +596,7 @@ function openManualShareModal(blob: Blob) {
         },
       },
       {
-        body: () => [h(
-          'img',
-          { src: url, class: 'rounded-none' },
-        )],
+        body: () => [renderPreview(url, blob, 'rounded-none')],
         footer: () => [h(
           'div',
           { class: 'flex w-full gap-2' },
@@ -638,6 +669,22 @@ const moreFcnItems = computed<DropdownMenuItem[][]>(() => [
         },
       })),
     },
+    // 靜態圖只有 png 一種，沒得選就不要占版面
+    ...(animatedOutputAvailable.value && isMp4Supported()
+      ? [{
+          icon: 'i-material-symbols:movie-outline-rounded',
+          label: `輸出格式：${animatedFormatOption.value.value.toUpperCase()}`,
+          children: ANIMATED_FORMAT_LIST.map((item) => ({
+            label: item.label,
+            icon: item.value === animatedFormatValue.value
+              ? 'i-material-symbols:check-rounded'
+              : undefined,
+            onSelect: () => {
+              animatedFormatValue.value = item.value
+            },
+          })),
+        }]
+      : []),
   ],
   [
     {
@@ -686,10 +733,7 @@ const moreFcnItems = computed<DropdownMenuItem[][]>(() => [
               },
             },
             {
-              body: () => [h(
-                'img',
-                { src: url, class: 'rounded-none!' },
-              )],
+              body: () => [renderPreview(url, blob, 'rounded-none!')],
             },
           ),
         )

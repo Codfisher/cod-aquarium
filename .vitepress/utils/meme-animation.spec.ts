@@ -3,6 +3,7 @@ import sharp from 'sharp'
 import { describe, expect, it } from 'vitest'
 import { buildFrameSprite, buildPoster, getSpriteFrameDelayList, normalizeAnimatedMeme } from './meme-animation'
 import { pickFrameIndexList } from './meme-frame-sheet'
+import { getSpriteColumnCount, getSpriteLayout } from './meme-sprite-layout'
 
 /** 造一段真的有動作的動畫，避免相鄰影格因壓縮後相同而被編碼器合併 */
 async function createAnimatedGif(frameCount: number, delay: number) {
@@ -91,36 +92,55 @@ describe('normalizeAnimatedMeme', () => {
 })
 
 describe('衍生檔案', () => {
-  it('影格長圖的高度等於影格數乘以單格高度', async () => {
+  it('影格長圖的尺寸符合格狀排版', async () => {
     const meme = await normalizeAnimatedMeme(await createAnimatedGif(20, 50))
     const memeMeta = await sharp(meme).metadata()
     const spriteMeta = await sharp(await buildFrameSprite(meme)).metadata()
 
-    expect(spriteMeta.width).toBe(memeMeta.width)
-    expect(spriteMeta.height).toBe((memeMeta.height ?? 0) * (memeMeta.pages ?? 0))
+    const layout = getSpriteLayout(memeMeta.pages ?? 0, memeMeta.width ?? 0, memeMeta.height ?? 0)
+    expect(spriteMeta.width).toBe(layout.columnCount * layout.cellWidth)
+    expect(spriteMeta.height).toBe(layout.rowCount * layout.cellHeight)
     // 長圖必須是靜態的，前端才切得出影格
     expect(spriteMeta.pages).toBeUndefined()
   })
 
-  it('動圖影格多於長圖上限時，長圖獨立抽格', async () => {
+  /**
+   * 長圖曾經是單欄直向排列，撞到 webp 單邊上限只好抽格到 32，
+   * 導致輸出的動作比原圖頓好幾倍。改成格狀後不必再抽格
+   */
+  it('長圖保留動圖的全部影格，不再抽格', async () => {
     const meme = await normalizeAnimatedMeme(await createAnimatedGif(120, 40))
     const memeMeta = await sharp(meme).metadata()
     const spriteMeta = await sharp(await buildFrameSprite(meme)).metadata()
 
-    const spriteFrameCount = (spriteMeta.height ?? 0) / (memeMeta.height ?? 1)
+    const frameCount = memeMeta.pages ?? 0
+    expect(frameCount).toBeGreaterThan(32)
 
-    expect(memeMeta.pages).toBeGreaterThan(32)
-    expect(spriteFrameCount).toBeLessThanOrEqual(32)
-    expect(Number.isInteger(spriteFrameCount)).toBe(true)
+    const layout = getSpriteLayout(frameCount, memeMeta.width ?? 0, memeMeta.height ?? 0)
+    expect(spriteMeta.width).toBe(layout.columnCount * layout.cellWidth)
+    expect(spriteMeta.height).toBe(layout.rowCount * layout.cellHeight)
   })
 
-  it('長圖的影格間隔數量與長圖影格數一致，且總時長保留', async () => {
+  it('前端用同一條公式算得出單格尺寸', async () => {
     const meme = await normalizeAnimatedMeme(await createAnimatedGif(120, 40))
     const memeMeta = await sharp(meme).metadata()
     const spriteMeta = await sharp(await buildFrameSprite(meme)).metadata()
+    const frameCount = memeMeta.pages ?? 0
+
+    // 前端只有影格數與長圖尺寸，欄數要靠公式推回來，除不盡就代表對不上
+    const columnCount = getSpriteColumnCount(frameCount)
+    const rowCount = Math.ceil(frameCount / columnCount)
+
+    expect((spriteMeta.width ?? 0) % columnCount).toBe(0)
+    expect((spriteMeta.height ?? 0) % rowCount).toBe(0)
+  })
+
+  it('長圖的影格間隔數量與影格數一致，且總時長保留', async () => {
+    const meme = await normalizeAnimatedMeme(await createAnimatedGif(120, 40))
+    const memeMeta = await sharp(meme).metadata()
     const delayList = await getSpriteFrameDelayList(meme)
 
-    expect(delayList).toHaveLength((spriteMeta.height ?? 0) / (memeMeta.height ?? 1))
+    expect(delayList).toHaveLength(memeMeta.pages ?? 0)
     expect(sumDelay(delayList)).toBe(sumDelay(memeMeta.delay))
   })
 

@@ -1,6 +1,7 @@
 import type { Buffer } from 'node:buffer'
 import sharp from 'sharp'
 import { pickFrameIndexList } from './meme-frame-sheet'
+import { getSpriteLayout } from './meme-sprite-layout'
 
 /** 動圖輸出的最長邊。每一格都要存，尺寸不砍檔案會大到不堪用 */
 export const ANIMATED_MAX_SIZE = 480
@@ -13,18 +14,6 @@ export const ANIMATED_MAX_SIZE = 480
  * 影格數必須跟著時長走，不能訂死
  */
 const ANIMATED_MAX_FRAME_COUNT = 120
-
-/**
- * 影格長圖的影格上限。
- *
- * 長圖是把影格直向疊起來的單張靜態圖，受兩個硬限制：
- * webp 單邊不得超過 16383px，且行動裝置解大圖會自動降採樣、切格就會錯位。
- * 故長圖獨立抽格，編輯器預覽與 GIF 輸出會比列表播放略頓，換取可攜性
- */
-const SPRITE_MAX_FRAME_COUNT = 32
-
-/** webp 單邊尺寸上限 */
-const WEBP_MAX_DIMENSION = 16383
 
 /** 影格間隔缺漏或為 0 時的預設值，比照瀏覽器對 gif 的處理 */
 const DEFAULT_FRAME_DELAY = 100
@@ -85,49 +74,47 @@ export function buildPoster(input: string | Buffer): Promise<Buffer> {
     .toBuffer()
 }
 
-/** 長圖要挑哪幾格。與 delay 計算共用，兩者才不會對不上 */
-function pickSpriteFrameIndexList(frameCount: number, frameHeight: number): number[] {
-  const maxByDimension = Math.max(1, Math.floor(WEBP_MAX_DIMENSION / Math.max(1, frameHeight)))
-  return pickFrameIndexList(frameCount, Math.min(SPRITE_MAX_FRAME_COUNT, maxByDimension))
-}
-
-/** 長圖各影格的顯示毫秒數，編輯器要靠它切格與計時 */
+/** 長圖各影格的顯示毫秒數，編輯器要靠它切格與計時。長圖保留全部影格，故直接沿用原檔 */
 export async function getSpriteFrameDelayList(input: string | Buffer): Promise<number[]> {
   const metadata = await sharp(input).metadata()
-  const frameCount = metadata.pages ?? 1
-  const frameHeight = metadata.pageHeight ?? metadata.height ?? 1
-
-  return mergeFrameDelayList(
-    toDelayList(metadata.delay, frameCount),
-    pickSpriteFrameIndexList(frameCount, frameHeight),
-  )
+  return toDelayList(metadata.delay, metadata.pages ?? 1)
 }
 
 /**
- * 影格縱向拼接的長圖。
+ * 影格拼成格狀的長圖。
  *
  * 瀏覽器沒有通用的逐格解碼 API（ImageDecoder 只有 Chromium 系有），
- * 編輯器要輸出動圖就得自己切格，故另存這張長圖給前端用 canvas 裁
+ * 編輯器要輸出動圖就得自己切格，故另存這張長圖給前端用 canvas 裁。
+ *
+ * 排成格狀而非單欄，是因為單欄會撞到 webp 單邊 16383px 的上限，
+ * 影格一多就得抽格，輸出的動作會比原圖頓上好幾倍
  */
 export async function buildFrameSprite(input: string | Buffer): Promise<Buffer> {
   const metadata = await sharp(input).metadata()
   const frameCount = metadata.pages ?? 1
-  const frameWidth = metadata.width ?? 1
-  const frameHeight = metadata.pageHeight ?? metadata.height ?? 1
+  const layout = getSpriteLayout(
+    frameCount,
+    metadata.width ?? 1,
+    metadata.pageHeight ?? metadata.height ?? 1,
+  )
+  const { columnCount, rowCount, cellWidth, cellHeight } = layout
 
-  const indexList = pickSpriteFrameIndexList(frameCount, frameHeight)
-
-  const cellList = await Promise.all(indexList.map(async (frameIndex, order) => ({
-    input: await sharp(input, { page: frameIndex }).png().toBuffer(),
-    left: 0,
-    top: order * frameHeight,
-  })))
+  const cellList = await Promise.all(
+    Array.from({ length: frameCount }, async (_, frameIndex) => ({
+      input: await sharp(input, { page: frameIndex })
+        .resize(cellWidth, cellHeight, { fit: 'fill' })
+        .png()
+        .toBuffer(),
+      left: (frameIndex % columnCount) * cellWidth,
+      top: Math.floor(frameIndex / columnCount) * cellHeight,
+    })),
+  )
 
   // 直接疊成單張靜態圖，不走多頁輸出，才不會又被寫成動圖
   return sharp({
     create: {
-      width: frameWidth,
-      height: indexList.length * frameHeight,
+      width: columnCount * cellWidth,
+      height: rowCount * cellHeight,
       channels: 4,
       background: { r: 0, g: 0, b: 0, alpha: 0 },
     },

@@ -342,10 +342,11 @@ watchEffect(() => {
 
   const index = framePlayer.frameIndex.value
   context.clearRect(0, 0, sprite.frameWidth, sprite.frameHeight)
+  // 長圖是格狀排列，要換算出該影格在第幾欄第幾列
   context.drawImage(
     sprite.image,
-    0,
-    index * sprite.frameHeight,
+    (index % sprite.columnCount) * sprite.frameWidth,
+    Math.floor(index / sprite.columnCount) * sprite.frameHeight,
     sprite.frameWidth,
     sprite.frameHeight,
     0,
