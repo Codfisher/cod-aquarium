@@ -1,6 +1,13 @@
-import { applyPalette, GIFEncoder, quantize } from 'gifenc'
-import { ArrayBufferTarget, Muxer } from 'mp4-muxer'
 import { getSpriteColumnCount, SPRITE_LAYOUT_VERSION } from '../../../../../.vitepress/utils/meme-sprite-layout'
+
+/*
+ * 兩個編碼器都改成動態載入。
+ *
+ * gifenc 的 main 指向 CJS 檔，SSR 在 Node 端走 CJS 入口時抓不到具名匯出，
+ * 靜態 import 會讓建置在算繪頁面時就爆掉。
+ * 反正只有使用者按下輸出時才需要，順便讓初始 bundle 少背這兩包
+ */
+type GifencModule = typeof import('gifenc')
 
 /**
  * GIF 輸出的最長邊。
@@ -251,7 +258,8 @@ function collectPaletteSample(frameList: ComposedFrame[]): Uint8ClampedArray {
  * 每格各自量化的話，每格都要多存一份色表，且相同畫面會被量化成不同索引，
  * 反而更難壓
  */
-function encodeFrameList(frameList: ComposedFrame[], colorCount: number) {
+function encodeFrameList(gifenc: GifencModule, frameList: ComposedFrame[], colorCount: number) {
+  const { applyPalette, GIFEncoder, quantize } = gifenc
   const { width, height } = frameList[0]!.data
   const palette = quantize(collectPaletteSample(frameList), colorCount)
   const colorDepth = Math.max(2, Math.ceil(Math.log2(colorCount)))
@@ -272,16 +280,17 @@ function encodeFrameList(frameList: ComposedFrame[], colorCount: number) {
 
 /** 逐格重新合成並編碼成 GIF，超過目標大小就自動降階 */
 export async function encodeGif(options: EncodeGifOptions): Promise<Blob> {
+  const gifenc = await import('gifenc')
   const frameList = await composeFrameList(options)
 
-  let bytes = encodeFrameList(frameList, QUALITY_STEP_LIST[0]!.colorCount)
+  let bytes = encodeFrameList(gifenc, frameList, QUALITY_STEP_LIST[0]!.colorCount)
   for (const step of QUALITY_STEP_LIST.slice(1)) {
     if (bytes.length <= TARGET_BYTE_SIZE)
       break
 
     // 降階只有寥寥幾次，每次都讓出以免整段編碼把畫面凍住
     await releaseMainThread()
-    bytes = encodeFrameList(reduceFrameList(frameList, step.maxFrameCount), step.colorCount)
+    bytes = encodeFrameList(gifenc, reduceFrameList(frameList, step.maxFrameCount), step.colorCount)
   }
 
   return new Blob([bytes], { type: 'image/gif' })
@@ -346,6 +355,7 @@ export async function encodeMp4(options: EncodeGifOptions): Promise<Blob> {
     throw new Error('無法取得 canvas context')
   }
 
+  const { ArrayBufferTarget, Muxer } = await import('mp4-muxer')
   const target = new ArrayBufferTarget()
   const muxer = new Muxer({
     target,
