@@ -124,6 +124,58 @@ async function buildSheet(id: string) {
   return { outputPath, frameCount }
 }
 
+/** 九宮格的九等分區塊，`crop` 用九宮格位置指定要放大的範圍 */
+const CROP_AREA_MAP = {
+  '左上': [0, 0],
+  '上': [1, 0],
+  '右上': [2, 0],
+  '左': [0, 1],
+  '中': [1, 1],
+  '右': [2, 1],
+  '左下': [0, 2],
+  '下': [1, 2],
+  '右下': [2, 2],
+} as const
+type CropArea = keyof typeof CROP_AREA_MAP
+
+function isCropArea(value: string): value is CropArea {
+  return value in CROP_AREA_MAP
+}
+
+/**
+ * 放大靜態圖的指定區塊並加強對比。
+ *
+ * 迷因圖多半是低解析度轉存，爪子、手勢、小字這類細節在原圖看不出來，
+ * 而動作方向常常就卡在這種細節上。九宮格解決的是「時間」，這裡解決的是「空間」
+ */
+async function buildCrop(id: string, area: CropArea) {
+  await mkdir(OUTPUT_PATH, { recursive: true })
+
+  const filePath = path.join(MEME_FILE_PATH, `${id}.webp`)
+  const metadata = await sharp(filePath).metadata()
+  const width = metadata.width ?? 1
+  const height = metadata.pageHeight ?? metadata.height ?? 1
+
+  const [column, row] = CROP_AREA_MAP[area]
+  // 區塊間互相重疊，跨在邊界上的細節才不會被切成兩半
+  const cellWidth = Math.round(width * 0.45)
+  const cellHeight = Math.round(height * 0.45)
+  const left = Math.min(Math.round(column * width * 0.275), width - cellWidth)
+  const top = Math.min(Math.round(row * height * 0.275), height - cellHeight)
+
+  const buffer = await sharp(filePath, { page: 0 })
+    .extract({ left, top, width: cellWidth, height: cellHeight })
+    .resize({ width: 900, kernel: 'lanczos3', withoutEnlargement: false })
+    .linear(1.4, -40)
+    .sharpen({ sigma: 1.2 })
+    .webp({ quality: 92 })
+    .toBuffer()
+
+  const outputPath = path.join(OUTPUT_PATH, `${id}-crop-${area}.webp`)
+  await writeFile(outputPath, buffer)
+  return outputPath
+}
+
 /** 抽出指定影格範圍並標上編號，供九宮格看不清楚時放大確認 */
 async function buildZoom(id: string, from: number, to: number) {
   await mkdir(OUTPUT_PATH, { recursive: true })
@@ -179,6 +231,8 @@ const HELP_TEXT = [
   '  draft [數量]                      印出待核對項目的初稿內容，供比對用',
   '  sheet <id...> | --pending [數量]  產生九宮格，輸出到 .meme-review/',
   '  zoom <id> <起格> <訖格>           抽出指定影格並標號，看不清楚時用',
+  '  crop <id> <區塊>                  放大靜態圖的九宮格區塊並加強對比',
+  '                                    區塊：左上 上 右上 左 中 右 左下 下 右下',
   '  show <id>                         印出單筆資料',
   '  ok <id...>                        初稿正確，直接標記為已核對',
   '  write <id> 欄位=值 ...            修正並標記為已核對',
@@ -274,6 +328,14 @@ async function main() {
   if (command === 'zoom') {
     const [id, from, to] = argList
     console.warn(await buildZoom(id!, Number(from), Number(to)))
+    return
+  }
+  if (command === 'crop') {
+    const [id, area] = argList
+    if (!id || !area || !isCropArea(area)) {
+      throw new Error(`區塊需為：${Object.keys(CROP_AREA_MAP).join('、')}`)
+    }
+    console.warn(await buildCrop(id, area))
     return
   }
   if (command === 'show') {
