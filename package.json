@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "vitepress dev --port 3030 --host",
     "task:process-meme": "npx vite-node .vitepress/scripts/process-meme-img-v2.ts",
+    "task:review-meme": "npx vite-node .vitepress/scripts/review-meme.ts --",
     "task:apply-meme-emotion": "npx vite-node .vitepress/scripts/apply-meme-emotion.ts",
     "task:check-meme-index": "npx vite-node .vitepress/scripts/check-meme-search-index.ts",
     "build": "vitepress build",
@@ -64,6 +65,7 @@
     "eslint-plugin-vue": "^9.33.0",
     "fractional-indexing-jittered": "1.0.0",
     "fuse.js": "^7.1.0",
+    "gifenc": "^1.0.3",
     "gray-matter": "^4.0.3",
     "idb-keyval": "^6.2.2",
     "interactjs": "^1.10.27",

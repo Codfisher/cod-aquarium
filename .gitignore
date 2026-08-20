@@ -24,3 +24,6 @@ auto-imports.d.ts
 components.d.ts
 
 .env*.local
+
+# 迷因審查用的暫存圖片
+.meme-review/

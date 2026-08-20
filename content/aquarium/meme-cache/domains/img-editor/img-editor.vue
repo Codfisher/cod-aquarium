@@ -1,9 +1,10 @@
 <template>
   <div
     v-if="props.data"
-    class="py-[6vh] flex flex-col h-full bg-gray-300 dark:bg-gray-500 overflow-auto relative"
+    class="flex flex-col h-full bg-gray-300 dark:bg-gray-500 relative"
   >
-    <div class="flex-1 flex flex-col items-center bg-gray-300 dark:bg-gray-500">
+    <!-- 捲動與留白都收在這層，時間軸才貼得到底 -->
+    <div class="flex-1 relative overflow-auto py-[6vh] flex flex-col items-center bg-gray-300 dark:bg-gray-500">
       <div
         ref="boardRef"
         class="board flex flex-col relative shadow-xl"
@@ -14,10 +15,21 @@
           class="pointer-events-none shrink-0"
         />
 
+        <!-- 動圖得逐格控制才能讓文字跟著出現消失，故改用 canvas 自己畫 -->
+        <canvas
+          v-if="frameSprite"
+          ref="imgRef"
+          :width="frameSprite.frameWidth"
+          :height="frameSprite.frameHeight"
+          :style="{ visibility: baseImgVisible ? undefined : 'hidden' }"
+          class="select-none rounded-none! border-none! pointer-events-none w-[80vw] md:max-w-[50vw] h-auto"
+        />
+
         <img
-          v-if="props.data"
+          v-else-if="props.data"
           ref="imgRef"
           :src="`/memes/${props.data.file}`"
+          :style="{ visibility: baseImgVisible ? undefined : 'hidden' }"
           class="object-contain select-none rounded-none! border-none! pointer-events-none w-[80vw] md:max-w-[50vw]"
           draggable="false"
         >
@@ -35,7 +47,9 @@
 
         <text-item
           v-for="item in textItemList"
+          ref="textItemRefList"
           :key="item.key"
+          :visible="item.visible"
           :model-value="item.data"
           :board-origin="boardBounding"
           :is-editing="item.isEditing"
@@ -60,9 +74,23 @@
           @update:model-value="(data) => updateImageItem(item, data)"
         />
       </div>
+
+      <help-tip />
     </div>
 
-    <help-tip />
+    <frame-timeline
+      v-if="frameSprite"
+      class="shrink-0"
+      :frame-count="frameSprite.frameCount"
+      :frame-index="framePlayer.frameIndex.value"
+      :playing="framePlayer.playing.value"
+      :track-list="timelineTrackList"
+      @seek-frame="framePlayer.seek"
+      @update-range="updateTextFrameRange"
+      @select="targetKey = $event"
+      @toggle-play="togglePlay"
+      @edit-text="editTextContent"
+    />
 
     <u-slideover
       v-model:open="layoutSettingVisible"
@@ -225,17 +253,22 @@
 import type { CSSProperties } from 'vue'
 import type { ComponentProps } from 'vue-component-type-helpers'
 import type { MemeData } from '../meme/type'
+import type { FrameSprite } from './animated-output'
+import type { TimelineTrack } from './frame-timeline.vue'
 import type { AlignTarget } from './type'
 import { onClickOutside, promiseTimeout, useElementBounding, useElementSize, useEventListener, useRafFn } from '@vueuse/core'
 import { nanoid } from 'nanoid'
 import { clone, pipe } from 'remeda'
-import { computed, nextTick, reactive, ref, shallowRef, triggerRef, useTemplateRef } from 'vue'
+import { computed, nextTick, reactive, ref, shallowRef, triggerRef, useTemplateRef, watch, watchEffect } from 'vue'
 import { nextFrame } from '../../../../../web/common/utils'
+import { loadFrameSprite } from './animated-output'
 import { IMAGE_MAX_DIMENSION, IMAGE_MIN_DIMENSION } from './constants'
 import { DEFAULT_FONT_VALUE } from './fonts'
+import FrameTimeline from './frame-timeline.vue'
 import HelpTip from './help-tip.vue'
 import ImageItem from './image-item.vue'
 import TextItem from './text-item.vue'
+import { isFrameInRange, useFramePlayer } from './use-frame-player'
 
 interface TextItemData {
   data: ComponentProps<typeof TextItem>['modelValue'];
@@ -275,15 +308,140 @@ const boardBounding = reactive(useElementBounding(boardRef, {
 const imgRef = useTemplateRef('imgRef')
 const imgSize = reactive(useElementSize(imgRef))
 
+/** 輸出動圖時要單獨拍上層內容，底圖得先讓開。用 visibility 才不會動到版面 */
+const baseImgVisible = ref(true)
+
+const frameSprite = shallowRef<FrameSprite>()
+const framePlayer = useFramePlayer(frameSprite)
+
+watch(() => props.data, async (data) => {
+  frameSprite.value = undefined
+  if (!data?.animated || !data.frameDelayList?.length)
+    return
+
+  try {
+    frameSprite.value = await loadFrameSprite(data.file, data.frameDelayList)
+  }
+  catch (error) {
+    // 載不到就退回 <img>，動圖照樣會播，只是文字無法跟著影格
+    console.warn('[meme-cache] 載入影格長圖失敗', error)
+  }
+}, { immediate: true })
+
+/** 把當前影格畫上畫布 */
+watchEffect(() => {
+  const sprite = frameSprite.value
+  const canvas = imgRef.value
+  if (!sprite || !(canvas instanceof HTMLCanvasElement))
+    return
+
+  const context = canvas.getContext('2d')
+  if (!context)
+    return
+
+  const index = framePlayer.frameIndex.value
+  context.clearRect(0, 0, sprite.frameWidth, sprite.frameHeight)
+  context.drawImage(
+    sprite.image,
+    0,
+    index * sprite.frameHeight,
+    sprite.frameWidth,
+    sprite.frameHeight,
+    0,
+    0,
+    sprite.frameWidth,
+    sprite.frameHeight,
+  )
+})
+
+/**
+ * 每個影格對應的代表影格。
+ *
+ * 文字有顯示區間時，各影格的上層內容不同；但同一組文字組合的連續影格
+ * 可以共用同一張截圖，故輸出時只需針對代表影格各拍一次
+ */
+const overlayFrameIndexList = computed<number[]>(() => {
+  const sprite = frameSprite.value
+  if (!sprite)
+    return []
+
+  const result: number[] = []
+  let previousKey: string | undefined
+  let representative = 0
+
+  for (let index = 0; index < sprite.frameCount; index++) {
+    const key = [...textMap.value.values()]
+      .filter((item) => isFrameInRange(item.data?.frameRange, index))
+      .map((item) => item.key)
+      .join(',')
+
+    if (key !== previousKey) {
+      previousKey = key
+      representative = index
+    }
+    result.push(representative)
+  }
+
+  return result
+})
+
 const targetKey = ref<string>()
 const textMap = shallowRef(new Map<string, TextItemData>())
+const textItemRefList = useTemplateRef<InstanceType<typeof TextItem>[]>('textItemRefList')
+
+const timelineTrackList = computed<TimelineTrack[]>(() => {
+  const lastIndex = Math.max(0, (frameSprite.value?.frameCount ?? 1) - 1)
+
+  return [...textMap.value.values()].map((item) => ({
+    key: item.key,
+    label: item.data?.text?.trim() || '文字',
+    frameRange: item.data?.frameRange ?? [0, lastIndex],
+    isEditing: targetKey.value === item.key,
+  }))
+})
+
+function updateTextFrameRange(key: string, frameRange: [number, number]) {
+  const item = textMap.value.get(key)
+  if (!item?.data)
+    return
+
+  textMap.value.set(key, { ...item, data: { ...item.data, frameRange } })
+  // textMap 是 shallowRef，不主動觸發的話軌道與畫布都不會即時更新
+  triggerRef(textMap)
+}
+
+/** 時間軸點文字標籤：選取該段文字並直接進入內容編輯 */
+function editTextContent(key: string) {
+  targetKey.value = key
+
+  // 播放頭在區間外的話該段文字是隱形的，先移進去才編得到
+  const frameRange = textMap.value.get(key)?.data?.frameRange
+  if (frameRange && !isFrameInRange(frameRange, framePlayer.frameIndex.value)) {
+    framePlayer.seek(frameRange[0])
+  }
+
+  const index = textItemList.value.findIndex((item) => item.key === key)
+  nextTick(() => {
+    textItemRefList.value?.[index]?.focusText()
+  })
+}
+
+function togglePlay() {
+  if (framePlayer.playing.value) {
+    framePlayer.pause()
+    return
+  }
+
+  framePlayer.play()
+}
 const imageMap = shallowRef(new Map<string, ImageItemData>())
 
 onClickOutside(boardRef, () => {
   targetKey.value = undefined
 }, {
   // u-slideover、u-popover 會 teleport 到 body，點擊面板內按鈕不應視為「點到外面」
-  ignore: ['[role="dialog"]', '[data-reka-popper-content-wrapper]'],
+  // 時間軸要能在選取狀態下操作，故一併排除
+  ignore: ['[role="dialog"]', '[data-reka-popper-content-wrapper]', '.frame-timeline'],
 })
 
 function addItem(event: PointerEvent) {
@@ -602,6 +760,7 @@ const textItemList = computed(() => [...textMap.value.values()].map((item) => ({
   ...item,
   isEditing: targetKey.value === item.key,
   alignTargetList: buildAlignTargetList(item.key),
+  visible: !frameSprite.value || isFrameInRange(item.data?.frameRange, framePlayer.frameIndex.value),
 })))
 
 const imageItemList = computed(() => [...imageMap.value.values()].map((item) => ({
@@ -811,6 +970,12 @@ if (!import.meta.env.SSR) {
 
 defineExpose({
   boardRef,
+  imgRef,
+  baseImgVisible,
+  frameSprite,
+  overlayFrameIndexList,
+  seekFrame: framePlayer.seek,
+  playFrame: framePlayer.play,
   addImage,
   undo,
   redo,

@@ -26,6 +26,7 @@
           :list="filteredList"
           :detail-visible="settings.detailVisible"
           :favorite-file-set="favoriteFileSet"
+          :animated-badge-visible="!filterOptions.animatedOnly"
           :style="{ height: listHeight }"
           class="overflow-auto"
           @select="handleSelect"
@@ -131,6 +132,13 @@
                 </div>
               </template>
 
+              <template #animated-filter>
+                <u-checkbox
+                  v-model="filterOptions.animatedOnly"
+                  label="只顯示動圖"
+                />
+              </template>
+
               <template #blur-filter>
                 <u-tooltip
                   text="過濾模糊圖片，分級由演算法自動評估"
@@ -219,6 +227,7 @@ const settings = ref({
 const filterOptions = ref({
   /** 0 = 全部、1 = 排除非常模糊、2 = 只看清晰 */
   blurFilter: 0,
+  animatedOnly: false,
 })
 
 const BLUR_FILTER_LABEL_LIST = ['全部', '微糊', '清晰'] as const
@@ -268,6 +277,7 @@ const mainMenuItems = pipe(
         ? { slot: 'detail' }
         : undefined,
       { slot: 'collection' },
+      { slot: 'animated-filter' },
       { slot: 'blur-filter' },
       {
         icon: 'i-lets-icons:sort-random',
@@ -341,8 +351,15 @@ function filterByEmotion(list: MemeData[]): MemeData[] {
   )
 }
 
+function filterByAnimated(list: MemeData[]): MemeData[] {
+  if (!filterOptions.value.animatedOnly)
+    return list
+
+  return list.filter((item) => item.animated)
+}
+
 function filterList(list: MemeData[]): MemeData[] {
-  return pipe(list, filterByBlur, filterByEmotion, filterByMode)
+  return pipe(list, filterByBlur, filterByAnimated, filterByEmotion, filterByMode)
 }
 
 let searchId = 0
