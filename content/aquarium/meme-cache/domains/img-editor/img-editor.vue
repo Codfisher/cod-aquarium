@@ -68,6 +68,7 @@
           :board-origin="boardBounding"
           :is-editing="item.isEditing"
           :align-target-list="item.alignTargetList"
+          :visible="item.visible"
           @click="editImageItem(item)"
           @duplicate="duplicateImageItem(item)"
           @delete="deleteImageItem(item)"
@@ -86,10 +87,10 @@
       :playing="framePlayer.playing.value"
       :track-list="timelineTrackList"
       @seek-frame="framePlayer.seek"
-      @update-range="updateTextFrameRange"
+      @update-range="updateFrameRange"
       @select="targetKey = $event"
       @toggle-play="togglePlay"
-      @edit-text="editTextContent"
+      @edit-text="editTrackItem"
     />
 
     <u-slideover
@@ -370,7 +371,7 @@ const overlayFrameIndexList = computed<number[]>(() => {
   let representative = 0
 
   for (let index = 0; index < sprite.frameCount; index++) {
-    const key = [...textMap.value.values()]
+    const key = [...textMap.value.values(), ...imageMap.value.values()]
       .filter((item) => isFrameInRange(item.data?.frameRange, index))
       .map((item) => item.key)
       .join(',')
@@ -389,38 +390,58 @@ const targetKey = ref<string>()
 const textMap = shallowRef(new Map<string, TextItemData>())
 const textItemRefList = useTemplateRef<InstanceType<typeof TextItem>[]>('textItemRefList')
 
+/** 文字與插入的圖片都能設定顯示區間，故時間軸兩種都要列 */
 const timelineTrackList = computed<TimelineTrack[]>(() => {
   const lastIndex = Math.max(0, (frameSprite.value?.frameCount ?? 1) - 1)
 
-  return [...textMap.value.values()].map((item) => ({
+  const textTrackList = [...textMap.value.values()].map((item) => ({
     key: item.key,
     label: item.data?.text?.trim() || '文字',
-    frameRange: item.data?.frameRange ?? [0, lastIndex],
+    frameRange: item.data?.frameRange ?? [0, lastIndex] as [number, number],
     isEditing: targetKey.value === item.key,
   }))
+
+  // 圖片沒有文字可當標籤，改用編號辨識
+  const imageTrackList = [...imageMap.value.values()].map((item, index) => ({
+    key: item.key,
+    label: `圖片 ${index + 1}`,
+    frameRange: item.data?.frameRange ?? [0, lastIndex] as [number, number],
+    isEditing: targetKey.value === item.key,
+  }))
+
+  return [...textTrackList, ...imageTrackList]
 })
 
-function updateTextFrameRange(key: string, frameRange: [number, number]) {
-  const item = textMap.value.get(key)
-  if (!item?.data)
+function updateFrameRange(key: string, frameRange: [number, number]) {
+  // 兩份資料都是 shallowRef，不主動觸發的話軌道與畫布都不會即時更新
+  const textItem = textMap.value.get(key)
+  if (textItem?.data) {
+    textMap.value.set(key, { ...textItem, data: { ...textItem.data, frameRange } })
+    triggerRef(textMap)
     return
+  }
 
-  textMap.value.set(key, { ...item, data: { ...item.data, frameRange } })
-  // textMap 是 shallowRef，不主動觸發的話軌道與畫布都不會即時更新
-  triggerRef(textMap)
+  const imageItem = imageMap.value.get(key)
+  if (imageItem?.data) {
+    imageMap.value.set(key, { ...imageItem, data: { ...imageItem.data, frameRange } })
+    triggerRef(imageMap)
+  }
 }
 
-/** 時間軸點文字標籤：選取該段文字並直接進入內容編輯 */
-function editTextContent(key: string) {
+/** 時間軸點標籤：選取該項目，文字再直接進入內容編輯 */
+function editTrackItem(key: string) {
   targetKey.value = key
 
-  // 播放頭在區間外的話該段文字是隱形的，先移進去才編得到
-  const frameRange = textMap.value.get(key)?.data?.frameRange
+  // 播放頭在區間外的話該項目是隱形的，先移進去才編得到
+  const frameRange = (textMap.value.get(key) ?? imageMap.value.get(key))?.data?.frameRange
   if (frameRange && !isFrameInRange(frameRange, framePlayer.frameIndex.value)) {
     framePlayer.seek(frameRange[0])
   }
 
   const index = textItemList.value.findIndex((item) => item.key === key)
+  if (index === -1)
+    return
+
   nextTick(() => {
     textItemRefList.value?.[index]?.focusText()
   })
@@ -767,6 +788,7 @@ const imageItemList = computed(() => [...imageMap.value.values()].map((item) => 
   ...item,
   isEditing: targetKey.value === item.key,
   alignTargetList: buildAlignTargetList(item.key),
+  visible: !frameSprite.value || isFrameInRange(item.data?.frameRange, framePlayer.frameIndex.value),
 })))
 
 /**
