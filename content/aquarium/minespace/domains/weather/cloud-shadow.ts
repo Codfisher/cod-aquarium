@@ -280,8 +280,7 @@ class CloudShadowPlugin extends MaterialPluginBase {
        * 覆蓋率一幀只算一次
        *
        * 平行光與天光都要用到它，而它裡面有一次貼圖取樣。
-       * 擺在光照之前算好存起來，兩盞燈共用同一個值——
-       * 與 pixel-shadow 的位移用的是同一招
+       * 擺在光照之前算好存起來，兩盞燈共用同一個值
        */
       'CUSTOM_FRAGMENT_BEFORE_LIGHTS': `
         float minespaceCloudCoverValue = minespaceCloudCover();

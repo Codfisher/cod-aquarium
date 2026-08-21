@@ -9,6 +9,7 @@ import {
   Vector3,
 } from '@babylonjs/core'
 import { useDevToggles } from '../../composables/use-dev-toggles'
+import { useGraphicsQuality } from '../../composables/use-graphics-quality'
 import { optOutOfFog } from './fog-opt-out'
 import { createGlowTexture } from './glow-texture'
 import { attachHaloSoftFade } from './halo-soft-fade'
@@ -62,8 +63,13 @@ const AREA_LIGHT_STRENGTH_RATIO = 0.35
 /** 差得夠多才重寫材質，這是每一幀都會走的路徑 */
 const STRENGTH_STEP = 0.01
 
-/** 圓盤的細緻度，光暈是糊的，二十四邊就看不出角了 */
-const DISC_TESSELLATION = 24
+/**
+ * 圓盤的細緻度，光暈是糊的，二十四邊就看不出角了
+ *
+ * 世界上每一盞燈都是一片這樣的圓盤，省下來的頂點是乘上燈數的，
+ * 所以最省的那一級收到十邊——那時候它本來就糊成一團，
+ * 看不出是幾邊形。實際的邊數由畫質設定表的 glowTessellation 給
+ */
 
 /**
  * 光暈要往鏡頭的方向挪出來多遠
@@ -158,6 +164,7 @@ export function createLampGlow({
     return null
 
   const haloSourceList = sourceList
+  const { preset } = useGraphicsQuality()
 
   /** 與天上那兩圈暈用同一條衰減曲線，邊界才不會浮出一圈輪廓 */
   const texture = createGlowTexture('lamp-halo', scene, [230, 230, 230])
@@ -237,7 +244,7 @@ export function createLampGlow({
     const size = baseSize * source.level
     const mesh = MeshBuilder.CreateDisc(
       `lamp-halo-${index}`,
-      { radius: size / 2, tessellation: DISC_TESSELLATION },
+      { radius: size / 2, tessellation: preset.value.glowTessellation },
       scene,
     )
     mesh.material = getMaterial(source.color, source.isAreaLight)

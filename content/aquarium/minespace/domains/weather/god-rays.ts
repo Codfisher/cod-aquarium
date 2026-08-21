@@ -60,10 +60,16 @@ export interface GodRays {
  * 太陽貼近地平線、而且人正對著它的那幾十秒
  */
 export function createGodRays(scene: Scene, camera: UniversalCamera): GodRays {
-  const { quality } = useGraphicsQuality()
+  const { preset } = useGraphicsQuality()
 
   const sunDisc = scene.getMeshByName(SUN_DISC_NAME) as Mesh | null
-  if (!sunDisc) {
+  /**
+   * 這一級不做螢幕空間的光束就整個不建
+   *
+   * 最省的那一級是完全不要；極致那一級則是換成沿著視線行進的版本
+   * （見 volumetric-light.ts），兩者都不該讓這一趟遮蔽圖存在
+   */
+  if (!sunDisc || preset.value.volumetric !== 'screen') {
     return { setStrength: () => {}, dispose: () => {} }
   }
 
@@ -174,8 +180,8 @@ export function createGodRays(scene: Scene, camera: UniversalCamera): GodRays {
 
   setEnabled(false)
 
-  const stopQualityWatch = watch(quality, (newQuality) => {
-    if (newQuality === 'low') {
+  const stopQualityWatch = watch(preset, (currentPreset) => {
+    if (currentPreset.volumetric !== 'screen') {
       setEnabled(false)
     }
   })
@@ -195,9 +201,9 @@ export function createGodRays(scene: Scene, camera: UniversalCamera): GodRays {
 
   return {
     setStrength(ratio: number) {
-      const strength = quality.value === 'low'
-        ? 0
-        : ratio * measureFacingRatio()
+      const strength = preset.value.volumetric === 'screen'
+        ? ratio * measureFacingRatio()
+        : 0
 
       setEnabled(strength > 0.01)
       if (strength <= 0.01)

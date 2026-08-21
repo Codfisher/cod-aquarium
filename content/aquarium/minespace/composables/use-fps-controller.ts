@@ -1,9 +1,10 @@
 import type { DirectionalLight, HemisphericLight, Scene, UniversalCamera } from '@babylonjs/core'
+import type { VoxelGi } from '../domains/renderer/voxel-gi'
 import type { AtmosphereState } from '../domains/weather/atmosphere'
 import type { MobileControlState } from './use-mobile-controller'
 import { Color3 } from '@babylonjs/core'
 import { onBeforeUnmount, reactive, ref } from 'vue'
-import { BlockId, isLavaBlock } from '../domains/block/block-constants'
+import { BLOCK_DEFS, BlockId, isLavaBlock } from '../domains/block/block-constants'
 import { SPAWN_POSITION } from '../domains/garden/garden-layout'
 import {
   findSafeStandingPosition,
@@ -16,7 +17,6 @@ import {
   resolveCollision,
 } from '../domains/player/collision'
 import { updateLeafTranslucency } from '../domains/renderer/leaf-translucency'
-import { updatePixelShadow } from '../domains/renderer/pixel-shadow'
 import { updateAerialAir } from '../domains/weather/aerial-perspective'
 import { CAVE_FOG_COLOR, EDGE_FOG_END, EDGE_FOG_START, getEdgeFogRatio } from '../domains/weather/atmosphere'
 import { updateCloudShadow } from '../domains/weather/cloud-shadow'
@@ -24,7 +24,6 @@ import { WORLD_SIZE } from '../domains/world/world-constants'
 import { AMBIENT_LIGHT_NAME, SUN_DIRECTION, SUN_LIGHT_NAME } from './use-babylon-scene'
 import { useDevToggles } from './use-dev-toggles'
 import { measureSection } from './use-performance-probe'
-import { useTexturePack } from './use-texture-pack'
 
 const GRAVITY = 22
 const JUMP_SPEED = 7.6
@@ -88,6 +87,25 @@ const CAVE_AMBIENT_RATIO = 0.94
  * 所以洞裡的環境光不低於這個值
  */
 const CAVE_AMBIENT_FLOOR = 0.55
+
+/**
+ * 環境光染色取樣的頻率（秒）
+ *
+ * 這是給人一點「間接光」的錯覺用的，色調本來就該變得很慢，
+ * 不必跟著幀率算——跟 main-scene.vue 的 trackZone 同一種節流思路
+ */
+const GROUND_TINT_SAMPLE_INTERVAL = 0.4
+
+/**
+ * 取樣色最多能把地面反射色染成什麼比例
+ *
+ * 這是假的全局光，不是真的——只該是一點暗示，不能整個蓋過
+ * 原本「天空冷、地面暖」那組色溫對比，蓋過去反而會讓立體感垮掉
+ */
+const GROUND_TINT_MIX_RATIO = 0.35
+
+/** 腳下取樣範圍，左右各幾格 */
+const GROUND_TINT_SAMPLE_RADIUS = 2
 
 /** 判定「被地形包住」時往上搜尋的格數 */
 const COVER_SCAN_HEIGHT = 14
@@ -199,6 +217,8 @@ interface UseFpsControllerParams {
   worldState: Uint8Array;
   /** 天氣系統寫入的大氣參數 */
   atmosphere: AtmosphereState;
+  /** 體素全局光，沒給就當作沒有這個效果——低畫質可以直接不傳 */
+  voxelGi?: VoxelGi | null;
   mobileControls?: {
     state: MobileControlState;
     consumeLookDelta: () => { deltaX: number; deltaY: number };
@@ -218,8 +238,6 @@ export function useFpsController() {
 
   /** 大氣透視的開關掛在這裡，因為空氣色是跟著霧色一起算的 */
   const { state: devToggle } = useDevToggles()
-  /** 像素陰影的格距就是材質包的解析度：換一套圖，階梯跟著變細或變粗 */
-  const { pack: texturePack } = useTexturePack()
 
   const isPaused = ref(true)
   const isSwimming = ref(false)
@@ -257,6 +275,7 @@ export function useFpsController() {
     canvas,
     worldState,
     atmosphere,
+    voxelGi,
     mobileControls,
   }: UseFpsControllerParams) {
     cleanup?.()
@@ -282,6 +301,52 @@ export function useFpsController() {
     let waterRatio = 0
     /** 沉在熔岩裡多深，用來把整片視野燒紅 */
     let lavaRatio = 0
+
+    /** 距離上次取樣過了多久 */
+    let groundTintElapsed = GROUND_TINT_SAMPLE_INTERVAL
+    /** 上一次取樣到的顏色，附近沒有帶色調的方塊就是 null */
+    let groundTintSample: Color3 | null = null
+    /**
+     * 目前真正套用的地面反射色，每幀慢慢趨近取樣結果
+     *
+     * 直接套用取樣值的話，每 0.4 秒色調會跳一下；用同一顆物件累積趨近，
+     * 走過草地與走過石地之間的過渡才是連續的
+     */
+    const groundTintColor = atmosphere.ambientGroundColor.clone()
+
+    /**
+     * 依腳下方塊的色調猜這一刻的間接光該偏什麼顏色
+     *
+     * 不是真的全局光，是最低成本的替代品：直接讀方塊定義裡本來就有的
+     * tint（給 grassTop 這類灰階貼圖上色用的那組），沒有 tint 的方塊
+     * （多數石頭、木頭）不計入——那些回傳 null，交給呼叫端退回原本的暖色基準
+     */
+    function sampleGroundTint(): Color3 | null {
+      const blockX = Math.floor(position.x + 0.5)
+      const blockZ = Math.floor(position.z + 0.5)
+      const blockY = Math.floor(position.y - 0.5)
+
+      let sumR = 0
+      let sumG = 0
+      let sumB = 0
+      let count = 0
+
+      for (let dx = -GROUND_TINT_SAMPLE_RADIUS; dx <= GROUND_TINT_SAMPLE_RADIUS; dx++) {
+        for (let dz = -GROUND_TINT_SAMPLE_RADIUS; dz <= GROUND_TINT_SAMPLE_RADIUS; dz++) {
+          const blockId = readBlock(worldState, blockX + dx, blockY, blockZ + dz)
+          const tint = BLOCK_DEFS[blockId]?.textures?.tint
+          if (!tint)
+            continue
+
+          sumR += tint[0]
+          sumG += tint[1]
+          sumB += tint[2]
+          count++
+        }
+      }
+
+      return count > 0 ? new Color3(sumR / count, sumG / count, sumB / count) : null
+    }
 
     const spawn = findSafeStandingPosition(worldState, SPAWN_POSITION.x, SPAWN_POSITION.z)
     position.x = spawn.x
@@ -626,6 +691,7 @@ export function useFpsController() {
         scene.fogColor,
         atmosphere.skyMidColor,
         openSkyRatio,
+        sunLight ? -sunLight.direction.y : 1,
         devToggle.aerialPerspective,
       )
 
@@ -657,6 +723,22 @@ export function useFpsController() {
        */
       const ambientRatio = skyRatio * (1 - caveRatio) + CAVE_AMBIENT_RATIO * caveRatio
 
+      /**
+       * 環境光隨腳下的方塊染色
+       *
+       * 取樣本身節流到每 0.4 秒一次，套用的顏色則是每幀慢慢趨近，
+       * 兩件事分開：取樣省成本，趨近才看不出跳動
+       */
+      groundTintElapsed += deltaTime
+      if (groundTintElapsed >= GROUND_TINT_SAMPLE_INTERVAL) {
+        groundTintElapsed = 0
+        groundTintSample = sampleGroundTint()
+      }
+      const groundTintGoal = groundTintSample
+        ? Color3.Lerp(atmosphere.ambientGroundColor, groundTintSample, GROUND_TINT_MIX_RATIO)
+        : atmosphere.ambientGroundColor
+      Color3.LerpToRef(groundTintColor, groundTintGoal, Math.min(1, deltaTime * 2), groundTintColor)
+
       if (ambientLight) {
         /**
          * 洞裡的環境光要有下限
@@ -671,7 +753,7 @@ export function useFpsController() {
 
         ambientLight.intensity = ambientIntensity * ambientRatio
         ambientLight.diffuse.copyFrom(atmosphere.ambientSkyColor)
-        ambientLight.groundColor.copyFrom(atmosphere.ambientGroundColor)
+        ambientLight.groundColor.copyFrom(groundTintColor)
       }
       if (sunLight) {
         sunLight.intensity = atmosphere.lightIntensity * weatherRatio * (1 - caveRatio)
@@ -720,11 +802,18 @@ export function useFpsController() {
         devToggle.leafTranslucency,
       )
 
-      updatePixelShadow(
-        sunLight,
-        scene.activeCamera,
-        texturePack.value.resolution,
-        devToggle.pixelShadow,
+      /**
+       * 全局光跟著已經算完的陽光走
+       *
+       * sunLight.intensity 在上面幾行已經疊完天氣、時刻與洞穴，
+       * 是這一刻陽光真正的強度——直射光種子該用的是這個數字，
+       * 而不是還沒疊過任何東西的日夜基準值
+       */
+      voxelGi?.update(
+        deltaTime,
+        sunLight?.direction ?? SUN_DIRECTION,
+        atmosphere.lightColor,
+        sunLight?.intensity ?? 0,
       )
     }
 

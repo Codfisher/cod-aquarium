@@ -58,6 +58,41 @@
       @start="handleStartPanelConfirm()"
     />
 
+    <!--
+      錯誤提示
+
+      不掛在 hasStarted 底下：場景初始化那一段最容易出錯，
+      那時候世界還沒開始也該看得到這個提示
+    -->
+    <div
+      v-if="errorCount > 0"
+      class="error-badge"
+    >
+      {{ t('errorBadge', { count: errorCount }) }}
+    </div>
+
+    <!--
+      沒有錯誤時也要說得出「F6 有東西可以匯」
+
+      匯出的紀錄除了錯誤還有一整段執行時狀態，而那一段正是
+      「沒有錯誤但東西就是沒出現」時唯一查得到的東西。
+      沒有任何提示的話，沒人會想到去按
+    -->
+    <div
+      v-else-if="isDevBuild"
+      class="diagnostic-badge"
+    >
+      {{ t('diagnosticBadge') }}
+    </div>
+
+    <!-- 正在看哪一種除錯檢視，不標出來會忘記自己按到第幾號 -->
+    <div
+      v-if="devToggle.volumetricDebug && debugModeLabel"
+      class="debug-mode-badge"
+    >
+      {{ debugModeLabel }}
+    </div>
+
     <div
       v-if="hasStarted && !menuVisible"
       class="status-stack"
@@ -171,6 +206,8 @@ import type { WaterMirrors } from '../garden/water-mirror'
 import type { LampGlow } from '../renderer/lamp-glow'
 import type { TextureSkinner } from '../renderer/pixel-material'
 import type { SceneDepth } from '../renderer/scene-depth'
+import type { VolumetricLight } from '../renderer/volumetric-light'
+import type { VoxelGi } from '../renderer/voxel-gi'
 import type { VoxelRenderer } from '../renderer/voxel-renderer'
 import type { WaterCaustics } from '../renderer/water-caustics'
 import type { WaterSurface } from '../renderer/water-surface'
@@ -187,6 +224,7 @@ import { createCampfireSmoke, DEFAULT_CAMERA_FOV, useBabylonScene } from '../../
 import { useBlockLights } from '../../composables/use-block-lights'
 import { useDayNight } from '../../composables/use-day-night'
 import { useDevToggles } from '../../composables/use-dev-toggles'
+import { exportErrorLog, useErrorLogger } from '../../composables/use-error-logger'
 import { useFpsController } from '../../composables/use-fps-controller'
 import { useMobileController } from '../../composables/use-mobile-controller'
 import { getSectionLabel, usePerformanceProbe } from '../../composables/use-performance-probe'
@@ -200,6 +238,8 @@ import { findSafeStandingPosition } from '../player/collision'
 import { createLampGlow } from '../renderer/lamp-glow'
 import { createTextureSkinner } from '../renderer/pixel-material'
 import { createSceneDepth } from '../renderer/scene-depth'
+import { createVolumetricLight, cycleVolumetricDebugMode } from '../renderer/volumetric-light'
+import { createVoxelGi } from '../renderer/voxel-gi'
 import { createVoxelRenderer } from '../renderer/voxel-renderer'
 import { createWaterCaustics } from '../renderer/water-caustics'
 import { createWaterSurface } from '../renderer/water-surface'
@@ -217,6 +257,8 @@ const { t, locale } = useSimpleI18n({
   'zh-hant': {
     initFailed: '初始化失敗',
     cursorReleased: '滑鼠已放開，點一下畫面回到漫遊',
+    errorBadge: '偵測到 {count} 種錯誤或警告，按 F6 匯出紀錄',
+    diagnosticBadge: 'F6 匯出執行時狀態',
     probeDrawCall: '繪製',
     probeActiveMesh: '網格',
     probeTriangle: '三角形',
@@ -241,6 +283,8 @@ const { t, locale } = useSimpleI18n({
   'en': {
     initFailed: 'Initialization Failed',
     cursorReleased: 'Cursor released — click the view to resume',
+    errorBadge: '{count} issue type(s) detected — press F6 to export the log',
+    diagnosticBadge: 'F6 exports runtime state',
     probeDrawCall: 'Draws',
     probeActiveMesh: 'Meshes',
     probeTriangle: 'Tris',
@@ -264,6 +308,18 @@ const { t, locale } = useSimpleI18n({
   },
 } as const)
 
+/**
+ * 錯誤紀錄
+ *
+ * 越早裝越好——場景初始化那一段最容易出錯，晚裝的話漏接前面幾個。
+ * errorCount 給右上角的提示用，累積到大於零才顯示「按 F6 匯出」
+ */
+const { errorCount } = useErrorLogger()
+/** 那個「按 F6」的提示只在本地開發時出現，正式站上不該有 */
+const isDevBuild = import.meta.env.DEV
+/** 目前在看哪一種體積光除錯檢視，按 F7 換 */
+const debugModeLabel = ref('')
+
 /** 區域顯示的更新間隔（秒） */
 const ZONE_UPDATE_INTERVAL = 0.3
 /** 幀率讀數的更新間隔（秒），跳太快會看不清楚 */
@@ -278,6 +334,8 @@ let sandField: SandField | null = null
 let sceneDepth: SceneDepth | null = null
 let waterSurface: WaterSurface | null = null
 let waterCaustics: WaterCaustics | null = null
+let voxelGi: VoxelGi | null = null
+let volumetricLight: VolumetricLight | null = null
 /** 世界上的水在哪裡，掃過一次就記著：漣漪與焦散都要問它 */
 let waterMap = createEmptyWaterMap()
 
@@ -515,6 +573,22 @@ const { canvasRef, scene, camera, pipeline, initError } = useBabylonScene({
     const lightSourceList = collectLightSourceList(worldState)
 
     /**
+     * 體素全局光
+     *
+     * 世界生成完就能把粗網格建好、丟給 worker——這一步只做一次，
+     * 之後隨太陽角度變化的重烘節流交給它自己的 update
+     */
+    voxelGi = createVoxelGi(sceneInstance, worldState, lightSourceList)
+
+    /**
+     * 行進版的光束要接在全局光之後
+     *
+     * 它行進的正是全局光那張格子（alpha 欄存著「這一格照得到多少陽光」），
+     * 格子還沒建好就先問它要，拿到的會是 null
+     */
+    volumetricLight = createVolumetricLight(sceneInstance, cameraInstance)
+
+    /**
      * 燈火的光暈
      *
      * 方塊的自發光只讓燈自己看起來是亮的，光並沒有溢出它的邊界。
@@ -560,6 +634,13 @@ const { canvasRef, scene, camera, pipeline, initError } = useBabylonScene({
       canvas,
       pipeline: pipeline.value,
       godRays: createGodRays(sceneInstance, cameraInstance),
+      /**
+       * 行進版的光束
+       *
+       * 兩者各自會依畫質決定要不要真的存在，所以這裡兩個都給——
+       * 同一級裡至多只有一個是活的（見各自的 create）
+       */
+      volumetricLight,
       atmosphere,
       /** 放開滑鼠只是把游標還給桌面，人站在原地看風景，太陽照樣走 */
       isRunning: () => hasStarted.value && !isPaused.value,
@@ -575,6 +656,7 @@ const { canvasRef, scene, camera, pipeline, initError } = useBabylonScene({
       canvas,
       worldState,
       atmosphere,
+      voxelGi,
       mobileControls: isMobile.value
         ? { state: mobileState, consumeLookDelta }
         : undefined,
@@ -615,6 +697,28 @@ function trackFps(sceneInstance: Scene) {
     if (event.code === 'F4') {
       event.preventDefault()
       toggleDevPanel()
+    }
+
+    /**
+     * F6 手動匯出錯誤紀錄
+     *
+     * 自動下載會被瀏覽器擋下來是常態——這是按鍵觸發的，
+     * 是真的使用者手勢，瀏覽器不會擋
+     */
+    if (event.code === 'F6') {
+      event.preventDefault()
+      exportErrorLog()
+    }
+
+    /**
+     * F7 換下一種體積光的除錯檢視
+     *
+     * 空間性的瑕疵靠文字紀錄查不出來，只能把中間量單獨畫出來看。
+     * 要先在 F4 面板打開「體積光除錯檢視」，這個鍵才有東西可換
+     */
+    if (event.code === 'F7') {
+      event.preventDefault()
+      debugModeLabel.value = cycleVolumetricDebugMode()
     }
   })
 }
@@ -710,6 +814,8 @@ onBeforeUnmount(() => {
   waterCaustics?.dispose()
   sceneDepth?.dispose()
   waterMirrors?.dispose()
+  volumetricLight?.dispose()
+  voxelGi?.dispose()
   renderer?.dispose()
   sandField?.dispose()
   skinner?.dispose()
@@ -805,4 +911,43 @@ onBeforeUnmount(() => {
 .pack-readout-resolution
   opacity: 0.6
   font-variant-numeric: tabular-nums
+
+/** 開發模式的錯誤提示，擺左上角跟右上角的狀態堆疊分開，不會疊在一起 */
+.error-badge
+  position: absolute
+  left: 12px
+  top: 12px
+  padding: 4px 10px
+  border-radius: 4px
+  background: rgba(120, 20, 20, 0.75)
+  color: rgba(255, 255, 255, 0.92)
+  font-size: 12px
+  z-index: 50
+  pointer-events: none
+
+/** 除錯檢視的模式標示，擺在提示底下不擋住畫面中央 */
+.debug-mode-badge
+  position: absolute
+  left: 12px
+  top: 40px
+  padding: 4px 10px
+  border-radius: 4px
+  background: rgba(0, 0, 0, 0.55)
+  color: rgba(255, 255, 255, 0.9)
+  font-size: 12px
+  z-index: 50
+  pointer-events: none
+
+/** 沒有錯誤時那一版，淡得多——它只是一句提醒，不是警訊 */
+.diagnostic-badge
+  position: absolute
+  left: 12px
+  top: 12px
+  padding: 4px 10px
+  border-radius: 4px
+  background: rgba(0, 0, 0, 0.35)
+  color: rgba(255, 255, 255, 0.5)
+  font-size: 12px
+  z-index: 50
+  pointer-events: none
 </style>

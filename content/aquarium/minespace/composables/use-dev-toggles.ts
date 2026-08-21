@@ -17,10 +17,18 @@ export const DEV_TOGGLE_LIST = [
   { key: 'aerialPerspective', label: { 'zh-hant': '大氣透視', 'en': 'Aerial perspective' } },
   { key: 'cloudShadow', label: { 'zh-hant': '雲影', 'en': 'Cloud shadow' } },
   { key: 'leafTranslucency', label: { 'zh-hant': '葉片透光', 'en': 'Leaf translucency' } },
-  { key: 'pixelShadow', label: { 'zh-hant': '像素對齊陰影', 'en': 'Pixel-aligned shadow' } },
   { key: 'dithering', label: { 'zh-hant': '打散色階', 'en': 'Dithering' } },
   { key: 'multiSample', label: { 'zh-hant': '多重取樣', 'en': 'Multisampling' } },
   { key: 'contactShadow', label: { 'zh-hant': '接觸硬化陰影', 'en': 'Contact-hardening shadow' } },
+  { key: 'voxelGi', label: { 'zh-hant': '體素全局光', 'en': 'Voxel global illumination' } },
+  { key: 'volumetricLight', label: { 'zh-hant': '體積光束', 'en': 'Volumetric light shafts' } },
+  /**
+   * 除錯檢視預設是關的，與其他項相反
+   *
+   * 別的開關都是「開著才是正常畫面」，這一項開了會把畫面換成
+   * 一張中間值的偽色圖——那不是給人看風景用的
+   */
+  { key: 'volumetricDebug', label: { 'zh-hant': '體積光除錯檢視', 'en': 'Volumetric debug view' }, defaultEnabled: false },
   { key: 'airMotes', label: { 'zh-hant': '空氣顆粒', 'en': 'Air motes' } },
   { key: 'groundMist', label: { 'zh-hant': '貼地晨霧', 'en': 'Ground mist' } },
   { key: 'wetness', label: { 'zh-hant': '雨後濕潤', 'en': 'Wetness' } },
@@ -51,8 +59,20 @@ export type DevToggleKey = typeof DEV_TOGGLE_LIST[number]['key']
 function _useDevToggles() {
   const visible = ref(false)
 
+  /**
+   * 多數項目預設開著，少數幾項相反
+   *
+   * 預設開著是因為「關掉哪一項、畫面上什麼東西跟著消失」是這份開關
+   * 存在的理由。但除錯檢視那類會整個換掉畫面的項目不能預設開，
+   * 那不是正常的樣子——它們在清單上自己標 defaultEnabled: false
+   */
   const state = reactive(
-    Object.fromEntries(DEV_TOGGLE_LIST.map(({ key }) => [key, true])),
+    Object.fromEntries(
+      DEV_TOGGLE_LIST.map((item) => [
+        item.key,
+        (item as { defaultEnabled?: boolean }).defaultEnabled ?? true,
+      ]),
+    ),
   ) as Record<DevToggleKey, boolean>
 
   function toggle(key: DevToggleKey): void {
@@ -64,8 +84,8 @@ function _useDevToggles() {
   }
 
   function resetAll(): void {
-    for (const { key } of DEV_TOGGLE_LIST) {
-      state[key] = true
+    for (const item of DEV_TOGGLE_LIST) {
+      state[item.key] = (item as { defaultEnabled?: boolean }).defaultEnabled ?? true
     }
   }
 

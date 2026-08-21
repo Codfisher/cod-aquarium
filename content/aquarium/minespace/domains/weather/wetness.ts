@@ -1,4 +1,5 @@
-import type { StandardMaterial } from '@babylonjs/core'
+import type { StandardMaterial, Texture } from '@babylonjs/core'
+import { FresnelParameters } from '@babylonjs/core'
 
 /**
  * 淋濕之後漫射還剩多少
@@ -36,6 +37,34 @@ const WET_SPECULAR_POWER = 20
 /** 差得夠多才寫進材質，這是每一幀都會走的路徑 */
 const APPLY_STEP = 0.01
 
+/**
+ * 濕透時反光貼圖的強度上限
+ *
+ * 這是 texture.level 的目標值，不是材質數量級的東西——一張貼圖、
+ * 所有濕的材質共用，level 調一次就等於全世界一起調。
+ *
+ * 這個數字原本是 0.55，那讓雨中的草地整片泛白。原因是雨天的天空
+ * 是一片亮灰，以那個強度反射到每一個像素上，等於在整個世界蓋一層
+ * 灰白——濕潤該有的「壓暗」被自己的反光完全蓋過去了。
+ *
+ * 濕的地面是更深、更飽和的，只有掠射角才泛起一道白。
+ * 收到兩成二，加上底下那組收窄的 Fresnel，兩件事才對得起來
+ */
+const WET_REFLECTION_LEVEL = 0.22
+
+/**
+ * 反光要多斜的視角才看得到
+ *
+ * Fresnel 的物理直覺：越貼近掠射角，反光越強。bias 是「正對時
+ * 還留多少」、power 是「往掠射角集中得多快」。
+ *
+ * 這一組原本是 0.08 與 2.4，散得太開——近乎正視地面時也在反光，
+ * 於是低頭看到的草地也蒙上一層天色。bias 收到近乎零、power 拉高，
+ * 反光就縮回它該在的地方：斜看出去的那一段遠景
+ */
+const REFLECTION_FRESNEL_BIAS = 0.02
+const REFLECTION_FRESNEL_POWER = 4
+
 export interface Wetness {
   /** ratio 為 0 是全乾、1 是濕透 */
   setRatio: (ratio: number) => void;
@@ -62,9 +91,12 @@ interface MaterialBackup {
  * 材質是全世界共用的（同一種石頭只有一份），所以濕潤也是全域的。
  * 這在這個場景裡剛好說得過去：雨勢滿檔時能見度只有二十六格，
  * 看得到的就只有腳邊這一塊；而走出雨區之後那段慢慢乾的過程，
- * 本來就該跟著人一起離開
+ * 本來就該跟著人一起離開。
+ *
+ * reflectionTexture 是濕地反光用的天色貼圖，見 sky-reflection.ts，
+ * 不給的話（例如低畫質關掉這個效果）就只做原本的漫射壓暗與高光散開
  */
-export function createWetness(materialList: StandardMaterial[]): Wetness {
+export function createWetness(materialList: StandardMaterial[], reflectionTexture?: Texture): Wetness {
   /**
    * 記住原本的顏色，之後每次都拿原色去算
    *
@@ -77,6 +109,56 @@ export function createWetness(materialList: StandardMaterial[]): Wetness {
     specularPower: material.specularPower,
   }))
 
+  /**
+   * 一份 Fresnel 參數，所有濕的材質共用
+   *
+   * 跟貼圖是同一個道理：濕潤是全域的一件事，不必為兩百多份材質
+   * 各自配一份一模一樣的參數
+   */
+  const fresnelParameters = new FresnelParameters()
+  fresnelParameters.bias = REFLECTION_FRESNEL_BIAS
+  fresnelParameters.power = REFLECTION_FRESNEL_POWER
+
+  /** 目前有沒有真的把反射掛上去 */
+  let isReflectionAttached = false
+
+  /**
+   * 乾的時候要把反射整個拆掉，不能只是把強度調成零
+   *
+   * 一開始的做法是建立時就掛給每一份材質、之後只調 level。
+   * 那是不行的，兩個理由：
+   *
+   * 一是浪費。九成九的時間地面是乾的，卻讓兩百多份材質都常駐
+   * 帶著一張反射貼圖，每一次繪製都多綁一個取樣器。
+   *
+   * 二是會出事。StandardMaterial 的反射在著色器裡有 samplerCube
+   * 與 sampler2D 兩份宣告，靠條件編譯二選一；掛著一張 2D 的
+   * 等距柱狀投影貼圖時，另一份宣告仍然存在卻永遠不會被綁，
+   * 於是它退回材質單元零——而那一格綁的是別的 2D 貼圖。
+   * WebGL 對這種情況丟 GL_INVALID_OPERATION: Two textures of
+   * different types use the same sampler location，整個繪製呼叫作廢。
+   *
+   * 只在真的濕的時候掛上去，乾了就拆掉，兩個問題一起沒有
+   */
+  function setReflectionAttached(nextAttached: boolean): void {
+    if (!reflectionTexture || nextAttached === isReflectionAttached)
+      return
+
+    isReflectionAttached = nextAttached
+
+    for (const backup of backupList) {
+      /**
+       * 只拆貼圖，Fresnel 參數留著
+       *
+       * 那組參數單獨存在時不做任何事——反射的那一段整個是掛在
+       * 有沒有貼圖上的。而它的型別不收 null，硬要拆得多繞一圈，
+       * 換不到任何東西
+       */
+      backup.material.reflectionTexture = nextAttached ? reflectionTexture : null
+      backup.material.reflectionFresnelParameters = fresnelParameters
+    }
+  }
+
   let appliedRatio = 0
 
   return {
@@ -86,6 +168,7 @@ export function createWetness(materialList: StandardMaterial[]): Wetness {
         return
 
       appliedRatio = wet
+      setReflectionAttached(wet > APPLY_STEP)
 
       for (const backup of backupList) {
         const { material, diffuse, specular } = backup
@@ -109,6 +192,16 @@ export function createWetness(materialList: StandardMaterial[]): Wetness {
           lerp(specular[2], WET_SPECULAR, wet),
         )
         material.specularPower = lerp(backup.specularPower, WET_SPECULAR_POWER, wet)
+      }
+
+      /**
+       * 反光強度跟著同一個濕度走
+       *
+       * 貼圖只有一張、Fresnel 參數只有一份，全部材質共用，
+       * 調這一個 level 就等於整個世界的濕地反光一起淡入淡出
+       */
+      if (reflectionTexture) {
+        reflectionTexture.level = lerp(0, WET_REFLECTION_LEVEL, wet)
       }
     },
   }

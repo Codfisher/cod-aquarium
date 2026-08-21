@@ -42,8 +42,7 @@ const SHORELINE_STRENGTH = 0.85
  * 岸線量化成幾階
  *
  * 深度差是連續的，直接畫出來是一圈平滑的漸層——全場唯一沒有階梯的東西。
- * 切成四階之後，那圈白沫是一階一階退開的，
- * 與貼圖上的像素、與像素對齊的陰影同一個節奏
+ * 切成四階之後，那圈白沫是一階一階退開的，與貼圖上的像素同一個節奏
  */
 const SHORELINE_STEP_COUNT = 4.0
 
@@ -626,7 +625,7 @@ export function createWaterSurface({
   waterMap,
 }: CreateWaterSurfaceParams): WaterSurface {
   const { state: devToggle } = useDevToggles()
-  const { quality } = useGraphicsQuality()
+  const { preset } = useGraphicsQuality()
 
   /** 湧浪的相位吃這張圖 */
   shoreDistanceTexture = getShoreDistanceTexture(scene, waterMap)
@@ -671,7 +670,7 @@ export function createWaterSurface({
        * 每圈一次指數衰減——不貴，但那一檔本來就在跟填充率計較。
        * 強度歸零之後著色器裡那幾段全部跳過，等於這個外掛不存在
        */
-      const isEnabled = devToggle.waterShoreline && quality.value !== 'low'
+      const isEnabled = devToggle.waterShoreline && preset.value.waterShoreline
       waterState.shorelineStrength = isEnabled ? SHORELINE_STRENGTH : 0
 
       /**

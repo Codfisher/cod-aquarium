@@ -245,7 +245,7 @@ export function createWaterCaustics({
   getDayRatio,
 }: CreateWaterCausticsParams): WaterCaustics {
   const { state: devToggle } = useDevToggles()
-  const { quality } = useGraphicsQuality()
+  const { preset } = useGraphicsQuality()
 
   waterLevelTexture = getWaterMapTexture(scene, waterMap)
 
@@ -263,7 +263,7 @@ export function createWaterCaustics({
        * 就算多數片元在前兩道條件就出去了，那一檔本來就在跟填充率計較
        */
       const dayRatio = Math.min(1, Math.max(0, getDayRatio()))
-      const isEnabled = devToggle.waterCaustics && quality.value !== 'low' && dayRatio > 0.01
+      const isEnabled = devToggle.waterCaustics && preset.value.waterCaustics && dayRatio > 0.01
 
       /** 陽光穿過水才有焦散，夜裡沒有東西可以聚 */
       causticState.strength = isEnabled ? CAUSTIC_STRENGTH * dayRatio : 0

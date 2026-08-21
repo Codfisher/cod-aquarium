@@ -7,6 +7,7 @@ import {
   StandardMaterial,
   Texture,
 } from '@babylonjs/core'
+import { useGraphicsQuality } from '../../composables/use-graphics-quality'
 import { measureSection } from '../../composables/use-performance-probe'
 import { pickOverride, resolveTexture } from '../block/texture-pack'
 import { setLeafTranslucency } from './leaf-translucency'
@@ -226,6 +227,9 @@ export function createTextureSkinner(scene: Scene): TextureSkinner {
   let currentPack: TexturePack | null = null
   let isBumpEnabled = false
 
+  /** 視差要哪一種由畫質等級決定，見 applyBumpTexture */
+  const { preset } = useGraphicsQuality()
+
   /** 把上一套材質包留下的貼圖與觀察者收乾淨 */
   function clearEntry(entry: MaterialEntry) {
     for (const dispose of entry.disposeList) {
@@ -356,18 +360,34 @@ export function createTextureSkinner(scene: Scene): TextureSkinner {
      * 草的上方就浮出一圈描邊，那正是兩片交叉立板自己的輪廓。
      * 實心方塊沒有這個問題：它整片都是不透明的，推到哪裡都還是石頭
      */
-    if (currentPack?.hasHeightMap && !recipe.cutout) {
+    const parallaxMode = preset.value.parallax
+    if (currentPack?.hasHeightMap && !recipe.cutout && parallaxMode !== 'off') {
       material.useParallax = true
+      /**
+       * 遮擋式視差只在最奢的那一級開
+       *
+       * 兩者的差別在於「找到哪裡」：偏移式只依視角把取樣座標推一次，
+       * 表面因此會隨視角滑動，但石縫背後仍然看得到本該被擋住的東西；
+       * 遮擋式則沿著視線在高度圖裡一路行進，找到光線真正撞上表面的那一點——
+       * 石縫於是有了真的深度，轉頭時邊緣會互相遮擋。
+       *
+       * 代價是每個像素一個取樣迴圈，是典型的片段著色器瓶頸，
+       * 所以它是「極致」那一級才有的東西
+       */
+      material.useParallaxOcclusion = parallaxMode === 'occlusion'
       /**
        * 位移量壓得很小
        *
        * 一格方塊只有一格見方，位移大一點邊緣就會被推出格子外，
-       * 相鄰兩顆方塊之間裂出一道縫
+       * 相鄰兩顆方塊之間裂出一道縫。
+       * 遮擋式撐得住大一點的位移——它會真的算出交點，
+       * 不像偏移式那樣越推越歪
        */
-      material.parallaxScaleBias = 0.06
+      material.parallaxScaleBias = parallaxMode === 'occlusion' ? 0.1 : 0.06
     }
     else {
       material.useParallax = false
+      material.useParallaxOcclusion = false
     }
 
     if (!specularUrl)

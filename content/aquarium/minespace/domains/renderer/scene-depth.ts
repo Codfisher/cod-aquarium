@@ -124,13 +124,12 @@ export function createSceneDepth({ scene, camera }: CreateSceneDepthParams): Sce
     return renderList.filter((mesh) => !isWindSwayMesh(mesh))
   }
 
-  const { quality } = useGraphicsQuality()
+  const { preset } = useGraphicsQuality()
   const stopQualityWatch = watch(
-    quality,
-    (currentQuality) => {
-      const isEnabled = currentQuality !== 'low'
-      sceneDepthState.isEnabled = isEnabled
-      depthRenderer.enabled = isEnabled
+    preset,
+    (currentPreset) => {
+      sceneDepthState.isEnabled = currentPreset.sceneDepth
+      depthRenderer.enabled = currentPreset.sceneDepth
     },
     { immediate: true },
   )

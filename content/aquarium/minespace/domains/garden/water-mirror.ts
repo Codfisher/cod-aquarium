@@ -99,10 +99,10 @@ const MIN_WATER_COLUMN_COUNT = 9
  * 但蛙聲澤那片水量出來半徑將近二十格，同一張圖攤在四十格見方的面上
  * 只剩每格六個像素，倒影會糊成一片色塊——解析度得跟著範圍走。
  *
- * 走到水邊掉幀的話，這兩個數字是第一個該減半的
+ * 走到水邊掉幀的話，這兩個數字是第一個該減半的——
+ * 現在它們住在畫質設定表裡（mirrorSizeSmall / mirrorSizeLarge），
+ * 每一級各有一組，最省的那一級給零就是整個不做
  */
-const MIRROR_SIZE_SMALL = 256
-const MIRROR_SIZE_LARGE = 512
 
 /** 超過這個半徑就換大張的 */
 const LARGE_MIRROR_RADIUS = 10
@@ -292,10 +292,16 @@ export function createWaterMirrors(
   camera: UniversalCamera,
   worldState: Uint8Array,
 ): WaterMirrors | null {
-  const { quality } = useGraphicsQuality()
+  const { preset } = useGraphicsQuality()
   const { state: devToggle } = useDevToggles()
-  /** 低畫質不做倒影，那裡本來就在跟每一次繪製呼叫計較 */
-  if (quality.value === 'low')
+  /**
+   * 邊長為零的那一級不做倒影
+   *
+   * 一面鏡子等於那一帶的地景多畫一趟，最省的那一級本來就在跟
+   * 每一次繪製呼叫計較。中間幾級則是照樣做、只是把圖開小一半
+   */
+  const { mirrorSizeSmall, mirrorSizeLarge } = preset.value
+  if (mirrorSizeSmall <= 0)
     return null
 
   const skyMeshList = [
@@ -327,7 +333,7 @@ export function createWaterMirrors(
       continue
     }
 
-    const textureSize = surface.radius > LARGE_MIRROR_RADIUS ? MIRROR_SIZE_LARGE : MIRROR_SIZE_SMALL
+    const textureSize = surface.radius > LARGE_MIRROR_RADIUS ? mirrorSizeLarge : mirrorSizeSmall
     const texture = new MirrorTexture(`water-mirror-${gardenId}`, textureSize, scene, true)
     /**
      * 鏡面的方程式

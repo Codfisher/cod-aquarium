@@ -20,13 +20,48 @@ const GROUND_HAZE_TOP = SAND_LEVEL + 10
 const GROUND_HAZE_FALLOFF = 1 / 12
 
 /**
- * 貼著地面時霧要濃多少
+ * 貼著地面時霧要濃多少（平常時段的基準值）
  *
  * 這是倍率不是加法：近處的東西完全不受影響（乘上零還是零），
  * 只有本來就有點遠的東西會再糊一點。
  * 直接相加的話，腳邊的方塊會憑空罩上一層灰
  */
-const GROUND_HAZE_BOOST = 0.6
+const GROUND_HAZE_BOOST_BASE = 0.6
+
+/**
+ * 清晨與黃昏時，貼地水氣要濃到多少
+ *
+ * 太陽貼著地平線的那段時間，貼地的水氣最看得出來——
+ * 逆光穿過一層薄霧，是晨昏辨識度最高的畫面之一。
+ * 比平常濃將近一倍，正午再收回基準值
+ */
+const GROUND_HAZE_BOOST_DAWN_DUSK = 1.15
+
+/**
+ * 太陽多低算「貼著地平線」
+ *
+ * 用 -sunLight.direction.y 當太陽仰角：這個值以下濃度給滿，
+ * 與 cloud-shadow.ts 判斷太陽高度的做法是同一套量法
+ */
+const GROUND_HAZE_LOW_SUN_HEIGHT = 0.12
+
+/** 太陽多高之後，濃度收回平常的基準值 */
+const GROUND_HAZE_HIGH_SUN_HEIGHT = 0.55
+
+/**
+ * 依太陽仰角算這一刻的貼地水氣該有多濃
+ *
+ * 仰角低（晨昏）給到頂，仰角高（正午）收回基準值，
+ * 中間用平滑曲線接起來，太陽爬升的過程才不會看出一道分界
+ */
+function computeGroundHazeBoost(sunHeight: number): number {
+  const ratio = (sunHeight - GROUND_HAZE_LOW_SUN_HEIGHT)
+    / (GROUND_HAZE_HIGH_SUN_HEIGHT - GROUND_HAZE_LOW_SUN_HEIGHT)
+  const clamped = Math.min(1, Math.max(0, ratio))
+  const smooth = clamped * clamped * (3 - 2 * clamped)
+
+  return GROUND_HAZE_BOOST_DAWN_DUSK + (GROUND_HAZE_BOOST_BASE - GROUND_HAZE_BOOST_DAWN_DUSK) * smooth
+}
 
 /**
  * 中距離那層空氣往天色偏多少
@@ -56,7 +91,7 @@ const airState = {
    * 兩層混色的結果就與原本那一行 mix(vFogColor, color, fog) 完全相同——
    * 等於這個效果不存在
    */
-  groundBoost: GROUND_HAZE_BOOST,
+  groundBoost: GROUND_HAZE_BOOST_BASE,
 }
 
 /**
@@ -167,15 +202,17 @@ export function registerAerialPerspective(): void {
  * 寫入這一刻近中距離的空氣顏色
  *
  * 由霧色往當下的中空天色偏過去。洞裡與雨中要收回純霧色：
- * 岩壁之間沒有天空可以散射，下雨時天本來就已經是一片鉛灰
+ * 岩壁之間沒有天空可以散射，下雨時天本來就已經是一片鉛灰。
+ * sunHeight 是太陽仰角（-sunLight.direction.y），決定貼地水氣此刻該有多濃
  */
 export function updateAerialAir(
   fogColor: Color3,
   skyMidColor: Color3,
   clearRatio: number,
+  sunHeight: number,
   isEnabled = true,
 ): void {
-  airState.groundBoost = isEnabled ? GROUND_HAZE_BOOST : 0
+  airState.groundBoost = isEnabled ? computeGroundHazeBoost(sunHeight) : 0
 
   const strength = isEnabled
     ? MID_AIR_STRENGTH * Math.min(1, Math.max(0, clearRatio))
