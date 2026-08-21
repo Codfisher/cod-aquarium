@@ -618,9 +618,20 @@ function createGlowMesh(name: string, planeSize: number, scene: Scene): Mesh {
   return mesh
 }
 
-/** 太陽外圍的光暈，讓方形太陽不至於像貼上去的白紙 */
+/**
+ * 太陽外圍的光暈，讓方形太陽不至於像貼上去的白紙
+ *
+ * 峰值刻意壓在太陽本體之下。光暈走的是相加混合，疊在本來就不暗的
+ * 天色上；太陽本體則是不透明的方片，直接把天空蓋掉。
+ * 兩者峰值相當時，「天空加光暈」反而比太陽自己還亮——
+ * 那顆方形太陽於是整個溶進自己的暈裡，只剩一團白，
+ * 看不出中間有一個方塊。
+ *
+ * 收到六成之後，太陽與貼邊的光暈差開二十五階（原本只有十二階），
+ * 輪廓回來了，而暈的尾巴照樣鋪得出去
+ */
 function createSunGlow(scene: Scene) {
-  const texture = createGlowTexture(SUN_GLOW_NAME, scene, [217, 211, 182])
+  const texture = createGlowTexture(SUN_GLOW_NAME, scene, [130, 127, 109])
 
   const material = createSkyBodyMaterial(`${SUN_GLOW_NAME}-material`, texture, scene)
   material.emissiveColor = new Color3(1, 1, 1)
