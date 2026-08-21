@@ -13,6 +13,7 @@ import type { DayPhase } from '../domains/weather/day-night'
 import type { GodRays } from '../domains/weather/god-rays'
 import { useStorage } from '@vueuse/core'
 import { computed, onBeforeUnmount, ref } from 'vue'
+import { getReloadHandoff } from '../domains/scene/reload-handoff'
 import {
   advanceSunriseDrift,
   createDayNightSample,
@@ -135,9 +136,18 @@ export function useDayNight() {
    * 而畫面上其實只有一行時刻讀數在看它——那一行五分之一秒更新一次就夠了。
    * 所以下面那幾個 ref 是「給畫面看的鏡像」，隔一段時間才同步一次
    */
-  let currentTime = INITIAL_TIME_OF_DAY
+  /**
+   * 從哪一刻開始
+   *
+   * 換畫質是整頁重來的（見 reload-handoff），接不回原本的時刻的話，
+   * 天色會從黃昏跳回預設的上午——那比人被丟回出生點還醒目，
+   * 因為整片天連同霧色與影子的方向會一起換掉
+   */
+  const initialTime = getReloadHandoff()?.timeOfDay ?? INITIAL_TIME_OF_DAY
 
-  const timeOfDay = ref(INITIAL_TIME_OF_DAY)
+  let currentTime = initialTime
+
+  const timeOfDay = ref(initialTime)
   /**
    * 時間會不會自己走
    *
@@ -150,8 +160,8 @@ export function useDayNight() {
   const daySpeedRatio = useStorage('minespace-day-speed', INITIAL_DAY_SPEED_RATIO)
   /** 白晝的程度，0 為全暗、1 為大白天 */
   const dayRatio = ref(1)
-  const phase = ref<DayPhase>(getDayPhase(INITIAL_TIME_OF_DAY))
-  const clockText = ref(formatClock(INITIAL_TIME_OF_DAY))
+  const phase = ref<DayPhase>(getDayPhase(initialTime))
+  const clockText = ref(formatClock(initialTime))
 
   const sample = createDayNightSample()
 

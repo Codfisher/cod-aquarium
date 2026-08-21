@@ -17,6 +17,7 @@ import {
   resolveCollision,
 } from '../domains/player/collision'
 import { updateLeafTranslucency } from '../domains/renderer/leaf-translucency'
+import { getReloadHandoff } from '../domains/scene/reload-handoff'
 import { updateAerialAir } from '../domains/weather/aerial-perspective'
 import { CAVE_FOG_COLOR, EDGE_FOG_END, EDGE_FOG_START, getEdgeFogRatio } from '../domains/weather/atmosphere'
 import { updateCloudShadow } from '../domains/weather/cloud-shadow'
@@ -348,10 +349,32 @@ export function useFpsController() {
       return count > 0 ? new Color3(sumR / count, sumG / count, sumB / count) : null
     }
 
-    const spawn = findSafeStandingPosition(worldState, SPAWN_POSITION.x, SPAWN_POSITION.z)
+    /**
+     * 換畫質重來時原地接回去，不然就從鳥居前面開始
+     *
+     * 交接回來的高度直接沿用，不再落地一次：世界是同一顆種子生出來的，
+     * 那個位置照樣站得住，而重新落地會把待在洞裡或站在樹上的人
+     * 拉回地表——那正是最需要原地回來的兩種情況
+     */
+    const handoff = getReloadHandoff()
+    const spawn = handoff?.position
+      ?? findSafeStandingPosition(worldState, SPAWN_POSITION.x, SPAWN_POSITION.z)
+
     position.x = spawn.x
     position.y = spawn.y
     position.z = spawn.z
+
+    /**
+     * 視角也要接回去
+     *
+     * 位置對了而視角回到預設的正北，人還是會愣一下——
+     * 原本在看池子，重來之後看著鳥居，那與被搬走沒有兩樣
+     */
+    if (handoff) {
+      camera.rotation.x = handoff.rotation.pitch
+      camera.rotation.y = handoff.rotation.yaw
+      camera.rotation.z = 0
+    }
 
     /**
      * 所有輸入都自己接管

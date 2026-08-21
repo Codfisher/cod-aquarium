@@ -226,6 +226,7 @@ import { useDayNight } from '../../composables/use-day-night'
 import { useDevToggles } from '../../composables/use-dev-toggles'
 import { exportErrorLog, useErrorLogger } from '../../composables/use-error-logger'
 import { useFpsController } from '../../composables/use-fps-controller'
+import { useGraphicsQuality } from '../../composables/use-graphics-quality'
 import { useMobileController } from '../../composables/use-mobile-controller'
 import { getSectionLabel, usePerformanceProbe } from '../../composables/use-performance-probe'
 import { useSimpleI18n } from '../../composables/use-simple-i18n'
@@ -252,6 +253,7 @@ import { useChunkWorker } from '../world/use-chunk-worker'
 import { useTerrainWorker } from '../world/use-terrain-worker/use-terrain-worker'
 import { createEmptyWaterMap, scanWaterMap } from '../world/water-body'
 import { castRainRay, createWorldState } from '../world/world-access'
+import { reloadWithHandoff } from './reload-handoff'
 
 const { t, locale } = useSimpleI18n({
   'zh-hant': {
@@ -490,6 +492,43 @@ watch(cameraFov, (value) => {
  * 都該是玩家自己決定的事
  */
 const sunAzimuth = useStorage('minespace-sun-azimuth', DEFAULT_SUNRISE_AZIMUTH)
+
+/**
+ * 換畫質就整頁重來，人留在原地
+ *
+ * 一級畫質決定的東西裡有一半是建立當下才接得上去的：幾何的多重取樣、
+ * 後製鏈上有哪幾支、體素全局光要不要開工。這些在活著的場景上改不動，
+ * 於是原本切過去只換到一半——影子與貼圖立刻變了，體積光與抗鋸齒卻
+ * 要等下次進來才出現。使用者看到的是「這個選項好像沒作用」。
+ *
+ * 那就重來。重來之前先把人在哪、看著哪、幾點鐘寄放一份，
+ * 新的一輪起來時原地接回去（見 reload-handoff）。
+ *
+ * 一樣不能加 immediate：這個 watch 寫在 useBabylonScene 之前，
+ * camera 是那一行才解構出來的，立即執行會在暫時性死區裡讀它。
+ * 而且立即執行的語意本身就是錯的——一進來就重新整理會變成無窮迴圈
+ */
+const { quality } = useGraphicsQuality()
+
+watch(quality, () => {
+  /**
+   * 還沒進去就沒有位置好接
+   *
+   * 開始面板還開著時人根本還沒站進世界，這時的位置是預設值。
+   * 存下去只是把出生點寫進交接，不如不存
+   */
+  if (!hasStarted.value || !camera.value) {
+    window.location.reload()
+
+    return
+  }
+
+  reloadWithHandoff({
+    position: { x: position.x, y: position.y, z: position.z },
+    rotation: { pitch: camera.value.rotation.x, yaw: camera.value.rotation.y },
+    timeOfDay: getTimeOfDay(),
+  })
+})
 
 watch(sunAzimuth, (value) => setSunriseAzimuth(value), { immediate: true })
 
