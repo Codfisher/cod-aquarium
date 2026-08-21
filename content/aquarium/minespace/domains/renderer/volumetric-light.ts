@@ -3,6 +3,7 @@ import { Vector3 as BabylonVector3, Effect, Matrix, PostProcess } from '@babylon
 import { useDevToggles } from '../../composables/use-dev-toggles'
 import { reportDiagnostic } from '../../composables/use-error-logger'
 import { useGraphicsQuality } from '../../composables/use-graphics-quality'
+import { sceneDepthState } from './scene-depth'
 import { createVolumetricShadow } from './volumetric-shadow'
 
 const SHADER_NAME = 'minespaceVolumetricLight'
@@ -13,6 +14,8 @@ const DEBUG_MODE_LABEL_LIST = [
   '二號：只畫加上去的那道光',
   '三號：只畫深度',
   '四號：只畫陰影圖查出來的可見度',
+  '五號：只畫亮部保護',
+  '六號：只畫相位',
 ]
 
 const debugState = { mode: 1 }
@@ -56,7 +59,7 @@ const MAX_DISTANCE = 90
  * 望向太陽的那一側，不再是整片均勻地加。
  *
  * 但集中之後反而在晨昏出過一次事：望向朝陽時那一小塊被推爆了。
- * 治本的是天空不疊那一項（見著色器的 geometryRatio）。
+ * 治本的是亮部少疊那一項（見著色器的 headroom）。
  *
  * 這個數字曾經一路被壓到四成，而那是被錯誤的前提逼出來的：
  * 當時的可見度來自體素粗網格，場裡處處都是一，加什麼都變成
@@ -181,6 +184,32 @@ const float SCATTER_BASE = 0.18;
  * 而距離正是深度落差瑕疵的來源（見 main 裡那一段）
  */
 const float NEAR_FADE_DISTANCE = 10.0;
+
+/**
+ * 亮度從哪裡開始算「亮」
+ *
+ * 白天的藍天大約落在零點七五，白沙更高。這一段的兩端要
+ * 把天空整個含進去，同時讓深色的樹葉離得遠遠的
+ */
+const float BRIGHT_START = 0.45;
+const float BRIGHT_FULL = 0.85;
+
+/**
+ * 又遠又亮的地方收到剩多少
+ *
+ * 那就是天空。天色本身已經算過大氣散射（見 sky-gradient），
+ * 光束再疊上去是同一件事做兩遍，收到剩半成
+ */
+const float SKY_FLOOR = 0.05;
+
+/**
+ * 亮的表面收到剩多少
+ *
+ * 這一項與距離無關，防的是被曬到的白沙。它在色調映射的膝點上，
+ * 加什麼都會把周圍一起推過去、把亮部的層次壓平。
+ * 只收一半，光束打在沙地上仍然看得見
+ */
+const float BRIGHT_FLOOR = 0.5;
 
 /**
  * Henyey-Greenstein 相位函數
@@ -310,24 +339,54 @@ void main() {
   float phaseValue = SCATTER_BASE + (1.0 - SCATTER_BASE) * forwardLobe;
 
   /**
-   * 只把天空那一塊收掉，別動有東西擋住的那些像素
+   * 已經很亮的地方少加一點，看的是亮度不是深度
    *
-   * 晨昏會亮成一片的原因在天空：太陽貼近地平線時望向它的視線
+   * 這一項要防的是天空被推爆：太陽貼近地平線時望向它的視線
    * 幾乎是平的，行進的九十格全是照得到太陽的空氣，累積值頂到滿檔；
-   * 而那一塊的天色本來就已經接近純白——霞光加上日暈早就貼在
-   * 色調映射的上限上，再疊什麼都只會衝破天花板。
-   * 何況天空那一段沒有東西可以擋光，走再遠都是滿的。
+   * 而那一塊的天色早就貼在色調映射的上限上，再疊什麼都只會衝破天花板。
    *
-   * 但這道淡出的門檻曾經切在七成的距離上，那是錯的：
-   * 上面剛乘過的 rayLength / maxDistance 要走得夠遠才大，
-   * 而這一項要撞得夠近才大——兩個係數彼此抵消，
-   * 中間只剩一道很窄的窗口，於是整個效果幾乎看不到。
+   * 這裡曾經拿深度來猜「這是不是天空」（很遠就當成天空），
+   * 那個代理指標會出事。樹葉不在深度圖裡，於是葉片像素的深度
+   * 是它背後那個東西的距離：後面是木頭就拿到滿檔、後面是天空
+   * 就被收掉八成五。同一片樹冠因此照著背景的形狀分成明暗兩塊，
+   * 木頭的輪廓整個印了上來。
    *
-   * 門檻改成貼著行進距離的盡頭：九十格以內有東西擋住的一律full，
-   * 真正什麼都沒撞到的（天空，以及遠得超出行進範圍的）才收掉。
-   * 留一成五不收，光束打在天空前面時才不會硬生生斷掉
+   * 改成直接問「這個像素現在有多亮」。要防的本來就是亮部被推爆，
+   * 而亮度自己就答得出來，不必繞道深度——順帶也不再受
+   * 「哪些網格有進深度圖」這件事影響
    */
-  float geometryRatio = 1.0 - 0.85 * smoothstep(maxDistance * 0.95, maxDistance * 1.05, viewZ);
+  float sceneLuma = dot(sceneColor, vec3(0.2126, 0.7152, 0.0722));
+  float brightRatio = smoothstep(BRIGHT_START, BRIGHT_FULL, sceneLuma);
+
+  /**
+   * 「又遠又亮」才算天空，兩個條件缺一不可
+   *
+   * 只看亮度不行：被曬到的白沙一樣很亮，收得夠兇到能壓住天空時，
+   * 地面上的光束會一起消失。
+   *
+   * 只看距離也不行：那會把「深度圖裡有沒有這個網格」變成畫面的一部分。
+   * 樹葉曾經整片不進深度圖，葉片像素拿到的是背後那個東西的距離，
+   * 後面是天空就被當成天空收掉、後面是木頭就拿到滿檔，
+   * 木頭的輪廓因此印上整片樹冠。
+   *
+   * ── 這一段依賴深度圖裡有樹葉 ──
+   *
+   * 現在樹葉有進深度圖（見 scene-depth 的 isWindSwayMesh），
+   * 所以葉片像素拿到的是自己的距離，farRatio 一律是零、整片樹冠均勻。
+   *
+   * 哪天有人把樹葉重新濾掉，這裡會第一個現形，而且症狀
+   * 跟「深度圖」三個字完全連不起來。真要改那邊的話，
+   * scene-depth 那段註解裡有完整的來龍去脈與正規解
+   */
+  float farRatio = smoothstep(maxDistance * 0.95, maxDistance * 1.05, viewZ);
+  float skyRatio = farRatio * brightRatio;
+
+  /**
+   * 兩道保護各司其職，相乘疊起來
+   *
+   * 前一項專治天空（又遠又亮），後一項專治被曬到的亮面（只看亮度）
+   */
+  float headroom = mix(1.0, SKY_FLOOR, skyRatio) * mix(1.0, BRIGHT_FLOOR, brightRatio);
 
   /**
    * 除錯檢視：把三個中間值分別畫成三個顏色通道
@@ -366,7 +425,7 @@ void main() {
      * 要查的是葉子本身的繪製順序
      */
     if (debugMode < 2.5) {
-      gl_FragColor = vec4(sunColor * accumulated * phaseValue * geometryRatio * strength, 1.0);
+      gl_FragColor = vec4(sunColor * accumulated * phaseValue * headroom * strength, 1.0);
       return;
     }
 
@@ -389,12 +448,39 @@ void main() {
      * 這一張與深度無關，純粹是「這條視線沿路有多少空氣曬得到太陽」。
      * 樹下該暗、空曠處該亮
      */
-    gl_FragColor = vec4(rawVisibility, rawVisibility, rawVisibility, 1.0);
+    if (debugMode < 4.5) {
+      gl_FragColor = vec4(rawVisibility, rawVisibility, rawVisibility, 1.0);
+      return;
+    }
+
+    /**
+     * 五號：只畫亮部保護
+     *
+     * 這一項曾經只拿深度算，而樹葉不在深度圖裡，
+     * 於是樹冠上印出了背景幾何的輪廓。
+     *
+     * 現在天空那一半要「又遠又亮」才算數，所以這張圖上
+     * 天空該是暗的（保護生效）、被曬到的白沙半暗、
+     * 而樹冠與陰影處該是亮的（滿檔，不受背後是什麼影響）。
+     * 樹冠上若還看得出木頭的形狀，代表複合條件沒有擋住
+     */
+    if (debugMode < 5.5) {
+      gl_FragColor = vec4(headroom, headroom, headroom, 1.0);
+      return;
+    }
+
+    /**
+     * 六號：相位
+     *
+     * 望向太陽時接近一、背對時掉到底。整張圖該是一片平滑的漸層，
+     * 與場景裡有什麼東西完全無關
+     */
+    gl_FragColor = vec4(phaseValue, phaseValue, phaseValue, 1.0);
     return;
   }
 
   gl_FragColor = vec4(
-    sceneColor + sunColor * accumulated * phaseValue * geometryRatio * strength,
+    sceneColor + sunColor * accumulated * phaseValue * headroom * strength,
     1.0
   );
 }
@@ -527,7 +613,25 @@ export function createVolumetricLight(scene: Scene, camera: UniversalCamera): Vo
 
   postProcess.onApply = (effect) => {
     const shadowTexture = shadow.getTexture()
-    const depthTexture = shadow.getCameraDepthTexture()
+    /**
+     * 共用場景那一張深度圖，不要自己再開一張
+     *
+     * 那一張刻意把會被風吹動的網格濾掉了（見 scene-depth 的說明）：
+     * 深度那一趟走 Babylon 自己的著色器，套不上風擺動的頂點外掛，
+     * 草在畫面上擺、深度圖裡卻停在原位。
+     *
+     * 曾經為了讓樹葉進到深度圖而另外開一張不過濾的，結果是植物
+     * 在空中留下一個不會動的剪影——與水面那片草形白沫同一個根因。
+     *
+     * 濾掉之後，葉片像素與縫隙像素拿到的是同一段射線、同樣的加成，
+     * 樹冠因此是均勻的。少算的那一小段（鏡頭到葉子之間）在
+     * 取平均的算式裡影響很小，遠比一個浮在空中的剪影好
+     */
+    const depthTexture = sceneDepthState.texture
+    if (!depthTexture) {
+      setAttached(false)
+      return
+    }
 
     scene.getTransformMatrix().invertToRef(inverseViewProjection)
     camera.getDirectionToRef(BabylonVector3.Forward(), forward)
@@ -617,7 +721,11 @@ export function createVolumetricLight(scene: Scene, camera: UniversalCamera): Vo
        * 強度為零（雨中、洞裡）算不需要，走「整個拿掉」那條路。
        * 兩張貼圖是自己開的，跟著這個實例的生命週期走，不必再檢查
        */
-      setAttached(devToggle.volumetricLight && currentStrength > 0.001)
+      setAttached(
+        devToggle.volumetricLight
+        && currentStrength > 0.001
+        && !!sceneDepthState.texture,
+      )
     },
     dispose() {
       shadow.dispose()

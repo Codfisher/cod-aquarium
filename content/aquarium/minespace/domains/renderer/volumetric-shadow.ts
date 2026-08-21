@@ -34,22 +34,6 @@ export interface VolumetricShadow {
   /** 每幀呼叫，把這張圖挪到鏡頭附近並對準太陽 */
   update: (sunDirection: Vector3) => void;
   getTexture: () => RenderTargetTexture;
-  /**
-   * 從鏡頭看出去的深度圖，決定光束走到哪裡停下來
-   *
-   * 這裡不能共用 scene-depth 那一張。那一張刻意把會被風吹動的網格
-   * 濾掉了（見 scene-depth 的說明：深度那一趟套不上風擺動的頂點外掛，
-   * 草會在畫面上擺、深度圖裡卻停在原位，在水面上印出一片不動的白沫）。
-   *
-   * 而樹葉正是會擺動的網格。少了它們，葉片那一格拿到的深度
-   * 是「葉子後面那塊木頭」的距離——光束的加成因此照著背景幾何的
-   * 形狀走，木頭的輪廓就印穿了整片樹冠。
-   *
-   * 光束對「葉子停在沒擺動的原位」這種零點幾格的誤差完全不敏感：
-   * 它的結果沿路平均過幾十次，本來就是糊的。所以這裡自己開一張
-   * 不做任何過濾的，兩邊各取所需
-   */
-  getCameraDepthTexture: () => RenderTargetTexture;
   /** 世界座標 → 太陽的裁切空間，拿來算取樣點落在圖上的哪裡 */
   getViewProjection: () => Matrix;
   /** 世界座標 → 太陽的視空間，拿來算取樣點離太陽多遠 */
@@ -138,28 +122,6 @@ export function createVolumetricShadow(scene: Scene, camera: UniversalCamera): V
   depthRenderer.useOnlyInActiveCamera = false
   scene.customRenderTargets.push(depthMap)
 
-  /**
-   * 從鏡頭看出去的那一張，什麼都不濾
-   *
-   * 與 scene-depth 那一張是兩回事，理由見介面上 getCameraDepthTexture
-   * 的說明。這裡直接 new 一個而不是走 scene.enableDepthRenderer：
-   * 後者每台鏡頭只留一份、會拿到 scene-depth 已經設好過濾的那一張
-   */
-  const cameraDepthRenderer = new DepthRenderer(
-    scene,
-    Constants.TEXTURETYPE_FLOAT,
-    camera,
-    false,
-    Texture.NEAREST_SAMPLINGMODE,
-    true,
-    'volumetric-camera-depth',
-  )
-  const cameraDepthMap = cameraDepthRenderer.getDepthMap()
-  /** 沒有東西的地方是無限遠，理由與上面那張相同 */
-  cameraDepthMap.clearColor = new Color4(camera.maxZ, 0, 0, 1)
-  cameraDepthRenderer.useOnlyInActiveCamera = false
-  scene.customRenderTargets.push(cameraDepthMap)
-
   /** 光源空間的三軸與暫存，每幀就地覆寫，不重新配置 */
   const forward = new Vector3()
   const right = new Vector3()
@@ -205,20 +167,16 @@ export function createVolumetricShadow(scene: Scene, camera: UniversalCamera): V
   return {
     update,
     getTexture: () => depthMap,
-    getCameraDepthTexture: () => cameraDepthMap,
     /** 這兩個矩陣每次取都是當下的，鏡頭挪過之後不必自己重算 */
     getViewProjection: () => shadowCamera.getTransformationMatrix(),
     getView: () => shadowCamera.getViewMatrix(),
     getBias: () => SHADOW_BIAS,
     dispose: () => {
-      for (const target of [depthMap, cameraDepthMap]) {
-        const index = scene.customRenderTargets.indexOf(target)
-        if (index !== -1) {
-          scene.customRenderTargets.splice(index, 1)
-        }
+      const index = scene.customRenderTargets.indexOf(depthMap)
+      if (index !== -1) {
+        scene.customRenderTargets.splice(index, 1)
       }
       depthRenderer.dispose()
-      cameraDepthRenderer.dispose()
       shadowCamera.dispose()
     },
   }

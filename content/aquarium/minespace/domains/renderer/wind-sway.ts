@@ -689,8 +689,16 @@ class WindSwayPlugin extends MaterialPluginBase {
   constructor(
     material: StandardMaterial,
     private amplitude: number,
-    /** 一為從底部彎（花草），零為整塊一起移動（樹葉） */
-    private heightLeverage: number,
+    /**
+     * 一為從底部彎（花草），零為整塊一起移動（樹葉）
+     *
+     * 公開出去是給場景深度圖用的。深度那一趟走 Babylon 自己的著色器、
+     * 套不上這個外掛，所以擺動過的網格在深度圖裡停在原位。
+     * 兩種擺法的誤差差很多：花草的葉尖甩得老遠，殘影很醒目；
+     * 樹葉只是整塊輕輕平移，差不到一格。
+     * scene-depth 靠這個值決定哪些該濾掉、哪些留著
+     */
+    readonly heightLeverage: number,
     /** 行進波的角頻率，由波長換算而來 */
     private rippleFrequency: number,
   ) {

@@ -1,6 +1,7 @@
 import type { AbstractMesh, BaseTexture, Scene, UniversalCamera } from '@babylonjs/core'
 import { Color4, Texture } from '@babylonjs/core'
 import { watch } from 'vue'
+import { reportDiagnostic } from '../../composables/use-error-logger'
 import { useGraphicsQuality } from '../../composables/use-graphics-quality'
 
 /**
@@ -26,39 +27,83 @@ export interface CreateSceneDepthParams {
 }
 
 /**
- * 會被風吹動的東西不進深度圖
+ * 深度圖與風擺動之間那筆爛帳
  *
- * ── 為什麼 ──
+ * 這一段是整個專案裡最容易反覆踩的地方，把來龍去脈寫完整。
+ *
+ * ── 根源 ──
  *
  * 深度圖是 Babylon 的 DepthRenderer 畫的，而它走自己那支 depth 著色器，
  * 與 StandardMaterial 是兩條路，材質外掛一個都套不上去。
  * 而風的擺動（wind-sway）正是一個頂點外掛。
  *
  * 於是畫面上的草在擺，深度圖裡的同一叢草永遠停在沒擺動的原位。
+ * 深度圖是好幾個效果的共同輸入，所以這一個錯會分頭長出
+ * 看起來毫不相干的症狀。
  *
- * 這件事在水面上會現形，而且不必植株真的碰到水。岸線那一段是這樣寫的：
+ * ── 症狀一：把擺動的網格放進來 ──
+ *
+ * 深度圖裡的那份停在原位，畫面上的那株已經擺開了，兩者對不上。
+ * 凡是拿「深度圖說這裡有東西」去做判斷的效果，都會在那個
+ * 沒有東西的位置上留下一塊植株形狀的痕跡。
+ *
+ * 水面的岸線是這樣現形的：
  *
  *   float waterGap = max(waterSceneZ - vWaterViewZ, 0.0);
  *   float waterLine = 1.0 - smoothstep(0.0, waterScreen.z, waterGap);
  *
  * 只要深度圖裡有東西比這個水面片元「更近」，waterGap 就被夾成零，
- * 而零距離換算出來的 waterLine 是滿的一。也就是說，任何擋在
- * 鏡頭與水面之間的東西，都會在它背後的水上印出一片全白的沫。
+ * 零距離換算出來的 waterLine 是滿的一。岸邊那叢草站在鏡頭與水之間，
+ * 於是水面上留下一片草形狀的白沫，草在晃、那片沫不動。
  *
- * 岸邊那叢草就是這樣。它站在鏡頭與水之間，深度圖裡的它停在原位，
- * 於是水面上留下一片草形狀的白沫——草在晃，那片沫不動。
+ * 體積光那邊則是植物在空中留下一個不會動的剪影，同一個根因。
  *
- * ── 代價 ──
+ * ── 症狀二：把擺動的網格濾掉 ──
  *
- * 這些植株與水面的交界不再有那圈白沫。枯木、莖桿與棧道柱子
- * 那圈「自己浮出來」的沫會少掉會擺動的那幾種。
+ * 這一株不在深度圖裡，那一格的深度就變成「它後面那個東西」的距離。
+ * 凡是拿深度做判斷的效果，都會照著背景幾何的形狀分出明暗。
  *
- * 另一條路是替深度那一趟也寫一份帶擺動的材質，但那等於把頂點位移
- * 維護兩份，改一邊忘了另一邊就會再度錯開——而錯開的樣子
- * 正是現在這個殘影，不會有任何錯誤訊息
+ * 樹葉整片濾掉時最明顯：葉子後面是木頭就拿到一種值、是天空就拿到
+ * 另一種，木頭的輪廓因此整個印上樹冠，看起來像葉子變透明了。
+ *
+ * 兩種症狀是同一個錯的兩面，改動這裡之前要知道自己在換哪一邊。
+ *
+ * ── 現在的取捨 ──
+ *
+ * 兩種擺法的誤差差了一個數量級，所以分開處理。
+ *
+ * 花草的 heightLeverage 是一，從根部彎、葉尖甩得老遠，
+ * 殘影很醒目，濾掉。代價是這些植株與水面的交界不再有那圈白沫。
+ *
+ * 樹葉的 heightLeverage 是零，整塊一起輕輕平移，差不到一格，
+ * 留著。換到的是樹冠不再印出背景的輪廓。
+ *
+ * ── 正規解 ──
+ *
+ * 上面那個取捨只是把誤差挑小的那一邊吃下去，根源仍在。
+ * 要真的解決，得讓深度那一趟也套用同樣的擺動。
+ *
+ * 做法是 RenderTargetTexture.setMaterialForRendering(mesh, material)。
+ * 它可以指定「這顆網格畫進這張 RT 時改用哪一份材質」，
+ * 於是能替會擺動的網格準備一份自己的深度材質。
+ *
+ * 這裡原本擔心的是「把頂點位移維護兩份，改一邊忘了另一邊就會再度錯開」。
+ * 那個顧慮可以拆掉：把 wind-sway 的頂點位移那段 GLSL 匯出成一個字串，
+ * 材質外掛與深度材質共用同一份，就只有一個真相。
+ * voxel-gi 的 VOXEL_GI_SAMPLE_GLSL 已經是這個寫法，照抄就好。
+ *
+ * 要付的成本有兩項。一是那段位移吃八個 uniform，其中 windTrampleList
+ * 還是一個 vec4 陣列，深度材質得自己每幀餵一遍。
+ * 二是 amplitude、heightLeverage、rippleFrequency 是逐材質的，
+ * 所以要依這三個值的組合各建一份深度材質（實際上大約就花草與樹葉兩種）。
+ *
+ * 做完之後花草可以一起放回深度圖，水面那圈白沫的限制也跟著消失
  */
 function isWindSwayMesh(mesh: AbstractMesh): boolean {
-  return Boolean(mesh.material?.pluginManager?.getPlugin('WindSway'))
+  const plugin = mesh.material?.pluginManager?.getPlugin('WindSway') as
+    { heightLeverage?: number } | null | undefined
+
+  return (plugin?.heightLeverage ?? 0) > 0
 }
 
 /**
@@ -121,7 +166,29 @@ export function createSceneDepth({ scene, camera }: CreateSceneDepthParams): Sce
     if (!renderList)
       return null
 
-    return renderList.filter((mesh) => !isWindSwayMesh(mesh))
+    const keptList = renderList.filter((mesh) => !isWindSwayMesh(mesh))
+
+    /**
+     * 記下這一趟留了幾個、濾了幾個
+     *
+     * 「哪些網格有進深度圖」會一路影響到所有拿深度做判斷的效果，
+     * 而那件事從畫面上完全看不出來——樹冠上印出木頭的輪廓、
+     * 植物在空中留下剪影，兩個症狀天差地遠，根因都在這份清單。
+     * 有數字才問得出「樹葉到底進去了沒有」
+     */
+    if (import.meta.env.DEV) {
+      const swayList = renderList.filter((mesh) =>
+        mesh.material?.pluginManager?.getPlugin('WindSway'))
+
+      reportDiagnostic(
+        '場景深度圖/算繪清單',
+        `總共 ${renderList.length} 個網格，會擺動的 ${swayList.length} 個，`
+        + `其中濾掉 ${renderList.length - keptList.length} 個（從底部彎的花草）、`
+        + `留下 ${swayList.length - (renderList.length - keptList.length)} 個（整塊平移的樹葉）`,
+      )
+    }
+
+    return keptList
   }
 
   const { preset } = useGraphicsQuality()

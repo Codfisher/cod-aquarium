@@ -32,6 +32,16 @@ const TOP_FACE_THRESHOLD = 0.5 - LIQUID_SURFACE_DROP - 0.02
  */
 const SHORELINE_WIDTH = 0.34
 
+/**
+ * 岸線吃的是場景深度圖，而那張圖裡沒有花草
+ *
+ * 這些植株與水面的交界因此不會有那圈白沫。那是刻意的取捨，
+ * 不是漏掉：深度那一趟套不上風擺動，草在畫面上晃、深度圖裡卻停在原位，
+ * 留著會在水面印出一片不會動的草形白沫。
+ *
+ * 完整的來龍去脈與正規解寫在 scene-depth 的 isWindSwayMesh 上面
+ */
+
 /** 亮線外面那圈暈的衰減距離，比線本身寬一倍多才有「白沫散開」的樣子 */
 const SHORELINE_GLOW_WIDTH = 0.8
 
