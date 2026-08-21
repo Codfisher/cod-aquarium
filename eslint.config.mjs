@@ -67,4 +67,19 @@ export default antfu(
       'style/eol-last': 'off',
     },
   },
+  {
+    // 文章內的程式碼片段以可讀性為主，不套用排版與誤判規則
+    files: ['**/*.md/**'],
+    rules: {
+      // Effect 慣例寫 yield*，不加空格
+      'style/yield-star-spacing': 'off',
+      // 示範用的錯誤片段中 yield* 會被解析成乘法運算子
+      'style/space-infix-ops': 'off',
+      // Data.TaggedError、Schema.TaggedError 是 class factory，加上 new 反而是錯的
+      'unicorn/throw-new-error': 'off',
+      // 片段不會真的執行，允許宣告後未使用
+      'unused-imports/no-unused-vars': 'off',
+      'no-console': 'off',
+    },
+  },
 )
