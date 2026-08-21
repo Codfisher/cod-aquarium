@@ -1,4 +1,4 @@
-import type { Scene, StandardMaterial, UniversalCamera } from '@babylonjs/core'
+import type { DynamicTexture, Scene, StandardMaterial, UniversalCamera } from '@babylonjs/core'
 import type { GardenId } from '../garden/garden-layout'
 import type { Weather } from '../soundscape/type'
 import type { WaterMap } from '../world/water-body'
@@ -36,6 +36,7 @@ import { createFallingLeaves } from './falling-leaves'
 import { createGroundMist, getDawnMistRatio } from './ground-mist'
 import { createRainParticles } from './rain-particles'
 import { applySkyGradient } from './sky-gradient'
+import { createSkyReflectionTexture, SKY_REFLECTION_UPDATE_INTERVAL, updateSkyReflectionTexture } from './sky-reflection'
 import { createSnowParticles } from './snow-particles'
 import { createSwampMist } from './swamp-mist'
 import { createWetness } from './wetness'
@@ -290,7 +291,7 @@ export function useWeather() {
   const weather = ref<Weather>('clear')
   const atmosphere = createAtmosphereState()
 
-  const { quality } = useGraphicsQuality()
+  const { preset } = useGraphicsQuality()
   const { state: devToggle } = useDevToggles()
 
   let rainParticles: RainParticles | null = null
@@ -300,6 +301,9 @@ export function useWeather() {
   let airMotes: AirMotes | null = null
   let fallingLeaves: FallingLeaves | null = null
   let wetness: Wetness | null = null
+  let skyReflectionTexture: DynamicTexture | null = null
+  /** 距離上次重畫濕地反光貼圖過了多久 */
+  let skyReflectionElapsed = SKY_REFLECTION_UPDATE_INTERVAL
   let thunderTimerId: ReturnType<typeof setTimeout> | undefined
   let rumbleTimerId: ReturnType<typeof setTimeout> | undefined
   let flashTimeLeft = 0
@@ -377,9 +381,19 @@ export function useWeather() {
 
     playThunder = triggerThunder
 
+    /**
+     * 粒子數量照畫質等級按比例收
+     *
+     * 每一種粒子的基準值是照「最高畫質該有多密」調出來的，
+     * 各級之間的差別只是密度——所以這裡不為每一級各寫一個數字，
+     * 統一乘上一個倍率。等級增減時這一段完全不必動
+     */
+    const scaleParticleCount = (baseCount: number) =>
+      Math.max(1, Math.round(baseCount * preset.value.particleRatio))
+
     rainParticles = createRainParticles({
       scene,
-      maxParticleCount: quality.value === 'low' ? 1200 : 3600,
+      maxParticleCount: scaleParticleCount(3600),
       waterMap,
       castRainRay,
     })
@@ -392,39 +406,40 @@ export function useWeather() {
        * 雪片活得比雨滴久七八倍，同樣的生成率會累積出好幾倍的粒子。
        * 一千八百片就足以在眼前糊成一片看不見路的白
        */
-      maxParticleCount: quality.value === 'low' ? 700 : 1800,
+      maxParticleCount: scaleParticleCount(1800),
       castRainRay,
     })
 
     swampMist = createSwampMist({
       scene,
       /** 霧只鋪在沼澤上，範圍收窄後同樣的數量會濃到看不見路 */
-      maxParticleCount: quality.value === 'low' ? 36 : 80,
+      maxParticleCount: scaleParticleCount(80),
       castRainRay,
     })
 
     groundMist = createGroundMist({
       scene,
       /** 鋪的範圍比沼澤那片大得多，數量得跟著上去才連得成一片 */
-      maxParticleCount: quality.value === 'low' ? 40 : 96,
+      maxParticleCount: scaleParticleCount(96),
       castRainRay,
     })
 
     airMotes = createAirMotes({
       scene,
       /** 顆粒只有幾個像素大，堆得起來才看得出空氣裡有東西 */
-      moteCount: quality.value === 'low' ? 90 : 220,
-      fireflyCount: quality.value === 'low' ? 20 : 48,
+      moteCount: scaleParticleCount(220),
+      fireflyCount: scaleParticleCount(48),
     })
 
     fallingLeaves = createFallingLeaves({
       scene,
       /** 葉子小又薄，數量得堆起來才看得出整片林子都在落葉 */
-      maxParticleCount: quality.value === 'low' ? 130 : 320,
+      maxParticleCount: scaleParticleCount(320),
       castRainRay,
     })
 
-    wetness = createWetness(wetMaterialList)
+    skyReflectionTexture = createSkyReflectionTexture(scene)
+    wetness = createWetness(wetMaterialList, skyReflectionTexture)
 
     scheduleThunder()
 
@@ -808,6 +823,20 @@ export function useWeather() {
         wetness?.setRatio(wetRatio)
 
         /**
+         * 濕地反光的天色貼圖，節流重畫
+         *
+         * 天色變化很慢，逐幀重繪整張貼圖是白花的成本——
+         * 跟 cloudShadow 那類效果同一種「量過再做」的態度
+         */
+        if (skyReflectionTexture) {
+          skyReflectionElapsed += deltaTime
+          if (skyReflectionElapsed >= SKY_REFLECTION_UPDATE_INTERVAL) {
+            skyReflectionElapsed = 0
+            updateSkyReflectionTexture(skyReflectionTexture, atmosphere)
+          }
+        }
+
+        /**
          * 躲在洞裡時看不到雨，雪也一樣；貼近邊界時兩者一併收掉
          *
          * 雨雪跟著鏡頭跑，跨過邊界的前後本來就是同一片，
@@ -830,6 +859,7 @@ export function useWeather() {
     groundMist?.dispose()
     airMotes?.dispose()
     fallingLeaves?.dispose()
+    skyReflectionTexture?.dispose()
   })
 
   return {

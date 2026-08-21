@@ -1,6 +1,7 @@
 import type { TerrainWorkerResponse } from './type'
 import { useWebWorker } from '@vueuse/core'
 import { watch } from 'vue'
+import { reportError } from '../../../composables/use-error-logger'
 
 /**
  * 封裝地形生成 Worker
@@ -13,6 +14,10 @@ export function useTerrainWorker() {
     new URL('./terrain-worker.ts', import.meta.url),
     { type: 'module' },
   )
+  /** worker 有自己獨立的全域環境，主執行緒的 window.onerror 接不到它的例外 */
+  worker.onerror = (event: ErrorEvent) => {
+    reportError(`[TerrainWorker] ${event.message}`, `${event.filename}:${event.lineno}:${event.colno}`)
+  }
   const { data, post, terminate } = useWebWorker(worker)
 
   function generate(): Promise<Uint8Array> {

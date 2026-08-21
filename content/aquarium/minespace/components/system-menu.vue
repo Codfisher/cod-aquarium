@@ -109,22 +109,25 @@
           <span class="setting-value">{{ Math.round(sunAzimuth) }}°</span>
         </div>
 
+        <!--
+          畫質四級
+
+          原本只有高與低二選一，而效果之間的成本差距很大，
+          二分法擺不下：想關掉全局光的人被迫連影子與水面一起關掉。
+          兩端是新加的——一個更省、一個把幾項只有那裡才有的東西打開
+        -->
         <div class="setting-row">
           <span class="setting-name">{{ t('graphicsQuality') }}</span>
           <div class="quality-row">
             <button
+              v-for="level in qualityList"
+              :key="level"
               class="mc-button flex-1"
-              :class="{ 'mc-button-active': quality === 'high' }"
-              @click="quality = 'high'"
+              :class="{ 'mc-button-active': quality === level }"
+              :title="t(`${level}Hint`)"
+              @click="quality = level"
             >
-              {{ t('high') }}
-            </button>
-            <button
-              class="mc-button flex-1"
-              :class="{ 'mc-button-active': quality === 'low' }"
-              @click="quality = 'low'"
-            >
-              {{ t('low') }}
+              {{ t(level) }}
             </button>
           </div>
         </div>
@@ -264,7 +267,7 @@ import type { TexturePackId } from '../domains/block/texture-pack'
 import type { Landmark } from '../domains/world/landmark'
 import { computed } from 'vue'
 import { CAMERA_FOV_RANGE } from '../composables/use-babylon-scene'
-import { useGraphicsQuality } from '../composables/use-graphics-quality'
+import { GRAPHICS_QUALITY_LIST, useGraphicsQuality } from '../composables/use-graphics-quality'
 import { useSimpleI18n } from '../composables/use-simple-i18n'
 import { useTexturePack } from '../composables/use-texture-pack'
 import { getDayLengthSecond } from '../domains/weather/day-night'
@@ -297,6 +300,7 @@ const cameraFov = defineModel<number>('cameraFov', { required: true })
 const sunAzimuth = defineModel<number>('sunAzimuth', { required: true })
 
 const { quality } = useGraphicsQuality()
+const qualityList = GRAPHICS_QUALITY_LIST
 const {
   packId,
   packList,
@@ -341,8 +345,14 @@ const { locale, t } = useSimpleI18n({
     second: '秒',
     fieldOfView: '視野',
     graphicsQuality: '畫質',
+    low: '效能',
+    medium: '標準',
     high: '高',
-    low: '低',
+    ultra: '極致',
+    lowHint: '什麼都收掉，只求畫面順',
+    mediumHint: '影子與水面都在，不算全局光',
+    highHint: '分層陰影、體素全局光',
+    ultraHint: '四層陰影、遮擋視差、光線行進的光束',
     texturePack: '材質',
     bumpTexture: '立體',
     bumpOn: '凹凸起伏',
@@ -367,8 +377,14 @@ const { locale, t } = useSimpleI18n({
     second: 'sec',
     fieldOfView: 'View',
     graphicsQuality: 'Quality',
+    low: 'Performance',
+    medium: 'Standard',
     high: 'High',
-    low: 'Low',
+    ultra: 'Ultra',
+    lowHint: 'Everything trimmed — framerate first',
+    mediumHint: 'Shadows and water kept, no global illumination',
+    highHint: 'Cascaded shadows and voxel global illumination',
+    ultraHint: 'Four shadow cascades, occlusion parallax, ray-marched light shafts',
     texturePack: 'Textures',
     bumpTexture: 'Relief',
     bumpOn: 'Surfaces in relief',

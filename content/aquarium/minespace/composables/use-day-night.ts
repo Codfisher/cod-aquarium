@@ -7,11 +7,13 @@ import type {
   ShaderMaterial,
   StandardMaterial,
 } from '@babylonjs/core'
+import type { VolumetricLight } from '../domains/renderer/volumetric-light'
 import type { AtmosphereState } from '../domains/weather/atmosphere'
 import type { DayPhase } from '../domains/weather/day-night'
 import type { GodRays } from '../domains/weather/god-rays'
 import { useStorage } from '@vueuse/core'
 import { computed, onBeforeUnmount, ref } from 'vue'
+import { getReloadHandoff } from '../domains/scene/reload-handoff'
 import {
   advanceSunriseDrift,
   createDayNightSample,
@@ -35,6 +37,7 @@ import {
   SUN_GLOW_NAME,
   SUN_LIGHT_NAME,
 } from './use-babylon-scene'
+import { reportDiagnostic } from './use-error-logger'
 import { measureSection } from './use-performance-probe'
 
 /**
@@ -61,6 +64,27 @@ const SKY_GLOW_DISTANCE = 112
 const EXPOSURE_STEP = 0.004
 const GRADE_STEP = 0.5
 
+/**
+ * 洞穴自動曝光的加成上限
+ *
+ * 相機在暗處會自動拉高曝光，模擬瞳孔放大——這裡用同一個比喻：
+ * 洞裡沒有天光，暗部細節全靠環境光補的那一點微光撐著，
+ * 曝光跟著洞穴深度拉高，最深處拉到六成，才看得清岩壁上的細節。
+ * 拉太多反而會把岩壁洗成一片死白，六成是留了餘裕的上限
+ */
+const CAVE_EXPOSURE_BOOST = 0.6
+
+/**
+ * 依洞穴深度算曝光要乘上多少
+ *
+ * caveRatio 是漫遊控制器已經做過指數平滑的連續值（見 use-fps-controller.ts
+ * 的 updateAtmosphere），這裡不必再平滑一次——直接乘上去，
+ * 「瞳孔適應」那段漸變早就在 caveRatio 本身裡面做完了
+ */
+function computeCaveExposureMultiplier(caveRatio: number): number {
+  return 1 + Math.min(1, Math.max(0, caveRatio)) * CAVE_EXPOSURE_BOOST
+}
+
 /** HUD 的時刻讀數更新間隔（秒），每幀更新只是白白觸發重繪 */
 const CLOCK_UPDATE_INTERVAL = 0.2
 
@@ -70,6 +94,12 @@ interface StartParams {
   pipeline: DefaultRenderingPipeline | undefined;
   /** 晨昏的光束，強度跟著太陽的高度走 */
   godRays?: GodRays;
+  /**
+   * 沿著視線行進的光束，只有最奢的那一級有
+   *
+   * 與 godRays 互斥：兩者做的是同一件事，同時開會疊成兩層亮
+   */
+  volumetricLight?: VolumetricLight;
   /** 日夜循環把這個時刻的基準寫進去，天氣與漫遊控制器在上面疊自己的效果 */
   atmosphere: AtmosphereState;
   /**
@@ -106,9 +136,18 @@ export function useDayNight() {
    * 而畫面上其實只有一行時刻讀數在看它——那一行五分之一秒更新一次就夠了。
    * 所以下面那幾個 ref 是「給畫面看的鏡像」，隔一段時間才同步一次
    */
-  let currentTime = INITIAL_TIME_OF_DAY
+  /**
+   * 從哪一刻開始
+   *
+   * 換畫質是整頁重來的（見 reload-handoff），接不回原本的時刻的話，
+   * 天色會從黃昏跳回預設的上午——那比人被丟回出生點還醒目，
+   * 因為整片天連同霧色與影子的方向會一起換掉
+   */
+  const initialTime = getReloadHandoff()?.timeOfDay ?? INITIAL_TIME_OF_DAY
 
-  const timeOfDay = ref(INITIAL_TIME_OF_DAY)
+  let currentTime = initialTime
+
+  const timeOfDay = ref(initialTime)
   /**
    * 時間會不會自己走
    *
@@ -121,8 +160,8 @@ export function useDayNight() {
   const daySpeedRatio = useStorage('minespace-day-speed', INITIAL_DAY_SPEED_RATIO)
   /** 白晝的程度，0 為全暗、1 為大白天 */
   const dayRatio = ref(1)
-  const phase = ref<DayPhase>(getDayPhase(INITIAL_TIME_OF_DAY))
-  const clockText = ref(formatClock(INITIAL_TIME_OF_DAY))
+  const phase = ref<DayPhase>(getDayPhase(initialTime))
+  const clockText = ref(formatClock(initialTime))
 
   const sample = createDayNightSample()
 
@@ -153,7 +192,7 @@ export function useDayNight() {
     setTimeOfDay(currentTime + delta)
   }
 
-  function start({ scene, canvas, pipeline, godRays, atmosphere, isRunning, canScrubTime }: StartParams): void {
+  function start({ scene, canvas, pipeline, godRays, volumetricLight, atmosphere, isRunning, canScrubTime }: StartParams): void {
     cleanup?.()
 
     const sunLight = scene.getLightByName(SUN_LIGHT_NAME) as DirectionalLight | null
@@ -235,9 +274,48 @@ export function useDayNight() {
           skyBodyFade: atmosphere.skyBodyFade,
         })
         applyToSky(skyMaterial)
-        applyToPipeline(pipeline)
+        applyToPipeline(pipeline, atmosphere)
         /** 雨中與貼近邊界時整片天被白幕蓋住，光束也該跟著收掉 */
-        godRays?.setStrength(sample.godRayRatio * atmosphere.skyBodyFade)
+        const rayRatio = sample.godRayRatio * atmosphere.skyBodyFade
+        godRays?.setStrength(rayRatio)
+        /**
+         * 行進版全天候都在，不吃晨昏那條曲線
+         *
+         * 這一段來回改過兩次，兩次都錯，記下來免得再走一遍。
+         *
+         * 一開始跟著「直射陽光還剩幾成」走，結果正午整片畫面泛白；
+         * 於是改成跟螢幕空間版共用晨昏曲線，結果整天都看不到光束——
+         * 那條曲線只在太陽貼近地平線時才非零。
+         *
+         * 兩次都在調時段，而問題根本不在時段：那時的著色器少了相位函數，
+         * 加上去的是一層不分方向的亮度，只能靠「大部分時間關掉」
+         * 來遮掩泛白。補上相位函數之後，亮度自己就集中到望向太陽的那一側，
+         * 背對時趨近於零——時段的閹割因此不再需要，
+         * 強度回到「這一刻有沒有一顆又小又亮的太陽」這個唯一該問的問題
+         */
+        const volumetricRatio = atmosphere.specularRatio
+          * atmosphere.skyBodyFade
+          * (1 - atmosphere.caveRatio)
+
+        /**
+         * 三個因子分開記
+         *
+         * 乘出來是零的時候，光看結果分不出是天氣把直射光收掉了、
+         * 白幕蓋住了天、還是人在洞裡——那是三個完全不同的方向
+         */
+        reportDiagnostic(
+          '體積光/強度來源',
+          `高光比 ${atmosphere.specularRatio.toFixed(3)}`
+          + `、天體露出 ${atmosphere.skyBodyFade.toFixed(3)}`
+          + `、洞穴 ${atmosphere.caveRatio.toFixed(3)}`
+          + ` → ${volumetricRatio.toFixed(3)}`,
+        )
+
+        volumetricLight?.setStrength(
+          volumetricRatio,
+          sample.lightColor,
+          sample.lightDirection,
+        )
 
         clockElapsed += deltaTime
         if (clockElapsed >= CLOCK_UPDATE_INTERVAL) {
@@ -369,8 +447,8 @@ export function useDayNight() {
     })
   }
 
-  /** 色調：夜裡偏冷、黃昏偏暖，曝光也跟著時刻走 */
-  function applyToPipeline(pipeline: DefaultRenderingPipeline | undefined): void {
+  /** 色調：夜裡偏冷、黃昏偏暖，曝光也跟著時刻與洞穴深度走 */
+  function applyToPipeline(pipeline: DefaultRenderingPipeline | undefined, atmosphere: AtmosphereState): void {
     if (!pipeline)
       return
 
@@ -389,9 +467,20 @@ export function useDayNight() {
      * 曝光差不到千分之四、色相差不到半度，肉眼根本分不出來——
      * 那一幀就不必寫。撥時間軸時因為變化夠大，照樣是即時跟上的
      */
-    if (Math.abs(sample.exposure - appliedExposure) >= EXPOSURE_STEP) {
-      appliedExposure = sample.exposure
-      pipeline.imageProcessing.exposure = sample.exposure
+    /**
+     * 洞穴加成疊在日夜的曝光基準上，寫進同一個節流門檻
+     *
+     * atmosphere.caveRatio 是漫遊控制器上一幀寫的——日夜循環的算繪順序
+     * 排在漫遊控制器之前（見 main-scene.vue 的 init），這裡讀到的必然
+     * 是上一幀的值，差了一幀而已，caveRatio 本身變化又慢，看不出來。
+     *
+     * 不另外開一條寫入路徑：兩處各自寫 pipeline.imageProcessing.exposure
+     * 的話，洞穴加成會在下一幀被當成新的基準疊乘上去，越滾越誇張
+     */
+    const targetExposure = sample.exposure * computeCaveExposureMultiplier(atmosphere.caveRatio)
+    if (Math.abs(targetExposure - appliedExposure) >= EXPOSURE_STEP) {
+      appliedExposure = targetExposure
+      pipeline.imageProcessing.exposure = targetExposure
     }
 
     const colorCurves = pipeline.imageProcessing.colorCurves

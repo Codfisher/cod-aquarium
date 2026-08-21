@@ -1,9 +1,10 @@
 import type {
   ShaderMaterial,
 } from '@babylonjs/core'
-import type { GraphicsQuality } from './use-graphics-quality'
+import type { QualityPreset } from './use-graphics-quality'
 import {
   Camera,
+  CascadedShadowGenerator,
   Color3,
   Color4,
   ColorCurves,
@@ -41,7 +42,7 @@ import {
 import { auditFogOptOut, optOutOfFog } from '../domains/renderer/fog-opt-out'
 import { createGlowTexture } from '../domains/renderer/glow-texture'
 import { registerLeafTranslucency } from '../domains/renderer/leaf-translucency'
-import { registerPixelShadow } from '../domains/renderer/pixel-shadow'
+import { registerVoxelGi } from '../domains/renderer/voxel-gi'
 import { registerAerialPerspective } from '../domains/weather/aerial-perspective'
 import { GARDEN_FOG_COLOR, GARDEN_FOG_END, GARDEN_FOG_START } from '../domains/weather/atmosphere'
 import { applyCloudColor, createCloudMaterial } from '../domains/weather/cloud-material'
@@ -51,7 +52,7 @@ import { getGroundY } from '../domains/world/world-access'
 import { WORLD_SIZE } from '../domains/world/world-constants'
 import { createSeededRandom } from '../utils/noise'
 import { useDevToggles } from './use-dev-toggles'
-import { useGraphicsQuality } from './use-graphics-quality'
+import { getHardwareScalingLevel, LOWEST_QUALITY, QUALITY_PRESET_MAP, useGraphicsQuality } from './use-graphics-quality'
 import { measureSection } from './use-performance-probe'
 
 export interface InitParams {
@@ -78,6 +79,8 @@ export const MOON_DISC_NAME = 'moon-disc'
 export const MOON_GLOW_NAME = 'moon-glow'
 export const STAR_FIELD_NAME = 'star-field'
 export const CLOUD_LAYER_NAME = 'cloud-layer'
+/** 高空那層卷雲，名字要跟低層分開，兩份材質才查得到 */
+export const CLOUD_LAYER_HIGH_NAME = 'cloud-layer-high'
 
 /**
  * 繪製順序分成三層
@@ -131,6 +134,25 @@ const CLOUD_COVERAGE = 0.14
  * 少了高頻那一層，每朵雲都是圓滾滾的一團，看起來像水滴不像雲
  */
 const CLOUD_NOISE_OCTAVE_LIST = [
+  { density: 1 / 2, weight: 1 },
+  { density: 1, weight: 0.35 },
+]
+
+/**
+ * 高空的卷雲層
+ *
+ * 比低層的積雲更高、更薄、更稀疏，飄得也更慢——高空的風速看起來反而慢，
+ * 是因為離得遠。這層不投影雲影：兩層雲同時往地上各投一份影子，
+ * 地面會出現兩種週期的暗塊疊在一起，糊成看不出形狀的雜訊，
+ * 不如只留低層那份看得出朵的雲影
+ */
+const CLOUD_HEIGHT_HIGH = 168
+const CLOUD_CELL_SIZE_HIGH = 20
+const CLOUD_THICKNESS_HIGH = 2
+const CLOUD_DRIFT_SPEED_HIGH = 0.22
+/** 覆蓋率比低層更低，天空要看得出「這是另一層、更稀疏的雲」 */
+const CLOUD_COVERAGE_HIGH = 0.08
+const CLOUD_NOISE_OCTAVE_LIST_HIGH = [
   { density: 1 / 2, weight: 1 },
   { density: 1, weight: 0.35 },
 ]
@@ -223,15 +245,15 @@ const defaultParam: Required<UseBabylonSceneParam> = {
      */
     registerAerialPerspective()
     /**
-     * 另外三道也是材質外掛，同樣要搶在材質之前
+     * 另外兩道也是材質外掛，同樣要搶在材質之前
      *
-     * 雲影與像素陰影改的是光照那一段，葉片透光是加在霧之前的一項。
+     * 雲影改的是光照那一段，葉片透光與體素全局光都是加在霧之前的一項。
      * 三者互不相干，掛上去的先後順序沒有影響——
      * 要緊的只有「比第一份材質早」這件事
      */
     registerCloudShadow()
     registerLeafTranslucency()
-    registerPixelShadow()
+    registerVoxelGi()
 
     const scene = new Scene(engine)
 
@@ -286,7 +308,28 @@ const defaultParam: Required<UseBabylonSceneParam> = {
     createStarField(scene)
     createSunDisc(scene)
     createMoonDisc(scene)
-    createCloudLayer(scene)
+    createCloudLayer(scene, {
+      name: CLOUD_LAYER_NAME,
+      seed: 'minespace-cloud',
+      height: CLOUD_HEIGHT,
+      cellSize: CLOUD_CELL_SIZE,
+      thickness: CLOUD_THICKNESS,
+      driftSpeed: CLOUD_DRIFT_SPEED,
+      coverage: CLOUD_COVERAGE,
+      octaveList: CLOUD_NOISE_OCTAVE_LIST,
+      castsShadow: true,
+    })
+    createCloudLayer(scene, {
+      name: CLOUD_LAYER_HIGH_NAME,
+      seed: 'minespace-cloud-high',
+      height: CLOUD_HEIGHT_HIGH,
+      cellSize: CLOUD_CELL_SIZE_HIGH,
+      thickness: CLOUD_THICKNESS_HIGH,
+      driftSpeed: CLOUD_DRIFT_SPEED_HIGH,
+      coverage: CLOUD_COVERAGE_HIGH,
+      octaveList: CLOUD_NOISE_OCTAVE_LIST_HIGH,
+      castsShadow: false,
+    })
     createOvercastDome(scene)
     createCaveLights(scene)
     createCaveDrips(scene)
@@ -407,7 +450,18 @@ function trackShadowToCamera(scene: Scene) {
       if (!light || !camera)
         return
 
-      const mapSize = light.getShadowGenerator()?.getShadowMap()?.getSize().width
+      const generator = light.getShadowGenerator()
+      /**
+       * 分層陰影自己會算每一層的投影範圍，這一段要整個讓開
+       *
+       * 它依鏡頭的視錐切出各層的邊界，光源的位置與正交範圍
+       * 對它完全沒有意義；照著單層的做法去挪動光源，
+       * 只會讓那幾層的計算基準每幀被推走一次
+       */
+      if (generator instanceof CascadedShadowGenerator)
+        return
+
+      const mapSize = generator?.getShadowMap()?.getSize().width
       if (!mapSize)
         return
 
@@ -564,9 +618,20 @@ function createGlowMesh(name: string, planeSize: number, scene: Scene): Mesh {
   return mesh
 }
 
-/** 太陽外圍的光暈，讓方形太陽不至於像貼上去的白紙 */
+/**
+ * 太陽外圍的光暈，讓方形太陽不至於像貼上去的白紙
+ *
+ * 峰值刻意壓在太陽本體之下。光暈走的是相加混合，疊在本來就不暗的
+ * 天色上；太陽本體則是不透明的方片，直接把天空蓋掉。
+ * 兩者峰值相當時，「天空加光暈」反而比太陽自己還亮——
+ * 那顆方形太陽於是整個溶進自己的暈裡，只剩一團白，
+ * 看不出中間有一個方塊。
+ *
+ * 收到六成之後，太陽與貼邊的光暈差開二十五階（原本只有十二階），
+ * 輪廓回來了，而暈的尾巴照樣鋪得出去
+ */
 function createSunGlow(scene: Scene) {
-  const texture = createGlowTexture(SUN_GLOW_NAME, scene, [217, 211, 182])
+  const texture = createGlowTexture(SUN_GLOW_NAME, scene, [130, 127, 109])
 
   const material = createSkyBodyMaterial(`${SUN_GLOW_NAME}-material`, texture, scene)
   material.emissiveColor = new Color3(1, 1, 1)
@@ -795,10 +860,15 @@ function createTileableNoise(
  * 改成兩層噪音疊起來、取分位數當門檻。覆蓋率是指定的而不是算出來的，
  * 低頻那一層決定一朵雲多大，高頻那一層負責咬出邊緣的缺口
  */
-function createCloudPattern(random: () => number, size: number): boolean[] {
+function createCloudPattern(
+  random: () => number,
+  size: number,
+  coverage: number,
+  octaveList: readonly { density: number; weight: number }[],
+): boolean[] {
   const fieldList = Array.from({ length: size * size }, () => 0)
 
-  for (const octave of CLOUD_NOISE_OCTAVE_LIST) {
+  for (const octave of octaveList) {
     const noiseList = createTileableNoise(random, size, Math.round(size * octave.density))
     for (let index = 0; index < fieldList.length; index++) {
       fieldList[index] = (fieldList[index] ?? 0) + (noiseList[index] ?? 0) * octave.weight
@@ -812,9 +882,38 @@ function createCloudPattern(random: () => number, size: number): boolean[] {
    * 由大到小排完取第 N 名當門檻，說覆蓋幾成就真的是幾成
    */
   const sortedList = fieldList.slice().sort((a, b) => b - a)
-  const threshold = sortedList[Math.floor(sortedList.length * CLOUD_COVERAGE)] ?? Infinity
+  const threshold = sortedList[Math.floor(sortedList.length * coverage)] ?? Infinity
 
   return fieldList.map((value) => value > threshold)
+}
+
+/** 一朵雲的圖樣所需要的兩個噪音疊層 */
+interface CloudNoiseOctave { density: number; weight: number }
+
+interface CloudLayerOptions {
+  /** mesh 與材質的名字 */
+  name: string;
+  /** 隨機種子，兩層雲若共用同一顆，圖樣會長得一模一樣 */
+  seed: string;
+  /** 離地高度 */
+  height: number;
+  /** 單朵雲方塊的邊長 */
+  cellSize: number;
+  /** 雲的厚度 */
+  thickness: number;
+  /** 飄移速度（格 / 秒） */
+  driftSpeed: number;
+  /** 天空被蓋掉幾成 */
+  coverage: number;
+  /** 疊出雲形狀的噪音疊層 */
+  octaveList: readonly CloudNoiseOctave[];
+  /**
+   * 這層雲要不要投影雲影
+   *
+   * 兩層雲都投的話，地面會疊出兩種週期的暗塊，糊成看不出形狀的雜訊。
+   * 只留其中一層——地上那塊暗才對得上頭頂看得到的那朵雲
+   */
+  castsShadow: boolean;
 }
 
 /**
@@ -822,9 +921,9 @@ function createCloudPattern(random: () => number, size: number): boolean[] {
  *
  * 每一朵雲都是實際的方塊，不是貼圖，所以看得到厚度與側面。
  * 整片雲是一個網格，成本只有一個 draw call。
- * 這層雲同時也是投影者，地面上會有雲影慢慢掃過
+ * 投影雲影的那一層同時也是投影者，地面上會有雲影慢慢掃過
  */
-function createCloudLayer(scene: Scene) {
+function createCloudLayer(scene: Scene, options: CloudLayerOptions) {
   /**
    * 圖樣本身的格數
    *
@@ -836,12 +935,12 @@ function createCloudLayer(scene: Scene) {
    * 直接由世界寬度除出來。原本這裡寫死 18，乘上格寬 14 是 252，
    * 而世界寬度是 280，兩個數字其實從來沒對上過；除出來就不會再有下一次
    */
-  const patternCount = Math.round(WORLD_SIZE / CLOUD_CELL_SIZE)
+  const patternCount = Math.round(WORLD_SIZE / options.cellSize)
   /** 平鋪幾份，鋪得夠大才不會在天邊看到雲層的邊界 */
   const tileCount = 9
 
-  const random = createSeededRandom('minespace-cloud')
-  const cellList = createCloudPattern(random, patternCount)
+  const random = createSeededRandom(options.seed)
+  const cellList = createCloudPattern(random, patternCount, options.coverage, options.octaveList)
 
   const readCell = (grid: boolean[], x: number, z: number) => {
     /** 座標繞回去，圖樣才能無縫平鋪 */
@@ -857,9 +956,11 @@ function createCloudLayer(scene: Scene) {
    * 那會是另一副雲——不如把算好的結果交過去。
    * 何況這個世界是循環的，雲影的週期非得與雲一樣不可
    */
-  setCloudShadowPattern(scene, cellList, patternCount, CLOUD_CELL_SIZE, CLOUD_HEIGHT)
+  if (options.castsShadow) {
+    setCloudShadowPattern(scene, cellList, patternCount, options.cellSize, options.height)
+  }
 
-  const material = createCloudMaterial(`${CLOUD_LAYER_NAME}-material`, scene)
+  const material = createCloudMaterial(`${options.name}-material`, scene)
   applyCloudColor(material, {
     color: new Color3(1, 1, 1),
     hazeColor: GARDEN_FOG_COLOR,
@@ -897,16 +998,16 @@ function createCloudLayer(scene: Scene) {
     return readCell(cellList, x, z)
   }
 
-  const halfThickness = CLOUD_THICKNESS / 2
+  const halfThickness = options.thickness / 2
   for (let x = -halfCount; x < halfCount; x++) {
     for (let z = -halfCount; z < halfCount; z++) {
       if (!isFilled(x, z))
         continue
 
-      const minX = x * CLOUD_CELL_SIZE
-      const maxX = minX + CLOUD_CELL_SIZE
-      const minZ = z * CLOUD_CELL_SIZE
-      const maxZ = minZ + CLOUD_CELL_SIZE
+      const minX = x * options.cellSize
+      const maxX = minX + options.cellSize
+      const minZ = z * options.cellSize
+      const maxZ = minZ + options.cellSize
 
       addQuad([
         [minX, halfThickness, minZ],
@@ -957,7 +1058,7 @@ function createCloudLayer(scene: Scene) {
     }
   }
 
-  const cloudMesh = new Mesh(CLOUD_LAYER_NAME, scene)
+  const cloudMesh = new Mesh(options.name, scene)
   const vertexData = new VertexData()
   vertexData.positions = positionList
   vertexData.normals = normalList
@@ -970,7 +1071,7 @@ function createCloudLayer(scene: Scene) {
   cloudMesh.isPickable = false
   cloudMesh.receiveShadows = false
   optOutOfFog(cloudMesh, '交給 use-weather 的 cloudFadeRatio 淡到全透明')
-  cloudMesh.position.set(0, CLOUD_HEIGHT, 0)
+  cloudMesh.position.set(0, options.height, 0)
 
   /**
    * 飄移
@@ -978,24 +1079,27 @@ function createCloudLayer(scene: Scene) {
    * 圖樣每 patternCount 格重複一次，位移滿一個週期就回到完全相同的排列，
    * 所以直接取餘數歸零，看不出接縫
    */
-  const driftPeriod = patternCount * CLOUD_CELL_SIZE
+  const driftPeriod = patternCount * options.cellSize
   let elapsed = 0
   scene.onBeforeRenderObservable.add(() => {
     measureSection('雲飄移', () => {
       elapsed += scene.getEngine().getDeltaTime() / 1000
-      cloudMesh.position.x = (elapsed * CLOUD_DRIFT_SPEED) % driftPeriod
+      cloudMesh.position.x = (elapsed * options.driftSpeed) % driftPeriod
       /** 地上的雲影要跟著一起飄，不然影子會停在原地 */
-      setCloudShadowDrift(cloudMesh.position.x)
+      if (options.castsShadow) {
+        setCloudShadowDrift(cloudMesh.position.x)
+      }
     })
   })
 
   return material
 }
 
-/** 取得雲層材質 */
+/** 取得雲層材質，兩層都算——use-weather.ts 對雲的淡入淡出是逐一材質處理的 */
 export function getCloudMaterialList(scene: Scene): ShaderMaterial[] {
-  const material = scene.getMeshByName(CLOUD_LAYER_NAME)?.material as ShaderMaterial | undefined
-  return material ? [material] : []
+  return [CLOUD_LAYER_NAME, CLOUD_LAYER_HIGH_NAME]
+    .map((name) => scene.getMeshByName(name)?.material as ShaderMaterial | undefined)
+    .filter((material): material is ShaderMaterial => !!material)
 }
 
 /** 取得太陽本體與光暈的材質 */
@@ -1449,37 +1553,12 @@ function createRenderingPipeline(scene: Scene, camera: UniversalCamera) {
 }
 
 /**
- * 幾何邊緣的取樣數
+ * 幾何邊緣的取樣數與實際算繪的像素量，兩者都由設定表決定
  *
- * 四倍是甜蜜點：方塊的斜稜線已經看不出階梯，
- * 再往上加只換得到量不出來的差別，頻寬卻是線性成長
+ * 四倍取樣是甜蜜點：方塊的斜稜線已經看不出階梯，
+ * 再往上加只換得到量不出來的差別，頻寬卻是線性成長。
+ * 像素量那一項見 use-graphics-quality 的 getHardwareScalingLevel
  */
-const HIGH_QUALITY_SAMPLE_COUNT = 4
-
-/** 依畫質決定多重取樣的樣本數，一是關閉 */
-function getSampleCount(quality: GraphicsQuality): number {
-  return quality === 'low' ? 1 : HIGH_QUALITY_SAMPLE_COUNT
-}
-
-/**
- * 決定實際要渲染多少像素
- *
- * 高畫質原本直接跟著裝置像素比走。在兩倍的螢幕上那代表要畫四倍的像素，
- * 再疊上泛光與抗鋸齒，幀率掉下來之後轉動視角會一段一段跳——
- * 因為視角轉多少是由滑鼠位移決定的，與幀率無關，
- * 幀率一低，同樣的角度就被切成更少、更大的步進。
- *
- * 這裡把倍率壓在一點五以內：畫質幾乎看不出差別，像素量卻少了將近一半。
- * 低畫質維持三分之一
- */
-function getHardwareScalingLevel(quality: GraphicsQuality, devicePixelRatio: number): number {
-  if (quality === 'low') {
-    return 3 / devicePixelRatio
-  }
-
-  return 1 / Math.min(devicePixelRatio, 1.5)
-}
-
 /**
  * 接觸硬化時，光源在陰影貼圖上佔多寬
  *
@@ -1491,36 +1570,70 @@ function getHardwareScalingLevel(quality: GraphicsQuality, devicePixelRatio: num
  */
 const CONTACT_HARDENING_LIGHT_SIZE = 0.05
 
+/** 濾波取樣數的三個等級，對應設定表上的 shadowFilterQuality */
+const SHADOW_FILTER_QUALITY_MAP = {
+  low: ShadowGenerator.QUALITY_LOW,
+  medium: ShadowGenerator.QUALITY_MEDIUM,
+  high: ShadowGenerator.QUALITY_HIGH,
+} as const
+
 /**
  * 陰影的濾波方式
  *
- * 高畫質走接觸硬化（PCSS）：先找出擋在前面的是什麼、離得多遠，
+ * 接觸硬化（PCSS）：先找出擋在前面的是什麼、離得多遠，
  * 再依那段距離決定要模糊多寬。影子因此在物體的根部是銳利的、
  * 離遠了才散開——鳥居的柱腳、樹幹的底部會真的「站」在地上，
  * 而不是浮在一片同樣柔軟的灰上。
  *
  * 這是整份清單裡最貴的一項：中等品質是十六次遮蔽搜尋加三十二次比較，
- * 大約是原本 PCF 五乘五的兩倍。所以只給高畫質，
- * 低畫質維持最省的那條路。要退回去的話，把這裡換成
- * usePercentageCloserFiltering 就是原本的樣子
+ * 大約是 PCF 五乘五的兩倍，高等再翻一倍。所以最省的那一級走 PCF，
+ * 其餘各級的取樣數由設定表決定
  */
-function applyShadowFiltering(shadowGenerator: ShadowGenerator, quality: GraphicsQuality): void {
-  if (quality === 'low') {
+function applyShadowFiltering(shadowGenerator: ShadowGenerator, preset: QualityPreset): void {
+  if (preset.shadowFilter === 'pcf') {
+    shadowGenerator.useContactHardeningShadow = false
     shadowGenerator.usePercentageCloserFiltering = true
-    shadowGenerator.filteringQuality = ShadowGenerator.QUALITY_LOW
+    shadowGenerator.filteringQuality = SHADOW_FILTER_QUALITY_MAP[preset.shadowFilterQuality]
     return
   }
 
   shadowGenerator.useContactHardeningShadow = true
   shadowGenerator.contactHardeningLightSizeUVRatio = CONTACT_HARDENING_LIGHT_SIZE
+  shadowGenerator.filteringQuality = SHADOW_FILTER_QUALITY_MAP[preset.shadowFilterQuality]
+}
+
+/**
+ * 建立分層陰影
+ *
+ * 每一層的邊界怎麼切由 lambda 決定：零是等距切，一是照對數切
+ * （近處的層極窄、遠處的層極寬）。零點八偏向對數那一端——
+ * 人眼對近處的影子解析度敏感得多，把像素往近處堆是划算的。
+ *
+ * stabilizeCascades 必須開。關著的話每一層的投影範圍會隨鏡頭轉動
+ * 重新貼合視錐，同一道邊緣每幀落在不同的取樣點上，影子邊緣
+ * 會沿著轉頭的方向爬動——那正是單層時 trackShadowToCamera
+ * 花了一整段在對付的問題，分層版由它自己處理
+ */
+function createCascadedShadowGenerator(
+  sunLight: DirectionalLight,
+  preset: QualityPreset,
+): CascadedShadowGenerator {
+  const shadowGenerator = new CascadedShadowGenerator(preset.shadowMapSize, sunLight)
+
+  shadowGenerator.numCascades = preset.shadowCascadeCount
+  shadowGenerator.stabilizeCascades = true
+  shadowGenerator.lambda = 0.8
+  shadowGenerator.shadowMaxZ = preset.shadowDistance
   /**
-   * 用中等，不用高等
+   * 不要開 autoCalcDepthBounds
    *
-   * 高等是三十二次遮蔽搜尋加六十四次比較，那個級距是給
-   * 「畫面上只有幾樣東西」的展示場景用的。這裡整片視野都是方塊，
-   * 中等已經看不出顆粒，成本只有一半
+   * 它每幀要把深度圖縮到一個像素去讀最小與最大深度，換來的是
+   * 更貼身的深度範圍。這個場景的高度只有四十格，範圍本來就很緊，
+   * 那一趟縮圖換不到相稱的品質
    */
-  shadowGenerator.filteringQuality = ShadowGenerator.QUALITY_MEDIUM
+  shadowGenerator.autoCalcDepthBounds = false
+
+  return shadowGenerator
 }
 
 /** 直螢幕時以寬度為基準計算 FOV，避免鏡頭過度放大 */
@@ -1531,8 +1644,16 @@ function updateCameraFovMode(camera: UniversalCamera, canvas: HTMLCanvasElement)
     : Camera.FOVMODE_VERTICAL_FIXED
 }
 
-function createShadowGenerator({ scene }: { scene: Scene }) {
-  const sunLight = new DirectionalLight(SUN_LIGHT_NAME, SUN_DIRECTION, scene)
+/**
+ * 建立陰影
+ *
+ * 換畫質時要整個重建：貼圖的邊長與分幾層都是建構時就決定的，
+ * 事後改不了。重建時把原本那盞光傳進來，場景裡才不會多出第二顆太陽——
+ * 日夜循環是按名字找光的，多一盞就會有一盞永遠不被更新
+ */
+function createShadowGenerator({ scene, existingLight }: { scene: Scene; existingLight?: DirectionalLight | null }) {
+  const sunLight = existingLight
+    ?? new DirectionalLight(SUN_LIGHT_NAME, SUN_DIRECTION, scene)
   sunLight.intensity = SUN_INTENSITY
   /** 午後的暖色陽光，跟偏冷的環境光形成色溫差 */
   sunLight.diffuse = new Color3(1, 0.93, 0.78)
@@ -1566,31 +1687,59 @@ function createShadowGenerator({ scene }: { scene: Scene }) {
    * autoUpdateExtends 要關掉：讓它每幀依投影者重算的話，
    * 範圍會隨著視野裡的東西跳動，影子邊緣跟著抖
    */
-  sunLight.autoUpdateExtends = false
-  sunLight.orthoLeft = -SHADOW_HALF_EXTENT
-  sunLight.orthoRight = SHADOW_HALF_EXTENT
-  sunLight.orthoTop = SHADOW_HALF_EXTENT
-  sunLight.orthoBottom = -SHADOW_HALF_EXTENT
-  /**
-   * 深度範圍
-   *
-   * 關掉 autoUpdateExtends 之後 autoCalcShadowZBounds 就失效了，得自己給。
-   * 光源退開的距離加上世界高度，前後各留一點餘裕
-   */
-  sunLight.shadowMinZ = 10
-  sunLight.shadowMaxZ = SHADOW_LIGHT_DISTANCE + 80
-  sunLight.position = new Vector3(WORLD_SIZE / 2, SAND_LEVEL, WORLD_SIZE / 2)
-    .subtract(SUN_DIRECTION.scale(SHADOW_LIGHT_DISTANCE))
-
-  const { quality } = useGraphicsQuality()
+  const { preset } = useGraphicsQuality()
+  const isCascaded = preset.value.shadowCascadeCount > 1
 
   /**
-   * 陰影貼圖的解析度
+   * 單層陰影只照顧鏡頭附近那一塊
    *
-   * 投影範圍縮到九十六格之後，2048 就有每格二十一個像素，
-   * 比原本「4096 罩住整個世界」還要細，成本卻只有四分之一
+   * 原本的投影範圍罩住整個世界（三百五十格見方）。那代表每一幀都要把
+   * 全世界的幾何重畫進一張 4096 的深度圖裡，而其中絕大部分
+   * 玩家根本看不到——霧在兩百二十格就糊掉了，走遠的東西也沒有影子可看。
+   *
+   * 改成一塊跟著鏡頭移動的小範圍：邊長只有八十格，
+   * 貼圖降到 2048 反而讓每一格分到的像素變多——成本降到四分之一，
+   * 影子還更銳利。
+   *
+   * autoUpdateExtends 要關掉：讓它每幀依投影者重算的話，
+   * 範圍會隨著視野裡的東西跳動，影子邊緣跟著抖。
+   *
+   * 分層陰影自己會依鏡頭的視錐算出每一層的投影範圍與深度，
+   * 這一整段（包含 trackShadowToCamera 那個對齊取樣格的追蹤）
+   * 全部由它接手，所以只在單層時才設
    */
-  const shadowGenerator = new ShadowGenerator(quality.value === 'low' ? 1024 : 2048, sunLight)
+  if (!isCascaded) {
+    sunLight.autoUpdateExtends = false
+    sunLight.orthoLeft = -SHADOW_HALF_EXTENT
+    sunLight.orthoRight = SHADOW_HALF_EXTENT
+    sunLight.orthoTop = SHADOW_HALF_EXTENT
+    sunLight.orthoBottom = -SHADOW_HALF_EXTENT
+    /**
+     * 深度範圍
+     *
+     * 關掉 autoUpdateExtends 之後 autoCalcShadowZBounds 就失效了，得自己給。
+     * 光源退開的距離加上世界高度，前後各留一點餘裕
+     */
+    sunLight.shadowMinZ = 10
+    sunLight.shadowMaxZ = SHADOW_LIGHT_DISTANCE + 80
+    sunLight.position = new Vector3(WORLD_SIZE / 2, SAND_LEVEL, WORLD_SIZE / 2)
+      .subtract(SUN_DIRECTION.scale(SHADOW_LIGHT_DISTANCE))
+  }
+
+  /**
+   * 陰影貼圖的解析度與層數
+   *
+   * 分層陰影（CSM）把鏡頭前方依距離切成幾段，每一段各給一張貼圖：
+   * 最近那一層罩得小，每格分到的像素最多；越遠的層罩得越大，
+   * 但那裡的東西本來就小，看不出解析度掉了。
+   *
+   * 單層的做法只罩得住鏡頭附近八十格見方，而霧要到一百格才開始收——
+   * 中間那一整圈看得一清二楚的景物完全沒有影子。分層之後
+   * 影子一路鋪到霧裡，那是這座庭園望出去最明顯的一項改變
+   */
+  const shadowGenerator = isCascaded
+    ? createCascadedShadowGenerator(sunLight, preset.value)
+    : new ShadowGenerator(preset.value.shadowMapSize, sunLight)
   /**
    * bias 是正規化深度，要換算成世界單位才有意義
    *
@@ -1643,7 +1792,7 @@ function createShadowGenerator({ scene }: { scene: Scene }) {
    * 這正是我們要的；指數陰影那條路沒有這個判斷，
    * 範圍外會取到邊界的深度值，於是遠處的沙地會浮出一圈莫名其妙的陰影
    */
-  applyShadowFiltering(shadowGenerator, quality.value)
+  applyShadowFiltering(shadowGenerator, preset.value)
   /**
    * 投影範圍的邊緣淡出
    *
@@ -1694,7 +1843,7 @@ function createShadowGenerator({ scene }: { scene: Scene }) {
 }
 
 export function useBabylonScene(param?: UseBabylonSceneParam) {
-  const { quality } = useGraphicsQuality()
+  const { quality, preset } = useGraphicsQuality()
 
   const canvasRef = ref<HTMLCanvasElement>()
 
@@ -1726,36 +1875,63 @@ export function useBabylonScene(param?: UseBabylonSceneParam) {
     () => {
       if (pipeline.value) {
         pipeline.value.imageProcessing.ditheringEnabled = devToggle.dithering
-        pipeline.value.samples = devToggle.multiSample ? getSampleCount(quality.value) : 1
+        pipeline.value.samples = devToggle.multiSample ? preset.value.sampleCount : 1
         /** 關掉多重取樣時補回 FXAA，才比較得出兩者的差別 */
-        pipeline.value.fxaaEnabled = !devToggle.multiSample && quality.value !== 'low'
+        pipeline.value.fxaaEnabled = !devToggle.multiSample && preset.value.sampleCount > 1
       }
 
       if (shadowGenerator.value) {
+        /**
+         * 關掉柔邊時退到最省的那一級，不是退到字串 'low'
+         *
+         * 等級一多，寫死的字串就成了一顆定時炸彈：哪天最省的那一級
+         * 改了名字，這裡會安靜地查到一個不存在的設定
+         */
         applyShadowFiltering(
           shadowGenerator.value,
-          devToggle.contactShadow ? quality.value : 'low',
+          devToggle.contactShadow ? preset.value : QUALITY_PRESET_MAP[LOWEST_QUALITY],
         )
       }
     },
   )
 
-  watch(quality, (newQuality) => {
-    if (!engine.value)
+  watch(quality, () => {
+    if (!engine.value || !scene.value)
       return
 
     const devicePixelRatio = window?.devicePixelRatio ?? 1
-    engine.value.setHardwareScalingLevel(getHardwareScalingLevel(newQuality, devicePixelRatio))
+    engine.value.setHardwareScalingLevel(getHardwareScalingLevel(preset.value, devicePixelRatio))
 
     if (pipeline.value) {
-      /** 低畫質保留色調映射，關掉比較吃頻寬的多重取樣 */
-      pipeline.value.samples = getSampleCount(newQuality)
+      /** 最省的那一級保留色調映射，關掉比較吃頻寬的多重取樣 */
+      pipeline.value.samples = preset.value.sampleCount
     }
 
     if (!shadowGenerator.value)
       return
 
-    applyShadowFiltering(shadowGenerator.value, newQuality)
+    /**
+     * 陰影得整個重建，不能只改屬性
+     *
+     * 貼圖的邊長與分幾層都是建構時決定的，事後改不了——
+     * 這也是原本切換畫質時陰影解析度從來沒跟著變的原因：
+     * 那一行只改了濾波，貼圖還是啟動時那一張。
+     *
+     * 重建之後投影者名單會是空的，得把舊的那份接過來。
+     * 名單裡是網格的參照，複製過去就好，不必重走一次世界
+     */
+    const sunLight = scene.value.getLightByName(SUN_LIGHT_NAME) as DirectionalLight | null
+    const previousGenerator = shadowGenerator.value
+    const casterList = previousGenerator.getShadowMap()?.renderList?.slice() ?? []
+
+    const nextGenerator = createShadowGenerator({ scene: scene.value, existingLight: sunLight })
+    const nextShadowMap = nextGenerator.getShadowMap()
+    if (nextShadowMap) {
+      nextShadowMap.renderList = casterList
+    }
+
+    shadowGenerator.value = nextGenerator
+    previousGenerator.dispose()
   })
 
   onMounted(async () => {
@@ -1768,7 +1944,7 @@ export function useBabylonScene(param?: UseBabylonSceneParam) {
       engine.value = await createEngine({ canvas: canvasRef.value })
 
       const devicePixelRatio = window?.devicePixelRatio ?? 1
-      engine.value.setHardwareScalingLevel(getHardwareScalingLevel(quality.value, devicePixelRatio))
+      engine.value.setHardwareScalingLevel(getHardwareScalingLevel(preset.value, devicePixelRatio))
 
       scene.value = createScene({
         canvas: canvasRef.value,
@@ -1781,7 +1957,7 @@ export function useBabylonScene(param?: UseBabylonSceneParam) {
       })
       shadowGenerator.value = createShadowGenerator({ scene: scene.value })
       pipeline.value = createRenderingPipeline(scene.value, camera.value)
-      pipeline.value.samples = getSampleCount(quality.value)
+      pipeline.value.samples = preset.value.sampleCount
 
       useEventListener(window, 'resize', handleResize)
       useEventListener(canvasRef, 'webglcontextlost', (event) => {
