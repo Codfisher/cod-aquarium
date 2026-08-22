@@ -114,6 +114,32 @@ export function createMistTerrain(babylon: BabylonModule, scene: Scene): void {
   }
 }
 
+/** 仰角低於這裡，貼地加厚一律給到晨昏的滿檔 */
+export const GROUND_HAZE_LOW_SUN_HEIGHT = 0.12
+/** 仰角高於這裡，貼地加厚一律收回正午的基準 */
+export const GROUND_HAZE_HIGH_SUN_HEIGHT = 0.55
+/** 晨昏那一段的加厚倍率 */
+export const GROUND_HAZE_BOOST_DAWN_DUSK = 1.15
+/** 正午的加厚倍率 */
+export const GROUND_HAZE_BOOST_BASE = 0.6
+
+/**
+ * 貼地加厚的倍率該給多少，只看太陽仰角
+ *
+ * 零是貼著地平線、一是正上方。仰角低的時候給到晨昏的滿檔，
+ * 高的時候收回正午的基準，中間用平滑曲線接起來，
+ * 太陽爬升的過程才不會看出一道分界
+ */
+export function computeGroundHazeBoost(sunHeight: number): number {
+  const ratio = (sunHeight - GROUND_HAZE_LOW_SUN_HEIGHT)
+    / (GROUND_HAZE_HIGH_SUN_HEIGHT - GROUND_HAZE_LOW_SUN_HEIGHT)
+  const clamped = Math.min(1, Math.max(0, ratio))
+  const smooth = clamped * clamped * (3 - 2 * clamped)
+
+  return GROUND_HAZE_BOOST_DAWN_DUSK
+    + (GROUND_HAZE_BOOST_BASE - GROUND_HAZE_BOOST_DAWN_DUSK) * smooth
+}
+
 /**
  * 從天上往下打一道射線，問這一格的地面在哪裡
  *

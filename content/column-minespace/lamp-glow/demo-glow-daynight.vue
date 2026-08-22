@@ -3,7 +3,7 @@
     :setup="setup"
     :camera-radius="9"
     :camera-beta="1.25"
-    :clear-color="skyColor"
+    :clear-color="[0.05, 0.06, 0.09, 1]"
     title="白天要保留的比例，得給得比直覺高"
     caption="把時刻拖到白天，再把保留比例拉到零，那盞燈就完全熄了。關鍵在最後那個開關，畫面出去還要過一次 ACES 色調映射，而那條曲線在高處壓縮得很兇。同樣的 0.17，夜裡是一團明顯的光，白天幾乎整個被壓掉。"
   >
@@ -31,7 +31,7 @@
 <script setup lang="ts">
 import type { Color3 } from '@babylonjs/core'
 import type { BabylonDemoContext } from '../demo/use-babylon-demo'
-import { computed, ref, shallowRef, watch } from 'vue'
+import { ref, shallowRef, watch } from 'vue'
 import DemoFrame from '../demo/demo-frame.vue'
 import DemoSlider from '../demo/demo-slider.vue'
 import DemoToggle from '../demo/demo-toggle.vue'
@@ -46,18 +46,6 @@ const GLOW_COLOR: readonly [number, number, number] = [255, 220, 160]
 const dayRatio = ref(0)
 const dayStrengthRatio = ref(0.45)
 const hasToneMapping = ref(true)
-
-/** 背景跟著時刻走，不然白天的燈看起來只是變暗，感覺不到它在跟天光比 */
-const skyColor = computed<[number, number, number, number]>(() => {
-  const ratio = dayRatio.value
-
-  return [
-    0.05 + ratio * 0.38,
-    0.06 + ratio * 0.53,
-    0.09 + ratio * 0.72,
-    1,
-  ]
-})
 
 const glowEmissive = shallowRef<Color3>()
 const ambientRef = shallowRef<{ intensity: number }>()
@@ -136,7 +124,23 @@ function setup({ babylon, scene, camera }: BabylonDemoContext) {
   pipeline.fxaaEnabled = false
   toneMappingRef.value = pipeline.imageProcessing
 
+  /**
+   * 背景跟著時刻走，不然白天的燈看起來只是變暗，感覺不到它在跟天光比
+   *
+   * demo-frame 的 clear-color 只在引擎建立當下套用一次，之後不會再讀，
+   * 天色的日夜變化得自己在這裡跟著 dayRatio 動
+   */
+  const stopSky = watch(dayRatio, (ratio) => {
+    scene.clearColor.set(
+      0.05 + ratio * 0.38,
+      0.06 + ratio * 0.53,
+      0.09 + ratio * 0.72,
+      1,
+    )
+  }, { immediate: true })
+
   return () => {
+    stopSky()
     glowEmissive.value = undefined
     ambientRef.value = undefined
     toneMappingRef.value = undefined

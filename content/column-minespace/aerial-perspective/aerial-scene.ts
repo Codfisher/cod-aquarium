@@ -107,6 +107,34 @@ export function mixPreset(ratio: number): SkyPreset {
   }
 }
 
+/** 太陽仰角低於這個值，貼地濃度給滿 */
+export const GROUND_HAZE_LOW_SUN_HEIGHT = 0.12
+
+/** 太陽仰角高過這個值，貼地濃度收回基準值 */
+export const GROUND_HAZE_HIGH_SUN_HEIGHT = 0.55
+
+/** 正午前後的貼地濃度基準值 */
+export const GROUND_HAZE_BOOST_BASE = 0.6
+
+/** 晨昏貼地濃度加到這麼濃 */
+export const GROUND_HAZE_BOOST_DAWN_DUSK = 1.15
+
+/**
+ * 依太陽仰角算出貼地濁氣要加濃多少
+ *
+ * 低於 0.12 給滿，高過 0.55 收回基準值，中間用 smoothstep 的多項式接起來，
+ * 太陽爬升的過程才不會看出一道分界
+ */
+export function computeGroundHazeBoost(sunHeight: number): number {
+  const ratio = (sunHeight - GROUND_HAZE_LOW_SUN_HEIGHT)
+    / (GROUND_HAZE_HIGH_SUN_HEIGHT - GROUND_HAZE_LOW_SUN_HEIGHT)
+  const clamped = Math.min(1, Math.max(0, ratio))
+  const smooth = clamped * clamped * (3 - 2 * clamped)
+
+  return GROUND_HAZE_BOOST_DAWN_DUSK
+    + (GROUND_HAZE_BOOST_BASE - GROUND_HAZE_BOOST_DAWN_DUSK) * smooth
+}
+
 /** 可重現的亂數，山脊每次重整都長一樣 */
 function createRandom(seed: number) {
   let state = seed
@@ -285,10 +313,18 @@ export function createSkyBackdrop(babylon: BabylonModule, scene: Scene): SkyBack
 }
 
 export interface RidgeWorld {
-  /** 每一份山脊材質上那個外掛，四個範例都靠它調參數 */
+  /** 每一份山脊材質上那個外掛，範例都靠它調參數 */
   aerialList: AerialPerspectiveHandle[];
   sky: SkyBackdrop;
   applyPreset: (preset: SkyPreset, midStrength: number) => void;
+  /**
+   * 換一個太陽仰角
+   *
+   * 水平方向維持原本的角度，只調直射光的俯仰。傳入值只是控制量，
+   * 正規化之後才是文章裡說的那個仰角，所以回傳正規化後的
+   * `-sunLight.direction.y`，門檻 0.12、0.55 要拿這個回傳值去比對
+   */
+  setSunHeight: (sunHeight: number) => number;
 }
 
 export interface CreateRidgeWorldParam {
@@ -416,5 +452,19 @@ export function createRidgeWorld({
     sky.update(preset.skyTopColor, preset.skyHorizonColor)
   }
 
-  return { aerialList, sky, applyPreset }
+  /**
+   * 換一個太陽仰角
+   *
+   * 水平分量維持原本那顆太陽的方向，只改直射光的俯仰再重新正規化。
+   * 正規化會讓 y 分量除以向量長度，傳入的 sunHeight 不等於正規化後的結果，
+   * 所以回傳真正的仰角，呼叫端要拿這個回傳值去算貼地濃度
+   */
+  function setSunHeight(sunHeight: number): number {
+    sun.direction.set(-0.4, -sunHeight, 0.68)
+    sun.direction.normalize()
+
+    return -sun.direction.y
+  }
+
+  return { aerialList, sky, applyPreset, setSunHeight }
 }

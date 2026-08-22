@@ -40,6 +40,22 @@
       >
         {{ badge }}
       </span>
+
+      <!--
+        操作提示
+
+        滾輪縮放要按過畫布才開放（見 use-babylon-demo 的說明），
+        而「按一下才有」這件事讀者猜不到，得寫出來。
+        開放之後提示就收掉，免得一直擋著畫面。
+
+        zoomable 關掉時整套縮放機制都不會啟動，這句提示也不該出現
+      -->
+      <span
+        v-if="zoomable && isReady && !isZoomActive"
+        class="demo-hint"
+      >
+        {{ interactive ? '拖曳轉動，按一下開放滾輪縮放' : '按一下開放滾輪縮放' }}
+      </span>
     </div>
 
     <div
@@ -77,10 +93,13 @@ const props = withDefaults(defineProps<{
   cameraTarget?: [number, number, number];
   clearColor?: [number, number, number, number];
   interactive?: boolean;
+  /** 是否允許滾輪縮放，純 PostProcess、鏡頭距離對畫面沒有意義的範例可以關掉 */
+  zoomable?: boolean;
 }>(), {
   height: 260,
   compact: false,
   interactive: true,
+  zoomable: true,
 })
 
 const {
@@ -88,6 +107,7 @@ const {
   canvasRef,
   isReady,
   errorMessage,
+  isZoomActive,
 } = useBabylonDemo({
   setup: props.setup,
   cameraAlpha: props.cameraAlpha,
@@ -96,6 +116,7 @@ const {
   cameraTarget: props.cameraTarget,
   clearColor: props.clearColor,
   interactive: props.interactive,
+  zoomable: props.zoomable,
 })
 </script>
 
@@ -148,6 +169,20 @@ const {
   color: #dc2626;
   padding: 1rem;
   text-align: center;
+}
+
+.demo-hint {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  color: #6b7280;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid #e5e7eb;
+  pointer-events: none;
+  opacity: 0.85;
 }
 
 .demo-badge {

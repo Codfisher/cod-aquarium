@@ -45,8 +45,30 @@ export interface UseBabylonDemoParam {
   cameraTarget?: [number, number, number];
   /** 背景色，不給就用透明 */
   clearColor?: [number, number, number, number];
-  /** 是否允許使用者拖曳旋轉 */
+  /**
+   * 是否允許拖曳轉動視角
+   *
+   * 關掉的是「轉開」，不是「推近」。正面看的範例轉開就沒有意義了，
+   * 但那幾支偏偏都在給讀者看貼圖的邊緣與交界，縮放照樣要留著
+   */
   interactive?: boolean;
+  /**
+   * 最近能推到多近
+   *
+   * 範例裡真正想看的往往是貼圖的邊緣、兩個面交界那幾個像素，
+   * 推不進去就是看不到。預設給得很小，場景特別大的再自己調
+   */
+  minRadius?: number;
+  /** 最遠能拉到多遠 */
+  maxRadius?: number;
+  /**
+   * 是否允許滾輪縮放
+   *
+   * 純 PostProcess 的範例（畫面只用螢幕座標算色，跟鏡頭距離無關）
+   * 縮放本來就不會改變畫面，關掉之後連「按一下開放滾輪縮放」的
+   * attach/detach 流程與提示文字都不會出現，省得讀者白操作一次
+   */
+  zoomable?: boolean;
 }
 
 export function useBabylonDemo(param: UseBabylonDemoParam) {
@@ -60,6 +82,8 @@ export function useBabylonDemo(param: UseBabylonDemoParam) {
   /** 引擎還沒建好之前顯示載入提示 */
   const isReady = ref(false)
   const errorMessage = ref('')
+  /** 滾輪縮放已經開放，畫面上那行提示就收起來 */
+  const isZoomActive = ref(false)
 
   let disposeSetup: (() => void) | undefined
   let isStarting = false
@@ -100,18 +124,59 @@ export function useBabylonDemo(param: UseBabylonDemoParam) {
         currentScene,
       )
 
-      if (param.interactive !== false) {
-        currentCamera.attachControl(canvasRef.value, true)
+      currentCamera.attachControl(canvasRef.value, true)
+
+      if (param.interactive === false) {
         /**
-         * 滾輪縮放要拿掉
-         *
-         * 文章是要捲的。滑鼠經過範例時把捲動吃掉，
-         * 讀者會以為頁面卡住了
+         * pointers 這一支同時管旋轉、平移與雙指縮放，整支拿掉會連雙指縮放
+         * 也一起關掉。改成只把單指旋轉與平移的靈敏度歸零：旋轉是
+         * `1 / angularSensibilityX(Y)`，設成 Infinity 除出來就是 0；
+         * 平移的 panningSensibility 有 0 的專用分支，直接關。
+         * 雙指縮放走的是 pinchDeltaPercentage 那條路徑，跟這兩個屬性無關，
+         * 所以縮放照樣動得了
          */
-        currentCamera.inputs.attached.mousewheel?.detachControl()
+        currentCamera.angularSensibilityX = Infinity
+        currentCamera.angularSensibilityY = Infinity
+        currentCamera.panningSensibility = 0
       }
-      currentCamera.lowerRadiusLimit = 2
-      currentCamera.upperRadiusLimit = 200
+
+      /**
+       * 縮放的速度要跟著距離走
+       *
+       * `wheelPrecision` 是固定的除數，離得遠時一格滾輪只挪一點點，
+       * 從兩百格推到貼著看要滾上半天。改用百分比之後，
+       * 每一格挪掉的都是當下距離的固定比例，遠近都一樣順手
+       */
+      currentCamera.wheelDeltaPercentage = 0.02
+      currentCamera.pinchDeltaPercentage = 0.02
+
+      /**
+       * 滾輪縮放要等讀者先按一下
+       *
+       * 文章是要捲的。滑鼠一經過範例就把捲動吃掉，
+       * 讀者會以為頁面卡住了。
+       *
+       * 但鎖死縮放也不行，範例裡真正想看的往往是貼圖的邊緣、
+       * 兩個面交界那幾個像素，離得遠就是看不到。
+       *
+       * 折衷是「按過才給」：在畫布上按過一次就開放滾輪，
+       * 滑鼠移開就收回去。想細看的人本來就會先伸手碰它一下。
+       *
+       * 這一行直接對本地那顆鏡頭關，因為 camera.value 還沒指派
+       *
+       * zoomable 關掉時（例如純 PostProcess、鏡頭距離對畫面沒有意義的範例）
+       * 就不裝按一下才開放的那組監聽器，滾輪永遠是關的、讓瀏覽器拿去捲頁面
+       */
+      currentCamera.inputs.attached.mousewheel?.detachControl()
+      isZoomActive.value = false
+
+      if (param.zoomable !== false) {
+        canvasRef.value.addEventListener('pointerdown', attachWheel)
+        canvasRef.value.addEventListener('pointerleave', detachWheel)
+      }
+
+      currentCamera.lowerRadiusLimit = param.minRadius ?? 0.6
+      currentCamera.upperRadiusLimit = param.maxRadius ?? 200
 
       engine.value = currentEngine
       scene.value = currentScene
@@ -155,6 +220,26 @@ export function useBabylonDemo(param: UseBabylonDemoParam) {
     engine.value?.stopRenderLoop()
   }
 
+  function attachWheel() {
+    /**
+     * 先 detach 再 attach，確保同一個 wheelInput 任何時候最多只有一個 observer
+     *
+     * attachControl() 每呼叫一次就在 scene.onPointerObservable 上新增一個
+     * observer、把 _observer 直接覆寫成新的，不會檢查是否已經掛過。
+     * 連續兩次 pointerdown 之間沒有 pointerleave（例如拖曳轉鏡頭轉兩段）
+     * 就會讓上一個 observer 失去唯一參照、變成孤兒，永遠留到卸載才清掉
+     */
+    const wheelInput = camera.value?.inputs.attached.mousewheel
+    wheelInput?.detachControl()
+    wheelInput?.attachControl()
+    isZoomActive.value = true
+  }
+
+  function detachWheel() {
+    camera.value?.inputs.attached.mousewheel?.detachControl()
+    isZoomActive.value = false
+  }
+
   useIntersectionObserver(
     containerRef,
     ([entry]) => {
@@ -183,6 +268,8 @@ export function useBabylonDemo(param: UseBabylonDemoParam) {
   )
 
   onBeforeUnmount(() => {
+    canvasRef.value?.removeEventListener('pointerdown', attachWheel)
+    canvasRef.value?.removeEventListener('pointerleave', detachWheel)
     disposeSetup?.()
     engine.value?.stopRenderLoop()
     scene.value?.dispose()
@@ -200,5 +287,6 @@ export function useBabylonDemo(param: UseBabylonDemoParam) {
     camera,
     isReady,
     errorMessage,
+    isZoomActive,
   }
 }

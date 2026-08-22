@@ -25,7 +25,7 @@
     <demo-slider
       v-model="cascadeCount"
       label="層數"
-      :min="1"
+      :min="2"
       :max="4"
       :step="1"
       :digit="0"

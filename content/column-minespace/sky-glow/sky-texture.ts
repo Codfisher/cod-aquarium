@@ -147,6 +147,16 @@ export function createMoonTexture(
   return texture
 }
 
+/** 星空要畫幾顆星、其中幾成是又大又亮的那種 */
+export interface StarFieldOption {
+  /** 貼圖邊長 */
+  size?: number;
+  /** 星點總數 */
+  starCount?: number;
+  /** 兩格寬、幾乎滿格亮的那批星，占全部的比例 */
+  brightRatio?: number;
+}
+
 /**
  * 星空
  *
@@ -157,8 +167,14 @@ export function createStarTexture(
   babylon: BabylonModule,
   scene: Scene,
   name: string,
-  size = 512,
+  option: StarFieldOption = {},
 ): DynamicTexture {
+  const {
+    size = 512,
+    starCount = 460,
+    brightRatio = 0.1,
+  } = option
+
   const texture = new babylon.DynamicTexture(
     name,
     { width: size, height: size },
@@ -171,12 +187,11 @@ export function createStarTexture(
   context.fillRect(0, 0, size, size)
 
   const random = createSeededRandom(20260818)
-  const starCount = 460
   for (let index = 0; index < starCount; index++) {
     const x = Math.floor(random() * size)
     const y = Math.floor(random() * size)
     /** 大部分是暗的小星，偶爾幾顆亮而大的，疏密才有層次 */
-    const isBright = random() < 0.1
+    const isBright = random() < brightRatio
     const brightness = isBright ? 0.85 + random() * 0.15 : 0.25 + random() * 0.45
     const pixelSize = isBright ? 2 : 1
 
