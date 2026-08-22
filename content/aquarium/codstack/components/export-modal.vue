@@ -1,5 +1,5 @@
 <template>
-  <u-modal
+  <UModal
     title="Export Scene"
     :description="`${validMeshList.length} objects`"
     @update:open="updateTime"
@@ -7,7 +7,7 @@
     <slot />
 
     <template #body>
-      <u-textarea
+      <UTextarea
         autoresize
         readonly
         class="w-full"
@@ -18,14 +18,14 @@
 
     <template #footer>
       <div class="grid grid-cols-2 gap-2 w-full">
-        <u-button
+        <UButton
           color="primary"
           icon="i-material-symbols:download-2-rounded"
           label="Download JSON file"
           @click="downloadJSON"
         />
 
-        <u-button
+        <UButton
           v-if="isSupported"
           color="neutral"
           variant="outline"
@@ -33,12 +33,12 @@
           @click="copyToClipboard"
         >
           Copy to clipboard
-          <u-kbd value="meta" />
-          <u-kbd value="C" />
-        </u-button>
+          <UKbd value="meta" />
+          <UKbd value="C" />
+        </UButton>
       </div>
     </template>
-  </u-modal>
+  </UModal>
 </template>
 
 <script setup lang="ts">

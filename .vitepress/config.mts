@@ -1079,6 +1079,9 @@ export default ({ mode }: { mode: string }) => {
         }),
         ui({
           router: false,
+          experimental: {
+            componentDetection: true,
+          },
         }),
         llmstxt(),
 

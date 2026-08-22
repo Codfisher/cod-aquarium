@@ -6,7 +6,7 @@
         調整寬度
       </label>
 
-      <u-slider
+      <USlider
         v-model="resizePercent"
         :min="50"
         :max="100"

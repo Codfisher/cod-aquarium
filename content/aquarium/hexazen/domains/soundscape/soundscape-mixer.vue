@@ -12,7 +12,7 @@
       :key="item.id"
       class="flex items-center gap-3"
     >
-      <u-icon
+      <UIcon
         :name="soundscapeIconMap[item.type] ?? 'i-mingcute:music-2-fill'"
         class="text-xl text-gray-500 shrink-0"
       />
@@ -21,7 +21,7 @@
         {{ t(item.player.title as any) }}
       </span>
 
-      <u-slider
+      <USlider
         :model-value="volumeMap[item.id] ?? 1"
         :min="0"
         :max="2"

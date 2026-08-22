@@ -1,5 +1,5 @@
 <template>
-  <u-app
+  <UApp
     :toaster="{
       position: 'top-right',
     }"
@@ -107,7 +107,7 @@
                   :list="marbleListNameList"
                   @submit="handleChangeMarbleList"
                 >
-                  <u-icon
+                  <UIcon
                     name="i-material-symbols:settings-account-box-rounded"
                     class="text-4xl text-white cursor-pointer"
                   />
@@ -158,13 +158,13 @@
               </base-btn>
 
               <div class="absolute right-2 top-2 flex flex-col p-4 gap-4 bg-black/10 rounded-2xl">
-                <u-icon
+                <UIcon
                   name="i-material-symbols:qr-code-scanner"
                   class="text-4xl text-white cursor-pointer"
                   @click="openPartySetupModal"
                 />
 
-                <u-icon
+                <UIcon
                   name="i-material-symbols:settings-account-box-rounded"
                   class="text-4xl text-white cursor-pointer"
                   @click="openPartyPlayerSettingsModal"
@@ -209,7 +209,7 @@
               v-if="gameState !== 'playing'"
               class="absolute right-2 top-2 flex flex-col p-4 gap-4 bg-black/10 rounded-2xl pointer-events-auto"
             >
-              <u-icon
+              <UIcon
                 name="i-material-symbols:settings-account-box-rounded"
                 class="text-4xl text-white cursor-pointer"
                 @click="openPartyPlayerSettingsModal"
@@ -220,7 +220,7 @@
       </transition>
 
       <div class="md:max-w-1/2 absolute top-0 right-0 p-4">
-        <u-alert
+        <UAlert
           v-if="alertVisible"
           v-model:open="alertVisible"
           title="歡迎來到鱈魚的彈珠！"
@@ -248,7 +248,7 @@
               class=" underline!"
             >放空、交流或許願功能</a><span class="text-nowrap"> (*´∀`)~♥</span>
           </template>
-        </u-alert>
+        </UAlert>
       </div>
 
       <transition name="opacity">
@@ -258,7 +258,7 @@
         />
       </transition>
     </div>
-  </u-app>
+  </UApp>
 </template>
 
 <script setup lang="ts">

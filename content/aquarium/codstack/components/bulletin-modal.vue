@@ -1,5 +1,5 @@
 <template>
-  <u-modal
+  <UModal
     title="Welcome to CodStack!"
     :ui="{
       content: 'min-w-full md:min-w-160',
@@ -8,7 +8,7 @@
     <slot />
 
     <template #content>
-      <u-tabs
+      <UTabs
         v-model="currentTab"
         :items="tabItems"
         value-key="slot"
@@ -28,7 +28,7 @@
 
         <template #quick-start>
           <div class="p-10 pt-6">
-            <u-carousel
+            <UCarousel
               v-slot="{ item, index }"
               dots
               :items="quickStartItems"
@@ -65,12 +65,12 @@
                   />
                 </div>
               </div>
-            </u-carousel>
+            </UCarousel>
           </div>
         </template>
-      </u-tabs>
+      </UTabs>
     </template>
-  </u-modal>
+  </UModal>
 </template>
 
 <script setup lang="ts">

@@ -1,7 +1,7 @@
 <template>
   <div class="chamfer-4 p-1 bg-gray-200 ">
     <div class="bg-white chamfer-3.5 p-3">
-      <u-carousel
+      <UCarousel
         v-slot="{ item }"
         :items="blockThumbnailList"
         :ui="{
@@ -19,7 +19,7 @@
             class="border-none! bg-white chamfer-2.5"
           >
         </div>
-      </u-carousel>
+      </UCarousel>
     </div>
   </div>
 </template>

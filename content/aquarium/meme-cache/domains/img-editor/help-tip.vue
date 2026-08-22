@@ -1,12 +1,12 @@
 <template>
-  <u-popover
+  <UPopover
     :ui="{
       content: 'z-9999 p-0 text-sm min-w-64 overflow-hidden',
     }"
     arrow
   >
     <div class="absolute right-0 bottom-0 p-6 opacity-60">
-      <u-icon
+      <UIcon
         name="i-material-symbols:help-outline-rounded"
         class="size-10 text-white"
       />
@@ -24,7 +24,7 @@
             :key="i"
             class="tip-row"
           >
-            <u-icon
+            <UIcon
               :name="tip.icon"
               class="tip-icon"
             />
@@ -42,7 +42,7 @@
             :key="i"
             class="tip-row"
           >
-            <u-icon
+            <UIcon
               :name="tip.icon"
               class="tip-icon"
             />
@@ -51,7 +51,7 @@
         </section>
       </div>
     </template>
-  </u-popover>
+  </UPopover>
 </template>
 
 <script setup lang="ts">

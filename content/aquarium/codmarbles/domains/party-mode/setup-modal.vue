@@ -1,5 +1,5 @@
 <template>
-  <u-modal
+  <UModal
     title="多人遊戲"
     description="邀請小夥伴們掃描以下 QR Code，一起滾彈珠吧！੭ ˙ᗜ˙ )੭"
     :ui="{
@@ -13,7 +13,7 @@
         <div class="flex flex-col items-center gap-4 p-2">
           <img :src="hostPlayer.joinUrlQrCode">
 
-          <u-button
+          <UButton
             label="複製連結"
             class="w-full"
             :ui="{ label: 'text-center w-full' }"
@@ -22,7 +22,7 @@
         </div>
       </div>
     </template>
-  </u-modal>
+  </UModal>
 </template>
 
 <script setup lang="ts">

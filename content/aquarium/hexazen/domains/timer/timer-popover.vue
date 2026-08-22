@@ -1,5 +1,5 @@
 <template>
-  <u-popover
+  <UPopover
     :ui="{
       content: 'p-0 border-0 bg-transparent shadow-none ring-0',
     }"
@@ -63,7 +63,7 @@
 
               <div class="flex items-center gap-2">
                 <span class="text-xs text-gray-400 shrink-0 w-10">{{ t('custom') }}</span>
-                <u-input
+                <UInput
                   v-model.number="customSleepMinutes"
                   type="number"
                   size="xs"
@@ -93,7 +93,7 @@
               <div class="space-y-1.5">
                 <div class="flex items-center gap-2">
                   <span class="text-xs text-gray-400 shrink-0 w-10">{{ t('work') }}</span>
-                  <u-input
+                  <UInput
                     v-model.number="workMinutes"
                     type="number"
                     size="xs"
@@ -106,7 +106,7 @@
                 </div>
                 <div class="flex items-center gap-2">
                   <span class="text-xs text-gray-400 shrink-0 w-10">{{ t('break') }}</span>
-                  <u-input
+                  <UInput
                     v-model.number="breakMinutes"
                     type="number"
                     size="xs"
@@ -126,7 +126,7 @@
             v-if="isRunning || isPaused"
             class="space-y-2"
           >
-            <u-separator
+            <USeparator
               size="xs"
               :ui="{ border: 'border-gray-100' }"
             />
@@ -221,7 +221,7 @@
         </div>
       </chamfer-border-card>
     </template>
-  </u-popover>
+  </UPopover>
 </template>
 
 <script setup lang="ts">

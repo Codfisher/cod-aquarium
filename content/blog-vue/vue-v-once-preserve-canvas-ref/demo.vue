@@ -6,7 +6,7 @@
         調整寬度
       </label>
 
-      <u-slider
+      <USlider
         v-model="resizePercent"
         :min="80"
         :max="100"
@@ -32,7 +32,7 @@
           </div>
         </div>
 
-        <u-context-menu
+        <UContextMenu
           :items="menuItems"
           :modal="false"
         >
@@ -40,7 +40,7 @@
             ref="canvasWithout"
             class="w-full h-32 rounded-lg border border-black/5 dark:border-white/5 outline-none block"
           />
-        </u-context-menu>
+        </UContextMenu>
 
         <!-- useElementSize 最新尺寸 -->
         <div class="flex items-center gap-2 text-xs">
@@ -67,7 +67,7 @@
           </div>
         </div>
 
-        <u-context-menu
+        <UContextMenu
           :items="menuItems"
           :modal="false"
         >
@@ -76,7 +76,7 @@
             ref="canvasWith"
             class="w-full h-32 rounded-lg border border-black/5 dark:border-white/5 outline-none block"
           />
-        </u-context-menu>
+        </UContextMenu>
 
         <!-- useElementSize 最新尺寸 -->
         <div class="flex items-center gap-2 text-xs">

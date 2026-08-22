@@ -21,7 +21,7 @@
     class="toolbar absolute flex rounded pointer-events-auto text-white bg-black/50"
     @pointerdown.stop
   >
-    <u-button
+    <UButton
       icon="i-lucide-settings-2"
       class="p-2 duration-300"
       size="lg"
@@ -30,7 +30,7 @@
       @click="toggleSettingVisible()"
     />
 
-    <u-button
+    <UButton
       icon="i-lucide-magnet"
       class="p-2 duration-300"
       size="lg"
@@ -40,7 +40,7 @@
       @click="snapEnabled = !snapEnabled"
     />
 
-    <u-button
+    <UButton
       icon="i-material-symbols:content-copy-outline-rounded"
       class="p-2"
       variant="subtitle"
@@ -48,7 +48,7 @@
       @click="emit('duplicate')"
     />
 
-    <u-button
+    <UButton
       icon="i-lucide-trash-2"
       class="p-2"
       variant="subtitle"
@@ -57,7 +57,7 @@
     />
   </div>
 
-  <u-slideover
+  <USlideover
     v-model:open="settingVisible"
     :overlay="false"
     :dismissible="false"
@@ -75,7 +75,7 @@
           素材設定
         </div>
 
-        <u-button
+        <UButton
           icon="i-lucide-x"
           @click="close"
         />
@@ -86,7 +86,7 @@
       <div class="col-span-4 flex items-center justify-between text-sm">
         <span class="opacity-50">尺寸</span>
 
-        <u-switch
+        <USwitch
           v-model="aspectRatioLocked"
           size="xs"
           label="鎖定比例"
@@ -94,12 +94,12 @@
         />
       </div>
 
-      <u-form-field
+      <UFormField
         class="col-span-2"
         label="寬度"
         :ui="{ container: 'flex gap-1' }"
       >
-        <u-input
+        <UInput
           v-model="widthInputText"
           type="number"
           class="flex-1"
@@ -110,24 +110,24 @@
           <template #trailing>
             <span class=" opacity-40 text-xs">px</span>
           </template>
-        </u-input>
+        </UInput>
 
-        <u-button
+        <UButton
           icon="i-lucide-chevron-down"
           @click="updateSize('width', settings.width - 10)"
         />
-        <u-button
+        <UButton
           icon="i-lucide-chevron-up"
           @click="updateSize('width', settings.width + 10)"
         />
-      </u-form-field>
+      </UFormField>
 
-      <u-form-field
+      <UFormField
         class="col-span-2"
         label="高度"
         :ui="{ container: 'flex gap-1' }"
       >
-        <u-input
+        <UInput
           v-model="heightInputText"
           type="number"
           class="flex-1"
@@ -138,19 +138,19 @@
           <template #trailing>
             <span class=" opacity-40 text-xs">px</span>
           </template>
-        </u-input>
+        </UInput>
 
-        <u-button
+        <UButton
           icon="i-lucide-chevron-down"
           @click="updateSize('height', settings.height - 10)"
         />
-        <u-button
+        <UButton
           icon="i-lucide-chevron-up"
           @click="updateSize('height', settings.height + 10)"
         />
-      </u-form-field>
+      </UFormField>
 
-      <u-form-field
+      <UFormField
         class="col-span-4"
         label="旋轉"
         hint="兩指可旋轉圖片"
@@ -164,20 +164,20 @@
           <span class=" text-xs opacity-40 ml-2">{{ settings.angle }}°</span>
         </template>
 
-        <u-slider
+        <USlider
           v-model="settings.angle"
           :min="-180"
           :max="180"
           :step="1"
         />
 
-        <u-button
+        <UButton
           icon="i-lucide-x"
           @click="settings.angle = 0"
         />
-      </u-form-field>
+      </UFormField>
     </template>
-  </u-slideover>
+  </USlideover>
 
   <teleport to="body">
     <div

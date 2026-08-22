@@ -17,7 +17,7 @@
             aria-label="關閉收藏冊"
             @click="emit('close')"
           >
-            <u-icon
+            <UIcon
               name="i-material-symbols:close-rounded"
               class="close-icon"
               aria-hidden="true"
@@ -43,7 +43,7 @@
             :disabled="!unlockedRewardIdSet.has(reward.id)"
             @click="toggleAccessory(reward.id)"
           >
-            <u-icon
+            <UIcon
               :name="unlockedRewardIdSet.has(reward.id)
                 ? 'i-material-symbols:styler-outline-rounded'
                 : 'i-material-symbols:lock'"

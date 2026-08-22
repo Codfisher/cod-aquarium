@@ -1,5 +1,5 @@
 <template>
-  <u-modal
+  <UModal
     v-model:open="isOpen"
     title="管理彈珠"
     description="新增或清空彈珠名稱"
@@ -14,19 +14,19 @@
     <template #body>
       <div class="flex flex-col gap-4 p-2">
         <div class="flex gap-2 items-end">
-          <u-form-field
+          <UFormField
             class="flex-1"
             label="彈珠名稱"
             description="可以使用 , 分隔多個名稱 "
           >
-            <u-input
+            <UInput
               v-model="newName"
               placeholder="ex: 煞氣的鱈魚"
               class="w-full"
               @keydown.enter="addMarble"
             />
-          </u-form-field>
-          <u-button
+          </UFormField>
+          <UButton
             label="新增"
             :disabled="newName.trim() === ''"
             @click="addMarble"
@@ -44,7 +44,7 @@
             class="flex items-center justify-between px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-800"
           >
             <span class="text-sm">{{ name }}</span>
-            <u-button
+            <UButton
               icon="i-material-symbols:close-rounded"
               variant="ghost"
               color="neutral"
@@ -64,8 +64,8 @@
     </template>
 
     <template #footer>
-      <u-popover>
-        <u-button
+      <UPopover>
+        <UButton
           label="清空所有彈珠"
           color="error"
           size="lg"
@@ -83,13 +83,13 @@
               此操作無法復原
             </p>
             <div class="flex justify-end gap-2">
-              <u-button
+              <UButton
                 label="取消"
                 variant="ghost"
                 color="neutral"
                 size="sm"
               />
-              <u-button
+              <UButton
                 label="清空"
                 color="error"
                 size="sm"
@@ -98,16 +98,16 @@
             </div>
           </div>
         </template>
-      </u-popover>
+      </UPopover>
 
-      <u-button
+      <UButton
         label="確認"
         size="lg"
         :disabled="form.list.length === 0"
         @click="submit"
       />
     </template>
-  </u-modal>
+  </UModal>
 </template>
 
 <script setup lang="ts">

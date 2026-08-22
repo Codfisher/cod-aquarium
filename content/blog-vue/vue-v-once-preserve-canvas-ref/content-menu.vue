@@ -6,7 +6,7 @@
         調整寬度
       </label>
 
-      <u-slider
+      <USlider
         v-model="resizePercent"
         :min="50"
         :max="100"
@@ -22,7 +22,7 @@
       class="transition-all"
       :style="{ width: `${resizePercent}%` }"
     >
-      <u-context-menu
+      <UContextMenu
         :items="menuItems"
         :modal="false"
       >
@@ -30,7 +30,7 @@
           ref="canvasRef"
           class="w-full h-32 rounded-lg border border-black/5 dark:border-white/5 outline-none block"
         />
-      </u-context-menu>
+      </UContextMenu>
     </div>
   </div>
 </template>

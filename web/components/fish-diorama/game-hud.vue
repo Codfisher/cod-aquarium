@@ -227,7 +227,7 @@
           aria-label="離開遊戲"
           @click="emit('close')"
         >
-          <u-icon
+          <UIcon
             name="i-material-symbols:arrow-back-rounded"
             class="exit-icon"
             aria-hidden="true"
@@ -365,7 +365,7 @@
               :key="reward.id"
               class="reward-item"
             >
-              <u-icon
+              <UIcon
                 name="i-material-symbols:styler-outline-rounded"
                 class="reward-icon"
                 aria-hidden="true"

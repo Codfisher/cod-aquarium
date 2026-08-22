@@ -1,6 +1,6 @@
 <template>
   <client-only>
-    <u-app
+    <UApp
       :toaster="{
         position: 'top-right',
       }"
@@ -43,7 +43,7 @@
             class="filter-list flex gap-2 items-center"
           >
             <!-- 模式獨立於情緒標籤之外，才不會被橫向捲動帶出畫面 -->
-            <u-button
+            <UButton
               v-if="collectionMode !== 'all'"
               :label="COLLECTION_MODE_LABEL[collectionMode]"
               trailing-icon="i-material-symbols:close-rounded"
@@ -56,7 +56,7 @@
             />
 
             <div class="emotion-list flex gap-2 overflow-x-auto">
-              <u-button
+              <UButton
                 v-for="emotion in availableEmotionList"
                 :key="emotion"
                 :label="emotion"
@@ -71,7 +71,7 @@
           </div>
 
           <div class="flex gap-2 w-full">
-            <u-input
+            <UInput
               ref="inputRef"
               v-model.trim="keyword"
               placeholder="輸入關鍵字或任何線索 (・∀・)９"
@@ -87,7 +87,7 @@
                 v-if="keyword?.length"
                 #trailing
               >
-                <u-button
+                <UButton
                   color="neutral"
                   variant="link"
                   size="sm"
@@ -96,23 +96,23 @@
                   @click="keyword = ''"
                 />
               </template>
-            </u-input>
+            </UInput>
 
-            <u-dropdown-menu
+            <UDropdownMenu
               :items="mainMenuItems"
               :ui="{
                 content: 'z-70',
                 item: 'p-2',
               }"
             >
-              <u-button
+              <UButton
                 icon="i-material-symbols:menu-rounded"
                 variant="ghost"
                 color="neutral"
               />
 
               <template #detail>
-                <u-checkbox
+                <UCheckbox
                   v-model="settings.detailVisible"
                   label="顯示細節"
                 />
@@ -120,7 +120,7 @@
 
               <template #collection>
                 <div class="flex items-center gap-1 text-sm">
-                  <u-button
+                  <UButton
                     v-for="item in collectionModeItemList"
                     :key="item.value"
                     :label="item.label"
@@ -133,14 +133,14 @@
               </template>
 
               <template #animated-filter>
-                <u-checkbox
+                <UCheckbox
                   v-model="filterOptions.animatedOnly"
                   label="只顯示動圖"
                 />
               </template>
 
               <template #blur-filter>
-                <u-tooltip
+                <UTooltip
                   text="過濾模糊圖片，分級由演算法自動評估"
                   :ui="{ content: 'z-[9999]' }"
                 >
@@ -148,7 +148,7 @@
                     <span class="shrink-0">
                       模糊度
                     </span>
-                    <u-slider
+                    <USlider
                       v-model="filterOptions.blurFilter"
                       :min="0"
                       :max="2"
@@ -160,9 +160,9 @@
                       {{ blurFilterLabel }}
                     </span>
                   </div>
-                </u-tooltip>
+                </UTooltip>
               </template>
-            </u-dropdown-menu>
+            </UDropdownMenu>
           </div>
         </div>
       </div>
@@ -176,7 +176,7 @@
       <div class=" fixed right-0 top-0 p-2 px-3 text-xs opacity-10">
         {{ version }}
       </div>
-    </u-app>
+    </UApp>
   </client-only>
 </template>
 

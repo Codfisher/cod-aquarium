@@ -9,7 +9,7 @@
         class="zone-content"
       >
         <div class="zone-label">
-          <u-icon
+          <UIcon
             :name="zoneIcon"
             class="text-lg"
           />
@@ -46,7 +46,7 @@
         @click="$emit('toggleMute', sound.id)"
       >
         <div class="sound-title">
-          <u-icon
+          <UIcon
             :name="sound.isMuted ? 'i-mingcute:volume-mute-fill' : 'i-mingcute:volume-fill'"
             class="sound-icon"
           />

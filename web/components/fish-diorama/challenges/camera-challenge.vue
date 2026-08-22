@@ -171,7 +171,7 @@
             aria-label="上一張"
             @click.stop="stepLightbox(-1)"
           >
-            <u-icon
+            <UIcon
               name="i-material-symbols:chevron-left-rounded"
               aria-hidden="true"
             />
@@ -183,7 +183,7 @@
             aria-label="下一張"
             @click.stop="stepLightbox(1)"
           >
-            <u-icon
+            <UIcon
               name="i-material-symbols:chevron-right-rounded"
               aria-hidden="true"
             />

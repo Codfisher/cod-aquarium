@@ -1,7 +1,7 @@
 <template>
   <div class="flex flex-col h-full gap-2">
     <div class="flex gap-2">
-      <u-button
+      <UButton
         variant="subtle"
         color="neutral"
         icon="material-symbols:folder"
@@ -20,10 +20,10 @@
             {{ statusMessage }}
           </span>
         </transition>
-      </u-button>
+      </UButton>
 
-      <u-modal title="App Options">
-        <u-button
+      <UModal title="App Options">
+        <UButton
           color="neutral"
           variant="ghost"
           icon="material-symbols:settings"
@@ -32,14 +32,14 @@
         <template #body>
           <app-options-form />
         </template>
-      </u-modal>
+      </UModal>
     </div>
 
     <div
       v-if="mainStore.rootFsHandle"
       class="flex items-center gap-2"
     >
-      <u-tabs
+      <UTabs
         v-model="selectedTab"
         :items="tabList"
         class="flex-1 duration-200"
@@ -48,14 +48,14 @@
         color="neutral"
       />
 
-      <u-popover
+      <UPopover
         :content="{
           side: 'right',
           align: 'start',
         }"
         arrow
       >
-        <u-button
+        <UButton
           icon="material-symbols:add-2-rounded"
           variant="subtle"
           color="neutral"
@@ -63,14 +63,14 @@
 
         <template #content>
           <div class=" flex gap-2 p-2">
-            <u-input
+            <UInput
               v-model="newTabName"
               placeholder="Enter new tab name"
               class="flex-1"
               @keydown.enter="addNewTab()"
             />
 
-            <u-button
+            <UButton
               icon="i-material-symbols:add-rounded"
               color="primary"
               variant="solid"
@@ -88,7 +88,7 @@
                 {{ tab.label }}
               </div>
 
-              <u-button
+              <UButton
                 icon="i-material-symbols:delete-rounded"
                 color="error"
                 variant="ghost"
@@ -104,7 +104,7 @@
             </div>
           </div>
         </template>
-      </u-popover>
+      </UPopover>
     </div>
 
     <div
@@ -112,7 +112,7 @@
       ref="scrollAreaBoxRef"
       class="flex flex-col flex-1"
     >
-      <u-scroll-area
+      <UScrollArea
         ref="scrollAreaRef"
         :key="mainStore.rootFsHandle.name"
         v-slot="{ item }"
@@ -121,7 +121,7 @@
         :ui="{ item: 'flex justify-center gap-1' }"
         virtualize
       >
-        <u-context-menu
+        <UContextMenu
           v-for="file in item"
           :key="file.path"
           :items="createCustomTabContextMenuItems(file)"
@@ -136,7 +136,7 @@
             :size="`${previewItemWidth}px`"
             @click="handleSelectedModelFile(file)"
           >
-            <u-button
+            <UButton
               v-if="customTabList.length"
               :icon="`i-material-symbols:${!file.hasTab ? 'bookmark-outline-rounded' : 'bookmark'}`"
               variant="ghost"
@@ -144,28 +144,28 @@
               class="absolute top-0 right-0 pointer-events-none"
             />
           </model-preview-item>
-        </u-context-menu>
-      </u-scroll-area>
+        </UContextMenu>
+      </UScrollArea>
     </div>
 
     <div
       v-if="mainStore.rootFsHandle && currentFilterOptions"
       class="grid grid-cols-2 gap-2 @container"
     >
-      <u-input
+      <UInput
         v-model="currentFilterOptions.keyword"
         placeholder="Enter keywords to search models"
         class="col-span-2 @md:col-span-1"
       >
         <template #leading>
-          <u-icon name="i-lucide-search" />
+          <UIcon name="i-lucide-search" />
         </template>
 
         <template
           v-if="currentFilterOptions.keyword"
           #trailing
         >
-          <u-button
+          <UButton
             color="neutral"
             variant="link"
             size="sm"
@@ -174,14 +174,14 @@
             @click="currentFilterOptions.keyword = ''"
           />
         </template>
-      </u-input>
+      </UInput>
 
-      <u-popover
+      <UPopover
         :content="{
           side: 'right',
         }"
       >
-        <u-input
+        <UInput
           :model-value="currentFilterOptions.selectedTagList.length ? currentFilterOptions.selectedTagList.join(', ') : 'Select tag to filter models'"
           class="col-span-2 @md:col-span-1"
           readonly
@@ -195,17 +195,17 @@
             v-if="currentFilterOptions.selectedTagList.length"
             #trailing
           >
-            <u-icon
+            <UIcon
               name="i-material-symbols:close"
               @click.stop="currentFilterOptions.selectedTagList = []"
             />
           </template>
-        </u-input>
+        </UInput>
 
         <template #content>
           <div class="flex flex-col w-[20vw] gap-3 p-3">
             <div class="flex flex-wrap gap-2 overflow-auto max-h-[50vh]">
-              <u-badge
+              <UBadge
                 v-for="tag in filteredTagList"
                 :key="tag"
                 :label="tag"
@@ -224,7 +224,7 @@
             </div>
 
             <div class="">
-              <u-button
+              <UButton
                 label="Clear Selected"
                 variant="subtle"
                 color="neutral"
@@ -235,7 +235,7 @@
               />
             </div>
 
-            <u-input
+            <UInput
               v-model="currentFilterOptions.tagKeyword"
               label="Tag keyword"
               placeholder="Enter tag keyword"
@@ -244,7 +244,7 @@
                 v-if="currentFilterOptions.tagKeyword"
                 #trailing
               >
-                <u-button
+                <UButton
                   color="neutral"
                   variant="link"
                   size="sm"
@@ -253,18 +253,18 @@
                   @click="currentFilterOptions.tagKeyword = ''"
                 />
               </template>
-            </u-input>
+            </UInput>
 
-            <u-separator />
+            <USeparator />
 
-            <u-checkbox
+            <UCheckbox
               v-model="currentFilterOptions.includeTagFromFileName"
               as="label"
               label="Include tag from file name"
               variant="card"
             />
 
-            <u-checkbox
+            <UCheckbox
               v-model="currentFilterOptions.useAndLogic"
               as="label"
               variant="card"
@@ -272,7 +272,7 @@
               description="Otherwise use OR logic"
             />
 
-            <u-checkbox
+            <UCheckbox
               v-if="selectedTab !== 'all'"
               v-model="currentFilterOptions.showAllItems"
               as="label"
@@ -282,7 +282,7 @@
             />
           </div>
         </template>
-      </u-popover>
+      </UPopover>
     </div>
   </div>
 </template>

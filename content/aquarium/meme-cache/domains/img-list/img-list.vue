@@ -28,14 +28,14 @@
             >
 
             <!-- 文字最小只能到 12px，縮不下來，改用 icon 才省得了空間 -->
-            <u-icon
+            <UIcon
               v-if="data.animated && props.animatedBadgeVisible"
               name="i-material-symbols:play-arrow-rounded"
               aria-label="動圖"
               class="absolute bottom-1 left-1 size-5 rounded-full bg-black/50 text-white"
             />
 
-            <u-button
+            <UButton
               :icon="props.favoriteFileSet.has(data.file)
                 ? 'i-material-symbols:favorite-rounded'
                 : 'i-material-symbols:favorite-outline-rounded'"

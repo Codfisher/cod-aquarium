@@ -1,22 +1,22 @@
 <template>
-  <u-form
+  <UForm
     :state="optionForm"
     class="w-full flex flex-col gap-4"
   >
-    <u-form-field
+    <UFormField
       label="App"
       description=""
       v-bind="fieldProps"
       :ui="{ label: 'text-lg font-semibold', ...fieldProps.ui }"
     />
 
-    <u-form-field
+    <UFormField
       label="Clear All Cache"
       description="Clears all cache, such as model preview thumbnails. Useful when thumbnail errors occur."
       v-bind="fieldProps"
     >
-      <u-popover>
-        <u-button
+      <UPopover>
+        <UButton
           label="Clear"
           color="error"
         />
@@ -31,13 +31,13 @@
             </div>
 
             <div class="flex justify-end gap-2 mt-2">
-              <u-button
+              <UButton
                 label="Cancel"
                 color="neutral"
                 variant="soft"
                 @click="close"
               />
-              <u-button
+              <UButton
                 label="Clear All Cache"
                 color="error"
                 variant="solid"
@@ -46,37 +46,37 @@
             </div>
           </div>
         </template>
-      </u-popover>
-    </u-form-field>
+      </UPopover>
+    </UFormField>
 
-    <u-separator />
+    <USeparator />
 
-    <u-form-field
+    <UFormField
       label="Preview"
       description=""
       v-bind="fieldProps"
       :ui="{ label: 'text-lg font-semibold', ...fieldProps.ui }"
     />
 
-    <u-form-field
+    <UFormField
       as="label"
       label="Align to Surface"
       v-bind="fieldProps"
     >
-      <u-checkbox v-model="optionForm.enablePreviewRotation" />
+      <UCheckbox v-model="optionForm.enablePreviewRotation" />
 
       <template #description>
-        Automatically aligns the model to the surface normal. You can also hold <u-kbd value="Alt" /> (Option) to
+        Automatically aligns the model to the surface normal. You can also hold <UKbd value="Alt" /> (Option) to
         temporarily enable this
         without checking the box.
       </template>
-    </u-form-field>
+    </UFormField>
 
-    <u-form-field
+    <UFormField
       label="Ground Snap Vertical Offset"
       v-bind="fieldProps"
     >
-      <u-input-number
+      <UInputNumber
         v-model="optionForm.previewGroundYOffset"
         :min="-10"
         :max="10"
@@ -85,52 +85,52 @@
 
       <template #description>
         Applies a vertical offset only when the preview snaps to the ground to prevent clipping. (Does not affect
-        stacking on other meshes). Use <u-kbd value="Q" />(up) / <u-kbd value="E" />(down) to adjust.
+        stacking on other meshes). Use <UKbd value="Q" />(up) / <UKbd value="E" />(down) to adjust.
       </template>
-    </u-form-field>
+    </UFormField>
 
-    <u-separator />
+    <USeparator />
 
-    <u-form-field
+    <UFormField
       label="Model Metadata"
       description="Metadata for the models in the scene."
       v-bind="fieldProps"
       :ui="{ label: 'text-lg font-semibold', ...fieldProps.ui }"
     />
 
-    <u-form-field
+    <UFormField
       label="Mass"
       description="default value for new models"
       v-bind="fieldProps"
     >
-      <u-input-number
+      <UInputNumber
         v-model="optionForm.metadata.mass.defaultValue"
         :step="0.1"
       />
-    </u-form-field>
+    </UFormField>
 
-    <u-form-field
+    <UFormField
       label="Restitution"
       description="default value for new models"
       v-bind="fieldProps"
     >
-      <u-input-number
+      <UInputNumber
         v-model="optionForm.metadata.restitution.defaultValue"
         :step="0.1"
       />
-    </u-form-field>
+    </UFormField>
 
-    <u-form-field
+    <UFormField
       label="Friction"
       description="default value for new models"
       v-bind="fieldProps"
     >
-      <u-input-number
+      <UInputNumber
         v-model="optionForm.metadata.friction.defaultValue"
         :step="0.1"
       />
-    </u-form-field>
-  </u-form>
+    </UFormField>
+  </UForm>
 </template>
 
 <script setup lang="ts">
