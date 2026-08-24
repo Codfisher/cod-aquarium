@@ -268,49 +268,49 @@
 {"file":"meme-b8a7fb57-2346-48c8-8721-8270652cbd89.webp","describe":"表情嚴肅的麻雀，語帶戲謔威脅","ocr":"我這一翅膀，你會死","keyword":"麻雀,威脅","blurLevel":0}
 {"file":"meme-b7a89345-a7fb-4655-af4b-aa60cbfef3cc.webp","describe":"麥可傑克森肖像，眼神專注","ocr":"他他！ ——麥可·傑克森","keyword":"麥可傑克森","blurLevel":0}
 {"file":"meme-b981b3a2-33e2-4f8f-9fdb-ea1e9bdfcba5.webp","describe":"橘白貓伸出前爪擋開遞到面前的兩雙筷子。","ocr":"你好 把你筷子收回去","keyword":"貓咪,筷子,擋開,拒絕,收回去,別鬧,勸退,吃飯,聚餐,推開,不用了","blurLevel":2,"emotion":"拒絕,無奈","reviewed":true}
-{"file":"meme-b9392cf6-33fc-4144-9d26-fc3e806fe53a.webp","describe":"卡通男性半身像，眉頭深鎖、表情嚴肅","ocr":"你的人格類型是：先輩 HOMO","keyword":"先輩,HOMO","blurLevel":0}
-{"file":"meme-b9334fae-e406-4b00-87f1-c42d27633f28.webp","describe":"「忍痛哈羅德」迷因中的長者坐於室內桌前、使用筆電、手持杯子、面帶笑容","ocr":"","keyword":"忍痛哈羅德,老者,筆電","blurLevel":2}
-{"file":"meme-b9b3f56c-90b2-4cef-b915-6582e1ea3041.webp","describe":"蝙蝠俠在紅色背景前掌摑羅賓，蝙蝠俠面帶微笑，兩個空白對話框","ocr":"","keyword":"蝙蝠俠,羅賓,掌摑","blurLevel":0}
+{"file":"meme-b9392cf6-33fc-4144-9d26-fc3e806fe53a.webp","describe":"卡通男性半身像，眉頭深鎖、表情嚴肅","ocr":"你的人格類型是：先輩 HOMO","keyword":"先輩,HOMO","blurLevel":0,"emotion":"嘲諷","reviewed":true}
+{"file":"meme-b9334fae-e406-4b00-87f1-c42d27633f28.webp","describe":"「忍痛哈羅德」迷因中的長者坐於室內桌前、使用筆電、手持杯子、面帶笑容","ocr":"","keyword":"忍痛哈羅德,老者,筆電","blurLevel":2,"emotion":"敷衍,無奈","reviewed":true}
+{"file":"meme-b9b3f56c-90b2-4cef-b915-6582e1ea3041.webp","describe":"蝙蝠俠在紅色背景前掌摑羅賓，蝙蝠俠面帶微笑，兩個空白對話框","ocr":"","keyword":"蝙蝠俠,羅賓,掌摑","blurLevel":0,"emotion":"得意,嘲諷","reviewed":true}
 {"file":"meme-bb760269-a60b-4477-873a-3e20f8f7eabe.webp","describe":"湯姆貓貼在門邊張嘴激動說話，旁邊兩隻戴禮帽的貓斜眼看著牠，出自《湯姆貓與傑利鼠》。","ocr":"","keyword":"湯姆貓,湯姆與傑利,貓和老鼠,Tom and Jerry,流浪貓,禮帽,爭論,告狀,理論,斜眼,不屑","blurLevel":2,"emotion":"無奈,嘲諷","reviewed":true}
-{"file":"meme-b9e411cd-dcae-4f9e-8d4e-426b8090f682.webp","describe":"《隊長星球》五位地球衛士手持發光戒指，下方隊長星球在宇宙中自信飛翔","ocr":"","keyword":"隊長星球,地球衛士,戒指","blurLevel":0}
+{"file":"meme-b9e411cd-dcae-4f9e-8d4e-426b8090f682.webp","describe":"《隊長星球》五位地球衛士手持發光戒指，下方隊長星球在宇宙中自信飛翔","ocr":"","keyword":"隊長星球,地球衛士,戒指","blurLevel":0,"emotion":"得意","reviewed":true}
 {"file":"meme-bbbc9729-7b9c-44f8-b890-6ee55b2830cd.webp","describe":"漫畫兩名肌肉男打鬥，戴軍帽者被擊中、表情痛苦扭曲","ocr":"屁啦!!\n應該沒有什麼差別吧!!","keyword":"黑白漫畫,肌肉男,軍帽,揮拳,打鬥,屁啦,沒有差別,反駁,吐槽,大吼,格鬥,少年漫畫","blurLevel":0,"emotion":"生氣,嘲諷","reviewed":true}
 {"file":"meme-be5a39b1-f07c-47d3-a494-b22035f314ac.webp","describe":"舒酸定長效抗敏牙膏的包裝盒。","ocr":"這麼敏感乾脆用舒酸定洗澡\nSENSODYNE\n24小時長效抗敏\n舒酸定 長效抗敏\n適合每日使用\nGum Care 牙齦護理","keyword":"舒酸定,Sensodyne,牙膏,敏感,抗敏,洗澡,玻璃心,太敏感,吐槽,牙齦護理,諷刺,產品","blurLevel":0,"emotion":"嘲諷","reviewed":true}
 {"file":"meme-bbb7d843-691c-492d-a4b0-bcc9628da857.webp","describe":"四格比較圖，豹、飛機、光各配一條長度遞增的進度條，第四格沒有圖也沒有標籤，進度條卻是滿格最長。","ocr":"地球上最快的東西\n豹\n飛機\n光","keyword":"進度條,最快,豹,獵豹,飛機,光,光速,速度比較,四格,空白最長,梗圖模板,吐槽","blurLevel":0,"emotion":"嘲諷","reviewed":true}
-{"file":"meme-c1262b9b-347f-4dad-9bbe-0ba6defaf502.webp","describe":"《海綿寶寶》兩隻肌肉猛男海洋生物對峙，從劍拔弩張轉為筋疲力盡","ocr":"你有多猛","keyword":"海綿寶寶,肌肉,對峙","blurLevel":0}
-{"file":"meme-c0a285d6-724b-43bf-8c5c-e4161e188dfa.webp","describe":"一隻手將白色魔爪能量飲料倒入混合奶精的咖啡裡","ocr":"如何解鎖一天中的第 25 個小時","keyword":"魔爪能量飲料,咖啡","blurLevel":0}
+{"file":"meme-c1262b9b-347f-4dad-9bbe-0ba6defaf502.webp","describe":"《海綿寶寶》兩隻肌肉猛男海洋生物對峙，從劍拔弩張轉為筋疲力盡","ocr":"你有多猛","keyword":"海綿寶寶,肌肉,對峙","blurLevel":0,"emotion":"生氣,疲憊","reviewed":true}
+{"file":"meme-c0a285d6-724b-43bf-8c5c-e4161e188dfa.webp","describe":"一隻手將白色魔爪能量飲料倒入混合奶精的咖啡裡","ocr":"如何解鎖一天中的第 25 個小時","keyword":"魔爪能量飲料,咖啡","blurLevel":0,"emotion":"得意","reviewed":true}
 {"file":"meme-c31e1cdb-a280-4c4d-b084-5c935d7c7136.webp","describe":"從筆電螢幕伸出的藍色發光手正要撫摸黑白貓，貓咪表情驚訝","ocr":"朋友，猫不错，摸摸","keyword":"貓咪,摸貓,藍色手,隔空摸貓,雲吸貓,螢幕伸出手,想摸,網友,賓士貓","blurLevel":2,"emotion":"可愛,開心","reviewed":true}
-{"file":"meme-c1e76525-1b72-4ced-be80-f9cd87a3abf2.webp","describe":"戴鍋蓋頭、穿閃亮西裝與領結的日本藝人志村健，笑容燦爛，右手比OK","ocr":"","keyword":"志村健,OK手勢","blurLevel":2}
+{"file":"meme-c1e76525-1b72-4ced-be80-f9cd87a3abf2.webp","describe":"戴鍋蓋頭、穿閃亮西裝與領結的日本藝人志村健，笑容燦爛，右手比OK","ocr":"","keyword":"志村健,OK手勢","blurLevel":2,"emotion":"讚許,開心","reviewed":true}
 {"file":"meme-c1e6991d-809d-4b90-adf0-ce11ad06bccb.webp","describe":"工筆畫風格的大蝦坐在木椅上，前肢按著鍵盤操作桌上型電腦。","ocr":"非也，兄台","keyword":"蝦子,大蝦,古畫,工筆畫,水墨,電腦,鍵盤,非也兄台,反駁,文言文,古人,鄉民","blurLevel":1,"emotion":"拒絕,嘲諷","reviewed":true}
-{"file":"meme-c3adebd3-aec7-4b6d-b8e6-01b4ef6e6685.webp","describe":"黑色幼貓臉上沾滿奶水、一隻前腳踩在食盆中","ocr":"","keyword":"黑貓,幼貓,奶水","blurLevel":2}
-{"file":"meme-c4e7ea53-37cc-4755-be69-e1916604fc8a.webp","describe":"Flex Tape廣告，發言人Phil Swift興奮推銷，下方示範將膠帶貼在漏水水箱上止漏","ocr":"FLEX TAPE","keyword":"Flex Tape,Phil Swift","blurLevel":2}
+{"file":"meme-c3adebd3-aec7-4b6d-b8e6-01b4ef6e6685.webp","describe":"黑色幼貓臉上沾滿奶水、一隻前腳踩在食盆中","ocr":"","keyword":"黑貓,幼貓,奶水","blurLevel":2,"emotion":"可愛","reviewed":true}
+{"file":"meme-c4e7ea53-37cc-4755-be69-e1916604fc8a.webp","describe":"Flex Tape廣告，發言人Phil Swift興奮推銷，下方示範將膠帶貼在漏水水箱上止漏","ocr":"FLEX TAPE","keyword":"Flex Tape,Phil Swift","blurLevel":2,"emotion":"得意","reviewed":true}
 {"file":"meme-c3f0f4a2-0054-4670-9e0f-37c480dd242e.webp","describe":"一隻手在鏡頭前舉起紅蘋果，後方一群穿白袍的醫護人員往兩側走開，中間掛聽診器的男醫師瞪大眼，右側女醫師大笑。","ocr":"","keyword":"蘋果,醫生,白袍,聽診器,一天一蘋果醫生遠離我,an apple a day keeps the doctor away,躲避,走避,健康,醫護人員,大笑,惡作劇","blurLevel":2,"emotion":"嘲諷,驚訝","reviewed":true}
 {"file":"meme-c55f77fd-1dff-43c2-ad86-b51ba0e2826b.webp","describe":"橘色塑膠椅倒套在狗身上，狗吐舌看向鏡頭。「塑狗椅」為「塑膠椅」諧音。","ocr":"塑狗椅ね","keyword":"塑狗椅,塑膠椅,諧音,狗,邊境牧羊犬,吐舌,橘色椅子,卡住,寵物,惡搞,冷笑話,ね","blurLevel":2,"emotion":"可愛","reviewed":true}
 {"file":"meme-c71126b2-a226-4c06-871d-f903b139cba0.webp","describe":"卡通校服女孩眨眼微笑、雙手向下比劃，「綠茶」為網路用語指假裝清純實則有心機","ocr":"姐妹我懂你\n因为我也是绿茶啦","keyword":"綠茶,绿茶,綠茶婊,姐妹我懂你,心機,假清純,茶藝,校服女孩,插畫,眨眼,自嘲,女生","blurLevel":0,"emotion":"嘲諷,得意","reviewed":true}
-{"file":"meme-c78d5fb8-ac9b-4e77-a96f-f6e514699f01.webp","describe":"三格漫畫模板：會議室內爭論、不耐，最終一人被拋出高樓窗外，所有對話框空白待填","ocr":"","keyword":"會議室,拋出窗外","blurLevel":1}
-{"file":"meme-c81deb6c-95bd-41d5-aedf-36a01f2b1b77.webp","describe":"黑色正體中文單字","ocr":"噓","keyword":"噓","blurLevel":2}
-{"file":"meme-c90887ff-a205-434c-939e-bb59db19f21b.webp","describe":"蒙面歹徒手持手槍指向觀眾，另一手做勒索狀","ocr":"","keyword":"蒙面歹徒,手槍","blurLevel":2}
+{"file":"meme-c78d5fb8-ac9b-4e77-a96f-f6e514699f01.webp","describe":"三格漫畫模板：會議室內爭論、不耐，最終一人被拋出高樓窗外，所有對話框空白待填","ocr":"","keyword":"會議室,拋出窗外","blurLevel":1,"emotion":"生氣","reviewed":true}
+{"file":"meme-c81deb6c-95bd-41d5-aedf-36a01f2b1b77.webp","describe":"黑色正體中文單字","ocr":"噓","keyword":"噓","blurLevel":2,"emotion":"拒絕","reviewed":true}
+{"file":"meme-c90887ff-a205-434c-939e-bb59db19f21b.webp","describe":"蒙面歹徒手持手槍指向觀眾，另一手做勒索狀","ocr":"","keyword":"蒙面歹徒,手槍","blurLevel":2,"emotion":"恐怖","reviewed":true}
 {"file":"meme-cac52a79-8064-4d9e-838f-00846e28e16f.webp","describe":"《阿甘妙世界》藍色貓咪Gumball身著西裝、雙手合十、表情無奈了然，坐於辦公室桌前","ocr":"我想我們都知道接下來會發生什麼事\nI think we all know where this is going","keyword":"阿甘妙世界,Gumball,達不溜,藍貓,西裝,雙手合十,我想我們都知道接下來會發生什麼事,I think we all know where this is going,預料之中,老套,無奈,劇透","blurLevel":1,"emotion":"無奈,嘲諷","reviewed":true}
-{"file":"meme-c939de2b-7b4d-471e-9cd8-5e50593fa7a0.webp","describe":"深色短髮男子伸舌舔舐金髮男子臉頰，金髮男子表情驚訝冒汗。出自《JoJo的奇妙冒險》","ocr":"","keyword":"JoJo的奇妙冒險,舔臉","blurLevel":2}
+{"file":"meme-c939de2b-7b4d-471e-9cd8-5e50593fa7a0.webp","describe":"深色短髮男子伸舌舔舐金髮男子臉頰，金髮男子表情驚訝冒汗。出自《JoJo的奇妙冒險》","ocr":"","keyword":"JoJo的奇妙冒險,舔臉","blurLevel":2,"emotion":"驚訝","reviewed":true}
 {"file":"meme-cbb2ea9e-a205-4bfa-b4ff-6125cf3adc31.webp","describe":"雲霄飛車上乘客全都尖叫驚恐，前排男子卻淡定舉手講電話。","ocr":"WHAT??\nI can't hear you, there's some damn noisy people here.","keyword":"雲霄飛車,尖叫,講電話,淡定,吵鬧,聽不到,WHAT,反差,遊樂園,roller coaster,冷靜,無視","blurLevel":0,"emotion":"無奈,嘲諷","reviewed":true}
 {"file":"meme-cf21b0b1-08b1-4abb-802c-ff2fdcc46879.webp","describe":"上格《小丑》亞瑟穿紅西裝在走廊咧嘴笑，下格他被黃色計程車撞飛，摔在車頂上。","ocr":"","keyword":"小丑,Joker,亞瑟,瓦昆菲尼克斯,紅西裝,計程車,被車撞,撞飛,樂極生悲,得意忘形,反轉,電影","blurLevel":2,"emotion":"嘲諷,尷尬","reviewed":true}
 {"file":"meme-cc49ad3a-0c78-418b-bdac-5f3b710fbf1d.webp","describe":"Flork of Cows 塗鴉小人歪頭比出大拇指。","ocr":"朋友 我不知道你是誰 但你很努力了 對吧？這個讚是給你的 繼續向前邁進吧","keyword":"Flork of Cows,塗鴉小人,火柴人,比讚,大拇指,鼓勵,加油,打氣,你很努力了,肯定,陌生人,溫暖","blurLevel":0,"emotion":"讚許,開心","reviewed":true}
 {"file":"meme-cf27323d-80bd-4ae9-9e74-c717566a5efc.webp","describe":"戴墨鏡、蓄鬍的漫畫男子正面特寫，嘴角下撇一臉不屑","ocr":"你懂個屁 呆子","keyword":"你懂個屁,呆子,不屑,嗆人,反駁,說教,墨鏡,漫畫,大叔,酸人","blurLevel":1,"emotion":"嘲諷,生氣","reviewed":true}
 {"file":"meme-d005c4ea-5d69-4bf5-83a5-b5eee2b00268.webp","describe":"白色亂髮的黑白漫畫角色，臉部被模糊處理的真人笑臉蓋住，雙眼是黑色空洞。","ocr":"","keyword":"鬼滅之刃,童磨,白髮,黑白漫畫,詭異笑容,真人臉合成,恐怖,毛骨悚然,cursed,微笑,深夜,滲人","blurLevel":2,"emotion":"恐怖","reviewed":true}
-{"file":"meme-d049f5b7-d878-4357-94c7-52c683984f89.webp","describe":"電影《葉問2》洪金寶飾演洪師父，雙手呈爪狀，神情嚴肅專注","ocr":"","keyword":"葉問2,洪金寶,洪師父","blurLevel":2}
+{"file":"meme-d049f5b7-d878-4357-94c7-52c683984f89.webp","describe":"電影《葉問2》洪金寶飾演洪師父，雙手呈爪狀，神情嚴肅專注","ocr":"","keyword":"葉問2,洪金寶,洪師父","blurLevel":2,"emotion":"得意","reviewed":true}
 {"file":"meme-d03c0f47-0315-4b91-8972-b770969d65ad.webp","describe":"灰白色蛋形卡通生物皺眉瞪眼，一臉不悅","ocr":"管好你自己","keyword":"管好你自己,少管我,關你什麼事,多管閒事,嗆人,不爽,生氣,蛋形生物,卡通生物,吐槽,叫人閉嘴","blurLevel":2,"emotion":"生氣","reviewed":true}
-{"file":"meme-d2283c7c-868f-4dd8-8f49-97ff49f01135.webp","describe":"白色卡通貓神情驚訝好奇，背景為放射狀彩色光芒","ocr":"","keyword":"卡通貓,驚訝","blurLevel":2}
-{"file":"meme-d117bb09-3bbd-443b-a9c7-4e7b1374ec9a.webp","describe":"全身銀色板甲騎士肩扛長劍，一支箭矢精準射中頭盔眼縫","ocr":"","keyword":"騎士,板甲,長劍,箭矢","blurLevel":2}
+{"file":"meme-d2283c7c-868f-4dd8-8f49-97ff49f01135.webp","describe":"白色卡通貓神情驚訝好奇，背景為放射狀彩色光芒","ocr":"","keyword":"卡通貓,驚訝","blurLevel":2,"emotion":"驚訝","reviewed":true}
+{"file":"meme-d117bb09-3bbd-443b-a9c7-4e7b1374ec9a.webp","describe":"全身銀色板甲騎士肩扛長劍，一支箭矢精準射中頭盔眼縫","ocr":"","keyword":"騎士,板甲,長劍,箭矢","blurLevel":2,"emotion":"驚訝","reviewed":true}
 {"file":"meme-d279600f-261d-4816-9307-83a05b8ef890.webp","describe":"漫畫（右下署名 GENILDO）中同一輛巴士，左側乘客愁眉苦臉望向緊貼車窗的岩壁，右側乘客手持望遠鏡、滿臉笑容望向遠山與落日","ocr":"","keyword":"巴士,公車,乘客,樂觀,悲觀,心態,角度不同,一體兩面,岩壁,夕陽,GENILDO,漫畫,看事情的角度,正能量","blurLevel":0,"emotion":"","reviewed":true}
-{"file":"meme-d04f7173-68e2-4cc0-ba3a-d6e49dfebbf4.webp","describe":"戰鎚40000卡通版星際戰士身穿紅色動力盔甲，伸手作索取狀","ocr":"送我","keyword":"戰鎚40000,星際戰士,動力盔甲","blurLevel":2}
+{"file":"meme-d04f7173-68e2-4cc0-ba3a-d6e49dfebbf4.webp","describe":"戰鎚40000卡通版星際戰士身穿紅色動力盔甲，伸手作索取狀","ocr":"送我","keyword":"戰鎚40000,星際戰士,動力盔甲","blurLevel":2,"emotion":"得意","reviewed":true}
 {"file":"meme-d2966d41-3196-4b05-ab40-306da62103e9.webp","describe":"深藍髮色的《原神》角色戴著大帽子，側眼露出淺笑","ocr":"这人挺搞笑的","keyword":"原神,微笑,搞笑,這人挺搞笑的,看戲,冷笑,嘲諷,動漫,吐槽","blurLevel":2,"emotion":"嘲諷,得意","reviewed":true}
 {"file":"meme-d3d5ba89-e7ea-4760-a94b-7a5ad500cf48.webp","describe":"白鷺在海邊淺灘邁開大步行走，兩腿前後大幅張開","ocr":"","keyword":"白鷺,鷺鷥,白鳥,沙灘,海邊,大步走,走路有風,邁步,劈腿,大長腿,自信,趕路,前進","blurLevel":2,"emotion":"得意","reviewed":true}
-{"file":"meme-d3e1f380-227c-42bd-9fc6-d37a3fbfaea1.webp","describe":"白色絨毛雛鳥坐於格子墊上，旁有硬幣作大小對比","ocr":"","keyword":"雛鳥,絨毛","blurLevel":2}
-{"file":"meme-d3c710e0-49ee-49de-b6c9-ffd010839fad.webp","describe":"貓手持尖刺球","ocr":"大吃特吃","keyword":"貓,尖刺球","blurLevel":2}
+{"file":"meme-d3e1f380-227c-42bd-9fc6-d37a3fbfaea1.webp","describe":"白色絨毛雛鳥坐於格子墊上，旁有硬幣作大小對比","ocr":"","keyword":"雛鳥,絨毛","blurLevel":2,"emotion":"驚訝,可愛","reviewed":true}
+{"file":"meme-d3c710e0-49ee-49de-b6c9-ffd010839fad.webp","describe":"貓手持尖刺球","ocr":"大吃特吃","keyword":"貓,尖刺球","blurLevel":2,"emotion":"得意","reviewed":true}
 {"file":"meme-d2f9f75f-a1bf-4e88-bf80-588ce43d7844.webp","describe":"《JOJO的奇妙冒險》畫風的黑髮鮑伯頭角色伸出舌頭，舔著一旁瞪大綠眼、張口尖叫的藍色怪物","ocr":"","keyword":"JOJO的奇妙冒險,JOJO,ジョジョ,黃金之風,布加拉提,阿帕基,緋紅之王,替身,舔,舌頭,尖叫,怪物,獵奇,動畫","blurLevel":2,"emotion":"恐怖","reviewed":true}
 {"file":"meme-d3ed0755-effc-4a11-b437-ffaa44a9d3d6.webp","describe":"兩位年輕人，女性微笑托腮，男性表情誇張興奮雙手張開，應出自日本影視作品","ocr":"没错 我想看的就是这个\nそう！俺が見たかったのはこれだ！","keyword":"沒錯我想看的就是這個,就是這個,俺が見たかったのはこれだ,期待,興奮,激動,看好戲,日劇,日本影視,滿意,終於等到,雙手張開","blurLevel":0,"emotion":"開心,讚許","reviewed":true}
 {"file":"meme-d5182f3d-e996-4f23-a78c-df030b1f5b07.webp","describe":"淺紫長髮的動畫角色戴著白色蕾絲頭紗，胸前有心形飾物，微微側頭自信淺笑","ocr":"所以我出手了","keyword":"崩壞3rd,崩壞,維爾薇,頭紗,紫髮,自信,出手,所以我出手了,遊戲角色,動畫,神秘,微笑","blurLevel":2,"emotion":"得意","reviewed":true}
 {"file":"meme-d43ccddf-9626-45c3-a4fc-4c44850b8d97.webp","describe":"電影《頑強的D：命運之選》中紅膚長角的撒旦俯身湊近傑克布萊克說話，傑克布萊克撇嘴皺眉","ocr":"撒旦：我只想說我是你的大粉絲!!","keyword":"撒旦,惡魔,魔鬼,傑克布萊克,Jack Black,頑強的D,Tenacious D,大粉絲,粉絲,我是你的粉絲,反諷,嘲諷,電影","blurLevel":0,"emotion":"嘲諷","reviewed":true}
-{"file":"meme-d52b4827-a287-428f-8536-d33dc8320d5c.webp","describe":"斑點鹿歪頭瞪眼驚訝地望向伸來的人手，地上鋪滿落葉","ocr":"","keyword":"鹿,驚訝","blurLevel":0}
+{"file":"meme-d52b4827-a287-428f-8536-d33dc8320d5c.webp","describe":"斑點鹿歪頭瞪眼驚訝地望向伸來的人手，地上鋪滿落葉","ocr":"","keyword":"鹿,驚訝","blurLevel":0,"emotion":"驚訝","reviewed":true}
 {"file":"meme-d6d4ea14-ae7f-4510-b864-12a2c749d300.webp","describe":"橙色小鳥貼上活動假眼，左右兩格轉頭瞪視，一副教訓人的神情","ocr":"Listen here, you little shit","keyword":"聽著你這小屁孩,Listen here you little shit,小屁孩,活動假眼,googly eyes,鸚鵡,小鳥,教訓,說教,警告,兇,生氣","blurLevel":2,"emotion":"生氣","reviewed":true}
 {"file":"meme-d5e5cadc-b1c1-4e20-aa07-c8611747eb4e.webp","describe":"四格漫畫（右下署名Gudim.），落水求救者與旁人兩手未相救反而擊掌","ocr":"","keyword":"Gudim,擊掌,黑色幽默","blurLevel":0,"emotion":"悲傷,嘲諷","reviewed":true}
 {"file":"meme-d77d544d-ab4c-413e-ba6f-af867e507329.webp","describe":"烤架上排滿帶骨牛排，一手持夾子翻動，下方竄出火焰。「烤骨」為「考古」諧音","ocr":"烤骨","keyword":"烤骨,考古,諧音,挖墳,翻舊文,舊帖,烤肉,燒烤,BBQ,帶骨牛排,丁骨牛排,烤架","blurLevel":2,"emotion":"嘲諷","reviewed":true}
