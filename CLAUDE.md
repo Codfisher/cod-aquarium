@@ -13,6 +13,7 @@
 - Map、Set 資料用 map、set 結尾。例如：Map<string, Hole>，應該命名為 holeMap 而不是 holesMap。
 - 變數命名禁止以動詞開頭。例如：showKnob 應該改為 knobVisible。
 - 函數名稱應以動詞開頭，並從呼叫者角度描述要執行的動作，而非內部實作、角色或結果。例如 userData()、profileUpdated() 應改為 getUser()、updateProfile()。
+- font-size 不得小於 12px，CSS 與 SVG 的 `font-size` 屬性皆然。空間不夠時改用 icon，不要縮字。
 
 - **TypeScript**:
   - 禁止使用 `any`，必須定義明確的 Interface 或 Type。
@@ -25,6 +26,8 @@
 2. **Commit Message**：請使用中文，並遵循 [Conventional Commits](https://www.conventionalcommits.org/zh-hant/v1.0.0/) 的格式。
 3. **不要主動 commit**：除非使用者明確要求，否則不要自動 git commit。
 4. 禁止在 Commit Message 中加上 Co Author
+5. **不要主動啟動 dev server 或 build**：不要自動執行 `npm run dev`、`npm run build`。使用者會自行決定何時啟動與測試；build 另有 30 分鐘等級的耗時與快取衝突問題，詳見[開發疑難排解](docs/development-notes.md)。需要驗證編譯結果時，借用已啟動的 dev server 取轉譯後模組即可。
+6. **效能問題先量測再修**：先加一段 `import.meta.env.DEV` 包住的量測 log，請使用者實測貼數據，定位後才動手，不要憑推測連續修改。提出改進方案時用「方案 A／B／C ＋ 建議」的分級格式讓使用者挑。
 
 ## 寫作風格規則（Writing Style）
 

@@ -1,5 +1,5 @@
 <template>
-  <u-modal
+  <UModal
     title="Import Scene"
     :ui="{ width: 'sm:max-w-2xl' }"
   >
@@ -7,8 +7,8 @@
 
     <template #body>
       <div class="space-y-4">
-        <u-form-field :error="errorMessage">
-          <u-textarea
+        <UFormField :error="errorMessage">
+          <UTextarea
             ref="textareaRef"
             v-model="inputContent"
             autoresize
@@ -17,13 +17,13 @@
             placeholder="{ version: 1, partList: ... }"
             @input="clearErrorMessage()"
           />
-        </u-form-field>
+        </UFormField>
       </div>
     </template>
 
     <template #footer>
       <div class="flex  gap-2 w-full">
-        <u-button
+        <UButton
           color="gray"
           variant="ghost"
           icon="i-material-symbols:cancel-outline-rounded"
@@ -32,7 +32,7 @@
           @click="emit('close')"
         />
 
-        <u-button
+        <UButton
           icon="i-line-md:circle-twotone-to-confirm-circle-transition"
           label="Confirm Import"
           color="primary"
@@ -42,7 +42,7 @@
         />
       </div>
     </template>
-  </u-modal>
+  </UModal>
 </template>
 
 <script setup lang="ts">

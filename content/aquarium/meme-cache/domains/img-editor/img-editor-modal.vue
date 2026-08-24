@@ -1,5 +1,5 @@
 <template>
-  <u-modal
+  <UModal
     v-model:open="open"
     title="編輯圖片"
     fullscreen
@@ -18,7 +18,7 @@
 
     <template #footer="{ close }">
       <div class=" flex w-full gap-1">
-        <u-button
+        <UButton
           label="分享/複製"
           icon="i-material-symbols:file-copy-rounded"
           variant="ghost"
@@ -27,21 +27,21 @@
           @click="shareImg"
         />
 
-        <u-dropdown-menu
+        <UDropdownMenu
           :items="insertItems"
           :ui="{
             content: 'z-70',
             item: 'p-2',
           }"
         >
-          <u-button
+          <UButton
             label="插入圖片"
             icon="i-material-symbols:add-photo-alternate-outline-rounded"
             variant="ghost"
             color="neutral"
             size="sm"
           />
-        </u-dropdown-menu>
+        </UDropdownMenu>
 
         <input
           ref="fileInputRef"
@@ -53,7 +53,7 @@
 
         <div class="flex-1" />
 
-        <u-button
+        <UButton
           icon="i-material-symbols:undo-rounded"
           aria-label="復原"
           variant="ghost"
@@ -63,7 +63,7 @@
           @click="editorRef?.undo()"
         />
 
-        <u-button
+        <UButton
           icon="i-material-symbols:redo-rounded"
           aria-label="重做"
           variant="ghost"
@@ -73,22 +73,22 @@
           @click="editorRef?.redo()"
         />
 
-        <u-dropdown-menu
+        <UDropdownMenu
           :items="moreFcnItems"
           :ui="{
             content: 'z-70',
             item: 'p-2',
           }"
         >
-          <u-button
+          <UButton
             icon="i-lucide-ellipsis"
             variant="ghost"
             color="neutral"
             size="sm"
           />
-        </u-dropdown-menu>
+        </UDropdownMenu>
 
-        <u-button
+        <UButton
           icon="i-material-symbols:close-rounded"
           color="error"
           size="sm"
@@ -96,7 +96,7 @@
         />
       </div>
     </template>
-  </u-modal>
+  </UModal>
 
   <meme-picker-modal
     v-model:open="memePickerVisible"

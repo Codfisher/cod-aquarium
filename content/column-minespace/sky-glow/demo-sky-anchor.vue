@@ -71,7 +71,7 @@ function setup({ babylon, scene }: BabylonDemoContext) {
   sun.material = sunMaterial
   sun.position = direction.scale(-60)
 
-  const glowTexture = createGlowTexture(babylon, scene, 'sun-anchor-glow', [217, 211, 182])
+  const glowTexture = createGlowTexture(babylon, scene, 'sun-anchor-glow', [130, 127, 109])
   const glowMaterial = createSkyBodyMaterial(babylon, scene, 'sun-anchor-glow-material', glowTexture)
   const glow = babylon.MeshBuilder.CreateDisc('sun-anchor-glow', {
     radius: 14,

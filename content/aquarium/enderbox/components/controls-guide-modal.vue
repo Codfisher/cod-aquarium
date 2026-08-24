@@ -1,5 +1,5 @@
 <template>
-  <u-modal
+  <UModal
     :title="t('title')"
     :ui="{
       overlay: 'mc-overlay',
@@ -49,7 +49,7 @@
                   :key="typeof key === 'string' ? key : key.icon"
                   class="mc-key"
                 >
-                  <u-icon
+                  <UIcon
                     v-if="typeof key === 'object'"
                     :name="key.icon"
                     class="text-base leading-none"
@@ -64,7 +64,7 @@
         </div>
       </div>
     </template>
-  </u-modal>
+  </UModal>
 </template>
 
 <script setup lang="ts">

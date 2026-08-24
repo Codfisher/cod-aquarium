@@ -9,7 +9,7 @@
         調整寬度
       </label>
 
-      <u-slider
+      <USlider
         v-model="resizePercent"
         :min="50"
         :max="100"
@@ -25,14 +25,14 @@
       class="transition-all"
       :style="{ width: `${resizePercent}%` }"
     >
-      <u-context-menu :items="menuItems">
+      <UContextMenu :items="menuItems">
         <div
           ref="targetRef"
           class="w-full h-20 rounded-lg border border-black/5 dark:border-white/5 bg-primary/10 flex items-center justify-center text-sm"
         >
           沒有 v-once
         </div>
-      </u-context-menu>
+      </UContextMenu>
     </div>
 
     <!-- log 輸出 -->

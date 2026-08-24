@@ -1,5 +1,5 @@
 <template>
-  <u-app
+  <UApp
     :toaster="{
       ui: {
         base: 'chamfer-2 chamfer-border-0.25 bg-gray-200',
@@ -15,7 +15,7 @@
         v{{ version }}
       </div>
     </div>
-  </u-app>
+  </UApp>
 </template>
 
 <script setup lang="ts">

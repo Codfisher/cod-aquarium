@@ -21,7 +21,7 @@
       class="control-button menu-button"
       @click="$emit('menu')"
     >
-      <u-icon
+      <UIcon
         name="i-pixelarticons:menu"
         class="text-3xl"
       />
@@ -34,7 +34,7 @@
         @touchend.prevent="$emit('sprint', false)"
         @touchcancel.prevent="$emit('sprint', false)"
       >
-        <u-icon
+        <UIcon
           name="i-pixelarticons:chevron-right"
           class="text-3xl"
         />
@@ -46,7 +46,7 @@
         @touchend.prevent="$emit('jump', false)"
         @touchcancel.prevent="$emit('jump', false)"
       >
-        <u-icon
+        <UIcon
           name="i-pixelarticons:arrow-up"
           class="text-4xl"
         />

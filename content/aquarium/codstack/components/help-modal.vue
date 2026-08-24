@@ -1,5 +1,5 @@
 <template>
-  <u-modal title="Help">
+  <UModal title="Help">
     <slot />
 
     <template #body>
@@ -10,7 +10,7 @@
         <ul class="list-disc list-inside space-y-1 mt-2 text-sm">
           <li><span class="font-medium">Left click</span>: Rotate</li>
           <li>
-            <u-kbd value="Ctrl" />
+            <UKbd value="Ctrl" />
             <span class="mx-1">+</span>
             <span class="font-medium">Left click</span>: Pan
           </li>
@@ -26,21 +26,21 @@
         </h2>
         <ul class="list-disc list-inside space-y-1 mt-2 text-sm">
           <li>
-            Hold <u-kbd value="Shift" /> while moving / scaling / rotating:
+            Hold <UKbd value="Shift" /> while moving / scaling / rotating:
             <span class="font-medium">step by 0.1 unit</span> or <span class="font-medium">15°</span>
           </li>
           <li>
-            Hold <u-kbd value="Shift" /> while selecting:
+            Hold <UKbd value="Shift" /> while selecting:
             <span class="font-medium">multi-select</span>
           </li>
 
           <li>
-            Hold <u-kbd value="Shift" /> + Drag:
+            Hold <UKbd value="Shift" /> + Drag:
             <span class="font-medium">box select</span>
           </li>
 
           <li>
-            <u-kbd value="meta" /> <u-kbd value="C" />
+            <UKbd value="meta" /> <UKbd value="C" />
             <span class="font-medium">Export scene and copy to clipboard</span>
           </li>
         </ul>
@@ -49,14 +49,14 @@
           Placement preview
         </h2>
         <ul class="list-disc list-inside space-y-1 mt-2 text-sm">
-          <li><u-kbd value="Q" /> : Move up <span class="font-medium">0.1</span></li>
-          <li><u-kbd value="E" /> : Move down <span class="font-medium">0.1</span></li>
-          <li><u-kbd value="A" /> : Rotate Y <span class="font-medium">+45°</span> (clockwise)</li>
-          <li><u-kbd value="D" /> : Rotate Y <span class="font-medium">-45°</span> (counter-clockwise)</li>
+          <li><UKbd value="Q" /> : Move up <span class="font-medium">0.1</span></li>
+          <li><UKbd value="E" /> : Move down <span class="font-medium">0.1</span></li>
+          <li><UKbd value="A" /> : Rotate Y <span class="font-medium">+45°</span> (clockwise)</li>
+          <li><UKbd value="D" /> : Rotate Y <span class="font-medium">-45°</span> (counter-clockwise)</li>
         </ul>
       </div>
     </template>
-  </u-modal>
+  </UModal>
 </template>
 
 <script setup lang="ts">

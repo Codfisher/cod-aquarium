@@ -52,7 +52,7 @@ function setupScene(context: BabylonDemoContext) {
   const { babylon } = context
 
   const { waterMaterial } = createShoreScene(context)
-  let depthTexture: BaseTexture | null = createSceneDepth(context)
+  let depthTexture: BaseTexture | null = createSceneDepth(context).getDepthMap()
 
   const PluginClass = createShorelinePluginClass({
     babylon,

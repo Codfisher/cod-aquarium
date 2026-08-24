@@ -1,7 +1,7 @@
 <template>
   <div class="frame-timeline flex flex-col w-full gap-2 px-3 py-2 bg-white/95 dark:bg-black/95 border-t border-gray-300 dark:border-gray-600">
     <div class="flex items-center gap-1">
-      <u-button
+      <UButton
         :icon="props.playing
           ? 'i-material-symbols:pause-rounded'
           : 'i-material-symbols:play-arrow-rounded'"
@@ -17,7 +17,7 @@
 
       <div class="flex-1" />
 
-      <u-button
+      <UButton
         :icon="expanded
           ? 'i-material-symbols:keyboard-arrow-down-rounded'
           : 'i-material-symbols:keyboard-arrow-up-rounded'"

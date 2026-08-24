@@ -37,6 +37,15 @@ export const REFLECTION_FRESNEL_POWER = 4
 /** 差得夠多才寫進材質，這是每一幀都會走的路徑 */
 const APPLY_STEP = 0.01
 
+export interface WetTarget {
+  /** 淋濕之後漫射還剩多少 */
+  diffuseRatio: number;
+  /** 淋濕之後高光收斂到的顏色 */
+  specular: number;
+  /** 淋濕之後高光的範圍，指數越低越寬 */
+  specularPower: number;
+}
+
 export interface WetnessOption {
   babylon: BabylonModule;
   /** 濕地反光用的天色貼圖，不給就只做漫射壓暗與高光散開 */
@@ -47,6 +56,8 @@ export interface WetnessOption {
   isSpecularEnabled?: () => boolean;
   /** Fresnel 的兩個參數，範例的滑桿用 */
   getFresnel?: () => { bias: number; power: number };
+  /** 濕透時漫射與高光要收斂到的目標值，不給就用預設常數，範例的滑桿用 */
+  getWetTarget?: () => WetTarget;
 }
 
 export interface Wetness {
@@ -132,10 +143,15 @@ export function createWetness(materialList: StandardMaterial[], option: WetnessO
 
     const isDiffuseEnabled = option.isDiffuseEnabled?.() ?? true
     const isSpecularEnabled = option.isSpecularEnabled?.() ?? true
+    const wetTarget: WetTarget = option.getWetTarget?.() ?? {
+      diffuseRatio: WET_DIFFUSE_RATIO,
+      specular: WET_SPECULAR,
+      specularPower: WET_SPECULAR_POWER,
+    }
 
     for (const backup of backupList) {
       const { material, diffuse, specular } = backup
-      const diffuseRatio = isDiffuseEnabled ? lerp(1, WET_DIFFUSE_RATIO, wet) : 1
+      const diffuseRatio = isDiffuseEnabled ? lerp(1, wetTarget.diffuseRatio, wet) : 1
 
       material.diffuseColor.set(
         diffuse[0] * diffuseRatio,
@@ -156,11 +172,11 @@ export function createWetness(materialList: StandardMaterial[], option: WetnessO
        * 而水膜是蓋在表面上的一層，底下是什麼材質並不影響它有多亮
        */
       material.specularColor.set(
-        lerp(specular[0], WET_SPECULAR, wet),
-        lerp(specular[1], WET_SPECULAR, wet),
-        lerp(specular[2], WET_SPECULAR, wet),
+        lerp(specular[0], wetTarget.specular, wet),
+        lerp(specular[1], wetTarget.specular, wet),
+        lerp(specular[2], wetTarget.specular, wet),
       )
-      material.specularPower = lerp(backup.specularPower, WET_SPECULAR_POWER, wet)
+      material.specularPower = lerp(backup.specularPower, wetTarget.specularPower, wet)
     }
 
     /**

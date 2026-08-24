@@ -3,6 +3,7 @@
     :setup="setupScene"
     :badge="badge"
     :interactive="false"
+    :zoomable="false"
     title="加半個色階的雜訊"
     caption="雜訊加在量化之前。原本整片會一起跳到下一階的像素，現在依各自拿到的隨機值先後跳過去，那條筆直的界線於是散成一片顆粒。幅度給到一個色階就夠，再往上只是把畫面弄髒。"
     :height="280"

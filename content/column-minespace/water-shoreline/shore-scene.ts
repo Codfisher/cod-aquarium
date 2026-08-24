@@ -1,4 +1,4 @@
-import type { BaseTexture, Mesh, StandardMaterial } from '@babylonjs/core'
+import type { DepthRenderer, DirectionalLight, HemisphericLight, Mesh, StandardMaterial } from '@babylonjs/core'
 import type { BabylonDemoContext } from '../demo/use-babylon-demo'
 import { createSandTexture, createStoneTexture } from '../demo/pixel-texture'
 
@@ -34,6 +34,10 @@ export interface ShoreScene {
   /** 水面那份材質，岸線與漣漪都掛在它上面 */
   waterMaterial: StandardMaterial;
   waterMesh: Mesh;
+  /** 太陽，示範白沫疊在哪一層時用得到，調暗它才看得出差別 */
+  sun: DirectionalLight;
+  /** 補光，隨著太陽一起調暗，天色才不會半明半暗 */
+  ambient: HemisphericLight;
 }
 
 /**
@@ -129,16 +133,19 @@ export function createShoreScene({ babylon, scene }: BabylonDemoContext): ShoreS
   waterMesh.material = waterMaterial
   waterMesh.isPickable = false
 
-  return { waterMaterial, waterMesh }
+  return { waterMaterial, waterMesh, sun, ambient }
 }
 
 /**
  * 場景深度圖
  *
  * 存視空間的 Z，取樣用最近鄰。沒有東西的地方要當成無限遠，
- * 底色給零的話等於「實體就貼在鏡頭上」，整片水會被判成貼著岸
+ * 底色給零的話等於「實體就貼在鏡頭上」，整片水會被判成貼著岸。
+ *
+ * 回傳整個 depthRenderer 而不是只回傳貼圖，是因為 demo-depth-map
+ * 要示範「沒修正遠平面會怎樣」，得留一條路讓它事後再改 clearColor
  */
-export function createSceneDepth({ babylon, scene, camera }: BabylonDemoContext): BaseTexture {
+export function createSceneDepth({ babylon, scene, camera }: BabylonDemoContext): DepthRenderer {
   const depthRenderer = scene.enableDepthRenderer(
     camera,
     false,
@@ -159,5 +166,5 @@ export function createSceneDepth({ babylon, scene, camera }: BabylonDemoContext)
     })
   })
 
-  return depthMap
+  return depthRenderer
 }

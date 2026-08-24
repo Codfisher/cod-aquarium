@@ -1,6 +1,6 @@
 <template>
   <div ref="btnRef">
-    <u-button
+    <UButton
       :style="style"
       v-bind="props"
     />

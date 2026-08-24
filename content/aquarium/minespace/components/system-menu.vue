@@ -23,7 +23,7 @@
             :title="isMuted ? t('muted') : t('volume')"
             @click="isMuted = !isMuted"
           >
-            <u-icon
+            <UIcon
               :name="isMuted ? 'i-mingcute:volume-mute-fill' : 'i-mingcute:volume-fill'"
               class="text-lg"
             />
@@ -54,7 +54,7 @@
               反過來畫成播放鍵的話，會讓人以為時間是停著的，
               而它其實正在走
             -->
-            <u-icon
+            <UIcon
               :name="isAutoTime ? 'i-material-symbols:pause-rounded' : 'i-material-symbols:play-arrow-rounded'"
               class="text-lg"
             />
@@ -159,7 +159,7 @@
                 於是「按了才知道有沒有」——換過一輪才發現想要的那套沒有。
                 在按之前就看得出來，這一格的資訊才是完整的
               -->
-              <u-icon
+              <UIcon
                 v-if="pack.normalFileSet.size > 0"
                 name="i-material-symbols:landscape"
                 class="pack-bump-mark"
@@ -187,7 +187,7 @@
             :title="bumpEnabled ? t('bumpOn') : t('bumpOff')"
             @click="bumpEnabled = !bumpEnabled"
           >
-            <u-icon
+            <UIcon
               :name="bumpEnabled ? 'i-material-symbols:landscape' : 'i-material-symbols:crop-square-outline'"
               class="text-lg"
             />
@@ -216,7 +216,7 @@
             :title="locale === 'en' ? landmark.timbre.en : landmark.timbre['zh-hant']"
             @click="$emit('travel', landmark)"
           >
-            <u-icon
+            <UIcon
               :name="landmark.icon"
               class="text-base"
             />
@@ -244,7 +244,7 @@
           class="mc-button flex-1"
           @click="$emit('intro')"
         >
-          <u-icon
+          <UIcon
             name="i-material-symbols:help-outline"
             class="text-base"
           />

@@ -1,5 +1,5 @@
 <template>
-  <u-context-menu
+  <UContextMenu
     :items="contextMenuItems"
     :ui="{
       label: 'text-xs opacity-50',
@@ -20,7 +20,7 @@
         class="flex gap-1 mt-1"
         @pointermove.stop
       >
-        <u-button
+        <UButton
           v-for="degree in [90, -90, 180, -180]"
           :key="degree"
           :label="`${degree}°`"
@@ -44,7 +44,7 @@
         class="flex gap-1 mt-1"
         @pointermove.stop
       >
-        <u-button
+        <UButton
           v-for="degree in [90, -90, 180, -180]"
           :key="degree"
           :label="`${degree}°`"
@@ -68,7 +68,7 @@
         class="flex gap-1 mt-1"
         @pointermove.stop
       >
-        <u-button
+        <UButton
           v-for="degree in [90, -90, 180, -180]"
           :key="degree"
           :label="`${degree}°`"
@@ -88,51 +88,51 @@
         class="flex flex-col gap-1"
         @pointermove.stop
       >
-        <u-form-field
+        <UFormField
           label="Name"
           orientation="horizontal"
         >
-          <u-input
+          <UInput
             type="text"
             :model-value="metadata?.name"
             @update:model-value="(val: string) => emit('updateSelectedMeta', { name: val })"
           />
-        </u-form-field>
+        </UFormField>
 
-        <u-separator class="my-1" />
+        <USeparator class="my-1" />
 
-        <u-form-field
+        <UFormField
           label="Mass"
           orientation="horizontal"
         >
-          <u-input
+          <UInput
             type="number"
             :model-value="metadata?.mass"
             @update:model-value="(val: number) => emit('updateSelectedMeta', { mass: Number(val) })"
           />
-        </u-form-field>
+        </UFormField>
 
-        <u-form-field
+        <UFormField
           label="Restitution"
           orientation="horizontal"
         >
-          <u-input
+          <UInput
             type="number"
             :model-value="metadata?.restitution"
             @update:model-value="(val: number) => emit('updateSelectedMeta', { restitution: Number(val) })"
           />
-        </u-form-field>
+        </UFormField>
 
-        <u-form-field
+        <UFormField
           label="Friction"
           orientation="horizontal"
         >
-          <u-input
+          <UInput
             type="number"
             :model-value="metadata?.friction"
             @update:model-value="(val: number) => emit('updateSelectedMeta', { friction: Number(val) })"
           />
-        </u-form-field>
+        </UFormField>
       </div>
     </template>
 
@@ -145,11 +145,11 @@
       <div class="flex items-center gap-4">
         {{ item.label }}
 
-        <u-popover
+        <UPopover
           mode="hover"
           :content="{ side: 'top', sideOffset: 10 }"
         >
-          <u-icon
+          <UIcon
             name="i-material-symbols-light:info-outline-rounded"
             @click.stop.prevent
             @mousedown.stop
@@ -163,10 +163,10 @@
               >
             </div>
           </template>
-        </u-popover>
+        </UPopover>
       </div>
     </template>
-  </u-context-menu>
+  </UContextMenu>
 </template>
 
 <script setup lang="ts">

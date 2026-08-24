@@ -1,5 +1,5 @@
 <template>
-  <u-app
+  <UApp
     :toaster="{
       ui: {
         base: 'chamfer-2 chamfer-border-0.25 bg-gray-200',
@@ -33,13 +33,13 @@
             v-if="isEditMode && !isSharedView"
             class="absolute right-0 bottom-0 p-5 space-y-6 text-gray-600 btn-drop-shadow opacity-50"
           >
-            <u-tooltip
+            <UTooltip
               :text="t('removeMode')"
               :content="{
                 side: 'left',
               }"
             >
-              <u-icon
+              <UIcon
                 name="i-mingcute:shovel-fill"
                 class="text-3xl cursor-pointer duration-500 outline-0 "
                 :class="{
@@ -47,24 +47,24 @@
                 }"
                 @click="toggleRemoveMode()"
               />
-            </u-tooltip>
+            </UTooltip>
 
-            <u-popover
+            <UPopover
               :ui="{
                 content: 'chamfer-3 bg-gray-200 p-0.5',
               }"
             >
-              <u-tooltip
+              <UTooltip
                 :text="t('removeAllBlocks')"
                 :content="{
                   side: 'left',
                 }"
               >
-                <u-icon
+                <UIcon
                   name="tdesign:clear-formatting-1-filled"
                   class="text-3xl cursor-pointer duration-500 outline-0 scale-90"
                 />
-              </u-tooltip>
+              </UTooltip>
 
               <template #content="{ close }">
                 <div class="chamfer-2.5 bg-white">
@@ -86,65 +86,65 @@
                   </div>
                 </div>
               </template>
-            </u-popover>
+            </UPopover>
 
-            <u-separator
+            <USeparator
               size="sm"
               :ui="{ border: 'border-gray-300' }"
               class="py-1"
             />
 
-            <u-tooltip
+            <UTooltip
               :text="t('closeEditMode')"
               :content="{
                 side: 'left',
               }"
             >
-              <u-icon
+              <UIcon
                 name="i-line-md:arrow-small-left"
                 class="text-3xl cursor-pointer duration-500 outline-0"
                 @click="toggleEditMode()"
               />
-            </u-tooltip>
+            </UTooltip>
           </div>
 
           <div
             v-else-if="!isSharedView"
             class="absolute right-0 bottom-0 p-5 space-y-6 text-gray-600 btn-drop-shadow opacity-50"
           >
-            <u-tooltip
+            <UTooltip
               v-if="!isSharedView"
               :text="t('shareSoundscape')"
               :content="{
                 side: 'right',
               }"
             >
-              <u-icon
+              <UIcon
                 name="i-material-symbols:share"
                 class="text-3xl cursor-pointer outline-0 "
                 @click="handleShare()"
               />
-            </u-tooltip>
+            </UTooltip>
 
-            <u-tooltip
+            <UTooltip
               :text="t('editMode')"
               :content="{
                 side: 'left',
               }"
             >
-              <u-icon
+              <UIcon
                 name="i-material-symbols:edit-rounded"
                 class="text-3xl cursor-pointer duration-500 outline-0"
                 @click="toggleEditMode()"
               />
-            </u-tooltip>
+            </UTooltip>
           </div>
         </transition>
 
         <div
           class="absolute left-0 bottom-0 p-5 space-y-6 duration-500 text-gray-600 btn-drop-shadow opacity-50"
         >
-          <u-slider
+          <USlider
             v-model="globalVolume"
             orientation="vertical"
             :min="0"
@@ -158,17 +158,17 @@
             class="h-30"
           />
 
-          <u-icon
+          <UIcon
             :name="isMuted ? 'i-mingcute:volume-mute-fill' : 'i-mingcute:volume-fill'"
             class="text-3xl cursor-pointer outline-0 "
             @click="toggleMuted()"
           />
 
-          <u-modal
+          <UModal
             :title="t('soundscapeMixer')"
             :description="t('adjustVolume')"
           >
-            <u-icon
+            <UIcon
               name="i-material-symbols:instant-mix-rounded"
               class="text-3xl cursor-pointer outline-0 "
             />
@@ -176,9 +176,9 @@
             <template #body>
               <soundscape-mixer :player-map="activePlayerMap" />
             </template>
-          </u-modal>
+          </UModal>
 
-          <u-tooltip
+          <UTooltip
             :text="weatherModeInfo.tooltip"
             :content="{
               side: 'right',
@@ -189,7 +189,7 @@
                 name="fade"
                 mode="out-in"
               >
-                <u-icon
+                <UIcon
                   :key="weatherModeInfo.icon"
                   :name="weatherModeInfo.icon"
                   class="text-3xl cursor-pointer duration-500 outline-0"
@@ -197,10 +197,10 @@
                 />
               </transition>
             </div>
-          </u-tooltip>
+          </UTooltip>
 
           <bulletin-modal v-model:open="bulletinVisible">
-            <u-icon
+            <UIcon
               name="material-symbols:notifications-rounded"
               class="text-3xl cursor-pointer outline-0 "
             />
@@ -212,11 +212,11 @@
           >
             <template #default="{ isRunning, isPaused, mode, pomodoroPhase, formattedTime }">
               <div class="relative">
-                <u-tooltip
+                <UTooltip
                   :text="t('timer')"
                   :content="{ side: 'right' }"
                 >
-                  <u-icon
+                  <UIcon
                     name="i-material-symbols:timer-outline-rounded"
                     class="text-3xl cursor-pointer outline-0 duration-300"
                     :class="{
@@ -226,7 +226,7 @@
                       'text-green-500': isPaused,
                     }"
                   />
-                </u-tooltip>
+                </UTooltip>
                 <div
                   v-if="isRunning || isPaused"
                   class="absolute top-full left-1/2 -translate-x-1/2 pt-0.5 text-xs leading-none font-mono whitespace-nowrap"
@@ -269,13 +269,13 @@
         class="fixed inset-0 pointer-events-none w-full h-full flex flex-col gap-4 items-center justify-center p-10"
       >
         <div class="flex flex-col gap-4 items-center justify-center  text-white bg-black/30 p-10 chamfer-5">
-          <u-icon
+          <UIcon
             name="i-mingcute:volume-mute-fill"
             class="text-[4rem]"
           />
 
           <div class="text-xl flex justify-center items-center gap-2">
-            <u-icon
+            <UIcon
               name="i-line-md:arrow-small-left"
               class="text-[3rem] -rotate-45"
             />
@@ -293,7 +293,7 @@
         <div
           class="w-full h-full flex flex-col gap-4 items-center justify-center bg-gray-50/50 backdrop-blur-2xl text-white"
         >
-          <u-icon
+          <UIcon
             name="i-line-md:loading-twotone-loop"
             class="text-[4rem]"
           />
@@ -304,7 +304,7 @@
         </div>
       </div>
     </transition>
-  </u-app>
+  </UApp>
 </template>
 
 <script setup lang="ts">

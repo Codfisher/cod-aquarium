@@ -93,7 +93,7 @@
       @edit-text="editTrackItem"
     />
 
-    <u-slideover
+    <USlideover
       v-model:open="layoutSettingVisible"
       :overlay="false"
       side="bottom"
@@ -109,7 +109,7 @@
             圖片設定
           </div>
 
-          <u-button
+          <UButton
             icon="i-lucide-x"
             @click="close"
           />
@@ -131,11 +131,11 @@
           </div>
         </div>
 
-        <u-collapsible
+        <UCollapsible
           class="col-span-4"
           :ui="{ content: 'grid grid-cols-4 gap-1' }"
         >
-          <u-button
+          <UButton
             label="詳細設定"
             trailing-icon="i-lucide-chevron-down"
             block
@@ -147,106 +147,106 @@
 
           <template #content>
             <!-- 頂部空間 -->
-            <u-form-field
+            <UFormField
               class="col-span-2"
               label="頂部顏色"
             >
-              <u-popover :ui="{ content: 'z-[9999]' }">
-                <u-button
+              <UPopover :ui="{ content: 'z-[9999]' }">
+                <UButton
                   class="w-full h-[1.75rem]"
                   variant="outline"
                   :style="{ backgroundColor: layoutSetting.topPadding.backgroundColor }"
                 />
 
                 <template #content>
-                  <u-color-picker
+                  <UColorPicker
                     v-model="layoutSetting.topPadding.backgroundColor"
                     size="xs"
                     class="p-2"
                   />
                 </template>
-              </u-popover>
-            </u-form-field>
-            <u-form-field
+              </UPopover>
+            </UFormField>
+            <UFormField
               class="col-span-2"
               label="高度"
               :ui="{ container: 'flex gap-1' }"
             >
-              <u-input
+              <UInput
                 v-model="layoutSetting.topPadding.height"
                 :ui="{ base: 'p-1 px-2 text-center' }"
               >
                 <template #trailing>
                   <span class=" opacity-40 text-xs">px</span>
                 </template>
-              </u-input>
+              </UInput>
 
-              <u-button
+              <UButton
                 icon="i-lucide-x"
                 @click="layoutSetting.topPadding.height = 0"
               />
-              <u-button
+              <UButton
                 icon="i-lucide-chevron-down"
                 @click="layoutSetting.topPadding.height -= 10"
               />
-              <u-button
+              <UButton
                 icon="i-lucide-chevron-up"
                 @click="layoutSetting.topPadding.height += 10"
               />
-            </u-form-field>
+            </UFormField>
 
             <!-- 底部空間 -->
-            <u-form-field
+            <UFormField
               class="col-span-2"
               label="底部顏色"
             >
-              <u-popover :ui="{ content: 'z-[9999]' }">
-                <u-button
+              <UPopover :ui="{ content: 'z-[9999]' }">
+                <UButton
                   class="w-full h-[1.75rem]"
                   variant="outline"
                   :style="{ backgroundColor: layoutSetting.bottomPadding.backgroundColor }"
                 />
 
                 <template #content>
-                  <u-color-picker
+                  <UColorPicker
                     v-model="layoutSetting.bottomPadding.backgroundColor"
                     size="xs"
                     class="p-2"
                   />
                 </template>
-              </u-popover>
-            </u-form-field>
-            <u-form-field
+              </UPopover>
+            </UFormField>
+            <UFormField
               class="col-span-2"
               label="高度"
               :ui="{ container: 'flex gap-1' }"
             >
-              <u-input
+              <UInput
                 v-model="layoutSetting.bottomPadding.height"
                 :ui="{ base: 'p-1 px-2 text-center' }"
               >
                 <template #trailing>
                   <span class=" opacity-40 text-xs">px</span>
                 </template>
-              </u-input>
+              </UInput>
 
-              <u-button
+              <UButton
                 icon="i-lucide-x"
                 @click="layoutSetting.bottomPadding.height = 0"
               />
-              <u-button
+              <UButton
                 icon="i-lucide-chevron-down"
                 @click="layoutSetting.bottomPadding.height -= 10"
               />
-              <u-button
+              <UButton
                 icon="i-lucide-chevron-up"
                 @click="layoutSetting.bottomPadding.height += 10"
               />
-            </u-form-field>
+            </UFormField>
           </template>
-        </u-collapsible>
+        </UCollapsible>
       </template>
-    </u-slideover>
+    </USlideover>
   </div>
 </template>
 

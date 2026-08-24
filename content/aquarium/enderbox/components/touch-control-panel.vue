@@ -26,7 +26,7 @@
         @touchend.prevent="setTeleport(false)"
         @touchcancel.prevent="setTeleport(false)"
       >
-        <u-icon
+        <UIcon
           name="i-pixelarticons:loader"
           class="text-3xl"
         />
@@ -39,12 +39,12 @@
         @touchend.prevent="setAction(false)"
         @touchcancel.prevent="setAction(false)"
       >
-        <u-icon
+        <UIcon
           v-if="hasBlock"
           name="i-pixelarticons:download"
           class="text-4xl"
         />
-        <u-icon
+        <UIcon
           v-else
           name="i-pixelarticons:drop-area"
           class="text-4xl"
@@ -58,7 +58,7 @@
         class="control-button"
         @click="emit('menu')"
       >
-        <u-icon
+        <UIcon
           name="i-pixelarticons:menu"
           class="text-4xl"
         />
@@ -74,7 +74,7 @@
         @touchend.prevent="setJump(false)"
         @touchcancel.prevent="setJump(false)"
       >
-        <u-icon
+        <UIcon
           name="i-pixelarticons:arrow-up"
           class="text-5xl"
         />

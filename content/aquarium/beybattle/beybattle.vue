@@ -1,5 +1,5 @@
 <template>
-  <u-app>
+  <UApp>
     <div class="bey-root">
       <main-scene
         ref="mainSceneRef"
@@ -198,7 +198,7 @@
 
       <div class="version-tag">v{{ version }}</div>
     </div>
-  </u-app>
+  </UApp>
 </template>
 
 <script setup lang="ts">

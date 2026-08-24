@@ -1,5 +1,5 @@
 <template>
-  <u-modal
+  <UModal
     v-model:open="open"
     title="選擇迷因"
     fullscreen
@@ -25,7 +25,7 @@
         />
 
         <div class="shrink-0 flex gap-2 p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-black">
-          <u-input
+          <UInput
             ref="inputRef"
             v-model.trim="keyword"
             placeholder="輸入關鍵字或任何線索 (・∀・)９"
@@ -41,7 +41,7 @@
               v-if="keyword?.length"
               #trailing
             >
-              <u-button
+              <UButton
                 color="neutral"
                 variant="link"
                 size="sm"
@@ -50,9 +50,9 @@
                 @click="keyword = ''"
               />
             </template>
-          </u-input>
+          </UInput>
 
-          <u-button
+          <UButton
             icon="i-material-symbols:close-rounded"
             color="error"
             size="sm"
@@ -61,7 +61,7 @@
         </div>
       </div>
     </template>
-  </u-modal>
+  </UModal>
 </template>
 
 <script setup lang="ts">

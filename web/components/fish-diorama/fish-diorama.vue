@@ -131,7 +131,7 @@
             title="再玩一次"
             @click="startSpotGame"
           >
-            <u-icon
+            <UIcon
               name="i-material-symbols:sports-esports-rounded"
               class="replay-icon"
               aria-hidden="true"
@@ -144,7 +144,7 @@
           class="spot-challenge-card"
         >
           <div class="challenge-card-title">
-            <u-icon
+            <UIcon
               name="i-material-symbols:lock"
               class="lock-icon"
               aria-hidden="true"
@@ -223,7 +223,7 @@
         title="收藏冊"
         @click="collectionVisible = true"
       >
-        <u-icon
+        <UIcon
           name="i-material-symbols:book-2-outline-rounded"
           class="reset-icon"
           aria-hidden="true"
@@ -242,7 +242,7 @@
         <template v-if="resetConfirmVisible">
           確定重置？
         </template>
-        <u-icon
+        <UIcon
           v-else
           name="i-material-symbols:refresh-rounded"
           class="reset-icon"

@@ -1,5 +1,5 @@
 <template>
-  <u-modal
+  <UModal
     title="玩家設定"
     description="可變更你的玩家資訊"
     :ui="{
@@ -11,20 +11,20 @@
 
     <template #body>
       <div class="flex flex-col items-center gap-4 p-2">
-        <u-form-field label="玩家名稱">
-          <u-input v-model="playerInfo.name" />
-        </u-form-field>
+        <UFormField label="玩家名稱">
+          <UInput v-model="playerInfo.name" />
+        </UFormField>
       </div>
     </template>
 
     <template #footer>
-      <u-button
+      <UButton
         label="儲存"
         size="lg"
         @click="updatePlayerName"
       />
     </template>
-  </u-modal>
+  </UModal>
 </template>
 
 <script setup lang="ts">

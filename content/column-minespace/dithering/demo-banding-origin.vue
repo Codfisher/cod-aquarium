@@ -3,6 +3,7 @@
     :setup="setupScene"
     :badge="badge"
     :interactive="false"
+    :zoomable="false"
     title="色階環是怎麼浮出來的"
     caption="漸層越長，每一階佔的螢幕就越寬，那條界線也就越明顯。八位元有 256 階，聽起來很多，但一片從天頂鋪到天邊的漸層本來就吃得下這麼多階。"
     :height="280"

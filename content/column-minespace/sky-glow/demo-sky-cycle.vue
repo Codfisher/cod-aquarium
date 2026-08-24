@@ -93,7 +93,7 @@ function setup({ babylon, scene }: BabylonDemoContext) {
     babylon,
     scene,
     'cycle-sun-glow-material',
-    createGlowTexture(babylon, scene, 'cycle-sun-glow', [217, 211, 182]),
+    createGlowTexture(babylon, scene, 'cycle-sun-glow', [130, 127, 109]),
   )
   const sunGlow = babylon.MeshBuilder.CreateDisc('cycle-sun-glow', {
     radius: 18,

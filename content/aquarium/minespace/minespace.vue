@@ -1,5 +1,5 @@
 <template>
-  <u-app>
+  <UApp>
     <div class="fixed w-dvw h-dvh m-0 bg-black">
       <main-scene class="w-full h-full" />
 
@@ -7,7 +7,7 @@
         v{{ version }}
       </div>
     </div>
-  </u-app>
+  </UApp>
 </template>
 
 <script setup lang="ts">

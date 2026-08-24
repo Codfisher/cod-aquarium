@@ -16,7 +16,7 @@
       @input="handleInput"
     />
 
-    <u-slideover
+    <USlideover
       v-model:open="settingVisible"
       :overlay="false"
       :dismissible="false"
@@ -34,7 +34,7 @@
             文字設定
           </div>
 
-          <u-button
+          <UButton
             icon="i-lucide-x"
             @click="close"
           />
@@ -83,7 +83,7 @@
             </div>
           </div>
 
-          <u-form-field
+          <UFormField
             class="col-span-2"
             label="字重"
             :ui="{
@@ -96,25 +96,25 @@
               <span class=" text-xs opacity-40 ml-2">{{ settings.fontWeight }}</span>
             </template>
 
-            <u-slider
+            <USlider
               v-model="settings.fontWeight"
               :min="100"
               :step="100"
               :max="900"
             />
 
-            <u-button
+            <UButton
               icon="i-lucide-rotate-ccw"
               @click="settings.fontWeight = 400"
             />
-          </u-form-field>
+          </UFormField>
 
-          <u-form-field
+          <UFormField
             class="col-span-2"
             label="字級"
             :ui="{ container: 'flex gap-1' }"
           >
-            <u-input
+            <UInput
               v-model="settings.fontSize"
               class="flex-1"
               :ui="{ base: 'p-1 px-2 text-center' }"
@@ -122,28 +122,28 @@
               <template #trailing>
                 <span class=" opacity-40 text-xs">px</span>
               </template>
-            </u-input>
+            </UInput>
 
-            <u-button
+            <UButton
               icon="i-lucide-rotate-ccw"
               @click="settings.fontSize = 14"
             />
-            <u-button
+            <UButton
               icon="i-lucide-chevron-down"
               @click="settings.fontSize -= 2"
             />
-            <u-button
+            <UButton
               icon="i-lucide-chevron-up"
               @click="settings.fontSize += 2"
             />
-          </u-form-field>
+          </UFormField>
         </div>
 
-        <u-collapsible
+        <UCollapsible
           class="col-span-4"
           :ui="{ content: 'grid grid-cols-4 gap-1' }"
         >
-          <u-button
+          <UButton
             label="詳細設定"
             trailing-icon="i-lucide-chevron-down"
             block
@@ -154,49 +154,49 @@
           />
 
           <template #content>
-            <u-form-field
+            <UFormField
               class="col-span-2"
               label="顏色"
             >
-              <u-popover :ui="{ content: 'z-9999' }">
-                <u-button
+              <UPopover :ui="{ content: 'z-9999' }">
+                <UButton
                   class="w-full h-7"
                   variant="outline"
                   :style="{ backgroundColor: settings.color }"
                 />
 
                 <template #content>
-                  <u-color-picker
+                  <UColorPicker
                     v-model="settings.color"
                     size="xs"
                     class="p-2"
                   />
                 </template>
-              </u-popover>
-            </u-form-field>
+              </UPopover>
+            </UFormField>
 
-            <u-form-field
+            <UFormField
               class="col-span-2"
               label="背景色"
             >
-              <u-popover :ui="{ content: 'z-9999' }">
-                <u-button
+              <UPopover :ui="{ content: 'z-9999' }">
+                <UButton
                   class="w-full h-7"
                   variant="outline"
                   :style="{ backgroundColor: settings.backgroundColor }"
                 />
 
                 <template #content>
-                  <u-color-picker
+                  <UColorPicker
                     v-model="settings.backgroundColor"
                     size="xs"
                     class="p-2"
                   />
                 </template>
-              </u-popover>
-            </u-form-field>
+              </UPopover>
+            </UFormField>
 
-            <u-form-field
+            <UFormField
               class="col-span-2"
               label="背景透明度"
               :ui="{
@@ -209,41 +209,41 @@
                 <span class=" text-xs opacity-40 ml-2">{{ settings.backgroundOpacity }}</span>
               </template>
 
-              <u-slider
+              <USlider
                 v-model="settings.backgroundOpacity"
                 :min="0"
                 :step="0.1"
                 :max="1"
               />
 
-              <u-button
+              <UButton
                 icon="i-lucide-x"
                 @click="settings.backgroundOpacity = 0"
               />
-            </u-form-field>
+            </UFormField>
 
-            <u-form-field
+            <UFormField
               class="col-span-2"
               label="外框顏色"
             >
-              <u-popover :ui="{ content: 'z-9999' }">
-                <u-button
+              <UPopover :ui="{ content: 'z-9999' }">
+                <UButton
                   class="w-full h-7"
                   variant="outline"
                   :style="{ backgroundColor: settings.strokeColor }"
                 />
 
                 <template #content>
-                  <u-color-picker
+                  <UColorPicker
                     v-model="settings.strokeColor"
                     size="xs"
                     class="p-2"
                   />
                 </template>
-              </u-popover>
-            </u-form-field>
+              </UPopover>
+            </UFormField>
 
-            <u-form-field
+            <UFormField
               class="col-span-2"
               label="旋轉"
               hint="雙指可旋轉文字"
@@ -257,7 +257,7 @@
                 <span class=" text-xs opacity-40 ml-2">{{ settings.angle }}°</span>
               </template>
 
-              <u-slider
+              <USlider
                 v-model="settings.angle"
                 class=""
                 :min="-180"
@@ -265,18 +265,18 @@
                 :step="1"
               />
 
-              <u-button
+              <UButton
                 icon="i-lucide-x"
                 @click="settings.angle = 0"
               />
-            </u-form-field>
+            </UFormField>
 
-            <u-form-field
+            <UFormField
               class="col-span-2"
               label="外框寬度"
               :ui="{ container: 'flex gap-1' }"
             >
-              <u-input
+              <UInput
                 v-model="settings.strokeWidth"
                 class="flex-1"
                 :ui="{ base: 'p-1 px-2 text-center' }"
@@ -284,23 +284,23 @@
                 <template #trailing>
                   <span class=" opacity-40 text-xs">px</span>
                 </template>
-              </u-input>
+              </UInput>
 
-              <u-button
+              <UButton
                 icon="i-lucide-x"
                 @click="settings.strokeWidth = 0"
               />
-              <u-button
+              <UButton
                 icon="i-lucide-chevron-down"
                 @click="settings.strokeWidth -= 2"
               />
-              <u-button
+              <UButton
                 icon="i-lucide-chevron-up"
                 @click="settings.strokeWidth += 2"
               />
-            </u-form-field>
+            </UFormField>
 
-            <u-form-field
+            <UFormField
               class="col-span-4"
               label="行距"
               :ui="{
@@ -313,22 +313,22 @@
                 <span class=" text-xs opacity-40 ml-2">{{ settings.lineHeight }}</span>
               </template>
 
-              <u-slider
+              <USlider
                 v-model="settings.lineHeight"
                 :min="0"
                 :step="0.1"
                 :max="3"
               />
 
-              <u-button
+              <UButton
                 icon="i-lucide-rotate-ccw"
                 @click="settings.lineHeight = 1.2"
               />
-            </u-form-field>
+            </UFormField>
           </template>
-        </u-collapsible>
+        </UCollapsible>
       </template>
-    </u-slideover>
+    </USlideover>
   </div>
 
   <div
@@ -338,7 +338,7 @@
     class="toolbar absolute flex rounded pointer-events-auto text-white bg-black/50"
     @pointerdown.stop
   >
-    <u-button
+    <UButton
       icon="i-lucide-settings-2"
       class="p-2 duration-300"
       size="lg"
@@ -347,7 +347,7 @@
       @click="toggleSettingVisible()"
     />
 
-    <u-button
+    <UButton
       icon="i-lucide-magnet"
       class="p-2 duration-300"
       size="lg"
@@ -357,7 +357,7 @@
       @click="snapEnabled = !snapEnabled"
     />
 
-    <u-button
+    <UButton
       icon="i-material-symbols:content-copy-outline-rounded"
       class="p-2"
       variant="subtitle"
@@ -365,7 +365,7 @@
       @click="emit('duplicate')"
     />
 
-    <u-button
+    <UButton
       icon="i-lucide-trash-2"
       class="p-2"
       variant="subtitle"

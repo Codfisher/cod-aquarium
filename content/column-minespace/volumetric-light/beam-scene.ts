@@ -100,6 +100,17 @@ uniform float phaseEnabled;
 uniform float averageEnabled;
 uniform float jitterEnabled;
 uniform float beamOnly;
+uniform float headroomEnabled;
+/**
+ * 不管亮不亮，天空至少先吃到幾成的保護
+ *
+ * 保護整份跟著亮度走的話，光暈正中央最亮的地方保護拉到最滿，
+ * 稍微離開光暈、亮度一降，保護立刻跟著鬆開；離太陽夠遠、
+ * 光暈根本碰不到的天色，這道保護的底值才真正決定亮暗。
+ *
+ * 這一項做成可調的，範例才有得比
+ */
+uniform float skyGuardBase;
 
 const float NEAR_FADE_DISTANCE = 8.0;
 const float SKY_DISTANCE = 9000.0;
@@ -193,8 +204,16 @@ void main() {
     float upward = clamp(rayDirection.y, 0.0, 1.0);
     sceneColor = mix(vec3(0.88, 0.87, 0.83), vec3(0.36, 0.54, 0.84), upward);
 
+    /**
+     * 太陽外圍那圈暖光
+     *
+     * 緊的那層是日輪本身，鬆的那層鋪出周圍的暈。
+     * 少了鬆的那一層，天空的亮度在太陽附近是一根針，
+     * 亮部保護那條曲線根本來不及反應
+     */
     float towardSun = max(dot(rayDirection, -sunDirection), 0.0);
-    sceneColor = mix(sceneColor, vec3(1.0, 0.95, 0.82), pow(towardSun, 40.0));
+    float skyHalo = pow(towardSun, 60.0) * 0.65 + pow(towardSun, 8.0) * 0.35;
+    sceneColor = mix(sceneColor, vec3(1.0, 0.95, 0.82), clamp(skyHalo, 0.0, 1.0));
   } else {
     vec3 point = cameraPosition + rayDirection * sceneDistance;
     float lambert = max(dot(hitNormal, -sunDirection), 0.0);
@@ -247,10 +266,14 @@ void main() {
   }
 
   /** 已經很亮的地方少加一點，看的是亮度不是深度 */
-  float sceneLuma = dot(sceneColor, vec3(0.2126, 0.7152, 0.0722));
-  float brightRatio = smoothstep(0.45, 0.85, sceneLuma);
-  float farRatio = step(SKY_DISTANCE, sceneDistance);
-  float headroom = mix(1.0, 0.05, farRatio * brightRatio) * mix(1.0, 0.5, brightRatio);
+  float headroom = 1.0;
+  if (headroomEnabled > 0.5) {
+    float sceneLuma = dot(sceneColor, vec3(0.2126, 0.7152, 0.0722));
+    float brightRatio = smoothstep(0.45, 0.85, sceneLuma);
+    float farRatio = step(SKY_DISTANCE, sceneDistance);
+    float skyRatio = farRatio * mix(skyGuardBase, 1.0, brightRatio);
+    headroom = mix(1.0, 0.05, skyRatio) * mix(1.0, 0.5, brightRatio);
+  }
 
   vec3 addition = sunColor * beam * phaseValue * headroom * strength;
 
@@ -283,6 +306,8 @@ const BEAM_UNIFORM_LIST = [
   'averageEnabled',
   'jitterEnabled',
   'beamOnly',
+  'headroomEnabled',
+  'skyGuardBase',
 ]
 
 /** 這一刻要怎麼畫，四個範例各自把不同的項目接到滑桿上 */
@@ -294,6 +319,14 @@ export interface BeamSetting {
   phaseEnabled: boolean;
   averageEnabled: boolean;
   jitterEnabled: boolean;
+  /**
+   * 亮部保護，不給就是開著
+   *
+   * 只有專講這一項的那支範例會關掉它
+   */
+  headroomEnabled?: boolean;
+  /** 天空保護的底，不給就是專案裡實際用的那個值 */
+  skyGuardBase?: number;
   /** 只畫加上去的那道光，不含原本的畫面 */
   beamOnly: boolean;
   /** 光線前進的方向，沒給就用預設的那顆太陽 */
@@ -353,6 +386,8 @@ export function createBeamPostProcess(param: CreateBeamParam): PostProcess {
     effect.setFloat('averageEnabled', setting.averageEnabled ? 1 : 0)
     effect.setFloat('jitterEnabled', setting.jitterEnabled ? 1 : 0)
     effect.setFloat('beamOnly', setting.beamOnly ? 1 : 0)
+    effect.setFloat('headroomEnabled', setting.headroomEnabled === false ? 0 : 1)
+    effect.setFloat('skyGuardBase', setting.skyGuardBase ?? 0.65)
   }
 
   return postProcess

@@ -98,7 +98,7 @@
       class="status-stack"
     >
       <div class="status-readout time-readout">
-        <u-icon
+        <UIcon
           :name="isNight ? 'i-material-symbols:dark-mode-outline' : 'i-material-symbols:light-mode-outline'"
           class="text-sm"
         />

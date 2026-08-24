@@ -54,7 +54,8 @@ export default antfu(
     rules: {
       'vue/component-name-in-template-casing': ['error', 'kebab-case', {
         registeredComponentsOnly: false,
-        ignores: [],
+        // Nuxt UI 元件（U 開頭）另外統一為 PascalCase，才能被 componentDetection 掃描到
+        ignores: ['/^U[A-Z]/'],
       }],
       'vue/block-order': ['error', {
         order: [['script', 'template'], 'style'],

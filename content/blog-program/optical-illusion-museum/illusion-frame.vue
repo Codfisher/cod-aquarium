@@ -11,7 +11,7 @@
         錯覺
       </span>
 
-      <u-slider
+      <USlider
         v-model="revealPercent"
         :min="0"
         :max="100"

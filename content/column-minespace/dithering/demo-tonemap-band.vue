@@ -3,6 +3,7 @@
     :setup="setupScene"
     :badge="badge"
     :interactive="false"
+    :zoomable="false"
     title="色調映射之後又量化了一次"
     caption="曲線把暗部往上拉開，原本相鄰的兩階被推得更遠；再量化一次，中間那段空隙就成了更寬的一條帶。畫面經過的每一道處理都會重排色階，而每一次重排都是一次讓色階環現形的機會。"
     :height="280"
