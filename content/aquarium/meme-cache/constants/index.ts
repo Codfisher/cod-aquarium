@@ -1,3 +1,10 @@
+/** 廣告橫幅高度（px）。
+ * 清單每列是 30vh，這個 vh 相對 iframe 高度，橫幅吃掉多少高度，縮圖就跟著縮多少，
+ * 故壓到剛好放得下版位的高度為止。
+ * 60px 手機吃 320x50、桌機吃 468x60；再降到 50px 就只剩 320x50，桌機會被鎖在手機尺寸
+ */
+export const AD_BANNER_HEIGHT = 60
+
 export const version = '0.1.0'
 
 export const cursorDataUrl = {
