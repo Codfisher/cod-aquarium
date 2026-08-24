@@ -502,29 +502,29 @@
 {"file":"meme-7bd89800-0651-4b74-bc89-8b67b7d1c58d.webp","describe":"黑色大字「溝通」，兩字旁以粉紅注音標成「ㄑㄧㄤ ㄊㄚ」，即「嗆他」。","ocr":"溝通 ㄑㄧㄤ ㄊㄚ","keyword":"溝通,嗆他,注音,諧音,文字梗,吵架,理性溝通,開嗆,職場,反串,雙關","blurLevel":2,"emotion":"嘲諷,生氣","reviewed":true}
 {"file":"meme-7bc89cbe-6a57-41b6-8771-94ebb40f45ec.webp","describe":"橘白貓手持東泉辣椒醬，旁有碗","ocr":"您好 要不要加東泉","keyword":"貓,東泉辣椒醬","blurLevel":1}
 {"file":"meme-7ec996ee-1e77-4f37-93c5-ba501a1e3148.webp","describe":"黑髮少年雙眼圓睜、微張著嘴，露出難以置信的神情。","ocr":"騙人的吧","keyword":"騙人的吧,不會吧,難以置信,震驚,傻眼,動漫,瞪大眼睛,黑髮少年,刀劍神域,不敢相信,開玩笑吧","blurLevel":2,"emotion":"驚訝","reviewed":true}
-{"file":"meme-7fcd54ef-e7b8-40cf-9a61-377706ec6161.webp","describe":"緋紅之王震驚又憤怒地雙手舉起。出自《JoJo的奇妙冒險：黃金之風》","ocr":"你覺得我看起來很閒嗎？","keyword":"緋紅之王,JoJo的奇妙冒險,黃金之風","blurLevel":0}
+{"file":"meme-7fcd54ef-e7b8-40cf-9a61-377706ec6161.webp","describe":"緋紅之王震驚又憤怒地雙手舉起。出自《JoJo的奇妙冒險：黃金之風》","ocr":"你覺得我看起來很閒嗎？","keyword":"緋紅之王,JoJo的奇妙冒險,黃金之風","blurLevel":0,"emotion":"生氣","reviewed":true}
 {"file":"meme-800fd598-efa4-483e-b7a6-b679541522dc.webp","describe":"白底黑字標語圖，中間三字為彩虹漸層，句中嵌入 Threads 圖示，右下角為中華民國教育部標誌。","ocr":"你應該去讀書而不是在上發文 MINISTRY OF EDUCATION 教育部","keyword":"去讀書,教育部,Threads,脆,發文,勸讀書,唸書,考試,酸民,學生,別滑手機,嗆人","blurLevel":0,"emotion":"嘲諷","reviewed":true}
-{"file":"meme-80a0fe85-137b-43d4-a586-dd8381697b11.webp","describe":"水獺表情驚訝，將爪子放在嘴邊「吃手手」模樣","ocr":"嚇到吃手手","keyword":"水獺,吃手手,驚訝","blurLevel":2}
-{"file":"meme-82258ad8-e942-447b-a526-77f154b45114.webp","describe":"鬼舞辻無慘身穿黑色西裝、紅眼發光，神情嚴肅神秘。出自《鬼滅之刃》","ocr":"你的病還會蔓延到腦部嗎","keyword":"鬼舞辻無慘,鬼滅之刃","blurLevel":2}
+{"file":"meme-80a0fe85-137b-43d4-a586-dd8381697b11.webp","describe":"水獺表情驚訝，將爪子放在嘴邊「吃手手」模樣","ocr":"嚇到吃手手","keyword":"水獺,吃手手,驚訝","blurLevel":2,"emotion":"驚訝,可愛","reviewed":true}
+{"file":"meme-82258ad8-e942-447b-a526-77f154b45114.webp","describe":"鬼舞辻無慘身穿黑色西裝、紅眼發光，神情嚴肅神秘。出自《鬼滅之刃》","ocr":"你的病還會蔓延到腦部嗎","keyword":"鬼舞辻無慘,鬼滅之刃","blurLevel":2,"emotion":"嘲諷","reviewed":true}
 {"file":"meme-82af8d27-cb0e-468a-8f8f-e2c603c59a32.webp","describe":"麻雀口中叼著麵包。「雀食」為「確實」諧音。","ocr":"雀食","keyword":"雀食,確實,諧音,麻雀,小鳥,吃麵包,同意,附和,認同,沒錯,的確,鳥","blurLevel":0,"emotion":"讚許","reviewed":true}
 {"file":"meme-85ae7083-785b-44bd-a3ac-98b94a31f6fb.webp","describe":"蒸籠內四隻綁好的熟螃蟹。「蒸四蟹嘍」為「真是謝謝嘍」諧音。","ocr":"蒸四蟹嘍","keyword":"蒸四蟹嘍,真是謝謝嘍,諧音,螃蟹,大閘蟹,蒸籠,道謝,反諷,感謝,謝了,海鮮,美食","blurLevel":0,"emotion":"嘲諷,敷衍","reviewed":true}
 {"file":"meme-83170928-cf58-4645-a295-bf924a734c37.webp","describe":"新聞截圖，馬英九著紅色外套，與88風災災民互動","ocr":"最速報18:00 資料畫面 台中縣 南投 25~28 17:03 88風災災民vs總統 馬英九 （我這不是來了見你了嗎）","keyword":"馬英九,88風災,莫拉克,我這不是來了見你了嗎,新聞,總統,災民,官員,姍姍來遲,敷衍,政治,台灣","blurLevel":2,"emotion":"敷衍,無奈","reviewed":true}
 {"file":"meme-83c74e0f-6815-4f8d-b798-021baa4d07e7.webp","describe":"中年女子皺眉、嘴角下撇，神情糾結地開口問話。出自戲劇《天之驕女》","ocr":"妳在哭","keyword":"妳在哭,你在哭,天之驕女,八點檔,鄉土劇,質問,關心,哭,中年女子,老公走了,台劇,皺眉","blurLevel":1,"emotion":"疑惑,悲傷","reviewed":true}
-{"file":"meme-87f87ae1-2c3b-4223-a3a4-0714506114ff.webp","describe":"黑白照片，左為希特勒，右為蔣中正，均著軍裝","ocr":"猶嘴華舌","keyword":"希特勒,蔣中正,猶嘴華舌","blurLevel":2}
-{"file":"meme-8a2ca2d3-f4f0-4b6a-9fa8-a7838cc06e79.webp","describe":"純文字圖，表達對邏輯與數學的驚嘆","ocr":"真有邏輯！真是有趣！哇！數學！哇！","keyword":"邏輯,數學","blurLevel":0}
+{"file":"meme-87f87ae1-2c3b-4223-a3a4-0714506114ff.webp","describe":"黑白照片，左為希特勒，右為蔣中正，均著軍裝","ocr":"猶嘴華舌","keyword":"希特勒,蔣中正,猶嘴華舌","blurLevel":2,"emotion":"嘲諷","reviewed":true}
+{"file":"meme-8a2ca2d3-f4f0-4b6a-9fa8-a7838cc06e79.webp","describe":"純文字圖，表達對邏輯與數學的驚嘆","ocr":"真有邏輯！真是有趣！哇！數學！哇！","keyword":"邏輯,數學","blurLevel":0,"emotion":"讚許,驚訝","reviewed":true}
 {"file":"meme-88bfc13d-a454-44e2-bc8d-27ad25d46a81.webp","describe":"四隻貓咪分別戴著英、美、蘇、法的帽子，伸出筷子圍向盤中的納粹德國戰旗。","ocr":"我也吃一點 我吃一點 你好 我吃一點 我要吃多一點","keyword":"瓜分,二戰,納粹德國,分食,貓咪,筷子,我吃一點,列強,美國,蘇聯,英國,法國,歷史迷因","blurLevel":0,"emotion":"嘲諷","reviewed":true}
-{"file":"meme-89938db3-cddf-4a3f-8bdc-48d70b2977ad.webp","describe":"藍天下電線桿上貼著「耶穌復活了」標語","ocr":"耶穌復活了","keyword":"耶穌,復活","blurLevel":0}
+{"file":"meme-89938db3-cddf-4a3f-8bdc-48d70b2977ad.webp","describe":"藍天下電線桿上貼著「耶穌復活了」標語","ocr":"耶穌復活了","keyword":"耶穌,復活","blurLevel":0,"reviewed":true}
 {"file":"meme-89e0992d-b9ae-4bb1-be39-642771baeba2.webp","describe":"紅色上衣者在鏡頭前雙手比劃的連續畫面，臉部未入鏡。","ocr":"你的性格 十分恶劣 但胜在 脸实在太好看了 所以缺德的样子 反而别具一番风味","keyword":"你的性格十分恶劣,脸实在太好看了,缺德,別具一番風味,調侃,誇獎,反差,長得好看,毒舌,吐槽,顏值,連續字幕","blurLevel":0,"emotion":"嘲諷,讚許","reviewed":true}
-{"file":"meme-8a3a9e5c-c2fb-4f48-82bc-7796451ba862.webp","describe":"炭治郎於藍天下露出驚恐神情。出自《鬼滅之刃》","ocr":"","keyword":"炭治郎,鬼滅之刃,驚恐","blurLevel":2}
-{"file":"meme-8d489a05-d8de-42c0-9673-0e53ea5f0105.webp","describe":"留著長白鬍子的老者情緒激動大喊，左手握拳","ocr":"趕快給我結婚啊！","keyword":"老者,激動,結婚","blurLevel":1}
+{"file":"meme-8a3a9e5c-c2fb-4f48-82bc-7796451ba862.webp","describe":"炭治郎於藍天下露出驚恐神情。出自《鬼滅之刃》","ocr":"","keyword":"炭治郎,鬼滅之刃,驚恐","blurLevel":2,"emotion":"驚訝,恐怖","reviewed":true}
+{"file":"meme-8d489a05-d8de-42c0-9673-0e53ea5f0105.webp","describe":"留著長白鬍子的老者情緒激動大喊，左手握拳","ocr":"趕快給我結婚啊！","keyword":"老者,激動,結婚","blurLevel":1,"emotion":"生氣","reviewed":true}
 {"file":"meme-8c91fe0a-6624-4f40-bedd-066023783600.webp","describe":"企鵝低垂著頭、縮著身體站立。「垂頭喪企」為「垂頭喪氣」諧音。","ocr":"垂頭喪企","keyword":"垂頭喪企,垂頭喪氣,諧音,企鵝,沮喪,失落,無精打采,提不起勁,挫折,低頭,懊惱,penguin","blurLevel":1,"emotion":"悲傷,疲憊","reviewed":true}
-{"file":"meme-8c8dc728-307a-46b0-915d-648ccd9b7a91.webp","describe":"探索頻道《ED STAFFORD INTO THE UNKNOWN》主持人艾德史塔佛在叢林裡手持野花並吃下，表情奇特滿意","ocr":"這是勝者的早餐 很好吃 百合很好吃","keyword":"艾德史塔佛,探索頻道,百合","blurLevel":0}
-{"file":"meme-8d942cf4-cd18-413b-ab11-ff1af991de27.webp","describe":"簡筆畫卡通人物，紅眼鋸齒嘴，情緒誇張震驚與嘲諷。「本子」指成人向同人誌","ocr":"我看了你老婆的所有本子 可惜男主角全都不是你","keyword":"本子,同人誌,嘲諷","blurLevel":1}
+{"file":"meme-8c8dc728-307a-46b0-915d-648ccd9b7a91.webp","describe":"探索頻道《ED STAFFORD INTO THE UNKNOWN》主持人艾德史塔佛在叢林裡手持野花並吃下，表情奇特滿意","ocr":"這是勝者的早餐 很好吃 百合很好吃","keyword":"艾德史塔佛,探索頻道,百合","blurLevel":0,"emotion":"得意","reviewed":true}
+{"file":"meme-8d942cf4-cd18-413b-ab11-ff1af991de27.webp","describe":"簡筆畫卡通人物，紅眼鋸齒嘴，情緒誇張震驚與嘲諷。「本子」指成人向同人誌","ocr":"我看了你老婆的所有本子 可惜男主角全都不是你","keyword":"本子,同人誌,嘲諷","blurLevel":1,"emotion":"嘲諷,得意","reviewed":true}
 {"file":"meme-902534b7-cfa3-4a88-83cf-9e342f3f2ef5.webp","describe":"戴眼鏡耳機的年輕男子開懷大笑","ocr":"我的天呐 太有意思了","keyword":"我的天呐,太有意思了,大笑,戴耳機,眼鏡,直播主,看戲,幸災樂禍,好笑,有趣,嘲笑,實況","blurLevel":1,"emotion":"開心,嘲諷","reviewed":true}
 {"file":"meme-8e2b2be5-8c02-4870-ad81-ef0c9e3c93b8.webp","describe":"兩名廚師左右鏡像對稱，在水槽前洗手。「雙廚狂洗」為「雙廚狂喜」諧音。","ocr":"雙廚狂洗","keyword":"雙廚狂洗,雙廚狂喜,諧音,廚師,洗手,聯動,crossover,同好,兩部作品,興奮,鏡像,狂喜","blurLevel":2,"emotion":"開心","reviewed":true}
 {"file":"meme-9045aa39-b876-43e6-82cf-d696b135a14a.webp","describe":"藍髮Q版少女的圖像上下顛倒，睜著大眼、臉頰泛紅。","ocr":"为什么伤害我们的脖子 Why hurt our neck","keyword":"為什麼傷害我們的脖子,why hurt our neck,倒立,圖片顛倒,轉正,脖子,歪頭,Q版,動漫,初音未來,提醒轉向,抱怨","blurLevel":1,"emotion":"無奈,疑惑","reviewed":true}
 {"file":"meme-9249eb7e-e8df-4140-b4b9-6021815895bb.webp","describe":"男子頭戴傘帽，手中拿著黑色物品，神情平淡地說話。出自電視劇《麻辣鮮師》","ocr":"總覺得好笑又有點白癡","keyword":"總覺得好笑又有點白癡,麻辣鮮師,傘帽,雨傘帽,搞笑,白癡,無言,吐槽,好笑,台劇,懷舊,華視","blurLevel":2,"emotion":"無奈,嘲諷","reviewed":true}
-{"file":"meme-92098191-44c2-42a6-9c6b-785b93aa33f7.webp","describe":"身穿橙色上衣的亞洲男子雙手抱頭，張口驚訝無奈","ocr":"嗨呀","keyword":"抱頭,驚訝,嗨呀","blurLevel":0}
+{"file":"meme-92098191-44c2-42a6-9c6b-785b93aa33f7.webp","describe":"身穿橙色上衣的亞洲男子雙手抱頭，張口驚訝無奈","ocr":"嗨呀","keyword":"抱頭,驚訝,嗨呀","blurLevel":0,"emotion":"無奈,驚訝","reviewed":true}
 {"file":"meme-938fe845-10b5-46c6-9221-c41d1e4d37d2.webp","describe":"極度像素化的畫面，只能勉強辨認出一個人物輪廓","ocr":"今天畫質很高是吧","keyword":"像素,馬賽克,畫質差,低畫質,糊掉,今天畫質很高是吧,反諷,吐槽,截圖,看不清,壓縮","blurLevel":2,"emotion":"嘲諷","reviewed":true}
 {"file":"meme-9433b0bb-19fb-4491-9794-9b73aec078c9.webp","describe":"青年藝人喻言在山坡前受訪，兩格畫面中笑著說話。出自「今日文化匯」節目。","ocr":"青年艺人喻言 在这种大自然环境下 还能挖到很多百合就很开心","keyword":"喻言,今日文化匯,挖百合,百合,諧音,新聞採訪,大自然,開心","blurLevel":0,"emotion":"開心","reviewed":true}
 {"file":"meme-947278f1-2f63-4bdc-ab20-89ebad2546b1.webp","describe":"身穿黑色官服、頭戴烏紗帽的古裝男子張口發問，身後站著兩名戴白色頭套的隨從","ocr":"那麼...在哪裡才買得到呢？","keyword":"古裝,官服,烏紗帽,在哪裡才買得到,哪裡買,詢問,想買,發問,港片,周星馳,審死官,老電影","blurLevel":2,"emotion":"疑惑","reviewed":true}
@@ -533,20 +533,20 @@
 {"file":"meme-96829730-27d1-4c27-b742-fdccfa1b0e8f.webp","describe":"清宮劇裝扮的女子微揚眉毛，神情不以為然。出自《後宮甄嬛傳》","ocr":"瘋子的話信不得","keyword":"甄嬛傳,後宮甄嬛傳,清宮劇,古裝,瘋子的話信不得,不信,不屑,不以為然,反駁,胡說,別聽他的,宮鬥","blurLevel":1,"emotion":"嘲諷,拒絕","reviewed":true}
 {"file":"meme-97275155-548a-47e9-b50d-5de6dd57810b.webp","describe":"四名男子在戶外，其中一人戴著墨鏡與帽子、雙腳懸空被旁人架住攙扶","ocr":"歹勢，我們這個三不五時就會跑出來，歹勢\nSorry, it just come up once in a while, sorry.","keyword":"歹勢,抱歉,道歉,三不五時,墨鏡,攙扶,架走,老電影,台語,失控,又來了,丟臉","blurLevel":1,"emotion":"尷尬,無奈","reviewed":true}
 {"file":"meme-9a5b5c24-be9e-4446-8a1f-c34963b66b51.webp","describe":"短髮男子在舞台上手持麥克風演唱，「半髮」為「辦法」諧音","ocr":"我沒有半髮","keyword":"我沒有半髮,沒辦法,諧音,唱歌,麥克風,舞台,短髮,光頭,無能為力,擺爛,攤手,歌手","blurLevel":0,"emotion":"無奈,敷衍","reviewed":true}
-{"file":"meme-9acde055-6393-4d04-ae47-e12505b1f461.webp","describe":"聊天介面截圖，黑底，AI對話截圖","ocr":"GPT 看一下，這是你生成的文章嗎 我很難過AI沒辦法戳瞎自己的眼睛","keyword":"GPT,AI,聊天","blurLevel":2}
+{"file":"meme-9acde055-6393-4d04-ae47-e12505b1f461.webp","describe":"聊天介面截圖，黑底，AI對話截圖","ocr":"GPT 看一下，這是你生成的文章嗎 我很難過AI沒辦法戳瞎自己的眼睛","keyword":"GPT,AI,聊天","blurLevel":2,"emotion":"嘲諷,無奈","reviewed":true}
 {"file":"meme-9a5f2be4-3668-4c10-8bae-9083c2c0e566.webp","describe":"老者站在梯凳上、腋下夾書專心翻閱。出自卡爾·斯皮茨韋格的畫作《書蟲》","ocr":"試著從資料夾中找出那張最適合用來回應的梗圖時","keyword":"書蟲,斯皮茨韋格,名畫,翻書,找梗圖,選圖,資料夾,認真挑選","blurLevel":0,"emotion":"","reviewed":true}
 {"file":"meme-9b2423da-3dd6-4536-a591-eb1c6cec8c95.webp","describe":"卡通男孩皺眉捂著肚子，腦中想著一碗牛肉丼飯，「有丼」為「有洞」諧音","ocr":"腦子有丼","keyword":"腦子有丼,腦子有洞,諧音,丼飯,牛丼,肚子痛,插圖,罵人,笨,吐槽,想吃,日式插畫","blurLevel":2,"emotion":"嘲諷,無奈","reviewed":true}
-{"file":"meme-9c9c4bf6-e7be-495c-9752-72ad0927d824.webp","describe":"貓咪好奇地伸爪對著白色杯子","ocr":"你好 我喝一點","keyword":"貓,杯子,喝一點","blurLevel":2}
+{"file":"meme-9c9c4bf6-e7be-495c-9752-72ad0927d824.webp","describe":"貓咪好奇地伸爪對著白色杯子","ocr":"你好 我喝一點","keyword":"貓,杯子,喝一點","blurLevel":2,"emotion":"得意,可愛","reviewed":true}
 {"file":"meme-9b2f616c-63e9-48f6-8c73-af1dfbfbbd12.webp","describe":"台灣地圖化作橘白貓咪，前爪握著筷子伸向一旁","ocr":"台灣\n你好 我吃一點\n失礼します 少し食べます\n안녕하세요, 한 입 먹을게요!","keyword":"台灣,台灣地圖,貓,貓咪,筷子,你好我吃一點,吃一點,分一口,搶食,美食,日文,韓文","blurLevel":0,"emotion":"可愛","reviewed":true}
 {"file":"meme-9e6c092c-af2f-4aee-b682-312358672bd9.webp","describe":"睏倦的卡通橘貓揉著眼睛，臉頰泛紅","ocr":"春眠不覺曉 哩洗勒供三小","keyword":"貓,橘貓,揉眼睛,想睡,愛睏,春眠不覺曉,哩洗勒供三小,你在說什麼,台語,聽不懂,可愛,賴床","blurLevel":2,"emotion":"疑惑,疲憊","reviewed":true}
 {"file":"meme-a005511e-1fb0-4ba8-9016-2124e3fdf8d8.webp","describe":"日本歌手 Ado 的社群貼文截圖，附動漫風格頭像","ocr":"請不要把言論自由跟不經大腦並缺乏考慮的話語混為一談。\n自由な意見と配慮に欠けた言葉を一緒にしないでください。","keyword":"Ado,日本歌手,貼文截圖,推特,言論自由,不經大腦,缺乏考慮,酸民,回嗆,反駁,日文,發言","blurLevel":0,"emotion":"拒絕,嘲諷","reviewed":true}
-{"file":"meme-a078c26f-51a2-4053-8178-ac6182bb3732.webp","describe":"電子遊戲或視覺小說對話框","ocr":"我是數學老師，我要過程。","keyword":"數學老師,對話框","blurLevel":0}
+{"file":"meme-a078c26f-51a2-4053-8178-ac6182bb3732.webp","describe":"電子遊戲或視覺小說對話框","ocr":"我是數學老師，我要過程。","keyword":"數學老師,對話框","blurLevel":0,"emotion":"生氣","reviewed":true}
 {"file":"meme-a369353f-3dfa-4c64-80ae-f6130f0b4b4e.webp","describe":"深灰色人形低頭，一手按在胸前散發的強烈光芒上，周圍環繞愛心、彩虹與微笑表情符號","ocr":"","keyword":"愛心,彩虹,發光,溫馨,感動,治癒,wholesome,表情符號,滿滿的愛,能量,好暖,讚嘆","blurLevel":2,"emotion":"讚許,開心","reviewed":true}
-{"file":"meme-a3937a80-ed6d-4d71-ae1f-e88e9c759cdc.webp","describe":"竈門炭治郎兩格表情，左震驚右無奈。出自《鬼滅之刃》","ocr":"本來想說點什麼 但想想還是算了","keyword":"炭治郎,鬼滅之刃,無奈","blurLevel":0}
+{"file":"meme-a3937a80-ed6d-4d71-ae1f-e88e9c759cdc.webp","describe":"竈門炭治郎兩格表情，左震驚右無奈。出自《鬼滅之刃》","ocr":"本來想說點什麼 但想想還是算了","keyword":"炭治郎,鬼滅之刃,無奈","blurLevel":0,"emotion":"無奈","reviewed":true}
 {"file":"meme-a404ee5d-b1d1-4a10-abfb-269e7c93ef64.webp","describe":"粉髮、戴紅色大蝴蝶結的Q版動漫少女手抵下巴，張口露出驚訝窘迫的表情，額角冒汗","ocr":"莕瑞公山曉","keyword":"動漫,Q版,粉髮,蝴蝶結,驚訝,冒汗,傻眼,供三小,你在說什麼,台語諧音,貼圖,世界計畫","blurLevel":0,"emotion":"驚訝,疑惑","reviewed":true}
 {"file":"meme-a3ce8564-8abf-497d-a3fa-70cc6ba48b84.webp","describe":"竹蒸籠內排滿冒著熱氣的紅龜粿，「粿圈蒸亂」為「規圈真亂」諧音","ocr":"粿圈蒸亂","keyword":"紅龜粿,粿,蒸籠,粿圈蒸亂,規圈真亂,圈子很亂,諧音,台語,亂象,吃瓜,傳統糕點,熱氣","blurLevel":1,"emotion":"嘲諷,無奈","reviewed":true}
 {"file":"meme-a5ee9dd8-23e8-4bf2-a33b-d73580ca457f.webp","describe":"手指戳著一顆皺眉不悅的卡通冰塊，「有冰」為「有病」諧音","ocr":"你真的有冰","keyword":"冰塊,你真的有冰,你真的有病,諧音,罵人,有病,戳,吐槽,神經病,無言,簡筆插圖,台語","blurLevel":2,"emotion":"嘲諷,無奈","reviewed":true}
-{"file":"meme-a4e19d2c-9c44-4b1c-8549-edd82e9e4490.webp","describe":"黑髮動畫女孩帶著天真卻悲傷的笑容","ocr":"你可以拿著這個去自首嗎","keyword":"動畫女孩,悲傷,自首","blurLevel":1}
+{"file":"meme-a4e19d2c-9c44-4b1c-8549-edd82e9e4490.webp","describe":"黑髮動畫女孩帶著天真卻悲傷的笑容","ocr":"你可以拿著這個去自首嗎","keyword":"動畫女孩,悲傷,自首","blurLevel":1,"emotion":"恐怖","reviewed":true}
 {"file":"meme-a51e2afe-6843-4b1d-b2c6-d007a0e80930.webp","describe":"戴頭盔穿迷彩戰術背心的士兵，一手指向鏡頭，另一手把手榴彈遞到鏡頭前。","ocr":"","keyword":"士兵,軍人,頭盔,迷彩,手榴彈,指著你,遞手榴彈,送你一顆,威脅,嗆聲,決勝時刻","blurLevel":2,"emotion":"嘲諷","reviewed":true}
 {"file":"meme-a6e5ecf0-3acf-4bc1-a23c-5b3ae9a136bb.webp","describe":"咧嘴笑並冒出汗珠的卡通蝦，一隻紅色蝦螯高舉。「蝦仁」為「傷人」諧音。","ocr":"我可能不是虾\n但您真的不是仁","keyword":"蝦,蝦仁,傷人,諧音,蝦仁豬心,殺人誅心,嗆人,反擊,吐槽,卡通蝦,尬笑","blurLevel":0,"emotion":"嘲諷","reviewed":true}
 {"file":"meme-a82766f7-7fb8-4eb6-b0eb-d6bf4f134fd5.webp","describe":"中華民國國旗下的直排「廢文證書」，蓋有中華民國廢文協會紅色印章。","ocr":"廢文證書\n經查該文意味不明、詞不達意、內容空洞，已達法定一級廢文之標準。茲核定為一級廢文，予以核發證書。\n證書字第九〇三號\n驗證日期：民國　年　月　日\n中華民國廢文協會","keyword":"廢文,廢文證書,一級廢文,中華民國廢文協會,認證,獎狀,證書,水文,嘴砲,嘲諷,國旗","blurLevel":0,"emotion":"嘲諷","reviewed":true}
@@ -560,18 +560,18 @@
 {"file":"meme-af30f0fc-6ef7-423c-841e-66c70ceab66b.webp","describe":"瑞士山城街景，教堂尖塔鐘樓後方是雪山，路邊掛著瑞士國旗，上方疊有大段文字。","ocr":"我不喜歡中共\n又不是因為他很落後\n單純就是因為\n他一直欺負我們而已\n很難懂嗎？\n為什麼那麼多人\n要一直強調那邊多發達？\n到底關我屁事？","keyword":"瑞士,教堂,鐘樓,雪山,國旗,中共,關我屁事,反駁,不屑,不爽,時事,嗆聲","blurLevel":0,"emotion":"生氣,嘲諷","reviewed":true}
 {"file":"meme-af3c5020-03d6-4659-bbcf-deffd98c3f9b.webp","describe":"三格簡筆線條臉，依序為抓頭端詳、瞇眼思索、揚眉比讚","ocr":"挠头分析 稍加思索 美哉","keyword":"迷因臉,暴漫,三格,分析,思考,美哉,恍然大悟,比讚","blurLevel":2,"emotion":"讚許,得意","reviewed":true}
 {"file":"meme-af65074b-2d8d-4f8f-8690-fb8b37bac199.webp","describe":"白金之星擺出戰鬥架式，前方一隻貓伸出前掌像在揮拳。出自《JoJo的奇妙冒險》","ocr":"ゴゴゴゴ 你好歐拉！","keyword":"白金之星,替身,JoJo,JoJo的奇妙冒險,歐拉,ORA,貓,貓咪揮拳,打招呼,你好,ゴゴゴ","blurLevel":1,"emotion":"可愛,開心","reviewed":true}
-{"file":"meme-b026946f-9648-4838-983b-5a6cf4f0f922.webp","describe":"白底兩隻紅色螃蟹螯足高舉，「蟹蟹你」與「謝謝你」諧音","ocr":"蟹蟹你","keyword":"螃蟹,蟹蟹你,諧音梗","blurLevel":2}
+{"file":"meme-b026946f-9648-4838-983b-5a6cf4f0f922.webp","describe":"白底兩隻紅色螃蟹螯足高舉，「蟹蟹你」與「謝謝你」諧音","ocr":"蟹蟹你","keyword":"螃蟹,蟹蟹你,諧音梗","blurLevel":2,"emotion":"讚許","reviewed":true}
 {"file":"meme-b042dcb0-266f-40b5-bff1-d6ec090ae17e.webp","describe":"有人套著巨大蛤蜊玩偶裝走在街道上。「我超蚌的」為「我超棒的」諧音。","ocr":"我超蚌的","keyword":"蛤蜊,蚌,我超蚌的,我超棒的,諧音,玩偶裝,布偶裝,街頭,自誇,炫耀,傻眼","blurLevel":2,"emotion":"得意","reviewed":true}
 {"file":"meme-b1595db8-c6a5-4434-aa2c-d5c69b0ed9b0.webp","describe":"手拿剖半的紅皮蓮霧，白色果肉中央有一個孔洞。「摳蓮」為「可憐」諧音。","ocr":"摳蓮","keyword":"蓮霧,摳蓮,可憐,諧音,水果,同情,安慰,好可憐,調侃,切開,台灣水果","blurLevel":0,"emotion":"嘲諷","reviewed":true}
 {"file":"meme-b1f585a6-1ea2-4554-bc1a-805e19d17ac3.webp","describe":"Q版長髮少女垂眼張嘴，身旁畫著向下的藍色箭頭與直線。","ocr":"不想上學……","keyword":"不想上學,厭學,不想上班,沮喪,低落,無力,提不起勁,星期一,Q版,貼圖,少女","blurLevel":0,"emotion":"疲憊,無奈","reviewed":true}
-{"file":"meme-b474d535-b7de-4582-81d6-e9219e85e714.webp","describe":"白髮黑髮各半男子（黑傑克），臉有縫合疤痕，表情凝重。出自手塚治虫作品《怪醫黑傑克》","ocr":"皮諾可 這個直接電死","keyword":"黑傑克,手塚治虫,怪醫黑傑克","blurLevel":0}
+{"file":"meme-b474d535-b7de-4582-81d6-e9219e85e714.webp","describe":"白髮黑髮各半男子（黑傑克），臉有縫合疤痕，表情凝重。出自手塚治虫作品《怪醫黑傑克》","ocr":"皮諾可 這個直接電死","keyword":"黑傑克,手塚治虫,怪醫黑傑克","blurLevel":0,"emotion":"生氣","reviewed":true}
 {"file":"meme-b29ab950-8732-42d7-abfb-e56c557c5414.webp","describe":"簡筆白色小人趴在一把長刀上咧嘴笑，右側兩隻小人中一隻站在刀身上舉手歡呼、另一隻被刀貫穿，刀下有血跡。","ocr":"我不信！\n结局肯定是甜的！\n哈哈哈哈哈哈！\n是刀！ 全他娘是刀！","keyword":"小人,簡筆小人,刀,插刀,吃刀,甜的,甜虐,BE,結局,追劇,被虐,自我安慰","blurLevel":1,"emotion":"悲傷,嘲諷","reviewed":true}
-{"file":"meme-b2ae7b23-d297-48f0-9e43-95ca626d5c13.webp","describe":"「怪我囉？」迷因。舜帝石像雙臂張開掌心向上，右側疊加紅色大字","ocr":"怪我囉？ 舜帝","keyword":"舜帝,怪我囉","blurLevel":1}
+{"file":"meme-b2ae7b23-d297-48f0-9e43-95ca626d5c13.webp","describe":"「怪我囉？」迷因。舜帝石像雙臂張開掌心向上，右側疊加紅色大字","ocr":"怪我囉？ 舜帝","keyword":"舜帝,怪我囉","blurLevel":1,"emotion":"嘲諷","reviewed":true}
 {"file":"meme-b591bdf1-e07a-4684-8930-e669fbf85df2.webp","describe":"《Minecraft》的四塊煤炭圍住中央一張紙。「碳圍觀紙」為「歎為觀止」諧音。","ocr":"碳圍觀紙","keyword":"Minecraft,當個創世神,我的世界,麥塊,煤炭,紙,碳圍觀紙,歎為觀止,嘆為觀止,諧音,佩服","blurLevel":2,"emotion":"讚許,驚訝","reviewed":true}
 {"file":"meme-b6071c92-675d-42ce-93d2-9b4a724a8b06.webp","describe":"白底黑字搭配 NISSAN 車廠的圓形商標，商標名嵌進句子中間形成諧音。","ocr":"在那邊廢話哪麼多\n你行NISSAN啊","keyword":"NISSAN,日產,車標,你行你上,你行啊,廢話,諧音,嗆人,反嗆,吐槽,嘴砲","blurLevel":0,"emotion":"嘲諷,生氣","reviewed":true}
 {"file":"meme-b8777846-4f16-4b03-aadd-c038c282459b.webp","describe":"海綿寶寶皺眉斜眼、張嘴露出門牙，一手握拳貼在胸前。出自卡通《海綿寶寶》","ocr":"你是小時候摔壞腦袋了是嗎","keyword":"海綿寶寶,SpongeBob,比奇堡,摔壞腦袋,腦袋有問題,吐槽,無語,嫌棄,罵人,傻眼,卡通","blurLevel":0,"emotion":"嘲諷,無奈","reviewed":true}
 {"file":"meme-b85d1b68-968e-44a3-8ca2-60af3b943e44.webp","describe":"黑底白字兩行台詞卡。出自《咒術迴戰》","ocr":"夏油傑是對的 我討厭猴子","keyword":"夏油傑,咒術迴戰,Jujutsu Kaisen,猴子,我討厭猴子,厭惡,嘲諷,黑底白字,台詞卡,反派名言","blurLevel":2,"emotion":"嘲諷,生氣","reviewed":true}
-{"file":"meme-b8678dcc-4b15-4945-b278-9ca372f0db3d.webp","describe":"白髮戴耳環的動畫人物，狂笑得意","ocr":"會數數很了不起嗎","keyword":"白髮,狂笑,嘲諷","blurLevel":2}
+{"file":"meme-b8678dcc-4b15-4945-b278-9ca372f0db3d.webp","describe":"白髮戴耳環的動畫人物，狂笑得意","ocr":"會數數很了不起嗎","keyword":"白髮,狂笑,嘲諷","blurLevel":2,"emotion":"嘲諷,得意","reviewed":true}
 {"file":"meme-b8e99bc0-d202-45cb-aee5-457494de1186.webp","describe":"Q版少女角色戴黑色貝雷帽、背有小翅膀，頭頂浮現載入轉圈圖示，瞪大雙眼張口","ocr":"","keyword":"當機,腦袋當機,載入中,轉圈圈,讀取中,思考中,無法理解,驚訝,發呆,Q版,貝雷帽,loading","blurLevel":2,"emotion":"疑惑,驚訝","reviewed":true}
 {"file":"meme-b92708c1-20d6-4aec-ac95-5d94f2fd1886.webp","describe":"戴拿破崙帽、手持長劍的模糊貓咪","ocr":"你好 征服一下","keyword":"貓,拿破崙帽,長劍,征服","blurLevel":2,"emotion":"得意,嘲諷","reviewed":true}
 {"file":"meme-b9656c4f-d217-4276-941b-5dc2118f46b8.webp","describe":"兩名俄羅斯警察並肩站著，右側年輕者側頭開口反嗆","ocr":"我奶奶中风后都不会说这种胡话 моя бабушка после инсульта не такой бред выдавала.","keyword":"俄羅斯,警察,吐槽,胡話,鬼扯,奶奶,中風,反嗆","blurLevel":1,"emotion":"嘲諷","reviewed":true}
