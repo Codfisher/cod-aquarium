@@ -402,53 +402,53 @@
 {"file":"meme-241ddbe6-41e2-4bfd-89e0-cb0a5cd54953.webp","describe":"男子手持麥克風，身穿白T恤，表情嚴肅直視前方","ocr":"你媽了個逼 滾出去","keyword":"麥克風,憤怒","blurLevel":1}
 {"file":"meme-24d48f11-7d6c-448f-841c-c679ef7de7a9.webp","describe":"倉庫貨架堆滿成捆金屬管，以「管」呼應「你管很多」。","ocr":"你管很多欸","keyword":"水管,鋼管,管子,倉庫,你管很多,管很多,雙關,諧音,吐槽,多管閒事,別管我,關你什麼事","blurLevel":0,"emotion":"拒絕,嘲諷","reviewed":true}
 {"file":"meme-286a7262-a143-4510-8a92-81f71f06bf53.webp","describe":"貓側身看向前方，頭上戴星條旗高帽，旁邊疊上一把步槍。","ocr":"你好 民主外送","keyword":"貓,貓咪,山姆大叔帽,星條旗,美國,M16,步槍,民主外送,自由民主,政治梗,你好,送民主","blurLevel":2,"emotion":"嘲諷","reviewed":true}
-{"file":"meme-24e19f55-29b2-4a50-ae38-07d84501202a.webp","describe":"微笑柴犬立於藍天白雲光芒四射的階梯上","ocr":"天柴","keyword":"柴犬,天柴","blurLevel":2}
-{"file":"meme-26e7a0ca-e981-492f-8025-5a23a6b13800.webp","describe":"動漫風格青年男子，面露邪魅笑容，帶有輕蔑與挑釁意味","ocr":"不用忙著議論我 嘴巴那麼閒的話，你可以去幫別人口","keyword":"動漫男子,邪魅笑容,挑釁","blurLevel":1}
-{"file":"meme-28f8cd6c-9e57-4eff-985d-7a8245549d73.webp","describe":"瞇眼貓咪持勺從鍋中盛粥，神情滿足且詼諧","ocr":"評論區亂成一鍋粥了 大家趁熱吃吧","keyword":"貓,盛粥,一鍋粥","blurLevel":1}
-{"file":"meme-2900192b-e048-4a14-811e-718968465e8b.webp","describe":"穿西裝男子撐著紅色雨傘，左手掌心向上望向天空，表情從容略帶疑惑","ocr":"無雨","keyword":"雨傘,西裝男,從容","blurLevel":2}
+{"file":"meme-24e19f55-29b2-4a50-ae38-07d84501202a.webp","describe":"微笑柴犬立於藍天白雲光芒四射的階梯上","ocr":"天柴","keyword":"柴犬,天柴","blurLevel":2,"emotion":"得意,可愛","reviewed":true}
+{"file":"meme-26e7a0ca-e981-492f-8025-5a23a6b13800.webp","describe":"動漫風格青年男子，面露邪魅笑容，帶有輕蔑與挑釁意味","ocr":"不用忙著議論我 嘴巴那麼閒的話，你可以去幫別人口","keyword":"動漫男子,邪魅笑容,挑釁","blurLevel":1,"emotion":"嘲諷,得意","reviewed":true}
+{"file":"meme-28f8cd6c-9e57-4eff-985d-7a8245549d73.webp","describe":"瞇眼貓咪持勺從鍋中盛粥，神情滿足且詼諧","ocr":"評論區亂成一鍋粥了 大家趁熱吃吧","keyword":"貓,盛粥,一鍋粥","blurLevel":1,"emotion":"嘲諷,得意","reviewed":true}
+{"file":"meme-2900192b-e048-4a14-811e-718968465e8b.webp","describe":"穿西裝男子撐著紅色雨傘，左手掌心向上望向天空，表情從容略帶疑惑","ocr":"無雨","keyword":"雨傘,西裝男,從容","blurLevel":2,"emotion":"疑惑","reviewed":true}
 {"file":"meme-2b0231a1-d8a0-4b81-86a9-bd1d4a266fb1.webp","describe":"男子背對鏡頭拉滿弓弦，搭箭瞄準前方","ocr":"用弓","keyword":"用弓,用功,諧音,射箭,弓箭,讀書,認真,加油","blurLevel":2,"emotion":"讚許","reviewed":true}
 {"file":"meme-29971a29-ab1d-4334-b274-453b3af5ccee.webp","describe":"社群平台貼文截圖，發文者形容一篇文的震撼程度像奇異果裡鑽出奇異博士甩他巴掌。","ocr":"這篇文給我帶來的震撼程度不亞於我買了一袋奇異果，打開之後奇異博士從裡面鑽出來，給了我巴掌還問我夠不夠奇異","keyword":"奇異博士,奇異果,夠不夠奇異,震撼,大受震撼,貼文截圖,Threads,巴掌,諧音,誇飾,搞笑貼文,看完傻眼","blurLevel":0,"emotion":"驚訝,嘲諷","reviewed":true}
 {"file":"meme-2a743526-7fd9-4ab0-91e6-421c02a1132a.webp","describe":"羊皮捲軸上以正體中文列出十條「各位哥布林謹記」的生存守則。","ocr":"[各位哥布林謹記]\n1. 千萬不要走出森林；\n2. 你可以信任你的哥布林兄弟；\n3. 若 1 和 2 衝突則遵守 1；\n4. 你可以信任的其他種族是地精和巨魔；\n5. 如果不幸走出森林，請即時返回，遇到危險時可向其他哥布林幹部求救（如：長老哥布林、哥布林祭司、哥布林統帥/大統帥等）；\n6. 身高高於 180 的哥布林將會自動分化成巨魔，他們有著高大的身軀，必要時可以向他們求助；\n7. 身高低於 160 的哥布林將會自動分化為地精，他們有著敏捷的思維，必要時也可向他們求助；\n8. 如果有其他哥布林勸你走出森林，一定是有勇者用劍抵住他的頭顱，必要時可不顧其安危，直接逃跑並求助；\n9. 不要沈溺於夢境，若不慎沈溺其中，哥布林大祭司會嘗試和你的大腦連結並拯救你（注：你必須嘗試清醒，否則我們也無能為力）；\n10. 不要嘗試襲擊落單的雌性精靈，你會被其他精靈和勇者圍剿，屆時我們都無能為力","keyword":"哥布林,捲軸,羊皮紙,生存守則,哥布林守則,規則清單,森林,地精,巨魔,精靈,勇者,奇幻設定","blurLevel":1,"emotion":"","reviewed":true}
 {"file":"meme-2cc48fd8-d66d-4b17-9599-5caabf0cc00c.webp","describe":"手捏起一顆餃子放進沸水鍋，鍋中已有數顆餃子，「右下餃」為「右下角」諧音。","ocr":"右下餃 別讓外界的雜音帶走你身為餃餃者的風範！","keyword":"餃子,水餃,下鍋,煮餃子,右下餃,右下角,諧音,餃餃者,佼佼者,按右下角,關廣告,風範","blurLevel":2,"emotion":"","reviewed":true}
 {"file":"meme-2c754f33-c359-4120-8b6a-c97f42572c5e.webp","describe":"狐狸身體中段變成一疊吐司切片，「狐司亂想」為「胡思亂想」諧音。","ocr":"狐司亂想","keyword":"狐司亂想,胡思亂想,諧音,狐狸,吐司,土司,麵包,亂想,想太多,發呆","blurLevel":0,"emotion":"無奈","reviewed":true}
-{"file":"meme-2e8270bf-623f-4e2f-abce-01aafcbf55b5.webp","describe":"小男孩興奮地高舉雙手，望向桌上蛋糕與水果塔，表情極度雀躍","ocr":"可以用點心嗎","keyword":"小男孩,興奮,蛋糕,點心","blurLevel":2}
-{"file":"meme-2ede7588-8860-41c2-b684-fc4e199e3c6b.webp","describe":"一隻手將切好的薯條放入熱油鍋中油炸","ocr":"下薯ㄌ","keyword":"薯條,油炸,下薯","blurLevel":1}
+{"file":"meme-2e8270bf-623f-4e2f-abce-01aafcbf55b5.webp","describe":"小男孩興奮地高舉雙手，望向桌上蛋糕與水果塔，表情極度雀躍","ocr":"可以用點心嗎","keyword":"小男孩,興奮,蛋糕,點心","blurLevel":2,"emotion":"開心","reviewed":true}
+{"file":"meme-2ede7588-8860-41c2-b684-fc4e199e3c6b.webp","describe":"一隻手將切好的薯條放入熱油鍋中油炸","ocr":"下薯ㄌ","keyword":"薯條,油炸,下薯","blurLevel":1,"reviewed":true}
 {"file":"meme-2d40ee5b-2a63-4cdc-801c-f8749bbb5bda.webp","describe":"男子將一木箱蔬菜遞給另一人，「蔬給你了」為「輸給你了」諧音。","ocr":"蔬給你了","keyword":"蔬給你了,輸給你了,諧音,蔬菜,認輸,投降,甘拜下風,木箱,遞菜,蔬果","blurLevel":1,"emotion":"無奈","reviewed":true}
-{"file":"meme-2ef90e5b-c74e-4837-a276-d6fbdf671ff9.webp","describe":"台灣政治人物王世堅，穿西裝在會議廳雙手攤開，表情堅定","ocr":"就是這麼簡單！","keyword":"王世堅","blurLevel":1}
+{"file":"meme-2ef90e5b-c74e-4837-a276-d6fbdf671ff9.webp","describe":"台灣政治人物王世堅，穿西裝在會議廳雙手攤開，表情堅定","ocr":"就是這麼簡單！","keyword":"王世堅","blurLevel":1,"emotion":"得意","reviewed":true}
 {"file":"meme-2ee44e63-6687-4fcf-9043-0c627a051c79.webp","describe":"《全職獵人》尼特羅的金色觀音頭像怒目張口，與綠膚紫眼的蟻王梅路艾姆正面對峙。","ocr":"會長螞蟻","keyword":"全職獵人,會長螞蟻,尼特羅,梅路艾姆,蟻王,一百式觀音,獵人,HUNTER×HUNTER,對決,動漫","blurLevel":2,"emotion":"生氣","reviewed":true}
 {"file":"meme-2f6db448-e3f8-4e17-b29f-7ef3f5e12db6.webp","describe":"金框予告狀，出自《名偵探柯南》怪盜基德風格","ocr":"予告狀 這張圖我盜走了 我連這張圖都是盜來的 怪盜キッド","keyword":"怪盜基德,怪盜キッド,名偵探柯南,予告狀,盜圖,偷圖,盜用,轉載,版權,KID","blurLevel":0,"emotion":"嘲諷","reviewed":true}
 {"file":"meme-30fdd848-33c6-42f1-a510-e5091f4f783c.webp","describe":"長著透明蝴蝶翅膀的藍綠色小生物站在遊戲場景的水潭中。","ocr":"這個傢伙叫做 零與受","keyword":"零與受,這個傢伙叫做,遊戲角色,蝴蝶翅膀,精靈,小生物,水潭,藍綠色,遊戲畫面,可愛","blurLevel":0,"emotion":"","reviewed":true}
-{"file":"meme-345dac59-6504-433b-a401-cdeef79d7308.webp","describe":"手機遊戲《荒野亂鬥》熱帶主題競技場畫面，卡通角色對戰","ocr":"交往到最後還不是得分！","keyword":"荒野亂鬥","blurLevel":0}
+{"file":"meme-345dac59-6504-433b-a401-cdeef79d7308.webp","describe":"手機遊戲《荒野亂鬥》熱帶主題競技場畫面，卡通角色對戰","ocr":"交往到最後還不是得分！","keyword":"荒野亂鬥","blurLevel":0,"emotion":"嘲諷,得意","reviewed":true}
 {"file":"meme-352adf63-43ff-4993-b60a-446cc911a991.webp","describe":"烤肉架上肉塊竄出熊熊火焰，「是在烤哦」為「是在靠哦」諧音。","ocr":"是在烤哦","keyword":"是在烤哦,是在靠哦,諧音,烤肉,燒烤,火焰,烤肉架,炭火,中秋節,抱怨","blurLevel":2,"emotion":"嘲諷","reviewed":true}
 {"file":"meme-347b5cd2-5e21-4384-bd8c-21a6d7670407.webp","describe":"《JoJo的奇妙冒險》波魯那雷夫張嘴說話，手抬到下巴前示意。","ocr":"能否给我点时间说明一下呢","keyword":"JOJO的奇妙冒險,波魯那雷夫,喬喬,第三部,說明,解釋,讓我解釋,辯解,銀髮,動漫","blurLevel":0,"emotion":"尷尬","reviewed":true}
 {"file":"meme-3646784b-1018-4c14-933e-9607b215b54d.webp","describe":"Q版紫色長馬尾少女穿深色制服，面無表情，頭頂冒出一排省略號。","ocr":"","keyword":"宵崎奏,世界計畫,紫髮,馬尾,Q版,省略號,無言,呆滯,動漫少女,貼圖","blurLevel":0,"emotion":"無奈,疑惑","reviewed":true}
-{"file":"meme-3638ee56-c47c-4634-b45e-98b6c150e947.webp","describe":"牢籠內有字母A和B，籠外有C，「沒關C」是「沒關係」的諧音梗","ocr":"沒關C","keyword":"沒關C,諧音梗,牢籠","blurLevel":2}
+{"file":"meme-3638ee56-c47c-4634-b45e-98b6c150e947.webp","describe":"牢籠內有字母A和B，籠外有C，「沒關C」是「沒關係」的諧音梗","ocr":"沒關C","keyword":"沒關C,諧音梗,牢籠","blurLevel":2,"reviewed":true}
 {"file":"meme-34ecc533-d2ff-448c-95b2-77ed171770c6.webp","describe":"不鏽鋼鍋冒出大量白色蒸汽，「沸霧」為「廢物」諧音。","ocr":"沸霧","keyword":"沸霧,廢物,諧音,蒸汽,水蒸氣,鍋子,冒煙,煮水,罵人,嘲諷","blurLevel":0,"emotion":"嘲諷","reviewed":true}
 {"file":"meme-385b7092-7c94-4b07-adc1-bb8f1dabaef1.webp","describe":"孔子畫像面帶微笑，雙手交握於身前，「我道家了」為「我到家了」諧音。","ocr":"我道家了","keyword":"孔子,我道家了,我到家了,諧音,道家,儒家,古人,回家,報平安,畫像","blurLevel":0,"emotion":"","reviewed":true}
 {"file":"meme-376cd4a0-560b-45b4-83cf-d60668ca3887.webp","describe":"龍舟隊員奮力划槳，其中一位戴墨鏡的男子姿態悠閒，「只會槳欸」為「只會講欸」諧音。","ocr":"只會槳欸","keyword":"只會槳欸,只會講欸,諧音,龍舟,划槳,划船,端午節,嘴砲,光說不練,墨鏡","blurLevel":2,"emotion":"嘲諷","reviewed":true}
 {"file":"meme-38bbec08-c783-45a4-9d52-842d8e67f2bb.webp","describe":"魯迅黑白肖像照，神情嚴肅，右側附有題字與署名。","ocr":"删掉 ——鲁迅","keyword":"魯迅,删掉,刪掉,審查,和諧,名言,語錄,黑白照,言論,中國","blurLevel":2,"emotion":"嘲諷","reviewed":true}
 {"file":"meme-39855933-37a6-49bc-9b0f-8daaff2b9b00.webp","describe":"《海綿寶寶》海綿寶寶握著牙刷用力搓洗雙眼，滿臉泡沫。","ocr":"在網路看到奇怪東西時： 我今天網路用的夠多了","keyword":"海綿寶寶,牙刷,泡沫,洗眼睛,搓眼睛,網路用太多,少上網,奇怪東西,兒童不宜,SpongeBob","blurLevel":0,"emotion":"尷尬,拒絕","reviewed":true}
-{"file":"meme-3a394543-8586-451b-abd5-243783e72022.webp","describe":"年輕男子戴眼鏡穿綠衣對麥克風說話，表情疑惑或不滿","ocr":"我操這什麼人吶","keyword":"眼鏡男,疑惑","blurLevel":1}
-{"file":"meme-3a202619-6414-4ade-9aad-4dce32a5af9e.webp","describe":"《JoJo的奇妙冒險》角色雷歐·阿帕基，面露極度驚訝與厭惡，臉上冒汗","ocr":"你什麼時候有這種變態興趣","keyword":"JOJO的奇妙冒險,阿帕基,驚訝","blurLevel":2}
-{"file":"meme-3a3240a8-8c2b-4cf6-b24f-44010ceafd6f.webp","describe":"一隻手傾倒鹽罐，「失鹽」諧音梗圖","ocr":"失鹽","keyword":"失鹽,諧音梗","blurLevel":2}
+{"file":"meme-3a394543-8586-451b-abd5-243783e72022.webp","describe":"年輕男子戴眼鏡穿綠衣對麥克風說話，表情疑惑或不滿","ocr":"我操這什麼人吶","keyword":"眼鏡男,疑惑","blurLevel":1,"emotion":"嘲諷,無奈","reviewed":true}
+{"file":"meme-3a202619-6414-4ade-9aad-4dce32a5af9e.webp","describe":"《JoJo的奇妙冒險》角色雷歐·阿帕基，面露極度驚訝與厭惡，臉上冒汗","ocr":"你什麼時候有這種變態興趣","keyword":"JOJO的奇妙冒險,阿帕基,驚訝","blurLevel":2,"emotion":"驚訝,嘲諷","reviewed":true}
+{"file":"meme-3a3240a8-8c2b-4cf6-b24f-44010ceafd6f.webp","describe":"一隻手傾倒鹽罐，「失鹽」諧音梗圖","ocr":"失鹽","keyword":"鹽罐,失鹽,諧音,失眠","blurLevel":2,"emotion":"悲傷,無奈","reviewed":true}
 {"file":"meme-3e3ef1f9-e4d4-4218-994c-e68574fbe0cf.webp","describe":"演員比爾·墨瑞穿藍色上衣，面帶微笑望向鏡頭。","ocr":"想要吵贏一個聰明的人 是很困難的 但是想要吵贏一個智障 根本他媽幾乎不可能 -Bill Murray","keyword":"比爾墨瑞,Bill Murray,名言,語錄,吵架,爭論,吵贏,智障,聰明人,微笑","blurLevel":0,"emotion":"嘲諷,無奈","reviewed":true}
 {"file":"meme-3ec4b87c-6aa8-460e-bfe8-960095525a16.webp","describe":"習近平舉起右手發言。","ocr":"不同意他們結婚的請舉手 沒有？好通過","keyword":"習近平,舉手,表決,通過,好通過,沒有異議,強行通過,結婚,人大,政治","blurLevel":0,"emotion":"得意,敷衍","reviewed":true}
-{"file":"meme-3fed62e2-6dca-45f3-ae54-8b16bcebdf8d.webp","describe":"蒸鍋內置四小碗白米冒著蒸氣，「蒸四微碗」諧音梗","ocr":"蒸四微碗","keyword":"蒸四微碗,諧音梗","blurLevel":0}
+{"file":"meme-3fed62e2-6dca-45f3-ae54-8b16bcebdf8d.webp","describe":"蒸鍋內置四小碗白米冒著蒸氣，「蒸四微碗」諧音梗","ocr":"蒸四微碗","keyword":"蒸四微碗,諧音梗","blurLevel":0,"reviewed":true}
 {"file":"meme-3fcce5c9-d0ab-4d9e-a9c0-e95f8ba406f0.webp","describe":"戴領帶的貓側頭張望，前爪握著筷子","ocr":"待ちきれないよ、早く出してくれ 기다릴 수 없어요, 얼른 가져와요 I can't wait, serve it up already 已經等不及力 快端上來罷","keyword":"貓,貓咪梗圖,筷子,領帶貓,催上菜,催菜,等不及,已經等不及力,快端上來,吃飯,點餐,多語言","blurLevel":0,"emotion":"可愛","reviewed":true}
-{"file":"meme-43a1ebb0-2096-4abb-8ad3-ce1e6ddfc2fb.webp","describe":"《JOJO的奇妙冒險 黃金之風》布魯諾·布加拉提，身穿白色圓點服裝，面露堅毅","ocr":"這麼做是因為我認為這是正確的","keyword":"JOJO的奇妙冒險,布加拉提","blurLevel":0}
+{"file":"meme-43a1ebb0-2096-4abb-8ad3-ce1e6ddfc2fb.webp","describe":"《JOJO的奇妙冒險 黃金之風》布魯諾·布加拉提，身穿白色圓點服裝，面露堅毅","ocr":"這麼做是因為我認為這是正確的","keyword":"JOJO的奇妙冒險,布加拉提","blurLevel":0,"emotion":"讚許","reviewed":true}
 {"file":"meme-420a1620-0e0d-4103-907c-552594a4da76.webp","describe":"年輕男子泡在河水中露出頭部，咧嘴笑著，「很河裡吧」為「很合理吧」諧音","ocr":"很河裡吧","keyword":"很河裡吧,很合理吧,合理,諧音,河裡,泡在水裡,游泳,認同,吐槽,反串,男子","blurLevel":1,"emotion":"嘲諷","reviewed":true}
-{"file":"meme-4154cb0e-d66b-410a-a78e-a64bad9238a7.webp","describe":"《JoJo的奇妙冒險》空條承太郎面露不悅，替身白金之星神情嚴肅","ocr":"我就知道你在打這個歪主意","keyword":"JOJO的奇妙冒險,空條承太郎,白金之星","blurLevel":2}
-{"file":"meme-44bbb889-03c1-43e6-8ae2-144586ea4997.webp","describe":"《JoJo的奇妙冒險：黃金之風》布魯諾·布加拉提，表情嚴肅似在警告","ocr":"你這些話心裡想想就好，絕不能說出來","keyword":"布加拉提,JoJo的奇妙冒險,黃金之風,警告","blurLevel":1}
+{"file":"meme-4154cb0e-d66b-410a-a78e-a64bad9238a7.webp","describe":"《JoJo的奇妙冒險》空條承太郎面露不悅，替身白金之星神情嚴肅","ocr":"我就知道你在打這個歪主意","keyword":"JOJO的奇妙冒險,空條承太郎,白金之星","blurLevel":2,"emotion":"生氣,嘲諷","reviewed":true}
+{"file":"meme-44bbb889-03c1-43e6-8ae2-144586ea4997.webp","describe":"《JoJo的奇妙冒險：黃金之風》布魯諾·布加拉提，表情嚴肅似在警告","ocr":"你這些話心裡想想就好，絕不能說出來","keyword":"布加拉提,JoJo的奇妙冒險,黃金之風,警告","blurLevel":1,"emotion":"無奈","reviewed":true}
 {"file":"meme-454732ca-72bd-4649-a4af-1b1ac1e0ff55.webp","describe":"西裝男子對著麥克風皺眉激動發言","ocr":"正事不幹 專搞這種鳥事","keyword":"正事不幹,專搞這種鳥事,質詢,議員,發言,麥克風,西裝,罵人,抱怨,不務正業,老天鵝娛樂","blurLevel":0,"emotion":"生氣","reviewed":true}
 {"file":"meme-45d08707-6419-4ea2-94c1-c027af18a497.webp","describe":"黑白線稿的蘑菇頭人物瞪大眼張嘴，雙手交握於胸前","ocr":"啊那不就好棒棒","keyword":"蘑菇頭,旺仔,表情包,好棒棒,啊那不就好棒棒,反諷,鼓掌,酸,敷衍,黑白線稿","blurLevel":2,"emotion":"嘲諷,敷衍","reviewed":true}
-{"file":"meme-4737ca64-1aff-402b-8da5-0088e5dd9c4f.webp","describe":"戴眼鏡長髮女子，表情痛苦或無奈","ocr":"兄弟能不能就消停一會","keyword":"無奈,消停","blurLevel":0}
+{"file":"meme-4737ca64-1aff-402b-8da5-0088e5dd9c4f.webp","describe":"戴眼鏡長髮女子，表情痛苦或無奈","ocr":"兄弟能不能就消停一會","keyword":"無奈,消停","blurLevel":0,"emotion":"無奈,疲憊","reviewed":true}
 {"file":"meme-486cf0f4-26a1-4142-935c-fdf8acd6ba55.webp","describe":"同一名男子三個視角捧碗大口吃麵，滿臉陶醉","ocr":"谢谢老师 真的很香 真的很好吃","keyword":"吃麵,吃播,谢谢老师,真的很香,真的很好吃,狼吞虎嚥,美食,好吃,滿足,捧碗,拼貼","blurLevel":2,"emotion":"開心,讚許","reviewed":true}
-{"file":"meme-46f0fc10-8e37-4ec8-87d3-4e88803dc805.webp","describe":"一隻手用擀麵棍在木砧板上擀壓蟹腳，將蟹肉擠出","ocr":"擀蟹","keyword":"擀蟹,蟹腳,諧音梗","blurLevel":1}
-{"file":"meme-48755f8a-d9ca-46c3-b10c-4246e4717f60.webp","describe":"紅洋蔥的左側被切成數學符號「π」的形狀","ocr":"I don't care about your opinion","keyword":"洋蔥,π","blurLevel":0}
+{"file":"meme-46f0fc10-8e37-4ec8-87d3-4e88803dc805.webp","describe":"一隻手用擀麵棍在木砧板上擀壓蟹腳，將蟹肉擠出","ocr":"擀蟹","keyword":"擀蟹,蟹腳,諧音梗","blurLevel":1,"reviewed":true}
+{"file":"meme-48755f8a-d9ca-46c3-b10c-4246e4717f60.webp","describe":"紅洋蔥的左側被切成數學符號「π」的形狀","ocr":"I don't care about your opinion","keyword":"洋蔥,π","blurLevel":0,"emotion":"拒絕,嘲諷","reviewed":true}
 {"file":"meme-4908fd5f-21bc-4555-a6fc-6532ff75e8d3.webp","describe":"虎斑貓張大嘴，前爪握著筷子","ocr":"您好 我吃一大口 Hi, I'm taking a big mouthful. 안녕, 조금만 먹는다 いただきます、大きくひと口！","keyword":"虎斑貓,貓咪梗圖,筷子,張大嘴,我吃一大口,大口吃,開動,吃飯,搶食,分食,多語言","blurLevel":1,"emotion":"可愛","reviewed":true}
 {"file":"meme-4930820b-1d45-4bfb-8757-9cb6b64f957f.webp","describe":"幾顆柳橙與一塊生薑擺在一起，其中一顆柳橙切成兩半","ocr":"陷入薑橘","keyword":"陷入薑橘,陷入僵局,諧音,薑,柳橙,卡住,僵持,談不攏,進度卡住","blurLevel":0,"emotion":"無奈,尷尬","reviewed":true}
 {"file":"meme-4b989e5d-4b3b-478a-be37-5df024e7dd81.webp","describe":"《名偵探柯南》柯南眼鏡反光、嘴角上揚，臉頰滲出汗滴","ocr":"你很嗆嘛 看來有必要去你家拍一集了","keyword":"柯南,名偵探柯南,江戶川柯南,死神小學生,你很嗆嘛,嗆,拍一集,兇案現場,威脅,反嗆,眼鏡反光","blurLevel":0,"emotion":"嘲諷,得意","reviewed":true}
-{"file":"meme-4d3d5063-d5ef-4c7a-8287-a39a143659fa.webp","describe":"貓咪頭戴古式官帽，手持筷子","ocr":"卿安 朕欲用膳","keyword":"貓,官帽,筷子,古風","blurLevel":1}
+{"file":"meme-4d3d5063-d5ef-4c7a-8287-a39a143659fa.webp","describe":"貓咪頭戴皇冠，手持筷子","ocr":"卿安 朕欲用膳","keyword":"貓,皇冠,筷子,古風","blurLevel":1,"emotion":"得意","reviewed":true}
 {"file":"meme-4c913ff4-7ce1-407e-95c5-cedf80b91b81.webp","describe":"黑白線稿的蘑菇頭人物瞇眼奸笑，雙手往兩側攤開","ocr":"看在你丑的份上 就当你是对的吧","keyword":"蘑菇頭,金館長,表情包,看在你丑的份上,就当你是对的吧,奸笑,讓步,吵架,認輸,酸,敷衍","blurLevel":2,"emotion":"嘲諷,敷衍","reviewed":true}
 {"file":"meme-4cf10c42-ee81-4520-983f-9de7d88e5610.webp","describe":"戴眼鏡的中年男子面向短髮男學生，神情嚴肅說話","ocr":"明天可不可以請你爸媽 把你轉到特教班","keyword":"老師,學生,說教,特教班,轉班,請家長,教訓,嚴肅,台灣電視劇,麻辣鮮師,罵人","blurLevel":0,"emotion":"嘲諷","reviewed":true}
 {"file":"meme-4fd29c7e-211c-458d-88c1-e051ff87dbf4.webp","describe":"《獵人》蟻王梅魯艾姆綠皮綠盔，表情輕蔑自大","ocr":"這些人果然都是白痴呢","keyword":"梅魯艾姆,獵人,蟻王,輕蔑","blurLevel":2,"emotion":"嘲諷,得意","reviewed":true}
