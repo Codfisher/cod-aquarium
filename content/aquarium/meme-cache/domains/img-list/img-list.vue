@@ -84,14 +84,16 @@
       </div>
     </div>
 
-    <!-- 廣告不進虛擬清單，捲出視野也不會被回收重掛，同一版位才不會重複請求 -->
+    <!-- 廣告不進虛擬清單，捲出視野也不會被回收重掛，同一版位才不會重複請求。
+         只渲染已掛載的，否則遠處的空佔位會把捲動範圍撐到內容之外，
+         留下一段填不滿的空白 -->
     <div
-      v-for="ad in adPositionList"
+      v-for="ad in mountedAdPositionList"
       :key="ad.adIndex"
       class="absolute left-0 w-full px-4 pb-4"
       :style="{ top: `${ad.top}px`, height: `${ad.height}px` }"
     >
-      <feed-ad v-if="mountedAdIndexSet.has(ad.adIndex)" />
+      <feed-ad />
     </div>
   </div>
 </template>
@@ -273,6 +275,10 @@ watch(virtualList, (renderedList) => {
     mountedAdIndexSet.value = nextSet
   }
 }, { immediate: true })
+
+const mountedAdPositionList = computed(
+  () => adPositionList.value.filter((ad) => mountedAdIndexSet.value.has(ad.adIndex)),
+)
 
 defineExpose({ scrollTo })
 

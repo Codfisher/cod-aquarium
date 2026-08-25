@@ -472,7 +472,16 @@ onMounted(async () => {
   inputRef.value?.inputRef?.focus()
 })
 
-function handleClick() {
+/**
+ * 點空白處即可開始打字，省去先瞄準搜尋框的動作。
+ *
+ * 但工具列是操作區，點情緒標籤、模式或選單都不該把鍵盤叫出來 ——
+ * 手機上鍵盤一彈，才剛按下的篩選結果就被蓋掉一半
+ */
+function handleClick(event: MouseEvent) {
+  if (toolbarRef.value?.contains(event.target as Node))
+    return
+
   if (keyword.value === '') {
     inputRef.value?.inputRef?.focus()
   }

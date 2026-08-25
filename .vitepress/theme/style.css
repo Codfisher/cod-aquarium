@@ -211,7 +211,9 @@ body {
   paint-order: stroke fill;
 }
 
-img {
+/* 快取梗圖的廣告列夾在縮圖之間，共用同一條邊框才不會看起來像外來物 */
+img,
+.feed-ad {
   border-radius: 1rem;
   border: solid 1px light-dark(
     color-mix(in oklch, var(--vp-c-brand-1) 8%, #e8e8e8),
