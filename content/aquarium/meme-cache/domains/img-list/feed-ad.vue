@@ -13,7 +13,6 @@
       ad-client="ca-pub-6608581811170481"
       ad-slot="4578857452"
       :height="AD_ROW_HEIGHT"
-      class="max-w-2xl"
       @status-change="adStatus = $event"
     />
   </div>
