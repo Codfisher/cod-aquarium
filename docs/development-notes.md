@@ -28,7 +28,118 @@
 
 ```bash
 curl "http://localhost:3030/aquarium/meme-cache/index.md?import"
-curl -o /dev/null -w "%{http_code}\n" "http://localhost:3030/aquarium/meme-cache/ad-banner.vue?import"
+curl -o /dev/null -w "%{http_code}\n" "http://localhost:3030/aquarium/meme-cache/domains/img-list/feed-ad.vue?import"
 ```
 
 `?import` 會強制走 Vite 的 transform，回傳編譯後的 JS。HTTP 200 代表編譯成功，內容則可用來檢查元件解析、whyframe 抽取等結果。
+
+## VitePress 樣式隔離：vp-raw 與 cascade layer
+
+**現象**
+
+app 若不包在 whyframe 的 iframe 內，Nuxt UI 的按鈕與輸入框會被打回裸元素 —— 沒有內距、沒有背景、行高錯亂；但 `<div>`（toast、圖片）完全正常。
+
+**成因**
+
+1. [postcss.config.mjs](../postcss.config.mjs) 使用 VitePress 的 `postcssIsolateStyles()`
+2. 它把 `base.css` 的選擇器改寫成 `button:not(:where(.vp-raw, .vp-raw *))` 這種形式
+3. 那些規則**沒有 cascade layer**
+4. Tailwind v4 建在原生 layers 上，工具類全在 `@layer utilities`
+5. 無層級 CSS 的優先權高於任何層級，**與具體性無關**
+
+於是 `button { padding: 0; line-height: inherit; color: inherit; border: 0 }` 直接輾過 `py-1`、`text-xs`。`<div>` 不在該重設的選擇器裡，所以看起來正常。
+
+**解法**
+
+```ts
+onMounted(() => document.documentElement.classList.add('vp-raw'))
+onUnmounted(() => document.documentElement.classList.remove('vp-raw'))
+```
+
+兩個要點：
+
+- 掛在 `documentElement` 而非包裝元素。Nuxt UI 的 toast 與 modal 會 teleport 到 `body`，包裝元素罩不到。
+- 不會 FOUC。app 根節點是 `client-only`，內容等掛載後才畫，`vp-raw` 早就到位（逐幀量測為 0 個裸樣式幀）。
+
+**保護範圍的邊界**
+
+`postcssIsolateStyles` 的 `includeFiles` 預設只有 `/base\.css/`。專案 `.vitepress/theme/style.css` 裡那 141 行 `.vp-doc` 巢狀規則**不在保護範圍**。因此：
+
+| 情境 | 能否不用 iframe |
+| --- | --- |
+| `layout: false` 專屬頁（快取梗圖等） | 可以，掛 `vp-raw` 即可 |
+| 文章內嵌（如 HexaZen EP01） | 不行，`.vp-doc` 會直接輾過去 |
+
+**陷阱**
+
+不要為了擴大保護範圍把 `style.css` 加進 `includeFiles`。那會連 `:root` 一起改寫成 `:root:not(:where(.vp-raw, .vp-raw *))`，掛了 `vp-raw` 的頁面整組主題變數會失效。
+
+**附帶：whyframe 的 app 不跑 enhanceApp**
+
+`content/_frame.md` 呼叫 `createApp(el)` 時沒帶 `opts`，所以 VitePress 的 `client-only` 沒註冊（主控台會有解析警告）、vue-i18n 也用不了 —— hexazen、minespace 的 `use-simple-i18n` 就是為此而生。脫離 iframe 反而一併解掉。
+
+## 追查某條樣式為何沒生效
+
+`getComputedStyle` 只給結果，不給勝出的規則，遇到 cascade layer 問題時幫助有限。這段貼進主控台即可列出所有命中該元素的規則與其所在 layer：
+
+```js
+function traceRules(selector, watchedList = ['padding-top', 'line-height', 'color', 'background-color']) {
+  const element = document.querySelector(selector)
+  if (!element)
+    return '找不到元素'
+
+  const hitList = []
+
+  function walk(ruleList, layerPath) {
+    for (const rule of ruleList) {
+      const type = rule.constructor.name
+
+      if (type === 'CSSLayerBlockRule') {
+        walk(rule.cssRules, [...layerPath, rule.name || '(匿名)'])
+        continue
+      }
+      if (rule.cssRules && type !== 'CSSStyleRule') {
+        walk(rule.cssRules, layerPath)
+        continue
+      }
+      if (type !== 'CSSStyleRule' || !rule.selectorText)
+        continue
+
+      let matched = false
+      try {
+        matched = element.matches(rule.selectorText)
+      }
+      catch {
+        continue
+      }
+      if (!matched)
+        continue
+
+      const setList = watchedList.filter((prop) => rule.style.getPropertyValue(prop))
+      if (!setList.length)
+        continue
+
+      hitList.push({
+        layer: layerPath.length ? layerPath.join('>') : '(無層級)',
+        selector: rule.selectorText.slice(0, 70),
+        props: Object.fromEntries(setList.map((prop) => [prop, rule.style.getPropertyValue(prop)])),
+      })
+    }
+  }
+
+  for (const sheet of document.styleSheets) {
+    try {
+      walk(sheet.cssRules, [])
+    }
+    catch {
+      // 跨域 sheet 讀不到 cssRules，跳過
+    }
+  }
+
+  return hitList
+}
+
+console.table(traceRules('.meme-cache .emotion-list button'))
+```
+
+標為 `(無層級)` 的規則會勝過任何 `@layer` 內的規則，先看那幾條。
