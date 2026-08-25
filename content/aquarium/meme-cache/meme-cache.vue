@@ -27,6 +27,7 @@
           :detail-visible="settings.detailVisible"
           :favorite-file-set="favoriteFileSet"
           :animated-badge-visible="!filterOptions.animatedOnly"
+          ad-visible
           :style="{ height: listHeight }"
           class="overflow-auto"
           @select="handleSelect"
