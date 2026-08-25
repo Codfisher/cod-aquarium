@@ -16,7 +16,7 @@
           <div
             ref="tipRef"
             :key="tipText"
-            class=" whitespace-pre  text-center py-6 opacity-80 "
+            class=" whitespace-pre text-sm text-center py-6 opacity-80 "
             v-html="tipText"
           />
         </transition>
