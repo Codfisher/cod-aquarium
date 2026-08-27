@@ -141,6 +141,7 @@ import type { DropdownMenuItem } from '@nuxt/ui'
 import type { MemeData } from '../meme/type'
 import UButton from '@nuxt/ui/components/Button.vue'
 import UModal from '@nuxt/ui/components/Modal.vue'
+import { promiseTimeout } from '@vueuse/core'
 import { snapdom } from '@zumer/snapdom'
 import { computed, h, nextTick, onBeforeUnmount, ref, useTemplateRef, watch } from 'vue'
 import { nextFrame } from '../../../../../web/common/utils'
@@ -370,6 +371,39 @@ const animatedOutputAvailable = computed(
   () => Boolean(props.data?.animated && props.data.frameDelayList?.length),
 )
 
+/** 一般圖片直接吃 img 標籤，開編輯器就馬上分享/複製時圖片可能還沒載完，等它就緒再截圖 */
+async function waitForBaseImage() {
+  const img = editorRef.value?.imgRef
+  if (!(img instanceof HTMLImageElement))
+    return
+
+  try {
+    await img.decode()
+  }
+  catch (error) {
+    console.warn('[meme-cache] 底圖尚未載入完成', error)
+  }
+}
+
+const IMG_BLOB_RETRY_COUNT = 2
+const IMG_BLOB_RETRY_DELAY = 300
+
+/** 截圖偶爾會因瀏覽器渲染時機失敗，重試幾次再放棄 */
+async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await fn()
+    }
+    catch (error) {
+      if (attempt >= IMG_BLOB_RETRY_COUNT)
+        throw error
+
+      console.warn(`[meme-cache] 產生圖片失敗，重試 ${attempt + 1}/${IMG_BLOB_RETRY_COUNT}`, error)
+      await promiseTimeout(IMG_BLOB_RETRY_DELAY)
+    }
+  }
+}
+
 async function getStaticImgBlob(board: HTMLElement) {
   const blob = await snapdom.toBlob(board, {
     quality: 0.8,
@@ -507,12 +541,13 @@ async function getImgBlob(format?: 'gif' | 'mp4') {
   try {
     // 自選字型是延遲載入的，沒等它備妥就截圖會拍到 fallback 字型
     await document.fonts.ready
+    await waitForBaseImage()
 
     if (!animatedOutputAvailable.value)
-      return await getStaticImgBlob(board)
+      return await withRetry(() => getStaticImgBlob(board))
 
     try {
-      return await getAnimatedImgBlob(board, format)
+      return await withRetry(() => getAnimatedImgBlob(board, format))
     }
     catch (error) {
       console.warn('[meme-cache] 動圖輸出失敗，改輸出靜態圖', error)
@@ -521,8 +556,13 @@ async function getImgBlob(format?: 'gif' | 'mp4') {
         description: '已改成輸出靜態圖 ( ˘･з･)',
         color: 'warning',
       })
-      return await getStaticImgBlob(board)
+      return await withRetry(() => getStaticImgBlob(board))
     }
+  }
+  catch (error) {
+    // 重試用盡仍失敗，交給呼叫端統一顯示「產生圖片失敗」
+    console.warn('[meme-cache] 產生圖片失敗', error)
+    return undefined
   }
   finally {
     toast.remove(loadingToast.id)
@@ -556,6 +596,30 @@ function isAbortError(error: unknown) {
   return error instanceof Error && error.name === 'AbortError'
 }
 
+/** 桌機的原生分享面板不穩定又常誤判成功，直接讓觸控裝置以外的環境走剪貼簿 */
+function isTouchDevice() {
+  return window.matchMedia?.('(pointer: coarse)').matches ?? false
+}
+
+/** Windows 的原生分享面板偶爾冷啟動失敗，畫面不會跳出來，promise 也卡著不 resolve 也不 reject，逾時就當失敗處理 */
+const SHARE_TIMEOUT_MS = 3000
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('分享逾時')), ms)
+    promise.then(
+      (value) => {
+        clearTimeout(timer)
+        resolve(value)
+      },
+      (error) => {
+        clearTimeout(timer)
+        reject(error)
+      },
+    )
+  })
+}
+
 /**
  * 呼叫系統分享面板。
  *
@@ -569,7 +633,7 @@ async function shareImgFile(blob: Blob): Promise<boolean> {
     return false
 
   try {
-    await navigator.share({ files: [file] })
+    await withTimeout(navigator.share({ files: [file] }), SHARE_TIMEOUT_MS)
     return true
   }
   catch (error) {
@@ -665,8 +729,8 @@ async function shareImg(format?: 'gif' | 'mp4') {
     return
   }
 
-  // 手機有系統分享面板，可直接送進 LINE 等 app，優先走這條
-  if (await shareImgFile(blob))
+  // 手機有系統分享面板，可直接送進 LINE 等 app，優先走這條；桌機的分享面板不可靠，直接跳過走剪貼簿
+  if (isTouchDevice() && await shareImgFile(blob))
     return
 
   if (await writeImgToClipboard(blob)) {
