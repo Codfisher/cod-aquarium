@@ -19,13 +19,44 @@
     <template #footer="{ close }">
       <div class=" flex w-full gap-1">
         <UButton
+          v-if="!animatedOutputAvailable"
           label="分享/複製"
           icon="i-material-symbols:file-copy-rounded"
           variant="ghost"
           color="neutral"
           size="sm"
-          @click="shareImg"
+          @click="shareImg()"
         />
+
+        <UFieldGroup
+          v-else
+          size="sm"
+        >
+          <UButton
+            label="分享/複製"
+            icon="i-material-symbols:file-copy-rounded"
+            variant="subtle"
+            color="neutral"
+            size="sm"
+            @click="shareImg()"
+          />
+
+          <UDropdownMenu
+            :items="shareFormatItems"
+            :ui="{
+              content: 'z-70',
+              item: 'p-2',
+            }"
+          >
+            <UButton
+              aria-label="選擇分享格式"
+              icon="i-lucide-chevron-up"
+              variant="outline"
+              color="neutral"
+              size="sm"
+            />
+          </UDropdownMenu>
+        </UFieldGroup>
 
         <UDropdownMenu
           :items="insertItems"
@@ -357,7 +388,7 @@ async function getStaticImgBlob(board: HTMLElement) {
  * 截圖一次只拍得到動圖當下的那一格，逐格截圖又太慢，
  * 故先把底圖藏起來單獨拍上層內容，再用影格長圖逐格墊回底下，全程只截一次圖
  */
-async function getAnimatedImgBlob(board: HTMLElement): Promise<Blob> {
+async function getAnimatedImgBlob(board: HTMLElement, format: 'gif' | 'mp4' = animatedFormatValue.value): Promise<Blob> {
   const editor = editorRef.value
   const baseImg = editor?.imgRef
   const sprite = editor?.frameSprite
@@ -424,7 +455,7 @@ async function getAnimatedImgBlob(board: HTMLElement): Promise<Blob> {
     )
 
     // 只有動圖需要選格式，GIF 到處都動得了，mp4 則是平台上傳的最大公約數
-    const encode = animatedFormatValue.value === 'mp4' && isMp4Supported()
+    const encode = format === 'mp4' && isMp4Supported()
       ? encodeMp4
       : encodeGif
 
@@ -455,7 +486,7 @@ async function getAnimatedImgBlob(board: HTMLElement): Promise<Blob> {
   }
 }
 
-async function getImgBlob() {
+async function getImgBlob(format?: 'gif' | 'mp4') {
   const board = editorRef.value?.boardRef
   if (!board)
     return
@@ -481,7 +512,7 @@ async function getImgBlob() {
       return await getStaticImgBlob(board)
 
     try {
-      return await getAnimatedImgBlob(board)
+      return await getAnimatedImgBlob(board, format)
     }
     catch (error) {
       console.warn('[meme-cache] 動圖輸出失敗，改輸出靜態圖', error)
@@ -623,8 +654,8 @@ function openManualShareModal(blob: Blob) {
   imgModal.open()
 }
 
-async function shareImg() {
-  const blob = await getImgBlob()
+async function shareImg(format?: 'gif' | 'mp4') {
+  const blob = await getImgBlob(format)
   if (!blob) {
     toast.add({
       title: '產生圖片失敗',
@@ -648,6 +679,22 @@ async function shareImg() {
 
   openManualShareModal(blob)
 }
+
+const shareFormatItems = computed<DropdownMenuItem[][]>(() => [[
+  {
+    icon: 'i-material-symbols:gif-box-outline-rounded',
+    label: '複製/分享 GIF',
+    onSelect: () => shareImg('gif'),
+  },
+  // Safari 不支援 mp4 編碼，沒得選就不要占版面
+  ...(isMp4Supported()
+    ? [{
+        icon: 'i-material-symbols:video-file-outline-rounded',
+        label: '複製/分享 MP4',
+        onSelect: () => shareImg('mp4'),
+      }]
+    : []),
+]])
 
 const moreFcnItems = computed<DropdownMenuItem[][]>(() => [
   [
