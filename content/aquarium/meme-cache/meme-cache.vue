@@ -261,6 +261,7 @@ function toggleEmotion(emotion: Emotion) {
   selectedEmotionList.value = selectedEmotionSet.value.has(emotion)
     ? selectedEmotionList.value.filter((item) => item !== emotion)
     : [...selectedEmotionList.value, emotion]
+  scrollListToTop()
 }
 
 const searchedList = shallowRef<MemeData[]>([])
@@ -285,6 +286,7 @@ const mainMenuItems = pipe(
         label: '洗牌',
         onSelect() {
           searchedList.value = shuffle(searchedList.value)
+          scrollListToTop()
         },
       },
       {
@@ -391,12 +393,17 @@ useMissingKeywordReport({
 })
 
 const imgListRef = useTemplateRef('imgListRef')
-watch(keyword, async () => {
+
+/** 篩選結果變動時捲到頂部，避免使用者停在原本捲動位置看到不相關的內容 */
+async function scrollListToTop() {
   await nextFrame()
   await promiseTimeout(200)
   imgListRef.value?.scrollTo(0)
   window.scrollTo({ top: 0 })
-})
+}
+
+watch(keyword, scrollListToTop)
+watch(() => filterOptions.value.animatedOnly, scrollListToTop)
 
 const toolbarRef = useTemplateRef('toolbarRef')
 const toolbarSize = reactive(useElementSize(toolbarRef, undefined, {
