@@ -151,7 +151,8 @@ import {
   getOutputRatioOption,
   OUTPUT_RATIO_LIST,
 } from '../../utils/fit-image-to-ratio'
-import { encodeGif, encodeMp4, GIF_MAX_SIZE, GIF_MIN_SIZE, isMp4Supported } from './animated-output'
+import { GIF_MAX_SIZE, isMp4Supported, MIN_TEXT_OUTPUT_SIZE } from './animated-output'
+import { encodeAnimatedOutput } from './animated-output-client'
 import ImgEditor from './img-editor.vue'
 import MemePickerModal from './meme-picker-modal.vue'
 
@@ -422,7 +423,11 @@ async function getStaticImgBlob(board: HTMLElement) {
  * 截圖一次只拍得到動圖當下的那一格，逐格截圖又太慢，
  * 故先把底圖藏起來單獨拍上層內容，再用影格長圖逐格墊回底下，全程只截一次圖
  */
-async function getAnimatedImgBlob(board: HTMLElement, format: 'gif' | 'mp4' = animatedFormatValue.value): Promise<Blob> {
+async function getAnimatedImgBlob(
+  board: HTMLElement,
+  format: 'gif' | 'mp4' = animatedFormatValue.value,
+  onProgress?: (ratio: number) => void,
+): Promise<Blob> {
   const editor = editorRef.value
   const baseImg = editor?.imgRef
   const sprite = editor?.frameSprite
@@ -477,25 +482,30 @@ async function getAnimatedImgBlob(board: HTMLElement, format: 'gif' | 'mp4' = an
     const paddingTop = (paddedHeight - overlay.height) / 2
 
     /*
-     * 底圖放大只會存到放大出來的假細節，故以影格長圖的原生解析度為準；
-     * 但文字是即時算繪的，跟著縮下去會糊到看不清楚，所以再給一個長邊下限
+     * 底圖放大只會存到放大出來的假細節，故以影格長圖的原生解析度為準。
+     *
+     * 但文字是即時算繪的，跟著縮下去會糊到看不清楚，所以再給一個下限。
+     * 這個下限由最小的那段文字決定，而非規定輸出長邊 ——
+     * 後者會讓幾乎每張迷因都被放大，見 MIN_TEXT_OUTPUT_SIZE
      */
     const nativeScale = sprite.frameWidth / (imgRect.width * captureScale)
-    const legibleScale = GIF_MIN_SIZE / Math.max(overlay.width, overlay.height)
+    const minTextFontSize = editor.minTextFontSize
+    const legibleScale = minTextFontSize
+      ? MIN_TEXT_OUTPUT_SIZE / (minTextFontSize * captureScale)
+      : 0
+
     const outputScale = Math.min(
       1,
       GIF_MAX_SIZE / Math.max(paddedWidth, paddedHeight),
       Math.max(nativeScale, legibleScale),
     )
 
-    // 只有動圖需要選格式，GIF 到處都動得了，mp4 則是平台上傳的最大公約數
-    const encode = format === 'mp4' && isMp4Supported()
-      ? encodeMp4
-      : encodeGif
-
-    return await encode({
+    return await encodeAnimatedOutput({
+      // 只有動圖需要選格式，GIF 到處都動得了，mp4 則是平台上傳的最大公約數
+      format: format === 'mp4' && isMp4Supported() ? 'mp4' : 'gif',
       sprite,
       overlayList,
+      onProgress,
       outputWidth: Math.round(paddedWidth * outputScale),
       outputHeight: Math.round(paddedHeight * outputScale),
       baseRect: {
@@ -536,6 +546,17 @@ async function getImgBlob(format?: 'gif' | 'mp4') {
     close: false,
   })
 
+  /*
+   * 動圖編碼在 worker 裡跑，長一點的要好幾秒。
+   * 沒有進度使用者會以為當掉，這也是搬進 worker 才做得到的事 ——
+   * 原本主執行緒被佔滿，畫面根本沒機會更新
+   */
+  function updateProgress(ratio: number) {
+    toast.update(loadingToast.id, {
+      description: `正在逐格合成動圖... ${Math.round(ratio * 100)}%  ◝( •ω• )◟`,
+    })
+  }
+
   await editorRef.value?.blur()
 
   try {
@@ -547,7 +568,7 @@ async function getImgBlob(format?: 'gif' | 'mp4') {
       return await withRetry(() => getStaticImgBlob(board))
 
     try {
-      return await withRetry(() => getAnimatedImgBlob(board, format))
+      return await withRetry(() => getAnimatedImgBlob(board, format, updateProgress))
     }
     catch (error) {
       console.warn('[meme-cache] 動圖輸出失敗，改輸出靜態圖', error)

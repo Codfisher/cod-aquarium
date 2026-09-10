@@ -785,6 +785,20 @@ const textItemList = computed(() => [...textMap.value.values()].map((item) => ({
   visible: !frameSprite.value || isFrameInRange(item.data?.frameRange, framePlayer.frameIndex.value),
 })))
 
+/**
+ * 最小的文字字級，單位為 CSS px。沒有文字時為 undefined。
+ *
+ * 輸出動圖時要靠它推算縮放比的下限：底圖與文字共用同一張畫布，
+ * 只有文字怕縮，故下限該由最小的那段文字決定，而非規定輸出長邊
+ */
+const minTextFontSize = computed(() => {
+  const fontSizeList = [...textMap.value.values()]
+    .map((item) => item.data?.fontSize)
+    .filter((fontSize): fontSize is number => Boolean(fontSize))
+
+  return fontSizeList.length > 0 ? Math.min(...fontSizeList) : undefined
+})
+
 const imageItemList = computed(() => [...imageMap.value.values()].map((item) => ({
   ...item,
   isEditing: targetKey.value === item.key,
@@ -997,6 +1011,7 @@ defineExpose({
   baseImgVisible,
   frameSprite,
   overlayFrameIndexList,
+  minTextFontSize,
   seekFrame: framePlayer.seek,
   playFrame: framePlayer.play,
   addImage,
