@@ -2,6 +2,7 @@ import type { FrameSprite } from './animated-output'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { getSpriteColumnCount } from '../../../../../.vitepress/utils/meme-sprite-layout'
 import { encodeGif, encodeMp4 } from './animated-output'
+import { encodeAnimatedOutput } from './animated-output-client'
 
 const FRAME_SIZE = 40
 const FRAME_COLOR_LIST = ['#ff0000', '#00ff00', '#0000ff']
@@ -34,11 +35,95 @@ async function createSprite(): Promise<FrameSprite> {
 
   return {
     image,
+    file: 'test-sprite.webp',
     frameCount,
     columnCount,
     frameWidth: FRAME_SIZE,
     frameHeight: FRAME_SIZE,
     delayList: [100, 120, 140],
+  }
+}
+
+/**
+ * 造一張影格數多、且每格都是雜訊的長圖。
+ *
+ * 舊版依檔案大小把影格抽到只剩 14 格，門檻是 400KB。
+ * 平面色塊壓完只有幾 KB，根本推不到門檻，故這裡用壓不動的雜訊，
+ * 才照得到「大檔案」這條路徑
+ */
+async function createNoiseSprite(frameCount: number, frameSize: number): Promise<FrameSprite> {
+  const columnCount = getSpriteColumnCount(frameCount)
+  const rowCount = Math.ceil(frameCount / columnCount)
+
+  const canvas = document.createElement('canvas')
+  canvas.width = frameSize * columnCount
+  canvas.height = frameSize * rowCount
+
+  const context = canvas.getContext('2d')!
+  const cell = context.createImageData(frameSize, frameSize)
+  for (let index = 0; index < frameCount; index++) {
+    for (let offset = 0; offset < cell.data.length; offset += 4) {
+      cell.data[offset] = Math.random() * 256
+      cell.data[offset + 1] = Math.random() * 256
+      cell.data[offset + 2] = Math.random() * 256
+      cell.data[offset + 3] = 255
+    }
+
+    context.putImageData(
+      cell,
+      (index % columnCount) * frameSize,
+      Math.floor(index / columnCount) * frameSize,
+    )
+  }
+
+  const image = new Image()
+  image.src = canvas.toDataURL('image/png')
+  await image.decode()
+
+  return {
+    image,
+    file: 'test-sprite.webp',
+    frameCount,
+    columnCount,
+    frameWidth: frameSize,
+    frameHeight: frameSize,
+    delayList: Array.from({ length: frameCount }, () => 40),
+  }
+}
+
+/** 造一張影格數較多、每格底色不同的長圖，用來驗證跨影格差分後的算繪結果 */
+async function createLongSprite(frameCount: number): Promise<FrameSprite> {
+  const columnCount = getSpriteColumnCount(frameCount)
+  const rowCount = Math.ceil(frameCount / columnCount)
+
+  const canvas = document.createElement('canvas')
+  canvas.width = FRAME_SIZE * columnCount
+  canvas.height = FRAME_SIZE * rowCount
+
+  const context = canvas.getContext('2d')!
+  for (let index = 0; index < frameCount; index++) {
+    // 用黃金角跳色，相鄰影格的色差才拉得開，不會被跨影格差分判定成沒變
+    context.fillStyle = `hsl(${(index * 137.5) % 360} 90% 50%)`
+    context.fillRect(
+      (index % columnCount) * FRAME_SIZE,
+      Math.floor(index / columnCount) * FRAME_SIZE,
+      FRAME_SIZE,
+      FRAME_SIZE,
+    )
+  }
+
+  const image = new Image()
+  image.src = canvas.toDataURL('image/png')
+  await image.decode()
+
+  return {
+    image,
+    file: 'test-sprite.webp',
+    frameCount,
+    columnCount,
+    frameWidth: FRAME_SIZE,
+    frameHeight: FRAME_SIZE,
+    delayList: Array.from({ length: frameCount }, () => 40),
   }
 }
 
@@ -228,6 +313,100 @@ describe('文字顯示區間', () => {
     // 第三格底圖為藍色，左上角要有黃色方塊
     expect(await readPixelAtFrame(blob, 2, 20, 20)).toMatchObject({ r: 0, g: 0, b: 255 })
     expect(await readPixelAtFrame(blob, 2, 5, 5)).toMatchObject({ r: 255, g: 255, b: 0 })
+  })
+})
+
+/*
+ * 影格數壓在剛好夠用的程度：encodeGif 每四格讓出一次主執行緒等 rAF，
+ * 整套測試並行時瀏覽器分頁會被背景節流，單次 rAF 可以拖到數百毫秒，
+ * 影格一多這裡就會拖垮同批的其他瀏覽器測試
+ */
+describe('長動圖', () => {
+  /** 要能證明沒被抽格，得明顯高於舊版階梯的 18 與 14 格 */
+  const LONG_FRAME_COUNT = 24
+
+  /*
+   * 這兩條要實際跑完整段編碼，單獨跑各約 4 秒與 1 秒。
+   * 但整套測試並行時 unit 專案會把 CPU 吃滿，瀏覽器分頁被節流後實測會拉長到七倍，
+   * 30 秒剛好卡在邊緣、時過時不過，故給到 60 秒。
+   * 這不是在遮掩慢測試，是在容忍一個已知會競爭資源的執行環境
+   */
+  it('影格再多、檔案再大也全數保留，不抽格', { timeout: 60_000 }, async () => {
+    const noiseFrameCount = 30
+    /*
+     * 雜訊壓不動，約 7 bits/px，30 x 140 x 140 壓完約 510KB，穩定過 400KB 門檻。
+     * 再往上加只是白白多佔瀏覽器分頁的 CPU，把同批的其他測試一起拖慢
+     */
+    const noiseSize = 140
+    const sprite = await createNoiseSprite(noiseFrameCount, noiseSize)
+    const overlay = await createOverlay()
+
+    const blob = await encodeGif({
+      sprite,
+      overlayList: Array.from({ length: noiseFrameCount }, () => overlay),
+      outputWidth: noiseSize,
+      outputHeight: noiseSize,
+      baseRect: { x: 0, y: 0, width: noiseSize, height: noiseSize },
+      overlayRect: { x: 0, y: 0, width: noiseSize, height: noiseSize },
+      backgroundColor: '#FFF',
+    })
+
+    // 先確認測資真的推過了舊版的 400KB 門檻，否則這條測試等於沒測到
+    expect(blob.size).toBeGreaterThan(400 * 1024)
+
+    const bytes = new Uint8Array(await blob.arrayBuffer())
+    expect(countGifFrame(bytes)).toBe(noiseFrameCount)
+  })
+
+  it('靜止區域被差分成透明後，後續影格仍算繪得出原樣', { timeout: 60_000 }, async () => {
+    const sprite = await createLongSprite(LONG_FRAME_COUNT)
+    // 每格共用同一張，這塊區域全程不動，會從第二格起被標成透明
+    const overlay = await createOverlay()
+
+    const blob = await encodeGif({
+      sprite,
+      overlayList: Array.from({ length: LONG_FRAME_COUNT }, () => overlay),
+      outputWidth: FRAME_SIZE,
+      outputHeight: FRAME_SIZE,
+      baseRect: { x: 0, y: 0, width: FRAME_SIZE, height: FRAME_SIZE },
+      overlayRect: { x: 0, y: 0, width: FRAME_SIZE, height: FRAME_SIZE },
+      backgroundColor: '#FFF',
+    })
+
+    // 最後一格的左上角仍該是首格畫上去的黃色方塊
+    expect(await readPixelAtFrame(blob, LONG_FRAME_COUNT - 1, 5, 5))
+      .toMatchObject({ r: 255, g: 255, b: 0 })
+  })
+})
+
+/*
+ * worker 會自己去 fetch 影格長圖，測試環境沒有這個路徑，必定 404。
+ * 正好用來驗證失敗時退得回主執行緒 —— 這條路徑平常很難踩到，
+ * 但 Safari 16.4 以前沒有 OffscreenCanvas，走的就是它
+ */
+describe('encodeAnimatedOutput', () => {
+  it('worker 取不到影格長圖時，退回主執行緒仍輸出得了 GIF', async () => {
+    const ratioList: number[] = []
+
+    const blob = await encodeAnimatedOutput({
+      format: 'gif',
+      sprite: await createSprite(),
+      overlayList: await createOverlayList(),
+      outputWidth: FRAME_SIZE,
+      outputHeight: FRAME_SIZE,
+      baseRect: { x: 0, y: 0, width: FRAME_SIZE, height: FRAME_SIZE },
+      overlayRect: { x: 0, y: 0, width: FRAME_SIZE, height: FRAME_SIZE },
+      backgroundColor: '#FFF',
+      onProgress: (ratio) => ratioList.push(ratio),
+    })
+
+    expect(blob.type).toBe('image/gif')
+
+    const bytes = new Uint8Array(await blob.arrayBuffer())
+    expect(countGifFrame(bytes)).toBe(FRAME_COLOR_LIST.length)
+
+    // 退回主執行緒後進度回報仍要通到底，否則載入提示會停在半路
+    expect(ratioList.at(-1)).toBe(1)
   })
 })
 

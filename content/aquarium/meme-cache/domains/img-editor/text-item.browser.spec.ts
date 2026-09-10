@@ -86,10 +86,17 @@ describe('focusText', () => {
       },
     }), { global: globalConfig })
 
+    /*
+     * 聚焦與全選都要用 poll 等。
+     * 預設的 1 秒在整套測試並行、瀏覽器分頁被節流時不夠用，
+     * 全選又發生在聚焦之後，直接斷言會搶在它前面
+     */
     await expect
-      .poll(() => document.activeElement?.classList.contains('text'))
+      .poll(() => document.activeElement?.classList.contains('text'), { timeout: 5000 })
       .toBe(true)
 
-    expect(window.getSelection()?.toString()).toBe('要被全選的字')
+    await expect
+      .poll(() => window.getSelection()?.toString(), { timeout: 5000 })
+      .toBe('要被全選的字')
   })
 })
