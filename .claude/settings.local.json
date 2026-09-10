@@ -8,7 +8,10 @@
       "WebFetch",
       "Bash(xargs grep:*)",
       "WebFetch(domain:cucumber.io)",
-      "WebFetch(domain:dannorth.net)"
+      "WebFetch(domain:dannorth.net)",
+      "Bash(echo \"EXIT_CODE=$?\")",
+      "Bash(grep -c \"^ok \" /tmp_ci_output.txt)",
+      "Bash(grep -i \"error\" /tmp_ci_output.txt)"
     ]
   }
 }

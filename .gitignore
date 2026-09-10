@@ -27,3 +27,5 @@ components.d.ts
 
 # 迷因審查用的暫存圖片
 .meme-review/
+# Vite 讀 config 時產生的暫存檔
+*.timestamp-*.mjs
