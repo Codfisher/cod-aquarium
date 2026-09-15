@@ -799,6 +799,13 @@ const minTextFontSize = computed(() => {
   return fontSizeList.length > 0 ? Math.min(...fontSizeList) : undefined
 })
 
+/** 圖上的文字，依閱讀順序（由上而下、由左而右）排列。輸出檔名要靠它命名 */
+const textContentList = computed(() => [...textMap.value.values()]
+  .map((item) => item.data)
+  .filter((data): data is NonNullable<TextItemData['data']> => Boolean(data?.text.trim()))
+  .sort((dataA, dataB) => (dataA.y - dataB.y) || (dataA.x - dataB.x))
+  .map((data) => data.text.trim()))
+
 const imageItemList = computed(() => [...imageMap.value.values()].map((item) => ({
   ...item,
   isEditing: targetKey.value === item.key,
@@ -1012,6 +1019,7 @@ defineExpose({
   frameSprite,
   overlayFrameIndexList,
   minTextFontSize,
+  textContentList,
   seekFrame: framePlayer.seek,
   playFrame: framePlayer.play,
   addImage,

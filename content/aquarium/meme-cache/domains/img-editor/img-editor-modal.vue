@@ -595,8 +595,27 @@ const OUTPUT_EXTENSION_MAP: Record<string, string> = {
   'video/mp4': 'mp4',
 }
 
+const OUTPUT_FILE_NAME_FALLBACK = 'meme'
+const OUTPUT_FILE_NAME_MAX_LENGTH = 50
+/** 檔案系統不收的字元，換掉才不會連檔都存不下來 */
+const INVALID_FILE_NAME_CHAR_REGEXP = /[\\/:*?"<>|]/g
+
+/** 檔名優先用圖上的文字，下載後才認得出是哪張 */
+function getOutputBaseName() {
+  const baseName = (editorRef.value?.textContentList ?? [])
+    .join(' ')
+    .replace(INVALID_FILE_NAME_CHAR_REGEXP, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, OUTPUT_FILE_NAME_MAX_LENGTH)
+    // Windows 不收結尾的點與空白
+    .replace(/[.\s]+$/, '')
+
+  return baseName || OUTPUT_FILE_NAME_FALLBACK
+}
+
 function getOutputFileName(blob: Blob) {
-  return `meme.${OUTPUT_EXTENSION_MAP[blob.type] ?? 'png'}`
+  return `${getOutputBaseName()}.${OUTPUT_EXTENSION_MAP[blob.type] ?? 'png'}`
 }
 
 /** mp4 放進 img 不會動，預覽要依格式換成 video */
