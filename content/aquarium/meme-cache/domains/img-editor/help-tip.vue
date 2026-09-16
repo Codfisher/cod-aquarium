@@ -66,12 +66,20 @@ const addTipList = [
     icon: 'i-material-symbols:content-paste-rounded',
     html: `按「插入圖片」或 <kbd class="${KBD_CLASS}">Ctrl</kbd>+<kbd class="${KBD_CLASS}">V</kbd> 貼上`,
   },
+  {
+    icon: 'i-material-symbols:grid-view-outline-rounded',
+    html: '按「拼接」選版面，多張圖併成一張',
+  },
 ]
 
 const adjustTipList = [
   {
     icon: 'i-material-symbols:open-with-rounded',
     text: '拖曳移動，兩指旋轉',
+  },
+  {
+    icon: 'i-material-symbols:crop-rounded',
+    text: '拼接格子可選填滿比例並拖曳調整可視範圍',
   },
   {
     icon: 'i-material-symbols:zoom-out-map-rounded',

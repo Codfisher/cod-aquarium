@@ -13,118 +13,180 @@
       <img-editor
         ref="editorRef"
         :data="data"
+        @fill-stitch-cell="handleFillStitchCell"
       />
     </template>
 
     <template #footer="{ close }">
-      <div class=" flex w-full gap-1">
-        <UButton
-          v-if="!animatedOutputAvailable"
-          label="分享/複製"
-          icon="i-material-symbols:file-copy-rounded"
-          variant="ghost"
-          color="neutral"
-          size="sm"
-          @click="shareImg()"
-        />
-
-        <UFieldGroup
-          v-else
-          size="sm"
-        >
+      <div class="flex w-full gap-1">
+        <!--
+          左側會隨功能增加持續變長（分享/複製、插入圖片、拼接…），手機寬度放不下時
+          用橫向捲動而非把項目塞進選單裡 —— 拼接先前才特地從插入圖片選單拉出來做成
+          獨立按鈕，方便一眼看到、一次點到，塞回選單等於走回頭路。
+          右側復原／重做／更多／關閉是任何時候都該按得到的常駐控制，固定不參與捲動
+        -->
+        <div class="flex gap-1 overflow-x-auto flex-1 min-w-0">
           <UButton
+            v-if="!animatedOutputAvailable"
             label="分享/複製"
             icon="i-material-symbols:file-copy-rounded"
-            variant="subtle"
+            variant="ghost"
             color="neutral"
             size="sm"
+            class="shrink-0"
             @click="shareImg()"
           />
 
+          <UFieldGroup
+            v-else
+            size="sm"
+            class="shrink-0"
+          >
+            <UButton
+              label="分享/複製"
+              icon="i-material-symbols:file-copy-rounded"
+              variant="subtle"
+              color="neutral"
+              size="sm"
+              @click="shareImg()"
+            />
+
+            <UDropdownMenu
+              :items="shareFormatItems"
+              :ui="{
+                content: 'z-70',
+                item: 'p-2',
+              }"
+            >
+              <UButton
+                aria-label="選擇分享格式"
+                icon="i-lucide-chevron-up"
+                variant="outline"
+                color="neutral"
+                size="sm"
+              />
+            </UDropdownMenu>
+          </UFieldGroup>
+
           <UDropdownMenu
-            :items="shareFormatItems"
+            :items="insertItems"
             :ui="{
               content: 'z-70',
               item: 'p-2',
             }"
           >
             <UButton
-              aria-label="選擇分享格式"
-              icon="i-lucide-chevron-up"
-              variant="outline"
+              label="插入圖片"
+              icon="i-material-symbols:add-photo-alternate-outline-rounded"
+              variant="ghost"
+              color="neutral"
+              size="sm"
+              class="shrink-0"
+            />
+          </UDropdownMenu>
+
+          <!--
+            動圖不支援拼接：拼接輸出是逐格重繪原始影格長圖，裁切、對齊都是以靜態畫面
+            為前提設計，硬套在動圖上格子之間的動作會對不齊，乾脆整個功能都不開放。
+
+            停用用外觀模擬（灰階＋not-allowed 游標）而非原生 disabled：
+            原生 disabled 的表單元件瀏覽器不會送出 hover 需要的 pointer 事件，
+            不管監聽器掛在哪一層都收不到，換成 hover 版 UPopover 才叫得出提示
+          -->
+          <UDropdownMenu
+            v-if="!props.data?.animated"
+            :items="stitchLayoutItems"
+            :ui="{
+              content: 'z-70',
+              item: 'p-2',
+            }"
+          >
+            <UButton
+              label="拼接"
+              icon="i-material-symbols:grid-view-outline-rounded"
+              variant="ghost"
+              color="neutral"
+              size="sm"
+              class="shrink-0"
+            />
+          </UDropdownMenu>
+
+          <UPopover
+            v-else
+            mode="hover"
+            :open-delay="0"
+            :ui="{ content: 'z-70' }"
+          >
+            <UButton
+              label="拼接"
+              icon="i-material-symbols:grid-view-outline-rounded"
+              variant="ghost"
+              color="neutral"
+              size="sm"
+              aria-disabled="true"
+              class="shrink-0 opacity-50 cursor-not-allowed"
+            />
+
+            <template #content>
+              <div class="px-2 py-1.5 text-xs max-w-48">
+                動圖不支援拼接
+              </div>
+            </template>
+          </UPopover>
+
+          <input
+            ref="fileInputRef"
+            type="file"
+            accept="image/*"
+            class="hidden"
+            @change="handleFileChange"
+            @cancel="pendingStitchCellIndex = undefined"
+          >
+        </div>
+
+        <div class="flex gap-1 shrink-0">
+          <UButton
+            icon="i-material-symbols:undo-rounded"
+            aria-label="復原"
+            variant="ghost"
+            color="neutral"
+            size="sm"
+            :disabled="!editorRef?.undoable"
+            @click="editorRef?.undo()"
+          />
+
+          <UButton
+            icon="i-material-symbols:redo-rounded"
+            aria-label="重做"
+            variant="ghost"
+            color="neutral"
+            size="sm"
+            :disabled="!editorRef?.redoable"
+            @click="editorRef?.redo()"
+          />
+
+          <UDropdownMenu
+            :items="moreFcnItems"
+            :ui="{
+              content: 'z-70',
+              item: 'p-2',
+            }"
+          >
+            <UButton
+              icon="i-lucide-ellipsis"
+              variant="ghost"
               color="neutral"
               size="sm"
             />
           </UDropdownMenu>
-        </UFieldGroup>
 
-        <UDropdownMenu
-          :items="insertItems"
-          :ui="{
-            content: 'z-70',
-            item: 'p-2',
-          }"
-        >
           <UButton
-            label="插入圖片"
-            icon="i-material-symbols:add-photo-alternate-outline-rounded"
-            variant="ghost"
-            color="neutral"
+            icon="i-material-symbols:close-rounded"
+            color="error"
             size="sm"
+            @click="close"
           />
-        </UDropdownMenu>
-
-        <input
-          ref="fileInputRef"
-          type="file"
-          accept="image/*"
-          class="hidden"
-          @change="handleFileChange"
-        >
-
-        <div class="flex-1" />
-
-        <UButton
-          icon="i-material-symbols:undo-rounded"
-          aria-label="復原"
-          variant="ghost"
-          color="neutral"
-          size="sm"
-          :disabled="!editorRef?.undoable"
-          @click="editorRef?.undo()"
-        />
-
-        <UButton
-          icon="i-material-symbols:redo-rounded"
-          aria-label="重做"
-          variant="ghost"
-          color="neutral"
-          size="sm"
-          :disabled="!editorRef?.redoable"
-          @click="editorRef?.redo()"
-        />
-
-        <UDropdownMenu
-          :items="moreFcnItems"
-          :ui="{
-            content: 'z-70',
-            item: 'p-2',
-          }"
-        >
-          <UButton
-            icon="i-lucide-ellipsis"
-            variant="ghost"
-            color="neutral"
-            size="sm"
-          />
-        </UDropdownMenu>
-
-        <UButton
-          icon="i-material-symbols:close-rounded"
-          color="error"
-          size="sm"
-          @click="close"
-        />
+        </div>
       </div>
     </template>
   </UModal>
@@ -155,6 +217,7 @@ import { GIF_MAX_SIZE, isMp4Supported, MIN_TEXT_OUTPUT_SIZE } from './animated-o
 import { encodeAnimatedOutput } from './animated-output-client'
 import ImgEditor from './img-editor.vue'
 import MemePickerModal from './meme-picker-modal.vue'
+import { getStitchLayoutOption, STITCH_LAYOUT_LIST, type StitchSourceType } from './stitch-layout'
 
 interface Props {
   data: MemeData | undefined;
@@ -215,8 +278,21 @@ function confirmClean() {
   modal.open()
 }
 
-async function insertImage(source: Blob) {
+/**
+ * 正在等圖的拼接格子。
+ *
+ * 上傳與選迷因都要等使用者在別的面板操作完才拿得到圖，
+ * 這段期間得記住圖是要填進哪一格，而不是當浮動圖片插入
+ */
+const pendingStitchCellIndex = ref<number>()
+
+/** 沒指定格子就當浮動圖片插入，否則填進該拼接格 */
+async function insertImage(source: Blob | string, stitchCellIndex?: number) {
   try {
+    if (stitchCellIndex !== undefined) {
+      await editorRef.value?.fillStitchCell(stitchCellIndex, source)
+      return
+    }
     await editorRef.value?.addImage(source)
   }
   catch (error) {
@@ -229,11 +305,29 @@ async function insertImage(source: Blob) {
   }
 }
 
-function pickImageFile() {
+function pickImageFile(stitchCellIndex?: number) {
+  pendingStitchCellIndex.value = stitchCellIndex
   fileInputRef.value?.click()
 }
 
-async function pasteFromClipboard() {
+function openMemePicker(stitchCellIndex?: number) {
+  pendingStitchCellIndex.value = stitchCellIndex
+  memePickerVisible.value = true
+}
+
+function handleFillStitchCell(index: number, sourceType: StitchSourceType) {
+  if (sourceType === 'upload') {
+    pickImageFile(index)
+    return
+  }
+  if (sourceType === 'clipboard') {
+    pasteFromClipboard(index)
+    return
+  }
+  openMemePicker(index)
+}
+
+async function pasteFromClipboard(stitchCellIndex?: number) {
   if (!navigator.clipboard?.read) {
     toast.add({
       title: '此瀏覽器不支援讀取剪貼簿',
@@ -251,7 +345,7 @@ async function pasteFromClipboard() {
         continue
 
       const blob = await item.getType(imageType)
-      await insertImage(blob)
+      await insertImage(blob, stitchCellIndex)
       return
     }
 
@@ -271,6 +365,10 @@ async function pasteFromClipboard() {
   }
 }
 
+const stitchLayoutOption = computed(
+  () => getStitchLayoutOption(editorRef.value?.stitchLayoutValue),
+)
+
 const insertItems: DropdownMenuItem[][] = [[
   {
     icon: 'i-material-symbols:upload-rounded',
@@ -285,31 +383,41 @@ const insertItems: DropdownMenuItem[][] = [[
   {
     icon: 'i-material-symbols:image-search-outline',
     label: '選擇迷因',
-    onSelect: () => {
-      memePickerVisible.value = true
-    },
+    onSelect: () => openMemePicker(),
   },
 ]]
 
+const stitchLayoutItems = computed<DropdownMenuItem[][]>(() => [[
+  ...STITCH_LAYOUT_LIST.map((item) => ({
+    label: item.label,
+    icon: item.value === stitchLayoutOption.value.value
+      ? 'i-material-symbols:check-rounded'
+      : undefined,
+    onSelect: () => editorRef.value?.setStitchLayout(item.value),
+  })),
+]])
+
 async function handleMemePick(data: MemeData) {
-  try {
-    await editorRef.value?.addImage(`/memes/${data.file}`)
-  }
-  catch (error) {
-    console.warn('[meme-cache] 插入迷因失敗', error)
-    toast.add({
-      title: '插入迷因失敗',
-      description: '請嘗試其他圖片',
-      color: 'error',
-    })
-  }
+  const stitchCellIndex = pendingStitchCellIndex.value
+  pendingStitchCellIndex.value = undefined
+  await insertImage(`/memes/${data.file}`, stitchCellIndex)
 }
+
+// 沒選就關掉選圖面板時，別讓下一次「插入圖片」誤填進格子
+watch(memePickerVisible, (visible) => {
+  if (!visible) {
+    pendingStitchCellIndex.value = undefined
+  }
+})
 
 async function handleFileChange(event: Event) {
   const input = event.target as HTMLInputElement
+  const stitchCellIndex = pendingStitchCellIndex.value
+  pendingStitchCellIndex.value = undefined
+
   const file = input.files?.[0]
   if (file) {
-    await insertImage(file)
+    await insertImage(file, stitchCellIndex)
   }
   // 允許重複選取同一檔案
   input.value = ''
@@ -372,19 +480,25 @@ const animatedOutputAvailable = computed(
   () => Boolean(props.data?.animated && props.data.frameDelayList?.length),
 )
 
-/** 一般圖片直接吃 img 標籤，開編輯器就馬上分享/複製時圖片可能還沒載完，等它就緒再截圖 */
-async function waitForBaseImage() {
-  const img = editorRef.value?.imgRef
-  if (!(img instanceof HTMLImageElement))
-    return
+/**
+ * 一般圖片直接吃 img 標籤，開編輯器就馬上分享/複製時圖片可能還沒載完，等它就緒再截圖。
+ * 拼接進來的格子也是 img，一併等
+ */
+async function waitForBoardImageList(board: HTMLElement) {
+  const imgList = Array.from(board.querySelectorAll('img'))
 
-  try {
-    await img.decode()
-  }
-  catch (error) {
-    console.warn('[meme-cache] 底圖尚未載入完成', error)
-  }
+  await Promise.all(imgList.map(async (img) => {
+    try {
+      await img.decode()
+    }
+    catch (error) {
+      console.warn('[meme-cache] 圖片尚未載入完成', error)
+    }
+  }))
 }
+
+/** 拼接格子的操作按鈕與空格提示只在編輯時有用，截圖時要藏起來 */
+const CAPTURE_EXCLUDE_SELECTOR_LIST = ['[data-capture-exclude]']
 
 const IMG_BLOB_RETRY_COUNT = 2
 const IMG_BLOB_RETRY_DELAY = 300
@@ -412,6 +526,7 @@ async function getStaticImgBlob(board: HTMLElement) {
     type: 'png',
     // Google Fonts 的字型檔允許跨域讀取，可直接內嵌進截圖
     embedFonts: true,
+    exclude: CAPTURE_EXCLUDE_SELECTOR_LIST,
   })
 
   return fitImageToRatio(blob, outputRatioOption.value.ratio)
@@ -451,6 +566,7 @@ async function getAnimatedImgBlob(
         backgroundColor: 'transparent',
         type: 'png',
         embedFonts: true,
+        exclude: CAPTURE_EXCLUDE_SELECTOR_LIST,
       })
       bitmapMap.set(frameIndex, await createImageBitmap(overlayBlob))
     }
@@ -562,7 +678,7 @@ async function getImgBlob(format?: 'gif' | 'mp4') {
   try {
     // 自選字型是延遲載入的，沒等它備妥就截圖會拍到 fallback 字型
     await document.fonts.ready
-    await waitForBaseImage()
+    await waitForBoardImageList(board)
 
     if (!animatedOutputAvailable.value)
       return await withRetry(() => getStaticImgBlob(board))
