@@ -70,19 +70,19 @@ import { promiseTimeout, useActiveElement, watchThrottled } from '@vueuse/core'
 import { shuffle } from 'remeda'
 import { computed, nextTick, ref, shallowRef, useTemplateRef, watch } from 'vue'
 import { nextFrame } from '../../../../../web/common/utils'
-import { useMemeSearch } from '../meme/use-meme-search'
 import ImgList from '../img-list/img-list.vue'
+import { useMemeSearch } from '../meme/use-meme-search'
 
 interface Props {
   dataList: MemeData[];
 }
 const props = withDefaults(defineProps<Props>(), {})
 
-const open = defineModel<boolean>('open', { default: false })
-
 const emit = defineEmits<{
   select: [data: MemeData];
 }>()
+
+const open = defineModel<boolean>('open', { default: false })
 
 const inputRef = useTemplateRef('inputRef')
 const imgListRef = useTemplateRef('imgListRef')
@@ -92,21 +92,28 @@ const searchedList = shallowRef<MemeData[]>([])
 
 const { search: searchMeme } = useMemeSearch()
 
+/**
+ * 這個選單只用在「插入圖片」與拼接格子選圖，兩者都是把圖插進另一張圖裡的子元素，
+ * 動圖插進去後輸出時只留得住截圖當下那一格，等於白動——乾脆從選單排除，
+ * 別讓使用者選了才發現動不了
+ */
+const availableDataList = computed(() => props.dataList.filter((item) => !item.animated))
+
 const activeElement = useActiveElement()
 function handleEnter() {
   activeElement.value?.blur()
 }
 
 let searchId = 0
-watchThrottled(() => [keyword.value, props.dataList], async () => {
+watchThrottled(() => [keyword.value, availableDataList.value], async () => {
   const currentId = ++searchId
 
   if (!keyword.value) {
-    searchedList.value = shuffle(props.dataList)
+    searchedList.value = shuffle(availableDataList.value)
     return
   }
 
-  const result = await searchMeme(props.dataList, keyword.value)
+  const result = await searchMeme(availableDataList.value, keyword.value)
   if (currentId !== searchId)
     return
 

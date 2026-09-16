@@ -15,24 +15,40 @@
           class="pointer-events-none shrink-0"
         />
 
-        <!-- 動圖得逐格控制才能讓文字跟著出現消失，故改用 canvas 自己畫 -->
-        <canvas
-          v-if="frameSprite"
-          ref="imgRef"
-          :width="frameSprite.frameWidth"
-          :height="frameSprite.frameHeight"
-          :style="{ visibility: baseImgVisible ? undefined : 'hidden' }"
-          class="select-none rounded-none! border-none! pointer-events-none w-[80vw] md:max-w-[50vw] h-auto"
-        />
-
-        <img
-          v-else-if="props.data"
-          ref="imgRef"
-          :src="`/memes/${props.data.file}`"
-          :style="{ visibility: baseImgVisible ? undefined : 'hidden' }"
-          class="object-contain select-none rounded-none! border-none! pointer-events-none w-[80vw] md:max-w-[50vw]"
-          draggable="false"
+        <!-- 底圖固定在第一格，單張版面時格線只有這一格，看起來與沒拼接時無異 -->
+        <stitch-grid
+          ref="stitchGridRef"
+          :layout="stitchLayoutOption"
+          :cell-list="stitchCellList"
+          :base-cell="baseCell"
+          @fill="(index, sourceType) => emit('fillStitchCell', index, sourceType)"
+          @reposition="repositionStitchCell"
+          @tap="addTextItemAt"
         >
+          <template #base>
+            <!-- 動圖得逐格控制才能讓文字跟著出現消失，故改用 canvas 自己畫 -->
+            <canvas
+              v-if="frameSprite"
+              ref="imgRef"
+              :width="frameSprite.frameWidth"
+              :height="frameSprite.frameHeight"
+              :style="{ visibility: baseImgVisible ? undefined : 'hidden', ...baseObjectPositionStyle }"
+              class="absolute inset-0 w-full h-full select-none rounded-none! border-none!"
+              :class="[baseObjectFitClass, baseDraggable ? 'cursor-move touch-none pointer-events-auto' : 'pointer-events-none']"
+            />
+
+            <img
+              v-else-if="props.data"
+              ref="imgRef"
+              :src="`/memes/${props.data.file}`"
+              :style="{ visibility: baseImgVisible ? undefined : 'hidden', ...baseObjectPositionStyle }"
+              class="absolute inset-0 w-full h-full select-none rounded-none! border-none!"
+              :class="[baseObjectFitClass, baseDraggable ? 'cursor-move touch-none pointer-events-auto' : 'pointer-events-none']"
+              draggable="false"
+              @load="updateBaseAspectRatio"
+            >
+          </template>
+        </stitch-grid>
 
         <div
           :style="settingValue.bottomPadding"
@@ -76,6 +92,26 @@
         />
       </div>
 
+      <!--
+        拼接格子的操作按鈕獨立於畫板之外：畫板內格子彼此緊貼沒有間隙，
+        按鈕若浮在格子邊緣容易疊到別張圖片，反而更不顯眼
+      -->
+      <stitch-toolbar-strip
+        class="mt-2"
+        :layout="stitchLayoutOption"
+        :base-cell="baseCell"
+        :base-thumbnail-url="baseThumbnailUrl"
+        :cell-list="stitchCellList"
+        @fill="(index, sourceType) => emit('fillStitchCell', index, sourceType)"
+        @clear="clearStitchCell"
+        @set-fill-value="setStitchCellFillValue"
+        @set-fit-mode="setStitchCellFitMode"
+        @set-background-color="setStitchCellBackgroundColor"
+        @set-base-fill-value="setBaseCellFillValue"
+        @set-base-fit-mode="setBaseCellFitMode"
+        @set-base-background-color="setBaseCellBackgroundColor"
+      />
+
       <help-tip />
     </div>
 
@@ -106,7 +142,7 @@
       <template #header="{ close }">
         <div class=" flex w-full">
           <div class="flex-1 text-sm opacity-80">
-            圖片設定
+            版面設定
           </div>
 
           <UButton
@@ -173,7 +209,7 @@
               :ui="{ container: 'flex gap-1' }"
             >
               <UInput
-                v-model="layoutSetting.topPadding.height"
+                v-model.number="topPaddingHeight"
                 :ui="{ base: 'p-1 px-2 text-center' }"
               >
                 <template #trailing>
@@ -183,15 +219,15 @@
 
               <UButton
                 icon="i-lucide-x"
-                @click="layoutSetting.topPadding.height = 0"
+                @click="resetTopPaddingHeight"
               />
               <UButton
                 icon="i-lucide-chevron-down"
-                @click="layoutSetting.topPadding.height -= 10"
+                @click="decreaseTopPaddingHeight"
               />
               <UButton
                 icon="i-lucide-chevron-up"
-                @click="layoutSetting.topPadding.height += 10"
+                @click="increaseTopPaddingHeight"
               />
             </UFormField>
 
@@ -222,7 +258,7 @@
               :ui="{ container: 'flex gap-1' }"
             >
               <UInput
-                v-model="layoutSetting.bottomPadding.height"
+                v-model.number="bottomPaddingHeight"
                 :ui="{ base: 'p-1 px-2 text-center' }"
               >
                 <template #trailing>
@@ -232,15 +268,15 @@
 
               <UButton
                 icon="i-lucide-x"
-                @click="layoutSetting.bottomPadding.height = 0"
+                @click="resetBottomPaddingHeight"
               />
               <UButton
                 icon="i-lucide-chevron-down"
-                @click="layoutSetting.bottomPadding.height -= 10"
+                @click="decreaseBottomPaddingHeight"
               />
               <UButton
                 icon="i-lucide-chevron-up"
-                @click="layoutSetting.bottomPadding.height += 10"
+                @click="increaseBottomPaddingHeight"
               />
             </UFormField>
           </template>
@@ -256,11 +292,12 @@ import type { ComponentProps } from 'vue-component-type-helpers'
 import type { MemeData } from '../meme/type'
 import type { FrameSprite } from './animated-output'
 import type { TimelineTrack } from './frame-timeline.vue'
+import type { StitchCell, StitchSourceType } from './stitch-layout'
 import type { AlignTarget } from './type'
 import { onClickOutside, promiseTimeout, useElementBounding, useElementSize, useEventListener, useRafFn } from '@vueuse/core'
 import { nanoid } from 'nanoid'
 import { clone, pipe } from 'remeda'
-import { computed, nextTick, reactive, ref, shallowRef, triggerRef, useTemplateRef, watch, watchEffect } from 'vue'
+import { computed, nextTick, reactive, ref, shallowRef, toRef, triggerRef, useTemplateRef, watch, watchEffect } from 'vue'
 import { nextFrame } from '../../../../../web/common/utils'
 import { loadFrameSprite } from './animated-output'
 import { IMAGE_MAX_DIMENSION, IMAGE_MIN_DIMENSION } from './constants'
@@ -268,8 +305,18 @@ import { DEFAULT_FONT_VALUE } from './fonts'
 import FrameTimeline from './frame-timeline.vue'
 import HelpTip from './help-tip.vue'
 import ImageItem from './image-item.vue'
+import StitchGrid from './stitch-grid.vue'
+import {
+  DEFAULT_STITCH_BACKGROUND_COLOR,
+  DEFAULT_STITCH_FOCAL,
+  DEFAULT_STITCH_LAYOUT_VALUE,
+  getStitchLayoutOption,
+  resizeStitchCellList,
+} from './stitch-layout'
+import StitchToolbarStrip from './stitch-toolbar-strip.vue'
 import TextItem from './text-item.vue'
 import { isFrameInRange, useFramePlayer } from './use-frame-player'
+import { useStitchCellCrop } from './use-stitch-cell-crop'
 
 interface TextItemData {
   data: ComponentProps<typeof TextItem>['modelValue'];
@@ -288,6 +335,8 @@ const props = withDefaults(defineProps<Props>(), {})
 
 const emit = defineEmits<{
   'update:model-value': [value: string];
+  /** 使用者點了拼接格子要選圖，圖片來源（上傳、剪貼簿、迷因）都由外層提供 */
+  'fillStitchCell': [index: number, sourceType: StitchSourceType];
 }>()
 
 const layoutSettingVisible = ref(false)
@@ -302,12 +351,65 @@ const layoutSetting = ref({
   },
 })
 
+const LAYOUT_PADDING_MIN_HEIGHT = 0
+/** 留白純粹用來擺文字或商標，不必無上限，避免手滑連點或打錯數字撐出離譜版面 */
+const LAYOUT_PADDING_MAX_HEIGHT = 500
+
+function clampLayoutPaddingHeight(height: number): number {
+  if (!Number.isFinite(height))
+    return LAYOUT_PADDING_MIN_HEIGHT
+
+  return Math.min(LAYOUT_PADDING_MAX_HEIGHT, Math.max(LAYOUT_PADDING_MIN_HEIGHT, height))
+}
+
+/**
+ * 用 computed 包一層而非直接綁 layoutSetting.value.topPadding.height：
+ * UInput 沒加 .number 時輸入框存的是字串，字串加字串會變相接而非相加，
+ * 曾讓底部對齊參考線算錯位置；讀寫都收斂到這裡，順便夾住高度上下限
+ */
+const topPaddingHeight = computed({
+  get: () => layoutSetting.value.topPadding.height,
+  set: (height: number) => {
+    layoutSetting.value.topPadding.height = clampLayoutPaddingHeight(height)
+  },
+})
+
+const bottomPaddingHeight = computed({
+  get: () => layoutSetting.value.bottomPadding.height,
+  set: (height: number) => {
+    layoutSetting.value.bottomPadding.height = clampLayoutPaddingHeight(height)
+  },
+})
+
+/**
+ * 拆成具名函式而非直接在樣板寫 `topPaddingHeight -= 10`：
+ * 賦值運算式的型別是「賦的值」（number），UButton 的 click 卻要求回傳 void，
+ * 兩者對不上會是型別錯誤；具名函式沒有回傳值，型別自然是 void
+ */
+function resetTopPaddingHeight() {
+  topPaddingHeight.value = 0
+}
+function decreaseTopPaddingHeight() {
+  topPaddingHeight.value -= 10
+}
+function increaseTopPaddingHeight() {
+  topPaddingHeight.value += 10
+}
+function resetBottomPaddingHeight() {
+  bottomPaddingHeight.value = 0
+}
+function decreaseBottomPaddingHeight() {
+  bottomPaddingHeight.value -= 10
+}
+function increaseBottomPaddingHeight() {
+  bottomPaddingHeight.value += 10
+}
+
 const boardRef = useTemplateRef('boardRef')
 const boardBounding = reactive(useElementBounding(boardRef, {
   updateTiming: 'next-frame',
 }))
 const imgRef = useTemplateRef('imgRef')
-const imgSize = reactive(useElementSize(imgRef))
 
 /** 輸出動圖時要單獨拍上層內容，底圖得先讓開。用 visibility 才不會動到版面 */
 const baseImgVisible = ref(true)
@@ -328,6 +430,159 @@ watch(() => props.data, async (data) => {
     console.warn('[meme-cache] 載入影格長圖失敗', error)
   }
 }, { immediate: true })
+
+/**
+ * 拼接版面。
+ *
+ * 底圖固定在第一格，其餘格子存於 stitchCellList；
+ * 對齊參考線與底部留白的位置要看整個格線，故尺寸改量格線而非底圖
+ */
+const stitchGridRef = useTemplateRef('stitchGridRef')
+const stitchGridSize = reactive(useElementSize(stitchGridRef))
+const stitchLayoutValue = ref(DEFAULT_STITCH_LAYOUT_VALUE)
+const stitchLayoutOption = computed(() => getStitchLayoutOption(stitchLayoutValue.value))
+const stitchCellList = shallowRef<Array<StitchCell | undefined>>([])
+
+/** 底圖的寬 ÷ 高，同列格子靠它分配寬度。動圖看影格尺寸，一般圖片等載入後才知道 */
+const baseAspectRatio = ref(1)
+watch(frameSprite, (sprite) => {
+  if (sprite) {
+    baseAspectRatio.value = sprite.frameWidth / sprite.frameHeight
+  }
+})
+function updateBaseAspectRatio(event: Event) {
+  const img = event.target
+  if (img instanceof HTMLImageElement && img.naturalHeight > 0) {
+    baseAspectRatio.value = img.naturalWidth / img.naturalHeight
+  }
+}
+
+/**
+ * 底圖跟其餘拼接格子共用同一套填滿設定（比例／裁切方式／可視位置／背景色），
+ * 版面才不會因為底圖沒有這些設定而對不齊，見畫板下方的「拼接圖片設定」列
+ */
+type BaseCellSetting = Pick<StitchCell, 'fillValue' | 'fitMode' | 'focalX' | 'focalY' | 'backgroundColor'>
+const baseCellSetting = ref<BaseCellSetting>({})
+
+/** key、url 只是為了套用既有的 StitchCell 型別與函式，兩者實際上都不會被讀取 */
+const baseCell = computed<StitchCell>(() => ({
+  key: '__base__',
+  url: '',
+  aspectRatio: baseAspectRatio.value,
+  ...baseCellSetting.value,
+}))
+
+/** 拼接圖片設定列要顯示底圖縮圖，走跟畫板上底圖一樣的來源 */
+const baseThumbnailUrl = computed(() => props.data ? `/memes/${props.data.file}` : '')
+
+function setBaseCellFillValue(fillValue: string) {
+  baseCellSetting.value = { ...baseCellSetting.value, fillValue, focalX: DEFAULT_STITCH_FOCAL, focalY: DEFAULT_STITCH_FOCAL }
+}
+
+function setBaseCellFitMode(fitMode: 'cover' | 'contain') {
+  baseCellSetting.value = { ...baseCellSetting.value, fitMode }
+}
+
+function setBaseCellBackgroundColor(backgroundColor: string) {
+  baseCellSetting.value = { ...baseCellSetting.value, backgroundColor }
+}
+
+function repositionBaseCell(focalX: number, focalY: number) {
+  baseCellSetting.value = { ...baseCellSetting.value, focalX, focalY }
+}
+
+/**
+ * imgRef 在動圖／靜圖間切換 canvas／img 兩種標籤，composable 內部會自動偵測
+ * 元素本身換掉並重新掛拖曳互動，這裡不必額外處理
+ */
+const {
+  objectFitClass: baseObjectFitClass,
+  objectPositionStyle: baseObjectPositionStyle,
+  draggable: baseDraggable,
+} = useStitchCellCrop({
+  setting: toRef(() => baseCell.value),
+  elementRef: imgRef,
+  onReposition: repositionBaseCell,
+  onTap: (clientX, clientY) => addTextItemAt(clientX, clientY),
+})
+
+/**
+ * 動圖不支援拼接（見畫板上方拼接按鈕的停用說明），這裡加一層防呆：
+ * 就算呼叫端傳了非單張版面，動圖一律強制退回單張，不讓舊資料或其他路徑繞過限制
+ */
+function setStitchLayout(value: string) {
+  stitchLayoutValue.value = props.data?.animated ? DEFAULT_STITCH_LAYOUT_VALUE : value
+  stitchCellList.value = resizeStitchCellList(stitchCellList.value, stitchLayoutOption.value)
+}
+
+async function fillStitchCell(index: number, source: Blob | string) {
+  const url = typeof source === 'string'
+    ? source
+    : await blobToDataUrl(source)
+
+  const { width, height } = await loadImageSize(url)
+  if (width <= 0 || height <= 0) {
+    throw new Error('圖片尺寸無效')
+  }
+
+  const nextList = [...stitchCellList.value]
+  // 背景色明確給預設值，而非留白靠 fallback：色票要跟畫面實際顏色一致，
+  // 否則使用者會看到色票選著白色、缺口卻是畫板本身的灰色，一頭霧水
+  nextList[index] = {
+    key: nanoid(),
+    url,
+    aspectRatio: width / height,
+    backgroundColor: DEFAULT_STITCH_BACKGROUND_COLOR,
+  }
+  stitchCellList.value = nextList
+}
+
+function clearStitchCell(index: number) {
+  const nextList = [...stitchCellList.value]
+  nextList[index] = undefined
+  stitchCellList.value = nextList
+}
+
+/** 換填滿比例時重置裁切位置，避免上一個比例算出的偏移套到新比例上顯得突兀 */
+function setStitchCellFillValue(index: number, fillValue: string) {
+  const cell = stitchCellList.value[index]
+  if (!cell)
+    return
+
+  const nextList = [...stitchCellList.value]
+  nextList[index] = { ...cell, fillValue, focalX: DEFAULT_STITCH_FOCAL, focalY: DEFAULT_STITCH_FOCAL }
+  stitchCellList.value = nextList
+}
+
+function repositionStitchCell(index: number, focalX: number, focalY: number) {
+  const cell = stitchCellList.value[index]
+  if (!cell)
+    return
+
+  const nextList = [...stitchCellList.value]
+  nextList[index] = { ...cell, focalX, focalY }
+  stitchCellList.value = nextList
+}
+
+function setStitchCellFitMode(index: number, fitMode: 'cover' | 'contain') {
+  const cell = stitchCellList.value[index]
+  if (!cell)
+    return
+
+  const nextList = [...stitchCellList.value]
+  nextList[index] = { ...cell, fitMode }
+  stitchCellList.value = nextList
+}
+
+function setStitchCellBackgroundColor(index: number, backgroundColor: string) {
+  const cell = stitchCellList.value[index]
+  if (!cell)
+    return
+
+  const nextList = [...stitchCellList.value]
+  nextList[index] = { ...cell, backgroundColor }
+  stitchCellList.value = nextList
+}
 
 /** 把當前影格畫上畫布 */
 watchEffect(() => {
@@ -466,7 +721,13 @@ onClickOutside(boardRef, () => {
   ignore: ['[role="dialog"]', '[data-reka-popper-content-wrapper]', '.frame-timeline'],
 })
 
-function addItem(event: PointerEvent) {
+/**
+ * 在畫板座標 (clientX, clientY) 處新增文字。
+ *
+ * 拆成獨立函式是因為裁切模式的拼接圖片會吃走 pointerdown，
+ * 點擊穿不到畫板，得靠 stitch-grid 轉發的 tap 事件呼叫同一套邏輯
+ */
+function addTextItemAt(clientX: number, clientY: number) {
   if (targetKey.value) {
     targetKey.value = undefined
     return
@@ -476,8 +737,8 @@ function addItem(event: PointerEvent) {
   if (!rect)
     return
 
-  const x = event.clientX - rect.left
-  const y = event.clientY - rect.top
+  const x = clientX - rect.left
+  const y = clientY - rect.top
 
   const newItem: TextItemData = {
     key: nanoid(),
@@ -501,6 +762,10 @@ function addItem(event: PointerEvent) {
   textMap.value.set(newItem.key, newItem)
   triggerRef(textMap)
   targetKey.value = newItem.key
+}
+
+function addItem(event: PointerEvent) {
+  addTextItemAt(event.clientX, event.clientY)
 }
 
 function editTextItem(item: TextItemData) {
@@ -740,11 +1005,11 @@ const baseAlignTargetList = computed<AlignTarget[]>(() => {
     result.push({
       type: 'point',
       x: boardXCenter,
-      y: y + topPadding.height + imgSize.height + bottomPadding.height / 2,
+      y: y + topPadding.height + stitchGridSize.height + bottomPadding.height / 2,
     })
     result.push({
       type: 'axis',
-      y: y + topPadding.height + imgSize.height + bottomPadding.height / 2,
+      y: y + topPadding.height + stitchGridSize.height + bottomPadding.height / 2,
     })
   }
 
@@ -821,16 +1086,22 @@ const imageItemList = computed(() => [...imageMap.value.values()].map((item) => 
  */
 const HISTORY_MAX_COUNT = 50
 
+/** 拼接格子在快照與 localStorage 裡的形式，圖片內容另外存放 */
+type StitchCellSnapshot = Omit<StitchCell, 'url'> | undefined
+
 interface EditorSnapshot {
   textList: Array<[string, TextItemData]>;
   imageList: Array<[string, ImageItemData]>;
   layoutSetting: typeof layoutSetting['value'];
+  stitchLayoutValue: string;
+  stitchCellList: StitchCellSnapshot[];
+  baseCellSetting: BaseCellSetting;
 }
 
 /**
  * 插入的圖片是 data URL，動輒數 MB。
  * 每半秒序列化一次、又要存進最多 50 筆歷史，記憶體與 CPU 都吃不消，
- * 故快照只留位置與尺寸，圖片內容另外放在這裡以 key 對應。
+ * 故快照只留位置與尺寸，圖片內容另外放在這裡以 key 對應。拼接格子亦同
  */
 const imageUrlMap = new Map<string, string>()
 
@@ -845,11 +1116,31 @@ function serializeEditor(): string {
     },
   )
 
+  const stitchCellSnapshotList = stitchCellList.value.map((cell): StitchCellSnapshot => {
+    if (!cell)
+      return undefined
+
+    const { url, ...rest } = cell
+    imageUrlMap.set(cell.key, url)
+    return rest
+  })
+
   return JSON.stringify({
     textList: [...textMap.value.entries()],
     imageList,
     layoutSetting: layoutSetting.value,
+    stitchLayoutValue: stitchLayoutValue.value,
+    stitchCellList: stitchCellSnapshotList,
+    baseCellSetting: baseCellSetting.value,
   } satisfies EditorSnapshot)
+}
+
+/** JSON 沒有 undefined，空格子序列化後會變 null，還原時要一併視為空 */
+function restoreStitchCellList(snapshotList: Array<StitchCellSnapshot | null>): Array<StitchCell | undefined> {
+  return snapshotList.map((cell) => {
+    const url = cell ? imageUrlMap.get(cell.key) : undefined
+    return cell && url ? { ...cell, url } : undefined
+  })
 }
 
 const historyList = shallowRef<string[]>([])
@@ -898,6 +1189,9 @@ function applySnapshot(raw: string) {
     { ...item, data: { ...item.data, url: imageUrlMap.get(key) ?? '' } } as ImageItemData,
   ]))
   layoutSetting.value = snapshot.layoutSetting
+  stitchLayoutValue.value = snapshot.stitchLayoutValue
+  stitchCellList.value = restoreStitchCellList(snapshot.stitchCellList)
+  baseCellSetting.value = snapshot.baseCellSetting ?? {}
   triggerRef(textMap)
   triggerRef(imageMap)
 
@@ -964,9 +1258,27 @@ useRafFn(() => {
     `${storageKey.value}:layoutSetting`,
     JSON.stringify(layoutSetting.value),
   )
+
+  // 拼接格子同理，只保留站內迷因（路徑很短），上傳或貼上的圖片還原後會變回空格
+  localStorage.setItem(
+    `${storageKey.value}:stitch`,
+    JSON.stringify({
+      layoutValue: stitchLayoutValue.value,
+      cellList: stitchCellList.value.map(
+        (cell) => cell && !cell.url.startsWith('data:') ? cell : undefined,
+      ),
+      baseCellSetting: baseCellSetting.value,
+    } satisfies StitchStorage),
+  )
 }, {
   fpsLimit: 2,
 })
+
+interface StitchStorage {
+  layoutValue: string;
+  cellList: Array<StitchCell | undefined>;
+  baseCellSetting?: BaseCellSetting;
+}
 /** 從 localStorage 取得上次紀錄 */
 async function initData() {
   isFromStorage.value = true
@@ -1001,6 +1313,28 @@ async function initData() {
     layoutSetting.value = prevImgSetting
   }
 
+  const prevStitch = pipe(
+    localStorage.getItem(`${storageKey.value}:stitch`),
+    (value) => {
+      try {
+        return JSON.parse(value ?? '') as StitchStorage
+      }
+      catch {
+        return undefined
+      }
+    },
+  )
+  if (prevStitch) {
+    // 動圖不支援拼接：走 setStitchLayout 而非直接賦值，讓舊資料也套用得到這層防呆
+    setStitchLayout(getStitchLayoutOption(prevStitch.layoutValue).value)
+    stitchCellList.value = resizeStitchCellList(
+      // JSON 沒有 undefined，空格子存起來會變 null
+      (prevStitch.cellList ?? []).map((cell) => cell ?? undefined),
+      stitchLayoutOption.value,
+    )
+    baseCellSetting.value = prevStitch.baseCellSetting ?? {}
+  }
+
   await nextFrame()
   await nextTick()
 
@@ -1023,6 +1357,9 @@ defineExpose({
   seekFrame: framePlayer.seek,
   playFrame: framePlayer.play,
   addImage,
+  stitchLayoutValue,
+  setStitchLayout,
+  fillStitchCell,
   undo,
   redo,
   undoable,
@@ -1043,6 +1380,8 @@ defineExpose({
     imageMap.value.clear()
     triggerRef(textMap)
     triggerRef(imageMap)
+    setStitchLayout(DEFAULT_STITCH_LAYOUT_VALUE)
+    baseCellSetting.value = {}
   },
 })
 </script>
@@ -1055,4 +1394,5 @@ defineExpose({
   mix-blend-mode: exclusion
   color: white
   opacity: 0.01
+  pointer-events: none
 </style>
