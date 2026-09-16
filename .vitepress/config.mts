@@ -1012,6 +1012,18 @@ export default ({ mode }: { mode: string }) => {
       optimizeDeps: {
         exclude: ['@babylonjs/havok'],
       },
+      /**
+       * Vite 的 worker 預設用 iife 打包。iife／umd 這兩種格式不支援 code-splitting，
+       * 一旦某支 worker（例如 meme-cache 的動圖編碼）內部有動態 import 需要拆成多個
+       * chunk，build 就會報錯：
+       *   Invalid value "iife" for option "output.format" -
+       *   UMD and IIFE output formats are not supported for code-splitting builds.
+       * 這支 worker 本身沒變過，但其他地方新增程式碼會牽動 Rollup 自動分包的判斷，
+       * 多包幾個模組就可能把它推過門檻，明確指定 es 格式才不會看情況時好時壞
+       */
+      worker: {
+        format: 'es',
+      },
       css: {
         preprocessorOptions: {
           sass: {
