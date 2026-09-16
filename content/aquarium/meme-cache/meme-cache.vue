@@ -4,6 +4,9 @@
       :toaster="{
         position: 'top-right',
       }"
+      :tooltip="{
+        delayDuration: 0,
+      }"
     >
       <div
         class="meme-cache flex flex-col"
@@ -26,7 +29,7 @@
           :list="filteredList"
           :detail-visible="settings.detailVisible"
           :favorite-file-set="favoriteFileSet"
-          :animated-badge-visible="!filterOptions.animatedOnly"
+          :animated-badge-visible="filterOptions.animated === 'all'"
           ad-visible
           :style="{ height: listHeight }"
           class="overflow-auto"
@@ -134,10 +137,17 @@
               </template>
 
               <template #animated-filter>
-                <UCheckbox
-                  v-model="filterOptions.animatedOnly"
-                  label="只顯示動圖"
-                />
+                <div class="flex items-center gap-1 text-sm">
+                  <UButton
+                    v-for="item in animatedFilterItemList"
+                    :key="item.value"
+                    :label="item.label"
+                    :variant="filterOptions.animated === item.value ? 'solid' : 'ghost'"
+                    :color="filterOptions.animated === item.value ? 'primary' : 'neutral'"
+                    size="xs"
+                    @click="filterOptions.animated = item.value"
+                  />
+                </div>
               </template>
 
               <template #blur-filter>
@@ -225,14 +235,24 @@ const settings = ref({
   detailVisible: false,
 })
 
+type AnimatedFilterMode = 'all' | 'animated' | 'static'
+
 const filterOptions = ref({
   /** 0 = 全部、1 = 排除非常模糊、2 = 只看清晰 */
   blurFilter: 0,
-  animatedOnly: false,
+  animated: 'all' as AnimatedFilterMode,
 })
 
 const BLUR_FILTER_LABEL_LIST = ['全部', '微糊', '清晰'] as const
 const blurFilterLabel = computed(() => BLUR_FILTER_LABEL_LIST[filterOptions.value.blurFilter] ?? '全部')
+
+const ANIMATED_FILTER_LABEL: Record<AnimatedFilterMode, string> = {
+  all: '全部',
+  animated: '只顯示動圖',
+  static: '不顯示動圖',
+}
+const animatedFilterItemList = (Object.keys(ANIMATED_FILTER_LABEL) as AnimatedFilterMode[])
+  .map((value) => ({ value, label: ANIMATED_FILTER_LABEL[value] }))
 
 const {
   mode: collectionMode,
@@ -355,10 +375,12 @@ function filterByEmotion(list: MemeData[]): MemeData[] {
 }
 
 function filterByAnimated(list: MemeData[]): MemeData[] {
-  if (!filterOptions.value.animatedOnly)
-    return list
+  if (filterOptions.value.animated === 'animated')
+    return list.filter((item) => item.animated)
+  if (filterOptions.value.animated === 'static')
+    return list.filter((item) => !item.animated)
 
-  return list.filter((item) => item.animated)
+  return list
 }
 
 function filterList(list: MemeData[]): MemeData[] {
@@ -403,7 +425,7 @@ async function scrollListToTop() {
 }
 
 watch(keyword, scrollListToTop)
-watch(() => filterOptions.value.animatedOnly, scrollListToTop)
+watch(() => filterOptions.value.animated, scrollListToTop)
 
 const toolbarRef = useTemplateRef('toolbarRef')
 const toolbarSize = reactive(useElementSize(toolbarRef, undefined, {
