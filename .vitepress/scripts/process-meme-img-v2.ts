@@ -332,7 +332,12 @@ async function importSourceMeme() {
       if (!duplicate || !animated || duplicate.fingerprint.animated) {
         try {
           await unlink(srcPath)
-          console.log('[importSourceMeme] 刪除重複圖片：', path.basename(srcPath))
+          console.log(
+            '[importSourceMeme] 刪除重複圖片：',
+            path.basename(srcPath),
+            '對應現有圖片：',
+            duplicate ? path.basename(duplicate.filePath) : '(未知)',
+          )
         }
         catch (e) {
           console.warn('[importSourceMeme] 刪除重複圖片失敗：', path.basename(srcPath), e)
