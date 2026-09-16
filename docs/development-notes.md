@@ -33,6 +33,40 @@ curl -o /dev/null -w "%{http_code}\n" "http://localhost:3030/aquarium/meme-cache
 
 `?import` 會強制走 Vite 的 transform，回傳編譯後的 JS。HTTP 200 代表編譯成功，內容則可用來檢查元件解析、whyframe 抽取等結果。
 
+**這招對 production build 的 Rollup 打包行為沒用**：dev server 走的是 esbuild 單檔轉譯，不做完整型別檢查，也不會重現 `npm run build` 才會跑的 Rollup chunk 切分。下面這條「worker 格式與 code-splitting 衝突」的建置錯誤，只有真的 build 才會冒出來。
+
+## worker 格式衝突：Invalid value "iife" for option "output.format"
+
+**現象**
+
+production build 在 `[vite:worker-import-meta-url]` 階段失敗：
+
+```
+Invalid value "iife" for option "output.format" -
+UMD and IIFE output formats are not supported for code-splitting builds.
+file: .../meme-cache/domains/img-editor/animated-output-client.ts
+```
+
+指名的 worker 檔案本身沒有異動過。
+
+**成因**
+
+Vite 的 worker 預設用 `iife` 打包，這個格式不支援 code-splitting。只要該 worker（或它依賴的模組）內部有動態 `import()`，Rollup 就得把輸出拆成多個 chunk，跟 `iife` 互斥。
+
+`animated-output.worker.ts` 走的正是動態載入（見 `animated-output.ts` 對 gifenc／mp4-muxer 的處理），一直以來能過是因為 Rollup 的自動分包沒把它推到「需要拆 chunk」的門檻。**這個門檻會隨著專案其他地方新增程式碼而移動**：即使沒動過 worker 本身，其他模組長大也可能讓 Rollup 改變主意，build 忽然就失敗，且無法用 dev server 提前發現（見上一節）。
+
+**處理方式**
+
+在 `.vitepress/config.mts` 的 `vite` 設定明確指定 worker 格式為 ES module（支援 code-splitting），不依賴 Rollup 自動分包的判斷：
+
+```ts
+vite: {
+  worker: {
+    format: 'es',
+  },
+}
+```
+
 ## VitePress 樣式隔離：vp-raw 與 cascade layer
 
 **現象**
