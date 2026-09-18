@@ -6,12 +6,20 @@
 
 `npm run build` 與 dev server 共用 `.vitepress/cache`。build 會打斷 Vite 的依賴預先建置，在 cache 留下 `deps_temp_*` 殘骸，dev server 因此遲遲不開埠，瀏覽器看起來像「頁面一直卡在讀取中」。
 
-此專案 build 本身也很慢：`buildEnd` 會執行 `generateImages()` 重建近千張迷因圖，實測 30 分鐘仍未結束。
+此專案 build 本身也不快：`buildEnd` 會執行 `generateImages()`，把 `content/public` 底下的圖片各轉出 700／300 寬與原尺寸三份 webp。見下一節「build 逾時」。
 
 **處理方式**
 
 1. 用 `Get-CimInstance Win32_Process -Filter "Name='node.exe'"` 找出 `vitepress build` 行程，`Stop-Process -Force` 終止。dev server 通常數秒內即恢復監聽。
 2. 清掉 `.vitepress/cache/deps_temp_*` 殘骸，再重啟 dev server。
+
+## Cloudflare Pages build 逾時
+
+Cloudflare Pages 的 build 上限是 20 分鐘。一次匯入 227 筆迷因後，build 跑了 35 分鐘被強制終止。
+
+**原因**：`generateImages()` 只排除了 `public/memes/`，沒排除迷因匯入流程產生的 `public/meme-posters/`、`public/meme-sprites/`。實測 696 張待處理圖片裡有 582 張來自這兩個目錄；sprite 是把動圖攤平成的大圖（常見 1500–3700 px 寬），本機單張就要 1–4 秒，Cloudflare 的機器更慢。前端直接讀原檔（`img-list.vue`、`animated-output.ts`），轉出來的縮圖完全沒用到，原尺寸那份還會以有損壓縮蓋掉 dist 裡的 sprite 原檔。
+
+**處理方式**：兩個目錄加進 `resize-images.ts` 的 `IGNORE_PATH_LIST`。之後新增會隨迷因數量成長的圖片目錄時，記得一併排除，否則 build 時間會跟著圖庫線性變長。
 
 ## Windows build 出現 EBUSY
 

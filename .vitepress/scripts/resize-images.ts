@@ -11,6 +11,9 @@ const IGNORE_NAME_LIST = [
 ]
 const IGNORE_PATH_LIST = [
   'public/memes/',
+  // 迷因海報與 sprite 由前端直接讀原檔，縮圖用不到；sprite 動輒數千像素，縮放會拖垮 build 時間
+  'public/meme-posters/',
+  'public/meme-sprites/',
   'public/assets/',
   'public/codstack/',
   'public/hexazen/',
