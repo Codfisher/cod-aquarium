@@ -1,6 +1,7 @@
 import type { MaybeRefOrGetter } from 'vue'
 import { watchDebounced } from '@vueuse/core'
 import { toValue } from 'vue'
+import { parseSearchInput } from '../domains/meme/meme-search-core'
 
 type GtagFn = (command: 'event', eventName: string, params: Record<string, unknown>) => void
 
@@ -27,6 +28,7 @@ export interface MissingKeywordReportOptions {
  * 搜尋 0 結果時送出 GA4 自訂事件。
  *
  * 使用者找不到的關鍵字就是最該補的圖，彙整後即為建檔清單。
+ * 帶排除詞的搜尋不記錄，0 結果可能是被自己排光的，不代表缺這張圖。
  * 應用跑在 whyframe 的 iframe 內，gtag 掛在宿主頁面，故取 window.parent。
  */
 export function useMissingKeywordReport(options: MissingKeywordReportOptions) {
@@ -62,14 +64,19 @@ export function useMissingKeywordReport(options: MissingKeywordReportOptions) {
       if (!isLoaded || count > 0)
         return
 
-      const trimmed = value.trim()
-      if (trimmed.length < MIN_KEYWORD_LENGTH || trimmed.length > MAX_KEYWORD_LENGTH)
-        return
-      if (reportedSet.has(trimmed))
+      const { termList, excludedTermList } = parseSearchInput(value)
+      if (excludedTermList.length > 0)
         return
 
-      reportedSet.add(trimmed)
-      report(trimmed)
+      // 以拆解後的搜尋詞回報，多餘的空白與還沒打完的 - 才不會讓同一個詞散成好幾群
+      const normalizedKeyword = termList.join(' ')
+      if (normalizedKeyword.length < MIN_KEYWORD_LENGTH || normalizedKeyword.length > MAX_KEYWORD_LENGTH)
+        return
+      if (reportedSet.has(normalizedKeyword))
+        return
+
+      reportedSet.add(normalizedKeyword)
+      report(normalizedKeyword)
     },
     { debounce: DEBOUNCE_MS },
   )
