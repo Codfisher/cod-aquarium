@@ -175,6 +175,25 @@
               </template>
             </UDropdownMenu>
           </div>
+
+          <!-- 聚焦且尚未輸入時浮現在輸入框上方。純視覺提示，不攔截點擊，免得蓋住下方的圖片 -->
+          <UTooltip
+            :open="syntaxTipVisible"
+            :reference="inputElement"
+            :content="{ side: 'top', align: 'start' }"
+            :ui="{ content: 'z-9999 pointer-events-none h-auto w-max max-w-72 flex-col items-start gap-1 rounded-md px-3 py-2 text-sm leading-relaxed' }"
+            arrow
+            disable-hoverable-content
+          >
+            <template #content>
+              <p
+                v-for="line in SEARCH_SYNTAX_LINE_LIST"
+                :key="line"
+              >
+                {{ line }}
+              </p>
+            </template>
+          </UTooltip>
         </div>
       </div>
 
@@ -194,7 +213,7 @@
 <script setup lang="ts">
 import type { DropdownMenuItem } from '@nuxt/ui'
 import type { MemeData } from './domains/meme/type'
-import { promiseTimeout, useActiveElement, useColorMode, useElementSize, useWindowSize, watchThrottled } from '@vueuse/core'
+import { promiseTimeout, useActiveElement, useColorMode, useElementSize, useFocus, useWindowSize, watchThrottled } from '@vueuse/core'
 import { filter, isNullish, isTruthy, pipe, shuffle } from 'remeda'
 import { computed, onMounted, reactive, ref, shallowRef, useTemplateRef, watch } from 'vue'
 import { BlurLevel } from '../../../.vitepress/utils/blur-level'
@@ -204,9 +223,11 @@ import { usePageNoScroll } from '../../../web/composables/use-page-no-scroll'
 import { useKeywordQuery } from './composables/use-keyword-query'
 import { COLLECTION_MODE_LABEL, type CollectionMode, useMemeCollection } from './composables/use-meme-collection'
 import { useMissingKeywordReport } from './composables/use-missing-keyword-report'
+import { useSearchSyntaxTip } from './composables/use-search-syntax-tip'
 import { useStickyToolbar } from './composables/use-sticky-toolbar'
 import ImgEditorModal from './domains/img-editor/img-editor-modal.vue'
 import ImgList from './domains/img-list/img-list.vue'
+import { parseSearchInput } from './domains/meme/meme-search-core'
 import { useMemeData } from './domains/meme/use-meme-data'
 import { useMemeSearch } from './domains/meme/use-meme-search'
 
@@ -231,6 +252,16 @@ function handleEnter() {
 
 const inputRef = useTemplateRef('inputRef')
 const keyword = useKeywordQuery()
+
+const SEARCH_SYNTAX_LINE_LIST = [
+  '多個詞用空格分開，命中越多越前面',
+  '詞前加 - 可排除，例如「貓 -小八」',
+]
+
+const inputElement = computed(() => inputRef.value?.inputRef)
+const { focused: inputFocused } = useFocus(inputElement)
+const { visible: syntaxTipVisible } = useSearchSyntaxTip({ focused: inputFocused, keyword })
+
 const settings = ref({
   detailVisible: false,
 })
@@ -455,6 +486,13 @@ const COLLECTION_TIP: Record<CollectionMode, (count: number) => string> = {
   recent: (count) => `最近用過 ${count} 張 ੭ ˙ᗜ˙ )੭`,
 }
 
+/** 被排除詞排光不代表缺圖，叫使用者上傳只會誤導 */
+const EXCLUDED_EMPTY_TIP = '排除後沒有符合的圖片 ( ˘･з･)\n換個詞，或拿掉排除詞試試'
+
+const hasExcludedTerm = computed(
+  () => parseSearchInput(keyword.value ?? '').excludedTermList.length > 0,
+)
+
 const tipText = computed(() => {
   if (collectionMode.value !== 'all') {
     return filteredList.value.length === 0
@@ -467,6 +505,9 @@ const tipText = computed(() => {
   }
 
   if (keyword.value && filteredList.value.length === 0) {
+    if (hasExcludedTerm.value)
+      return EXCLUDED_EMPTY_TIP
+
     return [
       '沒找到相關圖片 ( ´•̥̥̥ ω •̥̥̥` )<br>可以<a href="',
       uploadUrl,
