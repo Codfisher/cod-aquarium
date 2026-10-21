@@ -204,7 +204,7 @@
       />
 
       <div class=" fixed right-0 top-0 p-2 px-3 text-xs opacity-10">
-        {{ version }}
+        v{{ version }}
       </div>
     </UApp>
   </client-only>
@@ -225,13 +225,12 @@ import { COLLECTION_MODE_LABEL, type CollectionMode, useMemeCollection } from '.
 import { useMissingKeywordReport } from './composables/use-missing-keyword-report'
 import { useSearchSyntaxTip } from './composables/use-search-syntax-tip'
 import { useStickyToolbar } from './composables/use-sticky-toolbar'
+import { version } from './constants'
 import ImgEditorModal from './domains/img-editor/img-editor-modal.vue'
 import ImgList from './domains/img-list/img-list.vue'
 import { parseSearchInput } from './domains/meme/meme-search-core'
 import { useMemeData } from './domains/meme/use-meme-data'
 import { useMemeSearch } from './domains/meme/use-meme-search'
-
-const version = '1.0.2'
 
 const uploadUrl = 'https://drive.google.com/drive/u/2/folders/1UUpzhZPdI-i_7PhCYZNDS-BxbulATMlN'
 
