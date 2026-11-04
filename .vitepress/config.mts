@@ -782,9 +782,11 @@ export default ({ mode }: { mode: string }) => {
      * dagre-OKDRZEBW），以此與自製元件（如 diagram-uv）區分，並錨定 chunks/ 路徑
      * 避免誤殺檔名含相同關鍵字的文章頁 chunk。若 mermaid 改版後命名慣例改變，
      * 此規則會失效回退為「保留 preload」，僅損失效能不影響功能。
+     * 升級 mermaid 後，可把 node_modules/mermaid/dist/chunks/mermaid.core/ 的非 chunk- 檔名
+     * 拿來比對此規則，找出新增卻沒比對到的分塊（11.17 新增 cose-bilkent、swimlanes、sizeCapture）。
      */
     transformHtml(code) {
-      const mermaidPreloadPattern = /<link\s+rel="modulepreload"[^>]*href="[^"]*\/chunks\/(?:[\w-]*[Dd]iagram-(?:v2-)?[0-9A-Z]{8}|dagre-[0-9A-Z]{8}|(?:mindmap|kanban|timeline)-definition-[0-9A-Z]{8}|virtual_mermaid[\w-]*|katex)\.[^"]*"[^>]*>/g
+      const mermaidPreloadPattern = /<link\s+rel="modulepreload"[^>]*href="[^"]*\/chunks\/(?:[\w-]*[Dd]iagram-(?:v2-)?[0-9A-Z]{8}|(?:dagre|cose-bilkent|swimlanes|sizeCapture)-[0-9A-Z]{8}|(?:mindmap|kanban|timeline)-definition-[0-9A-Z]{8}|virtual_mermaid[\w-]*|katex)\.[^"]*"[^>]*>/g
       return code.replace(mermaidPreloadPattern, '')
     },
     lastUpdated: true,
