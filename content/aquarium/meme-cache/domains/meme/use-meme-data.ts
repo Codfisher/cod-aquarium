@@ -9,8 +9,8 @@ async function consumeNdjsonPipeline<T = unknown>(
   onItem: (row: T) => void,
   opts: { signal?: AbortSignal } = {},
 ) {
+  // 不帶自訂 header：config.mts 在 head 預載了這兩份 ndjson，請求條件不同就無法沿用預載結果
   const res = await fetch(url, {
-    headers: { Accept: 'application/x-ndjson' },
     signal: opts.signal,
   })
   if (!res.ok)

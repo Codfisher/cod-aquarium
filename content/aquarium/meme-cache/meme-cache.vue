@@ -12,17 +12,20 @@
         class="meme-cache flex flex-col"
         @click="handleClick"
       >
-        <transition
-          name="opacity"
-          mode="out-in"
+        <!-- tipRef 掛在不會被替換的外層，過場也不用 out-in：
+             否則新舊提示交接的空檔裡高度歸零，下方清單會先上跳再落回，被算成 CLS -->
+        <div
+          ref="tipRef"
+          class="relative"
         >
-          <div
-            ref="tipRef"
-            :key="tipText"
-            class=" whitespace-pre text-sm text-center py-6 opacity-80 "
-            v-html="tipText"
-          />
-        </transition>
+          <transition name="tip-fade">
+            <div
+              :key="tipText"
+              class=" whitespace-pre text-sm text-center py-6 opacity-80 "
+              v-html="tipText"
+            />
+          </transition>
+        </div>
 
         <img-list
           ref="imgListRef"
@@ -575,6 +578,18 @@ usePageNoScroll()
     transition-duration: 0.3s
   &-enter-from, &-leave-to
     opacity: 0 !important
+
+/* 新舊提示交叉淡入淡出，離場的脫離文件流，外層高度只跟著新提示走 */
+.tip-fade
+  &-enter-active, &-leave-active
+    transition: opacity 0.3s
+  &-enter-from, &-leave-to
+    opacity: 0 !important
+  &-leave-active
+    position: absolute
+    top: 0
+    left: 0
+    width: 100%
 
 .list
   &-move, &-enter-active, &-leave-active
