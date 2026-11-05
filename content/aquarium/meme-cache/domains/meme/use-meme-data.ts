@@ -1,4 +1,3 @@
-import { throttle } from 'lodash-es'
 import { computed, onBeforeUnmount, ref, shallowRef, triggerRef } from 'vue'
 import { mergeMemeDataList } from './merge-meme-data'
 import { type MemeData, memeDataSchema } from './type'
@@ -58,11 +57,6 @@ export function useMemeData() {
   /** 兩份 ndjson 都讀完才算完整，預建索引與缺圖回報都要等這個訊號 */
   const loaded = ref(false)
 
-  const triggerMemeData = throttle(() => {
-    triggerRef(baseMap)
-    triggerRef(extendMap)
-  }, 500)
-
   const controller = new AbortController()
   async function main() {
     const taskList = [
@@ -72,7 +66,6 @@ export function useMemeData() {
           return
 
         baseMap.value.set(result.data.file, result.data)
-        triggerMemeData()
       }, { signal: controller.signal }),
 
       consumeNdjsonPipeline('/memes/a-memes-data-extend.ndjson', (row) => {
@@ -81,7 +74,6 @@ export function useMemeData() {
           return
 
         extendMap.value.set(result.data.file, result.data)
-        triggerMemeData()
       }, { signal: controller.signal }),
     ]
 
@@ -92,7 +84,13 @@ export function useMemeData() {
         console.warn('[meme-cache] 讀取迷因資料失敗', reason)
       })
 
-    triggerMemeData.flush()
+    /** 兩份 ndjson 都讀完才通知一次，不在串流途中邊讀邊更新。
+     * 原本每 500ms 觸發一次：沒有關鍵字時清單每次都整份重新洗牌，首屏圖片被換掉、LCP 重來，
+     * 整份清單也跟著重繪；主執行緒一忙，串流讀得更慢、觸發次數更多，實測會從 4 次膨脹到 30 次。
+     * 壓縮後資料約 1 秒內就讀完，邊讀邊顯示省不了多少時間
+     */
+    triggerRef(baseMap)
+    triggerRef(extendMap)
     loaded.value = true
   }
   if (!import.meta.env.SSR) {
