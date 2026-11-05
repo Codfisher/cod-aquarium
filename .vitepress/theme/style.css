@@ -193,13 +193,15 @@ body {
   font-synthesis: weight style;
 }
 
+/* 系統字型：英文先用各平台 UI 字型，中文依序落到 macOS／iOS、Windows、Android／Linux 的內建黑體。
+ * 'Noto Sans TC' 只會命中使用者本機已安裝的字型，站台不再從 Google Fonts 載入（原因見 config.mts head） */
 :root {
-  --vp-font-family-base: 'Noto Sans TC', sans-serif;
+  --vp-font-family-base: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang TC', 'Microsoft JhengHei', 'Noto Sans TC', 'Noto Sans CJK TC', sans-serif;
 }
 
 /* 導覽列標題使用展示字型 */
 .VPNavBarTitle .title {
-  font-family: 'Figtree', 'Noto Sans TC', sans-serif;
+  font-family: 'Figtree', var(--vp-font-family-base);
   font-weight: 700;
   letter-spacing: -0.01em;
 }
@@ -260,7 +262,7 @@ a {
   h4,
   h5,
   h6 {
-    font-family: 'Figtree', 'Noto Sans TC', system-ui, sans-serif;
+    font-family: 'Figtree', var(--vp-font-family-base);
     font-weight: 800;
     letter-spacing: -0.02em;
     line-height: 1.4;

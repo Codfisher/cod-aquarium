@@ -442,14 +442,18 @@ export default ({ mode }: { mode: string }) => {
       ['link', { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: 'true' }],
       /** 以非阻塞方式載入 Google Fonts，避免 CSS 阻擋首次繪製（配合 display=swap 以 fallback 字體先顯示）。
        * Figtree 僅標題（800）與導覽列標題（700）使用，不載入未用到的 400、600
+       *
+       * 內文中文改用系統字型（見 style.css 的 --vp-font-family-base），不載入 Noto Sans TC：
+       * 它一頁要拆 29～50 個 unicode-range 切片（1.2～1.7 MB），每片到達都觸發整頁中文重排。
+       * Lighthouse 手機模擬實測，拿掉後文章頁 LCP 由 10.5 s 降到 4.0 s
        */
       ['link', {
         rel: 'preload',
         as: 'style',
-        href: 'https://fonts.googleapis.com/css2?family=Figtree:wght@700;800&family=Noto+Sans+TC:wght@400;600;800&display=swap',
+        href: 'https://fonts.googleapis.com/css2?family=Figtree:wght@700;800&display=swap',
         onload: 'this.onload=null;this.rel=\'stylesheet\'',
       }],
-      ['noscript', {}, '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@700;800&family=Noto+Sans+TC:wght@400;600;800&display=swap">'],
+      ['noscript', {}, '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@700;800&display=swap">'],
       ['link', { rel: 'icon', href: '/favicon.ico' }],
       /** 讓瀏覽器與 RSS 閱讀器自動發現訂閱來源 */
       ['link', { rel: 'alternate', type: 'application/rss+xml', title: SITE_TITLE, href: '/feed.rss' }],
