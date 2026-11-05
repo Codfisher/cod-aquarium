@@ -1013,6 +1013,15 @@ export default ({ mode }: { mode: string }) => {
     vite: {
       optimizeDeps: {
         exclude: ['@babylonjs/havok'],
+        /** mermaid 11.17 起依賴 UMD 格式的 fastdom，並以 default import 引用。
+         * vitepress-plugin-mermaid 只替 mermaid 的舊依賴（dayjs、cytoscape 等）預先建置，
+         * 漏了 fastdom，dev 時瀏覽器直接載入 UMD 原檔，報錯「does not provide an export named 'default'」。
+         * production build 由 Rollup 的 commonjs 外掛處理，不受影響
+         */
+        include: [
+          'mermaid > fastdom',
+          'mermaid > fastdom/extensions/fastdom-promised.js',
+        ],
       },
       /**
        * Vite 的 worker 預設用 iife 打包。iife／umd 這兩種格式不支援 code-splitting，
