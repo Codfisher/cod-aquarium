@@ -442,14 +442,18 @@ export default ({ mode }: { mode: string }) => {
       ['link', { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: 'true' }],
       /** 以非阻塞方式載入 Google Fonts，避免 CSS 阻擋首次繪製（配合 display=swap 以 fallback 字體先顯示）。
        * Figtree 僅標題（800）與導覽列標題（700）使用，不載入未用到的 400、600
+       *
+       * 內文中文改用系統字型（見 style.css 的 --vp-font-family-base），不載入 Noto Sans TC：
+       * 它一頁要拆 29～50 個 unicode-range 切片（1.2～1.7 MB），每片到達都觸發整頁中文重排。
+       * Lighthouse 手機模擬實測，拿掉後文章頁 LCP 由 10.5 s 降到 4.0 s
        */
       ['link', {
         rel: 'preload',
         as: 'style',
-        href: 'https://fonts.googleapis.com/css2?family=Figtree:wght@700;800&family=Noto+Sans+TC:wght@400;600;800&display=swap',
+        href: 'https://fonts.googleapis.com/css2?family=Figtree:wght@700;800&display=swap',
         onload: 'this.onload=null;this.rel=\'stylesheet\'',
       }],
-      ['noscript', {}, '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@700;800&family=Noto+Sans+TC:wght@400;600;800&display=swap">'],
+      ['noscript', {}, '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@700;800&display=swap">'],
       ['link', { rel: 'icon', href: '/favicon.ico' }],
       /** 讓瀏覽器與 RSS 閱讀器自動發現訂閱來源 */
       ['link', { rel: 'alternate', type: 'application/rss+xml', title: SITE_TITLE, href: '/feed.rss' }],
@@ -637,7 +641,10 @@ export default ({ mode }: { mode: string }) => {
           },
         ])
       }
-      else {
+      /** layout: false 的頁面（各 aquarium app）不顯示封面，frontmatter.image 只供社群分享用，
+       * preload 只會以高優先權白載、跟真正的首屏資源搶頻寬
+       */
+      else if (pageData?.frontmatter?.layout !== false) {
         /** 文章頁 LCP 圖片 preload：封面圖與 frontmatter.image 同源，
          * 依 base-img 的響應式 srcset 產生對應 imagesrcset，讓瀏覽器盡早下載封面。
          */
@@ -655,6 +662,17 @@ export default ({ mode }: { mode: string }) => {
               fetchpriority: 'high',
             },
           ])
+        }
+      }
+
+      /** meme-cache 的 LCP 是清單第一張圖，得等 ndjson 讀完才知道要載哪張。
+       * 原本要等 JS 執行完才發出請求，preload 讓它與 JS 同時下載。
+       * 網址需與 use-meme-data.ts 的 fetch 一致；fetch 預設為 cors＋same-origin 憑證，
+       * 對應 crossorigin="anonymous"，兩者不符瀏覽器會重抓一次
+       */
+      if (page === 'aquarium/meme-cache/index.md') {
+        for (const href of ['/memes/a-memes-data.ndjson', '/memes/a-memes-data-extend.ndjson']) {
+          headList.push(['link', { rel: 'preload', as: 'fetch', href, crossorigin: 'anonymous' }])
         }
       }
 
@@ -782,9 +800,11 @@ export default ({ mode }: { mode: string }) => {
      * dagre-OKDRZEBW），以此與自製元件（如 diagram-uv）區分，並錨定 chunks/ 路徑
      * 避免誤殺檔名含相同關鍵字的文章頁 chunk。若 mermaid 改版後命名慣例改變，
      * 此規則會失效回退為「保留 preload」，僅損失效能不影響功能。
+     * 升級 mermaid 後，可把 node_modules/mermaid/dist/chunks/mermaid.core/ 的非 chunk- 檔名
+     * 拿來比對此規則，找出新增卻沒比對到的分塊（11.17 新增 cose-bilkent、swimlanes、sizeCapture）。
      */
     transformHtml(code) {
-      const mermaidPreloadPattern = /<link\s+rel="modulepreload"[^>]*href="[^"]*\/chunks\/(?:[\w-]*[Dd]iagram-(?:v2-)?[0-9A-Z]{8}|dagre-[0-9A-Z]{8}|(?:mindmap|kanban|timeline)-definition-[0-9A-Z]{8}|virtual_mermaid[\w-]*|katex)\.[^"]*"[^>]*>/g
+      const mermaidPreloadPattern = /<link\s+rel="modulepreload"[^>]*href="[^"]*\/chunks\/(?:[\w-]*[Dd]iagram-(?:v2-)?[0-9A-Z]{8}|(?:dagre|cose-bilkent|swimlanes|sizeCapture)-[0-9A-Z]{8}|(?:mindmap|kanban|timeline)-definition-[0-9A-Z]{8}|virtual_mermaid[\w-]*|katex)\.[^"]*"[^>]*>/g
       return code.replace(mermaidPreloadPattern, '')
     },
     lastUpdated: true,
@@ -1011,6 +1031,15 @@ export default ({ mode }: { mode: string }) => {
     vite: {
       optimizeDeps: {
         exclude: ['@babylonjs/havok'],
+        /** mermaid 11.17 起依賴 UMD 格式的 fastdom，並以 default import 引用。
+         * vitepress-plugin-mermaid 只替 mermaid 的舊依賴（dayjs、cytoscape 等）預先建置，
+         * 漏了 fastdom，dev 時瀏覽器直接載入 UMD 原檔，報錯「does not provide an export named 'default'」。
+         * production build 由 Rollup 的 commonjs 外掛處理，不受影響
+         */
+        include: [
+          'mermaid > fastdom',
+          'mermaid > fastdom/extensions/fastdom-promised.js',
+        ],
       },
       /**
        * Vite 的 worker 預設用 iife 打包。iife／umd 這兩種格式不支援 code-splitting，

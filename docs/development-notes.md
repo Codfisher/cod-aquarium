@@ -248,3 +248,26 @@ meme-cache 匯出的 GIF 動作非常頓，同一張圖匯出 mp4 卻很順。
 - **上層內容用複製而非 transfer。** `ImageBitmap` 一旦 transfer 走，主執行緒就成了空殼，worker 出事沒得回頭跑 fallback。去重後張數不多，複製的代價遠比失去退路划算。
 - **逾時看的是進度心跳，不是總時限。** 長動圖本來就要跑十幾秒，訂死總時限會誤殺；只要進度還在動就繼續等。
 - Safari 16.4 以前沒有 `OffscreenCanvas`，故 `animated-output.ts` 兩種執行環境都要跑得動，主執行緒那條路必須留著。
+
+## 升級 mermaid 後 dev 報「does not provide an export named 'default'」
+
+mermaid 不在 Vite 的預先建置名單內，dev 時瀏覽器直接載入它的 ESM 原檔；若它新增了 CommonJS／UMD 格式的依賴，瀏覽器就讀不到 default export。11.17 新增的 `fastdom` 就是一例，production build 由 Rollup 處理不受影響，只有 dev 會壞。
+
+**處理方式**：把該依賴以 `mermaid > 套件名` 的形式加進 `config.mts` 的 `vite.optimizeDeps.include`。VitePress 偵測到 config 變更會自動重啟並重建依賴快取，瀏覽器重新整理即可。
+
+## 網頁效能：別讓首屏背上不必要的負擔
+
+2026-11 用 Lighthouse 12（手機模擬）量正式站，瓶頸依序是中文網頁字型、第三方腳本、首頁的 YouTube 與 Babylon，VitePress 本身的 hydration 只佔約 400 ms。相關規則：
+
+- **不要再從 Google Fonts 載入中文字型給全站用。** Noto Sans TC 一頁要拆 29～50 個切片，每片到達都觸發整頁中文重排，拿掉後文章頁 LCP 由 10.5 s 降到 4.0 s。內文一律走 `--vp-font-family-base` 的系統字型；個別功能真的需要（例如迷因編輯器的字型選單），在該功能內按需載入。
+- **嵌入 YouTube 等 iframe 加 `loading="lazy"`。** 首頁 12 個影片沒加時，播放器 JS 就超過 900 KB。
+- **首屏以外的重型元件用 lazy hydration。** `defineAsyncComponent` 只是拆 chunk，hydration 時照樣立刻下載；要搭配 `hydrate: hydrateOnVisible()` 才會捲到附近才載入，範例見 `.vitepress/theme/index.ts` 的 `FishDiorama`。
+- **圖片要優先載入，就在 md 明確寫 `loading="eager" fetchpriority="high"`。** `BaseImg` 只自動判斷 `cover` class，明確寫出的屬性會優先採用。
+- **捲動或非同步更新時移動版面，一律用 `transform`。** CLS 只豁免輸入後 500 ms 內的位移，捲動不算輸入。meme-cache 曾因此在 Clarity 拿到 CLS 2.8：VueUse `useVirtualList` 的 `wrapperProps` 用 `marginTop` 推移，捲一下就被算一次位移；改用 `translateY` 後歸零，見 `img-list.vue` 的 `wrapperStyle`。
+- **量測尺寸的 ref 不要掛在會被 `<transition mode="out-in">` 替換的元素上。** 新舊元素交接的空檔裡 ref 是 null、量到的高度歸零，依賴它的版面會先跳走再落回。
+- **新增 `public/` 底下的資料檔，先確認 Cloudflare 有壓縮。** 只有名單內的 Content-Type 才會壓縮，副檔名認不得的會回 `application/octet-stream` 並原封傳輸（meme-cache 的 ndjson 就因此多傳約 380 KB）。在 `content/public/_headers` 覆寫 Content-Type，部署後用 `curl -sI -H "Accept-Encoding: br" <url>` 確認有 `content-encoding`。
+- **藏起來的 lazy 圖片照樣會下載。** Chrome 在慢速網路會預載距視窗 2500px 內的 lazy 圖片，被 fixed 元素蓋住、或只是推到兩個螢幕高以外都不夠。
+- **LCP 元素要等資料才知道是哪張圖時，在 `transformHead` 預載那份資料**（`as: 'fetch'`、`crossorigin: 'anonymous'`），且 fetch 不要帶自訂 header，否則預載結果無法沿用。
+- **Lighthouse 只量載入，抓不到互動造成的 CLS。** 要用 Playwright 模擬滾輪、輸入等操作，並以 `PerformanceObserver` 監聽 `layout-shift`，從 `sources` 找出元兇。
+
+量測方式：`npx lighthouse@12 <url> --only-categories=performance --output=json --chrome-flags="--headless=new"`，搭配 `--blocked-url-patterns` 封鎖特定資源，就能拆出各項因素的影響。

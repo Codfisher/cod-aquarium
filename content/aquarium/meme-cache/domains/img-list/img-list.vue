@@ -3,7 +3,7 @@
     class="relative flex flex-col px-4"
     v-bind="containerProps"
   >
-    <div v-bind="wrapperProps">
+    <div :style="wrapperStyle">
       <div
         v-for="{ data: row, index } in virtualList"
         :key="index"
@@ -23,7 +23,8 @@
             >
               <img
                 :src="getImgSrc(data)"
-                loading="lazy"
+                :loading="index < FIRST_SCREEN_ROW_COUNT ? 'eager' : 'lazy'"
+                :fetchpriority="index < FIRST_SCREEN_ROW_COUNT ? 'high' : undefined"
                 class="object-contain h-full w-full border-none"
                 @mouseenter="playAnimated(data)"
                 @mouseleave="pauseAnimated(data)"
@@ -140,6 +141,11 @@ const AD_MAX_COUNT = 3
  */
 const AD_MOUNT_DISTANCE = 3
 
+/** 列高 30vh，首屏約露出兩列半。這幾列含 LCP 圖片，不走 lazy load，
+ * 免得要等版面算完、確認進入視野才開始下載
+ */
+const FIRST_SCREEN_ROW_COUNT = 3
+
 type ListRow =
   | { type: 'image'; dataList: MemeData[] }
   | { type: 'ad'; adIndex: number }
@@ -239,6 +245,19 @@ const { list: virtualList, containerProps, wrapperProps, scrollTo } = useVirtual
     itemHeight: (index) => rowHeightList.value[index] ?? imageRowHeight.value,
   },
 )
+
+/** VueUse 以 marginTop 把 wrapper 推到算繪範圍的起點，每次捲過幾列 wrapper 的版面位置就跳一次，
+ * Chrome 會算成 layout shift（實測捲一下 0.3～0.4，整段瀏覽累積到 CLS 4～6）。
+ * 改用 transform 推移，transform 的變化不計入 CLS；高度維持「總高減偏移」，捲動範圍不變
+ */
+const wrapperStyle = computed(() => {
+  const { height, marginTop } = wrapperProps.value.style
+  return {
+    width: '100%',
+    height,
+    transform: `translateY(${marginTop})`,
+  }
+})
 
 /** 廣告在捲動內容中的座標，供絕對定位層對齊佔位列 */
 const adPositionList = computed(() => {

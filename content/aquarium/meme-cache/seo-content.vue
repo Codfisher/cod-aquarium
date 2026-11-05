@@ -46,14 +46,16 @@ const fileSrc = (file: string) => withBase(`/memes/${file}`)
 </script>
 
 <style scoped lang="sass">
-/** 主體 app 為 fixed 全螢幕 iframe，不佔文件流高度，此區塊若貼齊頂端會直接蓋住 app。
- * 留兩個螢幕高的間距，使用者捲動即可看見，圖片也不會在首屏就被 lazy load 觸發下載
+/** 主體 app 為 fixed 全螢幕，不佔文件流高度，此區塊若貼齊頂端會直接蓋住 app。
+ * app 掛載後頁面鎖住捲動，此區塊實際只給爬蟲看，間距要大到圖片不會被 lazy load 提前下載：
+ * Chrome 在慢速網路會預載距視窗 2500px 內的 lazy 圖片，原本的 200vh 在手機上只有約 1650px，
+ * 9 張原尺寸大圖（約 1.5 MB）因此在首屏就與清單資料搶頻寬
  */
 .gallery-wrap
   max-width: 1100px
   margin: 0 auto
   padding: 1rem 1rem 2rem
-  padding-top: 200vh
+  padding-top: calc(100vh + 3000px)
 
 .page-title
   font-size: clamp(1.5rem, 2.5vw, 2rem)

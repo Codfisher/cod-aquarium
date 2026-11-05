@@ -1,0 +1,6 @@
+# Cloudflare Pages 自訂回應標頭，語法見 https://developers.cloudflare.com/pages/configuration/headers/
+
+# ndjson 預設回 application/octet-stream，不在 Cloudflare 的壓縮名單內，546 KB 原封不動傳輸。
+# 改標 text/plain 才會被壓縮（brotli 約剩 167 KB）；前端以串流逐行讀取，不受 Content-Type 影響
+/memes/*.ndjson
+  Content-Type: text/plain; charset=utf-8

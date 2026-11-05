@@ -3,7 +3,7 @@ export interface FontOption {
   value: string;
   label: string;
   cssFamily: string;
-  /** Google Fonts 的 family 參數，站台已載入者留空 */
+  /** Google Fonts 的 family 參數，留空表示不需額外載入 */
   googleFamily?: string;
 }
 
@@ -15,8 +15,9 @@ export const FONT_LIST: FontOption[] = [
   {
     value: 'default',
     label: '黑體',
-    // 站台本身已載入，不必重複請求
     cssFamily: '"Noto Sans TC", sans-serif',
+    // 站台內文已改用系統字型，這裡需自行載入；用可變字重涵蓋粗細滑桿的 100～900
+    googleFamily: 'Noto+Sans+TC:wght@100..900',
   },
   {
     value: 'serif',
