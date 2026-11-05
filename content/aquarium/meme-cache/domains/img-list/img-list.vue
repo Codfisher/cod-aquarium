@@ -39,20 +39,23 @@
                 class="absolute bottom-1 left-1 size-5 rounded-full bg-black/50 text-white"
               />
 
-              <UButton
-                :icon="props.favoriteFileSet.has(data.file)
-                  ? 'i-material-symbols:favorite-rounded'
-                  : 'i-material-symbols:favorite-outline-rounded'"
+              <!-- 用原生 button 而非 UButton：每張圖一顆，首屏約 40 顆，
+                   UButton 底下的 Link／Primitive 多層元件光掛載就佔資料到齊後渲染時間的一大塊。
+                   class 照 UButton（neutral、ghost、sm、只有 icon）實際輸出的樣式重現 -->
+              <button
+                type="button"
                 :aria-label="props.favoriteFileSet.has(data.file) ? '取消收藏' : '加入收藏'"
-                color="neutral"
-                variant="ghost"
-                size="sm"
-                class="favorite-button absolute top-1 right-1 rounded-full bg-black/40 text-white duration-200 hover:bg-black/60"
-                :class="{
-                  'text-red-400': props.favoriteFileSet.has(data.file),
-                }"
+                class="favorite-button absolute top-1 right-1 inline-flex items-center p-1.5 rounded-full bg-black/40 transition-colors duration-200 hover:bg-black/60 active:bg-elevated outline-inverted/25 focus-visible:outline-3"
+                :class="props.favoriteFileSet.has(data.file) ? 'text-red-400' : 'text-white'"
                 @click.stop="emit('toggleFavorite', data)"
-              />
+              >
+                <UIcon
+                  :name="props.favoriteFileSet.has(data.file)
+                    ? 'i-material-symbols:favorite-rounded'
+                    : 'i-material-symbols:favorite-outline-rounded'"
+                  class="size-4 shrink-0"
+                />
+              </button>
             </div>
 
             <div
