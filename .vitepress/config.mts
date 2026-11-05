@@ -962,7 +962,8 @@ export default ({ mode }: { mode: string }) => {
                 //   text: '酷酷元件背後的星點',
                 //   link: getOldestDocPath('/column-chill-components/'),
                 // },
-              ],
+                // 全是草稿的專欄沒有入口文章，link 為空字串，與 nav 的 getNavItem 一樣濾掉
+              ].filter((item) => !!item.link),
             },
           ],
           isTruthy,
