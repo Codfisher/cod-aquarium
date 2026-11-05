@@ -182,6 +182,8 @@ export function getOldestDocPath(
     path.join(CONTENT_PATH, docPath),
     (value) => fs.readdirSync(value),
     map((value) => path.basename(value)),
+    // 專欄目錄裡還有各篇的範例資料夾，不排除的話全是草稿時會挑中資料夾，產生 404 連結
+    filter((value) => value.endsWith('.md')),
     sort((a, b) => a.localeCompare(b)),
     find((file) => {
       const fullPath = path.join(CONTENT_PATH, docPath, file)
