@@ -278,3 +278,43 @@ mermaid 不在 Vite 的預先建置名單內，dev 時瀏覽器直接載入它�
 - **Lighthouse 只量載入，抓不到互動造成的 CLS。** 要用 Playwright 模擬滾輪、輸入等操作，並以 `PerformanceObserver` 監聽 `layout-shift`，從 `sources` 找出元兇。
 
 量測方式：`npx lighthouse@12 <url> --only-categories=performance --output=json --chrome-flags="--headless=new"`，搭配 `--blocked-url-patterns` 封鎖特定資源，就能拆出各項因素的影響。
+
+## 效能修改用本機 preview 對正式站做 A/B
+
+dev 量到的效益會失真。dev 版的 Vue、Nuxt UI 帶開發期檢查，又有模組轉譯開銷，同一版本跑幾輪就能差到 3 倍。meme-cache 收藏按鈕從 UButton 改原生 button 時，dev 量到快約 3 倍，正式版實際只快 23～38%。要判斷修改值不值得上線，用本機 preview（正式打包）對 `codlin.me`（main 的現行版本）做 A/B，只要 build 一次。
+
+**步驟**
+
+1. 停掉 dev server（與 build 共用 `.vitepress/cache`，見「不要在 dev server 執行中跑 build」），再執行 `npm run preview`，本機約 6 分鐘，起來後在 `http://localhost:4173`。build 過程印出的 `[SSR] "document" was accessed` 是 `ssr-guard.ts` 刻意輸出的追蹤，不是失敗。
+2. 確認兩邊跑的版本確實不同（例如檢查畫面上的元素 class 或版號），否則比的是同一份程式。
+3. 用 Playwright 交替量兩邊，桌機與手機各 4 輪，取中位數。
+4. 量完關掉 preview，否則下次 build 可能撞上 EBUSY（見「Windows build 出現 EBUSY」）。
+
+**讓兩邊可比的條件**
+
+- **CPU 降速 4 倍**（CDP `Emulation.setCPUThrottlingRate`），網路不降速。
+- **先不降速暖機一次**，讓資料與圖片在兩邊都進 HTTP 快取，差異才會只剩 CPU。
+- **兩邊都封鎖廣告與分析腳本**：localhost 不一定會填廣告，不封鎖會讓本機佔便宜。實測它們只增加 LCP 之後的長任務，不影響 LCP。
+- **起點取「渲染所需資源全部到齊」**，不要取頁面開始載入。本機 preview 伺服器每次即時壓縮、回 `Cache-Control: no-cache`，JS 與資料都比 CDN 晚到 0.7 秒以上，絕對的 LCP 不能比，只能比資源到齊之後的 CPU 階段。
+- **交替先後順序**（奇數輪 A 先、偶數輪 B 先），抵銷機器忙閒的時段差異。
+
+量測核心（在 `page.goto(url, { waitUntil: 'load' })` 並等待約 10 秒後執行；LCP 與長任務要在載入前以 `addInitScript` 掛 `PerformanceObserver` 收集）：
+
+```ts
+const resourceList = performance.getEntriesByType('resource')
+// 起點：ndjson 與主要 JS 中最晚收完者，之後全是 CPU
+const received = Math.max(...resourceList
+  .filter((entry) => /ndjson|\/app\.|meme-cache_index|framework\.|theme\./.test(entry.name))
+  .map((entry) => entry.responseEnd))
+const firstImg = resourceList
+  .filter((entry) => /\/memes\/meme-/.test(entry.name) && entry.startTime >= received)
+  .map((entry) => entry.startTime)
+  .sort((a, b) => a - b)[0]
+```
+
+比較 `firstImg - received` 與 LCP 圖片時間減 `received`。換到其他頁面時，把正則換成該頁的資料與 chunk 名稱。
+
+**在 dev 定位瓶頸的工具**（只用來找元兇，效益仍以 preview 為準）
+
+- **元件層級耗時**：在 `enhanceApp` 暫時設 `app.config.performance = import.meta.env.DEV`，Vue 會為每個元件的 render／patch／mount 產生名為 `<元件名> mount` 的 measure。Vue 建立後會立刻 `clearMeasures`，事後查 `performance.getEntriesByType('measure')` 是空的，必須在載入前就用 `PerformanceObserver({ type: 'measure' })` 收集。
+- **時間點 log**：用 `import.meta.env.DEV` 包住、以 `performance.now()` 為基準印時間，才能與 Resource Timing 對齊。定位完連同呼叫處一併移除。
