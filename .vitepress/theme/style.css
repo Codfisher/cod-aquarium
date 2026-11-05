@@ -337,6 +337,12 @@ a {
     margin: 1.5rem 0;
   }
 
+  /* 未包 p 的列表項目會沿用 VitePress 預設的 24px 行高，換行時比段落擠很多；
+     略小於段落的 2，讓列表仍維持成組的緊湊感 */
+  li {
+    line-height: 1.8;
+  }
+
   li + li {
     margin-top: 0.5rem;
   }
