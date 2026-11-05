@@ -281,7 +281,7 @@ mermaid 不在 Vite 的預先建置名單內，dev 時瀏覽器直接載入它�
 
 ## 效能修改用本機 preview 對正式站做 A/B
 
-dev 量到的效益會失真。dev 版的 Vue、Nuxt UI 帶開發期檢查，又有模組轉譯開銷，同一版本跑幾輪就能差到 3 倍。meme-cache 收藏按鈕從 UButton 改原生 button 時，dev 量到快約 3 倍，正式版實際只快 23～38%。要判斷修改值不值得上線，用本機 preview（正式打包）對 `codlin.me`（main 的現行版本）做 A/B，只要 build 一次。
+dev 量到的效益會失真。dev 版的 Vue、Nuxt UI 帶開發期檢查，又有模組轉譯開銷，同一版本跑幾輪就能差到 3 倍。meme-cache 收藏按鈕從 UButton 改原生 button 時，dev 量到快約 3 倍；改用兩個本機 preview（只差這顆按鈕）A/B 並錄 CPU profile，約 38 顆 UButton 在 4 倍降速下只佔 130～190 ms，換算一般裝置約 35～50 ms，差距不大，最後依 CLAUDE.md「Nuxt UI 元件優先」改回 UButton。要判斷修改值不值得上線，用本機 preview（正式打包）對 `codlin.me`（main 的現行版本）做 A/B，只要 build 一次。
 
 **步驟**
 
