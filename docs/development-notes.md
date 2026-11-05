@@ -21,6 +21,12 @@ Cloudflare Pages 的 build 上限是 20 分鐘。一次匯入 227 筆迷因後�
 
 **處理方式**：兩個目錄加進 `resize-images.ts` 的 `IGNORE_PATH_LIST`。之後新增會隨迷因數量成長的圖片目錄時，記得一併排除，否則 build 時間會跟著圖庫線性變長。
 
+## Cloudflare Pages 的 npm ci 報「Missing: … from lock file」
+
+Cloudflare Pages v3 build image 預設是 Node 22 + npm 10，本機是 Node 24 + npm 11。npm 11 重產的 `package-lock.json`，npm 10 解析 peer dependency 的結果不同（例如 `@tiptap/core` 的版本衝突），會判定 lock 與 `package.json` 不同步而拒絕安裝。本機 `npm ci` 照樣通過，所以只有部署時才會爆。
+
+**處理方式**：根目錄的 `.node-version` 釘選 Node 24，讓 Cloudflare 跟本機用同一代 npm。之後本機升 Node 主版本時要一併更新這個檔案。要在本機重現 Cloudflare 的檢查，可以跑 `npx npm@<版本> ci --dry-run --ignore-scripts`。
+
 ## Windows build 出現 EBUSY
 
 失敗訊息形如 `EBUSY: resource busy or locked, rmdir ...dist\public\chunks`，常見原因有二：
