@@ -31,9 +31,11 @@ Cloudflare Pages v3 build image 預設是 Node 22 + npm 10，本機是 Node 24 +
 
 2026-11-09 連續兩次部署在 `npm ci` 失敗，都還沒跑到 build：第一次是 `onnxruntime-node` 安裝腳本從 GitHub Releases 下載 `onnxruntime-linux-x64-gpu-*.tgz` 時遇到 504；重試那次沒能還原相依快取，全部重新下載時大量 tarball 被判為損壞，最後 wrangler 底下的 esbuild 版本驗證不過。
 
-**原因**：`onnxruntime-node` 由 devDependency `@huggingface/transformers` 帶入，只有本機的梗圖處理腳本用到。它在 Linux x64 安裝時會自動下載 CUDA 函式庫，Cloudflare 每次都是全新安裝，等於每次 build 都依賴 GitHub 下載一大包網站用不到的檔案。
+**原因**：`onnxruntime-node` 由 devDependency `@huggingface/transformers` 帶入，只有已停用的舊版梗圖處理腳本 `process-meme-img.ts` 用到（現行流程是 `process-meme-img-v2.ts`）。它在 Linux x64 安裝時會自動下載 CUDA 函式庫，Cloudflare 每次都是全新安裝，等於每次 build 都依賴 GitHub 下載一大包網站用不到的檔案。
 
-**處理方式**：根目錄 `.npmrc` 設 `onnxruntime-node-install-cuda=skip`，npm 會以 `npm_config_onnxruntime_node_install_cuda` 傳給安裝腳本。代價是每個 npm 指令都會印 `Unknown project config` 警告，npm 下一個主版本若不再傳遞自訂設定，改在 Cloudflare 設環境變數 `ONNXRUNTIME_NODE_INSTALL_CUDA=skip`。之後若又遇到 tarball 損壞，多半是 build 機器當下網路不穩，先重試，仍失敗再到 Pages 設定清除 build cache。
+**處理方式**：移除舊版腳本，以及只有它在用的 `@huggingface/transformers`、`tesseract.js` 與根目錄的 tesseract 語言模型（`*.traineddata`）。移除前曾以 `.npmrc` 設 `onnxruntime-node-install-cuda=skip` 暫時跳過下載，build 從 7～10 分鐘降到約 5 分鐘。日後若再引入會在安裝時下載大型二進位檔的套件（機器學習推論、瀏覽器等），先確認 Cloudflare build 是否真的需要，不需要就設法跳過下載。
+
+之後若又遇到 tarball 損壞，多半是 build 機器當下網路不穩，先重試，仍失敗再到 Pages 設定清除 build cache。
 
 ## Windows build 出現 EBUSY
 
@@ -335,3 +337,18 @@ const firstImg = resourceList
 
 - **元件層級耗時**：在 `enhanceApp` 暫時設 `app.config.performance = import.meta.env.DEV`，Vue 會為每個元件的 render／patch／mount 產生名為 `<元件名> mount` 的 measure。Vue 建立後會立刻 `clearMeasures`，事後查 `performance.getEntriesByType('measure')` 是空的，必須在載入前就用 `PerformanceObserver({ type: 'measure' })` 收集。
 - **時間點 log**：用 `import.meta.env.DEV` 包住、以 `performance.now()` 為基準印時間，才能與 Resource Timing 對齊。定位完連同呼叫處一併移除。
+
+## 用 cf CLI 查 Cloudflare Web Analytics（RUM）
+
+`codlin.me` 在 zone 層級開了 RUM，Cloudflare 會在邊緣替 HTML 注入 beacon，repo 裡看不到。只對瀏覽器請求注入，curl 預設 UA 抓不到 `cloudflareinsights` 是正常的。
+
+- **狀態**：`cf zones rum get -z codlin.me`，回傳的 `site_tag` 是查詢時的篩選條件。
+- **資料**：`cf sql query "<SQL>" --scope-account <account id> --time-since <RFC3339> --time-until <RFC3339>`。資料集為 `events.rumPageloadEvents`（瀏覽量）與 `events.rumWebvitalsEvents`（LCP／INP／CLS 等），欄位用 `cf sql datasets --account-tag <account id> --include-columns true` 查。
+
+踩過的坑：
+
+- **zone 層級會收進所有子網域**（susugo、chillcomponent 等），一定要加 `requestHost = 'codlin.me'`，否則首頁瀏覽量會灌水好幾倍。
+- **瀏覽量要用 `sum(sampleInterval)`**，資料是抽樣的。
+- **沒量到的值是哨兵值**：時間類欄位是 `4294967295`（uint32 上限），CLS 是 `-1`，計算前要排除，否則 P75 會變成 4294967 ms。
+- **SQL 限制**：不支援 `quantile` 這類參數化函式，P75 要撈原始列（`FORMAT JSONEachRow`）在本機依 `sampleInterval` 加權計算；`max` 要改用 `APPROX_MAX`；`ORDER BY` 必須搭配 `LIMIT`；WHERE 裡寫了 `timestamp` 條件就不能再帶 `--time-since`。
+- **看到問題先依日期切開**，確認是不是修正上線前的舊資料。2026-11 查到 meme-cache 有 30 筆 CLS 超過 0.1，元兇是虛擬清單 wrapper，但全落在 11/05 改用 `translateY`（見「網頁效能」）上線之前，之後 CLS 最大 0.007，不必再修。
