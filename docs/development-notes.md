@@ -31,9 +31,11 @@ Cloudflare Pages v3 build image 預設是 Node 22 + npm 10，本機是 Node 24 +
 
 2026-11-09 連續兩次部署在 `npm ci` 失敗，都還沒跑到 build：第一次是 `onnxruntime-node` 安裝腳本從 GitHub Releases 下載 `onnxruntime-linux-x64-gpu-*.tgz` 時遇到 504；重試那次沒能還原相依快取，全部重新下載時大量 tarball 被判為損壞，最後 wrangler 底下的 esbuild 版本驗證不過。
 
-**原因**：`onnxruntime-node` 由 devDependency `@huggingface/transformers` 帶入，只有本機的梗圖處理腳本用到。它在 Linux x64 安裝時會自動下載 CUDA 函式庫，Cloudflare 每次都是全新安裝，等於每次 build 都依賴 GitHub 下載一大包網站用不到的檔案。
+**原因**：`onnxruntime-node` 由 devDependency `@huggingface/transformers` 帶入，只有已停用的舊版梗圖處理腳本 `process-meme-img.ts` 用到（現行流程是 `process-meme-img-v2.ts`）。它在 Linux x64 安裝時會自動下載 CUDA 函式庫，Cloudflare 每次都是全新安裝，等於每次 build 都依賴 GitHub 下載一大包網站用不到的檔案。
 
-**處理方式**：根目錄 `.npmrc` 設 `onnxruntime-node-install-cuda=skip`，npm 會以 `npm_config_onnxruntime_node_install_cuda` 傳給安裝腳本。代價是每個 npm 指令都會印 `Unknown project config` 警告，npm 下一個主版本若不再傳遞自訂設定，改在 Cloudflare 設環境變數 `ONNXRUNTIME_NODE_INSTALL_CUDA=skip`。之後若又遇到 tarball 損壞，多半是 build 機器當下網路不穩，先重試，仍失敗再到 Pages 設定清除 build cache。
+**處理方式**：移除舊版腳本，以及只有它在用的 `@huggingface/transformers`、`tesseract.js` 與根目錄的 tesseract 語言模型（`*.traineddata`）。移除前曾以 `.npmrc` 設 `onnxruntime-node-install-cuda=skip` 暫時跳過下載，build 從 7～10 分鐘降到約 5 分鐘。日後若再引入會在安裝時下載大型二進位檔的套件（機器學習推論、瀏覽器等），先確認 Cloudflare build 是否真的需要，不需要就設法跳過下載。
+
+之後若又遇到 tarball 損壞，多半是 build 機器當下網路不穩，先重試，仍失敗再到 Pages 設定清除 build cache。
 
 ## Windows build 出現 EBUSY
 
