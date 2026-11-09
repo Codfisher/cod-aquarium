@@ -2,7 +2,7 @@ import type { Buffer } from 'node:buffer'
 import type { DefaultTheme, HeadConfig } from 'vitepress'
 import type { MemeItem } from '../content/aquarium/meme-cache/meme-seo'
 import type { Article } from './utils'
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
@@ -39,6 +39,13 @@ const SITE_DESCRIPTION = '各種鱈魚滾鍵盤的雜記與研究'
 const AUTHOR_NAME = '鱈魚 (Cod Lin)'
 /** public 目錄絕對路徑，供讀取封面圖尺寸使用 */
 const CONTENT_PUBLIC_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '../content/public')
+/** 有暗色版的圖片（原圖路徑），BaseImg 只對這些圖切換暗色版。
+ * 暗色版只有少數幾張，若一律嘗試載入，暗色模式下幾乎每篇文章封面都會多一次 404 再換回亮色，
+ * 實測 LCP 慢約 0.4 秒且封面會閃一下
+ */
+const darkImageList = readdirSync(CONTENT_PUBLIC_DIR, { recursive: true, encoding: 'utf-8' })
+  .filter((file) => file.endsWith('-dark.webp'))
+  .map((file) => `/${file.replace(/\\/g, '/').replace(/-dark\.webp$/, '.webp')}`)
 /** 酷東西頁的網址前綴，這些頁為可直接操作的網頁應用 */
 const AQUARIUM_PATH = '/aquarium/'
 /** 快取梗圖頁網址，供注入圖片集合的結構化資料 */
@@ -803,11 +810,32 @@ export default ({ mode }: { mode: string }) => {
      * 升級 mermaid 後，可把 node_modules/mermaid/dist/chunks/mermaid.core/ 的非 chunk- 檔名
      * 拿來比對此規則，找出新增卻沒比對到的分塊（11.17 新增 cose-bilkent、swimlanes、sizeCapture）。
      */
-    transformHtml(code) {
+    transformHtml(code, _id, { pageData }) {
       const mermaidPreloadPattern = /<link\s+rel="modulepreload"[^>]*href="[^"]*\/chunks\/(?:[\w-]*[Dd]iagram-(?:v2-)?[0-9A-Z]{8}|(?:dagre|cose-bilkent|swimlanes|sizeCapture)-[0-9A-Z]{8}|(?:mindmap|kanban|timeline)-definition-[0-9A-Z]{8}|virtual_mermaid[\w-]*|katex)\.[^"]*"[^>]*>/g
-      return code.replace(mermaidPreloadPattern, '')
+      const html = code.replace(mermaidPreloadPattern, '')
+
+      /** 文章頁的 JS 改為低優先，讓 render-blocking 的 style.css 與封面先拿到頻寬。
+       * 原本 CSS 與約 300 KB 的 modulepreload 同時下載，慢速 4G 下 CSS 要 1.7 秒才到；
+       * 鏡像代理實測 FCP 2.45 → 1.57 秒、LCP 3.45 → 2.86 秒，app.js 只晚約 0.1 秒。
+       * 直接拿掉 modulepreload 反而讓 LCP 變慢，不要這樣做。
+       * aquarium 的畫面由 JS 繪製，LCP 取決於 JS，維持原優先權
+       */
+      if (pageData.relativePath.startsWith('aquarium/')) {
+        return html
+      }
+
+      return html
+        .replace(/<link rel="modulepreload" /g, '<link rel="modulepreload" fetchpriority="low" ')
+        .replace(/<script type="module" src=/g, '<script type="module" fetchpriority="low" src=')
     },
     lastUpdated: true,
+    /** VueUse 的 useDark 預設 disableTransition，初始化時即使外觀沒變，也會插入再移除一段
+     * 停用轉場的 <style> 並強制計算樣式，每次都觸發全頁樣式重算（4 倍降速下一次 300～800 ms）。
+     * 關掉後切換外觀時會看到顏色轉場，可以接受
+     */
+    appearance: {
+      disableTransition: false,
+    },
     markdown: {
       lineNumbers: true,
       theme: {
@@ -1030,6 +1058,9 @@ export default ({ mode }: { mode: string }) => {
     } as Config,
 
     vite: {
+      define: {
+        __DARK_IMAGE_LIST__: JSON.stringify(darkImageList),
+      },
       optimizeDeps: {
         exclude: ['@babylonjs/havok'],
         /** mermaid 11.17 起依賴 UMD 格式的 fastdom，並以 default import 引用。
@@ -1062,6 +1093,16 @@ export default ({ mode }: { mode: string }) => {
         },
       },
       plugins: [
+        /** 停用 Nuxt UI 執行期插入顏色變數的 plugin，改由 theme/nuxt-ui-colors.css 靜態提供，原因見該檔 */
+        {
+          name: 'disable-nuxt-ui-runtime-colors',
+          enforce: 'pre',
+          load(id) {
+            if (id.replace(/\\/g, '/').endsWith('@nuxt/ui/dist/runtime/plugins/colors.js')) {
+              return 'export default { install() {} }'
+            }
+          },
+        },
         /** 停用 VitePress 預設 Inter 字體，改用 Noto Sans TC */
         {
           name: 'disable-vitepress-default-fonts',
@@ -1121,6 +1162,10 @@ export default ({ mode }: { mode: string }) => {
         }),
         ui({
           router: false,
+          /** 外觀由 VitePress 的 isDark 管理 .dark class，Nuxt UI 再開一個 useDark 是重複的，
+           * 而且它初始化時同樣會插入停用轉場的 <style>，觸發全頁樣式重算
+           */
+          colorMode: false,
           experimental: {
             componentDetection: true,
           },

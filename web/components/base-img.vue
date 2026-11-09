@@ -1,17 +1,12 @@
 <template>
   <picture>
     <template v-if="sourceVisible">
+      <!-- 用 v-bind 物件而非個別 :srcset、:sizes，原因見 getSourceProps -->
       <source
-        v-if="isDark && !darkSrcError"
-        :srcset="darkSrcset"
-        :sizes="sizes"
-        type="image/webp"
+        v-if="darkVisible"
+        v-bind="getSourceProps(darkSrcset)"
       >
-      <source
-        :srcset="lightSrcset"
-        :sizes="sizes"
-        type="image/webp"
-      >
+      <source v-bind="getSourceProps(lightSrcset)">
     </template>
 
     <img
@@ -54,7 +49,18 @@ const fileName = computed(() => props.src
   .join('.'),
 )
 
-const src = computed(() => isDark.value ? props.src.replace('.webp', '-dark.webp') : props.src)
+const darkImageSet = new Set(__DARK_IMAGE_LIST__)
+
+/** 只有確定存在暗色版才切換，src 可能是完整網址，比對前取 pathname */
+const darkVisible = computed(() => {
+  if (!isDark.value || darkSrcError.value) {
+    return false
+  }
+
+  return darkImageSet.has(new URL(props.src, 'https://codlin.me').pathname)
+})
+
+const src = computed(() => darkVisible.value ? props.src.replace('.webp', '-dark.webp') : props.src)
 
 /** 封面圖為首屏 LCP 元素，需優先載入；其餘圖片延後載入以釋放頻寬 */
 const isCover = computed(() => String(attrs.class ?? '').includes('cover'))
@@ -93,6 +99,18 @@ const lightSrcset = computed(() => getSrcset(fileName.value))
  * 例如：image-700.webp -> image-dark-700.webp
  */
 const darkSrcset = computed(() => getSrcset(`${fileName.value}-dark`))
+
+/** Vue 3.5 hydration 會把個別綁定的屬性重設一次，只略過值沒變的 src、srcset，不含 sizes。
+ * <source> 的 sizes 即使設成同樣的值，瀏覽器也會重新選圖、重新載入封面，
+ * LCP 因而被推遲到 hydration 之後（實測慢約 1 秒）。改用 v-bind 物件則 hydration 不會重設
+ */
+function getSourceProps(srcset: string) {
+  return {
+    srcset,
+    sizes: props.sizes,
+    type: 'image/webp',
+  }
+}
 
 const sourceVisible = computed(() => {
   /** DEV 模式不顯示響應式圖片 */

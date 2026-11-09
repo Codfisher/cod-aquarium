@@ -12,6 +12,7 @@ import Layout from './layout.vue'
 import '../ssr-guard'
 import './style.css'
 import './tailwind.css'
+import './nuxt-ui-colors.css'
 
 // const vConsole = new VConsole()
 

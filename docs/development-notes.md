@@ -275,6 +275,11 @@ mermaid 不在 Vite 的預先建置名單內，dev 時瀏覽器直接載入它�
 - **藏起來的 lazy 圖片照樣會下載。** Chrome 在慢速網路會預載距視窗 2500px 內的 lazy 圖片，被 fixed 元素蓋住、或只是推到兩個螢幕高以外都不夠。
 - **LCP 元素要等資料才知道是哪張圖時，在 `transformHead` 預載那份資料**（`as: 'fetch'`、`crossorigin: 'anonymous'`），且 fetch 不要帶自訂 header，否則預載結果無法沿用。
 - **串流資料別邊讀邊觸發整份清單重算。** meme-cache 原本每 500ms 觸發一次，無關鍵字時每次都重新洗牌、整份重繪；主執行緒一忙串流就讀得更慢、觸發更多次，4 倍 CPU 降速下會從 4 次膨脹到 30 次，前 15 秒長任務多達 27 秒。改為讀完才通知一次後，長任務降到 3 秒左右。
+- **圖片的暗色版（`xxx-dark.webp`）放進 `content/public` 即可，不必另外登記。** `config.mts` 啟動時掃描出有暗色版的圖，以 `__DARK_IMAGE_LIST__` 傳給 `BaseImg`，只對名單內的圖切換。過去一律嘗試載入暗色版，暗色模式下幾乎每篇封面都在 hydration 後多一次 404 再換回亮色，LCP 慢約 0.4 秒且封面會閃。新增暗色版後要重開 dev server 才會生效。
+- **文章頁的 FCP 主要卡在全站共用的 style.css。** VitePress 把所有元件（含各 aquarium app）的樣式合成一支，2026-11 時解壓後 394 KB，文章頁只用到 46%；它是 render-blocking，還跟 JS 搶頻寬。理想上只留用到的規則，慢速 4G 下 FCP 可快約 1 秒、LCP 快約 1.7 秒。VitePress 寫死 `cssCodeSplit: false`，產 HTML 時也只連結第一支 CSS，硬拆會讓 SSR 畫面在 JS 到之前沒有樣式。
+- **文章頁的 JS 一律低優先下載。** `config.mts` 的 `transformHtml` 會替 modulepreload 與 app.js 加 `fetchpriority="low"`，讓 style.css 與封面先拿到頻寬（鏡像代理實測 FCP 2.45 → 1.57 秒、LCP 3.45 → 2.86 秒）。直接拿掉 modulepreload 會讓 LCP 變慢。aquarium 頁的畫面靠 JS 繪製，不套用。
+- **載入後不要動態插入或移除 `<style>`。** 每插入、移除一次都會讓整頁重算樣式，CSS 越大越貴，文章頁 4 倍降速下一次 300～800 ms。曾有三個來源，合計約 2 秒：VueUse `useDark` 預設 `disableTransition`，初始化時即使外觀沒變也會插入再移除停用轉場的樣式（VitePress 本身與 Nuxt UI 各一個實例）；Nuxt UI 的顏色變數在 Vue 版沒有 SSR，會插暫時版、正式版再移除暫時版。現已分別以 `appearance: { disableTransition: false }`、`ui({ colorMode: false })`、`theme/nuxt-ui-colors.css` 靜態化處理。追查方式：trace 開 `disabled-by-default-devtools.timeline.invalidationTracking`，看每次 `UpdateLayoutTree` 的元素數與失效原因。
+- **`<source>`、`<img>` 的 `sizes` 不要個別綁定。** Vue 3.5 hydration 會把個別綁定的屬性重設一次，只略過值沒變的 src、srcset，不含 sizes；瀏覽器收到 sizes 就重新選圖、重新載入，LCP 被推到 hydration 之後。改用 `v-bind` 物件即可，見 `base-img.vue` 的 `getSourceProps`。這兩項加起來讓文章頁 LCP 從約 4.3 秒降到約 2.2 秒（鏡像代理、慢速 4G、CPU 4 倍）。
 - **Lighthouse 只量載入，抓不到互動造成的 CLS。** 要用 Playwright 模擬滾輪、輸入等操作，並以 `PerformanceObserver` 監聽 `layout-shift`，從 `sources` 找出元兇。
 
 量測方式：`npx lighthouse@12 <url> --only-categories=performance --output=json --chrome-flags="--headless=new"`，搭配 `--blocked-url-patterns` 封鎖特定資源，就能拆出各項因素的影響。
@@ -313,6 +318,10 @@ const firstImg = resourceList
 ```
 
 比較 `firstImg - received` 與 LCP 圖片時間減 `received`。換到其他頁面時，把正則換成該頁的資料與 chunk 名稱。
+
+**不 build 就想試改動效益：鏡像代理**
+
+只改 HTML 或靜態資源（換一支 CSS、加個屬性）時，可在本機架 Node 代理：從 `codlin.me` 抓內容快取、文字類以 brotli 壓縮後回傳，每個變體開一個 port，再用 CDP `Network.emulateNetworkConditions` 模擬慢速 4G（RTT 150 ms、下行 1.6 Mbps）交替量測。代理的上游也可以指向本機 preview（`http://localhost:4173`），讓 preview 與正式站走同一條 HTTP/2＋brotli 傳輸，就能直接比較連網路在內的 FCP／LCP，不受 preview 伺服器即時壓縮、no-cache 的影響（HTTP/2 需自簽憑證，Playwright 開 `ignoreHTTPSErrors`）。不要用 Playwright 的 `route.fulfill` 直接替換回應，它回傳的內容不經網路節流，攔截 HTML 還會打亂資源載入時序，數據會嚴重失真。
 
 **在 dev 定位瓶頸的工具**（只用來找元兇，效益仍以 preview 為準）
 
