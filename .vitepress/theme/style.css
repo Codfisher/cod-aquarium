@@ -189,6 +189,16 @@ html {
   background-color: transparent;
 }
 
+/* 側欄內容只比視窗高一點，滑塊幾乎與側欄等長，常駐看起來像一條多餘的分隔線。
+ * 平時透明，滑鼠移入側欄才淡入；透明度由 use-sidebar-scrollbar-fade 逐幀寫入，原因見該檔
+ */
+.VPSidebar::-webkit-scrollbar-thumb {
+  background-color: light-dark(
+    rgb(0 0 0 / calc(0.1 * var(--sidebar-thumb-opacity, 0))),
+    rgb(255 255 255 / calc(0.12 * var(--sidebar-thumb-opacity, 0)))
+  );
+}
+
 body {
   font-synthesis: weight style;
 }

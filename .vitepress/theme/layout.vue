@@ -4,9 +4,12 @@ import { useRouter } from 'vitepress'
 import DefaultTheme from 'vitepress/theme'
 import { onMounted, onUnmounted } from 'vue'
 import DonateSection from '../../web/components/donate-section.vue'
+import { useSidebarScrollbarFade } from './composables/use-sidebar-scrollbar-fade'
 
 /** 模板規範要求 kebab-case 元件名，成員表達式寫法（DefaultTheme.Layout）過不了 lint，取別名使用 */
 const DefaultLayout = DefaultTheme.Layout
+
+useSidebarScrollbarFade()
 
 /** 非同步元件載入後重新定位錨點 */
 let resizeObserver: ResizeObserver | undefined
