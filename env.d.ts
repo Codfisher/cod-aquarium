@@ -1,5 +1,8 @@
 /// <reference types="vite/client" />
 
+/** 有暗色版（`-dark.webp`）的圖片原圖路徑，由 .vitepress/config.mts 於啟動時掃描 public 產生 */
+declare const __DARK_IMAGE_LIST__: string[]
+
 declare module 'virtual:seo-meme-list' {
   import type { MemeItem } from './content/aquarium/meme-cache/meme-seo'
 
