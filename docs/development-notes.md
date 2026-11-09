@@ -27,6 +27,14 @@ Cloudflare Pages v3 build image 預設是 Node 22 + npm 10，本機是 Node 24 +
 
 **處理方式**：根目錄的 `.node-version` 釘選 Node 24，讓 Cloudflare 跟本機用同一代 npm。之後本機升 Node 主版本時要一併更新這個檔案。要在本機重現 Cloudflare 的檢查，可以跑 `npx npm@<版本> ci --dry-run --ignore-scripts`。
 
+## Cloudflare Pages 的 npm ci 卡在 onnxruntime-node 下載 GPU 函式庫
+
+2026-11-09 連續兩次部署在 `npm ci` 失敗，都還沒跑到 build：第一次是 `onnxruntime-node` 安裝腳本從 GitHub Releases 下載 `onnxruntime-linux-x64-gpu-*.tgz` 時遇到 504；重試那次沒能還原相依快取，全部重新下載時大量 tarball 被判為損壞，最後 wrangler 底下的 esbuild 版本驗證不過。
+
+**原因**：`onnxruntime-node` 由 devDependency `@huggingface/transformers` 帶入，只有本機的梗圖處理腳本用到。它在 Linux x64 安裝時會自動下載 CUDA 函式庫，Cloudflare 每次都是全新安裝，等於每次 build 都依賴 GitHub 下載一大包網站用不到的檔案。
+
+**處理方式**：根目錄 `.npmrc` 設 `onnxruntime-node-install-cuda=skip`，npm 會以 `npm_config_onnxruntime_node_install_cuda` 傳給安裝腳本。代價是每個 npm 指令都會印 `Unknown project config` 警告，npm 下一個主版本若不再傳遞自訂設定，改在 Cloudflare 設環境變數 `ONNXRUNTIME_NODE_INSTALL_CUDA=skip`。之後若又遇到 tarball 損壞，多半是 build 機器當下網路不穩，先重試，仍失敗再到 Pages 設定清除 build cache。
+
 ## Windows build 出現 EBUSY
 
 失敗訊息形如 `EBUSY: resource busy or locked, rmdir ...dist\public\chunks`，常見原因有二：
