@@ -217,10 +217,10 @@
 import type { DropdownMenuItem } from '@nuxt/ui'
 import type { MemeData } from './domains/meme/type'
 import { promiseTimeout, useActiveElement, useColorMode, useElementSize, useFocus, useWindowSize, watchThrottled } from '@vueuse/core'
-import { filter, isNullish, isTruthy, pipe, shuffle } from 'remeda'
+import { filter, isNullish, isTruthy, pipe, shuffle, unique } from 'remeda'
 import { computed, onMounted, reactive, ref, shallowRef, useTemplateRef, watch } from 'vue'
 import { BlurLevel } from '../../../.vitepress/utils/blur-level'
-import { type Emotion, EMOTION_LIST, parseEmotionList } from '../../../.vitepress/utils/meme-emotion'
+import { type Emotion, EMOTION_LIST, isEmotion, parseEmotionList } from '../../../.vitepress/utils/meme-emotion'
 import { nextFrame } from '../../../web/common/utils'
 import { usePageNoScroll } from '../../../web/composables/use-page-no-scroll'
 import { useKeywordQuery } from './composables/use-keyword-query'
@@ -307,7 +307,37 @@ const availableEmotionList = computed(() => {
   const existedSet = new Set(
     memeDataList.value.flatMap((item) => parseEmotionList(item.emotion)),
   )
-  return EMOTION_LIST.filter((emotion) => existedSet.has(emotion))
+  // 已選的一律列出：網址帶入圖庫沒有的情緒時，使用者才有 chip 可以取消，不會卡在零結果
+  return EMOTION_LIST.filter((emotion) => existedSet.has(emotion) || selectedEmotionSet.value.has(emotion))
+})
+
+/** 情緒分類頁以 ?emotion= 帶入預設篩選，切換後同步寫回網址，分享時篩選才不會遺失。
+ * 只改 emotion 這個參數，避免蓋掉 useKeywordQuery 維護的 q
+ */
+const EMOTION_QUERY_KEY = 'emotion'
+
+onMounted(() => {
+  // 不用 parseEmotionList：它限制單張圖最多 2 個標籤，篩選則可以多選
+  const initialList = unique(
+    (new URLSearchParams(window.location.search).get(EMOTION_QUERY_KEY) ?? '')
+      .split(',')
+      .map((item) => item.trim())
+      .filter(isEmotion),
+  )
+  if (initialList.length) {
+    selectedEmotionList.value = initialList
+  }
+})
+
+watch(selectedEmotionList, (emotionList) => {
+  const url = new URL(window.location.href)
+  if (emotionList.length) {
+    url.searchParams.set(EMOTION_QUERY_KEY, emotionList.join(','))
+  }
+  else {
+    url.searchParams.delete(EMOTION_QUERY_KEY)
+  }
+  window.history.replaceState(window.history.state, '', url)
 })
 
 function toggleEmotion(emotion: Emotion) {

@@ -1,6 +1,6 @@
 ---
-title: 快取梗圖
-description: 常常找不到記憶中的梗圖嗎？我來幫你找找 ԅ(´∀` ԅ) 可用描述或圖中文字搜尋近千張迷因梗圖。
+title: 快取梗圖｜梗圖搜尋器
+description: 找不到記憶中的梗圖嗎？我來幫你找找 ԅ(´∀` ԅ) 輸入畫面描述或圖中台詞，從上千張迷因梗圖庫找梗圖。
 image: https://codlin.me/meme-cache.webp
 layout: false
 ---

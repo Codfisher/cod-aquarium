@@ -2,6 +2,7 @@ import type { Buffer } from 'node:buffer'
 import type { DefaultTheme, HeadConfig } from 'vitepress'
 import type { MemeItem } from '../content/aquarium/meme-cache/meme-seo'
 import type { Article } from './utils'
+import { execFileSync } from 'node:child_process'
 import { readdirSync, readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import process from 'node:process'
@@ -15,7 +16,8 @@ import Icons from 'unplugin-icons/vite'
 import llmstxt from 'vitepress-plugin-llms'
 import { withMermaid } from 'vitepress-plugin-mermaid'
 import { RssPlugin } from 'vitepress-plugin-rss'
-import { getMemeAlt, getMemeKeywordList, getMemeName, parseMemeNdjson, SEO_MEME_LIMIT } from '../content/aquarium/meme-cache/meme-seo'
+import { getMemeAlt, getMemeKeywordList, getMemeName, isEmotionPageParams, MEME_CACHE_PATH, SEO_MEME_LIMIT } from '../content/aquarium/meme-cache/meme-seo'
+import { MEME_EXTEND_NDJSON_PATH, MEME_NDJSON_PATH, readSeoMemeList } from '../content/aquarium/meme-cache/meme-seo-source'
 import { markdownItBaseImg } from './plugin/markdown-it-base-img'
 import { markdownItCodeBlockName } from './plugin/markdown-it-code-block-name'
 import { markdownItNowrap } from './plugin/markdown-it-nowrap'
@@ -48,15 +50,11 @@ const darkImageList = readdirSync(CONTENT_PUBLIC_DIR, { recursive: true, encodin
   .map((file) => `/${file.replace(/\\/g, '/').replace(/-dark\.webp$/, '.webp')}`)
 /** 酷東西頁的網址前綴，這些頁為可直接操作的網頁應用 */
 const AQUARIUM_PATH = '/aquarium/'
-/** 快取梗圖頁網址，供注入圖片集合的結構化資料 */
-const MEME_CACHE_PATH = `${AQUARIUM_PATH}meme-cache/`
-const MEME_NDJSON_PATH = resolve(CONTENT_PUBLIC_DIR, 'memes/a-memes-data.ndjson')
-
 let memeListCache: MemeItem[] | undefined
-/** 迷因資料於 build 期間不會變動，快取避免重複讀取與解析近千筆資料 */
+/** 迷因資料於 build 期間不會變動，快取避免重複讀取與解析上千筆資料 */
 function getMemeList(): MemeItem[] {
   if (!memeListCache) {
-    memeListCache = parseMemeNdjson(readFileSync(MEME_NDJSON_PATH, 'utf-8'))
+    memeListCache = readSeoMemeList()
   }
   return memeListCache
 }
@@ -272,8 +270,20 @@ function toCollectionPageGraph(params: {
   itemList: Record<string, unknown>[];
   /** 頁面提供站內搜尋時的網址樣板，關鍵字以 {search_term_string} 標示 */
   searchUrlTemplate?: string;
+  /** 預設為首頁 → 本頁兩層，深層頁面自行傳入 */
+  breadcrumbNode?: Record<string, unknown>;
+  /** 同一頁的其他實體，例如快取梗圖本身也是網頁應用 */
+  extraNodeList?: Record<string, unknown>[];
 }): Record<string, unknown> {
-  const { pageTitle, pageDescription, canonicalUrl, itemList, searchUrlTemplate } = params
+  const {
+    pageTitle,
+    pageDescription,
+    canonicalUrl,
+    itemList,
+    searchUrlTemplate,
+    breadcrumbNode,
+    extraNodeList = [],
+  } = params
 
   const searchAction = searchUrlTemplate
     ? {
@@ -306,7 +316,8 @@ function toCollectionPageGraph(params: {
         },
         ...searchAction,
       },
-      toBreadcrumbNode(pageTitle, canonicalUrl),
+      ...extraNodeList,
+      breadcrumbNode ?? toBreadcrumbNode(pageTitle, canonicalUrl),
     ],
   }
 }
@@ -322,7 +333,7 @@ function toWebApplicationGraph(params: {
   canonicalUrl: string;
   imageObject: Record<string, unknown>;
 }): Record<string, unknown> {
-  const { pageTitle, pageDescription, canonicalUrl, imageObject } = params
+  const { pageTitle, canonicalUrl } = params
 
   return {
     '@context': 'https://schema.org',
@@ -330,27 +341,39 @@ function toWebApplicationGraph(params: {
       websiteNode,
       personNode,
       organizationNode,
-      {
-        '@type': 'WebApplication',
-        'name': pageTitle,
-        'description': pageDescription,
-        'url': canonicalUrl,
-        'image': imageObject,
-        'inLanguage': 'zh-Hant',
-        'isPartOf': { '@id': WEBSITE_ID },
-        'author': { '@id': PERSON_ID },
-        'applicationCategory': 'BrowserApplication',
-        'operatingSystem': 'Any',
-        'browserRequirements': 'Requires JavaScript',
-        // 全部免費，明確宣告避免被視為缺漏
-        'offers': {
-          '@type': 'Offer',
-          'price': '0',
-          'priceCurrency': 'TWD',
-        },
-      },
+      toWebApplicationNode(params),
       toBreadcrumbNode(pageTitle, canonicalUrl),
     ],
+  }
+}
+
+/** 網頁應用節點，作者以 @id 指向 personNode，使用時 graph 內需一併放入 personNode */
+function toWebApplicationNode(params: {
+  pageTitle: string;
+  pageDescription: string;
+  canonicalUrl: string;
+  imageObject: Record<string, unknown>;
+}): Record<string, unknown> {
+  const { pageTitle, pageDescription, canonicalUrl, imageObject } = params
+
+  return {
+    '@type': 'WebApplication',
+    'name': pageTitle,
+    'description': pageDescription,
+    'url': canonicalUrl,
+    'image': imageObject,
+    'inLanguage': 'zh-Hant',
+    'isPartOf': { '@id': WEBSITE_ID },
+    'author': { '@id': PERSON_ID },
+    'applicationCategory': 'BrowserApplication',
+    'operatingSystem': 'Any',
+    'browserRequirements': 'Requires JavaScript',
+    // 全部免費，明確宣告避免被視為缺漏
+    'offers': {
+      '@type': 'Offer',
+      'price': '0',
+      'priceCurrency': 'TWD',
+    },
   }
 }
 
@@ -358,7 +381,7 @@ function toWebApplicationGraph(params: {
  *
  * 迷因圖僅存在於 app 執行時 fetch 的 ndjson，爬蟲無從發現，
  * 於 sitemap 列出才有機會進入 Google 圖片索引。
- * 只放最新數張，避免近千張圖片淹沒 sitemap 中的文章。
+ * 只放最新數張，避免上千張圖片淹沒 sitemap 中的文章。
  */
 function toMemeSitemapImageList() {
   return getMemeList().slice(-SEO_MEME_LIMIT).map((meme) => ({
@@ -366,6 +389,40 @@ function toMemeSitemapImageList() {
     title: getMemeName(meme),
     caption: getMemeAlt(meme),
   }))
+}
+
+/** 迷因資料最後一次 commit 的時間，供快取梗圖頁的 sitemap lastmod 使用。
+ *
+ * VitePress 的 lastmod 取自頁面 .md 的 git 時間，但新增迷因只會動到 ndjson，
+ * 圖庫更新後 lastmod 不會跟著變，爬蟲無從得知頁面有新內容。
+ * 取不到（非 git 環境、檔案未 commit）時回傳 undefined，沿用 VitePress 的值
+ */
+function getMemeDataCommitDate(): string | undefined {
+  try {
+    const output = execFileSync(
+      'git',
+      ['log', '-1', '--format=%cI', '--', MEME_NDJSON_PATH, MEME_EXTEND_NDJSON_PATH],
+      { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] },
+    ).trim()
+
+    return output || undefined
+  }
+  catch {
+    return undefined
+  }
+}
+
+/** 取兩個 lastmod 中較新者；VitePress 給的是毫秒時間戳，自行補上的是 ISO 字串 */
+function pickLatestLastmod(
+  current: string | number | Date | undefined,
+  candidate: string | undefined,
+): string | number | Date | undefined {
+  if (!candidate)
+    return current
+  if (!current)
+    return candidate
+
+  return new Date(candidate).getTime() > new Date(current).getTime() ? candidate : current
 }
 
 /** 迷因的圖片 ItemList，附上關鍵字與圖中文字（OCR），利於圖片搜尋比對 */
@@ -428,6 +485,7 @@ export default ({ mode }: { mode: string }) => {
 
   /** 首頁與總覽頁的 lastmod，以最新文章發布日為代表（新增文章時內容才變動） */
   const latestArticleDate = toIsoDate(articleList[0]?.frontmatter?.pubDate)
+  const memeDataCommitDate = getMemeDataCommitDate()
 
   const baseConfig = {
     title: SITE_TITLE,
@@ -504,14 +562,21 @@ export default ({ mode }: { mode: string }) => {
           // 首頁與總覽頁補上 lastmod，其餘沿用 VitePress 依 git 產生的值
           const bareUrl = normalizedUrl.replace(/^\//, '')
           const isEntryPage = bareUrl === '' || bareUrl === 'article-overview'
-          const lastmod = (isEntryPage && latestArticleDate && !item.lastmod)
+          // 快取梗圖頁改列出整份圖庫，讓爬蟲得以發現 app 內才會載入的迷因圖
+          const isMemeCachePage = `/${bareUrl}`.replace(/\/index$/, '/') === MEME_CACHE_PATH
+          // 含情緒分類頁
+          const isMemeCacheSection = `/${bareUrl}`.startsWith(MEME_CACHE_PATH)
+
+          const entryLastmod = (isEntryPage && latestArticleDate && !item.lastmod)
             ? latestArticleDate
             : item.lastmod
+          // 快取梗圖各頁的內容隨迷因資料更新，lastmod 取頁面與資料兩者較新的時間
+          const lastmod = isMemeCacheSection
+            ? pickLatestLastmod(entryLastmod, memeDataCommitDate)
+            : entryLastmod
 
           // 文章附上封面圖，供 Google 圖片搜尋收錄
           const image = findArticleByUrl(item.url)?.frontmatter?.image
-          // 快取梗圖頁改列出整份圖庫，讓爬蟲得以發現 app 內才會載入的迷因圖
-          const isMemeCachePage = `/${bareUrl}`.replace(/\/index$/, '/') === MEME_CACHE_PATH
           const imageList = isMemeCachePage
             ? toMemeSitemapImageList()
             : (image ? [{ url: image }] : undefined)
@@ -529,6 +594,44 @@ export default ({ mode }: { mode: string }) => {
       // 去除檔名前面的日期
       const result = id.replace(/\d{6}\./, '')
       return result
+    },
+    /** 情緒分類頁由動態路由產生，標題與描述依路由參數補上，transformHead 與 <title> 才拿得到 */
+    transformPageData(pageData) {
+      if (!isEmotionPageParams(pageData.params))
+        return
+
+      const { label, total, memeList } = pageData.params
+      const title = `${label}梗圖｜快取梗圖`
+      // 帶入最新一張的描述，讓 15 頁的描述各有不同，不只差在情緒名稱與張數
+      const latestMeme = memeList[0]
+      const latestText = latestMeme?.describe?.trim()
+        ? `最新收錄：${getMemeName(latestMeme).replace(/[。！？]$/, '')}。`
+        : ''
+      const description = [
+        `收錄 ${total} 張${label}梗圖。`,
+        latestText,
+        '只記得畫面或台詞，也能用梗圖搜尋器找到那一張。',
+      ].filter(Boolean).join('')
+      // VitePress 呼叫此 hook 前已算好 pageData.description，<meta name="description"> 讀的是它，
+      // 只改 frontmatter 的話只有 og、twitter 標籤會換掉
+      pageData.title = title
+      pageData.description = description
+      // 頁尾「更新於」預設是 [emotion].md 的 git 時間，與內容無關，改用迷因資料的 commit 時間。
+      // frontmatter 的 lastUpdated 在此 hook 之前就判斷過了，這裡寫入無效，只能直接改 pageData
+      if (memeDataCommitDate) {
+        pageData.lastUpdated = new Date(memeDataCommitDate).getTime()
+      }
+      // 版面設定也在這裡寫，原因見 emotion/[emotion].md 的註解
+      Object.assign(pageData.frontmatter, {
+        title,
+        description,
+        image: `${HOSTNAME}/meme-cache.webp`,
+        layout: 'doc',
+        aside: false,
+        sidebar: false,
+        prev: false,
+        next: false,
+      })
     },
     transformHead({ page, pageData }) {
       const urlPath = toUrlPath(page)
@@ -648,10 +751,10 @@ export default ({ mode }: { mode: string }) => {
           },
         ])
       }
-      /** layout: false 的頁面（各 aquarium app）不顯示封面，frontmatter.image 只供社群分享用，
+      /** layout: false 的頁面（各 aquarium app）與梗圖情緒分類頁不顯示封面，frontmatter.image 只供社群分享用，
        * preload 只會以高優先權白載、跟真正的首屏資源搶頻寬
        */
-      else if (pageData?.frontmatter?.layout !== false) {
+      else if (pageData?.frontmatter?.layout !== false && !isEmotionPageParams(pageData?.params)) {
         /** 文章頁 LCP 圖片 preload：封面圖與 frontmatter.image 同源，
          * 依 base-img 的響應式 srcset 產生對應 imagesrcset，讓瀏覽器盡早下載封面。
          */
@@ -784,6 +887,31 @@ export default ({ mode }: { mode: string }) => {
           canonicalUrl,
           itemList: toMemeImageItemList(getMemeList().slice(-SEO_MEME_LIMIT)),
           searchUrlTemplate: `${canonicalUrl}?q={search_term_string}`,
+          // 頁面同時是可操作的梗圖搜尋器，與其他酷東西頁一致宣告 WebApplication
+          extraNodeList: [
+            personNode,
+            organizationNode,
+            toWebApplicationNode({ pageTitle, pageDescription, canonicalUrl, imageObject }),
+          ],
+        })))
+      }
+      else if (isEmotionPageParams(pageData.params)) {
+        /** 情緒分類頁（如「嘲諷梗圖」）為快取梗圖底下的圖片集合頁，麵包屑多一層快取梗圖 */
+        const memeCacheUrl = `${HOSTNAME}${MEME_CACHE_PATH}`
+        headList.push(toJsonLdScript(toCollectionPageGraph({
+          pageTitle,
+          pageDescription,
+          canonicalUrl,
+          itemList: toMemeImageItemList(pageData.params.memeList),
+          breadcrumbNode: {
+            '@type': 'BreadcrumbList',
+            'itemListElement': [
+              { '@type': 'ListItem', 'position': 1, 'name': '首頁', 'item': `${HOSTNAME}/` },
+              { '@type': 'ListItem', 'position': 2, 'name': '快取梗圖', 'item': memeCacheUrl },
+              // 不用 pageTitle：它帶「｜快取梗圖」後綴，與第二層重複
+              { '@type': 'ListItem', 'position': 3, 'name': `${pageData.params.label}梗圖`, 'item': canonicalUrl },
+            ],
+          },
         })))
       }
       else if (urlPath.startsWith(AQUARIUM_PATH)) {
@@ -1170,7 +1298,11 @@ export default ({ mode }: { mode: string }) => {
             componentDetection: true,
           },
         }),
-        llmstxt(),
+        llmstxt({
+          // 情緒分類頁是動態路由，原始內容帶每頁十多 KB 的參數 JSON，收進 llms 文件只是雜訊。
+          // 這只解決雜訊；frontmatter 被外掛打壞的問題另由分類頁不寫 frontmatter 處理（見 [emotion].md）
+          ignoreFiles: ['aquarium/meme-cache/emotion/*'],
+        }),
 
         whyframe({
           defaultSrc: '/_frame',

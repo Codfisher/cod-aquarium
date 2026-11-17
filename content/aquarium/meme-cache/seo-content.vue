@@ -1,4 +1,3 @@
-<!-- eslint-disable vue/no-useless-v-bind -->
 <template>
   <!-- 結構化資料（JSON-LD）由 .vitepress/config.mts 的 transformHead 注入 head，
        元件內以 script 標籤輸出會被 SSR 跳脫成 HTML 實體，導致 Google 無法剖析 -->
@@ -10,39 +9,32 @@
       id="meme-gallery-title"
       class="page-title"
     >
-      迷因梗圖搜尋
+      梗圖搜尋器
     </h1>
 
     <p class="lead">
-      以描述或圖中文字（OCR）搜尋 {{ seoMemeTotal }} 張迷因梗圖，找到記憶中的那一張。
+      快取梗圖是免費的梗圖（哏圖、迷因圖）搜尋器，收錄 {{ seoMemeTotal }} 張。
+      只記得畫面或台詞也找得到：輸入畫面描述、圖中文字、角色或作品名稱即可。
     </p>
 
-    <!-- 圖片清單。描述僅寫入 alt 與 head 的結構化資料，不顯示於畫面 -->
-    <div class="grid">
-      <figure
-        v-for="(item) in seoMemeList"
-        :key="item.file"
-        class="card"
-      >
-        <img
-          :src="fileSrc(item.file)"
-          :alt="getMemeAlt(item)"
-          loading="lazy"
-          decoding="async"
-          :width="item.width || undefined"
-          :height="item.height || undefined"
-        >
-      </figure>
-    </div>
+    <h2 class="section-title">
+      依情緒找梗圖
+    </h2>
+
+    <seo-emotion-link-list class="emotion-link-list" />
+
+    <h2 class="section-title">
+      最新收錄的梗圖
+    </h2>
+
+    <seo-meme-grid :meme-list="seoMemeList" />
   </section>
 </template>
 
 <script setup lang="ts">
 import { seoMemeList, seoMemeTotal } from 'virtual:seo-meme-list'
-import { withBase } from 'vitepress'
-import { getMemeAlt } from './meme-seo'
-
-const fileSrc = (file: string) => withBase(`/memes/${file}`)
+import SeoEmotionLinkList from './seo-emotion-link-list.vue'
+import SeoMemeGrid from './seo-meme-grid.vue'
 </script>
 
 <style scoped lang="sass">
@@ -66,22 +58,10 @@ const fileSrc = (file: string) => withBase(`/memes/${file}`)
   line-height: 1.7
   margin: 0 0 1.5rem
 
-.grid
-  display: grid
-  grid-template-columns: repeat(1, minmax(0, 1fr))
-  gap: 1rem
+.section-title
+  font-size: 1.25rem
+  margin: 0 0 1rem
 
-.card
-  margin: 0
-  background: var(--vp-c-bg-soft)
-  border: 1px solid var(--vp-c-divider)
-  border-radius: 16px
-  overflow: hidden
-
-.card img
-  display: block
-  width: 100%
-  aspect-ratio: 4 / 3
-  object-fit: cover
-  background: var(--vp-c-bg-alt)
+.emotion-link-list
+  margin-bottom: 2rem
 </style>
