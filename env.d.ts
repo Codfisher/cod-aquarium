@@ -4,13 +4,15 @@
 declare const __DARK_IMAGE_LIST__: string[]
 
 declare module 'virtual:seo-meme-list' {
-  import type { MemeItem } from './content/aquarium/meme-cache/meme-seo'
-
+  // ambient module 內不能用相對路徑的 import 宣告（TS2439，型別會退化成 any），改用 import() 型別
   /** 供 SEO 靜態內容使用的最新迷因清單，由 vite-seo-meme-list plugin 於 build 時產生 */
-  export const seoMemeList: MemeItem[]
+  export const seoMemeList: import('./content/aquarium/meme-cache/meme-seo').MemeItem[]
 
   /** 圖庫的迷因總數 */
   export const seoMemeTotal: number
+
+  /** 各情緒分類的張數與分類頁網址，供頁面互相連結 */
+  export const seoEmotionSummaryList: import('./content/aquarium/meme-cache/meme-seo').EmotionSummary[]
 }
 
 declare module 'gifenc' {

@@ -352,3 +352,14 @@ const firstImg = resourceList
 - **沒量到的值是哨兵值**：時間類欄位是 `4294967295`（uint32 上限），CLS 是 `-1`，計算前要排除，否則 P75 會變成 4294967 ms。
 - **SQL 限制**：不支援 `quantile` 這類參數化函式，P75 要撈原始列（`FORMAT JSONEachRow`）在本機依 `sampleInterval` 加權計算；`max` 要改用 `APPROX_MAX`；`ORDER BY` 必須搭配 `LIMIT`；WHERE 裡寫了 `timestamp` 條件就不能再帶 `--time-since`。
 - **看到問題先依日期切開**，確認是不是修正上線前的舊資料。2026-11 查到 meme-cache 有 30 筆 CLS 超過 0.1，元兇是虛擬清單 wrapper，但全落在 11/05 改用 `translateY`（見「網頁效能」）上線之前，之後 CLS 最大 0.007，不必再修。
+
+## meme-cache 的 SEO 結構
+
+meme-cache 本體是 `layout: false` 的單頁 app，上千張圖共用一個網址，爬蟲只看得到 build 時產生的靜態內容：
+
+- **主頁** `seo-content.vue`：h1、說明、情緒分類連結、最新 20 張（`SEO_MEME_LIMIT`）附描述與圖中文字。區塊刻意推到首屏 3000px 以下，避免 lazy 圖片與 app 搶頻寬。
+- **情緒分類頁** `/aquarium/meme-cache/emotion/<slug>`：`emotion/[emotion].paths.ts` 依 `EMOTION_LIST` 每種情緒產生一頁，列最新 60 張（`EMOTION_PAGE_MEME_LIMIT`），沒有迷因的情緒不產生頁面。標題、描述與版面設定都由 `config.mts` 的 `transformPageData` 依路由參數寫入，`[emotion].md` 刻意不寫 frontmatter：動態路由會在內容開頭插入參數前綴，vitepress-plugin-llms 再把提示塞在前綴與 frontmatter 之間，frontmatter 就會解析失敗、整段 YAML 印在頁面上。描述要同時寫 `pageData.description`，`<meta name="description">` 讀的是它而不是 frontmatter。VitePress 1.6 的動態路由不支援 `watch`，dev 時改 ndjson 要重啟。頁面的 CTA 帶 `?emotion=` 進 app，app 會套用對應篩選。
+- **新增情緒標籤**時要在 `meme-seo.ts` 的 `EMOTION_SLUG_MAP` 補英文代稱，型別與 `meme-seo.test.ts` 會擋漏填與重複。
+- **資料來源**：build 端一律透過 `meme-seo-source.ts` 讀取主檔並合併 extend 檔的情緒標籤。只存在於 extend 檔的圖不會納入（app 會），目前沒有這種圖，張數與 app 一致。這支檔案用到 `node:fs`，不可被頁面匯入；頁面要資料走 `virtual:seo-meme-list`。
+- **sitemap lastmod**：meme-cache 底下各頁取「頁面 .md」與「兩份 ndjson」最後 commit 時間的較新者，新增迷因後 lastmod 才會更新。分類頁頁尾的「更新於」也直接改 `pageData.lastUpdated` 為 ndjson 的 commit 時間；frontmatter 的 `lastUpdated` 在 `transformPageData` 之前就判斷過，寫在那裡無效。
+- 2026-11 Search Console：「梗圖」三個月 2 萬次曝光、平均排名約 7、點閱率 0.36%；「嘲諷梗圖」「哏圖」有曝光但幾乎沒點擊，是這次分類頁與文案調整的依據。
