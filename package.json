@@ -9,6 +9,7 @@
     "task:rebuild-meme-asset": "npx vite-node .vitepress/scripts/rebuild-meme-asset.ts",
     "task:apply-meme-emotion": "npx vite-node .vitepress/scripts/apply-meme-emotion.ts",
     "task:check-meme-index": "npx vite-node .vitepress/scripts/check-meme-search-index.ts",
+    "task:generate-meme-og": "npx vite-node .vitepress/scripts/generate-meme-cache-og.ts",
     "build": "vitepress build",
     "preview": "npm run build && vitepress preview",
     "server:generate": "drizzle-kit generate",

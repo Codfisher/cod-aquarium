@@ -362,4 +362,5 @@ meme-cache 本體是 `layout: false` 的單頁 app，上千張圖共用一個網
 - **新增情緒標籤**時要在 `meme-seo.ts` 的 `EMOTION_SLUG_MAP` 補英文代稱，型別與 `meme-seo.test.ts` 會擋漏填與重複。
 - **資料來源**：build 端一律透過 `meme-seo-source.ts` 讀取主檔並合併 extend 檔的情緒標籤。只存在於 extend 檔的圖不會納入（app 會），目前沒有這種圖，張數與 app 一致。這支檔案用到 `node:fs`，不可被頁面匯入；頁面要資料走 `virtual:seo-meme-list`。
 - **sitemap lastmod**：meme-cache 底下各頁取「頁面 .md」與「兩份 ndjson」最後 commit 時間的較新者，新增迷因後 lastmod 才會更新。分類頁頁尾的「更新於」也直接改 `pageData.lastUpdated` 為 ndjson 的 commit 時間；frontmatter 的 `lastUpdated` 在 `transformPageData` 之前就判斷過，寫在那裡無效。
+- **社群縮圖**：`npm run task:generate-meme-og` 產生 `public/og/meme-cache-*.jpg` 四種比例，og:image 用 1200×630、X 用 1200×675（frontmatter `twitterImage`）、結構化資料列 16:9／4:3／1:1（frontmatter `structuredImageList`）。主頁與分類頁共用，由 `transformPageData` 寫入。圖上有中文字，要在裝有 Noto Sans TC 的本機產生後 commit，Cloudflare 的 Linux 環境沒有中文字型。用 JPEG 是因為部分 Slack、Discord 用戶端讀不了 WebP 預覽圖，腳本會擋 300 KB 以上的輸出（WhatsApp 上限 600 KB）。`twitterImage`、`structuredImageList` 是通用欄位，其他頁面也能用。
 - 2026-11 Search Console：「梗圖」三個月 2 萬次曝光、平均排名約 7、點閱率 0.36%；「嘲諷梗圖」「哏圖」有曝光但幾乎沒點擊，是這次分類頁與文案調整的依據。

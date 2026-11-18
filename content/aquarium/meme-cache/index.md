@@ -1,7 +1,7 @@
 ---
 title: 快取梗圖｜梗圖搜尋器
 description: 找不到記憶中的梗圖嗎？我來幫你找找 ԅ(´∀` ԅ) 輸入畫面描述或圖中台詞，從上千張迷因梗圖庫找梗圖。
-image: https://codlin.me/meme-cache.webp
+# 社群縮圖（image、twitterImage、structuredImageList）與情緒分類頁共用，統一由 .vitepress/config.mts 的 transformPageData 寫入
 layout: false
 ---
 
