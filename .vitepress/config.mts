@@ -50,6 +50,27 @@ const darkImageList = readdirSync(CONTENT_PUBLIC_DIR, { recursive: true, encodin
   .map((file) => `/${file.replace(/\\/g, '/').replace(/-dark\.webp$/, '.webp')}`)
 /** 酷東西頁的網址前綴，這些頁為可直接操作的網頁應用 */
 const AQUARIUM_PATH = '/aquarium/'
+
+/** 快取梗圖主頁與情緒分類頁共用的社群縮圖，由 .vitepress/scripts/generate-meme-cache-og.ts 產生。
+ * 各平台比例不同：og:image 用 1.91:1，X 用 16:9，結構化資料依 Google 建議給 16:9、4:3、1:1
+ */
+const MEME_CACHE_SOCIAL_IMAGE = {
+  image: `${HOSTNAME}/og/meme-cache-1200x630.jpg`,
+  twitterImage: `${HOSTNAME}/og/meme-cache-1200x675.jpg`,
+  structuredImageList: [675, 900, 1200].map((height) => `${HOSTNAME}/og/meme-cache-1200x${height}.jpg`),
+}
+
+/** 結構化資料的 image 欄位，可為單張或多種比例 */
+type SchemaImage = Record<string, unknown> | Record<string, unknown>[]
+
+/** 圖片 ImageObject，讀得到尺寸就一併帶上 */
+function toImageObject(url: string): Record<string, unknown> {
+  const size = getImageSize(url)
+  return size
+    ? { '@type': 'ImageObject', 'url': url, 'width': size.width, 'height': size.height }
+    : { '@type': 'ImageObject', 'url': url }
+}
+
 let memeListCache: MemeItem[] | undefined
 /** 迷因資料於 build 期間不會變動，快取避免重複讀取與解析上千筆資料 */
 function getMemeList(): MemeItem[] {
@@ -188,6 +209,29 @@ function parseWebpSize(buffer: Buffer): { width: number; height: number } | unde
   return undefined
 }
 
+/** 逐段掃 JPEG marker，從 SOF 段讀出寬高。社群縮圖用 JPEG（部分平台讀不了 WebP），需要這支才能輸出 og:image 尺寸 */
+function parseJpegSize(buffer: Buffer): { width: number; height: number } | undefined {
+  if (buffer.length < 4 || buffer[0] !== 0xFF || buffer[1] !== 0xD8)
+    return undefined
+
+  let offset = 2
+  while (offset + 9 < buffer.length) {
+    if (buffer[offset] !== 0xFF)
+      return undefined
+
+    const marker = buffer[offset + 1] ?? 0
+    // SOF0～SOF15，扣掉 DHT（C4）、JPG（C8）、DAC（CC）這三個不是影格標頭的 marker
+    const isFrameHeader = marker >= 0xC0 && marker <= 0xCF && ![0xC4, 0xC8, 0xCC].includes(marker)
+    if (isFrameHeader) {
+      return { height: buffer.readUInt16BE(offset + 5), width: buffer.readUInt16BE(offset + 7) }
+    }
+
+    offset += 2 + buffer.readUInt16BE(offset + 2)
+  }
+
+  return undefined
+}
+
 /** 讀取 public 目錄中封面圖的實際尺寸（含快取），供 og:image 與 ImageObject 使用 */
 const imageSizeMap = new Map<string, { width: number; height: number } | undefined>()
 function getImageSize(imageUrl?: string): { width: number; height: number } | undefined {
@@ -202,6 +246,9 @@ function getImageSize(imageUrl?: string): { width: number; height: number } | un
     const { pathname } = new URL(imageUrl, HOSTNAME)
     if (pathname.endsWith('.webp')) {
       result = parseWebpSize(readFileSync(resolve(CONTENT_PUBLIC_DIR, `.${pathname}`)))
+    }
+    else if (/\.jpe?g$/.test(pathname)) {
+      result = parseJpegSize(readFileSync(resolve(CONTENT_PUBLIC_DIR, `.${pathname}`)))
     }
   }
   catch {
@@ -331,7 +378,7 @@ function toWebApplicationGraph(params: {
   pageTitle: string;
   pageDescription: string;
   canonicalUrl: string;
-  imageObject: Record<string, unknown>;
+  schemaImage: SchemaImage;
 }): Record<string, unknown> {
   const { pageTitle, canonicalUrl } = params
 
@@ -352,16 +399,16 @@ function toWebApplicationNode(params: {
   pageTitle: string;
   pageDescription: string;
   canonicalUrl: string;
-  imageObject: Record<string, unknown>;
+  schemaImage: SchemaImage;
 }): Record<string, unknown> {
-  const { pageTitle, pageDescription, canonicalUrl, imageObject } = params
+  const { pageTitle, pageDescription, canonicalUrl, schemaImage } = params
 
   return {
     '@type': 'WebApplication',
     'name': pageTitle,
     'description': pageDescription,
     'url': canonicalUrl,
-    'image': imageObject,
+    'image': schemaImage,
     'inLanguage': 'zh-Hant',
     'isPartOf': { '@id': WEBSITE_ID },
     'author': { '@id': PERSON_ID },
@@ -597,6 +644,11 @@ export default ({ mode }: { mode: string }) => {
     },
     /** 情緒分類頁由動態路由產生，標題與描述依路由參數補上，transformHead 與 <title> 才拿得到 */
     transformPageData(pageData) {
+      const isEmotionPage = isEmotionPageParams(pageData.params)
+      if (pageData.relativePath === 'aquarium/meme-cache/index.md' || isEmotionPage) {
+        Object.assign(pageData.frontmatter, MEME_CACHE_SOCIAL_IMAGE)
+      }
+
       if (!isEmotionPageParams(pageData.params))
         return
 
@@ -625,7 +677,6 @@ export default ({ mode }: { mode: string }) => {
       Object.assign(pageData.frontmatter, {
         title,
         description,
-        image: `${HOSTNAME}/meme-cache.webp`,
         layout: 'doc',
         aside: false,
         sidebar: false,
@@ -648,8 +699,13 @@ export default ({ mode }: { mode: string }) => {
         ? new URL(frontmatter.image, baseConfig.hostname).toString()
         : `${baseConfig.hostname}/cover.webp`
       const ogImageSize = getImageSize(ogImage)
-      // 大圖卡需接近 1.91:1，否則正方或直式圖會被裁切，改用不裁切的一般卡
-      const isWideImage = !ogImageSize || ogImageSize.width / ogImageSize.height >= 1.6
+      // X 的大圖卡吃 16:9，可用 frontmatter.twitterImage 另給一張；沒給就沿用 og:image
+      const twitterImage = typeof frontmatter.twitterImage === 'string'
+        ? new URL(frontmatter.twitterImage, baseConfig.hostname).toString()
+        : ogImage
+      const twitterImageSize = getImageSize(twitterImage)
+      // 大圖卡需為橫式，否則正方或直式圖會被裁切，改用不裁切的一般卡
+      const isWideImage = !twitterImageSize || twitterImageSize.width / twitterImageSize.height >= 1.6
       const twitterCard = isWideImage ? 'summary_large_image' : 'summary'
 
       const headList: HeadConfig[] = [
@@ -673,7 +729,8 @@ export default ({ mode }: { mode: string }) => {
         ['meta', { name: 'twitter:card', content: twitterCard }],
         ['meta', { name: 'twitter:title', content: pageTitle }],
         ['meta', { name: 'twitter:description', content: pageDescription }],
-        ['meta', { name: 'twitter:image', content: ogImage }],
+        ['meta', { name: 'twitter:image', content: twitterImage }],
+        ['meta', { name: 'twitter:image:alt', content: pageTitle }],
         /** gtag 先建立佇列 stub，事件照常累積；實際 gtag.js 延後至 load 事件才注入，
          * 避免其下載與執行（實測約 1.7 秒主執行緒）搶佔首屏，載入後會自動消化佇列
          */
@@ -786,10 +843,17 @@ export default ({ mode }: { mode: string }) => {
         }
       }
 
-      /** 封面圖 ImageObject，帶尺寸利於搜尋引擎與社群平台判斷 */
-      const imageObject: Record<string, unknown> = ogImageSize
-        ? { '@type': 'ImageObject', 'url': ogImage, 'width': ogImageSize.width, 'height': ogImageSize.height }
-        : { '@type': 'ImageObject', 'url': ogImage }
+      /** 封面圖 ImageObject，帶尺寸利於搜尋引擎與社群平台判斷。
+       * Google 建議結構化資料的圖片同時提供 16:9、4:3、1:1，frontmatter.structuredImageList 有給就全部列出
+       */
+      const structuredImageUrlList: string[] = Array.isArray(frontmatter.structuredImageList)
+        ? frontmatter.structuredImageList
+            .filter((url: unknown): url is string => typeof url === 'string')
+            .map((url: string) => new URL(url, baseConfig.hostname).toString())
+        : []
+      const schemaImage = structuredImageUrlList.length
+        ? structuredImageUrlList.map(toImageObject)
+        : toImageObject(ogImage)
 
       /** 結構化資料（JSON-LD）：協助搜尋引擎理解內容、爭取複合式搜尋結果 */
       if (isArticle) {
@@ -819,7 +883,7 @@ export default ({ mode }: { mode: string }) => {
           '@type': 'BlogPosting',
           'headline': pageTitle,
           'description': pageDescription,
-          'image': imageObject,
+          'image': schemaImage,
           'datePublished': publishedTime,
           'dateModified': modifiedTime,
           'inLanguage': 'zh-Hant',
@@ -891,7 +955,7 @@ export default ({ mode }: { mode: string }) => {
           extraNodeList: [
             personNode,
             organizationNode,
-            toWebApplicationNode({ pageTitle, pageDescription, canonicalUrl, imageObject }),
+            toWebApplicationNode({ pageTitle, pageDescription, canonicalUrl, schemaImage }),
           ],
         })))
       }
@@ -920,7 +984,7 @@ export default ({ mode }: { mode: string }) => {
           pageTitle,
           pageDescription,
           canonicalUrl,
-          imageObject,
+          schemaImage,
         })))
       }
 

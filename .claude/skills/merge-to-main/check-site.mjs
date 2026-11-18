@@ -14,7 +14,9 @@ const PAGES = [
   { path: '/', heading: '歡迎來到鱈魚的魚缸' },
   { path: '/article-overview', heading: '文章列表' },
   { path: '/blog-program/what-is-mutation-testing-and-stryker', heading: '來點突變吧' },
-  { path: '/aquarium/meme-cache/', heading: '迷因梗圖搜尋' },
+  { path: '/aquarium/meme-cache/', heading: '梗圖搜尋器' },
+  // 動態路由產生的情緒分類頁，一頁代表全部
+  { path: '/aquarium/meme-cache/emotion/sarcastic', heading: '嘲諷梗圖' },
   { path: '/aquarium/codmarbles/', title: '鱈魚的彈珠' },
 ]
 const VIEWPORTS = [

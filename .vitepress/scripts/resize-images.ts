@@ -17,6 +17,8 @@ const IGNORE_PATH_LIST = [
   'public/assets/',
   'public/codstack/',
   'public/hexazen/',
+  // 社群縮圖已依各平台尺寸產好，只給爬蟲抓，不需要響應式版本
+  'public/og/',
 ]
 const WIDTH_LIST = [700, 300]
 const SUFFIX_NAME_LIST = ['.png', '.jpg', '.jpeg', '.webp']
