@@ -288,7 +288,7 @@
 </template>
 
 <script setup lang="ts">
-import type { ContextMenuItem, DropdownMenuItem, TabsItem } from '@nuxt/ui/.'
+import type { ContextMenuItem, DropdownMenuItem, TabsItem } from '@nuxt/ui'
 import type { ModelFile } from '../../type'
 import { refManualReset, useElementSize, useStorage } from '@vueuse/core'
 import { storeToRefs } from 'pinia'

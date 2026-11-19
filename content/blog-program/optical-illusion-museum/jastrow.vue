@@ -35,19 +35,24 @@ const innerRadius = 200
 const sweepDeg = 55
 const halfSweep = (sweepDeg / 2) * (Math.PI / 180)
 
+/** 座標取到小數 3 位。Node（預先渲染）與瀏覽器的三角函數在最後幾位小數會有差異，不取整會造成 hydration 不一致 */
+function roundCoordinate(value: number): number {
+  return Math.round(value * 1000) / 1000
+}
+
 function getArcPath(cx: number, cy: number): string {
   const angleLeft = Math.PI / 2 + halfSweep
   const angleRight = Math.PI / 2 - halfSweep
 
-  const oLx = cx + outerRadius * Math.cos(angleLeft)
-  const oLy = cy - outerRadius * Math.sin(angleLeft)
-  const oRx = cx + outerRadius * Math.cos(angleRight)
-  const oRy = cy - outerRadius * Math.sin(angleRight)
+  const oLx = roundCoordinate(cx + outerRadius * Math.cos(angleLeft))
+  const oLy = roundCoordinate(cy - outerRadius * Math.sin(angleLeft))
+  const oRx = roundCoordinate(cx + outerRadius * Math.cos(angleRight))
+  const oRy = roundCoordinate(cy - outerRadius * Math.sin(angleRight))
 
-  const iLx = cx + innerRadius * Math.cos(angleLeft)
-  const iLy = cy - innerRadius * Math.sin(angleLeft)
-  const iRx = cx + innerRadius * Math.cos(angleRight)
-  const iRy = cy - innerRadius * Math.sin(angleRight)
+  const iLx = roundCoordinate(cx + innerRadius * Math.cos(angleLeft))
+  const iLy = roundCoordinate(cy - innerRadius * Math.sin(angleLeft))
+  const iRx = roundCoordinate(cx + innerRadius * Math.cos(angleRight))
+  const iRy = roundCoordinate(cy - innerRadius * Math.sin(angleRight))
 
   return [
     `M ${oLx} ${oLy}`,

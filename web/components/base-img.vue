@@ -19,7 +19,7 @@
 <script setup lang="ts">
 import type { ImgHTMLAttributes } from 'vue'
 import { join, map, pipe } from 'remeda'
-import { useData } from 'vitepress'
+import { useData } from '#vp'
 import { computed, ref, useAttrs } from 'vue'
 
 interface Props extends /* @vue-ignore */ ImgHTMLAttributes {

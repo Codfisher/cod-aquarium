@@ -57,11 +57,11 @@
 </template>
 
 <script setup lang="ts">
-import type { AppType } from '../../server'
+import type { AppType } from '../../server/hono'
 import { useAsyncState, useIntersectionObserver, useWindowFocus, whenever } from '@vueuse/core'
 import { hc } from 'hono/client'
 import { debounce } from 'lodash-es'
-import { useRoute } from 'vitepress'
+import { useRoute } from '#vp'
 import { computed, ref, useTemplateRef, watch } from 'vue'
 import BgFlock from './bg-flock/bg-flock.vue'
 
@@ -97,7 +97,8 @@ const articleId = computed(() => {
   return value.includes('blog-') || value.includes('column-') ? value : ''
 })
 
-const client = hc<AppType>('https://cod-aquarium-server.codfish-2140.workers.dev/')
+/** API 由 Nuxt 的 Nitro 提供，與網站同網域 */
+const client = hc<AppType>('/')
 
 const currentReaction = ref(0)
 

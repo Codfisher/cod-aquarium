@@ -1,5 +1,5 @@
 <template>
-  <!-- 結構化資料、標題與描述由 .vitepress/config.mts 依路由參數注入 -->
+  <!-- 結構化資料、標題與描述由 site/head.ts 依路由參數注入（site/pages.ts 產生參數） -->
   <div
     v-if="pageParams"
     class="emotion-page"
@@ -19,34 +19,69 @@
     </p>
 
     <seo-meme-grid
-      :meme-list="pageParams.memeList"
+      :meme-list="memeList"
       :eager-count="4"
     />
 
     <h2>依情緒找梗圖</h2>
 
-    <seo-emotion-link-list :current-emotion="pageParams.label" />
+    <seo-emotion-link-list :current-emotion="currentEmotion" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { useData, withBase } from 'vitepress'
+import type { ClientEmotionParams } from '../../../app/theme/site-data'
+import type { MemeItem } from './meme-seo'
+import { useData, withBase } from '#vp'
+import { useAsyncData } from 'nuxt/app'
 import { computed } from 'vue'
+import { isEmotion } from '../../../site/utils/meme-emotion'
 import { isEmotionPageParams, MEME_CACHE_PATH } from './meme-seo'
 import SeoEmotionLinkList from './seo-emotion-link-list.vue'
 import SeoMemeGrid from './seo-meme-grid.vue'
 
+/** client 端頁面資料只有 emotion、label、total，迷因清單太大不放進 #site/data */
 const { params } = useData()
 
-const pageParams = computed(() => isEmotionPageParams(params.value) ? params.value : undefined)
+const pageParams = computed<ClientEmotionParams | undefined>(() => params.value as ClientEmotionParams | undefined)
+
+const currentEmotion = computed(() => {
+  const label = pageParams.value?.label
+  return label && isEmotion(label) ? label : undefined
+})
+
+/** 迷因清單只在 SSR（prerender）讀 #site/server-data，結果寫進 payload。
+ *
+ * 首次載入由 HTML 內嵌的 payload 提供，client 換頁時 Nuxt 會抓該頁 prerender 的 _payload.json，
+ * 15 頁的清單因此不會打包進 client。dev 沒有 prerender，client 換頁時改直接讀模組，
+ * import.meta.dev 在正式打包為 false，這段會被移除
+ */
+const { data: memeList } = await useAsyncData(
+  () => `meme-cache-emotion-${pageParams.value?.emotion ?? ''}`,
+  async (): Promise<MemeItem[]> => {
+    const emotion = pageParams.value?.emotion
+    if (!emotion)
+      return []
+
+    if (import.meta.server || import.meta.dev) {
+      const { default: serverData } = await import('#site/server-data')
+      const emotionParams: unknown = new Map(Object.entries(serverData.emotionParamsMap)).get(emotion)
+      return isEmotionPageParams(emotionParams) ? emotionParams.memeList : []
+    }
+
+    return []
+  },
+  { default: () => [] },
+)
 
 /** 張數不超過上限時整個分類都列出，避免「收錄 40 張，以下是最新的 40 張」這種重複 */
 const listScopeText = computed(() => {
   if (!pageParams.value)
     return ''
 
-  const { total, memeList } = pageParams.value
-  return memeList.length >= total ? '以下全部列出' : `以下是最新的 ${memeList.length} 張`
+  const { total } = pageParams.value
+  const { length } = memeList.value
+  return length >= total ? '以下全部列出' : `以下是最新的 ${length} 張`
 })
 
 /** 帶 ?emotion= 進 app，app 掛載後會套用對應的情緒篩選 */

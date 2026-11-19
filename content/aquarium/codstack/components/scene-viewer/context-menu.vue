@@ -171,7 +171,7 @@
 
 <script setup lang="ts">
 import type { AbstractMesh } from '@babylonjs/core'
-import type { ContextMenuItem } from '@nuxt/ui/.'
+import type { ContextMenuItem } from '@nuxt/ui'
 import type { MeshMeta } from '../../type'
 import { filter, isTruthy, pipe } from 'remeda'
 import { computed } from 'vue'

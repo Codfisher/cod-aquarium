@@ -1,6 +1,6 @@
 import type { FrameSprite } from './animated-output'
 import { beforeAll, describe, expect, it } from 'vitest'
-import { getSpriteColumnCount } from '../../../../../.vitepress/utils/meme-sprite-layout'
+import { getSpriteColumnCount } from '../../../../../site/utils/meme-sprite-layout'
 import { encodeGif, encodeMp4 } from './animated-output'
 import { encodeAnimatedOutput } from './animated-output-client'
 

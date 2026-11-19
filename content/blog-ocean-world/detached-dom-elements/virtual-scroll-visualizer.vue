@@ -125,14 +125,16 @@
 </template>
 
 <script setup>
-import { useWindowSize } from '@vueuse/core'
+import { useMounted, useWindowSize } from '@vueuse/core'
 import { computed, nextTick, onMounted, reactive, ref } from 'vue'
 
 const windowSize = reactive(useWindowSize())
 
 const total = ref(100)
 const itemHeight = ref(36)
-const viewportHeight = computed(() => windowSize.height * 0.2)
+// 預先渲染時沒有視窗，掛載前一律用固定高度，SSR 與 client 的第一次渲染才會一致
+const isMounted = useMounted()
+const viewportHeight = computed(() => isMounted.value ? windowSize.height * 0.2 : 160)
 const overscan = ref(4)
 
 const scrollerEl = ref(null)

@@ -29,7 +29,7 @@
 
 <script setup lang="ts">
 import type { MemeItem } from './meme-seo'
-import { withBase } from 'vitepress'
+import { withBase } from '#vp'
 import { getMemeAlt } from './meme-seo'
 
 withDefaults(defineProps<{

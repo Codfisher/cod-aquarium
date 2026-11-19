@@ -5,6 +5,7 @@ node_modules
 .cache
 .output
 .env
+.dev.vars
 dist
 .DS_Store
 
@@ -29,3 +30,6 @@ components.d.ts
 .meme-review/
 # Vite 讀 config 時產生的暫存檔
 *.timestamp-*.mjs
+
+# 正式站比對工具的報告與截圖
+scripts/compare/output/

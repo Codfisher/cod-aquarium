@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { BlurLevel } from '../../../../../.vitepress/utils/blur-level'
+import { BlurLevel } from '../../../../../site/utils/blur-level'
 
 /**
  * 手動標註檔只會補其中幾個欄位，故文字欄位一律給預設值，

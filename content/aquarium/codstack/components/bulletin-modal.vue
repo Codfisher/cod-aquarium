@@ -74,7 +74,7 @@
 </template>
 
 <script setup lang="ts">
-import type { TabsItem } from '@nuxt/ui/.'
+import type { TabsItem } from '@nuxt/ui'
 import { usePreferredLanguages } from '@vueuse/core'
 import { computed, ref, watch } from 'vue'
 import { useSimpleI18n } from '../composables/use-simple-i18n'

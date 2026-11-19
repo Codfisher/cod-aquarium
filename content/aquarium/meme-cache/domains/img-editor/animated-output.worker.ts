@@ -1,5 +1,5 @@
 import type { Rect } from './animated-output'
-import { SPRITE_LAYOUT_VERSION } from '../../../../../.vitepress/utils/meme-sprite-layout'
+import { SPRITE_LAYOUT_VERSION } from '../../../../../site/utils/meme-sprite-layout'
 import { encodeGif, encodeMp4 } from './animated-output'
 
 /**

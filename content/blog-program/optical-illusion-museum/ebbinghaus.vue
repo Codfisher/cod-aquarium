@@ -69,8 +69,9 @@ function generateSurroundPositionList(
   return Array.from({ length: count }, (_, i) => {
     const angle = (i / count) * Math.PI * 2 - Math.PI / 2
     return {
-      x: centerX + Math.cos(angle) * distance,
-      y: centerY + Math.sin(angle) * distance,
+      // 取到小數 3 位，避免 Node 與瀏覽器三角函數的末位差異造成 hydration 不一致
+      x: Math.round((centerX + Math.cos(angle) * distance) * 1000) / 1000,
+      y: Math.round((centerY + Math.sin(angle) * distance) * 1000) / 1000,
     }
   })
 }

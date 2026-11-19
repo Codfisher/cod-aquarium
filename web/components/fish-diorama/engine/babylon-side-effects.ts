@@ -8,6 +8,9 @@
 import '@babylonjs/core/Culling/ray'
 import '@babylonjs/core/Layers/effectLayerSceneComponent'
 import '@babylonjs/core/Lights/Shadows/shadowGeneratorSceneComponent'
+// scene.enablePhysics、getPhysicsEngine 由這支註冊；v2 的 physicsEngineComponent 只補 TransformNode.physicsBody。
+// VitePress 時代碰巧被其他 app 的整包匯入帶進共用 chunk 才沒出事，拆 chunk 後要明確匯入
+import '@babylonjs/core/Physics/joinedPhysicsEngineComponent'
 import '@babylonjs/core/Physics/v2/physicsEngineComponent'
 import '@babylonjs/core/Rendering/depthRendererSceneComponent'
 import '@babylonjs/core/Rendering/geometryBufferRendererSceneComponent'

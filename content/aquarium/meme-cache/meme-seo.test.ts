@@ -1,6 +1,6 @@
 import type { MemeItem } from './meme-seo'
 import { describe, expect, it } from 'vitest'
-import { EMOTION_LIST } from '../../../.vitepress/utils/meme-emotion'
+import { EMOTION_LIST } from '../../../site/utils/meme-emotion'
 import {
   EMOTION_SLUG_MAP,
   getEmotionMemeList,

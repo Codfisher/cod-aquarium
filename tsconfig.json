@@ -1,42 +1,11 @@
 {
-  "compilerOptions": {
-    "target": "esnext",
-    "jsx": "preserve",
-    "lib": [
-      "esnext",
-      "dom"
-    ],
-    "useDefineForClassFields": true,
-    "module": "esnext",
-    "moduleResolution": "node",
-    "paths": {
-      "#build/ui": [
-        "./node_modules/@nuxt/ui/.nuxt/ui",
-        "./node_modules/@nuxt/ui/.nuxt/ui/*"
-      ]
-    },
-    "noErrorTruncation": true,
-    "resolveJsonModule": true,
-    "types": [
-      "@vitest/browser/matchers",
-      "unplugin-icons/types/vue",
-      "@cloudflare/workers-types",
-      "@cloudflare/vitest-pool-workers",
-      "@types/wicg-file-system-access"
-    ],
-    "allowArbitraryExtensions": true,
-    "strict": true,
-    "noUncheckedIndexedAccess": true,
-    "sourceMap": true,
-    "esModuleInterop": true
-  },
-  "include": [
-    ".vitepress/**/*.ts",
-    "web/**/*",
-    "server/**/*",
-    "content/**/*",
-    "env.d.ts",
-    "auto-imports.d.ts",
-    "components.d.ts"
+  // Nuxt 4 的專案參照寫法：各執行環境的設定由 nuxt prepare 產生於 .nuxt/
+  // web、content、site 不在 Nuxt 預設的 app 範圍內，由 nuxt.config.ts 的 typescript.tsConfig.include 補上
+  "files": [],
+  "references": [
+    { "path": "./.nuxt/tsconfig.app.json" },
+    { "path": "./.nuxt/tsconfig.server.json" },
+    { "path": "./.nuxt/tsconfig.shared.json" },
+    { "path": "./.nuxt/tsconfig.node.json" }
   ]
 }

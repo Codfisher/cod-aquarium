@@ -187,17 +187,16 @@
 </template>
 
 <script setup lang="ts">
-import type { Config } from '../.vitepress/config.mts'
 import { useElementSize } from '@vueuse/core'
 import dayjs from 'dayjs'
 import { filter, flatMap, map, pipe, sort, unique } from 'remeda'
-import { useData, useRouter } from 'vitepress'
+import { useRouter } from '#vp'
+import sourceArticleList from '#site/article-list'
 import { computed, ref } from 'vue'
 import BaseImg from './base-img.vue'
 
 const isDev = import.meta.env.DEV
 const router = useRouter()
-const { theme } = useData<Config>()
 
 const linkListRef = ref<HTMLElement>()
 const { height: linkListHeight } = useElementSize(linkListRef)
@@ -211,7 +210,7 @@ const selectedTags = ref<string[]>([])
 const isFilterVisible = ref(false)
 const tagList = computed(() => {
   const result = pipe(
-    theme.value.articleList ?? [],
+    sourceArticleList,
     flatMap(({ frontmatter }) => frontmatter.tags ?? []),
     unique(),
     map((name) => {
@@ -244,7 +243,7 @@ function clearAllTags() {
 }
 
 const articleList = computed(() => pipe(
-  theme.value.articleList ?? [],
+  sourceArticleList,
   filter((article) => {
     if (selectedTags.value.length === 0)
       return false

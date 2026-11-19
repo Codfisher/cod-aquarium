@@ -1,5 +1,5 @@
 import type { MemeData } from './type'
-import { mergeEmotion } from '../../../../../.vitepress/utils/meme-emotion'
+import { mergeEmotion } from '../../../../../site/utils/meme-emotion'
 
 /** 合併以逗號分隔的關鍵字字串，保留順序並去除重複 */
 export function mergeKeyword(...sourceList: Array<string | undefined>): string {

@@ -1,0 +1,251 @@
+@media (prefers-reduced-motion: reduce) {
+  *:not(:where(.vp-raw, .vp-raw *)),
+  :not(:where(.vp-raw, .vp-raw *))::before,
+  :not(:where(.vp-raw, .vp-raw *))::after {
+    animation-delay: -1ms !important;
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    background-attachment: initial !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0s !important;
+    transition-delay: 0s !important;
+  }
+}
+
+*:not(:where(.vp-raw, .vp-raw *)),
+:not(:where(.vp-raw, .vp-raw *))::before,
+:not(:where(.vp-raw, .vp-raw *))::after {
+  box-sizing: border-box;
+}
+
+html:not(:where(.vp-raw, .vp-raw *)) {
+  line-height: 1.4;
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+}
+
+html.dark:not(:where(.vp-raw, .vp-raw *)) {
+  color-scheme: dark;
+}
+
+body:not(:where(.vp-raw, .vp-raw *)) {
+  margin: 0;
+  width: 100%;
+  min-width: 320px;
+  min-height: 100vh;
+  line-height: 24px;
+  font-family: var(--vp-font-family-base);
+  font-size: 16px;
+  font-weight: 400;
+  color: var(--vp-c-text-1);
+  background-color: var(--vp-c-bg);
+  font-synthesis: style;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+main:not(:where(.vp-raw, .vp-raw *)) {
+  display: block;
+}
+
+h1:not(:where(.vp-raw, .vp-raw *)),
+h2:not(:where(.vp-raw, .vp-raw *)),
+h3:not(:where(.vp-raw, .vp-raw *)),
+h4:not(:where(.vp-raw, .vp-raw *)),
+h5:not(:where(.vp-raw, .vp-raw *)),
+h6:not(:where(.vp-raw, .vp-raw *)) {
+  margin: 0;
+  line-height: 24px;
+  font-size: 16px;
+  font-weight: 400;
+}
+
+p:not(:where(.vp-raw, .vp-raw *)) {
+  margin: 0;
+}
+
+strong:not(:where(.vp-raw, .vp-raw *)),
+b:not(:where(.vp-raw, .vp-raw *)) {
+  font-weight: 600;
+}
+
+/**
+ * Avoid 300ms click delay on touch devices that support the `touch-action`
+ * CSS property.
+ *
+ * In particular, unlike most other browsers, IE11+Edge on Windows 10 on
+ * touch devices and IE Mobile 10-11 DON'T remove the click delay when
+ * `<meta name="viewport" content="width=device-width">` is present.
+ * However, they DO support removing the click delay via
+ * `touch-action: manipulation`.
+ *
+ * See:
+ * - http://v4-alpha.getbootstrap.com/content/reboot/#click-delay-optimization-for-touch
+ * - http://caniuse.com/#feat=css-touch-action
+ * - http://patrickhlauke.github.io/touch/tests/results/#suppressing-300ms-delay
+ */
+a:not(:where(.vp-raw, .vp-raw *)),
+area:not(:where(.vp-raw, .vp-raw *)),
+button:not(:where(.vp-raw, .vp-raw *)),
+[role='button']:not(:where(.vp-raw, .vp-raw *)),
+input:not(:where(.vp-raw, .vp-raw *)),
+label:not(:where(.vp-raw, .vp-raw *)),
+select:not(:where(.vp-raw, .vp-raw *)),
+summary:not(:where(.vp-raw, .vp-raw *)),
+textarea:not(:where(.vp-raw, .vp-raw *)) {
+  touch-action: manipulation;
+}
+
+a:not(:where(.vp-raw, .vp-raw *)) {
+  color: inherit;
+  text-decoration: inherit;
+}
+
+ol:not(:where(.vp-raw, .vp-raw *)),
+ul:not(:where(.vp-raw, .vp-raw *)) {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+blockquote:not(:where(.vp-raw, .vp-raw *)) {
+  margin: 0;
+}
+
+pre:not(:where(.vp-raw, .vp-raw *)),
+code:not(:where(.vp-raw, .vp-raw *)),
+kbd:not(:where(.vp-raw, .vp-raw *)),
+samp:not(:where(.vp-raw, .vp-raw *)) {
+  font-family: var(--vp-font-family-mono);
+}
+
+img:not(:where(.vp-raw, .vp-raw *)),
+svg:not(:where(.vp-raw, .vp-raw *)),
+video:not(:where(.vp-raw, .vp-raw *)),
+canvas:not(:where(.vp-raw, .vp-raw *)),
+audio:not(:where(.vp-raw, .vp-raw *)),
+iframe:not(:where(.vp-raw, .vp-raw *)),
+embed:not(:where(.vp-raw, .vp-raw *)),
+object:not(:where(.vp-raw, .vp-raw *)) {
+  display: block;
+}
+
+figure:not(:where(.vp-raw, .vp-raw *)) {
+  margin: 0;
+}
+
+img:not(:where(.vp-raw, .vp-raw *)),
+video:not(:where(.vp-raw, .vp-raw *)) {
+  max-width: 100%;
+  height: auto;
+}
+
+button:not(:where(.vp-raw, .vp-raw *)),
+input:not(:where(.vp-raw, .vp-raw *)),
+optgroup:not(:where(.vp-raw, .vp-raw *)),
+select:not(:where(.vp-raw, .vp-raw *)),
+textarea:not(:where(.vp-raw, .vp-raw *)) {
+  border: 0;
+  padding: 0;
+  line-height: inherit;
+  color: inherit;
+}
+
+button:not(:where(.vp-raw, .vp-raw *)) {
+  padding: 0;
+  font-family: inherit;
+  background-color: transparent;
+  background-image: none;
+}
+
+button:not(:where(.vp-raw, .vp-raw *)):enabled,
+[role='button']:not(:where(.vp-raw, .vp-raw *)):enabled {
+  cursor: pointer;
+}
+
+button:not(:where(.vp-raw, .vp-raw *)):focus,
+button:not(:where(.vp-raw, .vp-raw *)):focus-visible {
+  outline: 1px dotted;
+  outline: 4px auto -webkit-focus-ring-color;
+}
+
+button:not(:where(.vp-raw, .vp-raw *)):focus:not(:focus-visible) {
+  outline: none !important;
+}
+
+input:not(:where(.vp-raw, .vp-raw *)):focus,
+textarea:not(:where(.vp-raw, .vp-raw *)):focus,
+select:not(:where(.vp-raw, .vp-raw *)):focus {
+  outline: none;
+}
+
+table:not(:where(.vp-raw, .vp-raw *)) {
+  border-collapse: collapse;
+}
+
+input:not(:where(.vp-raw, .vp-raw *)) {
+  background-color: transparent;
+}
+
+input:not(:where(.vp-raw, .vp-raw *)):-ms-input-placeholder,
+textarea:not(:where(.vp-raw, .vp-raw *)):-ms-input-placeholder {
+  color: var(--vp-c-text-3);
+}
+
+input:not(:where(.vp-raw, .vp-raw *))::-ms-input-placeholder,
+textarea:not(:where(.vp-raw, .vp-raw *))::-ms-input-placeholder {
+  color: var(--vp-c-text-3);
+}
+
+input:not(:where(.vp-raw, .vp-raw *))::placeholder,
+textarea:not(:where(.vp-raw, .vp-raw *))::placeholder {
+  color: var(--vp-c-text-3);
+}
+
+input:not(:where(.vp-raw, .vp-raw *))::-webkit-outer-spin-button,
+input:not(:where(.vp-raw, .vp-raw *))::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type='number']:not(:where(.vp-raw, .vp-raw *)) {
+  -moz-appearance: textfield;
+}
+
+textarea:not(:where(.vp-raw, .vp-raw *)) {
+  resize: vertical;
+}
+
+select:not(:where(.vp-raw, .vp-raw *)) {
+  -webkit-appearance: none;
+}
+
+fieldset:not(:where(.vp-raw, .vp-raw *)) {
+  margin: 0;
+  padding: 0;
+}
+
+h1:not(:where(.vp-raw, .vp-raw *)),
+h2:not(:where(.vp-raw, .vp-raw *)),
+h3:not(:where(.vp-raw, .vp-raw *)),
+h4:not(:where(.vp-raw, .vp-raw *)),
+h5:not(:where(.vp-raw, .vp-raw *)),
+h6:not(:where(.vp-raw, .vp-raw *)),
+li:not(:where(.vp-raw, .vp-raw *)),
+p:not(:where(.vp-raw, .vp-raw *)) {
+  overflow-wrap: break-word;
+}
+
+vite-error-overlay:not(:where(.vp-raw, .vp-raw *)) {
+  z-index: 9999;
+}
+
+mjx-container:not(:where(.vp-raw, .vp-raw *)) {
+  overflow-x: auto;
+}
+
+mjx-container > svg:not(:where(.vp-raw, .vp-raw *)) {
+  display: inline-block;
+  margin: auto;
+}

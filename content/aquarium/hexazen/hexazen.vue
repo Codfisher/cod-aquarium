@@ -334,8 +334,7 @@ colorMode.value = 'light'
 useFontLoader()
 
 const sharedViewEncodedData = pipe(
-  // 因為 whyframe 隔離，需要從 parent 取得 URL
-  new URLSearchParams(window.parent.location.search || window.location.search),
+  new URLSearchParams(window.location.search),
   (urlParams) => urlParams.get('view'),
 )
 const isSharedView = !!sharedViewEncodedData
@@ -446,7 +445,7 @@ async function handleShare() {
   }
 
   const encoded = encodeBlocks(sharedBlocks)
-  const url = new URL(window.parent.location.href || window.location.href)
+  const url = new URL(window.location.href)
   url.searchParams.set('view', encoded)
 
   await navigator.clipboard.writeText(url.toString())

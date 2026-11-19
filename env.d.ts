@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 
-/** 有暗色版（`-dark.webp`）的圖片原圖路徑，由 .vitepress/config.mts 於啟動時掃描 public 產生 */
+/** 有暗色版（`-dark.webp`）的圖片原圖路徑，由 nuxt.config.ts 於啟動時以 site/dark-image.ts 掃描 public 產生 */
 declare const __DARK_IMAGE_LIST__: string[]
 
 declare module 'virtual:seo-meme-list' {

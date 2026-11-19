@@ -1,4 +1,4 @@
-import { getSpriteColumnCount, SPRITE_LAYOUT_VERSION } from '../../../../../.vitepress/utils/meme-sprite-layout'
+import { getSpriteColumnCount, SPRITE_LAYOUT_VERSION } from '../../../../../site/utils/meme-sprite-layout'
 
 /*
  * 兩個編碼器都改成動態載入。

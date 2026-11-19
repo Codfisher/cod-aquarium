@@ -218,9 +218,10 @@ import type { DropdownMenuItem } from '@nuxt/ui'
 import type { MemeData } from './domains/meme/type'
 import { promiseTimeout, useActiveElement, useColorMode, useElementSize, useFocus, useWindowSize, watchThrottled } from '@vueuse/core'
 import { filter, isNullish, isTruthy, pipe, shuffle, unique } from 'remeda'
+import { onNuxtReady } from 'nuxt/app'
 import { computed, onMounted, reactive, ref, shallowRef, useTemplateRef, watch } from 'vue'
-import { BlurLevel } from '../../../.vitepress/utils/blur-level'
-import { type Emotion, EMOTION_LIST, isEmotion, parseEmotionList } from '../../../.vitepress/utils/meme-emotion'
+import { BlurLevel } from '../../../site/utils/blur-level'
+import { type Emotion, EMOTION_LIST, isEmotion, parseEmotionList } from '../../../site/utils/meme-emotion'
 import { nextFrame } from '../../../web/common/utils'
 import { usePageNoScroll } from '../../../web/composables/use-page-no-scroll'
 import { useKeywordQuery } from './composables/use-keyword-query'
@@ -316,7 +317,10 @@ const availableEmotionList = computed(() => {
  */
 const EMOTION_QUERY_KEY = 'emotion'
 
-onMounted(() => {
+/** 等 Nuxt 完成 hydration 才讀網址：預先渲染頁帶 query 開啟時，Nuxt 會暫時把網址換成不含 query 的版本，
+ * 掛載當下讀到的 location.search 是空的
+ */
+onNuxtReady(() => {
   // 不用 parseEmotionList：它限制單張圖最多 2 個標籤，篩選則可以多選
   const initialList = unique(
     (new URLSearchParams(window.location.search).get(EMOTION_QUERY_KEY) ?? '')
