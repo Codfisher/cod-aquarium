@@ -11,7 +11,7 @@
     "task:check-meme-index": "npx vite-node site/scripts/check-meme-search-index.ts",
     "task:generate-meme-og": "npx vite-node site/scripts/generate-meme-cache-og.ts",
     "build": "nuxt generate && vite-node site/scripts/postbuild.ts",
-    "preview": "npx serve dist -l 4173",
+    "preview": "pnpm run build && wrangler pages dev dist --port 4173",
     "server:generate": "drizzle-kit generate",
     "server:test": "vitest --config vitest.server.config.ts",
     "server:migrate": "wrangler d1 migrations apply cod-aquarium --remote",
