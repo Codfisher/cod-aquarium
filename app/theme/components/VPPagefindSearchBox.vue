@@ -122,7 +122,12 @@ function getBestSubResult(data: PagefindResultData): PagefindSubResult | undefin
     .toSorted((a, b) => (b.locations?.length ?? 0) - (a.locations?.length ?? 0))[0]
 }
 
-const groupList = computed<CommandPaletteGroup<CommandPaletteItem>[]>(() => [{
+/** 搜尋結果項目：多帶封面縮圖給 #item-leading 插槽 */
+interface SearchItem extends CommandPaletteItem {
+  thumbnail?: string;
+}
+
+const groupList = computed<CommandPaletteGroup<SearchItem>[]>(() => [{
   id: 'pagefind',
   ignoreFilter: true,
   items: resultList.value.map((data) => {
@@ -134,6 +139,8 @@ const groupList = computed<CommandPaletteGroup<CommandPaletteItem>[]>(() => [{
       description: stripHtml(excerpt),
       /** excerpt 由 Pagefind 跳脫過，只帶 <mark> 標示命中字詞 */
       descriptionHtml: excerpt,
+      /** 封面縮圖，由 VPDoc 以 data-pagefind-meta 寫進索引 */
+      thumbnail: data.meta.thumbnail,
       onSelect: () => openResult(bestSubResult?.url ?? data.url),
     }
   }),
@@ -170,6 +177,26 @@ const emptyText = computed(() => {
         }"
         @update:open="isOpen = $event"
       >
+        <!-- 結果左側的封面縮圖；沒有封面的頁面（總覽、分類頁）放同尺寸的 icon 佔位，各列文字才對齊 -->
+        <template #item-leading="{ item }">
+          <span class="result-thumbnail">
+            <img
+              v-if="item.thumbnail"
+              :src="item.thumbnail"
+              alt=""
+              width="48"
+              height="48"
+              loading="lazy"
+              decoding="async"
+            >
+            <u-icon
+              v-else
+              name="i-material-symbols:article-outline-rounded"
+              class="size-6"
+            />
+          </span>
+        </template>
+
         <template #empty>
           <p class="py-6 text-center text-sm text-muted">
             {{ emptyText }}
@@ -179,3 +206,31 @@ const emptyText = computed(() => {
     </template>
   </u-modal>
 </template>
+
+<style scoped>
+/* 縮圖框與圖版同一套：刻線框、圓角；框內 img 拿掉全站預設的框與圓角 */
+.result-thumbnail {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  margin-right: 4px;
+  overflow: hidden;
+  color: var(--plate-ink);
+  background: color-mix(in oklch, var(--vp-c-brand-1) 8%, transparent);
+  border: 1px solid var(--plate-line);
+  border-radius: 10px;
+}
+
+.result-thumbnail img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  object-fit: cover;
+  border: none;
+  border-radius: 0;
+}
+</style>

@@ -1,14 +1,16 @@
 import type { SitePage } from '../site/pages'
 import type { PlateSeries } from '../site/plate-series'
+import { existsSync } from 'node:fs'
 import path from 'node:path'
 import { addTemplate, addVitePlugin, defineNuxtModule } from '@nuxt/kit'
-import { CONTENT_PATH, SITE_DESCRIPTION, SITE_LANG, SITE_TITLE } from '../site/constants'
+import { CONTENT_PATH, CONTENT_PUBLIC_DIR, SITE_DESCRIPTION, SITE_LANG, SITE_TITLE } from '../site/constants'
 import { getPageHeadList } from '../site/head'
 import { getLatestArticleList } from '../site/latest-articles'
 import { viteMarkdown } from '../site/markdown/vite-plugin'
 import { getFeaturedMemeList } from '../site/meme-featured'
 import { getSitePageList } from '../site/pages'
 import { getPlateSeriesMap } from '../site/plate-series'
+import { getSearchThumbnailPath } from '../site/search-thumbnail'
 import { getPageSeo } from '../site/seo'
 import { getThemeConfig } from '../site/theme-config'
 
@@ -17,10 +19,25 @@ function toClientPage(page: SitePage, plateSeriesMap: Map<string, PlateSeries>) 
   const { params, ...rest } = page
   return {
     ...rest,
+    /** 站內搜尋結果的封面縮圖，見 getSearchThumbnail */
+    searchThumbnail: getSearchThumbnail(page),
     headers: [],
     params: params ? { emotion: params.emotion, label: params.label, total: params.total } : undefined,
     plateSeries: plateSeriesMap.get(page.routePath),
   }
+}
+
+/** 站內搜尋結果的封面縮圖網址。草稿不進搜尋索引；封面檔不存在（例如還沒做的草稿封面）就不給，
+ * 否則預先渲染這張縮圖會 404 讓 build 失敗
+ */
+function getSearchThumbnail(page: SitePage): string | undefined {
+  if (page.frontmatter.draft)
+    return undefined
+  const thumbnailPath = getSearchThumbnailPath(page.frontmatter.image)
+  if (!thumbnailPath || typeof page.frontmatter.image !== 'string')
+    return undefined
+  const imagePath = new URL(page.frontmatter.image, 'https://codlin.me').pathname
+  return existsSync(path.join(CONTENT_PUBLIC_DIR, decodeURIComponent(imagePath))) ? thumbnailPath : undefined
 }
 
 /** 側欄項目內嵌的 frontmatter 只在 build 期排序用，送到 client 前拿掉 */
@@ -239,6 +256,8 @@ export default defineNuxtModule({
     nuxt.options.nitro.prerender.routes = [
       ...(nuxt.options.nitro.prerender.routes ?? []),
       ...pageList.map((page) => page.routePath),
+      /** 搜尋結果縮圖只寫在 Pagefind 的 meta 裡，頁面上沒有對應的 <img>，Nuxt Image 不會自動產生，這裡明確列出 */
+      ...new Set(pageList.map(getSearchThumbnail).filter((item): item is string => !!item)),
     ]
   },
 })
