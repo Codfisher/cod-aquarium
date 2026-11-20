@@ -14,6 +14,8 @@ export default defineConfig({
           exclude: [
             '**/node_modules/**',
             '**/*.browser.{test,spec}.ts',
+            // server 測試要在 workerd 跑，由 server 專案負責
+            'server/**',
           ],
           name: 'unit',
           environment: 'node',

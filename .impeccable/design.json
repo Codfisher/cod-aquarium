@@ -1,0 +1,127 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-19T00:00:00Z",
+  "title": "Design System: 鱈魚的魚缸",
+  "extensions": {
+    "colorMeta": {
+      "brand-teal": { "role": "primary", "displayName": "鱈魚青", "canonical": "oklch(0.50 0.13 175)", "tonalRamp": ["oklch(0.20 0.05 175)", "oklch(0.30 0.08 175)", "oklch(0.40 0.11 175)", "oklch(0.50 0.13 175)", "oklch(0.65 0.13 175)", "oklch(0.75 0.12 175)", "oklch(0.86 0.07 175)", "oklch(0.95 0.025 175)"] },
+      "brand-teal-mid": { "role": "primary", "displayName": "中段青", "canonical": "oklch(0.65 0.13 175)", "tonalRamp": ["oklch(0.20 0.05 175)", "oklch(0.30 0.08 175)", "oklch(0.40 0.11 175)", "oklch(0.50 0.13 175)", "oklch(0.65 0.13 175)", "oklch(0.75 0.12 175)", "oklch(0.86 0.07 175)", "oklch(0.95 0.025 175)"] },
+      "brand-teal-bright": { "role": "primary", "displayName": "亮青", "canonical": "oklch(0.75 0.12 175)", "tonalRamp": ["oklch(0.20 0.05 175)", "oklch(0.30 0.08 175)", "oklch(0.40 0.11 175)", "oklch(0.50 0.13 175)", "oklch(0.65 0.13 175)", "oklch(0.75 0.12 175)", "oklch(0.86 0.07 175)", "oklch(0.95 0.025 175)"] },
+      "brand-teal-soft": { "role": "primary", "displayName": "淺青霧", "canonical": "oklch(0.92 0.04 175)", "tonalRamp": ["oklch(0.20 0.03 175)", "oklch(0.32 0.04 175)", "oklch(0.45 0.05 175)", "oklch(0.58 0.05 175)", "oklch(0.70 0.05 175)", "oklch(0.82 0.045 175)", "oklch(0.92 0.04 175)", "oklch(0.97 0.015 175)"] },
+      "plate-ink": { "role": "secondary", "displayName": "圖版墨", "canonical": "oklch(0.42 0.09 178)", "tonalRamp": ["oklch(0.18 0.04 178)", "oklch(0.28 0.06 178)", "oklch(0.36 0.08 178)", "oklch(0.42 0.09 178)", "oklch(0.55 0.10 178)", "oklch(0.68 0.10 178)", "oklch(0.84 0.11 178)", "oklch(0.95 0.03 178)"] },
+      "plate-line": { "role": "secondary", "displayName": "圖版刻線", "canonical": "oklch(0.55 0.05 178 / 0.45)", "tonalRamp": ["oklch(0.20 0.02 178)", "oklch(0.30 0.03 178)", "oklch(0.42 0.04 178)", "oklch(0.55 0.05 178)", "oklch(0.66 0.05 178)", "oklch(0.76 0.04 178)", "oklch(0.86 0.03 178)", "oklch(0.95 0.01 178)"] },
+      "tide-white": { "role": "neutral", "displayName": "潮白", "canonical": "oklch(0.985 0.005 175)", "tonalRamp": ["oklch(0.15 0.005 175)", "oklch(0.28 0.008 175)", "oklch(0.40 0.01 175)", "oklch(0.52 0.01 175)", "oklch(0.65 0.01 175)", "oklch(0.78 0.008 175)", "oklch(0.90 0.006 175)", "oklch(0.985 0.005 175)"] },
+      "ink-text": { "role": "neutral", "displayName": "墨字", "canonical": "oklch(0.28 0.01 175 / 0.9)", "tonalRamp": ["oklch(0.15 0.008 175)", "oklch(0.28 0.01 175)", "oklch(0.40 0.012 175)", "oklch(0.50 0.012 175)", "oklch(0.62 0.01 175)", "oklch(0.74 0.01 175)", "oklch(0.86 0.006 175)", "oklch(0.95 0.005 175)"] },
+      "ink-text-muted": { "role": "neutral", "displayName": "淡墨字", "canonical": "oklch(0.50 0.012 175)", "tonalRamp": ["oklch(0.15 0.008 175)", "oklch(0.28 0.01 175)", "oklch(0.40 0.012 175)", "oklch(0.50 0.012 175)", "oklch(0.62 0.01 175)", "oklch(0.74 0.01 175)", "oklch(0.86 0.006 175)", "oklch(0.95 0.005 175)"] },
+      "night-brand-teal": { "role": "primary", "displayName": "夜間鱈魚青", "canonical": "oklch(0.82 0.12 175)" },
+      "night-brand-soft": { "role": "primary", "displayName": "夜間淺青", "canonical": "oklch(0.28 0.04 175)" },
+      "night-plate-ink": { "role": "secondary", "displayName": "夜間版號", "canonical": "oklch(0.84 0.11 178)" },
+      "night-plate-line": { "role": "secondary", "displayName": "夜間刻線", "canonical": "oklch(0.80 0.05 178 / 0.32)" },
+      "night-ground": { "role": "neutral", "displayName": "夜海底", "canonical": "oklch(0.17 0.02 190)", "tonalRamp": ["oklch(0.12 0.015 190)", "oklch(0.17 0.02 190)", "oklch(0.24 0.025 190)", "oklch(0.34 0.03 190)", "oklch(0.48 0.03 190)", "oklch(0.64 0.025 190)", "oklch(0.80 0.015 190)", "oklch(0.94 0.008 190)"] },
+      "night-text": { "role": "neutral", "displayName": "夜間墨字", "canonical": "oklch(0.95 0.005 175 / 0.86)" },
+      "night-text-muted": { "role": "neutral", "displayName": "夜間淡墨字", "canonical": "oklch(0.72 0.01 175)" },
+      "code-block": { "role": "neutral", "displayName": "程式碼底", "canonical": "#24292e" }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "大字版號", "purpose": "圖說欄的版號，寬螢幕 72px、窄螢幕 40px；只用於版號。" },
+      "headline": { "displayName": "文章標題", "purpose": "文章 h1。" },
+      "title": { "displayName": "章節標題", "purpose": "內文 h2，上方淡色斜體大字 01、02、03（使用者指定保留）。" },
+      "subtitle": { "displayName": "小節標題", "purpose": "內文 h3。" },
+      "body": { "displayName": "內文", "purpose": "閱讀欄內文，系統中文黑體，行高 2。" },
+      "series-title": { "displayName": "系列名", "purpose": "圖版帶左上的主題或專欄名稱。" },
+      "label": { "displayName": "版號標籤", "purpose": "圖版帶下的版號、下一版預告標籤。" },
+      "caption": { "displayName": "圖說", "purpose": "主題、發布日、標籤；寬螢幕值為 14px。" }
+    },
+    "shadows": [],
+    "motion": [
+      { "name": "plate-state", "value": "0.25s (border-color, filter, opacity)", "purpose": "圖版滑過／聚焦時框線轉墨、縮圖恢復全彩；prefers-reduced-motion 時關閉。" },
+      { "name": "link-underline", "value": "0.2s text-decoration-color", "purpose": "內文連結底線由 40% 混色轉為實色。" }
+    ],
+    "breakpoints": [
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "960px" },
+      { "name": "xl", "value": "1280px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "圖版帶",
+      "kind": "nav",
+      "refersTo": "plate",
+      "description": "同系列文章沿同一條基線排開，目前這張放大加雙框，下方預告下一版。",
+      "html": "<nav class=\"ds-band\" aria-label=\"Vue主題的所有文章\"><div class=\"ds-band-head\"><span class=\"ds-band-title\">Vue</span><span class=\"ds-band-meta\">主題・共 24 版</span></div><ol class=\"ds-track\"><li class=\"ds-plate\"><a href=\"#\" class=\"ds-plate-link\"><span class=\"ds-frame\" style=\"background:oklch(0.80 0.06 200)\"></span><span class=\"ds-num\">11</span></a></li><li class=\"ds-plate is-current\"><a href=\"#\" class=\"ds-plate-link\" aria-current=\"page\"><span class=\"ds-frame\" style=\"background:oklch(0.78 0.08 220)\"></span><span class=\"ds-num\">12 <span class=\"ds-state\">閱讀中</span></span></a></li><li class=\"ds-plate\"><a href=\"#\" class=\"ds-plate-link\"><span class=\"ds-frame\" style=\"background:oklch(0.82 0.05 80)\"></span><span class=\"ds-num\">13</span></a></li></ol><p class=\"ds-preview\"><span class=\"ds-preview-label\">下一版 13</span><span>關於 Vue 資料流那檔事</span></p></nav>",
+      "css": ".ds-band { border-bottom: 1px solid var(--plate-line); padding: 0 16px; } .ds-band-head { display: flex; align-items: baseline; gap: 12px; } .ds-band-title { font-size: 18px; font-weight: 700; color: var(--vp-c-text-1); } .ds-band-meta { font-size: 13px; color: var(--vp-c-text-2); } .ds-track { display: flex; align-items: flex-end; gap: 16px; padding: 20px 4px 44px; margin: 0; list-style: none; } .ds-plate { position: relative; } .ds-plate::after { content: ''; position: absolute; left: -8px; right: -8px; bottom: 0; height: 1px; background: var(--plate-line); } .ds-plate-link { display: block; color: inherit; text-decoration: none; border-radius: 2px; } .ds-plate-link:focus-visible { outline: 2px solid var(--vp-c-brand-1); outline-offset: 6px; } .ds-frame { display: block; width: 84px; aspect-ratio: 1; border: 1px solid var(--plate-line); filter: saturate(0.55); opacity: 0.82; transition: border-color 0.25s, filter 0.25s, opacity 0.25s; } .ds-plate-link:hover .ds-frame, .ds-plate-link:focus-visible .ds-frame { border-color: var(--plate-ink); filter: none; opacity: 1; } .is-current .ds-frame { width: 200px; border-color: var(--plate-ink); outline: 1px solid var(--plate-line); outline-offset: 4px; filter: none; opacity: 1; } .ds-num { position: absolute; left: 0; top: calc(100% + 10px); display: flex; gap: 8px; white-space: nowrap; font-family: 'Figtree', var(--vp-font-family-base); font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: 0.02em; color: var(--vp-c-text-2); } .is-current .ds-num { color: var(--plate-ink); } .ds-state { font-family: var(--vp-font-family-base); font-weight: 400; color: var(--plate-ink); } .ds-preview { display: flex; gap: 12px; margin: 0 0 16px; font-size: 14px; line-height: 24px; color: var(--vp-c-text-1); } .ds-preview-label { font-family: 'Figtree', var(--vp-font-family-base); font-weight: 700; font-variant-numeric: tabular-nums; color: var(--plate-ink); } @media (prefers-reduced-motion: reduce) { .ds-frame { transition: none; } }"
+    },
+    {
+      "name": "圖說",
+      "kind": "custom",
+      "refersTo": "plate-number-caption",
+      "description": "寬螢幕左欄：大字版號加主題、發布、標籤，每列以刻線分隔。",
+      "html": "<div class=\"ds-caption\" role=\"note\" aria-label=\"Vue第 12 版，共 24 版\"><div class=\"ds-cap-num\" aria-hidden=\"true\"><span class=\"ds-cap-current\">12</span><span class=\"ds-cap-total\">／24</span></div><dl class=\"ds-cap-list\"><div class=\"ds-cap-row\"><dt>主題</dt><dd>Vue</dd></div><div class=\"ds-cap-row\"><dt>發布</dt><dd>2024-10-07</dd></div><div class=\"ds-cap-row\"><dt>標籤</dt><dd>Vue</dd></div></dl></div>",
+      "css": ".ds-caption { width: 176px; } .ds-cap-num { display: flex; align-items: baseline; font-family: 'Figtree', var(--vp-font-family-base); font-weight: 700; font-variant-numeric: tabular-nums; line-height: 0.85; color: var(--plate-ink); } .ds-cap-current { font-size: 72px; letter-spacing: -0.02em; } .ds-cap-total { margin-left: 4px; font-size: 20px; color: var(--vp-c-text-2); } .ds-cap-list { margin: 20px 0 0; border-top: 1px solid var(--plate-line); font-size: 13px; } .ds-cap-row { display: flex; flex-direction: column; gap: 2px; padding: 10px 0; border-bottom: 1px solid var(--plate-line); } .ds-cap-row dt { letter-spacing: 0.12em; color: var(--vp-c-text-2); } .ds-cap-row dd { margin: 0; font-size: 14px; line-height: 1.6; color: var(--vp-c-text-1); }"
+    },
+    {
+      "name": "章節標題",
+      "kind": "custom",
+      "refersTo": "section-numeral",
+      "description": "內文 h2：上方淡色斜體大字 01、02、03 標示章節（使用者指定保留原樣式）。",
+      "html": "<h2 class=\"ds-h2\"><span class=\"ds-h2-num\">a.</span>shallowRef 的使用場景</h2>",
+      "css": ".ds-h2 { margin: 0; padding-top: 2.5rem; border-top: 1px solid var(--plate-line); font-family: 'Figtree', var(--vp-font-family-base); font-size: clamp(1.25rem, 1rem + 0.8vw, 1.75rem); font-weight: 800; letter-spacing: -0.02em; line-height: 1.4; color: var(--vp-c-text-1); } .ds-h2-num { margin-right: 0.5em; color: var(--plate-ink); }"
+    },
+    {
+      "name": "本篇章節",
+      "kind": "nav",
+      "refersTo": "section-numeral",
+      "description": "右欄章節清單，第一層以 01、02 編號，與內文 h2 一致，常駐不透明。",
+      "html": "<nav class=\"ds-outline\"><div class=\"ds-outline-title\">目錄</div><ol class=\"ds-outline-list\"><li><a href=\"#\" class=\"ds-outline-link\">shallowRef 的使用場景</a></li><li><a href=\"#\" class=\"ds-outline-link\">總結</a></li></ol></nav>",
+      "css": ".ds-outline { width: 224px; font-size: 14px; } .ds-outline-title { font-weight: 700; color: var(--vp-c-text-1); margin-bottom: 8px; } .ds-outline-list { counter-reset: plate-section; list-style: none; margin: 0; padding: 0; } .ds-outline-list > li { counter-increment: plate-section; padding: 4px 0; } .ds-outline-link { color: var(--vp-c-text-2); text-decoration: none; transition: color 0.2s; } .ds-outline-link::before { content: counter(plate-section, lower-alpha) '.'; display: inline-block; min-width: 1.75em; font-family: 'Figtree', var(--vp-font-family-base); font-weight: 700; color: var(--plate-ink); } .ds-outline-link:hover, .ds-outline-link:focus-visible { color: var(--vp-c-text-1); } .ds-outline-link:focus-visible { outline: 2px solid var(--vp-c-brand-1); outline-offset: 2px; }"
+    },
+    {
+      "name": "圖版捲動按鈕",
+      "kind": "button",
+      "refersTo": "plate",
+      "description": "Nuxt UI UButton（neutral／ghost／sm）圓角箭頭，圖版超出可視寬度且裝置可 hover 時才出現。",
+      "html": "<span class=\"ds-ctrl\"><button class=\"ds-ghost\" aria-label=\"往前捲動圖版\" disabled><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M14 7l-5 5 5 5\"/></svg></button><button class=\"ds-ghost\" aria-label=\"往後捲動圖版\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M10 7l5 5-5 5\"/></svg></button></span>",
+      "css": ".ds-ctrl { display: inline-flex; gap: 4px; } .ds-ghost { display: inline-flex; padding: 6px; border: none; border-radius: 6px; background: transparent; color: var(--vp-c-text-1); cursor: pointer; transition: background 0.2s; } .ds-ghost:hover { background: color-mix(in oklch, var(--vp-c-text-2) 12%, transparent); } .ds-ghost:focus-visible { outline: 2px solid var(--vp-c-brand-1); outline-offset: 2px; } .ds-ghost:disabled { opacity: 0.4; cursor: not-allowed; background: transparent; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "圖版對開（Botanical Folio，以品牌青綠重新上色）",
+    "overview": "每篇文章是一張圖版。同一主題或專欄的文章沿同一條 1px 基線排成一列圖版帶，正在讀的那張放大、加雙框、標出版號；下方像植物圖鑑的對開頁，左欄是大字版號與圖說，中欄是閱讀欄，右欄是以 01、02、03 編號的本篇章節。整個世界靠細刻線、與全站圖片一致的圓角圖版框與深青墨色版號撐起秩序，裝飾只有水彩鱈魚封面本身。\n\n色彩只用品牌青綠一個色相家族：頁底是帶極淡青色調的中性白（不是米黃、沒有紙紋），版號用深青墨，框線與分隔用半透明淡青刻線。暗色是另行設計的「夜間圖版」：深海青黑底、淡青刻線、亮青版號，不是亮色版直接反轉。密度偏鬆，留白服務閱讀；動作只有框線轉墨、縮圖恢復飽和這類 0.25 秒的狀態回饋，圖版不位移，永遠站在基線上。\n\n這個世界源自挑戰者方向 seed:8e39267002b14b12，應使用者要求把原本的綠與紅換成品牌青綠。目前只有文章頁（主題與專欄文章）以這個世界重建。首頁、文章總覽、404 與各 aquarium 作品頁仍沿用移植自 VitePress 的舊外觀，排定由後續 harden／layout／colorize／clarify／polish 處理；它們的現況不屬於本系統，新畫面不要以它們為範本。",
+    "keyCharacteristics": [
+      "一條共用基線串起整個系列的圖版，目前這張以尺寸與雙框（形狀）區分，不只靠顏色。",
+      "版號是主角：Figtree 700、等寬數字、深青墨色，兩位數補零（01、02…12）。",
+      "1px 細框、與全站圖片一致的圓角（小圖版 10px、目前這張與一般圖片 1rem）、無陰影；深度只靠框線、外框與飽和度。",
+      "單一色相（青綠 175–190），亮暗兩套各自調校。",
+      "系統中文黑體負責內文，Figtree 只用在版號、編號與標題。"
+    ],
+    "rules": [
+      { "name": "The 一墨一線 Rule", "body": "圖版世界只有兩個專屬顏色：圖版墨標記「這是哪一版、哪一節」，圖版刻線畫出框與分隔。新增的圖版元素一律從這兩者取色，不另開新色。", "section": "colors" },
+      { "name": "The 墨不是按鈕 Rule", "body": "圖版墨不當互動底色、不填滿大面積；互動狀態（連結、焦點）用鱈魚青，版號與編號用圖版墨，兩者職責不混。", "section": "colors" },
+      { "name": "The 兩種光線 Rule", "body": "每個顏色都要有亮暗兩個值，暗色另行調校（底色換色相、刻線降透明度、墨色提亮），不能只靠反轉或 `color-mix` 推出來。", "section": "colors" },
+      { "name": "The 版號補零 Rule", "body": "版號一律兩位數補零（01、12、24），以等寬數字排，總版數用全形「／」接在後面。介面寫中文「第 12 版」「下一版 13」「共 24 版」，不用 Pl. 等外文縮寫。", "section": "typography" },
+      { "name": "The 十二像素底線 Rule", "body": "任何文字（含 SVG `font-size`）不得小於 12px；圖版世界最小字是 13px。空間不夠時縮圖版、改用 icon，不縮字。", "section": "typography" },
+      { "name": "The Figtree 只刻數字與標題 Rule", "body": "Figtree 只出現在版號、編號、標題與導覽列站名；中文內文、圖說、系列名一律走系統字型。只載入 700 與 800 兩個字重，不要寫出其他字重。", "section": "typography" },
+      { "name": "The 站在基線上 Rule", "body": "圖版永遠不浮起、不位移、不放大來回應滑過；狀態只改框線顏色與飽和度。尊重 `prefers-reduced-motion` 時連 0.25 秒的過場都關掉。", "section": "elevation" },
+      { "name": "The 雙框即目前 Rule", "body": "「目前這張」以尺寸加雙框表達，形狀先於顏色；其他元素不得借用雙框。", "section": "elevation" }
+    ],
+    "dos": [
+      "**Do** 讓同系列的所有圖版站在同一條 1px 圖版刻線基線上，目前這張以尺寸加雙框（外推 4px 的刻線外框）標出。",
+      "**Do** 版號用 Figtree 700、等寬數字、兩位數補零，顏色用圖版墨；介面文字寫中文「第 12 版」「共 24 版」「下一版 13」。",
+      "**Do** 圖版框維持圓角正方形（圓角與全站圖片一致）、1px 刻線、無內襯，封面完整呈現、不放大裁切。",
+      "**Do** 每個新顏色同時給出亮色與夜間圖版兩個值，暗色另行調校。",
+      "**Do** 狀態回饋只改框線顏色與飽和度（0.25 秒），並在 `prefers-reduced-motion` 時關掉過場。",
+      "**Do** 互動元件優先用 Nuxt UI；文字最小 12px（圖版世界實際最小 13px）。",
+      "**Do** 介面文字（含 aria-label 與狀態標籤）一律正體中文；亮色與夜間圖版都要逐畫面檢查，兩者同為一等公民。",
+      "**Do** 圖版帶上目前那張承接封面的 LCP 角色：同一張圖、同一組 srcset 與 sizes、`fetchpriority=\"high\"`，並在首次繪製前捲到中央。"
+    ],
+    "donts": [
+      "**Don't** 讓圖版浮起、位移或放大來回應滑過；不要加陰影。",
+      "**Don't** 在圖版世界引入第二個色相或米黃、紙紋底；只用青綠家族的潮白與夜海底。",
+      "**Don't** 用 Pl.、No. 等外文縮寫標版號，也不要把版號做成儀表板式的大數字卡片。",
+      "**Don't** 把圖版墨當按鈕底色或大面積填色；互動色是鱈魚青。",
+      "**Don't** 寫 Figtree 700／800 以外的字重，也不要為了版號另載等寬字型。",
+      "**Don't** 以首頁、文章總覽、404 或 aquarium 作品頁的現況為範本；它們尚未改版。"
+    ]
+  }
+}

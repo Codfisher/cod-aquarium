@@ -1,6 +1,6 @@
-import type { Emotion } from '../../../.vitepress/utils/meme-emotion'
+import type { Emotion } from '../../../site/utils/meme-emotion'
 import { filter, isTruthy, map, pipe, reverse, takeLast } from 'remeda'
-import { EMOTION_LIST, isEmotion, mergeEmotion, parseEmotionList } from '../../../.vitepress/utils/meme-emotion'
+import { EMOTION_LIST, isEmotion, mergeEmotion, parseEmotionList } from '../../../site/utils/meme-emotion'
 
 export interface MemeItem {
   file: string;

@@ -82,6 +82,10 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref, useTemplateRef } f
 interface RectLike { top: number; left: number; right: number; bottom: number; width: number; height: number }
 
 function viewportRect(): RectLike {
+  // 預先渲染時沒有 window
+  if (typeof window === 'undefined')
+    return { top: 0, left: 0, right: 0, bottom: 0, width: 0, height: 0 }
+
   return {
     top: 0,
     left: 0,
@@ -124,7 +128,8 @@ const stickyRef = useTemplateRef('stickyRef')
 const overlayVisible = ref(false)
 
 const state = reactive({
-  vp: viewportRect() as RectLike,
+  // 初始一律給零尺寸，SSR 與 client 的第一次渲染才會一致；掛載後由 update 換成實際視窗大小
+  vp: { top: 0, left: 0, right: 0, bottom: 0, width: 0, height: 0 } as RectLike,
   outer: null as RectLike | null,
   middle: null as RectLike | null,
   inner: null as RectLike | null,
@@ -156,12 +161,15 @@ function update() {
   })
 }
 
+onMounted(update)
+
 function onScrollAny() {
   update()
 }
 
-useEventListener(document, 'scroll', onScrollAny, { passive: true, capture: true })
-useEventListener(window, 'resize', update, { passive: true })
+// 傳 getter，預先渲染時才不會碰到不存在的 document、window
+useEventListener(() => typeof document === 'undefined' ? undefined : document, 'scroll', onScrollAny, { passive: true, capture: true })
+useEventListener(() => typeof window === 'undefined' ? undefined : window, 'resize', update, { passive: true })
 
 onBeforeUnmount(() => {
   if (raf)

@@ -20,23 +20,15 @@ aside: false
 
 現在熱衷於結合各類領域技術、開發酷酷的東西
 
+<home-latest-plates />
+
 ## 這裡有啥？
 
 這裡有各種鱈魚滾鍵盤的雜記
 
 目前有以下主題：
 
-### 蔚藍世界
-
-> 鱈魚眼中的 Real World，記錄各種實務上用到的技術或實現有趣需求的經驗
-
-### 程式浮潛
-
-> 軟體開發雜談。和軟體有關，沒有特別分類文章
-
-### Vue
-
-> 與 Vue 一同打滾的點點滴滴
+<home-topic-list />
 
 除了以上主題，還會有特定主題的專欄，敬請期待！ˋ( ° ▽、° )
 
@@ -46,87 +38,123 @@ aside: false
 
 ## 出版書籍
 
-- [Arduino自造趣：結合 JavaScript x Vue x Phaser 輕鬆打造個人遊戲機](https://www.books.com.tw/products/0010942459?sloc=main)
-
-- [甚麼？網頁也可以做派對遊戲？使用 Vue 和 babylon.js 打造 3D 派對遊戲吧！](https://www.books.com.tw/products/0010972621?sloc=main)
+<home-book-list />
 
 ## 鐵人賽
 
-- [你渴望連結嗎？將 Web 與硬體連上線吧！](https://ithelp.ithome.com.tw/users/20140213/ironman/4765)
-
-- [派對動物嗨起來！](https://ithelp.ithome.com.tw/users/20140213/ironman/5661)
-
-- [要不要 Vue 點酷酷的元件？](https://ithelp.ithome.com.tw/users/20140213/ironman/7201)
+<home-ironman-list />
 
 ## 酷東西
 
-### [精靈球工作臺](https://side_project.gitlab.io/pokeball-workshop/)
+<div class="work-entry">
 
-<iframe loading="lazy" width="100%" height="400" src="https://www.youtube.com/embed/YU6zbUv6Okc?si=ZeTz3lsY52gelwXo" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen class="mt-4"></iframe>
+<youtube-facade video-id="YU6zbUv6Okc" title="精靈球工作臺" />
+
+<div class="work-body">
+
+### [精靈球工作臺](https://side_project.gitlab.io/pokeball-workshop/)
 
 在網頁中自定義精靈球，第一個 3D 網頁專案，練習 <a href="https://www.babylonjs.com/" target="_blank">babylon.js</a>
 
----
+</div>
+</div>
+
+<div class="work-entry">
+
+<youtube-facade video-id="OpayalfQ124" title="MCU Windows" />
+
+<div class="work-body">
 
 ### [MCU Windows](https://codfish-210716.notion.site/MCU-Windows-2f896774ea2f4742af974c753f947bd4#4fcf87c34f544b71bce9a76d96adb39a)
 
-<iframe loading="lazy" width="100%" height="400" src="https://www.youtube.com/embed/OpayalfQ124?si=IcXxNB9yuV7b62Z-" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen class="mt-4"></iframe>
-
 此網頁為 Web Serial API 的實驗項目之一，目的是讓微控制器（MCU）與網頁連上線，讓真實的電子訊號在網頁上呈現豐富有趣的互動，並延伸更多有趣的應用。
 
----
+</div>
+</div>
 
-### [派動動物嗨起來](https://www.youtube.com/watch?v=PPWyUhT6gRk)
+<div class="work-entry">
 
-<iframe loading="lazy" width="100%" height="400" src="https://www.youtube.com/embed/PPWyUhT6gRk?si=9GnmynDrAlD_C_Tu" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen class="mt-4"></iframe>
+<youtube-facade video-id="PPWyUhT6gRk" title="派對動物嗨起來" />
+
+<div class="work-body">
+
+### [派對動物嗨起來](https://www.youtube.com/watch?v=PPWyUhT6gRk)
 
 隨著瀏覽器的蓬勃發展，網頁可以存取 GPS、加速度計、照度計、麥克風、攝影機等等硬體訊號，還可以配合 WebGPU、WebGL 運行複雜的 3D 內容。
 
 基於上述理由，網頁已夠格成為 3D 遊戲機，手機瀏覽器甚至能像 joy-con 一般，作為搖桿使用，於是本專案就這麼誕生了。( •̀ ω •́ )✧
 
-[遊戲連結](https://animalsparty.codlin.me/)
+<div class="work-link-list">
+  <work-link href="https://animalsparty.codlin.me/" label="遊戲連結" icon="i-ph:game-controller" />
+  <work-link href="https://github.com/Codfisher/animals-party" label="GitHub 原始碼" icon="i-ph:github-logo" />
+</div>
 
-[GitHub 原始碼](https://github.com/Codfisher/animals-party)
+</div>
+</div>
 
----
+<div class="work-entry">
+
+<youtube-facade video-id="RT2mKsk9BT4" title="酷酷的元件" />
+
+<div class="work-body">
 
 ### [酷酷的元件](https://chillcomponent.codlin.me/)
 
-<iframe loading="lazy" width="100%" height="400" src="https://www.youtube.com/embed/RT2mKsk9BT4?si=7LKxUI0VzU9MnfhB" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen class="mt-4"></iframe>
-
 實驗各種 Web 技術，開發各種新奇、古怪的 Vue 元件
 
----
+</div>
+</div>
+
+<div class="work-entry">
+
+<youtube-facade video-id="58E7If-_LvY" title="Cyber Scales Desktop" />
+
+<div class="work-body">
 
 ### [Cyber Scales Desktop](/aquarium/cyber-scales-desktop/){target="_blank" rel="noopener"}
-
-<iframe loading="lazy" width="100%" height="400" src="https://www.youtube.com/embed/58E7If-_LvY?si=8EVgOEfmCjU7oima" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen class="mt-4"></iframe>
 
 心中一直有個打造 FUI 元件庫的夢想，但是直接開發實在是沒什麼頭緒，導致進度緩慢
 
 這個時候剛好看到 <a href="https://github.com/syxanash/awesome-web-desktops" target="_blank">awesome-web-desktops</a>，心想：「模仿桌面應用程式不就是很棒的實驗機會嗎？」，於是此專案就誕生了！ ✧⁑｡٩(ˊᗜˋ*)و✧⁕｡
 
----
+</div>
+</div>
+
+<div class="work-entry">
+
+<youtube-facade video-id="cjD2JOYny8s" title="快取梗圖" is-vertical />
+
+<div class="work-body">
 
 ### [快取梗圖](/aquarium/meme-cache/){target="_blank" rel="noopener"}
 
 靈感來時沒辦法隨手找到記憶中那張梗圖，實在是超痛苦，所以做了一個工具網頁協助搜尋並快速加上文字
 
----
+</div>
+</div>
+
+<div class="work-entry">
+
+<youtube-facade video-id="WgrCar3e6TM" title="鱈魚的彈珠" />
+
+<div class="work-body">
 
 ### [鱈魚的彈珠](/aquarium/codmarbles/){target="_blank" rel="noopener"}
-
-<iframe loading="lazy" width="100%" height="400" src="https://www.youtube.com/embed/WgrCar3e6TM?si=j9jHMzmPfEytf-md" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen class="mt-4"></iframe>
 
 經研究證實，看彈珠滾動能有效降低大腦 CPU 使用率，這是為了防止各位社畜過勞而生的醫療級網頁。
 
 以上純屬瞎掰，其實沒什麼偉大的技術願景，純粹就是我想看東西滾來滾去而誕生的專案 (´,,•ω•,,)
 
----
+</div>
+</div>
+
+<div class="work-entry">
+
+<youtube-facade video-id="mbET5EXGsl8" title="CodStack" />
+
+<div class="work-body">
 
 ### [CodStack](/aquarium/codstack/){target="_blank" rel="noopener"}
-
-<iframe loading="lazy" width="100%" height="400" src="https://www.youtube.com/embed/mbET5EXGsl8?si=_PKVWEFb2sOFEaFL" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen class="mt-4"></iframe>
 
 自<a href="https://youtu.be/PPWyUhT6gRk?si=XVD7uTdHl3Mr9kFU" target="_blank">派對動物</a>之後，我一直想繼續做其他有趣的 3D 專案，但 3D 建模實在是太難了，程式還沒開始寫，搞建模就搞到熱情冷卻了。゜・(PД`q｡)・゜
 
@@ -138,11 +166,16 @@ aside: false
 
 CodStack 使用 <a href="https://www.babylonjs.com/" target="_blank">babylon.js</a>、<a href="https://vuejs.org/" target="_blank">Vue</a> 與 <a href="https://ui.nuxt.com/" target="_blank">Nuxt UI</a> 開發，目標是讓組裝 3D 模型變得像拼積木一樣簡單，可輸出結構資料並再次匯入編輯，方便 3D 網頁專案載入模型，免安裝，趕快來試試看吧。
 
----
+</div>
+</div>
+
+<div class="work-entry">
+
+<youtube-facade video-id="U_FEOSPR0kI" title="HexaZen" />
+
+<div class="work-body">
 
 ### [HexaZen](/aquarium/hexazen/){target="_blank" rel="noopener"}
-
-<iframe loading="lazy" width="100%" height="500" src="https://www.youtube.com/embed/U_FEOSPR0kI?si=hUOOGZntenjl2vxi" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 
 平常上班時耳機都常都是放白噪音、雨聲等等自然聲音。
 
@@ -156,15 +189,22 @@ HexaZen 使用 <a href="https://www.babylonjs.com/" target="_blank">babylon.js</
 
 沒靈感也沒關係，我有預先做了幾個場景給大家參考參考：%( ´ ▽ ` )ﾉ%
 
-- [樹海小屋](https://codlin.me/aquarium/hexazen/?view=JiMmwzmkdZzaSuhm4HQxVDoZOl0MTS6GRgdDFQOhiWHQxSDoYph0Mmg6GURYTFkMJjCWExpTCY1N0Maw)
-- [山居](https://codlin.me/aquarium/hexazen/?view=JhMW0wmKhYTE0MJkYGEyLDCYplhMUgwmTIYTGEuhk0GExiLEbxlnM6gzmNIdDKssJk4GExkLuZKh3MnS)
-- [平原河流](https://codlin.me/aquarium/hexazen/?view=JyMmw7mNYYjaoM5jSGcyiDOYwhnM2U6GSQZzFoMJiWWExMDCYmlhMVUzmbgZzN0s5jIHIzULkaxhhMkw)
+<div class="work-link-list">
+  <work-link href="https://codlin.me/aquarium/hexazen/?view=JiMmwzmkdZzaSuhm4HQxVDoZOl0MTS6GRgdDFQOhiWHQxSDoYph0Mmg6GURYTFkMJjCWExpTCY1N0Maw" label="樹海小屋" icon="i-ph:tree-evergreen" />
+  <work-link href="https://codlin.me/aquarium/hexazen/?view=JhMW0wmKhYTE0MJkYGEyLDCYplhMUgwmTIYTGEuhk0GExiLEbxlnM6gzmNIdDKssJk4GExkLuZKh3MnS" label="山居" icon="i-ph:mountains" />
+  <work-link href="https://codlin.me/aquarium/hexazen/?view=JyMmw7mNYYjaoM5jSGcyiDOYwhnM2U6GSQZzFoMJiWWExMDCYmlhMVUzmbgZzN0s5jIHIzULkaxhhMkw" label="平原河流" icon="i-ph:waves" />
+</div>
 
----
+</div>
+</div>
+
+<div class="work-entry">
+
+<youtube-facade video-id="ZEXe3G2BWyQ" title="EnderBox" />
+
+<div class="work-body">
 
 ### [EnderBox](/aquarium/enderbox/){target="_blank" rel="noopener"}
-
-<iframe loading="lazy" width="100%" height="400" src="https://www.youtube.com/embed/ZEXe3G2BWyQ?si=qS6-tc_tCGMhG8IY" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen class="mt-4"></iframe>
 
 我把 Minecraft 搬到網頁上惹！%੭ ˙ᗜ˙ )੭%
 
@@ -176,11 +216,16 @@ Minecraft 是我大學的時候最愛的遊戲，當時還做了很多地圖檔�
 
 基於 <a href="https://www.babylonjs.com/" target="_blank">babylon.js</a>、<a href="https://vuejs.org/" target="_blank">Vue</a> 與 <a href="https://ui.nuxt.com/" target="_blank">Nuxt UI</a> 開發，手機也能玩喔！%(/≧▽≦)/%
 
----
+</div>
+</div>
+
+<div class="work-entry">
+
+<youtube-facade video-id="_j9SFeL6ppU" title="Minespace" />
+
+<div class="work-body">
 
 ### [Minespace](/aquarium/minespace/){target="_blank" rel="noopener"}
-
-<iframe loading="lazy" width="100%" height="400" src="https://www.youtube.com/embed/_j9SFeL6ppU?si=w-ik-TSxPGkTHUBy" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 
 開發 HexaZen 雖然很有趣，但是總覺得少了一點沉浸感。
 
@@ -192,11 +237,16 @@ babylon.js 有一個很有趣的功能叫做 Spatial Sound，就是空間音效�
 
 一起在箱庭裡散步，聽聽各種環境音吧！%( ´ ▽ ` )ﾉ%
 
----
+</div>
+</div>
+
+<div class="work-entry">
+
+<youtube-facade video-id="JDn7_Y-SdOs" title="速速湊" />
+
+<div class="work-body">
 
 ### [速速湊](http://susugo.codlin.me/){target="_blank" rel="noopener"}
-
-<iframe loading="lazy" width="100%" height="500" src="https://www.youtube.com/embed/JDn7_Y-SdOs?si=NA2s-Rb_szhAb6oA" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 
 鱈魚：「肥宅快樂餐的優惠好多種，害我都要在櫃檯前想好久 %ԅ( ˘ω˘ԅ)%」
 
@@ -206,9 +256,16 @@ babylon.js 有一個很有趣的功能叫做 Spatial Sound，就是空間音效�
 
 只好做一個自動算出最佳點餐法的網頁，一起來吃快樂餐吧！%♪( ◜ω◝و(و%
 
-### [花栽這](https://budgarden.chillapp.life/){target="_blank" rel="noopener"}
+</div>
+</div>
 
-<iframe loading="lazy" width="100%" height="500" src="https://www.youtube.com/embed/PqUMpy3XyCM" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+<div class="work-entry">
+
+<youtube-facade video-id="PqUMpy3XyCM" title="花栽這" />
+
+<div class="work-body">
+
+### [花栽這](https://budgarden.chillapp.life/){target="_blank" rel="noopener"}
 
 把記帳變成種花，每一筆帳都會長出一朵美美的花！%੭ ˙ᗜ˙ )੭%
 
@@ -219,6 +276,9 @@ babylon.js 有一個很有趣的功能叫做 Spatial Sound，就是空間音效�
 支援語音記帳，出張嘴就可以記錄多筆帳。%( •̀ ω •́ )✧%
 
 有任何意見還請不吝告訴我 %(´∀`)~♥%
+
+</div>
+</div>
 
 ---
 

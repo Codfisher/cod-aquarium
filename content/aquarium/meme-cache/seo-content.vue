@@ -1,5 +1,5 @@
 <template>
-  <!-- 結構化資料（JSON-LD）由 .vitepress/config.mts 的 transformHead 注入 head，
+  <!-- 結構化資料（JSON-LD）由 site/head.ts 注入 head，
        元件內以 script 標籤輸出會被 SSR 跳脫成 HTML 實體，導致 Google 無法剖析 -->
   <section
     aria-labelledby="meme-gallery-title"

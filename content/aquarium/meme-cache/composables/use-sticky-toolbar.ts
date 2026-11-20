@@ -1,5 +1,5 @@
-import { isIOS, useRafFn } from '@vueuse/core'
-import { computed, onBeforeUnmount, onMounted, ref, type Ref } from 'vue'
+import { isIOS, useEventListener, useResizeObserver } from '@vueuse/core'
+import { computed, onMounted, ref, type Ref } from 'vue'
 
 export interface StickyToolbarOptions {
   /** 是否加上 safe-area（預設 true） */
@@ -73,12 +73,25 @@ export function useStickyToolbar(
     measureToolbar()
   }
 
-  // IOS 不推動，保持 fixed + safe-area-inset-bottom 就好，不然會亂跑
-  if (!isIOS) {
-    useRafFn(() => {
-      refresh()
-    })
+  /** IOS 不推動，保持 fixed + safe-area-inset-bottom 就好，不然會亂跑。
+   *
+   * 只在鍵盤開關、視窗改變、焦點進出時重算，不每幀輪詢：原本用 useRafFn 每一幀都讀 innerHeight、
+   * visualViewport 並量工具列高度，載入期間 DOM 不斷變動，每幀都逼瀏覽器同步排版（CPU profile 上光它自己就約 100ms），
+   * 閒置時也每秒跑 60 次
+   */
+  if (!isIOS && typeof window !== 'undefined') {
+    useEventListener(window.visualViewport, ['resize', 'scroll'], refresh, { passive: true })
+    useEventListener(window, 'resize', refresh, { passive: true })
+    // 聚焦輸入框時鍵盤會彈出，失焦時收起
+    useEventListener(document, ['focusin', 'focusout'], refresh)
+    onMounted(refresh)
   }
+  else {
+    onMounted(measureToolbar)
+  }
+
+  /** 工具列高度隨內容變化（例如換行、顯示提示）時更新 */
+  useResizeObserver(toolbarRef, measureToolbar)
 
   /**
    * safe-area 放在工具列自己的下內距，而非 bottom 偏移。

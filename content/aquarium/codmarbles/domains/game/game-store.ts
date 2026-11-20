@@ -64,8 +64,7 @@ export function send(connection: DataConnection, data: PeerData) {
 export const useGameStore = defineStore('game', () => {
   /** 玩家端之目標房間 ID */
   const hostId = pipe(
-    // 因為 whyframe 隔離，需要從 parent 取得 URL
-    new URLSearchParams(window.parent.location.search || window.location.search),
+    new URLSearchParams(window.location.search),
     (urlParams) => urlParams.get('host'),
   )
 

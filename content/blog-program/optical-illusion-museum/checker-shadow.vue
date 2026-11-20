@@ -1,8 +1,11 @@
 <template>
-  <div class="relative w-full max-w-sm mx-auto overflow-hidden">
+  <div class="relative w-full max-w-sm mx-auto overflow-hidden rounded-2xl">
+    <!-- 原圖出自 Edward Adelson（persci.mit.edu），對方網站憑證過期導致外連圖片載不出來，改放站內 -->
     <img
-      src="https://persci.mit.edu/wp-content/uploads/checkershadow_illusion4full-1024x796.jpg"
+      src="/optical-illusion-museum/checker-shadow.webp"
       alt="Checker Shadow Illusion"
+      width="1024"
+      height="796"
       class="block w-full"
     >
 

@@ -99,7 +99,7 @@
                   variant="link"
                   size="sm"
                   icon="i-material-symbols:cancel-rounded"
-                  aria-label="Clear input"
+                  aria-label="清除輸入"
                   @click="keyword = ''"
                 />
               </template>
@@ -206,21 +206,49 @@
         :meme-data-list="memeDataList"
       />
 
-      <div class=" fixed right-0 top-0 p-2 px-3 text-xs opacity-10">
+      <div class="fixed right-0 top-0 p-2 px-3 text-xs text-muted">
         v{{ version }}
       </div>
     </UApp>
+
+    <!-- app 只在 client 執行，JS 與資料到齊前畫面原本一片空白。
+         這裡先用純 HTML 排出首屏梗圖，尺寸與 img-list 相同，交接時圖片直接沿用快取 -->
+    <template #fallback>
+      <div class="meme-cache-fallback flex flex-col h-dvh overflow-hidden">
+        <div class="whitespace-pre text-sm text-center py-6 opacity-80">
+          {{ INITIAL_TIP_TEXT }}
+        </div>
+
+        <ul class="fallback-grid px-4">
+          <li
+            v-for="(item, index) in featuredMemeList"
+            :key="item.file"
+            class="flex bg-gray-200 rounded-xl"
+          >
+            <img
+              :src="`/memes/${item.file}`"
+              :alt="item.describe"
+              :loading="index < FALLBACK_EAGER_COUNT ? 'eager' : 'lazy'"
+              :fetchpriority="index < FALLBACK_EAGER_COUNT ? 'high' : undefined"
+              class="object-contain h-full w-full border-none"
+            >
+          </li>
+        </ul>
+      </div>
+    </template>
   </client-only>
 </template>
 
 <script setup lang="ts">
 import type { DropdownMenuItem } from '@nuxt/ui'
 import type { MemeData } from './domains/meme/type'
+import featuredMemeList from '#site/meme-featured-list'
 import { promiseTimeout, useActiveElement, useColorMode, useElementSize, useFocus, useWindowSize, watchThrottled } from '@vueuse/core'
+import { onNuxtReady } from 'nuxt/app'
 import { filter, isNullish, isTruthy, pipe, shuffle, unique } from 'remeda'
 import { computed, onMounted, reactive, ref, shallowRef, useTemplateRef, watch } from 'vue'
-import { BlurLevel } from '../../../.vitepress/utils/blur-level'
-import { type Emotion, EMOTION_LIST, isEmotion, parseEmotionList } from '../../../.vitepress/utils/meme-emotion'
+import { BlurLevel } from '../../../site/utils/blur-level'
+import { type Emotion, EMOTION_LIST, isEmotion, parseEmotionList } from '../../../site/utils/meme-emotion'
 import { nextFrame } from '../../../web/common/utils'
 import { usePageNoScroll } from '../../../web/composables/use-page-no-scroll'
 import { useKeywordQuery } from './composables/use-keyword-query'
@@ -316,7 +344,10 @@ const availableEmotionList = computed(() => {
  */
 const EMOTION_QUERY_KEY = 'emotion'
 
-onMounted(() => {
+/** 等 Nuxt 完成 hydration 才讀網址：預先渲染頁帶 query 開啟時，Nuxt 會暫時把網址換成不含 query 的版本，
+ * 掛載當下讀到的 location.search 是空的
+ */
+onNuxtReady(() => {
   // 不用 parseEmotionList：它限制單張圖最多 2 個標籤，篩選則可以多選
   const initialList = unique(
     (new URLSearchParams(window.location.search).get(EMOTION_QUERY_KEY) ?? '')
@@ -450,12 +481,44 @@ function filterList(list: MemeData[]): MemeData[] {
   return pipe(list, filterByBlur, filterByAnimated, filterByEmotion, filterByMode)
 }
 
+const INITIAL_TIP_TEXT = '常常找不到記憶中的梗圖嗎？\n我來幫你找找 ԅ(´∀` ԅ)'
+/** 首屏 HTML 只讓手機兩列的量搶先下載，其餘交給 lazy，桌機多出的幾張晚一點也看不出差別 */
+const FALLBACK_EAGER_COUNT = 4
+
+/** 首屏梗圖：build 時隨機挑出、SSR 直接輸出在 HTML（見 template 的 fallback 與 site/meme-featured.ts）。
+ * app 啟動後要沿用同一批、同樣順序，圖片才會直接用瀏覽器快取，LCP 不必等完整資料與洗牌
+ */
+const featuredFileList = featuredMemeList.map((item) => item.file)
+let isFeaturedPinned = false
+
+/** 沒有關鍵字時的清單。
+ * 資料還沒到先顯示首屏梗圖；第一次拿到完整資料時，首屏梗圖維持在最前面、其餘洗牌，畫面才不會整批換掉。
+ * 之後（清除關鍵字、資料更新）一律整份洗牌
+ */
+function getInitialShuffledList(): MemeData[] {
+  if (memeDataList.value.length === 0)
+    return featuredMemeList
+
+  if (isFeaturedPinned)
+    return shuffle(memeDataList.value)
+  isFeaturedPinned = true
+
+  const featuredFileSet = new Set(featuredFileList)
+  const memeMap = new Map(memeDataList.value.map((item) => [item.file, item]))
+  const pinnedList = featuredFileList
+    .map((file) => memeMap.get(file))
+    .filter(isTruthy)
+  const restList = memeDataList.value.filter((item) => !featuredFileSet.has(item.file))
+
+  return [...pinnedList, ...shuffle(restList)]
+}
+
 let searchId = 0
 watchThrottled(() => [keyword.value, memeDataList.value] as const, async () => {
   const currentId = ++searchId
 
   if (!keyword.value) {
-    searchedList.value = shuffle(memeDataList.value)
+    searchedList.value = getInitialShuffledList()
     return
   }
 
@@ -533,7 +596,7 @@ const tipText = computed(() => {
   }
 
   if (!keyword.value) {
-    return '常常找不到記憶中的梗圖嗎？\n我來幫你找找 ԅ(´∀` ԅ)'
+    return INITIAL_TIP_TEXT
   }
 
   if (keyword.value && filteredList.value.length === 0) {
@@ -550,14 +613,19 @@ const tipText = computed(() => {
   return `找到 ${filteredList.value.length} 個候選項目 ੭ ˙ᗜ˙ )੭`
 })
 
-onMounted(async () => {
+function showWelcomeToast() {
   toast.add({
     icon: 'line-md:emoji-grin',
     title: '歡迎來到快取梗圖 ( ´ ▽ ` )ﾉ',
     description: [
       '常常找不到記憶中的梗圖嗎？在下方輸入框輸入任何線索，我來幫你找找 ԅ(´∀` ԅ)',
     ].join(''),
-    duration: 60000,
+    /** 歡迎訊息讀完即可，停留一分鐘會一直蓋住畫面 */
+    duration: 12000,
+    /** 不顯示倒數進度條：進度條在停留期間每一幀都更新、重新渲染，
+     * 正好壓在載入最忙的時段，CPU profile 上整個 toast 佔約 400ms（4 倍降速），比梗圖清單本身還貴
+     */
+    progress: false,
     actions: [{
       icon: 'line-md:uploading-loop',
       label: '按此投稿圖片',
@@ -569,6 +637,16 @@ onMounted(async () => {
       },
     }],
   })
+}
+
+onMounted(async () => {
+  /** 歡迎訊息等主執行緒閒置才出現，不與首屏梗圖的渲染搶時間。
+   * Safari 沒有 requestIdleCallback，改用短延遲
+   */
+  if ('requestIdleCallback' in window)
+    window.requestIdleCallback(showWelcomeToast, { timeout: 3000 })
+  else
+    setTimeout(showWelcomeToast, 1500)
 
   await nextFrame()
   inputRef.value?.inputRef?.focus()
@@ -593,6 +671,33 @@ usePageNoScroll()
 </script>
 
 <style scoped lang="sass">
+/* 對齊 img-list：欄數、列高（視窗高 30%，含底部 1rem 間距）、欄距都相同，交接時圖片位置不變 */
+.fallback-grid
+  display: grid
+  grid-template-columns: repeat(2, minmax(0, 1fr))
+  grid-auto-rows: calc(30dvh - 1rem)
+  gap: 1rem 0.5rem
+  margin: 0
+  list-style: none
+  /* img-list 第二列之後是廣告版位，只排兩列 */
+  > li:nth-child(n+5)
+    display: none
+  @media (min-width: 768px)
+    grid-template-columns: repeat(3, minmax(0, 1fr))
+    > li:nth-child(n+5)
+      display: flex
+    > li:nth-child(n+7)
+      display: none
+  @media (min-width: 1024px)
+    grid-template-columns: repeat(4, minmax(0, 1fr))
+    > li:nth-child(n+7)
+      display: flex
+    > li:nth-child(n+9)
+      display: none
+  @media (min-width: 1280px)
+    grid-template-columns: repeat(5, minmax(0, 1fr))
+    > li:nth-child(n+9)
+      display: flex
 </style>
 
 <style lang="sass">

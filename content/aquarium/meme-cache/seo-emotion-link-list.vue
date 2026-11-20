@@ -23,9 +23,9 @@
 </template>
 
 <script setup lang="ts">
-import type { Emotion } from '../../../.vitepress/utils/meme-emotion'
+import type { Emotion } from '../../../site/utils/meme-emotion'
 import { seoEmotionSummaryList } from 'virtual:seo-meme-list'
-import { withBase } from 'vitepress'
+import { withBase } from '#vp'
 
 defineProps<{
   /** 目前所在的分類，不連結自己 */

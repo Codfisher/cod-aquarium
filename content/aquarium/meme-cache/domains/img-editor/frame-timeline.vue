@@ -1,5 +1,5 @@
 <template>
-  <div class="frame-timeline flex flex-col w-full gap-2 px-3 py-2 bg-white/95 dark:bg-black/95 border-t border-gray-300 dark:border-gray-600">
+  <div class="frame-timeline flex flex-col w-full gap-2 px-3 py-2 bg-white/95 dark:bg-neutral-900/95 border-t border-gray-300 dark:border-gray-600">
     <div class="flex items-center gap-1">
       <UButton
         :icon="props.playing

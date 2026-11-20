@@ -6,6 +6,8 @@
 import type { Scene } from '@babylonjs/core/scene'
 import { Vector3 } from '@babylonjs/core/Maths/math.vector'
 import { HavokPlugin } from '@babylonjs/core/Physics/v2/Plugins/havokPlugin'
+// enablePhysics、getPhysicsEngine 的註冊在 joined 元件，原因見 babylon-side-effects.ts
+import '@babylonjs/core/Physics/joinedPhysicsEngineComponent'
 import '@babylonjs/core/Physics/v2/physicsEngineComponent'
 
 /** HavokPlugin 建構子接受的 WASM 實例型別（Babylon 未匯出具名型別，由建構子簽章取得） */

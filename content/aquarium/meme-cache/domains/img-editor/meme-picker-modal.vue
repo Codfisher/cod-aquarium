@@ -46,7 +46,7 @@
                 variant="link"
                 size="sm"
                 icon="i-material-symbols:cancel-rounded"
-                aria-label="Clear input"
+                aria-label="清除輸入"
                 @click="keyword = ''"
               />
             </template>

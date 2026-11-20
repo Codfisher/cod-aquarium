@@ -136,10 +136,15 @@ const AD_FIRST_ROW = 2
 const AD_ROW_INTERVAL = 8
 /** 版位總數上限。掛越多、沒被看到的比例越高，可視率與單價都會被拖低 */
 const AD_MAX_COUNT = 3
-/** 距離算繪範圍幾列內才掛載，太早掛會請求到根本不會被看到的廣告，可視率與單價都跟著掉。
- * 虛擬清單本身已有 5 列 overscan，實際提前量約兩個螢幕，足夠讓廣告在進入視野前備妥
+/** 虛擬清單在可視範圍前後多算繪的列數。
+ * VueUse 預設 5 列：首屏連同前後共約 8 列、二十多張梗圖一起下載，在慢速網路互相搶頻寬，
+ * 也多出一倍的卡片要渲染，LCP 圖片因此更晚畫出。2 列已足夠捲動時不露白
  */
-const AD_MOUNT_DISTANCE = 3
+const VIRTUAL_LIST_OVERSCAN = 2
+/** 距離算繪範圍幾列內才掛載，太早掛會請求到根本不會被看到的廣告，可視率與單價都跟著掉。
+ * 實際提前量是 overscan 加上這個距離，維持約 8 列（約兩個螢幕），足夠讓廣告在進入視野前備妥
+ */
+const AD_MOUNT_DISTANCE = 8 - VIRTUAL_LIST_OVERSCAN
 
 /** 列高 30vh，首屏約露出兩列半。這幾列含 LCP 圖片，不走 lazy load，
  * 免得要等版面算完、確認進入視野才開始下載
@@ -243,6 +248,7 @@ const { list: virtualList, containerProps, wrapperProps, scrollTo } = useVirtual
   rowList,
   {
     itemHeight: (index) => rowHeightList.value[index] ?? imageRowHeight.value,
+    overscan: VIRTUAL_LIST_OVERSCAN,
   },
 )
 

@@ -319,7 +319,7 @@ import {
   useResizeObserver,
   useWindowFocus,
 } from '@vueuse/core'
-import { useData } from 'vitepress'
+import { useData } from '#vp'
 import { computed, defineAsyncComponent, nextTick, onMounted, onUnmounted, ref, useTemplateRef, watch } from 'vue'
 import { collectNewMilestoneList } from './games/game-contract'
 import { miniGameIdList, miniGameMetaMap, spotGameMap } from './games/game-registry'

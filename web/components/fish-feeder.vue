@@ -3,7 +3,7 @@
     v-if="!!articleId"
     class="fish-feeder-card flex flex-col items-center gap-4 p-5 rounded-xl"
   >
-    <span class="text-sm opacity-70">
+    <span class="feeder-hint text-sm">
       餵個魚飼料吧，會跑出小魚喔！<span class="text-nowrap">(ゝ∀・)b</span>
     </span>
 
@@ -21,7 +21,7 @@
       </transition>
     </button>
 
-    <span class="text-xs opacity-50 text-center">
+    <span class="feeder-hint text-xs text-center">
       <transition
         name="text"
         mode="out-in"
@@ -32,7 +32,7 @@
       </transition>
     </span>
 
-    <label class="text-xs opacity-60 text-center flex justify-center gap-1 cursor-pointer select-none">
+    <label class="feeder-hint text-xs text-center flex justify-center gap-1 cursor-pointer select-none">
       <input
         v-model="isHiddenFish"
         type="checkbox"
@@ -57,11 +57,11 @@
 </template>
 
 <script setup lang="ts">
-import type { AppType } from '../../server'
+import type { AppType } from '../../server/hono'
+import { useRoute } from '#vp'
 import { useAsyncState, useIntersectionObserver, useWindowFocus, whenever } from '@vueuse/core'
 import { hc } from 'hono/client'
 import { debounce } from 'lodash-es'
-import { useRoute } from 'vitepress'
 import { computed, ref, useTemplateRef, watch } from 'vue'
 import BgFlock from './bg-flock/bg-flock.vue'
 
@@ -97,7 +97,8 @@ const articleId = computed(() => {
   return value.includes('blog-') || value.includes('column-') ? value : ''
 })
 
-const client = hc<AppType>('https://cod-aquarium-server.codfish-2140.workers.dev/')
+/** API 由 Nuxt 的 Nitro 提供，與網站同網域 */
+const client = hc<AppType>('/')
 
 const currentReaction = ref(0)
 
@@ -250,10 +251,16 @@ const canvasVisible = computed(() => {
 
 <style scoped lang="sass">
 .fish-feeder-card
-  border: 1px solid light-dark(oklch(0.92 0.02 175), oklch(0.28 0.02 175))
+  /* 已在贊助區卡片內，不再自帶外框（避免卡片包卡片），改以上方一條刻線分隔 */
+  border-top: 1px solid var(--plate-line)
+  border-radius: 0
+
+.feeder-hint
+  color: var(--vp-c-text-2)
 
 .feed-btn
-  background: linear-gradient(135deg, oklch(0.58 0.13 175) 0%, oklch(0.68 0.14 175) 100%)
+  /* 白字需達 4.5:1，漸層兩端都壓在 L 0.54 以下 */
+  background: linear-gradient(135deg, oklch(0.46 0.12 175) 0%, oklch(0.54 0.13 175) 100%)
   color: #fff
   transition-duration: 200ms
   &:active

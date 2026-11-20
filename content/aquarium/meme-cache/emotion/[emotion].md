@@ -1,6 +1,7 @@
 <!--
-  不寫 frontmatter：動態路由的內容開頭會被插入參數前綴，vitepress-plugin-llms 又會在前綴與 frontmatter 之間塞入提示，
-  frontmatter 因此解析失敗、整段 YAML 被當成內文印出。版面設定改由 .vitepress/config.mts 的 transformPageData 寫入
+  情緒分類頁共用這份 md，site/pages.ts 依迷因資料展開成 /aquarium/meme-cache/emotion/<slug> 各頁，
+  版面設定（frontmatter）、標題、描述與結構化資料由 site/pages.ts、site/head.ts 補上，這裡不寫 frontmatter。
+  迷因清單只在 SSR 讀取並寫進 payload，見 emotion-page.vue
 -->
 
 <script setup>
