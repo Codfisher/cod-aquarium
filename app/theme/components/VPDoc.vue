@@ -3,8 +3,8 @@ import { useRoute } from '#vp'
 import { computed, defineAsyncComponent, hydrateOnVisible } from 'vue'
 import { useData } from '../composables/data'
 import { useSidebar } from '../composables/sidebar'
-import Content from './Content'
 import { defineIdleHydrated } from '../support/lazy-hydrate'
+import Content from './Content'
 
 /** 首屏不需立即互動的區塊閒置時才 hydration，拆開原本一整段的 hydration 長任務（見 support/lazy-hydrate.ts） */
 const VPDocAside = defineIdleHydrated(() => import('./VPDocAside.vue'))
@@ -27,11 +27,17 @@ const route = useRoute()
 const { hasSidebar, hasAside, leftAside } = useSidebar()
 
 const pageName = computed(() =>
-  route.path.replace(/[./]+/g, '_').replace(/_html$/, '')
+  route.path.replace(/[./]+/g, '_').replace(/_html$/, ''),
 )
 
 /** 交給 Pagefind 建立索引的內容區；草稿不進站內搜尋 */
 const isSearchIndexed = computed(() => !frontmatter.value.draft)
+/** 搜尋結果左側的封面縮圖，以 Pagefind 的 meta 帶進索引（VPPagefindSearchBox 讀 meta.thumbnail）。
+ * 不用 Pagefind 預設的 image：它抓內容區第一張圖，圖版頁的封面不在內容區裡
+ */
+const searchMeta = computed(() => isSearchIndexed.value && page.value.searchThumbnail
+  ? `thumbnail:${page.value.searchThumbnail}`
+  : undefined)
 </script>
 
 <template>
@@ -56,18 +62,30 @@ const isSearchIndexed = computed(() => !frontmatter.value.draft)
         />
       </div>
 
-      <div v-if="hasAside" class="aside" :class="{'left-aside': leftAside}">
+      <div v-if="hasAside" class="aside" :class="{ 'left-aside': leftAside }">
         <div class="aside-curtain" />
         <div class="aside-container">
           <div class="aside-content">
-            <VPDocAside>
-              <template #aside-top><slot name="aside-top" /></template>
-              <template #aside-bottom><slot name="aside-bottom" /></template>
-              <template #aside-outline-before><slot name="aside-outline-before" /></template>
-              <template #aside-outline-after><slot name="aside-outline-after" /></template>
-              <template #aside-ads-before><slot name="aside-ads-before" /></template>
-              <template #aside-ads-after><slot name="aside-ads-after" /></template>
-            </VPDocAside>
+            <v-p-doc-aside>
+              <template #aside-top>
+                <slot name="aside-top" />
+              </template>
+              <template #aside-bottom>
+                <slot name="aside-bottom" />
+              </template>
+              <template #aside-outline-before>
+                <slot name="aside-outline-before" />
+              </template>
+              <template #aside-outline-after>
+                <slot name="aside-outline-after" />
+              </template>
+              <template #aside-ads-before>
+                <slot name="aside-ads-before" />
+              </template>
+              <template #aside-ads-after>
+                <slot name="aside-ads-after" />
+              </template>
+            </v-p-doc-aside>
           </div>
         </div>
       </div>
@@ -76,18 +94,21 @@ const isSearchIndexed = computed(() => !frontmatter.value.draft)
         <div class="content-container">
           <slot name="doc-before" />
           <main class="main">
-            <Content
+            <content
               class="vp-doc"
               :class="[
                 pageName,
-                theme.externalLinkIcon && 'external-link-icon-enabled'
+                theme.externalLinkIcon && 'external-link-icon-enabled',
               ]"
               :data-pagefind-body="isSearchIndexed ? '' : undefined"
+              :data-pagefind-meta="searchMeta"
             />
           </main>
-          <VPDocFooter>
-            <template #doc-footer-before><slot name="doc-footer-before" /></template>
-          </VPDocFooter>
+          <v-p-doc-footer>
+            <template #doc-footer-before>
+              <slot name="doc-footer-before" />
+            </template>
+          </v-p-doc-footer>
           <slot name="doc-after" />
         </div>
       </div>

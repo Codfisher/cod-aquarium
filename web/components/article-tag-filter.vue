@@ -1,7 +1,7 @@
 <template>
   <!-- 標籤篩選：不選任何標籤時顯示全部文章，選了才只顯示同時含有這些標籤的文章 -->
   <section
-    class="tag-filter w-full lg:w-auto flex-1 sticky top-[4.5rem] md:top-[5.5rem] p-3 md:p-4 rounded-lg"
+    class="tag-filter w-full lg:w-auto flex-1 sticky top-[4.5rem] md:top-[5.5rem] p-3 md:p-4"
     aria-labelledby="tag-filter-title"
   >
     <div class="flex items-center gap-3">
@@ -55,7 +55,7 @@
         >
           <u-button
             :color="tag.selected ? 'primary' : 'neutral'"
-            :variant="tag.selected ? 'solid' : 'soft'"
+            :variant="tag.selected ? 'solid' : 'ghost'"
             size="xs"
             class="rounded-full"
             :aria-pressed="tag.selected"
@@ -100,11 +100,17 @@ function clearAllTags() {
 </script>
 
 <style scoped lang="sass">
+/* 不加框：桌機是側欄，靠上方刻線與內文分開；手機收合時只留一條下緣刻線 */
 .tag-filter
   z-index: 1
-  background: light-dark(oklch(0.99 0.005 175), oklch(0.21 0.02 190))
-  border-width: 1px
-  border-color: light-dark(oklch(0.92 0.01 175), oklch(0.25 0.01 175))
+  background: var(--vp-c-bg)
+  border-top: 1px solid var(--plate-line)
+  @media (max-width: 1023px)
+    border-top: none
+    border-bottom: 1px solid var(--plate-line)
+
+.filter-title
+  color: var(--plate-ink)
 
 /* .vp-doc 的清單規則（縮排、項目符號、li 間距）不在 cascade layer 內，scoped 選擇器的權重才壓得過 */
 .plain-list

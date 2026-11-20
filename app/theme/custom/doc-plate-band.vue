@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { PlateSeries } from '../../../site/plate-series'
 import { useElementSize, useEventListener, usePreferredReducedMotion, useScroll } from '@vueuse/core'
+import { countBy } from 'remeda'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from 'vue'
 import ThemeImage from '../../../web/components/theme-image.vue'
 import VPLink from '../components/VPLink.vue'
@@ -81,6 +82,21 @@ const previewLabel = computed(() => {
   return activeIndex.value === undefined ? `下一版 ${plateNumber}` : `第 ${plateNumber} 版`
 })
 const kindText = computed(() => props.plateSeries.isColumn ? '專欄' : '主題')
+
+/** 同系列裡被多篇共用的封面（專欄常整個系列用同一張）。
+ * 這些圖版除了目前這版，改疊一層「版號＋短標題」的版號圖版，否則一排都是同一張圖，分不出哪版是哪版。
+ * img 照樣保留在底下：換頁時目前這版的圖層淡出、露出封面，放大過程仍沿用同一個 img 元素
+ */
+const sharedImageSet = computed(() => {
+  const countRecord = countBy(props.plateSeries.plateList, (plate) => plate.image)
+  return new Set(Object.keys(countRecord).filter((image) => (countRecord[image] ?? 0) > 1))
+})
+
+/** 版號圖版只放得下短標題：專欄標題多是「系列名 - EP02：本篇主題」，取冒號後的本篇主題 */
+function getShortTitle(title: string) {
+  const separatorIndex = title.search(/[：:]/)
+  return separatorIndex >= 0 ? title.slice(separatorIndex + 1).trim() : title
+}
 
 /** 圖版超出可視寬度才需要左右捲動按鈕 */
 const isScrollable = computed(() => {
@@ -176,11 +192,108 @@ onBeforeUnmount(() => {
   if (settleFrameId !== undefined)
     cancelAnimationFrame(settleFrameId)
 })
-watch(() => props.plateSeries.plateList[props.plateSeries.currentIndex]?.link, () => {
+/** 換頁時的彈跳，依迪士尼動畫原則設計（只用 transform，不影響版面；寬度變化仍交給 CSS 的 width 過渡）：
+ * - 預備動作：放大前先往下蹲（壓扁、變寬），再彈起
+ * - 擠壓與伸展：彈起時拉長變瘦，落地時壓扁，體積感維持不變
+ * - 弧線與漸快漸慢：以底緣為支點傾斜擺盪，每一段各自緩入緩出
+ * - 跟隨與重疊動作：框內的封面晚一拍、往反方向晃，像內容在框裡晃動
+ * - 次要動作：下方版號跟著跳一下，左右鄰居被擠得往外歪
+ * - 時間與誇張：縮回去的那張快速被壓一下再彈回，與放大那張形成對比
+ * 每次的傾斜方向、幅度、節奏都隨機，連續點不會兩次一樣。
+ * 圖版帶是橫向捲動容器，上方溢出會被裁掉，拉長與傾斜要收斂在上方留白（padding-top 40px）內
+ */
+function getRandomBetween(min: number, max: number) {
+  return min + Math.random() * (max - min)
+}
+
+function getRandomSign() {
+  return Math.random() < 0.5 ? -1 : 1
+}
+
+/** 每一段都緩入緩出（slow in and slow out） */
+const SEGMENT_EASE = 'cubic-bezier(0.45, 0, 0.25, 1)'
+
+function playPlateBounce(track: HTMLElement, currentIndex: number, previousIndex: number | undefined) {
+  if (reducedMotion.value === 'reduce')
+    return
+
+  const plateList = track.querySelectorAll<HTMLElement>(':scope > .plate')
+  const currentPlate = plateList[currentIndex]
+  const currentFrame = currentPlate?.querySelector<HTMLElement>('.plate-frame')
+  const previousFrame = previousIndex === undefined ? undefined : plateList[previousIndex]?.querySelector<HTMLElement>('.plate-frame')
+
+  if (currentFrame) {
+    const tilt = getRandomBetween(2, 4) * getRandomSign()
+    const squash = getRandomBetween(0.08, 0.13)
+    const stretch = getRandomBetween(0.05, 0.08)
+    const duration = getRandomBetween(950, 1200)
+
+    currentFrame.animate([
+      { transform: 'rotate(0deg) scale(1, 1)', easing: SEGMENT_EASE },
+      // 預備：蹲下
+      { offset: 0.14, transform: `rotate(${-tilt * 0.3}deg) scale(${1 + squash}, ${1 - squash})`, easing: SEGMENT_EASE },
+      // 彈起：拉長變瘦、往一側擺
+      { offset: 0.34, transform: `rotate(${tilt}deg) scale(${1 - stretch}, ${1 + stretch})`, easing: SEGMENT_EASE },
+      // 落地：壓扁、反向擺
+      { offset: 0.52, transform: `rotate(${-tilt * 0.6}deg) scale(${1 + squash * 0.6}, ${1 - squash * 0.6})`, easing: SEGMENT_EASE },
+      // 回彈
+      { offset: 0.68, transform: `rotate(${tilt * 0.3}deg) scale(${1 - stretch * 0.4}, ${1 + stretch * 0.4})`, easing: SEGMENT_EASE },
+      { offset: 0.84, transform: `rotate(${-tilt * 0.1}deg) scale(${1 + squash * 0.15}, ${1 - squash * 0.15})`, easing: SEGMENT_EASE },
+      { transform: 'rotate(0deg) scale(1, 1)' },
+    ], { duration })
+
+    // 跟隨動作：封面晚一拍、往反方向晃，框會裁掉溢出的部分
+    currentFrame.querySelector('img')?.animate([
+      { transform: 'rotate(0deg) scale(1)', easing: SEGMENT_EASE },
+      { offset: 0.4, transform: `rotate(${-tilt * 1.2}deg) scale(1.06)`, easing: SEGMENT_EASE },
+      { offset: 0.65, transform: `rotate(${tilt * 0.5}deg) scale(1.03)`, easing: SEGMENT_EASE },
+      { offset: 0.85, transform: `rotate(${-tilt * 0.15}deg) scale(1.01)`, easing: SEGMENT_EASE },
+      { transform: 'rotate(0deg) scale(1)' },
+    ], { duration: duration * 0.95, delay: duration * 0.08 })
+
+    // 次要動作：版號在落地那一刻跳一下
+    currentPlate?.querySelector('.plate-number')?.animate([
+      { transform: 'translateY(0)', easing: 'cubic-bezier(0.2, 0, 0.4, 1)' },
+      { offset: 0.35, transform: `translateY(${-getRandomBetween(5, 9)}px)`, easing: 'cubic-bezier(0.6, 0, 0.8, 1)' },
+      { offset: 0.6, transform: 'translateY(0)', easing: 'cubic-bezier(0.2, 0, 0.4, 1)' },
+      { offset: 0.78, transform: 'translateY(-2px)', easing: 'cubic-bezier(0.6, 0, 0.8, 1)' },
+      { transform: 'translateY(0)' },
+    ], { duration: 520, delay: duration * 0.45 })
+
+    // 次要動作：左右鄰居被擠得往外歪一下（離開的那張自己有動畫，跳過）
+    for (const [neighborIndex, direction] of [[currentIndex - 1, -1], [currentIndex + 1, 1]] as const) {
+      if (neighborIndex === previousIndex)
+        continue
+      plateList[neighborIndex]?.querySelector('.plate-frame')?.animate([
+        { transform: 'rotate(0deg)', easing: SEGMENT_EASE },
+        { offset: 0.4, transform: `rotate(${direction * getRandomBetween(3, 6)}deg)`, easing: SEGMENT_EASE },
+        { offset: 0.75, transform: `rotate(${-direction * 1.2}deg)`, easing: SEGMENT_EASE },
+        { transform: 'rotate(0deg)' },
+      ], { duration: getRandomBetween(500, 700), delay: duration * getRandomBetween(0.28, 0.36) })
+    }
+  }
+
+  if (previousFrame) {
+    // 縮回去的那張：先被往上一提，再被壓扁、晃回原位，節奏比放大那張快
+    const tilt = getRandomBetween(4, 8) * getRandomSign()
+    previousFrame.animate([
+      { transform: 'rotate(0deg) scale(1, 1)', easing: SEGMENT_EASE },
+      { offset: 0.2, transform: `rotate(${tilt * 0.4}deg) scale(0.94, 1.07)`, easing: SEGMENT_EASE },
+      { offset: 0.48, transform: `rotate(${-tilt}deg) scale(1.12, 0.86)`, easing: SEGMENT_EASE },
+      { offset: 0.72, transform: `rotate(${tilt * 0.35}deg) scale(0.97, 1.04)`, easing: SEGMENT_EASE },
+      { transform: 'rotate(0deg) scale(1, 1)' },
+    ], { duration: getRandomBetween(650, 850) })
+  }
+}
+
+watch(() => props.plateSeries.plateList[props.plateSeries.currentIndex]?.link, (_link, previousLink) => {
+  const previousIndex = props.plateSeries.plateList.findIndex((plate) => plate.link === previousLink)
   nextTick(() => {
     const track = trackRef.value
-    if (track)
-      settleToCurrentPlate(track)
+    if (!track)
+      return
+    settleToCurrentPlate(track)
+    playPlateBounce(track, props.plateSeries.currentIndex, previousIndex >= 0 ? previousIndex : undefined)
   })
 })
 </script>
@@ -261,6 +374,14 @@ watch(() => props.plateSeries.plateList[props.plateSeries.currentIndex]?.link, (
               :loading="index === plateSeries.currentIndex ? 'eager' : 'lazy'"
               class="plate-image"
             />
+            <span
+              v-if="sharedImageSet.has(plate.image)"
+              class="plate-index-card"
+              aria-hidden="true"
+            >
+              <span class="index-number">{{ toPlateNumber(index) }}</span>
+              <span class="index-title">{{ getShortTitle(plate.title) }}</span>
+            </span>
           </span>
           <span class="plate-number">
             {{ toPlateNumber(index) }}
@@ -367,8 +488,8 @@ watch(() => props.plateSeries.plateList[props.plateSeries.currentIndex]?.link, (
   display: flex;
   align-items: flex-end;
   gap: 16px;
-  /* 下方保留圖版號的空間，基線畫在圖版底緣 */
-  padding: 20px 4px 44px;
+  /* 下方保留圖版號的空間，基線畫在圖版底緣；上方留給換頁彈跳時傾斜、放大的那張，免得被裁掉 */
+  padding: 40px 4px 44px;
   margin: 0;
   list-style: none;
   overflow-x: auto;
@@ -452,7 +573,10 @@ watch(() => props.plateSeries.plateList[props.plateSeries.currentIndex]?.link, (
 }
 
 .plate-frame {
+  position: relative;
   display: block;
+  /* 換頁彈跳以底緣為支點，圖版像站在基線上晃動 */
+  transform-origin: 50% 100%;
   width: var(--plate-size);
   aspect-ratio: 1;
   overflow: hidden;
@@ -499,6 +623,63 @@ watch(() => props.plateSeries.plateList[props.plateSeries.currentIndex]?.link, (
 .plate-link:focus-visible .plate-frame :deep(img) {
   filter: none;
   opacity: 1;
+}
+
+/* 版號圖版：共用封面的圖版改顯示版號與短標題（見 script 的 sharedImageSet） */
+.plate-index-card {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 4px;
+  padding: 8px 9px;
+  background: color-mix(in oklch, var(--vp-c-brand-1) 7%, var(--vp-c-bg));
+  transition: opacity 0.4s, background-color 0.25s;
+}
+
+.index-number {
+  font-family: var(--display-font-family);
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--plate-ink);
+}
+
+.index-title {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--vp-c-text-2);
+}
+
+.plate-link:hover .plate-index-card,
+.plate-link:focus-visible .plate-index-card {
+  background: color-mix(in oklch, var(--vp-c-brand-1) 14%, var(--vp-c-bg));
+}
+
+/* 目前這版顯示封面本身 */
+.is-current .plate-index-card {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* 手機圖版只有 64px，放不下標題，只留置中的版號 */
+@media (max-width: 767px) {
+  .plate-index-card {
+    align-items: center;
+    justify-content: center;
+    padding: 6px;
+  }
+
+  .index-title {
+    display: none;
+  }
 }
 
 .plate-number {
@@ -605,6 +786,7 @@ watch(() => props.plateSeries.plateList[props.plateSeries.currentIndex]?.link, (
 @media (prefers-reduced-motion: reduce) {
   .plate-frame,
   .plate-frame :deep(img),
+  .plate-index-card,
   .preview-enter-active,
   .plate-state-enter-active,
   .plate-state-leave-active {

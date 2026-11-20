@@ -30,4 +30,6 @@ export interface ClientPageData extends PageData {
   params?: ClientEmotionParams;
   /** 主題與專欄文章才有：同系列的圖版帶資料 */
   plateSeries?: PlateSeries;
+  /** 站內搜尋結果的封面縮圖網址（見 site/search-thumbnail.ts），沒有封面或草稿時為空 */
+  searchThumbnail?: string;
 }

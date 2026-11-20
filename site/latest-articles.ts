@@ -3,11 +3,17 @@ import type { Article } from './articles'
 /** 首頁「最新文章」顯示的篇數 */
 const LATEST_ARTICLE_COUNT = 4
 
-/** 文章所在目錄對應的主題或專欄名稱 */
+/** 文章所在目錄對應的主題名稱，其餘目錄都是專欄 */
 const SECTION_NAME_MAP: Record<string, string> = {
   'blog-ocean-world': '蔚藍世界',
   'blog-program': '程式浮潛',
   'blog-vue': 'Vue',
+}
+
+/** 依文章連結（例如 /blog-vue/xxx 或 blog-vue/xxx）取得主題名稱；專欄文章為「專欄」。首頁最新文章與文章總覽共用 */
+export function getSectionName(link: string) {
+  const directory = link.replace(/^\//, '').split('/')[0] ?? ''
+  return SECTION_NAME_MAP[directory] ?? '專欄'
 }
 
 export interface LatestArticle {
@@ -34,13 +40,12 @@ export function getLatestArticleList(articleList: Article[]): LatestArticle[] {
     .slice(0, LATEST_ARTICLE_COUNT)
     .map((article) => {
       const link = `/${article.link.replace(/^\//, '')}`
-      const directory = link.split('/')[1] ?? ''
       return {
         title: article.frontmatter.title ?? article.text,
         link,
         image: new URL(article.frontmatter.image, 'https://codlin.me').pathname,
         date: toDateText(article.frontmatter.pubDate),
-        sectionName: SECTION_NAME_MAP[directory] ?? '專欄',
+        sectionName: getSectionName(link),
       }
     })
 }
