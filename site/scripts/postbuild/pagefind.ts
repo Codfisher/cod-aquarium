@@ -3,8 +3,8 @@ import * as pagefind from 'pagefind'
 
 /** 以 Pagefind 為輸出的 HTML 建立全文搜尋索引，輸出到 <outDir>/pagefind/。
  *
- * 只要有任一頁帶 data-pagefind-body，Pagefind 就只索引帶該屬性的頁面。主題在 VPDoc 的內容區標記（草稿除外），
- * 所以文章、首頁、總覽、情緒分類頁都可搜尋，與原本 VitePress 本地搜尋的範圍相同；layout: false 的應用頁不經過 VPDoc，不會進索引。
+ * 只要有任一頁帶 data-pagefind-body，Pagefind 就只索引帶該屬性的頁面。主題在 VPDoc 的內容區標記（草稿與 aquarium/ 底下除外），
+ * 所以文章、首頁、總覽可搜尋；梗圖的情緒分類頁雖經過 VPDoc 也排除，layout: false 的應用頁不經過 VPDoc，本來就不會進索引。
  * npm 版附的是 extended 執行檔，依 <html lang="zh-Hant"> 對中文斷詞，不需另外設定
  */
 export async function writePagefindIndex(outDir: string) {

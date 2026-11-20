@@ -367,7 +367,7 @@ const firstImg = resourceList
 meme-cache 本體是 `layout: false` 的單頁 app，上千張圖共用一個網址，爬蟲只看得到 build 時產生的靜態內容：
 
 - **主頁** `seo-content.vue`：h1、說明、情緒分類連結、最新 20 張（`SEO_MEME_LIMIT`）附描述與圖中文字。區塊刻意推到首屏 3000px 以下，避免 lazy 圖片與 app 搶頻寬。
-- **情緒分類頁** `/aquarium/meme-cache/emotion/<slug>`：`emotion/[emotion].paths.ts` 依 `EMOTION_LIST` 每種情緒產生一頁，列最新 60 張（`EMOTION_PAGE_MEME_LIMIT`），沒有迷因的情緒不產生頁面。標題、描述與版面設定都由 `config.mts` 的 `transformPageData` 依路由參數寫入，`[emotion].md` 刻意不寫 frontmatter：動態路由會在內容開頭插入參數前綴，vitepress-plugin-llms 再把提示塞在前綴與 frontmatter 之間，frontmatter 就會解析失敗、整段 YAML 印在頁面上。描述要同時寫 `pageData.description`，`<meta name="description">` 讀的是它而不是 frontmatter。VitePress 1.6 的動態路由不支援 `watch`，dev 時改 ndjson 要重啟。頁面的 CTA 帶 `?emotion=` 進 app，app 會套用對應篩選。
+- **情緒分類頁** `/aquarium/meme-cache/emotion/<slug>`：`emotion/[emotion].paths.ts` 依 `EMOTION_LIST` 每種情緒產生一頁，列最新 60 張（`EMOTION_PAGE_MEME_LIMIT`），沒有迷因的情緒不產生頁面。標題、描述與版面設定都由 `config.mts` 的 `transformPageData` 依路由參數寫入，`[emotion].md` 刻意不寫 frontmatter：動態路由會在內容開頭插入參數前綴，vitepress-plugin-llms 再把提示塞在前綴與 frontmatter 之間，frontmatter 就會解析失敗、整段 YAML 印在頁面上。描述要同時寫 `pageData.description`，`<meta name="description">` 讀的是它而不是 frontmatter。VitePress 1.6 的動態路由不支援 `watch`，dev 時改 ndjson 要重啟。頁面的 CTA 帶 `?emotion=` 進 app，app 會套用對應篩選。這些頁面經過 VPDoc，但 `aquarium/` 底下一律不進站內搜尋（VPDoc 的 `isSearchIndexed`），否則梗圖描述會混進文章搜尋結果。
 - **新增情緒標籤**時要在 `meme-seo.ts` 的 `EMOTION_SLUG_MAP` 補英文代稱，型別與 `meme-seo.test.ts` 會擋漏填與重複。
 - **資料來源**：build 端一律透過 `meme-seo-source.ts` 讀取主檔並合併 extend 檔的情緒標籤。只存在於 extend 檔的圖不會納入（app 會），目前沒有這種圖，張數與 app 一致。這支檔案用到 `node:fs`，不可被頁面匯入；頁面要資料走 `virtual:seo-meme-list`。
 - **sitemap lastmod**：meme-cache 底下各頁取「頁面 .md」與「兩份 ndjson」最後 commit 時間的較新者，新增迷因後 lastmod 才會更新（`site/sitemap.ts`）。分類頁頁尾的「更新於」也直接改為 ndjson 的 commit 時間（`site/pages.ts` 的 `toEmotionPage`）。
