@@ -448,8 +448,9 @@ meme-cache 本體是 `layout: false` 的單頁 app，上千張圖共用一個網
 
 **Cloudflare Pages 建置設定**
 
-- Build command：`pnpm run build`
+- Build command：`git fetch --unshallow && pnpm run build`（Cloudflare 預設淺層 clone，sitemap 的 lastmod、文章的更新日期都靠完整的 git 歷史）
 - Build output directory：`dist`
+- 2026-11 從 VitePress 換成 Nuxt 時，用 `cf pages edit` 把原本的 `npx vitepress build`、`.vitepress/dist` 改成上面的設定；pnpm 版本由 `package.json` 的 `packageManager` 決定（Cloudflare 內建的 pnpm 會自動切換），Node 版本由 `.node-version` 決定
 
 **本機開發**
 
