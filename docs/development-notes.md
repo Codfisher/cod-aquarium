@@ -470,6 +470,7 @@ meme-cache 本體是 `layout: false` 的單頁 app，上千張圖共用一個網
 
 - **資料**：`site/plate-series.ts` 依側欄設定算出每篇文章所屬系列，由 `modules/site.ts` 寫進該頁自己的頁面資料 chunk（`plateSeries`）。不放進全站共用的 `#site/data`，避免每頁都下載全站封面清單。`hasSidebar`（`app/theme/composables/sidebar.js`）看到 `plateSeries` 就不顯示側欄。
 - **封面與 LCP**：圖版頁的內文封面（`{.cover}`）由 `theme-image` 直接不渲染，改由圖版帶上「閱讀中」那張呈現（顯示 320px、手機 200px，輸出 640 寬，eager）。2026-11 從 200px 放大，讓封面夠大、不必在內文重複一張，LCP 仍只有這一張圖。本機 preview 以同一份 build 對 400 寬 A/B（三篇文章、各 7 輪）：手機 LCP 平均 +0.02 秒，桌機 +0.18 秒（其中約 0.08 秒是同輪 FCP 的雜訊）。preload 由 Nuxt Image 依同一個 `<NuxtImg>` 輸出，網址一定一致。
+- **共用封面的系列**：專欄常整個系列用同一張封面。同系列被多篇共用的封面，非目前這版會疊一層「版號＋短標題」的版號圖版（短標題取標題冒號後的部分），目前這版圖層淡出、顯示封面。底下的 img 照樣保留，換頁時放大過程不中斷。之後某篇改用自己的封面，就會自動顯示圖片。
 - **首次繪製就置中**：圖版帶後面緊接一段 inline script，在 hydration 前把目前這張捲到中間。Vue 模板不能直接寫 `<script>`，用 `<component :is="'script'">` 加文字節點。`v-html` 在 SSR 對 script 不輸出內容；文字節點會被跳脫 `& < > " '`，所以 script 內只能用反引號當字串引號。
 - **待驗證**：水合前的置中效果，以及「LCP 不得變差」，都要用本機 preview 對正式站 A/B 量測（見上方「效能修改用本機 preview 對正式站做 A/B」）。dev 模式擋掉 JS 時連 CSS 都不會載入，無法驗證。
 
@@ -503,6 +504,12 @@ meme-cache 本體是 `layout: false` 的單頁 app，上千張圖共用一個網
 
 站內圖片一律交給 Nuxt Image（`@nuxt/image`，ipx）。`nuxt generate` 時，SSR 用到的每個尺寸都會透過 `x-nitro-prerender` 產生成 `/_ipx/...` 靜態檔，不用另外列路由。
 
+例外是頁面上沒有對應 `<img>` 的網址，要自己加進 prerender。目前只有站內搜尋的封面縮圖（Pagefind 結果左側 48px）：
+- 網址由 `site/search-thumbnail.ts` 統一產生（`/_ipx/q_80&s_96x96/...`），`modules/site.ts` 把每頁的縮圖加進 prerender 清單。
+- 同一個網址也寫進頁面資料的 `searchThumbnail`，VPDoc 再以 `data-pagefind-meta="thumbnail:..."` 帶進索引。
+- 封面檔不存在或是草稿時不給縮圖，否則預先渲染會 404，讓 build 失敗。
+- 不用 Pagefind 預設的 `image` meta：它抓內容區第一張圖，圖版頁的封面不在內容區。
+
 - **元件**：用 `web/components/theme-image.vue`，它只是包一層 `<NuxtImg>`，補上 Nuxt Image 沒有的三件事：暗色版 `<source>`、圖版頁的內文封面不渲染、把 `https://codlin.me/...` 轉成站內路徑。
 - **md 圖片**：`site/plugins/markdown-it-theme-image.ts` 轉成 `<theme-image sizes="xs:100vw sm:100vw md:688px">`。原圖不存在（常見於草稿封面）、外部網址或 GIF 時輸出一般 `<img>`，`src` 以 `:src` 綁定字串。
 - **寬度依顯示尺寸挑**：固定尺寸的縮圖傳 `width`，取顯示尺寸的 2～3 倍（圖版帶 200／目前這張 400、總覽 300、首頁最新文章 300）；隨版面縮放的傳 `sizes`。一律只產 1 倍密度（`densities="x1"`）。
@@ -527,8 +534,9 @@ meme-cache 本體是 `layout: false` 的單頁 app，上千張圖共用一個網
 
 ## 關鍵 CSS 內嵌（Beasties）
 
-postbuild 的 `critical-css` 步驟（`site/scripts/postbuild/critical-css.ts`）用 [Beasties](https://github.com/danielroe/beasties)（critters 的後繼 fork，`@nuxtjs/critters` 包的舊版已不再維護）處理 `dist` 的每個 HTML：把用得到的 CSS 規則內嵌，完整的 entry.css 改成 `media="print"` 非同步載入。全站共用的 entry.css（壓縮後約 50 KB）原本擋渲染，A/B 結果 FCP、LCP 約提前 0.4～0.7 秒，HTML 增加約 15 KB（gzip），build 多約 30 秒。
+postbuild 的 `critical-css` 步驟（`site/scripts/postbuild/critical-css.ts`）用 [Beasties](https://github.com/danielroe/beasties)（Google Critters 交給 Nuxt 團隊後的後繼 fork）處理 `dist` 的每個 HTML：把用得到的 CSS 規則內嵌，完整的 entry.css 改成 `media="print"` 非同步載入。全站共用的 entry.css（壓縮後約 50 KB）原本擋渲染，A/B 結果 FCP、LCP 約提前 0.4～0.7 秒，HTML 增加約 15 KB（gzip），build 多約 30 秒。
 
+- **不用 `@nuxtjs/critters` 模組，直接呼叫 Beasties。** 那個模組底層也是 Beasties（0.10 起唯一相依），效能相同，但它沒有排除頁面的選項，會整站處理。aquarium 各 app 頁（`layout: false`）的 SSR HTML 幾乎是空的，畫面靠 JS 繪製，完整 CSS 改成非同步載入後，app 啟動時可能還沒有樣式，造成閃爍或量錯尺寸，所以要跳過（以 `<html class="vp-raw">` 判斷）。換模組也得自己寫 Nitro hook 才能排除，程式碼不會比較少。2026-11 評估後決定維持現狀。
 - **`allowRules` 不能省。** Beasties 拿 SSR 的 HTML 比對選擇器：`.dark` 是瀏覽器端腳本才加的，不保留的話暗色使用者會先看到亮色樣式；主題外框與 `.vp-doc` 也有不少規則比對不到（搜尋框、`vpi-` 圖示、行內程式碼）。驗證方式：擋掉 `/_nuxt/*.css` 與 `*.js`，只用內嵌 CSS 渲染，與完整樣式截圖比對。
 - **aquarium app 頁（`<html class="vp-raw">`）略過**：畫面由 JS 繪製，SSR 的 HTML 幾乎是空的。
 - **首次繪製提前後，沒預留空間的圖片會造成版面位移。** 以前擋渲染的 CSS 讓首繪晚於封面下載完成，問題被藏住；現在首繪早於圖片，首頁封面只有 `aspect-ratio` class 而沒有 `width`／`height`，曾造成 CLS 0.09。md 外掛現在會自動補上原圖尺寸（`getImageSizeMap`）。
