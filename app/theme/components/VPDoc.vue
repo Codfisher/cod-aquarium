@@ -30,8 +30,12 @@ const pageName = computed(() =>
   route.path.replace(/[./]+/g, '_').replace(/_html$/, ''),
 )
 
-/** 交給 Pagefind 建立索引的內容區；草稿不進站內搜尋 */
-const isSearchIndexed = computed(() => !frontmatter.value.draft)
+/** 交給 Pagefind 建立索引的內容區。草稿與 aquarium 底下的網站不進站內搜尋：
+ * aquarium 的應用頁本身是 layout: false 不經過這裡，但梗圖的情緒分類頁會，梗圖描述混進文章結果只是雜訊
+ */
+const isSearchIndexed = computed(() =>
+  !frontmatter.value.draft && !page.value.relativePath.startsWith('aquarium/'),
+)
 /** 搜尋結果左側的封面縮圖，以 Pagefind 的 meta 帶進索引（VPPagefindSearchBox 讀 meta.thumbnail）。
  * 不用 Pagefind 預設的 image：它抓內容區第一張圖，圖版頁的封面不在內容區裡
  */
