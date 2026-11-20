@@ -1,13 +1,27 @@
 <script setup lang="ts">
 import { useRoute } from '#vp'
-import { computed } from 'vue'
+import { computed, defineAsyncComponent, hydrateOnVisible } from 'vue'
 import { useData } from '../composables/data'
 import { useSidebar } from '../composables/sidebar'
 import Content from './Content'
-import VPDocAside from './VPDocAside.vue'
-import VPDocFooter from './VPDocFooter.vue'
+import { defineIdleHydrated } from '../support/lazy-hydrate'
 
-const { theme, frontmatter } = useData()
+/** 首屏不需立即互動的區塊閒置時才 hydration，拆開原本一整段的 hydration 長任務（見 support/lazy-hydrate.ts） */
+const VPDocAside = defineIdleHydrated(() => import('./VPDocAside.vue'))
+const DocPlateBand = defineIdleHydrated(() => import('../custom/doc-plate-band.vue'))
+const DocPlateCaption = defineIdleHydrated(() => import('../custom/doc-plate-caption.vue'))
+
+/** 文末的更新時間與上一篇／下一篇，捲到附近才 hydration */
+const VPDocFooter = defineAsyncComponent({
+  loader: () => import('./VPDocFooter.vue'),
+  hydrate: hydrateOnVisible({ rootMargin: '300px' }),
+})
+
+const { theme, frontmatter, page } = useData()
+
+/** 主題與專欄文章：上方圖版帶、左側圖說，取代側欄 */
+const plateSeries = computed(() => page.value.plateSeries)
+const tagList = computed<string[]>(() => Array.isArray(frontmatter.value.tags) ? frontmatter.value.tags : [])
 
 const route = useRoute()
 const { hasSidebar, hasAside, leftAside } = useSidebar()
@@ -23,10 +37,25 @@ const isSearchIndexed = computed(() => !frontmatter.value.draft)
 <template>
   <div
     class="VPDoc"
-    :class="{ 'has-sidebar': hasSidebar, 'has-aside': hasAside }"
+    :class="{ 'has-sidebar': hasSidebar, 'has-aside': hasAside, 'is-plate': plateSeries }"
   >
     <slot name="doc-top" />
+    <doc-plate-band
+      v-if="plateSeries"
+      class="plate-band"
+      :plate-series="plateSeries"
+    />
     <div class="container">
+      <div
+        v-if="plateSeries"
+        class="plate-caption"
+      >
+        <doc-plate-caption
+          :plate-series="plateSeries"
+          :tag-list="tagList"
+        />
+      </div>
+
       <div v-if="hasAside" class="aside" :class="{'left-aside': leftAside}">
         <div class="aside-curtain" />
         <div class="aside-container">
@@ -194,5 +223,121 @@ const isSearchIndexed = computed(() => !frontmatter.value.draft)
 
 .VPDoc.has-aside .content-container {
   max-width: 688px;
+}
+
+/* 圖版對開：上方圖版帶，下方圖說、閱讀欄、本篇章節三欄 */
+.VPDoc.is-plate .plate-band,
+.VPDoc.is-plate .plate-caption {
+  max-width: 688px;
+  margin-inline: auto;
+}
+
+.VPDoc.is-plate .container {
+  display: block;
+  max-width: none;
+}
+
+@media (min-width: 960px) {
+  .VPDoc.is-plate .plate-band,
+  .VPDoc.is-plate .plate-caption {
+    max-width: 752px;
+    padding-inline: 32px;
+  }
+}
+
+/* 960–1279：沒有側欄後空間夠放章節清單，圖說改在閱讀欄上方，右側維持本篇章節 */
+@media (min-width: 960px) and (max-width: 1279px) {
+  .VPDoc.is-plate .plate-band {
+    max-width: 944px;
+  }
+
+  .VPDoc.is-plate .container {
+    display: grid;
+    grid-template-columns: minmax(0, 688px) 200px;
+    column-gap: 32px;
+    justify-content: center;
+    max-width: 944px;
+    padding-inline: 0;
+  }
+
+  .VPDoc.is-plate .plate-caption {
+    grid-column: 1;
+    grid-row: 1;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .VPDoc.is-plate .content {
+    grid-column: 1;
+    grid-row: 2;
+    min-width: 0;
+    padding: 0 0 128px;
+  }
+
+  .VPDoc.is-plate .aside {
+    display: block;
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    max-width: none;
+    padding-left: 0;
+  }
+}
+
+@media (min-width: 960px) {
+  /* 圖版帶在上方，章節不能用原本貼齊視窗頂端的 fixed，改為跟著欄位黏住 */
+  .VPDoc.is-plate .aside-container {
+    position: sticky;
+    top: calc(var(--vp-nav-height) + 32px);
+    width: auto;
+    height: auto;
+    max-height: calc(100vh - var(--vp-nav-height) - 64px);
+    padding-top: 0;
+  }
+
+  .VPDoc.is-plate .aside-curtain {
+    display: none;
+  }
+
+  .VPDoc.is-plate .aside-content {
+    min-height: 0;
+  }
+}
+
+@media (min-width: 1280px) {
+  .VPDoc.is-plate .plate-band {
+    max-width: 1184px;
+    padding-inline: 0;
+  }
+
+  .VPDoc.is-plate .container {
+    display: grid;
+    grid-template-columns: 176px minmax(0, 688px) 224px;
+    column-gap: 48px;
+    justify-content: center;
+    max-width: 1184px;
+  }
+
+  .VPDoc.is-plate .plate-caption {
+    grid-column: 1;
+    grid-row: 1;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .VPDoc.is-plate .content {
+    grid-column: 2;
+    grid-row: 1;
+    min-width: 0;
+    padding: 0 0 128px;
+  }
+
+  .VPDoc.is-plate .aside {
+    grid-column: 3;
+    grid-row: 1;
+    max-width: none;
+    padding-left: 0;
+  }
 }
 </style>

@@ -55,7 +55,7 @@ watch(
       tabindex="-1"
     >
       <span class="visually-hidden" id="sidebar-aria-label">
-        Sidebar Navigation
+        側欄導覽
       </span>
 
       <slot name="sidebar-nav-before" />

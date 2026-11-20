@@ -13,7 +13,7 @@ defineEmits<{
     type="button"
     class="VPNavBarHamburger"
     :class="{ active }"
-    aria-label="mobile navigation"
+    aria-label="開啟主選單"
     :aria-expanded="active"
     aria-controls="VPNavScreen"
     @click="$emit('click')"

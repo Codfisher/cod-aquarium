@@ -1,105 +1,29 @@
 <template>
-  <div class="article-overview flex flex-col items-center w-full">
+  <!-- vp-raw：避開 base.css 對 button 的無層級重設，Nuxt UI 按鈕才有正常樣式（見 docs/development-notes.md） -->
+  <div class="article-overview vp-raw flex flex-col items-center w-full">
     <div class="flex flex-col lg:flex-row-reverse justify-center items-start gap-4 w-full">
-      <!-- tag 過濾 -->
-      <!-- 電腦版 -->
-      <div class="tag-filter hidden md:block flex-1 sticky top-[5.5rem] p-4 rounded-lg">
-        <div class="mb-4 ">
-          可以根據 Tag 快速過濾，或使用「搜尋（Ctrl+K）」，精準找到文章！
-          <span class="text-nowrap">(๑•̀ㅂ•́)و✧</span>
-        </div>
+      <!-- 標籤篩選：不選任何標籤時顯示全部文章，選了才只顯示同時含有這些標籤的文章 -->
+      <article-tag-filter
+        v-model:selected-tag-list="selectedTagList"
+        :tag-name-list="tagNameList"
+      />
 
-        <div class="flex gap-2 mb-3 opacity-70">
-          <div
-            role="button"
-            class="cursor-pointer text-sm border p-1 px-4 rounded-full"
-            @click="selectAllTags"
-          >
-            全選
-          </div>
-
-          <div
-            role="button"
-            class="cursor-pointer text-sm border p-1 px-4 rounded-full"
-            @click="clearAllTags"
-          >
-            清除
-          </div>
-        </div>
-
-        <div class="flex flex-wrap gap-2 max-h-[12vh] lg:max-h-none overflow-auto">
-          <badge
-            v-for="tag in tagList"
-            :key="tag.name"
-            class="tag-chip cursor-pointer duration-300 text-sm py-1 rounded-full"
-            :class="{ 'badge-active': tag.selected }"
-            @click="toggleTag(tag.name)"
-          >
-            {{ tag.name }}
-          </badge>
-        </div>
-      </div>
-
-      <!-- 手機板 -->
-      <div class="tag-filter md:hidden flex-1 sticky top-[4.5rem] p-3 rounded-lg">
-        <div class="flex items-center gap-3 text-xs">
-          <div
-            role="button"
-            class="flex items-center gap-1 cursor-pointer opacity-70"
-            @click="isFilterVisible = !isFilterVisible"
-          >
-            <span>篩選標籤</span>
-            <span
-              class="chevron duration-300"
-              :class="{ 'rotate-180': isFilterVisible }"
-            >▾</span>
-          </div>
-
-          <div class="flex gap-2 ml-auto opacity-70">
-            <div
-              role="button"
-              class="cursor-pointer border p-1 px-4 rounded-full"
-              @click="selectAllTags"
-            >
-              全選
-            </div>
-
-            <div
-              role="button"
-              class="cursor-pointer border p-1 px-4 rounded-full"
-              @click="clearAllTags"
-            >
-              清除
-            </div>
-          </div>
-        </div>
-
-        <div
-          class="grid grid-rows-[0fr] duration-300 ease-out"
-          :class="{ 'grid-rows-[1fr] pt-2': isFilterVisible }"
-        >
-          <div class="flex flex-wrap gap-2 overflow-hidden min-h-0">
-            <badge
-              v-for="tag in tagList"
-              :key="tag.name"
-              class="tag-chip cursor-pointer duration-300 text-sm py-1 rounded-full"
-              :class="{ 'badge-active': tag.selected }"
-              @click="toggleTag(tag.name)"
-            >
-              {{ tag.name }}
-            </badge>
-          </div>
-        </div>
-      </div>
-
-      <div class="flex flex-col gap-4 flex-[3]">
+      <div class="flex flex-col gap-4 flex-[3] w-full">
         <h1 class="text-4xl font-bold font-display">
           文章列表
         </h1>
 
-        <div class="text-sm opacity-60">
-          共 {{ articleList.length }} 篇文章
-        </div>
+        <p
+          class="result-count text-sm"
+          aria-live="polite"
+        >
+          <template v-if="selectedTagList.length === 0">
+            共 {{ articleList.length }} 篇文章
+          </template>
+          <template v-else>
+            {{ selectedTagList.length }} 個標籤，符合 {{ articleList.length }} 篇文章
+          </template>
+        </p>
 
         <div
           class="link-container"
@@ -109,76 +33,87 @@
           <transition-group
             ref="linkListRef"
             name="list"
-            tag="div"
-            class="flex flex-col gap-2"
+            tag="ul"
+            class="article-list plain-list flex flex-col gap-2"
             @before-leave="handleBeforeLeave"
           >
-            <div
-              v-for="article in articleList"
+            <li
+              v-for="(article, index) in articleList"
               :key="article.link"
-              role="link"
-              class="article-link flex items-center gap-4 rounded-xl p-4 -mx-4"
-              @click="to(article.link)"
             >
-              <div class="flex flex-col items-center md:items-start flex-1 gap-2">
-                <base-img
+              <a
+                :href="article.href"
+                class="article-link flex flex-col md:flex-row-reverse items-center gap-4 rounded-xl p-4 -mx-4"
+              >
+                <!-- 只渲染一張封面：手機在上方 120px、桌機在右側 140px，用 flex 方向切換位置。
+                  原本兩種尺寸各放一個圖片元件以 CSS 切換顯示，90 篇就要 hydration 180 個元件 -->
+                <!-- 顯示 140px（手機 120px），取 300 寬涵蓋 2 倍高解析螢幕。
+                  首屏的前兩張是 LCP 候選，eager 並預載，不必等版面算完才開始下載 -->
+                <theme-image
                   v-if="article.frontmatter.image"
                   :src="article.frontmatter.image"
-                  class="block md:hidden rounded-lg"
-                  :use-size="300"
-                  width="120"
-                  height="120"
-                  loading="lazy"
-                  decoding="async"
+                  class="article-cover shrink-0"
+                  alt=""
+                  width="300"
+                  height="300"
+                  :loading="index < FIRST_SCREEN_COVER_COUNT ? 'eager' : 'lazy'"
                 />
 
-                <div
-                  v-if="article.frontmatter.date"
-                  class="text-xs opacity-40 font-mono tracking-wider"
-                >
-                  {{ article.frontmatter.date }}
-                </div>
+                <div class="flex flex-col items-center md:items-start flex-1 gap-2 w-full">
 
-                <div class="w-full text-center md:text-left text-xl md:text-2xl font-bold text-pretty leading-snug">
-                  {{ article.frontmatter.title }}
-                </div>
-
-                <div
-                  v-if="article.frontmatter.tags"
-                  class="flex flex-wrap items-center justify-center md:justify-start gap-1.5"
-                >
-                  <div
-                    v-for="tag in article.frontmatter.tags"
-                    :key="tag"
-                    class="tag px-2.5 py-0.5 rounded-full text-xs"
+                  <time
+                    v-if="article.frontmatter.date"
+                    class="article-date text-xs font-mono tracking-wider"
+                    :datetime="article.frontmatter.isoDate"
                   >
-                    {{ tag }}
+                    {{ article.frontmatter.date }}
+                  </time>
+
+                  <!-- 不用 h2：.vp-doc 的 h2 規則會加上章節編號與分隔線 -->
+                  <div
+                    role="heading"
+                    aria-level="2"
+                    class="article-title w-full text-center md:text-left text-xl md:text-2xl font-bold text-pretty leading-snug"
+                  >
+                    {{ article.frontmatter.title }}
                   </div>
+
+                  <ul
+                    v-if="article.frontmatter.tags"
+                    class="plain-list flex flex-wrap items-center justify-center md:justify-start gap-1.5"
+                    aria-label="標籤"
+                  >
+                    <li
+                      v-for="tag in article.frontmatter.tags"
+                      :key="tag"
+                      class="tag px-2.5 py-0.5 rounded-full text-xs"
+                    >
+                      {{ tag }}
+                    </li>
+                  </ul>
+
+                  <p class="description w-full text-sm leading-relaxed mt-1">
+                    {{ article.frontmatter.description }}
+                  </p>
                 </div>
+              </a>
+            </li>
 
-                <div class="description w-full text-sm leading-relaxed opacity-70 mt-1">
-                  {{ article.frontmatter.description }}
-                </div>
-              </div>
-
-              <base-img
-                v-if="article.frontmatter.image"
-                :src="article.frontmatter.image"
-                class="hidden md:block rounded-xl shrink-0"
-                :use-size="300"
-                width="140"
-                height="140"
-                loading="lazy"
-                decoding="async"
-              />
-            </div>
-
-            <div
+            <li
               v-if="articleList.length === 0"
-              class=" p-4 text-center text-xl opacity-50"
+              key="empty"
+              class="empty-state flex flex-col items-center gap-3 p-4 text-center text-xl"
             >
-              找不到任何文章 Σ(ˊДˋ;)
-            </div>
+              找不到同時符合這些標籤的文章 Σ(ˊДˋ;)
+              <u-button
+                color="neutral"
+                variant="outline"
+                size="sm"
+                @click="clearAllTags"
+              >
+                清除篩選，顯示全部
+              </u-button>
+            </li>
           </transition-group>
         </div>
       </div>
@@ -187,83 +122,68 @@
 </template>
 
 <script setup lang="ts">
-import { useElementSize } from '@vueuse/core'
-import dayjs from 'dayjs'
-import { filter, flatMap, map, pipe, sort, unique } from 'remeda'
-import { useRouter } from '#vp'
 import sourceArticleList from '#site/article-list'
-import { computed, ref } from 'vue'
-import BaseImg from './base-img.vue'
+import { useElementSize, useMounted } from '@vueuse/core'
+import { filter, flatMap, map, pipe, sort, unique } from 'remeda'
+import { computed, defineAsyncComponent, hydrateOnIdle, ref } from 'vue'
+import ThemeImage from './theme-image.vue'
+
+/** 標籤篩選區閒置時才 hydration，與文章清單拆成不同的任務（見 article-tag-filter.vue） */
+const ArticleTagFilter = defineAsyncComponent({
+  loader: () => import('./article-tag-filter.vue'),
+  hydrate: hydrateOnIdle(2000),
+})
 
 const isDev = import.meta.env.DEV
-const router = useRouter()
+/** pubDate（例如 20241007）轉成日期字串。直接切字串，不必為此在總覽頁載入 dayjs */
+function toDateText(pubDate: number, separator: string) {
+  const text = String(pubDate)
+  return [text.slice(0, 4), text.slice(4, 6), text.slice(6, 8)].join(separator)
+}
+
+/** 首屏可見的封面數，這幾張不延遲載入 */
+const FIRST_SCREEN_COVER_COUNT = 2
 
 const linkListRef = ref<HTMLElement>()
 const { height: linkListHeight } = useElementSize(linkListRef)
-/** 為了讓容器高度有動畫，不要瞬間長高 */
-const linkContainerStyle = computed(() => ({
-  height: `${linkListHeight.value}px`,
-}))
+const isMounted = useMounted()
+/** 為了讓容器高度有動畫，不要瞬間長高。
+ * 掛載前量不到高度（SSR 為 0），不設高度，否則預先渲染的清單會被壓成 0 高、等 JS 跑完才出現
+ */
+const linkContainerStyle = computed(() => isMounted.value && linkListHeight.value > 0
+  ? { height: `${linkListHeight.value}px` }
+  : undefined)
 
-const selectedTags = ref<string[]>([])
+const selectedTagList = ref<string[]>([])
 
-const isFilterVisible = ref(false)
-const tagList = computed(() => {
-  const result = pipe(
-    sourceArticleList,
-    flatMap(({ frontmatter }) => frontmatter.tags ?? []),
-    unique(),
-    map((name) => {
-      const selected = selectedTags.value.includes(name)
-      return { name, selected }
-    }),
-  )
-
-  return result ?? []
-})
-
-function toggleTag(name: string) {
-  const index = selectedTags.value.indexOf(name)
-
-  if (index < 0) {
-    selectedTags.value.push(name)
-  }
-  else {
-    selectedTags.value.splice(index, 1)
-  }
-}
-
-function selectAllTags() {
-  selectedTags.value = tagList.value.map(({ name }) => name)
-}
-selectAllTags()
+/** 全部標籤名稱，依文章順序去重 */
+const tagNameList = pipe(
+  sourceArticleList,
+  flatMap(({ frontmatter }) => frontmatter.tags ?? []),
+  unique(),
+)
 
 function clearAllTags() {
-  selectedTags.value = []
+  selectedTagList.value = []
 }
 
 const articleList = computed(() => pipe(
   sourceArticleList,
-  filter((article) => {
-    if (selectedTags.value.length === 0)
-      return false
-
-    return article.frontmatter.tags?.some((tag) => selectedTags.value.includes(tag))
-  }),
+  /** 沒選標籤時顯示全部；選了則只留同時含有所有已選標籤的文章，選越多範圍越窄 */
+  filter((article) => selectedTagList.value.every((tag) => article.frontmatter.tags?.includes(tag))),
   sort((a, b) => b.frontmatter.pubDate - a.frontmatter.pubDate),
   map((item) => ({
     ...item,
+    /** 文章清單的 link 沒有開頭斜線（例如 blog-vue/xxx），補成站內絕對路徑 */
+    href: `/${item.link.replace(/^\//, '')}`,
     frontmatter: {
       ...item.frontmatter,
-      date: dayjs(`${item.frontmatter.pubDate}`, 'YYYYMMDD').format('YYYY/MM/DD'),
+      date: toDateText(item.frontmatter.pubDate, '/'),
+      isoDate: toDateText(item.frontmatter.pubDate, '-'),
       image: !isDev ? item.frontmatter.image : item.frontmatter.image?.replace('https://codlin.me', ''),
     },
   })),
 ))
-
-function to(link: string) {
-  router.go(link)
-}
 
 /** 修正 transition-group 元素離開時動畫異常問題 */
 function handleBeforeLeave(el: Element) {
@@ -281,21 +201,35 @@ function handleBeforeLeave(el: Element) {
 </script>
 
 <style scoped lang="sass">
-.tag-filter
-  z-index: 1
-  backdrop-filter: blur(10px)
-  background: light-dark(oklch(0.99 0.005 175 / 0.85), oklch(0.22 0.01 175 / 0.85))
-  border-width: 1px
-  border-color: light-dark(oklch(0.92 0.01 175), oklch(0.25 0.01 175))
+/* .vp-doc 的清單規則（縮排、項目符號、li 間距）不在 cascade layer 內，scoped 選擇器的權重才壓得過 */
+.plain-list
+  list-style: none
+  padding: 0
+  margin: 0
+  > li
+    margin: 0
 
-.chevron
-  display: inline-block
-  line-height: 1
+.result-count, .article-date, .description
+  color: var(--vp-c-text-2)
 
-.tag-chip
-  opacity: 0.4
-.badge-active
-  opacity: 1
+/* class 由 theme-image 傳到內層的 <img>（不是根元素），scoped 樣式要用 :deep 才對得到 */
+:deep(.article-cover)
+  display: block
+  width: 120px
+  height: 120px
+  object-fit: cover
+  border-radius: 0.5rem
+  @media (min-width: 768px)
+    width: 140px
+    height: 140px
+    border-radius: 0.75rem
+
+/* 前幾篇之後延後排版：90 篇的清單首次排版成本高，畫面外的項目等捲到附近再排 */
+.article-list > li:nth-child(n+5)
+  content-visibility: auto
+  contain-intrinsic-size: auto 260px
+  @media (min-width: 768px)
+    contain-intrinsic-size: auto 200px
 
 .description
   white-space: unset
@@ -306,7 +240,7 @@ function handleBeforeLeave(el: Element) {
     color-mix(in oklch, var(--vp-c-brand-soft) 50%, oklch(0.22 0.01 175))
   )
   color: light-dark(
-    var(--vp-c-brand-1),
+    var(--vp-code-color),
     var(--vp-c-brand-2)
   )
   letter-spacing: 0.6px
@@ -318,11 +252,20 @@ function handleBeforeLeave(el: Element) {
   transition-timing-function: cubic-bezier(0.83, 0, 0.17, 1)
 
 .article-link
-  cursor: pointer
+  color: var(--vp-c-text-1)
+  font-weight: inherit
+  /* style.css 的 .vp-doc a 以 !important 強制加底線，整塊卡片式連結要拿掉 */
+  text-decoration: none !important
   transition: background-color 0.25s, transform 0.25s
   &:hover
     background: light-dark(oklch(0.97 0.01 175 / 0.6), oklch(0.22 0.015 175 / 0.5))
     transform: translateX(2px)
+  &:focus-visible
+    outline: 2px solid var(--vp-c-brand-1)
+    outline-offset: 2px
+  @media (prefers-reduced-motion: reduce)
+    &:hover
+      transform: none
 
 .list-move, .list-enter-active, .list-leave-active
   transition: all 0.6s cubic-bezier(0.83, 0, 0.17, 1)

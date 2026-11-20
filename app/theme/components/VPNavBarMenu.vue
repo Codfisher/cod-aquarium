@@ -13,7 +13,7 @@ const { theme } = useData()
     class="VPNavBarMenu"
   >
     <span id="main-nav-aria-label" class="visually-hidden">
-      Main Navigation
+      主要導覽
     </span>
     <template v-for="item in theme.nav" :key="JSON.stringify(item)">
       <VPNavBarMenuLink v-if="'link' in item" :item="item" />

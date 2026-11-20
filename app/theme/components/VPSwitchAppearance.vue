@@ -1,5 +1,6 @@
 <script lang="ts" setup>
-import { inject, ref, watchPostEffect } from 'vue'
+import { useMounted } from '@vueuse/core'
+import { computed, inject, ref, watchPostEffect } from 'vue'
 import { useData } from '../composables/data'
 import VPSwitch from './VPSwitch.vue'
 
@@ -10,6 +11,10 @@ const toggleAppearance = inject('toggle-appearance', () => {
 })
 
 const switchTitle = ref('')
+
+/** 伺服器不知道使用者偏好，掛載前一律輸出 false，避免暗色模式下 hydration 不一致；開關外觀由 .dark class 決定，不受影響 */
+const isMounted = useMounted()
+const isChecked = computed(() => isMounted.value && isDark.value)
 
 watchPostEffect(() => {
   switchTitle.value = isDark.value
@@ -22,7 +27,7 @@ watchPostEffect(() => {
   <VPSwitch
     :title="switchTitle"
     class="VPSwitchAppearance"
-    :aria-checked="isDark"
+    :aria-checked="isChecked"
     @click="toggleAppearance"
   >
     <span class="vpi-sun sun" />

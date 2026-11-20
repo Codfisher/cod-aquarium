@@ -3,9 +3,9 @@ import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 import matter from 'gray-matter'
-import { filter, find, flatMap, map, pipe, sort, tap } from 'remeda'
+import { filter, find, flatMap, map, pipe, sort } from 'remeda'
 import { z } from 'zod'
-import { CONTENT_PATH } from './constants'
+import { CONTENT_PATH, CONTENT_PUBLIC_DIR } from './constants'
 
 const isDev = process.env.NODE_ENV !== 'production'
 
@@ -23,6 +23,17 @@ const docFrontMatterSchema = z.object({
   date: z.string().optional(),
   draft: z.boolean().optional(),
 })
+
+const DEFAULT_COVER_URL = 'https://codlin.me/cover.webp'
+
+/** 站內圖片（https://codlin.me/xxx.webp）是否已放進 content/public；外部網址一律視為存在 */
+function hasPublicImage(imageUrl: string) {
+  const url = new URL(imageUrl)
+  if (url.hostname !== 'codlin.me')
+    return true
+
+  return fs.existsSync(path.join(CONTENT_PUBLIC_DIR, decodeURIComponent(url.pathname)))
+}
 
 /** 從 markdown 內容中提取第一個 # 標題 */
 function extractFirstHeading(content: string): string | null {
@@ -46,6 +57,12 @@ export function getFrontMatter(filePath: string) {
   const result = matter(content)
 
   const data = docFrontMatterSchema.parse(result.data)
+  /** dev 會列出草稿，草稿的封面常常還沒做，文章總覽、圖版列與相關文章就會一直請求不存在的圖（IPX 404）。
+   * 只在 dev 改用站台預設封面；正式 build 不列草稿，不受影響
+   */
+  if (isDev && data.draft && !hasPublicImage(data.image)) {
+    data.image = DEFAULT_COVER_URL
+  }
   // 如果 title 不存在，嘗試從文章內容的第一個 # 標題取得
   if (!data.title) {
     const h1 = extractFirstHeading(result.content)

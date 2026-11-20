@@ -16,7 +16,7 @@ defineEmits<{
   (e: 'open-menu'): void
 }>()
 
-const { theme, frontmatter } = useData()
+const { theme, frontmatter, page } = useData()
 const { hasSidebar } = useSidebar()
 const { headers } = useLocalNav()
 const { y } = useWindowScroll()
@@ -39,14 +39,20 @@ const empty = computed(() => {
   return headers.value.length === 0
 })
 
+/** 標題清單要在 client 才算得出來（SSR 時一律是空的）。若依「沒標題也沒側欄」隱藏，
+ * 沒有側欄的頁面（圖版文章頁、首頁）SSR 不會輸出這條列，hydration 後才出現，把內文往下推 48px（CLS 0.05）。
+ * 只要頁面沒有關閉目錄（frontmatter.outline: false）就一律輸出，佔位從首次繪製就固定
+ */
 const emptyAndNoSidebar = computed(() => {
-  return empty.value && !hasSidebar.value
+  return empty.value && !hasSidebar.value && frontmatter.value.outline === false
 })
 
 const classes = computed(() => {
   return {
     VPLocalNav: true,
     'has-sidebar': hasSidebar.value,
+    /** 圖版頁在 960 以上已有右側章節清單（見 VPDoc），不必再顯示這條 */
+    'is-plate': !!page.value.plateSeries,
     empty: empty.value,
     fixed: emptyAndNoSidebar.value
   }
@@ -103,7 +109,8 @@ const classes = computed(() => {
     padding-left: var(--vp-sidebar-width);
   }
 
-  .VPLocalNav.empty {
+  .VPLocalNav.empty,
+  .VPLocalNav.is-plate {
     display: none;
   }
 }

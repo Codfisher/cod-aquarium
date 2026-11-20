@@ -6,7 +6,7 @@
 }
 
 @theme {
-  --font-display: "Figtree", var(--vp-font-family-base);
+  --font-display: var(--display-font-family);
   --font-orbitron: "Orbitron", sans-serif;
   --font-sans: var(--vp-font-family-base);
 }

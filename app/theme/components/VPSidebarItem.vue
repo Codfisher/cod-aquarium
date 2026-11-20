@@ -85,7 +85,7 @@ function onCaretClick() {
         v-if="item.collapsed != null && item.items && item.items.length"
         class="caret"
         role="button"
-        aria-label="toggle section"
+        aria-label="展開或收合此區"
         @click="onCaretClick"
         @keydown.enter="onCaretClick"
         tabindex="0"

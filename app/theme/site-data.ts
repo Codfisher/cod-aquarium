@@ -1,3 +1,4 @@
+import type { PlateSeries } from '../../site/plate-series'
 import type { ThemeConfig } from '../../site/theme-config'
 import type { PageData } from './types/shared'
 
@@ -27,5 +28,6 @@ export interface ClientEmotionParams {
 export interface ClientPageData extends PageData {
   routePath: string;
   params?: ClientEmotionParams;
+  /** 主題與專欄文章才有：同系列的圖版帶資料 */
+  plateSeries?: PlateSeries;
 }
-

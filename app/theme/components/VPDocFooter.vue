@@ -46,7 +46,7 @@ const showFooter = computed(
       class="prev-next"
       aria-labelledby="doc-footer-aria-label"
     >
-      <span class="visually-hidden" id="doc-footer-aria-label">Pager</span>
+      <span class="visually-hidden" id="doc-footer-aria-label">上一篇與下一篇</span>
 
       <div class="pager">
         <VPLink

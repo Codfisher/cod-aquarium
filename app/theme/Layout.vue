@@ -1,16 +1,24 @@
 <script setup lang="ts">
 import { useRoute } from '#vp'
-import { computed, provide, useSlots, watch } from 'vue'
+import { computed, defineAsyncComponent, hydrateOnVisible, provide, useSlots, watch } from 'vue'
 import Content from './components/Content'
 import VPBackdrop from './components/VPBackdrop.vue'
 import VPContent from './components/VPContent.vue'
-import VPFooter from './components/VPFooter.vue'
-import VPLocalNav from './components/VPLocalNav.vue'
 import VPNav from './components/VPNav.vue'
-import VPSidebar from './components/VPSidebar.vue'
 import VPSkipLink from './components/VPSkipLink.vue'
 import { useData } from './composables/data'
 import { useCloseSidebarOnEscape, useSidebar } from './composables/sidebar'
+import { defineIdleHydrated } from './support/lazy-hydrate'
+
+/** 首屏不需立即互動的區塊閒置時才 hydration，拆開原本一整段的 hydration 長任務（見 support/lazy-hydrate.ts） */
+const VPLocalNav = defineIdleHydrated(() => import('./components/VPLocalNav.vue'))
+const VPSidebar = defineIdleHydrated(() => import('./components/VPSidebar.vue'))
+
+/** 頁尾在頁面最下方，捲到附近才 hydration，不與首屏內容搶主執行緒 */
+const VPFooter = defineAsyncComponent({
+  loader: () => import('./components/VPFooter.vue'),
+  hydrate: hydrateOnVisible({ rootMargin: '300px' }),
+})
 
 const {
   isOpen: isSidebarOpen,

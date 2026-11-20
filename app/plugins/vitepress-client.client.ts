@@ -10,10 +10,29 @@ import { treatAsHtml } from '../theme/shared'
  * - 程式碼區塊的複製按鈕（composables/copyCode.js）
  * - code-group 分頁切換（composables/codeGroups.js）
  */
+/** 文章內文畫面外的區塊有 content-visibility: auto（見 style.css），未渲染的區塊只以估計高度佔位。
+ * 跳到錨點時若沿用估計高度，捲過去後區塊才渲染撐開，標題會被推離目標位置（實測偏差達 600px）。
+ * 跳轉前解除整篇的 content-visibility，讓位置以實際高度計算；首次載入仍保有延後排版的好處
+ */
+function revealFullContent() {
+  document.documentElement.classList.add('is-content-revealed')
+}
+
 export default defineNuxtPlugin({
   name: 'vitepress-client',
   setup(nuxtApp) {
     const router = nuxtApp.$router
+
+    /** 首次載入不播入場動畫，站內換頁的新內容才淡入（見 style.css 的 content-enter）。
+     * 跳過首次的 page:finish：那時加上 class，已顯示的內文會符合選擇器而從透明重播一次。
+     * 第一次站內換頁完成時加上，當下剛換上的內容開始淡入，之後插入的新內容也都會淡入
+     */
+    let pageFinishCount = 0
+    nuxtApp.hook('page:finish', () => {
+      pageFinishCount++
+      if (pageFinishCount > 1)
+        document.documentElement.classList.add('is-hydrated')
+    })
 
     /** md 轉出的是原生 <a>，主題的導覽連結也是；攔截後改用 router 換頁，避免整頁重新載入 */
     window.addEventListener('click', (event) => {
@@ -48,6 +67,9 @@ export default defineNuxtPlugin({
       const currentUrl = new URL(location.href)
       if (origin !== currentUrl.origin || !treatAsHtml(pathname))
         return
+
+      if (hash)
+        revealFullContent()
 
       /** 不是 Nuxt 頁面的站內網址（例如 public 下的靜態 html）交給瀏覽器 */
       const targetPath = `${pathname}${search}${hash}`
@@ -86,6 +108,16 @@ export default defineNuxtPlugin({
         }))
       })
     }, { capture: true })
+
+    /** 帶錨點直接開啟的網址，site-layout 會在內容載入後重新定位，同樣需要以實際高度計算 */
+    if (location.hash)
+      revealFullContent()
+
+    /** 上一頁／下一頁回到帶錨點的網址時，同樣先讓整篇渲染再捲動 */
+    window.addEventListener('popstate', () => {
+      if (location.hash)
+        revealFullContent()
+    })
 
     initLinkPreload(nuxtApp, router)
     initCopyCode()

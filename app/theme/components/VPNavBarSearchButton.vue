@@ -5,8 +5,8 @@ import { createSearchTranslate } from '../support/translation'
 // Button-Translations
 const defaultTranslations: { button: ButtonTranslations } = {
   button: {
-    buttonText: 'Search',
-    buttonAriaLabel: 'Search'
+    buttonText: '搜尋',
+    buttonAriaLabel: '搜尋文章'
   }
 }
 

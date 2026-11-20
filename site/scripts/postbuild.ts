@@ -4,7 +4,7 @@
  * sitemap.xml 與 robots.txt 改由 @nuxtjs/sitemap、@nuxtjs/robots 在 nuxt generate 時產生
  *
  * 用法：vite-node site/scripts/postbuild.ts [-- --only feed,llms] [--out <目錄>]
- * --only 只跑指定步驟（cleanup、redirects、images、search-index、feed、llms、pagefind）；--out 改輸出目錄（預設 dist，images 固定輸出到 dist）
+ * --only 只跑指定步驟（cleanup、redirects、search-index、feed、llms、pagefind、critical-css、standalone-preload）；--out 改輸出目錄（預設 dist）。響應式圖片改由 Nuxt Image 在預先渲染時產生
  */
 import path from 'node:path'
 import process from 'node:process'
@@ -13,7 +13,7 @@ import { parseArgs } from 'node:util'
 // site/articles.ts 在模組載入時就依 NODE_ENV 判斷是否排除草稿，必須在 import 其他模組前設定
 process.env.NODE_ENV = 'production'
 
-const STEP_LIST = ['cleanup', 'redirects', 'images', 'search-index', 'feed', 'llms', 'pagefind', 'verify'] as const
+const STEP_LIST = ['cleanup', 'redirects', 'search-index', 'feed', 'llms', 'pagefind', 'critical-css', 'standalone-preload', 'verify'] as const
 type Step = typeof STEP_LIST[number]
 
 function isStep(value: string): value is Step {
@@ -58,10 +58,6 @@ async function main() {
       else
         rmSync(redirectsPath)
     },
-    'images': async () => {
-      const { generateImages } = await import('./resize-images')
-      await generateImages()
-    },
     /** 快取梗圖的預建搜尋索引。Vite 外掛在 generateBundle 發出的 asset 只會留在 Nuxt 的 client 輸出目錄，
      * Nitro 只複製其中的 _nuxt/，所以改在這裡寫入；沒有它 app 會退回執行期建索引，第一次搜尋慢數百毫秒
      */
@@ -89,6 +85,16 @@ async function main() {
      * aquarium 目錄頁的尾斜線靠 server/plugins/sitemap-trailing-slash.ts 補回，
      * 它依賴 sitemap 的輸出格式，失效時兩者會不一致又不報錯，這裡把關
      */
+    /** 內嵌首屏 CSS、完整 CSS 改為非同步載入（見 postbuild/critical-css.ts） */
+    'critical-css': async () => {
+      const { inlineCriticalCss } = await import('./postbuild/critical-css')
+      await inlineCriticalCss(outDir)
+    },
+    /** aquarium 各 app 頁補上 app 本體的 modulepreload（見 postbuild/standalone-preload.ts） */
+    'standalone-preload': async () => {
+      const { addStandalonePreload } = await import('./postbuild/standalone-preload')
+      await addStandalonePreload(outDir)
+    },
     'verify': async () => {
       const { readFileSync, readdirSync } = await import('node:fs')
       const sitemap = readFileSync(path.join(outDir, 'sitemap.xml'), 'utf-8')

@@ -1,20 +1,25 @@
 import type { SitePage } from '../site/pages'
+import type { PlateSeries } from '../site/plate-series'
 import path from 'node:path'
 import { addTemplate, addVitePlugin, defineNuxtModule } from '@nuxt/kit'
 import { CONTENT_PATH, SITE_DESCRIPTION, SITE_LANG, SITE_TITLE } from '../site/constants'
 import { getPageHeadList } from '../site/head'
+import { getLatestArticleList } from '../site/latest-articles'
 import { viteMarkdown } from '../site/markdown/vite-plugin'
+import { getFeaturedMemeList } from '../site/meme-featured'
 import { getSitePageList } from '../site/pages'
+import { getPlateSeriesMap } from '../site/plate-series'
 import { getPageSeo } from '../site/seo'
 import { getThemeConfig } from '../site/theme-config'
 
 /** 送到 client 的頁面資料：不含情緒分類頁的迷因清單（太大），那部分由 SSR payload 提供 */
-function toClientPage(page: SitePage) {
+function toClientPage(page: SitePage, plateSeriesMap: Map<string, PlateSeries>) {
   const { params, ...rest } = page
   return {
     ...rest,
     headers: [],
     params: params ? { emotion: params.emotion, label: params.label, total: params.total } : undefined,
+    plateSeries: plateSeriesMap.get(page.routePath),
   }
 }
 
@@ -36,6 +41,7 @@ export default defineNuxtModule({
     /** 產生的型別宣告以絕對路徑引用專案內的型別 */
     const toImportPath = (relativePath: string) => path.resolve(nuxt.options.rootDir, relativePath).split(path.sep).join('/')
     const themeConfig = getThemeConfig()
+    const plateSeriesMap = getPlateSeriesMap(themeConfig.sidebar)
 
     addVitePlugin(viteMarkdown(), { prepend: true })
 
@@ -70,7 +76,7 @@ export default defineNuxtModule({
     pageList.forEach((page, index) => {
       addTemplate({
         filename: `site/pages/${index}.mjs`,
-        getContents: () => `export default ${JSON.stringify(toClientPage(page))}`,
+        getContents: () => `export default ${JSON.stringify(toClientPage(page, plateSeriesMap))}`,
         write: true,
       })
     })
@@ -119,15 +125,40 @@ export default defineNuxtModule({
       write: true,
     })
 
-    /** dev 沒有 postbuild 產生的 -300、-700 響應式圖，base-img 在 dev 也只用原圖，
-     * 封面 preload 會指向不存在的檔案（404 加上「preload 未使用」警告），dev 時拿掉
-     */
-    const toDevHeadList = (headList: ReturnType<typeof getPageHeadList>) => nuxt.options.dev
-      ? headList.filter(([tag, attrs]) => !(tag === 'link' && attrs.rel === 'preload' && attrs.as === 'image'))
-      : headList
+    /** 首頁「最新文章」只需要前幾篇的標題、連結與封面，獨立成小模組，不必載入完整文章清單 */
+    addTemplate({
+      filename: 'site/latest-article-list.mjs',
+      getContents: () => `export default ${JSON.stringify(getLatestArticleList(articleList))}`,
+      write: true,
+    })
+    addTemplate({
+      filename: 'site/latest-article-list.d.mts',
+      getContents: () => [
+        `import type { LatestArticle } from '${toImportPath('site/latest-articles')}'`,
+        'declare const latestArticleList: LatestArticle[]',
+        'export default latestArticleList',
+      ].join('\n'),
+      write: true,
+    })
+
+    /** 快取梗圖首屏梗圖：每次 build 隨機挑一批，SSR 直接輸出在 HTML，app 啟動後維持在清單最上方（見 meme-cache.vue） */
+    addTemplate({
+      filename: 'site/meme-featured-list.mjs',
+      getContents: () => `export default ${JSON.stringify(getFeaturedMemeList())}`,
+      write: true,
+    })
+    addTemplate({
+      filename: 'site/meme-featured-list.d.mts',
+      getContents: () => [
+        `import type { FeaturedMeme } from '${toImportPath('site/meme-featured')}'`,
+        'declare const featuredMemeList: FeaturedMeme[]',
+        'export default featuredMemeList',
+      ].join('\n'),
+      write: true,
+    })
 
     const serverData = {
-      headMap: Object.fromEntries(pageList.map((page) => [page.routePath, toDevHeadList(getPageHeadList(page))])),
+      headMap: Object.fromEntries(pageList.map((page) => [page.routePath, getPageHeadList(page)])),
       emotionParamsMap: Object.fromEntries(
         pageList.filter((page) => page.params).map((page) => [page.params!.emotion, page.params]),
       ),
@@ -176,6 +207,8 @@ export default defineNuxtModule({
 
     nuxt.options.alias['#site/data'] = path.join(nuxt.options.buildDir, 'site/data.mjs')
     nuxt.options.alias['#site/article-list'] = path.join(nuxt.options.buildDir, 'site/article-list.mjs')
+    nuxt.options.alias['#site/latest-article-list'] = path.join(nuxt.options.buildDir, 'site/latest-article-list.mjs')
+    nuxt.options.alias['#site/meme-featured-list'] = path.join(nuxt.options.buildDir, 'site/meme-featured-list.mjs')
     nuxt.options.alias['#site/server-data'] = path.join(nuxt.options.buildDir, 'site/server-data.mjs')
     nuxt.options.alias['#site/seo-data'] = path.join(nuxt.options.buildDir, 'site/seo-data.mjs')
 
@@ -186,6 +219,10 @@ export default defineNuxtModule({
     nuxt.hook('build:manifest', (manifest) => {
       for (const chunk of Object.values(manifest)) {
         chunk.prefetch = false
+        /** 不輸出 modulepreload：文章頁原本一次預載 37 個 chunk，在慢速網路與擋渲染的 CSS 搶頻寬，
+         * CSS 晚約 0.8 秒到、FCP 跟著延後。改由 entry 執行時再依序載入（本機 preview A/B：文章頁 FCP 1.95 → 1.17 秒）
+         */
+        chunk.preload = false
       }
     })
 

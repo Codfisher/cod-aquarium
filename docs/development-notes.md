@@ -19,7 +19,7 @@ Cloudflare Pages 的 build 上限是 20 分鐘。一次匯入 227 筆迷因後�
 
 **原因**：`generateImages()` 只排除了 `public/memes/`，沒排除迷因匯入流程產生的 `public/meme-posters/`、`public/meme-sprites/`。實測 696 張待處理圖片裡有 582 張來自這兩個目錄；sprite 是把動圖攤平成的大圖（常見 1500–3700 px 寬），本機單張就要 1–4 秒，Cloudflare 的機器更慢。前端直接讀原檔（`img-list.vue`、`animated-output.ts`），轉出來的縮圖完全沒用到，原尺寸那份還會以有損壓縮蓋掉 dist 裡的 sprite 原檔。
 
-**處理方式**：兩個目錄加進 `resize-images.ts` 的 `IGNORE_PATH_LIST`。之後新增會隨迷因數量成長的圖片目錄時，記得一併排除，否則 build 時間會跟著圖庫線性變長。
+**處理方式**：當時把兩個目錄加進縮圖腳本的排除清單。現在縮圖改由 Nuxt Image 在預先渲染時產生，只處理 SSR 實際用到的圖片（`theme-image` 與 md 圖片），迷因圖庫不經過它，build 時間不再隨圖庫成長。
 
 ## Cloudflare Pages 的 npm ci 報「Missing: … from lock file」
 
@@ -271,6 +271,13 @@ mermaid 不在 Vite 的預先建置名單內，dev 時瀏覽器直接載入它�
 
 **處理方式**：把該依賴以 `mermaid > 套件名` 的形式加進 `config.mts` 的 `vite.optimizeDeps.include`。VitePress 偵測到 config 變更會自動重啟並重建依賴快取，瀏覽器重新整理即可。
 
+## dev 啟動與瀏覽時的警告
+
+- **`[NDT_DEP_0005] addCustomTab is deprecated`**：@nuxt/icon 2.6.3（Nuxt UI 內建）不論 devtools 有沒有開，都會呼叫舊版 devtools API 註冊分頁。本專案關閉了 devtools，所以用 `patches/@nuxt__icon@2.6.3.patch`（`pnpm-workspace.yaml` 的 `patchedDependencies`）讓它只在 devtools 開啟時註冊。升級 @nuxt/icon 時，先看新版改好了沒有，改好就移除 patch；還沒改好，就用 `pnpm patch` 重做。
+- **`Vite discovered new dependencies at runtime`**：md 頁面、dev 才動態載入的模組裡的依賴，啟動時掃描不到。把它補進 `nuxt.config.ts` 的 `vite.optimizeDeps.include`，否則第一次打開那頁會觸發重新優化並整頁重載。
+- **草稿封面 404**：dev 會列出草稿，草稿封面還沒做時，文章總覽、圖版列與相關文章會一直請求 `/_ipx/...` 得到 404。`site/articles.ts` 只在 dev、且只對草稿把缺檔的封面換成 `/cover.webp`。
+- **可以忽略的**：無頭瀏覽器沒有 GPU 時出現的 `GPU stall due to ReadPixels`、`No available adapters.`（enderbox 偵測 WebGPU 後會改用 WebGL）、`Unrecognized feature: 'web-share'`（YouTube 官方嵌入碼）。另外還有 StackBlitz 嵌入元件自己的 preload 警告，以及 `--host` 帶出的「reachable from the network」提示（為了用手機連區網測試）。
+
 ## 網頁效能：別讓首屏背上不必要的負擔
 
 2026-11 用 Lighthouse 12（手機模擬）量正式站，瓶頸依序是中文網頁字型、第三方腳本、首頁的 YouTube 與 Babylon，VitePress 本身的 hydration 只佔約 400 ms。相關規則：
@@ -278,18 +285,20 @@ mermaid 不在 Vite 的預先建置名單內，dev 時瀏覽器直接載入它�
 - **不要再從 Google Fonts 載入中文字型給全站用。** Noto Sans TC 一頁要拆 29～50 個切片，每片到達都觸發整頁中文重排，拿掉後文章頁 LCP 由 10.5 s 降到 4.0 s。內文一律走 `--vp-font-family-base` 的系統字型；個別功能真的需要（例如迷因編輯器的字型選單），在該功能內按需載入。
 - **嵌入 YouTube 等 iframe 加 `loading="lazy"`。** 首頁 12 個影片沒加時，播放器 JS 就超過 900 KB。
 - **首屏以外的重型元件用 lazy hydration。** `defineAsyncComponent` 只是拆 chunk，hydration 時照樣立刻下載；要搭配 `hydrate: hydrateOnVisible()` 才會捲到附近才載入，範例見 `.vitepress/theme/index.ts` 的 `FishDiorama`。
-- **圖片要優先載入，就在 md 明確寫 `loading="eager" fetchpriority="high"`。** `BaseImg` 只自動判斷 `cover` class，明確寫出的屬性會優先採用。
+- **圖片要優先載入，就在 md 明確寫 `loading="eager" fetchpriority="high"`。** `theme-image` 只自動判斷 `cover` class，明確寫出的屬性會優先採用；eager 的圖片由 Nuxt Image 在 head 加上 preload。
 - **捲動或非同步更新時移動版面，一律用 `transform`。** CLS 只豁免輸入後 500 ms 內的位移，捲動不算輸入。meme-cache 曾因此在 Clarity 拿到 CLS 2.8：VueUse `useVirtualList` 的 `wrapperProps` 用 `marginTop` 推移，捲一下就被算一次位移；改用 `translateY` 後歸零，見 `img-list.vue` 的 `wrapperStyle`。
 - **量測尺寸的 ref 不要掛在會被 `<transition mode="out-in">` 替換的元素上。** 新舊元素交接的空檔裡 ref 是 null、量到的高度歸零，依賴它的版面會先跳走再落回。
 - **新增 `public/` 底下的資料檔，先確認 Cloudflare 有壓縮。** 只有名單內的 Content-Type 才會壓縮，副檔名認不得的會回 `application/octet-stream` 並原封傳輸（meme-cache 的 ndjson 就因此多傳約 380 KB）。在 `content/public/_headers` 覆寫 Content-Type，部署後用 `curl -sI -H "Accept-Encoding: br" <url>` 確認有 `content-encoding`。
 - **藏起來的 lazy 圖片照樣會下載。** Chrome 在慢速網路會預載距視窗 2500px 內的 lazy 圖片，被 fixed 元素蓋住、或只是推到兩個螢幕高以外都不夠。
-- **LCP 元素要等資料才知道是哪張圖時，在 `site/head.ts` 的 `getPageHeadList` 預載那份資料**（`as: 'fetch'`、`crossorigin: 'anonymous'`），且 fetch 不要帶自訂 header，否則預載結果無法沿用。
+- **client-only 的 app，首屏圖片直接輸出在 HTML，別讓 LCP 等 JS 與資料。** meme-cache 原本的 LCP 要依序等 JS、ndjson、清單算繪、圖片，手機慢速 4G 約 5.7 秒。現在 build 時由 `site/meme-featured.ts` 隨機挑 10 張靜態、清晰的梗圖，透過 `#site/meme-featured-list` 同時給 SSR 與 client：`meme-cache.vue` 的 `<client-only>` `#fallback` 用相同的版面輸出這批圖（只顯示當下欄數的兩列），app 掛載後把它們固定在清單最前面，圖片直接沿用快取。尺寸相同的元素替換不會產生新的 LCP 候選，CLS 也沒有變化。本機 preview 對正式站（手機）：LCP 6.7 → 2.3 秒，TBT 1.8 → 1.0 秒。
+  - 這時 ndjson 已經不在 LCP 的路徑上，`site/head.ts` 也拿掉了它的預載。預載會讓 146 KB 的資料跟擋渲染的 CSS、首屏圖片搶頻寬，拿掉後 LCP 2.68 → 2.26 秒。
+  - 也比較過「先載一份首屏用的小 ndjson，再載完整資料」的做法。最好的情況是首屏資料直接打包進 JS，但 LCP 仍要等 JS 執行完，手機 5.3 秒、桌機 5.0 秒，沒有採用。
 - **串流資料別邊讀邊觸發整份清單重算。** meme-cache 原本每 500ms 觸發一次，無關鍵字時每次都重新洗牌、整份重繪；主執行緒一忙串流就讀得更慢、觸發更多次，4 倍 CPU 降速下會從 4 次膨脹到 30 次，前 15 秒長任務多達 27 秒。改為讀完才通知一次後，長任務降到 3 秒左右。
-- **圖片的暗色版（`xxx-dark.webp`）放進 `content/public` 即可，不必另外登記。** `config.mts` 啟動時掃描出有暗色版的圖，以 `__DARK_IMAGE_LIST__` 傳給 `BaseImg`，只對名單內的圖切換。過去一律嘗試載入暗色版，暗色模式下幾乎每篇封面都在 hydration 後多一次 404 再換回亮色，LCP 慢約 0.4 秒且封面會閃。新增暗色版後要重開 dev server 才會生效。
+- **圖片的暗色版（`xxx-dark.webp`）放進 `content/public` 即可，不必另外登記。** `config.mts` 啟動時掃描出有暗色版的圖，以 `__DARK_IMAGE_LIST__` 傳給 `theme-image`，只對名單內的圖加上暗色 `<source>`（`media` 在掛載前用系統偏好的媒體查詢，避免 hydration 不一致）。過去一律嘗試載入暗色版，暗色模式下幾乎每篇封面都在 hydration 後多一次 404 再換回亮色，LCP 慢約 0.4 秒且封面會閃。新增暗色版後要重開 dev server 才會生效。
 - **文章頁的 FCP 主要卡在全站共用的 style.css。** VitePress 把所有元件（含各 aquarium app）的樣式合成一支，2026-11 時解壓後 394 KB，文章頁只用到 46%；它是 render-blocking，還跟 JS 搶頻寬。理想上只留用到的規則，慢速 4G 下 FCP 可快約 1 秒、LCP 快約 1.7 秒。VitePress 寫死 `cssCodeSplit: false`，產 HTML 時也只連結第一支 CSS，硬拆會讓 SSR 畫面在 JS 到之前沒有樣式。
 - **文章頁的 JS 一律低優先下載。** `config.mts` 的 `transformHtml` 會替 modulepreload 與 app.js 加 `fetchpriority="low"`，讓 style.css 與封面先拿到頻寬（鏡像代理實測 FCP 2.45 → 1.57 秒、LCP 3.45 → 2.86 秒）。直接拿掉 modulepreload 會讓 LCP 變慢。aquarium 頁的畫面靠 JS 繪製，不套用。
 - **載入後不要動態插入或移除 `<style>`。** 每插入、移除一次都會讓整頁重算樣式，CSS 越大越貴，文章頁 4 倍降速下一次 300～800 ms。曾有三個來源，合計約 2 秒：VueUse `useDark` 預設 `disableTransition`，初始化時即使外觀沒變也會插入再移除停用轉場的樣式（VitePress 本身與 Nuxt UI 各一個實例）；Nuxt UI 的顏色變數在 Vue 版沒有 SSR，會插暫時版、正式版再移除暫時版。現已分別以 `appearance: { disableTransition: false }`、`ui({ colorMode: false })`、`theme/nuxt-ui-colors.css` 靜態化處理。追查方式：trace 開 `disabled-by-default-devtools.timeline.invalidationTracking`，看每次 `UpdateLayoutTree` 的元素數與失效原因。
-- **`<source>`、`<img>` 的 `sizes` 不要個別綁定。** Vue 3.5 hydration 會把個別綁定的屬性重設一次，只略過值沒變的 src、srcset，不含 sizes；瀏覽器收到 sizes 就重新選圖、重新載入，LCP 被推到 hydration 之後。改用 `v-bind` 物件即可，見 `base-img.vue` 的 `getSourceProps`。這兩項加起來讓文章頁 LCP 從約 4.3 秒降到約 2.2 秒（鏡像代理、慢速 4G、CPU 4 倍）。
+- **`<source>`、`<img>` 的 `sizes` 不要個別綁定。** Vue 3.5 hydration 會把個別綁定的屬性重設一次，只略過值沒變的 src、srcset，不含 sizes；瀏覽器收到 sizes 就重新選圖、重新載入，LCP 被推到 hydration 之後。改用 `v-bind` 物件即可，見 `theme-image.vue` 的暗色 `<source>`。這兩項加起來讓文章頁 LCP 從約 4.3 秒降到約 2.2 秒（鏡像代理、慢速 4G、CPU 4 倍）。
 - **Lighthouse 只量載入，抓不到互動造成的 CLS。** 要用 Playwright 模擬滾輪、輸入等操作，並以 `PerformanceObserver` 監聽 `layout-shift`，從 `sources` 找出元兇。
 
 量測方式：`npx lighthouse@12 <url> --only-categories=performance --output=json --chrome-flags="--headless=new"`，搭配 `--blocked-url-patterns` 封鎖特定資源，就能拆出各項因素的影響。
@@ -384,7 +393,7 @@ meme-cache 本體是 `layout: false` 的單頁 app，上千張圖共用一個網
 **資料流**
 
 - `site/seo.ts` 的 `getPageSeo` 在建置期算出每頁的 canonical、`useSeoMeta` 欄位（og、twitter、article）與 JSON-LD 節點，`modules/site.ts` 寫成 `#site/seo-data`，`app/plugins/site-seo.server.ts` 在 SSR 時交給 `useHead`、`useSeoMeta`、`useSchemaOrg`。新增頁面類型或改結構化資料改 `site/seo.ts`。
-- 與 SEO 無關的 head（封面 LCP preload、meme ndjson preload、llms 連結）仍由 `site/head.ts` 產生、`server/plugins/site-head.ts` 以 `render:html` 附加在 head 最後。
+- 與 SEO 無關的 head（llms 連結等）仍由 `site/head.ts` 產生、`server/plugins/site-head.ts` 以 `render:html` 附加在 head 最後。
 - `<title>` 與 meta description 由 `app/theme/use-page-head.ts` 負責，client 換頁會更新。標題已含站名，nuxt-seo-utils 的 titleTemplate 必須維持關閉（`seo.automaticDefaults: false`），否則站名重複。
 - sitemap 網址清單（排除草稿、lastmod、文章封面與快取梗圖的迷因圖）在 `site/sitemap.ts`，由 `sitemap.urls` 帶入。
 
@@ -453,3 +462,91 @@ meme-cache 本體是 `layout: false` 的單頁 app，上千張圖共用一個網
 **測試**：`pnpm server:test`，以 `@cloudflare/vitest-pool-workers` 在 workerd 裡跑。Pages 設定沒有 `main`，進入點在 `vitest.server.config.ts` 指定為 `server/hono/index.ts`；migrations 在設定檔（Node 端）讀取後以 binding 傳進測試套用，不能在測試檔內呼叫 `readD1Migrations`。workerd 原生 `node:console` 未實作 vitest 需要的 `Console` 類別（compat date 2025-09-21 起預設啟用），測試環境以 `disable_nodejs_console_module` 關閉。
 
 **Worker 大小上限**：Pages Functions 與 Workers 同樣有大小上限（免費 3 MB、付費 10 MB，皆為壓縮後）。`cloudflare-pages` preset 會把 Vue SSR renderer 與所有頁面的伺服器端程式碼一起打包進 `dist/_worker.js`，頁面用到的大型套件（Babylon 等）可能讓 Worker 超過上限而部署失敗。網站頁面全部預先渲染，正式環境的 Worker 只需要處理 `/api`，所以 Worker 只應包含 API。
+
+## 文章頁的圖版帶（圖版對開骨架）
+
+主題（`blog-*`）與專欄（`column-*`）文章頁不顯示側欄。上方改成一列同系列文章的封面圖版，左欄放大字版號與圖說，右欄是與內文 h2 一致、以 01、02 編號的章節。設計脈絡見 `DESIGN.md` 與 `.impeccable/surfaces/app-theme-components-vpdoc-vue.md`。
+
+- **資料**：`site/plate-series.ts` 依側欄設定算出每篇文章所屬系列，由 `modules/site.ts` 寫進該頁自己的頁面資料 chunk（`plateSeries`）。不放進全站共用的 `#site/data`，避免每頁都下載全站封面清單。`hasSidebar`（`app/theme/composables/sidebar.js`）看到 `plateSeries` 就不顯示側欄。
+- **封面與 LCP**：圖版頁的內文封面（`{.cover}`）由 `theme-image` 直接不渲染，改由圖版帶上「閱讀中」那張呈現（顯示 320px、手機 200px，輸出 640 寬，eager）。2026-11 從 200px 放大，讓封面夠大、不必在內文重複一張，LCP 仍只有這一張圖。本機 preview 以同一份 build 對 400 寬 A/B（三篇文章、各 7 輪）：手機 LCP 平均 +0.02 秒，桌機 +0.18 秒（其中約 0.08 秒是同輪 FCP 的雜訊）。preload 由 Nuxt Image 依同一個 `<NuxtImg>` 輸出，網址一定一致。
+- **首次繪製就置中**：圖版帶後面緊接一段 inline script，在 hydration 前把目前這張捲到中間。Vue 模板不能直接寫 `<script>`，用 `<component :is="'script'">` 加文字節點。`v-html` 在 SSR 對 script 不輸出內容；文字節點會被跳脫 `& < > " '`，所以 script 內只能用反引號當字串引號。
+- **待驗證**：水合前的置中效果，以及「LCP 不得變差」，都要用本機 preview 對正式站 A/B 量測（見上方「效能修改用本機 preview 對正式站做 A/B」）。dev 模式擋掉 JS 時連 CSS 都不會載入，無法驗證。
+
+## 首頁結構
+
+- **最新文章**：`<home-latest-plates />` 讀 `#site/latest-article-list`（`site/latest-articles.ts` 在 build 時取最新 4 篇的標題、連結、封面，桌機剛好一列），不載入完整文章清單。dev 會連草稿一起列出，草稿封面還沒做時改用預設封面（見 `site/articles.ts`）。
+- **主題入口**：`<home-topic-list />` 的連結取自主題設定的側欄「主題」群組，與導覽列一致指向各主題最新一篇；主題介紹文字寫在元件內。
+- **作品影片**：`<youtube-facade video-id title />` 先顯示 YouTube 縮圖，點了才載入播放器。原本 12 個 iframe 每個都會先下載播放器。作品以 `<div class="work-entry">` 包起來，桌機影片與說明左右並排，樣式在 `style.css` 檔尾。作品的外部連結用 `<work-link href label icon />`（`web/components/work-link.vue`，icon 放大淡化當浮水印），多個連結以 `<div class="work-link-list">` 包起來排成一列。
+- **出版書籍、鐵人賽**：`<home-book-list />`、`<home-ironman-list />`，資料直接寫在元件內。書封取自博客來商品頁，轉成 600 寬 webp 放在 `content/public/home/`。鐵人賽的屆數只寫查證過的，未確認就留空（`edition` 可省略）。兩者都在首屏之外，以 `hydrateOnVisible` 延後 hydration。
+- **圓角**：全站內容一律圓角。`style.css` 的 `img` 預設 1rem 圓角加 1px 框；自己畫框的元件（圖版、影片縮圖、書封卡片）要把圓角放在外層並 `overflow: hidden`，內層 img 拿掉預設的框與圓角。只讓內層圓角的話，外層的底色（例如影片縮圖的黑底）會從四角露出來。表格與程式碼區塊的圓角見 `vp-doc.css`、`style.css`。
+
+## Nuxt 版效能調校紀錄（2026-11）
+
+以本機 preview 對正式站（VitePress 版）做 A/B，條件同上一節「效能修改用本機 preview 對正式站做 A/B」。除了文章頁的 TBT，各頁 LCP 都比正式站快、CLS 降到 0。改動與原因：
+
+- **首次載入不播入場動畫**：`.vp-doc` 的第一個子元素在 Nuxt 是包住整篇內容的 div，入場動畫讓整篇從透明開始，主執行緒忙著 hydration 時動畫卡在 0，內文要等 JS 跑完才看得見（首頁 LCP 4.2 → 1.3 秒）。現在只在站內換頁時播放（`html.is-hydrated`）。
+- **SSR 不可輸出 0 高度**：`useElementSize` 在 SSR 量到 0，文章總覽的清單容器曾因此被壓成 0 高，要等 hydration 才出現（LCP 4.3 → 1.9 秒）。掛載前不要套用量測值。
+- **不輸出 modulepreload**（`modules/site.ts` 的 `build:manifest`）：一次預載 37 個 chunk 會和擋渲染的 CSS 搶頻寬，文章頁 FCP 1.95 → 1.17 秒。
+- **`content-visibility: auto`**：文章內文第 6 個區塊之後、首頁作品區延後排版。長文 LCP 2.08 → 1.69 秒。跳到錨點前必須解除（`html.is-content-revealed`），否則以估計高度算出的捲動位置會偏差數百 px。
+- **SSR 就輸出本地導覽列**：標題清單要在 client 才算得出來，沒有側欄的頁面若依此隱藏，hydration 後才長出 48px 的列，造成 CLS 0.05。
+- **延遲 hydration**：md 裡同步匯入的示範元件在編譯時改成 `defineAsyncComponent` ＋ `hydrateOnVisible`（`site/markdown/vite-plugin.ts`），頁尾、文末導覽、贊助區也是。文章頁 TBT 約降 40～230ms，LCP 不變。
+- **Nuxt Fonts 自架 Figtree**：效能持平（差異在雜訊內，多 20～40KB 字型檔），保留是為了不連 Google 與 fallback 字型尺寸修正。全站只能在 `--display-font-family` 寫一次 Figtree：直接寫在巢狀規則或元件樣式裡，@nuxt/fonts 插入 fallback 的位置會算錯，build 報 `Invalid empty selector`。
+
+**量測陷阱**
+
+- Git Bash 會把 `/blog-vue/...` 這類參數轉成 Windows 路徑，跑量測腳本要加 `MSYS_NO_PATHCONV=1`。
+- 鏡像代理（Node http2）不做串流優先權排序，CSS 與 JS 平分頻寬，會放大「預載太多 chunk」的傷害；方向可信，絕對值會比 CDN 悲觀。
+- 先看 LCP 候選清單（每個候選的元素與時間），再看 Chrome trace 的 Layout 與 v8 解析，比只看總 TBT 更快找到原因。
+
+## 圖片：Nuxt Image 與 theme-image
+
+站內圖片一律交給 Nuxt Image（`@nuxt/image`，ipx）。`nuxt generate` 時，SSR 用到的每個尺寸都會透過 `x-nitro-prerender` 產生成 `/_ipx/...` 靜態檔，不用另外列路由。
+
+- **元件**：用 `web/components/theme-image.vue`，它只是包一層 `<NuxtImg>`，補上 Nuxt Image 沒有的三件事：暗色版 `<source>`、圖版頁的內文封面不渲染、把 `https://codlin.me/...` 轉成站內路徑。
+- **md 圖片**：`site/plugins/markdown-it-theme-image.ts` 轉成 `<theme-image sizes="xs:100vw sm:100vw md:688px">`。原圖不存在（常見於草稿封面）、外部網址或 GIF 時輸出一般 `<img>`，`src` 以 `:src` 綁定字串。
+- **寬度依顯示尺寸挑**：固定尺寸的縮圖傳 `width`，取顯示尺寸的 2～3 倍（圖版帶 200／目前這張 400、總覽 300、首頁最新文章 300）；隨版面縮放的傳 `sizes`。一律只產 1 倍密度（`densities="x1"`）。
+
+**踩過的坑**
+
+- `image.dir` 要給絕對路徑。相對路徑會以 srcDir（`app/`）解析成不存在的目錄而被略過，build 時每張圖都回 `IPX_FILE_NOT_FOUND`。
+- `densities` 不能寫在 nuxt.config：模組以 defu 合併設定，陣列會與預設的 `[1, 2]` 串接，設 `[1]` 照樣產 2 倍圖。
+- `sizes` 每個值都要有斷點前綴。沒有前綴的 `100vw` 會被算成寬度 1（`w_1`）。
+- 檔名有中文的圖片 ipx 讀不到，改用英文檔名。
+- 原圖不存在時 ipx 讓預先渲染整個失敗（`failOnError`），所以 md 外掛先檢查檔案是否存在。
+- 一般 `<img src="/...">` 會被 Vue 的資源網址轉換當成模組匯入，原圖不存在就 build 失敗，要寫成 `:src="'/...'"`。
+
+**後續實驗（2026-11）**
+
+- **主題元件併成同一支 chunk（rolldown `codeSplitting.groups`）不可行。** server 端的元件樣式模組也會被併進群組，Nitro 找不到檔案（`Could not resolve "./xxx-styles-1.mjs-!~{08l}~.js"`），用 `vite:extendConfig` 的 `isClient` 也分不開。請求數因此維持約 90 個，但這不是核心指標。
+- **圖版帶的首次繪製前置中 script 要保留。** 它讀 `offsetLeft` 會在解析中途強制排版，CPU profile 上記在 HTML 文件本身（4 倍降速約 240ms）。拿掉後 FCP 反而晚 0.3 秒（已解析的上半部不能先畫），LCP 不變。TBT 看似從約 410 降到約 280ms，是因為 FCP 延後，hydration 長任務落到 TBT 的計算區間（FCP 之後）以外，總工作量沒有變。
+- **比較 TBT 時要一起看 FCP。** FCP 提早，計入 TBT 的區間就變長，同樣的 hydration 工作會算出更高的 TBT。
+- **找 TBT 元兇要對回原始碼。** 暫時在 nuxt.config 加 `sourcemap: { client: 'hidden' }` 重新 build，錄 CDP CPU profile 後用 source-map-js 把每個取樣點對回原始檔與套件，就能看出時間花在哪個套件、哪個函式（分析完一定要移除，避免 .map 部署出去）。2026-11 的結果：Vue hydration 約佔一半，Nuxt UI 本體只佔約 34ms（4 倍降速），反而是 `@nuxt/icon` 的 css 模式在瀏覽器端產生選擇器佔了約 70ms。
+- **Nuxt Icon 用 svg 模式**（nuxt.config 的 `icon.mode`）。css 模式會在 client 為每個圖示即時產生 CSS 並插入樣式；svg 模式由 SSR 輸出內嵌 `<svg>`，這部分 CPU 歸零。
+- **文章總覽的標籤篩選區拆成獨立元件（`article-tag-filter.vue`）並閒置時 hydration**，日期改用字串切割、不載入 dayjs。60 個 UButton 不再與 90 篇文章擠在同一個長任務，總覽 TBT 約 320 → 180ms。
+
+## 關鍵 CSS 內嵌（Beasties）
+
+postbuild 的 `critical-css` 步驟（`site/scripts/postbuild/critical-css.ts`）用 [Beasties](https://github.com/danielroe/beasties)（critters 的後繼 fork，`@nuxtjs/critters` 包的舊版已不再維護）處理 `dist` 的每個 HTML：把用得到的 CSS 規則內嵌，完整的 entry.css 改成 `media="print"` 非同步載入。全站共用的 entry.css（壓縮後約 50 KB）原本擋渲染，A/B 結果 FCP、LCP 約提前 0.4～0.7 秒，HTML 增加約 15 KB（gzip），build 多約 30 秒。
+
+- **`allowRules` 不能省。** Beasties 拿 SSR 的 HTML 比對選擇器：`.dark` 是瀏覽器端腳本才加的，不保留的話暗色使用者會先看到亮色樣式；主題外框與 `.vp-doc` 也有不少規則比對不到（搜尋框、`vpi-` 圖示、行內程式碼）。驗證方式：擋掉 `/_nuxt/*.css` 與 `*.js`，只用內嵌 CSS 渲染，與完整樣式截圖比對。
+- **aquarium app 頁（`<html class="vp-raw">`）略過**：畫面由 JS 繪製，SSR 的 HTML 幾乎是空的。
+- **首次繪製提前後，沒預留空間的圖片會造成版面位移。** 以前擋渲染的 CSS 讓首繪晚於封面下載完成，問題被藏住；現在首繪早於圖片，首頁封面只有 `aspect-ratio` class 而沒有 `width`／`height`，曾造成 CLS 0.09。md 外掛現在會自動補上原圖尺寸（`getImageSizeMap`）。
+- **讀圖片尺寸不要用 sharp。** build 程序若先載入 sharp，Nitro 預先渲染時 ipx 再載入自己那份會失敗（`Could not load the "sharp" module`），所有圖片回 500。改用只讀檔頭的 `image-size`。
+
+**研究過但沒採用**
+
+- **nuxt-delay-hydration**：延到第一次互動才 hydration，宣稱可大幅降低 TBT。目前 TBT 已約為正式站一半，而延後 hydration 會讓搜尋快捷鍵、圖版帶等互動在首次互動前無效，風險大於效益。
+- **Cloudflare Early Hints**：Cloudflare 會自動把 HTML 裡的 preload 轉成 103 回應，部署後即生效，本機無法量測。
+- **Speed Brain／Speculation Rules**：只加速後續換頁，不影響首次載入；官方文件註明不支援 pages.dev。
+- **Vue Vapor 模式**：Nuxt 4.6 僅實驗性 interop 支援，需 Vue 3.6 RC，hydration 仍在修正。
+
+## 快取梗圖與 aquarium app 頁的載入（2026-11）
+
+aquarium 各 app 的畫面完全由 JS 繪製，與文章頁的取捨相反。
+
+- **app 頁補回關鍵 chunk 的 modulepreload**（postbuild 的 `standalone-preload`）：全站不輸出 modulepreload 後，app 頁變成「入口 → Vue → app 本體」三段瀑布。只預載入口與頁面底下 50KB 以上的大 chunk；全部依賴都預載反而更慢（3D app 近 300 支小 chunk 一起搶頻寬，HexaZen 的 TBT 從約 280 暴增到約 2000ms）。
+- **md 的延遲 hydration 改寫跳過 `layout: false` 的頁面**：app 元件就在首屏，延遲的話要等 hydration 後偵測到可見才下載 app 本體。
+- **不要用 `useRafFn` 每幀讀版面尺寸**：`use-sticky-toolbar` 原本每幀讀 `innerHeight`、`visualViewport` 並量工具列高度，載入期間每幀都強制同步排版、閒置時也每秒跑 60 次。改成監聽 visualViewport 的 resize／scroll、視窗 resize、focusin／focusout，工具列高度用 `useResizeObserver`。
+- **Nuxt UI 的 Toast 預設帶倒數進度條**，停留期間每一幀都重新渲染。歡迎提示改成 `progress: false`，並延到 `requestIdleCallback` 才顯示（原本整個 toast 佔約 400ms，4 倍降速）。
+- **虛擬清單 overscan 從預設 5 列降到 2 列**，首屏同時下載的梗圖與要渲染的卡片少一半以上；廣告掛載距離同步加大，總提前量維持約 8 列，不影響廣告備妥時間。
+- **找元件層級的成本用「含子呼叫的總時間」**：只看函式自身時間，Vue 的渲染成本會散在 `mergeProps`、`updateProps` 等內部函式裡，看不出是哪個元件；沿呼叫鏈往上歸到 `.vue` 檔，toast 的成本才浮現。

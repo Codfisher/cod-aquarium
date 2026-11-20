@@ -3,13 +3,16 @@ import { useWindowScroll } from '@vueuse/core'
 import { ref, watchPostEffect } from 'vue'
 import { useData } from '../composables/data'
 import { useSidebar } from '../composables/sidebar'
-import VPNavBarAppearance from './VPNavBarAppearance.vue'
-import VPNavBarExtra from './VPNavBarExtra.vue'
 import VPNavBarHamburger from './VPNavBarHamburger.vue'
-import VPNavBarMenu from './VPNavBarMenu.vue'
-import VPNavBarSearch from './VPNavBarSearch.vue'
-import VPNavBarSocialLinks from './VPNavBarSocialLinks.vue'
 import VPNavBarTitle from './VPNavBarTitle.vue'
+import { defineIdleHydrated } from '../support/lazy-hydrate'
+
+/** 首屏不需立即互動的區塊閒置時才 hydration，拆開原本一整段的 hydration 長任務（見 support/lazy-hydrate.ts） */
+const VPNavBarAppearance = defineIdleHydrated(() => import('./VPNavBarAppearance.vue'))
+const VPNavBarExtra = defineIdleHydrated(() => import('./VPNavBarExtra.vue'))
+const VPNavBarMenu = defineIdleHydrated(() => import('./VPNavBarMenu.vue'))
+const VPNavBarSearch = defineIdleHydrated(() => import('./VPNavBarSearch.vue'))
+const VPNavBarSocialLinks = defineIdleHydrated(() => import('./VPNavBarSocialLinks.vue'))
 
 const props = defineProps<{
   isScreenOpen: boolean

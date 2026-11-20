@@ -163,16 +163,23 @@
  * Table
  * -------------------------------------------------------------------------- */
 
+/* 表格與全站內容一樣有圓角：border-collapse: collapse 的表格加不了圓角，
+ * 改成 separate、外框畫在 table 本身並裁切，格線只畫每格的右側與下緣，最後一欄、最後一列不畫，避免與外框重疊。
+ * 寬度貼合內容（fit-content），外框才不會比表格本身寬；太寬時照樣橫向捲動 */
 .vp-doc table {
   display: block;
-  border-collapse: collapse;
+  width: fit-content;
+  max-width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 8px;
   margin: 20px 0;
   overflow-x: auto;
 }
 
 .vp-doc tr {
   background-color: var(--vp-c-bg);
-  border-top: 1px solid var(--vp-c-divider);
   transition: background-color 0.5s;
 }
 
@@ -182,8 +189,19 @@
 
 .vp-doc th,
 .vp-doc td {
-  border: 1px solid var(--vp-c-divider);
+  border: 0 solid var(--vp-c-divider);
+  border-right-width: 1px;
+  border-bottom-width: 1px;
   padding: 8px 16px;
+}
+
+.vp-doc th:last-child,
+.vp-doc td:last-child {
+  border-right-width: 0;
+}
+
+.vp-doc tbody tr:last-child td {
+  border-bottom-width: 0;
 }
 
 .vp-doc th {

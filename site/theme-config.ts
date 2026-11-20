@@ -44,6 +44,20 @@ export function getThemeConfig(): ThemeConfig {
     lastUpdated: {
       text: '更新於',
     },
+    /** 主題元件的介面字串，預設是英文 */
+    docFooter: { prev: '上一篇', next: '下一篇' },
+    sidebarMenuLabel: '文章選單',
+    returnToTopLabel: '回到頂端',
+    darkModeSwitchLabel: '外觀',
+    lightModeSwitchTitle: '切換為亮色模式',
+    darkModeSwitchTitle: '切換為暗色模式',
+    skipToContentLabel: '跳到主要內容',
+    notFound: {
+      title: '這片海域沒有魚',
+      quote: '網址可能打錯了，或這篇文章已經游走。回首頁看看，或用搜尋（Ctrl+K）找找吧 (｡•́︿•̀｡)',
+      linkLabel: '回到首頁',
+      linkText: '回到首頁',
+    },
     nav: filter(
       [
         { text: '總覽', link: '/article-overview' },

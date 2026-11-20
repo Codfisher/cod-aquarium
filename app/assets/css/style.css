@@ -49,8 +49,8 @@
   --vp-c-default-3: var(--vp-c-gray-3);
   --vp-c-default-soft: var(--vp-c-gray-soft);
 
-  /* 品牌色：OKLCH 定義，teal 海洋色系 */
-  --vp-c-brand-1: oklch(0.55 0.14 175);
+  /* 品牌色：OKLCH 定義，teal 海洋色系；brand-1 用於連結文字，亮度壓到 0.50 才達 WCAG AA（約 5.2:1） */
+  --vp-c-brand-1: oklch(0.50 0.13 175);
   --vp-c-brand-2: oklch(0.75 0.12 175);
   --vp-c-brand-3: oklch(0.65 0.13 175);
   --vp-c-brand-soft: oklch(0.92 0.04 175);
@@ -75,13 +75,22 @@
 
   /* 文字色帶品牌色調，避免純灰 */
   --vp-c-text-1: oklch(0.28 0.01 175 / 0.9);
-  --vp-c-text-2: oklch(0.28 0.01 175 / 0.6);
+  /* 次要文字用實色而非半透明：半透明疊在各種底色上對比不穩，原本約 4.0:1 未達 AA，改為約 5.7:1 */
+  --vp-c-text-2: oklch(0.50 0.012 175);
+
+  /* 圖版對開：版號用深青墨、圖版框線與基線用淡青刻線 */
+  --plate-ink: oklch(0.42 0.09 178);
+  --plate-line: oklch(0.55 0.05 178 / 0.45);
+
+  /* 行內程式碼與標籤的青字疊在淡青底上，brand-1 只有約 3.8:1，改用更深一階 */
+  --vp-code-color: oklch(0.42 0.1 175);
 
   /* 程式碼區塊固定暗黑模式 */
   --vp-code-block-bg: #24292e;
   --vp-code-block-color: rgba(255, 255, 255, 0.78);
-  --vp-code-line-number-color: rgba(255, 255, 255, 0.3);
-  --vp-code-lang-color: rgba(255, 255, 255, 0.3);
+  /* 行號在 #24292e 上需達 4.5:1，0.3 只有約 2.7:1 */
+  --vp-code-line-number-color: rgba(255, 255, 255, 0.52);
+  --vp-code-lang-color: rgba(255, 255, 255, 0.52);
   --vp-code-line-highlight-color: rgba(255, 255, 255, 0.08);
   --vp-code-copy-code-border-color: rgba(255, 255, 255, 0.1);
   --vp-code-copy-code-hover-border-color: rgba(255, 255, 255, 0.2);
@@ -94,10 +103,18 @@
   --vp-c-brand-3: oklch(0.77 0.11 175);
   --vp-c-brand-soft: oklch(0.28 0.04 175);
 
-  --vp-c-bg: oklch(0.16 0.008 175);
+  /* 暗色的 brand-1 本身夠亮，行內程式碼直接沿用 */
+  --vp-code-color: var(--vp-c-brand-1);
+
+  /* 夜間圖版：深青黑底，色相偏向深海青而非中性黑 */
+  --vp-c-bg: oklch(0.17 0.02 190);
 
   --vp-c-text-1: oklch(0.95 0.005 175 / 0.86);
-  --vp-c-text-2: oklch(0.90 0.005 175 / 0.6);
+  --vp-c-text-2: oklch(0.72 0.01 175);
+
+  /* 夜間圖版：亮青版號、淡青刻線 */
+  --plate-ink: oklch(0.84 0.11 178);
+  --plate-line: oklch(0.80 0.05 178 / 0.32);
 }
 
 /**
@@ -207,11 +224,14 @@ body {
  * 'Noto Sans TC' 只會命中使用者本機已安裝的字型，站台不再從 Google Fonts 載入（原因見 config.mts head） */
 :root {
   --vp-font-family-base: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang TC', 'Microsoft JhengHei', 'Noto Sans TC', 'Noto Sans CJK TC', sans-serif;
+  /* 展示字型（標題、版號）。全站只在這裡寫 Figtree，其他地方都用這個變數：
+   * @nuxt/fonts 會為 Figtree 補上 fallback 字型尺寸，直接寫在巢狀規則或元件樣式裡時插入位置會算錯、產生無效 CSS */
+  --display-font-family: 'Figtree', var(--vp-font-family-base);
 }
 
 /* 導覽列標題使用展示字型 */
 .VPNavBarTitle .title {
-  font-family: 'Figtree', var(--vp-font-family-base);
+  font-family: var(--display-font-family);
   font-weight: 700;
   letter-spacing: -0.01em;
 }
@@ -224,6 +244,11 @@ body {
 }
 
 /* 快取梗圖的廣告列夾在縮圖之間，共用同一條邊框才不會看起來像外來物 */
+/* 文章內嵌的 iframe（YouTube、CodePen 等）與圖片同樣圓角 */
+.vp-doc iframe {
+  border-radius: 1rem;
+}
+
 img,
 .feed-ad {
   border-radius: 1rem;
@@ -238,7 +263,8 @@ img,
  * VitePress 把全站 CSS 打包成一支而外洩到整個部落格；改用 Nuxt 依頁拆 CSS 後會消失，
  * 為了維持訪客看到的外觀，在這裡明確寫出來 */
 a {
-  color: var(--ui-primary);
+  /* 用達 AA 對比的 brand-1；--ui-primary 在亮色只有約 2:1 */
+  color: var(--vp-c-brand-1);
   text-decoration: none !important;
 }
 
@@ -277,7 +303,7 @@ a {
   h4,
   h5,
   h6 {
-    font-family: 'Figtree', var(--vp-font-family-base);
+    font-family: var(--display-font-family);
     font-weight: 800;
     letter-spacing: -0.02em;
     line-height: 1.4;
@@ -285,7 +311,8 @@ a {
 
   h1 {
     font-size: clamp(1.75rem, 1.5rem + 1.2vw, 2.5rem);
-    font-weight: 900;
+    /* Figtree 只載入 700、800，寫 900 實際也是 800 */
+    font-weight: 800;
     margin-bottom: 0.5rem;
     letter-spacing: -0.03em;
   }
@@ -294,7 +321,8 @@ a {
   h2 {
     counter-increment: section;
     position: relative;
-    margin-top: 4rem;
+    margin-top: 3rem;
+    /* 編號 2.5rem 高，數字字形底下本身有留白，再留 0.5rem 剛好貼近標題又不重疊 */
     padding-top: 3rem;
     border-top: none;
     font-size: clamp(1.25rem, 1rem + 0.8vw, 1.75rem);
@@ -305,13 +333,18 @@ a {
     bottom: 0;
   }
 
-  /* 裝飾性章節編號（絕對定位，不影響錨點） */
+  /* 錨點「#」不吃 .vp-doc a 的強制底線 */
+  .header-anchor {
+    text-decoration: none !important;
+  }
+
+  /* 裝飾性章節編號（絕對定位，不影響錨點）；右側章節清單用同樣的 01、02 編號，見檔尾 .VPDoc.is-plate */
   h2::before {
     content: counter(section, decimal-leading-zero);
     position: absolute;
     top: 0;
     left: 0;
-    font-family: 'Figtree', sans-serif;
+    font-family: var(--display-font-family);
     font-size: 2.5rem;
     font-weight: 800;
     color: var(--vp-c-brand-soft);
@@ -367,9 +400,11 @@ a {
     margin: 0.375rem 0;
   }
 
-  /* 程式碼區塊前後加大間距，與段落拉開層次 */
+  /* 程式碼區塊前後加大間距，與段落拉開層次。
+   * 手機也維持在內文欄內（VitePress 原本手機版左右出血、不加圓角），所以圓角不分寬度都要有 */
   div[class*="language-"] {
     margin: 2rem 0;
+    border-radius: 8px;
   }
 
   /* 緊接標題的段落縮小上方間距 */
@@ -468,36 +503,11 @@ body {
     --vp-sidebar-bg-color: none
   }
 
-  .VPDocAside,
-  #VPSidebarNav {
-    opacity: 0.25;
-    filter: blur(0px);
-    transition-duration: 0.4s;
-
-    &:hover {
-      opacity: 1;
-    }
-
-  }
-
-  .VPSidebar:hover {
-    #VPSidebarNav {
-      opacity: 1;
-      filter: blur(0px);
-    }
-  }
-
-  .Layout {
-    &:has(.article-overview) {
-      #VPSidebarNav {
-        opacity: 1;
-        filter: blur(0px);
-      }
-    }
-  }
 }
 
-/* 頁面內容入場動畫 */
+/* 頁面內容入場動畫：只在站內換頁時播放（html.is-hydrated 由 vitepress-client 外掛在第一次站內換頁後加上）。
+ * Nuxt 的 .vp-doc 第一個子元素是包住整篇內容的 div，首次載入就播放的話，整篇從透明開始，
+ * 主執行緒忙著 hydration 時動畫卡在 0，內文要等 JS 跑完才看得到（首頁封面 0.97 秒下載完、4.2 秒才畫出） */
 @keyframes content-enter {
   from {
     opacity: 0;
@@ -509,11 +519,11 @@ body {
   }
 }
 
-.vp-doc > *:first-child {
+html.is-hydrated .vp-doc > *:first-child {
   animation: content-enter 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-.vp-doc > h1 ~ * {
+html.is-hydrated .vp-doc > h1 ~ * {
   animation: content-enter 0.45s cubic-bezier(0.16, 1, 0.3, 1) 0.08s both;
 }
 
@@ -526,4 +536,88 @@ body {
 .dark ::selection {
   background-color: color-mix(in srgb, var(--vp-c-brand-soft) 80%, transparent);
   color: var(--vp-c-brand-1);
+}
+
+/* 圖版對開的文章頁（主題與專欄文章，見 app/theme/custom/doc-plate-band.vue） */
+.VPDoc.is-plate {
+  /* 本篇章節與內文 h2 的 01、02、03 編號一致 */
+  .VPDocOutlineItem.root {
+    counter-reset: plate-section;
+  }
+
+  .VPDocOutlineItem.root > li {
+    counter-increment: plate-section;
+  }
+
+  .VPDocOutlineItem.root > li > .outline-link::before {
+    content: counter(plate-section, decimal-leading-zero);
+    display: inline-block;
+    min-width: 1.75em;
+    font-family: var(--display-font-family);
+    font-weight: 700;
+    color: var(--plate-ink);
+  }
+}
+
+/* github-dark 主題的註解色 #6A737D 在 #24292e 上只有約 3.0:1；程式碼區塊亮暗都是同一深底，提亮到約 5.3:1 */
+.vp-code span[style*="#6A737D"] {
+  color: #959da5 !important;
+}
+
+/* 首頁作品：影片縮圖與說明，桌機左右並排，作品之間以圖版刻線分隔（content/index.md） */
+.vp-doc .work-entry {
+  display: grid;
+  gap: 16px;
+  padding: 32px 0;
+  border-top: 1px solid var(--plate-line);
+
+  & + .work-entry {
+    margin-top: 0;
+  }
+
+  .work-body > h3:first-child {
+    margin-top: 0;
+  }
+
+  .work-body > :last-child {
+    margin-bottom: 0;
+  }
+
+  /* 作品的外部連結（web/components/work-link.vue）：等寬格線，換行後上下對齊。
+   * 用 flex 依內容撐寬的話，換行時每顆寬度不同，看起來參差不齊 */
+  .work-link-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 12px;
+    margin-top: 20px;
+  }
+}
+
+@media (min-width: 768px) {
+  .vp-doc .work-entry:not(.no-media) {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+    gap: 28px;
+    align-items: start;
+  }
+}
+
+/* 首頁畫面外的區塊延後排版：首次排版原本要一次排完整頁約 700 個物件，
+ * 4 倍 CPU 降速下單次 Layout 約 800ms，跳過畫面外區塊後 FCP 約提早 0.25 秒（本機 preview 量測） */
+.vp-doc .work-entry,
+.home-latest-plates {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 400px;
+}
+
+/* 文章內文：前幾個區塊之後延後排版，長文首次排版不必一次排完整篇。
+ * 本機 preview A/B（手機、4 倍 CPU 降速）：短文 LCP 1.99 → 1.50 秒、長文 2.08 → 1.69 秒。
+ * contain-intrinsic-size 的 auto 會記住渲染過的實際高度，捲回去不會跳動；錨點跳轉由瀏覽器先渲染目標 */
+.VPDoc .vp-doc > div > :nth-child(n+6) {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 120px;
+}
+
+/* 跳到錨點前解除（由 vitepress-client 外掛加上 class），否則以估計高度計算的捲動位置會偏掉 */
+html.is-content-revealed .VPDoc .vp-doc > div > * {
+  content-visibility: visible;
 }

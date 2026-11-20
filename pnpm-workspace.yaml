@@ -10,3 +10,5 @@ allowBuilds:
   workerd: true
 minimumReleaseAgeExclude:
   - '@nuxt/ui@4.13.0'
+patchedDependencies:
+  '@nuxt/icon@2.6.3': patches/@nuxt__icon@2.6.3.patch

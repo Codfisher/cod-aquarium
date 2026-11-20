@@ -24,7 +24,7 @@ import containerPlugin from 'markdown-it-container'
 import { full as emojiPlugin } from 'markdown-it-emoji'
 import { customAlphabet } from 'nanoid'
 import { bundledLanguages, bundledLanguagesAlias, createHighlighter } from 'shiki'
-import { markdownItBaseImg } from '../plugins/markdown-it-base-img'
+import { getImageSizeMap, markdownItThemeImage } from '../plugins/markdown-it-theme-image'
 import { markdownItCodeBlockName } from '../plugins/markdown-it-code-block-name'
 import { markdownItMermaid } from '../plugins/markdown-it-mermaid'
 import { markdownItNowrap } from '../plugins/markdown-it-nowrap'
@@ -48,7 +48,7 @@ export interface MarkdownEnv {
 const EXTERNAL_URL_RE = /^(?:[a-z]+:|\/\/)/i
 /** 程式碼區塊主題：亮暗模式都用深色 */
 const CODE_THEME = { light: 'github-dark', dark: 'github-dark' } as const
-const CODE_COPY_BUTTON_TITLE = 'Copy Code'
+const CODE_COPY_BUTTON_TITLE = '複製程式碼'
 /** 雙主題時加上 vp-adaptive-theme，樣式依此切換 */
 const ADAPTIVE_THEME_MARKER = ' vp-adaptive-theme'
 
@@ -652,6 +652,7 @@ let rendererPromise: Promise<{ md: MarkdownIt; preloadLanguages: (source: string
 export function getMarkdownRenderer() {
   rendererPromise ??= (async () => {
     const { highlight, preloadLanguages } = await createHighlight()
+    const imageSizeMap = getImageSizeMap()
     const md = MarkdownIt({
       html: true,
       linkify: true,
@@ -691,7 +692,7 @@ export function getMarkdownRenderer() {
     md.use(tocPlugin, { slugify })
 
     // 自訂語法
-    md.use(markdownItBaseImg)
+    md.use(markdownItThemeImage, imageSizeMap)
     md.use(markdownItNowrap)
     md.use(markdownItCodeBlockName)
     md.use(markdownItMermaid)

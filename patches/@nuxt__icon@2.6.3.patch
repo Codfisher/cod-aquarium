@@ -1,0 +1,31 @@
+diff --git a/dist/module.mjs b/dist/module.mjs
+index 0f26e5e395ea533c1267c7d13008718a48bf5954..9636ad9e152a73fc646c510dab2bf4d49f65e7d3 100644
+--- a/dist/module.mjs
++++ b/dist/module.mjs
+@@ -662,15 +662,17 @@ export { createError } from 'h3'`;
+     });
+     registerServerBundle(ctx);
+     registerClientBundle(ctx);
+-    addCustomTab({
+-      name: "icones",
+-      title: "Ic\xF4nes",
+-      icon: "https://icones.js.org/favicon.svg",
+-      view: {
+-        type: "iframe",
+-        src: "https://icones.js.org"
+-      }
+-    });
++    if (nuxt.options.devtools !== false && nuxt.options.devtools?.enabled !== false) {
++      addCustomTab({
++        name: "icones",
++        title: "Ic\xF4nes",
++        icon: "https://icones.js.org/favicon.svg",
++        view: {
++          type: "iframe",
++          src: "https://icones.js.org"
++        }
++      });
++    }
+     options.serverKnownCssClasses ||= [];
+     const serverKnownCssClasses = options.serverKnownCssClasses || [];
+     nuxt.options.runtimeConfig.icon = {

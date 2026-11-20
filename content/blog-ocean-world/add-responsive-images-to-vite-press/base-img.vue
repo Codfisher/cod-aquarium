@@ -1,10 +1,10 @@
 <template>
-  <picture>
+  <picture v-if="!isReplacedByPlate">
     <template v-if="sourceVisible">
       <!-- 用 v-bind 物件而非個別 :srcset、:sizes，原因見 getSourceProps -->
       <source
-        v-if="darkVisible"
-        v-bind="getSourceProps(darkSrcset)"
+        v-if="hasDarkImage"
+        v-bind="getSourceProps(darkSrcset, darkMedia)"
       >
       <source v-bind="getSourceProps(lightSrcset)">
     </template>
@@ -18,8 +18,9 @@
 
 <script setup lang="ts">
 import type { ImgHTMLAttributes } from 'vue'
-import { join, map, pipe } from 'remeda'
 import { useData } from '#vp'
+import { useMounted } from '@vueuse/core'
+import { join, map, pipe } from 'remeda'
 import { computed, ref, useAttrs } from 'vue'
 
 interface Props extends /* @vue-ignore */ ImgHTMLAttributes {
@@ -35,7 +36,7 @@ const props = withDefaults(defineProps<Props>(), {
   sizes: '(max-width: 700px) 100vw, 700px',
 })
 
-const { isDark } = useData()
+const { isDark, page } = useData()
 const darkSrcError = ref(false)
 
 const attrs = useAttrs()
@@ -51,19 +52,34 @@ const fileName = computed(() => props.src
 
 const darkImageSet = new Set(__DARK_IMAGE_LIST__)
 
-/** 只有確定存在暗色版才切換，src 可能是完整網址，比對前取 pathname */
-const darkVisible = computed(() => {
-  if (!isDark.value || darkSrcError.value) {
-    return false
-  }
+const isMounted = useMounted()
 
-  return darkImageSet.has(new URL(props.src, 'https://codlin.me').pathname)
+/** 只有確定存在暗色版才輸出暗色來源，src 可能是完整網址，比對前取 pathname */
+const hasDarkImage = computed(() => !darkSrcError.value
+  && darkImageSet.has(new URL(props.src, 'https://codlin.me').pathname))
+
+/** 暗色來源的 media。伺服器不知道使用者偏好，若依 isDark 決定輸出內容，暗色模式下每頁都會 hydration 不一致。
+ * 掛載前一律用系統偏好的媒體查詢（主題預設跟隨系統，首次繪製就選對圖、也命中預載）；
+ * 掛載後改依實際的 isDark，涵蓋手動切換、與系統相反的使用者
+ */
+const darkMedia = computed(() => {
+  if (!isMounted.value)
+    return '(prefers-color-scheme: dark)'
+  return isDark.value ? 'all' : 'not all'
 })
 
-const src = computed(() => darkVisible.value ? props.src.replace('.webp', '-dark.webp') : props.src)
+/** <img> 的 src 只在沒有 <source> 時（dev、gif）實際使用，同樣掛載後才依 isDark 切換 */
+const src = computed(() => isMounted.value && isDark.value && hasDarkImage.value
+  ? props.src.replace('.webp', '-dark.webp')
+  : props.src)
 
 /** 封面圖為首屏 LCP 元素，需優先載入；其餘圖片延後載入以釋放頻寬 */
 const isCover = computed(() => String(attrs.class ?? '').includes('cover'))
+
+/** 主題與專欄文章的封面改由圖版帶上目前這張呈現（見 app/theme/custom/doc-plate-band.vue），
+ * 內文的封面不渲染，也就不會下載第二次；圖版帶那張沿用相同 srcset 與 sizes，head 的 LCP preload 仍然命中
+ */
+const isReplacedByPlate = computed(() => isCover.value && !!page.value.plateSeries)
 
 /** 呼叫端明確指定的載入屬性優先，例如首頁封面沒有 cover class，但在 md 寫了 loading="eager" */
 const imgProps = computed(() => ({
@@ -104,11 +120,12 @@ const darkSrcset = computed(() => getSrcset(`${fileName.value}-dark`))
  * <source> 的 sizes 即使設成同樣的值，瀏覽器也會重新選圖、重新載入封面，
  * LCP 因而被推遲到 hydration 之後（實測慢約 1 秒）。改用 v-bind 物件則 hydration 不會重設
  */
-function getSourceProps(srcset: string) {
+function getSourceProps(srcset: string, media?: string) {
   return {
     srcset,
     sizes: props.sizes,
     type: 'image/webp',
+    media,
   }
 }
 

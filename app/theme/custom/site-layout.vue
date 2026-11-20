@@ -2,14 +2,19 @@
 import { onContentUpdated } from '#vp'
 import { useDebounceFn } from '@vueuse/core'
 import { useNuxtApp } from 'nuxt/app'
-import { onUnmounted } from 'vue'
-import DonateSection from '../../../web/components/donate-section.vue'
+import { defineAsyncComponent, hydrateOnVisible, onUnmounted } from 'vue'
 import Layout from '../Layout.vue'
+import { useSidebarScrollbarFade } from './use-sidebar-scrollbar-fade'
 /** 站台自訂樣式要排在主題元件樣式之後，同權重的選擇器才會覆寫成功（與 VitePress 自訂主題的載入順序相同），
  * 所以不放 nuxt.config 的全域 css，改在匯入主題之後匯入
  */
 import '../../assets/css/style.css'
-import { useSidebarScrollbarFade } from './use-sidebar-scrollbar-fade'
+
+/** 贊助區在文末，捲到附近才 hydration */
+const DonateSection = defineAsyncComponent({
+  loader: () => import('../../../web/components/donate-section.vue'),
+  hydrate: hydrateOnVisible({ rootMargin: '300px' }),
+})
 
 /** 模板規範要求 kebab-case 元件名，取別名使用 */
 const DefaultLayout = Layout
@@ -58,9 +63,19 @@ function startObserving() {
 
   // 10 秒後自動停止，非同步元件應該都載入完畢了
   stopTimer = setTimeout(stopObserving, 10_000)
+
+  /** 使用者一主動捲動就停止：內文有 content-visibility，捲動時畫面外區塊陸續渲染、高度改變，
+   * 若繼續監看會把正在閱讀的人拉回錨點
+   */
+  for (const eventName of USER_SCROLL_EVENT_LIST)
+    window.addEventListener(eventName, stopObserving, { once: true, passive: true })
 }
 
+const USER_SCROLL_EVENT_LIST = ['wheel', 'touchmove', 'keydown'] as const
+
 function stopObserving() {
+  for (const eventName of USER_SCROLL_EVENT_LIST)
+    window.removeEventListener(eventName, stopObserving)
   resizeObserver?.disconnect()
   resizeObserver = undefined
   if (stopTimer) {

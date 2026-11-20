@@ -17,8 +17,10 @@ export function useSidebar() {
         if (JSON.stringify(next) !== JSON.stringify(prev))
             sidebar.value = _sidebar.value;
     });
+    /** 主題與專欄文章改由圖版帶（app/theme/custom/doc-plate-band.vue）負責系列導覽，不顯示側欄 */
     const hasSidebar = computed(() => {
         return (frontmatter.value.sidebar !== false &&
+            !page.value.plateSeries &&
             sidebar.value.length > 0 &&
             frontmatter.value.layout !== 'home');
     });

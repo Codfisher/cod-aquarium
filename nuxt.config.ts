@@ -17,6 +17,7 @@ export default defineNuxtConfig({
   devtools: { enabled: false },
   modules: [
     '@nuxt/ui',
+    '@nuxt/image',
     /** Nuxt SEO 全家桶，逐一安裝而非 @nuxtjs/seo：後者另帶 nuxt-ai-ready（會產生 llms.txt，與 postbuild 的 llms 步驟重複）
      * 與 nuxt-skew-protection（多一支 client 外掛），本站都用不到。
      * 每頁的 SEO 資料見 site/seo.ts，由 app/plugins/site-seo.server.ts 交給各模組，說明見 docs/development-notes.md「SEO 模組」
@@ -123,13 +124,57 @@ export default defineNuxtConfig({
   },
 
   ui: {
-    /** 不讓 @nuxt/fonts 自架字型：Figtree 由 head 的 Google Fonts 載入，各 app 也有自己的字型載入器，自架會重複下載 */
-    fonts: false,
+    /** 由 @nuxt/fonts 自架 Figtree（設定見下方 fonts），取代 head 的 Google Fonts */
+    fonts: true,
     /** 外觀由主題的 useDark 管理 .dark class（儲存鍵沿用 VitePress），不再開第二套 */
     colorMode: false,
     experimental: {
       componentDetection: true,
     },
+  },
+
+  /** 圖示改用 svg 模式：預設的 css 模式會在瀏覽器端為每個圖示即時產生 CSS 選擇器並插入樣式，
+   * 文章頁 CPU profile（4 倍降速）光 @nuxt/icon 的 css-selectors 就佔 43ms；svg 模式由 SSR 直接輸出內嵌 <svg>
+   */
+  icon: {
+    mode: 'svg',
+  },
+
+  /** 圖片由 Nuxt Image 產生響應式尺寸與 webp（取代原本 postbuild 的 sharp 縮圖與手寫 srcset）。
+   * nuxt generate 時 ipx 只產生 SSR 實際用到的尺寸（$img 透過 x-nitro-prerender 通知 Nitro），輸出在 /_ipx/。
+   * 只產 1 倍密度：文章欄寬 688px，手機高解析螢幕也只取到 688 寬，避免下載 2～3 倍大的圖拖慢 LCP（與原本 300／700 兩種寬度的取捨相同）
+   */
+  image: {
+    /** 要給絕對路徑：相對路徑會以 srcDir（app/）解析成不存在的 app/content/public 而被略過，ipx 全部回 IPX_FILE_NOT_FOUND */
+    dir: fileURLToPath(new URL('./content/public', import.meta.url)),
+    /** 提供 nuxtApp.$img：theme-image 在 web/ 底下（不在 app/），不經 Nuxt 的自動匯入，無法直接用 useImage */
+    inject: true,
+    format: ['webp'],
+    quality: 80,
+    /** densities 不在這裡設：模組以 defu 合併設定，陣列會與預設的 [1, 2] 串接而無法覆蓋，改由 theme-image 傳 densities="x1" */
+    screens: { xs: 320, sm: 640, md: 768, lg: 1024, xl: 1280 },
+  },
+
+  /** 只自架 Figtree：省掉 fonts.googleapis.com、fonts.gstatic.com 兩次跨網域連線，並產生 fallback 字型尺寸修正，減少換字時的跳動。
+   * 其他字型由各 aquarium app 自己的載入器或系統字型提供，標成 none 避免被自動解析而重複下載
+   */
+  fonts: {
+    families: [
+      { name: 'Figtree', provider: 'google', weights: [700, 800], subsets: ['latin'], preload: { weights: [800], styles: ['normal'] } },
+      ...[
+        'Orbitron',
+        'Rajdhani',
+        'Titan One',
+        'Minecraft',
+        'Noto Sans TC',
+        'JetBrains Mono',
+        'Fira Code',
+        'Cascadia Code',
+        'SF Mono',
+        'Material Symbols Sharp',
+        'Bricolage Grotesque',
+      ].map((name) => ({ name, provider: 'none' as const })),
+    ],
   },
 
   /** 主題樣式依原 VitePress 預設主題的順序載入，再疊上站台自訂樣式與 Tailwind */
@@ -156,20 +201,10 @@ export default defineNuxtConfig({
       htmlAttrs: { lang: 'zh-Hant', dir: 'ltr' },
       viewport: 'width=device-width,initial-scale=1',
       link: [
-        { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
-        { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
-        /** 以非阻塞方式載入 Google Fonts，避免 CSS 阻擋首次繪製（配合 display=swap 以 fallback 字體先顯示）。
-         * Figtree 僅標題（800）與導覽列標題（700）使用
-         *
-         * 內文中文改用系統字型（見 style.css 的 --vp-font-family-base），不載入 Noto Sans TC：
+        /** Figtree 由 @nuxt/fonts 自架（見上方 fonts），僅標題（800）與導覽列標題（700）使用。
+         * 內文中文用系統字型（見 style.css 的 --vp-font-family-base），不載入 Noto Sans TC：
          * 它一頁要拆 29～50 個 unicode-range 切片（1.2～1.7 MB），每片到達都觸發整頁中文重排
          */
-        {
-          rel: 'preload',
-          as: 'style',
-          href: 'https://fonts.googleapis.com/css2?family=Figtree:wght@700;800&display=swap',
-          onload: 'this.onload=null;this.rel=\'stylesheet\'',
-        },
         { rel: 'icon', href: '/favicon.ico' },
         /** 讓瀏覽器與 RSS 閱讀器自動發現訂閱來源 */
         { rel: 'alternate', type: 'application/rss+xml', title: '鱈魚的魚缸', href: '/feed.rss' },
@@ -177,9 +212,6 @@ export default defineNuxtConfig({
         { rel: 'me', href: 'https://github.com/Codfisher' },
         { rel: 'me', href: 'https://www.threads.com/@codfish2140' },
         { rel: 'me', href: 'https://www.linkedin.com/in/shih-chen-lin-codfish/' },
-      ],
-      noscript: [
-        { innerHTML: '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@700;800&display=swap">' },
       ],
       meta: [
         /** 行動裝置瀏覽器 UI 底色，淺色用品牌 teal、深色對齊深色底 */
@@ -228,6 +260,8 @@ export default defineNuxtConfig({
       /** 掃描抓不到的（例如套件的子依賴、CommonJS）在此明確列出 */
       include: [
         '@babylonjs/core/Maths/math.vector',
+        /** app/plugins/babylon-dev-warnings.client.ts 只在 dev 動態載入，掃描不到 */
+        '@babylonjs/core/Misc/devTools',
         '@fingerprintjs/fingerprintjs',
         '@floating-ui/vue',
         '@stackblitz/sdk',
