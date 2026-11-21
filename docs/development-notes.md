@@ -314,6 +314,7 @@ mermaid 不在 Vite 的預先建置名單內，dev 時瀏覽器直接載入它�
   - fallback、載入中、app 內三處各有一份載入畫面，彈珠動畫要接得上：`loading-overlay.vue` 的 Web Animation 一律把 `startTime` 設 0（文件時間軸原點），相位只由當下時間決定，新舊實例永遠同步；載入文字用 `useState` 讓 SSR 與三處顯示同一句（隨機文字會 hydration 不一致）。彈跳由 `top` 改 `translate`，否則每幀都算一次 CLS（載入畫面顯示久了會累積到 0.016）。
 - **codmarbles 的資產快取。** Cloudflare 對 `/assets/*` 靜態檔預設 `max-age=0, must-revalidate`，每個零件實例各自 `ImportMeshAsync`，同一個 gltf 重複請求（cone.gltf 31 次），開一次賽道就有約 870 次 304 往返。`content/public/_headers` 對 `/assets/kay-platformer-pack/*`（codmarbles 專用）與 `/assets/textures/*`（codmarbles、hexazen 共用的小檔）設 `public, max-age=86400, stale-while-revalidate=604800`；`/assets/*` 底下其他資料夾是 enderbox、minespace、hexazen 在用，沒動。`postbuild` 的 `headers` 步驟只改寫 `/_nuxt` 的規則，不受影響（部署後以 `curl -sI` 確認沒有被串成多段）。
   - **`preloadTrackAssets` 移除。** 它載入 94 個 container 卻沒被用到（`track-segment` 註解掉了，原因寫「FPS 下降原因不明」），`assetCache` 的 key 也不一致（`set(partData.path)` vs `has(fullPath)`）。本機 preview、慢速 4G＋CPU 4 倍、冷快取，量「app 的 JS 到齊後到載入畫面消失（賽道建好）」，各 3 次：保留預載 158.2／158.5／158.1 秒，移除後 133.0／133.4／133.0 秒，移除的快 25 秒，請求數也少約 270 個（1569 → 1302）。沒有不變慢，所以移除；key 不一致一併消失。
+  - **後續（第三批）已改為每個模型只載一次 AssetContainer，再複製成實例，見「第三批修正」。**
 
 量測方式：`npx lighthouse@12 <url> --only-categories=performance --output=json --chrome-flags="--headless=new"`，搭配 `--blocked-url-patterns` 封鎖特定資源，就能拆出各項因素的影響。
 
@@ -522,7 +523,16 @@ meme-cache 本體是 `layout: false` 的單頁 app，上千張圖共用一個網
 - 差異都在雜訊內（單次 TBT 分佈約 ±80 ms），與預期相符：廣告分析腳本被封鎖、本機又不經 CDN，這批的效益不在這個量測條件裡。**絕對的 FCP／LCP 不能比**，本機伺服器沒有 CDN 往返，FCP 固定快 200～300 ms，與改動無關。
 - 第三方腳本錯開要在正式站用 Lighthouse（不封鎖第三方）驗證；本機 preview 實測無互動時的請求時間：gtag 3.9 秒、Clarity 5.6 秒（gtag 之後 1.7 秒）、AdSense 7.1 秒（再 1.5 秒），有廣告欄位的頁面（meme-cache）AdSense 在 0.6 秒由欄位觸發，不受影響。
 - codmarbles、hexazen 慢速 4G＋CPU 4 倍、冷快取（手機與桌機各 3 輪）：FCP 約 15.3～15.7 秒 → 約 1.5 秒。LCP 沒有改善（15.3 → 15.8 秒、17.9 → 18.5 秒）：後段的 LCP 是 app 本體畫出的 UI（提示框文字），本機伺服器又慢約 0.5 秒，載入畫面不會是 LCP 的最大元素。hexazen 的 CLS 由 0.021 降到 0（推測是原本 app 掛載時畫面從空白變成有內容）。
-- 這個量測沒有量到的是 meme-cache 頁面 chunk 變小在冷快取的效益（編輯器 93 KB gzip 不再與 CSS 搶頻寬），以及 clientBundle 讓圖示請求消失，需看上線後 Lighthouse。
+- 這個量測沒有量到的是第三方腳本錯開、meme-cache 頁面 chunk 變小（編輯器 93 KB gzip 不再與 CSS 搶頻寬）的效益，要看上線後的 Lighthouse（不封鎖第三方，手機，各 3 次取中位數，與上一批上線後比較）：
+
+| 頁面 | 分數 | LCP | TBT |
+| --- | --- | --- | --- |
+| 短文 | 85 → 95 | 1916 → 1919 ms | 543 → 208 ms |
+| 長文 | 82 → 91 | 2074 → 2061 ms | 600 → 287 ms |
+| 首頁 | 80 → 90 | 2295 → 2061 ms | 664 → 331 ms |
+| meme-cache | 70 → 78 | 3609 → 3003 ms | 511 → 483 ms |
+
+  TBT 的下降來自三支第三方腳本錯開，LCP 持平代表上一批的收益沒有被抵銷。meme-cache 的 TBT 變化小，它本身的長任務主要來自 app 的 hydration 與清單渲染，不是第三方腳本。codmarbles、hexazen 上線後以同樣的手機條件（慢速 4G＋CPU 4 倍、封鎖第三方）量到 FCP 約 1.9 秒、CLS 0.002／0.007。
 
 **量測陷阱**
 
@@ -589,6 +599,47 @@ aquarium 各 app 的畫面完全由 JS 繪製，與文章頁的取捨相反。
 - **app 頁補回關鍵 chunk 的 modulepreload**（postbuild 的 `standalone-preload`，頁面不需要的功能以 `PRELOAD_SKIP_KEY_LIST` 排除，目前只有 meme-cache 的圖片編輯器）：全站不輸出 modulepreload 後，app 頁變成「入口 → Vue → app 本體」三段瀑布。只預載入口與頁面底下 50KB 以上的大 chunk；全部依賴都預載反而更慢（3D app 近 300 支小 chunk 一起搶頻寬，HexaZen 的 TBT 從約 280 暴增到約 2000ms）。
 - **md 的延遲 hydration 改寫跳過 `layout: false` 的頁面**：app 元件就在首屏，延遲的話要等 hydration 後偵測到可見才下載 app 本體。
 - **不要用 `useRafFn` 每幀讀版面尺寸**：`use-sticky-toolbar` 原本每幀讀 `innerHeight`、`visualViewport` 並量工具列高度，載入期間每幀都強制同步排版、閒置時也每秒跑 60 次。改成監聽 visualViewport 的 resize／scroll、視窗 resize、focusin／focusout，工具列高度用 `useResizeObserver`。
-- **Nuxt UI 的 Toast 預設帶倒數進度條**，停留期間每一幀都重新渲染。歡迎提示改成 `progress: false`，並延到 `requestIdleCallback` 才顯示（原本整個 toast 佔約 400ms，4 倍降速）。
+- **Nuxt UI 的 Toast 開著時不要用內建倒數，圖示也不要用動畫版。** 歡迎提示延到 `requestIdleCallback` 才顯示，細節見「第三批修正」。
 - **虛擬清單 overscan 從預設 5 列降到 2 列**，首屏同時下載的梗圖與要渲染的卡片少一半以上；廣告掛載距離同步加大，總提前量維持約 8 列，不影響廣告備妥時間。
 - **找元件層級的成本用「含子呼叫的總時間」**：只看函式自身時間，Vue 的渲染成本會散在 `mergeProps`、`updateProps` 等內部函式裡，看不出是哪個元件；沿呼叫鏈往上歸到 `.vue` 檔，toast 的成本才浮現。
+
+## 第三批修正：meme-cache toast 與 codmarbles 賽道建構（2026-11）
+
+**meme-cache：歡迎 toast 是載入後穩態 CPU 的最大來源**
+
+用 sourcemap＋CDP CPU profile（4 倍降速）定位：載入完 5～9 秒間主執行緒仍有約 40% 忙碌，Vue 執行環境自耗最多，往上歸屬到 `Toast.vue`、`Button.vue`。toast 開著的 3 秒約忙 1000～1450ms，關掉後只剩約 130ms。兩個原因：
+
+- Reka UI 的 `ToastRootImpl` 以 `useRafFn` 每幀更新 `remaining`，slot 因此每幀重繪整個 toast（含按鈕），`progress: false` 擋不住。改為 `duration: 0`（不倒數），自己用 VueUse `useTimeoutFn` 在 12 秒後 `toast.remove(id)`。代價是滑鼠停在 toast 上不會暫停計時。
+- `line-md:emoji-grin`、`line-md:uploading-loop` 是持續播放的動畫 SVG，兩個就讓每 2 秒多約 250ms。改為靜態的 `lucide:smile`、`lucide:upload`，toast 內不要再放動畫圖示。
+
+結果（本機 preview，手機 CPU 4 倍，3 秒窗內主執行緒忙碌時間）：toast 開著的第二個窗約 1000 → 150～180ms，與 toast 關掉後（約 125ms）相同。
+
+A/B（本機 preview 對改動前的 build，CPU 4 倍、暖快取、封鎖第三方，各 4 輪中位數，ms）：
+
+| | TBT | 長任務總和 | LCP |
+| --- | --- | --- | --- |
+| 桌機 | 664 → 577 | 1014 → 952 | 554 → 472 |
+| 手機 | 681 → 635 | 1081 → 960 | 500 → 476 |
+
+TBT 差異在雜訊內（上一輪只改 rAF 時是 565 → 573、524 → 520），因為每幀的工作都小於 50ms，不算長任務。效益在載入後持續的主執行緒與耗電，Lighthouse 看不出來，所以不用期待分數變動。
+
+沒有找到值得改的其他項目：首屏 Vue hydration、`use-meme-data` 解析 ndjson（約 160ms）、Nuxt UI 的 Button（約 140ms）都是一次性且分散，沒有單一元件佔大頭。
+
+**codmarbles：每個模型只載入一次**
+
+量測（本機 preview，慢速 4G＋CPU 4 倍，真 GPU 的 headed Chrome，app JS 到齊後到載入畫面消失）：
+
+| | 之前 | 之後 |
+| --- | --- | --- |
+| 冷快取（3 次） | 121.4／121.3／121.6 秒 | 30.3／30.1／30.5 秒 |
+| 暖快取（3 次） | 121.2／121.5／121.4 秒 | 30.3／30.2／30.1 秒 |
+| 賽道資產請求數 | 1304 | 269 |
+
+本機 wrangler 不快取，所以暖冷相同；正式站有 `max-age=86400`，暖快取會更快。原因是重複請求與重複解析：94 個不同 gltf、454 個零件，原本每個零件各自 `ImportMeshAsync`（各自請求、解析、建材質）。現在 `loadContainer` 以 Promise 快取，每個模型 `LoadAssetContainerAsync` 一次，零件以 `instantiateModelsToScene(…, false, { doNotInstantiate: true })` 複製（共用材質與幾何，不用 InstancedMesh，行為與原本一致）。
+
+- **FPS 沒有下降。** headed Chrome、真 GPU、不限幀率、同視角量 10 秒，各 3 次中位數：舊版 89.3 → 新版 101.6 FPS；CPU 4 倍 24.3 → 28.2 FPS。繪製呼叫數、可見網格數相同（506、133）；材質由 455 個減為 110 個，是 FPS 較高的原因。原註解「FPS 大幅下降，原因不明」無法重現，推測是當時把 container 內的原始網格也加進了場景，造成重複繪製。
+- **`getChildMeshes()[0]` 不等於原本的 `meshes[1]`。** 多網格模型（如 `lever_floor`）順序會互換，物理與材質調整會掛到錯的零件。現在在 container 載入時記下 `meshes[1]` 在階層中的位置（`geometryMeshIndex`），複製體階層與來源相同，用同一個位置取回。驗證：872 個網格的位置、包圍盒、頂點數、物理 body 與形狀類型、材質數值、是否凍結，與舊版逐項一致。
+- **Windows 上用真 GPU 跑 Chrome 的旗標**：預設會落到 SwiftShader 或 WARP。要 `--use-angle=vulkan --enable-features=Vulkan --disable-gpu-compositing --ignore-gpu-blocklist`；少了 `--disable-gpu-compositing`，GPU 行程會反覆崩潰，Babylon 報 `WebGL not supported`。量不限幀率的 FPS 再加 `--disable-frame-rate-limit --disable-gpu-vsync`。
+- Resource Timing 預設只存 250 筆，量 codmarbles 要先 `performance.setResourceTimingBufferSize(20000)`，否則賽道資產請求一筆都看不到。
+
+**沒採用**：物理形狀的共用（Havok 的 mesh shape 每個 body 各建一個）。該段在 profile 上自耗只有約 70ms，不值得擔行為風險。

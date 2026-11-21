@@ -244,7 +244,7 @@
 import type { DropdownMenuItem } from '@nuxt/ui'
 import type { MemeData } from './domains/meme/type'
 import featuredMemeList from '#site/meme-featured-list'
-import { promiseTimeout, useActiveElement, useColorMode, useElementSize, useFocus, useWindowSize, watchThrottled, whenever } from '@vueuse/core'
+import { promiseTimeout, useActiveElement, useColorMode, useElementSize, useFocus, useTimeoutFn, useWindowSize, watchThrottled, whenever } from '@vueuse/core'
 import { onNuxtReady } from 'nuxt/app'
 import { filter, isNullish, isTruthy, pipe, shuffle, unique } from 'remeda'
 import { computed, defineAsyncComponent, onMounted, reactive, ref, shallowRef, useTemplateRef, watch } from 'vue'
@@ -623,21 +623,26 @@ const tipText = computed(() => {
   return `找到 ${filteredList.value.length} 個候選項目 ੭ ˙ᗜ˙ )੭`
 })
 
+const WELCOME_TOAST_DURATION = 12000
+
 function showWelcomeToast() {
-  toast.add({
-    icon: 'line-md:emoji-grin',
+  const { id } = toast.add({
+    icon: 'lucide:smile',
     title: '歡迎來到快取梗圖 ( ´ ▽ ` )ﾉ',
     description: [
       '常常找不到記憶中的梗圖嗎？在下方輸入框輸入任何線索，我來幫你找找 ԅ(´∀` ԅ)',
     ].join(''),
-    /** 歡迎訊息讀完即可，停留一分鐘會一直蓋住畫面 */
-    duration: 12000,
-    /** 不顯示倒數進度條：進度條在停留期間每一幀都更新、重新渲染，
-     * 正好壓在載入最忙的時段，CPU profile 上整個 toast 佔約 400ms（4 倍降速），比梗圖清單本身還貴
+    /** 歡迎訊息讀完即可，停留一分鐘會一直蓋住畫面。
+     * 不用 Nuxt UI 的 duration 倒數：Reka UI 的 ToastRoot 以 rAF 每幀更新 remaining，
+     * 整個 toast（含按鈕）每幀重新渲染，即使 progress: false 也一樣。
+     * CPU profile（4 倍降速）顯示 toast 開著的 3 秒有約 1300～1700ms 在忙，關掉後降到約 180ms。
+     * 改為 duration: 0（不倒數、rAF 不再觸發重繪），自行計時關閉
      */
+    duration: 0,
     progress: false,
+    /** 圖示用靜態的 lucide：line-md 是持續播放的動畫 SVG，兩個動畫圖示讓 toast 開著時每 2 秒多約 250ms 主執行緒（4 倍降速） */
     actions: [{
-      icon: 'line-md:uploading-loop',
+      icon: 'lucide:upload',
       label: '按此投稿圖片',
       color: 'neutral',
       class: 'py-1 px-2',
@@ -647,6 +652,7 @@ function showWelcomeToast() {
       },
     }],
   })
+  useTimeoutFn(() => toast.remove(id), WELCOME_TOAST_DURATION)
 }
 
 /** 資料載完後閒置時預取編輯器 chunk；Safari 沒有 requestIdleCallback，改用短延遲 */

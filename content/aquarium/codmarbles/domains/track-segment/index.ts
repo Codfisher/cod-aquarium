@@ -1,7 +1,7 @@
 import type { AbstractMesh, Mesh, Scene } from '@babylonjs/core'
-import type { useAssetStore } from '../../stores/asset-store'
+import type { TrackAsset, useAssetStore } from '../../stores/asset-store'
 import type { TrackSegmentPartMetadata, TrackSegmentType } from './data'
-import { ImportMeshAsync, PBRMaterial, PhysicsAggregate, PhysicsShapeType, Quaternion, TransformNode, Vector3 } from '@babylonjs/core'
+import { LoadAssetContainerAsync, PBRMaterial, PhysicsAggregate, PhysicsShapeType, Quaternion, TransformNode, Vector3 } from '@babylonjs/core'
 import { trackSegmentData } from './data'
 
 export interface TrackSegment {
@@ -13,6 +13,26 @@ export interface TrackSegment {
   endPosition: Vector3;
   /** 初始化物理 */
   initPhysics: () => void;
+}
+
+/** 每個模型只下載、解析一次，之後都從 AssetContainer 複製；快取存 Promise，同時載入同一個模型也只會請求一次 */
+function loadContainer({ scene, assetStore, url }: {
+  scene: Scene;
+  assetStore: ReturnType<typeof useAssetStore>;
+  url: string;
+}) {
+  let task = assetStore.assetCache.get(url)
+  if (!task) {
+    task = LoadAssetContainerAsync(url, scene).then((container): TrackAsset => ({
+      container,
+      /** 原本的 ImportMeshAsync 以 meshes[1] 作為零件的主網格（掛物理、調材質），
+       * 這裡記下它在 rootNodes[0] 階層中的位置，複製體的階層與來源相同，之後用同一個位置取得對應的複製體
+       */
+      geometryMeshIndex: container.rootNodes[0]?.getChildMeshes().indexOf(container.meshes[1]!) ?? -1,
+    }))
+    assetStore.assetCache.set(url, task)
+  }
+  return task
 }
 
 export async function createTrackSegment({
@@ -39,13 +59,6 @@ export async function createTrackSegment({
   const loadPartTasks = data.partList.map(async (partData) => {
     const fullPath = `${data.rootFolderName}/${partData.path}`
 
-    // FIX: 使用 assetCache 反而導致 FPS 大幅下降 QQ，目前原因不明
-    // const container = assetStore.assetCache.get(fullPath)
-    // if (!container) {
-    //   console.error(`Asset not found: ${fullPath}`)
-    //   return
-    // }
-
     const position = Vector3.FromArray(partData.position)
     let isHiddenMesh = false
     if (partData.metadata.name === 'in') {
@@ -57,18 +70,15 @@ export async function createTrackSegment({
       isHiddenMesh = true
     }
 
-    const part = await ImportMeshAsync(
-      `/assets/${data.rootFolderName}/${partData.path}`,
-      scene,
+    const { container, geometryMeshIndex } = await loadContainer({ scene, assetStore, url: `/assets/${fullPath}` })
+    const entries = container.instantiateModelsToScene(
+      (sourceName) => sourceName,
+      false,
+      { doNotInstantiate: true },
     )
-    const root = part.meshes[0]
-    const geometryMesh = part.meshes[1] as Mesh
-
-    // const root = container.rootNodes[0]?.clone(
-    //   partData.metadata.name,
-    //   null,
-    // ) as Mesh | undefined
-    // const geometryMesh = root?.getChildMeshes()[0]
+    const root = entries.rootNodes[0] as Mesh | undefined
+    /** getChildMeshes() 的順序不等於載入順序（多網格模型如 lever_floor 會互換），不能直接取第一顆 */
+    const geometryMesh = root?.getChildMeshes()[geometryMeshIndex] as Mesh | undefined
 
     if (!root || !geometryMesh) {
       return
