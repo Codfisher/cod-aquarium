@@ -138,6 +138,20 @@ export default defineNuxtConfig({
    */
   icon: {
     mode: 'svg',
+    /** 只在 client 才渲染的圖示（client-only 的 app、延遲載入的元件）SSR 沒有輸出 svg，預設會向 api.iconify.design 即時請求，
+     * 多一次跨網域連線與往返。掃描全站共用的 app／web 與 meme-cache 的原始碼，把用到的圖示打包進 client（約 9 KB gzip）。
+     * 範圍刻意不含其他 aquarium app：圖示會進入口 chunk，每頁都要付，其他 app 的圖示維持按需請求
+     */
+    clientBundle: {
+      scan: {
+        globInclude: [
+          'app/**/*.{vue,ts}',
+          'web/**/*.{vue,ts}',
+          'content/aquarium/meme-cache/**/*.{vue,ts}',
+        ],
+        globExclude: ['node_modules', 'dist', 'build', 'coverage', '**/*.test.ts', '.*'],
+      },
+    },
   },
 
   /** 圖片由 Nuxt Image 產生響應式尺寸與 webp（取代原本 postbuild 的 sharp 縮圖與手寫 srcset）。
@@ -236,10 +250,11 @@ export default defineNuxtConfig({
         /** 第三方腳本延後注入，避免 gtag、Clarity、AdSense 在首屏期間佔住主執行緒（實測 TBT 各約 60 至 130 ms）。
          * 觸發條件為「首次互動」與「load 後 3.5 秒的閒置」兩者先到者，只載入一次；互動若早於 load，等 load 後再載。
          * AdSense 另有 window.__loadAdsense 供廣告欄位元件在接近視窗時呼叫（見 web/components/google-adsense.vue）；
+         * 觸發後 gtag 立刻載入，Clarity 待 gtag 載完再等 1.5 秒（rIC），AdSense 再等 1.5 秒（rIC），避免三支擠成同一個長任務；
          * 閒置觸發時頁面若已有廣告欄位，就交給欄位元件或互動，不由閒置載入
          */
         {
-          innerHTML: `(function(){var d=document,w=window,done={},evList=["pointerdown","keydown","scroll","touchstart"];function once(k,fn){if(!done[k]){done[k]=1;fn()}}function add(src,cors){var e=d.createElement("script");e.async=!0;if(cors)e.crossOrigin="anonymous";e.src=src;d.head.appendChild(e)}function gtag(){once("g",function(){add("https://www.googletagmanager.com/gtag/js?id=G-WL47JJHL0R")})}function clarity(){once("c",function(){(function(t,s,n,u,a,o){t[n]=t[n]||function(){(t[n].q=t[n].q||[]).push(arguments)},a=s.createElement("script"),a.async=1,a.src="https://www.clarity.ms/tag/"+u,o=s.getElementsByTagName("script")[0],o.parentNode.insertBefore(a,o)})(w,d,"clarity","sbra2ic0u4")})}function ads(){once("a",function(){add("https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6608581811170481",1)})}w.__loadAdsense=ads;function stop(){evList.forEach(function(n){w.removeEventListener(n,onInteract)})}function onInteract(){stop();ready(function(){gtag();clarity();ads()})}function ready(fn){d.readyState==="complete"?fn():w.addEventListener("load",fn,{once:!0})}function onIdle(){gtag();clarity();d.querySelector("ins.adsbygoogle")||ads()}evList.forEach(function(n){w.addEventListener(n,onInteract,{passive:!0,once:!0})});ready(function(){setTimeout(function(){stop();"requestIdleCallback"in w?w.requestIdleCallback(onIdle,{timeout:4e3}):onIdle()},3500)})})();`,
+          innerHTML: `(function(){var d=document,w=window,done={},evList=["pointerdown","keydown","scroll","touchstart"];function once(k,fn){if(!done[k]){done[k]=1;fn()}}function add(src,cors,cb){var e=d.createElement("script");e.async=!0;if(cors)e.crossOrigin="anonymous";if(cb){e.onload=cb;e.onerror=cb}e.src=src;d.head.appendChild(e)}function later(fn){setTimeout(function(){"requestIdleCallback"in w?w.requestIdleCallback(fn,{timeout:2e3}):fn()},1500)}function clarity(){once("c",function(){(function(t,s,n,u,a,o){t[n]=t[n]||function(){(t[n].q=t[n].q||[]).push(arguments)},a=s.createElement("script"),a.async=1,a.src="https://www.clarity.ms/tag/"+u,o=s.getElementsByTagName("script")[0],o.parentNode.insertBefore(a,o)})(w,d,"clarity","sbra2ic0u4")})}function ads(){once("a",function(){add("https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6608581811170481",1)})}w.__loadAdsense=ads;function start(skipAds){once("s",function(){add("https://www.googletagmanager.com/gtag/js?id=G-WL47JJHL0R",0,function(){later(function(){clarity();later(function(){skipAds&&d.querySelector("ins.adsbygoogle")||ads()})})})})}function stop(){evList.forEach(function(n){w.removeEventListener(n,onInteract)})}function onInteract(){stop();ready(function(){start(0)})}function ready(fn){d.readyState==="complete"?fn():w.addEventListener("load",fn,{once:!0})}evList.forEach(function(n){w.addEventListener(n,onInteract,{passive:!0,once:!0})});ready(function(){setTimeout(function(){stop();function go(){start(1)}"requestIdleCallback"in w?w.requestIdleCallback(go,{timeout:4e3}):go()},3500)})})();`,
         },
       ],
     },

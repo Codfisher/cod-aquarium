@@ -4,3 +4,10 @@
 # 改標 text/plain 才會被壓縮（brotli 約剩 167 KB）；前端以串流逐行讀取，不受 Content-Type 影響
 /memes/*.ndjson
   Content-Type: text/plain; charset=utf-8
+
+# codmarbles 的 3D 模型與貼圖。Cloudflare 對靜態檔預設 max-age=0, must-revalidate，同一個 gltf 被各零件實例重複請求，
+# 開一次賽道就有數百次 304 往返。內容幾乎不變，快取一天，過期後一週內先用舊檔並於背景更新
+/assets/kay-platformer-pack/*
+  Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+/assets/textures/*
+  Cache-Control: public, max-age=86400, stale-while-revalidate=604800

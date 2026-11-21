@@ -17,6 +17,12 @@ const CLIENT_MANIFEST_PATH = path.resolve(__dirname, '../../../node_modules/.cac
 /** 入口的直接依賴只預載這個大小以上的（未壓縮位元組），通常就是 Vue 執行環境這類大塊 */
 const LARGE_CHUNK_SIZE = 50 * 1024
 
+/** 頁面動態載入的 chunk 裡，不要預載的（manifest key 的比對字串）。
+ * 這些是 LCP 之後才用到的功能，預載只會與擋渲染的 CSS 搶頻寬：
+ * meme-cache 的圖片編輯器（interactjs、snapdom、zod 等），頁面自己會在資料載完後閒置時預取
+ */
+const PRELOAD_SKIP_KEY_LIST = ['img-editor']
+
 /** aquarium 各 app 頁（frontmatter layout: false）補上 modulepreload。
  *
  * 全站不輸出 modulepreload（見 modules/site.ts 的 build:manifest），是為了不讓 JS 跟文章頁擋渲染的 CSS 搶頻寬；
@@ -68,6 +74,8 @@ export async function addStandalonePreload(outDir: string) {
         fileSet.add(importFile)
     }
     for (const dynamicKey of pageChunk.dynamicImports ?? []) {
+      if (PRELOAD_SKIP_KEY_LIST.some((skipKey) => dynamicKey.includes(skipKey)))
+        continue
       const dynamicFile = manifest[dynamicKey]?.file
       if (dynamicFile)
         fileSet.add(dynamicFile)

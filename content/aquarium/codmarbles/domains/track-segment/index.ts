@@ -40,7 +40,7 @@ export async function createTrackSegment({
     const fullPath = `${data.rootFolderName}/${partData.path}`
 
     // FIX: 使用 assetCache 反而導致 FPS 大幅下降 QQ，目前原因不明
-    // const container = assetStore.assetCache.get(partData.path)
+    // const container = assetStore.assetCache.get(fullPath)
     // if (!container) {
     //   console.error(`Asset not found: ${fullPath}`)
     //   return

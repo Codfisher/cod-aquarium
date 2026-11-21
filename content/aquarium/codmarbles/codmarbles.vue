@@ -252,10 +252,7 @@
       </div>
 
       <transition name="opacity">
-        <loading-overlay
-          v-if="isLoading"
-          class="absolute left-0 top-0 w-full h-full "
-        />
+        <loading-overlay v-if="isLoading" />
       </transition>
     </div>
   </UApp>
@@ -771,8 +768,6 @@ const {
     // Inspector.Show(scene, {
     //   embedMode: true,
     // })
-
-    await assetStore.preloadTrackAssets(scene)
 
     // 畫 Group 1 (幽靈) 時，不要清除 Group 0 (牆壁) 的深度資訊，這樣才能進行深度比較
     scene.setRenderingAutoClearDepthStencil(GHOST_RENDERING_GROUP_ID, false)

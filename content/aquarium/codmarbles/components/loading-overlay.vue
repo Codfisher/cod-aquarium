@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-col items-center justify-center gap-24 loader">
+  <div class="absolute left-0 top-0 w-full h-full flex flex-col items-center justify-center gap-24 loader">
     <div class="ball">
       <div
         ref="ballBody"
@@ -21,6 +21,7 @@
 </template>
 
 <script setup lang="ts">
+import { useState } from 'nuxt/app'
 import { sample } from 'remeda'
 import { onBeforeUnmount, onMounted, useTemplateRef } from 'vue'
 
@@ -34,9 +35,15 @@ const loadingTexts = [
   '正在把彈珠擦得亮晶晶...',
   '正在翻沙發找彈珠...',
 ]
-const loadingText = sample(loadingTexts, 1)[0] ?? ''
+/** 首屏的 fallback、載入 app 本體期間、app 內各有一份本元件，用 useState 讓三處（含 SSR）顯示同一句，
+ * 否則 hydration 文字不一致，交接時也會換字
+ */
+const loadingText = useState('codmarbles-loading-text', () => sample(loadingTexts, 1)[0] ?? '')
 
-/** 使用 Web Animation API，即使 JS 忙碌也能保持流暢 */
+/** 使用 Web Animation API，即使 JS 忙碌也能保持流暢。彈跳用 translate 而非 top，不會每幀觸發版面位移（CLS）。
+ * 各份實例交接時動畫不能從頭播，所以 startTime 一律設成 0（文件時間軸原點），
+ * 同樣長度的動畫相位就只由當下時間決定，新舊實例永遠同步
+ */
 onMounted(() => {
   const duration = 1000
   const common: KeyframeAnimationOptions = {
@@ -49,9 +56,9 @@ onMounted(() => {
     animations.push(
       ballRef.value.animate(
         [
-          { top: '0px' },
-          { top: '32.5px', offset: 0.45 },
-          { top: '0px' },
+          { translate: '0 0' },
+          { translate: '0 32.5px', offset: 0.45 },
+          { translate: '0 0' },
         ],
         common,
       ),
@@ -106,6 +113,10 @@ onMounted(() => {
         common,
       ),
     )
+  }
+
+  for (const animation of animations) {
+    animation.startTime = 0
   }
 })
 
