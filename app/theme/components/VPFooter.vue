@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import MailLink from '../../../web/components/mail-link.vue'
 import { useData } from '../composables/data'
 import { useSidebar } from '../composables/sidebar'
 
@@ -9,8 +10,13 @@ const { hasSidebar } = useSidebar()
 <template>
   <footer v-if="theme.footer && frontmatter.footer !== false" class="VPFooter" :class="{ 'has-sidebar': hasSidebar }">
     <div class="container">
-      <p v-if="theme.footer.message" class="message" v-html="theme.footer.message"></p>
-      <p v-if="theme.footer.copyright" class="copyright" v-html="theme.footer.copyright"></p>
+      <p v-if="theme.footer.message" class="message" v-html="theme.footer.message" />
+      <p v-if="theme.footer.copyright" class="copyright">
+        {{ theme.footer.copyright }}
+        <mail-link v-if="theme.footer.copyrightName">
+          {{ theme.footer.copyrightName }}
+        </mail-link>
+      </p>
     </div>
   </footer>
 </template>

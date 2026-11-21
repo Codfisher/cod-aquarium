@@ -20,3 +20,6 @@ export const SITE_LANG = 'zh-Hant'
 export const SITE_EMAIL = 'hi@codlin.me'
 export const AUTHOR_NAME = '鱈魚 (Cod Lin)'
 export const COPYRIGHT = 'Copyright © 2024-present <a href="mailto:hi@codlin.me">Cod Lin</a>'
+/** 網頁用的版權文字，不含信箱（信箱由 MailLink 在 client 組出，見 web/components/mail-link.vue） */
+export const COPYRIGHT_TEXT = 'Copyright © 2024-present'
+export const COPYRIGHT_NAME = 'Cod Lin'

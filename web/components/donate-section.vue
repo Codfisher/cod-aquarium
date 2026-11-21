@@ -6,12 +6,9 @@
 
     <div class="text-center leading-relaxed opacity-80">
       有任何建議或疑問嗎？歡迎
-      <a
-        href="mailto:hi@codlin.me"
-        target="_blank"
-      >
+      <mail-link target="_blank">
         寫信給我
-      </a>
+      </mail-link>
     </div>
 
     <div class="text-center leading-relaxed opacity-80 mt-2">
@@ -40,6 +37,7 @@
 <script setup lang="ts">
 import { useIntersectionObserver } from '@vueuse/core'
 import { defineAsyncComponent, ref, useTemplateRef } from 'vue'
+import MailLink from './mail-link.vue'
 
 /** fish-feeder 依賴 FingerprintJS、Babylon 數學模組、zdog 等大型套件，
  * 改為非同步元件並等接近視野才掛載，避免拖慢每一頁的首屏載入

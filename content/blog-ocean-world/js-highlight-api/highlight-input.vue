@@ -27,18 +27,14 @@
         酷酷的元件
       </a>
 
-      <a
-        href="mailto:hi@codlin.me"
-        target="_blank"
-      >
-        hi@codlin.me
-      </a>
+      <mail-link target="_blank" />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, useTemplateRef } from 'vue'
+import MailLink from '../../../web/components/mail-link.vue'
 import { useTextHighlight } from '../../../web/composables/use-text-highlight'
 
 const textRef = useTemplateRef('textRef')
