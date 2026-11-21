@@ -1,53 +1,17 @@
-import type { AbstractMesh, AssetContainer, Scene } from '@babylonjs/core'
-import { AssetsManager, ImportMeshAsync, LoadAssetContainerAsync, PBRMaterial } from '@babylonjs/core'
+import type { AssetContainer } from '@babylonjs/core'
 import { defineStore } from 'pinia'
-import { flatMap, pipe, unique, uniqueBy } from 'remeda'
 import { ref } from 'vue'
-import { trackSegmentData } from '../domains/track-segment/data'
 
+/** 原本有 preloadTrackAssets 預先載入全部賽道零件，但載入的 container 並沒有被使用（見 domains/track-segment 的註解），
+ * 每個零件實例仍各自 ImportMeshAsync。本機 preview 慢速 4G＋CPU 4 倍量測，移除預載後賽道建好的時間由 158 秒降到 133 秒，所以拿掉
+ */
 export const useAssetStore = defineStore('asset', () => {
   const assetCache: Map<string, AssetContainer> = new Map()
 
   const isLoading = ref(false)
 
-  async function preloadTrackAssets(
-    scene: Scene,
-  ) {
-    // const assetsManager = new AssetsManager(scene)
-    // assetsManager.useDefaultLoadingScreen = false
-
-    const uniquePartList = pipe(
-      Object.values(trackSegmentData),
-      flatMap((data) => data.partList.map((part) => ({
-        rootFolderName: data.rootFolderName,
-        path: part.path,
-      }))),
-      uniqueBy(({ rootFolderName, path }) => `${rootFolderName}/${path}`),
-    )
-
-    const tasks = uniquePartList.map(async (partData) => {
-      const fullPath = `${partData.rootFolderName}/${partData.path}`
-      if (assetCache.has(fullPath))
-        return
-
-      const container = await LoadAssetContainerAsync(
-        `/assets/${fullPath}`,
-        scene,
-      )
-      container.removeAllFromScene()
-      assetCache.set(partData.path, container)
-
-      return container
-    })
-
-    isLoading.value = true
-    await Promise.all(tasks)
-    isLoading.value = false
-  }
-
   return {
     isLoading,
     assetCache,
-    preloadTrackAssets,
   }
 })

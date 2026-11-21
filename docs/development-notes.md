@@ -302,10 +302,18 @@ mermaid 不在 Vite 的預先建置名單內，dev 時瀏覽器直接載入它�
 - **Lighthouse 只量載入，抓不到互動造成的 CLS。** 要用 Playwright 模擬滾輪、輸入等操作，並以 `PerformanceObserver` 監聽 `layout-shift`，從 `sources` 找出元兇。
 - **第三方腳本（gtag、Clarity、AdSense）延後到互動或閒置才載入。** 正式站封鎖第三方後，短文手機分數 86 → 99、LCP 2697 → 1425 ms、TBT 324 → 106 ms，LCP 的 render delay 由 295 降到 13 ms，代表三支腳本在首屏期間佔住主執行緒（TBT 各約 60～130 ms）。`nuxt.config.ts` 的 head inline script 改為「首次互動（`pointerdown`、`keydown`、`scroll`、`touchstart`，passive、once）」與「load 後 3.5 秒再 `requestIdleCallback`（timeout 4 秒）」兩者先到者觸發，各腳本只載入一次；互動若早於 load，等 load 後再載。gtag 的 `dataLayer` stub 與 `gtag("config")` 仍在 head 同步執行，事件先累積，pageview 在 gtag.js 載入後照送。
   - 副作用：Lighthouse 不會互動，3.5 秒的閒置計時可能落在量測窗內，載入發生在量測後段時 TBT 仍會被算到；實際使用者多半在這之前就有互動。
+  - **三支腳本要錯開，不能同一刻載入。** 第一版上線後短文手機 LCP 2697 → 1916 ms，TBT 卻 324 → 543 ms：三支在約 4.6～4.9 秒同時下載、執行，擠成長任務。現在觸發條件不變，觸發後 gtag 立刻載入，載完（`onload`／`onerror`，被擋掉也會往下走）再等 1.5 秒以 `requestIdleCallback` 載入 Clarity，Clarity 之後再等 1.5 秒同樣以 rIC 載入 AdSense（只有沒有廣告欄位的 auto ads 頁面；互動觸發時照舊一定載入）。廣告欄位進入視窗（600px）的路徑仍呼叫 `window.__loadAdsense()` 即時載入，不受錯開影響。
   - AdSense 除了互動與閒置，廣告欄位 `google-adsense.vue` 會在接近視窗（`rootMargin: 600px`）時呼叫 `window.__loadAdsense()` 立即載入。`adsbygoogle` 陣列支援先 push 後載入，元件掛載時照常 push，腳本就緒後才消化。閒置觸發時若頁面已有 `ins.adsbygoogle`，改由欄位元件或互動觸發，沒有欄位的頁面（auto ads）才靠閒置載入。
 - **信箱不要輸出成 HTML 明文，否則 Cloudflare 會注入擋渲染的 `/cdn-cgi/scripts/.../email-decode.min.js`。** 這是 Cloudflare 的 Email Address Obfuscation，掃到 HTML 內的信箱（含 `mailto:`）就會改寫並在頁面引入解碼腳本。現在所有信箱連結改用 `web/components/mail-link.vue`：信箱只在 client 掛載後才組出，prerender 的 HTML 不含明文，畫面與點擊行為不變；md 內用 `<mail-link>寫信</mail-link>`，不給 slot 就顯示信箱本身。注意 `site/constants.ts` 的 `COPYRIGHT` 含明文，只給 RSS 使用，網頁頁尾走 `COPYRIGHT_TEXT`／`COPYRIGHT_NAME`；元件內的信箱不能 import `site/constants.ts`（含 node 模組，會讓 client 報 `fileURLToPath is not a function`）；新增信箱連結不要直接寫 `mailto:hi@...`。驗證：`grep -rl "hi@codlin.me" dist --include=*.html` 應無結果。
 - **`/_nuxt/builds/*` 的 `Cache-Control` 被 Cloudflare 串成多段。** `_headers` 由 Nitro 依 Nuxt 的 route rules 產生（`/_nuxt/builds/meta/*`、`/_nuxt/builds/*`、`/_nuxt/fonts/*`、`/_nuxt/*`），Cloudflare Pages 不會讓內層覆寫外層，而是把所有符合的規則值串起來：meta json 變三段、`latest.json`（部署偵測入口）變成「`max-age=1` 加 `max-age=31536000, immutable`」。`site/scripts/postbuild.ts` 新增 `headers` 步驟，把 `/_nuxt` 的規則改寫成外層一條、內層以 `! Cache-Control` 先移除再設定：`/_nuxt/*` 一年 immutable、`/_nuxt/builds/*`（`latest.json`）`max-age=1, must-revalidate`、`/_nuxt/builds/meta/*`（檔名帶 buildId、內容不變）一年 immutable。
 - **hexazen 教學影片不要一開頁就下載。** `bulletin-modal.vue` 的 UCarousel 會一次渲染所有步驟，三支 mp4 約 2.6 MB 全部 autoplay 下載。改為 `preload="none"`，並以 Carousel 的 `@select` 記錄走到的最大步驟，只對已輪播到的步驟設定 `src`。
+- **meme-cache 的圖片編輯器不要隨頁面本體載入。** `ImgEditorModal` 原本靜態匯入、常駐掛載，拉進 interactjs、snapdom、zod、colord 等，頁面本體 chunk 肥大（gzip 約 123 KB），首屏的 JS 與擋渲染的 CSS 搶頻寬（只擋掉那支 chunk，慢速 4G＋CPU 4 倍的 LCP 由約 2.45 秒降到約 1.80 秒）。現在 `defineAsyncComponent`，第一次開啟才以 `v-if="editorMounted"` 掛載、之後不卸載，所以關閉動畫與編輯狀態照舊；資料載完且 `requestIdleCallback` 時預取 chunk（Safari 沒有 rIC，改 3 秒後），首次開啟不必等下載（實測點擊前 chunk 已載入、點擊後沒有新請求）。`standalone-preload` 的 `PRELOAD_SKIP_KEY_LIST` 要排除它，否則頁面 chunk 的 `dynamicImports` 會被整批加進 modulepreload，白拆。meme-cache 頁面本體預載的 chunk 現為 4 支、gzip 合計約 105 KB，編輯器的 93 KB 拆成獨立 chunk。
+- **只在 client 渲染的圖示會打 api.iconify.design，要用 `icon.clientBundle` 打包。** svg 模式下 SSR 的圖示是內嵌 `<svg>`，但 client-only 的 app、延遲載入的元件在瀏覽器端才渲染，圖示沒打包就向 Iconify API 即時請求（meme-cache 3 次、文章頁的上下篇箭頭 1 次，每次是跨網域連線加往返）。`nuxt.config.ts` 的 `icon.clientBundle.scan` 掃描 `app/`、`web/`、`content/aquarium/meme-cache/` 的 `.vue`／`.ts`，目前約 68 個圖示。**增量：全站共用的圖示 chunk 由 32 KB（gzip 9.7 KB）變 64 KB（gzip 18.9 KB），每頁 +約 9 KB gzip，CPU 只多約 5 ms（4 倍降速）。** 範圍刻意不含其他 aquarium app（含它們就是整包進每一頁），所以 codmarbles、hexazen 等頁仍有少量圖示請求；要補的話在掃描範圍加上該目錄，或在 `clientBundle.icons` 明列。驗證：在 preview 開首頁、文章頁、meme-cache，`performance.getEntriesByType('resource')` 不應有 iconify 請求。
+- **client-only 的 app 頁，首屏要有 fallback，而且 `defineAsyncComponent` 要關 `suspensible`。** codmarbles、hexazen 的 `index.md` 原本是沒有 fallback 的 `<client-only>`，載入畫面在 app 本體裡，而本體靜態匯入整個 Babylon（約 2.4 MB JS），慢速 4G＋CPU 4 倍要約 16 秒才看到任何東西。現在 `#fallback` 輸出載入畫面（codmarbles 沿用 `loading-overlay.vue`，hexazen 新增 `components/loading-screen.vue`，兩者都不匯入 Babylon），FCP 約 16 秒 → 約 1.5 秒。有兩個陷阱：
+  - ClientOnly 掛載後就把 fallback 換成預設 slot，但 slot 裡的是非同步元件，本體載完前畫面是空白的（實測 hydration 後約 12 秒）。`defineAsyncComponent` 在 Nuxt 頁面內預設 `suspensible: true`，載入交給外層 Suspense，`loadingComponent` 根本不會顯示，所以要 `{ loadingComponent, delay: 0, suspensible: false }`，讓載入中繼續顯示同一個載入畫面。
+  - fallback、載入中、app 內三處各有一份載入畫面，彈珠動畫要接得上：`loading-overlay.vue` 的 Web Animation 一律把 `startTime` 設 0（文件時間軸原點），相位只由當下時間決定，新舊實例永遠同步；載入文字用 `useState` 讓 SSR 與三處顯示同一句（隨機文字會 hydration 不一致）。彈跳由 `top` 改 `translate`，否則每幀都算一次 CLS（載入畫面顯示久了會累積到 0.016）。
+- **codmarbles 的資產快取。** Cloudflare 對 `/assets/*` 靜態檔預設 `max-age=0, must-revalidate`，每個零件實例各自 `ImportMeshAsync`，同一個 gltf 重複請求（cone.gltf 31 次），開一次賽道就有約 870 次 304 往返。`content/public/_headers` 對 `/assets/kay-platformer-pack/*`（codmarbles 專用）與 `/assets/textures/*`（codmarbles、hexazen 共用的小檔）設 `public, max-age=86400, stale-while-revalidate=604800`；`/assets/*` 底下其他資料夾是 enderbox、minespace、hexazen 在用，沒動。`postbuild` 的 `headers` 步驟只改寫 `/_nuxt` 的規則，不受影響（部署後以 `curl -sI` 確認沒有被串成多段）。
+  - **`preloadTrackAssets` 移除。** 它載入 94 個 container 卻沒被用到（`track-segment` 註解掉了，原因寫「FPS 下降原因不明」），`assetCache` 的 key 也不一致（`set(partData.path)` vs `has(fullPath)`）。本機 preview、慢速 4G＋CPU 4 倍、冷快取，量「app 的 JS 到齊後到載入畫面消失（賽道建好）」，各 3 次：保留預載 158.2／158.5／158.1 秒，移除後 133.0／133.4／133.0 秒，移除的快 25 秒，請求數也少約 270 個（1569 → 1302）。沒有不變慢，所以移除；key 不一致一併消失。
 
 量測方式：`npx lighthouse@12 <url> --only-categories=performance --output=json --chrome-flags="--headless=new"`，搭配 `--blocked-url-patterns` 封鎖特定資源，就能拆出各項因素的影響。
 
@@ -500,8 +508,26 @@ meme-cache 本體是 `layout: false` 的單頁 app，上千張圖共用一個網
 - **延遲 hydration**：md 裡同步匯入的示範元件在編譯時改成 `defineAsyncComponent` ＋ `hydrateOnVisible`（`site/markdown/vite-plugin.ts`），頁尾、文末導覽、贊助區也是。文章頁 TBT 約降 40～230ms，LCP 不變。
 - **Nuxt Fonts 自架 Figtree**：效能持平（差異在雜訊內，多 20～40KB 字型檔），保留是為了不連 Google 與 fallback 字型尺寸修正。全站只能在 `--display-font-family` 寫一次 Figtree：直接寫在巢狀規則或元件樣式裡，@nuxt/fonts 插入 fallback 的位置會算錯，build 報 `Invalid empty selector`。
 
+**第二批修正的 A/B（2026-11）**
+
+改動：第三方腳本錯開、meme-cache 編輯器延遲載入、clientBundle 圖示、codmarbles／hexazen 首屏載入畫面、codmarbles 資產快取與移除預載。本機 preview 對正式站（改動前的 main），CPU 4 倍、暖快取、封鎖廣告與分析腳本，手機與桌機各 4 輪取中位數，單位 ms（TBT／長任務總和）：
+
+| 頁面 | 桌機 TBT | 桌機長任務 | 手機 TBT | 手機長任務 |
+| --- | --- | --- | --- | --- |
+| 短文 | 160 → 182 | 687 → 743 | 190 → 211 | 627 → 703 |
+| 長文 | 196 → 212 | 739 → 803 | 214 → 231 | 684 → 728 |
+| 首頁 | 340 → 368 | 490 → 518 | 288 → 251 | 413 → 351 |
+| meme-cache | 663 → 754 | 988 → 1104 | 654 → 684 | 1004 → 1034 |
+
+- 差異都在雜訊內（單次 TBT 分佈約 ±80 ms），與預期相符：廣告分析腳本被封鎖、本機又不經 CDN，這批的效益不在這個量測條件裡。**絕對的 FCP／LCP 不能比**，本機伺服器沒有 CDN 往返，FCP 固定快 200～300 ms，與改動無關。
+- 第三方腳本錯開要在正式站用 Lighthouse（不封鎖第三方）驗證；本機 preview 實測無互動時的請求時間：gtag 3.9 秒、Clarity 5.6 秒（gtag 之後 1.7 秒）、AdSense 7.1 秒（再 1.5 秒），有廣告欄位的頁面（meme-cache）AdSense 在 0.6 秒由欄位觸發，不受影響。
+- codmarbles、hexazen 慢速 4G＋CPU 4 倍、冷快取（手機與桌機各 3 輪）：FCP 約 15.3～15.7 秒 → 約 1.5 秒。LCP 沒有改善（15.3 → 15.8 秒、17.9 → 18.5 秒）：後段的 LCP 是 app 本體畫出的 UI（提示框文字），本機伺服器又慢約 0.5 秒，載入畫面不會是 LCP 的最大元素。hexazen 的 CLS 由 0.021 降到 0（推測是原本 app 掛載時畫面從空白變成有內容）。
+- 這個量測沒有量到的是 meme-cache 頁面 chunk 變小在冷快取的效益（編輯器 93 KB gzip 不再與 CSS 搶頻寬），以及 clientBundle 讓圖示請求消失，需看上線後 Lighthouse。
+
 **量測陷阱**
 
+- 本機伺服器對 `Cache-Control: no-cache`、即時壓縮，FCP 與正式站不可比；改動對 FCP 的影響要用「同一個伺服器、兩個版本」的方式分離（做法見關鍵 CSS 的試驗：把 build 的 HTML 另存一份，用 Node 靜態伺服器同時提供兩種版本）。
+- meme-cache 首屏圖片是 build 時隨機挑的 10 張，每次 build 的圖片大小不同，LCP 會因為挑到較大的圖片而差數百毫秒，不能拿來比較兩次 build。
 - Git Bash 會把 `/blog-vue/...` 這類參數轉成 Windows 路徑，跑量測腳本要加 `MSYS_NO_PATHCONV=1`。
 - 鏡像代理（Node http2）不做串流優先權排序，CSS 與 JS 平分頻寬，會放大「預載太多 chunk」的傷害；方向可信，絕對值會比 CDN 悲觀。
 - 先看 LCP 候選清單（每個候選的元素與時間），再看 Chrome trace 的 Layout 與 v8 解析，比只看總 TBT 更快找到原因。
@@ -554,12 +580,13 @@ postbuild 的 `critical-css` 步驟（`site/scripts/postbuild/critical-css.ts`�
 - **Cloudflare Early Hints**：Cloudflare 會自動把 HTML 裡的 preload 轉成 103 回應，部署後即生效，本機無法量測。
 - **Speed Brain／Speculation Rules**：只加速後續換頁，不影響首次載入；官方文件註明不支援 pages.dev。
 - **Vue Vapor 模式**：Nuxt 4.6 僅實驗性 interop 支援，需 Vue 3.6 RC，hydration 仍在修正。
+- **精簡內嵌 CSS 裡沒用到的自訂屬性（2026-11 試驗，已撤掉）**：文章頁 HTML 內嵌的 `<style>` 約 151 KB，其中 Beasties 內嵌的那一大塊約 84 KB，自訂屬性宣告佔約 30 KB（`--vp-c-*`、`--vp-code-*`、各 `.vpi-*` 圖示的 `--icon` 等）。試做用 postcss 解析每個 `<style>`，保留「任一內嵌規則或元素 `style` 屬性有 `var(--x)` 引用」的自訂屬性，並遞迴展開變數引用變數（另保留 JS 用 `getPropertyValue` 讀的 `--vp-nav-height`）。實際只能砍掉約 22 KB 解壓後（HTML brotli 少約 3.5 KB、約 9%），因為 `allowRules` 整組保留的 `.VP`、`vpi-`、`.vp-doc` 規則本身就用到大半變數。**兩個內嵌版本用同一個本機伺服器（brotli、慢速 4G、CPU 4 倍、暖快取、手機與桌機各 6 輪取中位數）比較：** FCP 只快 12～38 ms（雜訊範圍），樣式重算（`RecalcStyleDuration`）反而多 60～95 ms、主執行緒總工作量多 40～165 ms，沒有明顯改善，所以撤掉不上線。要再嘗試的方向是縮小 `allowRules`（例如 `vpi-` 只留頁面實際用到的圖示），而不是修剪變數。
 
 ## 快取梗圖與 aquarium app 頁的載入（2026-11）
 
 aquarium 各 app 的畫面完全由 JS 繪製，與文章頁的取捨相反。
 
-- **app 頁補回關鍵 chunk 的 modulepreload**（postbuild 的 `standalone-preload`）：全站不輸出 modulepreload 後，app 頁變成「入口 → Vue → app 本體」三段瀑布。只預載入口與頁面底下 50KB 以上的大 chunk；全部依賴都預載反而更慢（3D app 近 300 支小 chunk 一起搶頻寬，HexaZen 的 TBT 從約 280 暴增到約 2000ms）。
+- **app 頁補回關鍵 chunk 的 modulepreload**（postbuild 的 `standalone-preload`，頁面不需要的功能以 `PRELOAD_SKIP_KEY_LIST` 排除，目前只有 meme-cache 的圖片編輯器）：全站不輸出 modulepreload 後，app 頁變成「入口 → Vue → app 本體」三段瀑布。只預載入口與頁面底下 50KB 以上的大 chunk；全部依賴都預載反而更慢（3D app 近 300 支小 chunk 一起搶頻寬，HexaZen 的 TBT 從約 280 暴增到約 2000ms）。
 - **md 的延遲 hydration 改寫跳過 `layout: false` 的頁面**：app 元件就在首屏，延遲的話要等 hydration 後偵測到可見才下載 app 本體。
 - **不要用 `useRafFn` 每幀讀版面尺寸**：`use-sticky-toolbar` 原本每幀讀 `innerHeight`、`visualViewport` 並量工具列高度，載入期間每幀都強制同步排版、閒置時也每秒跑 60 次。改成監聽 visualViewport 的 resize／scroll、視窗 resize、focusin／focusout，工具列高度用 `useResizeObserver`。
 - **Nuxt UI 的 Toast 預設帶倒數進度條**，停留期間每一幀都重新渲染。歡迎提示改成 `progress: false`，並延到 `requestIdleCallback` 才顯示（原本整個 toast 佔約 400ms，4 倍降速）。

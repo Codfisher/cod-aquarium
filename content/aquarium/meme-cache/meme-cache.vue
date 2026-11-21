@@ -201,6 +201,7 @@
       </div>
 
       <img-editor-modal
+        v-if="editorMounted"
         v-model:open="editorVisible"
         :data="targetMeme"
         :meme-data-list="memeDataList"
@@ -243,10 +244,10 @@
 import type { DropdownMenuItem } from '@nuxt/ui'
 import type { MemeData } from './domains/meme/type'
 import featuredMemeList from '#site/meme-featured-list'
-import { promiseTimeout, useActiveElement, useColorMode, useElementSize, useFocus, useWindowSize, watchThrottled } from '@vueuse/core'
+import { promiseTimeout, useActiveElement, useColorMode, useElementSize, useFocus, useWindowSize, watchThrottled, whenever } from '@vueuse/core'
 import { onNuxtReady } from 'nuxt/app'
 import { filter, isNullish, isTruthy, pipe, shuffle, unique } from 'remeda'
-import { computed, onMounted, reactive, ref, shallowRef, useTemplateRef, watch } from 'vue'
+import { computed, defineAsyncComponent, onMounted, reactive, ref, shallowRef, useTemplateRef, watch } from 'vue'
 import { BlurLevel } from '../../../site/utils/blur-level'
 import { type Emotion, EMOTION_LIST, isEmotion, parseEmotionList } from '../../../site/utils/meme-emotion'
 import { nextFrame } from '../../../web/common/utils'
@@ -257,7 +258,6 @@ import { useMissingKeywordReport } from './composables/use-missing-keyword-repor
 import { useSearchSyntaxTip } from './composables/use-search-syntax-tip'
 import { useStickyToolbar } from './composables/use-sticky-toolbar'
 import { version } from './constants'
-import ImgEditorModal from './domains/img-editor/img-editor-modal.vue'
 import ImgList from './domains/img-list/img-list.vue'
 import { parseSearchInput } from './domains/meme/meme-search-core'
 import { useMemeData } from './domains/meme/use-meme-data'
@@ -431,10 +431,20 @@ const mainMenuItems = pipe(
   filter(isTruthy),
 )
 
+/** 編輯器約 120KB（gzip，含 interactjs、snapdom、zod 等），拆成獨立 chunk 不卡首屏。
+ * 第一次開啟才掛載（editorMounted），之後不卸載，關閉動畫與編輯狀態照舊；
+ * 資料載完且主執行緒閒置時預取，首次開啟不必等下載
+ */
+function loadImgEditorModal() {
+  return import('./domains/img-editor/img-editor-modal.vue')
+}
+const ImgEditorModal = defineAsyncComponent(loadImgEditorModal)
+const editorMounted = ref(false)
 const editorVisible = ref(false)
 const targetMeme = shallowRef<MemeData>()
 function handleSelect(data: MemeData) {
   targetMeme.value = data
+  editorMounted.value = true
   editorVisible.value = true
   markRecent(data.file)
 }
@@ -638,6 +648,14 @@ function showWelcomeToast() {
     }],
   })
 }
+
+/** 資料載完後閒置時預取編輯器 chunk；Safari 沒有 requestIdleCallback，改用短延遲 */
+whenever(loaded, () => {
+  if ('requestIdleCallback' in window)
+    window.requestIdleCallback(() => void loadImgEditorModal(), { timeout: 5000 })
+  else
+    setTimeout(() => void loadImgEditorModal(), 3000)
+}, { once: true })
 
 onMounted(async () => {
   /** 歡迎訊息等主執行緒閒置才出現，不與首屏梗圖的渲染搶時間。
