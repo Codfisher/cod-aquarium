@@ -643,3 +643,12 @@ TBT 差異在雜訊內（上一輪只改 rAF 時是 565 → 573、524 → 520）
 - Resource Timing 預設只存 250 筆，量 codmarbles 要先 `performance.setResourceTimingBufferSize(20000)`，否則賽道資產請求一筆都看不到。
 
 **沒採用**：物理形狀的共用（Havok 的 mesh shape 每個 body 各建一個）。該段在 profile 上自耗只有約 70ms，不值得擔行為風險。
+
+**上線後 Lighthouse（手機、不封鎖第三方，各取中位數，與第二批上線後比較）**
+
+| 頁面 | 分數 | LCP | TBT |
+| --- | --- | --- | --- |
+| meme-cache（3 次） | 78 → 76 | 3003 → 3323 ms | 483 → 495 ms |
+| 短文（3 次） | 95 → 91 | 1919 → 1919 ms | 208 → 336 ms |
+
+meme-cache 沒有變化，與預期相符：toast 的成本是載入後的穩態，不在 Lighthouse 的 TBT 內；LCP 差異來自每次 build 隨機挑的首屏梗圖大小（見量測陷阱）。短文的 TBT 變高，但這次沒有動到文章頁的任何程式，三次量測 306～349 ms 都高於上次的 208 ms，推測是第三方腳本載入時機或量測環境的變動，不是這批造成；下次量測再確認。
