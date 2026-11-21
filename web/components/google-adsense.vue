@@ -11,11 +11,14 @@
 </template>
 
 <script setup lang="ts">
+import { useIntersectionObserver } from '@vueuse/core'
 import { computed, onBeforeUnmount, onMounted, useTemplateRef } from 'vue'
 
 declare global {
   interface Window {
     adsbygoogle?: Record<string, unknown>[];
+    /** 由 nuxt.config 的 head inline script 提供，載入 adsbygoogle.js（只會載入一次） */
+    __loadAdsense?: () => void;
   }
 }
 
@@ -61,6 +64,21 @@ const insStyle = computed(() =>
 )
 
 const insRef = useTemplateRef<HTMLElement>('insRef')
+
+/** adsbygoogle.js 延後到首次互動或閒置才載入，廣告欄位接近視窗（600px 內）時也立即載入，
+ * 避免使用者先看到空白版位。push 的佇列在腳本就緒後才會被消化，所以先後順序不影響填入
+ */
+const { stop: stopLoadObserver } = useIntersectionObserver(
+  insRef,
+  ([entry]) => {
+    if (!entry?.isIntersecting) {
+      return
+    }
+    window.__loadAdsense?.()
+    stopLoadObserver()
+  },
+  { rootMargin: '600px' },
+)
 
 let statusObserver: MutationObserver | undefined
 let statusTimeoutId: ReturnType<typeof setTimeout> | undefined
@@ -121,6 +139,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  stopLoadObserver()
   statusObserver?.disconnect()
   statusObserver = undefined
   clearStatusTimeout()

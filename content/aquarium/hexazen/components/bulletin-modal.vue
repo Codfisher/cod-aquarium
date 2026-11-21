@@ -36,6 +36,7 @@
               :items="quickStartItems"
               class="w-full h-full"
               :ui="{ item: 'flex flex-col' }"
+              @select="visitedIndexMax = Math.max(visitedIndexMax, $event)"
             >
               <div class=" relative ">
                 <div class="overflow-hidden p-0.5 chamfer-4.5 bg-gray-200">
@@ -48,7 +49,8 @@
 
                     <video
                       v-else
-                      :src="item.img"
+                      :src="index <= visitedIndexMax ? item.img : undefined"
+                      preload="none"
                       autoplay
                       loop
                       muted
@@ -92,6 +94,9 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const currentTab = ref('quick-start')
+
+/** Carousel 會一次渲染所有步驟，影片要等輪播到該步驟才給 src，避免一開頁就下載全部 */
+const visitedIndexMax = ref(0)
 const tabItems = computed(() => [
   {
     label: 'Intro',

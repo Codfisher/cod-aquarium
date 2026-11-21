@@ -1,6 +1,7 @@
 import { defineNuxtPlugin } from 'nuxt/app'
 import { createPinia } from 'pinia'
 import { defineAsyncComponent, hydrateOnVisible } from 'vue'
+import MailLink from '../../web/components/mail-link.vue'
 import MermaidDiagram from '../../web/components/mermaid-diagram.vue'
 import StackBlitzEmbed from '../../web/components/stackblitz-embed.vue'
 import TermTip from '../../web/components/term-tip.vue'
@@ -17,6 +18,8 @@ export default defineNuxtPlugin((nuxtApp) => {
 
   // md 圖片轉成的元件（見 site/plugins/markdown-it-theme-image.ts）
   vueApp.component('ThemeImage', ThemeImage)
+  // 站長信箱連結：HTML 不含明文信箱，避免 Cloudflare 注入 email-decode.min.js
+  vueApp.component('MailLink', MailLink)
   vueApp.component('StackBlitzEmbed', StackBlitzEmbed)
   vueApp.component('TermTip', TermTip)
   vueApp.component('MermaidDiagram', MermaidDiagram)

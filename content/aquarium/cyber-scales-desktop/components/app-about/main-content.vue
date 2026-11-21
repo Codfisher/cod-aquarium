@@ -77,7 +77,7 @@
       </p>
 
       <p>
-        如果您有任何想法或建議，歡迎<a href="mailto:hi@codlin.me">寫信給我</a>
+        如果您有任何想法或建議，歡迎<mail-link>寫信給我</mail-link>
       </p>
 
       <p>
@@ -112,6 +112,7 @@
 </template>
 
 <script setup lang="ts">
+import MailLink from '../../../../../web/components/mail-link.vue'
 import { vDecodingText } from '../../../../../web/directives/v-decoding-text'
 </script>
 

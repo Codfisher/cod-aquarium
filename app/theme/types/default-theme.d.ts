@@ -345,6 +345,8 @@ export namespace DefaultTheme {
   export interface Footer {
     message?: string
     copyright?: string
+    /** 版權文字後方的作者名稱，渲染成寄信連結 */
+    copyrightName?: string
   }
 
   // team ----------------------------------------------------------------------
