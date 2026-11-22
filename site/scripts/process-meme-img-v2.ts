@@ -495,7 +495,7 @@ async function main() {
       : await readFile(filePath, { encoding: 'base64' })
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3.5-flash',
+      model: 'gemini-flash-latest',
       contents: [
         {
           inlineData: {

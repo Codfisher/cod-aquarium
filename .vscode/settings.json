@@ -106,10 +106,6 @@
   ],
   "html.format.wrapAttributes": "force-expand-multiline",
   "editor.tabSize": 2,
-  "editor.formatOnSave": false,
-  "editor.codeActionsOnSave": {
-    "source.fixAll": "explicit"
-  },
   "files.associations": {
     "*.css": "tailwindcss"
   },
