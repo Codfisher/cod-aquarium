@@ -10,6 +10,8 @@ export interface MemeItem {
   emotion?: string;
   width?: number;
   height?: number;
+  /** 排除此圖，說明見 domains/meme/type.ts */
+  excluded?: boolean;
 }
 
 /** 快取梗圖頁網址 */
@@ -67,19 +69,21 @@ export function getEmotionPagePath(emotion: Emotion): string {
   return `${MEME_CACHE_PATH}emotion/${EMOTION_SLUG_MAP[emotion]}`
 }
 
-/** 主檔的情緒標籤可能不完整，與 app 一樣合併手動標註檔（extend）的標籤。
+/** 主檔的情緒標籤可能不完整，與 app 一樣合併手動標註檔（extend）的標籤，任一份標記排除的圖也同樣略過。
  * 與 app 的差別：只存在於 extend 檔的圖不納入（app 會補進清單）。目前 extend 檔沒有這種圖，張數一致
  */
 export function mergeExtendEmotion(baseList: MemeItem[], extendList: MemeItem[]): MemeItem[] {
   const extendMap = new Map(extendList.map((item) => [item.file, item]))
 
-  return baseList.map((item) => {
-    const extendItem = extendMap.get(item.file)
-    if (!extendItem)
-      return item
+  return baseList
+    .filter((item) => !item.excluded && !extendMap.get(item.file)?.excluded)
+    .map((item) => {
+      const extendItem = extendMap.get(item.file)
+      if (!extendItem)
+        return item
 
-    return { ...item, emotion: mergeEmotion(item.emotion, extendItem.emotion) }
-  })
+      return { ...item, emotion: mergeEmotion(item.emotion, extendItem.emotion) }
+    })
 }
 
 /** 指定情緒的迷因，新圖在前（ndjson 依加入順序排列，新圖在檔尾） */

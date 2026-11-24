@@ -68,7 +68,10 @@ async function removeAnimatedAsset(memePath: string) {
   }
 }
 
-async function readExistingFilenames(ndjsonPath: string): Promise<Set<string>> {
+async function readExistingFilenames(
+  ndjsonPath: string,
+  { excludedOnly = false } = {},
+): Promise<Set<string>> {
   const names = new Set<string>()
   if (!existsSync(ndjsonPath))
     return names
@@ -83,12 +86,28 @@ async function readExistingFilenames(ndjsonPath: string): Promise<Set<string>> {
     try {
       const obj = JSON.parse(string)
       const name = typeof obj?.file === 'string' ? obj.file : undefined
+      if (excludedOnly && obj?.excluded !== true)
+        continue
       if (name)
         names.add(name)
     }
     catch { }
   }
   return names
+}
+
+/**
+ * 標記排除的迷因檔名。
+ *
+ * 排除的圖留在 repo 就是為了擋下重複上傳，
+ * 故去重時必須保留它，也不能讓同一張的動圖取代它，否則等於被重新加回系統
+ */
+async function readExcludedFilenameSet(): Promise<Set<string>> {
+  const [baseSet, extendSet] = await Promise.all([
+    readExistingFilenames(MEME_DATA_PATH, { excludedOnly: true }),
+    readExistingFilenames(MEME_META_EXTEND_PATH, { excludedOnly: true }),
+  ])
+  return new Set([...baseSet, ...extendSet])
 }
 
 /** 取得檔案 */
@@ -176,6 +195,8 @@ async function removeMeme(memePathList: string[]) {
 /** 刪除重複迷因 */
 async function dedupeMeme() {
   const hashList = await getMemeHashList(await getFilePathList(MEME_FILE_PATH))
+  const excludedSet = await readExcludedFilenameSet()
+  const isExcluded = (memeHash: MemeHash) => excludedSet.has(path.basename(memeHash.filePath))
 
   const keptMemeList: MemeHash[] = []
   const removedMemeList: string[] = []
@@ -191,9 +212,13 @@ async function dedupeMeme() {
       continue
     }
 
-    // 動圖的資訊量高於靜態圖，撞到靜態圖時反過來讓動圖留下
     const kept = keptMemeList[duplicateIndex]
-    if (kept && item.fingerprint.animated && !kept.fingerprint.animated) {
+    // 排除的圖優先留下，才能繼續擋重複；
+    // 其次是動圖，資訊量高於靜態圖，撞到靜態圖時反過來讓動圖留下
+    const shouldReplace = kept && !isExcluded(kept) && (
+      isExcluded(item) || (item.fingerprint.animated && !kept.fingerprint.animated)
+    )
+    if (kept && shouldReplace) {
       removedMemeList.push(kept.filePath)
       keptMemeList[duplicateIndex] = item
       continue
@@ -304,6 +329,7 @@ async function importSourceMeme() {
   )
 
   const hashList = await getMemeHashList(await getFilePathList(MEME_FILE_PATH))
+  const excludedSet = await readExcludedFilenameSet()
 
   let count = 0
   for (const { entry, file, fingerprint, srcPath } of fileList) {
@@ -328,8 +354,10 @@ async function importSourceMeme() {
     if (duplicateIndex !== -1) {
       const duplicate = hashList[duplicateIndex]
 
-      // 來源是動圖、既有是靜態圖時，讓動圖取代靜態圖，其餘一律丟掉來源
-      if (!duplicate || !animated || duplicate.fingerprint.animated) {
+      // 來源是動圖、既有是靜態圖時，讓動圖取代靜態圖，其餘一律丟掉來源。
+      // 既有圖已標記排除時也丟掉來源，否則等於把排除的圖換成動圖加回系統
+      const isDuplicateExcluded = duplicate && excludedSet.has(path.basename(duplicate.filePath))
+      if (!duplicate || !animated || duplicate.fingerprint.animated || isDuplicateExcluded) {
         try {
           await unlink(srcPath)
           console.log(

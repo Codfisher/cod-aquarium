@@ -29,11 +29,14 @@ export function mergeMemeData(base: MemeData | undefined, extend: MemeData | und
     // 手動標註只能補標動圖，不能把動圖改回靜態
     animated: base?.animated || extend?.animated,
     frameDelayList: base?.frameDelayList ?? extend?.frameDelayList,
+    // 任一份資料標記排除即排除
+    excluded: base?.excluded || extend?.excluded,
   }
 }
 
 /**
  * 依自動分析檔的順序合併兩份資料，手動標註獨有的項目補在最後，最終反轉成新圖在前。
+ * 標記排除的圖不列入。
  *
  * 順序必須可重現，預建的搜尋索引才對得上執行期的清單。
  * 兩份 ndjson 是併行串流讀取的，抵達順序不固定，故不能靠寫入順序決定。
@@ -49,5 +52,7 @@ export function mergeMemeDataList(baseMap: Map<string, MemeData>, extendMap: Map
     }
   }
 
-  return result.reverse()
+  return result
+    .filter((item) => !item.excluded)
+    .reverse()
 }

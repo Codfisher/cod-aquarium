@@ -70,6 +70,14 @@ npm run task:review-meme -- crop <id> 左下
 
 修正既有資料也用同一個 `write`，不必先 `list`。
 
+### 排除圖片
+
+不想讓某張圖出現在系統中時，**不要刪檔**，改在 `a-memes-data.ndjson`（或 extend 檔）該行加上 `"excluded":true`：
+
+- 頁面清單、搜尋索引、SEO 頁、sitemap、首屏精選都會略過它，`list` 也不再列為待核對
+- 圖片本體留在 `content/public/memes/`，匯入腳本靠指紋比對擋下日後再上傳的同一張圖
+- 同一張的動圖也不會取代它，否則等於把排除的圖加回系統
+
 ## 核對清單
 
 逐張看九宮格時，依序確認初稿的這幾件事：
