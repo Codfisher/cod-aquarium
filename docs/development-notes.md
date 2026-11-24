@@ -551,6 +551,21 @@ Nuxt 4.6.4 → 4.7.0，同時升級 Nuxt UI 4.13.1、Nuxt SEO 各模組與 Vue 3
 - **pinia 至少要 3.0.4**：Nuxt 內部用的 vue-router 5 要求 `pinia@^3.0.4 || ^4.0.2`。專案自己的 `vue-router` 還是 4.x（`app/router.options.ts` 等處直接匯入），這次沒有動。
 - **模板檢查**：4.7 起，靜態 `to` 對不到任何頁面的 `<NuxtLink>` 會出現 `NUXT_B4025` 警告；要關掉就設 `experimental.templateDiagnostics: false`。
 
+**上線後 Lighthouse（手機、不封鎖第三方，交替量 3 次取中位數）**
+
+建置只花 4 分鐘，量測前舊版就已下線，所以改量兩次部署各自的 pages.dev 網址：舊版 `1bbd749b.cod-aquarium.pages.dev`，新版 `4f3c0145.cod-aquarium.pages.dev`。兩邊網域型態相同，可以直接比較。短文是 `/blog-vue/vue-trigger-ref-problem`，長文是 `/blog-program/effect-ts-in-real-projects`。
+
+| 頁面 | 分數 | TBT | LCP | 請求數 | 傳輸量 | JS 執行時間 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 首頁 | 86 → 94 | 358 → 96 ms | 3039 → 2811 ms | 91 → 43 | 665 → 435 KB | 700 → 321 ms |
+| 短文 | 86 → 94 | 307 → 88 ms | 3108 → 2741 ms | 85 → 39 | 627 → 402 KB | 643 → 268 ms |
+| 長文 | 91 → 97 | 175 → 34 ms | 2738 → 2504 ms | 77 → 33 | 784 → 574 KB | 621 → 225 ms |
+| meme-cache | 81 → 75 | 449 → 589 ms | 2894 → 3052 ms | 115 → 85 | 1391 → 1365 KB | 1551 → 1570 ms |
+
+- 首頁與文章頁的 TBT 降 70～80%，請求數與 JS 執行時間都減半，3 輪方向一致。只換了框架版本就有這個幅度，比官方範例（Nuxt UI 首頁 -35%）還大。
+- meme-cache 看不出差別：舊版 3 輪 TBT 落在 361～929 ms，新版落在 387～614 ms，起伏大於版本差。這頁的成本在 app 本身的 hydration 與清單渲染，不在框架；LCP 受首屏隨機梗圖影響（見量測陷阱）。
+- **之後要比較兩個版本時，用各次部署的 pages.dev 網址交替量測**，不必趕在新版上線前量舊版。部署網址用 `cf pages deployments list --project-name cod-aquarium --env production` 查詢。
+
 ## 圖片：Nuxt Image 與 theme-image
 
 站內圖片一律交給 Nuxt Image（`@nuxt/image`，ipx）。`nuxt generate` 時，SSR 用到的每個尺寸都會透過 `x-nitro-prerender` 產生成 `/_ipx/...` 靜態檔，不用另外列路由。
