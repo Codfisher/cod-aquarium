@@ -542,6 +542,15 @@ meme-cache 本體是 `layout: false` 的單頁 app，上千張圖共用一個網
 - 鏡像代理（Node http2）不做串流優先權排序，CSS 與 JS 平分頻寬，會放大「預載太多 chunk」的傷害；方向可信，絕對值會比 CDN 悲觀。
 - 先看 LCP 候選清單（每個候選的元素與時間），再看 Chrome trace 的 Layout 與 v8 解析，比只看總 TBT 更快找到原因。
 
+## 升級 Nuxt 4.7（2026-11）
+
+Nuxt 4.6.4 → 4.7.0，同時升級 Nuxt UI 4.13.1、Nuxt SEO 各模組與 Vue 3.5.46。本站是 `cloudflare-pages-static` 靜態輸出，官方宣傳的 SSR 吞吐量、`experimental.staticRoutes`、Nitro v3 都用不到；預期收益在前端：水合前載入的檔案變少、V8 compile hints、靜態內部 `<NuxtLink>` 直接輸出 `<a>`（官方量測 Nuxt UI 首頁 TBT 276 → 180 ms）。實際效益要以上線後的 Lighthouse 與前幾批比較。
+
+- **Node 版本下限提高**：`^22.22.3 || ^24.15.0 || >=26`。`.node-version` 寫的是 `24`，Cloudflare 會裝 24 的最新版。
+- **新版剛發布時 pnpm 會擋安裝**：`pnpm-workspace.yaml` 設了 `minimumReleaseAge`，明確指定版本安裝時 pnpm 會把套件自動加進 `minimumReleaseAgeExclude`。等這些版本超過等待期，就可以把清單清掉。
+- **pinia 至少要 3.0.4**：Nuxt 內部用的 vue-router 5 要求 `pinia@^3.0.4 || ^4.0.2`。專案自己的 `vue-router` 還是 4.x（`app/router.options.ts` 等處直接匯入），這次沒有動。
+- **模板檢查**：4.7 起，靜態 `to` 對不到任何頁面的 `<NuxtLink>` 會出現 `NUXT_B4025` 警告；要關掉就設 `experimental.templateDiagnostics: false`。
+
 ## 圖片：Nuxt Image 與 theme-image
 
 站內圖片一律交給 Nuxt Image（`@nuxt/image`，ipx）。`nuxt generate` 時，SSR 用到的每個尺寸都會透過 `x-nitro-prerender` 產生成 `/_ipx/...` 靜態檔，不用另外列路由。
