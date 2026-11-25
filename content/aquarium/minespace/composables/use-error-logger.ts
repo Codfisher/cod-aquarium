@@ -1,3 +1,4 @@
+import type { RenderLogDiagnostic, RenderLogIssue } from '../domains/render-host/protocol'
 import { Logger } from '@babylonjs/core'
 import { onBeforeUnmount, ref } from 'vue'
 
@@ -51,6 +52,45 @@ const errorCount = ref(0)
 let hasAutoFlushed = false
 let flushTimer: ReturnType<typeof setTimeout> | null = null
 let isInstalled = false
+
+/**
+ * 轉發模式
+ *
+ * 渲染端在 worker 裡跑的時候，這份紀錄是 worker 自己的一份，主執行緒看不到，
+ * 匯出的 F6 檔案也就少了最重要的那一半。開了轉發之後，記下來的東西不進這裡的清單，
+ * 改存進待送區，由渲染端隔一段時間用 log 訊息成批送上主執行緒，匯進那一邊的清單
+ */
+let isForwarding = false
+const pendingIssueMap = new Map<string, RenderLogIssue>()
+const pendingDiagnosticMap = new Map<string, string>()
+/** 已經送上去的診斷值，沒變的不重送：有些名目每一幀都會寫 */
+const sentDiagnosticMap = new Map<string, string>()
+
+/** 開啟轉發模式，只有渲染端的 worker 會用 */
+export function enableIssueForwarding(): void {
+  isForwarding = true
+}
+
+/** 取出待送的紀錄，沒有東西可送就回 null */
+export function drainForwardedLog(): { issueList: RenderLogIssue[]; diagnosticList: RenderLogDiagnostic[] } | null {
+  const issueList = [...pendingIssueMap.values()]
+  pendingIssueMap.clear()
+
+  const diagnosticList: RenderLogDiagnostic[] = []
+  for (const [label, value] of pendingDiagnosticMap) {
+    if (sentDiagnosticMap.get(label) === value)
+      continue
+
+    sentDiagnosticMap.set(label, value)
+    diagnosticList.push({ label, value })
+  }
+  pendingDiagnosticMap.clear()
+
+  if (issueList.length === 0 && diagnosticList.length === 0)
+    return null
+
+  return { issueList, diagnosticList }
+}
 
 function formatArgs(args: unknown[]): string {
   return args
@@ -132,20 +172,32 @@ function downloadTextFile(filename: string, content: string): void {
  * 隨處可呼叫，不限於這個檔案自己裝的那幾個監聽器——
  * worker 的錯誤、Babylon 內部吞掉又自己印出來的例外，都走這一個入口
  */
-export function reportIssue(level: IssueLevel, message: string, stack?: string): void {
+export function reportIssue(level: IssueLevel, message: string, stack?: string, count = 1): void {
   if (!import.meta.env.DEV)
     return
 
   const key = `${level}\n${message}\n${stack ?? ''}`.slice(0, 500)
+
+  if (isForwarding) {
+    const pending = pendingIssueMap.get(key)
+    if (pending) {
+      pending.count += count
+    }
+    else if (pendingIssueMap.size < MAX_ENTRY_COUNT) {
+      pendingIssueMap.set(key, { level, message, stack, count })
+    }
+    return
+  }
+
   const now = Date.now()
   const existing = entryMap.get(key)
 
   if (existing) {
-    existing.count++
+    existing.count += count
     existing.lastAt = now
   }
   else if (entryMap.size < MAX_ENTRY_COUNT) {
-    entryMap.set(key, { level, message, stack, count: 1, firstAt: now, lastAt: now })
+    entryMap.set(key, { level, message, stack, count, firstAt: now, lastAt: now })
   }
 
   errorCount.value = entryMap.size
@@ -198,7 +250,14 @@ export function reportDiagnostic(label: string, value: unknown): void {
   if (!import.meta.env.DEV)
     return
 
-  diagnosticMap.set(label, typeof value === 'string' ? value : JSON.stringify(value))
+  const text = typeof value === 'string' ? value : JSON.stringify(value)
+
+  if (isForwarding) {
+    pendingDiagnosticMap.set(label, text)
+    return
+  }
+
+  diagnosticMap.set(label, text)
 }
 
 /**
@@ -215,27 +274,33 @@ export function exportErrorLog(): void {
 }
 
 /**
- * 錯誤紀錄
+ * 把 console.error、沒接住的例外、沒接住的 Promise 拒絕全部攔下來歸進紀錄
  *
- * 開發模式才會裝：把 console.error、沒接住的例外、沒接住的 Promise
- * 拒絕全部攔下來歸進同一份清單。回傳目前累積的錯誤種類數，
- * 呼叫端可以顯示一個小提示，並接一個按鍵去呼叫 exportErrorLog
- *
- * 只在 import.meta.env.DEV 時啟用：這是本地除錯用的，正式站上的訪客
- * 不該被裝這一層攔截
+ * 主執行緒與渲染端的 worker 各自呼叫一次，傳進自己的全域物件。
+ * 兩邊攔的東西一模一樣，差別只在記下來之後去哪（見轉發模式）。
+ * 回傳的函式把一切復原
  */
-export function useErrorLogger() {
-  if (!import.meta.env.DEV || isInstalled)
-    return { errorCount }
+export function installIssueCapture(
+  target: EventTarget,
+  { shouldPreventDefault = false }: { shouldPreventDefault?: boolean } = {},
+): () => void {
+  function handleError(event: Event): void {
+    const { message, error } = event as ErrorEvent
+    reportError(message, error instanceof Error ? error.stack : undefined)
 
-  isInstalled = true
-
-  function handleWindowError(event: ErrorEvent): void {
-    reportError(event.message, event.error instanceof Error ? event.error.stack : undefined)
+    /**
+     * worker 專用：記下來之後就算處理過了
+     *
+     * 沒被處理的例外會再冒到主執行緒的 Worker 物件、接著是 window.onerror，
+     * 同一個錯誤在兩邊各記一次。主執行緒自己的 window 沒有這個問題，不必攔
+     */
+    if (shouldPreventDefault) {
+      event.preventDefault()
+    }
   }
 
-  function handleRejection(event: PromiseRejectionEvent): void {
-    const { reason } = event
+  function handleRejection(event: Event): void {
+    const { reason } = event as PromiseRejectionEvent
     reportError(
       reason instanceof Error ? reason.message : String(reason),
       reason instanceof Error ? reason.stack : undefined,
@@ -288,16 +353,42 @@ export function useErrorLogger() {
     reportWarning(formatArgs(args))
   }
 
-  window.addEventListener('error', handleWindowError)
-  window.addEventListener('unhandledrejection', handleRejection)
+  target.addEventListener('error', handleError)
+  target.addEventListener('unhandledrejection', handleRejection)
 
-  onBeforeUnmount(() => {
+  return () => {
     console.error = originalConsoleError
     console.warn = originalConsoleWarn
     Logger.Error = originalLoggerError
     Logger.Warn = originalLoggerWarn
-    window.removeEventListener('error', handleWindowError)
-    window.removeEventListener('unhandledrejection', handleRejection)
+    target.removeEventListener('error', handleError)
+    target.removeEventListener('unhandledrejection', handleRejection)
+  }
+}
+
+/**
+ * 錯誤紀錄
+ *
+ * 開發模式才會裝：把 console.error、沒接住的例外、沒接住的 Promise
+ * 拒絕全部攔下來歸進同一份清單。回傳目前累積的錯誤種類數，
+ * 呼叫端可以顯示一個小提示，並接一個按鍵去呼叫 exportErrorLog
+ *
+ * 只在 import.meta.env.DEV 時啟用：這是本地除錯用的，正式站上的訪客
+ * 不該被裝這一層攔截
+ *
+ * 這是主執行緒那一份。渲染端在 worker 裡自己呼叫 installIssueCapture，
+ * 記下來的東西經 log 訊息送回這裡，所以匯出的檔案兩邊都有
+ */
+export function useErrorLogger() {
+  if (!import.meta.env.DEV || isInstalled)
+    return { errorCount }
+
+  isInstalled = true
+
+  const uninstall = installIssueCapture(window)
+
+  onBeforeUnmount(() => {
+    uninstall()
     if (flushTimer) {
       clearTimeout(flushTimer)
     }

@@ -1,5 +1,7 @@
 # Minespace：Babylon 場景遷移到 Worker + OffscreenCanvas
 
+> 實作狀態：五個階段已完成，架構說明與踩坑見 [development-notes.md](../development-notes.md) 的「Minespace：渲染搬進 Worker」。
+
 ## 目標
 
 主執行緒只留 Vue UI、輸入擷取與音訊；Babylon Engine、世界生成與所有每幀邏輯移到一支 Dedicated Worker，畫在 `canvas.transferControlToOffscreen()` 交過去的 OffscreenCanvas 上。主執行緒因此不再被渲染卡住：UI、輸入與音訊在掉幀時仍然順暢。
@@ -17,11 +19,11 @@
 ## 傳輸層
 
 - 定義型別化的訊息協定（`domains/render-host/protocol.ts`）：
-  - 下行（主 → worker）：`init`（OffscreenCanvas、尺寸、devicePixelRatio、初始設定、重新整理交接、是否行動裝置）、`resize`、`settings`（畫質、FOV、日出方位、自動換日、日速、材質包、凹凸、除錯開關、時刻跳轉）、`input`（按鍵、滑鼠位移、滾輪、行動搖桿狀態）、`command`（開始漫遊、暫停／恢復、傳送、F3 探針、F7 除錯模式）、`dispose`
-  - 上行（worker → 主）：`ready`、`init-error`、`frame-status`（約 2～4 Hz：幀率、時刻、時段、所在箱庭、天氣、是否在地下、探針讀數）、`pose`（約 15～20 Hz：相機位置與朝向，給音訊聽者）、`sound`（雷聲等觸發）、`log`（錯誤、警告、診斷）、`handoff-snapshot`（畫質切換重新整理前回報位置／視角／時刻）
+  - 下行（主 → worker）：`init`（OffscreenCanvas、尺寸、devicePixelRatio、初始設定、重新整理交接；是否行動裝置由主執行緒判斷，不放進訊息）、`resize`、`settings`（畫質、FOV、日出方位、自動換日、日速、材質包、凹凸、除錯開關）、`input`（按鍵、滑鼠位移、滾輪、行動搖桿狀態）、`command`（開始漫遊、暫停／恢復、傳送、時刻跳轉與撥動〔`set-time`／`add-time`〕、F3 探針、F7 除錯模式、頁面可見性）、`dispose`
+  - 上行（worker → 主）：`loaded`（入口載入完）、`probe-result`、`ready`、`init-error`、`context-lost`／`context-restored`、`frame-status`（約 4 Hz：幀率、時刻、時段、所在箱庭、天氣、是否在地下、探針讀數）、`pose`（最高約 30 Hz，位姿沒變就不送：相機位置與朝向，給音訊聽者）、`sound`（雷聲等觸發）、`log`（錯誤、警告、診斷）、`handoff-snapshot`（畫質切換重新整理前回報位置／視角／時刻）
 - 傳輸層抽象成介面，兩種實作：
   1. `WorkerTransport`：真正的 Worker + OffscreenCanvas
-  2. `InProcessTransport`：同一份渲染執行期直接跑在主執行緒（用一般 canvas），訊息同步轉交
+  2. `InProcessTransport`：同一份渲染執行期直接跑在主執行緒（用一般 canvas），訊息排進微任務轉交（不同步呼叫，免得兩邊重入）
 - 啟動時偵測 `HTMLCanvasElement.prototype.transferControlToOffscreen` 以及 OffscreenCanvas 能不能拿到 `webgl2`；不行就退回 `InProcessTransport`。兩條路跑的是同一份程式碼。
 
 ## 渲染端要解開的主執行緒依賴

@@ -1,5 +1,5 @@
-import { createSharedComposable, useMediaQuery, useStorage } from '@vueuse/core'
 import { computed } from 'vue'
+import { renderSettings } from '../domains/render-host/render-settings'
 
 /**
  * 畫質等級
@@ -289,53 +289,20 @@ export const QUALITY_PRESET_MAP: Record<GraphicsQuality, QualityPreset> = {
 }
 
 /**
- * 畫面等級管理
+ * 渲染端讀到的畫質
  *
- * - 手機預設「效能」，電腦預設「高」
- * - 使用者可在系統選單中切換，選過就記在瀏覽器裡
+ * 值是主執行緒送來的（見 render-settings），這裡不碰儲存也不問裝置：
+ * worker 裡沒有 localStorage 與 matchMedia。
+ * 「手機預設效能、電腦預設高」與「選過就記住」是主執行緒的事，見 use-render-preference
  */
-export function _useGraphicsQuality() {
-  const isMobile = useMediaQuery('(pointer: coarse)')
-
-  /**
-   * 沒選過是 null，不是預設值
-   *
-   * 直接把裝置判斷的結果當預設存進去是不行的：useMediaQuery 要等
-   * 媒體查詢回報才知道答案，第一拍可能還是 false——手機上那一拍
-   * 會把「高」寫進儲存並從此固定下來，之後再也回不到裝置該有的預設。
-   *
-   * 存 null 表示「使用者還沒表示意見」，這時每次都重新問裝置；
-   * 一旦動過選單才寫進去。兩種狀態分開，誤判就不會被記成選擇
-   */
-  const storedQuality = useStorage<GraphicsQuality | null>('minespace-graphics-quality', null)
-
-  const quality = computed<GraphicsQuality>({
-    get: () => {
-      const stored = storedQuality.value
-      /**
-       * 存進去的可能已經不是有效的等級
-       *
-       * 這一版把等級從兩級擴成四級，舊值 low 與 high 都還在表裡；
-       * 但哪天再改名，讀到認不得的字串時要退回裝置預設，
-       * 而不是讓整套設定查到一個 undefined
-       */
-      if (stored && stored in QUALITY_PRESET_MAP)
-        return stored
-
-      return isMobile.value ? 'low' : 'high'
-    },
-    set: (value) => {
-      storedQuality.value = value
-    },
-  })
+export function useGraphicsQuality() {
+  const quality = computed<GraphicsQuality>(() => renderSettings.quality)
 
   /** 這一級的完整設定，各處讀具名欄位，不要自己比對等級字串 */
   const preset = computed<QualityPreset>(() => QUALITY_PRESET_MAP[quality.value])
 
-  return { isMobile, quality, preset }
+  return { quality, preset }
 }
-
-export const useGraphicsQuality = createSharedComposable(_useGraphicsQuality)
 
 /**
  * 決定實際要渲染多少像素

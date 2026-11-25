@@ -11,7 +11,7 @@ import type { SnowParticles } from './snow-particles'
 import type { SwampMist } from './swamp-mist'
 import type { Wetness } from './wetness'
 import { Color3 } from '@babylonjs/core'
-import { onBeforeUnmount, ref } from 'vue'
+import { onScopeDispose, ref } from 'vue'
 import {
   getOvercastMaterial,
   getSkyMaterial,
@@ -835,7 +835,7 @@ export function useWeather() {
     })
   }
 
-  onBeforeUnmount(() => {
+  onScopeDispose(() => {
     clearTimeout(thunderTimerId)
     clearTimeout(rumbleTimerId)
     rainParticles?.dispose()

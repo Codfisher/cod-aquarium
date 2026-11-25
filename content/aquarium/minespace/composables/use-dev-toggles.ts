@@ -1,4 +1,3 @@
-import { createSharedComposable } from '@vueuse/core'
 import { reactive, ref } from 'vue'
 
 /**
@@ -43,6 +42,48 @@ export const DEV_TOGGLE_LIST = [
 export type DevToggleKey = typeof DEV_TOGGLE_LIST[number]['key']
 
 /**
+ * 狀態建在模組層級，不是每次呼叫時才建
+ *
+ * 原本包了 VueUse 的 createSharedComposable，那在沒有 window 與 document 的地方
+ * （渲染端的 worker）會直接回傳原本的函式，不做任何共用——
+ * 每一次呼叫都長出一份新的狀態。主執行緒的訊息寫進其中一份，
+ * 渲染端的程式讀的卻是另外幾份，F4 面板的開關在 worker 路徑上完全沒有作用。
+ * 模組只會求值一次，放在這裡的東西在每條執行緒裡都保證是同一份
+ */
+
+const visible = ref(false)
+
+/**
+ * 多數項目預設開著，少數幾項相反
+ *
+ * 預設開著是因為「關掉哪一項、畫面上什麼東西跟著消失」是這份開關
+ * 存在的理由。但除錯檢視那類會整個換掉畫面的項目不能預設開，
+ * 那不是正常的樣子——它們在清單上自己標 defaultEnabled: false
+ */
+const state = reactive(
+  Object.fromEntries(
+    DEV_TOGGLE_LIST.map((item) => [
+      item.key,
+      (item as { defaultEnabled?: boolean }).defaultEnabled ?? true,
+    ]),
+  ),
+) as Record<DevToggleKey, boolean>
+
+function toggle(key: DevToggleKey): void {
+  state[key] = !state[key]
+}
+
+function togglePanel(): void {
+  visible.value = !visible.value
+}
+
+function resetAll(): void {
+  for (const item of DEV_TOGGLE_LIST) {
+    state[item.key] = (item as { defaultEnabled?: boolean }).defaultEnabled ?? true
+  }
+}
+
+/**
  * 開發用的效果開關
  *
  * 這個場景的視覺是十幾層效果疊出來的，而它們是分好幾次加上去的。
@@ -57,40 +98,6 @@ export type DevToggleKey = typeof DEV_TOGGLE_LIST[number]['key']
  * 不記進瀏覽器：這是除錯用的，重新整理該回到正常的樣子，
  * 免得哪天忘了自己關過什麼，對著少一半效果的畫面找半天
  */
-function _useDevToggles() {
-  const visible = ref(false)
-
-  /**
-   * 多數項目預設開著，少數幾項相反
-   *
-   * 預設開著是因為「關掉哪一項、畫面上什麼東西跟著消失」是這份開關
-   * 存在的理由。但除錯檢視那類會整個換掉畫面的項目不能預設開，
-   * 那不是正常的樣子——它們在清單上自己標 defaultEnabled: false
-   */
-  const state = reactive(
-    Object.fromEntries(
-      DEV_TOGGLE_LIST.map((item) => [
-        item.key,
-        (item as { defaultEnabled?: boolean }).defaultEnabled ?? true,
-      ]),
-    ),
-  ) as Record<DevToggleKey, boolean>
-
-  function toggle(key: DevToggleKey): void {
-    state[key] = !state[key]
-  }
-
-  function togglePanel(): void {
-    visible.value = !visible.value
-  }
-
-  function resetAll(): void {
-    for (const item of DEV_TOGGLE_LIST) {
-      state[item.key] = (item as { defaultEnabled?: boolean }).defaultEnabled ?? true
-    }
-  }
-
+export function useDevToggles() {
   return { visible, state, toggle, togglePanel, resetAll }
 }
-
-export const useDevToggles = createSharedComposable(_useDevToggles)

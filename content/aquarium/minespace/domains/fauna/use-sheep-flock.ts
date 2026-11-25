@@ -2,7 +2,7 @@ import type { DirectionalLight, Mesh, Scene, ShadowGenerator, StandardMaterial, 
 import type { TextureKey } from '../block/texture-pack'
 import type { TextureSkinner } from '../renderer/pixel-material'
 import { MeshBuilder, TransformNode } from '@babylonjs/core'
-import { onBeforeUnmount } from 'vue'
+import { onScopeDispose } from 'vue'
 import { SUN_LIGHT_NAME } from '../../composables/use-babylon-scene'
 import { measureSection } from '../../composables/use-performance-probe'
 import { createSeededRandom } from '../../utils/noise'
@@ -196,7 +196,7 @@ export function useSheepFlock() {
     })
   }
 
-  onBeforeUnmount(() => {
+  onScopeDispose(() => {
     for (const dispose of disposeList) {
       dispose()
     }

@@ -11,8 +11,8 @@ import type { VolumetricLight } from '../domains/renderer/volumetric-light'
 import type { AtmosphereState } from '../domains/weather/atmosphere'
 import type { DayPhase } from '../domains/weather/day-night'
 import type { GodRays } from '../domains/weather/god-rays'
-import { useStorage } from '@vueuse/core'
-import { computed, onBeforeUnmount, ref } from 'vue'
+import { computed, onScopeDispose, ref } from 'vue'
+import { renderSettings } from '../domains/render-host/render-settings'
 import { getReloadHandoff } from '../domains/scene/reload-handoff'
 import {
   advanceSunriseDrift,
@@ -20,7 +20,6 @@ import {
   formatClock,
   getDayLengthSecond,
   getDayPhase,
-  INITIAL_DAY_SPEED_RATIO,
   INITIAL_TIME_OF_DAY,
   sampleDayNight,
   wrapTimeOfDay,
@@ -40,16 +39,6 @@ import {
 } from './use-babylon-scene'
 import { reportDiagnostic } from './use-error-logger'
 import { measureSection } from './use-performance-probe'
-
-/**
- * 滾輪撥一格是多少分鐘
- *
- * 一格二十分鐘：撥個三四下就從中午到黃昏，
- * 想從白天翻到深夜也只要滾一小段，不會滾到手痠
- */
-const WHEEL_MINUTE_PER_NOTCH = 20
-/** 一次滾輪事件最多算幾格，觸控板一口氣送一大串時才不會瞬移 */
-const WHEEL_NOTCH_LIMIT = 3
 
 /** 太陽與月亮掛在天上多遠，要落在天空罩以內 */
 const SKY_BODY_DISTANCE = 110
@@ -91,7 +80,6 @@ const CLOCK_UPDATE_INTERVAL = 0.2
 
 interface StartParams {
   scene: Scene;
-  canvas: HTMLCanvasElement;
   pipeline: DefaultRenderingPipeline | undefined;
   /** 晨昏的光束，強度跟著太陽的高度走 */
   godRays?: GodRays;
@@ -110,13 +98,6 @@ interface StartParams {
    * 太陽該照樣走完它的弧線
    */
   isRunning: () => boolean;
-  /**
-   * 滾輪是不是用來撥時間
-   *
-   * 這個場景嵌在一篇文章裡，滾輪只有在真正操控時才屬於它；
-   * 還沒開始漫遊、或按 Tab 放開滑鼠之後，捲動都該還給頁面
-   */
-  canScrubTime: () => boolean;
 }
 
 /**
@@ -154,11 +135,12 @@ export function useDayNight() {
    *
    * 關掉之後天色就停在當下這一刻，滾輪與時間軸照樣能撥。
    * 有人是為了看日出來的，也有人只想在某個光線裡待著；
-   * 這個選擇記在瀏覽器裡，下次進來還是同一種待法
+   * 這個選擇記在瀏覽器裡，下次進來還是同一種待法——
+   * 記的是主執行緒，這裡讀到的是它送來的值（見 render-settings）
    */
-  const isAutoAdvance = useStorage('minespace-day-cycle', true)
+  const isAutoAdvance = computed(() => renderSettings.isAutoAdvance)
   /** 一天走多快，0 為最緩、1 為最快，同樣記在瀏覽器裡 */
-  const daySpeedRatio = useStorage('minespace-day-speed', INITIAL_DAY_SPEED_RATIO)
+  const daySpeedRatio = computed(() => renderSettings.daySpeedRatio)
   /** 白晝的程度，0 為全暗、1 為大白天 */
   const dayRatio = ref(1)
   const phase = ref<DayPhase>(getDayPhase(initialTime))
@@ -174,7 +156,7 @@ export function useDayNight() {
 
   let cleanup: (() => void) | null = null
 
-  onBeforeUnmount(() => cleanup?.())
+  onScopeDispose(() => cleanup?.())
 
   /** 直接指定時刻，選單裡的時間軸用這個 */
   function setTimeOfDay(value: number): void {
@@ -193,7 +175,7 @@ export function useDayNight() {
     setTimeOfDay(currentTime + delta)
   }
 
-  function start({ scene, canvas, pipeline, godRays, volumetricLight, atmosphere, isRunning, canScrubTime }: StartParams): void {
+  function start({ scene, pipeline, godRays, volumetricLight, atmosphere, isRunning }: StartParams): void {
     cleanup?.()
 
     const sunLight = scene.getLightByName(SUN_LIGHT_NAME) as DirectionalLight | null
@@ -209,30 +191,6 @@ export function useDayNight() {
     const sunGlow = scene.getMeshByName(SUN_GLOW_NAME) as Mesh | null
     const moonDisc = scene.getMeshByName(MOON_DISC_NAME) as Mesh | null
     const moonGlow = scene.getMeshByName(MOON_GLOW_NAME) as Mesh | null
-
-    /**
-     * 滾輪撥時間
-     *
-     * 只在滾輪真的屬於這個場景時才攔截：沒開始漫遊、
-     * 或按 Tab 把滑鼠交還給桌面之後，捲動都該還給頁面
-     */
-    function handleWheel(event: WheelEvent) {
-      if (!canScrubTime())
-        return
-
-      event.preventDefault()
-
-      /** deltaMode 為 1 時單位是行不是像素，一行大約十六像素 */
-      const pixelDelta = event.deltaMode === 1 ? event.deltaY * 16 : event.deltaY
-      const notch = Math.max(
-        -WHEEL_NOTCH_LIMIT,
-        Math.min(WHEEL_NOTCH_LIMIT, pixelDelta / 100),
-      )
-
-      addTime(notch * WHEEL_MINUTE_PER_NOTCH / (24 * 60))
-    }
-
-    canvas.addEventListener('wheel', handleWheel, { passive: false })
 
     let clockElapsed = 0
 
@@ -331,7 +289,6 @@ export function useDayNight() {
     })
 
     cleanup = () => {
-      canvas.removeEventListener('wheel', handleWheel)
       scene.onBeforeRenderObservable.remove(observer)
     }
   }
@@ -526,7 +483,7 @@ export function useDayNight() {
      * 洞穴加成疊在日夜的曝光基準上，寫進同一個節流門檻
      *
      * atmosphere.caveRatio 是漫遊控制器上一幀寫的——日夜循環的算繪順序
-     * 排在漫遊控制器之前（見 main-scene.vue 的 init），這裡讀到的必然
+     * 排在漫遊控制器之前（見 render-runtime.ts 的 init），這裡讀到的必然
      * 是上一幀的值，差了一幀而已，caveRatio 本身變化又慢，看不出來。
      *
      * 不另外開一條寫入路徑：兩處各自寫 pipeline.imageProcessing.exposure

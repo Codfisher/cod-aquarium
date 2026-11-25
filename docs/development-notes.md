@@ -676,3 +676,63 @@ TBT 差異在雜訊內（上一輪只改 rAF 時是 565 → 573、524 → 520）
 | 短文（3 次） | 95 → 91 | 1919 → 1919 ms | 208 → 336 ms |
 
 meme-cache 沒有變化，與預期相符：toast 的成本是載入後的穩態，不在 Lighthouse 的 TBT 內；LCP 差異來自每次 build 隨機挑的首屏梗圖大小（見量測陷阱）。短文的 TBT 變高，但這次沒有動到文章頁的任何程式，三次量測 306～349 ms 都高於上次的 208 ms，推測是第三方腳本載入時機或量測環境的變動，不是這批造成；下次量測再確認。
+
+## Minespace：渲染搬進 Worker（2026-11）
+
+設計與分階段見 [plans/2026-11-25-minespace-render-worker.md](plans/2026-11-25-minespace-render-worker.md)。Babylon 的引擎、世界生成與所有每幀的邏輯都在一支 Dedicated Worker 裡，畫在 `canvas.transferControlToOffscreen()` 交過去的 OffscreenCanvas 上；主執行緒只剩 Vue 介面、輸入擷取、音景（Web Audio 在 worker 裡不存在）、`localStorage`／`sessionStorage` 與 F6 匯出。
+
+**檔案配置**（都在 `content/aquarium/minespace/domains/render-host/`）
+
+| 檔案 | 在哪條執行緒 | 做什麼 |
+| --- | --- | --- |
+| `protocol.ts` | 兩邊 | 訊息型別與傳輸層介面。只放可結構化複製的資料 |
+| `render-runtime.ts` | 渲染端 | 原本 `main-scene.vue` 的初始化、開始漫遊與狀態回報，不依賴 Vue 元件、`window`、`document` |
+| `render-worker.ts` | worker | 入口：載入完成通知、能力偵測、時間戳換成 `performance.now`、（開發時）錯誤攔截、把訊息交給 runtime |
+| `worker-transport.ts`／`in-process-transport.ts`／`create-render-transport.ts` | 主 | 兩種傳輸層與選擇邏輯 |
+| `use-render-host.ts` | 主 | 傳輸層生命週期、尺寸與設定同步、頁面可見性通知、心跳檢查、狀態讀回 |
+| `use-render-preference.ts` | 主 | 畫質、材質包、立體紋理開關（`bumpEnabled`）、視野、日出方位、自動換日（`isAutoAdvance`）、日夜流速的持久化（`useStorage`） |
+| `use-input-capture.ts` | 主 | 鍵盤、滑鼠、滾輪、pointer lock、觸控，累積後每幀送一次 `input` |
+| `render-settings.ts` | 渲染端 | 設定的響應式副本（`useGraphicsQuality`、`useTexturePack`、`useDayNight` 讀它） |
+| `render-constants.ts` | 兩邊 | 視野的預設值與範圍。獨立成檔，主執行緒的選單才不必為了兩個數字載入整個 Babylon |
+| `composables/performance-reading.ts` | 兩邊 | 效能讀數的型別與區段的英文名稱，理由同上 |
+
+**訊息**：下行 `probe`、`init`、`resize`、`settings`（只送有變的欄位）、`input`、`command`（`start`、`set-control`、`travel`、`set-time`、`add-time`、`toggle-probe`、`cycle-debug-mode`、`request-handoff`、`set-visibility`）、`dispose`。上行 `loaded`（worker 入口載入完）、`probe-result`、`ready`（帶世界資料副本給音景用）、`init-error`、`context-lost`、`context-restored`、`frame-status`（約 4 Hz）、`pose`（最高約 30 Hz，人站著不動時不送；給音訊聽者）、`sound`（雷聲）、`log`（錯誤與診斷，成批）、`handoff-snapshot`。
+
+**選傳輸層**
+
+1. 先建 worker，等它送 `loaded`（入口模組求值完）。載入失敗由 `error` 事件處理，只留 120 秒的保底時限；這段不算「不支援」，慢網路上要下載整個 Babylon，可能好幾十秒。
+2. 收到 `loaded` 才送 `probe`，讓它開一塊用完即丟的 OffscreenCanvas 試 `webgl2`、確認 `Worker` 存在，答覆的時限只有 5 秒。
+3. 通過才 `transferControlToOffscreen`（只能做一次，所以一定要先偵測）。不通過、載入出錯或逾時，就改走 `InProcessTransport`。
+
+`InProcessTransport` 是同一份 runtime 動態載入後直接跑在主執行緒、畫在原本的 canvas 上，訊息排進微任務再送（不是同步呼叫，免得兩邊重入）。網址帶 `?renderer=main` 可強制走退路。
+
+**生命週期與失敗處理**
+
+- 連線要等 worker 載入與能力偵測，元件可能在這段時間卸載。`use-render-host` 用 `AbortController` 與 `isDisposed` 把偵測途中與剛建好的傳輸層收掉，不會留下沒人管的 worker。
+- 偵測通過後 worker 的 `error`、`messageerror` 由常駐監聽器轉成 `init-error`。世界還沒 `ready` 就失敗，會換一塊新 canvas（`canvasKey`，舊的已轉移、收不回來）改走主執行緒，並清掉舊的錯誤狀態，且不再回頭試 worker；退路本身也失敗就顯示「初始化失敗」並收掉傳輸層。`ready` 之後的例外只記進紀錄，不蓋畫面：渲染中偶發的例外多半不致命，全螢幕錯誤又收不掉。worker 死掉（例如 OOM 被殺）不會有任何事件，改用 `frame-status` 的心跳逾時偵測，見下方「停住的提示」。
+- **背景分頁。** worker 的 `requestAnimationFrame` 不會被瀏覽器降頻（實測背景分頁時主執行緒約 2.5 次／秒，worker 仍是 33 次／秒），不處理的話會在沒人看的分頁裡全速畫圖。主執行緒用 `useDocumentVisibility` 把可見性以 `set-visibility` 通知渲染端：隱藏就 `stopRenderLoop` 並停掉狀態與位姿的計時器，可見再恢復並補送一份狀態。恢復時引擎的 `performanceMonitor.reset()` 要先做：`deltaTime` 是兩次取樣的差，不歸零的話第一幀等於「隱藏了多久」，所有吃 `getDeltaTime`／`getAnimationRatio` 的東西（粒子、雲的演變、羊、風）會被一口氣推進那麼久；歸零後第一幀的 `deltaTime` 是 0，第二幀才是正常值（直接用 Babylon 的 `PerformanceMonitor` 驗證過：沒歸零是 20000 毫秒，歸零後是 0 與 17）。Playwright 底下背景分頁的 `document.visibilityState` 永遠是 `visible`（連原生啟動的 Chrome 以 CDP 連上也一樣），驗證時改為覆寫 `visibilityState` 並派發 `visibilitychange`。
+- **停住的提示。** 世界 `ready` 之後、頁面看得到時，主執行緒超過 5 秒沒收到渲染端任何訊息，就顯示一條可關閉、不擋畫面的提示（字句與「初始化失敗」不同）；渲染端恢復或頁面從背景回來，提示自己消失。隱藏期間沒有訊息是刻意的，不計入。被系統殺掉的 worker 沒有事件，這是唯一偵測得到的辦法。
+- WebGL 上下文丟失與恢復是一對訊息（`context-lost`、`context-restored`），恢復時提示會收掉。
+- 正式版不裝錯誤攔截（Logger 與 console 都維持原樣）；開發時 worker 攔下例外並 `preventDefault`，不會在主執行緒重複回報。巢狀 worker（地形、全局光、雲雜訊）的 `onerror` 也都記完就 `preventDefault`：沒處理的 error 會一路冒到主執行緒，被當成「渲染端死了」而在 `ready` 之前觸發退回主執行緒，開發與正式版的行為會不一致。
+- 處理訊息時丟的例外（`start` 時天氣建立失敗之類）在 `render-runtime` 接住並 `console.error`，開發時進紀錄與徽章，正式版印在主控台；引擎建好之後建場景失敗會先 `engine.dispose()` 再往上丟，不留下握著 WebGL 上下文的引擎。
+
+**踩坑**
+
+- **`createSharedComposable` 在 worker 裡不共用。** VueUse 在沒有 `window` 與 `document` 時直接回傳原本的函式，每次呼叫都長出一份新狀態：F4 面板的開關寫進其中一份，渲染端讀的是另外幾份，開關完全沒作用（只有 worker 路徑，退路上正常，所以不容易發現）。`use-dev-toggles` 因此改成模組層級的單例，模組在每條執行緒只求值一次。渲染端可達的程式碼不要再用 `createSharedComposable`；已稽核過，主執行緒專用的 `use-render-preference`、`use-font-loader` 沒問題，`useGraphicsQuality`、`useTexturePack` 早已改成讀 `render-settings` 的模組層級響應式物件。
+- **VueUse 在 worker 裡靜默失效。** `useWebWorker`、`useWebWorkerFn` 的 `window` 預設是 `undefined`，沒有 `window` 就整個不動（前者收不到訊息，後者算完不收 worker）。`useWebWorkerFn` 傳 `{ window: globalThis }` 解決；`useWebWorker` 的型別不讓傳，直接改用 `worker.onmessage`。
+- **`engine.resize()` 在 worker 裡會越縮越小。** 沒有 `window` 時它讀 `canvas.width` 當 CSS 寬，但那個值已經除過硬體縮放。`setHardwareScalingLevel` 內部也會呼叫它，所以得把引擎實例上的 `resize` 換成「主執行緒量好的 CSS 尺寸 ÷ 縮放倍率」。尺寸一律由主執行緒量，用 `resize` 訊息送。
+- **`new Image()`、`CanvasRenderingContext2D` 在 worker 裡不存在。** `pixel-material.ts` 改 `fetch` + `createImageBitmap`，不用 `instanceof CanvasRenderingContext2D`。Babylon 的 `Texture` 在沒有 `HTMLImageElement` 時自己走 ImageBitmap，不必處理。
+- **Vue 的 `onBeforeUnmount` 在 worker 裡會警告。** 渲染端的 composable 一律改 `onScopeDispose`，runtime 用一個 `effectScope` 包住建立它們的那一段（要同步，`await` 之後就不在 scope 裡了）。
+- **滾輪的 `preventDefault` 必須在主執行緒同步呼叫**，所以滾輪調時刻在主執行緒算好，送 `add-time`。
+- **Babylon 在 worker 裡用 `Date.now` 當時間戳。** `PrecisionDate.Now` 沒有 `window` 時退回 `Date.now`：`deltaTime` 只有毫秒解析度，而且會跟著系統時鐘走，時鐘往回撥時是負的。`render-worker.ts` 用 `Object.defineProperty` 把 `Now` 換成 `performance.now()`，漫遊控制器的 `deltaTime` 也加了下限 0。F3 面板「幀距」開啟後第一秒內仍可能出現離譜的數字（第一筆樣本是「現在減零」，等於時間戳本身，Babylon 自己的行為，退路上同樣會出現，過一秒就恢復），不是這次的問題。
+- **worker 的錯誤進不了主執行緒的 `window.onerror`。** 渲染端用 `installIssueCapture(self)` 自己攔 `console`、Babylon `Logger` 與全域錯誤，記進待送區，每 250 毫秒成批以 `log` 訊息送回，匯進主執行緒那一份清單（F6 才兩邊都有）。每幀都寫的診斷值只送有變的。
+- **合成的 Esc 鍵不會讓瀏覽器解除 pointer lock。** 用 Playwright 驗證選單時，改呼叫 `document.exitPointerLock()` 來模擬。
+- **`音景` 這一段不再出現在 F3 面板**：音景搬到主執行緒，渲染端的探針量不到它。
+
+**已知限制與行為**
+
+- **F3 面板量不到主執行緒的成本。** 探針在渲染端，輸入處理、音景更新與 HUD 的重繪都在主執行緒，不在數字裡；面板剛打開的頭半秒顯示「量測中」，不是零。
+- 站著不動時 `pose` 不送，音景自己用 250 毫秒的計時器更新（日夜、天氣、會動的音源不靠人移動）。
+- 沒有開始漫遊之前，輸入擷取雖然已接上，但鍵盤、滑鼠、滾輪都被 `hasStarted` 擋住，開始面板後面按 Esc 不會鎖住滑鼠。
+
+**驗證**：以 Playwright（headless Chrome、真 GPU，腳本不在版控內）逐項走過開始漫遊、pointer lock、滾輪調時刻、WASD 與跳躍、F3、F6、Tab、選單、材質包、快速前往、視窗縮放、畫質切換重新整理回到原位；worker 與 `?renderer=main` 兩條路都跑過；手機觸控以 CDP 的 `Input.dispatchTouchEvent` 驗證搖桿與視角。同樣走路 8 秒，主執行緒的 rAF 間隔中位數 worker 路徑 17.6 ms、退路 35.2 ms（headless、GPU 為瓶頸，僅供相對比較）。

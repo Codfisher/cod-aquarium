@@ -1,7 +1,7 @@
 <template>
   <div class="relative w-full h-full">
     <canvas
-      v-once
+      :key="canvasKey"
       ref="canvasRef"
       class="w-full h-full outline-0"
       @contextmenu="$event.preventDefault()"
@@ -22,7 +22,7 @@
     <ambience-panel
       v-if="hasStarted"
       :audible-list="audibleList"
-      :zone="currentZone"
+      :zone="status.zone"
       @toggle-mute="toggleSoundMute"
     />
 
@@ -87,10 +87,10 @@
 
     <!-- 正在看哪一種除錯檢視，不標出來會忘記自己按到第幾號 -->
     <div
-      v-if="devToggle.volumetricDebug && debugModeLabel"
+      v-if="devToggle.volumetricDebug && status.debugModeLabel"
       class="debug-mode-badge"
     >
-      {{ debugModeLabel }}
+      {{ status.debugModeLabel }}
     </div>
 
     <div
@@ -99,7 +99,7 @@
     >
       <div class="status-readout time-readout">
         <UIcon
-          :name="isNight ? 'i-material-symbols:dark-mode-outline' : 'i-material-symbols:light-mode-outline'"
+          :name="status.isNight ? 'i-material-symbols:dark-mode-outline' : 'i-material-symbols:light-mode-outline'"
           class="text-sm"
         />
         {{ timeLabel }}
@@ -118,7 +118,7 @@
       </div>
 
       <div class="status-readout">
-        {{ Math.round(fps) }} FPS
+        {{ Math.round(status.fps) }} FPS
       </div>
 
       <!--
@@ -128,62 +128,91 @@
         平常一毫秒都不花
       -->
       <div
-        v-if="probeVisible"
+        v-if="status.isProbeVisible"
         class="status-readout probe-readout"
       >
-        <div class="probe-row">
-          <span>{{ t('probeDrawCall') }}</span><span>{{ probe.drawCallCount }}</span>
-        </div>
-        <div class="probe-row">
-          <span>{{ t('probeActiveMesh') }}</span><span>{{ probe.activeMeshCount }}</span>
-        </div>
-        <div class="probe-row">
-          <span>{{ t('probeTriangle') }}</span><span>{{ (probe.triangleCount / 1000).toFixed(0) }}k</span>
-        </div>
+        <template v-if="probe">
+          <div class="probe-row">
+            <span>{{ t('probeDrawCall') }}</span><span>{{ probe.drawCallCount }}</span>
+          </div>
+          <div class="probe-row">
+            <span>{{ t('probeActiveMesh') }}</span><span>{{ probe.activeMeshCount }}</span>
+          </div>
+          <div class="probe-row">
+            <span>{{ t('probeTriangle') }}</span><span>{{ (probe.triangleCount / 1000).toFixed(0) }}k</span>
+          </div>
 
-        <div class="probe-divider" />
+          <div class="probe-divider" />
 
-        <div class="probe-row">
-          <span>{{ t('probeFrameCpu') }}</span><span>{{ probe.frameMs.toFixed(1) }}</span>
-        </div>
-        <div class="probe-row">
-          <span>{{ t('probeFrameGpu') }}</span><span>{{ probe.gpuMs.toFixed(1) }}</span>
-        </div>
-        <div class="probe-row">
-          <span>{{ t('probeInterFrame') }}</span><span>{{ probe.interFrameMs.toFixed(1) }}</span>
-        </div>
+          <div class="probe-row">
+            <span>{{ t('probeFrameCpu') }}</span><span>{{ probe.frameMs.toFixed(1) }}</span>
+          </div>
+          <div class="probe-row">
+            <span>{{ t('probeFrameGpu') }}</span><span>{{ probe.gpuMs.toFixed(1) }}</span>
+          </div>
+          <div class="probe-row">
+            <span>{{ t('probeInterFrame') }}</span><span>{{ probe.interFrameMs.toFixed(1) }}</span>
+          </div>
 
-        <div class="probe-divider" />
+          <div class="probe-divider" />
 
-        <div class="probe-row">
-          <span>{{ t('probeMeshSelection') }}</span><span>{{ probe.meshSelectionMs.toFixed(2) }}</span>
-        </div>
-        <div class="probe-row">
-          <span>{{ t('probeRenderTarget') }}</span><span>{{ probe.renderTargetMs.toFixed(2) }}</span>
-        </div>
-        <div class="probe-row">
-          <span>{{ t('probeParticle') }}</span><span>{{ probe.particleMs.toFixed(2) }}</span>
-        </div>
-        <div class="probe-row">
-          <span>{{ t('probeShaderCompile') }}</span><span>{{ probe.shaderCompileMs.toFixed(2) }}</span>
-        </div>
+          <div class="probe-row">
+            <span>{{ t('probeMeshSelection') }}</span><span>{{ probe.meshSelectionMs.toFixed(2) }}</span>
+          </div>
+          <div class="probe-row">
+            <span>{{ t('probeRenderTarget') }}</span><span>{{ probe.renderTargetMs.toFixed(2) }}</span>
+          </div>
+          <div class="probe-row">
+            <span>{{ t('probeParticle') }}</span><span>{{ probe.particleMs.toFixed(2) }}</span>
+          </div>
+          <div class="probe-row">
+            <span>{{ t('probeShaderCompile') }}</span><span>{{ probe.shaderCompileMs.toFixed(2) }}</span>
+          </div>
 
-        <div class="probe-divider" />
+          <div class="probe-divider" />
 
-        <div class="probe-row probe-total">
-          <span>{{ t('probeObserver') }}</span><span>{{ probe.observerMs.toFixed(2) }}</span>
-        </div>
+          <div class="probe-row probe-total">
+            <span>{{ t('probeObserver') }}</span><span>{{ probe.observerMs.toFixed(2) }}</span>
+          </div>
+          <div
+            v-for="section in probe.sectionList"
+            :key="section.name"
+            class="probe-row"
+          >
+            <span>{{ getSectionLabel(section.name, locale === 'en') }}</span><span>{{ section.averageMs.toFixed(2) }}</span>
+          </div>
+        </template>
         <div
-          v-for="section in probe.sectionList"
-          :key="section.name"
+          v-else
           class="probe-row"
         >
-          <span>{{ getSectionLabel(section.name, locale === 'en') }}</span><span>{{ section.averageMs.toFixed(2) }}</span>
+          <span>{{ t('probeMeasuring') }}</span>
         </div>
       </div>
     </div>
 
     <dev-panel v-if="hasStarted && devPanelVisible" />
+
+    <!--
+      渲染端停住的提示
+
+      與「初始化失敗」那塊全螢幕覆蓋是兩回事：世界已經跑起來之後才停住，
+      多半只是暫時卡住或系統在回收記憶體，不該擋住畫面。
+      這只是一條可以關掉的提醒，渲染端一恢復它自己就消失
+    -->
+    <div
+      v-if="isRenderStalled && !isStalledNoticeDismissed"
+      class="stalled-notice"
+      role="status"
+    >
+      <span>{{ t('stalledNotice') }}</span>
+      <button
+        class="stalled-dismiss"
+        @click="isStalledNoticeDismissed = true"
+      >
+        {{ t('dismiss') }}
+      </button>
+    </div>
 
     <div
       v-if="initError"
@@ -200,59 +229,22 @@
 </template>
 
 <script setup lang="ts">
-import type { Scene, UniversalCamera } from '@babylonjs/core'
-import type { SandField } from '../garden/sand-field'
-import type { WaterMirrors } from '../garden/water-mirror'
-import type { LampGlow } from '../renderer/lamp-glow'
-import type { TextureSkinner } from '../renderer/pixel-material'
-import type { SceneDepth } from '../renderer/scene-depth'
-import type { VolumetricLight } from '../renderer/volumetric-light'
-import type { VoxelGi } from '../renderer/voxel-gi'
-import type { VoxelRenderer } from '../renderer/voxel-renderer'
-import type { WaterCaustics } from '../renderer/water-caustics'
-import type { WaterSurface } from '../renderer/water-surface'
-import type { SoundZone } from '../soundscape/type'
 import type { Landmark } from '../world/landmark'
-import { useEventListener, useStorage } from '@vueuse/core'
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { useEventListener } from '@vueuse/core'
+import { computed, ref, watch } from 'vue'
 import AmbiencePanel from '../../components/ambience-panel.vue'
 import DevPanel from '../../components/dev-panel.vue'
 import StartPanel from '../../components/start-panel.vue'
 import SystemMenu from '../../components/system-menu.vue'
 import TouchControlPanel from '../../components/touch-control-panel.vue'
-import { createCampfireSmoke, DEFAULT_CAMERA_FOV, useBabylonScene } from '../../composables/use-babylon-scene'
-import { useBlockLights } from '../../composables/use-block-lights'
-import { useDayNight } from '../../composables/use-day-night'
+import { getSectionLabel } from '../../composables/performance-reading'
 import { useDevToggles } from '../../composables/use-dev-toggles'
 import { exportErrorLog, useErrorLogger } from '../../composables/use-error-logger'
-import { useFpsController } from '../../composables/use-fps-controller'
-import { useGraphicsQuality } from '../../composables/use-graphics-quality'
-import { useMobileController } from '../../composables/use-mobile-controller'
-import { getSectionLabel, usePerformanceProbe } from '../../composables/use-performance-probe'
 import { useSimpleI18n } from '../../composables/use-simple-i18n'
-import { useTexturePack } from '../../composables/use-texture-pack'
-import { useSheepFlock } from '../fauna/use-sheep-flock'
-import { getGardenAt } from '../garden/garden-layout'
-import { createSandField } from '../garden/sand-field'
-import { createWaterMirrors } from '../garden/water-mirror'
-import { findSafeStandingPosition } from '../player/collision'
-import { createLampGlow } from '../renderer/lamp-glow'
-import { createTextureSkinner } from '../renderer/pixel-material'
-import { createSceneDepth } from '../renderer/scene-depth'
-import { createVolumetricLight, cycleVolumetricDebugMode } from '../renderer/volumetric-light'
-import { createVoxelGi } from '../renderer/voxel-gi'
-import { createVoxelRenderer } from '../renderer/voxel-renderer'
-import { createWaterCaustics } from '../renderer/water-caustics'
-import { createWaterSurface } from '../renderer/water-surface'
+import { useInputCapture } from '../render-host/use-input-capture'
+import { useRenderHost } from '../render-host/use-render-host'
+import { useRenderPreference } from '../render-host/use-render-preference'
 import { useSoundscape } from '../soundscape/use-soundscape'
-import { DEFAULT_SUNRISE_AZIMUTH, setSunriseAzimuth } from '../weather/day-night'
-import { createGodRays } from '../weather/god-rays'
-import { useWeather } from '../weather/use-weather'
-import { collectLightSourceList } from '../world/light-source'
-import { useChunkWorker } from '../world/use-chunk-worker'
-import { useTerrainWorker } from '../world/use-terrain-worker/use-terrain-worker'
-import { createEmptyWaterMap, scanWaterMap } from '../world/water-body'
-import { castRainRay, createWorldState } from '../world/world-access'
 import { reloadWithHandoff } from './reload-handoff'
 
 const { t, locale } = useSimpleI18n({
@@ -272,6 +264,9 @@ const { t, locale } = useSimpleI18n({
     probeParticle: '粒子',
     probeShaderCompile: '編譯',
     probeObserver: 'JS 合計',
+    probeMeasuring: '量測中⋯',
+    stalledNotice: '畫面似乎停住了，若沒有自己恢復，請重新整理頁面',
+    dismiss: '關閉',
     midnight: '深夜',
     dawn: '破曉',
     sunrise: '日出',
@@ -298,6 +293,9 @@ const { t, locale } = useSimpleI18n({
     probeParticle: 'Particles',
     probeShaderCompile: 'Compile',
     probeObserver: 'JS total',
+    probeMeasuring: 'Measuring…',
+    stalledNotice: 'The view seems to have stalled. Reload the page if it does not recover',
+    dismiss: 'Dismiss',
     midnight: 'Midnight',
     dawn: 'Dawn',
     sunrise: 'Sunrise',
@@ -319,88 +317,94 @@ const { t, locale } = useSimpleI18n({
 const { errorCount } = useErrorLogger()
 /** 那個「按 F6」的提示只在本地開發時出現，正式站上不該有 */
 const isDevBuild = import.meta.env.DEV
-/** 目前在看哪一種體積光除錯檢視，按 F7 換 */
-const debugModeLabel = ref('')
 
-/** 區域顯示的更新間隔（秒） */
-const ZONE_UPDATE_INTERVAL = 0.3
-/** 幀率讀數的更新間隔（秒），跳太快會看不清楚 */
-const FPS_UPDATE_INTERVAL = 0.5
-
-let worldState = createWorldState()
-let renderer: VoxelRenderer | null = null
-let lampGlow: LampGlow | null = null
-let waterMirrors: WaterMirrors | null = null
-let skinner: TextureSkinner | null = null
-let sandField: SandField | null = null
-let sceneDepth: SceneDepth | null = null
-let waterSurface: WaterSurface | null = null
-let waterCaustics: WaterCaustics | null = null
-let voxelGi: VoxelGi | null = null
-let volumetricLight: VolumetricLight | null = null
-/** 世界上的水在哪裡，掃過一次就記著：漣漪與焦散都要問它 */
-let waterMap = createEmptyWaterMap()
-
-const isWorldReady = ref(false)
 const hasStarted = ref(false)
 const menuVisible = ref(false)
 /** 從選單再次打開的說明頁 */
 const introVisible = ref(false)
-/**
- * 目前站在哪一座箱庭上
- *
- * 走在箱庭之間的白沙上時是 null，那是刻意留的空白：
- * 整趟漫遊的節奏就是「有聲—無聲—有聲」
- */
-const currentZone = ref<SoundZone | null>(null)
-/**
- * 目前幀率
- *
- * 第一人稱轉動視角的順不順，完全取決於幀率——
- * 滑鼠移多少就轉多少，與 deltaTime 無關，所以幀率一低，
- * 同樣的角度會被切成更少、更大的步進，看起來就是一段一段跳。
- * 有個讀數才判斷得出「卡」是幀率問題還是別的原因
- */
-const fps = ref(0)
+/** 停住的提示被使用者關掉了；渲染端恢復之後要重設，下一次停住才會再出現 */
+const isStalledNoticeDismissed = ref(false)
 
 /**
- * 效能面板
+ * 使用者的偏好
  *
- * F3 開關，沿用方塊遊戲的老規矩。
- * 平常不建立計時器，量測本身也是要錢的
+ * 全部記在瀏覽器裡，由這一邊持久化，渲染端只收訊息（見 use-render-host）
  */
 const {
-  visible: probeVisible,
-  reading: probe,
-  toggle: toggleProbe,
-  update: updateProbe,
-} = usePerformanceProbe()
+  quality,
+  pack: texturePack,
+  cameraFov,
+  sunAzimuth,
+  isAutoAdvance,
+  daySpeedRatio,
+} = useRenderPreference()
 
+/**
+ * 渲染端
+ *
+ * Babylon 的場景、世界生成與所有每幀的邏輯都不在這個元件裡，
+ * 而是在 worker（或退路上的主執行緒）。這裡只剩介面、輸入與音訊：
+ * 畫布交過去、設定與尺寸的變動送過去，狀態讀回來
+ */
+const canvasRef = ref<HTMLCanvasElement>()
 const {
+  isWorldReady,
+  initError,
+  isRenderStalled,
+  canvasKey,
+  worldState,
+  status,
+  probe,
+  postInput,
+  postCommand,
+  requestHandoff,
+  setTimeOfDay,
+  addPoseHandler,
+  addSoundHandler,
+} = useRenderHost({ canvasRef })
+
+watch(isRenderStalled, (isStalled) => {
+  if (!isStalled) {
+    isStalledNoticeDismissed.value = false
+  }
+})
+
+/**
+ * 輸入
+ *
+ * 鍵盤、滑鼠、滾輪、pointer lock 與觸控都留在主執行緒，
+ * 整理成訊息送給渲染端。暫停與游標是否放開也由這裡決定
+ */
+const {
+  start: startInput,
+  resume,
+  pause,
+  isPaused,
+  isCursorFree,
   isMobile,
-  state: mobileState,
   joystickActive,
   joystickOffset,
   joystickOrigin,
-  setupTouchListeners,
-  consumeLookDelta,
   setJump,
   setSprint,
-} = useMobileController()
+} = useInputCapture({ canvasRef, hasStarted, postInput, postCommand })
 
-const {
-  start: startController,
-  resume,
-  pause,
-  teleport,
-  isPaused,
-  isCursorFree,
-  isUnderground,
-  position,
-} = useFpsController()
+/** 世界準備好才開始接輸入，之前的按鍵與點擊沒有東西可以操控 */
+watch(isWorldReady, (isReady) => {
+  if (isReady) {
+    startInput()
+  }
+})
 
+/**
+ * 音訊
+ *
+ * Web Audio 在 worker 裡不存在，音景留在主執行緒：
+ * 聽者跟著渲染端送來的鏡頭位姿走，天氣與日夜從狀態讀，雷聲由渲染端點名要它響
+ */
 const {
   start: startSoundscape,
+  updatePose,
   setWeather,
   triggerSound,
   toggleSoundMute,
@@ -409,41 +413,9 @@ const {
   isMuted,
 } = useSoundscape()
 
-const {
-  start: startWeather,
-  weather,
-  atmosphere,
-} = useWeather()
-
-const {
-  start: startDayNight,
-  setTimeOfDay,
-  getDayRatio,
-  getTimeOfDay,
-  timeOfDay: currentTimeOfDay,
-  isAutoAdvance,
-  daySpeedRatio,
-  phase: dayPhase,
-  clockText,
-  isNight,
-} = useDayNight()
-
-const sheepFlock = useSheepFlock()
-const blockLights = useBlockLights()
-
-/**
- * 材質包
- *
- * 換一套不必重建世界：方塊、羊與那片白沙的材質物件全都留著，
- * 只把貼圖換掉。風的擺動、淋雨會變暗的登記、水面的高光
- * 都掛在材質上，重建一次全都要重接一遍
- */
-const { pack: texturePack, bumpActive } = useTexturePack()
-
-watch([texturePack, bumpActive], ([currentPack, isBumpActive]) => {
-  skinner?.applyPack(currentPack, isBumpActive)
-  sandField?.applyPack(currentPack)
-})
+addPoseHandler(updatePose)
+addSoundHandler(({ id, volume }) => triggerSound(id, volume))
+watch(() => status.weather, (current) => setWeather(current))
 
 /**
  * 除錯用的效果開關
@@ -457,42 +429,6 @@ const {
   togglePanel: toggleDevPanel,
 } = useDevToggles()
 
-/** 水面高光是材質層的東西，開關要等渲染器建好才有得改 */
-watch(() => devToggle.waterGlint, (isEnabled) => {
-  renderer?.setWaterGlintEnabled(isEnabled)
-})
-
-/**
- * 鏡頭的視野角度
- *
- * 視野寬窄是很個人的事：寬的看得到兩側的木座、走起來有速度感，
- * 窄的則像站定了在看一幅畫。記在瀏覽器裡，下次進來還是同一個視角
- */
-const cameraFov = useStorage('minespace-camera-fov', DEFAULT_CAMERA_FOV)
-
-/**
- * 不能加 immediate
- *
- * 這個 watch 寫在 useBabylonScene 之前，而 camera 是那一行才解構出來的。
- * 立即執行會在 camera 還在暫時性死區時就去讀它，直接拋錯。
- * 初始值改在 init 裡等鏡頭建好之後補套一次
- */
-watch(cameraFov, (value) => {
-  if (camera.value) {
-    camera.value.fov = value
-  }
-})
-
-/**
- * 太陽從哪個方位升起
- *
- * 日出日落的位置原本是寫死的，挑的是「出生點面向北方時不會對著太陽」。
- * 那個選擇對第一眼是好的，但這座禪庭是給人待很久的——
- * 想看太陽從松籟林後面出來，或想讓整天的光都從池子那一側過來，
- * 都該是玩家自己決定的事
- */
-const sunAzimuth = useStorage('minespace-sun-azimuth', DEFAULT_SUNRISE_AZIMUTH)
-
 /**
  * 換畫質就整頁重來，人留在原地
  *
@@ -501,280 +437,87 @@ const sunAzimuth = useStorage('minespace-sun-azimuth', DEFAULT_SUNRISE_AZIMUTH)
  * 於是原本切過去只換到一半——影子與貼圖立刻變了，體積光與抗鋸齒卻
  * 要等下次進來才出現。使用者看到的是「這個選項好像沒作用」。
  *
- * 那就重來。重來之前先把人在哪、看著哪、幾點鐘寄放一份，
+ * 那就重來。重來之前先向渲染端要一份人在哪、看著哪、幾點鐘，寄放起來，
  * 新的一輪起來時原地接回去（見 reload-handoff）。
  *
- * 一樣不能加 immediate：這個 watch 寫在 useBabylonScene 之前，
- * camera 是那一行才解構出來的，立即執行會在暫時性死區裡讀它。
- * 而且立即執行的語意本身就是錯的——一進來就重新整理會變成無窮迴圈
+ * 不能加 immediate：立即執行的語意本身就是錯的——
+ * 一進來就重新整理會變成無窮迴圈
  */
-const { quality } = useGraphicsQuality()
-
-watch(quality, () => {
+watch(quality, async () => {
   /**
    * 還沒進去就沒有位置好接
    *
    * 開始面板還開著時人根本還沒站進世界，這時的位置是預設值。
    * 存下去只是把出生點寫進交接，不如不存
    */
-  if (!hasStarted.value || !camera.value) {
+  if (!hasStarted.value || !isWorldReady.value) {
     window.location.reload()
 
     return
   }
 
-  reloadWithHandoff({
-    position: { x: position.x, y: position.y, z: position.z },
-    rotation: { pitch: camera.value.rotation.x, yaw: camera.value.rotation.y },
-    timeOfDay: getTimeOfDay(),
-  })
+  const handoff = await requestHandoff()
+  if (!handoff) {
+    window.location.reload()
+
+    return
+  }
+
+  reloadWithHandoff(handoff)
 })
 
-watch(sunAzimuth, (value) => setSunriseAzimuth(value), { immediate: true })
-
-watch(weather, (current) => setWeather(current))
-
 /** 右上角與選單都用同一份讀數：時刻加上這個時段的名字 */
-const timeLabel = computed(() => `${clockText.value} ${t(dayPhase.value)}`)
+const timeLabel = computed(() => `${status.clockText} ${t(status.phase)}`)
 
 /**
  * 選單裡的時間軸
  *
  * 讀的是循環自己在走的時刻，寫回去則是直接跳過去。
- * 手機沒有滾輪，這是唯一調時間的地方
+ * 手機沒有滾輪，這是唯一調時間的地方。
+ * 寫的時候先改本地的讀數，滑桿才不會等渲染端下一次回報才跟上手（見 use-render-host）
  */
 const timeOfDay = computed({
-  get: () => currentTimeOfDay.value,
+  get: () => status.timeOfDay,
   set: (value: number) => setTimeOfDay(value),
 })
 
-const { canvasRef, scene, camera, pipeline, initError } = useBabylonScene({
-  async init({ scene: sceneInstance, camera: cameraInstance, canvas }) {
-    const terrainWorker = useTerrainWorker()
-    worldState = await terrainWorker.generate()
-    terrainWorker.terminate()
+useEventListener(window, 'keydown', (event: KeyboardEvent) => {
+  if (event.code === 'F3') {
+    /** F3 在瀏覽器是「尋找下一個」，這裡要攔下來 */
+    event.preventDefault()
+    postCommand({ command: 'toggle-probe' })
+    return
+  }
 
-    const chunkWorker = useChunkWorker()
-    skinner = createTextureSkinner(sceneInstance)
-    skinner.applyPack(texturePack.value, bumpActive.value)
+  /** F4 接在效能面板旁邊：一個看「慢在哪」、一個看「這是誰畫的」 */
+  if (event.code === 'F4') {
+    event.preventDefault()
+    toggleDevPanel()
+  }
 
-    /**
-     * 世界上的水掃一次記著
-     *
-     * 要在渲染器之前：水面材質是建網格時掛上去的，
-     * 而掛上去之後第一幀就會去讀這份資料
-     */
-    waterMap = scanWaterMap(worldState)
+  /**
+   * F6 手動匯出錯誤紀錄
+   *
+   * 自動下載會被瀏覽器擋下來是常態——這是按鍵觸發的，
+   * 是真的使用者手勢，瀏覽器不會擋
+   */
+  if (event.code === 'F6') {
+    event.preventDefault()
+    exportErrorLog()
+  }
 
-    renderer = createVoxelRenderer(sceneInstance, chunkWorker, skinner)
-    await renderer.build(worldState)
-
-    /**
-     * 場景深度圖
-     *
-     * 光暈的柔性淡出與水面的岸線交線光共用這一張。
-     * 低畫質會在它自己那邊關掉，兩個效果跟著歸零
-     */
-    sceneDepth = createSceneDepth({ scene: sceneInstance, camera: cameraInstance })
-
-    /** 方塊做的沙只到世界邊界，外面那片得等渲染器準備好材質再接上去 */
-    sandField = createSandField(sceneInstance, texturePack.value)
-
-    /** 水鏡池的天空倒影，走近才畫 */
-    waterMirrors = createWaterMirrors(sceneInstance, cameraInstance, worldState)
-
-    /**
-     * 水面的泡沫、岸線與漣漪，以及水底的焦散
-     *
-     * 兩者都是材質外掛，網格那邊早就掛好了；這裡建的是推動它們的那一份，
-     * 負責寫時間、挑出離玩家最近的那片水、以及把腳步濺成一圈波
-     */
-    waterSurface = createWaterSurface({
-      scene: sceneInstance,
-      camera: cameraInstance,
-      waterMap,
-    })
-    waterCaustics = createWaterCaustics({
-      scene: sceneInstance,
-      camera: cameraInstance,
-      waterMap,
-      getDayRatio,
-    })
-
-    sheepFlock.start({ scene: sceneInstance, worldState, camera: cameraInstance, getDayRatio, skinner })
-    createCampfireSmoke(sceneInstance, worldState)
-
-    /**
-     * 世界裡的燈火只掃這一次
-     *
-     * 真光與夜裡的光暈用的是同一份清單，兩者本來就是同一盞燈的兩種表現
-     */
-    const lightSourceList = collectLightSourceList(worldState)
-
-    /**
-     * 體素全局光
-     *
-     * 世界生成完就能把粗網格建好、丟給 worker——這一步只做一次，
-     * 之後隨太陽角度變化的重烘節流交給它自己的 update
-     */
-    voxelGi = createVoxelGi(sceneInstance, worldState, lightSourceList)
-
-    /**
-     * 行進版的光束要接在全局光之後
-     *
-     * 它行進的正是全局光那張格子（alpha 欄存著「這一格照得到多少陽光」），
-     * 格子還沒建好就先問它要，拿到的會是 null
-     */
-    volumetricLight = createVolumetricLight(sceneInstance, cameraInstance)
-
-    /**
-     * 燈火的光暈
-     *
-     * 方塊的自發光只讓燈自己看起來是亮的，光並沒有溢出它的邊界。
-     * 夜裡在每一盞燈前面掛一片面向鏡頭的加法圓盤，光才會溢出來。
-     *
-     * 要帶鏡頭進去：圓盤得每一幀往鏡頭的方向挪出方塊之外，
-     * 否則整團暈會被它自己那顆燈籠擋在後面
-     */
-    lampGlow = createLampGlow({
-      scene: sceneInstance,
-      camera: cameraInstance,
-      sourceList: lightSourceList,
-      getDayRatio,
-    })
-
-    /**
-     * 燈池：燈籠與營火的真光
-     *
-     * 烘進方塊的那份光是乘在貼圖上的，夜裡會跟著光照一起被壓掉，
-     * 燈只照得亮自己。這裡拿三盞真光輪流去認領離玩家最近的光源方塊，
-     * 成本固定，與世界上有幾盞燈無關
-     */
-    blockLights.start({
-      scene: sceneInstance,
-      camera: cameraInstance,
-      sourceList: lightSourceList,
-      getDayRatio,
-    })
-
-    if (isMobile.value) {
-      setupTouchListeners(canvas)
-    }
-
-    /**
-     * 日夜循環要排在漫遊控制器前面
-     *
-     * 三個系統疊在同一份大氣狀態上，順序就是疊加的順序：
-     * 日夜寫下這個時刻的基準、天氣疊上雨與霧、漫遊控制器最後套進場景。
-     * 顛倒過來的話，套進場景的會是上一幀的天色
-     */
-    startDayNight({
-      scene: sceneInstance,
-      canvas,
-      pipeline: pipeline.value,
-      godRays: createGodRays(sceneInstance, cameraInstance),
-      /**
-       * 行進版的光束
-       *
-       * 兩者各自會依畫質決定要不要真的存在，所以這裡兩個都給——
-       * 同一級裡至多只有一個是活的（見各自的 create）
-       */
-      volumetricLight,
-      atmosphere,
-      /** 放開滑鼠只是把游標還給桌面，人站在原地看風景，太陽照樣走 */
-      isRunning: () => hasStarted.value && !isPaused.value,
-      canScrubTime: () => hasStarted.value && !isPaused.value && !isCursorFree.value,
-    })
-
-    /** 鏡頭是在這之後才存在的，記在瀏覽器裡的視野要在這裡補套一次 */
-    cameraInstance.fov = cameraFov.value
-
-    startController({
-      scene: sceneInstance,
-      camera: cameraInstance,
-      canvas,
-      worldState,
-      atmosphere,
-      voxelGi,
-      mobileControls: isMobile.value
-        ? { state: mobileState, consumeLookDelta }
-        : undefined,
-    })
-    pause()
-
-    trackZone(sceneInstance)
-    trackFps(sceneInstance)
-    isWorldReady.value = true
-  },
+  /**
+   * F7 換下一種體積光的除錯檢視
+   *
+   * 空間性的瑕疵靠文字紀錄查不出來，只能把中間量單獨畫出來看。
+   * 要先在 F4 面板打開「體積光除錯檢視」，這個鍵才有東西可換。
+   * 檢視的名字由渲染端隨狀態送回來
+   */
+  if (event.code === 'F7') {
+    event.preventDefault()
+    postCommand({ command: 'cycle-debug-mode' })
+  }
 })
-
-/** 定時更新幀率讀數 */
-function trackFps(sceneInstance: Scene) {
-  let elapsed = 0
-
-  sceneInstance.onBeforeRenderObservable.add(() => {
-    elapsed += sceneInstance.getEngine().getDeltaTime() / 1000
-    if (elapsed < FPS_UPDATE_INTERVAL)
-      return
-
-    elapsed = 0
-    fps.value = sceneInstance.getEngine().getFps()
-  })
-
-  /** 繪製呼叫要等這一幀畫完才數得到，所以掛在算繪之後 */
-  sceneInstance.onAfterRenderObservable.add(() => updateProbe(sceneInstance))
-
-  useEventListener(window, 'keydown', (event: KeyboardEvent) => {
-    if (event.code === 'F3') {
-      /** F3 在瀏覽器是「尋找下一個」，這裡要攔下來 */
-      event.preventDefault()
-      toggleProbe(sceneInstance)
-      return
-    }
-
-    /** F4 接在效能面板旁邊：一個看「慢在哪」、一個看「這是誰畫的」 */
-    if (event.code === 'F4') {
-      event.preventDefault()
-      toggleDevPanel()
-    }
-
-    /**
-     * F6 手動匯出錯誤紀錄
-     *
-     * 自動下載會被瀏覽器擋下來是常態——這是按鍵觸發的，
-     * 是真的使用者手勢，瀏覽器不會擋
-     */
-    if (event.code === 'F6') {
-      event.preventDefault()
-      exportErrorLog()
-    }
-
-    /**
-     * F7 換下一種體積光的除錯檢視
-     *
-     * 空間性的瑕疵靠文字紀錄查不出來，只能把中間量單獨畫出來看。
-     * 要先在 F4 面板打開「體積光除錯檢視」，這個鍵才有東西可換
-     */
-    if (event.code === 'F7') {
-      event.preventDefault()
-      debugModeLabel.value = cycleVolumetricDebugMode()
-    }
-  })
-}
-
-/** 定時更新玩家所在的箱庭，不需要每幀重算 */
-function trackZone(sceneInstance: Scene) {
-  let elapsed = 0
-
-  sceneInstance.onBeforeRenderObservable.add(() => {
-    elapsed += sceneInstance.getEngine().getDeltaTime() / 1000
-    if (elapsed < ZONE_UPDATE_INTERVAL)
-      return
-
-    elapsed = 0
-    currentZone.value = getGardenAt(position.x, position.z)?.id ?? null
-  })
-}
 
 /** 桌機以 Pointer Lock 狀態決定選單開關 */
 watch(isPaused, (paused) => {
@@ -796,30 +539,17 @@ function handleStartPanelConfirm() {
 }
 
 async function handleStart() {
-  if (!scene.value || !camera.value)
+  if (!isWorldReady.value || !worldState.value)
     return
 
   hasStarted.value = true
 
-  await startSoundscape({
-    scene: scene.value,
-    camera: camera.value as UniversalCamera,
-    worldState,
-    getDayRatio,
-  })
+  /** 天氣與粒子在渲染端建，雷聲歸聽雨亭，渲染端要它響時會點名過來 */
+  postCommand({ command: 'start' })
 
-  await startWeather({
-    scene: scene.value,
-    camera: camera.value as UniversalCamera,
-    isSheltered: () => isUnderground.value,
-    /** 閃電歸天氣，雷聲歸聽雨亭，這裡只是把兩邊接起來 */
-    playThunder: (volume) => triggerSound('rainvale-thunder', volume),
-    castRainRay: (blockX, blockZ) => castRainRay(worldState, blockX, blockZ),
-    waterMap,
-    getDayRatio,
-    getTimeOfDay,
-    /** 雨停之後要慢慢乾回去的那些表面，水與花草不在其中 */
-    wetMaterialList: renderer?.getWetMaterialList() ?? [],
+  await startSoundscape({
+    worldState: worldState.value,
+    getDayRatio: () => status.dayRatio,
   })
 
   resume()
@@ -839,26 +569,12 @@ function closeMenu() {
   resume()
 }
 
-/** 快速前往：從目標點往外找一個站得住腳的位置，免得卡在樹上或方塊裡 */
+/** 快速前往：渲染端會從目標點往外找一個站得住腳的位置，免得卡在樹上或方塊裡 */
 function handleTravel(landmark: Landmark) {
-  const { x, y, z } = findSafeStandingPosition(worldState, landmark.x, landmark.z)
-  teleport(x, y, z)
+  postCommand({ command: 'travel', x: landmark.x, z: landmark.z })
 
   closeMenu()
 }
-
-onBeforeUnmount(() => {
-  lampGlow?.dispose()
-  waterSurface?.dispose()
-  waterCaustics?.dispose()
-  sceneDepth?.dispose()
-  waterMirrors?.dispose()
-  volumetricLight?.dispose()
-  voxelGi?.dispose()
-  renderer?.dispose()
-  sandField?.dispose()
-  skinner?.dispose()
-})
 </script>
 
 <style scoped lang="sass">
@@ -963,6 +679,32 @@ onBeforeUnmount(() => {
   font-size: 12px
   z-index: 50
   pointer-events: none
+
+/** 渲染端停住的提醒：擺在下方中間，不擋住畫面中央也不蓋住左右兩側的面板 */
+.stalled-notice
+  position: absolute
+  left: 50%
+  bottom: 72px
+  transform: translateX(-50%)
+  display: flex
+  align-items: center
+  gap: 12px
+  max-width: calc(100% - 24px)
+  padding: 6px 12px
+  border-radius: 6px
+  background: rgba(120, 70, 10, 0.85)
+  color: rgba(255, 255, 255, 0.92)
+  font-size: 13px
+  z-index: 55
+
+.stalled-dismiss
+  flex: none
+  padding: 2px 10px
+  border: 1px solid rgba(255, 255, 255, 0.5)
+  border-radius: 4px
+  color: inherit
+  font-size: 12px
+  cursor: pointer
 
 /** 除錯檢視的模式標示，擺在提示底下不擋住畫面中央 */
 .debug-mode-badge

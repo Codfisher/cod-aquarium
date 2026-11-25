@@ -69,18 +69,16 @@ function parseHandoff(raw: string): ReloadHandoff | null {
 }
 
 /**
- * 一載入就取走，而且只取這一次
+ * 一載入就取走，而且只取這一次（主執行緒用）
  *
  * 讀完立刻從儲存裡刪掉：留著的話，之後每一次手動重新整理
  * 都會被丟回同一個位置，那已經不是交接了。
  *
- * 讀進模組變數而不是每次去查儲存，是因為有兩個讀者
- * （操控者要位置與視角、日夜循環要時刻），
- * 「讀完就刪」那條路上誰先問誰就拿光了
+ * sessionStorage 只有主執行緒摸得到，worker 裡沒有。
+ * 所以讀的是主執行緒，讀到的值放進 init 訊息送給渲染端，
+ * 渲染端再用 provideReloadHandoff 記下來，操控者與日夜循環從 getReloadHandoff 取用
  */
-const handoff = readHandoffOnce()
-
-function readHandoffOnce(): ReloadHandoff | null {
+export function takeReloadHandoff(): ReloadHandoff | null {
   if (typeof window === 'undefined')
     return null
 
@@ -96,12 +94,25 @@ function readHandoffOnce(): ReloadHandoff | null {
   }
 }
 
-/** 上一輪留下的狀態，沒有就是 null */
-export function getReloadHandoff(): ReloadHandoff | null {
-  return handoff
+/**
+ * 渲染端記下的交接
+ *
+ * 記在模組變數而不是每次去問：有兩個讀者
+ * （操控者要位置與視角、日夜循環要時刻），都在同一輪初始化裡讀
+ */
+let providedHandoff: ReloadHandoff | null = null
+
+/** 渲染端收到 init 訊息時呼叫，把主執行緒讀到的交接記下來 */
+export function provideReloadHandoff(handoff: ReloadHandoff | null): void {
+  providedHandoff = handoff
 }
 
-/** 記下這一刻的狀態，然後立刻重新整理 */
+/** 上一輪留下的狀態，沒有就是 null */
+export function getReloadHandoff(): ReloadHandoff | null {
+  return providedHandoff
+}
+
+/** 記下這一刻的狀態，然後立刻重新整理（主執行緒用） */
 export function reloadWithHandoff(next: ReloadHandoff): void {
   try {
     window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(next))

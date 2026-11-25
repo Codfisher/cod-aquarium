@@ -21,6 +21,8 @@ export function requestCloudNoise(option: CloudNoiseSizeOption, seed: string): {
     /** worker 裡的例外不會冒到主執行緒的 window.onerror，理由見 use-voxel-gi-worker */
     worker.onerror = (event: ErrorEvent) => {
       reportError(`[CloudNoiseWorker] ${event.message}`, `${event.filename}:${event.lineno}:${event.colno}`)
+      /** 記完就算處理過了，不往上冒（理由見 use-terrain-worker） */
+      event.preventDefault()
       worker.terminate()
       reject(new Error(event.message))
     }
