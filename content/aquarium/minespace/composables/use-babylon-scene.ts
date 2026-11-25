@@ -26,7 +26,6 @@ import {
   Texture,
   UniversalCamera,
   Vector3,
-  VertexData,
 } from '@babylonjs/core'
 import { useEventListener } from '@vueuse/core'
 import { defaults } from 'lodash-es'
@@ -45,9 +44,9 @@ import { registerLeafTranslucency } from '../domains/renderer/leaf-translucency'
 import { registerVoxelGi } from '../domains/renderer/voxel-gi'
 import { registerAerialPerspective } from '../domains/weather/aerial-perspective'
 import { GARDEN_FOG_COLOR, GARDEN_FOG_END, GARDEN_FOG_START } from '../domains/weather/atmosphere'
-import { applyCloudColor, createCloudMaterial } from '../domains/weather/cloud-material'
-import { disposeCloudShadow, registerCloudShadow, setCloudShadowDrift, setCloudShadowPattern } from '../domains/weather/cloud-shadow'
+import { disposeCloudShadow, registerCloudShadow } from '../domains/weather/cloud-shadow'
 import { applySkyGradient, createSkyGradientMaterial } from '../domains/weather/sky-gradient'
+import { createVolumetricCloud } from '../domains/weather/volumetric-cloud/volumetric-cloud'
 import { getGroundY } from '../domains/world/world-access'
 import { WORLD_SIZE } from '../domains/world/world-constants'
 import { createSeededRandom } from '../utils/noise'
@@ -78,9 +77,12 @@ export const SUN_GLOW_NAME = 'sun-glow'
 export const MOON_DISC_NAME = 'moon-disc'
 export const MOON_GLOW_NAME = 'moon-glow'
 export const STAR_FIELD_NAME = 'star-field'
+/**
+ * 體積雲合成用的天空罩
+ *
+ * 名字沿用舊雲層的：水鏡與晨昏光束都靠這個名字把雲找出來
+ */
 export const CLOUD_LAYER_NAME = 'cloud-layer'
-/** 高空那層卷雲，名字要跟低層分開，兩份材質才查得到 */
-export const CLOUD_LAYER_HIGH_NAME = 'cloud-layer-high'
 
 /**
  * 繪製順序分成三層
@@ -93,69 +95,6 @@ export const CLOUD_LAYER_HIGH_NAME = 'cloud-layer-high'
 const SKY_OVERLAY_RENDERING_GROUP = 1
 /** 天氣粒子畫在最後，雨絲才不會被陰天罩蓋掉 */
 export const WEATHER_RENDERING_GROUP = 2
-
-/**
- * 雲層高度
- *
- * 抬得比原本高，而且雲本身也做小了。雲太低太大時，
- * 從地面往上看整片是一塊沒有縫的灰天花板——
- * 拉遠、縮小、再降低覆蓋率，才看得出一朵一朵的形狀與中間的藍天
- */
-const CLOUD_HEIGHT = 104
-/** 單朵雲方塊的邊長 */
-const CLOUD_CELL_SIZE = 14
-/** 雲的厚度 */
-const CLOUD_THICKNESS = 5
-/** 雲的飄移速度（格 / 秒） */
-const CLOUD_DRIFT_SPEED = 0.6
-/**
- * 天空被雲蓋掉幾成
- *
- * 這個數字同時決定地面有多少機會走進雲影裡，兩件事是同一份圖樣。
- * 給太多，貼著地平線那一圈會糊成一條連續的白帶——
- * 越遠的雲落在越低的仰角上，一成四看起來就已經是「有幾朵雲」了。
- *
- * 給太少則會回到雲影查不出來的那個老問題。雲只往 +X 飄，
- * 所以真正的下限不是「雲夠不夠多」，而是「每一條 Z 列上都要有雲經過」。
- * 量過的數字，最後那一欄是整條 Z 列從頭到尾都曬不到雲影的數量：
- *
- *   0.16 → 25 朵，地面兩成六有影，0 條
- *   0.14 → 24 朵，地面兩成四有影，0 條
- *   0.12 → 23 朵，地面兩成一有影，2 條 ← 開始有地方永遠沒有雲影
- *
- * 一成四是踩在那條線上面一點
- */
-const CLOUD_COVERAGE = 0.14
-/**
- * 疊出雲形狀的兩層噪音
- *
- * 密度是相對於圖樣格數的比例：低頻那一層每兩格一個格點，決定一朵雲多大；
- * 高頻那一層每格一個，權重只有三分之一，負責在邊緣咬出缺口。
- * 少了高頻那一層，每朵雲都是圓滾滾的一團，看起來像水滴不像雲
- */
-const CLOUD_NOISE_OCTAVE_LIST = [
-  { density: 1 / 2, weight: 1 },
-  { density: 1, weight: 0.35 },
-]
-
-/**
- * 高空的卷雲層
- *
- * 比低層的積雲更高、更薄、更稀疏，飄得也更慢——高空的風速看起來反而慢，
- * 是因為離得遠。這層不投影雲影：兩層雲同時往地上各投一份影子，
- * 地面會出現兩種週期的暗塊疊在一起，糊成看不出形狀的雜訊，
- * 不如只留低層那份看得出朵的雲影
- */
-const CLOUD_HEIGHT_HIGH = 168
-const CLOUD_CELL_SIZE_HIGH = 20
-const CLOUD_THICKNESS_HIGH = 2
-const CLOUD_DRIFT_SPEED_HIGH = 0.22
-/** 覆蓋率比低層更低，天空要看得出「這是另一層、更稀疏的雲」 */
-const CLOUD_COVERAGE_HIGH = 0.08
-const CLOUD_NOISE_OCTAVE_LIST_HIGH = [
-  { density: 1 / 2, weight: 1 },
-  { density: 1, weight: 0.35 },
-]
 
 /**
  * 天空的底色
@@ -308,28 +247,13 @@ const defaultParam: Required<UseBabylonSceneParam> = {
     createStarField(scene)
     createSunDisc(scene)
     createMoonDisc(scene)
-    createCloudLayer(scene, {
-      name: CLOUD_LAYER_NAME,
-      seed: 'minespace-cloud',
-      height: CLOUD_HEIGHT,
-      cellSize: CLOUD_CELL_SIZE,
-      thickness: CLOUD_THICKNESS,
-      driftSpeed: CLOUD_DRIFT_SPEED,
-      coverage: CLOUD_COVERAGE,
-      octaveList: CLOUD_NOISE_OCTAVE_LIST,
-      castsShadow: true,
-    })
-    createCloudLayer(scene, {
-      name: CLOUD_LAYER_HIGH_NAME,
-      seed: 'minespace-cloud-high',
-      height: CLOUD_HEIGHT_HIGH,
-      cellSize: CLOUD_CELL_SIZE_HIGH,
-      thickness: CLOUD_THICKNESS_HIGH,
-      driftSpeed: CLOUD_DRIFT_SPEED_HIGH,
-      coverage: CLOUD_COVERAGE_HIGH,
-      octaveList: CLOUD_NOISE_OCTAVE_LIST_HIGH,
-      castsShadow: false,
-    })
+    /**
+     * 體積雲
+     *
+     * 排在天空、日月與星空之後，陰天罩之前：它畫在第一層的半透明佇列，
+     * 靠 alphaIndex 排在陰天罩前面（見 volumetric-cloud 開頭的說明）
+     */
+    createVolumetricCloud(scene, SKY_OVERLAY_RENDERING_GROUP, CLOUD_LAYER_NAME)
     createOvercastDome(scene)
     createCaveLights(scene)
     createCaveDrips(scene)
@@ -795,311 +719,6 @@ export function getMoonMaterialList(scene: Scene): StandardMaterial[] {
 export function getStarFieldMaterial(scene: Scene): StandardMaterial | null {
   const dome = scene.getMeshByName(STAR_FIELD_NAME)
   return (dome?.material as StandardMaterial | undefined) ?? null
-}
-
-/**
- * 平滑內插用的曲線
- *
- * 兩端的斜率都是零，接起來的格點之間才看不出直線的痕跡
- */
-function smoothRatio(ratio: number): number {
-  return ratio * ratio * (3 - 2 * ratio)
-}
-
-/**
- * 可平鋪的值噪音
- *
- * 先在稀疏的格點上灑亂數，再平滑內插放大到圖樣的大小。
- * 讀格點時座標繞回去，所以放大出來的結果本身就是無縫平鋪的。
- *
- * 這是循環世界的硬性條件，一般的連續噪音給不了：
- * simplex 那類函式沒有週期，接縫上兩側的值對不起來
- */
-function createTileableNoise(
-  random: () => number,
-  size: number,
-  pointCount: number,
-): number[] {
-  const pointList = Array.from({ length: pointCount * pointCount }, () => random())
-  const readPoint = (x: number, z: number) => {
-    const wrappedX = ((x % pointCount) + pointCount) % pointCount
-    const wrappedZ = ((z % pointCount) + pointCount) % pointCount
-    return pointList[wrappedZ * pointCount + wrappedX] ?? 0
-  }
-
-  const scale = pointCount / size
-  return Array.from({ length: size * size }, (_, index) => {
-    const x = (index % size) * scale
-    const z = Math.floor(index / size) * scale
-    const baseX = Math.floor(x)
-    const baseZ = Math.floor(z)
-    const ratioX = smoothRatio(x - baseX)
-    const ratioZ = smoothRatio(z - baseZ)
-
-    const top = readPoint(baseX, baseZ) * (1 - ratioX)
-      + readPoint(baseX + 1, baseZ) * ratioX
-    const bottom = readPoint(baseX, baseZ + 1) * (1 - ratioX)
-      + readPoint(baseX + 1, baseZ + 1) * ratioX
-
-    return top * (1 - ratioZ) + bottom * ratioZ
-  })
-}
-
-/**
- * 雲的圖樣
- *
- * 原本這裡是細胞自動機（相鄰滿五格就長雲）加上「削掉過大的雲團」兩道。
- * 那組規則其實是收斂到空的：起始填充率不到一半時，四回合下來剩不到一成，
- * 而削雲團那一段又是整團由外往內剝一圈、連剝六回——
- * 一大塊會被剝到只剩正中心幾格。
- *
- * 實際跑出來全世界只有十二格雲，而且全擠在同一條 Z 帶上。
- * 雲只往 +X 飄，那條帶以外的地面於是從頭到尾都不會有雲經過——
- * 雲影查了很久查不出來，真正的原因就在這裡，著色器一直是好的。
- *
- * 改成兩層噪音疊起來、取分位數當門檻。覆蓋率是指定的而不是算出來的，
- * 低頻那一層決定一朵雲多大，高頻那一層負責咬出邊緣的缺口
- */
-function createCloudPattern(
-  random: () => number,
-  size: number,
-  coverage: number,
-  octaveList: readonly { density: number; weight: number }[],
-): boolean[] {
-  const fieldList = Array.from({ length: size * size }, () => 0)
-
-  for (const octave of octaveList) {
-    const noiseList = createTileableNoise(random, size, Math.round(size * octave.density))
-    for (let index = 0; index < fieldList.length; index++) {
-      fieldList[index] = (fieldList[index] ?? 0) + (noiseList[index] ?? 0) * octave.weight
-    }
-  }
-
-  /**
-   * 門檻取分位數而不是給定值
-   *
-   * 兩層噪音疊起來的分布會隨權重跑，寫死一個值就得重新試一輪。
-   * 由大到小排完取第 N 名當門檻，說覆蓋幾成就真的是幾成
-   */
-  const sortedList = fieldList.slice().sort((a, b) => b - a)
-  const threshold = sortedList[Math.floor(sortedList.length * coverage)] ?? Infinity
-
-  return fieldList.map((value) => value > threshold)
-}
-
-/** 一朵雲的圖樣所需要的兩個噪音疊層 */
-interface CloudNoiseOctave { density: number; weight: number }
-
-interface CloudLayerOptions {
-  /** mesh 與材質的名字 */
-  name: string;
-  /** 隨機種子，兩層雲若共用同一顆，圖樣會長得一模一樣 */
-  seed: string;
-  /** 離地高度 */
-  height: number;
-  /** 單朵雲方塊的邊長 */
-  cellSize: number;
-  /** 雲的厚度 */
-  thickness: number;
-  /** 飄移速度（格 / 秒） */
-  driftSpeed: number;
-  /** 天空被蓋掉幾成 */
-  coverage: number;
-  /** 疊出雲形狀的噪音疊層 */
-  octaveList: readonly CloudNoiseOctave[];
-  /**
-   * 這層雲要不要投影雲影
-   *
-   * 兩層雲都投的話，地面會疊出兩種週期的暗塊，糊成看不出形狀的雜訊。
-   * 只留其中一層——地上那塊暗才對得上頭頂看得到的那朵雲
-   */
-  castsShadow: boolean;
-}
-
-/**
- * Minecraft 風格的雲層
- *
- * 每一朵雲都是實際的方塊，不是貼圖，所以看得到厚度與側面。
- * 整片雲是一個網格，成本只有一個 draw call。
- * 投影雲影的那一層同時也是投影者，地面上會有雲影慢慢掃過
- */
-function createCloudLayer(scene: Scene, options: CloudLayerOptions) {
-  /**
-   * 圖樣本身的格數
-   *
-   * 格數乘上格寬必須剛好等於世界寬度。這是循環世界的硬性條件：
-   * 玩家跨過邊界時位置會平移一整個世界的距離，
-   * 雲的圖樣若不是同一個週期，整片天會在那一瞬間換一副樣子——
-   * 那是全場景唯一不吃霧氣、藏不住的東西。
-   *
-   * 直接由世界寬度除出來。原本這裡寫死 18，乘上格寬 14 是 252，
-   * 而世界寬度是 280，兩個數字其實從來沒對上過；除出來就不會再有下一次
-   */
-  const patternCount = Math.round(WORLD_SIZE / options.cellSize)
-  /** 平鋪幾份，鋪得夠大才不會在天邊看到雲層的邊界 */
-  const tileCount = 9
-
-  const random = createSeededRandom(options.seed)
-  const cellList = createCloudPattern(random, patternCount, options.coverage, options.octaveList)
-
-  const readCell = (grid: boolean[], x: number, z: number) => {
-    /** 座標繞回去，圖樣才能無縫平鋪 */
-    const wrappedX = ((x % patternCount) + patternCount) % patternCount
-    const wrappedZ = ((z % patternCount) + patternCount) % patternCount
-    return grid[wrappedZ * patternCount + wrappedX] === true
-  }
-
-  /**
-   * 地上那塊暗要與頭頂這朵雲是同一朵
-   *
-   * 雲影拿的就是這份圖樣。與其在著色器裡另外鋪一張噪聲——
-   * 那會是另一副雲——不如把算好的結果交過去。
-   * 何況這個世界是循環的，雲影的週期非得與雲一樣不可
-   */
-  if (options.castsShadow) {
-    setCloudShadowPattern(scene, cellList, patternCount, options.cellSize, options.height)
-  }
-
-  const material = createCloudMaterial(`${options.name}-material`, scene)
-  applyCloudColor(material, {
-    color: new Color3(1, 1, 1),
-    hazeColor: GARDEN_FOG_COLOR,
-    visibleRatio: 1,
-  })
-
-  /**
-   * 整片雲是一個網格，只畫露在外面的那些面
-   *
-   * 原本每一格都是獨立的方塊，相鄰兩格之間那兩片牆照樣畫出來，
-   * 隔著半透明的雲面看過去就是一格一格的框線交錯在一起，
-   * 看起來像用積木拼的而不是一朵雲。
-   * 這裡照方塊世界的面剔除做法：鄰居是空的才畫那一面
-   */
-  const halfCount = (patternCount * tileCount) / 2
-  const positionList: number[] = []
-  const normalList: number[] = []
-  const indexList: number[] = []
-
-  const addQuad = (
-    cornerList: [number, number, number][],
-    normal: [number, number, number],
-  ) => {
-    const baseIndex = positionList.length / 3
-    for (const corner of cornerList) {
-      positionList.push(corner[0], corner[1], corner[2])
-      normalList.push(normal[0], normal[1], normal[2])
-    }
-    indexList.push(baseIndex, baseIndex + 1, baseIndex + 2, baseIndex, baseIndex + 2, baseIndex + 3)
-  }
-
-  const isFilled = (x: number, z: number) => {
-    if (x < -halfCount || x >= halfCount || z < -halfCount || z >= halfCount)
-      return false
-    return readCell(cellList, x, z)
-  }
-
-  const halfThickness = options.thickness / 2
-  for (let x = -halfCount; x < halfCount; x++) {
-    for (let z = -halfCount; z < halfCount; z++) {
-      if (!isFilled(x, z))
-        continue
-
-      const minX = x * options.cellSize
-      const maxX = minX + options.cellSize
-      const minZ = z * options.cellSize
-      const maxZ = minZ + options.cellSize
-
-      addQuad([
-        [minX, halfThickness, minZ],
-        [minX, halfThickness, maxZ],
-        [maxX, halfThickness, maxZ],
-        [maxX, halfThickness, minZ],
-      ], [0, 1, 0])
-
-      addQuad([
-        [minX, -halfThickness, maxZ],
-        [minX, -halfThickness, minZ],
-        [maxX, -halfThickness, minZ],
-        [maxX, -halfThickness, maxZ],
-      ], [0, -1, 0])
-
-      if (!isFilled(x - 1, z)) {
-        addQuad([
-          [minX, halfThickness, minZ],
-          [minX, -halfThickness, minZ],
-          [minX, -halfThickness, maxZ],
-          [minX, halfThickness, maxZ],
-        ], [-1, 0, 0])
-      }
-      if (!isFilled(x + 1, z)) {
-        addQuad([
-          [maxX, halfThickness, maxZ],
-          [maxX, -halfThickness, maxZ],
-          [maxX, -halfThickness, minZ],
-          [maxX, halfThickness, minZ],
-        ], [1, 0, 0])
-      }
-      if (!isFilled(x, z - 1)) {
-        addQuad([
-          [maxX, halfThickness, minZ],
-          [maxX, -halfThickness, minZ],
-          [minX, -halfThickness, minZ],
-          [minX, halfThickness, minZ],
-        ], [0, 0, -1])
-      }
-      if (!isFilled(x, z + 1)) {
-        addQuad([
-          [minX, halfThickness, maxZ],
-          [minX, -halfThickness, maxZ],
-          [maxX, -halfThickness, maxZ],
-          [maxX, halfThickness, maxZ],
-        ], [0, 0, 1])
-      }
-    }
-  }
-
-  const cloudMesh = new Mesh(options.name, scene)
-  const vertexData = new VertexData()
-  vertexData.positions = positionList
-  vertexData.normals = normalList
-  vertexData.indices = indexList
-  vertexData.applyToMesh(cloudMesh)
-  /** 雲畫在天空層之後，太陽只能整顆躲在雲後面 */
-  cloudMesh.renderingGroupId = SKY_OVERLAY_RENDERING_GROUP
-
-  cloudMesh.material = material
-  cloudMesh.isPickable = false
-  cloudMesh.receiveShadows = false
-  optOutOfFog(cloudMesh, '交給 use-weather 的 cloudFadeRatio 淡到全透明')
-  cloudMesh.position.set(0, options.height, 0)
-
-  /**
-   * 飄移
-   *
-   * 圖樣每 patternCount 格重複一次，位移滿一個週期就回到完全相同的排列，
-   * 所以直接取餘數歸零，看不出接縫
-   */
-  const driftPeriod = patternCount * options.cellSize
-  let elapsed = 0
-  scene.onBeforeRenderObservable.add(() => {
-    measureSection('雲飄移', () => {
-      elapsed += scene.getEngine().getDeltaTime() / 1000
-      cloudMesh.position.x = (elapsed * options.driftSpeed) % driftPeriod
-      /** 地上的雲影要跟著一起飄，不然影子會停在原地 */
-      if (options.castsShadow) {
-        setCloudShadowDrift(cloudMesh.position.x)
-      }
-    })
-  })
-
-  return material
-}
-
-/** 取得雲層材質，兩層都算——use-weather.ts 對雲的淡入淡出是逐一材質處理的 */
-export function getCloudMaterialList(scene: Scene): ShaderMaterial[] {
-  return [CLOUD_LAYER_NAME, CLOUD_LAYER_HIGH_NAME]
-    .map((name) => scene.getMeshByName(name)?.material as ShaderMaterial | undefined)
-    .filter((material): material is ShaderMaterial => !!material)
 }
 
 /** 取得太陽本體與光暈的材質 */
@@ -1997,11 +1616,11 @@ export function useBabylonScene(param?: UseBabylonSceneParam) {
 
   onBeforeUnmount(() => {
     /**
-     * 雲的覆蓋圖存在模組層，場景收掉不會連它一起收
+     * 雲影的俯視圖參照存在模組層，場景收掉不會連它一起收
      *
-     * 那張圖是掛在場景上的，隨場景一起釋放沒錯，
+     * 那張圖是體積雲掛在場景上的，隨場景一起釋放沒錯，
      * 但模組裡那個參照會指著一張已經死掉的貼圖——
-     * 下一次進來時若還沒重新生出圖樣，材質就會綁到它
+     * 下一次進來時若雲還沒畫出第一張，材質就會綁到它
      */
     disposeCloudShadow()
     engine.value?.dispose()

@@ -82,7 +82,7 @@ const SECTION_LABEL_EN_MAP: Record<string, string> = {
   營火動畫: 'Campfire',
   羊群: 'Sheep flock',
   陰影追蹤: 'Shadow tracking',
-  雲飄移: 'Cloud drift',
+  體積雲: 'Volumetric clouds',
 }
 
 /** 依語系取得區段的顯示名稱 */

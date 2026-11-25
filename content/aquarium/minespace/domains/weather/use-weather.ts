@@ -13,7 +13,6 @@ import type { Wetness } from './wetness'
 import { Color3 } from '@babylonjs/core'
 import { onBeforeUnmount, ref } from 'vue'
 import {
-  getCloudMaterialList,
   getOvercastMaterial,
   getSkyMaterial,
 } from '../../composables/use-babylon-scene'
@@ -31,7 +30,6 @@ import {
   SNOW_ATMOSPHERE,
   SWAMP_ATMOSPHERE,
 } from './atmosphere'
-import { applyCloudColor } from './cloud-material'
 import { createFallingLeaves } from './falling-leaves'
 import { createGroundMist, getDawnMistRatio } from './ground-mist'
 import { createRainParticles } from './rain-particles'
@@ -39,6 +37,7 @@ import { applySkyGradient } from './sky-gradient'
 import { createSkyReflectionTexture, SKY_REFLECTION_UPDATE_INTERVAL, updateSkyReflectionTexture } from './sky-reflection'
 import { createSnowParticles } from './snow-particles'
 import { createSwampMist } from './swamp-mist'
+import { volumetricCloudState } from './volumetric-cloud/volumetric-cloud'
 import { createWetness } from './wetness'
 
 /**
@@ -193,8 +192,12 @@ const WET_DRY_SPEED = 1 / 45
 /**
  * 灰罩蓋到幾成不透明時，雲要已經完全不見
  *
- * 雲得走在灰罩前面。雲有深度預寫，只要還在就會在灰罩上挖出一塊
- * 沒被蓋到的洞；等到灰罩都蓋滿了才開始淡，那塊洞會一直留到最後。
+ * 方塊雲的年代這是硬性條件：那時的雲有深度預寫，只要還在就會在灰罩上
+ * 挖出一塊沒被蓋到的洞。體積雲一筆深度都不寫、又排在灰罩前面畫，
+ * 洞不會再出現了。
+ *
+ * 留著它是為了效能：體積雲是全場最貴的一項，雲一淡到零就整個不跑。
+ * 灰罩蓋到六成時底下的雲已經幾乎看不出來，那之後還在行進是白花錢。
  *
  * 給 0.6 而不是 1：留四成的餘裕讓灰罩安靜地補上最後那一段，
  * 人不會看到「雲剛好在天要暗下來的同一刻消失」這種巧合
@@ -445,7 +448,6 @@ export function useWeather() {
 
     const skyMaterial = getSkyMaterial(scene)
     const overcastMaterial = getOvercastMaterial(scene)
-    const cloudMaterialList = getCloudMaterialList(scene)
 
     /** 壓暗過的天氣霧色，每幀就地覆寫，不要每幀配置新的顏色物件 */
     const nightMistColor = new Color3()
@@ -455,8 +457,6 @@ export function useWeather() {
     /** 雨天往霧色靠攏後的天頂色與中空色，同樣就地覆寫 */
     const rainZenithColor = new Color3()
     const rainMidColor = new Color3()
-    /** 這一刻的雲色 */
-    const cloudColor = new Color3()
 
     scene.onBeforeRenderObservable.add(() => {
       measureSection('天氣', () => {
@@ -653,11 +653,10 @@ export function useWeather() {
          * 同一個霧色餵進去，雲出來是原值、灰罩被 ACES 壓過，
          * 亮度差了快兩成，雲反而成了那片白上更白的一塊。
          *
-         * 也不能指望灰罩蓋住它。灰罩掛在鏡頭外一百二十五格、
-         * 雲只在頭頂一百格，深度測試會判定灰罩被雲擋著，
-         * 於是四周都蓋上了，雲的位置卻留著一塊沒被蓋到的洞。
+         * 方塊雲的年代還有第二個理由：雲寫深度，灰罩蓋不住它。
+         * 體積雲不寫深度、排在灰罩前面畫，這一條已經不成立，
+         * 剩下的是顏色與效能（見 CLOUD_VANISH_AT_OVERCAST）。
          *
-         * 顏色對不起來、蓋也蓋不住，那就讓它自己淡掉。
          * 除以 0.6 是要它在灰罩蓋到六成時就已經完全不見——
          * 雲得先走，灰罩才收得乾淨
          */
@@ -713,35 +712,21 @@ export function useWeather() {
         atmosphere.skyBodyFade = Math.max(0, 1 - Math.max(rainRatio * 1.6, snowRatio * 2.2, edgeRatio * 1.6))
 
         /**
-         * 雲的顏色與濃度
+         * 雲的天氣
          *
-         * 雨天轉成陰沉的鉛灰；走到世界邊界時整個淡掉。
+         * 雨天：雲先變多、變暗，鉛灰的雲底壓下來，接著灰罩才接手。
+         * 走到世界邊界與暴風雪：整個淡掉。
          *
-         * 邊界那個不能交給外面的灰罩去蓋。灰罩掛在鏡頭外一百二十五格，
-         * 雲卻只在頭頂一百格出頭——雲比灰罩近，深度測試會讓灰罩被雲擋在後面，
-         * 於是四周全白了，抬頭卻還看得到幾朵雲飄過去。
-         *
-         * 也不能只把它染成霧色。雲與白幕跑的是兩套著色器，
-         * 一邊沒有色調映射、一邊有，同一個顏色餵進去出來就不一樣。
-         * 唯一可靠的是把它淡到沒有，順便把顏色也帶過去，
-         * 淡的過程才不會看到一朵有顏色的雲愈來愈透明
+         * 邊界那個不能交給外面的灰罩去蓋，也不能只染成霧色：
+         * 雲與白幕跑的是兩套著色器，同一個顏色餵進去出來不一樣，
+         * 唯一可靠的是把它淡到沒有。光的顏色與亮度由日夜循環寫，
+         * 這裡只寫天氣那幾欄，兩邊不會互相蓋掉
          */
-        for (const material of cloudMaterialList) {
-          /** 基準亮度由日夜循環給，雲才會跟著入夜一起暗下來 */
-          const brightness = lerp(atmosphere.cloudBrightness, atmosphere.cloudBrightness * 0.4, rainRatio)
-          /** 淡的同時把顏色也帶到霧色，過程中才不會看到一朵有顏色的雲愈來愈透明 */
-          cloudColor.set(
-            lerp(brightness, atmosphere.fogColor.r, cloudFadeRatio),
-            lerp(brightness, atmosphere.fogColor.g, cloudFadeRatio),
-            lerp(brightness + 0.03, atmosphere.fogColor.b, cloudFadeRatio),
-          )
-          /** 遠方的雲化進霧色，才不會在地平線上疊成一道亮帶 */
-          applyCloudColor(material, {
-            color: cloudColor,
-            hazeColor: atmosphere.baseFogColor,
-            visibleRatio: 1 - cloudFadeRatio,
-          })
-        }
+        volumetricCloudState.rainRatio = rainRatio
+        volumetricCloudState.visibleRatio = 1 - cloudFadeRatio
+        volumetricCloudState.flashRatio = atmosphere.flashRatio
+        /** 遠方的雲化進霧的基準色，而不是此刻的霧色：雨霧是貼地的，雲上面沒有 */
+        volumetricCloudState.hazeColor.copyFrom(atmosphere.baseFogColor)
 
         /**
          * 粒子跟著日夜一起暗

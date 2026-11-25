@@ -26,6 +26,7 @@ import {
   wrapTimeOfDay,
 } from '../domains/weather/day-night'
 import { applySkyGradient } from '../domains/weather/sky-gradient'
+import { volumetricCloudState } from '../domains/weather/volumetric-cloud/volumetric-cloud'
 import {
   getMoonMaterialList,
   getSkyMaterial,
@@ -260,6 +261,7 @@ export function useDayNight() {
         sampleDayNight(currentTime, sample)
 
         applyToAtmosphere(atmosphere)
+        applyToCloud()
         applyToLight(sunLight)
         applyToSkyBody({
           sunDisc,
@@ -357,6 +359,59 @@ export function useDayNight() {
     atmosphere.skyGlowColor.copyFrom(sample.skyGlowColor)
     atmosphere.skyCounterColor.copyFrom(sample.skyCounterColor)
     atmosphere.skyGlowStrength = sample.skyGlowStrength
+  }
+
+  /**
+   * 這一刻雲被什麼光照著
+   *
+   * 不直接沿用平行光那一份，有兩處不同。
+   *
+   * 一是換邊的時間點。平行光在太陽一碰到地平線就換成月亮，
+   * 貼著地平線那一段還會整個關掉（避免影子翻面）。但雲在一百多格高，
+   * 太陽落到地平線下一點點時它們還照得到——日落後天上那幾朵粉紅的雲
+   * 正是這樣來的。所以太陽要沉到 -0.1 以下才換月亮。
+   *
+   * 二是顏色。太陽越低，照到雲上的光走過的大氣越長，越紅；
+   * 平行光的顏色是為地面調的，往天邊的暖光那一端多靠一些，
+   * 雲頂才會被染成霞色而不是單純的黃
+   */
+  function applyToCloud(): void {
+    const state = volumetricCloudState
+    const isSunLit = sample.sunHeight > -0.1
+
+    state.lightDirection
+      .copyFrom(isSunLit ? sample.sunPosition : sample.moonPosition)
+      .normalize()
+
+    const gate = isSunLit
+      ? smoothRange(sample.sunHeight, -0.1, 0.02)
+      : smoothRange(-sample.sunHeight, 0.1, 0.24)
+    const glowRatio = isSunLit ? 1 - smoothRange(sample.sunHeight, 0, 0.3) : 0
+    const brightness = sample.cloudBrightness * gate
+
+    state.lightColor.set(
+      lerp(sample.lightColor.r, sample.skyGlowColor.r, glowRatio) * brightness,
+      lerp(sample.lightColor.g, sample.skyGlowColor.g, glowRatio) * brightness,
+      lerp(sample.lightColor.b, sample.skyGlowColor.b, glowRatio) * brightness,
+    )
+
+    /**
+     * 天光：雲頂吃天頂與中空的平均，雲底吃中空與地面反上來的光
+     *
+     * 白沙會把陽光反上去，晴天的雲底因此帶一點暖；
+     * 天色本身已經跟著日夜暗下來了，不必再乘一次亮度
+     */
+    state.ambientTop.set(
+      (sample.skyZenithColor.r + sample.skyMidColor.r) * 0.5,
+      (sample.skyZenithColor.g + sample.skyMidColor.g) * 0.5,
+      (sample.skyZenithColor.b + sample.skyMidColor.b) * 0.5,
+    )
+    const groundBounce = sample.cloudBrightness * 0.6
+    state.ambientBottom.set(
+      (sample.skyMidColor.r + sample.ambientGroundColor.r * groundBounce) * 0.5,
+      (sample.skyMidColor.g + sample.ambientGroundColor.g * groundBounce) * 0.5,
+      (sample.skyMidColor.b + sample.ambientGroundColor.b * groundBounce) * 0.5,
+    )
   }
 
   /** 轉動平行光。強度與顏色留給漫遊控制器套用，那裡還要疊洞穴與陰天 */

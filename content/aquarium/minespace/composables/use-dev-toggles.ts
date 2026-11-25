@@ -15,6 +15,7 @@ export const DEV_TOGGLE_LIST = [
   { key: 'lampGlow', label: { 'zh-hant': '燈火光暈', 'en': 'Lamp glow' } },
   { key: 'skyGlow', label: { 'zh-hant': '日月光暈', 'en': 'Sun & moon glow' } },
   { key: 'aerialPerspective', label: { 'zh-hant': '大氣透視', 'en': 'Aerial perspective' } },
+  { key: 'volumetricCloud', label: { 'zh-hant': '體積雲', 'en': 'Volumetric clouds' } },
   { key: 'cloudShadow', label: { 'zh-hant': '雲影', 'en': 'Cloud shadow' } },
   { key: 'leafTranslucency', label: { 'zh-hant': '葉片透光', 'en': 'Leaf translucency' } },
   { key: 'dithering', label: { 'zh-hant': '打散色階', 'en': 'Dithering' } },

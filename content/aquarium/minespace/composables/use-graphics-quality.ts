@@ -97,6 +97,16 @@ export interface QualityPreset {
   waterCaustics: boolean;
   /** 岸線與漣漪 */
   waterShoreline: boolean;
+  /**
+   * 體積雲的行進解析度，相對於算繪解析度的邊長比例
+   *
+   * 雲是柔的，半解析度看不出差別；再由時間累積把抖動的雜訊磨平
+   */
+  cloudResolutionRatio: number;
+  /** 體積雲沿著視線走幾步，時間累積會再把它乘上十倍左右 */
+  cloudStepCount: number;
+  /** 每一步朝太陽探幾次，決定雲底與背光面暗得多真 */
+  cloudLightStepCount: number;
   /** 粒子數量相對於基準的倍率 */
   particleRatio: number;
   /** 一盞燈的光暈圓盤切成幾邊 */
@@ -138,6 +148,9 @@ export const QUALITY_PRESET_MAP: Record<GraphicsQuality, QualityPreset> = {
     mirrorSizeLarge: 0,
     waterCaustics: false,
     waterShoreline: false,
+    cloudResolutionRatio: 0.5,
+    cloudStepCount: 40,
+    cloudLightStepCount: 3,
     particleRatio: 0.36,
     glowTessellation: 10,
   },
@@ -169,6 +182,9 @@ export const QUALITY_PRESET_MAP: Record<GraphicsQuality, QualityPreset> = {
     mirrorSizeLarge: 256,
     waterCaustics: true,
     waterShoreline: true,
+    cloudResolutionRatio: 0.4,
+    cloudStepCount: 56,
+    cloudLightStepCount: 4,
     particleRatio: 0.7,
     glowTessellation: 16,
   },
@@ -200,6 +216,9 @@ export const QUALITY_PRESET_MAP: Record<GraphicsQuality, QualityPreset> = {
     mirrorSizeLarge: 512,
     waterCaustics: true,
     waterShoreline: true,
+    cloudResolutionRatio: 0.5,
+    cloudStepCount: 72,
+    cloudLightStepCount: 5,
     particleRatio: 1,
     glowTessellation: 24,
   },
@@ -259,6 +278,9 @@ export const QUALITY_PRESET_MAP: Record<GraphicsQuality, QualityPreset> = {
     mirrorSizeLarge: 512,
     waterCaustics: true,
     waterShoreline: true,
+    cloudResolutionRatio: 0.5,
+    cloudStepCount: 96,
+    cloudLightStepCount: 6,
     particleRatio: 1,
     glowTessellation: 24,
   },
