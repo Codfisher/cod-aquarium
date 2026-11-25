@@ -58,6 +58,7 @@ export const CLOUD_UNIFORM_NAME_LIST = [
   'cloudCameraPosition',
   'cloudWindDirection',
   'cloudMarchSetting',
+  'cloudEvolve',
 ]
 
 export const CLOUD_SAMPLER_NAME_LIST = [
@@ -76,7 +77,8 @@ export const CLOUD_SAMPLER_NAME_LIST = [
  * cloudHaze     遠方化進天色的距離、開始變透明的距離、完全透明的距離、整體濃度
  * cloudCirrus   卷雲高度、卷雲覆蓋率、卷雲不透明度、卷雲頻率
  * cloudLighting 太陽增益、環境光增益、粉末效應強度、閃電
- * cloudMarchSetting 最短步距、從多遠開始省略細節與光線步數、未用、未用
+ * cloudMarchSetting 最短步距、從多遠開始省略細節與光線步數、跳過空白時放大幾倍步距、未用
+ * cloudEvolve   基底雜訊相對天氣圖的位移（雲自己長、自己散），w 是細節扭曲的強度
  */
 export const CLOUD_COMMON_GLSL = `
 precision highp sampler3D;
@@ -100,6 +102,7 @@ uniform vec4 cloudLighting;
 uniform vec3 cloudCameraPosition;
 uniform vec2 cloudWindDirection;
 uniform vec4 cloudMarchSetting;
+uniform vec4 cloudEvolve;
 
 const float CLOUD_PI = 3.14159265;
 
@@ -190,17 +193,21 @@ float cloudDensity(vec3 position, float heightRatio, bool isCheap) {
     return 0.0;
   }
 
-  vec4 base = textureLod(cloudBaseSampler, point * cloudScale.x, 0.0);
+  vec3 basePoint = point + cloudEvolve.xyz;
+  vec4 base = textureLod(cloudBaseSampler, basePoint * cloudScale.x, 0.0);
   float lowFbm = dot(base.gba, vec3(0.625, 0.25, 0.125));
   float shape = clamp(cloudRemap(base.r, lowFbm - 1.0, 1.0, 0.0, 1.0), 0.0, 1.0);
   shape = clamp(cloudRemap(shape, 0.72, 0.93, 0.0, 1.0), 0.0, 1.0);
 
   float density = clamp(cloudRemap(shape * profile, 1.0 - coverage, 1.0, 0.0, 1.0), 0.0, 1.0);
+  density *= mix(0.4, 1.0, smoothstep(0.0, 0.3, heightRatio));
   if (density <= 0.0 || isCheap) {
     return density;
   }
 
-  vec3 detailPoint = point * cloudScale.y + vec3(cloudOrigin.w * 0.6, -cloudOrigin.w * 0.25, cloudOrigin.w * 0.15);
+  vec3 swirl = (base.gba - 0.5) * cloudEvolve.w * (1.0 - heightRatio * 0.5);
+  vec3 detailPoint = basePoint * cloudScale.y + swirl
+    + vec3(cloudOrigin.w * 0.6, -cloudOrigin.w * 0.25, cloudOrigin.w * 0.15);
   vec3 detail = textureLod(cloudDetailSampler, detailPoint, 0.0).rgb;
   float detailFbm = dot(detail, vec3(0.625, 0.25, 0.125));
   float modifier = mix(detailFbm, 1.0 - detailFbm, clamp(heightRatio * 4.0, 0.0, 1.0));
@@ -237,7 +244,7 @@ float cloudLightOpticalDepth(vec3 position, int lightStepCount) {
       break;
     }
     float heightRatio = clamp((altitude - cloudLayer.x) / thickness, 0.0, 1.0);
-    opticalDepth += cloudDensity(samplePosition, heightRatio, index > 1) * segment;
+    opticalDepth += cloudDensity(samplePosition, heightRatio, index > 0) * segment;
     travelled += segment;
     stepLength *= 1.8;
   }
@@ -262,8 +269,14 @@ vec3 cloudSunScattering(float lightOpticalDepth, float cosAngle) {
 }
 
 float cloudNoiseFrame(vec2 pixel, float frame) {
-  vec2 shifted = pixel + 5.588238 * frame;
-  return fract(52.9829189 * fract(dot(shifted, vec2(0.06711056, 0.00583715))));
+  float spatial = fract(52.9829189 * fract(dot(pixel, vec2(0.06711056, 0.00583715))));
+  return fract(spatial + frame * 0.61803398875);
+}
+
+float cloudInScatterProbability(float density, float heightRatio) {
+  float depthProbability = 0.05 + pow(density, cloudRemap(clamp(heightRatio, 0.3, 0.85), 0.3, 0.85, 0.5, 2.0));
+  float verticalProbability = pow(clamp(cloudRemap(heightRatio, 0.07, 0.22, 0.1, 1.0), 0.1, 1.0), 0.8);
+  return clamp(depthProbability * verticalProbability, 0.0, 1.0);
 }
 
 vec4 cloudMarch(vec3 origin, vec3 direction, int stepCount, int lightStepCount, float jitter, out float cloudDistance) {
@@ -282,49 +295,72 @@ vec4 cloudMarch(vec3 origin, vec3 direction, int stepCount, int lightStepCount, 
 
   int adaptiveStepCount = int(clamp(marchLength / cloudMarchSetting.x, float(stepCount) * 0.4, float(stepCount)));
   float stepLength = marchLength / float(adaptiveStepCount);
+  float coarseLength = stepLength * cloudMarchSetting.z;
   float travelled = startDistance + stepLength * jitter;
   float cosAngle = dot(direction, cloudSunDirection);
   float thickness = cloudLayer.y - cloudLayer.x;
+  float powderBlend = clamp(0.5 - 0.5 * cosAngle, 0.0, 1.0) * cloudLighting.z;
 
   vec3 radiance = vec3(0.0);
   float transmittance = 1.0;
   float weightedDistance = 0.0;
   float weightTotal = 0.0;
+  bool isInside = false;
+  int emptyCount = 0;
 
-  for (int index = 0; index < 192; index++) {
-    if (index >= adaptiveStepCount || transmittance < 0.01) {
+  for (int index = 0; index < 256; index++) {
+    if (index >= adaptiveStepCount * 2 || travelled > endDistance || transmittance < 0.02) {
       break;
     }
 
     vec3 samplePosition = origin + direction * travelled;
     float heightRatio = clamp((cloudAltitude(samplePosition) - cloudLayer.x) / thickness, 0.0, 1.0);
+
+    if (!isInside) {
+      float probe = cloudDensity(samplePosition, heightRatio, true);
+      if (probe <= 0.0) {
+        travelled += coarseLength;
+        continue;
+      }
+      isInside = true;
+      emptyCount = 0;
+      travelled = max(startDistance, travelled - coarseLength + stepLength);
+      continue;
+    }
+
     bool isFar = travelled > cloudMarchSetting.y;
     float density = cloudDensity(samplePosition, heightRatio, isFar);
 
-    if (density > 0.0) {
-      float extinction = density * cloudShape.y;
-      float lightDepth = cloudLightOpticalDepth(samplePosition, isFar ? min(lightStepCount, 3) : lightStepCount);
-
-      vec3 sunTerm = cloudSunScattering(lightDepth, cosAngle);
-      float powderRaw = 1.0 - exp(-density * 3.5);
-      float powderBlend = clamp(0.5 - 0.5 * cosAngle, 0.0, 1.0) * cloudLighting.z;
-      sunTerm *= mix(1.0, powderRaw, powderBlend);
-
-      float ambientShade = mix(0.55, 1.0, heightRatio);
-      vec3 ambient = mix(cloudAmbientBottom, cloudAmbientTop, smoothstep(0.0, 1.0, heightRatio)) * ambientShade;
-      ambient *= cloudLighting.y;
-      ambient += vec3(cloudLighting.w);
-
-      vec3 source = (sunTerm + ambient) * cloudShape.z;
-      float stepTransmittance = exp(-extinction * stepLength);
-      vec3 integrated = source * (1.0 - stepTransmittance);
-
-      radiance += transmittance * integrated;
-      float absorbed = transmittance * (1.0 - stepTransmittance);
-      weightedDistance += travelled * absorbed;
-      weightTotal += absorbed;
-      transmittance *= stepTransmittance;
+    if (density <= 0.0) {
+      emptyCount++;
+      if (emptyCount >= 3) {
+        isInside = false;
+      }
+      travelled += stepLength;
+      continue;
     }
+    emptyCount = 0;
+
+    float extinction = density * cloudShape.y;
+    float lightDepth = cloudLightOpticalDepth(samplePosition, isFar ? min(lightStepCount, 3) : lightStepCount);
+
+    vec3 sunTerm = cloudSunScattering(lightDepth, cosAngle);
+    sunTerm *= mix(1.0, cloudInScatterProbability(density, heightRatio), powderBlend);
+
+    float ambientShade = mix(0.5, 1.0, heightRatio) * mix(1.0, cloudInScatterProbability(density, heightRatio), 0.35);
+    vec3 ambient = mix(cloudAmbientBottom, cloudAmbientTop, smoothstep(0.0, 1.0, heightRatio)) * ambientShade;
+    ambient *= cloudLighting.y;
+    ambient += vec3(cloudLighting.w);
+
+    vec3 source = (sunTerm + ambient) * cloudShape.z;
+    float stepTransmittance = exp(-extinction * stepLength);
+    vec3 integrated = source * (1.0 - stepTransmittance);
+
+    radiance += transmittance * integrated;
+    float absorbed = transmittance * (1.0 - stepTransmittance);
+    weightedDistance += travelled * absorbed;
+    weightTotal += absorbed;
+    transmittance *= stepTransmittance;
 
     travelled += stepLength;
   }
@@ -411,8 +447,16 @@ vec3 cloudViewRay(vec2 uv) {
 /**
  * 行進
  *
- * 畫在降過解析度的圖上，每一幀起點抖動不同，
- * 由下一趟的時間累積把雜訊磨平
+ * 畫在降過解析度的圖上，每一幀起點抖動不同，由下一趟的時間累積把雜訊磨平。
+ *
+ * ── 曾經試過棋盤重建，又拿掉了 ──
+ *
+ * Nubis 每幀只算十六分之一的像素，其餘靠重投影補。照著做成「2×2 輪流算一格」之後，
+ * 雲一飄就出現四幀一循環的抖動：重投影只能猜雲有多遠（見 CLOUD_RESOLVE_FRAGMENT），
+ * 猜錯的那一點位移在沒輪到的三幀裡一路累積，第四幀新值進來又被拉回去。
+ * 沒輪到的格子還要混一點放大過的四分之一圖，整片雲因此越來越糊。
+ * Nubis 付得起是因為它存了雲的真實深度；這裡省下那張深度圖，
+ * 就得讓每一格每一幀都是新算的——省錢改靠跳過空白與遠處降階
  */
 export const CLOUD_MARCH_FRAGMENT = `
 precision highp float;
@@ -435,12 +479,12 @@ void main() {
 /**
  * 時間累積
  *
- * 這一格雲上一幀在畫面的哪裡：把這條視線碰到雲層的那一點，
+ * 這一格雲上一幀在畫面的哪裡：沿著視線取雲層裡的一點，
  * 加上雲這一幀被吹動的距離，用上一幀的矩陣投影回去。
  *
- * 用的是「碰到雲底的那一點」而不是雲真正的深度。雲在一百多格外，
- * 走路一幀移動不到零點一格，深度猜錯幾十格造成的視差不到一個像素；
- * 轉頭則與深度完全無關。省下一整張深度圖換這點誤差很划算。
+ * 那一點取在「進入雲層之後再走一個雲層厚度」的中段，而不是雲底入口：
+ * 轉頭與雲的距離無關，但風吹的位移換算成畫面上的角度要除以距離，
+ * 用入口去算會高估，雲越斜、高估越多。中段比較接近雲真正的位置。
  *
  * 舊值要先夾進這一幀鄰近九格的範圍裡（變異數裁切，Salvi 2016）。
  * 少了這一步，雲飄走之後原地會留一道拖影——那是上一幀的雲，
@@ -486,7 +530,10 @@ void main() {
 
   vec3 direction = cloudViewRay(vUV);
   vec2 range = cloudShellRange(cloudCameraPosition, direction);
-  float hitDistance = range.x > 0.0 ? range.x : 400.0;
+  float thickness = cloudLayer.y - cloudLayer.x;
+  float hitDistance = range.x > 0.0
+    ? min(range.y, range.x + thickness * 1.5)
+    : 400.0;
   vec3 worldPoint = cloudCameraPosition + direction * hitDistance + cloudShift;
 
   vec4 previousClip = previousViewProjection * vec4(worldPoint, 1.0);

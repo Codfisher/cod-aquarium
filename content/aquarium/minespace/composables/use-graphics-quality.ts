@@ -98,9 +98,11 @@ export interface QualityPreset {
   /** 岸線與漣漪 */
   waterShoreline: boolean;
   /**
-   * 體積雲的行進解析度，相對於算繪解析度的邊長比例
+   * 體積雲的累積解析度，相對於算繪解析度的邊長比例
    *
-   * 雲是柔的，半解析度看不出差別；再由時間累積把抖動的雜訊磨平
+   * 每一格每一幀都要行進，成本與這個數字的平方成正比。
+   * 雲是柔的，半解析度大致看不出差別；高與極致多給一點，
+   * 頭頂最近那幾朵的輪廓才不會糊
    */
   cloudResolutionRatio: number;
   /** 體積雲沿著視線走幾步，時間累積會再把它乘上十倍左右 */
@@ -182,7 +184,7 @@ export const QUALITY_PRESET_MAP: Record<GraphicsQuality, QualityPreset> = {
     mirrorSizeLarge: 256,
     waterCaustics: true,
     waterShoreline: true,
-    cloudResolutionRatio: 0.4,
+    cloudResolutionRatio: 0.5,
     cloudStepCount: 56,
     cloudLightStepCount: 4,
     particleRatio: 0.7,
@@ -216,7 +218,7 @@ export const QUALITY_PRESET_MAP: Record<GraphicsQuality, QualityPreset> = {
     mirrorSizeLarge: 512,
     waterCaustics: true,
     waterShoreline: true,
-    cloudResolutionRatio: 0.5,
+    cloudResolutionRatio: 0.6,
     cloudStepCount: 72,
     cloudLightStepCount: 5,
     particleRatio: 1,
@@ -278,7 +280,7 @@ export const QUALITY_PRESET_MAP: Record<GraphicsQuality, QualityPreset> = {
     mirrorSizeLarge: 512,
     waterCaustics: true,
     waterShoreline: true,
-    cloudResolutionRatio: 0.5,
+    cloudResolutionRatio: 0.75,
     cloudStepCount: 96,
     cloudLightStepCount: 6,
     particleRatio: 1,

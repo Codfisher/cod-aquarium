@@ -98,7 +98,7 @@ const PLANET_RADIUS = 12000
  * 比視野裡看得到的範圍還大，抬頭轉一圈看不出重複
  */
 const BASE_NOISE_PERIOD = 300
-const DETAIL_NOISE_PERIOD = 46
+const DETAIL_NOISE_PERIOD = 34
 const WEATHER_MAP_PERIOD = 3200
 
 /** 天氣圖與兩張雜訊的邊長，取捨見 cloud-noise 的 CloudNoiseSizeOption */
@@ -132,18 +132,46 @@ const ALBEDO = 0.96
 const CLOUD_SKEW = 40
 
 /** 細節侵蝕的強度，大了雲邊會被啃得很碎 */
-const DETAIL_EROSION = 0.5
+const DETAIL_EROSION = 0.6
 
 /**
  * 風（格 / 秒）與方向
  *
- * 舊雲層是 0.6，那是一整片硬塊在平移。體積雲的細節自己還會翻滾，
- * 主體可以飄得快一點，天空才有在動的感覺
+ * 舊雲層是 0.6，那是一整片硬塊在平移。第一版體積雲給 2.2，
+ * 實際看起來還是「固定不變」：雲在兩三百格外，每秒兩格換算成角度
+ * 不到半度，人站著看一分鐘都察覺不到在動。
+ * 後來加上雲自己的演變（見 EVOLVE_RISE_SPEED），天空已經是活的，
+ * 平移不必再扛「看得出在動」這件事。五點五、四點五實際看都太急，
+ * 像快轉的縮時攝影；二點五是頭頂那幾朵每秒挪半度多，
+ * 盯著看才察覺得到在飄，正是禪庭該有的速度
  */
-const WIND_SPEED = 2.2
+const WIND_SPEED = 2.5
 const WIND_DIRECTION = new Vector3(1, 0, 0.34).normalize()
-/** 細節雜訊自己翻滾的速度，與風無關，是雲邊在長、在散 */
-const DETAIL_EVOLVE_SPEED = 0.018
+
+/**
+ * 雲自己的演變
+ *
+ * 光靠風把整片雲平移，看起來是一張貼圖在滑：每一朵的形狀從頭到尾不變。
+ * 真正的積雲是一邊飄一邊長——上升氣流把雲頂一團一團往上推，
+ * 邊緣同時在蒸發。
+ *
+ * 做法是讓基底雜訊相對天氣圖慢慢移動：天氣圖決定「哪裡會有雲」，
+ * 基底決定「雲長什麼樣」，兩者錯開，雲團就會在原地鼓起、分裂、消散。
+ * 往上那一份是雲頂翻騰的方向，側向那一份讓雲團逆著風重組，
+ * 數字照基底的週期（三百格）抓：大約兩三分鐘一朵雲換一副樣子
+ */
+const EVOLVE_RISE_SPEED = 0.45
+const EVOLVE_DRIFT_SPEED = 0.7
+/** 細節雜訊自己翻滾的速度（細節貼圖單位 / 秒），雲邊在長、在散 */
+const DETAIL_EVOLVE_SPEED = 0.03
+/**
+ * 細節雜訊被扭曲的強度（細節貼圖單位）
+ *
+ * 細節原本是規則的 Worley 泡泡，邊緣看起來像一顆顆珍珠。
+ * Nubis 拿 curl 雜訊去扭曲細節的取樣座標，邊緣才會捲成湍流的樣子；
+ * 這裡直接借基底已經讀出來的三個低頻通道當扭曲向量，一次取樣都不多花
+ */
+const DETAIL_SWIRL = 0.55
 
 /**
  * 遠方化進天色的距離與淡出範圍（格）
@@ -174,8 +202,17 @@ const CIRRUS_PERIOD = 5200
 const SUN_GAIN = 14
 const AMBIENT_GAIN = 0.72
 
-/** 粉末效應的強度，零是不做，一是 Schneider 原式的濃度 */
-const POWDER_STRENGTH = 0.55
+/**
+ * 內部散射機率的強度
+ *
+ * 第一版用的是 Schneider 2015 的 powder（一減指數），
+ * 只讓薄的雲邊暗一點，雲團之間的凹縫還是一樣亮，整朵看起來像棉花。
+ * 換成 Nubis 2017 的「深度機率」：越淺、越稀的地方越不容易累積多次散射，
+ * 雲團之間的縫因此暗下去，一球一球的花椰菜才浮出來；
+ * 再乘上「垂直機率」讓雲底那一層也暗一點。
+ * 逆光時不做（光是穿透過來的，不靠內部累積），這個數字是背光時的濃度
+ */
+const POWDER_STRENGTH = 0.75
 
 /** 閃電一閃時雲被照亮多少，雷雨裡整片雲從裡面亮一下 */
 const FLASH_GAIN = 0.9
@@ -199,12 +236,22 @@ const MIN_STEP_LENGTH = 2.2
 const FAR_DETAIL_DISTANCE = 900
 
 /**
+ * 跳過空白時步距放大幾倍
+ *
+ * 天空大半是空的，第一版每一步都完整取樣，連空氣都要查三張圖。
+ * 改成兩段式：在外面用三倍步距、只查天氣圖與基底（便宜的那一半）往前跳，
+ * 一碰到雲就退回一大步、換回細步完整取樣；連續三步都是空的再切回大步。
+ * 雲本身的步數一步都沒少，省下的全是空氣
+ */
+const COARSE_STEP_SCALE = 3
+
+/**
  * 時間累積每一幀採用多少新值
  *
- * 越小越平滑、但雲變形時的拖影越長。一成大約是十幀的記憶，
- * 雲飄得很慢，拖影看不出來
+ * 越小越平滑、但雲變形時的拖影越長。一成五大約是七幀的記憶：
+ * 雲現在自己會長會散（見 EVOLVE_RISE_SPEED），記憶太長會跟不上形狀的變化
  */
-const HISTORY_CURRENT_WEIGHT = 0.1
+const HISTORY_CURRENT_WEIGHT = 0.15
 
 /** 變異數裁切的寬度，越大越平滑、越容易留下拖影 */
 const HISTORY_CLIP_GAMMA = 1.25
@@ -272,6 +319,8 @@ interface FrameUniform {
   coverage: number;
   origin: Vector3;
   detailTime: number;
+  /** 基底雜訊相對天氣圖的位移，見 EVOLVE_RISE_SPEED */
+  evolve: Vector3;
   cameraPosition: Vector3;
   lightDirection: Vector3;
   lightColor: Color3;
@@ -386,6 +435,7 @@ export function createVolumetricCloud(scene: Scene, skyOverlayGroup: number, dom
     coverage: CLEAR_COVERAGE,
     origin: new Vector3(),
     detailTime: 0,
+    evolve: new Vector3(),
     cameraPosition: new Vector3(),
     lightDirection: new Vector3(0, 1, 0),
     lightColor: new Color3(),
@@ -422,7 +472,8 @@ export function createVolumetricCloud(scene: Scene, skyOverlayGroup: number, dom
     effect.setFloat4('cloudLighting', SUN_GAIN, AMBIENT_GAIN, POWDER_STRENGTH, frame.flash)
     effect.setVector3('cloudCameraPosition', frame.cameraPosition)
     effect.setFloat2('cloudWindDirection', WIND_DIRECTION.x, WIND_DIRECTION.z)
-    effect.setFloat4('cloudMarchSetting', MIN_STEP_LENGTH, FAR_DETAIL_DISTANCE, 0, 0)
+    effect.setFloat4('cloudMarchSetting', MIN_STEP_LENGTH, FAR_DETAIL_DISTANCE, COARSE_STEP_SCALE, 0)
+    effect.setFloat4('cloudEvolve', frame.evolve.x, frame.evolve.y, frame.evolve.z, DETAIL_SWIRL)
   }
 
   const effectRenderer = new EffectRenderer(engine)
@@ -446,7 +497,11 @@ export function createVolumetricCloud(scene: Scene, skyOverlayGroup: number, dom
   )
   const shadowWrapper = createWrapper('minespace-cloud-shadow', CLOUD_SHADOW_FRAGMENT, ['shadowArea'], [])
 
-  /** 三張降解析度的圖：這一幀的行進結果，以及輪流讀寫的兩張累積 */
+  /**
+   * 三張降解析度的圖：這一幀的行進結果，以及輪流讀寫的兩張累積
+   *
+   * 三張都是畫質給的解析度，每一格每一幀都重新行進（棋盤重建拿掉的理由見 CLOUD_MARCH_FRAGMENT）
+   */
   let targetWidth = 1
   let targetHeight = 1
   const currentTarget = createTarget(scene, 'cloud-current', targetWidth, targetHeight, targetType)
@@ -618,6 +673,12 @@ export function createVolumetricCloud(scene: Scene, skyOverlayGroup: number, dom
       worldShift.z - WIND_DIRECTION.z * WIND_SPEED * elapsed,
     )
     frame.detailTime = elapsed * DETAIL_EVOLVE_SPEED
+    /** 雲頂往上翻騰，取樣點就往下走；側向逆著風，雲團才是在重組而不是跟著風跑 */
+    frame.evolve.set(
+      WIND_DIRECTION.x * EVOLVE_DRIFT_SPEED * elapsed,
+      -EVOLVE_RISE_SPEED * elapsed,
+      WIND_DIRECTION.z * EVOLVE_DRIFT_SPEED * elapsed,
+    )
     frame.cameraPosition.copyFrom(position)
     frame.lightDirection.copyFrom(state.lightDirection).normalize()
     frame.lightColor.copyFrom(state.lightColor).scaleToRef(darkness * (1 - state.rainRatio * 0.3), frame.lightColor)
