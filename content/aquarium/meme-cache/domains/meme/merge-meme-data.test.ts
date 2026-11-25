@@ -103,4 +103,19 @@ describe('mergeMemeDataList', () => {
     expect(first[0]?.file).toBe('b.webp')
     expect(first[0]?.emotion).toBe('生氣')
   })
+
+  it('任一份資料標記排除的圖都不列入', () => {
+    const baseMap = new Map([
+      ['a.webp', createMeme({ file: 'a.webp' })],
+      ['b.webp', createMeme({ file: 'b.webp', excluded: true })],
+      ['c.webp', createMeme({ file: 'c.webp' })],
+    ])
+    const extendMap = new Map([
+      ['c.webp', createMeme({ file: 'c.webp', excluded: true })],
+    ])
+
+    const result = mergeMemeDataList(baseMap, extendMap)
+
+    expect(result.map((item) => item.file)).toEqual(['a.webp'])
+  })
 })

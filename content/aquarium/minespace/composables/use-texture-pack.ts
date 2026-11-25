@@ -1,16 +1,31 @@
-import type { TexturePackId } from '../domains/block/texture-pack'
-import { createSharedComposable, useStorage } from '@vueuse/core'
+import type { TexturePack } from '../domains/block/texture-pack'
 import { computed } from 'vue'
-import { getTexturePack, TEXTURE_PACK_LIST } from '../domains/block/texture-pack'
+import { getTexturePack } from '../domains/block/texture-pack'
+import { renderSettings } from '../domains/render-host/render-settings'
 
 /**
- * 目前用哪一套材質包
+ * 這一套材質包有沒有法線可用，沒有的話設定頁那個開關要收起來
  *
- * 記在瀏覽器裡。挑材質包這件事比畫質更「這是我的世界該長什麼樣」，
- * 下次進來當然要還是同一套
+ * 主執行緒的選單與渲染端都要問，所以獨立成純函式
  */
-export function _useTexturePack() {
-  const packId = useStorage<TexturePackId>('minespace-texture-pack', 'miniPixel')
+export function checkSupportsBump(pack: TexturePack): boolean {
+  return pack.normalFileSet.size > 0
+}
+
+/**
+ * 渲染端讀到的材質包
+ *
+ * 選哪一套、要不要立體紋理都是主執行緒記在瀏覽器裡、再用訊息送來的
+ * （見 use-render-preference）。這裡不碰儲存，worker 裡沒有 localStorage
+ */
+export function useTexturePack() {
+  /**
+   * 記著的那一套可能已經不在了
+   *
+   * 材質包被移掉之後，瀏覽器裡存的還是舊的名字。
+   * 這時要退回第一套，而不是讓整個世界找不到貼圖
+   */
+  const pack = computed(() => getTexturePack(renderSettings.texturePackId))
 
   /**
    * 立體紋理
@@ -19,31 +34,10 @@ export function _useTexturePack() {
    * 會隨太陽移動改變明暗——而不是把陰影畫死在圖上。
    *
    * 但它是有代價的：每一份材質多一次貼圖取樣，著色器也多一段
-   * 切線空間的計算。開關獨立出來，機器跑不動的人可以只要高解析度的圖
+   * 切線空間的計算。開關獨立出來，機器跑不動的人可以只要高解析度的圖。
+   * 真正該不該掛法線：包裡有、而且使用者也要
    */
-  const bumpEnabled = useStorage('minespace-texture-bump', true)
+  const bumpActive = computed(() => checkSupportsBump(pack.value) && renderSettings.isBumpEnabled)
 
-  /**
-   * 記著的那一套可能已經不在了
-   *
-   * 材質包被移掉之後，瀏覽器裡存的還是舊的名字。
-   * 這時要退回第一套，而不是讓整個世界找不到貼圖
-   */
-  const pack = computed(() => getTexturePack(packId.value))
-
-  /** 這一套有沒有法線可用，沒有的話設定頁那個開關要收起來 */
-  const supportsBump = computed(() => pack.value.normalFileSet.size > 0)
-  /** 真正該不該掛法線：包裡有、而且使用者也要 */
-  const bumpActive = computed(() => supportsBump.value && bumpEnabled.value)
-
-  return {
-    packId,
-    pack,
-    packList: TEXTURE_PACK_LIST,
-    bumpEnabled,
-    supportsBump,
-    bumpActive,
-  }
+  return { pack, bumpActive }
 }
-
-export const useTexturePack = createSharedComposable(_useTexturePack)

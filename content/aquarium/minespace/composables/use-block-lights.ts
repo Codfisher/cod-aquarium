@@ -1,7 +1,7 @@
 import type { Scene, UniversalCamera } from '@babylonjs/core'
 import type { BlockLightSource } from '../domains/world/light-source'
 import { ClusteredLightContainer, Color3, PointLight, Vector3 } from '@babylonjs/core'
-import { onBeforeUnmount } from 'vue'
+import { onScopeDispose } from 'vue'
 import { measureSection } from './use-performance-probe'
 
 /** 滿等的燈有多亮 */
@@ -102,7 +102,7 @@ interface LightEntry {
 export function useBlockLights() {
   let cleanup: (() => void) | null = null
 
-  onBeforeUnmount(() => cleanup?.())
+  onScopeDispose(() => cleanup?.())
 
   function start({ scene, camera, sourceList, getDayRatio }: StartParams): void {
     cleanup?.()

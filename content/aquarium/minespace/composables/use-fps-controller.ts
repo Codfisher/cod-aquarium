@@ -1,9 +1,10 @@
 import type { DirectionalLight, HemisphericLight, Scene, UniversalCamera } from '@babylonjs/core'
+import type { RenderInputMessage, RenderMoveKeys } from '../domains/render-host/protocol'
 import type { VoxelGi } from '../domains/renderer/voxel-gi'
 import type { AtmosphereState } from '../domains/weather/atmosphere'
-import type { MobileControlState } from './use-mobile-controller'
 import { Color3 } from '@babylonjs/core'
-import { onBeforeUnmount, reactive, ref } from 'vue'
+import { clamp } from 'remeda'
+import { onScopeDispose, reactive, ref } from 'vue'
 import { BLOCK_DEFS, BlockId, isLavaBlock } from '../domains/block/block-constants'
 import { SPAWN_POSITION } from '../domains/garden/garden-layout'
 import {
@@ -54,15 +55,6 @@ const STEP_SMOOTH_SPEED = 7
 /** 滑鼠靈敏度：位移一像素轉多少弧度 */
 const MOUSE_LOOK_SENSITIVITY = 1 / 1600
 /**
- * 單一次滑鼠事件的位移上限（像素）
- *
- * 一次事件對應的是一批硬體回報，再快的甩滑鼠也到不了這個量級。
- * 超過就是異常值：剛鎖定指標時瀏覽器可能夾帶鎖定前後的座標落差，
- * 分頁切回來、或系統指標加速失控時也會送出上千像素的位移。
- * 這種值不擋下來，畫面會瞬間轉過去
- */
-const MOUSE_MOVE_LIMIT = 260
-/**
  * 單一幀最多轉多少弧度
  *
  * 約十八度。正常揮動滑鼠一幀轉不到這個角度，所以手感完全不受影響；
@@ -93,7 +85,7 @@ const CAVE_AMBIENT_FLOOR = 0.55
  * 環境光染色取樣的頻率（秒）
  *
  * 這是給人一點「間接光」的錯覺用的，色調本來就該變得很慢，
- * 不必跟著幀率算——跟 main-scene.vue 的 trackZone 同一種節流思路
+ * 不必跟著幀率算——跟 render-runtime 的 trackStatus 同一種節流思路
  */
 const GROUND_TINT_SAMPLE_INTERVAL = 0.4
 
@@ -214,28 +206,26 @@ const LAVA_SUBMERGE_DEPTH = 0.5
 interface UseFpsControllerParams {
   scene: Scene;
   camera: UniversalCamera;
-  canvas: HTMLCanvasElement;
   worldState: Uint8Array;
   /** 天氣系統寫入的大氣參數 */
   atmosphere: AtmosphereState;
   /** 體素全局光，沒給就當作沒有這個效果——低畫質可以直接不傳 */
   voxelGi?: VoxelGi | null;
-  mobileControls?: {
-    state: MobileControlState;
-    consumeLookDelta: () => { deltaX: number; deltaY: number };
-  };
 }
 
 /**
- * 漫遊控制器
+ * 漫遊控制器（渲染端）
  *
  * 整合鍵盤 / 觸控移動、重力與 AABB 碰撞、游泳，
  * 並依所在環境調整霧氣與環境光，走進洞穴會自然變暗。
+ *
+ * 這裡只管「怎麼動」，不碰任何輸入裝置：鍵盤、滑鼠、pointer lock 與觸控都在主執行緒
+ * （見 use-input-capture），整理成 input 訊息送來，由 applyInput 收下。
+ * 暫停與游標是否放開也是主執行緒決定的，用 applyControl 收下——
+ * 它們跟著 pointer lock 走，而 pointer lock 只有主執行緒摸得到
  */
 export function useFpsController() {
   let cleanup: (() => void) | null = null
-  let canvasRef: HTMLCanvasElement | null = null
-  let isMobile = false
 
   /** 大氣透視的開關掛在這裡，因為空氣色是跟著霧色一起算的 */
   const { state: devToggle } = useDevToggles()
@@ -251,12 +241,49 @@ export function useFpsController() {
    */
   const isCursorFree = ref(false)
 
-  /** 由 start() 掛上，鬆開操控時順手停下腳步 */
-  let clearMoveKeys: (() => void) | null = null
-
   /** 是否正在操控人物：暫停中或放開滑鼠時鍵盤都不該有作用 */
   function checkControlActive(): boolean {
     return !isPaused.value && !isCursorFree.value
+  }
+
+  /**
+   * 主執行緒送來的輸入狀態
+   *
+   * 按鍵與搖桿是「現在的樣子」，每次整份覆蓋；
+   * 位移是「自上次以來累積的量」，加進累加器、由每一幀取用
+   */
+  const keys: RenderMoveKeys = {
+    isForwardPressed: false,
+    isBackwardPressed: false,
+    isLeftPressed: false,
+    isRightPressed: false,
+    isJumpPressed: false,
+    isSprintPressed: false,
+  }
+  const joystick = { x: 0, z: 0, magnitude: 0 }
+  const touchButton = { isJumpPressed: false, isSprintPressed: false }
+  /** 還沒套用的滑鼠位移（像素） */
+  const mouseLookDelta = { x: 0, y: 0 }
+  /** 還沒套用的觸控視角位移（弧度） */
+  const touchLookDelta = { x: 0, y: 0 }
+
+  function applyInput(message: RenderInputMessage) {
+    Object.assign(keys, message.keys)
+    joystick.x = message.joystick.x
+    joystick.z = message.joystick.z
+    joystick.magnitude = message.joystickMagnitude
+    touchButton.isJumpPressed = message.isTouchJumping
+    touchButton.isSprintPressed = message.isTouchSprinting
+    mouseLookDelta.x += message.mouseDeltaX
+    mouseLookDelta.y += message.mouseDeltaY
+    touchLookDelta.x += message.touchLookDeltaX
+    touchLookDelta.y += message.touchLookDeltaY
+  }
+
+  /** 暫停與游標的狀態，由主執行緒決定 */
+  function applyControl(nextIsPaused: boolean, nextIsCursorFree: boolean) {
+    isPaused.value = nextIsPaused
+    isCursorFree.value = nextIsCursorFree
   }
 
   /** 玩家腳底位置，音景與 HUD 都讀這個 */
@@ -266,32 +293,18 @@ export function useFpsController() {
     z: SPAWN_POSITION.z,
   })
 
-  onBeforeUnmount(() => {
+  onScopeDispose(() => {
     cleanup?.()
   })
 
   function start({
     scene,
     camera,
-    canvas,
     worldState,
     atmosphere,
     voxelGi,
-    mobileControls,
   }: UseFpsControllerParams) {
     cleanup?.()
-
-    isMobile = !!mobileControls
-    canvasRef = canvas
-
-    const keys = {
-      forward: false,
-      backward: false,
-      left: false,
-      right: false,
-      jump: false,
-      sprint: false,
-    }
 
     let velocityY = 0
     let isOnGround = false
@@ -386,53 +399,14 @@ export function useFpsController() {
      * 而且掉幀時整批累積的位移會在同一幀灌進去，後面幾幀還會拖著尾巴繼續轉，
      * 看起來就是「滑鼠沒動，畫面卻自己甩過去」。
      *
-     * 這裡改成自己累積位移、每一幀原封不動套用一次，與觸控走同一條路徑
+     * 這裡改成自己累積位移、每一幀原封不動套用一次，與觸控走同一條路徑。
+     * 渲染端的鏡頭本來就沒有掛任何輸入，這幾行只是確保預設的那幾支不會留著
      */
     camera.speed = 0
     camera.inertia = 0
     camera.inputs.removeByType('FreeCameraKeyboardMoveInput')
     camera.inputs.removeByType('FreeCameraTouchInput')
     camera.inputs.removeByType('FreeCameraMouseInput')
-    camera.detachControl()
-
-    if (mobileControls) {
-      isPaused.value = false
-    }
-
-    /** 這一幀累積到的滑鼠位移（像素） */
-    const mouseLookDelta = { x: 0, y: 0 }
-    /** 剛鎖定指標時的第一筆事件要丟掉 */
-    let hasSettledPointerLock = false
-
-    function clampMouseMove(value: number): number {
-      return Math.max(-MOUSE_MOVE_LIMIT, Math.min(MOUSE_MOVE_LIMIT, value))
-    }
-
-    function handleMouseMove(event: MouseEvent) {
-      if (document.pointerLockElement !== canvas)
-        return
-
-      /**
-       * 剛鎖定的那一筆位移常常是鎖定前後的座標落差
-       *
-       * 值可能是好幾百像素，直接套用畫面會瞬間轉過去
-       */
-      if (!hasSettledPointerLock) {
-        hasSettledPointerLock = true
-        return
-      }
-
-      mouseLookDelta.x += clampMouseMove(event.movementX)
-      mouseLookDelta.y += clampMouseMove(event.movementY)
-    }
-
-    function handleLockStateChange() {
-      hasSettledPointerLock = false
-      if (document.pointerLockElement !== canvas) {
-        mouseLookDelta.x = 0
-        mouseLookDelta.y = 0
-      }
-    }
 
     /**
      * 取出這一幀要套用的視角位移，換算成弧度
@@ -461,136 +435,6 @@ export function useFpsController() {
 
     const ambientLight = scene.getLightByName(AMBIENT_LIGHT_NAME) as HemisphericLight | null
     const sunLight = scene.getLightByName(SUN_LIGHT_NAME) as DirectionalLight | null
-
-    clearMoveKeys = () => {
-      keys.forward = false
-      keys.backward = false
-      keys.left = false
-      keys.right = false
-      keys.jump = false
-      keys.sprint = false
-    }
-
-    function handleKeyDown(event: KeyboardEvent) {
-      /**
-       * Esc 是開關，不是只有開
-       *
-       * 按第一次時，瀏覽器自己解除指標鎖定，選單跟著跳出來；
-       * 但再按一次什麼都不會發生——指標鎖定早就解除了，沒有第二次事件可以接。
-       * 所以選單開著的時候要自己把 Esc 接下來，重新鎖定指標回到漫遊。
-       *
-       * 這一段要擺在最前面：選單開著時焦點通常落在某個按鈕上，
-       * 底下那道「焦點在按鈕上就把鍵盤還給瀏覽器」會先攔截掉
-       */
-      if (event.code === 'Escape' && isPaused.value) {
-        event.preventDefault()
-        resume()
-        return
-      }
-
-      /** 焦點在選單按鈕之類的元素上，鍵盤就該還給瀏覽器 */
-      if (event.target instanceof HTMLElement && event.target.closest('button, a, input, select, textarea')) {
-        return
-      }
-
-      /** 選單開著時不搶鍵盤，Tab 還要在按鈕之間移動焦點 */
-      if (isPaused.value) {
-        return
-      }
-
-      /**
-       * Tab 收放滑鼠
-       *
-       * Esc 是瀏覽器解除鎖定的固定行為，會連選單一起叫出來擋住畫面；
-       * 只想把滑鼠拿回來時按 Tab，世界照樣運轉
-       */
-      if (event.code === 'Tab') {
-        event.preventDefault()
-
-        if (isCursorFree.value) {
-          resume()
-        }
-        else {
-          releaseCursor()
-        }
-        return
-      }
-
-      /** 滑鼠已經放開，鍵盤就不該還在操控人物 */
-      if (isCursorFree.value) {
-        if (event.code === 'Escape') {
-          pause()
-        }
-        return
-      }
-
-      switch (event.code) {
-        case 'KeyW':
-        case 'ArrowUp':
-          keys.forward = true
-          break
-        case 'KeyS':
-        case 'ArrowDown':
-          keys.backward = true
-          break
-        case 'KeyA':
-        case 'ArrowLeft':
-          keys.left = true
-          break
-        case 'KeyD':
-        case 'ArrowRight':
-          keys.right = true
-          break
-        case 'Space':
-          keys.jump = true
-          event.preventDefault()
-          break
-        case 'ShiftLeft':
-        case 'ShiftRight':
-          keys.sprint = true
-          break
-      }
-    }
-
-    function handleKeyUp(event: KeyboardEvent) {
-      switch (event.code) {
-        case 'KeyW':
-        case 'ArrowUp':
-          keys.forward = false
-          break
-        case 'KeyS':
-        case 'ArrowDown':
-          keys.backward = false
-          break
-        case 'KeyA':
-        case 'ArrowLeft':
-          keys.left = false
-          break
-        case 'KeyD':
-        case 'ArrowRight':
-          keys.right = false
-          break
-        case 'Space':
-          keys.jump = false
-          break
-        case 'ShiftLeft':
-        case 'ShiftRight':
-          keys.sprint = false
-          break
-      }
-    }
-
-    function handleCanvasClick() {
-      if (!mobileControls && !isPaused.value) {
-        canvas.requestPointerLock()
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyDown)
-    window.addEventListener('keyup', handleKeyUp)
-    canvas.addEventListener('click', handleCanvasClick)
-    window.addEventListener('mousemove', handleMouseMove)
-    document.addEventListener('pointerlockchange', handleLockStateChange)
 
     /**
      * 頭頂被岩層蓋住的程度，0 為完全露天、1 為深入山腹
@@ -842,19 +686,24 @@ export function useFpsController() {
 
     const observer = scene.onBeforeRenderObservable.add(() => {
       measureSection('漫遊控制器', () => {
-        const deltaTime = Math.min(0.05, scene.getEngine().getDeltaTime() / 1000)
+        /**
+         * 下限也要夾：deltaTime 是兩次時間戳相減，時鐘被校正往回撥時會是負的，
+         * 負的 deltaTime 會讓人倒著走、重力往上拉
+         */
+        const deltaTime = clamp(scene.getEngine().getDeltaTime() / 1000, { min: 0, max: 0.05 })
 
         /**
          * 視角旋轉
          *
-         * 手機讀搖桿、桌機讀累積的滑鼠位移，兩邊都是每一幀原封不動套用一次。
+         * 手機讀觸控累積的位移、桌機讀累積的滑鼠位移（各自只會有一邊有值），
+         * 兩邊都是每一幀原封不動套用一次。
          * 不做慣性也不補間，滑鼠移多少畫面就轉多少，掉幀時也不會多轉
          */
-        const lookDelta = mobileControls
-          ? mobileControls.consumeLookDelta()
-          : consumeMouseLookDelta()
-        camera.rotation.y += lookDelta.deltaX
-        camera.rotation.x += lookDelta.deltaY
+        const mouseLook = consumeMouseLookDelta()
+        camera.rotation.y += mouseLook.deltaX + touchLookDelta.x
+        camera.rotation.x += mouseLook.deltaY + touchLookDelta.y
+        touchLookDelta.x = 0
+        touchLookDelta.y = 0
         camera.rotation.x = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, camera.rotation.x))
 
         /** 依攝影機朝向算出水平移動方向 */
@@ -868,25 +717,24 @@ export function useFpsController() {
         let moveZ = 0
 
         if (checkControlActive()) {
-          if (keys.forward) {
+          if (keys.isForwardPressed) {
             moveX += forwardX
             moveZ += forwardZ
           }
-          if (keys.backward) {
+          if (keys.isBackwardPressed) {
             moveX -= forwardX
             moveZ -= forwardZ
           }
-          if (keys.left) {
+          if (keys.isLeftPressed) {
             moveX -= rightX
             moveZ -= rightZ
           }
-          if (keys.right) {
+          if (keys.isRightPressed) {
             moveX += rightX
             moveZ += rightZ
           }
 
-          const joystick = mobileControls?.state.joystick
-          if (joystick && (joystick.x !== 0 || joystick.z !== 0)) {
+          if (joystick.x !== 0 || joystick.z !== 0) {
             moveX += forwardX * (-joystick.z) + rightX * joystick.x
             moveZ += forwardZ * (-joystick.z) + rightZ * joystick.x
           }
@@ -903,12 +751,11 @@ export function useFpsController() {
         isSwimming.value = inLava || isInWater(worldState, position.x, position.y, position.z)
 
         const moveLength = Math.hypot(moveX, moveZ)
-        const isSprinting = keys.sprint || (mobileControls?.state.sprint ?? false)
-        const shouldJump = checkControlActive() && (keys.jump || (mobileControls?.state.jump ?? false))
+        const isSprinting = keys.isSprintPressed || touchButton.isSprintPressed
+        const shouldJump = checkControlActive() && (keys.isJumpPressed || touchButton.isJumpPressed)
 
         if (moveLength > 0) {
-          const joystickMagnitude = mobileControls?.state.joystickMagnitude ?? 0
-          const analogRatio = joystickMagnitude > 0 ? joystickMagnitude : 1
+          const analogRatio = joystick.magnitude > 0 ? joystick.magnitude : 1
           const speed = MOVE_SPEED
             * (isSprinting ? SPRINT_MULTIPLIER : 1)
             * (isSwimming.value ? WATER_MOVE_RATIO : 1)
@@ -986,97 +833,9 @@ export function useFpsController() {
     })
 
     cleanup = () => {
-      window.removeEventListener('keydown', handleKeyDown)
-      window.removeEventListener('keyup', handleKeyUp)
-      canvas.removeEventListener('click', handleCanvasClick)
-      window.removeEventListener('mousemove', handleMouseMove)
-      document.removeEventListener('pointerlockchange', handleLockStateChange)
       scene.onBeforeRenderObservable.remove(observer)
-      clearMoveKeys = null
-      if (document.pointerLockElement) {
-        document.exitPointerLock()
-      }
     }
   }
-
-  /**
-   * 要求鎖定滑鼠
-   *
-   * 剛按 Esc 解除鎖定之後，瀏覽器會有一秒多的冷卻期擋下所有請求。
-   * 選單的開關是跟著鎖定狀態走的，請求被擋下就等於「按了沒反應」，
-   * 而畫面又已經回到遊戲，看起來就像整個卡住。
-   * 所以失敗了要隔一小段時間再試，直到冷卻期過去
-   */
-  function requestPointerLock(retryCount = 5) {
-    const request = canvasRef?.requestPointerLock() as unknown
-    if (!(request instanceof Promise))
-      return
-
-    request.catch(() => {
-      if (retryCount <= 0 || !canvasRef || document.pointerLockElement === canvasRef)
-        return
-
-      setTimeout(() => requestPointerLock(retryCount - 1), 320)
-    })
-  }
-
-  /** 桌機的暫停狀態交給 Pointer Lock 決定，避免鎖定失敗時狀態不同步 */
-  function resume() {
-    isCursorFree.value = false
-
-    if (isMobile) {
-      isPaused.value = false
-      return
-    }
-
-    requestPointerLock()
-  }
-
-  function pause() {
-    isCursorFree.value = false
-    isPaused.value = true
-
-    if (canvasRef && !isMobile && document.pointerLockElement === canvasRef) {
-      document.exitPointerLock()
-    }
-  }
-
-  /**
-   * 把滑鼠交還給桌面，但不暫停
-   *
-   * 不叫出選單，畫面照樣跑，點一下畫面就回到操控
-   */
-  function releaseCursor() {
-    if (isMobile || isPaused.value)
-      return
-
-    isCursorFree.value = true
-    clearMoveKeys?.()
-
-    if (document.pointerLockElement === canvasRef) {
-      document.exitPointerLock()
-    }
-  }
-
-  function handlePointerLockChange() {
-    if (isMobile)
-      return
-
-    if (document.pointerLockElement === canvasRef) {
-      isCursorFree.value = false
-      isPaused.value = false
-      clearMoveKeys?.()
-      return
-    }
-
-    /** 自己放開滑鼠不算暫停，選單才不會跳出來擋住畫面 */
-    isPaused.value = !isCursorFree.value
-  }
-
-  document.addEventListener('pointerlockchange', handlePointerLockChange)
-  onBeforeUnmount(() => {
-    document.removeEventListener('pointerlockchange', handlePointerLockChange)
-  })
 
   /** 直接把玩家送到指定座標，方便快速旅行 */
   function teleport(x: number, y: number, z: number) {
@@ -1087,9 +846,8 @@ export function useFpsController() {
 
   return {
     start,
-    resume,
-    pause,
-    releaseCursor,
+    applyInput,
+    applyControl,
     teleport,
     isPaused,
     isCursorFree,

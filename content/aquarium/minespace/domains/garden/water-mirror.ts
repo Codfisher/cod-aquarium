@@ -25,6 +25,7 @@ import { useDevToggles } from '../../composables/use-dev-toggles'
 import { useGraphicsQuality } from '../../composables/use-graphics-quality'
 import { BlockId, isWaterBlock, LIQUID_SURFACE_DROP } from '../block/block-constants'
 import { BLOCK_MESH_PREFIX } from '../renderer/voxel-renderer'
+import { CLOUD_REFLECTION_MATERIAL_NAME } from '../weather/volumetric-cloud/volumetric-cloud'
 import { getBlock } from '../world/world-access'
 import { WORLD_HEIGHT } from '../world/world-constants'
 import { getGarden } from './garden-layout'
@@ -317,6 +318,9 @@ export function createWaterMirrors(
     .map((name) => scene.getMeshByName(name))
     .filter((mesh): mesh is NonNullable<typeof mesh> => !!mesh)
 
+  const cloudDome = scene.getMeshByName(CLOUD_LAYER_NAME)
+  const cloudReflectionMaterial = scene.getMaterialByName(CLOUD_REFLECTION_MATERIAL_NAME)
+
   const blockMeshList = scene.meshes.filter((mesh) => mesh.name.startsWith(BLOCK_MESH_PREFIX))
   const renderList = [...skyMeshList, ...blockMeshList]
 
@@ -343,6 +347,16 @@ export function createWaterMirrors(
      */
     texture.mirrorPlane = new Plane(0, -1, 0, surface.surfaceY)
     texture.renderList = renderList
+    /**
+     * 雲在倒影裡換一份材質
+     *
+     * 主畫面的雲是先在降解析度的圖上行進、再按螢幕座標貼回來的；
+     * 倒影的鏡頭是翻過來的，那張圖的方向對不上它。
+     * 倒影改用直接行進的那一份，步數少、只畫這兩三百格見方的小圖
+     */
+    if (cloudDome && cloudReflectionMaterial) {
+      texture.setMaterialForRendering(cloudDome, cloudReflectionMaterial)
+    }
 
     const material = new StandardMaterial(`water-mirror-${gardenId}-material`, scene)
     /**

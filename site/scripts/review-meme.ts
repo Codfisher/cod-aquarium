@@ -27,6 +27,8 @@ interface MemeRow {
   animated?: boolean;
   /** 已由人核對過。未核對的一律視為初稿 */
   reviewed?: boolean;
+  /** 排除的圖不會出現在系統中，不必核對 */
+  excluded?: boolean;
 }
 
 function readLineList(): string[] {
@@ -58,7 +60,7 @@ function toId(file: string) {
 function getPendingList(): MemeRow[] {
   return readLineList()
     .map(parseRow)
-    .filter((row): row is MemeRow => Boolean(row?.file) && !row!.reviewed)
+    .filter((row): row is MemeRow => Boolean(row?.file) && !row!.reviewed && !row!.excluded)
     .reverse()
 }
 

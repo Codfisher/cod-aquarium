@@ -1,5 +1,5 @@
-import type { Material, Scene, UniformBuffer, Vector3 } from '@babylonjs/core'
-import { MaterialPluginBase, RawTexture, RegisterMaterialPlugin, StandardMaterial, Texture } from '@babylonjs/core'
+import type { BaseTexture, Material, UniformBuffer } from '@babylonjs/core'
+import { MaterialPluginBase, RegisterMaterialPlugin, StandardMaterial, Vector3 } from '@babylonjs/core'
 
 /**
  * 雲影最深時擋掉幾成的直射光
@@ -46,17 +46,15 @@ const SKY_SHADE_DEPTH = 0.42
 const SKY_SHADE_RATIO = SKY_SHADE_DEPTH / SHADE_DEPTH
 
 /**
- * 覆蓋率要到多少才開始遮、多少才遮到滿
+ * 擋光量要到多少才開始遮、多少才遮到滿
  *
- * 圖樣本身是全有全無的格子，模糊過之後才有中間值。
- * 這兩個門檻決定雲影的邊緣有多硬：拉近是輪廓分明的積雲影，
- * 拉遠是糊成一片的高層雲。留一段距離，邊緣才有那圈半影。
- *
- * 這兩個數字是照著「零到一」訂的，所以糊完的圖樣必須先正規化，
- * 否則雲小一點就永遠踩不到 COVER_FULL——見 blurPattern
+ * 俯視圖存的是「穿過整層雲之後還剩幾成光」，一減掉它就是擋光量。
+ * 體積雲的邊本來就是漸薄的，影子自然帶著半影，不必再像舊的格子圖樣那樣
+ * 先糊兩輪才有中間值；這兩個門檻只是把很薄的雲紗濾掉、
+ * 讓厚雲的影子早一點到底
  */
-const COVER_START = 0.1
-const COVER_FULL = 0.5
+const COVER_START = 0.04
+const COVER_FULL = 0.8
 
 /**
  * 太陽壓到這麼低就把雲影收掉
@@ -72,38 +70,6 @@ const SUN_HEIGHT_FADE_START = 0.1
 const SUN_HEIGHT_FADE_FULL = 0.32
 
 /**
- * 一格雲要切成幾個紋素
- *
- * 這是雲影邊緣清不清楚的關鍵，而它一開始是一（貼圖與雲的圖樣同解析度）。
- *
- * 問題在於一格雲有十四格寬。糊兩輪等於糊掉兩個紋素，也就是二十八格；
- * 量出來的半影寬度是二十格，而一朵雲的影子總共才五十來格寬——
- * 半影吃掉了將近一半，剩下的不是影子，是一團髒污。
- *
- * 切細之後模糊的半徑就與雲的大小脫鉤了。四倍是每個紋素三點五格，
- * 同樣糊兩輪，半影收到四格。貼圖從 1.6 KB 長到 25 KB，換得回來。
- *
- * 邊緣清楚之後看得出雲的方格輪廓，那是對的：
- * 天上那朵雲本來就是方塊堆的，影子理當跟著有稜有角
- */
-const SHADOW_TEXEL_PER_CELL = 4
-
-/**
- * 圖樣要模糊幾輪
- *
- * 直接雙線性取樣一張全有全無的圖會拉出菱形的塊，糊過才有中間值。
- * 在切細之後的格子上跑，兩輪大約是四格寬的半影。
- *
- * 這裡原本寫著「太陽有半度的張角，邊緣本來就有好幾格寬的半影」。
- * 那句話是錯的，而且錯得很遠：雲在地面上方約七十四格，
- * 半度張角投下來的半影是 74 × tan(0.53°)，也就是零點七格，不到一格。
- *
- * 真正該糊的理由不是太陽的大小，是雲自己的邊本來就不是一刀切的——
- * 厚度往邊緣遞減，遮光量跟著遞減。這幾格半影模擬的是那件事
- */
-const BLUR_PASS_COUNT = 2
-
-/**
  * 這一刻的雲影
  *
  * 與 aerial-perspective 的 airState 同一種寫法：所有材質共用一份，
@@ -113,19 +79,22 @@ const BLUR_PASS_COUNT = 2
 const cloudShadowState = {
   /** 最深遮到幾成，零等於這個效果不存在 */
   strength: 0,
-  /** 雲層此刻往 +X 飄了多遠，要從投影點扣掉才對得回原本的圖樣格 */
-  driftX: 0,
+  /** 俯視圖的中心，跟著鏡頭走 */
+  centerX: 0,
+  centerZ: 0,
+  /** 雲此刻露出多少，陰天罩蓋滿時雲淡掉，影子也跟著淡 */
+  visibleRatio: 0,
   /** 每高出地面一格，投影點要往回退多少（太陽的水平斜率） */
   slopeX: 0,
   slopeZ: 0,
-  /** 雲層高度 */
+  /** 雲底高度，俯視圖就是在這個高度上量的 */
   height: 0,
-  /** 一除以圖樣涵蓋的世界寬度，世界座標乘上它就是貼圖座標 */
+  /** 一除以俯視圖涵蓋的世界寬度，世界座標乘上它就是貼圖座標 */
   inverseSpan: 0,
 }
 
-/** 雲的覆蓋圖，由 createCloudLayer 把它自己那份圖樣交過來 */
-let patternTexture: Texture | null = null
+/** 雲的俯視透光圖，由 volumetric-cloud 每一幀畫好交過來 */
+let shadowMapTexture: BaseTexture | null = null
 
 /**
  * 雲影
@@ -142,14 +111,19 @@ let patternTexture: Texture | null = null
  *
  * ── 為什麼要與真正的雲對得起來 ──
  *
- * 大可隨便鋪一張噪聲。但這個世界是循環的：走過邊界時位置會平移
- * 一整個世界的寬度，雲的圖樣正是為此才做成剛好一個世界寬
- * （見 createCloudLayer 那段說明）。雲影若用另一個週期，
- * 跨過邊界的那一瞬間地上的暗塊會整片換一副樣子。
+ * 大可隨便鋪一張噪聲，但那樣地上的暗塊與頭頂的雲是兩回事，
+ * 抬頭一看就穿幫。
  *
- * 既然週期非得一樣，不如直接拿同一份圖樣：把那些布林值糊一糊烘成一張小圖，
- * 著色器沿著光線往上找就是了。
- * 一次貼圖取樣，換到的是「地上那塊暗確實是頭頂那朵雲的」
+ * 方塊雲的年代，這裡拿的是雲層那份布林圖樣，糊一糊烘成小圖。
+ * 換成體積雲之後，雲的形狀是著色器裡三張雜訊算出來的，CPU 這一側根本不知道。
+ * 所以改由體積雲自己每一幀畫一張俯視圖：在雲底那個高度上，
+ * 每一格朝著光源往上穿過整層雲，記下還透得下多少光（見 CLOUD_SHADOW_FRAGMENT）。
+ * 用的是與天上那朵雲同一份密度函式，地上那塊暗於是確實是頭頂那朵雲的，
+ * 連雲邊被細節雜訊啃出來的缺口都對得上。
+ *
+ * 那張圖只罩住鏡頭附近幾百格，中心跟著鏡頭走。
+ * 循環世界跨過邊界時的平移，由體積雲那邊的 worldShift 補回來，
+ * 這裡只管拿世界座標去查
  *
  * ── 這個效果曾經看起來像壞掉的 ──
  *
@@ -158,12 +132,10 @@ let patternTexture: Texture | null = null
  *
  * 一、雲的圖樣幾乎是空的。舊的雲形狀是細胞自動機加上一道削雲團的侵蝕，
  *     兩者疊起來收斂到只剩十二格雲，而且全擠在同一條 Z 帶上。
- *     雲只往 +X 飄，那條帶以外的地面永遠等不到雲經過
- *     （見 use-babylon-scene 的 createCloudPattern）。
+ *     雲只往 +X 飄，那條帶以外的地面永遠等不到雲經過。
  *
  * 二、門檻踩不到。三乘三糊兩輪之後最濃的一格只剩零點七幾，
- *     而 COVER_FULL 是 0.78——最深的雲影也到不了滿格
- *     （見 blurPattern 末尾那一段正規化）。
+ *     而 COVER_FULL 是 0.78——最深的雲影也到不了滿格。
  *
  * 三、週期對不上世界。圖樣寫死 18 格、格寬 14，乘起來是 252，
  *     而世界寬度是 280。
@@ -198,6 +170,7 @@ class CloudShadowPlugin extends MaterialPluginBase {
       ubo: [
         { name: 'cloudShadowParam', size: 4, type: 'vec4' },
         { name: 'cloudShadowProjection', size: 4, type: 'vec4' },
+        { name: 'cloudShadowArea', size: 4, type: 'vec4' },
       ],
       /**
        * 這一段只有不支援統一緩衝區時才派得上用場
@@ -209,6 +182,7 @@ class CloudShadowPlugin extends MaterialPluginBase {
       fragment: `
         uniform vec4 cloudShadowParam;
         uniform vec4 cloudShadowProjection;
+        uniform vec4 cloudShadowArea;
       `,
     }
   }
@@ -216,9 +190,17 @@ class CloudShadowPlugin extends MaterialPluginBase {
   bindForSubMesh(uniformBuffer: UniformBuffer): void {
     const state = cloudShadowState
 
+    /**
+     * 俯視圖還沒畫出來、或雲整個淡掉時，強度直接給零
+     *
+     * 沒綁的取樣器在 WebGL2 讀出來是全黑，等於「整片都被雲遮住」。
+     * 強度為零時著色器第一行就跳出去，讀不到那張不存在的圖
+     */
+    const strength = shadowMapTexture ? state.strength * state.visibleRatio : 0
+
     uniformBuffer.updateFloat4(
       'cloudShadowParam',
-      state.strength,
+      strength,
       state.inverseSpan,
       COVER_START,
       COVER_FULL,
@@ -228,17 +210,18 @@ class CloudShadowPlugin extends MaterialPluginBase {
       state.slopeX,
       state.slopeZ,
       state.height,
-      state.driftX,
+      0,
+    )
+    uniformBuffer.updateFloat4(
+      'cloudShadowArea',
+      state.centerX,
+      state.centerZ,
+      0,
+      0,
     )
 
-    /**
-     * 圖樣還沒生出來時不綁
-     *
-     * 沒綁的取樣器在 WebGL2 讀出來是全黑，而強度此時還是零，
-     * 乘出來仍然是「沒有雲影」。畫面不會壞，只是那幾幀沒有效果
-     */
-    if (patternTexture) {
-      uniformBuffer.setTexture('cloudShadowSampler', patternTexture)
+    if (shadowMapTexture) {
+      uniformBuffer.setTexture('cloudShadowSampler', shadowMapTexture)
     }
   }
 
@@ -248,15 +231,15 @@ class CloudShadowPlugin extends MaterialPluginBase {
 
     return {
       /**
-       * 沿著光線往上找，看頭頂那個位置有沒有雲
+       * 沿著光線往上找，看頭頂那個位置透得下多少光
        *
-       * 雲在 height 這麼高，光沿著太陽的方向斜射下來。
-       * 腳下這個點被遮住與否，取決於「往回推到雲層高度」的那一格
-       * 是不是雲——所以先依高度差把座標推回去，再扣掉雲此刻飄了多遠，
-       * 剩下的就是原始圖樣裡的位置。
+       * 雲底在 height 這麼高，光沿著太陽的方向斜射下來。
+       * 腳下這個點被遮住與否，取決於「沿著光線往回推到雲底」的那一點
+       * 上面有多少雲——俯視圖存的正是雲底高度上每一點的透光量，
+       * 所以依高度差把座標推回去、換到俯視圖的座標就能查。
        *
-       * 取樣器用重複定址，座標推到圖樣外面會自己繞回來，
-       * 這與循環世界是同一件事
+       * 俯視圖只罩住鏡頭附近一塊。靠近邊緣的那一圈淡掉，
+       * 而不是一刀切：出了圖的範圍什麼都查不到，硬切會在地上留下一道方框
        */
       'CUSTOM_FRAGMENT_DEFINITIONS': `
         uniform sampler2D cloudShadowSampler;
@@ -267,12 +250,15 @@ class CloudShadowPlugin extends MaterialPluginBase {
           }
 
           vec2 cloudPoint = vPositionW.xz
-            - (cloudShadowProjection.z - vPositionW.y) * cloudShadowProjection.xy
-            - vec2(cloudShadowProjection.w, 0.0);
+            - (cloudShadowProjection.z - vPositionW.y) * cloudShadowProjection.xy;
 
-          float cover = texture2D(cloudShadowSampler, cloudPoint * cloudShadowParam.y).r;
+          vec2 shadowUv = (cloudPoint - cloudShadowArea.xy) * cloudShadowParam.y + 0.5;
+          vec2 edgeDistance = min(shadowUv, 1.0 - shadowUv);
+          float edgeFade = smoothstep(0.0, 0.1, min(edgeDistance.x, edgeDistance.y));
 
-          return smoothstep(cloudShadowParam.z, cloudShadowParam.w, cover);
+          float cover = 1.0 - texture2D(cloudShadowSampler, shadowUv).r;
+
+          return smoothstep(cloudShadowParam.z, cloudShadowParam.w, cover) * edgeFade;
         }
       `,
 
@@ -371,150 +357,64 @@ export function registerCloudShadow(): void {
   })
 }
 
-/** 繞著圖樣邊界讀，這與雲層那邊的 readCell 是同一套規則 */
-function readWrapped(valueList: number[], size: number, x: number, z: number): number {
-  const wrappedX = ((x % size) + size) % size
-  const wrappedZ = ((z % size) + size) % size
-  return valueList[wrappedZ * size + wrappedX] ?? 0
+export interface CloudShadowMapParams {
+  texture: BaseTexture;
+  /** 俯視圖中心的世界座標 */
+  centerX: number;
+  centerZ: number;
+  /** 一除以俯視圖涵蓋的世界寬度 */
+  inverseSpan: number;
+  /** 俯視圖量在哪個高度上，也就是雲底 */
+  height: number;
+  /** 雲此刻露出多少 */
+  visibleRatio: number;
 }
 
 /**
- * 把每一格雲切成 SHADOW_TEXEL_PER_CELL 個紋素
+ * 把這一幀的雲影俯視圖交過來
  *
- * 純放大，不內插。要的只是「讓後面的模糊有比較細的格子可以糊」，
- * 這一步本身不該讓邊緣變樣
+ * 由 volumetric-cloud 每一幀呼叫，給 null 代表這一幀沒有雲
+ * （還沒算好、被陰天罩蓋滿、或除錯開關關掉），地上就不該有雲影
  */
-function upsamplePattern(cellList: boolean[], size: number, factor: number): number[] {
-  const fineSize = size * factor
-
-  return Array.from({ length: fineSize * fineSize }, (_, index) => {
-    const x = Math.floor((index % fineSize) / factor)
-    const z = Math.floor(Math.floor(index / fineSize) / factor)
-    return cellList[z * size + x] ? 1 : 0
-  })
-}
-
-/**
- * 把全有全無的雲格糊成有濃淡的覆蓋率
- *
- * 三乘三取平均，跑幾輪。邊界要繞回去，否則圖樣接縫上會出現一條亮線——
- * 而這張圖是要拿去無限平鋪的
- */
-function blurPattern(cellValueList: number[], size: number): number[] {
-  let valueList: number[] = cellValueList.slice()
-
-  for (let pass = 0; pass < BLUR_PASS_COUNT; pass++) {
-    const nextList = valueList.slice()
-    for (let x = 0; x < size; x++) {
-      for (let z = 0; z < size; z++) {
-        let total = 0
-        for (let offsetX = -1; offsetX <= 1; offsetX++) {
-          for (let offsetZ = -1; offsetZ <= 1; offsetZ++) {
-            total += readWrapped(valueList, size, x + offsetX, z + offsetZ)
-          }
-        }
-        nextList[z * size + x] = total / 9
-      }
-    }
-    valueList = nextList
+export function setCloudShadowMap(params: CloudShadowMapParams | null): void {
+  if (!params) {
+    shadowMapTexture = null
+    cloudShadowState.visibleRatio = 0
+    return
   }
 
-  /**
-   * 糊完之後把最濃的一格拉回滿格
-   *
-   * 三乘三取平均只有在「一朵雲寬到中心那格的鄰居全是雲」時才留得住 1.0。
-   * 兩輪之後那要五格寬，而多數雲不到那麼大——最濃的地方只剩零點七幾。
-   * 門檻卻是照著 0 到 1 訂的，於是最深的雲影也永遠踩不到 COVER_FULL，
-   * 整個效果被壓成一層看不太出來的灰。
-   *
-   * 拉回去之後，「雲最厚的地方」對上的就是「影子最深的程度」，
-   * 這兩個數字本來就該是同一件事。雲多雲少都不必再回頭改門檻
-   */
-  const peak = Math.max(...valueList)
-  if (peak <= 0) {
-    return valueList
-  }
+  shadowMapTexture = params.texture
+  cloudShadowState.centerX = params.centerX
+  cloudShadowState.centerZ = params.centerZ
+  cloudShadowState.inverseSpan = params.inverseSpan
+  cloudShadowState.height = params.height
+  cloudShadowState.visibleRatio = params.visibleRatio
+}
 
-  return valueList.map((value) => value / peak)
+/** 俯視圖要朝哪個方向往上穿過雲層，與地面投影用同一條光線 */
+const lightTowardDirection = new Vector3(0, 1, 0)
+
+/**
+ * 地面投影用的那條光線，反過來指向光源
+ *
+ * 體積雲畫俯視圖時要沿著同一條線往上走，否則地上查到的
+ * 與圖上量的不是同一條光路——影子會整片偏掉一截
+ */
+export function getCloudShadowLightDirection(): Vector3 {
+  return lightTowardDirection
+    .set(-cloudShadowState.slopeX, 1, -cloudShadowState.slopeZ)
+    .normalize()
 }
 
 /**
- * 把雲層那份圖樣交過來
+ * 放掉俯視圖的參照
  *
- * 由 createCloudLayer 呼叫。它是唯一知道雲長什麼樣的地方，
- * 而這裡需要的正是同一份資料——與其重算一次（那就會算出不同的雲），
- * 不如讓它把結果送過來
+ * 那張圖屬於體積雲、跟著場景一起釋放，這裡只是不要再指著它
  */
-export function setCloudShadowPattern(
-  scene: Scene,
-  cellList: boolean[],
-  patternCount: number,
-  cellSize: number,
-  cloudHeight: number,
-): void {
-  patternTexture?.dispose()
-
-  /**
-   * 貼圖比雲的圖樣細，取樣座標卻不必跟著改
-   *
-   * 座標是拿世界座標除以「圖樣涵蓋的世界寬度」算出來的，
-   * 那個寬度與貼圖有幾個紋素無關。切細只是讓同一塊範圍多幾格可以糊
-   */
-  const shadowCount = patternCount * SHADOW_TEXEL_PER_CELL
-  const coverList = blurPattern(
-    upsamplePattern(cellList, patternCount, SHADOW_TEXEL_PER_CELL),
-    shadowCount,
-  )
-
-  /**
-   * 用四通道，不用單通道
-   *
-   * 單通道格式在不同裝置上的支援情況要一個一個確認，
-   * 而這張圖只有八十格見方——多三個通道也才多兩萬個位元組。
-   * 拿確定不會出事換掉那點記憶體很划算
-   */
-  const data = new Uint8Array(shadowCount * shadowCount * 4)
-  for (const [index, cover] of coverList.entries()) {
-    const value = Math.round(Math.min(1, Math.max(0, cover)) * 255)
-    data[index * 4] = value
-    data[index * 4 + 1] = value
-    data[index * 4 + 2] = value
-    data[index * 4 + 3] = 255
-  }
-
-  const texture = RawTexture.CreateRGBATexture(
-    data,
-    shadowCount,
-    shadowCount,
-    scene,
-    false,
-    false,
-    Texture.BILINEAR_SAMPLINGMODE,
-  )
-  /** 圖樣要無限平鋪，這是循環世界的硬性條件 */
-  texture.wrapU = Texture.WRAP_ADDRESSMODE
-  texture.wrapV = Texture.WRAP_ADDRESSMODE
-
-  patternTexture = texture
-  cloudShadowState.height = cloudHeight
-  cloudShadowState.inverseSpan = 1 / (patternCount * cellSize)
-}
-
-/**
- * 雲層此刻飄到哪裡
- *
- * 由雲層自己的飄移那一段順手寫進來。繞一圈去場景裡按名字找那顆網格
- * 也讀得到，但那是每一幀都會走的路——讓知道答案的人直接說就好
- */
-export function setCloudShadowDrift(driftX: number): void {
-  cloudShadowState.driftX = driftX
-}
-
-/** 收掉雲的覆蓋圖 */
 export function disposeCloudShadow(): void {
-  patternTexture?.dispose()
-  patternTexture = null
+  shadowMapTexture = null
   cloudShadowState.strength = 0
+  cloudShadowState.visibleRatio = 0
 }
 
 /**

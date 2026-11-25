@@ -1,5 +1,5 @@
-import { createSharedComposable, useMediaQuery, useStorage } from '@vueuse/core'
 import { computed } from 'vue'
+import { renderSettings } from '../domains/render-host/render-settings'
 
 /**
  * 畫質等級
@@ -97,6 +97,18 @@ export interface QualityPreset {
   waterCaustics: boolean;
   /** 岸線與漣漪 */
   waterShoreline: boolean;
+  /**
+   * 體積雲的累積解析度，相對於算繪解析度的邊長比例
+   *
+   * 每一格每一幀都要行進，成本與這個數字的平方成正比。
+   * 雲是柔的，半解析度大致看不出差別；高與極致多給一點，
+   * 頭頂最近那幾朵的輪廓才不會糊
+   */
+  cloudResolutionRatio: number;
+  /** 體積雲沿著視線走幾步，時間累積會再把它乘上十倍左右 */
+  cloudStepCount: number;
+  /** 每一步朝太陽探幾次，決定雲底與背光面暗得多真 */
+  cloudLightStepCount: number;
   /** 粒子數量相對於基準的倍率 */
   particleRatio: number;
   /** 一盞燈的光暈圓盤切成幾邊 */
@@ -138,6 +150,9 @@ export const QUALITY_PRESET_MAP: Record<GraphicsQuality, QualityPreset> = {
     mirrorSizeLarge: 0,
     waterCaustics: false,
     waterShoreline: false,
+    cloudResolutionRatio: 0.5,
+    cloudStepCount: 40,
+    cloudLightStepCount: 3,
     particleRatio: 0.36,
     glowTessellation: 10,
   },
@@ -169,6 +184,9 @@ export const QUALITY_PRESET_MAP: Record<GraphicsQuality, QualityPreset> = {
     mirrorSizeLarge: 256,
     waterCaustics: true,
     waterShoreline: true,
+    cloudResolutionRatio: 0.5,
+    cloudStepCount: 56,
+    cloudLightStepCount: 4,
     particleRatio: 0.7,
     glowTessellation: 16,
   },
@@ -200,6 +218,9 @@ export const QUALITY_PRESET_MAP: Record<GraphicsQuality, QualityPreset> = {
     mirrorSizeLarge: 512,
     waterCaustics: true,
     waterShoreline: true,
+    cloudResolutionRatio: 0.6,
+    cloudStepCount: 72,
+    cloudLightStepCount: 5,
     particleRatio: 1,
     glowTessellation: 24,
   },
@@ -259,59 +280,29 @@ export const QUALITY_PRESET_MAP: Record<GraphicsQuality, QualityPreset> = {
     mirrorSizeLarge: 512,
     waterCaustics: true,
     waterShoreline: true,
+    cloudResolutionRatio: 0.75,
+    cloudStepCount: 96,
+    cloudLightStepCount: 6,
     particleRatio: 1,
     glowTessellation: 24,
   },
 }
 
 /**
- * 畫面等級管理
+ * 渲染端讀到的畫質
  *
- * - 手機預設「效能」，電腦預設「高」
- * - 使用者可在系統選單中切換，選過就記在瀏覽器裡
+ * 值是主執行緒送來的（見 render-settings），這裡不碰儲存也不問裝置：
+ * worker 裡沒有 localStorage 與 matchMedia。
+ * 「手機預設效能、電腦預設高」與「選過就記住」是主執行緒的事，見 use-render-preference
  */
-export function _useGraphicsQuality() {
-  const isMobile = useMediaQuery('(pointer: coarse)')
-
-  /**
-   * 沒選過是 null，不是預設值
-   *
-   * 直接把裝置判斷的結果當預設存進去是不行的：useMediaQuery 要等
-   * 媒體查詢回報才知道答案，第一拍可能還是 false——手機上那一拍
-   * 會把「高」寫進儲存並從此固定下來，之後再也回不到裝置該有的預設。
-   *
-   * 存 null 表示「使用者還沒表示意見」，這時每次都重新問裝置；
-   * 一旦動過選單才寫進去。兩種狀態分開，誤判就不會被記成選擇
-   */
-  const storedQuality = useStorage<GraphicsQuality | null>('minespace-graphics-quality', null)
-
-  const quality = computed<GraphicsQuality>({
-    get: () => {
-      const stored = storedQuality.value
-      /**
-       * 存進去的可能已經不是有效的等級
-       *
-       * 這一版把等級從兩級擴成四級，舊值 low 與 high 都還在表裡；
-       * 但哪天再改名，讀到認不得的字串時要退回裝置預設，
-       * 而不是讓整套設定查到一個 undefined
-       */
-      if (stored && stored in QUALITY_PRESET_MAP)
-        return stored
-
-      return isMobile.value ? 'low' : 'high'
-    },
-    set: (value) => {
-      storedQuality.value = value
-    },
-  })
+export function useGraphicsQuality() {
+  const quality = computed<GraphicsQuality>(() => renderSettings.quality)
 
   /** 這一級的完整設定，各處讀具名欄位，不要自己比對等級字串 */
   const preset = computed<QualityPreset>(() => QUALITY_PRESET_MAP[quality.value])
 
-  return { isMobile, quality, preset }
+  return { quality, preset }
 }
-
-export const useGraphicsQuality = createSharedComposable(_useGraphicsQuality)
 
 /**
  * 決定實際要渲染多少像素

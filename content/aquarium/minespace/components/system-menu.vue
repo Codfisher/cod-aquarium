@@ -266,10 +266,10 @@
 import type { TexturePackId } from '../domains/block/texture-pack'
 import type { Landmark } from '../domains/world/landmark'
 import { computed } from 'vue'
-import { CAMERA_FOV_RANGE } from '../composables/use-babylon-scene'
-import { GRAPHICS_QUALITY_LIST, useGraphicsQuality } from '../composables/use-graphics-quality'
+import { GRAPHICS_QUALITY_LIST } from '../composables/use-graphics-quality'
 import { useSimpleI18n } from '../composables/use-simple-i18n'
-import { useTexturePack } from '../composables/use-texture-pack'
+import { CAMERA_FOV_RANGE } from '../domains/render-host/render-constants'
+import { useRenderPreference } from '../domains/render-host/use-render-preference'
 import { getDayLengthSecond } from '../domains/weather/day-night'
 import { LANDMARK_LIST } from '../domains/world/landmark'
 import ControlGuide from './control-guide.vue'
@@ -299,15 +299,15 @@ const cameraFov = defineModel<number>('cameraFov', { required: true })
 /** 太陽從哪個方位升起，0 ～ 360 度 */
 const sunAzimuth = defineModel<number>('sunAzimuth', { required: true })
 
-const { quality } = useGraphicsQuality()
 const qualityList = GRAPHICS_QUALITY_LIST
 const {
+  quality,
   packId,
   packList,
   pack: currentPack,
   bumpEnabled,
   supportsBump,
-} = useTexturePack()
+} = useRenderPreference()
 const landmarkList = LANDMARK_LIST
 
 /**

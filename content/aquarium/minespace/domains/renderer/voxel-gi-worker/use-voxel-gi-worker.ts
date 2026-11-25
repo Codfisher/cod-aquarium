@@ -31,6 +31,8 @@ export function useVoxelGiWorker() {
    */
   worker.onerror = (event: ErrorEvent) => {
     reportError(`[VoxelGiWorker] ${event.message}`, `${event.filename}:${event.lineno}:${event.colno}`)
+    /** 記完就算處理過了，不往上冒（理由見 use-terrain-worker）：全局光烘不出來只是少了間接光，不是渲染端死了 */
+    event.preventDefault()
   }
 
   let nextRequestId = 0

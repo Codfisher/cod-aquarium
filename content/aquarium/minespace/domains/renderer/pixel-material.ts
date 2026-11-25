@@ -93,6 +93,21 @@ export interface TextureSkinner {
 }
 
 /**
+ * 載入一張圖，回傳可以直接畫進畫布的 ImageBitmap
+ *
+ * 不用 new Image()：渲染端跑在 worker 裡，那裡沒有 HTMLImageElement。
+ * fetch 加 createImageBitmap 兩邊都有，而且解碼本來就不在主執行緒上，
+ * 同一張圖交給 Babylon 的 Texture 載入時走的也是這條路，會命中同一份 HTTP 快取
+ */
+async function loadImageBitmap(url: string): Promise<ImageBitmap> {
+  const response = await fetch(url)
+  if (!response.ok)
+    throw new Error(`貼圖載入失敗（${response.status}）：${url}`)
+
+  return createImageBitmap(await response.blob())
+}
+
+/**
  * 把 base 與 overlay 合成到 Canvas 上
  *
  * 礦石就是這樣長出來的：石頭當底，礦點那張背景全透明的圖疊上去
@@ -106,29 +121,27 @@ function createCompositedTexture(
 ): DynamicTexture {
   const dynamicTexture = new DynamicTexture(name, size, scene, false, Texture.NEAREST_SAMPLINGMODE)
 
-  const baseImage = new Image()
-  const overlayImage = new Image()
-  let loadedCount = 0
+  void Promise.all([loadImageBitmap(basePath), loadImageBitmap(overlayPath)])
+    .then(([baseImage, overlayImage]) => {
+      /** 圖還在路上時換了材質包，這張貼圖已經被收掉了 */
+      if (!dynamicTexture.getInternalTexture()) {
+        baseImage.close()
+        overlayImage.close()
+        return
+      }
 
-  const tryComposite = () => {
-    loadedCount++
-    if (loadedCount < 2)
-      return
-
-    const context = dynamicTexture.getContext()
-    if (context instanceof CanvasRenderingContext2D) {
+      const context = dynamicTexture.getContext() as CanvasRenderingContext2D
       context.imageSmoothingEnabled = false
-    }
-    context.clearRect(0, 0, size, size)
-    context.drawImage(baseImage, 0, 0, size, size)
-    context.drawImage(overlayImage, 0, 0, size, size)
-    dynamicTexture.update()
-  }
-
-  baseImage.onload = tryComposite
-  overlayImage.onload = tryComposite
-  baseImage.src = basePath
-  overlayImage.src = overlayPath
+      context.clearRect(0, 0, size, size)
+      context.drawImage(baseImage, 0, 0, size, size)
+      context.drawImage(overlayImage, 0, 0, size, size)
+      baseImage.close()
+      overlayImage.close()
+      dynamicTexture.update()
+    })
+    .catch((error: unknown) => {
+      console.error(`[PixelMaterial] 合成貼圖失敗：${name}`, error)
+    })
 
   return dynamicTexture
 }
@@ -153,14 +166,18 @@ function createRecoloredTexture(
 ): DynamicTexture {
   const dynamicTexture = new DynamicTexture(name, size, scene, false, Texture.NEAREST_SAMPLINGMODE)
 
-  const image = new Image()
-  image.onload = () => {
-    const context = dynamicTexture.getContext()
-    if (context instanceof CanvasRenderingContext2D) {
-      context.imageSmoothingEnabled = false
+  void loadImageBitmap(texturePath).then((image) => {
+    /** 圖還在路上時換了材質包，這張貼圖已經被收掉了 */
+    if (!dynamicTexture.getInternalTexture()) {
+      image.close()
+      return
     }
+
+    const context = dynamicTexture.getContext() as CanvasRenderingContext2D
+    context.imageSmoothingEnabled = false
     context.clearRect(0, 0, size, size)
     context.drawImage(image, 0, 0, size, size)
+    image.close()
 
     const imageData = context.getImageData(0, 0, size, size)
     const { data } = imageData
@@ -194,8 +211,9 @@ function createRecoloredTexture(
     context.putImageData(imageData, 0, 0)
 
     dynamicTexture.update()
-  }
-  image.src = texturePath
+  }).catch((error: unknown) => {
+    console.error(`[PixelMaterial] 重新上色失敗：${name}`, error)
+  })
 
   return dynamicTexture
 }

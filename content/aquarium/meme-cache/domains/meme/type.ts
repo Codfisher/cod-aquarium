@@ -17,5 +17,10 @@ export const memeDataSchema = z.object({
   animated: z.boolean().optional(),
   /** 各影格顯示毫秒數。長度即影格數，編輯器輸出動圖時要靠它切影格長圖 */
   frameDelayList: z.array(z.number()).optional(),
+  /**
+   * 排除此圖：系統各處都不列出，但圖片仍留在 repo。
+   * 留著是為了讓匯入腳本的指紋比對擋下日後再次上傳的同一張圖
+   */
+  excluded: z.boolean().optional(),
 })
 export type MemeData = z.infer<typeof memeDataSchema>

@@ -672,7 +672,16 @@ function computeChunkMatricesInWorker(
 export function useChunkWorker() {
   const blockFlags = prepareBlockFlags()
   const lightEmissionList = prepareLightEmissionList()
-  const { workerFn, workerTerminate } = useWebWorkerFn(computeChunkMatricesInWorker)
+  /**
+   * 這支會在渲染端的 worker 裡被呼叫（巢狀 worker）
+   *
+   * VueUse 的 useWebWorkerFn 預設綁 window，沒有 window 時算完不會把 worker 收掉，
+   * 世界資料的那份複製就一直留在裡面。worker 裡的全域物件是 self，
+   * 明確指給它，收尾的流程才會走完
+   */
+  const { workerFn, workerTerminate } = useWebWorkerFn(computeChunkMatricesInWorker, {
+    window: globalThis as typeof globalThis & Window,
+  })
 
   let onChunkResult: ChunkResultCallback | null = null
 
