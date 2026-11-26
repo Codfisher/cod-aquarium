@@ -207,8 +207,12 @@ const DETAIL_EROSION = 0.6
  * 平移不必再扛「看得出在動」這件事。五點五、四點五、二點五實際看都太急，
  * 像快轉的縮時攝影；一點五是頭頂那幾朵每秒挪不到半度，
  * 要盯著看一陣子才察覺得到在飄，正是禪庭該有的速度
+ *
+ * 上面這些數字是在「雲一幀跑兩次」的時候調的（見 renderObserver 的註解），
+ * 時間每幀被推進兩倍，當時眼睛看到、認可的其實是兩倍的值。
+ * 修掉重複之後照實際看到的速度換算回來，所以這裡與下面三個演變速度都是原本的兩倍
  */
-const WIND_SPEED = 1.5
+const WIND_SPEED = 3
 const WIND_DIRECTION = new Vector3(1, 0, 0.34).normalize()
 
 /**
@@ -223,10 +227,10 @@ const WIND_DIRECTION = new Vector3(1, 0, 0.34).normalize()
  * 往上那一份是雲頂翻騰的方向，側向那一份讓雲團逆著風重組，
  * 數字照基底的週期抓：大約三四分鐘一朵雲換一副樣子
  */
-const EVOLVE_RISE_SPEED = 0.3
-const EVOLVE_DRIFT_SPEED = 0.45
+const EVOLVE_RISE_SPEED = 0.6
+const EVOLVE_DRIFT_SPEED = 0.9
 /** 細節雜訊自己翻滾的速度（細節貼圖單位 / 秒），雲邊在長、在散 */
-const DETAIL_EVOLVE_SPEED = 0.02
+const DETAIL_EVOLVE_SPEED = 0.04
 /**
  * 細節雜訊被扭曲的強度（細節貼圖單位）
  *
@@ -370,7 +374,12 @@ const COARSE_STEP_SCALE = 3
  * 時間累積每一幀採用多少新值
  *
  * 越小越平滑、但雲變形時的拖影越長。一成五大約是七幀的記憶：
- * 雲現在自己會長會散（見 EVOLVE_RISE_SPEED），記憶太長會跟不上形狀的變化
+ * 雲現在自己會長會散（見 EVOLVE_RISE_SPEED），記憶太長會跟不上形狀的變化。
+ *
+ * 曾經有一段時間雲一幀跑兩次（見 renderObserver 的註解），每幀行進兩份、累積兩次。
+ * 修掉之後試過把權重換算成每幀等效的兩成八，記憶長度相同，但樣本少了一半，
+ * 標準畫質的雲面浮出一層顆粒。雜訊比拖影顯眼，所以維持一成五：
+ * 累積的樣本數與當初看到的一樣，代價是拖影在幀數上長一倍
  */
 const HISTORY_CURRENT_WEIGHT = 0.15
 
@@ -1154,7 +1163,30 @@ export function createVolumetricCloud(scene: Scene, skyOverlayGroup: number, dom
    * 接下來後製鏈的第一支會重新綁上主畫面的緩衝區（PostProcessManager._prepareFrame），
    * 不必自己還原
    */
+  /**
+   * 每幀只在主鏡頭那一次跑
+   *
+   * onAfterRenderTargetsRenderObservable 一幀會發不只一次：scene.render 畫完自訂算繪目標時一次，
+   * 之後 _renderForCamera 畫完鏡頭的算繪目標時再一次。第一次發的時候，
+   * 變換矩陣還停在最後一張自訂算繪目標的鏡頭上——極致畫質的體積光陰影圖是一台正交鏡頭，
+   * 雲就照著那台鏡頭的矩陣行進。
+   *
+   * 每格每幀都行進的時候，第二次會整張蓋掉，只是白算一趟；
+   * 隔幀只畫一半的格子之後，frameIndex 一幀加二，算錯的那次永遠落在同一半，
+   * 天空就成了一格有雲、一格沒雲的固定棋盤（踩過，極致畫質才有）。
+   *
+   * 所以用 onBeforeCameraRenderObservable 做記號：它在 _renderForCamera 更新完矩陣之後才發，
+   * 只有記號亮著的那一次才畫，畫完就熄掉
+   */
+  let isCameraPass = false
+  const cameraObserver = scene.onBeforeCameraRenderObservable.add(() => {
+    isCameraPass = true
+  })
   const renderObserver = scene.onAfterRenderTargetsRenderObservable.add(() => {
+    if (!isCameraPass)
+      return
+
+    isCameraPass = false
     measureSection('體積雲', renderClouds)
   })
 
@@ -1166,6 +1198,7 @@ export function createVolumetricCloud(scene: Scene, skyOverlayGroup: number, dom
     noiseRequest.cancel()
     stopQualityWatch()
     scene.onAfterRenderTargetsRenderObservable.remove(renderObserver)
+    scene.onBeforeCameraRenderObservable.remove(cameraObserver)
     setCloudShadowMap(null)
     effectRenderer.dispose()
     disposeTileRenderers()
