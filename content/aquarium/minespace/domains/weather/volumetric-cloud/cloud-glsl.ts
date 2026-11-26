@@ -212,7 +212,8 @@ float cloudDensity(vec3 position, float heightRatio, bool isCheap) {
   float detailFbm = dot(detail, vec3(0.625, 0.25, 0.125));
   float modifier = mix(detailFbm, 1.0 - detailFbm, clamp(heightRatio * 4.0, 0.0, 1.0));
 
-  return clamp(cloudRemap(density, modifier * cloudScale.w, 1.0, 0.0, 1.0), 0.0, 1.0);
+  float eroded = clamp(cloudRemap(density, modifier * cloudScale.w, 1.0, 0.0, 1.0), 0.0, 1.0);
+  return eroded * mix(0.55, 1.15, detailFbm);
 }
 
 float cloudHenyeyGreenstein(float cosAngle, float anisotropy) {
@@ -229,7 +230,7 @@ float cloudPhase(float cosAngle, float anisotropyScale) {
 
 float cloudLightOpticalDepth(vec3 position, int lightStepCount) {
   float thickness = cloudLayer.y - cloudLayer.x;
-  float stepLength = thickness * 0.06;
+  float stepLength = thickness * 0.025;
   float travelled = 0.0;
   float opticalDepth = 0.0;
 
@@ -244,9 +245,9 @@ float cloudLightOpticalDepth(vec3 position, int lightStepCount) {
       break;
     }
     float heightRatio = clamp((altitude - cloudLayer.x) / thickness, 0.0, 1.0);
-    opticalDepth += cloudDensity(samplePosition, heightRatio, index > 0) * segment;
+    opticalDepth += cloudDensity(samplePosition, heightRatio, index > 1) * segment;
     travelled += segment;
-    stepLength *= 1.8;
+    stepLength *= 2.0;
   }
 
   return opticalDepth * cloudShape.y;
@@ -261,7 +262,7 @@ vec3 cloudSunScattering(float lightOpticalDepth, float cosAngle) {
   for (int octave = 0; octave < 4; octave++) {
     total += scatterWeight * exp(-lightOpticalDepth * extinctionWeight) * cloudPhase(cosAngle, anisotropyScale);
     scatterWeight *= 0.5;
-    extinctionWeight *= 0.45;
+    extinctionWeight *= 0.3;
     anisotropyScale *= 0.5;
   }
 
@@ -347,7 +348,12 @@ vec4 cloudMarch(vec3 origin, vec3 direction, int stepCount, int lightStepCount, 
     vec3 sunTerm = cloudSunScattering(lightDepth, cosAngle);
     sunTerm *= mix(1.0, cloudInScatterProbability(density, heightRatio), powderBlend);
 
-    float ambientShade = mix(0.5, 1.0, heightRatio) * mix(1.0, cloudInScatterProbability(density, heightRatio), 0.35);
+    vec3 abovePosition = samplePosition + vec3(0.0, thickness * 0.12, 0.0);
+    float aboveRatio = clamp(heightRatio + 0.12, 0.0, 1.0);
+    float aboveDensity = cloudDensity(abovePosition, aboveRatio, true);
+    float ambientOcclusion = exp(-aboveDensity * cloudShape.y * thickness * 0.12 * 0.35);
+    float ambientShade = mix(0.45, 1.0, heightRatio) * ambientOcclusion
+      * mix(1.0, cloudInScatterProbability(density, heightRatio), 0.35);
     vec3 ambient = mix(cloudAmbientBottom, cloudAmbientTop, smoothstep(0.0, 1.0, heightRatio)) * ambientShade;
     ambient *= cloudLighting.y;
     ambient += vec3(cloudLighting.w);

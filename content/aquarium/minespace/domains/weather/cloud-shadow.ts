@@ -53,8 +53,8 @@ const SKY_SHADE_RATIO = SKY_SHADE_DEPTH / SHADE_DEPTH
  * 先糊兩輪才有中間值；這兩個門檻只是把很薄的雲紗濾掉、
  * 讓厚雲的影子早一點到底
  */
-const COVER_START = 0.04
-const COVER_FULL = 0.8
+const COVER_START = 0.02
+const COVER_FULL = 0.55
 
 /**
  * 太陽壓到這麼低就把雲影收掉

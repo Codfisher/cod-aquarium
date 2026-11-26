@@ -123,7 +123,7 @@ const RAIN_COVERAGE_BOOST = 0.32
  * 密度一的雲每走一格擋掉這麼多光。一朵一百格厚、平均密度一半的積雲，
  * 光學厚度大約是五，正中間幾乎不透光，邊緣則還看得到後面的天
  */
-const EXTINCTION = 0.14
+const EXTINCTION = 0.2
 
 /** 反照率：雲幾乎不吸收光，散射掉的就是全部 */
 const ALBEDO = 0.96
@@ -200,7 +200,7 @@ const CIRRUS_PERIOD = 5200
  * 環境光那一份是天空從四面八方打進來的光，雲底幾乎全靠它
  */
 const SUN_GAIN = 14
-const AMBIENT_GAIN = 0.72
+const AMBIENT_GAIN = 0.95
 
 /**
  * 內部散射機率的強度
@@ -268,7 +268,7 @@ const TELEPORT_DISTANCE = 30
 const SHADOW_MAP_SIZE = 256
 const SHADOW_MAP_SPAN = 448
 /** 雲影的光學厚度打幾折，雲影比照著看到的雲淡一點才不會像墨跡 */
-const SHADOW_DENSITY_SCALE = 0.75
+const SHADOW_DENSITY_SCALE = 1.6
 
 /** 天空罩的邊長，要比陰天罩（250）小，排序時才不會被誤判成在它外面 */
 const DOME_SIZE = 230
