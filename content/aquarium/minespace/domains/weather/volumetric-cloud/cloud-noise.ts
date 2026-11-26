@@ -38,6 +38,8 @@ export interface CloudNoiseSet {
   detail: CloudNoiseVolume;
   weather: { size: number; data: Uint8Array };
   cirrus: { size: number; data: Uint8Array };
+  /** 宏觀圖，從天氣圖烘出來的，見 createMacroMap */
+  macro: { size: number; data: Uint8Array };
 }
 
 export interface CloudNoiseSizeOption {
@@ -252,7 +254,7 @@ function sumWorleyOctave(first: number, second: number, third: number): number {
  * 與舊雲層「取分位數當門檻」（createCloudPattern）是同一個道理
  */
 function equalize(valueList: Float32Array): Float32Array {
-  const orderList = Array.from(valueList.keys()).sort((a, b) => (valueList[a] ?? 0) - (valueList[b] ?? 0))
+  const orderList = Array.from(valueList.keys()).sort((leftIndex, rightIndex) => (valueList[leftIndex] ?? 0) - (valueList[rightIndex] ?? 0))
   const result = new Float32Array(valueList.length)
   const lastIndex = Math.max(1, orderList.length - 1)
 
@@ -293,15 +295,15 @@ export function createBaseNoise(size: number, seed: string): CloudNoiseVolume {
     for (let y = 0; y < size; y++) {
       for (let x = 0; x < size; x++) {
         /** 取格子中心，三軸對稱，平鋪接縫上兩側取到的距離一樣 */
-        const u = (x + 0.5) * inverseSize
-        const v = (y + 0.5) * inverseSize
-        const w = (z + 0.5) * inverseSize
+        const normalizedX = (x + 0.5) * inverseSize
+        const normalizedY = (y + 0.5) * inverseSize
+        const normalizedZ = (z + 0.5) * inverseSize
 
         let perlin = 0
         let amplitude = 1
         let amplitudeSum = 0
         for (const octave of perlinOctaveList) {
-          perlin += octave.sample(u * octave.period, v * octave.period, w * octave.period) * amplitude
+          perlin += octave.sample(normalizedX * octave.period, normalizedY * octave.period, normalizedZ * octave.period) * amplitude
           amplitudeSum += amplitude
           amplitude *= 0.5
         }
@@ -313,10 +315,10 @@ export function createBaseNoise(size: number, seed: string): CloudNoiseVolume {
          */
         const perlinValue = clamp01((perlin / amplitudeSum) / 0.45 * 0.5 + 0.5)
 
-        const sample4 = worley4(u, v, w)
-        const sample8 = worley8(u, v, w)
-        const sample16 = worley16(u, v, w)
-        const sample32 = worley32(u, v, w)
+        const sample4 = worley4(normalizedX, normalizedY, normalizedZ)
+        const sample8 = worley8(normalizedX, normalizedY, normalizedZ)
+        const sample16 = worley16(normalizedX, normalizedY, normalizedZ)
+        const sample32 = worley32(normalizedX, normalizedY, normalizedZ)
 
         const worleyLow = sumWorleyOctave(sample4, sample8, sample16)
         const worleyMid = sumWorleyOctave(sample8, sample16, sample32)
@@ -360,10 +362,10 @@ export function createDetailNoise(size: number, seed: string): CloudNoiseVolume 
   for (let z = 0; z < size; z++) {
     for (let y = 0; y < size; y++) {
       for (let x = 0; x < size; x++) {
-        const u = (x + 0.5) * inverseSize
-        const v = (y + 0.5) * inverseSize
-        const w = (z + 0.5) * inverseSize
-        const sampleList = worleyList.map((worley) => worley(u, v, w))
+        const normalizedX = (x + 0.5) * inverseSize
+        const normalizedY = (y + 0.5) * inverseSize
+        const normalizedZ = (z + 0.5) * inverseSize
+        const sampleList = worleyList.map((worley) => worley(normalizedX, normalizedY, normalizedZ))
 
         const index = (x + y * size + z * size * size) * 4
         data[index] = toByte(sumWorleyOctave(sampleList[0] ?? 0, sampleList[1] ?? 0, sampleList[2] ?? 0))
@@ -406,24 +408,24 @@ export function createWeatherMap(size: number, seed: string): { size: number; da
 
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
-      const u = (x + 0.5) * inverseSize
-      const v = (y + 0.5) * inverseSize
+      const normalizedX = (x + 0.5) * inverseSize
+      const normalizedY = (y + 0.5) * inverseSize
       const index = x + y * size
 
       let perlin = 0
       let amplitude = 1
       let amplitudeSum = 0
       for (const octave of coverageOctaveList) {
-        perlin += octave.sample(u * octave.period, v * octave.period, 0.5) * amplitude
+        perlin += octave.sample(normalizedX * octave.period, normalizedY * octave.period, 0.5) * amplitude
         amplitudeSum += amplitude
         amplitude *= 0.55
       }
-      const cluster = clusterWorley(u, v) * 0.7 + clusterWorleyFine(u, v) * 0.3
+      const cluster = clusterWorley(normalizedX, normalizedY) * 0.7 + clusterWorleyFine(normalizedX, normalizedY) * 0.3
       coverageList[index] = (perlin / amplitudeSum) * 0.6 + cluster
 
-      typeList[index] = clamp01(typeNoise(u * 3, v * 3, 0.5) * 1.4 + 0.5)
+      typeList[index] = clamp01(typeNoise(normalizedX * 3, normalizedY * 3, 0.5) * 1.4 + 0.5)
 
-      cirrusList[index] = cirrusNoise(u, v) + cirrusNoiseFine(u, v) * 0.45
+      cirrusList[index] = cirrusNoise(normalizedX, normalizedY) + cirrusNoiseFine(normalizedX, normalizedY) * 0.45
     }
   }
 
@@ -558,17 +560,17 @@ export function createCirrusMap(size: number, seed: string): { size: number; dat
 
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
-      const u = (x + 0.5) * inverseSize
-      const v = (y + 0.5) * inverseSize
+      const normalizedX = (x + 0.5) * inverseSize
+      const normalizedY = (y + 0.5) * inverseSize
       const index = x + y * size
 
-      angleList[index] = bendCoarse(u * 3, v * 3, 0.5) * 1.1 + bendFine(u * 7, v * 7, 0.5) * 0.45
+      angleList[index] = bendCoarse(normalizedX * 3, normalizedY * 3, 0.5) * 1.1 + bendFine(normalizedX * 7, normalizedY * 7, 0.5) * 0.45
       fineNoiseList[index] = random()
 
       let mask = 0
       let amplitude = 1
       for (const octave of maskOctaveList) {
-        mask += octave(u, v) * amplitude
+        mask += octave(normalizedX, normalizedY) * amplitude
         amplitude *= 0.5
       }
       maskList[index] = mask
@@ -605,12 +607,48 @@ export function createCirrusMap(size: number, seed: string): { size: number; dat
   return { size, data }
 }
 
-/** 三張一起做，worker 只要呼叫這一支 */
+/**
+ * 宏觀圖：把「大尺度的區域變化」烘成一張，著色器一次取樣就拿齊
+ *
+ * 紅：這一大片的覆蓋傾向（與天氣圖紅色通道相同）。
+ * 綠：座標偏移的 X 分量（與天氣圖綠色通道，也就是雲種類相同，變化最慢）。
+ * 藍：座標偏移的 Y 分量，取天氣圖綠色通道轉置再平移的結果。
+ *
+ * 以前著色器要對天氣圖多取兩次樣（頻率 0.31 與 0.23 各一次），每個密度取樣都付兩次。
+ * 兩者頻率不同、貼圖座標就不同，沒辦法合成一次；這裡統一用 0.31，
+ * 偏移的 Y 分量改在烘焙時就轉置、平移開，與 X 分量不相關即可——
+ * 它只是拿來推擠取樣座標的緩變場，不必和原本的第二個頻率一模一樣。
+ *
+ * 轉置後格點仍是整數個週期，平鋪不會斷
+ */
+export function createMacroMap(weather: { size: number; data: Uint8Array }): { size: number; data: Uint8Array } {
+  const { size } = weather
+  const data = new Uint8Array(size * size * 4)
+  /** 平移半張圖多一點，避開轉置後剛好落在對角線上與綠色通道相同的格子 */
+  const shift = Math.floor(size * 0.37)
+
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const index = (x + y * size) * 4
+      const transposedIndex = (wrapIndex(y + shift, size) + wrapIndex(x + shift * 2, size) * size) * 4
+      data[index] = weather.data[index] ?? 0
+      data[index + 1] = weather.data[index + 1] ?? 0
+      data[index + 2] = weather.data[transposedIndex + 1] ?? 0
+      data[index + 3] = 255
+    }
+  }
+
+  return { size, data }
+}
+
+/** 全部一起做，worker 只要呼叫這一支 */
 export function createCloudNoiseSet(option: CloudNoiseSizeOption, seed: string): CloudNoiseSet {
+  const weather = createWeatherMap(option.weatherSize, seed)
   return {
     base: createBaseNoise(option.baseSize, seed),
     detail: createDetailNoise(option.detailSize, seed),
-    weather: createWeatherMap(option.weatherSize, seed),
+    weather,
     cirrus: createCirrusMap(option.cirrusSize, seed),
+    macro: createMacroMap(weather),
   }
 }

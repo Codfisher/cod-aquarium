@@ -72,8 +72,6 @@ const float ZENITH_FALLOFF = 1.6;
 /** 背對太陽那道反霞相對於霞光的濃度 */
 const float COUNTER_RATIO = 0.5;
 
-
-
 void main() {
   vec3 direction = normalize(vDirection);
 
@@ -134,7 +132,6 @@ void main() {
    */
   float halo = pow(towardSun, 18.0) * 0.55 + pow(towardSun, 2.5) * 0.45 * lowSky;
   color = mix(color, glowColor, clamp(halo * glowStrength, 0.0, 1.0));
-
 
   /**
    * 打散色階

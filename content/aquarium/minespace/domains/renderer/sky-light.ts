@@ -1,5 +1,6 @@
-import type { Color3, Material, UniformBuffer, Vector3 } from '@babylonjs/core'
+import type { Color3, MaterialDefines, UniformBuffer, Vector3 } from '@babylonjs/core'
 import { MaterialPluginBase, RegisterMaterialPlugin, StandardMaterial } from '@babylonjs/core'
+import { clamp } from 'remeda'
 import { sampleSkyGradient } from '../weather/sky-gradient'
 
 /**
@@ -35,6 +36,12 @@ import { sampleSkyGradient } from '../weather/sky-gradient'
  * 加一盞平行光會多一次光照迴圈（每個畫素），還會被陰影、雲影的外掛各自改一遍；
  * 外掛只是在霧之前多一次乘加，與體素全局光掛在同一個位置，
  * 乘上表面自己的反照率，不碰任何現有外掛的正規式替換。
+ *
+ * ── 自發光的東西不受影響 ──
+ *
+ * 燈罩光暈、日月盤與光暈、營火的火焰這類 disableLighting 的材質，
+ * 顏色本來就是自己發的，不吃環境光。天光偶極加上去會讓它們帶著一邊偏暖一邊偏冷的色偏，
+ * 所以外掛用一個定義旗標把整段程式擋掉，這些材質的著色器與原本完全相同
  *
  * 更新不必每幀：天色以分鐘計地變。向量每 0.4 秒重算一次（約六十個方向、
  * 各幾次乘法），每幀只做一次趨近
@@ -101,9 +108,14 @@ function buildSampleDirectionList(): Array<{ x: number; y: number; z: number }> 
 }
 
 class SkyLightPlugin extends MaterialPluginBase {
-  constructor(material: Material) {
+  constructor(private readonly host: StandardMaterial) {
     /** 第六個參數是「一律啟用」，理由與 aerial-perspective 相同 */
-    super(material, 'MinespaceSkyLight', 220, {}, true, true)
+    super(host, 'MinespaceSkyLight', 220, { MINESPACE_SKY_LIGHT: false }, true, true)
+  }
+
+  /** 只有吃光照的材質才加天光，自發光的（disableLighting）整段程式不編進去 */
+  prepareDefines(defines: MaterialDefines): void {
+    defines.MINESPACE_SKY_LIGHT = !this.host.disableLighting
   }
 
   getClassName(): string {
@@ -144,7 +156,9 @@ class SkyLightPlugin extends MaterialPluginBase {
        * 所以加完要夾回零，不然已經很暗的背光面會被扣成負值
        */
       CUSTOM_FRAGMENT_BEFORE_FOG: `
+        #ifdef MINESPACE_SKY_LIGHT
         color.rgb = max(color.rgb + (skyLightX * normalW.x + skyLightZ * normalW.z) * baseColor.rgb, vec3(0.0));
+        #endif
       `,
     }
   }
@@ -205,18 +219,18 @@ export function updateSkyLight(param: SkyLightParam, deltaTime: number): void {
     recomputeTarget(param)
   }
 
-  const follow = Math.min(1, deltaTime * FOLLOW_SPEED)
-  state.xRed += (state.targetXRed - state.xRed) * follow
-  state.xGreen += (state.targetXGreen - state.xGreen) * follow
-  state.xBlue += (state.targetXBlue - state.xBlue) * follow
-  state.zRed += (state.targetZRed - state.zRed) * follow
-  state.zGreen += (state.targetZGreen - state.zGreen) * follow
-  state.zBlue += (state.targetZBlue - state.zBlue) * follow
+  const followRatio = Math.min(1, deltaTime * FOLLOW_SPEED)
+  state.xRed += (state.targetXRed - state.xRed) * followRatio
+  state.xGreen += (state.targetXGreen - state.xGreen) * followRatio
+  state.xBlue += (state.targetXBlue - state.xBlue) * followRatio
+  state.zRed += (state.targetZRed - state.zRed) * followRatio
+  state.zGreen += (state.targetZGreen - state.zGreen) * followRatio
+  state.zBlue += (state.targetZBlue - state.zBlue) * followRatio
 }
 
 function recomputeTarget(param: SkyLightParam): void {
   const state = skyLightState
-  const strength = Math.min(1, Math.max(0, param.strength))
+  const strength = clamp(param.strength, { min: 0, max: 1 })
 
   if (strength <= 0) {
     state.targetXRed = 0

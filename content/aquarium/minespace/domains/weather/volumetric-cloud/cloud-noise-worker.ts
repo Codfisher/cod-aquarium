@@ -22,7 +22,7 @@ export interface CloudNoiseResponse {
  * 體積雲的雜訊在這裡算
  *
  * 基底那張六十四立方要一秒出頭，放在主執行緒上就是開場卡一秒。
- * 算完三份資料用轉移的交回去，不複製
+ * 算完的幾份資料用轉移的交回去，不複製（宏觀圖是另開的緩衝區，與天氣圖不共用，轉移才不會互相打架）
  */
 workerSelf.onmessage = (event: MessageEvent<CloudNoiseRequest>) => {
   const startTime = performance.now()
@@ -37,5 +37,6 @@ workerSelf.onmessage = (event: MessageEvent<CloudNoiseRequest>) => {
     noiseSet.detail.data.buffer,
     noiseSet.weather.data.buffer,
     noiseSet.cirrus.data.buffer,
+    noiseSet.macro.data.buffer,
   ])
 }

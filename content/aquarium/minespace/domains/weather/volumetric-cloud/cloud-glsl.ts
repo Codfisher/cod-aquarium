@@ -63,6 +63,7 @@ export const CLOUD_UNIFORM_NAME_LIST = [
   'cloudAltocumulus',
   'cloudBounceColor',
   'cloudNoctilucent',
+  'cloudWindShift',
 ]
 
 export const CLOUD_SAMPLER_NAME_LIST = [
@@ -70,6 +71,7 @@ export const CLOUD_SAMPLER_NAME_LIST = [
   'cloudDetailSampler',
   'cloudWeatherSampler',
   'cloudCirrusSampler',
+  'cloudMacroSampler',
 ]
 
 /**
@@ -89,6 +91,9 @@ export const CLOUD_SAMPLER_NAME_LIST = [
  * cloudAltocumulus 高積雲：層底高度、層頂高度、覆蓋率、消光係數的倍率
  * cloudBounceColor 地面反上來的光（已乘上反照率、太陽高度與增益），雲底被白沙照亮的那一份
  * cloudNoctilucent 夜光雲：濃度（已含亮度）、貼圖頻率、太陽方位的水平分量（x、z）
+ * cloudWindShift 風吹過的距離（x、z）與循環世界的平移（x、z），把 cloudOrigin 拆開給高空的雲用。
+ *               高空的雲要把風放大幾倍才會比積雲飄得快，但世界平移只能乘一：
+ *               它補的是鏡頭被搬了一整個世界寬，多乘或少乘，搬的那一瞬間那層雲就會跳
  */
 export const CLOUD_COMMON_GLSL = `
 precision highp sampler3D;
@@ -97,6 +102,7 @@ uniform sampler3D cloudBaseSampler;
 uniform sampler3D cloudDetailSampler;
 uniform sampler2D cloudWeatherSampler;
 uniform sampler2D cloudCirrusSampler;
+uniform sampler2D cloudMacroSampler;
 
 uniform vec4 cloudLayer;
 uniform vec4 cloudShape;
@@ -118,6 +124,7 @@ uniform vec3 cloudWeather;
 uniform vec4 cloudAltocumulus;
 uniform vec3 cloudBounceColor;
 uniform vec4 cloudNoctilucent;
+uniform vec4 cloudWindShift;
 
 const float CLOUD_PI = 3.14159265;
 
@@ -194,11 +201,11 @@ vec3 cloudSamplePoint(vec3 position, float heightRatio) {
   return point;
 }
 
-float cloudDensity(vec3 position, float heightRatio, bool isCheap) {
+float cloudDensityLevel(vec3 position, float heightRatio, int detailLevel) {
   vec3 point = cloudSamplePoint(position, heightRatio);
   vec4 weather = textureLod(cloudWeatherSampler, point.xz * cloudScale.z, 0.0);
 
-  vec4 macro = textureLod(cloudWeatherSampler, point.xz * cloudScale.z * 0.31 + vec2(0.17, 0.53), 0.0);
+  vec4 macro = textureLod(cloudMacroSampler, point.xz * cloudScale.z * 0.31 + vec2(0.17, 0.53), 0.0);
   float regional = clamp(weather.r * 0.6 + macro.r * 0.6 - 0.1, 0.0, 1.0);
   regional = regional * regional * (3.0 - 2.0 * regional);
   regional = mix(regional, 0.72, cloudWeather.x * 0.65);
@@ -216,18 +223,20 @@ float cloudDensity(vec3 position, float heightRatio, bool isCheap) {
   }
 
   vec3 basePoint = point + cloudEvolve.xyz;
-  float driftShift = textureLod(cloudWeatherSampler, point.xz * cloudScale.z * 0.23 + vec2(0.71, 0.29), 0.0).g;
-  basePoint.xz += (vec2(macro.g, driftShift) - 0.5) * 420.0;
-  float sizeScale = mix(1.3, 0.8, driftShift);
-  vec4 base = textureLod(cloudBaseSampler, basePoint * cloudScale.x * sizeScale, 0.0);
+  basePoint.xz += (macro.gb - 0.5) * 420.0;
+  vec4 base = textureLod(cloudBaseSampler, basePoint * cloudScale.x, 0.0);
   float lowFbm = dot(base.gba, vec3(0.625, 0.25, 0.125));
   float shape = clamp(cloudRemap(base.r, lowFbm - 1.0, 1.0, 0.0, 1.0), 0.0, 1.0);
   shape = clamp(cloudRemap(shape, 0.72, 0.93, 0.0, 1.0), 0.0, 1.0);
 
   float density = clamp(cloudRemap(shape * profile, 1.0 - coverage, 1.0, 0.0, 1.0), 0.0, 1.0);
   density *= mix(0.4, 1.0, smoothstep(0.0, 0.3, shapeRatio));
-  if (density <= 0.0 || isCheap) {
+  if (density <= 0.0 || detailLevel == 2) {
     return density;
+  }
+  if (detailLevel == 1) {
+    float meanEroded = clamp(cloudRemap(density, 0.5 * cloudScale.w, 1.0, 0.0, 1.0), 0.0, 1.0);
+    return min(meanEroded * 1.5, 1.0);
   }
 
   vec3 swirl = (base.gba - 0.5) * cloudEvolve.w * (1.0 - heightRatio * 0.5);
@@ -239,6 +248,10 @@ float cloudDensity(vec3 position, float heightRatio, bool isCheap) {
 
   float eroded = clamp(cloudRemap(density, modifier * cloudScale.w, 1.0, 0.0, 1.0), 0.0, 1.0);
   return min(eroded * mix(0.55, 1.15, detailFbm) * 1.8, 1.0);
+}
+
+float cloudDensity(vec3 position, float heightRatio, bool isCheap) {
+  return cloudDensityLevel(position, heightRatio, isCheap ? 2 : 0);
 }
 
 float cloudHenyeyGreenstein(float cosAngle, float anisotropy) {
@@ -255,7 +268,7 @@ float cloudPhase(float cosAngle, float anisotropyScale) {
 
 float cloudLightOpticalDepth(vec3 position, int lightStepCount) {
   float thickness = cloudLayer.y - cloudLayer.x;
-  float stepLength = thickness * 0.025;
+  float stepLength = thickness / cloudWeather.z * 0.025;
   float travelled = 0.0;
   float opticalDepth = 0.0;
 
@@ -368,7 +381,7 @@ vec4 cloudMarch(vec3 origin, vec3 direction, int stepCount, int lightStepCount, 
     }
 
     bool isFar = travelled > cloudMarchSetting.y;
-    float density = cloudDensity(samplePosition, heightRatio, isFar);
+    float density = cloudDensityLevel(samplePosition, heightRatio, isFar ? 1 : 0);
 
     if (density <= 0.0) {
       emptyCount++;
@@ -401,9 +414,10 @@ vec4 cloudMarch(vec3 origin, vec3 direction, int stepCount, int lightStepCount, 
     float ambientOcclusion = mix(exp(-skyDepth * 0.35), exp(-skyDepth * 0.1), 0.3);
 
     float groundDepth = density * heightRatio * thickness * cloudShape.y;
-    if (hasOcclusionSample && heightRatio > 0.15) {
+    if (hasOcclusionSample && heightRatio > 0.15 && heightRatio < 0.5) {
       float belowDensity = cloudDensity(samplePosition - vec3(0.0, heightRatio * thickness * 0.5, 0.0), heightRatio * 0.5, true);
-      groundDepth = (density + belowDensity) * 0.5 * heightRatio * thickness * cloudShape.y;
+      float sampledDepth = (density + belowDensity) * 0.5 * heightRatio * thickness * cloudShape.y;
+      groundDepth = mix(sampledDepth, groundDepth, smoothstep(0.35, 0.5, heightRatio));
     }
     vec3 bounce = cloudBounceColor * cloudGroundScattering(groundDepth);
 
@@ -440,10 +454,12 @@ vec4 cloudMarch(vec3 origin, vec3 direction, int stepCount, int lightStepCount, 
   return vec4(radiance, opacity) * farFade * cloudHaze.w;
 }
 
-float cloudAltocumulusDensity(vec3 position, float heightRatio, bool isCheap) {
-  vec2 flow = position.xz + cloudOrigin.xz * 1.4;
-  vec4 field = textureLod(cloudWeatherSampler, flow * cloudScale.z * 0.62 + vec2(0.37, 0.81), 0.0);
-  vec4 broad = textureLod(cloudWeatherSampler, flow * cloudScale.z * 0.17 + vec2(0.58, 0.23), 0.0);
+vec2 cloudAltocumulusFlow(vec3 position) {
+  return position.xz + cloudWindShift.zw + cloudWindShift.xy * 1.4;
+}
+
+float cloudAltocumulusShape(vec3 position, float heightRatio, bool isCheap, vec4 field, vec4 broad) {
+  vec2 flow = cloudAltocumulusFlow(position);
   float regional = clamp(field.r * 0.55 + broad.r * 0.65 - 0.1, 0.0, 1.0);
   regional = regional * regional * (3.0 - 2.0 * regional);
   float coverage = clamp(cloudAltocumulus.z * mix(0.1, 1.9, regional), 0.0, 1.0);
@@ -479,7 +495,7 @@ float cloudAltocumulusDensity(vec3 position, float heightRatio, bool isCheap) {
 }
 
 vec4 cloudAltocumulusLayer(vec3 origin, vec3 direction, int stepCount, float jitter) {
-  if (cloudAltocumulus.z <= 0.0) {
+  if (cloudAltocumulus.z * 1.9 < 0.03) {
     return vec4(0.0);
   }
   vec2 ground = cloudSphereHit(origin, direction, cloudLayer.z);
@@ -513,7 +529,16 @@ vec4 cloudAltocumulusLayer(vec3 origin, vec3 direction, int stepCount, float jit
 
     vec3 samplePosition = origin + direction * travelled;
     float heightRatio = clamp((cloudAltitude(samplePosition) - cloudAltocumulus.x) / thickness, 0.0, 1.0);
-    float density = cloudAltocumulusDensity(samplePosition, heightRatio, travelled > cloudMarchSetting.y * 2.0);
+    vec2 flow = cloudAltocumulusFlow(samplePosition);
+    vec4 broad = textureLod(cloudWeatherSampler, flow * cloudScale.z * 0.17 + vec2(0.58, 0.23), 0.0);
+    float bestRegional = clamp(0.45 + broad.r * 0.65, 0.0, 1.0);
+    bestRegional = bestRegional * bestRegional * (3.0 - 2.0 * bestRegional);
+    if (cloudAltocumulus.z * mix(0.1, 1.9, bestRegional) <= 0.02) {
+      travelled += stepLength;
+      continue;
+    }
+    vec4 field = textureLod(cloudWeatherSampler, flow * cloudScale.z * 0.62 + vec2(0.37, 0.81), 0.0);
+    float density = cloudAltocumulusShape(samplePosition, heightRatio, travelled > cloudMarchSetting.y * 2.0, field, broad);
     if (density <= 0.0) {
       travelled += stepLength;
       continue;
@@ -526,7 +551,7 @@ vec4 cloudAltocumulusLayer(vec3 origin, vec3 direction, int stepCount, float jit
       if (lightRatio > 1.0) {
         break;
       }
-      lightDepth += cloudAltocumulusDensity(lightPosition, max(lightRatio, 0.0), true) * thickness * 1.2;
+      lightDepth += cloudAltocumulusShape(lightPosition, max(lightRatio, 0.0), true, field, broad) * thickness * 1.2;
     }
     lightDepth *= extinctionScale;
 
@@ -569,7 +594,7 @@ vec4 cloudNoctilucentLayer(vec3 direction) {
 
   vec2 planar = direction.xz / (direction.y + 0.18);
   vec2 ripple = vec2(-cloudWindDirection.y, cloudWindDirection.x);
-  vec2 uv = vec2(dot(planar, ripple), dot(planar, cloudWindDirection)) * cloudNoctilucent.y + cloudOrigin.xz * 0.002;
+  vec2 uv = vec2(dot(planar, ripple), dot(planar, cloudWindDirection)) * cloudNoctilucent.y + cloudWindShift.xy * 0.002;
 
   vec4 map = textureLod(cloudCirrusSampler, uv, 0.0);
   float fine = textureLod(cloudCirrusSampler, uv * vec2(3.3, 4.7) + vec2(0.21, 0.63), 0.0).r;
@@ -593,10 +618,10 @@ vec4 cloudCirrusLayer(vec3 origin, vec3 direction) {
     return vec4(0.0);
   }
 
-  vec3 position = origin + direction * distanceToLayer + cloudOrigin.xyz * 1.6;
+  vec2 position = (origin + direction * distanceToLayer).xz + cloudWindShift.zw + cloudWindShift.xy * 1.6;
   vec2 alongWind = cloudWindDirection;
   vec2 acrossWind = vec2(-alongWind.y, alongWind.x);
-  vec2 cirrusUv = vec2(dot(position.xz, alongWind), dot(position.xz, acrossWind)) * cloudCirrus.w;
+  vec2 cirrusUv = vec2(dot(position, alongWind), dot(position, acrossWind)) * cloudCirrus.w;
 
   vec4 cirrusMap = textureLod(cloudCirrusSampler, cirrusUv, 0.0);
   float fineFiber = textureLod(cloudCirrusSampler, cirrusUv * vec2(2.71, 3.37) + vec2(0.37, 0.61), 0.0).r;
@@ -622,7 +647,9 @@ vec4 cloudComposeSky(vec3 origin, vec3 direction, int stepCount, int lightStepCo
   if (cumulus.a >= 0.98) {
     return cumulus;
   }
-  vec4 altocumulus = cloudAltocumulusLayer(origin, direction, clamp(stepCount / 8, 4, 12), jitter);
+  vec4 altocumulus = cumulus.a >= 0.9
+    ? vec4(0.0)
+    : cloudAltocumulusLayer(origin, direction, clamp(stepCount / 12, 3, 12), jitter);
   vec4 cirrus = cloudCirrusLayer(origin, direction);
   vec4 noctilucent = cloudNoctilucentLayer(direction);
   vec4 high = cirrus + (1.0 - cirrus.a) * noctilucent;
@@ -790,11 +817,14 @@ void main() {
   float thickness = cloudLayer.y - cloudLayer.x;
   float sunHeight = max(cloudSunDirection.y, 0.08);
   float pathLength = thickness / sunHeight;
-  float stepLength = pathLength / 16.0;
+  float stepLength = pathLength / cloudWeather.z / 16.0;
 
   float opticalDepth = 0.0;
-  for (int index = 0; index < 16; index++) {
+  for (int index = 0; index < 28; index++) {
     vec3 samplePosition = position + cloudSunDirection * (stepLength * (float(index) + 0.5));
+    if (samplePosition.y > cloudLayer.y) {
+      break;
+    }
     float heightRatio = clamp((samplePosition.y - cloudLayer.x) / thickness, 0.0, 1.0);
     opticalDepth += cloudDensity(samplePosition, heightRatio, false) * stepLength;
   }
