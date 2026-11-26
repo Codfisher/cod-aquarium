@@ -743,11 +743,13 @@ meme-cache 沒有變化，與預期相符：toast 的成本是載入後的穩態
 
 **對著特定天氣調雲**：開發模式下 `reload-handoff` 的 `dayIndex` 欄位會覆寫起始日序（正式版不讀）。Playwright 腳本在 `sessionStorage['minespace-reload-handoff']` 的 JSON 裡多放 `dayIndex` 即可。用 `npx vite-node` 載入 `cloud-daily-weather.ts` 印出前幾十天的 `deriveCloudWeather` 結果，挑出想看的日子（例如雲塔最強、層雲最強、夜光雲出現的那幾天），夜光雲要把時刻設在日落後 / 日出前（約 0.77 / 0.23）才看得到。
 
-## Minespace：眼睛適應、彩虹與球諧天光（2026-11）
+## Minespace：眼睛適應與球諧天光（2026-11）
 
-參考 Photon（Minecraft 光影）的自動曝光、Purkinje shift、彩虹與天光球諧，只借想法、沒有抄程式碼（授權不同）。四項都有 F4 開關（自動曝光、暗視覺偏藍、雨後彩虹、球諧天光），可以逐項 A/B。
+參考 Photon（Minecraft 光影）的自動曝光、Purkinje shift 與天光球諧，只借想法、沒有抄程式碼（授權不同）。三項都有 F4 開關（自動曝光、暗視覺偏藍、球諧天光），可以逐項 A/B。
 
-**先弄清楚色調映射在哪。** 後製管線沒開 HDR（`hdr = false`）時，Babylon 不把影像處理接成後製，曝光、ACES、色調曲線與打散全在每一份 `StandardMaterial` 的著色器裡，畫面進畫布時已經是調過色的八位元顯示值。後製管線的 `imageProcessing` 物件存在但從沒被啟用（`camera._postProcesses` 裡是 `null`，`width` 是 -1）。這決定了四項的做法。
+曾經也照 Photon 做過雨後彩虹（畫在天空著色器裡、靠「剛淋過雨」的記憶撐九十秒），實際看起來很不自然，已整個拿掉。
+
+**先弄清楚色調映射在哪。** 後製管線沒開 HDR（`hdr = false`）時，Babylon 不把影像處理接成後製，曝光、ACES、色調曲線與打散全在每一份 `StandardMaterial` 的著色器裡，畫面進畫布時已經是調過色的八位元顯示值。後製管線的 `imageProcessing` 物件存在但從沒被啟用（`camera._postProcesses` 裡是 `null`，`width` 是 -1）。這決定了自動曝光與暗視覺偏藍的做法。
 
 **自動曝光（`domains/renderer/eye-adaptation.ts`）**
 
@@ -759,10 +761,9 @@ meme-cache 沒有變化，與預期相符：toast 的成本是載入後的穩態
 
 **暗視覺偏藍**：用同一個適應後亮度，算「調過曝光之後」有多暗，寫進 `ColorCurves` 的陰影那一段（色相 222、濃度與去飽和各十餘）。色調曲線是調色後依畫素亮度加權的，暗畫素吃陰影、亮畫素吃亮部，與視桿只在暗處作用相符；日夜循環只用到「整體」那組，陰影那組是空的。`ColorCurves` 的屬性只是設旗標、沒有通知，每幀寫是免費的（與 `exposure` 相反）。
 
-**雨後彩虹（`domains/weather/rainbow.ts`、`sky-gradient.ts`）**：在天空著色器裡依太陽正對面的夾角畫，主虹 39.5° ~ 44°、副虹 49.5° ~ 54.5°（比真實寬一倍多，否則在這個視野只剩幾像素），兩道之間略暗。色相用色相環一段算，混色疊上去（相加會讓藍紫被夾掉）。強度 = 太陽仰角閘（0.03 ~ 0.14 淡入、0.5 ~ 0.67 淡出，高過 42° 弧在地平線下）× 大雨閘（雨勢 0.3 ~ 0.6 收掉）× 「剛淋過雨」記憶（淋雨時跟上雨勢、雨停後 90 秒線性淡去）× 開闊程度。雨只下在兩座箱庭上，所以靠記憶，不是直接看當下雨勢。陰天罩在天空層之後畫，本來就會蓋住它。
 
 **球諧天光（`domains/renderer/sky-light.ts`）**：材質外掛，在霧之前 `color += (X·n.x + Z·n.z) * baseColor`，與體素全局光同位置。X、Z 是一階球諧的水平分量：對 48 個方向取天空色（`sampleSkyGradient`，與天色著色器是鏡像，改曲線要一起改）算 `(2/N) Σ 天色 × 方向`。只取水平兩軸：垂直軸是半球光在做的事（還帶洞穴、地面染色、夜間補光的調整），零階與垂直分量不加，平均亮度不動，白沙落在 ACES 膝點上的曝光調校原封不動。向量每 0.4 秒重算、每幀趨近。增益 3：天色是 LDR 漸層，落日側的天邊沒有現實那麼亮，一比一的偶極算出來肉眼看不出。日落時朝向太陽的牆約暖 8 個色階、背面冷 8 個，正午天色對稱，畫面不動。雨天與洞裡乘 `specularRatio` 與開闊程度收掉。
 
 **量測**（本機整合顯卡，F3 的 GPU 毫秒，同一視角兩次）：全開 34.3、36.4、35.3，全關 35.5、35.3 ——在雜訊內，成本量不出來。正午出生點視角全開與全關比對，天空與沙地平均差 1% 左右（倍率為 1）。
 
-**驗證用的小技巧**：Playwright 腳本要在 `page.goto` 前蓋掉 `Element.prototype.requestPointerLock`，否則 headless Chrome 會在 Windows 上 `ClipCursor` 把真滑鼠鎖進視窗。看彩虹要把 `use-weather.ts` 的 `rainbowMemory` 暫時初始化成 1（正午前後走不出雨區又站著不動，記憶永遠到不了）。
+**驗證用的小技巧**：Playwright 腳本要在 `page.goto` 前蓋掉 `Element.prototype.requestPointerLock`，否則 headless Chrome 會在 Windows 上 `ClipCursor` 把真滑鼠鎖進視窗。

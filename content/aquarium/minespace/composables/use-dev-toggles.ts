@@ -39,7 +39,6 @@ export const DEV_TOGGLE_LIST = [
   { key: 'grassTrample', label: { 'zh-hant': '草叢踩踏', 'en': 'Grass trampling' } },
   { key: 'autoExposure', label: { 'zh-hant': '自動曝光', 'en': 'Auto exposure' } },
   { key: 'purkinjeShift', label: { 'zh-hant': '暗視覺偏藍', 'en': 'Purkinje shift' } },
-  { key: 'rainbow', label: { 'zh-hant': '雨後彩虹', 'en': 'Rainbow' } },
   { key: 'skylightSh', label: { 'zh-hant': '球諧天光', 'en': 'SH skylight' } },
 ] as const
 

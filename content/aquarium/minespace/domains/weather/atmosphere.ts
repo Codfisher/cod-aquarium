@@ -73,8 +73,6 @@ export interface AtmosphereState {
   skyGlowColor: Color3;
   skyCounterColor: Color3;
   skyGlowStrength: number;
-  /** 太陽仰角的正弦，負的是在地平線下；彩虹要靠它判斷虹的圓弧在不在天上 */
-  sunHeight: number;
   /**
    * 由世界中心指向太陽的單位向量
    *
@@ -317,7 +315,6 @@ export function createAtmosphereState(): AtmosphereState {
     skyGlowColor: new Color3(1, 0.98, 0.9),
     skyCounterColor: new Color3(0.8, 0.88, 0.98),
     skyGlowStrength: 0.12,
-    sunHeight: 1,
     sunDirection: new Vector3(0, 1, 0),
     caveRatio: 0,
     skyBodyFade: 1,

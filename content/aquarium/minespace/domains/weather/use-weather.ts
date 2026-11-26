@@ -33,7 +33,6 @@ import {
 import { createFallingLeaves } from './falling-leaves'
 import { createGroundMist, getDawnMistRatio } from './ground-mist'
 import { createRainParticles } from './rain-particles'
-import { advanceRainbowMemory, computeRainbowStrength } from './rainbow'
 import { applySkyGradient } from './sky-gradient'
 import { createSkyReflectionTexture, SKY_REFLECTION_UPDATE_INTERVAL, updateSkyReflectionTexture } from './sky-reflection'
 import { createSnowParticles } from './snow-particles'
@@ -314,8 +313,6 @@ export function useWeather() {
   /** 這一道閃電的強度，遠方的雷只是天邊亮一下 */
   let flashStrength = 1
   let rainRatio = 0
-  /** 剛淋過雨的記憶，彩虹靠它在雨停之後撐一陣子（見 rainbow.ts） */
-  let rainbowMemory = 0
   /** 此刻的雪勢，與雨互斥：兩座箱庭隔得很遠 */
   let snowRatio = 0
   /** 此刻在聽雨亭那片雨裡多深，只有這裡會打雷 */
@@ -603,8 +600,6 @@ export function useWeather() {
           Color3.LerpToRef(atmosphere.skyZenithColor, atmosphere.fogColor, skyFade, rainZenithColor)
           Color3.LerpToRef(atmosphere.skyMidColor, atmosphere.fogColor, skyFade, rainMidColor)
 
-          rainbowMemory = advanceRainbowMemory(rainbowMemory, rainRatio, deltaTime)
-
           applySkyGradient(skyMaterial, {
             zenithColor: rainZenithColor,
             midColor: rainMidColor,
@@ -612,14 +607,6 @@ export function useWeather() {
             glowColor: atmosphere.skyGlowColor,
             counterColor: atmosphere.skyCounterColor,
             glowStrength: atmosphere.skyGlowStrength * (1 - Math.max(rainRatio, snowRatio)),
-            rainbowStrength: devToggle.rainbow
-              ? computeRainbowStrength({
-                  memory: rainbowMemory,
-                  rainRatio,
-                  sunHeight: atmosphere.sunHeight,
-                  openSkyRatio: (1 - atmosphere.caveRatio) * (1 - atmosphere.edgeRatio) * (1 - snowRatio),
-                })
-              : 0,
           })
         }
 

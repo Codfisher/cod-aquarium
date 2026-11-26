@@ -319,7 +319,6 @@ export function useDayNight() {
     atmosphere.skyGlowColor.copyFrom(sample.skyGlowColor)
     atmosphere.skyCounterColor.copyFrom(sample.skyCounterColor)
     atmosphere.skyGlowStrength = sample.skyGlowStrength
-    atmosphere.sunHeight = sample.sunHeight
     atmosphere.sunDirection.copyFrom(sample.sunPosition)
   }
 
