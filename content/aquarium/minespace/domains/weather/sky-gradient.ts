@@ -36,6 +36,28 @@ void main() {
 }
 `
 
+/**
+ * 彩虹（畫在下面那支著色器裡）
+ *
+ * 雨滴把陽光折射再反射回來，只集中在離「太陽正對面」固定角度的那一圈：
+ * 主虹在四十二度附近，外紅內紫；霓（副虹）在五十一度附近，
+ * 光多反射了一次，顏色順序相反、也暗得多。兩道之間的天空會比周圍略暗（亞歷山大暗帶）。
+ * 太陽高過四十二度，虹的圓弧整個沉到地平線以下，看不到——
+ * 這件事交給 CPU 那邊依太陽高度決定強度（見 rainbow.ts），著色器只管畫。
+ *
+ * 顏色用色相環的一段算出光譜，不查表：紅在外緣、綠在中央、藍紫在內緣，各色等寬。
+ * 兩端另外收一條包絡，邊緣才是柔的，不會是一刀切的色帶。
+ * 角度常數是弧度：主虹內緣 39.5 度、寬 4.5 度，霓內緣 49.5 度、寬 5 度。
+ * 寬度比真實的虹（約兩度）寬一倍多：真實的寬度在這個視野下只剩幾個像素，看起來像一條線
+ *
+ * 疊上去的方式是混色，不是相加：天色是亮的淡藍，直接加上去，
+ * 藍紫那一端會被夾在一而看不出來。混色讓彩虹的顏色蓋過去，
+ * 同時留五成的底色，雲與天色的層次才不會被整條色帶抹平。
+ * 靠近地平線時淡出，那裡的空氣濁，本來就看不到顏色這麼純的東西。
+ * 疊在打散色階之前，雜訊才蓋得到色帶上。
+ *
+ * 著色器字串裡不能寫註解（Babylon 的前處理器會誤判），所以解釋都寫在這裡
+ */
 const FRAGMENT_SHADER = `
 precision highp float;
 
@@ -48,6 +70,7 @@ uniform vec3 glowColor;
 uniform vec3 counterColor;
 uniform vec3 sunDirection;
 uniform float glowStrength;
+uniform float rainbowStrength;
 
 /**
  * 天邊那層霧色往上收的速度
@@ -71,6 +94,19 @@ const float ZENITH_FALLOFF = 1.6;
 
 /** 背對太陽那道反霞相對於霞光的濃度 */
 const float COUNTER_RATIO = 0.5;
+
+
+const float RAINBOW_PRIMARY_INNER = 0.6894;
+const float RAINBOW_PRIMARY_WIDTH = 0.0785;
+const float RAINBOW_SECONDARY_INNER = 0.8639;
+const float RAINBOW_SECONDARY_WIDTH = 0.0873;
+
+vec3 rainbowSpectrum(float position) {
+  float hue = (1.0 - clamp(position, 0.0, 1.0)) * 0.78;
+  vec3 spectrum = clamp(abs(mod(hue * 6.0 + vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0);
+  float envelope = smoothstep(0.0, 0.18, position) * (1.0 - smoothstep(0.82, 1.0, position));
+  return spectrum * envelope;
+}
 
 void main() {
   vec3 direction = normalize(vDirection);
@@ -133,6 +169,22 @@ void main() {
   float halo = pow(towardSun, 18.0) * 0.55 + pow(towardSun, 2.5) * 0.45 * lowSky;
   color = mix(color, glowColor, clamp(halo * glowStrength, 0.0, 1.0));
 
+  if (rainbowStrength > 0.001) {
+    float antisolarAngle = acos(clamp(-dot(direction, sunDirection), -1.0, 1.0));
+    float primaryPosition = (antisolarAngle - RAINBOW_PRIMARY_INNER) / RAINBOW_PRIMARY_WIDTH;
+    float secondaryPosition = 1.0 - (antisolarAngle - RAINBOW_SECONDARY_INNER) / RAINBOW_SECONDARY_WIDTH;
+
+    vec3 primaryBow = rainbowSpectrum(primaryPosition);
+    vec3 secondaryBow = rainbowSpectrum(secondaryPosition) * 0.32;
+    vec3 bowColor = (primaryBow + secondaryBow) * 1.15;
+    float bowAlpha = clamp(max(max(primaryBow.r, primaryBow.g), max(primaryBow.b, secondaryBow.g * 2.5)), 0.0, 1.0);
+
+    float horizonFade = smoothstep(0.0, 0.12, direction.y);
+    float darkBand = smoothstep(0.78, 0.82, antisolarAngle) * (1.0 - smoothstep(0.84, 0.862, antisolarAngle));
+    color *= 1.0 - 0.06 * darkBand * rainbowStrength * horizonFade;
+    color = mix(color, color * 0.5 + bowColor * 0.85, bowAlpha * 0.5 * rainbowStrength * horizonFade);
+  }
+
   /**
    * 打散色階
    *
@@ -163,6 +215,13 @@ export interface SkyGradientParams {
   /** 暖光的強度，正午幾乎為零、日落最濃 */
   glowStrength: number;
   /**
+   * 彩虹的濃度，0 為沒有
+   *
+   * 只有天氣系統知道剛下過雨，日夜循環重寫天色時不必也不該重算，
+   * 省略就沿用上一次寫進去的值
+   */
+  rainbowStrength?: number;
+  /**
    * 由世界中心指向太陽
    *
    * 只有日夜循環知道太陽在哪，天氣那邊疊陰天時不必也不該重算，
@@ -187,6 +246,7 @@ export function createSkyGradientMaterial(name: string, scene: Scene): ShaderMat
       'counterColor',
       'sunDirection',
       'glowStrength',
+      'rainbowStrength',
     ],
   })
 
@@ -215,7 +275,58 @@ export function applySkyGradient(material: ShaderMaterial, params: SkyGradientPa
   material.setColor3('counterColor', params.counterColor)
   material.setFloat('glowStrength', params.glowStrength)
 
+  if (params.rainbowStrength !== undefined) {
+    material.setFloat('rainbowStrength', params.rainbowStrength)
+  }
+
   if (params.sunDirection) {
     material.setVector3('sunDirection', params.sunDirection)
   }
+}
+
+/**
+ * 沿著某個方向看出去的天色，給 CPU 這一側用
+ *
+ * 球諧天光要把整片天空「看過一遍」，得在 CPU 上對幾十個方向各算一次天色。
+ * 這是上面那支著色器的鏡像（天邊、中空、天頂三段加上反霞與太陽暖光，不含彩虹與雜訊），
+ * 改著色器的曲線時要一起改這裡，兩邊對不起來的話，天光的暖側就會落在錯的方位
+ *
+ * direction 是單位向量（y 朝上），params 是這一刻的天色（需要 sunDirection），
+ * 結果寫進 output（紅、綠、藍），不配置新物件
+ */
+export function sampleSkyGradient(
+  direction: { x: number; y: number; z: number },
+  params: Required<Omit<SkyGradientParams, 'rainbowStrength'>>,
+  output: [number, number, number],
+): void {
+  const upward = Math.min(1, Math.max(0, direction.y))
+  const hazeBlend = 1 - (1 - upward) ** 6
+  const zenithBlend = 1 - (1 - upward) ** 1.6
+
+  const { zenithColor, midColor, horizonColor, glowColor, counterColor, sunDirection } = params
+  const channelList = ['r', 'g', 'b'] as const
+
+  const sunDot = direction.x * sunDirection.x + direction.y * sunDirection.y + direction.z * sunDirection.z
+  const towardSun = Math.max(sunDot, 0)
+  const awayFromSun = Math.max(-sunDot, 0)
+  const lowSky = 1 - smoothstep(0, 0.6, upward)
+  const counterMix = Math.min(1, Math.max(0, awayFromSun ** 3 * lowSky * 0.5 * params.glowStrength))
+  const haloMix = Math.min(
+    1,
+    Math.max(0, (towardSun ** 18 * 0.55 + towardSun ** 2.5 * 0.45 * lowSky) * params.glowStrength),
+  )
+
+  for (const [index, channel] of channelList.entries()) {
+    const upper = midColor[channel] + (zenithColor[channel] - midColor[channel]) * zenithBlend
+    let value = horizonColor[channel] + (upper - horizonColor[channel]) * hazeBlend
+    value += (counterColor[channel] - value) * counterMix
+    value += (glowColor[channel] - value) * haloMix
+    output[index] = value
+  }
+}
+
+function smoothstep(from: number, to: number, value: number): number {
+  const ratio = Math.min(1, Math.max(0, (value - from) / (to - from)))
+
+  return ratio * ratio * (3 - 2 * ratio)
 }

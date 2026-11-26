@@ -6,12 +6,14 @@ import {
   EffectRenderer,
   Effect as EffectStore,
   EffectWrapper,
+  InverseLerp,
   Matrix,
   MeshBuilder,
   RawTexture,
   RawTexture3D,
   RenderTargetTexture,
   ShaderMaterial,
+  SmoothStep,
   Texture,
   Vector2,
   Vector3,
@@ -25,6 +27,12 @@ import { measureSection } from '../../../composables/use-performance-probe'
 import { optOutOfFog } from '../../renderer/fog-opt-out'
 import { WORLD_SIZE } from '../../world/world-constants'
 import { getCloudShadowLightDirection, setCloudShadowMap } from '../cloud-shadow'
+import {
+  createCloudWeather,
+  createDailyWeather,
+  deriveCloudWeather,
+  sampleDailyWeather,
+} from './cloud-daily-weather'
 import {
   CLOUD_COMPOSITE_FRAGMENT,
   CLOUD_DOME_VERTEX,
@@ -79,6 +87,31 @@ const CLOUD_BOTTOM = 115
 const CLOUD_TOP = 205
 
 /**
+ * 雲塔那天雲層最多往上加高多少（格）
+ *
+ * 積雨雲塔（cumulus congestus）是同一層積雲往上長，不是另一層雲，
+ * 所以做法是把整個球殼的頂抬高，再在著色器裡只讓一部分地區的雲真的長到那裡
+ * （見 cloudDensity 的 towerMask）。其餘地方的雲照舊停在原本的高度，
+ * 抬高的那一截空氣由「跳過空白」的粗步距走過，花的錢很有限。
+ * 加高後的頂不能碰到高積雲（見 ALTOCUMULUS_BOTTOM）
+ */
+const CLOUD_TOWER_EXTRA_HEIGHT = 70
+
+/**
+ * 高積雲：雲底、雲頂（格）與消光係數的倍率
+ *
+ * 夾在積雲（頂最高 275）與卷雲（420）之間，是一層薄薄的、一朵一朵的小雲。
+ * 只有三十格厚：薄所以每一步都便宜，也因此只走寥寥幾步（見 cloudComposeSky）。
+ * 消光倍率大於一，是補它薄的那一截——三十格要有九十格積雲的不透明感，
+ * 密度就得高一些，邊緣才不會像一層霧
+ */
+const ALTOCUMULUS_BOTTOM = 300
+const ALTOCUMULUS_TOP = 330
+const ALTOCUMULUS_EXTINCTION_SCALE = 1.0
+/** 高積雲覆蓋率的倍率：天氣給的是零到一的傾向，著色器裡還要再被區域變化推來推去 */
+const ALTOCUMULUS_COVERAGE_SCALE = 0.65
+
+/**
  * 星球半徑（格）
  *
  * 不是地球的比例，是「天邊的雲沉下去」需要的曲率。
@@ -97,22 +130,45 @@ const PLANET_RADIUS = 12000
  * 天氣圖三千兩百格：決定「這一大片天比較多雲」的尺度，
  * 比視野裡看得到的範圍還大，抬頭轉一圈看不出重複
  */
-const BASE_NOISE_PERIOD = 300
-const DETAIL_NOISE_PERIOD = 34
+const BASE_NOISE_PERIOD = 220
+const DETAIL_NOISE_PERIOD = 26
 const WEATHER_MAP_PERIOD = 3200
 
 /** 天氣圖與兩張雜訊的邊長，取捨見 cloud-noise 的 CloudNoiseSizeOption */
-const NOISE_SIZE_OPTION = { baseSize: 64, detailSize: 32, weatherSize: 256 }
+const NOISE_SIZE_OPTION = { baseSize: 64, detailSize: 32, weatherSize: 256, cirrusSize: 512 }
 const NOISE_SEED = 'minespace-cloud'
 
 /**
  * 晴天的覆蓋率
  *
- * 天氣圖的紅色通道已經拉成均勻分布，所以這個數字大約就是
- * 「天空有幾成的地方可能長雲」。實際看得到的雲比這個少，
- * 因為基底雜訊還會在雲團裡面挖洞。禪庭要的是晴天裡幾朵散開的積雲
+ * 零點四六時滿天都是雲，內顯每幀多花十毫秒；零點三八是雲量與成本的折衷。
+ *
+ * 這是「局部覆蓋率」的中間值：天氣圖的低頻雜訊會把它在零點四五倍到
+ * 一點三五倍之間推來推去，同一片天裡有的地方雲多、有的地方稀疏，
+ * 但沒有一處是完全不長雲的。
+ *
+ * 原本的做法是拿天氣圖切一個門檻，超過一半的面積根本不准長雲，
+ * 晴朗區又是一大片連在一起——人站在那片晴空底下，頭頂沒雲、地上沒雲影，
+ * 只看得到天邊遠遠幾朵，整片天顯得很稀疏。改成局部覆蓋率是照
+ * Minecraft 光影模組 Photon 的做法：覆蓋率本身在最小與最大值之間隨地點變化，
+ * 再拿雲形的雜訊去切
  */
-const CLEAR_COVERAGE = 0.46
+const CLEAR_COVERAGE = 0.38
+
+/*
+ * 為什麼雲的分布要再疊一層「宏觀」雜訊（見 cloudDensity 的 macro）
+ *
+ * 基底雜訊每兩百多格就平鋪一次，從地面望出去，天上同一個雲形會重複好幾遍；
+ * 覆蓋率的地區差異又小，滿天的雲大小一樣、間距一樣，像一群排好隊的羊。
+ *
+ * 宏觀雜訊是天氣圖用非整數倍的頻率再取一次，週期約一萬格，做三件事：
+ * 一、各區域的座標各自偏移，取到基底雜訊的不同段落，同一個雲形不再重複。
+ *     偏移只能取變化最慢的雲種類通道：曾經拿覆蓋通道來偏移九百格，
+ *     那個通道幾百格內就從零走到一，雲被拉扯成一道道長條紋（踩過）。
+ * 二、與天氣圖一起決定局部覆蓋率，範圍拉到零點二到一點七倍：
+ *     有的地方是成群的雲，有的地方幾乎是晴空。
+ * 三、調整基底雜訊的尺度，有的區域是大塊的積雲，有的是零碎的小雲
+ */
 
 /** 下雨時覆蓋率往上加多少，雲先變多變暗，陰天罩才接手 */
 const RAIN_COVERAGE_BOOST = 0.32
@@ -141,11 +197,11 @@ const DETAIL_EROSION = 0.6
  * 實際看起來還是「固定不變」：雲在兩三百格外，每秒兩格換算成角度
  * 不到半度，人站著看一分鐘都察覺不到在動。
  * 後來加上雲自己的演變（見 EVOLVE_RISE_SPEED），天空已經是活的，
- * 平移不必再扛「看得出在動」這件事。五點五、四點五實際看都太急，
- * 像快轉的縮時攝影；二點五是頭頂那幾朵每秒挪半度多，
- * 盯著看才察覺得到在飄，正是禪庭該有的速度
+ * 平移不必再扛「看得出在動」這件事。五點五、四點五、二點五實際看都太急，
+ * 像快轉的縮時攝影；一點五是頭頂那幾朵每秒挪不到半度，
+ * 要盯著看一陣子才察覺得到在飄，正是禪庭該有的速度
  */
-const WIND_SPEED = 2.5
+const WIND_SPEED = 1.5
 const WIND_DIRECTION = new Vector3(1, 0, 0.34).normalize()
 
 /**
@@ -158,12 +214,12 @@ const WIND_DIRECTION = new Vector3(1, 0, 0.34).normalize()
  * 做法是讓基底雜訊相對天氣圖慢慢移動：天氣圖決定「哪裡會有雲」，
  * 基底決定「雲長什麼樣」，兩者錯開，雲團就會在原地鼓起、分裂、消散。
  * 往上那一份是雲頂翻騰的方向，側向那一份讓雲團逆著風重組，
- * 數字照基底的週期（三百格）抓：大約兩三分鐘一朵雲換一副樣子
+ * 數字照基底的週期抓：大約三四分鐘一朵雲換一副樣子
  */
-const EVOLVE_RISE_SPEED = 0.45
-const EVOLVE_DRIFT_SPEED = 0.7
+const EVOLVE_RISE_SPEED = 0.3
+const EVOLVE_DRIFT_SPEED = 0.45
 /** 細節雜訊自己翻滾的速度（細節貼圖單位 / 秒），雲邊在長、在散 */
-const DETAIL_EVOLVE_SPEED = 0.03
+const DETAIL_EVOLVE_SPEED = 0.02
 /**
  * 細節雜訊被扭曲的強度（細節貼圖單位）
  *
@@ -184,11 +240,18 @@ const HAZE_DISTANCE = 1200
 const FADE_START = 1700
 const FADE_END = 2300
 
-/** 卷雲：高度、覆蓋率、最濃時的不透明度、天氣圖藍色通道攤多大 */
+/**
+ * 卷雲：高度、覆蓋率、最濃時的不透明度、天氣圖藍色通道攤多大
+ *
+ * 卷雲是一張在 worker 裡預先算好的 2D 貼圖（見 cloud-noise 的 createCirrusMap），
+ * 週期是這張貼圖攤在天上多大。前兩版都失敗過：直接取細節 Worley 是整齊的點陣，
+ * 在著色器裡扭曲雜訊座標則扭成大理石紋——卷雲的絲要順著氣流長，
+ * 那只能沿著流場卷積出來，而那個計算太貴，不能每個像素每幀做
+ */
 const CIRRUS_HEIGHT = 420
-const CIRRUS_COVERAGE = 0.42
+const CIRRUS_COVERAGE = 0.5
 const CIRRUS_OPACITY = 0.4
-const CIRRUS_PERIOD = 5200
+const CIRRUS_PERIOD = 4600
 
 /**
  * 光照的兩個增益
@@ -201,6 +264,19 @@ const CIRRUS_PERIOD = 5200
  */
 const SUN_GAIN = 14
 const AMBIENT_GAIN = 0.95
+
+/**
+ * 雲的高光為什麼要柔性壓縮（cloudSoftClip）
+ *
+ * 逆光時前向散射讓雲的亮度遠超過一，而主畫面是八位元的，超過一就截斷。
+ * 雲邊很薄、不透明度只有一成，亮度卻有十倍時，預乘之後顏色照樣是一——
+ * 雲邊一出現就是全白，沒有過渡，靠近太陽的雲像一張剪下來的白紙（踩過）。
+ * 真實的銀邊是亮，但從雲邊往天空是漸淡的。
+ *
+ * 做法是先除回不透明度得到雲本身的亮度，超過零點七五的那一段用指數曲線
+ * 收到一以內，再乘回不透明度。一般的亮面幾乎不動，逆光的薄邊則照著
+ * 不透明度慢慢淡出去
+ */
 
 /**
  * 內部散射機率的強度
@@ -218,6 +294,39 @@ const POWDER_STRENGTH = 0.75
 const FLASH_GAIN = 0.9
 
 /**
+ * 地面反上來的光
+ *
+ * 庭園的地是白沙，反照率落在零點五到零點六（比一般草地的一兩成亮得多），
+ * 晴天的雲底因此帶一層暖亮，那是雲「站在白地上」的證據。
+ * 增益是補相位函數的正規化：與 SUN_GAIN 同一個道理，各向同性的相位只有 1 / 4π，
+ * 不乘上去的話這一項小到看不見
+ */
+const GROUND_ALBEDO = 0.55
+const GROUND_BOUNCE_GAIN = 1.4
+
+/**
+ * 風大時雲邊被撕碎的程度，以及層雲時雲邊被抹平的程度
+ *
+ * 前者是倍率：風最大的日子細節侵蝕與扭曲各加幾成。
+ * 層雲要的是一整層柔和的毯子，邊緣不該有積雲那種花椰菜的缺口，所以侵蝕往下砍
+ */
+const TORN_EROSION_BOOST = 0.45
+const TORN_SWIRL_BOOST = 0.6
+const STRATUS_EROSION_CUT = 0.55
+
+/** 下雨時高積雲也跟著變多，雨前天空先爬滿一層薄雲 */
+const RAIN_ALTOCUMULUS_BOOST = 0.3
+
+/**
+ * 夜光雲：貼圖的頻率（每單位天球平面座標幾個週期）與最亮時的亮度
+ *
+ * 夜光雲是一層貼在天球上的銀藍色細絲（見 cloudNoctilucentLayer）：
+ * 它高到不屬於這顆縮小的星球，用視線投影到一張平面上，不走球殼求交
+ */
+const NOCTILUCENT_FREQUENCY = 0.7
+const NOCTILUCENT_BRIGHTNESS = 0.9
+
+/**
  * 最短步距（格）
  *
  * 望向天頂時整段只有九十格，給滿步數會切成一格多一步，
@@ -229,11 +338,16 @@ const MIN_STEP_LENGTH = 2.2
 /**
  * 多遠以外省略細節雜訊與一半的光線步數（格）
  *
- * 九百格外一朵雲只剩幾個像素，邊緣被啃出來的缺口根本看不見，
+ * 六百格外一朵雲只剩十幾個像素，邊緣被啃出來的缺口幾乎看不見，
  * 又已經化進天色一大半。那裡每一步都少兩次三維取樣，
- * 而望向天邊的射線大部分的步數正好都落在這一段
+ * 而望向天邊的射線大部分的步數正好都落在這一段。
+ *
+ * 朝太陽的光線步數在兩種地方減半：這裡，以及視線已經穿進雲核
+ * （透光率剩不到三成）之後——那些取樣點被前面的雲擋掉大半，
+ * 對畫面的貢獻很小。改成局部覆蓋率、雲變多之後，這兩項省下的是
+ * 多出來那十毫秒的一大半（內顯實測）
  */
-const FAR_DETAIL_DISTANCE = 900
+const FAR_DETAIL_DISTANCE = 600
 
 /**
  * 跳過空白時步距放大幾倍
@@ -297,6 +411,15 @@ export const volumetricCloudState = {
   rainRatio: 0,
   /** 閃電那一下有多亮 */
   flashRatio: 0,
+  /**
+   * 連續的日期：整數部分是第幾個遊戲日，小數部分是那一天的時刻
+   *
+   * 由日夜循環寫，每日天氣靠它抽籤與內插（見 cloud-daily-weather）
+   */
+  dayPosition: 0.45,
+  /** 太陽的高度與方向（指向太陽）。夜光雲只在太陽剛沉到地平線下時亮，且只亮在太陽那一側 */
+  sunHeight: 1,
+  sunDirection: new Vector3(0, 1, 0),
 }
 
 /** 倒影材質的名字，水鏡靠它把材質找出來 */
@@ -312,6 +435,7 @@ interface NoiseTextureSet {
   base: RawTexture3D;
   detail: RawTexture3D;
   weather: RawTexture;
+  cirrus: RawTexture;
 }
 
 /** 這一幀要寫進著色器的值，三支效果與倒影材質共用同一份 */
@@ -328,6 +452,18 @@ interface FrameUniform {
   ambientBottom: Color3;
   flash: number;
   visibleRatio: number;
+  /** 雲頂現在的高度，雲塔那天比 CLOUD_TOP 高 */
+  top: number;
+  /** 細節侵蝕與扭曲的強度，風大的日子與層雲的日子各往一邊推 */
+  detailErosion: number;
+  detailSwirl: number;
+  stratusBlend: number;
+  congestusBlend: number;
+  altocumulusCoverage: number;
+  cirrusCoverage: number;
+  bounceColor: Color3;
+  noctilucentAmount: number;
+  sunAzimuth: Vector2;
 }
 
 function createNoiseTextureSet(scene: Scene, noiseSet: CloudNoiseSet): NoiseTextureSet {
@@ -376,10 +512,24 @@ function createNoiseTextureSet(scene: Scene, noiseSet: CloudNoiseSet): NoiseText
   weather.wrapU = Texture.WRAP_ADDRESSMODE
   weather.wrapV = Texture.WRAP_ADDRESSMODE
 
+  const cirrus = RawTexture.CreateRGBATexture(
+    noiseSet.cirrus.data,
+    noiseSet.cirrus.size,
+    noiseSet.cirrus.size,
+    scene,
+    false,
+    false,
+    Texture.BILINEAR_SAMPLINGMODE,
+  )
+  cirrus.name = 'cloud-cirrus-map'
+  cirrus.wrapU = Texture.WRAP_ADDRESSMODE
+  cirrus.wrapV = Texture.WRAP_ADDRESSMODE
+
   return {
     base: createVolume('cloud-base-noise', noiseSet.base),
     detail: createVolume('cloud-detail-noise', noiseSet.detail),
     weather,
+    cirrus,
   }
 }
 
@@ -443,7 +593,23 @@ export function createVolumetricCloud(scene: Scene, skyOverlayGroup: number, dom
     ambientBottom: new Color3(),
     flash: 0,
     visibleRatio: 1,
+    top: CLOUD_TOP,
+    detailErosion: DETAIL_EROSION,
+    detailSwirl: DETAIL_SWIRL,
+    stratusBlend: 0,
+    congestusBlend: 0,
+    altocumulusCoverage: 0,
+    cirrusCoverage: CIRRUS_COVERAGE,
+    bounceColor: new Color3(),
+    noctilucentAmount: 0,
+    sunAzimuth: new Vector2(1, 0),
   }
+
+  /** 今天的天氣，每幀重算（便宜：幾個內插），用的是模組內快取的每日亂數 */
+  const dailyWeather = createDailyWeather()
+  const cloudWeather = createCloudWeather()
+  /** 風吹過的總距離：風速每天不同，不能再用「風速乘經過時間」，否則換天時整片雲會跳 */
+  let windTravel = 0
 
   function applyCloudUniforms(effect: Effect, lightDirection: Vector3 = frame.lightDirection): void {
     if (!noiseTextureSet)
@@ -452,14 +618,15 @@ export function createVolumetricCloud(scene: Scene, skyOverlayGroup: number, dom
     effect.setTexture('cloudBaseSampler', noiseTextureSet.base)
     effect.setTexture('cloudDetailSampler', noiseTextureSet.detail)
     effect.setTexture('cloudWeatherSampler', noiseTextureSet.weather)
-    effect.setFloat4('cloudLayer', CLOUD_BOTTOM, CLOUD_TOP, PLANET_RADIUS, 0)
+    effect.setTexture('cloudCirrusSampler', noiseTextureSet.cirrus)
+    effect.setFloat4('cloudLayer', CLOUD_BOTTOM, frame.top, PLANET_RADIUS, 0)
     effect.setFloat4('cloudShape', frame.coverage, EXTINCTION, ALBEDO, CLOUD_SKEW)
     effect.setFloat4(
       'cloudScale',
       1 / BASE_NOISE_PERIOD,
       1 / DETAIL_NOISE_PERIOD,
       1 / WEATHER_MAP_PERIOD,
-      DETAIL_EROSION,
+      frame.detailErosion,
     )
     effect.setFloat4('cloudOrigin', frame.origin.x, frame.origin.y, frame.origin.z, frame.detailTime)
     effect.setVector3('cloudSunDirection', lightDirection)
@@ -468,12 +635,27 @@ export function createVolumetricCloud(scene: Scene, skyOverlayGroup: number, dom
     effect.setColor3('cloudAmbientBottom', frame.ambientBottom)
     effect.setColor3('cloudHazeColor', volumetricCloudState.hazeColor)
     effect.setFloat4('cloudHaze', HAZE_DISTANCE, FADE_START, FADE_END, 1)
-    effect.setFloat4('cloudCirrus', CIRRUS_HEIGHT, CIRRUS_COVERAGE, CIRRUS_OPACITY, 1 / CIRRUS_PERIOD)
+    effect.setFloat4('cloudCirrus', CIRRUS_HEIGHT, frame.cirrusCoverage, CIRRUS_OPACITY, 1 / CIRRUS_PERIOD)
     effect.setFloat4('cloudLighting', SUN_GAIN, AMBIENT_GAIN, POWDER_STRENGTH, frame.flash)
     effect.setVector3('cloudCameraPosition', frame.cameraPosition)
     effect.setFloat2('cloudWindDirection', WIND_DIRECTION.x, WIND_DIRECTION.z)
     effect.setFloat4('cloudMarchSetting', MIN_STEP_LENGTH, FAR_DETAIL_DISTANCE, COARSE_STEP_SCALE, 0)
-    effect.setFloat4('cloudEvolve', frame.evolve.x, frame.evolve.y, frame.evolve.z, DETAIL_SWIRL)
+    effect.setFloat4('cloudEvolve', frame.evolve.x, frame.evolve.y, frame.evolve.z, frame.detailSwirl)
+    effect.setFloat3(
+      'cloudWeather',
+      frame.stratusBlend,
+      frame.congestusBlend,
+      (frame.top - CLOUD_BOTTOM) / (CLOUD_TOP - CLOUD_BOTTOM),
+    )
+    effect.setFloat4(
+      'cloudAltocumulus',
+      ALTOCUMULUS_BOTTOM,
+      ALTOCUMULUS_TOP,
+      frame.altocumulusCoverage,
+      ALTOCUMULUS_EXTINCTION_SCALE,
+    )
+    effect.setColor3('cloudBounceColor', frame.bounceColor)
+    effect.setFloat4('cloudNoctilucent', frame.noctilucentAmount, NOCTILUCENT_FREQUENCY, frame.sunAzimuth.x, frame.sunAzimuth.y)
   }
 
   const effectRenderer = new EffectRenderer(engine)
@@ -662,15 +844,32 @@ export function createVolumetricCloud(scene: Scene, skyOverlayGroup: number, dom
   }
 
   /** 把日夜與天氣寫進來的狀態合成這一幀要用的值 */
-  function updateFrameUniform(position: Vector3): void {
+  function updateFrameUniform(position: Vector3, deltaSecond: number): void {
     const state = volumetricCloudState
     const darkness = 1 - state.rainRatio * 0.55
 
-    frame.coverage = Math.min(0.95, CLEAR_COVERAGE + state.rainRatio * RAIN_COVERAGE_BOOST)
+    sampleDailyWeather(state.dayPosition, dailyWeather)
+    deriveCloudWeather(dailyWeather, Math.floor(state.dayPosition), cloudWeather)
+
+    frame.coverage = Math.min(0.95, CLEAR_COVERAGE + cloudWeather.coverageOffset + state.rainRatio * RAIN_COVERAGE_BOOST)
+    frame.stratusBlend = cloudWeather.stratusBlend
+    frame.congestusBlend = cloudWeather.congestusBlend
+    frame.top = CLOUD_TOP + CLOUD_TOWER_EXTRA_HEIGHT * cloudWeather.congestusBlend
+    frame.detailErosion = DETAIL_EROSION
+      * (1 + TORN_EROSION_BOOST * cloudWeather.tornFactor)
+      * (1 - STRATUS_EROSION_CUT * cloudWeather.stratusBlend)
+    frame.detailSwirl = DETAIL_SWIRL * (1 + TORN_SWIRL_BOOST * cloudWeather.tornFactor)
+    frame.altocumulusCoverage = Math.min(
+      1,
+      cloudWeather.altocumulusCoverage * ALTOCUMULUS_COVERAGE_SCALE + state.rainRatio * RAIN_ALTOCUMULUS_BOOST,
+    )
+    frame.cirrusCoverage = CIRRUS_COVERAGE * cloudWeather.cirrusScale
+
+    windTravel += WIND_SPEED * cloudWeather.windSpeedScale * deltaSecond
     frame.origin.set(
-      worldShift.x - WIND_DIRECTION.x * WIND_SPEED * elapsed,
+      worldShift.x - WIND_DIRECTION.x * windTravel,
       0,
-      worldShift.z - WIND_DIRECTION.z * WIND_SPEED * elapsed,
+      worldShift.z - WIND_DIRECTION.z * windTravel,
     )
     frame.detailTime = elapsed * DETAIL_EVOLVE_SPEED
     /** 雲頂往上翻騰，取樣點就往下走；側向逆著風，雲團才是在重組而不是跟著風跑 */
@@ -686,6 +885,34 @@ export function createVolumetricCloud(scene: Scene, skyOverlayGroup: number, dom
     state.ambientBottom.scaleToRef(darkness, frame.ambientBottom)
     frame.flash = state.flashRatio * FLASH_GAIN
     frame.visibleRatio = Math.min(1, Math.max(0, state.visibleRatio))
+
+    /**
+     * 地面反上來的光：只看直射光那一份
+     *
+     * 天空反上來的那份已經在雲底的環境光裡（use-day-night 的 ambientBottom）。
+     * 白沙反照率高，正午最亮；太陽壓低時地面接到的光與 cos 成正比一起暗下去，
+     * 所以乘的是太陽高度而不是一個常數
+     */
+    const sunLift = Math.max(0, frame.lightDirection.y)
+    frame.lightColor.scaleToRef(
+      SUN_GAIN * GROUND_ALBEDO * sunLift * GROUND_BOUNCE_GAIN / (4 * Math.PI),
+      frame.bounceColor,
+    )
+
+    /**
+     * 夜光雲只在太陽剛沉到地平線下的那一小段時間看得到
+     *
+     * 它在八十多公里的高空，那時天空已經暗了，那裡的冰晶還照得到太陽。
+     * 太陽再沉深一些，連它也暗下去；所以是一個窗口，兩端都淡出
+     */
+    const sunDepth = -state.sunHeight
+    const twilightWindow = SmoothStep(0, 1, InverseLerp(0.06, 0.12, sunDepth))
+      * (1 - SmoothStep(0, 1, InverseLerp(0.24, 0.32, sunDepth)))
+    frame.noctilucentAmount = cloudWeather.noctilucentRarity * twilightWindow * NOCTILUCENT_BRIGHTNESS * (1 - state.rainRatio)
+    const azimuthLength = Math.hypot(state.sunDirection.x, state.sunDirection.z)
+    if (azimuthLength > 0.0001) {
+      frame.sunAzimuth.set(state.sunDirection.x / azimuthLength, state.sunDirection.z / azimuthLength)
+    }
   }
 
   function renderShadowMap(): void {
@@ -725,12 +952,13 @@ export function createVolumetricCloud(scene: Scene, skyOverlayGroup: number, dom
     }
 
     const position = camera.globalPosition
-    elapsed += Math.min(0.1, engine.getDeltaTime() / 1000)
+    const deltaSecond = Math.min(0.1, engine.getDeltaTime() / 1000)
+    elapsed += deltaSecond
     frameIndex = (frameIndex + 1) % 64
 
     syncTargetSize()
     trackWorldWrap(position)
-    updateFrameUniform(position)
+    updateFrameUniform(position, deltaSecond)
 
     scene.getTransformMatrix().invertToRef(inverseViewProjection)
 
@@ -800,6 +1028,7 @@ export function createVolumetricCloud(scene: Scene, skyOverlayGroup: number, dom
     noiseTextureSet?.base.dispose()
     noiseTextureSet?.detail.dispose()
     noiseTextureSet?.weather.dispose()
+    noiseTextureSet?.cirrus.dispose()
   }
 
   scene.onDisposeObservable.addOnce(dispose)

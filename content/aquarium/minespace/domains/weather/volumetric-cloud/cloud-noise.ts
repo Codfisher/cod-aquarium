@@ -37,6 +37,7 @@ export interface CloudNoiseSet {
   base: CloudNoiseVolume;
   detail: CloudNoiseVolume;
   weather: { size: number; data: Uint8Array };
+  cirrus: { size: number; data: Uint8Array };
 }
 
 export interface CloudNoiseSizeOption {
@@ -53,6 +54,8 @@ export interface CloudNoiseSizeOption {
   detailSize: number;
   /** 天氣圖的邊長 */
   weatherSize: number;
+  /** 卷雲貼圖的邊長 */
+  cirrusSize: number;
 }
 
 /** 把 value 從 [low, high] 線性對應到 [newLow, newHigh]，Nubis 整套都靠這個運算 */
@@ -438,11 +441,176 @@ export function createWeatherMap(size: number, seed: string): { size: number; da
   return { size, data }
 }
 
+/** 在可平鋪的灰階圖上做雙線性取樣，座標以格為單位，超出範圍會繞回去 */
+function sampleWrapped(valueList: Float32Array, size: number, x: number, y: number): number {
+  const baseX = Math.floor(x)
+  const baseY = Math.floor(y)
+  const ratioX = x - baseX
+  const ratioY = y - baseY
+  const read = (offsetX: number, offsetY: number) =>
+    valueList[wrapIndex(baseX + offsetX, size) + wrapIndex(baseY + offsetY, size) * size] ?? 0
+
+  const top = read(0, 0) * (1 - ratioX) + read(1, 0) * ratioX
+  const bottom = read(0, 1) * (1 - ratioX) + read(1, 1) * ratioX
+  return top * (1 - ratioY) + bottom * ratioY
+}
+
+/**
+ * 沿著流場做線積分卷積（Line Integral Convolution）
+ *
+ * 從每一格出發，順著流向往前、往後各走一段，把沿路的雜訊加權平均。
+ * 同一條流線上的格子平均到幾乎同一組雜訊，彼此很像；
+ * 相鄰兩條流線則各自平均到不同的雜訊——於是長出一絲一絲順著流向的紋理，
+ * 而且會跟著流場一起彎。這正是卷雲被高空風扯成馬尾的樣子。
+ *
+ * 權重用 Hann 窗：兩端漸弱，條紋的頭尾才是慢慢收掉，不是一刀切
+ */
+function convolveAlongFlow(
+  noiseList: Float32Array,
+  angleList: Float32Array,
+  size: number,
+  halfLength: number,
+  stepSize: number,
+): Float32Array {
+  const result = new Float32Array(size * size)
+
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      let total = sampleWrapped(noiseList, size, x, y)
+      let weightTotal = 1
+
+      for (const direction of [1, -1]) {
+        let positionX = x
+        let positionY = y
+        for (let step = 1; step <= halfLength; step++) {
+          const angle = sampleWrapped(angleList, size, positionX, positionY)
+          positionX += Math.cos(angle) * direction * stepSize
+          positionY += Math.sin(angle) * direction * stepSize
+          const weight = 0.5 + 0.5 * Math.cos((step / halfLength) * Math.PI)
+          total += sampleWrapped(noiseList, size, positionX, positionY) * weight
+          weightTotal += weight
+        }
+      }
+
+      result[x + y * size] = total / weightTotal
+    }
+  }
+
+  return result
+}
+
+/** 拉開對比：以平均與標準差為準，把多數的值攤到零到一之間 */
+function stretchContrast(valueList: Float32Array, spread: number): Float32Array {
+  let mean = 0
+  for (const value of valueList) {
+    mean += value
+  }
+  mean /= valueList.length
+
+  let variance = 0
+  for (const value of valueList) {
+    variance += (value - mean) ** 2
+  }
+  const deviation = Math.sqrt(variance / valueList.length) || 1
+
+  return valueList.map((value) => clamp01(0.5 + ((value - mean) / deviation) * spread))
+}
+
+/**
+ * 卷雲貼圖
+ *
+ * 紅：纖維。綠：這一帶有沒有卷雲（成片、成帶，均勻分布，著色器拿覆蓋率去切）。
+ *
+ * ── 為什麼是一張 2D 貼圖 ──
+ *
+ * 卷雲在積雲上面幾百格，薄得幾乎沒有厚度，從地面看過去沒有任何體積感，
+ * 行進它是白花錢。Guerrilla 在《Horizon Zero Dawn》也是這樣做的：
+ * 低空的雲用體積行進，卷雲只查一張 2D 貼圖（Schneider 2017，Nubis）。
+ *
+ * ── 為什麼要沿著流場卷積 ──
+ *
+ * 卷雲的樣子是冰晶被高空的風扯成一絲一絲的長條，末端常帶著彎鉤。
+ * 第一版直接拿 Worley 鋪，平鋪出來是整齊的點陣；
+ * 第二版在著色器裡扭曲雜訊座標，扭出來像大理石紋與液體漩渦——兩者都不像卷雲。
+ * 「順著氣流拉出來的細絲」這件事，紋理合成裡現成的做法就是沿著向量場做
+ * 線積分卷積：絲的走向由流場決定，自然地跟著彎（Perlin 與 Neyret 的 flow noise
+ * 也是同一個想法：讓雜訊沿著流動被帶著走）。
+ *
+ * 流場大致順著貼圖的 X 軸（著色器會把 X 軸轉到高空風的方向），
+ * 再疊兩層低頻雜訊讓它緩緩彎曲；兩種粗細的雜訊各卷一次，
+ * 粗的給一束一束的雲帶，細的給雲帶裡的髮絲
+ */
+export function createCirrusMap(size: number, seed: string): { size: number; data: Uint8Array } {
+  const random = createSeededRandom(`${seed}-cirrus`)
+  const bendCoarse = createPeriodicGradient3D(random, 3)
+  const bendFine = createPeriodicGradient3D(random, 7)
+  const maskOctaveList = [2, 4, 8].map((period) => createPeriodicGradient2D(random, period, period * 2))
+
+  const angleList = new Float32Array(size * size)
+  const fineNoiseList = new Float32Array(size * size)
+  const coarseNoiseList = new Float32Array(size * size)
+  const maskList = new Float32Array(size * size)
+  const inverseSize = 1 / size
+  /** 粗雜訊每八格才換一個亂數，卷出來的條紋比較寬、比較稀；格寬必須整除邊長，否則繞回的索引會變成小數 */
+  const coarseCellSize = 8
+  const coarseCount = size / coarseCellSize
+  const coarseSeedList = Float32Array.from({ length: coarseCount * coarseCount }, () => random())
+
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const u = (x + 0.5) * inverseSize
+      const v = (y + 0.5) * inverseSize
+      const index = x + y * size
+
+      angleList[index] = bendCoarse(u * 3, v * 3, 0.5) * 1.1 + bendFine(u * 7, v * 7, 0.5) * 0.45
+      fineNoiseList[index] = random()
+
+      let mask = 0
+      let amplitude = 1
+      for (const octave of maskOctaveList) {
+        mask += octave(u, v) * amplitude
+        amplitude *= 0.5
+      }
+      maskList[index] = mask
+    }
+  }
+
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      coarseNoiseList[x + y * size] = sampleWrapped(
+        coarseSeedList,
+        coarseCount,
+        x / coarseCellSize,
+        y / coarseCellSize,
+      )
+    }
+  }
+
+  const fineFiberList = stretchContrast(convolveAlongFlow(fineNoiseList, angleList, size, 10, 1), 0.22)
+  const coarseFiberList = stretchContrast(convolveAlongFlow(coarseNoiseList, angleList, size, 24, 2), 0.25)
+  const equalizedMaskList = equalize(maskList)
+
+  const data = new Uint8Array(size * size * 4)
+  for (let index = 0; index < size * size; index++) {
+    const coarse = coarseFiberList[index] ?? 0
+    const fine = fineFiberList[index] ?? 0
+    /** 粗的決定一束一束在哪，細的在束裡刻出髮絲；相乘而不是相加，束與束之間才是空的 */
+    const fiber = clamp01(coarse * 1.3 - 0.3) ** 1.6 * (0.7 + fine * 0.5)
+    data[index * 4] = toByte(fiber)
+    data[index * 4 + 1] = toByte(equalizedMaskList[index] ?? 0)
+    data[index * 4 + 2] = 0
+    data[index * 4 + 3] = 255
+  }
+
+  return { size, data }
+}
+
 /** 三張一起做，worker 只要呼叫這一支 */
 export function createCloudNoiseSet(option: CloudNoiseSizeOption, seed: string): CloudNoiseSet {
   return {
     base: createBaseNoise(option.baseSize, seed),
     detail: createDetailNoise(option.detailSize, seed),
     weather: createWeatherMap(option.weatherSize, seed),
+    cirrus: createCirrusMap(option.cirrusSize, seed),
   }
 }

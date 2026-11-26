@@ -1,4 +1,4 @@
-import { Color3 } from '@babylonjs/core'
+import { Color3, Vector3 } from '@babylonjs/core'
 import { WORLD_SIZE } from '../world/world-constants'
 
 /**
@@ -73,6 +73,14 @@ export interface AtmosphereState {
   skyGlowColor: Color3;
   skyCounterColor: Color3;
   skyGlowStrength: number;
+  /** 太陽仰角的正弦，負的是在地平線下；彩虹要靠它判斷虹的圓弧在不在天上 */
+  sunHeight: number;
+  /**
+   * 由世界中心指向太陽的單位向量
+   *
+   * 球諧天光要靠它把天空的暖光放在對的方位
+   */
+  sunDirection: Vector3;
 
   /**
    * 被地形包住的程度，0 為露天、1 為深入山腹
@@ -309,6 +317,8 @@ export function createAtmosphereState(): AtmosphereState {
     skyGlowColor: new Color3(1, 0.98, 0.9),
     skyCounterColor: new Color3(0.8, 0.88, 0.98),
     skyGlowStrength: 0.12,
+    sunHeight: 1,
+    sunDirection: new Vector3(0, 1, 0),
     caveRatio: 0,
     skyBodyFade: 1,
     edgeRatio: 0,

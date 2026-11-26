@@ -13,6 +13,7 @@ import type { DayPhase } from '../domains/weather/day-night'
 import type { GodRays } from '../domains/weather/god-rays'
 import { computed, onScopeDispose, ref } from 'vue'
 import { renderSettings } from '../domains/render-host/render-settings'
+import { eyeAdaptationState } from '../domains/renderer/eye-adaptation'
 import { getReloadHandoff } from '../domains/scene/reload-handoff'
 import {
   advanceSunriseDrift,
@@ -74,6 +75,8 @@ const CAVE_EXPOSURE_BOOST = 0.6
 function computeCaveExposureMultiplier(caveRatio: number): number {
   return 1 + Math.min(1, Math.max(0, caveRatio)) * CAVE_EXPOSURE_BOOST
 }
+
+const MILLISECOND_PER_DAY = 86_400_000
 
 /** HUD 的時刻讀數更新間隔（秒），每幀更新只是白白觸發重繪 */
 const CLOCK_UPDATE_INTERVAL = 0.2
@@ -316,6 +319,8 @@ export function useDayNight() {
     atmosphere.skyGlowColor.copyFrom(sample.skyGlowColor)
     atmosphere.skyCounterColor.copyFrom(sample.skyCounterColor)
     atmosphere.skyGlowStrength = sample.skyGlowStrength
+    atmosphere.sunHeight = sample.sunHeight
+    atmosphere.sunDirection.copyFrom(sample.sunPosition)
   }
 
   /**
@@ -331,10 +336,29 @@ export function useDayNight() {
    * 二是顏色。太陽越低，照到雲上的光走過的大氣越長，越紅；
    * 平行光的顏色是為地面調的，往天邊的暖光那一端多靠一些，
    * 雲頂才會被染成霞色而不是單純的黃
+   *
+   * 同時負責告訴雲「今天是第幾天」（見 cloud-daily-weather）：
+   * 時刻從 1 繞回 0 就是過了午夜，往回撥時間軸則反過來，所以日序在這裡數。
+   * 起點取真實的日曆日，每天打開都是不同的天空；重新整理（換畫質）會回到同一個日序，
+   * 除非跨過了午夜。開發時可由 reload-handoff 的 dayIndex 指定，方便對著特定天氣調雲
    */
+  let cloudDayIndex = (import.meta.env.DEV ? getReloadHandoff()?.dayIndex : undefined)
+    ?? Math.floor(Date.now() / MILLISECOND_PER_DAY)
+  let previousCloudTime = initialTime
+
   function applyToCloud(): void {
     const state = volumetricCloudState
     const isSunLit = sample.sunHeight > -0.1
+
+    const timeDelta = currentTime - previousCloudTime
+    if (timeDelta < -0.5)
+      cloudDayIndex += 1
+    else if (timeDelta > 0.5)
+      cloudDayIndex -= 1
+    previousCloudTime = currentTime
+    state.dayPosition = cloudDayIndex + currentTime
+    state.sunHeight = sample.sunHeight
+    state.sunDirection.copyFrom(sample.sunPosition).normalize()
 
     state.lightDirection
       .copyFrom(isSunLit ? sample.sunPosition : sample.moonPosition)
@@ -363,7 +387,7 @@ export function useDayNight() {
       (sample.skyZenithColor.g + sample.skyMidColor.g) * 0.5,
       (sample.skyZenithColor.b + sample.skyMidColor.b) * 0.5,
     )
-    const groundBounce = sample.cloudBrightness * 0.6
+    const groundBounce = sample.cloudBrightness * 0.3
     state.ambientBottom.set(
       (sample.skyMidColor.r + sample.ambientGroundColor.r * groundBounce) * 0.5,
       (sample.skyMidColor.g + sample.ambientGroundColor.g * groundBounce) * 0.5,
@@ -489,7 +513,17 @@ export function useDayNight() {
      * 不另外開一條寫入路徑：兩處各自寫 pipeline.imageProcessing.exposure
      * 的話，洞穴加成會在下一幀被當成新的基準疊乘上去，越滾越誇張
      */
-    const targetExposure = sample.exposure * computeCaveExposureMultiplier(atmosphere.caveRatio)
+    /**
+     * 自動曝光接手時，洞穴加成就不再疊上去
+     *
+     * 兩者都是「暗處拉亮」：自動曝光量的是畫面真的有多暗，洞穴加成是
+     * 從洞深推估的。同時開著的話洞裡會被拉到兩倍。
+     * 自動曝光的倍率不寫進管線（見 eye-adaptation），這裡的基準值照舊
+     */
+    const caveMultiplier = eyeAdaptationState.isExposureActive
+      ? 1
+      : computeCaveExposureMultiplier(atmosphere.caveRatio)
+    const targetExposure = sample.exposure * caveMultiplier
     if (Math.abs(targetExposure - appliedExposure) >= EXPOSURE_STEP) {
       appliedExposure = targetExposure
       pipeline.imageProcessing.exposure = targetExposure
