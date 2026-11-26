@@ -11,6 +11,7 @@ import type { VolumetricLight } from '../domains/renderer/volumetric-light'
 import type { AtmosphereState } from '../domains/weather/atmosphere'
 import type { DayPhase } from '../domains/weather/day-night'
 import type { GodRays } from '../domains/weather/god-rays'
+import { clamp } from 'remeda'
 import { computed, onScopeDispose, ref } from 'vue'
 import { renderSettings } from '../domains/render-host/render-settings'
 import { eyeAdaptationState } from '../domains/renderer/eye-adaptation'
@@ -23,6 +24,7 @@ import {
   getDayPhase,
   INITIAL_TIME_OF_DAY,
   sampleDayNight,
+  smoothRange,
   wrapTimeOfDay,
 } from '../domains/weather/day-night'
 import { applySkyGradient } from '../domains/weather/sky-gradient'
@@ -73,7 +75,7 @@ const CAVE_EXPOSURE_BOOST = 0.6
  * 「瞳孔適應」那段漸變早就在 caveRatio 本身裡面做完了
  */
 function computeCaveExposureMultiplier(caveRatio: number): number {
-  return 1 + Math.min(1, Math.max(0, caveRatio)) * CAVE_EXPOSURE_BOOST
+  return 1 + clamp(caveRatio, { min: 0, max: 1 }) * CAVE_EXPOSURE_BOOST
 }
 
 const MILLISECOND_PER_DAY = 86_400_000
@@ -503,29 +505,21 @@ export function useDayNight() {
      * 那一幀就不必寫。撥時間軸時因為變化夠大，照樣是即時跟上的
      */
     /**
-     * 洞穴加成疊在日夜的曝光基準上，寫進同一個節流門檻
+     * 洞穴加成不寫進 exposure 屬性，交給眼睛適應在綁定時乘上去
      *
      * atmosphere.caveRatio 是漫遊控制器上一幀寫的——日夜循環的算繪順序
      * 排在漫遊控制器之前（見 render-runtime.ts 的 init），這裡讀到的必然
      * 是上一幀的值，差了一幀而已，caveRatio 本身變化又慢，看不出來。
      *
-     * 不另外開一條寫入路徑：兩處各自寫 pipeline.imageProcessing.exposure
-     * 的話，洞穴加成會在下一幀被當成新的基準疊乘上去，越滾越誇張
+     * 洞穴深度每幀都在變，寫屬性每次都通知全場材質失效。走綁定那條路是免費的，
+     * 也讓自動曝光接手時（兩者做的是同一件事，疊起來洞裡會被拉得太亮）
+     * 眼睛適應能用同一個權重把洞穴加成淡出、倍率淡入，切換時總曝光不會跳。
+     * 這裡的屬性只寫日夜曝光，仍然過節流門檻
      */
-    /**
-     * 自動曝光接手時，洞穴加成就不再疊上去
-     *
-     * 兩者都是「暗處拉亮」：自動曝光量的是畫面真的有多暗，洞穴加成是
-     * 從洞深推估的。同時開著的話洞裡會被拉到兩倍。
-     * 自動曝光的倍率不寫進管線（見 eye-adaptation），這裡的基準值照舊
-     */
-    const caveMultiplier = eyeAdaptationState.isExposureActive
-      ? 1
-      : computeCaveExposureMultiplier(atmosphere.caveRatio)
-    const targetExposure = sample.exposure * caveMultiplier
-    if (Math.abs(targetExposure - appliedExposure) >= EXPOSURE_STEP) {
-      appliedExposure = targetExposure
-      pipeline.imageProcessing.exposure = targetExposure
+    eyeAdaptationState.caveExposure = computeCaveExposureMultiplier(atmosphere.caveRatio)
+    if (Math.abs(sample.exposure - appliedExposure) >= EXPOSURE_STEP) {
+      appliedExposure = sample.exposure
+      pipeline.imageProcessing.exposure = sample.exposure
     }
 
     const colorCurves = pipeline.imageProcessing.colorCurves
@@ -566,10 +560,4 @@ export function useDayNight() {
 
 function lerp(from: number, to: number, ratio: number): number {
   return from + (to - from) * ratio
-}
-
-function smoothRange(value: number, from: number, to: number): number {
-  const ratio = Math.min(1, Math.max(0, (value - from) / (to - from)))
-
-  return ratio * ratio * (3 - 2 * ratio)
 }

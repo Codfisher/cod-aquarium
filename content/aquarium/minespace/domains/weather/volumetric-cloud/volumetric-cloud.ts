@@ -102,8 +102,8 @@ const CLOUD_TOWER_EXTRA_HEIGHT = 70
  *
  * 夾在積雲（頂最高 275）與卷雲（420）之間，是一層薄薄的、一朵一朵的小雲。
  * 只有三十格厚：薄所以每一步都便宜，也因此只走寥寥幾步（見 cloudComposeSky）。
- * 消光倍率大於一，是補它薄的那一截——三十格要有九十格積雲的不透明感，
- * 密度就得高一些，邊緣才不會像一層霧
+ * 消光倍率留著當調整旋鈕，目前是一：原本想拉大來補它薄的那一截，
+ * 實際看密度本身（著色器裡的 1.15 倍增益）就夠，邊緣沒有變成一層霧
  */
 const ALTOCUMULUS_BOTTOM = 300
 const ALTOCUMULUS_TOP = 330
@@ -143,9 +143,9 @@ const NOISE_SEED = 'minespace-cloud'
  *
  * 零點四六時滿天都是雲，內顯每幀多花十毫秒；零點三八是雲量與成本的折衷。
  *
- * 這是「局部覆蓋率」的中間值：天氣圖的低頻雜訊會把它在零點四五倍到
- * 一點三五倍之間推來推去，同一片天裡有的地方雲多、有的地方稀疏，
- * 但沒有一處是完全不長雲的。
+ * 這是「局部覆蓋率」的中間值：天氣圖與宏觀圖會把它在零點二倍到
+ * 一點七倍之間推來推去（cloudDensity 的 mix(0.2, 1.7, regional)），
+ * 同一片天裡有的地方雲多、有的地方幾乎是晴空。
  *
  * 原本的做法是拿天氣圖切一個門檻，超過一半的面積根本不准長雲，
  * 晴朗區又是一大片連在一起——人站在那片晴空底下，頭頂沒雲、地上沒雲影，
@@ -161,13 +161,19 @@ const CLEAR_COVERAGE = 0.38
  * 基底雜訊每兩百多格就平鋪一次，從地面望出去，天上同一個雲形會重複好幾遍；
  * 覆蓋率的地區差異又小，滿天的雲大小一樣、間距一樣，像一群排好隊的羊。
  *
- * 宏觀雜訊是天氣圖用非整數倍的頻率再取一次，週期約一萬格，做三件事：
+ * 宏觀圖（worker 從天氣圖烘出來，見 createMacroMap）以三成一的頻率取樣，週期約一萬格，
+ * 一次取樣拿齊兩樣東西：
  * 一、各區域的座標各自偏移，取到基底雜訊的不同段落，同一個雲形不再重複。
- *     偏移只能取變化最慢的雲種類通道：曾經拿覆蓋通道來偏移九百格，
+ *     偏移只能取變化最慢的通道：曾經拿覆蓋通道來偏移九百格，
  *     那個通道幾百格內就從零走到一，雲被拉扯成一道道長條紋（踩過）。
  * 二、與天氣圖一起決定局部覆蓋率，範圍拉到零點二到一點七倍：
  *     有的地方是成群的雲，有的地方幾乎是晴空。
- * 三、調整基底雜訊的尺度，有的區域是大塊的積雲，有的是零碎的小雲
+ *
+ * 曾經有第三樣：依區域把基底雜訊的頻率乘上一點三到零點八倍，讓有的區域雲大、有的零碎。
+ * 拿掉了。乘的是「絕對座標」，座標裡含風吹過的總距離與雲自己的演變量，兩者隨遊玩時間
+ * 無限增長，乘上一個隨地點變化的係數，相鄰兩點的取樣位置差就會被越拉越大，
+ * 玩了半小時到一小時雲就被扯成長條紋（用 windTravel 調大實測重現）。
+ * 要區域性的尺度變化，只能在固定頻率的兩次取樣之間混合，不能去縮放座標
  */
 
 /** 下雨時覆蓋率往上加多少，雲先變多變暗，陰天罩才接手 */
@@ -265,7 +271,7 @@ const CIRRUS_PERIOD = 4600
 const SUN_GAIN = 14
 const AMBIENT_GAIN = 0.95
 
-/**
+/*
  * 雲的高光為什麼要柔性壓縮（cloudSoftClip）
  *
  * 逆光時前向散射讓雲的亮度遠超過一，而主畫面是八位元的，超過一就截斷。
@@ -381,6 +387,8 @@ const TELEPORT_DISTANCE = 30
  */
 const SHADOW_MAP_SIZE = 256
 const SHADOW_MAP_SPAN = 448
+/** 鏡頭離上次算圖的中心超過圖寬的這個比例，就不等下一幀、當幀重算 */
+const SHADOW_REFRESH_DISTANCE_RATIO = 0.2
 /** 雲影的光學厚度打幾折，雲影比照著看到的雲淡一點才不會像墨跡 */
 const SHADOW_DENSITY_SCALE = 1.6
 
@@ -436,6 +444,8 @@ interface NoiseTextureSet {
   detail: RawTexture3D;
   weather: RawTexture;
   cirrus: RawTexture;
+  /** 區域變化烘成的一張，見 createMacroMap */
+  macro: RawTexture;
 }
 
 /** 這一幀要寫進著色器的值，三支效果與倒影材質共用同一份 */
@@ -525,11 +535,25 @@ function createNoiseTextureSet(scene: Scene, noiseSet: CloudNoiseSet): NoiseText
   cirrus.wrapU = Texture.WRAP_ADDRESSMODE
   cirrus.wrapV = Texture.WRAP_ADDRESSMODE
 
+  const macro = RawTexture.CreateRGBATexture(
+    noiseSet.macro.data,
+    noiseSet.macro.size,
+    noiseSet.macro.size,
+    scene,
+    false,
+    false,
+    Texture.BILINEAR_SAMPLINGMODE,
+  )
+  macro.name = 'cloud-macro-map'
+  macro.wrapU = Texture.WRAP_ADDRESSMODE
+  macro.wrapV = Texture.WRAP_ADDRESSMODE
+
   return {
     base: createVolume('cloud-base-noise', noiseSet.base),
     detail: createVolume('cloud-detail-noise', noiseSet.detail),
     weather,
     cirrus,
+    macro,
   }
 }
 
@@ -619,6 +643,7 @@ export function createVolumetricCloud(scene: Scene, skyOverlayGroup: number, dom
     effect.setTexture('cloudDetailSampler', noiseTextureSet.detail)
     effect.setTexture('cloudWeatherSampler', noiseTextureSet.weather)
     effect.setTexture('cloudCirrusSampler', noiseTextureSet.cirrus)
+    effect.setTexture('cloudMacroSampler', noiseTextureSet.macro)
     effect.setFloat4('cloudLayer', CLOUD_BOTTOM, frame.top, PLANET_RADIUS, 0)
     effect.setFloat4('cloudShape', frame.coverage, EXTINCTION, ALBEDO, CLOUD_SKEW)
     effect.setFloat4(
@@ -653,6 +678,13 @@ export function createVolumetricCloud(scene: Scene, skyOverlayGroup: number, dom
       ALTOCUMULUS_TOP,
       frame.altocumulusCoverage,
       ALTOCUMULUS_EXTINCTION_SCALE,
+    )
+    effect.setFloat4(
+      'cloudWindShift',
+      frame.origin.x - worldShift.x,
+      frame.origin.z - worldShift.z,
+      worldShift.x,
+      worldShift.z,
     )
     effect.setColor3('cloudBounceColor', frame.bounceColor)
     effect.setFloat4('cloudNoctilucent', frame.noctilucentAmount, NOCTILUCENT_FREQUENCY, frame.sunAzimuth.x, frame.sunAzimuth.y)
@@ -705,8 +737,9 @@ export function createVolumetricCloud(scene: Scene, skyOverlayGroup: number, dom
   let elapsed = 0
   let frameIndex = 0
 
-  /** 雲影俯視圖這一幀罩在哪裡，綁定時讀 */
+  /** 雲影俯視圖罩在哪裡，綁定時讀；隔幀才更新，所以是「上一次算圖時」的位置 */
   const shadowArea = { centerX: 0, centerZ: 0 }
+  let hasShadowMap = false
 
   /**
    * 三支效果的綁定各掛一次
@@ -915,12 +948,29 @@ export function createVolumetricCloud(scene: Scene, skyOverlayGroup: number, dom
     }
   }
 
+  /**
+   * 雲影隔一幀才重算一次
+   *
+   * 雲影是軟邊、變化慢的東西（風一秒才挪一兩格），每幀重算十六步的整張圖是白花錢。
+   * 沒輪到的那一幀沿用上一張圖，連同它當時的中心一起交給地面外掛：
+   * 圖與中心必須是同一組，否則走路時影子會往反方向滑一格。
+   * 剛開始畫、被傳送、或離上次的中心太遠（循環世界換邊）時不能等，當幀就重算
+   */
   function renderShadowMap(): void {
     const texel = SHADOW_MAP_SPAN / SHADOW_MAP_SIZE
-    /** 中心對齊到圖的格子上，走路時影子邊緣才不會一格一格地爬（與陰影追蹤同一個道理） */
-    shadowArea.centerX = Math.round(frame.cameraPosition.x / texel) * texel
-    shadowArea.centerZ = Math.round(frame.cameraPosition.z / texel) * texel
-    effectRenderer.render(shadowWrapper, shadowTarget)
+    const isFarFromCenter = Math.hypot(
+      frame.cameraPosition.x - shadowArea.centerX,
+      frame.cameraPosition.z - shadowArea.centerZ,
+    ) > SHADOW_MAP_SPAN * SHADOW_REFRESH_DISTANCE_RATIO
+    const shouldRender = !hasShadowMap || shouldResetHistory || isFarFromCenter || frameIndex % 2 === 0
+
+    if (shouldRender) {
+      /** 中心對齊到圖的格子上，走路時影子邊緣才不會一格一格地爬（與陰影追蹤同一個道理） */
+      shadowArea.centerX = Math.round(frame.cameraPosition.x / texel) * texel
+      shadowArea.centerZ = Math.round(frame.cameraPosition.z / texel) * texel
+      effectRenderer.render(shadowWrapper, shadowTarget)
+      hasShadowMap = true
+    }
 
     setCloudShadowMap({
       texture: shadowTarget,
@@ -947,6 +997,7 @@ export function createVolumetricCloud(scene: Scene, skyOverlayGroup: number, dom
     if (!isVisible) {
       dome.setEnabled(false)
       setCloudShadowMap(null)
+      hasShadowMap = false
       shouldResetHistory = true
       return
     }
@@ -1029,6 +1080,7 @@ export function createVolumetricCloud(scene: Scene, skyOverlayGroup: number, dom
     noiseTextureSet?.detail.dispose()
     noiseTextureSet?.weather.dispose()
     noiseTextureSet?.cirrus.dispose()
+    noiseTextureSet?.macro.dispose()
   }
 
   scene.onDisposeObservable.addOnce(dispose)

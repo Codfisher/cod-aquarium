@@ -644,7 +644,7 @@ function setColor(
 }
 
 /** 把 value 落在 from ～ to 之間的位置換成 0 ～ 1 的平滑曲線 */
-function smoothRange(value: number, from: number, to: number): number {
+export function smoothRange(value: number, from: number, to: number): number {
   const ratio = Math.min(1, Math.max(0, (value - from) / (to - from)))
 
   return ratio * ratio * (3 - 2 * ratio)
