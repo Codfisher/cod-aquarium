@@ -2,13 +2,13 @@ import type { Scene } from '@babylonjs/core'
 import {
   Color4,
   DynamicTexture,
-  NoiseProceduralTexture,
   ParticleSystem,
   Texture,
   Vector3,
 } from '@babylonjs/core'
 import { WEATHER_RENDERING_GROUP } from '../../composables/use-babylon-scene'
 import { getGarden } from '../garden/garden-layout'
+import { createLeafNoiseField } from './leaf-noise-field'
 import { createParticleDimmer } from './particle-tint'
 
 /** 金葉苑，落葉只飄在這一座木座上 */
@@ -216,21 +216,16 @@ export function createFallingLeaves({
    *
    * 只有初速的話，每片葉子都是一條筆直的斜線。
    * 掛上一張會動的噪音貼圖當作亂流，每片葉子都各自被推來推去，
-   * 路徑於是彎彎曲曲，看起來才像被風捲著走
-   */
-  const noiseTexture = new NoiseProceduralTexture('autumn-leaf-noise', 128, scene)
-  /**
-   * 亂流本身變化得慢一點
+   * 路徑於是彎彎曲曲，看起來才像被風捲著走。
    *
-   * 這個值調的是噪音場自己翻動的速度，不是葉子的速度。
-   * 轉得太快，葉子等於每一瞬間都被推往不同方向，看起來是在抖；
-   * 慢慢翻動才會變成一陣風推過去、再換另一陣的長弧線
+   * 噪音場在 CPU 上算，不用 NoiseProceduralTexture：那張貼圖
+   * 每幀都被粒子系統同步讀回 CPU，讀回會讓 CPU 等 GPU 畫完整幀，
+   * 量到每幀白白多 9 毫秒（見 leaf-noise-field）。
+   * 場翻動的速度（原本的 animationSpeedFactor 0.35）、亮度、倍頻與 persistence
+   * 也都改寫在那邊，數值照舊
    */
-  noiseTexture.animationSpeedFactor = 0.35
-  noiseTexture.brightness = 0.5
-  noiseTexture.octaves = 4
-  noiseTexture.persistence = 1.6
-  particleSystem.noiseTexture = noiseTexture
+  const noiseField = createLeafNoiseField()
+  particleSystem.noiseTexture = noiseField.texture
   /**
    * 橫向推得比縱向多，葉子才會飄開而不是上下彈跳
    *
@@ -322,7 +317,6 @@ export function createFallingLeaves({
     setBrightness: dimmer.setBrightness,
     dispose() {
       particleSystem.dispose()
-      noiseTexture.dispose()
     },
   }
 }

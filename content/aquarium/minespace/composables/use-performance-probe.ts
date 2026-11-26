@@ -1,8 +1,10 @@
 import type { Scene } from '@babylonjs/core'
 import type { PerformanceReading, SectionReading } from './performance-reading'
+import type { GpuPassTimer } from './use-gpu-pass-timer'
 import { EngineInstrumentation, SceneInstrumentation } from '@babylonjs/core'
 import { onScopeDispose, reactive, ref, shallowRef } from 'vue'
 import { createEmptyPerformanceReading } from './performance-reading'
+import { createGpuPassTimer } from './use-gpu-pass-timer'
 
 /**
  * 效能探針
@@ -70,6 +72,7 @@ export function usePerformanceProbe() {
   let instrumentation: SceneInstrumentation | null = null
   let engineProbe: EngineInstrumentation | null = null
   let disposeBracket: (() => void) | null = null
+  let passTimer: GpuPassTimer | null = null
 
   /** 這一段期間累積了幾幀，用來把總時間換算成每幀平均 */
   let frameCount = 0
@@ -81,6 +84,8 @@ export function usePerformanceProbe() {
   function stop() {
     isProbing = false
     sectionElapsedMap.clear()
+    passTimer?.dispose()
+    passTimer = null
 
     instrumentation?.dispose()
     instrumentation = null
@@ -159,6 +164,30 @@ export function usePerformanceProbe() {
     isProbing = true
   }
 
+  /**
+   * 開關逐道工序的 GPU 計時（開發用）
+   *
+   * 要在 F3 開著時才有作用。整幀的 GPU 計時得先關掉：
+   * 兩者都用 TIME_ELAPSED_EXT 查詢，同一時間只能有一個在跑，
+   * 所以開著工序計時時，「幀 GPU」那一列會是零，改看各工序的加總
+   */
+  function togglePassTimer(scene: Scene): void {
+    if (!import.meta.env.DEV || !engineProbe)
+      return
+
+    if (passTimer) {
+      passTimer.dispose()
+      passTimer = null
+      engineProbe.captureGPUFrameTime = true
+      return
+    }
+
+    engineProbe.captureGPUFrameTime = false
+    passTimer = createGpuPassTimer(scene)
+    if (!passTimer)
+      engineProbe.captureGPUFrameTime = true
+  }
+
   /** 每幀呼叫，內部自己節流。必須掛在算繪之後，繪製呼叫才數得到 */
   function update(scene: Scene): void {
     if (!instrumentation)
@@ -186,6 +215,15 @@ export function usePerformanceProbe() {
     sectionList.value = [...sectionElapsedMap.entries()]
       .map(([name, total]) => ({ name, averageMs: total / frames }))
       .sort((left, right) => right.averageMs - left.averageMs)
+    if (passTimer) {
+      const passList = passTimer.readList()
+      reading.gpuMs = passList.reduce((sum, { gpuMs }) => sum + gpuMs, 0)
+      const passSectionList: SectionReading[] = passList.flatMap(({ label, gpuMs, cpuMs }) => [
+        { name: `GPU ${label}`, averageMs: gpuMs },
+        ...(cpuMs >= 0.05 ? [{ name: `CPU ${label}`, averageMs: cpuMs }] : []),
+      ])
+      sectionList.value = [...sectionList.value, ...passSectionList]
+    }
     reading.sectionList = sectionList.value
 
     hasReading.value = true
@@ -196,5 +234,5 @@ export function usePerformanceProbe() {
     sectionElapsedMap.clear()
   }
 
-  return { visible, reading, hasReading, toggle, update }
+  return { visible, reading, hasReading, toggle, togglePassTimer, update }
 }

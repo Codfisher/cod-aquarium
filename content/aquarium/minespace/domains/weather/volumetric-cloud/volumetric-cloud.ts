@@ -22,6 +22,7 @@ import {
 import { watch } from 'vue'
 import { useDevToggles } from '../../../composables/use-dev-toggles'
 import { reportDiagnostic } from '../../../composables/use-error-logger'
+import { markGpuPass } from '../../../composables/use-gpu-pass-timer'
 import { useGraphicsQuality } from '../../../composables/use-graphics-quality'
 import { measureSection } from '../../../composables/use-performance-probe'
 import { optOutOfFog } from '../../renderer/fog-opt-out'
@@ -373,6 +374,35 @@ const COARSE_STEP_SCALE = 3
  */
 const HISTORY_CURRENT_WEIGHT = 0.15
 
+/**
+ * 棋盤式隔幀更新：行進那一趟每幀只畫一半的格子
+ *
+ * 行進是整支管線最貴的一趟（高畫質量到 21 毫秒，占 GPU 一半以上），
+ * 成本與格子數成正比。畫面本來就是十幾幀的時間累積：
+ * 每個格子每幀混進一成五的新值，舊值從上一幀投影回來。
+ * 既然靠累積，不必每格每幀都重算——把畫面切成棋盤，
+ * 這幀畫黑格、下一幀畫白格，沒畫的格子直接沿用投影回來的歷史。
+ * 每個格子換成每兩幀更新一次，空間解析度一點都沒降。
+ *
+ * 切成方塊而不是逐像素交錯：GPU 以一整批執行緒（波前）為單位執行，
+ * 同一批裡有一半格子要算、一半不算的話，整批照樣跑完迴圈，一毫秒都省不到；
+ * 只有整批都不算才真的省下來，所以方塊要大於波前覆蓋的螢幕範圍。
+ *
+ * 邊長是量出來的（高畫質、720p，行進一趟 21.4 毫秒；
+ * 8 像素 12.7、16 像素 14.0、32 像素 12.0、64 像素 11.5）。
+ * 64 太粗，歷史拖影的邊界會變成明顯的塊；32 的省幅已接近上限，
+ * 又與 16 在轉頭與靜止的截圖上看不出差別（閃爍量 1.55 對 1.59 灰階）
+ */
+const INTERLACE_TILE_SIZE = 32
+
+/**
+ * 隔幀更新時每次採用多少新值
+ *
+ * 一個格子兩幀才更新一次，要維持同樣的累積長度（時間記憶），
+ * 每次就得採用原本兩幀份的權重：一減去「兩次都沒採用」的機率
+ */
+const INTERLACED_HISTORY_CURRENT_WEIGHT = 1 - (1 - HISTORY_CURRENT_WEIGHT) ** 2
+
 /** 變異數裁切的寬度，越大越平滑、越容易留下拖影 */
 const HISTORY_CLIP_GAMMA = 1.25
 
@@ -691,6 +721,47 @@ export function createVolumetricCloud(scene: Scene, skyOverlayGroup: number, dom
   }
 
   const effectRenderer = new EffectRenderer(engine)
+  /**
+   * 棋盤的兩半各一份幾何：黑格一份、白格一份
+   *
+   * 每一份是許多個十六像素的方塊，一次繪製呼叫畫完。
+   * 方塊的位置取決於目標的尺寸，尺寸變了要重建
+   */
+  let tileRendererList: EffectRenderer[] = []
+
+  function disposeTileRenderers(): void {
+    for (const renderer of tileRendererList) {
+      renderer.dispose()
+    }
+    tileRendererList = []
+  }
+
+  function createTileRenderers(): void {
+    disposeTileRenderers()
+
+    const columnCount = Math.ceil(targetWidth / INTERLACE_TILE_SIZE)
+    const rowCount = Math.ceil(targetHeight / INTERLACE_TILE_SIZE)
+    for (let parity = 0; parity < 2; parity++) {
+      const vertexList: number[] = []
+      const indexList: number[] = []
+      for (let row = 0; row < rowCount; row++) {
+        for (let column = 0; column < columnCount; column++) {
+          if ((column + row + parity) % 2 !== 0)
+            continue
+
+          /** 裁剪空間是 -1 到 1，最後一排與最後一欄不足十六像素的不要超出畫面 */
+          const left = (column * INTERLACE_TILE_SIZE) / targetWidth * 2 - 1
+          const right = Math.min(1, ((column + 1) * INTERLACE_TILE_SIZE) / targetWidth * 2 - 1)
+          const bottom = (row * INTERLACE_TILE_SIZE) / targetHeight * 2 - 1
+          const top = Math.min(1, ((row + 1) * INTERLACE_TILE_SIZE) / targetHeight * 2 - 1)
+          const base = vertexList.length / 2
+          vertexList.push(left, bottom, right, bottom, right, top, left, top)
+          indexList.push(base, base + 1, base + 2, base, base + 2, base + 3)
+        }
+      }
+      tileRendererList.push(new EffectRenderer(engine, { positions: vertexList, indices: indexList }))
+    }
+  }
   const createWrapper = (name: string, fragmentShader: string, uniformNameList: string[], samplerNameList: string[]) =>
     new EffectWrapper({
       engine,
@@ -706,7 +777,7 @@ export function createVolumetricCloud(scene: Scene, skyOverlayGroup: number, dom
   const resolveWrapper = createWrapper(
     'minespace-cloud-resolve',
     CLOUD_RESOLVE_FRAGMENT,
-    ['inverseViewProjection', 'previousViewProjection', 'cloudShift', 'resolveSetting'],
+    ['inverseViewProjection', 'previousViewProjection', 'cloudShift', 'resolveSetting', 'interlaceSetting'],
     ['currentSampler', 'historySampler'],
   )
   const shadowWrapper = createWrapper('minespace-cloud-shadow', CLOUD_SHADOW_FRAGMENT, ['shadowArea'], [])
@@ -724,6 +795,8 @@ export function createVolumetricCloud(scene: Scene, skyOverlayGroup: number, dom
   const shadowTarget = createTarget(scene, 'cloud-shadow-map', SHADOW_MAP_SIZE, SHADOW_MAP_SIZE, Constants.TEXTURETYPE_UNSIGNED_BYTE)
 
   const compositeSetting = new Vector4()
+  /** 合成時太陽（夜裡是月亮）的方向，第四個值是加厚的強度 */
+  const compositeSun = new Vector4()
   const compositeTexelSize = new Vector2()
   const inverseViewProjection = new Matrix()
   const previousViewProjection = new Matrix()
@@ -734,6 +807,9 @@ export function createVolumetricCloud(scene: Scene, skyOverlayGroup: number, dom
   const worldShift = new Vector3()
   let hasPreviousFrame = false
   let shouldResetHistory = true
+  /** 這一幀行進是不是只畫一半的格子，與哪一半（見 INTERLACE_TILE_SIZE） */
+  let isInterlaced = false
+  let interlaceParity = 0
   let elapsed = 0
   let frameIndex = 0
 
@@ -763,11 +839,12 @@ export function createVolumetricCloud(scene: Scene, skyOverlayGroup: number, dom
     effect.setVector3('cloudShift', cloudShift)
     effect.setFloat4(
       'resolveSetting',
-      shouldResetHistory ? 1 : HISTORY_CURRENT_WEIGHT,
+      shouldResetHistory ? 1 : (isInterlaced ? INTERLACED_HISTORY_CURRENT_WEIGHT : HISTORY_CURRENT_WEIGHT),
       1 / targetWidth,
       1 / targetHeight,
       HISTORY_CLIP_GAMMA,
     )
+    effect.setFloat2('interlaceSetting', isInterlaced ? INTERLACE_TILE_SIZE : 0, interlaceParity)
   })
   shadowWrapper.onApplyObservable.add(() => {
     const effect = shadowWrapper.effect
@@ -786,7 +863,7 @@ export function createVolumetricCloud(scene: Scene, skyOverlayGroup: number, dom
     { vertex: 'minespaceCloudDome', fragment: 'minespaceCloudComposite' },
     {
       attributes: ['position'],
-      uniforms: ['worldViewProjection', 'compositeSetting', 'cloudTexelSize'],
+      uniforms: ['worldViewProjection', 'compositeSetting', 'cloudTexelSize', 'compositeSun'],
       samplers: ['cloudSampler'],
       needAlphaBlending: true,
     },
@@ -846,6 +923,7 @@ export function createVolumetricCloud(scene: Scene, skyOverlayGroup: number, dom
       target.resize({ width, height })
     }
     shouldResetHistory = true
+    createTileRenderers()
     reportDiagnostic('體積雲/行進解析度', `${width}×${height}`)
   }
 
@@ -1013,18 +1091,38 @@ export function createVolumetricCloud(scene: Scene, skyOverlayGroup: number, dom
 
     scene.getTransformMatrix().invertToRef(inverseViewProjection)
 
+    if (import.meta.env.DEV)
+      markGpuPass('雲 影圖')
     renderShadowMap()
 
-    effectRenderer.render(marchWrapper, currentTarget)
+    if (import.meta.env.DEV)
+      markGpuPass('雲 行進')
+    /**
+     * 歷史重置的那一幀整張都要畫，之後才隔幀只畫一半
+     *
+     * 沒畫的格子沿用上一幀行進的結果當後備，那份結果必須是完整的一張
+     */
+    isInterlaced = preset.value.cloudInterlace && !shouldResetHistory && tileRendererList.length === 2
+    interlaceParity = frameIndex % 2
+    if (isInterlaced)
+      tileRendererList[interlaceParity]!.render(marchWrapper, currentTarget)
+    else
+      effectRenderer.render(marchWrapper, currentTarget)
 
     cloudShift.copyFrom(frame.origin).subtractInPlace(previousOrigin)
+    if (import.meta.env.DEV)
+      markGpuPass('雲 時間累積')
     effectRenderer.render(resolveWrapper, historyWrite)
+    if (import.meta.env.DEV)
+      markGpuPass('雲 之後到鏡頭')
 
     compositeMaterial.setTexture('cloudSampler', historyWrite)
     compositeSetting.set(1 / engine.getRenderWidth(), 1 / engine.getRenderHeight(), frame.visibleRatio, 0)
     compositeMaterial.setVector4('compositeSetting', compositeSetting)
     compositeTexelSize.set(1 / targetWidth, 1 / targetHeight)
     compositeMaterial.setVector2('cloudTexelSize', compositeTexelSize)
+    compositeSun.set(frame.lightDirection.x, frame.lightDirection.y, frame.lightDirection.z, 1)
+    compositeMaterial.setVector4('compositeSun', compositeSun)
     dome.setEnabled(true)
 
     /** 這一幀寫好的那張，下一幀就是要讀的舊值 */
@@ -1070,6 +1168,7 @@ export function createVolumetricCloud(scene: Scene, skyOverlayGroup: number, dom
     scene.onAfterRenderTargetsRenderObservable.remove(renderObserver)
     setCloudShadowMap(null)
     effectRenderer.dispose()
+    disposeTileRenderers()
     marchWrapper.dispose()
     resolveWrapper.dispose()
     shadowWrapper.dispose()

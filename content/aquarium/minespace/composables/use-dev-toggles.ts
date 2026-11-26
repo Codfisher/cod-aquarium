@@ -18,7 +18,6 @@ export const DEV_TOGGLE_LIST = [
   { key: 'cloudShadow', label: { 'zh-hant': '雲影', 'en': 'Cloud shadow' } },
   { key: 'leafTranslucency', label: { 'zh-hant': '葉片透光', 'en': 'Leaf translucency' } },
   { key: 'dithering', label: { 'zh-hant': '打散色階', 'en': 'Dithering' } },
-  { key: 'multiSample', label: { 'zh-hant': '多重取樣', 'en': 'Multisampling' } },
   { key: 'contactShadow', label: { 'zh-hant': '接觸硬化陰影', 'en': 'Contact-hardening shadow' } },
   { key: 'voxelGi', label: { 'zh-hant': '體素全局光', 'en': 'Voxel global illumination' } },
   { key: 'volumetricLight', label: { 'zh-hant': '體積光束', 'en': 'Volumetric light shafts' } },

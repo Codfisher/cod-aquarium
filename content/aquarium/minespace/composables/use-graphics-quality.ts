@@ -31,11 +31,12 @@ export const LOWEST_QUALITY: GraphicsQuality = 'low'
  */
 export interface QualityPreset {
   /**
-   * 幾何邊緣的多重取樣數，一等於關閉
+   * 畫布是否開多重取樣，讓方塊稜線平順
    *
-   * 四倍是甜蜜點，再往上加只換得到量不出來的差別（見 use-babylon-scene）
+   * 倍數由瀏覽器決定（通常是四倍），程式只能開或關。目前各級都關：整幀實測掉一到五 FPS；
+   * 上下文建好就不能改，換畫質會重新整理頁面才生效（見 use-babylon-scene 的 createEngine）
    */
-  sampleCount: number;
+  antialiasEnabled: boolean;
   /**
    * 實際算繪的像素上限，相對於 CSS 像素
    *
@@ -105,6 +106,14 @@ export interface QualityPreset {
    * 頭頂最近那幾朵的輪廓才不會糊
    */
   cloudResolutionRatio: number;
+  /**
+   * 體積雲的行進是否隔幀只畫一半的格子（棋盤式，見 volumetric-cloud 的 INTERLACE_TILE_SIZE）
+   *
+   * 行進是最貴的一趟，這個選項把它的成本砍半。畫面靠時間累積，
+   * 每格換成兩幀更新一次，累積的長度不變。最省的一級格子本來就少、
+   * 行進才兩毫秒，不值得拿累積的雜訊去換，所以那一級不開
+   */
+  cloudInterlace: boolean;
   /** 體積雲沿著視線走幾步，時間累積會再把它乘上十倍左右 */
   cloudStepCount: number;
   /** 每一步朝太陽探幾次，決定雲底與背光面暗得多真 */
@@ -131,7 +140,7 @@ export const QUALITY_PRESET_MAP: Record<GraphicsQuality, QualityPreset> = {
    * 少了它整片白沙會過曝成一張紙
    */
   low: {
-    sampleCount: 1,
+    antialiasEnabled: false,
     pixelRatioLimit: 1 / 3,
     shadowMapSize: 1024,
     shadowCascadeCount: 1,
@@ -151,6 +160,7 @@ export const QUALITY_PRESET_MAP: Record<GraphicsQuality, QualityPreset> = {
     waterCaustics: false,
     waterShoreline: false,
     cloudResolutionRatio: 0.5,
+    cloudInterlace: false,
     cloudStepCount: 40,
     cloudLightStepCount: 3,
     particleRatio: 0.36,
@@ -165,7 +175,7 @@ export const QUALITY_PRESET_MAP: Record<GraphicsQuality, QualityPreset> = {
    * 但不做全局光、不推視差
    */
   medium: {
-    sampleCount: 2,
+    antialiasEnabled: false,
     pixelRatioLimit: 1,
     shadowMapSize: 2048,
     shadowCascadeCount: 1,
@@ -185,6 +195,7 @@ export const QUALITY_PRESET_MAP: Record<GraphicsQuality, QualityPreset> = {
     waterCaustics: true,
     waterShoreline: true,
     cloudResolutionRatio: 0.5,
+    cloudInterlace: true,
     cloudStepCount: 56,
     cloudLightStepCount: 4,
     particleRatio: 0.7,
@@ -199,7 +210,7 @@ export const QUALITY_PRESET_MAP: Record<GraphicsQuality, QualityPreset> = {
    * 而霧要到一百格才開始收，中間那一整圈看得一清二楚卻沒有影子
    */
   high: {
-    sampleCount: 4,
+    antialiasEnabled: false,
     pixelRatioLimit: 1.5,
     shadowMapSize: 2048,
     shadowCascadeCount: 2,
@@ -219,6 +230,7 @@ export const QUALITY_PRESET_MAP: Record<GraphicsQuality, QualityPreset> = {
     waterCaustics: true,
     waterShoreline: true,
     cloudResolutionRatio: 0.6,
+    cloudInterlace: true,
     cloudStepCount: 72,
     cloudLightStepCount: 5,
     particleRatio: 1,
@@ -233,7 +245,7 @@ export const QUALITY_PRESET_MAP: Record<GraphicsQuality, QualityPreset> = {
    * 光束改成沿著視線行進——太陽在背後也看得到光穿過枝葉的縫隙
    */
   ultra: {
-    sampleCount: 4,
+    antialiasEnabled: false,
     /**
      * 與「高」同樣壓在一點五
      *
@@ -281,6 +293,7 @@ export const QUALITY_PRESET_MAP: Record<GraphicsQuality, QualityPreset> = {
     waterCaustics: true,
     waterShoreline: true,
     cloudResolutionRatio: 0.75,
+    cloudInterlace: true,
     cloudStepCount: 96,
     cloudLightStepCount: 6,
     particleRatio: 1,
