@@ -133,6 +133,8 @@ export type RenderCommand =
   | { command: 'add-time'; delta: number }
   /** F3 效能面板 */
   | { command: 'toggle-probe' }
+  /** F8 逐道工序的 GPU 計時（開發用，要先開 F3），見 use-gpu-pass-timer */
+  | { command: 'toggle-pass-timer' }
   /** F7 換下一種體積光除錯檢視 */
   | { command: 'cycle-debug-mode' }
   /** 要一份目前位置、視角與時刻的快照，畫質切換重新整理前用 */

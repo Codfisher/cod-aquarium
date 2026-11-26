@@ -2,6 +2,7 @@ import type { Scene } from '@babylonjs/core'
 import type { SandField } from '../garden/sand-field'
 import type { WaterMirrors } from '../garden/water-mirror'
 import type { LampGlow } from '../renderer/lamp-glow'
+import type { MaterialFreezer } from '../renderer/material-freezer'
 import type { TextureSkinner } from '../renderer/pixel-material'
 import type { SceneDepth } from '../renderer/scene-depth'
 import type { VolumetricLight } from '../renderer/volumetric-light'
@@ -33,6 +34,7 @@ import { createWaterMirrors } from '../garden/water-mirror'
 import { findSafeStandingPosition } from '../player/collision'
 import { auditFogOptOut } from '../renderer/fog-opt-out'
 import { createLampGlow } from '../renderer/lamp-glow'
+import { createMaterialFreezer } from '../renderer/material-freezer'
 import { createTextureSkinner } from '../renderer/pixel-material'
 import { createSceneDepth } from '../renderer/scene-depth'
 import { createVolumetricLight, cycleVolumetricDebugMode } from '../renderer/volumetric-light'
@@ -135,6 +137,7 @@ export function createRenderRuntime({ channel }: CreateRenderRuntimeParam): Rend
   let waterCaustics: WaterCaustics | null = null
   let voxelGi: VoxelGi | null = null
   let volumetricLight: VolumetricLight | null = null
+  let materialFreezer: MaterialFreezer | null = null
 
   let babylon: ReturnType<typeof createBabylonScene> | null = null
   let systems: ReturnType<typeof createSystems> | null = null
@@ -273,7 +276,17 @@ export function createRenderRuntime({ channel }: CreateRenderRuntimeParam): Rend
     watch([texturePack.pack, texturePack.bumpActive], ([currentPack, isBumpActive]) => {
       skinner?.applyPack(currentPack, isBumpActive)
       sandField?.applyPack(currentPack)
+      /** 凹凸與視差有沒有，是材質定義的一部分，凍結的材質不會自己發現 */
+      materialFreezer?.refresh()
     })
+
+    /**
+     * 效果開關與畫質會改材質的定義（陰影濾波、抖色、視差），凍結的材質要重新檢查
+     *
+     * 開關是除錯用的，慢個零點幾秒才生效無妨——重驗是分批做的，見 material-freezer
+     */
+    watch(devToggle, () => materialFreezer?.refresh())
+    watch(() => renderSettings.quality, () => materialFreezer?.refresh())
 
     /** 水面高光是材質層的東西，開關要等渲染器建好才有得改 */
     watch(() => devToggle.waterGlint, (isEnabled) => {
@@ -462,6 +475,15 @@ export function createRenderRuntime({ channel }: CreateRenderRuntimeParam): Rend
       atmosphere,
       voxelGi,
     })
+
+    /**
+     * 方塊材質凍結要排在最後
+     *
+     * 材質的定義取決於場景裡有幾盞光、有哪些外掛啟用，
+     * 這些都要等上面的系統全建好才定案（方塊燈火就是在這之後才出現的）。
+     * 太早凍結，定義就停在「還沒有燈」的樣子
+     */
+    materialFreezer = createMaterialFreezer(scene, renderer?.getMaterialList() ?? [])
 
     trackStatus(scene)
   }
@@ -672,6 +694,9 @@ export function createRenderRuntime({ channel }: CreateRenderRuntimeParam): Rend
       case 'toggle-probe':
         probe.toggle(babylon.scene)
         break
+      case 'toggle-pass-timer':
+        probe.togglePassTimer(babylon.scene)
+        break
       case 'cycle-debug-mode':
         debugModeLabel = cycleVolumetricDebugMode()
         break
@@ -724,6 +749,7 @@ export function createRenderRuntime({ channel }: CreateRenderRuntimeParam): Rend
     timerIdList.length = 0
     stopReportTimers()
 
+    materialFreezer?.dispose()
     lampGlow?.dispose()
     waterSurface?.dispose()
     waterCaustics?.dispose()

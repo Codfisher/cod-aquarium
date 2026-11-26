@@ -134,17 +134,20 @@ const SHADOW_LIGHT_DISTANCE = 90
  * WebGPU 在部分裝置上會出現難以重現的異常，
  * 這個場景也吃不到 WebGPU 的效能優勢，穩定優先。
  */
-function createEngine(canvas: HTMLCanvasElement | OffscreenCanvas): Engine {
+function createEngine(canvas: HTMLCanvasElement | OffscreenCanvas, isAntialiased: boolean): Engine {
   /**
-   * 不要開 canvas 的多重取樣
+   * 抗鋸齒靠畫布本身的多重取樣
    *
-   * 場景是畫進 DefaultRenderingPipeline 的離屏貼圖，
-   * canvas 那份 MSAA 緩衝區只接得到最後那一張全螢幕方塊——
-   * 上面沒有任何幾何邊緣可以抗鋸齒，等於白配置一份記憶體與頻寬。
-   * 真正在做抗鋸齒的是管線裡的 FXAA
+   * 後製管線沒開 HDR，也沒有任何後製（泛光、FXAA 都關著），
+   * Babylon 這時不會建離屏貼圖，場景直接畫在畫布上，
+   * 管線的 samples 設多少都沒有作用。要讓方塊稜線平順，只能在建上下文時開。
+   * 目前各級都不開：整幀實測標準 59 → 54、高 38 → 35 FPS（見 development-notes 的效能優化一節）。
+   *
+   * 開了之後，凡是直接讀畫布的地方都不能做縮放的 blit（見 eye-adaptation 的 requestMeter）。
+   * 上下文建好就不能再改，換畫質本來就會重新整理頁面，所以由畫質決定
    */
-  return new Engine(canvas as HTMLCanvasElement, false, {
-    antialias: false,
+  return new Engine(canvas as HTMLCanvasElement, isAntialiased, {
+    antialias: isAntialiased,
     alpha: false,
     stencil: false,
     preserveDrawingBuffer: false,
@@ -1147,7 +1150,8 @@ function createRenderingPipeline(scene: Scene, camera: UniversalCamera) {
    * 方塊的稜線平順了，貼圖一個像素都沒被動到。
    *
    * 代價是它得配置一份多重取樣的緩衝區、每一幀多一次解析。
-   * 低畫質維持原樣（兩者都不開），那裡本來就在跟頻寬計較
+   * 多重取樣開在畫布上（見 createEngine），不是這條管線的 samples。
+   * 最省的一級兩者都不開，那裡本來就在跟頻寬計較
    */
   pipeline.fxaaEnabled = false
 
@@ -1226,6 +1230,20 @@ function createCascadedShadowGenerator(
   shadowGenerator.stabilizeCascades = true
   shadowGenerator.lambda = 0.8
   shadowGenerator.shadowMaxZ = preset.shadowDistance
+  /**
+   * 層與層之間不做混合
+   *
+   * 預設會在每一層最後百分之十的深度範圍把相鄰兩層的陰影混在一起，
+   * 好藏起換層的那條線。這個場景的第一層只有鏡頭前十九格，
+   * 混合帶換算到畫面上只有幾列像素——可是只要著色器裡有混合的那一段程式，
+   * 整支像素著色器就都要為它多配暫存器，每個像素都跟著變慢，
+   * 跟那幾列像素有沒有真的用到無關。
+   * 量到（高畫質、720p，主畫面不透明那一趟）：14.3 → 11.1 毫秒。
+   *
+   * 換層那條線兩邊都是柔邊的接觸硬化陰影，兩層的取樣密度差異
+   * 只會讓橫過那條線的陰影邊緣稍微換一下形狀，截圖比對看不出接縫
+   */
+  shadowGenerator.cascadeBlendPercentage = 0
   /**
    * 不要開 autoCalcDepthBounds
    *
@@ -1463,7 +1481,7 @@ interface CreateBabylonSceneParam {
  * worker 裡的 OffscreenCanvas 沒有版面可以量，尺寸一律由主執行緒量好、用訊息送來
  */
 export function createBabylonScene(param: CreateBabylonSceneParam) {
-  const engine = createEngine(param.canvas)
+  const engine = createEngine(param.canvas, useGraphicsQuality().preset.value.antialiasEnabled)
 
   /**
    * 引擎建好之後，場景、鏡頭、陰影與後製鏈任何一步丟例外，引擎都要收掉
@@ -1508,7 +1526,6 @@ function setUpBabylonScene(
   const camera = createCamera(scene, viewport)
   let shadowGenerator = createShadowGenerator({ scene })
   const pipeline = createRenderingPipeline(scene, camera)
-  pipeline.samples = preset.value.sampleCount
   /** 自動曝光與暗視覺偏藍，要在管線建好之後，量的是管線收到的那張圖 */
   const eyeAdaptation = createEyeAdaptation(scene, pipeline)
 
@@ -1519,12 +1536,9 @@ function setUpBabylonScene(
    * 不必像光暈那樣每一幀去查
    */
   watch(
-    () => [devToggle.dithering, devToggle.multiSample, devToggle.contactShadow],
+    () => [devToggle.dithering, devToggle.contactShadow],
     () => {
       pipeline.imageProcessing.ditheringEnabled = devToggle.dithering
-      pipeline.samples = devToggle.multiSample ? preset.value.sampleCount : 1
-      /** 關掉多重取樣時補回 FXAA，才比較得出兩者的差別 */
-      pipeline.fxaaEnabled = !devToggle.multiSample && preset.value.sampleCount > 1
 
       /**
        * 關掉柔邊時退到最省的那一級，不是退到字串 'low'
@@ -1541,9 +1555,6 @@ function setUpBabylonScene(
 
   watch(quality, () => {
     engine.setHardwareScalingLevel(getHardwareScalingLevel(preset.value, viewport.devicePixelRatio))
-
-    /** 最省的那一級保留色調映射，關掉比較吃頻寬的多重取樣 */
-    pipeline.samples = preset.value.sampleCount
 
     /**
      * 陰影得整個重建，不能只改屬性

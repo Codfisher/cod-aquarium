@@ -700,6 +700,15 @@ vec3 cloudViewRay(vec2 uv) {
  * 沒輪到的格子還要混一點放大過的四分之一圖，整片雲因此越來越糊。
  * Nubis 付得起是因為它存了雲的真實深度；這裡省下那張深度圖，
  * 就得讓每一格每一幀都是新算的——省錢改靠跳過空白與遠處降階
+ *
+ * ── 後來又加回一個保守得多的版本（預設表的 cloudInterlace） ──
+ *
+ * 行進仍是整支管線最貴的一趟（高畫質 21 毫秒、占 GPU 一半以上），所以換個做法再試：
+ * 兩相而不是四相、以三十二像素的方塊為單位而不是逐像素，沒輪到的方塊只取重投影的歷史，
+ * 不混放大過的舊圖。重投影猜錯的位移最多累積一幀就被新值拉回，
+ * 不會累積到三幀；方塊內部每一幀都是連續的，抖動也不會細到逐像素閃。
+ * 量到行進 21.4 → 12.0 毫秒；靜止與轉頭的截圖、連續畫面的閃爍量都與原版看不出差別。
+ * 若哪天雲飄得快時又看到規律的抖動，把預設表的 cloudInterlace 關掉就回到每格每幀都算
  */
 export const CLOUD_MARCH_FRAGMENT = `
 precision highp float;
@@ -743,6 +752,7 @@ uniform sampler2D historySampler;
 uniform mat4 previousViewProjection;
 uniform vec3 cloudShift;
 uniform vec4 resolveSetting;
+uniform vec2 interlaceSetting;
 
 ${CLOUD_COMMON_GLSL}
 ${VIEW_RAY_GLSL}
@@ -755,21 +765,18 @@ void main() {
     return;
   }
 
-  vec2 texel = resolveSetting.yz;
-  vec4 mean = vec4(0.0);
-  vec4 meanSquared = vec4(0.0);
-  for (int offsetY = -1; offsetY <= 1; offsetY++) {
-    for (int offsetX = -1; offsetX <= 1; offsetX++) {
-      vec4 neighbor = texture2D(currentSampler, vUV + vec2(float(offsetX), float(offsetY)) * texel);
-      mean += neighbor;
-      meanSquared += neighbor * neighbor;
-    }
+  /**
+   * 隔幀更新時，這一格這一幀有沒有被行進畫到
+   *
+   * 與行進那一趟的棋盤同一套算法：方塊座標的奇偶加上這一幀的奇偶。
+   * 沒被畫到的格子，當前那張圖上留的是兩幀前的舊值，不能拿來混，
+   * 只取投影回來的歷史
+   */
+  bool isStale = false;
+  if (interlaceSetting.x > 0.0) {
+    vec2 tile = floor(gl_FragCoord.xy / interlaceSetting.x);
+    isStale = mod(tile.x + tile.y + interlaceSetting.y, 2.0) > 0.5;
   }
-  mean /= 9.0;
-  meanSquared /= 9.0;
-  vec4 deviation = sqrt(max(meanSquared - mean * mean, vec4(0.0)));
-  vec4 lowBound = mean - deviation * resolveSetting.w;
-  vec4 highBound = mean + deviation * resolveSetting.w;
 
   vec3 direction = cloudViewRay(vUV);
   vec2 range = cloudShellRange(cloudCameraPosition, direction);
@@ -789,6 +796,27 @@ void main() {
     gl_FragColor = current;
     return;
   }
+
+  if (isStale) {
+    gl_FragColor = texture2D(historySampler, previousUv);
+    return;
+  }
+
+  vec2 texel = resolveSetting.yz;
+  vec4 mean = vec4(0.0);
+  vec4 meanSquared = vec4(0.0);
+  for (int offsetY = -1; offsetY <= 1; offsetY++) {
+    for (int offsetX = -1; offsetX <= 1; offsetX++) {
+      vec4 neighbor = texture2D(currentSampler, vUV + vec2(float(offsetX), float(offsetY)) * texel);
+      mean += neighbor;
+      meanSquared += neighbor * neighbor;
+    }
+  }
+  mean /= 9.0;
+  meanSquared /= 9.0;
+  vec4 deviation = sqrt(max(meanSquared - mean * mean, vec4(0.0)));
+  vec4 lowBound = mean - deviation * resolveSetting.w;
+  vec4 highBound = mean + deviation * resolveSetting.w;
 
   vec4 history = clamp(texture2D(historySampler, previousUv), lowBound, highBound);
   gl_FragColor = mix(history, current, resolveSetting.x);
@@ -870,7 +898,13 @@ void main() {
  * 雲邊外側被下衝成幾乎零的顏色、不透明度卻還是正的，
  * 預乘混合下那一圈等於把天空壓暗——積雲與卷雲靠近太陽時都描上一道藍邊（踩過）。
  * 所以結果要夾在最近四個原始格子的最小與最大之間（抗振鈴夾限），
- * 銳利度留著，只是不准跑出原本的範圍
+ * 銳利度留著，只是不准跑出原本的範圍。
+ *
+ * 太陽方向附近再把雲加厚（thickenOverSun）：太陽是一塊十五格的方形，
+ * 半透明的雲蓋在上面時，方形的輪廓會透過雲照出來，雲裡浮出一圈硬邊（踩過）。
+ * 真實的太陽在薄雲後面是被散射成一團光，看不到輪廓。
+ * 在方塊外接圓（約五點五度）以內把不透明度往一推，到九度平滑放掉，
+ * 預乘的顏色跟著同比例放大，雲本身的色調不變；光暈是另一塊網格，照常露出
  */
 export const CLOUD_COMPOSITE_FRAGMENT = `
 precision highp float;
@@ -922,10 +956,23 @@ vec4 sampleCatmullRom(vec2 uv) {
   return clamp(result, lowBound, highBound);
 }
 
+uniform vec4 compositeSun;
+
+vec4 thickenOverSun(vec4 cloud, vec3 direction) {
+  float towardSun = dot(normalize(direction), compositeSun.xyz);
+  float sunCover = smoothstep(0.9877, 0.9954, towardSun) * compositeSun.w;
+  if (sunCover <= 0.0 || cloud.a <= 0.001) {
+    return cloud;
+  }
+  float thickened = 1.0 - pow(1.0 - cloud.a, 1.0 + sunCover * 7.0);
+  return vec4(cloud.rgb * (thickened / cloud.a), thickened);
+}
+
 void main() {
   vec2 uv = gl_FragCoord.xy * compositeSetting.xy;
   vec4 cloud = sampleCatmullRom(uv);
   cloud.a = min(cloud.a, 1.0);
+  cloud = thickenOverSun(cloud, vDirection);
   gl_FragColor = cloud * compositeSetting.z;
 }
 `

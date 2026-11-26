@@ -517,6 +517,16 @@ useEventListener(window, 'keydown', (event: KeyboardEvent) => {
     event.preventDefault()
     postCommand({ command: 'cycle-debug-mode' })
   }
+
+  /**
+   * F8 逐道工序的 GPU 計時，只在本地開發有用
+   *
+   * 要先按 F3 開效能面板，計時結果以「GPU 工序名」與「CPU 工序名」的列併進那份清單
+   */
+  if (event.code === 'F8' && import.meta.env.DEV) {
+    event.preventDefault()
+    postCommand({ command: 'toggle-pass-timer' })
+  }
 })
 
 /** 桌機以 Pointer Lock 狀態決定選單開關 */

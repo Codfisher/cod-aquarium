@@ -302,6 +302,14 @@ interface MeterResource {
   pixelBuffer: WebGLBuffer;
 }
 
+/** 畫布有多重取樣時，先原尺寸解析到這裡再縮圖（理由見 requestMeter） */
+interface ResolveResource {
+  framebuffer: WebGLFramebuffer;
+  renderbuffer: WebGLRenderbuffer;
+  width: number;
+  height: number;
+}
+
 /** 送出量測那一刻的視線，讀回時用來分辨哪些畫素是天空 */
 interface MeterView {
   forwardY: number;
@@ -335,6 +343,16 @@ export function createEyeAdaptation(scene: Scene, pipeline: DefaultRenderingPipe
   const rightVector = new Vector3()
   const upVector = new Vector3()
   let resource: MeterResource | null = null
+  let resolveResource: ResolveResource | null = null
+  /** 畫布的多重取樣是建立上下文時決定的，之後不會變 */
+  const contextAttributes = gl.getContextAttributes()
+  const isCanvasMultisampled = contextAttributes?.antialias === true
+  /**
+   * 解析的目的格式必須與畫布完全一致，不然一樣是 INVALID_OPERATION
+   *
+   * 畫布關了 alpha，背後是 RGB8；拿 RGBA8 去接會被拒絕（實測過）
+   */
+  const resolveFormat = contextAttributes?.alpha === false ? gl.RGB8 : gl.RGBA8
   /** 送出去還沒讀回的那份是第幾幀送的，沒有就是 null。同時最多只有一份在飛 */
   let pendingFrame: number | null = null
   let pendingSecond = 0
@@ -380,7 +398,40 @@ export function createEyeAdaptation(scene: Scene, pipeline: DefaultRenderingPipe
     return { framebuffer, renderbuffer, pixelBuffer }
   }
 
+  /** 尺寸跟著畫布走，視窗縮放或換解析度時重建 */
+  function prepareResolveResource(width: number, height: number): ResolveResource | null {
+    if (resolveResource?.width === width && resolveResource.height === height)
+      return resolveResource
+
+    disposeResolveResource()
+    const framebuffer = gl.createFramebuffer()
+    const renderbuffer = gl.createRenderbuffer()
+    if (!framebuffer || !renderbuffer)
+      return null
+
+    gl.bindRenderbuffer(gl.RENDERBUFFER, renderbuffer)
+    gl.renderbufferStorage(gl.RENDERBUFFER, resolveFormat, width, height)
+    gl.bindRenderbuffer(gl.RENDERBUFFER, null)
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer)
+    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.RENDERBUFFER, renderbuffer)
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+
+    resolveResource = { framebuffer, renderbuffer, width, height }
+    return resolveResource
+  }
+
+  function disposeResolveResource(): void {
+    if (!resolveResource)
+      return
+
+    gl.deleteFramebuffer(resolveResource.framebuffer)
+    gl.deleteRenderbuffer(resolveResource.renderbuffer)
+    resolveResource = null
+  }
+
   function disposeResource(): void {
+    disposeResolveResource()
     pendingFrame = null
     if (!resource)
       return
@@ -398,6 +449,7 @@ export function createEyeAdaptation(scene: Scene, pipeline: DefaultRenderingPipe
    */
   const contextLostObserver = engine.onContextLostObservable.add(() => {
     resource = null
+    resolveResource = null
     pendingFrame = null
   })
 
@@ -436,6 +488,12 @@ export function createEyeAdaptation(scene: Scene, pipeline: DefaultRenderingPipe
    * 會讓固定的取樣點每次抽到同一批像素。
    *
    * blit 與剪裁測試有關：開著剪裁的話縮圖只會填到一個小角落，所以先關再還原
+   *
+   * 畫布開了多重取樣時不能直接縮：WebGL2 規定來源是多重取樣的 blit
+   * 來源與目的矩形必須一樣大，縮放會丟 INVALID_OPERATION，
+   * 什麼都沒寫進小圖，自動曝光就安靜地停在舊值。
+   * 所以先原尺寸解析到一張普通緩衝區，再從那張縮。
+   * 多出的那次全畫面複製每 0.2 秒才一次，攤到每幀量不出來
    */
   function requestMeter(): void {
     resource ??= createResource()
@@ -455,7 +513,29 @@ export function createEyeAdaptation(scene: Scene, pipeline: DefaultRenderingPipe
     if (isScissorEnabled)
       gl.disable(gl.SCISSOR_TEST)
 
-    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null)
+    let sourceFramebuffer: WebGLFramebuffer | null = null
+    if (isCanvasMultisampled) {
+      const resolve = prepareResolveResource(sourceWidth, sourceHeight)
+      if (resolve) {
+        gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null)
+        gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, resolve.framebuffer)
+        gl.blitFramebuffer(
+          0,
+          0,
+          sourceWidth,
+          sourceHeight,
+          0,
+          0,
+          sourceWidth,
+          sourceHeight,
+          gl.COLOR_BUFFER_BIT,
+          gl.NEAREST,
+        )
+        sourceFramebuffer = resolve.framebuffer
+      }
+    }
+
+    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, sourceFramebuffer)
     gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, resource.framebuffer)
     gl.blitFramebuffer(
       offsetX,
