@@ -36,6 +36,9 @@
 4. 禁止在 Commit Message 中加上 Co Author
 5. **不要主動啟動 dev server 或 build**：不要自動執行 `npm run dev`、`npm run build`。使用者會自行決定何時啟動與測試；build 另有 30 分鐘等級的耗時與快取衝突問題，詳見[開發疑難排解](docs/development-notes.md)。需要驗證編譯結果時，借用已啟動的 dev server 取轉譯後模組即可。
 6. **效能問題先量測再修**：先加一段 `import.meta.env.DEV` 包住的量測 log，請使用者實測貼數據，定位後才動手，不要憑推測連續修改。提出改進方案時用「方案 A／B／C ＋ 建議」的分級格式讓使用者挑。
+7. **用 Playwright 開會鎖指標的頁面，一律先停用 pointer lock**：Windows 上的 headless Chrome 是藏起來的真 Chrome，頁面呼叫 `requestPointerLock` 時 Chrome 會對系統呼叫 `ClipCursor`，把使用者真正的滑鼠鎖在那個看不見的視窗範圍裡，還會一直拉回去（Minespace 按「開始漫遊」就會觸發）。任何開這類頁面的腳本（含子代理人寫的），都要在 `page.goto` 之前加上：
+   `await page.addInitScript(() => { Element.prototype.requestPointerLock = () => Promise.resolve() })`
+   截圖用不到真正的鎖定，產品程式碼不必改。派代理人做瀏覽器驗證時，要在指示裡寫明這一條。
 
 ## 寫作風格規則（Writing Style）
 
