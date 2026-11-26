@@ -36,5 +36,6 @@ workerSelf.onmessage = (event: MessageEvent<CloudNoiseRequest>) => {
     noiseSet.base.data.buffer,
     noiseSet.detail.data.buffer,
     noiseSet.weather.data.buffer,
+    noiseSet.cirrus.data.buffer,
   ])
 }

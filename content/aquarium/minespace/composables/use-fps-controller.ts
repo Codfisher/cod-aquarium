@@ -18,6 +18,7 @@ import {
   resolveCollision,
 } from '../domains/player/collision'
 import { updateLeafTranslucency } from '../domains/renderer/leaf-translucency'
+import { updateSkyLight } from '../domains/renderer/sky-light'
 import { getReloadHandoff } from '../domains/scene/reload-handoff'
 import { updateAerialAir } from '../domains/weather/aerial-perspective'
 import { CAVE_FOG_COLOR, EDGE_FOG_END, EDGE_FOG_START, getEdgeFogRatio } from '../domains/weather/atmosphere'
@@ -653,6 +654,26 @@ export function useFpsController() {
         sunLight?.direction ?? SUN_DIRECTION,
         directSunRatio,
         devToggle.cloudShadow,
+      )
+
+      /**
+       * 球諧天光的方向性，跟著「還看不看得見一片有顏色的天」走
+       *
+       * 乘上天光本身的強度（夜裡天光只剩三成，偶極也跟著淡），
+       * 再乘上開闊程度與直射陽光的比例：雨天整片天是均勻的灰，沒有哪一側比較亮
+       */
+      updateSkyLight(
+        {
+          zenithColor: atmosphere.skyZenithColor,
+          midColor: atmosphere.skyMidColor,
+          horizonColor: atmosphere.baseFogColor,
+          glowColor: atmosphere.skyGlowColor,
+          counterColor: atmosphere.skyCounterColor,
+          glowStrength: atmosphere.skyGlowStrength,
+          sunDirection: atmosphere.sunDirection,
+          strength: devToggle.skylightSh ? ambientRatio * directSunRatio : 0,
+        },
+        deltaTime,
       )
 
       /**

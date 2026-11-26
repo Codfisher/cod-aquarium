@@ -33,6 +33,13 @@ export interface ReloadHandoff {
   rotation: { pitch: number; yaw: number };
   /** 一天的時刻，0 為子夜、0.5 為正午 */
   timeOfDay: number;
+  /**
+   * 指定遊戲日的日序，只在開發模式讀（見 use-day-night 的 cloudDayIndex）
+   *
+   * 雲的每日天氣是日序抽籤抽出來的，要對著某一種天氣調雲，就得能指定是哪一天。
+   * 正式版不讀：玩家沒有理由被一個存在 sessionStorage 的數字改掉天氣
+   */
+  dayIndex?: number;
 }
 
 function isFiniteNumber(value: unknown): value is number {
@@ -61,7 +68,12 @@ function parseHandoff(raw: string): ReloadHandoff | null {
     if (!isFiniteNumber(rotation.pitch) || !isFiniteNumber(rotation.yaw))
       return null
 
-    return { position, rotation, timeOfDay } as ReloadHandoff
+    return {
+      position,
+      rotation,
+      timeOfDay,
+      ...(isFiniteNumber(parsed.dayIndex) ? { dayIndex: parsed.dayIndex } : {}),
+    } as ReloadHandoff
   }
   catch {
     return null

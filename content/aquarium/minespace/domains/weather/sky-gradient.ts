@@ -72,6 +72,8 @@ const float ZENITH_FALLOFF = 1.6;
 /** 背對太陽那道反霞相對於霞光的濃度 */
 const float COUNTER_RATIO = 0.5;
 
+
+
 void main() {
   vec3 direction = normalize(vDirection);
 
@@ -132,6 +134,7 @@ void main() {
    */
   float halo = pow(towardSun, 18.0) * 0.55 + pow(towardSun, 2.5) * 0.45 * lowSky;
   color = mix(color, glowColor, clamp(halo * glowStrength, 0.0, 1.0));
+
 
   /**
    * 打散色階
@@ -218,4 +221,51 @@ export function applySkyGradient(material: ShaderMaterial, params: SkyGradientPa
   if (params.sunDirection) {
     material.setVector3('sunDirection', params.sunDirection)
   }
+}
+
+/**
+ * 沿著某個方向看出去的天色，給 CPU 這一側用
+ *
+ * 球諧天光要把整片天空「看過一遍」，得在 CPU 上對幾十個方向各算一次天色。
+ * 這是上面那支著色器的鏡像（天邊、中空、天頂三段加上反霞與太陽暖光，不含雜訊），
+ * 改著色器的曲線時要一起改這裡，兩邊對不起來的話，天光的暖側就會落在錯的方位
+ *
+ * direction 是單位向量（y 朝上），params 是這一刻的天色（需要 sunDirection），
+ * 結果寫進 output（紅、綠、藍），不配置新物件
+ */
+export function sampleSkyGradient(
+  direction: { x: number; y: number; z: number },
+  params: Required<SkyGradientParams>,
+  output: [number, number, number],
+): void {
+  const upward = Math.min(1, Math.max(0, direction.y))
+  const hazeBlend = 1 - (1 - upward) ** 6
+  const zenithBlend = 1 - (1 - upward) ** 1.6
+
+  const { zenithColor, midColor, horizonColor, glowColor, counterColor, sunDirection } = params
+  const channelList = ['r', 'g', 'b'] as const
+
+  const sunDot = direction.x * sunDirection.x + direction.y * sunDirection.y + direction.z * sunDirection.z
+  const towardSun = Math.max(sunDot, 0)
+  const awayFromSun = Math.max(-sunDot, 0)
+  const lowSky = 1 - smoothstep(0, 0.6, upward)
+  const counterMix = Math.min(1, Math.max(0, awayFromSun ** 3 * lowSky * 0.5 * params.glowStrength))
+  const haloMix = Math.min(
+    1,
+    Math.max(0, (towardSun ** 18 * 0.55 + towardSun ** 2.5 * 0.45 * lowSky) * params.glowStrength),
+  )
+
+  for (const [index, channel] of channelList.entries()) {
+    const upper = midColor[channel] + (zenithColor[channel] - midColor[channel]) * zenithBlend
+    let value = horizonColor[channel] + (upper - horizonColor[channel]) * hazeBlend
+    value += (counterColor[channel] - value) * counterMix
+    value += (glowColor[channel] - value) * haloMix
+    output[index] = value
+  }
+}
+
+function smoothstep(from: number, to: number, value: number): number {
+  const ratio = Math.min(1, Math.max(0, (value - from) / (to - from)))
+
+  return ratio * ratio * (3 - 2 * ratio)
 }

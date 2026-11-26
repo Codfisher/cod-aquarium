@@ -38,9 +38,11 @@ import {
   SPAWN_POSITION,
 } from '../domains/garden/garden-layout'
 import { DEFAULT_CAMERA_FOV } from '../domains/render-host/render-constants'
+import { createEyeAdaptation } from '../domains/renderer/eye-adaptation'
 import { optOutOfFog } from '../domains/renderer/fog-opt-out'
 import { createGlowTexture } from '../domains/renderer/glow-texture'
 import { registerLeafTranslucency } from '../domains/renderer/leaf-translucency'
+import { registerSkyLight, resetSkyLight } from '../domains/renderer/sky-light'
 import { registerVoxelGi } from '../domains/renderer/voxel-gi'
 import { registerAerialPerspective } from '../domains/weather/aerial-perspective'
 import { GARDEN_FOG_COLOR, GARDEN_FOG_END, GARDEN_FOG_START } from '../domains/weather/atmosphere'
@@ -168,6 +170,7 @@ function createScene(engine: Engine): Scene {
   registerCloudShadow()
   registerLeafTranslucency()
   registerVoxelGi()
+  registerSkyLight()
 
   const scene = new Scene(engine)
 
@@ -1506,6 +1509,8 @@ function setUpBabylonScene(
   let shadowGenerator = createShadowGenerator({ scene })
   const pipeline = createRenderingPipeline(scene, camera)
   pipeline.samples = preset.value.sampleCount
+  /** 自動曝光與暗視覺偏藍，要在管線建好之後，量的是管線收到的那張圖 */
+  const eyeAdaptation = createEyeAdaptation(scene, pipeline)
 
   /**
    * 除錯開關：管線與陰影那幾項
@@ -1635,6 +1640,8 @@ function setUpBabylonScene(
      * 下一次進來時若雲還沒畫出第一張，材質就會綁到它
      */
     disposeCloudShadow()
+    eyeAdaptation.dispose()
+    resetSkyLight()
     canvas.removeEventListener('webglcontextlost', handleContextLost)
     canvas.removeEventListener('webglcontextrestored', handleContextRestored)
     engine.dispose()
