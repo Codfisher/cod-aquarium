@@ -63,9 +63,9 @@ export const RIVER_REALM: RealmDefinition = {
       end: { value: 210 },
     },
     light: {
-      /** 谷裡的光是被谷壁與水氣篩過的：天光多一點、直射光收一點 */
-      ambientRatio: { scale: 1.06 },
-      lightRatio: { scale: 0.92 },
+      /** 谷裡的光是被谷壁與水氣篩過的：天光明顯多一點（崖面不致壓成死黑），直射光照常；黃昏本身的天光低，仍是暗的 */
+      ambientRatio: { scale: 1.38 },
+      lightRatio: { scale: 1.05 },
       specularRatio: { scale: 1.1 },
     },
     cloud: {

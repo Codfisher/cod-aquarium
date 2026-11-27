@@ -17,6 +17,7 @@ import {
   HALL_RADIUS_Z,
   measureFloorRise,
   measureGlowDensity,
+  measureGlowVein,
   measureHallDistance,
   measureHallHeight,
   OLD_MOUTH,
@@ -409,7 +410,7 @@ function placeGlowLichen(state: Uint8Array): void {
   for (let x = HALL_CENTER.x - HALL_RADIUS_X - 6; x <= HALL_CENTER.x + HALL_RADIUS_X + 6; x++) {
     for (let z = HALL_CENTER.z - HALL_RADIUS_Z - 6; z <= HALL_CENTER.z + HALL_RADIUS_Z + 6; z++) {
       const density = measureGlowDensity(x, z)
-      if (density < 0.25 || isInPillar(x, z))
+      if (density < 0.2 || isInPillar(x, z))
         continue
 
       for (let y = minY; y <= CEILING_LIMIT_Y + 1; y++) {
@@ -423,7 +424,12 @@ function placeGlowLichen(state: Uint8Array): void {
         if (!isCeiling && !isWall)
           continue
 
-        const chance = (isCeiling ? 0.55 : 0.3) * density
+        /**
+         * 只長在岩縫與小叢上（measureGlowVein），不是整片貼滿：
+         * 縫心機率高、往兩側掉，邊緣零星幾塊，光禿的岩面一塊也沒有。
+         * 洞頂那一片星空由渲染端的螢光蟲點陣擔綱，地衣只是幾處暗淡的苔斑
+         */
+        const chance = (isCeiling ? 0.7 : 0.4) * measureGlowVein(x, y, z) * (0.35 + density * 0.65)
         if (random() < chance) {
           setBlock(state, x, y, z, BlockId.GLOW_LICHEN)
         }

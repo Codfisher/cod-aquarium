@@ -111,6 +111,21 @@ export const WATERFALL_POINT = { x: VALLEY_HEAD_X, z: Math.round(measureStreamZ(
  */
 export const WATERFALL_TOP_Y = UPPER_FLOOR_Y + 22
 
+/**
+ * 主瀑布中間突出來的兩塊岩
+ *
+ * 一整片九格寬的水幕是一面藍牆；水打在突出的岩上分成三股，
+ * 寬的寬、窄的窄，岩底下水又匯回來落進潭裡。高度以上游谷底起算。
+ * 地形（放岩）與瀑布水幕（避開岩）都要讀，所以放在這裡
+ */
+export const STRAND_ROCK_LIST = [
+  { offsetZ: -1, fromLevel: 5, toLevel: 17 },
+  { offsetZ: 2, fromLevel: 8, toLevel: 19 },
+] as const
+
+/** 主瀑布水幕的半寬（格）：九格寬 */
+export const WATERFALL_HALF_WIDTH = 4
+
 /** 瀑布底下的水潭：圓心在崖腳往東幾格，半徑與深度；中心最深，往外兩圈各淺一格 */
 export const PLUNGE_POOL = { offsetX: 7, radius: 9, depth: 4 } as const
 

@@ -1,8 +1,10 @@
 import type { Scene } from '@babylonjs/core'
 import type { AtmosphereState } from '../../weather/atmosphere'
-import { Color3, Effect, Mesh, ShaderMaterial, VertexData } from '@babylonjs/core'
+import type { ColossusSite } from './ruins-colossi-shape'
+import { Color3, Effect, Mesh, ShaderMaterial, Vector3, VertexData } from '@babylonjs/core'
 import { createSeededRandom } from '../../../utils/noise'
 import { optOutOfFog } from '../../renderer/fog-opt-out'
+import { BIRD_FLOCK_LIST, SITE_LIST } from './ruins-colossi-shape'
 import { RUINS_CENTER, RUINS_GROUND_Y, RUINS_RIM_HEIGHT } from './ruins-layout'
 
 /**
@@ -11,17 +13,25 @@ import { RUINS_CENTER, RUINS_GROUND_Y, RUINS_RIM_HEIGHT } from './ruins-layout'
  * 使用者要的：「遠處加上殘破、壯觀的雕像與遺跡，無法接近，只看的到」。
  * 世界只有四十格高、兩百八十格寬，四五十格高的巨像放不進方塊世界，
  * 而且人走不到、只遠遠看，做成方塊是白花幾萬個面。所以跟遠山一樣是布景：
- * 一個網格、一次繪製，由幾百個方盒拼成（看得出是一格一格堆起來的石頭，與方塊世界同一種語言），
+ * 一個網格、一次繪製，由幾百個方盒拼成（形體在 ruins-colossi-shape.ts），
  * 立在亂石坡外那片走不到的岩地上（世界外，地面是布景的岩地平面），
  * 亂石坡的坡頂擋住它們的下半截，只露出肩、斷臂與斷頸，像從霧裡浮出來。
  *
+ * 石頭質感全在著色器裡算，不吃貼圖：
+ * 方盒的每個頂點帶面的法線、貼在這一面上的平面座標（格）、離盒底的高度比例，
+ * 片段著色器用平面座標畫砌石的層與縫、每塊石頭的色差、雨水沖出的垂直汙痕、裂縫，
+ * 頂面、腳下與藤蔓縫長青苔，盒底與凹處壓暗（近似環境遮蔽）。
+ * 細節隨距離淡出，遠的只剩大塊的明暗，不會閃爍。
+ *
  * 不吃一般的距離霧，與山稜同一套做法：自己依遠近往地平線色混（越遠越淡，一層一層），
- * 腳下再多混一層霧，轉場時跟著灰罩化進霧色。顏色是石頭的灰、低處帶青苔，乘上此刻的天光。
+ * 腳下再多混一層霧，轉場時跟著灰罩化進霧色。光照用天光加直射光（有法線、有方位）；
+ * 迎著太陽看過去（黃昏時它們正好在落日前）石頭整個壓暗、霧收薄，剪影最重。
  * 不投影：太遠了，影子落在走不到的地方
  *
  * 構圖：從回程門往北看，長廊兩排石柱正好夾住正北那尊無頭的坐像；
  * 東北一對持劍的守門巨像夾著一座塌了的門，西邊半埋著一顆巨大的頭，
- * 西南幾根倒下的巨柱，東邊一段斷了的水道橋，東南遠處山稜上一座塌了一角的階梯神殿
+ * 西南幾根倒下的巨柱，東邊一段斷了的水道橋，東南遠處山稜上一座塌了一角的階梯神殿。
+ * 坐像與塌門上空各有一群鳥在盤旋
  */
 
 /** 布景那一層（與 backdrop 的山稜同一層）：地形的深度已經寫好，被殿牆擋住的部分照樣不畫 */
@@ -30,308 +40,43 @@ const BACKDROP_RENDERING_GROUP = 1
 /** 巨像腳下的高度：亂石坡外那片岩地平面（backdrop.floor）的頂面 */
 const FOOT_Y = RUINS_GROUND_Y + RUINS_RIM_HEIGHT + 0.5
 
-/**
- * 石頭與青苔的基準色（乘光之前）
- *
- * 給暗一點：遠看要讀得出剪影，石頭本色太亮的話，再混兩三成霧色就與天邊糊成一片
- */
-const STONE_ALBEDO = new Color3(0.16, 0.155, 0.15)
-const MOSS_ALBEDO = new Color3(0.08, 0.11, 0.055)
-
 /** 與山稜同一組光的權重：天光是主體，直射光補一點 */
 const AMBIENT_WEIGHT = 0.95
-const SUN_WEIGHT = 0.32
+const SUN_WEIGHT = 0.55
 
-/** 一個方盒（區域座標，含兩端的面）：x 往右、y 往上、z 往前（臉朝的方向） */
-interface ColossusBox {
-  from: readonly [number, number, number];
-  to: readonly [number, number, number];
-  /** 青苔的程度，零到一 */
-  moss?: number;
-  /** 額外的明暗倍率：眼窩、裂縫給暗一點 */
-  shade?: number;
-}
+/** 方盒的五個面（沒有底面）：法線軸與方向 */
+const FACE_LIST = [
+  { axis: 1, sign: 1 },
+  { axis: 2, sign: 1 },
+  { axis: 2, sign: -1 },
+  { axis: 0, sign: 1 },
+  { axis: 0, sign: -1 },
+] as const
 
-type BoxTuple = readonly [number, number, number, number, number, number]
+/** 一格的石頭換算成貼在面上的座標時，不同遠景錯開多少，才不會每一處都是同一個花紋 */
+const SITE_PATTERN_OFFSET = 41.3
 
-function box(tuple: BoxTuple, moss = 0, shade = 1): ColossusBox {
-  return { from: [tuple[0], tuple[1], tuple[2]], to: [tuple[3], tuple[4], tuple[5]], moss, shade }
-}
-
-/**
- * 無頭的坐像
- *
- * 坐在寶座上，雙手原本擱在膝上：右手還在，左臂從肘部斷掉、半截躺在台座前；
- * 頭整個沒了，只剩一截斷頸。台座一角崩落
- */
-function createSeatedColossus(): ColossusBox[] {
-  return [
-    box([-15, -4, -13, 15, 6, 15], 0.4),
-    box([-13, 6, -11, 13, 9, 13], 0.25),
-    box([16, -4, 8, 21, 3, 14], 0.5),
-    /** 寶座：座面與兩截高低不一的椅背 */
-    box([-12, 9, -11, 12, 19, 3], 0.15),
-    box([-12, 19, -11, -1, 42, -6], 0.1),
-    box([-1, 19, -11, 12, 34, -6], 0.1),
-    /** 腿 */
-    box([-9, 19, -4, -1, 25, 12], 0.1),
-    box([1, 19, -4, 9, 25, 12], 0.1),
-    box([-9, 9, 7, -2, 19, 13], 0.3),
-    box([2, 9, 7, 9, 19, 13], 0.3),
-    box([-9, 9, 13, -2, 12, 17], 0.45),
-    box([2, 9, 13, 9, 12, 17], 0.45),
-    /** 身軀與肩 */
-    box([-9, 24, -7, 9, 34, 3]),
-    box([-8, 34, -6, 8, 45, 4]),
-    box([-12, 41, -6, 12, 47, 3]),
-    /** 右臂：擱在大腿上 */
-    box([-15, 30, -5, -10, 46, 1]),
-    box([-14, 25, -3, -8, 30, 10]),
-    box([-13, 25, 9, -7, 28, 13], 0.1),
-    /** 左臂從肘部斷掉，斷口參差 */
-    box([10, 33, -5, 15, 46, 1]),
-    box([11, 30, -4, 14, 33, 0], 0, 0.85),
-    /** 斷頸 */
-    box([-3, 47, -4, 3, 50, 2]),
-    box([-2, 50, -3, 1, 51, 0], 0, 0.85),
-    box([1, 50, -1, 2, 52, 1], 0, 0.85),
-    /** 斷下來的前臂，躺在台座前 */
-    box([14, -4, 17, 27, 2, 22], 0.55),
-    box([24, -4, 15, 29, 3, 21], 0.5),
-  ]
-}
-
-/**
- * 持劍的守門巨像
- *
- * 雙手交握在胸前、劍尖拄地。isBroken 的那一尊頭沒了、右臂只剩肩頭一截
- */
-function createGuardian(isBroken: boolean): ColossusBox[] {
-  const boxList = [
-    box([-8, -4, -7, 8, 5, 7], 0.45),
-    box([-6, 5, -3, -1, 24, 3], 0.25),
-    box([1, 5, -3, 6, 24, 3], 0.25),
-    box([-7, 14, -4, 7, 28, 4], 0.1),
-    box([-7, 28, -4, 7, 44, 4]),
-    box([-10, 40, -5, 10, 46, 4]),
-    box([-11, 24, -3, -8, 44, 2]),
-    /** 劍：交握的雙手、護手、劍柄、拄在台座上的劍身 */
-    box([-3, 27, 4, 3, 31, 7]),
-    box([-4, 31, 4, 4, 33, 7]),
-    box([-1, 33, 5, 1, 37, 6]),
-    box([-1, 5, 5, 1, 27, 6], 0.2),
-  ]
-  if (isBroken) {
-    boxList.push(
-      box([8, 38, -3, 11, 44, 2], 0, 0.9),
-      box([-3, 46, -3, 3, 48, 3], 0, 0.9),
-    )
-    return boxList
-  }
-  boxList.push(
-    box([8, 24, -3, 11, 44, 2]),
-    box([-4, 46, -4, 4, 55, 4]),
-    box([-1, 49, 4, 1, 52, 5]),
-    box([-1, 55, -4, 1, 59, 3]),
-  )
-  return boxList
-}
-
-/** 一個沿 X 平移過的方盒清單（把幾件東西拼成一處遺跡） */
-function shiftBoxList(boxList: ColossusBox[], offsetX: number, offsetZ = 0): ColossusBox[] {
-  return boxList.map((item) => ({
-    ...item,
-    from: [item.from[0] + offsetX, item.from[1], item.from[2] + offsetZ],
-    to: [item.to[0] + offsetX, item.to[1], item.to[2] + offsetZ],
-  }))
-}
-
-/**
- * 守門巨像夾著的一座塌門
- *
- * 兩座方塔撐一道門楣，右塔塌了一截，門楣只剩左半，掉下來的那幾塊躺在門洞裡
- */
-function createGuardianGate(): ColossusBox[] {
-  return [
-    box([-16, -4, -4, -9, 38, 4], 0.2),
-    box([9, -4, -4, 16, 27, 4], 0.25),
-    box([-16, 38, -5, 3, 43, 5], 0.1),
-    box([4, -4, -6, 14, 1, 2], 0.5),
-    box([-2, -4, 2, 6, 3, 8], 0.45),
-    ...shiftBoxList(createGuardian(false), -29),
-    ...shiftBoxList(createGuardian(true), 29),
-  ]
-}
-
-/**
- * 半埋在土裡的巨大頭顱
- *
- * 下巴以下埋進岩地，頭冠斷了半邊；眼窩、嘴是貼在臉上的深色薄片
- */
-function createFallenHead(): ColossusBox[] {
-  return [
-    box([-11, -8, -10, 11, 14, 10], 0.3),
-    box([-10, 8, 10, 10, 10, 12], 0.15),
-    box([-2, 1, 10, 2, 8, 14], 0.1),
-    box([-8, 5, 10, -3, 8, 10.3], 0, 0.35),
-    box([3, 5, 10, 8, 8, 10.3], 0, 0.35),
-    box([-4, -2, 10, 4, 0, 10.3], 0, 0.45),
-    box([-12, 2, -3, -11, 9, 2], 0.2),
-    box([11, 2, -3, 12, 9, 2], 0.2),
-    /** 頭冠：一圈石帶，右半邊斷了 */
-    box([-11, 14, -10, 4, 17, 10], 0.2),
-    box([-9, 17, -6, -1, 20, 6], 0.2),
-  ]
-}
-
-/** 倒下的巨柱：兩根還站著（一根斷在半截、一根頂著殘樑），三截躺在地上 */
-function createToppledColumns(): ColossusBox[] {
-  return [
-    box([-4, -4, -4, 4, 2, 4], 0.5),
-    box([-3, 2, -3, 3, 14, 3], 0.35),
-    box([-3, 14, -3, 3, 27, 3], 0.15),
-    box([-2, 27, -2, 3, 31, 2], 0, 0.85),
-    box([16, -4, -4, 24, 2, 4], 0.5),
-    box([17, 2, -3, 23, 46, 3], 0.2),
-    box([15, 46, -5, 25, 50, 5], 0.1),
-    box([15, 50, -3, 33, 54, 3], 0.05),
-    /** 躺著的那幾截：鼓節一節一節錯開 */
-    box([-34, -4, 10, -22, 3, 17], 0.55),
-    box([-21, -4, 11, -10, 3, 18], 0.5),
-    box([-8, -4, 12, 3, 3, 19], 0.5),
-    box([5, -4, 10, 11, 5, 20], 0.45),
-    box([30, -4, -20, 37, 2, -6], 0.55),
-    box([31, -4, -5, 38, 2, 7], 0.5),
-  ]
-}
-
-/**
- * 斷了的水道橋
- *
- * 沿 X 一排橋墩，墩頂一條渠，墩與墩之間是一階一階收進去的拱；
- * 中間三跨塌了，那兩座墩也斷在半截
- */
-function createAqueduct(): ColossusBox[] {
-  const boxList: ColossusBox[] = []
-  const PIER_SPACING = 14
-  const PIER_COUNT = 11
-  const DECK_Y = 30
-  const brokenPierSet = new Set([5, 6])
-  const brokenSpanSet = new Set([4, 5, 6])
-  const startX = -((PIER_COUNT - 1) * PIER_SPACING) / 2
-
-  for (let index = 0; index < PIER_COUNT; index++) {
-    const pierX = startX + index * PIER_SPACING
-    const pierTop = brokenPierSet.has(index) ? 10 + index * 2 : DECK_Y
-    boxList.push(box([pierX - 2, -4, -2, pierX + 2, pierTop, 2], 0.35))
-    if (index === PIER_COUNT - 1 || brokenSpanSet.has(index))
-      continue
-    boxList.push(
-      box([pierX - 2, DECK_Y, -3, pierX + PIER_SPACING + 2, DECK_Y + 6, 3], 0.1),
-      box([pierX + 2, DECK_Y - 4, -2, pierX + 4, DECK_Y, 2], 0.15),
-      box([pierX + PIER_SPACING - 4, DECK_Y - 4, -2, pierX + PIER_SPACING - 2, DECK_Y, 2], 0.15),
-      box([pierX + 4, DECK_Y - 2, -2, pierX + PIER_SPACING - 4, DECK_Y, 2], 0.15),
-    )
-  }
-  /** 塌下來的渠與拱，一堆一堆躺在斷口底下 */
-  boxList.push(
-    box([-6, -4, -6, 8, 3, 5], 0.55),
-    box([10, -4, -4, 20, 5, 6], 0.5),
-  )
-  return boxList
-}
-
-/**
- * 山稜上的階梯神殿
- *
- * 五層一層比一層小的石台，正面一道階梯直上頂上的小殿；
- * 右前那一角塌了，從第三層起缺一塊，碎石沿著坡堆下來
- */
-function createZiggurat(): ColossusBox[] {
-  const boxList: ColossusBox[] = []
-  const halfList = [44, 36, 28, 20, 12]
-  const TIER_HEIGHT = 12
-  for (const [tier, half] of halfList.entries()) {
-    const fromY = tier === 0 ? -4 : tier * TIER_HEIGHT
-    const toY = (tier + 1) * TIER_HEIGHT
-    const moss = tier < 2 ? 0.35 : 0.1
-    if (tier < 2) {
-      boxList.push(box([-half, fromY, -half, half, toY, half], moss))
-      continue
-    }
-    /** 右前那一塊（+X、+Z）塌了 */
-    boxList.push(
-      box([-half, fromY, -half, half, toY, 0], moss),
-      box([-half, fromY, 0, 0, toY, half], moss),
-    )
-  }
-  boxList.push(
-    /** 頂上的小殿，屋頂斷了半邊 */
-    box([-7, 60, -7, 7, 68, 7]),
-    box([-8, 68, -8, 1, 71, 8]),
-    /** 正面的階梯：一道窄窄的石台一路往上 */
-    box([-5, -4, 44, 5, 12, 50], 0.3),
-    box([-5, 12, 36, 5, 24, 42], 0.2),
-    box([-5, 24, 28, 5, 36, 34], 0.1),
-    box([-5, 36, 20, 5, 48, 26]),
-    /** 塌下來的碎石坡 */
-    box([4, -4, 4, 40, 10, 40], 0.4),
-    box([4, 10, 4, 26, 20, 26], 0.3),
-  )
-  return boxList
-}
-
-/** 一處遠景：放在哪、多大、方盒清單 */
-interface ColossusSite {
-  /** 從遺址中心看過去的方位（度，東為零、順時針，同 garden-layout 的 getRingPosition）與距離 */
-  degree: number;
-  distance: number;
-  scale: number;
-  /** 正面（區域 +Z）朝遺址中心；水道橋沿區域 X 排開，所以是長長的側面對著人 */
-  boxList: ColossusBox[];
-}
-
-const SITE_LIST: ColossusSite[] = [
-  /** 正北，長廊的軸線上：從回程門往北看，兩排石柱夾著它 */
-  { degree: 270, distance: 190, scale: 1.6, boxList: createSeatedColossus() },
-  { degree: 308, distance: 225, scale: 1.35, boxList: createGuardianGate() },
-  { degree: 186, distance: 165, scale: 1.6, boxList: createFallenHead() },
-  { degree: 140, distance: 185, scale: 1.3, boxList: createToppledColumns() },
-  { degree: 14, distance: 205, scale: 1.2, boxList: createAqueduct() },
-  { degree: 50, distance: 280, scale: 1.2, boxList: createZiggurat() },
-]
-
-/**
- * 一處遠景往地平線色混多少
- *
- * 越遠越淡，一層一層：最近的那顆頭還看得清臉，山稜上的神殿只剩一個淡淡的階梯剪影。
- * 亂石坡（八十多格）在場景的霧裡大約混了兩成，最近的巨像從這裡接下去
- */
+/** 一處遠景離地平線色的基準混色 */
 function measureSiteHaze(distance: number): number {
   return Math.min(0.55, Math.max(0.1, 0.08 + (distance - 150) / 450))
 }
 
 /**
- * 每一面的明暗：頂面最亮，正面與背面次之，兩側更暗
+ * 把所有遠景拼成一個網格
  *
- * 沒有法線、不算光，用固定的面明暗讓方盒的體積讀得出來（與山稜每一段差一點明暗是同一個意思）
+ * 頂點：位置、法線、color（明暗、混色、青苔、離地高度比例）、
+ * uv（貼在這一面上的平面座標，世界格）、uv2（離盒底的高度比例、這一塊石頭的亂數）
  */
-const FACE_LIST = [
-  { axis: 1, sign: 1, shade: 1 },
-  { axis: 2, sign: 1, shade: 0.82 },
-  { axis: 2, sign: -1, shade: 0.7 },
-  { axis: 0, sign: 1, shade: 0.64 },
-  { axis: 0, sign: -1, shade: 0.74 },
-] as const
-
-/** 把所有遠景拼成一個網格：位置、頂點色（明暗、混色、青苔、離地高度） */
 function createColossusMesh(scene: Scene): Mesh {
   const positionList: number[] = []
+  const normalList: number[] = []
   const colorList: number[] = []
+  const uvList: number[] = []
+  const uv2List: number[] = []
   const indexList: number[] = []
   const random = createSeededRandom('ruins-colossi')
 
-  for (const site of SITE_LIST) {
+  for (const [siteIndex, site] of SITE_LIST.entries()) {
     const radian = (site.degree / 180) * Math.PI
     const siteX = RUINS_CENTER.x + Math.cos(radian) * site.distance
     const siteZ = RUINS_CENTER.z + Math.sin(radian) * site.distance
@@ -343,6 +88,7 @@ function createColossusMesh(scene: Scene): Mesh {
     const rightZ = frontX
     const haze = measureSiteHaze(site.distance)
     const siteTop = Math.max(...site.boxList.map((item) => item.to[1])) * site.scale
+    const patternOffset = siteIndex * SITE_PATTERN_OFFSET
 
     const toWorld = (localX: number, localY: number, localZ: number): [number, number, number] => [
       siteX + (rightX * localX + frontX * localZ) * site.scale,
@@ -352,8 +98,14 @@ function createColossusMesh(scene: Scene): Mesh {
 
     for (const item of site.boxList) {
       /** 每一塊石頭的明暗差一點點，風化得不均勻 */
-      const weathering = (0.9 + random() * 0.16) * (item.shade ?? 1)
+      const weathering = (0.9 + random() * 0.16) * item.shade
+      const seed = random()
+      const boxHeight = Math.max(0.5, item.to[1] - item.from[1])
       for (const face of FACE_LIST) {
+        const normalLocal: [number, number, number] = [0, 0, 0]
+        normalLocal[face.axis] = face.sign
+        const normalWorldX = rightX * normalLocal[0] + frontX * normalLocal[2]
+        const normalWorldZ = rightZ * normalLocal[0] + frontZ * normalLocal[2]
         /** 這一面上四個角的區域座標：固定軸取那一側，另外兩軸各取兩端 */
         const otherAxisList = [0, 1, 2].filter((axis) => axis !== face.axis) as [number, number]
         const fixed = face.sign > 0 ? item.to[face.axis]! : item.from[face.axis]!
@@ -366,8 +118,15 @@ function createColossusMesh(scene: Scene): Mesh {
           local[otherAxisList[1]] = second === 0 ? item.from[otherAxisList[1]]! : item.to[otherAxisList[1]]!
           const world = toWorld(local[0]!, local[1]!, local[2]!)
           positionList.push(...world)
+          normalList.push(normalWorldX, face.axis === 1 ? face.sign : 0, normalWorldZ)
           const heightRatio = Math.max(0, Math.min(1, (world[1] - FOOT_Y) / Math.max(1, siteTop)))
-          colorList.push(face.shade * weathering, haze, item.moss ?? 0, heightRatio)
+          colorList.push(weathering, haze, item.moss, heightRatio)
+          /** 貼在這一面上的平面座標：側面是（水平, 高），頂面是（x, z） */
+          const planeU = (face.axis === 0 ? local[2]! : local[0]!) * site.scale + patternOffset
+          const planeV = (face.axis === 1 ? local[2]! : local[1]!) * site.scale
+          uvList.push(planeU, planeV)
+          const bottomRatio = face.axis === 1 ? 1 : (local[1]! - item.from[1]) / Math.min(boxHeight, 8)
+          uv2List.push(bottomRatio, seed)
         }
         indexList.push(baseIndex, baseIndex + 1, baseIndex + 2, baseIndex, baseIndex + 2, baseIndex + 3)
       }
@@ -377,7 +136,10 @@ function createColossusMesh(scene: Scene): Mesh {
   const mesh = new Mesh('ruins-colossi', scene)
   const vertexData = new VertexData()
   vertexData.positions = positionList
+  vertexData.normals = normalList
   vertexData.colors = colorList
+  vertexData.uvs = uvList
+  vertexData.uvs2 = uv2List
   vertexData.indices = indexList
   vertexData.applyToMesh(mesh)
   return mesh
@@ -386,12 +148,23 @@ function createColossusMesh(scene: Scene): Mesh {
 const COLOSSUS_VERTEX = `
 precision highp float;
 attribute vec3 position;
+attribute vec3 normal;
 attribute vec4 color;
+attribute vec2 uv;
+attribute vec2 uv2;
 uniform mat4 viewProjection;
 varying vec4 vInfo;
+varying vec3 vWorld;
+varying vec3 vNormal;
+varying vec2 vPlane;
+varying vec2 vBottom;
 
 void main() {
   vInfo = color;
+  vWorld = position;
+  vNormal = normal;
+  vPlane = uv;
+  vBottom = uv2;
   gl_Position = viewProjection * vec4(position, 1.0);
 }
 `
@@ -400,33 +173,221 @@ const COLOSSUS_FRAGMENT = `
 precision highp float;
 /** r 明暗、g 往地平線色混的基準、b 青苔、a 從腳（0）到頂（1） */
 varying vec4 vInfo;
+varying vec3 vWorld;
+varying vec3 vNormal;
+varying vec2 vPlane;
+/** x 離盒底的高度比例（頂面為一）、y 這一塊石頭的亂數 */
+varying vec2 vBottom;
 
-uniform vec3 stoneColor;
-uniform vec3 mossColor;
+uniform vec3 ambientLight;
+uniform vec3 sunLight;
+uniform vec3 sunDirection;
 uniform vec3 horizonColor;
+uniform vec3 eyePosition;
 uniform float veilRatio;
 
+const vec3 STONE = vec3(0.32, 0.305, 0.285);
+const vec3 MOSS = vec3(0.1, 0.155, 0.055);
+const vec3 DARK_MOSS = vec3(0.055, 0.09, 0.035);
+
+float hash21(vec2 p) {
+  p = fract(p * vec2(123.34, 456.21));
+  p += dot(p, p + 45.32);
+  return fract(p.x * p.y);
+}
+
+float valueNoise(vec2 p) {
+  vec2 cell = floor(p);
+  vec2 f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  return mix(
+    mix(hash21(cell), hash21(cell + vec2(1.0, 0.0)), f.x),
+    mix(hash21(cell + vec2(0.0, 1.0)), hash21(cell + vec2(1.0, 1.0)), f.x),
+    f.y
+  );
+}
+
 void main() {
+  vec3 normal = normalize(vNormal);
+  float isTop = step(0.5, normal.y);
+  float isSide = 1.0 - isTop;
+  vec3 toEye = vWorld - eyePosition;
+  float distanceToEye = length(toEye);
+  /** 細節只在近處：遠的只剩大塊明暗，免得閃 */
+  float detail = 1.0 - smoothstep(230.0, 430.0, distanceToEye);
+  vec2 plane = vPlane;
+
+  /** 砌石：一層一層的石磚，每層錯縫，每塊石頭各有色差，縫是一條暗線 */
+  float courseHeight = 3.6;
+  float row = floor(plane.y / courseHeight);
+  float rowShift = hash21(vec2(row, 7.0)) * 5.0;
+  float blockWidth = 5.0 + hash21(vec2(row, 3.0)) * 4.0 + 1.0;
+  float colFloat = (plane.x + rowShift) / blockWidth;
+  vec2 cell = vec2(floor(colFloat), row);
+  float blockTone = 0.72 + 0.5 * hash21(cell + vBottom.y * 13.0);
+  vec2 edge = vec2(fract(colFloat), fract(plane.y / courseHeight));
+  float edgeDistance = min(min(edge.x, 1.0 - edge.x) * blockWidth, min(edge.y, 1.0 - edge.y) * courseHeight);
+  float mortar = 1.0 - smoothstep(0.0, 0.42, edgeDistance);
+
+  /** 粗粒與大片的髒汙 */
+  float grain = 0.88 + 0.24 * valueNoise(plane * 1.9 + vBottom.y * 31.0);
+  float blotch = 0.82 + 0.36 * valueNoise(plane * 0.17 + 5.0);
+
+  /** 雨水沖出的垂直汙痕（側面）：沿高度拉得很長的暗帶 */
+  float streakNoise = valueNoise(vec2(plane.x * 0.85, plane.y * 0.055));
+  float streak = smoothstep(0.58, 0.88, streakNoise) * isSide;
+
+  /** 裂縫：噪音等值線上的細暗線 */
+  float crackNoise = valueNoise(plane * 0.27 + vec2(11.0, 3.0));
+  float crack = (1.0 - smoothstep(0.0, 0.028, abs(crackNoise - 0.5))) * detail;
+
+  float stone = blockTone * grain * blotch;
+  stone *= 1.0 - 0.5 * mortar * detail;
+  stone *= 1.0 - 0.36 * streak;
+  stone *= 1.0 - 0.55 * crack;
+
+  /** 青苔：本身的程度、頂面、腳下；再用一層噪音切成一塊一塊 */
+  float footMoss = 1.0 - smoothstep(0.0, 0.2, vInfo.a);
+  float mossAmount = vInfo.b + isTop * 0.42 + footMoss * 0.5;
+  float mossPatch = valueNoise(plane * 0.33 + 17.0);
+  float mossMask = smoothstep(0.42, 0.72, mossAmount + (mossPatch - 0.5) * 0.95);
+  /** 藤蔓：側面一條一條垂下來的深綠 */
+  float vineNoise = valueNoise(vec2(plane.x * 0.5, plane.y * 0.045 + 3.0));
+  float vine = smoothstep(0.66, 0.76, vineNoise) * isSide * (0.3 + 0.7 * vInfo.b + 0.3 * isTop);
+
+  vec3 rock = STONE * stone;
+  rock = mix(rock, MOSS * (0.7 + 0.6 * grain), mossMask * 0.85);
+  rock = mix(rock, DARK_MOSS, clamp(vine * 0.75, 0.0, 0.75));
+
+  /** 近似環境遮蔽：側面靠盒底與凹處壓暗，離地越近越暗 */
+  float occlusion = mix(0.58 + 0.42 * smoothstep(0.0, 0.55, vBottom.x), 1.0, isTop);
+  occlusion *= 0.78 + 0.22 * smoothstep(0.0, 0.18, vInfo.a);
+
+  /** 光：天光（頂面比側面亮）加直射光，兩邊都有法線 */
+  float sunFacing = max(dot(normal, sunDirection), 0.0);
+  vec3 lit = ambientLight * (0.42 + 0.58 * normal.y) + sunLight * sunFacing;
+  vec3 color = rock * lit * vInfo.r * occlusion;
+
+  /** 逆光：迎著太陽看過去，石頭壓暗成剪影，霧收薄一些，邊緣才分得出天色 */
+  float backlight = pow(max(dot(normalize(toEye), sunDirection), 0.0), 3.0);
+  color *= 1.0 - 0.42 * backlight;
+
   /** 腳下多混一層霧：巨像是從坡頂後面的霧裡站起來的，不是一張剪紙貼在坡頂上 */
   float footMist = (1.0 - smoothstep(0.0, 0.4, vInfo.a)) * 0.35;
   float haze = clamp(vInfo.g + (1.0 - vInfo.g) * footMist, 0.0, 1.0);
+  haze *= 1.0 - 0.32 * backlight;
   haze = max(haze, veilRatio);
-  vec3 rock = mix(stoneColor, mossColor, vInfo.b) * vInfo.r;
-  gl_FragColor = vec4(mix(rock, horizonColor, haze), 1.0);
+  /** 越遠越平：近處的明暗反差大，遠處往中間灰收 */
+  vec3 grayColor = vec3(dot(color, vec3(0.333)));
+  color = mix(color, grayColor, vInfo.g * 0.5);
+  gl_FragColor = vec4(mix(color, horizonColor, haze), 1.0);
 }
 `
 
 const COLOSSUS_SHADER_NAME = 'minespaceRuinsColossus'
 
+/**
+ * 盤旋的鳥
+ *
+ * 每隻鳥四個頂點（一個小小的 V：機首、兩個翼尖、尾），位置在著色器裡算：
+ * 繞著圓心轉一圈，翼尖隨拍翅上下。每隻的圈大小、速度、相位、方向各不同。
+ * 與石頭同一套混色，遠處的鳥只是霧裡一個暗點
+ */
+const BIRD_VERTEX = `
+precision highp float;
+attribute vec3 position;
+attribute vec4 color;
+attribute vec2 uv;
+uniform mat4 viewProjection;
+uniform float time;
+varying float vAlpha;
+
+void main() {
+  /** color：x 半徑、y 角速度（帶方向）、z 相位、w 拍翅的相位與起伏 */
+  float angle = time * color.y + color.z;
+  vec2 radial = vec2(cos(angle), sin(angle));
+  float direction = color.y > 0.0 ? 1.0 : -1.0;
+  vec2 heading = vec2(-radial.y, radial.x) * direction;
+  float flap = sin(time * 2.6 + color.w * 6.28) * 0.5;
+  vec3 offset = vec3(radial.x * color.x, sin(time * 0.31 + color.z * 2.0) * 3.0, radial.y * color.x);
+  offset.xz += radial * uv.x + heading * uv.y;
+  offset.y += abs(uv.x) * (0.25 + flap) + uv.y * 0.1;
+  vAlpha = 1.0;
+  gl_Position = viewProjection * vec4(position + offset, 1.0);
+}
+`
+
+const BIRD_FRAGMENT = `
+precision highp float;
+varying float vAlpha;
+uniform vec3 birdColor;
+uniform vec3 horizonColor;
+uniform float haze;
+
+void main() {
+  gl_FragColor = vec4(mix(birdColor, horizonColor, haze), vAlpha);
+}
+`
+
+const BIRD_SHADER_NAME = 'minespaceRuinsBird'
+
+/** 小小的 V 字：機首、左翼尖、尾、右翼尖（世界格；翼展約五格，遠看是霧裡一個暗點） */
+const BIRD_CORNER_LIST = [
+  [0, 2.2],
+  [-3.2, -1.4],
+  [0, -0.4],
+  [3.2, -1.4],
+] as const
+
+function createBirdMesh(scene: Scene): Mesh {
+  const positionList: number[] = []
+  const colorList: number[] = []
+  const uvList: number[] = []
+  const indexList: number[] = []
+  const random = createSeededRandom('ruins-birds')
+
+  for (const flock of BIRD_FLOCK_LIST) {
+    const site: ColossusSite = SITE_LIST[flock.siteIndex]!
+    const radian = (site.degree / 180) * Math.PI
+    const centerX = RUINS_CENTER.x + Math.cos(radian) * site.distance
+    const centerZ = RUINS_CENTER.z + Math.sin(radian) * site.distance
+    const direction = random() < 0.5 ? 1 : -1
+    for (let index = 0; index < flock.count; index++) {
+      const radius = flock.radius * (0.7 + random() * 0.6)
+      const speed = (0.18 + random() * 0.1) * direction * (flock.radius / radius)
+      const phase = random() * Math.PI * 2
+      const baseIndex = positionList.length / 3
+      const height = FOOT_Y + flock.height + (random() - 0.5) * 30
+      for (const [offsetX, offsetY] of BIRD_CORNER_LIST) {
+        positionList.push(centerX, height, centerZ)
+        colorList.push(radius, speed, phase, random())
+        uvList.push(offsetX, offsetY)
+      }
+      indexList.push(baseIndex, baseIndex + 1, baseIndex + 2, baseIndex, baseIndex + 2, baseIndex + 3)
+    }
+  }
+
+  const mesh = new Mesh('ruins-birds', scene)
+  const vertexData = new VertexData()
+  vertexData.positions = positionList
+  vertexData.colors = colorList
+  vertexData.uvs = uvList
+  vertexData.indices = indexList
+  vertexData.applyToMesh(mesh)
+  return mesh
+}
+
 export function createRuinsColossi({ scene, atmosphere }: { scene: Scene; worldState: Uint8Array; atmosphere: AtmosphereState }): { dispose: () => void } {
   Effect.ShadersStore[`${COLOSSUS_SHADER_NAME}VertexShader`] = COLOSSUS_VERTEX
   Effect.ShadersStore[`${COLOSSUS_SHADER_NAME}FragmentShader`] = COLOSSUS_FRAGMENT
+  Effect.ShadersStore[`${BIRD_SHADER_NAME}VertexShader`] = BIRD_VERTEX
+  Effect.ShadersStore[`${BIRD_SHADER_NAME}FragmentShader`] = BIRD_FRAGMENT
 
   const material = new ShaderMaterial('ruins-colossi', scene, COLOSSUS_SHADER_NAME, {
-    attributes: ['position', 'color'],
-    uniforms: ['viewProjection', 'stoneColor', 'mossColor', 'horizonColor', 'veilRatio'],
+    attributes: ['position', 'normal', 'color', 'uv', 'uv2'],
+    uniforms: ['viewProjection', 'ambientLight', 'sunLight', 'sunDirection', 'horizonColor', 'eyePosition', 'veilRatio'],
   })
-  /** 方盒的繞向沒有整理過，兩面都畫；整組才兩千多個三角形 */
+  /** 方盒的繞向沒有整理過，兩面都畫；整組約六千個三角形 */
   material.backFaceCulling = false
 
   const mesh = createColossusMesh(scene)
@@ -437,21 +398,46 @@ export function createRuinsColossi({ scene, atmosphere }: { scene: Scene; worldS
   mesh.alwaysSelectAsActiveMesh = true
   optOutOfFog(mesh, '只在石殿遺址出現，與山稜同一套：自己往地平線色混，轉場時由 veilRatio 化進霧色')
 
-  const stoneColor = new Color3()
-  const mossColor = new Color3()
+  const birdMaterial = new ShaderMaterial('ruins-birds', scene, BIRD_SHADER_NAME, {
+    attributes: ['position', 'color', 'uv'],
+    uniforms: ['viewProjection', 'time', 'birdColor', 'horizonColor', 'haze'],
+  })
+  birdMaterial.backFaceCulling = false
+  const birdMesh = createBirdMesh(scene)
+  birdMesh.material = birdMaterial
+  birdMesh.isPickable = false
+  birdMesh.renderingGroupId = BACKDROP_RENDERING_GROUP
+  birdMesh.alwaysSelectAsActiveMesh = true
+  optOutOfFog(birdMesh, '與巨像同一組：自己往地平線色混，轉場時由 veilRatio 化進霧色')
+
+  const ambientLight = new Color3()
+  const sunLight = new Color3()
+  const birdColor = new Color3()
+  const eyePosition = new Vector3()
+  let elapsed = 0
   const observer = scene.onBeforeRenderObservable.add(() => {
     const ambient = atmosphere.ambientIntensity * atmosphere.ambientRatio * AMBIENT_WEIGHT
     const sun = atmosphere.lightIntensity * atmosphere.lightRatio * SUN_WEIGHT
-    const lightR = atmosphere.ambientSkyColor.r * ambient + atmosphere.lightColor.r * sun
-    const lightG = atmosphere.ambientSkyColor.g * ambient + atmosphere.lightColor.g * sun
-    const lightB = atmosphere.ambientSkyColor.b * ambient + atmosphere.lightColor.b * sun
-    stoneColor.set(STONE_ALBEDO.r * lightR, STONE_ALBEDO.g * lightG, STONE_ALBEDO.b * lightB)
-    mossColor.set(MOSS_ALBEDO.r * lightR, MOSS_ALBEDO.g * lightG, MOSS_ALBEDO.b * lightB)
-    material.setColor3('stoneColor', stoneColor)
-    material.setColor3('mossColor', mossColor)
+    ambientLight.set(atmosphere.ambientSkyColor.r * ambient, atmosphere.ambientSkyColor.g * ambient, atmosphere.ambientSkyColor.b * ambient)
+    sunLight.set(atmosphere.lightColor.r * sun, atmosphere.lightColor.g * sun, atmosphere.lightColor.b * sun)
+    const camera = scene.activeCamera
+    if (camera)
+      eyePosition.copyFrom(camera.globalPosition)
+    material.setColor3('ambientLight', ambientLight)
+    material.setColor3('sunLight', sunLight)
+    material.setVector3('sunDirection', atmosphere.sunDirection)
     material.setColor3('horizonColor', atmosphere.fogColor)
+    material.setVector3('eyePosition', eyePosition)
     /** 與山稜同一個係數：轉場的霧還沒蓋滿之前，巨像就已經化進霧色 */
-    material.setFloat('veilRatio', Math.min(1, atmosphere.edgeRatio * 1.6))
+    const veil = Math.min(1, atmosphere.edgeRatio * 1.6)
+    material.setFloat('veilRatio', veil)
+
+    elapsed += scene.getEngine().getDeltaTime() / 1000
+    birdColor.set(0.045 * (ambient + 0.2), 0.045 * (ambient + 0.2), 0.05 * (ambient + 0.2))
+    birdMaterial.setFloat('time', elapsed)
+    birdMaterial.setColor3('birdColor', birdColor)
+    birdMaterial.setColor3('horizonColor', atmosphere.fogColor)
+    birdMaterial.setFloat('haze', Math.max(0.45, veil))
   })
 
   return {
@@ -459,6 +445,8 @@ export function createRuinsColossi({ scene, atmosphere }: { scene: Scene; worldS
       scene.onBeforeRenderObservable.remove(observer)
       mesh.dispose()
       material.dispose(false, true)
+      birdMesh.dispose()
+      birdMaterial.dispose(false, true)
     },
   }
 }

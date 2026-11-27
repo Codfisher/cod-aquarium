@@ -2,7 +2,7 @@ import type { GardenGate } from '../garden-gate'
 import type { RealmDefinition } from '../realm-definition'
 import { CAVE_GATE_POINT, CAVE_MOUTH, getDeckGroundY, getGarden } from '../../garden/garden-layout'
 import { YAW_MAP } from '../garden-gate'
-import { CAVE_GROUND_Y, CAVE_PORTAL_POINT, TUNNEL_MIDDLE, UNDERGROUND_LAKE_CENTER } from './cave-layout'
+import { CAVE_GROUND_Y, CAVE_PORTAL_POINT, TUNNEL_MIDDLE, UNDERGROUND_LAKE_CENTER, UNDERGROUND_LAKE_RADIUS } from './cave-layout'
 
 /**
  * 大廳那座通往地底洞窟的門
@@ -67,6 +67,19 @@ export const CAVE_REALM: RealmDefinition = {
     yaw: YAW_MAP.west,
   },
   isLooping: false,
+  /**
+   * 地底湖的水面倒影：映出石柱、鐘乳石與燈籠；洞頂的螢光點陣另由 cave-glow 的假倒影補上。
+   * 框住湖（半徑加三），隔著岸的洞底不是水，不會被算進去
+   */
+  mirrorTargetList: [
+    {
+      id: 'cave-buried-lake',
+      centerX: UNDERGROUND_LAKE_CENTER.x,
+      centerZ: UNDERGROUND_LAKE_CENTER.z,
+      halfSize: UNDERGROUND_LAKE_RADIUS + 3,
+      surface: 'water',
+    },
+  ],
   hasGardens: false,
   isUnderground: true,
   /**

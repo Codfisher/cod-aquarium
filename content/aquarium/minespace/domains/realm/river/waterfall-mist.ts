@@ -3,6 +3,7 @@ import type { AtmosphereState } from '../../weather/atmosphere'
 import type { RealmBackdrop } from '../realm-definition'
 import { Color4, DynamicTexture, ParticleSystem, Vector3 } from '@babylonjs/core'
 import { WEATHER_RENDERING_GROUP } from '../../../composables/use-babylon-scene'
+import { createWaterfallCurtain } from './waterfall-curtain'
 
 /**
  * 瀑布底下的水霧
@@ -54,6 +55,8 @@ interface CreateWaterfallMistParam {
 
 export function createWaterfallMist({ scene, atmosphere, setting }: CreateWaterfallMistParam): WaterfallMist {
   const texture = createPuffTexture(scene)
+  /** 水幕：流水外面那層往下捲的白水紋，另一份網格，一起建、一起拆 */
+  const curtain = createWaterfallCurtain({ scene, atmosphere })
 
   /** 水沫：水幕落點那一排，往下游與上方噴 */
   const spray = new ParticleSystem('waterfall-spray', 240, scene)
@@ -116,6 +119,7 @@ export function createWaterfallMist({ scene, atmosphere, setting }: CreateWaterf
   return {
     dispose() {
       scene.onBeforeRenderObservable.remove(observer)
+      curtain.dispose()
       /** 兩套粒子共用一張貼圖，各自不拆，最後拆一次 */
       spray.dispose(false)
       mist.dispose(false)

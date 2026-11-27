@@ -1,4 +1,4 @@
-import { fbm2D, smoothStep } from '../../../utils/noise'
+import { fbm2D, fbm3D, smoothStep } from '../../../utils/noise'
 import { WORLD_SIZE } from '../../world/world-constants'
 
 /**
@@ -182,4 +182,19 @@ export function measureGlowDensity(x: number, z: number): number {
     cluster = Math.max(cluster, 1 - smoothStep(distance / point.radius))
   }
   return Math.min(1, patch * 0.7 + cluster)
+}
+
+/**
+ * 某一格岩面上的螢光脈絡，零到一
+ *
+ * 螢光不是均勻鋪在洞頂：它長在岩縫裡（三維噪音的零值面切過岩面，是一條一條彎曲的細線，
+ * 線心最亮、往兩側漸暗），再加一些散落的小叢（高頻噪音的尖峰）。其餘的光禿岩面是零。
+ * 地衣方塊（地形）與螢光蟲（渲染端）都乘上它，兩者才長在同一條縫上、同一小叢裡，
+ * 而且不是一整片貼滿，是疏疏落落、有核心有邊緣
+ */
+export function measureGlowVein(x: number, y: number, z: number): number {
+  const crack = fbm3D(x * 0.13 + 5, y * 0.13 - 9, z * 0.13 + 2, 2, 0.5)
+  const line = 1 - smoothStep(Math.abs(crack) / 0.09)
+  const blob = smoothStep((fbm3D(x * 0.34 - 3, y * 0.34 + 8, z * 0.34 - 6, 2, 0.5) - 0.1) / 0.22)
+  return Math.max(line * 0.95, blob * 0.8)
 }

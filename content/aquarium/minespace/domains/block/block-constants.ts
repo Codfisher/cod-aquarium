@@ -1845,12 +1845,12 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
   },
   [BlockId.GLOW_LICHEN]: {
     /** 低於 0.5，不點真光；lightLevel 給零，不擴散暖色的方塊光 */
-    emissive: 0.45,
+    emissive: 0.2,
     lightLevel: 0,
     textures: {
       all: 'mossyCobblestone',
-      /** 冷藍綠，是目標色不是倍率：苔與石的明暗留著，色相整片換掉 */
-      pixelTint: [0.32, 0.95, 0.85],
+      /** 冷藍綠，是目標色不是倍率：苔與石的明暗留著，色相整片換掉；收暗成幽微的苔斑，洞頂的星光交給螢光蟲點陣 */
+      pixelTint: [0.2, 0.6, 0.55],
       pixelRecolor: true,
     },
   },

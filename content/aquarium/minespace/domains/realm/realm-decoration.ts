@@ -1,6 +1,7 @@
 import type { Scene } from '@babylonjs/core'
 import type { AtmosphereState } from '../weather/atmosphere'
 import type { RealmId } from './realm-definition'
+import { createAlpineAurora } from './alpine/alpine-aurora'
 import { createCampfireFires } from './campfire/campfire-fires'
 import { createCaveGlow } from './cave/cave-glow'
 import { createJigokuSteam } from './jigoku/jigoku-steam'
@@ -20,6 +21,7 @@ interface RealmDecorationParam {
 }
 
 const REALM_DECORATION_MAP: Partial<Record<RealmId, (param: RealmDecorationParam) => { dispose: () => void }>> = {
+  alpine: createAlpineAurora,
   cave: createCaveGlow,
   campfire: createCampfireFires,
   jigoku: createJigokuSteam,

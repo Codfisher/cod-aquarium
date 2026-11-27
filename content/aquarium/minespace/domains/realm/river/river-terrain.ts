@@ -22,11 +22,13 @@ import {
   RIM_MAX_Y,
   RIM_MIN_Y,
   RIVER_PORTAL_POINT,
+  STRAND_ROCK_LIST,
   UPPER_FLOOR_Y,
   VALLEY_END_X,
   VALLEY_FLOOR_Y,
   VALLEY_HEAD_X,
   WALL_SLOPE,
+  WATERFALL_HALF_WIDTH,
   WATERFALL_POINT,
   WATERFALL_TOP_Y,
 } from './river-layout'
@@ -64,20 +66,8 @@ interface ColumnInfo {
  */
 const WATERFALL_CLIFF_DEPTH = 10
 const WATERFALL_CLIFF_HALF_WIDTH = 12
-/** 主瀑布的水幕寬九格（被兩塊突出的岩分成三股），崖頂的缺口往崖裡挖六排 */
-const WATERFALL_HALF_WIDTH = 4
+/** 主瀑布的水幕寬九格（被兩塊突出的岩分成三股，見 STRAND_ROCK_LIST），崖頂的缺口往崖裡挖六排 */
 const WATERFALL_NOTCH_DEPTH = 6
-
-/**
- * 主瀑布中間突出來的兩塊岩
- *
- * 一整片九格寬的水幕是一面藍牆；水打在突出的岩上分成三股，
- * 寬的寬、窄的窄，岩底下水又匯回來落進潭裡。高度以上游谷底起算
- */
-const STRAND_ROCK_LIST = [
-  { offsetZ: -1, fromLevel: 5, toLevel: 17 },
-  { offsetZ: 2, fromLevel: 8, toLevel: 19 },
-] as const
 
 /**
  * 旁邊那一道小瀑布：從崖縫湧出來，落在一塊突出的岩台上積成一小池，再從岩台邊翻下去
@@ -200,7 +190,7 @@ function pickWallBlock(x: number, y: number, floorY: number, random: () => numbe
   const lowRatio = Math.max(0, 1 - (y - floorY) / 12)
   const sprayRatio = Math.max(0, 1 - Math.hypot(x - WATERFALL_POINT.x, (y - floorY) * 0.5) / 26)
   const roll = random()
-  if (roll < 0.18 + lowRatio * 0.22 + sprayRatio * 0.35)
+  if (roll < 0.3 + lowRatio * 0.25 + sprayRatio * 0.35)
     return BlockId.MOSSY_COBBLESTONE
   if (roll < 0.62)
     return BlockId.COBBLESTONE
