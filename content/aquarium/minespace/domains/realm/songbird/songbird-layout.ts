@@ -20,6 +20,14 @@ export const SONGBIRD_CENTER = { x: WORLD_SIZE / 2, z: WORLD_SIZE / 2 }
 export const SONGBIRD_GROUND_Y = 10
 
 /**
+ * 園子外面那一圈不畫的地面（LAKE_BED）與布景地面平面的高度，比草地矮兩格
+ *
+ * 布景的地面平面鋪滿整個世界，與草地同高（頂面 10.5）就比飲水盤的水面（矮八分之一格）還高，
+ * 園子裡那幾格水會被一片草地蓋掉。壓低兩格，平面整片藏在地底，只在園子外露出來（同聽雨林）
+ */
+export const SONGBIRD_OUTER_FLOOR_Y = SONGBIRD_GROUND_Y - 2
+
+/**
  * 開闊的草地有多大
  *
  * 這一圈以外樹越種越密、地面一路隆起，最外面是一圈枝葉相接的林子，

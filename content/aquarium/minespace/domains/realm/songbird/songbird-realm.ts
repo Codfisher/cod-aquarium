@@ -5,6 +5,7 @@ import {
   SONGBIRD_CENTER,
   SONGBIRD_GROUND_Y,
   SONGBIRD_HUB_GATE_OFFSET,
+  SONGBIRD_OUTER_FLOOR_Y,
   SONGBIRD_PORTAL_POINT,
   SONGBIRD_PUSH_RADIUS,
   SONGBIRD_SLOW_RADIUS,
@@ -81,7 +82,7 @@ export const SONGBIRD_REALM: RealmDefinition = {
     centerZ: SONGBIRD_CENTER.z,
     ridge: { style: 'arbor', footY: SONGBIRD_GROUND_Y + 0.5, seed: 'songbird-arbor' },
     /** 林子外面走不到的地面是 LAKE_BED，平面一路鋪到地平線，從樹縫望出去才不會看到世界的邊 */
-    floor: { surfaceY: SONGBIRD_GROUND_Y + 0.5, blockId: BlockId.GRASS, isEndless: true },
+    floor: { surfaceY: SONGBIRD_OUTER_FLOOR_Y + 0.5, blockId: BlockId.GRASS, isEndless: true },
   },
   /** 往林苑去是一陣清透的白霧，夾著慢慢飄的細羽 */
   transition: {

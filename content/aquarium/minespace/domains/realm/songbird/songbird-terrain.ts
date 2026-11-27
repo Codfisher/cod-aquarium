@@ -19,6 +19,7 @@ import {
   SONGBIRD_CENTER,
   SONGBIRD_EDGE_RADIUS,
   SONGBIRD_GROUND_Y,
+  SONGBIRD_OUTER_FLOOR_Y,
   SONGBIRD_PORTAL_POINT,
 } from './songbird-layout'
 import { SONGBIRD_REALM } from './songbird-realm'
@@ -112,8 +113,8 @@ function shapeTerrain(state: Uint8Array): Uint8Array {
     for (let z = 0; z < WORLD_SIZE; z++) {
       const radius = measureDistance(x, z, SONGBIRD_CENTER)
       if (radius > SONGBIRD_EDGE_RADIUS + 2) {
-        fillHiddenColumn(state, x, z, SONGBIRD_GROUND_Y)
-        groundTopMap[x * WORLD_SIZE + z] = SONGBIRD_GROUND_Y
+        fillHiddenColumn(state, x, z, SONGBIRD_OUTER_FLOOR_Y)
+        groundTopMap[x * WORLD_SIZE + z] = SONGBIRD_OUTER_FLOOR_Y
         continue
       }
       const topY = SONGBIRD_GROUND_Y + measureLevel(x, z, radius)
