@@ -11,11 +11,6 @@
     />
 
     <div
-      v-if="hasStarted && !menuVisible && !isCursorFree"
-      class="crosshair"
-    />
-
-    <div
       v-if="isCursorFree && !status.isDrifting"
       class="cursor-hint"
     >
@@ -808,18 +803,6 @@ function handleReturnHub() {
 </script>
 
 <style scoped lang="sass">
-.crosshair
-  position: absolute
-  top: 50%
-  left: 50%
-  width: 5px
-  height: 5px
-  margin: -2.5px 0 0 -2.5px
-  border-radius: 50%
-  background: rgba(255, 255, 255, 0.55)
-  mix-blend-mode: difference
-  pointer-events: none
-
 /** 神遊時介面淡出，游標也一起藏起來，畫面上只剩風景 */
 .cursor-hidden
   cursor: none
