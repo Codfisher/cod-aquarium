@@ -214,7 +214,13 @@ export function useInputCapture({ canvasRef, hasStarted, postInput, postCommand,
      */
     if (event.code === 'Escape' && isPaused.value) {
       event.preventDefault()
-      resume()
+      /** 神遊中關掉選單是回到神遊（游標自由），不是鎖定滑鼠回到操控 */
+      if (isDrifting.value) {
+        freeCursorForDrift()
+      }
+      else {
+        resume()
+      }
       return
     }
 

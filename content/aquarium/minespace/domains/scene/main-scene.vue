@@ -573,7 +573,6 @@ const DRIFT_EXIT_KEY_SET = new Set([
   'ArrowLeft',
   'ArrowRight',
   'Space',
-  'Escape',
 ])
 
 function stopDrift() {
@@ -593,7 +592,8 @@ watch(() => status.isDrifting, (isDrifting) => {
 })
 
 useEventListener(window, 'keydown', (event: KeyboardEvent) => {
-  if (status.isDrifting && DRIFT_EXIT_KEY_SET.has(event.code) && !event.repeat) {
+  /** 選單開著時按鍵是給選單的，神遊照常在後面走 */
+  if (status.isDrifting && !menuVisible.value && DRIFT_EXIT_KEY_SET.has(event.code) && !event.repeat) {
     /** 焦點在選單按鈕上時，空白鍵是在「按下那顆按鈕」，不是移動 */
     const isOnControl = event.target instanceof HTMLElement
       && event.target.closest('button, a, input, select, textarea')
@@ -601,11 +601,9 @@ useEventListener(window, 'keydown', (event: KeyboardEvent) => {
       stopDrift()
       /**
        * 移動鍵是「我要自己走」：順手把滑鼠鎖回來接手操控（按鍵本身就是使用者手勢，鎖得上）。
-       * Esc 不在這裡處理：游標自由時 Esc 會叫出選單，交給輸入擷取那一段
+       * Esc 不算離開：游標自由時 Esc 會叫出選單，神遊在選單後面繼續
        */
-      if (event.code !== 'Escape') {
-        resume()
-      }
+      resume()
     }
   }
 
@@ -673,15 +671,6 @@ watch(isPaused, (paused) => {
     return
 
   menuVisible.value = paused
-
-  /**
-   * 桌機的 Esc 是瀏覽器解除指標鎖定，擋不下來，選單一定會跟著跳出來。
-   * 設計上 Esc 要離開神遊：那就一併結束，免得選單後面鏡頭還自己走、
-   * 關掉選單才發現位置早就不是離開的地方
-   */
-  if (paused && status.isDrifting) {
-    stopDrift()
-  }
 })
 
 /** 手機左半邊的觸碰是搖桿，在神遊中等於「我要自己走」 */
@@ -775,6 +764,15 @@ function closeMenu() {
   /** 桌機的選單開關跟著 Pointer Lock 狀態走，鎖定失敗時選單會留在原地 */
   if (isMobile.value) {
     menuVisible.value = false
+  }
+
+  /**
+   * 神遊中打開選單不會中斷神遊：鏡頭在選單後面照樣走，關掉選單就接著看。
+   * 這時回到的是游標自由的神遊狀態，不去鎖定滑鼠
+   */
+  if (status.isDrifting) {
+    freeCursorForDrift()
+    return
   }
 
   resume()
