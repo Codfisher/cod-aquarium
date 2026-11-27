@@ -2,6 +2,7 @@ import type { RealmDefinition } from '../realm-definition'
 import { BlockId } from '../../block/block-constants'
 import { JIGOKU_GATE_OFFSET } from '../../garden/garden-layout'
 import { createGardenGate, YAW_MAP } from '../garden-gate'
+import { JIGOKU_DRIFT_FEATURE_LIST } from './jigoku-drift-features'
 import {
   JIGOKU_CENTER,
   JIGOKU_FLOOR_Y,
@@ -56,6 +57,7 @@ export const JIGOKU_REALM: RealmDefinition = {
   },
   isLooping: false,
   hasGardens: false,
+  driftFeatureList: JIGOKU_DRIFT_FEATURE_LIST,
   atmosphere: {
     fog: {
       /**

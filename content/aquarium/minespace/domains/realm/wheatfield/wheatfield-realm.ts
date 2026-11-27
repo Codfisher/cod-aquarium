@@ -1,6 +1,7 @@
 import type { RealmDefinition } from '../realm-definition'
 import { BlockId } from '../../block/block-constants'
 import { createGardenGate, YAW_MAP } from '../garden-gate'
+import { WHEATFIELD_DRIFT_FEATURE_LIST } from './wheatfield-drift-features'
 import {
   WHEATFIELD_CENTER,
   WHEATFIELD_GROUND_Y,
@@ -56,6 +57,7 @@ export const WHEATFIELD_REALM: RealmDefinition = {
   },
   isLooping: false,
   hasGardens: false,
+  driftFeatureList: WHEATFIELD_DRIFT_FEATURE_LIST,
   atmosphere: {
     fog: {
       /** 霧帶金，跟著日夜走；推得很遠，坡後那片麥色與遠丘才看得到 */

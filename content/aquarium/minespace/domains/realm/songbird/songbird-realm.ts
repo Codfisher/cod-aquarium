@@ -1,6 +1,7 @@
 import type { RealmDefinition } from '../realm-definition'
 import { BlockId } from '../../block/block-constants'
 import { createGardenGate, YAW_MAP } from '../garden-gate'
+import { SONGBIRD_DRIFT_FEATURE_LIST } from './songbird-drift-features'
 import {
   SONGBIRD_CENTER,
   SONGBIRD_GROUND_Y,
@@ -40,6 +41,7 @@ export const SONGBIRD_REALM: RealmDefinition = {
   description: { 'zh-hant': '鳴禽庭的另一頭，沒有風聲水聲的林苑', 'en': 'Beyond the Songbird Court, an arbor without wind or stream' },
   signCaption: { 'zh-hant': '唯留清羽囀', 'en': 'Only birdsong' },
   icon: 'i-material-symbols:raven',
+  driftFeatureList: SONGBIRD_DRIFT_FEATURE_LIST,
   /**
    * 站在回程門西側三格，面朝園子
    *

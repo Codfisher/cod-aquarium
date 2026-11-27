@@ -1,6 +1,7 @@
 import type { RealmDefinition } from '../realm-definition'
 import { BlockId } from '../../block/block-constants'
 import { createGardenGate, YAW_MAP } from '../garden-gate'
+import { CICADA_DRIFT_FEATURE_LIST } from './cicada-drift-features'
 import {
   CICADA_CENTER,
   CICADA_GROUND_Y,
@@ -40,6 +41,7 @@ export const CICADA_REALM: RealmDefinition = {
   description: { 'zh-hant': '蟬時雨的另一頭，盛夏的濃蔭深林', 'en': 'Beyond the Cicada Shower, a deep midsummer shade' },
   signCaption: { 'zh-hant': '蟬雨落無痕', 'en': 'An unseen shower' },
   icon: 'i-material-symbols:sunny',
+  driftFeatureList: CICADA_DRIFT_FEATURE_LIST,
   /**
    * 站在回程門北側三格，面朝空地與土徑
    *

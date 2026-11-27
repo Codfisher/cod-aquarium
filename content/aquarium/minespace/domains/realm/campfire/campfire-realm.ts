@@ -2,6 +2,7 @@ import type { RealmDefinition } from '../realm-definition'
 import { BlockId } from '../../block/block-constants'
 import { CAMPFIRE_GATE_OFFSET } from '../../garden/garden-layout'
 import { createGardenGate, YAW_MAP } from '../garden-gate'
+import { CAMPFIRE_DRIFT_FEATURE_LIST } from './campfire-drift-features'
 import {
   CAMP_CENTER,
   CAMP_FOOT_Y,
@@ -56,6 +57,7 @@ export const CAMPFIRE_REALM: RealmDefinition = {
   },
   isLooping: false,
   hasGardens: false,
+  driftFeatureList: CAMPFIRE_DRIFT_FEATURE_LIST,
   atmosphere: {
     fog: {
       /** 乾熱的塵霾，暖黃、跟著日夜走；推得很遠，原野要看得到盡頭的台地 */

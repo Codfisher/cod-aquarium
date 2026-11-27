@@ -1,6 +1,7 @@
 import type { RealmDefinition } from '../realm-definition'
 import { BlockId } from '../../block/block-constants'
 import { createGardenGate, YAW_MAP } from '../garden-gate'
+import { RAINVALE_DRIFT_FEATURE_LIST } from './rainvale-drift-features'
 import {
   ARRIVAL_POND,
   RAINVALE_CENTER,
@@ -41,6 +42,7 @@ export const RAINVALE_REALM: RealmDefinition = {
   description: { 'zh-hant': '聽雨亭的另一頭，一片雨下不停的闊葉林', 'en': 'Beyond Rain Pavilion, a broadleaf grove where the rain never stops' },
   signCaption: { 'zh-hant': '雨打翠葉的林子', 'en': 'Rain on green leaves' },
   icon: 'i-material-symbols:rainy',
+  driftFeatureList: RAINVALE_DRIFT_FEATURE_LIST,
   /**
    * 站在回程門的西側三格，面朝西
    *

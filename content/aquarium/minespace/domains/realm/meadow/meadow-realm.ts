@@ -1,6 +1,7 @@
 import type { RealmDefinition } from '../realm-definition'
 import { BlockId } from '../../block/block-constants'
 import { createGardenGate, YAW_MAP } from '../garden-gate'
+import { MEADOW_DRIFT_FEATURE_LIST } from './meadow-drift-features'
 import {
   MEADOW_CENTER,
   MEADOW_GROUND_Y,
@@ -67,6 +68,7 @@ export const MEADOW_REALM: RealmDefinition = {
   },
   isLooping: false,
   hasGardens: false,
+  driftFeatureList: MEADOW_DRIFT_FEATURE_LIST,
   atmosphere: {
     fog: {
       /** 清而帶一點點青，跟著日夜走；推遠，一座一座丘淡進去 */

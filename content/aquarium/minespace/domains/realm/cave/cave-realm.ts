@@ -2,6 +2,7 @@ import type { GardenGate } from '../garden-gate'
 import type { RealmDefinition } from '../realm-definition'
 import { CAVE_GATE_POINT, CAVE_MOUTH, getDeckGroundY, getGarden } from '../../garden/garden-layout'
 import { YAW_MAP } from '../garden-gate'
+import { CAVE_DRIFT_FEATURE_LIST } from './cave-drift-features'
 import { CAVE_GROUND_Y, CAVE_PORTAL_POINT, TUNNEL_MIDDLE, UNDERGROUND_LAKE_CENTER, UNDERGROUND_LAKE_RADIUS } from './cave-layout'
 
 /**
@@ -116,6 +117,7 @@ export const CAVE_REALM: RealmDefinition = {
     particleRise: -0.5,
     sound: 'cave-drip',
   },
+  driftFeatureList: CAVE_DRIFT_FEATURE_LIST,
   portalList: [
     {
       ...CAVE_PORTAL_POINT,

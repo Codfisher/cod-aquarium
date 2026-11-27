@@ -1,6 +1,7 @@
 import type { RealmDefinition } from '../realm-definition'
 import { BlockId } from '../../block/block-constants'
 import { createGardenGate, YAW_MAP } from '../garden-gate'
+import { AUTUMN_DRIFT_FEATURE_LIST } from './autumn-drift-features'
 import {
   AUTUMN_CENTER,
   AUTUMN_HUB_GATE_OFFSET,
@@ -52,6 +53,7 @@ export const AUTUMN_REALM: RealmDefinition = {
   description: { 'zh-hant': '金葉苑的另一頭，一地乾葉的疏林', 'en': 'Beyond the Golden Court, a sparse wood on dry leaves' },
   signCaption: { 'zh-hant': '一地乾葉', 'en': 'A floor of dry leaves' },
   icon: 'i-material-symbols:park',
+  driftFeatureList: AUTUMN_DRIFT_FEATURE_LIST,
   /**
    * 站在回程門的西側三格，面朝林地
    *

@@ -1,6 +1,7 @@
 import type { RealmDefinition } from '../realm-definition'
 import { BlockId } from '../../block/block-constants'
 import { createGardenGate, YAW_MAP } from '../garden-gate'
+import { BLIZZARD_DRIFT_FEATURE_LIST } from './blizzard-drift-features'
 import {
   BLIZZARD_CENTER,
   BLIZZARD_GROUND_Y,
@@ -39,6 +40,7 @@ export const BLIZZARD_REALM: RealmDefinition = {
   description: { 'zh-hant': '吹雪野的另一頭，風把一切都吹走的雪原', 'en': 'Beyond Whiteout Field, a snowfield the wind has emptied' },
   signCaption: { 'zh-hant': '只剩風聲', 'en': 'Only the wind' },
   icon: 'i-material-symbols:weather-snowy',
+  driftFeatureList: BLIZZARD_DRIFT_FEATURE_LIST,
   /**
    * 站在回程門的南側三格，面朝南
    *

@@ -2,6 +2,7 @@ import type { RealmDefinition } from '../realm-definition'
 import { BlockId } from '../../block/block-constants'
 import { COAST_GATE_OFFSET } from '../../garden/garden-layout'
 import { createGardenGate, YAW_MAP } from '../garden-gate'
+import { COAST_DRIFT_FEATURE_LIST } from './coast-drift-features'
 import {
   COAST_CENTER,
   COAST_PORTAL_POINT,
@@ -109,6 +110,7 @@ export const COAST_REALM: RealmDefinition = {
       sign: { x: COAST_PORTAL_POINT.x - 3, z: COAST_PORTAL_POINT.z, facing: 'south' },
     },
   ],
+  driftFeatureList: COAST_DRIFT_FEATURE_LIST,
   boundary: {
     centerX: COAST_CENTER.x,
     centerZ: COAST_CENTER.z,

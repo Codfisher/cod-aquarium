@@ -326,6 +326,47 @@ export interface RealmDriftViewpoint {
   lookZ?: number;
 }
 
+/**
+ * 神遊的特色主體種類
+ *
+ * - water：水面（池、湖、潮池、溪）
+ * - waterfall：瀑布
+ * - structure：人造建物（亭、塔、木棧、橋、風車）
+ * - landmark：地標（巨像、立石、山頭，常常很大也很遠）
+ * - tree：值得看的樹（老橡、孤樹、樹叢）
+ * - vista：遠景（遠山、海平線、雲海），視線穿過開闊空間望出去
+ * - gate：門（鳥居、傳送門）
+ * - light：光源（燈、營火、岩漿、螢光）
+ */
+export type DriftFeatureKind = 'water' | 'waterfall' | 'structure' | 'landmark' | 'tree' | 'vista' | 'gate' | 'light'
+
+/**
+ * 神遊的特色主體：運鏡的視線優先對準這些地方，而不是一路看著山壁
+ *
+ * 全是作者依各場景的版面常數寫下的資料，座標是世界座標。
+ * 與 driftViewpointList 的分工：觀景點是「鏡頭站在哪」，這裡是「鏡頭看什麼」，
+ * viewpointList 只是某個主體最好的站位。
+ */
+export interface DriftFeature {
+  kind: DriftFeatureKind;
+  /** 方便除錯與記錄的短名 */
+  name: string;
+  /** 主體的中心（世界座標），視線對準這裡 */
+  x: number;
+  y: number;
+  z: number;
+  /** 主體的大概尺寸（格），決定取景距離 */
+  size: number;
+  /** 零到一，越特別越常被選 */
+  weight: number;
+  /** 適合欣賞的距離範圍（格） */
+  viewDistance: [number, number];
+  /** 最好的觀賞站點，沒有就讓運鏡自己找 */
+  viewpointList?: { x: number; z: number }[];
+  /** 線狀的主體（溪流、木棧、長廊），由多個點組成，視線可沿著它走 */
+  pathList?: { x: number; y: number; z: number }[];
+}
+
 export type RealmId = 'hub' | 'lake' | 'coast' | 'forest' | 'autumn' | 'swamp' | 'village' | 'cave' | 'alpine' | 'river' | 'wheatfield' | 'meadow' | 'songbird' | 'cicada' | 'rainvale' | 'blizzard' | 'campfire' | 'ruins' | 'jigoku'
 
 export interface RealmDefinition {
@@ -393,6 +434,15 @@ export interface RealmDefinition {
   weather?: RealmWeather;
   /** 神遊的無人機設定，不給就用預設，見 RealmDriftFlight */
   driftFlight?: RealmDriftFlight;
+  /** 神遊的特色主體（溪、瀑布、建物、遠景…），運鏡的視線優先看這些，見 DriftFeature */
+  driftFeatureList?: DriftFeature[];
+  /**
+   * 神遊視線的偏好方向，不給就是 'feature'（只看特色主體與縱深最長的方向）
+   *
+   * - outward：偏向「從場景中心往外」看（越過邊緣看雲海、遠山、海平線），而且不仰頭看近處的坡與峰頂；站得高的場景用
+   * - inward：偏向看向場景中心（四周圍著中心的場景，例如廣場）
+   */
+  driftLookBias?: 'outward' | 'inward' | 'feature';
   /** 神遊額外的觀景點，自動推導的停留點之外補幾個手動挑的 */
   driftViewpointList?: RealmDriftViewpoint[];
   /** 開場面板與 HUD 顯示的圖示 */
