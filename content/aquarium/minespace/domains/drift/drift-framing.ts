@@ -1,5 +1,7 @@
+import type { DriftSteps } from './drift-job'
 import type { DriftTrack, DriftTrackSample } from './drift-track'
-import { isBlockSolid } from '../player/collision'
+import { runStepsSync } from './drift-job'
+import { isSolidAt } from './drift-solid'
 import { diffAngle, sampleDriftTrack } from './drift-track'
 
 /**
@@ -39,6 +41,8 @@ const INTEREST_WEIGHT_MIN = 0.25
 /** 景物離得比這近（格）不當看點：畫面會被一個東西塞滿 */
 const INTEREST_DISTANCE_MIN = 8
 const RELATIVE_DEPTH_MIN = 0.4
+/** 縱深的上限是正前方（俯仰不變的那束）距離的幾倍：上下兩束越過近在眼前的樹幹不能讓這個方向算開闊 */
+const CENTER_DEPTH_FACTOR = 1.8
 
 export interface ViewMeasure {
   /** 視線方向上近景（四格內有實心方塊）的取樣比例 */
@@ -66,7 +70,7 @@ export function probeViewDistance(
     const blockX = Math.round(x + dirX * distance)
     const blockZ = Math.round(z + dirZ * distance)
     /** 眼睛高度與胸口高度各看一次：樹幹、石柱兩者都會擋到，草與矮灌木不算 */
-    if (isBlockSolid(worldState, blockX, Math.floor(eyeY + 0.5), blockZ) || isBlockSolid(worldState, blockX, Math.floor(eyeY - 0.5), blockZ))
+    if (isSolidAt(worldState, blockX, Math.floor(eyeY + 0.5), blockZ) || isSolidAt(worldState, blockX, Math.floor(eyeY - 0.5), blockZ))
       return distance
   }
   return maxDistance
@@ -92,7 +96,7 @@ export function probeViewDistance3D(
   const dirZ = Math.cos(yaw) * horizontal
   const dirY = -Math.sin(pitch)
   for (let distance = RAY_STEP; distance <= maxDistance; distance += RAY_STEP) {
-    if (isBlockSolid(worldState, Math.round(x + dirX * distance), Math.floor(eyeY + dirY * distance + 0.5), Math.round(z + dirZ * distance)))
+    if (isSolidAt(worldState, Math.round(x + dirX * distance), Math.floor(eyeY + dirY * distance + 0.5), Math.round(z + dirZ * distance)))
       return distance
   }
   return maxDistance
@@ -122,7 +126,7 @@ export function isSightlineClear3D(
   const stepY = (targetY - eyeY) / length
   const stepZ = (targetZ - z) / length
   for (let distance = RAY_STEP; distance <= reach; distance += RAY_STEP) {
-    if (isBlockSolid(worldState, Math.round(x + stepX * distance), Math.floor(eyeY + stepY * distance + 0.5), Math.round(z + stepZ * distance)))
+    if (isSolidAt(worldState, Math.round(x + stepX * distance), Math.floor(eyeY + stepY * distance + 0.5), Math.round(z + stepZ * distance)))
       return false
   }
   return true
@@ -149,6 +153,7 @@ export type ViewDirection =
   | { kind: 'offset'; offset: number }
   | { kind: 'yaw'; yaw: number }
   | { kind: 'point'; x: number; z: number }
+  | { kind: 'radial'; centerX: number; centerZ: number; isOutward: boolean }
 
 /** 沿軌道的一段（沿軌道距離 startDistance 到 endDistance），量視線方向上的前景疏密與被擋的比例 */
 export function measureView(
@@ -160,6 +165,21 @@ export function measureView(
   /** 這段的視線俯仰（正值往下看）；量的是畫面中央實際會看到的東西 */
   pitch = 0,
 ): ViewMeasure {
+  return runStepsSync(measureViewSteps(worldState, track, startDistance, endDistance, direction, pitch))
+}
+
+/** 每量幾個取樣點讓出一次（一個取樣點三束射線，冷的程式碼要零點幾毫秒） */
+const SAMPLE_YIELD_INTERVAL = 2
+
+/** measureView 的分段版 */
+export function* measureViewSteps(
+  worldState: Uint8Array,
+  track: DriftTrack,
+  startDistance: number,
+  endDistance: number,
+  direction: ViewDirection,
+  pitch = 0,
+): DriftSteps<ViewMeasure> {
   const sample: DriftTrackSample = { x: 0, y: 0, z: 0, yaw: 0, pitch: 0, curveScale: 1, speedCap: 99 }
   let total = 0
   let near = 0
@@ -168,10 +188,16 @@ export function measureView(
   let foreground = 0
 
   for (let distance = startDistance; distance <= endDistance; distance += PROBE_SPACING) {
+    if (total % SAMPLE_YIELD_INTERVAL === SAMPLE_YIELD_INTERVAL - 1)
+      yield
     sampleDriftTrack(track, distance, sample)
     const yaw = direction.kind === 'offset'
       ? sample.yaw + direction.offset
-      : direction.kind === 'yaw' ? direction.yaw : Math.atan2(direction.x - sample.x, direction.z - sample.z)
+      : direction.kind === 'yaw'
+        ? direction.yaw
+        : direction.kind === 'radial'
+          ? Math.atan2(sample.x - direction.centerX, sample.z - direction.centerZ) + (direction.isOutward ? 0 : Math.PI)
+          : Math.atan2(direction.x - sample.x, direction.z - sample.z)
     const center = probeViewDistance3D(worldState, sample.x, sample.y, sample.z, yaw, pitch)
     total++
     if (center < NEAR_END)
@@ -216,11 +242,25 @@ export function measureSubjectVisibility(
   subject: { x: number; y: number; z: number },
   minDistance: number,
 ): SubjectVisibility {
+  return runStepsSync(measureSubjectVisibilitySteps(worldState, track, startDistance, endDistance, subject, minDistance))
+}
+
+/** measureSubjectVisibility 的分段版 */
+export function* measureSubjectVisibilitySteps(
+  worldState: Uint8Array,
+  track: DriftTrack,
+  startDistance: number,
+  endDistance: number,
+  subject: { x: number; y: number; z: number },
+  minDistance: number,
+): DriftSteps<SubjectVisibility> {
   const sample: DriftTrackSample = { x: 0, y: 0, z: 0, yaw: 0, pitch: 0, curveScale: 1, speedCap: 99 }
   let total = 0
   let visible = 0
 
   for (let distance = startDistance; distance <= endDistance; distance += PROBE_SPACING) {
+    if (total % SAMPLE_YIELD_INTERVAL === SAMPLE_YIELD_INTERVAL - 1)
+      yield
     sampleDriftTrack(track, distance, sample)
     total++
     if (Math.hypot(subject.x - sample.x, subject.z - sample.z) < minDistance)
@@ -234,8 +274,18 @@ export function measureSubjectVisibility(
 
 /** 站在這裡，各方向（含略仰與略俯）縱深的最大值：小於一定值就是被圍在牆裡，沒有地方可看 */
 export function measureMaxDepth(worldState: Uint8Array, x: number, eyeY: number, z: number, pitch = 0): number {
+  return runStepsSync(measureMaxDepthSteps(worldState, x, eyeY, z, pitch))
+}
+
+/** 每探幾個方向讓出一次（分幀工作的切點：一個方向三束射線，約十微秒） */
+const DEPTH_YIELD_INTERVAL = 3
+
+/** measureMaxDepth 的分段版 */
+export function* measureMaxDepthSteps(worldState: Uint8Array, x: number, eyeY: number, z: number, pitch = 0): DriftSteps<number> {
   let maxDepth = 0
   for (let index = 0; index < LOOK_RAY_COUNT; index++) {
+    if (index % DEPTH_YIELD_INTERVAL === DEPTH_YIELD_INTERVAL - 1)
+      yield
     const yaw = (index / LOOK_RAY_COUNT) * Math.PI * 2
     const up = probeViewDistance3D(worldState, x, eyeY, z, yaw, pitch - DEPTH_RAY_SPREAD, LOOK_RAY_RANGE)
     const center = probeViewDistance3D(worldState, x, eyeY, z, yaw, pitch, LOOK_RAY_RANGE)
@@ -252,11 +302,22 @@ export function measureOpenness(
   startDistance: number,
   endDistance: number,
 ): number {
+  return runStepsSync(measureOpennessSteps(worldState, track, startDistance, endDistance))
+}
+
+/** measureOpenness 的分段版（一個取樣點八方向十六束射線，每個取樣點讓出一次） */
+export function* measureOpennessSteps(
+  worldState: Uint8Array,
+  track: DriftTrack,
+  startDistance: number,
+  endDistance: number,
+): DriftSteps<number> {
   const sample: DriftTrackSample = { x: 0, y: 0, z: 0, yaw: 0, pitch: 0, curveScale: 1, speedCap: 99 }
   let total = 0
   let open = 0
 
   for (let distance = startDistance; distance <= endDistance; distance += PROBE_SPACING * 2) {
+    yield
     sampleDriftTrack(track, distance, sample)
     for (let ray = 0; ray < SURROUND_RAY_COUNT; ray++) {
       total++
@@ -342,6 +403,17 @@ export function chooseLookYaw(
   z: number,
   param: LookYawParam,
 ): { yaw: number; depth: number; interest: LookInterest | null } | null {
+  return runStepsSync(chooseLookYawSteps(worldState, x, eyeY, z, param))
+}
+
+/** chooseLookYaw 的分段版：探縱深的方向與景物的視線檢查之間都可以讓出一幀；結果與一口氣跑完的版本相同 */
+export function* chooseLookYawSteps(
+  worldState: Uint8Array,
+  x: number,
+  eyeY: number,
+  z: number,
+  param: LookYawParam,
+): DriftSteps<{ yaw: number; depth: number; interest: LookInterest | null } | null> {
   const turnScale = param.turnScale ?? 1.6
   const pitch = param.pitch ?? 0
 
@@ -350,12 +422,15 @@ export function chooseLookYaw(
     const up = probeViewDistance3D(worldState, x, eyeY, z, yaw, pitch - DEPTH_RAY_SPREAD, LOOK_RAY_RANGE)
     const center = probeViewDistance3D(worldState, x, eyeY, z, yaw, pitch, LOOK_RAY_RANGE)
     const down = probeViewDistance3D(worldState, x, eyeY, z, yaw, pitch + DEPTH_RAY_SPREAD, LOOK_RAY_RANGE)
-    return (up + center * 2 + down) / 4
+    /** 正前方很近就有東西（樹幹、岩柱）時，上下兩束射線越過它也不算開闊：平均再受正前方距離的一點八倍限制 */
+    return Math.min((up + center * 2 + down) / 4, center * CENTER_DEPTH_FACTOR)
   }
 
   const candidateList: { yaw: number; depth: number; interest: LookInterest | null }[] = []
   let maxDepth = 0
   for (let index = 0; index < LOOK_RAY_COUNT; index++) {
+    if (index % DEPTH_YIELD_INTERVAL === DEPTH_YIELD_INTERVAL - 1)
+      yield
     const yaw = (index / LOOK_RAY_COUNT) * Math.PI * 2
     const depth = measureDepth(yaw)
     maxDepth = Math.max(maxDepth, depth)
@@ -370,6 +445,7 @@ export function chooseLookYaw(
   for (const interest of param.interestList) {
     if (interest.weight < INTEREST_WEIGHT_MIN)
       continue
+    yield
     if (Math.hypot(interest.x - x, interest.z - z) < INTEREST_DISTANCE_MIN)
       continue
 

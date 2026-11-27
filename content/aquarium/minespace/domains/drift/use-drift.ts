@@ -3,18 +3,20 @@ import type { useFpsController } from '../../composables/use-fps-controller'
 import type { RealmDefinition } from '../realm/realm-definition'
 import type { RenderInputMessage } from '../render-host/protocol'
 import type { LookBias, LookInterest } from './drift-framing'
+import type { DriftSteps } from './drift-job'
 import type { DriftEmitter, DriftPoint } from './drift-point'
-import type { AngleFollower, Gaze, GazeContext, ShotId, SpeedFollower, SpeedLimit } from './drift-shot'
+import type { AngleFollower, Gaze, GazeContext, LookRoom, ShotId, SpeedFollower, SpeedLimit } from './drift-shot'
 import type { DriftTrack, DriftTrackSample } from './drift-track'
 import { clamp } from 'remeda'
 import { checkOverlap, PLAYER_EYE_HEIGHT } from '../player/collision'
 import { getDayPhase } from '../weather/day-night'
-import { buildFlightTrack, chooseFlightRoute } from './drift-flight'
+import { buildFlightTrackSteps, chooseFlightRoute } from './drift-flight'
 import { getDriftFlight, getDriftRegion } from './drift-flight-config'
-import { chooseLookYaw, getBiasFactor, isSightlineClear, isSightlineClear3D, measureMaxDepth, measureOpenness, measureOpennessAt, measureSubjectVisibility, measureView, probeViewDistance3D } from './drift-framing'
+import { chooseLookYawSteps, getBiasFactor, isSightlineClear, isSightlineClear3D, measureMaxDepthSteps, measureOpennessAt, measureOpennessSteps, measureSubjectVisibilitySteps, measureViewSteps, probeViewDistance3D } from './drift-framing'
 import { createDriftGrid } from './drift-grid'
-import { collectReachableSet, PATH_SAMPLE_SPACING, planArcPath, planWalkPath } from './drift-path'
-import { collectDriftPoint, findLoudestEmitter, findReachableSpot, listDriftEmitter } from './drift-point'
+import { createJobQueue, runStepsSync } from './drift-job'
+import { collectReachableSet, collectReachableSetSteps, PATH_SAMPLE_SPACING, planArcPath, planWalkPathSteps, ReachedSet } from './drift-path'
+import { collectDriftPointSteps, findLoudestEmitter, findReachableSpot, listDriftEmitter } from './drift-point'
 import {
   ANTICIPATE_SECOND,
   CRANE_HEIGHT_RANGE,
@@ -40,7 +42,7 @@ import {
   TRUCK_ANGLE_RANGE,
   TRUCK_DRIFT_RANGE,
 } from './drift-shot'
-import { createWalkTrack, diffAngle, sampleDriftTrack } from './drift-track'
+import { createWalkTrackSteps, diffAngle, sampleDriftTrack } from './drift-track'
 import { itemAt } from './drift-util'
 
 /**
@@ -134,6 +136,20 @@ const LOOK_BIAS_STRENGTH = 0.85
 /** 偏好方向的鎖定側移：畫面中央貼臉與被擋住的取樣比例上限，比一般側移寬——起伏的雪原上偏好方向常有小丘，只要大半路段看得出去就值得 */
 const LOOK_BIAS_NEAR_MAX = 0.15
 const LOOK_BIAS_BLOCKED_MAX = 0.3
+/** 朝外（朝內）的 radial 視線：這一段軌道離中心至少這麼遠（格）才用，近了方向轉太快 */
+const RADIAL_RADIUS_MIN = 14
+const RADIAL_CHECK_STEP = 5
+/** 跟拍的留白：偏角候選（弧度）、最多偏多少、原方向的加權優勢（沒有明顯好處就不偏） */
+const LOOK_ROOM_OFFSET_LIST = [-1, -0.75, -0.5, -0.25, 0, 0.25, 0.5, 0.75, 1]
+const LOOK_ROOM_MAX = 1
+/** 沿軌道每隔幾格挑一次偏角（散步、飛行）、換一檔的扣分、探多深、深到幾格就算夠開闊、偏角為零時的基本加成（權重）、幾格內有東西算被擋住 */
+const LOOK_ROOM_STEP = 2.5
+const LOOK_ROOM_FLY_STEP = 6
+const LOOK_ROOM_SWITCH_COST = 0.08
+const LOOK_ROOM_DEPTH_MAX = 24
+const LOOK_ROOM_DEPTH_GOOD = 16
+const LOOK_ROOM_CENTER_WEIGHT = 0.7
+const BLOCKED_DEPTH = 10
 /** 偏好方向的側移鏡位的權重加成：有視線偏好的場景，路上大部分時間都該看著偏好的方向 */
 const LOOK_BIAS_TRUCK_FIT = 4
 /** 看哪裡：正前方至少要有幾格縱深（不然是一面牆），音源與停留點被擋住時不當景物 */
@@ -187,6 +203,8 @@ const ENCLOSED_LINGER_SECOND = 3
 const ENCLOSED_POINT_WEIGHT = 0.05
 /** 側移時畫面中央被擋住（十格內有東西，含坡面）的取樣比例上限：峽谷裡側面就是山壁，幾乎都不合格 */
 const TRUCK_BLOCKED_MAX = 0.15
+/** 看向目的地：正前方（朝目的地）三維視線被擋的取樣比例上限 */
+const DESTINATION_BLOCKED_MAX = 0.35
 /** 往外看的場景，視線俯仰的下限（弧度，正值往下看）：不抬頭看迎面的坡 */
 const OUTWARD_PITCH_MIN = 0.02
 const PARALLAX_FOREGROUND_MIN = 0.2
@@ -213,14 +231,20 @@ const LOOK_RETURN_EASE = 1.2
 const LOOK_PITCH_LIMIT = 1.2
 const PITCH_LIMIT = Math.PI / 2 - 0.01
 
-/** 結束時從空中降到地面的時間範圍（秒），依落差調整 */
+/**
+ * 結束時從空中降到地面：垂直速度不超過這個（格／秒），頭尾各用一段緩起緩停（秒）
+ *
+ * 落差二十格也不加快，改成拉長時間（二十格約十六秒）：從飛行中按鍵離開是使用者自己的動作，
+ * 急降（以前每秒三五格）比多等幾秒更讓人頭暈
+ */
+const SETTLE_DESCENT_SPEED = 1.5
+const SETTLE_RAMP_SECOND = 3
 const SETTLE_DURATION_MIN = 1.2
-const SETTLE_DURATION_MAX = 3.2
 /** 降落時落點離正下方多遠（格）以上算要橫著挪；橫移的速度（格／秒）、水平段佔多少比例、高度從哪個進度才開始降 */
 const SETTLE_LATERAL_MIN = 1
-const SETTLE_LATERAL_SPEED = 2.2
-const SETTLE_HORIZONTAL_SHARE = 0.65
-const SETTLE_VERTICAL_START = 0.3
+const SETTLE_LATERAL_PEAK_SPEED = 2
+/** 橫移走到這個比例才開始降 */
+const SETTLE_VERTICAL_START = 0.35
 /** 起飛前檢查身體左右各多遠（格）碰到的格子是不是都露天 */
 const TAKEOFF_PROBE_OFFSET_LIST = [-0.3, 0.3]
 /** 降落找落點時離原位最多往外找幾格 */
@@ -235,6 +259,16 @@ const AIRBORNE_HEIGHT = 1
 const START_SEARCH_RADIUS = 20
 /** 起點所在的連通區塊小於這個格數就換一個起點試試 */
 const REACHABLE_SIZE_MIN = 400
+/**
+ * 分幀工作每一幀最多花多少毫秒（見 drift-job）
+ *
+ * 規劃下一趟、算鏡位、收集停留點每一件都是好幾毫秒，一幀做完鏡頭會頓一下；
+ * 現在每幀只給這麼一點時間往下做，做不完留到下一幀（停留有八秒以上，慢慢算來得及）。
+ * 要連同呼叫的那一幀一口氣做完（驗證腳本比對與舊版逐幀相同的結果）就傳 Infinity
+ */
+const JOB_BUDGET_MS = 0.3
+/** 開發模式下，神遊一幀的更新超過這麼久（毫秒）就在 console 警告 */
+const FRAME_COST_WARN_MS = 3
 
 export type DriftPhase = 'walk' | 'linger' | 'fly'
 
@@ -264,7 +298,7 @@ interface DriftSession {
   realm: RealmDefinition;
   worldState: Uint8Array;
   grid: ReturnType<typeof createDriftGrid>;
-  reachedSet: Set<number>;
+  reachedSet: ReachedSet;
   pointList: DriftPoint[];
   emitterList: DriftEmitter[];
   observer: ReturnType<Scene['onBeforeRenderObservable']['add']>;
@@ -338,6 +372,8 @@ interface DriftSession {
   lookTargetYaw: number;
   lookTargetPitch: number;
   replanFailureCount: number;
+  /** 下一趟還在算（分幀工作沒做完）：停留時間到了也要等它算好 */
+  isPlanning: boolean;
 
   flightClock: number;
   flightDueAt: number;
@@ -355,7 +391,7 @@ interface DriftSession {
   lookIdle: number;
 
   /** 結束的降落（settle）：起點、終點與進度 */
-  settle: { fromX: number; fromZ: number; fromEyeY: number; toX: number; toZ: number; toEyeY: number; lateral: number; duration: number; elapsed: number } | null;
+  settle: { fromX: number; fromZ: number; fromEyeY: number; toX: number; toZ: number; toEyeY: number; lateral: number; duration: number; elapsed: number; horizontalSecond: number; verticalStart: number; verticalSecond: number } | null;
   /** 降落完要交給控制器的站立面 */
   settleBlockY: number;
 }
@@ -372,14 +408,49 @@ interface UseDriftParam {
   getSunDirection: () => { x: number; z: number };
   /** 狀態變了（開始、結束、階段切換），渲染執行期據此立刻補送一份狀態 */
   onChange: () => void;
+  /** 分幀工作每幀的時間預算（毫秒），預設 JOB_BUDGET_MS；Infinity 是同一幀跑完 */
+  jobBudgetMs?: number;
+}
+
+/** 降落一段垂直距離要多久：有巡航段（速度恆定）的梯形速度曲線，沒有巡航段就是整段 S 曲線，峰值速度都不超過 SETTLE_DESCENT_SPEED */
+function getSettleSecond(distance: number): number {
+  if (distance >= SETTLE_DESCENT_SPEED * SETTLE_RAMP_SECOND)
+    return distance / SETTLE_DESCENT_SPEED + SETTLE_RAMP_SECOND
+  return Math.max(SETTLE_DURATION_MIN, (distance * 1.5) / SETTLE_DESCENT_SPEED)
+}
+
+/** 降落走了幾成（零到一）：頭尾是平滑加減速（速度是 S 曲線），中間巡航；速度與加速度都連續，起降時沒有跳動 */
+function getSettleRatio(elapsed: number, distance: number): number {
+  const total = getSettleSecond(distance)
+  if (distance <= 0 || elapsed <= 0)
+    return 0
+  if (elapsed >= total)
+    return 1
+
+  if (distance < SETTLE_DESCENT_SPEED * SETTLE_RAMP_SECOND) {
+    const ratio = elapsed / total
+    return ratio * ratio * (3 - 2 * ratio)
+  }
+
+  /** 速度 v(u) = vmax·smoothstep(u/ramp)；位移是它的積分，S 曲線的積分是 ramp·(w³ − w⁴/2) */
+  const ramp = SETTLE_RAMP_SECOND
+  const slope = (value: number) => ramp * (value ** 3 - (value ** 4) / 2)
+  if (elapsed < ramp)
+    return (SETTLE_DESCENT_SPEED * slope(elapsed / ramp)) / distance
+  if (elapsed > total - ramp)
+    return 1 - (SETTLE_DESCENT_SPEED * slope((total - elapsed) / ramp)) / distance
+  return (SETTLE_DESCENT_SPEED * (ramp / 2 + (elapsed - ramp))) / distance
 }
 
 function randomBetween(min: number, max: number): number {
   return min + Math.random() * (max - min)
 }
 
-export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, getDayRatio, getSunDirection, onChange }: UseDriftParam) {
+export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, getDayRatio, getSunDirection, onChange, jobBudgetMs = JOB_BUDGET_MS }: UseDriftParam) {
   let session: DriftSession | null = null
+  /** 分幀工作：規劃、鏡位、停留點收集都排在這裡，每幀在 updateSession 開頭跑一小段 */
+  const jobQueue = createJobQueue()
+  const isInline = !Number.isFinite(jobBudgetMs)
   const sample: DriftTrackSample = { x: 0, y: 0, z: 0, yaw: 0, pitch: 0, curveScale: 1, speedCap: 99 }
   /** 規劃鏡位時查軌道用，與每幀的 sample 分開，免得互相蓋掉 */
   const scratch: DriftTrackSample = { x: 0, y: 0, z: 0, yaw: 0, pitch: 0, curveScale: 1, speedCap: 99 }
@@ -405,8 +476,15 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
 
   /* ───────────────────────── 規劃下一站 ───────────────────────── */
 
-  /** 加權隨機挑下一站、尋路、組成散步軌道；候選全走不到就是 null */
-  function planWalk(target: DriftSession, isOpenSkyOnly = false): NextPlan | null {
+  /** 排進分幀工作；預算是無限大就當場跑完（與沒有分幀時完全相同） */
+  function scheduleJob(name: string, steps: DriftSteps) {
+    jobQueue.push({ name, steps })
+    if (isInline)
+      jobQueue.pump(Number.POSITIVE_INFINITY)
+  }
+
+  /** 加權隨機挑下一站、尋路、組成散步軌道；候選全走不到就是 null（分段版） */
+  function* planWalk(target: DriftSession, isOpenSkyOnly = false): DriftSteps<NextPlan | null> {
     const candidateList = target.pointList.filter((point) =>
       point !== target.currentPoint
       && (!isOpenSkyOnly || point.isOpenSky)
@@ -430,7 +508,7 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
       }
 
       const point = itemAt(candidateList.splice(index, 1), 0)
-      const polyline = planWalkPath(
+      const polyline = yield * planWalkPathSteps(
         target.grid,
         { x: target.x, z: target.z, blockY: target.blockY },
         { blockX: point.blockX, blockZ: point.blockZ, blockY: point.blockY },
@@ -438,7 +516,7 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
       if (!polyline || polyline.xList.length < 2)
         continue
 
-      const track = createWalkTrack(polyline.xList, polyline.zList, polyline.footYList, PLAYER_EYE_HEIGHT)
+      const track = yield * createWalkTrackSteps(polyline.xList, polyline.zList, polyline.footYList, PLAYER_EYE_HEIGHT)
       if (track.length < TRACK_LENGTH_MIN)
         continue
 
@@ -448,8 +526,8 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
     return null
   }
 
-  /** 組一趟飛行：只在露天的地方起飛，場景關掉飛行或找不到落點就是 null */
-  function planFlight(target: DriftSession): NextPlan | null {
+  /** 組一趟飛行：只在露天的地方起飛，場景關掉飛行或找不到落點就是 null（分段版） */
+  function* planFlight(target: DriftSession): DriftSteps<NextPlan | null> {
     const flight = getDriftFlight(target.realm)
     if (!flight.isEnabled)
       return null
@@ -475,12 +553,13 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
     for (let attempt = 0; attempt < 2; attempt++) {
       const route = chooseFlightRoute(target.pointList, { x: target.x, z: target.z }, target.recentIdList, {
         region: getDriftRegion(target.realm),
-        mode: flight.routeMode ?? 'free',
+        /** 要往外看的場景（雪稜）飛外緣：視線朝外時鏡頭才一路都在看雲海 */
+        mode: target.realm.driftLookBias === 'outward' && (flight.routeMode ?? 'free') === 'free' ? 'rim' : (flight.routeMode ?? 'free'),
       })
       if (!route)
         return null
 
-      const track = buildFlightTrack({
+      const track = yield * buildFlightTrackSteps({
         worldState: target.worldState,
         grid: target.grid,
         flight,
@@ -495,27 +574,54 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
     return null
   }
 
-  /** 停留開始時把下一趟算好，停留結束就能直接出發 */
-  function prepareNext(target: DriftSession) {
+  /**
+   * 停留開始時把下一趟排進分幀工作，算好就放進 nextPlan，停留結束就能直接出發
+   *
+   * isInitial 是剛抵達（startLinger）：算不出來要記失敗次數、把這次停留縮短；
+   * 繞弧走完位置變了重算（不是 initial）：算不出來只是不要等太久
+   */
+  function prepareNext(target: DriftSession, isInitial: boolean) {
     target.nextPlan = null
+    target.isPlanning = true
+    scheduleJob('規劃下一趟', planNext(target, isInitial))
+  }
+
+  function* planNext(target: DriftSession, isInitial: boolean): DriftSteps {
+    let plan: NextPlan | null = null
 
     if (target.isFlightDue) {
       if (!getDriftFlight(target.realm).isEnabled) {
         target.isFlightDue = false
       }
       else {
-        target.nextPlan = planFlight(target)
+        plan = yield * planFlight(target)
         /** 這裡不是露天（林子裡、洞口內）起飛會穿過樹冠：先走去最近的露天停留點，下一次停留再飛 */
         const here = target.grid.getCellNear(Math.round(target.x), Math.round(target.z), target.blockY)
-        if (!target.nextPlan && !here?.isOpenSky) {
-          target.nextPlan = planWalk(target, true)
+        if (!plan && !here?.isOpenSky) {
+          plan = yield * planWalk(target, true)
           /** 連一個露天的停留點都沒有（密林）：就近補一塊頭上全空的地，起降才有地方用 */
-          if (!target.nextPlan && addSkyPoint(target))
-            target.nextPlan = planWalk(target, true)
+          if (!plan && addSkyPoint(target))
+            plan = yield * planWalk(target, true)
         }
       }
     }
-    target.nextPlan ??= planWalk(target)
+    plan ??= yield * planWalk(target)
+
+    target.nextPlan = plan
+    target.isPlanning = false
+    if (isInitial) {
+      /** 算不出下一站就多等一會兒再試，期間照常環顧 */
+      if (plan) {
+        target.replanFailureCount = 0
+      }
+      else {
+        target.replanFailureCount++
+        target.lingerDuration = Math.min(target.lingerDuration, REPLAN_DELAY)
+      }
+    }
+    else if (!plan) {
+      target.lingerDuration = Math.min(target.lingerDuration, target.lingerElapsed + REPLAN_DELAY)
+    }
   }
 
   /**
@@ -540,24 +646,18 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
     return true
   }
 
-  function startLinger(target: DriftSession, duration: number) {
+  function startLinger(target: DriftSession, duration: number, prelude?: DriftSteps) {
     setPhase(target, 'linger')
     target.lingerElapsed = 0
     target.lingerDuration = duration
     target.speed = 0
     target.speedAcceleration = 0
     target.track = null
-    prepareNext(target)
-
-    /** 算不出下一站就多等一會兒再試，期間照常環顧 */
-    if (!target.nextPlan) {
-      target.replanFailureCount++
-      target.lingerDuration = Math.min(duration, REPLAN_DELAY)
-    }
-    else {
-      target.replanFailureCount = 0
-    }
-
+    /** 上一個脈絡（走路中的鏡位量測、上一次停留）排的工作都作廢，從這裡重新排：先算下一趟，再決定這次停留的鏡位 */
+    jobQueue.clear()
+    if (prelude)
+      scheduleJob('停留點', prelude)
+    prepareNext(target, true)
     startLingerShot(target)
   }
 
@@ -703,12 +803,20 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
     return isSkyShot ? -0.14 : -0.08
   }
 
+  /** 上一次量到的前方特色主體（findAheadFeature 的記憶） */
+  let aheadCache: { track: DriftTrack; startDistance: number; endDistance: number; result: { x: number; y: number; z: number } | null } | null = null
+
   /**
    * 這一段前方（正前方一弧度內）看得到的、離得合適的特色主體；一路都看得到才算
    *
    * 線狀主體取幾個點，挑權重高、離得近的那一點
    */
-  function findAheadFeature(target: DriftSession, track: DriftTrack, startDistance: number, endDistance: number): { x: number; y: number; z: number } | null {
+  function* findAheadFeature(target: DriftSession, track: DriftTrack, startDistance: number, endDistance: number): DriftSteps<{ x: number; y: number; z: number } | null> {
+    /** 同一段量兩次（留白的偏角與看向前方的主體）：答案只看軌道與場景資料，記下上一次的 */
+    const cached = aheadCache
+    if (cached && cached.track === track && cached.startDistance === startDistance && cached.endDistance === endDistance)
+      return cached.result
+
     const midDistance = (startDistance + endDistance) / 2
     sampleDriftTrack(track, midDistance, probeSample)
     const { x: midX, z: midZ, yaw: heading } = probeSample
@@ -725,15 +833,129 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
           continue
         if (Math.abs(diffAngle(Math.atan2(point.x - midX, point.z - midZ), heading)) > 1)
           continue
+        /** 每個候選點要沿軌道量一遍看不看得到，之間讓出一次 */
+        yield
 
         const score = (0.3 + feature.weight) / (1 + distance / 60)
-        if (score > bestScore && measureSubjectVisibility(target.worldState, track, startDistance, endDistance, point, SUBJECT_DISTANCE_MIN).visibleFraction >= SUBJECT_VISIBLE_MIN) {
+        if (score > bestScore && (yield * measureSubjectVisibilitySteps(target.worldState, track, startDistance, endDistance, point, SUBJECT_DISTANCE_MIN)).visibleFraction >= SUBJECT_VISIBLE_MIN) {
           bestScore = score
           best = { x: point.x, y: point.y, z: point.z }
         }
       }
     }
+    aheadCache = { track, startDistance, endDistance, result: best }
     return best
+  }
+
+  /** 這一段軌道離圓心（場景中心）最近有多近（格） */
+  function getMinRadius(track: DriftTrack, startDistance: number, endDistance: number, region: { x: number; z: number }): number {
+    let minRadius = Number.POSITIVE_INFINITY
+    for (let distance = startDistance; distance <= endDistance; distance += RADIAL_CHECK_STEP) {
+      sampleDriftTrack(track, distance, probeSample)
+      minRadius = Math.min(minRadius, Math.hypot(probeSample.x - region.x, probeSample.z - region.z))
+    }
+    sampleDriftTrack(track, endDistance, probeSample)
+    return Math.min(minRadius, Math.hypot(probeSample.x - region.x, probeSample.z - region.z))
+  }
+
+  /**
+   * 跟拍的留白（look room）：視線在前進方向之外偏幾度，偏角沿軌道慢慢變
+   *
+   * 純粹看軌道的切線，轉彎與林間小徑會一頭撞進山壁與樹幹；攝影的做法是朝著開闊、或有特色主體的那一側多留一點空間。
+   * 沿軌道每隔一段取一個點，每個偏角（左右各十四到五十七度）依「三維視線有多深」、有視線偏好的場景加上
+   * 「符不符合偏好」、有特色主體在前方加上「主體在那一側」打分，原本的方向有加成，沒有明顯好處就不偏。
+   * 偏角序列用動態規劃挑：相鄰兩點最多差一檔（所以偏角變化的速度有上限，不會看到哪裡有空就一下子甩過去），
+   * 總分最高的一條；最後輕輕平滑一次，轉折處是圓角
+   */
+  function* chooseLookRoom(
+    target: DriftSession,
+    track: DriftTrack,
+    startDistance: number,
+    endDistance: number,
+    pitch: number,
+    lookBias: LookBias | undefined,
+    step: number,
+  ): DriftSteps<{ lookRoom: LookRoom; blockedFraction: number }> {
+    const ahead = yield * findAheadFeature(target, track, startDistance, endDistance)
+    const levelList = LOOK_ROOM_OFFSET_LIST
+    const scoreTable: number[][] = []
+    const depthTable: number[][] = []
+    for (let distance = startDistance; distance <= endDistance + step * 0.5; distance += step) {
+      /** 每個取樣點要探九束射線，兩點之間讓出一次 */
+      yield
+      sampleDriftTrack(track, Math.min(distance, track.length), probeSample)
+      const { x, y, z, yaw } = probeSample
+      const featureOffset = ahead ? clamp(diffAngle(Math.atan2(ahead.x - x, ahead.z - z), yaw), { min: -LOOK_ROOM_MAX, max: LOOK_ROOM_MAX }) : null
+      const depthList = levelList.map((offset) => probeViewDistance3D(target.worldState, x, y, z, yaw + offset, pitch, LOOK_ROOM_DEPTH_MAX))
+      depthTable.push(depthList)
+      scoreTable.push(levelList.map((offset, index) => {
+        const featureBonus = featureOffset === null ? 0 : Math.exp(-(((offset - featureOffset) / 0.25) ** 2)) * 0.5
+        return (Math.min(1, itemAt(depthList, index) / LOOK_ROOM_DEPTH_GOOD) + featureBonus)
+          * (LOOK_ROOM_CENTER_WEIGHT + (1 - LOOK_ROOM_CENTER_WEIGHT) * Math.exp(-((offset / 0.7) ** 2)))
+          * getBiasFactor(lookBias, yaw + offset)
+      }))
+    }
+
+    /** 動態規劃：total[i][k] 是走到第 i 點、偏角檔位 k 的最高總分；檔位每一點最多換一檔 */
+    const count = scoreTable.length
+    const total: number[][] = []
+    const from: number[][] = []
+    for (let index = 0; index < count; index++) {
+      const row: number[] = []
+      const back: number[] = []
+      for (let level = 0; level < levelList.length; level++) {
+        let bestPrevious = 0
+        let bestValue = Number.NEGATIVE_INFINITY
+        if (index === 0) {
+          /** 起點：從原本的視線（偏角零）出發，只能偏一檔以內 */
+          const zeroLevel = levelList.indexOf(0)
+          bestValue = Math.abs(levelList.indexOf(levelList[level] ?? 0) - zeroLevel) <= 1 ? 0 : Number.NEGATIVE_INFINITY
+        }
+        else {
+          for (let previous = Math.max(0, level - 1); previous <= Math.min(levelList.length - 1, level + 1); previous++) {
+            const value = itemAt(itemAt(total, index - 1), previous) - (previous === level ? 0 : LOOK_ROOM_SWITCH_COST)
+            if (value > bestValue) {
+              bestValue = value
+              bestPrevious = previous
+            }
+          }
+        }
+        row.push(bestValue + itemAt(itemAt(scoreTable, index), level))
+        back.push(bestPrevious)
+      }
+      total.push(row)
+      from.push(back)
+    }
+
+    const pathLevelList: number[] = []
+    if (count > 0) {
+      let level = 0
+      let bestValue = Number.NEGATIVE_INFINITY
+      for (const [candidate, value] of itemAt(total, count - 1).entries()) {
+        if (value > bestValue) {
+          bestValue = value
+          level = candidate
+        }
+      }
+      for (let index = count - 1; index >= 0; index--) {
+        pathLevelList[index] = level
+        level = itemAt(itemAt(from, index), level)
+      }
+    }
+
+    let blockedCount = 0
+    const rawList = pathLevelList.map((level, index) => {
+      if (itemAt(itemAt(depthTable, index), level) < BLOCKED_DEPTH)
+        blockedCount++
+      return itemAt(levelList, level)
+    })
+    /** 輕輕平滑一次：前後各一點取平均，換檔的折角變圓 */
+    const offsetList = rawList.map((_, index) => {
+      const before = rawList[Math.max(0, index - 1)] ?? 0
+      const after = rawList[Math.min(rawList.length - 1, index + 1)] ?? 0
+      return (before + (rawList[index] ?? 0) * 2 + after) / 4
+    })
+    return { lookRoom: { startDistance, step, offsetList }, blockedFraction: rawList.length > 0 ? blockedCount / rawList.length : 0 }
   }
 
   /**
@@ -745,13 +967,13 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
    * 再依「從現在的視線轉過去要多大幅度」與「是不是和上一段一樣」調整權重：
    * 鏡位之間接得起來（先正面、再側移、再回頭，往同一個方向慢慢轉），不會前一秒看前面、下一秒看身後
    */
-  function beginTrackShot(target: DriftSession, plan: NextPlan, startDistance: number, endDistance: number, isLast: boolean) {
+  function* beginTrackShot(target: DriftSession, plan: NextPlan, startDistance: number, endDistance: number, isLast: boolean): DriftSteps {
     const { track } = plan
     const isFly = plan.kind === 'fly'
     sampleDriftTrack(track, startDistance, scratch)
     const context: GazeContext = { ...createGazeContext(target), pathYaw: scratch.yaw, pathPitch: scratch.pitch, elapsed: 0 }
     const thirds = THIRDS_OFFSET * randomSign()
-    const openness = measureOpenness(target.worldState, track, startDistance, endDistance)
+    const openness = yield * measureOpennessSteps(target.worldState, track, startDistance, endDistance)
     const isOpen = openness > 0.6
     const candidateMap = new Map<ShotId, { gaze: Gaze; fit: number }>()
 
@@ -760,10 +982,13 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
     const compositionPitch = getCompositionPitch(isFly, openness, isOutward)
     const lookBias = getLookBias(target)
     const curviness = measureCurviness(track, startDistance, endDistance)
-    const aheadView = measureView(target.worldState, track, startDistance, endDistance, { kind: 'offset', offset: 0 }, compositionPitch)
+    yield
+    const lookRoom = yield * chooseLookRoom(target, track, startDistance, endDistance, compositionPitch, lookBias, isFly ? LOOK_ROOM_FLY_STEP : LOOK_ROOM_STEP)
     candidateMap.set('follow', {
-      gaze: isFly ? { kind: 'heading' } : { kind: 'heading', pitch: compositionPitch, minPitch: isOutward ? OUTWARD_PITCH_MIN : openness < 0.45 ? 0 : undefined },
-      fit: (openness < 0.45 ? 2 : 1) * Math.exp(-curviness * FOLLOW_CURVINESS_SCALE) * (1 - aheadView.blockedFraction * 0.7),
+      gaze: isFly
+        ? { kind: 'heading', lookRoom: lookRoom.lookRoom }
+        : { kind: 'heading', pitch: compositionPitch, minPitch: isOutward ? OUTWARD_PITCH_MIN : openness < 0.45 ? 0 : undefined, lookRoom: lookRoom.lookRoom },
+      fit: (openness < 0.45 ? 2 : 1) * Math.exp(-curviness * FOLLOW_CURVINESS_SCALE) * (1 - lookRoom.blockedFraction * 0.7),
     })
 
     /** 看向目的地：只在最後一段，目的地大致在前方、夠遠、而且看得到它 */
@@ -774,9 +999,10 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
     const destinationDistance = Math.hypot(subjectPoint.x - target.x, subjectPoint.z - target.z)
     const bearing = Math.atan2(subjectPoint.x - target.x, subjectPoint.z - target.z)
     if (isLast && destinationDistance >= SUBJECT_DISTANCE_MIN && Math.abs(diffAngle(bearing, scratch.yaw)) <= 1 && (!isFly || plan.destination.feature)) {
-      const destinationView = measureView(target.worldState, track, startDistance, endDistance, { kind: 'point', x: subjectPoint.x, z: subjectPoint.z }, compositionPitch)
-      const destinationSight = measureSubjectVisibility(target.worldState, track, startDistance, endDistance, subjectPoint, SUBJECT_DISTANCE_MIN)
-      if (destinationView.blockedFraction <= 0.5 && destinationSight.visibleFraction >= SUBJECT_VISIBLE_MIN) {
+      const destinationView = yield * measureViewSteps(target.worldState, track, startDistance, endDistance, { kind: 'point', x: subjectPoint.x, z: subjectPoint.z }, compositionPitch)
+      yield
+      const destinationSight = yield * measureSubjectVisibilitySteps(target.worldState, track, startDistance, endDistance, subjectPoint, SUBJECT_DISTANCE_MIN)
+      if (destinationView.blockedFraction <= DESTINATION_BLOCKED_MAX && destinationSight.visibleFraction >= SUBJECT_VISIBLE_MIN) {
         candidateMap.set('dollyIn', {
           gaze: {
             kind: 'subject',
@@ -787,7 +1013,7 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
             behind: false,
             releaseRange: DOLLY_RELEASE_RANGE,
           },
-          fit: openness < 0.45 ? 1.8 : 1,
+          fit: (openness < 0.45 ? 1.8 : 1) * (1 - destinationView.blockedFraction),
         })
       }
     }
@@ -797,7 +1023,7 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
      * 峽谷與樹林裡側面都是牆，往前看向瀑布、溪的彎處、木橋才有東西可看
      */
     if (!candidateMap.has('dollyIn')) {
-      const ahead = findAheadFeature(target, track, startDistance, endDistance)
+      const ahead = yield * findAheadFeature(target, track, startDistance, endDistance)
       if (ahead) {
         candidateMap.set('dollyIn', {
           gaze: { kind: 'subject', x: ahead.x, y: ahead.y, z: ahead.z, thirds, behind: false },
@@ -810,12 +1036,14 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
      * 側移（滑軌）：鎖定世界裡的一個方向，鏡頭平移、構圖不變，只有每秒一兩度的慢漂（朝前進方向，前方留著去路）。
      * 兩側都量一下，挑貼臉前景少的那一側；兩側都有貼臉的樹、或正前方老被擋住就不用
      */
+    yield
     const truckOffset = randomBetween(TRUCK_ANGLE_RANGE[0], TRUCK_ANGLE_RANGE[1])
     const midHeading = getHeadingAt(track, (startDistance + endDistance) / 2)
     const leftYaw = midHeading - truckOffset
     const rightYaw = midHeading + truckOffset
-    const leftView = measureView(target.worldState, track, startDistance, endDistance, { kind: 'yaw', yaw: leftYaw }, compositionPitch)
-    const rightView = measureView(target.worldState, track, startDistance, endDistance, { kind: 'yaw', yaw: rightYaw }, compositionPitch)
+    const leftView = yield * measureViewSteps(target.worldState, track, startDistance, endDistance, { kind: 'yaw', yaw: leftYaw }, compositionPitch)
+    yield
+    const rightView = yield * measureViewSteps(target.worldState, track, startDistance, endDistance, { kind: 'yaw', yaw: rightYaw }, compositionPitch)
     const truckSign = leftView.nearFraction === rightView.nearFraction ? randomSign() : leftView.nearFraction < rightView.nearFraction ? -1 : 1
     const truckView = truckSign === -1 ? leftView : rightView
     if (truckView.nearFraction <= NEAR_FOREGROUND_MAX && truckView.blockedFraction <= TRUCK_BLOCKED_MAX) {
@@ -826,7 +1054,8 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
           rate: -truckSign * randomBetween(TRUCK_DRIFT_RANGE[0], TRUCK_DRIFT_RANGE[1]),
           pitch: compositionPitch,
         },
-        fit: isOpen ? 1.5 : 0.7,
+        /** 側面越常被擋越少選：窄谷與林子裡側面的牆（或樹幹）近在眼前，就是一面牆 */
+        fit: (isOpen ? 1.5 : 0.7) * (1 - truckView.blockedFraction * 4),
       })
     }
 
@@ -834,20 +1063,26 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
      * 有視線偏好的場景（往外看的雪稜）：側移直接鎖定在偏好的方向，不管那個方向與前進方向差多少，
      * 只要畫面中央一路看得出去。鏡頭沿著路平移，畫面始終是越過邊緣的雲海與遠山
      */
-    if (lookBias) {
-      const biasView = measureView(target.worldState, track, startDistance, endDistance, { kind: 'yaw', yaw: lookBias.yaw }, compositionPitch)
+    const region = getDriftRegion(target.realm)
+    if (lookBias && region && getMinRadius(track, startDistance, endDistance, region) >= RADIAL_RADIUS_MIN) {
+      /** 視線是「離開（或朝向）中心」，隨位置即時算：繞著外緣飛時一路朝外，不是鎖死一個世界方向 */
+      const isOutward = target.realm.driftLookBias === 'outward'
+      yield
+      const biasView = yield * measureViewSteps(target.worldState, track, startDistance, endDistance, { kind: 'radial', centerX: region.x, centerZ: region.z, isOutward }, compositionPitch)
       if (biasView.nearFraction <= LOOK_BIAS_NEAR_MAX && biasView.blockedFraction <= LOOK_BIAS_BLOCKED_MAX) {
         candidateMap.set('truck', {
-          gaze: { kind: 'pan', baseYaw: lookBias.yaw, rate: randomSign() * randomBetween(TRUCK_DRIFT_RANGE[0], TRUCK_DRIFT_RANGE[1]) * 0.5, pitch: compositionPitch },
+          gaze: { kind: 'radial', centerX: region.x, centerZ: region.z, isOutward, pitch: compositionPitch },
           fit: LOOK_BIAS_TRUCK_FIT,
         })
       }
     }
 
+    yield
     /** 拉遠揭露：回頭看來處，身後要看得遠才有風景可揭 */
-    const backView = measureView(target.worldState, track, startDistance, endDistance, { kind: 'offset', offset: Math.PI }, compositionPitch)
+    const backView = yield * measureViewSteps(target.worldState, track, startDistance, endDistance, { kind: 'offset', offset: Math.PI }, compositionPitch)
+    yield
     const startPoint = { x: target.x, y: target.eyeY - 0.6, z: target.z }
-    const backSight = measureSubjectVisibility(target.worldState, track, startDistance, endDistance, startPoint, SUBJECT_DISTANCE_MIN)
+    const backSight = yield * measureSubjectVisibilitySteps(target.worldState, track, startDistance, endDistance, startPoint, SUBJECT_DISTANCE_MIN)
     if (backView.blockedFraction <= 0.25 && backSight.visibleFraction >= SUBJECT_VISIBLE_MIN) {
       candidateMap.set('pullBack', {
         gaze: { kind: 'subject', x: target.x, y: target.eyeY - 0.6, z: target.z, thirds, behind: true },
@@ -855,11 +1090,13 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
       })
     }
 
+    yield
     /** 視差：固定一個側面的景物，正中央看得到它、畫面邊緣有前景（樹與石柱）掠過，而且不貼臉 */
     const side = findSideSubject(target, track, (startDistance + endDistance) / 2)
     if (side) {
-      const sideView = measureView(target.worldState, track, startDistance, endDistance, { kind: 'point', x: side.x, z: side.z }, compositionPitch)
-      const sideSight = measureSubjectVisibility(target.worldState, track, startDistance, endDistance, side, SUBJECT_DISTANCE_MIN)
+      const sideView = yield * measureViewSteps(target.worldState, track, startDistance, endDistance, { kind: 'point', x: side.x, z: side.z }, compositionPitch)
+      yield
+      const sideSight = yield * measureSubjectVisibilitySteps(target.worldState, track, startDistance, endDistance, side, SUBJECT_DISTANCE_MIN)
       if (sideSight.visibleFraction >= SUBJECT_VISIBLE_MIN && sideView.foregroundFraction >= PARALLAX_FOREGROUND_MIN && sideView.nearFraction <= NEAR_FOREGROUND_MAX) {
         candidateMap.set('parallax', {
           gaze: { kind: 'subject', x: side.x, y: side.y, z: side.z, thirds: thirds * 0.6, behind: false },
@@ -868,12 +1105,14 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
       }
     }
 
+    yield
     const shot = pickShot(
       plan.kind,
       (id) => candidateMap.has(id),
       (id) => {
         const candidate = candidateMap.get(id)
-        if (!candidate || id === target.lastTrackShotId)
+        /** 與上一段同樣的鏡位不連用；視線朝外（朝內）的 radial 側移例外：兩段的畫面本來就接得起來，沒有換鏡的感覺 */
+        if (!candidate || (id === target.lastTrackShotId && candidate.gaze.kind !== 'radial'))
           return 0
 
         /** 從現在的視線轉到這個鏡位的起始方向越遠越不選：大幅轉頭要放慢腳步，轉得多就是一段爬行 */
@@ -892,7 +1131,9 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
   function startTrackShot(target: DriftSession, plan: NextPlan) {
     target.shotCutList = planShotCutList(plan.track, plan.kind === 'fly' ? FLY_SPEED : WALK_SPEED)
     target.shotCutIndex = 0
-    beginTrackShot(target, plan, 0, target.shotCutList[0] ?? plan.track.length, target.shotCutList.length === 0)
+    /** 量鏡位要好幾毫秒，排成分幀工作；做好之前先沿用上一段的視線（停留尾聲已經轉向路的方向） */
+    jobQueue.clear()
+    scheduleJob('走路的鏡位', beginTrackShot(target, plan, 0, target.shotCutList[0] ?? plan.track.length, target.shotCutList.length === 0))
   }
 
   /** 走到切點就換下一段鏡位 */
@@ -903,7 +1144,8 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
 
     target.shotCutIndex++
     const next = target.shotCutList[target.shotCutIndex]
-    beginTrackShot(target, plan, cut, next ?? plan.track.length, next === undefined)
+    jobQueue.clear()
+    scheduleJob('走路的鏡位', beginTrackShot(target, plan, cut, next ?? plan.track.length, next === undefined))
   }
 
   /** 此刻聽得最清楚的音源（沒有就是停留點自己指的方向）離這裡多遠，當作繞弧與橫搖的景物 */
@@ -977,7 +1219,7 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
    * 環繞一圈探縱深，擋在八格內的方向淘汰；有景物（最響的音源、其他音源、停留點、日出日落的太陽）
    * 而且視線沒被擋的方向加分；離目前視線近的優先。一個方向都不合格就看下一段路的方向，再不然維持原樣
    */
-  function chooseLingerView(target: DriftSession, isNearCurrent = false): { yaw: number; pitch: number } {
+  function* chooseLingerView(target: DriftSession, isNearCurrent = false): DriftSteps<{ yaw: number; pitch: number }> {
     /** 特色主體（溪、瀑布、建物、遠景…）是主要的看點；音源與停留點只是弱弱的偏向，而且要看得到才算 */
     const interestList: LookInterest[] = listFeatureInterest(target)
     const loudest = findLingerSubject(target)
@@ -992,7 +1234,7 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
       interestList.push({ x: target.x + Math.sin(sunYaw) * 100, z: target.z + Math.cos(sunYaw) * 100, weight: 1.2 })
 
     const basePitch = getLingerPitch(target)
-    const chosen = chooseLookYaw(target.worldState, target.x, target.eyeY, target.z, {
+    const chosen = yield * chooseLookYawSteps(target.worldState, target.x, target.eyeY, target.z, {
       currentYaw: target.yawFollower.value,
       interestList,
       minDepth: LOOK_MIN_DEPTH,
@@ -1044,17 +1286,33 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
    * 日出日落與開闊景點的長停留才會有繞弧或升降
    */
   function startLingerShot(target: DriftSession) {
+    /**
+     * 先把上一次停留的繞弧與升降收掉，排好之前（算下一趟、量縱深要幾毫秒）先定格：視線維持原樣，
+     * 鏡位算好才換。這幾件事都在這一幀做完的話，鏡頭會頓一下
+     */
     target.motionTrack = null
     target.crane = null
     target.craneY = 0
+    target.lingerBeat = { kind: 'hold', endAt: Number.POSITIVE_INFINITY }
+    scheduleJob('停留的鏡位', planLingerShot(target))
+  }
+
+  function* planLingerShot(target: DriftSession): DriftSteps {
     target.panSign = randomSign()
     /** 被圍在牆裡（站在山壁下的小凹處）：沒有地方可看，不要對著牆發呆，匆匆一瞥就走，這個點之後少來 */
-    if (measureMaxDepth(target.worldState, target.x, target.eyeY, target.z, getLingerPitch(target)) < LOOK_MIN_DEPTH) {
+    if ((yield * measureMaxDepthSteps(target.worldState, target.x, target.eyeY, target.z, getLingerPitch(target))) < LOOK_MIN_DEPTH) {
       target.lingerDuration = Math.min(target.lingerDuration, ENCLOSED_LINGER_SECOND)
       if (target.currentPoint && !target.enclosedIdList.includes(target.currentPoint.id))
         target.enclosedIdList.push(target.currentPoint.id)
     }
-    const duration = target.lingerDuration
+    /**
+     * 還剩多久（從現在算起）
+     *
+     * 這件事在分幀工作裡，可能在停留開始之後才算好；繞弧與升降的時程是「停留經過的秒數」，
+     * 都要以現在為起點，不然升降會從一半的地方跳出來。剛抵達就算好時 startElapsed 是零，與以前相同
+     */
+    const startElapsed = target.lingerElapsed
+    const duration = target.lingerDuration - startElapsed
     const subject = findVisibleSubject(target)
     const here = target.grid.getCellNear(Math.round(target.x), Math.round(target.z), target.blockY)
     const footY = target.eyeY - PLAYER_EYE_HEIGHT
@@ -1074,12 +1332,13 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
         for (const sign of [firstSign, firstSign === 1 ? -1 : 1] as const) {
           const polyline = planArcPath(target.grid, { x: target.x, z: target.z, blockY: target.blockY }, subject, arcLength, sign)
           if (polyline && polyline.xList.length >= 2) {
-            orbitTrack = createWalkTrack(polyline.xList, polyline.zList, polyline.footYList, PLAYER_EYE_HEIGHT)
+            orbitTrack = yield * createWalkTrackSteps(polyline.xList, polyline.zList, polyline.footYList, PLAYER_EYE_HEIGHT)
             break
           }
         }
       }
     }
+    yield
     const craneMinDuration = MOTION_START_DELAY + CRANE_MOVE_SECOND * 2 + CRANE_PEAK_HOLD_RANGE[0] + ANTICIPATE_SECOND + 1
     const canCrane = (here?.isOpenSky ?? false) && duration >= craneMinDuration
     const isGolden = isGoldenHour()
@@ -1106,17 +1365,17 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
           target.motionDistance = 0
           target.motionSpeed = 0
           target.motionAcceleration = 0
-          target.motionStartAt = MOTION_START_DELAY
+          target.motionStartAt = startElapsed + MOTION_START_DELAY
           setShot(target, 'orbit', { kind: 'subject', ...lookTarget, thirds: THIRDS_OFFSET * randomSign(), behind: false })
           target.lingerBeat = { kind: 'orbit', endAt: Number.POSITIVE_INFINITY }
           return
         }
         break
       case 'crane': {
-        const upAt = MOTION_START_DELAY
+        const upAt = startElapsed + MOTION_START_DELAY
         const peakHold = Math.max(0, Math.min(
           randomBetween(CRANE_PEAK_HOLD_RANGE[0], CRANE_PEAK_HOLD_RANGE[1]),
-          usableDuration - 1 - upAt - CRANE_MOVE_SECOND * 2,
+          usableDuration - 1 - MOTION_START_DELAY - CRANE_MOVE_SECOND * 2,
         ))
         const downAt = upAt + CRANE_MOVE_SECOND + peakHold
         target.crane = {
@@ -1127,18 +1386,18 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
         }
         setShot(target, 'crane', lookTarget
           ? { kind: 'subject', ...lookTarget, thirds: THIRDS_OFFSET * randomSign(), behind: false }
-          : { kind: 'pan', baseYaw: chooseLingerView(target, true).yaw, rate: target.panSign * PAN_RATE_RANGE[0], pitch: getLingerPitch(target) })
+          : { kind: 'pan', baseYaw: (yield * chooseLingerView(target, true)).yaw, rate: target.panSign * PAN_RATE_RANGE[0], pitch: getLingerPitch(target) })
         target.lingerBeat = { kind: 'crane', endAt: target.crane.endAt }
         return
       }
       case 'pan':
-        startPanBeat(target, true)
+        yield * startPanBeat(target, true)
         return
       default:
         break
     }
 
-    startHoldBeat(target)
+    yield * startHoldBeat(target)
   }
 
   /** 停留的構圖俯仰：依這裡四周的開闊程度 */
@@ -1152,13 +1411,13 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
    * 開頭那一段挑一個有東西的方向（最響的音源、停留點、日出日落的太陽，要看得到才算）；
    * 開頭的動作（橫搖、繞弧、升降）做完之後就維持目前的方向不動，直到尾聲轉向下一段路
    */
-  function startHoldBeat(target: DriftSession, isLockOff = false) {
+  function* startHoldBeat(target: DriftSession, isLockOff = false): DriftSteps {
     if (isLockOff) {
       target.lookTargetYaw = target.yawFollower.value
       target.lookTargetPitch = target.pitchFollower.value
     }
     else {
-      const view = chooseLingerView(target)
+      const view = yield * chooseLingerView(target)
       target.lookTargetYaw = view.yaw
       target.lookTargetPitch = view.pitch
     }
@@ -1210,7 +1469,7 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
    * 每一種中心都要驗證：太陽那一側被山壁擋住就不用；掃到的終點被擋住就換個方向掃；
    * 兩個方向都不行就不橫搖，改成定格在縱深最長的方向（不會一路掃進一面牆）
    */
-  function startPanBeat(target: DriftSession, isOpener = false) {
+  function* startPanBeat(target: DriftSession, isOpener = false): DriftSteps {
     const isGolden = isGoldenHour()
     const sunYaw = isGolden ? getSunYaw() : null
     const rateSize = randomBetween(PAN_RATE_RANGE[0], PAN_RATE_RANGE[1]) * (isGolden ? GOLDEN_PAN_RATE_RATIO : 1)
@@ -1229,7 +1488,7 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
         target.panSign = pathPan.sign
       }
       else {
-        center = chooseLingerView(target, true)
+        center = yield * chooseLingerView(target, true)
       }
     }
     const pitch = center?.pitch ?? target.pitchFollower.value
@@ -1246,14 +1505,34 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
       target.panSign = target.panSign === 1 ? -1 : 1
     }
 
-    startHoldBeat(target)
+    yield * startHoldBeat(target)
   }
 
   /** 停留尾聲：視線先轉向下一段路的方向，起步時畫面已經朝著要走的地方 */
   function startAnticipateBeat(target: DriftSession, plan: NextPlan) {
     const index = Math.min(plan.track.yawList.length - 1, ANTICIPATE_LOOKAHEAD_SAMPLE)
-    target.lookTargetYaw = itemAt(plan.track.yawList, index)
-    target.lookTargetPitch = 0
+    const pathYaw = itemAt(plan.track.yawList, index)
+    const pitch = target.realm.driftLookBias === 'outward' ? getLingerPitch(target) : 0
+    const lookBias = getLookBias(target)
+
+    /**
+     * 朝著下一段路的方向，但路徑起點常貼著樹幹、山壁：在前進方向左右各六十度內挑縱深最好的（略偏向原本的方向、符合場景視線偏好的），
+     * 起步時畫面朝著開闊的地方，而不是一面牆
+     */
+    let bestOffset = 0
+    let bestScore = -1
+    for (const offset of LOOK_ROOM_OFFSET_LIST) {
+      const depth = probeViewDistance3D(target.worldState, target.x, target.eyeY, target.z, pathYaw + offset, pitch, LOOK_ROOM_DEPTH_MAX)
+      const score = Math.min(1, depth / LOOK_ROOM_DEPTH_GOOD)
+        * (LOOK_ROOM_CENTER_WEIGHT + (1 - LOOK_ROOM_CENTER_WEIGHT) * Math.exp(-((offset / 0.7) ** 2)))
+        * getBiasFactor(lookBias, pathYaw + offset)
+      if (score > bestScore) {
+        bestScore = score
+        bestOffset = offset
+      }
+    }
+    target.lookTargetYaw = pathYaw + bestOffset
+    target.lookTargetPitch = pitch
     setShot(target, 'hold', { kind: 'free' })
     target.lingerBeat = { kind: 'anticipate', endAt: Number.POSITIVE_INFINITY }
   }
@@ -1282,8 +1561,8 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
     if (!isDone)
       return
 
-    /** 開頭的動作做完：鎖定在目前的方向，直到尾聲 */
-    startHoldBeat(target, true)
+    /** 開頭的動作做完：鎖定在目前的方向，直到尾聲（鎖定不探射線，一步就做完） */
+    runStepsSync(startHoldBeat(target, true))
   }
 
   /**
@@ -1350,6 +1629,7 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
       pathYaw: target.pathYaw,
       pathPitch: target.pathPitch,
       elapsed: target.shotElapsed,
+      trackDistance: target.trackDistance,
       freeYaw: target.lookTargetYaw,
       freePitch: target.lookTargetPitch,
       pitchMin,
@@ -1419,6 +1699,9 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
     if (target.flightClock >= target.flightDueAt)
       target.isFlightDue = true
 
+    /** 排著的規劃、量鏡位、收集停留點每幀做一小段（預算是 jobBudgetMs），做不完的下一幀接著做 */
+    jobQueue.pump(jobBudgetMs)
+
     switch (target.phase) {
       case 'walk':
       case 'fly': {
@@ -1468,10 +1751,9 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
             target.motionTrack = null
             syncBlockY(target)
             target.pathYaw = target.yawFollower.value
-            /** 下一站是在原地算的，繞完弧位置變了，路徑要從新的位置重算，不然起步會跳回去 */
-            prepareNext(target)
-            if (!target.nextPlan)
-              target.lingerDuration = Math.min(target.lingerDuration, target.lingerElapsed + REPLAN_DELAY)
+            /** 下一站是在原地算的，繞完弧位置變了，路徑要從新的位置重算，不然起步會跳回去（舊的規劃作廢） */
+            jobQueue.clear()
+            prepareNext(target, false)
           }
         }
         updateCrane(target)
@@ -1483,8 +1765,8 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
             target.nextPlan = null
             startTrack(target, activePlan)
           }
-          else {
-            /** 上次沒算出來，趁這次停留重算 */
+          else if (!target.isPlanning) {
+            /** 上次沒算出來，趁這次停留重算（還在算的話就多停一會兒，算好就出發） */
             startLinger(target, randomBetween(LINGER_MIN, LINGER_MAX))
           }
         }
@@ -1499,12 +1781,10 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
 
         settle.elapsed += deltaTime
         const ratio = clamp(settle.elapsed / settle.duration, { min: 0, max: 1 })
-        /** 要橫著挪時先挪再降：前段水平走完，後段才把高度降下來，不會斜著切過樹冠 */
-        const isLateral = settle.lateral > SETTLE_LATERAL_MIN
-        const horizontalRatio = isLateral ? clamp(ratio / SETTLE_HORIZONTAL_SHARE, { min: 0, max: 1 }) : ratio
-        const verticalRatio = isLateral ? clamp((ratio - SETTLE_VERTICAL_START) / (1 - SETTLE_VERTICAL_START), { min: 0, max: 1 }) : ratio
+        /** 要橫著挪時先挪再降：橫移走到三成多才開始降，不會斜著切過樹冠；垂直段有速度上限，落差大就拉長時間 */
+        const horizontalRatio = clamp(settle.elapsed / settle.horizontalSecond, { min: 0, max: 1 })
         const horizontalEased = horizontalRatio * horizontalRatio * (3 - 2 * horizontalRatio)
-        const verticalEased = verticalRatio * verticalRatio * (3 - 2 * verticalRatio)
+        const verticalEased = getSettleRatio(settle.elapsed - settle.verticalStart, Math.abs(settle.fromEyeY - settle.toEyeY))
         target.x = settle.fromX + (settle.toX - settle.fromX) * horizontalEased
         target.z = settle.fromZ + (settle.toZ - settle.fromZ) * horizontalEased
         target.eyeY = settle.fromEyeY + (settle.toEyeY - settle.fromEyeY) * verticalEased
@@ -1589,28 +1869,42 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
     if (!startCell)
       return false
 
-    /** 起點落在一小塊孤立的地（樹上的平台、牆內的小院），換附近一個連得更廣的 */
+    /**
+     * 起點落在一小塊孤立的地（樹上的平台、牆內的小院），換附近一個連得更廣的
+     *
+     * 這裡只問「連通區塊夠不夠大」，數到 REACHABLE_SIZE_MIN 格就停（collectReachableSet 的 sizeLimit），不必掃完整片地圖；
+     * 完整的連通範圍留給後面的分幀工作（prepareWorld）
+     */
     let startRef = { blockX: startCell.blockX, blockZ: startCell.blockZ, blockY: startCell.cell.blockY }
-    let reachedSet = collectReachableSet(grid, startRef)
+    let startSize = collectReachableSet(grid, startRef, REACHABLE_SIZE_MIN).size
     let startFootY = startCell.cell.footY
-    for (let ring = 1; reachedSet.size < REACHABLE_SIZE_MIN && ring <= 6; ring++) {
-      for (let step = 0; step < 8 && reachedSet.size < REACHABLE_SIZE_MIN; step++) {
+    for (let ring = 1; startSize < REACHABLE_SIZE_MIN && ring <= 6; ring++) {
+      for (let step = 0; step < 8 && startSize < REACHABLE_SIZE_MIN; step++) {
         const angle = (step / 8) * Math.PI * 2
         const probe = findStartCell(grid, startCell.blockX + Math.cos(angle) * ring * 8, startCell.cell.footY, startCell.blockZ + Math.sin(angle) * ring * 8)
         if (!probe)
           continue
 
         const probeRef = { blockX: probe.blockX, blockZ: probe.blockZ, blockY: probe.cell.blockY }
-        const probeSet = collectReachableSet(grid, probeRef)
-        if (probeSet.size > reachedSet.size) {
-          reachedSet = probeSet
+        const probeSize = collectReachableSet(grid, probeRef, REACHABLE_SIZE_MIN).size
+        if (probeSize > startSize) {
+          startSize = probeSize
           startRef = probeRef
           startFootY = probe.cell.footY
         }
       }
     }
 
-    const pointList = collectDriftPoint({ realm, worldState, grid, reachedSet })
+    /**
+     * 連通範圍與停留點：整片地圖掃一遍要幾十毫秒，排成分幀工作（這段時間鏡頭先在原地定格，停留本來就有四到七秒）；
+     * 預算是無限大時（驗證腳本）當場做完，與沒有分幀時相同
+     */
+    const prepareWorld = function* (): DriftSteps<{ reachedSet: ReachedSet; pointList: DriftPoint[] }> {
+      const reachedSet = yield * collectReachableSetSteps(grid, startRef)
+      const pointList = yield * collectDriftPointSteps({ realm, worldState, grid, reachedSet })
+      return { reachedSet, pointList }
+    }
+    const prepared = isInline ? runStepsSync(prepareWorld()) : null
 
     /**
      * 控制器腳下那一格本身就能站（而且在連通區塊裡）才從原位開始，否則挪到起點格子中心
@@ -1628,8 +1922,8 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
       realm,
       worldState,
       grid,
-      reachedSet,
-      pointList,
+      reachedSet: prepared?.reachedSet ?? new ReachedSet(0),
+      pointList: prepared?.pointList ?? [],
       emitterList: listDriftEmitter(realm),
       observer: null as unknown as DriftSession['observer'],
       phase: 'linger',
@@ -1675,6 +1969,7 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
       lookTargetYaw: camera.rotation.y,
       lookTargetPitch: 0,
       replanFailureCount: 0,
+      isPlanning: false,
       flightClock: 0,
       flightDueAt: clock,
       isFlightDue: false,
@@ -1702,7 +1997,14 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
 
       const deltaTime = clamp(scene.getEngine().getDeltaTime() / 1000, { min: 0, max: 0.05 })
       try {
+        const frameStart = import.meta.env.DEV ? performance.now() : 0
         updateSession(current, deltaTime)
+        /** 開發模式：神遊這一幀花超過幾毫秒就警告，鏡頭運鏡的那一幀頓了使用者看得出來 */
+        if (import.meta.env.DEV) {
+          const frameCost = performance.now() - frameStart
+          if (frameCost > FRAME_COST_WARN_MS)
+            console.warn(`[Drift] 這一幀神遊更新花了 ${frameCost.toFixed(1)} 毫秒（階段 ${current.phase}），鏡頭可能頓一下`)
+        }
       }
       catch (error) {
         bailOut(current, error)
@@ -1718,7 +2020,13 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
 
     lastSafePose = { x, y: eyeY - PLAYER_EYE_HEIGHT, z }
     try {
-      startLinger(created, randomBetween(LINGER_START_MIN, LINGER_START_MAX))
+      startLinger(created, randomBetween(LINGER_START_MIN, LINGER_START_MAX), prepared
+        ? undefined
+        : (function* (): DriftSteps {
+            const result = yield * prepareWorld()
+            created.reachedSet = result.reachedSet
+            created.pointList = result.pointList
+          })())
       writePose(created)
     }
     catch (error) {
@@ -1750,6 +2058,9 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
   function release(target: DriftSession) {
     scene.onBeforeRenderObservable.remove(target.observer)
     controller.setSuspended(false)
+    /** 還沒做完的分幀工作與量測記憶一起丟掉：格子、停留點、軌道都跟著這一次神遊結束，不留在記憶體裡 */
+    jobQueue.clear()
+    aheadCache = null
     activePlan = null
     session = null
   }
@@ -1805,6 +2116,10 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
     if (!target || target.phase === 'settle')
       return
 
+    /** 還排著的規劃與鏡位量測都作廢：降落期間視線與位置由降落自己管，不能被它們中途改掉 */
+    jobQueue.clear()
+    target.isPlanning = false
+
     /** 升降鏡位進行到一半時，高度併進基準高度，之後的降落從這裡接著走 */
     target.eyeY += target.craneY
     target.craneY = 0
@@ -1850,6 +2165,11 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
 
     const drop = Math.max(0, target.eyeY - (destination.footY + PLAYER_EYE_HEIGHT))
     const lateral = Math.hypot(destination.x - target.x, destination.z - target.z)
+    const isLateral = lateral > SETTLE_LATERAL_MIN
+    const verticalSecond = getSettleSecond(drop)
+    /** 幾乎在正下方（一格內）的小挪移跟著垂直段一起走完 */
+    const horizontalSecond = isLateral ? (lateral * 1.5) / SETTLE_LATERAL_PEAK_SPEED : verticalSecond
+    const verticalStart = isLateral ? horizontalSecond * SETTLE_VERTICAL_START : 0
     target.settleBlockY = destination.blockY
     target.settle = {
       fromX: target.x,
@@ -1859,12 +2179,12 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
       toZ: destination.z,
       toEyeY: destination.footY + PLAYER_EYE_HEIGHT,
       lateral,
-      /** 要橫著挪的話，高度只用後段降下來，時間跟著拉長；橫移的時間依距離算，不然幾格的距離擠在一兩秒裡是橫衝過去 */
-      duration: Math.max(
-        clamp(Math.sqrt(drop) * 0.7, { min: SETTLE_DURATION_MIN, max: SETTLE_DURATION_MAX }) / (lateral > SETTLE_LATERAL_MIN ? 1 - SETTLE_VERTICAL_START : 1),
-        lateral / SETTLE_LATERAL_SPEED,
-      ),
+      /** 橫移的時間依距離算（S 曲線的峰值是平均的一點五倍），不然幾格的距離擠在一兩秒裡是橫衝過去；垂直段排在橫移的後面，總時間是兩者較晚結束的 */
+      duration: Math.max(horizontalSecond, verticalStart + verticalSecond),
       elapsed: 0,
+      horizontalSecond,
+      verticalStart,
+      verticalSecond,
     }
     target.track = null
     activePlan = null
@@ -1917,5 +2237,10 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
     return session ? { speed: session.speed, acceleration: session.speedAcceleration, gazeYawError: session.gazeYawError } : null
   }
 
-  return { start, stop, abort, applyLook, isDrifting, getPhase, getShotId, getGaze, getMotion }
+  /** 分幀工作的狀態，除錯與驗證用：下一趟還在算、佇列裡還有沒有工作 */
+  function getJobState(): { isPlanning: boolean; isBusy: boolean; hasNextPlan: boolean } | null {
+    return session ? { isPlanning: session.isPlanning, isBusy: jobQueue.isBusy(), hasNextPlan: session.nextPlan !== null } : null
+  }
+
+  return { start, stop, abort, applyLook, isDrifting, getPhase, getShotId, getGaze, getMotion, getJobState }
 }

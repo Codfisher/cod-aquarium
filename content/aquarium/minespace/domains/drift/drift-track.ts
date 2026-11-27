@@ -1,3 +1,5 @@
+import type { DriftSteps } from './drift-job'
+import { runStepsSync } from './drift-job'
 import { PATH_SAMPLE_SPACING, smoothHeightList } from './drift-path'
 import { itemAt } from './drift-util'
 
@@ -122,6 +124,17 @@ export function createDriftTrack(
   yList: number[],
   pitchList?: number[],
 ): DriftTrack {
+  return runStepsSync(createDriftTrackSteps(kind, xList, zList, yList, pitchList))
+}
+
+/** createDriftTrack 的分段版：朝向、轉彎減速、爬升限速、速度上限各算一段，之間可以讓出一幀 */
+export function* createDriftTrackSteps(
+  kind: DriftTrack['kind'],
+  xList: number[],
+  zList: number[],
+  yList: number[],
+  pitchList?: number[],
+): DriftSteps<DriftTrack> {
   const count = xList.length
   const yawList: number[] = []
 
@@ -148,6 +161,8 @@ export function createDriftTrack(
   if (Number.isNaN(itemAt(yawList, 0)))
     yawList.fill(0)
 
+  yield
+
   const turnScaleList = yawList.map((yaw, index) => {
     const ahead = itemAt(yawList, Math.min(count - 1, index + CURVE_WINDOW))
     const turn = Math.abs(diffAngle(ahead, yaw))
@@ -165,6 +180,8 @@ export function createDriftTrack(
     const slope = Math.abs(itemAt(yList, Math.min(count - 1, index + 1)) - itemAt(yList, Math.max(0, index - 1))) / (2 * PATH_SAMPLE_SPACING)
     return slope > CLIMB_SLOPE_FREE ? CLIMB_SLOPE_FREE / slope : 1
   })
+  yield
+
   const curveScaleList = turnScaleList.map((turnScale, index) => {
     let climbScale = 1
     for (let offset = 0; offset <= CLIMB_LOOKAHEAD && index + offset < count; offset++) {
@@ -172,6 +189,8 @@ export function createDriftTrack(
     }
     return turnScale * climbScale
   })
+
+  yield
 
   return {
     kind,
@@ -260,8 +279,14 @@ export function sampleDriftTrack(track: DriftTrack, distance: number, out: Drift
 
 /** 把散步路徑換成軌道：鏡頭高度是腳底高度加眼睛高度 */
 export function createWalkTrack(xList: number[], zList: number[], footYList: number[], eyeHeight: number): DriftTrack {
+  return runStepsSync(createWalkTrackSteps(xList, zList, footYList, eyeHeight))
+}
+
+/** createWalkTrack 的分段版 */
+export function* createWalkTrackSteps(xList: number[], zList: number[], footYList: number[], eyeHeight: number): DriftSteps<DriftTrack> {
   /** 路徑的最後一個取樣點常常離前一個很近（重新取樣留下的尾巴），重排成等間距，終點前速度才不會突然掉下去 */
   const uniform = resampleUniform(xList, footYList.map((footY) => footY + eyeHeight), zList, PATH_SAMPLE_SPACING)
+  yield
 
   /**
    * 俯仰跟著坡度走一部分：上坡視線微微抬起、下坡微微低下，不會一路盯著迎面而來的山壁
@@ -274,5 +299,6 @@ export function createWalkTrack(xList: number[], zList: number[], footYList: num
     const run = Math.max(PATH_SAMPLE_SPACING, (ahead - behind) * PATH_SAMPLE_SPACING)
     return -WALK_PITCH_SLOPE_GAIN * Math.atan((itemAt(uniform.yList, ahead) - itemAt(uniform.yList, behind)) / run)
   }), 6, 2)
-  return createDriftTrack('walk', uniform.xList, uniform.zList, uniform.yList, pitchList)
+  yield
+  return yield * createDriftTrackSteps('walk', uniform.xList, uniform.zList, uniform.yList, pitchList)
 }

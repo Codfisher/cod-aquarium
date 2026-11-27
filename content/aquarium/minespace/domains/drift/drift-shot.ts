@@ -108,6 +108,8 @@ const GAZE_PITCH_MIN = -0.5
 const GAZE_PITCH_MAX = 0.6
 /** 看向的景物離鏡頭水平距離小於這個（格）就改用備案朝向，免得貼著景物時方位亂跳 */
 const SUBJECT_NEAR_DISTANCE = 6
+/** radial 視線：離中心這麼近（格）就不定義方向 */
+export const RADIAL_CENTER_RADIUS_MIN = 6
 
 /**
  * 視線怎麼擺
@@ -115,10 +117,21 @@ const SUBJECT_NEAR_DISTANCE = 6
  * - heading：看軌道的前進方向；俯仰是軌道給的（上坡微微仰、下坡微微低），pitch 是額外加上去的構圖偏移（走路時讓地平線落在三分線）；minPitch 是下限（往外看的場景不抬頭看迎面的坡）
  * - subject：看向世界裡一點；behind 為真時，貼近景物的備案朝向是背向前進方向（拉遠揭露）
  * - pan：從 baseYaw 起以固定速度橫搖（速度可以是零：鎖定在世界裡的一個方向，鏡頭平移時畫面構圖不變）
+ * - radial：看「離開中心」（outward）或「看向中心」的方向，隨鏡頭所在的位置即時算：繞著場景外緣走時，視線一路朝外，不是鎖死在某個世界方向
  * - free：隨意環顧，目標由呼叫端更新
+ *
+ * heading 的 lookRoom 是留白（look room）：視線在前進方向之外多偏幾度，朝向比較開闊或有特色主體的那一側；
+ * 偏角是沿軌道每隔 step 格一個的清單（已經低通過，變化很慢），依走到哪裡內插
  */
+export interface LookRoom {
+  startDistance: number;
+  step: number;
+  offsetList: number[];
+}
+
 export type Gaze =
-  | { kind: 'heading'; pitch?: number; minPitch?: number }
+  | { kind: 'heading'; pitch?: number; minPitch?: number; lookRoom?: LookRoom }
+  | { kind: 'radial'; centerX: number; centerZ: number; isOutward: boolean; pitch: number }
   | { kind: 'subject'; x: number; y: number; z: number; thirds: number; behind: boolean; releaseRange?: readonly [number, number] }
   | { kind: 'pan'; baseYaw: number; rate: number; pitch: number }
   | { kind: 'free' }
@@ -132,6 +145,8 @@ export interface GazeContext {
   pathPitch: number;
   /** 這個鏡位已經過了多久（秒） */
   elapsed: number;
+  /** 沿軌道已經走了多遠（格），查留白的偏角清單用 */
+  trackDistance: number;
   /** 隨意環顧的目標 */
   freeYaw: number;
   freePitch: number;
@@ -144,7 +159,15 @@ export interface GazeContext {
 export function resolveGaze(gaze: Gaze, context: GazeContext): { yaw: number; pitch: number } {
   switch (gaze.kind) {
     case 'heading':
-      return { yaw: context.pathYaw, pitch: clampPitch(Math.max(gaze.minPitch ?? Number.NEGATIVE_INFINITY, context.pathPitch + (gaze.pitch ?? 0)), context) }
+      return { yaw: context.pathYaw + getLookRoomOffset(gaze.lookRoom, context.trackDistance), pitch: clampPitch(Math.max(gaze.minPitch ?? Number.NEGATIVE_INFINITY, context.pathPitch + (gaze.pitch ?? 0)), context) }
+    case 'radial': {
+      const dx = context.x - gaze.centerX
+      const dz = context.z - gaze.centerZ
+      /** 站在中心附近方向不定義（一步之差就差一百八十度），沿用前進方向 */
+      if (Math.hypot(dx, dz) < RADIAL_CENTER_RADIUS_MIN)
+        return { yaw: context.pathYaw, pitch: clampPitch(context.pathPitch + gaze.pitch, context) }
+      return { yaw: Math.atan2(dx, dz) + (gaze.isOutward ? 0 : Math.PI), pitch: clampPitch(gaze.pitch, context) }
+    }
     case 'subject': {
       const dx = gaze.x - context.x
       const dz = gaze.z - context.z
@@ -171,6 +194,18 @@ export function resolveGaze(gaze: Gaze, context: GazeContext): { yaw: number; pi
     case 'free':
       return { yaw: context.freeYaw, pitch: clampPitch(context.freePitch, context) }
   }
+}
+
+/** 留白的偏角：在清單裡依軌道距離內插，沒有清單就是零 */
+function getLookRoomOffset(lookRoom: LookRoom | undefined, trackDistance: number): number {
+  if (!lookRoom || lookRoom.offsetList.length === 0)
+    return 0
+
+  const position = Math.min(lookRoom.offsetList.length - 1, Math.max(0, (trackDistance - lookRoom.startDistance) / lookRoom.step))
+  const index = Math.floor(position)
+  const left = lookRoom.offsetList[index] ?? 0
+  const right = lookRoom.offsetList[Math.min(lookRoom.offsetList.length - 1, index + 1)] ?? left
+  return left + (right - left) * (position - index)
 }
 
 function clampPitch(pitch: number, context: GazeContext): number {
