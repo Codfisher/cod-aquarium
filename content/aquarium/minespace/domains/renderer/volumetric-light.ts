@@ -526,7 +526,8 @@ export interface VolumetricLight {
  * 建立沿著視線行進的光束
  *
  * 只有最奢的那一級會走到這裡；其餘各級要嘛不要光束、
- * 要嘛用便宜的螢幕空間版本（見 god-rays.ts）
+ * 要嘛用便宜的螢幕空間版本（見 god-rays.ts）。
+ * 最奢那一級兩個都開：這一支不往天空加光，太陽周圍的光暈由螢幕空間版補上
  */
 export function createVolumetricLight(scene: Scene, camera: UniversalCamera): VolumetricLight {
   const { preset } = useGraphicsQuality()

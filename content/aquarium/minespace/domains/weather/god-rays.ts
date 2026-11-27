@@ -28,6 +28,15 @@ const SAMPLE_COUNT = 60
 const MAX_EXPOSURE = 0.32
 
 /**
+ * 極致那一級的曝光打幾折
+ *
+ * 那一級同時開著行進版的光束（volumetric-light.ts），地面上的光柱已經由它負責，
+ * 這裡要的只是太陽周圍那團往外擴散的光暈。全額疊上去的話，
+ * 地面那一段會變成兩層光束疊在一起
+ */
+const RAYMARCH_EXPOSURE_RATIO = 0.8
+
+/**
  * 太陽要離視野中心多近才點亮光束
  *
  * 太陽跑到背後時，投影出來的原點落在畫面之外，
@@ -64,12 +73,16 @@ export function createGodRays(scene: Scene, camera: UniversalCamera): GodRays {
 
   const sunDisc = scene.getMeshByName(SUN_DISC_NAME) as Mesh | null
   /**
-   * 這一級不做螢幕空間的光束就整個不建
+   * 最省的那一級整個不建
    *
-   * 最省的那一級是完全不要；極致那一級則是換成沿著視線行進的版本
-   * （見 volumetric-light.ts），兩者都不該讓這一趟遮蔽圖存在
+   * 極致那一級也要建，跟行進版並存。兩者擅長的地方剛好互補：
+   * 行進版畫得出地面上、太陽在背後也看得到的光柱，
+   * 但它刻意不往天空加光（見 volumetric-light 的 SKY_FLOOR，加了會整片泛白）；
+   * 這裡的放射狀模糊則是在畫面上把太陽往外抹開，
+   * 太陽周圍那團越過樹梢輪廓往外擴散的光暈正是它給的。
+   * 只開行進版的時候，極致的太陽反而比高畫質平淡
    */
-  if (!sunDisc || preset.value.volumetric !== 'screen') {
+  if (!sunDisc || preset.value.volumetric === 'off') {
     return { setStrength: () => {}, dispose: () => {} }
   }
 
@@ -181,7 +194,7 @@ export function createGodRays(scene: Scene, camera: UniversalCamera): GodRays {
   setEnabled(false)
 
   const stopQualityWatch = watch(preset, (currentPreset) => {
-    if (currentPreset.volumetric !== 'screen') {
+    if (currentPreset.volumetric === 'off') {
       setEnabled(false)
     }
   })
@@ -201,9 +214,10 @@ export function createGodRays(scene: Scene, camera: UniversalCamera): GodRays {
 
   return {
     setStrength(ratio: number) {
-      const strength = preset.value.volumetric === 'screen'
-        ? ratio * measureFacingRatio()
-        : 0
+      const { volumetric } = preset.value
+      const strength = volumetric === 'off'
+        ? 0
+        : ratio * measureFacingRatio()
 
       setEnabled(strength > 0.01)
       if (strength <= 0.01)
@@ -214,7 +228,8 @@ export function createGodRays(scene: Scene, camera: UniversalCamera): GodRays {
         .copyFrom(camera.position)
         .addInPlace(sunDisc!.position)
 
-      godRays.exposure = MAX_EXPOSURE * strength
+      const exposureRatio = volumetric === 'raymarch' ? RAYMARCH_EXPOSURE_RATIO : 1
+      godRays.exposure = MAX_EXPOSURE * strength * exposureRatio
     },
     dispose() {
       stopQualityWatch()

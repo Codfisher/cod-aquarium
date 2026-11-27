@@ -75,6 +75,35 @@ export const CLOUD_SAMPLER_NAME_LIST = [
 ]
 
 /**
+ * 雲多的地方讓雲團連成一大片
+ *
+ * 基底雜訊只有最高的那一段才算雲（shape 那道 0.72～0.93 的門檻），
+ * 切出來的是一顆一顆孤立的雲團。覆蓋率再高，也只是「顆數變多」，
+ * 永遠連不成一大片——滿天都是同一種碎碎的積雲，不管哪一天都一樣。
+ *
+ * 真正的天空不是這樣：雲多的那一區，雲團會彼此黏起來，
+ * 變成一整片底部平、頂上鼓成好幾團的雲；只有雲少的地方才是零散的小朵。
+ *
+ * 所以門檻跟著區域的雲量走：regional 從 MERGE_START 到 MERGE_FULL，
+ * 門檻由 0.72～0.93 降到 MERGE_LOW～MERGE_HIGH，原本被切開的雲團之間的鞍部也長出雲來。
+ * 同一段裡雲核的細節侵蝕也減輕一點（MERGE_EROSION_CUT），
+ * 大片雲的內部不該被啃得跟小朵的邊一樣碎。
+ *
+ * 這幾個數字不能再往下壓。第一版給到門檻 0.5～0.82、侵蝕減四成，
+ * 雲是連起來了，但整片密度頂到飽和，基底雜訊的起伏被抹平，
+ * 剩下細節雜訊在撐——它是每二十六格就重複的小貼圖，
+ * 一整片雲上看得到規則的斜紋，頭頂也成了沒有團塊的陰天。
+ * 連起來的雲仍要保留基底那一層的鼓起與縫隙
+ */
+const CLOUD_MERGE_GLSL = `
+const float CLOUD_MERGE_START = 0.6;
+const float CLOUD_MERGE_FULL = 0.95;
+const float CLOUD_MERGE_LOW = 0.64;
+const float CLOUD_MERGE_HIGH = 0.9;
+const float CLOUD_MERGE_EROSION_CUT = 0.1;
+`
+
+/**
  * uniform 的排法
  *
  * cloudLayer    雲底高度、雲頂高度、星球半徑、時間（秒）
@@ -97,6 +126,8 @@ export const CLOUD_SAMPLER_NAME_LIST = [
  */
 export const CLOUD_COMMON_GLSL = `
 precision highp sampler3D;
+
+${CLOUD_MERGE_GLSL}
 
 uniform sampler3D cloudBaseSampler;
 uniform sampler3D cloudDetailSampler;
@@ -210,6 +241,7 @@ float cloudDensityLevel(vec3 position, float heightRatio, int detailLevel) {
   regional = regional * regional * (3.0 - 2.0 * regional);
   regional = mix(regional, 0.72, cloudWeather.x * 0.65);
   float coverage = clamp(cloudShape.x * mix(0.2, 1.7, regional), 0.0, 1.0);
+  float mergeRatio = smoothstep(CLOUD_MERGE_START, CLOUD_MERGE_FULL, regional);
 
   float towerMask = smoothstep(0.62, 0.95, weather.r) * smoothstep(0.35, 0.7, regional);
   float shapeRatio = heightRatio * cloudWeather.z / (1.0 + (cloudWeather.z - 1.0) * towerMask);
@@ -227,7 +259,14 @@ float cloudDensityLevel(vec3 position, float heightRatio, int detailLevel) {
   vec4 base = textureLod(cloudBaseSampler, basePoint * cloudScale.x, 0.0);
   float lowFbm = dot(base.gba, vec3(0.625, 0.25, 0.125));
   float shape = clamp(cloudRemap(base.r, lowFbm - 1.0, 1.0, 0.0, 1.0), 0.0, 1.0);
-  shape = clamp(cloudRemap(shape, 0.72, 0.93, 0.0, 1.0), 0.0, 1.0);
+  shape = clamp(cloudRemap(
+    shape,
+    mix(0.72, CLOUD_MERGE_LOW, mergeRatio),
+    mix(0.93, CLOUD_MERGE_HIGH, mergeRatio),
+    0.0,
+    1.0
+  ), 0.0, 1.0);
+  float erosion = cloudScale.w * (1.0 - CLOUD_MERGE_EROSION_CUT * mergeRatio);
 
   float density = clamp(cloudRemap(shape * profile, 1.0 - coverage, 1.0, 0.0, 1.0), 0.0, 1.0);
   density *= mix(0.4, 1.0, smoothstep(0.0, 0.3, shapeRatio));
@@ -235,7 +274,7 @@ float cloudDensityLevel(vec3 position, float heightRatio, int detailLevel) {
     return density;
   }
   if (detailLevel == 1) {
-    float meanEroded = clamp(cloudRemap(density, 0.5 * cloudScale.w, 1.0, 0.0, 1.0), 0.0, 1.0);
+    float meanEroded = clamp(cloudRemap(density, 0.5 * erosion, 1.0, 0.0, 1.0), 0.0, 1.0);
     return min(meanEroded * 1.5, 1.0);
   }
 
@@ -246,7 +285,7 @@ float cloudDensityLevel(vec3 position, float heightRatio, int detailLevel) {
   float detailFbm = clamp(cloudRemap(dot(detail, vec3(0.625, 0.25, 0.125)), 0.3, 0.68, 0.0, 1.0), 0.0, 1.0);
   float modifier = mix(detailFbm, 1.0 - detailFbm, clamp(shapeRatio * 4.0, 0.0, 1.0));
 
-  float eroded = clamp(cloudRemap(density, modifier * cloudScale.w, 1.0, 0.0, 1.0), 0.0, 1.0);
+  float eroded = clamp(cloudRemap(density, modifier * erosion, 1.0, 0.0, 1.0), 0.0, 1.0);
   return min(eroded * mix(0.55, 1.15, detailFbm) * 1.8, 1.0);
 }
 

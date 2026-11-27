@@ -84,7 +84,8 @@ export interface QualityPreset {
    * 光束
    *
    * screen 是螢幕空間的放射狀模糊，便宜但只在正對太陽時成立；
-   * raymarch 沿著視線行進、逐步取樣陰影圖，任何角度都有光束穿過枝葉
+   * raymarch 沿著視線行進、逐步取樣陰影圖，任何角度都有光束穿過枝葉。
+   * raymarch 也會一併開著 screen 那一份，只取它在太陽周圍抹出的光暈（見 god-rays.ts）
    */
   volumetric: 'off' | 'screen' | 'raymarch';
   /** 光線行進取樣幾步 */
