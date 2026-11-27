@@ -58,16 +58,10 @@ import { createWetness } from './wetness'
  * 白沙地永遠是乾的、亮的，遠遠看過去只有那幾座上面壓著一團灰——
  * 對比拉開了，那些箱庭才有它們存在的理由。
  *
- * 兩座雨區給的是同一場雨的兩種身分：
- * 聽雨亭沒有屋頂，走進去就是淋在身上；
- * 雨聽堂有屋頂，走進去是聽著雨而自己是乾的。
- * 同一套天氣，因為造景不同而成為兩件事。
- *
- * 共用的只有看得到的那一半：雨絲、陰天、霧、地濕。
- * 聲音一律不共用，各庭在 sound-data 自己種。
- * 這裡曾經掛過一道全域的雨聲，兩座雨區聽起來因此一模一樣——
- * 那道雨底一響，箱庭自己種的雨就被蓋掉了，
- * 「兩種身分」只剩畫面上成立。雨聲要各種各的，這條不要再破
+ * 天氣系統只管看得到的那一半：雨絲、陰天、霧、地濕。
+ * 雨聲一律不放這裡，各庭在 sound-data 自己種。
+ * 這裡曾經掛過一道全域的雨聲，當時的兩座雨區（聽雨亭與已經拿掉的雨聽堂）聽起來因此一模一樣——
+ * 那道雨底一響，箱庭自己種的雨就被蓋掉了。日後再加雨區，雨聲照樣各種各的，這條不要再破
  */
 function createWeatherZone(gardenId: GardenId, falloff: number, fullRadiusInset = 2) {
   const garden = getGarden(gardenId)
@@ -103,16 +97,8 @@ function createWeatherZone(gardenId: GardenId, falloff: number, fullRadiusInset 
  */
 const RAINVALE_ZONE = createWeatherZone('rainvale', 4)
 
-/**
- * 收得比聽雨亭緊
- *
- * 這座的重點在屋簷下那一圈，雨要下得剛好蓋住屋子與滴水線。
- * 攤太開的話，從外面走過來時屋子還沒進到眼裡就已經在淋雨，
- * 「進屋躲雨」那一下的對比就沒了
- */
-const RAINHALL_ZONE = createWeatherZone('rainhall', 3)
-
-const RAIN_ZONE_LIST = [RAINVALE_ZONE, RAINHALL_ZONE]
+/** 目前只有聽雨亭一區；寫成清單，日後再加一座雨區只要多一項 */
+const RAIN_ZONE_LIST = [RAINVALE_ZONE]
 
 /**
  * 暴風雪只颳在雪聽庭上
@@ -133,8 +119,7 @@ const BLIZZARD_ZONE = createWeatherZone('blizzard', 1.5, 0)
  * 打雷只發生在聽雨亭
  *
  * 雷是一場大雨的戲劇性，屬於那座露天的、淋在身上的箱庭。
- * 雨聽堂要的是坐著聽雨那種安穩，一聲驚雷會把它整個打散——
- * 同一場雨，兩座箱庭本來就該是兩件事
+ * 與雨區分開寫：日後再加一座要安穩聽雨的雨區，不必跟著打雷
  */
 const THUNDER_ZONE = RAINVALE_ZONE
 
@@ -277,8 +262,8 @@ export function getJigokuRatio(x: number, z: number): number {
 /**
  * 依所在位置算出雨勢，0 為晴天、1 為大雨
  *
- * 取所有雨區裡最強的那一個。兩座隔得夠遠不會重疊，
- * 取最大值只是為了「日後再加一座也不必改這裡」
+ * 取所有雨區裡最強的那一個。現在只有一區，
+ * 取最大值是為了「日後再加一座也不必改這裡」
  */
 export function getRainRatio(x: number, z: number): number {
   let strongest = 0
@@ -303,7 +288,7 @@ export function getSnowRatio(x: number, z: number): number {
 /**
  * 大場景整片的雨（雪）勢此刻多強，沒給就是零
  *
- * 延伸聽雨亭、雨聽堂、吹雪野的大場景整片都在那場天氣裡（RealmDefinition 的 weather），
+ * 延伸聽雨亭、吹雪野的大場景整片都在那場天氣裡（RealmDefinition 的 weather），
  * 雨勢不看站在哪、看時間：兩道週期互質的正弦疊起來，在 min 與 max 之間慢慢起落，
  * 雨一陣大一陣小，暴風雪偶爾鬆開一點、看得到十幾格外的燈籠
  */
@@ -473,7 +458,7 @@ export function useWeather() {
       /** 顆粒只有幾個像素大，堆得起來才看得出空氣裡有東西 */
       moteCount: scaleParticleCount(220),
       /**
-       * 大廳的生成速度只用得到四十八顆左右；容量留三倍給蟲鳴夜原（weatherParticle.fireflyDensity），
+       * 大廳的生成速度只用得到四十八顆左右；容量留三倍給風露原（weatherParticle.fireflyDensity），
        * 生成速度沒變，大廳的螢火一樣多
        */
       fireflyCount: scaleParticleCount(144),
@@ -544,7 +529,7 @@ export function useWeather() {
           ? 'rain'
           : snowRatio > RAIN_WEATHER_THRESHOLD ? 'snow' : 'clear'
 
-        /** 站在聽雨亭那片雨裡才會打雷，雨聽堂不算；大場景看定義的 hasThunder（聽雨林有） */
+        /** 站在聽雨亭那片雨裡才會打雷；大場景看定義的 hasThunder（聽雨林有） */
         thunderRatio = hasGardens
           ? measureZoneRatio(camera.position.x, camera.position.z, THUNDER_ZONE)
           : realmWeather?.hasThunder ? rainRatio : 0
@@ -907,7 +892,7 @@ export function useWeather() {
           devToggle.airMotes ? getDayRatio() : 0,
           devToggle.airMotes ? atmosphere.caveRatio : 0,
           devToggle.airMotes ? edgeHideRatio : 0,
-          /** 蟲鳴夜原的螢火比別處多（weatherParticle.fireflyDensity），大廳與其他場景是 1 */
+          /** 風露原的螢火比別處多（weatherParticle.fireflyDensity），大廳與其他場景是 1 */
           realmParticle?.fireflyDensity,
         )
 

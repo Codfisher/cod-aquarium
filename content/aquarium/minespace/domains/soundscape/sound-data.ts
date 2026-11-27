@@ -648,7 +648,13 @@ const EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
     maxDistance: 24,
   },
 
-  // ── 草苑：開闊而柔，沒有東西反射它 ──
+  /**
+   * ── 風露苑：白天是風，入夜換成蟲 ──
+   *
+   * 由草苑與蟲聲叢併成一座。兩座原本都是一方草地加一點蟲聲，分不太開；
+   * 併起來之後拿日夜分工：白天是開闊而柔的風與稀稀落落的蚱蜢，
+   * 一入夜風還在，蚱蜢歇了，換蟋蟀與螽斯從草叢的每一個縫隙裡出來
+   */
   ...[
     at('meadow', -3, -3),
     at('meadow', 4, 4),
@@ -687,111 +693,72 @@ const EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
     silentInRain: true,
   },
   {
-    /**
-     * 入夜的草苑
-     *
-     * 一片草地最熱鬧的時候是晚上。原本這座木座天一黑就只剩風，
-     * 那是反過來的：蟲類多半入夜才叫，草原的夜該是滿滿一片蟋蟀。
-     *
-     * 音量給得比白天的草蟲高，範圍也拉寬——
-     * 白天是零星幾聲，夜裡是整片地一起響
-     */
-    id: 'meadow-night-cricket',
-    activeAt: 'night',
-    sound: 'insect-cricket',
-    title: { 'zh-hant': '草間的蟲聲', 'en': 'Crickets across the meadow' },
+    /** 日行的草蟲：石堆那一角再一顆，音量壓低，是稀疏的背景 */
+    id: 'meadow-day-chorus',
+    activeAt: 'day',
+    sound: 'meadow-insect',
+    title: { 'zh-hant': '日行的草蟲', 'en': 'Daytime insects' },
     zone: 'meadow',
-    ...at('meadow', -4, 3),
+    ...at('meadow', -3, 3),
     heightOffset: 1,
     mode: { type: 'loop' },
-    volume: 0.42,
+    volume: 0.26,
     minDistance: 4,
-    maxDistance: 22,
-    silentInRain: true,
-  },
-
-  // ── 牧野：位置一直在動的聲音 ──
-  {
-    id: 'pasture-sheep',
-    activeAt: 'day',
-    sound: 'village-sheep',
-    title: { 'zh-hant': '牧場羊群', 'en': 'Sheep in the pasture' },
-    zone: 'pasture',
-    ...at('pasture'),
-    heightOffset: 1,
-    /**
-     * 羊群自己會走
-     *
-     * 柵欄裡那幾隻羊本來就在慢慢挪位置，聲音卻釘在牧地正中央——
-     * 站在欄邊聽久了會發現叫聲永遠從同一個點來。
-     * 走得很慢，一分鐘才換完一趟，那才是吃草的速度
-     */
-    motion: { type: 'wander', radius: 6, periodSecond: 62 },
-    mode: { type: 'interval', rangeSecond: [10, 26] },
-    volume: 0.6,
-    minDistance: 4,
-    maxDistance: 24,
-  },
-
-  {
-    /**
-     * 入夜的牧野
-     *
-     * 羊群白天叫、夜裡睡，這座木座若只有羊就會在天黑後整個啞掉。
-     * 補一片草間的蟲聲：同一塊地，白天是牲口、夜裡是蟲，
-     * 聲音換了，地方還是那個地方
-     */
-    id: 'pasture-night-insect',
-    sound: 'insect-cricket',
-    title: { 'zh-hant': '夜草間的蟲', 'en': 'Crickets in the night grass' },
-    zone: 'pasture',
-    ...at('pasture', 6, -5),
-    heightOffset: 1,
-    mode: { type: 'loop' },
-    volume: 0.34,
-    minDistance: 3,
-    maxDistance: 16,
-    activeAt: 'night',
-    silentInRain: true,
-  },
-
-  // ── 蜂巢圃：一整團密集的中頻嗡鳴 ──
-  {
-    id: 'apiary-bee',
-    activeAt: 'day',
-    sound: 'bee',
-    title: { 'zh-hant': '蜂箱嗡嗡', 'en': 'Buzzing beehive' },
-    zone: 'apiary',
-    ...at('apiary'),
-    heightOffset: 2,
-    /**
-     * 繞著蜂箱打轉
-     *
-     * 圈子小、轉得快，而且是持續的嗡鳴——
-     * 站在蜂箱旁邊時，那個聲音會實實在在地從左耳繞到右耳。
-     * 這是整片音景裡最容易察覺「聲音在動」的一個
-     */
-    motion: { type: 'orbit', radius: 3.5, periodSecond: 12, riseHeight: 1 },
-    mode: { type: 'loop' },
-    volume: 0.7,
-    minDistance: 3,
     maxDistance: 18,
     silentInRain: true,
   },
-
-  {
-    /** 蜂群入夜就歇了，換灌叢裡的螽斯接手同一段嗡嗡的頻段 */
-    id: 'apiary-night-cricket',
-    sound: 'insect-bush-cricket',
-    title: { 'zh-hant': '蜂箱旁的螽斯', 'en': 'Bush cricket by the hives' },
-    zone: 'apiary',
-    ...at('apiary', -5, 4),
+  /**
+   * 入夜的合唱
+   *
+   * 蟲類多半入夜才叫，這座草地天一黑才是最熱鬧的時候：
+   * 蟋蟀與螽斯兩顆迴圈當底（頻段錯開才不會糊成一團嗡嗡），
+   * 音量比白天的草蟲高、範圍拉寬，整片地一起響
+   */
+  ...[
+    { position: at('meadow', -3, 3), sound: 'insect-cricket' },
+    { position: at('meadow', 4, -2), sound: 'insect-bush-cricket' },
+  ].map(({ position, sound }, index): SoundEmitterDefinition => ({
+    id: `meadow-night-chorus-${index}`,
+    sound,
+    activeAt: 'night',
+    title: { 'zh-hant': '入夜的合唱', 'en': 'Chorus after dark' },
+    zone: 'meadow',
+    ...position,
     heightOffset: 1,
     mode: { type: 'loop' },
-    volume: 0.38,
-    minDistance: 3,
-    maxDistance: 16,
+    volume: 0.5,
+    minDistance: 4,
+    maxDistance: 22,
+    silentInRain: true,
+  })),
+  {
+    /** 底層之上的獨奏，讓那片合唱有前後景：蟋蟀躲在石縫裡 */
+    id: 'meadow-cricket',
     activeAt: 'night',
+    sound: 'insect-cricket',
+    title: { 'zh-hant': '近處的蟋蟀', 'en': 'Cricket nearby' },
+    zone: 'meadow',
+    ...at('meadow', -4, 4),
+    heightOffset: 1,
+    mode: { type: 'interval', rangeSecond: [12, 30] },
+    volume: 0.5,
+    minDistance: 3,
+    maxDistance: 20,
+    silentInRain: true,
+  },
+  {
+    /** 螽斯在乾土那一角的仙人掌底下 */
+    id: 'meadow-bush-cricket',
+    activeAt: 'night',
+    sound: 'insect-bush-cricket',
+    title: { 'zh-hant': '灌叢螽斯', 'en': 'Bush cricket' },
+    zone: 'meadow',
+    ...at('meadow', 4, 4),
+    heightOffset: 1,
+    mode: { type: 'interval', rangeSecond: [14, 32] },
+    volume: 0.5,
+    minDistance: 3,
+    maxDistance: 20,
     silentInRain: true,
   },
 
@@ -849,8 +816,7 @@ const EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
    * 走在亭子四周時前後左右都有雨，方向感才出得來。
    *
    * 這座沒有屋頂，走進去就是淋在身上，
-   * 用的是雨直接打在葉子上那段——亮而細碎。
-   * 隔壁雨聽堂是隔著屋瓦聽的那段，兩座擺在一起才成為對照
+   * 用的是雨直接打在葉子上那段——亮而細碎
    */
   ...[
     at('rainvale'),
@@ -873,7 +839,7 @@ const EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
      * 遠雷
      *
      * 全庭唯一會打雷的地方。雷聲原本掛在天氣系統上，
-     * 那表示雨聽堂也跟著轟隆——一間坐著聽雨的屋子不需要那個。
+     * 那表示每一座下雨的箱庭都跟著轟隆。
      * 打雷是這座箱庭獨有的事，所以種在這裡。
      *
      * mode 是 trigger：它不自己響，等閃電來叫。
@@ -906,154 +872,6 @@ const EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
     heightOffset: 1,
     mode: { type: 'interval', rangeSecond: [14, 34] },
     volume: 0.6,
-    minDistance: 3,
-    maxDistance: 18,
-  },
-
-  /**
-   * ── 蟲聲叢：高頻、顆粒感，成片鋪開 ──
-   *
-   * 這座木座的日夜原本是反的：白天兩顆迴圈鋪成一片密實的合唱，
-   * 夜裡卻只剩兩顆間隔十幾秒才響一次的零星叫聲——
-   * 一座叫「蟲聲叢」的箱庭在蟲最該叫的時候是全庭最安靜的。
-   *
-   * 現在夜裡有兩顆迴圈當底、兩聲獨奏點綴，白天則收成稀疏的日行蟲。
-   * 走進來的人在夜裡會被整片蟲聲包住，那才是這座箱庭的名字
-   */
-  ...[
-    at('insect', -3, 3),
-    at('insect', 4, -2),
-  ].map((position, index): SoundEmitterDefinition => ({
-    id: `insect-day-chorus-${index}`,
-    sound: 'meadow-insect',
-    activeAt: 'day',
-    title: { 'zh-hant': '日行的草蟲', 'en': 'Daytime insects' },
-    zone: 'insect',
-    ...position,
-    heightOffset: 1,
-    /** 白天是稀疏的背景，讓位給夜裡那一片 */
-    volume: 0.26,
-    mode: { type: 'loop' },
-    minDistance: 4,
-    maxDistance: 18,
-    silentInRain: true,
-  })),
-  ...[
-    { position: at('insect', -3, 3), sound: 'insect-cricket' },
-    { position: at('insect', 4, -2), sound: 'insect-bush-cricket' },
-  ].map(({ position, sound }, index): SoundEmitterDefinition => ({
-    id: `insect-night-chorus-${index}`,
-    sound,
-    activeAt: 'night',
-    title: { 'zh-hant': '入夜的合唱', 'en': 'Chorus after dark' },
-    zone: 'insect',
-    ...position,
-    heightOffset: 1,
-    /** 兩顆分別是蟋蟀與螽斯，頻段錯開才不會糊成一團嗡嗡 */
-    mode: { type: 'loop' },
-    volume: 0.5,
-    minDistance: 4,
-    maxDistance: 22,
-    silentInRain: true,
-  })),
-  {
-    /** 底層之上的獨奏，讓那片合唱有前後景 */
-    id: 'insect-cricket',
-    activeAt: 'night',
-    sound: 'insect-cricket',
-    title: { 'zh-hant': '近處的蟋蟀', 'en': 'Cricket nearby' },
-    zone: 'insect',
-    ...at('insect', -5, -4),
-    heightOffset: 1,
-    mode: { type: 'interval', rangeSecond: [12, 30] },
-    volume: 0.5,
-    minDistance: 3,
-    maxDistance: 20,
-    silentInRain: true,
-  },
-  {
-    id: 'insect-bush-cricket',
-    activeAt: 'night',
-    sound: 'insect-bush-cricket',
-    title: { 'zh-hant': '灌叢螽斯', 'en': 'Bush cricket' },
-    zone: 'insect',
-    ...at('insect', 5, 5),
-    heightOffset: 1,
-    mode: { type: 'interval', rangeSecond: [14, 32] },
-    volume: 0.5,
-    minDistance: 3,
-    maxDistance: 20,
-    silentInRain: true,
-  },
-
-  // ── 雨聽堂：從屋子裡聽外面的雨 ──
-  /**
-   * 打在屋瓦上的雨
-   *
-   * 這座箱庭的雨聲同樣是種在這裡的。天氣系統那道全域雨底已經拿掉，
-   * 理由見 use-weather 開頭：一道共用的雨聲會把兩座雨區聽成同一座。
-   *
-   * 用的不是聽雨亭那段葉子雨，而是在屋頂底下錄的那一段：
-   * 四千赫以上低十分貝，細碎的高頻讓那層頂擋在外面，
-   * 剩下中頻的悶響。同一場雨，隔著一層東西聽是另一回事——
-   * 這座箱庭要的就是那個「另一回事」。
-   *
-   * 一圈而不是一顆。屋瓦是頭頂上一整片，
-   * 只擺一顆的話雨會縮成天花板上的一個點，
-   * 人一走動就發現聲音黏在某個角落
-   */
-  ...[
-    at('rainhall'),
-    ...createRingPositionList(getGarden('rainhall').center, 4, 4),
-  ].map((position, index): SoundEmitterDefinition => ({
-    id: `rainhall-roof-${index}`,
-    sound: 'rain-roof',
-    title: { 'zh-hant': '打在屋瓦上的雨', 'en': 'Rain on the roof' },
-    zone: 'rainhall',
-    ...position,
-    /** 屋脊的高度，雨要從頭頂上那層下來 */
-    heightOffset: 7,
-    mode: { type: 'loop' },
-    volume: 0.5,
-    minDistance: 5,
-    maxDistance: 15,
-  })),
-  ...[
-    at('rainhall', -4, 4),
-    at('rainhall', 4, 4),
-  ].map((position, index): SoundEmitterDefinition => ({
-    /**
-     * 順著出簷落下來的水
-     *
-     * 擺在滴水線上、與眼睛差不多高，範圍壓到十二格：
-     * 坐在開口前才聽得到那一排水滴打在卵石上
-     */
-    id: `rainhall-eave-${index}`,
-    sound: 'cave-drip',
-    title: { 'zh-hant': '簷下滴水', 'en': 'Dripping from the eaves' },
-    zone: 'rainhall',
-    ...position,
-    heightOffset: 2,
-    mode: { type: 'loop' },
-    volume: 0.55,
-    minDistance: 2,
-    maxDistance: 12,
-  })),
-  {
-    /**
-     * 雨裡的蟾蜍
-     *
-     * 下雨天最活躍的就是牠。一天到晚都在，
-     * 因為這座箱庭的雨從來沒停過
-     */
-    id: 'rainhall-toad',
-    sound: 'frog-toad',
-    title: { 'zh-hant': '雨中的蟾蜍', 'en': 'Toad in the rain' },
-    zone: 'rainhall',
-    ...at('rainhall', -6, -3),
-    heightOffset: 1,
-    mode: { type: 'interval', rangeSecond: [16, 40] },
-    volume: 0.5,
     minDistance: 3,
     maxDistance: 18,
   },
@@ -1290,7 +1108,7 @@ const EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
   /**
    * 這一座的重點是「只剩一種聲音」
    *
-   * 其他二十一座都在收集聲音，這一座在清空它們。
+   * 其他十七座都在收集聲音，這一座在清空它們。
    * 暴風雪是一種會把別的東西全部蓋掉的聲音——
    * 所以這裡不種鳥、不種蟲、不種水，一樣都不留。
    *
@@ -1363,11 +1181,11 @@ const MIN_DISTANCE_RATIO = 0.6
 /**
  * 這個音源最遠能傳到多遠，才不會被隔壁的箱庭聽見
  *
- * 一座箱庭的聲音只屬於那一座。站在雨聽堂聽得到牧野的羊，
+ * 一座箱庭的聲音只屬於那一座。站在水鏡池聽得到風露苑的蟲，
  * 兩座箱庭就從「各有各的世界」退回「同一片草原上的兩個裝置」——
  * 而整個禪庭的前提是每一座各自成立。
  *
- * 這件事不適合逐筆調。一百多顆音源、二十二座箱庭，
+ * 這件事不適合逐筆調。一百多顆音源、十八座箱庭，
  * 手動對過一輪之後只要有人搬動一座箱庭或改一個 maxDistance，
  * 越界就會悄悄長回來，而且要走到那裡站著聽才發現得了。
  * 所以把它寫成建立清單時的約束：資料裡的 maxDistance 是「希望傳多遠」，
@@ -1390,7 +1208,7 @@ const MIN_DISTANCE_RATIO = 0.6
  *
  * 高度必須是量出來的，不能拿 heightOffset 估。兩者差在地面：
  * heightOffset 是「離自己腳下的地多高」，而要的是「比鄰居的耳朵高多少」，
- * 中間隔著兩座木座的高低差。雪稜丘在山上、雨聽堂在平地，
+ * 中間隔著兩座木座的高低差。雪稜丘在山上、水鏡池在平地，
  * 估出來的那一截可能整整差掉好幾格——估多了就洩出去，估少了自己聽不到
  */
 function measureNeighbourLimit(
@@ -1423,7 +1241,7 @@ function measureNeighbourLimit(
 /**
  * 各箱庭木座上，人的耳朵在什麼高度
  *
- * 一座量一次就好。逐顆音源去問二十二座是同一批答案算一百多遍，
+ * 一座量一次就好。逐顆音源去問十八座是同一批答案算一百多遍，
  * 而這是世界生成後才跑得動的路徑，能省的就省
  */
 function createListenerYMap(worldState: Uint8Array): Map<string, number> {

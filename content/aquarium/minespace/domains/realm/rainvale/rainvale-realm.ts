@@ -6,6 +6,7 @@ import {
   RAINVALE_CENTER,
   RAINVALE_GROUND_Y,
   RAINVALE_HUB_GATE_OFFSET,
+  RAINVALE_OUTER_FLOOR_Y,
   RAINVALE_PORTAL_POINT,
   RAINVALE_PUSH_RADIUS,
   RAINVALE_SLOW_RADIUS,
@@ -92,9 +93,11 @@ export const RAINVALE_REALM: RealmDefinition = {
     centerZ: RAINVALE_CENTER.z,
     /**
      * 不給遠山：雨霧二三十格外就是一片灰，山稜不吃一般的霧，掛在雨裡反而突兀。
-     * 林子外面走不到的地面是 LAKE_BED，平面一路鋪到地平線，從樹縫望出去才不會看到世界的邊
+     * 林子外面走不到的地面是 LAKE_BED，平面一路鋪到地平線，從樹縫望出去才不會看到世界的邊。
+     * 平面在林地底下兩格（RAINVALE_OUTER_FLOOR_Y），不能與草地同高：它鋪滿整個世界，
+     * 同高時比積水的水面（矮八分之一格）還高，每一窪水都被一片草地蓋掉
      */
-    floor: { surfaceY: RAINVALE_GROUND_Y + 0.5, blockId: BlockId.GRASS, isEndless: true },
+    floor: { surfaceY: RAINVALE_OUTER_FLOOR_Y + 0.5, blockId: BlockId.GRASS, isEndless: true },
   },
   /** 往雨林去是一陣帶綠的濕霧，夾著往下落的雨珠 */
   transition: {

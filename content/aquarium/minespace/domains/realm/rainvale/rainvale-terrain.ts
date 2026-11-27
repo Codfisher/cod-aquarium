@@ -21,6 +21,7 @@ import {
   RAINVALE_CENTER,
   RAINVALE_EDGE_RADIUS,
   RAINVALE_GROUND_Y,
+  RAINVALE_OUTER_FLOOR_Y,
   RAINVALE_PORTAL_POINT,
   THICKET_START_RADIUS,
 } from './rainvale-layout'
@@ -142,13 +143,18 @@ function shapeTerrain(state: Uint8Array): Uint8Array {
       const radius = measureDistance(x, z, RAINVALE_CENTER)
       const index = x * WORLD_SIZE + z
 
-      /** 林子外面：碰撞照算、不畫，由布景的地面平面代替 */
+      /**
+       * 林子外面：碰撞照算、不畫，由布景的地面平面代替
+       *
+       * 比林地矮兩格（RAINVALE_OUTER_FLOOR_Y），見那個常數的說明：
+       * 地面平面是鋪滿整個世界的，與草地同高的話會蓋住每一窪積水
+       */
       if (radius > RAINVALE_EDGE_RADIUS + 2) {
-        for (let y = 1; y < RAINVALE_GROUND_Y; y++) {
+        for (let y = 1; y < RAINVALE_OUTER_FLOOR_Y; y++) {
           setBlock(state, x, y, z, BlockId.STONE)
         }
-        setBlock(state, x, RAINVALE_GROUND_Y, z, BlockId.LAKE_BED)
-        groundTopMap[index] = RAINVALE_GROUND_Y
+        setBlock(state, x, RAINVALE_OUTER_FLOOR_Y, z, BlockId.LAKE_BED)
+        groundTopMap[index] = RAINVALE_OUTER_FLOOR_Y
         continue
       }
 

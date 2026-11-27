@@ -612,6 +612,26 @@ function placeSteppingStoneList(state: Uint8Array): void {
       setBlock(state, x, groundY, z, BlockId.STEPPING_STONE)
     }
   }
+
+  /**
+   * 台地邊的石階
+   *
+   * 台地比田地高一整格，人走不上去得跳。三條路出台地的地方（回程門外、小巷南北兩頭），
+   * 石砌邊外面那一排補一列石半磚，一格的落差拆成兩個半階
+   */
+  const stepList = [
+    { x: VILLAGE_PORTAL_POINT.x - 2, z: VILLAGE_PORTAL_POINT.z, alongX: false },
+    { x: VILLAGE_CENTER.x, z: VILLAGE_CENTER.z - TERRACE_RADIUS, alongX: true },
+    { x: VILLAGE_CENTER.x, z: VILLAGE_CENTER.z + TERRACE_RADIUS, alongX: true },
+  ]
+  for (const step of stepList) {
+    for (let offset = -2; offset <= 2; offset++) {
+      const x = step.x + (step.alongX ? offset : 0)
+      const z = step.z + (step.alongX ? 0 : offset)
+      if (getBlock(state, x, FIELD_Y, z) === BlockId.GRASS && getBlock(state, x, groundY, z) !== BlockId.FENCE)
+        setBlock(state, x, groundY, z, BlockId.STONE_SLAB)
+    }
+  }
 }
 
 /** 生成整座村落 */

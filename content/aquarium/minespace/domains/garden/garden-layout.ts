@@ -29,26 +29,18 @@ export type GardenId =
   | 'village'
   /** 稀疏的瞬態配上長殘響：洞頂的滴水 */
   | 'cave'
-  // ── 內圈八座小箱庭 ──
+  // ── 內圈五座小箱庭 ──
   /** 一團持續的低頻劈啪 */
   | 'campfire'
   /** 石室的迴響，聲音進去繞好幾圈才出來 */
   | 'ruins'
-  /** 開闊而柔的風，沒有東西可以反射 */
+  /** 白天開闊而柔的風，入夜換成高頻、顆粒感、成片的蟲鳴（草苑與蟲聲叢併成的風露苑） */
   | 'meadow'
-  /** 家畜零星的叫聲 */
-  | 'pasture'
-  /** 一整團密集的中頻嗡鳴 */
-  | 'apiary'
   /** 靜水面上的點狀聲響 */
   | 'pond'
   /** 雨打在葉子上，密集而柔軟 */
   | 'rainvale'
-  /** 高頻、顆粒感、成片的蟲鳴 */
-  | 'insect'
   // ── 中圈四座小箱庭 ──
-  /** 只在黑暗中出現的聲音 */
-  | 'rainhall'
   /** 不摻任何風聲水聲的純旋律 */
   | 'songbird'
   /** 盛夏的蟬，密到分不出是幾隻，而且一隻都看不見 */
@@ -108,8 +100,8 @@ const INNER_RING_RADIUS = 36
 /**
  * 中圈小箱庭的排列半徑
  *
- * 夾在內外兩圈之間那段空白。角度刻意與內圈的四座對齊，
- * 從中心往外走會是「小、小、大」三段，而不是走幾步就撞到一座
+ * 夾在內外兩圈之間那段空白。中圈只能落在外圈兩座之間的角度上（22.5 + 45k）：
+ * 這個半徑下偏離那幾個角度十幾度，木座就會撞上外圈大箱庭的角
  */
 const MIDDLE_RING_RADIUS = 58
 
@@ -134,9 +126,23 @@ function getRingPosition(radius: number, degree: number): { x: number; z: number
 /**
  * 箱庭佈局
  *
- * 外圈八座大的排在正方位與四隅，內圈八座小的插在兩者之間的角度上，
+ * 外圈八座大的排在正方位與四隅，內圈五座、中圈四座小的插在它們之間，
  * 正中央留給枯山水。整體是一個同心的排列，
  * 但每一座的內容各自偏心，走起來不會像在逛棋盤。
+ *
+ * 小箱庭的角度被兩件事夾住（拿掉牧野、蜂巢圃、雨聽堂，草苑與蟲聲叢併成風露苑之後重排）：
+ *
+ * 1. 每一座的入口朝著禪庭中心。飛石從「世界中心往這座」的那一軸走上木座（見 placeApproachStoneList），
+ *    造景與門都是迎著那一邊做的：水鏡池的木板從北岸鋪進池裡、石廊跡南邊那根斷柱塌出一道口、
+ *    聽雨亭與鳴禽庭從東緣踏上木座、吹雪野從北邊走進白裡。所以一座箱庭只能在同一個象限裡挪，
+ *    挪過四十五度的對角線，飛石就會換到另一邊，正好撞上它背對的那一側。
+ * 2. 出生點在枯山水南緣外、面朝北。北邊那一眼是整座禪庭的門面：
+ *    爐火壇與石廊跡、地獄谷與蟬時雨一左一右對稱地夾著，中間一路望到松籟林那座鳥居，這四座不動。
+ *
+ * 內圈在這兩條底下排成左右對稱：北邊那一對不動，其餘三座把剩下的弧等分（每隔 78.75 度一座），
+ * 水鏡池落在出生點正後方，一轉身飛石就領著人走向池子；風露苑與聽雨亭隔著南北軸一東一西。
+ * 中圈的鳴禽庭與吹雪野入口方向固定、找不到對稱的位置，就分在東西兩側，
+ * 再在它們隔著南北軸的鏡像位置各擺一塊孤石（SOLITARY_STONE_LIST），遠看整圈仍是平衡的。
  *
  * 半徑選得剛好讓相鄰兩座的距離接近霧氣的終點：
  * 站在一座箱庭上時，隔壁那座正在霧裡若隱若現，
@@ -242,7 +248,7 @@ export const GARDEN_LIST: GardenDefinition[] = [
     },
   },
 
-  // ── 內圈：八座小箱庭，插在大箱庭之間 ──
+  // ── 內圈：五座小箱庭，北邊一對夾著出生點那一眼，其餘三座等分剩下的弧 ──
   {
     id: 'campfire',
     title: { 'zh-hant': '爐火壇', 'en': 'Fire Pit' },
@@ -262,43 +268,27 @@ export const GARDEN_LIST: GardenDefinition[] = [
     pedestalHeight: 1,
   },
   {
+    /** 由草苑與蟲聲叢併成：白天是風與蚱蜢，入夜換成蟋蟀與螽斯 */
     id: 'meadow',
-    title: { 'zh-hant': '草苑', 'en': 'Meadow Court' },
-    timbre: { 'zh-hant': '原野無界，風過不留痕', 'en': 'A boundless meadow where sound finds nothing to strike' },
-    icon: 'i-material-symbols:grass',
-    center: getRingPosition(INNER_RING_RADIUS, 337.5),
+    title: { 'zh-hant': '風露苑', 'en': 'Dewwind Court' },
+    timbre: { 'zh-hant': '晝風梳草，夜露生吟', 'en': 'Wind combs the grass by day; dew wakes the song by night' },
+    icon: 'i-material-symbols:emoji-nature',
+    center: getRingPosition(INNER_RING_RADIUS, 11.25),
     halfSize: SMALL_HALF_SIZE,
     pedestalHeight: 1,
   },
   {
-    id: 'pasture',
-    title: { 'zh-hant': '牧野', 'en': 'Pasture' },
-    timbre: { 'zh-hant': '羊鳴隨風轉，蹄踏草色新', 'en': 'A wandering bleat drifts across grazing grass' },
-    icon: 'i-material-symbols:pets',
-    center: getRingPosition(INNER_RING_RADIUS, 22.5),
-    halfSize: SMALL_HALF_SIZE,
-    pedestalHeight: 1,
-  },
-  {
-    id: 'apiary',
-    title: { 'zh-hant': '蜂巢圃', 'en': 'Bee Yard' },
-    timbre: { 'zh-hant': '萬翼同振，織作一聲', 'en': 'A thousand wings weave a single hum' },
-    icon: 'i-material-symbols:hive',
-    center: getRingPosition(INNER_RING_RADIUS, 67.5),
-    halfSize: SMALL_HALF_SIZE,
-    pedestalHeight: 1,
-    /** 正中央疊著蜂箱，落在它前面的花叢裡 */
-    travelPoint: {
-      x: getRingPosition(INNER_RING_RADIUS, 67.5).x,
-      z: getRingPosition(INNER_RING_RADIUS, 67.5).z + 4,
-    },
-  },
-  {
+    /**
+     * 出生點正後方
+     *
+     * 出生點與木座北緣之間還有八格白沙，面朝北的那一眼看不到它；一轉身，
+     * 飛石就從腳邊領著人走向池子（出生點那一格與左右兩格不放飛石，見 placeApproachStoneList）
+     */
     id: 'pond',
     title: { 'zh-hant': '水鏡池', 'en': 'Mirror Pond' },
     timbre: { 'zh-hant': '鏡水涵虛，偶落微波響', 'en': 'Glass-still water, stirred by fleeting ripples' },
     icon: 'i-material-symbols:water-lux',
-    center: getRingPosition(INNER_RING_RADIUS, 112.5),
+    center: getRingPosition(INNER_RING_RADIUS, 90),
     halfSize: SMALL_HALF_SIZE,
     pedestalHeight: 1,
   },
@@ -307,30 +297,12 @@ export const GARDEN_LIST: GardenDefinition[] = [
     title: { 'zh-hant': '聽雨亭', 'en': 'Rain Pavilion' },
     timbre: { 'zh-hant': '翠葉沾雨，碎玉聲甚柔', 'en': 'Rain taps the leaves, soft as falling jade' },
     icon: 'i-material-symbols:rainy',
-    center: getRingPosition(INNER_RING_RADIUS, 157.5),
-    halfSize: SMALL_HALF_SIZE,
-    pedestalHeight: 1,
-  },
-  {
-    id: 'insect',
-    title: { 'zh-hant': '蟲聲叢', 'en': 'Insect Thicket' },
-    timbre: { 'zh-hant': '微茫夜草，碎吟遍野深', 'en': 'Faint whispers rustle through the night grass' },
-    icon: 'i-material-symbols:emoji-nature',
-    center: getRingPosition(INNER_RING_RADIUS, 202.5),
+    center: getRingPosition(INNER_RING_RADIUS, 168.75),
     halfSize: SMALL_HALF_SIZE,
     pedestalHeight: 1,
   },
 
-  // ── 中圈：四座小箱庭，插在內外兩圈之間 ──
-  {
-    id: 'rainhall',
-    title: { 'zh-hant': '雨聽堂', 'en': 'Rain Hall' },
-    timbre: { 'zh-hant': '深堂晏坐，晴內聽滂沱', 'en': 'Sheltered inside, listening to the torrent' },
-    icon: 'i-material-symbols:cottage',
-    center: getRingPosition(MIDDLE_RING_RADIUS, 22.5),
-    halfSize: SMALL_HALF_SIZE,
-    pedestalHeight: 1,
-  },
+  // ── 中圈：四座小箱庭，北邊一對與內圈那一對排成一線，鳴禽庭與吹雪野分在東西 ──
   {
     id: 'songbird',
     title: { 'zh-hant': '鳴禽庭', 'en': 'Songbird Court' },
@@ -358,12 +330,12 @@ export const GARDEN_LIST: GardenDefinition[] = [
     title: { 'zh-hant': '吹雪野', 'en': 'Whiteout Field' },
     timbre: { 'zh-hant': '朔風吞萬籟，天地唯蒼茫', 'en': 'Fierce winds swallow all sound into white silence' },
     icon: 'i-material-symbols:weather-snowy',
-    center: getRingPosition(MIDDLE_RING_RADIUS, 112.5),
+    center: getRingPosition(MIDDLE_RING_RADIUS, 67.5),
     halfSize: SMALL_HALF_SIZE,
     pedestalHeight: 1,
     travelPoint: {
-      x: getRingPosition(MIDDLE_RING_RADIUS, 112.5).x,
-      z: getRingPosition(MIDDLE_RING_RADIUS, 112.5).z + 6,
+      x: getRingPosition(MIDDLE_RING_RADIUS, 67.5).x,
+      z: getRingPosition(MIDDLE_RING_RADIUS, 67.5).z + 6,
     },
   },
   {
@@ -517,10 +489,6 @@ export const JIGOKU_GATE_OFFSET = { x: 0, z: 3 }
 /** 爐火壇的火堆，火焰與煙的粒子掛在這裡 */
 export const CAMPFIRE_POINT = getGarden('campfire').center
 
-/** 牧野的柵欄範圍，羊群在裡面來回 */
-export const PASTURE_CENTER = getGarden('pasture').center
-export const PASTURE_HALF_SIZE = getGarden('pasture').halfSize - 2
-
 /** 枯山水的水琴窟，埋在石板底下的那一甕水 */
 export const SUIKINKUTSU_POINT = {
   x: GARDEN_CENTER.x + 5,
@@ -536,13 +504,13 @@ export const SUIKINKUTSU_POINT = {
  */
 export const SOLITARY_STONE_LIST = [
   /**
-   * 中圈沒被箱庭佔走的那幾個角度
+   * 吹雪野（67.5）與鳴禽庭（202.5）隔著南北軸的鏡像位置
    *
-   * 原本是四個等距的角度，247.5 那一格後來讓給了地獄谷。
-   * 剩下三個不再等距，但那反而好：中圈本來就已經有五座箱庭，
+   * 那兩座的入口方向固定，左右各缺一座對稱的鄰居，就各補一塊孤石，
+   * 從出生點左右張望時兩側的份量才相當。只放這兩塊，中圈其餘的空位留白：
    * 孤石只是拿來填空白的，排得太整齊會看起來像另一圈建築
    */
-  ...[67.5, 157.5, 337.5].map((degree, index) => ({
+  ...[112.5, 337.5].map((degree, index) => ({
     ...getRingPosition(MIDDLE_RING_RADIUS, degree),
     height: 2 + (index % 3),
   })),

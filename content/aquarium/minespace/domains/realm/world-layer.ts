@@ -1,7 +1,6 @@
 import type { Scene, StandardMaterial, UniversalCamera } from '@babylonjs/core'
 import type { useBlockLights } from '../../composables/use-block-lights'
 import type { TexturePack } from '../block/texture-pack'
-import type { useSheepFlock } from '../fauna/use-sheep-flock'
 import type { VoxelGi } from '../renderer/voxel-gi'
 import type { AtmosphereState } from '../weather/atmosphere'
 import type { WaterMap } from '../world/water-body'
@@ -28,7 +27,7 @@ import { createRealmDecoration } from './realm-decoration'
  * 世界層
  *
  * 一個場景自己的那一整套：方塊資料、區塊網格與它們的材質、箱庭造景附帶的東西
- * （外圍白沙、水鏡池倒影、羊群、營火）、水面與焦散、全局光、燈火的光暈與真光。
+ * （外圍白沙、水鏡池倒影、營火）、水面與焦散、全局光、燈火的光暈與真光。
  * 換場景時整層拆掉重建。
  *
  * 引擎層（引擎、場景、鏡頭、後製、天空、體積雲、日夜、自動曝光、玩家控制器、
@@ -43,7 +42,7 @@ export interface WorldLayer {
   voxelGi: VoxelGi | null;
   /** 淋得到雨、也淋濕得起來的那些材質，天氣的濕潤要掛上去 */
   getWetMaterialList: () => StandardMaterial[];
-  /** 換材質包：方塊、羊與外圍白沙的材質都留著，只換貼圖 */
+  /** 換材質包：方塊與外圍白沙的材質都留著，只換貼圖 */
   applyPack: (pack: TexturePack, isBumpActive: boolean) => void;
   /** 開關水面的日照高光，除錯面板用 */
   setWaterGlintEnabled: (isEnabled: boolean) => void;
@@ -57,8 +56,7 @@ interface CreateWorldLayerParam {
   scene: Scene;
   camera: UniversalCamera;
   texturePack: { pack: TexturePack; isBumpActive: boolean };
-  /** 羊群與燈池是引擎層建的 composable（要在 effect scope 裡建），世界層只負責 start 與 stop */
-  sheepFlock: ReturnType<typeof useSheepFlock>;
+  /** 燈池是引擎層建的 composable（要在 effect scope 裡建），世界層只負責 start 與 stop */
   blockLights: ReturnType<typeof useBlockLights>;
   /** 傳送門的霧面與遠景布景都要讀此刻的天色 */
   atmosphere: AtmosphereState;
@@ -101,7 +99,6 @@ export async function createWorldLayer({
   scene,
   camera,
   texturePack,
-  sheepFlock,
   blockLights,
   atmosphere,
   getDayRatio,
@@ -191,12 +188,6 @@ export async function createWorldLayer({
   })
   disposeList.push(() => waterCaustics.dispose())
 
-  /** 羊群：大廳放牧野那一群，大場景有給 sheepFlock 的（羊鳴谷）放自己那一群 */
-  if (realm.hasGardens || realm.sheepFlock) {
-    sheepFlock.start({ scene, worldState, camera, getDayRatio, skinner, area: realm.sheepFlock })
-    disposeList.push(() => sheepFlock.stop())
-  }
-
   if (realm.hasGardens) {
     const campfireSmoke = createCampfireSmoke(scene, worldState)
     disposeList.push(() => campfireSmoke.dispose())
@@ -257,7 +248,7 @@ export async function createWorldLayer({
   disposeList.push(() => portalGateList.dispose())
 
   /** 場景自己的渲染端裝飾（地底湖窟洞頂的螢光蟲），見 realm-decoration */
-  const realmDecoration = createRealmDecoration(realm.id, { scene, worldState })
+  const realmDecoration = createRealmDecoration(realm.id, { scene, worldState, atmosphere })
   if (realmDecoration) {
     disposeList.push(() => realmDecoration.dispose())
   }

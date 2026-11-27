@@ -1,5 +1,5 @@
 import type { SoundEmitterDefinition } from '../../soundscape/type'
-import { ARRIVAL_CLEARING, CICADA_CENTER, SHADE_CLEARING, VERANDA_LIST, WOOD_RADIUS } from './cicada-layout'
+import { ARRIVAL_CLEARING, CICADA_CENTER, CICADA_GROUND_Y, CROWN_BOTTOM_Y, SHADE_CLEARING, VERANDA_LIST, WOOD_RADIUS } from './cicada-layout'
 
 /** 林子裡間隔 spacing 格的一片網格點（奇數列錯開半格），只留在 radius 以內 */
 function createGridPointList(spacing: number, radius: number): { x: number; z: number }[] {
@@ -23,23 +23,28 @@ function createGridPointList(spacing: number, radius: number): { x: number; z: n
  * 蟬時雨的關鍵是「聽不出有幾隻，也聽不出從哪裡來」：六顆蟬的合唱圍一圈、全掛在樹冠的高度、
  * 範圍互相重疊，方向互相抵消，剩下一片從頭頂壓下來的聲音；再加一隻會動、比別人近的，
  * 整片聲音才有前後景。入夜蟬整片停掉，換蟋蟀接手。
- * 這裡把那一圈鋪成一整片：每十五格一顆合唱掛在蓋子底下，走到哪裡都同時有五六顆進耳朵；
- * 近處的那一隻多放幾隻，夜裡的蟋蟀疏一點。全沿用蟬時雨的音檔與數字
+ * 這裡把那一圈鋪成一整片：每十三格一顆合唱，走到哪裡都同時有十來顆進耳朵。
+ *
+ * 高度一律直接給 y，不用 heightOffset：音源的 y 是從「這一柱最上面那格實心方塊」往上量的，
+ * 樹葉也算實心，掛在林子裡的音源會先被抬到樹冠頂、再往上八格，
+ * 離林下的耳朵將近二十格，可聽距離幾乎全被垂直那一段吃掉（第一版就是這樣，「在地面行走時幾乎聽不到蟬聲」）。
+ * 合唱掛在主林層的樹冠底面（CROWN_BOTTOM_Y，腳底以上六格上下），每一顆的可聽距離放寬到二十二格
  */
 export const CICADA_EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
   /** 樹冠上的蟬：整片網格，掛在蓋子底下 */
-  ...createGridPointList(15, WOOD_RADIUS + 4).map((position, index): SoundEmitterDefinition => ({
+  ...createGridPointList(13, WOOD_RADIUS + 4).map((position, index): SoundEmitterDefinition => ({
     id: `cicada-realm-chorus-${index}`,
     activeAt: 'day',
     sound: 'insect-cicada',
     title: { 'zh-hant': '樹冠上的蟬', 'en': 'Cicadas in the canopy' },
     zone: 'cicada',
     ...position,
-    heightOffset: 8,
+    /** 高低錯開零到兩格，一整片聲音才不是同一個平面 */
+    y: CROWN_BOTTOM_Y + (index % 3),
     mode: { type: 'loop' },
     volume: 0.85,
-    minDistance: 4,
-    maxDistance: 18,
+    minDistance: 6,
+    maxDistance: 22,
     silentInRain: true,
   })),
   /** 近處的一隻：位置會動，飛過去的時候人會下意識抬頭找 */
@@ -56,7 +61,7 @@ export const CICADA_EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
     title: { 'zh-hant': '近處的一隻', 'en': 'One close by' },
     zone: 'cicada',
     ...position,
-    heightOffset: 5,
+    y: CROWN_BOTTOM_Y - 2,
     motion: { type: 'wander', radius: 4, periodSecond: 52 + index * 9, riseHeight: 2 },
     mode: { type: 'interval', rangeSecond: [10, 26] },
     volume: 0.5,
@@ -75,7 +80,8 @@ export const CICADA_EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
     title: { 'zh-hant': '入夜的蟋蟀', 'en': 'Crickets after dark' },
     zone: 'cicada',
     ...position,
-    heightOffset: 1,
+    /** 直接給高度：落在樹幹或枝幹上的點，貼齊地面會被抬到樹冠頂 */
+    y: CICADA_GROUND_Y + 2,
     mode: { type: 'loop' },
     volume: 0.45,
     minDistance: 3,

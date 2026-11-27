@@ -2,7 +2,6 @@ import type { GardenGate } from './garden-gate'
 import type { RealmDefinition, RealmId } from './realm-definition'
 import { getGarden, SPAWN_POSITION } from '../garden/garden-layout'
 import { ALPINE_HUB_GATE, ALPINE_REALM } from './alpine/alpine-realm'
-import { APIARY_HUB_GATE, APIARY_REALM } from './apiary/apiary-realm'
 import { AUTUMN_HUB_GATE, AUTUMN_REALM } from './autumn/autumn-realm'
 import { BLIZZARD_HUB_GATE, BLIZZARD_REALM } from './blizzard/blizzard-realm'
 import { CAMPFIRE_HUB_GATE, CAMPFIRE_REALM } from './campfire/campfire-realm'
@@ -10,12 +9,9 @@ import { CAVE_HUB_GATE, CAVE_REALM } from './cave/cave-realm'
 import { CICADA_HUB_GATE, CICADA_REALM } from './cicada/cicada-realm'
 import { COAST_HUB_GATE, COAST_REALM } from './coast/coast-realm'
 import { FOREST_HUB_GATE, FOREST_REALM } from './forest/forest-realm'
-import { INSECT_HUB_GATE, INSECT_REALM } from './insect/insect-realm'
 import { JIGOKU_HUB_GATE, JIGOKU_REALM } from './jigoku/jigoku-realm'
 import { LAKE_HUB_GATE, LAKE_REALM } from './lake/lake-realm'
 import { MEADOW_HUB_GATE, MEADOW_REALM } from './meadow/meadow-realm'
-import { PASTURE_HUB_GATE, PASTURE_REALM } from './pasture/pasture-realm'
-import { RAINHALL_HUB_GATE, RAINHALL_REALM } from './rainhall/rainhall-realm'
 import { RAINVALE_HUB_GATE, RAINVALE_REALM } from './rainvale/rainvale-realm'
 import { RIVER_HUB_GATE, RIVER_REALM } from './river/river-realm'
 import { RUINS_HUB_GATE, RUINS_REALM } from './ruins/ruins-realm'
@@ -44,15 +40,11 @@ const REALM_ENTRY_LIST: { realm: RealmDefinition; hubGate: GardenGate }[] = [
   { realm: RIVER_REALM, hubGate: RIVER_HUB_GATE },
   { realm: WHEATFIELD_REALM, hubGate: WHEATFIELD_HUB_GATE },
   { realm: MEADOW_REALM, hubGate: MEADOW_HUB_GATE },
-  { realm: PASTURE_REALM, hubGate: PASTURE_HUB_GATE },
   { realm: RAINVALE_REALM, hubGate: RAINVALE_HUB_GATE },
-  { realm: RAINHALL_REALM, hubGate: RAINHALL_HUB_GATE },
   { realm: BLIZZARD_REALM, hubGate: BLIZZARD_HUB_GATE },
   { realm: CAMPFIRE_REALM, hubGate: CAMPFIRE_HUB_GATE },
   { realm: RUINS_REALM, hubGate: RUINS_HUB_GATE },
   { realm: JIGOKU_REALM, hubGate: JIGOKU_HUB_GATE },
-  { realm: APIARY_REALM, hubGate: APIARY_HUB_GATE },
-  { realm: INSECT_REALM, hubGate: INSECT_HUB_GATE },
   { realm: SONGBIRD_REALM, hubGate: SONGBIRD_HUB_GATE },
   { realm: CICADA_REALM, hubGate: CICADA_HUB_GATE },
 ]

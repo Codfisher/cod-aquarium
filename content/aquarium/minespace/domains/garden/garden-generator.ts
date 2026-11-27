@@ -1,7 +1,7 @@
 import type { GardenDefinition, GardenId } from './garden-layout'
 import { createSeededRandom } from '../../utils/noise'
 import { BlockId } from '../block/block-constants'
-import { setBlock } from '../world/world-access'
+import { getBlock, setBlock } from '../world/world-access'
 import { WORLD_SIZE } from '../world/world-constants'
 import {
   buildAlpineGarden,
@@ -18,22 +18,18 @@ import {
   buildBlizzardGarden,
   buildCicadaGarden,
   buildJigokuGarden,
-  buildRainhallGarden,
   buildSongbirdGarden,
 } from './garden-builders-middle'
 import {
-  buildApiaryGarden,
   buildCampfireGarden,
-  buildInsectGarden,
   buildMeadowGarden,
-  buildPastureGarden,
   buildPondGarden,
   buildRainvaleGarden,
   buildRuinsGarden,
 } from './garden-builders-minor'
 import { SAND_LEVEL } from './garden-constants'
 import { fillBox, placePedestal, placeStandingStone, placeSteppingStones, rakeAround } from './garden-kit'
-import { GARDEN_LIST, SOLITARY_STONE_LIST } from './garden-layout'
+import { GARDEN_LIST, SOLITARY_STONE_LIST, SPAWN_POSITION } from './garden-layout'
 
 /** 每一座箱庭的內容生成器 */
 const BUILDER_MAP: Record<GardenId, (state: Uint8Array, garden: GardenDefinition) => void> = {
@@ -49,12 +45,8 @@ const BUILDER_MAP: Record<GardenId, (state: Uint8Array, garden: GardenDefinition
   campfire: buildCampfireGarden,
   ruins: buildRuinsGarden,
   meadow: buildMeadowGarden,
-  pasture: buildPastureGarden,
-  apiary: buildApiaryGarden,
   pond: buildPondGarden,
   rainvale: buildRainvaleGarden,
-  insect: buildInsectGarden,
-  rainhall: buildRainhallGarden,
   songbird: buildSongbirdGarden,
   cicada: buildCicadaGarden,
   blizzard: buildBlizzardGarden,
@@ -100,7 +92,7 @@ function placeSolitaryStoneList(state: Uint8Array): void {
  * 飛石因此永遠迎著來的方向。取兩軸中比較長的那一個當方向，
  * 路才會垂直踩上木座的邊，而不是斜斜地擦過一角。
  *
- * 這件事集中做而不是每座箱庭各寫一次：二十二座的作法完全一樣，
+ * 這件事集中做而不是每座箱庭各寫一次：十八座的作法完全一樣，
  * 而它屬於「箱庭與箱庭之間」，本來就不歸任何一座管
  */
 function placeApproachStoneList(state: Uint8Array): void {
@@ -126,6 +118,21 @@ function placeApproachStoneList(state: Uint8Array): void {
       SAND_LEVEL + 1,
       random,
     )
+  }
+
+  /**
+   * 出生點那一格與四周一圈不放飛石
+   *
+   * 水鏡池在出生點正後方，它那串飛石正好從出生點腳下穿過。
+   * 石頭留著當作從出生點走向池子的路，只把腳下那幾格讓出來，睜眼時腳底是平的白沙
+   */
+  for (let offsetX = -1; offsetX <= 1; offsetX++) {
+    for (let offsetZ = -1; offsetZ <= 1; offsetZ++) {
+      const x = SPAWN_POSITION.x + offsetX
+      const z = SPAWN_POSITION.z + offsetZ
+      if (getBlock(state, x, SAND_LEVEL + 1, z) === BlockId.STEPPING_STONE)
+        setBlock(state, x, SAND_LEVEL + 1, z, BlockId.AIR)
+    }
   }
 }
 

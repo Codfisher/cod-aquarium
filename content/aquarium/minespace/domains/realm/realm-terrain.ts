@@ -1,7 +1,6 @@
 import type { RealmId } from './realm-definition'
 import { generateWorld } from '../garden/garden-generator'
 import { generateAlpineWorld } from './alpine/alpine-terrain'
-import { generateApiaryWorld } from './apiary/apiary-terrain'
 import { generateAutumnWorld } from './autumn/autumn-terrain'
 import { generateBlizzardWorld } from './blizzard/blizzard-terrain'
 import { generateCampfireWorld } from './campfire/campfire-terrain'
@@ -9,13 +8,10 @@ import { generateCaveWorld } from './cave/cave-terrain'
 import { generateCicadaWorld } from './cicada/cicada-terrain'
 import { generateCoastWorld } from './coast/coast-terrain'
 import { generateForestWorld } from './forest/forest-terrain'
-import { generateInsectWorld } from './insect/insect-terrain'
 import { generateJigokuWorld } from './jigoku/jigoku-terrain'
 import { generateLakeWorld } from './lake/lake-terrain'
 import { generateMeadowWorld } from './meadow/meadow-terrain'
-import { generatePastureWorld } from './pasture/pasture-terrain'
 import { placePortalStructure } from './portal-terrain'
-import { generateRainhallWorld } from './rainhall/rainhall-terrain'
 import { generateRainvaleWorld } from './rainvale/rainvale-terrain'
 import { HUB_REALM } from './realm-list'
 import { generateRiverWorld } from './river/river-terrain'
@@ -59,15 +55,11 @@ const REALM_TERRAIN_MAP: Record<RealmId, (state: Uint8Array) => void> = {
   river: generateRiverWorld,
   wheatfield: generateWheatfieldWorld,
   meadow: generateMeadowWorld,
-  pasture: generatePastureWorld,
   rainvale: generateRainvaleWorld,
-  rainhall: generateRainhallWorld,
   blizzard: generateBlizzardWorld,
   campfire: generateCampfireWorld,
   ruins: generateRuinsWorld,
   jigoku: generateJigokuWorld,
-  apiary: generateApiaryWorld,
-  insect: generateInsectWorld,
   songbird: generateSongbirdWorld,
   cicada: generateCicadaWorld,
 }

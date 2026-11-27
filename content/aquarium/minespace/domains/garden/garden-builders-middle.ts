@@ -2,7 +2,6 @@ import type { GardenDefinition } from './garden-layout'
 import { createSeededRandom, fbm2D } from '../../utils/noise'
 import { BlockId } from '../block/block-constants'
 import { CICADA_HUB_GATE_OFFSET } from '../realm/cicada/cicada-layout'
-import { RAINHALL_HUB_GATE_OFFSET } from '../realm/rainhall/rainhall-layout'
 import { SONGBIRD_HUB_GATE_OFFSET } from '../realm/songbird/songbird-layout'
 import { setBlock } from '../world/world-access'
 import {
@@ -10,7 +9,6 @@ import {
   carveWater,
   CHARRED_LOG_SET,
   DECK_MARGIN,
-  fillBox,
   fillNoisyDisc,
   fillSquare,
   getNoisyDistance,
@@ -18,7 +16,6 @@ import {
   placeBonsaiPine,
   placeDeadTree,
   placeOakTree,
-  placeRoofCap,
   placeStandingStone,
   placeStoneLantern,
   placeTorii,
@@ -37,191 +34,6 @@ import { getDeckBlockY, getDeckGroundY } from './garden-layout'
  */
 
 const GRASS_SET = new Set([BlockId.GRASS])
-
-/**
- * 雨聽堂
- *
- * 全庭唯一一座「從室內聽外面」的箱庭。
- *
- * 其他木座都是站在露天裡聽，這一座得走進屋子：三面牆圍起來、
- * 南面整片敞開，人坐在榻榻米上往外看。雨打在屋瓦、順著出簷滴下來，
- * 而你在乾的地方——「聽雨」與「淋雨」是兩件完全不同的事，
- * 聽雨亭給的是後者，這裡給的是前者。
- *
- * 造景全部繞著「水從屋簷落到地上」這條線：出簷比屋身寬一格，
- * 簷下沿著滴水線鋪一排卵石，卵石中間積著幾窪水
- */
-export function buildRainhallGarden(state: Uint8Array, garden: GardenDefinition): void {
-  const random = createSeededRandom('garden-rainhall')
-  const deckY = getDeckBlockY(garden)
-  const groundY = getDeckGroundY(garden)
-  const { x: centerX, z: centerZ } = garden.center
-  const inner = garden.halfSize - DECK_MARGIN
-
-  paveDeck(state, garden, BlockId.STONE_TILE)
-
-  /** 屋子的半寬，南面整片敞開，所以只有三面牆 */
-  const hallHalf = 3
-  /**
-   * 牆高五格
-   *
-   * 原本四格。通往雨聽深院的門立在屋子最裡面（RAINHALL_HUB_GATE_OFFSET），
-   * 門有五格高（三格門洞、島木、笠木），四格高的屋裡笠木會頂進天花板；
-   * 牆加高一格，整座門剛好收在屋裡，屋頂仍是出簷加兩層，站在屋裡不會被當成洞穴壓暗
-   */
-  const wallHeight = 5
-
-  /** 屋內的地板：榻榻米，四周留一圈深色木當框 */
-  fillBox(
-    state,
-    centerX - hallHalf,
-    deckY,
-    centerZ - hallHalf,
-    centerX + hallHalf,
-    deckY,
-    centerZ + hallHalf,
-    BlockId.DARK_PLANKS,
-  )
-  fillBox(
-    state,
-    centerX - hallHalf + 1,
-    deckY,
-    centerZ - hallHalf + 1,
-    centerX + hallHalf - 1,
-    deckY,
-    centerZ + hallHalf - 1,
-    BlockId.TATAMI,
-  )
-
-  /**
-   * 三面牆
-   *
-   * 南面（offsetZ 為正的那一側）整排不砌，留成一道從地到頂的開口。
-   * 坐在裡面往南看出去就是整片庭院與落下來的雨——
-   * 屋子要有一面是完全開的，「在室內」才不會變成「被關起來」
-   */
-  for (let level = 0; level < wallHeight; level++) {
-    for (let offsetX = -hallHalf; offsetX <= hallHalf; offsetX++) {
-      for (let offsetZ = -hallHalf; offsetZ <= hallHalf; offsetZ++) {
-        const isEdge = Math.abs(offsetX) === hallHalf || Math.abs(offsetZ) === hallHalf
-        if (!isEdge || offsetZ === hallHalf)
-          continue
-
-        /** 側牆腰部開一排窗，雨聲從那裡透進來，光也是 */
-        const isWindow = level === 2 && Math.abs(offsetX) === hallHalf && Math.abs(offsetZ) % 2 === 1
-        setBlock(
-          state,
-          centerX + offsetX,
-          groundY + level,
-          centerZ + offsetZ,
-          isWindow ? BlockId.GLASS_PANE : BlockId.DARK_PLANKS,
-        )
-      }
-    }
-  }
-
-  /**
-   * 開口兩側各立一扇障子，框住那片景
-   *
-   * 用薄板而不是整格的紙門。整格的紙門是一堵糊了紙的牆，
-   * 而障子是一扇門——它薄、它站在柱子之間、它後面還有空間。
-   * 這一格的厚度差別在正面看不太出來，一走到側面就全是它
-   */
-  for (const side of [-hallHalf, hallHalf]) {
-    for (let level = 0; level < 2; level++) {
-      setBlock(state, centerX + side, groundY + level, centerZ + hallHalf, BlockId.SHOJI_PANEL_X)
-    }
-  }
-
-  /**
-   * 出簷比屋身寬一格
-   *
-   * 這一格是整座箱庭的重點：雨水沿著它落下來，
-   * 在地上連成一條線。四邊各用一種朝向的階梯，
-   * 靠背朝內、薄的那一側朝外，屋簷才是往外收薄的斜面
-   */
-  const eaveY = groundY + wallHeight
-  const eaveHalf = hallHalf + 1
-  for (let offsetX = -eaveHalf; offsetX <= eaveHalf; offsetX++) {
-    for (let offsetZ = -eaveHalf; offsetZ <= eaveHalf; offsetZ++) {
-      let blockId = BlockId.DARK_PLANKS
-      if (offsetZ === -eaveHalf)
-        blockId = BlockId.DARK_STAIRS_SOUTH
-      else if (offsetZ === eaveHalf)
-        blockId = BlockId.DARK_STAIRS_NORTH
-      else if (offsetX === -eaveHalf)
-        blockId = BlockId.DARK_STAIRS_EAST
-      else if (offsetX === eaveHalf)
-        blockId = BlockId.DARK_STAIRS_WEST
-
-      setBlock(state, centerX + offsetX, eaveY, centerZ + offsetZ, blockId)
-    }
-  }
-
-  /** 屋頂往上收兩層 */
-  placeRoofCap(state, centerX, eaveY + 1, centerZ, hallHalf, BlockId.DARK_WOOD_SLAB, BlockId.DARK_PLANKS)
-  placeRoofCap(state, centerX, eaveY + 2, centerZ, hallHalf - 1, BlockId.DARK_WOOD_SLAB, BlockId.DARK_PLANKS)
-
-  /**
-   * 滴水線
-   *
-   * 出簷正下方那一圈鋪卵石，這是日式庭園真的會做的事：
-   * 屋簷落下來的水打在裸土上會濺泥，鋪一排石頭才不會。
-   * 有了它，雨的路徑在地面上是看得見的
-   */
-  for (let offsetX = -eaveHalf; offsetX <= eaveHalf; offsetX++) {
-    for (let offsetZ = -eaveHalf; offsetZ <= eaveHalf; offsetZ++) {
-      const isDripLine = Math.abs(offsetX) === eaveHalf || Math.abs(offsetZ) === eaveHalf
-      if (!isDripLine)
-        continue
-
-      setBlock(state, centerX + offsetX, deckY, centerZ + offsetZ, BlockId.GRAVEL)
-    }
-  }
-
-  /** 滴水線上積起來的幾窪水，走過去會看到自己被雨打散的倒影 */
-  for (const puddle of [{ x: -eaveHalf, z: 2 }, { x: eaveHalf, z: -1 }, { x: 1, z: eaveHalf }]) {
-    carveWater(state, centerX + puddle.x, deckY, centerZ + puddle.z, 1, BlockId.GRAVEL)
-  }
-
-  /**
-   * 屋內一盞和紙燈，雨天的室內要有一點暖
-   *
-   * 原本在西北角（門的笠木西端正下方），門立進來之後往南挪一格，
-   * 與門東南那塊木牌一左一右站在門前
-   */
-  setBlock(state, centerX + RAINHALL_HUB_GATE_OFFSET.x - 2, groundY, centerZ + RAINHALL_HUB_GATE_OFFSET.z + 1, BlockId.PAPER_LAMP)
-
-  /**
-   * 天花板中央再吊一盞
-   *
-   * 地上那盞照的是角落，坐在開口前的人背後是暗的。
-   * 吊燈貼著天花板垂下來，光從頭頂散開——
-   * 而且它讓人抬頭時看得見「這裡有屋頂」
-   */
-  setBlock(state, centerX, groundY + wallHeight - 1, centerZ, BlockId.HANGING_LAMP)
-
-  /**
-   * 東南簷角的風鈴
-   *
-   * 掛在出簷伸出去的那一格底下。這座箱庭聽的是雨，
-   * 但雨停了它還在響——風鈴是那個「雨停之後」的聲音
-   */
-  setBlock(state, centerX + eaveHalf, groundY + wallHeight - 1, centerZ + eaveHalf - 1, BlockId.WIND_CHIME)
-
-  /** 坐墊擺在朝南的開口前，那是這座箱庭真正的位置 */
-  setBlock(state, centerX - 1, groundY, centerZ + hallHalf - 1, BlockId.CUSHION)
-  setBlock(state, centerX + 1, groundY, centerZ + hallHalf - 1, BlockId.CUSHION)
-
-  /** 屋外兩盞石燈籠，照著那條滴水線 */
-  placeStoneLantern(state, centerX - eaveHalf - 2, groundY, centerZ + eaveHalf - 2)
-  placeStoneLantern(state, centerX + eaveHalf + 2, groundY, centerZ - eaveHalf + 1)
-
-  /** 濕氣重的地方長的東西：苔色的蕨與幾叢野草 */
-  scatterOnGround(state, centerX, centerZ, inner, groundY, random, 0.22, (pick) => (
-    pick() < 0.6 ? BlockId.FERN : BlockId.CURLY_PLANT
-  ), new Set([BlockId.STONE_TILE]))
-}
 
 /**
  * 鳴禽庭

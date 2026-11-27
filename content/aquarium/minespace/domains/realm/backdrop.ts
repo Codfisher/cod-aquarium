@@ -199,7 +199,7 @@ const RIDGE_STYLE_MAP: Record<RealmRidgeStyle, RidgeStyle> = {
     albedo: new Color3(0.2, 0.17, 0.1),
   },
   /**
-   * 野花原：三圈一座一座的嫩綠圓丘
+   * 風露原：三圈一座一座的嫩綠圓丘
    *
    * 世界裡外圍的坡高出最低那層十格，布景的丘要從它後面冒出頭；
    * 起伏比村落的綠丘密、階梯更細，是一顆一顆鼓起來的圓丘，顏色偏黃綠、亮一點
@@ -211,47 +211,6 @@ const RIDGE_STYLE_MAP: Record<RealmRidgeStyle, RidgeStyle> = {
       { radius: 720, segmentCount: 320, baseHeight: 60, heightRange: 56, heightStep: 5, haze: 0.7, frequency: 1.8, hasGap: false },
     ],
     albedo: new Color3(0.17, 0.25, 0.08),
-  },
-  /**
-   * 羊鳴谷：三圈高而暗的青灰山
-   *
-   * 人站在谷底，兩側的坡在八十格外高出谷底十六格，布景的山要高過它才看得到；
-   * 近的那圈有缺口，看得到後面更高、更淡的兩圈。顏色是長著短草的高地遠看的暗青灰
-   */
-  fells: {
-    layerList: [
-      { radius: 300, segmentCount: 200, baseHeight: 40, heightRange: 40, heightStep: 6, haze: 0.3, frequency: 1.5, hasGap: true },
-      { radius: 520, segmentCount: 240, baseHeight: 66, heightRange: 70, heightStep: 8, haze: 0.5, frequency: 1.7, hasGap: false },
-      { radius: 800, segmentCount: 280, baseHeight: 100, heightRange: 120, heightStep: 12, haze: 0.66, frequency: 1.9, hasGap: false },
-    ],
-    albedo: new Color3(0.1, 0.14, 0.12),
-  },
-  /**
-   * 萬花蜂台：三圈暖黃綠的圓丘
-   *
-   * 山腳插在花坡稜線那一層（谷底以上九格），從谷底看出去，花坡把兩百多格外低於四十格的東西全擋掉，
-   * 最近那圈得比林稜高出一截才冒得出頭。起伏寬而緩，是花季裡曬著太陽的草丘，帶一點暖黃
-   */
-  blossom: {
-    layerList: [
-      { radius: 260, segmentCount: 220, baseHeight: 24, heightRange: 24, heightStep: 3, haze: 0.36, frequency: 1.8, hasGap: false },
-      { radius: 460, segmentCount: 260, baseHeight: 42, heightRange: 44, heightStep: 5, haze: 0.54, frequency: 1.6, hasGap: false },
-      { radius: 740, segmentCount: 320, baseHeight: 66, heightRange: 80, heightStep: 8, haze: 0.7, frequency: 1.5, hasGap: false },
-    ],
-    albedo: new Color3(0.2, 0.21, 0.08),
-  },
-  /**
-   * 蟲鳴夜原：兩圈又長又暗的低丘
-   *
-   * 草原外的丘一道接一道、起伏很長，顏色是夜裡的草遠看那種偏藍的暗綠；
-   * 近的那圈有缺口，看得到後面一段更淡的稜線
-   */
-  moor: {
-    layerList: [
-      { radius: 250, segmentCount: 220, baseHeight: 20, heightRange: 14, heightStep: 2, haze: 0.46, frequency: 1.4, hasGap: true },
-      { radius: 480, segmentCount: 260, baseHeight: 30, heightRange: 26, heightStep: 3, haze: 0.64, frequency: 1.2, hasGap: false },
-    ],
-    albedo: new Color3(0.06, 0.09, 0.07),
   },
   /**
    * 百囀林苑：三圈圓頂的闊葉林丘
@@ -283,31 +242,17 @@ const RIDGE_STYLE_MAP: Record<RealmRidgeStyle, RidgeStyle> = {
     albedo: new Color3(0.05, 0.12, 0.045),
   },
   /**
-   * 營火谷：三圈暗沉的橡樹林丘
-   *
-   * 谷坡的稜線在五十幾格外、高出谷底八格，布景要從它後面冒頭，最近那圈的底跟著抬高；
-   * 圓頂、階梯細，是長滿闊葉樹的丘不是岩峰。顏色比林海的松暗、偏一點褐，
-   * 一圈比一圈淡進那片帶煙的暖霧裡
-   */
-  woodland: {
-    layerList: [
-      { radius: 240, segmentCount: 220, baseHeight: 20, heightRange: 20, heightStep: 3, haze: 0.34, frequency: 2, hasGap: false },
-      { radius: 430, segmentCount: 260, baseHeight: 36, heightRange: 40, heightStep: 5, haze: 0.52, frequency: 1.8, hasGap: false },
-      { radius: 700, segmentCount: 300, baseHeight: 60, heightRange: 80, heightStep: 8, haze: 0.7, frequency: 1.6, hasGap: false },
-    ],
-    albedo: new Color3(0.07, 0.09, 0.05),
-  },
-  /**
    * 石殿遺址：三圈參差的灰岩稜
    *
    * 起伏比湖中島的山密、階梯粗，一段一段斷開的岩脊，像亂石坡一路往遠處堆上去；
-   * 最近那圈有缺口看得到後面。顏色是不帶綠的冷灰，與殿裡的石磚同一個色系
+   * 最近那圈有缺口看得到後面。顏色是不帶綠的冷灰，與殿裡的石磚同一個色系。
+   * 混色給得比別的樣式重：前面還站著幾尊巨像（ruins/ruins-colossi，混一到五成半），岩稜要比它們更淡
    */
   crag: {
     layerList: [
-      { radius: 300, segmentCount: 180, baseHeight: 18, heightRange: 44, heightStep: 6, haze: 0.28, frequency: 2.6, hasGap: true },
-      { radius: 520, segmentCount: 220, baseHeight: 34, heightRange: 76, heightStep: 9, haze: 0.48, frequency: 2.4, hasGap: false },
-      { radius: 800, segmentCount: 260, baseHeight: 60, heightRange: 130, heightStep: 14, haze: 0.66, frequency: 2.2, hasGap: false },
+      { radius: 300, segmentCount: 180, baseHeight: 18, heightRange: 44, heightStep: 6, haze: 0.5, frequency: 2.6, hasGap: true },
+      { radius: 520, segmentCount: 220, baseHeight: 34, heightRange: 76, heightStep: 9, haze: 0.64, frequency: 2.4, hasGap: false },
+      { radius: 800, segmentCount: 260, baseHeight: 60, heightRange: 130, heightStep: 14, haze: 0.76, frequency: 2.2, hasGap: false },
     ],
     albedo: new Color3(0.15, 0.15, 0.16),
   },
@@ -323,6 +268,23 @@ const RIDGE_STYLE_MAP: Record<RealmRidgeStyle, RidgeStyle> = {
       { radius: 500, segmentCount: 200, baseHeight: 84, heightRange: 120, heightStep: 12, haze: 0.52, frequency: 1.4, hasGap: false },
     ],
     albedo: new Color3(0.24, 0.17, 0.09),
+  },
+  /**
+   * 拓荒原：紅岩台地與孤峰
+   *
+   * 近的那圈是一座一座平頂的台地，階梯給得很粗（十格），每一段都是平頂、斷面垂直，
+   * 中間零星斷開（presenceThreshold），看得到後面；中間那圈頻率高、門檻高，只剩幾根細高的孤峰；
+   * 最遠一圈是連成一線的長台地。紅褐的岩，高過三十格的那一截頂上換成淡一點的赭黃，
+   * 是台地頂那一層硬的蓋岩（借雪線那一套做出上下兩層顏色）
+   */
+  mesa: {
+    layerList: [
+      { radius: 240, segmentCount: 150, baseHeight: 14, heightRange: 40, heightStep: 10, haze: 0.3, frequency: 1.3, hasGap: false, presenceThreshold: -0.15 },
+      { radius: 420, segmentCount: 260, baseHeight: 30, heightRange: 60, heightStep: 12, haze: 0.48, frequency: 3.4, hasGap: false, presenceThreshold: 0.3 },
+      { radius: 700, segmentCount: 220, baseHeight: 46, heightRange: 44, heightStep: 14, haze: 0.64, frequency: 1.1, hasGap: false },
+    ],
+    albedo: new Color3(0.36, 0.15, 0.08),
+    snow: { line: 30, albedo: new Color3(0.5, 0.32, 0.18) },
   },
 }
 

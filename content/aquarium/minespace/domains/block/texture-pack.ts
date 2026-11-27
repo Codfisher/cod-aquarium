@@ -94,6 +94,9 @@ const MINI_PIXEL_TEXTURE_MAP = {
   grassSideOverlay: 'default_grass_side',
   sand: 'default_sand',
   sandstone: 'default_sandstone',
+  /** 拓荒原（爐火壇的大場景）的紅土與紅岩台地 */
+  redSand: 'default_desert_sand',
+  redRock: 'default_desert_stone',
   whiteSand: 'default_silver_sand',
   /**
    * 耙紋
@@ -269,6 +272,9 @@ const MINECRAFT_TEXTURE_MAP: Partial<Record<TextureKey, PackTextureEntry>> = {
   grassSideOverlay: 'grass_block_side_overlay',
   sand: 'sand',
   sandstone: 'sandstone',
+  redSand: { file: 'red_sand', tint: null },
+  /** 原版的紅砂岩側面一層一層的，正好是台地岩壁的層理 */
+  redRock: 'red_sandstone',
   /**
    * 枯山水的白沙
    *

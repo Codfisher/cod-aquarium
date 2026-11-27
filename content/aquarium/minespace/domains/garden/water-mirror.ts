@@ -169,17 +169,17 @@ class MirrorSurfacePlugin extends MaterialPluginBase {
     super(material, 'MinespaceMirrorSurface', 220, {}, true, true)
   }
 
-  getClassName(): string {
+  override getClassName(): string {
     return 'MirrorSurfacePlugin'
   }
 
-  getUniforms() {
+  override getUniforms() {
     return {
       ubo: [{ name: 'mirrorSurface', size: 4, type: 'vec4' }],
     }
   }
 
-  bindForSubMesh(uniformBuffer: UniformBuffer): void {
+  override bindForSubMesh(uniformBuffer: UniformBuffer): void {
     /** 秒數取一千的餘數，浮點數才不會因為開著太久而失去精度 */
     uniformBuffer.updateFloat4(
       'mirrorSurface',
@@ -190,7 +190,7 @@ class MirrorSurfacePlugin extends MaterialPluginBase {
     )
   }
 
-  getCustomCode(shaderType: string): { [pointName: string]: string } | null {
+  override getCustomCode(shaderType: string): { [pointName: string]: string } | null {
     if (shaderType !== 'fragment')
       return null
 

@@ -8,16 +8,16 @@ import {
   CAMP_GROUND_Y,
   CAMP_PORTAL_POINT,
   CAMP_PUSH_RADIUS,
-  CAMP_RIDGE_HEIGHT,
   CAMP_SLOW_RADIUS,
+  ROCK_WALL_HEIGHT,
 } from './campfire-layout'
 
 /**
- * 大廳那座通往營火谷的門
+ * 大廳那座通往拓荒原的門
  *
  * 立在爐火壇火塘的正東四格、原本東側那張矮凳的位置（CAMPFIRE_GATE_OFFSET），門洞朝東：
  * 西、南、北三張矮凳照舊圍著火，第四個「座位」換成了這道門。
- * 從木座東邊走過來，門洞正好框住後面那堆火，往西穿過去就到了營火谷。
+ * 從木座東邊走過來，門洞正好框住後面那堆火，往西穿過去就到了拓荒原。
  * 木牌在門北側三格、牌面朝東；回來時落在門東邊四格的白沙上，面朝門與門後的火
  */
 export const CAMPFIRE_HUB_GATE = createGardenGate({
@@ -29,74 +29,71 @@ export const CAMPFIRE_HUB_GATE = createGardenGate({
 })
 
 /**
- * 營火谷：爐火壇的大場景
+ * 拓荒原：爐火壇的大場景
  *
- * 爐火壇放大成一片林緣的谷地：正中一座大篝火，四周散著六處小營地（每一處都是一座爐火壇），
- * 谷底是開闊的草地，外圍一圈橡樹林沿著谷坡長上去。氣氛是暖的、帶一點煙，
- * 天光收一點，入夜之後整座谷只剩一團一團的火光
+ * 西部拓荒的原野：一片乾草原，一圈走了一整天、停下來歇腳的篷車，篷車邊一堆煮飯的小火；
+ * 東北一間蓋到一半的木屋、一架風車抽水機與剛犁的田，一條車轍路往西通向紅岩台地，
+ * 遠處一圈平頂的台地與孤峰。爐火壇留下來的是那一團低低的、一直在的劈啪，不是一座大營火。
+ * 氣氛是又熱又乾的白天：日頭毒、天空大、遠處一層暖黃的塵霾；雲少，黃昏燒得通紅，夜裡星星很清楚
  */
 export const CAMPFIRE_REALM: RealmDefinition = {
   id: 'campfire',
-  title: { 'zh-hant': '營火谷', 'en': 'Campfire Hollow' },
-  description: { 'zh-hant': '爐火壇的另一頭，林緣谷地裡的一圈圈篝火', 'en': 'Beyond the Fire Pit, campfires in a wooded hollow' },
-  signCaption: { 'zh-hant': '林緣的篝火', 'en': 'Fires by the wood' },
+  title: { 'zh-hant': '拓荒原', 'en': 'Frontier Plains' },
+  description: { 'zh-hant': '爐火壇的另一頭，紅岩台地下歇腳的篷車', 'en': 'Beyond the Fire Pit, wagons resting beneath red mesas' },
+  signCaption: { 'zh-hant': '篷車歇腳的原野', 'en': 'Where the wagons rest' },
   icon: 'i-material-symbols:local-fire-department',
   /**
-   * 站在回程門的西側三格，面朝土路與大篝火
+   * 站在回程門的西側三格，面朝車轍路與篷車圈
    *
-   * 從大廳往西穿過門，到這裡仍是往西走：土路從腳下通到二十格外的大篝火，
-   * 回去的門就在背後三格。離觸發範圍還有兩格半，落地不會又被送回去
+   * 從大廳往西穿過門，到這裡仍是往西走：車轍路從腳下通進篷車圈東邊的口，
+   * 再往西是一整片乾草原與遠處的台地。回去的門就在背後三格，離觸發範圍還有兩格半
    */
   spawn: {
     x: CAMP_PORTAL_POINT.x - 3,
     z: CAMP_PORTAL_POINT.z,
-    pitch: 0.05,
+    pitch: 0.02,
     yaw: YAW_MAP.west,
   },
   isLooping: false,
   hasGardens: false,
   atmosphere: {
     fog: {
-      /** 柴煙把霧染暖，跟著日夜走（夜裡照樣是暗的）；霧近一點，林子一排一排淡進煙裡 */
-      tint: { scale: [1.06, 0.95, 0.84] },
-      start: { value: 40 },
-      end: { value: 165 },
+      /** 乾熱的塵霾，暖黃、跟著日夜走；推得很遠，原野要看得到盡頭的台地 */
+      tint: { scale: [1.08, 0.97, 0.84] },
+      start: { value: 70 },
+      end: { value: 260 },
     },
     light: {
-      /**
-       * 天光收一截，影子那一側暗下來，火光才說了算
-       *
-       * 夜裡天光本來就弱，這一截主要作用在黃昏：火已經點起來、天還沒黑，
-       * 營地四周那一圈暖色在發灰的谷地裡浮出來
-       */
-      ambientRatio: { scale: 0.86 },
-      lightRatio: { scale: 0.96 },
-      specularRatio: { scale: 0.8 },
+      /** 日頭毒：直射光加強、影子硬；天光收一點，背光那一側才深 */
+      lightRatio: { scale: 1.12 },
+      ambientRatio: { scale: 0.9 },
+      specularRatio: { scale: 1.05 },
     },
     cloud: {
-      /** 谷地上空雲少一點、風輕，煙才一縷一縷直直往上 */
-      coverageOffset: { offset: -0.06 },
-      windSpeed: { scale: 0.7 },
+      /** 天空大而乾淨：積雲少、層雲幾乎沒有，夜裡星星清楚；高積雲留一點，黃昏才燒得起來 */
+      coverageOffset: { offset: -0.22 },
+      stratus: { value: 0 },
+      altocumulus: { offset: 0.1 },
+      windSpeed: { scale: 1.1 },
     },
     groundMist: {
-      /** 谷底常起一層薄霧，混著前一夜的柴煙 */
-      chance: { value: 0.5 },
-      density: { scale: 1.1 },
+      /** 乾的地方很少起霧 */
+      chance: { value: 0.08 },
     },
   },
   backdrop: {
     centerX: CAMP_CENTER.x,
     centerZ: CAMP_CENTER.z,
-    ridge: { style: 'woodland', footY: CAMP_GROUND_Y + CAMP_RIDGE_HEIGHT + 0.5, seed: 'campfire-hollow' },
-    /** 稜線外走不到的地面是 LAKE_BED，平面與稜線同高、一路鋪到地平線 */
-    floor: { surfaceY: CAMP_GROUND_Y + CAMP_RIDGE_HEIGHT + 0.5, blockId: BlockId.GRASS, isEndless: true },
+    ridge: { style: 'mesa', footY: CAMP_GROUND_Y + ROCK_WALL_HEIGHT + 0.5, seed: 'frontier-plains' },
+    /** 紅岩壁頂外走不到的地面是 LAKE_BED，平面與壁頂同高、一路鋪到地平線 */
+    floor: { surfaceY: CAMP_GROUND_Y + ROCK_WALL_HEIGHT + 0.5, blockId: BlockId.RED_SAND, isEndless: true },
   },
-  /** 往營火谷去是一陣暖橘的煙，夾著往上竄的火星 */
+  /** 往拓荒原去是一陣乾熱的暖黃塵土，夾著往上揚的沙 */
   transition: {
-    fogTint: [1.06, 0.86, 0.66],
-    particleColor: [1, 0.56, 0.2],
-    particleRise: 0.55,
-    sound: 'campfire',
+    fogTint: [1.1, 0.9, 0.7],
+    particleColor: [0.86, 0.6, 0.38],
+    particleRise: 0.25,
+    sound: 'meadow-wind',
   },
   portalList: [
     {
@@ -105,7 +102,7 @@ export const CAMPFIRE_REALM: RealmDefinition = {
       spanAxis: 'z',
       targetRealmId: 'hub',
       targetSpawn: CAMPFIRE_HUB_GATE.landingSpawn,
-      /** 木牌在門的北側三格、牌面朝西：這裡的人是從大篝火那邊往門走過來的 */
+      /** 木牌在門的北側三格、牌面朝西：這裡的人是從篷車圈那邊往門走過來的 */
       sign: { x: CAMP_PORTAL_POINT.x, z: CAMP_PORTAL_POINT.z - 3, facing: 'west' },
     },
   ],

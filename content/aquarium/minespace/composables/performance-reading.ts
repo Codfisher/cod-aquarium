@@ -33,7 +33,6 @@ const SECTION_LABEL_EN_MAP: Record<string, string> = {
   日夜循環: 'Day & night',
   漫遊控制器: 'Roam controller',
   營火動畫: 'Campfire',
-  羊群: 'Sheep flock',
   陰影追蹤: 'Shadow tracking',
   體積雲: 'Volumetric clouds',
 }

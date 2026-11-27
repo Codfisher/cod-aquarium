@@ -1,65 +1,140 @@
+import type { MeadowZoneKind } from './meadow-layout'
 import { createSeededRandom, fbm2D } from '../../../utils/noise'
-import { BlockId } from '../../block/block-constants'
-import { fillBox, placeOakTree, plantWithStack } from '../../garden/garden-kit'
+import { BlockId, isPassableBlock } from '../../block/block-constants'
+import { fillBox, getNoisyDistance, placeOakTree, placeStandingStone, plantWithStack, setDecoration } from '../../garden/garden-kit'
 import { getBlock, setBlock } from '../../world/world-access'
 import { WORLD_SIZE } from '../../world/world-constants'
+import { createPathDistanceMap, measureDistance, plantOnGround, samplePathCurve } from '../land-realm-kit'
 import { placePortalStructure } from '../portal-terrain'
 import { fillHeightStep } from '../realm-terrain-kit'
 import {
   MEADOW_CENTER,
   MEADOW_GROUND_Y,
+  MEADOW_HOLLOW_LIST,
   MEADOW_OUTER_RADIUS,
+  MEADOW_PATH_CONTROL_POINT_LIST,
   MEADOW_PORTAL_POINT,
   MEADOW_SLOW_RADIUS,
+  MEADOW_ZONE_LIST,
   measureMeadowHeight,
   measureMeadowRadius,
 } from './meadow-layout'
 import { MEADOW_REALM } from './meadow-realm'
 
 /**
- * 野花原的地形
+ * 風露原的地形
  *
- * 只有地形 worker 用。整片照草苑（buildMeadowGarden）放大：草地上撒滿高草與五種花，
- * 機率與比例都照草苑；孤樹與樹下的長凳也照草苑的擺法，只是一座丘頂一棵、彼此隔得很遠。
- * 草苑「什麼都不能有」，這裡也一樣：沒有路、沒有燈、沒有房子，只有草、花、丘與幾棵樹。
+ * 只有地形 worker 用。地面是野花原那一座接一座的圓丘；草與花照蟲鳴夜原的分區撒（見 ZONE_MIX_MAP），
+ * 丘頂的孤樹與長凳照草苑的擺法，谷底的乾土窪地、草裡的枯木樁與圓石堆照蟲聲叢的擺法。
+ * 沒有燈、沒有房子，只有一條踩出來的小徑。
  *
- * 順序：地面 → 孤樹與長凳 → 花草 → 傳送門（門洞前後與木牌前面的花草由它清掉）
+ * 順序：地面 → 乾土窪地 → 孤樹與長凳 → 枯木樁 → 圓石堆 → 花草 → 傳送門（門洞前後與木牌前面的花草由它清掉）
  */
 
-/** 草苑撒花草的機率，整片照用 */
-const PLANT_CHANCE = 0.62
+const GRASS_SET = new Set([BlockId.GRASS])
+const SAND_SET = new Set([BlockId.SAND])
+
+/** 外圍坡上走不到，但從原野裡看得到坡面，照樣種，少一點 */
+const SLOPE_PLANT_CHANCE = 0.55
 
 /**
- * 草苑的花草比例（高草、蒲公英、鬱金香、堇、大花、白蒲公英）
+ * 每一區的草與花：機率（累計前的權重）與撒的疏密
  *
- * 寫成累積的門檻，與 buildMeadowGarden 那一串 if 同一組數字
+ * court 與大廳風露苑（buildMeadowGarden 的 MEADOW_PLANT_MIX）同一組；thicket 是蟲聲叢那一組；
+ * 其他幾區照蟲鳴夜原：草仍是主體，花只是那一區的顏色
  */
-const PLANT_THRESHOLD_LIST: { threshold: number; blockId: BlockId }[] = [
-  { threshold: 0.46, blockId: BlockId.TALL_GRASS },
-  { threshold: 0.62, blockId: BlockId.FLOWER_DANDELION },
-  { threshold: 0.74, blockId: BlockId.FLOWER_TULIP },
-  { threshold: 0.84, blockId: BlockId.FLOWER_VIOLA },
-  { threshold: 0.92, blockId: BlockId.BIG_FLOWER },
-  { threshold: 1, blockId: BlockId.FLOWER_WHITE_DANDELION },
-]
+const ZONE_MIX_MAP: Record<MeadowZoneKind, { chance: number; mix: readonly (readonly [BlockId, number])[] }> = {
+  court: {
+    chance: 0.7,
+    mix: [
+      [BlockId.TALL_GRASS, 38],
+      [BlockId.DRY_GRASS, 12],
+      [BlockId.FERN, 8],
+      [BlockId.FLOWER_DANDELION, 10],
+      [BlockId.FLOWER_TULIP, 8],
+      [BlockId.FLOWER_VIOLA, 8],
+      [BlockId.BIG_FLOWER, 5],
+      [BlockId.FLOWER_WHITE_DANDELION, 6],
+      [BlockId.MOON_FLOWER, 5],
+    ],
+  },
+  thicket: {
+    chance: 0.78,
+    mix: [[BlockId.TALL_GRASS, 50], [BlockId.DRY_GRASS, 20], [BlockId.FERN, 14], [BlockId.CURLY_PLANT, 8], [BlockId.FIRE_FLOWER, 8]],
+  },
+  /** 月見草與白蒲公英，夜裡原野上最亮的一片 */
+  moon: {
+    chance: 0.74,
+    mix: [[BlockId.TALL_GRASS, 34], [BlockId.WILD_GRASS, 20], [BlockId.MOON_FLOWER, 24], [BlockId.FLOWER_WHITE_DANDELION, 14], [BlockId.FERN, 8]],
+  },
+  /** 乾草為主，抽穗的高草梢混在裡面，零星的黃蒲公英與枯灌 */
+  golden: {
+    chance: 0.84,
+    mix: [[BlockId.DRY_GRASS, 48], [BlockId.WHEAT_TALL, 14], [BlockId.TALL_GRASS, 18], [BlockId.FLOWER_DANDELION, 10], [BlockId.DRY_SHRUB, 10]],
+  },
+  /** 堇菜一片紫，夾著捲葉草與白蒲公英 */
+  violet: {
+    chance: 0.72,
+    mix: [[BlockId.TALL_GRASS, 30], [BlockId.DRY_GRASS, 16], [BlockId.FLOWER_VIOLA, 32], [BlockId.CURLY_PLANT, 12], [BlockId.FLOWER_WHITE_DANDELION, 10]],
+  },
+  /** 濕的低地：蕨、捲葉草、深色的草，石縫與樹樁邊冒出菇 */
+  fern: {
+    chance: 0.82,
+    mix: [[BlockId.FERN, 40], [BlockId.CURLY_PLANT, 18], [BlockId.JUNGLE_GRASS, 18], [BlockId.WILD_GRASS, 14], [BlockId.MUSHROOM, 5], [BlockId.BROWN_MUSHROOM, 5]],
+  },
+  /** 紅的橘的野花：火焰花、玫瑰、鬱金香 */
+  ember: {
+    chance: 0.74,
+    mix: [[BlockId.TALL_GRASS, 30], [BlockId.DRY_GRASS, 18], [BlockId.FIRE_FLOWER, 26], [BlockId.FLOWER_ROSE, 14], [BlockId.FLOWER_TULIP, 12]],
+  },
+}
 
-/** 五種花，花叢的主角從這裡挑 */
-const FLOWER_LIST = PLANT_THRESHOLD_LIST.slice(1).map((entry) => entry.blockId)
-
-/**
- * 花開成一叢一叢的比例
- *
- * 草苑只有十一格見方，五種花均勻撒著就很好看；攤到幾萬格上會變成一片均勻的雜色。
- * 所以一半的花跟著所在那一帶的「主角」開，一帶是蒲公英的黃、一帶是鬱金香的紅，
- * 另一半照草苑的比例混著撒。高草的份量不變
- */
-const PATCH_FLOWER_SHARE = 0.5
+/** 交界那一段多寬（格）：兩區的中心距離差在這以內，兩邊的草混著長 */
+const ZONE_BLEND_WIDTH = 8
 
 /** 孤樹最多幾棵，以及兩棵之間至少隔幾格 */
 const LONE_TREE_COUNT_MAX = 6
 const LONE_TREE_SPACING = 30
 
-/** 地面，回傳每一格的地表高度 */
+/**
+ * 這一格屬於哪一區
+ *
+ * 離哪個中心最近就是哪一區，距離先吃一層噪音，邊界才是彎的；
+ * 靠近交界時照距離差的比例擲一次，有機會長隔壁那一區的草，交界是漸層而不是一條線
+ */
+function pickZone(x: number, z: number, random: () => number): MeadowZoneKind {
+  const warpX = fbm2D(x * 0.04 + 61, z * 0.04 - 13, 2, 0.5) * 10
+  const warpZ = fbm2D(x * 0.04 - 29, z * 0.04 + 47, 2, 0.5) * 10
+  let first = { kind: MEADOW_ZONE_LIST[0]!.kind, distance: Number.POSITIVE_INFINITY }
+  let second = first
+  for (const zone of MEADOW_ZONE_LIST) {
+    const distance = Math.hypot(x + warpX - zone.x, z + warpZ - zone.z)
+    if (distance < first.distance) {
+      second = first
+      first = { kind: zone.kind, distance }
+    }
+    else if (distance < second.distance) {
+      second = { kind: zone.kind, distance }
+    }
+  }
+  const blend = Math.min(1, (second.distance - first.distance) / ZONE_BLEND_WIDTH)
+  return random() < 0.5 * (1 - blend) ? second.kind : first.kind
+}
+
+/** 照那一區的權重挑一株 */
+function pickZonePlant(kind: MeadowZoneKind, random: () => number): BlockId {
+  const { mix } = ZONE_MIX_MAP[kind]
+  const total = mix.reduce((sum, [, weight]) => sum + weight, 0)
+  let roll = random() * total
+  for (const [blockId, weight] of mix) {
+    roll -= weight
+    if (roll < 0)
+      return blockId
+  }
+  return mix[0]![0]
+}
+
+/** 地面，回傳每一格的地表高度（那一格最上面的實心方塊） */
 function shapeTerrain(state: Uint8Array): Uint8Array {
   const groundTopMap = new Uint8Array(WORLD_SIZE * WORLD_SIZE)
 
@@ -99,6 +174,53 @@ function shapeTerrain(state: Uint8Array): Uint8Array {
   }
 
   return groundTopMap
+}
+
+function readGroundY(groundTopMap: Uint8Array, x: number, z: number): number {
+  return groundTopMap[x * WORLD_SIZE + z]! + 1
+}
+
+/**
+ * 乾土窪地
+ *
+ * 蟲聲叢那一小片乾土（吃噪音的圓）、仙人掌、三成的格子長枯灌，每一處都照這樣做。
+ * 窪地在谷底、本來就平，沙直接換掉每一格最上面那層草，不另外拉平
+ */
+function buildHollowList(state: Uint8Array, groundTopMap: Uint8Array): void {
+  const random = createSeededRandom('meadow-realm-hollow')
+
+  for (const hollow of MEADOW_HOLLOW_LIST) {
+    const reach = Math.ceil(hollow.radius + 2)
+    for (let x = hollow.x - reach; x <= hollow.x + reach; x++) {
+      for (let z = hollow.z - reach; z <= hollow.z + reach; z++) {
+        if (getNoisyDistance(x, z, hollow.x, hollow.z, 0.22, 1.1) <= hollow.radius)
+          setBlock(state, x, readGroundY(groundTopMap, x, z) - 1, z, BlockId.SAND)
+      }
+    }
+
+    /** 仙人掌：大的窪地四株，小的兩株，一到兩格高 */
+    const cactusCount = hollow.radius >= 5 ? 4 : 2
+    for (let index = 0; index < cactusCount; index++) {
+      const angle = random() * Math.PI * 2
+      const distance = random() * (hollow.radius - 1)
+      const x = Math.round(hollow.x + Math.cos(angle) * distance)
+      const z = Math.round(hollow.z + Math.sin(angle) * distance)
+      const height = random() < 0.5 ? 2 : 1
+      const groundY = readGroundY(groundTopMap, x, z)
+      if (getBlock(state, x, groundY - 1, z) !== BlockId.SAND)
+        continue
+      for (let level = 0; level < height; level++) {
+        setBlock(state, x, groundY + level, z, BlockId.CACTUS)
+      }
+    }
+
+    for (let x = hollow.x - reach; x <= hollow.x + reach; x++) {
+      for (let z = hollow.z - reach; z <= hollow.z + reach; z++) {
+        if (random() < 0.3)
+          plantOnGround(state, x, readGroundY(groundTopMap, x, z), z, BlockId.DRY_SHRUB, SAND_SET)
+      }
+    }
+  }
 }
 
 /** 長凳擺在樹的哪一側，以及那一側要用哪一種階梯（靠背朝著樹） */
@@ -168,7 +290,7 @@ function placeLoneTreeList(state: Uint8Array, groundTopMap: Uint8Array): void {
   const random = createSeededRandom('meadow-lone-tree')
 
   for (const hilltop of findHilltopList(groundTopMap)) {
-    const groundY = groundTopMap[hilltop.x * WORLD_SIZE + hilltop.z]! + 1
+    const groundY = readGroundY(groundTopMap, hilltop.x, hilltop.z)
     placeOakTree(state, hilltop.x, groundY, hilltop.z, 5 + Math.floor(random() * 3))
 
     const startIndex = Math.floor(random() * BENCH_SIDE_LIST.length)
@@ -179,7 +301,7 @@ function placeLoneTreeList(state: Uint8Array, groundTopMap: Uint8Array): void {
         z: hilltop.z + side.z * 3 + (side.z === 0 ? along : 0),
       }))
       const isFlat = cellList.every((cell) => (
-        groundTopMap[cell.x * WORLD_SIZE + cell.z]! + 1 === groundY
+        readGroundY(groundTopMap, cell.x, cell.z) === groundY
         && getBlock(state, cell.x, groundY, cell.z) === BlockId.AIR
       ))
       if (!isFlat)
@@ -192,54 +314,138 @@ function placeLoneTreeList(state: Uint8Array, groundTopMap: Uint8Array): void {
   }
 }
 
-/** 這一帶的花叢主角：低頻噪音切成五塊，一塊一種花 */
-function pickPatchFlower(x: number, z: number): BlockId {
-  const patch = (fbm2D(x * 0.05 + 41, z * 0.05 - 27, 2, 0.5) + 1) / 2
-  const index = Math.min(FLOWER_LIST.length - 1, Math.max(0, Math.floor(patch * FLOWER_LIST.length)))
-  return FLOWER_LIST[index]!
-}
-
-/** 照草苑的比例挑一種 */
-function pickMeadowPlant(roll: number): BlockId {
-  return PLANT_THRESHOLD_LIST.find((entry) => roll < entry.threshold)?.blockId ?? BlockId.TALL_GRASS
+/** 這一格能不能放枯木樁或圓石：不在小徑上、不在門前、不在窪地裡、還在原野裡、地表是草 */
+function isOpenMeadow(state: Uint8Array, groundTopMap: Uint8Array, x: number, z: number, pathDistanceMap: Float32Array): boolean {
+  if (pathDistanceMap[x * WORLD_SIZE + z]! < 3)
+    return false
+  if (measureDistance(x, z, MEADOW_PORTAL_POINT) < 8)
+    return false
+  if (measureDistance(x, z, MEADOW_CENTER) > MEADOW_SLOW_RADIUS - 8)
+    return false
+  if (!MEADOW_HOLLOW_LIST.every((hollow) => measureDistance(x, z, hollow) > hollow.radius + 1.5))
+    return false
+  const groundY = readGroundY(groundTopMap, x, z)
+  return getBlock(state, x, groundY - 1, z) === BlockId.GRASS && getBlock(state, x, groundY, z) === BlockId.AIR
 }
 
 /**
- * 滿地的高草與花
+ * 埋了半截的枯木樁
  *
- * 機率照草苑，高草的份量也照草苑；花有一半跟著那一帶的主角開，見 PATCH_FLOWER_SHARE
+ * 蟲聲叢三根，一根一或兩格高，蟲從縫裡叫出來。這裡兩到四根一叢，散在原野裡，
+ * 一叢的木樁彼此隔一兩格，像是一截倒下的老木頭爛剩的幾段
  */
-function scatterPlantList(state: Uint8Array, groundTopMap: Uint8Array): void {
-  const random = createSeededRandom('meadow-plant')
+function placeLogStumpList(state: Uint8Array, groundTopMap: Uint8Array, pathDistanceMap: Float32Array): void {
+  const random = createSeededRandom('meadow-realm-log')
 
-  for (let x = 0; x < WORLD_SIZE; x++) {
-    for (let z = 0; z < WORLD_SIZE; z++) {
-      if (random() > PLANT_CHANCE)
-        continue
-      const roll = random()
-      const isPatch = random() < PATCH_FLOWER_SHARE
-      if (measureMeadowRadius(x, z) >= MEADOW_OUTER_RADIUS)
-        continue
+  for (let attempt = 0; attempt < 60; attempt++) {
+    const angle = random() * Math.PI * 2
+    const radius = 6 + random() * (MEADOW_SLOW_RADIUS - 16)
+    const clusterX = Math.round(MEADOW_CENTER.x + Math.cos(angle) * radius)
+    const clusterZ = Math.round(MEADOW_CENTER.z + Math.sin(angle) * radius)
+    const stumpCount = 2 + Math.floor(random() * 3)
 
-      const groundY = groundTopMap[x * WORLD_SIZE + z]! + 1
-      if (getBlock(state, x, groundY - 1, z) !== BlockId.GRASS || getBlock(state, x, groundY, z) !== BlockId.AIR)
+    for (let index = 0; index < stumpCount; index++) {
+      const x = clusterX + Math.round((random() * 2 - 1) * 2.5)
+      const z = clusterZ + Math.round((random() * 2 - 1) * 2.5)
+      const isTall = random() < 0.6
+      if (!isOpenMeadow(state, groundTopMap, x, z, pathDistanceMap))
         continue
-
-      const isFlower = roll >= PLANT_THRESHOLD_LIST[0]!.threshold
-      const blockId = isFlower && isPatch ? pickPatchFlower(x, z) : pickMeadowPlant(roll)
-      plantWithStack(state, x, groundY, z, blockId, random)
+      const groundY = readGroundY(groundTopMap, x, z)
+      setBlock(state, x, groundY, z, BlockId.DEAD_LOG)
+      if (isTall)
+        setBlock(state, x, groundY + 1, z, BlockId.DEAD_LOG)
     }
   }
 }
 
-/** 生成整片野花原 */
+/**
+ * 圓石堆
+ *
+ * 蟲聲叢一堆：一顆兩格高的圓石立石，旁邊再擱一塊，石縫是另一種蟲的家
+ */
+function placeStoneHeapList(state: Uint8Array, groundTopMap: Uint8Array, pathDistanceMap: Float32Array): void {
+  const random = createSeededRandom('meadow-realm-stone')
+
+  for (let attempt = 0; attempt < 40; attempt++) {
+    const angle = random() * Math.PI * 2
+    const radius = 8 + random() * (MEADOW_SLOW_RADIUS - 18)
+    const x = Math.round(MEADOW_CENTER.x + Math.cos(angle) * radius)
+    const z = Math.round(MEADOW_CENTER.z + Math.sin(angle) * radius)
+    const height = random() < 0.35 ? 3 : 2
+    const sideRoll = random()
+    if (!isOpenMeadow(state, groundTopMap, x, z, pathDistanceMap))
+      continue
+
+    /** 立石的底座是十字五格，五格要在同一個高度，不然底座會懸空或插進坡裡 */
+    const groundY = readGroundY(groundTopMap, x, z)
+    const isFlat = [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]].every(([offsetX, offsetZ]) =>
+      readGroundY(groundTopMap, x + offsetX!, z + offsetZ!) === groundY
+      && getBlock(state, x + offsetX!, groundY, z + offsetZ!) === BlockId.AIR)
+    if (!isFlat)
+      continue
+
+    placeStandingStone(state, x, groundY, z, height, BlockId.COBBLESTONE)
+    const sideX = sideRoll < 0.5 ? x + 2 : x
+    const sideZ = sideRoll < 0.5 ? z : z + 2
+    if (readGroundY(groundTopMap, sideX, sideZ) === groundY)
+      setDecoration(state, sideX, groundY, sideZ, BlockId.COBBLESTONE)
+  }
+}
+
+/**
+ * 滿地的草與花
+ *
+ * 每一格草地照所在的那一區撒（見 ZONE_MIX_MAP），花色一區一區不同；
+ * 小徑上只零星幾叢乾草，看得出是一條被踩過的路
+ */
+function scatterPlantList(state: Uint8Array, groundTopMap: Uint8Array, pathDistanceMap: Float32Array): void {
+  const random = createSeededRandom('meadow-plant')
+
+  for (let x = 0; x < WORLD_SIZE; x++) {
+    for (let z = 0; z < WORLD_SIZE; z++) {
+      if (measureMeadowRadius(x, z) >= MEADOW_OUTER_RADIUS)
+        continue
+
+      const groundY = readGroundY(groundTopMap, x, z)
+      if (pathDistanceMap[x * WORLD_SIZE + z]! < 1.1) {
+        if (random() < 0.08)
+          plantOnGround(state, x, groundY, z, BlockId.DRY_GRASS, GRASS_SET)
+        continue
+      }
+
+      const kind = pickZone(x, z, random)
+      const isSlope = measureDistance(x, z, MEADOW_CENTER) > MEADOW_SLOW_RADIUS
+      if (random() > (isSlope ? SLOPE_PLANT_CHANCE : ZONE_MIX_MAP[kind].chance))
+        continue
+      if (getBlock(state, x, groundY - 1, z) !== BlockId.GRASS || getBlock(state, x, groundY, z) !== BlockId.AIR)
+        continue
+      plantWithStack(state, x, groundY, z, pickZonePlant(kind, random), random)
+    }
+  }
+}
+
+/** 生成整片風露原 */
 export function generateMeadowWorld(state: Uint8Array): void {
+  const pathDistanceMap = createPathDistanceMap([samplePathCurve(MEADOW_PATH_CONTROL_POINT_LIST)], 9)
   const groundTopMap = shapeTerrain(state)
+  buildHollowList(state, groundTopMap)
   placeLoneTreeList(state, groundTopMap)
-  scatterPlantList(state, groundTopMap)
+  placeLogStumpList(state, groundTopMap, pathDistanceMap)
+  placeStoneHeapList(state, groundTopMap, pathDistanceMap)
+  scatterPlantList(state, groundTopMap, pathDistanceMap)
 
   /** 門框排在花草之後：門洞前後與木牌前面的花草由它清掉 */
   for (const portal of MEADOW_REALM.portalList) {
     placePortalStructure(state, portal)
+  }
+
+  /** 回程門往東、落腳那幾格也清掉，一落地就看得到小徑從腳下鑽進草裡 */
+  for (let offsetX = -2; offsetX <= 4; offsetX++) {
+    const x = MEADOW_PORTAL_POINT.x + offsetX
+    const z = MEADOW_PORTAL_POINT.z
+    const y = readGroundY(groundTopMap, x, z)
+    const blockId = getBlock(state, x, y, z)
+    if (blockId !== BlockId.AIR && isPassableBlock(blockId))
+      setBlock(state, x, y, z, BlockId.AIR)
   }
 }

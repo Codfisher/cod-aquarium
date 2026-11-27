@@ -114,7 +114,7 @@ export enum BlockId {
   EMBER,
   BRICKS,
   HIVE,
-  /** 蜜塊，蜂巢圃的琥珀色 */
+  /** 蜜塊，琥珀色（原本給已拿掉的蜂巢圃用，目前沒有造景放它；留著是因為拿掉會讓後面的方塊編號全部位移） */
   HONEY_BLOCK,
   /** 攤開的書，擺在檯面上 */
   OPEN_BOOK,
@@ -269,6 +269,15 @@ export enum BlockId {
    * 冷光的岩旁邊冒出一圈燈籠色會很怪）。洞頂那層冷光的「照」交給地衣叢旁的幾盞冷色真光（見 realm/cave/cave-glow）
    */
   GLOW_LICHEN,
+  /**
+   * 紅土、紅岩、篷布
+   *
+   * 拓荒原（爐火壇的大場景，西部拓荒的原野）用：原野上一塊一塊的紅褐色沙土、
+   * 台地與岩丘的紅岩，以及篷車頂上那一張白色的帆布。加在最後，前面方塊的編號不變
+   */
+  RED_SAND,
+  RED_ROCK,
+  CANVAS,
 }
 
 /**
@@ -1845,6 +1854,23 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
       pixelRecolor: true,
     },
   },
+  [BlockId.RED_SAND]: {
+    textures: {
+      all: 'redSand',
+      /** 迷你像素的沙漠沙是米白的，染成紅褐色的土；原版的紅沙本身就是橘紅，那一套另外給 null 不染 */
+      tint: [1, 0.68, 0.5],
+    },
+  },
+  [BlockId.RED_ROCK]: {
+    textures: {
+      all: 'redRock',
+    },
+  },
+  [BlockId.CANVAS]: {
+    textures: {
+      all: 'woolWhite',
+    },
+  },
 }
 
 /** 非正立方體的方塊，面剔除與碰撞都要另外處理 */
@@ -1852,16 +1878,6 @@ export function isDecorationBlock(blockId: BlockId): boolean {
   const shape = BLOCK_DEFS[blockId]?.shape
   return shape !== undefined && shape !== 'cube'
 }
-
-/** 綿羊身上的材質，交給 3D 模型使用 */
-export const WOOL_TEXTURE = {
-  white: 'woolWhite',
-  grey: 'woolGrey',
-  darkGrey: 'woolDarkGrey',
-  brown: 'woolBrown',
-  black: 'woolBlack',
-  pink: 'woolPink',
-} as const satisfies Record<string, TextureKey>
 
 /** 方塊是否可穿越（不阻擋玩家） */
 export function isPassableBlock(blockId: BlockId): boolean {

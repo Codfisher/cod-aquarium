@@ -21,7 +21,6 @@ import { drainForwardedLog } from '../../composables/use-error-logger'
 import { useFpsController } from '../../composables/use-fps-controller'
 import { usePerformanceProbe } from '../../composables/use-performance-probe'
 import { useTexturePack } from '../../composables/use-texture-pack'
-import { useSheepFlock } from '../fauna/use-sheep-flock'
 import { getGardenAt } from '../garden/garden-layout'
 import { findSafeStandingPosition } from '../player/collision'
 import { activateRealm, activeRealmState } from '../realm/active-realm'
@@ -194,7 +193,6 @@ export function createRenderRuntime({ channel }: CreateRenderRuntimeParam): Rend
       controller: useFpsController(),
       weatherSystem: useWeather(),
       dayNight: useDayNight(),
-      sheepFlock: useSheepFlock(),
       blockLights: useBlockLights(),
       texturePack: useTexturePack(),
     }
@@ -310,7 +308,7 @@ export function createRenderRuntime({ channel }: CreateRenderRuntimeParam): Rend
     /**
      * 材質包
      *
-     * 換一套不必重建世界：方塊、羊與那片白沙的材質物件全都留著，
+     * 換一套不必重建世界：方塊與那片白沙的材質物件全都留著，
      * 只把貼圖換掉。風的擺動、淋雨會變暗的登記、水面的高光
      * 都掛在材質上，重建一次全都要重接一遍
      */
@@ -353,7 +351,7 @@ export function createRenderRuntime({ channel }: CreateRenderRuntimeParam): Rend
   /**
    * 建一份世界層
    *
-   * 初次建立與換場景共用。羊群與燈池這兩個 composable 是在 effect scope 裡建的（引擎層），
+   * 初次建立與換場景共用。燈池這個 composable 是在 effect scope 裡建的（引擎層），
    * 世界層只負責 start 與 stop；材質包取當下這一刻的設定
    */
   async function buildWorldLayer(realm: RealmDefinition, worldState: Uint8Array): Promise<WorldLayer | null> {
@@ -361,7 +359,7 @@ export function createRenderRuntime({ channel }: CreateRenderRuntimeParam): Rend
       return null
 
     const { scene, camera } = babylon
-    const { sheepFlock, blockLights, texturePack, dayNight, weatherSystem } = systems
+    const { blockLights, texturePack, dayNight, weatherSystem } = systems
 
     return createWorldLayer({
       realm,
@@ -369,7 +367,6 @@ export function createRenderRuntime({ channel }: CreateRenderRuntimeParam): Rend
       scene,
       camera,
       texturePack: { pack: texturePack.pack.value, isBumpActive: texturePack.bumpActive.value },
-      sheepFlock,
       blockLights,
       atmosphere: weatherSystem.atmosphere,
       getDayRatio: dayNight.getDayRatio,

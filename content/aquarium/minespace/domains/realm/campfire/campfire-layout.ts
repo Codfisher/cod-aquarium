@@ -1,60 +1,34 @@
 import { WORLD_SIZE } from '../../world/world-constants'
 
 /**
- * 營火谷的尺寸與定點
+ * 拓荒原的尺寸與定點
  *
  * 地形 worker（生方塊）與渲染端（火焰與煙、布景、邊界、音源）都要讀同一批數字，
  * 所以抽成純資料，不引用 Babylon 也不引用造景程式。
  *
- * 營火谷是爐火壇的放大版。爐火壇是一方草地木座：正中一個沉進地面的火塘（餘燼），
- * 一圈半磚石頭圍著，四張木階梯當矮凳圍成一圈，一頂籬笆柱撐起的木板棚子底下堆著柴、木箱與木桶，
- * 一捆乾草、一棵橡樹，草地上一半蕨一半高草。
- * 那一座只有一堆火；這裡是一片林緣的谷地，正中一座大篝火，四周散著幾處小營地，
- * 每一處都是一座爐火壇：石圈、火塘、矮凳，有的搭著棚子。外圍一圈橡樹林沿著谷坡長上去
+ * 拓荒原是爐火壇的大場景，使用者要的是「類似西部拓荒的原野」、「要有拓荒感」，不要一座大營火。
+ * 爐火壇留下來的是它的聲音：一堆幹活用的小火，低低地、一直劈啪著。
+ * 這裡是一片乾草原：一圈走了一整天、停下來歇腳的篷車，篷車邊一堆煮飯的小火；
+ * 東北一間蓋到一半的木屋、一架風車抽水機、剛犁出來的頭幾道溝；一條被車輪壓出車轍的路往西通向紅岩台地；
+ * 遠處零星兩處外圍守夜人的小火，一座小丘上的墳。四周原野往下陷成一圈乾溝，溝外是爬不上去的紅岩壁
  */
 
-/** 谷地的中心，也是大篝火與遠景的中心 */
+/** 原野的中心，篷車圍成的那一圈就在這裡，也是遠景的中心 */
 export const CAMP_CENTER = { x: WORLD_SIZE / 2, z: WORLD_SIZE / 2 }
 
-/**
- * 谷底那一層草的高度
- *
- * 底下留幾格土與石，上面有二十多格給谷坡與樹
- */
+/** 原野那一層地面的高度 */
 export const CAMP_GROUND_Y = 9
 
-/** 站在谷底草地上的腳底高度 */
+/** 站在原野上的腳底高度 */
 export const CAMP_FOOT_Y = CAMP_GROUND_Y + 1
 
-/**
- * 大篝火的石圈半徑
- *
- * 爐火壇的石圈半徑兩格、圍著一格火塘；這裡的火塘是五格的十字，石圈放到三格半
- */
-export const BONFIRE_RING_RADIUS = 3.5
-
-/** 一處營火：火塘的位置，以及它是不是正中那座大篝火 */
-export interface CampFire {
+/** 一個平面上的點 */
+export interface CampPoint {
   x: number;
   z: number;
-  isBonfire: boolean;
 }
 
-/**
- * 散在谷地裡的小營地
- *
- * 每一處都是一座爐火壇：石圈、火塘、矮凳。shelterSide 給了就在那一側搭一頂棚子
- * （爐火壇的棚子在火的西南），堆柴、木箱與木桶；不給就只有火與矮凳，像有人路過生了一堆火。
- * 角度避開東邊：那是回程門與通往大篝火的那條路
- */
-export interface CampSite {
-  x: number;
-  z: number;
-  /** 棚子在火的哪一側，不給就沒有棚子 */
-  shelterSide?: 'north' | 'south' | 'east' | 'west';
-}
-
-function atCampRing(degree: number, radius: number): { x: number; z: number } {
+function atCampRing(degree: number, radius: number): CampPoint {
   const radian = (degree / 180) * Math.PI
   return {
     x: CAMP_CENTER.x + Math.round(Math.cos(radian) * radius),
@@ -62,60 +36,133 @@ function atCampRing(degree: number, radius: number): { x: number; z: number } {
   }
 }
 
-export const CAMP_SITE_LIST: CampSite[] = [
-  { ...atCampRing(60, 20), shelterSide: 'south' },
-  { ...atCampRing(118, 24) },
-  { ...atCampRing(165, 19), shelterSide: 'west' },
-  { ...atCampRing(212, 26) },
-  { ...atCampRing(258, 21), shelterSide: 'north' },
-  { ...atCampRing(312, 27) },
+/** 篷車圍成的那一圈的半徑 */
+export const WAGON_CIRCLE_RADIUS = 11
+
+/**
+ * 篷車：一輛一輛沿著圓周停，車身與圓相切；東邊空著，那是車隊進來的口，也是回程門那條路
+ *
+ * degree 是它在圓上的方位（東為零、順時針，南為九十）
+ */
+export const WAGON_LIST: (CampPoint & { degree: number })[] = [50, 102, 154, 206, 258, 310].map((degree) => ({
+  ...atCampRing(degree, WAGON_CIRCLE_RADIUS),
+  degree,
+}))
+
+/**
+ * 篷車圈裡那一堆煮飯的小火
+ *
+ * 偏在圈子北半邊：車轍路從東邊的口穿過圈子往西出去，火不能擋在路上
+ */
+export const COOK_FIRE_POINT: CampPoint = { x: CAMP_CENTER.x - 2, z: CAMP_CENTER.z - 6 }
+
+/** 外圍守夜人的小火：一處在西北那座岩丘的背風處，一處在東南的草裡 */
+export const OUTRIDER_CAMP_LIST: CampPoint[] = [
+  { x: CAMP_CENTER.x - 26, z: CAMP_CENTER.z - 34 },
+  { x: CAMP_CENTER.x + 48, z: CAMP_CENTER.z + 18 },
 ]
 
-/** 全部的火塘：正中的大篝火與每一處小營地，渲染端的火焰與煙、音源都照這一份 */
+/** 一處火：篷車圈裡煮飯的那一堆，或外圍守夜的小火 */
+export interface CampFire extends CampPoint {
+  isCookFire: boolean;
+}
+
+/** 全部的火塘，渲染端的火焰與煙、音源都照這一份 */
 export const CAMP_FIRE_LIST: CampFire[] = [
-  { ...CAMP_CENTER, isBonfire: true },
-  ...CAMP_SITE_LIST.map((site) => ({ x: site.x, z: site.z, isBonfire: false })),
+  { ...COOK_FIRE_POINT, isCookFire: true },
+  ...OUTRIDER_CAMP_LIST.map((point) => ({ ...point, isCookFire: false })),
+]
+
+/** 拴馬的橫木與飲水槽，篷車圈南邊 */
+export const HITCHING_POINT: CampPoint = { x: CAMP_CENTER.x + 3, z: CAMP_CENTER.z + 18 }
+
+/**
+ * 蓋到一半的木屋（東北）
+ *
+ * 屋子的中心；木屋朝南（門開在南牆），風車抽水機在它西邊，剛犁的田在它東邊
+ */
+export const HOMESTEAD_POINT: CampPoint = { x: CAMP_CENTER.x + 26, z: CAMP_CENTER.z - 24 }
+export const WINDMILL_POINT: CampPoint = { x: HOMESTEAD_POINT.x - 10, z: HOMESTEAD_POINT.z + 1 }
+
+/** 剛犁出來的那一塊田（含兩端） */
+export const FIELD_RECT = {
+  minX: HOMESTEAD_POINT.x + 8,
+  maxX: HOMESTEAD_POINT.x + 19,
+  minZ: HOMESTEAD_POINT.z - 6,
+  maxZ: HOMESTEAD_POINT.z + 5,
+}
+
+/** 小丘上的那座墳（西南） */
+export const GRAVE_POINT: CampPoint = { x: CAMP_CENTER.x - 32, z: CAMP_CENTER.z + 32 }
+
+/** 路標與石堆：往西那條車轍路分岔的地方 */
+export const TRAIL_MARKER_POINT: CampPoint = { x: CAMP_CENTER.x - 28, z: CAMP_CENTER.z + 2 }
+
+/** 原野上走得上去的紅岩丘：中心、半徑、高度 */
+export interface RockOutcrop extends CampPoint {
+  radius: number;
+  height: number;
+}
+
+export const OUTCROP_LIST: RockOutcrop[] = [
+  { x: CAMP_CENTER.x - 36, z: CAMP_CENTER.z - 26, radius: 7, height: 7 },
+  { x: CAMP_CENTER.x + 36, z: CAMP_CENTER.z + 40, radius: 5, height: 6 },
+  { x: CAMP_CENTER.x - 8, z: CAMP_CENTER.z - 52, radius: 6, height: 8 },
+  { x: CAMP_CENTER.x + 52, z: CAMP_CENTER.z + 2, radius: 4, height: 4 },
 ]
 
 /**
- * 大篝火那五格十字火塘的位置（相對火塘中心）
+ * 車轍路的骨架
  *
- * 渲染端在每一格上各立一組火焰，五組疊在一起才是一座比人高的篝火
+ * 從回程門往西進篷車圈的口，穿過圈子，再往西南走出去、一路通到乾溝邊，正對著遠處的台地。
+ * 路上兩道被車輪壓出來的轍
  */
-export const BONFIRE_EMBER_OFFSET_LIST = [
-  { x: 0, z: 0 },
-  { x: 1, z: 0 },
-  { x: -1, z: 0 },
-  { x: 0, z: 1 },
-  { x: 0, z: -1 },
-] as const
+export const WAGON_TRAIL_POINT_LIST: CampPoint[] = [
+  { x: CAMP_CENTER.x + 26, z: CAMP_CENTER.z },
+  { x: CAMP_CENTER.x + 11, z: CAMP_CENTER.z },
+  { x: CAMP_CENTER.x - 12, z: CAMP_CENTER.z + 1 },
+  { x: CAMP_CENTER.x - 28, z: CAMP_CENTER.z + 4 },
+  { x: CAMP_CENTER.x - 48, z: CAMP_CENTER.z + 8 },
+  { x: CAMP_CENTER.x - 70, z: CAMP_CENTER.z + 11 },
+]
+
+/** 篷車圈到木屋那條踩出來的小徑 */
+export const FOOTPATH_POINT_LIST: CampPoint[] = [
+  { x: CAMP_CENTER.x + 8, z: CAMP_CENTER.z - 8 },
+  { x: CAMP_CENTER.x + 17, z: CAMP_CENTER.z - 16 },
+  { x: HOMESTEAD_POINT.x, z: HOMESTEAD_POINT.z + 5 },
+]
+
+/** 北邊那道乾掉的河床 */
+export const CREEK_POINT_LIST: CampPoint[] = [
+  { x: CAMP_CENTER.x - 62, z: CAMP_CENTER.z - 30 },
+  { x: CAMP_CENTER.x - 34, z: CAMP_CENTER.z - 40 },
+  { x: CAMP_CENTER.x - 4, z: CAMP_CENTER.z - 38 },
+  { x: CAMP_CENTER.x + 18, z: CAMP_CENTER.z - 46 },
+  { x: CAMP_CENTER.x + 52, z: CAMP_CENTER.z - 40 },
+]
 
 /**
  * 回程門
  *
- * 大廳那座門立在爐火壇火堆的東邊、原本那張東側矮凳的位置，門洞朝東，人往西穿過去；
- * 這裡的門立在谷地東側、大篝火正東二十四格，門洞同樣朝東，人到了之後仍是往西走，
- * 那條踩出來的土路從腳下通到正前方的大篝火，與大廳那一頭「門洞框住火堆」是同一個構圖
+ * 大廳那座門立在爐火壇火塘的正東，門洞朝東，人往西穿過去；
+ * 這裡的門立在原野東邊、車轍路的起點，門洞同樣朝東，人到了之後仍是往西走，
+ * 車轍路從腳下通進篷車圈的口
  */
-export const CAMP_PORTAL_POINT = { x: CAMP_CENTER.x + 24, z: CAMP_CENTER.z }
+export const CAMP_PORTAL_POINT: CampPoint = { x: CAMP_CENTER.x + 24, z: CAMP_CENTER.z }
+
+/** 原野在哪一圈開始往下陷成乾溝、溝最深的地方、紅岩壁從哪裡拔起 */
+export const PRAIRIE_RADIUS = 62
+export const GULLY_DEPTH = 4
+export const ROCK_WALL_RADIUS = 72
+
+/** 紅岩壁高出原野幾格（兩格一階、爬不上去），壁頂外是不畫的 LAKE_BED */
+export const ROCK_WALL_HEIGHT = 8
 
 /**
- * 谷地的邊：這一圈以外地面一路往上抬成谷坡，橡樹越種越密
+ * 邊界：走進乾溝越走越慢，過了推回線被推回原野
  *
- * 谷底是一片開闊的草地，樹只零星長在營地之間；過了這一圈就是林緣
+ * 推回線在溝底，再往外是爬不上去的紅岩壁，人永遠看不到壁頂後面
  */
-export const CAMP_FOREST_EDGE_RADIUS = 34
-
-/** 谷坡頂（稜線）在哪一圈，再往外是不畫的 LAKE_BED */
-export const CAMP_RIDGE_RADIUS = 58
-
-/** 谷坡最多高出谷底幾格 */
-export const CAMP_RIDGE_HEIGHT = 8
-
-/**
- * 邊界：走上谷坡、鑽進林子越走越慢，過了推回線被推回谷底
- *
- * 減速線在林緣往外四格，推回線再十格，人最遠到得了五十格，坡頂與後面的林子還擋著
- */
-export const CAMP_SLOW_RADIUS = CAMP_FOREST_EDGE_RADIUS + 4
-export const CAMP_PUSH_RADIUS = CAMP_SLOW_RADIUS + 10
+export const CAMP_SLOW_RADIUS = PRAIRIE_RADIUS - 2
+export const CAMP_PUSH_RADIUS = ROCK_WALL_RADIUS - 2

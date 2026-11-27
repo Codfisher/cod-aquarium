@@ -1,8 +1,7 @@
 import type { GardenDefinition } from './garden-layout'
 import { createSeededRandom } from '../../utils/noise'
 import { BlockId } from '../block/block-constants'
-import { APIARY_HUB_GATE_OFFSET } from '../realm/apiary/apiary-layout'
-import { INSECT_HUB_GATE_OFFSET } from '../realm/insect/insect-layout'
+import { MEADOW_HUB_GATE_OFFSET } from '../realm/meadow/meadow-layout'
 import { setBlock } from '../world/world-access'
 import {
   carveWater,
@@ -25,7 +24,7 @@ import { getDeckBlockY, getDeckGroundY, POND_BOARDWALK_START_Z, POND_GATE_OFFSET
 /**
  * 小箱庭的內容
  *
- * 內圈這八座只有十五格見方，塞不下一整片風景，
+ * 內圈這五座只有十五格見方，塞不下一整片風景，
  * 所以每一座只做一件事：一堆火、一口池、一叢草。
  * 東西少反而聽得清楚——那正是把它們做小的理由
  */
@@ -201,148 +200,92 @@ export function buildRuinsGarden(state: Uint8Array, garden: GardenDefinition): v
 }
 
 /**
- * 草苑
+ * 風露苑的花草：草苑的花與蟲聲叢的草各一半（權重，加起來一百）
  *
- * 草原的風之所以柔，是因為沒有任何東西反射它。
- * 所以這一座什麼都不能有：一片草、滿地花、角落一棵孤零零的樹，
- * 剩下的就是空
+ * 草仍是主體、高到看得見一片草浪，花零星開在裡面；
+ * 月見草與白蒲公英是夜裡草上最亮的那幾點
+ */
+const MEADOW_PLANT_MIX: readonly (readonly [BlockId, number])[] = [
+  [BlockId.TALL_GRASS, 38],
+  [BlockId.DRY_GRASS, 12],
+  [BlockId.FERN, 8],
+  [BlockId.FLOWER_DANDELION, 10],
+  [BlockId.FLOWER_TULIP, 8],
+  [BlockId.FLOWER_VIOLA, 8],
+  [BlockId.BIG_FLOWER, 5],
+  [BlockId.FLOWER_WHITE_DANDELION, 6],
+  [BlockId.MOON_FLOWER, 5],
+]
+
+/**
+ * 風露苑
+ *
+ * 由草苑與蟲聲叢併成一座：兩座原本都是一方草地，差在聽的時候。
+ * 白天是開闊而柔的風——風之所以柔，是因為沒有東西反射它，所以這一座仍然大半是空的；
+ * 入夜換成蟲，蟲鳴是從草叢的每一個縫隙裡出來的，所以草要密、要有縫可躲。
+ *
+ * 西北角留著草苑那棵孤樹與樹下的長凳，讓風有一個看得見的去處；
+ * 蟲的家分在另外三角：東北幾根埋了半截的枯木樁、西南一堆圓石、東南一小片曬得到太陽的乾土長仙人掌。
+ * 門立在中央偏東（MEADOW_HUB_GATE_OFFSET）、門洞朝西，坐在長凳上往前看就是那道門；
+ * 禪庭中心那串飛石走到木座西緣，從那裡到門前踩出一條小徑
  */
 export function buildMeadowGarden(state: Uint8Array, garden: GardenDefinition): void {
   const random = createSeededRandom('garden-meadow')
+  const deckY = getDeckBlockY(garden)
   const groundY = getDeckGroundY(garden)
   const { x: centerX, z: centerZ } = garden.center
   const inner = garden.halfSize - DECK_MARGIN
 
   paveDeck(state, garden, BlockId.GRASS)
 
-  /** 唯一的一棵樹，站在角落，讓風有一個看得見的去處 */
-  placeOakTree(state, centerX - 4, groundY, centerZ - 4, 6)
+  /** 東南一小片乾土，蟲最愛的曬得到太陽的角落 */
+  fillNoisyDisc(state, centerX + 4, centerZ + 4, 2.5, deckY, BlockId.SAND, 1.1)
 
-  /** 樹下一張長凳 */
+  /** 孤樹站在西北角，樹下一張長凳 */
+  placeOakTree(state, centerX - 4, groundY, centerZ - 4, 6)
   for (let offset = -1; offset <= 1; offset++) {
     setBlock(state, centerX - 1, groundY, centerZ - 3 + offset, BlockId.WOOD_STAIRS_WEST)
   }
 
-  scatterOnGround(state, centerX, centerZ, inner, groundY, random, 0.62, (pick) => {
-    const roll = pick()
-    if (roll < 0.46)
-      return BlockId.TALL_GRASS
-    if (roll < 0.62)
-      return BlockId.FLOWER_DANDELION
-    if (roll < 0.74)
-      return BlockId.FLOWER_TULIP
-    if (roll < 0.84)
-      return BlockId.FLOWER_VIOLA
-    if (roll < 0.92)
-      return BlockId.BIG_FLOWER
-    return BlockId.FLOWER_WHITE_DANDELION
-  }, GRASS_SET)
-}
-
-/**
- * 牧野
- *
- * 羊叫是唯一位置一直在動的聲音。
- * 所以這一座要留出空地讓羊走得開，柵欄圍一圈，
- * 從外面看得見裡面，聲音才會跟著那幾隻白色的影子移動
- */
-export function buildPastureGarden(state: Uint8Array, garden: GardenDefinition): void {
-  const random = createSeededRandom('garden-pasture')
-  const groundY = getDeckGroundY(garden)
-  const { x: centerX, z: centerZ } = garden.center
-  const inner = garden.halfSize - DECK_MARGIN
-  const fenceHalf = garden.halfSize - 2
-
-  paveDeck(state, garden, BlockId.GRASS)
-
-  /** 柵欄圍一圈，朝中心那一側留一道門 */
-  for (let offset = -fenceHalf; offset <= fenceHalf; offset++) {
-    const isGate = Math.abs(offset) <= 1
-    if (!isGate) {
-      setBlock(state, centerX + offset, groundY, centerZ - fenceHalf, BlockId.FENCE)
+  /** 東北幾根埋了半截的木樁，蟲從縫裡叫出來 */
+  for (const spot of [{ x: 2, z: -4 }, { x: 4, z: -3 }, { x: 5, z: -5 }]) {
+    setBlock(state, centerX + spot.x, groundY, centerZ + spot.z, BlockId.DEAD_LOG)
+    if (random() < 0.6) {
+      setBlock(state, centerX + spot.x, groundY + 1, centerZ + spot.z, BlockId.DEAD_LOG)
     }
-    setBlock(state, centerX + offset, groundY, centerZ + fenceHalf, BlockId.FENCE)
-    setBlock(state, centerX - fenceHalf, groundY, centerZ + offset, BlockId.FENCE)
-    setBlock(state, centerX + fenceHalf, groundY, centerZ + offset, BlockId.FENCE)
   }
 
-  /** 乾草堆與飲水槽 */
-  setBlock(state, centerX - fenceHalf + 2, groundY, centerZ - fenceHalf + 2, BlockId.HAY)
-  setBlock(state, centerX - fenceHalf + 3, groundY, centerZ - fenceHalf + 2, BlockId.HAY)
-  setBlock(state, centerX - fenceHalf + 2, groundY + 1, centerZ - fenceHalf + 2, BlockId.HAY)
+  /** 西南一堆石，石縫是另一種蟲的家 */
+  placeStandingStone(state, centerX - 4, groundY, centerZ + 4, 2, BlockId.COBBLESTONE)
+  setDecoration(state, centerX - 4, groundY, centerZ + 2, BlockId.COBBLESTONE)
 
-  const troughX = centerX + fenceHalf - 2
-  const troughZ = centerZ + fenceHalf - 2
-  fillSquare(state, troughX, troughZ, 1, groundY, BlockId.PLANKS)
-  carveWater(state, troughX, getDeckBlockY(garden), troughZ, 1, BlockId.PLANKS)
+  /** 乾土上兩株仙人掌，是整座最乾的地方 */
+  setBlock(state, centerX + 4, groundY, centerZ + 4, BlockId.CACTUS)
+  setBlock(state, centerX + 4, groundY + 1, centerZ + 4, BlockId.CACTUS)
+  setBlock(state, centerX + 3, groundY, centerZ + 5, BlockId.CACTUS)
 
-  scatterOnGround(state, centerX, centerZ, inner, groundY, random, 0.3, (pick) => (
-    pick() < 0.7 ? BlockId.TALL_GRASS : BlockId.FLOWER_DANDELION
-  ), GRASS_SET)
-}
-
-/**
- * 蜂巢圃
- *
- * 蜂群是一整團密集的中頻嗡鳴，聽起來像一個會呼吸的物體。
- * 所以蜂箱要疊在一起，四周種滿開花的東西，
- * 讓聲音的來源看起來也是一團
- */
-export function buildApiaryGarden(state: Uint8Array, garden: GardenDefinition): void {
-  const random = createSeededRandom('garden-apiary')
-  const groundY = getDeckGroundY(garden)
-  const { x: centerX, z: centerZ } = garden.center
-  const inner = garden.halfSize - DECK_MARGIN
-
-  paveDeck(state, garden, BlockId.GRASS)
-
-  /** 三個蜂箱架在木台上，高度錯開 */
-  const hiveSpotList = [
-    { x: 0, z: 0, height: 2 },
-    { x: 2, z: 1, height: 1 },
-    { x: -2, z: 2, height: 1 },
-  ]
-  for (const spot of hiveSpotList) {
-    const hiveX = centerX + spot.x
-    const hiveZ = centerZ + spot.z
-    setBlock(state, hiveX, groundY, hiveZ, BlockId.PLANKS)
-    for (let level = 1; level <= spot.height; level++) {
-      setBlock(state, hiveX, groundY + level, hiveZ, BlockId.HIVE)
+  const mixTotal = MEADOW_PLANT_MIX.reduce((sum, [, weight]) => sum + weight, 0)
+  scatterOnGround(state, centerX, centerZ, inner, groundY, random, 0.7, (pick) => {
+    let roll = pick() * mixTotal
+    for (const [blockId, weight] of MEADOW_PLANT_MIX) {
+      roll -= weight
+      if (roll < 0)
+        return blockId
     }
-    setBlock(state, hiveX, groundY + spot.height + 1, hiveZ, BlockId.WOOD_SLAB)
-  }
-
-  /** 收成的蜜擺在旁邊 */
-  setBlock(state, centerX + 4, groundY, centerZ - 1, BlockId.HONEY_BLOCK)
-  setBlock(state, centerX + 4, groundY, centerZ - 2, BlockId.BARREL)
-
-  /**
-   * 竹籬圍住蜂箱那一側，人得繞路才靠得近
-   *
-   * 正中三格讓給通往萬花蜂台的門（APIARY_HUB_GATE_OFFSET）：門嵌在竹籬上、門洞朝北，
-   * 兩根門柱在 ±1，兩側各剩兩格籬，從北邊走過來，門洞框著後面那疊蜂箱。
-   * 門框是大廳生完箱庭之後才放的（見 realm-terrain 與 apiary-realm 的 APIARY_HUB_GATE）
-   */
-  for (let offset = -3; offset <= 3; offset++) {
-    if (Math.abs(offset - APIARY_HUB_GATE_OFFSET.x) <= 1)
-      continue
-    setBlock(state, centerX + offset, groundY, centerZ + APIARY_HUB_GATE_OFFSET.z, BlockId.BAMBOO_FENCE)
-  }
-
-  scatterOnGround(state, centerX, centerZ, inner, groundY, random, 0.6, (pick) => {
-    const roll = pick()
-    if (roll < 0.3)
-      return BlockId.BIG_FLOWER
-    if (roll < 0.5)
-      return BlockId.FLOWER_ROSE
-    if (roll < 0.66)
-      return BlockId.FLOWER_TULIP
-    if (roll < 0.8)
-      return BlockId.FLOWER_DANDELION
-    if (roll < 0.92)
-      return BlockId.FLOWER_VIOLA
     return BlockId.TALL_GRASS
   }, GRASS_SET)
+
+  scatterOnGround(state, centerX + 4, centerZ + 4, 2, groundY, random, 0.3, () => BlockId.DRY_SHRUB, new Set([BlockId.SAND]))
+
+  /**
+   * 一條踩出來的小徑：從木座西緣到門前這一段的草拔掉
+   *
+   * 回來的落點（門西邊四格）也在這條路上，一落地眼前就是那道門。
+   * 草照樣撒完才拔，亂數的順序不變
+   */
+  for (let offsetX = -inner; offsetX <= MEADOW_HUB_GATE_OFFSET.x - 2; offsetX++) {
+    setBlock(state, centerX + offsetX, groundY, centerZ + MEADOW_HUB_GATE_OFFSET.z, BlockId.AIR)
+  }
 }
 
 /**
@@ -546,68 +489,4 @@ export function buildRainvaleGarden(state: Uint8Array, garden: GardenDefinition)
       return BlockId.BROWN_MUSHROOM
     return BlockId.MUSHROOM
   }, GRASS_SET)
-}
-
-/**
- * 蟲聲叢
- *
- * 蟲鳴是高頻的、有顆粒感的，而且它從草叢的每一個縫隙裡出來，
- * 不是從某一個點。所以這一座要把草種到滿，
- * 高到看不見地面，人走進去就被聲音包住
- */
-export function buildInsectGarden(state: Uint8Array, garden: GardenDefinition): void {
-  const random = createSeededRandom('garden-insect')
-  const deckY = getDeckBlockY(garden)
-  const groundY = getDeckGroundY(garden)
-  const { x: centerX, z: centerZ } = garden.center
-  const inner = garden.halfSize - DECK_MARGIN
-
-  paveDeck(state, garden, BlockId.GRASS)
-
-  /** 一小片乾土，蟲最愛的曬得到太陽的角落 */
-  fillNoisyDisc(state, centerX + 4, centerZ + 4, 3, deckY, BlockId.SAND, 1.1)
-
-  /** 幾根埋了半截的木樁，蟲從縫裡叫出來 */
-  for (const spot of [{ x: -4, z: -3 }, { x: -3, z: -1 }, { x: 2, z: -4 }]) {
-    setBlock(state, centerX + spot.x, groundY, centerZ + spot.z, BlockId.DEAD_LOG)
-    if (random() < 0.6) {
-      setBlock(state, centerX + spot.x, groundY + 1, centerZ + spot.z, BlockId.DEAD_LOG)
-    }
-  }
-
-  /** 一堆石，石縫是另一種蟲的家 */
-  placeStandingStone(state, centerX - 5, groundY, centerZ + 4, 2, BlockId.COBBLESTONE)
-  setDecoration(state, centerX - 4, groundY, centerZ + 4, BlockId.COBBLESTONE)
-
-  /** 乾土上兩株仙人掌，是全庭最乾的地方 */
-  setBlock(state, centerX + 4, groundY, centerZ + 4, BlockId.CACTUS)
-  setBlock(state, centerX + 4, groundY + 1, centerZ + 4, BlockId.CACTUS)
-  setBlock(state, centerX + 5, groundY, centerZ + 2, BlockId.CACTUS)
-
-  scatterOnGround(state, centerX, centerZ, inner, groundY, random, 0.78, (pick) => {
-    const roll = pick()
-    if (roll < 0.5)
-      return BlockId.TALL_GRASS
-    if (roll < 0.7)
-      return BlockId.DRY_GRASS
-    if (roll < 0.84)
-      return BlockId.FERN
-    if (roll < 0.92)
-      return BlockId.CURLY_PLANT
-    return BlockId.FIRE_FLOWER
-  }, GRASS_SET)
-
-  scatterOnGround(state, centerX + 4, centerZ + 4, 3, groundY, random, 0.3, () => BlockId.DRY_SHRUB, new Set([BlockId.SAND]))
-
-  /**
-   * 一條踩出來的小徑
-   *
-   * 通往蟲鳴夜原的門立在草叢正中（INSECT_HUB_GATE_OFFSET）、門洞朝東，
-   * 禪庭中心那串飛石正好走到木座東緣。從東緣到門前這一段的草拔掉，
-   * 看得出是人撥開草走出來的路，門四周照樣是高到看不見地面的草。
-   * 草照樣撒完才拔，亂數的順序不變，其他格子的草一株不差
-   */
-  for (let offsetX = INSECT_HUB_GATE_OFFSET.x + 2; offsetX <= inner; offsetX++) {
-    setBlock(state, centerX + offsetX, groundY, centerZ + INSECT_HUB_GATE_OFFSET.z, BlockId.AIR)
-  }
 }

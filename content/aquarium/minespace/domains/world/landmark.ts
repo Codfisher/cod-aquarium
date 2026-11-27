@@ -49,7 +49,7 @@ function getGateTravelPoint(gate: GardenGate): { x: number; z: number; yaw: numb
 /**
  * 地標清單
  *
- * 十七座箱庭散在兩百五十格見方的沙地上，全靠走的太累，
+ * 十八座箱庭散在兩百五十格見方的沙地上，全靠走的太累，
  * 選單裡提供直接跳過去的捷徑。落點預設是箱庭中心，
  * 中央被東西佔住的那幾座另外指定，有傳送門的那幾座落在門前（見 GATE_TRAVEL_DISTANCE）。
  * 實際高度由 findSafeStandingPosition 決定

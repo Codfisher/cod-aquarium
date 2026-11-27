@@ -1,5 +1,13 @@
 import type { SoundEmitterDefinition } from '../../soundscape/type'
-import { BASIN_LIST, PARK_RADIUS, SONGBIRD_CENTER } from './songbird-layout'
+import { BASIN_LIST, PARK_RADIUS, SONGBIRD_CENTER, SONGBIRD_GROUND_Y } from './songbird-layout'
+
+/**
+ * 鳥在枝頭的高度（世界座標，腳底以上五格，鳴禽庭那幾隻的 heightOffset）
+ *
+ * 直接給 y、不用 heightOffset：音源的高度是從「這一柱最上面那格實心方塊」往上量的，樹葉也算，
+ * 點落在樹叢上的那幾隻會先被抬到樹冠頂再往上五格，林下聽起來就遠了一大截
+ */
+const PERCH_Y = SONGBIRD_GROUND_Y + 6
 
 /** 某個方位（度）上離園子中心 radius 格 */
 function atParkRing(degree: number, radius: number): { x: number; z: number } {
@@ -31,7 +39,7 @@ export const SONGBIRD_EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
     title: { 'zh-hant': '烏鶇鳴唱', 'en': 'Blackbird song' },
     zone: 'songbird',
     ...position,
-    heightOffset: 5,
+    y: PERCH_Y,
     motion: { type: 'wander', radius: 7, periodSecond: 40 + index * 7, riseHeight: 2 },
     mode: { type: 'interval', rangeSecond: [7, 18] },
     volume: 0.8,
@@ -50,7 +58,7 @@ export const SONGBIRD_EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
     title: { 'zh-hant': '交嘴雀', 'en': 'Crossbill' },
     zone: 'songbird',
     ...position,
-    heightOffset: 5,
+    y: PERCH_Y,
     mode: { type: 'interval', rangeSecond: [9, 24] },
     volume: 0.75,
     minDistance: 4,
@@ -80,7 +88,7 @@ export const SONGBIRD_EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
     title: { 'zh-hant': '架上的夜梟', 'en': 'Owl on the perch' },
     zone: 'songbird',
     ...position,
-    heightOffset: 5,
+    y: PERCH_Y,
     mode: { type: 'interval', rangeSecond: [18, 44] },
     volume: 0.7,
     minDistance: 4,

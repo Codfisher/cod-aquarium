@@ -17,6 +17,15 @@ export const RAINVALE_CENTER = { x: WORLD_SIZE / 2, z: WORLD_SIZE / 2 }
 /** 林地那一層草的頂面高度，與林海同一個高度 */
 export const RAINVALE_GROUND_Y = 10
 
+/**
+ * 林子外面那一圈不畫的地面（LAKE_BED）與布景地面平面的高度，比林地矮兩格
+ *
+ * 布景的地面平面是一整片鋪滿世界的面，不只在林子外：與草地同高（頂面 10.5）的話，
+ * 它比積水的水面（矮八分之一格）還高，林子裡每一窪水都被一片草地蓋掉，看起來是綠的。
+ * 壓到積水最深那一格的黏土底（八格）的頂面，平面整片藏在地底下，只在林子外露出來
+ */
+export const RAINVALE_OUTER_FLOOR_Y = RAINVALE_GROUND_Y - 2
+
 /** 一窪積水：中心與半徑（吃噪音，實際岸線會凹凸） */
 export interface RainvalePond {
   x: number;

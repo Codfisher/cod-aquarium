@@ -6,11 +6,12 @@ import { WORLD_SIZE } from '../../world/world-constants'
  * 地形 worker（生方塊）與渲染端（傳送門、布景、邊界、音源）都要讀同一批數字，
  * 所以抽成純資料，不引用 Babylon 也不引用造景程式。
  *
- * 蟬時雨是盛夏正午的一片櫸樹下：四棵橡樹擠在一起，最高處再補一整片葉子，
- * 樹冠合成一張沒有縫的蓋子，只留兩成不到的葉縫漏下光點；底下是曬不到太陽的土與苔，
+ * 蟬時雨是盛夏正午的一片櫸樹下：四棵橡樹擠在一起，樹冠合成一片幾乎不透光的蔭，
+ * 只留兩成不到的葉縫漏下光點；底下是曬不到太陽的土與苔，
  * 地上只有蕨、腐葉、高草與石生植物，不放開花的東西；南緣一道朝北的緣廊，
  * 廊上坐墊、簷下吊燈，樹下一盞石燈籠。聲音很大，卻一隻蟬都看不見。
- * 這裡把那張蓋子撐開成一整片林子：走到哪裡頭頂都是一層葉，四面都是樹幹
+ * 這裡把那片蔭攤成一整座盛夏的闊葉林：一棵一棵圓團團的樹冠大小高低不一、彼此擠在一起，
+ * 幾棵老樹高出林冠，底下還有一層矮樹與灌叢，光從冠與冠之間的縫漏下來
  */
 
 /** 林子的中心，也是遠景的中心 */
@@ -20,12 +21,12 @@ export const CICADA_CENTER = { x: WORLD_SIZE / 2, z: WORLD_SIZE / 2 }
 export const CICADA_GROUND_Y = 10
 
 /**
- * 樹冠那一層蓋子的高度
+ * 樹冠底面大約在哪（世界座標）
  *
- * 蟬時雨的蓋子在腳底以上八格；這裡的樹高一點（光禿禿的樹幹九格），
- * 蓋子壓在腳底以上九格，抬頭是一整片綠，樹幹一根根撐上去
+ * 主林層的樹冠底面落在腳底以上五到八格，蟬就抱在這一層的枝幹上叫；
+ * 音源掛在這個高度（見 cicada-sounds），站在林下聽是從頭頂不遠處壓下來的
  */
-export const CANOPY_Y = CICADA_GROUND_Y + 10
+export const CROWN_BOTTOM_Y = CICADA_GROUND_Y + 7
 
 /**
  * 林子裡走得到的那一圈
@@ -33,9 +34,6 @@ export const CANOPY_Y = CICADA_GROUND_Y + 10
  * 這一圈以外樹幹越來越密、地面一路隆起，最外面是一堵樹幹的牆
  */
 export const WOOD_RADIUS = 40
-
-/** 頭頂那層蓋子鋪到哪（吃噪音，正負兩格上下） */
-export const CANOPY_RADIUS = 50
 
 /** 林子的外緣：這一圈以外不種樹，地面換成不畫的 LAKE_BED，由布景的地面平面代替 */
 export const CICADA_EDGE_RADIUS = 52
@@ -75,6 +73,17 @@ export const SHADE_CLEARING: CicadaClearing = {
   z: CICADA_CENTER.z - 20,
   radius: 6,
 }
+
+/**
+ * 林子裡兩小塊沒有樹的地方
+ *
+ * 一棵老樹倒了留下的空，頭頂開了一塊天，太陽直直照在一片草上；
+ * 走了一段濃蔭之後碰到它，林子才有明暗的節奏
+ */
+export const SUN_CLEARING_LIST: CicadaClearing[] = [
+  { x: CICADA_CENTER.x + 20, z: CICADA_CENTER.z - 6, radius: 5 },
+  { x: CICADA_CENTER.x - 22, z: CICADA_CENTER.z + 8, radius: 4.5 },
+]
 
 /**
  * 緣廊

@@ -2,15 +2,16 @@ import { fbm2D, smoothStep } from '../../../utils/noise'
 import { WORLD_SIZE } from '../../world/world-constants'
 
 /**
- * 野花原的尺寸與定點
+ * 風露原的尺寸與定點
  *
  * 地形 worker（生方塊）與渲染端（傳送門、布景、邊界、音源）都要讀同一批數字，
  * 所以抽成純資料，不引用 Babylon 也不引用造景程式。
  *
- * 這裡是草苑的放大版：草苑是一方草地，滿地高草與花（蒲公英、鬱金香、堇、大花、白蒲公英），
- * 角落一棵孤零零的橡樹、樹下一張長凳，剩下的就是空——草原的風之所以柔，是因為沒有東西反射它。
- * 這裡把木座拿掉，草與花一路鋪過一座接一座圓圓的丘，丘頂偶爾一棵孤樹與一張長凳，
- * 樹與樹隔得很遠，中間什麼都沒有
+ * 風露苑是草苑與蟲聲叢併成的一座：白天是風，入夜換成蟲。這裡把兩座的大場景（野花原與蟲鳴夜原）
+ * 也併成一片：野花原那一座接一座的圓丘當地形，丘頂偶爾一棵孤樹與一張長凳；
+ * 蟲鳴夜原的幾種草原地帶鋪在丘上（花色一帶一帶不同），丘間的谷底是曬得到太陽的乾土窪地，
+ * 草裡散著埋了半截的枯木樁與圓石堆。白天看得很遠、風從丘頂掠過，
+ * 入夜蟋蟀與螽斯從每一道草縫裡出來，螢火比別處多得多
  */
 
 /** 原野的中心，也是遠景與邊界的中心 */
@@ -22,18 +23,17 @@ export const MEADOW_GROUND_Y = 8
 /**
  * 回程門
  *
- * 大廳那座門立在草苑中央偏東，門洞朝西，人從西邊走過來、往東穿過去；
+ * 大廳那座門立在風露苑中央偏東，門洞朝西，人從西邊走過來、往東穿過去；
  * 這裡的門立在原野西半邊一塊拉平的草地上，門洞朝西，人到了之後仍是往東走。
- * 落在一條往東延伸的低谷口：南北兩側是圓丘，正前方一路是低緩的草地，望得很遠。
- * 第一版放在正西（中心往西二十六格），一落地眼前就是一座圓丘，什麼都看不到
+ * 落在一條往東延伸的低谷口：南北兩側是圓丘，正前方一路是低緩的草地，一條踩出來的小徑從腳下鑽進草裡
  */
 export const MEADOW_PORTAL_POINT = { x: MEADOW_CENTER.x - 22, z: MEADOW_CENTER.z + 6 }
 
 /**
- * 大廳那座門離草苑中心的偏移
+ * 大廳那座門離風露苑中心的偏移
  *
- * 草苑唯一的造景是西北角的孤樹與樹下那張面朝東的長凳。門立在中央偏東兩格、偏南一格，
- * 門洞朝西：坐在長凳上往前看就是那道門，人從西邊的飛石走進花叢，孤樹在左手邊，門在正前方
+ * 風露苑西北角是孤樹與樹下那張長凳，其餘三角是蟲的家（枯木樁、圓石、乾土）。門立在中央偏東兩格、偏南一格，
+ * 門洞朝西：坐在長凳上往前看就是那道門，人從西邊的飛石順著小徑走進草叢，孤樹在左手邊，門在正前方
  */
 export const MEADOW_HUB_GATE_OFFSET = { x: 2, z: 1 } as const
 
@@ -99,3 +99,113 @@ export function measureMeadowHeight(x: number, z: number): number {
   const flatten = 1 - smoothRange(portalDistance, 5, 11)
   return Math.round(raw + (MEADOW_PORTAL_LEVEL - raw) * flatten)
 }
+
+/**
+ * 踩出來的小徑
+ *
+ * 從回程門往東走一段（一落地就看得到它鑽進草裡），左右彎幾次，走到原野正中那一片月見草。
+ * 原野沒有別的路：小徑以外全是高到膝蓋的草
+ */
+export const MEADOW_PATH_CONTROL_POINT_LIST = [
+  { x: MEADOW_PORTAL_POINT.x + 1, z: MEADOW_PORTAL_POINT.z },
+  { x: MEADOW_CENTER.x - 14, z: MEADOW_CENTER.z + 6 },
+  { x: MEADOW_CENTER.x - 8, z: MEADOW_CENTER.z + 1 },
+  { x: MEADOW_CENTER.x - 1, z: MEADOW_CENTER.z + 3 },
+  { x: MEADOW_CENTER.x + 6, z: MEADOW_CENTER.z - 3 },
+] as const
+
+/**
+ * 草原的幾種地帶
+ *
+ * 蟲鳴夜原的分區照搬：整片照下面這幾個中心分區（邊界吃噪音、交界處兩邊的草混著長），
+ * 每一區有自己的一組草與花、自己的疏密。落腳那一區（court）是風露苑那一組，
+ * 從大廳過來第一眼看到的就是那座箱庭；thicket 是蟲聲叢原本那一叢
+ */
+export type MeadowZoneKind = 'court' | 'thicket' | 'moon' | 'golden' | 'violet' | 'fern' | 'ember'
+
+export interface MeadowZone {
+  kind: MeadowZoneKind;
+  x: number;
+  z: number;
+}
+
+export const MEADOW_ZONE_LIST: MeadowZone[] = [
+  /** 風露苑那一組：草苑的花與蟲聲叢的草各一半，落腳那一片 */
+  { kind: 'court', x: MEADOW_CENTER.x - 20, z: MEADOW_CENTER.z + 6 },
+  /** 月見草原：原野正中一大片月白的花，夜裡最亮的地方 */
+  { kind: 'moon', x: MEADOW_CENTER.x + 2, z: MEADOW_CENTER.z - 4 },
+  /** 蟲聲叢原本那一叢：高草、乾草、蕨、捲葉草、火焰花，東邊那一片 */
+  { kind: 'thicket', x: MEADOW_CENTER.x + 34, z: MEADOW_CENTER.z + 4 },
+  /** 金芒原：南邊一片又密又乾的高草，抽穗的草梢一片金 */
+  { kind: 'golden', x: MEADOW_CENTER.x + 10, z: MEADOW_CENTER.z + 36 },
+  /** 堇色坡：西南一片紫 */
+  { kind: 'violet', x: MEADOW_CENTER.x - 32, z: MEADOW_CENTER.z + 32 },
+  /** 蕨窪：西北一片濕的低地，蕨、捲葉草與菇 */
+  { kind: 'fern', x: MEADOW_CENTER.x - 26, z: MEADOW_CENTER.z - 34 },
+  /** 火燒坡：東北的緩丘上紅的橘的野花 */
+  { kind: 'ember', x: MEADOW_CENTER.x + 28, z: MEADOW_CENTER.z - 32 },
+]
+
+/**
+ * 乾土窪地：蟲聲叢角落那片曬得到太陽的乾土，放大成幾處，都在丘間的谷底
+ *
+ * 地形是噪音長出來的，谷底在哪要量：每六格取一點，比四周七格內都低（或一樣低）、
+ * 而且附近夠平的就算谷底，由低到高挑，彼此隔二十四格以上。
+ * 量的是拉平前的高度，與地形 worker 填階之後差不到一格，窪地本來就是平的那一片。
+ * 音源（窪地裡的獨奏）與地形都要讀，所以在這裡算一次
+ */
+export interface SandPatch {
+  x: number;
+  z: number;
+  radius: number;
+}
+
+const HOLLOW_COUNT_MAX = 6
+const HOLLOW_SPACING = 24
+
+function findHollowList(): SandPatch[] {
+  const candidateList: { x: number; z: number; height: number }[] = []
+  const searchRadius = 7
+
+  for (let x = MEADOW_CENTER.x - 60; x <= MEADOW_CENTER.x + 60; x += 6) {
+    for (let z = MEADOW_CENTER.z - 60; z <= MEADOW_CENTER.z + 60; z += 6) {
+      if (Math.hypot(x - MEADOW_CENTER.x, z - MEADOW_CENTER.z) > MEADOW_SLOW_RADIUS - 12)
+        continue
+      if (Math.hypot(x - MEADOW_PORTAL_POINT.x, z - MEADOW_PORTAL_POINT.z) < 14)
+        continue
+
+      const height = measureRawHeight(x, z)
+      let isValley = true
+      let highest = height
+      for (let offsetX = -searchRadius; offsetX <= searchRadius && isValley; offsetX += 2) {
+        for (let offsetZ = -searchRadius; offsetZ <= searchRadius; offsetZ += 2) {
+          const neighbour = measureRawHeight(x + offsetX, z + offsetZ)
+          if (neighbour < height - 0.01) {
+            isValley = false
+            break
+          }
+          if (Math.abs(offsetX) <= 4 && Math.abs(offsetZ) <= 4)
+            highest = Math.max(highest, neighbour)
+        }
+      }
+      /** 窪地本身要平：中心四格內起伏不到一格半，沙才鋪得成一片 */
+      if (isValley && highest - height < 1.5) {
+        candidateList.push({ x, z, height })
+      }
+    }
+  }
+
+  candidateList.sort((a, b) => a.height - b.height)
+  const hollowList: SandPatch[] = []
+  for (const candidate of candidateList) {
+    if (hollowList.length >= HOLLOW_COUNT_MAX)
+      break
+    if (hollowList.every((hollow) => Math.hypot(hollow.x - candidate.x, hollow.z - candidate.z) >= HOLLOW_SPACING)) {
+      /** 第一處最大，其餘三格上下 */
+      hollowList.push({ x: candidate.x, z: candidate.z, radius: hollowList.length === 0 ? 5 : 3 + (hollowList.length % 2) * 0.5 })
+    }
+  }
+  return hollowList
+}
+
+export const MEADOW_HOLLOW_LIST: SandPatch[] = findHollowList()

@@ -276,6 +276,7 @@ mermaid 不在 Vite 的預先建置名單內，dev 時瀏覽器直接載入它�
 - **`[NDT_DEP_0005] addCustomTab is deprecated`**：@nuxt/icon 2.6.3（Nuxt UI 內建）不論 devtools 有沒有開，都會呼叫舊版 devtools API 註冊分頁。本專案關閉了 devtools，所以用 `patches/@nuxt__icon@2.6.3.patch`（`pnpm-workspace.yaml` 的 `patchedDependencies`）讓它只在 devtools 開啟時註冊。升級 @nuxt/icon 時，先看新版改好了沒有，改好就移除 patch；還沒改好，就用 `pnpm patch` 重做。
 - **`Vite discovered new dependencies at runtime`**：md 頁面、dev 才動態載入的模組裡的依賴，啟動時掃描不到。把它補進 `nuxt.config.ts` 的 `vite.optimizeDeps.include`，否則第一次打開那頁會觸發重新優化並整頁重載。
 - **草稿封面 404**：dev 會列出草稿，草稿封面還沒做時，文章總覽、圖版列與相關文章會一直請求 `/_ipx/...` 得到 404。`site/articles.ts` 只在 dev、且只對草稿把缺檔的封面換成 `/cover.webp`。
+- **新檔明明在，卻一直 `Failed to resolve import`**：先在共用檔加了 import、幾秒後才建立被引用的檔案，Vite 解析失敗時記住了「這個資料夾沒有這支檔」。Windows 上新增檔案的事件會漏，快取不更新，強制重新整理、touch 引用它的檔或它本身都沒用。把新檔移出資料夾再移回來（觸發一次刪除加新增）就好，不必重開 dev server。避免的方法是先寫好新檔、最後才加 import。
 - **可以忽略的**：無頭瀏覽器沒有 GPU 時出現的 `GPU stall due to ReadPixels`、`No available adapters.`（enderbox 偵測 WebGPU 後會改用 WebGL）、`Unrecognized feature: 'web-share'`（YouTube 官方嵌入碼）。另外還有 StackBlitz 嵌入元件自己的 preload 警告，以及 `--host` 帶出的「reachable from the network」提示（為了用手機連區網測試）。
 
 ## 網頁效能：別讓首屏背上不必要的負擔
@@ -1060,7 +1061,7 @@ meme-cache 沒有變化，與預期相符：toast 的成本是載入後的穩態
 - 岩響窟的洞穴霧距（5～26）放到九十格寬的大廳，對面的石柱與燈全被吃成黑；地底場景用自己的霧距（8～56）。洞穴的微光不變的話前室與大廳是一片均勻的灰，收成一半，燈籠才說了算（自動曝光還會再往亮拉一點）。
 - 引擎層的岩響窟洞口天光與滴水粒子原本在每個大場景都留在原座標（湖中島是湖面上、村落是田裡的丘陵裡），見上表 `apply-realm-engine`。
 
-**驗收**（待補）
+**驗收**：使用者說大景還會微調，正式驗收等定案再做。目前只有冒煙檢查：`vite-node` 生成大廳、湖中島（雜湊不變）、村落、洞窟都過；村落從回程門走得到廣場與花田、洞窟從出生點走得到湖與門（地形上的廣度優先搜尋）；瀏覽器載入村落、切到洞窟沒有錯誤；選單「返回禪庭」從村落落在 `(191, 198)`。未做：來回十趟的資源與 heap、`?renderer=main`、交錯 FPS A/B（建築改版前在出生點量過一次：村落 46 FPS、洞窟 60 FPS，但當時別的代理人也在用 GPU，不能當數字）、四個畫質的對照、洞窟大廳那座門從洞口按 W 一路走進去（測試腳本每 150 毫秒用 pose 轉向，會把跨階的動量清掉，卡在通道第一個抬高的那一格，沒有驗到）。
 
 ## Minespace：金葉林與千蛙沼（2026-11）
 
@@ -1252,6 +1253,8 @@ meme-cache 沒有變化，與預期相符：toast 的成本是載入後的穩態
 
 ## Minespace：千頃麥浪、野花原與羊鳴谷（2026-11）
 
+> 後來羊鳴谷與牧野拿掉（連同羊群系統），野花原併進風露原，見「Minespace：拿掉三座箱庭、草苑與蟲聲叢併成風露苑」。下面是當時的紀錄。
+
 麥浪田、草苑、牧野的大場景，資料夾 `domains/realm/wheatfield/`、`meadow/`、`pasture/`（各四支：layout、terrain、realm、sounds）。設計見[設計文件](plans/2026-11-27-minespace-realms-design.md)的同名一節。
 
 **共用檔案的改動**
@@ -1327,27 +1330,30 @@ meme-cache 沒有變化，與預期相符：toast 的成本是載入後的穩態
 
 **驗收**（建造階段，使用者要求定案後再做）：只做了 eslint、vue-tsc、生成檢查與每座一次載入的煙霧測試；來回傳送、記憶體、FPS A/B、四種畫質、邊界、選單「返回禪庭」、快速前往都還沒量。
 
-## Minespace：營火谷、石殿遺址與湯煙谷（2026-11）
+## Minespace：拓荒原、石殿遺址與湯煙谷（2026-11）
 
-爐火壇、石廊跡、地獄谷的大場景，資料夾 `domains/realm/campfire/`、`ruins/`、`jigoku/`（各四支：layout、terrain、realm、sounds；營火谷多 `campfire-fires.ts`、湯煙谷多 `jigoku-steam.ts`，都掛在 `realm-decoration`）。設計見[設計文件](plans/2026-11-27-minespace-realms-design.md)的「營火谷、石殿遺址與湯煙谷」。
+爐火壇、石廊跡、地獄谷的大場景，資料夾 `domains/realm/campfire/`、`ruins/`、`jigoku/`（各四支：layout、terrain、realm、sounds；拓荒原多 `campfire-fires.ts`、石殿遺址多 `ruins-colossi.ts`、湯煙谷多 `jigoku-steam.ts`，都掛在 `realm-decoration`）。設計見[設計文件](plans/2026-11-27-minespace-realms-design.md)的「拓荒原、石殿遺址與湯煙谷」。爐火壇的大場景第一版是「營火谷」（林緣谷地、一座大篝火、六處營地、橡樹林），使用者改成西部拓荒的原野，舊的內容與 `woodland` 山稜樣式已拿掉。
 
 **共用檔案的改動**
 
 | 檔案 | 改了什麼 |
 | --- | --- |
-| `use-babylon-scene.ts` | `createCampfireSmoke` 多一個 `point`（預設爐火壇的火塘），營火谷每個火塘各叫一次 |
+| `use-babylon-scene.ts` | `createCampfireSmoke` 多一個 `point`（預設爐火壇的火塘），拓荒原每個火塘各叫一次 |
+| `block-constants.ts`、`texture-pack.ts` | 新方塊 `RED_SAND`（紅土）、`RED_ROCK`（紅岩）、`CANVAS`（篷布，借羊毛白）加在 enum 最後；新貼圖 `redSand`／`redRock`：迷你像素用 `default_desert_sand`／`default_desert_stone`，原版用 `red_sand`／`red_sandstone`，其餘材質包退回迷你像素 |
+| `world/light-source.ts` | 餘燼的光源往上抬到火焰高度（見踩坑），所有餘燼都受影響 |
 | `garden-layout.ts` | `CAMPFIRE_GATE_OFFSET`（4, 0）、`RUINS_GATE_OFFSET`（0, 2）、`JIGOKU_GATE_OFFSET`（0, 3） |
 | `garden-builders-minor.ts` | 爐火壇拿掉東側矮凳（門的位置）、乾草往北一格；石廊跡正南那根斷柱不放（亂數照抽，其餘七根不變） |
 | `garden-builders-middle.ts` | 地獄谷鳥居到熔岩縫之間（`|x| ≤ 4`、`z ≥ 2`）不堆岸；石碑移到 (+4, +4)、石燈籠移到 (±2, +4) |
-| `backdrop.ts`、`realm-definition.ts` | 山稜樣式 `woodland`、`crag`、`caldera` |
+| `backdrop.ts`、`realm-definition.ts` | 山稜樣式 `mesa`、`crag`、`caldera` |
 | `realm-list.ts`、`realm-terrain.ts`、`realm-emitter-map.ts`、`realm-decoration.ts` | 三座各一行 |
 
 **常數**
 
 | 場景 | 常數 | 值 |
 | --- | --- | --- |
-| 營火谷 | `CAMP_GROUND_Y`／`CAMP_FOREST_EDGE_RADIUS`／`CAMP_RIDGE_RADIUS`／`CAMP_RIDGE_HEIGHT` | 9／34／58／8 |
-| 營火谷 | `CAMP_PORTAL_POINT`、`CAMP_SLOW_RADIUS`／`CAMP_PUSH_RADIUS` | (164, 140)、38／48 |
+| 拓荒原 | `CAMP_GROUND_Y`／`PRAIRIE_RADIUS`／`GULLY_DEPTH`／`ROCK_WALL_RADIUS`／`ROCK_WALL_HEIGHT` | 9／62／4／72／8（兩格一階） |
+| 拓荒原 | `WAGON_CIRCLE_RADIUS`、`COOK_FIRE_POINT`、`HOMESTEAD_POINT` | 11、(138, 134)、(166, 116) |
+| 拓荒原 | `CAMP_PORTAL_POINT`、`CAMP_SLOW_RADIUS`／`CAMP_PUSH_RADIUS` | (164, 140)、60／70 |
 | 石殿遺址 | `RUINS_GROUND_Y`／`RUINS_TERRACE_Y` | 9／10（殿基高一格） |
 | 石殿遺址 | `COLONNADE_RECT`／`HALL_RECT`／`CHAMBER_RECT` | x 132～148 z 148～184／x 118～162 z 104～148／x 132～148 z 92～104 |
 | 石殿遺址 | `RUINS_RIM_START_RADIUS`／`RUINS_RIM_RADIUS`／`RUINS_RIM_HEIGHT`、邊界 | 58／82／9、60／72 |
@@ -1355,17 +1361,17 @@ meme-cache 沒有變化，與預期相符：toast 的成本是載入後的穩態
 | 湯煙谷 | `RIFT_HALF_LENGTH`／`RIFT_TAPER`、`JIGOKU_PORTAL_POINT` | 40／9、(140, 168) |
 
 - 大廳那三座：爐火壇 (130, 107) 門洞朝東、落點 (134, 107)；石廊跡 (154, 109) 朝南、落點 (154, 113)；地獄谷 (118, 89) 朝南、落點 (118, 93)。快速前往再退兩格，都落在木座外的白沙上。
-- 規模（`collectLightSourceList` 後的真光數／樹葉格／露出來的方塊／花草）：營火谷 12／6300／11.4 萬／2700；石殿遺址 13／0／12.1 萬／1800；湯煙谷 59（熔岩面光源 26）／0／11.6 萬／1600。大廳（含十幾座門的燈）是 117／2700／11 萬／4800。地形生成 0.12～0.24 秒。
+- 規模（`collectLightSourceList` 後的真光數／樹葉格／露出來的方塊／花草）：拓荒原 9／0／12 萬／4700；石殿遺址 13／0／12.1 萬／1800；湯煙谷 59（熔岩面光源 26）／0／11.6 萬／1600。大廳（含十幾座門的燈）是 117／2700／11 萬／4800。地形生成 0.12～0.24 秒。
 
 **箱庭特徵對照**
 
 | 箱庭的東西 | 出處 | 大場景 |
 | --- | --- | --- |
-| 火塘（沉進地面的餘燼）、半磚石圈、四張矮凳 | `buildCampfireGarden` | 六處小營地照搬；大篝火是五格十字火塘、三格半石圈，外圈原木與矮凳 |
-| 籬笆柱木板棚、柴、木箱、木桶、乾草 | 同上 | 三處營地搭棚、乾草；大篝火旁一堆柴與木箱 |
-| 橡樹、蕨與高草各半（兩成四） | 同上 | 谷坡一圈橡樹林、同一個花草配方與密度 |
-| 火焰立板與方塊煙（`createCampfireSmoke`，只在大廳） | `use-babylon-scene` | 每個火塘一組（大篝火五組）＋火星，`campfire-fires` |
-| 營火劈啪（campfire，0.9、20 格） | `sound-data` | 每個火塘一顆，大篝火 1.0／34 格、小營地 0.75／17 格 |
+| 火塘（沉進地面的餘燼）、半磚石圈、矮凳 | `buildCampfireGarden` | 篷車圈裡煮飯的那一堆與外圍兩處守夜的小火照搬；使用者不要大營火，沒有篝火 |
+| 籬笆柱木板棚、柴、木箱、木桶、乾草 | 同上 | 換成拓荒的語彙：篷車、木屋工地、拴馬處；木箱、木桶、乾草、原木照用 |
+| 橡樹、蕨與高草（兩成四） | 同上 | 使用者要乾草原：換成乾草、山艾、仙人掌與曬白的枯樹（四成二），不照搬 |
+| 火焰立板與方塊煙（`createCampfireSmoke`，只在大廳） | `use-babylon-scene` | 三堆火各一組，`campfire-fires` |
+| 營火劈啪（campfire，0.9、20 格） | `sound-data` | 篷車邊的柴火 0.85／20 格、守夜小火 0.6／13 格；另加草原的風、岩壁的風、夜蟲、遠嚎 |
 | 八根斷柱一圈、刻紋石碑、橫樑、藤蔓 | `buildRuinsGarden` | 大殿正中照搬；長廊與殿內石柱、牆、拱門同一套石磚與青苔圓石 |
 | 石板縫裡的青苔與草、倒下的青苔石、石燈籠 | 同上 | 殿基四分之一換青苔／草；殿外亂石；七盞＋石室兩盞 |
 | 石生植物、高草、灌叢（三成） | 同上 | 殿基三成、荒地一成四、亂石坡一成 |
@@ -1377,8 +1383,17 @@ meme-cache 沒有變化，與預期相符：toast 的成本是載入後的穩態
 | 地獄谷熱氣（`JIGOKU_ATMOSPHERE`：霧 3～22、入夜不暗、光 0.55／天光 1.12／高光 0.12） | `use-weather` | 大場景沒有箱庭的天氣範圍，改寫在氣氛設定：霧色固定值、4～50、0.58／1.1／0.14 |
 | 熔岩滾沸一圈、地底悶響 | `sound-data` | 沿縫九顆、泥池四顆（小一號）、悶響三顆 |
 
+**石殿遺址的遠景巨像（`ruins/ruins-colossi.ts`）**
+
+- 世界只有四十格高，四五十格以上的巨像放不進方塊世界，人又走不到，做成方塊是白花幾萬個面。改成布景：一個網格、約一百五十個方盒（不畫底面，約一千五百個三角形）、一次繪製，排在山稜那一層（渲染群組 1），不投影。
+- 立在離遺址中心一百六十五到兩百八十格的岩地平面上（世界外），亂石坡坡頂擋住下半截。不吃距離霧，照山稜那一套自己往霧色混：依距離一成到五成半，腳下再多混一層，轉場時跟著 `veilRatio` 化掉；顏色是石頭與青苔的基準色乘上此刻的天光與直射光。
+- 為了一層一層退進霧裡：場景霧從 30～150 推到 40～220（坡頂只混兩成左右），`crag` 三圈岩稜的混色加重到 0.5／0.64／0.76，比最遠的神殿還淡。
+- `realm-decoration` 的參數多了 `atmosphere`（`world-layer` 帶進來），遠景一類的裝飾要讀天色。
+
 **踩坑**
 
+- 新模組要先寫好，最後才在共用檔案加 import：使用者的開發頁一直開著，先加 import 會讓 Vite 解析失敗、整頁壞掉（石殿遺址的巨像就踩過一次）。
+- 營火照亮的範圍很小（使用者：「光源被周圍的石頭擋住，明亮區塊很小」）：真光、光暈與全局光的種子都擺在餘燼那一格的中心，而餘燼沉在地面那一層，光源比地面低半格。地面與矮凳的頂面法線朝上、光從底下來，一點都照不到，只剩石圈與矮凳朝火的側面亮；全局光的種子也落在被地面包住的粗格裡。改成 `light-source.ts` 收集時把餘燼的光往上抬一格二（頭上兩格空才抬滿、一格空抬一半、被蓋住不抬），三條路（`use-block-lights`、`lamp-glow`、`voxel-gi-grid`）都讀同一個座標，一起修好。只抬餘燼，岩漿的面光源不動。影響所有餘燼：爐火壇、營火谷、地獄谷與湯煙谷地上零星的餘燼（光暈改浮在地面上方一格左右）、鐘聲村鐵匠鋪的爐。烘進方塊的光（`use-chunk-worker` 的廣度優先擴散）本來就從餘燼上方那一格空氣往外漫，不受影響。亮度與範圍沒改（`use-block-lights` 不動）。這是第一版營火谷時修的，拓荒原的三堆小火照樣受惠。
 - `createCampfireSmoke` 找火塘高度用 `getGroundY`（從上往下第一個實心方塊），火塘正上方不能有棚頂，所以棚子離火塘四格起。
 - 湯煙谷的蒸氣與氣泡排在 `WEATHER_RENDERING_GROUP`：粒子在半透明之前畫，留在預設那一層的話，熱泉上的蒸氣會被後畫的水面整片蓋掉（同洞窟的螢光倒影）。
 - 熔岩縫照地獄谷的餘燼密度撒會讓光源破百，收到 0.13 之後全谷五十九盞（熔岩四格見方一盞、餘燼兩格見方一盞）。
@@ -1386,6 +1401,8 @@ meme-cache 沒有變化，與預期相符：toast 的成本是載入後的穩態
 **驗收**：建構階段只做了冒煙檢查（見下）；來回傳送、記憶體、FPS A/B、四種畫質的天空、邊界與快速前往都還沒量，等設計定案後再補。
 
 ## Minespace：聽雨林、雨聽深院與白矇雪原（2026-11）
+
+> 後來雨聽深院與雨聽堂拿掉，見「Minespace：拿掉三座箱庭、草苑與蟲聲叢併成風露苑」。下面是當時的紀錄。
 
 聽雨亭、雨聽堂、吹雪野的大場景，資料夾 `domains/realm/rainvale/`、`rainhall/`、`blizzard/`（各四支：layout、terrain、realm、sounds）。設計見[設計文件](plans/2026-11-27-minespace-realms-design.md)的「聽雨林、雨聽深院與白矇雪原」。
 
@@ -1444,6 +1461,7 @@ meme-cache 沒有變化，與預期相符：toast 的成本是載入後的穩態
 
 - 雨聽堂的門立在屋裡，預設木牌位置（門旁三格）落在牆上，`RAINHALL_HUB_GATE` 在 `createGardenGate` 之後改寫 `portal.sign`。
 - 門有五格高（三格門洞、島木、笠木），四格高的屋子裝不下，所以雨聽堂牆加高一格；屋頂維持出簷加兩層，站在屋裡頭頂三層，`measureCoverRatio` 不會當成進洞穴壓暗（大堂同理，迴廊與渡廊只有兩層）。
+- 聽雨林的池子曾經整片是綠的（使用者回報）：布景的地面平面（`backdrop.floor`）是鋪滿整個世界的一片面，不只在林子外。照林海的寫法給在草地頂面（10.5），它比積水的水面（矮八分之一格）還高，每一窪水都被一片草地蓋住。關掉倒影、關掉雨都一樣綠，大廳的聽雨亭照樣是藍的，才確定不是倒影或雨。改成林子外的 LAKE_BED 與平面都壓低兩格（`RAINVALE_OUTER_FLOOR_Y`），平面整片藏在地底下；雨聽深院四面封住，用不到平面，直接拿掉。**有水的場景，地面平面一定要低於最低的水面**（湖中島與千蛙沼給的是湖底的高度，所以沒事）。
 - 白矇雪原自己寫蓋雪：`capWithSnow` 會替每一格雪丘頂再鋪一層薄雪，也會在細樁頂上浮一片全寬的雪。
 - 雨勢滿檔時場景自己的霧與光整份被 `RAIN_ATMOSPHERE`／`SNOW_ATMOSPHERE` 蓋掉，要調那兩座的霧色得調天氣那一組（會連大廳一起變）或把雨勢上限壓低。
 
@@ -1499,6 +1517,8 @@ meme-cache 沒有變化，與預期相符：toast 的成本是載入後的穩態
 
 ## Minespace：萬花蜂台、蟲鳴夜原、百囀林苑與蟬雨深林（2026-11）
 
+> 後來萬花蜂台與蜂巢圃拿掉，蟲鳴夜原併進風露原，見「Minespace：拿掉三座箱庭、草苑與蟲聲叢併成風露苑」。下面是當時的紀錄。
+
 蜂巢圃、蟲聲叢、鳴禽庭、蟬時雨的大場景，設計見 [plans/2026-11-27-minespace-realms-design.md](plans/2026-11-27-minespace-realms-design.md) 的同名一節。四座都是陸地，各四支（layout、terrain、realm、sounds），共用 `realm/land-realm-kit.ts`。
 
 **共用的部分**
@@ -1519,27 +1539,68 @@ meme-cache 沒有變化，與預期相符：toast 的成本是載入後的穩態
 | | `APIARY_SLOW_RADIUS`／`APIARY_PUSH_RADIUS` | 42／51 | `land` |
 | 蟲鳴夜原 | `MEADOW_RADIUS`／`DOWNS_STEP_WIDTH`／`DOWNS_RISE_MAX` | 44／3／8 | 草坡前兩階各一格、之後兩格一階 |
 | | `INSECT_SLOW_RADIUS`／`INSECT_PUSH_RADIUS` | 42／52 | `land` |
+| | `INSECT_ZONE_LIST`／`ZONE_MIX_MAP` | 六區 | 每一格照最近的中心分區（座標先各吃一層九格的噪音位移），交界 `ZONE_BLEND_WIDTH` 七格內有機會長隔壁那一區的草；每一區一組權重與疏密（terrain） |
 | 百囀林苑 | `PARK_RADIUS`／`SONGBIRD_EDGE_RADIUS` | 38／54 | 草地外每三格高一格，橡樹每三格見方抽一次、越外越密 |
 | | `SONGBIRD_SLOW_RADIUS`／`SONGBIRD_PUSH_RADIUS` | 40／49 | `land` |
-| 蟬雨深林 | `CANOPY_Y`／`CANOPY_RADIUS` | 20／50 | 蓋子在腳底以上九格，一成八的葉縫 |
-| | `WOOD_RADIUS`／`CICADA_EDGE_RADIUS` | 40／52 | 林子裡每四格見方一棵，外圍每兩格一根光樹幹 |
+| 蟬雨深林 | `CROWN_BOTTOM_Y` | 17 | 主林層樹冠底面（腳底以上六格），蟬的音源掛在這裡 |
+| | `WOOD_RADIUS`／`CICADA_EDGE_RADIUS` | 40／52 | 老樹每十八格見方抽一次、主林層每四格、矮樹每五格；外圍主林層更密、樹冠小 |
 | | `CICADA_SLOW_RADIUS`／`CICADA_PUSH_RADIUS` | 42／51 | `land` |
 
 **箱庭特徵對照**（箱庭裡有什麼 → 大場景怎麼延續）
 
 - 蜂巢圃：蜂箱三個疊在木板上、頂上木半磚 → 谷底九個、花台十四組各三個；竹籬 → 谷底一道、每組上坡一側七格；蜂蜜與木桶 → 谷底與每組旁邊；花（同一組比例、六成）→ 全谷；蜂群繞蜂箱轉（`orbit`）→ 每組一群；夜裡螽斯 → 每組一隻。大廳沒有蜜蜂粒子，大場景也沒有
-- 蟲聲叢：草（同一組比例、七成八）→ 全草原；枯木樁一兩格 → 三四根一叢；圓石立石加一塊圓石 → 十幾堆；乾土、仙人掌、三成枯灌 → 五片窪地；日行草蟲兩顆、夜裡合唱兩顆加兩隻獨奏 → 鋪滿。螢火在大廳是全域的（不綁蟲聲叢），這裡乘三倍
+- 蟲聲叢：草（同一組比例、七成八）→ 落腳那一區照抄，其他五區換花色（使用者要求）；枯木樁一兩格 → 三四根一叢；圓石立石加一塊圓石 → 十幾堆；乾土、仙人掌、三成枯灌 → 五片窪地；日行草蟲兩顆、夜裡合唱兩顆加兩隻獨奏 → 鋪滿。螢火在大廳是全域的（不綁蟲聲叢），這裡乘三倍
 - 鳴禽庭：三株矮橡樹 → 二十來叢三株；鳥屋 → 十座；飲水盤 → 六只；花（同一組比例、六成六）→ 全草地；烏鶇（換樹）、交嘴雀、水鳥、夜梟 → 各多幾隻，一顆風聲都不放
-- 蟬時雨：擠在一起的橡樹 + 最高處一整片葉子（一成八葉縫）→ 整片林子一層蓋子；土與苔的地、林下四種草（三成四、不放花）→ 全林；緣廊（坐墊、吊燈、短簷）→ 兩道；石燈籠 → 三盞；蟬六顆一圈掛在樹冠高度 + 近處一隻 → 每十五格一顆 + 五隻；入夜蟋蟀 → 疏疏一片。這四座在大廳都沒有天氣範圍、鏡面或專屬粒子
+- 蟬時雨：擠在一起的橡樹 + 合成一片的濃蔭（一成八葉縫）→ 整片闊葉林，樹冠擠成一片、約一成五的縫；土與苔的地、林下四種草（三成四、不放花）→ 全林；緣廊（坐墊、吊燈、短簷）→ 兩道；石燈籠 → 三盞；蟬六顆一圈掛在樹冠高度 + 近處一隻 → 每十五格一顆 + 五隻；入夜蟋蟀 → 疏疏一片。這四座在大廳都沒有天氣範圍、鏡面或專屬粒子
 
 **踩坑：碗狀場景不能鋪地面平面**
 
 - `backdrop.floor` 是一整片鋪過世界的平面（`isEndless` 只決定鋪不鋪到地平線），高度只能低於所有看得到的地面。萬花蜂台與蟲鳴夜原的外圍比場景中心高（花坡、草坡），平面若放在稜線那一層，就成了蓋在谷上的天花板。這兩座不給 `floor`，稜線外的 LAKE_BED 從場景裡本來就看不到。
 - 外圍墊太高，遠景就整圈被擋掉：花坡第一版墊高十格，從谷底看出去兩百多格外低於六十格的東西全看不到，山稜等於白畫。花坡收到四格，遠景樣式的底也墊高（`blossom` 最近那圈底高二十四格）。
 
-**葉子方塊數**（`map.ts` 數的，大廳 2 991、林海 16 080、金葉林 11 619）：萬花蜂台 0、蟲鳴夜原 0、百囀林苑 12 640（拿掉包在裡面的之後）、蟬雨深林 9 295（蓋子約六千、每棵樹蓋子底下一圈）。
+**葉子方塊數**（`map.ts` 數的，大廳 2 991、林海 16 080、金葉林 11 619）：萬花蜂台 0、蟲鳴夜原 0、百囀林苑 12 640（拿掉包在裡面的之後）、蟬雨深林 15 766（第二版一棵一棵的樹冠，拿掉包在裡面的之後；第一版平蓋子 9 295）。
+
+**踩坑：林子裡的音源被抬到樹冠頂**
+
+- 症狀：蟬雨深林第一版在林下走幾乎聽不到蟬（使用者回報）。
+- 根因：大場景的音源沒給 `y` 時，高度是 `getWaterlineY` + `heightOffset`；`getWaterlineY` 找這一柱最上面那格穿不過去的方塊，樹葉也算（`passable` 只有花草）。蟬給 `heightOffset: 8`，實際落在樹冠頂再往上八格，離林下的耳朵將近二十格，可聽距離十八格幾乎全被垂直那一段吃掉。遮蔽不是原因：樹葉本來就在 `SOUND_TRANSPARENT_SET`。
+- 修法：林子裡的音源直接給世界座標的 `y`（蟬在 `CROWN_BOTTOM_Y`、百囀林苑的鳥在腳底以上五格），蟬每十三格一顆、可聽二十二格。大廳的蟬時雨與松籟林的鳥同樣貼齊樹冠頂再往上，大廳的音源清單是共用檔，沒動。
 
 **尚未驗收**（使用者要等設計定案再整套驗收）：來回傳送與記憶體、高畫質 FPS 對照大廳、四種畫質的天空、夜裡的螢火與燈、邊界推回、選單「返回禪庭」與快速前往（快速前往的落點用字元圖確認過：蜂巢圃門北邊六格的白沙、蟲聲叢門東邊六格的木地板、鳴禽庭門東邊六格的白沙、蟬時雨門南邊六格的木地板）。
+
+## Minespace：拿掉三座箱庭、草苑與蟲聲叢併成風露苑（2026-11）
+
+使用者：「刪除牧野、雨聽堂、蜂巢圃，並重新規劃箱亭位置」、「草苑和蟲聲叢好像有點重疊，巧妙融合成一個」。設計與新佈局的表見[設計文件](plans/2026-11-27-minespace-realms-design.md)的「風露原與大廳重排」。箱庭從二十二座變成十八座（內圈五、中圈四）。
+
+**拿掉的東西**
+
+| 位置 | 拿掉什麼 |
+| --- | --- |
+| `domains/realm/pasture/`、`rainhall/`、`apiary/`、`insect/` | 整個資料夾；`realm-list`、`realm-terrain`、`soundscape/realm-emitter-map` 的登記；`RealmId` 少四個 |
+| `garden-layout` | `GardenId` 與 `GARDEN_LIST` 少 `pasture`、`apiary`、`rainhall`、`insect`；`PASTURE_CENTER`／`PASTURE_HALF_SIZE` |
+| `garden-builders-minor`／`-middle`、`garden-generator` | `buildPastureGarden`、`buildApiaryGarden`、`buildInsectGarden`、`buildRainhallGarden` 與分派表 |
+| `sound-data` | 牧野、蜂巢圃、雨聽堂、蟲聲叢的音源（蟲聲叢那幾顆併進風露苑） |
+| `use-weather` | 雨聽堂的雨區（`RAINHALL_ZONE`），`RAIN_ZONE_LIST` 只剩聽雨亭 |
+| 羊群 | `fauna/use-sheep-flock.ts` 整支刪掉（大廳的牧野與羊鳴谷是僅有的兩群）；`world-layer`／`render-runtime` 的接線、`RealmDefinition.sheepFlock` 與 `RealmSheepFlock`、`WOOL_TEXTURE`、效能面板的「羊群」標籤 |
+| `backdrop`／`RealmRidgeStyle` | `fells`、`blossom`、`moor` |
+| 音檔 | `bee.mp3`、`village-sheep.mp3`（只有那兩座用） |
+
+刻意留著的：`BlockId.HONEY_BLOCK`（列舉中間拿掉一項，後面每一種方塊的編號都會位移）、材質包裡五種羊毛貼圖（`woolGrey` 等，拿掉要動材質包、清單與同步腳本，另外處理）、`rain-roof`（聽雨林還在用）、`land-realm-kit`（風露原、鳴禽庭、蟬時雨還在用）。
+
+**合併**
+
+- 代號沿用 `meadow`（資料夾 `domains/realm/meadow/`），名稱風露苑／風露原。`buildMeadowGarden` 換成兩座合起來的造景，`MEADOW_PLANT_MIX` 是兩座的花草各一半
+- `meadow-layout` 新增 `MEADOW_ZONE_LIST`（七區）、`MEADOW_PATH_CONTROL_POINT_LIST`、`MEADOW_HOLLOW_LIST`。窪地不寫死座標：模組載入時以拉平前的高度每六格量一次谷底（比四周七格都低、中心四格內起伏不到一格半），由低到高挑、彼此隔二十四格，音源與地形 worker 讀同一份（目前五處：(92, 146)、(116, 110)、(140, 110)、(158, 134)、(170, 176)）
+- 窪地在谷底、本來就平，沙直接換掉每一格最上面那層草，不另外拉平：野花原的地面是先算高度圖再 `fillHeightStep` 填階，事後拉平一塊會在邊上留下兩格以上的落差
+- 規模（`vite-node` 生的）：枯木樁 238 格、圓石 59 格、仙人掌 17 格、孤樹 6 棵（橡木 37 格）、月見草 261 株；地形生成約 0.14 秒
+
+**重排**
+
+- 只動內圈與中圈；外圈八座、麥浪田、出生點不動。移動的是風露苑（新）、水鏡池（112.5° → 90°）、聽雨亭（157.5° → 168.75°）、吹雪野（112.5° → 67.5°），孤石改放在中圈 112.5° 與 337.5°
+- 跟著箱庭中心走的東西都是相對座標，不必改：`createGardenGate` 的門、落點與快速前往、`travelPoint`（吹雪野改角度）、天氣與霧的範圍、鏡面、營火煙、飛石、耙紋、音源與鄰居限距。只有一處要補：水鏡池在出生點正後方，它的飛石會從出生點腳下穿過，`placeApproachStoneList` 最後把出生點那一格與四周一圈的飛石拿掉
+- 驗證：`vite-node` 跑 `generateRealmTerrain('hub')`，對十八座門的落點與十八個快速前往點各跑一次 `findSafeStandingPosition`，全都落在原地、腳下不是水；木座之間最近四格（中圈與外圈相鄰的那幾對，與重排前一樣）
+
+**尚未驗收**：風露原的白天與夜裡（霧色、螢火、蟲聲日夜交替）、傳送來回、FPS 對照大廳、選單快速前往實際點一次。
 
 ## Minespace：眼睛適應與球諧天光（2026-11）
 

@@ -113,8 +113,8 @@ export const STEAM_VENT_LIST: { x: number; z: number }[] = [
  */
 export const JIGOKU_PORTAL_POINT = { x: JIGOKU_CENTER.x, z: JIGOKU_CENTER.z + 28 }
 
-/** 鳥居：跨在木棧上，回程門往北七格 */
-export const JIGOKU_TORII_Z = JIGOKU_PORTAL_POINT.z - 7
+/** 鳥居：跨在木棧上，回程門往北九格（落地點往前六格，一落地看到的是整座鳥居，不是貼在眼前的兩根柱子） */
+export const JIGOKU_TORII_Z = JIGOKU_PORTAL_POINT.z - 9
 
 /**
  * 木棧那一圈的骨架

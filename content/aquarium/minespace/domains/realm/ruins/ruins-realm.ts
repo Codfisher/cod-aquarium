@@ -58,10 +58,15 @@ export const RUINS_REALM: RealmDefinition = {
   hasGardens: false,
   atmosphere: {
     fog: {
-      /** 偏冷的灰，跟著日夜走；霧近一點，大殿另一頭的斷牆淡在霧裡 */
+      /**
+       * 偏冷的灰，跟著日夜走
+       *
+       * 霧推得比禪庭遠一點（40～220）：亂石坡外那幾尊巨像（ruins-colossi）自己往地平線色混一到五成半，
+       * 坡頂在霧裡要比最近的巨像淡得少，近的坡、中間的巨像、最遠的岩稜才是一層一層退進霧裡
+       */
       tint: { scale: [0.93, 0.96, 1] },
-      start: { value: 30 },
-      end: { value: 150 },
+      start: { value: 40 },
+      end: { value: 220 },
     },
     light: {
       /** 雲層厚，直射光收一截、影子軟；石面粗，高光也收 */
