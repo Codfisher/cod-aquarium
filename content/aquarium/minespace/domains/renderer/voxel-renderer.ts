@@ -46,8 +46,6 @@ export interface VoxelRenderer {
   build: (worldState: Uint8Array) => Promise<void>;
   /** 淋得到雨、也淋濕得起來的那些材質 */
   getWetMaterialList: () => StandardMaterial[];
-  /** 所有方塊網格用到的材質，不重複 */
-  getMaterialList: () => StandardMaterial[];
   /** 開關水面的日照高光，除錯面板用 */
   setWaterGlintEnabled: (isEnabled: boolean) => void;
   /** 釋放所有資源 */
@@ -1012,17 +1010,6 @@ class WorldRenderer {
     return [...this.wetMaterialSet]
   }
 
-  getMaterialList(): StandardMaterial[] {
-    const materialSet = new Set<StandardMaterial>()
-    for (const entryList of this.allEntries.values()) {
-      for (const { material } of entryList) {
-        materialSet.add(material)
-      }
-    }
-
-    return [...materialSet]
-  }
-
   /**
    * 水面高光的開關
    *
@@ -1105,7 +1092,6 @@ export function createVoxelRenderer(
   return {
     build: (worldState: Uint8Array) => chunkWorker.rebuildAll(worldState),
     getWetMaterialList: () => worldRenderer.getWetMaterialList(),
-    getMaterialList: () => worldRenderer.getMaterialList(),
     setWaterGlintEnabled: (isEnabled: boolean) => worldRenderer.setWaterGlintEnabled(isEnabled),
     dispose() {
       chunkWorker.terminate()
