@@ -118,8 +118,18 @@ export interface SoundEmitterDefinition {
 /** 天氣狀態 */
 export type Weather = 'clear' | 'rain' | 'snow'
 
-/** 正在發聲的音源狀態，供 HUD 顯示 */
+/**
+ * 正在發聲的音源狀態，供 HUD 顯示
+ *
+ * 同一個名稱的音源併成一條：湖岸一圈十顆「岸邊的水」、海邊好幾顆「拍岸浪聲」，
+ * 一顆一條的話清單上會疊著兩三條一模一樣的字
+ */
 export interface AudibleSound {
+  /**
+   * 這一條的開關鍵，由名稱算出來（見 spatial-soundscape 的 getSoundMuteKey）
+   *
+   * 同名的音源共用一個鍵，按一下整組一起開關，包括此刻還沒載入、在遠處的那幾顆
+   */
   id: string;
   title: LocalizedText;
   zone: SoundZone;
@@ -128,10 +138,10 @@ export interface AudibleSound {
    *
    * 這是「沒有被單獨關掉的話會有多響」。被關掉的音源照樣算這個值，
    * 清單上那一條才還看得出它就在附近——不然關掉之後它會從清單消失，
-   * 也就再也沒有地方可以把它打開
+   * 也就再也沒有地方可以把它打開。同名併成一條時取最響的那一顆
    */
   loudness: number;
-  /** 與玩家的距離 */
+  /** 與玩家的距離，取同名裡最近的那一顆 */
   distance: number;
   /** 是不是被單獨關掉了 */
   isMuted: boolean;

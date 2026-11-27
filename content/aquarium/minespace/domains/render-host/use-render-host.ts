@@ -1,5 +1,6 @@
 import type { Ref } from 'vue'
 import type { PerformanceReading } from '../../composables/performance-reading'
+import type { RealmId } from '../realm/realm-definition'
 import type { ReloadHandoff } from '../scene/reload-handoff'
 import type {
   RenderCommand,
@@ -7,6 +8,7 @@ import type {
   RenderHostTransport,
   RenderInputMessage,
   RenderPoseMessage,
+  RenderRealmTransitionMessage,
   RenderSettings,
   RenderSettingsMessage,
   RenderSoundMessage,
@@ -51,6 +53,8 @@ type RenderStatus = Omit<RenderFrameStatusMessage, 'type' | 'probe'>
 
 interface UseRenderHostParam {
   canvasRef: Ref<HTMLCanvasElement | undefined>;
+  /** 介面語言，渲染端的木牌要照它寫字 */
+  locale: Ref<RenderSettings['locale']>;
 }
 
 /**
@@ -62,8 +66,13 @@ interface UseRenderHostParam {
  *
  * 輸入與音訊不在這裡：它們各自有自己的模組，只借這裡的 postInput 與 command 往下送
  */
-export function useRenderHost({ canvasRef }: UseRenderHostParam) {
+export function useRenderHost({ canvasRef, locale }: UseRenderHostParam) {
   const preference = useRenderPreference()
+
+  /** 送給渲染端的整份設定：使用者的偏好加上介面語言 */
+  function getSettings(): RenderSettings {
+    return { ...preference.getSettings(), locale: locale.value }
+  }
 
   const isWorldReady = ref(false)
   const initError = ref<string>()
@@ -74,8 +83,14 @@ export function useRenderHost({ canvasRef }: UseRenderHostParam) {
    * 要退回主執行緒就得換一塊新的。換 key 讓元件重新長出一個 canvas 元素
    */
   const canvasKey = ref(0)
-  /** 渲染端生成的世界，音景要靠它種音源、算遮蔽 */
+  /**
+   * 渲染端生成的世界，音景要靠它種音源、算遮蔽
+   *
+   * 換場景時整份換掉（realm-changed），看著它的音景會跟著重種音源
+   */
   const worldState = shallowRef<Uint8Array>()
+  /** 目前在哪一個場景，換場景時跟著 realm-changed 更新 */
+  const realmId = ref<RealmId>('hub')
   /** 目前用哪一種傳輸層，驗證與除錯時看得到 */
   const transportKind = ref<RenderHostTransport['kind']>()
 
@@ -136,6 +151,7 @@ export function useRenderHost({ canvasRef }: UseRenderHostParam) {
   let resolveHandoff: ((handoff: ReloadHandoff | null) => void) | null = null
   const poseHandlerList: ((pose: RenderPoseMessage) => void)[] = []
   const soundHandlerList: ((sound: RenderSoundMessage) => void)[] = []
+  const transitionHandlerList: ((transition: RenderRealmTransitionMessage) => void)[] = []
 
   const { width: elementWidth, height: elementHeight } = useElementSize(canvasRef)
   const { pixelRatio } = useDevicePixelRatio()
@@ -149,7 +165,17 @@ export function useRenderHost({ canvasRef }: UseRenderHostParam) {
     switch (message.type) {
       case 'ready':
         worldState.value = message.worldState
+        realmId.value = message.realmId
         isWorldReady.value = true
+        break
+      case 'realm-changed':
+        worldState.value = message.worldState
+        realmId.value = message.realmId
+        break
+      case 'realm-transition':
+        for (const handler of transitionHandlerList) {
+          handler(message)
+        }
         break
       case 'init-error':
         handleRenderFailure(message.message)
@@ -318,7 +344,7 @@ export function useRenderHost({ canvasRef }: UseRenderHostParam) {
         type: 'init',
         canvas: renderCanvas,
         ...viewport,
-        settings: preference.getSettings(),
+        settings: getSettings(),
         handoff,
       }, renderCanvas instanceof HTMLCanvasElement ? [] : [renderCanvas])
 
@@ -370,7 +396,7 @@ export function useRenderHost({ canvasRef }: UseRenderHostParam) {
    * 要在 setup 裡同步建立：等到連線完成才建，它就不屬於元件的 scope，卸載時不會被停掉。
    * 傳輸層還沒建好的時候變動的設定不會漏——init 訊息帶的是當下的完整設定
    */
-  watch(() => preference.getSettings(), (next, previous) => {
+  watch(getSettings, (next, previous) => {
     if (!transport)
       return
 
@@ -459,6 +485,10 @@ export function useRenderHost({ canvasRef }: UseRenderHostParam) {
     soundHandlerList.push(handler)
   }
 
+  function addTransitionHandler(handler: (transition: RenderRealmTransitionMessage) => void): void {
+    transitionHandlerList.push(handler)
+  }
+
   onBeforeUnmount(() => {
     isDisposed = true
     abortController.abort()
@@ -472,6 +502,7 @@ export function useRenderHost({ canvasRef }: UseRenderHostParam) {
     isRenderStalled,
     canvasKey,
     worldState,
+    realmId,
     transportKind,
     status,
     probe,
@@ -481,6 +512,7 @@ export function useRenderHost({ canvasRef }: UseRenderHostParam) {
     setTimeOfDay,
     addPoseHandler,
     addSoundHandler,
+    addTransitionHandler,
   }
 }
 

@@ -1,4 +1,5 @@
 import type { GardenId } from '../garden/garden-layout'
+import type { RealmId } from '../realm/realm-definition'
 import type { SoundEmitterDefinition } from './type'
 import {
   CAVE_CHAMBER,
@@ -10,6 +11,7 @@ import {
 } from '../garden/garden-layout'
 import { PLAYER_EYE_HEIGHT } from '../player/collision'
 import { getWaterlineY } from '../world/world-access'
+import { REALM_EMITTER_MAP } from './realm-emitter-map'
 
 /** 音檔資料夾 */
 export const SOUND_BASE = '/minespace/sounds'
@@ -1437,7 +1439,21 @@ function createListenerYMap(worldState: Uint8Array): Map<string, number> {
  * 沒有指定高度的音源會自動貼齊地面或水面，
  * 免得音源埋進木座裡，或是沉到水槽底下
  */
-export function createEmitterList(worldState: Uint8Array): ResolvedEmitter[] {
+export function createEmitterList(worldState: Uint8Array, realmId: RealmId): ResolvedEmitter[] {
+  /**
+   * 大場景的音源清單由各場景自己的資料夾給（見 realm-emitter-map）
+   *
+   * 整個場景只有那一座島或那一片林，沒有鄰居要避，高度貼齊地面就好
+   */
+  const realmEmitterList = REALM_EMITTER_MAP[realmId]
+  if (realmEmitterList) {
+    return realmEmitterList.map((definition) => ({
+      ...definition,
+      minDistance: Math.min(definition.minDistance, definition.maxDistance * MIN_DISTANCE_RATIO),
+      y: definition.y ?? getWaterlineY(worldState, definition.x, definition.z) + (definition.heightOffset ?? 1),
+    }))
+  }
+
   const listenerYMap = createListenerYMap(worldState)
 
   return EMITTER_DEFINITION_LIST.map((definition) => {

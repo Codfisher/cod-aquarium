@@ -25,6 +25,7 @@ import { reportDiagnostic } from '../../../composables/use-error-logger'
 import { markGpuPass } from '../../../composables/use-gpu-pass-timer'
 import { useGraphicsQuality } from '../../../composables/use-graphics-quality'
 import { measureSection } from '../../../composables/use-performance-probe'
+import { activeRealmState, applyRealmCloudWeather, getRealmCloudBaseHeight } from '../../realm/active-realm'
 import { optOutOfFog } from '../../renderer/fog-opt-out'
 import { WORLD_SIZE } from '../../world/world-constants'
 import { getCloudShadowLightDirection, setCloudShadowMap } from '../cloud-shadow'
@@ -125,13 +126,15 @@ const PLANET_RADIUS = 12000
 /**
  * 三張雜訊攤在天上多大（格）
  *
- * 基底一個週期四百八十格：一朵積雲一兩百格寬，一個週期裡容得下幾朵，
+ * 基底一個週期三百格：一朵積雲一兩百格寬，一個週期裡容得下幾朵，
  * 又不會小到同一個形狀在視野裡重複出現。
- * 細節七十二格：雲邊那些捲曲的缺口大約是幾格到十幾格。
+ * 參考 Photon 時曾縮到兩百二，雲跟著變小，滿天都是碎碎的小朵；
+ * 放回三百，再讓雲多的區域把雲團連起來（見 cloud-glsl 的 CLOUD_MERGE_GLSL），才看得到一大片的雲。
+ * 細節二十六格：雲邊那些捲曲的缺口大約是幾格到十幾格。
  * 天氣圖三千兩百格：決定「這一大片天比較多雲」的尺度，
  * 比視野裡看得到的範圍還大，抬頭轉一圈看不出重複
  */
-const BASE_NOISE_PERIOD = 220
+const BASE_NOISE_PERIOD = 300
 const DETAIL_NOISE_PERIOD = 26
 const WEATHER_MAP_PERIOD = 3200
 
@@ -501,7 +504,9 @@ interface FrameUniform {
   ambientBottom: Color3;
   flash: number;
   visibleRatio: number;
-  /** 雲頂現在的高度，雲塔那天比 CLOUD_TOP 高 */
+  /** 雲底現在的高度，場景的氣氛設定可以整層升降（見 getRealmCloudBaseHeight） */
+  bottom: number;
+  /** 雲頂現在的高度，雲塔那天比雲底加上基準厚度更高 */
   top: number;
   /** 細節侵蝕與扭曲的強度，風大的日子與層雲的日子各往一邊推 */
   detailErosion: number;
@@ -656,6 +661,7 @@ export function createVolumetricCloud(scene: Scene, skyOverlayGroup: number, dom
     ambientBottom: new Color3(),
     flash: 0,
     visibleRatio: 1,
+    bottom: CLOUD_BOTTOM,
     top: CLOUD_TOP,
     detailErosion: DETAIL_EROSION,
     detailSwirl: DETAIL_SWIRL,
@@ -683,7 +689,7 @@ export function createVolumetricCloud(scene: Scene, skyOverlayGroup: number, dom
     effect.setTexture('cloudWeatherSampler', noiseTextureSet.weather)
     effect.setTexture('cloudCirrusSampler', noiseTextureSet.cirrus)
     effect.setTexture('cloudMacroSampler', noiseTextureSet.macro)
-    effect.setFloat4('cloudLayer', CLOUD_BOTTOM, frame.top, PLANET_RADIUS, 0)
+    effect.setFloat4('cloudLayer', frame.bottom, frame.top, PLANET_RADIUS, 0)
     effect.setFloat4('cloudShape', frame.coverage, EXTINCTION, ALBEDO, CLOUD_SKEW)
     effect.setFloat4(
       'cloudScale',
@@ -709,7 +715,7 @@ export function createVolumetricCloud(scene: Scene, skyOverlayGroup: number, dom
       'cloudWeather',
       frame.stratusBlend,
       frame.congestusBlend,
-      (frame.top - CLOUD_BOTTOM) / (CLOUD_TOP - CLOUD_BOTTOM),
+      (frame.top - frame.bottom) / (CLOUD_TOP - CLOUD_BOTTOM),
     )
     effect.setFloat4(
       'cloudAltocumulus',
@@ -942,7 +948,10 @@ export function createVolumetricCloud(scene: Scene, skyOverlayGroup: number, dom
    * 走出邊界時鏡頭會被平移一整個世界寬（見 use-fps-controller 的 wrapAxis）。
    * 雲的週期與世界無關，不跟著補回來的話，那一瞬間頭頂的雲整片換掉。
    * 邊界上霧濃到看不見天，換掉其實也看不出來；但地上的雲影與累積的歷史
-   * 都會跳一下，補回來最乾淨
+   * 都會跳一下，補回來最乾淨。
+   *
+   * 不循環的場景（大場景四周是天然屏障）不會被平移，
+   * 照樣用世界寬去除的話，一次長距離的傳送會被誤認成跨邊界
    */
   function trackWorldWrap(position: Vector3): void {
     if (!hasPreviousFrame)
@@ -950,8 +959,8 @@ export function createVolumetricCloud(scene: Scene, skyOverlayGroup: number, dom
 
     const deltaX = position.x - previousCameraPosition.x
     const deltaZ = position.z - previousCameraPosition.z
-    const wrapX = Math.round(deltaX / WORLD_SIZE)
-    const wrapZ = Math.round(deltaZ / WORLD_SIZE)
+    const wrapX = activeRealmState.isLooping ? Math.round(deltaX / WORLD_SIZE) : 0
+    const wrapZ = activeRealmState.isLooping ? Math.round(deltaZ / WORLD_SIZE) : 0
     worldShift.x -= wrapX * WORLD_SIZE
     worldShift.z -= wrapZ * WORLD_SIZE
 
@@ -970,11 +979,14 @@ export function createVolumetricCloud(scene: Scene, skyOverlayGroup: number, dom
 
     sampleDailyWeather(state.dayPosition, dailyWeather)
     deriveCloudWeather(dailyWeather, Math.floor(state.dayPosition), cloudWeather)
+    /** 場景的氣氛設定疊在每日天氣之上，雨（下面的 rainRatio）再疊在最後 */
+    applyRealmCloudWeather(cloudWeather)
 
     frame.coverage = Math.min(0.95, CLEAR_COVERAGE + cloudWeather.coverageOffset + state.rainRatio * RAIN_COVERAGE_BOOST)
     frame.stratusBlend = cloudWeather.stratusBlend
     frame.congestusBlend = cloudWeather.congestusBlend
-    frame.top = CLOUD_TOP + CLOUD_TOWER_EXTRA_HEIGHT * cloudWeather.congestusBlend
+    frame.bottom = getRealmCloudBaseHeight(CLOUD_BOTTOM)
+    frame.top = frame.bottom + (CLOUD_TOP - CLOUD_BOTTOM) + CLOUD_TOWER_EXTRA_HEIGHT * cloudWeather.congestusBlend
     frame.detailErosion = DETAIL_EROSION
       * (1 + TORN_EROSION_BOOST * cloudWeather.tornFactor)
       * (1 - STRATUS_EROSION_CUT * cloudWeather.stratusBlend)
@@ -1064,7 +1076,7 @@ export function createVolumetricCloud(scene: Scene, skyOverlayGroup: number, dom
       centerX: shadowArea.centerX,
       centerZ: shadowArea.centerZ,
       inverseSpan: 1 / SHADOW_MAP_SPAN,
-      height: CLOUD_BOTTOM,
+      height: frame.bottom,
       visibleRatio: frame.visibleRatio,
     })
   }

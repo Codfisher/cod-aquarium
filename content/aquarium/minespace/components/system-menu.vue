@@ -9,6 +9,20 @@
       </div>
 
       <!--
+        現在人在哪一個場景
+
+        大場景之間長得各不相同，但一按暫停，整個畫面被選單蓋住，
+        只剩這一行告訴人「你現在在湖中島」，按「返回禪庭」前也知道是從哪裡回去
+      -->
+      <div class="menu-location">
+        <UIcon
+          :name="realmIcon"
+          class="text-base"
+        />
+        {{ t('location') }}{{ realmTitle }}
+      </div>
+
+      <!--
         設定收成一項一列
 
         每一項原本是「標題一行、控制項一行」，五項就吃掉十行。
@@ -206,7 +220,16 @@
         </div>
       </div>
 
-      <div class="menu-section">
+      <!--
+        快速前往只在大廳有
+
+        地標是禪庭裡的二十二座箱庭，座標也是禪庭的。
+        在湖中島點下去會被送到湖心的某一格，所以整段收起來
+      -->
+      <div
+        v-if="travelEnabled"
+        class="menu-section"
+      >
         <label class="menu-label">{{ t('travel') }}</label>
         <div class="landmark-grid">
           <button
@@ -223,6 +246,28 @@
             {{ locale === 'en' ? landmark.title.en : landmark.title['zh-hant'] }}
           </button>
         </div>
+      </div>
+
+      <!--
+        大場景裡換成一顆「返回禪庭」
+
+        大場景沒有地標可以快速前往，回去的門又可能在島的另一頭、林子深處。
+        按下去走的是與傳送門同一段霧的轉場，落在這個場景在禪庭那道門的前面
+      -->
+      <div
+        v-else
+        class="menu-section"
+      >
+        <button
+          class="mc-button return-button"
+          @click="$emit('returnHub')"
+        >
+          <UIcon
+            name="i-material-symbols:home-outline"
+            class="text-base"
+          />
+          {{ t('returnHub') }}
+        </button>
       </div>
 
       <!--
@@ -278,12 +323,20 @@ defineProps<{
   open: boolean;
   /** 目前的時刻讀數，例如「06:20 破曉」 */
   timeLabel: string;
+  /** 快速前往能不能用，只有大廳有地標 */
+  travelEnabled: boolean;
+  /** 目前所在場景的名稱（已依介面語言取好） */
+  realmTitle: string;
+  /** 目前所在場景的圖示 */
+  realmIcon: string;
 }>()
 
 const emit = defineEmits<{
   resume: [];
   intro: [];
   travel: [landmark: Landmark];
+  /** 在大場景裡按「返回禪庭」 */
+  returnHub: [];
 }>()
 
 const volume = defineModel<number>('volume', { required: true })
@@ -360,6 +413,8 @@ const { locale, t } = useSimpleI18n({
     supportsBump: '這一套支援立體紋理',
     textureFrom: '貼圖來自',
     travel: '快速前往',
+    returnHub: '返回禪庭',
+    location: '目前位於：',
     controls: '操作方式',
     intro: '遊玩說明',
     resume: '繼續漫遊',
@@ -392,6 +447,8 @@ const { locale, t } = useSimpleI18n({
     supportsBump: 'This pack supports relief',
     textureFrom: 'Textures from',
     travel: 'Fast Travel',
+    returnHub: 'Back to the Zen Garden',
+    location: 'You are in: ',
     controls: 'Controls',
     intro: 'How to Play',
     resume: 'Resume',
@@ -437,6 +494,15 @@ const { locale, t } = useSimpleI18n({
   font-size: 1.7rem
   font-weight: 900
   text-align: center
+
+.menu-location
+  display: flex
+  align-items: center
+  justify-content: center
+  gap: 6px
+  margin-top: -4px
+  font-size: 0.95rem
+  opacity: 0.85
 
 .menu-section
   display: flex
@@ -635,6 +701,10 @@ const { locale, t } = useSimpleI18n({
   font-size: 12px
   padding: 7px 4px
   gap: 3px
+
+.return-button
+  width: 100%
+  padding: 10px
 
 .resume-button
   flex: 1.4

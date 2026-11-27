@@ -93,14 +93,20 @@ export interface RainParticles {
   update: (camera: UniversalCamera, ratio: number) => void;
   /** 跟著日夜調亮度，1 為大白天 */
   setBrightness: (ratio: number) => void;
+  /** 換場景時把射線的快取丟掉，地形整個換了 */
+  clearImpactCache: () => void;
   dispose: () => void;
 }
 
 export interface CreateRainParticlesParams {
   scene: Scene;
   maxParticleCount: number;
-  /** 世界上的水在哪裡，落在水上的雨滴要多打一圈漣漪 */
-  waterMap: WaterMap;
+  /**
+   * 世界上的水在哪裡，落在水上的雨滴要多打一圈漣漪
+   *
+   * 給函式而不是那份資料：換場景時水的分布整個換掉，雨的粒子系統卻留著
+   */
+  getWaterMap: () => WaterMap;
   /**
    * 從天空往指定格柱打一道射線，取得雨滴打到的表面高度（世界座標 Y）
    *
@@ -118,7 +124,7 @@ export interface CreateRainParticlesParams {
 export function createRainParticles({
   scene,
   maxParticleCount,
-  waterMap,
+  getWaterMap,
   castRainRay,
 }: CreateRainParticlesParams): RainParticles {
   /** 發射點以參考傳入，每幀直接改座標讓雨跟著玩家走 */
@@ -180,7 +186,7 @@ export function createRainParticles({
        * 打在屋瓦與石板上的雨不進來，而水面上的槽位只有八個，
        * 節流與篩選都在那一頭做（見 emitRainRipple）
        */
-      emitRainRipple(waterMap, x, z, impactY)
+      emitRainRipple(getWaterMap(), x, z, impactY)
     }
   }
 
@@ -327,6 +333,7 @@ export function createRainParticles({
 
   return {
     setBrightness: dimmer.setBrightness,
+    clearImpactCache: () => impactYMap.clear(),
     update(camera, ratio) {
       emitterPosition.copyFrom(camera.position)
       collectSplashSpotList(camera.position.y)

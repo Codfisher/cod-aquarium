@@ -17,6 +17,8 @@ import {
   readBlock,
   resolveCollision,
 } from '../domains/player/collision'
+import { activeRealmState, applyRealmNumber } from '../domains/realm/active-realm'
+import { realmTransitionState } from '../domains/realm/realm-transition'
 import { updateLeafTranslucency } from '../domains/renderer/leaf-translucency'
 import { updateSkyLight } from '../domains/renderer/sky-light'
 import { getReloadHandoff } from '../domains/scene/reload-handoff'
@@ -166,6 +168,93 @@ function wrapAxis(value: number): number {
 }
 
 /**
+ * 不循環的場景把人留在世界裡面
+ *
+ * 大場景四周是天然屏障（深水），正常走不到這條線；
+ * 這只是最後一道保險，免得快速傳送或卡進方塊時掉出方塊陣列，
+ * 腳下讀到的全是空氣、一路往下掉
+ */
+function clampAxis(value: number): number {
+  return clamp(value, { min: WORLD_MIN_EDGE, max: WORLD_MIN_EDGE + WORLD_SIZE - 0.001 })
+}
+
+/** 深水裡最慢剩幾成速度（游到推回線上時） */
+const DEEP_WATER_SPEED_FLOOR = 0.3
+/**
+ * 推回岸邊的速度（格／秒），每超出推回線一格加這麼多
+ *
+ * 給得很小：人感覺到的是「水流把我往回帶」，而不是撞到東西彈回來。
+ * 超出越多推得越快，夾在上限，免得從遠處被瞬間吸回去
+ */
+const BOUNDARY_PUSH_PER_BLOCK = 0.9
+const BOUNDARY_PUSH_LIMIT = 4.2
+/**
+ * 停在深水裡不動時，水流把人往岸邊帶的速度（格／秒，在推回線上時）
+ *
+ * 推回線只保證人游不出去；停下來不划之後，還要慢慢漂回淺灘，
+ * 不然人會一直浮在推回線上，四周什麼都沒有。越靠岸越慢，到了減速線就停
+ */
+const BOUNDARY_IDLE_DRIFT = 0.6
+
+/**
+ * 不循環場景的邊界：深水減速與推回岸邊
+ *
+ * 大場景沒有隱形牆。可走範圍外面是深水，游出去會越游越慢（只有在水裡才算，
+ * 站在岸上或木棧上不受影響），過了推回線就有一股往湖心的水流把人輕輕帶回來；
+ * 停下來不划的話，水流會一路把人帶回減速線（淺灘外緣）。
+ * 減速只作用在「往外」的那個分量：掉頭往岸邊游的時候一點都不慢。
+ *
+ * 林海（medium 為 land）同一套：鑽進外圍的密林越走越慢，過了推回線被推回林子裡，
+ * 只是走在地上也算，停下來也不會被拖走
+ */
+function applyRealmBoundary(
+  x: number,
+  z: number,
+  moveX: number,
+  moveZ: number,
+  isSwimming: boolean,
+  deltaTime: number,
+): { x: number; z: number } {
+  const boundary = activeRealmState.boundary
+  /** 水的屏障只在水裡作用：站在岸上或木棧上不受影響。密林的屏障走在地上也算 */
+  const isWater = boundary?.medium === 'water'
+  if (!boundary || (isWater && !isSwimming))
+    return { x: moveX, z: moveZ }
+
+  const offsetX = x - boundary.centerX
+  const offsetZ = z - boundary.centerZ
+  const distance = Math.hypot(offsetX, offsetZ)
+  if (distance <= boundary.slowRadius || distance === 0)
+    return { x: moveX, z: moveZ }
+
+  const outwardX = offsetX / distance
+  const outwardZ = offsetZ / distance
+  const outward = moveX * outwardX + moveZ * outwardZ
+
+  const depthRatio = clamp((distance - boundary.slowRadius) / (boundary.pushRadius - boundary.slowRadius), { min: 0, max: 1 })
+  const slowRatio = 1 - (1 - DEEP_WATER_SPEED_FLOOR) * depthRatio
+  /** 往外的分量乘上減速比，切線方向（沿著岸游）與往內的分量不動 */
+  const keptOutward = outward > 0 ? outward * slowRatio : outward
+  let nextX = moveX + (keptOutward - outward) * outwardX
+  let nextZ = moveZ + (keptOutward - outward) * outwardZ
+
+  const overshoot = distance - boundary.pushRadius
+  /** 停下來不划時水流把人帶回淺灘；密林裡沒有水流，停下來就停在原地 */
+  const isDrifting = isWater && moveX === 0 && moveZ === 0
+  const pushSpeed = (overshoot > 0 ? Math.min(BOUNDARY_PUSH_LIMIT, overshoot * BOUNDARY_PUSH_PER_BLOCK) : 0)
+    + (isDrifting ? BOUNDARY_IDLE_DRIFT * depthRatio : 0)
+  nextX -= outwardX * pushSpeed * deltaTime
+  nextZ -= outwardZ * pushSpeed * deltaTime
+
+  return { x: nextX, z: nextZ }
+}
+
+/** 依目前場景決定走出邊界時要繞到對面，還是被擋在邊上 */
+function resolveAxis(value: number): number {
+  return activeRealmState.isLooping ? wrapAxis(value) : clampAxis(value)
+}
+
+/**
  * 洞穴的能見度
  *
  * 岩響窟裡的洞只有二三十格深，能見度給到六十等於沒有霧。
@@ -212,6 +301,14 @@ interface UseFpsControllerParams {
   atmosphere: AtmosphereState;
   /** 體素全局光，沒給就當作沒有這個效果——低畫質可以直接不傳 */
   voxelGi?: VoxelGi | null;
+  /** 沒有交接位置時從哪裡開始，場景的出生點 */
+  spawn: { x: number; z: number };
+}
+
+/** 換場景時要換掉的那兩樣：方塊資料與全局光 */
+interface ControllerWorld {
+  worldState: Uint8Array;
+  voxelGi: VoxelGi | null;
 }
 
 /**
@@ -294,6 +391,18 @@ export function useFpsController() {
     z: SPAWN_POSITION.z,
   })
 
+  /**
+   * 目前這個場景的世界
+   *
+   * 每幀的碰撞、洞穴量測與全局光都從這裡讀，不在 start 裡綁死：
+   * 換場景時控制器留著（算繪順序要排在日夜與天氣之後，重掛會打亂），只換掉這一份。
+   * 開始之前用不到，先放一個空陣列
+   */
+  const world: ControllerWorld = { worldState: new Uint8Array(0), voxelGi: null }
+
+  /** 把下落速度與跨階的鏡頭補償歸零，換場景放到出生點時用；start 之後才有內容 */
+  let resetMotion: () => void = () => {}
+
   onScopeDispose(() => {
     cleanup?.()
   })
@@ -304,8 +413,12 @@ export function useFpsController() {
     worldState,
     atmosphere,
     voxelGi,
+    spawn: spawnPoint,
   }: UseFpsControllerParams) {
     cleanup?.()
+
+    world.worldState = worldState
+    world.voxelGi = voxelGi ?? null
 
     let velocityY = 0
     let isOnGround = false
@@ -316,6 +429,11 @@ export function useFpsController() {
     let waterRatio = 0
     /** 沉在熔岩裡多深，用來把整片視野燒紅 */
     let lavaRatio = 0
+
+    resetMotion = () => {
+      velocityY = 0
+      stepSmoothOffset = 0
+    }
 
     /** 距離上次取樣過了多久 */
     let groundTintElapsed = GROUND_TINT_SAMPLE_INTERVAL
@@ -348,7 +466,7 @@ export function useFpsController() {
 
       for (let dx = -GROUND_TINT_SAMPLE_RADIUS; dx <= GROUND_TINT_SAMPLE_RADIUS; dx++) {
         for (let dz = -GROUND_TINT_SAMPLE_RADIUS; dz <= GROUND_TINT_SAMPLE_RADIUS; dz++) {
-          const blockId = readBlock(worldState, blockX + dx, blockY, blockZ + dz)
+          const blockId = readBlock(world.worldState, blockX + dx, blockY, blockZ + dz)
           const tint = BLOCK_DEFS[blockId]?.textures?.tint
           if (!tint)
             continue
@@ -372,7 +490,7 @@ export function useFpsController() {
      */
     const handoff = getReloadHandoff()
     const spawn = handoff?.position
-      ?? findSafeStandingPosition(worldState, SPAWN_POSITION.x, SPAWN_POSITION.z)
+      ?? findSafeStandingPosition(worldState, spawnPoint.x, spawnPoint.z)
 
     position.x = spawn.x
     position.y = spawn.y
@@ -452,7 +570,7 @@ export function useFpsController() {
 
       let solidCount = 0
       for (let offsetY = 1; offsetY <= COVER_SCAN_HEIGHT; offsetY++) {
-        const blockId = readBlock(worldState, blockX, headY + offsetY, blockZ)
+        const blockId = readBlock(world.worldState, blockX, headY + offsetY, blockZ)
         if (TRANSPARENT_COVER_SET.has(blockId))
           continue
 
@@ -472,8 +590,13 @@ export function useFpsController() {
      * 水面下再罩上一層藍。全部集中在這裡算，才不會互相蓋掉。
      */
     function updateAtmosphere(deltaTime: number) {
-      const caveTarget = measureCoverRatio()
-      const waterTarget = isHeadInWater(worldState, position.x, position.y, position.z) ? 1 : 0
+      /**
+       * 地底的場景整個都在洞裡，不必量頭頂有幾層岩
+       *
+       * 大廳穹頂離地二十格，量出來會落在半滿，洞裡的霧與光就只做一半
+       */
+      const caveTarget = activeRealmState.isUnderground ? 1 : measureCoverRatio()
+      const waterTarget = isHeadInWater(world.worldState, position.x, position.y, position.z) ? 1 : 0
       /**
        * 熔岩碰到眼睛就開始燒
        *
@@ -484,13 +607,21 @@ export function useFpsController() {
        */
       const lavaTarget = Math.min(
         1,
-        measureEyeSubmergeDepth(worldState, position.x, position.y, position.z, isLavaBlock)
+        measureEyeSubmergeDepth(world.worldState, position.x, position.y, position.z, isLavaBlock)
         / LAVA_SUBMERGE_DEPTH,
       )
       /** 洞穴的過渡放慢，走進洞口的那幾秒才有眼睛慢慢適應的感覺 */
       const blendSpeed = Math.min(1, deltaTime * 1.2)
 
       caveRatio += (caveTarget - caveRatio) * blendSpeed
+      /**
+       * 一換進地底就直接全滿，不慢慢適應
+       *
+       * 太陽的陰影在地底是關掉的（見 apply-realm-engine），慢慢爬的那兩三秒裡
+       * 陽光會穿過岩層照在洞底；那一刻轉場的霧還在散，看得到
+       */
+      if (activeRealmState.isUnderground)
+        caveRatio = 1
       waterRatio += (waterTarget - waterRatio) * blendSpeed
       /** 熔岩不必慢慢適應，沉進去的那一刻就該紅得徹底 */
       lavaRatio += (lavaTarget - lavaRatio) * Math.min(1, blendSpeed * 3)
@@ -512,16 +643,34 @@ export function useFpsController() {
       /**
        * 先套邊界的濃霧，再套洞穴
        *
-       * 兩者不會同時發生（箱庭離邊界四十二格），順序只是為了讓洞裡的霧說了算
+       * 兩者不會同時發生（箱庭離邊界四十二格），順序只是為了讓洞裡的霧說了算。
+       *
+       * 邊界的白霧只為了藏循環世界的接縫，不循環的場景沒有接縫可藏，整道收掉
        */
-      const edgeRatio = getEdgeFogRatio(position.x, position.z)
+      const loopEdgeRatio = activeRealmState.isLooping ? getEdgeFogRatio(position.x, position.z) : 0
+      /**
+       * 換場景的轉場借用同一道白霧
+       *
+       * 兩者要的是同一件事：霧收到只剩幾格、灰罩蓋住天、雲與粒子淡掉。
+       * 轉場的霧色由天氣那邊往目的地的顏色拉（見 use-weather），這裡只管濃度
+       */
+      const edgeRatio = Math.max(loopEdgeRatio, realmTransitionState.ratio)
       /** 量在這裡、放上大氣狀態，其他人讀它就好，不必各自再算一次 */
       atmosphere.edgeRatio = edgeRatio
       const edgeFogStart = atmosphere.fogStart + (EDGE_FOG_START - atmosphere.fogStart) * edgeRatio
       const edgeFogEnd = atmosphere.fogEnd + (EDGE_FOG_END - atmosphere.fogEnd) * edgeRatio
 
-      const caveFogStart = edgeFogStart + (CAVE_FOG_START - edgeFogStart) * caveRatio
-      const caveFogEnd = edgeFogEnd + (CAVE_FOG_END - edgeFogEnd) * caveRatio
+      /**
+       * 地底的場景可以用自己的氣氛設定調洞裡的霧距（地面上的場景照舊是岩響窟那一份）
+       *
+       * 岩響窟的洞室只有六格半徑，霧在二十六格就糊掉剛好；地底大廳九十格寬，
+       * 同一個霧距會把對面的岩壁、石柱與燈火全吃成一片黑
+       */
+      const undergroundAtmosphere = activeRealmState.isUnderground ? activeRealmState.atmosphere : null
+      const caveFogStartTarget = applyRealmNumber(CAVE_FOG_START, undergroundAtmosphere?.fog?.start)
+      const caveFogEndTarget = applyRealmNumber(CAVE_FOG_END, undergroundAtmosphere?.fog?.end)
+      const caveFogStart = edgeFogStart + (caveFogStartTarget - edgeFogStart) * caveRatio
+      const caveFogEnd = edgeFogEnd + (caveFogEndTarget - edgeFogEnd) * caveRatio
       const waterFogStart = caveFogStart * (1 - waterRatio)
       const waterFogEnd = caveFogEnd + (WATER_FOG_END - caveFogEnd) * waterRatio
 
@@ -589,7 +738,9 @@ export function useFpsController() {
        * 完全沒有光的話玩家連路都看不到，
        * 保留一份微光當作岩壁的反射，剛好夠摸黑前進
        */
-      const ambientRatio = skyRatio * (1 - caveRatio) + CAVE_AMBIENT_RATIO * caveRatio
+      /** 地底的場景同樣可以調洞裡那份微光：要讓燈籠說了算，岩壁的反光就得收暗 */
+      const caveAmbientRatio = applyRealmNumber(CAVE_AMBIENT_RATIO, undergroundAtmosphere?.light?.ambientRatio)
+      const ambientRatio = skyRatio * (1 - caveRatio) + caveAmbientRatio * caveRatio
 
       /**
        * 環境光隨腳下的方塊染色
@@ -697,7 +848,7 @@ export function useFpsController() {
        * 是這一刻陽光真正的強度——直射光種子該用的是這個數字，
        * 而不是還沒疊過任何東西的日夜基準值
        */
-      voxelGi?.update(
+      world.voxelGi?.update(
         deltaTime,
         sunLight?.direction ?? SUN_DIRECTION,
         atmosphere.lightColor,
@@ -768,8 +919,8 @@ export function useFpsController() {
          * 差別全在感受——水是可以游的，熔岩是掉進去就完了。
          * 那個差別用視覺講（整片視野燒紅），不用物理講
          */
-        const inLava = isInWater(worldState, position.x, position.y, position.z, isLavaBlock)
-        isSwimming.value = inLava || isInWater(worldState, position.x, position.y, position.z)
+        const inLava = isInWater(world.worldState, position.x, position.y, position.z, isLavaBlock)
+        isSwimming.value = inLava || isInWater(world.worldState, position.x, position.y, position.z)
 
         const moveLength = Math.hypot(moveX, moveZ)
         const isSprinting = keys.isSprintPressed || touchButton.isSprintPressed
@@ -785,6 +936,11 @@ export function useFpsController() {
           moveX = (moveX / moveLength) * speed * deltaTime
           moveZ = (moveZ / moveLength) * speed * deltaTime
         }
+
+        /** 不循環的場景：游進深水越游越慢，過了推回線被輕輕推回岸邊 */
+        const boundaryMove = applyRealmBoundary(position.x, position.z, moveX, moveZ, isSwimming.value, deltaTime)
+        moveX = boundaryMove.x
+        moveZ = boundaryMove.z
 
         /** 重力與跳躍 / 游泳 */
         if (isSwimming.value) {
@@ -802,7 +958,7 @@ export function useFpsController() {
         }
 
         const result = resolveCollision(
-          worldState,
+          world.worldState,
           position.x,
           position.y,
           position.z,
@@ -819,9 +975,9 @@ export function useFpsController() {
          * 要在鏡頭定位之前做完，否則跨過邊界的那一幀鏡頭會停在界外，
          * 下一幀才跳回來——那一下就是唯一會露餡的地方
          */
-        position.x = wrapAxis(result.x)
+        position.x = resolveAxis(result.x)
         position.y = result.y
-        position.z = wrapAxis(result.z)
+        position.z = resolveAxis(result.z)
         isOnGround = result.isOnGround
         if (result.velocityY === 0) {
           velocityY = 0
@@ -860,13 +1016,26 @@ export function useFpsController() {
 
   /** 直接把玩家送到指定座標，方便快速旅行 */
   function teleport(x: number, y: number, z: number) {
-    position.x = wrapAxis(x)
+    position.x = resolveAxis(x)
     position.y = y
-    position.z = wrapAxis(z)
+    position.z = resolveAxis(z)
+  }
+
+  /**
+   * 換場景：改讀新的方塊資料與全局光
+   *
+   * 換之前與換完都會呼叫：拆掉舊世界之前先把全局光拿掉（它的 worker 馬上要收掉），
+   * 新世界建好再整份換上。下落速度一併歸零，人放到出生點時才不會帶著上一個場景的速度
+   */
+  function setWorld(next: ControllerWorld) {
+    world.worldState = next.worldState
+    world.voxelGi = next.voxelGi
+    resetMotion()
   }
 
   return {
     start,
+    setWorld,
     applyInput,
     applyControl,
     teleport,

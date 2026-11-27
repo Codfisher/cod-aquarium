@@ -1,6 +1,6 @@
 import type { AudioEngineV2, StaticSound, StaticSoundBuffer } from '@babylonjs/core'
 import type { ResolvedEmitter } from './sound-data'
-import type { AudibleSound, Weather } from './type'
+import type { AudibleSound, LocalizedText, Weather } from './type'
 import { CreateSoundAsync, CreateSoundBufferAsync, Vector3 } from '@babylonjs/core'
 import { BlockId, isPassableBlock } from '../block/block-constants'
 import { readBlock } from '../player/collision'
@@ -122,6 +122,15 @@ export function measureEmitterPosition(
 }
 
 /**
+ * 清單上一條的開關鍵
+ *
+ * 由名稱算，同名的音源共用一個鍵。開頭加上前綴，與舊版存在瀏覽器裡的音源 id 分得開
+ */
+export function getSoundMuteKey(title: LocalizedText): string {
+  return `title:${title['zh-hant']}|${title.en}`
+}
+
+/**
  * 空間音景管理器
  *
  * 世界裡的音源有四十幾個，全部載入會吃掉大量記憶體，
@@ -141,7 +150,10 @@ export class SpatialSoundscape {
    * 被單獨關掉的音源
    *
    * 這與主音量是兩件事。整片音景是十七座箱庭疊出來的，
-   * 有人只想聽風、有人受不了蟬——關掉一個音源不該連帶關掉別的
+   * 有人只想聽風、有人受不了蟬——關掉一個音源不該連帶關掉別的。
+   *
+   * 裡面放的是開關鍵（getSoundMuteKey，同名一起關），
+   * 也認舊版一顆一顆存下來的音源 id，之前關掉的不會被打開
    */
   private mutedIdSet = new Set<string>()
   /** 世界開始到現在幾秒，會動的音源靠它推 */
@@ -169,9 +181,20 @@ export class SpatialSoundscape {
     this.mutedIdSet = new Set(idList)
   }
 
-  /** 目前聽得到的音源，響度由大到小 */
+  /** 目前聽得到的音源，同名併成一條，響度由大到小 */
   public getAudibleList(): AudibleSound[] {
     return this.audibleList
+  }
+
+  /** 這個場景裡掛在某個開關鍵底下的音源 id，打開時要連舊版存下來的 id 一起清掉 */
+  public getEmitterIdList(muteKey: string): string[] {
+    return this.emitterList
+      .filter((definition) => getSoundMuteKey(definition.title) === muteKey)
+      .map((definition) => definition.id)
+  }
+
+  private checkMuted(definition: ResolvedEmitter): boolean {
+    return this.mutedIdSet.has(getSoundMuteKey(definition.title)) || this.mutedIdSet.has(definition.id)
   }
 
   /**
@@ -215,7 +238,8 @@ export class SpatialSoundscape {
 
     this.dayRatio = dayRatio
     this.elapsedSecond = elapsedSecond
-    const audibleList: AudibleSound[] = []
+    /** 以開關鍵併起來，同名的只留一條 */
+    const audibleMap = new Map<string, AudibleSound>()
 
     for (const definition of this.emitterList) {
       /**
@@ -271,7 +295,7 @@ export class SpatialSoundscape {
 
       const clarity = this.measureClarity(listenerX, listenerY, listenerZ, position)
       const gainRatio = clarity * timeGate
-      const isMuted = this.mutedIdSet.has(definition.id)
+      const isMuted = this.checkMuted(definition)
       this.applyGain(active, isMuted ? 0 : gainRatio)
 
       /**
@@ -281,19 +305,29 @@ export class SpatialSoundscape {
        * 這個值代表的是「它就在附近，只是被你關著」
        */
       const loudness = estimateLoudness(definition, distance) * gainRatio
-      if (loudness > 0.02) {
-        audibleList.push({
-          id: definition.id,
+      if (loudness <= 0.02)
+        continue
+
+      const muteKey = getSoundMuteKey(definition.title)
+      const merged = audibleMap.get(muteKey)
+      if (!merged) {
+        audibleMap.set(muteKey, {
+          id: muteKey,
           title: definition.title,
           zone: definition.zone,
           loudness,
           distance,
           isMuted,
         })
+        continue
       }
+      /** 同名的取最響、最近的；有一顆是關著的就整條算關著（舊版逐顆關過的 id 才會出現這種情形） */
+      merged.loudness = Math.max(merged.loudness, loudness)
+      merged.distance = Math.min(merged.distance, distance)
+      merged.isMuted = merged.isMuted || isMuted
     }
 
-    this.audibleList = audibleList.sort((a, b) => b.loudness - a.loudness)
+    this.audibleList = [...audibleMap.values()].sort((a, b) => b.loudness - a.loudness)
   }
 
   /**

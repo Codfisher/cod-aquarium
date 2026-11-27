@@ -20,6 +20,15 @@ import { useDevToggles } from '../../composables/use-dev-toggles'
 import { useGraphicsQuality } from '../../composables/use-graphics-quality'
 import { measureSection } from '../../composables/use-performance-probe'
 import { getGarden } from '../garden/garden-layout'
+import {
+  activeRealmState,
+  applyRealmColor,
+  applyRealmNumber,
+  getRealmGroundMistRatio,
+  hasRealmFogOrLight,
+} from '../realm/active-realm'
+import { getRealm } from '../realm/realm-list'
+import { realmTransitionState } from '../realm/realm-transition'
 import { createAirMotes } from './air-motes'
 import {
   CLEAR_ATMOSPHERE,
@@ -30,13 +39,13 @@ import {
   SNOW_ATMOSPHERE,
   SWAMP_ATMOSPHERE,
 } from './atmosphere'
-import { createFallingLeaves } from './falling-leaves'
+import { createFallingLeaves, HUB_LEAF_AREA } from './falling-leaves'
 import { createGroundMist, getDawnMistRatio } from './ground-mist'
 import { createRainParticles } from './rain-particles'
 import { applySkyGradient } from './sky-gradient'
 import { createSkyReflectionTexture, SKY_REFLECTION_UPDATE_INTERVAL, updateSkyReflectionTexture } from './sky-reflection'
 import { createSnowParticles } from './snow-particles'
-import { createSwampMist } from './swamp-mist'
+import { createSwampMist, HUB_MIST_AREA, measureMistDensity } from './swamp-mist'
 import { volumetricCloudState } from './volumetric-cloud/volumetric-cloud'
 import { createWetness } from './wetness'
 
@@ -218,15 +227,22 @@ interface StartParams {
   playThunder: (volume: number) => void;
   /** 從天空往指定格柱打射線，取得雨滴打到的表面高度，落地水花濺在這裡 */
   castRainRay: (blockX: number, blockZ: number) => number | null;
-  /** 世界上的水在哪裡，打在水面上的雨滴要多畫一圈漣漪 */
-  waterMap: WaterMap;
+  /**
+   * 世界上的水在哪裡，打在水面上的雨滴要多畫一圈漣漪
+   *
+   * 給函式：換場景時世界整個換掉，天氣系統卻是同一份
+   */
+  getWaterMap: () => WaterMap;
   /** 白晝的程度，0 為全暗、1 為大白天。空氣裡飄什麼要看它 */
   getDayRatio: () => number;
   /** 這一刻是幾點，晨霧只在天亮前後那一段出現 */
   getTimeOfDay: () => number;
-  /** 淋得濕的方塊材質，雨停之後要慢慢乾回去 */
+  /** 淋得濕的方塊材質，雨停之後要慢慢乾回去。換場景時改用 setWorld */
   wetMaterialList: StandardMaterial[];
 }
+
+/** 範圍收在零以上的數值欄位，霧距與光的倍率都不能是負的 */
+const NON_NEGATIVE_RANGE = { min: 0 }
 
 /** 依距離算出區域效果的強度，0 為完全在外、1 為正中心 */
 function measureZoneRatio(
@@ -374,7 +390,7 @@ export function useWeather() {
     isSheltered,
     playThunder: triggerThunder,
     castRainRay,
-    waterMap,
+    getWaterMap,
     getDayRatio,
     getTimeOfDay,
     wetMaterialList,
@@ -397,7 +413,7 @@ export function useWeather() {
     rainParticles = createRainParticles({
       scene,
       maxParticleCount: scaleParticleCount(3600),
-      waterMap,
+      getWaterMap,
       castRainRay,
     })
 
@@ -415,8 +431,14 @@ export function useWeather() {
 
     swampMist = createSwampMist({
       scene,
-      /** 霧只鋪在沼澤上，範圍收窄後同樣的數量會濃到看不見路 */
-      maxParticleCount: scaleParticleCount(80),
+      /**
+       * 霧只鋪在沼澤上，範圍收窄後同樣的數量會濃到看不見路
+       *
+       * 容量給三倍：千蛙沼跟著鏡頭鋪的那一圈比蛙聲澤大，晨昏要鋪到與箱庭一樣濃（RealmWeatherParticle 的 peakDensity）；
+       * 大廳的生成速度照八十片算，濃度與加容量之前一樣
+       */
+      maxParticleCount: scaleParticleCount(240),
+      baseParticleCount: scaleParticleCount(80),
       castRainRay,
     })
 
@@ -454,6 +476,8 @@ export function useWeather() {
     const nightJigokuColor = new Color3()
     const nightRainColor = new Color3()
     const nightSnowColor = new Color3()
+    /** 場景的氣氛設定染過的基準霧色，同樣就地覆寫 */
+    const realmFogColor = new Color3()
     /** 雨天往霧色靠攏後的天頂色與中空色，同樣就地覆寫 */
     const rainZenithColor = new Color3()
     const rainMidColor = new Color3()
@@ -462,14 +486,33 @@ export function useWeather() {
       measureSection('天氣', () => {
         const deltaTime = Math.min(0.1, scene.getEngine().getDeltaTime() / 1000)
 
-        rainRatio = getRainRatio(camera.position.x, camera.position.z)
-        snowRatio = getSnowRatio(camera.position.x, camera.position.z)
+        /**
+         * 箱庭的天氣範圍只有大廳有
+         *
+         * 雨、雪、沼澤霧與地獄谷的熱氣都綁在箱庭的座標上，
+         * 大場景裡同一個座標可能是湖心，不能照樣下起雨來
+         */
+        const hasGardens = activeRealmState.hasGardens
+        /**
+         * 落葉與沼澤的霧片也綁在箱庭的座標上，別的場景整個關掉；
+         * 延伸那兩座箱庭的大場景（金葉林、千蛙沼）由場景定義給自己的範圍
+         */
+        const realmParticle = hasGardens ? undefined : getRealm(activeRealmState.realmId).weatherParticle
+        fallingLeaves?.setArea(hasGardens ? HUB_LEAF_AREA : realmParticle?.fallingLeaves ?? null)
+        /** 濃度排在範圍之前：換範圍時會重新預熱，預熱要照這一刻的濃度生，不能照上一個場景的 */
+        swampMist?.setDensity(realmParticle?.swampMist
+          ? measureMistDensity(getTimeOfDay(), realmParticle.swampMist.dayDensity, realmParticle.swampMist.peakDensity)
+          : 1)
+        swampMist?.setArea(hasGardens ? HUB_MIST_AREA : realmParticle?.swampMist ?? null)
+
+        rainRatio = hasGardens ? getRainRatio(camera.position.x, camera.position.z) : 0
+        snowRatio = hasGardens ? getSnowRatio(camera.position.x, camera.position.z) : 0
         weather.value = rainRatio > RAIN_WEATHER_THRESHOLD
           ? 'rain'
           : snowRatio > RAIN_WEATHER_THRESHOLD ? 'snow' : 'clear'
 
         /** 站在聽雨亭那片雨裡才會打雷，雨聽堂不算 */
-        thunderRatio = measureZoneRatio(camera.position.x, camera.position.z, THUNDER_ZONE)
+        thunderRatio = hasGardens ? measureZoneRatio(camera.position.x, camera.position.z, THUNDER_ZONE) : 0
 
         /**
          * 先套沼澤的霧，再套雨
@@ -477,8 +520,15 @@ export function useWeather() {
          * 兩區隔得夠遠不會同時作用，順序只是為了讓雨天永遠蓋過霧天：
          * 下雨時的能見度本來就比起霧更差
          */
-        const mistRatio = getMistRatio(camera.position.x, camera.position.z)
-        const jigokuRatio = getJigokuRatio(camera.position.x, camera.position.z)
+        /**
+         * 千蛙沼整片都是蛙聲澤那片霧：同一組沼澤大氣（霧距收到兩到二十格、光散開），
+         * 濃淡不看站在哪，看時刻（晨昏最濃），見 RealmWeatherParticle 的 fogRatio
+         */
+        const realmMist = realmParticle?.swampMist
+        const mistRatio = hasGardens
+          ? getMistRatio(camera.position.x, camera.position.z)
+          : realmMist ? measureMistDensity(getTimeOfDay(), realmMist.fogRatio.day, realmMist.fogRatio.peak) : 0
+        const jigokuRatio = hasGardens ? getJigokuRatio(camera.position.x, camera.position.z) : 0
 
         /**
          * 從日夜循環給的基準色開始疊
@@ -508,8 +558,23 @@ export function useWeather() {
           .copyFrom(JIGOKU_ATMOSPHERE.fogColor)
           .scaleInPlace(lerp(0.82, 1, dayBrightnessNow))
 
+        /**
+         * 場景的氣氛設定排在每日天氣之後、箱庭的天氣範圍之前
+         *
+         * 霧色、霧距與三個光的倍率先換成這個場景的基準，
+         * 下面那幾層箱庭天氣再從這個基準疊上去。大廳整份留空，
+         * 算出來與晴天的那組常數一模一樣（applyRealmNumber 沒寫就原封不動）
+         */
+        const realmAtmosphere = activeRealmState.atmosphere
+        applyRealmColor(atmosphere.baseFogColor, realmAtmosphere.fog?.tint, realmFogColor)
+        const realmFogStart = applyRealmNumber(CLEAR_ATMOSPHERE.fogStart, realmAtmosphere.fog?.start, NON_NEGATIVE_RANGE)
+        const realmFogEnd = applyRealmNumber(CLEAR_ATMOSPHERE.fogEnd, realmAtmosphere.fog?.end, NON_NEGATIVE_RANGE)
+        const realmLightRatio = applyRealmNumber(CLEAR_ATMOSPHERE.lightRatio, realmAtmosphere.light?.lightRatio, NON_NEGATIVE_RANGE)
+        const realmSpecularRatio = applyRealmNumber(CLEAR_ATMOSPHERE.specularRatio, realmAtmosphere.light?.specularRatio, NON_NEGATIVE_RANGE)
+        const realmAmbientRatio = applyRealmNumber(CLEAR_ATMOSPHERE.ambientRatio, realmAtmosphere.light?.ambientRatio, NON_NEGATIVE_RANGE)
+
         Color3.LerpToRef(
-          atmosphere.baseFogColor,
+          realmFogColor,
           nightJigokuColor,
           jigokuRatio,
           atmosphere.fogColor,
@@ -522,13 +587,20 @@ export function useWeather() {
         )
         Color3.LerpToRef(atmosphere.fogColor, nightRainColor, rainRatio, atmosphere.fogColor)
         Color3.LerpToRef(atmosphere.fogColor, nightSnowColor, snowRatio, atmosphere.fogColor)
+        /**
+         * 換場景的轉場排在最後
+         *
+         * 霧往目的地的霧色收，天邊與灰罩讀的都是這個顏色，
+         * 整片天與地才會一起被同一種霧吞掉（濃度由漫遊控制器當成邊界白霧套）
+         */
+        Color3.LerpToRef(atmosphere.fogColor, realmTransitionState.fogColor, realmTransitionState.ratio, atmosphere.fogColor)
 
-        /** 熱氣疊在晴天之上，後面的霧、雨、雪再依序疊上去 */
-        const jigokuFogStart = lerp(CLEAR_ATMOSPHERE.fogStart, JIGOKU_ATMOSPHERE.fogStart, jigokuRatio)
-        const jigokuFogEnd = lerp(CLEAR_ATMOSPHERE.fogEnd, JIGOKU_ATMOSPHERE.fogEnd, jigokuRatio)
-        const jigokuLightRatio = lerp(CLEAR_ATMOSPHERE.lightRatio, JIGOKU_ATMOSPHERE.lightRatio, jigokuRatio)
-        const jigokuSpecularRatio = lerp(CLEAR_ATMOSPHERE.specularRatio, JIGOKU_ATMOSPHERE.specularRatio, jigokuRatio)
-        const jigokuAmbientRatio = lerp(CLEAR_ATMOSPHERE.ambientRatio, JIGOKU_ATMOSPHERE.ambientRatio, jigokuRatio)
+        /** 熱氣疊在場景的基準之上，後面的霧、雨、雪再依序疊上去 */
+        const jigokuFogStart = lerp(realmFogStart, JIGOKU_ATMOSPHERE.fogStart, jigokuRatio)
+        const jigokuFogEnd = lerp(realmFogEnd, JIGOKU_ATMOSPHERE.fogEnd, jigokuRatio)
+        const jigokuLightRatio = lerp(realmLightRatio, JIGOKU_ATMOSPHERE.lightRatio, jigokuRatio)
+        const jigokuSpecularRatio = lerp(realmSpecularRatio, JIGOKU_ATMOSPHERE.specularRatio, jigokuRatio)
+        const jigokuAmbientRatio = lerp(realmAmbientRatio, JIGOKU_ATMOSPHERE.ambientRatio, jigokuRatio)
 
         const mistFogStart = lerp(jigokuFogStart, SWAMP_ATMOSPHERE.fogStart, mistRatio)
         const mistFogEnd = lerp(jigokuFogEnd, SWAMP_ATMOSPHERE.fogEnd, mistRatio)
@@ -710,6 +782,9 @@ export function useWeather() {
          */
         /** 太陽、月亮與星星在暴風雪裡一律看不到，係數給得比雨更高 */
         atmosphere.skyBodyFade = Math.max(0, 1 - Math.max(rainRatio * 1.6, snowRatio * 2.2, edgeRatio * 1.6))
+        /** 地底沒有天：天體歸零，光束與行進版光束跟著它一起收掉（見 use-day-night） */
+        if (activeRealmState.isUnderground)
+          atmosphere.skyBodyFade = 0
 
         /**
          * 雲的天氣
@@ -723,7 +798,8 @@ export function useWeather() {
          * 這裡只寫天氣那幾欄，兩邊不會互相蓋掉
          */
         volumetricCloudState.rainRatio = rainRatio
-        volumetricCloudState.visibleRatio = 1 - cloudFadeRatio
+        /** 地底沒有天：雲整層不畫，連雲影圖也不算（見 volumetric-cloud 的 renderClouds） */
+        volumetricCloudState.visibleRatio = activeRealmState.isUnderground ? 0 : 1 - cloudFadeRatio
         volumetricCloudState.flashRatio = atmosphere.flashRatio
         /** 遠方的雲化進霧的基準色，而不是此刻的霧色：雨霧是貼地的，雲上面沒有 */
         volumetricCloudState.hazeColor.copyFrom(atmosphere.baseFogColor)
@@ -775,7 +851,10 @@ export function useWeather() {
          */
         const edgeHideRatio = 1 - Math.min(1, edgeRatio * 1.6)
 
-        const dawnRatio = devToggle.groundMist ? getDawnMistRatio(getTimeOfDay()) : 0
+        /** 場景可以改晨霧的機率與濃度，同一天整個清晨抽到的結果一樣 */
+        const dawnRatio = devToggle.groundMist
+          ? Math.min(1, getDawnMistRatio(getTimeOfDay()) * getRealmGroundMistRatio(volumetricCloudState.dayPosition))
+          : 0
         groundMist?.update(
           camera,
           dawnRatio * (1 - atmosphere.caveRatio) * (1 - rainRatio) * (1 - mistRatio) * edgeHideRatio,
@@ -835,7 +914,75 @@ export function useWeather() {
     })
   }
 
+  /**
+   * 換場景：改掛淋得濕的材質，丟掉射線的快取
+   *
+   * 方塊材質是世界層的東西，換場景時整批釋放、重建。
+   * 濕潤記著每份材質原本的顏色，只能整份重建，不能沿用舊的。
+   * 雨與雪記著每一根格柱的落點高度，地形一換就全錯了。
+   *
+   * 拆舊世界之前與新世界建好之後各呼叫一次：空檔裡射線打不到任何東西，
+   * 那段時間查過的格柱也會被記成空的，新世界進來時要再清一次。
+   * 開始漫遊之前這些都還沒建，那時 start 會直接拿到當下世界的清單
+   */
+  function setWorld(wetMaterialList: StandardMaterial[]): void {
+    rainParticles?.clearImpactCache()
+    snowParticles?.clearImpactCache()
+
+    if (wetness) {
+      wetness = createWetness(wetMaterialList, skyReflectionTexture ?? undefined)
+    }
+  }
+
+  /** 開始漫遊之前先套場景基準霧與光的那個觀察者，見 trackRealmBaseline */
+  let baselineCleanup: (() => void) | null = null
+
+  /**
+   * 開始漫遊之前，先把場景的霧與光套上去
+   *
+   * 場景氣氛平常是在天氣的每幀裡疊的，而天氣要等「開始漫遊」才建。
+   * 換畫質重來回到湖中島時，開始面板後面那段時間看到的會是大廳的白霧。
+   * 這個觀察者只做霧色、霧距與三個光的倍率，天氣一建好就不再動手。
+   *
+   * 要排在日夜循環之後、漫遊控制器之前（控制器才是把霧套進場景的那一個）。
+   * 大廳的設定整份留空，這裡什麼都不寫，開始面板後面的畫面與原本一模一樣
+   */
+  function trackRealmBaseline(scene: Scene): void {
+    baselineCleanup?.()
+    const observer = scene.onBeforeRenderObservable.add(() => {
+      if (rainParticles)
+        return
+
+      /**
+       * 大廳寫回建立時的那組初始值（與沒有這個觀察者時一模一樣），
+       * 開始漫遊前用開發鍵從湖中島換回大廳，才不會留著湖的霧
+       */
+      if (!hasRealmFogOrLight()) {
+        atmosphere.fogColor.copyFrom(CLEAR_ATMOSPHERE.fogColor)
+        atmosphere.fogStart = CLEAR_ATMOSPHERE.fogStart
+        atmosphere.fogEnd = CLEAR_ATMOSPHERE.fogEnd
+        atmosphere.lightRatio = CLEAR_ATMOSPHERE.lightRatio
+        atmosphere.ambientRatio = CLEAR_ATMOSPHERE.ambientRatio
+        atmosphere.specularRatio = CLEAR_ATMOSPHERE.specularRatio
+        return
+      }
+
+      const realmAtmosphere = activeRealmState.atmosphere
+      applyRealmColor(atmosphere.baseFogColor, realmAtmosphere.fog?.tint, atmosphere.fogColor)
+      atmosphere.fogStart = applyRealmNumber(CLEAR_ATMOSPHERE.fogStart, realmAtmosphere.fog?.start, NON_NEGATIVE_RANGE)
+      atmosphere.fogEnd = applyRealmNumber(CLEAR_ATMOSPHERE.fogEnd, realmAtmosphere.fog?.end, NON_NEGATIVE_RANGE)
+      atmosphere.lightRatio = applyRealmNumber(CLEAR_ATMOSPHERE.lightRatio, realmAtmosphere.light?.lightRatio, NON_NEGATIVE_RANGE)
+      atmosphere.ambientRatio = applyRealmNumber(CLEAR_ATMOSPHERE.ambientRatio, realmAtmosphere.light?.ambientRatio, NON_NEGATIVE_RANGE)
+      atmosphere.specularRatio = applyRealmNumber(CLEAR_ATMOSPHERE.specularRatio, realmAtmosphere.light?.specularRatio, NON_NEGATIVE_RANGE)
+    })
+    baselineCleanup = () => {
+      scene.onBeforeRenderObservable.remove(observer)
+      baselineCleanup = null
+    }
+  }
+
   onScopeDispose(() => {
+    baselineCleanup?.()
     clearTimeout(thunderTimerId)
     clearTimeout(rumbleTimerId)
     rainParticles?.dispose()
@@ -851,6 +998,8 @@ export function useWeather() {
     weather,
     atmosphere,
     start,
+    setWorld,
+    trackRealmBaseline,
   }
 }
 

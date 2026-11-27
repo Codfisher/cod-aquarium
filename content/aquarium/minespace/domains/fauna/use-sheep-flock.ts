@@ -1,5 +1,6 @@
 import type { DirectionalLight, Mesh, Scene, ShadowGenerator, StandardMaterial, UniversalCamera } from '@babylonjs/core'
 import type { TextureKey } from '../block/texture-pack'
+import type { RealmSheepFlock } from '../realm/realm-definition'
 import type { TextureSkinner } from '../renderer/pixel-material'
 import { MeshBuilder, TransformNode } from '@babylonjs/core'
 import { onScopeDispose } from 'vue'
@@ -24,6 +25,14 @@ const GRAZE_RANGE_SECOND: [number, number] = [4, 12]
 const TURN_SECOND = 0.9
 /** 活動範圍，比柵欄再縮一點，免得卡在欄杆上 */
 const ROAM_HALF_SIZE = PASTURE_HALF_SIZE - 2
+
+/** 大廳的羊群：牧野柵欄裡那四隻 */
+const HUB_SHEEP_FLOCK: RealmSheepFlock = {
+  centerX: PASTURE_CENTER.x,
+  centerZ: PASTURE_CENTER.z,
+  halfSize: ROAM_HALF_SIZE,
+  count: SHEEP_COUNT,
+}
 
 /** 一隻羊佔的半徑，身體 0.7 寬、1 長，取個折衷值當作圓形碰撞 */
 const SHEEP_RADIUS = 0.45
@@ -104,6 +113,8 @@ interface Sheep {
   sleepBias: number;
   /** 是不是已經趴下了 */
   isAsleep: boolean;
+  /** 這隻羊走動的範圍，挑目標點與推擠後壓回來都看它 */
+  roamArea: RealmSheepFlock;
 }
 
 export interface StartSheepFlockParams {
@@ -115,6 +126,8 @@ export interface StartSheepFlockParams {
   camera: UniversalCamera;
   /** 白晝的程度，0 為全暗、1 為大白天。天一暗羊就趴下 */
   getDayRatio: () => number;
+  /** 羊群在哪一片走、有幾隻，不給就是大廳牧野那一群（大場景羊鳴谷給自己的） */
+  area?: RealmSheepFlock;
 }
 
 /**
@@ -127,7 +140,7 @@ export function useSheepFlock() {
   let sheepList: Sheep[] = []
   let disposeList: (() => void)[] = []
 
-  function start({ scene, worldState, camera, getDayRatio, skinner }: StartSheepFlockParams): void {
+  function start({ scene, worldState, camera, getDayRatio, skinner, area = HUB_SHEEP_FLOCK }: StartSheepFlockParams): void {
     const sunLight = scene.getLightByName(SUN_LIGHT_NAME) as DirectionalLight | null
     const shadowGenerator = sunLight?.getShadowGenerator() as ShadowGenerator | null
     const random = createSeededRandom('minespace-sheep')
@@ -139,12 +152,12 @@ export function useSheepFlock() {
       createMaterialSet(skinner, 'brown', WOOL_TEXTURE.brown, WOOL_TEXTURE.white),
     ]
 
-    for (let index = 0; index < SHEEP_COUNT; index++) {
+    for (let index = 0; index < area.count; index++) {
       const materialSet = materialSetList[index % materialSetList.length]!
-      const sheep = createSheep({ scene, index, materialSet, shadowGenerator })
+      const sheep = createSheep({ scene, index, materialSet, shadowGenerator, roamArea: area })
 
-      sheep.root.position.x = PASTURE_CENTER.x + (random() * 2 - 1) * ROAM_HALF_SIZE
-      sheep.root.position.z = PASTURE_CENTER.z + (random() * 2 - 1) * ROAM_HALF_SIZE
+      sheep.root.position.x = area.centerX + (random() * 2 - 1) * area.halfSize
+      sheep.root.position.z = area.centerZ + (random() * 2 - 1) * area.halfSize
       sheep.root.rotation.y = random() * Math.PI * 2
       sheep.actionTimeLeft = random() * 8
       sheep.phase = random() * Math.PI * 2
@@ -196,14 +209,22 @@ export function useSheepFlock() {
     })
   }
 
-  onScopeDispose(() => {
+  /**
+   * 把整群羊收掉
+   *
+   * 羊群屬於世界層（禪庭的牧野與大場景羊鳴谷各一群），換場景時要跟著方塊一起拆，
+   * 回到原場景時再 start 一次，種子相同，羊會站回同樣的位置
+   */
+  function stop(): void {
     for (const dispose of disposeList) {
       dispose()
     }
     disposeList = []
-  })
+  }
 
-  return { start }
+  onScopeDispose(stop)
+
+  return { start, stop }
 }
 
 function createMaterialSet(
@@ -226,6 +247,7 @@ interface CreateSheepParams {
   index: number;
   materialSet: SheepMaterialSet;
   shadowGenerator: ShadowGenerator | null;
+  roamArea: RealmSheepFlock;
 }
 
 /**
@@ -234,7 +256,7 @@ interface CreateSheepParams {
  * 分成身體、蓬鬆的羊毛、頭、口鼻、耳朵、尾巴與四隻腳，
  * 腳掛在樞紐上才能前後擺動
  */
-function createSheep({ scene, index, materialSet, shadowGenerator }: CreateSheepParams): Sheep {
+function createSheep({ scene, index, materialSet, shadowGenerator, roamArea }: CreateSheepParams): Sheep {
   const root = new TransformNode(`sheep-${index}`, scene)
   const partList: Mesh[] = []
 
@@ -347,6 +369,7 @@ function createSheep({ scene, index, materialSet, shadowGenerator }: CreateSheep
     walkSpeed: 0.7,
     sleepBias: 0,
     isAsleep: false,
+    roamArea,
   }
 }
 
@@ -382,8 +405,9 @@ function updateSleepingSheep(sheep: Sheep, deltaTime: number): void {
 
 /** 挑一個新的目標點，並轉身面向它 */
 function pickTarget(sheep: Sheep, random: () => number): void {
-  sheep.targetX = PASTURE_CENTER.x + (random() * 2 - 1) * ROAM_HALF_SIZE
-  sheep.targetZ = PASTURE_CENTER.z + (random() * 2 - 1) * ROAM_HALF_SIZE
+  const { roamArea } = sheep
+  sheep.targetX = roamArea.centerX + (random() * 2 - 1) * roamArea.halfSize
+  sheep.targetZ = roamArea.centerZ + (random() * 2 - 1) * roamArea.halfSize
 
   sheep.fromRotation = sheep.root.rotation.y
   sheep.toRotation = Math.atan2(
@@ -482,9 +506,10 @@ function pushSheepFromPlayer(sheepList: Sheep[], camera: UniversalCamera, deltaT
 /** 推擠不能把羊推出柵欄，出界就壓回活動範圍 */
 function keepInPasture(sheep: Sheep): void {
   const { position } = sheep.root
+  const { centerX, centerZ, halfSize } = sheep.roamArea
 
-  position.x = clamp(position.x, PASTURE_CENTER.x - ROAM_HALF_SIZE, PASTURE_CENTER.x + ROAM_HALF_SIZE)
-  position.z = clamp(position.z, PASTURE_CENTER.z - ROAM_HALF_SIZE, PASTURE_CENTER.z + ROAM_HALF_SIZE)
+  position.x = clamp(position.x, centerX - halfSize, centerX + halfSize)
+  position.z = clamp(position.z, centerZ - halfSize, centerZ + halfSize)
 }
 
 function clamp(value: number, min: number, max: number): number {

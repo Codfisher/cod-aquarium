@@ -5,7 +5,7 @@
       class="zone-block"
     >
       <div
-        :key="zone ?? 'sand'"
+        :key="realm?.id ?? zone ?? 'sand'"
         class="zone-content"
       >
         <div class="zone-label">
@@ -35,7 +35,8 @@
 
         整片音景是十七座箱庭疊出來的，走到中間會同時聽見四五種聲音。
         有人是為了聽風來的，那幾聲蟬就成了雜訊——
-        讓他關掉那一個，其餘的照舊
+        讓他關掉那一個，其餘的照舊。
+        同名的音源在音景那邊已經併成一條，按一下整組一起開關
       -->
       <button
         v-for="sound in displayList"
@@ -63,7 +64,7 @@
     </transition-group>
 
     <div
-      v-if="displayList.length === 0"
+      v-if="silenceHintVisible"
       class="sound-empty"
     >
       {{ t('silence') }}
@@ -72,8 +73,10 @@
 </template>
 
 <script setup lang="ts">
+import type { RealmDefinition } from '../domains/realm/realm-definition'
 import type { AudibleSound, SoundZone } from '../domains/soundscape/type'
 import { vAutoAnimate } from '@formkit/auto-animate/vue'
+import { refDebounced } from '@vueuse/core'
 import { computed } from 'vue'
 import { useSimpleI18n } from '../composables/use-simple-i18n'
 import { GARDEN_LIST } from '../domains/garden/garden-layout'
@@ -82,10 +85,16 @@ const props = defineProps<{
   audibleList: AudibleSound[];
   /** 目前站在哪一座箱庭上，走在箱庭之間的白沙上時為 null */
   zone: SoundZone | null;
+  /**
+   * 不在大廳時所在的大場景
+   *
+   * 大場景沒有箱庭，標題改寫場景的名字與描述；在大廳是 null
+   */
+  realm: Pick<RealmDefinition, 'id' | 'title' | 'description' | 'icon'> | null;
 }>()
 
 defineEmits<{
-  /** 開關單一音源 */
+  /** 開關清單上的一條（同名的一整組音源） */
   toggleMute: [id: string];
 }>()
 
@@ -94,6 +103,18 @@ const MAX_DISPLAY_COUNT = 6
 
 const displayList = computed(() => props.audibleList.slice(0, MAX_DISPLAY_COUNT))
 
+/**
+ * 「四下無聲」要安靜一陣子才出現
+ *
+ * 穿過傳送門時音景整份重建，新場景的音檔還在載入，清單會空個零點幾秒；
+ * 那一下若跳出「四下無聲」，霧都還沒散就先被告知這裡什麼都沒有。
+ * 清單一有東西就立刻收起來，只有出現要等
+ */
+const SILENCE_HINT_DELAY_MS = 1500
+const isSilent = computed(() => displayList.value.length === 0)
+const isSilentSettled = refDebounced(isSilent, SILENCE_HINT_DELAY_MS)
+const silenceHintVisible = computed(() => isSilent.value && isSilentSettled.value)
+
 /** 走在白沙上時顯示的圖示，一片留白 */
 const SAND_ICON = 'i-material-symbols:blur-on'
 
@@ -101,17 +122,23 @@ const currentGarden = computed(() => (
   props.zone === null ? null : GARDEN_LIST.find((garden) => garden.id === props.zone) ?? null
 ))
 
-const zoneIcon = computed(() => currentGarden.value?.icon ?? SAND_ICON)
-const zoneName = computed(() => (
-  currentGarden.value === null
+const zoneIcon = computed(() => props.realm?.icon ?? currentGarden.value?.icon ?? SAND_ICON)
+const zoneName = computed(() => {
+  if (props.realm)
+    return props.realm.title[locale.value]
+
+  return currentGarden.value === null
     ? t('sandField')
     : (locale.value === 'en' ? currentGarden.value.title.en : currentGarden.value.title['zh-hant'])
-))
-const zoneTimbre = computed(() => (
-  currentGarden.value === null
+})
+const zoneTimbre = computed(() => {
+  if (props.realm)
+    return props.realm.description[locale.value]
+
+  return currentGarden.value === null
     ? null
     : (locale.value === 'en' ? currentGarden.value.timbre.en : currentGarden.value.timbre['zh-hant'])
-))
+})
 
 const { locale, t } = useSimpleI18n({
   'zh-hant': {

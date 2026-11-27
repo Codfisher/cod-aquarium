@@ -34,6 +34,7 @@ function createDefaultState(): RenderSettingsState {
     daySpeedRatio: INITIAL_DAY_SPEED_RATIO,
     texturePackId: 'miniPixel',
     isBumpEnabled: true,
+    locale: 'zh-hant',
   }
 }
 

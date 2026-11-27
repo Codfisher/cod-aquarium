@@ -1,5 +1,5 @@
 import type { TerrainWorkerMessage, TerrainWorkerResponse } from './type'
-import { generateWorld } from '../../garden/garden-generator'
+import { generateRealmTerrain } from '../../realm/realm-terrain'
 import { createWorldState } from '../world-access'
 
 // eslint-disable-next-line no-restricted-globals
@@ -13,7 +13,7 @@ workerSelf.onmessage = (event: MessageEvent<TerrainWorkerMessage>) => {
     return
 
   const state = createWorldState()
-  generateWorld(state)
+  generateRealmTerrain(event.data.realmId, state)
 
   const response: TerrainWorkerResponse = {
     type: 'terrain-ready',

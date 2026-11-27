@@ -476,11 +476,37 @@ export const CAVE_CHAMBER = {
   z: CAVE_GARDEN.center.z - 3,
 }
 
+/**
+ * 洞室最裡面那道傳送門（通往地底湖窟）
+ *
+ * 洞室西壁往裡挖一個龕（見 buildCaveGarden），門立在龕裡、門洞朝東對著地底湖與通道來的方向：
+ * 人得從洞口一路低頭走過通道、繞過地底湖，走到洞的最深處才到得了
+ */
+export const CAVE_GATE_POINT = {
+  x: CAVE_CHAMBER.x - 7,
+  z: CAVE_CHAMBER.z,
+}
+
 /** 遣水的瀑布，水從岩壁上落進水道 */
 export const WATERFALL_POINT = {
   x: RIVER_GARDEN.center.x - 10,
   z: RIVER_GARDEN.center.z - 4,
 }
+
+/**
+ * 通往大場景的門：門洞中心離箱庭中心的偏移
+ *
+ * 箱庭的造景要替門讓位（水鏡池的木板鋪進門洞、松籟林的小徑在門前開成一片石板空地），
+ * 大場景那一頭（createGardenGate 的 inner）也要用同一個點，所以放在這裡
+ */
+/** 水鏡池：池心偏南一格的水裡，北岸的木板一路鋪進門洞 */
+export const POND_GATE_OFFSET = { x: 0, z: 1 }
+/** 水鏡池那條木板從北岸哪一排鋪起（相對池心） */
+export const POND_BOARDWALK_START_Z = -5
+/** 潮汐磯：沙地正中偏北一格，門洞朝北，門後就是那一池淺海 */
+export const COAST_GATE_OFFSET = { x: 0, z: -1 }
+/** 松籟林：小徑走到中央開出來的一小片石板空地上，門洞朝南 */
+export const FOREST_GATE_OFFSET = { x: 0, z: -1 }
 
 /** 爐火壇的火堆，火焰與煙的粒子掛在這裡 */
 export const CAMPFIRE_POINT = getGarden('campfire').center

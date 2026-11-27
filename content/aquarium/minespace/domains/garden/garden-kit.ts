@@ -468,6 +468,41 @@ export function placeAcaciaTree(
 }
 
 /**
+ * 一艘擱淺的小舟
+ *
+ * 五格長、三格寬的深色木船身，中間挖空，正中一根兩格高的圍籬當桅杆。
+ * 船身挖空之後，中央那一格變成空氣——桅杆原本就立在那裡，
+ * 底下沒有東西撐著，於是浮在船艙上方。
+ * 挖空之後要把桅杆座那一格補回去，杆子才踩得到甲板。
+ *
+ * 潮汐磯與它的大場景（海中沙島）共用同一艘，`isAlongX` 決定船身順著哪一軸躺
+ */
+export function placeSmallBoat(
+  state: Uint8Array,
+  x: number,
+  groundY: number,
+  z: number,
+  isAlongX: boolean,
+): void {
+  const lengthX = isAlongX ? 2 : 1
+  const lengthZ = isAlongX ? 1 : 2
+  fillBox(state, x - lengthX, groundY, z - lengthZ, x + lengthX, groundY, z + lengthZ, BlockId.DARK_PLANKS)
+  fillBox(
+    state,
+    x - (isAlongX ? 1 : 0),
+    groundY,
+    z - (isAlongX ? 0 : 1),
+    x + (isAlongX ? 1 : 0),
+    groundY,
+    z + (isAlongX ? 0 : 1),
+    BlockId.AIR,
+  )
+  setBlock(state, x, groundY, z, BlockId.DARK_PLANKS)
+  setBlock(state, x, groundY + 1, z, BlockId.FENCE)
+  setBlock(state, x, groundY + 2, z, BlockId.FENCE)
+}
+
+/**
  * 飛石
  *
  * 日本庭園裡最能一眼認出來的東西，而它的關鍵不在石頭本身，

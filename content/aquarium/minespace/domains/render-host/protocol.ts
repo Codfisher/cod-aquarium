@@ -2,6 +2,7 @@ import type { PerformanceReading } from '../../composables/performance-reading'
 import type { DevToggleKey } from '../../composables/use-dev-toggles'
 import type { GraphicsQuality } from '../../composables/use-graphics-quality'
 import type { TexturePackId } from '../block/texture-pack'
+import type { RealmId, RealmSpawn } from '../realm/realm-definition'
 import type { ReloadHandoff } from '../scene/reload-handoff'
 import type { SoundZone, Weather } from '../soundscape/type'
 import type { DayPhase } from '../weather/day-night'
@@ -36,6 +37,13 @@ export interface RenderSettings {
   texturePackId: TexturePackId;
   /** 使用者要不要立體紋理（還要材質包本身有法線才會真的掛上） */
   isBumpEnabled: boolean;
+  /**
+   * 介面語言
+   *
+   * 語言是主執行緒偵測的（瀏覽器偏好），渲染端只有傳送門旁的木牌要寫字，
+   * 跟著同一份設定送過去，語言一變木牌就重畫
+   */
+  locale: 'zh-hant' | 'en';
   /** 除錯用的效果開關，不持久化，重新整理就回到全開 */
   devToggle: Record<DevToggleKey, boolean>;
 }
@@ -126,7 +134,8 @@ export type RenderCommand =
    */
   | { command: 'set-control'; isPaused: boolean; isCursorFree: boolean }
   /** 快速前往，渲染端自己找一個站得住腳的位置 */
-  | { command: 'travel'; x: number; z: number }
+  /** yaw 給了就落地後轉向那裡（有傳送門的箱庭會面朝門） */
+  | { command: 'travel'; x: number; z: number; yaw?: number }
   /** 直接指定時刻，0 為子夜、0.5 為正午 */
   | { command: 'set-time'; value: number }
   /** 撥動時間，正值往未來走，單位是一整天的比例 */
@@ -146,6 +155,14 @@ export type RenderCommand =
    * 隱藏時它得停下算繪迴圈與回報的計時器，可見時再恢復
    */
   | { command: 'set-visibility'; isVisible: boolean }
+  /**
+   * 就地換到另一個場景：霧蓋滿畫面、拆掉世界層、生成並建好新的、把人放到出生點、霧散開
+   *
+   * 平常是渲染端自己在人走進傳送門時觸發，不經過這則指令；
+   * 這則只給開發模式的 F9（輪流切換場景清單）用
+   */
+  /** spawn 不給就落在目的地自己的出生點；選單的「返回禪庭」會帶上那道門前的落點 */
+  | { command: 'switch-realm'; realmId: RealmId; spawn?: RealmSpawn }
 
 export interface RenderCommandMessage {
   type: 'command';
@@ -186,12 +203,41 @@ export interface RenderProbeResultMessage {
 
 export interface RenderReadyMessage {
   type: 'ready';
+  /** 一開始在哪一個場景，通常是大廳；換畫質重來時接回原本的場景 */
+  realmId: RealmId;
   /**
    * 世界的方塊資料
    *
    * 音景要靠它種音源、算遮蔽。渲染端自己還要用，所以是複製過來的，不是轉移
    */
   worldState: Uint8Array;
+}
+
+/**
+ * 換好場景了
+ *
+ * HUD 與音景跟著換：音源要照新的地形重新種、遮蔽要讀新的方塊資料。
+ * 方塊資料與 ready 一樣是複製過來的，渲染端自己還要用
+ */
+export interface RenderRealmChangedMessage {
+  type: 'realm-changed';
+  realmId: RealmId;
+  worldState: Uint8Array;
+}
+
+/**
+ * 轉場開始了
+ *
+ * 渲染端在霧開始湧上的那一刻送，主執行緒播目的地的轉場音效。
+ * 換好之後另外會有一則 realm-changed
+ */
+export interface RenderRealmTransitionMessage {
+  type: 'realm-transition';
+  targetRealmId: RealmId;
+  /** 音檔名稱，見 sound-data 的 getSoundUrl */
+  sound: string;
+  /** 霧從湧上到散開大約多久（秒），音效照這個長度淡入淡出 */
+  durationSecond: number;
 }
 
 export interface RenderInitErrorMessage {
@@ -294,6 +340,8 @@ export type RenderUpMessage =
   | RenderLoadedMessage
   | RenderProbeResultMessage
   | RenderReadyMessage
+  | RenderRealmChangedMessage
+  | RenderRealmTransitionMessage
   | RenderInitErrorMessage
   | RenderContextLostMessage
   | RenderContextRestoredMessage

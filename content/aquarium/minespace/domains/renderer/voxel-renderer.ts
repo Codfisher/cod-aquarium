@@ -365,7 +365,12 @@ class WorldRenderer {
           specularColor: NO_SPECULAR,
           translucency: PLANT_TRANSLUCENCY,
         })
-        addPlane('flat', 1, { x: Math.PI / 2, y: 0 }, { x: 0, y: -0.6, z: 0 }, material)
+        /**
+         * 睡蓮貼著矮八分之一格的水面；落葉與腐葉鋪在實地上，貼著方塊頂面再抬兩公分，
+         * 原本一律降到水面的高度，草地上的落葉整片埋在草皮底下
+         */
+        const planeY = blockDef.floatsOnWater ? -0.6 : -0.48
+        addPlane('flat', 1, { x: Math.PI / 2, y: 0 }, { x: 0, y: planeY, z: 0 }, material)
         break
       }
       case 'slab': {

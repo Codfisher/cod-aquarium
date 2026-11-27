@@ -1,18 +1,29 @@
-import type { AudioEngineV2 } from '@babylonjs/core'
+import type { AudioEngineV2, StaticSound } from '@babylonjs/core'
+import type { RealmId } from '../realm/realm-definition'
 import type { RenderPoseMessage } from '../render-host/protocol'
 import type { AudibleSound, Weather } from './type'
+import { CreateSoundAsync } from '@babylonjs/core'
 import { useIntervalFn, useStorage } from '@vueuse/core'
 import { onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { getAudioEngine } from '../../composables/use-audio-engine'
-import { createEmitterList } from './sound-data'
+import { createEmitterList, getSoundUrl } from './sound-data'
 import { SpatialSoundscape } from './spatial-soundscape'
 
 /** 音源載入狀態的更新間隔（秒），不需要每幀重算 */
 const UPDATE_INTERVAL = 0.25
 
+/** 轉場音效最大聲到多少，它是過門那一下的陪襯，不該蓋過到了之後的音景 */
+const TRANSITION_SOUND_VOLUME = 0.55
+/** 轉場音效淡出要幾秒，與霧散開的時間差不多 */
+const TRANSITION_SOUND_FADE_SECOND = 2.4
+/** 轉場音效最多響多久：換場景失敗時沒有 setWorld 來收，靠這個保底 */
+const TRANSITION_SOUND_LIMIT_SECOND = 10
+
 interface StartParams {
   /** 渲染端生成的世界，音源要貼著地面種、遮蔽要沿路取樣，都得讀它 */
   worldState: Uint8Array;
+  /** 目前在哪一個場景，音源清單依場景挑 */
+  realmId: RealmId;
   /**
    * 目前的白晝程度，0 為全暗、1 為大白天
    *
@@ -53,6 +64,8 @@ export function useSoundscape() {
    * 有人是為了聽風來的，那幾聲蟬就成了雜訊——
    * 讓他關掉那一個，其餘的照舊。
    *
+   * 存的是開關鍵（同名的音源共用一個，見 getSoundMuteKey）；
+   * 舊版存的是一顆一顆的音源 id，音景照樣認得。
    * 存成陣列而不是 Set：useStorage 要序列化成 JSON，Set 存不進去
    */
   const mutedSoundIdList = useStorage<string[]>('minespace-muted-sounds', [])
@@ -72,6 +85,9 @@ export function useSoundscape() {
    */
   let totalElapsedSecond = 0
   let currentWeather: Weather = 'clear'
+  /** 正在響的轉場音效，見 playTransitionSound */
+  let transitionSound: StaticSound | null = null
+  let transitionTimerId: ReturnType<typeof setTimeout> | undefined
 
   watch([masterVolume, isMuted], () => {
     soundscape?.setMasterVolume(isMuted.value ? 0 : masterVolume.value)
@@ -82,19 +98,25 @@ export function useSoundscape() {
   }, { deep: true })
 
   /**
-   * 開關單一音源
+   * 開關清單上的一條
    *
-   * 清單上每一條都可以按。淡入淡出交給音景那邊既有的音量斜坡，
-   * 按下去不是「啪」一聲斷掉，而是那個聲音慢慢退出去
+   * 一條是同名的一整組音源（見 AudibleSound），按一下整組一起開關。
+   * 淡入淡出交給音景那邊既有的音量斜坡，
+   * 按下去不是「啪」一聲斷掉，而是那個聲音慢慢退出去。
+   *
+   * 打開時連舊版逐顆存下來的 id 一起清掉，不然那幾顆會繼續關著
    */
-  function toggleSoundMute(id: string): void {
-    const index = mutedSoundIdList.value.indexOf(id)
-    if (index === -1) {
-      mutedSoundIdList.value = [...mutedSoundIdList.value, id]
+  function toggleSoundMute(muteKey: string): void {
+    const legacyIdList = soundscape?.getEmitterIdList(muteKey) ?? []
+    const relatedSet = new Set([muteKey, ...legacyIdList])
+    const isMutedNow = mutedSoundIdList.value.some((id) => relatedSet.has(id))
+
+    if (!isMutedNow) {
+      mutedSoundIdList.value = [...mutedSoundIdList.value, muteKey]
       return
     }
 
-    mutedSoundIdList.value = mutedSoundIdList.value.filter((mutedId) => mutedId !== id)
+    mutedSoundIdList.value = mutedSoundIdList.value.filter((id) => !relatedSet.has(id))
   }
 
   /** 天氣會影響哪些音源該發聲，下雨時鳥與蟲會躲起來 */
@@ -118,7 +140,7 @@ export function useSoundscape() {
    *
    * 必須在使用者互動後呼叫，瀏覽器才允許播放聲音。
    */
-  async function start({ worldState, getDayRatio: readDayRatio }: StartParams): Promise<void> {
+  async function start({ worldState, realmId, getDayRatio: readDayRatio }: StartParams): Promise<void> {
     if (soundscape)
       return
 
@@ -126,14 +148,81 @@ export function useSoundscape() {
     await audioEngine.unlockAsync()
 
     getDayRatio = readDayRatio
-    soundscape = new SpatialSoundscape(audioEngine, createEmitterList(worldState), worldState)
-    soundscape.setMasterVolume(isMuted.value ? 0 : masterVolume.value, 0.01)
-    soundscape.setWeather(currentWeather)
-    /** 上次關掉的那幾個要一開始就是關著的，不能先響一聲再收掉 */
-    soundscape.setMutedIdList(mutedSoundIdList.value)
+    soundscape = createSoundscape(audioEngine, worldState, realmId)
     isReady.value = true
     applyListenerPose()
     resumeUpdate()
+  }
+
+  function createSoundscape(engine: AudioEngineV2, worldState: Uint8Array, realmId: RealmId): SpatialSoundscape {
+    const next = new SpatialSoundscape(engine, createEmitterList(worldState, realmId), worldState)
+    next.setMasterVolume(isMuted.value ? 0 : masterVolume.value, 0.01)
+    next.setWeather(currentWeather)
+    /** 上次關掉的那幾個要一開始就是關著的，不能先響一聲再收掉 */
+    next.setMutedIdList(mutedSoundIdList.value)
+    return next
+  }
+
+  /**
+   * 換場景之後照新的地形重種音源
+   *
+   * 音源要貼著地面種、遮蔽要沿路讀方塊，舊的那一份對不上新的世界，只能整份重建。
+   * 音源清單依場景挑（見 sound-data 的 createEmitterList）。
+   * 還沒開始漫遊就不必理：開始時 start 會拿到當下的世界
+   */
+  function setWorld(worldState: Uint8Array, realmId: RealmId): void {
+    if (!soundscape || !audioEngine)
+      return
+
+    soundscape.dispose()
+    soundscape = createSoundscape(audioEngine, worldState, realmId)
+    audibleList.value = []
+    /** 新場景到了，霧正要散開，過門的那一陣聲音跟著退 */
+    fadeOutTransitionSound()
+  }
+
+  /**
+   * 轉場音效
+   *
+   * 霧湧上來的那一刻淡入，換好場景（setWorld）時淡出，不跟著任何位置（不是空間音源）。
+   * 每次都新建一個、播完就丟：一趟旅程只響一次，沒有必要留著。
+   * 換場景失敗時不會有 setWorld，靠保底的計時器收掉。
+   * 音景還沒啟動（瀏覽器還不准出聲）就不響
+   */
+  async function playTransitionSound(sound: string, durationSecond: number): Promise<void> {
+    if (!audioEngine)
+      return
+
+    fadeOutTransitionSound(0.3)
+    try {
+      const nextSound = await CreateSoundAsync(`transition-${sound}`, getSoundUrl(sound), {
+        volume: 0,
+        spatialEnabled: false,
+      }, audioEngine)
+
+      transitionSound = nextSound
+      nextSound.play()
+      nextSound.setVolume(TRANSITION_SOUND_VOLUME, { duration: durationSecond * 0.4 })
+      transitionTimerId = setTimeout(() => fadeOutTransitionSound(), TRANSITION_SOUND_LIMIT_SECOND * 1000)
+    }
+    catch (error) {
+      console.warn('[Soundscape] 轉場音效載入失敗:', error)
+    }
+  }
+
+  /** 把轉場音效淡出並丟掉 */
+  function fadeOutTransitionSound(fadeSecond = TRANSITION_SOUND_FADE_SECOND): void {
+    clearTimeout(transitionTimerId)
+    const fadingSound = transitionSound
+    transitionSound = null
+    if (!fadingSound)
+      return
+
+    fadingSound.setVolume(0, { duration: fadeSecond })
+    setTimeout(() => {
+      fadingSound.stop()
+      fadingSound.dispose()
+    }, fadeSecond * 1000 + 200)
   }
 
   /**
@@ -187,6 +276,7 @@ export function useSoundscape() {
   }, UPDATE_INTERVAL * 1000, { immediate: false })
 
   onBeforeUnmount(() => {
+    fadeOutTransitionSound(0)
     pauseUpdate()
     soundscape?.dispose()
     soundscape = null
@@ -194,6 +284,8 @@ export function useSoundscape() {
 
   return {
     start,
+    setWorld,
+    playTransitionSound,
     updatePose,
     setWeather,
     triggerSound,

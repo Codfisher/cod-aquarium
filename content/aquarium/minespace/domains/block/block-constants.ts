@@ -236,6 +236,39 @@ export enum BlockId {
   WIND_CHIME,
   /** 吊在簷下的和紙提燈 */
   HANGING_LAMP,
+  /**
+   * 深湖的湖底
+   *
+   * 與禪庭的白沙同一招：方塊照樣在（碰撞、雨滴射線都讀得到），但不畫，
+   * 改由一整片平面畫出來（見 realm/backdrop 的 createLakeBed）。
+   * 湖中島的深水有七萬格湖底，照方塊畫的話連同陰影與深度圖要多出三百萬個三角形，
+   * 高畫質實測整幀多七毫秒
+   */
+  LAKE_BED,
+  /**
+   * 半格的雪
+   *
+   * 雪稜（雪稜丘的大場景）的雪坡是一格一格的階，每一階都得跳。
+   * 在矮的那一格補半格雪，一格的落差拆成兩個半階，人順著坡就走得上去，
+   * 遠看也比整齊的台階圓一點
+   */
+  SNOW_SLAB,
+  /**
+   * 整塊的雪，六面都是雪
+   *
+   * SNOW 的側面是「雪蓋在土上」那一張，箱庭裡只有一兩階看不出來；
+   * 雪稜的雪坡一階疊一階，每一階的側面都露出一條土色的邊，整座山像是土堆蓋了雪。
+   * 雪稜的雪地改用這一塊，階的側面也是雪
+   */
+  SNOW_BLOCK,
+  /**
+   * 長滿螢光地衣的岩
+   *
+   * 地底湖窟（岩響窟的大場景）洞頂與高處岩壁上一片一片冷藍綠的微光。
+   * 自己會亮但不照人：亮度壓在點真光的門檻以下，也不往外擴散方塊光（烘進去的方塊光是暖色的，
+   * 冷光的岩旁邊冒出一圈燈籠色會很怪）。洞頂那層冷光的「照」交給地衣叢旁的幾盞冷色真光（見 realm/cave/cave-glow）
+   */
+  GLOW_LICHEN,
 }
 
 /**
@@ -366,6 +399,14 @@ export interface BlockDef {
    * 但踩上去又必須站得住，所以獨立成一種碰撞行為
    */
   isThinFloor?: boolean;
+  /**
+   * 貼地的平板（shape 為 flat）是不是浮在水面上
+   *
+   * 水面比方塊頂面矮八分之一格，睡蓮的那一片要跟著降下去才貼得住水；
+   * 落葉、腐葉鋪在實地上，降下去就埋進草地裡看不見了（落葉林有過一整片「抬頭金黃、低頭夏天」的地），
+   * 所以只有浮在水上的才降
+   */
+  floatsOnWater?: boolean;
   /**
    * 碰撞高度，預設一整格
    *
@@ -1425,6 +1466,7 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     passable: true,
     /** 踩得上去，游過去也不會被葉子擋住 */
     isThinFloor: true,
+    floatsOnWater: true,
     textures: {
       all: 'lilyPad',
       tint: [0.62, 0.78, 0.5],
@@ -1775,6 +1817,32 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     textures: {
       all: 'paperLamp',
       pixelTint: [0.92, 0.95, 1.02],
+    },
+  },
+  [BlockId.LAKE_BED]: {
+    isHidden: true,
+  },
+  [BlockId.SNOW_SLAB]: {
+    shape: 'slab',
+    collisionHeight: 0.5,
+    textures: {
+      all: 'snowTop',
+    },
+  },
+  [BlockId.SNOW_BLOCK]: {
+    textures: {
+      all: 'snowTop',
+    },
+  },
+  [BlockId.GLOW_LICHEN]: {
+    /** 低於 0.5，不點真光；lightLevel 給零，不擴散暖色的方塊光 */
+    emissive: 0.45,
+    lightLevel: 0,
+    textures: {
+      all: 'mossyCobblestone',
+      /** 冷藍綠，是目標色不是倍率：苔與石的明暗留著，色相整片換掉 */
+      pixelTint: [0.32, 0.95, 0.85],
+      pixelRecolor: true,
     },
   },
 }

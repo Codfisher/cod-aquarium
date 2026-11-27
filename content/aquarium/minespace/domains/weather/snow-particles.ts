@@ -84,6 +84,8 @@ function createSnowTexture(scene: Scene): DynamicTexture {
 export interface SnowParticles {
   update: (camera: UniversalCamera, ratio: number) => void;
   setBrightness: (brightness: number) => void;
+  /** 換場景時把射線的快取丟掉，地形整個換了 */
+  clearImpactCache: () => void;
   dispose: () => void;
 }
 
@@ -251,6 +253,7 @@ export function createSnowParticles({
 
   return {
     setBrightness: dimmer.setBrightness,
+    clearImpactCache: () => impactYMap.clear(),
     update(camera, ratio) {
       emitterPosition.copyFrom(camera.position)
       particleSystem.emitRate = maxParticleCount * ratio * EMIT_RATE_HEADROOM

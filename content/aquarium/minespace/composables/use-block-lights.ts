@@ -102,10 +102,16 @@ interface LightEntry {
 export function useBlockLights() {
   let cleanup: (() => void) | null = null
 
-  onScopeDispose(() => cleanup?.())
+  onScopeDispose(() => stop())
+
+  /** 燈是世界層的東西，換場景時跟著方塊一起拆 */
+  function stop(): void {
+    cleanup?.()
+    cleanup = null
+  }
 
   function start({ scene, camera, sourceList, getDayRatio }: StartParams): void {
-    cleanup?.()
+    stop()
 
     if (sourceList.length === 0)
       return
@@ -119,14 +125,21 @@ export function useBlockLights() {
 
     cleanup = () => {
       scene.onBeforeRenderObservable.remove(observer)
-      container?.dispose()
+      /**
+       * 第二個參數要給 true
+       *
+       * 容器內部有一份叫 ProxyMaterial 的著色器材質掛在代理網格上，
+       * 預設的 dispose 只丟網格、不丟材質。以前整個頁面只建一次看不出來；
+       * 換場景會重建燈火，實測每換一次就多留一份在場景裡
+       */
+      container?.dispose(false, true)
       for (const entry of entryList) {
         entry.light.dispose()
       }
     }
   }
 
-  return { start }
+  return { start, stop }
 }
 
 function createLightEntry(scene: Scene, source: BlockLightSource, index: number): LightEntry {

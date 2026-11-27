@@ -1,9 +1,11 @@
-import type { Mesh, Scene, UniversalCamera } from '@babylonjs/core'
+import type { ImageProcessingConfiguration, Mesh, Observer, Scene, UniformBuffer, UniversalCamera } from '@babylonjs/core'
+import type { RealmMirrorTarget } from '../realm/realm-definition'
 import type { GardenId } from './garden-layout'
 import {
   Color3,
   DynamicTexture,
   Material,
+  MaterialPluginBase,
   MeshBuilder,
   MirrorTexture,
   Plane,
@@ -23,7 +25,7 @@ import {
 } from '../../composables/use-babylon-scene'
 import { useDevToggles } from '../../composables/use-dev-toggles'
 import { useGraphicsQuality } from '../../composables/use-graphics-quality'
-import { BlockId, isWaterBlock, LIQUID_SURFACE_DROP } from '../block/block-constants'
+import { BLOCK_DEFS, BlockId, isWaterBlock, LIQUID_SURFACE_DROP } from '../block/block-constants'
 import { BLOCK_MESH_PREFIX } from '../renderer/voxel-renderer'
 import { CLOUD_REFLECTION_MATERIAL_NAME } from '../weather/volumetric-cloud/volumetric-cloud'
 import { getBlock } from '../world/world-access'
@@ -37,12 +39,7 @@ import { getGarden } from './garden-layout'
  * 水是液體，最上層那一格會矮掉八分之一格；冰是實心方塊，頂面就是格子的頂面。
  * 差的那一點點會讓倒影浮在冰面上方或沉進冰裡
  */
-type SurfaceKind = 'water' | 'ice'
-
-interface MirrorTarget {
-  garden: GardenId;
-  surface: SurfaceKind;
-}
+type SurfaceKind = RealmMirrorTarget['surface']
 
 /**
  * 哪幾座箱庭要映東西
@@ -52,7 +49,7 @@ interface MirrorTarget {
  * 但倒影是要付錢的——一面鏡子等於那一帶的地景多畫一趟。
  * 值得付的是「那面反光本身就是這座箱庭主題」的那幾座
  */
-const MIRROR_TARGET_LIST: MirrorTarget[] = [
+const HUB_MIRROR_GARDEN_LIST: { garden: GardenId; surface: SurfaceKind }[] = [
   { garden: 'pond', surface: 'water' },
   { garden: 'swamp', surface: 'water' },
   { garden: 'cave', surface: 'water' },
@@ -60,6 +57,17 @@ const MIRROR_TARGET_LIST: MirrorTarget[] = [
   /** 山腳下那窪凍住的融雪池 */
   { garden: 'alpine', surface: 'ice' },
 ]
+
+/**
+ * 大廳的鏡面：上面那份名單換成各箱庭木座的範圍
+ *
+ * 大場景沒有箱庭，鏡面直接寫在 RealmDefinition 的 mirrorTargetList；
+ * 兩邊用同一種格式，createWaterMirrors 不必知道自己在哪個場景
+ */
+export const HUB_MIRROR_TARGET_LIST: RealmMirrorTarget[] = HUB_MIRROR_GARDEN_LIST.map(({ garden, surface }) => {
+  const { center, halfSize } = getGarden(garden)
+  return { id: garden, centerX: center.x, centerZ: center.z, halfSize, surface }
+})
 
 /** 這一格算不算反射面 */
 function isSurfaceBlock(blockId: BlockId, surface: SurfaceKind): boolean {
@@ -108,8 +116,95 @@ const MIN_WATER_COLUMN_COUNT = 9
 /** 超過這個半徑就換大張的 */
 const LARGE_MIRROR_RADIUS = 10
 
-/** 倒影在水面上佔多少，剩下的是水自己的顏色 */
-const MIRROR_STRENGTH = 0.5
+/**
+ * 倒影在水面上佔多少，剩下的是水自己的顏色
+ *
+ * 第一版整面一律五成，看起來像一張半透明的照片平鋪在水上。
+ * 真的水面是菲涅耳：低頭往下看幾乎是透明的，看得到池底的黏土與睡蓮；
+ * 越貼著水面望過去越像鏡子，對岸的松、石與紙燈完整地倒過來。
+ * 中間照 (1 - 視線與法線夾角的餘弦) 的平方混過去
+ */
+const MIRROR_STRENGTH_FACING = 0.22
+const MIRROR_STRENGTH_GRAZING = 0.9
+
+/**
+ * 倒影的微微晃動（倒影貼圖座標的位移量）
+ *
+ * 鏡水涵虛：池面是靜的，只有一點點呼吸。兩組慢的正弦交疊，
+ * 位移量只有千分之二點五的畫面，倒影的邊緣輕輕地抖，不會碎成一片。
+ * 只動倒影的取樣座標，睡蓮、木板與水本身都不動
+ */
+const MIRROR_RIPPLE_STRENGTH = 0.0025
+
+/** 把菲涅耳與晃動掛上倒影的材質；外掛建構時就把自己登記在材質上，不必留著參考 */
+function attachMirrorSurface(material: StandardMaterial): void {
+  // eslint-disable-next-line no-new
+  new MirrorSurfacePlugin(material)
+}
+
+/** 方塊網格的名字（block_<id>、block_<id>_surface、block_face_<id>…）是不是液體 */
+function isLiquidMesh(name: string): boolean {
+  const match = /^(?:deco_|face_)?(\d+)/.exec(name.slice(BLOCK_MESH_PREFIX.length))
+  return !!match && !!BLOCK_DEFS[Number(match[1]) as BlockId]?.isLiquid
+}
+
+/**
+ * 倒影的表面：菲涅耳透明度與微微的晃動
+ *
+ * StandardMaterial 內建的透明度菲涅耳是「加」在透明度上的，會把邊緣淡出的遮罩加回來，
+ * 池子四個角就露出方形的邊；鏡面的反射座標是投影算的，凹凸貼圖也擾動不到它。
+ * 兩件事都只好自己寫：取樣之前把座標推一點，畫完之前把透明度乘上菲涅耳
+ */
+class MirrorSurfacePlugin extends MaterialPluginBase {
+  constructor(material: Material) {
+    /** 第六個參數是「一律啟用」，這個外掛沒有開關屬性 */
+    super(material, 'MinespaceMirrorSurface', 220, {}, true, true)
+  }
+
+  getClassName(): string {
+    return 'MirrorSurfacePlugin'
+  }
+
+  getUniforms() {
+    return {
+      ubo: [{ name: 'mirrorSurface', size: 4, type: 'vec4' }],
+    }
+  }
+
+  bindForSubMesh(uniformBuffer: UniformBuffer): void {
+    /** 秒數取一千的餘數，浮點數才不會因為開著太久而失去精度 */
+    uniformBuffer.updateFloat4(
+      'mirrorSurface',
+      (performance.now() / 1000) % 1000,
+      MIRROR_RIPPLE_STRENGTH,
+      MIRROR_STRENGTH_FACING,
+      MIRROR_STRENGTH_GRAZING,
+    )
+  }
+
+  getCustomCode(shaderType: string): { [pointName: string]: string } | null {
+    if (shaderType !== 'fragment')
+      return null
+
+    return {
+      'CUSTOM_FRAGMENT_DEFINITIONS': `
+        vec2 measureMirrorRipple(vec2 position) {
+          float time = mirrorSurface.x;
+          return vec2(
+            sin(position.x * 1.7 + time * 0.9) * sin(position.y * 1.3 - time * 0.7),
+            sin(position.y * 1.9 + time * 0.8) * sin(position.x * 1.1 + time * 0.6)
+          ) * mirrorSurface.y;
+        }
+      `,
+      /** 倒影貼圖的取樣座標：Babylon 在翻轉 y 之後馬上取樣，就插在那一行後面 */
+      '!coords\\.y\\s*=\\s*1\\.0\\s*-\\s*coords\\.y;': 'coords.y=1.0-coords.y;coords+=measureMirrorRipple(vPositionW.xz);',
+      'CUSTOM_FRAGMENT_BEFORE_FRAGCOLOR': `
+        float mirrorGrazing = 1.0 - clamp(abs(dot(viewDirectionW, normalW)), 0.0, 1.0);
+        color.a *= mix(mirrorSurface.z, mirrorSurface.w, mirrorGrazing * mirrorGrazing);
+      `,
+    }
+  }
+}
 
 /**
  * 走多近才開始畫倒影
@@ -179,13 +274,12 @@ interface WaterSurface {
  */
 function measureReflectiveSurface(
   worldState: Uint8Array,
-  target: MirrorTarget,
+  target: RealmMirrorTarget,
 ): WaterSurface | null {
-  const garden = getGarden(target.garden)
-  const minX = Math.floor(garden.center.x - garden.halfSize)
-  const maxX = Math.ceil(garden.center.x + garden.halfSize)
-  const minZ = Math.floor(garden.center.z - garden.halfSize)
-  const maxZ = Math.ceil(garden.center.z + garden.halfSize)
+  const minX = Math.floor(target.centerX - target.halfSize)
+  const maxX = Math.ceil(target.centerX + target.halfSize)
+  const minZ = Math.floor(target.centerZ - target.halfSize)
+  const maxZ = Math.ceil(target.centerZ + target.halfSize)
 
   /** 水面高度 → 落在那一層的格柱 */
   const layerMap = new Map<number, { x: number; z: number }[]>()
@@ -265,6 +359,8 @@ function measureReflectiveSurface(
 interface Mirror {
   mesh: Mesh;
   texture: MirrorTexture;
+  /** MirrorTexture 自己掛在影像處理設定上的觀察者，收的時候要自己拔，見 dispose */
+  imageProcessingObserver: Observer<ImageProcessingConfiguration> | null;
   material: StandardMaterial;
   center: Vector3;
   surfaceY: number;
@@ -286,12 +382,14 @@ interface Mirror {
  * 離開時更新頻率歸零），四座箱庭又彼此相距數十格，
  * 同一刻至多只有一面在畫。低畫質則整個不做。
  *
- * 必須在渲染器把世界建好之後呼叫，反射清單要撈得到地景網格
+ * 必須在渲染器把世界建好之後呼叫，反射清單要撈得到地景網格。
+ * targetList 是要映的範圍：大廳給 HUB_MIRROR_TARGET_LIST，大場景給自己的 mirrorTargetList
  */
 export function createWaterMirrors(
   scene: Scene,
   camera: UniversalCamera,
   worldState: Uint8Array,
+  targetList: readonly RealmMirrorTarget[],
 ): WaterMirrors | null {
   const { preset } = useGraphicsQuality()
   const { state: devToggle } = useDevToggles()
@@ -321,7 +419,14 @@ export function createWaterMirrors(
   const cloudDome = scene.getMeshByName(CLOUD_LAYER_NAME)
   const cloudReflectionMaterial = scene.getMaterialByName(CLOUD_REFLECTION_MATERIAL_NAME)
 
-  const blockMeshList = scene.meshes.filter((mesh) => mesh.name.startsWith(BLOCK_MESH_PREFIX))
+  /**
+   * 液體不進倒影
+   *
+   * 每一種方塊是一個橫跨整個世界的網格，倒影一畫就是全世界那一種方塊都畫一遍。
+   * 湖中島四周七萬格湖面，倒影一開三角形數多出一倍、高畫質整幀多六毫秒；
+   * 而水映在水裡本來就幾乎看不出來（水是半透明的，倒影裡那一圈湖面只剩一線）
+   */
+  const blockMeshList = scene.meshes.filter((mesh) => mesh.name.startsWith(BLOCK_MESH_PREFIX) && !isLiquidMesh(mesh.name))
   const renderList = [...skyMeshList, ...blockMeshList]
 
   /** 四面鏡子共用同一張遮罩，它只是一圈徑向漸層，與尺寸無關 */
@@ -329,8 +434,8 @@ export function createWaterMirrors(
 
   const mirrorList: Mirror[] = []
 
-  for (const target of MIRROR_TARGET_LIST) {
-    const gardenId = target.garden
+  for (const target of targetList) {
+    const gardenId = target.id
     const surface = measureReflectiveSurface(worldState, target)
     if (!surface) {
       console.warn(`[water-mirror] ${gardenId} 找不到夠大的反射面，跳過`)
@@ -338,7 +443,19 @@ export function createWaterMirrors(
     }
 
     const textureSize = surface.radius > LARGE_MIRROR_RADIUS ? mirrorSizeLarge : mirrorSizeSmall
+    /**
+     * 記下 MirrorTexture 掛上去的那個觀察者
+     *
+     * 它在建構時往場景的影像處理設定掛一個觀察者，dispose 時才拔；
+     * 但 Babylon 9.20 的 MirrorTexture.dispose 先呼叫父類別的 dispose（會把 _scene 清成 null），
+     * 再用 getScene() 去拔——拿到的是 null，觀察者永遠留在場景上，
+     * 連帶把整面鏡子留在記憶體裡。換場景每拆一次大廳就漏一份（走過水鏡池才會出現，
+     * 鏡子要走近才有畫過）。那個觀察者是私有欄位，這裡比對建構前後的清單把它找出來，收的時候自己拔
+     */
+    const imageProcessingObservable = scene.imageProcessingConfiguration.onUpdateParameters
+    const observerSetBefore = new Set(imageProcessingObservable.observers)
     const texture = new MirrorTexture(`water-mirror-${gardenId}`, textureSize, scene, true)
+    const imageProcessingObserver = imageProcessingObservable.observers.find((observer) => !observerSetBefore.has(observer)) ?? null
     /**
      * 鏡面的方程式
      *
@@ -347,6 +464,10 @@ export function createWaterMirrors(
      */
     texture.mirrorPlane = new Plane(0, -1, 0, surface.surfaceY)
     texture.renderList = renderList
+    /**
+     * 不加模糊：MirrorTexture 的 blurKernel 在這裡試過，高畫質水鏡池前 GPU 從二十幾毫秒跳到一百多毫秒
+     * （兩道模糊的後製每幀照主畫面的尺寸跑），倒影的柔和改靠菲涅耳與晃動
+     */
     /**
      * 雲在倒影裡換一份材質
      *
@@ -371,8 +492,13 @@ export function createWaterMirrors(
     material.disableLighting = true
     material.reflectionTexture = texture
     material.reflectionTexture.level = 1
-    /** 倒影疊在水上，不是取代水：水自己的顏色與流動都還要看得見 */
-    material.alpha = MIRROR_STRENGTH
+    /**
+     * 倒影疊在水上，不是取代水：水自己的顏色與流動都還要看得見。
+     * 疊多少由 MirrorSurfacePlugin 照視角決定（菲涅耳），這裡留滿；
+     * 下面把混合模式寫死成半透明，外掛乘上去的透明度才算數
+     */
+    material.alpha = 1
+    attachMirrorSurface(material)
     material.opacityTexture = fadeTexture
     material.transparencyMode = Material.MATERIAL_ALPHABLEND
     material.backFaceCulling = true
@@ -398,6 +524,7 @@ export function createWaterMirrors(
     mirrorList.push({
       mesh,
       texture,
+      imageProcessingObserver,
       material,
       center: new Vector3(surface.centerX, surface.surfaceY, surface.centerZ),
       surfaceY: surface.surfaceY,
@@ -463,6 +590,7 @@ export function createWaterMirrors(
       for (const mirror of mirrorList) {
         mirror.mesh.dispose()
         mirror.material.dispose()
+        scene.imageProcessingConfiguration.onUpdateParameters.remove(mirror.imageProcessingObserver)
         mirror.texture.dispose()
       }
       fadeTexture.dispose()

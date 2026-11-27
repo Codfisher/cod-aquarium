@@ -18,7 +18,7 @@ import {
   scatterOnGround,
   setDecoration,
 } from './garden-kit'
-import { getDeckBlockY, getDeckGroundY } from './garden-layout'
+import { getDeckBlockY, getDeckGroundY, POND_BOARDWALK_START_Z, POND_GATE_OFFSET } from './garden-layout'
 
 /**
  * 小箱庭的內容
@@ -360,14 +360,17 @@ export function buildPondGarden(state: Uint8Array, garden: GardenDefinition): vo
     }
   }
 
-  /** 一塊挑出水面的木板，站上去等下一聲 */
-  for (let offset = 0; offset <= 4; offset++) {
-    setBlock(state, centerX + offset, deckY + 1, centerZ + 5 - offset, BlockId.WOOD_SLAB)
-    setBlock(state, centerX + offset, deckY + 1, centerZ + 4 - offset, BlockId.WOOD_SLAB)
+  /**
+   * 一塊挑出水面的木板，一路伸到池心
+   *
+   * 從北岸（禪庭中心過來的飛石正好走到這裡）往南鋪進池裡，盡頭就是通往湖中島的那座門：
+   * 門立在池心偏南一格的水裡，木板一路鋪進門洞，門與木板一起倒映在池面上。
+   * 門框、門頂的燈與木牌是大廳生完箱庭之後才放的（見 realm-terrain 與 lake-realm 的 LAKE_HUB_GATE），
+   * 這裡只鋪到門洞那一格為止
+   */
+  for (let offsetZ = POND_BOARDWALK_START_Z; offsetZ <= POND_GATE_OFFSET.z; offsetZ++) {
+    setBlock(state, centerX + POND_GATE_OFFSET.x, deckY + 1, centerZ + offsetZ, BlockId.WOOD_SLAB)
   }
-  /** 燈要立在實心的柱子上，直接擺在半磚棧道上會浮著半格 */
-  setBlock(state, centerX + 4, deckY + 1, centerZ + 1, BlockId.PLANKS)
-  setBlock(state, centerX + 4, deckY + 2, centerZ + 1, BlockId.PAPER_LAMP)
 
   /** 岸邊的石與松，倒影落在水裡 */
   placeStandingStone(state, centerX - 5, groundY, centerZ - 2, 2, BlockId.MOSSY_COBBLESTONE)

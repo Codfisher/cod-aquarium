@@ -40,6 +40,13 @@ export interface ReloadHandoff {
    * 正式版不讀：玩家沒有理由被一個存在 sessionStorage 的數字改掉天氣
    */
   dayIndex?: number;
+  /**
+   * 人在哪一個場景
+   *
+   * 換畫質是整頁重來的，不記的話人會從大場景被丟回禪庭。
+   * 只存 id，認不得的 id 由渲染端退回大廳（見 realm-list 的 getRealm）
+   */
+  realmId?: string;
 }
 
 function isFiniteNumber(value: unknown): value is number {
@@ -73,6 +80,7 @@ function parseHandoff(raw: string): ReloadHandoff | null {
       rotation,
       timeOfDay,
       ...(isFiniteNumber(parsed.dayIndex) ? { dayIndex: parsed.dayIndex } : {}),
+      ...(typeof parsed.realmId === 'string' ? { realmId: parsed.realmId } : {}),
     } as ReloadHandoff
   }
   catch {

@@ -1,3 +1,4 @@
+import type { RealmId } from '../../realm/realm-definition'
 import type { TerrainWorkerMessage, TerrainWorkerResponse } from './type'
 import { reportError } from '../../../composables/use-error-logger'
 
@@ -15,6 +16,14 @@ export function useTerrainWorker() {
     new URL('./terrain-worker.ts', import.meta.url),
     { type: 'module' },
   )
+  /**
+   * 生成中出錯時要立刻讓 generate 失敗
+   *
+   * 原本只靠二十秒的逾時收尾。初次載入時那還說得過去（反正只能顯示初始化失敗），
+   * 但穿過傳送門時霧已經蓋滿畫面，人得對著一片白等二十秒才看到霧散開
+   */
+  let rejectPending: ((error: Error) => void) | null = null
+
   /** worker 有自己獨立的全域環境，主執行緒的 window.onerror 接不到它的例外 */
   worker.onerror = (event: ErrorEvent) => {
     reportError(`[TerrainWorker] ${event.message}`, `${event.filename}:${event.lineno}:${event.colno}`)
@@ -23,26 +32,35 @@ export function useTerrainWorker() {
      *
      * 沒被處理的 error 會冒到上一層的全域：在渲染 worker 裡就是 self，
      * 再往上是主執行緒的 Worker 物件，被當成「渲染端死了」而觸發退回主執行緒。
-     * 這支一次性的 worker 出事，真正的後果是 generate 逾時、由 init-error 說了算
+     * 這支一次性的 worker 出事，真正的後果由 generate 的失敗說了算
      */
     event.preventDefault()
+    rejectPending?.(new Error(`[TerrainWorker] 地形生成失敗：${event.message}`))
   }
 
-  function generate(): Promise<Uint8Array> {
+  function generate(realmId: RealmId): Promise<Uint8Array> {
     return new Promise<Uint8Array>((resolve, reject) => {
       const timeoutId = setTimeout(() => {
+        rejectPending = null
         reject(new Error('[TerrainWorker] 地形生成逾時（20 秒）'))
       }, 20_000)
+
+      rejectPending = (error) => {
+        clearTimeout(timeoutId)
+        rejectPending = null
+        reject(error)
+      }
 
       worker.onmessage = (event: MessageEvent<TerrainWorkerResponse>) => {
         if (event.data.type !== 'terrain-ready')
           return
 
         clearTimeout(timeoutId)
+        rejectPending = null
         resolve(event.data.worldState)
       }
 
-      const message: TerrainWorkerMessage = { type: 'generate' }
+      const message: TerrainWorkerMessage = { type: 'generate', realmId }
       worker.postMessage(message)
     })
   }

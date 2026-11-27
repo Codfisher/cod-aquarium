@@ -1,6 +1,9 @@
 import type { GardenDefinition } from './garden-layout'
 import { createSeededRandom, fbm2D } from '../../utils/noise'
 import { BlockId, isPassableBlock } from '../block/block-constants'
+import { AUTUMN_HUB_GATE_CLEAR_RADIUS, AUTUMN_HUB_GATE_OFFSET } from '../realm/autumn/autumn-layout'
+import { SWAMP_HUB_GATE_OFFSET } from '../realm/swamp/swamp-layout'
+import { WHEATFIELD_HUB_GATE_OFFSET } from '../realm/wheatfield/wheatfield-layout'
 import { getBlock, setBlock } from '../world/world-access'
 import {
   carveWater,
@@ -19,6 +22,7 @@ import {
   placeOakTree,
   placePineTree,
   placeRoofCap,
+  placeSmallBoat,
   placeStoneLantern,
   placeTorii,
   rakeRipple,
@@ -27,8 +31,10 @@ import {
 } from './garden-kit'
 import {
   CAVE_CHAMBER,
+  CAVE_GATE_POINT,
   CAVE_MOUTH,
   CAVE_TUNNEL,
+  FOREST_GATE_OFFSET,
   getDeckBlockY,
   getDeckGroundY,
   WATERFALL_POINT,
@@ -120,6 +126,22 @@ export function buildWheatGarden(state: Uint8Array, garden: GardenDefinition): v
   }
 
   /**
+   * 岔向傳送門的一小段路
+   *
+   * 通往千頃麥浪的門立在路西側的麥子裡（WHEATFIELD_HUB_GATE_OFFSET），門洞朝東對著路。
+   * 從路邊鋪一段同樣三格寬的碎石到門後一格：兩根門柱正好站在碎石路的兩緣，
+   * 人沿著路走到田中央、往西一拐就進了門。不動亂數，後面草束與野花的位置照舊
+   */
+  for (let offsetX = WHEATFIELD_HUB_GATE_OFFSET.x - 1; offsetX <= -2; offsetX++) {
+    for (let offsetZ = -1; offsetZ <= 1; offsetZ++) {
+      const x = centerX + offsetX
+      const z = centerZ + WHEATFIELD_HUB_GATE_OFFSET.z + offsetZ
+      setBlock(state, x, groundY, z, BlockId.AIR)
+      setBlock(state, x, deckY, z, BlockId.GRAVEL)
+    }
+  }
+
+  /**
    * 稻草人
    *
    * 一根柱子、一根橫桿、一顆草束當頭。
@@ -155,6 +177,10 @@ export function buildWheatGarden(state: Uint8Array, garden: GardenDefinition): v
   ), new Set([BlockId.DIRT]))
 }
 
+/** 松籟林正中那片石板空地的半徑，以及四周不種樹的半徑 */
+const FOREST_GATE_PLAZA_RADIUS = 2.6
+const FOREST_GATE_CLEARING_RADIUS = 5.5
+
 /**
  * 松籟林
  *
@@ -178,12 +204,25 @@ export function buildForestGarden(state: Uint8Array, garden: GardenDefinition): 
     setBlock(state, pathX + 1, deckY, centerZ + offset, BlockId.STONE_TILE)
   }
 
+  /**
+   * 林子正中的一小片空地
+   *
+   * 小徑走到中央開成一圈石板，通往林海的那座門就立在上面（門框是大廳生完箱庭之後才放的，
+   * 見 forest-realm 的 FOREST_HUB_GATE）。四周五格半內不種樹，門頂的笠木與燈才不會埋進枝葉裡；
+   * 從南邊的大鳥居順著小徑走進來，穿過密密的松林，一抬頭就是這道門
+   */
+  const gateX = centerX + FOREST_GATE_OFFSET.x
+  const gateZ = centerZ + FOREST_GATE_OFFSET.z
+  fillDisc(state, gateX, gateZ, FOREST_GATE_PLAZA_RADIUS, deckY, BlockId.STONE_TILE)
+
   /** 針葉樹：中間密、邊緣疏，林緣才會自然散開 */
   for (let attempt = 0; attempt < 110; attempt++) {
     const offsetX = Math.round((random() * 2 - 1) * inner)
     const offsetZ = Math.round((random() * 2 - 1) * inner)
     const distance = Math.hypot(offsetX, offsetZ)
     if (distance > inner - 1)
+      continue
+    if (Math.hypot(centerX + offsetX - gateX, centerZ + offsetZ - gateZ) < FOREST_GATE_CLEARING_RADIUS)
       continue
     if (random() < (distance / inner) * 0.8)
       continue
@@ -249,14 +288,17 @@ export function buildAutumnGarden(state: Uint8Array, garden: GardenDefinition): 
     if (random() < 0.55)
       continue
 
-    placeAspenTree(
-      state,
-      centerX + offsetX,
-      groundY,
-      centerZ + offsetZ,
-      6 + Math.floor(random() * 4),
-      random() < 0.5 ? BlockId.GOLD_LEAVES : BlockId.AMBER_LEAVES,
-    )
+    const trunkHeight = 6 + Math.floor(random() * 4)
+    const leafBlock = random() < 0.5 ? BlockId.GOLD_LEAVES : BlockId.AMBER_LEAVES
+    /**
+     * 通往金葉林的門立在中央偏西北的一小塊空地上，那一圈不種樹
+     *
+     * 亂數照樣抽完才跳過，其他樹的位置與高矮才不會跟著全部換掉
+     */
+    if (Math.hypot(offsetX - AUTUMN_HUB_GATE_OFFSET.x, offsetZ - AUTUMN_HUB_GATE_OFFSET.z) < AUTUMN_HUB_GATE_CLEAR_RADIUS)
+      continue
+
+    placeAspenTree(state, centerX + offsetX, groundY, centerZ + offsetZ, trunkHeight, leafBlock)
   }
 
   /** 林間一小片耙好的白沙。滿眼金黃裡留一塊白，顏色才收得住 */
@@ -359,9 +401,13 @@ export function buildAlpineGarden(state: Uint8Array, garden: GardenDefinition): 
   fillNoisyDisc(state, centerX - 9, centerZ + 9, 2.2, deckY, BlockId.ICE, 1)
 
   /** 貼著岩石長的矮松，被風壓得全部歪向同一邊 */
+  /**
+   * 三株一律往東歪，與雪稜那十來株同一個風向。
+   * 東北那株原本在 +13，往東歪之後樹冠會伸出木座，挪回 +11
+   */
   placeBonsaiPine(state, centerX - 12, groundY, centerZ - 4, 1, 0)
-  placeBonsaiPine(state, centerX + 4, groundY, centerZ + 13, 0, 1)
-  placeBonsaiPine(state, centerX + 13, groundY, centerZ - 9, -1, 0)
+  placeBonsaiPine(state, centerX + 4, groundY, centerZ + 13, 1, 0)
+  placeBonsaiPine(state, centerX + 11, groundY, centerZ - 9, 1, 0)
 
   scatterOnGround(state, centerX, centerZ, inner, groundY, random, 0.08, (pick) => (
     pick() < 0.6 ? BlockId.STONE_PLANT : BlockId.DRY_SHRUB
@@ -369,6 +415,18 @@ export function buildAlpineGarden(state: Uint8Array, garden: GardenDefinition): 
 
   placeStoneLantern(state, centerX - 13, groundY, centerZ + 13)
   placeStoneLantern(state, centerX - 13, groundY, centerZ - 13)
+
+  /**
+   * 通往雪稜那道門的飛石
+   *
+   * 門立在岩稜西南側的山腳（木座中心往西八格、往南三格，見 alpine-realm 的 ALPINE_HUB_GATE），
+   * 從木座西緣踩著幾顆飛石走到門前，雪地上看得出那是一條被走出來的路。
+   * 飛石蓋掉原本長在那裡的枯灌叢與石生植物
+   */
+  for (const [offsetX, offsetZ] of [[-14, 3], [-13, 4], [-11, 3], [-10, 2]] as const) {
+    setBlock(state, centerX + offsetX, groundY, centerZ + offsetZ, BlockId.STEPPING_STONE)
+    setBlock(state, centerX + offsetX, groundY + 1, centerZ + offsetZ, BlockId.AIR)
+  }
 }
 
 /**
@@ -580,6 +638,20 @@ export function buildRiverGarden(state: Uint8Array, garden: GardenDefinition): v
   placeOakTree(state, centerX + 12, groundY, centerZ + 9, 5)
   placeOakTree(state, centerX - 13, groundY, centerZ + 11, 4)
   placeStoneLantern(state, centerX + 9, groundY, centerZ + 12)
+
+  /**
+   * 通往溪谷那道門的飛石
+   *
+   * 門立在水道東岸的草地上（木座中心往東五格、往北一格，見 river-realm 的 RIVER_HUB_GATE），
+   * 門洞框住水道與後面的瀑布。從木座東緣踩著幾顆飛石走到門前；
+   * 飛石蓋掉原本長在那裡的蕨與紙莎草，紙莎草會疊高，頭上那一格也清掉
+   */
+  for (const [offsetX, offsetZ] of [[13, -1], [11, 0], [9, -1], [7, -2]] as const) {
+    for (let level = 0; level < 3; level++) {
+      setBlock(state, centerX + offsetX, groundY + level, centerZ + offsetZ, BlockId.AIR)
+    }
+    setBlock(state, centerX + offsetX, groundY, centerZ + offsetZ, BlockId.STEPPING_STONE)
+  }
 }
 
 /**
@@ -643,23 +715,18 @@ export function buildCoastGarden(state: Uint8Array, garden: GardenDefinition): v
   placeAcaciaTree(state, centerX - 9, groundY, centerZ - 9, 4)
   placeAcaciaTree(state, centerX + 7, groundY, centerZ - 11, 5)
 
-  /** 沙灘上的漂流木，順著岸線躺著 */
+  /**
+   * 沙灘上的漂流木，順著岸線躺著
+   *
+   * 擺在西半邊：從北緣的大鳥居往南走到正中那座通往海中沙島的門（COAST_GATE_OFFSET），
+   * 這一路要是空的沙
+   */
   for (let step = 0; step < 6; step++) {
-    setDecoration(state, centerX - 4 + step, groundY, centerZ - 6, BlockId.DEAD_LOG_X)
+    setDecoration(state, centerX - 9 + step, groundY, centerZ - 6, BlockId.DEAD_LOG_X)
   }
 
-  /**
-   * 一艘擱淺的小舟
-   *
-   * 船身挖空之後，中央那一格變成空氣——桅杆原本就立在那裡，
-   * 底下沒有東西撐著，於是浮在船艙上方。
-   * 挖空之後要把桅杆座那一格補回去，杆子才踩得到甲板
-   */
-  fillBox(state, centerX + 8, groundY, centerZ - 3, centerX + 12, groundY, centerZ - 1, BlockId.DARK_PLANKS)
-  fillBox(state, centerX + 9, groundY, centerZ - 2, centerX + 11, groundY, centerZ - 2, BlockId.AIR)
-  setBlock(state, centerX + 10, groundY, centerZ - 2, BlockId.DARK_PLANKS)
-  setBlock(state, centerX + 10, groundY + 1, centerZ - 2, BlockId.FENCE)
-  setBlock(state, centerX + 10, groundY + 2, centerZ - 2, BlockId.FENCE)
+  /** 一艘擱淺的小舟，船身順著岸線（東西向）躺 */
+  placeSmallBoat(state, centerX + 10, groundY, centerZ - 2, true)
 
   /**
    * 沙灘上長不出竹子
@@ -732,15 +799,23 @@ export function buildSwampGarden(state: Uint8Array, garden: GardenDefinition): v
     }
   }
 
-  /** 棧道中段一座歇腳的平台，站在水中央聽四面的蛙 */
-  fillBox(state, centerX - 2, deckY + 1, centerZ + 4, centerX + 2, deckY + 1, centerZ + 7, BlockId.WOOD_SLAB)
-  /** 平台盡頭的欄杆與燈，一樣先打一排實心的木樁 */
-  for (let offset = -2; offset <= 2; offset++) {
-    setBlock(state, centerX + offset, deckY + 1, centerZ + 8, BlockId.PLANKS)
-    setBlock(state, centerX + offset, deckY + 2, centerZ + 8, BlockId.FENCE)
+  /**
+   * 棧道中段一座歇腳的平台，站在水中央聽四面的蛙
+   *
+   * 通往千蛙沼的門就立在這座平台中央（SWAMP_HUB_GATE_OFFSET），門洞朝北對著棧道：
+   * 沿棧道走到中段，往南一轉就走進門裡。平台因此放寬到九格、直接貼著棧道，
+   * 而且整格墊高半格（棧道是下半磚）：門洞裡那一格要是半磚，門框清空門洞時會連地板一起挖掉
+   */
+  const platform = { minX: -4, maxX: 4, minZ: 2, maxZ: SWAMP_HUB_GATE_OFFSET.z + 2 }
+  fillBox(state, centerX + platform.minX, deckY + 1, centerZ + platform.minZ, centerX + platform.maxX, deckY + 1, centerZ + platform.maxZ, BlockId.PLANKS)
+  /** 平台盡頭的欄杆，一樣先打一排實心的木樁 */
+  for (let offset = platform.minX; offset <= platform.maxX; offset++) {
+    setBlock(state, centerX + offset, deckY + 1, centerZ + platform.maxZ + 1, BlockId.PLANKS)
+    setBlock(state, centerX + offset, deckY + 2, centerZ + platform.maxZ + 1, BlockId.FENCE)
   }
-  setBlock(state, centerX + 3, deckY + 1, centerZ + 6, BlockId.PLANKS)
-  setBlock(state, centerX + 3, deckY + 2, centerZ + 6, BlockId.PAPER_LAMP)
+  /** 紙燈立在平台東南角，與門西側的木牌一左一右 */
+  setBlock(state, centerX + platform.maxX, deckY + 2, centerZ + platform.maxZ, BlockId.PLANKS)
+  setBlock(state, centerX + platform.maxX, deckY + 3, centerZ + platform.maxZ, BlockId.PAPER_LAMP)
 
   /** 枯木從水裡直接站起來，是沼澤唯一的立面 */
   for (let attempt = 0; attempt < 16; attempt++) {
@@ -750,7 +825,14 @@ export function buildSwampGarden(state: Uint8Array, garden: GardenDefinition): v
     if (Math.abs(treeZ - centerZ) < 3)
       continue
 
-    placeDeadTree(state, treeX, groundY, treeZ, 4 + Math.floor(random() * 4))
+    const trunkHeight = 4 + Math.floor(random() * 4)
+    /** 平台與它四周一格也不種（亂數照樣抽完，其他枯木的位置才不會跟著換） */
+    const isOnPlatform = treeX - centerX >= platform.minX - 1 && treeX - centerX <= platform.maxX + 1
+      && treeZ - centerZ >= platform.minZ && treeZ - centerZ <= platform.maxZ + 2
+    if (isOnPlatform)
+      continue
+
+    placeDeadTree(state, treeX, groundY, treeZ, trunkHeight)
   }
 
   /**
@@ -814,42 +896,10 @@ export function buildVillageGarden(state: Uint8Array, garden: GardenDefinition):
   placeHut(state, centerX + 9, groundY, centerZ + 8, 5, 5)
 
   /** 一口井，廣場的中心 */
-  fillSquare(state, centerX, centerZ, 1, groundY, BlockId.COBBLESTONE)
-  carveWater(state, centerX, deckY, centerZ, 1, BlockId.COBBLESTONE)
-  setBlock(state, centerX, groundY, centerZ, BlockId.AIR)
-  /**
-   * 井上的頂棚
-   *
-   * 兩根柱子要一路頂到屋頂，屋頂才有東西撐著。
-   * 原本柱子只到 groundY + 2、屋頂卻擺在 groundY + 3 的正中央，
-   * 位置既高了一格、水平方向又跟柱子錯開，於是整片浮在半空
-   */
-  for (const corner of [{ x: -1, z: -1 }, { x: 1, z: 1 }]) {
-    for (let level = 1; level <= 3; level++) {
-      setBlock(state, centerX + corner.x, groundY + level, centerZ + corner.z, BlockId.FENCE)
-    }
-  }
-  fillSquare(state, centerX, centerZ, 1, groundY + 4, BlockId.DARK_WOOD_SLAB)
-  /** 從頂棚垂下來的一段繩子 */
-  setBlock(state, centerX, groundY + 3, centerZ, BlockId.FENCE)
+  placeVillageWell(state, centerX, deckY, centerZ)
 
-  /**
-   * 鐘樓
-   *
-   * 鐘聲要傳得遠，樓就得比屋頂高。
-   * 四根柱子撐一片頂，中間吊一口鐘
-   */
-  const towerX = centerX - 9
-  const towerZ = centerZ + 9
-  for (const corner of [{ x: -1, z: -1 }, { x: -1, z: 1 }, { x: 1, z: -1 }, { x: 1, z: 1 }]) {
-    for (let level = 0; level < 7; level++) {
-      setBlock(state, towerX + corner.x, groundY + level, towerZ + corner.z, BlockId.DARK_PLANKS)
-    }
-  }
-  placeRoofCap(state, towerX, groundY + 7, towerZ, 2, BlockId.DARK_WOOD_SLAB, BlockId.DARK_PLANKS)
-  fillSquare(state, towerX, towerZ, 1, groundY + 8, BlockId.DARK_PLANKS)
-  setBlock(state, towerX, groundY + 5, towerZ, BlockId.BRICKS)
-  setBlock(state, towerX, groundY + 4, towerZ, BlockId.BRICKS)
+  /** 鐘樓，見 placeBellTower */
+  placeBellTower(state, centerX - 9, groundY, centerZ + 9)
 
   /** 市集的攤子與雜物。人住過的地方才會亂 */
   const propList: { x: number; z: number; blockId: BlockId }[] = [
@@ -873,9 +923,7 @@ export function buildVillageGarden(state: Uint8Array, garden: GardenDefinition):
     const angle = (step / 8) * Math.PI * 2
     const lampX = centerX + Math.round(Math.cos(angle) * 10)
     const lampZ = centerZ + Math.round(Math.sin(angle) * 10)
-    setDecoration(state, lampX, groundY, lampZ, BlockId.DARK_PLANKS)
-    setDecoration(state, lampX, groundY + 1, lampZ, BlockId.DARK_PLANKS)
-    setDecoration(state, lampX, groundY + 2, lampZ, BlockId.PAPER_LAMP)
+    placeLampPost(state, lampX, groundY, lampZ)
   }
 
   /** 屋邊的花盆 */
@@ -893,6 +941,81 @@ export function buildVillageGarden(state: Uint8Array, garden: GardenDefinition):
       return BlockId.FLOWER_DANDELION
     return BlockId.FLOWER_VIOLA
   }, GRASS_SET)
+}
+
+/**
+ * 一口井與井上的頂棚
+ *
+ * 市井坊與村落的大場景（realm/village）共用，deckY 是井口那一層地面方塊。
+ *
+ * 兩根柱子要一路頂到屋頂，屋頂才有東西撐著。
+ * 原本柱子只到 groundY + 2、屋頂卻擺在 groundY + 3 的正中央，
+ * 位置既高了一格、水平方向又跟柱子錯開，於是整片浮在半空
+ */
+export function placeVillageWell(state: Uint8Array, x: number, deckY: number, z: number): void {
+  const groundY = deckY + 1
+
+  fillSquare(state, x, z, 1, groundY, BlockId.COBBLESTONE)
+  carveWater(state, x, deckY, z, 1, BlockId.COBBLESTONE)
+  setBlock(state, x, groundY, z, BlockId.AIR)
+  for (const corner of [{ x: -1, z: -1 }, { x: 1, z: 1 }]) {
+    for (let level = 1; level <= 3; level++) {
+      setBlock(state, x + corner.x, groundY + level, z + corner.z, BlockId.FENCE)
+    }
+  }
+  fillSquare(state, x, z, 1, groundY + 4, BlockId.DARK_WOOD_SLAB)
+  /** 從頂棚垂下來的一段繩子 */
+  setBlock(state, x, groundY + 3, z, BlockId.FENCE)
+}
+
+/** 鐘樓的尺寸，不給就是市井坊那一座 */
+export interface BellTowerSize {
+  /** 四根柱子離中心幾格 */
+  postOffset: number;
+  /** 柱子幾格高，屋頂壓在柱頂上 */
+  height: number;
+  /** 出簷那一圈半磚的半寬 */
+  roofHalfSize: number;
+  /** 屋頂上再疊幾層往內收的深色木，一層比一層小 */
+  spireLevelCount: number;
+}
+
+const HUT_BELL_TOWER: BellTowerSize = { postOffset: 1, height: 7, roofHalfSize: 2, spireLevelCount: 1 }
+
+/**
+ * 鐘樓
+ *
+ * 鐘聲要傳得遠，樓就得比屋頂高。
+ * 四根柱子撐一片頂，中間吊一口鐘。村落的大場景蓋一座放大的（柱子離中心兩格、十格高）
+ */
+export function placeBellTower(
+  state: Uint8Array,
+  x: number,
+  groundY: number,
+  z: number,
+  size: BellTowerSize = HUT_BELL_TOWER,
+): void {
+  const { postOffset, height, roofHalfSize, spireLevelCount } = size
+
+  for (const corner of [{ x: -1, z: -1 }, { x: -1, z: 1 }, { x: 1, z: -1 }, { x: 1, z: 1 }]) {
+    for (let level = 0; level < height; level++) {
+      setBlock(state, x + corner.x * postOffset, groundY + level, z + corner.z * postOffset, BlockId.DARK_PLANKS)
+    }
+  }
+  placeRoofCap(state, x, groundY + height, z, roofHalfSize, BlockId.DARK_WOOD_SLAB, BlockId.DARK_PLANKS)
+  for (let level = 0; level < spireLevelCount; level++) {
+    fillSquare(state, x, z, Math.max(0, postOffset - level), groundY + height + 1 + level, BlockId.DARK_PLANKS)
+  }
+  /** 鐘吊在屋頂底下兩格，兩格高 */
+  setBlock(state, x, groundY + height - 2, z, BlockId.BRICKS)
+  setBlock(state, x, groundY + height - 3, z, BlockId.BRICKS)
+}
+
+/** 一根掛著紙燈的柱子：兩格深色木，頂上一盞紙燈。只擺在空著的格子上 */
+export function placeLampPost(state: Uint8Array, x: number, groundY: number, z: number): void {
+  setDecoration(state, x, groundY, z, BlockId.DARK_PLANKS)
+  setDecoration(state, x, groundY + 1, z, BlockId.DARK_PLANKS)
+  setDecoration(state, x, groundY + 2, z, BlockId.PAPER_LAMP)
 }
 
 /**
@@ -1273,4 +1396,29 @@ export function buildCaveGarden(state: Uint8Array, garden: GardenDefinition): vo
    */
   placeStoneLantern(state, CAVE_MOUTH.x + 3, groundY, CAVE_MOUTH.z - 1)
   placeStoneLantern(state, CAVE_MOUTH.x - 1, groundY, CAVE_MOUTH.z + 3)
+
+  /**
+   * 洞室西壁的龕，傳送門立在裡面（CAVE_GATE_POINT）
+   *
+   * 洞室只有六格半徑、正中又是地底湖，五格寬五格高的門放不進湖與石筍之間。
+   * 往西壁裡挖四格深、七格寬、五格高的一個龕：門在龕的正中，門前（東）三格是湖岸的乾地，
+   * 木牌在門北邊三格的龕裡。這一帶上面還壓著三四格以上的岩，挖了不會見天。
+   * 排在最後：石筍、蛛網與燈籠都是亂數撒的，可能落進龕裡，最後一次挖乾淨。
+   * 龕的兩端（木牌那一排）只挖三格高、最裡面那一排不挖到兩端：西北角的岩最薄，挖滿會見天
+   */
+  for (let x = CAVE_GATE_POINT.x - 1; x <= CAVE_GATE_POINT.x + 2; x++) {
+    for (let z = CAVE_GATE_POINT.z - 3; z <= CAVE_GATE_POINT.z + 3; z++) {
+      const isEnd = Math.abs(z - CAVE_GATE_POINT.z) === 3
+      if (isEnd && x === CAVE_GATE_POINT.x - 1)
+        continue
+      setBlock(state, x, deckY, z, BlockId.GRAVEL)
+      fillBox(state, x, deckY + 1, z, x, deckY + (isEnd ? 3 : 5), z, BlockId.AIR)
+    }
+  }
+  /** 龕口到湖岸那一條（門前三格）上的石筍清掉，走得過去 */
+  for (let x = CAVE_GATE_POINT.x + 3; x <= CAVE_GATE_POINT.x + 4; x++) {
+    for (let z = CAVE_GATE_POINT.z - 1; z <= CAVE_GATE_POINT.z + 1; z++) {
+      fillBox(state, x, deckY + 1, z, x, deckY + 4, z, BlockId.AIR)
+    }
+  }
 }

@@ -1,4 +1,5 @@
 import type { Scene, Texture } from '@babylonjs/core'
+import type { RealmParticleArea, RealmWeatherParticle } from '../realm/realm-definition'
 import {
   Color4,
   DynamicTexture,
@@ -7,6 +8,7 @@ import {
 } from '@babylonjs/core'
 import { WEATHER_RENDERING_GROUP } from '../../composables/use-babylon-scene'
 import { getGarden } from '../garden/garden-layout'
+import { sampleParticleArea } from './particle-area'
 import { createParticleDimmer } from './particle-tint'
 
 /** 蛙聲澤，霧只罩在這一座木座上 */
@@ -19,6 +21,39 @@ const SWAMP_GARDEN = getGarden('swamp')
  * 霧的外緣才會剛好停在木框上，不會漫到外面那片乾淨的白沙
  */
 const MIST_RADIUS = SWAMP_GARDEN.halfSize - 4
+/** 大廳的霧片範圍：整座蛙聲澤，不跟著鏡頭走 */
+export const HUB_MIST_AREA: SwampMistArea = {
+  centerX: SWAMP_GARDEN.center.x,
+  centerZ: SWAMP_GARDEN.center.z,
+  radius: MIST_RADIUS,
+  followRadius: MIST_RADIUS,
+}
+
+/** 大場景的霧片範圍：多了水面高度與霧片的高度範圍，見 RealmWeatherParticle */
+export type SwampMistArea = RealmParticleArea & Partial<Pick<NonNullable<RealmWeatherParticle['swampMist']>, 'waterSurfaceY' | 'heightRange'>>
+
+/**
+ * 某個時刻的霧片濃度
+ *
+ * 給大場景用：清晨與傍晚最濃（peakDensity），白天收到 dayDensity，夜裡介於兩者之間。
+ * 時刻零是午夜、四分之一是日出、四分之三是日落；晨昏那兩段各前後約一個半小時
+ */
+export function measureMistDensity(timeOfDay: number, dayDensity: number, peakDensity: number): number {
+  const twilightDistance = Math.min(Math.abs(timeOfDay - 0.25), Math.abs(timeOfDay - 0.75))
+  const twilight = 1 - Math.min(1, Math.max(0, (twilightDistance - 0.03) / 0.07))
+  const isDay = timeOfDay > 0.25 && timeOfDay < 0.75
+  const base = isDay ? dayDensity : (dayDensity + peakDensity) / 2
+  return base + (peakDensity - base) * twilight * twilight * (3 - 2 * twilight)
+}
+
+/**
+ * 大場景裡一片霧最多抽幾次落點
+ *
+ * 抽到木棧、泥灘或枯木上就重抽；抽滿了還沒落在水上就用最後那一點，
+ * 霧只是薄一點，不會整片缺掉
+ */
+const WATER_PICK_ATTEMPT_COUNT = 4
+
 /** 霧貼著地面浮動的高度範圍 */
 const MIST_MIN_HEIGHT = 0.5
 const MIST_MAX_HEIGHT = 5
@@ -58,12 +93,29 @@ function createMistTexture(scene: Scene): DynamicTexture {
 export interface SwampMist {
   /** 跟著日夜調亮度，1 為大白天 */
   setBrightness: (ratio: number) => void;
+  /**
+   * 霧片鋪在哪一片，null 是關掉
+   *
+   * 大廳是蛙聲澤（HUB_MIST_AREA），千蛙沼由場景定義給；別的場景同一個座標可能是湖心，整個關掉。
+   * 換了範圍或關掉時，連飄在半空的那些一起清掉：換場景時霧正蓋滿畫面，看不到它們消失
+   */
+  setArea: (area: SwampMistArea | null) => void;
+  /**
+   * 濃度倍率（零到一），乘在生成速度上，1 是原本的濃度
+   *
+   * 大廳一直是 1；千蛙沼照時刻給（見 measureMistDensity）。
+   * 改的是生成速度，霧片是一片一片慢慢多起來、慢慢少下去，不會整團跳一下
+   */
+  setDensity: (ratio: number) => void;
   dispose: () => void;
 }
 
 export interface CreateSwampMistParams {
   scene: Scene;
+  /** 容量：大場景跟著鏡頭鋪的那一圈比蛙聲澤大，給到大廳那一份的三倍 */
   maxParticleCount: number;
+  /** 大廳那一份的片數，生成速度照它算：大廳的濃度與加容量之前一模一樣 */
+  baseParticleCount: number;
   /** 從天空往指定格柱打射線，取得地面（或水面）高度 */
   castRainRay: (blockX: number, blockZ: number) => number | null;
 }
@@ -79,13 +131,16 @@ export interface CreateSwampMistParams {
 export function createSwampMist({
   scene,
   maxParticleCount,
+  baseParticleCount,
   castRainRay,
 }: CreateSwampMistParams): SwampMist {
   const particleSystem = new ParticleSystem('swamp-mist', maxParticleCount, scene)
   particleSystem.particleTexture = createMistTexture(scene)
   particleSystem.applyFog = true
-  particleSystem.emitter = new Vector3(SWAMP_GARDEN.center.x, 0, SWAMP_GARDEN.center.z)
+  const emitterPosition = new Vector3(HUB_MIST_AREA.centerX, 0, HUB_MIST_AREA.centerZ)
+  particleSystem.emitter = emitterPosition
   particleSystem.renderingGroupId = WEATHER_RENDERING_GROUP
+  let area: SwampMistArea | null = HUB_MIST_AREA
 
   /**
    * 霧片貼著地面長出來
@@ -99,17 +154,25 @@ export function createSwampMist({
      *
      * 開根號會讓霧在圓面上均勻分布，邊緣密度與中心一樣，
      * 遠看就是一塊邊界清楚的圓餅。指數壓低一點，
-     * 越往外霧片越少，外圍自然散開
+     * 越往外霧片越少，外圍自然散開。大場景的範圍跟著鏡頭走，見 particle-area
      */
-    const radius = Math.random() ** 0.7 * MIST_RADIUS
-    const angle = Math.random() * Math.PI * 2
-    const x = SWAMP_GARDEN.center.x + Math.cos(angle) * radius
-    const z = SWAMP_GARDEN.center.z + Math.sin(angle) * radius
-    const surfaceY = castRainRay(Math.floor(x + 0.5), Math.floor(z + 0.5)) ?? 0
+    const currentArea = area ?? HUB_MIST_AREA
+    let { x, z } = sampleParticleArea(scene, currentArea, 0.7)
+    let surfaceY = castRainRay(Math.floor(x + 0.5), Math.floor(z + 0.5)) ?? 0
 
+    /** 大場景：霧貼著水面積，落在木棧、泥灘、枯木上的重抽（見 WATER_PICK_ATTEMPT_COUNT） */
+    const waterSurfaceY = currentArea.waterSurfaceY
+    if (waterSurfaceY !== undefined) {
+      for (let attempt = 1; attempt < WATER_PICK_ATTEMPT_COUNT && surfaceY > waterSurfaceY + 0.05; attempt++) {
+        ({ x, z } = sampleParticleArea(scene, currentArea, 0.7))
+        surfaceY = castRainRay(Math.floor(x + 0.5), Math.floor(z + 0.5)) ?? 0
+      }
+    }
+
+    const [minHeight, maxHeight] = currentArea.heightRange ?? [MIST_MIN_HEIGHT, MIST_MAX_HEIGHT]
     positionToUpdate.set(
       x,
-      surfaceY + MIST_MIN_HEIGHT + Math.random() * (MIST_MAX_HEIGHT - MIST_MIN_HEIGHT),
+      surfaceY + minHeight + Math.random() * (maxHeight - minHeight),
       z,
     )
   }
@@ -132,7 +195,8 @@ export function createSwampMist({
   particleSystem.maxSize = 26
   particleSystem.minLifeTime = 14
   particleSystem.maxLifeTime = 26
-  particleSystem.emitRate = maxParticleCount / 20
+  const baseEmitRate = baseParticleCount / 20
+  particleSystem.emitRate = baseEmitRate
 
   /** 幾乎不動，只是很慢地往一邊漂 */
   particleSystem.gravity = new Vector3(0, 0.02, 0)
@@ -161,6 +225,21 @@ export function createSwampMist({
 
   return {
     setBrightness: dimmer.setBrightness,
+    setArea(nextArea) {
+      if (nextArea === area && (nextArea !== null) === particleSystem.isStarted())
+        return
+
+      area = nextArea
+      particleSystem.stop()
+      particleSystem.reset()
+      if (nextArea) {
+        emitterPosition.set(nextArea.centerX, 0, nextArea.centerZ)
+        particleSystem.start()
+      }
+    },
+    setDensity(ratio) {
+      particleSystem.emitRate = baseEmitRate * ratio
+    },
     dispose() {
       particleSystem.dispose()
     },

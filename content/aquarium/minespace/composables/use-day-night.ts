@@ -13,6 +13,7 @@ import type { DayPhase } from '../domains/weather/day-night'
 import type { GodRays } from '../domains/weather/god-rays'
 import { clamp } from 'remeda'
 import { computed, onScopeDispose, ref } from 'vue'
+import { activeRealmState, applyRealmNumber } from '../domains/realm/active-realm'
 import { renderSettings } from '../domains/render-host/render-settings'
 import { eyeAdaptationState } from '../domains/renderer/eye-adaptation'
 import { getReloadHandoff } from '../domains/scene/reload-handoff'
@@ -83,6 +84,16 @@ const MILLISECOND_PER_DAY = 86_400_000
 /** HUD 的時刻讀數更新間隔（秒），每幀更新只是白白觸發重繪 */
 const CLOCK_UPDATE_INTERVAL = 0.2
 
+/**
+ * 地底的場景用哪一刻的光照：子夜
+ *
+ * 洞裡看不到天，光只來自燈火。日夜時鐘照走（HUD 照樣顯示時刻，回到地面時時間是連貫的），
+ * 但霧、環境光、補光、曝光與燈火的亮度都固定用子夜那一份：燈籠全亮（白天的燈只剩兩成），
+ * 補光讓燈照到的岩面照比例亮起來，環境光落在洞穴的下限（岩壁自己的微光）。
+ * 跟著真實時刻走的話，正午走進洞裡燈會暗下去、岩壁反而變亮，那是地面上的邏輯
+ */
+const UNDERGROUND_LIGHTING_TIME = 0
+
 interface StartParams {
   scene: Scene;
   pipeline: DefaultRenderingPipeline | undefined;
@@ -91,7 +102,8 @@ interface StartParams {
   /**
    * 沿著視線行進的光束，只有最奢的那一級有
    *
-   * 與 godRays 互斥：兩者做的是同一件事，同時開會疊成兩層亮
+   * 極致那一級與 godRays 並存：這一支畫地面上的光柱、不往天空加光，
+   * 太陽周圍的光暈交給 godRays（它在這一級會把曝光打折，見 god-rays.ts）
    */
   volumetricLight?: VolumetricLight;
   /** 日夜循環把這個時刻的基準寫進去，天氣與漫遊控制器在上面疊自己的效果 */
@@ -152,6 +164,8 @@ export function useDayNight() {
   const clockText = ref(formatClock(initialTime))
 
   const sample = createDayNightSample()
+  /** 地底時 HUD 用的那一份（真實時刻），平常用不到；見 UNDERGROUND_LIGHTING_TIME */
+  const clockSample = createDayNightSample()
 
   /** 上一次真的寫進管線的色調值，用來判斷這一幀要不要再寫 */
   let appliedExposure = Number.NaN
@@ -221,7 +235,7 @@ export function useDayNight() {
           advanceSunriseDrift(dayStep)
         }
 
-        sampleDayNight(currentTime, sample)
+        sampleDayNight(activeRealmState.isUnderground ? UNDERGROUND_LIGHTING_TIME : currentTime, sample)
 
         applyToAtmosphere(atmosphere)
         applyToCloud()
@@ -286,7 +300,10 @@ export function useDayNight() {
         if (clockElapsed >= CLOCK_UPDATE_INTERVAL) {
           clockElapsed = 0
           timeOfDay.value = currentTime
-          dayRatio.value = sample.dayRatio
+          /** HUD 的日月圖示跟著真實時刻；地底的光照取樣固定在子夜，另取一份 */
+          dayRatio.value = activeRealmState.isUnderground
+            ? sampleDayNight(currentTime, clockSample).dayRatio
+            : sample.dayRatio
           clockText.value = formatClock(currentTime)
           phase.value = getDayPhase(currentTime)
         }
@@ -517,9 +534,16 @@ export function useDayNight() {
      * 這裡的屬性只寫日夜曝光，仍然過節流門檻
      */
     eyeAdaptationState.caveExposure = computeCaveExposureMultiplier(atmosphere.caveRatio)
-    if (Math.abs(sample.exposure - appliedExposure) >= EXPOSURE_STEP) {
-      appliedExposure = sample.exposure
-      pipeline.imageProcessing.exposure = sample.exposure
+    /**
+     * 場景的曝光設定疊在日夜的基準上
+     *
+     * 一個場景的值是固定的，不會每幀變，照樣過節流門檻；
+     * 換場景那一刻差得夠多，下一幀就寫進去。大廳沒有設定，就是原本的日夜曝光
+     */
+    const exposure = applyRealmNumber(sample.exposure, activeRealmState.atmosphere.light?.exposure, { min: 0.05 })
+    if (Math.abs(exposure - appliedExposure) >= EXPOSURE_STEP) {
+      appliedExposure = exposure
+      pipeline.imageProcessing.exposure = exposure
     }
 
     const colorCurves = pipeline.imageProcessing.colorCurves

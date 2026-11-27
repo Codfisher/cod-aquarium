@@ -5,7 +5,6 @@ import { useDevToggles } from '../../composables/use-dev-toggles'
 import { useGraphicsQuality } from '../../composables/use-graphics-quality'
 import { measureSection } from '../../composables/use-performance-probe'
 import { LIQUID_SURFACE_DROP } from '../block/block-constants'
-import { getGarden } from '../garden/garden-layout'
 import { PLAYER_EYE_HEIGHT } from '../player/collision'
 import { getWaterLevel, SHORE_DISTANCE_MAX } from '../world/water-body'
 import { getShoreDistanceTexture } from '../world/water-map-texture'
@@ -621,6 +620,13 @@ export interface CreateWaterSurfaceParams {
   scene: Scene;
   camera: UniversalCamera;
   waterMap: WaterMap;
+  /**
+   * 湧浪的範圍，由場景給
+   *
+   * 大廳是潮汐磯那一座；湖中島沒有，整片湖都是靜水。
+   * 不給的話同一個座標在別的場景可能正好是湖心，那裡會莫名其妙地起浪
+   */
+  swellArea: { centerX: number; centerZ: number; halfSize: number } | null;
 }
 
 /**
@@ -633,6 +639,7 @@ export function createWaterSurface({
   scene,
   camera,
   waterMap,
+  swellArea,
 }: CreateWaterSurfaceParams): WaterSurface {
   const { state: devToggle } = useDevToggles()
   const { preset } = useGraphicsQuality()
@@ -643,13 +650,12 @@ export function createWaterSurface({
   /**
    * 湧浪的範圍只算一次
    *
-   * 箱庭是不會動的，位置由 garden-layout 決定。
-   * 每一幀去查一次也查得到，但那是每一幀都會走的路
+   * 箱庭是不會動的，範圍由場景定義給（大廳是潮汐磯）。
+   * 沒有的場景把範圍收成零，強度也一路壓在零
    */
-  const coast = getGarden('coast')
-  waterState.swell.centerX = coast.center.x
-  waterState.swell.centerZ = coast.center.z
-  waterState.swell.halfSize = coast.halfSize
+  waterState.swell.centerX = swellArea?.centerX ?? 0
+  waterState.swell.centerZ = swellArea?.centerZ ?? 0
+  waterState.swell.halfSize = swellArea?.halfSize ?? 0
 
   /** 上一次濺出漣漪的地方，走遠一步才濺下一次 */
   let lastWadeX = camera.position.x
@@ -689,7 +695,7 @@ export function createWaterSurface({
        * 岸線要一趟深度預繪、漣漪要跑八個槽位，湧浪只有兩次 sin，
        * 而它是那座箱庭的主題。低畫質關掉別的、留著它剛好
        */
-      waterState.swell.strength = devToggle.waterShoreline ? SWELL_STRENGTH : 0
+      waterState.swell.strength = swellArea && devToggle.waterShoreline ? SWELL_STRENGTH : 0
 
       if (!isEnabled)
         return
@@ -725,6 +731,11 @@ export function createWaterSurface({
     dispose() {
       scene.onBeforeRenderObservable.remove(observer)
       waterState.rippleList.fill(0)
+      /**
+       * 貼圖本身由焦散那邊的 disposeWaterMapTexture 一起收（兩張圖共用同一份快取），
+       * 這裡只放掉參考：換場景時新的世界會重烘一張，不能讓材質讀到已經釋放的那張
+       */
+      shoreDistanceTexture = null
     },
   }
 }

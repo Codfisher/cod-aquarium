@@ -23,6 +23,7 @@
       v-if="hasStarted"
       :audible-list="audibleList"
       :zone="status.zone"
+      :realm="currentRealm.hasGardens ? null : currentRealm"
       @toggle-mute="toggleSoundMute"
     />
 
@@ -46,9 +47,13 @@
       v-model:sun-azimuth="sunAzimuth"
       :open="menuVisible"
       :time-label="timeLabel"
+      :travel-enabled="currentRealm.hasGardens"
+      :realm-title="locale === 'en' ? currentRealm.title.en : currentRealm.title['zh-hant']"
+      :realm-icon="currentRealm.icon"
       @resume="closeMenu()"
       @intro="introVisible = true"
       @travel="handleTravel"
+      @return-hub="handleReturnHub"
     />
 
     <start-panel
@@ -241,6 +246,7 @@ import { getSectionLabel } from '../../composables/performance-reading'
 import { useDevToggles } from '../../composables/use-dev-toggles'
 import { exportErrorLog, useErrorLogger } from '../../composables/use-error-logger'
 import { useSimpleI18n } from '../../composables/use-simple-i18n'
+import { getNextRealmId, getRealm } from '../realm/realm-list'
 import { useInputCapture } from '../render-host/use-input-capture'
 import { useRenderHost } from '../render-host/use-render-host'
 import { useRenderPreference } from '../render-host/use-render-preference'
@@ -251,8 +257,8 @@ const { t, locale } = useSimpleI18n({
   'zh-hant': {
     initFailed: '初始化失敗',
     cursorReleased: '滑鼠已放開，點一下畫面回到漫遊',
-    errorBadge: '偵測到 {count} 種錯誤或警告，按 F6 匯出紀錄',
-    diagnosticBadge: 'F6 匯出執行時狀態',
+    errorBadge: '偵測到 {count} 種錯誤或警告，已寫入 logs/minespace-issues.log，F6 更新',
+    diagnosticBadge: 'F6 寫入執行時狀態',
     probeDrawCall: '繪製',
     probeActiveMesh: '網格',
     probeTriangle: '三角形',
@@ -280,8 +286,8 @@ const { t, locale } = useSimpleI18n({
   'en': {
     initFailed: 'Initialization Failed',
     cursorReleased: 'Cursor released — click the view to resume',
-    errorBadge: '{count} issue type(s) detected — press F6 to export the log',
-    diagnosticBadge: 'F6 exports runtime state',
+    errorBadge: '{count} issue type(s) logged to logs/minespace-issues.log — press F6 to refresh',
+    diagnosticBadge: 'F6 writes runtime state',
     probeDrawCall: 'Draws',
     probeActiveMesh: 'Meshes',
     probeTriangle: 'Tris',
@@ -353,6 +359,7 @@ const {
   isRenderStalled,
   canvasKey,
   worldState,
+  realmId,
   status,
   probe,
   postInput,
@@ -361,7 +368,11 @@ const {
   setTimeOfDay,
   addPoseHandler,
   addSoundHandler,
-} = useRenderHost({ canvasRef })
+  addTransitionHandler,
+} = useRenderHost({ canvasRef, locale })
+
+/** 目前所在的場景，HUD 與選單要看它決定顯示什麼 */
+const currentRealm = computed(() => getRealm(realmId.value))
 
 watch(isRenderStalled, (isStalled) => {
   if (!isStalled) {
@@ -404,6 +415,8 @@ watch(isWorldReady, (isReady) => {
  */
 const {
   start: startSoundscape,
+  setWorld: setSoundscapeWorld,
+  playTransitionSound,
   updatePose,
   setWeather,
   triggerSound,
@@ -415,7 +428,20 @@ const {
 
 addPoseHandler(updatePose)
 addSoundHandler(({ id, volume }) => triggerSound(id, volume))
+/** 穿過傳送門時霧湧上來的那一陣聲音，換好場景時由音景自己淡出 */
+addTransitionHandler(({ sound, durationSecond }) => void playTransitionSound(sound, durationSecond))
 watch(() => status.weather, (current) => setWeather(current))
+/**
+ * 換場景後世界整份換掉，音源要照新的地形與場景的清單重種
+ *
+ * 場景 id 與方塊資料是同一則訊息一起改的，這裡讀得到的一定是同一組。
+ * 第一次的 ready 時音景還沒啟動，不會有事
+ */
+watch(worldState, (current) => {
+  if (current) {
+    setSoundscapeWorld(current, realmId.value)
+  }
+})
 
 /**
  * 除錯用的效果開關
@@ -527,6 +553,17 @@ useEventListener(window, 'keydown', (event: KeyboardEvent) => {
     event.preventDefault()
     postCommand({ command: 'toggle-pass-timer' })
   }
+
+  /**
+   * F9 換到清單裡的下一個場景，只在本地開發有用
+   *
+   * 走的是與傳送門同一段轉場（霧湧上、換、霧散開），
+   * 拿來連換十次確認拆掉重建不會漏東西，不必每次都走到門口
+   */
+  if (event.code === 'F9' && import.meta.env.DEV) {
+    event.preventDefault()
+    postCommand({ command: 'switch-realm', realmId: getNextRealmId(realmId.value) })
+  }
 })
 
 /** 桌機以 Pointer Lock 狀態決定選單開關 */
@@ -559,6 +596,7 @@ async function handleStart() {
 
   await startSoundscape({
     worldState: worldState.value,
+    realmId: realmId.value,
     getDayRatio: () => status.dayRatio,
   })
 
@@ -581,7 +619,21 @@ function closeMenu() {
 
 /** 快速前往：渲染端會從目標點往外找一個站得住腳的位置，免得卡在樹上或方塊裡 */
 function handleTravel(landmark: Landmark) {
-  postCommand({ command: 'travel', x: landmark.x, z: landmark.z })
+  postCommand({ command: 'travel', x: landmark.x, z: landmark.z, yaw: landmark.yaw })
+
+  closeMenu()
+}
+
+/**
+ * 從大場景直接回禪庭
+ *
+ * 落點借這個場景回程那道門的：走門回去的人站在哪裡，按選單回去的人就站在哪裡，
+ * 也就是禪庭裡那座箱庭的門前，一回頭就看得到剛才去過的地方
+ */
+function handleReturnHub() {
+  const returnPortal = currentRealm.value.portalList
+    .find((portal) => portal.targetRealmId === 'hub')
+  postCommand({ command: 'switch-realm', realmId: 'hub', spawn: returnPortal?.targetSpawn })
 
   closeMenu()
 }

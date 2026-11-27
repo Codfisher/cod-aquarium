@@ -1,4 +1,5 @@
 import type { Scene } from '@babylonjs/core'
+import type { RealmWeatherParticle } from '../realm/realm-definition'
 import {
   Color4,
   DynamicTexture,
@@ -9,12 +10,26 @@ import {
 import { WEATHER_RENDERING_GROUP } from '../../composables/use-babylon-scene'
 import { getGarden } from '../garden/garden-layout'
 import { createLeafNoiseField } from './leaf-noise-field'
+import { sampleParticleArea } from './particle-area'
 import { createParticleDimmer } from './particle-tint'
 
-/** 金葉苑，落葉只飄在這一座木座上 */
+/** 金葉苑，大廳的落葉只飄在這一座木座上 */
 const AUTUMN_GARDEN = getGarden('autumn')
 /** 落葉飄散的半徑，比木座小一點，葉子才不會飄到外面的白沙上 */
 const LEAF_RADIUS = AUTUMN_GARDEN.halfSize - 2
+/** 落葉的範圍：大場景多一個 canopyMinY，見 RealmWeatherParticle */
+export type FallingLeafArea = NonNullable<RealmWeatherParticle['fallingLeaves']>
+
+/** 大場景裡一片葉子最多抽幾次落點，抽到樹冠為止 */
+const CANOPY_PICK_ATTEMPT_COUNT = 6
+
+/** 大廳的落葉範圍：整座金葉苑，不跟著鏡頭走 */
+export const HUB_LEAF_AREA: FallingLeafArea = {
+  centerX: AUTUMN_GARDEN.center.x,
+  centerZ: AUTUMN_GARDEN.center.z,
+  radius: LEAF_RADIUS,
+  followRadius: LEAF_RADIUS,
+}
 /** 葉子從樹冠往上這個範圍內冒出來，看起來才像剛從枝頭鬆脫 */
 const CANOPY_OFFSET_RANGE: [number, number] = [-1.5, 1.5]
 /** 樹冠射線打不到東西時的保底高度 */
@@ -75,6 +90,14 @@ function createLeafTexture(scene: Scene): DynamicTexture {
 export interface FallingLeaves {
   /** 跟著日夜調亮度，1 為大白天 */
   setBrightness: (ratio: number) => void;
+  /**
+   * 落葉飄在哪一片，null 是關掉
+   *
+   * 大廳是金葉苑（HUB_LEAF_AREA），金葉林由場景定義給；別的場景同一個座標可能是湖心，整個關掉。
+   * 換了範圍或關掉時，連飄在半空的那些一起清掉：換場景時霧正蓋滿畫面，看不到它們消失。
+   * 換到新範圍會重新預熱，霧散開時葉子已經在飄
+   */
+  setArea: (area: FallingLeafArea | null) => void;
   dispose: () => void;
 }
 
@@ -107,8 +130,10 @@ export function createFallingLeaves({
    * 整個場景靠霧把遠方藏起來，粒子是唯一的漏網之魚
    */
   particleSystem.applyFog = true
-  particleSystem.emitter = new Vector3(AUTUMN_GARDEN.center.x, 0, AUTUMN_GARDEN.center.z)
+  const emitterPosition = new Vector3(HUB_LEAF_AREA.centerX, 0, HUB_LEAF_AREA.centerZ)
+  particleSystem.emitter = emitterPosition
   particleSystem.renderingGroupId = WEATHER_RENDERING_GROUP
+  let area: FallingLeafArea | null = HUB_LEAF_AREA
 
   /**
    * 葉子從樹冠上鬆脫
@@ -117,12 +142,18 @@ export function createFallingLeaves({
    * 葉子便貼著地面生成——那正好是風把落葉捲起來的樣子
    */
   particleSystem.startPositionFunction = (_worldMatrix, positionToUpdate) => {
-    /** 開根號讓取樣在圓面上是均勻的，不會全擠在中心 */
-    const radius = Math.sqrt(Math.random()) * LEAF_RADIUS
-    const angle = Math.random() * Math.PI * 2
-    const x = AUTUMN_GARDEN.center.x + Math.cos(angle) * radius
-    const z = AUTUMN_GARDEN.center.z + Math.sin(angle) * radius
-    const canopyY = castRainRay(Math.floor(x + 0.5), Math.floor(z + 0.5)) ?? FALLBACK_SPAWN_HEIGHT
+    /** 在圓面上均勻取樣，不會全擠在中心；大場景的範圍跟著鏡頭走，見 particle-area */
+    const currentArea = area ?? HUB_LEAF_AREA
+    let { x, z } = sampleParticleArea(scene, currentArea)
+    let canopyY = castRainRay(Math.floor(x + 0.5), Math.floor(z + 0.5)) ?? FALLBACK_SPAWN_HEIGHT
+    /** 大場景：沒打到樹冠就重抽幾次（見 canopyMinY），抽滿了就用最後那一點 */
+    const canopyMinY = currentArea.canopyMinY
+    if (canopyMinY !== undefined) {
+      for (let attempt = 1; attempt < CANOPY_PICK_ATTEMPT_COUNT && canopyY < canopyMinY; attempt++) {
+        ({ x, z } = sampleParticleArea(scene, currentArea))
+        canopyY = castRainRay(Math.floor(x + 0.5), Math.floor(z + 0.5)) ?? FALLBACK_SPAWN_HEIGHT
+      }
+    }
     const [minOffset, maxOffset] = CANOPY_OFFSET_RANGE
 
     positionToUpdate.set(
@@ -315,6 +346,18 @@ export function createFallingLeaves({
 
   return {
     setBrightness: dimmer.setBrightness,
+    setArea(nextArea) {
+      if (nextArea === area && (nextArea !== null) === particleSystem.isStarted())
+        return
+
+      area = nextArea
+      particleSystem.stop()
+      particleSystem.reset()
+      if (nextArea) {
+        emitterPosition.set(nextArea.centerX, 0, nextArea.centerZ)
+        particleSystem.start()
+      }
+    },
     dispose() {
       particleSystem.dispose()
     },

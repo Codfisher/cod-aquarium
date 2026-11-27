@@ -66,6 +66,14 @@ export const MOON_DISC_NAME = 'moon-disc'
 export const MOON_GLOW_NAME = 'moon-glow'
 export const STAR_FIELD_NAME = 'star-field'
 /**
+ * 岩響窟洞口那盞天光與洞頂滴水的粒子
+ *
+ * 兩者都建在引擎層、擺在岩響窟的座標上。換到大場景時由 realm/apply-realm-engine 依場景關掉或搬走：
+ * 不然它們會留在別的場景同一個座標上（湖面上、田裡）
+ */
+export const CAVE_MOUTH_LIGHT_NAME = 'cave-mouth-light'
+export const CAVE_DRIP_NAME_PREFIX = 'cave-drip-'
+/**
  * 體積雲合成用的天空罩
  *
  * 名字沿用舊雲層的：水鏡與晨昏光束都靠這個名字把雲找出來
@@ -764,7 +772,7 @@ export function getOvercastMaterial(scene: Scene): StandardMaterial | null {
 function createCaveLights(scene: Scene) {
   /** 洞口：偏冷的天光，看起來像從外面透進來的 */
   const mouthLight = new PointLight(
-    'cave-mouth-light',
+    CAVE_MOUTH_LIGHT_NAME,
     new Vector3(CAVE_MOUTH.x, CAVE_MOUTH.y + 1, CAVE_MOUTH.z),
     scene,
   )
@@ -831,7 +839,7 @@ function createCaveDrips(scene: Scene) {
   ]
 
   for (const spot of dripSpotList) {
-    const particleSystem = new ParticleSystem(`cave-drip-${spot.name}`, 60, scene)
+    const particleSystem = new ParticleSystem(`${CAVE_DRIP_NAME_PREFIX}${spot.name}`, 60, scene)
     particleSystem.particleTexture = texture
     particleSystem.applyFog = true
     particleSystem.emitter = new Vector3(spot.point.x, spot.point.y + spot.ceilingOffset, spot.point.z)
@@ -907,7 +915,7 @@ function drawFlameFrame(context: CanvasRenderingContext2D, size: number, frameIn
  * 用 alpha test 把背景整個丟掉，再逐格換貼圖做出跳動。
  * 粒子做出來的是寫實的煙火，跟方塊世界格格不入
  */
-function createCampfireFlame(scene: Scene, x: number, groundY: number, z: number): void {
+function createCampfireFlame(scene: Scene, x: number, groundY: number, z: number): () => void {
   const size = 16
   const texture = new DynamicTexture(
     'campfire-flame-texture',
@@ -948,6 +956,7 @@ function createCampfireFlame(scene: Scene, x: number, groundY: number, z: number
   const emberTopY = groundY - 0.5
   const flameHeight = 1.15
 
+  const planeList: Mesh[] = []
   for (const [index, angle] of [Math.PI / 4, -Math.PI / 4].entries()) {
     const plane = MeshBuilder.CreatePlane(
       `campfire-flame-${index}`,
@@ -959,11 +968,12 @@ function createCampfireFlame(scene: Scene, x: number, groundY: number, z: number
     plane.position.set(x, emberTopY + flameHeight / 2, z)
     plane.isPickable = false
     plane.receiveShadows = false
+    planeList.push(plane)
   }
 
   let elapsed = 0
   let currentFrame = 0
-  scene.onBeforeRenderObservable.add(() => {
+  const observer = scene.onBeforeRenderObservable.add(() => {
     measureSection('營火動畫', () => {
       elapsed += scene.getEngine().getDeltaTime() / 1000
       const nextFrame = Math.floor(elapsed * FLAME_FRAME_RATE) % FLAME_FRAME_COUNT
@@ -975,19 +985,39 @@ function createCampfireFlame(scene: Scene, x: number, groundY: number, z: number
       texture.update()
     })
   })
+
+  return () => {
+    scene.onBeforeRenderObservable.remove(observer)
+    for (const plane of planeList) {
+      plane.dispose()
+    }
+    material.dispose()
+    texture.dispose()
+  }
+}
+
+export interface CampfireSmoke {
+  dispose: () => void;
 }
 
 /**
  * 營火的火焰與煙
  *
  * 火焰是兩片交叉的像素立板，煙則是一顆顆硬邊的灰方塊往上飄。
- * 火堆高度得等世界生成完才知道，所以由外面帶 worldState 進來
+ * 火堆高度得等世界生成完才知道，所以由外面帶 worldState 進來。
+ * 營火在禪庭的箱庭裡，屬於世界層：換場景時要收掉。
+ *
+ * point 預設是爐火壇的火塘；營火谷（爐火壇的大場景）每一個火塘各叫一次，見 realm/campfire/campfire-fires
  */
-export function createCampfireSmoke(scene: Scene, worldState: Uint8Array): void {
-  const { x, z } = CAMPFIRE_POINT
+export function createCampfireSmoke(
+  scene: Scene,
+  worldState: Uint8Array,
+  point: { x: number; z: number } = CAMPFIRE_POINT,
+): CampfireSmoke {
+  const { x, z } = point
   const groundY = getGroundY(worldState, x, z)
 
-  createCampfireFlame(scene, x, groundY, z)
+  const disposeFlame = createCampfireFlame(scene, x, groundY, z)
 
   /**
    * 煙的貼圖：一塊硬邊的像素方塊
@@ -1050,6 +1080,14 @@ export function createCampfireSmoke(scene: Scene, worldState: Uint8Array): void 
   particleSystem.updateSpeed = 0.012
   particleSystem.blendMode = ParticleSystem.BLENDMODE_STANDARD
   particleSystem.start()
+
+  return {
+    dispose() {
+      disposeFlame()
+      /** 粒子系統預設會連貼圖一起釋放 */
+      particleSystem.dispose()
+    },
+  }
 }
 
 /**

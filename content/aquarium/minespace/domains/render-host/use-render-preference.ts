@@ -109,8 +109,12 @@ function _useRenderPreference() {
 
   const { state: devToggle } = useDevToggles()
 
-  /** 整份設定的快照，init 與比對差異都用它。回傳的是純資料，過得了結構化複製 */
-  function getSettings(): RenderSettings {
+  /**
+   * 整份設定的快照，init 與比對差異都用它。回傳的是純資料，過得了結構化複製
+   *
+   * 介面語言不在這裡：它不是偏好，是瀏覽器偵測的，由 use-render-host 補上
+   */
+  function getSettings(): Omit<RenderSettings, 'locale'> {
     return {
       quality: quality.value,
       cameraFov: cameraFov.value,
