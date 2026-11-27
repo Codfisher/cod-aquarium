@@ -1,4 +1,4 @@
-import { BLOCK_DEFS, BlockId } from '../block/block-constants'
+import { BLOCK_DEFS, BlockId, isPassableBlock } from '../block/block-constants'
 import { WORLD_HEIGHT, WORLD_SIZE } from './world-constants'
 
 /** 世界裡的一個光源方塊 */
@@ -57,6 +57,31 @@ const AREA_LIGHT_SET = new Set<BlockId>([BlockId.LAVA])
  */
 const DEFAULT_CELL_SHIFT = 1
 const AREA_LIGHT_CELL_SHIFT = 2
+
+/**
+ * 火塘的光要從火焰的高度發出來，不是從餘燼那一格的中心
+ *
+ * 營火的餘燼沉在地面那一層（爐火壇、營火谷），方塊中心比地面低半格。
+ * 光源擺在那裡，四周的地面、矮凳的頂面全在光的「背面」（法線朝上、光從底下來），
+ * 一點都照不到；只剩石圈與矮凳朝火的那幾個側面亮，整堆火只照亮腳邊一小圈。
+ * 全局光的種子也落在被地面包住的那一格裡。
+ *
+ * 往上抬到火焰中段（餘燼頂面再一格半左右，高過半磚石圈），光才灑得到整片地、
+ * 座位、棚子與旁邊的樹幹；全局光的種子跟著落進上面那一格空氣裡，光暈也正好罩住火焰。
+ * 頭上要有兩格空的才抬滿，只有一格空的抬一半（灶台上方有東西），被蓋住的不抬。
+ * 只抬餘燼：岩漿是一整片面光源，光暈的擺法另有講究（見 lamp-glow），不動它
+ */
+const FIRE_PIT_BLOCK_SET = new Set<BlockId>([BlockId.EMBER])
+const FIRE_PIT_LIFT = 1.2
+
+/** 某一格餘燼的光往上抬多少：頭上兩格空抬滿、一格空抬一半 */
+function measureFirePitLift(worldState: Uint8Array, x: number, y: number, z: number): number {
+  const isOpenAt = (level: number) => y + level < WORLD_HEIGHT
+    && isPassableBlock(worldState[(x * WORLD_HEIGHT + y + level) * WORLD_SIZE + z]! as BlockId)
+  if (!isOpenAt(1))
+    return 0
+  return isOpenAt(2) ? FIRE_PIT_LIFT : FIRE_PIT_LIFT / 2
+}
 
 /** 燈籠、紙燈這類的光色：暖，但不到火的程度 */
 const LAMP_COLOR: [number, number, number] = [1, 0.86, 0.62]
@@ -121,7 +146,7 @@ export function collectLightSourceList(worldState: Uint8Array): BlockLightSource
         const isFire = FIRE_BLOCK_SET.has(blockId as BlockId)
         cellMap.set(cellKey, {
           x,
-          y,
+          y: FIRE_PIT_BLOCK_SET.has(blockId as BlockId) ? y + measureFirePitLift(worldState, x, y, z) : y,
           z,
           level,
           color: getBlockLightTint(blockId as BlockId),

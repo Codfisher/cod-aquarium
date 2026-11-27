@@ -38,6 +38,32 @@ export function getGroundY(state: Uint8Array, x: number, z: number): number {
   return 1
 }
 
+/** 樹葉：擋得住人，但不是音源該站的地面（見 getWaterlineY） */
+const LEAF_BLOCK_SET = new Set<BlockId>([
+  BlockId.OAK_LEAVES,
+  BlockId.AMBER_LEAVES,
+  BlockId.GOLD_LEAVES,
+  BlockId.PINE_LEAVES,
+  BlockId.ACACIA_LEAVES,
+  BlockId.JUNGLE_LEAVES,
+])
+
+/**
+ * 樹冠底下的地面高度：樹葉不算地面，穿過樹冠一路找到真正的土
+ *
+ * getGroundY 遇到樹葉就停，那是給羊與碰撞用的「踩得上去」；
+ * 音源要的是「林子裡的地」，否則放在樹下的音源會被抬到整片樹冠頂上
+ */
+function getGroundBelowCanopyY(state: Uint8Array, x: number, z: number): number {
+  for (let y = WORLD_HEIGHT - 1; y >= 0; y--) {
+    const blockId = getBlock(state, x, y, z)
+    if (!isPassableBlock(blockId) && !LEAF_BLOCK_SET.has(blockId)) {
+      return y + 1
+    }
+  }
+  return 1
+}
+
 /** 取得地表高度，水面也算表面 */
 export function getSurfaceY(state: Uint8Array, x: number, z: number): number {
   for (let y = WORLD_HEIGHT - 1; y >= 0; y--) {
@@ -81,9 +107,13 @@ export function isUnderWaterSurface(state: Uint8Array, x: number, z: number): bo
  *
  * 與 {@link getSurfaceY} 的差別在於樹冠不算數，
  * 音源才不會被抬到樹頂上。
+ *
+ * 這段註解一直是這麼寫的，實作卻拿 getGroundY 找地面，而它遇到樹葉就停——
+ * 林子裡的鳥、蟬、樹梢的風（heightOffset 是「離地多高」）全被抬到樹冠頂再往上七八格，
+ * 站在樹下幾乎聽不到。改成穿過樹冠找真正的地面
  */
 export function getWaterlineY(state: Uint8Array, x: number, z: number): number {
-  const groundY = getGroundY(state, x, z)
+  const groundY = getGroundBelowCanopyY(state, x, z)
 
   for (let y = WORLD_HEIGHT - 1; y >= groundY; y--) {
     if (isWaterBlock(getBlock(state, x, y, z))) {

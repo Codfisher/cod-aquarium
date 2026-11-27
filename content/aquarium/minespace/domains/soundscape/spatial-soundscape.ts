@@ -30,7 +30,12 @@ const OCCLUSION_RAMP_SECOND = 0.35
  * 真正會把聲音悶掉的是岩層與土層
  */
 const SOUND_TRANSPARENT_SET = new Set<BlockId>([
+  /** 樹葉全都擋不住聲音；原本只列了橡樹與松，金葉、相思樹、闊葉林的樹冠會把聲音悶掉 */
   BlockId.OAK_LEAVES,
+  BlockId.AMBER_LEAVES,
+  BlockId.GOLD_LEAVES,
+  BlockId.ACACIA_LEAVES,
+  BlockId.JUNGLE_LEAVES,
   BlockId.PINE_LEAVES,
   BlockId.GLASS,
   BlockId.GLASS_PANE,
@@ -149,7 +154,7 @@ export class SpatialSoundscape {
   /**
    * 被單獨關掉的音源
    *
-   * 這與主音量是兩件事。整片音景是十七座箱庭疊出來的，
+   * 這與主音量是兩件事。整片音景是十八座箱庭疊出來的，
    * 有人只想聽風、有人受不了蟬——關掉一個音源不該連帶關掉別的。
    *
    * 裡面放的是開關鍵（getSoundMuteKey，同名一起關），
