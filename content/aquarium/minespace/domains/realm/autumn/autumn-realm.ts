@@ -1,6 +1,7 @@
 import type { RealmDefinition } from '../realm-definition'
 import { BlockId } from '../../block/block-constants'
 import { createGardenGate, YAW_MAP } from '../garden-gate'
+import { AUTUMN_AMBIENT_PARTICLE_LIST } from '../realm-ambient-table'
 import { AUTUMN_DRIFT_FEATURE_LIST } from './autumn-drift-features'
 import {
   AUTUMN_CENTER,
@@ -54,6 +55,7 @@ export const AUTUMN_REALM: RealmDefinition = {
   signCaption: { 'zh-hant': '一地乾葉', 'en': 'A floor of dry leaves' },
   icon: 'i-material-symbols:park',
   driftFeatureList: AUTUMN_DRIFT_FEATURE_LIST,
+  ambientParticleList: AUTUMN_AMBIENT_PARTICLE_LIST,
   /**
    * 站在回程門的西側三格，面朝林地
    *

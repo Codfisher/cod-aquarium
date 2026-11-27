@@ -5,6 +5,7 @@ import type { WorldLayer } from '../realm/world-layer'
 import type { SceneDepth } from '../renderer/scene-depth'
 import type { VolumetricLight } from '../renderer/volumetric-light'
 import type { SoundZone } from '../soundscape/type'
+import type { AmbientWorldSource } from '../weather/ambient/realm-ambient'
 import type {
   RenderChannel,
   RenderCommand,
@@ -975,6 +976,31 @@ export function createRenderRuntime({ channel }: CreateRenderRuntimeParam): Rend
     }
   }
 
+  /**
+   * 環境粒子每一幀都會問一次世界在哪：同一份世界層回同一個物件，不要每幀配置新的。
+   * 換場景時世界層是另一個物件，快取跟著換
+   */
+  let ambientSourceCache: { layer: WorldLayer; source: AmbientWorldSource } | null = null
+
+  function getAmbientWorldSource(): AmbientWorldSource | null {
+    if (!worldLayer)
+      return null
+
+    if (ambientSourceCache?.layer !== worldLayer) {
+      ambientSourceCache = {
+        layer: worldLayer,
+        source: {
+          realmId: worldLayer.realm.id,
+          worldState: worldLayer.worldState,
+          waterMap: worldLayer.waterMap,
+          lightSourceList: worldLayer.lightSourceList,
+        },
+      }
+    }
+
+    return ambientSourceCache.source
+  }
+
   /** 開始漫遊：天氣與粒子等這一刻才建，時間也從這一刻開始走 */
   async function startWorld(): Promise<void> {
     if (!systems || !babylon || hasStarted || isDisposed)
@@ -993,6 +1019,8 @@ export function createRenderRuntime({ channel }: CreateRenderRuntimeParam): Rend
       /** 兩者都在每次呼叫時才去讀目前的世界層：換場景之後天氣系統還是同一份 */
       castRainRay: (blockX, blockZ) => worldLayer ? castRainRay(worldLayer.worldState, blockX, blockZ) : null,
       getWaterMap: () => worldLayer?.waterMap ?? emptyWaterMap,
+      /** 環境粒子（蝶、螢火、飛沫…）要找花、燈與水在哪；換場景的空檔世界層是 null，那時整批收掉 */
+      getAmbientWorldSource,
       getDayRatio: dayNight.getDayRatio,
       getTimeOfDay: dayNight.getTimeOfDay,
       /** 雨停之後要慢慢乾回去的那些表面，水與花草不在其中 */

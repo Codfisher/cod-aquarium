@@ -1,5 +1,6 @@
 import type { RealmDefinition } from '../realm-definition'
 import { createGardenGate, YAW_MAP } from '../garden-gate'
+import { ALPINE_AMBIENT_PARTICLE_LIST } from '../realm-ambient-table'
 import { ALPINE_DRIFT_FEATURE_LIST } from './alpine-drift-features'
 import {
   ALPINE_CENTER,
@@ -120,6 +121,7 @@ export const ALPINE_REALM: RealmDefinition = {
   })),
   /** 雪原外圈迎著崖下吹上來的風，越往外越走不動，過了推回線被風推回來；斷崖在推回線外六格以上 */
   driftFeatureList: ALPINE_DRIFT_FEATURE_LIST,
+  ambientParticleList: ALPINE_AMBIENT_PARTICLE_LIST,
   /** 站在高處往外看：越過雪原的邊緣看雲海與遠處的雪峰，不是仰頭看近處的峰頂 */
   driftLookBias: 'outward',
   boundary: {

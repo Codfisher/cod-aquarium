@@ -3,6 +3,7 @@ import type { RealmDefinition } from '../realm-definition'
 import { BlockId } from '../../block/block-constants'
 import { getGarden, POND_BOARDWALK_START_Z, POND_GATE_OFFSET } from '../../garden/garden-layout'
 import { createGardenGate, YAW_MAP } from '../garden-gate'
+import { LAKE_AMBIENT_PARTICLE_LIST } from '../realm-ambient-table'
 import { LAKE_DRIFT_FEATURE_LIST } from './lake-drift-features'
 import {
   DEEP_FLOOR_Y,
@@ -139,6 +140,7 @@ export const LAKE_REALM: RealmDefinition = {
     },
   ],
   driftFeatureList: LAKE_DRIFT_FEATURE_LIST,
+  ambientParticleList: LAKE_AMBIENT_PARTICLE_LIST,
   boundary: {
     centerX: LAKE_CENTER.x,
     centerZ: LAKE_CENTER.z,

@@ -1,6 +1,7 @@
 import type { RealmDefinition } from '../realm-definition'
 import { BlockId } from '../../block/block-constants'
 import { createGardenGate, YAW_MAP } from '../garden-gate'
+import { SWAMP_AMBIENT_PARTICLE_LIST } from '../realm-ambient-table'
 import { SWAMP_DRIFT_FEATURE_LIST } from './swamp-drift-features'
 import {
   MARSH_RADIUS,
@@ -65,6 +66,7 @@ export const SWAMP_REALM: RealmDefinition = {
   signCaption: { 'zh-hant': '蛙聲隔水相應', 'en': 'Frogs call across the water' },
   icon: 'i-material-symbols:water-drop',
   driftFeatureList: SWAMP_DRIFT_FEATURE_LIST,
+  ambientParticleList: SWAMP_AMBIENT_PARTICLE_LIST,
   /**
    * 站在回程門的東側三格、木棧的起點上，面朝沼澤
    *

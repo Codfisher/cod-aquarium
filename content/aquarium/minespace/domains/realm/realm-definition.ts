@@ -367,6 +367,139 @@ export interface DriftFeature {
   pathList?: { x: number; y: number; z: number }[];
 }
 
+/**
+ * 環境粒子的種類
+ *
+ * 每一種決定外型與動法（拍翅、飄落、閃光、上升…），顏色、數量、什麼時候出現、生在哪裡
+ * 由場景的 AmbientParticle 決定。細節與各種類的預設值見 weather/ambient/ambient-kind-spec，
+ * 設計見 docs/plans/2026-11-27-minespace-realms-design.md 的「環境粒子」一節
+ *
+ * - pollen：日光裡暖色的花粉  dust：灰塵（光束裡、洞裡、遺址裡）  shimmer：暑氣裡閃爍上升的光點
+ * - firefly：螢火（明滅）  spore：發光的孢子（慢、柔）  marshlight：沼澤的鬼火（大、少、慢）
+ * - butterfly、dragonfly、moth：拍翅的飛蟲，蛾繞著燈打轉
+ * - petal：花瓣  seedfluff：蒲公英種絨  feather：羽毛  chaff：麥殼與草屑（風裡橫著飛）
+ * - ash：灰燼  litter：貼地打轉的碎葉
+ * - glint：日照下一閃即逝的亮點（鹽粒、冰晶）  windstreak：順風拉長的細線（吹雪、風沙）
+ * - spray：水沫  steam：往上冒的煙氣  mist：貼著水面橫飄的霧片
+ * - ember：往上冒的火星  bubble：水面冒的泡  drip：從樹冠滴下的水珠
+ */
+export const AMBIENT_PARTICLE_KIND_LIST = [
+  'pollen',
+  'dust',
+  'shimmer',
+  'firefly',
+  'spore',
+  'marshlight',
+  'butterfly',
+  'dragonfly',
+  'moth',
+  'petal',
+  'seedfluff',
+  'feather',
+  'chaff',
+  'ash',
+  'litter',
+  'glint',
+  'windstreak',
+  'spray',
+  'steam',
+  'mist',
+  'ember',
+  'bubble',
+  'drip',
+] as const
+export type AmbientParticleKind = (typeof AMBIENT_PARTICLE_KIND_LIST)[number]
+
+/**
+ * 環境粒子生在哪裡
+ *
+ * - air：鏡頭四周的空中
+ * - ground：鏡頭四周的地面上（地面不含水面與樹冠）
+ * - canopy：鏡頭頭上的樹冠或洞頂底下
+ * - water：鏡頭四周的水面上
+ * - light：燈火方塊（燈籠、紙燈、營火、岩漿）四周  fire：只算燒著的（餘燼、岩漿、灶）
+ * - flower、grass、reed、mushroom、crop：對應的植物方塊四周（花、草、蘆葦、蘑菇、麥）
+ */
+export const AMBIENT_ANCHOR_KIND_LIST = [
+  'air',
+  'ground',
+  'canopy',
+  'water',
+  'light',
+  'fire',
+  'flower',
+  'grass',
+  'reed',
+  'mushroom',
+  'crop',
+] as const
+export type AmbientAnchorKind = (typeof AMBIENT_ANCHOR_KIND_LIST)[number]
+
+/**
+ * 一個時段的活躍程度，零到一（乘在 count 上）
+ *
+ * day 是太陽高掛、night 是全黑；dawn 與 dusk 是兩邊天色轉換的那一小段，
+ * 沒寫就取 day 與 night 的平均（螢火因此在黃昏冒出來一半）
+ */
+export interface AmbientActivity {
+  day: number;
+  night: number;
+  dawn?: number;
+  dusk?: number;
+}
+
+/** 環境粒子的生成區 */
+export interface AmbientSpawn {
+  anchor: AmbientAnchorKind;
+  /** 鏡頭附近一個 anchor 都找不到時改用這個（例如湖邊找不到蘆葦就貼著水面） */
+  fallback?: AmbientAnchorKind;
+  /** 只考慮離鏡頭水平幾格內的 anchor（air 是撒在鏡頭四周的半徑），不給 air 是 11、其他是 18 */
+  reach?: number;
+  /**
+   * 離 anchor 多高（格）：air 是相對鏡頭的高度，ground、water 是離地面或水面，
+   * 植物方塊是離頂面，燈火是離燈那一格的中心，canopy 是離樹冠或洞頂（負值往下）
+   */
+  height: readonly [number, number];
+  /** 在 anchor 四周水平亂開幾格，不給是 0.6 */
+  spread?: number;
+}
+
+/**
+ * 遇到雨與雪時的反應
+ *
+ * - hide：躲起來（預設，飛蟲、花粉、光點）
+ * - keep：照常（雪原的冰晶、雨林的孢子、洞裡的塵）
+ * - rain：跟著雨勢出現（雨林樹冠滴水）
+ */
+export type AmbientWeatherResponse = 'hide' | 'keep' | 'rain'
+
+/**
+ * 一層環境粒子
+ *
+ * 一座大場景最多四層、同一時段合計不超過一個固定的量（見 weather/ambient/ambient-budget）。
+ * 每層一個粒子系統，發射點跟著鏡頭走，只有鏡頭附近才有粒子
+ */
+export interface AmbientParticle {
+  kind: AmbientParticleKind;
+  /** 這一層全速時身邊同時飄著幾顆（最高畫質，其他畫質照 particleRatio 縮） */
+  count: number;
+  activity: AmbientActivity;
+  spawn: AmbientSpawn;
+  /**
+   * 顏色（線性 RGB，加法混合的種類可以超過一）
+   *
+   * 不給就用種類的預設色。colorAlt 是另一端：每顆在兩者之間隨機取色；
+   * 火星（ember）則是「剛冒出來的顏色」與「冷卻後的顏色」
+   */
+  color?: RealmColor;
+  colorAlt?: RealmColor;
+  /** 顆粒大小（格）的範圍，不給用種類的預設 */
+  size?: readonly [number, number];
+  /** 受風影響的程度，乘在場景的風速上，不給是 1；零是完全不跟風 */
+  wind?: number;
+  weatherResponse?: AmbientWeatherResponse;
+}
+
 export type RealmId = 'hub' | 'lake' | 'coast' | 'forest' | 'autumn' | 'swamp' | 'village' | 'cave' | 'alpine' | 'river' | 'wheatfield' | 'meadow' | 'songbird' | 'cicada' | 'rainvale' | 'blizzard' | 'campfire' | 'ruins' | 'jigoku'
 
 export interface RealmDefinition {
@@ -430,6 +563,13 @@ export interface RealmDefinition {
   mirrorTargetList?: RealmMirrorTarget[];
   /** 要開的天氣粒子（落葉、沼澤霧片），見 RealmWeatherParticle；不給就都不開 */
   weatherParticle?: RealmWeatherParticle;
+  /**
+   * 這座場景自己的日夜環境粒子（蝴蝶、螢火、飛沫、冰晶…），見 AmbientParticle
+   *
+   * 給了就取代大廳那一套通用的花粉與螢火（air-motes）；不給就沿用通用的。
+   * 資料集中寫在 realm-ambient-table.ts，各場景只掛一行
+   */
+  ambientParticleList?: AmbientParticle[];
   /** 整片場景的雨、雪與雷，見 RealmWeather；不給就是晴天 */
   weather?: RealmWeather;
   /** 神遊的無人機設定，不給就用預設，見 RealmDriftFlight */
@@ -516,6 +656,9 @@ export interface RealmWeatherParticle {
    *
    * 螢火在每個場景的夜裡都有，跟著鏡頭飄；風露苑延伸出去的原野入夜是蟲的地方，
    * 夜裡要比別處多得多。容量是大廳那一份的三倍，最多給到 3
+   *
+   * 只對沒有 ambientParticleList 的場景有作用：給了自己環境粒子的場景，通用的螢火整組關掉
+   * （風露原的螢火改由 realm-ambient-table 的 MEADOW 那一層負責）
    */
   fireflyDensity?: number;
   fallingLeaves?: RealmParticleArea & {

@@ -1,6 +1,7 @@
 import type { RealmDefinition } from '../realm-definition'
 import { BlockId } from '../../block/block-constants'
 import { createGardenGate, YAW_MAP } from '../garden-gate'
+import { VILLAGE_AMBIENT_PARTICLE_LIST } from '../realm-ambient-table'
 import { VILLAGE_DRIFT_FEATURE_LIST } from './village-drift-features'
 import {
   FIELD_Y,
@@ -59,6 +60,7 @@ export const VILLAGE_REALM: RealmDefinition = {
   isLooping: false,
   hasGardens: false,
   driftFeatureList: VILLAGE_DRIFT_FEATURE_LIST,
+  ambientParticleList: VILLAGE_AMBIENT_PARTICLE_LIST,
   atmosphere: {
     fog: {
       /** 偏暖一點點，跟著日夜走；霧推遠，丘陵的稜線與後面的布景丘都看得到 */

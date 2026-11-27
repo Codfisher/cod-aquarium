@@ -2,6 +2,7 @@ import type { RealmDefinition } from '../realm-definition'
 import { BlockId } from '../../block/block-constants'
 import { FOREST_GATE_OFFSET } from '../../garden/garden-layout'
 import { createGardenGate, YAW_MAP } from '../garden-gate'
+import { FOREST_AMBIENT_PARTICLE_LIST } from '../realm-ambient-table'
 import { FOREST_DRIFT_FEATURE_LIST } from './forest-drift-features'
 import {
   FOREST_CENTER,
@@ -103,6 +104,7 @@ export const FOREST_REALM: RealmDefinition = {
     },
   ],
   driftFeatureList: FOREST_DRIFT_FEATURE_LIST,
+  ambientParticleList: FOREST_AMBIENT_PARTICLE_LIST,
   boundary: {
     centerX: FOREST_CENTER.x,
     centerZ: FOREST_CENTER.z,

@@ -3,6 +3,7 @@ import type { useBlockLights } from '../../composables/use-block-lights'
 import type { TexturePack } from '../block/texture-pack'
 import type { VoxelGi } from '../renderer/voxel-gi'
 import type { AtmosphereState } from '../weather/atmosphere'
+import type { BlockLightSource } from '../world/light-source'
 import type { WaterMap } from '../world/water-body'
 import type { RealmDefinition, RealmId } from './realm-definition'
 import { createCampfireSmoke } from '../../composables/use-babylon-scene'
@@ -38,6 +39,8 @@ export interface WorldLayer {
   worldState: Uint8Array;
   /** 世界上的水在哪裡，漣漪、焦散與雨滴的水花都要問它 */
   waterMap: WaterMap;
+  /** 世界上的燈火，環境粒子的蛾與火星要找它們（見 weather/ambient） */
+  lightSourceList: BlockLightSource[];
   /** 低畫質不建全局光，那時是 null */
   voxelGi: VoxelGi | null;
   /** 淋得到雨、也淋濕得起來的那些材質，天氣的濕潤要掛上去 */
@@ -265,6 +268,7 @@ export async function createWorldLayer({
     realm,
     worldState,
     waterMap,
+    lightSourceList,
     voxelGi,
     getWetMaterialList: () => renderer.getWetMaterialList(),
     applyPack(pack, isBumpActive) {

@@ -2,6 +2,7 @@ import type { RealmDefinition } from '../realm-definition'
 import { BlockId } from '../../block/block-constants'
 import { RUINS_GATE_OFFSET } from '../../garden/garden-layout'
 import { createGardenGate, YAW_MAP } from '../garden-gate'
+import { RUINS_AMBIENT_PARTICLE_LIST } from '../realm-ambient-table'
 import { RUINS_DRIFT_FEATURE_LIST } from './ruins-drift-features'
 import {
   RUINS_CENTER,
@@ -58,6 +59,7 @@ export const RUINS_REALM: RealmDefinition = {
   isLooping: false,
   hasGardens: false,
   driftFeatureList: RUINS_DRIFT_FEATURE_LIST,
+  ambientParticleList: RUINS_AMBIENT_PARTICLE_LIST,
   atmosphere: {
     fog: {
       /**

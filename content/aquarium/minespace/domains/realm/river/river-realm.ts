@@ -1,5 +1,6 @@
 import type { RealmDefinition } from '../realm-definition'
 import { createGardenGate, YAW_MAP } from '../garden-gate'
+import { RIVER_AMBIENT_PARTICLE_LIST } from '../realm-ambient-table'
 import { RIVER_DRIFT_FEATURE_LIST } from './river-drift-features'
 import {
   RIVER_BOUNDARY_CENTER,
@@ -112,6 +113,7 @@ export const RIVER_REALM: RealmDefinition = {
   ],
   /** 四面都是爬不上去的谷壁；這一圈只是保險，比谷底最遠的一點還外面 */
   driftFeatureList: RIVER_DRIFT_FEATURE_LIST,
+  ambientParticleList: RIVER_AMBIENT_PARTICLE_LIST,
   boundary: {
     centerX: RIVER_BOUNDARY_CENTER.x,
     centerZ: RIVER_BOUNDARY_CENTER.z,

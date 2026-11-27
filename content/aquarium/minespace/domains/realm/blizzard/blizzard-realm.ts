@@ -1,6 +1,7 @@
 import type { RealmDefinition } from '../realm-definition'
 import { BlockId } from '../../block/block-constants'
 import { createGardenGate, YAW_MAP } from '../garden-gate'
+import { BLIZZARD_AMBIENT_PARTICLE_LIST } from '../realm-ambient-table'
 import { BLIZZARD_DRIFT_FEATURE_LIST } from './blizzard-drift-features'
 import {
   BLIZZARD_CENTER,
@@ -41,6 +42,7 @@ export const BLIZZARD_REALM: RealmDefinition = {
   signCaption: { 'zh-hant': '只剩風聲', 'en': 'Only the wind' },
   icon: 'i-material-symbols:weather-snowy',
   driftFeatureList: BLIZZARD_DRIFT_FEATURE_LIST,
+  ambientParticleList: BLIZZARD_AMBIENT_PARTICLE_LIST,
   /**
    * 站在回程門的南側三格，面朝南
    *

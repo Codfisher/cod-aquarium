@@ -4,6 +4,7 @@ import type { RealmWeatherLevel } from '../realm/realm-definition'
 import type { Weather } from '../soundscape/type'
 import type { WaterMap } from '../world/water-body'
 import type { AirMotes } from './air-motes'
+import type { AmbientWorldSource, RealmAmbient } from './ambient/realm-ambient'
 import type { AtmosphereState } from './atmosphere'
 import type { FallingLeaves } from './falling-leaves'
 import type { GroundMist } from './ground-mist'
@@ -31,6 +32,7 @@ import {
 import { getRealm } from '../realm/realm-list'
 import { realmTransitionState } from '../realm/realm-transition'
 import { createAirMotes } from './air-motes'
+import { createRealmAmbient, hasAmbientProfile } from './ambient/realm-ambient'
 import {
   CLEAR_ATMOSPHERE,
   createAtmosphereState,
@@ -219,6 +221,12 @@ interface StartParams {
    * 給函式：換場景時世界整個換掉，天氣系統卻是同一份
    */
   getWaterMap: () => WaterMap;
+  /**
+   * 環境粒子要找的世界（方塊、水、燈火），換場景的空檔回傳 null
+   *
+   * 給函式：換場景時世界整個換掉，天氣系統卻是同一份，環境粒子靠它得知世界換了
+   */
+  getAmbientWorldSource: () => AmbientWorldSource | null;
   /** 白晝的程度，0 為全暗、1 為大白天。空氣裡飄什麼要看它 */
   getDayRatio: () => number;
   /** 這一刻是幾點，晨霧只在天亮前後那一段出現 */
@@ -229,6 +237,9 @@ interface StartParams {
 
 /** 範圍收在零以上的數值欄位，霧距與光的倍率都不能是負的 */
 const NON_NEGATIVE_RANGE = { min: 0 }
+
+/** 環境粒子跟風的倍率範圍：場景的風速倍率（雲用的那個）照樣套，但完全無風或颳到粒子失控都不行 */
+const AMBIENT_WIND_SCALE_RANGE = { min: 0.3, max: 2.5 }
 
 /** 依距離算出區域效果的強度，0 為完全在外、1 為正中心 */
 function measureZoneRatio(
@@ -320,6 +331,7 @@ export function useWeather() {
   let swampMist: SwampMist | null = null
   let groundMist: GroundMist | null = null
   let airMotes: AirMotes | null = null
+  let realmAmbient: RealmAmbient | null = null
   let fallingLeaves: FallingLeaves | null = null
   let wetness: Wetness | null = null
   let skyReflectionTexture: DynamicTexture | null = null
@@ -395,6 +407,7 @@ export function useWeather() {
     playThunder: triggerThunder,
     castRainRay,
     getWaterMap,
+    getAmbientWorldSource,
     getDayRatio,
     getTimeOfDay,
     wetMaterialList,
@@ -462,6 +475,18 @@ export function useWeather() {
        * 生成速度沒變，大廳的螢火一樣多
        */
       fireflyCount: scaleParticleCount(144),
+    })
+
+    /**
+     * 各大場景自己的日夜環境粒子（蝶、螢火、飛沫、冰晶…）
+     *
+     * 世界換了就整批重建（見 realm-ambient），所以這裡只建管理端；
+     * 有自己設定的場景，上面那組通用的花粉與螢火在每幀被關掉
+     */
+    realmAmbient = createRealmAmbient({
+      scene,
+      getParticleRatio: () => preset.value.particleRatio,
+      getWorldSource: getAmbientWorldSource,
     })
 
     fallingLeaves = createFallingLeaves({
@@ -887,14 +912,41 @@ export function useWeather() {
          * 對浮塵是關掉、對螢火卻是開到最大。
          * 大白天走到邊界會召出一群螢火，關掉這個開關也一樣
          */
+        /**
+         * 有自己環境粒子設定的場景，通用的花粉與螢火整組關掉
+         *
+         * 每座場景的日夜各有各的東西（見 RealmDefinition.ambientParticleList），
+         * 不再每個場景一到夜裡都是同一批螢火；大廳與沒設定的場景照舊
+         */
+        const hasRealmAmbient = hasAmbientProfile(activeRealmState.realmId)
+        const isAirMoteVisible = devToggle.airMotes && !hasRealmAmbient
         airMotes?.update(
           camera,
-          devToggle.airMotes ? getDayRatio() : 0,
-          devToggle.airMotes ? atmosphere.caveRatio : 0,
-          devToggle.airMotes ? edgeHideRatio : 0,
+          isAirMoteVisible ? getDayRatio() : 0,
+          isAirMoteVisible ? atmosphere.caveRatio : 0,
+          isAirMoteVisible ? edgeHideRatio : 0,
           /** 風露原的螢火比別處多（weatherParticle.fireflyDensity），大廳與其他場景是 1 */
           realmParticle?.fireflyDensity,
         )
+
+        /**
+         * 環境粒子的整體可見程度
+         *
+         * 世界邊界與開關照空氣顆粒的規矩；躲在屋簷與岩壁底下（caveRatio）收掉六成，
+         * 天空看不到的地方蝴蝶與冰晶不該漫天飛。地底的場景整個都在洞裡，那是它的常態，不收
+         */
+        const ambientCoverRatio = activeRealmState.isUnderground ? 0 : atmosphere.caveRatio
+        realmAmbient?.update({
+          camera,
+          deltaSecond: deltaTime,
+          dayRatio: getDayRatio(),
+          timeOfDay: getTimeOfDay(),
+          brightness: activeRealmState.isUnderground ? 1 : dayBrightness,
+          rainRatio,
+          snowRatio,
+          visibleRatio: devToggle.airMotes ? edgeHideRatio * (1 - ambientCoverRatio * 0.6) : 0,
+          windScale: applyRealmNumber(1, activeRealmState.atmosphere.cloud?.windSpeed, AMBIENT_WIND_SCALE_RANGE),
+        })
 
         /**
          * 淋濕得快、乾得慢
@@ -1012,6 +1064,7 @@ export function useWeather() {
     swampMist?.dispose()
     groundMist?.dispose()
     airMotes?.dispose()
+    realmAmbient?.dispose()
     fallingLeaves?.dispose()
     skyReflectionTexture?.dispose()
   })

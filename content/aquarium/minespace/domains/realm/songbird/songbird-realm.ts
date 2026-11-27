@@ -1,6 +1,7 @@
 import type { RealmDefinition } from '../realm-definition'
 import { BlockId } from '../../block/block-constants'
 import { createGardenGate, YAW_MAP } from '../garden-gate'
+import { SONGBIRD_AMBIENT_PARTICLE_LIST } from '../realm-ambient-table'
 import { SONGBIRD_DRIFT_FEATURE_LIST } from './songbird-drift-features'
 import {
   SONGBIRD_CENTER,
@@ -42,6 +43,7 @@ export const SONGBIRD_REALM: RealmDefinition = {
   signCaption: { 'zh-hant': '唯留清羽囀', 'en': 'Only birdsong' },
   icon: 'i-material-symbols:raven',
   driftFeatureList: SONGBIRD_DRIFT_FEATURE_LIST,
+  ambientParticleList: SONGBIRD_AMBIENT_PARTICLE_LIST,
   /**
    * 站在回程門西側三格，面朝園子
    *
