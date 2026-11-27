@@ -109,7 +109,14 @@ export function createAmbientTexture(scene: Scene, name: string, shape: AmbientS
     })
   })
 
-  texture.update()
+  /**
+   * 上傳時不上下翻轉
+   *
+   * DynamicTexture.update() 預設會把畫布翻過來再上傳，而粒子取貼圖的方向又是另一套，
+   * 兩者一疊，畫在上方的翅膀顯示出來跑到下方，蝴蝶整隻倒過來飛。
+   * 上面的圖樣是照「第一列在上」畫的，這裡就照原樣送出去
+   */
+  texture.update(false)
   texture.hasAlpha = true
   texture.wrapU = Texture.CLAMP_ADDRESSMODE
   texture.wrapV = Texture.CLAMP_ADDRESSMODE
