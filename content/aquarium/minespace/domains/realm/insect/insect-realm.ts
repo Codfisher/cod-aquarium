@@ -90,7 +90,7 @@ export const INSECT_REALM: RealmDefinition = {
     centerX: INSECT_CENTER.x,
     centerZ: INSECT_CENTER.z,
     /** 山腳插在坡頂那一層；沒有地面平面（見 INSECT_EDGE_RADIUS） */
-    ridge: { style: 'downs', footY: INSECT_RIDGE_Y + 0.5, seed: 'cricket-downs' },
+    ridge: { style: 'moor', footY: INSECT_RIDGE_Y + 0.5, seed: 'cricket-downs' },
   },
   /** 往草原去是一陣偏藍的暗霧，夾著幾點往上浮的螢綠 */
   transition: {

@@ -52,12 +52,15 @@ export interface AirMotes {
    * 貼近世界邊界時收到零。這一項必須自己一個參數，不能折進 dayRatio——
    * 螢火是拿 1 - dayRatio 反推的，把邊界折進去等於告訴牠們天黑了，
    * 大白天走到邊界反而會召出一群螢火
+   *
+   * fireflyDensity 乘在螢火的生成速度上，大場景的 weatherParticle 給（蟲鳴夜原是 3），預設 1
    */
   update: (
     camera: UniversalCamera,
     dayRatio: number,
     caveRatio: number,
     visibleRatio: number,
+    fireflyDensity?: number,
   ) => void;
   dispose: () => void;
 }
@@ -228,7 +231,7 @@ export function createAirMotes({
   let recenterElapsed = RECENTER_INTERVAL
 
   return {
-    update(camera, dayRatio, caveRatio, visibleRatio) {
+    update(camera, dayRatio, caveRatio, visibleRatio, fireflyDensity = 1) {
       measureSection('空氣顆粒', () => {
         const deltaTime = Math.min(0.1, scene.getEngine().getDeltaTime() / 1000)
 
@@ -268,10 +271,11 @@ export function createAirMotes({
         /**
          * 螢火只在地表的夜裡出來
          *
-         * 洞裡沒有螢火——那裡沒有草。天一亮牠們也就散了
+         * 洞裡沒有螢火——那裡沒有草。天一亮牠們也就散了。
+         * 蟲鳴夜原那種滿是草的場景再乘上 fireflyDensity，容量（fireflyCount）已經留了三倍
          */
         const nightRatio = Math.max(0, 1 - dayRatio / FIREFLY_DAY_THRESHOLD)
-        fireflySystem.emitRate = FIREFLY_EMIT_RATE * nightRatio * (1 - caveRatio) * visibleRatio
+        fireflySystem.emitRate = FIREFLY_EMIT_RATE * fireflyDensity * nightRatio * (1 - caveRatio) * visibleRatio
       })
     },
     dispose() {

@@ -16,8 +16,8 @@ import {
  * 蜂巢圃正中三個蜂箱北側原本是一道七格的竹籬，人得繞路才靠得近。
  * 門嵌進竹籬正中（APIARY_HUB_GATE_OFFSET），竹籬分成門兩側的兩段籬，
  * 門洞朝北：從禪庭中心那串飛石走上木座，正前方就是這道門，門洞框著後面那疊蜂箱。
- * 預設的木牌位置（門西側三格）正好是西段竹籬，往北挪一格立在籬前，牌面朝北；
- * 回來時落在門北邊四格的木地板上，面朝門與蜂箱
+ * 預設的木牌位置（門西側三格）正好是西段竹籬的一端，往北挪一格立在籬前，牌面朝北；
+ * 回來時落在門北邊四格、木座北緣那道半磚唇上，面朝門與蜂箱
  */
 const GATE = createGardenGate({
   gardenId: 'apiary',
@@ -93,7 +93,7 @@ export const APIARY_REALM: RealmDefinition = {
      * 山腳插在花坡稜線那一層；沒有地面平面（見 APIARY_EDGE_RADIUS），
      * 稜線外走不到的 LAKE_BED 從谷裡看不到
      */
-    ridge: { style: 'bloom', footY: APIARY_RIDGE_Y + 0.5, seed: 'hive-terraces' },
+    ridge: { style: 'blossom', footY: APIARY_RIDGE_Y + 0.5, seed: 'hive-terraces' },
   },
   /** 往花谷去是一陣暖黃的霧，夾著往上飄的花粉 */
   transition: {

@@ -23,10 +23,11 @@ export const MEADOW_GROUND_Y = 8
  * 回程門
  *
  * 大廳那座門立在草苑中央偏東，門洞朝西，人從西邊走過來、往東穿過去；
- * 這裡的門立在原野西半邊一塊拉平的草地上，門洞朝西，人到了之後仍是往東走，
- * 眼前是一路起伏到天邊的丘
+ * 這裡的門立在原野西半邊一塊拉平的草地上，門洞朝西，人到了之後仍是往東走。
+ * 落在一條往東延伸的低谷口：南北兩側是圓丘，正前方一路是低緩的草地，望得很遠。
+ * 第一版放在正西（中心往西二十六格），一落地眼前就是一座圓丘，什麼都看不到
  */
-export const MEADOW_PORTAL_POINT = { x: MEADOW_CENTER.x - 26, z: MEADOW_CENTER.z }
+export const MEADOW_PORTAL_POINT = { x: MEADOW_CENTER.x - 22, z: MEADOW_CENTER.z + 6 }
 
 /**
  * 大廳那座門離草苑中心的偏移

@@ -72,10 +72,10 @@ export const APIARY_PORTAL_POINT = { x: APIARY_CENTER.x, z: APIARY_CENTER.z - 11
 /**
  * 大廳那座門：門洞中心離蜂巢圃中心的偏移
  *
- * 嵌在竹籬正中，竹籬讓出門的寬度、兩側各留兩格當作門邊的籬。
+ * 嵌在蜂箱北側那道竹籬正中（竹籬在中心往北三格那一排），竹籬讓出門的寬度、兩側各留兩格當作門邊的籬。
  * 蜂巢圃的造景（buildApiaryGarden）與大廳的門（APIARY_HUB_GATE）都讀這個點
  */
-export const APIARY_HUB_GATE_OFFSET = { x: 0, z: -2 }
+export const APIARY_HUB_GATE_OFFSET = { x: 0, z: -3 }
 
 /**
  * 花台上一組一組的蜂箱

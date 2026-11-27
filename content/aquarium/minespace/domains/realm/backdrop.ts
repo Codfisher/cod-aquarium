@@ -226,6 +226,104 @@ const RIDGE_STYLE_MAP: Record<RealmRidgeStyle, RidgeStyle> = {
     ],
     albedo: new Color3(0.1, 0.14, 0.12),
   },
+  /**
+   * 萬花蜂台：三圈暖黃綠的圓丘
+   *
+   * 山腳插在花坡稜線那一層（谷底以上九格），從谷底看出去，花坡把兩百多格外低於四十格的東西全擋掉，
+   * 最近那圈得比林稜高出一截才冒得出頭。起伏寬而緩，是花季裡曬著太陽的草丘，帶一點暖黃
+   */
+  blossom: {
+    layerList: [
+      { radius: 260, segmentCount: 220, baseHeight: 24, heightRange: 24, heightStep: 3, haze: 0.36, frequency: 1.8, hasGap: false },
+      { radius: 460, segmentCount: 260, baseHeight: 42, heightRange: 44, heightStep: 5, haze: 0.54, frequency: 1.6, hasGap: false },
+      { radius: 740, segmentCount: 320, baseHeight: 66, heightRange: 80, heightStep: 8, haze: 0.7, frequency: 1.5, hasGap: false },
+    ],
+    albedo: new Color3(0.2, 0.21, 0.08),
+  },
+  /**
+   * 蟲鳴夜原：兩圈又長又暗的低丘
+   *
+   * 草原外的丘一道接一道、起伏很長，顏色是夜裡的草遠看那種偏藍的暗綠；
+   * 近的那圈有缺口，看得到後面一段更淡的稜線
+   */
+  moor: {
+    layerList: [
+      { radius: 250, segmentCount: 220, baseHeight: 20, heightRange: 14, heightStep: 2, haze: 0.46, frequency: 1.4, hasGap: true },
+      { radius: 480, segmentCount: 260, baseHeight: 30, heightRange: 26, heightStep: 3, haze: 0.64, frequency: 1.2, hasGap: false },
+    ],
+    albedo: new Color3(0.06, 0.09, 0.07),
+  },
+  /**
+   * 百囀林苑：三圈圓頂的闊葉林丘
+   *
+   * 園子外圍那圈橡樹的樹冠在五十格外、高出草地十來格，布景的丘要從它後面冒出頭，
+   * 所以最近那圈的底就高；顏色是闊葉林遠看清透的綠，比林海的針葉林亮得多。
+   * 近的那圈有缺口，看得到後面兩圈
+   */
+  arbor: {
+    layerList: [
+      { radius: 280, segmentCount: 220, baseHeight: 44, heightRange: 30, heightStep: 4, haze: 0.34, frequency: 1.7, hasGap: true },
+      { radius: 480, segmentCount: 260, baseHeight: 64, heightRange: 50, heightStep: 6, haze: 0.52, frequency: 1.5, hasGap: false },
+      { radius: 760, segmentCount: 320, baseHeight: 96, heightRange: 90, heightStep: 10, haze: 0.68, frequency: 1.4, hasGap: false },
+    ],
+    albedo: new Color3(0.11, 0.2, 0.09),
+  },
+  /**
+   * 蟬雨深林：三圈又高又密的深綠闊葉林稜
+   *
+   * 盛夏的闊葉林遠看是一整片濃到發黑的綠，起伏密、一團一團的樹冠；
+   * 林子裡只有從蓋子邊緣與葉縫看得到它，所以做得高
+   */
+  canopy: {
+    layerList: [
+      { radius: 230, segmentCount: 240, baseHeight: 30, heightRange: 30, heightStep: 3, haze: 0.3, frequency: 2.4, hasGap: false },
+      { radius: 420, segmentCount: 280, baseHeight: 50, heightRange: 56, heightStep: 6, haze: 0.48, frequency: 2, hasGap: false },
+      { radius: 700, segmentCount: 320, baseHeight: 80, heightRange: 100, heightStep: 10, haze: 0.66, frequency: 1.7, hasGap: false },
+    ],
+    albedo: new Color3(0.05, 0.12, 0.045),
+  },
+  /**
+   * 營火谷：三圈暗沉的橡樹林丘
+   *
+   * 谷坡的稜線在五十幾格外、高出谷底八格，布景要從它後面冒頭，最近那圈的底跟著抬高；
+   * 圓頂、階梯細，是長滿闊葉樹的丘不是岩峰。顏色比林海的松暗、偏一點褐，
+   * 一圈比一圈淡進那片帶煙的暖霧裡
+   */
+  woodland: {
+    layerList: [
+      { radius: 240, segmentCount: 220, baseHeight: 20, heightRange: 20, heightStep: 3, haze: 0.34, frequency: 2, hasGap: false },
+      { radius: 430, segmentCount: 260, baseHeight: 36, heightRange: 40, heightStep: 5, haze: 0.52, frequency: 1.8, hasGap: false },
+      { radius: 700, segmentCount: 300, baseHeight: 60, heightRange: 80, heightStep: 8, haze: 0.7, frequency: 1.6, hasGap: false },
+    ],
+    albedo: new Color3(0.07, 0.09, 0.05),
+  },
+  /**
+   * 石殿遺址：三圈參差的灰岩稜
+   *
+   * 起伏比湖中島的山密、階梯粗，一段一段斷開的岩脊，像亂石坡一路往遠處堆上去；
+   * 最近那圈有缺口看得到後面。顏色是不帶綠的冷灰，與殿裡的石磚同一個色系
+   */
+  crag: {
+    layerList: [
+      { radius: 300, segmentCount: 180, baseHeight: 18, heightRange: 44, heightStep: 6, haze: 0.28, frequency: 2.6, hasGap: true },
+      { radius: 520, segmentCount: 220, baseHeight: 34, heightRange: 76, heightStep: 9, haze: 0.48, frequency: 2.4, hasGap: false },
+      { radius: 800, segmentCount: 260, baseHeight: 60, heightRange: 130, heightStep: 14, haze: 0.66, frequency: 2.2, hasGap: false },
+    ],
+    albedo: new Color3(0.15, 0.15, 0.16),
+  },
+  /**
+   * 湯煙谷：兩圈陡而禿的火山稜
+   *
+   * 谷壁高出谷底十四格、短軸只有三十幾格，布景只有從谷的兩頭望出去才看得到，所以給得又高又陡；
+   * 寬的山塊、粗的階，是一座火山口的外緣。顏色是被硫磺染過的赭黃褐，淡在那片暖黃的湯煙裡
+   */
+  caldera: {
+    layerList: [
+      { radius: 280, segmentCount: 160, baseHeight: 46, heightRange: 70, heightStep: 8, haze: 0.3, frequency: 1.6, hasGap: true },
+      { radius: 500, segmentCount: 200, baseHeight: 84, heightRange: 120, heightStep: 12, haze: 0.52, frequency: 1.4, hasGap: false },
+    ],
+    albedo: new Color3(0.24, 0.17, 0.09),
+  },
 }
 
 /** 山腳插到水面以下多深，湖面與山腳之間不能露出縫 */

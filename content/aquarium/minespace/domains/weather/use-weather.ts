@@ -1,5 +1,6 @@
 import type { DynamicTexture, Scene, StandardMaterial, UniversalCamera } from '@babylonjs/core'
 import type { GardenId } from '../garden/garden-layout'
+import type { RealmWeatherLevel } from '../realm/realm-definition'
 import type { Weather } from '../soundscape/type'
 import type { WaterMap } from '../world/water-body'
 import type { AirMotes } from './air-motes'
@@ -300,6 +301,22 @@ export function getSnowRatio(x: number, z: number): number {
 }
 
 /**
+ * 大場景整片的雨（雪）勢此刻多強，沒給就是零
+ *
+ * 延伸聽雨亭、雨聽堂、吹雪野的大場景整片都在那場天氣裡（RealmDefinition 的 weather），
+ * 雨勢不看站在哪、看時間：兩道週期互質的正弦疊起來，在 min 與 max 之間慢慢起落，
+ * 雨一陣大一陣小，暴風雪偶爾鬆開一點、看得到十幾格外的燈籠
+ */
+export function measureRealmWeatherLevel(level: RealmWeatherLevel | undefined, elapsedSecond: number): number {
+  if (!level)
+    return 0
+
+  const phase = (elapsedSecond / level.periodSecond) * Math.PI * 2
+  const wave = 0.5 + 0.5 * (0.65 * Math.sin(phase) + 0.35 * Math.sin(phase * 2.37 + 1.3))
+  return level.min + (level.max - level.min) * wave
+}
+
+/**
  * 天氣系統
  *
  * 下雨時同時處理四件事：雨的粒子、雨聲與雷聲、天色轉陰、鳥蟲噤聲。
@@ -335,6 +352,8 @@ export function useWeather() {
   let thunderRatio = 0
   /** 地面此刻有多濕，0 為全乾、1 為濕透 */
   let wetRatio = 0
+  /** 大場景天氣起落用的時鐘（秒），見 measureRealmWeatherLevel */
+  let realmWeatherElapsed = 0
   /**
    * 把雷聲叫出來
    *
@@ -453,7 +472,11 @@ export function useWeather() {
       scene,
       /** 顆粒只有幾個像素大，堆得起來才看得出空氣裡有東西 */
       moteCount: scaleParticleCount(220),
-      fireflyCount: scaleParticleCount(48),
+      /**
+       * 大廳的生成速度只用得到四十八顆左右；容量留三倍給蟲鳴夜原（weatherParticle.fireflyDensity），
+       * 生成速度沒變，大廳的螢火一樣多
+       */
+      fireflyCount: scaleParticleCount(144),
     })
 
     fallingLeaves = createFallingLeaves({
@@ -505,14 +528,26 @@ export function useWeather() {
           : 1)
         swampMist?.setArea(hasGardens ? HUB_MIST_AREA : realmParticle?.swampMist ?? null)
 
-        rainRatio = hasGardens ? getRainRatio(camera.position.x, camera.position.z) : 0
-        snowRatio = hasGardens ? getSnowRatio(camera.position.x, camera.position.z) : 0
+        /**
+         * 延伸雨區、雪區箱庭的大場景整片都在那場天氣裡（RealmDefinition 的 weather），
+         * 其他大場景沒給，雨雪都是零，不會漏到別的場景
+         */
+        const realmWeather = hasGardens ? undefined : getRealm(activeRealmState.realmId).weather
+        realmWeatherElapsed += deltaTime
+        rainRatio = hasGardens
+          ? getRainRatio(camera.position.x, camera.position.z)
+          : measureRealmWeatherLevel(realmWeather?.rain, realmWeatherElapsed)
+        snowRatio = hasGardens
+          ? getSnowRatio(camera.position.x, camera.position.z)
+          : measureRealmWeatherLevel(realmWeather?.snow, realmWeatherElapsed)
         weather.value = rainRatio > RAIN_WEATHER_THRESHOLD
           ? 'rain'
           : snowRatio > RAIN_WEATHER_THRESHOLD ? 'snow' : 'clear'
 
-        /** 站在聽雨亭那片雨裡才會打雷，雨聽堂不算 */
-        thunderRatio = hasGardens ? measureZoneRatio(camera.position.x, camera.position.z, THUNDER_ZONE) : 0
+        /** 站在聽雨亭那片雨裡才會打雷，雨聽堂不算；大場景看定義的 hasThunder（聽雨林有） */
+        thunderRatio = hasGardens
+          ? measureZoneRatio(camera.position.x, camera.position.z, THUNDER_ZONE)
+          : realmWeather?.hasThunder ? rainRatio : 0
 
         /**
          * 先套沼澤的霧，再套雨
@@ -872,6 +907,8 @@ export function useWeather() {
           devToggle.airMotes ? getDayRatio() : 0,
           devToggle.airMotes ? atmosphere.caveRatio : 0,
           devToggle.airMotes ? edgeHideRatio : 0,
+          /** 蟲鳴夜原的螢火比別處多（weatherParticle.fireflyDensity），大廳與其他場景是 1 */
+          realmParticle?.fireflyDensity,
         )
 
         /**

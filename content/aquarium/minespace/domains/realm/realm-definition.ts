@@ -170,8 +170,15 @@ export interface RealmPortal {
  * - plains：兩圈又低又淡的遠丘，大段是空的地平線（千頃麥浪）
  * - downs：三圈一座一座的嫩綠圓丘（野花原）
  * - fells：三圈高而暗的青灰山，近的那圈有缺口（羊鳴谷）
+ * - blossom：三圈暖黃綠的圓丘，從花坡後面冒出頭（萬花蜂台）
+ * - moor：兩圈又長又暗的低丘，近的那圈有缺口（蟲鳴夜原）
+ * - arbor：三圈圓頂的闊葉林丘，綠得清透（百囀林苑）
+ * - canopy：三圈又高又密的深綠闊葉林稜（蟬雨深林）
+ * - woodland：三圈暗沉的橡樹林丘，一層比一層淡進暖煙裡（營火谷）
+ * - crag：三圈參差的灰岩稜，近的那圈有缺口（石殿遺址）
+ * - caldera：兩圈陡而禿的赭黃火山稜，淡在硫煙裡（湯煙谷）
  */
-export type RealmRidgeStyle = 'mountain' | 'forest' | 'islet' | 'autumn' | 'marsh' | 'hills' | 'snowpeak' | 'plains' | 'downs' | 'fells'
+export type RealmRidgeStyle = 'mountain' | 'forest' | 'islet' | 'autumn' | 'marsh' | 'hills' | 'snowpeak' | 'plains' | 'downs' | 'fells' | 'blossom' | 'moor' | 'arbor' | 'canopy' | 'woodland' | 'crag' | 'caldera'
 
 /**
  * 遠景布景
@@ -290,7 +297,7 @@ export interface RealmSwellArea {
   halfSize: number;
 }
 
-export type RealmId = 'hub' | 'lake' | 'coast' | 'forest' | 'autumn' | 'swamp' | 'village' | 'cave' | 'alpine' | 'river' | 'wheatfield' | 'meadow' | 'pasture'
+export type RealmId = 'hub' | 'lake' | 'coast' | 'forest' | 'autumn' | 'swamp' | 'village' | 'cave' | 'alpine' | 'river' | 'wheatfield' | 'meadow' | 'pasture' | 'apiary' | 'insect' | 'songbird' | 'cicada' | 'rainvale' | 'rainhall' | 'blizzard' | 'campfire' | 'ruins' | 'jigoku'
 
 export interface RealmDefinition {
   id: RealmId;
@@ -353,10 +360,45 @@ export interface RealmDefinition {
   mirrorTargetList?: RealmMirrorTarget[];
   /** 要開的天氣粒子（落葉、沼澤霧片），見 RealmWeatherParticle；不給就都不開 */
   weatherParticle?: RealmWeatherParticle;
+  /** 整片場景的雨、雪與雷，見 RealmWeather；不給就是晴天 */
+  weather?: RealmWeather;
   /** 要放的羊群，見 RealmSheepFlock；不給就沒有（大廳的羊群照舊跟著牧野，hasGardens 時自動放） */
   sheepFlock?: RealmSheepFlock;
   /** 開場面板與 HUD 顯示的圖示 */
   icon: string;
+}
+
+/**
+ * 雨（雪）勢的起落範圍，零到一
+ *
+ * 在 min 與 max 之間慢慢起伏（兩道週期互質的正弦疊起來，見 use-weather 的 measureRealmWeatherLevel），
+ * 一陣大一陣小；min 與 max 給一樣就是固定。滿檔（一）就是大廳裡站在雨區箱庭正中的那一場
+ */
+export interface RealmWeatherLevel {
+  min: number;
+  max: number;
+  /** 起伏一趟大約幾秒 */
+  periodSecond: number;
+}
+
+/**
+ * 整片場景的天氣
+ *
+ * 大廳的雨與雪綁在箱庭的座標上（聽雨亭、雨聽堂、吹雪野，見 use-weather 的天氣範圍），
+ * 站進木座才下；延伸那幾座箱庭的大場景整片都在那場天氣裡，雨勢不看站在哪、看時間起落。
+ * 雨雪粒子照舊跟著鏡頭、打到屋頂或樹冠就停（射線），簷下與亭子裡是乾的；
+ * 霧、光、陰天罩、地濕與鳥蟲噤聲都跟著雨（雪）勢走，與大廳那幾座同一套
+ */
+export interface RealmWeather {
+  rain?: RealmWeatherLevel;
+  snow?: RealmWeatherLevel;
+  /**
+   * 會不會打雷（聽雨亭有、雨聽堂沒有）
+   *
+   * 雷聲要有一顆 id 為 rainvale-thunder、mode 為 trigger 的音源（渲染端只認這個名字），
+   * 閃電在雨勢過半時才劈
+   */
+  hasThunder?: boolean;
 }
 
 /**
@@ -402,6 +444,13 @@ export interface RealmParticleArea {
  * 大場景延伸那一座箱庭的設計，招牌粒子也跟著過去，範圍在這裡給
  */
 export interface RealmWeatherParticle {
+  /**
+   * 螢火的濃度，乘在大廳那一份的生成速度上（見 air-motes），不給就是 1
+   *
+   * 螢火在每個場景的夜裡都有，跟著鏡頭飄；蟲聲叢延伸出去的草原是蟲的地方，
+   * 夜裡要比別處多得多。容量是大廳那一份的三倍，最多給到 3
+   */
+  fireflyDensity?: number;
   fallingLeaves?: RealmParticleArea & {
     /**
      * 射線打到的表面低於這個高度就重抽（世界座標）

@@ -1,6 +1,9 @@
 import type { GardenDefinition } from './garden-layout'
 import { createSeededRandom, fbm2D } from '../../utils/noise'
 import { BlockId } from '../block/block-constants'
+import { CICADA_HUB_GATE_OFFSET } from '../realm/cicada/cicada-layout'
+import { RAINHALL_HUB_GATE_OFFSET } from '../realm/rainhall/rainhall-layout'
+import { SONGBIRD_HUB_GATE_OFFSET } from '../realm/songbird/songbird-layout'
 import { setBlock } from '../world/world-access'
 import {
   capWithSnow,
@@ -59,7 +62,14 @@ export function buildRainhallGarden(state: Uint8Array, garden: GardenDefinition)
 
   /** 屋子的半寬，南面整片敞開，所以只有三面牆 */
   const hallHalf = 3
-  const wallHeight = 4
+  /**
+   * 牆高五格
+   *
+   * 原本四格。通往雨聽深院的門立在屋子最裡面（RAINHALL_HUB_GATE_OFFSET），
+   * 門有五格高（三格門洞、島木、笠木），四格高的屋裡笠木會頂進天花板；
+   * 牆加高一格，整座門剛好收在屋裡，屋頂仍是出簷加兩層，站在屋裡不會被當成洞穴壓暗
+   */
+  const wallHeight = 5
 
   /** 屋內的地板：榻榻米，四周留一圈深色木當框 */
   fillBox(
@@ -174,8 +184,13 @@ export function buildRainhallGarden(state: Uint8Array, garden: GardenDefinition)
     carveWater(state, centerX + puddle.x, deckY, centerZ + puddle.z, 1, BlockId.GRAVEL)
   }
 
-  /** 屋內一盞和紙燈，雨天的室內要有一點暖 */
-  setBlock(state, centerX - hallHalf + 1, groundY, centerZ - hallHalf + 1, BlockId.PAPER_LAMP)
+  /**
+   * 屋內一盞和紙燈，雨天的室內要有一點暖
+   *
+   * 原本在西北角（門的笠木西端正下方），門立進來之後往南挪一格，
+   * 與門東南那塊木牌一左一右站在門前
+   */
+  setBlock(state, centerX + RAINHALL_HUB_GATE_OFFSET.x - 2, groundY, centerZ + RAINHALL_HUB_GATE_OFFSET.z + 1, BlockId.PAPER_LAMP)
 
   /**
    * 天花板中央再吊一盞
@@ -265,6 +280,17 @@ export function buildSongbirdGarden(state: Uint8Array, garden: GardenDefinition)
       return BlockId.FLOWER_DANDELION
     return BlockId.FLOWER_TULIP
   }, GRASS_SET)
+
+  /**
+   * 門前那幾步
+   *
+   * 通往百囀林苑的門緊挨著飲水盤東邊（SONGBIRD_HUB_GATE_OFFSET）、門洞朝東，
+   * 從木座東緣到門前這一段的花草拔掉，看得出門是從那一頭走過來的。
+   * 花照樣撒完才拔，亂數的順序不變，其他格子的花一株不差
+   */
+  for (let offsetX = SONGBIRD_HUB_GATE_OFFSET.x + 2; offsetX <= inner; offsetX++) {
+    setBlock(state, centerX + offsetX, groundY, centerZ + SONGBIRD_HUB_GATE_OFFSET.z, BlockId.AIR)
+  }
 }
 
 /**
@@ -306,7 +332,15 @@ export function buildCicadaGarden(state: Uint8Array, garden: GardenDefinition): 
     { x: 4, z: 3 },
   ]
   for (const spot of trunkSpotList) {
-    placeOakTree(state, centerX + spot.x, groundY, centerZ + spot.z, 6 + Math.floor(random() * 2))
+    /**
+     * 樹幹一律七格
+     *
+     * 原本六到七格隨機。四棵樹圍住的那片陰影正中立著通往蟬雨深林的門（CICADA_HUB_GATE_OFFSET），
+     * 笠木在門腳以上四格，六格高的樹最下層樹冠也在那個高度，東北那棵的葉子會插進笠木。
+     * 亂數照樣抽，其他造景的位置不變
+     */
+    const trunkHeight = Math.max(7, 6 + Math.floor(random() * 2))
+    placeOakTree(state, centerX + spot.x, groundY, centerZ + spot.z, trunkHeight)
   }
 
   /**
@@ -408,6 +442,16 @@ export function buildCicadaGarden(state: Uint8Array, garden: GardenDefinition): 
       return BlockId.TALL_GRASS
     return BlockId.STONE_PLANT
   }, new Set([BlockId.GRASS, BlockId.DIRT]))
+
+  /**
+   * 緣廊到門前那幾步
+   *
+   * 門立在樹下陰影正中（CICADA_HUB_GATE_OFFSET）、門洞朝南對著緣廊，
+   * 從廊板往北到門前這一段的草拔掉，坐在廊上看得出那是一條走過去的路
+   */
+  for (let offsetZ = CICADA_HUB_GATE_OFFSET.z + 2; offsetZ < verandaZ - centerZ; offsetZ++) {
+    setBlock(state, centerX + CICADA_HUB_GATE_OFFSET.x, groundY, centerZ + offsetZ, BlockId.AIR)
+  }
 }
 
 /**
@@ -607,6 +651,15 @@ export function buildJigokuGarden(state: Uint8Array, garden: GardenDefinition): 
         continue
       }
 
+      /**
+       * 鳥居與熔岩縫之間那一塊不堆岸
+       *
+       * 通往湯煙谷的門立在這裡（JIGOKU_GATE_OFFSET），旁邊是木牌、石碑與那一對石燈籠，
+       * 岸堆上來的話門柱與燈籠會半截埋在黑曜石裡。整平成一小塊台地，像是人在縫前清出來的一塊地
+       */
+      if (Math.abs(offsetX) <= 4 && offsetZ >= 2)
+        continue
+
       /** 離裂縫越遠越高，再乘上一層低頻噪聲讓岩脊忽高忽低 */
       const ridge = fbm2D((centerX + offsetX) * 0.13, (centerZ + offsetZ) * 0.13, 2, 0.5)
       heightList[index] = Math.max(0, Math.min(
@@ -685,11 +738,17 @@ export function buildJigokuGarden(state: Uint8Array, garden: GardenDefinition): 
    */
   placeTorii(state, centerX, groundY, centerZ + garden.halfSize - 2, true)
 
-  /** 門後的石碑，刻著紋樣的那一種。碑前擺一對石燈籠 */
-  const steleZ = centerZ + garden.halfSize - 4
-  setBlock(state, centerX, groundY, steleZ, BlockId.RUNE_STONE)
-  setBlock(state, centerX, groundY + 1, steleZ, BlockId.RUNE_STONE)
-  setBlock(state, centerX, groundY + 2, steleZ, BlockId.STONE_SLAB)
+  /**
+   * 門後的石碑，刻著紋樣的那一種，以及一對石燈籠
+   *
+   * 石碑原本立在鳥居正後方兩格，那個位置讓給了通往湯煙谷的門（JIGOKU_GATE_OFFSET）：
+   * 穿過鳥居先遇到的是這道門，門後兩步就是那條發光的縫。
+   * 石碑往東挪四格、往南一格，站在縫的邊上；石燈籠從碑的兩側移到鳥居與門之間，夾著走道
+   */
+  const steleZ = centerZ + garden.halfSize - 3
+  setBlock(state, centerX + 4, groundY, steleZ, BlockId.RUNE_STONE)
+  setBlock(state, centerX + 4, groundY + 1, steleZ, BlockId.RUNE_STONE)
+  setBlock(state, centerX + 4, groundY + 2, steleZ, BlockId.STONE_SLAB)
   placeStoneLantern(state, centerX - 2, groundY, steleZ)
   placeStoneLantern(state, centerX + 2, groundY, steleZ)
   /**

@@ -65,12 +65,13 @@ export const INSECT_HUB_GATE_OFFSET = { x: 0, z: 0 }
 /**
  * 踩出來的小徑
  *
- * 從回程門往西，在草裡左右彎幾次，最後走進西邊那一大片乾土窪地。
+ * 從回程門筆直往西走一段（一落地就看得到它鑽進草裡），再左右彎幾次，最後走進西邊那一大片乾土窪地。
  * 草原沒有別的路：小徑以外全是高到膝蓋的草，人要撥開草才走得過去
  */
 export const INSECT_PATH_CONTROL_POINT_LIST = [
   { x: INSECT_PORTAL_POINT.x - 1, z: INSECT_PORTAL_POINT.z },
-  { x: INSECT_CENTER.x + 18, z: INSECT_CENTER.z + 4 },
+  { x: INSECT_CENTER.x + 22, z: INSECT_CENTER.z },
+  { x: INSECT_CENTER.x + 15, z: INSECT_CENTER.z + 4 },
   { x: INSECT_CENTER.x + 6, z: INSECT_CENTER.z - 3 },
   { x: INSECT_CENTER.x - 6, z: INSECT_CENTER.z + 5 },
   { x: INSECT_CENTER.x - 17, z: INSECT_CENTER.z - 1 },

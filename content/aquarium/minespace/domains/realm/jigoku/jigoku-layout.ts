@@ -78,7 +78,7 @@ export const HOT_POOL_LIST: HotPool[] = [
   { x: JIGOKU_CENTER.x + 20, z: JIGOKU_CENTER.z - 24, radius: 4, kind: 'spring' },
   { x: JIGOKU_CENTER.x + 10, z: JIGOKU_CENTER.z + 22, radius: 2.5, kind: 'mud' },
   { x: JIGOKU_CENTER.x - 42, z: JIGOKU_CENTER.z - 16, radius: 3, kind: 'mud' },
-  { x: JIGOKU_CENTER.x + 40, z: JIGOKU_CENTER.z - 16, radius: 2.5, kind: 'mud' },
+  { x: JIGOKU_CENTER.x + 30, z: JIGOKU_CENTER.z - 23, radius: 2.5, kind: 'mud' },
   { x: JIGOKU_CENTER.x - 4, z: JIGOKU_CENTER.z - 21, radius: 2, kind: 'mud' },
 ]
 

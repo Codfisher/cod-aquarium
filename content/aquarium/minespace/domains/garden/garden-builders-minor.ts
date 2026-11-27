@@ -1,6 +1,8 @@
 import type { GardenDefinition } from './garden-layout'
 import { createSeededRandom } from '../../utils/noise'
 import { BlockId } from '../block/block-constants'
+import { APIARY_HUB_GATE_OFFSET } from '../realm/apiary/apiary-layout'
+import { INSECT_HUB_GATE_OFFSET } from '../realm/insect/insect-layout'
 import { setBlock } from '../world/world-access'
 import {
   carveWater,
@@ -80,11 +82,15 @@ export function buildCampfireGarden(state: Uint8Array, garden: GardenDefinition)
    * 留一個乾淨的火塘，柴堆交給棚子那邊那幾根
    */
 
-  /** 四張木階梯當矮凳，靠背朝外、人面向火 */
+  /**
+   * 三張木階梯當矮凳，靠背朝外、人面向火
+   *
+   * 原本是四張。東側那張的位置讓給通往營火谷的門（CAMPFIRE_GATE_OFFSET）：
+   * 門洞朝東，從木座東邊走過來，門洞正好框住火堆，第四個「座位」換成了這道門
+   */
   setBlock(state, centerX, groundY, centerZ - 4, BlockId.WOOD_STAIRS_NORTH)
   setBlock(state, centerX, groundY, centerZ + 4, BlockId.WOOD_STAIRS_SOUTH)
   setBlock(state, centerX - 4, groundY, centerZ, BlockId.WOOD_STAIRS_WEST)
-  setBlock(state, centerX + 4, groundY, centerZ, BlockId.WOOD_STAIRS_EAST)
 
   /**
    * 一頂木棚
@@ -106,7 +112,8 @@ export function buildCampfireGarden(state: Uint8Array, garden: GardenDefinition)
   setBlock(state, shelterX + 1, groundY, shelterZ + 1, BlockId.BARREL)
   setBlock(state, shelterX - 1, groundY, shelterZ, BlockId.OAK_LOG)
   setBlock(state, shelterX - 1, groundY + 1, shelterZ, BlockId.OAK_LOG)
-  setBlock(state, centerX + 5, groundY, centerZ - 4, BlockId.HAY)
+  /** 乾草往北挪一格：門北側三格是木牌，原本的位置正好貼在牌面旁邊 */
+  setBlock(state, centerX + 5, groundY, centerZ - 5, BlockId.HAY)
 
   placeOakTree(state, centerX + 5, groundY, centerZ + 5, 4)
   scatterOnGround(state, centerX, centerZ, inner, groundY, random, 0.24, (pick) => (
@@ -147,22 +154,26 @@ export function buildRuinsGarden(state: Uint8Array, garden: GardenDefinition): v
     const pillarX = centerX + Math.round(Math.cos(angle) * 5)
     const pillarZ = centerZ + Math.round(Math.sin(angle) * 5)
     const height = 2 + Math.floor(random() * 4)
+    /**
+     * 南邊那一根（正南、第三根）塌了，留出一道口
+     *
+     * 通往石殿遺址的門立在這一圈裡面、石碑南邊兩格（RUINS_GATE_OFFSET），門洞朝南，
+     * 從禪庭中心過來要穿過這道口走到門前。亂數照樣抽，其餘七根的高矮與藤蔓才與原本一模一樣
+     */
+    const isGateGap = step === 2
 
     for (let level = 0; level < height; level++) {
-      setBlock(
-        state,
-        pillarX,
-        groundY + level,
-        pillarZ,
-        random() < 0.3 ? BlockId.MOSSY_COBBLESTONE : BlockId.STONE_BRICKS,
-      )
+      const blockId = random() < 0.3 ? BlockId.MOSSY_COBBLESTONE : BlockId.STONE_BRICKS
+      if (!isGateGap) {
+        setBlock(state, pillarX, groundY + level, pillarZ, blockId)
+      }
     }
     /** 藤蔓從斷口爬下來 */
-    if (random() < 0.6) {
+    if (random() < 0.6 && !isGateGap) {
       setDecoration(state, pillarX + 1, groundY + height - 1, pillarZ, BlockId.IVY)
     }
     /** 高的那幾根之間還架著橫樑 */
-    if (height >= 4 && step % 2 === 0) {
+    if (height >= 4 && step % 2 === 0 && !isGateGap) {
       setDecoration(state, pillarX, groundY + height, pillarZ, BlockId.STONE_SLAB)
     }
   }
@@ -305,9 +316,17 @@ export function buildApiaryGarden(state: Uint8Array, garden: GardenDefinition): 
   setBlock(state, centerX + 4, groundY, centerZ - 1, BlockId.HONEY_BLOCK)
   setBlock(state, centerX + 4, groundY, centerZ - 2, BlockId.BARREL)
 
-  /** 竹籬圍住蜂箱那一側，人得繞路才靠得近 */
+  /**
+   * 竹籬圍住蜂箱那一側，人得繞路才靠得近
+   *
+   * 正中三格讓給通往萬花蜂台的門（APIARY_HUB_GATE_OFFSET）：門嵌在竹籬上、門洞朝北，
+   * 兩根門柱在 ±1，兩側各剩兩格籬，從北邊走過來，門洞框著後面那疊蜂箱。
+   * 門框是大廳生完箱庭之後才放的（見 realm-terrain 與 apiary-realm 的 APIARY_HUB_GATE）
+   */
   for (let offset = -3; offset <= 3; offset++) {
-    setBlock(state, centerX + offset, groundY, centerZ - 3, BlockId.BAMBOO_FENCE)
+    if (Math.abs(offset - APIARY_HUB_GATE_OFFSET.x) <= 1)
+      continue
+    setBlock(state, centerX + offset, groundY, centerZ + APIARY_HUB_GATE_OFFSET.z, BlockId.BAMBOO_FENCE)
   }
 
   scatterOnGround(state, centerX, centerZ, inner, groundY, random, 0.6, (pick) => {
@@ -579,4 +598,16 @@ export function buildInsectGarden(state: Uint8Array, garden: GardenDefinition): 
   }, GRASS_SET)
 
   scatterOnGround(state, centerX + 4, centerZ + 4, 3, groundY, random, 0.3, () => BlockId.DRY_SHRUB, new Set([BlockId.SAND]))
+
+  /**
+   * 一條踩出來的小徑
+   *
+   * 通往蟲鳴夜原的門立在草叢正中（INSECT_HUB_GATE_OFFSET）、門洞朝東，
+   * 禪庭中心那串飛石正好走到木座東緣。從東緣到門前這一段的草拔掉，
+   * 看得出是人撥開草走出來的路，門四周照樣是高到看不見地面的草。
+   * 草照樣撒完才拔，亂數的順序不變，其他格子的草一株不差
+   */
+  for (let offsetX = INSECT_HUB_GATE_OFFSET.x + 2; offsetX <= inner; offsetX++) {
+    setBlock(state, centerX + offsetX, groundY, centerZ + INSECT_HUB_GATE_OFFSET.z, BlockId.AIR)
+  }
 }

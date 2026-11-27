@@ -15,7 +15,6 @@ import {
 import { getBlock, setBlock } from '../../world/world-access'
 import { WORLD_SIZE } from '../../world/world-constants'
 import { placePortalStructure } from '../portal-terrain'
-import { RAINVALE_REALM } from './rainvale-realm'
 import {
   PAVILION_LIST,
   POND_LIST,
@@ -25,6 +24,7 @@ import {
   RAINVALE_PORTAL_POINT,
   THICKET_START_RADIUS,
 } from './rainvale-layout'
+import { RAINVALE_REALM } from './rainvale-realm'
 
 /**
  * 聽雨林的地形

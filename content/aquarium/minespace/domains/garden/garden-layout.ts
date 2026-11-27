@@ -507,6 +507,12 @@ export const POND_BOARDWALK_START_Z = -5
 export const COAST_GATE_OFFSET = { x: 0, z: -1 }
 /** 松籟林：小徑走到中央開出來的一小片石板空地上，門洞朝南 */
 export const FOREST_GATE_OFFSET = { x: 0, z: -1 }
+/** 爐火壇：火塘正東四格、原本東側那張矮凳的位置，門洞朝東，門洞框住後面那堆火 */
+export const CAMPFIRE_GATE_OFFSET = { x: 4, z: 0 }
+/** 石廊跡：斷柱那一圈裡、石碑南邊兩格，門洞朝南；南邊那根斷柱塌掉讓出一道口 */
+export const RUINS_GATE_OFFSET = { x: 0, z: 2 }
+/** 地獄谷：鳥居與熔岩縫之間、原本石碑的位置，門洞朝南，門後兩步就是那條縫 */
+export const JIGOKU_GATE_OFFSET = { x: 0, z: 3 }
 
 /** 爐火壇的火堆，火焰與煙的粒子掛在這裡 */
 export const CAMPFIRE_POINT = getGarden('campfire').center

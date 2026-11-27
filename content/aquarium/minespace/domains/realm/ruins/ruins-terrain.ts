@@ -444,7 +444,7 @@ function placePuddleList(state: Uint8Array): void {
     for (let z = minZ + 2; z <= maxZ - 2; z++) {
       if (measureDistance(x, z, HALL_STELE_POINT) < STELE_RING_RADIUS + 2)
         continue
-      if (fbm2D(x * 0.19 + 61, z * 0.19 - 13, 2, 0.5) < 0.42)
+      if (fbm2D(x * 0.19 + 61, z * 0.19 - 13, 2, 0.5) < 0.52)
         continue
       if (getBlock(state, x, RUINS_FOOT_Y, z) !== BlockId.AIR)
         continue

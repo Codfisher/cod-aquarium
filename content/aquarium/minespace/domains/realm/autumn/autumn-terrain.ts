@@ -82,9 +82,11 @@ const BELT_TREE_COUNT = 260
  * 落了葉的白楊還留幾成葉子
  *
  * 留太多就與林地上的樹分不出來，邊界成了一堵葉子牆（葉子方塊整顆都要畫，也最貴）；
- * 一片都不留又像一排電線桿。一到三成：枝頭零星幾簇金黃
+ * 一片都不留又像一排電線桿。半成到兩成：枝頭零星幾簇金黃。
+ * 林地上的白楊從三十六棵加到九十棵之後，高畫質在出生點掉了一成多，
+ * 這一圈從一到三成收到這裡，把多出來的葉子讓回去
  */
-const BARE_LEAF_KEEP_RANGE: [number, number] = [0.08, 0.3]
+const BARE_LEAF_KEEP_RANGE: [number, number] = [0.05, 0.2]
 
 const LEAF_LIST = [BlockId.GOLD_LEAVES, BlockId.AMBER_LEAVES] as const
 

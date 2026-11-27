@@ -149,6 +149,14 @@ function isLiquidMesh(name: string): boolean {
 }
 
 /**
+ * 倒影的模糊（像素）
+ *
+ * 倒影貼圖只有兩三百像素見方，攤在池面上一格一格的像素很明顯；
+ * 輕輕糊一點，倒影才是柔的。兩道模糊都畫在那張小圖上
+ */
+const MIRROR_BLUR_KERNEL = 4
+
+/**
  * 倒影的表面：菲涅耳透明度與微微的晃動
  *
  * StandardMaterial 內建的透明度菲涅耳是「加」在透明度上的，會把邊緣淡出的遮罩加回來，
@@ -464,10 +472,7 @@ export function createWaterMirrors(
      */
     texture.mirrorPlane = new Plane(0, -1, 0, surface.surfaceY)
     texture.renderList = renderList
-    /**
-     * 不加模糊：MirrorTexture 的 blurKernel 在這裡試過，高畫質水鏡池前 GPU 從二十幾毫秒跳到一百多毫秒
-     * （兩道模糊的後製每幀照主畫面的尺寸跑），倒影的柔和改靠菲涅耳與晃動
-     */
+    texture.blurKernel = MIRROR_BLUR_KERNEL
     /**
      * 雲在倒影裡換一份材質
      *

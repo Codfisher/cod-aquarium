@@ -5,6 +5,7 @@ import { fillBox, plantWithStack } from '../../garden/garden-kit'
 import { getBlock, setBlock } from '../../world/world-access'
 import { WORLD_SIZE } from '../../world/world-constants'
 import { placePortalStructure } from '../portal-terrain'
+import { fillHeightStep } from '../realm-terrain-kit'
 import {
   measurePastureHeight,
   measureValleyRadius,
@@ -61,6 +62,15 @@ function shapeTerrain(state: Uint8Array): Uint8Array {
 
   fillBox(state, 0, 0, 0, WORLD_SIZE - 1, 0, WORLD_SIZE - 1, BlockId.BEDROCK)
 
+  /** 先算整張高度圖，填成相鄰兩格最多差一格，人才走得上每一道坡 */
+  const heightMap = new Uint8Array(WORLD_SIZE * WORLD_SIZE)
+  for (let x = 0; x < WORLD_SIZE; x++) {
+    for (let z = 0; z < WORLD_SIZE; z++) {
+      heightMap[x * WORLD_SIZE + z] = measurePastureHeight(x, z)
+    }
+  }
+  fillHeightStep(heightMap)
+
   for (let x = 0; x < WORLD_SIZE; x++) {
     for (let z = 0; z < WORLD_SIZE; z++) {
       /** 山頂後面：碰撞照算、不畫，由布景的地面平面代替 */
@@ -73,7 +83,7 @@ function shapeTerrain(state: Uint8Array): Uint8Array {
         continue
       }
 
-      const topY = PASTURE_GROUND_Y + measurePastureHeight(x, z)
+      const topY = PASTURE_GROUND_Y + heightMap[x * WORLD_SIZE + z]!
       for (let y = 1; y < topY - 2; y++) {
         setBlock(state, x, y, z, BlockId.STONE)
       }
