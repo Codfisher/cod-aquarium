@@ -164,38 +164,39 @@
         <!--
           材質包
 
-          三套的解析度差了十六倍，換過去是整個世界換一種質地，
-          不是換個濾鏡。所以每一套都要說一句自己是什麼，
-          而且按鈕上直接標出格數——那是最誠實的差別
+          換一套是整個世界換一種質地，不是換個濾鏡，所以每一項都標出格數——那是最誠實的差別。
+          原本是一格一格的按鈕，七套排成兩三列，佔掉選單一大塊；
+          改成下拉選單，平常只佔一行，展開時名字、格數與立體記號照樣看得到
         -->
         <div class="setting-row">
           <span class="setting-name">{{ t('texturePack') }}</span>
-          <div class="pack-row">
-            <button
-              v-for="pack in packList"
-              :key="pack.id"
-              class="mc-button pack-button"
-              :class="{ 'mc-button-active': packId === pack.id }"
-              :title="locale === 'en' ? pack.description.en : pack.description['zh-hant']"
-              @click="selectPack(pack.id)"
-            >
-              <span>{{ locale === 'en' ? pack.title.en : pack.title['zh-hant'] }}</span>
-              <span class="pack-resolution">{{ pack.resolution }}×</span>
-              <!--
-                有法線的標一個記號
+          <USelect
+            :model-value="packId"
+            :items="packItemList"
+            variant="none"
+            :ui="PACK_SELECT_UI"
+            class="pack-select"
+            @update:model-value="handlePackSelect"
+          >
+            <template #item-label="{ item }">
+              <span>{{ item.label }}</span>
+              <span class="pack-resolution">{{ item.resolution }}×</span>
+            </template>
+            <!--
+              有法線的標一個記號
 
-                下面那個立體開關只在支援的材質包上才出現，
-                於是「按了才知道有沒有」——換過一輪才發現想要的那套沒有。
-                在按之前就看得出來，這一格的資訊才是完整的
-              -->
+              下面那個立體開關只在支援的材質包上才出現，
+              選之前就看得出來哪幾套有，才不會換過一輪才發現想要的那套沒有
+            -->
+            <template #item-trailing="{ item }">
               <UIcon
-                v-if="pack.normalFileSet.size > 0"
+                v-if="item.hasBump"
                 name="i-material-symbols:landscape"
                 class="pack-bump-mark"
                 :title="t('supportsBump')"
               />
-            </button>
-          </div>
+            </template>
+          </USelect>
         </div>
 
         <!--
@@ -285,17 +286,33 @@
         </button>
       </div>
 
-      <!-- 神遊：隨時都能切換。大場景裡就地開始；大廳裡先挑一座大場景（見上面的清單） -->
-      <div class="menu-section">
+      <!--
+        神遊
+
+        兩顆並排：「就地神遊」留在當下這座場景；「神遊清單」直接打開大場景清單，
+        想換一座景時不必先回禪庭。大廳不是可以久留的景，那裡只有清單這一顆
+      -->
+      <div class="menu-section drift-row">
         <button
-          class="mc-button return-button"
-          @click="handleDriftClick()"
+          v-if="!travelEnabled"
+          class="mc-button drift-button"
+          @click="$emit('drift')"
         >
           <UIcon
             name="i-material-symbols:self-improvement-outline"
             class="text-base"
           />
-          {{ t('drift') }}
+          {{ t('driftHere') }}
+        </button>
+        <button
+          class="mc-button drift-button"
+          @click="isPickerOpen = true"
+        >
+          <UIcon
+            name="i-material-symbols:map-outline"
+            class="text-base"
+          />
+          {{ t('driftList') }}
         </button>
       </div>
 
@@ -386,16 +403,6 @@ watch(() => props.open, (isOpen) => {
   }
 })
 
-/** 快速前往只在大廳有，借它判斷現在是不是在大廳 */
-function handleDriftClick() {
-  if (props.travelEnabled) {
-    isPickerOpen.value = true
-    return
-  }
-
-  emit('drift')
-}
-
 const volume = defineModel<number>('volume', { required: true })
 const isMuted = defineModel<boolean>('muted', { required: true })
 /** 一天的時刻，0 為子夜、0.5 為正午 */
@@ -430,6 +437,39 @@ const landmarkList = LANDMARK_LIST
 function selectPack(id: TexturePackId) {
   packId.value = id
   emit('resume')
+}
+
+/**
+ * 下拉選單套上與選單按鈕同一套方塊風格
+ *
+ * Nuxt UI 預設是圓角、細框的網頁元件，放在一排灰色凸起方塊之間格格不入。
+ * variant 給 none 拿掉它自己的外觀，再把各部位換成這裡的 class（樣式見檔尾不分範圍的那一段：
+ * 展開的清單會被移到 body 底下，帶範圍的樣式套不到）
+ */
+const PACK_SELECT_UI = {
+  base: 'mc-select',
+  trailingIcon: 'mc-select-icon',
+  content: 'mc-select-content',
+  item: 'mc-select-item',
+}
+
+/** 下拉選單的每一項：名字依介面語言，格數與有沒有立體紋理跟著帶上 */
+const packItemList = computed(() => packList.map((pack) => ({
+  label: locale.value === 'en' ? pack.title.en : pack.title['zh-hant'],
+  value: pack.id,
+  resolution: pack.resolution,
+  hasBump: pack.normalFileSet.size > 0,
+})))
+
+function isTexturePackId(value: unknown): value is TexturePackId {
+  return packList.some((pack) => pack.id === value)
+}
+
+/** 下拉選單回傳的型別比較寬，先確認是材質包代號再換 */
+function handlePackSelect(value: unknown) {
+  if (isTexturePackId(value) && value !== packId.value) {
+    selectPack(value)
+  }
 }
 
 /** 一天多長，超過一分鐘就用分鐘表示 */
@@ -471,7 +511,8 @@ const { locale, t } = useSimpleI18n({
     textureFrom: '貼圖來自',
     travel: '快速前往',
     returnHub: '返回禪庭',
-    drift: '神遊（鏡頭自己走）',
+    driftHere: '在這裡神遊',
+    driftList: '神遊清單',
     location: '目前位於：',
     controls: '操作方式',
     intro: '遊玩說明',
@@ -506,7 +547,8 @@ const { locale, t } = useSimpleI18n({
     textureFrom: 'Textures from',
     travel: 'Fast Travel',
     returnHub: 'Back to the Zen Garden',
-    drift: 'Drift (camera wanders)',
+    driftHere: 'Drift here',
+    driftList: 'Drift to…',
     location: 'You are in: ',
     controls: 'Controls',
     intro: 'How to Play',
@@ -608,37 +650,9 @@ const { locale, t } = useSimpleI18n({
 .slider-indent
   margin-left: 56px
 
-/**
- * 材質包排成等寬的格線
- *
- * 用 grid 而不是 flex，是因為材質包的數量不會剛好填滿一列。
- * flex 的最後一列只剩一顆時，那一顆會把整列撐滿——
- * 於是七套材質裡的最後一套長得比別人大三倍，看起來像它比較重要。
- * grid 的欄寬是先分好的，落在哪一列都一樣寬。
- *
- * 每欄至少九個字寬。這個下限是照中文標題加格數抓的——
- * 四個字的名字配上「16×」剛好排得下，窄螢幕也還留得住兩欄。
- * 再窄就會掉成一欄，七套疊成七列，比原本更高
- */
-.pack-row
+.pack-select
   flex: 1
-  display: grid
-  grid-template-columns: repeat(auto-fill, minmax(9em, 1fr))
-  gap: 6px
-
-/**
- * 格數跟在名字後面，不是掛在下面
- *
- * 這一區有七顆按鈕、兩三列，每顆多一行就是整體多兩三行。
- * 格數本來就是一句補充，橫著跟在名字旁邊讀起來一樣清楚。
- *
- * 不鎖 nowrap：英文的 Pixel Perfection 加上格數要一百五十像素，
- * 鎖住只會讓字衝出按鈕。讓它折成兩行，該寬的時候還是一行
- */
-.pack-button
-  gap: 5px
-  padding: 6px 8px
-  font-size: 12px
+  min-width: 0
 
 .pack-resolution
   font-size: 12px
@@ -761,6 +775,14 @@ const { locale, t } = useSimpleI18n({
   padding: 7px 4px
   gap: 3px
 
+.drift-row
+  flex-direction: row
+
+/** 兩顆並排平分一列；大廳只有清單那一顆時就佔滿 */
+.drift-button
+  flex: 1
+  padding: 10px
+
 .return-button
   width: 100%
   padding: 10px
@@ -770,4 +792,55 @@ const { locale, t } = useSimpleI18n({
   padding: 12px
   font-size: 1.05rem
   font-weight: 700
+</style>
+
+<!--
+  下拉選單的方塊風格
+
+  不分範圍：展開的清單被移到 body 底下，帶範圍的樣式套不到。
+  class 名稱都帶 mc-select 前綴，不會碰到別處
+-->
+<style lang="sass">
+.mc-select
+  width: 100%
+  min-height: 34px
+  padding: 6px 10px
+  border-radius: 0
+  background: #AAAAAA
+  color: white
+  font-size: 13px
+  text-shadow: 2px 2px 0 #3F3F3F
+  box-shadow: inset -2px -4px 0 #555555, inset 2px 2px 0 #FFFFFF
+  cursor: pointer
+
+  &:hover
+    background: #C6C6C6
+
+  &[data-state='open']
+    background: #777777
+    box-shadow: inset 2px 4px 0 #555555, inset -2px -2px 0 #FFFFFF
+
+.mc-select-icon
+  color: white
+  filter: drop-shadow(2px 2px 0 #3F3F3F)
+
+/** 展開的清單：深色底、粗邊框，像遊戲裡的物品提示框 */
+.mc-select-content
+  border-radius: 0
+  background: #1E1B24
+  border: 2px solid #4A3A6A
+  box-shadow: 0 0 0 2px #0E0C12
+  color: white
+
+.mc-select-item
+  border-radius: 0
+  color: white
+  font-size: 13px
+  text-shadow: 2px 2px 0 #3F3F3F
+
+  &[data-highlighted]
+    background: #5A8A5A
+
+  &[data-state='checked']
+    color: #FFFF7F
 </style>

@@ -1,4 +1,4 @@
-import type { RealmDefinition } from '../realm/realm-definition'
+import type { DriftFeature, RealmDefinition } from '../realm/realm-definition'
 import type { SoundEmitterDefinition } from '../soundscape/type'
 import type { DriftGrid } from './drift-grid'
 import type { DriftCellRef } from './drift-path'
@@ -8,6 +8,7 @@ import { REALM_EMITTER_MAP } from '../soundscape/realm-emitter-map'
 import { getWaterlineY } from '../world/world-access'
 import { WORLD_HEIGHT, WORLD_SIZE } from '../world/world-constants'
 import { getDriftRegion } from './drift-flight-config'
+import { isSightlineClear3D } from './drift-framing'
 import { isCellReachable } from './drift-path'
 import { itemAt } from './drift-util'
 
@@ -35,6 +36,8 @@ export interface DriftPoint {
   /** 停下來時偏向看哪裡，沒有就看音源或隨意環顧 */
   lookX?: number;
   lookZ?: number;
+  /** 這個停留點是為了欣賞哪個特色主體而設的（站在能看到它、距離合適的地方），路線偏好它、運鏡看它 */
+  feature?: { name: string; x: number; y: number; z: number; weight: number };
 }
 
 /** 同名音源最多取幾個代表點 */
@@ -138,6 +141,8 @@ export function findReachableSpot(
   z: number,
   height: number,
   maxRadius: number,
+  /** 只要頭上開闊的地方（從空中降落時用：正下方是樹冠的話，鏡頭會穿過樹葉落下去） */
+  isOpenSkyRequired = false,
 ): DriftPoint | null {
   const centerX = Math.round(x)
   const centerZ = Math.round(z)
@@ -152,6 +157,8 @@ export function findReachableSpot(
         const blockZ = centerZ + offsetZ
         const cell = grid.getCellAtHeight(blockX, blockZ, height)
         if (!cell || cell.waterDepth > 0)
+          continue
+        if (isOpenSkyRequired && !cell.isOpenSky)
           continue
 
         const ref: DriftCellRef = { blockX, blockZ, blockY: cell.blockY }
@@ -174,12 +181,38 @@ export function findReachableSpot(
   return null
 }
 
+/** 一個特色主體最多取幾個觀賞站位 */
+const FEATURE_STAND_MAX = 2
+/** 沒給 viewpointList 時，繞主體找站位：試幾個方向、距離最遠取到幾格 */
+const FEATURE_RING_COUNT = 12
+const FEATURE_STAND_DISTANCE_MAX = 70
+
+/** 特色主體的觀賞站位候選：作者給的優先，沒有就在適合欣賞的距離上繞一圈，挑看得到主體的 */
+function findFeatureStandList(param: Pick<CollectParam, 'worldState'>, feature: DriftFeature): { x: number; z: number }[] {
+  if (feature.viewpointList && feature.viewpointList.length > 0)
+    return feature.viewpointList.slice(0, FEATURE_STAND_MAX)
+
+  const distance = Math.min(FEATURE_STAND_DISTANCE_MAX, (feature.viewDistance[0] + feature.viewDistance[1]) / 2)
+  const startAngle = Math.random() * Math.PI * 2
+  const standList: { x: number; z: number }[] = []
+  for (let step = 0; step < FEATURE_RING_COUNT && standList.length < FEATURE_STAND_MAX; step++) {
+    const angle = startAngle + (step / FEATURE_RING_COUNT) * Math.PI * 2
+    const x = feature.x + Math.sin(angle) * distance
+    const z = feature.z + Math.cos(angle) * distance
+    const eyeY = getWaterlineY(param.worldState, x, z) + 1
+    /** 主體周圍的幾格不算擋住（建物自己的牆、樹自己的樹幹） */
+    if (isSightlineClear3D(param.worldState, x, eyeY, z, feature.x, feature.y, feature.z, Math.max(2, feature.size / 2 + 1)))
+      standList.push({ x, z })
+  }
+  return standList
+}
+
 /** 取一座場景全部的停留點，由重要到次要，間距太近的後來者不收 */
 export function collectDriftPoint(param: CollectParam): DriftPoint[] {
   const { realm, worldState, grid } = param
   const pointList: DriftPoint[] = []
 
-  function addPoint(point: DriftPoint | null, kind: DriftPointKind, id: string, look?: { x: number; z: number }): boolean {
+  function addPoint(point: DriftPoint | null, kind: DriftPointKind, id: string, look?: { x: number; z: number }, feature?: DriftPoint['feature']): boolean {
     if (!point)
       return false
 
@@ -187,7 +220,7 @@ export function collectDriftPoint(param: CollectParam): DriftPoint[] {
       if (Math.hypot(existing.blockX - point.blockX, existing.blockZ - point.blockZ) < POINT_SPACING_MIN)
         return false
     }
-    pointList.push({ ...point, kind, id, lookX: look?.x, lookZ: look?.z })
+    pointList.push({ ...point, kind, id, lookX: look?.x, lookZ: look?.z, feature })
     return true
   }
 
@@ -199,6 +232,21 @@ export function collectDriftPoint(param: CollectParam): DriftPoint[] {
       ? { x: viewpoint.lookX, z: viewpoint.lookZ }
       : undefined
     addPoint(spot, 'viewpoint', `viewpoint-${index}`, look)
+  })
+
+  /**
+   * 特色主體（溪流、瀑布、建物、遠景…）的觀賞站位：路線最優先去的地方
+   *
+   * 作者給了 viewpointList 就直接用；沒給就繞著主體在適合欣賞的距離上找走得到、而且看得到它的地方
+   */
+  realm.driftFeatureList?.forEach((feature, index) => {
+    for (const [order, stand] of findFeatureStandList(param, feature).entries()) {
+      const height = getWaterlineY(worldState, stand.x, stand.z) - 0.5
+      const spot = findReachableSpot(param, stand.x, stand.z, height, 3)
+      if (!spot)
+        continue
+      addPoint(spot, 'viewpoint', `feature-${index}-${order}`, { x: feature.x, z: feature.z }, { name: feature.name, x: feature.x, y: feature.y, z: feature.z, weight: feature.weight })
+    }
   })
 
   /** 傳送門前與抵達點 */

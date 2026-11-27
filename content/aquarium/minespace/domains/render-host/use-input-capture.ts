@@ -33,6 +33,13 @@ interface UseInputCaptureParam {
   hasStarted: Ref<boolean>;
   postInput: (message: RenderInputMessage) => void;
   postCommand: (command: RenderCommand) => void;
+  /**
+   * 是否正在神遊
+   *
+   * 神遊不鎖定滑鼠：使用者只是在看、在聽，游標該留給桌面。
+   * 這段期間點畫面不搶鎖定，轉頭改成按住左鍵拖曳
+   */
+  isDrifting: Ref<boolean>;
 }
 
 /**
@@ -46,7 +53,7 @@ interface UseInputCaptureParam {
  * 位移累積起來、每一幀最多送一次：滑鼠的輪詢率動輒一千赫，
  * 逐事件送的話，一秒的訊息量足以把佇列塞滿
  */
-export function useInputCapture({ canvasRef, hasStarted, postInput, postCommand }: UseInputCaptureParam) {
+export function useInputCapture({ canvasRef, hasStarted, postInput, postCommand, isDrifting }: UseInputCaptureParam) {
   const mobile = useMobileController()
   const { isMobile } = mobile
   /**
@@ -153,8 +160,14 @@ export function useInputCapture({ canvasRef, hasStarted, postInput, postCommand 
     if (!hasStarted.value)
       return
 
-    if (document.pointerLockElement !== canvasRef.value)
+    if (document.pointerLockElement !== canvasRef.value) {
+      /** 神遊中沒有鎖定，按住左鍵拖曳才轉頭；放開時滑鼠就只是游標 */
+      if (isDrifting.value && isCursorFree.value && (event.buttons & 1) === 1) {
+        mouseDelta.x += clamp(event.movementX, { min: -MOUSE_MOVE_LIMIT, max: MOUSE_MOVE_LIMIT })
+        mouseDelta.y += clamp(event.movementY, { min: -MOUSE_MOVE_LIMIT, max: MOUSE_MOVE_LIMIT })
+      }
       return
+    }
 
     /**
      * 剛鎖定的那一筆位移常常是鎖定前後的座標落差
@@ -223,6 +236,10 @@ export function useInputCapture({ canvasRef, hasStarted, postInput, postCommand 
      */
     if (event.code === 'Tab') {
       event.preventDefault()
+
+      /** 神遊中游標本來就是自由的，Tab 沒有東西可以收放 */
+      if (isDrifting.value)
+        return
 
       if (isCursorFree.value) {
         resume()
@@ -299,6 +316,10 @@ export function useInputCapture({ canvasRef, hasStarted, postInput, postCommand 
 
   function handleCanvasClick() {
     if (!hasStarted.value)
+      return
+
+    /** 神遊中點畫面是在拖曳轉頭，不是要回到操控 */
+    if (isDrifting.value)
       return
 
     if (!isMobile.value && !isPaused.value) {
@@ -392,6 +413,25 @@ export function useInputCapture({ canvasRef, hasStarted, postInput, postCommand 
     }
   }
 
+  /**
+   * 進入神遊：放開滑鼠但不暫停
+   *
+   * 與按 Tab 放開滑鼠是同一個狀態（世界照樣跑、選單不跳出來），
+   * 差別只在不必先處於操控中——從選單或開始畫面進神遊時，那一刻可能還沒鎖上
+   */
+  function freeCursorForDrift() {
+    if (isMobile.value)
+      return
+
+    isPaused.value = false
+    isCursorFree.value = true
+    clearMoveKeys()
+
+    if (document.pointerLockElement === canvasRef.value) {
+      document.exitPointerLock()
+    }
+  }
+
   /** 桌機以 Pointer Lock 的狀態決定暫停與否 */
   function handlePointerLockChange() {
     if (isMobile.value)
@@ -449,6 +489,7 @@ export function useInputCapture({ canvasRef, hasStarted, postInput, postCommand 
     resume,
     pause,
     releaseCursor,
+    freeCursorForDrift,
     isPaused,
     isCursorFree,
     isMobile,

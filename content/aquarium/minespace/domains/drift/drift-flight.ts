@@ -5,7 +5,7 @@ import type { DriftPoint } from './drift-point'
 import type { DriftTrack } from './drift-track'
 import { getSurfaceY } from '../world/world-access'
 import { LONG_NODE_LIMIT, PATH_SAMPLE_SPACING, planWalkPath, resamplePolyline, smoothHeightList, smoothWithSpline, subdivideWaypoint } from './drift-path'
-import { createDriftTrack } from './drift-track'
+import { createDriftTrack, resampleUniform } from './drift-track'
 import { itemAt } from './drift-util'
 
 /**
@@ -17,9 +17,9 @@ import { itemAt } from './drift-util'
  * 所以與散步無縫銜接，不需要瞬移
  */
 
-/** 一趟飛行大約多長（格），以巡航速度約五格每秒換算是四十到九十秒 */
-const FLIGHT_LENGTH_MIN = 200
-const FLIGHT_LENGTH_MAX = 420
+/** 一趟飛行大約多長（格），以巡航速度三格每秒換算（含起降與過彎減速）是四十到九十秒 */
+const FLIGHT_LENGTH_MIN = 80
+const FLIGHT_LENGTH_MAX = 170
 /** 最多串幾個中途的轉折點 */
 const WAYPOINT_COUNT_MAX = 4
 /** 沿地面路線時，相鄰兩個停留點的距離範圍 */
@@ -54,10 +54,50 @@ const RISE_HEIGHT_MAX = 22
 const SAFETY_MARGIN = 0.8
 /** 巡航時鏡頭微微俯視的基準角度（弧度） */
 const CRUISE_PITCH = 0.14
-const PITCH_MIN = -0.12
-const PITCH_MAX = 0.5
+const PITCH_MIN = -0.04
+const PITCH_MAX = 0.4
+/** 爬升與下降時俯仰跟著坡度走的比例：只讓視線輕輕點一下頭，不要因為高度起伏讓畫面上下擺動 */
+const PITCH_SLOPE_GAIN = 0.3
+/**
+ * 垂直段接水平段的轉角要磨圓：磨圓的半寬（取樣點數）與先抬高多少（格）
+ *
+ * 直角的轉角會讓速度方向瞬間從往上變成往前；磨圓後路徑往轉角內側縮一點（約一格），
+ * 所以起降的頂點多抬一些，縮進去之後還是在障礙之上
+ */
+const CORNER_HALF_WIDTH = 8
+const CORNER_LIFT = 1.2
 /** 高度起伏的週期（格） */
 const CLEARANCE_WAVE_LENGTH = 90
+
+/**
+ * 把一個轉角磨圓：轉角附近每一點取前後各 h 個點的平均，h 離轉角越遠越小（到邊緣是零），
+ * 所以磨圓的範圍與沒磨的部分接得上（沒有折痕）。頭尾兩個點（起點與落點）永遠不動
+ */
+function roundCorner(xList: number[], yList: number[], zList: number[], corner: number, halfWidth: number) {
+  const count = xList.length
+  const sourceX = xList.slice()
+  const sourceY = yList.slice()
+  const sourceZ = zList.slice()
+
+  for (let index = Math.max(1, corner - halfWidth); index <= Math.min(count - 2, corner + halfWidth); index++) {
+    const width = Math.min(halfWidth - Math.abs(index - corner), index, count - 1 - index)
+    if (width <= 0)
+      continue
+
+    let sumX = 0
+    let sumY = 0
+    let sumZ = 0
+    for (let offset = -width; offset <= width; offset++) {
+      sumX += itemAt(sourceX, index + offset)
+      sumY += itemAt(sourceY, index + offset)
+      sumZ += itemAt(sourceZ, index + offset)
+    }
+    const total = width * 2 + 1
+    xList[index] = sumX / total
+    yList[index] = sumY / total
+    zList[index] = sumZ / total
+  }
+}
 
 function smoothstep(ratio: number): number {
   const clamped = Math.min(1, Math.max(0, ratio))
@@ -329,27 +369,36 @@ export function buildFlightTrack(param: BuildFlightParam): DriftTrack | null {
     landingEyeY + RISE_HEIGHT_MAX,
     Math.max(landingEyeY, ...floorList.slice(Math.max(0, lastIndex - nearCount))),
   )
+  /** 有垂直段才有轉角要磨圓，頂點多抬 CORNER_LIFT；沒有垂直段（本來就貼著高度）維持原樣 */
+  const startTop = startRef - start.eyeY > 1 ? startRef + CORNER_LIFT : startRef
+  const endTop = endRef - landingEyeY > 1 ? endRef + CORNER_LIFT : endRef
 
   /** 水平段的漸變長度：爬得越高越長，坡度才不會太陡 */
   const cruiseMax = cruiseList.reduce((peak, value) => Math.max(peak, value), 0)
-  const startRamp = Math.min(RAMP_LENGTH_MAX, Math.max(RAMP_LENGTH_MIN, (cruiseMax - startRef) * RAMP_PER_HEIGHT)) / PATH_SAMPLE_SPACING
-  const endRamp = Math.min(RAMP_LENGTH_MAX, Math.max(RAMP_LENGTH_MIN, (cruiseMax - endRef) * RAMP_PER_HEIGHT)) / PATH_SAMPLE_SPACING
+  const startRamp = Math.min(RAMP_LENGTH_MAX, Math.max(RAMP_LENGTH_MIN, (cruiseMax - startTop) * RAMP_PER_HEIGHT)) / PATH_SAMPLE_SPACING
+  const endRamp = Math.min(RAMP_LENGTH_MAX, Math.max(RAMP_LENGTH_MIN, (cruiseMax - endTop) * RAMP_PER_HEIGHT)) / PATH_SAMPLE_SPACING
   const mainYList = cruiseList.map((cruise, index) => {
-    const height = startRef + (cruise - startRef) * smoothstep(index / startRamp)
-    const blended = endRef + (height - endRef) * smoothstep((lastIndex - index) / endRamp)
+    const height = startTop + (cruise - startTop) * smoothstep(index / startRamp)
+    const blended = endTop + (height - endTop) * smoothstep((lastIndex - index) / endRamp)
     return Math.max(blended, itemAt(floorList, index))
   })
   const smoothMainList = smoothHeightList(mainYList, 4, 1)
-  smoothMainList[0] = startRef
-  smoothMainList[lastIndex] = endRef
+  smoothMainList[0] = startTop
+  smoothMainList[lastIndex] = endTop
 
-  /** 垂直段：平面位置不動，高度走平滑的 S 曲線，每一格軌道樣本是半公尺 */
+  /**
+   * 垂直段：平面位置不動，高度等間距，每一格軌道樣本是半公尺
+   *
+   * 等間距很重要：軌道的速度是「每秒走幾格樣本」，樣本之間的實際距離要一致，速度才是真的速度。
+   * 以前用 S 曲線排樣本（兩頭密、中間疏），垂直段尾端實際速度趨近零、接上水平段又突然跳回全速。
+   * 起停的緩急交給速度曲線（followSpeed）處理
+   */
   function buildVertical(fromY: number, toY: number): number[] {
-    const count = Math.round(Math.abs(toY - fromY) / PATH_SAMPLE_SPACING)
-    return Array.from({ length: count }, (_, index) => fromY + (toY - fromY) * smoothstep((index + 1) / (count + 1)))
+    const count = Math.max(0, Math.round(Math.abs(toY - fromY) / PATH_SAMPLE_SPACING) - 1)
+    return Array.from({ length: count }, (_, index) => fromY + (toY - fromY) * ((index + 1) / (count + 1)))
   }
-  const riseList = buildVertical(start.eyeY, startRef)
-  const descendList = buildVertical(endRef, landingEyeY)
+  const riseList = buildVertical(start.eyeY, startTop)
+  const descendList = buildVertical(endTop, landingEyeY)
 
   const xList = [
     ...riseList.map(() => itemAt(sampleList, 0).x),
@@ -368,12 +417,24 @@ export function buildFlightTrack(param: BuildFlightParam): DriftTrack | null {
   xList.push(itemAt(sampleList, lastIndex).x)
   zList.push(itemAt(sampleList, lastIndex).z)
 
+  /** 垂直段與水平段的轉角磨圓：起飛的轉角在第一個水平樣本，降落的在最後一個 */
+  if (riseList.length > 0)
+    roundCorner(xList, yList, zList, 1 + riseList.length, CORNER_HALF_WIDTH)
+  if (descendList.length > 0)
+    roundCorner(xList, yList, zList, 1 + riseList.length + sampleList.length - 1, CORNER_HALF_WIDTH)
+
+  /** 磨圓之後取樣點的間距不一致：沿弧長重排成等間距，鏡頭的實際速度才跟速度曲線一致 */
+  const uniform = resampleUniform(xList, yList, zList, PATH_SAMPLE_SPACING)
+  xList.splice(0, xList.length, ...uniform.xList)
+  yList.splice(0, yList.length, ...uniform.yList)
+  zList.splice(0, zList.length, ...uniform.zList)
+
   const trackLast = yList.length - 1
   const rawPitchList = yList.map((_, index) => {
     const ahead = Math.min(trackLast, index + 4)
     const behind = Math.max(0, index - 4)
     const slope = (itemAt(yList, ahead) - itemAt(yList, behind)) / Math.max(PATH_SAMPLE_SPACING, (ahead - behind) * PATH_SAMPLE_SPACING)
-    return Math.min(PITCH_MAX, Math.max(PITCH_MIN, CRUISE_PITCH - 0.5 * Math.atan(slope)))
+    return Math.min(PITCH_MAX, Math.max(PITCH_MIN, CRUISE_PITCH - PITCH_SLOPE_GAIN * Math.atan(slope)))
   })
   const pitchList = smoothHeightList(rawPitchList, 6, 2)
 

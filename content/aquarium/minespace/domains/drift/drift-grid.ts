@@ -29,8 +29,13 @@ const WADE_DEPTH_MAX = 1
 const BOUNDARY_MARGIN = 3
 /** 沒有邊界的場景（地底）離世界邊緣留幾格 */
 const WORLD_EDGE_MARGIN = 8
-/** 頭上這麼多格內都沒有實心方塊就算露天（樹冠與洞頂都會讓它變成假） */
-const OPEN_SKY_BLOCK_COUNT = 12
+/**
+ * 頭上這麼多格內都沒有實心方塊就算露天（樹冠與洞頂都會讓它變成假）
+ *
+ * 一路看到世界頂：無人機的起降是垂直的，只看十二格的話，頭上十六格高的樹冠會漏掉，
+ * 鏡頭就從樹葉裡升上去、落下來（蟬鳴林的高樹）
+ */
+const OPEN_SKY_BLOCK_COUNT = WORLD_HEIGHT
 
 /** 傳送門周圍幾格內不走 */
 const PORTAL_AVOID_RADIUS = 3.5

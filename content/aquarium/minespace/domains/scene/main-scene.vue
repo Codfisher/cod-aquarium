@@ -1,5 +1,8 @@
 <template>
-  <div class="relative w-full h-full">
+  <div
+    class="relative w-full h-full"
+    :class="{ 'cursor-hidden': isHudFaded }"
+  >
     <canvas
       :key="canvasKey"
       ref="canvasRef"
@@ -13,7 +16,7 @@
     />
 
     <div
-      v-if="isCursorFree"
+      v-if="isCursorFree && !status.isDrifting"
       class="cursor-hint"
     >
       {{ t('cursorReleased') }}
@@ -302,7 +305,7 @@ const { t, locale } = useSimpleI18n({
     probeMeasuring: '量測中⋯',
     stalledNotice: '畫面似乎停住了，若沒有自己恢復，請重新整理頁面',
     dismiss: '關閉',
-    driftingHint: '神遊中 · 按任意移動鍵離開',
+    driftingHint: '神遊中 · 拖曳轉頭，按任意移動鍵離開',
     driftingHintMobile: '神遊中 · 碰左半邊畫面離開',
     midnight: '深夜',
     dawn: '破曉',
@@ -333,7 +336,7 @@ const { t, locale } = useSimpleI18n({
     probeMeasuring: 'Measuring…',
     stalledNotice: 'The view seems to have stalled. Reload the page if it does not recover',
     dismiss: 'Dismiss',
-    driftingHint: 'Drifting · press any movement key to exit',
+    driftingHint: 'Drifting · drag to look, press any movement key to exit',
     driftingHintMobile: 'Drifting · touch the left half to exit',
     midnight: 'Midnight',
     dawn: 'Dawn',
@@ -435,7 +438,14 @@ const {
   joystickOrigin,
   setJump,
   setSprint,
-} = useInputCapture({ canvasRef, hasStarted, postInput, postCommand })
+  freeCursorForDrift,
+} = useInputCapture({
+  canvasRef,
+  hasStarted,
+  postInput,
+  postCommand,
+  isDrifting: computed(() => status.isDrifting),
+})
 
 /** 世界準備好才開始接輸入，之前的按鍵與點擊沒有東西可以操控 */
 watch(isWorldReady, (isReady) => {
@@ -575,6 +585,18 @@ function stopDrift() {
   postCommand({ command: 'stop-drift' })
 }
 
+/**
+ * 一開始神遊就放開滑鼠
+ *
+ * 不管是從開始畫面、選單還是換畫質後接續，進來的那一刻滑鼠可能已經鎖著；
+ * 神遊是拿來看、拿來聽的，游標還給桌面，轉頭改成按住左鍵拖曳
+ */
+watch(() => status.isDrifting, (isDrifting) => {
+  if (isDrifting) {
+    freeCursorForDrift()
+  }
+})
+
 useEventListener(window, 'keydown', (event: KeyboardEvent) => {
   if (status.isDrifting && DRIFT_EXIT_KEY_SET.has(event.code) && !event.repeat) {
     /** 焦點在選單按鈕上時，空白鍵是在「按下那顆按鈕」，不是移動 */
@@ -582,6 +604,13 @@ useEventListener(window, 'keydown', (event: KeyboardEvent) => {
       && event.target.closest('button, a, input, select, textarea')
     if (!isOnControl) {
       stopDrift()
+      /**
+       * 移動鍵是「我要自己走」：順手把滑鼠鎖回來接手操控（按鍵本身就是使用者手勢，鎖得上）。
+       * Esc 不在這裡處理：游標自由時 Esc 會叫出選單，交給輸入擷取那一段
+       */
+      if (event.code !== 'Escape') {
+        resume()
+      }
     }
   }
 
@@ -790,6 +819,10 @@ function handleReturnHub() {
   background: rgba(255, 255, 255, 0.55)
   mix-blend-mode: difference
   pointer-events: none
+
+/** 神遊時介面淡出，游標也一起藏起來，畫面上只剩風景 */
+.cursor-hidden
+  cursor: none
 
 /** 時刻與幀率疊在同一落，右上角只佔一塊 */
 .status-stack

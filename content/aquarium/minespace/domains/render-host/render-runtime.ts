@@ -161,6 +161,13 @@ export function createRenderRuntime({ channel }: CreateRenderRuntimeParam): Rend
    */
   let isTraveling = false
   /**
+   * 轉場途中收到了 start-drift，等新世界建好、霧開始散的那一刻再開始
+   *
+   * 主執行緒在 realm-changed 一到就送 start-drift，而那則訊息是在 switchRealm 裡送出的，
+   * 此時旅程還在走（霧還要散兩秒）。直接丟掉的話，開始畫面挑大場景神遊永遠開不了
+   */
+  let isDriftPending = false
+  /**
    * 上一幀是不是站在傳送門裡
    *
    * 觸發只看「從外面走進去」的那一刻。剛傳送過來就站在門裡的話，
@@ -577,6 +584,12 @@ export function createRenderRuntime({ channel }: CreateRenderRuntimeParam): Rend
     }
     finally {
       if (!isDisposed) {
+        /** 世界已經好了，神遊與霧散開同時開始 */
+        if (isDriftPending) {
+          isDriftPending = false
+          drift?.start()
+          postStatus()
+        }
         await transition.reveal()
       }
       isTraveling = false
@@ -935,12 +948,15 @@ export function createRenderRuntime({ channel }: CreateRenderRuntimeParam): Rend
         debugModeLabel = cycleVolumetricDebugMode()
         break
       case 'start-drift':
-        /** 轉場途中不開始：霧還在湧、場景還在換，起點會落在舊世界 */
-        if (!isTraveling && !isSwitchingRealm)
+        /** 轉場途中不能開始（霧還在湧、場景還在換，起點會落在舊世界），記下來等旅程走到世界建好再開 */
+        if (isTraveling || isSwitchingRealm)
+          isDriftPending = true
+        else
           drift?.start()
         postStatus()
         break
       case 'stop-drift':
+        isDriftPending = false
         drift?.stop()
         postStatus()
         break
