@@ -1091,6 +1091,14 @@ export function createCampfireSmoke(
 }
 
 /**
+ * 中間調與亮部各補多少飽和度（色調曲線的單位，-100 ～ 100）
+ *
+ * 亮部補得多、中間調補得少：被 ACES 壓灰的主要是受光面。
+ * 覺得草還是灰就加亮部，覺得天空太藍、花太艷就減
+ */
+const HIGHLIGHT_SATURATION_RESTORE = { midtones: 12, highlights: 32 }
+
+/**
  * 後製程管線
  *
  * 色調映射把過曝的天空拉回來，加一點對比與暗角，
@@ -1119,6 +1127,20 @@ function createRenderingPipeline(scene: Scene, camera: UniversalCamera) {
    */
   pipeline.imageProcessing.colorCurves = new ColorCurves()
   pipeline.imageProcessing.colorCurvesEnabled = true
+
+  /**
+   * 把 ACES 在亮部吃掉的飽和度補回來
+   *
+   * ACES 的特性是越亮越往灰白壓。同一片草算給你看（草地染色乘上不同光照，過 ACES 後的飽和度）：
+   * 陰影 0.62、一般日照 0.43、強烈日照 0.32——曬到太陽的草反而比陰影裡的灰，
+   * 貼圖本身偏亮的材質包更明顯。
+   *
+   * 不換色調映射（雲、天空、夕陽都是在 ACES 下調出來的），只在曲線上把中間調與亮部的飽和度拉回一些。
+   * 整體（global）那一組歸日夜循環、暗部（shadows）那一組歸眼睛適應，這兩組是空著的，各管各的不打架。
+   * 拉太多亮部會發螢光，雲邊與藍天也會跟著變艷，所以只補到大約日照下的草回到陰影時的鮮度
+   */
+  pipeline.imageProcessing.colorCurves.midtonesSaturation = HIGHLIGHT_SATURATION_RESTORE.midtones
+  pipeline.imageProcessing.colorCurves.highlightsSaturation = HIGHLIGHT_SATURATION_RESTORE.highlights
 
   /**
    * 這裡不做色彩分級
