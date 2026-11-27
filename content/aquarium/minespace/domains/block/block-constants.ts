@@ -278,6 +278,14 @@ export enum BlockId {
   RED_SAND,
   RED_ROCK,
   CANVAS,
+  /**
+   * 四分之一格厚的雪
+   *
+   * 雪稜的雪坡用來補在半格與八分之一格之間：八分之一格是 SNOW_LAYER，
+   * 半格是 SNOW_SLAB，這一塊填在中間，一格的坡才拆得出四、五個小階，
+   * 看起來是一道斜面而不是階梯。加在最後，前面方塊的編號不變
+   */
+  SNOW_LAYER_QUARTER,
 }
 
 /**
@@ -1706,6 +1714,20 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
     shape: 'layer',
     shapeThickness: 0.125,
     collisionHeight: 0.125,
+    textures: {
+      all: 'snowTop',
+    },
+  },
+  /**
+   * 四分之一格厚的雪（雪稜的緩坡用）
+   *
+   * 與 SNOW_LAYER（八分之一）、SNOW_SLAB（半格）同一張貼圖，只差厚度。
+   * 碰撞高度與外型厚度一致，比自動跨階的高度（0.55）矮，走上去不必跳
+   */
+  [BlockId.SNOW_LAYER_QUARTER]: {
+    shape: 'layer',
+    shapeThickness: 0.25,
+    collisionHeight: 0.25,
     textures: {
       all: 'snowTop',
     },

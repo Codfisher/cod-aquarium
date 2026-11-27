@@ -50,6 +50,15 @@ interface ColumnInfo {
   pond: 'none' | 'ice' | 'packed-ice';
   /** 雪台與門前：不補半格雪、不撒花草 */
   isTerrace: boolean;
+  /** 四捨五入之前的連續頂面高度（格柱座標，與 topY 同一把尺），積雪的坡拿它補出小於一格的高度 */
+  rawY: number;
+  /**
+   * 頂面還是自然地形算出來的原樣：可以用薄雪把整數的階補成緩坡
+   *
+   * 雪台、門外的雪坡、融雪池與池岸都被另外整平過，topY 已經不是 rawY 四捨五入的結果，
+   * 這些地方的高度是刻意訂的，不再補
+   */
+  isSmoothable: boolean;
 }
 
 /** 門外往下的雪坡有多長（格），見 createColumnMap */
@@ -96,7 +105,7 @@ function measureRibHeight(x: number, z: number, along: number, across: number): 
  * 稜線走到兩頭拔成岩峰，坡度陡到一步一格半以上，爬不上去。
  * 雪原外圈零星幾塊冒出雪面的岩，崖邊才不是一條光滑的弧
  */
-function measureNaturalTopY(x: number, z: number): { topY: number; isRib: boolean } {
+function measureNaturalTopY(x: number, z: number): { topY: number; rawY: number; isRib: boolean } {
   const { along, across } = measureRidgeCoordinate(x, z)
 
   const crestY = CREST_Y + fbm2D(along * 0.035 + 5, 3.7, 2, 0.5) * 2.5
@@ -138,9 +147,10 @@ function measureNaturalTopY(x: number, z: number): { topY: number; isRib: boolea
   }
 
   const ribHeight = measureRibHeight(x, z, along, across)
+  const rawY = Math.min(PEAK_TOP_Y, topY + ribHeight)
   topY = Math.round(topY) + ribHeight
 
-  return { topY: Math.min(PEAK_TOP_Y, topY), isRib: ribHeight > 0 }
+  return { topY: Math.min(PEAK_TOP_Y, topY), rawY, isRib: ribHeight > 0 }
 }
 
 /**
@@ -176,7 +186,7 @@ function createColumnMap(): ColumnInfo[] {
   for (let x = 0; x < WORLD_SIZE; x++) {
     for (let z = 0; z < WORLD_SIZE; z++) {
       if (measureCliffOvershoot(x, z) > 0) {
-        columnList.push({ topY: -1, isRib: false, pond: 'none', isTerrace: false })
+        columnList.push({ topY: -1, isRib: false, pond: 'none', isTerrace: false, rawY: -1, isSmoothable: false })
         continue
       }
 
@@ -212,7 +222,14 @@ function createColumnMap(): ColumnInfo[] {
       }
 
       const pond = measurePond(x, z)
-      columnList.push({ topY, isRib, pond, isTerrace: isTerrace || isTerraceEdge })
+      columnList.push({
+        topY,
+        isRib,
+        pond,
+        isTerrace: isTerrace || isTerraceEdge,
+        rawY: natural.rawY,
+        isSmoothable: topY === natural.topY && !isRib && !isTerrace && !isTerraceEdge && pond === 'none',
+      })
     }
   }
 
@@ -234,11 +251,13 @@ function createColumnMap(): ColumnInfo[] {
         if (column.pond !== 'none') {
           column.topY = pondY
           column.isRib = false
+          column.isSmoothable = false
           continue
         }
         /** 池岸一圈收到比池面高最多一格，冰才像是積在窪地裡，不是嵌在坡上 */
         if (getNoisyDistance(x, z, pond.x, pond.z, 0.3, 1.2) <= pond.radius + 2) {
           column.topY = Math.min(column.topY, pondY + 1)
+          column.isSmoothable = false
         }
       }
     }
@@ -298,31 +317,221 @@ function placeColumnList(state: Uint8Array, columnList: ColumnInfo[]): void {
 }
 
 /**
- * 雪坡上補半格雪
+ * 雪面的高度記成「八分之一格」的整數
  *
- * 旁邊有一格剛好比自己高一格的雪，就在自己頭上補一片半格的雪：
- * 一格的階拆成兩個半階，人順著坡走得上去不必一直跳。
- * 岩、冰、雪台與它的邊不補：雪台的邊要留著那一格的坎
+ * 第 F 層雪塊的頂面是 F + 0.5 格，所以頂面的八分數是 8F + 4；
+ * 雪塊上再疊 rem 個八分之一格的薄雪，就是 8F + 4 + rem。
+ * 薄雪只有 1（SNOW_LAYER）、2（SNOW_LAYER_QUARTER）、4（SNOW_SLAB）三種，
+ * 8 就是下一整層雪塊，所以每一層雪塊上能疊出的高度是 0、1、2、4 個八分之一
  */
-function smoothSnowSlope(state: Uint8Array, columnList: ColumnInfo[]): void {
+const SNOW_BASE_EIGHTH = 4
+/** 每層雪塊上疊得出來的薄雪厚度（八分數） */
+const SNOW_REM_LIST = [0, 1, 2, 4] as const
+/** 薄雪厚度對應的方塊 */
+const SNOW_LAYER_BLOCK_MAP: Record<number, BlockId> = {
+  1: BlockId.SNOW_LAYER,
+  2: BlockId.SNOW_LAYER_QUARTER,
+  4: BlockId.SNOW_SLAB,
+}
+/** 相鄰兩格的雪面最多差幾個八分之一：半格，走得上去不必跳（自動跨階的高度是 0.55 格） */
+const SNOW_STEP_EIGHTH_MAX = 4
+/** 連續高度差超過這麼多（一格半）的是雪崖，補不平也不該補，不限制落差 */
+const SNOW_CLIFF_EIGHTH = 12
+/** 每超出容許的落差一個八分之一要扣多少分，比「離連續高度遠一個八分之一」重得多 */
+const SNOW_GAP_PENALTY = 20
+/** 在連續高度附近找候選高度的範圍（八分數） */
+const SNOW_CANDIDATE_RANGE_EIGHTH = 10
+/** 雪面最多比連續高度高幾個八分之一（八分數） */
+const SNOW_OVERSHOOT_EIGHTH = 3
+/** 最多往上墊幾層整格雪塊（為了讓坡接得上，不是為了把山堆高） */
+const SNOW_RAISE_BLOCK_MAX = 1
+
+/** 這一格柱的頂面是不是裸岩（不含冰、雪） */
+function isRockColumn(state: Uint8Array, columnList: ColumnInfo[], x: number, z: number): boolean {
+  if (x < 0 || x >= WORLD_SIZE || z < 0 || z >= WORLD_SIZE)
+    return false
+  const column = columnList[x * WORLD_SIZE + z]!
+  if (column.topY < 0)
+    return false
+  const blockId = getBlock(state, x, column.topY, z)
+  return blockId === BlockId.COBBLESTONE || blockId === BlockId.STONE
+}
+
+/**
+ * 附近有比自己高的岩，雪至少該積到多高
+ *
+ * 風把雪吹到岩的背風面堆起來：緊貼岩的一圈（含斜角）積四分之一格，
+ * 再外面一圈積八分之一格，雪與岩之間才是一段緩緩收上去的雪堆，不是一刀切的岩壁。
+ * 用噪音把外圈挖出缺口，不要變成一圈整齊的環
+ */
+function measureDriftHeight(state: Uint8Array, columnList: ColumnInfo[], x: number, z: number, topY: number): number {
+  let height = 0
+  for (let offsetX = -2; offsetX <= 2; offsetX++) {
+    for (let offsetZ = -2; offsetZ <= 2; offsetZ++) {
+      const distance = Math.max(Math.abs(offsetX), Math.abs(offsetZ))
+      if (distance === 0)
+        continue
+      const neighbourX = x + offsetX
+      const neighbourZ = z + offsetZ
+      if (!isRockColumn(state, columnList, neighbourX, neighbourZ))
+        continue
+      if (columnList[neighbourX * WORLD_SIZE + neighbourZ]!.topY <= topY)
+        continue
+      if (distance === 1) {
+        return 0.25
+      }
+      if (fbm2D(x * 0.45 + 3, z * 0.45 - 5, 2, 0.5) > -0.1) {
+        height = 0.125
+      }
+    }
+  }
+  return height
+}
+
+/**
+ * 一格柱的雪面可以選的高度（八分數，由低到高）
+ *
+ * 範圍：連續高度附近，而且不低於「頂上那塊換成半格」（只在四周都是雪時）、
+ * 不高於整層雪塊再墊一格；碰到岩壁的那幾格另外要求至少積到 minEighth
+ */
+function listSnowCandidate(rawEighth: number, topY: number, canLower: boolean, minEighth: number): number[] {
+  const blockSurface = topY * 8 + SNOW_BASE_EIGHTH
+  const lowest = Math.max(canLower ? blockSurface - 4 : blockSurface, minEighth)
+  /** 高過連續高度太多的雪面不選：為了補平一道缺口把雪堆得比山還高，另一邊的階反而更陡 */
+  const highest = Math.max(lowest, Math.min(blockSurface + SNOW_RAISE_BLOCK_MAX * 8, Math.floor(rawEighth) + SNOW_OVERSHOOT_EIGHTH))
+  const candidateList: number[] = []
+  const startLayer = Math.floor((rawEighth - SNOW_CANDIDATE_RANGE_EIGHTH - SNOW_BASE_EIGHTH) / 8)
+  for (let layerY = startLayer; layerY * 8 + SNOW_BASE_EIGHTH <= rawEighth + SNOW_CANDIDATE_RANGE_EIGHTH; layerY++) {
+    for (const rem of SNOW_REM_LIST) {
+      const surface = layerY * 8 + SNOW_BASE_EIGHTH + rem
+      if (surface >= lowest && surface <= highest && Math.abs(surface - rawEighth) <= SNOW_CANDIDATE_RANGE_EIGHTH) {
+        candidateList.push(surface)
+      }
+    }
+  }
+  /** 範圍太窄選不出東西時（連續高度離整格的雪塊很遠），至少留原本的雪塊 */
+  return candidateList.length > 0 ? candidateList : [Math.min(Math.max(blockSurface, lowest), highest)]
+}
+
+/**
+ * 雪坡的雪面補成斜面
+ *
+ * 地形先照整數的高度放好（每一階一整格），這裡再回頭看每一格柱「連續的高度」，
+ * 用八分之一、四分之一、半格的薄雪（與墊一層雪塊、或把頂上那塊換成半格）湊出最接近的雪面，
+ * 一格的階拆成好幾個小階，遠看是一道斜面。
+ *
+ * 薄雪只有幾種高度，各格各選最接近的話，相鄰兩格偶爾差到四分之三格。所以不是各選各的：
+ * 每一格在候選高度裡挑「離連續高度近、而且與四周鄰居的落差不超過半格」的那個，
+ * 反覆掃幾輪到不再變動為止。連續高度本身就差過一格半的是雪崖，不限制落差，
+ * 不會為了拉平而把崖墊成坡。
+ *
+ * - 降成半格只在四周都是雪時才做：旁邊是岩或冰就維持雪塊，保留原本的稜角
+ * - 岩、冰、雪台、門外的坡與池岸不補：它們的高度是刻意訂的，視為固定的鄰居
+ */
+function smoothSnowSurface(state: Uint8Array, columnList: ColumnInfo[]): void {
+  const columnCount = WORLD_SIZE * WORLD_SIZE
+  /** 目前選的雪面（八分數），不是雪地是 -1 */
+  const surfaceList = new Int16Array(columnCount).fill(-1)
+  /** 連續高度（八分數），算落差容許多少用 */
+  const rawEighthList = new Float32Array(columnCount)
+  const candidateMap = new Map<number, number[]>()
+  const directionList = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const
+
   for (let x = 1; x < WORLD_SIZE - 1; x++) {
     for (let z = 1; z < WORLD_SIZE - 1; z++) {
-      const column = columnList[x * WORLD_SIZE + z]!
-      if (column.topY < 0 || column.isTerrace || column.pond !== 'none')
-        continue
-      if (getBlock(state, x, column.topY, z) !== BlockId.SNOW_BLOCK)
+      const index = x * WORLD_SIZE + z
+      const column = columnList[index]!
+      if (column.topY <= CLOUD_SEA_Y || getBlock(state, x, column.topY, z) !== BlockId.SNOW_BLOCK)
         continue
 
-      const hasHigherSnow = ([[1, 0], [-1, 0], [0, 1], [0, -1]] as const).some(([offsetX, offsetZ]) => {
-        const neighbourX = x + offsetX
-        const neighbourZ = z + offsetZ
-        const neighbour = columnList[neighbourX * WORLD_SIZE + neighbourZ]!
+      const blockSurface = column.topY * 8 + SNOW_BASE_EIGHTH
+      surfaceList[index] = blockSurface
+      rawEighthList[index] = blockSurface
+      if (!column.isSmoothable || getBlock(state, x, column.topY + 1, z) !== BlockId.AIR)
+        continue
+
+      /** 貼著岩的雪堆是「目標」不是下限：硬性規定的話，旁邊的雪補不上去，落差反而變大 */
+      const driftEighth = Math.round(measureDriftHeight(state, columnList, x, z, column.topY) * 8)
+      const rawEighth = Math.max(column.rawY * 8 + SNOW_BASE_EIGHTH, blockSurface + driftEighth)
+      rawEighthList[index] = rawEighth
+      const canLower = directionList.every(([offsetX, offsetZ]) => {
+        const neighbour = columnList[(x + offsetX) * WORLD_SIZE + z + offsetZ]!
+        return neighbour.topY < 0 || getBlock(state, x + offsetX, neighbour.topY, z + offsetZ) === BlockId.SNOW_BLOCK
+      })
+      let minEighth = blockSurface
+      /** 旁邊有一塊雪剛好高一整格：至少補半格，一格的階拆成兩個半階（連續高度再怎麼說也不能比這差） */
+      const hasHigherSnow = directionList.some(([offsetX, offsetZ]) => {
+        const neighbour = columnList[(x + offsetX) * WORLD_SIZE + z + offsetZ]!
         return neighbour.topY === column.topY + 1
-          && getBlock(state, neighbourX, neighbour.topY, neighbourZ) === BlockId.SNOW_BLOCK
+          && getBlock(state, x + offsetX, neighbour.topY, z + offsetZ) === BlockId.SNOW_BLOCK
       })
       if (hasHigherSnow) {
-        setBlock(state, x, column.topY + 1, z, BlockId.SNOW_SLAB)
+        minEighth = Math.max(minEighth, blockSurface + 4)
       }
+      const candidateList = listSnowCandidate(rawEighth, column.topY, canLower, minEighth)
+      candidateMap.set(index, candidateList)
+      surfaceList[index] = candidateList.reduce((best, candidate) =>
+        Math.abs(candidate - rawEighth) < Math.abs(best - rawEighth) ? candidate : best)
+    }
+  }
+
+  /** 一格柱選這個高度的代價：離連續高度多遠，加上與鄰居的落差超出容許多少 */
+  const measureCost = (index: number, surface: number): number => {
+    let cost = Math.abs(surface - rawEighthList[index]!)
+    for (const offset of [WORLD_SIZE, -WORLD_SIZE, 1, -1]) {
+      const neighbourSurface = surfaceList[index + offset]!
+      if (neighbourSurface < 0)
+        continue
+      const rawGap = Math.abs(rawEighthList[index]! - rawEighthList[index + offset]!)
+      if (rawGap > SNOW_CLIFF_EIGHTH)
+        continue
+      cost += SNOW_GAP_PENALTY * Math.max(0, Math.abs(surface - neighbourSurface) - SNOW_STEP_EIGHTH_MAX)
+    }
+    return cost
+  }
+
+  for (let pass = 0; pass < 30; pass++) {
+    let isChanged = false
+    for (const [index, candidateList] of candidateMap) {
+      let best = surfaceList[index]!
+      let bestCost = measureCost(index, best)
+      for (const candidate of candidateList) {
+        const cost = measureCost(index, candidate)
+        if (cost < bestCost) {
+          best = candidate
+          bestCost = cost
+        }
+      }
+      if (best !== surfaceList[index]) {
+        surfaceList[index] = best
+        isChanged = true
+      }
+    }
+    if (!isChanged)
+      break
+  }
+
+  /** 照最後的雪面放方塊：先補整層的雪塊（或把頂上那塊換成半格），再疊薄雪 */
+  for (const index of candidateMap.keys()) {
+    const column = columnList[index]!
+    const x = Math.floor(index / WORLD_SIZE)
+    const z = index % WORLD_SIZE
+    const surface = surfaceList[index]!
+    const layerY = Math.floor((surface - SNOW_BASE_EIGHTH) / 8)
+    const rem = surface - SNOW_BASE_EIGHTH - layerY * 8
+
+    if (layerY < column.topY) {
+      /** 降成半格：下面那一層墊雪塊，頂上換成半格 */
+      setBlock(state, x, layerY, z, BlockId.SNOW_BLOCK)
+      setBlock(state, x, column.topY, z, BlockId.SNOW_SLAB)
+      continue
+    }
+    for (let y = column.topY + 1; y <= layerY; y++) {
+      setBlock(state, x, y, z, BlockId.SNOW_BLOCK)
+    }
+    const layerBlock = SNOW_LAYER_BLOCK_MAP[rem]
+    if (layerBlock !== undefined) {
+      setBlock(state, x, layerY + 1, z, layerBlock)
     }
   }
 }
@@ -432,13 +641,30 @@ function placeLanternList(state: Uint8Array, columnList: ColumnInfo[]): void {
     const column = columnList[point.x * WORLD_SIZE + point.z]!
     if (column.topY < 0 || column.pond !== 'none')
       continue
-    const groundY = column.topY + 1
-    /** 底下若是半格雪，燈座就換掉它，不浮在半格上 */
-    if (getBlock(state, point.x, groundY, point.z) === BlockId.SNOW_SLAB) {
-      setBlock(state, point.x, groundY, point.z, BlockId.AIR)
-    }
+    const groundY = clearSnowLayer(state, point.x, column.topY, point.z) + 1
     placeStoneLantern(state, point.x, groundY, point.z)
   }
+}
+
+/**
+ * 把這一格柱的薄雪清成一整格的雪面，回傳頂上那塊雪塊的 y
+ *
+ * 石燈籠要穩穩踩在整格的雪上：被降成半格的頂面換回雪塊、墊高的整層雪塊算進去，
+ * 頂上的薄雪（八分之一、四分之一、半格）清掉
+ */
+function clearSnowLayer(state: Uint8Array, x: number, topY: number, z: number): number {
+  if (getBlock(state, x, topY, z) === BlockId.SNOW_SLAB) {
+    setBlock(state, x, topY, z, BlockId.SNOW_BLOCK)
+  }
+  let surfaceY = topY
+  while (getBlock(state, x, surfaceY + 1, z) === BlockId.SNOW_BLOCK) {
+    surfaceY++
+  }
+  const aboveId = getBlock(state, x, surfaceY + 1, z)
+  if (aboveId === BlockId.SNOW_SLAB || aboveId === BlockId.SNOW_LAYER_QUARTER || aboveId === BlockId.SNOW_LAYER) {
+    setBlock(state, x, surfaceY + 1, z, BlockId.AIR)
+  }
+  return surfaceY
 }
 
 /** 稜線中段最低的那個鞍部（岩脊斷開、積雪的地方），燈籠擺在它旁邊一格 */
@@ -472,7 +698,8 @@ function findSaddle(columnList: ColumnInfo[]): { x: number; z: number } {
 export function generateAlpineWorld(state: Uint8Array): void {
   const columnList = createColumnMap()
   placeColumnList(state, columnList)
-  smoothSnowSlope(state, columnList)
+  /** 薄雪排在樹與花草之前：補了薄雪的格柱，樹與花草自己會跳過（頂上不是空氣），才不會浮在薄雪上 */
+  smoothSnowSurface(state, columnList)
   dustRockWithSnow(state, columnList)
   placePineList(state, columnList)
   scatterPlantList(state, columnList)
