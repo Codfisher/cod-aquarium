@@ -1,7 +1,8 @@
 <template>
   <div class="touch-control-panel">
-    <!-- 虛擬搖桿 -->
+    <!-- 虛擬搖桿（神遊中收起來，只留選單鈕） -->
     <div
+      v-if="!isDrifting"
       class="joystick-base"
       :style="{
         left: `${joystickOrigin.x}px`,
@@ -27,7 +28,10 @@
       />
     </button>
 
-    <div class="right-group">
+    <div
+      v-if="!isDrifting"
+      class="right-group"
+    >
       <button
         class="control-button sprint-button"
         @touchstart.prevent="$emit('sprint', true)"
@@ -60,6 +64,8 @@ defineProps<{
   joystickActive: boolean;
   joystickOrigin: { x: number; y: number };
   joystickOffset: { x: number; y: number };
+  /** 神遊中：移動用的搖桿、衝刺與跳躍鈕不顯示 */
+  isDrifting?: boolean;
 }>()
 
 defineEmits<{

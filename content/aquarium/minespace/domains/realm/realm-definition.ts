@@ -293,6 +293,39 @@ export interface RealmSwellArea {
   halfSize: number;
 }
 
+/**
+ * 神遊時無人機的飛行設定（見 domains/drift）
+ *
+ * 高度都是「離腳下最高的東西多高」：路徑兩側幾格內最高的地形、樹冠、岩壁再往上加，
+ * 所以同一組數字在平原、林海與山脊上都不會穿進去。不給就用 drift-flight-config 的預設，
+ * 各場景的建議值也集中寫在那裡，不必每座場景的資料夾各改一份
+ */
+export interface RealmDriftFlight {
+  /** 關掉就只散步不升空（洞頂太低的地底場景） */
+  isEnabled: boolean;
+  /** 巡航時離最高障礙的距離範圍（格），路徑上慢慢在兩者之間起伏 */
+  clearanceMin: number;
+  clearanceMax: number;
+  /** 世界座標的高度上限，不給就不限（溪谷用它把鏡頭壓在峽谷邊緣之下） */
+  altitudeMax?: number;
+  /**
+   * 飛行的平面路線
+   *
+   * - free：停留點之間直接拉一條平滑曲線（湖、海、林海這種四面開闊的場景）
+   * - ground：沿著散步用的可行走路線飛（溪谷這種要順著谷底走的場景）
+   */
+  routeMode?: 'free' | 'ground';
+}
+
+/** 場景作者補的觀景點：鏡頭停在這裡，面向 look 那一點慢慢環顧 */
+export interface RealmDriftViewpoint {
+  x: number;
+  z: number;
+  /** 看向哪裡，不給就依音源決定 */
+  lookX?: number;
+  lookZ?: number;
+}
+
 export type RealmId = 'hub' | 'lake' | 'coast' | 'forest' | 'autumn' | 'swamp' | 'village' | 'cave' | 'alpine' | 'river' | 'wheatfield' | 'meadow' | 'songbird' | 'cicada' | 'rainvale' | 'blizzard' | 'campfire' | 'ruins' | 'jigoku'
 
 export interface RealmDefinition {
@@ -358,6 +391,10 @@ export interface RealmDefinition {
   weatherParticle?: RealmWeatherParticle;
   /** 整片場景的雨、雪與雷，見 RealmWeather；不給就是晴天 */
   weather?: RealmWeather;
+  /** 神遊的無人機設定，不給就用預設，見 RealmDriftFlight */
+  driftFlight?: RealmDriftFlight;
+  /** 神遊額外的觀景點，自動推導的停留點之外補幾個手動挑的 */
+  driftViewpointList?: RealmDriftViewpoint[];
   /** 開場面板與 HUD 顯示的圖示 */
   icon: string;
 }

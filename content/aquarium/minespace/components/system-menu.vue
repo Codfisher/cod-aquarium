@@ -3,7 +3,22 @@
     v-if="open"
     class="system-menu"
   >
-    <div class="menu-body">
+    <!--
+      大廳按「神遊」：先挑一座大場景
+
+      神遊要的是一座可以久留的大場景，大廳只是各座箱庭之間的過道，
+      所以在大廳按下去不在原地開始，而是換成與開始畫面同一張大場景清單
+    -->
+    <drift-realm-picker
+      v-if="isPickerOpen"
+      @select="(realmId) => $emit('drift', realmId)"
+      @close="isPickerOpen = false"
+    />
+
+    <div
+      v-else
+      class="menu-body"
+    >
       <div class="menu-title">
         {{ t('title') }}
       </div>
@@ -270,6 +285,20 @@
         </button>
       </div>
 
+      <!-- 神遊：隨時都能切換。大場景裡就地開始；大廳裡先挑一座大場景（見上面的清單） -->
+      <div class="menu-section">
+        <button
+          class="mc-button return-button"
+          @click="handleDriftClick()"
+        >
+          <UIcon
+            name="i-material-symbols:self-improvement-outline"
+            class="text-base"
+          />
+          {{ t('drift') }}
+        </button>
+      </div>
+
       <!--
         操作說明收起來
 
@@ -309,8 +338,9 @@
 
 <script setup lang="ts">
 import type { TexturePackId } from '../domains/block/texture-pack'
+import type { RealmId } from '../domains/realm/realm-definition'
 import type { Landmark } from '../domains/world/landmark'
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { GRAPHICS_QUALITY_LIST } from '../composables/use-graphics-quality'
 import { useSimpleI18n } from '../composables/use-simple-i18n'
 import { CAMERA_FOV_RANGE } from '../domains/render-host/render-constants'
@@ -318,8 +348,9 @@ import { useRenderPreference } from '../domains/render-host/use-render-preferenc
 import { getDayLengthSecond } from '../domains/weather/day-night'
 import { LANDMARK_LIST } from '../domains/world/landmark'
 import ControlGuide from './control-guide.vue'
+import DriftRealmPicker from './drift-realm-picker.vue'
 
-defineProps<{
+const props = defineProps<{
   open: boolean;
   /** 目前的時刻讀數，例如「06:20 破曉」 */
   timeLabel: string;
@@ -337,7 +368,33 @@ const emit = defineEmits<{
   travel: [landmark: Landmark];
   /** 在大場景裡按「返回禪庭」 */
   returnHub: [];
+  /**
+   * 按「神遊」：關掉選單讓鏡頭自己走
+   *
+   * 大場景裡不帶參數，就地開始；大廳裡帶著從清單挑的那座大場景
+   */
+  drift: [realmId?: RealmId];
 }>()
+
+/** 大廳裡按「神遊」時改顯示大場景清單 */
+const isPickerOpen = ref(false)
+
+/** 選單關掉就收起清單，下次打開回到選單本身 */
+watch(() => props.open, (isOpen) => {
+  if (!isOpen) {
+    isPickerOpen.value = false
+  }
+})
+
+/** 快速前往只在大廳有，借它判斷現在是不是在大廳 */
+function handleDriftClick() {
+  if (props.travelEnabled) {
+    isPickerOpen.value = true
+    return
+  }
+
+  emit('drift')
+}
 
 const volume = defineModel<number>('volume', { required: true })
 const isMuted = defineModel<boolean>('muted', { required: true })
@@ -414,6 +471,7 @@ const { locale, t } = useSimpleI18n({
     textureFrom: '貼圖來自',
     travel: '快速前往',
     returnHub: '返回禪庭',
+    drift: '神遊（鏡頭自己走）',
     location: '目前位於：',
     controls: '操作方式',
     intro: '遊玩說明',
@@ -448,6 +506,7 @@ const { locale, t } = useSimpleI18n({
     textureFrom: 'Textures from',
     travel: 'Fast Travel',
     returnHub: 'Back to the Zen Garden',
+    drift: 'Drift (camera wanders)',
     location: 'You are in: ',
     controls: 'Controls',
     intro: 'How to Play',

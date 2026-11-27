@@ -21,6 +21,7 @@ import { drainForwardedLog } from '../../composables/use-error-logger'
 import { useFpsController } from '../../composables/use-fps-controller'
 import { usePerformanceProbe } from '../../composables/use-performance-probe'
 import { useTexturePack } from '../../composables/use-texture-pack'
+import { useDrift } from '../drift/use-drift'
 import { getGardenAt } from '../garden/garden-layout'
 import { findSafeStandingPosition } from '../player/collision'
 import { activateRealm, activeRealmState } from '../realm/active-realm'
@@ -175,6 +176,9 @@ export function createRenderRuntime({ channel }: CreateRenderRuntimeParam): Rend
   let sceneDepth: SceneDepth | null = null
   let volumetricLight: VolumetricLight | null = null
 
+  /** 神遊：鏡頭自己散步與飛行，見 domains/drift；漫遊控制器建好之後才有 */
+  let drift: ReturnType<typeof useDrift> | null = null
+
   let babylon: ReturnType<typeof createBabylonScene> | null = null
   let systems: ReturnType<typeof createSystems> | null = null
 
@@ -224,7 +228,14 @@ export function createRenderRuntime({ channel }: CreateRenderRuntimeParam): Rend
         applyRenderSettings(message.patch)
         break
       case 'input':
-        systems?.controller.applyInput(message)
+        if (drift?.isDrifting()) {
+          /** 神遊中轉頭疊加在系統的視線上；按鍵狀態照樣交給控制器記著，結束時才不會漏掉按住的鍵 */
+          drift.applyLook(message)
+          systems?.controller.applyInput({ ...message, mouseDeltaX: 0, mouseDeltaY: 0, touchLookDeltaX: 0, touchLookDeltaY: 0 })
+        }
+        else {
+          systems?.controller.applyInput(message)
+        }
         break
       case 'command':
         await runCommand(message.payload)
@@ -469,6 +480,17 @@ export function createRenderRuntime({ channel }: CreateRenderRuntimeParam): Rend
       spawn: realm.spawn,
     })
 
+    drift = useDrift({
+      scene,
+      camera,
+      controller,
+      getWorld: () => (worldLayer ? { realm: worldLayer.realm, worldState: worldLayer.worldState } : null),
+      getTimeOfDay: dayNight.getTimeOfDay,
+      getDayRatio: dayNight.getDayRatio,
+      getSunDirection: () => atmosphere.sunDirection,
+      onChange: postStatus,
+    })
+
     trackStatus(scene)
     trackPortals(scene)
   }
@@ -480,7 +502,8 @@ export function createRenderRuntime({ channel }: CreateRenderRuntimeParam): Rend
    */
   function trackPortals(scene: Scene) {
     scene.onBeforeRenderObservable.add(() => {
-      if (!systems || !worldLayer || !hasStarted)
+      /** 神遊不穿門：鏡頭路線本來就避開門前，這裡再擋一道，免得飛行的鏡頭掠過門洞就被送走 */
+      if (!systems || !worldLayer || !hasStarted || drift?.isDrifting())
         return
 
       const { position } = systems.controller
@@ -580,6 +603,8 @@ export function createRenderRuntime({ channel }: CreateRenderRuntimeParam): Rend
       return false
 
     isSwitchingRealm = true
+    /** 神遊只在一座場景裡，換場景先結束；位置馬上會被放到新場景的出生點，不必降落 */
+    drift?.abort()
     const { controller, weatherSystem } = systems
     const previousLayer = worldLayer
     const realm = getRealm(realmId)
@@ -803,6 +828,8 @@ export function createRenderRuntime({ channel }: CreateRenderRuntimeParam): Rend
           }
         : null,
       debugModeLabel,
+      isDrifting: drift?.isDrifting() ?? false,
+      driftPhase: drift?.getPhase() ?? null,
     }
 
     channel.post(status)
@@ -907,6 +934,16 @@ export function createRenderRuntime({ channel }: CreateRenderRuntimeParam): Rend
       case 'cycle-debug-mode':
         debugModeLabel = cycleVolumetricDebugMode()
         break
+      case 'start-drift':
+        /** 轉場途中不開始：霧還在湧、場景還在換，起點會落在舊世界 */
+        if (!isTraveling && !isSwitchingRealm)
+          drift?.start()
+        postStatus()
+        break
+      case 'stop-drift':
+        drift?.stop()
+        postStatus()
+        break
       case 'request-handoff':
         channel.post({
           type: 'handoff-snapshot',
@@ -915,6 +952,7 @@ export function createRenderRuntime({ channel }: CreateRenderRuntimeParam): Rend
             rotation: { pitch: babylon.camera.rotation.x, yaw: babylon.camera.rotation.y },
             timeOfDay: dayNight.getTimeOfDay(),
             realmId: activeRealmState.realmId,
+            ...(drift?.isDrifting() ? { isDrifting: true } : {}),
           },
         })
         break
@@ -958,6 +996,8 @@ export function createRenderRuntime({ channel }: CreateRenderRuntimeParam): Rend
     timerIdList.length = 0
     stopReportTimers()
 
+    drift?.abort()
+    drift = null
     worldLayer?.dispose()
     worldLayer = null
     realmTransition?.dispose()

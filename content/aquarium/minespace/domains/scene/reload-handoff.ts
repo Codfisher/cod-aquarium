@@ -47,6 +47,8 @@ export interface ReloadHandoff {
    * 只存 id，認不得的 id 由渲染端退回大廳（見 realm-list 的 getRealm）
    */
   realmId?: string;
+  /** 重新整理前是不是在神遊，是的話重載後接著神遊（主執行緒收到 ready 後再送 start-drift） */
+  isDrifting?: boolean;
 }
 
 function isFiniteNumber(value: unknown): value is number {
@@ -81,6 +83,7 @@ function parseHandoff(raw: string): ReloadHandoff | null {
       timeOfDay,
       ...(isFiniteNumber(parsed.dayIndex) ? { dayIndex: parsed.dayIndex } : {}),
       ...(typeof parsed.realmId === 'string' ? { realmId: parsed.realmId } : {}),
+      ...(parsed.isDrifting === true ? { isDrifting: true } : {}),
     } as ReloadHandoff
   }
   catch {

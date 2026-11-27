@@ -114,7 +114,11 @@ export function useRenderHost({ canvasRef, locale }: UseRenderHostParam) {
     isUnderground: false,
     isProbeVisible: false,
     debugModeLabel: '',
+    isDrifting: false,
+    driftPhase: null,
   })
+  /** 重載前正在神遊：進場（按下開始）後要接著神遊，見 main-scene 的 handleStart */
+  const shouldResumeDrift = handoff?.isDrifting === true
   /**
    * 效能讀數
    *
@@ -509,6 +513,7 @@ export function useRenderHost({ canvasRef, locale }: UseRenderHostParam) {
     postInput,
     postCommand,
     requestHandoff,
+    shouldResumeDrift,
     setTimeOfDay,
     addPoseHandler,
     addSoundHandler,

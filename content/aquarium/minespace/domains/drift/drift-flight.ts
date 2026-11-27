@@ -1,0 +1,381 @@
+import type { RealmDriftFlight } from '../realm/realm-definition'
+import type { DriftGrid } from './drift-grid'
+import type { GridPoint } from './drift-path'
+import type { DriftPoint } from './drift-point'
+import type { DriftTrack } from './drift-track'
+import { getSurfaceY } from '../world/world-access'
+import { LONG_NODE_LIMIT, PATH_SAMPLE_SPACING, planWalkPath, resamplePolyline, smoothHeightList, smoothWithSpline, subdivideWaypoint } from './drift-path'
+import { createDriftTrack } from './drift-track'
+import { itemAt } from './drift-util'
+
+/**
+ * 神遊的無人機軌道
+ *
+ * 與散步同一套：一排等間距的點。差別在高度與平面路線——
+ * 平面是幾個轉折點串起來的曲線（或沿著散步的路線飛），
+ * 高度是「路徑兩側最高的東西」加上一段會慢慢起伏的距離，起降用平滑的高度漸變接回地面，
+ * 所以與散步無縫銜接，不需要瞬移
+ */
+
+/** 一趟飛行大約多長（格），以巡航速度約五格每秒換算是四十到九十秒 */
+const FLIGHT_LENGTH_MIN = 200
+const FLIGHT_LENGTH_MAX = 420
+/** 最多串幾個中途的轉折點 */
+const WAYPOINT_COUNT_MAX = 4
+/** 沿地面路線時，相鄰兩個停留點的距離範圍 */
+const LEG_DISTANCE_MIN = 24
+const LEG_DISTANCE_MAX = 170
+/** 自由路線的空中轉折點：相鄰兩點的距離範圍，以及不要靠近場景邊緣（半徑的幾成以內） */
+const AIR_LEG_MIN = 45
+const AIR_LEG_MAX = 100
+const AIR_REGION_RATIO = 0.8
+/** 轉彎角度超過這個（弧度）的下一站不選，免得曲線在原地打圈 */
+const TURN_ANGLE_MAX = (Math.PI * 3) / 4
+/** 控制點間距：曲線跟著轉折點走，補點讓它不要在長線段上盪出去 */
+const WAYPOINT_SPACING = 14
+/** 探測障礙的點：路徑中心與左右前後各這麼遠 */
+const PROBE_RADIUS = 2
+/**
+ * 障礙高度用「斜率錐」膨脹：每個障礙往兩側放出一道最陡 OBSTACLE_SLOPE 的斜坡，
+ * 無人機在遠處就開始爬升，不會貼到樹冠才猛拉；膨脹後多抬 OBSTACLE_LIFT，
+ * 因為接著的平滑會把尖峰削低一些
+ */
+const OBSTACLE_SLOPE = 0.45
+const OBSTACLE_LIFT = 1.4
+const OBSTACLE_SMOOTH_RADIUS = 8
+/** 起降的高度漸變長度（格）：落差越大越長，最短二十二格、最長六十格 */
+const RAMP_LENGTH_MIN = 22
+const RAMP_LENGTH_MAX = 60
+const RAMP_PER_HEIGHT = 2.8
+/** 起飛前先垂直升到接下來幾公尺路徑的障礙之上：看多遠、最多升多高（格） */
+const TAKEOFF_LOOKAHEAD = 10
+const RISE_HEIGHT_MAX = 22
+/** 貼著障礙飛的最小餘裕（格） */
+const SAFETY_MARGIN = 0.8
+/** 巡航時鏡頭微微俯視的基準角度（弧度） */
+const CRUISE_PITCH = 0.14
+const PITCH_MIN = -0.12
+const PITCH_MAX = 0.5
+/** 高度起伏的週期（格） */
+const CLEARANCE_WAVE_LENGTH = 90
+
+function smoothstep(ratio: number): number {
+  const clamped = Math.min(1, Math.max(0, ratio))
+  return clamped * clamped * (3 - 2 * clamped)
+}
+
+/** 飛行路線上的一個轉折點：停留點，或自由路線裡憑空取的空中一點 */
+export interface FlightWaypoint {
+  x: number;
+  z: number;
+  point: DriftPoint | null;
+}
+
+export interface FlightRoute {
+  /** 依序經過的轉折點，最後一個是落點 */
+  waypointList: FlightWaypoint[];
+  landing: DriftPoint;
+}
+
+function pickWeighted<T>(itemList: T[], weightList: number[]): T {
+  let pick = Math.random() * weightList.reduce((sum, weight) => sum + weight, 0)
+  for (let index = 0; index < itemList.length; index++) {
+    pick -= itemAt(weightList, index)
+    if (pick <= 0)
+      return itemAt(itemList, index)
+  }
+  return itemAt(itemList, itemList.length - 1)
+}
+
+function sortByDistance(pointList: DriftPoint[], from: { x: number; z: number }): DriftPoint[] {
+  return pointList
+    .slice()
+    .sort((left, right) => Math.hypot(left.blockX - from.x, left.blockZ - from.z) - Math.hypot(right.blockX - from.x, right.blockZ - from.z))
+}
+
+/**
+ * 挑一趟飛行的路線
+ *
+ * 自由路線（四面開闊的場景）：從目前位置出發，在場景範圍裡取幾個空中的轉折點串成大弧線，
+ * 最後降在離最後一個轉折點最近的露天停留點。轉折點不必是停留點，所以不受停留點稀疏的影響
+ * （湖中島只有幾個點，也飛得出四十秒的一趟）。
+ * 沿地面的路線（溪谷）則是一站一站經過停留點。每一段的方向不急轉，曲線是弧線而不是繞圈。
+ * 找不到露天的落點就是 null，這一趟不飛
+ */
+export function chooseFlightRoute(
+  pointList: DriftPoint[],
+  from: { x: number; z: number },
+  recentIdList: string[],
+  options: { region: { x: number; z: number; radius: number } | null; mode: 'free' | 'ground' },
+): FlightRoute | null {
+  const targetLength = FLIGHT_LENGTH_MIN + Math.random() * (FLIGHT_LENGTH_MAX - FLIGHT_LENGTH_MIN)
+  const openList = pointList.filter((point) => point.isOpenSky)
+  if (openList.length === 0)
+    return null
+
+  let last = { x: from.x, z: from.z }
+  let heading: number | null = null
+  let total = 0
+
+  if (options.mode === 'free' && options.region) {
+    const { region } = options
+    const waypointList: FlightWaypoint[] = []
+
+    while (waypointList.length < WAYPOINT_COUNT_MAX && total < targetLength) {
+      /** 一段的長度依場景大小縮放：湖中島只有三十幾格半徑，不能照一百格的段長挑 */
+      const legMin = Math.min(AIR_LEG_MIN, region.radius * 0.5)
+      const legMax = Math.min(AIR_LEG_MAX, region.radius * 1.3)
+      const reach = region.radius * AIR_REGION_RATIO
+
+      let next: { x: number; z: number } | null = null
+      for (let attempt = 0; attempt < 30 && !next; attempt++) {
+        /** 在範圍內均勻抽一點，段長與轉角合格才收；轉角限制讓路線是弧線而不是來回折返 */
+        const angle = Math.random() * Math.PI * 2
+        const radius = Math.sqrt(Math.random()) * reach
+        const x = region.x + Math.sin(angle) * radius
+        const z = region.z + Math.cos(angle) * radius
+        const distance = Math.hypot(x - last.x, z - last.z)
+        if (distance < legMin || distance > legMax)
+          continue
+        if (heading !== null) {
+          const direction = Math.atan2(x - last.x, z - last.z)
+          if (Math.abs(Math.atan2(Math.sin(direction - heading), Math.cos(direction - heading))) > TURN_ANGLE_MAX)
+            continue
+        }
+        next = { x, z }
+      }
+      /** 抽不到合格的點：穿過場景中心飛到對面 */
+      next ??= {
+        x: region.x + (region.x - last.x) * 0.6,
+        z: region.z + (region.z - last.z) * 0.6,
+      }
+
+      total += Math.hypot(next.x - last.x, next.z - last.z)
+      heading = Math.atan2(next.x - last.x, next.z - last.z)
+      last = next
+      waypointList.push({ x: next.x, z: next.z, point: null })
+    }
+
+    /** 落點：最後一個轉折點附近三個露天停留點裡挑一個，最近去過的降權 */
+    const nearList = sortByDistance(openList, last).slice(0, 3)
+    const landing = pickWeighted(nearList, nearList.map((point) => (recentIdList.includes(point.id) ? 0.2 : 1)))
+    waypointList.push({ x: landing.blockX, z: landing.blockZ, point: landing })
+    return { waypointList, landing }
+  }
+
+  const visitedList: DriftPoint[] = []
+  while (visitedList.length < WAYPOINT_COUNT_MAX && total < targetLength) {
+    const candidateList = pointList.filter((point) => {
+      if (visitedList.includes(point))
+        return false
+
+      const distance = Math.hypot(point.blockX - last.x, point.blockZ - last.z)
+      if (distance < LEG_DISTANCE_MIN || distance > LEG_DISTANCE_MAX)
+        return false
+
+      if (heading === null)
+        return true
+
+      const direction = Math.atan2(point.blockX - last.x, point.blockZ - last.z)
+      return Math.abs(Math.atan2(Math.sin(direction - heading), Math.cos(direction - heading))) <= TURN_ANGLE_MAX
+    })
+    if (candidateList.length === 0)
+      break
+
+    /** 最近去過的降權，路線不要老是飛同幾個點 */
+    const chosen = pickWeighted(candidateList, candidateList.map((point) => (recentIdList.includes(point.id) ? 0.15 : 1)))
+    total += Math.hypot(chosen.blockX - last.x, chosen.blockZ - last.z)
+    heading = Math.atan2(chosen.blockX - last.x, chosen.blockZ - last.z)
+    last = { x: chosen.blockX, z: chosen.blockZ }
+    visitedList.push(chosen)
+  }
+  if (visitedList.length === 0)
+    return null
+
+  /** 落點必須露天：最後一站不是的話，接最近的一個露天停留點 */
+  if (!itemAt(visitedList, visitedList.length - 1).isOpenSky) {
+    const nearest = sortByDistance(openList.filter((point) => !visitedList.includes(point)), last)[0]
+    if (!nearest)
+      return null
+    visitedList.push(nearest)
+  }
+
+  return {
+    waypointList: visitedList.map((point) => ({ x: point.blockX, z: point.blockZ, point })),
+    landing: itemAt(visitedList, visitedList.length - 1),
+  }
+}
+
+export interface BuildFlightParam {
+  worldState: Uint8Array;
+  grid: DriftGrid;
+  flight: RealmDriftFlight;
+  /** 起飛的位置（鏡頭實際位置）與鏡頭高度 */
+  start: { x: number; z: number; eyeY: number; blockY: number };
+  route: FlightRoute;
+  eyeHeight: number;
+}
+
+/** 平面上的路線：轉折點之間的曲線，或沿著散步的路線 */
+function buildSpine(param: BuildFlightParam): GridPoint[] | null {
+  const { grid, flight, start, route } = param
+  const startPoint = { x: start.x, z: start.z }
+
+  if (flight.routeMode === 'ground') {
+    const legList: GridPoint[] = []
+    let from = { x: start.x, z: start.z, blockY: start.blockY }
+    for (const { point } of route.waypointList) {
+      if (!point)
+        return null
+
+      const leg = planWalkPath(grid, from, { blockX: point.blockX, blockZ: point.blockZ, blockY: point.blockY }, LONG_NODE_LIMIT)
+      if (!leg)
+        return null
+
+      legList.push(...leg.xList.map((x, index) => ({ x, z: itemAt(leg.zList, index) })))
+      from = { x: point.blockX, z: point.blockZ, blockY: point.blockY }
+    }
+
+    /** 各段在停留點接起來有個小折角，磨掉；兩端用原值，起降位置不動 */
+    const xList = smoothHeightList(legList.map((point) => point.x), 5, 2)
+    const zList = smoothHeightList(legList.map((point) => point.z), 5, 2)
+    xList[0] = itemAt(legList, 0).x
+    zList[0] = itemAt(legList, 0).z
+    xList[xList.length - 1] = itemAt(legList, legList.length - 1).x
+    zList[zList.length - 1] = itemAt(legList, legList.length - 1).z
+    return xList.map((x, index) => ({ x, z: itemAt(zList, index) }))
+  }
+
+  const waypointList = [startPoint, ...route.waypointList.map((waypoint) => ({ x: waypoint.x, z: waypoint.z }))]
+  return smoothWithSpline(subdivideWaypoint(waypointList, WAYPOINT_SPACING), 12)
+}
+
+/**
+ * 組出一條飛行軌道
+ *
+ * 高度 = 路徑兩側探到的最高處（樹冠、岩壁、水面），先用斜率錐往兩側膨脹再平滑，
+ * 加上一段在場景設定的範圍裡起伏的餘裕；兩端以平滑的高度漸變接回地面的鏡頭高度
+ */
+export function buildFlightTrack(param: BuildFlightParam): DriftTrack | null {
+  const { worldState, flight, start, route, eyeHeight } = param
+  const { landing } = route
+  const spine = buildSpine(param)
+  if (!spine || spine.length < 2)
+    return null
+
+  const sampleList = resamplePolyline(spine, PATH_SAMPLE_SPACING)
+  if (sampleList.length < 8)
+    return null
+
+  /** 每個取樣點旁邊最高的東西 */
+  const columnMap = new Map<number, number>()
+  function readTop(blockX: number, blockZ: number): number {
+    const key = blockX * 1000 + blockZ
+    let top = columnMap.get(key)
+    if (top === undefined) {
+      top = getSurfaceY(worldState, blockX, blockZ) - 0.5
+      columnMap.set(key, top)
+    }
+    return top
+  }
+  const obstacleList = sampleList.map((sample) => {
+    const blockX = Math.round(sample.x)
+    const blockZ = Math.round(sample.z)
+    return Math.max(
+      readTop(blockX, blockZ),
+      readTop(blockX + PROBE_RADIUS, blockZ),
+      readTop(blockX - PROBE_RADIUS, blockZ),
+      readTop(blockX, blockZ + PROBE_RADIUS),
+      readTop(blockX, blockZ - PROBE_RADIUS),
+    )
+  })
+
+  /** 斜率錐膨脹：來回掃兩遍，每個障礙往兩側放出斜坡 */
+  const coneStep = OBSTACLE_SLOPE * PATH_SAMPLE_SPACING
+  const coneList = obstacleList.map((height) => height + OBSTACLE_LIFT)
+  for (let index = 1; index < coneList.length; index++) {
+    coneList[index] = Math.max(itemAt(coneList, index), itemAt(coneList, index - 1) - coneStep)
+  }
+  for (let index = coneList.length - 2; index >= 0; index--) {
+    coneList[index] = Math.max(itemAt(coneList, index), itemAt(coneList, index + 1) - coneStep)
+  }
+  const envelopeList = smoothHeightList(coneList, OBSTACLE_SMOOTH_RADIUS, 2)
+
+  const phase = Math.random() * Math.PI * 2
+  const cruiseList = envelopeList.map((envelope, index) => {
+    const wave = 0.5 + 0.5 * Math.sin((index * PATH_SAMPLE_SPACING / CLEARANCE_WAVE_LENGTH) * Math.PI * 2 + phase)
+    const height = envelope + eyeHeight + flight.clearanceMin + (flight.clearanceMax - flight.clearanceMin) * wave
+    const capped = flight.altitudeMax === undefined ? height : Math.min(height, flight.altitudeMax)
+    return Math.max(capped, envelope + SAFETY_MARGIN + eyeHeight)
+  })
+
+  const landingEyeY = landing.footY + eyeHeight
+  const lastIndex = sampleList.length - 1
+  const floorList = envelopeList.map((envelope) => envelope + eyeHeight * 0.5 + SAFETY_MARGIN)
+
+  /**
+   * 起降是垂直的
+   *
+   * 起飛點與落點旁邊常有樹或岩，斜著爬會從它們旁邊（甚至裡面）擦過去。
+   * 所以先原地升到「接下來八公尺路徑上最高的障礙之上」，再沿曲線走；降落反過來，
+   * 先沿曲線飛到落點正上方那個高度，再原地降下去。落點頭上本來就是空的（露天停留點）
+   */
+  const nearCount = Math.round(TAKEOFF_LOOKAHEAD / PATH_SAMPLE_SPACING)
+  const startRef = Math.min(
+    start.eyeY + RISE_HEIGHT_MAX,
+    Math.max(start.eyeY, ...floorList.slice(0, nearCount)),
+  )
+  const endRef = Math.min(
+    landingEyeY + RISE_HEIGHT_MAX,
+    Math.max(landingEyeY, ...floorList.slice(Math.max(0, lastIndex - nearCount))),
+  )
+
+  /** 水平段的漸變長度：爬得越高越長，坡度才不會太陡 */
+  const cruiseMax = cruiseList.reduce((peak, value) => Math.max(peak, value), 0)
+  const startRamp = Math.min(RAMP_LENGTH_MAX, Math.max(RAMP_LENGTH_MIN, (cruiseMax - startRef) * RAMP_PER_HEIGHT)) / PATH_SAMPLE_SPACING
+  const endRamp = Math.min(RAMP_LENGTH_MAX, Math.max(RAMP_LENGTH_MIN, (cruiseMax - endRef) * RAMP_PER_HEIGHT)) / PATH_SAMPLE_SPACING
+  const mainYList = cruiseList.map((cruise, index) => {
+    const height = startRef + (cruise - startRef) * smoothstep(index / startRamp)
+    const blended = endRef + (height - endRef) * smoothstep((lastIndex - index) / endRamp)
+    return Math.max(blended, itemAt(floorList, index))
+  })
+  const smoothMainList = smoothHeightList(mainYList, 4, 1)
+  smoothMainList[0] = startRef
+  smoothMainList[lastIndex] = endRef
+
+  /** 垂直段：平面位置不動，高度走平滑的 S 曲線，每一格軌道樣本是半公尺 */
+  function buildVertical(fromY: number, toY: number): number[] {
+    const count = Math.round(Math.abs(toY - fromY) / PATH_SAMPLE_SPACING)
+    return Array.from({ length: count }, (_, index) => fromY + (toY - fromY) * smoothstep((index + 1) / (count + 1)))
+  }
+  const riseList = buildVertical(start.eyeY, startRef)
+  const descendList = buildVertical(endRef, landingEyeY)
+
+  const xList = [
+    ...riseList.map(() => itemAt(sampleList, 0).x),
+    ...sampleList.map((sample) => sample.x),
+    ...descendList.map(() => itemAt(sampleList, lastIndex).x),
+  ]
+  const zList = [
+    ...riseList.map(() => itemAt(sampleList, 0).z),
+    ...sampleList.map((sample) => sample.z),
+    ...descendList.map(() => itemAt(sampleList, lastIndex).z),
+  ]
+  /** 起點本身（高度就是鏡頭現在的高度）與落點（落地的鏡頭高度）放進頭尾，與散步無縫銜接 */
+  const yList = [start.eyeY, ...riseList, ...smoothMainList, ...descendList, landingEyeY]
+  xList.unshift(itemAt(sampleList, 0).x)
+  zList.unshift(itemAt(sampleList, 0).z)
+  xList.push(itemAt(sampleList, lastIndex).x)
+  zList.push(itemAt(sampleList, lastIndex).z)
+
+  const trackLast = yList.length - 1
+  const rawPitchList = yList.map((_, index) => {
+    const ahead = Math.min(trackLast, index + 4)
+    const behind = Math.max(0, index - 4)
+    const slope = (itemAt(yList, ahead) - itemAt(yList, behind)) / Math.max(PATH_SAMPLE_SPACING, (ahead - behind) * PATH_SAMPLE_SPACING)
+    return Math.min(PITCH_MAX, Math.max(PITCH_MIN, CRUISE_PITCH - 0.5 * Math.atan(slope)))
+  })
+  const pitchList = smoothHeightList(rawPitchList, 6, 2)
+
+  return createDriftTrack('fly', xList, zList, yList, pitchList)
+}

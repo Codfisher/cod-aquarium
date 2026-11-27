@@ -1706,3 +1706,42 @@ meme-cache 沒有變化，與預期相符：toast 的成本是載入後的穩態
 - 極致原本只開行進版光束（`volumetric-light.ts`），螢幕空間版（`god-rays.ts`）在程式裡設成互斥。行進版刻意不往天空加光（`SKY_FLOOR`，加了會整片泛白、太陽外圍出現藍黑邊），結果極致的太陽周圍是平的，反而比「高」少了那團越過樹梢往外擴散的光暈。
 - 現在極致兩個都開：行進版畫地面上的光柱，螢幕空間版只負責太陽周圍的光暈，曝光打八折（`RAYMARCH_EXPOSURE_RATIO`）。調到 1.0 太陽中央的亮度幾乎不變（已頂到色調映射上限），只會讓地面光柱疊得更重。
 - 成本：螢幕空間版只在晨昏、面對太陽時才建遮蔽圖。極致早上面對太陽，交錯量兩輪，25.8 → 24.6 FPS（約 5%）。
+
+## Minespace 神遊（Drift）介面端
+
+設計見 `docs/plans/2026-11-27-minespace-drift-design.md`，這裡只記主執行緒這一側的決定。
+
+- **入口**：開始畫面「神遊」→ `components/drift-realm-picker.vue`（`REALM_LIST` 去掉大廳，卡片含圖示、名稱、描述，手機兩欄）→ `handlePickDrift`：走與開始漫遊同一條流程，`switch-realm` 後用 VueUse `until(realmId)` 等 `realm-changed`（逾時 20 秒放棄）才送 `start-drift`。選單的「神遊」只在大場景顯示（渲染端不支援大廳），關選單後直接 `start-drift`。
+- **離開**：神遊中按 WASD、方向鍵、Space、Esc 送 `stop-drift`；手機碰左半邊（搖桿 `joystickActive`）也離開，右半邊拖曳轉頭照常。桌機 Esc 是瀏覽器解除指標鎖定，擋不下來、選單必定跳出，所以 `isPaused` 變 true 時一併 `stop-drift`，不留下「選單後面鏡頭還在走」。手機按選單鈕只暫停，關掉選單繼續神遊。
+- **介面淡出**：`useIdle(4000)`（加上 touchmove）；神遊中且閒置時，右上狀態、左上音景面板、錯誤徽章與提示 `.hud-faded`（opacity 0、pointer-events none），動一下 0.8 秒淡回。手機神遊中收起搖桿與衝刺、跳躍鈕，只留選單鈕。
+- **換畫質重載**：交接資料帶 `isDrifting`，`useRenderHost` 回傳 `shouldResumeDrift`，按下開始（`handleStart`）送 `start` 後接著送 `start-drift`。
+
+## Minespace：神遊模式（引擎端）
+
+模組在 `content/aquarium/minespace/domains/drift/`，介面端見上一節。設計見 `docs/plans/2026-11-27-minespace-drift-design.md`。
+
+### 架構
+
+- **整條都是預先算好的曲線，不經過漫遊控制器**。使用者要「移動自然且舒服」，散步與飛行都是鏡頭沿一排等間距（0.5 格）的點走：`drift-track.ts` 的 `DriftTrack`（x、z、鏡頭高度、俯仰、前進方向、轉彎與爬升的速度倍率），每幀只用走過的距離查表（O(1)）。控制器用 `setSuspended(true)` 暫停物理與輸入，仍每幀跑霧、環境光與洞穴程度，所以 `use-drift` 每幀把 `controller.position` 寫成「鏡頭腳下」。結束時 `teleport` 回去（空中先 settle 落到正下方）。
+- **`drift-grid.ts`**：把方塊資料整理成「站立面」（每格柱掃一次、快取）：腳下實心且不是樹葉／細長裝飾、頭上三格無障礙（低矮通道不走）、水深 ≤ 1（涉水）、無熔岩；範圍在邊界減速線內縮三格；傳送門周圍 3.5 格當障礙。**上階與下階上限都是一格**（刻意對稱，見下面踩坑）。
+- **`drift-path.ts`**：A*（節點上限 9000，沿地面飛行的路線 30000）→ 拉直 → Catmull-Rom（Babylon `Curve3`）→ 逐點對回格子驗證（中心與身體四角 ±0.3）→ 驗證不過就退回轉折點更多的版本，最後退回 A* 原始格子；腳底高度低通（半徑 6 取樣點 × 2 次）後補下限（不低於地面 0.35 格）。`collectReachableSet` 從起點 BFS，剔除走不到的停留點。
+- **`drift-point.ts`**：停留點 = 音源（標題去重，每個標題最多兩個代表點）、傳送門前、抵達點、場景 `driftViewpointList`、地形找出的水邊與空地；彼此至少隔 16 格。
+- **`drift-flight.ts` ／ `drift-flight-config.ts`**：飛行路線（自由路線：場景範圍內取空中轉折點，落在最近的露天停留點；溪谷用 `ground`：沿散步路線飛）＋高度（兩側最高障礙 → 斜率錐膨脹 → 平滑 → 加起伏的餘裕）。起降是垂直的：先原地升到接下來十公尺路徑的障礙之上再走曲線，降落反過來。各場景設定集中在 `DRIFT_FLIGHT_MAP`（場景定義上的 `driftFlight` 優先）。
+- **`drift-shot.ts`**：運鏡，見設計文件「運鏡」一節；鏡位表 `SHOT_TABLE`、角速度與角加速度上限 `GAZE_LIMIT_MAP`、微呼吸 `SWAY_*` 都在這裡。
+- **`use-drift.ts`**：狀態機 walk → linger → walk／fly；`render-runtime` 在 `buildWorld` 建立它、`start-drift` ／ `stop-drift` 指令呼叫它。輸入：神遊中 `input` 訊息的轉頭位移交給 `applyLook`（疊加在系統視線上，4 秒沒輸入轉回），按鍵狀態仍交給控制器記著，結束時才不會漏掉按住的鍵。換場景（`switchRealm`）與 `dispose` 先 `abort()`，觀察者一定移除。`request-handoff` 帶 `isDrifting`。
+
+### 踩過的坑
+
+- **上階與下階上限要相等**：原本下階給兩格、上階一格，BFS 可達但回不來，溪谷谷底的停留點彼此走不到、飛行路線全失敗。
+- **A* 終點要同一高度層**：只看水平距離一格半，會在斷崖下方停住，抵達後 `blockY` 與位置對不上，下一趟尋路起點格查不到（永遠 linger）。路線與繞弧可能一路上下坡，每次位置換了就 `syncBlockY` 重找高度層。
+- **下一趟要在位置確定後才算**：繞弧鏡位會移動位置，繞完要重算下一站，否則起步會瞬移回原點。
+- **視線的角加速度要連呼吸起伏一起看**：微呼吸在飛行時整個關掉，那一幀的 0.003 弧度階躍會變成 10 弧度／秒² 的加速度尖峰；現在是淡入淡出（時間常數 2 秒）。
+- **垂直段的速度要另外限**：原地升降的樣本水平不動，沿軌道走一格其實是升降好幾格，要照實際高度變化限速並提前減速（`curveScaleList`）。
+- **停止偵測要用三維位移**：飛行起頭的垂直段水平不動，只看水平會被誤判卡住而半空中放棄。
+- **`noUncheckedIndexedAccess`**：陣列取值一律走 `drift-util.ts` 的 `itemAt`。ESLint `--fix` 會把 `;[a, b] = [b, a]` 改寫成容易出事的形狀，交換用暫存變數。
+- 響度：音景在主執行緒，渲染端拿不到「此刻聽到什麼」。環顧與繞弧偏向的音源用音源資料的線性衰減（與音景同公式）估算，白天／夜晚音源依 `dayRatio` 過濾；下雨噤聲沒有算進去。
+
+### 驗證（不開瀏覽器）
+
+用 `vite-node` 在 Node 裡生成各場景的地形，跑完整引擎（假的 scene、camera、controller）模擬 15 分鐘：
+`npx vite-node --root . <script>`，腳本在 scratchpad 的 `realms/drift/test-drift.ts`（不進版控）。檢查項：路徑取樣點的頭部高度與身體四角不撞方塊、鏡頭不在方塊裡、飛行不出邊界、鏡頭每幀位移與垂直速度（散步 ≤ 2.6、飛行 ≤ 5、垂直 ≤ 2.8 m/s）、視線角速度與角加速度不超過 `GAZE_LIMIT_MAP`、離開後控制器位置不與方塊重疊。

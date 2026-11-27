@@ -21,6 +21,8 @@
 
     <ambience-panel
       v-if="hasStarted"
+      class="hud-fadable"
+      :class="{ 'hud-faded': isHudFaded }"
       :audible-list="audibleList"
       :zone="status.zone"
       :realm="currentRealm.hasGardens ? null : currentRealm"
@@ -32,6 +34,7 @@
       :joystick-active="joystickActive"
       :joystick-origin="joystickOrigin"
       :joystick-offset="joystickOffset"
+      :is-drifting="status.isDrifting"
       @jump="setJump"
       @sprint="setSprint"
       @menu="openMenu()"
@@ -54,6 +57,7 @@
       @intro="introVisible = true"
       @travel="handleTravel"
       @return-hub="handleReturnHub"
+      @drift="handleMenuDrift"
     />
 
     <start-panel
@@ -61,7 +65,27 @@
       :ready="isWorldReady && !initError"
       :is-reopened="introVisible"
       @start="handleStartPanelConfirm()"
+      @drift="handlePickDrift"
     />
+
+    <!--
+      神遊中的提示
+
+      離開的方式依裝置不同：桌機按移動鍵，手機碰左半邊（那是搖桿的位置）。
+      跟其他 HUD 一起淡出，不留在畫面上擋景
+    -->
+    <div
+      v-if="status.isDrifting && !menuVisible"
+      class="drift-indicator hud-fadable"
+      :class="{ 'hud-faded': isHudFaded }"
+      role="status"
+    >
+      <UIcon
+        name="i-material-symbols:self-improvement-outline"
+        class="text-sm"
+      />
+      {{ isMobile ? t('driftingHintMobile') : t('driftingHint') }}
+    </div>
 
     <!--
       錯誤提示
@@ -71,7 +95,8 @@
     -->
     <div
       v-if="errorCount > 0"
-      class="error-badge"
+      class="error-badge hud-fadable"
+      :class="{ 'hud-faded': isHudFaded }"
     >
       {{ t('errorBadge', { count: errorCount }) }}
     </div>
@@ -85,7 +110,8 @@
     -->
     <div
       v-else-if="isDevBuild"
-      class="diagnostic-badge"
+      class="diagnostic-badge hud-fadable"
+      :class="{ 'hud-faded': isHudFaded }"
     >
       {{ t('diagnosticBadge') }}
     </div>
@@ -93,14 +119,16 @@
     <!-- 正在看哪一種除錯檢視，不標出來會忘記自己按到第幾號 -->
     <div
       v-if="devToggle.volumetricDebug && status.debugModeLabel"
-      class="debug-mode-badge"
+      class="debug-mode-badge hud-fadable"
+      :class="{ 'hud-faded': isHudFaded }"
     >
       {{ status.debugModeLabel }}
     </div>
 
     <div
       v-if="hasStarted && !menuVisible"
-      class="status-stack"
+      class="status-stack hud-fadable"
+      :class="{ 'hud-faded': isHudFaded }"
     >
       <div class="status-readout time-readout">
         <UIcon
@@ -234,8 +262,9 @@
 </template>
 
 <script setup lang="ts">
+import type { RealmId } from '../realm/realm-definition'
 import type { Landmark } from '../world/landmark'
-import { useEventListener } from '@vueuse/core'
+import { until, useEventListener, useIdle } from '@vueuse/core'
 import { computed, ref, watch } from 'vue'
 import AmbiencePanel from '../../components/ambience-panel.vue'
 import DevPanel from '../../components/dev-panel.vue'
@@ -273,6 +302,8 @@ const { t, locale } = useSimpleI18n({
     probeMeasuring: '量測中⋯',
     stalledNotice: '畫面似乎停住了，若沒有自己恢復，請重新整理頁面',
     dismiss: '關閉',
+    driftingHint: '神遊中 · 按任意移動鍵離開',
+    driftingHintMobile: '神遊中 · 碰左半邊畫面離開',
     midnight: '深夜',
     dawn: '破曉',
     sunrise: '日出',
@@ -302,6 +333,8 @@ const { t, locale } = useSimpleI18n({
     probeMeasuring: 'Measuring…',
     stalledNotice: 'The view seems to have stalled. Reload the page if it does not recover',
     dismiss: 'Dismiss',
+    driftingHint: 'Drifting · press any movement key to exit',
+    driftingHintMobile: 'Drifting · touch the left half to exit',
     midnight: 'Midnight',
     dawn: 'Dawn',
     sunrise: 'Sunrise',
@@ -323,6 +356,9 @@ const { t, locale } = useSimpleI18n({
 const { errorCount } = useErrorLogger()
 /** 那個「按 F6」的提示只在本地開發時出現，正式站上不該有 */
 const isDevBuild = import.meta.env.DEV
+
+/** 神遊前的換場景最多等多久（毫秒）；轉場加建世界約幾秒，留足餘裕 */
+const DRIFT_SWITCH_TIMEOUT = 20000
 
 const hasStarted = ref(false)
 const menuVisible = ref(false)
@@ -365,6 +401,7 @@ const {
   postInput,
   postCommand,
   requestHandoff,
+  shouldResumeDrift,
   setTimeOfDay,
   addPoseHandler,
   addSoundHandler,
@@ -507,7 +544,47 @@ const timeOfDay = computed({
   set: (value: number) => setTimeOfDay(value),
 })
 
+/**
+ * 神遊中的介面淡出
+ *
+ * 滑鼠、觸控、滾輪、按鍵都算有動靜（useIdle 預設的事件再加上 touchmove：
+ * 手機上拖著看風景是持續的，不該被當成沒動靜）。指標鎖定時 mousemove 照樣會送出
+ */
+const HUD_IDLE_TIMEOUT = 4000
+const { idle: isInputIdle } = useIdle(HUD_IDLE_TIMEOUT, {
+  events: ['mousemove', 'mousedown', 'resize', 'keydown', 'touchstart', 'touchmove', 'wheel'],
+})
+/** 選單開著時介面本來就是蓋住的，不淡；只有神遊中放著不動才淡 */
+const isHudFaded = computed(() => status.isDrifting && isInputIdle.value && !menuVisible.value)
+
+/** 這些鍵一按就離開神遊，在原地接手 */
+const DRIFT_EXIT_KEY_SET = new Set([
+  'KeyW',
+  'KeyA',
+  'KeyS',
+  'KeyD',
+  'ArrowUp',
+  'ArrowDown',
+  'ArrowLeft',
+  'ArrowRight',
+  'Space',
+  'Escape',
+])
+
+function stopDrift() {
+  postCommand({ command: 'stop-drift' })
+}
+
 useEventListener(window, 'keydown', (event: KeyboardEvent) => {
+  if (status.isDrifting && DRIFT_EXIT_KEY_SET.has(event.code) && !event.repeat) {
+    /** 焦點在選單按鈕上時，空白鍵是在「按下那顆按鈕」，不是移動 */
+    const isOnControl = event.target instanceof HTMLElement
+      && event.target.closest('button, a, input, select, textarea')
+    if (!isOnControl) {
+      stopDrift()
+    }
+  }
+
   if (event.code === 'F3') {
     /** F3 在瀏覽器是「尋找下一個」，這裡要攔下來 */
     event.preventDefault()
@@ -572,6 +649,22 @@ watch(isPaused, (paused) => {
     return
 
   menuVisible.value = paused
+
+  /**
+   * 桌機的 Esc 是瀏覽器解除指標鎖定，擋不下來，選單一定會跟著跳出來。
+   * 設計上 Esc 要離開神遊：那就一併結束，免得選單後面鏡頭還自己走、
+   * 關掉選單才發現位置早就不是離開的地方
+   */
+  if (paused && status.isDrifting) {
+    stopDrift()
+  }
+})
+
+/** 手機左半邊的觸碰是搖桿，在神遊中等於「我要自己走」 */
+watch(joystickActive, (isActive) => {
+  if (isActive && status.isDrifting) {
+    stopDrift()
+  }
 })
 
 /** 說明頁的按鈕：第一次是開始漫遊，之後是關掉說明回到遊戲 */
@@ -594,6 +687,11 @@ async function handleStart() {
   /** 天氣與粒子在渲染端建，雷聲歸聽雨亭，渲染端要它響時會點名過來 */
   postCommand({ command: 'start' })
 
+  /** 換畫質重來前正在神遊，進場後接著神遊（見 reload-handoff） */
+  if (shouldResumeDrift) {
+    postCommand({ command: 'start-drift' })
+  }
+
   await startSoundscape({
     worldState: worldState.value,
     realmId: realmId.value,
@@ -601,6 +699,47 @@ async function handleStart() {
   })
 
   resume()
+}
+
+/**
+ * 開始畫面的「神遊」：挑了一座大場景
+ *
+ * 流程與「開始漫遊」同一條（含指標鎖定），之後切到那座場景，
+ * 等 realm-changed 回來（realmId 更新）才送 start-drift：換場景是整份世界重建，
+ * 太早送的話指令會落在即將被拆掉的舊世界上
+ */
+async function handlePickDrift(targetRealmId: RealmId) {
+  if (introVisible.value) {
+    introVisible.value = false
+    resume()
+  }
+  else {
+    await handleStart()
+  }
+
+  await startDriftIn(targetRealmId)
+}
+
+/**
+ * 選單的「神遊」
+ *
+ * 大場景裡留在當下這座場景；在大廳則是從清單挑了一座，換過去再開始
+ */
+function handleMenuDrift(targetRealmId?: RealmId) {
+  closeMenu()
+  void startDriftIn(targetRealmId ?? realmId.value)
+}
+
+async function startDriftIn(targetRealmId: RealmId) {
+  if (targetRealmId !== realmId.value) {
+    postCommand({ command: 'switch-realm', realmId: targetRealmId })
+    /** 逾時就放棄：換場景失敗時不該讓這裡無限等下去 */
+    const isSwitched = await until(realmId).toBe(targetRealmId, { timeout: DRIFT_SWITCH_TIMEOUT }).then(() => true, () => false)
+    if (!isSwitched)
+      return
+  }
+
+  postCommand({ command: 'start-drift' })
 }
 
 function openMenu() {
@@ -767,6 +906,38 @@ function handleReturnHub() {
   color: inherit
   font-size: 12px
   cursor: pointer
+
+/**
+ * 神遊中放著不動就淡掉的 HUD
+ *
+ * 淡出時一併關掉互動：看不見的東西不該還吃到點擊（環境音面板的靜音鈕要點）
+ */
+.hud-fadable
+  transition: opacity 0.8s ease
+
+.hud-faded
+  opacity: 0
+  pointer-events: none !important
+
+.drift-indicator
+  position: absolute
+  left: 50%
+  bottom: 28px
+  transform: translateX(-50%)
+  display: flex
+  align-items: center
+  gap: 6px
+  max-width: calc(100% - 24px)
+  padding: 5px 14px
+  border-radius: 999px
+  background: rgba(0, 0, 0, 0.45)
+  color: rgba(255, 255, 255, 0.82)
+  font-size: 12px
+  letter-spacing: 0.04em
+  white-space: nowrap
+  pointer-events: none
+  user-select: none
+  z-index: 40
 
 /** 除錯檢視的模式標示，擺在提示底下不擋住畫面中央 */
 .debug-mode-badge

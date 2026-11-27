@@ -324,6 +324,13 @@ interface ControllerWorld {
  */
 export function useFpsController() {
   let cleanup: (() => void) | null = null
+  /**
+   * 神遊中：物理與輸入整個停掉，鏡頭由神遊的軌道直接擺
+   *
+   * 神遊把 position 當成「鏡頭腳下」直接寫（鏡頭高度減眼睛高度），控制器只負責照這個位置
+   * 套霧、環境光與洞穴程度，不再有重力與碰撞跟鏡頭打架
+   */
+  let isSuspended = false
 
   /** 大氣透視的開關掛在這裡，因為空氣色是跟著霧色一起算的 */
   const { state: devToggle } = useDevToggles()
@@ -864,6 +871,13 @@ export function useFpsController() {
          */
         const deltaTime = clamp(scene.getEngine().getDeltaTime() / 1000, { min: 0, max: 0.05 })
 
+        if (isSuspended) {
+          isSwimming.value = false
+          camera.position.set(position.x, position.y + PLAYER_EYE_HEIGHT, position.z)
+          updateAtmosphere(deltaTime)
+          return
+        }
+
         /**
          * 視角旋轉
          *
@@ -1014,6 +1028,17 @@ export function useFpsController() {
     }
   }
 
+  /**
+   * 暫停或恢復物理（神遊用）
+   *
+   * 恢復時把下落速度歸零：飛行期間 position 是被外面寫的，不能帶著舊的速度落地
+   */
+  function setSuspended(nextIsSuspended: boolean) {
+    isSuspended = nextIsSuspended
+    if (!nextIsSuspended)
+      resetMotion()
+  }
+
   /** 直接把玩家送到指定座標，方便快速旅行 */
   function teleport(x: number, y: number, z: number) {
     position.x = resolveAxis(x)
@@ -1039,6 +1064,7 @@ export function useFpsController() {
     applyInput,
     applyControl,
     teleport,
+    setSuspended,
     isPaused,
     isCursorFree,
     isSwimming,

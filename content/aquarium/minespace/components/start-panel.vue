@@ -1,6 +1,15 @@
 <template>
   <div class="start-panel">
-    <div class="panel-body">
+    <drift-realm-picker
+      v-if="isPickerOpen"
+      @select="(realmId) => $emit('drift', realmId)"
+      @close="isPickerOpen = false"
+    />
+
+    <div
+      v-else
+      class="panel-body"
+    >
       <div class="title">
         Minespace
       </div>
@@ -18,22 +27,39 @@
 
       <control-guide class="mt-[22px]" />
 
-      <button
-        class="mc-button start-button"
-        :disabled="!ready"
-        @click="$emit('start')"
-      >
-        {{ confirmLabel }}
-      </button>
+      <div class="button-row">
+        <button
+          class="mc-button start-button"
+          :disabled="!ready"
+          @click="$emit('start')"
+        >
+          {{ confirmLabel }}
+        </button>
+
+        <!-- 神遊要先挑一座大場景；世界沒準備好時換不了場景，與開始鈕一起停用 -->
+        <button
+          class="mc-button drift-button"
+          :disabled="!ready"
+          @click="isPickerOpen = true"
+        >
+          <UIcon
+            name="i-material-symbols:self-improvement-outline"
+            class="text-xl"
+          />
+          {{ t('drift') }}
+        </button>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import type { RealmId } from '../domains/realm/realm-definition'
+import { computed, ref } from 'vue'
 import { useSimpleI18n } from '../composables/use-simple-i18n'
 import { GARDEN_LIST } from '../domains/garden/garden-layout'
 import ControlGuide from './control-guide.vue'
+import DriftRealmPicker from './drift-realm-picker.vue'
 
 const props = defineProps<{
   ready: boolean;
@@ -43,7 +69,11 @@ const props = defineProps<{
 
 defineEmits<{
   start: [];
+  /** 在神遊的場景挑選頁選了一座大場景 */
+  drift: [realmId: RealmId];
 }>()
+
+const isPickerOpen = ref(false)
 
 const confirmLabel = computed(() => {
   if (props.isReopened) {
@@ -96,6 +126,7 @@ const { t, locale } = useSimpleI18n({
       '在日夜流轉之間，找一個安心的角落放空、聆聽吧。',
     ],
     start: '開始漫遊',
+    drift: '神遊',
     back: '回到漫遊',
     loading: '正在耙沙⋯⋯',
   },
@@ -108,6 +139,7 @@ const { t, locale } = useSimpleI18n({
       'As day turns to night, find a quiet corner and listen.',
     ],
     start: 'Start Roaming',
+    drift: 'Drift',
     back: 'Back to Roaming',
     loading: 'Raking the sand...',
   },
@@ -189,10 +221,26 @@ const { t, locale } = useSimpleI18n({
     cursor: progress
     opacity: 0.55
 
-.start-button
+/** 開始漫遊是主要動作，神遊排在旁邊，窄螢幕時各佔一整列 */
+.button-row
+  display: flex
+  flex-wrap: wrap
+  gap: 10px
   margin-top: 24px
-  width: 100%
+
+.start-button
+  flex: 2 1 200px
   padding: 16px
   font-size: 1.25rem
+  font-weight: 700
+
+.drift-button
+  flex: 1 1 120px
+  display: flex
+  align-items: center
+  justify-content: center
+  gap: 6px
+  padding: 16px
+  font-size: 1.1rem
   font-weight: 700
 </style>

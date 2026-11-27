@@ -163,6 +163,15 @@ export type RenderCommand =
    */
   /** spawn 不給就落在目的地自己的出生點；選單的「返回禪庭」會帶上那道門前的落點 */
   | { command: 'switch-realm'; realmId: RealmId; spawn?: RealmSpawn }
+  /**
+   * 開始神遊：鏡頭自己在目前這座大場景裡散步、偶爾升空俯瞰（見 domains/drift）
+   *
+   * 大廳不支援（主執行緒在大廳按「神遊」是先挑大景），收到也不會開始；
+   * 轉場途中或找不到起點時同樣不會開始，狀態回報的 isDrifting 才是實際有沒有開始的依據
+   */
+  | { command: 'start-drift' }
+  /** 結束神遊：在目前位置把控制交還給漫遊（飛行中先平順落到正下方可站立處） */
+  | { command: 'stop-drift' }
 
 export interface RenderCommandMessage {
   type: 'command';
@@ -283,6 +292,10 @@ export interface RenderFrameStatusMessage {
   probe: PerformanceReading | null;
   /** 體積光除錯檢視目前是哪一種 */
   debugModeLabel: string;
+  /** 神遊中（鏡頭由系統帶著走）；渲染端因換場景等原因自己結束時會變回 false */
+  isDrifting: boolean;
+  /** 神遊目前的階段：散步、停留環顧、升空飛行；沒在神遊是 null。離開前的降落算在 fly */
+  driftPhase: 'walk' | 'linger' | 'fly' | null;
 }
 
 /**
