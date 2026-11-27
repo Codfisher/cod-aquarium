@@ -11,7 +11,7 @@ import { checkOverlap, PLAYER_EYE_HEIGHT } from '../player/collision'
 import { getDayPhase } from '../weather/day-night'
 import { buildFlightTrack, chooseFlightRoute } from './drift-flight'
 import { getDriftFlight, getDriftRegion } from './drift-flight-config'
-import { chooseLookYaw, getBiasFactor, isSightlineClear, isSightlineClear3D, measureOpenness, measureOpennessAt, measureView, probeViewDistance3D } from './drift-framing'
+import { chooseLookYaw, getBiasFactor, isSightlineClear, isSightlineClear3D, measureMaxDepth, measureOpenness, measureOpennessAt, measureSubjectVisibility, measureView, probeViewDistance3D } from './drift-framing'
 import { createDriftGrid } from './drift-grid'
 import { collectReachableSet, PATH_SAMPLE_SPACING, planArcPath, planWalkPath } from './drift-path'
 import { collectDriftPoint, findLoudestEmitter, findReachableSpot, listDriftEmitter } from './drift-point'
@@ -130,19 +130,30 @@ const REPLAN_DELAY = 3
 
 /** 視線偏好（往外／往內）：離中心至少這麼遠才有「外」的方向，偏好的強度（零到一） */
 const LOOK_BIAS_CENTER_RADIUS_MIN = 6
-const LOOK_BIAS_STRENGTH = 0.7
+const LOOK_BIAS_STRENGTH = 0.85
+/** 偏好方向的鎖定側移：畫面中央貼臉與被擋住的取樣比例上限，比一般側移寬——起伏的雪原上偏好方向常有小丘，只要大半路段看得出去就值得 */
+const LOOK_BIAS_NEAR_MAX = 0.15
+const LOOK_BIAS_BLOCKED_MAX = 0.3
+/** 偏好方向的側移鏡位的權重加成：有視線偏好的場景，路上大部分時間都該看著偏好的方向 */
+const LOOK_BIAS_TRUCK_FIT = 4
 /** 看哪裡：正前方至少要有幾格縱深（不然是一面牆），音源與停留點被擋住時不當景物 */
 const LOOK_MIN_DEPTH = 12
 /** 看向景物的最近距離（格）：再近畫面會被一個東西塞滿 */
 const SUBJECT_DISTANCE_MIN = 8
-/** 視線俯仰的範圍（弧度，正值往下看）：走路 -十度到 +二十度，飛行 零到 +二十八度 */
-const WALK_PITCH_RANGE: readonly [number, number] = [-0.17, 0.35]
+/** 視線俯仰的範圍（弧度，正值往下看）：走路 -十度到 +十二度，飛行 零到 +二十八度 */
+const WALK_PITCH_RANGE: readonly [number, number] = [-0.17, 0.22]
 const FLY_PITCH_RANGE: readonly [number, number] = [0, 0.5]
 
 /** 下一站的距離偏好：太近太遠都扣分（格） */
 const STOP_IDEAL_DISTANCE = 80
 const STOP_DISTANCE_SIGMA = 50
 const STOP_DISTANCE_MIN = 14
+/** 走去露天停留點準備起飛時，近一點也行（格） */
+const OPEN_WALK_DISTANCE_MIN = 4
+/** 補的露天停留點：編號前綴、最多補幾個、離現在最多往外找幾格 */
+const SKY_POINT_ID_PREFIX = 'sky-'
+const SKY_POINT_MAX = 4
+const SKY_SEARCH_RADIUS = 60
 /** 特色主體的觀賞站位被選為下一站的加權（乘上主體的 weight）：路線優先去看得到特色的地方 */
 const FEATURE_DESTINATION_BONUS = 4
 /** 最近去過的幾站大幅降權 */
@@ -169,6 +180,11 @@ const FOLLOW_CURVINESS_SCALE = 6
 const FEATURE_PATH_SAMPLE_MAX = 8
 /** 側移與視差：貼臉前景（會頻閃）的取樣比例上限、視差要有的前景比例下限 */
 const NEAR_FOREGROUND_MAX = 0.1
+/** 一路看著某個景物的鏡位（看向目的地、拉遠、視差）：這一段裡看得到那個景物的取樣比例下限 */
+const SUBJECT_VISIBLE_MIN = 0.7
+/** 被圍在牆裡（四面八方縱深都不到 LOOK_MIN_DEPTH）時，停留縮成幾秒，並把這個停留點降權 */
+const ENCLOSED_LINGER_SECOND = 3
+const ENCLOSED_POINT_WEIGHT = 0.05
 /** 側移時畫面中央被擋住（十格內有東西，含坡面）的取樣比例上限：峽谷裡側面就是山壁，幾乎都不合格 */
 const TRUCK_BLOCKED_MAX = 0.15
 /** 往外看的場景，視線俯仰的下限（弧度，正值往下看）：不抬頭看迎面的坡 */
@@ -292,6 +308,8 @@ interface DriftSession {
   panSign: 1 | -1;
   /** 上一段散步／飛行的鏡位與上一次停留的開頭，不連續重複 */
   lastTrackShotId: ShotId | null;
+  /** 站過之後發現被圍在牆裡（沒有地方可看）的停留點，下次不太去 */
+  enclosedIdList: string[];
   lastLingerShotId: ShotId | null;
   /** 這一趟換鏡位的軌道距離，與下一個要換的是第幾個 */
   shotCutList: number[];
@@ -392,12 +410,12 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
     const candidateList = target.pointList.filter((point) =>
       point !== target.currentPoint
       && (!isOpenSkyOnly || point.isOpenSky)
-      && Math.hypot(point.blockX - target.x, point.blockZ - target.z) >= STOP_DISTANCE_MIN)
+      && Math.hypot(point.blockX - target.x, point.blockZ - target.z) >= (isOpenSkyOnly ? OPEN_WALK_DISTANCE_MIN : STOP_DISTANCE_MIN))
 
     for (let attempt = 0; attempt < PLAN_ATTEMPT_MAX && candidateList.length > 0; attempt++) {
       const weightList = candidateList.map((point) => {
         const distance = Math.hypot(point.blockX - target.x, point.blockZ - target.z)
-        const base = (Math.exp(-(((distance - STOP_IDEAL_DISTANCE) / STOP_DISTANCE_SIGMA) ** 2)) + 0.03) * (1 + (point.feature?.weight ?? 0) * FEATURE_DESTINATION_BONUS)
+        const base = (Math.exp(-(((distance - STOP_IDEAL_DISTANCE) / STOP_DISTANCE_SIGMA) ** 2)) + 0.03) * (1 + (point.feature?.weight ?? 0) * FEATURE_DESTINATION_BONUS) * (target.enclosedIdList.includes(point.id) ? ENCLOSED_POINT_WEIGHT : 1)
         return target.recentIdList.includes(point.id) ? base * RECENT_STOP_WEIGHT : base
       })
 
@@ -489,11 +507,37 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
         target.nextPlan = planFlight(target)
         /** 這裡不是露天（林子裡、洞口內）起飛會穿過樹冠：先走去最近的露天停留點，下一次停留再飛 */
         const here = target.grid.getCellNear(Math.round(target.x), Math.round(target.z), target.blockY)
-        if (!target.nextPlan && !here?.isOpenSky)
+        if (!target.nextPlan && !here?.isOpenSky) {
           target.nextPlan = planWalk(target, true)
+          /** 連一個露天的停留點都沒有（密林）：就近補一塊頭上全空的地，起降才有地方用 */
+          if (!target.nextPlan && addSkyPoint(target))
+            target.nextPlan = planWalk(target, true)
+        }
       }
     }
     target.nextPlan ??= planWalk(target)
+  }
+
+  /**
+   * 就近補一個露天的停留點
+   *
+   * 露天要一路空到世界頂（無人機垂直起降，樹冠再高也會穿過），高樹的林子可能一個停留點都不算。
+   * 找不到就是 false；補到上限也不再補，免得停留點清單一直長
+   */
+  function addSkyPoint(target: DriftSession): boolean {
+    if (target.pointList.filter((point) => point.id.startsWith(SKY_POINT_ID_PREFIX)).length >= SKY_POINT_MAX)
+      return false
+
+    const spot = findReachableSpot(target, target.x, target.z, target.eyeY - PLAYER_EYE_HEIGHT, SKY_SEARCH_RADIUS, true)
+    if (!spot)
+      return false
+
+    const id = `${SKY_POINT_ID_PREFIX}${spot.blockX},${spot.blockZ}`
+    if (target.pointList.some((point) => point.id === id))
+      return false
+
+    target.pointList.push({ ...spot, id, kind: 'clearing' })
+    return true
   }
 
   function startLinger(target: DriftSession, duration: number) {
@@ -660,6 +704,39 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
   }
 
   /**
+   * 這一段前方（正前方一弧度內）看得到的、離得合適的特色主體；一路都看得到才算
+   *
+   * 線狀主體取幾個點，挑權重高、離得近的那一點
+   */
+  function findAheadFeature(target: DriftSession, track: DriftTrack, startDistance: number, endDistance: number): { x: number; y: number; z: number } | null {
+    const midDistance = (startDistance + endDistance) / 2
+    sampleDriftTrack(track, midDistance, probeSample)
+    const { x: midX, z: midZ, yaw: heading } = probeSample
+
+    let best: { x: number; y: number; z: number } | null = null
+    let bestScore = 0
+    for (const feature of target.realm.driftFeatureList ?? []) {
+      const pointList = feature.pathList && feature.pathList.length > 0 ? feature.pathList : [feature]
+      const step = Math.max(1, Math.ceil(pointList.length / FEATURE_PATH_SAMPLE_MAX))
+      for (let index = 0; index < pointList.length; index += step) {
+        const point = itemAt(pointList, index)
+        const distance = Math.hypot(point.x - midX, point.z - midZ)
+        if (distance < Math.max(SUBJECT_DISTANCE_MIN, feature.viewDistance[0] * 0.6) || distance > feature.viewDistance[1] * 1.6)
+          continue
+        if (Math.abs(diffAngle(Math.atan2(point.x - midX, point.z - midZ), heading)) > 1)
+          continue
+
+        const score = (0.3 + feature.weight) / (1 + distance / 60)
+        if (score > bestScore && measureSubjectVisibility(target.worldState, track, startDistance, endDistance, point, SUBJECT_DISTANCE_MIN).visibleFraction >= SUBJECT_VISIBLE_MIN) {
+          bestScore = score
+          best = { x: point.x, y: point.y, z: point.z }
+        }
+      }
+    }
+    return best
+  }
+
+  /**
    * 散步與飛行的一段鏡位
    *
    * 每個鏡位先備好「這一段做得出來嗎、畫面裡有沒有東西可看」，做不出來的根本不進候選：
@@ -685,7 +762,7 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
     const curviness = measureCurviness(track, startDistance, endDistance)
     const aheadView = measureView(target.worldState, track, startDistance, endDistance, { kind: 'offset', offset: 0 }, compositionPitch)
     candidateMap.set('follow', {
-      gaze: isFly ? { kind: 'heading' } : { kind: 'heading', pitch: compositionPitch, minPitch: isOutward ? OUTWARD_PITCH_MIN : undefined },
+      gaze: isFly ? { kind: 'heading' } : { kind: 'heading', pitch: compositionPitch, minPitch: isOutward ? OUTWARD_PITCH_MIN : openness < 0.45 ? 0 : undefined },
       fit: (openness < 0.45 ? 2 : 1) * Math.exp(-curviness * FOLLOW_CURVINESS_SCALE) * (1 - aheadView.blockedFraction * 0.7),
     })
 
@@ -696,9 +773,10 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
       : { x: plan.destination.blockX, y: plan.destination.footY + SUBJECT_HEIGHT, z: plan.destination.blockZ }
     const destinationDistance = Math.hypot(subjectPoint.x - target.x, subjectPoint.z - target.z)
     const bearing = Math.atan2(subjectPoint.x - target.x, subjectPoint.z - target.z)
-    if (isLast && destinationDistance >= SUBJECT_DISTANCE_MIN && Math.abs(diffAngle(bearing, scratch.yaw)) <= 1) {
+    if (isLast && destinationDistance >= SUBJECT_DISTANCE_MIN && Math.abs(diffAngle(bearing, scratch.yaw)) <= 1 && (!isFly || plan.destination.feature)) {
       const destinationView = measureView(target.worldState, track, startDistance, endDistance, { kind: 'point', x: subjectPoint.x, z: subjectPoint.z }, compositionPitch)
-      if (destinationView.blockedFraction <= 0.5) {
+      const destinationSight = measureSubjectVisibility(target.worldState, track, startDistance, endDistance, subjectPoint, SUBJECT_DISTANCE_MIN)
+      if (destinationView.blockedFraction <= 0.5 && destinationSight.visibleFraction >= SUBJECT_VISIBLE_MIN) {
         candidateMap.set('dollyIn', {
           gaze: {
             kind: 'subject',
@@ -709,6 +787,20 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
             behind: false,
             releaseRange: DOLLY_RELEASE_RANGE,
           },
+          fit: openness < 0.45 ? 1.8 : 1,
+        })
+      }
+    }
+
+    /**
+     * 沒有目的地可看的時候（不是最後一段、目的地不是特色），改看前方看得到的特色主體：
+     * 峽谷與樹林裡側面都是牆，往前看向瀑布、溪的彎處、木橋才有東西可看
+     */
+    if (!candidateMap.has('dollyIn')) {
+      const ahead = findAheadFeature(target, track, startDistance, endDistance)
+      if (ahead) {
+        candidateMap.set('dollyIn', {
+          gaze: { kind: 'subject', x: ahead.x, y: ahead.y, z: ahead.z, thirds, behind: false },
           fit: openness < 0.45 ? 1.8 : 1,
         })
       }
@@ -738,9 +830,25 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
       })
     }
 
+    /**
+     * 有視線偏好的場景（往外看的雪稜）：側移直接鎖定在偏好的方向，不管那個方向與前進方向差多少，
+     * 只要畫面中央一路看得出去。鏡頭沿著路平移，畫面始終是越過邊緣的雲海與遠山
+     */
+    if (lookBias) {
+      const biasView = measureView(target.worldState, track, startDistance, endDistance, { kind: 'yaw', yaw: lookBias.yaw }, compositionPitch)
+      if (biasView.nearFraction <= LOOK_BIAS_NEAR_MAX && biasView.blockedFraction <= LOOK_BIAS_BLOCKED_MAX) {
+        candidateMap.set('truck', {
+          gaze: { kind: 'pan', baseYaw: lookBias.yaw, rate: randomSign() * randomBetween(TRUCK_DRIFT_RANGE[0], TRUCK_DRIFT_RANGE[1]) * 0.5, pitch: compositionPitch },
+          fit: LOOK_BIAS_TRUCK_FIT,
+        })
+      }
+    }
+
     /** 拉遠揭露：回頭看來處，身後要看得遠才有風景可揭 */
     const backView = measureView(target.worldState, track, startDistance, endDistance, { kind: 'offset', offset: Math.PI }, compositionPitch)
-    if (backView.blockedFraction <= 0.25) {
+    const startPoint = { x: target.x, y: target.eyeY - 0.6, z: target.z }
+    const backSight = measureSubjectVisibility(target.worldState, track, startDistance, endDistance, startPoint, SUBJECT_DISTANCE_MIN)
+    if (backView.blockedFraction <= 0.25 && backSight.visibleFraction >= SUBJECT_VISIBLE_MIN) {
       candidateMap.set('pullBack', {
         gaze: { kind: 'subject', x: target.x, y: target.eyeY - 0.6, z: target.z, thirds, behind: true },
         fit: isOpen ? 1.5 : 0.5,
@@ -751,7 +859,8 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
     const side = findSideSubject(target, track, (startDistance + endDistance) / 2)
     if (side) {
       const sideView = measureView(target.worldState, track, startDistance, endDistance, { kind: 'point', x: side.x, z: side.z }, compositionPitch)
-      if (sideView.clearFraction >= 0.5 && sideView.foregroundFraction >= PARALLAX_FOREGROUND_MIN && sideView.nearFraction <= NEAR_FOREGROUND_MAX) {
+      const sideSight = measureSubjectVisibility(target.worldState, track, startDistance, endDistance, side, SUBJECT_DISTANCE_MIN)
+      if (sideSight.visibleFraction >= SUBJECT_VISIBLE_MIN && sideView.foregroundFraction >= PARALLAX_FOREGROUND_MIN && sideView.nearFraction <= NEAR_FOREGROUND_MAX) {
         candidateMap.set('parallax', {
           gaze: { kind: 'subject', x: side.x, y: side.y, z: side.z, thirds: thirds * 0.6, behind: false },
           fit: 1 + sideView.foregroundFraction * 3,
@@ -939,6 +1048,12 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
     target.crane = null
     target.craneY = 0
     target.panSign = randomSign()
+    /** 被圍在牆裡（站在山壁下的小凹處）：沒有地方可看，不要對著牆發呆，匆匆一瞥就走，這個點之後少來 */
+    if (measureMaxDepth(target.worldState, target.x, target.eyeY, target.z, getLingerPitch(target)) < LOOK_MIN_DEPTH) {
+      target.lingerDuration = Math.min(target.lingerDuration, ENCLOSED_LINGER_SECOND)
+      if (target.currentPoint && !target.enclosedIdList.includes(target.currentPoint.id))
+        target.enclosedIdList.push(target.currentPoint.id)
+    }
     const duration = target.lingerDuration
     const subject = findVisibleSubject(target)
     const here = target.grid.getCellNear(Math.round(target.x), Math.round(target.z), target.blockY)
@@ -1056,8 +1171,8 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
    *
    * 橫搖沿著它掃，像視線順著溪水望出去
    */
-  function findPathPan(target: DriftSession): { yaw: number; sign: 1 | -1 } | null {
-    let best: { yaw: number; sign: 1 | -1 } | null = null
+  function findPathPan(target: DriftSession): { yaw: number; pitch: number; sign: 1 | -1 } | null {
+    let best: { yaw: number; pitch: number; sign: 1 | -1 } | null = null
     let bestScore = 0
 
     for (const feature of target.realm.driftFeatureList ?? []) {
@@ -1081,7 +1196,8 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
         const toLast = diffAngle(Math.atan2(last.x - target.x, last.z - target.z), yaw)
         const farther = Math.abs(toLast) > Math.abs(toFirst) ? toLast : toFirst
         bestScore = score
-        best = { yaw, sign: farther < 0 ? -1 : 1 }
+        /** 溪面在視線下方：俯仰要對準它，水平看出去只會看到岸邊的山壁 */
+        best = { yaw, pitch: Math.atan2(target.eyeY - point.y, distance), sign: farther < 0 ? -1 : 1 }
       }
     }
     return best
@@ -1090,30 +1206,47 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
   /**
    * 橫搖一小段（掃過約五十度以內）
    *
-   * 起點是目前的視線（開頭那一段以有景物的方向為中心，日出日落以太陽為中心）；
-   * 掃到的終點正前方被擋住的話換個方向掃，不會一路掃進一面牆
+   * 起點是目前的視線（開頭那一段以有景物的方向為中心，日出日落以太陽為中心）。
+   * 每一種中心都要驗證：太陽那一側被山壁擋住就不用；掃到的終點被擋住就換個方向掃；
+   * 兩個方向都不行就不橫搖，改成定格在縱深最長的方向（不會一路掃進一面牆）
    */
   function startPanBeat(target: DriftSession, isOpener = false) {
     const isGolden = isGoldenHour()
     const sunYaw = isGolden ? getSunYaw() : null
     const rateSize = randomBetween(PAN_RATE_RANGE[0], PAN_RATE_RANGE[1]) * (isGolden ? GOLDEN_PAN_RATE_RATIO : 1)
     const beat = Math.min(randomBetween(PAN_BEAT_RANGE[0], PAN_BEAT_RANGE[1]), PAN_SWEEP_MAX / rateSize)
-    const pathPan = isOpener && sunYaw === null ? findPathPan(target) : null
-    if (pathPan)
-      target.panSign = pathPan.sign
-    const center = isOpener ? (sunYaw ?? pathPan?.yaw ?? chooseLingerView(target, true).yaw) : null
+    const basePitch = getLingerPitch(target)
+    const isOpenToward = (yaw: number, pitch: number) => probeViewDistance3D(target.worldState, target.x, target.eyeY, target.z, yaw, pitch, LOOK_MIN_DEPTH * 2) >= LOOK_MIN_DEPTH
+
+    let center: { yaw: number; pitch: number } | null = null
+    if (isOpener) {
+      const pathPan = sunYaw === null ? findPathPan(target) : null
+      if (sunYaw !== null && isOpenToward(sunYaw, basePitch)) {
+        center = { yaw: sunYaw, pitch: basePitch }
+      }
+      else if (pathPan) {
+        center = { yaw: pathPan.yaw, pitch: pathPan.pitch }
+        target.panSign = pathPan.sign
+      }
+      else {
+        center = chooseLingerView(target, true)
+      }
+    }
+    const pitch = center?.pitch ?? target.pitchFollower.value
 
     for (let attempt = 0; attempt < 2; attempt++) {
       const rate = rateSize * target.panSign
-      const baseYaw = center === null ? target.yawFollower.value : center - rate * beat * 0.5
+      const baseYaw = center === null ? target.yawFollower.value : center.yaw - rate * beat * 0.5
       const endYaw = baseYaw + rate * beat
-      if (probeViewDistance3D(target.worldState, target.x, target.eyeY, target.z, endYaw, getLingerPitch(target), LOOK_MIN_DEPTH * 2) >= LOOK_MIN_DEPTH || attempt === 1) {
-        setShot(target, 'pan', { kind: 'pan', baseYaw, rate, pitch: getLingerPitch(target) })
+      if (isOpenToward(endYaw, pitch)) {
+        setShot(target, 'pan', { kind: 'pan', baseYaw, rate, pitch })
         target.lingerBeat = { kind: 'pan', endAt: target.lingerElapsed + beat }
         return
       }
       target.panSign = target.panSign === 1 ? -1 : 1
     }
+
+    startHoldBeat(target)
   }
 
   /** 停留尾聲：視線先轉向下一段路的方向，起步時畫面已經朝著要走的地方 */
@@ -1521,6 +1654,7 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
       lingerBeat: { kind: 'hold', endAt: 0 },
       panSign: 1,
       lastTrackShotId: null,
+      enclosedIdList: [],
       lastLingerShotId: null,
       shotCutList: [],
       shotCutIndex: 0,

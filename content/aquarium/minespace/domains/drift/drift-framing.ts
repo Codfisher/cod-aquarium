@@ -36,6 +36,8 @@ const LOOK_RAY_RANGE = 50
 /** 探縱深的三束射線上下各差多少弧度、納入候選的景物權重下限、縱深至少要有附近最長視線的幾成 */
 const DEPTH_RAY_SPREAD = 0.25
 const INTEREST_WEIGHT_MIN = 0.25
+/** 景物離得比這近（格）不當看點：畫面會被一個東西塞滿 */
+const INTEREST_DISTANCE_MIN = 8
 const RELATIVE_DEPTH_MIN = 0.4
 
 export interface ViewMeasure {
@@ -195,6 +197,54 @@ export function measureView(
   }
 }
 
+export interface SubjectVisibility {
+  /** 看得到景物（三維視線沒被擋、而且離得夠遠不會塞滿畫面）的取樣比例 */
+  visibleFraction: number;
+}
+
+/**
+ * 沿軌道的一段，量鏡頭一路看著某個景物（有高度的點）時，看不看得到它
+ *
+ * 景物在視野正中央不代表看得到：峽谷彎來彎去，轉個彎景物就被山壁擋住，視線卻還對著那個方向，
+ * 畫面就是一面牆。距離不到 minDistance 的取樣不算（畫面被一個東西塞滿）
+ */
+export function measureSubjectVisibility(
+  worldState: Uint8Array,
+  track: DriftTrack,
+  startDistance: number,
+  endDistance: number,
+  subject: { x: number; y: number; z: number },
+  minDistance: number,
+): SubjectVisibility {
+  const sample: DriftTrackSample = { x: 0, y: 0, z: 0, yaw: 0, pitch: 0, curveScale: 1, speedCap: 99 }
+  let total = 0
+  let visible = 0
+
+  for (let distance = startDistance; distance <= endDistance; distance += PROBE_SPACING) {
+    sampleDriftTrack(track, distance, sample)
+    total++
+    if (Math.hypot(subject.x - sample.x, subject.z - sample.z) < minDistance)
+      continue
+    if (isSightlineClear3D(worldState, sample.x, sample.y, sample.z, subject.x, subject.y, subject.z))
+      visible++
+  }
+
+  return { visibleFraction: total === 0 ? 1 : visible / total }
+}
+
+/** 站在這裡，各方向（含略仰與略俯）縱深的最大值：小於一定值就是被圍在牆裡，沒有地方可看 */
+export function measureMaxDepth(worldState: Uint8Array, x: number, eyeY: number, z: number, pitch = 0): number {
+  let maxDepth = 0
+  for (let index = 0; index < LOOK_RAY_COUNT; index++) {
+    const yaw = (index / LOOK_RAY_COUNT) * Math.PI * 2
+    const up = probeViewDistance3D(worldState, x, eyeY, z, yaw, pitch - DEPTH_RAY_SPREAD, LOOK_RAY_RANGE)
+    const center = probeViewDistance3D(worldState, x, eyeY, z, yaw, pitch, LOOK_RAY_RANGE)
+    const down = probeViewDistance3D(worldState, x, eyeY, z, yaw, pitch + DEPTH_RAY_SPREAD, LOOK_RAY_RANGE)
+    maxDepth = Math.max(maxDepth, (up + center * 2 + down) / 4)
+  }
+  return maxDepth
+}
+
 /** 周圍開闊程度：零是在林子裡、洞裡，一是四面八方十二格內都沒東西 */
 export function measureOpenness(
   worldState: Uint8Array,
@@ -320,7 +370,7 @@ export function chooseLookYaw(
   for (const interest of param.interestList) {
     if (interest.weight < INTEREST_WEIGHT_MIN)
       continue
-    if (Math.hypot(interest.x - x, interest.z - z) < param.minDepth)
+    if (Math.hypot(interest.x - x, interest.z - z) < INTEREST_DISTANCE_MIN)
       continue
 
     const visible = interest.y === undefined

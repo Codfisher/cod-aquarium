@@ -10,7 +10,7 @@ import { itemAt } from './drift-util'
  */
 
 /** 朝向看多遠的切線（取樣點數）：三公尺，轉彎時鏡頭會「預見」彎道而不是貼著當下的方向 */
-const HEADING_LOOKAHEAD = 6
+const HEADING_LOOKAHEAD = 10
 /** 量轉彎幅度的距離（取樣點數）：六公尺內轉了多少角度 */
 const CURVE_WINDOW = 12
 /** 轉彎減速：每一弧度的轉角讓速度少多少，以及最慢剩幾成 */

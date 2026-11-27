@@ -93,12 +93,12 @@ export interface GazeLimit {
  *
  * 節奏是風景縮時攝影：畫面的轉動是「幾乎沒有」——鎖定構圖平移，或每秒一兩度的慢搖。
  * 這裡的上限只管「不得不轉」的時候（換鏡位、轉向下一段路、跟著彎道走）：典型每秒三到六度，最快約七度，
- * 比人慢慢轉頭還輕很多；角加速度更小，起轉與停轉各要花好幾秒
+ * 比人慢慢轉頭還輕很多；角加速度更小，起轉與停轉各要花好幾秒。停留開頭要從上一段的方向轉到「有東西看」的方向，上限放寬到約十一度／秒，轉得太慢會整段停留都在掃過山壁
  */
 export const GAZE_LIMIT_MAP: Record<ShotPhase, GazeLimit> = {
   walk: { yawSpeed: 0.1, yawAcceleration: 0.04, pitchSpeed: 0.05, pitchAcceleration: 0.025 },
   fly: { yawSpeed: 0.08, yawAcceleration: 0.035, pitchSpeed: 0.04, pitchAcceleration: 0.02 },
-  linger: { yawSpeed: 0.12, yawAcceleration: 0.05, pitchSpeed: 0.05, pitchAcceleration: 0.025 },
+  linger: { yawSpeed: 0.2, yawAcceleration: 0.07, pitchSpeed: 0.08, pitchAcceleration: 0.04 },
 }
 /** 加加速度（jerk）上限是加速度上限的幾倍每秒：起轉與煞住要花約一秒把加速度漸漸帶起來，不是瞬間 */
 const GAZE_JERK_RATIO = 1.2

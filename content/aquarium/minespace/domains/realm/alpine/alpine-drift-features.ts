@@ -49,7 +49,7 @@ export const ALPINE_DRIFT_FEATURE_LIST: DriftFeature[] = [
     y: PEAK_TOP_Y - 1,
     z: SOUTHEAST_PEAK.z,
     size: 22,
-    weight: 0.3,
+    weight: 0.12,
     viewDistance: [18, 42],
   },
   {
@@ -59,7 +59,7 @@ export const ALPINE_DRIFT_FEATURE_LIST: DriftFeature[] = [
     y: PEAK_TOP_Y - 1,
     z: NORTHWEST_PEAK.z,
     size: 22,
-    weight: 0.25,
+    weight: 0.1,
     viewDistance: [18, 42],
   },
   {
@@ -69,7 +69,7 @@ export const ALPINE_DRIFT_FEATURE_LIST: DriftFeature[] = [
     y: CREST_Y,
     z: RIDGE_MIDDLE.z,
     size: 20,
-    weight: 0.2,
+    weight: 0.08,
     viewDistance: [12, 30],
   },
   {
