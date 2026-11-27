@@ -16,7 +16,6 @@
           class="w-full h-full"
           :placed-block-map="placedBlockMap"
           :is-edit-mode="isEditMode"
-          :is-shared-view="isSharedView"
           :is-remove-mode="isRemoveMode"
           :weather="weather"
           :trait-region-list="traitRegionList"
@@ -30,7 +29,7 @@
           mode="out-in"
         >
           <div
-            v-if="isEditMode && !isSharedView"
+            v-if="isEditMode"
             class="absolute right-0 bottom-0 p-5 space-y-6 text-gray-600 btn-drop-shadow opacity-50"
           >
             <UTooltip
@@ -109,11 +108,10 @@
           </div>
 
           <div
-            v-else-if="!isSharedView"
+            v-else
             class="absolute right-0 bottom-0 p-5 space-y-6 text-gray-600 btn-drop-shadow opacity-50"
           >
             <UTooltip
-              v-if="!isSharedView"
               :text="t('shareSoundscape')"
               :content="{
                 side: 'right',
@@ -385,7 +383,8 @@ const weather = computed<Weather | undefined>(() => {
   return weatherMode.value
 })
 
-const [isEditMode, toggleEditMode] = useToggle(true)
+// 分享連結進來先欣賞，想改再按編輯
+const [isEditMode, toggleEditMode] = useToggle(!isSharedView)
 const [isRemoveMode, toggleRemoveMode] = useToggle(false)
 const [isMuted, toggleMuted] = useToggle(isSharedView)
 
@@ -475,6 +474,7 @@ async function restoreSharedView() {
     })
 
     await Promise.all(tasks)
+    mainSceneRef.value?.syncAllCandidateTile()
   }
   catch (error) {
     console.error('Failed to restore shared view:', error)

@@ -46,7 +46,6 @@ import { TraitTypeEnum } from './types'
 const props = defineProps<{
   placedBlockMap: ShallowReactive<Map<string, Block>>;
   isEditMode: boolean;
-  isSharedView: boolean;
   isRemoveMode: boolean;
   weather: Weather | undefined;
   traitRegionList: TraitRegion[];
@@ -130,7 +129,7 @@ const shadowGenerator = shallowRef<ShadowGenerator>()
 const pipeline = shallowRef<DefaultRenderingPipeline>()
 const rainParticleSystem = shallowRef<GPUParticleSystem>()
 const splashParticleSystem = shallowRef<ParticleSystem>()
-const enabledPipeline = computed(() => props.isSharedView || !props.isEditMode)
+const enabledPipeline = computed(() => !props.isEditMode)
 
 // --- Block / Tile 函式 ---
 
@@ -506,10 +505,8 @@ const { canvasRef, scene, camera } = useBabylonScene({
       }),
     )
 
-    if (!props.isSharedView) {
-      // 原點為初始候補格
-      addCandidate(new Hex(0, 0, 0))
-    }
+    // 原點為初始候補格。分享連結還原方塊後會再呼叫 syncAllCandidateTile 校正
+    addCandidate(new Hex(0, 0, 0))
 
     pipeline.value = pipe(
       new DefaultRenderingPipeline(
@@ -549,7 +546,7 @@ const { canvasRef, scene, camera } = useBabylonScene({
     const animatingBlockSet = new Set<string>()
     // 處理 placedBlock 點擊
     scene.onPointerObservable.add(async (info) => {
-      if (!props.isEditMode || props.isSharedView) {
+      if (!props.isEditMode) {
         return
       }
 
@@ -623,7 +620,7 @@ const { canvasRef, scene, camera } = useBabylonScene({
 
     // 處理 tile 之 hover、select
     scene.onPointerObservable.add((info) => {
-      if (!props.isEditMode || props.isSharedView) {
+      if (!props.isEditMode) {
         return
       }
 
@@ -686,7 +683,7 @@ const { canvasRef, scene, camera } = useBabylonScene({
       const t = 1 - Math.exp(-FADE_SPEED * dt)
 
       for (const [key, material] of tileMaterialMap) {
-        if (!props.isEditMode || props.isSharedView) {
+        if (!props.isEditMode) {
           material.alpha = material.alpha + (ALPHA_HIDDEN - material.alpha) * t
           continue
         }
@@ -751,7 +748,7 @@ watch(() => [camera.value, props.isEditMode], () => {
     return
   }
 
-  const enabled = !props.isEditMode || props.isSharedView
+  const enabled = !props.isEditMode
   camera.value.useAutoRotationBehavior = enabled
 
   if (camera.value.autoRotationBehavior) {
@@ -879,6 +876,7 @@ watch(() => ({ isRain: props.weather === 'rain', scene: scene.value }), ({ isRai
 defineExpose({
   spawnBlock,
   removeAllBlocks,
+  syncAllCandidateTile,
   handleSelectBlock,
   hoveredBlock,
   hoveredTile,
