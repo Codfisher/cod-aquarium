@@ -5,8 +5,12 @@ import { onBeforeUnmount, ref } from 'vue'
 /** 記錄的錯誤種類上限，避免真的失控時把記憶體吃光 */
 const MAX_ENTRY_COUNT = 200
 
-/** 第一批錯誤冒出來之後，等這麼久再試著自動下載一次 */
-const AUTO_FLUSH_DELAY_MS = 2000
+/**
+ * 出現新種類的問題之後，等這麼久才把紀錄送給 dev server
+ *
+ * 錯誤常常一冒就是一串，等一下再送，一次就把那一串都帶走
+ */
+const AUTO_FLUSH_DELAY_MS = 1000
 
 /**
  * 這一筆是錯誤還是警告
@@ -16,6 +20,15 @@ const AUTO_FLUSH_DELAY_MS = 2000
  * 這類會讓整個繪製呼叫作廢的狀況，多半只丟一句警告
  */
 export type IssueLevel = 'error' | 'warn'
+
+/** 送給 dev server 的一份紀錄，見 issue-log-channel 與 site/plugins/vite-minespace-issue-log */
+export interface IssueLogPayload {
+  /** auto：出現新種類的問題時自動送；manual：按 F6 */
+  reason: 'auto' | 'manual';
+  errorTotal: number;
+  warningTotal: number;
+  report: string;
+}
 
 interface ErrorEntry {
   level: IssueLevel;
@@ -49,9 +62,16 @@ const entryMap = new Map<string, ErrorEntry>()
  */
 const diagnosticMap = new Map<string, string>()
 const errorCount = ref(0)
-let hasAutoFlushed = false
 let flushTimer: ReturnType<typeof setTimeout> | null = null
 let isInstalled = false
+
+/**
+ * 紀錄要送去哪裡
+ *
+ * 由主執行緒的 useErrorLogger 接上 issue-log-channel（經 Vite 送給 dev server）。
+ * 沒接上之前（例如渲染端的 worker，它走轉發模式）就不送
+ */
+let issueSink: ((payload: IssueLogPayload) => void) | null = null
 
 /**
  * 轉發模式
@@ -154,16 +174,29 @@ function buildReport(): string {
   return lineList.join('\n')
 }
 
-function downloadTextFile(filename: string, content: string): void {
-  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
+function sendReport(reason: IssueLogPayload['reason']): void {
+  if (!issueSink)
+    return
 
-  const link = document.createElement('a')
-  link.href = url
-  link.download = filename
-  link.click()
+  const entryList = [...entryMap.values()]
+  const errorTotal = entryList.filter((entry) => entry.level === 'error').length
+  issueSink({
+    reason,
+    errorTotal,
+    warningTotal: entryList.length - errorTotal,
+    report: buildReport(),
+  })
+}
 
-  URL.revokeObjectURL(url)
+/** 新種類的問題出現後排一次送出，一串連續冒出來的只送一次 */
+function scheduleSend(): void {
+  if (flushTimer)
+    return
+
+  flushTimer = setTimeout(() => {
+    flushTimer = null
+    sendReport('auto')
+  }, AUTO_FLUSH_DELAY_MS)
 }
 
 /**
@@ -198,36 +231,16 @@ export function reportIssue(level: IssueLevel, message: string, stack?: string, 
   }
   else if (entryMap.size < MAX_ENTRY_COUNT) {
     entryMap.set(key, { level, message, stack, count, firstAt: now, lastAt: now })
+    /**
+     * 只有新種類才送，次數增加不送
+     *
+     * 有些警告每一幀都會冒，次數一直在漲；照次數送的話，
+     * 檔案每秒被重寫一次、終端機每秒多一行。最新的次數按 F6 就拿得到
+     */
+    scheduleSend()
   }
 
   errorCount.value = entryMap.size
-
-  /**
-   * 自動下載只試這一次，而且是盡力而為
-   *
-   * 瀏覽器對「沒有使用者手勢觸發的下載」有各自的防護，
-   * 靜靜地擋掉是常態，擋掉也不當一回事——累積的紀錄還在 entryMap 裡，
-   * F6 隨時可以手動匯出，那條路徑是真的會動的
-   */
-  /**
-   * 只有錯誤會觸發自動下載，警告不會
-   *
-   * 警告本來就常有（Babylon 對材質、著色器的各種提醒），
-   * 讓它們也跳下載視窗只會變成噪音。警告照樣記著，
-   * 跟著下一次錯誤或 F6 一起匯出
-   */
-  if (level === 'error' && !hasAutoFlushed && !flushTimer) {
-    flushTimer = setTimeout(() => {
-      flushTimer = null
-      hasAutoFlushed = true
-      try {
-        downloadTextFile(`minespace-errors-${Date.now()}.txt`, buildReport())
-      }
-      catch {
-        /** 下載被擋下來就算了，F6 還在 */
-      }
-    }, AUTO_FLUSH_DELAY_MS)
-  }
 }
 
 /** 記一筆錯誤，這是 reportIssue 最常用的那條路 */
@@ -261,16 +274,16 @@ export function reportDiagnostic(label: string, value: unknown): void {
 }
 
 /**
- * 手動匯出目前累積的紀錄，按鍵觸發——這是真的使用者手勢，瀏覽器不會擋
+ * 按 F6：把目前累積的紀錄連同最新的次數與執行時狀態送給 dev server
  *
- * 沒有任何錯誤也照樣匯得出來：多數時候要查的正是
+ * 沒有任何錯誤也照樣送得出去：多數時候要查的正是
  * 「沒有錯誤，但東西就是沒出現」，那份答案在執行時狀態那一段
  */
 export function exportErrorLog(): void {
   if (entryMap.size === 0 && diagnosticMap.size === 0)
     return
 
-  downloadTextFile(`minespace-errors-${Date.now()}.txt`, buildReport())
+  sendReport('manual')
 }
 
 /**
@@ -386,6 +399,18 @@ export function useErrorLogger() {
   isInstalled = true
 
   const uninstall = installIssueCapture(window)
+
+  /** 動態載入：那支用到 import.meta.hot，不能讓同樣載入這個檔案的 worker 一起拉進去 */
+  import('./issue-log-channel')
+    .then(({ sendIssueLog }) => {
+      issueSink = sendIssueLog
+      /** 接上之前就記下的問題，接上這一刻補送一次 */
+      if (entryMap.size > 0)
+        sendReport('auto')
+    })
+    .catch(() => {
+      /** 載不到就只剩 F6 前的畫面提示，紀錄本身還在 entryMap 裡 */
+    })
 
   onBeforeUnmount(() => {
     uninstall()

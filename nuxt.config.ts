@@ -4,6 +4,7 @@ import { HOSTNAME, SITE_DESCRIPTION, SITE_LANG, SITE_TITLE } from './site/consta
 import { getDarkImageList } from './site/dark-image'
 import { viteBuildWorkaround } from './site/plugins/vite-build-workaround'
 import { viteMemeSearchIndex } from './site/plugins/vite-meme-search-index'
+import { viteMinespaceIssueLog } from './site/plugins/vite-minespace-issue-log'
 import { viteSeoMemeList } from './site/plugins/vite-seo-meme-list'
 import { getSitemapUrlList } from './site/sitemap'
 
@@ -318,6 +319,7 @@ export default defineNuxtConfig({
       ...viteBuildWorkaround(),
       viteSeoMemeList(),
       viteMemeSearchIndex(),
+      viteMinespaceIssueLog(),
       Icons({
         autoInstall: false,
         compiler: 'vue3',
