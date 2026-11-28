@@ -71,6 +71,13 @@ export function useInputCapture({ canvasRef, hasStarted, postInput, postCommand,
    * 想單純把滑鼠拿回來看看風景時走這條路，世界照樣運轉
    */
   const isCursorFree = ref(false)
+  /**
+   * 現在是不是「要」鎖住滑鼠
+   *
+   * 鎖定的請求是非同步的，還會重試；這個旗標記的是最新的意圖，
+   * 請求成功或重試的那一刻拿它來對，意圖變了就不鎖（見 handlePointerLockChange）
+   */
+  let isLockWanted = false
 
   const keys: RenderMoveKeys = {
     isForwardPressed: false,
@@ -329,6 +336,7 @@ export function useInputCapture({ canvasRef, hasStarted, postInput, postCommand,
       return
 
     if (!isMobile.value && !isPaused.value) {
+      isLockWanted = true
       canvasRef.value?.requestPointerLock()
     }
   }
@@ -368,6 +376,10 @@ export function useInputCapture({ canvasRef, hasStarted, postInput, postCommand,
    * 所以失敗了要隔一小段時間再試，直到冷卻期過去
    */
   function requestPointerLock(retryCount = 5) {
+    /** 等重試的這段時間裡改了主意（開始神遊、叫出選單），就不要再鎖了 */
+    if (!isLockWanted)
+      return
+
     const canvas = canvasRef.value
     const request = canvas?.requestPointerLock() as unknown
     if (!(request instanceof Promise))
@@ -384,6 +396,7 @@ export function useInputCapture({ canvasRef, hasStarted, postInput, postCommand,
   /** 桌機的暫停狀態交給 Pointer Lock 決定，避免鎖定失敗時狀態不同步 */
   function resume() {
     isCursorFree.value = false
+    isLockWanted = true
 
     if (isMobile.value) {
       isPaused.value = false
@@ -394,6 +407,7 @@ export function useInputCapture({ canvasRef, hasStarted, postInput, postCommand,
   }
 
   function pause() {
+    isLockWanted = false
     isCursorFree.value = false
     isPaused.value = true
 
@@ -411,6 +425,7 @@ export function useInputCapture({ canvasRef, hasStarted, postInput, postCommand,
     if (isMobile.value || isPaused.value)
       return
 
+    isLockWanted = false
     isCursorFree.value = true
     clearMoveKeys()
 
@@ -429,6 +444,7 @@ export function useInputCapture({ canvasRef, hasStarted, postInput, postCommand,
     if (isMobile.value)
       return
 
+    isLockWanted = false
     isPaused.value = false
     isCursorFree.value = true
     clearMoveKeys()
@@ -444,6 +460,19 @@ export function useInputCapture({ canvasRef, hasStarted, postInput, postCommand,
       return
 
     if (document.pointerLockElement === canvasRef.value) {
+      /**
+       * 鎖上了，但現在已經不要鎖：馬上放開
+       *
+       * 鎖定是非同步的，剛按過 Esc 還有一秒多的冷卻要重試（見 requestPointerLock）。
+       * 從漫遊的選單按「在這裡神遊」時，關選單那一下送出的鎖定請求會晚於「開始神遊、放開滑鼠」才成功，
+       * 結果神遊中滑鼠被鎖住、游標拿不回來（使用者回報）。
+       * 所以鎖上的當下再確認一次是不是還要鎖
+       */
+      if (!isLockWanted) {
+        document.exitPointerLock()
+        return
+      }
+
       isCursorFree.value = false
       isPaused.value = false
       clearMoveKeys()

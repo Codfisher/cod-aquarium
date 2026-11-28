@@ -752,7 +752,15 @@ async function handlePickDrift(targetRealmId: RealmId) {
  * 大場景裡留在當下這座場景；在大廳則是從清單挑了一座，換過去再開始
  */
 function handleMenuDrift(targetRealmId?: RealmId) {
-  closeMenu()
+  /**
+   * 不走 closeMenu：那一條在還沒開始神遊時會去鎖滑鼠（回到漫遊），
+   * 鎖定又是非同步的，會晚於「開始神遊、放開滑鼠」才成功，神遊中滑鼠就被鎖住了。
+   * 這裡要去的本來就是游標自由的神遊，直接進那個狀態；桌機的選單跟著暫停狀態關掉
+   */
+  if (isMobile.value) {
+    menuVisible.value = false
+  }
+  freeCursorForDrift()
   void startDriftIn(targetRealmId ?? realmId.value)
 }
 
