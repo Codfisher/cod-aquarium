@@ -209,3 +209,29 @@ function findHollowList(): SandPatch[] {
 }
 
 export const MEADOW_HOLLOW_LIST: SandPatch[] = findHollowList()
+
+/**
+ * 細節小景的定點
+ *
+ * 地形 worker 照這幾個點蓋，神遊的特色主體也讀同一份
+ */
+
+/** 月見石環：原野正中偏東那片低平的月見草原上，一圈立石圍著一塊平石 */
+export const MEADOW_STONE_CIRCLE = { x: MEADOW_CENTER.x + 14, z: MEADOW_CENTER.z + 6, radius: 4 }
+
+/** 乾砌的矮石牆：沿著東邊那座丘的坡腳由北往南彎過去，中間塌了幾處 */
+export const MEADOW_WALL_CONTROL_POINT_LIST = [
+  { x: MEADOW_CENTER.x + 21, z: MEADOW_CENTER.z - 18 },
+  { x: MEADOW_CENTER.x + 24, z: MEADOW_CENTER.z - 6 },
+  { x: MEADOW_CENTER.x + 21, z: MEADOW_CENTER.z + 6 },
+  { x: MEADOW_CENTER.x + 25, z: MEADOW_CENTER.z + 17 },
+] as const
+
+/** 野餐的草蓆（西北角）：鋪在石牆背風那一側的低地上，北邊就是那片乾土窪地 */
+export const MEADOW_PICNIC_POINT = { x: MEADOW_CENTER.x + 18, z: MEADOW_CENTER.z }
+
+/** 小徑北側那一段舊牧欄的兩端 */
+export const MEADOW_OLD_FENCE = {
+  from: { x: MEADOW_CENTER.x - 17, z: MEADOW_CENTER.z + 3 },
+  to: { x: MEADOW_CENTER.x - 9, z: MEADOW_CENTER.z - 3 },
+}

@@ -14,6 +14,7 @@ import {
   samplePathCurve,
 } from '../land-realm-kit'
 import { placePortalStructure } from '../portal-terrain'
+import { decorateCicada } from './cicada-details'
 import {
   ARRIVAL_CLEARING,
   CICADA_CENTER,
@@ -497,6 +498,8 @@ export function generateCicadaWorld(state: Uint8Array): void {
   carveSunShaftList(state)
   hollowEnclosedLeafList(state, LEAF_SET, CROWN_SET, CICADA_GROUND_Y + 2, CICADA_GROUND_Y + 22)
   scatterUndergrowth(state, groundTopMap, pathDistanceMap)
+  /** 細節小景排在林下的花草之後：緣廊的擺設、飛石、小祠、古井與樹腳的苔 */
+  decorateCicada(state, groundTopMap)
 
   /** 門框排在花草之後：門洞前後與木牌前面的草由它清掉 */
   for (const portal of CICADA_REALM.portalList) {

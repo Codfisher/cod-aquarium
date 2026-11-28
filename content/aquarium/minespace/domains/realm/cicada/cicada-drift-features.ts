@@ -1,4 +1,6 @@
 import type { DriftFeature } from '../realm-definition'
+import { CICADA_CLOUD_TOWER_ANCHOR, createSkyDriftFeature } from '../realm-signature-direction'
+import { CICADA_DETAIL_DRIFT_FEATURE_LIST } from './cicada-detail-features'
 import {
   ARRIVAL_CLEARING,
   CICADA_CENTER,
@@ -99,4 +101,8 @@ export const CICADA_DRIFT_FEATURE_LIST: DriftFeature[] = [
     weight: 0.4,
     viewDistance: [30, 70],
   },
+  /** 細節小景那一輪補的幾處（見 cicada-detail-features） */
+  ...CICADA_DETAIL_DRIFT_FEATURE_LIST,
+  /** 招牌景象：白天東邊林稜後面的積雨雲（見 cicada-cloud-tower） */
+  createSkyDriftFeature({ name: '東邊的積雨雲', anchor: CICADA_CLOUD_TOWER_ANCHOR, center: CICADA_CENTER, groundY: CICADA_GROUND_Y, weight: 0.6 }),
 ]

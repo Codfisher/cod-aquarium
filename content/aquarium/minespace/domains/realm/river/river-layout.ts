@@ -151,3 +151,38 @@ export const RIVER_PORTAL_POINT = {
 export const RIVER_BOUNDARY_CENTER = { x: (VALLEY_HEAD_X + VALLEY_END_X) / 2, z: RIVER_CENTER.z }
 export const RIVER_SLOW_RADIUS = 66
 export const RIVER_PUSH_RADIUS = 76
+
+/**
+ * 細節那一層的定點（見 river-detail）
+ *
+ * 放在這裡而不是 river-detail：神遊的特色清單也要讀，而 river-detail 引用場景定義，
+ * 特色清單再引用它會繞成一圈
+ */
+
+/**
+ * 橫在溪上的倒木：跌水上游不遠，一棵倒下來的橡樹正好跨過溪，踩著它也過得去
+ *
+ * 木頭只能順著 Z 軸躺，所以挑溪最接近東西向的那一排：溪在那裡彎成南北向的話，
+ * 木頭會變成順著岸躺而不是跨過去。範圍避開神遊沿溪取的路徑點（每十二格一個）與跌水
+ */
+function findLogBridgeX(): number {
+  let bestX = 124
+  let bestSlope = Number.POSITIVE_INFINITY
+  for (let x = 122; x <= 127; x++) {
+    const slope = Math.abs(measureStreamZ(x + 2) - measureStreamZ(x - 2))
+    if (slope < bestSlope) {
+      bestSlope = slope
+      bestX = x
+    }
+  }
+  return bestX
+}
+export const RIVER_LOG_BRIDGE_X = findLogBridgeX()
+export const RIVER_LOG_BRIDGE_POINT = { x: RIVER_LOG_BRIDGE_X, z: Math.round(measureStreamZ(RIVER_LOG_BRIDGE_X)) }
+
+/** 溪畔的釣點：上游靜水池的岸邊，一塊坐的石頭、一只竹簍、一張網與一截當釣竿的枯枝 */
+export const RIVER_FISHING_X = 114
+export const RIVER_FISHING_POINT = {
+  x: RIVER_FISHING_X,
+  z: Math.round(measureStreamZ(RIVER_FISHING_X) - measureStreamHalfWidth(RIVER_FISHING_X) - 3),
+}

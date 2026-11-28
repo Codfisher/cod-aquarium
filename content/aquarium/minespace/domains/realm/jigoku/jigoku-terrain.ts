@@ -14,6 +14,7 @@ import {
 import { getBlock, setBlock } from '../../world/world-access'
 import { WORLD_SIZE } from '../../world/world-constants'
 import { placePortalStructure } from '../portal-terrain'
+import { decorateJigoku } from './jigoku-details'
 import {
   BOARDWALK_LOOP_POINT_LIST,
   HOT_POOL_LIST,
@@ -530,6 +531,8 @@ export function generateJigokuWorld(state: Uint8Array): void {
   placeShrine(state)
   placeDeadTreeList(state, distanceMap, random)
   scatterPlantList(state)
+  /** 細節小景排在枯木與花草之後：硫磺華、告示、小攤、足湯與賽之河原 */
+  decorateJigoku(state)
 
   /** 門框排在花草之後：門洞前後與木牌前面的花草由它清掉 */
   for (const portal of JIGOKU_REALM.portalList) {

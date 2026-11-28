@@ -166,3 +166,27 @@ export const ROCK_WALL_HEIGHT = 8
  */
 export const CAMP_SLOW_RADIUS = PRAIRIE_RADIUS - 2
 export const CAMP_PUSH_RADIUS = ROCK_WALL_RADIUS - 2
+
+/**
+ * 細節小景的定點
+ *
+ * 地形 worker 照這幾個點蓋，神遊的特色主體也讀同一份
+ */
+
+/** 水塔：篷車圈東南，木腿撐起一座木桶箍成的水櫃 */
+export const WATER_TOWER_POINT: CampPoint = { x: CAMP_CENTER.x + 14, z: CAMP_CENTER.z + 18 }
+
+/** 淘金人的營地：北邊乾河床的南岸，一頂小帳、一座洗礦槽，河床裡還剩一窪水 */
+export const PROSPECTOR_CAMP_POINT: CampPoint = { x: CAMP_CENTER.x + 3, z: CAMP_CENTER.z - 34 }
+
+/** 電報線桿：沿著車轍路的北側一根一根往西排到台地腳下，回程門旁邊一根 */
+export const TELEGRAPH_POLE_LIST: CampPoint[] = [
+  { x: CAMP_CENTER.x + 20, z: CAMP_CENTER.z - 5 },
+  { x: CAMP_CENTER.x - 20, z: CAMP_CENTER.z - 3 },
+  { x: CAMP_CENTER.x - 34, z: CAMP_CENTER.z },
+  { x: CAMP_CENTER.x - 48, z: CAMP_CENTER.z + 3 },
+  { x: CAMP_CENTER.x - 60, z: CAMP_CENTER.z + 5 },
+]
+
+/** 車轍路邊被丟下的行李：車隊減重時留在路邊的箱子、桶與一副牛骨 */
+export const ABANDONED_CARGO_POINT: CampPoint = { x: CAMP_CENTER.x - 42, z: CAMP_CENTER.z + 12 }

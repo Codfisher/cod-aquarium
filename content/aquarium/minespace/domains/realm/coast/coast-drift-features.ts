@@ -1,7 +1,9 @@
 import type { DriftFeature } from '../realm-definition'
 import {
   COAST_CENTER,
+  COAST_FISHING_POINT,
   COAST_PORTAL_POINT,
+  COAST_REEF_ROCK_POINT,
   DUNE_GROUND_Y,
   measureCoastShoreDistance,
   REEF_WIDTH,
@@ -86,6 +88,26 @@ export const COAST_DRIFT_FEATURE_LIST: DriftFeature[] = [
     size: 3,
     weight: 0.35,
     viewDistance: [5, 12],
+  },
+  {
+    kind: 'landmark',
+    name: '外海礁岩',
+    x: COAST_REEF_ROCK_POINT.x,
+    y: SEA_WATER_Y + 2,
+    z: COAST_REEF_ROCK_POINT.z,
+    size: 6,
+    weight: 0.55,
+    viewDistance: [7, 18],
+  },
+  {
+    kind: 'structure',
+    name: '晾網的矮籬與漁具',
+    x: COAST_FISHING_POINT.x + 1,
+    y: DUNE_GROUND_Y + 1,
+    z: COAST_FISHING_POINT.z,
+    size: 6,
+    weight: 0.45,
+    viewDistance: [5, 13],
   },
   {
     kind: 'gate',

@@ -123,3 +123,42 @@ export function isWheatfieldRoad(x: number, z: number): boolean {
     && x <= WHEATFIELD_PORTAL_POINT.x + 1
   return isNorthSouth || isEastWest
 }
+
+/**
+ * 細節小景的定點
+ *
+ * 地形 worker 照這幾個點蓋，神遊的特色主體也讀同一份。
+ * 位置都挑在十字路口附近、離路幾格的地方：從路上走過去看得到，又不擋路
+ */
+
+/** 蓄水池（含兩端）：西邊那條路的南側，池東一道水渠沿空壟流向南北路 */
+export const WHEATFIELD_POND_RECT = {
+  minX: WHEATFIELD_CENTER.x - 16,
+  maxX: WHEATFIELD_CENTER.x - 10,
+  minZ: WHEATFIELD_CENTER.z + 5,
+  maxZ: WHEATFIELD_CENTER.z + 10,
+}
+
+/** 田頭小祠：十字路口的東北角 */
+export const WHEATFIELD_SHRINE_POINT = { x: WHEATFIELD_CENTER.x + 4, z: WHEATFIELD_CENTER.z - 4 }
+
+/**
+ * 收割完的兩塊田：落在這兩個點上的那一塊，一塊在東南、一塊在西北
+ *
+ * 東南那塊就在回程門那條路的南側：一落地，右手邊（北）還是整片麥浪，左手邊是割完的田、草垛與板車。
+ * 第一版另一塊挑在東北，落腳那條路兩側都成了麥茬，一進來看不到麥浪，所以換到西北
+ */
+export const WHEATFIELD_HARVEST_POINT_LIST = [
+  { x: WHEATFIELD_CENTER.x + 14, z: WHEATFIELD_CENTER.z + 14 },
+  { x: WHEATFIELD_CENTER.x - 12, z: WHEATFIELD_CENTER.z - 22 },
+] as const
+
+/** 東南那塊收割田裡的大草垛，與停在田邊的板車（車斗的西北角） */
+export const WHEATFIELD_HAYSTACK_POINT = { x: WHEATFIELD_CENTER.x + 12, z: WHEATFIELD_CENTER.z + 11 }
+export const WHEATFIELD_CART_POINT = { x: WHEATFIELD_CENTER.x + 6, z: WHEATFIELD_CENTER.z + 5 }
+
+/** 看田的小寮：西邊那條路的北側 */
+export const WHEATFIELD_HUT_POINT = { x: WHEATFIELD_CENTER.x - 34, z: WHEATFIELD_CENTER.z - 6 }
+
+/** 田埂上那棵烏鴉歇腳的枯樹：北邊那條路的東側 */
+export const WHEATFIELD_PERCH_POINT = { x: WHEATFIELD_CENTER.x + 5, z: WHEATFIELD_CENTER.z - 36 }

@@ -135,3 +135,27 @@ export function measureCliffOvershoot(x: number, z: number): number {
   const edge = CLIFF_RADIUS + fbm2D(x * 0.045 - 31, z * 0.045 + 17, 3, 0.5) * CLIFF_NOISE_AMPLITUDE
   return distance - edge
 }
+
+/**
+ * 細節那一層的定點（見 alpine-detail）
+ *
+ * 放在這裡而不是 alpine-detail：神遊的特色清單也要讀，而 alpine-detail 引用場景定義，
+ * 特色清單再引用它會繞成一圈
+ */
+
+/**
+ * 冰柱岩門：回程門與西南融雪池之間的雪原上，兩根岩柱頂著一道橫岩，橫岩底下垂著冰柱
+ *
+ * 座標是西側那根岩柱，橫岩沿 X 軸攤開，人從底下南北向穿過去
+ */
+export const ALPINE_ICE_ARCH_POINT = toRidgeWorldPoint(0, -30)
+/** 兩根岩柱隔幾格（門洞淨寬是這個數字減一） */
+export const ALPINE_ICE_ARCH_SPAN = 3
+/** 橫岩比雪面高幾格：門洞淨高三格 */
+export const ALPINE_ICE_ARCH_HEIGHT = 4
+
+/** 西南融雪池冰面上的釣洞：鑿開一格冰露出底下的水，旁邊一只竹簍與一截當釣竿的枯枝 */
+export const ALPINE_ICE_HOLE_POINT = { x: ALPINE_POND_LIST[0].x - 1, z: ALPINE_POND_LIST[0].z + 1 }
+
+/** 稜線上的疊石：沿著稜線每隔十來格一座，鞍部那一格已經有石燈籠所以跳過 */
+export const ALPINE_CAIRN_ALONG_LIST = [-30, -20, -10, 10, 20, 30] as const

@@ -11,6 +11,7 @@ import { getBlock, setBlock } from '../../world/world-access'
 import { WORLD_HEIGHT, WORLD_SIZE } from '../../world/world-constants'
 import { placePortalStructure } from '../portal-terrain'
 import { isWaterSurface } from '../realm-terrain-kit'
+import { placeRiverSetPieceList, scatterRiverDetail } from './river-detail'
 import {
   CASCADE_X,
   HIDDEN_TOP_Y,
@@ -787,6 +788,8 @@ export function generateRiverWorld(state: Uint8Array): void {
   placeBoulderList(state, columnList)
   placeOakList(state, columnList)
   placeLanternList(state, columnList)
+  /** 細節的造景零件排在花草之前，位置才是空的（見 river-detail） */
+  placeRiverSetPieceList(state)
   scatterPlantList(state, columnList)
 
   /** 門框排在花草之後：門洞前後與木牌前面的花草由它清掉 */
@@ -795,4 +798,6 @@ export function generateRiverWorld(state: Uint8Array): void {
   }
 
   scatterLilyPadList(state, columnList)
+  /** 地被排在最後：蓮只換已經有睡蓮的格子，其餘只落在還空著的地面與岩階上 */
+  scatterRiverDetail(state)
 }

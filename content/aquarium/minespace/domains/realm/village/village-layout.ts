@@ -231,3 +231,16 @@ export const BELL_TOWER_SIZE = { postOffset: 2, height: 10, roofHalfSize: 3, spi
 
 /** 灶：廣場西南邊的爐子與鍋（相對村子中心） */
 export const HEARTH_POINT = { offsetX: -6, offsetZ: 6 }
+
+/**
+ * 細節那一層的定點（見 village-detail）
+ *
+ * 放在這裡而不是 village-detail：神遊的特色清單也要讀，而 village-detail 引用場景定義，
+ * 特色清單再引用它會繞成一圈
+ */
+
+/** 村西田裡的草垛場：回程門外那條田間小路的南邊，一座大草垛、兩捆散的、一個稻草人與忘在田邊的鋤頭 */
+export const VILLAGE_HAYSTACK_POINT = { x: VILLAGE_CENTER.x - 46, z: VILLAGE_CENTER.z + 9 }
+
+/** 南丘上的見晴長椅：從村南的田往上走到丘腰，回頭看整座村子與鐘樓 */
+export const VILLAGE_LOOKOUT_POINT = { x: VILLAGE_CENTER.x + 8, z: VILLAGE_CENTER.z + 71 }

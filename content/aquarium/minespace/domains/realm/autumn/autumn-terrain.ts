@@ -11,6 +11,7 @@ import {
 import { getBlock, setBlock } from '../../world/world-access'
 import { WORLD_SIZE } from '../../world/world-constants'
 import { placePortalStructure } from '../portal-terrain'
+import { decorateAutumnDetail } from './autumn-detail'
 import {
   AUTUMN_CENTER,
   AUTUMN_PORTAL_POINT,
@@ -452,6 +453,8 @@ export function generateAutumnWorld(state: Uint8Array): void {
   placeGatePieceList(state, toriiPoint)
   plantTreeList(state, reservedList, toriiPoint)
   scatterGroundCover(state)
+  /** 細節排在落葉之後：林地幾乎鋪滿，細節是換掉其中幾片（見 autumn-detail） */
+  decorateAutumnDetail(state)
 
   /** 門框排在落葉之後：門洞前後與木牌四周的花草由它清掉 */
   for (const portal of AUTUMN_REALM.portalList) {

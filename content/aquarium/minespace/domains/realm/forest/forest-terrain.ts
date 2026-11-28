@@ -13,14 +13,17 @@ import {
 import { getBlock, setBlock } from '../../world/world-access'
 import { WORLD_SIZE } from '../../world/world-constants'
 import { placePortalStructure } from '../portal-terrain'
+import { placeForestSetPieceList, scatterForestDetail } from './forest-detail'
 import {
   ARRIVAL_CLEARING,
+  BOULDER_CLEARING,
   FOREST_CENTER,
   FOREST_EDGE_RADIUS,
   FOREST_GROUND_Y,
   FOREST_PATH_POINT_LIST,
   FOREST_PORTAL_POINT,
   SHRINE_CLEARING,
+  SPRING_CLEARING,
   THICKET_START_RADIUS,
 } from './forest-layout'
 import { FOREST_REALM } from './forest-realm'
@@ -118,10 +121,12 @@ function measureClearingOvershoot(x: number, z: number, clearing: ForestClearing
   return measureDistance(x, z, clearing) - clearing.radius
 }
 
-/** 兩片空地與門前都要平：不隆起、不種樹 */
+/** 兩片空地、細節那兩處小空地（林間泉、苔巖）與門前都要平：不隆起、不種樹 */
 function isOpenGround(x: number, z: number): boolean {
   return measureClearingOvershoot(x, z, ARRIVAL_CLEARING) < 1
     || measureClearingOvershoot(x, z, SHRINE_CLEARING) < 1
+    || measureClearingOvershoot(x, z, SPRING_CLEARING) < 1
+    || measureClearingOvershoot(x, z, BOULDER_CLEARING) < 1
     || measureDistance(x, z, FOREST_PORTAL_POINT) < 4
 }
 
@@ -196,6 +201,8 @@ function measureTreeChance(x: number, z: number, radius: number, pathDistance: n
   const clearingOvershoot = Math.min(
     measureClearingOvershoot(x, z, ARRIVAL_CLEARING),
     measureClearingOvershoot(x, z, SHRINE_CLEARING),
+    measureClearingOvershoot(x, z, SPRING_CLEARING),
+    measureClearingOvershoot(x, z, BOULDER_CLEARING),
   )
   if (clearingOvershoot < 0)
     return 0
@@ -450,7 +457,11 @@ export function generateForestWorld(state: Uint8Array): void {
   placeTreeList(state, groundTopMap, pathDistanceMap)
   hollowCrownList(state)
   placeFallenLogList(state, groundTopMap, pathDistanceMap)
+  /** 細節的造景零件排在林下花草之前，位置才是空的（見 forest-detail） */
+  placeForestSetPieceList(state)
   scatterUndergrowth(state, groundTopMap, pathDistanceMap)
+  /** 地被補在花草之後，只落在還空著的地面 */
+  scatterForestDetail(state)
 
   /** 門框排在花草之後：門洞前後與木牌前面的花草由它清掉 */
   for (const portal of FOREST_REALM.portalList) {

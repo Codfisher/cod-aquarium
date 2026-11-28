@@ -4,8 +4,10 @@ import {
   ISLAND_GROUND_Y,
   ISLAND_POND_RADIUS,
   ISLAND_RADIUS,
+  LAKE_BOAT_POINT,
   LAKE_CENTER,
   LAKE_PORTAL_POINT,
+  LAKE_ROCK_ISLET_POINT,
   LAKE_WATER_Y,
 } from './lake-layout'
 
@@ -115,6 +117,26 @@ export const LAKE_DRIFT_FEATURE_LIST: DriftFeature[] = [
     size: 16,
     weight: 0.4,
     viewDistance: [10, 24],
+  },
+  {
+    kind: 'structure',
+    name: '東岸短棧與小舟',
+    x: LAKE_BOAT_POINT.x,
+    y: LAKE_WATER_Y + 2,
+    z: LAKE_BOAT_POINT.z,
+    size: 8,
+    weight: 0.6,
+    viewDistance: [7, 18],
+  },
+  {
+    kind: 'landmark',
+    name: '淺灘三石',
+    x: LAKE_ROCK_ISLET_POINT.x,
+    y: LAKE_WATER_Y + 2,
+    z: LAKE_ROCK_ISLET_POINT.z,
+    size: 4,
+    weight: 0.5,
+    viewDistance: [6, 16],
   },
   {
     kind: 'vista',

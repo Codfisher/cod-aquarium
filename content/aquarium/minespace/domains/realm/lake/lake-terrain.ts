@@ -16,6 +16,7 @@ import { getBlock, setBlock } from '../../world/world-access'
 import { WORLD_SIZE } from '../../world/world-constants'
 import { placePortalStructure } from '../portal-terrain'
 import { findTopSolidY, isNextToWater, isWaterSurface } from '../realm-terrain-kit'
+import { placeLakeSetPieceList, scatterLakeDetail } from './lake-detail'
 import {
   BEACH_WIDTH,
   BOARDWALK,
@@ -324,6 +325,8 @@ export function generateLakeWorld(state: Uint8Array): void {
   carvePond(state)
   buildBoardwalk(state)
   placeGardenPieceList(state)
+  /** 細節的造景零件排在花草之前，位置才是空的（見 lake-detail） */
+  placeLakeSetPieceList(state)
   scatterPlantList(state)
 
   /** 門框排在花草之後：門洞前後與木牌前面的花草由它清掉 */
@@ -332,4 +335,6 @@ export function generateLakeWorld(state: Uint8Array): void {
   }
 
   scatterLilyPadList(state)
+  /** 地被排在最後：蓮只換已經有睡蓮的格子，其餘只落在還空著的地面 */
+  scatterLakeDetail(state)
 }

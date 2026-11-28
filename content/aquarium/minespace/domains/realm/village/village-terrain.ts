@@ -22,6 +22,7 @@ import {
   placeWatchTower,
   placeWatermill,
 } from './village-buildings'
+import { placeVillageSetPieceList, scatterVillageDetail } from './village-detail'
 import {
   BACK_ALLEY_Z,
   BATHHOUSE_POINT,
@@ -642,8 +643,12 @@ export function generateVillageWorld(state: Uint8Array): void {
   placeBuildingList(state)
   placeLampList(state)
   placeSteppingStoneList(state)
+  /** 細節的造景零件排在種田之前，田裡的作物會繞著它們長（見 village-detail） */
+  placeVillageSetPieceList(state)
   plantFieldList(state)
   scatterPlantList(state)
+  /** 地被補在花草之後，只做在外圍的丘陵上 */
+  scatterVillageDetail(state)
 
   /** 門框排在花草之後：門洞前後與木牌前面的花草由它清掉 */
   for (const portal of VILLAGE_REALM.portalList) {

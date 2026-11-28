@@ -111,3 +111,53 @@ export const RAINVALE_PUSH_RADIUS = RAINVALE_SLOW_RADIUS + 8
  * 從禪庭中心過來的人由東邊踏上木座，走三四步就到門前
  */
 export const RAINVALE_HUB_GATE_OFFSET = { x: 3, z: 2 } as const
+
+/**
+ * 細節小景的定點
+ *
+ * 地形 worker 照這幾個點蓋，神遊的特色主體也讀同一份
+ */
+
+/** 木板橋：橫過林子正中那一小窪積水（POND_LIST 第七窪），東西向 */
+export const PLANK_BRIDGE = {
+  z: RAINVALE_CENTER.z + 2,
+  minX: RAINVALE_CENTER.x - 7,
+  maxX: RAINVALE_CENTER.x,
+}
+
+/** 野點傘的茶席：東北那一窪積水的西南岸，一把朱紅的大傘底下鋪著草蓆 */
+export const TEA_SEAT_POINT = { x: RAINVALE_CENTER.x + 11, z: RAINVALE_CENTER.z - 17 }
+
+/**
+ * 飛石的折線
+ *
+ * 從落腳那座亭子出發：往西過木板橋到西邊的亭子、往北繞過水窪到北邊的亭子再接到茶席、往南到南邊的亭子。
+ * 石頭只鋪在草上，碰到水與樹幹就斷開
+ */
+export const RAINVALE_STEPPING_LINE_LIST = [
+  [
+    { x: PAVILION_LIST[0]!.x - 2, z: PLANK_BRIDGE.z },
+    { x: PLANK_BRIDGE.maxX, z: PLANK_BRIDGE.z },
+  ],
+  [
+    { x: PLANK_BRIDGE.minX, z: PLANK_BRIDGE.z },
+    { x: RAINVALE_CENTER.x - 12, z: RAINVALE_CENTER.z + 5 },
+    { x: RAINVALE_CENTER.x - 13, z: RAINVALE_CENTER.z + 12 },
+    { x: PAVILION_LIST[2]!.x + 2, z: PAVILION_LIST[2]!.z + 3 },
+  ],
+  [
+    { x: RAINVALE_CENTER.x - 2, z: RAINVALE_CENTER.z - 1 },
+    { x: RAINVALE_CENTER.x - 1, z: RAINVALE_CENTER.z - 9 },
+    { x: RAINVALE_CENTER.x, z: RAINVALE_CENTER.z - 17 },
+    { x: PAVILION_LIST[1]!.x + 3, z: PAVILION_LIST[1]!.z + 1 },
+  ],
+  [
+    { x: RAINVALE_CENTER.x, z: RAINVALE_CENTER.z - 17 },
+    { x: TEA_SEAT_POINT.x - 3, z: TEA_SEAT_POINT.z },
+  ],
+  [
+    { x: PAVILION_LIST[0]!.x + 1, z: PAVILION_LIST[0]!.z + 3 },
+    { x: RAINVALE_CENTER.x + 7, z: RAINVALE_CENTER.z + 12 },
+    { x: PAVILION_LIST[3]!.x - 1, z: PAVILION_LIST[3]!.z - 3 },
+  ],
+] as const

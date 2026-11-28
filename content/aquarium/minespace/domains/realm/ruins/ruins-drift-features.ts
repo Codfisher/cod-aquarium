@@ -1,5 +1,7 @@
 import type { DriftFeature } from '../realm-definition'
+import { createSkyDriftFeature, RUINS_RINGED_MOON_ANCHOR } from '../realm-signature-direction'
 import { SITE_LIST } from './ruins-colossi-shape'
+import { RUINS_DETAIL_DRIFT_FEATURE_LIST } from './ruins-detail-features'
 import {
   ARCH_Z,
   CHAMBER_RECT,
@@ -126,4 +128,8 @@ export const RUINS_DRIFT_FEATURE_LIST: DriftFeature[] = [
   createColossusFeature(1, '守衛之門', 0.8),
   createColossusFeature(2, '倒臥的巨首', 0.7),
   createColossusFeature(5, '遠方階梯塔', 0.5),
+  /** 細節小景那一輪補的幾處（見 ruins-detail-features） */
+  ...RUINS_DETAIL_DRIFT_FEATURE_LIST,
+  /** 招牌景象：坐像與門闕之間的環月（見 ruins-ringed-moon），白天淡、夜裡亮 */
+  createSkyDriftFeature({ name: '巨像之間的環月', anchor: RUINS_RINGED_MOON_ANCHOR, center: RUINS_CENTER, groundY: RUINS_FOOT_Y, weight: 0.7 }),
 ]

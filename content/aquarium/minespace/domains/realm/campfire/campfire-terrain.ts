@@ -5,6 +5,7 @@ import { BLEACHED_LOG_SET, fillBox, placeDeadTree, plantWithStack } from '../../
 import { getBlock, setBlock } from '../../world/world-access'
 import { WORLD_SIZE } from '../../world/world-constants'
 import { placePortalStructure } from '../portal-terrain'
+import { decorateCampfire } from './campfire-details'
 import {
   CAMP_CENTER,
   CAMP_FOOT_Y,
@@ -653,6 +654,8 @@ export function generateCampfireWorld(state: Uint8Array): void {
 
   placeDeadTreeAndCactusList(state, groundTopMap, plainMap)
   scatterPrairieGrass(state, groundTopMap, plainMap)
+  /** 細節小景排在乾草之後：水塔、電報線桿、淘金人的營地都把原本那一格的草換掉 */
+  decorateCampfire(state, groundTopMap, plainMap.trailDistanceMap)
 
   /** 門框排在花草之後：門洞前後與木牌前面的花草由它清掉 */
   for (const portal of CAMPFIRE_REALM.portalList) {

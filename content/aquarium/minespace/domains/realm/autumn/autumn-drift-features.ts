@@ -1,7 +1,9 @@
 import type { DriftFeature } from '../realm-definition'
+import { AUTUMN_GEESE_ANCHOR, createSkyDriftFeature } from '../realm-signature-direction'
 import {
   AUTUMN_CENTER,
   AUTUMN_PORTAL_POINT,
+  AUTUMN_STELE_POINT,
   GROVE_GROUND_Y,
   GROVE_RADIUS,
   GROVE_RIM_WIDTH,
@@ -89,6 +91,16 @@ export const AUTUMN_DRIFT_FEATURE_LIST: DriftFeature[] = [
     viewDistance: [6, 18],
   },
   {
+    kind: 'landmark',
+    name: '刻紋石碑',
+    x: AUTUMN_STELE_POINT.x,
+    y: STAND_Y + 1,
+    z: AUTUMN_STELE_POINT.z,
+    size: 4,
+    weight: 0.55,
+    viewDistance: [5, 13],
+  },
+  {
     kind: 'gate',
     name: '回程門',
     x: AUTUMN_PORTAL_POINT.x,
@@ -138,4 +150,6 @@ export const AUTUMN_DRIFT_FEATURE_LIST: DriftFeature[] = [
     weight: 0.5,
     viewDistance: [30, 70],
   },
+  /** 招牌景象：晨昏橫越西天的雁行（見 autumn-geese） */
+  createSkyDriftFeature({ name: '西天的雁行', anchor: AUTUMN_GEESE_ANCHOR, center: AUTUMN_CENTER, groundY: GROVE_GROUND_Y, weight: 0.45 }),
 ]

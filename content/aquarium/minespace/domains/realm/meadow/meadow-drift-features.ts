@@ -1,4 +1,6 @@
 import type { DriftFeature } from '../realm-definition'
+import { createSkyDriftFeature, MEADOW_METEOR_RADIANT_ANCHOR } from '../realm-signature-direction'
+import { MEADOW_DETAIL_DRIFT_FEATURE_LIST } from './meadow-detail-features'
 import {
   MEADOW_CENTER,
   MEADOW_CREST_RADIUS,
@@ -156,4 +158,8 @@ export const MEADOW_DRIFT_FEATURE_LIST: DriftFeature[] = [
     weight: 0.6,
     viewDistance: [30, 90],
   },
+  /** 細節小景那一輪補的幾處（見 meadow-detail-features） */
+  ...MEADOW_DETAIL_DRIFT_FEATURE_LIST,
+  /** 招牌景象：晴朗夜裡東北高空的流星雨（見 meadow-meteors） */
+  createSkyDriftFeature({ name: '東北高空的流星雨', anchor: MEADOW_METEOR_RADIANT_ANCHOR, center: MEADOW_CENTER, groundY: MEADOW_GROUND_Y, weight: 0.45 }),
 ]

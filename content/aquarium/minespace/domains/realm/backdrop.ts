@@ -1,5 +1,4 @@
 import type { Scene } from '@babylonjs/core'
-import type { BlockId } from '../block/block-constants'
 import type { TextureKey, TexturePack } from '../block/texture-pack'
 import type { AtmosphereState } from '../weather/atmosphere'
 import type { RealmBackdrop, RealmColor, RealmRidgeStyle } from './realm-definition'
@@ -15,10 +14,11 @@ import {
   VertexData,
 } from '@babylonjs/core'
 import { createSeededRandom, fbm2D } from '../../utils/noise'
-import { BLOCK_DEFS } from '../block/block-constants'
+import { BLOCK_DEFS, BlockId } from '../block/block-constants'
 import { resolveTexture } from '../block/texture-pack'
 import { optOutOfFog } from '../renderer/fog-opt-out'
-import { WORLD_SIZE } from '../world/world-constants'
+import { getBlock } from '../world/world-access'
+import { WORLD_HEIGHT, WORLD_SIZE } from '../world/world-constants'
 import { createCloudSea } from './alpine/cloud-sea'
 import { createWaterfallMist } from './river/waterfall-mist'
 
@@ -584,7 +584,7 @@ function createLakeMaterial(scene: Scene, color: RealmColor): StandardMaterial {
  * 地形的方塊都比它高，蓋在它上面；只有 LAKE_BED 那一圈看得到它。
  * 貼圖與色調借 floor.blockId 那種方塊的頂面，平鋪、開 mipmap，遠處才不會閃
  */
-function createFloorPlane(scene: Scene, floor: RealmFloor): { mesh: Mesh; material: StandardMaterial } {
+function createFloorPlane(scene: Scene, floor: RealmFloor, worldState: Uint8Array | null): { mesh: Mesh; material: StandardMaterial } {
   const material = new StandardMaterial('backdrop-lake-bed', scene)
   material.specularColor = new Color3(0, 0, 0)
   material.ambientColor = new Color3(1, 1, 1)
@@ -595,14 +595,103 @@ function createFloorPlane(scene: Scene, floor: RealmFloor): { mesh: Mesh; materi
   }
 
   const size = getFloorSize(floor)
-  const mesh = MeshBuilder.CreateGround('backdrop-lake-bed', { width: size, height: size }, scene)
+  /**
+   * 有方塊資料就只鋪在不畫的地面上（見 createMaskedFloorMesh）
+   *
+   * 整片鋪滿出過兩種事：平面比水面高，林子裡每一窪水被蓋成一片草綠（聽雨林、百囀林苑、林海）；
+   * 平面擺在谷壁頂，神遊飛高之後整座山谷被一大片地面蓋住（拓荒原、石殿遺址、湯煙谷）。
+   * 它要補的本來就只有 LAKE_BED 那些格柱與世界外面，其餘地方有方塊在畫
+   */
+  const isMasked = worldState !== null
+  const mesh = isMasked
+    ? createMaskedFloorMesh(scene, floor, worldState)
+    : MeshBuilder.CreateGround('backdrop-lake-bed', { width: size, height: size }, scene)
   /** 比方塊頂面低一公分，與最底那一格頂面錯開，免得深度打架 */
-  mesh.position.set((WORLD_SIZE - 1) / 2, floor.surfaceY - 0.01, (WORLD_SIZE - 1) / 2)
+  if (isMasked) {
+    /** 遮罩版的頂點已經是世界座標，只挪高度；兩面都畫，省得管三角形的繞向 */
+    mesh.position.y = floor.surfaceY - 0.01
+    material.backFaceCulling = false
+  }
+  else {
+    mesh.position.set((WORLD_SIZE - 1) / 2, floor.surfaceY - 0.01, (WORLD_SIZE - 1) / 2)
+  }
   mesh.material = material
   mesh.isPickable = false
   /** 島、斜坡與樹的影子落在上面，從岸邊往深水看才看得出水有多清 */
   mesh.receiveShadows = true
   return { mesh, material }
+}
+
+/**
+ * 只蓋住不畫的地面與世界外面的底層平面
+ *
+ * 逐列掃世界：格柱裡有 LAKE_BED 的才鋪，連續的併成一條長方形；
+ * 鋪到地平線的再在世界四周各補一大片。谷地、原野這些有方塊的地方上方是空的，
+ * 從高處往下看得到底下的景。貼圖座標照世界座標給，與整片版一樣一格一張
+ */
+function createMaskedFloorMesh(scene: Scene, floor: RealmFloor, worldState: Uint8Array): Mesh {
+  const size = getFloorSize(floor)
+  const positionList: number[] = []
+  const normalList: number[] = []
+  const uvList: number[] = []
+  const indexList: number[] = []
+
+  function addRect(minX: number, maxX: number, minZ: number, maxZ: number): void {
+    if (maxX <= minX || maxZ <= minZ)
+      return
+
+    const base = positionList.length / 3
+    for (const [x, z] of [[minX, minZ], [maxX, minZ], [maxX, maxZ], [minX, maxZ]] as const) {
+      positionList.push(x, 0, z)
+      normalList.push(0, 1, 0)
+      uvList.push(x / size, z / size)
+    }
+    indexList.push(base, base + 1, base + 2, base, base + 2, base + 3)
+  }
+
+  function isHiddenColumn(x: number, z: number): boolean {
+    for (let y = WORLD_HEIGHT - 1; y >= 0; y--) {
+      if (getBlock(worldState, x, y, z) === BlockId.LAKE_BED)
+        return true
+    }
+    return false
+  }
+
+  /** 方塊中心在整數座標上，一格佔前後各半格 */
+  for (let x = 0; x < WORLD_SIZE; x++) {
+    let runStart = -1
+    for (let z = 0; z <= WORLD_SIZE; z++) {
+      const isHidden = z < WORLD_SIZE && isHiddenColumn(x, z)
+      if (isHidden && runStart < 0) {
+        runStart = z
+      }
+      else if (!isHidden && runStart >= 0) {
+        addRect(x - 0.5, x + 0.5, runStart - 0.5, z - 0.5)
+        runStart = -1
+      }
+    }
+  }
+
+  if (floor.isEndless) {
+    const center = (WORLD_SIZE - 1) / 2
+    const low = center - size / 2
+    const high = center + size / 2
+    const worldLow = -0.5
+    const worldHigh = WORLD_SIZE - 0.5
+    addRect(low, worldLow, low, high)
+    addRect(worldHigh, high, low, high)
+    addRect(worldLow, worldHigh, low, worldLow)
+    addRect(worldLow, worldHigh, worldHigh, high)
+  }
+
+  const mesh = new Mesh('backdrop-lake-bed', scene)
+  const vertexData = new VertexData()
+  vertexData.positions = positionList
+  vertexData.normals = normalList
+  vertexData.uvs = uvList
+  vertexData.indices = indexList
+  vertexData.applyToMesh(mesh)
+  return mesh
 }
 
 /** 鋪到地平線的話要蓋過最遠那圈山的山腳，否則只蓋世界本身 */
@@ -655,6 +744,8 @@ interface CreateBackdropParam {
   backdrop: RealmBackdrop;
   atmosphere: AtmosphereState;
   pack: TexturePack;
+  /** 這個場景的方塊資料，底層平面靠它只鋪在不畫的地面上 */
+  worldState?: Uint8Array | null;
 }
 
 /**
@@ -725,7 +816,7 @@ function createLake(
   return { mesh, material }
 }
 
-export function createBackdrop({ scene, backdrop, atmosphere, pack }: CreateBackdropParam): Backdrop {
+export function createBackdrop({ scene, backdrop, atmosphere, pack, worldState = null }: CreateBackdropParam): Backdrop {
   Effect.ShadersStore[`${RIDGE_SHADER_NAME}VertexShader`] = RIDGE_VERTEX
   Effect.ShadersStore[`${RIDGE_SHADER_NAME}FragmentShader`] = RIDGE_FRAGMENT
 
@@ -733,7 +824,7 @@ export function createBackdrop({ scene, backdrop, atmosphere, pack }: CreateBack
   const lake = backdrop.water ? createLake(scene, backdrop, backdrop.water) : null
 
   const floor = backdrop.floor
-  const floorPlane = floor ? createFloorPlane(scene, floor) : null
+  const floorPlane = floor ? createFloorPlane(scene, floor, worldState) : null
   /** 腳下的雲海（雪稜），見 alpine/cloud-sea */
   const cloudSea = backdrop.cloudSea
     ? createCloudSea({ scene, centerX: backdrop.centerX, centerZ: backdrop.centerZ, surfaceY: backdrop.cloudSea.surfaceY, atmosphere })

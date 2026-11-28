@@ -39,6 +39,7 @@ export const DEV_TOGGLE_LIST = [
   { key: 'autoExposure', label: { 'zh-hant': '自動曝光', 'en': 'Auto exposure' } },
   { key: 'purkinjeShift', label: { 'zh-hant': '暗視覺偏藍', 'en': 'Purkinje shift' } },
   { key: 'skylightSh', label: { 'zh-hant': '球諧天光', 'en': 'SH skylight' } },
+  { key: 'realmSignature', label: { 'zh-hant': '場景招牌景象', 'en': 'Realm signature visuals' } },
 ] as const
 
 export type DevToggleKey = typeof DEV_TOGGLE_LIST[number]['key']

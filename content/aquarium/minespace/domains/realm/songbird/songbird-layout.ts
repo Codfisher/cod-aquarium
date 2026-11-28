@@ -97,3 +97,48 @@ export const BIRDHOUSE_LIST = [
  */
 export const SONGBIRD_SLOW_RADIUS = PARK_RADIUS + 2
 export const SONGBIRD_PUSH_RADIUS = SONGBIRD_SLOW_RADIUS + 9
+
+/**
+ * 細節小景的定點
+ *
+ * 地形 worker 照這幾個點蓋，神遊的特色主體也讀同一份
+ */
+
+/**
+ * 飛石小徑的骨架
+ *
+ * 主線從回程門前出發，貼著落腳那一口飲水盤的北邊、園子正中那一口的南邊，往西南走到西邊那一口；
+ * 兩條岔路各通到南邊與北邊的飲水盤。石頭只鋪在草上，碰到飲水盤的石板就斷開
+ */
+export const STEPPING_PATH_LIST = [
+  [
+    { x: SONGBIRD_PORTAL_POINT.x - 5, z: SONGBIRD_PORTAL_POINT.z },
+    { x: SONGBIRD_CENTER.x + 20, z: SONGBIRD_CENTER.z - 2 },
+    { x: SONGBIRD_CENTER.x + 10, z: SONGBIRD_CENTER.z - 3 },
+    { x: SONGBIRD_CENTER.x, z: SONGBIRD_CENTER.z - 1 },
+    { x: SONGBIRD_CENTER.x - 9, z: SONGBIRD_CENTER.z + 5 },
+    { x: SONGBIRD_CENTER.x - 16, z: SONGBIRD_CENTER.z + 10 },
+  ],
+  [
+    { x: SONGBIRD_CENTER.x + 1, z: SONGBIRD_CENTER.z },
+    { x: SONGBIRD_CENTER.x + 4, z: SONGBIRD_CENTER.z + 9 },
+    { x: SONGBIRD_CENTER.x + 7, z: SONGBIRD_CENTER.z + 17 },
+  ],
+  [
+    { x: SONGBIRD_CENTER.x - 4, z: SONGBIRD_CENTER.z - 7 },
+    { x: SONGBIRD_CENTER.x - 9, z: SONGBIRD_CENTER.z - 13 },
+    { x: SONGBIRD_CENTER.x - 12, z: SONGBIRD_CENTER.z - 17 },
+  ],
+] as const
+
+/** 觀鳥小屋：園子南緣，三面木板牆、朝北對著草地開一道觀察的縫 */
+export const BIRD_HIDE_POINT = { x: SONGBIRD_CENTER.x - 5, z: SONGBIRD_CENTER.z + 29 }
+
+/** 餵鳥台：一張架在樁上的木盤，腳邊一簍穀子，都在飛石小徑旁邊 */
+export const FEEDER_LIST = [
+  { x: SONGBIRD_CENTER.x + 16, z: SONGBIRD_CENTER.z - 6 },
+  { x: SONGBIRD_CENTER.x + 3, z: SONGBIRD_CENTER.z + 3 },
+  { x: SONGBIRD_CENTER.x - 12, z: SONGBIRD_CENTER.z + 3 },
+  { x: SONGBIRD_CENTER.x + 8, z: SONGBIRD_CENTER.z + 12 },
+  { x: SONGBIRD_CENTER.x - 5, z: SONGBIRD_CENTER.z - 12 },
+] as const

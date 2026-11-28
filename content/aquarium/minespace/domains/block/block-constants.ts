@@ -286,6 +286,38 @@ export enum BlockId {
    * 看起來是一道斜面而不是階梯。加在最後，前面方塊的編號不變
    */
   SNOW_LAYER_QUARTER,
+  /**
+   * 大場景的細節小物（第一組：湖、海、林、秋、沼、村、窟、雪稜、溪谷）
+   *
+   * 都是既有外型換一張貼圖：貼地的平板（碎石、貝殼、地錦、攤開的漁網、蓮、躺在地上的農具）、
+   * 交叉立板（香蒲、枯枝、冰柱、鐘乳石尖）、薄層（苔毯）與花盆那種小方塊（小石、竹簍）。
+   * 加在最後，前面方塊的編號不變
+   */
+  PEBBLES,
+  SEASHELLS,
+  GROUND_IVY,
+  FISHING_NET,
+  LOTUS,
+  MOSS_CARPET,
+  CATTAIL,
+  TWIGS,
+  ICICLE,
+  STALACTITE,
+  SMALL_ROCK,
+  BASKET,
+  TOOL_HOE,
+  TOOL_AXE,
+  TOOL_PICKAXE,
+  /**
+   * 大場景的細節小物（第二組：湯煙谷、石殿遺址、聽雨林）
+   *
+   * 都是既有外型與既有貼圖換一個色調：硫磺華的薄殼與小塊、褪色的馬賽克地磚、野點傘的傘面。
+   * 加在最後，前面方塊的編號不變
+   */
+  SULPHUR_CRUST,
+  SULPHUR_LUMP,
+  MOSAIC_TILE,
+  PARASOL,
 }
 
 /**
@@ -1891,6 +1923,223 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
   [BlockId.CANVAS]: {
     textures: {
       all: 'woolWhite',
+    },
+  },
+
+  // ── 大場景的細節小物 ──
+  /**
+   * 散在地上的碎石
+   *
+   * 礦點那張圖只有幾顆小點、其餘透明，貼在地面上就是幾顆小石子。
+   * 與落葉同一種外型：走得過去、不擋路，也不投影
+   */
+  [BlockId.PEBBLES]: {
+    shape: 'flat',
+    cutout: true,
+    passable: true,
+    isThinFloor: true,
+    textures: {
+      all: 'pebbles',
+      tint: [0.78, 0.76, 0.72],
+    },
+  },
+  /** 沙灘上的貝殼：與碎石同一張圖，染成米白 */
+  [BlockId.SEASHELLS]: {
+    shape: 'flat',
+    cutout: true,
+    passable: true,
+    isThinFloor: true,
+    textures: {
+      all: 'pebbles',
+      pixelTint: [1.42, 1.32, 1.22],
+    },
+  },
+  /** 貼著地面爬的地錦：常春藤那張圖躺平，林地與石縫的地被多一種 */
+  [BlockId.GROUND_IVY]: {
+    shape: 'flat',
+    cutout: true,
+    passable: true,
+    isThinFloor: true,
+    textures: {
+      all: 'ivy',
+      tint: [0.44, 0.62, 0.34],
+    },
+  },
+  /** 攤在地上晾的漁網：鐵網那張圖染成麻繩色 */
+  [BlockId.FISHING_NET]: {
+    shape: 'flat',
+    cutout: true,
+    passable: true,
+    isThinFloor: true,
+    textures: {
+      all: 'fishingNet',
+      pixelTint: [1.25, 1.05, 0.75],
+    },
+  },
+  /**
+   * 蓮
+   *
+   * 睡蓮那張圖整片染成粉紅（是目標色不是倍率，原版那張灰階的葉子也染得出來），
+   * 一叢睡蓮裡夾幾朵，池面才有主次
+   */
+  [BlockId.LOTUS]: {
+    shape: 'flat',
+    passable: true,
+    isThinFloor: true,
+    floatsOnWater: true,
+    textures: {
+      all: 'lilyPad',
+      pixelTint: [0.98, 0.62, 0.74],
+      pixelRecolor: true,
+    },
+  },
+  /**
+   * 苔毯
+   *
+   * 十六分之一格厚的一層，鋪在石頭與倒木頂上。
+   * 用草皮頂面那張圖、比草地再暗再黃一點；鋪在草地上看不出來，所以只鋪在石與木上
+   */
+  [BlockId.MOSS_CARPET]: {
+    shape: 'layer',
+    shapeThickness: 0.0625,
+    collisionHeight: 0.0625,
+    textures: {
+      all: 'grassTop',
+      tint: [0.46, 0.66, 0.3],
+    },
+  },
+  /** 香蒲，水邊一枝頂著穗的細莖，與紙莎草混著長 */
+  [BlockId.CATTAIL]: {
+    shape: 'cross',
+    passable: true,
+    textures: {
+      all: 'cattail',
+      pixelTint: [0.95, 0.85, 0.6],
+    },
+  },
+  /** 枯枝：沒有葉子的灌木骨架，漂流木堆、冬天的灌叢與柴堆旁都用它。硬的，不隨風擺 */
+  [BlockId.TWIGS]: {
+    shape: 'cross',
+    passable: true,
+    swaysInWind: false,
+    textures: {
+      all: 'twigs',
+    },
+  },
+  /**
+   * 冰柱與鐘乳石尖
+   *
+   * 同一張「上寬下窄垂下來」的圖，一個染成冰的藍白、一個染成岩灰，掛在簷下、岩棚下與洞頂。
+   * 不發光、不擺動；交叉立板本來就不投影
+   */
+  [BlockId.ICICLE]: {
+    shape: 'cross',
+    passable: true,
+    swaysInWind: false,
+    textures: {
+      all: 'icicle',
+      pixelTint: [0.8, 0.92, 1],
+      pixelRecolor: true,
+    },
+  },
+  [BlockId.STALACTITE]: {
+    shape: 'cross',
+    passable: true,
+    swaysInWind: false,
+    textures: {
+      all: 'icicle',
+      pixelTint: [0.5, 0.47, 0.44],
+      pixelRecolor: true,
+    },
+  },
+  /** 小石：花盆那種四成大的小方塊，貼圓石。疊在大石頂上就是一座石堆的尖 */
+  [BlockId.SMALL_ROCK]: {
+    shape: 'pot',
+    passable: true,
+    textures: {
+      all: 'cobblestone',
+    },
+  },
+  /** 竹簍：同一種小方塊貼稻草，被人忘在田邊、岸邊的那一只 */
+  [BlockId.BASKET]: {
+    shape: 'pot',
+    passable: true,
+    textures: {
+      all: 'hay',
+    },
+  },
+  /** 躺在地上的鋤頭、斧頭與鎬：道具圖示貼在地面上，說這裡剛有人做過事 */
+  [BlockId.TOOL_HOE]: {
+    shape: 'flat',
+    cutout: true,
+    passable: true,
+    isThinFloor: true,
+    textures: {
+      all: 'toolHoe',
+    },
+  },
+  [BlockId.TOOL_AXE]: {
+    shape: 'flat',
+    cutout: true,
+    passable: true,
+    isThinFloor: true,
+    textures: {
+      all: 'toolAxe',
+    },
+  },
+  [BlockId.TOOL_PICKAXE]: {
+    shape: 'flat',
+    cutout: true,
+    passable: true,
+    isThinFloor: true,
+    textures: {
+      all: 'toolPickaxe',
+    },
+  },
+  /**
+   * 硫磺華的薄殼
+   *
+   * 熱泉與噴氣孔四周結出來的那一層黃。兩格厚的薄層，一圈一圈鋪出去就是礦華的階地。
+   * 用 tint 不用 pixelTint：砂岩在每一套材質包都是米黃的，乘上去都是硫磺的黃，
+   * 而且沒有任何一套材質包覆寫砂岩的色調
+   */
+  [BlockId.SULPHUR_CRUST]: {
+    shape: 'layer',
+    shapeThickness: 0.125,
+    collisionHeight: 0.125,
+    textures: {
+      all: 'sandstone',
+      tint: [1, 0.9, 0.36],
+    },
+  },
+  /** 硫磺塊：噴氣孔邊結出來的一小坨，與小石同一種外型，穿得過去 */
+  [BlockId.SULPHUR_LUMP]: {
+    shape: 'pot',
+    passable: true,
+    textures: {
+      all: 'sandstone',
+      tint: [1, 0.86, 0.24],
+    },
+  },
+  /** 褪色的馬賽克地磚：石板染成陶土的紅褐，遺址地上一片一片殘留的拼花 */
+  [BlockId.MOSAIC_TILE]: {
+    textures: {
+      all: 'stoneTile',
+      tint: [0.92, 0.6, 0.44],
+    },
+  },
+  /**
+   * 野點傘的傘面
+   *
+   * 半磚的外型，架在兩格高的柱子上，三格見方鋪成一把朱紅的大傘，人從底下走得過去。
+   * 借羊毛白染成朱紅（同篷布），雨滴的射線打到它就停，傘下是乾的
+   */
+  [BlockId.PARASOL]: {
+    shape: 'slab',
+    collisionHeight: 0.5,
+    textures: {
+      all: 'woolWhite',
+      tint: [0.86, 0.2, 0.16],
     },
   },
 }

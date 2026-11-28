@@ -114,3 +114,53 @@ export const AUTUMN_HUB_GATE_OFFSET = { x: -1, z: -2 } as const
 
 /** 門四周幾格不種白楊：樹冠半徑兩格，再遠一點笠木與木牌才不會插進樹冠裡 */
 export const AUTUMN_HUB_GATE_CLEAR_RADIUS = 6
+
+/**
+ * 細節那一層的定點（見 autumn-detail）
+ *
+ * 放在這裡而不是 autumn-detail：種樹（要避開）與神遊的特色清單都要讀，
+ * 而 autumn-detail 引用場景定義，特色清單再引用它會繞成一圈
+ */
+
+/** 林地東北的刻紋石碑：一塊立在石板上的碑、兩盆供花，從踩出來的小徑岔過去 */
+export const AUTUMN_STELE_POINT = { x: AUTUMN_CENTER.x + 17, z: AUTUMN_CENTER.z - 18 }
+
+/** 大片耙沙東北緣的落葉堆與耙子：有人剛把沙上的葉子耙出來 */
+export const AUTUMN_LEAF_PILE_POINT = { x: AUTUMN_CENTER.x + 12, z: AUTUMN_CENTER.z + 1 }
+
+/** 林地北緣的見晴長椅：從林地往北走到草地快到邊的地方，坐著看北邊的秋色遠丘 */
+function findLookoutPoint(): { x: number; z: number } {
+  const x = AUTUMN_CENTER.x + 8
+  let { z } = AUTUMN_CENTER
+  const isGroundRow = (rowZ: number) => [-2, -1, 0, 1, 2, 3].every((offset) => measureGroveDistance(x + offset, rowZ) < GROVE_RADIUS - GROVE_RIM_WIDTH - 2)
+  while (z > 0 && isGroundRow(z - 1)) {
+    z -= 1
+  }
+  return { x, z }
+}
+export const AUTUMN_LOOKOUT_POINT = findLookoutPoint()
+
+/**
+ * 落葉裡踩出來的小徑
+ *
+ * 從回程門往西，繞過大片耙沙的南緣，經過石燈籠與小耙沙，走到西緣的鳥居。
+ * 不是鋪的路：只是這一線的落葉被踩散、露出底下的土
+ */
+export const AUTUMN_TRAIL_CONTROL_LIST = [
+  { x: AUTUMN_PORTAL_POINT.x - 2, z: AUTUMN_PORTAL_POINT.z },
+  { x: AUTUMN_CENTER.x + 26, z: AUTUMN_CENTER.z + 3 },
+  { x: AUTUMN_CENTER.x + 16, z: AUTUMN_CENTER.z + 13 },
+  { x: AUTUMN_CENTER.x + 5, z: AUTUMN_CENTER.z + 18 },
+  { x: AUTUMN_CENTER.x - 5, z: AUTUMN_CENTER.z + 14 },
+  { x: AUTUMN_CENTER.x - 11, z: AUTUMN_CENTER.z + 3 },
+  { x: AUTUMN_CENTER.x - 17, z: AUTUMN_CENTER.z - 7 },
+  { x: AUTUMN_CENTER.x - 28, z: AUTUMN_CENTER.z - 3 },
+  { x: AUTUMN_CENTER.x - 36, z: AUTUMN_CENTER.z },
+] as const
+
+/** 往石碑的岔路：從小徑離開門不遠的地方往北 */
+export const AUTUMN_STELE_TRAIL_CONTROL_LIST = [
+  { x: AUTUMN_CENTER.x + 26, z: AUTUMN_CENTER.z + 3 },
+  { x: AUTUMN_CENTER.x + 22, z: AUTUMN_CENTER.z - 8 },
+  { x: AUTUMN_STELE_POINT.x, z: AUTUMN_STELE_POINT.z + 3 },
+] as const

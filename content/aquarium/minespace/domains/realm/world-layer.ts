@@ -251,14 +251,14 @@ export async function createWorldLayer({
   disposeList.push(() => portalGateList.dispose())
 
   /** 場景自己的渲染端裝飾（地底湖窟洞頂的螢光蟲），見 realm-decoration */
-  const realmDecoration = createRealmDecoration(realm.id, { scene, worldState, atmosphere })
+  const realmDecoration = createRealmDecoration(realm.id, { scene, worldState, atmosphere, lightSourceList })
   if (realmDecoration) {
     disposeList.push(() => realmDecoration.dispose())
   }
 
   /** 遠山與湖面，只有不循環的大場景有；大廳靠循環與白霧撐出無限 */
   const backdrop = realm.backdrop
-    ? createBackdrop({ scene, backdrop: realm.backdrop, atmosphere, pack: texturePack.pack })
+    ? createBackdrop({ scene, backdrop: realm.backdrop, atmosphere, pack: texturePack.pack, worldState })
     : null
   if (backdrop) {
     disposeList.push(() => backdrop.dispose())

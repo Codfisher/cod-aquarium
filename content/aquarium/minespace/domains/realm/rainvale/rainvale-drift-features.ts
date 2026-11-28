@@ -1,4 +1,5 @@
 import type { DriftFeature } from '../realm-definition'
+import { RAINVALE_DETAIL_DRIFT_FEATURE_LIST } from './rainvale-detail-features'
 import {
   ARRIVAL_POND,
   PAVILION_LIST,
@@ -80,4 +81,6 @@ export const RAINVALE_DRIFT_FEATURE_LIST: DriftFeature[] = [
     weight: 0.35,
     viewDistance: [25, 60],
   },
+  /** 細節小景那一輪補的幾處（見 rainvale-detail-features） */
+  ...RAINVALE_DETAIL_DRIFT_FEATURE_LIST,
 ]

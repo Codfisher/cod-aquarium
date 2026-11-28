@@ -138,3 +138,23 @@ export const FOREST_EDGE_RADIUS = 60
  */
 export const FOREST_SLOW_RADIUS = THICKET_START_RADIUS + 2
 export const FOREST_PUSH_RADIUS = FOREST_SLOW_RADIUS + 10
+
+/**
+ * 細節那一層的兩處小空地（見 forest-detail）
+ *
+ * 林間泉在小徑中段的西邊：一窪苔石圍著的泉水，從小徑有幾顆飛石引過去。
+ * 苔巖在小徑東邊的林子深處：一座長滿苔的大石，沒有路，是走進林子裡才撞見的。
+ * 兩處都不種樹、地面不隆起（見 forest-terrain 的 isOpenGround），樹冠從四周蓋過來
+ */
+export const SPRING_CLEARING: ForestClearing = {
+  x: FOREST_CENTER.x - 16,
+  z: FOREST_CENTER.z + 8,
+  radius: 4,
+}
+export const BOULDER_CLEARING: ForestClearing = {
+  x: FOREST_CENTER.x + 21,
+  z: FOREST_CENTER.z - 13,
+  radius: 3,
+}
+/** 落腳空地東緣的柴堆：有人在照看這片林子 */
+export const FOREST_WOOD_PILE_POINT = { x: ARRIVAL_CLEARING.x + 6, z: ARRIVAL_CLEARING.z - 2 }

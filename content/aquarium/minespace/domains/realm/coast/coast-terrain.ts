@@ -14,6 +14,7 @@ import { getBlock, setBlock } from '../../world/world-access'
 import { WORLD_SIZE } from '../../world/world-constants'
 import { placePortalStructure } from '../portal-terrain'
 import { findTopSolidY } from '../realm-terrain-kit'
+import { placeCoastSetPieceList, scatterCoastDetail } from './coast-detail'
 import {
   COAST_CENTER,
   COAST_PORTAL_POINT,
@@ -353,7 +354,11 @@ export function generateCoastWorld(state: Uint8Array): void {
   placeBoat(state)
   placeDriftwoodList(state)
   placeLanternList(state)
+  /** 細節的造景零件排在花草之前，位置才是空的（見 coast-detail） */
+  placeCoastSetPieceList(state)
   scatterPlantList(state)
+  /** 地被補在花草之後，只落在還空著的沙上 */
+  scatterCoastDetail(state)
 
   /** 門框排在花草之後：門洞前後與木牌前面的花草由它清掉 */
   for (const portal of COAST_REALM.portalList) {

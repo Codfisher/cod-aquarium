@@ -1,4 +1,6 @@
 import type { DriftFeature } from '../realm-definition'
+import { CAMPFIRE_COMET_ANCHOR, createSkyDriftFeature } from '../realm-signature-direction'
+import { CAMPFIRE_DETAIL_DRIFT_FEATURE_LIST } from './campfire-detail-features'
 import {
   CAMP_CENTER,
   CAMP_FOOT_Y,
@@ -132,4 +134,8 @@ export const CAMPFIRE_DRIFT_FEATURE_LIST: DriftFeature[] = [
     weight: 0.6,
     viewDistance: [30, 90],
   },
+  /** 細節小景那一輪補的幾處（見 campfire-detail-features） */
+  ...CAMPFIRE_DETAIL_DRIFT_FEATURE_LIST,
+  /** 招牌景象：晴朗夜裡西南低空的彗星（見 campfire-comet） */
+  createSkyDriftFeature({ name: '西南低空的彗星', anchor: CAMPFIRE_COMET_ANCHOR, center: CAMP_CENTER, groundY: CAMP_FOOT_Y, weight: 0.45 }),
 ]

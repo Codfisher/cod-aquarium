@@ -143,3 +143,23 @@ export const BOARDWALK_LOOP_POINT_LIST = [
  */
 export const JIGOKU_SLOW_RADIUS = VALLEY_RADIUS_X + 6
 export const JIGOKU_PUSH_RADIUS = JIGOKU_SLOW_RADIUS + 8
+
+/**
+ * 細節小景的定點
+ *
+ * 地形 worker 照這幾個點蓋，神遊的特色主體也讀同一份
+ */
+
+/** 溫泉蛋的小攤：進谷那段木棧的西側、鳥居前面，一把朱紅的野點傘底下一口蒸鍋 */
+export const EGG_STALL_POINT = { x: JIGOKU_PORTAL_POINT.x - 6, z: JIGOKU_PORTAL_POINT.z - 7 }
+
+/** 足湯（含兩端，外圈是木板池緣）：西南那池熱泉的西邊，四根柱子撐一片木頂 */
+export const FOOT_BATH_RECT = {
+  minX: JIGOKU_CENTER.x - 41,
+  maxX: JIGOKU_CENTER.x - 36,
+  minZ: JIGOKU_CENTER.z + 20,
+  maxZ: JIGOKU_CENTER.z + 22,
+}
+
+/** 賽之河原：熔岩縫東端南岸一片積石，正中一尊戴笠的石地藏 */
+export const CAIRN_FIELD = { x: JIGOKU_CENTER.x + 34, z: JIGOKU_CENTER.z + 10, radius: 5 }

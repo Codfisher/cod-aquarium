@@ -1,4 +1,6 @@
 import type { DriftFeature } from '../realm-definition'
+import { createSkyDriftFeature } from '../realm-signature-direction'
+import { JIGOKU_DETAIL_DRIFT_FEATURE_LIST } from './jigoku-detail-features'
 import {
   BOARDWALK_LOOP_POINT_LIST,
   HOT_POOL_LIST,
@@ -148,4 +150,8 @@ export const JIGOKU_DRIFT_FEATURE_LIST: DriftFeature[] = [
     weight: 0.5,
     viewDistance: [30, 80],
   },
+  /** 細節小景那一輪補的幾處（見 jigoku-detail-features） */
+  ...JIGOKU_DETAIL_DRIFT_FEATURE_LIST,
+  /** 招牌景象：熔岩縫東頭谷稜上的火映與火山雷（見 jigoku-sky-glow），西頭已有上面那一筆火山稜 */
+  createSkyDriftFeature({ name: '谷東的火映', anchor: { azimuth: Math.PI / 2, elevation: 0.2 }, center: JIGOKU_CENTER, groundY: JIGOKU_FOOT_Y, weight: 0.45 }),
 ]

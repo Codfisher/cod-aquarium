@@ -5,6 +5,7 @@ import { getBlock, setBlock } from '../../world/world-access'
 import { WORLD_SIZE } from '../../world/world-constants'
 import { placePortalStructure } from '../portal-terrain'
 import { fillHeightStep } from '../realm-terrain-kit'
+import { decorateWheatfield } from './wheatfield-details'
 import {
   isWheatfieldRoad,
   measureWheatfieldHeight,
@@ -53,7 +54,7 @@ const LANTERN_SPACING = 24
 const LANTERN_ROAD_OFFSET = 3
 
 /** 一塊田：兩個方向上的起訖（不含田埂那一格），壟走哪個方向，抽穗多少 */
-interface WheatPlot {
+export interface WheatPlot {
   minX: number;
   maxX: number;
   minZ: number;
@@ -338,6 +339,8 @@ export function generateWheatfieldWorld(state: Uint8Array): void {
   placeLanternList(state, groundTopMap)
   placeHayList(state, groundTopMap)
   scatterWildflowerList(state, groundTopMap)
+  /** 細節小景排在花草之後：收割的田、草垛、板車、蓄水池、小祠都蓋在麥子上 */
+  decorateWheatfield(state, groundTopMap, plotList)
 
   /** 門框排在花草之後：門洞前後與木牌前面的花草由它清掉 */
   for (const portal of WHEATFIELD_REALM.portalList) {

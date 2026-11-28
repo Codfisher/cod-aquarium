@@ -67,3 +67,33 @@ export const BLIZZARD_PUSH_RADIUS = DRIFT_WALL_START_RADIUS + 8
  * 門洞朝北：從禪庭中心過來的人由北邊踏上木座，白裡先看到的是門上那三盞燈的暈，走近才看出是一道門
  */
 export const BLIZZARD_HUB_GATE_OFFSET = { x: 0, z: -1 } as const
+
+/**
+ * 細節小景的定點
+ *
+ * 地形 worker 照這幾個點蓋，神遊的特色主體也讀同一份
+ */
+
+/** 避難小屋：雪原東南，三面木板牆、朝北敞開，屋裡一盞提燈 */
+export const SHELTER_HUT_POINT = { x: BLIZZARD_CENTER.x + 13, z: BLIZZARD_CENTER.z + 26 }
+
+/** 從雪原正中往東南到小屋的那一串疊石路標（相對中心） */
+export const CAIRN_TRAIL_POINT_LIST = [
+  { x: 2, z: 9 },
+  { x: 5, z: 14 },
+  { x: 9, z: 18 },
+  { x: 13, z: 22 },
+]
+
+/** 結冰的池：雪原西北一片被風掃乾淨的冰面，東岸一道伸到冰上的木棧 */
+export const FROZEN_POND = { x: BLIZZARD_CENTER.x - 26, z: BLIZZARD_CENTER.z - 12, radius: 6 }
+
+/** 半埋的雪橇：木樁那條路東邊幾格，被人留在雪裡 */
+export const BURIED_SLED_POINT = { x: BLIZZARD_CENTER.x + 13, z: BLIZZARD_CENTER.z - 17 }
+
+/** 雪埋的柵欄：雪原西南一道斷斷續續露出雪面的舊柵欄的骨架 */
+export const BURIED_FENCE_POINT_LIST = [
+  { x: BLIZZARD_CENTER.x - 32, z: BLIZZARD_CENTER.z + 10 },
+  { x: BLIZZARD_CENTER.x - 20, z: BLIZZARD_CENTER.z + 16 },
+  { x: BLIZZARD_CENTER.x - 6, z: BLIZZARD_CENTER.z + 15 },
+]

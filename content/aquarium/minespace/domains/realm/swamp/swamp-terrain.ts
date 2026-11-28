@@ -5,6 +5,7 @@ import { getBlock, setBlock } from '../../world/world-access'
 import { WORLD_SIZE } from '../../world/world-constants'
 import { placePortalStructure } from '../portal-terrain'
 import { findTopSolidY, isWaterSurface } from '../realm-terrain-kit'
+import { placeSwampSetPieceList, scatterSwampDetail } from './swamp-detail'
 import {
   BOARDWALK_POINT_LIST,
   MARSH_RADIUS,
@@ -390,6 +391,8 @@ export function generateSwampWorld(state: Uint8Array): void {
   const plan = planBoardwalk()
   buildBoardwalk(state, plan)
   placeDeadTreeList(state, plan)
+  /** 細節的造景零件排在泥灘花草之前，位置才是空的（見 swamp-detail） */
+  placeSwampSetPieceList(state)
   scatterMudPlantList(state)
 
   /** 門框排在花草之後：門洞前後與木牌四周的花草由它清掉 */
@@ -398,4 +401,6 @@ export function generateSwampWorld(state: Uint8Array): void {
   }
 
   scatterLilyPadList(state)
+  /** 地被排在最後：蓮只換已經有睡蓮的格子，泥灘的草與黏土只換頂面 */
+  scatterSwampDetail(state)
 }

@@ -121,3 +121,23 @@ export const CICADA_PATH_CONTROL_POINT_LIST = [
  */
 export const CICADA_SLOW_RADIUS = WOOD_RADIUS + 2
 export const CICADA_PUSH_RADIUS = CICADA_SLOW_RADIUS + 9
+
+/**
+ * 細節小景的定點
+ *
+ * 地形 worker 照這幾個點蓋，神遊的特色主體也讀同一份
+ */
+
+/** 林間小祠：東邊那塊曬得到太陽的空地正中，苔石座上一座木祠，空地西緣一道小鳥居 */
+export const WOOD_SHRINE_POINT = { x: SUN_CLEARING_LIST[0]!.x, z: SUN_CLEARING_LIST[0]!.z }
+
+/** 古井：西邊那塊空地正中，一圈圓石井欄、兩根柱子撐一片木頂 */
+export const OLD_WELL_POINT = { x: SUN_CLEARING_LIST[1]!.x, z: SUN_CLEARING_LIST[1]!.z }
+
+/** 從土徑岔出去的飛石：兩條通到緣廊前，兩條通到小祠與古井（起點在土徑上，終點在目的地前面） */
+export const CICADA_STEPPING_LINE_LIST = [
+  { from: { x: ARRIVAL_CLEARING.x - 2, z: ARRIVAL_CLEARING.z + 1 }, to: { x: VERANDA_LIST[0].x + 1, z: VERANDA_LIST[0].z - 2 } },
+  { from: { x: SHADE_CLEARING.x + 2, z: SHADE_CLEARING.z }, to: { x: VERANDA_LIST[1].x, z: VERANDA_LIST[1].z - 2 } },
+  { from: { x: CICADA_CENTER.x + 5, z: CICADA_CENTER.z + 7 }, to: { x: WOOD_SHRINE_POINT.x - 4, z: WOOD_SHRINE_POINT.z } },
+  { from: { x: CICADA_CENTER.x + 1, z: CICADA_CENTER.z + 2 }, to: { x: OLD_WELL_POINT.x + 3, z: OLD_WELL_POINT.z } },
+] as const

@@ -309,6 +309,15 @@ export interface RealmDriftFlight {
   /** 世界座標的高度上限，不給就不限（溪谷用它把鏡頭壓在峽谷邊緣之下） */
   altitudeMax?: number;
   /**
+   * 低飛（glide）：不升到樹冠之上，沿著走得通的路線在離地幾格的高度滑過去（樹冠下、林間空隙、水面上），
+   * 頭頂有東西的地方自動壓低。霧濃或樹冠密的場景升到樹冠上只剩一片白，要用這個。
+   *
+   * - glideChance：一趟飛行改成低飛的機率（零到一），不給是零；一就是只低飛、不升空
+   * - glideLiftRange：低飛時鏡頭比走路的視線高多少格（範圍），不給用 drift-glide 的預設
+   */
+  glideChance?: number;
+  glideLiftRange?: [number, number];
+  /**
    * 飛行的平面路線
    *
    * - free：停留點之間直接拉一條平滑曲線（湖、海、林海這種四面開闊的場景）
@@ -365,6 +374,11 @@ export interface DriftFeature {
   viewpointList?: { x: number; z: number }[];
   /** 線狀的主體（溪流、木棧、長廊），由多個點組成，視線可沿著它走 */
   pathList?: { x: number; y: number; z: number }[];
+  /**
+   * 只在白天或只在夜裡才有看頭（夜裡才亮的燈與天象、白天才有的光束），不填就是整天都在。
+   * 不在演出的時段，神遊不特地走去、視線也不對著它（見 drift-direction 的 isFeatureActive）
+   */
+  activeAt?: 'day' | 'night';
 }
 
 /**

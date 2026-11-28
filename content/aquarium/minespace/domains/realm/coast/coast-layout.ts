@@ -105,3 +105,31 @@ export const SEA_TORII_POINT = {
  */
 export const COAST_SLOW_RADIUS = SAND_ISLAND_RADIUS + REEF_WIDTH + 4
 export const COAST_PUSH_RADIUS = COAST_SLOW_RADIUS + 20
+
+/**
+ * 細節那一層的定點（見 coast-detail）
+ *
+ * 放在這裡而不是 coast-detail：神遊的特色清單也要讀，而 coast-detail 引用場景定義，
+ * 特色清單再引用 coast-detail 會繞成一圈
+ */
+
+/** 從島心沿某個方向走到岸線外 offshore 格（負的就是岸線內）的那一格 */
+function findCoastPoint(directionX: number, directionZ: number, offshore: number): { x: number; z: number } {
+  const length = Math.hypot(directionX, directionZ)
+  for (let step = 0; step < SAND_ISLAND_RADIUS * 3; step += 0.5) {
+    const x = Math.round(COAST_CENTER.x + (directionX / length) * step)
+    const z = Math.round(COAST_CENTER.z + (directionZ / length) * step)
+    if (measureCoastShoreDistance(x, z) >= SAND_ISLAND_RADIUS + offshore)
+      return { x, z }
+  }
+  return { x: COAST_CENTER.x, z: COAST_CENTER.z }
+}
+
+/** 西北外海的礁岩：離岸五格的淺海裡幾顆出水的黑石，浪退的時候頂上留著一窪水 */
+export const COAST_REEF_ROCK_POINT = findCoastPoint(-1, -0.85, 5)
+
+/** 西南灘上的漁具：一排晾網的矮籬、木桶木箱與竹簍。座標是矮籬的西端 */
+export const COAST_FISHING_POINT = findCoastPoint(-0.8, 1, -5)
+
+/** 島南沙丘腳下熄了的營火：一截燒黑的木頭、一圈小石、一根當椅子的漂流木 */
+export const COAST_FIRE_RING_POINT = { x: COAST_CENTER.x + 2, z: COAST_CENTER.z + 6 }

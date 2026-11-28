@@ -9,6 +9,7 @@ import {
 import { getBlock, setBlock } from '../../world/world-access'
 import { WORLD_SIZE } from '../../world/world-constants'
 import { placePortalStructure } from '../portal-terrain'
+import { decorateBlizzard } from './blizzard-details'
 import {
   BLIZZARD_CENTER,
   BLIZZARD_EDGE_RADIUS,
@@ -40,7 +41,7 @@ const CENTER_Z = BLIZZARD_CENTER.z
 const SNOW_BLOCK_SET = new Set<BlockId>([BlockId.SNOW, BlockId.SNOW_BLOCK, BlockId.SNOW_SLAB, BlockId.SNOW_LAYER])
 
 /** 細樁不蓋雪：一片全寬的薄雪浮在細樁頂上，像一張紙插在竹籤上 */
-const UNCAPPED_BLOCK_SET = new Set<BlockId>([BlockId.WOOD_POST, BlockId.FENCE])
+const UNCAPPED_BLOCK_SET = new Set<BlockId>([BlockId.WOOD_POST, BlockId.FENCE, BlockId.ICE, BlockId.PACKED_ICE])
 
 function measureDistance(x: number, z: number, point: { x: number; z: number }): number {
   return Math.hypot(x - point.x, z - point.z)
@@ -358,6 +359,8 @@ export function generateBlizzardWorld(state: Uint8Array): void {
   placePostTrail(state, topMap, slabMap)
   placePineAndStone(state, topMap, slabMap)
   scatterDryShrub(state, topMap, slabMap)
+  /** 細節小景排在蓋雪之前：小屋的屋頂、雪橇上的木箱都會跟著積一層雪；冰面不積（見 UNCAPPED_BLOCK_SET） */
+  decorateBlizzard(state, topMap, slabMap)
   capWithSnow(state)
 
   /** 門框排在最後，與大廳那一座一樣不沾雪 */

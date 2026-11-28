@@ -1,6 +1,9 @@
 import type { DriftFeature } from '../realm-definition'
 import {
   ALPINE_CENTER,
+  ALPINE_ICE_ARCH_HEIGHT,
+  ALPINE_ICE_ARCH_POINT,
+  ALPINE_ICE_HOLE_POINT,
   ALPINE_POND_LIST,
   ALPINE_PORTAL_POINT,
   CLIFF_RADIUS,
@@ -91,6 +94,26 @@ export const ALPINE_DRIFT_FEATURE_LIST: DriftFeature[] = [
     size: ALPINE_POND_LIST[1].radius * 2,
     weight: 0.5,
     viewDistance: [8, 20],
+  },
+  {
+    kind: 'landmark',
+    name: '冰柱岩門',
+    x: ALPINE_ICE_ARCH_POINT.x + 1,
+    y: SNOWFIELD_Y + ALPINE_ICE_ARCH_HEIGHT,
+    z: ALPINE_ICE_ARCH_POINT.z,
+    size: 6,
+    weight: 0.6,
+    viewDistance: [6, 16],
+  },
+  {
+    kind: 'structure',
+    name: '冰上的釣洞',
+    x: ALPINE_ICE_HOLE_POINT.x,
+    y: SNOWFIELD_Y + 1,
+    z: ALPINE_ICE_HOLE_POINT.z,
+    size: 4,
+    weight: 0.4,
+    viewDistance: [5, 13],
   },
   {
     kind: 'gate',

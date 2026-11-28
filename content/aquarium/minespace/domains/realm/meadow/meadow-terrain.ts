@@ -7,6 +7,7 @@ import { WORLD_SIZE } from '../../world/world-constants'
 import { createPathDistanceMap, measureDistance, plantOnGround, samplePathCurve } from '../land-realm-kit'
 import { placePortalStructure } from '../portal-terrain'
 import { fillHeightStep } from '../realm-terrain-kit'
+import { decorateMeadow } from './meadow-details'
 import {
   MEADOW_CENTER,
   MEADOW_GROUND_Y,
@@ -433,6 +434,8 @@ export function generateMeadowWorld(state: Uint8Array): void {
   placeLogStumpList(state, groundTopMap, pathDistanceMap)
   placeStoneHeapList(state, groundTopMap, pathDistanceMap)
   scatterPlantList(state, groundTopMap, pathDistanceMap)
+  /** 細節小景排在花草之後：石牆、石環、草蓆都把原本那一格的草換掉 */
+  decorateMeadow(state, groundTopMap, pathDistanceMap)
 
   /** 門框排在花草之後：門洞前後與木牌前面的花草由它清掉 */
   for (const portal of MEADOW_REALM.portalList) {

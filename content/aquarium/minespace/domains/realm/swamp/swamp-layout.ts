@@ -127,3 +127,16 @@ export const SWAMP_PUSH_RADIUS = MARSH_RADIUS + 20
  * 見 buildSwampGarden 的平台那一段
  */
 export const SWAMP_HUB_GATE_OFFSET = { x: 0, z: 6 } as const
+
+/**
+ * 細節那一層的定點（見 swamp-detail）
+ *
+ * 放在這裡而不是 swamp-detail：神遊的特色清單也要讀，而 swamp-detail 引用場景定義，
+ * 特色清單再引用它會繞成一圈
+ */
+
+/** 東北那塊大泥灘上的草寮：四根木樁撐一片木頂，底下木桶、坐墊與竹簍，是捕蛙人歇腳的地方 */
+export const SWAMP_HUT_POINT = { x: SWAMP_CENTER.x + 25, z: SWAMP_CENTER.z - 13 }
+
+/** 南側平台東邊水面上的小舟：木棧走不到的泥灘，就靠它 */
+export const SWAMP_BOAT_POINT = { x: SWAMP_CENTER.x + 22, z: SWAMP_CENTER.z + 16 }

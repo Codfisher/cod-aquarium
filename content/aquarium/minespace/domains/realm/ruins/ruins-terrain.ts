@@ -5,6 +5,7 @@ import { fillBox, placeStandingStone, placeStoneLantern, plantWithStack, setDeco
 import { getBlock, setBlock } from '../../world/world-access'
 import { WORLD_SIZE } from '../../world/world-constants'
 import { placePortalStructure } from '../portal-terrain'
+import { decorateRuins } from './ruins-details'
 import {
   ARCH_Z,
   CHAMBER_RECT,
@@ -557,6 +558,8 @@ export function generateRuinsWorld(state: Uint8Array): void {
   placeLanternList(state)
   placeBoulderList(state, groundTopMap)
   scatterPlantList(state, groundTopMap)
+  /** 細節小景排在花草之後：拼花、石像、蓄水池都把原本那一格的草換掉 */
+  decorateRuins(state)
 
   /** 門框排在花草之後：門洞前後與木牌前面的花草由它清掉 */
   for (const portal of RUINS_REALM.portalList) {

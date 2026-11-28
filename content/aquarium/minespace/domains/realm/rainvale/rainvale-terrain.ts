@@ -15,6 +15,7 @@ import {
 import { getBlock, setBlock } from '../../world/world-access'
 import { WORLD_SIZE } from '../../world/world-constants'
 import { placePortalStructure } from '../portal-terrain'
+import { decorateRainvale } from './rainvale-details'
 import {
   PAVILION_LIST,
   POND_LIST,
@@ -425,6 +426,8 @@ export function generateRainvaleWorld(state: Uint8Array): void {
   hollowCrownList(state)
   placeMossyStoneList(state, groundTopMap)
   scatterUndergrowth(state, groundTopMap)
+  /** 細節小景排在林下的花草之後：雨鏈、傘、木板橋、茶席、飛石與水邊的石緣 */
+  decorateRainvale(state, groundTopMap)
 
   /** 門框排在花草之後：門洞前後與木牌前面的花草由它清掉 */
   for (const portal of RAINVALE_REALM.portalList) {

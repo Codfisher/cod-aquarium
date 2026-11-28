@@ -1,11 +1,13 @@
 import type { DriftFeature } from '../realm-definition'
 import {
   ARRIVAL_CLEARING,
+  BOULDER_CLEARING,
   FOREST_CENTER,
   FOREST_GROUND_Y,
   FOREST_PATH_POINT_LIST,
   FOREST_PORTAL_POINT,
   SHRINE_CLEARING,
+  SPRING_CLEARING,
   THICKET_START_RADIUS,
 } from './forest-layout'
 
@@ -78,6 +80,26 @@ export const FOREST_DRIFT_FEATURE_LIST: DriftFeature[] = [
     pathList: FOREST_PATH_POINT_LIST
       .filter((_, index) => index % PATH_POINT_STEP === 0)
       .map((point) => ({ x: Math.round(point.x), y: PATH_WALK_Y, z: Math.round(point.z) })),
+  },
+  {
+    kind: 'water',
+    name: '林間泉',
+    x: SPRING_CLEARING.x,
+    y: FOREST_GROUND_Y + 1,
+    z: SPRING_CLEARING.z,
+    size: 7,
+    weight: 0.65,
+    viewDistance: [5, 13],
+  },
+  {
+    kind: 'landmark',
+    name: '苔巖',
+    x: BOULDER_CLEARING.x,
+    y: FOREST_GROUND_Y + 3,
+    z: BOULDER_CLEARING.z,
+    size: 6,
+    weight: 0.55,
+    viewDistance: [5, 13],
   },
   {
     kind: 'gate',

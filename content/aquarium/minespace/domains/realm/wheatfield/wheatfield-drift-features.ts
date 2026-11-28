@@ -1,4 +1,6 @@
 import type { DriftFeature } from '../realm-definition'
+import { createSkyDriftFeature, WHEATFIELD_GALAXY_CORE_ANCHOR } from '../realm-signature-direction'
+import { WHEATFIELD_DETAIL_DRIFT_FEATURE_LIST } from './wheatfield-detail-features'
 import {
   WHEATFIELD_CENTER,
   WHEATFIELD_CREST_RADIUS,
@@ -121,4 +123,8 @@ export const WHEATFIELD_DRIFT_FEATURE_LIST: DriftFeature[] = [
     weight: 0.6,
     viewDistance: [30, WHEATFIELD_SLOW_RADIUS + 60],
   },
+  /** 細節小景那一輪補的幾處（見 wheatfield-detail-features） */
+  ...WHEATFIELD_DETAIL_DRIFT_FEATURE_LIST,
+  /** 招牌景象：晴朗夜裡從東南升起的銀河（見 wheatfield-galaxy） */
+  createSkyDriftFeature({ name: '東南天際的銀河', anchor: WHEATFIELD_GALAXY_CORE_ANCHOR, center: WHEATFIELD_CENTER, groundY: HORIZON_VIEW_Y, weight: 0.5 }),
 ]

@@ -198,3 +198,19 @@ export function measureGlowVein(x: number, y: number, z: number): number {
   const blob = smoothStep((fbm3D(x * 0.34 - 3, y * 0.34 + 8, z * 0.34 - 6, 2, 0.5) - 0.1) / 0.22)
   return Math.max(line * 0.95, blob * 0.8)
 }
+
+/**
+ * 細節那一層的定點（見 cave-detail）
+ *
+ * 放在這裡而不是 cave-detail：神遊的特色清單也要讀，而 cave-detail 引用場景定義，
+ * 特色清單再引用它會繞成一圈
+ */
+
+/** 大廳東北那盞燈籠底下的礦工舊營地：鋪蓋、木箱木桶、一圈熄了的火與躺在地上的鎬 */
+export const CAVE_CAMP_POINT = { x: HALL_CENTER.x + 32, z: HALL_CENTER.z - 20 }
+
+/** 地底湖東南岸邊浮著的舊舟：有人划到湖對岸去看過那兩顆鑽石 */
+export const CAVE_BOAT_POINT = { x: UNDERGROUND_LAKE_CENTER.x + 7, z: UNDERGROUND_LAKE_CENTER.z + 5 }
+
+/** 湖心偏西南的幾顆出水岩：最高那顆頂上長苔 */
+export const CAVE_LAKE_ROCK_POINT = { x: UNDERGROUND_LAKE_CENTER.x - 6, z: UNDERGROUND_LAKE_CENTER.z + 4 }

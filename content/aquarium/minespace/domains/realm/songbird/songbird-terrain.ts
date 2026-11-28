@@ -12,6 +12,7 @@ import {
   plantOnGround,
 } from '../land-realm-kit'
 import { placePortalStructure } from '../portal-terrain'
+import { decorateSongbird } from './songbird-details'
 import {
   BASIN_LIST,
   BIRDHOUSE_LIST,
@@ -277,6 +278,8 @@ export function generateSongbirdWorld(state: Uint8Array): void {
   placeGroveTreeList(state, groundTopMap)
   hollowEnclosedLeafList(state, LEAF_SET, CROWN_SET, SONGBIRD_GROUND_Y + 2, SONGBIRD_GROUND_Y + 16)
   scatterFlowerList(state, groundTopMap)
+  /** 細節小景排在花之後：飛石、餵鳥台、觀鳥小屋與樹腳的灌叢都把原本那一格的花換掉 */
+  decorateSongbird(state, groundTopMap)
 
   /** 門框排在花之後：門洞前後與木牌前面的花由它清掉 */
   for (const portal of SONGBIRD_REALM.portalList) {

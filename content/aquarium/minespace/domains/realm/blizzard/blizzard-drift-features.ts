@@ -1,4 +1,5 @@
 import type { DriftFeature } from '../realm-definition'
+import { BLIZZARD_DETAIL_DRIFT_FEATURE_LIST } from './blizzard-detail-features'
 import {
   BLIZZARD_CENTER,
   BLIZZARD_GROUND_Y,
@@ -113,4 +114,6 @@ export const BLIZZARD_DRIFT_FEATURE_LIST: DriftFeature[] = [
     weight: 0.4,
     viewDistance: [30, 70],
   },
+  /** 細節小景那一輪補的幾處（見 blizzard-detail-features） */
+  ...BLIZZARD_DETAIL_DRIFT_FEATURE_LIST,
 ]

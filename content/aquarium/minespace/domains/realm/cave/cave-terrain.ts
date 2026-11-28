@@ -4,6 +4,7 @@ import { getNoisyDistance, placeStoneLantern, plantWithStack, setDecoration } fr
 import { getBlock, setBlock } from '../../world/world-access'
 import { WORLD_HEIGHT } from '../../world/world-constants'
 import { placePortalStructure } from '../portal-terrain'
+import { decorateCaveDetail } from './cave-detail'
 import {
   CAVE_FLOOR_Y,
   CAVE_GROUND_Y,
@@ -599,6 +600,8 @@ export function generateCaveWorld(state: Uint8Array): void {
   placeLanternList(state)
   placeCobwebList(state)
   scatterGrottoPlantList(state)
+  /** 細節排在所有造景之後：鐘乳石的尖要接在已經垂下來的石柱底下（見 cave-detail） */
+  decorateCaveDetail(state)
 
   /** 門框排在花草之後：門洞前後與木牌前面的花草由它清掉 */
   for (const portal of CAVE_REALM.portalList) {

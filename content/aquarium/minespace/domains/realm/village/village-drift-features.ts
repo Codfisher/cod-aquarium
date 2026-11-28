@@ -2,10 +2,12 @@ import type { DriftFeature } from '../realm-definition'
 import {
   BELL_TOWER_POINT,
   COVERED_GATE_POINT,
+  FIELD_Y,
   INN_POINT,
   SHRINE_POINT,
   STREAM_Z,
   VILLAGE_CENTER,
+  VILLAGE_HAYSTACK_POINT,
   VILLAGE_PORTAL_POINT,
   WATCH_TOWER_POINT,
   WATERMILL_POINT,
@@ -134,6 +136,16 @@ export const VILLAGE_DRIFT_FEATURE_LIST: DriftFeature[] = [
     viewDistance: [12, 30],
   },
   {
+    kind: 'structure',
+    name: '村西草垛場與稻草人',
+    x: VILLAGE_HAYSTACK_POINT.x,
+    y: FIELD_Y + 2,
+    z: VILLAGE_HAYSTACK_POINT.z,
+    size: 8,
+    weight: 0.55,
+    viewDistance: [6, 16],
+  },
+  {
     kind: 'vista',
     name: '北方綠丘',
     x: VILLAGE_CENTER.x,
@@ -152,5 +164,16 @@ export const VILLAGE_DRIFT_FEATURE_LIST: DriftFeature[] = [
     size: 80,
     weight: 0.45,
     viewDistance: [20, 60],
+  },
+  /** 招牌景象：晴朗夜裡從廣場升起的天燈（見 village-sky-lanterns），被風帶往東北 */
+  {
+    kind: 'light',
+    name: '廣場上空的天燈',
+    x: VILLAGE_CENTER.x + 8,
+    y: 30,
+    z: VILLAGE_CENTER.z - 5,
+    size: 30,
+    weight: 0.5,
+    viewDistance: [25, 60],
   },
 ]

@@ -1,4 +1,6 @@
 import type { DriftFeature } from '../realm-definition'
+import { createSkyDriftFeature, SONGBIRD_MURMURATION_ANCHOR } from '../realm-signature-direction'
+import { SONGBIRD_DETAIL_DRIFT_FEATURE_LIST } from './songbird-detail-features'
 import {
   BASIN_LIST,
   BIRDHOUSE_LIST,
@@ -86,4 +88,8 @@ export const SONGBIRD_DRIFT_FEATURE_LIST: DriftFeature[] = [
     weight: 0.4,
     viewDistance: [30, 70],
   },
+  /** 細節小景那一輪補的幾處（見 songbird-detail-features） */
+  ...SONGBIRD_DETAIL_DRIFT_FEATURE_LIST,
+  /** 招牌景象：晨昏在北邊樹冠上空翻捲的椋鳥群（見 songbird-murmuration） */
+  createSkyDriftFeature({ name: '北邊樹冠上的椋鳥群', anchor: SONGBIRD_MURMURATION_ANCHOR, center: SONGBIRD_CENTER, groundY: SONGBIRD_GROUND_Y, weight: 0.5 }),
 ]

@@ -9,6 +9,7 @@ import {
 import { getBlock, setBlock } from '../../world/world-access'
 import { WORLD_SIZE } from '../../world/world-constants'
 import { placePortalStructure } from '../portal-terrain'
+import { decorateAlpineDetail } from './alpine-detail'
 import {
   ALPINE_CENTER,
   ALPINE_POND_LIST,
@@ -704,6 +705,8 @@ export function generateAlpineWorld(state: Uint8Array): void {
   placePineList(state, columnList)
   scatterPlantList(state, columnList)
   placeLanternList(state, columnList)
+  /** 細節排在樹、花草與石燈籠之後，只落在還空著的雪塊與露岩上（見 alpine-detail） */
+  decorateAlpineDetail(state)
 
   /** 門框排在花草之後：門洞前後與木牌前面的花草由它清掉 */
   for (const portal of ALPINE_REALM.portalList) {

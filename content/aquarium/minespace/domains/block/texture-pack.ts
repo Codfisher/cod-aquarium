@@ -236,6 +236,16 @@ const MINI_PIXEL_TEXTURE_MAP = {
   woolBrown: 'wool_brown',
   woolBlack: 'wool_black',
   woolPink: 'wool_pink',
+
+  // ── 大場景的細節小物（其他材質包沒有對應的圖，一律退回這幾張） ──
+  pebbles: 'default_mineral_tin',
+  fishingNet: 'xdecor_chainlink',
+  cattail: 'moreplants_eyeweed',
+  twigs: 'default_bush_stem',
+  icicle: 'xdecor_curtain_open',
+  toolHoe: 'farming_tool_woodhoe',
+  toolAxe: 'default_tool_steelaxe',
+  toolPickaxe: 'default_tool_stonepick',
 } as const satisfies Record<string, string>
 
 /**

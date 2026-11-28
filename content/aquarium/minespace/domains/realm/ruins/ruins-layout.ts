@@ -111,3 +111,29 @@ export const RUINS_RIM_HEIGHT = 9
  */
 export const RUINS_SLOW_RADIUS = RUINS_RIM_START_RADIUS + 2
 export const RUINS_PUSH_RADIUS = RUINS_SLOW_RADIUS + 12
+
+/**
+ * 細節小景的定點
+ *
+ * 地形 worker 照這幾個點蓋，神遊的特色主體也讀同一份
+ */
+
+/** 石碑四周那一圈馬賽克拼花的內外半徑（格），在八根斷柱外面 */
+export const MOSAIC_RING_INNER_RADIUS = 6.3
+export const MOSAIC_RING_OUTER_RADIUS = 9.3
+
+/** 石室門前的兩尊石像：西邊那尊還站著，東邊那尊倒了，都在大殿裡、離北牆兩格 */
+export const STATUE_Z = HALL_RECT.minZ + 2
+export const STANDING_STATUE_POINT = { x: RUINS_CENTER.x - 5, z: STATUE_Z }
+export const TOPPLED_STATUE_POINT = { x: RUINS_CENTER.x + 5, z: STATUE_Z }
+
+/** 大殿東牆塌開的那個口（牆上三格寬），外面幾級長了草的石階往東通到蓄水池 */
+export const EAST_BREACH_Z = HALL_STELE_POINT.z
+
+/** 殿東的蓄水池殘跡（含兩端，外圈是池緣）：一圈斷了幾處的石緣圍著一池淺水 */
+export const CISTERN_RECT: RuinsRect = {
+  minX: HALL_RECT.maxX + 13,
+  maxX: HALL_RECT.maxX + 21,
+  minZ: EAST_BREACH_Z - 4,
+  maxZ: EAST_BREACH_Z + 4,
+}

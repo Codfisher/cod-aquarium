@@ -114,3 +114,50 @@ export const BOARDWALK = {
  */
 export const LAKE_SLOW_RADIUS = ISLAND_RADIUS + SHALLOW_WIDTH + 4
 export const LAKE_PUSH_RADIUS = LAKE_SLOW_RADIUS + 20
+
+/**
+ * 細節那一層的定點（見 lake-detail）
+ *
+ * 放在這裡而不是 lake-detail：神遊的特色清單也要讀，而 lake-detail 引用場景定義，
+ * 特色清單再引用 lake-detail 會繞成一圈
+ */
+
+/** 池畔長椅：池子西岸，椅背朝西，坐著往東看整池水與木棧盡頭的紙燈 */
+export const LAKE_BENCH_POINT = { x: LAKE_CENTER.x - 12, z: LAKE_CENTER.z + 1 }
+
+/**
+ * 東岸的短棧與小舟
+ *
+ * 短棧從沙灘往東伸進湖裡，小舟橫靠在棧的南側。座標是棧根（最後一格沙灘的下一格）
+ */
+const JETTY_Z = LAKE_CENTER.z + 12
+export const LAKE_JETTY_LENGTH = 5
+
+/** 從湖心沿 +X 找出 JETTY_Z 那一排的岸線：第一格水 */
+function findJettyStartX(): number {
+  for (let x = LAKE_CENTER.x; x < LAKE_CENTER.x + ISLAND_RADIUS + 8; x++) {
+    if (measureShoreDistance(x, JETTY_Z) >= ISLAND_RADIUS)
+      return x
+  }
+  return LAKE_CENTER.x + ISLAND_RADIUS
+}
+
+export const LAKE_JETTY_POINT = { x: findJettyStartX(), z: JETTY_Z }
+/** 小舟的中心：棧的中段、南側兩格 */
+export const LAKE_BOAT_POINT = { x: LAKE_JETTY_POINT.x + 3, z: JETTY_Z + 2 }
+
+/** 西南淺灘裡的三顆石：從湖心往西南走到岸線外幾格 */
+function findOffshorePoint(directionX: number, directionZ: number, offshore: number): { x: number; z: number } {
+  const length = Math.hypot(directionX, directionZ)
+  for (let step = ISLAND_RADIUS - 6; step < ISLAND_RADIUS + SHALLOW_WIDTH + 6; step += 0.5) {
+    const x = Math.round(LAKE_CENTER.x + (directionX / length) * step)
+    const z = Math.round(LAKE_CENTER.z + (directionZ / length) * step)
+    if (measureShoreDistance(x, z) >= ISLAND_RADIUS + offshore)
+      return { x, z }
+  }
+  return { x: LAKE_CENTER.x, z: LAKE_CENTER.z + ISLAND_RADIUS + offshore }
+}
+
+export const LAKE_ROCK_ISLET_POINT = findOffshorePoint(-1, 0.75, 4)
+/** 南灘的疊石：島的最南端，沙灘上 */
+export const LAKE_CAIRN_POINT = findOffshorePoint(0.15, 1, -2)

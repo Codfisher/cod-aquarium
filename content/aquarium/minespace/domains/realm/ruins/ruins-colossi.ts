@@ -1,7 +1,7 @@
 import type { Scene } from '@babylonjs/core'
 import type { AtmosphereState } from '../../weather/atmosphere'
 import type { ColossusSite } from './ruins-colossi-shape'
-import { Color3, Effect, Mesh, ShaderMaterial, Vector3, VertexData } from '@babylonjs/core'
+import { Color3, DynamicTexture, Effect, Mesh, ShaderMaterial, Texture, Vector3, VertexData } from '@babylonjs/core'
 import { createSeededRandom } from '../../../utils/noise'
 import { optOutOfFog } from '../../renderer/fog-opt-out'
 import { BIRD_FLOCK_LIST, SITE_LIST } from './ruins-colossi-shape'
@@ -31,7 +31,7 @@ import { RUINS_CENTER, RUINS_GROUND_Y, RUINS_RIM_HEIGHT } from './ruins-layout'
  * 構圖：從回程門往北看，長廊兩排石柱正好夾住正北那尊無頭的坐像；
  * 東北一對持劍的守門巨像夾著一座塌了的門，西邊半埋著一顆巨大的頭，
  * 西南幾根倒下的巨柱，東邊一段斷了的水道橋，東南遠處山稜上一座塌了一角的階梯神殿。
- * 坐像與塌門上空各有一群鳥在盤旋
+ * 坐像與塌門上空各有一群鳥在盤旋（像素風的小方片，見下面「盤旋的鳥」）
  */
 
 /** 布景那一層（與 backdrop 的山稜同一層）：地形的深度已經寫好，被殿牆擋住的部分照樣不畫 */
@@ -287,57 +287,127 @@ void main() {
 const COLOSSUS_SHADER_NAME = 'minespaceRuinsColossus'
 
 /**
- * 盤旋的鳥
+ * 盤旋的鳥（像素風）
  *
- * 每隻鳥四個頂點（一個小小的 V：機首、兩個翼尖、尾），位置在著色器裡算：
- * 繞著圓心轉一圈，翼尖隨拍翅上下。每隻的圈大小、速度、相位、方向各不同。
- * 與石頭同一套混色，遠處的鳥只是霧裡一個暗點
+ * 這個世界連蝴蝶與水滴都是看得出邊界的像素塊，鳥原本是一個三角形拼的 V，在一片方塊裡特別突兀
+ * （使用者：「遺跡空中的飛鳥目前看起來是三角形，也要走像素風格才對」）。
+ * 改成每隻一片永遠正對鏡頭的小方片，貼一張七乘五的點陣圖（NEAREST 取樣、硬邊），
+ * 圖上三格動畫：翅膀上舉、攤平、下壓，拍翅是換格而不是把頂點拉上拉下。
+ * 盤旋的鳥大半時間在滑翔，所以八拍裡只拍一下，其餘攤平。
+ *
+ * 一格像素等於世界的一格：鳥在兩三百格外，換算到螢幕上一格像素約四五個螢幕像素，
+ * 看得出是方的、又不會大到像一塊招牌。整群仍是一個網格、一次繪製，
+ * 位置照舊在著色器裡算（繞著圓心轉），與石頭同一套混色，遠處的鳥只是霧裡幾格暗點
  */
+
+/** 一格動畫的圖樣：# 是鳥身，. 是透明；三格等寬等高，第一列在上 */
+const BIRD_FRAME_LIST = [
+  /** 翅膀上舉 */
+  ['#.....#', '.#...#.', '..#.#..', '...#...', '.......'],
+  /** 攤平滑翔 */
+  ['.......', '.......', '###.###', '...#...', '.......'],
+  /** 翅膀下壓 */
+  ['.......', '...#...', '..#.#..', '.#...#.', '#.....#'],
+] as const
+
+const BIRD_CELL_WIDTH = BIRD_FRAME_LIST[0][0].length
+const BIRD_CELL_HEIGHT = BIRD_FRAME_LIST[0].length
+
+/** 點陣圖的一格像素在世界裡多大（格） */
+const BIRD_PIXEL_SIZE = 1
+
+/** 一輪八拍要幾秒：滑翔五拍、拍一下三拍 */
+const BIRD_FLAP_PERIOD_SECOND = 2.8
+
 const BIRD_VERTEX = `
 precision highp float;
 attribute vec3 position;
 attribute vec4 color;
 attribute vec2 uv;
+uniform mat4 view;
 uniform mat4 viewProjection;
 uniform float time;
-varying float vAlpha;
+varying vec2 vSpriteUv;
 
 void main() {
-  /** color：x 半徑、y 角速度（帶方向）、z 相位、w 拍翅的相位與起伏 */
+  /** color：x 半徑、y 角速度（帶方向）、z 相位、w 拍翅的相位 */
   float angle = time * color.y + color.z;
   vec2 radial = vec2(cos(angle), sin(angle));
-  float direction = color.y > 0.0 ? 1.0 : -1.0;
-  vec2 heading = vec2(-radial.y, radial.x) * direction;
-  float flap = sin(time * 2.6 + color.w * 6.28) * 0.5;
-  vec3 offset = vec3(radial.x * color.x, sin(time * 0.31 + color.z * 2.0) * 3.0, radial.y * color.x);
-  offset.xz += radial * uv.x + heading * uv.y;
-  offset.y += abs(uv.x) * (0.25 + flap) + uv.y * 0.1;
-  vAlpha = 1.0;
-  gl_Position = viewProjection * vec4(position + offset, 1.0);
+  vec3 center = position + vec3(radial.x * color.x, sin(time * 0.31 + color.z * 2.0) * 3.0, radial.y * color.x);
+
+  /** 永遠正對鏡頭：方片沿著鏡頭的右與上攤開，uv 是方片四個角（-0.5 到 0.5） */
+  vec3 cameraRight = vec3(view[0][0], view[1][0], view[2][0]);
+  vec3 cameraUp = vec3(view[0][1], view[1][1], view[2][1]);
+  vec3 corner = (cameraRight * uv.x * ${BIRD_CELL_WIDTH}.0 + cameraUp * uv.y * ${BIRD_CELL_HEIGHT}.0) * ${BIRD_PIXEL_SIZE.toFixed(2)};
+
+  /** 八拍一輪：第五拍上舉、第七拍下壓，其餘攤平 */
+  float beat = floor(fract(time / ${BIRD_FLAP_PERIOD_SECOND.toFixed(2)} + color.w) * 8.0);
+  float frame = beat == 4.0 ? 0.0 : (beat == 6.0 ? 2.0 : 1.0);
+
+  /** 貼圖沒有上下翻轉（第一列在上），方片頂邊對到 v 為零；橫向稍微內縮，不取到隔壁那一格 */
+  vSpriteUv = vec2((frame + 0.5 + uv.x * 0.998) / ${BIRD_FRAME_LIST.length}.0, 0.5 - uv.y * 0.998);
+  gl_Position = viewProjection * vec4(center + corner, 1.0);
 }
 `
 
 const BIRD_FRAGMENT = `
 precision highp float;
-varying float vAlpha;
+varying vec2 vSpriteUv;
+uniform sampler2D birdSprite;
 uniform vec3 birdColor;
 uniform vec3 horizonColor;
 uniform float haze;
 
 void main() {
-  gl_FragColor = vec4(mix(birdColor, horizonColor, haze), vAlpha);
+  /** 硬邊：透明的格子整格丟掉，不混色也不寫深度 */
+  if (texture2D(birdSprite, vSpriteUv).a < 0.5)
+    discard;
+  gl_FragColor = vec4(mix(birdColor, horizonColor, haze), 1.0);
 }
 `
 
 const BIRD_SHADER_NAME = 'minespaceRuinsBird'
 
-/** 小小的 V 字：機首、左翼尖、尾、右翼尖（世界格；翼展約五格，遠看是霧裡一個暗點） */
+/** 方片的四個角（-0.5 到 0.5）：左下、右下、右上、左上 */
 const BIRD_CORNER_LIST = [
-  [0, 2.2],
-  [-3.2, -1.4],
-  [0, -0.4],
-  [3.2, -1.4],
+  [-0.5, -0.5],
+  [0.5, -0.5],
+  [0.5, 0.5],
+  [-0.5, 0.5],
 ] as const
+
+/**
+ * 鳥的點陣圖：三格動畫橫排成一張
+ *
+ * 與環境粒子的貼圖同一種畫法（見 ambient-shape.ts）：畫在小畫布上、NEAREST 取樣、
+ * 上傳時不上下翻轉，圖樣照「第一列在上」讀
+ */
+function createBirdTexture(scene: Scene): DynamicTexture {
+  const texture = new DynamicTexture(
+    'ruins-bird-sprite',
+    { width: BIRD_CELL_WIDTH * BIRD_FRAME_LIST.length, height: BIRD_CELL_HEIGHT },
+    scene,
+    false,
+    Texture.NEAREST_SAMPLINGMODE,
+  )
+  const context = texture.getContext() as CanvasRenderingContext2D
+  context.imageSmoothingEnabled = false
+  context.clearRect(0, 0, BIRD_CELL_WIDTH * BIRD_FRAME_LIST.length, BIRD_CELL_HEIGHT)
+  context.fillStyle = 'rgba(255, 255, 255, 1)'
+  BIRD_FRAME_LIST.forEach((frame, frameIndex) => {
+    frame.forEach((row, rowIndex) => {
+      for (let column = 0; column < row.length; column++) {
+        if (row[column] === '#')
+          context.fillRect(frameIndex * BIRD_CELL_WIDTH + column, rowIndex, 1, 1)
+      }
+    })
+  })
+  texture.update(false)
+  texture.hasAlpha = true
+  texture.wrapU = Texture.CLAMP_ADDRESSMODE
+  texture.wrapV = Texture.CLAMP_ADDRESSMODE
+  return texture
+}
 
 function createBirdMesh(scene: Scene): Mesh {
   const positionList: number[] = []
@@ -358,10 +428,16 @@ function createBirdMesh(scene: Scene): Mesh {
       const phase = random() * Math.PI * 2
       const baseIndex = positionList.length / 3
       const height = FOOT_Y + flock.height + (random() - 0.5) * 30
-      for (const [offsetX, offsetY] of BIRD_CORNER_LIST) {
+      /** 拍翅的相位每隻一個，四個角要同一個值，整片才會同時換格 */
+      const flapPhase = random()
+      /** 舊版每個頂點各抽一次，這裡照樣多抽三次：後面每隻鳥的圈與速度才會跟原本一樣 */
+      random()
+      random()
+      random()
+      for (const [cornerX, cornerY] of BIRD_CORNER_LIST) {
         positionList.push(centerX, height, centerZ)
-        colorList.push(radius, speed, phase, random())
-        uvList.push(offsetX, offsetY)
+        colorList.push(radius, speed, phase, flapPhase)
+        uvList.push(cornerX, cornerY)
       }
       indexList.push(baseIndex, baseIndex + 1, baseIndex + 2, baseIndex, baseIndex + 2, baseIndex + 3)
     }
@@ -400,9 +476,13 @@ export function createRuinsColossi({ scene, atmosphere }: { scene: Scene; worldS
 
   const birdMaterial = new ShaderMaterial('ruins-birds', scene, BIRD_SHADER_NAME, {
     attributes: ['position', 'color', 'uv'],
-    uniforms: ['viewProjection', 'time', 'birdColor', 'horizonColor', 'haze'],
+    uniforms: ['view', 'viewProjection', 'time', 'birdColor', 'horizonColor', 'haze'],
+    samplers: ['birdSprite'],
   })
+  /** 方片跟著鏡頭轉，沒有固定的正反面 */
   birdMaterial.backFaceCulling = false
+  const birdTexture = createBirdTexture(scene)
+  birdMaterial.setTexture('birdSprite', birdTexture)
   const birdMesh = createBirdMesh(scene)
   birdMesh.material = birdMaterial
   birdMesh.isPickable = false
@@ -447,6 +527,7 @@ export function createRuinsColossi({ scene, atmosphere }: { scene: Scene; worldS
       material.dispose(false, true)
       birdMesh.dispose()
       birdMaterial.dispose(false, true)
+      birdTexture.dispose()
     },
   }
 }
