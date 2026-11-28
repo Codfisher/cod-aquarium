@@ -11,7 +11,7 @@ defineProps<{
   <div class="VPMenuGroup">
     <p v-if="text" class="title">{{ text }}</p>
 
-    <template v-for="item in items">
+    <template v-for="(item, index) in items" :key="item.link ?? index">
       <VPMenuLink v-if="'link' in item" :item="item" />
     </template>
   </div>

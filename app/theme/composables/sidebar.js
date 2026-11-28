@@ -25,7 +25,7 @@ export function useSidebar() {
             frontmatter.value.layout !== 'home');
     });
     const leftAside = computed(() => {
-        if (hasAside)
+        if (hasAside.value)
             return frontmatter.value.aside == null
                 ? theme.value.aside === 'left'
                 : frontmatter.value.aside === 'left';

@@ -1,7 +1,7 @@
 <template>
   <div class="picker">
     <div
-      v-for="(section, sectionIndex) in sectionList"
+      v-for="section in sectionList"
       :key="section.category"
       class="picker__section"
       :class="{

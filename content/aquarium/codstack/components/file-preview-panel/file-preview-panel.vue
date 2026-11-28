@@ -312,7 +312,7 @@ const isScanning = ref(false)
 const statusMessage = refManualReset('Select folder to preview 3D models')
 
 const previewItemListRef = useTemplateRef<InstanceType<typeof ModelPreviewItem>[]>('previewItemListRef')
-const modelFileList = defineModel<ModelFile[]>('modelFileList', { default: [] })
+const modelFileList = defineModel<ModelFile[]>('modelFileList', { default: () => [] })
 function handleSelectedTag(
   currentSelectedTagList: string[],
   tag: string,

@@ -352,8 +352,7 @@ const {
         currentCamera.target.x = 0
         currentCamera.target.z = 0
         // 重置 cinematic 鏡頭狀態
-        props.cinematic.cameraZoomTarget.value = DEFAULT_CAMERA_RADIUS
-        props.cinematic.cameraLookAtTarget.value = null
+        props.cinematic.resetCamera()
         updatePreview()
       }
 
@@ -384,8 +383,7 @@ const {
 
       if (phase === BattlePhase.RESULT) {
         // 結算後拉回全景
-        props.cinematic.cameraZoomTarget.value = DEFAULT_CAMERA_RADIUS
-        props.cinematic.cameraLookAtTarget.value = null
+        props.cinematic.resetCamera()
         targetCameraTargetY = DEFAULT_CAMERA_TARGET_Y
       }
     })

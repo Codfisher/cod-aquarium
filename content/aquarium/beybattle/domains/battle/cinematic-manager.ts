@@ -89,7 +89,9 @@ export function useCinematicManager() {
   const COOLDOWN_DURATION = 3.0
 
   // --- 鏡頭演出 ---
-  const cameraZoomTarget = ref(12)
+  /** 沒有演出時鏡頭離場中央多遠；與場景元件的全景距離是同一個數字 */
+  const DEFAULT_CAMERA_ZOOM = 12
+  const cameraZoomTarget = ref(DEFAULT_CAMERA_ZOOM)
   const cameraLookAtTarget = ref<{ x: number; y: number; z: number } | null>(null)
   let cameraResetTimer = 0
 
@@ -99,6 +101,17 @@ export function useCinematicManager() {
   // --- vignette ---
   const vignetteIntensity = ref(0)
   const vignetteColor = ref('rgba(0,0,0,0.5)')
+
+  /**
+   * 只把鏡頭拉回全景，演出狀態不動
+   *
+   * 場景元件是以 props 拿到這個管理器的，直接改裡面的 ref 等於改 props；
+   * 鏡頭的預設值也只有這裡知道，所以由這裡提供
+   */
+  function resetCamera() {
+    cameraZoomTarget.value = DEFAULT_CAMERA_ZOOM
+    cameraLookAtTarget.value = null
+  }
 
   function reset() {
     intensityPhase.value = 'calm'
@@ -110,7 +123,7 @@ export function useCinematicManager() {
     recentCollisionTimestampList = []
     comboCount = 0
     Object.keys(cooldownMap).forEach((key) => delete cooldownMap[key as DramaticEvent])
-    cameraZoomTarget.value = 12
+    cameraZoomTarget.value = DEFAULT_CAMERA_ZOOM
     cameraLookAtTarget.value = null
     cameraResetTimer = 0
     speedLineIntensity.value = 0
@@ -185,7 +198,7 @@ export function useCinematicManager() {
     if (cameraResetTimer > 0) {
       cameraResetTimer -= deltaTime
       if (cameraResetTimer <= 0) {
-        cameraZoomTarget.value = 12
+        cameraZoomTarget.value = DEFAULT_CAMERA_ZOOM
         cameraLookAtTarget.value = null
       }
     }
@@ -356,6 +369,7 @@ export function useCinematicManager() {
     cameraZoomTarget,
     cameraLookAtTarget,
     reset,
+    resetCamera,
     update,
     onCollision,
     onNearEdge,
