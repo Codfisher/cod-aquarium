@@ -1,7 +1,7 @@
 import type { Scene } from '@babylonjs/core'
 import type { AtmosphereState } from '../../weather/atmosphere'
 import type { ColossusSite } from './ruins-colossi-shape'
-import { Color3, DynamicTexture, Effect, Mesh, ShaderMaterial, Texture, Vector3, VertexData } from '@babylonjs/core'
+import { Color3, Effect, Mesh, ShaderMaterial, Vector3, VertexData } from '@babylonjs/core'
 import { createSeededRandom } from '../../../utils/noise'
 import { optOutOfFog } from '../../renderer/fog-opt-out'
 import { BIRD_FLOCK_LIST, SITE_LIST } from './ruins-colossi-shape'
@@ -31,7 +31,7 @@ import { RUINS_CENTER, RUINS_GROUND_Y, RUINS_RIM_HEIGHT } from './ruins-layout'
  * 構圖：從回程門往北看，長廊兩排石柱正好夾住正北那尊無頭的坐像；
  * 東北一對持劍的守門巨像夾著一座塌了的門，西邊半埋著一顆巨大的頭，
  * 西南幾根倒下的巨柱，東邊一段斷了的水道橋，東南遠處山稜上一座塌了一角的階梯神殿。
- * 坐像與塌門上空各有一群鳥在盤旋（像素風的小方片，見下面「盤旋的鳥」）
+ * 坐像與塌門上空各有一群鳥在盤旋（方盒拼的立體鳥，見下面「盤旋的鳥」）
  */
 
 /** 布景那一層（與 backdrop 的山稜同一層）：地形的深度已經寫好，被殿牆擋住的部分照樣不畫 */
@@ -287,132 +287,247 @@ void main() {
 const COLOSSUS_SHADER_NAME = 'minespaceRuinsColossus'
 
 /**
- * 盤旋的鳥（像素風）
+ * 盤旋的鳥（體素風的立體物）
  *
- * 這個世界連蝴蝶與水滴都是看得出邊界的像素塊，鳥原本是一個三角形拼的 V，在一片方塊裡特別突兀
- * （使用者：「遺跡空中的飛鳥目前看起來是三角形，也要走像素風格才對」）。
- * 改成每隻一片永遠正對鏡頭的小方片，貼一張七乘五的點陣圖（NEAREST 取樣、硬邊），
- * 圖上三格動畫：翅膀上舉、攤平、下壓，拍翅是換格而不是把頂點拉上拉下。
- * 盤旋的鳥大半時間在滑翔，所以八拍裡只拍一下，其餘攤平。
+ * 第一版是三角形拼的 V，第二版改成永遠正對鏡頭的像素小方片。方片沒有厚度、沒有朝向、
+ * 整片同一個顏色，遠近只剩大小一個線索，一群鳥看起來像貼在天上的同一層
+ * （使用者：「遺跡天空的飛鳥用像素看不出距離，改成實體的立體物體，走體素風格」）。
  *
- * 一格像素等於世界的一格：鳥在兩三百格外，換算到螢幕上一格像素約四五個螢幕像素，
- * 看得出是方的、又不會大到像一塊招牌。整群仍是一個網格、一次繪製，
- * 位置照舊在著色器裡算（繞著圓心轉），與石頭同一套混色，遠處的鳥只是霧裡幾格暗點
+ * 現在每隻鳥是幾個方盒拼的：身體、頭、喙、尾羽，左右各兩節翅膀。距離感靠四樣東西：
+ * - 朝向：鳥頭朝著飛的方向，繞圈時身體往圈心傾，從哪個角度看到牠一目了然
+ * - 明暗：每個面有自己的法線，吃與巨像同一組天光與直射光，背、腹、側面亮度不同
+ * - 動作：翅膀是整節方盒繞著肩與肘轉（像方塊生物那樣），外節比內節慢一點跟上
+ * - 霧：照每隻鳥離鏡頭的實際距離往地平線色混，近的深、遠的淡
+ *
+ * 整群仍是一個網格、一次繪製，位置、朝向與拍翅都在頂點著色器裡算
  */
 
-/** 一格動畫的圖樣：# 是鳥身，. 是透明；三格等寬等高，第一列在上 */
-const BIRD_FRAME_LIST = [
-  /** 翅膀上舉 */
-  ['#.....#', '.#...#.', '..#.#..', '...#...', '.......'],
-  /** 攤平滑翔 */
-  ['.......', '.......', '###.###', '...#...', '.......'],
-  /** 翅膀下壓 */
-  ['.......', '...#...', '..#.#..', '.#...#.', '#.....#'],
+/** 鳥的一格體素在世界裡多大（格）：翼展九格，鳥在兩三百格外，才看得出是方塊拼的 */
+const BIRD_VOXEL_SIZE = 1
+
+/** 一輪要幾秒：盤旋的鳥大半時間在滑翔，一輪裡只有後面八分之三在拍翅 */
+const BIRD_FLAP_PERIOD_SECOND = 2.8
+
+/** 繞圈時身體往圈心傾多少（弧度） */
+const BIRD_BANK_RADIAN = 0.38
+
+/** 滑翔時翅膀微微上翹；拍翅時內節、外節各擺多大（弧度） */
+const BIRD_GLIDE_RADIAN = 0.14
+const BIRD_INNER_FLAP_RADIAN = 0.62
+const BIRD_OUTER_FLAP_RADIAN = 0.5
+
+/**
+ * 往地平線色混多少：離鏡頭這麼近以內最深、這麼遠以外最淡
+ *
+ * 鳥繞著兩三百格外的巨像飛，一圈下來離鏡頭的距離差上百格；
+ * 兩端的差距要拉得夠開，一群鳥才分得出前後
+ */
+const BIRD_HAZE_NEAR_DISTANCE = 110
+const BIRD_HAZE_FAR_DISTANCE = 360
+const BIRD_NEAR_HAZE = 0.12
+const BIRD_FAR_HAZE = 0.62
+
+/** 翅根離身體中線多遠、翅膀底面的高度（體素）：內節繞著這條線轉 */
+const BIRD_SHOULDER_OFFSET = 0.5
+const BIRD_WING_BASE_Y = 0
+
+/** 內節的長度（體素）：外節繞著內節末端轉 */
+const BIRD_INNER_WING_LENGTH = 2
+
+/** 部位：不動的身體、翅膀內節、翅膀外節。數值會寫進頂點，著色器照它決定怎麼轉 */
+const BIRD_PART = { body: 0, innerWing: 1, outerWing: 2 } as const
+type BirdPart = typeof BIRD_PART[keyof typeof BIRD_PART]
+
+/** 顏色：深褐的身體、更深的翅膀、淺色的頭、土黃的喙。數值要與片段著色器的判斷一致 */
+const BIRD_TONE = { body: 0, wing: 1, head: 2, beak: 3 } as const
+type BirdTone = typeof BIRD_TONE[keyof typeof BIRD_TONE]
+
+interface BirdBox {
+  /** 前後（頭朝 +x）、上下、左右；翅膀的第三軸是「離翅根多遠」，一律從零往外 */
+  min: [number, number, number];
+  max: [number, number, number];
+  part: BirdPart;
+  /** 翅膀在哪一邊：右 1、左 -1；身體是 0 */
+  side: number;
+  tone: BirdTone;
+}
+
+function createWingBoxList(side: number): BirdBox[] {
+  return [
+    {
+      min: [-1, BIRD_WING_BASE_Y, 0],
+      max: [1, BIRD_WING_BASE_Y + 0.5, BIRD_INNER_WING_LENGTH],
+      part: BIRD_PART.innerWing,
+      side,
+      tone: BIRD_TONE.wing,
+    },
+    {
+      min: [-1, BIRD_WING_BASE_Y, BIRD_INNER_WING_LENGTH],
+      max: [0.5, BIRD_WING_BASE_Y + 0.5, BIRD_INNER_WING_LENGTH + 2],
+      part: BIRD_PART.outerWing,
+      side,
+      tone: BIRD_TONE.wing,
+    },
+  ]
+}
+
+/** 一隻鳥：身長七格半、翼展九格 */
+const BIRD_BOX_LIST: BirdBox[] = [
+  { min: [-2, -0.5, -0.5], max: [2, 0.5, 0.5], part: BIRD_PART.body, side: 0, tone: BIRD_TONE.body },
+  { min: [2, -0.25, -0.5], max: [3, 0.75, 0.5], part: BIRD_PART.body, side: 0, tone: BIRD_TONE.head },
+  { min: [3, 0, -0.25], max: [3.75, 0.5, 0.25], part: BIRD_PART.body, side: 0, tone: BIRD_TONE.beak },
+  { min: [-3.75, -0.25, -1], max: [-2, 0.25, 1], part: BIRD_PART.body, side: 0, tone: BIRD_TONE.wing },
+  ...createWingBoxList(1),
+  ...createWingBoxList(-1),
+]
+
+/** 方盒的六個面：法線軸與方向。順序要與著色器裡 getFaceNormal 的編號一致 */
+const BIRD_FACE_LIST = [
+  { axis: 0, sign: 1 },
+  { axis: 0, sign: -1 },
+  { axis: 1, sign: 1 },
+  { axis: 1, sign: -1 },
+  { axis: 2, sign: 1 },
+  { axis: 2, sign: -1 },
 ] as const
 
-const BIRD_CELL_WIDTH = BIRD_FRAME_LIST[0][0].length
-const BIRD_CELL_HEIGHT = BIRD_FRAME_LIST[0].length
-
-/** 點陣圖的一格像素在世界裡多大（格） */
-const BIRD_PIXEL_SIZE = 1
-
-/** 一輪八拍要幾秒：滑翔五拍、拍一下三拍 */
-const BIRD_FLAP_PERIOD_SECOND = 2.8
+/** 面上兩個切線軸各取 min（0）或 max（1）的四個角 */
+const BIRD_FACE_CORNER_LIST = [
+  [0, 0],
+  [1, 0],
+  [1, 1],
+  [0, 1],
+] as const
 
 const BIRD_VERTEX = `
 precision highp float;
 attribute vec3 position;
+attribute vec3 normal;
 attribute vec4 color;
 attribute vec2 uv;
-uniform mat4 view;
+attribute vec2 uv2;
 uniform mat4 viewProjection;
 uniform float time;
-varying vec2 vSpriteUv;
+varying vec3 vNormal;
+varying vec3 vWorld;
+varying float vTone;
+
+const float TWO_PI = 6.2831853;
+
+vec3 getFaceNormal(float faceIndex) {
+  if (faceIndex < 0.5) return vec3(1.0, 0.0, 0.0);
+  if (faceIndex < 1.5) return vec3(-1.0, 0.0, 0.0);
+  if (faceIndex < 2.5) return vec3(0.0, 1.0, 0.0);
+  if (faceIndex < 3.5) return vec3(0.0, -1.0, 0.0);
+  if (faceIndex < 4.5) return vec3(0.0, 0.0, 1.0);
+  return vec3(0.0, 0.0, -1.0);
+}
+
+/** 在（高度、離翅根的距離）這個平面上轉：角度為正時外端往上抬 */
+vec2 liftWing(vec2 point, float angle) {
+  float c = cos(angle);
+  float s = sin(angle);
+  return vec2(point.x * c + point.y * s, point.y * c - point.x * s);
+}
 
 void main() {
   /** color：x 半徑、y 角速度（帶方向）、z 相位、w 拍翅的相位 */
   float angle = time * color.y + color.z;
   vec2 radial = vec2(cos(angle), sin(angle));
+  float turn = color.y < 0.0 ? -1.0 : 1.0;
   vec3 center = position + vec3(radial.x * color.x, sin(time * 0.31 + color.z * 2.0) * 3.0, radial.y * color.x);
 
-  /** 永遠正對鏡頭：方片沿著鏡頭的右與上攤開，uv 是方片四個角（-0.5 到 0.5） */
-  vec3 cameraRight = vec3(view[0][0], view[1][0], view[2][0]);
-  vec3 cameraUp = vec3(view[0][1], view[1][1], view[2][1]);
-  vec3 corner = (cameraRight * uv.x * ${BIRD_CELL_WIDTH}.0 + cameraUp * uv.y * ${BIRD_CELL_HEIGHT}.0) * ${BIRD_PIXEL_SIZE.toFixed(2)};
+  /** 頭朝著圓的切線；繞圈時往圈心傾，內側那隻翅膀壓低 */
+  vec3 forward = vec3(-radial.y, 0.0, radial.x) * turn;
+  vec3 up = vec3(0.0, 1.0, 0.0);
+  vec3 right = cross(forward, up);
+  float bankCos = cos(${BIRD_BANK_RADIAN.toFixed(3)});
+  float bankSin = sin(${BIRD_BANK_RADIAN.toFixed(3)}) * turn;
+  vec3 bankedRight = right * bankCos - up * bankSin;
+  vec3 bankedUp = up * bankCos + right * bankSin;
 
-  /** 八拍一輪：第五拍上舉、第七拍下壓，其餘攤平 */
-  float beat = floor(fract(time / ${BIRD_FLAP_PERIOD_SECOND.toFixed(2)} + color.w) * 8.0);
-  float frame = beat == 4.0 ? 0.0 : (beat == 6.0 ? 2.0 : 1.0);
+  /**
+   * 拍翅：一輪的前八分之五攤平滑翔（翅膀微微上翹），後八分之三拍一下。
+   * 拍的那一段兩頭用 smoothstep 收進滑翔的角度，才不會跳一下；外節比內節晚一點跟上
+   */
+  float beat = fract(time / ${BIRD_FLAP_PERIOD_SECOND.toFixed(2)} + color.w);
+  float stroke = smoothstep(0.625, 0.7, beat) * (1.0 - smoothstep(0.925, 1.0, beat));
+  float strokePhase = (beat - 0.625) / 0.375 * TWO_PI;
+  float innerAngle = ${BIRD_GLIDE_RADIAN.toFixed(3)} + stroke * sin(strokePhase) * ${BIRD_INNER_FLAP_RADIAN.toFixed(3)};
+  float outerAngle = stroke * sin(strokePhase - 0.9) * ${BIRD_OUTER_FLAP_RADIAN.toFixed(3)};
 
-  /** 貼圖沒有上下翻轉（第一列在上），方片頂邊對到 v 為零；橫向稍微內縮，不取到隔壁那一格 */
-  vSpriteUv = vec2((frame + 0.5 + uv.x * 0.998) / ${BIRD_FRAME_LIST.length}.0, 0.5 - uv.y * 0.998);
-  gl_Position = viewProjection * vec4(center + corner, 1.0);
+  /** normal 這個屬性放的是頂點在鳥身上的位置（體素）；面的法線由 uv2.x 的面編號查 */
+  vec3 local = normal;
+  vec3 faceNormal = getFaceNormal(uv2.x);
+  if (uv.x > 0.5) {
+    /** 翅膀：第三軸是離翅根的距離。外節先繞內節末端轉，再整隻翅膀繞翅根轉 */
+    vec2 lifted = vec2(local.y - ${BIRD_WING_BASE_Y.toFixed(2)}, local.z);
+    vec2 liftedNormal = faceNormal.yz;
+    if (uv.x > 1.5) {
+      lifted.y -= ${BIRD_INNER_WING_LENGTH.toFixed(2)};
+      lifted = liftWing(lifted, outerAngle);
+      lifted.y += ${BIRD_INNER_WING_LENGTH.toFixed(2)};
+      liftedNormal = liftWing(liftedNormal, outerAngle);
+    }
+    lifted = liftWing(lifted, innerAngle);
+    liftedNormal = liftWing(liftedNormal, innerAngle);
+    local = vec3(local.x, lifted.x + ${BIRD_WING_BASE_Y.toFixed(2)}, (lifted.y + ${BIRD_SHOULDER_OFFSET.toFixed(2)}) * uv.y);
+    faceNormal = vec3(faceNormal.x, liftedNormal.x, liftedNormal.y * uv.y);
+  }
+
+  vec3 world = center + (forward * local.x + bankedUp * local.y + bankedRight * local.z) * ${BIRD_VOXEL_SIZE.toFixed(2)};
+  vNormal = forward * faceNormal.x + bankedUp * faceNormal.y + bankedRight * faceNormal.z;
+  vWorld = world;
+  vTone = uv2.y;
+  gl_Position = viewProjection * vec4(world, 1.0);
 }
 `
 
 const BIRD_FRAGMENT = `
 precision highp float;
-varying vec2 vSpriteUv;
-uniform sampler2D birdSprite;
-uniform vec3 birdColor;
+varying vec3 vNormal;
+varying vec3 vWorld;
+varying float vTone;
+uniform vec3 ambientLight;
+uniform vec3 sunLight;
+uniform vec3 sunDirection;
 uniform vec3 horizonColor;
-uniform float haze;
+uniform vec3 eyePosition;
+uniform float veilRatio;
+
+const vec3 BODY_COLOR = vec3(0.2, 0.165, 0.14);
+const vec3 WING_COLOR = vec3(0.125, 0.108, 0.1);
+const vec3 HEAD_COLOR = vec3(0.56, 0.53, 0.47);
+const vec3 BEAK_COLOR = vec3(0.66, 0.47, 0.15);
 
 void main() {
-  /** 硬邊：透明的格子整格丟掉，不混色也不寫深度 */
-  if (texture2D(birdSprite, vSpriteUv).a < 0.5)
-    discard;
-  gl_FragColor = vec4(mix(birdColor, horizonColor, haze), 1.0);
+  vec3 normal = normalize(vNormal);
+  vec3 albedo = vTone < 0.5 ? BODY_COLOR : (vTone < 1.5 ? WING_COLOR : (vTone < 2.5 ? HEAD_COLOR : BEAK_COLOR));
+
+  /**
+   * 與巨像同一組光。鳥多半是從底下往上看，腹面不能全黑：
+   * 天光在朝下的面留四成半（地面反上來的光），朝上的面全給
+   */
+  float skyFacing = 0.45 + 0.55 * (0.5 + 0.5 * normal.y);
+  float sunFacing = max(dot(normal, sunDirection), 0.0);
+  vec3 color = albedo * (ambientLight * skyFacing + sunLight * sunFacing);
+
+  /** 照實際距離往地平線色混：近的那隻深、遠的那隻淡，這是看出前後的主要線索 */
+  float distanceToEye = length(vWorld - eyePosition);
+  float haze = mix(${BIRD_NEAR_HAZE.toFixed(2)}, ${BIRD_FAR_HAZE.toFixed(2)}, smoothstep(${BIRD_HAZE_NEAR_DISTANCE.toFixed(1)}, ${BIRD_HAZE_FAR_DISTANCE.toFixed(1)}, distanceToEye));
+  haze = max(haze, veilRatio);
+  gl_FragColor = vec4(mix(color, horizonColor, haze), 1.0);
 }
 `
 
 const BIRD_SHADER_NAME = 'minespaceRuinsBird'
 
-/** 方片的四個角（-0.5 到 0.5）：左下、右下、右上、左上 */
-const BIRD_CORNER_LIST = [
-  [-0.5, -0.5],
-  [0.5, -0.5],
-  [0.5, 0.5],
-  [-0.5, 0.5],
-] as const
-
-/**
- * 鳥的點陣圖：三格動畫橫排成一張
- *
- * 與環境粒子的貼圖同一種畫法（見 ambient-shape.ts）：畫在小畫布上、NEAREST 取樣、
- * 上傳時不上下翻轉，圖樣照「第一列在上」讀
- */
-function createBirdTexture(scene: Scene): DynamicTexture {
-  const texture = new DynamicTexture(
-    'ruins-bird-sprite',
-    { width: BIRD_CELL_WIDTH * BIRD_FRAME_LIST.length, height: BIRD_CELL_HEIGHT },
-    scene,
-    false,
-    Texture.NEAREST_SAMPLINGMODE,
-  )
-  const context = texture.getContext() as CanvasRenderingContext2D
-  context.imageSmoothingEnabled = false
-  context.clearRect(0, 0, BIRD_CELL_WIDTH * BIRD_FRAME_LIST.length, BIRD_CELL_HEIGHT)
-  context.fillStyle = 'rgba(255, 255, 255, 1)'
-  BIRD_FRAME_LIST.forEach((frame, frameIndex) => {
-    frame.forEach((row, rowIndex) => {
-      for (let column = 0; column < row.length; column++) {
-        if (row[column] === '#')
-          context.fillRect(frameIndex * BIRD_CELL_WIDTH + column, rowIndex, 1, 1)
-      }
-    })
-  })
-  texture.update(false)
-  texture.hasAlpha = true
-  texture.wrapU = Texture.CLAMP_ADDRESSMODE
-  texture.wrapV = Texture.CLAMP_ADDRESSMODE
-  return texture
-}
-
 function createBirdMesh(scene: Scene): Mesh {
   const positionList: number[] = []
+  const localList: number[] = []
   const colorList: number[] = []
   const uvList: number[] = []
+  const uv2List: number[] = []
   const indexList: number[] = []
   const random = createSeededRandom('ruins-birds')
 
@@ -426,28 +541,44 @@ function createBirdMesh(scene: Scene): Mesh {
       const radius = flock.radius * (0.7 + random() * 0.6)
       const speed = (0.18 + random() * 0.1) * direction * (flock.radius / radius)
       const phase = random() * Math.PI * 2
-      const baseIndex = positionList.length / 3
       const height = FOOT_Y + flock.height + (random() - 0.5) * 30
-      /** 拍翅的相位每隻一個，四個角要同一個值，整片才會同時換格 */
+      /** 拍翅的相位每隻一個，整隻鳥的頂點要同一個值，兩隻翅膀才會一起動 */
       const flapPhase = random()
-      /** 舊版每個頂點各抽一次，這裡照樣多抽三次：後面每隻鳥的圈與速度才會跟原本一樣 */
+      /** 最早的版本每個頂點各抽一次，這裡照樣多抽三次：每隻鳥的圈與速度才會跟原本一樣 */
       random()
       random()
       random()
-      for (const [cornerX, cornerY] of BIRD_CORNER_LIST) {
-        positionList.push(centerX, height, centerZ)
-        colorList.push(radius, speed, phase, flapPhase)
-        uvList.push(cornerX, cornerY)
+
+      for (const box of BIRD_BOX_LIST) {
+        for (const [faceIndex, face] of BIRD_FACE_LIST.entries()) {
+          const baseIndex = positionList.length / 3
+          const firstAxis = (face.axis + 1) % 3
+          const secondAxis = (face.axis + 2) % 3
+          for (const [firstCorner, secondCorner] of BIRD_FACE_CORNER_LIST) {
+            const local: [number, number, number] = [0, 0, 0]
+            local[face.axis] = face.sign > 0 ? box.max[face.axis]! : box.min[face.axis]!
+            local[firstAxis] = firstCorner === 1 ? box.max[firstAxis]! : box.min[firstAxis]!
+            local[secondAxis] = secondCorner === 1 ? box.max[secondAxis]! : box.min[secondAxis]!
+            positionList.push(centerX, height, centerZ)
+            localList.push(local[0], local[1], local[2])
+            colorList.push(radius, speed, phase, flapPhase)
+            uvList.push(box.part, box.side)
+            uv2List.push(faceIndex, box.tone)
+          }
+          indexList.push(baseIndex, baseIndex + 1, baseIndex + 2, baseIndex, baseIndex + 2, baseIndex + 3)
+        }
       }
-      indexList.push(baseIndex, baseIndex + 1, baseIndex + 2, baseIndex, baseIndex + 2, baseIndex + 3)
     }
   }
 
   const mesh = new Mesh('ruins-birds', scene)
   const vertexData = new VertexData()
   vertexData.positions = positionList
+  /** 法線這個屬性挪去放「頂點在鳥身上的位置」：真正的法線要跟著翅膀轉，在著色器裡算 */
+  vertexData.normals = localList
   vertexData.colors = colorList
   vertexData.uvs = uvList
+  vertexData.uvs2 = uv2List
   vertexData.indices = indexList
   vertexData.applyToMesh(mesh)
   return mesh
@@ -475,14 +606,11 @@ export function createRuinsColossi({ scene, atmosphere }: { scene: Scene; worldS
   optOutOfFog(mesh, '只在石殿遺址出現，與山稜同一套：自己往地平線色混，轉場時由 veilRatio 化進霧色')
 
   const birdMaterial = new ShaderMaterial('ruins-birds', scene, BIRD_SHADER_NAME, {
-    attributes: ['position', 'color', 'uv'],
-    uniforms: ['view', 'viewProjection', 'time', 'birdColor', 'horizonColor', 'haze'],
-    samplers: ['birdSprite'],
+    attributes: ['position', 'normal', 'color', 'uv', 'uv2'],
+    uniforms: ['viewProjection', 'time', 'ambientLight', 'sunLight', 'sunDirection', 'horizonColor', 'eyePosition', 'veilRatio'],
   })
-  /** 方片跟著鏡頭轉，沒有固定的正反面 */
+  /** 方盒的繞向沒有整理過，兩面都畫；整群不到兩千個三角形 */
   birdMaterial.backFaceCulling = false
-  const birdTexture = createBirdTexture(scene)
-  birdMaterial.setTexture('birdSprite', birdTexture)
   const birdMesh = createBirdMesh(scene)
   birdMesh.material = birdMaterial
   birdMesh.isPickable = false
@@ -492,7 +620,6 @@ export function createRuinsColossi({ scene, atmosphere }: { scene: Scene; worldS
 
   const ambientLight = new Color3()
   const sunLight = new Color3()
-  const birdColor = new Color3()
   const eyePosition = new Vector3()
   let elapsed = 0
   const observer = scene.onBeforeRenderObservable.add(() => {
@@ -513,11 +640,13 @@ export function createRuinsColossi({ scene, atmosphere }: { scene: Scene; worldS
     material.setFloat('veilRatio', veil)
 
     elapsed += scene.getEngine().getDeltaTime() / 1000
-    birdColor.set(0.045 * (ambient + 0.2), 0.045 * (ambient + 0.2), 0.05 * (ambient + 0.2))
     birdMaterial.setFloat('time', elapsed)
-    birdMaterial.setColor3('birdColor', birdColor)
+    birdMaterial.setColor3('ambientLight', ambientLight)
+    birdMaterial.setColor3('sunLight', sunLight)
+    birdMaterial.setVector3('sunDirection', atmosphere.sunDirection)
     birdMaterial.setColor3('horizonColor', atmosphere.fogColor)
-    birdMaterial.setFloat('haze', Math.max(0.45, veil))
+    birdMaterial.setVector3('eyePosition', eyePosition)
+    birdMaterial.setFloat('veilRatio', veil)
   })
 
   return {
@@ -527,7 +656,6 @@ export function createRuinsColossi({ scene, atmosphere }: { scene: Scene; worldS
       material.dispose(false, true)
       birdMesh.dispose()
       birdMaterial.dispose(false, true)
-      birdTexture.dispose()
     },
   }
 }
