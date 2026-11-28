@@ -29,6 +29,20 @@ export interface PixelMaterialRecipe {
   textureKey: TextureKey;
   /** 疊在基底上的覆蓋層，例如礦點 */
   overlayKey?: TextureKey;
+  /**
+   * 覆蓋層疊上去之前先染的顏色
+   *
+   * 草方塊側面那一圈草就是覆蓋層。多數材質包的那張圖是灰階的，要染過才是草色；
+   * 不染就是泥土上掛一圈灰毛，頂面卻是綠的
+   */
+  overlayTint?: [number, number, number];
+  /**
+   * 覆蓋層的色調跟著哪一張貼圖的材質包覆寫走
+   *
+   * 側面的草要與頂面同色，所以頂面在這套材質包裡染不染、染什麼，側面就照做：
+   * 寫實那一套的頂面本來就是拍來的草（tint 給 null），側面的草也就不染
+   */
+  overlayTintKey?: TextureKey;
   /** 方塊定義給的色調，材質包可以覆寫 */
   tint?: [number, number, number];
   pixelTint?: [number, number, number];
@@ -111,7 +125,8 @@ async function loadImageBitmap(url: string): Promise<ImageBitmap> {
 /**
  * 把 base 與 overlay 合成到 Canvas 上
  *
- * 礦石就是這樣長出來的：石頭當底，礦點那張背景全透明的圖疊上去
+ * 礦石就是這樣長出來的：石頭當底，礦點那張背景全透明的圖疊上去。
+ * 給了 overlayTint 的話，覆蓋層先逐像素乘上那個顏色再疊（草方塊側面的草）
  */
 function createCompositedTexture(
   name: string,
@@ -119,6 +134,7 @@ function createCompositedTexture(
   overlayPath: string,
   size: number,
   scene: Scene,
+  overlayTint?: [number, number, number],
 ): DynamicTexture {
   const dynamicTexture = new DynamicTexture(name, size, scene, false, Texture.NEAREST_SAMPLINGMODE)
 
@@ -134,8 +150,30 @@ function createCompositedTexture(
       const context = dynamicTexture.getContext() as CanvasRenderingContext2D
       context.imageSmoothingEnabled = false
       context.clearRect(0, 0, size, size)
-      context.drawImage(baseImage, 0, 0, size, size)
-      context.drawImage(overlayImage, 0, 0, size, size)
+      if (overlayTint) {
+        /**
+         * 先畫覆蓋層、染色，再把基底墊到它底下
+         *
+         * 畫布只有這一張，染色又得逐像素改：若先畫基底，就分不出哪些像素是覆蓋層的。
+         * 所以順序倒過來，最後用 destination-over 把基底補進覆蓋層透明的地方
+         */
+        context.drawImage(overlayImage, 0, 0, size, size)
+        const imageData = context.getImageData(0, 0, size, size)
+        const { data } = imageData
+        for (let index = 0; index < data.length; index += 4) {
+          data[index] = Math.min(255, data[index]! * overlayTint[0])
+          data[index + 1] = Math.min(255, data[index + 1]! * overlayTint[1])
+          data[index + 2] = Math.min(255, data[index + 2]! * overlayTint[2])
+        }
+        context.putImageData(imageData, 0, 0)
+        context.globalCompositeOperation = 'destination-over'
+        context.drawImage(baseImage, 0, 0, size, size)
+        context.globalCompositeOperation = 'source-over'
+      }
+      else {
+        context.drawImage(baseImage, 0, 0, size, size)
+        context.drawImage(overlayImage, 0, 0, size, size)
+      }
       baseImage.close()
       overlayImage.close()
       dynamicTexture.update()
@@ -284,6 +322,18 @@ export function createTextureSkinner(scene: Scene): TextureSkinner {
       ? resolveTexture(currentPack, recipe.overlayKey)
       : null
 
+    /**
+     * 覆蓋層染什麼：覆蓋層自己那一格有意見就聽它的，否則跟著指定的那張貼圖（草的頂面），
+     * 兩邊都沒意見才用方塊定義給的顏色
+     */
+    const overlayTintSource = recipe.overlayTintKey
+      ? resolveTexture(currentPack, recipe.overlayTintKey)
+      : null
+    const overlayTint = pickOverride(
+      overlay?.tint !== undefined ? overlay.tint : overlayTintSource?.tint,
+      recipe.overlayTint,
+    )
+
     let diffuseTexture: Texture
     if (overlay?.url) {
       diffuseTexture = createCompositedTexture(
@@ -292,6 +342,7 @@ export function createTextureSkinner(scene: Scene): TextureSkinner {
         overlay.url,
         canvasSize,
         scene,
+        overlayTint,
       )
     }
     else if (pixelTint) {

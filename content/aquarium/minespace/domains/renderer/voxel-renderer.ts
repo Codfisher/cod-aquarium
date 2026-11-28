@@ -733,6 +733,13 @@ class WorldRenderer {
         name: `${prefix}_${name}_mat`,
         textureKey,
         overlayKey,
+        /**
+         * 側面的疊圖（草方塊側面那一圈草）跟頂面染同一個顏色
+         *
+         * 原本沒染：疊圖在多數材質包是灰階的，結果頂面是綠的、側面靠頂的那一圈草卻是灰的
+         */
+        overlayTint: overlayKey ? textureDef.topTint : undefined,
+        overlayTintKey: overlayKey ? textureDef.top : undefined,
         tint,
       })
       const mesh = MeshBuilder.CreatePlane(`${prefix}_${name}`, { size: 1 }, this.scene)
