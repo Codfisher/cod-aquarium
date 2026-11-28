@@ -41,6 +41,8 @@ const INTEREST_WEIGHT_MIN = 0.25
 /** 景物離得比這近（格）不當看點：畫面會被一個東西塞滿 */
 const INTEREST_DISTANCE_MIN = 8
 const RELATIVE_DEPTH_MIN = 0.4
+/** 朝景物看時，畫面正中央至少要通到景物距離的幾成（或 minDepth，取小的） */
+const INTEREST_CENTER_DEPTH_RATIO = 0.7
 /** 縱深的上限是正前方（俯仰不變的那束）距離的幾倍：上下兩束越過近在眼前的樹幹不能讓這個方向算開闊 */
 const CENTER_DEPTH_FACTOR = 1.8
 
@@ -452,8 +454,19 @@ export function* chooseLookYawSteps(
     const visible = interest.y === undefined
       ? isSightlineClear(worldState, x, eyeY, z, interest.x, interest.z)
       : isSightlineClear3D(worldState, x, eyeY, z, interest.x, interest.y, interest.z)
-    if (visible)
-      candidateList.push({ yaw: Math.atan2(interest.x - x, interest.z - z), depth: maxDepth, interest })
+    if (!visible)
+      continue
+
+    /**
+     * 看得到景物（有一條視線通）還不夠：畫面正中央那一束（呼叫端實際會用的俯仰：對準景物佔八成、構圖俯仰佔兩成）
+     * 近處不能塞著樹幹或牆，否則鏡頭對著景物的方向，畫面卻是一面貼臉的東西
+     */
+    const interestDistance = Math.hypot(interest.x - x, interest.z - z)
+    const interestYaw = Math.atan2(interest.x - x, interest.z - z)
+    const aimPitch = interest.y === undefined ? pitch : Math.atan2(eyeY - interest.y, Math.max(1, interestDistance)) * 0.8 + pitch * 0.2
+    const depthNeed = Math.min(param.minDepth, interestDistance * INTEREST_CENTER_DEPTH_RATIO)
+    if (probeViewDistance3D(worldState, x, eyeY, z, interestYaw, aimPitch, depthNeed + 0.5) >= depthNeed)
+      candidateList.push({ yaw: interestYaw, depth: maxDepth, interest })
   }
 
   const depthMin = Math.max(param.minDepth, maxDepth * RELATIVE_DEPTH_MIN)

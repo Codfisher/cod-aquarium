@@ -38,7 +38,7 @@ export interface DriftPoint {
   lookX?: number;
   lookZ?: number;
   /** 這個停留點是為了欣賞哪個特色主體而設的（站在能看到它、距離合適的地方），路線偏好它、運鏡看它 */
-  feature?: { name: string; x: number; y: number; z: number; weight: number };
+  feature?: { name: string; x: number; y: number; z: number; weight: number; source: DriftFeature };
 }
 
 /** 同名音源最多取幾個代表點 */
@@ -187,35 +187,63 @@ export function findReachableSpot(
 }
 
 /** 一個特色主體最多取幾個觀賞站位 */
-const FEATURE_STAND_MAX = 2
-/** 沒給 viewpointList 時，繞主體找站位：試幾個方向、距離最遠取到幾格 */
+const FEATURE_STAND_MAX = 3
+/** 繞主體找站位：試幾個方向、距離最遠取到幾格 */
 const FEATURE_RING_COUNT = 12
 const FEATURE_STAND_DISTANCE_MAX = 70
+/** 作者給了站點的主體，要不要再繞圈補其他角度的站位 */
+const IS_RING_ADDED_TO_AUTHORED = false
+/** 同一個主體的站位，從主體看出去彼此至少差這麼多弧度（約五十度）：每個站位都是不同的角度 */
+const FEATURE_STAND_ANGLE_MIN = 0.87
 
-/** 特色主體的觀賞站位候選：作者給的優先，沒有就在適合欣賞的距離上繞一圈，挑看得到主體的 */
+/**
+ * 特色主體的觀賞站位候選：彼此角度拉開的幾個
+ *
+ * 作者給的站點（要真的看得到主體：雪稜雪原邊緣的岩稜擋在站點與雲海之間，站在那裡只看到一面石頭）排第一；
+ * 再在適合欣賞的距離上繞一圈找看得到主體的方向。同一個主體要從兩個以上的角度拍，
+ * 所以第二、第三個站位挑「與已經選的站位角度差最大」的那個，差不到五十度就不要
+ * （以前是取頭兩個看得到的：繞圈時相鄰兩個方向只差三十度，等於同一個角度，還常因為離得太近被間距規則剔掉）
+ */
 function findFeatureStandList(param: Pick<CollectParam, 'worldState'>, feature: DriftFeature): { x: number; z: number }[] {
-  /**
-   * 作者給的站點要真的看得到主體才用：雪稜雪原邊緣的岩稜擋在站點與雲海之間，站在那裡只看到一面石頭；
-   * 一個站點都看不到就退回自己繞圈找
-   */
-  if (feature.viewpointList && feature.viewpointList.length > 0) {
-    const visibleList = feature.viewpointList.filter((point) =>
-      isSightlineClear3D(param.worldState, point.x, getWaterlineY(param.worldState, point.x, point.z) + 1, point.z, feature.x, feature.y, feature.z, Math.max(2, feature.size / 2 + 1)))
-    if (visibleList.length > 0)
-      return visibleList.slice(0, FEATURE_STAND_MAX)
+  const margin = Math.max(2, feature.size / 2 + 1)
+  function isFeatureVisible(x: number, z: number): boolean {
+    /** 主體周圍的幾格不算擋住（建物自己的牆、樹自己的樹幹） */
+    return isSightlineClear3D(param.worldState, x, getWaterlineY(param.worldState, x, z) + 1, z, feature.x, feature.y, feature.z, margin)
   }
+
+  const standList: { x: number; z: number }[] = (feature.viewpointList ?? []).filter((point) => isFeatureVisible(point.x, point.z)).slice(0, FEATURE_STAND_MAX)
+  if (standList.length > 0 && !IS_RING_ADDED_TO_AUTHORED)
+    return standList
 
   const distance = Math.min(FEATURE_STAND_DISTANCE_MAX, (feature.viewDistance[0] + feature.viewDistance[1]) / 2)
   const startAngle = Math.random() * Math.PI * 2
-  const standList: { x: number; z: number }[] = []
-  for (let step = 0; step < FEATURE_RING_COUNT && standList.length < FEATURE_STAND_MAX; step++) {
+  const ringList: { x: number; z: number }[] = []
+  for (let step = 0; step < FEATURE_RING_COUNT; step++) {
     const angle = startAngle + (step / FEATURE_RING_COUNT) * Math.PI * 2
     const x = feature.x + Math.sin(angle) * distance
     const z = feature.z + Math.cos(angle) * distance
-    const eyeY = getWaterlineY(param.worldState, x, z) + 1
-    /** 主體周圍的幾格不算擋住（建物自己的牆、樹自己的樹幹） */
-    if (isSightlineClear3D(param.worldState, x, eyeY, z, feature.x, feature.y, feature.z, Math.max(2, feature.size / 2 + 1)))
-      standList.push({ x, z })
+    if (isFeatureVisible(x, z))
+      ringList.push({ x, z })
+  }
+
+  const getAngle = (point: { x: number; z: number }) => Math.atan2(point.x - feature.x, point.z - feature.z)
+  const measureSeparation = (point: { x: number; z: number }) => standList.reduce(
+    (smallest, stand) => Math.min(smallest, Math.abs(Math.atan2(Math.sin(getAngle(point) - getAngle(stand)), Math.cos(getAngle(point) - getAngle(stand))))),
+    Number.POSITIVE_INFINITY,
+  )
+  while (standList.length < FEATURE_STAND_MAX && ringList.length > 0) {
+    let bestIndex = 0
+    let bestSeparation = -1
+    for (const [index, point] of ringList.entries()) {
+      const separation = measureSeparation(point)
+      if (separation > bestSeparation) {
+        bestSeparation = separation
+        bestIndex = index
+      }
+    }
+    if (standList.length > 0 && bestSeparation < FEATURE_STAND_ANGLE_MIN)
+      break
+    standList.push(itemAt(ringList.splice(bestIndex, 1), 0))
   }
   return standList
 }
@@ -268,7 +296,7 @@ export function* collectDriftPointSteps(param: CollectParam): DriftSteps<DriftPo
       yield
       if (!spot)
         continue
-      addPoint(spot, 'viewpoint', `feature-${index}-${order}`, { x: feature.x, z: feature.z }, { name: feature.name, x: feature.x, y: feature.y, z: feature.z, weight: feature.weight })
+      addPoint(spot, 'viewpoint', `feature-${index}-${order}`, { x: feature.x, z: feature.z }, { name: feature.name, x: feature.x, y: feature.y, z: feature.z, weight: feature.weight, source: feature })
     }
     yield
   }

@@ -11,7 +11,7 @@ import { diffAngle } from './drift-track'
  * 鏡位是一張資料表（SHOT_TABLE），加權抽籤，要調整頻率或幅度改這張表就好
  */
 
-export type ShotId = 'follow' | 'dollyIn' | 'truck' | 'pullBack' | 'parallax' | 'orbit' | 'crane' | 'pan' | 'hold'
+export type ShotId = 'follow' | 'dollyIn' | 'truck' | 'pullBack' | 'parallax' | 'lead' | 'arc' | 'orbit' | 'crane' | 'tilt' | 'pan' | 'hold'
 export type ShotPhase = 'walk' | 'fly' | 'linger'
 
 export interface ShotDefinition {
@@ -29,8 +29,11 @@ export interface ShotDefinition {
  * - truck：側移，視線與前進方向差六十到九十度（略朝前，畫面前方留著去路）
  * - pullBack：邊走邊回頭看來處，風景在背後慢慢展開（拉遠揭露）
  * - parallax：看向側面一個固定的景物，沿路的樹與石柱從前景掠過（視差）
+ * - lead：沿著線狀的主體（溪、岸、木棧）走時，視線落在它前方十幾格的地方，順著它一路望過去
+ * - arc：無人機繞著一個地標飛大半圈，視線鎖在地標上（只有繞飛的那一趟才有，見 use-drift 的 planFlight）
  * - orbit：停留時繞著一個景物走一段弧，景物維持在畫面裡
  * - crane：停留時鏡頭緩緩升高幾格再降回來，同時橫搖
+ * - tilt：停留時視線從主體的底部慢慢搖到頂部（瀑布、老樹、高塔）
  * - pan：停留時視線緩慢掃過一片景色（日出日落時對著太陽那一側）
  * - hold：幾乎不動，隨意環顧
  */
@@ -40,8 +43,11 @@ export const SHOT_TABLE: ShotDefinition[] = [
   { id: 'truck', phaseList: ['walk', 'fly'], weight: 2 },
   { id: 'pullBack', phaseList: ['walk', 'fly'], weight: 1.5 },
   { id: 'parallax', phaseList: ['walk'], weight: 1.5 },
+  { id: 'lead', phaseList: ['walk'], weight: 2 },
+  { id: 'arc', phaseList: ['fly'], weight: 3 },
   { id: 'orbit', phaseList: ['linger'], weight: 2 },
   { id: 'crane', phaseList: ['linger'], weight: 1.5 },
+  { id: 'tilt', phaseList: ['linger'], weight: 2 },
   { id: 'pan', phaseList: ['linger'], weight: 3 },
   { id: 'hold', phaseList: ['linger'], weight: 2 },
 ]
@@ -79,6 +85,41 @@ export const ORBIT_RADIUS_RANGE: readonly [number, number] = [8, 30]
 export const TRACK_SHOT_SECOND_RANGE: readonly [number, number] = [20, 60]
 /** 看向目的地時，離目的地這個距離（格，遠、近）之間視線慢慢放開、轉回前進方向 */
 export const DOLLY_RELEASE_RANGE: readonly [number, number] = [14, 5]
+
+/**
+ * 仰搖（tilt）：視線從主體的底部搖到頂部
+ *
+ * 俯仰的範圍比平常寬（平常走路只在負十到正十二度之間）：看瀑布頂與樹冠要抬頭，最多仰二十二度、俯二十度；
+ * 搖的速度每秒不到兩度（弧度／秒），至少搖這麼久（秒），開始前先停一下（秒）讓視線對到底部；
+ * 頂與底的俯仰差不到 TILT_SPAN_MIN 就不值得搖
+ */
+export const VISIT_PITCH_RANGE: readonly [number, number] = [-0.38, 0.35]
+export const TILT_RATE = 0.03
+export const TILT_SECOND_MIN = 8
+export const TILT_START_DELAY = 3
+export const TILT_SPAN_MIN = 0.12
+/** 仰搖時主體上下各取多少比例的高度當頂與底（零點五就是整個主體） */
+export const TILT_EXTENT_RATIO = 0.45
+/**
+ * 沿線跟拍（lead）：視線落在線狀主體前方幾格的地方；鏡頭離那條線多近才算「沿著它走」（格）；
+ * 走近線的盡頭時視線在這個距離範圍（遠、近）之間放開、轉回前進方向
+ */
+export const LEAD_DISTANCE = 14
+export const LEAD_ALONG_DISTANCE_MAX = 16
+export const LEAD_RELEASE_RANGE: readonly [number, number] = [10, 5]
+/**
+ * 視野呼吸（推近）
+ *
+ * 定格細看時視野極慢地收窄，像鏡頭慢慢推近；只在鏡頭不走的時候做，不會有「邊走邊變焦」的滑動變焦感。
+ * 比例一是使用者設定的視野，收窄最多一成二（六十度到五十三度）；
+ * 推近每秒最多百分之一點二、放開每秒最多百分之三，變化率自己也有上限（S 形，起停沒有頓點）
+ */
+export const ZOOM_DEPTH_MAX = 0.12
+export const ZOOM_IN_RATE = 0.012
+export const ZOOM_OUT_RATE = 0.03
+export const ZOOM_ACCELERATION = 0.012
+/** 離開神遊時視野還收著，用這麼久（秒）放回使用者的設定 */
+export const ZOOM_RESTORE_SECOND = 0.8
 
 /** 每個階段視線的轉動上限：最大角速度與最大角加速度（弧度／秒、弧度／秒平方） */
 export interface GazeLimit {
@@ -119,6 +160,8 @@ export const RADIAL_CENTER_RADIUS_MIN = 6
  * - pan：從 baseYaw 起以固定速度橫搖（速度可以是零：鎖定在世界裡的一個方向，鏡頭平移時畫面構圖不變）
  * - radial：看「離開中心」（outward）或「看向中心」的方向，隨鏡頭所在的位置即時算：繞著場景外緣走時，視線一路朝外，不是鎖死在某個世界方向
  * - free：隨意環顧，目標由呼叫端更新
+ * - tilt：鎖定一個方位，俯仰在 second 秒內從 fromPitch 平滑搖到 toPitch（先等 delay 秒）
+ * - path：沿著一條折線（線狀主體）看向前方 lead 格的地方，隨鏡頭前進，看的那一點也沿著線往前滑
  *
  * heading 的 lookRoom 是留白（look room）：視線在前進方向之外多偏幾度，朝向比較開闊或有特色主體的那一側；
  * 偏角是沿軌道每隔 step 格一個的清單（已經低通過，變化很慢），依走到哪裡內插
@@ -135,6 +178,77 @@ export type Gaze =
   | { kind: 'subject'; x: number; y: number; z: number; thirds: number; behind: boolean; releaseRange?: readonly [number, number] }
   | { kind: 'pan'; baseYaw: number; rate: number; pitch: number }
   | { kind: 'free' }
+  | { kind: 'tilt'; yaw: number; fromPitch: number; toPitch: number; delay: number; second: number }
+  | PathGaze
+
+/** 沿線跟拍的視線設定；arcList 是每個點沿線累計的距離，cursor 記著上一幀鏡頭最靠近哪一段（每幀只往前後找幾段） */
+export interface PathGaze {
+  kind: 'path';
+  pointList: readonly { x: number; y: number; z: number }[];
+  arcList: number[];
+  /** 沿著點列的順向（一）或逆向（負一）看 */
+  sign: 1 | -1;
+  lead: number;
+  cursor: number;
+}
+
+/** 由線狀主體的點列建立沿線跟拍的視線；cursor 是鏡頭一開始最靠近的那一段 */
+export function createPathGaze(pointList: readonly { x: number; y: number; z: number }[], sign: 1 | -1, cursor: number): PathGaze {
+  const arcList: number[] = [0]
+  for (let index = 1; index < pointList.length; index++) {
+    const before = pointList[index - 1] as { x: number; z: number }
+    const point = pointList[index] as { x: number; z: number }
+    arcList.push((arcList[index - 1] ?? 0) + Math.hypot(point.x - before.x, point.z - before.z))
+  }
+  return { kind: 'path', pointList, arcList, sign, lead: LEAD_DISTANCE, cursor }
+}
+
+/** 沿線跟拍此刻看的那一點（寫進共用的暫存，呼叫端馬上用掉） */
+const leadPoint = { x: 0, y: 0, z: 0 }
+/** 每幀只在上一幀那一段的前後各找幾段 */
+const PATH_CURSOR_REACH = 2
+
+/** 鏡頭在 (x, z) 時沿線跟拍要看的那一點，寫進 leadPoint；同時更新 cursor */
+export function locateLeadPoint(gaze: PathGaze, x: number, z: number): { x: number; y: number; z: number } {
+  const { pointList, arcList } = gaze
+  const segmentCount = pointList.length - 1
+  let bestIndex = Math.min(Math.max(0, gaze.cursor), segmentCount - 1)
+  let bestRatio = 0
+  let bestDistance = Number.POSITIVE_INFINITY
+  for (let index = Math.max(0, gaze.cursor - PATH_CURSOR_REACH); index <= Math.min(segmentCount - 1, gaze.cursor + PATH_CURSOR_REACH); index++) {
+    const from = pointList[index] as { x: number; z: number }
+    const to = pointList[index + 1] as { x: number; z: number }
+    const spanX = to.x - from.x
+    const spanZ = to.z - from.z
+    const lengthSquared = spanX * spanX + spanZ * spanZ
+    const ratio = lengthSquared > 0 ? Math.min(1, Math.max(0, ((x - from.x) * spanX + (z - from.z) * spanZ) / lengthSquared)) : 0
+    const distance = Math.hypot(from.x + spanX * ratio - x, from.z + spanZ * ratio - z)
+    if (distance < bestDistance) {
+      bestDistance = distance
+      bestIndex = index
+      bestRatio = ratio
+    }
+  }
+  gaze.cursor = bestIndex
+
+  /** 鏡頭投影在線上的位置（沿線距離）往前 lead 格，夾在線的兩端之間 */
+  const total = arcList[segmentCount] ?? 0
+  const here = (arcList[bestIndex] ?? 0) + ((arcList[bestIndex + 1] ?? 0) - (arcList[bestIndex] ?? 0)) * bestRatio
+  const aim = Math.min(total, Math.max(0, here + gaze.sign * gaze.lead))
+  let index = bestIndex
+  while (index < segmentCount - 1 && (arcList[index + 1] ?? 0) < aim)
+    index++
+  while (index > 0 && (arcList[index] ?? 0) > aim)
+    index--
+  const from = pointList[index] as { x: number; y: number; z: number }
+  const to = pointList[index + 1] as { x: number; y: number; z: number }
+  const span = (arcList[index + 1] ?? 0) - (arcList[index] ?? 0)
+  const ratio = span > 0 ? Math.min(1, Math.max(0, (aim - (arcList[index] ?? 0)) / span)) : 0
+  leadPoint.x = from.x + (to.x - from.x) * ratio
+  leadPoint.y = from.y + (to.y - from.y) * ratio
+  leadPoint.z = from.z + (to.z - from.z) * ratio
+  return leadPoint
+}
 
 export interface GazeContext {
   x: number;
@@ -168,31 +282,50 @@ export function resolveGaze(gaze: Gaze, context: GazeContext): { yaw: number; pi
         return { yaw: context.pathYaw, pitch: clampPitch(context.pathPitch + gaze.pitch, context) }
       return { yaw: Math.atan2(dx, dz) + (gaze.isOutward ? 0 : Math.PI), pitch: clampPitch(gaze.pitch, context) }
     }
-    case 'subject': {
-      const dx = gaze.x - context.x
-      const dz = gaze.z - context.z
-      const distance = Math.hypot(dx, dz)
-      if (distance < SUBJECT_NEAR_DISTANCE) {
-        return { yaw: context.pathYaw + (gaze.behind ? Math.PI : 0), pitch: clampPitch(context.pathPitch, context) }
-      }
-
-      const subjectYaw = Math.atan2(dx, dz) + gaze.thirds
-      const subjectPitch = clampPitch(Math.atan2(context.eyeY - gaze.y, distance), context)
-      if (!gaze.releaseRange)
-        return { yaw: subjectYaw, pitch: subjectPitch }
-
-      /** 走近目的地時視線慢慢放開、轉回前進方向：最後一段貼著目的地繞過去時，不必追著它快速橫掃 */
-      const [far, near] = gaze.releaseRange
-      const release = smoothRatio((far - distance) / (far - near))
-      return {
-        yaw: subjectYaw + diffAngle(context.pathYaw, subjectYaw) * release,
-        pitch: subjectPitch + (clampPitch(context.pathPitch, context) - subjectPitch) * release,
-      }
+    case 'subject':
+      return aimAtPoint(gaze.x, gaze.y, gaze.z, gaze.thirds, gaze.behind, gaze.releaseRange, context)
+    case 'path': {
+      const point = locateLeadPoint(gaze, context.x, context.z)
+      return aimAtPoint(point.x, point.y, point.z, 0, false, LEAD_RELEASE_RANGE, context)
+    }
+    case 'tilt': {
+      const progress = smoothRatio((context.elapsed - gaze.delay) / gaze.second)
+      return { yaw: gaze.yaw, pitch: clampPitch(gaze.fromPitch + (gaze.toPitch - gaze.fromPitch) * progress, context) }
     }
     case 'pan':
       return { yaw: gaze.baseYaw + gaze.rate * context.elapsed, pitch: clampPitch(gaze.pitch, context) }
     case 'free':
       return { yaw: context.freeYaw, pitch: clampPitch(context.freePitch, context) }
+  }
+}
+
+/** 看向世界裡的一點：thirds 是偏離畫面中央的角度，太近時改用備案朝向，releaseRange 是走近時視線放開的距離範圍 */
+function aimAtPoint(
+  x: number,
+  y: number,
+  z: number,
+  thirds: number,
+  isBehind: boolean,
+  releaseRange: readonly [number, number] | undefined,
+  context: GazeContext,
+): { yaw: number; pitch: number } {
+  const dx = x - context.x
+  const dz = z - context.z
+  const distance = Math.hypot(dx, dz)
+  if (distance < SUBJECT_NEAR_DISTANCE)
+    return { yaw: context.pathYaw + (isBehind ? Math.PI : 0), pitch: clampPitch(context.pathPitch, context) }
+
+  const subjectYaw = Math.atan2(dx, dz) + thirds
+  const subjectPitch = clampPitch(Math.atan2(context.eyeY - y, distance), context)
+  if (!releaseRange)
+    return { yaw: subjectYaw, pitch: subjectPitch }
+
+  /** 走近目的地時視線慢慢放開、轉回前進方向：最後一段貼著目的地繞過去時，不必追著它快速橫掃 */
+  const [far, near] = releaseRange
+  const release = smoothRatio((far - distance) / (far - near))
+  return {
+    yaw: subjectYaw + diffAngle(context.pathYaw, subjectYaw) * release,
+    pitch: subjectPitch + (clampPitch(context.pathPitch, context) - subjectPitch) * release,
   }
 }
 

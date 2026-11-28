@@ -169,6 +169,24 @@ export function createRenderRuntime({ channel }: CreateRenderRuntimeParam): Rend
    */
   let isDriftPending = false
   /**
+   * 神遊除錯快照的計時器（開發模式的除錯面板開著時才有，見 domains/drift/drift-debug）
+   *
+   * 每秒四次問神遊要一份快照送上去；面板關掉就停，平常沒有任何成本
+   */
+  let driftDebugTimerId: ReturnType<typeof setInterval> | null = null
+  function setDriftDebug(isEnabled: boolean) {
+    if (driftDebugTimerId !== null) {
+      clearInterval(driftDebugTimerId)
+      driftDebugTimerId = null
+    }
+    if (isEnabled && import.meta.env.DEV) {
+      driftDebugTimerId = setInterval(() => {
+        if (isVisible)
+          channel.post({ type: 'drift-debug', snapshot: drift?.getDebugSnapshot() ?? null })
+      }, 250)
+    }
+  }
+  /**
    * 上一幀是不是站在傳送門裡
    *
    * 觸發只看「從外面走進去」的那一刻。剛傳送過來就站在門裡的話，
@@ -961,6 +979,9 @@ export function createRenderRuntime({ channel }: CreateRenderRuntimeParam): Rend
         drift?.stop()
         postStatus()
         break
+      case 'set-drift-debug':
+        setDriftDebug(command.isEnabled)
+        break
       case 'request-handoff':
         channel.post({
           type: 'handoff-snapshot',
@@ -1039,6 +1060,7 @@ export function createRenderRuntime({ channel }: CreateRenderRuntimeParam): Rend
     }
     timerIdList.length = 0
     stopReportTimers()
+    setDriftDebug(false)
 
     drift?.abort()
     drift = null

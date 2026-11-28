@@ -1,5 +1,6 @@
 import type { Ref } from 'vue'
 import type { PerformanceReading } from '../../composables/performance-reading'
+import type { DriftDebugSnapshot } from '../drift/drift-debug'
 import type { RealmId } from '../realm/realm-definition'
 import type { ReloadHandoff } from '../scene/reload-handoff'
 import type {
@@ -126,6 +127,8 @@ export function useRenderHost({ canvasRef, locale }: UseRenderHostParam) {
    * 不能拿一份全零或上一次留下的舊數字來畫
    */
   const probe = shallowRef<PerformanceReading | null>(null)
+  /** 神遊的除錯快照（開發模式的除錯面板開著時渲染端才會送，見 domains/drift/drift-debug） */
+  const driftDebugSnapshot = shallowRef<DriftDebugSnapshot | null>(null)
   /**
    * 渲染端是不是停住了
    *
@@ -225,6 +228,9 @@ export function useRenderHost({ canvasRef, locale }: UseRenderHostParam) {
       case 'handoff-snapshot':
         resolveHandoff?.(message.handoff)
         resolveHandoff = null
+        break
+      case 'drift-debug':
+        driftDebugSnapshot.value = message.snapshot
         break
       default:
         break
@@ -514,6 +520,7 @@ export function useRenderHost({ canvasRef, locale }: UseRenderHostParam) {
     postCommand,
     requestHandoff,
     shouldResumeDrift,
+    driftDebugSnapshot,
     setTimeOfDay,
     addPoseHandler,
     addSoundHandler,

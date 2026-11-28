@@ -37,6 +37,17 @@ const AIR_REGION_RATIO = 0.8
  */
 const RIM_RADIUS_RATIO = 0.8
 const RIM_LEG_RANGE: readonly [number, number] = [40, 70]
+/**
+ * 繞著一個地標飛（orbit）：轉折點在以地標為圓心的圓周上，沿同一個方向一段一段往前
+ *
+ * 一共繞過多少弧度（範圍，約一百七十到二百九十度）、相鄰兩個轉折點的弧長（格）與夾角範圍（弧度）、最多幾個轉折點；
+ * 起點離圓周超過 AERIAL_ORBIT_ENTRY_GAP 格就先加一個進場點（圓周上離起點最近的地方）
+ */
+const AERIAL_ORBIT_SWEEP_RANGE: readonly [number, number] = [3, 5]
+const AERIAL_ORBIT_LEG_LENGTH = 18
+const AERIAL_ORBIT_STEP_ANGLE_RANGE: readonly [number, number] = [0.4, 0.8]
+const AERIAL_ORBIT_WAYPOINT_MAX = 12
+const AERIAL_ORBIT_ENTRY_GAP = 6
 /** 轉彎角度超過這個（弧度）的下一站不選，免得曲線在原地打圈 */
 const TURN_ANGLE_MAX = (Math.PI * 3) / 4
 /** 控制點間距：曲線跟著轉折點走，補點讓它不要在長線段上盪出去 */
@@ -154,7 +165,12 @@ export function chooseFlightRoute(
   pointList: DriftPoint[],
   from: { x: number; z: number },
   recentIdList: string[],
-  options: { region: { x: number; z: number; radius: number } | null; mode: 'free' | 'ground' | 'rim' },
+  options: {
+    region: { x: number; z: number; radius: number } | null;
+    mode: 'free' | 'ground' | 'rim' | 'orbit';
+    /** mode 是 orbit 時繞的圓：圓心（地標）與半徑；呼叫端要先確認整個圓都在場景範圍裡 */
+    orbit?: { x: number; z: number; radius: number };
+  },
 ): FlightRoute | null {
   const targetLength = FLIGHT_LENGTH_MIN + Math.random() * (FLIGHT_LENGTH_MAX - FLIGHT_LENGTH_MIN)
   const openList = pointList.filter((point) => point.isOpenSky)
@@ -164,6 +180,29 @@ export function chooseFlightRoute(
   let last = { x: from.x, z: from.z }
   let heading: number | null = null
   let total = 0
+
+  if (options.mode === 'orbit' && options.orbit) {
+    const { orbit } = options
+    const waypointList: FlightWaypoint[] = []
+    let angle = Math.atan2(from.x - orbit.x, from.z - orbit.z)
+    /** 還沒在圓周附近：先飛到圓周上最近的一點，再開始繞 */
+    if (Math.abs(Math.hypot(from.x - orbit.x, from.z - orbit.z) - orbit.radius) > AERIAL_ORBIT_ENTRY_GAP)
+      waypointList.push({ x: orbit.x + Math.sin(angle) * orbit.radius, z: orbit.z + Math.cos(angle) * orbit.radius, point: null })
+
+    const sign = Math.random() < 0.5 ? -1 : 1
+    const sweepTotal = AERIAL_ORBIT_SWEEP_RANGE[0] + Math.random() * (AERIAL_ORBIT_SWEEP_RANGE[1] - AERIAL_ORBIT_SWEEP_RANGE[0])
+    const stepAngle = Math.min(AERIAL_ORBIT_STEP_ANGLE_RANGE[1], Math.max(AERIAL_ORBIT_STEP_ANGLE_RANGE[0], AERIAL_ORBIT_LEG_LENGTH / orbit.radius))
+    for (let swept = 0; swept < sweepTotal && waypointList.length < AERIAL_ORBIT_WAYPOINT_MAX && swept * orbit.radius < FLIGHT_LENGTH_MAX; swept += stepAngle) {
+      angle += sign * stepAngle
+      last = { x: orbit.x + Math.sin(angle) * orbit.radius, z: orbit.z + Math.cos(angle) * orbit.radius }
+      waypointList.push({ x: last.x, z: last.z, point: null })
+    }
+
+    const nearList = sortByDistance(openList, last).slice(0, 3)
+    const landing = pickWeighted(nearList, nearList.map((point) => (recentIdList.includes(point.id) ? 0.2 : 1)))
+    waypointList.push({ x: landing.blockX, z: landing.blockZ, point: landing })
+    return { waypointList, landing }
+  }
 
   if (options.mode === 'rim' && options.region) {
     const { region } = options

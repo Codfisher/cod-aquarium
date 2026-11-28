@@ -224,6 +224,13 @@
 
     <dev-panel v-if="hasStarted && devPanelVisible" />
 
+    <!-- 神遊除錯面板：只在開發模式掛上來，F10 開關，開著時不跟著其他介面淡出（見元件本身的說明） -->
+    <drift-debug-panel
+      v-if="isDevBuild && hasStarted"
+      :snapshot="status.isDrifting ? driftDebugSnapshot : null"
+      @toggle="postCommand({ command: 'set-drift-debug', isEnabled: $event })"
+    />
+
     <!--
       渲染端停住的提示
 
@@ -266,6 +273,7 @@ import { until, useEventListener, useIdle } from '@vueuse/core'
 import { computed, ref, watch } from 'vue'
 import AmbiencePanel from '../../components/ambience-panel.vue'
 import DevPanel from '../../components/dev-panel.vue'
+import DriftDebugPanel from '../../components/drift-debug-panel.vue'
 import StartPanel from '../../components/start-panel.vue'
 import SystemMenu from '../../components/system-menu.vue'
 import TouchControlPanel from '../../components/touch-control-panel.vue'
@@ -400,6 +408,7 @@ const {
   postCommand,
   requestHandoff,
   shouldResumeDrift,
+  driftDebugSnapshot,
   setTimeOfDay,
   addPoseHandler,
   addSoundHandler,

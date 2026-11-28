@@ -2,6 +2,7 @@ import type { PerformanceReading } from '../../composables/performance-reading'
 import type { DevToggleKey } from '../../composables/use-dev-toggles'
 import type { GraphicsQuality } from '../../composables/use-graphics-quality'
 import type { TexturePackId } from '../block/texture-pack'
+import type { DriftDebugSnapshot } from '../drift/drift-debug'
 import type { RealmId, RealmSpawn } from '../realm/realm-definition'
 import type { ReloadHandoff } from '../scene/reload-handoff'
 import type { SoundZone, Weather } from '../soundscape/type'
@@ -172,6 +173,12 @@ export type RenderCommand =
   | { command: 'start-drift' }
   /** 結束神遊：在目前位置把控制交還給漫遊（飛行中先平順落到正下方可站立處） */
   | { command: 'stop-drift' }
+  /**
+   * 神遊除錯快照的開關（只在開發模式有用，正式版收到也不理）
+   *
+   * 開著時渲染端每秒四次送一則 drift-debug 上來；關著不送、也不算
+   */
+  | { command: 'set-drift-debug'; isEnabled: boolean }
 
 export interface RenderCommandMessage {
   type: 'command';
@@ -349,6 +356,16 @@ export interface RenderHandoffSnapshotMessage {
   handoff: ReloadHandoff;
 }
 
+/**
+ * 神遊的除錯快照，開發模式下除錯面板開著時約每秒四則；沒在神遊時 snapshot 是 null
+ *
+ * 內容見 domains/drift/drift-debug
+ */
+export interface RenderDriftDebugMessage {
+  type: 'drift-debug';
+  snapshot: DriftDebugSnapshot | null;
+}
+
 export type RenderUpMessage =
   | RenderLoadedMessage
   | RenderProbeResultMessage
@@ -363,6 +380,7 @@ export type RenderUpMessage =
   | RenderSoundMessage
   | RenderLogMessage
   | RenderHandoffSnapshotMessage
+  | RenderDriftDebugMessage
 
 /* ────────────────────────── 傳輸層 ────────────────────────── */
 
