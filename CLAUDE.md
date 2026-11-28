@@ -40,6 +40,7 @@
 7. **用 Playwright 開會鎖指標的頁面，一律先停用 pointer lock**：Windows 上的 headless Chrome 是藏起來的真 Chrome，頁面呼叫 `requestPointerLock` 時 Chrome 會對系統呼叫 `ClipCursor`，把使用者真正的滑鼠鎖在那個看不見的視窗範圍裡，還會一直拉回去（Minespace 按「開始漫遊」就會觸發）。任何開這類頁面的腳本（含子代理人寫的），都要在 `page.goto` 之前加上：
    `await page.addInitScript(() => { Element.prototype.requestPointerLock = () => Promise.resolve() })`
    截圖用不到真正的鎖定，產品程式碼不必改。派代理人做瀏覽器驗證時，要在指示裡寫明這一條。
+8. **同時最多開 2 個瀏覽器**：含主對話與所有子代理人合計。超過會把電腦拖到卡死（曾發生）。多個代理人並行時要用鎖排隊，不能各開各的；量 FPS 或幀時間時只留 1 個，另一個在跑會讓數字失準。不要用解除幀率上限的旗標（`--disable-frame-rate-limit`、`--disable-gpu-vsync`）。派代理人時要在指示裡寫明這一條。
 
 ## 寫作風格規則（Writing Style）
 
