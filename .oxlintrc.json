@@ -1,0 +1,178 @@
+{
+  // 只檢查程式正確性，不管排版。各規則的取捨見 docs/development-notes.md「lint 與型別檢查改用 oxc 工具鏈」
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["eslint", "typescript", "unicorn", "oxc", "import", "vue", "jsdoc", "node", "vitest"],
+  "categories": {
+    "correctness": "error"
+  },
+  "env": {
+    "browser": true,
+    "node": true,
+    "worker": true,
+    "es2024": true
+  },
+  "options": {
+    // 型別感知規則（no-floating-promises 等）由 oxlint-tsgolint 跑；型別錯誤交給 vue-tsc，不開 typeCheck
+    "typeAware": true
+  },
+  "ignorePatterns": [
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/.output/**",
+    "**/.next/**",
+    "**/.nuxt/**",
+    "**/coverage/**",
+    "**/build/**",
+    "**/vendor/**",
+    // 外部安裝的 skill，內含壓縮過的第三方腳本
+    ".claude/skills/impeccable/**"
+  ],
+  "rules": {
+    // 專案原本的覆寫
+    "no-console": ["warn", { "allow": ["warn", "error"] }],
+    "no-unused-vars": ["warn", {
+      "vars": "all",
+      "args": "after-used",
+      "argsIgnorePattern": "^_",
+      "varsIgnorePattern": "^_",
+      "ignoreRestSiblings": true
+    }],
+    "no-use-before-define": "off",
+
+    // 沿用 @antfu/eslint-config 有開、oxlint 也有的非排版規則
+    "accessor-pairs": ["error", { "setWithoutGet": true, "enforceForClassMembers": true }],
+    "array-callback-return": "error",
+    "block-scoped-var": "error",
+    "eqeqeq": ["error", "smart"],
+    "no-alert": "error",
+    "no-array-constructor": "error",
+    "no-case-declarations": "error",
+    "no-cond-assign": ["error", "always"],
+    "no-empty": ["error", { "allowEmptyCatch": true }],
+    "no-extend-native": "error",
+    "no-extra-bind": "error",
+    "no-fallthrough": "error",
+    "no-implied-eval": "error",
+    "no-labels": "error",
+    "no-lone-blocks": "error",
+    "no-multi-str": "error",
+    "no-new": "error",
+    "no-new-func": "error",
+    "no-new-wrappers": "error",
+    "no-proto": "error",
+    "no-prototype-builtins": "error",
+    "no-redeclare": "error",
+    "no-restricted-globals": ["warn",
+      { "name": "global", "message": "Use `globalThis` instead." },
+      { "name": "self", "message": "Use `globalThis` instead." }
+    ],
+    "no-self-compare": "error",
+    "no-sequences": ["error", { "allowInParentheses": true }],
+    "no-template-curly-in-string": "error",
+    "no-throw-literal": "error",
+    "no-unexpected-multiline": "error",
+    "no-unmodified-loop-condition": "error",
+    "no-unneeded-ternary": "error",
+    "no-unreachable-loop": "error",
+    "no-unused-expressions": ["error", {
+      "allowShortCircuit": true,
+      "allowTernary": true,
+      "allowTaggedTemplates": true
+    }],
+    "no-useless-call": "error",
+    "no-useless-return": "error",
+    "no-var": "error",
+    "prefer-const": ["error", { "destructuring": "all", "ignoreReadBeforeAssign": true }],
+    "prefer-promise-reject-errors": "error",
+    "prefer-rest-params": "error",
+    "symbol-description": "error",
+    // 原本以 no-restricted-syntax 禁止 const enum；enderbox 既有一處，先只提示
+    "oxc/no-const-enum": "warn",
+
+    "typescript/ban-ts-comment": ["error", { "ts-expect-error": "allow-with-description" }],
+    "typescript/no-empty-object-type": ["error", { "allowInterfaces": "always" }],
+    "typescript/no-import-type-side-effects": "error",
+    "typescript/no-namespace": "error",
+    "typescript/no-non-null-asserted-nullish-coalescing": "error",
+    "typescript/no-require-imports": "error",
+    "typescript/no-unnecessary-type-constraint": "error",
+    "typescript/no-unsafe-function-type": "error",
+    "typescript/prefer-literal-enum-member": "error",
+
+    "unicorn/consistent-empty-array-spread": "error",
+    "unicorn/error-message": "error",
+    "unicorn/new-for-builtins": "error",
+    "unicorn/no-instanceof-array": "error",
+    "unicorn/no-new-buffer": "error",
+    "unicorn/prefer-dom-node-text-content": "error",
+    "unicorn/prefer-includes": "error",
+    "unicorn/prefer-node-protocol": "error",
+    "unicorn/prefer-number-properties": "error",
+    "unicorn/prefer-type-error": "error",
+    "unicorn/throw-new-error": "error",
+
+    "import/first": "error",
+    "import/no-duplicates": "warn",
+    "import/no-mutable-exports": "error",
+    "import/no-named-default": "error",
+    "import/no-self-import": "error",
+    "import/no-webpack-loader-syntax": "error",
+
+    "node/handle-callback-err": ["error", "^(err|error)$"],
+    "node/no-exports-assign": "error",
+    "node/no-new-require": "error",
+    "node/no-path-concat": "error",
+
+    "jsdoc/check-access": "warn",
+    "jsdoc/empty-tags": "warn",
+    "jsdoc/require-param-name": "warn",
+    "jsdoc/require-returns-description": "warn",
+
+    "vue/no-multiple-slot-args": "error",
+
+    "vitest/no-identical-title": "error",
+    "vitest/no-import-node-test": "error",
+
+    // correctness 類別預設開、但既有程式已經踩到的：降成警告，留著提醒
+    "no-control-regex": "warn",
+    "no-useless-escape": "warn",
+    "unicorn/no-thenable": "warn",
+    "unicorn/no-useless-spread": "warn",
+    "vue/no-dupe-keys": "warn",
+    "vue/prefer-import-from-vue": "warn",
+    "vue/return-in-computed-property": "warn",
+    "vitest/no-standalone-expect": "warn",
+    "unicorn/prefer-string-starts-ends-with": "warn",
+    "typescript/no-implied-eval": "warn",
+    "typescript/no-floating-promises": "warn",
+    "typescript/no-meaningless-void-operator": "warn",
+    "typescript/no-base-to-string": "warn",
+    "typescript/no-misused-spread": "warn",
+    "typescript/require-array-sort-compare": "warn",
+    "typescript/unbound-method": "warn",
+
+    // vitest 的 expect 可以帶第二個參數當失敗訊息
+    "vitest/valid-expect": ["error", { "maxArgs": 2 }],
+    // describe(realm.id, ...) 這類以變數命名的區塊，沒有型別資訊時會被誤判
+    "vitest/valid-title": ["error", { "ignoreTypeOfDescribeName": true }],
+
+    // 原本沒開、跟寫法偏好有關的：關掉
+    "jsdoc/require-yields": "off",
+    "vitest/no-conditional-expect": "off",
+    "vitest/require-mock-type-parameters": "off",
+    "vitest/require-to-throw-message": "off"
+  },
+  "overrides": [
+    {
+      // 從 VitePress 預設主題搬來的程式，保留原貌，問題只提示不擋
+      "files": ["app/theme/**"],
+      "rules": {
+        "import/first": "warn",
+        "jsdoc/check-tag-names": "warn",
+        "no-constant-binary-expression": "warn",
+        "prefer-const": "warn",
+        "unicorn/prefer-number-properties": "warn"
+      }
+    }
+  ]
+}

@@ -2541,3 +2541,73 @@ npx vite-node --root . <scratchpad>/realms/sound/budget.ts <改之前的 cov-all
 - 同時幾顆聲部、主執行緒吃多少：聲部讀數做了，數字要開著開發模式逛一圈才有。沒有設上限。
 - 神遊低飛時的聽感（腳本只算巡航高度）；耳朵往下拉之後方位感自不自然。
 - 沒開瀏覽器。型別檢查、eslint、vitest（`domains/soundscape/*.test.ts`）過。
+
+## lint 與型別檢查改用 oxc 工具鏈（2026-11）
+
+ESLint（`@antfu/eslint-config`）整套拿掉，lint 改用 oxlint，型別感知規則交給 oxlint-tsgolint，型別檢查仍是 vue-tsc。排版規則全部不要，也不另外裝排版工具（oxfmt、prettier、dprint 都沒有）。
+
+**兩套工具並存（暫時的）**：oxlint 不能檢查 `.vue` 的 `<template>`，所以另外留一份極簡 ESLint，只負責 `.vue` 的 template 規則。決定是「B，未來支援度提升時，再徹底換掉」。script、`.ts`、`.js` 全部歸 oxlint，ESLint 不碰。
+
+**退場條件**：oxlint 支援 Vue template 後（看官方文件的 Vue 相容表與 release notes，原生或穩定的 JS 外掛都算，前提是吃得下 `.vue`），照下面清掉：
+
+1. 刪 `eslint.config.mjs`、`scripts/lint.mjs`。
+2. 移除 `eslint`、`eslint-plugin-vue`、`vue-eslint-parser`、`@typescript-eslint/parser` 四個套件（`pnpm remove`）。
+3. `package.json` 刪 `lint:vue`，`lint` 改回 `oxlint`、`lint:fix` 改回 `oxlint --fix`、`lint:oxc` 可以一併刪。
+4. `.vscode/extensions.json` 拿掉 `dbaeumer.vscode-eslint`，`.vscode/settings.json` 拿掉 `eslint.*` 兩行。
+5. 逐條確認 oxlint 有對應規則：`vue/component-name-in-template-casing`（kebab-case、`U` 開頭除外）、`vue/block-order`、`require-v-for-key`、`valid-v-for`、`valid-v-*`、`no-use-v-if-with-v-for`、`no-mutating-props`、`no-unused-vars`（template）、`no-parsing-error`、`no-v-text-v-html-on-component`、`valid-template-root`、`require-valid-default-prop` 等。沒有的就列進「拿掉後沒有替代的」。
+6. 更新這一節與 `CLAUDE.md` 的 lint 那行。
+
+**指令**
+
+- `npm run lint`：兩邊都跑（`scripts/lint.mjs`，Node 腳本，避開 Windows cmd.exe 不吃 POSIX 語法），兩個都跑完才回報，任一邊有錯誤就回傳非零，警告不擋。整個 repo 約 9 秒（oxlint 約 3 秒、ESLint 約 5 秒）。換過來時是 0 個錯誤：oxlint 228 個警告（未使用的變數 73、`console` 69、沒處理的 Promise 44，其餘各一到五個），ESLint 80 個警告（`vue/component-name-in-template-casing` 69、`vue/no-mutating-props` 4、`vue/no-v-text-v-html-on-component` 2，其餘各 1）。
+- `npm run lint:oxc`：只跑 oxlint，含型別感知規則。
+- `npm run lint:vue`：只跑 ESLint（`eslint "**/*.vue"`），只檢查 `.vue` template。
+- `npm run lint:fix`：兩邊都帶 `--fix`，只套安全的自動修正。主線上有人在改程式時，別對整個 repo 跑，指定檔案就好：`npm run lint:fix -- path/to/a.vue`（檔案參數兩邊都收得到）。
+- `npm run typecheck`：`npx vue-tsc --noEmit -p .nuxt/tsconfig.app.json`。既有 196 個錯誤（minespace 86 個 TS4114；原本 217 個，修掉 codstack 模型預覽面板的陣列預設值後，連帶少了 21 個推導不出型別的錯誤），所以目前一定回傳非零，看的是有沒有多出新錯誤。
+- VS Code 兩個擴充都要裝：`oxc.oxc-vscode`（用專案裡的 oxlint，型別感知跟著 `.oxlintrc.json` 的 `options.typeAware`）與 `dbaeumer.vscode-eslint`。`.vscode/settings.json` 設 `eslint.validate: ["vue"]`、`eslint.format.enable: false`，ESLint 只看 `.vue`，不格式化，也沒有存檔自動修正。
+
+**設定**（`.oxlintrc.json`）
+
+- 開 correctness 類別，加上原本 antfu 設定裡 oxlint 也有、又跟排版無關的規則（`eqeqeq` smart、`no-var`、`prefer-const`、`no-new`、`no-alert`、`no-restricted-globals` 的 `global`／`self`、`unicorn/prefer-node-protocol`、`import/no-duplicates` 等），選項照舊。
+- 專案自己的覆寫照搬：`no-console` 與未使用的變數、import 是警告，`no-use-before-define` 關閉。未使用的 import 由 `no-unused-vars` 一併回報，不需要 unused-imports 外掛。
+- `.claude/skills/impeccable/**` 不檢查：外部安裝的 skill，裡面是壓縮過的第三方腳本。
+- `app/theme/**` 是從 VitePress 預設主題搬來的，在那裡踩到的幾條規則只提示，其他地方照樣算錯誤。
+- 程式裡既有的 `eslint-disable` 註解 oxlint 照樣認；寫的是 oxlint 沒有的規則（`regexp/*`）就直接略過，不會報錯。
+
+**ESLint（只管 template）的設定**（`eslint.config.mjs`）
+
+- 以 `vue/flat/essential` 為底，再關掉 30 條：29 條是 script 區塊的規則（`no-dupe-keys`、`return-in-computed-property`、`valid-define-props`、`no-deprecated-*` 等，oxlint 已有同名規則），加上 `vue/multi-word-component-names`（命名慣例，舊設定本來就關，Nuxt 的 pages 與 `app.vue` 也會誤觸）。`no-ref-as-operand`、`require-valid-default-prop`、`no-use-computed-property-like-method` 雖是 script 端，oxlint 沒有，所以保留。
+- 專案原有的兩條照舊：`vue/component-name-in-template-casing`（kebab-case，`registeredComponentsOnly: false`，`U` 開頭的 Nuxt UI 元件除外）與 `vue/block-order`（script、template 在 style 前）。`block-order` 沒有既有違規，維持 error。
+- 解析器是 `vue-eslint-parser` 加 `@typescript-eslint/parser`，否則 `<script setup lang="ts">` 與 template 內的 TS 運算式全會變成 `no-parsing-error`。不需要型別資訊，所以沒設 `parserOptions.project`。
+- 忽略清單與 `.oxlintrc.json` 一致。`linterOptions.reportUnusedDisableDirectives` 設 `off`：原始碼有 `eslint-disable-next-line no-new` 等註解，是給 oxlint 看的，ESLint 這邊不開那些規則，不關會被當成沒用到的註解。
+- 降成警告的只剩 `component-name-in-template-casing`（69 處，多為從 VitePress 搬來的主題裡的 PascalCase 標籤），新寫的不要再增加。
+- 其餘 essential 規則全是錯誤。採用時既有程式踩到的十二處已經修掉（2026-11-28），所以沒有任何一條為了遷就舊程式而降級：`require-v-for-key`、`valid-v-for`（主題的大綱與選單群組補 key）、`no-mutating-props`（陀螺對戰的場景元件原本直接改 props 裡運鏡管理器的 ref，改呼叫管理器的 `resetCamera()`）、`require-valid-default-prop`（codstack 的陣列預設值改用函式給）、`no-unused-vars`、`valid-template-root`（元件範本補上預設插槽）、`no-ref-as-operand`（主題側欄的 `hasAside` 少了 `.value`，判斷永遠成立）。
+- 唯一的例外寫在設定檔裡：`app/theme/components/VPSidebarItem.vue` 關掉 `no-v-text-v-html-on-component`。那裡的 `<component :is>` 只會是 `p` 或 `h2` 到 `h6`，`v-html` 寫的是原生元素自己的內容。
+- 沒裝 `eslint-plugin-oxlint`：它的用途是關掉 oxlint 已涵蓋的 script 規則，這裡本來就只開 template 規則，用不到。
+
+**既有程式踩到、降成警告的（oxlint）**：`no-floating-promises`（44）、`no-meaningless-void-operator`、`no-base-to-string`、`unbound-method`、`no-misused-spread`、`no-implied-eval`、`require-array-sort-compare`（以上型別感知）、`vue/return-in-computed-property`、`vue/no-dupe-keys`、`vue/prefer-import-from-vue`、`no-useless-escape`、`no-control-regex`、`unicorn/no-useless-spread`、`unicorn/no-thenable`（`web/common/remeda.ts` 匯出了 `then`，整個模組被動態 import 時會被當成 Promise）、`unicorn/prefer-string-starts-ends-with`、`import/no-duplicates`、`no-restricted-globals`、`oxc/no-const-enum`、`vitest/no-standalone-expect`。改到那個檔案時順手修掉。
+
+**關掉的**（原本 antfu 沒開，跟寫法偏好有關）
+
+- `jsdoc/require-yields`：只是要求 generator 的註解寫 `@yields`，神遊模組一口氣 34 個。
+- `vitest/no-conditional-expect`：測試逐筆跑表格時本來就會在條件裡斷言。
+- `vitest/require-mock-type-parameters`、`vitest/require-to-throw-message`：型別與訊息寫不寫是偏好。
+- `vitest/valid-expect` 改成允許兩個參數（vitest 的第二個參數是失敗訊息）；`vitest/valid-title` 不檢查 `describe` 標題的型別（`describe(realm.id, …)` 沒有型別資訊會被誤判）。
+
+**拿掉後沒有替代的**
+
+- **排版**：`style/*`、antfu 的換行規則、`perfectionist/*`（import／export 排序）、`jsdoc/multiline-blocks`、`import/newline-after-import`、Vue 模板的縮排與屬性換行，照使用者決定全部不要。`prefer-template`、`object-shorthand`、`yoda`、`consistent-type-definitions`、`method-signature-style` 這類寫法偏好也一起拿掉。`consistent-type-imports` 不需要：tsconfig 開了 `verbatimModuleSyntax`，型別沒加 `type` 匯入時 vue-tsc 會報 TS1484。
+- **Vue 模板**：oxlint 只看 `.vue` 的 `<script>`，模板完全不檢查（官方相容表寫明「No template linting yet」；JS 外掛還在 alpha，也不支援 Vue 這種自訂格式），所以這塊由上面那份極簡 ESLint 補回，不算遺失。仍然沒補的：Vue 模板的排版規則（縮排、屬性換行等）、`vue/essential` 以外的 recommended／strongly-recommended 規則（例如 `require-default-prop`、`attributes-order`）。
+- **`regexp/*`** 六十條（含 `no-super-linear-backtracking`）、`eslint-comments/*`、`antfu/no-import-dist`、`antfu/no-import-node-modules-by-path`、`node/no-deprecated-api`、`node/process-exit-as-throw`、`jsdoc/check-param-names`、`jsdoc/require-returns-check`：oxlint 沒有。
+- **Markdown 裡的程式碼區塊、JSON**：antfu 會檢查文章裡的 ```ts 區塊與 JSON 檔，oxlint 不看這兩種，原本那兩段例外設定也就不需要了。
+
+**為什麼 TypeScript 不升 7**
+
+- `typescript@7` 套件只剩原生執行檔的啟動器，`require('typescript')` 只拿得到 `version`，`typescript/lib/tsc` 也不在 exports 裡。實測 vue-tsc 3.3.14 搭 TS 7.0.2 一啟動就丟 `ERR_PACKAGE_PATH_NOT_EXPORTED`；Vue 編譯器解析 `defineProps<匯入的型別>()` 也要用 TS 的 JS API。
+- oxlint-tsgolint 自帶 TS 7 的 Go 實作，不必另裝 `@typescript/native-preview`，所以專案的 `typescript` 維持 5.7.3。
+- 沒有開 `--type-check`（`options.typeCheck`）：tsgolint 不懂 `.vue`，每個 `import X from './x.vue'` 都會報 TS2307，`.vue` 裡的錯誤也看不到，跟 vue-tsc 重疊又不完整。
+
+**踩過的坑**
+
+- **`npx vue-tsc` 跑的不是專案裝的 TypeScript**：專案沒有直接裝 vue-tsc，`npx` 用的是 npm 快取裡的 vue-tsc 3.3.14，連帶用快取裡的 TS 6.0.3（`npx vue-tsc --version` 印 6.0.3）。改裝成專案的 devDependency、改用 5.7.3 時，結果從 217 變 219：多一個 `TS5023 Unknown compiler option 'libReplacement'`（Nuxt 4.7 產生的 tsconfig 要 TS 5.8 以上），以及 `text-item.vue` 多一個 TS2322。為了讓錯誤基準不變，這次維持 `npx`。之後要把 vue-tsc 與 TypeScript 釘進專案，兩個一起升（TS 至少 5.8，最好直接 6.0.3），再重新記錄基準。
+- tsgolint 依各檔案最近的 `tsconfig.json` 找專案，根目錄的 references 會一路接到 `.nuxt/tsconfig.*.json`，所以要先有 `nuxt prepare` 產生的 `.nuxt/`（`postinstall` 會跑）。

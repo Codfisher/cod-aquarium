@@ -9,7 +9,8 @@
 - 實作必須優先使用現有套件，例如：VueUse、remeda 等等，嚴格禁止重複造輪子
 - UI 元件優先使用 Nuxt UI（例如 UButton），不要為了效能自行改寫成原生元素；只有以正式打包（本機 preview）量測確認差距明顯時才例外。dev 模式會高估差距，不能作為依據，量測方式見[開發疑難排解](docs/development-notes.md)的「效能修改用本機 preview 對正式站做 A/B」
 - 禁止自行開啟 dev server 除非有特別需求
-- 型別檢查一律用 `npx vue-tsc --noEmit -p .nuxt/tsconfig.app.json`。根目錄的 `tsconfig.json` 只有 references、沒有檔案清單，`vue-tsc -p .` 什麼都不檢查，跑完零錯誤也不代表通過（曾因此把沒檢查過的程式當成通過上線）。minespace 既有 86 個 TS4114（材質外掛類別少寫 `override`），新錯誤要排除這些再看
+- lint 用 `npm run lint`，兩套工具並存：oxlint（script，含型別感知規則，`lint:oxc`）加上只檢查 `.vue` template 的極簡 ESLint（`lint:vue`，oxlint 支援 template 後會移除，退場條件見[開發疑難排解](docs/development-notes.md)）。沒有排版工具，不要為了排版改程式碼。目標是零錯誤，警告是既有程式留下的，新寫的程式不要再增加
+- 型別檢查一律用 `npm run typecheck`（即 `npx vue-tsc --noEmit -p .nuxt/tsconfig.app.json`）。根目錄的 `tsconfig.json` 只有 references、沒有檔案清單，`vue-tsc -p .` 什麼都不檢查，跑完零錯誤也不代表通過（曾因此把沒檢查過的程式當成通過上線）。minespace 既有 86 個 TS4114（材質外掛類別少寫 `override`），新錯誤要排除這些再看
 
 ## Coding Style
 

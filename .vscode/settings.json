@@ -121,5 +121,8 @@
       "ui:\\s*{([^)]*)\\s*}",
       "(?:'|\"|`)([^']*)(?:'|\"|`)"
     ]
-  ]
+  ],
+  // ESLint 只用來檢查 .vue template（oxlint 還不能），不格式化、不存檔自動修正；oxlint 支援 template 後整段刪除
+  "eslint.validate": ["vue"],
+  "eslint.format.enable": false
 }

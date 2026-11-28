@@ -4,6 +4,7 @@
     "DavidAnson.vscode-markdownlint",
     "teamchilla.blueprint",
     "streetsidesoftware.code-spell-checker",
+    "oxc.oxc-vscode",
     "dbaeumer.vscode-eslint",
     "bradlc.vscode-tailwindcss"
   ]
