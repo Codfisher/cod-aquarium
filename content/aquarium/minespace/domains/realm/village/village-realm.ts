@@ -41,9 +41,9 @@ export const VILLAGE_HUB_GATE = createGardenGate({
  */
 export const VILLAGE_REALM: RealmDefinition = {
   id: 'village',
-  title: { 'zh-hant': '鐘聲村', 'en': 'Bell Hamlet' },
-  description: { 'zh-hant': '市井坊的另一頭，鐘聲裡的小村', 'en': 'Beyond the Market Quarter, a hamlet under the bell' },
-  signCaption: { 'zh-hant': '鐘聲裡的小村', 'en': 'A hamlet by the bell' },
+  title: { 'zh-hant': '市聲村', 'en': 'Murmur Hamlet' },
+  description: { 'zh-hant': '市井坊的另一頭，人聲裡的小村', 'en': 'Beyond the Market Quarter, a hamlet full of voices' },
+  signCaption: { 'zh-hant': '人聲裡的小村', 'en': 'A hamlet full of voices' },
   icon: 'i-material-symbols:cottage',
   /**
    * 站在回程門的東側三格，面朝市街與廣場

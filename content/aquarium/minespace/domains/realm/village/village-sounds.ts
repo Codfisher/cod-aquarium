@@ -1,5 +1,5 @@
 import type { SoundEmitterDefinition } from '../../soundscape/type'
-import { BELL_TOWER_POINT, BELL_TOWER_SIZE, EATERY_POINT, HEARTH_POINT, HOUSE_LOT_LIST, SMITHY_POINT, STREAM_Z, TERRACE_GROUND_Y, VILLAGE_CENTER, WATERMILL_POINT } from './village-layout'
+import { EATERY_POINT, HEARTH_POINT, HOUSE_LOT_LIST, SMITHY_POINT, STREAM_Z, TERRACE_GROUND_Y, VILLAGE_CENTER, WATERMILL_POINT } from './village-layout'
 
 /** 村子中心加上偏移的座標 */
 function atVillage(offsetX: number, offsetZ: number): { x: number; z: number } {
@@ -15,13 +15,15 @@ function atVillageRing(degree: number, radius: number): { x: number; z: number }
 /**
  * 村落的音源
  *
- * 村落是市井坊的放大版，聲音也照市井坊：市集的人聲、遠遠的鐘、灶上的火、食肆裡吃飯的聲音，
+ * 村落是市井坊的放大版，聲音也照市井坊：市集的人聲、灶上的火、食肆裡吃飯的聲音，
  * 入夜人聲與灶火退場，換牆角的蟲。全沿用市井坊的音檔，各自擺回它們該在的地方：
- * 人聲沿著市街、鐘在鐘樓頂、火在廣場邊的灶、吃飯聲在食肆門口。
+ * 人聲沿著市街、火在廣場邊的灶、吃飯聲在食肆門口。
  * 多出來的是鍛冶屋的爐火（灶的火聲）、水車旁的水道（借遣水的流水聲），與台地外那一圈花田：夜裡田裡的蟲（同一個蟲聲，換一個名字）。
  *
- * 這裡沒有鄰居要避（整個場景只有這一座村子），所以不走 measureNeighbourLimit；
- * 鐘聲照市井坊「全庭傳得最遠」的意思，走到田邊都還聽得到。
+ * 這裡沒有鄰居要避（整個場景只有這一座村子），所以不走 measureNeighbourLimit。
+ *
+ * 2026-11-28 拿掉了鐘樓的鐘聲：使用者覺得太吵。原本鐘聲傳得最遠（走到田邊都聽得到），
+ * 現在鐘樓只是不出聲的布景；市井坊（大廳）的鐘不受影響。
  *
  * 台地外那一圈花田原本白天完全沒有聲音（量出來全場四分之一的地面是靜的，集中在北邊與東邊）。
  * 補上的都是田裡本來就該有的：田上的風、白天田邊的鳥、拂曉的鳥、薄暮先起頭的草蟲，夜裡的蟲從四片補到八片。
@@ -44,27 +46,6 @@ export const VILLAGE_EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
     minDistance: 6,
     maxDistance: 24,
   })),
-  {
-    /** 鐘樓頂，鐘吊在屋頂底下兩格 */
-    id: 'village-realm-bell',
-    sound: 'village-bell',
-    title: { 'zh-hant': '鐘樓', 'en': 'Bell tower' },
-    zone: 'village',
-    ...atVillage(BELL_TOWER_POINT.offsetX, BELL_TOWER_POINT.offsetZ),
-    /**
-     * 鐘口的高度，直接給 y
-     *
-     * 原本用 heightOffset：自動貼地會把鐘樓的屋頂當成地面，鐘被擺到塔頂上方八格的空中，聲音從天上來。
-     * 鐘那兩格方塊在柱頂下方二到三格，音源放在它正下方（鐘口），不埋在鐘裡
-     */
-    y: TERRACE_GROUND_Y + BELL_TOWER_SIZE.height - 3.8,
-    mode: { type: 'interval', rangeSecond: [45, 100] },
-    volume: 0.9,
-    minDistance: 12,
-    maxDistance: 70,
-    /** 同一口鐘：音高不變，只有敲得輕重略有不同 */
-    variation: { pitchRangeCent: 0, volumeDropRatio: 0.15 },
-  },
   {
     /** 廣場東南角的灶，收攤了火自然也就熄了 */
     id: 'village-realm-hearth',
@@ -249,6 +230,33 @@ export const VILLAGE_EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
     silentInRain: true,
     isFiller: true,
   })),
+  /**
+   * 入夜的廣場與大街：石縫與屋簷下的蟲
+   *
+   * 鐘聲拿掉之後，夜裡的村子中心只剩牆腳幾隻蟋蟀（可聽十四格），廣場一帶量出來幾乎沒有聲音：
+   * 白天的人聲、爐火、打鐵都收了，以前是傳七十格的鐘把這一塊蓋住的。
+   * 人都睡了，補的是蟲不是人：廣場周圍三處，薄暮就開始、整夜都在，很輕，走到田邊就換成田裡那一圈
+   */
+  ...(['dusk', 'night'] as const).flatMap((activeAt) => [
+    { offsetX: 5, offsetZ: -5 },
+    { offsetX: -9, offsetZ: 6 },
+    { offsetX: 17, offsetZ: 9 },
+  ].map((offset, index): SoundEmitterDefinition => ({
+    id: `village-realm-plaza-insect-${activeAt}-${index}`,
+    activeAt,
+    sound: 'insect-bush-cricket',
+    title: { 'zh-hant': '屋簷下的蟲', 'en': 'Insects under the eaves' },
+    zone: 'village',
+    ...atVillage(offset.offsetX, offset.offsetZ),
+    heightOffset: 1,
+    mode: { type: 'loop' },
+    volume: 0.26,
+    minDistance: 4,
+    maxDistance: 22,
+    variation: { pitchOffsetCent: [0, -110, 90][index] ?? 0 },
+    silentInRain: true,
+    isFiller: true,
+  }))),
   {
     /** 鍛冶屋的打鐵：白天十幾二十秒一串，從屋裡傳出來；同一塊鐵砧音高幾乎不變，只有下手輕重不同 */
     id: 'village-realm-anvil',
