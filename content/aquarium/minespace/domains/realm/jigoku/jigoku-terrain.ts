@@ -1,4 +1,4 @@
-import type { HotPool } from './jigoku-layout'
+import type { BasaltStack, HotPool, LavaFall, Lookout } from './jigoku-layout'
 import { createSeededRandom, fbm2D } from '../../../utils/noise'
 import { BlockId } from '../../block/block-constants'
 import {
@@ -13,60 +13,91 @@ import {
 } from '../../garden/garden-kit'
 import { getBlock, setBlock } from '../../world/world-access'
 import { WORLD_SIZE } from '../../world/world-constants'
+import { createPathDistanceMap, samplePathCurve } from '../land-realm-kit'
 import { placePortalStructure } from '../portal-terrain'
 import { decorateJigoku } from './jigoku-details'
 import {
-  BOARDWALK_LOOP_POINT_LIST,
+  ARM_END_Z,
+  BASALT_STACK_LIST,
+  BOARDWALK_EAST_POINT_LIST,
+  BOARDWALK_SPUR_END_Z,
+  BOARDWALK_WEST_POINT_LIST,
+  CAIRN_FIELD,
+  CAUSEWAY_END_Z,
+  CAUSEWAY_START_Z,
+  CAUSEWAY_Y,
+  CRATER_RADIUS_X,
+  CRATER_RADIUS_Z,
+  EGG_STALL_POINT,
+  FOOT_BATH_RECT,
   HOT_POOL_LIST,
   JIGOKU_CENTER,
-  JIGOKU_FLOOR_Y,
   JIGOKU_FOOT_Y,
   JIGOKU_PORTAL_POINT,
   JIGOKU_TORII_Z,
-  measureRiftShape,
-  RIFT_HALF_LENGTH,
+  LAKE_CENTER,
+  LAKE_ISLAND,
+  LAKE_RADIUS_X,
+  LAKE_RADIUS_Z,
+  LAKE_Y,
+  LAVA_FALL_LIST,
+  LAVA_FIELD_REACH,
+  LAVA_LIGHT_POINT_LIST,
+  LAVA_RIVER_LIST,
+  LAVA_TORII,
+  LOOKOUT_LIST,
+  OVERLOOK_EDGE_Z,
+  OVERLOOK_PLAZA,
+  RIM_Y,
+  SHRINE_PLATFORM,
+  SPILL_SPRING,
+  STAIR_HALF_WIDTH,
+  STAIR_LENGTH,
   STEAM_VENT_LIST,
-  VALLEY_RADIUS_X,
-  VALLEY_RADIUS_Z,
-  VALLEY_WALL_HEIGHT,
+  SULPHUR_TERRACE,
+  TERRACE_Y,
+  WALL_STEP,
 } from './jigoku-layout'
 import { JIGOKU_REALM } from './jigoku-realm'
 
 /**
  * 湯煙谷的地形
  *
- * 只有地形 worker 用。谷底照地獄谷（buildJigokuGarden）放大：熔岩縫挖兩格、底下墊一層黑曜石磚，
- * 兩側的黑曜石磚往上堆成岸（鬆弛到一格一階），地面由外往內是石板、圓石、黑曜石磚，
- * 縫的四周越近越多的餘燼；炭黑枯木在離縫最遠的地方，兩三塊白骨，只長枯灌、枯草與石生植物。
- * 鳥居、刻紋石碑與一對石燈籠擺在南邊進谷的那一段。
+ * 只有地形 worker 用。一座火口：南邊一彎台地（人待的地方），其餘整個火口底是熔岩湖，
+ * 四周火口壁兩格一階往上爬到稜線，稜線外是不畫的 LAKE_BED。
  *
- * 地獄谷沒有的、使用者要的地熱谷：熱泉（兩格深的清水、黏土底、池緣一圈硫磺黃）、泥池（一格深）、
- * 噴氣孔（圓石圍一個洞，四周染黃）、一條圍著柵欄的木棧繞著熔岩縫走一圈。
- * 木棧從不跨過熔岩縫：地獄谷拿掉那座橋的理由（「這裡不能過」）在這裡照樣成立，人只能繞著它看。
+ * 語彙照地獄谷（buildJigokuGarden）：熔岩、烤黑的岩、黑曜石磚、鳥居、刻紋石碑與石燈籠、
+ * 炭黑枯木、白骨，只長枯灌、枯草與石生植物；路從不跨過熔岩（「這裡不能過」），走到湖裡的祠台就是盡頭。
+ * 使用者要的地熱谷（熱泉、泥池、噴氣孔、木棧）留在台地上，是整片熔岩前面那一層人的尺度。
  *
- * 熔岩與餘燼都是光源，每一格都會變成一盞真光（熔岩四格見方留一盞、餘燼兩格見方留一盞），
- * 餘燼的密度比地獄谷低：縫拉長到八十格，照地獄谷的密度撒，光源會是禪庭的兩三倍。
+ * 三件事是照著成本設計的：
  *
- * 順序：谷底與谷壁 → 熔岩縫與岸 → 木棧 → 熱泉、泥池、噴氣孔 → 餘燼 → 鳥居、石碑 → 枯木與白骨 → 花草 → 傳送門
+ * - 光源：熔岩湖有一萬格，全用不進光源清單的 LAVA_FIELD；真的 LAVA 只有八格（LAVA_LIGHT_POINT_LIST），
+ *   餘燼一格都不撒（每一格都是一盞燈），地上發紅的裂縫改用不點燈的 MAGMA_ROCK。
+ *   照亮場景的真光由 light-source 把整片熔岩併成九盞面光源（場景定義的 areaLightLimit）
+ * - 看得見的方塊：熔岩只有一格深、底下是實心的岩，每一格柱只露出最上面那一格；
+ *   火口壁與崖只有露在外面的那幾格挑岩種，裡面一律是石（反正被剔掉）
+ * - 掉下去：熔岩只有一格深（踩得到底、眼睛不會沒進去），石階兩側的碎石坡一階一階接到湖面，
+ *   翻過柵欄就回到石階上。台地的崖邊一圈高一格的岩唇，走路不會直接走下去
+ *
+ * 順序：分區與高度 → 填格柱 → 黑岩原與熔岩河 → 玄武岩柱 → 熔岩瀑 → 湖面的岩殼 → 石階、參道、祠台 →
+ * 湯瀧 → 熱泉、泥池、噴氣孔、硫磺階地 → 木棧與柵欄 → 鳥居與祠 → 真光 → 枯木、白骨、花草 → 細節 → 傳送門
  */
 
-/** 熔岩縫兩側的岸最高幾格（地獄谷是四格，谷底大了，岸收矮一點，木棧上才看得到縫） */
-const BANK_HEIGHT = 2
+/** 格柱的分區 */
+const KIND_HIDDEN = 0
+const KIND_WALL = 1
+const KIND_TERRACE = 2
+const KIND_LAKE = 3
 
-/** 熔岩往下填幾格，照地獄谷：兩格，底下墊一層黑曜石磚 */
-const LAVA_DEPTH = 2
+/** 熔岩瀑落點四周的崖：每往外一格高這麼多，等於直立 */
+const CLIFF_STEP = 40
 
-/** 谷壁每往外一格高幾格：兩格，跳不上去 */
-const WALL_STEP = 2
+/** 稜線往外幾格之後換成不畫的 LAKE_BED */
+const CREST_DEPTH = 2
 
-/**
- * 餘燼的機率係數
- *
- * 地獄谷是 0.2 × (1 − 距離 ÷ 範圍)，越近越多。這裡的縫是地獄谷的七倍長，
- * 照同一個係數撒下去光源破百，收到三分之二，近縫那一帶仍然一格一格地泛著暗紅
- */
-const EMBER_CHANCE = 0.13
-const EMBER_REACH = 9
+/** 熔岩瀑頂的缺口往稜線後面挖幾格（從火口裡看不到盡頭） */
+const FALL_CHANNEL_LENGTH = 9
 
 /** 木棧中心線兩側幾格內是木板（約三格寬），再往外一格是柵欄 */
 const BOARDWALK_HALF_WIDTH = 1.05
@@ -75,157 +106,243 @@ const RAILING_HALF_WIDTH = 2.05
 /**
  * 柵欄每隔多少格留一個口
  *
- * 地獄谷的柵欄是重點：這裡的水是滾的。但整圈封死人就下不了棧道，
- * 每三十來格留三格寬的口，想走近一點看噴氣孔的人自己決定要不要下去
+ * 整圈封死人就下不了棧道，每三十來格留三格寬的口，想走近一點看噴氣孔的人自己決定要不要下去。
+ * 木棧離崖邊至少七八格，崖邊另有一圈岩唇，口開在哪裡都不會直接通到熔岩
  */
 const RAILING_GAP_PERIOD = 32
 const RAILING_GAP_LENGTH = 4
 
-/** 這一格在谷底的橢圓裡多深：零是谷心，一是谷壁腳；吃一層噪音，谷壁才不是一條平滑的線 */
-function measureValleyRatio(x: number, z: number): number {
-  const ratioX = (x - JIGOKU_CENTER.x) / VALLEY_RADIUS_X
-  const ratioZ = (z - JIGOKU_CENTER.z) / VALLEY_RADIUS_Z
-  return Math.hypot(ratioX, ratioZ) + fbm2D(x * 0.06 + 3, z * 0.06 - 41, 2, 0.5) * 0.07
+/** 整張地形的暫存：分區、每一格柱最上面那格實心方塊的高度、離熔岩河多遠 */
+interface TerrainMap {
+  kindMap: Uint8Array;
+  topMap: Uint8Array;
+  riverDistanceMap: Float32Array;
 }
 
-/** 這一格往外離谷壁腳幾格（谷底是零以下），粗估：沿著短軸那個尺度換算 */
-function measureWallDistance(x: number, z: number): number {
-  return (measureValleyRatio(x, z) - 1) * VALLEY_RADIUS_Z
+function toIndex(x: number, z: number): number {
+  return x * WORLD_SIZE + z
 }
 
-/** 這一格離熔岩縫的邊多遠（縫裡是負的）；縫的兩端以外回傳很大 */
-function measureRiftDistance(x: number, z: number): number {
-  const offsetX = x - JIGOKU_CENTER.x
-  if (Math.abs(offsetX) > RIFT_HALF_LENGTH)
-    return Number.POSITIVE_INFINITY
-  const { center, halfWidth } = measureRiftShape(offsetX)
-  if (halfWidth <= 0)
-    return Number.POSITIVE_INFINITY
-  return Math.abs(z - center) - halfWidth
+/** 座標的雜湊，零到一；同一格永遠得到同一個值 */
+function hashCell(x: number, z: number, seed: number): number {
+  let hash = Math.imul(x, 374761393) ^ Math.imul(z, 668265263) ^ Math.imul(seed, 1274126177)
+  hash = Math.imul(hash ^ (hash >>> 13), 1274126177)
+  return ((hash ^ (hash >>> 16)) >>> 0) / 4294967296
+}
+
+/** 平滑的區間映射：value 從 from 走到 to，回傳零到一 */
+function smoothRange(value: number, from: number, to: number): number {
+  const ratio = Math.min(1, Math.max(0, (value - from) / (to - from)))
+  return ratio * ratio * (3 - 2 * ratio)
+}
+
+/** 這一格在火口的橢圓裡多深：零是中心，一是火口壁腳；吃一層低頻噪音，壁腳才不是一條平滑的線 */
+function measureCraterRatio(x: number, z: number): number {
+  const ratioX = (x - JIGOKU_CENTER.x) / CRATER_RADIUS_X
+  const ratioZ = (z - JIGOKU_CENTER.z) / CRATER_RADIUS_Z
+  return Math.hypot(ratioX, ratioZ) + fbm2D(x * 0.035 + 3, z * 0.035 - 41, 2, 0.5) * 0.04
 }
 
 /**
- * 木棧中心線上的點
+ * 這一格在熔岩湖的橢圓裡多深：一以上才是台地
  *
- * 一圈 Catmull-Rom 閉合曲線，加上回程門往北接上這一圈的那一小段直線
+ * 崖線吃噪音；靠近中軸的那一段收成整齊的弧，到著台、石階與崖邊才對得起來
  */
-function sampleBoardwalk(): { x: number; z: number }[] {
-  const pointList = BOARDWALK_LOOP_POINT_LIST
-  const count = pointList.length
-  const sampleList: { x: number; z: number }[] = []
-  const SAMPLE_PER_SEGMENT = 24
-
-  for (let index = 0; index < count; index++) {
-    const previous = pointList[(index - 1 + count) % count]!
-    const from = pointList[index]!
-    const to = pointList[(index + 1) % count]!
-    const next = pointList[(index + 2) % count]!
-    for (let step = 0; step < SAMPLE_PER_SEGMENT; step++) {
-      const ratio = step / SAMPLE_PER_SEGMENT
-      const ratio2 = ratio * ratio
-      const ratio3 = ratio2 * ratio
-      const blend = (a: number, b: number, c: number, d: number) => 0.5 * (
-        2 * b
-        + (-a + c) * ratio
-        + (2 * a - 5 * b + 4 * c - d) * ratio2
-        + (-a + 3 * b - 3 * c + d) * ratio3
-      )
-      sampleList.push({
-        x: blend(previous.x, from.x, to.x, next.x),
-        z: blend(previous.z, from.z, to.z, next.z),
-      })
-    }
-  }
-
-  /** 回程門往北到這一圈的那一段 */
-  const spurFromZ = JIGOKU_PORTAL_POINT.z - 1
-  const spurToZ = pointList[0]!.z
-  for (let z = spurFromZ; z >= spurToZ; z -= 0.5) {
-    sampleList.push({ x: JIGOKU_PORTAL_POINT.x, z })
-  }
-  return sampleList
+function measureLakeRatio(x: number, z: number): number {
+  const calm = smoothRange(Math.abs(x - JIGOKU_CENTER.x), 10, 26)
+  const ratioX = (x - LAKE_CENTER.x) / LAKE_RADIUS_X
+  const ratioZ = (z - LAKE_CENTER.z) / LAKE_RADIUS_Z
+  return Math.hypot(ratioX, ratioZ) + fbm2D(x * 0.05 - 17, z * 0.05 + 29, 2, 0.5) * 0.05 * calm
 }
 
-/** 每一格離木棧中心線多遠，以及它對應到中心線上第幾點（柵欄留口用） */
-function createBoardwalkMap(): { distanceMap: Float32Array; indexMap: Int32Array } {
-  const distanceMap = new Float32Array(WORLD_SIZE * WORLD_SIZE).fill(Number.POSITIVE_INFINITY)
-  const indexMap = new Int32Array(WORLD_SIZE * WORLD_SIZE).fill(-1)
-  const sampleList = sampleBoardwalk()
-  const reach = 4
-  for (const [sampleIndex, point] of sampleList.entries()) {
-    for (let x = Math.floor(point.x - reach); x <= Math.ceil(point.x + reach); x++) {
-      for (let z = Math.floor(point.z - reach); z <= Math.ceil(point.z + reach); z++) {
-        const index = x * WORLD_SIZE + z
-        const distance = Math.hypot(x - point.x, z - point.z)
-        if (distance < distanceMap[index]!) {
-          distanceMap[index] = distance
-          indexMap[index] = sampleIndex
+function isInsideLookout(lookout: Lookout, x: number, z: number): boolean {
+  return Math.abs(x - lookout.x) <= lookout.halfWidth && z >= lookout.z - lookout.northReach && z <= lookout.z + lookout.southReach
+}
+
+/** 鋪了石板、崖邊圍柵欄而不是岩唇的地方：到著台與兩座展望台 */
+function isPavedSpot(x: number, z: number): boolean {
+  if (z >= OVERLOOK_EDGE_Z && Math.hypot(x - OVERLOOK_PLAZA.x, z - OVERLOOK_PLAZA.z) <= OVERLOOK_PLAZA.radius)
+    return true
+  return LOOKOUT_LIST.some((lookout) => isInsideLookout(lookout, x, z))
+}
+
+/** 這一格是不是台地：熔岩湖的橢圓以外、兩臂的尖端以南，加上往外挑的兩座展望台 */
+function isTerraceSpot(x: number, z: number): boolean {
+  if (LOOKOUT_LIST.some((lookout) => isInsideLookout(lookout, x, z)))
+    return true
+  const armEnd = ARM_END_Z + fbm2D(x * 0.08, 7.3, 2, 0.5) * 2.5
+  return z > armEnd && measureLakeRatio(x, z) >= 1
+}
+
+/** 這一格離最近的熔岩瀑多近：一是落點正上方（直立的崖），零是一般的火口壁 */
+function measureCliffRatio(x: number, z: number): number {
+  let ratio = 0
+  for (const fall of LAVA_FALL_LIST) {
+    const distance = Math.hypot(x - fall.x, z - fall.z)
+    ratio = Math.max(ratio, 1 - smoothRange(distance, fall.cliffRadius * 0.6, fall.cliffRadius))
+  }
+  return ratio
+}
+
+/**
+ * 分區與高度
+ *
+ * 火口壁每往外一格高兩格（熔岩瀑四周是直立的崖），爬到 RIM_Y 之後是兩格深的稜線（吃零到三格的鋸齒），
+ * 再往外是不畫的 LAKE_BED。台地在崖邊那一排高一格（岩唇），鋪石板的到著台與展望台不墊、改圍柵欄
+ */
+function classifyTerrain(): TerrainMap {
+  const kindMap = new Uint8Array(WORLD_SIZE * WORLD_SIZE)
+  const topMap = new Uint8Array(WORLD_SIZE * WORLD_SIZE)
+
+  for (let x = 0; x < WORLD_SIZE; x++) {
+    for (let z = 0; z < WORLD_SIZE; z++) {
+      const index = toIndex(x, z)
+      const wallDistance = (measureCraterRatio(x, z) - 1) * CRATER_RADIUS_Z
+
+      if (wallDistance > 0) {
+        const step = WALL_STEP + measureCliffRatio(x, z) * CLIFF_STEP
+        const rank = Math.ceil(wallDistance)
+        const crestRank = Math.ceil((RIM_Y - TERRACE_Y) / step)
+        if (rank > crestRank + CREST_DEPTH) {
+          kindMap[index] = KIND_HIDDEN
+          topMap[index] = RIM_Y
+          continue
         }
+        kindMap[index] = KIND_WALL
+        const jag = Math.min(3, Math.max(0, Math.floor((fbm2D(x * 0.21 + 9, z * 0.21 - 3, 2, 0.5) * 0.5 + 0.5) * 4)))
+        topMap[index] = rank >= crestRank ? RIM_Y + jag : TERRACE_Y + rank * step
+        continue
       }
+
+      if (isTerraceSpot(x, z)) {
+        kindMap[index] = KIND_TERRACE
+        /** 火口壁腳堆著崩下來的岩：離壁腳兩三格內零星墊高一格 */
+        const isTalus = wallDistance > -3 && fbm2D(x * 0.3 + 5, z * 0.3 - 8, 2, 0.5) > 0.12
+        topMap[index] = TERRACE_Y + (isTalus ? 1 : 0)
+        continue
+      }
+
+      kindMap[index] = KIND_LAKE
+      topMap[index] = LAKE_Y
     }
   }
-  return { distanceMap, indexMap }
+
+  /** 崖邊的岩唇：八方相鄰有熔岩湖的台地格墊高一格（鋸齒處兩格） */
+  const lipList: number[] = []
+  for (let x = 1; x < WORLD_SIZE - 1; x++) {
+    for (let z = 1; z < WORLD_SIZE - 1; z++) {
+      if (kindMap[toIndex(x, z)] !== KIND_TERRACE || isPavedSpot(x, z))
+        continue
+      if (hasNeighbourKind(kindMap, x, z, KIND_LAKE, true))
+        lipList.push(toIndex(x, z))
+    }
+  }
+  for (const index of lipList) {
+    const x = Math.floor(index / WORLD_SIZE)
+    const z = index % WORLD_SIZE
+    topMap[index] = TERRACE_Y + (hashCell(x, z, 11) < 0.3 ? 2 : 1)
+  }
+
+  return { kindMap, topMap, riverDistanceMap: createRiverDistanceMap() }
+}
+
+/** 四方（或八方）相鄰的格柱裡有沒有某一種分區 */
+function hasNeighbourKind(kindMap: Uint8Array, x: number, z: number, kind: number, isDiagonalIncluded: boolean): boolean {
+  for (let offsetX = -1; offsetX <= 1; offsetX++) {
+    for (let offsetZ = -1; offsetZ <= 1; offsetZ++) {
+      if (offsetX === 0 && offsetZ === 0)
+        continue
+      if (!isDiagonalIncluded && offsetX !== 0 && offsetZ !== 0)
+        continue
+      const nextX = x + offsetX
+      const nextZ = z + offsetZ
+      if (nextX < 0 || nextX >= WORLD_SIZE || nextZ < 0 || nextZ >= WORLD_SIZE)
+        continue
+      if (kindMap[toIndex(nextX, nextZ)] === kind)
+        return true
+    }
+  }
+  return false
+}
+
+/** 每一格離熔岩河的中心線多遠 */
+function createRiverDistanceMap(): Float32Array {
+  return createPathDistanceMap(LAVA_RIVER_LIST.map((pointList) => samplePathCurve(pointList)), LAVA_FIELD_REACH + 6)
 }
 
 /**
- * 谷底的地面材質，照地獄谷由外往內三層：石板、烤過的圓石、最靠近縫的黑曜石磚
+ * 火口壁與崖的岩
  *
- * 交界吃噪音，不規則
- */
-function pickFloorBlock(x: number, z: number, riftDistance: number): BlockId {
-  const wobble = fbm2D(x * 0.17 - 11, z * 0.17 + 5, 2, 0.5) * 2.4
-  if (riftDistance + wobble < 3.5)
-    return BlockId.OBSIDIAN_BRICKS
-  if (riftDistance + wobble < 11)
-    return BlockId.COBBLESTONE
-  return BlockId.STONE_TILE
-}
-
-/**
- * 谷壁的岩
- *
- * 下半截是烤黑的黑曜石磚與圓石，往上換成一般的石；
- * 夾著幾道硫磺的黃（砂岩），是從噴氣孔一路往上染出來的
+ * 黑的玄武岩打底，一層一層夾著灰的圓石與石（一道一道熔岩流疊起來的層理，斷斷續續的）；
+ * 貼著熔岩面的那兩格透著暗紅，稜線頂那幾格是落灰的灰；南半邊靠近熱泉的壁上幾道硫磺的黃。
+ * 黑曜石磚不進岩壁：磚紋嵌在天然的崖上像補丁，只留在台地的地面（地獄谷那一圈烤黑的地）
  */
 function pickWallBlock(x: number, y: number, z: number): BlockId {
-  const streak = fbm2D(x * 0.09 + y * 0.05, z * 0.09 - 23, 2, 0.5)
-  if (streak > 0.42)
-    return BlockId.SANDSTONE
-  const level = y - JIGOKU_FLOOR_Y
   const roll = fbm2D(x * 0.23 + 7, z * 0.23 + y * 0.31, 2, 0.5)
-  if (level <= 4)
-    return roll > 0.1 ? BlockId.OBSIDIAN_BRICKS : BlockId.COBBLESTONE
-  if (level <= 9)
-    return roll > 0.2 ? BlockId.COBBLESTONE : BlockId.STONE
-  return roll > -0.2 ? BlockId.STONE : BlockId.COBBLESTONE
+  if (y - LAKE_Y <= 1)
+    return roll > 0.12 ? BlockId.MAGMA_ROCK : BlockId.BASALT
+
+  if (y >= TERRACE_Y - 1 && z > ARM_END_Z && fbm2D(x * 0.09 + y * 0.05, z * 0.09 - 23, 2, 0.5) > 0.5)
+    return BlockId.SANDSTONE
+
+  const strata = (y + Math.round(fbm2D(x * 0.03, z * 0.03, 2, 0.5) * 4) + 70) % 7
+  if (strata === 0 && roll > -0.15)
+    return BlockId.COBBLESTONE
+  if (strata === 4 && roll > 0.1)
+    return BlockId.STONE
+  if (y > RIM_Y - 4 && roll > 0.05)
+    return BlockId.STONE
+  return BlockId.BASALT
 }
 
 /**
- * 谷底與谷壁
+ * 台地的地面
  *
- * 谷壁每往外一格高兩格，高過 VALLEY_WALL_HEIGHT 之後那一圈以外是不畫的 LAKE_BED，
- * 布景那片地面平面在同一個高度代替它
+ * 照地獄谷由外往內越來越黑：火口壁那一側是石與礫，中間是烤過的圓石，靠崖邊是玄武岩，夾幾塊黑曜石磚與幾道透紅的裂縫。
+ * 交界吃噪音，不規則
  */
-function shapeTerrain(state: Uint8Array): void {
+function pickFloorBlock(x: number, z: number): BlockId {
+  const edgeDistance = Math.min((measureLakeRatio(x, z) - 1) * LAKE_RADIUS_Z, z - ARM_END_Z)
+  const wobble = fbm2D(x * 0.17 - 11, z * 0.17 + 5, 2, 0.5) * 3
+  const patch = fbm2D(x * 0.11 + 31, z * 0.11 - 19, 2, 0.5)
+  if (edgeDistance + wobble < 5) {
+    /** 崖邊的玄武岩還沒涼透：幾道細細的裂縫透著暗紅（不點燈），入夜腳邊是亮的 */
+    if (Math.abs(fbm2D(x * 0.19 + 44, z * 0.19 - 71, 2, 0.5)) < 0.022)
+      return BlockId.MAGMA_ROCK
+    return patch < -0.25 ? BlockId.OBSIDIAN_BRICKS : BlockId.BASALT
+  }
+  if (edgeDistance + wobble < 15)
+    return patch > 0.3 ? BlockId.BASALT : BlockId.COBBLESTONE
+  if (patch > 0.28)
+    return BlockId.GRAVEL
+  return patch < -0.2 ? BlockId.COBBLESTONE : BlockId.STONE
+}
+
+/**
+ * 填格柱
+ *
+ * 只有露在外面的那幾格（比四方最矮的鄰居高的）才挑岩種，裡面一律是石。
+ * 熔岩湖：一格熔岩、底下一格玄武岩；稜線外：頂上一格 LAKE_BED
+ */
+function fillColumnList(state: Uint8Array, { kindMap, topMap }: TerrainMap): void {
   fillBox(state, 0, 0, 0, WORLD_SIZE - 1, 0, WORLD_SIZE - 1, BlockId.BEDROCK)
 
   for (let x = 0; x < WORLD_SIZE; x++) {
     for (let z = 0; z < WORLD_SIZE; z++) {
-      const wallDistance = measureWallDistance(x, z)
+      const index = toIndex(x, z)
+      const kind = kindMap[index]!
+      const topY = topMap[index]!
 
-      if (wallDistance <= 0) {
-        for (let y = 1; y < JIGOKU_FLOOR_Y; y++) {
+      if (kind === KIND_LAKE) {
+        for (let y = 1; y < LAKE_Y - 1; y++) {
           setBlock(state, x, y, z, BlockId.STONE)
         }
-        setBlock(state, x, JIGOKU_FLOOR_Y, z, pickFloorBlock(x, z, measureRiftDistance(x, z)))
+        setBlock(state, x, LAKE_Y - 1, z, BlockId.BASALT)
+        setBlock(state, x, LAKE_Y, z, BlockId.LAVA_FIELD)
         continue
       }
 
-      const rise = Math.ceil(wallDistance) * WALL_STEP
-      const topY = JIGOKU_FLOOR_Y + Math.min(VALLEY_WALL_HEIGHT, rise)
-
-      /** 谷壁頂再往外兩格：碰撞照算、不畫 */
-      if (rise > VALLEY_WALL_HEIGHT + WALL_STEP * 2) {
+      if (kind === KIND_HIDDEN) {
         for (let y = 1; y < topY; y++) {
           setBlock(state, x, y, z, BlockId.STONE)
         }
@@ -233,110 +350,320 @@ function shapeTerrain(state: Uint8Array): void {
         continue
       }
 
-      for (let y = 1; y < JIGOKU_FLOOR_Y; y++) {
-        setBlock(state, x, y, z, BlockId.STONE)
-      }
-      for (let y = JIGOKU_FLOOR_Y; y <= topY; y++) {
-        setBlock(state, x, y, z, pickWallBlock(x, y, z))
-      }
-    }
-  }
-}
-
-/**
- * 熔岩縫與兩側的岸，照地獄谷
- *
- * 岸的高度先算成一張圖、鬆弛到一格一階再堆：離縫越遠越高，乘一層低頻噪音讓岩脊忽高忽低，
- * 再往外漸漸收回谷底的高度。熔岩面與谷底齊平，挖兩格，底下明寫一層黑曜石磚
- */
-function carveRift(state: Uint8Array): void {
-  const fromX = JIGOKU_CENTER.x - RIFT_HALF_LENGTH - 2
-  const toX = JIGOKU_CENTER.x + RIFT_HALF_LENGTH + 2
-  const fromZ = JIGOKU_CENTER.z - 20
-  const toZ = JIGOKU_CENTER.z + 20
-  const sizeX = toX - fromX + 1
-  const sizeZ = toZ - fromZ + 1
-  const heightList = new Int8Array(sizeX * sizeZ)
-  const lavaList = new Uint8Array(sizeX * sizeZ)
-  const indexAt = (x: number, z: number) => (x - fromX) * sizeZ + (z - fromZ)
-
-  for (let x = fromX; x <= toX; x++) {
-    for (let z = fromZ; z <= toZ; z++) {
-      const distance = measureRiftDistance(x, z)
-      const index = indexAt(x, z)
-      if (distance <= 0) {
-        lavaList[index] = 1
-        continue
-      }
-      if (distance > 5)
-        continue
-      const ridge = fbm2D(x * 0.13, z * 0.13, 2, 0.5)
-      const rise = Math.round(distance * 0.8 * (0.4 + ridge * 1.4))
-      /** 過了三格往回收，岸是縫兩側一道隆起的唇，不是一路堆上去的牆 */
-      const fall = Math.max(0, Math.ceil(distance - 3))
-      heightList[index] = Math.max(0, Math.min(BANK_HEIGHT, rise, BANK_HEIGHT - fall))
-    }
-  }
-
-  /** 鬆弛：熔岩面與範圍外都算高度零，岸在水際與外緣自然收攏 */
-  for (let pass = 0; pass < BANK_HEIGHT + 2; pass++) {
-    for (let x = fromX + 1; x < toX; x++) {
-      for (let z = fromZ + 1; z < toZ; z++) {
-        const index = indexAt(x, z)
-        if (lavaList[index])
+      let lowestNeighbour = topY
+      for (const [offsetX, offsetZ] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+        const nextX = x + offsetX
+        const nextZ = z + offsetZ
+        if (nextX < 0 || nextX >= WORLD_SIZE || nextZ < 0 || nextZ >= WORLD_SIZE)
           continue
-        let lowest = BANK_HEIGHT
-        for (const [offsetX, offsetZ] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
-          const neighbour = indexAt(x + offsetX, z + offsetZ)
-          lowest = Math.min(lowest, lavaList[neighbour] ? 0 : heightList[neighbour]!)
-        }
-        heightList[index] = Math.min(heightList[index]!, lowest + 1)
+        lowestNeighbour = Math.min(lowestNeighbour, topMap[toIndex(nextX, nextZ)]!)
       }
-    }
-  }
 
-  for (let x = fromX; x <= toX; x++) {
-    for (let z = fromZ; z <= toZ; z++) {
-      const index = indexAt(x, z)
-      if (lavaList[index]) {
-        for (let depth = 0; depth < LAVA_DEPTH; depth++) {
-          setBlock(state, x, JIGOKU_FLOOR_Y - depth, z, BlockId.LAVA)
+      for (let y = 1; y <= topY; y++) {
+        const isExposed = y >= lowestNeighbour
+        if (!isExposed) {
+          setBlock(state, x, y, z, BlockId.STONE)
+          continue
         }
-        setBlock(state, x, JIGOKU_FLOOR_Y - LAVA_DEPTH, z, BlockId.OBSIDIAN_BRICKS)
-        continue
-      }
-      for (let level = 0; level < heightList[index]!; level++) {
-        setBlock(state, x, JIGOKU_FOOT_Y + level, z, BlockId.OBSIDIAN_BRICKS)
+        const isFloor = kind === KIND_TERRACE && y === topY && topY === TERRACE_Y
+        setBlock(state, x, y, z, isFloor ? pickFloorBlock(x, z) : pickWallBlock(x, y, z))
       }
     }
   }
 }
 
+/** 這一格是不是露著的熔岩：熔岩湖那一層還是熔岩、頭上是空的 */
+function isOpenLava(state: Uint8Array, x: number, z: number): boolean {
+  return getBlock(state, x, LAKE_Y, z) === BlockId.LAVA_FIELD && getBlock(state, x, LAKE_Y + 1, z) === BlockId.AIR
+}
+
 /**
- * 木棧與柵欄
+ * 黑岩原與熔岩河
  *
- * 約三格寬的半磚木板，比谷底高半格，從回程門往北接上繞著熔岩縫的那一圈；
- * 兩側一排柵欄，每隔一段留一個口。鳥居與回程門那一段不圍（柵欄會撞上鳥居的柱子）
+ * 西瀑落下來的熔岩在火口西北角淌開、涼成一片黑岩（繩狀熔岩），比熔岩面高一格，零星隆起一格的岩丘；
+ * 兩道還在流的熔岩河在裡面切出發亮的溝，河邊與岩面的裂縫透著暗紅（MAGMA_ROCK，不點燈）
  */
-function placeBoardwalk(state: Uint8Array, distanceMap: Float32Array, indexMap: Int32Array): void {
+function layLavaField(state: Uint8Array, { kindMap, topMap, riverDistanceMap }: TerrainMap): void {
+  const [firstRiver] = LAVA_RIVER_LIST
+  const plunge = firstRiver![0]!
+
   for (let x = 0; x < WORLD_SIZE; x++) {
     for (let z = 0; z < WORLD_SIZE; z++) {
-      const index = x * WORLD_SIZE + z
-      const distance = distanceMap[index]!
-      if (distance > RAILING_HALF_WIDTH)
+      const index = toIndex(x, z)
+      if (kindMap[index] !== KIND_LAKE)
         continue
-      if (getBlock(state, x, JIGOKU_FOOT_Y, z) !== BlockId.AIR)
+      const distance = riverDistanceMap[index]!
+      if (distance > LAVA_FIELD_REACH + fbm2D(x * 0.09 + 2, z * 0.09 + 77, 2, 0.5) * 4)
         continue
-      if (distance <= BOARDWALK_HALF_WIDTH) {
-        setBlock(state, x, JIGOKU_FOOT_Y, z, BlockId.WOOD_SLAB)
+
+      /** 河身與西瀑的落潭留著熔岩 */
+      const riverHalfWidth = 1.5 + fbm2D(x * 0.2 - 40, z * 0.2 + 13, 2, 0.5) * 0.9
+      if (distance <= riverHalfWidth || Math.hypot(x - plunge.x - 1, z - plunge.z - 1) <= 3.6)
+        continue
+
+      const isNearRiver = distance <= riverHalfWidth + 2.4
+      const isCrack = Math.abs(fbm2D(x * 0.16 + 90, z * 0.16 + 12, 2, 0.5)) < 0.03
+      const isMound = !isNearRiver && fbm2D(x * 0.14 - 55, z * 0.14 + 61, 2, 0.5) > 0.3
+      const isGlowing = isCrack || (isNearRiver && hashCell(x, z, 3) < 0.26)
+
+      setBlock(state, x, LAKE_Y, z, BlockId.BASALT)
+      setBlock(state, x, LAKE_Y + 1, z, isGlowing && !isMound ? BlockId.MAGMA_ROCK : BlockId.BASALT)
+      topMap[index] = LAKE_Y + 1
+      if (isMound) {
+        setBlock(state, x, LAKE_Y + 2, z, isCrack ? BlockId.MAGMA_ROCK : BlockId.BASALT)
+        topMap[index] = LAKE_Y + 2
+      }
+    }
+  }
+}
+
+/**
+ * 一叢柱狀玄武岩
+ *
+ * 兩格見方一根柱子，隔行錯開半根（從上面看像蜂巢），每根的高度各自差一點：
+ * 中間最高、往外一圈一圈矮下去，就是一排一排高低參差的風琴管
+ */
+function placeBasaltStack(state: Uint8Array, { kindMap, topMap }: TerrainMap, stack: BasaltStack, seed: number): void {
+  const limit = Math.ceil(stack.radius + 2)
+  for (let x = Math.round(stack.x - limit); x <= Math.round(stack.x + limit); x++) {
+    for (let z = Math.round(stack.z - limit); z <= Math.round(stack.z + limit); z++) {
+      const index = toIndex(x, z)
+      if (kindMap[index] !== KIND_LAKE)
+        continue
+      const row = Math.floor(z / 2)
+      const column = Math.floor((x + (row & 1)) / 2)
+      const columnCenterX = column * 2 - (row & 1) + 0.5
+      const columnCenterZ = row * 2 + 0.5
+      const distance = Math.hypot(columnCenterX - stack.x, columnCenterZ - stack.z)
+      if (distance > stack.radius)
+        continue
+      const envelope = 1 - (distance / stack.radius) ** 1.7
+      const height = Math.max(1, Math.round(stack.height * envelope * (0.55 + 0.45 * hashCell(column, row, seed))))
+      for (let level = 0; level <= height; level++) {
+        setBlock(state, x, LAKE_Y + level, z, BlockId.BASALT)
+      }
+      topMap[index] = LAKE_Y + height
+    }
+  }
+}
+
+/** 所有的玄武岩柱；湖心島頂上一株站著死掉的炭黑枯木 */
+function placeBasaltStackList(state: Uint8Array, terrain: TerrainMap): void {
+  for (const [stackIndex, stack] of BASALT_STACK_LIST.entries()) {
+    placeBasaltStack(state, terrain, stack, 20 + stackIndex)
+  }
+  const islandTop = terrain.topMap[toIndex(LAKE_ISLAND.x, LAKE_ISLAND.z)]!
+  placeDeadTree(state, LAKE_ISLAND.x, islandTop + 1, LAKE_ISLAND.z, 4, CHARRED_LOG_SET)
+}
+
+/**
+ * 一道熔岩瀑
+ *
+ * 落點四周的火口壁是直立的崖（見 classifyTerrain）。貼著崖腳的那一排熔岩格從湖面一路疊到瀑頂，就是瀑身；
+ * 崖頂往稜線後面挖一道同寬的溝、鋪一層熔岩，是瀑布的來路（從火口裡只看得到溝口）。
+ * 瀑身只是一面會動的熔岩貼圖，往下淌的樣子由渲染端在外面貼一層（見 jigoku-lava-falls）
+ */
+function carveLavaFall(state: Uint8Array, { kindMap, topMap }: TerrainMap, fall: LavaFall): void {
+  /** 壁面在落點的朝外方向與沿著壁面的方向 */
+  const gradientX = (fall.x - JIGOKU_CENTER.x) / CRATER_RADIUS_X ** 2
+  const gradientZ = (fall.z - JIGOKU_CENTER.z) / CRATER_RADIUS_Z ** 2
+  const gradientLength = Math.hypot(gradientX, gradientZ)
+  const outwardX = gradientX / gradientLength
+  const outwardZ = gradientZ / gradientLength
+  const reach = fall.halfWidth + FALL_CHANNEL_LENGTH + 4
+
+  for (let x = Math.round(fall.x - reach); x <= Math.round(fall.x + reach); x++) {
+    for (let z = Math.round(fall.z - reach); z <= Math.round(fall.z + reach); z++) {
+      if (x < 1 || x >= WORLD_SIZE - 1 || z < 1 || z >= WORLD_SIZE - 1)
+        continue
+      const index = toIndex(x, z)
+      const along = (x - fall.x) * -outwardZ + (z - fall.z) * outwardX
+      const depth = (x - fall.x) * outwardX + (z - fall.z) * outwardZ
+      if (Math.abs(along) > fall.halfWidth + 0.5)
+        continue
+
+      const kind = kindMap[index]!
+      if (kind === KIND_LAKE) {
+        /** 瀑身：貼著崖腳的那一排 */
+        if (depth > -4 && hasNeighbourKind(kindMap, x, z, KIND_WALL, false)) {
+          for (let y = LAKE_Y + 1; y <= fall.topY; y++) {
+            setBlock(state, x, y, z, BlockId.LAVA_FIELD)
+          }
+        }
         continue
       }
 
-      const isSpur = Math.abs(x - JIGOKU_PORTAL_POINT.x) <= 3 && z > JIGOKU_TORII_Z - 3
-      const isGap = indexMap[index]! % RAILING_GAP_PERIOD < RAILING_GAP_LENGTH
-      if (isSpur || isGap)
+      /** 來路：稜線上的缺口與後面那道溝 */
+      if (depth <= FALL_CHANNEL_LENGTH) {
+        for (let y = fall.topY + 1; y <= topMap[index]!; y++) {
+          setBlock(state, x, y, z, BlockId.AIR)
+        }
+        setBlock(state, x, fall.topY - 1, z, BlockId.BASALT)
+        setBlock(state, x, fall.topY, z, BlockId.LAVA_FIELD)
+        kindMap[index] = KIND_WALL
+        topMap[index] = fall.topY - 1
+      }
+    }
+  }
+}
+
+/**
+ * 湖面上漂著的岩殼
+ *
+ * 湖面的殼與縫是渲染端畫的（見 jigoku-lava-surface）；這裡放的是厚到凸出湖面的那幾塊：
+ * 實心的玄武岩，頂面比熔岩面高一點點，從湖裡踩得上來。
+ * 靠崖腳與火口壁的地方涼得快、殼厚；湖心只有零星幾塊；瀑布落點、參道與祠台四周不放
+ */
+function scatterCrustList(state: Uint8Array, { kindMap }: TerrainMap): void {
+  for (let x = 2; x < WORLD_SIZE - 2; x++) {
+    for (let z = 2; z < WORLD_SIZE - 2; z++) {
+      if (kindMap[toIndex(x, z)] !== KIND_LAKE || !isOpenLava(state, x, z))
         continue
-      setBlock(state, x, JIGOKU_FOOT_Y, z, BlockId.FENCE)
+      if (LAVA_FALL_LIST.some((fall) => Math.hypot(x - fall.x, z - fall.z) < fall.halfWidth * 2.5 + 4))
+        continue
+      if (Math.abs(x - JIGOKU_CENTER.x) <= 11 && z >= LAVA_TORII.z - 3 && z <= OVERLOOK_EDGE_Z)
+        continue
+
+      let isNearShore = false
+      for (let offsetX = -3; offsetX <= 3 && !isNearShore; offsetX++) {
+        for (let offsetZ = -3; offsetZ <= 3 && !isNearShore; offsetZ++) {
+          isNearShore = kindMap[toIndex(x + offsetX, z + offsetZ)] !== KIND_LAKE
+        }
+      }
+      const plate = fbm2D(x * 0.085 + 50, z * 0.085 - 7, 3, 0.5)
+      if (plate > (isNearShore ? 0.08 : 0.42) || hashCell(x, z, 7) < 0.006)
+        setBlock(state, x, LAKE_Y, z, BlockId.BASALT)
+    }
+  }
+}
+
+/** 石階第幾階（崖邊那一排是零）的踏面高度：一格降半格 */
+function measureTreadSurface(step: number): number {
+  return TERRACE_Y + 0.5 - step * 0.5
+}
+
+/**
+ * 石階、參道與祠台
+ *
+ * 石階：半磚與整格交錯，走起來是平順的下坡；壓在一座玄武岩墩上，兩側各一排柵欄。
+ * 岩墩外側再堆兩排碎石坡，從湖面一階一階爬到崖頂：掉進熔岩的人從這裡上來，翻過柵欄就回到石階。
+ * 參道：五格寬的石板，兩側柵欄，比熔岩面高一格多。
+ * 祠台：削了角的方台，四周柵欄只留參道那一個口；北緣一塊刻紋石碑、一對石燈籠，碑後就是熔岩
+ */
+function buildCauseway(state: Uint8Array, { kindMap, topMap }: TerrainMap): void {
+  const centerX = JIGOKU_CENTER.x
+  const railOffset = STAIR_HALF_WIDTH + 1
+
+  const fillColumn = (x: number, z: number, topY: number, topBlock: BlockId) => {
+    for (let y = LAKE_Y - 1; y < topY; y++) {
+      setBlock(state, x, y, z, BlockId.BASALT)
+    }
+    setBlock(state, x, topY, z, topBlock)
+    kindMap[toIndex(x, z)] = KIND_WALL
+    topMap[toIndex(x, z)] = topY
+  }
+
+  for (let step = 1; step <= STAIR_LENGTH; step++) {
+    const z = OVERLOOK_EDGE_Z - step
+    const surface = measureTreadSurface(step)
+    /** 踏面落在整數高度的那幾階是半磚（佔那一格的下半格），其餘是整格 */
+    const isSlab = Number.isInteger(surface)
+    const solidTopY = isSlab ? surface - 1 : surface - 0.5
+    const railTopY = Math.ceil(surface - 0.5)
+
+    for (let offsetX = -STAIR_HALF_WIDTH; offsetX <= STAIR_HALF_WIDTH; offsetX++) {
+      fillColumn(centerX + offsetX, z, solidTopY, isSlab ? BlockId.BASALT : BlockId.STONE_TILE)
+      if (isSlab)
+        setBlock(state, centerX + offsetX, surface, z, BlockId.STONE_SLAB)
+    }
+    for (const side of [-1, 1]) {
+      fillColumn(centerX + side * railOffset, z, railTopY, BlockId.BASALT)
+      setBlock(state, centerX + side * railOffset, railTopY + 1, z, BlockId.FENCE)
+      /** 碎石坡：貼著岩墩的那一排與石階同高，再外面一排矮一格，最底下接到湖面的岩殼 */
+      fillColumn(centerX + side * (railOffset + 1), z, railTopY, BlockId.BASALT)
+      fillColumn(centerX + side * (railOffset + 2), z, Math.max(LAKE_Y, railTopY - 1 - (hashCell(z, side, 5) < 0.4 ? 1 : 0)), BlockId.BASALT)
+    }
+  }
+
+  /** 碎石坡腳：幾塊與熔岩面齊平的岩殼，從熔岩裡踩得上來 */
+  for (const side of [-1, 1]) {
+    for (let offsetX = railOffset + 1; offsetX <= railOffset + 4; offsetX++) {
+      for (let z = CAUSEWAY_START_Z - 2; z <= CAUSEWAY_START_Z + 2; z++) {
+        const x = centerX + side * offsetX
+        if (isOpenLava(state, x, z))
+          setBlock(state, x, LAKE_Y, z, BlockId.BASALT)
+      }
+    }
+  }
+
+  for (let z = CAUSEWAY_END_Z; z <= CAUSEWAY_START_Z; z++) {
+    for (let offsetX = -railOffset; offsetX <= railOffset; offsetX++) {
+      const isRail = Math.abs(offsetX) === railOffset
+      fillColumn(centerX + offsetX, z, CAUSEWAY_Y, isRail ? BlockId.BASALT : BlockId.STONE_TILE)
+      if (isRail)
+        setBlock(state, centerX + offsetX, CAUSEWAY_Y + 1, z, BlockId.FENCE)
+    }
+  }
+
+  const { x: shrineX, z: shrineZ, halfSize } = SHRINE_PLATFORM
+  const isOnPlatform = (x: number, z: number) => {
+    const offsetX = Math.abs(x - shrineX)
+    const offsetZ = Math.abs(z - shrineZ)
+    return offsetX <= halfSize && offsetZ <= halfSize && offsetX + offsetZ <= halfSize * 2 - 3
+  }
+  for (let x = shrineX - halfSize; x <= shrineX + halfSize; x++) {
+    for (let z = shrineZ - halfSize; z <= shrineZ + halfSize; z++) {
+      if (!isOnPlatform(x, z))
+        continue
+      const isEntrance = z === shrineZ + halfSize && Math.abs(x - shrineX) <= STAIR_HALF_WIDTH
+      const isEdge = !isOnPlatform(x + 1, z) || !isOnPlatform(x - 1, z) || !isOnPlatform(x, z + 1) || !isOnPlatform(x, z - 1)
+      fillColumn(x, z, CAUSEWAY_Y, isEdge && !isEntrance ? BlockId.BASALT : BlockId.STONE_TILE)
+      if (isEdge && !isEntrance)
+        setBlock(state, x, CAUSEWAY_Y + 1, z, BlockId.FENCE)
+    }
+  }
+
+  /** 刻紋石碑與一對石燈籠，照地獄谷；立在北緣的柵欄前，碑後隔著熔岩就是大鳥居 */
+  const steleZ = shrineZ - halfSize + 2
+  setBlock(state, shrineX, CAUSEWAY_Y + 1, steleZ, BlockId.RUNE_STONE)
+  setBlock(state, shrineX, CAUSEWAY_Y + 2, steleZ, BlockId.RUNE_STONE)
+  setBlock(state, shrineX, CAUSEWAY_Y + 3, steleZ, BlockId.STONE_SLAB)
+  placeStoneLantern(state, shrineX - 3, CAUSEWAY_Y + 1, steleZ)
+  placeStoneLantern(state, shrineX + 3, CAUSEWAY_Y + 1, steleZ)
+
+  /** 立在熔岩裡的大鳥居：柱腳的石礎沉在熔岩那一層 */
+  placeTorii(state, LAVA_TORII.x, LAKE_Y + 1, LAVA_TORII.z, true, LAVA_TORII.halfWidth, LAVA_TORII.height)
+}
+
+/**
+ * 湯瀧：崖邊的小熱泉與翻下崖的那一道水
+ *
+ * 泉池照一般的熱泉；一道一格寬的水溝從池子往北流到崖邊，鑽過岩唇底下（那一格頭上留著岩，人鑽不過去），
+ * 貼著崖面落到湖邊一塊岩棚上。岩棚上那一團蒸氣由渲染端冒（見 jigoku-steam）
+ */
+function carveSpillSpring(state: Uint8Array, { kindMap, topMap }: TerrainMap): void {
+  placeHotPool(state, { ...SPILL_SPRING, kind: 'spring' })
+
+  const x = SPILL_SPRING.x
+  let z = Math.round(SPILL_SPRING.z - SPILL_SPRING.radius)
+  while (kindMap[toIndex(x, z)] === KIND_TERRACE) {
+    setBlock(state, x, TERRACE_Y, z, BlockId.WATER)
+    setBlock(state, x, TERRACE_Y - 1, z, BlockId.CLAY)
+    const isUnderLip = topMap[toIndex(x, z)]! > TERRACE_Y
+    if (!isUnderLip)
+      setBlock(state, x, TERRACE_Y + 1, z, BlockId.AIR)
+    z--
+  }
+
+  for (let y = LAKE_Y + 1; y <= TERRACE_Y; y++) {
+    setBlock(state, x, y, z, BlockId.FLOWING_WATER)
+  }
+  for (let offsetX = -2; offsetX <= 2; offsetX++) {
+    for (let offsetZ = -2; offsetZ <= 1; offsetZ++) {
+      if (Math.abs(offsetX) + Math.abs(offsetZ) > 3)
+        continue
+      if (kindMap[toIndex(x + offsetX, z + offsetZ)] === KIND_LAKE && getBlock(state, x + offsetX, LAKE_Y, z + offsetZ) === BlockId.LAVA_FIELD)
+        setBlock(state, x + offsetX, LAKE_Y, z + offsetZ, BlockId.BASALT)
     }
   }
 }
@@ -357,17 +684,19 @@ function placeHotPool(state: Uint8Array, pool: HotPool): void {
       const distance = getNoisyDistance(x, z, pool.x, pool.z, 0.3, 1.2)
       if (distance <= pool.radius) {
         for (let level = 0; level < depth; level++) {
-          setBlock(state, x, JIGOKU_FLOOR_Y - level, z, BlockId.WATER)
+          setBlock(state, x, TERRACE_Y - level, z, BlockId.WATER)
         }
-        setBlock(state, x, JIGOKU_FLOOR_Y - depth, z, BlockId.CLAY)
+        setBlock(state, x, TERRACE_Y - depth, z, BlockId.CLAY)
         continue
       }
+      if (getBlock(state, x, JIGOKU_FOOT_Y, z) !== BlockId.AIR)
+        continue
       if (distance <= pool.radius + 1) {
-        setBlock(state, x, JIGOKU_FLOOR_Y, z, BlockId.CLAY)
+        setBlock(state, x, TERRACE_Y, z, BlockId.CLAY)
         continue
       }
-      if (pool.kind === 'spring' && distance <= pool.radius + 2.6 && getBlock(state, x, JIGOKU_FOOT_Y, z) === BlockId.AIR) {
-        setBlock(state, x, JIGOKU_FLOOR_Y, z, BlockId.SANDSTONE)
+      if (pool.kind === 'spring' && distance <= pool.radius + 2.6) {
+        setBlock(state, x, TERRACE_Y, z, BlockId.SANDSTONE)
       }
     }
   }
@@ -388,7 +717,7 @@ function placeSteamVent(state: Uint8Array, vent: { x: number; z: number }): void
         continue
       if (getBlock(state, x, JIGOKU_FOOT_Y, z) !== BlockId.AIR)
         continue
-      setBlock(state, x, JIGOKU_FLOOR_Y, z, BlockId.SANDSTONE)
+      setBlock(state, x, TERRACE_Y, z, BlockId.SANDSTONE)
     }
   }
   for (let offsetX = -1; offsetX <= 1; offsetX++) {
@@ -398,92 +727,166 @@ function placeSteamVent(state: Uint8Array, vent: { x: number; z: number }): void
       setBlock(state, vent.x + offsetX, JIGOKU_FOOT_Y, vent.z + offsetZ, Math.abs(offsetX) + Math.abs(offsetZ) === 2 ? BlockId.SANDSTONE : BlockId.COBBLESTONE)
     }
   }
-  setBlock(state, vent.x, JIGOKU_FLOOR_Y, vent.z, BlockId.AIR)
-  setBlock(state, vent.x, JIGOKU_FLOOR_Y - 1, vent.z, BlockId.GRAVEL)
+  setBlock(state, vent.x, TERRACE_Y, vent.z, BlockId.AIR)
+  setBlock(state, vent.x, TERRACE_Y - 1, vent.z, BlockId.GRAVEL)
 }
 
 /**
- * 從裂縫往外散開的餘燼，照地獄谷：越靠近縫越多、越遠越稀，沉在地面那一層
+ * 硫磺階地
  *
- * 只替換谷底的地面（石板、圓石、黑曜石磚），上面有東西（木棧、柵欄、岸）就跳過
+ * 火口壁腳一口泉眼，流出來的熱水一層一層結成礦華：三階硫磺黃的砂岩，一階比一階小、高一格，
+ * 每一階外緣一圈高起來的邊、裡面積著一窪水，最頂上是泉眼
  */
-function scatterEmberList(state: Uint8Array, random: () => number): void {
-  const floorSet = new Set([BlockId.STONE_TILE, BlockId.COBBLESTONE, BlockId.OBSIDIAN_BRICKS])
-  for (let x = JIGOKU_CENTER.x - RIFT_HALF_LENGTH - EMBER_REACH; x <= JIGOKU_CENTER.x + RIFT_HALF_LENGTH + EMBER_REACH; x++) {
-    for (let z = JIGOKU_CENTER.z - 24; z <= JIGOKU_CENTER.z + 24; z++) {
-      const distance = measureRiftDistance(x, z)
-      if (distance < 1.6 || distance > EMBER_REACH)
+function buildSulphurTerrace(state: Uint8Array, { kindMap, topMap }: TerrainMap): void {
+  const { x: sourceX, z: sourceZ, radius, tierCount } = SULPHUR_TERRACE
+  const measureTier = (x: number, z: number): number => {
+    if (kindMap[toIndex(x, z)] !== KIND_TERRACE)
+      return 0
+    const distance = getNoisyDistance(x, z, sourceX, sourceZ, 0.25, 1.4)
+    return Math.max(0, Math.min(tierCount, Math.ceil((radius - distance) / (radius / tierCount))))
+  }
+
+  for (let x = sourceX - radius - 2; x <= sourceX + radius + 2; x++) {
+    for (let z = sourceZ - radius - 2; z <= sourceZ + radius + 2; z++) {
+      const tier = measureTier(x, z)
+      if (tier === 0)
         continue
-      if (random() > EMBER_CHANCE * (1 - distance / EMBER_REACH))
+      const tierTopY = TERRACE_Y + tier
+      for (let y = TERRACE_Y; y <= tierTopY; y++) {
+        setBlock(state, x, y, z, BlockId.SANDSTONE)
+      }
+      for (let y = tierTopY + 1; y <= topMap[toIndex(x, z)]!; y++) {
+        setBlock(state, x, y, z, BlockId.AIR)
+      }
+      topMap[toIndex(x, z)] = tierTopY
+      /** 這一階的外緣（旁邊有比它矮的）留著當邊，裡面那幾格換成水 */
+      const isRim = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([offsetX, offsetZ]) => measureTier(x + offsetX!, z + offsetZ!) < tier)
+      if (!isRim)
+        setBlock(state, x, tierTopY, z, BlockId.WATER)
+    }
+  }
+}
+
+/** 木棧中心線上的點：回程門往北到到著台的那一段，加上往東西兩臂的兩條 */
+function sampleBoardwalk(): { x: number; z: number }[] {
+  const sampleList: { x: number; z: number }[] = []
+  for (let z = JIGOKU_PORTAL_POINT.z - 1; z >= BOARDWALK_SPUR_END_Z; z -= 0.5) {
+    sampleList.push({ x: JIGOKU_PORTAL_POINT.x, z })
+  }
+  sampleList.push(...samplePathCurve(BOARDWALK_WEST_POINT_LIST, 24), ...samplePathCurve(BOARDWALK_EAST_POINT_LIST, 24))
+  return sampleList
+}
+
+/** 每一格離木棧中心線多遠，以及它對應到中心線上第幾點（柵欄留口用） */
+function createBoardwalkMap(): { distanceMap: Float32Array; indexMap: Int32Array } {
+  const distanceMap = new Float32Array(WORLD_SIZE * WORLD_SIZE).fill(Number.POSITIVE_INFINITY)
+  const indexMap = new Int32Array(WORLD_SIZE * WORLD_SIZE).fill(-1)
+  const reach = 4
+  for (const [sampleIndex, point] of sampleBoardwalk().entries()) {
+    for (let x = Math.floor(point.x - reach); x <= Math.ceil(point.x + reach); x++) {
+      for (let z = Math.floor(point.z - reach); z <= Math.ceil(point.z + reach); z++) {
+        const index = toIndex(x, z)
+        const distance = Math.hypot(x - point.x, z - point.z)
+        if (distance < distanceMap[index]!) {
+          distanceMap[index] = distance
+          indexMap[index] = sampleIndex
+        }
+      }
+    }
+  }
+  return { distanceMap, indexMap }
+}
+
+/**
+ * 木棧與柵欄
+ *
+ * 約三格寬的半磚木板，比台地高半格；兩側一排柵欄，每隔一段留一個口。
+ * 鳥居與回程門那一段不圍（柵欄會撞上鳥居的柱子）；到著台與展望台鋪的是石板，木棧到那裡就停
+ */
+function placeBoardwalk(state: Uint8Array, { kindMap, topMap }: TerrainMap, distanceMap: Float32Array, indexMap: Int32Array): void {
+  for (let x = 0; x < WORLD_SIZE; x++) {
+    for (let z = 0; z < WORLD_SIZE; z++) {
+      const index = toIndex(x, z)
+      const distance = distanceMap[index]!
+      if (distance > RAILING_HALF_WIDTH || kindMap[index] !== KIND_TERRACE || topMap[index] !== TERRACE_Y)
         continue
-      if (!floorSet.has(getBlock(state, x, JIGOKU_FLOOR_Y, z)) || getBlock(state, x, JIGOKU_FOOT_Y, z) !== BlockId.AIR)
+      if (isPavedSpot(x, z) || getBlock(state, x, JIGOKU_FOOT_Y, z) !== BlockId.AIR)
         continue
-      setBlock(state, x, JIGOKU_FLOOR_Y, z, BlockId.EMBER)
+      if (distance <= BOARDWALK_HALF_WIDTH) {
+        setBlock(state, x, JIGOKU_FOOT_Y, z, BlockId.WOOD_SLAB)
+        continue
+      }
+
+      const isSpur = Math.abs(x - JIGOKU_PORTAL_POINT.x) <= 3 && z > JIGOKU_TORII_Z - 3
+      const isGap = indexMap[index]! % RAILING_GAP_PERIOD < RAILING_GAP_LENGTH
+      if (isSpur || isGap)
+        continue
+      setBlock(state, x, JIGOKU_FOOT_Y, z, BlockId.FENCE)
     }
   }
 }
 
 /**
- * 鳥居與石碑，照地獄谷
+ * 到著台與展望台：鋪石板，崖邊圍柵欄
  *
- * 鳥居跨在回程門往北那一段木棧上，人一出門先穿過它；石碑立在木棧那一圈的北邊、正對熔岩縫，
- * 碑前一對石燈籠。走過鳥居、走上那一圈，抬頭就是碑與碑後那條發光的縫
+ * 這幾處崖邊不墊岩唇（岩唇會擋住往下看的那一眼），改用柵欄；到著台正中留五格是石階的口
  */
-function placeShrine(state: Uint8Array): void {
-  placeTorii(state, JIGOKU_PORTAL_POINT.x, JIGOKU_FOOT_Y, JIGOKU_TORII_Z, true)
+function pavePlazaList(state: Uint8Array, { kindMap, topMap }: TerrainMap): void {
+  for (let x = 1; x < WORLD_SIZE - 1; x++) {
+    for (let z = 1; z < WORLD_SIZE - 1; z++) {
+      const index = toIndex(x, z)
+      if (kindMap[index] !== KIND_TERRACE || !isPavedSpot(x, z))
+        continue
+      for (let y = TERRACE_Y + 1; y <= topMap[index]!; y++) {
+        setBlock(state, x, y, z, BlockId.AIR)
+      }
+      topMap[index] = TERRACE_Y
+      setBlock(state, x, TERRACE_Y, z, BlockId.STONE_TILE)
 
-  const steleX = JIGOKU_CENTER.x
-  const steleZ = BOARDWALK_LOOP_POINT_LIST[0]!.z - 4
-  setBlock(state, steleX, JIGOKU_FOOT_Y, steleZ, BlockId.RUNE_STONE)
-  setBlock(state, steleX, JIGOKU_FOOT_Y + 1, steleZ, BlockId.RUNE_STONE)
-  setBlock(state, steleX, JIGOKU_FOOT_Y + 2, steleZ, BlockId.STONE_SLAB)
-  placeStoneLantern(state, steleX - 2, JIGOKU_FOOT_Y, steleZ)
-  placeStoneLantern(state, steleX + 2, JIGOKU_FOOT_Y, steleZ)
+      const isStairHead = z === OVERLOOK_EDGE_Z && Math.abs(x - JIGOKU_CENTER.x) <= STAIR_HALF_WIDTH
+      /** 旁邊不是台地的都算崖邊：石階兩側的岩墩與碎石坡也在內，柵欄才會一路接到石階的柵欄上 */
+      const isEdge = hasNeighbourKind(kindMap, x, z, KIND_LAKE, true) || hasNeighbourKind(kindMap, x, z, KIND_WALL, true)
+      if (!isStairHead && isEdge)
+        setBlock(state, x, JIGOKU_FOOT_Y, z, BlockId.FENCE)
+    }
+  }
+
+  /** 石階口兩側各一盞石燈籠：入夜到著台上唯一的光，標出往下走的路 */
+  for (const side of [-1, 1]) {
+    placeStoneLantern(state, JIGOKU_CENTER.x + side * (STAIR_HALF_WIDTH + 2), JIGOKU_FOOT_Y, OVERLOOK_EDGE_Z + 2)
+  }
 }
 
 /**
- * 站著死掉的炭黑枯木與白骨，照地獄谷
+ * 湖面上的熱點：那幾格真的 LAVA
  *
- * 枯木全在離縫遠的地方（被熱氣慢慢烤死的，離縫越近死得越徹底），木棧與池子旁邊不放；
- * 白骨少而不明顯，只擺在谷壁腳的角落
+ * 每個定點找最近一格露著的熔岩換成 LAVA（找不到就不放，數量由檢查腳本對）
  */
-function placeDeadTreeList(state: Uint8Array, distanceMap: Float32Array, random: () => number): void {
-  let treeCount = 0
-  for (let attempt = 0; attempt < 400 && treeCount < 26; attempt++) {
-    const x = Math.round(JIGOKU_CENTER.x + (random() * 2 - 1) * VALLEY_RADIUS_X)
-    const z = Math.round(JIGOKU_CENTER.z + (random() * 2 - 1) * VALLEY_RADIUS_Z)
-    const height = 3 + Math.floor(random() * 3)
-    const wallDistance = measureWallDistance(x, z)
-    if (wallDistance > -2 || measureRiftDistance(x, z) < 12)
-      continue
-    if (distanceMap[x * WORLD_SIZE + z]! < 4)
-      continue
-    if (!isClearFloor(state, x, z, 2))
-      continue
-    placeDeadTree(state, x, JIGOKU_FOOT_Y, z, height, CHARRED_LOG_SET)
-    treeCount++
-  }
-
-  let boneCount = 0
-  for (let attempt = 0; attempt < 300 && boneCount < 7; attempt++) {
-    const x = Math.round(JIGOKU_CENTER.x + (random() * 2 - 1) * VALLEY_RADIUS_X)
-    const z = Math.round(JIGOKU_CENTER.z + (random() * 2 - 1) * VALLEY_RADIUS_Z)
-    const wallDistance = measureWallDistance(x, z)
-    if (wallDistance > -0.5 || wallDistance < -3)
-      continue
-    if (!isClearFloor(state, x, z, 0))
-      continue
-    setDecoration(state, x, JIGOKU_FOOT_Y, z, BlockId.BONES)
-    boneCount++
+function placeLavaLightList(state: Uint8Array): void {
+  for (const point of LAVA_LIGHT_POINT_LIST) {
+    let best: { x: number; z: number; distance: number } | null = null
+    for (let offsetX = -4; offsetX <= 4; offsetX++) {
+      for (let offsetZ = -4; offsetZ <= 4; offsetZ++) {
+        const x = point.x + offsetX
+        const z = point.z + offsetZ
+        const distance = Math.hypot(offsetX, offsetZ)
+        if (isOpenLava(state, x, z) && (!best || distance < best.distance))
+          best = { x, z, distance }
+      }
+    }
+    if (best)
+      setBlock(state, best.x, LAKE_Y, best.z, BlockId.LAVA)
   }
 }
 
-/** 這一格四周 reach 格內是不是乾淨的谷底：地面是石，頭上是空的 */
-function isClearFloor(state: Uint8Array, x: number, z: number, reach: number): boolean {
+/** 這一格四周 reach 格內是不是乾淨的台地：地面是岩，頭上是空的 */
+function isClearFloor(state: Uint8Array, { kindMap, topMap }: TerrainMap, x: number, z: number, reach: number): boolean {
   for (let offsetX = -reach; offsetX <= reach; offsetX++) {
     for (let offsetZ = -reach; offsetZ <= reach; offsetZ++) {
-      const ground = getBlock(state, x + offsetX, JIGOKU_FLOOR_Y, z + offsetZ)
-      if (ground !== BlockId.STONE_TILE && ground !== BlockId.COBBLESTONE)
+      const index = toIndex(x + offsetX, z + offsetZ)
+      if (kindMap[index] !== KIND_TERRACE || topMap[index] !== TERRACE_Y)
+        return false
+      if (!PLANT_GROUND_SET.has(getBlock(state, x + offsetX, TERRACE_Y, z + offsetZ)))
         return false
       if (getBlock(state, x + offsetX, JIGOKU_FOOT_Y, z + offsetZ) !== BlockId.AIR)
         return false
@@ -493,19 +896,70 @@ function isClearFloor(state: Uint8Array, x: number, z: number, reach: number): b
 }
 
 /**
- * 熱氣烤不死的那幾種，照地獄谷：枯灌五成、枯草三成、石生植物兩成，撒在兩成的石板與圓石上。
- * 一株開花的都沒有
+ * 這一格是不是貼著細節小景（蛋攤、足湯、賽之河原）或到著台
+ *
+ * 細節小景排在枯木之後才蓋，蓋的時候只看自己那幾格空不空：枯木種在旁邊一格，
+ * 岔出去的枝會插進野點傘或足湯的木頂裡
  */
-function scatterPlantList(state: Uint8Array): void {
+function isNearDetailSpot(x: number, z: number): boolean {
+  if (Math.hypot(x - EGG_STALL_POINT.x, z - EGG_STALL_POINT.z) < 5 || Math.hypot(x - CAIRN_FIELD.x, z - CAIRN_FIELD.z) < CAIRN_FIELD.radius + 2)
+    return true
+  if (Math.hypot(x - OVERLOOK_PLAZA.x, z - OVERLOOK_PLAZA.z) < OVERLOOK_PLAZA.radius + 3)
+    return true
+  return x >= FOOT_BATH_RECT.minX - 4 && x <= FOOT_BATH_RECT.maxX + 4 && z >= FOOT_BATH_RECT.minZ - 4 && z <= FOOT_BATH_RECT.maxZ + 4
+}
+
+/** 長得出東西、立得住枯木的地面：玄武岩與黑曜石磚上寸草不生 */
+const PLANT_GROUND_SET = new Set([BlockId.STONE, BlockId.COBBLESTONE, BlockId.GRAVEL])
+
+/**
+ * 站著死掉的炭黑枯木與白骨，照地獄谷
+ *
+ * 枯木全在離崖邊遠的地方（被熱氣慢慢烤死的，離熔岩越近死得越徹底、連樹幹都不剩），木棧與池子旁邊不放；
+ * 白骨少而不明顯，只擺在火口壁腳的角落
+ */
+function placeDeadTreeList(state: Uint8Array, terrain: TerrainMap, distanceMap: Float32Array, random: () => number): void {
+  let treeCount = 0
+  for (let attempt = 0; attempt < 900 && treeCount < 30; attempt++) {
+    const x = Math.round(JIGOKU_CENTER.x + (random() * 2 - 1) * CRATER_RADIUS_X)
+    const z = Math.round(JIGOKU_CENTER.z + (random() * 2 - 1) * CRATER_RADIUS_Z)
+    const height = 3 + Math.floor(random() * 3)
+    if (terrain.kindMap[toIndex(x, z)] !== KIND_TERRACE || distanceMap[toIndex(x, z)]! < 5 || isNearDetailSpot(x, z))
+      continue
+    if ((measureCraterRatio(x, z) - 1) * CRATER_RADIUS_Z > -3 || !isClearFloor(state, terrain, x, z, 2))
+      continue
+    placeDeadTree(state, x, JIGOKU_FOOT_Y, z, height, CHARRED_LOG_SET)
+    treeCount++
+  }
+
+  let boneCount = 0
+  for (let attempt = 0; attempt < 900 && boneCount < 8; attempt++) {
+    const x = Math.round(JIGOKU_CENTER.x + (random() * 2 - 1) * CRATER_RADIUS_X)
+    const z = Math.round(JIGOKU_CENTER.z + (random() * 2 - 1) * CRATER_RADIUS_Z)
+    if (terrain.kindMap[toIndex(x, z)] !== KIND_TERRACE)
+      continue
+    const wallDistance = (measureCraterRatio(x, z) - 1) * CRATER_RADIUS_Z
+    if (wallDistance > -3 || wallDistance < -7 || !isClearFloor(state, terrain, x, z, 0))
+      continue
+    setDecoration(state, x, JIGOKU_FOOT_Y, z, BlockId.BONES)
+    boneCount++
+  }
+}
+
+/**
+ * 熱氣烤不死的那幾種，照地獄谷：枯灌五成、枯草三成、石生植物兩成，撒在一成半的石、圓石與礫上。
+ * 一株開花的都沒有；玄武岩與黑曜石磚上什麼都不長
+ */
+function scatterPlantList(state: Uint8Array, { kindMap, topMap }: TerrainMap): void {
   const random = createSeededRandom('jigoku-plant')
   for (let x = 0; x < WORLD_SIZE; x++) {
     for (let z = 0; z < WORLD_SIZE; z++) {
-      if (random() > 0.2)
+      if (random() > 0.15)
         continue
-      const ground = getBlock(state, x, JIGOKU_FLOOR_Y, z)
-      if (ground !== BlockId.STONE_TILE && ground !== BlockId.COBBLESTONE)
+      const index = toIndex(x, z)
+      if (kindMap[index] !== KIND_TERRACE || topMap[index] !== TERRACE_Y)
         continue
-      if (getBlock(state, x, JIGOKU_FOOT_Y, z) !== BlockId.AIR)
+      if (!PLANT_GROUND_SET.has(getBlock(state, x, TERRACE_Y, z)) || getBlock(state, x, JIGOKU_FOOT_Y, z) !== BlockId.AIR)
         continue
       const roll = random()
       const blockId = roll < 0.5 ? BlockId.DRY_SHRUB : roll < 0.8 ? BlockId.DRY_GRASS : BlockId.STONE_PLANT
@@ -514,23 +968,38 @@ function scatterPlantList(state: Uint8Array): void {
   }
 }
 
-/** 生成整道湯煙谷 */
+/** 生成整座湯煙谷 */
 export function generateJigokuWorld(state: Uint8Array): void {
   const random = createSeededRandom('jigoku-valley')
-  shapeTerrain(state)
-  carveRift(state)
-  const { distanceMap, indexMap } = createBoardwalkMap()
+  const terrain = classifyTerrain()
+  fillColumnList(state, terrain)
+
+  layLavaField(state, terrain)
+  placeBasaltStackList(state, terrain)
+  for (const fall of LAVA_FALL_LIST) {
+    carveLavaFall(state, terrain, fall)
+  }
+  scatterCrustList(state, terrain)
+  buildCauseway(state, terrain)
+  pavePlazaList(state, terrain)
+
   for (const pool of HOT_POOL_LIST) {
     placeHotPool(state, pool)
   }
+  carveSpillSpring(state, terrain)
   for (const vent of STEAM_VENT_LIST) {
     placeSteamVent(state, vent)
   }
-  placeBoardwalk(state, distanceMap, indexMap)
-  scatterEmberList(state, random)
-  placeShrine(state)
-  placeDeadTreeList(state, distanceMap, random)
-  scatterPlantList(state)
+  buildSulphurTerrace(state, terrain)
+
+  const { distanceMap, indexMap } = createBoardwalkMap()
+  placeBoardwalk(state, terrain, distanceMap, indexMap)
+  /** 鳥居跨在回程門往北那一段木棧上，人一出門先穿過它，照地獄谷 */
+  placeTorii(state, JIGOKU_PORTAL_POINT.x, JIGOKU_FOOT_Y, JIGOKU_TORII_Z, true)
+  placeLavaLightList(state)
+
+  placeDeadTreeList(state, terrain, distanceMap, random)
+  scatterPlantList(state, terrain)
   /** 細節小景排在枯木與花草之後：硫磺華、告示、小攤、足湯與賽之河原 */
   decorateJigoku(state)
 

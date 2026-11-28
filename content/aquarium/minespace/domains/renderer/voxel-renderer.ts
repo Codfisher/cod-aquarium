@@ -156,6 +156,8 @@ class WorldRenderer {
   private wetMaterialSet = new Set<StandardMaterial>()
   /** 會反日光的液體材質，除錯開關要拿它比對有沒有高光的差別 */
   private liquidMaterialList: StandardMaterial[] = []
+  /** 掛過非封閉網格（單片立板）的材質，兩面都要畫，見 applyFaceCulling */
+  private openMaterialSet = new Set<StandardMaterial>()
 
   constructor(
     private scene: Scene,
@@ -247,14 +249,53 @@ class WorldRenderer {
 
     /** 半透明的水面接陰影會變成一塊塊的黑洞，乾脆讓它不接 */
     mesh.receiveShadows = blockDef?.receiveShadow !== false && !isThinPlant
+    /**
+     * 鋪在實地上的平板（落葉、腐葉、卵石、貝殼）不投影
+     *
+     * 它只比底下那顆方塊的頂面高兩公分，遠小於陰影的深度偏移（約 0.17 格），
+     * 本來就投不出看得見的影子，卻每一層陰影都要多畫一次、還要跑鏤空測試。
+     * 浮在水面上的睡蓮不算：水是透明的，它的影子會落在池底
+     */
+    const isGroundFlat = blockDef?.shape === 'flat' && !blockDef.floatsOnWater
+
     /** 水、冰、玻璃這類半透明方塊不該擋光 */
     const isTransparent = blockDef?.alpha !== undefined && blockDef.alpha < 1
-    if (!isTransparent && !isThinPlant && blockDef?.castShadow !== false) {
+    if (!isTransparent && !isThinPlant && !isGroundFlat && blockDef?.castShadow !== false) {
       this.shadowGenerator.addShadowCaster(mesh)
     }
   }
 
-  private addEntry(key: string, mesh: Mesh, material: StandardMaterial) {
+  /**
+   * 決定這份材質要不要剔除背面
+   *
+   * 方塊材質預設兩面都畫（見 pixel-material），因為同一份材質也可能掛在花草那種單片的立板上。
+   * 但一顆封閉的盒子，背面永遠藏在自己的正面後面：照樣光柵化、照樣跑一輪像素著色器，
+   * 最後再被深度蓋掉，純粹白算。量過（高畫質、交錯 A/B）：主畫面不透明那一趟
+   * 大廳 −2.2 毫秒、湯煙谷出生點 −7.2、千頃麥浪 −5.4、鐘聲村 −3.7，畫面逐像素看不出差別。
+   *
+   * 只對「掛的網格全部是封閉盒子或盒子的一面」的材質開：
+   * - 一份材質只要有一片單面的立板（花草、睡蓮、吊紙）就維持兩面都畫
+   * - 鏤空的（樹葉、玻璃片、鐵鏈）不動：從葉縫看進去，看到的正是同一顆的背面，
+   *   剔掉之後樹冠整片變透、變稀，量得到快六七毫秒，但樹的樣子變了
+   * - 半透明的水與冰本來就只畫正面（見 applyLiquidLook）
+   *
+   * 陰影貼圖與倒影也跟著材質的設定走：陰影存的是離光最近的那一面，本來就是正面；
+   * 倒影的鏡頭翻轉了繞序，Babylon 綁材質時會自己把剔除的方向反過來
+   */
+  private applyFaceCulling(material: StandardMaterial, isClosed: boolean): void {
+    const isBlended = material.transparencyMode === Material.MATERIAL_ALPHABLEND
+    const isCutout = material.transparencyMode === Material.MATERIAL_ALPHATEST
+    if (isBlended || isCutout)
+      return
+
+    if (!isClosed)
+      this.openMaterialSet.add(material)
+
+    material.backFaceCulling = !this.openMaterialSet.has(material)
+  }
+
+  private addEntry(key: string, mesh: Mesh, material: StandardMaterial, isClosed = false) {
+    this.applyFaceCulling(material, isClosed)
     mesh.isVisible = false
     /**
      * 這些網格生成之後就再也不會動
@@ -296,7 +337,7 @@ class WorldRenderer {
       mesh.position.set(offset.x, offset.y, offset.z)
       mesh.bakeCurrentTransformIntoVertices()
       mesh.material = material
-      this.addEntry(key, mesh, material)
+      this.addEntry(key, mesh, material, true)
     }
 
     const addPlane = (
@@ -597,7 +638,7 @@ class WorldRenderer {
 
     const post = MeshBuilder.CreateBox(`${prefix}_post`, { width: 0.26, height: 1, depth: 0.26 }, this.scene)
     post.material = material
-    this.addEntry(`${blockId}`, post, material)
+    this.addEntry(`${blockId}`, post, material, true)
 
     /** 橫桿只從柱子延伸到方塊邊界，兩塊圍籬相接才會連成一段 */
     const railLength = 0.37
@@ -622,7 +663,7 @@ class WorldRenderer {
         )
         rail.bakeCurrentTransformIntoVertices()
         rail.material = material
-        this.addEntry(`${blockId}_${direction.key}`, rail, material)
+        this.addEntry(`${blockId}_${direction.key}`, rail, material, true)
       }
     }
   }
@@ -648,7 +689,7 @@ class WorldRenderer {
       this.scene,
     )
     core.material = material
-    this.addEntry(`${blockId}`, core, material)
+    this.addEntry(`${blockId}`, core, material, true)
 
     for (const direction of CONNECT_DIRECTION_LIST) {
       const isAlongX = direction.offsetX !== 0
@@ -665,7 +706,7 @@ class WorldRenderer {
       arm.position.set(direction.offsetX * 0.25, 0, direction.offsetZ * 0.25)
       arm.bakeCurrentTransformIntoVertices()
       arm.material = material
-      this.addEntry(`${blockId}_${direction.key}`, arm, material)
+      this.addEntry(`${blockId}_${direction.key}`, arm, material, true)
     }
   }
 
@@ -700,7 +741,7 @@ class WorldRenderer {
       mesh.position.set(offset.x, offset.y, offset.z)
       mesh.bakeCurrentTransformIntoVertices()
       mesh.material = material
-      this.addEntry(`${blockId}_${name}`, mesh, material)
+      this.addEntry(`${blockId}_${name}`, mesh, material, true)
     }
 
     /**
@@ -810,7 +851,7 @@ class WorldRenderer {
       applyUpwardNormals(mesh)
     }
     mesh.material = material
-    this.addEntry(`${blockId}`, mesh, material)
+    this.addEntry(`${blockId}`, mesh, material, true)
 
     if (!blockDef.isLiquid)
       return
@@ -839,7 +880,7 @@ class WorldRenderer {
 
     const surfaceMaterial = this.createLiquidSurfaceMaterial(blockId, blockDef, recipe, material)
     surfaceMesh.material = surfaceMaterial
-    this.addEntry(`${blockId}_surface`, surfaceMesh, surfaceMaterial)
+    this.addEntry(`${blockId}_surface`, surfaceMesh, surfaceMaterial, true)
   }
 
   /**

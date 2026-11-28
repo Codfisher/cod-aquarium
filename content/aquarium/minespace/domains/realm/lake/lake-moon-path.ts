@@ -121,7 +121,8 @@ export function createLakeMoonPath({ scene, atmosphere }: { scene: Scene; worldS
       /** 月亮貼著地平線時才有長長的一條，升到頭頂就沒有了；潛到水下也看不到 */
       const moonRatio = smoothRange(moonHeight, 0.02, 0.14) * (1 - smoothRange(moonHeight, 0.7, 0.95))
       const isAboveWater = frame.cameraPosition.y > LAKE_WATER_SURFACE_Y + 0.2
-      return isAboveWater ? frame.nightRatio * moonRatio * PATH_PEAK : 0
+      /** 月相：月光路的亮度跟著今夜的月亮（滿月是一倍） */
+      return isAboveWater ? frame.nightRatio * frame.moonLightRatio * moonRatio * PATH_PEAK : 0
     },
   })
 }

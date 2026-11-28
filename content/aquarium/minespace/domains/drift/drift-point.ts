@@ -64,9 +64,18 @@ const RING_DIRECTION_LIST = Array.from({ length: 8 }, (_, index) => ({
   dz: Math.sin((index / 8) * Math.PI * 2),
 }))
 
-/** 這座場景的音源資料（各大場景的資料夾各給一份） */
+/**
+ * 這座場景的音源資料（各大場景的資料夾各給一份）
+ *
+ * 兩種音源不算：補底的（isFiller，只是讓空地不死寂，不是一處景物），
+ * 以及只在晨昏那一小段才響的（停留點與視線偏向是整天都在用的）。
+ * 音景那邊補音源因此不會改變神遊停在哪裡、往哪裡看
+ */
 function listEmitterDefinition(realm: RealmDefinition): SoundEmitterDefinition[] {
-  return REALM_EMITTER_MAP[realm.id] ?? []
+  return (REALM_EMITTER_MAP[realm.id] ?? []).filter((definition) =>
+    !definition.isFiller
+    && (definition.activeAt === undefined || definition.activeAt === 'day' || definition.activeAt === 'night'),
+  )
 }
 
 /** 一個音源在神遊裡要用的欄位，估計響度時用 */
@@ -92,7 +101,8 @@ export function listDriftEmitter(realm: RealmDefinition): DriftEmitter[] {
     volume: definition.volume,
     minDistance: definition.minDistance,
     maxDistance: definition.maxDistance,
-    activeAt: definition.activeAt,
+    /** 晨昏那幾種時段已經在 listEmitterDefinition 濾掉，這裡只剩白天與夜裡 */
+    activeAt: definition.activeAt === 'day' || definition.activeAt === 'night' ? definition.activeAt : undefined,
   }))
 }
 

@@ -1,5 +1,7 @@
+import type { TwilightKind } from '../twilight'
 import { Clamp, InverseLerp, Lerp, SmoothStep } from '@babylonjs/core'
 import { createSeededRandom } from '../../../utils/noise'
+import { TWILIGHT_BURN_STRENGTH } from '../twilight'
 
 /**
  * 每天各自的天氣
@@ -179,6 +181,91 @@ export function deriveCloudWeather(weather: DailyWeather, dayIndex: number, out:
   const noctilucentDraw = drawDay(dayIndex).noctilucentDraw
   out.noctilucentRarity = smoothRange(noctilucentDraw, 0.8, 0.84) * Lerp(0.6, 1, smoothRange(noctilucentDraw, 0.8, 1))
   return out
+}
+
+/**
+ * 這一刻算清晨還是黃昏的那一支籤
+ *
+ * 正午與子夜各換一次：那兩個時刻晨昏的光都是零，換籤看不出來
+ */
+export function getTwilightKind(dayPosition: number): TwilightKind {
+  return dayPosition - Math.floor(dayPosition) < 0.5 ? 'dawn' : 'dusk'
+}
+
+/** 晨昏那兩支籤，都落在零到一 */
+export interface TwilightDraw {
+  /** 空氣的通透度：越大光越乾淨、顏色越濃 */
+  clarity: number;
+  /** 太陽那一側的天邊有沒有缺口讓光鑽進來：零是被遠方的雲牆整個擋住 */
+  horizonGap: number;
+}
+
+const twilightDrawCache = new Map<string, TwilightDraw>()
+
+/**
+ * 抽出某一天清晨或黃昏的籤
+ *
+ * 用自己的種子字串，不碰 drawDay 那一串亂數：多抽一支籤，現有每一天的雲一朵都不會變。
+ * 晨與昏各自獨立，早上燒過，傍晚照樣可能平淡
+ */
+export function drawTwilight(dayIndex: number, kind: TwilightKind): TwilightDraw {
+  const key = `${dayIndex}-${kind}`
+  const cached = twilightDrawCache.get(key)
+  if (cached)
+    return cached
+
+  const random = createSeededRandom(`minespace-cloud-twilight-${key}`)
+  const drawn: TwilightDraw = { clarity: random(), horizonGap: random() }
+
+  if (twilightDrawCache.size >= DAY_CACHE_LIMIT * 2) {
+    const oldest = twilightDrawCache.keys().next().value
+    if (oldest !== undefined)
+      twilightDrawCache.delete(oldest)
+  }
+  twilightDrawCache.set(key, drawn)
+  return drawn
+}
+
+/**
+ * 燃燒強度：這個清晨或黃昏的雲會燒得多兇，零到一
+ *
+ * 三件事相乘：
+ *
+ *   畫布：天上要有東西可燒。高處的雲（高積雲、卷雲）最要緊，它們在地面全暗之後還照得到；
+ *         其次是積雲量落在中段，太少沒東西染、太多又把光擋死
+ *   缺口：太陽那一側的天邊要有縫，光才鑽得進來。壓著一堵雲牆的傍晚不會燒
+ *   通透：空氣乾淨，顏色才濃。這一項的範圍最寬，是每天差異的主要來源
+ *
+ * 層雲把整片天蓋成一層灰毯，直接扣；下雨時歸零（陰天罩本來也會把雲淡掉）。
+ * 只改雲與天色的顏色，不碰雲量：雲多一成每幀多好幾毫秒，整片陰天也被否決過。
+ *
+ * 缺口用抽籤而不是真的去量太陽那一側的雲：雲的位置含風吹過的總距離，
+ * 那是這一次開啟以來累積的，同一天每次打開都不同。抽籤的話同一天永遠是同一個強度，
+ * 想再看一次某個傍晚，指定日序就看得到（見 reload-handoff 的 dayIndex）
+ *
+ * 常數是照四百天的分布調的（約三成平淡、四成一般、一成半好看、一成多整片燒，
+ * 連續平淡不超過五天），改了要重跑 cloud-daily-weather.test.ts 看分布還在不在範圍裡
+ */
+export function deriveBurnIntensity(cloudWeather: CloudWeather, draw: TwilightDraw, rainRatio: number): number {
+  const cirrusCanvas = smoothRange(cloudWeather.cirrusScale, 0.75, 1.3)
+  const highCanvas = Math.max(cloudWeather.altocumulusCoverage, cirrusCanvas * 0.85)
+  const cumulusCanvas = 1 - Math.min(1, Math.abs(cloudWeather.coverageOffset + 0.01) / 0.13)
+  const canvas = 0.2 + 0.55 * highCanvas + 0.25 * cumulusCanvas
+
+  const gap = Clamp((draw.horizonGap - 0.12) / 0.6, 0, 1)
+  const clarity = Lerp(0.35, 1.2, SmoothStep(0, 1, draw.clarity))
+
+  return Clamp(
+    canvas
+    * (0.5 + 0.5 * gap)
+    * (1 - 0.8 * cloudWeather.stratusBlend)
+    * clarity
+    * 1.3
+    * (1 - Clamp(rainRatio, 0, 1))
+    * TWILIGHT_BURN_STRENGTH,
+    0,
+    1,
+  )
 }
 
 /** 建一份空的，每幀重複使用，免得每幀配置物件 */

@@ -1,8 +1,8 @@
 import type { Scene } from '@babylonjs/core'
 import type { AtmosphereState } from '../../weather/atmosphere'
 import { Constants, Effect, Mesh, ShaderMaterial, VertexData } from '@babylonjs/core'
-import { getStarFieldMaterial } from '../../../composables/use-babylon-scene'
 import { optOutOfFog } from '../../renderer/fog-opt-out'
+import { starFieldState } from '../../weather/star-field'
 
 /**
  * 雪稜夜空的極光（渲染端，屬於世界層）
@@ -186,8 +186,8 @@ export function createAlpineAurora({ scene }: { scene: Scene; worldState: Uint8A
   let elapsed = 0
   const observer = scene.onBeforeRenderObservable.add(() => {
     elapsed += scene.getEngine().getDeltaTime() / 1000
-    /** 星空的自發光是灰階，r 即是它此刻露出多少；用 smoothstep 讓極光比星星晚一點亮、早一點退 */
-    const starFade = getStarFieldMaterial(scene)?.emissiveColor.r ?? 0
+    /** 星空此刻露出多少（見 star-field 的 starFieldState）；用 smoothstep 讓極光比星星晚一點亮、早一點退 */
+    const starFade = starFieldState.visibility
     const fade = Math.min(1, Math.max(0, (starFade - 0.15) / 0.75))
     const strength = fade * fade * (3 - 2 * fade) * AURORA_PEAK
     mesh.setEnabled(strength > 0.002)

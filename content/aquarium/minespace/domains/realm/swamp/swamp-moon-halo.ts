@@ -79,7 +79,8 @@ export function createSwampMoonHalo({ scene, atmosphere }: { scene: Scene; world
       material.setVector2('extent', HALO_EXTENT)
       /** 月亮貼著地平線時染紅，升到三十度以上退成冷色 */
       material.setFloat('lowRatio', 1 - smoothRange(moonHeight, 0.12, 0.5))
-      return frame.nightRatio * smoothRange(moonHeight, 0.02, 0.16) * HALO_PEAK
+      /** 月相：新月的夜月亮幾乎看不見，暈也跟著淡（滿月是一倍） */
+      return frame.nightRatio * frame.moonLightRatio * smoothRange(moonHeight, 0.02, 0.16) * HALO_PEAK
     },
   })
 }

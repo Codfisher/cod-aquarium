@@ -1,10 +1,11 @@
 import type { AudioEngineV2, StaticSound, StaticSoundBuffer } from '@babylonjs/core'
 import type { ResolvedEmitter } from './sound-data'
+import type { SoundPoint } from './sound-occlusion'
 import type { AudibleSound, LocalizedText, Weather } from './type'
 import { CreateSoundAsync, CreateSoundBufferAsync, Vector3 } from '@babylonjs/core'
-import { BlockId, isPassableBlock } from '../block/block-constants'
-import { readBlock } from '../player/collision'
 import { getSoundUrl } from './sound-data'
+import { measureSoundClarity } from './sound-occlusion'
+import { measureIdUnit, measureTimeGate, measureWeatherGain, pickPlayVariation } from './sound-shaping'
 
 /**
  * 進入 maxDistance 的幾倍就預先載入
@@ -14,34 +15,8 @@ import { getSoundUrl } from './sound-data'
 const LOAD_MARGIN = 1.1
 const UNLOAD_MARGIN = 1.4
 
-/** 遮蔽取樣的間隔（格），太密只是白算 */
-const OCCLUSION_SAMPLE_STEP = 0.8
-/** 中間隔了幾格實心方塊就算完全被擋住 */
-const OCCLUSION_FULL_THICKNESS = 7
-/** 完全被擋住時還聽得到多少，留一點才不會像突然拔掉耳機 */
-const OCCLUSION_FLOOR = 0.06
 /** 音量變化的過渡時間（秒），瞬間切換會有爆音 */
 const OCCLUSION_RAMP_SECOND = 0.35
-
-/**
- * 擋不住聲音的方塊
- *
- * 樹葉、玻璃、柵欄雖然是實心方塊，卻不該讓森林的鳥叫整個消音；
- * 真正會把聲音悶掉的是岩層與土層
- */
-const SOUND_TRANSPARENT_SET = new Set<BlockId>([
-  /** 樹葉全都擋不住聲音；原本只列了橡樹與松，金葉、相思樹、闊葉林的樹冠會把聲音悶掉 */
-  BlockId.OAK_LEAVES,
-  BlockId.AMBER_LEAVES,
-  BlockId.GOLD_LEAVES,
-  BlockId.ACACIA_LEAVES,
-  BlockId.JUNGLE_LEAVES,
-  BlockId.PINE_LEAVES,
-  BlockId.GLASS,
-  BlockId.GLASS_PANE,
-  BlockId.FENCE,
-  BlockId.ICE,
-])
 
 /**
  * 低於這個音量比例就整個卸載
@@ -57,13 +32,39 @@ interface ActiveEmitter {
   timerId?: ReturnType<typeof setTimeout>;
   /** 上一次套用的音量比例，沒變就不用再設定一次音量 */
   gainRatio: number;
+  /**
+   * 觸發時外面指定的位置，給了之後這顆音源就待在那裡，直到下一次觸發換地方
+   *
+   * 只有 trigger 音源會有：雷從這一次閃電的方位來、噴發從火口來
+   */
+  eventPosition?: SoundPosition;
 }
 
 /** 空間中的一個點 */
-interface SoundPosition {
-  x: number;
-  y: number;
-  z: number;
+type SoundPosition = SoundPoint
+
+/** 此刻的時刻與雨雪強弱，見 SpatialSoundscape 的 setEnvironment */
+export interface SoundscapeEnvironment {
+  /** 一天的時刻，0 為子夜、0.5 為正午 */
+  timeOfDay: number;
+  rainRatio: number;
+  snowRatio: number;
+}
+
+/** 觸發一個音源時可以給的條件 */
+export interface SoundTriggerOption {
+  /** 這一次多大聲（乘在音源自己的音量上），不給就是滿的 */
+  volume?: number;
+  /** 這一次從哪裡響，不給就留在音源原本的位置 */
+  position?: SoundPosition;
+}
+
+/** 此刻佔了多少聲部，開發時看負擔用 */
+export interface SoundVoiceStat {
+  /** 已載入（建了 Babylon 音源）的數量 */
+  loadedCount: number;
+  /** 其中正在出聲的數量：循環音載入就算，間歇音只算正在響的那幾顆 */
+  playingCount: number;
 }
 
 /**
@@ -71,15 +72,14 @@ interface SoundPosition {
  *
  * 兩隻海鷗若從同一個角度起飛，會永遠疊在一起繞同一個圈。
  * 拿 id 的字元湊一個看起來隨機、但每次執行都一樣的相位——
- * 不能用亂數：音源會反覆載入卸載，每次回來都跳到新位置就成了瞬移
+ * 不能用亂數：音源會反覆載入卸載，每次回來都跳到新位置就成了瞬移。
+ *
+ * 用攪過的雜湊（measureIdUnit）：原本是乘三十一再取餘數，id 只差結尾編號的音源
+ * （大場景一排七隻的鳥：blackbird-0、blackbird-1…）算出來的相位只差零點一度，
+ * 整排鳥各繞各的錨點、卻是同一個節拍在動
  */
 function measureIdPhase(id: string): number {
-  let hash = 0
-  for (let index = 0; index < id.length; index++) {
-    hash = (hash * 31 + id.charCodeAt(index)) % 3600
-  }
-
-  return (hash / 3600) * Math.PI * 2
+  return (measureIdUnit(id) + 1) * Math.PI
 }
 
 /**
@@ -163,6 +163,13 @@ export class SpatialSoundscape {
   private mutedIdSet = new Set<string>()
   /** 世界開始到現在幾秒，會動的音源靠它推 */
   private elapsedSecond = 0
+  /** 一天的時刻，0 為子夜、0.5 為正午；拂曉、薄暮這類時段看它 */
+  private timeOfDay = 0.5
+  /** 此刻的雨勢與雪勢 0 ～ 1，音量跟著天氣強弱走的音源看它 */
+  private rainRatio = 0
+  private snowRatio = 0
+  /** 量遮蔽時裝聽者位置用的，每次更新重複用同一個，不一路生垃圾 */
+  private listenerPoint: SoundPosition = { x: 0, y: 0, z: 0 }
 
   constructor(
     private audioEngine: AudioEngineV2,
@@ -173,6 +180,24 @@ export class SpatialSoundscape {
   /** 切換天氣，下雨時鳥與蟲會安靜下來 */
   public setWeather(weather: Weather): void {
     this.weather = weather
+  }
+
+  /**
+   * 此刻的時刻與雨雪強弱
+   *
+   * 與 setWeather 分開：那個是「在不在雨裡」的開關，鳥蟲靠它噤聲；
+   * 這裡是連續的量，拂曉薄暮的時段與跟著雨勢起落的音量看它
+   */
+  public setEnvironment(environment: SoundscapeEnvironment): void {
+    this.timeOfDay = environment.timeOfDay
+    this.rainRatio = environment.rainRatio
+    this.snowRatio = environment.snowRatio
+  }
+
+  /** 時段與天氣強弱合起來，這顆音源此刻該出幾成力 */
+  private measureAmbientGate(definition: ResolvedEmitter): number {
+    return measureTimeGate(definition.activeAt, this.dayRatio, this.timeOfDay)
+      * measureWeatherGain(definition.weatherGain, this.rainRatio, this.snowRatio)
   }
 
   /**
@@ -208,22 +233,46 @@ export class SpatialSoundscape {
    * 玩家離得太遠時音源根本沒載入，這時什麼也不做——
    * 那正是想要的：聽不到的地方就不該有聲音。
    *
-   * volume 每次都可以不一樣，遠方的雷本來就比頭頂的悶
+   * volume 每次都可以不一樣，遠方的雷本來就比頭頂的悶。
+   * position 給了就先把音源搬過去再響：畫面上的事件（閃電、噴發、濺起來的熔岩）在哪裡，
+   * 聲音就從哪裡來；音源會留在那裡，之後的遮蔽也照新位置算。
+   * 音高每次隨機差一點（照音源的 variation），同一段雷聲才不會每一道都一樣
    */
-  public trigger(id: string, volume?: number): void {
+  public trigger(id: string, option: SoundTriggerOption = {}): void {
     const active = this.activeMap.get(id)
     if (!active || active.definition.mode.type !== 'trigger')
       return
 
+    const { volume, position } = option
+    if (position) {
+      active.eventPosition = { x: position.x, y: position.y, z: position.z }
+      active.sound.spatial.position.set(position.x, position.y, position.z)
+    }
     if (volume !== undefined) {
       active.sound.volume = volume * active.gainRatio
     }
+    active.sound.pitch = pickPlayVariation(active.definition.variation, 'trigger', id, Math.random).pitchCent
     active.sound.play()
   }
 
   /** 已載入的音源數量 */
   public get activeCount(): number {
     return this.activeMap.size
+  }
+
+  /**
+   * 此刻佔了多少聲部
+   *
+   * 每一顆載入的音源都是一條 HRTF 的空間聲部，雪原九十一顆、風露原八十二顆，
+   * 要不要設上限得先知道實際同時有幾顆。開發時由 use-soundscape 定時印出來
+   */
+  public getVoiceStat(): SoundVoiceStat {
+    let playingCount = 0
+    for (const active of this.activeMap.values()) {
+      playingCount += active.sound.activeInstancesCount
+    }
+
+    return { loadedCount: this.activeMap.size, playingCount }
   }
 
   /**
@@ -257,9 +306,13 @@ export class SpatialSoundscape {
         continue
       }
 
-      /** 只在白天或只在夜裡的音源，過了那段時間就卸載 */
-      const timeGate = measureTimeGate(definition, dayRatio)
-      if (timeGate < SILENT_UNLOAD_THRESHOLD) {
+      /**
+       * 只在某個時段的音源，過了那段時間就卸載
+       *
+       * 雨（雪）勢的係數一起乘進來，兩者走同一條淡入淡出的路
+       */
+      const ambientGate = this.measureAmbientGate(definition)
+      if (ambientGate < SILENT_UNLOAD_THRESHOLD) {
         this.unload(definition.id)
         continue
       }
@@ -270,7 +323,8 @@ export class SpatialSoundscape {
        * 會動的音源若拿錨點算距離，飛到你頭上的海鷗會維持原本的音量，
        * 而載入與卸載的邊界也會歪掉
        */
-      const position = measureEmitterPosition(definition, elapsedSecond)
+      const position = this.activeMap.get(definition.id)?.eventPosition
+        ?? measureEmitterPosition(definition, elapsedSecond)
       const distance = Math.hypot(
         listenerX - position.x,
         listenerY - position.y,
@@ -298,8 +352,8 @@ export class SpatialSoundscape {
         active.sound.spatial.position.set(position.x, position.y, position.z)
       }
 
-      const clarity = this.measureClarity(listenerX, listenerY, listenerZ, position)
-      const gainRatio = clarity * timeGate
+      const clarity = this.measureClarity(listenerX, listenerY, listenerZ, position, definition.canCarryOverEdge)
+      const gainRatio = clarity * ambientGate
       const isMuted = this.checkMuted(definition)
       this.applyGain(active, isMuted ? 0 : gainRatio)
 
@@ -348,36 +402,13 @@ export class SpatialSoundscape {
     listenerY: number,
     listenerZ: number,
     position: SoundPosition,
+    canCarryOverEdge = false,
   ): number {
-    const deltaX = position.x - listenerX
-    const deltaY = position.y - listenerY
-    const deltaZ = position.z - listenerZ
-    const distance = Math.hypot(deltaX, deltaY, deltaZ)
-    if (distance < 1)
-      return 1
+    this.listenerPoint.x = listenerX
+    this.listenerPoint.y = listenerY
+    this.listenerPoint.z = listenerZ
 
-    const sampleCount = Math.min(64, Math.ceil(distance / OCCLUSION_SAMPLE_STEP))
-    let blockedCount = 0
-
-    for (let index = 1; index < sampleCount; index++) {
-      const blend = index / sampleCount
-      const blockId = readBlock(
-        this.worldState,
-        Math.floor(listenerX + deltaX * blend + 0.5),
-        Math.floor(listenerY + deltaY * blend + 0.5),
-        Math.floor(listenerZ + deltaZ * blend + 0.5),
-      )
-
-      if (!SOUND_TRANSPARENT_SET.has(blockId) && !isPassableBlock(blockId)) {
-        blockedCount++
-      }
-    }
-
-    /** 取樣間隔換算回格數，才不會因為取樣密度不同而改變手感 */
-    const thickness = blockedCount * (distance / sampleCount)
-    const occlusion = Math.min(1, thickness / OCCLUSION_FULL_THICKNESS)
-
-    return 1 - occlusion * (1 - OCCLUSION_FLOOR)
+    return measureSoundClarity(this.worldState, this.listenerPoint, position, canCarryOverEdge)
   }
 
   /**
@@ -439,7 +470,9 @@ export class SpatialSoundscape {
        * 用滿音量建立再等下一次更新去拉的話，
        * 破曉時剛載入的鳥會先整隻叫一聲才淡下去
        */
-      const gainRatio = measureTimeGate(definition, this.dayRatio)
+      const gainRatio = this.measureAmbientGate(definition)
+      /** 循環音的音高在這裡定下來，之後不變；間歇音每次播放前再取（見 playOnce） */
+      const pitchCent = pickPlayVariation(definition.variation, definition.mode.type, definition.id, Math.random).pitchCent
       /** 從它此刻該在的地方開聲，不是從錨點——會動的音源否則會先閃現一下 */
       const origin = measureEmitterPosition(definition, this.elapsedSecond)
       const sound = await CreateSoundAsync(
@@ -455,6 +488,7 @@ export class SpatialSoundscape {
           spatialRolloffFactor: 1,
           spatialPanningModel: 'HRTF',
           spatialPosition: new Vector3(origin.x, origin.y, origin.z),
+          pitch: pitchCent,
         },
         this.audioEngine,
       )
@@ -501,8 +535,22 @@ export class SpatialSoundscape {
     active.timerId = setTimeout(() => {
       if (this.isDisposed || !this.activeMap.has(active.definition.id))
         return
-      active.sound.play()
+      this.playOnce(active)
     }, waitSecond * 1000)
+  }
+
+  /**
+   * 播一次間歇音，音高與音量每次都差一點
+   *
+   * 音高寫在音源上（下一個播放實例建立時讀它），音量走這一次播放自己的增益，
+   * 不碰音源的音量：那一條留給遮蔽與日夜的淡入淡出，兩邊各管各的不會互相蓋掉
+   */
+  private playOnce(active: ActiveEmitter): void {
+    const { definition, sound } = active
+    const variation = pickPlayVariation(definition.variation, definition.mode.type, definition.id, Math.random)
+
+    sound.pitch = variation.pitchCent
+    sound.play({ volume: variation.volumeRatio })
   }
 
   private unload(id: string): void {
@@ -516,23 +564,6 @@ export class SpatialSoundscape {
     active.sound.stop()
     active.sound.dispose()
   }
-}
-
-/**
- * 依日夜取得音源該有的音量比例
- *
- * 沒有指定時段的音源整天都是滿的。
- * 指定了的話直接跟著白晝程度走：天亮到一半，蟬與蟋蟀就各出一半的力，
- * 那正是黎明時兩種聲音疊在一起的樣子——不是到點換班
- */
-function measureTimeGate(
-  definition: Pick<ResolvedEmitter, 'activeAt'>,
-  dayRatio: number,
-): number {
-  if (!definition.activeAt)
-    return 1
-
-  return definition.activeAt === 'day' ? dayRatio : 1 - dayRatio
 }
 
 /**

@@ -18,7 +18,12 @@ const ISLAND_STRETCH_Z = 1.2
  *
  * 潮汐磯的聲音是「有呼吸週期的水」：拍岸的浪聲一漲一退、外海的濤聲、頭上盤旋的海鷗、
  * 水槽深處的海豚。這裡照搬，只是浪聲繞著整座島一圈，外海與海豚移到深水那一圈，
- * 站在島中間四面都有浪，走到岸邊才聽得到外海。全沿用潮汐磯的音檔
+ * 站在島中間四面都有浪，走到岸邊才聽得到外海。全沿用潮汐磯的音檔。
+ *
+ * 夜裡原本只少了海鷗，其餘與白天一模一樣。海不分晝夜，分的是岸上聽到的層次：
+ * - 入夜多一層低而慢的潮聲（同一段拍岸聲壓低四個半音），夜裡沒有別的聲音蓋著，浪聽起來比白天沉
+ * - 拂曉海鷗最吵，多兩隻繞島；薄暮歸巢，鳥居那邊叫得勤一些
+ * - 兩隻白天的海鷗音高錯開，不是同一隻叫兩次
  */
 export const COAST_EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
   /**
@@ -66,6 +71,7 @@ export const COAST_EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
     volume: 0.7,
     minDistance: 8,
     maxDistance: 34,
+    variation: { pitchOffsetCent: 40, pitchRangeCent: 70 },
   },
   /** 第二隻停在南岸外淺海的鳥居上，偶爾叫一兩聲 */
   {
@@ -80,6 +86,7 @@ export const COAST_EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
     volume: 0.5,
     minDistance: 5,
     maxDistance: 26,
+    variation: { pitchOffsetCent: -80, pitchRangeCent: 60 },
   },
   /**
    * 海豚：在深水那一圈游來游去
@@ -100,4 +107,89 @@ export const COAST_EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
     minDistance: 6,
     maxDistance: 30,
   })),
+
+  /** 以下是補底的音源（isFiller），神遊不拿它們當停留點 */
+
+  /** 夜裡的潮聲：岸邊五處，夾在白天那十顆之間，低而慢 */
+  ...[18, 90, 162, 234, 306].map((degree, index): SoundEmitterDefinition => ({
+    id: `coast-isle-night-tide-${index}`,
+    activeAt: 'night',
+    sound: 'ocean-shore',
+    title: { 'zh-hant': '夜裡的潮聲', 'en': 'The tide after dark' },
+    zone: 'coast',
+    ...atCoastRing(degree, SAND_ISLAND_RADIUS + 2, ISLAND_STRETCH_Z),
+    heightOffset: 1,
+    mode: { type: 'loop' },
+    volume: 0.4,
+    minDistance: 5,
+    maxDistance: 26,
+    variation: { pitchOffsetCent: -400, pitchRangeCent: 60 },
+    isFiller: true,
+  })),
+  /** 拂曉的海鷗：兩隻繞著島飛，叫得比白天密 */
+  ...[0, 1].map((index): SoundEmitterDefinition => ({
+    id: `coast-isle-dawn-gull-${index}`,
+    activeAt: 'dawn',
+    sound: 'ocean-gull',
+    title: { 'zh-hant': '海鷗', 'en': 'Seagulls' },
+    zone: 'coast',
+    ...atCoastRing(index * 180 + 40, 6),
+    heightOffset: 8 + index * 3,
+    motion: { type: 'orbit', radius: 16 + index * 5, periodSecond: 38 + index * 13, riseHeight: 3 },
+    mode: { type: 'interval', rangeSecond: [6 + index * 3, 15 + index * 5] },
+    volume: 0.6,
+    minDistance: 8,
+    maxDistance: 36,
+    variation: { pitchOffsetCent: index === 0 ? 90 : -50, pitchRangeCent: 70 },
+    isFiller: true,
+  })),
+  {
+    /** 薄暮歸巢：鳥居上那一隻的同伴，天黑前叫得勤 */
+    id: 'coast-isle-dusk-gull',
+    activeAt: 'dusk',
+    sound: 'ocean-gull',
+    title: { 'zh-hant': '海鷗', 'en': 'Seagulls' },
+    zone: 'coast',
+    ...atCoastRing(100, SAND_ISLAND_RADIUS + 5, ISLAND_STRETCH_Z),
+    heightOffset: 5,
+    mode: { type: 'interval', rangeSecond: [9, 22] },
+    volume: 0.5,
+    minDistance: 5,
+    maxDistance: 30,
+    variation: { pitchOffsetCent: 20, pitchRangeCent: 80 },
+    isFiller: true,
+  },
+  /**
+   * 擱淺的小舟：東岸的灘上（與神遊那個主體同一個方位），海水輕拍船身，繫船的纜繩偶爾被拉得嘎吱一聲
+   *
+   * 纜繩那段錄在港口，背景可能有一點低頻；只有站在船邊才聽得到
+   */
+  {
+    id: 'coast-isle-boat-lapping',
+    sound: 'water-lapping',
+    title: { 'zh-hant': '擱淺的小舟', 'en': 'The beached boat' },
+    zone: 'coast',
+    ...atCoastRing(8, SAND_ISLAND_RADIUS - 2, ISLAND_STRETCH_Z),
+    heightOffset: 0.5,
+    mode: { type: 'loop' },
+    volume: 0.3,
+    minDistance: 2,
+    maxDistance: 10,
+    variation: { pitchOffsetCent: 60 },
+    isFiller: true,
+  },
+  {
+    id: 'coast-isle-boat-rope',
+    sound: 'coast-rope-creak',
+    title: { 'zh-hant': '擱淺的小舟', 'en': 'The beached boat' },
+    zone: 'coast',
+    ...atCoastRing(8, SAND_ISLAND_RADIUS - 2, ISLAND_STRETCH_Z),
+    heightOffset: 1,
+    mode: { type: 'interval', rangeSecond: [16, 46] },
+    volume: 0.4,
+    minDistance: 2,
+    maxDistance: 10,
+    variation: { pitchRangeCent: 160, volumeDropRatio: 0.5 },
+    isFiller: true,
+  },
 ]

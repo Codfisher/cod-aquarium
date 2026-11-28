@@ -21,8 +21,39 @@ import { getDayPhase } from '../weather/day-night'
 /** 一天的五個時段：白天（上午與下午）、正午、日出日落、晨昏的藍調、夜 */
 export type DaySlot = 'day' | 'noon' | 'golden' | 'blue' | 'night'
 
+/**
+ * 晨昏的雲還燒著的時段（時刻零到一），整段都算日出日落
+ *
+ * 日夜的時段（getDayPhase）把日落切在 0.78、日出從 0.24 起算，那是照太陽本體訂的。
+ * 但火燒雲的高峰在太陽下去之後：積雲燒到 0.778，高積雲到 0.79，卷雲最後一絲紅在 0.8 前後
+ * （清晨對稱，從 0.2 開始；見 weather/twilight）。照原本的切法，最紅的那十幾秒鏡頭已經回到一般節奏、
+ * 轉頭去看月亮了。這裡把日出日落的節奏與構圖延到雲熄掉為止
+ */
+const TWILIGHT_GOLDEN_RANGE_LIST: readonly (readonly [number, number])[] = [
+  [0.2, 0.3],
+  [0.71, 0.8],
+]
+
+/**
+ * 燃燒強度多少以上，鏡頭開始多留一會兒、多看天；到多少是滿的
+ *
+ * 一般的晚霞（零點六五以下）照原本的日出日落拍；好看的傍晚才加碼
+ */
+const BURN_EMPHASIS_RANGE: readonly [number, number] = [0.5, 0.85]
+
+/** 燃燒強度換成「加碼幾成」，零到一 */
+export function getBurnEmphasis(burnIntensity: number): number {
+  const [from, to] = BURN_EMPHASIS_RANGE
+  const ratio = Math.min(1, Math.max(0, (burnIntensity - from) / (to - from)))
+  return ratio * ratio * (3 - 2 * ratio)
+}
+
 /** 時刻（零到一）落在哪個時段 */
 export function getDaySlot(timeOfDay: number): DaySlot {
+  const time = ((timeOfDay % 1) + 1) % 1
+  if (TWILIGHT_GOLDEN_RANGE_LIST.some(([from, to]) => time >= from && time < to))
+    return 'golden'
+
   switch (getDayPhase(timeOfDay)) {
     case 'sunrise':
     case 'sunset':

@@ -1,3 +1,5 @@
+import { TWILIGHT_ALTITUDE_LIFT, TWILIGHT_STOP_HEIGHT, TWILIGHT_SUNWARD_LIFT } from '../twilight'
+
 /**
  * 體積雲的著色器
  *
@@ -64,6 +66,11 @@ export const CLOUD_UNIFORM_NAME_LIST = [
   'cloudBounceColor',
   'cloudNoctilucent',
   'cloudWindShift',
+  'cloudTwilight',
+  'cloudTwilightRose',
+  'cloudTwilightCrimson',
+  'cloudTwilightOrange',
+  'cloudTwilightGold',
 ]
 
 export const CLOUD_SAMPLER_NAME_LIST = [
@@ -103,6 +110,74 @@ const float CLOUD_MERGE_HIGH = 0.9;
 const float CLOUD_MERGE_EROSION_CUT = 0.1;
 `
 
+/** 數字寫進 GLSL 時一定要帶小數點 */
+function toGlslFloat(value: number): string {
+  return Number.isInteger(value) ? `${value}.0` : `${value}`
+}
+
+/**
+ * 晨昏的逐點照明：火燒雲
+ *
+ * 白天整片雲共用一個光色（cloudSunColor）。晨昏不行：太陽貼近地平線時，
+ * 每一朵雲看到的太陽不一樣——高的雲還照得到、低的已經進了星球的影子；
+ * 朝太陽那一側的雲是金的、頭頂是紅的、背對太陽那一側已經暗了。
+ *
+ * cloudTwilightLight 對雲裡的一點算「朝太陽的光線離地面最近時有多高」（掠地高度），
+ * 再照高度查色階（玫瑰、緋紅、橘、金，四個顏色由 CPU 算好送進來，已含當天的燃燒強度）。
+ * 式子與 weather/twilight 的 getGrazingHeight、sampleTwilightLight 相同，改一邊要改另一邊。
+ * 沒有貼圖取樣，每個取樣點多一次內積、一次開根號與幾次 smoothstep。
+ *
+ * 另外三處跟著晨昏變（都由 cloudTwilight 的分量控制，為零時就是原本的式子）：
+ * - 粉末效應假設光從上面來，把雲底壓暗。太陽在地平線下時光是從下面打上來的，
+ *   雲底才是受光面，所以這時把那道壓暗放掉（w）
+ * - 同一個比例把雲頂的直射光打折（CLOUD_TWILIGHT_TOP_DIM）：光貼著地面斜射上來，
+ *   要穿過整朵雲才到得了雲頂，光線步數走不了那麼遠，補一個隨高度的衰減
+ * - 卷雲的直射項側看只有零點二七倍，幾乎全是天光的顏色，整片染不上霞色；
+ *   晨昏時多加一份不看方向的（y）。卷雲又薄（不透明度最多四成），亮度被壓在一以內的話，
+ *   疊在藍天上只剩一抹灰紫；晨昏時把壓縮的上限放寬（CLOUD_TWILIGHT_CIRRUS_GLOW），
+ *   靠近太陽的卷雲才亮得出金色
+ *
+ * cloudTwilight.x 為零時 cloudSunLight 直接回傳 cloudSunColor，正午與深夜一個運算都不多
+ */
+const CLOUD_TWILIGHT_GLSL = `
+const float CLOUD_TWILIGHT_SHADOW = ${toGlslFloat(TWILIGHT_STOP_HEIGHT.shadow)};
+const float CLOUD_TWILIGHT_ROSE = ${toGlslFloat(TWILIGHT_STOP_HEIGHT.rose)};
+const float CLOUD_TWILIGHT_CRIMSON = ${toGlslFloat(TWILIGHT_STOP_HEIGHT.crimson)};
+const float CLOUD_TWILIGHT_ORANGE = ${toGlslFloat(TWILIGHT_STOP_HEIGHT.orange)};
+const float CLOUD_TWILIGHT_GOLD = ${toGlslFloat(TWILIGHT_STOP_HEIGHT.gold)};
+const float CLOUD_TWILIGHT_SUNWARD_LIFT = ${toGlslFloat(TWILIGHT_SUNWARD_LIFT)};
+const float CLOUD_TWILIGHT_ALTITUDE_LIFT = ${toGlslFloat(TWILIGHT_ALTITUDE_LIFT)};
+const float CLOUD_TWILIGHT_TOP_DIM = 0.45;
+const float CLOUD_TWILIGHT_CIRRUS_GLOW = 1.2;
+
+vec3 cloudTwilightLight(vec3 position) {
+  vec3 offset = position - cloudPlanetCenter();
+  float along = dot(offset, cloudSunDirection);
+  float distanceToCenter = length(offset);
+  float altitude = distanceToCenter - cloudLayer.z;
+  float grazing = along >= 0.0
+    ? altitude + along * CLOUD_TWILIGHT_SUNWARD_LIFT
+    : sqrt(max(distanceToCenter * distanceToCenter - along * along, 0.0)) - cloudLayer.z;
+  grazing += altitude * CLOUD_TWILIGHT_ALTITUDE_LIFT;
+
+  vec3 tint = mix(cloudTwilightRose, cloudTwilightCrimson, smoothstep(CLOUD_TWILIGHT_ROSE, CLOUD_TWILIGHT_CRIMSON, grazing));
+  tint = mix(tint, cloudTwilightOrange, smoothstep(CLOUD_TWILIGHT_CRIMSON, CLOUD_TWILIGHT_ORANGE, grazing));
+  tint = mix(tint, cloudTwilightGold, smoothstep(CLOUD_TWILIGHT_ORANGE, CLOUD_TWILIGHT_GOLD, grazing));
+  return tint * smoothstep(CLOUD_TWILIGHT_SHADOW, CLOUD_TWILIGHT_ROSE, grazing);
+}
+
+vec3 cloudSunLight(vec3 position) {
+  if (cloudTwilight.x <= 0.0) {
+    return cloudSunColor;
+  }
+  return mix(cloudSunColor, cloudTwilightLight(position), cloudTwilight.x);
+}
+
+float cloudTwilightTopDim(float heightRatio) {
+  return mix(1.0, mix(1.0, CLOUD_TWILIGHT_TOP_DIM, smoothstep(0.3, 0.9, heightRatio)), cloudTwilight.w);
+}
+`
+
 /**
  * uniform 的排法
  *
@@ -123,6 +198,14 @@ const float CLOUD_MERGE_EROSION_CUT = 0.1;
  * cloudWindShift 風吹過的距離（x、z）與循環世界的平移（x、z），把 cloudOrigin 拆開給高空的雲用。
  *               高空的雲要把風放大幾倍才會比積雲飄得快，但世界平移只能乘一：
  *               它補的是鏡頭被搬了一整個世界寬，多乘或少乘，搬的那一瞬間那層雲就會跳
+ * cloudTwilight 晨昏（見 weather/twilight 與上面的 CLOUD_TWILIGHT_GLSL）：
+ *               x 是晨昏的比例（雲的光色照它換成逐點算的色階，零就整段跳過）、
+ *               y 是卷雲多加的那一份不看方向的直射光、
+ *               z 是高光保色壓縮的比例、w 是雲底受光的比例（光從下面打上來）。
+ *               cloudSoftClip 原本逐通道把亮度收進一，逆光的橘色雲邊出來是純白；
+ *               z 大於零時改成往「照最亮的通道等比例縮」混過去，色相留得住。
+ *               正午與深夜四個分量都是零，mix 的第三個參數為零就是原本的結果
+ * cloudTwilightRose、Crimson、Orange、Gold 晨昏的色階，由低到高四個顏色（已乘燃燒強度與亮度）
  */
 export const CLOUD_COMMON_GLSL = `
 precision highp sampler3D;
@@ -156,6 +239,11 @@ uniform vec4 cloudAltocumulus;
 uniform vec3 cloudBounceColor;
 uniform vec4 cloudNoctilucent;
 uniform vec4 cloudWindShift;
+uniform vec4 cloudTwilight;
+uniform vec3 cloudTwilightRose;
+uniform vec3 cloudTwilightCrimson;
+uniform vec3 cloudTwilightOrange;
+uniform vec3 cloudTwilightGold;
 
 const float CLOUD_PI = 3.14159265;
 
@@ -218,6 +306,8 @@ vec2 cloudShellRange(vec3 origin, vec3 direction) {
   }
   return vec2(top.x, exitDistance);
 }
+
+${CLOUD_TWILIGHT_GLSL}
 
 float cloudHeightProfile(float heightRatio, float cloudType) {
   float topLimit = mix(0.38, 1.0, cloudType);
@@ -330,7 +420,7 @@ float cloudLightOpticalDepth(vec3 position, int lightStepCount) {
   return opticalDepth * cloudShape.y;
 }
 
-vec3 cloudSunScattering(float lightOpticalDepth, float cosAngle) {
+vec3 cloudSunScattering(float lightOpticalDepth, float cosAngle, vec3 sunColor) {
   float total = 0.0;
   float scatterWeight = 1.0;
   float extinctionWeight = 1.0;
@@ -343,7 +433,7 @@ vec3 cloudSunScattering(float lightOpticalDepth, float cosAngle) {
     anisotropyScale *= 0.5;
   }
 
-  return cloudSunColor * total * cloudLighting.x;
+  return sunColor * total * cloudLighting.x;
 }
 
 float cloudGroundScattering(float opticalDepth) {
@@ -367,6 +457,12 @@ vec3 cloudSoftClip(vec3 radiance, float opacity) {
   vec3 knee = vec3(0.75);
   vec3 overflow = max(color - knee, vec3(0.0));
   vec3 compressed = min(color, knee) + (1.0 - knee) * (1.0 - exp(-overflow / (1.0 - knee)));
+  if (cloudTwilight.z > 0.0) {
+    float peak = max(max(color.r, color.g), max(color.b, 0.0001));
+    float peakOverflow = max(peak - 0.75, 0.0);
+    float peakCompressed = min(peak, 0.75) + 0.25 * (1.0 - exp(-peakOverflow / 0.25));
+    compressed = mix(compressed, color * (peakCompressed / peak), cloudTwilight.z);
+  }
   return compressed * opacity;
 }
 
@@ -436,8 +532,9 @@ vec4 cloudMarch(vec3 origin, vec3 direction, int stepCount, int lightStepCount, 
     int sampleLightStepCount = (isFar || transmittance < 0.3) ? max(lightStepCount / 2, 2) : lightStepCount;
     float lightDepth = cloudLightOpticalDepth(samplePosition, sampleLightStepCount);
 
-    vec3 sunTerm = cloudSunScattering(lightDepth, cosAngle);
-    sunTerm *= mix(1.0, cloudInScatterProbability(density, heightRatio), powderBlend);
+    vec3 sunTerm = cloudSunScattering(lightDepth, cosAngle, cloudSunLight(samplePosition));
+    sunTerm *= mix(1.0, mix(cloudInScatterProbability(density, heightRatio), 1.0, cloudTwilight.w), powderBlend);
+    sunTerm *= cloudTwilightTopDim(heightRatio);
 
     bool hasOcclusionSample = !isFar && transmittance > 0.3;
 
@@ -594,8 +691,8 @@ vec4 cloudAltocumulusLayer(vec3 origin, vec3 direction, int stepCount, float jit
     }
     lightDepth *= extinctionScale;
 
-    vec3 sunTerm = cloudSunScattering(lightDepth, cosAngle);
-    sunTerm *= mix(1.0, cloudInScatterProbability(density, mix(0.35, 0.8, heightRatio)), powderBlend);
+    vec3 sunTerm = cloudSunScattering(lightDepth, cosAngle, cloudSunLight(samplePosition));
+    sunTerm *= mix(1.0, mix(cloudInScatterProbability(density, mix(0.35, 0.8, heightRatio)), 1.0, cloudTwilight.w), powderBlend);
 
     vec3 ambient = mix(cloudAmbientBottom, cloudAmbientTop, heightRatio) * mix(0.7, 1.0, heightRatio);
     ambient = ambient * cloudLighting.y + vec3(cloudLighting.w);
@@ -672,10 +769,13 @@ vec4 cloudCirrusLayer(vec3 origin, vec3 direction) {
   }
 
   float cosAngle = dot(direction, cloudSunDirection);
-  vec3 light = cloudSunColor * cloudLighting.x * cloudHenyeyGreenstein(cosAngle, 0.6) * 0.6
+  vec3 sunLight = cloudSunLight(origin + direction * distanceToLayer);
+  vec3 light = sunLight * cloudLighting.x * cloudHenyeyGreenstein(cosAngle, 0.6) * 0.6
     + cloudAmbientTop * cloudLighting.y;
+  light += sunLight * cloudTwilight.y;
   float haze = 1.0 - exp(-distanceToLayer / (cloudHaze.x * 1.3));
-  vec3 color = cloudSoftClip(mix(light, cloudHazeColor, haze), 1.0);
+  float glowCeiling = 1.0 + CLOUD_TWILIGHT_CIRRUS_GLOW * cloudTwilight.x;
+  vec3 color = cloudSoftClip(mix(light, cloudHazeColor, haze) / glowCeiling, 1.0) * glowCeiling;
   float farFade = 1.0 - smoothstep(cloudHaze.y * 1.4, cloudHaze.z * 1.4, distanceToLayer);
 
   return vec4(color * opacity, opacity) * farFade * cloudHaze.w;
@@ -944,6 +1044,10 @@ void main() {
  * 真實的太陽在薄雲後面是被散射成一團光，看不到輪廓。
  * 在方塊外接圓（約五點五度）以內把不透明度往一推，到九度平滑放掉，
  * 預乘的顏色跟著同比例放大，雲本身的色調不變；光暈是另一塊網格，照常露出
+ *
+ * 雲縫光（見 cloud-ray）也在這裡疊：rayColor 的 rgb 是光的顏色、a 是強度，
+ * 只加顏色不加不透明度，在預乘混合下就是相加。a 為零時整段跳過，連那張圖都不取樣；
+ * 取樣用 textureLod，落在分支裡的取樣不能要微分
  */
 export const CLOUD_COMPOSITE_FRAGMENT = `
 precision highp float;
@@ -996,6 +1100,8 @@ vec4 sampleCatmullRom(vec2 uv) {
 }
 
 uniform vec4 compositeSun;
+uniform sampler2D raySampler;
+uniform vec4 rayColor;
 
 vec4 thickenOverSun(vec4 cloud, vec3 direction) {
   float towardSun = dot(normalize(direction), compositeSun.xyz);
@@ -1012,6 +1118,9 @@ void main() {
   vec4 cloud = sampleCatmullRom(uv);
   cloud.a = min(cloud.a, 1.0);
   cloud = thickenOverSun(cloud, vDirection);
+  if (rayColor.a > 0.0) {
+    cloud.rgb += rayColor.rgb * (textureLod(raySampler, uv, 0.0).r * rayColor.a);
+  }
   gl_FragColor = cloud * compositeSetting.z;
 }
 `

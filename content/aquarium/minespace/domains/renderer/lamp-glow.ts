@@ -237,21 +237,51 @@ export function createLampGlow({
     return material
   }
 
+  /**
+   * 每一種材質只建一片直徑一格的圓盤，其餘的燈都是它的實例
+   *
+   * 原本一盞燈一顆網格，就是一盞燈一次半透明繪製：大廳一百盞、鐘聲村四十幾盞。
+   * 同一份材質的圓盤只差位置與大小，改成實例之後每一種材質合成一次繪製
+   * （材質只有三四種：燈籠色、火色、熔岩的面光源）。
+   * 相加混合不在乎先後，同一次繪製裡不排序也沒有差別。
+   * 大小差異交給實例的縮放；面向鏡頭照舊是每一片各自的 billboardMode
+   */
+  const FOG_EDGE_HANDLING = '燈釘在世界上，箱庭全排在離邊界四十二格外，走到邊界時它們早在白幕之外'
+  const discMeshMap = new Map<StandardMaterial, Mesh>()
+
+  function getDiscMesh(material: StandardMaterial): Mesh {
+    const existing = discMeshMap.get(material)
+    if (existing)
+      return existing
+
+    const mesh = MeshBuilder.CreateDisc(
+      `lamp-halo-disc-${discMeshMap.size}`,
+      { radius: 0.5, tessellation: preset.value.glowTessellation },
+      scene,
+    )
+    mesh.material = material
+    mesh.isPickable = false
+    mesh.receiveShadows = false
+    /** 來源那一片自己不畫，畫的是它的實例 */
+    mesh.isVisible = false
+    optOutOfFog(mesh, FOG_EDGE_HANDLING)
+    discMeshMap.set(material, mesh)
+
+    return mesh
+  }
+
   const haloList = haloSourceList.map((source, index) => {
     const baseSize = source.isAreaLight
       ? AREA_LIGHT_SIZE
       : source.isFire ? FIRE_SIZE : LAMP_SIZE
     const size = baseSize * source.level
-    const mesh = MeshBuilder.CreateDisc(
-      `lamp-halo-${index}`,
-      { radius: size / 2, tessellation: preset.value.glowTessellation },
-      scene,
-    )
-    mesh.material = getMaterial(source.color, source.isAreaLight)
+    const material = getMaterial(source.color, source.isAreaLight)
+
+    const mesh = getDiscMesh(material).createInstance(`lamp-halo-${index}`)
+    mesh.scaling.setAll(size)
     mesh.billboardMode = Mesh.BILLBOARDMODE_ALL
     mesh.isPickable = false
-    mesh.receiveShadows = false
-    optOutOfFog(mesh, '燈釘在世界上，箱庭全排在離邊界四十二格外，走到邊界時它們早在白幕之外')
+    optOutOfFog(mesh, FOG_EDGE_HANDLING)
     mesh.setEnabled(false)
 
     /** 燈本身在哪。每一幀從這裡往鏡頭的方向挪出方塊之外 */
@@ -326,6 +356,9 @@ export function createLampGlow({
       scene.onBeforeRenderObservable.remove(observer)
       for (const halo of haloList) {
         halo.mesh.dispose()
+      }
+      for (const mesh of discMeshMap.values()) {
+        mesh.dispose()
       }
       for (const entry of materialMap.values()) {
         entry.material.dispose()

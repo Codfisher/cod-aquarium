@@ -18,6 +18,13 @@ export const RAINVALE_CENTER = { x: WORLD_SIZE / 2, z: WORLD_SIZE / 2 }
 export const RAINVALE_GROUND_Y = 10
 
 /**
+ * 雨勢起落的範圍（場景定義的 weather.rain 用它）
+ *
+ * 放在這裡是因為音源也要讀：雨聲的音量跟著雨勢走，得知道這場雨最小到多少、最大到多少
+ */
+export const RAINVALE_RAIN_LEVEL = { min: 0.78, max: 1 } as const
+
+/**
  * 林子外面那一圈不畫的地面（LAKE_BED）與布景地面平面的高度，比林地矮兩格
  *
  * 布景的地面平面是一整片鋪滿世界的面，不只在林子外：與草地同高（頂面 10.5）的話，

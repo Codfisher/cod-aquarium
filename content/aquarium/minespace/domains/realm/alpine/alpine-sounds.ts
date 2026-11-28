@@ -133,5 +133,63 @@ export const ALPINE_EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
     volume: 0.8,
     minDistance: 14,
     maxDistance: 80,
+    /** 每一聲差多一點、有近有遠，不像同一聲重播 */
+    variation: { pitchRangeCent: 70, volumeDropRatio: 0.35 },
+  },
+
+  /** 以下是補底的音源（isFiller），神遊不拿它們當停留點 */
+
+  /**
+   * 沿著稜線捲過去的一陣
+   *
+   * 底下那十三顆風都釘在原地，站著聽久了是一片不會動的聲音。
+   * 這兩陣用同一段錄音調高一點（更尖、更急），慢慢沿著稜線飄：吹到身邊時漲起來，過去了又退回原本那片底
+   */
+  ...[-18, 20].map((along, index): SoundEmitterDefinition => ({
+    id: `alpine-ridge-gust-${index}`,
+    sound: 'alpine-wind',
+    title: { 'zh-hant': '山稜的風', 'en': 'Wind along the ridge' },
+    zone: 'alpine',
+    ...atRidge(along, 0),
+    heightOffset: 5,
+    motion: { type: 'wander', radius: 14, periodSecond: 72 + index * 19, riseHeight: 2 },
+    mode: { type: 'loop' },
+    volume: 0.5,
+    minDistance: 5,
+    maxDistance: 24,
+    variation: { pitchOffsetCent: 160 },
+    isFiller: true,
+  })),
+  {
+    /** 另一隻狼從稜線另一頭答話：更遠、更低沉，隔得更久 */
+    id: 'alpine-wolf-far',
+    activeAt: 'night',
+    sound: 'beast-wolf',
+    title: { 'zh-hant': '稜線上的狼嚎', 'en': 'Wolf on the ridge' },
+    zone: 'alpine',
+    ...atRidge(-40, -10),
+    heightOffset: 4,
+    mode: { type: 'interval', rangeSecond: [210, 480] },
+    volume: 0.55,
+    minDistance: 14,
+    maxDistance: 90,
+    variation: { pitchOffsetCent: -160, pitchRangeCent: 60, volumeDropRatio: 0.4 },
+    isFiller: true,
+  },
+  {
+    /** 白天崖下很遠的落石：好幾分鐘才一次，從東北的崖邊傳上來 */
+    id: 'alpine-rockfall',
+    activeAt: 'day',
+    sound: 'ruins-rockfall',
+    title: { 'zh-hant': '崖下的落石', 'en': 'Rockfall below the cliffs' },
+    zone: 'alpine',
+    ...atRing(315, ALPINE_PUSH_RADIUS + 4),
+    heightOffset: 2,
+    mode: { type: 'interval', rangeSecond: [240, 560] },
+    volume: 0.55,
+    minDistance: 14,
+    maxDistance: 90,
+    variation: { pitchOffsetCent: -120, pitchRangeCent: 160, volumeDropRatio: 0.45 },
+    isFiller: true,
   },
 ]

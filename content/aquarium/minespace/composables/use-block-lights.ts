@@ -1,13 +1,12 @@
 import type { Scene, UniversalCamera } from '@babylonjs/core'
-import type { BlockLightSource } from '../domains/world/light-source'
+import type { BlockPointLight } from '../domains/world/light-source'
 import { ClusteredLightContainer, Color3, PointLight, Vector3 } from '@babylonjs/core'
 import { onScopeDispose } from 'vue'
+import { POINT_LIGHT_RANGE } from '../domains/world/light-source'
 import { measureSection } from './use-performance-probe'
 
 /** 滿等的燈有多亮 */
 const MAX_INTENSITY = 1.15
-/** 光照得到多遠，會隨亮度等級縮放 */
-const MAX_LIGHT_RANGE = 20
 
 /**
  * 白天燈火還剩多少存在感
@@ -42,6 +41,14 @@ const FIRE_INTENSITY_BOOST = 1.6
 const FLICKER_DEPTH = 0.3
 
 /**
+ * 熔岩面光源晃動的幅度
+ *
+ * 一盞面光源代表一整片液面，照著幾十格的岩壁。照一團火那樣晃三成，
+ * 整面岩壁會一起明滅，像壞掉的日光燈；一池熔岩是悶著燒的，只留一點慢慢起伏的呼吸
+ */
+const AREA_FLICKER_DEPTH = 0.1
+
+/**
  * 退回燈池時同時點亮幾盞
  *
  * 材質的 maxSimultaneousLights 是六：太陽、環境光、洞口那盞天光，
@@ -50,13 +57,12 @@ const FLICKER_DEPTH = 0.3
 const POOL_SIZE = 3
 
 /**
- * 燈池的候選半徑
+ * 燈池的候選半徑比光本身照得到的距離再大多少
  *
- * 比光本身照得到的距離再大一點點。點光源的衰減在 range 之外就是零，
- * 所以一盞燈被納入名單的那一刻，它的貢獻本來就還是零，
- * 之後才隨著走近自然亮起來——那是距離衰減，不是「燈被打開」
+ * 點光源的衰減在 range 之外就是零，所以一盞燈被納入名單的那一刻，
+ * 它的貢獻本來就還是零，之後才隨著走近自然亮起來——那是距離衰減，不是「燈被打開」
  */
-const CANDIDATE_RANGE = MAX_LIGHT_RANGE + 4
+const CANDIDATE_MARGIN = 4
 
 /** 重新挑燈的間隔（秒），這件事不必每一幀做 */
 const PICK_INTERVAL = 0.2
@@ -68,20 +74,19 @@ interface StartParams {
   scene: Scene;
   camera: UniversalCamera;
   /**
-   * 世界裡所有的光源方塊
+   * 世界裡要點的真光
    *
-   * 由外面掃好帶進來，不在這裡自己掃：夜裡的光暈用的是同一份清單，
-   * 各掃一次等於把三百萬格走兩遍，而且兩邊只要有一邊改了門檻，
-   * 燈的真光與它的暈就會對不起來
+   * 由外面算好帶進來（light-source 的 collectPointLightList）：燈籠與火一格一盞，
+   * 熔岩整片液面併成少數幾盞大的。位置、亮度倍率與照明半徑都在清單裡，這裡只管點燈與每幀調亮度
    */
-  sourceList: BlockLightSource[];
+  pointLightList: BlockPointLight[];
   /** 白晝的程度，0 為全暗、1 為大白天 */
   getDayRatio: () => number;
 }
 
 interface LightEntry {
   light: PointLight;
-  source: BlockLightSource;
+  source: BlockPointLight;
 }
 
 /**
@@ -110,13 +115,13 @@ export function useBlockLights() {
     cleanup = null
   }
 
-  function start({ scene, camera, sourceList, getDayRatio }: StartParams): void {
+  function start({ scene, camera, pointLightList, getDayRatio }: StartParams): void {
     stop()
 
-    if (sourceList.length === 0)
+    if (pointLightList.length === 0)
       return
 
-    const entryList = sourceList.map((source, index) => createLightEntry(scene, source, index))
+    const entryList = pointLightList.map((source, index) => createLightEntry(scene, source, index))
     const container = createClusteredContainer(scene, entryList)
 
     const observer = container
@@ -142,16 +147,22 @@ export function useBlockLights() {
   return { start, stop }
 }
 
-function createLightEntry(scene: Scene, source: BlockLightSource, index: number): LightEntry {
+function createLightEntry(scene: Scene, source: BlockPointLight, index: number): LightEntry {
   const light = new PointLight(
     `block-light-${index}`,
     new Vector3(source.x, source.y, source.z),
     scene,
   )
   light.diffuse = new Color3(source.color[0], source.color[1], source.color[2])
+  /**
+   * 燈不帶高光
+   *
+   * 試過給燈色一半的高光，想讓雨夜的濕地面映出燈火。實際比對（大廳的雨庭、聽雨林，夜裡）看不出差別：
+   * 燈籠腳下是草、木板與榻榻米，沒有夠亮夠平的濕石面接得住那道反光
+   */
   light.specular = new Color3(0, 0, 0)
   light.intensity = 0
-  light.range = MAX_LIGHT_RANGE * source.level
+  light.range = source.range
   /**
    * 燈不投射陰影
    *
@@ -189,8 +200,16 @@ function createClusteredContainer(
     return null
   }
 
-  /** 分群時的範圍上限，與單盞燈照得到的最遠距離對齊 */
-  container.maxRange = MAX_LIGHT_RANGE
+  /**
+   * 分群時的範圍上限，與照得最遠的那一盞對齊
+   *
+   * 容器會把每盞燈的照明半徑壓到這個值以內。燈籠最遠二十格，
+   * 熔岩併出來的面光源照得更遠，上限要跟著放寬，不然大片熔岩的光會在二十格被切掉
+   */
+  container.maxRange = Math.max(
+    POINT_LIGHT_RANGE,
+    ...entryList.map((entry) => entry.light.range),
+  )
 
   return container
 }
@@ -251,7 +270,7 @@ function trackNearestLights(
     for (const [index, entry] of entryList.entries()) {
       const { source } = entry
       const distance = Math.hypot(source.x - x, source.y - y, source.z - z)
-      if (distance > CANDIDATE_RANGE)
+      if (distance > source.range + CANDIDATE_MARGIN)
         continue
 
       /** 插入排序，名單只有三個，比整串排序便宜得多 */
@@ -313,16 +332,19 @@ function measureDayFactor(dayRatio: number): number {
  * 那是物理上該有的樣子。這裡再乘一次距離的話，燈會在半路上憑空亮起來
  */
 function measureIntensity(
-  source: BlockLightSource,
+  source: BlockPointLight,
   dayFactor: number,
   elapsed: number,
   index: number,
 ): number {
-  const base = MAX_INTENSITY * source.level * dayFactor
+  const base = MAX_INTENSITY * source.intensityRatio * dayFactor
 
-  return source.isFire
-    ? base * FIRE_INTENSITY_BOOST * measureFlicker(elapsed, index)
-    : base
+  if (!source.isFire)
+    return base
+
+  const flickerDepth = source.isAreaLight ? AREA_FLICKER_DEPTH : FLICKER_DEPTH
+
+  return base * FIRE_INTENSITY_BOOST * measureFlicker(elapsed, index, flickerDepth)
 }
 
 /**
@@ -334,12 +356,12 @@ function measureIntensity(
  *
  * 每一團火用自己的相位起算，同一個畫面裡的兩團火才不會一起明滅
  */
-function measureFlicker(elapsed: number, index: number): number {
+function measureFlicker(elapsed: number, index: number, depth: number): number {
   const phase = index * 2.4
 
   const wave = Math.sin(elapsed * 2.7 + phase) * 0.5
     + Math.sin(elapsed * 7.3 + phase * 1.7) * 0.3
     + Math.sin(elapsed * 13.1 + phase * 2.3) * 0.2
 
-  return 1 + wave * FLICKER_DEPTH
+  return 1 + wave * depth
 }

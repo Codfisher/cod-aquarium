@@ -1,5 +1,5 @@
 import type { SoundEmitterDefinition } from '../../soundscape/type'
-import { BELL_TOWER_POINT, BELL_TOWER_SIZE, EATERY_POINT, HEARTH_POINT, SMITHY_POINT, STREAM_Z, VILLAGE_CENTER, WATERMILL_POINT } from './village-layout'
+import { BELL_TOWER_POINT, BELL_TOWER_SIZE, EATERY_POINT, HEARTH_POINT, HOUSE_LOT_LIST, SMITHY_POINT, STREAM_Z, TERRACE_GROUND_Y, VILLAGE_CENTER, WATERMILL_POINT } from './village-layout'
 
 /** 村子中心加上偏移的座標 */
 function atVillage(offsetX: number, offsetZ: number): { x: number; z: number } {
@@ -21,7 +21,13 @@ function atVillageRing(degree: number, radius: number): { x: number; z: number }
  * 多出來的是鍛冶屋的爐火（灶的火聲）、水車旁的水道（借遣水的流水聲），與台地外那一圈花田：夜裡田裡的蟲（同一個蟲聲，換一個名字）。
  *
  * 這裡沒有鄰居要避（整個場景只有這一座村子），所以不走 measureNeighbourLimit；
- * 鐘聲照市井坊「全庭傳得最遠」的意思，走到田邊都還聽得到
+ * 鐘聲照市井坊「全庭傳得最遠」的意思，走到田邊都還聽得到。
+ *
+ * 台地外那一圈花田原本白天完全沒有聲音（量出來全場四分之一的地面是靜的，集中在北邊與東邊）。
+ * 補上的都是田裡本來就該有的：田上的風、白天田邊的鳥、拂曉的鳥、薄暮先起頭的草蟲，夜裡的蟲從四片補到八片。
+ *
+ * 村子裡看得到卻沒有聲音的東西也補上：鍛冶屋白天打鐵（原本只有爐火）、水車轉動的木頭與水聲
+ * （原本只有水道的流水）、拂曉民家的雞啼、偶爾遠遠一聲狗吠
  */
 export const VILLAGE_EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
   /** 市集的人聲：沿市街三顆，從門口一路響到廣場另一頭；同名併成一條 */
@@ -45,11 +51,19 @@ export const VILLAGE_EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
     title: { 'zh-hant': '鐘樓', 'en': 'Bell tower' },
     zone: 'village',
     ...atVillage(BELL_TOWER_POINT.offsetX, BELL_TOWER_POINT.offsetZ),
-    heightOffset: BELL_TOWER_SIZE.height - 2,
+    /**
+     * 鐘口的高度，直接給 y
+     *
+     * 原本用 heightOffset：自動貼地會把鐘樓的屋頂當成地面，鐘被擺到塔頂上方八格的空中，聲音從天上來。
+     * 鐘那兩格方塊在柱頂下方二到三格，音源放在它正下方（鐘口），不埋在鐘裡
+     */
+    y: TERRACE_GROUND_Y + BELL_TOWER_SIZE.height - 3.8,
     mode: { type: 'interval', rangeSecond: [45, 100] },
     volume: 0.9,
     minDistance: 12,
     maxDistance: 70,
+    /** 同一口鐘：音高不變，只有敲得輕重略有不同 */
+    variation: { pitchRangeCent: 0, volumeDropRatio: 0.15 },
   },
   {
     /** 廣場東南角的灶，收攤了火自然也就熄了 */
@@ -140,5 +154,168 @@ export const VILLAGE_EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
     minDistance: 5,
     maxDistance: 22,
     silentInRain: true,
+  })),
+
+  /** 以下是補底的音源（isFiller），神遊不拿它們當停留點 */
+
+  /** 田上的風：花田那一圈八片，很輕，整天都在；借的是風露原的風，調低一點分開 */
+  ...[22, 67, 112, 157, 202, 247, 292, 337].map((degree, index): SoundEmitterDefinition => ({
+    id: `village-realm-field-wind-${index}`,
+    sound: 'meadow-wind',
+    title: { 'zh-hant': '田上的風', 'en': 'Wind over the fields' },
+    zone: 'village',
+    ...atVillageRing(degree, 50),
+    heightOffset: 2,
+    mode: { type: 'loop' },
+    volume: 0.24,
+    minDistance: 8,
+    maxDistance: 30,
+    variation: { pitchOffsetCent: -120 },
+    isFiller: true,
+  })),
+  /** 白天田邊的鳥：北、東、西南各一隻，在田埂的樹上換位置 */
+  ...[atVillageRing(270, 46), atVillageRing(350, 50), atVillageRing(140, 52)].map((position, index): SoundEmitterDefinition => ({
+    id: `village-realm-field-bird-${index}`,
+    activeAt: 'day',
+    sound: 'bird-blackbird',
+    title: { 'zh-hant': '田邊的鳥', 'en': 'Bird at the field edge' },
+    zone: 'village',
+    ...position,
+    heightOffset: 4,
+    motion: { type: 'wander', radius: 6, periodSecond: 47 + index * 9, riseHeight: 1 },
+    mode: { type: 'interval', rangeSecond: [22 + index * 5, 52 + index * 8] },
+    volume: 0.5,
+    minDistance: 5,
+    maxDistance: 30,
+    variation: { pitchOffsetCent: 30 + index * 30, pitchRangeCent: 50 },
+    silentInRain: true,
+    isFiller: true,
+  })),
+  /** 拂曉：天還沒亮，屋頂與田邊的鳥先叫起來，比白天密；太陽爬高就散 */
+  ...[
+    atVillage(-10, -8),
+    atVillage(14, 12),
+    atVillageRing(60, 44),
+    atVillageRing(200, 44),
+    atVillageRing(300, 44),
+  ].map((position, index): SoundEmitterDefinition => ({
+    id: `village-realm-dawn-bird-${index}`,
+    activeAt: 'dawn',
+    sound: 'bird-blackbird',
+    title: { 'zh-hant': '拂曉的鳥', 'en': 'Birds at first light' },
+    zone: 'village',
+    ...position,
+    heightOffset: 6,
+    mode: { type: 'interval', rangeSecond: [5 + index * 2, 14 + index * 3] },
+    volume: 0.55,
+    minDistance: 6,
+    maxDistance: 34,
+    variation: { pitchOffsetCent: index * 35 - 70, pitchRangeCent: 50 },
+    silentInRain: true,
+    isFiller: true,
+  })),
+  /** 薄暮：田裡的草蟲在人聲還沒散的時候先起頭，天黑透了才交給夜裡那幾片 */
+  ...[0, 90, 180, 270].map((degree, index): SoundEmitterDefinition => ({
+    id: `village-realm-dusk-cricket-${index}`,
+    activeAt: 'dusk',
+    sound: 'insect-cricket',
+    title: { 'zh-hant': '薄暮的草蟲', 'en': 'Crickets at dusk' },
+    zone: 'village',
+    ...atVillageRing(degree, 42),
+    heightOffset: 1,
+    mode: { type: 'loop' },
+    volume: 0.3,
+    minDistance: 5,
+    maxDistance: 24,
+    variation: { pitchOffsetCent: 80 },
+    silentInRain: true,
+    isFiller: true,
+  })),
+  /** 夜裡的花田補到八片：原本只有四個斜角，正北正東那幾段田是空的 */
+  ...[0, 90, 180, 270].map((degree, index): SoundEmitterDefinition => ({
+    id: `village-realm-field-cricket-fill-${index}`,
+    activeAt: 'night',
+    /** 與原本那四片蟋蟀不同頻段的一段夏夜蟲鳴，兩種交錯著繞田一圈 */
+    sound: 'insect-night-chorus',
+    title: { 'zh-hant': '田裡的蟲', 'en': 'Crickets in the fields' },
+    zone: 'village',
+    ...atVillageRing(degree, 52),
+    heightOffset: 1,
+    mode: { type: 'loop' },
+    volume: 0.34,
+    minDistance: 5,
+    maxDistance: 24,
+    variation: { pitchOffsetCent: index % 2 === 0 ? -90 : 110 },
+    silentInRain: true,
+    isFiller: true,
+  })),
+  {
+    /** 鍛冶屋的打鐵：白天十幾二十秒一串，從屋裡傳出來；同一塊鐵砧音高幾乎不變，只有下手輕重不同 */
+    id: 'village-realm-anvil',
+    activeAt: 'day',
+    sound: 'village-anvil',
+    title: { 'zh-hant': '鍛冶的打鐵', 'en': 'Hammer on the anvil' },
+    zone: 'village',
+    ...atVillage(SMITHY_POINT.offsetX, SMITHY_POINT.offsetZ),
+    /** 直接給 y：屋裡地板上方一格多，自動貼地會擺到屋頂上 */
+    y: TERRACE_GROUND_Y + 1.5,
+    mode: { type: 'interval', rangeSecond: [12, 34] },
+    volume: 0.5,
+    minDistance: 3,
+    maxDistance: 26,
+    variation: { pitchRangeCent: 30, volumeDropRatio: 0.35 },
+    isFiller: true,
+  },
+  {
+    /** 水車：立在小屋北邊的水道裡，木輪轉動、水一斗一斗落進槽裡 */
+    id: 'village-realm-water-wheel',
+    sound: 'village-water-wheel',
+    title: { 'zh-hant': '水車與水道', 'en': 'Watermill stream' },
+    zone: 'village',
+    ...atVillage(WATERMILL_POINT.offsetX, STREAM_Z),
+    /** 水面上方兩格，輪軸的高度 */
+    y: TERRACE_GROUND_Y + 1.5,
+    mode: { type: 'loop' },
+    volume: 0.4,
+    minDistance: 3,
+    maxDistance: 16,
+    /** 水車的節奏是固定的，不調音高 */
+    variation: { pitchRangeCent: 0 },
+    isFiller: true,
+  },
+  /** 拂曉的雞啼：兩戶民家各一隻，一高一低，天亮透了就不叫 */
+  ...[HOUSE_LOT_LIST[0]!, HOUSE_LOT_LIST[4]!].map((lot, index): SoundEmitterDefinition => ({
+    id: `village-realm-rooster-${index}`,
+    activeAt: 'dawn',
+    sound: 'village-rooster',
+    title: { 'zh-hant': '雞啼', 'en': 'Rooster' },
+    zone: 'village',
+    ...atVillage(lot.offsetX + lot.halfWidth + 2, lot.offsetZ),
+    heightOffset: 1.5,
+    mode: { type: 'interval', rangeSecond: [18 + index * 14, 50 + index * 24] },
+    volume: 0.6,
+    minDistance: 5,
+    maxDistance: 44,
+    variation: { pitchOffsetCent: index === 0 ? 0 : -90, pitchRangeCent: 40, volumeDropRatio: 0.3 },
+    isFiller: true,
+  })),
+  /**
+   * 遠遠的狗吠：村子北邊與西南的民家後面，好幾分鐘才一聲
+   *
+   * 這段錄音只有零點八秒、聽起來偏處理過，所以放得遠、壓小聲；聽了不對的話這一組整段拿掉就好
+   */
+  ...[atVillageRing(255, 38), atVillageRing(150, 40)].map((position, index): SoundEmitterDefinition => ({
+    id: `village-realm-dog-${index}`,
+    sound: 'village-dog',
+    title: { 'zh-hant': '遠處的狗吠', 'en': 'A dog barking far off' },
+    zone: 'village',
+    ...position,
+    heightOffset: 1,
+    mode: { type: 'interval', rangeSecond: [80 + index * 50, 240 + index * 80] },
+    volume: 0.32,
+    minDistance: 8,
+    maxDistance: 50,
+    variation: { pitchOffsetCent: index === 0 ? -60 : 90, pitchRangeCent: 120, volumeDropRatio: 0.4 },
+    isFiller: true,
   })),
 ]

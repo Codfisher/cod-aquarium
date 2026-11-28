@@ -19,7 +19,10 @@ export type SoundPlayMode =
    *
    * 給那種「必須跟著別的東西一起發生」的聲音用。
    * 目前只有聽雨亭的雷：閃光先到、聲音隔一段才來，
-   * 兩者若各走各的計時器就對不起來，看起來會像雷聲亂響
+   * 兩者若各走各的計時器就對不起來，看起來會像雷聲亂響。
+   *
+   * 觸發時可以順便指定這一次從哪裡響（世界座標）。渲染端的程式要叫一顆的話，
+   * 用 sound-trigger 的 requestSoundTrigger，不必自己接訊息
    */
   | { type: 'trigger' }
 
@@ -72,6 +75,52 @@ export type SoundMotion =
     riseHeight?: number;
   }
 
+/**
+ * 音源在一天當中的哪一段出現
+ *
+ * - day／night：跟著白晝程度交叉淡入淡出
+ * - dawn：拂曉。天還沒亮就起頭，太陽爬到半空才散（晨間的鳥合唱）
+ * - dusk：薄暮。太陽還掛著就起頭，天黑透之後一陣子才退（入夜前漲起來的蟲與蛙）
+ * - twilight：太陽貼著地平線那一段，早晚各一次，與天上晨昏才出現的東西同進同退（雁行、椋鳥群舞）
+ */
+export type SoundActivePeriod = 'day' | 'night' | 'dawn' | 'dusk' | 'twilight'
+
+/**
+ * 每一次播放差多少
+ *
+ * 不寫的話引擎給一組保守的預設（見 sound-shaping 的 pickPlayVariation）。
+ * 鐘、風鈴這類音高固定的東西要把 pitchRangeCent 寫成零，不然每敲一下都換一口鐘
+ */
+export interface SoundVariation {
+  /**
+   * 這顆音源固定偏移多少音分（一百音分是一個半音）
+   *
+   * 幾座場景共用同一段錄音時靠它分開：拓荒原的嚎借的是雪稜的狼，調高一點就像小一號的郊狼
+   */
+  pitchOffsetCent?: number;
+  /**
+   * 在固定偏移上下再差多少音分
+   *
+   * 間歇音是每次播放隨機取一次；循環音是每一顆照 id 取一個定值，載入卸載都不變
+   */
+  pitchRangeCent?: number;
+  /** 每次播放音量最多掉幾成（0 ～ 1），只對間歇音與觸發音有用 */
+  volumeDropRatio?: number;
+}
+
+/**
+ * 音量跟著雨（雪）勢走
+ *
+ * levelRange 是這座場景的雨勢最小到最大（場景定義的 weather），攤開成 floor 到一：
+ * 雨最小時留 floor 那麼多，滿檔才是定義裡的 volume
+ */
+export interface SoundWeatherGain {
+  source: 'rain' | 'snow';
+  levelRange: [number, number];
+  /** 雨勢在 levelRange 最低那一頭時剩幾成音量 */
+  floor: number;
+}
+
 export interface LocalizedText {
   'zh-hant': string;
   'en': string;
@@ -106,13 +155,32 @@ export interface SoundEmitterDefinition {
    * 風露苑白天是風與蚱蜢、夜裡是蟋蟀；市井坊的人聲入夜就散了，只剩灶上的火。
    * 音量的交叉淡入淡出跟著日出日落走，不是到點切換
    */
-  activeAt?: 'day' | 'night';
+  activeAt?: SoundActivePeriod;
   /**
    * 會不會移動，不給就釘在原地
    *
    * x、z、y 在這種情況下是「繞著哪裡動」的錨點，而不是實際位置
    */
   motion?: SoundMotion;
+  /** 每一次播放的音高與音量差多少，不給就用引擎的預設 */
+  variation?: SoundVariation;
+  /** 音量跟著雨勢或雪勢起落，不給就不管天氣強弱 */
+  weatherGain?: SoundWeatherGain;
+  /**
+   * 聲音能不能越過崖緣傳上來
+   *
+   * 遮蔽是沿著聽者到音源的直線數方塊，崖下的聲音因此全被崖身擋掉。
+   * 標了這個的音源會多試一條路：從音源垂直往上到聽者的高度、再水平過來，取比較通的那一條（打個折）。
+   * 只給頭頂是開闊的音源用（熔岩湖、瀑布潭）；洞裡的東西標了，洞頂薄的地方會漏到地面上
+   */
+  canCarryOverEdge?: boolean;
+  /**
+   * 是不是補底的音源
+   *
+   * 補底的音源只負責讓空地不死寂（外圍多鋪的一圈風、多放的幾叢蟲），不是一處景物。
+   * 神遊挑停留點、決定往哪裡看時會略過它們，新增補底的音源不會改變神遊停在哪裡
+   */
+  isFiller?: boolean;
 }
 
 /** 天氣狀態 */

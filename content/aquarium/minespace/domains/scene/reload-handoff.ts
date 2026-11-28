@@ -41,6 +41,12 @@ export interface ReloadHandoff {
    */
   dayIndex?: number;
   /**
+   * 指定燃燒強度（零到一），只在開發模式讀（見 volumetric-cloud 的 updateFrameUniform）
+   *
+   * 晨昏的雲燒得多兇是每天抽出來的，要對著「平淡」或「整片燒」調色階，就得能直接指定
+   */
+  burnIntensity?: number;
+  /**
    * 人在哪一個場景
    *
    * 換畫質是整頁重來的，不記的話人會從大場景被丟回禪庭。
@@ -82,6 +88,7 @@ function parseHandoff(raw: string): ReloadHandoff | null {
       rotation,
       timeOfDay,
       ...(isFiniteNumber(parsed.dayIndex) ? { dayIndex: parsed.dayIndex } : {}),
+      ...(isFiniteNumber(parsed.burnIntensity) ? { burnIntensity: parsed.burnIntensity } : {}),
       ...(typeof parsed.realmId === 'string' ? { realmId: parsed.realmId } : {}),
       ...(parsed.isDrifting === true ? { isDrifting: true } : {}),
     } as ReloadHandoff

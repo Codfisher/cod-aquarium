@@ -112,6 +112,8 @@ export function useRenderHost({ canvasRef, locale }: UseRenderHostParam) {
     isNight: false,
     zone: null,
     weather: 'clear',
+    rainRatio: 0,
+    snowRatio: 0,
     isUnderground: false,
     isProbeVisible: false,
     debugModeLabel: '',

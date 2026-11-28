@@ -480,6 +480,8 @@ const EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
     volume: 0.85,
     minDistance: 10,
     maxDistance: 40,
+    /** 同一口鐘：音高不能跟著別的間歇音每次隨機差一點，只有敲得輕重略有不同 */
+    variation: { pitchRangeCent: 0, volumeDropRatio: 0.15 },
   },
   {
     /** 灶上的火，走到攤子旁邊才聽得到。收攤了火自然也就熄了 */

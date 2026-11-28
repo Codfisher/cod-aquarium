@@ -1,5 +1,5 @@
 import type { SoundEmitterDefinition } from '../../soundscape/type'
-import { ISLAND_POND_RADIUS, ISLAND_RADIUS, LAKE_CENTER } from './lake-layout'
+import { ISLAND_POND_RADIUS, ISLAND_RADIUS, LAKE_CENTER, LAKE_JETTY_POINT, LAKE_WATER_SURFACE_Y } from './lake-layout'
 
 /** 湖心加上偏移的座標 */
 function atLake(offsetX: number, offsetZ: number): { x: number; z: number } {
@@ -89,4 +89,111 @@ export const LAKE_EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
     maxDistance: 16,
     silentInRain: true,
   },
+
+  /**
+   * 以下是補底的音源（isFiller），神遊不拿它們當停留點
+   *
+   * 夜裡整座島原本只有西南那一叢蟲與池心一隻蛙，量出來兩成的地面完全沒有聲音（東岸、北岸）。
+   * 補的量刻意克制，仍是「一個一個點、中間是空白」：東岸短棧邊與北岸各一叢草蟲（音高各調一點，
+   * 不是同一叢搬三次），池北一隻夜裡才開口的蛙，薄暮時池邊另一隻叫得勤一些
+   */
+  ...[
+    { x: LAKE_JETTY_POINT.x - 4, z: LAKE_JETTY_POINT.z - 2, pitchOffsetCent: 110 },
+    { ...atLake(7, -19), pitchOffsetCent: -130 },
+  ].map(({ pitchOffsetCent, ...position }, index): SoundEmitterDefinition => ({
+    id: `lake-shore-cricket-${index}`,
+    activeAt: 'night',
+    sound: 'insect-bush-cricket',
+    title: { 'zh-hant': '水邊的草蟲', 'en': 'Waterside crickets' },
+    zone: 'pond',
+    ...position,
+    heightOffset: 1,
+    mode: { type: 'loop' },
+    volume: 0.3,
+    minDistance: 3,
+    maxDistance: 17,
+    variation: { pitchOffsetCent },
+    silentInRain: true,
+    isFiller: true,
+  })),
+  {
+    id: 'lake-pond-night-frog',
+    activeAt: 'night',
+    sound: 'frog-single',
+    title: { 'zh-hant': '池畔蛙鳴', 'en': 'Pondside frog' },
+    zone: 'pond',
+    ...atLake(6, -8),
+    heightOffset: 1,
+    mode: { type: 'interval', rangeSecond: [11, 30] },
+    volume: 0.5,
+    minDistance: 4,
+    maxDistance: 22,
+    variation: { pitchOffsetCent: -190, pitchRangeCent: 70 },
+    isFiller: true,
+  },
+  {
+    id: 'lake-pond-dusk-frog',
+    activeAt: 'dusk',
+    sound: 'frog-single',
+    title: { 'zh-hant': '池畔蛙鳴', 'en': 'Pondside frog' },
+    zone: 'pond',
+    ...atLake(-7, -6),
+    heightOffset: 1,
+    mode: { type: 'interval', rangeSecond: [5, 12] },
+    volume: 0.5,
+    minDistance: 4,
+    maxDistance: 22,
+    variation: { pitchOffsetCent: 140, pitchRangeCent: 70 },
+    isFiller: true,
+  },
+  {
+    /** 東岸短棧邊的小舟：湖水一下一下輕拍棧腳與船身，走上短棧才聽得到 */
+    id: 'lake-jetty-lapping',
+    sound: 'water-lapping',
+    title: { 'zh-hant': '水拍短棧', 'en': 'Water lapping at the jetty' },
+    zone: 'pond',
+    x: LAKE_JETTY_POINT.x + 1,
+    z: LAKE_JETTY_POINT.z,
+    /** 直接給 y：棧板底下、就在水面那一層（水面離棧板不到一格）。自動貼地會貼到棧板上面 */
+    y: LAKE_WATER_SURFACE_Y - 0.1,
+    mode: { type: 'loop' },
+    volume: 0.3,
+    minDistance: 2,
+    maxDistance: 10,
+    isFiller: true,
+  },
+  /** 岸邊草叢被風撥動的沙沙聲：南岸與西岸各一小片，很輕 */
+  ...[atLakeRing(65, ISLAND_RADIUS - 4), atLakeRing(165, ISLAND_RADIUS - 5)].map((position, index): SoundEmitterDefinition => ({
+    id: `lake-shore-reeds-${index}`,
+    sound: 'lake-reeds',
+    title: { 'zh-hant': '岸邊的草聲', 'en': 'Grass stirring by the shore' },
+    zone: 'pond',
+    ...position,
+    heightOffset: 1,
+    mode: { type: 'loop' },
+    volume: 0.2,
+    minDistance: 3,
+    maxDistance: 13,
+    variation: { pitchOffsetCent: index === 0 ? -70 : 90 },
+    isFiller: true,
+  })),
+  /** 潛鳥：湖面很遠的地方一聲悠長的哀鳴，薄暮一隻、夜裡另一頭一隻，好幾分鐘才一次 */
+  ...[
+    { ...atLakeRing(200, ISLAND_RADIUS + 26), activeAt: 'dusk' as const, rangeSecond: [50, 130] as [number, number] },
+    { ...atLakeRing(20, ISLAND_RADIUS + 30), activeAt: 'night' as const, rangeSecond: [130, 340] as [number, number] },
+  ].map(({ activeAt, rangeSecond, ...position }, index): SoundEmitterDefinition => ({
+    id: `lake-loon-${index}`,
+    activeAt,
+    sound: 'bird-loon',
+    title: { 'zh-hant': '遠處的潛鳥', 'en': 'A loon far out on the lake' },
+    zone: 'pond',
+    ...position,
+    heightOffset: 1,
+    mode: { type: 'interval', rangeSecond },
+    volume: 0.6,
+    minDistance: 20,
+    maxDistance: 90,
+    variation: { pitchOffsetCent: index === 0 ? 0 : -70, pitchRangeCent: 40, volumeDropRatio: 0.3 },
+    isFiller: true,
+  })),
 ]

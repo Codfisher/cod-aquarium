@@ -4,8 +4,10 @@ import {
   measureStreamZ,
   measureValleyCenterZ,
   PLUNGE_POOL,
+  RIVER_LOG_BRIDGE_POINT,
   RIVER_PORTAL_POINT,
   VALLEY_END_X,
+  VALLEY_FLOOR_Y,
   VALLEY_HEAD_X,
   WATERFALL_POINT,
 } from './river-layout'
@@ -39,6 +41,12 @@ export const RIVER_EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
     volume: 1,
     minDistance: 12,
     maxDistance: 90,
+    /**
+     * 谷是朝天開的，瀑布的轟聲會從谷裡升上來
+     *
+     * 爬上谷壁、站在崖頂時，到瀑布的直線整段埋在岩壁裡，原本一上去就完全聽不到（量出來東北那片崖頂是靜的）
+     */
+    canCarryOverEdge: true,
   },
   /** 崖頂的水口：溪水在缺口邊翻下去，站在潭邊抬頭聽得到上面那一層 */
   {
@@ -123,6 +131,8 @@ export const RIVER_EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
     volume: 0.6,
     minDistance: 4,
     maxDistance: 24,
+    /** 兩隻水雞一高一低，一來一往才聽得出是兩隻 */
+    variation: { pitchOffsetCent: 60, pitchRangeCent: 50 },
     silentInRain: true,
   },
   /** 上游那個潭也有一隻，間隔長一點，兩隻偶爾一來一往 */
@@ -138,6 +148,7 @@ export const RIVER_EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
     volume: 0.55,
     minDistance: 4,
     maxDistance: 22,
+    variation: { pitchOffsetCent: -70, pitchRangeCent: 50 },
     silentInRain: true,
   },
   /** 夜裡水邊的草蟲：門前那片草地與上游的北岸 */
@@ -156,6 +167,113 @@ export const RIVER_EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
     volume: 0.35,
     minDistance: 3,
     maxDistance: 16,
+    /** 與湖中島是同一段草蟲：調低一點，谷底的夜比湖邊沉 */
+    variation: { pitchOffsetCent: -160 },
     silentInRain: true,
+  })),
+
+  /** 以下是補底的音源（isFiller），神遊不拿它們當停留點 */
+
+  /** 薄暮：水邊的草蟲在天黑之前先起頭，下游與木橋邊各一叢 */
+  ...[
+    { x: 178, z: Math.round(measureValleyCenterZ(178) + 7) },
+    { x: 140, z: Math.round(measureValleyCenterZ(140) - 7) },
+  ].map((position, index): SoundEmitterDefinition => ({
+    id: `river-realm-dusk-cricket-${index}`,
+    activeAt: 'dusk',
+    sound: 'insect-bush-cricket',
+    title: { 'zh-hant': '水邊的草蟲', 'en': 'Waterside crickets' },
+    zone: 'river',
+    ...position,
+    heightOffset: 1,
+    mode: { type: 'loop' },
+    volume: 0.3,
+    minDistance: 3,
+    maxDistance: 18,
+    variation: { pitchOffsetCent: 70 },
+    silentInRain: true,
+    isFiller: true,
+  })),
+  /** 夜裡下游多兩叢：原本只有門前與上游北岸，下游整段入夜只剩水聲 */
+  ...[
+    { x: 188, z: Math.round(measureValleyCenterZ(188) - 6) },
+    { x: 150, z: Math.round(measureValleyCenterZ(150) + 8) },
+  ].map((position, index): SoundEmitterDefinition => ({
+    id: `river-realm-cricket-fill-${index}`,
+    activeAt: 'night',
+    /** 與門前、上游那兩叢草蟲不同頻段的一段夏夜蟲鳴，下游的夜因此是另一種質地 */
+    sound: 'insect-night-chorus',
+    title: { 'zh-hant': '水邊的草蟲', 'en': 'Waterside crickets' },
+    zone: 'river',
+    ...position,
+    heightOffset: 1,
+    mode: { type: 'loop' },
+    volume: 0.32,
+    minDistance: 3,
+    maxDistance: 16,
+    variation: { pitchOffsetCent: -40 - index * 150 },
+    silentInRain: true,
+    isFiller: true,
+  })),
+  /**
+   * 崖頂的風：東北那片谷壁爬得上去，上面離瀑布一百格、離溪二十幾格高，原本什麼都聽不到。
+   * 借雪稜的嘯風壓低、壓小聲，站上去聽到的是空曠，往下走回谷裡才又是水聲
+   */
+  ...[{ x: 166, z: 112 }, { x: 180, z: 108 }].map((position, index): SoundEmitterDefinition => ({
+    id: `river-realm-rim-wind-${index}`,
+    sound: 'alpine-wind',
+    title: { 'zh-hant': '崖頂的風', 'en': 'Wind on the rim' },
+    zone: 'river',
+    ...position,
+    heightOffset: 2,
+    mode: { type: 'loop' },
+    volume: 0.24,
+    minDistance: 6,
+    maxDistance: 26,
+    variation: { pitchOffsetCent: -320 },
+    isFiller: true,
+  })),
+  /**
+   * 淺水流過石頭的細碎聲：獨木橋下與下游的淺灘
+   *
+   * 沿溪那一串是主流的水聲（厚、連續）；這幾處是水淺、石頭露出來的地方，聲音細而碎，
+   * 很小聲，站在橋上或蹲到水邊才分得出來
+   */
+  ...[
+    { x: RIVER_LOG_BRIDGE_POINT.x, z: RIVER_LOG_BRIDGE_POINT.z },
+    atStream(170),
+    atStream(190),
+  ].map((position, index): SoundEmitterDefinition => ({
+    id: `river-realm-trickle-${index}`,
+    sound: 'river-trickle',
+    title: { 'zh-hant': '石間的細流', 'en': 'Water trickling over stones' },
+    zone: 'river',
+    ...position,
+    /** 橋下那一段水面的高度；下游的水面低一兩格，音源就在水面上方一點 */
+    y: VALLEY_FLOOR_Y + 1.2,
+    mode: { type: 'loop' },
+    volume: 0.3,
+    minDistance: 2,
+    maxDistance: 10,
+    variation: { pitchOffsetCent: [0, 90, -80][index] ?? 0 },
+    isFiller: true,
+  })),
+  /** 門前那片草地與北岸的草聲：風吹水邊長草的沙沙聲，很輕；白天離溪遠一點的地方原本只剩遠遠的瀑布 */
+  ...[
+    { x: RIVER_PORTAL_POINT.x - 4, z: RIVER_PORTAL_POINT.z + 5 },
+    { x: RIVER_PORTAL_POINT.x - 16, z: RIVER_PORTAL_POINT.z - 2 },
+  ].map((position, index): SoundEmitterDefinition => ({
+    id: `river-realm-bank-grass-${index}`,
+    sound: 'lake-reeds',
+    title: { 'zh-hant': '岸邊的草聲', 'en': 'Grass stirring on the bank' },
+    zone: 'river',
+    ...position,
+    heightOffset: 1,
+    mode: { type: 'loop' },
+    volume: 0.24,
+    minDistance: 4,
+    maxDistance: 18,
+    variation: { pitchOffsetCent: index === 0 ? 50 : -90 },
+    isFiller: true,
   })),
 ]

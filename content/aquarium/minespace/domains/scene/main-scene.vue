@@ -478,7 +478,7 @@ const {
 } = useSoundscape()
 
 addPoseHandler(updatePose)
-addSoundHandler(({ id, volume }) => triggerSound(id, volume))
+addSoundHandler(({ id, volume, position }) => triggerSound(id, { volume, position }))
 /** 穿過傳送門時霧湧上來的那一陣聲音，換好場景時由音景自己淡出 */
 addTransitionHandler(({ sound, durationSecond }) => void playTransitionSound(sound, durationSecond))
 watch(() => status.weather, (current) => setWeather(current))
@@ -718,6 +718,10 @@ async function handleStart() {
     worldState: worldState.value,
     realmId: realmId.value,
     getDayRatio: () => status.dayRatio,
+    getTimeOfDay: () => status.timeOfDay,
+    getRainRatio: () => status.rainRatio,
+    getSnowRatio: () => status.snowRatio,
+    checkDrifting: () => status.isDrifting,
   })
 
   resume()

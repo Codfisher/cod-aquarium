@@ -561,6 +561,14 @@ export interface RealmDefinition {
    * 大廳照舊落在岩響窟，其他沒給的場景整組停掉
    */
   caveDripList?: { x: number; y: number; z: number }[];
+  /**
+   * 熔岩的真光最多幾盞，不給就是 light-source 的 AREA_LIGHT_LIMIT（十二）
+   *
+   * 熔岩不是一格一盞：露在外面的液面（湖、河、瀑布）依位置併成幾盞大的面光源，
+   * 超過這個數就把最近的兩群再併起來。熔岩很多、畫面又吃緊的場景可以調低，
+   * 想讓零散的小池各有各的光就調高（每多一盞罩滿畫面的燈，高畫質約多 0.3 毫秒）
+   */
+  areaLightLimit?: number;
   atmosphere: RealmAtmosphereProfile;
   backdrop?: RealmBackdrop;
   /** 走進這個場景時的轉場樣式 */

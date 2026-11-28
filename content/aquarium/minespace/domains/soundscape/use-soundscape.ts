@@ -1,16 +1,31 @@
 import type { AudioEngineV2, StaticSound } from '@babylonjs/core'
 import type { RealmId } from '../realm/realm-definition'
 import type { RenderPoseMessage } from '../render-host/protocol'
+import type { SoundscapeEnvironment, SoundTriggerOption } from './spatial-soundscape'
 import type { AudibleSound, Weather } from './type'
 import { CreateSoundAsync } from '@babylonjs/core'
 import { useIntervalFn, useStorage } from '@vueuse/core'
 import { onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { getAudioEngine } from '../../composables/use-audio-engine'
+import { PLAYER_EYE_HEIGHT } from '../player/collision'
+import { getWaterlineY } from '../world/world-access'
 import { createEmitterList, getSoundUrl } from './sound-data'
+import { measureDriftListenerY } from './sound-shaping'
 import { SpatialSoundscape } from './spatial-soundscape'
 
 /** 音源載入狀態的更新間隔（秒），不需要每幀重算 */
 const UPDATE_INTERVAL = 0.25
+
+/** 進出神遊時，耳朵從鏡頭的高度移到「吊在下面的麥克風」要幾秒（見 measureDriftListenerY） */
+const DRIFT_LISTENER_FADE_SECOND = 1.5
+/**
+ * 神遊時腳下地面高度的平滑時間（秒）
+ *
+ * 鏡頭飛過崖邊、屋頂時，正下方的地面一格之內跳好幾格，耳朵跟著跳的話音量會一頓一頓
+ */
+const DRIFT_GROUND_SMOOTH_SECOND = 0.8
+/** 開發模式下每隔幾秒印一次聲部數量 */
+const VOICE_REPORT_INTERVAL_SECOND = 20
 
 /** 轉場音效最大聲到多少，它是過門那一下的陪襯，不該蓋過到了之後的音景 */
 const TRANSITION_SOUND_VOLUME = 0.55
@@ -32,6 +47,13 @@ interface StartParams {
    * 走反應式的話會每幀觸發一次更新，而音景其實四分之一秒才需要看一次
    */
   getDayRatio?: () => number;
+  /** 一天的時刻，0 為子夜、0.5 為正午；拂曉、薄暮才出現的聲音看它 */
+  getTimeOfDay?: () => number;
+  /** 此刻的雨勢與雪勢 0 ～ 1，雨聲與風雪聲的音量跟著它起落 */
+  getRainRatio?: () => number;
+  getSnowRatio?: () => number;
+  /** 是不是正在神遊：神遊升空時耳朵不跟著鏡頭飛那麼高（見 measureDriftListenerY） */
+  checkDrifting?: () => boolean;
 }
 
 /**
@@ -73,6 +95,26 @@ export function useSoundscape() {
   let soundscape: SpatialSoundscape | null = null
   let audioEngine: AudioEngineV2 | null = null
   let getDayRatio: (() => number) | undefined
+  let getTimeOfDay: (() => number) | undefined
+  let getRainRatio: (() => number) | undefined
+  let getSnowRatio: (() => number) | undefined
+  let checkDrifting: (() => boolean) | undefined
+  /** 目前的世界與場景：神遊時要查鏡頭正下方的地面，開發時的聲部讀數要標是哪一座 */
+  let currentWorldState: Uint8Array | null = null
+  let currentRealmId: RealmId | null = null
+  /** 耳朵此刻實際放在多高（神遊升空時比鏡頭低），音源的距離與遮蔽都照它算 */
+  let listenerY = 0
+  /** 耳朵往下拉的程度 0 ～ 1，進出神遊時慢慢變 */
+  let driftPullRatio = 0
+  /** 平滑過的「人站在鏡頭正下方時耳朵多高」 */
+  let smoothedGroundEarY: number | null = null
+  /** 上一次套用聽者位姿的時間（毫秒） */
+  let lastListenerAt = 0
+  /** 開發時的聲部讀數：進場景以來最多同時載入、出聲幾顆 */
+  let voicePeakLoaded = 0
+  let voicePeakPlaying = 0
+  let voiceReportElapsed = 0
+  let lastVoiceReportText = ''
   /** 最近一次收到的鏡頭位姿，定時更新用它算 */
   let lastPose: RenderPoseMessage | null = null
   /** 上一次定時更新的時間（毫秒），拿來換算每次更新之間隔了幾秒 */
@@ -129,10 +171,10 @@ export function useSoundscape() {
    * 觸發一個 trigger 模式的音源
    *
    * 天氣系統的閃電靠它把聽雨亭那道雷叫出來。
-   * 聲音本身種在 sound-data，天氣只負責決定什麼時候響
+   * 聲音本身種在 sound-data，天氣只負責決定什麼時候響、這一次從哪裡響
    */
-  function triggerSound(id: string, volume?: number) {
-    soundscape?.trigger(id, volume)
+  function triggerSound(id: string, option?: SoundTriggerOption) {
+    soundscape?.trigger(id, option)
   }
 
   /**
@@ -140,15 +182,19 @@ export function useSoundscape() {
    *
    * 必須在使用者互動後呼叫，瀏覽器才允許播放聲音。
    */
-  async function start({ worldState, realmId, getDayRatio: readDayRatio }: StartParams): Promise<void> {
+  async function start(params: StartParams): Promise<void> {
     if (soundscape)
       return
 
     audioEngine = await getAudioEngine()
     await audioEngine.unlockAsync()
 
-    getDayRatio = readDayRatio
-    soundscape = createSoundscape(audioEngine, worldState, realmId)
+    getDayRatio = params.getDayRatio
+    getTimeOfDay = params.getTimeOfDay
+    getRainRatio = params.getRainRatio
+    getSnowRatio = params.getSnowRatio
+    checkDrifting = params.checkDrifting
+    soundscape = createSoundscape(audioEngine, params.worldState, params.realmId)
     isReady.value = true
     applyListenerPose()
     resumeUpdate()
@@ -156,8 +202,15 @@ export function useSoundscape() {
 
   function createSoundscape(engine: AudioEngineV2, worldState: Uint8Array, realmId: RealmId): SpatialSoundscape {
     const next = new SpatialSoundscape(engine, createEmitterList(worldState, realmId), worldState)
+    currentWorldState = worldState
+    currentRealmId = realmId
+    /** 換了世界，腳下的地面高度從頭量，不拿上一座場景的來平滑 */
+    smoothedGroundEarY = null
+    voicePeakLoaded = 0
+    voicePeakPlaying = 0
     next.setMasterVolume(isMuted.value ? 0 : masterVolume.value, 0.01)
     next.setWeather(currentWeather)
+    next.setEnvironment(readEnvironment())
     /** 上次關掉的那幾個要一開始就是關著的，不能先響一聲再收掉 */
     next.setMutedIdList(mutedSoundIdList.value)
     return next
@@ -244,8 +297,75 @@ export function useSoundscape() {
     if (!audioEngine || !lastPose)
       return
 
-    audioEngine.listener.position.set(lastPose.x, lastPose.y, lastPose.z)
+    listenerY = measureListenerY(lastPose)
+    audioEngine.listener.position.set(lastPose.x, listenerY, lastPose.z)
     audioEngine.listener.rotation.set(lastPose.pitch, lastPose.yaw, 0)
+  }
+
+  /**
+   * 耳朵該放在多高
+   *
+   * 平常就是鏡頭的高度。神遊升空時鏡頭在樹梢上方，耳朵照實跟著的話貼地的聲音全部出了範圍，
+   * 所以改成吊在鏡頭下方（算式與理由見 measureDriftListenerY）。
+   * 進出神遊用 driftPullRatio 慢慢過去，腳下地面的高度也先平滑過，音量才不會一頓一頓
+   */
+  function measureListenerY(pose: RenderPoseMessage): number {
+    const now = performance.now()
+    const deltaSecond = lastListenerAt === 0 ? 0 : Math.min(0.5, (now - lastListenerAt) / 1000)
+    lastListenerAt = now
+
+    const pullStep = deltaSecond / DRIFT_LISTENER_FADE_SECOND
+    driftPullRatio = checkDrifting?.()
+      ? Math.min(1, driftPullRatio + pullStep)
+      : Math.max(0, driftPullRatio - pullStep)
+
+    if (driftPullRatio <= 0 || !currentWorldState) {
+      smoothedGroundEarY = null
+      return pose.y
+    }
+
+    /** 方塊中心在整數座標：頂面比 getWaterlineY 回傳的那一格低半格，人站在上面耳朵再高一個眼高 */
+    const groundEarY = getWaterlineY(currentWorldState, Math.floor(pose.x + 0.5), Math.floor(pose.z + 0.5))
+      - 0.5 + PLAYER_EYE_HEIGHT
+    smoothedGroundEarY = smoothedGroundEarY === null
+      ? groundEarY
+      : smoothedGroundEarY + (groundEarY - smoothedGroundEarY) * (1 - Math.exp(-deltaSecond / DRIFT_GROUND_SMOOTH_SECOND))
+
+    return measureDriftListenerY(pose.y, smoothedGroundEarY, driftPullRatio)
+  }
+
+  /** 此刻的時刻與雨雪強弱，沒接上的來源給不影響任何音源的值 */
+  function readEnvironment(): SoundscapeEnvironment {
+    return {
+      timeOfDay: getTimeOfDay?.() ?? 0.5,
+      rainRatio: getRainRatio?.() ?? 0,
+      snowRatio: getSnowRatio?.() ?? 0,
+    }
+  }
+
+  /**
+   * 開發時定時印出聲部數量
+   *
+   * 每一顆載入的音源都是一條 HRTF 的空間聲部，場景大了一次載入好幾十顆。
+   * 要不要設上限得先有數字：這裡記下進場景以來的最大值，有變才印，逛一圈再把主控台的讀數貼回來
+   */
+  function reportVoiceStat(current: SpatialSoundscape, deltaSecond: number): void {
+    const { loadedCount, playingCount } = current.getVoiceStat()
+    voicePeakLoaded = Math.max(voicePeakLoaded, loadedCount)
+    voicePeakPlaying = Math.max(voicePeakPlaying, playingCount)
+
+    voiceReportElapsed += deltaSecond
+    if (voiceReportElapsed < VOICE_REPORT_INTERVAL_SECOND)
+      return
+
+    voiceReportElapsed = 0
+    const text = `[Soundscape] 聲部（${currentRealmId}）：此刻載入 ${loadedCount}、出聲 ${playingCount}；進場景以來最多載入 ${voicePeakLoaded}、出聲 ${voicePeakPlaying}`
+    if (text !== lastVoiceReportText) {
+      lastVoiceReportText = text
+      /** 不用 console.warn：警告會被收進問題紀錄（use-error-logger），這只是讀數 */
+      // eslint-disable-next-line no-console
+      console.info(text)
+    }
   }
 
   /**
@@ -265,14 +385,22 @@ export function useSoundscape() {
     lastUpdateAt = now
     totalElapsedSecond += deltaSecond
 
+    /** 人站著不動時不會有新的位姿，進出神遊的那一段過渡靠這裡繼續推 */
+    applyListenerPose()
+
+    soundscape.setEnvironment(readEnvironment())
     soundscape.update(
       lastPose.x,
-      lastPose.y,
+      listenerY,
       lastPose.z,
       getDayRatio?.() ?? 1,
       totalElapsedSecond,
     )
     audibleList.value = soundscape.getAudibleList()
+
+    if (import.meta.env.DEV) {
+      reportVoiceStat(soundscape, deltaSecond)
+    }
   }, UPDATE_INTERVAL * 1000, { immediate: false })
 
   onBeforeUnmount(() => {

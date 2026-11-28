@@ -240,6 +240,11 @@ class CloudShadowPlugin extends MaterialPluginBase {
        *
        * 俯視圖只罩住鏡頭附近一塊。靠近邊緣的那一圈淡掉，
        * 而不是一刀切：出了圖的範圍什麼都查不到，硬切會在地上留下一道方框
+       *
+       * 取樣用 textureLod 指定第零層，不用一般的 texture2D。那張圖沒有 mip，取到的值一樣；
+       * 差別在一般的取樣要算螢幕微分，而 HLSL 不准要算微分的取樣落在動態分支裡，
+       * 整支著色器只要後段還有一次這種取樣，前面的提早返回、提早丟像素就全被攤平成照算
+       * （見 docs/development-notes.md 效能優化一節的「動態分支與螢幕微分」）
        */
       'CUSTOM_FRAGMENT_DEFINITIONS': `
         uniform sampler2D cloudShadowSampler;
@@ -256,7 +261,11 @@ class CloudShadowPlugin extends MaterialPluginBase {
           vec2 edgeDistance = min(shadowUv, 1.0 - shadowUv);
           float edgeFade = smoothstep(0.0, 0.1, min(edgeDistance.x, edgeDistance.y));
 
-          float cover = 1.0 - texture2D(cloudShadowSampler, shadowUv).r;
+          #ifdef WEBGL2
+            float cover = 1.0 - textureLod(cloudShadowSampler, shadowUv, 0.0).r;
+          #else
+            float cover = 1.0 - texture2D(cloudShadowSampler, shadowUv).r;
+          #endif
 
           return smoothstep(cloudShadowParam.z, cloudShadowParam.w, cover) * edgeFade;
         }

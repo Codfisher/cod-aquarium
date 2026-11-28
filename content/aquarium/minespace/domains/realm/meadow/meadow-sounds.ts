@@ -114,4 +114,61 @@ export const MEADOW_EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
       silentInRain: true,
     }
   }),
+  /**
+   * 以下是補底的音源（isFiller），神遊不拿它們當停留點
+   *
+   * 風露原的日夜分工原本只靠兩段蟋蟀與一段蚱蜢。多加三樣，各佔一個原本空著的位置：
+   * 白天頭頂很高的地方有雲雀一直唱（原野上最典型的一個聲音）、草叢裡另一種螽斯的合唱，
+   * 夜裡在蟋蟀與螽斯之外再疊幾片不同頻段的夏夜蟲鳴
+   */
+  ...[atMeadowRing(40, 24), atMeadowRing(220, 34)].map((position, index): SoundEmitterDefinition => ({
+    id: `meadow-downs-skylark-${index}`,
+    activeAt: 'day',
+    sound: 'bird-skylark',
+    title: { 'zh-hant': '高空的雲雀', 'en': 'Skylark high overhead' },
+    zone: 'meadow',
+    ...position,
+    /** 掛在很高的地方繞大圈：雲雀是邊飛邊唱的，聲音從天上來、慢慢換方位 */
+    heightOffset: 22,
+    motion: { type: 'orbit', radius: 18, periodSecond: 150 + index * 40, riseHeight: 4 },
+    mode: { type: 'loop' },
+    volume: 0.4,
+    minDistance: 14,
+    maxDistance: 60,
+    variation: { pitchOffsetCent: index === 0 ? 30 : -50, pitchRangeCent: 0 },
+    silentInRain: true,
+    isFiller: true,
+  })),
+  ...createRing(6, 36, 25).map((position, index): SoundEmitterDefinition => ({
+    id: `meadow-downs-grasshopper-${index}`,
+    activeAt: 'day',
+    sound: 'insect-grasshopper',
+    title: { 'zh-hant': '草叢裡的螽斯', 'en': 'Grasshoppers in the grass' },
+    zone: 'meadow',
+    ...position,
+    heightOffset: 1,
+    mode: { type: 'loop' },
+    volume: 0.34,
+    minDistance: 4,
+    maxDistance: 20,
+    variation: { pitchRangeCent: 140 },
+    silentInRain: true,
+    isFiller: true,
+  })),
+  ...createRing(5, 40, 60).map((position, index): SoundEmitterDefinition => ({
+    id: `meadow-downs-far-night-insect-${index}`,
+    activeAt: 'night',
+    sound: 'insect-night-chorus',
+    title: { 'zh-hant': '遠處的夜蟲', 'en': 'Night insects further off' },
+    zone: 'meadow',
+    ...position,
+    heightOffset: 1,
+    mode: { type: 'loop' },
+    volume: 0.3,
+    minDistance: 6,
+    maxDistance: 28,
+    variation: { pitchOffsetCent: 60, pitchRangeCent: 160 },
+    silentInRain: true,
+    isFiller: true,
+  })),
 ]

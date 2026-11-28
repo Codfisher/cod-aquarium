@@ -10,6 +10,7 @@ import {
 import { useGraphicsQuality } from '../../composables/use-graphics-quality'
 import { measureSection } from '../../composables/use-performance-probe'
 import { pickOverride, resolveTexture } from '../block/texture-pack'
+import { attachCutoutShading } from './cutout-shading'
 import { setLeafTranslucency } from './leaf-translucency'
 import { attachWaterCaustics } from './water-caustics'
 
@@ -468,6 +469,8 @@ export function createTextureSkinner(scene: Scene): TextureSkinner {
        * 拉太高會連葉尖那種只有一兩個像素的部分一起啃掉
        */
       material.alphaCutOff = 0.5
+      /** 一層層疊起來的鏤空葉片接陰影改用 PCF，接觸硬化留給地面與實心的方塊（見 cutout-shading） */
+      attachCutoutShading(material)
     }
 
     /**

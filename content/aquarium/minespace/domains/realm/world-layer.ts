@@ -16,7 +16,7 @@ import { createVoxelGi } from '../renderer/voxel-gi'
 import { createVoxelRenderer } from '../renderer/voxel-renderer'
 import { createWaterCaustics } from '../renderer/water-caustics'
 import { createWaterSurface } from '../renderer/water-surface'
-import { collectLightSourceList } from '../world/light-source'
+import { collectLightSourceList, collectPointLightList } from '../world/light-source'
 import { useChunkWorker } from '../world/use-chunk-worker'
 import { useTerrainWorker } from '../world/use-terrain-worker/use-terrain-worker'
 import { scanWaterMap } from '../world/water-body'
@@ -241,7 +241,8 @@ export async function createWorldLayer({
   blockLights.start({
     scene,
     camera,
-    sourceList: lightSourceList,
+    /** 燈籠與火一格一盞，熔岩整片併成少數幾盞面光源，見 collectPointLightList */
+    pointLightList: collectPointLightList(worldState, lightSourceList, { areaLightLimit: realm.areaLightLimit }),
     getDayRatio,
   })
   disposeList.push(() => blockLights.stop())

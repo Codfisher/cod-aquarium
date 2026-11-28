@@ -17,17 +17,16 @@ import {
 /**
  * 湯煙谷的細節小景
  *
- * 只有地形 worker 用，排在枯木與花草之後、傳送門之前。
- * 谷底原本是三層石面、熱泉、泥池、噴氣孔與一圈木棧，泉邊只有一圈砂岩，看不出水裡有礦。
- * 這一輪補的是溫泉地該有的東西：泉與噴氣孔四周一圈一圈結出來的硫磺華（薄殼與小塊）、
+ * 只有地形 worker 用，排在枯木與花草之後、傳送門之前。全在南邊那一彎台地上（腳底 JIGOKU_FOOT_Y），
+ * 是整片熔岩湖前面那一層人的尺度：泉與噴氣孔四周一圈一圈結出來的硫磺華（薄殼與小塊）、
  * 泉邊的告示木牌與界樁、鳥居前賣溫泉蛋的小攤與一把朱紅的野點傘、有頂的足湯，
- * 以及熔岩縫東端的賽之河原（一片積石與一尊石地藏）。
+ * 以及東邊木棧南側的賽之河原（一片積石與一尊石地藏）。
  *
- * 不加光源：谷裡已經有五十九盞真光（熔岩與餘燼），新東西都不發光
+ * 不加光源：整座火口的真光是照著預算排的（見 jigoku-layout 的 LAVA_LIGHT_POINT_LIST），這裡的東西都不發光
  */
 
-/** 谷底擺得下東西的地面 */
-const FLOOR_SET = new Set([BlockId.STONE_TILE, BlockId.COBBLESTONE, BlockId.SANDSTONE, BlockId.OBSIDIAN_BRICKS])
+/** 台地上擺得下東西的地面 */
+const FLOOR_SET = new Set([BlockId.STONE, BlockId.GRAVEL, BlockId.COBBLESTONE, BlockId.SANDSTONE, BlockId.OBSIDIAN_BRICKS, BlockId.BASALT])
 
 /** 硫磺華從泉緣往外結多遠（格），泥池只有一半 */
 const CRUST_REACH = 4.5
@@ -100,7 +99,7 @@ function crustSteamVentList(state: Uint8Array, random: () => number): void {
 /**
  * 泉邊的告示與界樁
  *
- * 每一池熱泉朝谷心那一側（東西向，南北兩側緊貼著木棧，沒有空位）立一塊木牌：一根樁頂一片雨戶板，
+ * 每一池熱泉朝中軸那一側立一塊木牌：一根樁頂一片雨戶板，
  * 前後各一根矮樁。木牌只是擺設，不寫字：從木棧上看過去，知道那一池不能下去
  */
 function placeWarningSignList(state: Uint8Array): void {
@@ -183,7 +182,7 @@ function placeFootBath(state: Uint8Array): void {
 /**
  * 賽之河原
  *
- * 熔岩縫東端南岸一片圓石地上，十來堆積石（一格圓石頂一片半磚，幾堆高一格），
+ * 東邊木棧南側的一片地上，十來堆積石（一格圓石頂一片半磚，幾堆高一格），
  * 正中一尊石地藏：石磚的座、石頭的身、一片半磚當笠，腳前一盆花
  */
 function placeCairnField(state: Uint8Array, random: () => number): void {

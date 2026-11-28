@@ -11,6 +11,7 @@ import {
   RAINVALE_OUTER_FLOOR_Y,
   RAINVALE_PORTAL_POINT,
   RAINVALE_PUSH_RADIUS,
+  RAINVALE_RAIN_LEVEL,
   RAINVALE_SLOW_RADIUS,
 } from './rainvale-layout'
 
@@ -89,7 +90,7 @@ export const RAINVALE_REALM: RealmDefinition = {
    * 一陣大一陣小，最小的時候也還是在下，看得遠一點。只有這裡會打雷
    */
   weather: {
-    rain: { min: 0.78, max: 1, periodSecond: 150 },
+    rain: { ...RAINVALE_RAIN_LEVEL, periodSecond: 150 },
     hasThunder: true,
   },
   backdrop: {

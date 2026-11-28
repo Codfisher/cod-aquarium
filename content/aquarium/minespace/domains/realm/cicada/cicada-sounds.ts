@@ -1,5 +1,5 @@
 import type { SoundEmitterDefinition } from '../../soundscape/type'
-import { ARRIVAL_CLEARING, CICADA_CENTER, CICADA_GROUND_Y, CROWN_BOTTOM_Y, SHADE_CLEARING, VERANDA_LIST, WOOD_RADIUS } from './cicada-layout'
+import { ARRIVAL_CLEARING, CICADA_CENTER, CICADA_GROUND_Y, CROWN_BOTTOM_Y, OLD_WELL_POINT, SHADE_CLEARING, SUN_CLEARING_LIST, VERANDA_LIST, WOOD_RADIUS } from './cicada-layout'
 
 /** 林子裡間隔 spacing 格的一片網格點（奇數列錯開半格），只留在 radius 以內 */
 function createGridPointList(spacing: number, radius: number): { x: number; z: number }[] {
@@ -87,5 +87,120 @@ export const CICADA_EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
     minDistance: 3,
     maxDistance: 16,
     silentInRain: true,
+  })),
+
+  /**
+   * 以下是補底的音源（isFiller），神遊不拿它們當停留點
+   *
+   * 夜裡的蟋蟀每二十六格一顆、可聽十六格，網格之間留了洞（量出來一成二的地面是靜的）。
+   * 洞裡補的是另一種蟲（草螽），與蟋蟀錯開半格：兩種蟲一高一低交錯著，夜裡的林子才不是同一段聲音鋪到底
+   */
+  ...createGridPointList(26, WOOD_RADIUS + 14)
+    .map((point) => ({ x: point.x + 13, z: point.z + 11 }))
+    .filter((point) => Math.hypot(point.x - CICADA_CENTER.x, point.z - CICADA_CENTER.z) <= WOOD_RADIUS + 2)
+    .map((position, index): SoundEmitterDefinition => ({
+      id: `cicada-realm-night-katydid-${index}`,
+      activeAt: 'night',
+      sound: 'insect-bush-cricket',
+      title: { 'zh-hant': '林下的草螽', 'en': 'Katydids under the trees' },
+      zone: 'cicada',
+      ...position,
+      y: CICADA_GROUND_Y + 2,
+      mode: { type: 'loop' },
+      volume: 0.36,
+      minDistance: 3,
+      maxDistance: 17,
+      variation: { pitchOffsetCent: -60, pitchRangeCent: 90 },
+      silentInRain: true,
+      isFiller: true,
+    })),
+  /**
+   * 薄暮還在叫的幾隻蟬
+   *
+   * 白天那一整片跟著天色退場，太陽貼著山頭的時候只剩零星幾隻、聲音沉一些（同一段蟬聲壓低三個半音）。
+   * 這是先頂著的做法：傍晚的蟬（蜩）有自己的聲音，專用的錄音進來之後換掉 sound、拿掉音高偏移
+   */
+  ...[
+    { x: CICADA_CENTER.x - 22, z: CICADA_CENTER.z - 6 },
+    { x: CICADA_CENTER.x - 14, z: CICADA_CENTER.z + 20 },
+    { x: CICADA_CENTER.x + 12, z: CICADA_CENTER.z - 22 },
+    { x: CICADA_CENTER.x + 24, z: CICADA_CENTER.z + 12 },
+  ].map((position, index): SoundEmitterDefinition => ({
+    id: `cicada-realm-dusk-${index}`,
+    activeAt: 'dusk',
+    sound: 'insect-cicada',
+    title: { 'zh-hant': '薄暮的蟬', 'en': 'Cicadas at dusk' },
+    zone: 'cicada',
+    ...position,
+    y: CROWN_BOTTOM_Y,
+    mode: { type: 'loop' },
+    volume: 0.4,
+    minDistance: 5,
+    maxDistance: 28,
+    variation: { pitchOffsetCent: -300, pitchRangeCent: 60 },
+    silentInRain: true,
+    isFiller: true,
+  })),
+  /** 緣廊簷下的風鈴：廊板西頭、地板上方兩格（cicada-details 掛 WIND_CHIME 的那一格），兩道廊的鈴一高一低 */
+  ...VERANDA_LIST.map((veranda, index): SoundEmitterDefinition => ({
+    id: `cicada-realm-chime-${index}`,
+    sound: 'chime-furin',
+    title: { 'zh-hant': '簷下的風鈴', 'en': 'Wind chime under the eaves' },
+    zone: 'cicada',
+    x: veranda.x - 2,
+    z: veranda.z,
+    y: CICADA_GROUND_Y + 3,
+    mode: { type: 'interval', rangeSecond: [14 + index * 6, 38 + index * 9] },
+    volume: 0.36,
+    minDistance: 2,
+    maxDistance: 14,
+    /** 同一個鈴每次都是同一個音，只有碰得輕重不同 */
+    variation: { pitchOffsetCent: index === 0 ? 60 : -110, pitchRangeCent: 0, volumeDropRatio: 0.5 },
+    isFiller: true,
+  })),
+  /** 薄暮到入夜的樹蛙：古井邊與向陽空地的濕處，天色一暗就叫開，夜裡小聲一點繼續 */
+  ...[
+    { ...OLD_WELL_POINT, activeAt: 'dusk' as const, volume: 0.4 },
+    { x: SUN_CLEARING_LIST[0]!.x, z: SUN_CLEARING_LIST[0]!.z + 3, activeAt: 'dusk' as const, volume: 0.34 },
+    { x: OLD_WELL_POINT.x + 2, z: OLD_WELL_POINT.z - 2, activeAt: 'night' as const, volume: 0.3 },
+    { x: CICADA_CENTER.x + 6, z: CICADA_CENTER.z + 24, activeAt: 'night' as const, volume: 0.26 },
+  ].map(({ activeAt, volume, ...position }, index): SoundEmitterDefinition => ({
+    id: `cicada-realm-tree-frog-${index}`,
+    activeAt,
+    sound: 'frog-tree-chorus',
+    title: { 'zh-hant': '樹蛙', 'en': 'Tree frogs' },
+    zone: 'cicada',
+    ...position,
+    y: CICADA_GROUND_Y + 2,
+    mode: { type: 'loop' },
+    volume,
+    minDistance: 3,
+    maxDistance: 20,
+    variation: { pitchRangeCent: 160 },
+    silentInRain: true,
+    isFiller: true,
+  })),
+  /**
+   * 秋夜的鳴蟲：兩道緣廊前各一叢
+   *
+   * 這段錄音原始音量很小、放大了十七分貝，底噪可能明顯，所以只放兩處、壓小聲；
+   * 聽了不對的話這一組整段拿掉就好，夜裡的底有蟋蟀與草螽撐著
+   */
+  ...VERANDA_LIST.map((veranda, index): SoundEmitterDefinition => ({
+    id: `cicada-realm-autumn-insect-${index}`,
+    activeAt: 'night',
+    sound: 'insect-japan-autumn',
+    title: { 'zh-hant': '廊前的鳴蟲', 'en': 'Insects by the veranda' },
+    zone: 'cicada',
+    x: veranda.x + 3,
+    z: veranda.z - 5,
+    y: CICADA_GROUND_Y + 2,
+    mode: { type: 'loop' },
+    volume: 0.26,
+    minDistance: 3,
+    maxDistance: 14,
+    variation: { pitchOffsetCent: index === 0 ? 0 : 120 },
+    silentInRain: true,
+    isFiller: true,
   })),
 ]

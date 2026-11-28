@@ -18,6 +18,13 @@ export const BLIZZARD_CENTER = { x: WORLD_SIZE / 2, z: WORLD_SIZE / 2 }
 export const BLIZZARD_GROUND_Y = 10
 
 /**
+ * 雪勢起落的範圍（場景定義的 weather.snow 用它）
+ *
+ * 放在這裡是因為音源也要讀：風雪聲的音量跟著雪勢走，得知道這場雪最小到多少、最大到多少
+ */
+export const BLIZZARD_SNOW_LEVEL = { min: 0.72, max: 1 } as const
+
+/**
  * 回程門
  *
  * 大廳那座門立在吹雪野正中偏北一格、門洞朝北，人往南穿過去；

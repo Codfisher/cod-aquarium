@@ -1,6 +1,7 @@
 import type { SoundEmitterDefinition } from '../../soundscape/type'
 import {
   CAVE_GROUND_Y,
+  GROTTO_CENTER,
   HALL_CENTER,
   OLD_MOUTH,
   TUNNEL_MIDDLE,
@@ -65,4 +66,83 @@ export const CAVE_EMITTER_DEFINITION_LIST: SoundEmitterDefinition[] = [
     minDistance: 3,
     maxDistance: 16,
   },
+
+  /**
+   * 以下是補底的音源（isFiller），神遊不拿它們當停留點
+   *
+   * 量出來全洞兩成的地面是靜的：人一到的那間前室、大廳的北緣東緣與南緣。
+   * 補的仍是滴水，只是每一處的音高各調一點（同一段錄音原樣鋪滿，聽起來是同一處在滴），
+   * 音量比大廳正中那幾顆小，是牆腳、矮頂底下零星的幾滴
+   */
+  ...[
+    /** 前室：門一出來就有水聲，洞才是濕的 */
+    { x: GROTTO_CENTER.x - 2, z: GROTTO_CENTER.z - 2, pitchOffsetCent: 220 },
+    /** 大廳東北（礦工舊營地那一側）、正北、西北 */
+    { x: HALL_CENTER.x + 30, z: HALL_CENTER.z - 14, pitchOffsetCent: -160 },
+    { x: HALL_CENTER.x + 26, z: HALL_CENTER.z - 28, pitchOffsetCent: 90 },
+    { x: HALL_CENTER.x + 6, z: HALL_CENTER.z - 32, pitchOffsetCent: 310 },
+    /** 大廳南緣與東南 */
+    { x: HALL_CENTER.x + 2, z: HALL_CENTER.z + 28, pitchOffsetCent: -240 },
+    { x: HALL_CENTER.x + 28, z: HALL_CENTER.z + 22, pitchOffsetCent: 150 },
+    /** 湖對岸、洞深處那一頭 */
+    { x: HALL_CENTER.x - 32, z: HALL_CENTER.z - 16, pitchOffsetCent: -90 },
+  ].map(({ pitchOffsetCent, ...position }, index): SoundEmitterDefinition => ({
+    id: `cave-realm-drip-fill-${index}`,
+    sound: 'cave-drip',
+    title: { 'zh-hant': '洞頂滴水', 'en': 'Dripping from the ceiling' },
+    zone: 'cave',
+    ...position,
+    y: CAVE_GROUND_Y + 5,
+    mode: { type: 'loop' },
+    volume: 0.5,
+    minDistance: 3,
+    maxDistance: 20,
+    variation: { pitchOffsetCent },
+    isFiller: true,
+  })),
+  /**
+   * 洞深處的地下水流：湖對岸那一頭，水往更深的坑道裡流
+   *
+   * 這段錄音原始音量很小、放大了十七分貝，底噪可能明顯，所以只放兩處、壓小聲；
+   * 聽了不對的話這一組整段拿掉就好
+   */
+  ...[
+    { x: HALL_CENTER.x - 36, z: HALL_CENTER.z - 8, pitchOffsetCent: 0 },
+    { x: HALL_CENTER.x - 22, z: HALL_CENTER.z + 20, pitchOffsetCent: -120 },
+  ].map(({ pitchOffsetCent, ...position }, index): SoundEmitterDefinition => ({
+    id: `cave-realm-stream-${index}`,
+    sound: 'cave-stream',
+    title: { 'zh-hant': '遠處的地下水流', 'en': 'Water running deeper in' },
+    zone: 'cave',
+    ...position,
+    y: CAVE_GROUND_Y + 1,
+    mode: { type: 'loop' },
+    volume: 0.28,
+    minDistance: 4,
+    maxDistance: 22,
+    variation: { pitchOffsetCent, pitchRangeCent: 0 },
+    isFiller: true,
+  })),
+  /**
+   * 洞頂的蝙蝠：大廳西北最高的那片穹頂底下
+   *
+   * 這段錄音的能量幾乎都在四千赫以上，太大聲會像一片嘶聲，所以壓得很小、只在正下方聽得到；
+   * 聽了不對的話這一組整段拿掉就好
+   */
+  ...[
+    { x: HALL_CENTER.x - 14, z: HALL_CENTER.z - 20, y: CAVE_GROUND_Y + 12 },
+    { x: HALL_CENTER.x + 10, z: HALL_CENTER.z + 2, y: CAVE_GROUND_Y + 14 },
+  ].map((position, index): SoundEmitterDefinition => ({
+    id: `cave-realm-bats-${index}`,
+    sound: 'cave-bats',
+    title: { 'zh-hant': '洞頂的蝙蝠', 'en': 'Bats on the ceiling' },
+    zone: 'cave',
+    ...position,
+    mode: { type: 'loop' },
+    volume: 0.18,
+    minDistance: 4,
+    maxDistance: 18,
+    variation: { pitchOffsetCent: index === 0 ? -60 : 40 },
+    isFiller: true,
+  })),
 ]

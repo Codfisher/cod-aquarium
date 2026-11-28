@@ -36,6 +36,53 @@ void main() {
 }
 `
 
+/**
+ * 暮光的三樣東西：貼著天邊的餘暉、地影、金星帶
+ *
+ * 都只在太陽落到地平線下才出現，太陽在地平線上夠高時下面每一項都是零，白天的天色一個位元都不變；
+ * 太陽沉到深夜的深度（deepNightEnd）之後也全部收掉，與原本的夜相同。
+ * 著色器與下面 CPU 的鏡像（sampleSkyGradient）共用這一組數字。
+ *
+ * ── 餘暉 ──
+ *
+ * 暖光原本以太陽的真實方向為中心，太陽一沉，那團光就跟著沉到地平線下，
+ * 日落後天邊反而暗了。真實的餘暉是貼著地平線橫向鋪開的：
+ * 鬆的那一層暖光改以「只跟著沉 afterglowSink 成」的方向為中心，
+ * 再沿著太陽那一側的天邊加一條矮矮的光帶（afterglowBand 是濃度，高度到 afterglowBandTop）。
+ * 緊的那一層（太陽外圍那一圈）照舊跟著真的太陽走
+ *
+ * ── 地影與金星帶 ──
+ *
+ * 背對太陽的那半邊天：太陽落下之後，地平線上方浮起一條藍灰的帶子，那是星球自己投在大氣上的影子；
+ * 影子上緣壓著一道粉紅（金星帶），是還被紅光照到的那一層空氣。太陽越沉影子升得越高
+ * （earthShadowRise 是影子上緣的高度相對太陽深度的倍數，照幾何是一，放大才看得清楚）。
+ * 地影的顏色由天頂色與天邊色調出來，不另外開欄位。
+ * 兩者都從仰角兩度以上才開始（horizonKeep）：地平線那一線必須是霧色，遠景靠它接縫
+ */
+const TWILIGHT_SKY = {
+  afterglowSink: 0.25,
+  afterglowBand: 0.5,
+  afterglowBandTop: 0.26,
+  afterglowStartHeight: 0.08,
+  afterglowFullHeight: -0.04,
+  deepNightStart: 0.26,
+  deepNightEnd: 0.36,
+  earthShadowRise: 1.6,
+  earthShadowStrength: 0.55,
+  earthShadowTint: 0.25,
+  earthShadowDim: 0.85,
+  venusBeltStrength: 0.9,
+  shadowStartDepth: 0.05,
+  shadowFadeStart: 0.16,
+  shadowFadeEnd: 0.28,
+  horizonKeep: 0.035,
+} as const
+
+/** 數字寫進 GLSL 時一定要帶小數點，整數字面量與浮點相乘編不過 */
+function toGlslFloat(value: number): string {
+  return Number.isInteger(value) ? `${value}.0` : `${value}`
+}
+
 const FRAGMENT_SHADER = `
 precision highp float;
 
@@ -100,7 +147,22 @@ void main() {
   vec3 upperColor = mix(midColor, zenithColor, zenithBlend);
   vec3 color = mix(horizonColor, upperColor, hazeBlend);
 
+  float sunDepth = max(-sunDirection.y, 0.0);
+  float deepNight = smoothstep(${toGlslFloat(TWILIGHT_SKY.deepNightStart)}, ${toGlslFloat(TWILIGHT_SKY.deepNightEnd)}, sunDepth);
+  float horizonKeep = smoothstep(0.0, ${toGlslFloat(TWILIGHT_SKY.horizonKeep)}, upward);
+
+  vec2 horizontal = direction.xz / max(length(direction.xz), 0.0001);
+  vec2 sunHorizontal = sunDirection.xz / max(length(sunDirection.xz), 0.0001);
+  float sunSide = dot(horizontal, sunHorizontal);
+
+  vec3 glowDirection = sunDirection;
+  if (sunDepth > 0.0 && deepNight < 1.0) {
+    float sunkHeight = mix(sunDirection.y * ${toGlslFloat(TWILIGHT_SKY.afterglowSink)}, sunDirection.y, deepNight);
+    glowDirection = normalize(vec3(sunDirection.x, sunkHeight, sunDirection.z));
+  }
+
   float towardSun = max(dot(direction, sunDirection), 0.0);
+  float towardGlow = max(dot(direction, glowDirection), 0.0);
   float lowSky = 1.0 - smoothstep(0.0, 0.6, upward);
 
   /**
@@ -117,6 +179,22 @@ void main() {
   float counter = pow(awayFromSun, 3.0) * lowSky * COUNTER_RATIO;
   color = mix(color, counterColor, clamp(counter * glowStrength, 0.0, 1.0));
 
+  float shadowWindow = smoothstep(0.0, ${toGlslFloat(TWILIGHT_SKY.shadowStartDepth)}, sunDepth)
+    * (1.0 - smoothstep(${toGlslFloat(TWILIGHT_SKY.shadowFadeStart)}, ${toGlslFloat(TWILIGHT_SKY.shadowFadeEnd)}, sunDepth));
+  if (shadowWindow > 0.0) {
+    float antiSolar = max(-sunSide, 0.0);
+    float side = antiSolar * antiSolar * shadowWindow * horizonKeep;
+    float shadowTop = min(sunDepth, 0.3) * ${toGlslFloat(TWILIGHT_SKY.earthShadowRise)};
+    float softness = 0.03 + shadowTop * 0.3;
+    float shadow = 1.0 - smoothstep(shadowTop - softness, shadowTop + softness, upward);
+    vec3 shadowColor = mix(zenithColor, horizonColor, ${toGlslFloat(TWILIGHT_SKY.earthShadowTint)}) * ${toGlslFloat(TWILIGHT_SKY.earthShadowDim)};
+    color = mix(color, shadowColor, shadow * side * ${toGlslFloat(TWILIGHT_SKY.earthShadowStrength)});
+
+    float beltOffset = (upward - shadowTop - softness) / (0.05 + shadowTop * 0.5);
+    float belt = exp(-beltOffset * beltOffset);
+    color = mix(color, counterColor, clamp(belt * side * ${toGlslFloat(TWILIGHT_SKY.venusBeltStrength)} * glowStrength, 0.0, 1.0));
+  }
+
   /**
    * 太陽周圍的暖光
    *
@@ -130,7 +208,15 @@ void main() {
    * 混色有天花板：再濃也只會濃到霞光本身的顏色，
    * 於是日落是「整片天燒成橘色」而不是「整片天燒成白色」
    */
-  float halo = pow(towardSun, 18.0) * 0.55 + pow(towardSun, 2.5) * 0.45 * lowSky;
+  float halo = pow(towardSun, 18.0) * 0.55 + pow(towardGlow, 2.5) * 0.45 * lowSky;
+  float afterglow = (1.0 - smoothstep(${toGlslFloat(TWILIGHT_SKY.afterglowFullHeight)}, ${toGlslFloat(TWILIGHT_SKY.afterglowStartHeight)}, sunDirection.y))
+    * (1.0 - deepNight);
+  if (afterglow > 0.0) {
+    float band = pow(max(sunSide, 0.0), 1.5)
+      * (1.0 - smoothstep(0.02, ${toGlslFloat(TWILIGHT_SKY.afterglowBandTop)}, upward))
+      * horizonKeep;
+    halo += band * ${toGlslFloat(TWILIGHT_SKY.afterglowBand)} * afterglow;
+  }
   color = mix(color, glowColor, clamp(halo * glowStrength, 0.0, 1.0));
 
   /**
@@ -247,15 +333,64 @@ export function sampleSkyGradient(
   const awayFromSun = Math.max(-sunDot, 0)
   const lowSky = 1 - smoothstep(0, 0.6, upward)
   const counterMix = Math.min(1, Math.max(0, awayFromSun ** 3 * lowSky * 0.5 * params.glowStrength))
-  const haloMix = Math.min(
-    1,
-    Math.max(0, (towardSun ** 18 * 0.55 + towardSun ** 2.5 * 0.45 * lowSky) * params.glowStrength),
-  )
+
+  const sunDepth = Math.max(-sunDirection.y, 0)
+  const deepNight = smoothstep(TWILIGHT_SKY.deepNightStart, TWILIGHT_SKY.deepNightEnd, sunDepth)
+  const horizonKeep = smoothstep(0, TWILIGHT_SKY.horizonKeep, upward)
+  const horizontalLength = Math.max(Math.hypot(direction.x, direction.z), 0.0001)
+  const sunHorizontalLength = Math.max(Math.hypot(sunDirection.x, sunDirection.z), 0.0001)
+  const sunSide = (direction.x * sunDirection.x + direction.z * sunDirection.z) / (horizontalLength * sunHorizontalLength)
+
+  /** 鬆的那一層暖光：太陽沉下去之後中心只跟著沉幾成 */
+  let towardGlow = towardSun
+  if (sunDepth > 0 && deepNight < 1) {
+    const sunkHeight = sunDirection.y * (TWILIGHT_SKY.afterglowSink + (1 - TWILIGHT_SKY.afterglowSink) * deepNight)
+    const glowLength = Math.hypot(sunDirection.x, sunkHeight, sunDirection.z)
+    towardGlow = Math.max(
+      (direction.x * sunDirection.x + direction.y * sunkHeight + direction.z * sunDirection.z) / glowLength,
+      0,
+    )
+  }
+
+  /** 地影與金星帶 */
+  let shadowMix = 0
+  let beltMix = 0
+  const shadowWindow = smoothstep(0, TWILIGHT_SKY.shadowStartDepth, sunDepth)
+    * (1 - smoothstep(TWILIGHT_SKY.shadowFadeStart, TWILIGHT_SKY.shadowFadeEnd, sunDepth))
+  if (shadowWindow > 0) {
+    const antiSolar = Math.max(-sunSide, 0)
+    const side = antiSolar * antiSolar * shadowWindow * horizonKeep
+    const shadowTop = Math.min(sunDepth, 0.3) * TWILIGHT_SKY.earthShadowRise
+    const softness = 0.03 + shadowTop * 0.3
+    shadowMix = (1 - smoothstep(shadowTop - softness, shadowTop + softness, upward))
+      * side * TWILIGHT_SKY.earthShadowStrength
+    const beltOffset = (upward - shadowTop - softness) / (0.05 + shadowTop * 0.5)
+    beltMix = Math.min(
+      1,
+      Math.max(0, Math.exp(-beltOffset * beltOffset) * side * TWILIGHT_SKY.venusBeltStrength * params.glowStrength),
+    )
+  }
+
+  let halo = towardSun ** 18 * 0.55 + towardGlow ** 2.5 * 0.45 * lowSky
+  const afterglow = (1 - smoothstep(TWILIGHT_SKY.afterglowFullHeight, TWILIGHT_SKY.afterglowStartHeight, sunDirection.y))
+    * (1 - deepNight)
+  if (afterglow > 0) {
+    halo += Math.max(sunSide, 0) ** 1.5
+      * (1 - smoothstep(0.02, TWILIGHT_SKY.afterglowBandTop, upward))
+      * horizonKeep
+      * TWILIGHT_SKY.afterglowBand
+      * afterglow
+  }
+  const haloMix = Math.min(1, Math.max(0, halo * params.glowStrength))
 
   for (const [index, channel] of channelList.entries()) {
     const upper = midColor[channel] + (zenithColor[channel] - midColor[channel]) * zenithBlend
     let value = horizonColor[channel] + (upper - horizonColor[channel]) * hazeBlend
     value += (counterColor[channel] - value) * counterMix
+    const shadowColor = (zenithColor[channel] + (horizonColor[channel] - zenithColor[channel]) * TWILIGHT_SKY.earthShadowTint)
+      * TWILIGHT_SKY.earthShadowDim
+    value += (shadowColor - value) * shadowMix
+    value += (counterColor[channel] - value) * beltMix
     value += (glowColor[channel] - value) * haloMix
     output[index] = value
   }

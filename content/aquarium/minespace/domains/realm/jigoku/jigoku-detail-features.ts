@@ -4,7 +4,7 @@ import { CAIRN_FIELD, FOOT_BATH_RECT, JIGOKU_FOOT_Y } from './jigoku-layout'
 /**
  * 湯煙谷細節小景的神遊特色主體
  *
- * 足湯與賽之河原都在谷底那一層（腳底 JIGOKU_FOOT_Y）。
+ * 足湯與賽之河原都在台地那一層（腳底 JIGOKU_FOOT_Y）。
  * 溫泉蛋的小攤不另外登記：它就在鳥居前面，「鳥居」那一筆的鏡頭會帶到那把紅傘。
  * 純資料，不引用造景程式
  */

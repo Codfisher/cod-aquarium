@@ -4,6 +4,7 @@ import type { RealmTransitionEffect } from '../realm/realm-transition'
 import type { WorldLayer } from '../realm/world-layer'
 import type { SceneDepth } from '../renderer/scene-depth'
 import type { VolumetricLight } from '../renderer/volumetric-light'
+import type { SoundTriggerSink } from '../soundscape/sound-trigger'
 import type { SoundZone } from '../soundscape/type'
 import type { AmbientWorldSource } from '../weather/ambient/realm-ambient'
 import type {
@@ -35,6 +36,8 @@ import { auditFogOptOut } from '../renderer/fog-opt-out'
 import { createSceneDepth } from '../renderer/scene-depth'
 import { createVolumetricLight, cycleVolumetricDebugMode } from '../renderer/volumetric-light'
 import { provideReloadHandoff } from '../scene/reload-handoff'
+import { pickThunderPosition } from '../soundscape/sound-shaping'
+import { clearSoundTriggerSink, requestSoundTrigger, setSoundTriggerSink } from '../soundscape/sound-trigger'
 import { formatClock, getDayPhase, setSunriseAzimuth } from '../weather/day-night'
 import { createGodRays } from '../weather/god-rays'
 import { useWeather } from '../weather/use-weather'
@@ -122,6 +125,10 @@ export function createRenderRuntime({ channel }: CreateRenderRuntimeParam): Rend
    */
   const scope = effectScope()
   const timerIdList: ReturnType<typeof setInterval>[] = []
+
+  /** 場景裡要聲音的程式（雷、噴發這類跟著畫面發生的）從這裡把請求送到主執行緒，見 sound-trigger */
+  const postSoundTrigger: SoundTriggerSink = (request) => channel.post({ type: 'sound', ...request })
+  setSoundTriggerSink(postSoundTrigger)
 
   let hasStarted = false
   let hasInitialized = false
@@ -514,6 +521,7 @@ export function createRenderRuntime({ channel }: CreateRenderRuntimeParam): Rend
       getTimeOfDay: dayNight.getTimeOfDay,
       getDayRatio: dayNight.getDayRatio,
       getSunDirection: () => atmosphere.sunDirection,
+      getBurnIntensity: dayNight.getBurnIntensity,
       onChange: postStatus,
     })
 
@@ -850,6 +858,8 @@ export function createRenderRuntime({ channel }: CreateRenderRuntimeParam): Rend
       isNight: dayNight.isNight.value,
       zone: currentZone,
       weather: weatherSystem.weather.value,
+      rainRatio: weatherSystem.getRainLevel(),
+      snowRatio: weatherSystem.getSnowLevel(),
       isUnderground: controller.isUnderground.value,
       isProbeVisible: probe.visible.value,
       /** 響應式物件過不了結構化複製，攤成純資料再送 */
@@ -1035,8 +1045,25 @@ export function createRenderRuntime({ channel }: CreateRenderRuntimeParam): Rend
       scene: babylon.scene,
       camera: babylon.camera,
       isSheltered: () => controller.isUnderground.value,
-      /** 閃電歸天氣，雷聲歸聽雨亭（音景在主執行緒），這裡只是把兩邊接起來 */
-      playThunder: (volume) => channel.post({ type: 'sound', id: 'rainvale-thunder', volume }),
+      /**
+       * 閃電歸天氣，雷聲歸聽雨亭（音景在主執行緒），這裡只是把兩邊接起來
+       *
+       * 大場景裡每一道雷換一個方位（閃電是整片天亮一下，雷從哪一邊來都說得通）；
+       * 大廳的聽雨亭照舊從木座上方那一點來，雷聲才不會跟著人跑到隔壁的箱庭。
+       *
+       * 大場景有兩種雷聲：平常那一聲，與拖得很長的滾雷（rainvale-thunder-roll，大廳沒有這一顆）。
+       * 越遠的雷越容易是滾雷：近的炸一聲就完了，遠的才聽得到它在天邊一路滾
+       */
+      playThunder: (volume, distanceRatio) => {
+        const isRealm = !activeRealmState.hasGardens
+        requestSoundTrigger({
+          id: isRealm && Math.random() < 0.2 + distanceRatio * 0.45 ? 'rainvale-thunder-roll' : 'rainvale-thunder',
+          volume,
+          position: isRealm && babylon
+            ? pickThunderPosition(babylon.camera.position, distanceRatio, Math.random)
+            : undefined,
+        })
+      },
       /** 兩者都在每次呼叫時才去讀目前的世界層：換場景之後天氣系統還是同一份 */
       castRainRay: (blockX, blockZ) => worldLayer ? castRainRay(worldLayer.worldState, blockX, blockZ) : null,
       getWaterMap: () => worldLayer?.waterMap ?? emptyWaterMap,
@@ -1061,6 +1088,7 @@ export function createRenderRuntime({ channel }: CreateRenderRuntimeParam): Rend
     timerIdList.length = 0
     stopReportTimers()
     setDriftDebug(false)
+    clearSoundTriggerSink(postSoundTrigger)
 
     drift?.abort()
     drift = null

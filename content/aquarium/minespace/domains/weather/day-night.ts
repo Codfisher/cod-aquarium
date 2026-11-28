@@ -1,4 +1,5 @@
 import { Color3, Vector3 } from '@babylonjs/core'
+import { sortBy } from 'remeda'
 
 /**
  * 日夜循環
@@ -406,6 +407,69 @@ const KEYFRAME_LIST: DayNightKeyframe[] = [
   },
 ]
 
+/** 只管天色的那幾欄 */
+type SkyKeyframe = Pick<
+  DayNightKeyframe,
+  'time' | 'skyZenithColor' | 'skyMidColor' | 'skyGlowColor' | 'skyCounterColor' | 'skyGlowStrength'
+>
+
+/**
+ * 晨昏多出來的四個關鍵時刻，只有天色
+ *
+ * 原本日落（0.74）到暮色（0.8）之間是一條直線：橘直接褪成藕紫，
+ * 沒有「太陽剛下去、天邊最紅」的那一刻，也沒有藍調時刻（那一段的天頂與中空一路都是偏紫的）。
+ * 各補兩刻：餘暉（太陽在地平線下一度半，霞光最濃最紅）與藍調（下去七度多，
+ * 直射光全沒了，只剩高空濾過的散射光，整片天是乾淨的藍）。清晨對稱，偏粉、偏冷。
+ *
+ * 另開一張表而不是插進上面那一張，是為了讓地面一點都不變：
+ * 霧色、光色、環境光、曝光與色調照舊只在原本那九刻之間內插，這裡只蓋掉天空那五欄。
+ * 天邊色用的是霧色，所以藍調時刻的地平線一圈仍是偏暖的，藍只出現在中空以上
+ */
+const TWILIGHT_SKY_KEYFRAME_LIST: SkyKeyframe[] = [
+  {
+    /** 清晨的藍調：太陽還在地平線下七度多 */
+    time: 0.225,
+    skyZenithColor: [0.06, 0.14, 0.4],
+    skyMidColor: [0.22, 0.28, 0.56],
+    skyGlowColor: [0.95, 0.5, 0.52],
+    skyCounterColor: [0.44, 0.36, 0.58],
+    skyGlowStrength: 0.62,
+  },
+  {
+    /** 朝霞：太陽快出來了，天邊是一道粉橘 */
+    time: 0.245,
+    skyZenithColor: [0.15, 0.31, 0.63],
+    skyMidColor: [0.62, 0.45, 0.62],
+    skyGlowColor: [1, 0.46, 0.34],
+    skyCounterColor: [0.76, 0.52, 0.66],
+    skyGlowStrength: 1.05,
+  },
+  {
+    /** 餘暉：太陽剛下去，霞光最濃最紅 */
+    time: 0.755,
+    skyZenithColor: [0.12, 0.22, 0.54],
+    skyMidColor: [0.7, 0.38, 0.5],
+    skyGlowColor: [1, 0.3, 0.12],
+    skyCounterColor: [0.7, 0.45, 0.62],
+    skyGlowStrength: 1.15,
+  },
+  {
+    /** 黃昏的藍調：天邊只剩一線暗紅，其餘是乾淨的藍 */
+    time: 0.775,
+    skyZenithColor: [0.05, 0.11, 0.36],
+    skyMidColor: [0.2, 0.24, 0.52],
+    skyGlowColor: [0.95, 0.36, 0.22],
+    skyCounterColor: [0.5, 0.34, 0.56],
+    skyGlowStrength: 0.7,
+  },
+]
+
+/** 天色的完整曲線：原本那九刻加上晨昏的四刻 */
+const SKY_KEYFRAME_LIST: SkyKeyframe[] = sortBy(
+  [...KEYFRAME_LIST, ...TWILIGHT_SKY_KEYFRAME_LIST],
+  (keyframe) => keyframe.time,
+)
+
 /**
  * 某個時刻的世界
  *
@@ -549,22 +613,38 @@ export function sampleDayNight(timeOfDay: number, sample: DayNightSample): DayNi
   return sample
 }
 
-/** 依關鍵時刻補間出這一刻的顏色與參數 */
-function applyKeyframe(time: number, sample: DayNightSample): void {
-  const lastIndex = KEYFRAME_LIST.length - 1
+/** 這一刻落在哪兩個關鍵時刻之間、走到幾成 */
+interface KeyframeSpan<Keyframe> {
+  from: Keyframe;
+  to: Keyframe;
+  ratio: number;
+}
+
+function findKeyframeSpan<Keyframe extends { time: number }>(
+  keyframeList: Keyframe[],
+  time: number,
+): KeyframeSpan<Keyframe> {
+  const lastIndex = keyframeList.length - 1
   let fromIndex = lastIndex
 
-  for (let index = 0; index < KEYFRAME_LIST.length; index++) {
-    if (KEYFRAME_LIST[index]!.time <= time) {
+  for (let index = 0; index < keyframeList.length; index++) {
+    if (keyframeList[index]!.time <= time) {
       fromIndex = index
     }
   }
 
-  const from = KEYFRAME_LIST[fromIndex]!
-  const to = KEYFRAME_LIST[(fromIndex + 1) % KEYFRAME_LIST.length]!
+  const from = keyframeList[fromIndex]!
+  const to = keyframeList[(fromIndex + 1) % keyframeList.length]!
   /** 最後一段要繞回第一個關鍵時刻，跨過子夜那條線 */
-  const span = fromIndex === lastIndex ? 1 - from.time + KEYFRAME_LIST[0]!.time : to.time - from.time
+  const span = fromIndex === lastIndex ? 1 - from.time + keyframeList[0]!.time : to.time - from.time
   const ratio = span <= 0 ? 0 : Math.min(1, Math.max(0, (time - from.time) / span))
+
+  return { from, to, ratio }
+}
+
+/** 依關鍵時刻補間出這一刻的顏色與參數 */
+function applyKeyframe(time: number, sample: DayNightSample): void {
+  const { from, to, ratio } = findKeyframeSpan(KEYFRAME_LIST, time)
 
   setColor(sample.fogColor, from.fogColor, to.fogColor, ratio)
   setColor(sample.lightColor, from.lightColor, to.lightColor, ratio)
@@ -574,16 +654,19 @@ function applyKeyframe(time: number, sample: DayNightSample): void {
   sample.lightIntensity = lerp(from.lightIntensity, to.lightIntensity, ratio)
   sample.ambientIntensity = lerp(from.ambientIntensity, to.ambientIntensity, ratio)
   sample.cloudBrightness = lerp(from.cloudBrightness, to.cloudBrightness, ratio)
-  setColor(sample.skyZenithColor, from.skyZenithColor, to.skyZenithColor, ratio)
-  setColor(sample.skyMidColor, from.skyMidColor, to.skyMidColor, ratio)
-  setColor(sample.skyGlowColor, from.skyGlowColor, to.skyGlowColor, ratio)
-  setColor(sample.skyCounterColor, from.skyCounterColor, to.skyCounterColor, ratio)
-  sample.skyGlowStrength = lerp(from.skyGlowStrength, to.skyGlowStrength, ratio)
   sample.exposure = lerp(from.exposure, to.exposure, ratio)
   sample.gradeDensity = lerp(from.gradeDensity, to.gradeDensity, ratio)
   sample.gradeSaturation = lerp(from.gradeSaturation, to.gradeSaturation, ratio)
   /** 色相是繞一圈的角度，走短邊才不會從橘繞過整個色環到藍 */
   sample.gradeHue = lerpHue(from.gradeHue, to.gradeHue, ratio)
+
+  /** 天色走自己那一張表（多了晨昏的四刻），見 TWILIGHT_SKY_KEYFRAME_LIST */
+  const sky = findKeyframeSpan(SKY_KEYFRAME_LIST, time)
+  setColor(sample.skyZenithColor, sky.from.skyZenithColor, sky.to.skyZenithColor, sky.ratio)
+  setColor(sample.skyMidColor, sky.from.skyMidColor, sky.to.skyMidColor, sky.ratio)
+  setColor(sample.skyGlowColor, sky.from.skyGlowColor, sky.to.skyGlowColor, sky.ratio)
+  setColor(sample.skyCounterColor, sky.from.skyCounterColor, sky.to.skyCounterColor, sky.ratio)
+  sample.skyGlowStrength = lerp(sky.from.skyGlowStrength, sky.to.skyGlowStrength, sky.ratio)
 }
 
 /** 目前是一天當中的哪一段 */

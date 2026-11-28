@@ -111,7 +111,10 @@ export function getVoxelGiUniforms(): {
  *
  * 排法是：每一層 Y 切片一塊磚，磚並排成一張二維的圖。
  * 磚內兩軸是 X 與 Z，跨磚則是 Y。Y 軸的兩層之間自己做一次內插，
- * 所以垂直方向照樣是平滑的，只是多一次取樣
+ * 所以垂直方向照樣是平滑的，只是多一次取樣。
+ *
+ * 取樣用 textureLod 指定第零層（圖集沒有 mip，值一樣），理由見 cloud-shadow：
+ * 要算螢幕微分的取樣會讓整支著色器的動態分支被攤平
  */
 export const VOXEL_GI_SAMPLE_GLSL = `
 uniform sampler2D voxelGiSampler;
@@ -121,7 +124,11 @@ vec4 minespaceSampleVoxelSlice(vec2 cellXZ, float slice) {
   float tileY = floor(slice / voxelGiAtlas.x);
   vec2 pixel = vec2(tileX * voxelGiGrid.x, tileY * voxelGiGrid.z) + cellXZ + 0.5;
 
-  return texture2D(voxelGiSampler, pixel / voxelGiAtlas.yz);
+  #ifdef WEBGL2
+    return textureLod(voxelGiSampler, pixel / voxelGiAtlas.yz, 0.0);
+  #else
+    return texture2D(voxelGiSampler, pixel / voxelGiAtlas.yz);
+  #endif
 }
 
 vec4 minespaceSampleVoxelGi(vec3 worldPosition) {
@@ -243,7 +250,11 @@ class VoxelGiPlugin extends MaterialPluginBase {
        * 加在霧之前，與葉片透光同一個位置
        *
        * 補的是間接漫射光，理當跟直射光一樣被霧吃掉；乘上 baseColor
-       * 讓這道光帶著表面自己的顏色，而不是憑空疊一層純白
+       * 讓這道光帶著表面自己的顏色，而不是憑空疊一層純白。
+       *
+       * 試過把取樣點沿著法線往外推半個粗格（避開表面背後那格存零的實心格），沒有採用：
+       * 白天陰影處整體亮百分之五，動到調好的曝光；夜裡燈籠旁的樹冠整片被洗亮
+       * （見 docs/development-notes.md 的「光影：做了與沒做的」）
        */
       CUSTOM_FRAGMENT_BEFORE_FOG: `
         color.rgb += minespaceVoxelGi(vPositionW) * baseColor.rgb;

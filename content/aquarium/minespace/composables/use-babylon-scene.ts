@@ -43,6 +43,7 @@ import { optOutOfFog } from '../domains/renderer/fog-opt-out'
 import { createGlowTexture } from '../domains/renderer/glow-texture'
 import { registerLeafTranslucency } from '../domains/renderer/leaf-translucency'
 import { registerSkyLight, resetSkyLight } from '../domains/renderer/sky-light'
+import { registerSunShadow } from '../domains/renderer/sun-shadow'
 import { registerVoxelGi } from '../domains/renderer/voxel-gi'
 import { registerAerialPerspective } from '../domains/weather/aerial-perspective'
 import { GARDEN_FOG_COLOR, GARDEN_FOG_END, GARDEN_FOG_START } from '../domains/weather/atmosphere'
@@ -182,6 +183,8 @@ function createScene(engine: Engine): Scene {
   registerLeafTranslucency()
   registerVoxelGi()
   registerSkyLight()
+  /** 太陽陰影的捷徑（背光面與沒有遮蔽物的像素不做濾波），同樣是材質外掛 */
+  registerSunShadow()
 
   const scene = new Scene(engine)
 

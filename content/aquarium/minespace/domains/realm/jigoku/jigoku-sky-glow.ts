@@ -2,19 +2,24 @@ import type { Scene } from '@babylonjs/core'
 import type { AtmosphereState } from '../../weather/atmosphere'
 import { Vector2 } from '@babylonjs/core'
 import { createSignatureLayer, createStripMesh, GLSL_NOISE, SKY_RING_VERTEX } from '../realm-signature-kit'
+import { FAR_CONE } from './jigoku-layout'
 
 /**
  * 湯煙谷天上的火映與火山雷（渲染端，屬於世界層）
  *
- * 谷底的熔岩把低垂的硫煙從底下照紅：谷稜上方一整圈暗紅的光，貼著稜線最亮、往上淡掉，
- * 熔岩縫延伸的東西兩頭特別紅，整片像呼吸一樣一脹一縮。煙柱裡偶爾竄出一道淡紫的火山雷，連閃兩三下。
+ * 火口底的熔岩湖把低垂的硫煙從底下照紅：稜線上方一整圈暗紅的光，貼著稜線最亮、往上淡掉，
+ * 北邊最紅（熔岩瀑與稜線外那座遠火山都在那一頭），往南漸漸淡下去，整片像呼吸一樣一脹一縮。
+ * 煙柱裡偶爾竄出一道淡紫的火山雷，連閃兩三下。
  *
  * 一條繞地平線一整圈的格子帶，掛在天球上、相加混合。畫在天氣那一層（陰天罩與體積雲之後），
- * 光才是「打在雲上」而不是被雲蓋掉；各層之間不清深度，谷壁照樣擋得住它。
+ * 光才是「打在雲上」而不是被雲蓋掉；各層之間不清深度，火口壁照樣擋得住它。
  *
  * 不看天氣（那是地熱，下雨照樣紅），白天留四成、天黑全亮；洞裡與換場景的霧幕裡收掉。
  * 成本：48×4 格共 384 個三角形、一次繪製；帶子從地平線到仰角四十三度，平視時約佔半個畫面，
- * 片段兩次噪音取樣加幾次雜湊，沒有迴圈
+ * 片段兩次噪音取樣加幾次雜湊，沒有迴圈。
+ *
+ * 火映底下另有一層煙幕（jigoku-ash-pall，掛在一般的裝飾那一邊：招牌景象一個場景只有一個網格）：
+ * 火口上空一整片火山灰，把藍天與白雲壓成灰褐，火映與遠火山的火星打在上面才顯得亮
  */
 
 /** 帶子的下緣與上緣仰角（弧度） */
@@ -40,8 +45,8 @@ void main() {
   /** 沿圓周的噪音在圓上取樣，繞一圈接得起來，北邊不會留一道縫 */
   vec2 ring = vec2(cos(azimuth), sin(azimuth));
 
-  /** 熔岩縫是東西向的，兩頭的煙最紅 */
-  float riftWeight = 0.55 + 0.45 * cos(2.0 * (azimuth - 1.5707963));
+  /** 遠火山那個方位（北偏東）的煙最紅，正對面只剩四成 */
+  float riftWeight = 0.7 + 0.3 * cos(azimuth - ${FAR_CONE.azimuth.toFixed(3)});
   float billow = valueNoise(ring * 4.0 + vec2(time * 0.05, v * 3.0 - time * 0.07));
   float fine = valueNoise(ring * 11.0 + vec2(v * 8.0 - time * 0.12, 3.0));
   float pulse = 0.72 + 0.28 * sin(time * 0.45 + billow * 5.0);
@@ -72,6 +77,9 @@ void main() {
 `
 
 export function createJigokuSkyGlow({ scene, atmosphere }: { scene: Scene; worldState: Uint8Array; atmosphere: AtmosphereState }): { dispose: () => void } {
+  const mesh = createStripMesh(scene, 'jigoku-sky-glow', 48, 4)
+  /** 透明的東西照這個數字由小到大畫：煙幕（jigoku-ash-pall）是零，火映疊在它上面 */
+  mesh.alphaIndex = 1
   return createSignatureLayer({
     scene,
     atmosphere,
@@ -80,7 +88,7 @@ export function createJigokuSkyGlow({ scene, atmosphere }: { scene: Scene; world
     vertexSource: SKY_RING_VERTEX,
     fragmentSource: GLOW_FRAGMENT,
     uniformList: ['elevationRange'],
-    mesh: createStripMesh(scene, 'jigoku-sky-glow', 48, 4),
+    mesh,
     blend: 'add',
     space: 'sky',
     layer: 'weather',

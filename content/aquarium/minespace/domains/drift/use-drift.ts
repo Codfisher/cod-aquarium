@@ -12,7 +12,7 @@ import type { DriftTrack, DriftTrackSample } from './drift-track'
 import { clamp } from 'remeda'
 import { checkOverlap, PLAYER_EYE_HEIGHT } from '../player/collision'
 import { getDayPhase } from '../weather/day-night'
-import { createCoverageLedger, DAY_PACE_MAP, FEATURE_DIRECTION_MAP, getCoverageSector, getDaySlot, getFeatureSlotWeight, isFeatureActive } from './drift-direction'
+import { createCoverageLedger, DAY_PACE_MAP, FEATURE_DIRECTION_MAP, getBurnEmphasis, getCoverageSector, getDaySlot, getFeatureSlotWeight, isFeatureActive } from './drift-direction'
 import { buildFlightTrackSteps, chooseFlightRoute } from './drift-flight'
 import { getDriftFlight, getDriftRegion } from './drift-flight-config'
 import { chooseLookYawSteps, getBiasFactor, isSightlineClear, isSightlineClear3D, measureMaxDepthSteps, measureOpennessAt, measureOpennessSteps, measureSubjectVisibilitySteps, measureViewSteps, probeViewDistance3D } from './drift-framing'
@@ -141,6 +141,16 @@ const LINGER_VISTA_CHANCE = 0.25
 /** 日出日落時的停留（秒） */
 const LINGER_GOLDEN_MIN = 20
 const LINGER_GOLDEN_MAX = 30
+/**
+ * 雲整片燒起來的晨昏，停留再加長幾成、鏡頭再仰幾度、更常朝太陽那一側看
+ *
+ * 火燒雲是整片天的事（頭頂的雲底、太陽那一側的金邊），不靠太陽入鏡；
+ * 鏡頭仰起來、停久一點，一次停留就看得完金、橘、紅到暗的一大半。
+ * 加碼的程度由燃燒強度換算（見 drift-direction 的 getBurnEmphasis），平淡的傍晚是零
+ */
+const LINGER_BURN_BONUS_RATIO = 0.35
+const BURN_PITCH_BONUS = 0.07
+const BURN_SKY_INTEREST_BONUS = 0.6
 /** 飛行落地後的短暫停留（秒） */
 const LINGER_AFTER_FLIGHT_MIN = 8
 const LINGER_AFTER_FLIGHT_MAX = 12
@@ -523,6 +533,8 @@ interface UseDriftParam {
   getDayRatio: () => number;
   /** 由世界中心指向太陽的向量，日出日落的橫搖要朝它 */
   getSunDirection: () => { x: number; y?: number; z: number };
+  /** 這個清晨或黃昏的燃燒強度（零到一，見 cloud-daily-weather）；沒給就當平淡 */
+  getBurnIntensity?: () => number;
   /** 狀態變了（開始、結束、階段切換），渲染執行期據此立刻補送一份狀態 */
   onChange: () => void;
   /** 分幀工作每幀的時間預算（毫秒），預設 JOB_BUDGET_MS；Infinity 是同一幀跑完 */
@@ -563,7 +575,7 @@ function randomBetween(min: number, max: number): number {
   return min + Math.random() * (max - min)
 }
 
-export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, getDayRatio, getSunDirection, onChange, jobBudgetMs = JOB_BUDGET_MS }: UseDriftParam) {
+export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, getDayRatio, getSunDirection, getBurnIntensity = () => 0, onChange, jobBudgetMs = JOB_BUDGET_MS }: UseDriftParam) {
   let session: DriftSession | null = null
   /** 分幀工作：規劃、鏡位、停留點收集都排在這裡，每幀在 updateSession 開頭跑一小段 */
   const jobQueue = createJobQueue()
@@ -1036,11 +1048,13 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
     /** 站在高處往外看：微微低頭，視線越過邊緣落在雲海與遠方，地平線在上三分之一；不仰頭看近處的坡與峰頂 */
     if (isOutward)
       return isFly ? 0.18 : 0.1
+    /** 雲燒起來的晨昏再仰幾度，把頭頂燒紅的雲底收進來 */
+    const burnLift = getGoldenBurnEmphasis() * BURN_PITCH_BONUS
     if (isFly)
-      return isSkyShot ? 0.03 : 0.12
+      return (isSkyShot ? 0.03 : 0.12) - burnLift
     if (openness < 0.45)
       return 0
-    return isSkyShot ? -0.14 : -0.08
+    return (isSkyShot ? -0.14 : -0.08) - burnLift
   }
 
   /** 前方看得到的特色主體：看的那一點與它屬於哪個主體 */
@@ -1514,10 +1528,14 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
     return null
   }
 
-  /** 停留的開頭是不是日出日落 */
+  /** 停留的開頭是不是日出日落（含太陽落下之後雲還燒著的那一段，見 drift-direction 的 getDaySlot） */
   function isGoldenHour(): boolean {
-    const dayPhase = getDayPhase(getTimeOfDay())
-    return dayPhase === 'sunrise' || dayPhase === 'sunset'
+    return getDaySlot(getTimeOfDay()) === 'golden'
+  }
+
+  /** 日出日落時，這一次的雲燒得多兇要加碼幾成（零到一）；其他時段是零 */
+  function getGoldenBurnEmphasis(): number {
+    return isGoldenHour() ? getBurnEmphasis(getBurnIntensity()) : 0
   }
 
   /** 太陽那一側的方向（弧度），算不出就是 null */
@@ -1647,7 +1665,7 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
 
     const slot = getSlot(target)
     if (slot === 'golden')
-      return { yaw: sunYaw, weight: 1.2 }
+      return { yaw: sunYaw, weight: 1.2 + BURN_SKY_INTEREST_BONUS * getGoldenBurnEmphasis() }
     if ((slot === 'blue' || slot === 'night') && (getSunDirection().y ?? -1) < 0)
       return { yaw: sunYaw + Math.PI, weight: MOON_INTEREST_WEIGHT }
     return null
@@ -2384,7 +2402,7 @@ export function useDrift({ scene, camera, controller, getWorld, getTimeOfDay, ge
   /** 這次停留多久：日出日落與開闊的景點久一點（有繞弧或升降），其餘是匆匆一瞥 */
   function pickLingerDuration(target: DriftSession, plan: NextPlan): number {
     if (isGoldenHour())
-      return randomBetween(LINGER_GOLDEN_MIN, LINGER_GOLDEN_MAX)
+      return randomBetween(LINGER_GOLDEN_MIN, LINGER_GOLDEN_MAX) * (1 + LINGER_BURN_BONUS_RATIO * getGoldenBurnEmphasis())
     /** 夜裡與晨昏停得久一些（見 drift-direction 的 DAY_PACE_MAP） */
     const { lingerScale } = DAY_PACE_MAP[getSlot(target)]
     if (plan.kind === 'fly')

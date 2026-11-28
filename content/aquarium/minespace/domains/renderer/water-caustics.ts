@@ -171,14 +171,25 @@ class WaterCausticsPlugin extends MaterialPluginBase {
        * 三層條件由外往內收，最貴的細胞紋排在最裡面。
        * 第一道刷掉沒開這個效果的時候，第二道刷掉「比全世界最高的水面
        * 還高」的片元——那是絕大多數，而且不必查圖。
-       * 撐到第三道才真的去問那張水面地圖
+       * 撐到第三道才真的去問那張水面地圖。
+       *
+       * 查圖要用 textureLod 指定第零層（水面地圖沒有 mip，值一樣）：一般的取樣要算螢幕微分，
+       * HLSL 不准它落在動態分支裡，外面這三層條件會被攤平成每個像素都照算（理由見 cloud-shadow）
        */
       CUSTOM_FRAGMENT_UPDATE_DIFFUSE: `
         if (causticParam.y > 0.0 && vPositionW.y < causticParam.w) {
-          vec4 causticWater = texture2D(
-            causticWaterSampler,
-            (vPositionW.xz + 0.5) * ${(1 / WORLD_SIZE).toFixed(8)}
-          );
+          #ifdef WEBGL2
+            vec4 causticWater = textureLod(
+              causticWaterSampler,
+              (vPositionW.xz + 0.5) * ${(1 / WORLD_SIZE).toFixed(8)},
+              0.0
+            );
+          #else
+            vec4 causticWater = texture2D(
+              causticWaterSampler,
+              (vPositionW.xz + 0.5) * ${(1 / WORLD_SIZE).toFixed(8)}
+            );
+          #endif
 
           if (causticWater.b > 0.5) {
             float causticSurfaceY = (causticWater.r * 65280.0 + causticWater.g * 255.0)

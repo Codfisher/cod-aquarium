@@ -3,15 +3,15 @@ import { BlockId } from '../../block/block-constants'
 import { JIGOKU_GATE_OFFSET } from '../../garden/garden-layout'
 import { createGardenGate, YAW_MAP } from '../garden-gate'
 import { JIGOKU_AMBIENT_PARTICLE_LIST } from '../realm-ambient-table'
-import { JIGOKU_DRIFT_FEATURE_LIST } from './jigoku-drift-features'
+import { JIGOKU_DRIFT_FEATURE_LIST, JIGOKU_DRIFT_VIEWPOINT_LIST } from './jigoku-drift-features'
 import {
   JIGOKU_CENTER,
-  JIGOKU_FLOOR_Y,
   JIGOKU_FOOT_Y,
   JIGOKU_PORTAL_POINT,
   JIGOKU_PUSH_RADIUS,
   JIGOKU_SLOW_RADIUS,
-  VALLEY_WALL_HEIGHT,
+  LAVA_AREA_LIGHT_LIMIT,
+  RIM_Y,
 } from './jigoku-layout'
 
 /**
@@ -33,76 +33,89 @@ export const JIGOKU_HUB_GATE = createGardenGate({
 /**
  * 湯煙谷：地獄谷的大場景
  *
- * 地獄谷放大成一整道地熱谷：谷底正中是那道熔岩縫，兩側冒著蒸氣的噴氣孔、滾著的熱泉與泥池，
- * 硫磺把岩染黃，一條圍著柵欄的木棧繞著縫走一圈；兩側谷壁兩格一階、爬不上去。
- * 氣氛照地獄谷那片熱氣：霧壓得很近、顏色是被地底的火染過的暖色，入夜也不暗；
- * 直射光被熱氣散掉一大截、天光反而亮（地面那池光往上打）、岩面沒有高光
+ * 地獄谷那道熔岩縫撐開成一整座火口：火口底是熔岩湖，北壁一道熔岩瀑直接落進湖裡，
+ * 南邊高出湖面十格的一彎台地上是回程門、鳥居、熱泉、泥池與噴氣孔；一道石階下到湖面，
+ * 接一條貼著熔岩的參道走到湖裡的祠台，路只到那裡（地獄谷：「這裡不能過，也不該過」）。
+ * 氣氛照地獄谷那片熱氣：霧是被底下的火染過的暗紅、入夜也不暗；
+ * 白天是一片悶著的煙，直射光被火山灰擋掉一半；天一黑，熔岩、火映與遠火山才整個亮出來
  */
 export const JIGOKU_REALM: RealmDefinition = {
   id: 'jigoku',
   title: { 'zh-hant': '湯煙谷', 'en': 'Valley of Steam' },
-  description: { 'zh-hant': '地獄谷的另一頭，冒著硫煙的熱谷', 'en': 'Beyond Hell Valley, a valley of sulphur and steam' },
-  signCaption: { 'zh-hant': '硫煙裡的熱谷', 'en': 'Sulphur and steam' },
+  description: { 'zh-hant': '地獄谷的另一頭，硫煙後面一整座熔岩湖', 'en': 'Beyond Hell Valley, a lake of lava behind the sulphur smoke' },
+  signCaption: { 'zh-hant': '硫煙後的熔岩湖', 'en': 'A lake of lava' },
   icon: 'i-material-symbols:volcano',
   /**
-   * 站在回程門的北側三格，面朝鳥居與木棧
+   * 站在回程門的北側三格，面朝鳥居與到著台
    *
-   * 從大廳往北穿過門，到這裡仍是往北走：先穿過鳥居，再往前就是那一圈木棧與碑後的熔岩縫，
-   * 回去的門就在背後三格。離觸發範圍還有兩格半，落地不會又被送回去
+   * 從大廳往北穿過門，到這裡仍是往北走：先穿過鳥居，三十格外就是崖邊，
+   * 走到那裡整座熔岩湖才在腳下攤開；落地這一眼先看到的是鳥居框住的熔岩瀑與稜線上的遠火山。
+   * 回去的門就在背後三格，離觸發範圍還有兩格半，落地不會又被送回去
    */
   spawn: {
     x: JIGOKU_PORTAL_POINT.x,
     z: JIGOKU_PORTAL_POINT.z - 3,
-    pitch: 0.06,
+    pitch: 0.02,
     yaw: YAW_MAP.north,
   },
   isLooping: false,
   hasGardens: false,
   driftFeatureList: JIGOKU_DRIFT_FEATURE_LIST,
+  driftViewpointList: JIGOKU_DRIFT_VIEWPOINT_LIST,
+  /**
+   * 神遊：高度壓在稜線（RIM_Y）之下，看的是火口裡的東西
+   *
+   * 離最高的東西三到七格：飛過湖面時離熔岩只有幾格，是整趟最好看的一段；
+   * 三成五的時候改成沿著木棧、石階與參道低飛
+   */
+  driftFlight: { isEnabled: true, clearanceMin: 3, clearanceMax: 7, altitudeMax: RIM_Y - 6, routeMode: 'free', glideChance: 0.35 },
   ambientParticleList: JIGOKU_AMBIENT_PARTICLE_LIST,
+  /** 整片熔岩（湖、河、兩道瀑布）併成九盞面光源，連同石燈籠與回程門的燈全場十六盞 */
+  areaLightLimit: LAVA_AREA_LIGHT_LIMIT,
   atmosphere: {
     fog: {
       /**
-       * 地獄谷那片熱氣的顏色，往硫磺的黃偏一點
+       * 被熔岩從底下照紅的煙
        *
        * 地獄谷的霧色（JIGOKU_ATMOSPHERE）是岩漿的橘紅，入夜只暗到八成，因為光源在腳下。
-       * 這裡寫成固定值（連夜裡都是這個顏色），同一個道理；色相往黃挪，
-       * 整道谷是一片硫煙與蒸氣，不是只有一道岩漿縫的那一小座
+       * 這裡寫成固定值（連夜裡都是這個顏色），同一個道理；但壓得比地獄谷暗得多：
+       * 地獄谷的霧是二十格內一堵亮橘的牆，這裡要隔著一百多格看到對面的熔岩瀑，
+       * 霧亮了整座湖就是一片橘白。暗紅的霧白天讀成悶著的煙，夜裡讀成火光
        */
-      tint: { value: [1, 0.6, 0.3] },
-      /** 霧壓得很近：熱泉與噴氣孔看得清楚，對面的谷壁融在一片湯煙裡 */
-      start: { value: 4 },
-      end: { value: 50 },
+      tint: { value: [0.46, 0.2, 0.1] },
+      /** 霧推得遠：對面一百多格外的火口壁淡在煙裡但看得見，熔岩瀑是亮的、穿得過來 */
+      start: { value: 24 },
+      end: { value: 300 },
     },
     light: {
-      /** 照地獄谷：熱氣把陽光散開、影子軟下來；地面那池光往上打，天光比晴天亮；岩面粗，沒有高光 */
-      lightRatio: { value: 0.58 },
-      ambientRatio: { value: 1.1 },
+      /** 火山灰擋掉一半的陽光、影子軟下來；天光也收一點，白天是悶的；岩面粗，沒有高光 */
+      lightRatio: { value: 0.5 },
+      ambientRatio: { value: 0.9 },
       specularRatio: { value: 0.14 },
     },
     cloud: {
-      /** 谷上空常壓著一層蒸氣凝成的雲，風小，煙才積得住 */
-      coverageOffset: { offset: 0.1 },
-      stratus: { offset: 0.25 },
+      /** 火口上空壓著一層煙與蒸氣凝成的雲，風小，煙才積得住 */
+      coverageOffset: { offset: 0.25 },
+      stratus: { offset: 0.45 },
       windSpeed: { scale: 0.6 },
     },
     groundMist: {
-      /** 天天清晨谷底都積著一層濕熱的霧 */
-      chance: { value: 1 },
-      density: { scale: 1.5 },
+      /** 清晨台地上常積著一層濕熱的霧 */
+      chance: { value: 0.7 },
+      density: { scale: 1.2 },
     },
   },
   backdrop: {
     centerX: JIGOKU_CENTER.x,
     centerZ: JIGOKU_CENTER.z,
-    ridge: { style: 'caldera', footY: JIGOKU_FLOOR_Y + VALLEY_WALL_HEIGHT + 0.5, seed: 'valley-of-steam' },
-    /** 谷壁頂外走不到的地面是 LAKE_BED，平面與谷壁頂同高、一路鋪到地平線 */
-    floor: { surfaceY: JIGOKU_FLOOR_Y + VALLEY_WALL_HEIGHT + 0.5, blockId: BlockId.STONE, isEndless: true },
+    ridge: { style: 'caldera', footY: RIM_Y + 0.5, seed: 'valley-of-steam' },
+    /** 稜線外走不到的地面是 LAKE_BED，平面與它的頂面同高、一路鋪到地平線 */
+    floor: { surfaceY: RIM_Y + 0.5, blockId: BlockId.STONE, isEndless: true },
   },
-  /** 往湯煙谷去是一陣暖黃的熱氣，夾著往上飄的水氣 */
+  /** 往湯煙谷去是一陣暗紅的熱氣，夾著往上飄的火星 */
   transition: {
-    fogTint: [1.05, 0.66, 0.36],
-    particleColor: [1, 0.9, 0.72],
+    fogTint: [1.05, 0.5, 0.26],
+    particleColor: [1, 0.72, 0.4],
     particleRise: 0.45,
     sound: 'jigoku-lava',
   },
@@ -113,7 +126,7 @@ export const JIGOKU_REALM: RealmDefinition = {
       spanAxis: 'x',
       targetRealmId: 'hub',
       targetSpawn: JIGOKU_HUB_GATE.landingSpawn,
-      /** 木牌在門的西側三格、牌面朝北：這裡的人是從木棧往門走過來的 */
+      /** 木牌在門的西側三格、牌面朝北：這裡的人是從到著台沿木棧往門走回來的 */
       sign: { x: JIGOKU_PORTAL_POINT.x - 3, z: JIGOKU_PORTAL_POINT.z, facing: 'north' },
     },
   ],

@@ -31,6 +31,12 @@ const SHADOW_BACK_DISTANCE = 140
 const SHADOW_BIAS = 0.6
 
 export interface VolumetricShadow {
+  /**
+   * 這張圖這一幀要不要畫
+   *
+   * 光束的後製卸下來時（雨、洞裡、白幕）沒有人讀它，就不必每幀把世界再畫一趟
+   */
+  setActive: (isActive: boolean) => void;
   /** 每幀呼叫，把這張圖挪到鏡頭附近並對準太陽 */
   update: (sunDirection: Vector3) => void;
   getTexture: () => RenderTargetTexture;
@@ -120,7 +126,27 @@ export function createVolumetricShadow(scene: Scene, camera: UniversalCamera): V
    * 而這台鏡頭永遠不會是主鏡頭。關掉之後它每一幀都會畫一次
    */
   depthRenderer.useOnlyInActiveCamera = false
-  scene.customRenderTargets.push(depthMap)
+
+  /**
+   * 掛上離屏清單才會被畫，建立時先不掛，等光束的後製要用了才掛（見 setActive）
+   *
+   * 與 god-rays 的遮蔽圖同一種寫法：不用的時候從清單拿掉，而不是留著畫一張沒人讀的圖
+   */
+  let isActive = false
+
+  function setActive(nextActive: boolean): void {
+    if (nextActive === isActive)
+      return
+
+    isActive = nextActive
+    const index = scene.customRenderTargets.indexOf(depthMap)
+    if (nextActive && index === -1) {
+      scene.customRenderTargets.push(depthMap)
+    }
+    else if (!nextActive && index !== -1) {
+      scene.customRenderTargets.splice(index, 1)
+    }
+  }
 
   /** 光源空間的三軸與暫存，每幀就地覆寫，不重新配置 */
   const forward = new Vector3()
@@ -165,6 +191,7 @@ export function createVolumetricShadow(scene: Scene, camera: UniversalCamera): V
   }
 
   return {
+    setActive,
     update,
     getTexture: () => depthMap,
     /** 這兩個矩陣每次取都是當下的，鏡頭挪過之後不必自己重算 */

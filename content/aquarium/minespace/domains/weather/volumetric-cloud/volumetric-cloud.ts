@@ -1,4 +1,5 @@
 import type { Effect, Mesh, Scene } from '@babylonjs/core'
+import type { TwilightPalette } from '../twilight'
 import type { CloudNoiseSet } from './cloud-noise'
 import {
   Color3,
@@ -27,12 +28,17 @@ import { useGraphicsQuality } from '../../../composables/use-graphics-quality'
 import { measureSection } from '../../../composables/use-performance-probe'
 import { activeRealmState, applyRealmCloudWeather, getRealmCloudBaseHeight } from '../../realm/active-realm'
 import { optOutOfFog } from '../../renderer/fog-opt-out'
+import { getReloadHandoff } from '../../scene/reload-handoff'
 import { WORLD_SIZE } from '../../world/world-constants'
 import { getCloudShadowLightDirection, setCloudShadowMap } from '../cloud-shadow'
+import { createTwilightPalette } from '../twilight'
 import {
   createCloudWeather,
   createDailyWeather,
+  deriveBurnIntensity,
   deriveCloudWeather,
+  drawTwilight,
+  getTwilightKind,
   sampleDailyWeather,
 } from './cloud-daily-weather'
 import {
@@ -46,6 +52,17 @@ import {
   CLOUD_SHADOW_FRAGMENT,
   CLOUD_UNIFORM_NAME_LIST,
 } from './cloud-glsl'
+import {
+  CLOUD_RAY_FRAGMENT,
+  CLOUD_RAY_SETTING,
+  CLOUD_RAY_UNIFORM_NAME_LIST,
+  computeCloudGapRatio,
+  computeRayScreenWindow,
+  computeRaySunWindow,
+  estimateLocalCoverage,
+  RAY_PEAK_STRENGTH,
+  RAY_RESOLUTION_RATIO,
+} from './cloud-ray'
 import { requestCloudNoise } from './use-cloud-noise-worker'
 
 /**
@@ -121,7 +138,7 @@ const ALTOCUMULUS_COVERAGE_SCALE = 0.65
  * 兩千兩百格處穿出雲頂——遠方的雲在這個距離內自然地降到地平線，
  * 而霧與大氣透視也剛好在那附近把它化進天色
  */
-const PLANET_RADIUS = 12000
+export const PLANET_RADIUS = 12000
 
 /**
  * 三張雜訊攤在天上多大（格）
@@ -438,6 +455,35 @@ const SHADOW_DENSITY_SCALE = 1.6
 const DOME_SIZE = 230
 
 /**
+ * 雲縫光：太陽那一側的雲量多久估一次（秒）、強度追上目標要多久（秒）、低於多少就整趟不畫
+ *
+ * 雲量是對太陽周圍幾個方向查天氣圖估的（見 cloud-ray），雲一秒才飄幾格，半秒估一次綽綽有餘。
+ * 強度不直接套用：估出來的值會在門檻上下跳，光柱跟著一閃一閃
+ */
+const RAY_PROBE_INTERVAL_SECOND = 0.5
+const RAY_FOLLOW_SECOND = 0.8
+const RAY_STRENGTH_EPSILON = 0.01
+/** 估雲量時，太陽周圍取哪幾個方位偏移（弧度）與仰角偏移（弧度） */
+const RAY_PROBE_AZIMUTH_LIST = [-0.3, -0.15, 0, 0.15, 0.3]
+const RAY_PROBE_ELEVATION_LIST = [0, 0.14]
+
+/**
+ * 晨昏時卷雲多加的那一份不看方向的直射光（相對於光色）
+ *
+ * 卷雲只有一層薄絲，直射項走相位函數，側看只剩零點二七倍，整片幾乎只有天光的藕紫。
+ * 低雲都暗了之後還亮著的那幾絲粉紅靠這一份
+ */
+const CIRRUS_TWILIGHT_FILL = 0.9
+
+/**
+ * 燃燒強度追上目標要多久（秒）
+ *
+ * 強度是從當下的雲參數推的，換場景、開始下雨時會變。直接套用的話雲的顏色會跳一下，
+ * 花兩秒滑過去就看不出來
+ */
+const BURN_FOLLOW_SECOND = 2
+
+/**
  * 這一刻的雲該怎麼被照亮、天氣如何
  *
  * 與 aerial-perspective 的 airState 同一種寫法：放在模組上，
@@ -470,6 +516,20 @@ export const volumetricCloudState = {
   /** 太陽的高度與方向（指向太陽）。夜光雲只在太陽剛沉到地平線下時亮，且只亮在太陽那一側 */
   sunHeight: 1,
   sunDirection: new Vector3(0, 1, 0),
+  /**
+   * 這個清晨或黃昏的燃燒強度，零到一（見 cloud-daily-weather 的 deriveBurnIntensity）
+   *
+   * 由這裡每幀算（要先疊完場景的雲設定與雨），日夜循環、天色與神遊下一幀來讀
+   */
+  burnIntensity: 0,
+  /** 高光保色壓縮的比例，由日夜循環寫（見 cloud-light），正午與深夜是零 */
+  hueClipRatio: 0,
+  /** 晨昏的比例：著色器照它把光色換成逐點算的色階。由日夜循環寫，白天與月光時是零 */
+  twilightRatio: 0,
+  /** 雲底受光的比例（光從下面打上來），由日夜循環寫 */
+  undersideRatio: 0,
+  /** 晨昏的色階：玫瑰、緋紅、橘、金四個顏色攤平（見 twilight 的 fillTwilightPalette），由日夜循環寫 */
+  twilightPalette: createTwilightPalette(),
 }
 
 /** 倒影材質的名字，水鏡靠它把材質找出來 */
@@ -518,6 +578,11 @@ interface FrameUniform {
   bounceColor: Color3;
   noctilucentAmount: number;
   sunAzimuth: Vector2;
+  hueClipRatio: number;
+  twilightRatio: number;
+  undersideRatio: number;
+  /** 晨昏的色階，已乘上雨天的壓暗 */
+  twilightPalette: TwilightPalette;
 }
 
 function createNoiseTextureSet(scene: Scene, noiseSet: CloudNoiseSet): NoiseTextureSet {
@@ -638,12 +703,15 @@ export function createVolumetricCloud(scene: Scene, skyOverlayGroup: number, dom
   reportDiagnostic('體積雲/目標格式', targetType === Constants.TEXTURETYPE_HALF_FLOAT ? '半浮點' : '八位元')
 
   let noiseTextureSet: NoiseTextureSet | null = null
+  let rayNoise: { weatherMap: CloudNoiseSet['weather']; macroMap: CloudNoiseSet['macro'] } | null = null
   const noiseRequest = requestCloudNoise(NOISE_SIZE_OPTION, NOISE_SEED)
   noiseRequest.promise
     .then((noiseSet) => {
       if (scene.isDisposed)
         return
       noiseTextureSet = createNoiseTextureSet(scene, noiseSet)
+      /** 雲縫光要在 CPU 上估太陽那一側的雲量，留著天氣圖與宏觀圖的資料（貼圖建好之後陣列還在） */
+      rayNoise = { weatherMap: noiseSet.weather, macroMap: noiseSet.macro }
     })
     .catch((error: unknown) => {
       reportDiagnostic('體積雲/雜訊生成', `失敗：${error instanceof Error ? error.message : String(error)}`)
@@ -672,6 +740,10 @@ export function createVolumetricCloud(scene: Scene, skyOverlayGroup: number, dom
     bounceColor: new Color3(),
     noctilucentAmount: 0,
     sunAzimuth: new Vector2(1, 0),
+    hueClipRatio: 0,
+    twilightRatio: 0,
+    undersideRatio: 0,
+    twilightPalette: createTwilightPalette(),
   }
 
   /** 今天的天氣，每幀重算（便宜：幾個內插），用的是模組內快取的每日亂數 */
@@ -679,6 +751,9 @@ export function createVolumetricCloud(scene: Scene, skyOverlayGroup: number, dom
   const cloudWeather = createCloudWeather()
   /** 風吹過的總距離：風速每天不同，不能再用「風速乘經過時間」，否則換天時整片雲會跳 */
   let windTravel = 0
+  /** 開發時指定的燃燒強度，有給就不看當天的籤 */
+  const burnOverride = import.meta.env.DEV ? getReloadHandoff()?.burnIntensity : undefined
+  let hasBurnIntensity = false
 
   function applyCloudUniforms(effect: Effect, lightDirection: Vector3 = frame.lightDirection): void {
     if (!noiseTextureSet)
@@ -733,6 +808,18 @@ export function createVolumetricCloud(scene: Scene, skyOverlayGroup: number, dom
     )
     effect.setColor3('cloudBounceColor', frame.bounceColor)
     effect.setFloat4('cloudNoctilucent', frame.noctilucentAmount, NOCTILUCENT_FREQUENCY, frame.sunAzimuth.x, frame.sunAzimuth.y)
+    effect.setFloat4(
+      'cloudTwilight',
+      frame.twilightRatio,
+      CIRRUS_TWILIGHT_FILL * frame.twilightRatio,
+      frame.hueClipRatio,
+      frame.undersideRatio,
+    )
+    const palette = frame.twilightPalette
+    effect.setFloat3('cloudTwilightRose', palette[0]!, palette[1]!, palette[2]!)
+    effect.setFloat3('cloudTwilightCrimson', palette[3]!, palette[4]!, palette[5]!)
+    effect.setFloat3('cloudTwilightOrange', palette[6]!, palette[7]!, palette[8]!)
+    effect.setFloat3('cloudTwilightGold', palette[9]!, palette[10]!, palette[11]!)
   }
 
   const effectRenderer = new EffectRenderer(engine)
@@ -796,6 +883,59 @@ export function createVolumetricCloud(scene: Scene, skyOverlayGroup: number, dom
     ['currentSampler', 'historySampler'],
   )
   const shadowWrapper = createWrapper('minespace-cloud-shadow', CLOUD_SHADOW_FRAGMENT, ['shadowArea'], [])
+
+  /**
+   * 雲縫光那一趟（見 cloud-ray）
+   *
+   * 效果與目標都等到第一次真的要畫才建：效能檔永遠不會用到，連編譯著色器的那一下都不必付
+   */
+  let rayWrapper: EffectWrapper | null = null
+  let rayTarget: RenderTargetTexture | null = null
+  /** 這一趟要讀的雲（剛累積好的那一張） */
+  let rayInput: RenderTargetTexture | null = null
+  const raySun = new Vector4()
+  const rayColor = new Vector4()
+  let rayStrength = 0
+  let rayGapRatio = 0
+  let rayProbeElapsed = RAY_PROBE_INTERVAL_SECOND
+
+  function ensureRayPass(): { wrapper: EffectWrapper; target: RenderTargetTexture } {
+    if (!rayWrapper) {
+      rayWrapper = new EffectWrapper({
+        engine,
+        name: 'minespace-cloud-ray',
+        vertexShader: CLOUD_FULLSCREEN_VERTEX,
+        fragmentShader: CLOUD_RAY_FRAGMENT,
+        attributeNames: ['position'],
+        uniformNames: CLOUD_RAY_UNIFORM_NAME_LIST,
+        samplerNames: ['cloudSampler'],
+      })
+      const wrapper = rayWrapper
+      wrapper.onApplyObservable.add(() => {
+        const effect = wrapper.effect
+        if (rayInput)
+          effect.setTexture('cloudSampler', rayInput)
+        effect.setFloat4('raySun', raySun.x, raySun.y, raySun.z, 0)
+        effect.setFloat4(
+          'raySetting',
+          CLOUD_RAY_SETTING.sourceRadius,
+          CLOUD_RAY_SETTING.decay,
+          CLOUD_RAY_SETTING.reach,
+          CLOUD_RAY_SETTING.baseline,
+        )
+      })
+    }
+    if (!rayTarget) {
+      rayTarget = createTarget(
+        scene,
+        'cloud-ray',
+        Math.max(1, Math.round(targetWidth * RAY_RESOLUTION_RATIO)),
+        Math.max(1, Math.round(targetHeight * RAY_RESOLUTION_RATIO)),
+        Constants.TEXTURETYPE_UNSIGNED_BYTE,
+      )
+    }
+    return { wrapper: rayWrapper, target: rayTarget }
+  }
 
   /**
    * 三張降解析度的圖：這一幀的行進結果，以及輪流讀寫的兩張累積
@@ -878,8 +1018,8 @@ export function createVolumetricCloud(scene: Scene, skyOverlayGroup: number, dom
     { vertex: 'minespaceCloudDome', fragment: 'minespaceCloudComposite' },
     {
       attributes: ['position'],
-      uniforms: ['worldViewProjection', 'compositeSetting', 'cloudTexelSize', 'compositeSun'],
-      samplers: ['cloudSampler'],
+      uniforms: ['worldViewProjection', 'compositeSetting', 'cloudTexelSize', 'compositeSun', 'rayColor'],
+      samplers: ['cloudSampler', 'raySampler'],
       needAlphaBlending: true,
     },
   )
@@ -937,6 +1077,10 @@ export function createVolumetricCloud(scene: Scene, skyOverlayGroup: number, dom
     for (const target of [currentTarget, historyRead, historyWrite]) {
       target.resize({ width, height })
     }
+    rayTarget?.resize({
+      width: Math.max(1, Math.round(width * RAY_RESOLUTION_RATIO)),
+      height: Math.max(1, Math.round(height * RAY_RESOLUTION_RATIO)),
+    })
     shouldResetHistory = true
     createTileRenderers()
     reportDiagnostic('體積雲/行進解析度', `${width}×${height}`)
@@ -1017,6 +1161,34 @@ export function createVolumetricCloud(scene: Scene, skyOverlayGroup: number, dom
     state.ambientBottom.scaleToRef(darkness, frame.ambientBottom)
     frame.flash = state.flashRatio * FLASH_GAIN
     frame.visibleRatio = Math.min(1, Math.max(0, state.visibleRatio))
+    frame.hueClipRatio = state.hueClipRatio
+    /**
+     * 晨昏的逐點照明：除錯開關關掉時比例歸零，著色器就退回整片雲共用一個光色
+     *
+     * 色階與光色一樣要吃雨天的壓暗，否則雨中的黃昏雲反而比晴天亮
+     */
+    const isTwilightLit = devToggle.twilightCloud
+    frame.twilightRatio = isTwilightLit ? state.twilightRatio : 0
+    frame.undersideRatio = isTwilightLit ? state.undersideRatio : 0
+    const twilightScale = darkness * (1 - state.rainRatio * 0.3)
+    for (let index = 0; index < frame.twilightPalette.length; index++) {
+      frame.twilightPalette[index] = state.twilightPalette[index]! * twilightScale
+    }
+
+    /**
+     * 燃燒強度：疊完場景的雲設定之後才算，層雲多的場景（聽雨林、吹雪野）自然燒不起來
+     *
+     * 日夜循環排在這之前跑，它下一幀才讀得到，差一幀看不出來
+     */
+    const burnTarget = burnOverride ?? deriveBurnIntensity(
+      cloudWeather,
+      drawTwilight(Math.floor(state.dayPosition), getTwilightKind(state.dayPosition)),
+      state.rainRatio,
+    )
+    state.burnIntensity = hasBurnIntensity
+      ? state.burnIntensity + (burnTarget - state.burnIntensity) * Math.min(1, deltaSecond / BURN_FOLLOW_SECOND)
+      : burnTarget
+    hasBurnIntensity = true
 
     /**
      * 地面反上來的光：只看直射光那一份
@@ -1045,6 +1217,97 @@ export function createVolumetricCloud(scene: Scene, skyOverlayGroup: number, dom
     if (azimuthLength > 0.0001) {
       frame.sunAzimuth.set(state.sunDirection.x / azimuthLength, state.sunDirection.z / azimuthLength)
     }
+  }
+
+  /**
+   * 太陽那一側的雲適不適合出光柱：對太陽周圍幾個方向，各找視線穿進雲層中段的那一點查區域雲量
+   *
+   * 鏡頭永遠在雲層底下，所以視線與球殼一定有一個前方的交點；貼著地平線的方向交點很遠，夾在淡出的距離內
+   */
+  function probeCloudGap(): number {
+    if (!rayNoise)
+      return 0
+
+    const state = volumetricCloudState
+    const sunAzimuth = Math.atan2(state.sunDirection.x, state.sunDirection.z)
+    const sunElevation = Math.max(Math.asin(Math.min(1, Math.max(-1, state.sunDirection.y))), 0.03)
+    const shellRadius = PLANET_RADIUS + (frame.bottom + frame.top) * 0.5
+    const cameraRadius = PLANET_RADIUS + frame.cameraPosition.y
+    const coverageInput = {
+      weatherMap: rayNoise.weatherMap,
+      macroMap: rayNoise.macroMap,
+      weatherFrequency: 1 / WEATHER_MAP_PERIOD,
+      coverage: frame.coverage,
+      stratusBlend: frame.stratusBlend,
+    }
+
+    const coverageList: number[] = []
+    for (const elevationOffset of RAY_PROBE_ELEVATION_LIST) {
+      for (const azimuthOffset of RAY_PROBE_AZIMUTH_LIST) {
+        const elevation = sunElevation + elevationOffset
+        const azimuth = sunAzimuth + azimuthOffset
+        const upward = Math.sin(elevation)
+        const horizontal = Math.cos(elevation)
+        const halfB = cameraRadius * upward
+        const distance = Math.min(
+          FADE_END,
+          -halfB + Math.sqrt(Math.max(0, halfB * halfB - (cameraRadius * cameraRadius - shellRadius * shellRadius))),
+        )
+        coverageList.push(estimateLocalCoverage(
+          frame.cameraPosition.x + Math.sin(azimuth) * horizontal * distance + frame.origin.x,
+          frame.cameraPosition.z + Math.cos(azimuth) * horizontal * distance + frame.origin.z,
+          coverageInput,
+        ))
+      }
+    }
+    return computeCloudGapRatio(coverageList)
+  }
+
+  /**
+   * 這一幀雲縫光該有多強，順便算出太陽在畫面上的位置與光的顏色
+   *
+   * 每一項都能把它關掉：畫質（效能檔不做）、除錯開關、雲看不看得見、有沒有下雨、
+   * 太陽的高度、太陽在不在畫面附近、太陽那一側有沒有雲縫。回傳零的那一幀整趟不畫
+   */
+  function updateRayStrength(deltaSecond: number): number {
+    const state = volumetricCloudState
+    let target = 0
+
+    if (preset.value.volumetric !== 'off' && devToggle.cloudRay) {
+      const sunWindow = computeRaySunWindow(state.sunHeight) * frame.visibleRatio * (1 - state.rainRatio)
+      if (sunWindow > 0.001) {
+        /** 太陽在無限遠，只轉方向不加平移；w 小於零就是在鏡頭背後 */
+        const matrix = scene.getTransformMatrix().m
+        const { x, y, z } = state.sunDirection
+        const clipW = x * matrix[3]! + y * matrix[7]! + z * matrix[11]!
+        if (clipW > 0.01) {
+          const sunU = (x * matrix[0]! + y * matrix[4]! + z * matrix[8]!) / clipW * 0.5 + 0.5
+          const sunV = (x * matrix[1]! + y * matrix[5]! + z * matrix[9]!) / clipW * 0.5 + 0.5
+          raySun.set(sunU, sunV, targetWidth / Math.max(1, targetHeight), 0)
+
+          rayProbeElapsed += deltaSecond
+          if (rayProbeElapsed >= RAY_PROBE_INTERVAL_SECOND) {
+            rayProbeElapsed = 0
+            rayGapRatio = probeCloudGap()
+          }
+          target = sunWindow * computeRayScreenWindow(sunU, sunV) * rayGapRatio
+        }
+      }
+    }
+
+    rayStrength += (target - rayStrength) * Math.min(1, deltaSecond / RAY_FOLLOW_SECOND)
+    if (target <= 0 && rayStrength < RAY_STRENGTH_EPSILON)
+      rayStrength = 0
+
+    /** 光的顏色跟著這一刻雲被照的顏色（黃昏是橘紅、白天是暖白），亮度另外給 */
+    const peak = Math.max(state.lightColor.r, state.lightColor.g, state.lightColor.b, 0.0001)
+    rayColor.set(
+      state.lightColor.r / peak,
+      state.lightColor.g / peak,
+      state.lightColor.b / peak,
+      rayStrength >= RAY_STRENGTH_EPSILON ? rayStrength * RAY_PEAK_STRENGTH : 0,
+    )
+    return rayColor.w
   }
 
   /**
@@ -1134,9 +1397,27 @@ export function createVolumetricCloud(scene: Scene, skyOverlayGroup: number, dom
     if (import.meta.env.DEV)
       markGpuPass('雲 時間累積')
     effectRenderer.render(resolveWrapper, historyWrite)
+
+    /** 雲縫光：強度是零的那一幀整趟不畫，合成也不取樣（rayColor 的 a 是零） */
+    let rayTexture: RenderTargetTexture = historyWrite
+    if (updateRayStrength(deltaSecond) > 0) {
+      const rayPass = ensureRayPass()
+      if (rayPass.wrapper.isReady()) {
+        if (import.meta.env.DEV)
+          markGpuPass('雲 雲縫光')
+        rayInput = historyWrite
+        effectRenderer.render(rayPass.wrapper, rayPass.target)
+        rayTexture = rayPass.target
+      }
+      else {
+        rayColor.w = 0
+      }
+    }
     if (import.meta.env.DEV)
       markGpuPass('雲 之後到鏡頭')
 
+    compositeMaterial.setTexture('raySampler', rayTexture)
+    compositeMaterial.setVector4('rayColor', rayColor)
     compositeMaterial.setTexture('cloudSampler', historyWrite)
     compositeSetting.set(1 / engine.getRenderWidth(), 1 / engine.getRenderHeight(), frame.visibleRatio, 0)
     compositeMaterial.setVector4('compositeSetting', compositeSetting)
@@ -1217,6 +1498,8 @@ export function createVolumetricCloud(scene: Scene, skyOverlayGroup: number, dom
     marchWrapper.dispose()
     resolveWrapper.dispose()
     shadowWrapper.dispose()
+    rayWrapper?.dispose()
+    rayTarget?.dispose()
     for (const target of [currentTarget, historyRead, historyWrite, shadowTarget]) {
       target.dispose()
     }

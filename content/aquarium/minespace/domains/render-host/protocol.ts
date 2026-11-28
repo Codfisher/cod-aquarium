@@ -293,6 +293,9 @@ export interface RenderFrameStatusMessage {
   /** 目前站在哪一座箱庭上，走在白沙上是 null */
   zone: SoundZone | null;
   weather: Weather;
+  /** 此刻的雨勢與雪勢 0 ～ 1；weather 只是過不過門檻，音景要的是強弱（雨聲跟著一陣大一陣小） */
+  rainRatio: number;
+  snowRatio: number;
   isUnderground: boolean;
   /** F3 效能面板有沒有開，開著才會帶讀數 */
   isProbeVisible: boolean;
@@ -319,11 +322,17 @@ export interface RenderPoseMessage {
   yaw: number;
 }
 
-/** 要主執行緒播一個觸發型的音源，目前只有聽雨亭的雷 */
+/**
+ * 要主執行緒播一個觸發型的音源
+ *
+ * 聽雨亭的雷走這裡；場景裡其他「跟著畫面發生」的聲音也是（見 soundscape/sound-trigger）
+ */
 export interface RenderSoundMessage {
   type: 'sound';
   id: string;
   volume?: number;
+  /** 這一次從哪裡響（世界座標），不給就留在音源原本的位置 */
+  position?: { x: number; y: number; z: number };
 }
 
 export interface RenderLogIssue {

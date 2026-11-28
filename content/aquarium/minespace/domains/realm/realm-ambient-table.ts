@@ -248,10 +248,24 @@ export const RUINS_AMBIENT_PARTICLE_LIST: AmbientParticle[] = [
   },
 ]
 
-/** 湯煙谷：灰燼整天緩緩落下，岩漿邊的火星入夜更旺，熱泉冒著帶硫磺色的煙氣（水汽與氣泡另有專屬系統） */
+/**
+ * 湯煙谷：灰燼整天緩緩落下；熔岩邊的火星入夜更旺、白天是一顆一顆往上竄的暑氣；熱泉冒著帶硫磺色的煙氣
+ *
+ * 火星與暑氣都錨在真的點燈的那幾格熔岩上（石階腳、參道兩側、祠台四周、展望台腳下，見 jigoku-layout 的
+ * LAVA_LIGHT_POINT_LIST），人走到熔岩邊身旁才有；整片湖面上拋起來的熔岩花、台地的水汽與氣泡另有專屬系統
+ */
 export const JIGOKU_AMBIENT_PARTICLE_LIST: AmbientParticle[] = [
-  { kind: 'ash', count: 60, activity: activity(1, 0.9, 1, 1), spawn: { anchor: 'air', height: [-1, 5] }, wind: 0.7, weatherResponse: 'keep' },
-  { kind: 'ember', count: 40, activity: activity(0.5, 1, 0.8, 0.9), spawn: { anchor: 'fire', reach: 22, height: [0.5, 1.5], spread: 0.8 }, weatherResponse: 'keep' },
+  { kind: 'ash', count: 70, activity: activity(1, 0.9, 1, 1), spawn: { anchor: 'air', height: [-1, 5] }, wind: 0.7, weatherResponse: 'keep' },
+  { kind: 'ember', count: 50, activity: activity(0.5, 1, 0.8, 0.9), spawn: { anchor: 'fire', reach: 30, height: [0.3, 2], spread: 2.6 }, weatherResponse: 'keep' },
+  {
+    kind: 'shimmer',
+    count: 40,
+    activity: activity(1, 0.4, 0.7, 0.8),
+    spawn: { anchor: 'fire', reach: 28, height: [0.4, 3.5], spread: 3.2 },
+    color: [1, 0.86, 0.6],
+    colorAlt: [1, 0.66, 0.36],
+    weatherResponse: 'keep',
+  },
   {
     kind: 'steam',
     count: 24,

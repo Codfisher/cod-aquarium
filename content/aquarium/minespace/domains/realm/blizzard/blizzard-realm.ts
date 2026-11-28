@@ -10,6 +10,7 @@ import {
   BLIZZARD_PORTAL_POINT,
   BLIZZARD_PUSH_RADIUS,
   BLIZZARD_SLOW_RADIUS,
+  BLIZZARD_SNOW_LEVEL,
 } from './blizzard-layout'
 
 /**
@@ -85,7 +86,7 @@ export const BLIZZARD_REALM: RealmDefinition = {
    * 滿檔是吹雪野木座正中那一場（六格外一片白）；鬆到最小時霧推到十幾格，天仍是白的
    */
   weather: {
-    snow: { min: 0.72, max: 1, periodSecond: 80 },
+    snow: { ...BLIZZARD_SNOW_LEVEL, periodSecond: 80 },
   },
   backdrop: {
     centerX: BLIZZARD_CENTER.x,

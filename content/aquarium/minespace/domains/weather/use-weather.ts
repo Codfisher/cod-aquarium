@@ -210,9 +210,10 @@ interface StartParams {
    * 把聽雨亭那顆雷叫出來
    *
    * 閃電是這裡的事，雷聲不是。聲音種在 sound-data，
-   * 天氣系統只在閃光之後隔一段時間通知它該響了
+   * 天氣系統只在閃光之後隔一段時間通知它該響了。
+   * distanceRatio 是這一道雷多遠（0 為頭頂、1 為天邊），音景拿它決定雷從多遠的地方來
    */
-  playThunder: (volume: number) => void;
+  playThunder: (volume: number, distanceRatio: number) => void;
   /** 從天空往指定格柱打射線，取得雨滴打到的表面高度，落地水花濺在這裡 */
   castRainRay: (blockX: number, blockZ: number) => number | null;
   /**
@@ -357,7 +358,7 @@ export function useWeather() {
    * 聲音種在聽雨亭，天氣系統只有觸發權，沒有所有權。
    * 音景還沒啟動前是一個空函式，打雷就只是安靜地閃一下
    */
-  let playThunder: (volume: number) => void = () => {}
+  let playThunder: (volume: number, distanceRatio: number) => void = () => {}
 
   /**
    * 劈一道雷
@@ -381,7 +382,7 @@ export function useWeather() {
 
     clearTimeout(rumbleTimerId)
     rumbleTimerId = setTimeout(() => {
-      playThunder(lerp(0.85, 0.3, distanceRatio))
+      playThunder(lerp(0.85, 0.3, distanceRatio), distanceRatio)
     }, delaySecond * 1000)
   }
 
@@ -1072,6 +1073,9 @@ export function useWeather() {
   return {
     weather,
     atmosphere,
+    /** 此刻的雨勢與雪勢 0 ～ 1：音景要讓雨聲、風雪聲跟著一陣大一陣小（weather 只說在不在雨裡） */
+    getRainLevel: () => rainRatio,
+    getSnowLevel: () => snowRatio,
     start,
     setWorld,
     trackRealmBaseline,

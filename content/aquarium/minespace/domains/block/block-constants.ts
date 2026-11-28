@@ -318,6 +318,13 @@ export enum BlockId {
   SULPHUR_LUMP,
   MOSAIC_TILE,
   PARASOL,
+  /**
+   * 湯煙谷的熔岩湖：不點真光的熔岩、玄武岩、裂縫透紅的岩（見各自的定義）。
+   * 加在最後，前面方塊的編號不變
+   */
+  LAVA_FIELD,
+  BASALT,
+  MAGMA_ROCK,
 }
 
 /**
@@ -493,6 +500,16 @@ export interface BlockDef {
    * 但它照出去的範圍本來就該比一盞燈籠大——分成兩個值才調得動
    */
   lightLevel?: number;
+  /**
+   * 夠亮也不列進光源清單（light-source 的 collectLightSourceList）
+   *
+   * 亮度等級到 0.5 的方塊預設會進清單：每幾格一顆光暈、一顆全局光的種子。
+   * 一整片上萬格的熔岩湖進清單就是幾百顆，所以湖面用的那一種標成 false。
+   * 這個旗標與 lightLevel 分開：烘進方塊的暖光照多遠由 lightLevel 決定，要不要進清單由這裡決定，
+   * 不必為了躲開門檻而把 lightLevel 壓在 0.5 以下。
+   * 熔岩的真光不看清單，由露出的液面併成少數幾盞面光源（見 collectPointLightList），這個旗標不影響
+   */
+  isListedLightSource?: boolean;
   /**
    * 平塗：六個面都用朝上的法線計算光照
    *
@@ -2142,6 +2159,63 @@ export const BLOCK_DEFS: Record<BlockId, BlockDef> = {
       tint: [0.86, 0.2, 0.16],
     },
   },
+
+  // ── 湯煙谷的熔岩湖 ──
+  /**
+   * 不進光源清單的熔岩
+   *
+   * 外觀、物理與 LAVA 完全一樣（同一張貼圖、一樣會沉進去），差在 lightLevel 壓在光源清單的門檻（0.5）之下：
+   * 熔岩湖有上萬格，照 LAVA 的規矩每四格見方留一顆光源，整座湖是六七百顆，
+   * 每一顆都長一圈光暈、當一顆全局光的種子、被環境粒子當成錨點。
+   * 大片的湖面與瀑布用這一種，只在人站得近的地方零星放幾格真的 LAVA（見 jigoku-terrain）。
+   * 照亮場景的真光不受影響：light-source 的 collectPointLightList 把兩種熔岩一起併成幾盞面光源。
+   *
+   * 烘進方塊的暖光照樣有（lightLevel × 15 取整是七級），只是比 LAVA 的十五級近。
+   * 自發光與 LAVA 同一個值：實測推到 2.3 整片湖洗成亮黃，看不出是熔岩
+   */
+  [BlockId.LAVA_FIELD]: {
+    emissive: 1.7,
+    lightLevel: 0.45,
+    /** 不進光源清單靠這個旗標，lightLevel 之後要調高（烘進岩壁的暖光照遠一點）不必再顧慮 0.5 的門檻 */
+    isListedLightSource: false,
+    passable: true,
+    isLiquid: true,
+    flatShaded: true,
+    receiveShadow: false,
+    textures: {
+      all: 'lava',
+      frameCount: 6,
+    },
+  },
+  /**
+   * 玄武岩：冷卻的熔岩
+   *
+   * 石頭的貼圖壓成帶一點藍的黑。湖上的岩殼、柱狀節理、火口壁與繩狀熔岩原都是它。
+   * 用 tint 不用 pixelTint：每一套材質包的石頭都是中性灰，乘上去都是黑岩
+   */
+  [BlockId.BASALT]: {
+    textures: {
+      all: 'stone',
+      tint: [0.3, 0.29, 0.32],
+    },
+  },
+  /**
+   * 還沒涼透的岩：黑岩的裂縫裡透著暗紅
+   *
+   * 借餘燼的貼圖（原版材質包是岩漿塊，本來就是黑岩加橘紅的裂紋；迷你像素是一片熔岩，壓暗成悶燒的紅）。
+   * 自發光低於 0.5，不點真光；餘燼每一格都是一盞燈，撒不了一整片，這一種可以。
+   *
+   * 用 pixelTint 不用 tint：tint 只乘在受光的那一半上，自發光那一半照樣是貼圖原本的亮黃
+   * （實測迷你像素下日夜都是一格一格亮黃的地磚，不像裂縫）；逐像素乘進貼圖，發出來的光才是暗紅
+   */
+  [BlockId.MAGMA_ROCK]: {
+    emissive: 0.45,
+    lightLevel: 0.3,
+    textures: {
+      all: 'ember',
+      pixelTint: [0.7, 0.2, 0.1],
+    },
+  },
 }
 
 /** 非正立方體的方塊，面剔除與碰撞都要另外處理 */
@@ -2162,7 +2236,7 @@ export function isWaterBlock(blockId: BlockId): boolean {
 
 /** 熔岩也是液體，泡進去的物理與水一樣，只有視覺與致命感不同 */
 export function isLavaBlock(blockId: BlockId): boolean {
-  return blockId === BlockId.LAVA
+  return blockId === BlockId.LAVA || blockId === BlockId.LAVA_FIELD
 }
 
 /** 方塊的碰撞高度，預設一整格 */

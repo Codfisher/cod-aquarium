@@ -1,4 +1,4 @@
-import { BLOCK_DEFS, BlockId, isPassableBlock } from '../block/block-constants'
+import { BLOCK_DEFS, BlockId, isLavaBlock, isPassableBlock } from '../block/block-constants'
 import { WORLD_HEIGHT, WORLD_SIZE } from './world-constants'
 
 /** 世界裡的一個光源方塊 */
@@ -125,7 +125,8 @@ export function collectLightSourceList(worldState: Uint8Array): BlockLightSource
 
         const blockDef = BLOCK_DEFS[blockId as BlockId]
         const level = blockDef.lightLevel ?? blockDef.emissive ?? 0
-        if (level < MIN_LIGHT_LEVEL)
+        /** 夠亮但標明不進清單的（熔岩湖那一種熔岩），見 BlockDef 的 isListedLightSource */
+        if (level < MIN_LIGHT_LEVEL || blockDef.isListedLightSource === false)
           continue
 
         const isAreaLight = AREA_LIGHT_SET.has(blockId as BlockId)
@@ -158,4 +159,349 @@ export function collectLightSourceList(worldState: Uint8Array): BlockLightSource
   }
 
   return [...cellMap.values()]
+}
+
+/**
+ * 一盞真光
+ *
+ * 燈火的真光（use-block-lights）吃的是這份清單，不是上面那份光源方塊的清單：
+ * 燈籠與火一格一盞照舊，熔岩則是整片液面併成少數幾盞大的（見 collectPointLightList）
+ */
+export interface BlockPointLight {
+  x: number;
+  y: number;
+  z: number;
+  color: [number, number, number];
+  /** 相對於一盞滿等燈籠的亮度倍率，已含亮度等級與面光源合併之後的增益 */
+  intensityRatio: number;
+  /** 照得到多遠（格） */
+  range: number;
+  /** 是不是燒著的東西，火光要更亮、還要會晃 */
+  isFire: boolean;
+  /** 是不是一片熔岩併出來的面光源，晃動要比一團火慢、淺 */
+  isAreaLight: boolean;
+}
+
+export interface PointLightOptions {
+  /**
+   * 熔岩的面光源最多幾盞，預設 AREA_LIGHT_LIMIT
+   *
+   * 超過時不是丟掉遠的或小的，而是把最近的兩群併成一群（亮度與範圍跟著放大），
+   * 所以再大的熔岩湖也不會有一段岸邊是暗的，只是光的落點變粗
+   */
+  areaLightLimit?: number;
+}
+
+/** 一盞滿等的燈照得到多遠（格），實際距離還要乘上亮度等級 */
+export const POINT_LIGHT_RANGE = 20
+
+/** 熔岩的面光源預設最多幾盞 */
+export const AREA_LIGHT_LIMIT = 12
+
+/**
+ * 併熔岩時先分的磚（格）：水平十六格見方、垂直八格一層
+ *
+ * 一片大湖先照這個格距切開，每一塊一盞；瀑布則沿著高度每八格一盞。
+ * 十六格配上二十幾格的照明半徑，湖面上任何一點大約落在四五盞的範圍裡。
+ * 叢集光照的成本是「每個像素 × 罩到它的燈數」，原本四格一盞時同一點罩著幾十盞
+ * （湯煙谷 54 盞，主畫面多 15.8 毫秒，見 docs/development-notes.md 的效能優化）
+ */
+const AREA_TILE_SHIFT = 4
+const AREA_TILE_HEIGHT_SHIFT = 3
+
+/** 小於這個格數的零碎小群，旁邊十六格內有別群就併過去 */
+const AREA_FRAGMENT_CELL_COUNT = 8
+const AREA_FRAGMENT_MERGE_DISTANCE = 16
+
+/** 面光源的亮度：液面的亮度等級總和到這個數時等於一盞滿等的火，之後照平方根增加 */
+const AREA_REFERENCE_WEIGHT = 10
+const AREA_INTENSITY_MIN = 0.7
+const AREA_INTENSITY_MAX = 2.2
+
+/** 面光源照得到多遠：基本值加上液面的半徑 */
+const AREA_RANGE_BASE = 18
+const AREA_RANGE_PER_EXTENT = 1.3
+const AREA_RANGE_MIN = 20
+const AREA_RANGE_MAX = 36
+
+/**
+ * 面光源抬到液面上方多高
+ *
+ * 貼著液面的點光只照得亮正上方與貼岸的那一圈側面，岸上的地面全在光的背面。
+ * 抬高之後光是斜著灑下來的，岸、岩壁與橋底都吃得到；液面越大抬得越高，
+ * 一盞才罩得住整片。頭上有岩頂就停在岩頂下面
+ */
+const AREA_LIFT_BASE = 1.5
+const AREA_LIFT_PER_EXTENT = 0.4
+const AREA_LIFT_MAX = 6
+
+interface AreaCluster {
+  /** 以亮度等級加權的座標總和，除以 weight 就是重心 */
+  sumX: number;
+  sumY: number;
+  sumZ: number;
+  /** 亮度等級總和 */
+  weight: number;
+  /** 露在外面的熔岩格（世界索引） */
+  cellList: number[];
+}
+
+function measureClusterCenter(cluster: AreaCluster): [number, number, number] {
+  return [cluster.sumX / cluster.weight, cluster.sumY / cluster.weight, cluster.sumZ / cluster.weight]
+}
+
+function mergeCluster(target: AreaCluster, source: AreaCluster): void {
+  target.sumX += source.sumX
+  target.sumY += source.sumY
+  target.sumZ += source.sumZ
+  target.weight += source.weight
+  for (const cell of source.cellList) {
+    target.cellList.push(cell)
+  }
+}
+
+/**
+ * 掃出露在外面的熔岩格，照磚分群
+ *
+ * 「露在外面」是頭上或四周有一格是空的：湖面、河面是頂面露出，瀑布是側面露出。
+ * 埋在液面底下的那幾層不算，它們照不到任何東西
+ */
+function collectAreaClusterList(worldState: Uint8Array): AreaCluster[] {
+  const clusterMap = new Map<number, AreaCluster>()
+  const tileSpan = (WORLD_SIZE >> AREA_TILE_SHIFT) + 1
+
+  const readLevel = (blockId: number): number => {
+    if (!isLavaBlock(blockId as BlockId))
+      return 0
+    const blockDef = BLOCK_DEFS[blockId as BlockId]
+    return blockDef.lightLevel ?? blockDef.emissive ?? 0
+  }
+  const isOpenAt = (x: number, y: number, z: number): boolean => {
+    if (x < 0 || x >= WORLD_SIZE || z < 0 || z >= WORLD_SIZE || y >= WORLD_HEIGHT)
+      return false
+    const blockId = worldState[(x * WORLD_HEIGHT + y) * WORLD_SIZE + z]! as BlockId
+    return !isLavaBlock(blockId) && isPassableBlock(blockId)
+  }
+
+  for (let x = 0; x < WORLD_SIZE; x++) {
+    for (let y = 0; y < WORLD_HEIGHT; y++) {
+      for (let z = 0; z < WORLD_SIZE; z++) {
+        const index = (x * WORLD_HEIGHT + y) * WORLD_SIZE + z
+        const blockId = worldState[index]!
+        if (blockId === 0)
+          continue
+        const level = readLevel(blockId)
+        if (level <= 0)
+          continue
+
+        const isExposed = isOpenAt(x, y + 1, z)
+          || isOpenAt(x + 1, y, z)
+          || isOpenAt(x - 1, y, z)
+          || isOpenAt(x, y, z + 1)
+          || isOpenAt(x, y, z - 1)
+        if (!isExposed)
+          continue
+
+        const tileKey = ((x >> AREA_TILE_SHIFT) * tileSpan + (z >> AREA_TILE_SHIFT)) * WORLD_HEIGHT
+          + (y >> AREA_TILE_HEIGHT_SHIFT)
+        let cluster = clusterMap.get(tileKey)
+        if (!cluster) {
+          cluster = { sumX: 0, sumY: 0, sumZ: 0, weight: 0, cellList: [] }
+          clusterMap.set(tileKey, cluster)
+        }
+        cluster.sumX += x * level
+        cluster.sumY += y * level
+        cluster.sumZ += z * level
+        cluster.weight += level
+        cluster.cellList.push(index)
+      }
+    }
+  }
+
+  return [...clusterMap.values()]
+}
+
+/** 兩群重心的距離平方 */
+function measureClusterDistanceSquared(first: AreaCluster, second: AreaCluster): number {
+  const [firstX, firstY, firstZ] = measureClusterCenter(first)
+  const [secondX, secondY, secondZ] = measureClusterCenter(second)
+  return (firstX - secondX) ** 2 + (firstY - secondY) ** 2 + (firstZ - secondZ) ** 2
+}
+
+/**
+ * 把磚切出來的碎片收乾淨，再併到上限以內
+ *
+ * 一、磚的邊界會把一池切成一大塊加幾格碎片，碎片併回旁邊那一群。
+ * 二、超過上限時，反覆把「併起來最不傷」的兩群併成一群：代價是距離平方乘上
+ *     兩群權重的調和（Ward 法），所以先被併掉的是又小又近的，
+ *     兩片各自很大的湖面要到最後才會被併在一起
+ */
+function reduceAreaClusterList(clusterList: AreaCluster[], limit: number): AreaCluster[] {
+  const list = [...clusterList]
+
+  for (;;) {
+    let fragmentIndex = -1
+    let targetIndex = -1
+    let nearest = AREA_FRAGMENT_MERGE_DISTANCE ** 2
+    for (const [index, cluster] of list.entries()) {
+      if (cluster.cellList.length >= AREA_FRAGMENT_CELL_COUNT)
+        continue
+      for (const [otherIndex, other] of list.entries()) {
+        if (otherIndex === index)
+          continue
+        const distanceSquared = measureClusterDistanceSquared(cluster, other)
+        if (distanceSquared < nearest) {
+          nearest = distanceSquared
+          fragmentIndex = index
+          targetIndex = otherIndex
+        }
+      }
+    }
+    if (fragmentIndex === -1)
+      break
+
+    mergeCluster(list[targetIndex]!, list[fragmentIndex]!)
+    list.splice(fragmentIndex, 1)
+  }
+
+  while (list.length > Math.max(1, limit)) {
+    let firstIndex = 0
+    let secondIndex = 1
+    let lowestCost = Number.POSITIVE_INFINITY
+    for (let first = 0; first < list.length; first++) {
+      for (let second = first + 1; second < list.length; second++) {
+        const firstCluster = list[first]!
+        const secondCluster = list[second]!
+        const cost = measureClusterDistanceSquared(firstCluster, secondCluster)
+          * (firstCluster.weight * secondCluster.weight) / (firstCluster.weight + secondCluster.weight)
+        if (cost < lowestCost) {
+          lowestCost = cost
+          firstIndex = first
+          secondIndex = second
+        }
+      }
+    }
+
+    mergeCluster(list[firstIndex]!, list[secondIndex]!)
+    list.splice(secondIndex, 1)
+  }
+
+  return list
+}
+
+/** 一群熔岩換成一盞面光源 */
+function createAreaLight(worldState: Uint8Array, cluster: AreaCluster): BlockPointLight {
+  const [centerX, centerY, centerZ] = measureClusterCenter(cluster)
+
+  /**
+   * 光要落在這一群自己的某一格上，不能直接擺在重心
+   *
+   * 彎的河、環形的池，重心會落在中間那塊岩石裡面：光源埋在實心裡，
+   * 朝外的岩面全在它的背面，一點都照不到。取離重心最近的那一格再往上抬
+   */
+  let anchorX = 0
+  let anchorY = 0
+  let anchorZ = 0
+  let nearest = Number.POSITIVE_INFINITY
+  let spreadSum = 0
+  for (const cell of cluster.cellList) {
+    const z = cell % WORLD_SIZE
+    const column = (cell - z) / WORLD_SIZE
+    const y = column % WORLD_HEIGHT
+    const x = (column - y) / WORLD_HEIGHT
+
+    const horizontalSquared = (x - centerX) ** 2 + (z - centerZ) ** 2
+    spreadSum += horizontalSquared
+    const distanceSquared = horizontalSquared + (y - centerY) ** 2
+    if (distanceSquared < nearest) {
+      nearest = distanceSquared
+      anchorX = x
+      anchorY = y
+      anchorZ = z
+    }
+  }
+
+  /** 這一群攤開來多寬：一片圓形液面算出來就是它的半徑 */
+  const extent = Math.sqrt(2 * spreadSum / cluster.cellList.length) + 0.5
+
+  const liftGoal = Math.min(AREA_LIFT_MAX, AREA_LIFT_BASE + extent * AREA_LIFT_PER_EXTENT)
+  let openCount = 0
+  while (openCount < Math.ceil(liftGoal)) {
+    const y = anchorY + openCount + 1
+    if (y >= WORLD_HEIGHT)
+      break
+    const blockId = worldState[(anchorX * WORLD_HEIGHT + y) * WORLD_SIZE + anchorZ]! as BlockId
+    if (isLavaBlock(blockId) || !isPassableBlock(blockId))
+      break
+    openCount++
+  }
+  /** 留半格別貼著岩頂；頭上完全被蓋住的（瀑布背後）就留在那一格的中心 */
+  const lift = openCount === 0 ? 0 : 0.5 + Math.min(liftGoal, openCount - 0.5)
+
+  const intensityRatio = Math.min(
+    AREA_INTENSITY_MAX,
+    Math.max(AREA_INTENSITY_MIN, Math.sqrt(cluster.weight / AREA_REFERENCE_WEIGHT)),
+  )
+  const range = Math.min(
+    AREA_RANGE_MAX,
+    Math.max(AREA_RANGE_MIN, AREA_RANGE_BASE + extent * AREA_RANGE_PER_EXTENT),
+  )
+
+  return {
+    x: anchorX,
+    y: anchorY + lift,
+    z: anchorZ,
+    color: FIRE_COLOR,
+    intensityRatio,
+    range,
+    isFire: true,
+    isAreaLight: true,
+  }
+}
+
+/**
+ * 世界裡要點的真光
+ *
+ * 燈籠、紙燈、營火、火爐：光源清單裡的每一顆各點一盞，與以前相同。
+ *
+ * 熔岩（isLavaBlock 認得的每一種，含不進光源清單的 LAVA_FIELD）不照光源清單一格一盞：把所有露在外面的熔岩格
+ * 依位置分群，每一群只點一盞，位置在那一群的重心上方，亮度與照明半徑跟著那一群的大小放大，
+ * 總數不超過 areaLightLimit。場景的地形不必為了省燈而少放熔岩，
+ * 一整座熔岩湖、幾道熔岩瀑布加起來也只有十來盞。
+ *
+ * 光源清單（collectLightSourceList）照舊是四格一顆，光暈、全局光的種子、環境粒子還是用它：
+ * 那幾樣要的是「液面上到處都有」，而且不是逐像素算的
+ */
+export function collectPointLightList(
+  worldState: Uint8Array,
+  sourceList: readonly BlockLightSource[],
+  options: PointLightOptions = {},
+): BlockPointLight[] {
+  const pointLightList: BlockPointLight[] = []
+
+  for (const source of sourceList) {
+    if (source.isAreaLight)
+      continue
+
+    pointLightList.push({
+      x: source.x,
+      y: source.y,
+      z: source.z,
+      color: source.color,
+      intensityRatio: source.level,
+      range: POINT_LIGHT_RANGE * source.level,
+      isFire: source.isFire,
+      isAreaLight: false,
+    })
+  }
+
+  const clusterList = reduceAreaClusterList(
+    collectAreaClusterList(worldState),
+    options.areaLightLimit ?? AREA_LIGHT_LIMIT,
+  )
+  for (const cluster of clusterList) {
+    pointLightList.push(createAreaLight(worldState, cluster))
+  }
+
+  return pointLightList
 }

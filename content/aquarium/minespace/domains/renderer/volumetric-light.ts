@@ -120,24 +120,25 @@ uniform mat4 volumetricShadowViewProjection;
 uniform mat4 volumetricShadowView;
 uniform float volumetricShadowBias;
 
-float minespaceSunVisibility(vec3 worldPosition) {
-  vec4 clipPosition = volumetricShadowViewProjection * vec4(worldPosition, 1.0);
-  vec2 uv = (clipPosition.xy / clipPosition.w) * 0.5 + 0.5;
-
+/**
+ * 取樣點在陰影圖上的座標（xy 是貼圖座標、z 是太陽視空間的距離）照不照得到太陽
+ *
+ * 座標由 main 沿著射線用加法推出來，這裡不再逐點乘矩陣，理由見行進迴圈前那一段
+ */
+float minespaceSunVisibility(vec3 shadowPoint) {
   /**
    * 走出這張圖就當作照得到
    *
    * 這張圖只罩住鏡頭附近那一塊。超出去的地方沒有資料，
    * 判成陰影的話，遠處會憑空冒出一片方形的暗
    */
-  if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) {
+  if (shadowPoint.x < 0.0 || shadowPoint.x > 1.0 || shadowPoint.y < 0.0 || shadowPoint.y > 1.0) {
     return 1.0;
   }
 
-  float occluderDistance = texture2D(volumetricShadowSampler, uv).r;
-  float sampleDistance = (volumetricShadowView * vec4(worldPosition, 1.0)).z;
+  float occluderDistance = texture2D(volumetricShadowSampler, shadowPoint.xy).r;
 
-  return sampleDistance <= occluderDistance + volumetricShadowBias ? 1.0 : 0.0;
+  return shadowPoint.z <= occluderDistance + volumetricShadowBias ? 1.0 : 0.0;
 }
 
 uniform mat4 inverseViewProjection;
@@ -292,14 +293,32 @@ void main() {
 
   float accumulated = 0.0;
 
+  /**
+   * 陰影圖上的座標沿著射線是一條直線，起點與每一格的位移在迴圈外算好
+   *
+   * 那張陰影圖是正交投影（太陽是平行光，見 volumetric-shadow），正交投影沒有透視除法，
+   * 世界座標換到陰影圖座標是仿射的：射線上的點換過去還是一條直線。
+   * 原本每一步各乘兩次四乘四矩陣再除一次 w，三十二步就是六十四次矩陣乘法；
+   * 現在只在這裡乘四次，迴圈裡剩一次乘加與一次取樣，結果只差浮點捨入。
+   * 哪天陰影圖改成透視投影，這裡就不成立了
+   */
+  vec4 startClip = volumetricShadowViewProjection * vec4(cameraPosition, 1.0);
+  vec4 directionClip = volumetricShadowViewProjection * vec4(rayDirection, 0.0);
+  vec3 shadowStart = vec3(
+    startClip.xy * 0.5 + 0.5,
+    (volumetricShadowView * vec4(cameraPosition, 1.0)).z
+  );
+  vec3 shadowDirection = vec3(
+    directionClip.xy * 0.5,
+    (volumetricShadowView * vec4(rayDirection, 0.0)).z
+  );
+
   for (int index = 0; index < MAX_STEP_COUNT; index++) {
     if (float(index) >= stepCount) {
       break;
     }
 
-    vec3 samplePosition = cameraPosition + rayDirection * travelled;
-
-    accumulated += minespaceSunVisibility(samplePosition);
+    accumulated += minespaceSunVisibility(shadowStart + shadowDirection * travelled);
 
     travelled += stepLength;
   }
@@ -720,6 +739,19 @@ export function createVolumetricLight(scene: Scene, camera: UniversalCamera): Vo
        */
       currentSunDirection.copyFrom(sunDirection).normalize()
 
+      const shouldAttach = devToggle.volumetricLight
+        && currentStrength > 0.001
+        && !!sceneDepthState.texture
+
+      /**
+       * 後製卸下來的時候，那張專用的陰影圖也不必畫
+       *
+       * 它掛在場景的離屏清單上，掛著就每幀把整個世界再畫一趟（兩三百次繪製）。
+       * 下雨、洞裡、地底場景、邊界白幕這些光束強度歸零的時候，那張圖沒有人讀。
+       * 先掛圖、再挪鏡頭、最後才掛後製：離屏那一趟畫在主鏡頭之前，
+       * 重新掛上的那一幀後製讀到的就是當幀的圖
+       */
+      shadow.setActive(shouldAttach)
       /**
        * 陰影圖每幀要跟著鏡頭與太陽挪一次
        *
@@ -727,7 +759,9 @@ export function createVolumetricLight(scene: Scene, camera: UniversalCamera): Vo
        * 呼叫一次，而且它剛好同時知道太陽的方向。多一個觀察者
        * 只是多一個要記得對齊順序的東西
        */
-      shadow.update(currentSunDirection)
+      if (shouldAttach) {
+        shadow.update(currentSunDirection)
+      }
 
       /**
        * 掛不上去的話，是卡在哪一個條件
@@ -747,11 +781,7 @@ export function createVolumetricLight(scene: Scene, camera: UniversalCamera): Vo
        * 強度為零（雨中、洞裡）算不需要，走「整個拿掉」那條路。
        * 兩張貼圖是自己開的，跟著這個實例的生命週期走，不必再檢查
        */
-      setAttached(
-        devToggle.volumetricLight
-        && currentStrength > 0.001
-        && !!sceneDepthState.texture,
-      )
+      setAttached(shouldAttach)
     },
     dispose() {
       shadow.dispose()

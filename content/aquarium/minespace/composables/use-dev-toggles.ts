@@ -16,6 +16,8 @@ export const DEV_TOGGLE_LIST = [
   { key: 'aerialPerspective', label: { 'zh-hant': '大氣透視', 'en': 'Aerial perspective' } },
   { key: 'volumetricCloud', label: { 'zh-hant': '體積雲', 'en': 'Volumetric clouds' } },
   { key: 'cloudShadow', label: { 'zh-hant': '雲影', 'en': 'Cloud shadow' } },
+  { key: 'twilightCloud', label: { 'zh-hant': '晨昏的雲逐點照明', 'en': 'Twilight cloud lighting' } },
+  { key: 'cloudRay', label: { 'zh-hant': '雲縫光', 'en': 'Rays through cloud gaps' } },
   { key: 'leafTranslucency', label: { 'zh-hant': '葉片透光', 'en': 'Leaf translucency' } },
   { key: 'dithering', label: { 'zh-hant': '打散色階', 'en': 'Dithering' } },
   { key: 'contactShadow', label: { 'zh-hant': '接觸硬化陰影', 'en': 'Contact-hardening shadow' } },

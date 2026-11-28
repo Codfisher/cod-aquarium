@@ -5,6 +5,7 @@ import { Constants, Effect, Mesh, ShaderMaterial, Vector3, VertexData } from '@b
 import { useDevToggles } from '../../composables/use-dev-toggles'
 import { useGraphicsQuality } from '../../composables/use-graphics-quality'
 import { optOutOfFog } from '../renderer/fog-opt-out'
+import { getMoonGlowRatio, moonPhaseState } from '../weather/moon-phase'
 
 /**
  * 招牌景象的共用零件（渲染端）
@@ -76,6 +77,8 @@ export interface SignatureFrame {
   twilightRatio: number;
   /** 數量類的細節該留幾成，跟著畫質的粒子倍率走（效能檔三成六） */
   detailRatio: number;
+  /** 今夜的月亮亮幾成（月相，見 weather/moon-phase），滿月是一；跟著月亮走的景象乘上它 */
+  moonLightRatio: number;
   cameraPosition: Vector3;
 }
 
@@ -322,6 +325,7 @@ export function createSignatureLayer(param: SignatureLayerParam): { dispose: () 
     dayRatio: 1,
     twilightRatio: 0,
     detailRatio: 1,
+    moonLightRatio: 1,
     cameraPosition: new Vector3(),
   }
 
@@ -330,6 +334,7 @@ export function createSignatureLayer(param: SignatureLayerParam): { dispose: () 
     frame.elapsed += frame.deltaSecond
     updateSignatureFrame(frame, atmosphere)
     frame.detailRatio = preset.value.particleRatio
+    frame.moonLightRatio = getMoonGlowRatio(moonPhaseState.phaseIndex)
     if (scene.activeCamera) {
       frame.cameraPosition.copyFrom(scene.activeCamera.globalPosition)
     }

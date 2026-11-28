@@ -2,6 +2,7 @@ import type {
   Color3,
   DefaultRenderingPipeline,
   DirectionalLight,
+  DynamicTexture,
   Mesh,
   Scene,
   ShaderMaterial,
@@ -11,12 +12,14 @@ import type { VolumetricLight } from '../domains/renderer/volumetric-light'
 import type { AtmosphereState } from '../domains/weather/atmosphere'
 import type { DayPhase } from '../domains/weather/day-night'
 import type { GodRays } from '../domains/weather/god-rays'
+import type { PixelStarField } from '../domains/weather/star-field'
 import { clamp } from 'remeda'
 import { computed, onScopeDispose, ref } from 'vue'
 import { activeRealmState, applyRealmNumber } from '../domains/realm/active-realm'
 import { renderSettings } from '../domains/render-host/render-settings'
 import { eyeAdaptationState } from '../domains/renderer/eye-adaptation'
 import { getReloadHandoff } from '../domains/scene/reload-handoff'
+import { computeCloudLight, createCloudLight } from '../domains/weather/cloud-light'
 import {
   advanceSunriseDrift,
   createDayNightSample,
@@ -28,20 +31,34 @@ import {
   smoothRange,
   wrapTimeOfDay,
 } from '../domains/weather/day-night'
+import {
+  createMoonPhasePainter,
+  getMoonCloudLightRatio,
+  getMoonGlowRatio,
+  getMoonLightRatio,
+  getMoonPhaseIndex,
+  getNightIndex,
+  getStarBoost,
+  moonPhaseState,
+} from '../domains/weather/moon-phase'
 import { applySkyGradient } from '../domains/weather/sky-gradient'
-import { volumetricCloudState } from '../domains/weather/volumetric-cloud/volumetric-cloud'
+import { installPixelStarField, starFieldState } from '../domains/weather/star-field'
+import { getSkyGlowScale } from '../domains/weather/twilight'
+import { getTwilightKind } from '../domains/weather/volumetric-cloud/cloud-daily-weather'
+import { PLANET_RADIUS, volumetricCloudState } from '../domains/weather/volumetric-cloud/volumetric-cloud'
 import {
   getMoonMaterialList,
   getSkyMaterial,
-  getStarFieldMaterial,
   getSunMaterialList,
   MOON_DISC_NAME,
   MOON_GLOW_NAME,
+  STAR_FIELD_NAME,
   SUN_DISC_NAME,
   SUN_GLOW_NAME,
   SUN_LIGHT_NAME,
 } from './use-babylon-scene'
 import { reportDiagnostic } from './use-error-logger'
+import { useGraphicsQuality } from './use-graphics-quality'
 import { measureSection } from './use-performance-probe'
 
 /** 太陽與月亮掛在天上多遠，要落在天空罩以內 */
@@ -199,9 +216,16 @@ export function useDayNight() {
 
     const sunLight = scene.getLightByName(SUN_LIGHT_NAME) as DirectionalLight | null
     const skyMaterial = getSkyMaterial(scene)
-    const starMaterial = getStarFieldMaterial(scene)
     const sunMaterialList = getSunMaterialList(scene)
     const moonMaterialList = getMoonMaterialList(scene)
+    /** 星空：把引擎層建的那顆盒子換成像素星空（見 star-field），星數跟著畫質的粒子倍率 */
+    const starDome = scene.getMeshByName(STAR_FIELD_NAME) as Mesh | null
+    const starField = starDome
+      ? installPixelStarField(scene, starDome, useGraphicsQuality().preset.value.particleRatio)
+      : null
+    /** 月相：月面貼圖是清單裡的第一份（本體），第二份是月暈 */
+    const moonTexture = moonMaterialList[0]?.diffuseTexture as DynamicTexture | null | undefined
+    const paintMoonPhase = moonTexture ? createMoonPhasePainter(moonTexture) : null
     /** 記下天體原本的亮度，之後只照比例淡入淡出，不覆蓋掉調過的顏色 */
     const sunBaseList = sunMaterialList.map((material) => material.emissiveColor.clone())
     const moonBaseList = moonMaterialList.map((material) => material.emissiveColor.clone())
@@ -236,6 +260,25 @@ export function useDayNight() {
         }
 
         sampleDayNight(activeRealmState.isUnderground ? UNDERGROUND_LIGHTING_TIME : currentTime, sample)
+        /**
+         * 霞光跟著當天的燃燒強度濃淡
+         *
+         * 寫回取樣本身，下面寫進大氣狀態與天色材質的就都是調過的值；
+         * 天氣疊陰天、球諧天光取天色時讀的是大氣狀態，三邊因此一致
+         */
+        sample.skyGlowStrength *= getSkyGlowScale(sample.sunHeight, volumetricCloudState.burnIntensity)
+        /**
+         * 月相：滿月的夜與原本相同，越接近新月月光越淡
+         *
+         * 平行光在太陽落下之後才是月光；貼著地平線那一段強度本來就是零，乘上去不會跳。
+         * 地底固定用子夜的光照（見 UNDERGROUND_LIGHTING_TIME），不跟著月相變
+         */
+        moonPhaseIndex = getMoonPhaseIndex(getNightIndex(cloudDayIndex + currentTime))
+        if (sample.sunHeight < 0 && !activeRealmState.isUnderground) {
+          sample.lightIntensity *= getMoonLightRatio(moonPhaseIndex)
+        }
+        moonPhaseState.phaseIndex = moonPhaseIndex
+        paintMoonPhase?.(moonPhaseIndex)
 
         applyToAtmosphere(atmosphere)
         applyToCloud()
@@ -249,7 +292,8 @@ export function useDayNight() {
           sunBaseList,
           moonMaterialList,
           moonBaseList,
-          starMaterial,
+          starField,
+          deltaTime,
           skyBodyFade: atmosphere.skyBodyFade,
         })
         applyToSky(skyMaterial)
@@ -344,16 +388,8 @@ export function useDayNight() {
   /**
    * 這一刻雲被什麼光照著
    *
-   * 不直接沿用平行光那一份，有兩處不同。
-   *
-   * 一是換邊的時間點。平行光在太陽一碰到地平線就換成月亮，
-   * 貼著地平線那一段還會整個關掉（避免影子翻面）。但雲在一百多格高，
-   * 太陽落到地平線下一點點時它們還照得到——日落後天上那幾朵粉紅的雲
-   * 正是這樣來的。所以太陽要沉到 -0.1 以下才換月亮。
-   *
-   * 二是顏色。太陽越低，照到雲上的光走過的大氣越長，越紅；
-   * 平行光的顏色是為地面調的，往天邊的暖光那一端多靠一些，
-   * 雲頂才會被染成霞色而不是單純的黃
+   * 光色、天光與晨昏那幾個比例怎麼算，見 cloud-light 的 computeCloudLight；
+   * 這裡只負責把結果寫進體積雲的狀態。
    *
    * 同時負責告訴雲「今天是第幾天」（見 cloud-daily-weather）：
    * 時刻從 1 繞回 0 就是過了午夜，往回撥時間軸則反過來，所以日序在這裡數。
@@ -363,10 +399,12 @@ export function useDayNight() {
   let cloudDayIndex = (import.meta.env.DEV ? getReloadHandoff()?.dayIndex : undefined)
     ?? Math.floor(Date.now() / MILLISECOND_PER_DAY)
   let previousCloudTime = initialTime
+  const cloudLight = createCloudLight()
+  /** 今夜是第幾相（見 moon-phase），每幀在取樣之後更新 */
+  let moonPhaseIndex = getMoonPhaseIndex(getNightIndex(cloudDayIndex + initialTime))
 
   function applyToCloud(): void {
     const state = volumetricCloudState
-    const isSunLit = sample.sunHeight > -0.1
 
     const timeDelta = currentTime - previousCloudTime
     if (timeDelta < -0.5)
@@ -378,39 +416,37 @@ export function useDayNight() {
     state.sunHeight = sample.sunHeight
     state.sunDirection.copyFrom(sample.sunPosition).normalize()
 
+    computeCloudLight(
+      sample,
+      {
+        burnIntensity: state.burnIntensity,
+        kind: getTwilightKind(state.dayPosition),
+        moonLightRatio: getMoonCloudLightRatio(moonPhaseIndex),
+        planetRadius: PLANET_RADIUS,
+      },
+      cloudLight,
+    )
+
     state.lightDirection
-      .copyFrom(isSunLit ? sample.sunPosition : sample.moonPosition)
+      .copyFrom(cloudLight.isSunLit ? sample.sunPosition : sample.moonPosition)
       .normalize()
+    state.lightColor.copyFrom(cloudLight.lightColor)
+    state.ambientTop.copyFrom(cloudLight.ambientTop)
+    state.ambientBottom.copyFrom(cloudLight.ambientBottom)
+    state.hueClipRatio = cloudLight.hueClipRatio
+    state.twilightRatio = cloudLight.twilightRatio
+    state.undersideRatio = cloudLight.undersideRatio
+    for (const [index, value] of cloudLight.palette.entries()) {
+      state.twilightPalette[index] = value
+    }
 
-    const gate = isSunLit
-      ? smoothRange(sample.sunHeight, -0.1, 0.02)
-      : smoothRange(-sample.sunHeight, 0.1, 0.24)
-    const glowRatio = isSunLit ? 1 - smoothRange(sample.sunHeight, 0, 0.3) : 0
-    const brightness = sample.cloudBrightness * gate
-
-    state.lightColor.set(
-      lerp(sample.lightColor.r, sample.skyGlowColor.r, glowRatio) * brightness,
-      lerp(sample.lightColor.g, sample.skyGlowColor.g, glowRatio) * brightness,
-      lerp(sample.lightColor.b, sample.skyGlowColor.b, glowRatio) * brightness,
-    )
-
-    /**
-     * 天光：雲頂吃天頂與中空的平均，雲底吃中空與地面反上來的光
-     *
-     * 白沙會把陽光反上去，晴天的雲底因此帶一點暖；
-     * 天色本身已經跟著日夜暗下來了，不必再乘一次亮度
-     */
-    state.ambientTop.set(
-      (sample.skyZenithColor.r + sample.skyMidColor.r) * 0.5,
-      (sample.skyZenithColor.g + sample.skyMidColor.g) * 0.5,
-      (sample.skyZenithColor.b + sample.skyMidColor.b) * 0.5,
-    )
-    const groundBounce = sample.cloudBrightness * 0.3
-    state.ambientBottom.set(
-      (sample.skyMidColor.r + sample.ambientGroundColor.r * groundBounce) * 0.5,
-      (sample.skyMidColor.g + sample.ambientGroundColor.g * groundBounce) * 0.5,
-      (sample.skyMidColor.b + sample.ambientGroundColor.b * groundBounce) * 0.5,
-    )
+    if (import.meta.env.DEV) {
+      reportDiagnostic(
+        '天空/燃燒強度',
+        `${getTwilightKind(state.dayPosition) === 'dawn' ? '清晨' : '黃昏'} ${state.burnIntensity.toFixed(2)}`
+        + `（日序 ${cloudDayIndex}）`,
+      )
+    }
   }
 
   /** 轉動平行光。強度與顏色留給漫遊控制器套用，那裡還要疊洞穴與陰天 */
@@ -430,7 +466,8 @@ export function useDayNight() {
     sunBaseList: Color3[];
     moonMaterialList: StandardMaterial[];
     moonBaseList: Color3[];
-    starMaterial: StandardMaterial | null;
+    starField: PixelStarField | null;
+    deltaTime: number;
     skyBodyFade: number;
   }
 
@@ -471,13 +508,15 @@ export function useDayNight() {
       if (!base)
         continue
 
-      material.emissiveColor.set(base.r * moonFade, base.g * moonFade, base.b * moonFade)
+      /** 月暈（第二份）跟著月相淡：新月掛著一圈滿月的暈是不對的 */
+      const fade = index === 0 ? moonFade : moonFade * getMoonGlowRatio(moonPhaseIndex)
+      material.emissiveColor.set(base.r * fade, base.g * fade, base.b * fade)
     }
 
-    if (param.starMaterial) {
-      const starFade = sample.starVisibility * param.skyBodyFade
-      param.starMaterial.emissiveColor.set(starFade, starFade, starFade)
-    }
+    /** 月光越淡星星越亮；露出多少另外記一份，給跟星星同進同退的景象讀 */
+    const starFade = sample.starVisibility * param.skyBodyFade
+    starFieldState.visibility = starFade
+    param.starField?.update(param.deltaTime, starFade, getStarBoost(moonPhaseIndex))
   }
 
   /**
@@ -578,6 +617,8 @@ export function useDayNight() {
     getDayRatio: () => sample.dayRatio,
     /** 同上，晨霧要靠它認出天亮前的那一段 */
     getTimeOfDay: () => currentTime,
+    /** 這個清晨或黃昏的雲會燒得多兇（零到一），神遊靠它決定要不要多留一會兒 */
+    getBurnIntensity: () => volumetricCloudState.burnIntensity,
     isNight: computed(() => dayRatio.value < 0.5),
   }
 }
