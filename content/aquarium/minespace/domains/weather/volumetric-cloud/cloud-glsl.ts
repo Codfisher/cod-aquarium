@@ -125,7 +125,14 @@ function toGlslFloat(value: number): string {
  * cloudTwilightLight 對雲裡的一點算「朝太陽的光線離地面最近時有多高」（掠地高度），
  * 再照高度查色階（玫瑰、緋紅、橘、金，四個顏色由 CPU 算好送進來，已含當天的燃燒強度）。
  * 式子與 weather/twilight 的 getGrazingHeight、sampleTwilightLight 相同，改一邊要改另一邊。
- * 沒有貼圖取樣，每個取樣點多一次內積、一次開根號與幾次 smoothstep。
+ *
+ * 每條視線只算幾個點，不是每個取樣點都算：積雲在進雲、中點、出雲三處各算一次，
+ * 取樣點照沿途的位置在三者之間線性內插（高積雲薄，兩處就夠；卷雲只有一個交點）。
+ * 掠地高度沿著一條直線幾乎是線性變化的，三點內插與逐點算在畫面上看不出差別，
+ * 每個取樣點省下一次內積、一次開根號與幾次 smoothstep。
+ * 沒有貼圖取樣。成本量不出來：開關交替量二十輪，行進那一趟的差在正負零點一毫秒內
+ * （逐點算的版本也一樣）。量的時候一定要交替：雲會飄，同一個視角的行進成本
+ * 一分鐘內可以掉三四毫秒，「開著量一段、關掉量一段」量到的是雲飄走了多少
  *
  * 另外三處跟著晨昏變（都由 cloudTwilight 的分量控制，為零時就是原本的式子）：
  * - 粉末效應假設光從上面來，把雲底壓暗。太陽在地平線下時光是從下面打上來的，
@@ -488,6 +495,10 @@ vec4 cloudMarch(vec3 origin, vec3 direction, int stepCount, int lightStepCount, 
   float thickness = cloudLayer.y - cloudLayer.x;
   float powderBlend = clamp(0.5 - 0.5 * cosAngle, 0.0, 1.0) * cloudLighting.z;
 
+  vec3 sunLightNear = cloudSunLight(origin + direction * startDistance);
+  vec3 sunLightMiddle = cloudSunLight(origin + direction * (startDistance + marchLength * 0.5));
+  vec3 sunLightFar = cloudSunLight(origin + direction * endDistance);
+
   vec3 radiance = vec3(0.0);
   float transmittance = 1.0;
   float weightedDistance = 0.0;
@@ -532,7 +543,14 @@ vec4 cloudMarch(vec3 origin, vec3 direction, int stepCount, int lightStepCount, 
     int sampleLightStepCount = (isFar || transmittance < 0.3) ? max(lightStepCount / 2, 2) : lightStepCount;
     float lightDepth = cloudLightOpticalDepth(samplePosition, sampleLightStepCount);
 
-    vec3 sunTerm = cloudSunScattering(lightDepth, cosAngle, cloudSunLight(samplePosition));
+    vec3 sunLight = cloudSunColor;
+    if (cloudTwilight.x > 0.0) {
+      float alongRatio = clamp((travelled - startDistance) / marchLength, 0.0, 1.0) * 2.0;
+      sunLight = alongRatio < 1.0
+        ? mix(sunLightNear, sunLightMiddle, alongRatio)
+        : mix(sunLightMiddle, sunLightFar, alongRatio - 1.0);
+    }
+    vec3 sunTerm = cloudSunScattering(lightDepth, cosAngle, sunLight);
     sunTerm *= mix(1.0, mix(cloudInScatterProbability(density, heightRatio), 1.0, cloudTwilight.w), powderBlend);
     sunTerm *= cloudTwilightTopDim(heightRatio);
 
@@ -652,6 +670,8 @@ vec4 cloudAltocumulusLayer(vec3 origin, vec3 direction, int stepCount, float jit
   float cosAngle = dot(direction, cloudSunDirection);
   float powderBlend = clamp(0.5 - 0.5 * cosAngle, 0.0, 1.0) * cloudLighting.z;
   float extinctionScale = cloudShape.y * cloudAltocumulus.w;
+  vec3 sunLightNear = cloudSunLight(origin + direction * startDistance);
+  vec3 sunLightFar = cloudSunLight(origin + direction * endDistance);
 
   vec3 radiance = vec3(0.0);
   float transmittance = 1.0;
@@ -691,7 +711,11 @@ vec4 cloudAltocumulusLayer(vec3 origin, vec3 direction, int stepCount, float jit
     }
     lightDepth *= extinctionScale;
 
-    vec3 sunTerm = cloudSunScattering(lightDepth, cosAngle, cloudSunLight(samplePosition));
+    vec3 sunLight = cloudSunColor;
+    if (cloudTwilight.x > 0.0) {
+      sunLight = mix(sunLightNear, sunLightFar, clamp((travelled - startDistance) / (endDistance - startDistance), 0.0, 1.0));
+    }
+    vec3 sunTerm = cloudSunScattering(lightDepth, cosAngle, sunLight);
     sunTerm *= mix(1.0, mix(cloudInScatterProbability(density, mix(0.35, 0.8, heightRatio)), 1.0, cloudTwilight.w), powderBlend);
 
     vec3 ambient = mix(cloudAmbientBottom, cloudAmbientTop, heightRatio) * mix(0.7, 1.0, heightRatio);
