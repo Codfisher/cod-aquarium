@@ -1,4 +1,5 @@
 import type { AmbientParticleKind } from '../../realm/realm-definition'
+import type { AmbientCritterKey } from './ambient-critter-shape'
 import type { AmbientShapeKey } from './ambient-shape'
 
 /**
@@ -37,6 +38,12 @@ export interface AmbientMeander {
   /** 上下起伏的速度（格／秒）與頻率；不給就不上下晃，高度交給 verticalTarget */
   bob?: number;
   bobFrequency?: number;
+  /**
+   * 懸停：每 period 秒一輪，其中 ratio 的比例停在半空（水平速度收到零，照樣上下起伏）
+   *
+   * 只有體素生物那一路會讀（見 ambient-critter-flight）：蜻蜓飛一陣、停一下，停著的時候才看得清牠的樣子
+   */
+  hover?: { period: number; ratio: number };
 }
 
 export interface AmbientKindSpec {
@@ -67,8 +74,15 @@ export interface AmbientKindSpec {
   /** 靠攏的目標是風速的幾倍，不給是 1 */
   windGain?: number;
   meander?: AmbientMeander;
-  /** 拍翅：精靈圖輪流播，每秒幾個週期 */
+  /** 拍翅：精靈圖輪流播，每秒幾個週期（體素生物是翅膀每秒擺幾下） */
   flap?: { hz: number };
+  /**
+   * 這一種改用方盒拼的立體生物來畫，不走粒子系統（見 ambient-critter-layer）
+   *
+   * 給了就由 realm-ambient 改建體素那一層；shape、billboard 這些方片才用的欄位留著不讀，
+   * 動法（速度、壽命、轉彎、順風）兩邊讀的是同一組數字
+   */
+  critter?: AmbientCritterKey;
   /** 從出生到消失，邊長乘上的倍率（煙霧越冒越大） */
   grow?: readonly [number, number];
   /**
@@ -189,6 +203,7 @@ export const AMBIENT_KIND_SPEC_MAP: Record<AmbientParticleKind, AmbientKindSpec>
     windFollow: 0.1,
     meander: { turn: 1.5, frequency: 0.55, bob: 0.22, bobFrequency: 1.3 },
     flap: { hz: 5 },
+    critter: 'butterfly',
     isDimmedAtNight: true,
   },
   dragonfly: {
@@ -203,8 +218,9 @@ export const AMBIENT_KIND_SPEC_MAP: Record<AmbientParticleKind, AmbientKindSpec>
     colorB: [0.88, 0.3, 0.25, 1],
     fade: 'soft',
     windFollow: 0,
-    meander: { turn: 4, frequency: 0.8, isSharp: true, bob: 0.1, bobFrequency: 0.9 },
+    meander: { turn: 4, frequency: 0.8, isSharp: true, bob: 0.1, bobFrequency: 0.9, hover: { period: 5.5, ratio: 0.35 } },
     flap: { hz: 16 },
+    critter: 'dragonfly',
     isDimmedAtNight: true,
   },
   moth: {
@@ -221,6 +237,7 @@ export const AMBIENT_KIND_SPEC_MAP: Record<AmbientParticleKind, AmbientKindSpec>
     windFollow: 0,
     meander: { turn: 2.6, frequency: 0.5, isCircling: true, bob: 0.15, bobFrequency: 0.8 },
     flap: { hz: 9 },
+    critter: 'moth',
     isDimmedAtNight: false,
   },
   petal: {

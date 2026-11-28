@@ -4,14 +4,12 @@ import type { AmbientPhaseWeight } from './ambient-activity'
 import type { AmbientKindSpec } from './ambient-kind-spec'
 import type { AmbientWorld } from './ambient-spot'
 import { Color4, Lerp, ParticleSystem, RandomRange, Vector3 } from '@babylonjs/core'
-import { clamp } from 'remeda'
 import { WEATHER_RENDERING_GROUP } from '../../../composables/use-babylon-scene'
 import { createParticleDimmer } from '../particle-tint'
-import { measureAmbientActivity } from './ambient-activity'
 import { measureAmbientCapacity } from './ambient-budget'
+import { createAmbientEmitter } from './ambient-emitter'
 import { AMBIENT_KIND_SPEC_MAP } from './ambient-kind-spec'
 import { createAmbientTexture } from './ambient-shape'
-import { collectAmbientSpot, getAmbientReach, MAX_SPOT_COUNT } from './ambient-spot'
 
 /**
  * 一層環境粒子：一個粒子系統
@@ -19,6 +17,7 @@ import { collectAmbientSpot, getAmbientReach, MAX_SPOT_COUNT } from './ambient-s
  * 發射點不跟著鏡頭走，而是每顆出生時才挑位置：空中的撒在鏡頭四周的方盒裡，
  * 其餘的（地面、水面、樹冠、花、燈…）先每隔一小段時間在鏡頭四周挑出十幾個「落腳點」，
  * 新的粒子從這些落腳點附近冒出來。顆粒生出後就留在世界座標上，人走過去自然被留在身後。
+ * 什麼時候生、生在哪裡這一段在 ambient-emitter，與體素生物那一層（ambient-critter-layer）共用。
  *
  * 動法分兩層：粒子系統自己處理位移、壽命、顏色與拍翅的精靈圖；
  * 轉彎、順風、上浮下沉這些「飛行」的部分在系統更新之後，由系統的更新函式逐顆改速度。
@@ -27,26 +26,11 @@ import { collectAmbientSpot, getAmbientReach, MAX_SPOT_COUNT } from './ambient-s
  * 粒子系統內部是「速度 × updateSpeed × 動畫比例」，剛好等於真實的位移
  */
 
-/** 每隔幾秒重新挑落腳點：走路一秒才五六格，這個間隔看不出落差 */
-const SPOT_REFRESH_INTERVAL = 0.4
-
-const DEFAULT_SPREAD = 0.6
-
-/** 開場多生一點：不預熱（發射點還沒對上鏡頭），改成頭幾秒加速填滿 */
-const WARMUP_SECOND = 4
-const WARMUP_BOOST = 2.5
-
-/** 活躍程度低於這個就當作關著，連落腳點都不挑 */
-const ACTIVE_THRESHOLD = 0.01
-
 /** 黃金角：每顆粒子依編號取一個彼此錯開的相位 */
 const GOLDEN_ANGLE = 2.399963
 
 /** 吃光的粒子在全黑的夜裡留幾成亮度（落葉與雨絲留三成，這裡同一個尺度） */
 const NIGHT_BRIGHTNESS_FLOOR = 0.3
-
-/** 雨雪躲起來的靈敏度：雨勢到六成就全躲了，蟲子與花粉不會在雨裡硬撐 */
-const WEATHER_HIDE_RATE = 1.6
 
 /** 每一幀由管理端算好、交給每一層的天色與天氣 */
 export interface AmbientFrame {
@@ -77,19 +61,8 @@ export interface CreateAmbientLayerParams {
   world: AmbientWorld;
 }
 
-/** 這一層此刻要不要因為雨雪躲起來（零是完全躲掉、一是照常） */
-function measureWeatherFactor(definition: AmbientParticle, rainRatio: number, snowRatio: number): number {
-  const response = definition.weatherResponse ?? 'hide'
-  if (response === 'keep')
-    return 1
-  if (response === 'rain')
-    return rainRatio
-
-  return 1 - Math.min(1, Math.max(rainRatio, snowRatio) * WEATHER_HIDE_RATE)
-}
-
 /** 這層的顏色（含透明度）：場景覆寫 RGB，透明度一律用種類的 */
-function resolveColorPair(definition: AmbientParticle, spec: AmbientKindSpec): [Color4, Color4] {
+export function resolveAmbientColorPair(definition: AmbientParticle, spec: AmbientKindSpec): [Color4, Color4] {
   const [startR, startG, startB] = definition.color ?? spec.colorA
   const [endR, endG, endB] = definition.colorAlt
     ?? (spec.fade === 'ember' || !definition.color ? spec.colorB : definition.color)
@@ -150,15 +123,11 @@ export function createAmbientLayer({
   world,
 }: CreateAmbientLayerParams): AmbientLayer {
   const spec = AMBIENT_KIND_SPEC_MAP[definition.kind]
-  const { spawn } = definition
   const count = Math.max(2, Math.round(definition.count * particleRatio))
   const meanLife = (spec.life[0] + spec.life[1]) / 2
-  /** 穩定時身邊飄著 count 顆：生成速度 = count ÷ 平均壽命 */
-  const peakEmitRate = count / meanLife
-  const reach = getAmbientReach(spawn)
-  const spread = spawn.spread ?? DEFAULT_SPREAD
-  const [heightMin, heightMax] = spawn.height
   const sizeRange = definition.size ?? spec.size
+  /** 什麼時候生、生在哪裡：與體素生物那一層共用同一套（見 ambient-emitter） */
+  const emitter = createAmbientEmitter({ definition, spec, count, world })
 
   const system = new ParticleSystem(`ambient-${definition.kind}`, measureAmbientCapacity(count), scene)
   const ambientTexture = createAmbientTexture(scene, `ambient-${definition.kind}-texture`, spec.shape)
@@ -218,7 +187,7 @@ export function createAmbientLayer({
     system.spriteCellChangeSpeed = spec.flap.hz * meanLife
   }
 
-  const [colorStart, colorEnd] = resolveColorPair(definition, spec)
+  const [colorStart, colorEnd] = resolveAmbientColorPair(definition, spec)
   applyFadeGradient(system, spec, colorStart, colorEnd)
 
   if (spec.grow) {
@@ -227,59 +196,24 @@ export function createAmbientLayer({
     system.addSizeGradient(1, sizeRange[0] * spec.grow[1], sizeRange[1] * spec.grow[1])
   }
 
-  /** 此刻的風與鏡頭，每幀由 update 寫進來，出生函式與飛行函式都讀它 */
-  const state = {
-    cameraX: 0,
-    cameraY: 0,
-    cameraZ: 0,
-    deltaSecond: 0.016,
-    windX: 0,
-    windZ: 0,
-  }
+  /** 這一幀的長度，每幀由 update 寫進來，飛行函式讀它；此刻的風在 emitter 上 */
+  const state = { deltaSecond: 0.016 }
 
   /** 出生的方向：水平隨機（跟風的朝風向），垂直照種類給 */
   system.startDirectionFunction = (_worldMatrix, direction) => {
     const horizontal = RandomRange(spec.horizontalSpeed[0], spec.horizontalSpeed[1])
     const vertical = RandomRange(spec.verticalSpeed[0], spec.verticalSpeed[1])
-    const hasWind = Math.hypot(state.windX, state.windZ) > 0.01
+    const hasWind = Math.hypot(emitter.windX, emitter.windZ) > 0.01
     const angle = spec.isWindAligned && hasWind
-      ? Math.atan2(state.windZ, state.windX) + RandomRange(-0.3, 0.3)
+      ? Math.atan2(emitter.windZ, emitter.windX) + RandomRange(-0.3, 0.3)
       : Math.random() * Math.PI * 2
 
     direction.set(Math.cos(angle) * horizontal, vertical, Math.sin(angle) * horizontal)
   }
 
-  /** 落腳點：每三個數字一組座標，高度是錨點那一面的高度（再由出生函式加上 height） */
-  const spotList = new Float32Array(MAX_SPOT_COUNT * 3)
-  let spotCount = 0
-
   system.startPositionFunction = (_worldMatrix, position) => {
-    const height = RandomRange(heightMin, heightMax)
-
-    if (spawn.anchor === 'air') {
-      position.set(
-        state.cameraX + RandomRange(-reach, reach),
-        state.cameraY + height,
-        state.cameraZ + RandomRange(-reach, reach),
-      )
-      return
-    }
-
-    const offset = Math.floor(Math.random() * spotCount) * 3
-    position.set(
-      spotList[offset]! + RandomRange(-spread, spread),
-      spotList[offset + 1]! + height,
-      spotList[offset + 2]! + RandomRange(-spread, spread),
-    )
-  }
-
-  /** 挑落腳點只讀鏡頭的位置，每次重挑都拿 state 這一份，不另外配置物件 */
-  const spotCamera = { x: 0, y: 0, z: 0 }
-  function refreshSpotList(): void {
-    spotCamera.x = state.cameraX
-    spotCamera.y = state.cameraY
-    spotCamera.z = state.cameraZ
-    spotCount = collectAmbientSpot(spawn, world, spotCamera, spotList)
+    emitter.pickSpawnPoint()
+    position.set(emitter.spawnPoint.x, emitter.spawnPoint.y, emitter.spawnPoint.z)
   }
 
   /**
@@ -295,7 +229,8 @@ export function createAmbientLayer({
     if (!hasMotion)
       return
 
-    const { deltaSecond, windX, windZ } = state
+    const { deltaSecond } = state
+    const { windX, windZ } = emitter
     const windRate = Math.min(1, spec.windFollow * deltaSecond * 1.5)
     const verticalRate = spec.verticalTarget ? Math.min(1, spec.verticalTarget.rate * deltaSecond) : 0
     const meander = spec.meander
@@ -336,46 +271,16 @@ export function createAmbientLayer({
   system.start()
 
   const dimmer = createParticleDimmer([system])
-  let activeSecond = 0
-  let isSpotStale = true
-  let spotElapsed = 0
-  const windGain = (definition.wind ?? 1) * (spec.windGain ?? 1)
 
   return {
     update(frame) {
-      const activity = measureAmbientActivity(definition.activity, frame.phaseWeight)
-        * measureWeatherFactor(definition, frame.rainRatio, frame.snowRatio)
-        * frame.visibleRatio
-
-      state.cameraX = frame.camera.position.x
-      state.cameraY = frame.camera.position.y
-      state.cameraZ = frame.camera.position.z
       state.deltaSecond = frame.deltaSecond
-      state.windX = frame.windX * windGain
-      state.windZ = frame.windZ * windGain
 
       if (spec.isDimmedAtNight)
         dimmer.setBrightness(Lerp(NIGHT_BRIGHTNESS_FLOOR, 1, frame.brightness))
 
-      if (activity <= ACTIVE_THRESHOLD) {
-        /** 關著：不再生新的，已經飄著的讓它自己走完；下次醒來落腳點要重挑 */
-        system.emitRate = 0
-        isSpotStale = true
-        activeSecond = 0
-        return
-      }
-
-      spotElapsed += frame.deltaSecond
-      if (isSpotStale || spotElapsed >= SPOT_REFRESH_INTERVAL) {
-        spotElapsed = 0
-        isSpotStale = false
-        refreshSpotList()
-      }
-
-      activeSecond += frame.deltaSecond
-      const warmup = 1 + (WARMUP_BOOST - 1) * clamp(1 - activeSecond / WARMUP_SECOND, { min: 0, max: 1 })
-      const canSpawn = spawn.anchor === 'air' || spotCount > 0
-      system.emitRate = canSpawn ? peakEmitRate * activity * warmup : 0
+      /** 關著時是零：不再生新的，已經飄著的讓它自己走完 */
+      system.emitRate = emitter.update(frame)
     },
     dispose() {
       /** 預設連貼圖一起釋放：每層的貼圖都是自己建的，沒有共用 */

@@ -6,6 +6,8 @@ import { Vector3 } from '@babylonjs/core'
 import { measureSection } from '../../../composables/use-performance-probe'
 import { getRealm } from '../../realm/realm-list'
 import { createAmbientPhaseWeight, measureAmbientPhaseWeight } from './ambient-activity'
+import { createAmbientCritterLayer } from './ambient-critter-layer'
+import { AMBIENT_KIND_SPEC_MAP } from './ambient-kind-spec'
 import { createAmbientLayer } from './ambient-layer'
 import { createAmbientWorld } from './ambient-world'
 
@@ -14,7 +16,8 @@ export type { AmbientWorldSource } from './ambient-world'
 /**
  * 大場景的日夜環境粒子（蝴蝶、螢火、飛沫、冰晶…）的執行期
  *
- * 場景的設定寫在 RealmDefinition.ambientParticleList，一層一個粒子系統（見 ambient-layer）。
+ * 場景的設定寫在 RealmDefinition.ambientParticleList，一層一個粒子系統（見 ambient-layer）；
+ * 種類表標了 critter 的（蜻蜓、蝴蝶、蛾）改建體素生物那一層（見 ambient-critter-layer），一層一個網格。
  * 這裡只做三件事：
  * 一、世界換了就把舊的整批拆掉、依新場景的設定重建（天氣系統整個工作階段只有一份，
  *     場景卻會換，所以不能把層綁在建立天氣的那一刻）；
@@ -101,7 +104,10 @@ export function createRealmAmbient({
     const world = createAmbientWorld(source, anchorKindList)
     const particleRatio = getParticleRatio()
 
-    layerList = definitionList.map((definition) => createAmbientLayer({ scene, definition, particleRatio, world }))
+    /** 蜻蜓、蝴蝶、蛾這幾種是方盒拼的立體生物，不走粒子系統；其餘照舊一層一個粒子系統 */
+    layerList = definitionList.map((definition) => AMBIENT_KIND_SPEC_MAP[definition.kind].critter
+      ? createAmbientCritterLayer({ scene, definition, particleRatio, world })
+      : createAmbientLayer({ scene, definition, particleRatio, world }))
   }
 
   return {

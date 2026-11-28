@@ -79,6 +79,8 @@ interface SignatureCase {
   create: (param: { scene: Scene; worldState: Uint8Array; atmosphere: AtmosphereState; lightSourceList: BlockLightSource[] }) => { dispose: () => void };
   /** 各情境下網格該不該開著；沒列的情境只跑不驗（亮度剛好在門檻附近） */
   expected: Partial<Record<ConditionName, boolean>>;
+  /** 三角形的上限，不給是六百；體素拼的實體（環月、雁、椋鳥、天燈）面多，各自給 */
+  triangleLimit?: number;
 }
 
 /** 只在晴朗的夜裡出現（跟著星空同進同退） */
@@ -94,16 +96,16 @@ const CASE_LIST: SignatureCase[] = [
   { name: '湖中島的月光路', meshName: 'lake-moon-path', create: createLakeMoonPath, expected: CLEAR_NIGHT_ONLY },
   { name: '海中沙島的藍眼淚', meshName: 'coast-sea-sparkle', create: createCoastSeaSparkle, expected: ANY_NIGHT },
   { name: '林海的狐火行列', meshName: 'forest-fox-procession', create: createForestFoxProcession, expected: ANY_NIGHT },
-  { name: '金葉林的雁行', meshName: 'autumn-geese', create: createAutumnGeese, expected: TWILIGHT_ONLY },
+  { name: '金葉林的雁行', meshName: 'autumn-geese', create: createAutumnGeese, expected: TWILIGHT_ONLY, triangleLimit: 3200 },
   { name: '千蛙沼的月暈', meshName: 'swamp-moon-halo', create: createSwampMoonHalo, expected: CLEAR_NIGHT_ONLY },
-  { name: '村落的天燈', meshName: 'village-sky-lanterns', create: createVillageSkyLanterns, expected: CLEAR_NIGHT_ONLY },
+  { name: '村落的天燈', meshName: 'village-sky-lanterns', create: createVillageSkyLanterns, expected: CLEAR_NIGHT_ONLY, triangleLimit: 1800 },
   { name: '溪谷的瀑布彩虹', meshName: 'river-waterfall-rainbow', create: createWaterfallRainbow, expected: { noon: true, night: false, nightRain: false, nightCave: false } },
   { name: '千頃麥浪的銀河', meshName: 'wheatfield-galaxy', create: createWheatfieldGalaxy, expected: CLEAR_NIGHT_ONLY },
   { name: '風露原的流星雨', meshName: 'meadow-meteors', create: createMeadowMeteors, expected: CLEAR_NIGHT_ONLY },
   { name: '拓荒原的彗星', meshName: 'campfire-comet', create: createCampfireComet, expected: CLEAR_NIGHT_ONLY },
-  { name: '石殿遺址的環月', meshName: 'ruins-ringed-moon', create: createRuinsRingedMoon, expected: { noon: true, dusk: true, night: true, nightRain: false, nightCave: false } },
+  { name: '石殿遺址的環月', meshName: 'ruins-ringed-moon', create: createRuinsRingedMoon, expected: { noon: true, dusk: true, night: true, nightRain: false, nightCave: false }, triangleLimit: 4200 },
   { name: '湯煙谷的火映', meshName: 'jigoku-sky-glow', create: createJigokuSkyGlow, expected: ALWAYS_OUTDOOR },
-  { name: '百囀林苑的椋鳥群舞', meshName: 'songbird-murmuration', create: createSongbirdMurmuration, expected: TWILIGHT_ONLY },
+  { name: '百囀林苑的椋鳥群舞', meshName: 'songbird-murmuration', create: createSongbirdMurmuration, expected: TWILIGHT_ONLY, triangleLimit: 5000 },
   { name: '蟬雨深林的積雨雲', meshName: 'cicada-cloud-tower', create: createCicadaCloudTower, expected: { noon: true, dusk: true, night: false, nightRain: false, nightCave: false } },
   { name: '聽雨林的片狀閃電', meshName: 'rainvale-sheet-lightning', create: createRainvaleSheetLightning, expected: ALWAYS_OUTDOOR },
   { name: '白矇雪原的光柱', meshName: 'blizzard-light-pillars', create: createBlizzardLightPillars, expected: ANY_NIGHT },
@@ -166,8 +168,8 @@ describe('招牌景象的生命週期', () => {
       expect(countObserver()).toBe(baseObserverCount + 1)
       const mesh = scene.getMeshByName(signature.meshName)!
       expect(mesh).toBeTruthy()
-      /** 一個景象一個網格，三角形不超過六百個 */
-      expect(mesh.getTotalIndices() / 3).toBeLessThanOrEqual(600)
+      /** 一個景象一個網格，三角形不超過各自的上限（方片類六百個） */
+      expect(mesh.getTotalIndices() / 3).toBeLessThanOrEqual(signature.triangleLimit ?? 600)
 
       for (const conditionName of Object.keys(CONDITION_MAP) as ConditionName[]) {
         applyCondition(conditionName)

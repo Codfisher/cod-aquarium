@@ -1,7 +1,7 @@
 import type { Scene } from '@babylonjs/core'
 import type { AtmosphereState } from '../../weather/atmosphere'
 import { Color3, Effect, Engine, Mesh, ShaderMaterial, Vector3, VertexData } from '@babylonjs/core'
-import { createSeededRandom } from '../../../utils/noise'
+import { createSeededRandom, fbm2D } from '../../../utils/noise'
 import { optOutOfFog } from '../../renderer/fog-opt-out'
 import { smoothRange } from '../realm-signature-kit'
 import { FAR_CONE, JIGOKU_CENTER, RIM_Y } from './jigoku-layout'
@@ -14,8 +14,8 @@ import { FAR_CONE, JIGOKU_CENTER, RIM_Y } from './jigoku-layout'
  *
  * 世界只有四十格高，一百格高的山放不進方塊世界，人也走不到；與石殿遺址的巨像同一種做法，是布景：
  *
- * - 山體：一層一層往上縮的多邊形台（八格一階，與遠山的階梯同一個量級），一個網格、一次繪製。
- *   岩色、層理、山腰的熔岩與錐頂的火光都在著色器裡算，不吃貼圖
+ * - 山體：對齊世界座標的體素格堆出來的階梯錐（四格一階，等高線是方格階梯、每個面朝正東西南北或正上方），
+ *   一個網格、一次繪製。每個面平塗：明暗、落灰與山腰的熔岩在建網格時一個面算一次，錐頂的火光與熔岩的流動在著色器裡算，不吃貼圖
  * - 噴發：火星與煙各是一疊永遠正對鏡頭的方片（硬邊的像素塊），位置在頂點著色器裡照時間算
  *   （火星走拋物線、煙往上漲大），兩種拼在同一個網格、用預乘透明度一次畫完：火星只加亮、煙才蓋得住後面
  *
@@ -32,10 +32,19 @@ const PLUME_SHADER_NAME = 'minespaceJigokuFarPlume'
 /** 山腳的高度：稜線外那片岩地平面（backdrop.floor）的頂面 */
 const FOOT_Y = RIM_Y + 0.5
 
-/** 繞一圈切幾邊、每一階多高（格）、錐頂火口的半徑 */
-const SEGMENT_COUNT = 28
-const TIER_HEIGHT = 8
+/**
+ * 山體的一格體素多大（格）、錐頂火口的半徑
+ *
+ * 四格一階：山在兩百三十格外，一格體素約一度，階梯與每個面的明暗都分得出來，又不至於粗成幾塊積木
+ */
+const CONE_VOXEL_SIZE = 4
 const SUMMIT_RADIUS = 9
+
+/** 頂面只畫到離山腳這麼高：再高的階永遠在視線上方，頂面看不到 */
+const TOP_FACE_HEIGHT = 44
+
+/** 人最遠走到離火口中心多遠（格，含神遊的鏡頭）：永遠背對這個範圍的面不建 */
+const VIEWER_REACH = 100
 
 /** 往霧色混幾成：與最近那圈火山稜（0.3）同一個量級 */
 const CONE_HAZE = 0.3
@@ -72,70 +81,198 @@ function measureGully(angle: number): number {
   return 1 + 0.07 * Math.sin(angle * 3 + 1) + 0.05 * Math.sin(angle * 7 + 2.3) + 0.03 * Math.sin(angle * 13 + 0.4)
 }
 
+/** 一根柱子（體素格）堆到第幾階：越靠近錐心越高，零是山體外面 */
+function measureColumnTier(cellX: number, cellZ: number, tierCount: number): number {
+  const offsetX = (cellX + 0.5) * CONE_VOXEL_SIZE
+  const offsetZ = (cellZ + 0.5) * CONE_VOXEL_SIZE
+  const distance = Math.hypot(offsetX, offsetZ)
+  const gully = measureGully(Math.atan2(offsetZ, offsetX))
+  let tier = 0
+  while (tier < tierCount && distance <= measureConeRadius(tier / tierCount) * gully) {
+    tier += 1
+  }
+  return tier
+}
+
+/** 山體一個面的資料，四個頂點共用（整面同一個明暗、同一段熔岩） */
+export interface ConeFace {
+  /** 四個角，相對錐心（格）；y 從山腳起算 */
+  cornerList: [number, number, number][];
+  normal: [number, number, number];
+  /** 明暗、是不是錐頂的火口、高度比例、離「朝火口這一側」的方位差（−1 到 1） */
+  info: [number, number, number, number];
+  /** 落灰的程度、山腰熔岩的濃度 */
+  surface: [number, number];
+}
+
+/**
+ * 山體所有的面（純資料，可以單獨測）
+ *
+ * 山是對齊世界座標的體素格堆出來的：每一格柱子照它離錐心的距離決定堆幾階，
+ * 所以等高線是方格階梯、每個面都朝著正東西南北或正上方，與方塊世界同一種語言
+ * （第一版是二十八邊形一層一層往上縮，側面是斜的，遠看像一疊圓餅而不是方塊堆的山）。
+ * 側面一階一個面，各有自己的明暗；永遠背對火口的面不建，頂面只建看得到的那幾階，並把同一列同高的格子併成一片。
+ *
+ * facingAngle 是從錐心朝火口中心的方位（繞山體的角度），viewerOffset 是火口中心相對錐心的位置
+ */
+export function buildConeFaceList(facingAngle: number, viewerOffset: { x: number; z: number }): ConeFace[] {
+  const random = createSeededRandom('jigoku-far-cone')
+  const tierCount = Math.ceil(FAR_CONE.height / CONE_VOXEL_SIZE)
+  /** 溝與稜最多把半徑撐大一成五 */
+  const reach = Math.ceil((FAR_CONE.baseRadius * 1.16) / CONE_VOXEL_SIZE)
+  const faceList: ConeFace[] = []
+
+  const toFacing = (x: number, z: number): number => {
+    const difference = Math.atan2(z, x) - facingAngle
+    /** 收進正負半圈 */
+    const wrapped = difference - Math.round(difference / (Math.PI * 2)) * Math.PI * 2
+    return wrapped / Math.PI
+  }
+
+  /**
+   * 山腰的熔岩有多濃：朝火口這一側一道主流從錐頂淌到山腳，偏東另一道短的
+   *
+   * 整個面取一個值。流的寬度至少給到一格體素，不然窄的那一段會從格子之間漏掉、斷成一截一截
+   */
+  const measureStream = (x: number, z: number, heightRatio: number): number => {
+    const facing = toFacing(x, z)
+    const cellWidth = (CONE_VOXEL_SIZE * 0.5) / (Math.PI * Math.max(Math.hypot(x, z), 1))
+    const meander = 0.05 * Math.sin(heightRatio * 9) + 0.025 * Math.sin(heightRatio * 23 + 1)
+    const mainWidth = Math.max(0.022 + 0.03 * (1 - heightRatio), cellWidth * 1.2)
+    const mainStream = 1 - smoothRange(Math.abs(facing + 0.04 - meander), mainWidth * 0.45, mainWidth)
+    const sideWidth = Math.max(0.026, cellWidth * 1.2)
+    const sideStream = (1 - smoothRange(Math.abs(facing - 0.3 - meander * 1.5), sideWidth * 0.45, sideWidth))
+      * smoothRange(heightRatio, 0.42, 0.55)
+    return Math.max(mainStream, sideStream)
+  }
+
+  /** 落灰：山腰以下蓋著一層，一塊濃一塊淡 */
+  const measureAsh = (x: number, z: number, heightRatio: number): number => {
+    const patch = 0.5 + 0.5 * fbm2D(x * 0.05 + 3, z * 0.05 - 7, 2, 0.5)
+    return (1 - smoothRange(heightRatio, 0.15, 0.6)) * (0.4 + 0.6 * Math.min(1, Math.max(0, patch)))
+  }
+
+  const pushFace = (cornerList: [number, number, number][], normal: [number, number, number], shade: number, isVent: number): void => {
+    const centerX = (cornerList[0]![0] + cornerList[2]![0]) / 2
+    const centerY = (cornerList[0]![1] + cornerList[2]![1]) / 2
+    const centerZ = (cornerList[0]![2] + cornerList[2]![2]) / 2
+    const heightRatio = Math.min(1, Math.max(0, centerY / FAR_CONE.height))
+    faceList.push({
+      cornerList,
+      normal,
+      info: [shade, isVent, heightRatio, toFacing(centerX, centerZ)],
+      surface: [measureAsh(centerX, centerZ, heightRatio), isVent > 0 ? 0 : measureStream(centerX, centerZ, heightRatio)],
+    })
+  }
+
+  /** 從火口那一帶的任何位置都看不到的面：法線背對整個可走範圍 */
+  const isNeverSeen = (normalX: number, normalZ: number, faceX: number, faceZ: number): boolean => {
+    const towardViewer = (viewerOffset.x - faceX) * normalX + (viewerOffset.z - faceZ) * normalZ
+    return towardViewer < -VIEWER_REACH
+  }
+
+  const tierMap = new Map<string, number>()
+  const getTier = (cellX: number, cellZ: number): number => {
+    const key = `${cellX},${cellZ}`
+    let tier = tierMap.get(key)
+    if (tier === undefined) {
+      tier = measureColumnTier(cellX, cellZ, tierCount)
+      tierMap.set(key, tier)
+    }
+    return tier
+  }
+
+  const sideList = [
+    { stepX: 1, stepZ: 0 },
+    { stepX: -1, stepZ: 0 },
+    { stepX: 0, stepZ: 1 },
+    { stepX: 0, stepZ: -1 },
+  ] as const
+
+  for (let cellZ = -reach; cellZ < reach; cellZ++) {
+    /** 這一列正在併的頂面：同高、相連的格子併成一片 */
+    let runStartX = 0
+    let runTier = 0
+    const closeRun = (endX: number): void => {
+      if (runTier === 0)
+        return
+      const isSummit = runTier === tierCount
+      const topY = Math.min(FAR_CONE.height, runTier * CONE_VOXEL_SIZE)
+      if (isSummit || topY <= TOP_FACE_HEIGHT) {
+        const minX = runStartX * CONE_VOXEL_SIZE
+        const maxX = endX * CONE_VOXEL_SIZE
+        const minZ = cellZ * CONE_VOXEL_SIZE
+        const maxZ = minZ + CONE_VOXEL_SIZE
+        /** 最上面那一階的頂面就是火口，整片發光 */
+        pushFace([[minX, topY, minZ], [maxX, topY, minZ], [maxX, topY, maxZ], [minX, topY, maxZ]], [0, 1, 0], (0.9 + random() * 0.2) * 1.12, isSummit ? 1 : 0)
+      }
+      runTier = 0
+    }
+
+    for (let cellX = -reach; cellX < reach; cellX++) {
+      const tier = getTier(cellX, cellZ)
+      if (tier !== runTier) {
+        closeRun(cellX)
+        runStartX = cellX
+        runTier = tier
+      }
+      if (tier === 0)
+        continue
+
+      /** 側面：鄰格比較矮的那幾階露在外面，一階一個面 */
+      for (const side of sideList) {
+        const neighborTier = getTier(cellX + side.stepX, cellZ + side.stepZ)
+        if (neighborTier >= tier)
+          continue
+        /** 這一面所在的那條邊：固定的那一軸在格子朝外的那一側，另一軸橫跨整格 */
+        const fixedX = (cellX + (side.stepX > 0 ? 1 : 0)) * CONE_VOXEL_SIZE
+        const fixedZ = (cellZ + (side.stepZ > 0 ? 1 : 0)) * CONE_VOXEL_SIZE
+        const fromX = side.stepX !== 0 ? fixedX : cellX * CONE_VOXEL_SIZE
+        const toX = side.stepX !== 0 ? fixedX : (cellX + 1) * CONE_VOXEL_SIZE
+        const fromZ = side.stepZ !== 0 ? fixedZ : cellZ * CONE_VOXEL_SIZE
+        const toZ = side.stepZ !== 0 ? fixedZ : (cellZ + 1) * CONE_VOXEL_SIZE
+        if (isNeverSeen(side.stepX, side.stepZ, (fromX + toX) / 2, (fromZ + toZ) / 2))
+          continue
+
+        for (let level = neighborTier; level < tier; level++) {
+          const bottomY = level * CONE_VOXEL_SIZE
+          const topY = Math.min(FAR_CONE.height, bottomY + CONE_VOXEL_SIZE)
+          /** 每一面的明暗差一點點，不然整座山是一個顏色；每三階壓暗一階，像一層一層的熔岩流 */
+          const shade = (0.84 + random() * 0.3) * (level % 3 === 0 ? 0.88 : 1)
+          pushFace([[fromX, bottomY, fromZ], [toX, bottomY, toZ], [toX, topY, toZ], [fromX, topY, fromZ]], [side.stepX, 0, side.stepZ], shade, 0)
+        }
+      }
+    }
+    closeRun(reach)
+  }
+  return faceList
+}
+
 /**
  * 山體的網格
  *
- * 頂點：位置、法線、color（明暗、是不是錐頂的火口、高度比例、離「朝火口這一側」的方位差 −1 到 1）
+ * 頂點：位置、法線、color（明暗、是不是錐頂的火口、高度比例、方位差）、uv（落灰、熔岩）。
+ * 一個面的四個頂點帶同一份資料，所以整面是平塗的
  */
 function createConeMesh(scene: Scene): Mesh {
   const positionList: number[] = []
   const normalList: number[] = []
   const colorList: number[] = []
+  const uvList: number[] = []
   const indexList: number[] = []
-  const random = createSeededRandom('jigoku-far-cone')
-  const tierCount = Math.ceil(FAR_CONE.height / TIER_HEIGHT)
   /** 朝著火口中心的方位（繞山體的角度） */
   const facingAngle = Math.atan2(JIGOKU_CENTER.z - CONE_Z, JIGOKU_CENTER.x - CONE_X)
+  const faceList = buildConeFaceList(facingAngle, { x: JIGOKU_CENTER.x - CONE_X, z: JIGOKU_CENTER.z - CONE_Z })
 
-  const toFacing = (angle: number): number => {
-    const difference = angle - facingAngle
-    /** 收進正負半圈 */
-    const wrapped = difference - Math.round(difference / (Math.PI * 2)) * Math.PI * 2
-    return wrapped / Math.PI
-  }
-  const pushVertex = (angle: number, radius: number, y: number, normal: [number, number, number], shade: number, isVent: number): void => {
-    positionList.push(CONE_X + Math.cos(angle) * radius, y, CONE_Z + Math.sin(angle) * radius)
-    normalList.push(...normal)
-    colorList.push(shade, isVent, Math.min(1, Math.max(0, (y - FOOT_Y) / FAR_CONE.height)), toFacing(angle))
-  }
-  const pushQuad = (): void => {
-    const baseIndex = positionList.length / 3 - 4
-    indexList.push(baseIndex, baseIndex + 1, baseIndex + 2, baseIndex, baseIndex + 2, baseIndex + 3)
-  }
-
-  for (let tier = 0; tier < tierCount; tier++) {
-    const bottomY = FOOT_Y + tier * TIER_HEIGHT
-    const topY = Math.min(VENT_Y, bottomY + TIER_HEIGHT)
-    const radius = measureConeRadius(tier / tierCount)
-    const nextRadius = measureConeRadius((tier + 1) / tierCount)
-    for (let segment = 0; segment < SEGMENT_COUNT; segment++) {
-      const fromAngle = (segment / SEGMENT_COUNT) * Math.PI * 2
-      const toAngle = ((segment + 1) / SEGMENT_COUNT) * Math.PI * 2
-      const middleAngle = (fromAngle + toAngle) / 2
-      const fromRadius = radius * measureGully(fromAngle)
-      const toRadius = radius * measureGully(toAngle)
-      /** 每一面的明暗差一點點，不然整座山是一個顏色 */
-      const shade = 0.86 + random() * 0.28
-
-      /** 這一階立著的那一面 */
-      const sideNormal: [number, number, number] = [Math.cos(middleAngle), 0, Math.sin(middleAngle)]
-      pushVertex(fromAngle, fromRadius, bottomY, sideNormal, shade, 0)
-      pushVertex(toAngle, toRadius, bottomY, sideNormal, shade, 0)
-      pushVertex(toAngle, toRadius, topY, sideNormal, shade, 0)
-      pushVertex(fromAngle, fromRadius, topY, sideNormal, shade, 0)
-      pushQuad()
-
-      /** 這一階的頂面：往裡縮到下一階的腳；最上面那一階的頂面就是火口，整片發光 */
-      const isSummit = tier === tierCount - 1
-      const innerFrom = isSummit ? 0 : nextRadius * measureGully(fromAngle)
-      const innerTo = isSummit ? 0 : nextRadius * measureGully(toAngle)
-      const topNormal: [number, number, number] = [0, 1, 0]
-      pushVertex(fromAngle, fromRadius, topY, topNormal, shade * 1.12, isSummit ? 1 : 0)
-      pushVertex(toAngle, toRadius, topY, topNormal, shade * 1.12, isSummit ? 1 : 0)
-      pushVertex(toAngle, innerTo, topY, topNormal, shade * 1.12, isSummit ? 1 : 0)
-      pushVertex(fromAngle, innerFrom, topY, topNormal, shade * 1.12, isSummit ? 1 : 0)
-      pushQuad()
+  for (const face of faceList) {
+    const baseIndex = positionList.length / 3
+    for (const corner of face.cornerList) {
+      positionList.push(CONE_X + corner[0], FOOT_Y + corner[1], CONE_Z + corner[2])
+      normalList.push(...face.normal)
+      colorList.push(...face.info)
+      uvList.push(...face.surface)
     }
+    indexList.push(baseIndex, baseIndex + 1, baseIndex + 2, baseIndex, baseIndex + 2, baseIndex + 3)
   }
 
   const mesh = new Mesh('jigoku-far-cone', scene)
@@ -143,6 +280,7 @@ function createConeMesh(scene: Scene): Mesh {
   vertexData.positions = positionList
   vertexData.normals = normalList
   vertexData.colors = colorList
+  vertexData.uvs = uvList
   vertexData.indices = indexList
   vertexData.applyToMesh(mesh)
   return mesh
@@ -153,14 +291,15 @@ precision highp float;
 attribute vec3 position;
 attribute vec3 normal;
 attribute vec4 color;
+attribute vec2 uv;
 uniform mat4 viewProjection;
 varying vec4 vInfo;
-varying vec3 vWorld;
+varying vec2 vSurface;
 varying vec3 vNormal;
 
 void main() {
   vInfo = color;
-  vWorld = position;
+  vSurface = uv;
   vNormal = normal;
   gl_Position = viewProjection * vec4(position, 1.0);
 }
@@ -187,9 +326,10 @@ float valueNoise(vec2 p) {
 
 const CONE_FRAGMENT = `
 precision highp float;
-/** r 明暗、g 是不是錐頂的火口、b 從山腳（0）到錐頂（1）、a 離朝火口那一側的方位差（−1 到 1） */
+/** r 明暗、g 是不是錐頂的火口、b 從山腳（0）到錐頂（1）、a 離朝火口那一側的方位差（−1 到 1）；整個面同一份 */
 varying vec4 vInfo;
-varying vec3 vWorld;
+/** x 落灰的程度、y 山腰熔岩的濃度；整個面同一份 */
+varying vec2 vSurface;
 varying vec3 vNormal;
 
 uniform vec3 ambientLight;
@@ -210,22 +350,16 @@ void main() {
   float height = vInfo.b;
   float facing = vInfo.a;
 
-  /** 岩：一層一層的熔岩流，山腰以下蓋著一層落灰 */
-  float strata = 0.86 + 0.14 * step(0.5, fract(vWorld.y / 5.0 + valueNoise(vWorld.xz * 0.02) * 2.0));
-  float ashAmount = (1.0 - smoothstep(0.15, 0.6, height)) * (0.4 + 0.6 * valueNoise(vWorld.xz * 0.05 + 3.0));
-  vec3 rock = mix(ROCK, ASH, ashAmount * 0.6) * strata * vInfo.r;
+  /** 岩：山腰以下蓋著一層落灰。層理與每一面的深淺已經算進 vInfo.r，整面平塗 */
+  vec3 rock = mix(ROCK, ASH, vSurface.x * 0.6) * vInfo.r;
 
   float sunFacing = max(dot(normal, sunDirection), 0.0);
   vec3 lit = ambientLight * (0.45 + 0.55 * normal.y) + sunLight * sunFacing;
   vec3 color = rock * lit;
 
-  /** 山腰的熔岩：朝火口這一側一道主流從錐頂淌到山腳，偏東另一道短的；往下淌的亮斑一格一格挪 */
-  float meander = 0.05 * sin(height * 9.0) + 0.025 * sin(height * 23.0 + 1.0);
-  float mainWidth = 0.022 + 0.03 * (1.0 - height);
-  float mainStream = 1.0 - smoothstep(mainWidth * 0.45, mainWidth, abs(facing + 0.04 - meander));
-  float sideStream = (1.0 - smoothstep(0.012, 0.026, abs(facing - 0.3 - meander * 1.5))) * smoothstep(0.42, 0.55, height);
-  float flow = valueNoise(vec2(floor(facing * 120.0), floor(height * 60.0 + time * 0.7)));
-  float stream = max(mainStream, sideStream) * (0.55 + 0.45 * flow);
+  /** 山腰的熔岩：哪些面在流裡已經在建網格時算好；往下淌的亮斑一個面一個面地挪 */
+  float flow = hash21(vec2(floor(facing * 120.0), floor(height * 60.0 + time * 0.7)));
+  float stream = vSurface.y * (0.55 + 0.45 * flow);
   vec3 emission = mix(vec3(1.5, 0.3, 0.05), vec3(2.6, 1.15, 0.28), flow) * stream;
 
   /** 錐頂的火口：整片亮，跟著噴發一脹一縮；口緣以下那一段岩被它從上面照紅 */
@@ -376,10 +510,10 @@ export function createJigokuFarCone({ scene, atmosphere }: { scene: Scene; atmos
   Effect.ShadersStore[`${PLUME_SHADER_NAME}FragmentShader`] = PLUME_FRAGMENT
 
   const coneMaterial = new ShaderMaterial('jigoku-far-cone', scene, CONE_SHADER_NAME, {
-    attributes: ['position', 'normal', 'color'],
+    attributes: ['position', 'normal', 'color', 'uv'],
     uniforms: ['viewProjection', 'ambientLight', 'sunLight', 'sunDirection', 'horizonColor', 'haze', 'veilRatio', 'glowRatio', 'time'],
   })
-  /** 繞向沒有整理過，兩面都畫；整座約三千個三角形 */
+  /** 繞向沒有整理過，兩面都畫；整座約三千多個三角形 */
   coneMaterial.backFaceCulling = false
   const coneMesh = createConeMesh(scene)
   coneMesh.material = coneMaterial
